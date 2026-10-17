@@ -19,7 +19,7 @@
     "format:check": "prettier --check .",
     "typecheck": "npm run typecheck --workspaces",
     "coverage": "npm run coverage --workspaces",
-    "check": "npm run check:root && npm run check:suppressions && npm run check:types && npm run build && npm run types -w job-scout-example && npm run check:api && npm run check:docs && npm run format:check && npm run lint && npm run check:knip && npm run typecheck && npm run coverage && npm run check:models",
+    "check": "npm run check:root && npm run check:suppressions && npm run check:types && npm run build && npm run types -w job-scout-example && npm run check -w flow-patterns-example && npm run check:api && npm run check:docs && npm run format:check && npm run lint && npm run check:knip && npm run typecheck && npm run coverage && npm run check:models",
     "smoke": "npm run smoke -w agboss",
     "studio": "npm run build && langgraphjs dev",
     "check:models": "npm run check:models -w job-scout-example",

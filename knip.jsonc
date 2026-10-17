@@ -62,5 +62,10 @@
       // the shortlist MCP server process, started by path (src/config/paths.ts), never imported
       "ignoreDependencies": ["@modelcontextprotocol/server-filesystem"],
     },
+    "examples/flow-patterns": {
+      // the workflows, loaded by path (`agboss check --workflow …`)
+      "entry": ["src/**/*.workflow.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"],
+    },
   },
 }

@@ -145,7 +145,7 @@ Needs `OPENROUTER_API_KEY` in `.env`. Docs: [Wiki → Components](https://github
 [Configuration](https://github.com/agbossjs/agboss/wiki/Configuration) · [Knowledge bases](https://github.com/agbossjs/agboss/wiki/Knowledge-bases) ·
 [Profiles and comparisons](https://github.com/agbossjs/agboss/wiki/Profiles-and-comparisons).
 
-## The example
+## The examples
 
 [`examples/job-scout`](examples/job-scout) — resume → proposed search brief → Greenhouse jobs ranked
 by Jev. It depends on `agboss` exactly like your project would:
@@ -153,6 +153,15 @@ by Jev. It depends on `agboss` exactly like your project would:
 ```bash
 npm install && npm run build          # at the repo root
 cd examples/job-scout && npm run chat # "my resume src/data/sample-resume.md"
+```
+
+[`examples/flow-patterns`](examples/flow-patterns) — the flow's patterns with scripted tests only
+(no model key): `src/offer/` a review loop (`agent(ReviewerAgent).switch(…)`,
+`about(OfferDraftDto, oneOf(…))`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
+router (`DecidedBy.Code`, `route(input)` through `deps`) beside a model router. Point the CLI at it:
+
+```bash
+cd examples/flow-patterns && npx agboss describe --workflow src/offer/offer.workflow.ts
 ```
 
 More: [Wiki → Example](https://github.com/agbossjs/agboss/wiki/Example).
@@ -186,6 +195,7 @@ deprecated re-exports for one minor release (`/concurrency` went with the old fl
 ```
 packages/agboss/   the framework (published as `agboss`)
 examples/job-scout/     the example (uses only the public API)
+examples/flow-patterns/ the flow's patterns: a review loop, a code router (scripted tests only)
 ```
 
 `make check` — build, API reports, compiled docs, format, lint, types, tests with coverage for both packages. `npm run dev` —

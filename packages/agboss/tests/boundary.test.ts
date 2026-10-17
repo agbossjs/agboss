@@ -20,7 +20,7 @@ describe("framework and examples apart (#91)", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("AC4: the only example is job-scout; the framework ships no workflow of its own", () => {
+  it("AC4: the examples are job-scout and flow-patterns (#295); the framework ships no workflow", () => {
     const decorated = (file: string): boolean => /^@Workflow\(/m.test(readFileSync(file, "utf8"));
 
     // the generator tests' temporary copies of job-scout (#197, git-ignored) are not examples
@@ -28,7 +28,7 @@ describe("framework and examples apart (#91)", () => {
       (name) => !name.startsWith(".scaffold-tmp-"),
     );
 
-    expect(examples).toEqual(["job-scout"]);
+    expect([...examples].sort()).toEqual(["flow-patterns", "job-scout"]);
     expect(sources(framework).filter(decorated)).toEqual([]);
   });
 

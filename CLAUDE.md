@@ -47,6 +47,10 @@ In `examples/job-scout/` (each is `agboss <command> --workflow src/job-scout.wor
 `npm run rag:index` · `npm run probe -- --place <p> <token…>` (Greenhouse boards). Any run command
 takes `--profile <name>` (`profiles/<workflow>/<name>.yaml`) and `--thread <id>`.
 
+In `examples/flow-patterns/` (#295; scripted tests only, no model key): `npm run check` (`agboss
+check` on both workflows) · `npm run describe -- --workflow src/offer/offer.workflow.ts` (the
+review loop) or `src/credit/credit.workflow.ts` (a code router) · `npm test`.
+
 ## Architecture
 
 Everything below is checked against the code: every ` ```ts ` block of this file compiles against
@@ -589,8 +593,8 @@ entries. A public surface change updates the api-extractor reports (`npm run api
 `make check` = `npm run check`: the root allowlist (`.root-allowlist`), the suppression budget
 (`.suppressions.json`), the generated `.agboss/types.d.ts` of the framework's test fixtures
 (`npm run check:types`, #272 — before lint and `tsc`), build, the API reports, **compiled docs**,
-prettier, ESLint, `tsc` (tests included; the example's types written first), tests with coverage,
-and `agboss check --models` on the example. Compiled docs (`scripts/check-docs.mjs`) typecheck
+prettier, ESLint, `tsc` (tests included; the examples' types written first), tests with coverage,
+`agboss check` on flow-patterns' two workflows and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
 every ` ```ts ` block of README, CLAUDE, QUALITY and WORKFLOW (and `docs/`) against the built
 package — a doc whose snippets declare a `@Workflow` gets its `.agboss/types.d.ts` written first —
 and check that every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention — and every
@@ -723,6 +727,8 @@ examples/job-scout/          the example (package job-scout-example; depends on 
                     *.dto.ts), services/ (*.service.ts), mcp/ (*.server.ts, *.mcp.ts, *.dto.ts),
                     rag/ (*.rag.ts), helpers/ (*.helper.ts), config/, scripts/, data/
   tests/  profiles/  golden/
+examples/flow-patterns/      the flow's patterns (package flow-patterns-example, #295): src/offer/ (a review loop),
+                    src/credit/ (a code router beside a model router), one *.workflow.ts each; tests/
 scripts/        the gate's checks (check-root, check-suppressions, check-docs + docs/, api-report,
                 public-entries, eslint-run-state), bootstrap-repo, bootstrap-labels, ticket, wiki,
                 langfuse, coverage-badge
