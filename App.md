@@ -93,30 +93,74 @@ Aborts a running run — it stops before its next model or tool call and `execut
 
 ## `app.close()`
 
-Runs `onStop` of the components (dependants first; every hook runs, failures are reported together),
-closes MCP connections and tracing, and the stores the app opened. Calling it twice is fine.
+From the call on, no new execution is accepted: `execute` / `resume` reject with
+`ApplicationStoppingError` (`app.stopping`) — nothing was cancelled, the request is refused before
+an execution starts, so observers get `onRunRejected` (`operation`, `code`, a message without input
+values); `cancel` still works. Runs `onStop` of the components, waits for the
+running executions to finish or pause, runs `onDestroy`, then closes MCP connections and tracing, and
+the stores the app opened. Every hook runs; failures are collected into one `AggregateError`.
+Calling it twice is fine.
 
 ## Lifecycle hooks
 
-A component the container creates (an `@Injectable` service, a tool, a knowledge base) may implement
-`OnStart` / `OnStop`; a run-scoped one `OnDestroy`:
+Four hooks, per application instance, for every component the container creates (services,
+repositories, providers, tools, handlers, guardrails, observers) — `implements OnInit, OnStart,
+OnStop, OnDestroy`, each optional (#261):
+
+| Hook        | When                                                                                    | For                                               |
+| ----------- | --------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `onInit`    | the component is created, its dependencies injected and past their own `onInit`         | opening its own: a connection, a pool, a warm-up  |
+| `onStart`   | every component is past `onInit`; the app is ready; no `execute` yet                    | what needs the whole app: a check, a log line     |
+| `onStop`    | `app.close()`: no new executions are accepted, running ones go on                       | stop taking work, finish its own operations       |
+| `onDestroy` | the running executions on this instance have finished or paused; dependants first       | closing connections, releasing resources          |
+
+<!-- snippet-context
+import { Injectable, type OnDestroy, type OnInit, type OnStart, type OnStop } from "agboss";
+interface Pool {
+  ping(): Promise<void>;
+  drain(): Promise<void>;
+  end(): Promise<void>;
+}
+@Injectable()
+export class PoolProvider {
+  readonly pool: Pool = {
+    ping: () => Promise.resolve(),
+    drain: () => Promise.resolve(),
+    end: () => Promise.resolve(),
+  };
+}
+// @snippet
+-->
 
 ```ts
-import { Injectable, type OnStart, type OnStop } from "agboss";
+@Injectable({ deps: [PoolProvider] })
+export class JobIndexService implements OnInit, OnStart, OnStop, OnDestroy {
+  constructor(private readonly poolProvider: PoolProvider) {}
 
-@Injectable()
-export class Boards implements OnStart, OnStop {
-  async onStart(): Promise<void> {
-    /* open a pool */
+  async onInit(): Promise<void> {
+    await this.poolProvider.pool.ping(); // no database → the app does not start
   }
+
+  onStart(): void {
+    /* the whole app is ready */
+  }
+
   async onStop(): Promise<void> {
-    /* close it */
+    await this.poolProvider.pool.drain();
+  }
+
+  async onDestroy(): Promise<void> {
+    await this.poolProvider.pool.end();
   }
 }
 ```
 
-`onStart` runs when the app is built (dependencies first), `onStop` when it closes. Values
-(`provide(TOKEN, value)`) and test mocks have no hooks.
+- A failing `onInit` / `onStart` → the app does not start: `[di.hook-failed] JobIndexService.onInit
+  failed: …` (the original as `cause`); the components already past `onInit` get `onDestroy`.
+- A failing `onStop` / `onDestroy` → the other hooks still run; the failures are collected into one
+  `AggregateError`.
+- Values (`provide(TOKEN, value)`) and test mocks have no hooks. Per-execution work is an observer,
+  not a hook. `AfterAssemble` and the run-scoped `OnDestroy` are gone (#261).
 
 ## Options — every part replaceable
 

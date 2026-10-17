@@ -278,8 +278,8 @@ outdated value reached the model.
 
 ## Lifecycle and isolation
 
-- Real components get `onStart` when the app is built and `onStop` after the test — also when the
-  test failed ([App → Lifecycle hooks](App#lifecycle-hooks)).
+- Real components get `onInit` → `onStart` when the app is built and `onStop` → `onDestroy` after the
+  test — also when the test failed ([App → Lifecycle hooks](App#lifecycle-hooks)).
 - Per test: its own checkpoints, spend ledger, Terns and paused runs (in memory), deterministic ids
   (`thread-1`, `run-1`, …) and a clock fixed at the start. Two tests — even in parallel, with the same
   thread id — never see each other.

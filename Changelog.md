@@ -3,6 +3,30 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — one container per application instance (#261, PR 1)
+
+- **Breaking — no scopes**: one container per application instance, one instance per class (a class
+  listed by two workflows is one instance). The `scope` option of every DI decorator, the `Scope`
+  type, the run-scoped container and `[di.scope-mismatch]` / `[di.run-scope-outside-run]` are gone
+  (against #184). Components keep no state: read the execution from `ExecutionContext`, keep data that
+  outlive a step in the graph state, caches in your own service over external storage
+  ([Components → Components keep no state](Components#components-keep-no-state)).
+- **Breaking — lint**: `agboss/no-component-state` replaces `agboss/no-run-state-in-singleton` —
+  `this.x = …` outside the constructor of any component is an error.
+- **Lifecycle hooks**: `OnInit` (new in the root entry), `OnStart`, `OnStop`, `OnDestroy` — `onInit`
+  (dependencies first) → `onStart` at start, `app.close()` → `onStop` → the running executions awaited
+  → `onDestroy` (dependants first). A failing `onInit` / `onStart` stops the start
+  (`[di.hook-failed] <Component>.<hook> failed: …`); failing stop hooks are collected into one
+  `AggregateError`. After `app.close()` `execute` / `resume` reject with the new `ApplicationStoppingError`
+  (`app.stopping`, an `onRunRejected`); `cancel` still works.
+  **Breaking**: `AfterAssemble` is removed, `OnDestroy` now runs once at shutdown, not per run
+  ([App → Lifecycle hooks](App#lifecycle-hooks)).
+- **Implementation by inheritance**: a dependency on a contract gets the one listed class that extends
+  it; two → `[di.ambiguous-implementation]`. One token with different values →
+  `[di.conflicting-values]`; `provide(Class, …)` → `[di.instance-provider]` (no `new`: the container
+  creates every instance) ([Components](Components)).
+- `createAppDeps(…).close(executionsDone?)` takes what to wait for between `onStop` and `onDestroy`.
+
 ## Unreleased — code routers (#280)
 
 - **`DecidedBy.Code`**: a router decided by its class — `implements RouterHandler<Self>`,

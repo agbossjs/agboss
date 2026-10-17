@@ -321,7 +321,7 @@ export class AuditService {
   the tree (`parent`, `root`, `depth`, `executionOf(W)` — one level until #263). No container, no
   I/O, no input, no metadata: domain data come through `input`, anything that calls out is a service.
 - **Live, not a snapshot**: every read gives the current execution and step — one frame per node
-  visit and per tool call — so an app-scoped service (like the one above) is safe in parallel
+  visit and per tool call — so a service (one instance for the app, like the one above) is safe in parallel
   branches. A read outside an execution (a constructor at start) or after its step ended (a
   forgotten promise) throws `ExecutionContextUnavailableError` (`context.unavailable`).
 - **Parent and root** are objects (`parent?.executionId`, `root.executionId`); `executionOf(W)` finds
@@ -510,14 +510,60 @@ export class Shop implements WorkflowDefinition {
   [Judges](Judges-And-Quality-Gates)), `ROUTER_FACTORY` (router engines for cheap decisions inside
   components — their spend during a tool call is the tool's) and `ENV` (the
   [environment](Configuration#environments)).
-- **Scopes**: `scope: "app"` (default, one instance shared by every run) or `"run"` (one per run, its
-  `onDestroy` when the run ends). An app-scoped component depending on a run-scoped one fails with
-  `[di.scope-mismatch]`.
+- **One container per application instance, no scopes** (#261): it holds the providers of every
+  workflow, one instance per class (`OrdersService` listed by two workflows is one instance), created
+  at start. There is no `scope` option and no per-execution container.
+- **Implementation by inheritance**: a dependency on a contract (an abstract class) gets the one listed
+  class that is it or `extends` it — the same instance as asking for that class; none listed → the
+  framework's default implementation of the contract, if it has one; two →
+  `[di.ambiguous-implementation] AuditService depends on AuditRepository, and 2 listed classes implement it: …`.
+- **No `new`**: the container creates every instance. `providers` take classes; values go only with an
+  `InjectionToken` — `provide(AuditRepository, new MemoryAuditRepository())` fails with
+  `[di.instance-provider]`. One token with two different values (in two workflows, or twice in one)
+  fails with `[di.conflicting-values]` — use different tokens or an environment value.
 - **Assembly** (`workflowOf` / `createApp`, before the first request): the dependency graph is checked
   and every instance is created once, dependencies first. A cycle, an unregistered provider
   (`Consumer: "TOKEN" is not registered …`), an undecorated class in `providers`
   (`[di.undecorated-provider]`), a tool with a `channel` missing from `channelClasses`, a missing
   prompt file or prompt variable fail with the component's name.
+- **Lifecycle hooks**: `implements OnInit, OnStart, OnStop, OnDestroy`, each optional
+  ([App → Lifecycle hooks](App#lifecycle-hooks)).
+
+### Components keep no state
+
+One execution is not tied to one application instance: after a pause another instance may continue
+it. So a component holds no state of an execution — neither a field set in a method nor a
+`Map<executionId, …>`. It reads the execution from the live `ExecutionContext`; data that must outlive
+a step live in the graph state (a node's `output` on the path); caches and deduplication are your own
+service over external storage:
+
+<!-- snippet-context
+import { Injectable } from "agboss";
+interface RedisClient {
+  sAdd(key: string, member: string): Promise<number>;
+}
+@Injectable()
+export class RedisClientProvider {
+  readonly client: RedisClient = { sAdd: () => Promise.resolve(1) };
+}
+// @snippet
+-->
+
+```ts
+@Injectable({ deps: [RedisClientProvider] })
+export class SeenJobsRepository {
+  constructor(private readonly redisClientProvider: RedisClientProvider) {}
+
+  async markSeen(executionId: string, jobId: string): Promise<boolean> {
+    const added: number = await this.redisClientProvider.client.sAdd(`seen:${executionId}`, jobId);
+    return added === 1;
+  }
+}
+```
+
+The lint rule `agboss/no-component-state` flags an assignment to `this.x` (`=`, `+=`, `++`) outside
+the constructor of any component (`@Injectable`, `@Tool`, `@McpTool`, `@Rag`, `@Action`, a code
+`@Router`, `@Judge`, `@Guardrail`, `@PiiPolicy`, `@Channel`, inbound adapters, `@A2AAgent`).
 - `agboss describe` shows each tool's dependencies.
 
 ## Add…
