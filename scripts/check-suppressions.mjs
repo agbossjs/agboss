@@ -18,6 +18,8 @@ const DIRS = [
   "packages/agboss-cli/tests",
   "examples/job-scout/src",
   "examples/job-scout/tests",
+  "examples/flow-patterns/src",
+  "examples/flow-patterns/tests",
 ];
 const SKIP = new Set(["node_modules", "dist", "coverage"]);
 

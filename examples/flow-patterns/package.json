@@ -1,0 +1,22 @@
+{
+  "name": "flow-patterns-example",
+  "license": "MIT",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AGBoss example: flow patterns \u2014 a review loop and a code router, scripted tests only",
+  "scripts": {
+    "describe": "agboss describe",
+    "types": "agboss check --workflow src/offer/offer.workflow.ts",
+    "check": "agboss check --workflow src/offer/offer.workflow.ts && agboss check --workflow src/credit/credit.workflow.ts",
+    "typecheck": "npm run types && tsc --noEmit -p .",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "agboss": "0.1.0"
+  },
+  "devDependencies": {
+    "agboss-cli": "0.1.0"
+  }
+}
