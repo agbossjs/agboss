@@ -17,7 +17,7 @@
 - [Suites and Comparisons](Testing-Suites-And-Comparisons)
 - [Components](Components)
 - [Standard DTOs](Standard-DTOs)
-- [Example: job-scout](Example)
+- [Examples: job-scout, flow-patterns](Example)
 - [Agents — the loop](Agents)
 - [Model providers](Model-providers)
 - [Tools](Tools)

@@ -1,9 +1,10 @@
 # Example: job-scout
 
-`examples/job-scout/` — the only example, a separate package that depends on `agboss` exactly
+`examples/job-scout/` — the full example, a separate package that depends on `agboss` exactly
 like an outside project (only its public API; ESLint-enforced). Resume from disk → a proposed search
 brief → Greenhouse jobs ranked by Jev → explained with the user's company notes → the chosen ones saved to a
-shortlist, after the user approves the write.
+shortlist, after the user approves the write. Its second, smaller neighbour,
+[flow-patterns](#flow-patterns-a-review-loop-and-a-code-router), holds the flow's patterns the CLI can be pointed at.
 
 ```bash
 npm install && npm run build          # repo root
@@ -77,3 +78,34 @@ replayed at that start):
 ```bash
 npm run compare -- --profiles base,scout-low-thinking --golden core
 ```
+
+## flow-patterns: a review loop and a code router
+
+`examples/flow-patterns/` (package `flow-patterns-example`, #295) — two workflows, one per
+`*.workflow.ts`, on the public entries only, tested by script (no model key, no cassette). They are
+what the manual checks of the flow point the CLI at; `make check` runs `agboss check` on both, their
+lint (flow style) and their tests with coverage.
+
+```bash
+npm install && npm run build          # repo root
+cd examples/flow-patterns
+npx agboss describe --workflow src/offer/offer.workflow.ts    # the two paths, the reviewer's inputs by producer
+npx agboss describe --workflow src/credit/credit.workflow.ts  # credit-limit-router  code — …
+npm run check                         # agboss check on both workflows (writes .agboss/types.d.ts)
+npm test
+```
+
+- **`src/offer/`** — the review loop of [Workflow](Workflow): draft-agent → reviewer-agent; the
+  reviewer is reached from the draft and from the editor, so `agent(ReviewerAgent).switch(…)` is a
+  path of its own, and its output is `about(OfferDraftDto, oneOf(ChangesRequestedDto,
+  DraftApprovedDto))`. The editor has `maxVisits: 2`; the refused third visit is taken by
+  `.onError(VisitsLimitExceededError, toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish))`.
+  Moving the `switch(…)` inline after `.toAgent(ReviewerAgent)` makes `agboss check` fail with
+  `[flow.shared-node-inline]`.
+- **`src/credit/`** — a code router beside a model router ([Routers](Routers)): desk-router (Jev)
+  sends an order to order-intake-agent; credit-limit-router (`DecidedBy.Code`) decides in
+  `route(input)` with `CreditService` and `ExecutionContext` through `deps` — a $50 order goes to
+  charge-card-action, a $500 one to approval-agent. `CreditServiceUnavailableError` from the
+  service (the `RouterFailedError`'s cause) is taken by `.onError(…, toFinish(OrderHeldWorkflowFinish))`;
+  any other error fails the run with `RouterFailedError`.
+
