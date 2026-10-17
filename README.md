@@ -340,7 +340,7 @@ Every component reads the execution it runs in through its constructor (#280):
 `deps: [ExecutionContext]`, a parameter named `executionContext` — tools, actions, judges and
 services alike; there is no `ctx` parameter. It is data only and read-only, and every read gives the
 current execution and step (one frame per node visit and per tool call), so it is safe in an
-app-scoped component and in parallel branches. One execution has one id: its observer events
+component (one instance for the app) and in parallel branches. One execution has one id: its observer events
 (`state.runId`), `executionContext.executionId`, its Tern (`Tern.runId`), its trace and its result
 (`ExecutionOutput.runId`) carry the same one, also after a resume. What a node reads comes in its
 input — for a model, its input message (each `input` field as `### field (from producer)`), never

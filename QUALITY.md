@@ -13,6 +13,11 @@ self-review before every PR.
   complexity ≤ 10.
 - **Dependency injection over globals.** Models, tools and clients are passed in (factory
   arguments), never imported as singletons. This is what makes graphs testable.
+- **Components keep no state (#261).** One container per application instance, one instance per
+  class; an execution may continue on another instance after a pause. Read the execution from
+  `ExecutionContext`, keep data that outlive a step in the graph state, and caches or deduplication
+  in a service over external storage — never `this.x = …` outside the constructor (lint
+  `agboss/no-component-state`) and never a `Map<executionId, …>` in a component.
 - **Pure core, effectful edges.** Business logic is pure; I/O (LLM, network, fs) sits at the
   boundary behind a small interface.
 - **Names say intent.** `routeToolCall`, not `handle`. Booleans read as questions: `isFinal`,
