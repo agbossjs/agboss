@@ -12,7 +12,8 @@ import {
   Tool,
 } from "../../src/index.js";
 import { workflowOf, toolOf } from "../../src/testing/index.js";
-import { checkGraph, createContainer } from "../../src/components/container.js";
+import { createContainer } from "../../src/components/container/container.js";
+import { checkGraph } from "../../src/components/container/graph-check.js";
 import { recordComponent } from "../../src/components/metadata.js";
 import type { WorkflowServices } from "../../src/workflow.js";
 import type { ToolCallContext } from "../../src/tools/index.js";
@@ -240,7 +241,7 @@ describe("components — errors at assembly", () => {
     recordComponent(B, { kind: "injectable", meta: { deps: [A] } });
 
     expect(() => {
-      checkGraph([A], [A, B], []);
+      checkGraph([A], [{ owner: "x-workflow", providers: [A, B] }], []);
     }).toThrow("Dependency cycle: A → B → A");
     expect(deps).toEqual({});
   });
@@ -279,10 +280,10 @@ describe("components — errors at assembly", () => {
   });
 
   it("AC3: instances are created once, dependencies before dependants", () => {
-    const container = createContainer(
-      [Greeter, provide(GREETING, "Hey")],
-      new Map([[ROUTER_FACTORY, services.router]]),
-    );
+    const container = createContainer({
+      modules: [{ owner: "x-workflow", providers: [Greeter, provide(GREETING, "Hey")] }],
+      core: new Map([[ROUTER_FACTORY, services.router]]),
+    });
     const first = container.get(GreetTool);
 
     expect(container.get(GreetTool)).toBe(first);

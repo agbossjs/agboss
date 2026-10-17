@@ -434,9 +434,9 @@ export function workflowOf(workflow: Class): Promise<AssembledWorkflow>;
 // src/testing/script.ts:66:1 - (ae-undocumented) Missing documentation for "replyWith".
 // src/testing/script.ts:136:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/script.ts:137:3 - (ae-undocumented) Missing documentation for "failure".
-// src/testing/slices.ts:17:3 - (ae-undocumented) Missing documentation for "invoke".
-// src/testing/slices.ts:22:3 - (ae-undocumented) Missing documentation for "routeTo".
-// src/testing/slices.ts:30:3 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/slices.ts:16:3 - (ae-undocumented) Missing documentation for "invoke".
+// src/testing/slices.ts:21:3 - (ae-undocumented) Missing documentation for "routeTo".
+// src/testing/slices.ts:29:3 - (ae-undocumented) Missing documentation for "replyWith".
 // src/testing/test-app.ts:24:3 - (ae-undocumented) Missing documentation for "clock".
 // src/testing/test-app.ts:25:3 - (ae-undocumented) Missing documentation for "agent".
 // src/testing/test-app.ts:26:3 - (ae-undocumented) Missing documentation for "router".

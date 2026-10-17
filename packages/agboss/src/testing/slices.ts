@@ -8,7 +8,6 @@ import type { ToolOutput } from "../tools/index.js";
 import { TestSetupError } from "./errors.js";
 import { nodeNameOf } from "./failure-facts.js";
 import { toolNameOf } from "./script.js";
-import { inRunScope } from "../components/run-scope.js";
 import { standaloneCallFrameOf } from "../flow/context/call-frame.js";
 import { runInFrame } from "../flow/context/frame.js";
 
@@ -54,14 +53,11 @@ export function toolSlice<TInput, TOutput>(
   };
   return {
     // the tool validates its result against the output DTO that `run` returns
-    // one call is one run: a run-scoped tool (`scope: "run"`) gets a fresh instance per call, and
-    // an execution of its own — what its injected `ExecutionContext` reads (#280)
+    // one call is an execution of its own — what its injected `ExecutionContext` reads (#280)
     invoke: (input) =>
-      inRunScope(() =>
-        runInFrame(
-          standaloneCallFrameOf(call),
-          async () => (await tool.invoke(input)) as ToolOutput<TOutput>,
-        ),
+      runInFrame(
+        standaloneCallFrameOf(call),
+        async () => (await tool.invoke(input)) as ToolOutput<TOutput>,
       ),
   };
 }

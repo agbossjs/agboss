@@ -195,8 +195,6 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   type RouterStartEvent,
   /** @deprecated Import from "agboss" (#195). */
-  type Scope,
-  /** @deprecated Import from "agboss" (#195). */
   type ScoreAnswer,
   /** @deprecated Import from "agboss" (#195). */
   type ScoreQuestion,

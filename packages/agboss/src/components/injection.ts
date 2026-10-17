@@ -9,17 +9,6 @@ export type Class<T = unknown> = abstract new (...args: never[]) => T;
 
 export type Token = Class | InjectionToken<unknown>;
 
-/**
- * How long a component's instance lives: `"app"` (default) — one for the app, shared by every run;
- * `"run"` — one per run, created in the run's child container and destroyed (`onDestroy`) when it ends.
- */
-export type Scope = "app" | "run";
-
-/** The `scope` option every DI decorator takes (`@Injectable({ scope: "run" })`, `@Tool`, …). */
-export interface Scoped {
-  readonly scope?: Scope;
-}
-
 /** What a token gives the constructor: a token's value type, or a class's instance type. */
 export type Resolved<T> =
   T extends InjectionToken<infer V>

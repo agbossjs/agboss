@@ -11,7 +11,13 @@ import { LiveSpendRecorder, SpendRecorder } from "./spend-recorder.js";
 import { JudgeModel } from "./judge-decorators.js";
 import { ExecutionContext } from "../flow/context/execution-context.js";
 import { LiveExecutionContext } from "../flow/context/live-context.js";
-import { createContainer, DependantValue, UnavailableValue, type Container } from "./container.js";
+import {
+  createContainer,
+  DependantValue,
+  UnavailableValue,
+  type Container,
+} from "./container/container.js";
+import type { ProviderModule } from "./container/registrations.js";
 import type { ToolHandler } from "./decorators.js";
 import { InjectionToken, type Class, type Token } from "./injection.js";
 import { componentOf, requireComponent, type ToolMeta } from "./metadata.js";
@@ -87,7 +93,12 @@ export const rememberServers = (
   serverInstances.set(bundle, instances);
 };
 
-/** One container per workflow and app services: its tools, knowledge and index share instances. */
+/** The workflow's providers as modules of the app's container (#261: one container per app). */
+export const providerModulesOf = (bundle: WorkflowMeta): readonly ProviderModule[] => [
+  { owner: bundle.name, providers: bundle.providers ?? [] },
+];
+
+/** One container per app instance (its services): its tools, knowledge and index share instances. */
 const containers = new WeakMap<WorkflowMeta, WeakMap<WorkflowServices, Container>>();
 export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): Container => {
   const perBundle = containers.get(bundle) ?? new WeakMap<WorkflowServices, Container>();
@@ -102,7 +113,10 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
     [SpendRecorder, liveSpendRecorder],
   ]);
   for (const [token, instance] of serverInstances.get(bundle) ?? []) core.set(token, instance);
-  const container = createContainer(bundle.providers ?? [], core, services.container);
+  const container = createContainer(
+    { modules: providerModulesOf(bundle), core },
+    services.container,
+  );
   perBundle.set(services, container);
   return container;
 };

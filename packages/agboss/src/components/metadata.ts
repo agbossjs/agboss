@@ -1,7 +1,7 @@
 import type { McpServerConfig } from "../config/types.js";
 import type { DtoClass } from "../dto/types.js";
 import type { ServerTools } from "./mcp-client.js";
-import type { Class, Scope, Token } from "./injection.js";
+import type { Class, Token } from "./injection.js";
 import type { ChannelMeta, PolicyFields } from "./meta-types.js";
 import type { McpExposeOptions } from "../mcp/mcp-expose.decorator.js";
 
@@ -89,15 +89,10 @@ export type ComponentMeta =
 
 /** Decorator metadata per class. Symbol.metadata is not available at runtime on Node 26. */
 const components = new WeakMap<object, ComponentMeta>();
-const scopes = new WeakMap<object, Scope>();
 
-export const recordComponent = (target: object, meta: ComponentMeta, scope?: Scope): void => {
+export const recordComponent = (target: object, meta: ComponentMeta): void => {
   components.set(target, meta);
-  scopes.set(target, scope ?? "app");
 };
-
-/** A component's `scope` (#184): `"app"` unless its decorator said `scope: "run"`. */
-export const scopeOf = (target: object): Scope => scopes.get(target) ?? "app";
 
 export const componentOf = (target: object): ComponentMeta | undefined => components.get(target);
 

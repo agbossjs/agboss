@@ -6,6 +6,7 @@ import type { ExecutionOptions } from "./types.js";
 /** The runs in flight by thread: what `app.cancel(thread)` aborts. */
 export class LiveRuns {
   readonly #runs = new Map<string, Set<AbortController>>();
+  readonly #inFlight = new Set<Promise<unknown>>();
 
   /** Runs `work` with a signal that `abort(thread)` or the caller's own signal aborts. */
   async track<T>(
@@ -17,14 +18,22 @@ export class LiveRuns {
     const runs = this.#runs.get(thread) ?? new Set<AbortController>();
     runs.add(controller);
     this.#runs.set(thread, runs);
+    const running = work(
+      caller === undefined ? controller.signal : AbortSignal.any([caller, controller.signal]),
+    );
+    this.#inFlight.add(running);
     try {
-      return await work(
-        caller === undefined ? controller.signal : AbortSignal.any([caller, controller.signal]),
-      );
+      return await running;
     } finally {
+      this.#inFlight.delete(running);
       runs.delete(controller);
       if (runs.size === 0 && this.#runs.get(thread) === runs) this.#runs.delete(thread);
     }
+  }
+
+  /** Resolves when every run in flight has finished, paused or failed (graceful shutdown, #261). */
+  async settled(): Promise<void> {
+    await Promise.allSettled([...this.#inFlight]);
   }
 
   /** Aborts the thread's runs in flight; `false` when none is running. */

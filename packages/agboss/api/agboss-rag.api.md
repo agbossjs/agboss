@@ -35,7 +35,6 @@ export interface KnowledgeSource {
 }
 
 // Warning: (ae-forgotten-export) The symbol "Token" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "Scoped" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "ResolvedAll" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -46,7 +45,7 @@ export function Rag<const D extends readonly Token[] = []>(options: {
     readonly prompt?: string;
     readonly promptUrls?: readonly string[];
     readonly deps?: D;
-} & Scoped): <C extends new (...args: ResolvedAll<D>) => RagConnector>(value: C) => C;
+}): <C extends new (...args: ResolvedAll<D>) => RagConnector>(value: C) => C;
 
 // @public
 export interface RagConnector {

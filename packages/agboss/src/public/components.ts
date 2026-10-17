@@ -55,13 +55,12 @@ export {
   type PromptProblem,
   type PromptProblemCode,
 } from "../components/prompt-problems.js";
-export type { OnDestroy, OnStart, OnStop } from "../components/lifecycle.js";
+export type { OnDestroy, OnInit, OnStart, OnStop } from "../components/container/lifecycle.js";
 export {
   InjectionToken,
   provide,
   type Class,
   type Provider,
-  type Scope,
   type ValueProvider,
   type Token,
 } from "../components/injection.js";

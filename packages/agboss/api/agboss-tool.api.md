@@ -17,10 +17,8 @@ export interface ToolHandler<TInput, TOutput> {
     run: (input: TInput) => Promise<TOutput>;
 }
 
-// Warning: (ae-forgotten-export) The symbol "Scoped" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
-export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extends readonly Token[]> extends Scoped {
+export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extends readonly Token[]> {
     // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)

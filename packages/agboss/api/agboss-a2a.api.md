@@ -28,10 +28,8 @@ export class A2AAdapter implements IA2AAdapter {
 // @public
 export function A2AAgent<const D extends readonly Token[] = []>(config: A2AAgentConfig<D>): <C extends new (...args: ResolvedAll<D>) => A2AClient>(value: C) => C;
 
-// Warning: (ae-forgotten-export) The symbol "Scoped" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
-export interface A2AAgentConfig<D extends readonly Token[] = []> extends Scoped {
+export interface A2AAgentConfig<D extends readonly Token[] = []> {
     readonly deps?: D;
     // (undocumented)
     readonly name: string;
