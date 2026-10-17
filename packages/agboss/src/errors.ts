@@ -49,3 +49,4 @@ export {
   ModelKindError,
 } from "./llm/decision-errors.js";
 export { PerRunLimitRequiredError } from "./app/limit-check.js";
+export { ApplicationStoppingError } from "./app/application-stopping.js";

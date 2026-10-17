@@ -460,7 +460,8 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `[di.instance-provider]`. Hooks, each optional: `implements OnInit, OnStart, OnStop, OnDestroy` —
   `onInit` (dependencies first) → `onStart` at start (a failure stops it, naming the component and
   the hook); `app.close()` → `onStop` (no new executions) → the running ones awaited → `onDestroy`
-  (dependants first; failures collected into one error).
+  (dependants first; failures collected into one error); from `app.close()` on `execute` / `resume`
+  reject with `ApplicationStoppingError` (`app.stopping`).
 - **Components keep no state:** another instance may continue an execution after a pause, so a
   component reads the execution from `ExecutionContext`, data that outlive a step live in the graph
   state, caches and deduplication are your own service over external storage. Lint
@@ -572,7 +573,8 @@ Routers and guards use decision models too. README → Quality gates has a full 
   (`[limits.per-run-required]`).
 - **Errors** (root entry) are `AGBossError`s with stable `code`s (`limit` ⊃ `limit.budget`,
   `limit.visits`, `step.agent` / `step.action` / `step.router` ⊃ `step.router.invalid-decision`,
-  `workflow.cancelled`, …); a new error
+  `workflow.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
+  `app.close()`, an `onRunRejected`, …); a new error
   class gets a `static code`. `.onError` matches by class, so a subclass is caught by its parent's
   side path.
 

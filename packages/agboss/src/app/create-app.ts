@@ -24,7 +24,7 @@ import { checkedStart, textStartOf } from "./starts.js";
 import { runResultOf } from "./result.js";
 import type { App, ExecutionOutput } from "./types.js";
 import type { RunOperation } from "../core/observability.js";
-import { WorkflowCancelledError } from "../core/errors.js";
+import { ApplicationStoppingError } from "./application-stopping.js";
 
 export { NotAWorkflowStartError } from "./starts.js";
 
@@ -85,7 +85,7 @@ export async function buildApp(
   ) => admitRequest(deps.observer, { operation, threadId: thread }, checks);
   /** From `app.close()` on (`onStop`), no new execution is accepted; running ones go on (#261). */
   const accepting = (): void => {
-    if (closed) throw new WorkflowCancelledError(STOPPING);
+    if (closed) throw new ApplicationStoppingError(STOPPING);
   };
   const app: App = {
     name: deps.config.name,

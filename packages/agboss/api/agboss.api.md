@@ -330,6 +330,14 @@ export interface AppDepsOptions {
 }
 
 // @public
+export class ApplicationStoppingError extends AGBossError {
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    name: string;
+}
+
+// @public
 export interface AppOptions extends AppDepsOptions {
     readonly env?: string | undefined;
     readonly pausedRuns?: PausedRunRepository;
@@ -2899,6 +2907,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/app-deps.ts:97:3 - (ae-undocumented) Missing documentation for "newThreadId".
 // src/app/app-deps.ts:98:3 - (ae-undocumented) Missing documentation for "newRunId".
 // src/app/app-deps.ts:99:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/create-app.ts:40:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/limit-check.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/limit-check.ts:10:12 - (ae-undocumented) Missing documentation for "name".
