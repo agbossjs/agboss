@@ -7,6 +7,8 @@ import type { McpStub } from "./mcp-stubs.js";
 import { blockNetwork } from "./network-guard.js";
 import type { ModelScript } from "./script-book.js";
 import { createTestApp, type TestApp } from "./test-app.js";
+import type { TestClock } from "./clock.js";
+import { TestSetupError } from "./errors.js";
 import { chatKeyOf, type ModelTarget } from "./scripted-gateway.js";
 import "./vitest-types.js";
 
@@ -14,6 +16,13 @@ import "./vitest-types.js";
 export interface WorkflowFixtures {
   /** The application's real container and graphs, models and MCP scripted; built on first use. */
   readonly app: TestApp;
+  /**
+   * Every instance of the application (`testWith(App, { instances: 2 })`), `apps[0]` being `app`:
+   * one container and instance id each, one set of stores and one clock for all.
+   */
+  readonly apps: readonly TestApp[];
+  /** The test's clock, shared by its instances: `await clock.advance(seconds(31))`. */
+  readonly clock: TestClock;
   /**
    * Closes the current app (its `onStop` hooks run, as on a real stop) and returns a new one over
    * the same test state (checkpoints, ledger, clock, ids) — "a paused run survives a restart".
@@ -40,6 +49,33 @@ export interface WorkflowFixtures {
 
 const COMPACTION_KEY = chatKeyOf({ kind: "compaction" });
 
+/** How many app instances the test runs: a whole number ≥ 1 (default 1). */
+function instancesOf(options: TestWithOptions): number {
+  const count = options.instances ?? 1;
+  if (!Number.isInteger(count) || count < 1) {
+    throw new TestSetupError(`instances: ${String(count)} — a whole number ≥ 1`);
+  }
+  return count;
+}
+
+/** The test's environment, the network blocked around it; its apps closed after the test. */
+async function withEnvironment(
+  testSetup: Internal["testSetup"],
+  use: (environment: TestEnvironment) => Promise<void>,
+): Promise<void> {
+  const environment = await TestEnvironment.of(testSetup.application, testSetup.options);
+  const unblock = blockNetwork({
+    allowed: testSetup.options.allowNetwork ?? [],
+    onBlocked: (error) => environment.book.report(error),
+  });
+  try {
+    await use(environment);
+  } finally {
+    unblock();
+    await environment.close();
+  }
+}
+
 interface Internal {
   readonly testSetup: { readonly application: Class; readonly options: TestWithOptions };
   readonly environment: TestEnvironment;
@@ -60,24 +96,18 @@ export function testWith<TApplication extends Class>(
 ): TestAPI<WorkflowFixtures> {
   return test.extend<Internal & WorkflowFixtures>({
     testSetup: { application, options },
-    environment: [
-      async ({ testSetup }, use) => {
-        const environment = await TestEnvironment.of(testSetup.application, testSetup.options);
-        const unblock = blockNetwork({
-          allowed: testSetup.options.allowNetwork ?? [],
-          onBlocked: (error) => environment.book.report(error),
-        });
-        try {
-          await use(environment);
-        } finally {
-          unblock();
-          await environment.close();
-        }
-      },
-      { auto: true },
-    ],
-    app: async ({ environment }, use) => {
-      await use(createTestApp(environment));
+    environment: [({ testSetup }, use) => withEnvironment(testSetup, use), { auto: true }],
+    apps: async ({ environment, testSetup }, use) => {
+      const count = instancesOf(testSetup.options);
+      await use(Array.from({ length: count }, () => createTestApp(environment)));
+    },
+    app: async ({ apps }, use) => {
+      const [first] = apps;
+      if (first === undefined) throw new TestSetupError("instances: the test runs no instance");
+      await use(first);
+    },
+    clock: async ({ environment }, use) => {
+      await use(environment.clock);
     },
     recoverApp: async ({ environment, app }, use) => {
       let current = app;

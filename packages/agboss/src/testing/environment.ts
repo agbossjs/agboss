@@ -23,7 +23,9 @@ import {
   routerKeyOf,
   type ModelTarget,
 } from "./scripted-gateway.js";
-import { mcpServersOf, reusedInfrastructure, usedComponentsOf } from "./workflow-parts.js";
+import { mcpServersOf, usedComponentsOf } from "./workflow-parts.js";
+import { reusableInfrastructure } from "../infrastructure/contracts.js";
+import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { createVcrGateway, type VcrConfig } from "./vcr.js";
 
 /** What `testWith` takes besides the application. */
@@ -37,6 +39,12 @@ export interface TestWithOptions extends EnvironmentSelection {
    * replayed in every later run (REPLAY by default under `CI`: no key, no network).
    */
   readonly vcr?: VcrConfig;
+  /**
+   * How many application instances the test runs (default 1): `apps[0]` (= `app`) … `apps[n-1]`,
+   * each with its own container and instance id, over one set of stores and one clock — so a
+   * lease, a pause resumed on the other instance or a rate-limit slot is tested across instances.
+   */
+  readonly instances?: number;
 }
 
 /** The process env without tracing keys: tests never export traces. */
@@ -73,6 +81,8 @@ export class TestEnvironment {
   readonly book = new ScriptBook();
   readonly clock = createTestClock();
   readonly mcp = new McpStubs(this.book);
+  /** The rows of the in-memory defaults, shared by every app instance of the test. */
+  readonly database = new InMemoryDatabase();
   readonly #mocks = new Map<Class, unknown>();
   readonly #apps: BuiltApplication[] = [];
   readonly #nodes: readonly RuntimeNode[];
@@ -81,6 +91,8 @@ export class TestEnvironment {
   readonly #servers: ReadonlyMap<Class, string>;
   readonly #options: AppDepsOptions;
   #reused: ReadonlyMap<Class, unknown> = new Map();
+  /** The app being built: instances are built one after the other, the first one's stores kept. */
+  #building: Promise<unknown> = Promise.resolve();
   #threads = 0;
   #runs = 0;
 
@@ -143,11 +155,21 @@ export class TestEnvironment {
    * A new app instance over this test's state: the real container and graphs, models and MCP
    * servers scripted, the infrastructure of the first app kept.
    */
-  async newApp(): Promise<BuiltApplication> {
-    const built = await buildApplication(this.assembled, this.#options, this.#reused);
-    if (this.#apps.length === 0) this.#reused = reusedInfrastructure(built);
-    this.#apps.push(built);
-    return built;
+  newApp(): Promise<BuiltApplication> {
+    const building = this.#building.then(async () => {
+      const seams = {
+        reused: this.#reused,
+        instanceId: `instance-${String(this.#apps.length + 1)}`,
+        database: this.database,
+        timers: this.clock.timers,
+      };
+      const built = await buildApplication(this.assembled, this.#options, seams);
+      if (this.#apps.length === 0) this.#reused = reusableInfrastructure(built.infrastructure);
+      this.#apps.push(built);
+      return built;
+    });
+    this.#building = building.catch(() => undefined);
+    return building;
   }
 
   mockLlm(target: ModelTarget): ModelScript {

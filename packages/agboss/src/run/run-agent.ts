@@ -9,6 +9,7 @@ import {
   drainRun,
   failedOutcome,
   outcomeError,
+  recordFailure,
   recorder,
   workflowAccount,
   type TernBase,
@@ -73,8 +74,9 @@ async function runOnce<TName extends string>(
     return withMetadata(output, options.metadata);
   } catch (error) {
     const cause = outcomeError(error, options.signal);
-    await deps.terns.append({ ...base, ...failedOutcome(cause, spent) });
-    throw cause;
+    throw await recordFailure(cause, () =>
+      deps.terns.append({ ...base, ...failedOutcome(cause, spent) }),
+    );
   } finally {
     // ended or paused: what the run did not spend goes back to the day (a resume reserves anew)
     release();

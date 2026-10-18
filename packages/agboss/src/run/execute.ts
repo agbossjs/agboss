@@ -1,4 +1,5 @@
 import { WorkflowCancelledError } from "../core/errors.js";
+import { ExecutionLeaseLostError, isLeaseLost } from "../app/lease-lost.js";
 import { drainRecordingUsage } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
 import type { ExecutionGraph, RunLimits } from "../flow/runtime/build.js";
@@ -43,11 +44,28 @@ export interface FinishContext<TName extends string> {
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-/** A run stopped by its signal reads as cancelled, whatever error the abort surfaced as. */
-export const outcomeError = (error: unknown, signal: AbortSignal | undefined): unknown =>
-  signal?.aborted === true && !(error instanceof WorkflowCancelledError)
+/**
+ * A run stopped by its signal reads as cancelled, whatever error the abort surfaced as — or, when
+ * its instance lost the tree's lease, as `ExecutionLeaseLostError` (not a failure, #265).
+ */
+export const outcomeError = (error: unknown, signal: AbortSignal | undefined): unknown => {
+  if (isLeaseLost(signal)) return signal?.reason;
+  return signal?.aborted === true && !(error instanceof WorkflowCancelledError)
     ? new WorkflowCancelledError("the run was cancelled")
     : error;
+};
+
+/**
+ * Writes the failed record of a run that failed (#265: a lost lease writes nothing — the new
+ * holder owns the record) and returns the error to throw.
+ */
+export async function recordFailure(
+  error: unknown,
+  write: () => Promise<unknown>,
+): Promise<unknown> {
+  if (!(error instanceof ExecutionLeaseLostError)) await write();
+  return error;
+}
 
 export const failedOutcome = (error: unknown, spent: readonly UsageRecord[]): TernOutcome => ({
   replyWith: "",

@@ -10,6 +10,7 @@ import { checkVisit, isWorkingNode } from "./limits.js";
 import type { GraphNode, NodeOutcome, NodeRunner } from "./node-runner.js";
 import { OutputInvalidError } from "./errors.js";
 import { RouterDecisionError } from "./router-error.js";
+import { isLeaseLost } from "../../app/lease-lost.js";
 import { reportOutdating } from "./outdating-report.js";
 import type { RuntimeProvenance } from "./provenance.js";
 import {
@@ -113,8 +114,11 @@ function caught(
   error: unknown,
   ranAsStep: boolean,
   services: readonly UsageRecord[],
+  signal: AbortSignal | undefined,
 ): ExecutionStateUpdate {
   if (isGraphInterrupt(error)) throw error;
+  // a lost lease is no failure of the step: the instance stops, the new holder goes on (#265)
+  if (isLeaseLost(signal)) throw signal?.reason;
   const record = errorRecordOf(error);
   const handler = errorHandlerOf(node.exits, record);
   if (handler === undefined) throw error;
@@ -159,7 +163,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       return { ...update, daySpentBeforeRunUsd: daySpent, ...kept };
     } catch (error) {
       return {
-        ...caught(node, error, ranAsStep, services),
+        ...caught(node, error, ranAsStep, services, config?.signal),
         daySpentBeforeRunUsd: daySpent,
         ...kept,
       };

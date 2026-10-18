@@ -87,7 +87,7 @@ describe("AC12: a controllable clock — the per-day limit resets after midnight
     await execute(app, ChatStart, { text: "1" });
     const overDay = execute(app, ChatStart, { text: "2" });
     await expect(overDay).rejects.toFailWith({ code: "limits.perDay.cost" });
-    app.clock.advance("25h");
+    await app.clock.advance("25h");
     const nextDay = await execute(app, ChatStart, { text: "3" });
 
     expect(nextDay.output).toEqual({ text: "three" });

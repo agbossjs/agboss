@@ -1,11 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { rememberAppWorkflow } from "./app-workflow.js";
-import { resumeAgent } from "../run/resume-agent.js";
 import { checkThreadAccess, checkThreadOwner } from "../run/thread.js";
 import { checkRunLimits } from "./limit-check.js";
 import { runAgent } from "../run/run-agent.js";
 import { runVersions } from "../run/versions.js";
-import type { AgentExecutionOutput } from "../run/types.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import {
   createWorkflowDeps,
@@ -16,9 +14,12 @@ import {
 import { pausedRunBook } from "./paused-runs.js";
 import { UnknownToolError } from "./parts.js";
 import { cancelledOutcome, LiveRuns, runOptionsOf } from "./live-runs.js";
-import { admitRequest, observeCancelledPause, observeLeg } from "./run-events.js";
+import { executionLeasesOf } from "./execution-leases.js";
+import { treeMovesOf } from "./tree-moves.js";
+import { DEFAULT_TENANT_ID } from "../infrastructure/tenant.js";
+import { systemTimers } from "../infrastructure/timers.js";
+import { admitRequest, observeCancelledPause } from "./run-events.js";
 import { checkedStart, textStartOf } from "./starts.js";
-import { runResultOf } from "./result.js";
 import type { App, ExecutionOutput } from "./types.js";
 import type { RunOperation } from "../core/observability.js";
 import { ApplicationStoppingError } from "./application-stopping.js";
@@ -71,11 +72,10 @@ export async function buildApp(
     { workflowVersion: deps.config.version, configHash: runVersions(deps).configHash },
     bundle.onIncompatibleResume,
   );
-  const settle = async (run: AgentExecutionOutput, record = false): Promise<ExecutionOutput> => {
-    await paused.settle(run);
-    return runResultOf(run, record);
-  };
   const live = new LiveRuns();
+  const { executionLeases, executionTrees: trees } = parts.infrastructure;
+  const leases = executionLeasesOf(executionLeases, parts.timers ?? systemTimers);
+  const moves = treeMovesOf({ deps, live, paused, leases, trees });
   const owned = (thread: string, owner: string | undefined) =>
     checkThreadOwner(deps.terns, deps.config.name, thread, owner);
   const known = (thread: string, owner: string | undefined) =>
@@ -111,13 +111,8 @@ export async function buildApp(
       const state = { runId, threadId: thread };
       await deps.observer.onWorkflowStart(state);
       const given = { start: checked.name, input: checked.input, threadId: thread };
-      const result = await observeLeg(deps.observer, state, async () =>
-        settle(
-          await live.track(thread, call.signal, (signal) =>
-            runAgent(given, deps, { ...runOptionsOf(call, signal), runId }),
-          ),
-          call.record === true,
-        ),
+      const result = await moves.first(state, call, (moving, signal) =>
+        runAgent(given, moving, { ...runOptionsOf(call, signal), runId }),
       );
       // the generated `WorkflowStarts` types the output; at run time it is the finish's validated DTO
       return result as ExecutionOutput<never>;
@@ -128,27 +123,23 @@ export async function buildApp(
       const waiting = await paused.drop(thread);
       // a running resume completes its own Tern when the abort stops it
       if (waiting !== undefined && !running) {
+        await trees.deleteAllInTree({
+          tenantId: DEFAULT_TENANT_ID,
+          rootExecutionId: waiting.runId,
+        });
         await deps.terns.complete(waiting.ternId, cancelledOutcome(waiting));
         await observeCancelledPause(deps.observer, { runId: waiting.runId, threadId: thread });
       }
       return { cancelled: running || waiting !== undefined };
     },
+    // two phases (Q58): the decision recorded (Pending → Resolved, atomic), then the tree moved
     resume: async (thread, decision, call = {}) => {
       const run = await admit("resume", thread, async () => {
         accepting();
         await owned(thread, call.owner);
-        return paused.resumable(thread);
+        return paused.resolve(thread, decision);
       });
-      const state = { runId: run.runId, threadId: thread };
-      await deps.observer.onWorkflowResume({ decision, state });
-      return observeLeg(deps.observer, state, async () =>
-        settle(
-          await live.track(thread, call.signal, (signal) =>
-            resumeAgent(run, decision, deps, runOptionsOf(call, signal)),
-          ),
-          call.record === true,
-        ),
-      );
+      return moves.resumed(run, call);
     },
     close: async () => {
       closed = true;
