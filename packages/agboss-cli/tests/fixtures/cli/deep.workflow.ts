@@ -1,6 +1,7 @@
 // `agboss check --strict` fixture (#263): a path nested past four levels — a warning, an error
 // under --strict ([flow.path-too-deep])
-import { start, toAction } from "../../../../agboss/src/flow/builder.js";
+// the untyped builder: this package has no generated types for the framework's fixtures
+import { start, toAction } from "../../../../agboss/tests/flow/fixtures/paths.js";
 import { Action } from "../../../../agboss/src/flow/decorators/action.js";
 import { Workflow } from "../../../../agboss/src/flow/decorators/workflow.js";
 import { OfferDraftDto } from "../../../../agboss/tests/flow/fixtures/dtos.js";
