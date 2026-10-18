@@ -132,7 +132,11 @@ describe("#265 S51: the stop signals", () => {
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(entries).toEqual([
-      { level: "error", code: "app.close-failed", message: expect.stringContaining("a hook failed") },
+      {
+        level: "error",
+        code: "app.close-failed",
+        message: expect.stringContaining("a hook failed"),
+      },
     ]);
   });
 });

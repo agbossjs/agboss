@@ -67,12 +67,10 @@ describe("#246 AC1: a thread of another owner → onExecutionRejected run.thread
     const again = execute(app, Ask, { text: "two" }, { threadId: first.threadId, ...mallory });
 
     await expect(again).rejects.toBeInstanceOf(ThreadOwnerError);
-    expectRejected({ operation: ExecutionOperation.Execute, threadId: first.threadId, code: "run.thread-owner" }, [
-      first.runId,
-      "alice",
-      "mallory",
-      "two",
-    ]);
+    expectRejected(
+      { operation: ExecutionOperation.Execute, threadId: first.threadId, code: "run.thread-owner" },
+      [first.runId, "alice", "mallory", "two"],
+    );
     expect(workflowEvents()).toEqual([]);
   });
 
@@ -88,15 +86,16 @@ describe("#246 AC1: a thread of another owner → onExecutionRejected run.thread
     resetEvents();
 
     await expect(app.resume(paused.threadId, approve, mallory)).rejects.toThrow(ThreadOwnerError);
-    expectRejected({ operation: ExecutionOperation.Resume, threadId: paused.threadId, code: "run.thread-owner" }, [
-      paused.runId,
-      "dana",
-    ]);
+    expectRejected(
+      { operation: ExecutionOperation.Resume, threadId: paused.threadId, code: "run.thread-owner" },
+      [paused.runId, "dana"],
+    );
     resetEvents();
     await expect(app.cancel(paused.threadId, mallory)).rejects.toThrow(ThreadOwnerError);
-    expectRejected({ operation: ExecutionOperation.Cancel, threadId: paused.threadId, code: "run.thread-owner" }, [
-      paused.runId,
-    ]);
+    expectRejected(
+      { operation: ExecutionOperation.Cancel, threadId: paused.threadId, code: "run.thread-owner" },
+      [paused.runId],
+    );
     expect(workflowEvents()).toEqual([]);
 
     const done = await app.resume(paused.threadId, approve, alice);
@@ -111,16 +110,20 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
     resetEvents();
 
     await expect(app.resume(done.threadId, approve)).rejects.toBeInstanceOf(NotPausedError);
-    expectRejected({ operation: ExecutionOperation.Resume, threadId: done.threadId, code: "run.not-paused" }, [
-      done.runId,
-      "dana",
-    ]);
+    expectRejected(
+      { operation: ExecutionOperation.Resume, threadId: done.threadId, code: "run.not-paused" },
+      [done.runId, "dana"],
+    );
     expect(workflowEvents()).toEqual([]);
   });
 
   test("resume of a thread nobody started: run.not-paused", async ({ app }) => {
     await expect(app.resume("no-such-thread", approve)).rejects.toBeInstanceOf(NotPausedError);
-    expectRejected({ operation: ExecutionOperation.Resume, threadId: "no-such-thread", code: "run.not-paused" });
+    expectRejected({
+      operation: ExecutionOperation.Resume,
+      threadId: "no-such-thread",
+      code: "run.not-paused",
+    });
   });
 
   test("execute on an unknown thread: run.unknown-thread, before onWorkflowStart", async ({

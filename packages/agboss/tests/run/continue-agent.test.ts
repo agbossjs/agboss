@@ -70,7 +70,13 @@ describe("#265 S30: continuing an interrupted execution", () => {
     });
 
     const continued = continueAgent(
-      { runId: "run-lost", threadId, tenantId: "default", ternId: record.id, startedVersion: "1.0.0" },
+      {
+        runId: "run-lost",
+        threadId,
+        tenantId: "default",
+        ternId: record.id,
+        startedVersion: "1.0.0",
+      },
       deps,
     );
 

@@ -78,7 +78,7 @@ describe("#239: agboss check creates what the app's start creates", () => {
     const call = await agboss(["check", "--workflow", OBSERVED, "--json"]);
     expect(call.code).toBe(0);
     expect(envelope(call).result).toMatchObject({
-      checks: ["assembly", "environment", "prompts", "types"],
+      checks: ["assembly", "environment", "application", "prompts", "types"],
       problems: [],
     });
   });

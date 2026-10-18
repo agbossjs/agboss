@@ -130,20 +130,10 @@ export async function buildApplication(
   const workflows: BuiltApp[] = [];
   try {
     const observer = observerManagerOf(assembled, shared, { ...container, onCreate }, log);
+    const budgets = { budgets: assembled.budgets, applicationName: assembled.name };
+    const parts = { infrastructure, created, contexts, budgets, observer };
     for (const bundle of assembled.workflows) {
-      workflows.push(
-        await buildApp(
-          bundle,
-          { ...options, container },
-          {
-            infrastructure,
-            created,
-            contexts,
-            budgets: { budgets: assembled.budgets, applicationName: assembled.name },
-            observer,
-          },
-        ),
-      );
+      workflows.push(await buildApp(bundle, { ...options, container }, parts));
     }
     createListed(assembled, workflows);
     await startComponents(created);
@@ -152,14 +142,20 @@ export async function buildApplication(
     throw error;
   }
   const stop = stopOf(assembled, workflows, { created, infrastructure, log });
-  const warnings = [
-    ...assemblyWarningsOf(assembled).map(warningText),
-    ...workflows.flatMap((workflow) => workflow.app.warnings),
-  ];
+  const warnings = startupWarningsOf(assembled, workflows);
   if (seams.quiet !== true) logStart(log, contexts.application, assembled.workflows, warnings);
   const app = composeApp(assembled, workflows, { stop, warnings });
   return { app, assembled, workflows, infrastructure, closed: stop.closed, log };
 }
+
+/** The assembly warnings, then each workflow's own (a config changed without a version bump). */
+const startupWarningsOf = (
+  assembled: AssembledApplication,
+  workflows: readonly BuiltApp[],
+): readonly string[] => [
+  ...assemblyWarningsOf(assembled).map(warningText),
+  ...workflows.flatMap((workflow) => workflow.app.warnings),
+];
 
 /** What the instance's stop and recovery work with besides its workflows. */
 interface InstanceParts {

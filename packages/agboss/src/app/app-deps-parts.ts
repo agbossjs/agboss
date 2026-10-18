@@ -6,6 +6,9 @@ import type {
 } from "../components/decorators.js";
 import type { Class } from "../components/injection.js";
 import { stopComponents } from "../components/container/lifecycle.js";
+import { ObserverManager } from "../core/observer-manager.js";
+import type { Clock } from "../infrastructure/clock.js";
+import { frameworkLogOf, type FrameworkLog, type Logger } from "../infrastructure/logger.js";
 import type { McpConnections } from "../tools/index.js";
 import type { RunTracing } from "../tracing/index.js";
 import type { AssembledWorkflow, ResolvedPolicies, WorkflowServices } from "../workflow.js";
@@ -68,6 +71,16 @@ export function containerDepsOf(
     },
   };
 }
+
+/** The application's observers (none for a workflow on its own) and its log, stamped by its clock. */
+export const observedBy = (
+  observer: ObserverManager | undefined,
+  logger: Logger,
+  clock: Clock,
+): { readonly observer: ObserverManager; readonly log: FrameworkLog } => ({
+  observer: observer ?? new ObserverManager([]),
+  log: frameworkLogOf(logger, clock),
+});
 
 /** Closes what the app opened besides its components: MCP connections, tracing. */
 export const releaseOf =

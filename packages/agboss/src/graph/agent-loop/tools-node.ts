@@ -97,7 +97,9 @@ export function makeToolNode(
       () => runTool(tool, task.args, context),
       call.signal,
     ).finally(call.release);
-    await reportNodeEvent((base) => deps.observer?.onToolEnd({ ...base, ...event, update: content }));
+    await reportNodeEvent((base) =>
+      deps.observer?.onToolEnd({ ...base, ...event, update: content }),
+    );
     return { results: { [task.callId]: { callId: task.callId, tool: task.tool, content } }, usage };
   };
 }

@@ -48,7 +48,9 @@ async function askChannel(channels: ApprovalChannels, ctx: AskContext): Promise<
   if (channel === undefined || channels.dispatch === undefined) return;
   const shown = redactedArguments(ctx.tool.input, ctx.ask.arguments);
   const { observer } = channels;
-  await reportNodeEvent((base) => observer?.onChannelStart({ ...base, name: channel, input: shown }));
+  await reportNodeEvent((base) =>
+    observer?.onChannelStart({ ...base, name: channel, input: shown }),
+  );
   await channels.dispatch(channel, {
     runId: ctx.runId,
     agentName: ctx.agent,

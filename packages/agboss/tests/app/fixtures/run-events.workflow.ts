@@ -20,6 +20,7 @@ import {
   type ExecutionResumeEvent,
   type ExecutionStartEvent,
   type ModelStartEvent,
+  type NodeEvent,
   type OnActionStart,
   type OnAgentStart,
   type OnChannelEnd,
@@ -57,10 +58,14 @@ export const rejections: ExecutionRejectedEvent[] = [];
 /** Every execution-level event as the observer got it (its common fields checked by tests). */
 export const executionEvents: ExecutionEvent[] = [];
 
+/** Every node event as the observer got it (`step` checked by tests). */
+export const nodeEvents: NodeEvent[] = [];
+
 export function resetEvents(): void {
   events.length = 0;
   rejections.length = 0;
   executionEvents.length = 0;
+  nodeEvents.length = 0;
 }
 
 /** The execution-level events only (`execution-start`, `execution-pause`, …, `execution-error`). */
@@ -138,6 +143,10 @@ export class RunLog
   private push(hook: string, event: ExecutionEvent, detail?: unknown): void {
     events.push({ hook, runId: event.executionId, threadId: event.threadId, detail });
   }
+  private pushNode(hook: string, event: NodeEvent): void {
+    nodeEvents.push(event);
+    this.push(hook, event);
+  }
   private pushExecution(hook: string, event: ExecutionEvent, detail?: unknown): void {
     executionEvents.push(event);
     this.push(hook, event, detail);
@@ -161,22 +170,22 @@ export class RunLog
     rejections.push(event);
   }
   onAgentStart(event: AgentStartEvent): void {
-    this.push("agent-start", event);
+    this.pushNode("agent-start", event);
   }
   onModelStart(event: ModelStartEvent): void {
-    this.push("model-start", event);
+    this.pushNode("model-start", event);
   }
   onToolStart(event: ToolStartEvent): void {
-    this.push("tool-start", event);
+    this.pushNode("tool-start", event);
   }
   onChannelStart(event: ChannelStartEvent): void {
-    this.push("channel-start", event);
+    this.pushNode("channel-start", event);
   }
   onChannelEnd(event: ChannelEndEvent): void {
-    this.push("channel-end", event);
+    this.pushNode("channel-end", event);
   }
   onActionStart(event: ActionStartEvent): void {
-    this.push("action-start", event);
+    this.pushNode("action-start", event);
   }
 }
 

@@ -56,7 +56,8 @@ export async function observeLeg(
     if (!isHandedOver(error)) await observer.onExecutionError({ ...event, error: asError(error) });
     throw error;
   }
-  if (result.pause !== undefined) await observer.onExecutionPause({ ...event, pause: result.pause });
+  if (result.pause !== undefined)
+    await observer.onExecutionPause({ ...event, pause: result.pause });
   else if (result.finish !== undefined)
     await observer.onExecutionEnd({ ...event, finish: result.finish, spend: result.spend });
   return result;

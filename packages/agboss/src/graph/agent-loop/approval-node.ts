@@ -67,7 +67,9 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/prefer-nullish-coalescing
       const pName: string = policy.constructor.name || "UnknownPiiPolicy";
       const input = { feedback, overrideArgs };
-      await reportNodeEvent((base) => deps.observer?.onPiiPolicyStart({ ...base, name: pName, input }));
+      await reportNodeEvent((base) =>
+        deps.observer?.onPiiPolicyStart({ ...base, name: pName, input }),
+      );
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (feedback !== undefined && typeof policy.mask === "function") {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -79,7 +81,9 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
         overrideArgs = await policy.maskJson(overrideArgs);
       }
       const update = { feedback, overrideArgs };
-      await reportNodeEvent((base) => deps.observer?.onPiiPolicyEnd({ ...base, name: pName, update }));
+      await reportNodeEvent((base) =>
+        deps.observer?.onPiiPolicyEnd({ ...base, name: pName, update }),
+      );
     }
 
     const recorded =

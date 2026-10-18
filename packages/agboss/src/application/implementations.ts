@@ -3,6 +3,7 @@ import type { Class, Provider } from "../components/injection.js";
 import { tokenName } from "../components/injection.js";
 import {
   INFRASTRUCTURE_DEFAULTS,
+  InMemoryCheckpointSaver,
   infrastructureContractOf,
 } from "../infrastructure/contracts.js";
 import { InMemoryCostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
@@ -53,21 +54,19 @@ export const implementationLine = (choice: ImplementationChoice): string =>
       : "built-in default: none listed"
   })`;
 
-/** The built-in in-memory classes: what is lost on restart and not shared by instances. */
+/**
+ * The built-in in-memory classes (and LangGraph's `MemorySaver` listed as it is): lost on restart,
+ * not shared by instances. A project's own subclass is its own choice and is not flagged.
+ */
 const IN_MEMORY: readonly Class[] = [
   InMemoryCostLedgerRepository,
   InMemoryPausedExecutionRepository,
+  InMemoryCheckpointSaver,
   MemorySaver,
 ];
 
-/** Whether the contract's implementation keeps its data in this process's memory. */
+/** Whether the contract's implementation is a built-in one that keeps its data in memory. */
 export function isInMemory(choices: readonly ImplementationChoice[], contract: Class): boolean {
   const choice = choices.find((found) => found.contract === contract);
-  if (choice === undefined) return false;
-  const { implementation } = choice;
-  return IN_MEMORY.some(
-    (cls) =>
-      implementation === cls ||
-      Object.prototype.isPrototypeOf.call(cls.prototype, implementation.prototype),
-  );
+  return choice !== undefined && IN_MEMORY.includes(choice.implementation);
 }

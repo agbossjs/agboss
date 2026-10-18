@@ -118,7 +118,12 @@ describe("#244 AC2: a run that fails after a resume, or is cancelled while pause
     const resumed = app.resume(paused.threadId, approve);
 
     await expect(resumed).rejects.toBeInstanceOf(AgentFailedError);
-    expect(hooks()).toEqual(["execution-start", "execution-pause", "execution-resume", "execution-error"]);
+    expect(hooks()).toEqual([
+      "execution-start",
+      "execution-pause",
+      "execution-resume",
+      "execution-error",
+    ]);
     expect(workflowEvents().at(-1)?.detail).toBe(await resumed.catch((error: unknown) => error));
     expectOneRun(paused);
   });

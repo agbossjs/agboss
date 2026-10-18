@@ -1,8 +1,4 @@
-import type {
-  StepDescriptor,
-  StepRecord,
-  WorkflowRecord,
-} from "../context/execution-context.js";
+import type { StepDescriptor, StepRecord, WorkflowRecord } from "../context/execution-context.js";
 import { currentFrame, type ExecutionFacts, type FrameSpec } from "../context/frame.js";
 
 /**
@@ -70,9 +66,7 @@ export function currentNodeEvent(): NodeEvent | undefined {
 }
 
 /** Reports a node event of the current step; outside any step (a bare graph) nothing is reported. */
-export async function reportNodeEvent(
-  report: (base: NodeEvent) => unknown,
-): Promise<void> {
+export async function reportNodeEvent(report: (base: NodeEvent) => unknown): Promise<void> {
   const base = currentNodeEvent();
   if (base !== undefined) await report(base);
 }

@@ -192,20 +192,22 @@ describe("agent-loop coverage", () => {
       observer,
     };
     const node = makeApprovalNode(deps);
-    await inTestFrame(() => node(
-      {
-        decisions: {},
-        results: {},
-        pendingPause: undefined,
-        move: {
-          tool_calls: [
-            { name: "t1", id: "c1", type: "function", function: { name: "t1", arguments: "{}" } },
-          ],
+    await inTestFrame(() =>
+      node(
+        {
+          decisions: {},
+          results: {},
+          pendingPause: undefined,
+          move: {
+            tool_calls: [
+              { name: "t1", id: "c1", type: "function", function: { name: "t1", arguments: "{}" } },
+            ],
+          },
+          runId: "1",
         },
-        runId: "1",
-      },
-      {},
-    ));
+        {},
+      ),
+    );
     expect(observer.onPiiPolicyStart).toHaveBeenCalled();
   });
 
@@ -300,20 +302,22 @@ describe("agent-loop missing branches coverage", () => {
       observer,
     };
     const node = makeApprovalNode(deps);
-    await inTestFrame(() => node(
-      {
-        decisions: {},
-        results: {},
-        pendingPause: undefined,
-        move: {
-          tool_calls: [
-            { name: "t1", id: "c1", type: "function", function: { name: "t1", arguments: "{}" } },
-          ],
+    await inTestFrame(() =>
+      node(
+        {
+          decisions: {},
+          results: {},
+          pendingPause: undefined,
+          move: {
+            tool_calls: [
+              { name: "t1", id: "c1", type: "function", function: { name: "t1", arguments: "{}" } },
+            ],
+          },
+          runId: "1",
         },
-        runId: "1",
-      },
-      {},
-    ));
+        {},
+      ),
+    );
     expect(observer.onPiiPolicyStart).toHaveBeenCalled();
   });
 });

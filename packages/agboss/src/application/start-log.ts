@@ -61,7 +61,9 @@ export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWa
   const choices = implementationsOf(sources.providers);
   const inMemory = (contract: Class): boolean => isInMemory(choices, contract);
   return [
-    ...(hasPeriodBudget(sources.budgets) && inMemory(CostLedgerRepository) ? [IN_MEMORY_LEDGER] : []),
+    ...(hasPeriodBudget(sources.budgets) && inMemory(CostLedgerRepository)
+      ? [IN_MEMORY_LEDGER]
+      : []),
     ...(canPause(sources.workflows) &&
     (inMemory(PausedExecutionRepository) || inMemory(BaseCheckpointSaver))
       ? [IN_MEMORY_PAUSES]

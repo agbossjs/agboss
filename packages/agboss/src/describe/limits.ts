@@ -45,9 +45,7 @@ export function limitLines(bundle: AssembledWorkflow): string[] {
   const { least, most } = limits.steps;
   const steps = most === undefined ? `${String(least)}+` : `${String(least)}–${String(most)}`;
   const source = limits.isMaxStepsSet ? "set" : "default: (agents + routers) × 3";
-  const visits = Object.entries(limits.maxVisits).map(
-    ([node, max]) => `${node} ${String(max)}`,
-  );
+  const visits = Object.entries(limits.maxVisits).map(([node, max]) => `${node} ${String(max)}`);
   return [
     "limits",
     `  maxSteps ${String(limits.maxSteps)} (${source}) · steps ${steps}`,

@@ -623,7 +623,7 @@ Every component reads the execution it runs in through its constructor (#280):
 services alike; there is no `ctx` parameter. It is data only and read-only, and every read gives the
 current execution and step (one frame per node visit and per tool call), so it is safe in an
 component (one instance for the app) and in parallel branches. One execution has one id: its observer events
-(`state.runId`), `executionContext.executionId`, its Tern (`Tern.runId`), its trace and its result
+(`event.executionId`), `executionContext.executionId`, its Tern (`Tern.runId`), its trace and its result
 (`ExecutionOutput.runId`) carry the same one, also after a resume. What a node reads comes in its
 input — for a model, its input message (each `input` field as `### field (from producer)`), never
 through `{{input.…}}` in its instructions (`[prompt.input-in-instructions]`); the context carries no
@@ -697,27 +697,33 @@ all there is (`weight`, a positive integer, default 1, is the tenant's share for
 `@Application({ tenantContext: ShopTenantContext, executionContext: ShopExecutionContext })` — its
 own subclasses with DTO field decorators, identity only, never secrets — gets their values typed
 per start (`tenant: ContextValues<ShopTenantContext>`, `execution: …`), checked before the first
-step (invalid → `dto.invalid`, an `onRunRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pause.args`) have the input DTO's
+step (invalid → `dto.invalid`, an `onExecutionRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pause.args`) have the input DTO's
 `sensitive` fields masked as `***`; the tool itself still gets them whole.
 
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
 the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an
-`onRunRejected`), before anything is written: no thread (a new one is created once the budgets pass), no record, no model call.
+`onExecutionRejected`), before anything is written: no thread (a new one is created once the budgets pass), no record, no model call.
 
-`execute` and `resume` forward `signal`, `metadata`, `onStream` (token and tool-call events) and
-`configurable` (extra LangGraph keys; the framework's own win). `app.cancel(threadId)` aborts a running
+`execute` and `resume` forward `signal`, `onStream` (token and tool-call events) and
+`configurable` (extra LangGraph keys; the framework's own win). There is no untyped `metadata` or
+`executionContext` option (#261): what an execution carries is its typed context values — a
+channel, a guardrail or any component reads them through its injected `ExecutionContext`
+(`this.executionContext.tenant.tenantId`, the project's own fields), and an MCP session
+(`createMcpService(app, Mcp).connect(transport, { tenant, execution, ownerId })`) or an A2A call
+(`adapter.execute(Start, request, onEvent, { tenant, execution, ownerId })`) passes them from its
+authenticated caller. `app.cancel(threadId)` aborts a running
 run — it stops before its next model or tool call and `execute` rejects with
 `WorkflowCancelledError` — or drops a paused one, whose `resume` then throws `NotPausedError`;
 `cancelled` is `false` when the thread had neither (a thread the tenant does not have is
 `UnknownThreadError`). From `app.close()` on, `execute` and `resume`
-are refused with `ApplicationStoppingError` (`app.stopping`, an `onRunRejected`); running executions
+are refused with `ApplicationStoppingError` (`app.stopping`, an `onExecutionRejected`); running executions
 go on and `cancel` still works. An execution tree is moved by one holder at a time (#265, Q58):
 `execute` and `resume` hold its lease (`seconds(30)`, renewed every 10 s and before every checkpoint
 write, released when the pass ends). A `resume` first records its decision — of two resumes of one
 pause the second gets `NotPausedError` — then waits while another call or instance holds the lease,
 and returns the tree's current output once the holder took its decision. An instance that lost the
 lease (frozen past it) stops and its call rejects with `ExecutionLeaseLostError`
-(`execution.lease-lost`) — no `onError`, no failed record: the new holder continues (Wiki →
+(`execution.lease-lost`) — no `onExecutionError`, no failed record: the new holder continues (Wiki →
 Several-instances).
 
 An execution's record is `ExecutionRecordStatus.Running` while its tree moves. **Recovery** (#265):
@@ -725,13 +731,13 @@ every instance looks for `running` roots at its start and every 30 s, takes the 
 holder died (its lease expired) or stopped (released it), and continues it from its last
 checkpoint — a decision recorded meanwhile first — so only the interrupted step runs again; a root
 started under another config is left to a compatible instance (logged once), unless
-`onIncompatibleResume` says `"resume"`. Observers get `onWorkflowResume` with
+`onIncompatibleResume` says `"resume"`. Observers get `onExecutionResume` with
 `reason: ResumeReason.Recovered` (`ResumeReason.Answered` for `app.resume`). With the in-memory
 defaults nothing survives a restart, so recovery needs persistent stores — the SQLite ones on one
 machine. **`app.close()`** stops
 the sweep, runs `onStop`, waits for the running executions up to the shutdown timeout —
 `@Application({ shutdownTimeout })`, `app.close({ timeout })`, default `seconds(25)` — then
-interrupts them: each call rejects with `ApplicationStoppingError`, without `onError`, releases its
+interrupts them: each call rejects with `ApplicationStoppingError`, without `onExecutionError`, releases its
 lease at once and stays `running`, so another instance continues it without waiting for the lease
 to expire. `createApp` calls `app.close()` on SIGTERM / SIGINT (a second signal interrupts at once)
 until the close finishes; `testWith` never listens.
@@ -752,49 +758,93 @@ In unit tests, `testExecutionContext({ … })` from
 `tenant` and `tenant.application` are set with `{ tenantContext, tenant, application: {
 environment } }`.
 
-Observers see a run's workflow, agent, router, tool, model, guardrail, policy, action, channel and
-judge start/end events. `onWorkflowStart` fires once per run (at `execute`); a run that pauses emits
-`onWorkflowPause` (`event.pause`: what it waits for), `app.resume` emits `onWorkflowResume`
-(`event.decision`), and `onWorkflowEnd` / `onError` fire when the run finishes or fails — also
-after a resume; cancelling a paused run is an `onError` with `WorkflowCancelledError`. Every event
-carries the run's one `runId` and its real `threadId`. A request refused before a run starts or is
-located — another owner's thread, a `resume` with nothing paused, an `execute` on an unknown thread
-or with an invalid start input, a request after `app.close()` — emits `onRunRejected` (`operation`, `threadId` when given, the
-error's stable `code`, a `message` without the input values; never a `runId`) and still throws. A
-resume refused as incompatible after a deploy (`IncompatibleResumeError`) is an `onError` on the
-paused run, with its `runId` and thread; the run stays paused. A write that renews a value of the
-path scope outdates what was built from the older one: `onValuesOutdated` fires once per such
-cascade (the step, the new value, each outdated value with its `OutdatedReason`; never DTO values),
-and `result.record.outdatedValues` keeps the values themselves. Only classes listed in `@Workflow({ observers: [...] })` are called; the
-container creates them at app start, with their `deps`. Each hook has its own interface and payload
-type; assembly rejects an observer with no hook or with a misspelled one (`did you mean onToolEnd?`).
-An observer that throws is reported as a process warning and never fails the run.
+Observers are registered only in `@Application({ observers: [...] })` (#261) — one instance each,
+created by the container at start with their `deps`, called for every execution of the
+application (filter by `event.workflow.name === nameOf(SupportWorkflow)`); none listed → none is
+called. Each hook gets one event object, plain data, never the framework's internal state. Every
+execution event (`ExecutionEvent`) carries `executionId`, `parentExecutionId`, `rootExecutionId`,
+`threadId`, `tenantId` and `workflow` — a `WorkflowRecord` `{ name, version, startedVersion }`, no
+class; a node event (agent, router, tool, model, knowledge base, guardrail, PII policy, action,
+channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`) adds `step`, a `StepRecord`
+(`component: { name }`, `nodeId`, `visitNumber`, `copyNumber`, `itemIndex`, `idempotencyKey`,
+`callId`) — the serialized `executionContext.step`. `onExecutionStart` fires once per execution (at
+`execute`); one that pauses emits `onExecutionPause` (`event.pause`: what it waits for), `app.resume`
+and recovery emit `onExecutionResume` (`event.reason`, `event.decision`), `onExecutionEnd` fires once
+when it ends at a finish (`event.finish`: a `ComponentRecord`, `event.spend`) and
+`onExecutionError` when it fails (`event.error`) — also after a resume; cancelling a paused
+execution is an `onExecutionError` with `WorkflowCancelledError`. A request refused before an
+execution starts or is located — another owner's thread, a `resume` with nothing paused, an
+`execute` on an unknown thread or with an invalid input, an exhausted budget, a request after
+`app.close()` — emits `onExecutionRejected` (`operation`: `ExecutionOperation.Execute | Resume |
+Cancel`, `threadId` when given, `tenantId`, the error's stable `code`, a `message` without the input
+values; never an `executionId`) and still throws. A resume refused as incompatible after a deploy
+(`IncompatibleResumeError`) is an `onExecutionError` on the paused execution; it stays paused. A
+write that renews a value of the path scope outdates what was built from the older one:
+`onValuesOutdated` fires once per such cascade (the new value, each outdated value with its
+`OutdatedReason`; never DTO values), and `result.record.outdatedValues` keeps the values themselves.
+Assembly rejects an observer with no hook or with a misspelled one (`did you mean onToolEnd?`); an
+observer that throws is a warning in the application's log (`observer.failed`) and never fails the
+execution.
 
 ```ts
 import {
+  Application,
+  EmptyEnvironment,
   Injectable,
-  type AppState,
   type AgentStartEvent,
+  type ExecutionEndEvent,
+  type ExecutionRejectedEvent,
   type OnAgentStart,
-  type OnRunRejected,
-  type OnWorkflowStart,
-  type RunRejectedEvent,
+  type OnExecutionEnd,
+  type OnExecutionRejected,
 } from "agboss";
 
-// listed in the workflow: @Workflow({ …, observers: [MetricsObserver] })
 @Injectable()
-export class MetricsObserver implements OnWorkflowStart, OnAgentStart, OnRunRejected {
-  onWorkflowStart(state: AppState) {
-    console.log(`Run ${state.runId} started`);
+export class MetricsObserver implements OnExecutionEnd, OnAgentStart, OnExecutionRejected {
+  onExecutionEnd(event: ExecutionEndEvent): void {
+    console.log(`${event.workflow.name} ${event.executionId} (tenant ${event.tenantId}) cost $${event.spend.totalUsd}`);
   }
-  onAgentStart(event: AgentStartEvent) {
-    console.log(`Agent ${event.name} started in run ${event.state.runId}`);
+  onAgentStart(event: AgentStartEvent): void {
+    console.log(`${event.step.component.name} visit ${event.step.visitNumber} of ${event.executionId}`);
   }
-  onRunRejected(event: RunRejectedEvent) {
-    console.log(`${event.operation} refused: ${event.code}`);
+  onExecutionRejected(event: ExecutionRejectedEvent): void {
+    console.log(`${event.operation} refused for ${event.tenantId}: ${event.code}`);
   }
 }
+
+@Application({
+  name: "metrics-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [],
+  observers: [MetricsObserver], // the only place observers are registered
+})
+export class MetricsApplication {}
 ```
+
+### The framework's log
+
+The framework logs through the application's `Logger` (#261) — infrastructure like the `Clock`:
+the built-in `ConsoleLogger` writes one line per entry to standard error; your own `extends Logger`
+(`write(entry: LogEntry)`) goes in `@Application({ providers })`. At start, once, it logs only what
+the decorators say — what started, and the worst case of one call of each start in counts — then
+the startup warnings; no project code is called (no `maxSpend()`), nothing per tenant:
+
+```text
+15:02:11 INFO  Started job-scout-application 1.0.0 — environment prod, host scout-7f3a, process 41237
+15:02:11 INFO  Worst case of one chat-workflow-start call: 1 workflow execution, 1 at the same time, 12 agent and router steps
+```
+
+While it runs it logs only problems of the system — `LogLevel.Warn` at risk (a recovery left to a
+compatible instance, an observer that threw), `LogLevel.Error` broken (a failed recovery, a failed
+close) — each with its stable `code` and the `executionId` / `tenantId` it is about. One execution's
+details are its trace, a tenant's spend is the cost ledger, a rejected execution is an observer
+event. The startup warnings (`app.warnings`) include the **assembly warnings**: tenant or
+application budgets on the built-in in-memory cost ledger (`[application.in-memory-cost-ledger]`:
+each instance counts on its own, the counters reset on restart) and pauses possible with the
+built-in in-memory paused executions or checkpoints (`[application.in-memory-pauses]`) — errors
+under `agboss check --strict`, silent in tests (`testWith` logs no start and no warning; an unlisted
+logger is silent there).
 
 ## FinOps
 
@@ -818,7 +868,7 @@ and no workflow has two (`[budget.duplicate-execution-budget]`,
 execution, at its start, in its `ExecutionContext` (a budget injects it, or the project's tenant
 context, or a service such as billing — a trusted source, never the request body) and kept for the
 whole execution, a resume included; the ledger keeps the last one read. Before the first step every
-budget is checked — one exhausted rejects the execution (`onRunRejected`); every model call's real
+budget is checked — one exhausted rejects the execution (`onExecutionRejected`); every model call's real
 cost is then counted in all of them, and before the next step or model call the first exhausted
 stops the execution with `BudgetExceededError` — `budget` (`{ name }`), `scope`, `key` (the
 application's name, the `tenantId` or the execution's id), `maxSpend`, `spent`, and a sentence:

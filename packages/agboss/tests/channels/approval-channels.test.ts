@@ -31,6 +31,23 @@ async function pausedRefund(book: ScriptBook) {
   return { app, desk, paused };
 }
 
+describe("#261: a channel reads the execution through its ExecutionContext", () => {
+  it("the ask is made inside the paused step: the injected context gives its tenant", async () => {
+    const book = new ScriptBook();
+    book
+      .scriptOf("agent:clerk-agent")
+      .thenReturn(callTool(Refund, { orderId: "A-1" }), replyWith("Refunded."));
+    const app = await createApp(RefundsApplication, offline(book));
+    const desk = app.resolve(ApprovalDesk);
+
+    await execute(app, ChatStart, { text: "refund order A-1" }, { tenant: { tenantId: "acme" } });
+
+    expect(desk.tenants).toEqual(["acme"]);
+    expect(desk.posted[0]).not.toHaveProperty("metadata");
+    await app.close();
+  });
+});
+
 describe("#188: approval through a @Channel", () => {
   it("AC1: a tool with a channel that pauses asks that channel exactly once", async () => {
     const book = new ScriptBook();

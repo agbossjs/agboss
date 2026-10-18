@@ -53,7 +53,9 @@ class RunRecorder
     OnExecutionError
 {
   onExecutionStart(event: ExecutionStartEvent): void {
-    events.push(`execution-start:${event.executionId.startsWith("run-") ? "run" : event.executionId}`);
+    events.push(
+      `execution-start:${event.executionId.startsWith("run-") ? "run" : event.executionId}`,
+    );
   }
   onExecutionEnd(event: ExecutionEndEvent): void {
     events.push("execution-end");
@@ -100,7 +102,11 @@ describe("a registered observer", () => {
       expect(toolEvents[0]).toMatchObject({ agentName: "worker-agent", arguments: { text: "hi" } });
       expect(agentStarts[0]).toMatchObject({ name: "worker-agent" });
       expect(results).toEqual([
-        expect.objectContaining({ executionId: result.runId, finish: result.finish, spend: result.spend }),
+        expect.objectContaining({
+          executionId: result.runId,
+          finish: result.finish,
+          spend: result.spend,
+        }),
       ]);
     },
   );

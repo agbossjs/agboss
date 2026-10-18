@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { CommandContext } from "../../src/cli/context.js";
 import { regenerateFlowTypes } from "../../src/cli/flow-types.js";
-import { envelope, fixture, agboss } from "./agboss.js";
+import { CHECKS_RUN, envelope, fixture, agboss, ledgerWarning } from "./agboss.js";
 
 /** `agboss check` / `agboss generate` write `.agboss/types.d.ts` for v2 workflows (#270 AC13, #272 S2, S7). */
 
@@ -33,9 +33,7 @@ describe("#270 AC13: agboss check writes .agboss/types.d.ts", () => {
     const call = await agboss(["check", "--workflow", PARTS], cwd);
 
     expect(call).toMatchObject({ code: 0, stderr: "" });
-    expect(call.stdout).toBe(
-      `${NOTE}\ntypes: .agboss/types.d.ts\nok: ${PARTS} — assembly, environment, prompts, types\n`,
-    );
+    expect(call.stdout).toBe(`${NOTE}\ntypes: .agboss/types.d.ts\nok: ${PARTS} — ${CHECKS_RUN}\n`);
     expect(readFileSync(typesOf(cwd), "utf8")).toContain('"six-parts-agent": SummaryDto;');
   });
 
@@ -49,7 +47,7 @@ describe("#270 AC13: agboss check writes .agboss/types.d.ts", () => {
     expect(envelope(call)).toMatchObject({
       ok: true,
       result: {
-        checks: ["assembly", "environment", "prompts", "types"],
+        checks: ["assembly", "environment", "application", "prompts", "types"],
         problems: [],
         types: ".agboss/types.d.ts",
       },
@@ -75,7 +73,7 @@ describe("#270 AC13: agboss check writes .agboss/types.d.ts", () => {
     const call = await agboss(["check", "--workflow", STAR], cwd);
 
     expect(call.stdout).toBe(
-      `types: .agboss/types.d.ts\nok: ${STAR} — assembly, environment, prompts, types\n`,
+      `types: .agboss/types.d.ts\n${ledgerWarning(STAR)}ok: ${STAR} — ${CHECKS_RUN}\n`,
     );
     expect(existsSync(typesOf(cwd))).toBe(true);
   });

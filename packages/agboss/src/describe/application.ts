@@ -5,11 +5,7 @@ import {
   implementationsOf,
   type ImplementationChoice,
 } from "../application/implementations.js";
-import {
-  assemblyWarningsOf,
-  warningText,
-  type AssemblyWarning,
-} from "../application/start-log.js";
+import { assemblyWarningsOf, warningText, type AssemblyWarning } from "../application/start-log.js";
 import { budgetOf, BudgetScope, type BudgetMeta } from "../budgets/budget.js";
 import type { Class } from "../components/injection.js";
 import { tokenName } from "../components/injection.js";
@@ -96,7 +92,9 @@ export function applicationWarningsOf(bundle: AssembledWorkflow): readonly Assem
 }
 
 /** The application that lists the workflow, described; `undefined` for a workflow on its own. */
-export function describedApplicationOf(bundle: AssembledWorkflow): DescribedApplication | undefined {
+export function describedApplicationOf(
+  bundle: AssembledWorkflow,
+): DescribedApplication | undefined {
   const declaration = applicationOfWorkflow(bundle.graph.type);
   if (declaration === undefined) return undefined;
   const { options } = declaration;

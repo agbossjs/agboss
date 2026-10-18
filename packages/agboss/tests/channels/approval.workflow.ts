@@ -1,6 +1,7 @@
 import {
   Agent,
   Channel,
+  ExecutionContext,
   InboundChannelAdapter,
   Injectable,
   InjectionToken,
@@ -26,6 +27,8 @@ import { EmptyEnvironment } from "../../src/index.js";
 export class ApprovalDesk {
   readonly posted: ChannelRequest[] = [];
   readonly refunded: string[] = [];
+  /** The tenant each ask was made for, read from the injected `ExecutionContext` (#261). */
+  readonly tenants: string[] = [];
 }
 
 /** A reply as a chat app delivers it (a button click), not as the framework's decision. */
@@ -47,12 +50,20 @@ export class ButtonClickAdapter implements InboundChannelAdapter<ButtonClick> {
 }
 
 /** A chat-app channel: posts the ask somewhere (here: the desk it depends on). */
-@Channel({ name: "chat-app", inboundAdapter: ButtonClickAdapter, deps: [ApprovalDesk] })
+@Channel({
+  name: "chat-app",
+  inboundAdapter: ButtonClickAdapter,
+  deps: [ApprovalDesk, ExecutionContext],
+})
 export class ChatAppChannel implements ChannelHandler {
-  constructor(private readonly desk: ApprovalDesk) {}
+  constructor(
+    private readonly desk: ApprovalDesk,
+    private readonly executionContext: ExecutionContext,
+  ) {}
 
   requestApproval = (req: ChannelRequest): Promise<void> => {
     this.desk.posted.push(req);
+    this.desk.tenants.push(this.executionContext.tenant.tenantId);
     return Promise.resolve();
   };
 }

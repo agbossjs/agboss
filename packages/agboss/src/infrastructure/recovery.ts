@@ -138,7 +138,9 @@ class Sweeper implements RecoverySweep {
     if (this.#logged.has(text)) return;
     this.#logged.add(text);
     const { log } = this.sources;
-    (problem.isBroken ? log.error : log.warn)(code, text, { executionId, tenantId });
+    const subject = { executionId, tenantId };
+    if (problem.isBroken) log.error(code, text, subject);
+    else log.warn(code, text, subject);
   }
 }
 

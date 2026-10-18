@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { A2AClient, type A2AEvent } from "../../src/a2a/index.js";
+import { A2AAdapter, A2AClient, type A2AEvent } from "../../src/a2a/index.js";
 import { createApp } from "../../src/application/create-app.js";
 import { callTool, replyWith, failWith, ModelFailure } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { callerOf, DeskReply } from "./fixtures/caller.workflow.js";
 import {
+  AskStart,
   offline,
   QuickLookup,
   serve,
@@ -166,5 +167,34 @@ describe("#192 AC2: an A2A client agent calls a remote workflow and gets a valid
       name: "A2ARemoteError",
       response: { status: A2AStatus.Failed },
     });
+  });
+});
+
+describe("#261: an A2A call runs on the typed contexts its transport gives", () => {
+  it("execute with tenant values: the thread is the tenant's; a resume names it by tenantId", async () => {
+    const book = new ScriptBook();
+    book.scriptOf("agent:desk-agent").thenReturn(replyWith("one"), replyWith("two"));
+    const app = await createApp(RemoteDeskApplication, offline(book));
+    const adapter = new A2AAdapter(app);
+    const caller = { tenant: { tenantId: "acme" }, ownerId: "dana" };
+
+    const first = await adapter.execute(AskStart, { input: { text: "hi" } }, undefined, caller);
+    const second = await adapter.execute(
+      AskStart,
+      { input: { text: "again" }, thread: first.thread ?? "" },
+      undefined,
+      caller,
+    );
+    const elsewhere = app.cancel(first.thread ?? "");
+
+    expect([first.status, second.status]).toEqual([A2AStatus.Finished, A2AStatus.Finished]);
+    expect(second.thread).toBe(first.thread);
+    await expect(elsewhere).rejects.toThrow(/thread/i);
+    await expect(
+      app.cancel(first.thread ?? "", { tenantId: "acme", ownerId: "dana" }),
+    ).resolves.toEqual({
+      cancelled: false,
+    });
+    await app.close();
   });
 });

@@ -21,7 +21,9 @@ async function rejectionsOf(
   for (const judge of deps.agent.judges ?? []) {
     const input = { reply, task: state.inputMessage, attempt: state.retries };
     const event = { name: judge.name, agentName: agent };
-    await reportNodeEvent((base) => deps.observer?.onJudgeStart({ ...base, ...event, input: reply }));
+    await reportNodeEvent((base) =>
+      deps.observer?.onJudgeStart({ ...base, ...event, input: reply }),
+    );
     const verdict: JudgeVerdict = await runJudgeCall(meteredModel(judge, spent), () =>
       judge.handler.judge(input),
     ).catch((error: unknown) => {

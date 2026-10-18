@@ -70,7 +70,6 @@ const leasedDeps = (deps: AppDeps, lease: HeldExecutionLease): AppDeps =>
 /** The tree's key in the stores: its tenant and its root execution. */
 const treeOf = (state: TreeState) => ({ tenantId: state.tenantId, rootExecutionId: state.runId });
 
-
 class TreeMover implements TreeMoves {
   /** The roots a resume of this instance is moving or about to move: its own sweep leaves them. */
   readonly #resuming = new RootCalls();

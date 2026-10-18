@@ -71,7 +71,7 @@ describe("agboss create / agboss generate end to end", () => {
     expect(out).toContain("desk-workflow 0.1.0");
     // #272: the generated workflow is one path — start → main router → an agent → the finish
     expect(out).toContain(FLOW_OF(["TriageAgent", "AnswererAgent"]));
-    expect(out).toContain("limits    steps 2–2 (maxSteps 9)");
+    expect(out).toContain("  maxSteps 9 (default: (agents + routers) × 3) · steps 2–2");
     // create wires the MCP server and the knowledge base into the first agent
     expect(out).toMatch(
       /triage-agent .*\n\s+Sorts requests\n\s+limits: .*\n\s+rag: desk_notes \(tool, k 3\)/,
