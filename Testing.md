@@ -147,7 +147,7 @@ A Vitest `test` whose fixtures are:
 | `mockOf`  | a typed mock injected instead of a component (a budget too: `mockOf(TenantDailyBudget).maxSpend`) |
 | `mcpOf`   | the stub of an MCP server                                                                  |
 | `apps`    | with `testWith(App, { instances: 2 })`: every instance of the application (`apps[0]` is `app`), each its own container and instance id, over one set of stores and one clock ([Several instances](Several-instances#testing-several-instances)) |
-| `clock`   | the test's clock, shared by its instances: `await clock.advance(seconds(31))` |
+| `clock`   | the test's [`VirtualClock`](#the-clock) — the application's `Clock`, shared by its instances: `await clock.advance(seconds(31))` |
 | `recoverApp` | `await recoverApp()` closes the current app (its `onStop` hooks run, as on a real stop) and returns a new one over the same test state (the infrastructure the first app created — checkpoints, records, ledger, paused executions — the clock, the ids); the closed app fails every call with `test.app-closed` |
 
 The whole application is assembled when the test starts: a broken workflow fails every test of
@@ -324,7 +324,59 @@ outdated value reached the model.
 - `await app.clock.advance("25h")` moves the time (units `ms`, `s`, `m`, `h`, `d`, or a value with
   its unit, `seconds(31)`): the per-day limit (`limits.perDay.cost`) starts a new UTC day. The work
   already started first reaches its next wait; then the time jumps and the framework's waits that
-  are due — lease renewals, a resume waiting for a tree's lease — wake in time order.
+  are due wake in time order ([The clock](#the-clock)).
+
+## The clock
+
+All time in the framework is the application's `Clock` (#262) — `now()` and
+`sleep(delay, signal?)`, infrastructure like the stores: the system's clock, unless
+`@Application({ providers })` lists a class that `extends Clock`. In every test it is the test's
+**`VirtualClock`** (`agboss/testing`) — whatever the application lists, since the test controls the
+time — the `clock` fixture, `app.clock`, and what a component that injects `Clock` gets. `testWith` always runs on the `VirtualClock`, even when the application lists its own `Clock`: tests never run on real time.
+
+- It starts at `2026-01-05T09:00:00.000Z` (so days and ids are reproducible) and moves only by
+  `await clock.advance(…)`: the work already started first reaches its next wait, then the time
+  jumps and every wait that is due wakes in time order (two due at one moment: in the order they
+  began), each one's work running before the next wakes. A jump longer than a lease is a holder
+  frozen for that long.
+- What it moves, without real waiting: `applicationContext.startedAt`, the ledger's UTC day, the
+  records' times, every lease's `expiresAt` and its renewals, a resume waiting for a tree's lease,
+  the recovery sweep, the shutdown timeout, a tool's `timeoutMs`, a model call's timeout, the waits
+  between retries and a `429`'s `Retry-After` pause (the circuit breakers are shared by the whole
+  process and keep the system's time).
+- A unit test of a component that needs the time passes one itself: `new VirtualClock()` (or
+  `new VirtualClock(new Date("2026-03-01T00:00:00Z"))`).
+
+```ts
+import { Clock, Injectable } from "agboss";
+import { VirtualClock } from "agboss/testing";
+import { seconds } from "agboss/units";
+import { expect, it } from "vitest";
+
+@Injectable({ deps: [Clock] })
+export class ReminderService {
+  constructor(private readonly clock: Clock) {}
+
+  async remindLater(): Promise<Date> {
+    await this.clock.sleep(seconds(30));
+    return this.clock.now();
+  }
+}
+
+it("reminds after 30 seconds of the clock, at once", async () => {
+  const clock = new VirtualClock();
+  const reminded = new ReminderService(clock).remindLater();
+
+  await clock.advance(seconds(30));
+
+  expect((await reminded).toISOString()).toBe("2026-01-05T09:00:30.000Z");
+});
+```
+
+The framework reads no time any other way: `Date.now()`, `new Date()` and `Date()` without
+arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout` and the
+`node:timers` modules in its sources fail lint (`agboss/no-direct-time`, in `make check`) — the one
+real implementation, `SystemClock`, excepted.
 
 ## Three kinds of tests
 

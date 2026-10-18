@@ -3,6 +3,31 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the clock (#262, PR 1)
+
+- **`Clock` is public** (root `agboss`, an infrastructure contract): `now()` and
+  `sleep(delay, signal?)`. Every time the framework reads and every wait it makes goes through the
+  application's one clock — the ledger's day, records, leases and their renewals, the recovery
+  sweep, the shutdown timeout, a tool's `timeoutMs`, a model call's timeout, retry backoff and
+  `Retry-After` pauses. The system's clock unless `@Application({ providers })` lists a class that
+  `extends Clock` (created first; it may not depend on the contexts); in a workflow's `providers`
+  it is `[di.infrastructure-in-workflow]`. A component that needs the time injects it
+  (`deps: [Clock]`). [Testing → The clock](Testing#the-clock).
+- **`VirtualClock` is public** (`agboss/testing`): the `clock` fixture and `app.clock` are one
+  per test, the application's clock in every test (also when it lists its own); `new
+VirtualClock(start?)` in unit tests. **Breaking:** the `TestClock` type is gone — `VirtualClock`
+  in its place (`agboss migrate imports` rewrites the import); its `now` is a method, so
+  `clock.now()` reads as before but `clock.now` is no longer a function to pass around.
+- **Lint `agboss/no-direct-time`** fails `Date.now()`, `new Date()` / `Date()` without arguments,
+  `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout` and the `node:timers`
+  modules in the framework's sources (`SystemClock` excepted).
+- **`SqliteConnection` is a value export** (#265 S70): the DI token a subclass of a SQLite
+  implementation names. **Breaking** for a project that constructs one of them itself: the
+  constructors take `(connection, clock: Clock, applicationContext: ApplicationContext)` (the
+  leases and rate-limit slots), `(connection, clock)` (the ledger, the paused executions) —
+  [Several instances → Extending a SQLite implementation](Several-instances#extending-a-sqlite-implementation).
+- **Breaking:** the `clock` option of `createApp` / `createAppDeps` (`AppOptions`, `AppDepsOptions`) is removed — one way to set the clock: list a `Clock` subclass in `@Application({ providers })`; tests get the `VirtualClock` from `testWith`.
+
 ## Unreleased — child workflows in the grammar and the analyser (#263, PR 1)
 
 - **New: a workflow is a step** ([Workflow as a step](Workflow-as-a-step)): `.toWorkflow(W)`,

@@ -81,15 +81,16 @@ export const sqliteStores = [
   first one is created; two instances (two processes, or `testWith(App, { instances: 2 })`) open
   two connections to one file. The file is in WAL mode (readers never block the writer) with a
   `busy_timeout` of 5 s (a writer waits for the other's lock, then fails — it never hangs); the
-  connection is closed in `onDestroy` when the instance stops. `SqliteConnection` is exported as a type only (it
-  appears in the SQLite implementations' constructors); the container creates it — project code
-  never constructs it.
+  connection is closed in `onDestroy` when the instance stops. `SqliteConnection` is the DI token
+  of that connection (a subclass names it in its `deps`, [below](#extending-a-sqlite-implementation));
+  the container creates it — project code never constructs it.
 - **Atomic operations** — a lease `acquire`, a slot `acquire`, `saveIfAbsent`, a pause
   `Pending → Resolved`, a ledger counter — run in one `BEGIN IMMEDIATE` transaction, so of two
   instances exactly one wins; `renew` / `release` and the records' compare-and-set write are one
   statement each.
-- **Time comes from the framework's clock**, never from SQLite (`expiresAt`, the ledger's UTC day
-  are parameters), so `clock.advance(…)` moves SQLite leases in tests like in-memory ones.
+- **Time comes from the application's `Clock`** (#262, [Testing → The clock](Testing#the-clock)),
+  never from SQLite (`expiresAt`, the ledger's UTC day are parameters), so `clock.advance(…)` moves
+  SQLite leases in tests like in-memory ones.
 - `node:sqlite` is synchronous: a transaction is one group of statements with no `await`, and a
   busy wait blocks that instance's event loop for at most the busy timeout.
 - With them, what one process wrote is there for the next: `agboss run` / `chat --thread <id>`
@@ -98,6 +99,66 @@ export const sqliteStores = [
   is resumed after a restart, and another instance on the file recovers a run whose process
   died ([Recovery](#recovery)). job-scout lists all seven (`sqlitePath` in dev:
   `.agboss/job-scout.sqlite`, or `AGBOSS_SQLITE_PATH`).
+
+### Extending a SQLite implementation
+
+A SQLite implementation is a class like any other: a project `extends` it, `override`s what it
+changes and lists the subclass **instead of** it (both listed → `[di.ambiguous-implementation]`).
+The subclass takes the base class's dependencies first — every one a public token (#265 S70):
+`SqliteConnection`, the application's `Clock` and, for the leases and the rate-limit slots, the
+`ApplicationContext` (its `instanceId` is the holder of what this instance takes):
+
+| Implementation | Its `deps` |
+| --- | --- |
+| `SqliteCheckpointSaver`, `SqliteExecutionTreeRepository` | `[SqliteConnection]` |
+| `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository` | `[SqliteConnection, Clock]` |
+| `SqliteExecutionLeaseRepository`, `SqliteRateLimitRepository` | `[SqliteConnection, Clock, ApplicationContext]` |
+
+<!-- snippet-context
+import type { ExecutionLease } from "agboss";
+@Injectable()
+export class LeaseAuditService {
+  taken(_lease: ExecutionLease): void {}
+}
+-->
+
+```ts
+import {
+  ApplicationContext,
+  Clock,
+  Injectable,
+  SqliteConnection,
+  SqliteExecutionLeaseRepository,
+} from "agboss";
+import type { Milliseconds } from "agboss/units";
+
+/** The SQLite leases, each one taken written to the audit log as well. */
+@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext, LeaseAuditService] })
+export class AuditedSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRepository {
+  constructor(
+    connection: SqliteConnection,
+    clock: Clock,
+    applicationContext: ApplicationContext,
+    private readonly leaseAuditService: LeaseAuditService,
+  ) {
+    super(connection, clock, applicationContext);
+  }
+
+  override async acquire(
+    tenantId: string,
+    rootExecutionId: string,
+    lease: Milliseconds,
+  ): Promise<ExecutionLease | undefined> {
+    const taken = await super.acquire(tenantId, rootExecutionId, lease);
+    if (taken !== undefined) this.leaseAuditService.taken(taken);
+    return taken;
+  }
+}
+```
+
+The subclass still needs `sqlitePath` (`[environment.missing-field]` names it) and shares the
+instance's one connection. `SqliteExecutionRecordRepository` also takes the framework's internal
+thread-id source, so it is not subclassed by projects yet.
 
 ## The execution lease
 
@@ -217,8 +278,8 @@ export class ClaimSubtopicTool implements ToolHandler<SubtopicDto, SubtopicClaim
 
 A project's implementation `extends` the contract and is listed in `@Application({ providers })`
 (`<Qualifier><Contract>`, e.g. `RedisExecutionLeaseRepository`). Its operations are atomic, and every
-time value comes from the framework (`lease` is a duration, `expiresAt` a `Date`), never from the
-store's own clock:
+time value comes from the framework (`lease` is a duration, `expiresAt` a `Date`; the current time
+from the application's `Clock`, `deps: [Clock]`), never from the store's own clock:
 
 <!-- snippet-context
 @Injectable()
@@ -296,9 +357,11 @@ the store sees it), `await clock.advance(seconds(31))`, and the other instance's
 tree; or `await app.close({ timeout })` with an execution still running, and the other instance
 continues it at its next sweep.
 
-`await clock.advance(d)` lets the work already started reach its next wait, moves the time, then
-wakes every wait that is due in time order (lease renewals, a resume waiting for a lease) — a jump
-longer than the lease is a holder frozen for that long.
+`clock` is the test's `VirtualClock` — one for all the instances of the test, the `Clock` every one
+of them reads ([Testing → The clock](Testing#the-clock)). `await clock.advance(d)` lets the work
+already started reach its next wait, moves the time, then wakes every wait that is due in time
+order (lease renewals, a resume waiting for a lease, the recovery sweep) — a jump longer than the
+lease is a holder frozen for that long.
 
 ## Limits
 
