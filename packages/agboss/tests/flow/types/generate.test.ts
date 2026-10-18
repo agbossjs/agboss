@@ -89,10 +89,11 @@ describe("#270 AC13: agboss check generates .agboss/types.d.ts for the fixtures"
     const generated = generateFlowTypes(await requestFor(FIXTURE_WORKFLOWS));
 
     expect(generated.errors.map((found) => found.code)).toEqual([
+      "launch.item-not-read",
       "flow.unused-output",
       "input.missing-on-path",
       "router.policy-with-choose-one",
-    ]); // broken-offer-workflow is broken on purpose; topics-workflow waits for launches (#273)
+    ]); // the broken workflows are broken on purpose; topics-workflow keeps policies on .chooseOne(…)
     await expect(generated.text).toMatchFileSnapshot("./__snapshots__/fixtures.types.d.ts.snap");
   });
 

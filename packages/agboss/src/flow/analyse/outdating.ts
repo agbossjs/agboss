@@ -66,7 +66,7 @@ export function readSlots(
 }
 
 /** Whether a read value is an answer about one of the written slots (it does not count, rule 5). */
-const isAboutWritten = (
+export const isAboutWritten = (
   scope: AbstractScope,
   slot: SlotKey,
   written: ReadonlySet<SlotKey>,
@@ -139,7 +139,7 @@ export function stepAlong(
   scope: AbstractScope,
   provenance: Provenance,
 ): readonly OutdatingStep[] {
-  const origin = { producer: edge.from, builtFrom: builtFromOf(scope, edge, provenance) };
+  const origin = { producers: [edge.from], builtFrom: builtFromOf(scope, edge, provenance) };
   return afterWrites(scope, edge.writes, origin).map((write) =>
     outdate(scope, write.scope, write.written),
   );

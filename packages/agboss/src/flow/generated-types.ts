@@ -48,6 +48,17 @@ export interface ProducerOutputs {
   readonly [notGenerated]?: never;
 }
 
+/**
+ * What the join of each launch gives (#273), keyed by the launch as written —
+ * `toParallelAgents(researcher-agent, critic-agent, critic-agent)`,
+ * `support-router.toParallelAgents(…)`, `toParallelAgents(company-check-agent) per item`: one value
+ * per class the branches give (a tuple for several), `listOf` for copies and per-item runs,
+ * `optional` for a branch that may be missing; `NoOutput` when its actions give nothing.
+ */
+export interface JoinOutputs {
+  readonly [notGenerated]?: never;
+}
+
 /** Each node's input, path-sensitive (`Produced` fields; a plain DTO for tools). */
 export interface Inputs {
   readonly [notGenerated]?: never;
@@ -137,6 +148,13 @@ export type OutputOf<TInstance> = GeneratedEntry<Outputs, TInstance>;
 
 /** What a producer gives on the path (`.returns(…)` is checked against it). */
 export type ProducerOutputOf<TInstance> = GeneratedEntry<ProducerOutputs, TInstance>;
+
+/** What the join of a launch gives (`.join().returns(…)` is checked against it, #273). */
+export type JoinOutputOf<TKey extends string> = [TKey] extends [never]
+  ? MissingGeneratedTypes
+  : TKey extends keyof JoinOutputs
+    ? JoinOutputs[TKey]
+    : MissingGeneratedTypes;
 
 /** One target a router decides on (#280): the union of its routes' targets but `Always` ones. */
 export type Route<TInstance> = GeneratedEntry<Routes, TInstance>;

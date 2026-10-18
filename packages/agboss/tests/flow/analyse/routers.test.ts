@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
-import { launchViolations } from "../../../src/flow/analyse/rules/routers.js";
+import { launchViolations } from "../../../src/flow/analyse/rules/router-launch.js";
 import { NodeKind } from "../../../src/flow/ast.js";
 import { declarationOf, type RouterDeclaration } from "../../../src/flow/decorators/declaration.js";
 import { DecidedBy, Router, SpawnPolicy } from "../../../src/flow/decorators/router.js";
@@ -229,12 +229,12 @@ describe("#280: router rules for both kinds", () => {
     ]);
   });
 
-  it("the defaults per kind: a model router's route is Always, a code router's OnDemand", () => {
+  it("#273 S50: a model router's routes state spawn before a launch; a code router's default OnDemand", () => {
     expect(launchViolations("kit-router", routerDeclarationOf(KitRouter))).toEqual([
       {
-        code: "router.all-routes-always",
+        code: "router.spawn-required",
         message:
-          "kit-router: every route is spawn: SpawnPolicy.Always (a model router's default), so it decides nothing — set spawn: SpawnPolicy.OnDemand on the routes it chooses, or launch them with .toParallelAgents(…) without a router",
+          "kit-router: before .toParallelAgents(…) every route of a model router says spawn: SpawnPolicy.Always or SpawnPolicy.OnDemand — missing on edit-kit-agent, draft-kit-workflow-finish",
         nodes: ["kit-router"],
       },
     ]);

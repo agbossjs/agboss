@@ -92,6 +92,7 @@ export function printTypes(
     ...tableLines("WorkflowStarts", tables.workflowStarts),
     ...tableLines("Routes", tables.routes),
     ...tableLines("RouterAnswers", tables.routerAnswers),
+    ...tableLines("JoinOutputs", tables.joinOutputs),
     ...tableLines("DtoBrands", dtoBrands(names)),
   ];
   const brands = brandBlocks(names);

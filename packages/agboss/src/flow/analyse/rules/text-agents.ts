@@ -14,11 +14,14 @@ const isTextFinish = (node: FlowNode | undefined): boolean =>
   node?.declaration.kind === NodeKind.Finish &&
   node.declaration.options.output === WorkflowFinishTextDto;
 
+/** The edges a text agent's reply leaves by: its next step, and a launch from it (#273). */
+const LEAVING: ReadonlySet<EdgeKind> = new Set([EdgeKind.Next, EdgeKind.Launch, EdgeKind.Join]);
+
 export function textAgentRules(context: AnalysisContext): readonly RuleViolation[] {
   const { graph } = context;
   return graph.edges.flatMap((edge) => {
     const from = graph.nodes.get(edge.from);
-    if (from === undefined || !isTextAgent(from) || edge.kind !== EdgeKind.Next) return [];
+    if (from === undefined || !isTextAgent(from) || !LEAVING.has(edge.kind)) return [];
     if (isTextFinish(graph.nodes.get(edge.to))) return [];
     const message =
       `${from.name} answers with text (it has no output), so it leads only to a finish with ` +

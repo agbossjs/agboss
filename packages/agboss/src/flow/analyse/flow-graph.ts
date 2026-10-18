@@ -1,10 +1,11 @@
 import type { Class } from "../../components/injection.js";
 import { WorkflowFinishTextDto } from "../../dto/standard/framework.js";
-import { NodeKind, type ErrorClass } from "../ast.js";
+import { NodeKind, type ErrorClass, type LaunchTargetKind } from "../ast.js";
 import type { ComponentDeclaration } from "../decorators/declaration.js";
 import type { DtoClass } from "../../dto/types.js";
-import type { OutputShape, ValueShape } from "../dto-wrappers.js";
+import type { ListWrapper, OutputShape, ReturnedShape, ValueShape } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
+import type { JoinGroup } from "./join-groups.js";
 import { dtoLabel, shapeLabel } from "./labels.js";
 
 /**
@@ -25,6 +26,12 @@ export enum EdgeKind {
   Route = "route",
   /** `.onError(E, toAction(X)…)`: the step failed, so it wrote nothing. */
   Error = "error",
+  /** `.toParallelAgents(X)`: to one branch of a launch, with the scope at the launch (#273). */
+  Launch = "launch",
+  /** `.join()….to…(Y)`: from the launching step past its branches, with their values (#273). */
+  Join = "join",
+  /** `.join().onJoinError(E, toAction(X)…)`: the launch failed; the launching step's values only. */
+  JoinError = "join-error",
 }
 
 /**
@@ -46,13 +53,57 @@ export const valueWrite = (
   isCase: boolean,
 ): ValueWrite => (about === undefined ? { shape, isCase } : { shape, about, isCase });
 
+/** One target of a launch (#273): its node, how many copies, and whether it may be missing. */
+export interface LaunchBranch {
+  readonly node: ComponentName;
+  /** How many times the launch lists it (`toParallelAgents(CriticAgent, CriticAgent)`: 2). */
+  readonly copies: number;
+  /** Its router route is `SpawnPolicy.OnDemand` or `FailurePolicy.Skip`: the join may lack it. */
+  readonly isOptional: boolean;
+  /** Its router route is `SpawnPolicy.Always` + `FailurePolicy.FailFast` (or no router): it runs. */
+  readonly alwaysRuns: boolean;
+}
+
+/** A launch as the graph keeps it: who launches what, and how wide (#273). */
+export interface FlowLaunch {
+  /** The launching step: an agent, an action, a start or a router. */
+  readonly launcher: ComponentName;
+  readonly targetKind: LaunchTargetKind;
+  /** Distinct targets, in the order first listed. */
+  readonly branches: readonly LaunchBranch[];
+  /** The targets as listed, repeats included (the key of its `JoinOutputs` entry). */
+  readonly listed: readonly ComponentName[];
+  /** The list a per-item launch runs over: the `.returns(listOf(XDto))` right before it. */
+  readonly items?: ListWrapper;
+  readonly maxConcurrency?: number;
+  readonly maxItems?: number;
+  /** Launched right after a router: its routes' policies apply. */
+  readonly isRouterLaunch: boolean;
+}
+
+/** What a join edge carries besides the launching step's own values (#273). */
+export interface JoinEdge {
+  readonly launch: FlowLaunch;
+  /** `.join().returns(…)`: the branches' values, as written (a `oneOf(…)` is left to the rule). */
+  readonly values: readonly ValueWrite[];
+  /** The shapes written after `.join()`, for `[flow.returns-mismatch]` (a `oneOf(…)` included). */
+  readonly written: readonly ReturnedShape[];
+  /** What the branches give, by class: the values the join must name. */
+  readonly groups: readonly JoinGroup[];
+}
+
 export interface FlowEdge {
   readonly from: ComponentName;
   readonly to: ComponentName;
   readonly kind: EdgeKind;
+  /** The values of the step `from` (a launch edge adds a per-item branch's item last). */
   readonly writes: readonly ValueWrite[];
-  /** The class an `EdgeKind.Error` edge catches. */
+  /** The class an `EdgeKind.Error` / `EdgeKind.JoinError` edge catches. */
   readonly error?: ErrorClass;
+  /** `EdgeKind.Launch` and `EdgeKind.Join` / `EdgeKind.JoinError`: the launch (#273). */
+  readonly launch?: FlowLaunch;
+  /** `EdgeKind.Join`: what the branches give. */
+  readonly join?: JoinEdge;
 }
 
 /** A node of the graph: a decorated component and what its decorator recorded. */
@@ -105,7 +156,10 @@ export function edgeKey(edge: FlowEdge): string {
     (write) =>
       `${shapeLabel(write.shape)}@${(write.about ?? []).map(dtoLabel).join("+")}:${String(write.isCase)}`,
   );
-  return [edge.from, edge.to, edge.kind, edge.error?.name ?? "", writes.join(",")].join("|");
+  const joined = (edge.join?.written ?? []).map(shapeLabel).join(",");
+  return [edge.from, edge.to, edge.kind, edge.error?.name ?? "", writes.join(","), joined].join(
+    "|",
+  );
 }
 
 /** Edges leaving each node, in canonical order. */

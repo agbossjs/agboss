@@ -35,7 +35,15 @@ export type {
   Switching,
   Transitions,
 } from "../flow/builder-types.js";
-export type { Returning } from "../flow/returns-types.js";
+export type { JoinValues, Returning, StepValues, ValuesSource } from "../flow/returns-types.js";
+export type {
+  JoinErrorHandling,
+  Joined,
+  Launched,
+  LaunchOptions,
+  Launches,
+  RouterLaunches,
+} from "../flow/launch-types.js";
 export {
   NodeKind,
   StepKind,
@@ -43,6 +51,10 @@ export {
   type ChooseOneStep,
   type ErrorClass,
   type FlowPath,
+  type JoinErrorHandler,
+  type JoinStep,
+  type LaunchStep,
+  type LaunchTargetKind,
   type OnErrorStep,
   type PathSource,
   type ReturnedValue,
@@ -119,6 +131,8 @@ export {
   type GeneratedTypeError,
   type InputOf,
   type Inputs,
+  type JoinOutputOf,
+  type JoinOutputs,
   type MissingGeneratedTypes,
   type NoInput,
   type NoOutput,

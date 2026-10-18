@@ -1,6 +1,7 @@
 import type { RuleViolation } from "../../graph/rule-error.js";
 import { inputShapesOf, type FlowAnalysis } from "../analyse/analyse.js";
-import { reachableFrom, type FlowNode } from "../analyse/flow-graph.js";
+import { EdgeKind, reachableFrom, type FlowNode } from "../analyse/flow-graph.js";
+import { joinValueWrites } from "../analyse/launches.js";
 import { slotOfWrite } from "../analyse/scope.js";
 import type { InputShape } from "../analyse/projection.js";
 import { NodeKind, type ComponentClass } from "../ast.js";
@@ -13,6 +14,7 @@ import {
 import type { ComponentName } from "../registry.js";
 import type { ImportTable } from "./imports.js";
 import { inputEntry, type NodeInput } from "./inputs.js";
+import { joinEntries } from "./joins.js";
 import { outputText, startInputText, startOutputText, valueText } from "./shapes.js";
 
 /**
@@ -20,8 +22,9 @@ import { outputText, startInputText, startOutputText, valueText } from "./shapes
  * `ProducerOutputs` (what each start, agent and action gives on its path), `Inputs` (`InputOf<X>`),
  * `Outputs` (`OutputOf<X>`: what an action or a finish returns), `WorkflowStarts` (input and output
  * per start), `Routes` (`Route<R>`: the targets a router decides on — every route after
- * `.chooseOne(…)`, the `OnDemand` ones before a launch, #280) and `RouterAnswers` (what a code
- * router's `route()` returns). A component in
+ * `.chooseOne(…)`, the `OnDemand` ones before a launch, #280), `RouterAnswers` (what a code
+ * router's `route()` returns) and `JoinOutputs` (what the join of each launch gives, #273). A
+ * component in
  * several workflows gets one entry: the input shapes and the reachable finishes of all of them.
  */
 
@@ -65,6 +68,7 @@ export interface TypeTables {
   readonly workflowStarts: TypeTable;
   readonly routes: TypeTable;
   readonly routerAnswers: TypeTable;
+  readonly joinOutputs: TypeTable;
   /** S4 lines for `agboss check`: the nodes whose `InputOf` is flat. */
   readonly notes: readonly string[];
 }
@@ -78,6 +82,20 @@ function nodesOf(workflows: readonly AnalysedWorkflow[]): ReadonlyMap<ComponentN
   return new Map([...nodes].sort(([first], [second]) => first.localeCompare(second)));
 }
 
+/** The problems an input's type reports: the data rules, and a per-item target's unread item. */
+const isInputProblem = (found: RuleViolation): boolean =>
+  found.code.startsWith("input.") || found.code === "launch.item-not-read";
+
+/** The routers a launch follows, in any workflow: `route()` returns a list there (#280). */
+const launchingRouters = (workflows: readonly AnalysedWorkflow[]): ReadonlySet<string> =>
+  new Set(
+    workflows.flatMap(({ analysis }) =>
+      analysis.graph.edges
+        .filter((edge) => edge.kind === EdgeKind.Launch && edge.launch?.isRouterLaunch === true)
+        .map((edge) => edge.from),
+    ),
+  );
+
 function nodeInput(workflows: readonly AnalysedWorkflow[], name: ComponentName): NodeInput {
   const shapes = new Map<string, InputShape>();
   const problems = new Set<string>();
@@ -87,14 +105,20 @@ function nodeInput(workflows: readonly AnalysedWorkflow[], name: ComponentName):
     if (!analysis.graph.nodes.has(name)) continue;
     fields = (analysis.fields.get(name) ?? []).filter((field) => !field.isPassThrough);
     for (const field of fields.filter((candidate) => candidate.history !== undefined)) {
-      const writers = analysis.graph.edges
-        .filter((edge) => edge.writes.some((write) => slotOfWrite(write) === field.slot))
-        .map((edge) => edge.from);
+      const { edges } = analysis.graph;
+      const writers = [
+        ...edges
+          .filter((edge) => edge.writes.some((write) => slotOfWrite(write) === field.slot))
+          .map((edge) => edge.from),
+        ...joinValueWrites(edges)
+          .filter(({ write }) => slotOfWrite(write) === field.slot)
+          .flatMap(({ producers }) => producers),
+      ];
       versionProducers.set(field.name, [...(versionProducers.get(field.name) ?? []), ...writers]);
     }
     for (const shape of inputShapesOf(analysis, name)) shapes.set(JSON.stringify(shape), shape);
     for (const found of errors)
-      if (found.code.startsWith("input.") && found.nodes.includes(name))
+      if (isInputProblem(found) && found.nodes.includes(name))
         problems.add(`[${found.code}] ${found.message}`);
   }
   return {
@@ -157,8 +181,7 @@ function writeNode(
       return;
     case NodeKind.Router: {
       const { options } = declaration;
-      // `.chooseOne(…)`: the one form a flow has until #273 brings launches
-      const form = RouteForm.One;
+      const form = tables.launchingRouters.has(name) ? RouteForm.List : RouteForm.One;
       const targets = routeTargetsOf(options, form).map((target) => `typeof ${names.ref(target)}`);
       const route = targets.length === 0 ? "never" : [...new Set(targets)].sort().join(" | ");
       tables.routes.set(name, route);
@@ -179,6 +202,7 @@ interface MutableTables {
   readonly workflowStarts: Map<string, string>;
   readonly routes: Map<string, string>;
   readonly routerAnswers: Map<string, string>;
+  readonly launchingRouters: ReadonlySet<string>;
   readonly notes: string[];
 }
 
@@ -196,6 +220,7 @@ export function tablesOf(workflows: readonly AnalysedWorkflow[], names: ImportTa
     workflowStarts: new Map(),
     routes: new Map(),
     routerAnswers: new Map(),
+    launchingRouters: launchingRouters(workflows),
     notes: [],
   };
   for (const node of nodes.values()) {
@@ -206,5 +231,5 @@ export function tablesOf(workflows: readonly AnalysedWorkflow[], names: ImportTa
     tables.inputs.set(node.name, entry.type);
     if (entry.note !== undefined) tables.notes.push(entry.note);
   }
-  return tables;
+  return { ...tables, joinOutputs: joinEntries(workflows, names) };
 }

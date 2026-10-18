@@ -1,9 +1,11 @@
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import type { ComponentName } from "../../registry.js";
 import { statesOf } from "../dataflow.js";
-import { EdgeKind, type FlowEdge, type ValueWrite } from "../flow-graph.js";
+import { EdgeKind, type ValueWrite } from "../flow-graph.js";
+import { launchLabel } from "../join-groups.js";
+import { joinValueWrites } from "../launches.js";
 import { shapeLabel } from "../labels.js";
-import { slotOf, slotOfWrite, SlotStatus, type SlotKey } from "../scope.js";
+import { slotOf, slotOfValue, slotOfWrite, SlotStatus, type SlotKey } from "../scope.js";
 import type { AnalysisContext } from "./context.js";
 
 /**
@@ -17,9 +19,11 @@ import type { AnalysisContext } from "./context.js";
 /** `producer|slot`: which value was read. */
 const readKey = (producer: ComponentName, slot: SlotKey): string => `${producer}|${slot}`;
 
-/** Every value some field read on some reachable scope. */
+/** Every value some field read on some reachable scope; a per-item launch reads its list. */
 function collectReads(context: AnalysisContext): ReadonlySet<string> {
   const reads = new Set<string>();
+  for (const launch of context.walked.launches)
+    if (launch.items !== undefined) reads.add(readKey(launch.launcher, slotOfValue(launch.items)));
   for (const [node, fields] of context.fields) {
     for (const state of statesOf(context.dataflow, node)) {
       for (const field of fields) {
@@ -32,28 +36,43 @@ function collectReads(context: AnalysisContext): ReadonlySet<string> {
   return reads;
 }
 
-/** One value a step returned, on the edge it travels. */
+/** One value a step (or the branches of a join) returned, and who returned it. */
 interface ReturnedWrite {
-  readonly edge: FlowEdge;
   readonly write: ValueWrite;
+  readonly producers: readonly ComponentName[];
+  /** How the message names who returned it: `planner-agent`, `the join of …`. */
+  readonly label: string;
 }
 
+/** The edges a step's own values leave by: its next step, and its join (#273). */
+const RETURNING: ReadonlySet<EdgeKind> = new Set([EdgeKind.Next, EdgeKind.Join]);
+
 function returnedValues(context: AnalysisContext): readonly ReturnedWrite[] {
-  return context.graph.edges
-    .filter((edge) => edge.kind === EdgeKind.Next && context.dataflow.scopes.has(edge.from))
+  const reached = context.graph.edges.filter((edge) => context.dataflow.scopes.has(edge.from));
+  const own = reached
+    .filter((edge) => RETURNING.has(edge.kind))
     .flatMap((edge) =>
-      edge.writes.filter((write) => !write.isCase).map((write) => ({ edge, write })),
+      edge.writes
+        .filter((write) => !write.isCase)
+        .map((write) => ({ write, producers: [edge.from], label: edge.from })),
     );
+  const joined = joinValueWrites(reached).map(({ edge, write, producers }) => ({
+    write,
+    producers,
+    label: edge.launch === undefined ? edge.from : `the join of ${launchLabel(edge.launch)}`,
+  }));
+  return [...own, ...joined];
 }
 
 function valueViolations(
   value: ReturnedWrite,
   reads: ReadonlySet<string>,
 ): readonly RuleViolation[] {
-  const { edge, write } = value;
-  if (reads.has(readKey(edge.from, slotOfWrite(write)))) return [];
-  const message = `${edge.from} returns ${shapeLabel(write.shape)} that no node reads — read it in a node below, or remove it`;
-  return [violation("flow.unused-output", message, [edge.from])];
+  const { write, producers, label } = value;
+  const slot = slotOfWrite(write);
+  if (producers.some((producer) => reads.has(readKey(producer, slot)))) return [];
+  const message = `${label} returns ${shapeLabel(write.shape)} that no node reads — read it in a node below, or remove it`;
+  return [violation("flow.unused-output", message, [...producers])];
 }
 
 export function dataOutputRules(context: AnalysisContext): readonly RuleViolation[] {

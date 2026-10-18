@@ -1,7 +1,8 @@
 import type { ComponentName } from "../registry.js";
 import type { ResolvedField } from "./fields.js";
 import { outgoingEdges, type FlowGraph } from "./flow-graph.js";
-import { provenanceOf, stepAlong, type Provenance } from "./outdating.js";
+import { stepOf } from "./launches.js";
+import { provenanceOf, type Provenance } from "./outdating.js";
 import { EMPTY_SCOPE, scopeKey, type AbstractScope } from "./scope.js";
 
 /**
@@ -99,7 +100,7 @@ export function runDataflow(
     const state = worklist.state(ref);
     if (state === undefined) continue;
     for (const edge of edges.get(ref.node) ?? []) {
-      for (const step of stepAlong(edge, state.scope, provenance)) {
+      for (const step of stepOf(edge, state.scope, provenance)) {
         worklist.add(edge.to, step.scope, state.depth + 1, ref);
       }
     }
