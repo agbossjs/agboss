@@ -29,7 +29,10 @@ import {
   SettingsApplication,
 } from "../fixtures/environments/app/settings.workflow.js";
 import { NoEnvironmentApplication } from "../fixtures/environments/none/no-environment.workflow.js";
-import { ObservedApplication } from "../fixtures/environments/observed/observed.workflow.js";
+import {
+  ObservedApplication,
+  RunLog,
+} from "../fixtures/environments/observed/observed.workflow.js";
 import { UntestedApplication } from "../fixtures/environments/untested/untested.workflow.js";
 import { toolResultsOf } from "../testing/fixtures/requests.js";
 import { execute } from "../helpers/flow.js";
@@ -123,16 +126,21 @@ describe("#261 AC9: a missing process variable fails the start naming it, the fi
 });
 
 describe("#261: an application without an environment contract", () => {
-  it("a service injecting ENV fails the start with [di.missing-environment], naming the fix", async () => {
-    await expect(createApp(NoEnvironmentApplication, offline())).rejects.toThrow(
-      /^\[di\.missing-environment\] ApiClient injects ENV, but the application declares no environment: add @Application\(\{ environment: AppEnvironment \}\)/,
-    );
+  it("#261 PR 3: a service reading applicationContext.environment gets an empty one", async () => {
+    const app = await createApp(NoEnvironmentApplication, offline());
+
+    const { applicationContext } = app.resolve(ApiClient);
+
+    expect(applicationContext.environment).toEqual({});
+    expect(applicationContext.environmentName).toBe("dev");
+    await app.close();
   });
 
-  it("#239: an observer injecting ENV (no tool does) fails the start the same way", async () => {
-    await expect(createApp(ObservedApplication, offline())).rejects.toThrow(
-      /^\[di\.missing-environment\] RunLog injects ENV/,
-    );
+  it("#239: an observer taking ApplicationContext (no tool does) starts the same way", async () => {
+    const app = await createApp(ObservedApplication, offline());
+
+    expect(app.resolve(RunLog).applicationContext.name).toBe("observed-application");
+    await app.close();
   });
 
   it("naming an environment fails: the application declares none", async () => {

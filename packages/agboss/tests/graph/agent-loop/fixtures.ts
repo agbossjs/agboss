@@ -3,6 +3,7 @@
  * what they did, and helpers to start, pause, resume and read the loop. Imports `src` only, so the
  * kill-and-resume child process (`loop-process.ts`) can load it too.
  */
+import { DEFAULT_CONTEXT_VALUES } from "../../../src/flow/context/context-values.js";
 import { ToolMessage, type BaseMessage } from "@langchain/core/messages";
 import { Command, MemorySaver, type BaseCheckpointSaver } from "@langchain/langgraph";
 import {
@@ -97,6 +98,7 @@ const executionStateOf = (): ExecutionStateType => ({
   start: "chat-workflow-start",
   startInput: { text: "" },
   startedVersion: "",
+  contexts: DEFAULT_CONTEXT_VALUES,
   scope: {},
   outdatedValues: [],
   path: ["chat-workflow-start", "main-router"],

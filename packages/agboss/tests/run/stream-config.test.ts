@@ -4,7 +4,7 @@ import type { RunDeps } from "../../src/run/types.js";
 import { streamConfig } from "../../src/run/stream-config.js";
 
 const deps = { config: { name: "w" } } as RunDeps<string>;
-const identity = { threadId: "t-1", runId: "run-1", input: { text: "hi" } };
+const identity = { threadId: "t-1", tenantId: "default", runId: "run-1", input: { text: "hi" } };
 
 describe("#181: the run's config is built once, with its RunContext", () => {
   it("carries the caller's configurable keys under the framework's own", () => {
@@ -27,6 +27,13 @@ describe("#181: the run's config is built once, with its RunContext", () => {
 
     const { run } = extractRunContext({ signal }, "run-x");
 
-    expect(run).toEqual({ runId: "run-x", threadId: "run-x", signal, metadata: {}, input: {} });
+    expect(run).toEqual({
+      runId: "run-x",
+      threadId: "run-x",
+      tenantId: "default",
+      signal,
+      metadata: {},
+      input: {},
+    });
   });
 });

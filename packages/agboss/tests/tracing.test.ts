@@ -44,10 +44,15 @@ describe("tracing", () => {
     });
 
     const [handler] =
-      tracing?.callbacks({ bundle: "job-scout", threadId: "t-1", runId: "r-1" }) ?? [];
+      tracing?.callbacks({
+        bundle: "job-scout",
+        threadId: "t-1",
+        runId: "r-1",
+        tenantId: "acme",
+      }) ?? [];
 
     expect(handler).toBeInstanceOf(CallbackHandler);
-    expect(handler).toMatchObject({ sessionId: "t-1", tags: ["job-scout"] });
+    expect(handler).toMatchObject({ sessionId: "t-1", tags: ["job-scout", "tenant:acme"] });
     expect(tracing?.sessionUrl("t-1")).toBeUndefined();
     await tracing?.shutdown();
   });
@@ -71,7 +76,12 @@ describe("tracing", () => {
     const result = await runText("Hi", deps);
 
     expect(seen).toEqual([
-      { bundle: "test-bundle-workflow", threadId: result.threadId, runId: result.runId },
+      {
+        bundle: "test-bundle-workflow",
+        threadId: result.threadId,
+        runId: result.runId,
+        tenantId: "default",
+      },
     ]);
     expect(recorder.started).toEqual(
       expect.arrayContaining(["main-router", "alpha-agent", "answer-workflow-finish"]),

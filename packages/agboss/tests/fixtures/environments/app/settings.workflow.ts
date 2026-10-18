@@ -2,7 +2,7 @@ import {
   Agent,
   Injectable,
   Workflow,
-  ENV,
+  ApplicationContext,
   MODEL_MAX,
   Tool,
   type ToolHandler,
@@ -15,10 +15,14 @@ import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { SettingsEnvironment } from "./environments/app.environment.js";
 
-/** A service that reads the application's environment (#182, #261). */
-@Injectable({ deps: [ENV] })
+/** A service that reads the application's environment (#182, #261: through `ApplicationContext`). */
+@Injectable({ deps: [ApplicationContext] })
 export class ApiClient {
-  constructor(readonly environment: SettingsEnvironment) {}
+  constructor(readonly applicationContext: ApplicationContext) {}
+
+  get environment(): SettingsEnvironment {
+    return this.applicationContext.environment;
+  }
 }
 
 export class SettingsQuery {

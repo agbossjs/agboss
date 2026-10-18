@@ -5,6 +5,7 @@ import type { ArticleDraftAgent, ArticleWorkflow, ArticleWorkflowFinish, Article
 import type { BrokenScreeningWorkflow, ItemBlindAgent } from "../tests/flow/fixtures/broken-launch.fixture.js";
 import type { BrokenOfferWorkflow } from "../tests/flow/fixtures/broken.fixture.js";
 import type { AskResumeWorkflowFinish, ChatWorkflow, ChatWorkflowFinish, IntakeWorkflowStart, MainRouter, NoReplyWorkflowFinish, ProfilerAgent, ScoutAgent } from "../tests/flow/fixtures/chat.fixture.js";
+import type { AuditBedAction, BedAgent, BedRequestWorkflow, BedRequestWorkflowStart, BedsDto, BedsWorkflowFinish, ClinicExecutionContext, ClinicTenantContext } from "../tests/flow/fixtures/clinic.fixture.js";
 import type { ChargeResultDto, CreditApprovalDto, CreditOrderDto, SupportIntentDto, TopicAnswerDto } from "../tests/flow/fixtures/credit-dtos.js";
 import type { ApprovalAgent, ChargeCardAction, CreditByModelWorkflow, CreditLimitByModelRouter, CreditLimitRouter, CreditWorkflow, CreditWorkflowFinish, CreditWorkflowStart, DeskRouter, NoOrderWorkflowFinish, OrderHeldWorkflowFinish, OrderIntakeAgent } from "../tests/flow/fixtures/credit.fixture.js";
 import type { CompanyDto, CompanyScoreDto, CustomerReplyDto, DraftChangesDto, ExpertDraftDto, FastDraftDto, LoyaltyOfferDto, OrderStatusDto, SearchRequestDto } from "../tests/flow/fixtures/data-dtos.js";
@@ -28,7 +29,10 @@ declare module "../src/flow/generated-types.js" {
     "article-draft-agent": ArticleDto;
     "article-workflow-start": ArticleRequestDto;
     "article-writer-agent": ArticleDraftDto;
+    "audit-bed-action": NoOutput;
     "batch-rank-agent": CompanyScoreDto;
+    "bed-agent": BedsDto;
+    "bed-request-workflow-start": WorkflowStartTextDto;
     "broken-agent": OfferDraftDto;
     "charge-card-action": ChargeResultDto;
     "charge-payment-action": PaymentDto;
@@ -113,7 +117,11 @@ declare module "../src/flow/generated-types.js" {
     "article-workflow-start": ArticleRequestDto;
     "article-writer-agent": { plan: Produced<PlanDto, typeof PlannerAgent>; research: Produced<ResearchDto, typeof PlanResearcherAgent>; critiques: readonly Produced<CritiqueDto, typeof CriticAgent>[] };
     "ask-resume-workflow-finish": NoInput;
+    "audit-bed-action": NoInput;
     "batch-rank-agent": { companies: readonly Produced<CompanyDto, typeof CompanyBatchWorkflowStart>[] };
+    "bed-agent": { message: Produced<WorkflowStartTextDto, typeof BedRequestWorkflowStart> };
+    "bed-request-workflow-start": WorkflowStartTextDto;
+    "beds-workflow-finish": NoInput;
     "broken-agent": { readonly __error: "[input.missing-on-path] broken-offer-workflow: broken-agent.unrelated (UnrelatedDto) is not produced on the path offer-workflow-start → draft-agent → broken-agent" };
     "charge-card-action":
       | { order: Produced<CreditOrderDto, typeof OrderIntakeAgent>; approval: Produced<CreditApprovalDto, typeof ApprovalAgent> }
@@ -233,6 +241,8 @@ declare module "../src/flow/generated-types.js" {
     "article-draft-workflow-finish": ArticleDraftDto;
     "article-workflow-finish": ReviewDto;
     "ask-resume-workflow-finish": ResumeMissingDto;
+    "audit-bed-action": NoOutput;
+    "beds-workflow-finish": BedsDto;
     "charge-card-action": ChargeResultDto;
     "charge-payment-action": PaymentDto;
     "chat-workflow-finish": OpeningsDto;
@@ -272,6 +282,7 @@ declare module "../src/flow/generated-types.js" {
   }
   interface WorkflowStarts {
     "article-workflow-start": { input: ArticleRequestDto; output: ReviewDto };
+    "bed-request-workflow-start": { input: WorkflowStartTextDto; output: BedsDto; tenant: ClinicTenantContext; execution: ClinicExecutionContext };
     "checkout-workflow-start": { input: WorkflowStartTextDto; output: PaymentDto };
     "company-batch-workflow-start": { input: readonly CompanyDto[]; output: CompanyScoreDto };
     "company-check-workflow-start": { input: { company: CompanyDto; request?: SearchRequestDto }; output: CompanyScoreDto };
@@ -319,6 +330,7 @@ declare module "../src/flow/generated-types.js" {
     "ArticleDraftDto": ArticleDraftDto;
     "ArticleDto": ArticleDto;
     "ArticleRequestDto": ArticleRequestDto;
+    "BedsDto": BedsDto;
     "ChangesRequestedDto": ChangesRequestedDto;
     "ChargeResultDto": ChargeResultDto;
     "CompanyCheckDto": CompanyCheckDto;
@@ -422,6 +434,27 @@ declare module "../tests/flow/fixtures/chat.fixture.js" {
   }
   interface ScoutAgent {
     readonly [agbossComponent]?: "scout-agent";
+  }
+}
+
+declare module "../tests/flow/fixtures/clinic.fixture.js" {
+  interface AuditBedAction {
+    readonly [agbossComponent]?: "audit-bed-action";
+  }
+  interface BedAgent {
+    readonly [agbossComponent]?: "bed-agent";
+  }
+  interface BedRequestWorkflow {
+    readonly [agbossComponent]?: "bed-request-workflow";
+  }
+  interface BedRequestWorkflowStart {
+    readonly [agbossComponent]?: "bed-request-workflow-start";
+  }
+  interface BedsDto {
+    readonly [agbossDto]?: "BedsDto";
+  }
+  interface BedsWorkflowFinish {
+    readonly [agbossComponent]?: "beds-workflow-finish";
   }
 }
 
@@ -923,5 +956,11 @@ declare module "../tests/flow/fixtures/topics.fixture.js" {
   }
   interface TopicsWorkflowStart {
     readonly [agbossComponent]?: "topics-workflow-start";
+  }
+}
+
+declare module "../tests/flow/fixtures/clinic.fixture.js" {
+  interface ClinicExecutionContext {
+    readonly tenant: ClinicTenantContext;
   }
 }

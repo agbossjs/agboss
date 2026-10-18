@@ -125,7 +125,7 @@ describe("#265 AC2: the keys of a request through the application", () => {
     );
     const paused = await execute(app, OrderWorkflowStart, { text: "claim, charge, claim" });
 
-    await apps[1]?.resume(paused.thread, { approved: true, by: "dana" });
+    await apps[1]?.resume(paused.threadId, { approved: true, by: "dana" });
 
     expect(seen.claims).toEqual([true, false]);
     expect(seen.recalls).toEqual([true]);
@@ -152,7 +152,7 @@ describe("#265 AC2: the keys of a request through the application", () => {
     mockLlm(Clerk).thenReturn(callTool(Claim, { text: "x" }), callTool(Charge, { text: "1 USD" }));
     const paused = await execute(app, OrderWorkflowStart, { text: "claim, charge" });
 
-    await app.cancel(paused.thread);
+    await app.cancel(paused.threadId);
 
     const root = { tenantId: "default", rootExecutionId: paused.runId };
     expect(await seen.trees[0]?.findByIdInTree(root, "claim:x")).toBeUndefined();

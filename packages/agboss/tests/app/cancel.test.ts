@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect } from "vitest";
 import { WorkflowCancelledError } from "../../src/core/errors.js";
-import { NotPausedError } from "../../src/index.js";
+import { NotPausedError, UnknownThreadError } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
   blocking,
@@ -43,15 +43,15 @@ describe("#187 AC1: after cancelling a paused run, approving it does not execute
     );
     const paused = await execute(app, Start, { text: "charge" });
 
-    const cancelled = await app.cancel(paused.thread);
-    const resumed = app.resume(paused.thread, approve);
+    const cancelled = await app.cancel(paused.threadId);
+    const resumed = app.resume(paused.threadId, approve);
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(cancelled).toEqual({ cancelled: true });
     await expect(resumed).rejects.toBeInstanceOf(NotPausedError);
     expect(seen.charges).toEqual([]);
     expect(seen.payments).toEqual([]);
-    expect(await app.cancel(paused.thread)).toEqual({ cancelled: false });
+    expect(await app.cancel(paused.threadId)).toEqual({ cancelled: false });
   });
 
   test("the cancel holds after a restart: the recovered app cannot resume it either", async ({
@@ -64,16 +64,23 @@ describe("#187 AC1: after cancelling a paused run, approving it does not execute
       replyWith(ReceiptDto, { text: "Charged." }),
     );
     const paused = await execute(app, Start, { text: "charge" });
-    await app.cancel(paused.thread);
+    await app.cancel(paused.threadId);
 
     const restarted = await recoverApp();
 
-    await expect(restarted.resume(paused.thread, approve)).rejects.toBeInstanceOf(NotPausedError);
+    await expect(restarted.resume(paused.threadId, approve)).rejects.toBeInstanceOf(NotPausedError);
     expect(seen.charges).toEqual([]);
   });
 
-  test("a thread with nothing running or paused is not cancelled", async ({ app }) => {
-    expect(await app.cancel("no-such-thread")).toEqual({ cancelled: false });
+  test("a thread with nothing running or paused is not cancelled", async ({ app, mockLlm }) => {
+    mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "nothing" }));
+    const done = await execute(app, Start, { text: "hi" });
+
+    expect(await app.cancel(done.threadId)).toEqual({ cancelled: false });
+  });
+
+  test("#261: a thread the tenant does not have is UnknownThreadError", async ({ app }) => {
+    await expect(app.cancel("no-such-thread")).rejects.toBeInstanceOf(UnknownThreadError);
   });
 });
 
@@ -107,13 +114,13 @@ describe("#187 AC2: cancelling a running run stops it before the next model/tool
       replyWith(ReceiptDto, { text: "never" }),
     );
     const paused = await execute(app, Start, { text: "charge, then wait" });
-    const run = waitingRun(() => app.resume(paused.thread, approve));
+    const run = waitingRun(() => app.resume(paused.threadId, approve));
     await run.thread;
 
-    expect(await app.cancel(paused.thread)).toEqual({ cancelled: true });
+    expect(await app.cancel(paused.threadId)).toEqual({ cancelled: true });
     await expect(run.done).rejects.toBeInstanceOf(WorkflowCancelledError);
     expect(seen.charges).toHaveLength(1);
     expect(mockLlm(Clerk).requests).toHaveLength(2);
-    await expect(app.resume(paused.thread, approve)).rejects.toBeInstanceOf(NotPausedError);
+    await expect(app.resume(paused.threadId, approve)).rejects.toBeInstanceOf(NotPausedError);
   });
 });

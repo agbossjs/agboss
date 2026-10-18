@@ -63,11 +63,13 @@ describe("#261 S28: the built-in infrastructure is in memory", () => {
     process.env.HOME = folder;
     const options = { processEnv: { HOME: folder }, gateway: createScriptedGateway(scripted()) };
     const first = await createApp(DesksApplication, options);
-    const { thread } = await execute(first, OrdersWorkflowStart, { text: "where is order 7?" });
+    const { threadId: thread } = await execute(first, OrdersWorkflowStart, {
+      text: "where is order 7?",
+    });
     await first.close();
     const second = await createApp(DesksApplication, options);
 
-    const continued = execute(second, OrdersWorkflowStart, { text: "again" }, { thread });
+    const continued = execute(second, OrdersWorkflowStart, { text: "again" }, { threadId: thread });
 
     await expect(continued).rejects.toBeInstanceOf(UnknownThreadError);
     expect(readdirSync(folder)).toEqual([]);

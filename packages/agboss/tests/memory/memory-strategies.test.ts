@@ -48,7 +48,12 @@ const answerOk = (mockLlm: (agent: Class) => ModelScript): void => {
 async function converse(app: TestApp, count: number) {
   let result = await execute(app, TaskStart, { text: "t1" });
   for (let turn = 2; turn <= count; turn++) {
-    result = await execute(app, TaskStart, { text: `t${String(turn)}` }, { thread: result.thread });
+    result = await execute(
+      app,
+      TaskStart,
+      { text: `t${String(turn)}` },
+      { threadId: result.threadId },
+    );
   }
   return result;
 }

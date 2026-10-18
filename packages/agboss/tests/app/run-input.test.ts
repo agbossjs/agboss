@@ -57,7 +57,7 @@ describe("#236: the whole validated start input stays on the run", () => {
     );
 
     const paused = await execute(app, SearchStart, { text: "apply", limit: 7 });
-    const done = await app.resume(paused.thread, approve);
+    const done = await app.resume(paused.threadId, approve);
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(done.status).toBe(ExecutionStatus.Finished);
@@ -81,7 +81,7 @@ describe("#236: the whole validated start input stays on the run", () => {
 
     const paused = await execute(app, SearchStart, { text: "apply", limit: 2 });
     const restarted = await recoverApp();
-    await restarted.resume(paused.thread, approve);
+    await restarted.resume(paused.threadId, approve);
 
     expect(seen.tools).toHaveLength(1);
     expect(seen.actions).toEqual([{ text: "apply", limit: 2 }]);

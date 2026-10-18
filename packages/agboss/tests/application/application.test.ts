@@ -45,7 +45,7 @@ describe("#261 AC1: app.execute runs any workflow of the application by its star
 
     expect(order).toFinishWith(OrdersWorkflowFinish, { text: "order 7 shipped" });
     expect(refund).toFinishWith(RefundsWorkflowFinish, { text: "refund sent" });
-    expect(order.thread).not.toBe(refund.thread);
+    expect(order.threadId).not.toBe(refund.threadId);
   });
 
   desks("a thread continues in its own workflow; cancel finds it", async ({ app, mockLlm }) => {
@@ -56,11 +56,11 @@ describe("#261 AC1: app.execute runs any workflow of the application by its star
       app,
       RefundsWorkflowStart,
       { text: "again" },
-      { thread: first.thread },
+      { threadId: first.threadId },
     );
 
-    expect(second.thread).toBe(first.thread);
-    expect(await app.cancel(first.thread)).toEqual({ cancelled: false });
+    expect(second.threadId).toBe(first.threadId);
+    expect(await app.cancel(first.threadId)).toEqual({ cancelled: false });
   });
 
   it("the app carries the application's name and version, not a workflow's", async () => {

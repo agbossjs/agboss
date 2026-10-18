@@ -19,8 +19,11 @@ const request = { input: "x", options: [] };
 
 function agentFrame() {
   const agent = testExecutionContext({ executionId: "exec-1" });
-  const { executionId, threadId, ownerId, signal, workflow } = agent;
-  return { execution: { executionId, threadId, ownerId, signal, workflow }, step: agent.step };
+  const { executionId, threadId, ownerId, signal, workflow, tenant } = agent;
+  return {
+    execution: { executionId, threadId, ownerId, signal, workflow, tenant, values: {} },
+    step: agent.step,
+  };
 }
 
 describe("#280: ROUTER_FACTORY spend inside a tool call is the tool's", () => {

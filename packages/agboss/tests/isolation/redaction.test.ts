@@ -33,7 +33,7 @@ describe("#202: sensitive tool arguments are redacted in channel output", () => 
     ]);
     expect(paused.pause).toMatchObject({ args: { orderId: "A-1", cardNumber: "***" } });
     expect(JSON.stringify(paused)).not.toContain("4111");
-    await app.resume(paused.thread, approve);
+    await app.resume(paused.threadId, approve);
     expect(app.resolve(PaymentLog).cards).toEqual(["4111 1111 1111 1111"]);
     await app.close();
   });

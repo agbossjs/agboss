@@ -35,14 +35,14 @@ describe("#280: a tool and an action read their execution through ExecutionConte
         replyWith(ReceiptDto, { text: "Found." }),
       );
 
-      const done = await execute(app, Start, { text: "look up order 7" }, { owner: "dana" });
+      const done = await execute(app, Start, { text: "look up order 7" }, { ownerId: "dana" });
 
       expect(done.status).toBe(ExecutionStatus.Finished);
       const [probe] = seen.probes;
       const [payment] = seen.payments;
       expect(probe).toMatchObject({
         executionId: done.runId,
-        threadId: done.thread,
+        threadId: done.threadId,
         ownerId: "dana",
       });
       expect(probe?.step).toMatchObject({ nodeId: "clerk-agent", visitNumber: 1, copyNumber: 1 });
@@ -69,7 +69,7 @@ describe("#280: a tool and an action read their execution through ExecutionConte
       );
 
       const paused = await execute(app, Start, { text: "charge" });
-      const done = await app.resume(paused.thread, approve);
+      const done = await app.resume(paused.threadId, approve);
 
       expect(paused.status).toBe(ExecutionStatus.Paused);
       expect(done.status).toBe(ExecutionStatus.Finished);
@@ -112,7 +112,7 @@ describe("#181: execute and resume forward onStream", () => {
       { text: "mail" },
       { configurable: { region: "eu" } },
     );
-    await app.resume(paused.thread, approve, { onStream: (event) => events.push(event) });
+    await app.resume(paused.threadId, approve, { onStream: (event) => events.push(event) });
 
     expect(events).toContainEqual({ kind: "textDelta", delta: "Sent." });
   });

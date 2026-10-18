@@ -42,6 +42,7 @@ const LaunchingModelRouterOptions: RouterOptions = {
   ],
 };
 import { FIXTURE_WORKFLOWS } from "./fixture-workflows.js";
+import { applicationDeclarationOf } from "../../../src/application/application.js";
 
 /** Type generation for the v2 fixtures (#272 PR 3, #270 AC13, S2–S4, S39). */
 
@@ -73,9 +74,23 @@ async function workflowsOf(files: readonly string[]): Promise<readonly Class[]> 
   return modules.flatMap((module) => Object.values(module).filter(isFlowWorkflow));
 }
 
+/** The fixtures' `@Application` classes (#261: their contexts type the starts' options). */
+async function applicationsOf(files: readonly string[]): Promise<readonly Class[]> {
+  const modules = await Promise.all(
+    files.map(async (file) => (await import(file)) as Record<string, unknown>),
+  );
+  return modules.flatMap((module) =>
+    Object.values(module).filter(
+      (value): value is Class =>
+        typeof value === "function" && applicationDeclarationOf(value as Class) !== undefined,
+    ),
+  );
+}
+
 async function requestFor(files: readonly string[]): Promise<FlowTypesRequest> {
   return {
     workflows: await workflowsOf(files),
+    applications: await applicationsOf(files),
     modules: await fixtureModules(),
     outFile,
     tablesModule,

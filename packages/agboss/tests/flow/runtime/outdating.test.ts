@@ -203,10 +203,10 @@ describe("#271 AC1/AC3: the review loop at run time", () => {
         app,
         LoopWorkflowStart,
         { topic: "two" },
-        { thread: first.thread, record: true },
+        { threadId: first.threadId, record: true },
       );
 
-      expect(second.thread).toBe(first.thread);
+      expect(second.threadId).toBe(first.threadId);
       expect(second.record?.outdatedValues).toEqual([]);
       expect(second.record?.scope.map((value) => value.value)).not.toContainEqual({
         text: "first draft",

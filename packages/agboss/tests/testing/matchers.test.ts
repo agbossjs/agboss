@@ -19,7 +19,8 @@ import {
 const PATH = ["chat-workflow-start", "main-router", "writer-agent", "reply-workflow-finish"];
 
 const run = (parts: Partial<ExecutionOutput>): ExecutionOutput => ({
-  thread: "thread-1",
+  threadId: "thread-1",
+  tenantId: "default",
   runId: "run-1",
   status: ExecutionStatus.Finished,
   path: PATH,

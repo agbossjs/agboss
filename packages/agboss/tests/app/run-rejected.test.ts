@@ -19,8 +19,8 @@ import { execute } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
 const approve = { approved: true, by: "dana" };
-const alice = { owner: "alice" };
-const mallory = { owner: "mallory" };
+const alice = { ownerId: "alice" };
+const mallory = { ownerId: "mallory" };
 const test = testWith(ApplicationsApplication);
 const vouchers = testWith(VouchersApplication);
 
@@ -50,10 +50,10 @@ describe("#246 AC1: a thread of another owner → onRunRejected run.thread-owner
     const first = await execute(app, Ask, { text: "one" }, alice);
     resetEvents();
 
-    const again = execute(app, Ask, { text: "two" }, { thread: first.thread, ...mallory });
+    const again = execute(app, Ask, { text: "two" }, { threadId: first.threadId, ...mallory });
 
     await expect(again).rejects.toBeInstanceOf(ThreadOwnerError);
-    expectRejected({ operation: "execute", threadId: first.thread, code: "run.thread-owner" }, [
+    expectRejected({ operation: "execute", threadId: first.threadId, code: "run.thread-owner" }, [
       first.runId,
       "alice",
       "mallory",
@@ -73,19 +73,19 @@ describe("#246 AC1: a thread of another owner → onRunRejected run.thread-owner
     const paused = await execute(app, Ask, { text: "apply" }, alice);
     resetEvents();
 
-    await expect(app.resume(paused.thread, approve, mallory)).rejects.toThrow(ThreadOwnerError);
-    expectRejected({ operation: "resume", threadId: paused.thread, code: "run.thread-owner" }, [
+    await expect(app.resume(paused.threadId, approve, mallory)).rejects.toThrow(ThreadOwnerError);
+    expectRejected({ operation: "resume", threadId: paused.threadId, code: "run.thread-owner" }, [
       paused.runId,
       "dana",
     ]);
     resetEvents();
-    await expect(app.cancel(paused.thread, mallory)).rejects.toThrow(ThreadOwnerError);
-    expectRejected({ operation: "cancel", threadId: paused.thread, code: "run.thread-owner" }, [
+    await expect(app.cancel(paused.threadId, mallory)).rejects.toThrow(ThreadOwnerError);
+    expectRejected({ operation: "cancel", threadId: paused.threadId, code: "run.thread-owner" }, [
       paused.runId,
     ]);
     expect(workflowEvents()).toEqual([]);
 
-    const done = await app.resume(paused.thread, approve, alice);
+    const done = await app.resume(paused.threadId, approve, alice);
     expect(done).toMatchObject({ status: ExecutionStatus.Finished, runId: paused.runId });
   });
 });
@@ -96,8 +96,8 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
     const done = await execute(app, Ask, { text: "look" });
     resetEvents();
 
-    await expect(app.resume(done.thread, approve)).rejects.toBeInstanceOf(NotPausedError);
-    expectRejected({ operation: "resume", threadId: done.thread, code: "run.not-paused" }, [
+    await expect(app.resume(done.threadId, approve)).rejects.toBeInstanceOf(NotPausedError);
+    expectRejected({ operation: "resume", threadId: done.threadId, code: "run.not-paused" }, [
       done.runId,
       "dana",
     ]);
@@ -112,7 +112,7 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
   test("execute on an unknown thread: run.unknown-thread, before onWorkflowStart", async ({
     app,
   }) => {
-    const run = execute(app, Ask, { text: "hello" }, { thread: "no-such-thread" });
+    const run = execute(app, Ask, { text: "hello" }, { threadId: "no-such-thread" });
 
     await expect(run).rejects.toBeInstanceOf(UnknownThreadError);
     expectRejected({

@@ -87,6 +87,7 @@ describe("AC12: the app's parts", () => {
       budgetUsd: 1,
       cost: buildCostReport([]),
       threadId: "t",
+      tenantId: "default",
       ternId: "tern",
       runId: "r",
       data: { scope: {}, outdatedValues: [], lastError: null },

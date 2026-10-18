@@ -61,7 +61,7 @@ describe("#280 AC6, AC12: the injected ExecutionContext gives the current execut
   }) => {
     oneDraft(mockLlm);
 
-    const done = await execute(app, ContextStart, { text: "a post" }, { owner: "dana" });
+    const done = await execute(app, ContextStart, { text: "a post" }, { ownerId: "dana" });
 
     const [tool] = seen.toolSteps;
     const [action] = seen.actionSteps;

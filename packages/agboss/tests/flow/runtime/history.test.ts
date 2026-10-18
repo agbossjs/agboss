@@ -47,7 +47,7 @@ describe("#271 AC8: history never holds an outdated value", () => {
       );
 
       const first = await execute(app, LoopWorkflowStart, { topic: "one" });
-      await execute(app, LoopWorkflowStart, { topic: "two" }, { thread: first.thread });
+      await execute(app, LoopWorkflowStart, { topic: "two" }, { threadId: first.threadId });
 
       const [, , lastReview] = mockLlm(LoopReviewerAgent).requests;
       const lastWrite = mockLlm(LoopWriterAgent).lastRequest;

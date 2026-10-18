@@ -82,7 +82,12 @@ describe("AC12: scripted models — answers, tool calls, decisions by script", (
     mockLlm(Writer).thenReturn(replyWith("first")).thenReturnAlways(replyWith("again"));
 
     const first = await execute(app, ChatStart, { text: "hi" });
-    const second = await execute(app, ChatStart, { text: "hi again" }, { thread: first.thread });
+    const second = await execute(
+      app,
+      ChatStart,
+      { text: "hi again" },
+      { threadId: first.threadId },
+    );
 
     expect(first.output).toEqual({ text: "first" });
     expect(second.output).toEqual({ text: "again" });
@@ -112,7 +117,7 @@ describe("AC12: scripted models — answers, tool calls, decisions by script", (
     mockLlm(Writer).thenReturn(replyWith("only one"));
     const first = await execute(app, ChatStart, { text: "hi" });
 
-    const run = execute(app, ChatStart, { text: "hi" }, { thread: first.thread });
+    const run = execute(app, ChatStart, { text: "hi" }, { threadId: first.threadId });
 
     await expect(run).rejects.toFailWith({ code: "test.script-exhausted" });
     await expect(run).rejects.toThrow(/script exhausted for Writer: 1 turn scripted, asked for #2/);
@@ -158,7 +163,7 @@ describe("AC12: scripts are picked by position, so a resumed run continues the s
 
     const paused = await execute(app, ChatStart, { text: "note: call back" });
     const restarted = await recoverApp();
-    const done = await restarted.resume(paused.thread, approve);
+    const done = await restarted.resume(paused.threadId, approve);
 
     expect(paused).toHavePausedAt(Support);
     expect(done).toFinishWith(Reply, { text: "Saved." });
@@ -184,7 +189,7 @@ describe("#148 AC4: recoverApp() closes the current app and returns a new one ov
     const second = await execute(restarted, ChatStart, { text: "2" });
 
     expect(lifecycle).toEqual(["OrderBook.onStop", "OrderBook.onStart"]);
-    expect([first.thread, second.thread]).toEqual(["thread-1", "thread-2"]);
+    expect([first.threadId, second.threadId]).toEqual(["thread-1", "thread-2"]);
     expect(second.output).toEqual({ text: "two" });
   });
 

@@ -8,7 +8,7 @@ import { appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { runInFrame } from "../../../src/flow/context/frame.js";
-import { LiveExecutionContext } from "../../../src/flow/context/live-context.js";
+import { liveExecutionContextOf } from "../../../src/flow/context/live-context.js";
 import { testExecutionContext } from "../../../src/testing/execution-context.js";
 import { defineTool } from "../../../src/tools/index.js";
 import { FileCheckpointSaver } from "./file-checkpointer.js";
@@ -33,7 +33,7 @@ const Args = z.tuple([
 const [dir, mode, scenario] = Args.parse(process.argv.slice(2));
 const THREAD = "run-1";
 
-const executionContext = new LiveExecutionContext("slow_step");
+const executionContext = liveExecutionContextOf(undefined, "slow_step");
 
 const log = (effect: string): void => {
   appendFileSync(join(dir, "effects.log"), `${effect}\n`);
@@ -88,8 +88,11 @@ const input =
 
 /** The agent's step around the loop (what the node runner opens in a workflow, #280). */
 const agent = testExecutionContext({ executionId: THREAD });
-const { executionId, threadId, ownerId, signal, workflow } = agent;
-const frame = { execution: { executionId, threadId, ownerId, signal, workflow }, step: agent.step };
+const { executionId, threadId, ownerId, signal, workflow, tenant } = agent;
+const frame = {
+  execution: { executionId, threadId, ownerId, signal, workflow, tenant, values: {} },
+  step: agent.step,
+};
 const result = await runInFrame(frame, () => runLoop(graph, input, THREAD));
 process.stdout.write(`${JSON.stringify(result)}\n`);
 // a paused run waits for its decision: the process stays up until it is killed
