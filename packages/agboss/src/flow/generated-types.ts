@@ -105,12 +105,6 @@ export interface RouterAnswers {
   readonly [notGenerated]?: never;
 }
 
-/** A tool approval of any tool: what the built-in channels ask and are answered with. */
-interface AnyToolCallApproval {
-  readonly ask: ToolCallApprovalAskDto;
-  readonly answer: ToolCallApprovalDecisionDto;
-}
-
 /**
  * What each channel role asks and how it is answered (#267), by the role's `name`: a role with
  * `approves: XDto` asks `ToolCallApprovalAskDto` with `arguments: XDto` and is answered with
@@ -120,21 +114,37 @@ interface AnyToolCallApproval {
  */
 export interface ChannelRoles {
   readonly [notGenerated]?: never;
-  readonly "terminal-user-channel": AnyToolCallApproval;
-  readonly "auto-approve-channel": AnyToolCallApproval;
-  readonly "auto-reject-channel": AnyToolCallApproval;
+  readonly "terminal-user-channel": {
+    readonly ask: ToolCallApprovalAskDto;
+    readonly answer: ToolCallApprovalDecisionDto;
+  };
+  readonly "auto-approve-channel": {
+    readonly ask: ToolCallApprovalAskDto;
+    readonly answer: ToolCallApprovalDecisionDto;
+  };
+  readonly "auto-reject-channel": {
+    readonly ask: ToolCallApprovalAskDto;
+    readonly answer: ToolCallApprovalDecisionDto;
+  };
 }
 
-/** A role's entry, or `MissingGeneratedTypes` before `agboss check`. */
-type ChannelRoleEntryOf<TRole> = GeneratedEntry<ChannelRoles, TRole>;
-
-/** What a channel of `TRole` is asked (`ChannelAsk<TRole>["value"]`). */
+/**
+ * What a channel of `TRole` is asked (`ChannelAsk<TRole>["value"]`), from the generated
+ * `ChannelRoles` entry of the role: the tool call for an `approves` role, the `ask` DTO for a
+ * question role; `MissingGeneratedTypes` before `agboss check`.
+ */
 export type ChannelQuestionOf<TRole> =
-  ChannelRoleEntryOf<TRole> extends { readonly ask: infer TAsk } ? TAsk : MissingGeneratedTypes;
+  GeneratedEntry<ChannelRoles, TRole> extends { readonly ask: infer TAsk }
+    ? TAsk
+    : MissingGeneratedTypes;
 
-/** The answer that decides a pause of `TRole` (`ChannelOutcome.decided(…)`, a reply). */
+/**
+ * The answer that decides a pause of `TRole` (`ChannelOutcome.decided(…)`, a reply): the
+ * `ToolCallApprovalDecisionDto` for an `approves` role, the `answer` DTO for a question role;
+ * `MissingGeneratedTypes` before `agboss check`.
+ */
 export type ChannelAnswerOf<TRole> =
-  ChannelRoleEntryOf<TRole> extends { readonly answer: infer TAnswer }
+  GeneratedEntry<ChannelRoles, TRole> extends { readonly answer: infer TAnswer }
     ? TAnswer
     : MissingGeneratedTypes;
 

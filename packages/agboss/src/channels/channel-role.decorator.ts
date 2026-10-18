@@ -16,8 +16,8 @@ export enum PauseAnswerer {
   Channel = "channel",
 }
 
-/** What every role declares. */
-interface ChannelRoleBaseOptions {
+/** What every channel role declares, whichever its form (`approves` or `ask` / `answer`). */
+export interface ChannelRoleBaseOptions {
   /** Kebab-case, unique in the application (`refund-approval-channel`). */
   readonly name: string;
   readonly description: string;

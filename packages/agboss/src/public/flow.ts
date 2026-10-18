@@ -162,6 +162,8 @@ export {
 export {
   agbossComponent,
   agbossDto,
+  type ChannelAnswerOf,
+  type ChannelQuestionOf,
   type ChannelRoles,
   type DtoBrands,
   type ExecutionInputOf,

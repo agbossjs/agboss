@@ -650,8 +650,13 @@ export function Channel<const D extends readonly Token[] = []>(options: ChannelM
     send(ask: never): Promise<unknown>;
 }>(value: C) => C;
 
-// Warning: (ae-forgotten-export) The symbol "ChannelRoleBaseOptions" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "GeneratedEntry" needs to be exported by the entry point index.d.ts
 //
+// @public
+export type ChannelAnswerOf<TRole> = GeneratedEntry<ChannelRoles, TRole> extends {
+    readonly answer: infer TAnswer;
+} ? TAnswer : MissingGeneratedTypes;
+
 // @public
 export interface ChannelApprovalRoleOptions extends ChannelRoleBaseOptions {
     // (undocumented)
@@ -664,7 +669,6 @@ export interface ChannelApprovalRoleOptions extends ChannelRoleBaseOptions {
 // @public
 export interface ChannelAsk<TRole> {
     readonly pauseId: string;
-    // Warning: (ae-forgotten-export) The symbol "ChannelQuestionOf" needs to be exported by the entry point index.d.ts
     readonly value: ChannelQuestionOf<TRole>;
 }
 
@@ -683,8 +687,6 @@ export abstract class ChannelOf<TRole> implements ChannelHandler<TRole> {
     abstract send(ask: ChannelAsk<TRole>): Promise<ChannelOutcome<TRole>>;
 }
 
-// Warning: (ae-forgotten-export) The symbol "ChannelAnswerOf" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type ChannelOutcome<TRole> = AwaitReplyOutcome | DecidedOutcome<ChannelAnswerOf<TRole>>;
 
@@ -701,6 +703,11 @@ export enum ChannelOutcomeKind {
 }
 
 // @public
+export type ChannelQuestionOf<TRole> = GeneratedEntry<ChannelRoles, TRole> extends {
+    readonly ask: infer TAsk;
+} ? TAsk : MissingGeneratedTypes;
+
+// @public
 export interface ChannelQuestionRoleOptions extends ChannelRoleBaseOptions {
     // (undocumented)
     readonly answer: DtoClass;
@@ -714,18 +721,34 @@ export interface ChannelQuestionRoleOptions extends ChannelRoleBaseOptions {
 export function ChannelRole(options: ChannelRoleOptions): <TClass extends Class>(value: TClass) => TClass;
 
 // @public
+export interface ChannelRoleBaseOptions {
+    readonly answeredBy: PauseAnswerer;
+    // (undocumented)
+    readonly description: string;
+    readonly name: string;
+    readonly replyInterpreter?: Class;
+}
+
+// @public
 export type ChannelRoleOptions = ChannelApprovalRoleOptions | ChannelQuestionRoleOptions;
 
 // @public
 export interface ChannelRoles {
     // (undocumented)
-    readonly "auto-approve-channel": AnyToolCallApproval;
+    readonly "auto-approve-channel": {
+        readonly ask: ToolCallApprovalAskDto;
+        readonly answer: ToolCallApprovalDecisionDto;
+    };
     // (undocumented)
-    readonly "auto-reject-channel": AnyToolCallApproval;
-    // Warning: (ae-forgotten-export) The symbol "AnyToolCallApproval" needs to be exported by the entry point index.d.ts
-    //
+    readonly "auto-reject-channel": {
+        readonly ask: ToolCallApprovalAskDto;
+        readonly answer: ToolCallApprovalDecisionDto;
+    };
     // (undocumented)
-    readonly "terminal-user-channel": AnyToolCallApproval;
+    readonly "terminal-user-channel": {
+        readonly ask: ToolCallApprovalAskDto;
+        readonly answer: ToolCallApprovalDecisionDto;
+    };
     // (undocumented)
     readonly [notGenerated]?: never;
 }
@@ -1799,8 +1822,6 @@ export type InputFields = Readonly<Record<string, InputFieldShape>>;
 // @public
 export type InputFieldShape = DtoClass | ListWrapper | OptionalWrapper | HistoryWrapper;
 
-// Warning: (ae-forgotten-export) The symbol "GeneratedEntry" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type InputOf<TInstance> = GeneratedEntry<Inputs, TInstance>;
 
@@ -3900,6 +3921,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/channels/channel-outcome.ts:23:3 - (ae-undocumented) Missing documentation for "kind".
 // src/channels/channel-outcome.ts:24:3 - (ae-undocumented) Missing documentation for "decision".
 // src/channels/channel-outcome.ts:32:14 - (ae-undocumented) Missing documentation for "ChannelOutcome".
+// src/channels/channel-role.decorator.ts:23:3 - (ae-undocumented) Missing documentation for "description".
 // src/channels/channel-role.decorator.ts:34:3 - (ae-undocumented) Missing documentation for "ask".
 // src/channels/channel-role.decorator.ts:35:3 - (ae-undocumented) Missing documentation for "answer".
 // src/channels/channel-role.decorator.ts:40:3 - (ae-undocumented) Missing documentation for "ask".
@@ -4328,11 +4350,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/generated-types.ts:91:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts:96:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts:105:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
-// src/flow/generated-types.ts:122:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
-// src/flow/generated-types.ts:123:3 - (ae-undocumented) Missing documentation for ""terminal-user-channel"".
-// src/flow/generated-types.ts:124:3 - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
+// src/flow/generated-types.ts:116:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
+// src/flow/generated-types.ts:117:3 - (ae-undocumented) Missing documentation for ""terminal-user-channel"".
+// src/flow/generated-types.ts:118:5 - (ae-forgotten-export) The symbol "ToolCallApprovalAskDto" needs to be exported by the entry point index.d.ts
+// src/flow/generated-types.ts:119:5 - (ae-forgotten-export) The symbol "ToolCallApprovalDecisionDto" needs to be exported by the entry point index.d.ts
+// src/flow/generated-types.ts:121:3 - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
 // src/flow/generated-types.ts:125:3 - (ae-undocumented) Missing documentation for ""auto-reject-channel"".
-// src/flow/generated-types.ts:147:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
+// src/flow/generated-types.ts:157:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/handlers.ts:17:3 - (ae-undocumented) Missing documentation for "execute".
 // src/flow/handlers.ts:22:3 - (ae-undocumented) Missing documentation for "finish".
 // src/flow/handlers.ts:31:3 - (ae-undocumented) Missing documentation for "route".
