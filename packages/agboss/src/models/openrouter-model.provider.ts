@@ -1,7 +1,7 @@
 import { minutes, seconds } from "../units/index.js";
 import { ModelCost } from "./cost.js";
 import { NOT_A_DECISION_MODEL } from "./decision-models.js";
-import { OPENROUTER_API_KEY, OPENROUTER_BASE_URL_SETTING } from "./jev.provider.js";
+import { OPENROUTER_API_KEY_FIELD, OPENROUTER_BASE_URL_SETTING } from "./jev.provider.js";
 import { ModelProvider } from "./model-provider.decorator.js";
 import { OpenRouterProvider, type OpenRouterFields } from "./openrouter.provider.js";
 import { CachedPart, CacheRetention, PromptCaching } from "./prompt-caching.js";
@@ -14,11 +14,11 @@ import { RetryPolicy, TRANSIENT_FAILURES } from "./retry-policy.js";
  * the cost from its answers, reasoning left to the model, caching where the model supports it.
  */
 @ModelProvider({
-  name: "openrouter",
+  name: "openrouter-model-provider",
   description: "OpenRouter — many models behind one OpenAI-compatible API",
   serves: [NOT_A_DECISION_MODEL],
   baseUrl: OPENROUTER_BASE_URL_SETTING,
-  apiKey: OPENROUTER_API_KEY,
+  apiKey: OPENROUTER_API_KEY_FIELD,
   timeout: minutes(2),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),

@@ -1,7 +1,9 @@
 import type { AgentsConfigOf } from "../config/types.js";
 import { createProviderGateway, type ModelGateway } from "../llm/gateway.js";
-import type { Clock } from "../infrastructure/clock.js";
+import type { Environment } from "../flow/generated-types.js";
+import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { ProviderClientOptions } from "../llm/provider-clients.js";
+import { providerCallsOf } from "../models/calls/provider-calls.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
 import { checkModelUses, resolutionProblems } from "../models/check.js";
 import { ConfigurationError } from "../models/problems.js";
@@ -17,16 +19,19 @@ export interface AppModels {
 }
 
 /**
- * The production clients' options from the app's: the environment, the application's clock and, in
- * tests, a stub client.
+ * The production clients' options from the app's: the process environment (base URLs), the
+ * application's environment (its `applicationContext.environment`: the keys), the instance's clock and shared calls — rate limits, 429
+ * pauses and breakers in its `RateLimitRepository` — and, in tests, a stub client.
  */
 export const providerClientsOf = (
-  options: { readonly providerFetch?: ProviderFetch },
-  env: NodeJS.ProcessEnv,
-  clock: Clock,
+  options: { readonly providerFetch?: ProviderFetch; readonly processEnv?: NodeJS.ProcessEnv },
+  application: { readonly environment: Environment },
+  infrastructure: Pick<Infrastructure, "clock" | "rateLimits">,
 ): ProviderClientOptions => ({
-  env,
-  clock,
+  env: options.processEnv ?? process.env,
+  environment: application.environment,
+  clock: infrastructure.clock,
+  calls: providerCallsOf(infrastructure.rateLimits, infrastructure.clock),
   ...(options.providerFetch === undefined ? {} : { send: options.providerFetch }),
 });
 

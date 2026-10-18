@@ -27,7 +27,7 @@ async function violationsOf(application: Class): Promise<(readonly [string, stri
 
 const unserved = (key: string, model: string, purpose = "chat"): readonly [string, string] => [
   "model.unserved",
-  `every-kind-workflow ${key} = ${model}: no listed provider serves it for ${purpose} (listed: local) — list a @ModelProvider that serves it in @Application({ providers })`,
+  `every-kind-workflow ${key} = ${model}: no listed provider serves it for ${purpose} (listed: local-model-provider) — list a @ModelProvider that serves it in @Application({ providers })`,
 ];
 
 describe("#266 AC2: every model resolves to exactly one provider by serves", () => {
@@ -41,7 +41,7 @@ describe("#266 AC2: every model resolves to exactly one provider by serves", () 
     expect(await violationsOf(MirroredApplication)).toEqual([
       [
         "model.ambiguous-provider",
-        "local-workflow agents.local-agent = local/llama: served by several providers: local, local-mirror — one model string per provider, each in one serves",
+        "local-workflow agents.local-agent = local/llama: served by several providers: local-model-provider, local-mirror-model-provider — one model string per provider, each in one serves",
       ],
     ]);
   });
@@ -69,8 +69,8 @@ describe("#266 AC2: every model resolves to exactly one provider by serves", () 
 
     expect(lines.slice(lines.indexOf("models"), lines.indexOf("agents"))).toEqual([
       "models",
-      "  agents.local-agent  model: local/llama → openrouter",
-      "  defaults.router  model: typesafe/jev-1.13 → decisions",
+      "  agents.local-agent  model: local/llama → openrouter-model-provider",
+      "  defaults.router  model: typesafe/jev-1.13 → decisions-model-provider",
     ]);
   });
 });

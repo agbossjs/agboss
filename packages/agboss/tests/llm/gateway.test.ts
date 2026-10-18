@@ -9,7 +9,9 @@ import {
   type ModelGateway,
 } from "../../src/llm/gateway.js";
 import type { JevClient } from "../../src/llm/jev-client.js";
-import { MissingEnvironmentVariableError } from "../../src/models/index.js";
+import { EnvironmentError } from "../../src/environments/errors.js";
+import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
+import { KEYS } from "../models/gateway.js";
 import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "../../src/models/workflow-models.js";
 import { createModelRegistry } from "../../src/llm/registry.js";
 import { createRouter, type RouteOutcome } from "../../src/routers/index.js";
@@ -80,14 +82,15 @@ describe("AC12: the default model gateway", () => {
   });
 
   it("AC12: the provider gateway needs every provider's API key before any call", () => {
-    expect(() => createProviderGateway(directoryOf(DEFAULT_MODEL_PROVIDERS), { env: {} })).toThrow(
-      MissingEnvironmentVariableError,
-    );
+    expect(() =>
+      createProviderGateway(directoryOf(DEFAULT_MODEL_PROVIDERS), {
+        env: { OPENROUTER_API_KEY: "a process variable is not a key" },
+        environment: NO_ENVIRONMENT_VALUES,
+      }),
+    ).toThrow(EnvironmentError);
     expect(
       Object.keys(
-        createProviderGateway(directoryOf(DEFAULT_MODEL_PROVIDERS), {
-          env: { OPENROUTER_API_KEY: "k" },
-        }),
+        createProviderGateway(directoryOf(DEFAULT_MODEL_PROVIDERS), { env: {}, environment: KEYS }),
       ),
     ).toEqual(["chatModel", "routeTo", "decide"]);
   });

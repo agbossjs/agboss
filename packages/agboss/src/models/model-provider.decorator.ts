@@ -1,9 +1,10 @@
 import type { Milliseconds } from "../units/index.js";
 import type { CircuitBreakerPolicy } from "./circuit-breaker.js";
 import type { ModelCost } from "./cost.js";
-import type { EnvironmentVariable, SettingValue } from "./environment-variable.js";
+import type { SettingValue } from "./environment-variable.js";
 import type { ModelProviderHandler } from "./handler.js";
 import type { PromptCaching } from "./prompt-caching.js";
+import type { RateLimitPolicy } from "./policies/rate-limit-policy.js";
 import type { Reasoning } from "./reasoning.js";
 import type { RetryPolicy } from "./retry-policy.js";
 
@@ -12,14 +13,21 @@ import type { RetryPolicy } from "./retry-policy.js";
  * infrastructure (#266), listed only in `@Application({ providers })`.
  */
 export interface ModelProviderOptions {
-  /** Identifies the provider (logs, overrides, fingerprints) — never its base URL. */
+  /**
+   * Identifies the provider (logs, overrides, the keys of its shared state) — never its base URL;
+   * kebab-case ending with `-model-provider` (`[name.kind-suffix]`).
+   */
   readonly name: string;
   readonly description: string;
   /** Model names this provider serves; exactly one provider must serve each model. */
   readonly serves: readonly RegExp[];
   readonly baseUrl: SettingValue;
-  /** Omit for a server without a key (a local one). */
-  readonly apiKey?: EnvironmentVariable;
+  /**
+   * The `Secret` field of the application's environment that holds the key —
+   * `apiKey: "openRouterApiKey"` with `openRouterApiKey: secret("OPENROUTER_API_KEY")` in each
+   * environment that calls the provider. Omit for a server without a key (a local one).
+   */
+  readonly apiKey?: string;
   /** Per attempt. */
   readonly timeout: Milliseconds;
   readonly cost: ModelCost;
@@ -27,7 +35,14 @@ export interface ModelProviderOptions {
   readonly reasoning: Reasoning;
   /** Components may override it (`cache` until #152). */
   readonly promptCaching: PromptCaching;
+  /** Retries one call: attempts and backoff (the only place backoff is set). */
   readonly retryPolicy: RetryPolicy;
+  /**
+   * How many calls go to the provider and how everyone slows down after a 429 — one limit for the
+   * whole application, shared by every instance through `RateLimitRepository`. Omit: no limit.
+   */
+  readonly rateLimitPolicy?: RateLimitPolicy;
+  /** Stops calling a provider that is down for a while (its state in `RateLimitRepository`). */
   readonly circuitBreakerPolicy: CircuitBreakerPolicy;
 }
 

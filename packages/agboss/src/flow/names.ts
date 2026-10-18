@@ -18,6 +18,7 @@ export enum NameKind {
   Application = "application",
   Budget = "budget",
   Arbiter = "arbiter",
+  ModelProvider = "model-provider",
 }
 
 /** The decorator each kind is declared with, as a message names it. */
@@ -32,6 +33,7 @@ const DECORATORS: Readonly<Record<NameKind, string>> = {
   [NameKind.Application]: "@Application",
   [NameKind.Budget]: "@Budget",
   [NameKind.Arbiter]: "@Arbiter",
+  [NameKind.ModelProvider]: "@ModelProvider",
 };
 
 /** The stable codes of the name rules. */

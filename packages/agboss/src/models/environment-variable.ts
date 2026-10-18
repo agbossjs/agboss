@@ -11,7 +11,8 @@ export class MissingEnvironmentVariableError extends Error {
 
 /**
  * A setting read from the process environment, named in the code and never written into it:
- * `EnvironmentVariable.named("OPENROUTER_API_KEY", { secret: true })`.
+ * `EnvironmentVariable.named("OPENROUTER_BASE_URL", { secret: false, defaultValue: "…" })`
+ * — a provider's `baseUrl`; its key is a `Secret` of the application's environment (`apiKey`).
  */
 export class EnvironmentVariable {
   private constructor(

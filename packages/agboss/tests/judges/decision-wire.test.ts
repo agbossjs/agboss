@@ -4,8 +4,8 @@
  * through `createApp` with the providers' HTTP side stubbed.
  */
 import { describe, expect, it } from "vitest";
-import type { AppOptions } from "../../src/app/create-app.js";
-import { createApp } from "../../src/application/create-app.js";
+import type { AppDepsOptions } from "../../src/app/app-deps.js";
+import { appWithKeys } from "../models/gateway.js";
 import { Decision } from "../../src/index.js";
 import { DecisionRequestError, DecisionResponseError } from "../../src/errors.js";
 import { createModelGateway } from "../../src/llm/gateway.js";
@@ -33,8 +33,8 @@ const decided = (answers: Record<string, unknown>, cost: number): StubReply => (
   },
 });
 
-const wired = (stub: ReturnType<typeof providerStub>): AppOptions => ({
-  processEnv: { OPENROUTER_API_KEY: "k" },
+const wired = (stub: ReturnType<typeof providerStub>): AppDepsOptions => ({
+  processEnv: {},
   providerFetch: stub.fetch,
 });
 
@@ -49,7 +49,7 @@ describe("AC4: an image part in state is sent as a top-level image_url item", ()
       [completion("A rising chart."), decided({ matches: { type: "noul", noul: 0.93 } }, 0.0004)],
       MODELS,
     );
-    const app = await createApp(ImageDeskApplication, wired(stub));
+    const app = await appWithKeys(ImageDeskApplication, wired(stub));
 
     const result = await execute(app, TaskStart, { text: "describe the chart" });
     await app.close();
@@ -77,7 +77,7 @@ describe("AC4: an image part in state is sent as a top-level image_url item", ()
       [completion("A rising chart."), decided({ matches: { type: "choice", choice: "yes" } }, 0)],
       MODELS,
     );
-    const app = await createApp(ImageDeskApplication, wired(stub));
+    const app = await appWithKeys(ImageDeskApplication, wired(stub));
 
     const run = execute(app, TaskStart, { text: "describe the chart" });
 
@@ -109,7 +109,7 @@ describe("AC3: a router on openai/gpt-6-luna-decisions decides through the Decis
       ],
       MODELS,
     );
-    const app = await createApp(LunaRoutedApplication, wired(stub));
+    const app = await appWithKeys(LunaRoutedApplication, wired(stub));
 
     const result = await execute(app, TaskStart, { text: "fix my build" });
     await app.close();

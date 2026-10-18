@@ -27,7 +27,11 @@ function sortedOptions(question: DecisionQuestion): DecisionQuestion {
   return { ...question, criteria: Object.fromEntries(criteria) };
 }
 
-export const OPENROUTER_API_KEY = EnvironmentVariable.named("OPENROUTER_API_KEY", { secret: true });
+/**
+ * The built-ins' key: the `Secret` field `openRouterApiKey` of the application's environment
+ * (`openRouterApiKey: secret("OPENROUTER_API_KEY")`, #266 S73 c).
+ */
+export const OPENROUTER_API_KEY_FIELD = "openRouterApiKey";
 
 /** Jev's models (a subset of `DECISION_MODELS`, every model the Decisions API serves). */
 export const JEV_MODELS: readonly string[] = ["typesafe/jev-1.13", "typesafe/jev-router"];
@@ -39,11 +43,11 @@ export const JEV_MODELS: readonly string[] = ["typesafe/jev-1.13", "typesafe/jev
  * subclass lists more models (`override readonly knownModels`).
  */
 @ModelProvider({
-  name: "decisions",
+  name: "decisions-model-provider",
   description: "Decision models on OpenRouter's Decisions API",
   serves: [DECISION_MODEL_PATTERN],
   baseUrl: OPENROUTER_BASE_URL_SETTING,
-  apiKey: OPENROUTER_API_KEY,
+  apiKey: OPENROUTER_API_KEY_FIELD,
   timeout: seconds(30),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),

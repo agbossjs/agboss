@@ -180,10 +180,11 @@ export async function createWorkflowDeps(
 ): Promise<AppDeps> {
   const env = options.processEnv ?? process.env;
   const { clock } = parts.infrastructure;
-  const models = await modelsFor(bundle, options.gateway, providerClientsOf(options, env, clock));
+  const contexts = parts.contexts ?? standaloneContexts(bundle.config, options.environment, clock);
+  const clients = providerClientsOf(options, contexts.application, parts.infrastructure);
+  const models = await modelsFor(bundle, options.gateway, clients);
   const gateway = models.gateway;
   const lifecycle = lifecycleOf(options.container, parts.created);
-  const contexts = parts.contexts ?? standaloneContexts(bundle.config, options.environment, clock);
   const services = servicesFor(bundle, gateway, contexts, lifecycle.options);
   const tools: readonly AnyTool[] = resolveTools(bundle, services);
   const config = models.priced(validateAgentsConfig(bundle.config, tools.map(nameOfTool)));

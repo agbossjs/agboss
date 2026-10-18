@@ -9,7 +9,7 @@ import type { Runnable } from "@langchain/core/runnables";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { ResolvedModelSettings } from "../../src/config/types.js";
 import { connectionOf } from "../../src/models/connections.js";
-import { CircuitBreakers } from "../../src/models/circuit-breaker.js";
+import { ENV, KEYS } from "./gateway.js";
 import {
   DecisionsModelProvider,
   PromptCaching,
@@ -50,7 +50,7 @@ const settings: ResolvedModelSettings = {
   temperature: 0,
   maxTokens: 100,
 };
-const env = { OPENROUTER_API_KEY: "k" };
+const env = ENV;
 
 /** What OpenRouter receives for one call of the provider's chat model. */
 async function bodyOf(bind?: (model: BaseChatModel) => Runnable<BaseLanguageModelInput, unknown>) {
@@ -58,8 +58,8 @@ async function bodyOf(bind?: (model: BaseChatModel) => Runnable<BaseLanguageMode
   const provider = new TestOpenRouterProvider();
   const connection = connectionOf(modelProviderOf(TestOpenRouterProvider), {
     env,
+    environment: KEYS,
     requireKeys: true,
-    breakers: new CircuitBreakers(),
     send: stub.fetch,
   });
   const model = provider.chat({
@@ -121,8 +121,8 @@ describe("AC6: the wire form, made in one place (toWireRequest)", () => {
     const stub = providerStub([{ body: { answers: { route: { choice: "b" } } } }]);
     const connection = connectionOf(modelProviderOf(DecisionsModelProvider), {
       env,
+      environment: KEYS,
       requireKeys: true,
-      breakers: new CircuitBreakers(),
       send: stub.fetch,
     });
 

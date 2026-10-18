@@ -112,21 +112,21 @@ describe("AC6: fail fast — settings must fit their models, all problems at onc
         key: "agents.ghost",
         value: "nobody/listed",
         model: "nobody/listed",
-        supported: "openrouter does not list it",
+        supported: "openrouter-model-provider does not list it",
       },
       {
         code: "model.no-price",
         key: "agents.cheap",
         value: "local/qwen",
         model: "local/qwen",
-        supported: "local prices only local/llama",
+        supported: "local-model-provider prices only local/llama",
       },
       {
         code: "model.unknown-model",
         key: "routers.main",
         value: "typesafe/jev-1.4",
         model: "typesafe/jev-1.4",
-        supported: "decisions does not list it",
+        supported: "decisions-model-provider does not list it",
       },
     ]);
   });

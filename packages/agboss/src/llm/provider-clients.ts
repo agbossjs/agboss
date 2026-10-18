@@ -1,7 +1,8 @@
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { ResolvedModelSettings } from "../config/types.js";
+import type { Environment } from "../flow/generated-types.js";
 import type { Clock } from "../infrastructure/clock.js";
-import type { CircuitBreakers } from "../models/circuit-breaker.js";
+import type { ProviderCalls } from "../models/calls/provider-calls.js";
 import { connectionOf } from "../models/connections.js";
 import type { ProviderConnection } from "../models/handler.js";
 import { ConfigurationError } from "../models/problems.js";
@@ -14,10 +15,16 @@ import {
 import type { JevClient } from "./jev-client.js";
 import type { ModelFactory } from "./registry.js";
 
-/** What the production clients need: the environment, and the breakers and raw client for tests. */
+/**
+ * What the production clients need: the process environment (base URLs), the application's
+ * environment (keys), the instance's shared calls (rate limits, 429 pauses, breakers) and, in
+ * tests, a raw client.
+ */
 export interface ProviderClientOptions {
   readonly env: NodeJS.ProcessEnv;
-  readonly breakers?: CircuitBreakers;
+  readonly environment: Environment;
+  /** Absent: no rate limit and no breaker (a recording). */
+  readonly calls?: ProviderCalls;
   readonly send?: ProviderFetch;
   /** The application's clock (timeouts, retry waits). Default: the system's. */
   readonly clock?: Clock;
@@ -29,7 +36,8 @@ export class ProviderCapabilityError extends Error {
 
 /**
  * The raw clients of the default gateway over model providers: the provider serving each model
- * makes its chat model or answers its decision. Every provider's key is read here, at startup.
+ * makes its chat model or answers its decision. Every provider's key is read here, at startup,
+ * from the application's environment.
  */
 export function providerClients(
   directory: ModelProviderDirectory,

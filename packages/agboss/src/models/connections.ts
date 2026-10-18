@@ -1,28 +1,30 @@
+import type { Environment } from "../flow/generated-types.js";
 import type { Clock } from "../infrastructure/clock.js";
-import { processCircuitBreakers, type CircuitBreakers } from "./circuit-breaker.js";
+import type { ProviderCalls } from "./calls/provider-calls.js";
+import { providerKeyOf } from "./provider-key.js";
 import { settingValueIn } from "./environment-variable.js";
 import type { ProviderConnection } from "./handler.js";
 import { modelProviderOf, type ModelProviderOptions } from "./model-provider.decorator.js";
 import { resilientFetch, type FallbackTarget, type ProviderFetch } from "./resilient-fetch.js";
 
-/** How connections are made: the environment, whether keys must be set, the breakers, the raw client. */
+/** How connections are made: the environments, whether keys must be set, the shared calls, the raw client. */
 export interface ConnectionOptions {
+  /** The process environment: base URLs set by a variable (`OPENROUTER_BASE_URL`). */
   readonly env: NodeJS.ProcessEnv;
+  /** The application's environment, resolved: the providers' keys (`apiKey` names a `Secret` field). */
+  readonly environment: Environment;
   /** False for `agboss check --models`: model lists are public, a missing key is not a problem there. */
   readonly requireKeys: boolean;
-  readonly breakers?: CircuitBreakers;
+  /**
+   * The instance's rate limits, 429 pauses and breakers (`RateLimitRepository`, its clock); absent =
+   * none of them (the model check, a recording).
+   */
+  readonly calls?: ProviderCalls;
   /** The raw HTTP client under retries and breakers. Default: global fetch. */
   readonly send?: ProviderFetch;
   /** The application's clock: timeouts, waits between attempts. Default: the system's. */
   readonly clock?: Clock;
 }
-
-const keyOf = (options: ModelProviderOptions, connection: ConnectionOptions): string | undefined =>
-  options.apiKey === undefined
-    ? undefined
-    : connection.requireKeys
-      ? options.apiKey.requireIn(connection.env)
-      : options.apiKey.valueIn(connection.env);
 
 function connect(
   options: ModelProviderOptions,
@@ -30,18 +32,22 @@ function connect(
   fallback: FallbackTarget | undefined,
 ): ProviderConnection {
   const baseUrl = settingValueIn(options.baseUrl, connection.env);
-  const breakers = connection.breakers ?? processCircuitBreakers;
+  const { calls } = connection;
+  const gate = calls?.gateOf(options.name, options.rateLimitPolicy);
   return {
     provider: options.name,
     baseUrl,
-    apiKey: keyOf(options, connection),
+    apiKey: providerKeyOf(options, connection, connection.requireKeys),
     fetch: resilientFetch(
       {
         provider: options.name,
         baseUrl,
         timeout: options.timeout,
         retryPolicy: options.retryPolicy,
-        breaker: breakers.of(options.name, options.circuitBreakerPolicy),
+        ...(calls === undefined
+          ? {}
+          : { breaker: calls.breakerOf(options.name, options.circuitBreakerPolicy) }),
+        ...(gate === undefined ? {} : { gate }),
         ...(fallback === undefined ? {} : { fallback }),
         ...(connection.clock === undefined ? {} : { clock: connection.clock }),
       },
@@ -51,8 +57,9 @@ function connect(
 }
 
 /**
- * A provider's connection: base URL and key from the environment, `fetch` with its timeout, retry
- * policy and circuit breaker; while the breaker is open, calls go to its fallback provider.
+ * A provider's connection: its base URL, its key from the application's environment, `fetch`
+ * with its timeout, rate limit, retry policy and circuit breaker; while the breaker is open, calls
+ * go to its fallback provider.
  */
 export function connectionOf(
   options: ModelProviderOptions,
