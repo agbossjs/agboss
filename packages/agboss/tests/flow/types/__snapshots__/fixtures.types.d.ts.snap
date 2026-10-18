@@ -2,7 +2,8 @@
 // run `agboss check` again after changing a workflow or a component.
 import type { HistoryOf, NoInput, NoOutput, Produced, agbossComponent, agbossDto } from "../src/flow/generated-types.js";
 import type { ArticleDraftAgent, ArticleWorkflow, ArticleWorkflowFinish, ArticleWorkflowStart, DraftReviewerAgent, FinalReviewerAgent, WriterAgent } from "../tests/flow/fixtures/article.fixture.js";
-import type { BrokenOfferWorkflow, BrokenScreeningWorkflow, ItemBlindAgent } from "../tests/flow/fixtures/broken.fixture.js";
+import type { BrokenScreeningWorkflow, ItemBlindAgent } from "../tests/flow/fixtures/broken-launch.fixture.js";
+import type { BrokenOfferWorkflow } from "../tests/flow/fixtures/broken.fixture.js";
 import type { AskResumeWorkflowFinish, ChatWorkflow, ChatWorkflowFinish, IntakeWorkflowStart, MainRouter, NoReplyWorkflowFinish, ProfilerAgent, ScoutAgent } from "../tests/flow/fixtures/chat.fixture.js";
 import type { ChargeResultDto, CreditApprovalDto, CreditOrderDto, SupportIntentDto, TopicAnswerDto } from "../tests/flow/fixtures/credit-dtos.js";
 import type { ApprovalAgent, ChargeCardAction, CreditByModelWorkflow, CreditLimitByModelRouter, CreditLimitRouter, CreditWorkflow, CreditWorkflowFinish, CreditWorkflowStart, DeskRouter, NoOrderWorkflowFinish, OrderHeldWorkflowFinish, OrderIntakeAgent } from "../tests/flow/fixtures/credit.fixture.js";
@@ -382,15 +383,18 @@ declare module "../tests/flow/fixtures/article.fixture.js" {
   }
 }
 
-declare module "../tests/flow/fixtures/broken.fixture.js" {
-  interface BrokenOfferWorkflow {
-    readonly [agbossComponent]?: "broken-offer-workflow";
-  }
+declare module "../tests/flow/fixtures/broken-launch.fixture.js" {
   interface BrokenScreeningWorkflow {
     readonly [agbossComponent]?: "broken-screening-workflow";
   }
   interface ItemBlindAgent {
     readonly [agbossComponent]?: "item-blind-agent";
+  }
+}
+
+declare module "../tests/flow/fixtures/broken.fixture.js" {
+  interface BrokenOfferWorkflow {
+    readonly [agbossComponent]?: "broken-offer-workflow";
   }
 }
 
