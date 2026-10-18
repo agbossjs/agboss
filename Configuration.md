@@ -207,3 +207,9 @@ The app's own settings: one set per application, in `environments/` next to the 
 the contract a class with declared fields only (`@Application({ environment: AppEnvironment })`), each
 environment a typed object literal, secrets `Secret` fields from process variables. See
 [Environments](Environments).
+
+A framework implementation listed in `@Application({ providers })` may need a field of the
+contract: every SQLite implementation reads **`sqlitePath`** — the one file of the application's
+SQLite stores (`:memory:` in tests, `env("AGBOSS_SQLITE_PATH")` in production), required only when
+one is listed (`[environment.missing-field]` names the implementation and the contract). See
+[Several instances → SQLite](Several-instances#sqlite--several-instances-on-one-machine).

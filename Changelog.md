@@ -3,6 +3,26 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the SQLite implementations (#265, PR 3)
+
+- **Every storage contract has a ready SQLite implementation**, enabled only by listing it in
+  `@Application({ providers })`: `SqliteExecutionRecordRepository`, `SqliteCostLedgerRepository`,
+  `SqlitePausedExecutionRepository`, `SqliteCheckpointSaver` (our own `BaseCheckpointSaver` on
+  `node:sqlite`), `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`,
+  `SqliteRateLimitRepository` ([Several instances → SQLite](Several-instances#sqlite--several-instances-on-one-machine)).
+  One connection per application instance on the environment's `sqlitePath` — required only when
+  one is listed (`[environment.missing-field]`) — WAL, `busy_timeout`, atomic operations in
+  `BEGIN IMMEDIATE`, time from the framework's clock.
+- **Breaking for your own `ExecutionRecordRepository`**: a new abstract method
+  `completeIfStatus(ternId, expected, outcome): Promise<boolean>` — a compare-and-set status write.
+  A resume marks its paused record `running` with it, so a write that lands after the holder
+  finished the tree no longer leaves a finished record `running` (#265 S66 h).
+- **Cross-process persistence is back** for `--thread`, `agboss eval` / `replay` / `golden` when
+  the application lists the SQLite implementations (#261 S49 b): a workflow run on its own
+  (`createAppDeps`) now uses the infrastructure of the one application that lists it, not always
+  the in-memory defaults. job-scout lists all seven (dev: `.agboss/job-scout.sqlite`,
+  `AGBOSS_SQLITE_PATH`; tests: `:memory:`).
+
 ## Unreleased — parallel launches in the grammar and the analyser (#273, PR 1)
 
 - **Launches** ([Workflow → Parallel launches](Workflow#parallel-launches)):

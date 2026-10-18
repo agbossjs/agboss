@@ -102,7 +102,7 @@ two → `[di.ambiguous-implementation]`. A service that needs one injects the co
 
 | Contract                    | What it keeps                                                      | Built-in default |
 | --------------------------- | ------------------------------------------------------------------ | ---------------- |
-| `ExecutionRecordRepository` | threads and their owners, one record per execution, scores, config snapshots | in memory |
+| `ExecutionRecordRepository` | threads and their owners, one record per execution (`completeIfStatus`: a compare-and-set status write), scores, config snapshots | in memory |
 | `CostLedgerRepository`      | the spend per key and UTC day (`findSpentToday`, `saveAll`)        | in memory        |
 | `PausedExecutionRepository` | the paused execution of each thread (`findByThreadId`, `save`, `resolveByThreadId` — `Pending → Resolved` with its decision, atomic —, `deleteByThreadId`) | in memory |
 | `BaseCheckpointSaver`       | LangGraph's checkpoints, taken as is (ecosystem savers plug in)    | `MemorySaver`    |
@@ -111,8 +111,14 @@ two → `[di.ambiguous-implementation]`. A service that needs one injects the co
 | `RateLimitRepository`       | concurrency slots as leases (`acquire(key, maxSlots, lease)`, `renew`, `release`) — the model providers' limits (#266) | in memory |
 
 Nothing is written to the home folder: with the defaults, records, spend, pauses and leases live in
-the instance and are gone after a restart. The SQLite implementations (`SqliteExecutionRecordRepository`,
-…) come with #265 PR 3; your own `extends` the contract and goes in `@Application({ providers })`.
+the instance and are gone after a restart. Each contract has a ready SQLite implementation, enabled
+only by listing it (`SqliteExecutionRecordRepository`, `SqliteCostLedgerRepository`,
+`SqlitePausedExecutionRepository`, `SqliteCheckpointSaver`, `SqliteExecutionLeaseRepository`,
+`SqliteExecutionTreeRepository`, `SqliteRateLimitRepository` — one file, the environment's
+`sqlitePath`, required only then: [Several instances → SQLite](Several-instances#sqlite--several-instances-on-one-machine));
+your own `extends` the contract and goes in `@Application({ providers })`. A workflow run on its
+own (`agboss eval` / `replay` / `golden`, `createAppDeps`) uses the infrastructure of the one
+application that lists it.
 Running more than one instance: [Several instances](Several-instances).
 
 ## `app.execute(Start, input, options?)`

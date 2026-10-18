@@ -22,8 +22,77 @@ shared implementation of each:
 | `ExecutionTreeRepository`   | the shared state of one request, read by its executions on any instance         |
 | `RateLimitRepository`       | a model provider's limit is common to every instance (#266)                     |
 
-The ready SQLite implementations (`SqliteExecutionLeaseRepository`, …) come with #265 PR 3; until
-then a project lists its own (`extends` the contract, `@Injectable({ deps })`).
+Each contract has a ready **SQLite** implementation (#265 PR 3), or a project lists its own
+(`extends` the contract, `@Injectable({ deps })`, [below](#your-own-implementation)).
+
+## SQLite — several instances on one machine
+
+| Contract                    | SQLite implementation             | Tables                            |
+| --------------------------- | --------------------------------- | --------------------------------- |
+| `BaseCheckpointSaver`       | `SqliteCheckpointSaver`           | `checkpoints`, `checkpoint_writes` |
+| `PausedExecutionRepository` | `SqlitePausedExecutionRepository` | `paused_executions`               |
+| `ExecutionRecordRepository` | `SqliteExecutionRecordRepository` | the Tern tables (`threads`, `terns`, …) |
+| `CostLedgerRepository`      | `SqliteCostLedgerRepository`      | `cost_ledger`                     |
+| `ExecutionLeaseRepository`  | `SqliteExecutionLeaseRepository`  | `execution_leases`                |
+| `ExecutionTreeRepository`   | `SqliteExecutionTreeRepository`   | `execution_tree_keys`             |
+| `RateLimitRepository`       | `SqliteRateLimitRepository`       | `rate_limit_slots`                |
+
+Each one is enabled only by listing it in `@Application({ providers })` — list one, some or all; a
+contract not listed keeps its in-memory default. They are built on `node:sqlite` (no native
+driver to install; `SqliteCheckpointSaver` is our own `BaseCheckpointSaver`, serializing with
+LangGraph's `serde`) and share **one file**: the environment contract's `sqlitePath`, required only
+when a SQLite implementation is listed — a contract without it fails assembly with
+`[environment.missing-field] SqliteExecutionLeaseRepository needs sqlitePath: string in
+AppEnvironment` ([Environments](Environments)), an empty value fails the start naming it.
+
+<!-- snippet-context
+import { Application, EmptyEnvironment, SqliteCheckpointSaver, SqliteCostLedgerRepository, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqliteExecutionTreeRepository, SqlitePausedExecutionRepository, SqliteRateLimitRepository, env } from "agboss";
+-->
+
+```ts
+// environments/app.environment.ts — the contract
+export class AppEnvironment {
+  sqlitePath!: string; // required because SQLite implementations are listed
+}
+
+// environments/prod.environment.ts — one file per machine; tests: sqlitePath: ":memory:"
+export const environment: AppEnvironment = {
+  sqlitePath: env("AGBOSS_SQLITE_PATH"),
+};
+
+// job-scout.application.ts: @Application({ …, environment: AppEnvironment, providers: sqliteStores })
+export const sqliteStores = [
+  SqliteExecutionRecordRepository,
+  SqliteCostLedgerRepository,
+  SqlitePausedExecutionRepository,
+  SqliteCheckpointSaver,
+  SqliteExecutionLeaseRepository,
+  SqliteExecutionTreeRepository,
+  SqliteRateLimitRepository,
+];
+```
+
+- **One connection per application instance**, shared by its SQLite stores and opened when the
+  first one is created; two instances (two processes, or `testWith(App, { instances: 2 })`) open
+  two connections to one file. The file is in WAL mode (readers never block the writer) with a
+  `busy_timeout` of 5 s (a writer waits for the other's lock, then fails — it never hangs); the
+  connection is closed in `onDestroy` when the instance stops. `SqliteConnection` is exported as a type only (it
+  appears in the SQLite implementations' constructors); the container creates it — project code
+  never constructs it.
+- **Atomic operations** — a lease `acquire`, a slot `acquire`, `saveIfAbsent`, a pause
+  `Pending → Resolved`, a ledger counter — run in one `BEGIN IMMEDIATE` transaction, so of two
+  instances exactly one wins; `renew` / `release` and the records' compare-and-set write are one
+  statement each.
+- **Time comes from the framework's clock**, never from SQLite (`expiresAt`, the ledger's UTC day
+  are parameters), so `clock.advance(…)` moves SQLite leases in tests like in-memory ones.
+- `node:sqlite` is synchronous: a transaction is one group of statements with no `await`, and a
+  busy wait blocks that instance's event loop for at most the busy timeout.
+- With them, what one process wrote is there for the next: `agboss run` / `chat --thread <id>`
+  continue a thread after a restart, `agboss eval` / `replay` / `golden` read the records of
+  earlier runs (a workflow run on its own uses the infrastructure its application lists), a pause
+  is resumed after a restart, and another instance on the file recovers a run whose process
+  died ([Recovery](#recovery)). job-scout lists all seven (`sqlitePath` in dev:
+  `.agboss/job-scout.sqlite`, or `AGBOSS_SQLITE_PATH`).
 
 ## The execution lease
 
@@ -229,6 +298,13 @@ longer than the lease is a holder frozen for that long.
 
 - With the in-memory defaults nothing is shared between instances and nothing survives a restart:
   run one instance, or list shared stores.
+- **SQLite on one file serves one machine**: its locks are local, so instances on several machines
+  need a networked store (your own implementation over Postgres, Redis, …). A file on a network
+  share is not supported.
+- **SQLite in memory is not SQLite on disk**: `sqlitePath: ":memory:"` gives each connection its
+  own database — instances do not share it, a restart (`recoverApp()`) starts empty, and there are
+  no locks between writers. A test of several instances or of a restart on SQLite uses a
+  temporary file.
 - With the in-memory defaults nothing survives a restart, so there is nothing to recover:
   recovery works with persistent stores (records, checkpoints, paused executions, leases).
 - A stop releases its leases at once, but the other instances notice at their next sweep (within
