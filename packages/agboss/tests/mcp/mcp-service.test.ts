@@ -13,7 +13,7 @@ import {
   Tool,
   type ToolHandler,
 } from "../../src/index.js";
-import { createMcpService, McpExpose } from "../../src/mcp/index.js";
+import { createMcpService, McpExpose, type McpSessionOptions } from "../../src/mcp/index.js";
 import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
 import { Text } from "../../src/dto/index.js";
 import { jsonSchemaOf } from "../../src/dto/schema.js";
@@ -131,11 +131,15 @@ class DeskMcp {}
 const opened: App[] = [];
 
 /** The app behind an MCP server, and an SDK client connected to it in memory. */
-async function connected(book = new ScriptBook(), stubs = new McpStubs(book)): Promise<Client> {
+async function connected(
+  book = new ScriptBook(),
+  stubs = new McpStubs(book),
+  session: McpSessionOptions = {},
+): Promise<Client> {
   const app = await createApp(ClerkDeskApplication, offline(book, stubs));
   opened.push(app);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
-  await createMcpService(app, DeskMcp).connect(serverSide);
+  await createMcpService(app, DeskMcp).connect(serverSide, session);
   const client = new Client({ name: "test-client", version: "1.0.0" });
   await client.connect(clientSide);
   return client;
@@ -247,6 +251,35 @@ describe("McpService over an in-memory MCP transport", () => {
     });
     expect(resumed.isError).toBeFalsy();
     expect(JSON.parse(textOf(resumed))).toEqual({ text: "Saved." });
+  });
+
+  it("#261: a session runs in its caller's tenant and owner — the start and its resume alike", async () => {
+    const book = new ScriptBook();
+    const stubs = new McpStubs(book);
+    stubs.stubOf("notes").thenReturn({ write_file: () => Promise.resolve({ content: "ok" }) });
+    book
+      .scriptOf("agent:clerk-agent")
+      .thenReturn(callTool(SaveNote, { title: "a", text: "b" }), replyWith("Saved."));
+    const session = { tenant: { tenantId: "acme" }, ownerId: "dana" };
+    const client = await connected(book, stubs, session);
+
+    const started = await client.callTool({
+      name: "chat-workflow-start",
+      arguments: { text: "save a note" },
+    });
+    const paused = JSON.parse(textOf(started)) as { threadId: string };
+    const resumed = await client.callTool({
+      name: "resume_workflow",
+      arguments: {
+        threadId: paused.threadId,
+        decision: JSON.stringify({ approved: true, by: "dana" }),
+      },
+    });
+
+    expect(resumed.isError).toBeFalsy();
+    expect(JSON.parse(textOf(resumed))).toEqual({ text: "Saved." });
+    const [app] = opened;
+    await expect(app?.cancel(paused.threadId)).rejects.toThrow(/thread/i);
   });
 
   it("an invalid workflow input or an unknown thread is an MCP error result", async () => {

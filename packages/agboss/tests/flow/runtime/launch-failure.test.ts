@@ -3,7 +3,7 @@ import {
   ActionFailedError,
   BranchStatus,
   StepFailedError,
-  WorkflowCancelledError,
+  ExecutionCancelledError,
 } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -104,7 +104,7 @@ describe("S21: a cancel of the execution is no branch outcome", () => {
 
       await app.cancel(fanOut.threads[0] ?? "");
 
-      await expect(run).rejects.toBeInstanceOf(WorkflowCancelledError);
+      await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
       expect(fanOut.events).toEqual(expect.arrayContaining(["aborted a", "aborted b"]));
     },
   );

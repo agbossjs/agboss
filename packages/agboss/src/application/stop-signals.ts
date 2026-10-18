@@ -1,4 +1,5 @@
 import type { App } from "../app/types.js";
+import type { FrameworkLog } from "../infrastructure/logger.js";
 import { seconds } from "../units/index.js";
 
 /**
@@ -26,11 +27,13 @@ export interface StopSignalSource {
 export interface ClosableApp {
   readonly app: Pick<App, "close">;
   readonly closed: Promise<void>;
+  /** Where a failed close is reported: the application's log. */
+  readonly log: FrameworkLog;
 }
 
 /** Listens for SIGTERM / SIGINT until the app's `close()` has finished. */
 export function closeOnStopSignals(
-  { app, closed }: ClosableApp,
+  { app, closed, log }: ClosableApp,
   source: StopSignalSource = process,
 ): void {
   let received: NodeJS.Signals | undefined;
@@ -39,9 +42,7 @@ export function closeOnStopSignals(
     received ??= signal;
     // the close's own failures are the app's (hooks collected into one error): reported, not thrown
     app.close(again ? { timeout: seconds(0) } : {}).catch((error: unknown) => {
-      process.emitWarning(`app.close() on ${signal} failed: ${String(error)}`, {
-        code: "app.close-failed",
-      });
+      log.error("app.close-failed", `app.close() on ${signal} failed: ${String(error)}`);
     });
   };
   STOP_SIGNALS.forEach((signal) => source.on(signal, listener));

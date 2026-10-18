@@ -2,7 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { handedOverReason } from "../../../app/handed-over.js";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
-import { WorkflowCancelledError } from "../../../core/errors.js";
+import { ExecutionCancelledError } from "../../../core/errors.js";
 import { extractRunContext } from "../../../core/run-context.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { StepFailedError } from "../../../graph/errors.js";
@@ -144,7 +144,7 @@ function passThroughStops(run: BranchRun): void {
   const handedOver = handedOverReason(run.config?.signal);
   if (handedOver !== undefined) throw handedOver;
   if (executionSignalOf(run).aborted || run.config?.signal?.aborted === true)
-    throw new WorkflowCancelledError("the execution was cancelled during a parallel launch");
+    throw new ExecutionCancelledError("the execution was cancelled during a parallel launch");
 }
 
 async function runBranch(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {

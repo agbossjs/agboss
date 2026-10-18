@@ -51,10 +51,10 @@ export abstract class McpServerClient<TTools extends ServerTools> {
 // @public
 export class McpService {
     constructor(app: App, config: Class);
-    connect(transport: Transport, context?: unknown): Promise<void>;
+    connect(transport: Transport, session?: McpSessionOptions): Promise<void>;
     connectStdio(): Promise<void>;
     handleMessage(req: IncomingMessage, res: ServerResponse, sessionId: string, parsedBody?: unknown): Promise<void>;
-    handleSse(res: ServerResponse, messageEndpoint: string, context?: unknown): Promise<McpSession>;
+    handleSse(res: ServerResponse, messageEndpoint: string, session?: McpSessionOptions): Promise<McpSession>;
 }
 
 // @public (undocumented)
@@ -64,6 +64,11 @@ export interface McpSession {
     // (undocumented)
     readonly sessionId: string;
 }
+
+// Warning: (ae-forgotten-export) The symbol "ExecutionOptions" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "execution">;
 
 // Warning: (ae-forgotten-export) The symbol "DtoClass" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "Token" needs to be exported by the entry point index.d.ts
@@ -105,7 +110,7 @@ export type ToolsOf<TServer> = TServer extends {
 // src/mcp/mcp-service.ts:17:1 - (ae-undocumented) Missing documentation for "McpSession".
 // src/mcp/mcp-service.ts:18:3 - (ae-undocumented) Missing documentation for "sessionId".
 // src/mcp/mcp-service.ts:19:3 - (ae-undocumented) Missing documentation for "close".
-// src/mcp/mcp-service.ts:125:1 - (ae-undocumented) Missing documentation for "createMcpService".
+// src/mcp/mcp-service.ts:128:1 - (ae-undocumented) Missing documentation for "createMcpService".
 
 // (No @packageDocumentation comment for this package)
 

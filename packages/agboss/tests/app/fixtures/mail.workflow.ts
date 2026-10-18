@@ -8,12 +8,13 @@ import {
   WorkflowFinish,
   WorkflowSettings,
   WorkflowStart,
-  type AppState,
-  type OnError,
-  type OnRunRejected,
-  type OnWorkflowPause,
-  type RunRejectedEvent,
-  type WorkflowPauseEvent,
+  type ExecutionErrorEvent,
+  type ExecutionEvent,
+  type ExecutionPauseEvent,
+  type ExecutionRejectedEvent,
+  type OnExecutionError,
+  type OnExecutionPause,
+  type OnExecutionRejected,
 } from "../../../src/index.js";
 import type { IncompatibleResume } from "../../../src/run/resume-guard.js";
 import type { ToolHandler } from "../../../src/index.js";
@@ -36,20 +37,27 @@ export const asked: IncompatibleResume[] = [];
 /** What the deployments' observer saw: pauses, errors and refused requests (the tests reset it). */
 export const observed: {
   readonly hook: string;
-  readonly state: Partial<AppState>;
+  readonly state: { readonly runId?: string; readonly threadId?: string };
   readonly detail?: unknown;
 }[] = [];
 
+/** The execution an event is about: its id and thread. */
+const idsOf = (event: ExecutionEvent): { readonly runId: string; readonly threadId: string } => ({
+  runId: event.executionId,
+  threadId: event.threadId,
+});
+
 @Injectable()
-export class MailLog implements OnWorkflowPause, OnError, OnRunRejected {
-  onWorkflowPause(event: WorkflowPauseEvent): void {
-    observed.push({ hook: "pause", state: event.state });
+export class MailLog implements OnExecutionPause, OnExecutionError, OnExecutionRejected {
+  onExecutionPause(event: ExecutionPauseEvent): void {
+    observed.push({ hook: "pause", state: idsOf(event) });
   }
-  onError(error: Error, state: AppState): void {
-    observed.push({ hook: "error", state, detail: error });
+  onExecutionError(event: ExecutionErrorEvent): void {
+    observed.push({ hook: "error", state: idsOf(event), detail: event.error });
   }
-  onRunRejected(event: RunRejectedEvent): void {
-    observed.push({ hook: "rejected", state: event.state, detail: event });
+  onExecutionRejected(event: ExecutionRejectedEvent): void {
+    const state = event.threadId === undefined ? {} : { threadId: event.threadId };
+    observed.push({ hook: "rejected", state, detail: event });
   }
 }
 
@@ -109,7 +117,6 @@ const workflow = {
     tools: { maxToolCalls: 2 },
   },
   channelClasses: [TerminalUserChannel],
-  observers: [MailLog],
   flow: [
     start(Start)
       .returns(WorkflowStartTextDto)
@@ -153,6 +160,7 @@ const durable = [
   workflows: [MailV1],
   providers: durable,
   budgets: TEST_BUDGETS,
+  observers: [MailLog],
 })
 export class MailV1Application {}
 
@@ -163,6 +171,7 @@ export class MailV1Application {}
   workflows: [MailV2],
   providers: durable,
   budgets: TEST_BUDGETS,
+  observers: [MailLog],
 })
 export class MailV2Application {}
 
@@ -173,6 +182,7 @@ export class MailV2Application {}
   workflows: [MailV2Migrating],
   providers: durable,
   budgets: TEST_BUDGETS,
+  observers: [MailLog],
 })
 export class MailV2MigratingApplication {}
 
@@ -184,6 +194,7 @@ export class MailV2MigratingApplication {}
   workflows: [MailV1],
   providers: [SharedCheckpointSaver, SharedExecutionRecordRepository],
   budgets: TEST_BUDGETS,
+  observers: [MailLog],
 })
 export class MailV1MemoryPausesApplication {}
 
@@ -194,5 +205,6 @@ export class MailV1MemoryPausesApplication {}
   environment: EmptyEnvironment,
   workflows: [MailV1],
   budgets: TEST_BUDGETS,
+  observers: [MailLog],
 })
 export class MailApplication {}

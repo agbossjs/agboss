@@ -1,5 +1,4 @@
 import type { Class } from "../components/injection.js";
-import type { ExecutionOutput } from "../app/types.js";
 import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 import type {
@@ -7,7 +6,6 @@ import type {
   ActionStartEvent,
   AgentEndEvent,
   AgentStartEvent,
-  AppState,
   ChannelEndEvent,
   ChannelStartEvent,
   GuardrailEndEvent,
@@ -22,42 +20,55 @@ import type {
   RagStartEvent,
   RouterEndEvent,
   RouterStartEvent,
-  RunRejectedEvent,
+  ExecutionEndEvent,
+  ExecutionErrorEvent,
+  ExecutionPauseEvent,
+  ExecutionRejectedEvent,
+  ExecutionResumeEvent,
+  ExecutionStartEvent,
   ToolEndEvent,
   ToolStartEvent,
-  WorkflowPauseEvent,
-  WorkflowResumeEvent,
 } from "./observability.js";
 
 /** What a hook may return: it is awaited, its value is ignored. */
 type HookResult = Promise<void> | void;
 
 /**
- * Observer hooks, one interface per hook. An observer class implements any of them and is listed
- * in `@Workflow({ observers: [...] })`; only listed classes are called.
+ * Observer hooks, one interface per hook (#261). An observer class implements any of them and is
+ * listed in `@Application({ observers: [...] })`; only listed classes are called — for every
+ * execution of the application, child executions included (filter by `event.workflow.name`).
  */
-/** Once per run, at `execute` (a resume does not start it again). */
-export interface OnWorkflowStart {
-  onWorkflowStart(state: AppState): HookResult;
+/** Once per execution, at `execute` (a resume does not start it again). */
+export interface OnExecutionStart {
+  onExecutionStart(event: ExecutionStartEvent): HookResult;
 }
-/** The run paused (an approval, a channel); `onWorkflowResume` follows when it is resumed. */
-export interface OnWorkflowPause {
-  onWorkflowPause(event: WorkflowPauseEvent): HookResult;
+/** The execution paused (an approval, a channel); `onExecutionResume` follows when it continues. */
+export interface OnExecutionPause {
+  onExecutionPause(event: ExecutionPauseEvent): HookResult;
 }
-/** `app.resume` picked the paused run up. */
-export interface OnWorkflowResume {
-  onWorkflowResume(event: WorkflowResumeEvent): HookResult;
+/** `app.resume` picked the paused execution up, or recovery continues an interrupted one. */
+export interface OnExecutionResume {
+  onExecutionResume(event: ExecutionResumeEvent): HookResult;
 }
 /**
- * A request was refused before a run started or was located (`execute`, `resume` or `cancel` of
- * another owner's thread, a resume with nothing paused, an unknown thread, an invalid start input).
+ * A request was refused before an execution started or was located (`execute`, `resume` or
+ * `cancel` of another owner's thread, a resume with nothing paused, an unknown thread, invalid
+ * input, an exhausted budget, a stopping app).
  */
-export interface OnRunRejected {
-  onRunRejected(event: RunRejectedEvent): HookResult;
+export interface OnExecutionRejected {
+  onExecutionRejected(event: ExecutionRejectedEvent): HookResult;
 }
-/** The run finished — at `execute`, or after a resume. */
-export interface OnWorkflowEnd {
-  onWorkflowEnd(result: ExecutionOutput, state: AppState): HookResult;
+/** The execution ended at a finish — at `execute`, or after a resume; once per execution. */
+export interface OnExecutionEnd {
+  onExecutionEnd(event: ExecutionEndEvent): HookResult;
+}
+/**
+ * The execution failed (also after a resume, or cancelled while paused: `ExecutionCancelledError`),
+ * or a resume of a paused one was refused as incompatible (`IncompatibleResumeError`; it stays
+ * paused).
+ */
+export interface OnExecutionError {
+  onExecutionError(event: ExecutionErrorEvent): HookResult;
 }
 export interface OnAgentStart {
   onAgentStart(event: AgentStartEvent): HookResult;
@@ -89,14 +100,6 @@ export interface OnRagStart {
 }
 export interface OnRagEnd {
   onRagEnd(event: RagEndEvent): HookResult;
-}
-/**
- * A run failed (also after a resume, or cancelled while paused: `WorkflowCancelledError`), a resume
- * of a paused run was refused as incompatible (`IncompatibleResumeError`; the run stays paused), or
- * an optional branch failed and was skipped.
- */
-export interface OnError {
-  onError(error: Error, state: AppState): HookResult;
 }
 export interface OnGuardrailStart {
   onGuardrailStart(event: GuardrailStartEvent): HookResult;
@@ -145,12 +148,13 @@ export interface OnLaunchItemsTruncated {
 }
 
 /** Every hook, all optional: the type of an observer instance. */
-export type WorkflowObserver = Partial<
-  OnWorkflowStart &
-    OnWorkflowPause &
-    OnWorkflowResume &
-    OnWorkflowEnd &
-    OnRunRejected &
+export type ExecutionObserver = Partial<
+  OnExecutionStart &
+    OnExecutionPause &
+    OnExecutionResume &
+    OnExecutionEnd &
+    OnExecutionError &
+    OnExecutionRejected &
     OnAgentStart &
     OnAgentEnd &
     OnRouterStart &
@@ -161,7 +165,6 @@ export type WorkflowObserver = Partial<
     OnModelEnd &
     OnRagStart &
     OnRagEnd &
-    OnError &
     OnGuardrailStart &
     OnGuardrailEnd &
     OnPiiPolicyStart &
@@ -177,18 +180,19 @@ export type WorkflowObserver = Partial<
 >;
 
 /** The name of a hook, e.g. `"onToolEnd"`. */
-export type ObserverHook = keyof WorkflowObserver;
+export type ObserverHook = keyof ExecutionObserver;
 
-/** A class for `@Workflow({ observers })`: its instances implement some of the hooks. */
-export type ObserverClass = Class<WorkflowObserver>;
+/** A class for `@Application({ observers })`: its instances implement some of the hooks. */
+export type ObserverClass = Class<ExecutionObserver>;
 
-/** Every hook name; a `Record` so a hook added to `WorkflowObserver` must be listed here. */
+/** Every hook name; a `Record` so a hook added to `ExecutionObserver` must be listed here. */
 const HOOKS: Readonly<Record<ObserverHook, true>> = {
-  onWorkflowStart: true,
-  onWorkflowPause: true,
-  onWorkflowResume: true,
-  onWorkflowEnd: true,
-  onRunRejected: true,
+  onExecutionStart: true,
+  onExecutionPause: true,
+  onExecutionResume: true,
+  onExecutionEnd: true,
+  onExecutionError: true,
+  onExecutionRejected: true,
   onAgentStart: true,
   onAgentEnd: true,
   onRouterStart: true,
@@ -199,7 +203,6 @@ const HOOKS: Readonly<Record<ObserverHook, true>> = {
   onModelEnd: true,
   onRagStart: true,
   onRagEnd: true,
-  onError: true,
   onGuardrailStart: true,
   onGuardrailEnd: true,
   onPiiPolicyStart: true,

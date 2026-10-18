@@ -31,6 +31,13 @@ export {
 export type { PausedRun } from "../app/paused-runs.js";
 export { Clock } from "../infrastructure/clock.js";
 export {
+  ConsoleLogger,
+  formatLogEntry,
+  Logger,
+  LogLevel,
+  type LogEntry,
+} from "../infrastructure/logger.js";
+export {
   CostLedgerRepository,
   type BudgetAccount,
   type CostCounter,

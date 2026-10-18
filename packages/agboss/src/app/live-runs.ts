@@ -1,4 +1,4 @@
-import { WorkflowCancelledError } from "../core/errors.js";
+import { ExecutionCancelledError } from "../core/errors.js";
 import type { RunOptions, AgentExecutionOutput } from "../run/types.js";
 import type { TernOutcome } from "../terns/index.js";
 import type { CallOptions } from "./types.js";
@@ -65,7 +65,7 @@ export class LiveRuns {
     const runs = this.#runs.get(keyOf(thread));
     if (runs === undefined || runs.size === 0) return false;
     for (const controller of runs) {
-      controller.abort(new WorkflowCancelledError(`thread "${thread.threadId}" was cancelled`));
+      controller.abort(new ExecutionCancelledError(`thread "${thread.threadId}" was cancelled`));
     }
     return true;
   }
@@ -79,8 +79,6 @@ export interface TreeCall extends CallOptions {
 /** What `execute` / `resume` hand the run: the call's options with the tracked signal. */
 export const runOptionsOf = (call: TreeCall, signal: AbortSignal): RunOptions => ({
   signal,
-  executionContext: call.executionContext,
-  metadata: call.metadata,
   ownerId: call.ownerId,
   configurable: call.configurable,
   ...(call.onStream === undefined ? {} : { onStream: call.onStream }),

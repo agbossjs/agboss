@@ -16,6 +16,7 @@ import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
+import { logged, resetLogged } from "../helpers/log.js";
 import {
   Charge,
   Clerk,
@@ -218,7 +219,7 @@ describe("#265 AC12: an incompatible version", () => {
     clock,
     mockLlm,
   }) => {
-    const warn = vi.spyOn(process, "emitWarning").mockImplementation(() => undefined);
+    resetLogged();
     mockLlm(Clerk).thenReturn(...stepHoldAnswer);
     await ready(apps);
     await holding(instance(apps, 0));
@@ -228,9 +229,7 @@ describe("#265 AC12: an incompatible version", () => {
     await clock.advance(seconds(31));
     await clock.advance(seconds(30));
 
-    const incompatible = warn.mock.calls.filter(([, options]) =>
-      JSON.stringify(options).includes("recovery.incompatible"),
-    );
+    const incompatible = logged.filter((entry) => entry.code === "recovery.incompatible");
     expect(seen.holds).toHaveLength(1);
     expect(seen.resumes).toEqual([]);
     // two sweeps of two instances: each logs it once

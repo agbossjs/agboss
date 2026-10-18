@@ -1,6 +1,6 @@
 import { workflowOf } from "../components/assemble.js";
 import type { ProviderModule } from "../components/container/registrations.js";
-import type { Class } from "../components/injection.js";
+import type { Class, Provider } from "../components/injection.js";
 import { moduleOf } from "../components/module.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
@@ -17,6 +17,7 @@ import { ExecutionContext } from "../flow/context/execution-context.js";
 import { TenantContext } from "../flow/context/tenant-context.js";
 import { contextTokensOf } from "../components/context-tokens.js";
 import { checkContextFields } from "../flow/context/context-rules.js";
+import { checkObservers } from "../components/observer-checks.js";
 
 /**
  * The assembly of an `@Application` (#261): its own rules (names, its workflows, budgets, where the
@@ -37,7 +38,11 @@ export interface AssembledApplication {
   readonly environment?: Class;
   /** The application's own providers and budgets, then every workflow's providers. */
   readonly modules: readonly ProviderModule[];
+  /** `@Application({ providers })` as listed (its infrastructure, its model providers). */
+  readonly providers: readonly Provider[];
   readonly budgets: readonly Class[];
+  /** `@Application({ observers })`: every execution's observers, in the order listed. */
+  readonly observers: readonly Class[];
   /** The top-level workflows, in the order listed. */
   readonly workflows: readonly AssembledWorkflow[];
   /** How long a stop waits for the running executions (`@Application({ shutdownTimeout })`). */
@@ -57,13 +62,17 @@ export interface ApplicationAssembly {
 }
 
 /**
- * The application's own module: its providers and its budgets (the container creates both) — not its
- * `@ModelProvider` classes, which its workflows resolve their models to (#266).
+ * The application's own module: its providers, budgets and observers (the container creates them)
+ * — not its `@ModelProvider` classes, which its workflows resolve their models to (#266).
  */
 export const applicationModule = (options: ApplicationOptions): ProviderModule => ({
   owner: options.name,
   declaredIn: "@Application",
-  providers: [...containerProvidersOf(options.providers), ...(options.budgets ?? [])],
+  providers: [
+    ...containerProvidersOf(options.providers),
+    ...(options.budgets ?? []),
+    ...(options.observers ?? []),
+  ],
 });
 
 /** The modules of every workflow listed (each `@Workflow` class's own providers). */
@@ -131,6 +140,7 @@ export async function applicationOf(
 ): Promise<AssembledApplication> {
   const { options, source } = requireApplication(application, where);
   checkContextFields(options);
+  checkObservers(options.observers ?? []);
   const own = applicationRuleViolations(application, options);
   const modules = [applicationModule(options), ...workflowModules(options.workflows)];
   const workflows = options.workflows.filter(
@@ -146,7 +156,9 @@ export async function applicationOf(
     // required by the type; an untyped (JS) caller may leave it out — then the environment is empty
     ...withEnvironment((options as Partial<ApplicationOptions>).environment),
     modules,
+    providers: options.providers ?? [],
     budgets: options.budgets ?? [],
+    observers: options.observers ?? [],
     workflows: assembled,
     shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
     ...declaredContextsOf(options),

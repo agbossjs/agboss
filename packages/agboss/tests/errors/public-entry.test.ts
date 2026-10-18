@@ -17,7 +17,7 @@ import {
   RouterDecisionError,
   ToolTimeoutError,
   UnknownThreadError,
-  WorkflowCancelledError,
+  ExecutionCancelledError,
   type ErrorRecord,
 } from "../../src/index.js";
 
@@ -33,7 +33,7 @@ const catchable = {
   RouterDecisionError,
   ToolTimeoutError,
   UnknownThreadError,
-  WorkflowCancelledError,
+  ExecutionCancelledError,
 };
 
 describe("#194 AC2: the errors a user can catch come from the public entry", () => {
@@ -49,7 +49,7 @@ describe("#194 AC2: the errors a user can catch come from the public entry", () 
 
   it("the record type is public", () => {
     expectTypeOf<ErrorRecord>().toHaveProperty("code").toEqualTypeOf<string>();
-    expect(agboss.errorRecordOf(new WorkflowCancelledError()).code).toBe("workflow.cancelled");
+    expect(agboss.errorRecordOf(new ExecutionCancelledError()).code).toBe("execution.cancelled");
   });
 
   it("the classes without a failure site are gone", () => {

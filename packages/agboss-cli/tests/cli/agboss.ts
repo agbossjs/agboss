@@ -36,3 +36,10 @@ export async function agboss(
 /** The `--json` envelope on stdout (throws when stdout is not exactly one JSON value). */
 export const envelope = (call: AgbossCall): Record<string, unknown> =>
   JSON.parse(call.stdout) as Record<string, unknown>;
+
+/** The checks `agboss check` runs on every workflow (#261: the application's warnings too). */
+export const CHECKS_RUN = "assembly, environment, application, prompts, types";
+
+/** The assembly warning of an application on the built-in in-memory cost ledger (#261), as printed. */
+export const ledgerWarning = (file: string): string =>
+  `warning: ${file} application.in-memory-cost-ledger in-memory cost ledger: each application instance counts budgets on its own and the counters reset on restart\n`;

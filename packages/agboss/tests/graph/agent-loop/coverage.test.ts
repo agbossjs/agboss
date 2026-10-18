@@ -17,6 +17,7 @@ import { servicesFor } from "../../../src/app/parts.js";
 import { createAppDeps } from "../../../src/app/app-deps.js";
 import { workflowOf } from "../../../src/components/assemble.js";
 import { CodeReview } from "../../testing/fixtures/code-review.workflow.js";
+import { inTestFrame } from "../../helpers/frame.js";
 
 describe("agent-loop coverage", () => {
   it("reply-node with non-string move content", async () => {
@@ -82,9 +83,9 @@ describe("agent-loop coverage", () => {
       beforeToolCall: async () => ({ overrideArguments: { a: 1 } }),
     };
     const ctx = { call: { args: null } };
-    await visitToolThenAgent([guardrail], "beforeToolCall", ctx, undefined, observer, {
-      runId: "r1",
-    });
+    await inTestFrame(() =>
+      visitToolThenAgent([guardrail], "beforeToolCall", ctx, undefined, observer),
+    );
     expect(ctx.call.args).toEqual({ a: 1 });
     expect(observer.onGuardrailStart).toHaveBeenCalled();
     expect(observer.onGuardrailEnd).toHaveBeenCalled();
@@ -93,7 +94,7 @@ describe("agent-loop coverage", () => {
   it("visitAgentAnswer calls observer", async () => {
     const observer = { onGuardrailStart: vi.fn(), onGuardrailEnd: vi.fn() };
     const guardrail = { beforeAgentAnswer: async () => ({}) };
-    await visitAgentAnswer([guardrail], {}, observer, { runId: "r1" });
+    await inTestFrame(() => visitAgentAnswer([guardrail], {}, observer));
     expect(observer.onGuardrailStart).toHaveBeenCalled();
   });
 
@@ -171,7 +172,7 @@ describe("agent-loop coverage", () => {
     const observer = { onJudgeStart: vi.fn(), onJudgeEnd: vi.fn() };
     const deps = { agent: { name: "a1", judges, binding: {} }, observer };
     const node = makeJudgeNode(deps);
-    await node({ reply: "test", runId: "1", messages: [] }, {});
+    await inTestFrame(() => node({ reply: "test", runId: "1", messages: [] }, {}));
     expect(observer.onJudgeStart).toHaveBeenCalled();
     expect(observer.onJudgeEnd).toHaveBeenCalled();
   });
@@ -191,19 +192,21 @@ describe("agent-loop coverage", () => {
       observer,
     };
     const node = makeApprovalNode(deps);
-    await node(
-      {
-        decisions: {},
-        results: {},
-        pendingPause: undefined,
-        move: {
-          tool_calls: [
-            { name: "t1", id: "c1", type: "function", function: { name: "t1", arguments: "{}" } },
-          ],
+    await inTestFrame(() =>
+      node(
+        {
+          decisions: {},
+          results: {},
+          pendingPause: undefined,
+          move: {
+            tool_calls: [
+              { name: "t1", id: "c1", type: "function", function: { name: "t1", arguments: "{}" } },
+            ],
+          },
+          runId: "1",
         },
-        runId: "1",
-      },
-      {},
+        {},
+      ),
     );
     expect(observer.onPiiPolicyStart).toHaveBeenCalled();
   });
@@ -299,19 +302,21 @@ describe("agent-loop missing branches coverage", () => {
       observer,
     };
     const node = makeApprovalNode(deps);
-    await node(
-      {
-        decisions: {},
-        results: {},
-        pendingPause: undefined,
-        move: {
-          tool_calls: [
-            { name: "t1", id: "c1", type: "function", function: { name: "t1", arguments: "{}" } },
-          ],
+    await inTestFrame(() =>
+      node(
+        {
+          decisions: {},
+          results: {},
+          pendingPause: undefined,
+          move: {
+            tool_calls: [
+              { name: "t1", id: "c1", type: "function", function: { name: "t1", arguments: "{}" } },
+            ],
+          },
+          runId: "1",
         },
-        runId: "1",
-      },
-      {},
+        {},
+      ),
     );
     expect(observer.onPiiPolicyStart).toHaveBeenCalled();
   });

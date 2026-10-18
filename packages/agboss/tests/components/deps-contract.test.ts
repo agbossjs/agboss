@@ -66,7 +66,6 @@ describe("#183 AC1: every decorator kind with deps gets them injected at run tim
       agentName: "keeper",
       toolName: "reveal",
       toolArguments: {},
-      metadata: {},
     });
     expect(seen).toContain("channel:reveal:s3cret");
     await expect(app.resolve(SecretInbound).interpret("s3cret")).resolves.toEqual({

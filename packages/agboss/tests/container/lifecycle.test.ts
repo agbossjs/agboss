@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/application/create-app.js";
 import { startComponents, stopComponents } from "../../src/components/container/lifecycle.js";
-import { ApplicationStoppingError, WorkflowCancelledError, type App } from "../../src/index.js";
+import { ApplicationStoppingError, ExecutionCancelledError, type App } from "../../src/index.js";
 import {
   Ask,
   rejections,
@@ -147,7 +147,7 @@ describe("#261 AC3: after app.close() no new execution is accepted", () => {
     gate.open();
 
     expect(cancelled).toEqual({ cancelled: true });
-    await expect(running).rejects.toBeInstanceOf(WorkflowCancelledError);
+    await expect(running).rejects.toBeInstanceOf(ExecutionCancelledError);
     await closing;
   });
 });

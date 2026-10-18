@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect } from "vitest";
-import { WorkflowCancelledError } from "../../src/core/errors.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
 import type { ExecutionOutput } from "../../src/index.js";
 import { callTool, failWith, ModelFailure, replyWith, testWith } from "../../src/testing/index.js";
@@ -52,15 +52,15 @@ describe("#244 AC1: workflow events across a pause and its resume", () => {
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(done.status).not.toBe(ExecutionStatus.Paused);
     expect(hooks()).toEqual([
-      "workflow-start",
-      "workflow-pause",
-      "workflow-resume",
-      "workflow-end",
+      "execution-start",
+      "execution-pause",
+      "execution-resume",
+      "execution-end",
     ]);
     const [, pause, resume, end] = workflowEvents();
     expect(pause?.detail).toMatchObject({ kind: "approval", tool: "apply", agent: "clerk-agent" });
     expect(resume?.detail).toEqual(approve);
-    expect(end?.detail).toBe(done.status);
+    expect(end?.detail).toEqual(done.finish);
     expect(done.runId).toBe(paused.runId);
     expectOneRun(done);
   });
@@ -81,12 +81,12 @@ describe("#244 AC1: workflow events across a pause and its resume", () => {
 
     expect([first.status, second.status]).toEqual(["paused", "paused"]);
     expect(hooks()).toEqual([
-      "workflow-start",
-      "workflow-pause",
-      "workflow-resume",
-      "workflow-pause",
-      "workflow-resume",
-      "workflow-end",
+      "execution-start",
+      "execution-pause",
+      "execution-resume",
+      "execution-pause",
+      "execution-resume",
+      "execution-end",
     ]);
     expectOneRun(done);
   });
@@ -99,7 +99,7 @@ describe("#244 AC1: workflow events across a pause and its resume", () => {
 
     const done = await execute(app, Ask, { text: "look" });
 
-    expect(hooks()).toEqual(["workflow-start", "workflow-end"]);
+    expect(hooks()).toEqual(["execution-start", "execution-end"]);
     expectOneRun(done);
   });
 });
@@ -118,12 +118,17 @@ describe("#244 AC2: a run that fails after a resume, or is cancelled while pause
     const resumed = app.resume(paused.threadId, approve);
 
     await expect(resumed).rejects.toBeInstanceOf(AgentFailedError);
-    expect(hooks()).toEqual(["workflow-start", "workflow-pause", "workflow-resume", "error"]);
+    expect(hooks()).toEqual([
+      "execution-start",
+      "execution-pause",
+      "execution-resume",
+      "execution-error",
+    ]);
     expect(workflowEvents().at(-1)?.detail).toBe(await resumed.catch((error: unknown) => error));
     expectOneRun(paused);
   });
 
-  test("a paused run is cancelled: start, pause, error (WorkflowCancelledError)", async ({
+  test("a paused run is cancelled: start, pause, error (ExecutionCancelledError)", async ({
     app,
     mockLlm,
   }) => {
@@ -136,12 +141,12 @@ describe("#244 AC2: a run that fails after a resume, or is cancelled while pause
     const cancelled = await app.cancel(paused.threadId);
 
     expect(cancelled).toEqual({ cancelled: true });
-    expect(hooks()).toEqual(["workflow-start", "workflow-pause", "error"]);
-    expect(workflowEvents().at(-1)?.detail).toBeInstanceOf(WorkflowCancelledError);
+    expect(hooks()).toEqual(["execution-start", "execution-pause", "execution-error"]);
+    expect(workflowEvents().at(-1)?.detail).toBeInstanceOf(ExecutionCancelledError);
     expectOneRun(paused);
     // nothing is left to cancel: no second error
     expect(await app.cancel(paused.threadId)).toEqual({ cancelled: false });
-    expect(hooks()).toEqual(["workflow-start", "workflow-pause", "error"]);
+    expect(hooks()).toEqual(["execution-start", "execution-pause", "execution-error"]);
   });
 });
 

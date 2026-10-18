@@ -19,8 +19,6 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   type AnswersOf,
   /** @deprecated Import from "agboss" (#195). */
-  type AppState,
-  /** @deprecated Import from "agboss" (#195). */
   BindTool,
   /** @deprecated Import from "agboss" (#195). */
   Channel,
@@ -107,7 +105,7 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   type ObserverHook,
   /** @deprecated Import from "agboss" (#195). */
-  ObserverManager,
+  ExecutionObserverManager,
   /** @deprecated Import from "agboss" (#195). */
   type OnActionEnd,
   /** @deprecated Import from "agboss" (#195). */
@@ -123,7 +121,7 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   type OnDestroy,
   /** @deprecated Import from "agboss" (#195). */
-  type OnError,
+  type OnExecutionError,
   /** @deprecated Import from "agboss" (#195). */
   type OnGuardrailEnd,
   /** @deprecated Import from "agboss" (#195). */
@@ -157,9 +155,9 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   type OnToolStart,
   /** @deprecated Import from "agboss" (#195). */
-  type OnWorkflowEnd,
+  type OnExecutionEnd,
   /** @deprecated Import from "agboss" (#195). */
-  type OnWorkflowStart,
+  type OnExecutionStart,
   /** @deprecated Import from "agboss" (#195). */
   PiiPolicy,
   /** @deprecated Import from "agboss" (#195). */
@@ -215,7 +213,7 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   type WorkflowDefinition,
   /** @deprecated Import from "agboss" (#195). */
-  type WorkflowObserver,
+  type ExecutionObserver,
   /** @deprecated Import from "agboss" (#195). */
   WorkflowSettings,
 } from "../index.js";

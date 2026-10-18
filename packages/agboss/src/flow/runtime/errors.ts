@@ -1,5 +1,5 @@
 import { isGraphInterrupt } from "@langchain/langgraph";
-import { AGBossError, WorkflowCancelledError } from "../../core/errors.js";
+import { AGBossError, ExecutionCancelledError } from "../../core/errors.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import {
   AgentFailedError,
@@ -73,7 +73,7 @@ export class ActionFailedError extends StepFailedError {
 export const passesThrough = (error: unknown): boolean =>
   isGraphInterrupt(error) ||
   error instanceof LimitExceededError ||
-  error instanceof WorkflowCancelledError;
+  error instanceof ExecutionCancelledError;
 
 /** A guard tripped on the execution's input or output (#120 `GuardrailBlockedError`). */
 export class GuardrailBlockedError extends PaidStepError {

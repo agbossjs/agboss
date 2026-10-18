@@ -64,7 +64,6 @@ export class RecoverableItemAction {
 @Workflow({
   name: "launch-recovery-workflow",
   version: "1.0.0",
-  observers: [RecoveryLog],
   flow: [
     start(ItemsWorkflowStart)
       .returns(listOf(ItemDto))
@@ -81,6 +80,7 @@ export class LaunchRecoveryWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LaunchRecoveryWorkflow],
+  observers: [RecoveryLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],
   budgets: TEST_BUDGETS,
 })

@@ -39,7 +39,7 @@ export interface A2AAgentConfig<D extends readonly Token[] = []> {
 // Warning: (ae-forgotten-export) The symbol "ExecutionOptions" needs to be exported by the entry point index.d.ts
 //
 // @public
-export type A2ACallOptions = Pick<ExecutionOptions, "signal" | "executionContext">;
+export type A2ACallOptions = Pick<ExecutionOptions, "signal" | "ownerId" | "tenant" | "execution">;
 
 // @public
 export class A2AClient {
@@ -186,11 +186,11 @@ export interface IA2AAdapter {
 
 // Warnings were encountered during analysis:
 //
-// src/a2a/a2a-adapter.ts:20:3 - (ae-undocumented) Missing documentation for "execute".
-// src/a2a/a2a-adapter.ts:27:3 - (ae-undocumented) Missing documentation for "resume".
-// src/a2a/a2a-adapter.ts:45:10 - (ae-undocumented) Missing documentation for "execute".
-// src/a2a/a2a-adapter.ts:61:10 - (ae-undocumented) Missing documentation for "resume".
-// src/a2a/a2a-adapter.ts:72:16 - (ae-undocumented) Missing documentation for "cancel".
+// src/a2a/a2a-adapter.ts:31:3 - (ae-undocumented) Missing documentation for "execute".
+// src/a2a/a2a-adapter.ts:38:3 - (ae-undocumented) Missing documentation for "resume".
+// src/a2a/a2a-adapter.ts:56:10 - (ae-undocumented) Missing documentation for "execute".
+// src/a2a/a2a-adapter.ts:72:10 - (ae-undocumented) Missing documentation for "resume".
+// src/a2a/a2a-adapter.ts:83:16 - (ae-undocumented) Missing documentation for "cancel".
 // src/a2a/a2a-client.ts:13:1 - (ae-undocumented) Missing documentation for "A2AClientOptions".
 // src/a2a/a2a-client.ts:16:3 - (ae-undocumented) Missing documentation for "headers".
 // src/a2a/a2a-client.ts:23:3 - (ae-undocumented) Missing documentation for "onEvent".

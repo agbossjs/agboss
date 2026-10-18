@@ -29,13 +29,6 @@ export interface CallOptions {
   readonly signal?: AbortSignal | undefined;
   /** Token and tool-call events while the run works. */
   readonly onStream?: (event: RunStreamEvent) => void;
-  /**
-   * The caller's own value for channels and guardrails (`ChannelRequest.executionContext`) — not
-   * the injected `ExecutionContext` nor its `execution` values.
-   */
-  readonly executionContext?: unknown;
-  /** For channels (`ChannelRequest.metadata`); a resume keeps it unless it passes its own. */
-  readonly metadata?: Readonly<Record<string, string>>;
   /** Extra LangGraph `configurable` keys for the run's nodes (the framework's own keys win). */
   readonly configurable?: Readonly<Record<string, unknown>>;
   /** Also return the full execution record (`result.record`, #270 AC16). */
@@ -162,7 +155,7 @@ export interface App {
   resume(threadId: string, decision: unknown, options?: ResumeOptions): Promise<ExecutionOutput>;
   /**
    * Cancels the thread's run: a running one is aborted (`executionContext.signal`; its `execute` rejects
-   * with `WorkflowCancelledError`), a paused one is dropped (its `resume` throws `NotPausedError`).
+   * with `ExecutionCancelledError`), a paused one is dropped (its `resume` throws `NotPausedError`).
    * A thread the tenant does not have → `UnknownThreadError`.
    */
   cancel(threadId: string, options?: CancelOptions): Promise<CancelOutput>;

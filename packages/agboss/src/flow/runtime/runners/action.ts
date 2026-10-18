@@ -1,4 +1,3 @@
-import { extractRunContext } from "../../../core/run-context.js";
 import { validate } from "../../../dto/schema.js";
 import type { DtoClass } from "../../../dto/types.js";
 import type { GraphDeps } from "../../../graph/deps.js";
@@ -14,6 +13,7 @@ import type { NodeRunner } from "../node-runner.js";
 import { stepNodeIdOf } from "../step-frame.js";
 import { ActionFailedError, OutputInvalidError, passesThrough } from "../errors.js";
 import { readInput, type NodeValue } from "../scope.js";
+import { reportNodeEvent } from "../../observers/execution-event.js";
 
 /** What an action is: `execute(input)` (`implements ActionHandler<Self>`). */
 interface ActionInstance {
@@ -73,18 +73,18 @@ export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
   const { declaration } = node;
   if (declaration.kind !== NodeKind.Action) throw new TypeError(`${node.id} is not an action`);
   const { output } = declaration.options;
-  return async (state, config) => {
+  return async (state) => {
     const instance: unknown = deps.container.get(node.component);
     if (!isAction(instance)) throw new OutputInvalidError(`${node.id} has no execute(input)`);
     const input = readInput(deps.graph, node, state);
-    const { threadId } = extractRunContext(config, state.runId);
     const name = stepNodeIdOf(node);
-    const appState = { runId: state.runId, threadId, activeNode: name };
-    await deps.observer?.onActionStart({ name, input: input.fields, state: appState });
+    await reportNodeEvent((base) =>
+      deps.observer?.onActionStart({ ...base, name, input: input.fields }),
+    );
     const result = await instance.execute(input.fields).catch((error: unknown) => {
       throw failure(node.id, error);
     });
-    await deps.observer?.onActionEnd({ name, update: result, state: appState });
+    await reportNodeEvent((base) => deps.observer?.onActionEnd({ ...base, name, update: result }));
     if (output === undefined) return { read: input.read };
     return { value: checkedValue(node.id, output, result), read: input.read };
   };

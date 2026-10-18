@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect } from "vitest";
-import { WorkflowCancelledError } from "../../../src/index.js";
+import { ExecutionCancelledError } from "../../../src/index.js";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
@@ -51,10 +51,10 @@ describe("#280 S45: in a tool call, executionContext.signal is the call's", () =
 
     const run = execute(app, SpendStart, { text: "fetch" }, { signal: controller.signal });
     setTimeout(() => {
-      controller.abort(new WorkflowCancelledError("stop"));
+      controller.abort(new ExecutionCancelledError("stop"));
     }, 10);
 
-    await expect(run).rejects.toBeInstanceOf(WorkflowCancelledError);
+    await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
     expect(spendSeen.aborts).toHaveLength(1);
     expect(spendSeen.aborts[0]).not.toBe("ToolTimeoutError");
   });

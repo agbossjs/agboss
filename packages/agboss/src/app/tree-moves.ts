@@ -1,4 +1,4 @@
-import { ResumeReason, type AppState } from "../core/observability.js";
+import { ResumeReason } from "../core/observability.js";
 import type { ExecutionTreeRepository } from "../infrastructure/execution-tree.repository.js";
 import { PauseStatus } from "../infrastructure/paused-execution.repository.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
@@ -14,7 +14,7 @@ import { isHandedOver } from "./handed-over.js";
 import type { LiveRuns, TreeCall } from "./live-runs.js";
 import type { PausedRunBook } from "./paused-runs.js";
 import { runResultOf } from "./result.js";
-import { observeLeg } from "./run-events.js";
+import { executionEventAt, observeLeg, type ObservedExecution } from "./run-events.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 
 /**
@@ -43,10 +43,8 @@ export interface TreeMoveParts {
 
 export type { TreeCall } from "./live-runs.js";
 
-/** The tree of a run: its id, its conversation thread and its tenant (the observer state of its passes). */
-export interface TreeState extends Required<Pick<AppState, "runId" | "threadId">> {
-  readonly tenantId: string;
-}
+/** The tree of an execution: its id, thread, tenant and the version it started on (its events). */
+export type TreeState = ObservedExecution;
 
 export interface TreeMoves {
   /** A new tree's first pass (`app.execute`) under its lease, then the drain. */
@@ -72,12 +70,6 @@ const leasedDeps = (deps: AppDeps, lease: HeldExecutionLease): AppDeps =>
 /** The tree's key in the stores: its tenant and its root execution. */
 const treeOf = (state: TreeState) => ({ tenantId: state.tenantId, rootExecutionId: state.runId });
 
-/** The observer state of a pass: the run and its thread (#261 PR 6 adds the tenant to events). */
-const observedOf = (state: TreeState): Required<Pick<AppState, "runId" | "threadId">> => ({
-  runId: state.runId,
-  threadId: state.threadId,
-});
-
 class TreeMover implements TreeMoves {
   /** The roots a resume of this instance is moving or about to move: its own sweep leaves them. */
   readonly #resuming = new RootCalls();
@@ -90,7 +82,12 @@ class TreeMover implements TreeMoves {
 
   async resumed(run: AgentExecutionOutput, call: TreeCall): Promise<ExecutionOutput> {
     const { deps, paused, leases } = this.parts;
-    const state = { runId: run.runId, threadId: run.threadId, tenantId: run.tenantId };
+    const state = {
+      runId: run.runId,
+      threadId: run.threadId,
+      tenantId: run.tenantId,
+      startedVersion: run.startedVersion ?? deps.config.version,
+    };
     const leaving = this.#resuming.enter(run.runId);
     try {
       // answered: the tree has work again — its record is `running` until it rests (#265 S30); only
@@ -121,8 +118,8 @@ class TreeMover implements TreeMoves {
     call: TreeCall,
   ): Promise<ExecutionOutput | undefined> {
     if (this.#resuming.has(interrupted.runId)) return undefined;
-    const { runId, threadId, tenantId } = interrupted;
-    const state = { runId, threadId, tenantId };
+    const { runId, threadId, tenantId, startedVersion } = interrupted;
+    const state = { runId, threadId, tenantId, startedVersion };
     const lease = await this.parts.leases.tryHold(treeOf(state));
     if (lease === undefined) return undefined;
     const recovery = await recoveryPassOf(this.parts, interrupted, call).catch(
@@ -136,17 +133,15 @@ class TreeMover implements TreeMoves {
       return undefined;
     }
     const text = `execution ${state.runId} is recovered: it continues from its last checkpoint`;
-    process.emitWarning(text, { code: "execution.recovered" });
+    const subject = { executionId: state.runId, tenantId: state.tenantId };
+    this.parts.deps.log.warn("execution.recovered", text, subject);
     await this.announce(ResumeReason.Recovered, recovery.decision, state);
     return this.drained(state, call, lease, recovery.pass);
   }
 
   private announce(reason: ResumeReason, decision: unknown, state: TreeState): Promise<void> {
-    return this.parts.deps.observer.onWorkflowResume({
-      reason,
-      decision,
-      state: observedOf(state),
-    });
+    const event = executionEventAt(state, this.parts.deps.config);
+    return this.parts.deps.observer.onExecutionResume({ ...event, reason, decision });
   }
 
   /** Passes until the tree finishes or rests paused with nothing resolved; the lease released at the end. */
@@ -186,7 +181,7 @@ class TreeMover implements TreeMoves {
     const { deps, live, paused } = this.parts;
     const caller = call.signal === undefined ? [lease.signal] : [call.signal, lease.signal];
     const moving = leasedDeps(deps, lease);
-    return observeLeg(deps.observer, observedOf(state), async () => {
+    return observeLeg(deps.observer, executionEventAt(state, deps.config), async () => {
       const run = await live.track(state, AbortSignal.any(caller), (signal) =>
         pass(moving, signal),
       );

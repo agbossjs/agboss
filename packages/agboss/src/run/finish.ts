@@ -84,6 +84,7 @@ export async function finishRun<TName extends string>(
     tenantId: ctx.base.tenantId,
     ternId,
     runId: ctx.runId,
+    startedVersion: state.startedVersion === "" ? ctx.deps.config.version : state.startedVersion,
     data: {
       scope: state.scope,
       outdatedValues: state.outdatedValues,

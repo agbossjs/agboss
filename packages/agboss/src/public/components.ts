@@ -50,6 +50,7 @@ export { SpendRecorder, type ServiceSpend } from "../components/spend-recorder.j
 /** What `ROUTER_FACTORY` makes: a model-backed router a service asks to route (not `@Router`). */
 export type { RouterEngine } from "../routers/index.js";
 export { ComponentError } from "../components/metadata.js";
+export { nameOf, type ComponentName } from "../components/name-of.js";
 export {
   PromptError,
   type PromptProblem,

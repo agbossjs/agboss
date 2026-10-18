@@ -1,5 +1,4 @@
 import type { Class } from "../../../components/injection.js";
-import { extractRunContext } from "../../../core/run-context.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import { NodeKind } from "../../ast.js";
 import { declarationOf } from "../../decorators/declaration.js";
@@ -11,6 +10,7 @@ import { RouterDecisionError, RouterFailedError, type RouterVisit } from "../rou
 import { readInput } from "../scope.js";
 import { visitNumberOf } from "../step-frame.js";
 import { codeRouterLaunch } from "../launch/router-decision.js";
+import { reportNodeEvent } from "../../observers/execution-event.js";
 
 /** What a code router's class is: `route(input)` (`implements RouterHandler<Self>`). */
 interface CodeRouterInstance {
@@ -58,17 +58,18 @@ const failure = (step: RouterVisit, error: unknown): unknown =>
  */
 export function codeRouterRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRunner {
   if (node.declaration.kind !== NodeKind.Router) throw new TypeError(`${node.id} is not a router`);
-  return async (state, config) => {
+  return async (state) => {
     const step = { nodeId: node.id, visitNumber: visitNumberOf(node, state) };
     const instance: unknown = deps.container.get(node.component);
     if (!isCodeRouter(instance)) {
       throw new RouterFailedError(step, new TypeError(`${node.id} has no route(input)`));
     }
     const input = readInput(deps.graph, node, state);
-    const { threadId } = extractRunContext(config, state.runId);
-    const appState = { runId: state.runId, threadId, activeNode: node.id };
+    const name = node.id;
     const message = inputMessageOf(node.fields, state);
-    await deps.observer?.onRouterStart({ name: node.id, input: message, state: appState });
+    await reportNodeEvent((base) =>
+      deps.observer?.onRouterStart({ ...base, name, input: message }),
+    );
     const answer: unknown = await Promise.resolve()
       .then(() => instance.route(input.fields))
       .catch((error: unknown) => {
@@ -76,13 +77,13 @@ export function codeRouterRunner(node: RuntimeNode, deps: GraphDeps<string>): No
       });
     if (node.exits.launches.size > 0) {
       const launch = codeRouterLaunch(node, step, answer);
-      const decided = { route: launch.join(", "), reason: "decided by code" };
-      await deps.observer?.onRouterEnd({ name: node.id, update: decided, state: appState });
+      const update = { route: launch.join(", "), reason: "decided by code" };
+      await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
       return { launch, read: input.read };
     }
     const route = chosenRoute(node, step, answer);
     const update = { route, reason: "decided by code" };
-    await deps.observer?.onRouterEnd({ name: node.id, update, state: appState });
+    await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
     return { route, read: input.read };
   };
 }

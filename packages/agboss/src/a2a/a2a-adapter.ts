@@ -1,5 +1,5 @@
 import { executeUnchecked } from "../app/execute-unchecked.js";
-import type { App, ExecutionOptions, ExecutionOutput } from "../app/types.js";
+import type { App, ExecutionOptions, ExecutionOutput, ResumeOptions } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import { eventOf, failureResponseOf, responseOf } from "./a2a-mapping.js";
 import type {
@@ -9,8 +9,19 @@ import type {
   A2AResumeRequest,
 } from "./types.js";
 
-/** Per call: the caller's signal and the execution context the app passes to tools. */
-export type A2ACallOptions = Pick<ExecutionOptions, "signal" | "executionContext">;
+/**
+ * Per call (#261): the caller's signal, the thread's owner and the execution's typed context values
+ * — `tenant` (a resume uses its `tenantId`) and the declared `execution` fields; the transport takes
+ * them from its authenticated caller, never from the request body.
+ */
+export type A2ACallOptions = Pick<ExecutionOptions, "signal" | "ownerId" | "tenant" | "execution">;
+
+/** What a resume takes of the call's options: the keys only — its values come from the checkpoint. */
+const resumeOptionsOf = (options: A2ACallOptions): ResumeOptions => ({
+  signal: options.signal,
+  ownerId: options.ownerId,
+  tenantId: options.tenant?.tenantId,
+});
 
 /**
  * The inbound A2A boundary: a transport (`a2aHttpListener`, a framework's route) depends on this,
@@ -65,7 +76,7 @@ export class A2AAdapter implements IA2AAdapter {
     options: A2ACallOptions = {},
   ): Promise<A2AExecutionResponse> {
     return this.run(thread, options, (call) =>
-      this.app.resume(thread, req.decision, { ...call, ...streamTo(onEvent) }),
+      this.app.resume(thread, req.decision, { ...resumeOptionsOf(call), ...streamTo(onEvent) }),
     );
   }
 

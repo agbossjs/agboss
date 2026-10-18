@@ -2,6 +2,7 @@ import { BaseCheckpointSaver, MemorySaver } from "@langchain/langgraph";
 import { Injectable } from "../components/decorators.js";
 import type { Class } from "../components/injection.js";
 import { Clock, SystemClock } from "./clock.js";
+import { ConsoleLogger, Logger, SilentLogger } from "./logger.js";
 import { CostLedgerRepository, InMemoryCostLedgerRepository } from "./cost-ledger.repository.js";
 import {
   ExecutionRecordRepository,
@@ -35,6 +36,7 @@ export class InMemoryCheckpointSaver extends MemorySaver {}
 /** Each contract with its built-in default (in memory: nothing is written to disk). */
 export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class, Class>([
   [Clock, SystemClock],
+  [Logger, ConsoleLogger],
   [BaseCheckpointSaver, InMemoryCheckpointSaver],
   [ExecutionRecordRepository, InMemoryExecutionRecordRepository],
   [CostLedgerRepository, InMemoryCostLedgerRepository],
@@ -42,6 +44,15 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [ExecutionLeaseRepository, InMemoryExecutionLeaseRepository],
   [ExecutionTreeRepository, InMemoryExecutionTreeRepository],
   [RateLimitRepository, InMemoryRateLimitRepository],
+]);
+
+/**
+ * The defaults of a test's application (`testWith`): the same, except that an unlisted `Logger` is
+ * silent — a test reads the log through a `Logger` its application lists.
+ */
+export const TEST_INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class, Class>([
+  ...INFRASTRUCTURE_DEFAULTS,
+  [Logger, SilentLogger],
 ]);
 
 /** Whether `cls` is `contract` or extends it. */
@@ -56,6 +67,8 @@ export const infrastructureContractOf = (cls: Class): Class | undefined =>
 export interface Infrastructure {
   /** The instance's time (#262): the listed `Clock`, else the system's; a test's `VirtualClock`. */
   readonly clock: Clock;
+  /** Where the framework's log goes: the listed `Logger`, else `ConsoleLogger` (standard error). */
+  readonly logger: Logger;
   readonly checkpointer: BaseCheckpointSaver;
   readonly records: ExecutionRecordRepository;
   readonly costLedger: CostLedgerRepository;
@@ -68,6 +81,7 @@ export interface Infrastructure {
 /** The infrastructure from the application's container (a listed class, else the default). */
 export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrastructure => ({
   clock: resolve(Clock) as Clock,
+  logger: resolve(Logger) as Logger,
   // each contract resolves to an instance of a class that extends it (registrations by inheritance)
   checkpointer: resolve(BaseCheckpointSaver) as BaseCheckpointSaver,
   records: resolve(ExecutionRecordRepository) as ExecutionRecordRepository,

@@ -3,20 +3,21 @@ import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
   ExecutionContext,
+  ExecutionRecordRepository,
   ExecutionRecordStatus,
   Injectable,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type AppState,
+  type ExecutionEndEvent,
+  type ExecutionErrorEvent,
   type ExecutionLease,
-  type ExecutionOutput,
-  type OnError,
-  type OnWorkflowEnd,
-  type OnWorkflowResume,
+  type OnExecutionError,
+  type OnExecutionEnd,
+  type OnExecutionResume,
   type ToolHandler,
-  type WorkflowResumeEvent,
+  type ExecutionResumeEvent,
 } from "../../../src/index.js";
 import { ApplicationContext, Clock } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -29,6 +30,7 @@ import { seconds, type Milliseconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { RecordingLogger } from "../../helpers/log.js";
 
 /**
  * #265 PR 2 — a clerk that takes steps (each one counted), holds (the first hold waits until its
@@ -38,13 +40,19 @@ import { EmptyEnvironment } from "../../../src/index.js";
  * whose `running` ones the test can stamp with another config (a record of another deploy).
  */
 
+/** An execution that ended at a finish: the finish, and its output (from its record). */
+export interface EndSeen {
+  readonly finish: string;
+  readonly output: unknown;
+}
+
 /** What the components and observers saw, in order (reset with `resetRecovery`). */
 export const seen = {
   steps: [] as string[],
   holds: [] as AbortSignal[],
   charges: [] as string[],
-  resumes: [] as Pick<WorkflowResumeEvent, "reason" | "decision">[],
-  ends: [] as ExecutionOutput[],
+  resumes: [] as Pick<ExecutionResumeEvent, "reason" | "decision">[],
+  ends: [] as EndSeen[],
   errors: [] as Error[],
   leases: [] as ExecutionLease[],
 };
@@ -75,7 +83,7 @@ export const kill = (instanceId: string): void => {
 };
 
 /** Until the observers saw `count` ends (a recovery runs in the background of its instance). */
-export async function ends(count: number): Promise<readonly ExecutionOutput[]> {
+export async function ends(count: number): Promise<readonly EndSeen[]> {
   for (let tick = 0; tick < 2000 && seen.ends.length < count; tick += 1) {
     await new Promise((resolve) => setImmediate(resolve));
   }
@@ -148,17 +156,26 @@ export class Charge implements ToolHandler<Query, Query> {
 })
 export class Clerk {}
 
-/** What the observers saw: resumes (with their reason), ends and errors. */
-@Injectable()
-export class RecoveryLog implements OnWorkflowResume, OnWorkflowEnd, OnError {
-  onWorkflowResume(event: WorkflowResumeEvent): void {
+/**
+ * What the observers saw: resumes (with their reason), ends and errors. An event carries no DTO
+ * value, so an end's output is read from the execution's record (its finish line).
+ */
+@Injectable({ deps: [ExecutionRecordRepository] })
+export class RecoveryLog implements OnExecutionResume, OnExecutionEnd, OnExecutionError {
+  constructor(private readonly executionRecordRepository: ExecutionRecordRepository) {}
+
+  onExecutionResume(event: ExecutionResumeEvent): void {
     seen.resumes.push({ reason: event.reason, decision: event.decision });
   }
-  onWorkflowEnd(result: ExecutionOutput): void {
-    seen.ends.push(result);
+  async onExecutionEnd(event: ExecutionEndEvent): Promise<void> {
+    const [record] = await this.executionRecordRepository.lastTerns(event.threadId, 1);
+    const line = record?.replyWith ?? "";
+    const prefix = `finish ${event.finish.name}: `;
+    const output: unknown = line.startsWith(prefix) ? JSON.parse(line.slice(prefix.length)) : line;
+    seen.ends.push({ finish: event.finish.name, output });
   }
-  onError(error: Error, _state: AppState): void {
-    seen.errors.push(error);
+  onExecutionError(event: ExecutionErrorEvent): void {
+    seen.errors.push(event.error);
   }
 }
 
@@ -226,7 +243,6 @@ export class ReceiptWorkflowFinish {}
     history: { limit: 1 },
     tools: { maxToolCalls: 8 },
   },
-  observers: [RecoveryLog],
   channelClasses: [TerminalUserChannel],
   flow: [
     start(OrderWorkflowStart)
@@ -238,13 +254,18 @@ export class ReceiptWorkflowFinish {}
 })
 export class RecoveryWorkflow {}
 
-const providers = [MortalExecutionLeaseRepository, StampedExecutionRecordRepository];
+const providers = [
+  MortalExecutionLeaseRepository,
+  StampedExecutionRecordRepository,
+  RecordingLogger,
+];
 
 @Application({
   name: "recovery-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
+  observers: [RecoveryLog],
   providers,
   budgets: TEST_BUDGETS,
 })
@@ -256,6 +277,7 @@ export class RecoveryApplication {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
+  observers: [RecoveryLog],
   providers,
   budgets: TEST_BUDGETS,
   shutdownTimeout: seconds(5),

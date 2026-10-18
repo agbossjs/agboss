@@ -12,8 +12,8 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import type { OnRunRejected } from "../../../src/core/observer-hooks.js";
-import type { RunRejectedEvent } from "../../../src/core/observability.js";
+import type { OnExecutionRejected } from "../../../src/core/observer-hooks.js";
+import type { ExecutionRejectedEvent } from "../../../src/core/observability.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { start } from "./paths.js";
 
@@ -64,7 +64,7 @@ export const clinicSeen = {
   /** The tenant objects the action saw: frozen, linked to the application. */
   tenants: [] as TenantContext[],
   /** The requests refused before an execution started. */
-  rejections: [] as RunRejectedEvent[],
+  rejections: [] as ExecutionRejectedEvent[],
 };
 
 export function resetClinicSeen(): void {
@@ -75,8 +75,8 @@ export function resetClinicSeen(): void {
 
 /** Records every refused request (an invalid context value is one). */
 @Injectable()
-export class ClinicRejectionsObserver implements OnRunRejected {
-  onRunRejected(event: RunRejectedEvent): void {
+export class ClinicRejectionsObserver implements OnExecutionRejected {
+  onExecutionRejected(event: ExecutionRejectedEvent): void {
     clinicSeen.rejections.push(event);
   }
 }
@@ -209,7 +209,6 @@ export class BedsWorkflowFinish {}
   version: "1.0.0",
   defaults: { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 3 } },
   providers: [UnitDirectoryService],
-  observers: [ClinicRejectionsObserver],
   channelClasses: [TerminalUserChannel],
   flow: [
     start(BedRequestWorkflowStart)
@@ -227,6 +226,7 @@ export class BedRequestWorkflow {}
   version: "2.1.0",
   environment: EmptyEnvironment,
   workflows: [BedRequestWorkflow],
+  observers: [ClinicRejectionsObserver],
   budgets: TEST_BUDGETS,
   tenantContext: ClinicTenantContext,
   executionContext: ClinicExecutionContext,

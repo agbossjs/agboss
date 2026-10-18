@@ -1,4 +1,4 @@
-import { extractRunContext } from "../../../core/run-context.js";
+import { reportNodeEvent } from "../../observers/execution-event.js";
 import { loopInputOf, loopResultOf, type AgentLoopGraph } from "../../../graph/agent-loop/index.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import type { RuntimeNode } from "../graph-model.js";
@@ -19,14 +19,12 @@ export function agentRunner(
   deps: GraphDeps<string>,
 ): NodeRunner {
   return async (state, config) => {
-    const threadId = extractRunContext(config, state.runId).threadId;
     const name = stepNodeIdOf(node);
-    const appState = { runId: state.runId, threadId, activeNode: name };
     const input = inputMessageOf(node.fields, state);
-    await deps.observer?.onAgentStart({ name, input, state: appState });
+    await reportNodeEvent((base) => deps.observer?.onAgentStart({ ...base, name, input }));
     const result = loopResultOf(await loop.invoke(loopInputOf(state, node.id, input), config));
     const value: NodeValue = result.answer ?? { value: { text: result.reply } };
-    await deps.observer?.onAgentEnd({ name, update: value, state: appState });
+    await reportNodeEvent((base) => deps.observer?.onAgentEnd({ ...base, name, update: value }));
     const read = readInput(deps.graph, node, state).read;
     return { value, read, usage: result.usage, approvals: result.approvals };
   };

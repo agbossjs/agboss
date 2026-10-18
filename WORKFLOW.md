@@ -109,8 +109,10 @@ The `@Channel` decorator provides a unified way to handle human-in-the-loop and 
 ### 1. Define a Channel
 
 A channel is a class that implements `ChannelHandler`: `requestApproval(req)` is called once each
-time a run pauses at one of its tools (`req`: `runId`, `agentName`, `toolName`, `toolArguments`,
-`metadata`). The container creates it, so it takes `deps` like a tool. An optional `inboundAdapter`
+time a run pauses at one of its tools (`req`: `runId`, `agentName`, `toolName`, `toolArguments`).
+The container creates it, so it takes `deps` like a tool; the execution — its tenant, the project's
+own context fields — comes through an injected `ExecutionContext` (the request is made inside the
+paused step, #261). An optional `inboundAdapter`
 (`@InboundChannelAdapter`) turns the reply your channel receives (a button click, a webhook body)
 into the decision.
 
@@ -125,7 +127,13 @@ export class SlackClient {
 -->
 
 ```typescript file=channels.ts
-import { Channel, InboundChannelAdapter, type ChannelHandler, type ChannelRequest } from "agboss";
+import {
+  Channel,
+  ExecutionContext,
+  InboundChannelAdapter,
+  type ChannelHandler,
+  type ChannelRequest,
+} from "agboss";
 
 @InboundChannelAdapter({ name: "slack-click" })
 export class SlackClick implements InboundChannelAdapter<{ action: string; user: string }> {
@@ -134,12 +142,21 @@ export class SlackClick implements InboundChannelAdapter<{ action: string; user:
   }
 }
 
-@Channel({ name: "slack_approval", inboundAdapter: SlackClick, deps: [SlackClient] })
+@Channel({
+  name: "slack_approval",
+  inboundAdapter: SlackClick,
+  deps: [SlackClient, ExecutionContext],
+})
 export class SlackChannel implements ChannelHandler {
-  constructor(private readonly slack: SlackClient) {}
+  constructor(
+    private readonly slack: SlackClient,
+    private readonly executionContext: ExecutionContext,
+  ) {}
 
   requestApproval = (req: ChannelRequest): Promise<void> =>
-    this.slack.post(`Approve ${req.toolName} for run ${req.runId}?`);
+    this.slack.post(
+      `Approve ${req.toolName} for run ${req.runId} (${this.executionContext.tenant.tenantId})?`,
+    );
 }
 ```
 
@@ -189,9 +206,11 @@ export class DeleteUserTool implements ToolHandler<DeleteUser, Deleted> {
 }
 ```
 
-### 3. Provide Metadata and Execute
+### 3. Pass the Execution's Values and Execute
 
-When starting the graph, you can pass string context (like user ID, tenant, etc.) using the `metadata` parameter. This metadata is passed to the `requestApproval` method of your channel (its resume keeps it); tools do not see it — `ExecutionContext` carries no metadata (#280), domain data come through a node's `input`.
+There is no untyped `metadata` option (#261): the tenant, the thread's owner and the project's own
+context fields are passed as typed values, kept in the checkpoint (a resume runs on them) and read
+by the channel through its `ExecutionContext` — the same for guardrails and every other component.
 
 <!-- snippet-context
 import type { App } from "agboss";
@@ -203,7 +222,7 @@ declare const app: App;
 const result = await app.execute(
   ChatStart,
   { text: "Delete user 123" },
-  { metadata: { approverEmail: "admin@example.com" } },
+  { tenant: { tenantId: "acme" }, ownerId: "admin@example.com" },
 );
 ```
 

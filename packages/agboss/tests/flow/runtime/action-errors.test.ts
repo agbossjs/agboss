@@ -10,7 +10,7 @@ import {
   RouterDecisionError,
   RouterFailedError,
   StepFailedError,
-  WorkflowCancelledError,
+  ExecutionCancelledError,
 } from "../../../src/index.js";
 import { stepCoordinatesOf } from "../../../src/graph/errors.js";
 import { codeOfErrorClass, errorMatchOf } from "../../../src/core/error-record.js";
@@ -99,7 +99,7 @@ describe("S22: the StepFailedError family", () => {
       new GuardrailBlockedError("pii", "no", []), // a PaidStepError, not a StepFailedError
       new PaidStepError("paid", [], undefined),
       new LimitExceededError({ key: "maxSteps", limit: 1, actual: 2 }, [], 0),
-      new WorkflowCancelledError(),
+      new ExecutionCancelledError(),
       new Error("plain"),
     ];
     const code = codeOfErrorClass(StepFailedError);

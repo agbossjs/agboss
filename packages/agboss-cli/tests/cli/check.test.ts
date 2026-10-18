@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CHECKS } from "../../src/check.js";
-import { envelope, fixture, agboss } from "./agboss.js";
+import { CHECKS_RUN, envelope, fixture, agboss, ledgerWarning } from "./agboss.js";
 
 const BROKEN = fixture("cli/broken.workflow.ts");
 const BAD_PROMPTS = fixture("cli/bad-prompts.workflow.ts");
@@ -47,7 +47,7 @@ describe("#198 AC3: agboss check runs every key-free validation", () => {
       error: { code: "check.failed" },
     });
     const result = parsed.result as CheckResult;
-    expect(result.checks).toEqual(["assembly", "environment", "prompts", "types"]);
+    expect(result.checks).toEqual(["assembly", "environment", "application", "prompts", "types"]);
     expect(result.problems.map((p) => p.code)).toEqual(
       expect.arrayContaining(["graph.dead-end", "graph.unreachable-node"]),
     );
@@ -59,13 +59,14 @@ describe("#198 AC3: agboss check runs every key-free validation", () => {
 
     expect(call).toMatchObject({ code: 0, stderr: "" });
     expect(call.stdout).toBe(
-      `types: .agboss/types.d.ts\nok: ${WORKFLOW} — assembly, environment, prompts, types\n`,
+      `types: .agboss/types.d.ts\n${ledgerWarning(WORKFLOW)}ok: ${WORKFLOW} — ${CHECKS_RUN}\n`,
     );
   });
 
   it("checks needing the network run only with their flag (--models)", () => {
     expect(CHECKS.map((check) => [check.name, check.flag])).toEqual([
       ["environment", undefined],
+      ["application", undefined],
       ["prompts", undefined],
       ["models", "models"],
     ]);
@@ -92,7 +93,7 @@ describe("#199 + #198: the prompts check runs on every agboss check", () => {
     const result = envelope(call).result as CheckResult & {
       problems: readonly { line?: number }[];
     };
-    expect(result.checks).toEqual(["assembly", "environment", "prompts", "types"]);
+    expect(result.checks).toEqual(["assembly", "environment", "application", "prompts", "types"]);
     expect(result.problems[1]).toEqual({
       file: TYPO,
       line: 4,
@@ -106,7 +107,24 @@ describe("#199 + #198: the prompts check runs on every agboss check", () => {
 
     expect(call).toMatchObject({
       code: 0,
-      stdout: `types: .agboss/types.d.ts\nok: ${WORKFLOW} — assembly, environment, prompts, types\n`,
+      stdout: `types: .agboss/types.d.ts\n${ledgerWarning(WORKFLOW)}ok: ${WORKFLOW} — ${CHECKS_RUN}\n`,
+    });
+  });
+});
+
+describe("#261 AC14: the application's assembly warnings in agboss check", () => {
+  it("printed without --strict (exit 0); errors under --strict (exit 3)", async () => {
+    const warned = await agboss(["check", "--workflow", WORKFLOW], CWD);
+    const strict = await agboss(["check", "--strict", "--workflow", WORKFLOW, "--json"], CWD);
+
+    expect(warned.code).toBe(0);
+    expect(warned.stdout).toContain(ledgerWarning(WORKFLOW));
+    expect(strict.code).toBe(3);
+    expect((envelope(strict).result as CheckResult).problems).toContainEqual({
+      file: WORKFLOW,
+      code: "application.in-memory-cost-ledger",
+      message:
+        "in-memory cost ledger: each application instance counts budgets on its own and the counters reset on restart",
     });
   });
 });

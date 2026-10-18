@@ -39,7 +39,6 @@ import {
   type DefaultsLevels,
 } from "../config/defaults.js";
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
-import { checkObservers } from "./observer-checks.js";
 import { judgeClassesOf, judgePartsOf, judgeSettingsOf, type JudgeClass } from "./judge-parts.js";
 import { agentSettings } from "./agent-settings.js";
 import { resolvedModelProvidersOf } from "../models/resolution.js";
@@ -154,10 +153,9 @@ const levelsOf = (workflow: Class, owner: WorkflowOwner | undefined): DefaultsLe
   };
 };
 
-/** The workflow's tools have their channels, its observers real hooks. */
+/** The workflow's tools have their channels. */
 function checkWiring(bundle: WorkflowMeta, tools: Parameters<typeof checkToolChannels>[1]): void {
   checkToolChannels(bundle, tools);
-  checkObservers(bundle.observers ?? []);
 }
 
 /** The workflow's provider classes and its agents' memory strategies, checked before the graph. */

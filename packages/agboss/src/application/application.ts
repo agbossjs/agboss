@@ -6,6 +6,7 @@ import { NodeKind } from "../flow/ast.js";
 import type { Milliseconds } from "../units/index.js";
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
+import type { ObserverClass } from "../core/observer-hooks.js";
 
 /**
  * `@Application` (#261) — the one point of the whole app: what `createApp(App, { env })` and
@@ -31,6 +32,12 @@ export interface ApplicationOptions {
   readonly providers?: readonly Provider[];
   /** Every `@Budget` of the application (`config/budget.config.ts`). */
   readonly budgets?: readonly Class[];
+  /**
+   * The observers (`implements OnExecutionEnd, OnToolEnd, …`, `@Injectable`), the only place they
+   * are registered: one instance each, called for every execution of the application — child
+   * executions included (filter by `event.workflow.name`). None listed → no observer is called.
+   */
+  readonly observers?: readonly ObserverClass[];
   /**
    * How long `app.close()` (and SIGTERM / SIGINT) waits for the running executions before it
    * interrupts them (#265 S51): each releases its lease at once and stays `running`, so another

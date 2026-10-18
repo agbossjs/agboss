@@ -58,7 +58,6 @@ describe("#265 M2 (automated): recovery on SQLite after an instance died", () =>
     clock,
     mockLlm,
   }) => {
-    vi.spyOn(process, "emitWarning").mockImplementation(() => undefined);
     mockLlm(Clerk).thenReturn(
       callTool(Step, { text: "one" }),
       callTool(Hold, { text: "a long job" }),

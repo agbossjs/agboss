@@ -1,7 +1,7 @@
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { ChainValues } from "@langchain/core/utils/types";
 import { beforeEach, describe, expect, it } from "vitest";
-import { ObserverManager } from "../../../src/core/observer-manager.js";
+import { ExecutionObserverManager } from "../../../src/core/observer-manager.js";
 import { writeAndOutdate } from "../../../src/flow/runtime/outdating.js";
 import { reportOutdating } from "../../../src/flow/runtime/outdating-report.js";
 import type { ScopeValueRecord } from "../../../src/flow/runtime/records.js";
@@ -158,7 +158,9 @@ describe("#271 rule 11: the trace entry of a cascade", () => {
     const outcome = writeAndOutdate(scope, { DraftDto: draft2 });
     const trace = new TraceLog();
     const seen: ValuesOutdatedEvent[] = [];
-    const observer = new ObserverManager([{ onValuesOutdated: (event) => void seen.push(event) }]);
+    const observer = new ExecutionObserverManager([
+      { onValuesOutdated: (event) => void seen.push(event) },
+    ]);
     const workflow = { type: LoopWorkflow, name: "w", version: "1", startedVersion: "1" };
     const step = {
       component: { type: LoopWriterAgent, name: "writer-agent" },

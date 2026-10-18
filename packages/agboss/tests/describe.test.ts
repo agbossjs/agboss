@@ -72,7 +72,13 @@ describe("describe a workflow", () => {
         l.includes("limits: modelCalls 12 (default) · toolCalls 8"),
       ),
     ).toBe(true);
-    expect(lines).toContain("limits    steps 1–2 (maxSteps 9)");
+    const limits = lines.indexOf("limits");
+    expect(lines.slice(limits, limits + 4)).toEqual([
+      "limits",
+      "  maxSteps 9 (default: (agents + routers) × 3) · steps 1–2",
+      "  maxVisits main-router 10",
+      "  Worst case of one chat-workflow-start call: 1 workflow execution, 1 at the same time, 2 agent and router steps",
+    ]);
     expect(describeWorkflow(test, "fast")[0]).toMatch(
       /^test-workflow 1\.0\.0 \(profile fast\) · config [0-9a-f]{8}$/,
     );

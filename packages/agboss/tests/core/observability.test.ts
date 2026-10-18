@@ -4,7 +4,7 @@ import {
   Injectable,
   Tool,
   Workflow,
-  type AppState,
+  type ExecutionStartEvent,
   type ModelStartEvent,
   type ModelEndEvent,
   type AgentStartEvent,
@@ -15,7 +15,7 @@ import {
   type RagEndEvent,
   type OnAgentEnd,
   type OnAgentStart,
-  type OnError,
+  type OnExecutionError,
   type OnModelEnd,
   type OnModelStart,
   type OnRagStart,
@@ -24,8 +24,8 @@ import {
   type OnRouterStart,
   type OnToolEnd,
   type OnToolStart,
-  type OnWorkflowEnd,
-  type OnWorkflowStart,
+  type OnExecutionEnd,
+  type OnExecutionStart,
   type ToolEndEvent,
   type ToolStartEvent,
   Router,
@@ -51,13 +51,13 @@ class ToolInput {
 }
 
 const hookEvents: string[] = [];
-let capturedState: AppState | null = null;
+let capturedState: ExecutionStartEvent | null = null;
 
 @Injectable()
 class GlobalObserver
   implements
-    OnWorkflowStart,
-    OnWorkflowEnd,
+    OnExecutionStart,
+    OnExecutionEnd,
     OnAgentStart,
     OnAgentEnd,
     OnRouterStart,
@@ -68,13 +68,13 @@ class GlobalObserver
     OnModelEnd,
     OnRagStart,
     OnRagEnd,
-    OnError
+    OnExecutionError
 {
-  async onWorkflowStart(state: AppState) {
+  async onExecutionStart(state: ExecutionStartEvent) {
     hookEvents.push("WorkflowStart");
     capturedState = state;
   }
-  async onWorkflowEnd() {
+  async onExecutionEnd() {
     hookEvents.push("WorkflowEnd");
   }
 
@@ -112,7 +112,7 @@ class GlobalObserver
   async onRagEnd(ctx: RagEndEvent) {
     hookEvents.push(`RagEnd:${ctx.name}`);
   }
-  async onError(err: Error, state: AppState) {
+  async onExecutionError() {
     hookEvents.push("Error");
   }
 }
@@ -182,7 +182,6 @@ class ObsRouter {}
   name: "obs-test-workflow",
   version: "1.0.0",
   defaults: testDefaults,
-  observers: [GlobalObserver],
   flow: [
     start(ObsStart)
       .returns(WorkflowStartTextDto)
@@ -197,12 +196,13 @@ class ObsWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ObsWorkflow],
+  observers: [GlobalObserver],
   budgets: TEST_BUDGETS,
 })
 class ObsApplication {}
 
 describe("Global Observability Hooks", () => {
-  it("fires hooks in correct order and provides AppState", async () => {
+  it("fires hooks in correct order and gives the execution event", async () => {
     hookEvents.length = 0; // reset
     capturedState = null;
 
@@ -238,7 +238,7 @@ describe("Global Observability Hooks", () => {
 
     expect(capturedState).not.toBeNull();
     // #238: the run's own id, the one its result carries
-    expect((capturedState as AppState | null)?.runId).toBe(result.runId);
+    expect((capturedState as ExecutionStartEvent | null)?.executionId).toBe(result.runId);
 
     await app.close();
   });

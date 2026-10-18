@@ -10,7 +10,6 @@ describe("#181: the run's config is built once, with its RunContext", () => {
   it("carries the caller's configurable keys under the framework's own", () => {
     const config = streamConfig(deps, identity, {
       configurable: { region: "eu", thread_id: "not-mine", run: "not-mine" },
-      metadata: { tenant: "acme" },
     });
 
     expect(config.configurable.region).toBe("eu");
@@ -18,7 +17,6 @@ describe("#181: the run's config is built once, with its RunContext", () => {
     expect(extractRunContext(config, "fallback").run).toMatchObject({
       runId: "run-1",
       threadId: "t-1",
-      metadata: { tenant: "acme" },
     });
   });
 
@@ -32,7 +30,6 @@ describe("#181: the run's config is built once, with its RunContext", () => {
       threadId: "run-x",
       tenantId: "default",
       signal,
-      metadata: {},
       input: {},
     });
   });

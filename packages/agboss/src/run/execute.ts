@@ -1,4 +1,4 @@
-import { WorkflowCancelledError } from "../core/errors.js";
+import { ExecutionCancelledError } from "../core/errors.js";
 import { handedOverReason, isHandedOver } from "../app/handed-over.js";
 import { drainRecordingUsage } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
@@ -49,8 +49,8 @@ const errorMessage = (error: unknown): string =>
 export const outcomeError = (error: unknown, signal: AbortSignal | undefined): unknown => {
   const handedOver = handedOverReason(signal);
   if (handedOver !== undefined) return handedOver;
-  return signal?.aborted === true && !(error instanceof WorkflowCancelledError)
-    ? new WorkflowCancelledError("the run was cancelled")
+  return signal?.aborted === true && !(error instanceof ExecutionCancelledError)
+    ? new ExecutionCancelledError("the run was cancelled")
     : error;
 };
 

@@ -7,7 +7,7 @@ import {
   BudgetScope,
   LimitExceededError,
   PaidStepError,
-  WorkflowCancelledError,
+  ExecutionCancelledError,
 } from "../../src/index.js";
 
 import { usd } from "../../src/units/index.js";
@@ -74,7 +74,7 @@ describe("#194: error records", () => {
     expect(recordMatches(record, codeOfErrorClass(BudgetExceededError))).toBe(true);
     expect(recordMatches(record, codeOfErrorClass(LimitExceededError))).toBe(true);
     expect(recordMatches(record, codeOfErrorClass(Error))).toBe(true);
-    expect(recordMatches(record, codeOfErrorClass(WorkflowCancelledError))).toBe(false);
+    expect(recordMatches(record, codeOfErrorClass(ExecutionCancelledError))).toBe(false);
     expect(recordMatches(wrapped, codeOfErrorClass(BudgetExceededError))).toBe(true);
     expect(recordMatches(wrapped, codeOfErrorClass(PaidStepError))).toBe(true);
   });

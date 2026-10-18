@@ -21,7 +21,7 @@ import {
 } from "./step-frame.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import { visitWrite, type VisitWrite } from "./visit-write.js";
-import type { ObserverManager } from "../../core/observer-manager.js";
+import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import type { RuntimeGraph } from "./graph-model.js";
 import { launchEdgeOf, launchFor, launchTicketOf, nextOfLaunch } from "./launch/launch-exit.js";
 import { reportTruncation } from "./launch/launch-report.js";
@@ -48,7 +48,7 @@ export interface VisitDeps {
   readonly provenance: RuntimeProvenance;
   /** The graph: what a launch dispatches (#273). */
   readonly graph: RuntimeGraph;
-  readonly observer?: ObserverManager;
+  readonly observer?: ExecutionObserverManager;
 }
 
 /** The edge a visit leaves by; `undefined` at a finish (the execution ends). */

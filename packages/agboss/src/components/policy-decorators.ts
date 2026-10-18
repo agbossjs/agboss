@@ -11,15 +11,16 @@ export interface PiiPolicy {
   maskJson(obj: any): Promise<any>;
 }
 
-export interface GuardrailContext<TExec = unknown> {
-  readonly executionContext?: TExec;
+/**
+ * What a guardrail is shown at its point: the agent, the tool call (or the reply). The execution
+ * — its tenant, its project fields — comes through the constructor (`deps: [ExecutionContext]`).
+ */
+export interface GuardrailContext {
   agent: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   call?: any;
   replyWith?: string;
   runId?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  metadata?: Record<string, any>;
 }
 
 export interface Guardrail {

@@ -1,5 +1,5 @@
 import { ExecutionStatus, type ExecutionOutput } from "../app/types.js";
-import { WorkflowCancelledError } from "../core/errors.js";
+import { ExecutionCancelledError } from "../core/errors.js";
 import { LimitExceededError } from "../graph/limits.js";
 import type { RunStreamEvent } from "../run/types.js";
 import { A2AStatus, type A2AEvent, type A2AExecutionResponse } from "./types.js";
@@ -22,7 +22,7 @@ export function statusOf(status: ExecutionStatus): A2AStatus {
 
 /** The A2A status of a run that threw: cancelled (its signal, `app.cancel`), a limit → limited, else failed. */
 export function failureStatusOf(error: unknown, signal: AbortSignal | undefined): A2AStatus {
-  if (signal?.aborted === true || error instanceof WorkflowCancelledError) {
+  if (signal?.aborted === true || error instanceof ExecutionCancelledError) {
     return A2AStatus.Cancelled;
   }
   if (error instanceof LimitExceededError) return A2AStatus.Limited;

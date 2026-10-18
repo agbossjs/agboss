@@ -2,7 +2,8 @@ import { resolveTools, type AssembledWorkflow } from "../workflow.js";
 import { validateAgentsConfig, type AgentsConfigOf } from "../config/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import type { Environment } from "../flow/generated-types.js";
-import type { ObserverManager } from "../core/observer-manager.js";
+import type { ExecutionObserverManager } from "../core/observer-manager.js";
+import type { FrameworkLog } from "../infrastructure/logger.js";
 import { startComponents, stopComponents } from "../components/container/lifecycle.js";
 import type { EvalDeps } from "../eval/eval.js";
 import type { RunDeps } from "../run/types.js";
@@ -20,7 +21,7 @@ import {
   type TransportFactory,
 } from "../tools/index.js";
 import { evaluationFor, flowFor, guardsFor, pauseFor, servicesFor, toolLookup } from "./parts.js";
-import { closeOf, releaseOf } from "./app-deps-parts.js";
+import { closeOf, observedBy, releaseOf } from "./app-deps-parts.js";
 import { componentsAtStart } from "./start-components.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { Clock } from "../infrastructure/clock.js";
@@ -35,7 +36,10 @@ import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtim
 
 /** Run dependencies, eval dependencies, and resources to release after the run. */
 export interface AppDeps extends RunDeps<string> {
-  readonly observer: ObserverManager;
+  /** The application's observers (`@Application({ observers })`); none for a workflow on its own. */
+  readonly observer: ExecutionObserverManager;
+  /** The application's log (its `Logger`, stamped by its clock). */
+  readonly log: FrameworkLog;
   readonly evaluation: EvalDeps;
   /** Startup warnings, e.g. a config changed without a version bump. */
   readonly warnings: readonly string[];
@@ -122,6 +126,8 @@ export interface WorkflowDepsParts {
   readonly contexts?: RuntimeContexts;
   /** The application's budgets (#261): every `@Budget` it lists and its name; absent = none. */
   readonly budgets?: BudgetListing;
+  /** The application's observers (#261), one manager for all its workflows; absent = none. */
+  readonly observer?: ExecutionObserverManager;
 }
 
 /** The budgets an application lists, and its name (the key of its application budgets). */
@@ -145,6 +151,8 @@ const budgetsOf = (
         ledger: infrastructure.costLedger,
         clock,
       };
+
+const nameOfTool = (tool: AnyTool): string => tool.name;
 
 /** Collects the container's instances for their lifecycle hooks, keeping any hook already given. */
 function lifecycleOf(container: ContainerOptions | undefined, created: unknown[] = []) {
@@ -172,15 +180,13 @@ export async function createWorkflowDeps(
 ): Promise<AppDeps> {
   const env = options.processEnv ?? process.env;
   const { clock } = parts.infrastructure;
-  const clients = providerClientsOf(options, env, clock);
-  const models = await modelsFor(bundle, options.gateway, clients);
+  const models = await modelsFor(bundle, options.gateway, providerClientsOf(options, env, clock));
   const gateway = models.gateway;
   const lifecycle = lifecycleOf(options.container, parts.created);
   const contexts = parts.contexts ?? standaloneContexts(bundle.config, options.environment, clock);
   const services = servicesFor(bundle, gateway, contexts, lifecycle.options);
   const tools: readonly AnyTool[] = resolveTools(bundle, services);
-  const toolNames = tools.map((tool) => tool.name);
-  const config = models.priced(validateAgentsConfig(bundle.config, toolNames));
+  const config = models.priced(validateAgentsConfig(bundle.config, tools.map(nameOfTool)));
   const connect = options.connectMcp ?? connectConfigured(options.transport);
   const mcp = await connect(bundle, config, env);
   const { records: terns, checkpointer } = parts.infrastructure;
@@ -204,6 +210,7 @@ export async function createWorkflowDeps(
     tracing,
     contexts,
     clock,
+    ...observedBy(parts.observer, parts.infrastructure.logger, clock),
     ...(options.newRunId === undefined ? {} : { newRunId: options.newRunId }),
     close: closeOf(ownsHooks ? lifecycle.created : undefined, mcp, tracing),
   };

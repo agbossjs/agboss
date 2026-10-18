@@ -17,6 +17,12 @@ import { z } from 'zod';
 // @public
 export function applicationModelUsesOf(workflows: readonly WorkflowModels[]): readonly ModelUse[];
 
+// Warning: (ae-forgotten-export) The symbol "AssembledWorkflow" needs to be exported by the entry point internal.d.ts
+// Warning: (ae-forgotten-export) The symbol "AssemblyWarning" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function applicationWarningsOf(bundle: AssembledWorkflow): readonly AssemblyWarning[];
+
 // Warning: (ae-forgotten-export) The symbol "ComponentLabel" needs to be exported by the entry point internal.d.ts
 //
 // @public
@@ -37,7 +43,6 @@ export function checkModelUses(uses: readonly ModelUse[], directory: ModelProvid
 // @public
 export function childLines(analysis: FlowAnalysis): readonly string[];
 
-// Warning: (ae-forgotten-export) The symbol "AssembledWorkflow" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "AppDepsOptions" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "AppDeps" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ProfileComparison" needs to be exported by the entry point internal.d.ts
@@ -136,6 +141,35 @@ export interface DefaultSource {
 export function defaultSourceOf(levels: DefaultsLevels, section: Section, field: string): DefaultSource | undefined;
 
 // @public
+export interface DescribedApplication {
+    // Warning: (ae-forgotten-export) The symbol "DescribedBudget" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly budgets: readonly DescribedBudget[];
+    // Warning: (ae-forgotten-export) The symbol "DescribedExecutionBudget" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly executionBudget: DescribedExecutionBudget | undefined;
+    // Warning: (ae-forgotten-export) The symbol "ImplementationChoice" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly implementations: readonly ImplementationChoice[];
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly observers: readonly string[];
+    // (undocumented)
+    readonly version: string;
+    // (undocumented)
+    readonly warnings: readonly string[];
+    // (undocumented)
+    readonly workflows: readonly string[];
+}
+
+// @public
+export function describedApplicationOf(bundle: AssembledWorkflow): DescribedApplication | undefined;
+
+// @public
 export interface DescribedEnvironment {
     readonly fields: Readonly<Record<string, string>>;
     // (undocumented)
@@ -148,6 +182,26 @@ export interface DescribedEnvironment {
 
 // @public
 export function describedEnvironmentFor(owner: EnvironmentOwner, env: string | undefined, processEnv: NodeJS.ProcessEnv): Promise<DescribedEnvironment | undefined>;
+
+// @public
+export interface DescribedLimits {
+    readonly isMaxStepsSet: boolean;
+    // (undocumented)
+    readonly maxSteps: number;
+    readonly maxVisits: Readonly<Record<string, number>>;
+    // (undocumented)
+    readonly steps: {
+        readonly least: number;
+        readonly most: number | undefined;
+    };
+    // Warning: (ae-forgotten-export) The symbol "WorstCase" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly worstCases: readonly WorstCase[];
+}
+
+// @public (undocumented)
+export function describedLimitsOf(bundle: AssembledWorkflow): DescribedLimits;
 
 // @public
 export const describeServices: WorkflowServices;
@@ -430,6 +484,18 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/config/defaults.ts:25:3 - (ae-undocumented) Missing documentation for "level".
 // src/config/defaults.ts:26:3 - (ae-undocumented) Missing documentation for "name".
 // src/config/profiles.ts:9:12 - (ae-undocumented) Missing documentation for "name".
+// src/describe/application.ts:40:3 - (ae-undocumented) Missing documentation for "name".
+// src/describe/application.ts:41:3 - (ae-undocumented) Missing documentation for "version".
+// src/describe/application.ts:42:3 - (ae-undocumented) Missing documentation for "workflows".
+// src/describe/application.ts:43:3 - (ae-undocumented) Missing documentation for "implementations".
+// src/describe/application.ts:44:3 - (ae-undocumented) Missing documentation for "budgets".
+// src/describe/application.ts:45:3 - (ae-undocumented) Missing documentation for "executionBudget".
+// src/describe/application.ts:46:3 - (ae-undocumented) Missing documentation for "observers".
+// src/describe/application.ts:47:3 - (ae-undocumented) Missing documentation for "warnings".
+// src/describe/limits.ts:15:3 - (ae-undocumented) Missing documentation for "maxSteps".
+// src/describe/limits.ts:18:3 - (ae-undocumented) Missing documentation for "steps".
+// src/describe/limits.ts:21:3 - (ae-undocumented) Missing documentation for "worstCases".
+// src/describe/limits.ts:24:1 - (ae-undocumented) Missing documentation for "describedLimitsOf".
 // src/environments/resolve.ts:31:3 - (ae-undocumented) Missing documentation for "variable".
 // src/environments/resolve.ts:32:3 - (ae-undocumented) Missing documentation for "field".
 // src/environments/resolve.ts:33:3 - (ae-undocumented) Missing documentation for "use".

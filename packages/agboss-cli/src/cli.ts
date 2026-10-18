@@ -78,9 +78,7 @@ export const handle: CommandHandler = async (context) => {
     env: envOption(context),
     processEnv: context.io.env,
   });
-  app.warnings.forEach((warning) => {
-    context.warn(`warning: ${warning}`);
-  });
+  // the startup warnings are in the app's start log (its Logger); --json returns them too
   try {
     const workflow = await loadWorkflowClass(file, loadOptions(context));
     const start = textStartOrFail({

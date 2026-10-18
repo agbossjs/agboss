@@ -169,6 +169,7 @@ export class TestEnvironment {
         instanceId: `instance-${String(this.#apps.length + 1)}`,
         database: this.database,
         clock: this.clock,
+        quiet: true,
       };
       const built = await buildApplication(this.assembled, this.#options, seams);
       if (this.#apps.length === 0) this.#reused = reusableInfrastructure(built.infrastructure);

@@ -1,10 +1,11 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { App, ExecutionOutput } from "../app/types.js";
+import type { App, ExecutionOptions, ExecutionOutput } from "../app/types.js";
 import type { ToolHandler } from "../components/decorators.js";
 import type { Class } from "../components/injection.js";
 import { componentOf, type ToolMeta } from "../components/metadata.js";
 import { adapt } from "../components/runtime.js";
 import { inMcpCallFrame } from "./mcp-call-frame.js";
+import { executeUnchecked } from "../app/execute-unchecked.js";
 import { ExecutionStatus } from "../app/types.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf, type WorkflowStartDeclaration } from "../flow/decorators/declaration.js";
@@ -20,11 +21,22 @@ import {
 } from "./mcp-service-helpers.js";
 
 /**
+ * What every call of one MCP session runs with (#261): the thread's owner and the execution's typed
+ * context values — `tenant` (a resume uses its `tenantId`) and the declared `execution` fields —
+ * taken by the transport from its authenticated caller, never from the call's arguments.
+ */
+export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "execution">;
+
+/**
  * What an `@McpExpose` exposes: its `@Tool` / `@McpTool` exports (run through the same adapter as
  * agent tool calls — DTO validation of input and output, timeout, `callId`), its workflow starts
  * (`app.execute`), and `resume_workflow` (`app.resume`) when there is a start.
  */
-export function collectTools(app: App, exports: readonly Class[], context: unknown): ToolRegistry {
+export function collectTools(
+  app: App,
+  exports: readonly Class[],
+  session: McpSessionOptions,
+): ToolRegistry {
   const registry: ToolRegistry = { tools: [], handlers: new Map() };
   let hasWorkflows = false;
   for (const exp of exports) {
@@ -33,10 +45,10 @@ export function collectTools(app: App, exports: readonly Class[], context: unkno
       addTool(registry, { app, exp, meta });
     } else if (isStart(exp)) {
       hasWorkflows = true;
-      addWorkflowStart(registry, app, exp, context);
+      addWorkflowStart(registry, app, exp, session);
     }
   }
-  if (hasWorkflows) addResumeTool(registry, app, context);
+  if (hasWorkflows) addResumeTool(registry, app, session);
   return registry;
 }
 
@@ -109,7 +121,12 @@ function startInputSchema(declaration: WorkflowStartDeclaration): ReturnType<typ
   return typeof input === "function" ? objectSchema(input) : { type: "object" as const };
 }
 
-function addWorkflowStart(registry: ToolRegistry, app: App, exp: Class, context: unknown): void {
+function addWorkflowStart(
+  registry: ToolRegistry,
+  app: App,
+  exp: Class,
+  session: McpSessionOptions,
+): void {
   const declaration = startOf(exp);
   if (declaration === undefined) return;
   const { name, description } = declaration.options;
@@ -120,20 +137,21 @@ function addWorkflowStart(registry: ToolRegistry, app: App, exp: Class, context:
   });
   registry.handlers.set(name, (call) =>
     guarded(async () => {
-      const options = { executionContext: context, signal: call.signal };
+      const options: ExecutionOptions = { ...session, signal: call.signal };
       // the app checks the payload against the start's input
-      return formatWorkflowOutput(await app.execute(exp, call.args as never, options));
+      return formatWorkflowOutput(await executeUnchecked(app, exp, call.args, options));
     }),
   );
 }
 
-function addResumeTool(registry: ToolRegistry, app: App, context: unknown): void {
+function addResumeTool(registry: ToolRegistry, app: App, session: McpSessionOptions): void {
   registry.tools.push(RESUME_TOOL);
   registry.handlers.set(RESUME_TOOL.name, (call) =>
     guarded(async () => {
       const input = isRecord(call.args) ? call.args : {};
       if (typeof input.threadId !== "string") throw new Error("threadId must be a string");
-      const options = { executionContext: context, signal: call.signal };
+      const { ownerId, tenant } = session;
+      const options = { ownerId, tenantId: tenant?.tenantId, signal: call.signal };
       const result = await app.resume(input.threadId, parseDecision(input.decision), options);
       return formatWorkflowOutput(result);
     }),

@@ -927,7 +927,9 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `providers` is `[di.infrastructure-in-workflow]` too). Listed **only** in
   `@Application({ providers })` (a class that `extends` the contract, `@Injectable`; in a workflow's
   `providers` → `[di.infrastructure-in-workflow]`), found by inheritance (two →
-  `[di.ambiguous-implementation]`). Nothing is written to the home folder. Every contract has a
+  `[di.ambiguous-implementation]`); `agboss describe` prints each contract's implementation and why
+  (listed, or the built-in default), the budgets by scope and the count limits. Nothing is written to
+  the home folder. Every contract has a
   ready SQLite implementation, enabled only by listing it (#265: `SqliteExecutionRecordRepository`,
   `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`, `SqliteCheckpointSaver`,
   `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`) —
@@ -990,19 +992,37 @@ export class SeenJobsRepository {
 - **Tool names** are unique over what a model sees — local, MCP, `search_<rag>` and an agent's answer
   tools (`answer-<dto>`) — else `[tool.duplicate-name]`. A tool with a `channel` (approval) needs that
   channel in `@Workflow({ channelClasses })`, else assembly fails.
-- **Observers are registered**, not discovered: `@Workflow({ observers: [...] })`, typed hooks
-  (`implements OnToolEnd, …`); an observer with no or a misspelled hook fails assembly
-  (`[observer.no-hooks]`, `[observer.unknown-hook]`), one that throws is a warning. Workflow
-  events: `onWorkflowStart` once per run, `onWorkflowPause` / `onWorkflowResume` around a pause,
-  `onWorkflowEnd` / `onError` when the run ends — also after a resume (a cancelled paused run:
-  `onError`, `WorkflowCancelledError`); all events carry the run's `runId` and real `threadId`.
-  A request refused before a run starts or is located (another owner's thread, nothing paused, an
-  unknown thread, an invalid start input) → `onRunRejected` (`operation`, `threadId?`, `code`,
-  `message` without input values, no `runId`), still thrown; `IncompatibleResumeError` → `onError`
-  on the paused run (its `runId`), which stays paused. `onValuesOutdated` (`ValuesOutdatedEvent`:
-  `executionId`, `threadId`, `workflow`, `step`, `trigger`, `outdated` — no DTO values) once per
-  outdating cascade, never empty; `onLaunchItemsTruncated` (`LaunchItemsTruncatedEvent`: `launch`,
-  `items`, `maxItems`, `step`) when a per-item launch dropped items (#273).
+- **Observers are registered only in `@Application({ observers: [...] })`** (#261), not discovered
+  and never in `@Workflow`: typed hooks (`implements OnToolEnd, …`), one instance each, called for
+  every execution of the application (filter by `event.workflow.name === nameOf(W)` — `nameOf(C)`
+  is the `name` of any decorated class); an observer with no or a
+  misspelled hook fails assembly (`[observer.no-hooks]`, `[observer.unknown-hook]`), one that throws
+  is a warning in the log (`observer.failed`). One event object per hook, plain data, never the
+  internal state: every execution event (`ExecutionEvent`) has `executionId`, `parentExecutionId`,
+  `rootExecutionId`, `threadId`, `tenantId`, `workflow` (`WorkflowRecord`: `name`, `version`,
+  `startedVersion`, no class); node events (agent, router, tool, model, knowledge base, guardrail,
+  PII policy, action, channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`) add `step`
+  (`StepRecord`: `component: { name }`, `nodeId`, `visitNumber`, `copyNumber`, `itemIndex`,
+  `idempotencyKey`, `callId`). Execution hooks: `onExecutionStart` once per execution,
+  `onExecutionPause` / `onExecutionResume` (`reason: ResumeReason`) around a pause,
+  `onExecutionEnd` once when it ends at a finish (`finish`, `spend`), `onExecutionError` when it
+  fails — also after a resume (a cancelled paused one: `ExecutionCancelledError`). A request refused
+  before an execution starts or is located (another owner's thread, nothing paused, an unknown
+  thread, invalid input, an exhausted budget) → `onExecutionRejected` (`operation:
+ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input values, no
+  `executionId`), still thrown; `IncompatibleResumeError` → `onExecutionError` on the paused
+  execution, which stays paused. `onValuesOutdated` (`trigger`, `outdated` — no DTO values) once
+  per outdating cascade, never empty; `onLaunchItemsTruncated` (`launch`, `items`, `maxItems`) when
+  a per-item launch dropped items (#273).
+- **The framework's log (#261):** the `Logger` contract is infrastructure (`ConsoleLogger` — one
+  line per entry on stderr — unless `@Application({ providers })` lists an `extends Logger`; silent
+  in tests unless listed). At start, once, only what the decorators say: what started and the worst
+  case of one call of each start, then the startup warnings — no `maxSpend()`, nothing per tenant;
+  while running only problems (`LogLevel.Warn` / `Error`, a stable `code`, `executionId` /
+  `tenantId`). Assembly warnings — tenant or application budgets on the built-in in-memory ledger
+  (`[application.in-memory-cost-ledger]`), possible pauses on in-memory paused executions or
+  checkpoints (`[application.in-memory-pauses]`) — are in `app.warnings` and the start log, errors
+  under `agboss check --strict`, silent in tests.
 - **Memory** (`agboss/memory`): agents see the thread's last `defaults.history.limit` turns
   (`start <name>: <input>` / `finish <name>: <output>`, + `compaction` summaries) as a message of
   their own; `@Agent({ memoryStrategy })` replaces that for one agent (`extends BaseMemoryStrategy`).
@@ -1088,11 +1108,11 @@ Routers and guards use decision models too. README → Quality gates has a full 
 
 - `const app = await createApp(DeskApplication, { env })` (#261: always an `@Application`;
   `createApp(Workflow)` does not compile). `app.execute(Start, input, { threadId, ownerId, signal,
-tenant, execution, metadata, onStream })` runs the workflow of that start (any workflow of the
+tenant, execution, onStream })` runs the workflow of that start (any workflow of the
   application; one start in two workflows → `[application.ambiguous-start]`) → `ExecutionOutput`
   (`output` is the finish's DTO, `finish`, `path`, `spend`, `threadId`, `tenantId`, `runId`);
   `app.resume(threadId, decision, { tenantId, ownerId })` continues a paused run;
-  `app.cancel(threadId, { tenantId, ownerId })` aborts a running one (`WorkflowCancelledError`) or
+  `app.cancel(threadId, { tenantId, ownerId })` aborts a running one (`ExecutionCancelledError`) or
   drops a paused one (`resume` → `NotPausedError`). The options are named like the
   `ExecutionContext` fields they fill — `threadId`, never `thread`. A thread with an `ownerId`
   rejects another owner (`ThreadOwnerError`).
@@ -1104,7 +1124,7 @@ tenant, execution, metadata, onStream })` runs the workflow of that start (any w
   level by subclassing with DTO field decorators (no `prompt`: `[context.prompt-unused]`) and
   declares it once, `@Application({ tenantContext, executionContext })`; the values come per
   execution, `tenant: { … }` / `execution: { … }` — `ContextValues<T>`, typed per start by the
-  generated types, validated before the first step (invalid → `dto.invalid`, `onRunRejected`, the
+  generated types, validated before the first step (invalid → `dto.invalid`, `onExecutionRejected`, the
   field named, never the value), frozen, kept in the checkpoint (a resume runs on them). Nothing
   declared → `tenant: { tenantId }` optional (`"default"`), `execution` does not compile. A
   thread's key is `tenantId` + `threadId`: another tenant's thread is `UnknownThreadError`; every
@@ -1148,17 +1168,17 @@ export class PlanService {
   the pause goes `Pending → Resolved` atomically, a second resume of one pause gets
   `NotPausedError` — then waits for the lease; the holder takes decisions resolved meanwhile and the
   waiting call returns the tree's current output. A holder that lost the lease stops: its call
-  rejects with `ExecutionLeaseLostError` (`execution.lease-lost`) — no `.onError`, no `onError`, no
+  rejects with `ExecutionLeaseLostError` (`execution.lease-lost`) — no `.onError`, no `onExecutionError`, no
   failed record. Wiki → Several-instances.
 - **Recovery and the graceful stop (#265 S30 / S51):** a root's record is
   `ExecutionRecordStatus.Running` while its tree moves. Every instance looks for `running` roots at
   start and every 30 s (`ExecutionRecordRepository.findByStatus`), takes the lease of one whose
   holder died or stopped and continues it from its last checkpoint (a resolved pause first) — only
   the interrupted step runs again; another config's root is left to a compatible instance (logged
-  once). Observers: `onWorkflowResume` with `reason: ResumeReason.Recovered` (`Answered` for
+  once). Observers: `onExecutionResume` with `reason: ResumeReason.Recovered` (`Answered` for
   `app.resume`). `app.close()` stops the sweep, `onStop`, waits up to the shutdown timeout
   (`@Application({ shutdownTimeout })`, `app.close({ timeout })`, default `seconds(25)`), then
-  interrupts what is left: its call rejects with `ApplicationStoppingError`, no `onError`, the lease
+  interrupts what is left: its call rejects with `ApplicationStoppingError`, no `onExecutionError`, the lease
   released at once, the record stays `running`. `createApp` closes on SIGTERM / SIGINT (listeners
   removed when `close()` finishes); `testWith` never listens.
 - **`ExecutionContext` (#280)** is the one context of an execution, injected through the
@@ -1191,7 +1211,7 @@ export class PlanService {
   `BudgetPeriod.Day | Week | Month`; every workflow, a tenant and the application covered at assembly
   (`[budget.*-required]`, `[budget.duplicate-…]`). `maxSpend()` is read once per execution, at its
   start (its `ExecutionContext` readable), and kept for the whole execution; an exhausted budget
-  rejects the execution before the first step (`onRunRejected`), and every model call's cost is
+  rejects the execution before the first step (`onExecutionRejected`), and every model call's cost is
   counted in all of them — the first exhausted stops it before the next step or call. Nothing is
   reserved (a small overrun on a race, or by one call, is accepted). Hitting a limit **fails the
   execution** — unless an `.onError(…)` takes it — one class per limit, all `LimitExceededError`s:
@@ -1202,8 +1222,8 @@ today; tenant-daily-budget allows $40`).
   `limit.steps`, `limit.visits`, `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
   `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`ActionFailedError`, the
   action's error as `cause`) / `step.guard` / `step.router` ⊃ `step.router.invalid-decision`,
-  `workflow.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
-  `app.close()`, an `onRunRejected`, …); a new error
+  `execution.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
+  `app.close()`, an `onExecutionRejected`, …); a new error
   class gets a `static code`. `.onError` matches by class, so a subclass is caught by its parent's
   side path.
 

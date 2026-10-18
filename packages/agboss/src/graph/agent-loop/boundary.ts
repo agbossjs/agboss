@@ -83,7 +83,6 @@ export function makeBoundaryNode(
         agent: deps.agent.name,
         call,
         runId: runCtx.runId,
-        metadata: runCtx.metadata,
       };
 
       const combinedGuardrails = mergePolicies(
@@ -92,18 +91,12 @@ export function makeBoundaryNode(
         deps.toolGuardrails?.(call.tool),
       );
 
-      const appState = {
-        runId: state.runId,
-        threadId: runCtx.threadId,
-        activeNode: deps.agent.name,
-      };
       await visitToolThenAgent(
         combinedGuardrails,
         JudgePoint.BeforeToolCall,
         ctx,
         undefined,
         deps.observer,
-        appState,
       );
     }
     return { messages: state.move === null ? [] : [state.move], results };

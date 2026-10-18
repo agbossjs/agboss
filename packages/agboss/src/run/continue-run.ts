@@ -6,7 +6,6 @@ import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { failedOutcome, outcomeError, recordFailure, type TernBase } from "./execute.js";
 import { continuedExecutionBudgets, recorder } from "./run-budgets.js";
 import { finishRun } from "./finish.js";
-import { withMetadata } from "./run-services.js";
 import { streamConfig } from "./stream-config.js";
 import type { AgentExecutionOutput, RunDeps, RunOptions } from "./types.js";
 import { runVersions } from "./versions.js";
@@ -26,7 +25,6 @@ export interface ContinuedRun {
   readonly budgets: readonly ExecutionBudgetRecord[] | undefined;
   /** What it spent before this pass, already in the ledger. */
   readonly spent: readonly UsageRecord[];
-  readonly metadata?: Readonly<Record<string, string>> | undefined;
 }
 
 /** Streams the pass, recording spend as it happens; returns the last state. */
@@ -50,7 +48,6 @@ export async function continueRun<TName extends string>(
   options: ContinueOptions,
   pass: ContinuedPass,
 ): Promise<AgentExecutionOutput> {
-  const metadata = options.metadata ?? run.metadata;
   const spent: UsageRecord[] = [];
   const budgets = await continuedExecutionBudgets(deps, run.budgets, totalCost(run.spent));
   const graph = executionGraphOf(deps, { budgets: budgets.meter });
@@ -67,7 +64,7 @@ export async function continueRun<TName extends string>(
   try {
     const { threadId, tenantId, runId } = run;
     const identity = { threadId, tenantId, runId, input: run.startInput };
-    const streaming = streamConfig(deps, identity, { ...options, metadata });
+    const streaming = streamConfig(deps, identity, options);
     const state = await pass(graph, streaming, record);
     const context = {
       deps,
@@ -79,8 +76,7 @@ export async function continueRun<TName extends string>(
       recorded: Math.max(run.spent.length, state.usage.length),
       callbacks: streaming.callbacks,
     };
-    const output = await finishRun(context, state, run.ternId);
-    return withMetadata(output, metadata);
+    return await finishRun(context, state, run.ternId);
   } catch (error) {
     const cause = outcomeError(error, options.signal);
     throw await recordFailure(cause, () =>

@@ -44,7 +44,7 @@ export function closestHook(name: string): ObserverHook {
   const ranked = [...OBSERVER_HOOKS].sort(
     (a, b) => distance(lower, a.toLowerCase()) - distance(lower, b.toLowerCase()),
   );
-  return ranked[0] ?? "onWorkflowStart";
+  return ranked[0] ?? "onExecutionStart";
 }
 
 /** What is wrong with one observer class: hook-like methods that are no hook, or no hook at all. */
@@ -59,13 +59,13 @@ function observerViolations(cls: Class): string[] {
   );
   if (unknown.length === 0 && !methods.some((name) => HOOKS.has(name))) {
     violations.push(
-      `[observer.no-hooks] ${tokenName(cls)} is listed in @Workflow observers but implements no hook (declare hooks as methods: ${OBSERVER_HOOKS.slice(0, 4).join(", ")}, …)`,
+      `[observer.no-hooks] ${tokenName(cls)} is listed in @Application observers but implements no hook (declare hooks as methods: ${OBSERVER_HOOKS.slice(0, 4).join(", ")}, …)`,
     );
   }
   return violations;
 }
 
-/** Every `@Workflow({ observers })` class implements at least one hook, and no misspelled one. */
+/** Every `@Application({ observers })` class implements at least one hook, and no misspelled one. */
 export function checkObservers(observers: readonly Class[]): void {
   const violations = observers.flatMap(observerViolations);
   if (violations.length > 0) throw new ComponentError(violations.join("\n"));

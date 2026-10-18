@@ -2,7 +2,6 @@ import { AIMessage, SystemMessage, type AIMessageChunk } from "@langchain/core/m
 import type { ToolDefinition } from "@langchain/core/language_models/base";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { recordUsage, totalCost, type UsageRecord } from "../../finops/usage.js";
-import type { AppState } from "../../core/observability.js";
 import { withSortedKeys } from "../../flow/runtime/json.js";
 import { toolDefinitionOf } from "../../tools/index.js";
 import { AgentFailedError } from "../errors.js";
@@ -12,6 +11,7 @@ import { agentLimitError } from "./limits.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 import { normalisePromptText } from "../text.js";
 import { extractRunContext, throwIfCancelled } from "../../core/run-context.js";
+import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 
 export class ToolCallingUnsupportedError extends Error {
   override name = "ToolCallingUnsupportedError";
@@ -76,21 +76,18 @@ async function observedCall(
   state: AgentLoopStateType,
   deps: AgentLoopDeps,
   config: RunnableConfig | undefined,
-  appState: AppState,
 ): Promise<{ readonly response: AIMessageChunk; readonly usageRecord: UsageRecord }> {
   const { name, binding } = deps.agent;
   const modelName = binding.settings.model;
-  await deps.observer?.onModelStart({
-    modelName,
-    callerName: name,
-    rawPayload: state.messages,
-    state: appState,
-  });
+  const rawPayload = state.messages;
+  await reportNodeEvent((base) =>
+    deps.observer?.onModelStart({ ...base, modelName, callerName: name, rawPayload }),
+  );
   const response = await callModel(state, deps, config).catch((error: unknown) => {
     throw new AgentFailedError(name, loopUsage(state), error);
   });
   const usageRecord = recordUsage(name, binding.settings, response);
-  await deps.observer?.onModelEnd({
+  const ended = {
     model: modelName,
     callerName: name,
     rawContent: response.content,
@@ -100,8 +97,8 @@ async function observedCall(
       totalTokens: usageRecord.inputTokens + usageRecord.outputTokens,
     },
     calculatedCost: usageRecord.costUsd,
-    state: appState,
-  });
+  };
+  await reportNodeEvent((base) => deps.observer?.onModelEnd({ ...base, ...ended }));
   return { response, usageRecord };
 }
 
@@ -125,8 +122,7 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       } as const;
       throw agentLimitError(state, { ...breach, spent: [] });
     }
-    const appState = { runId: state.runId, threadId: runCtx.threadId, activeNode: name };
-    const { response, usageRecord } = await observedCall(state, deps, config, appState);
+    const { response, usageRecord } = await observedCall(state, deps, config);
     const move = withCallIds(response, state);
     // answer tools are not tool calls: an invalid answer costs a retry, not `maxToolCalls` (S9)
     const calls = callsOf(move).filter((call) => !isAnswerCall(deps.agent, call)).length;

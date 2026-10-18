@@ -1,4 +1,4 @@
-import type { ObserverManager } from "../core/observer-manager.js";
+import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { AgentPrompts, AgentsConfigOf } from "../config/types.js";
 import type { GuardSet } from "../guards/index.js";
 import type { ModelRegistry } from "../llm/registry.js";
@@ -58,7 +58,7 @@ export interface GraphDeps<TName extends string> {
   readonly routerFor: (router: LoadedRouter) => RouterEngine;
   /** A model router's decisions before a parallel launch (#273 S23): its `OnDemand` routes. */
   readonly launchDecisionFor?: (router: LoadedRouter) => LaunchDecider;
-  readonly observer?: ObserverManager;
+  readonly observer?: ExecutionObserverManager;
   /**
    * The application's context levels (#261, framework wiring: `RuntimeContexts` is internal,
    * `agboss/internal`); absent = a workflow run on its own (eval, replay).

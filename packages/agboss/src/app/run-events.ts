@@ -1,7 +1,9 @@
-import { WorkflowCancelledError } from "../core/errors.js";
-import type { AppState, RunOperation, RunRejectedEvent } from "../core/observability.js";
-import type { ObserverManager } from "../core/observer-manager.js";
+import { ExecutionCancelledError } from "../core/errors.js";
+import type { ExecutionOperation, ExecutionRejectedEvent } from "../core/observability.js";
+import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import { DtoValidationError } from "../dto/errors.js";
+import type { ExecutionEvent } from "../flow/observers/execution-event.js";
+import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { IncompatibleResumeError } from "../run/resume-guard.js";
 import type { ExecutionOutput } from "./types.js";
 import { isHandedOver } from "./handed-over.js";
@@ -9,42 +11,75 @@ import { isHandedOver } from "./handed-over.js";
 const asError = (error: unknown): Error =>
   error instanceof Error ? error : new Error(String(error));
 
+/** The workflow an app runs: its name and the version it runs now. */
+export interface RunningWorkflow {
+  readonly name: string;
+  readonly version: string;
+}
+
+/** An execution as its events name it: its id, thread, tenant and the version it started on. */
+export interface ObservedExecution {
+  readonly runId: string;
+  readonly threadId: string;
+  readonly tenantId: string;
+  readonly startedVersion: string;
+}
+
+/** The common part of an execution's events (one level until #263: it is its own root). */
+export const executionEventAt = (
+  execution: ObservedExecution,
+  workflow: RunningWorkflow,
+): ExecutionEvent => ({
+  executionId: execution.runId,
+  parentExecutionId: undefined,
+  rootExecutionId: execution.runId,
+  threadId: execution.threadId,
+  tenantId: execution.tenantId,
+  workflow: { ...workflow, startedVersion: execution.startedVersion },
+});
+
 /**
- * One leg of a run (its `execute`, or a `resume`), observed: it paused → `onWorkflowPause`, it
- * finished → `onWorkflowEnd`, it threw → `onError` (and the error is rethrown) — except a lost
- * lease or an interruption, which is not a failure: another instance goes on with the run (#265).
+ * One leg of an execution (its `execute`, or a `resume`), observed: it paused →
+ * `onExecutionPause`, it finished → `onExecutionEnd` (once per execution: only the leg that ends
+ * at a finish), it threw → `onExecutionError` (and the error is rethrown) — except a lost lease or
+ * an interruption, which is not a failure: another instance goes on with the execution (#265).
  */
 export async function observeLeg(
-  observer: ObserverManager,
-  state: AppState,
+  observer: ExecutionObserverManager,
+  event: ExecutionEvent,
   leg: () => Promise<ExecutionOutput>,
 ): Promise<ExecutionOutput> {
   let result: ExecutionOutput;
   try {
     result = await leg();
   } catch (error) {
-    if (!isHandedOver(error)) await observer.onError(asError(error), state);
+    if (!isHandedOver(error)) await observer.onExecutionError({ ...event, error: asError(error) });
     throw error;
   }
-  await (result.pause === undefined
-    ? observer.onWorkflowEnd(result, state)
-    : observer.onWorkflowPause({ pause: result.pause, state }));
+  if (result.pause !== undefined)
+    await observer.onExecutionPause({ ...event, pause: result.pause });
+  else if (result.finish !== undefined)
+    await observer.onExecutionEnd({ ...event, finish: result.finish, spend: result.spend });
   return result;
 }
 
-/** A paused run was cancelled instead of resumed: it ends as failed, `WorkflowCancelledError`. */
-export function observeCancelledPause(observer: ObserverManager, state: AppState): Promise<void> {
-  const thread = state.threadId ?? "";
-  return observer.onError(
-    new WorkflowCancelledError(`thread "${thread}" was cancelled while paused`),
-    state,
+/** A paused execution was cancelled instead of resumed: it ends as failed, `ExecutionCancelledError`. */
+export function observeCancelledPause(
+  observer: ExecutionObserverManager,
+  event: ExecutionEvent,
+): Promise<void> {
+  const error = new ExecutionCancelledError(
+    `thread "${event.threadId}" was cancelled while paused`,
   );
+  return observer.onExecutionError({ ...event, error });
 }
 
-/** What a caller asked for, before the app found (or started) its run. */
-interface RunRequest {
-  readonly operation: RunOperation;
+/** What a caller asked for, before the app found (or started) its execution. */
+export interface ExecutionRequest {
+  readonly operation: ExecutionOperation;
   readonly threadId?: string | undefined;
+  /** The tenant it named, when known (invalid tenant values name none: `"default"`). */
+  readonly tenantId?: string | undefined;
 }
 
 const codeOf = (error: unknown): string =>
@@ -60,35 +95,42 @@ const safeMessageOf = (error: unknown): string => {
   return asError(error).message;
 };
 
-/** The `onRunRejected` event of a refused request: no run id, no input values. */
-function rejectionOf(request: RunRequest, error: unknown): RunRejectedEvent {
+/** The `onExecutionRejected` event of a refused request: no execution id, no input values. */
+function rejectionOf(request: ExecutionRequest, error: unknown): ExecutionRejectedEvent {
   const { operation, threadId } = request;
-  const thread = threadId === undefined ? {} : { threadId };
   return {
     operation,
-    ...thread,
+    ...(threadId === undefined ? {} : { threadId }),
+    tenantId: request.tenantId ?? DEFAULT_TENANT_ID,
     code: codeOf(error),
     message: safeMessageOf(error),
-    state: thread,
   };
 }
 
 /**
- * The checks a request passes before its run starts or is located (owner, paused, input). A refusal
- * is observed and rethrown: `onRunRejected`; or, for a paused run this app may not resume
- * (`IncompatibleResumeError`), `onError` on that run — its id, its thread; it stays paused.
+ * The checks a request passes before its execution starts or is located (owner, paused, input,
+ * budgets). A refusal is observed and rethrown: `onExecutionRejected`; or, for a paused execution
+ * this app may not resume (`IncompatibleResumeError`), `onExecutionError` on that execution — its
+ * id, its thread; it stays paused.
  */
 export async function admitRequest<T>(
-  observer: ObserverManager,
-  request: RunRequest,
+  observer: ExecutionObserverManager,
+  workflow: RunningWorkflow,
+  request: ExecutionRequest,
   checks: () => Promise<T>,
 ): Promise<T> {
   try {
     return await checks();
   } catch (error) {
-    await (error instanceof IncompatibleResumeError
-      ? observer.onError(error, { runId: error.runId, threadId: error.thread })
-      : observer.onRunRejected(rejectionOf(request, error)));
+    if (error instanceof IncompatibleResumeError) {
+      const paused = {
+        runId: error.runId,
+        threadId: error.thread,
+        tenantId: request.tenantId ?? DEFAULT_TENANT_ID,
+        startedVersion: error.paused.workflowVersion,
+      };
+      await observer.onExecutionError({ ...executionEventAt(paused, workflow), error });
+    } else await observer.onExecutionRejected(rejectionOf(request, error));
     throw error;
   }
 }

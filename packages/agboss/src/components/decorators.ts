@@ -126,14 +126,16 @@ export function Rag<const D extends readonly Token[] = []>(options: {
   };
 }
 
+/**
+ * An approval request a channel sends out: the paused tool call. The execution — its tenant, its
+ * project fields, the thread's owner — comes through the channel's constructor
+ * (`deps: [ExecutionContext]`, #261); the request is made inside the paused step.
+ */
 export interface ChannelRequest<T = Record<string, unknown>> {
   readonly runId: string;
   readonly agentName: string;
   readonly toolName: string;
   readonly toolArguments: T;
-  /** Any custom metadata passed when the run started (e.g., ownerId, tenantId). */
-  readonly metadata: Record<string, unknown>;
-  readonly executionContext?: unknown;
 }
 
 export interface ChannelDecision {

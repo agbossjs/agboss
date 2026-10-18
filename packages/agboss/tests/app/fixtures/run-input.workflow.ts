@@ -10,14 +10,14 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type ActionStartEvent,
-  type AppState,
-  type ExecutionOutput,
+  type ExecutionEndEvent,
+  type ExecutionStartEvent,
   type ModelStartEvent,
   type OnActionStart,
+  type OnExecutionEnd,
+  type OnExecutionStart,
   type OnModelStart,
   type OnToolStart,
-  type OnWorkflowEnd,
-  type OnWorkflowStart,
   type ToolHandler,
   type ToolStartEvent,
 } from "../../../src/index.js";
@@ -118,22 +118,22 @@ export class Shortlist {
 /** Every event's run id. */
 @Injectable()
 export class RunIds
-  implements OnWorkflowStart, OnWorkflowEnd, OnModelStart, OnToolStart, OnActionStart
+  implements OnExecutionStart, OnExecutionEnd, OnModelStart, OnToolStart, OnActionStart
 {
-  onWorkflowStart(state: AppState): void {
-    seen.events.push(`workflow-start:${state.runId}`);
+  onExecutionStart(event: ExecutionStartEvent): void {
+    seen.events.push(`execution-start:${event.executionId}`);
   }
-  onWorkflowEnd(_result: ExecutionOutput, state: AppState): void {
-    seen.events.push(`workflow-end:${state.runId}`);
+  onExecutionEnd(event: ExecutionEndEvent): void {
+    seen.events.push(`execution-end:${event.executionId}`);
   }
   onModelStart(event: ModelStartEvent): void {
-    seen.events.push(`model-start:${event.state.runId}`);
+    seen.events.push(`model-start:${event.executionId}`);
   }
   onToolStart(event: ToolStartEvent): void {
-    seen.events.push(`tool-start:${event.state.runId}`);
+    seen.events.push(`tool-start:${event.executionId}`);
   }
   onActionStart(event: ActionStartEvent): void {
-    seen.events.push(`action-start:${event.state.runId}`);
+    seen.events.push(`action-start:${event.executionId}`);
   }
 }
 
@@ -157,7 +157,6 @@ export class Done {}
     tools: { maxToolCalls: 3 },
   },
   providers: [Shortlist],
-  observers: [RunIds],
   channelClasses: [TerminalUserChannel],
   flow: [
     start(SearchStart)
@@ -175,6 +174,7 @@ export class JobSearch {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [JobSearch],
+  observers: [RunIds],
   budgets: TEST_BUDGETS,
 })
 export class JobSearchApplication {}

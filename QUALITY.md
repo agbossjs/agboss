@@ -68,6 +68,10 @@ holds from its type**, not guess it from the name.
 - External input the framework parses itself (CLI, config, settings, model JSON output) is
   validated with **zod inside the framework**; inside the system, types are trusted.
 - Errors: throw typed `Error` subclasses with context; never swallow. No `console.log` in `src/`.
+- The framework logs only through the application's `Logger` (#261, `FrameworkLog`: a stable
+  `code`, the `executionId` / `tenantId`, time from the `Clock`) — never `process.emitWarning` or
+  the console; it logs the start once and then only problems of the system. What one execution did
+  is its trace and its observer events, never the log.
 
 ## Agents (LangGraph)
 
@@ -159,7 +163,7 @@ period?, workflow?, deps? })` + `implements BudgetHandler` (`maxSpend(): Usd | P
     application's name, the `tenantId`, the execution's id) and period; every call's cost is added
     to all of the execution's counters while it streams, so a crashed execution's spend still counts.
   - Before the first step every budget is checked: one exhausted **rejects** the execution
-    (`BudgetExceededError`, an `onRunRejected`; no thread, no record, no call — a refused request leaves no trace). Before every working step the
+    (`BudgetExceededError`, an `onExecutionRejected`; no thread, no record, no call — a refused request leaves no trace). Before every working step the
     counters are read again (the tenant's other executions count) and every budget is checked;
     before every model call too. The first exhausted **fails the execution** — never a quiet stop,
     unless the path's `.onError(BudgetExceededError, …)` takes it — with `budget`, `scope`, `key`,

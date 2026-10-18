@@ -8,6 +8,7 @@ import {
   type ExecutionRecordRepository,
 } from "./execution-record.repository.js";
 import type { Clock } from "./clock.js";
+import type { FrameworkLog } from "./logger.js";
 
 /**
  * Automatic recovery (#265 S30): every application instance looks for the roots left `running` —
@@ -34,24 +35,38 @@ export interface RecoverySources {
   readonly records: ExecutionRecordRepository;
   readonly workflows: ReadonlyMap<string, RecoverRoot>;
   readonly clock: Clock;
+  /** Where its problems go: the application's log. */
+  readonly log: FrameworkLog;
   /** Stops the recoveries in flight like the app's other executions (the shutdown timeout). */
   readonly signal: AbortSignal;
 }
 
-/** The message of a recovery problem, for the log. */
-const problemOf = (
-  record: Tern,
-  error: unknown,
-): { readonly code: string; readonly text: string } =>
-  error instanceof IncompatibleResumeError
+/** A recovery problem, for the log: at risk (left to another instance) or broken. */
+interface RecoveryProblem {
+  readonly code: string;
+  readonly text: string;
+  readonly isBroken: boolean;
+  readonly executionId?: string;
+  readonly tenantId?: string;
+}
+
+/** The problem of one record's recovery. */
+const problemOf = (record: Tern, error: unknown): RecoveryProblem => {
+  const ids = { executionId: record.runId ?? record.id, tenantId: record.tenantId };
+  return error instanceof IncompatibleResumeError
     ? {
         code: "recovery.incompatible",
-        text: `execution ${record.runId ?? record.id} is left to an instance of a compatible version: ${error.message}`,
+        text: `execution ${ids.executionId} is left to an instance of a compatible version: ${error.message}`,
+        isBroken: false,
+        ...ids,
       }
     : {
         code: "recovery.failed",
-        text: `recovery of execution ${record.runId ?? record.id} failed: ${error instanceof Error ? error.message : String(error)}`,
+        text: `recovery of execution ${ids.executionId} failed: ${error instanceof Error ? error.message : String(error)}`,
+        isBroken: true,
+        ...ids,
       };
+};
 
 /** One instance's sweep: its look-ups, the recoveries it started, the problems it logged. */
 class Sweeper implements RecoverySweep {
@@ -76,10 +91,11 @@ class Sweeper implements RecoverySweep {
         await this.#sweep();
       } catch (error) {
         // a store that failed is asked again at the next sweep
-        this.#log(
-          "recovery.failed",
-          `recovery could not list the running executions: ${String(error)}`,
-        );
+        this.#log({
+          code: "recovery.failed",
+          text: `recovery could not list the running executions: ${String(error)}`,
+          isBroken: true,
+        });
       }
       await this.sources.clock.sleep(SWEEP_EVERY, this.#stopped.signal);
     }
@@ -108,8 +124,7 @@ class Sweeper implements RecoverySweep {
     const recovery = recoverRoot(record, this.sources.signal)
       .catch((error: unknown) => {
         if (isHandedOver(error)) return;
-        const { code, text } = problemOf(record, error);
-        this.#log(code, text);
+        this.#log(problemOf(record, error));
       })
       .finally(() => {
         this.#inFlight.delete(record.id);
@@ -118,10 +133,14 @@ class Sweeper implements RecoverySweep {
   }
 
   /** Each problem once per instance (an incompatible root is seen again every sweep). */
-  #log(code: string, text: string): void {
+  #log(problem: RecoveryProblem): void {
+    const { code, text, executionId, tenantId } = problem;
     if (this.#logged.has(text)) return;
     this.#logged.add(text);
-    process.emitWarning(text, { code });
+    const { log } = this.sources;
+    const subject = { executionId, tenantId };
+    if (problem.isBroken) log.error(code, text, subject);
+    else log.warn(code, text, subject);
   }
 }
 

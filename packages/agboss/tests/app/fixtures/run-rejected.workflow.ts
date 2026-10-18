@@ -57,7 +57,6 @@ export class VoucherClerk {}
     history: { limit: 1 },
     tools: { maxToolCalls: 3 },
   },
-  observers: [RunLog],
   channelClasses: [TerminalUserChannel],
   flow: [
     start(Redeem)
@@ -86,6 +85,7 @@ export class VouchersTenantDailyBudget implements BudgetHandler {
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Vouchers],
+  observers: [RunLog],
   budgets: [TestApplicationDailyBudget, VouchersTenantDailyBudget, TestExecutionBudget],
 })
 export class VouchersApplication {}

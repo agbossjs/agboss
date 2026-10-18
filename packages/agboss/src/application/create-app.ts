@@ -22,6 +22,9 @@ import { gracefulStopOf, type GracefulStop } from "./graceful-stop.js";
 import { startRecoverySweep } from "../infrastructure/recovery.js";
 import { closeOnStopSignals } from "./stop-signals.js";
 import { applicationOf, type AssembledApplication } from "./assemble.js";
+import { frameworkLogOf, type FrameworkLog } from "../infrastructure/logger.js";
+import { observerManagerOf } from "./observers.js";
+import { assemblyWarningsOf, logStart, warningText } from "./start-log.js";
 import type { ApplicationClass } from "./types.js";
 
 /** An application instance with the parts it was built from (the testing toolkit reads them). */
@@ -32,6 +35,8 @@ export interface BuiltApplication {
   readonly infrastructure: Infrastructure;
   /** Resolves when `app.close()` has finished. */
   readonly closed: Promise<void>;
+  /** The instance's log (its `Logger`, stamped by its clock). */
+  readonly log: FrameworkLog;
 }
 
 /**
@@ -46,6 +51,8 @@ export interface InstanceSeams {
   readonly instanceId?: string;
   readonly database?: InMemoryDatabase;
   readonly clock?: Clock;
+  /** A test's instance: an unlisted `Logger` is silent, and the start is not logged. */
+  readonly quiet?: boolean;
 }
 
 /**
@@ -115,24 +122,18 @@ export async function buildApplication(
     contexts,
     database: seams.database,
     instances: seams.reused,
+    quiet: seams.quiet,
   });
   const container: ContainerOptions = { ...options.container, application: shared };
   const infrastructure = resolveInfrastructure(shared, { ...container, onCreate });
+  const log = frameworkLogOf(infrastructure.logger, clock);
   const workflows: BuiltApp[] = [];
   try {
+    const observer = observerManagerOf(assembled, shared, { ...container, onCreate }, log);
+    const budgets = { budgets: assembled.budgets, applicationName: assembled.name };
+    const parts = { infrastructure, created, contexts, budgets, observer };
     for (const bundle of assembled.workflows) {
-      workflows.push(
-        await buildApp(
-          bundle,
-          { ...options, container },
-          {
-            infrastructure,
-            created,
-            contexts,
-            budgets: { budgets: assembled.budgets, applicationName: assembled.name },
-          },
-        ),
-      );
+      workflows.push(await buildApp(bundle, { ...options, container }, parts));
     }
     createListed(assembled, workflows);
     await startComponents(created);
@@ -140,15 +141,27 @@ export async function buildApplication(
     await releaseAll(workflows);
     throw error;
   }
-  const stop = stopOf(assembled, workflows, { created, infrastructure });
-  const app = composeApp(assembled, workflows, stop);
-  return { app, assembled, workflows, infrastructure, closed: stop.closed };
+  const stop = stopOf(assembled, workflows, { created, infrastructure, log });
+  const warnings = startupWarningsOf(assembled, workflows);
+  if (seams.quiet !== true) logStart(log, contexts.application, assembled.workflows, warnings);
+  const app = composeApp(assembled, workflows, { stop, warnings });
+  return { app, assembled, workflows, infrastructure, closed: stop.closed, log };
 }
+
+/** The assembly warnings, then each workflow's own (a config changed without a version bump). */
+const startupWarningsOf = (
+  assembled: AssembledApplication,
+  workflows: readonly BuiltApp[],
+): readonly string[] => [
+  ...assemblyWarningsOf(assembled).map(warningText),
+  ...workflows.flatMap((workflow) => workflow.app.warnings),
+];
 
 /** What the instance's stop and recovery work with besides its workflows. */
 interface InstanceParts {
   readonly created: readonly unknown[];
   readonly infrastructure: Infrastructure;
+  readonly log: FrameworkLog;
 }
 
 /** The instance's recovery sweep, started now (`onStart` is done, #265 S30), and its graceful stop. */
@@ -163,6 +176,7 @@ function stopOf(
     records: parts.infrastructure.records,
     workflows: new Map(workflows.map((workflow) => [workflow.deps.config.name, workflow.recover])),
     clock,
+    log: parts.log,
     signal: interruption.signal,
   });
   const { shutdownTimeout } = assembled;

@@ -138,9 +138,6 @@ export const handle: CommandHandler = async (context) => {
   app.models.forEach((line) => {
     say(styleText("dim", `model ${line}`));
   });
-  app.warnings.forEach((warning) => {
-    say(`warning: ${warning}`);
-  });
   const profile = textOption(context.values, "profile");
   say(
     styleText(

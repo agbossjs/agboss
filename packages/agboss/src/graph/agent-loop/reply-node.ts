@@ -25,10 +25,9 @@ export function makeReplyNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     }
     const runCtx = extractRunContext(config, state.runId);
     const text = state.move?.text.trim() ?? "";
-    const ctx = { agent, replyWith: text, runId: runCtx.runId, metadata: runCtx.metadata };
-    const appState = { runId: state.runId, threadId: runCtx.threadId, activeNode: agent };
+    const ctx = { agent, replyWith: text, runId: runCtx.runId };
     const guardrails = mergePolicies(deps.workflowGuardrails, deps.guardrails);
-    await visitAgentAnswer(guardrails, ctx, deps.observer, appState);
+    await visitAgentAnswer(guardrails, ctx, deps.observer);
     return { messages: move, move: null, reply: text };
   };
 }

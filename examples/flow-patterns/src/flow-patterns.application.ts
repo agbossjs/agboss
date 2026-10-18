@@ -1,4 +1,4 @@
-import { Application, EmptyEnvironment } from "agboss";
+import { Application, SqliteCostLedgerRepository } from "agboss";
 import {
   ApplicationDailyBudget,
   CreditExecutionBudget,
@@ -8,17 +8,21 @@ import {
 import { CreditWorkflow } from "./credit/credit.workflow.js";
 import { OfferWorkflow } from "./offer/offer.workflow.js";
 import { ReviewWorkflow } from "./review/review.workflow.js";
+import { AppEnvironment } from "./environments/app.environment.js";
 
 /**
  * The patterns as one application (#261): `app.execute(OfferWorkflowStart, …)` runs the review
  * loop, `app.execute(CreditWorkflowStart, …)` the credit desk, `app.execute(ReviewWorkflowStart, …)`
- * the parallel review (#273) — each workflow by its start.
+ * the parallel review (#273) — each workflow by its start. Its tenant and application budgets are
+ * counted in a SQLite ledger (#261: the built-in in-memory one is an assembly warning, an error
+ * under `agboss check --strict`); nothing pauses, so the paused executions stay in memory.
  */
 @Application({
   name: "flow-patterns-application",
   version: "1.0.0",
-  environment: EmptyEnvironment, // the patterns have no settings: no environment file
+  environment: AppEnvironment,
   workflows: [OfferWorkflow, CreditWorkflow, ReviewWorkflow],
+  providers: [SqliteCostLedgerRepository],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, CreditExecutionBudget, ExecutionBudget],
 })
 export class FlowPatternsApplication {}

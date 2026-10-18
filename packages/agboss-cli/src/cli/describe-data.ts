@@ -2,6 +2,8 @@ import { resolveTools, type AssembledWorkflow } from "agboss";
 import {
   childLines,
   configSnapshot,
+  describedApplicationOf,
+  describedLimitsOf,
   describeServicesWith,
   flowLines,
   inputLines,
@@ -12,6 +14,18 @@ import {
   type DescribedEnvironment,
   versionOf,
 } from "agboss/internal";
+
+/** The workflow's application as data: each contract's implementation by class name and why. */
+function applicationData(bundle: AssembledWorkflow): Record<string, unknown> {
+  const described = describedApplicationOf(bundle);
+  if (described === undefined) return {};
+  const implementations = described.implementations.map((choice) => ({
+    contract: choice.contract.name,
+    implementation: choice.implementation.name,
+    reason: choice.reason,
+  }));
+  return { application: { ...described, implementations } };
+}
 
 /** `agboss describe --json`: the workflow at a glance, as data (the same facts as the text). */
 export function describeData(
@@ -36,6 +50,7 @@ export function describeData(
       ? {}
       : { environment: { name: environment.name, fields: environment.fields } }),
     config: shortVersion(versionOf(configSnapshot(bundle))),
+    ...applicationData(bundle),
     flow: flowLines(bundle.graph.flow),
     inputs: inputLines(bundle.graph.analysis),
     // the start each edge into a child workflow enters through (#263)
@@ -57,7 +72,7 @@ export function describeData(
     models: resolvedModelUsesOf(bundle),
     tools,
     unassignedTools: tools.map((tool) => tool.name).filter((name) => !assigned.has(name)),
-    limits: { maxSteps: bundle.maxSteps },
+    limits: describedLimitsOf(bundle),
     steps: stepsRangeOf(bundle.graph.analysis.graph),
   };
 }

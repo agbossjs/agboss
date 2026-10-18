@@ -1,12 +1,11 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { runJudgeCall } from "../../components/judge-call.js";
 import type { JudgeVerdict } from "../../components/judge-decorators.js";
-import type { AppState } from "../../core/observability.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { AgentFailedError, QualityGateError, type JudgeFeedback } from "../errors.js";
-import { extractRunContext } from "../../core/run-context.js";
 import type { AsyncNode } from "../types.js";
 import type { AgentLoopDeps } from "./deps.js";
+import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import { meteredModel } from "./judge-model.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 
@@ -16,21 +15,23 @@ async function rejectionsOf(
   deps: AgentLoopDeps,
   reply: string,
   spent: UsageRecord[],
-  threadId: string,
 ): Promise<JudgeFeedback[]> {
   const agent = deps.agent.name;
-  const appState: AppState = { runId: state.runId, threadId, activeNode: agent };
   const rejected: JudgeFeedback[] = [];
   for (const judge of deps.agent.judges ?? []) {
     const input = { reply, task: state.inputMessage, attempt: state.retries };
-    const event = { name: judge.name, agentName: agent, state: appState };
-    await deps.observer?.onJudgeStart({ ...event, input: reply });
+    const event = { name: judge.name, agentName: agent };
+    await reportNodeEvent((base) =>
+      deps.observer?.onJudgeStart({ ...base, ...event, input: reply }),
+    );
     const verdict: JudgeVerdict = await runJudgeCall(meteredModel(judge, spent), () =>
       judge.handler.judge(input),
     ).catch((error: unknown) => {
       throw new AgentFailedError(agent, [...loopUsage(state), ...spent], error);
     });
-    await deps.observer?.onJudgeEnd({ ...event, update: verdict });
+    await reportNodeEvent((base) =>
+      deps.observer?.onJudgeEnd({ ...base, ...event, update: verdict }),
+    );
     if (!verdict.passed) {
       rejected.push({ judge: judge.name, feedback: verdict.feedback ?? "rejected (no feedback)" });
     }
@@ -52,16 +53,10 @@ const retryPrompt = (rejected: readonly JudgeFeedback[]): string =>
  */
 export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
   const { name: agent, judges = [], maxRetries = 0 } = deps.agent;
-  return async (state, config) => {
+  return async (state) => {
     if (judges.length === 0 || state.reply === null) return {};
     const spent: UsageRecord[] = [];
-    const rejected = await rejectionsOf(
-      state,
-      deps,
-      state.reply,
-      spent,
-      extractRunContext(config, state.runId).threadId,
-    );
+    const rejected = await rejectionsOf(state, deps, state.reply, spent);
     if (rejected.length === 0) return { usage: spent };
     if (state.retries >= maxRetries) {
       throw new QualityGateError(agent, [...loopUsage(state), ...spent], rejected, state.retries);

@@ -8,7 +8,8 @@ import {
 import type { PendingPause } from "../../pause/index.js";
 import type { AnyTool } from "../../tools/index.js";
 import type { ChannelRequest, InboundChannelAdapter } from "../../components/decorators.js";
-import type { ObserverManager } from "../../core/observer-manager.js";
+import type { ExecutionObserverManager } from "../../core/observer-manager.js";
+import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 
 /**
  * How the loop gets a decision on a tool call before it runs — one call per ask. It is backed by the
@@ -20,8 +21,6 @@ export interface ToolCallApproval {
     agent: string,
     tool: AnyTool,
     run: { readonly runId: string; readonly threadId: string },
-    metadata: Record<string, unknown>,
-    executionContext?: unknown,
   ) => Promise<ToolCallApprovalDecisionDto>;
 }
 
@@ -29,7 +28,7 @@ export interface ToolCallApproval {
 export interface ApprovalChannels {
   readonly dispatch?: (channelName: string, req: ChannelRequest) => Promise<void>;
   readonly adapterOf?: (channel: string) => InboundChannelAdapter | undefined;
-  readonly observer?: ObserverManager;
+  readonly observer?: ExecutionObserverManager;
 }
 
 interface AskContext {
@@ -38,15 +37,7 @@ interface AskContext {
   readonly tool: AnyTool;
   readonly runId: string;
   readonly threadId: string;
-  readonly metadata: Record<string, unknown>;
-  readonly executionContext?: unknown;
 }
-
-const appStateOf = (ctx: AskContext) => ({
-  runId: ctx.runId,
-  threadId: ctx.threadId,
-  activeNode: ctx.agent,
-});
 
 /**
  * The run just paused at the ask: the tool's channel gets the request (once per pause), its
@@ -56,14 +47,15 @@ async function askChannel(channels: ApprovalChannels, ctx: AskContext): Promise<
   const channel = ctx.tool.channel;
   if (channel === undefined || channels.dispatch === undefined) return;
   const shown = redactedArguments(ctx.tool.input, ctx.ask.arguments);
-  await channels.observer?.onChannelStart({ name: channel, input: shown, state: appStateOf(ctx) });
+  const { observer } = channels;
+  await reportNodeEvent((base) =>
+    observer?.onChannelStart({ ...base, name: channel, input: shown }),
+  );
   await channels.dispatch(channel, {
     runId: ctx.runId,
     agentName: ctx.agent,
     toolName: ctx.tool.name,
     toolArguments: shown,
-    metadata: ctx.metadata,
-    executionContext: ctx.executionContext,
   });
 }
 
@@ -75,7 +67,8 @@ async function interpretReply(
 ): Promise<unknown> {
   const channel = ctx.tool.channel;
   if (channel === undefined) return raw;
-  await channels.observer?.onChannelEnd({ name: channel, update: raw, state: appStateOf(ctx) });
+  const { observer } = channels;
+  await reportNodeEvent((base) => observer?.onChannelEnd({ ...base, name: channel, update: raw }));
   const adapter = channels.adapterOf?.(channel);
   if (adapter === undefined) return raw;
   const interpreted: unknown = await adapter.interpret(raw);
@@ -89,8 +82,8 @@ async function interpretReply(
  */
 export function pauseSeamApproval(channels: ApprovalChannels = {}): ToolCallApproval {
   return {
-    requestApproval: async (ask, agent, tool, run, metadata, executionContext) => {
-      const ctx: AskContext = { ask, agent, tool, ...run, metadata, executionContext };
+    requestApproval: async (ask, agent, tool, run) => {
+      const ctx: AskContext = { ask, agent, tool, ...run };
       const pending: PendingPause = {
         kind: "approval",
         agent,

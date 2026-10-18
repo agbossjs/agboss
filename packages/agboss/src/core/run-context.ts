@@ -1,5 +1,5 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { WorkflowCancelledError } from "./errors.js";
+import { ExecutionCancelledError } from "./errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { Clock, systemClock } from "../infrastructure/clock.js";
 
@@ -20,8 +20,6 @@ export interface RunContext {
   readonly threadId: string;
   /** Aborted by `app.cancel(thread)` or by the caller's own `signal`. */
   readonly signal: AbortSignal;
-  /** `execute(…, { metadata })`, kept by the run's resumes. */
-  readonly metadata: Readonly<Record<string, string>>;
   /** Who the thread belongs to (`execute(…, { ownerId })`); only that owner may continue it. */
   readonly ownerId?: string;
   /** The tenant the run works for (#261): `"default"` when it names none. */
@@ -30,12 +28,11 @@ export interface RunContext {
   readonly input: Readonly<Record<string, unknown>>;
 }
 
-/** A run context with defaults: its own thread, the default tenant, a signal nobody aborts, no metadata, no input. */
+/** A run context with defaults: its own thread, the default tenant, a signal nobody aborts, no input. */
 export function newRunContext(context: {
   readonly runId: string;
   readonly threadId?: string | undefined;
   readonly signal?: AbortSignal | undefined;
-  readonly metadata?: Readonly<Record<string, string>> | undefined;
   readonly ownerId?: string | undefined;
   readonly tenantId?: string | undefined;
   readonly input?: Readonly<Record<string, unknown>> | undefined;
@@ -44,7 +41,6 @@ export function newRunContext(context: {
     runId: runIdOf(context.runId),
     threadId: context.threadId ?? context.runId,
     signal: context.signal ?? new AbortController().signal,
-    metadata: context.metadata ?? {},
     input: context.input ?? {},
     tenantId: context.tenantId ?? DEFAULT_TENANT_ID,
     ...(context.ownerId === undefined ? {} : { ownerId: context.ownerId }),
@@ -54,7 +50,6 @@ export function newRunContext(context: {
 /** The services of a run that live in LangGraph's `configurable` (internal). */
 export interface RunServices {
   readonly run: RunContext;
-  readonly executionContext?: unknown;
   /** The application's clock: a tool call's timeout runs on it (#262). */
   readonly clock?: Clock;
 }
@@ -64,8 +59,6 @@ export interface NodeRunContext {
   readonly run: RunContext;
   readonly runId: RunId;
   readonly threadId: string;
-  readonly metadata: Readonly<Record<string, string>>;
-  readonly executionContext?: unknown;
   /** The application's clock; the system's for a graph run without one (a slice, a bare graph). */
   readonly clock: Clock;
 }
@@ -89,13 +82,11 @@ export function extractRunContext(
     run,
     runId: run.runId,
     threadId: run.threadId,
-    metadata: run.metadata,
-    executionContext: conf.executionContext,
     clock: conf.clock instanceof Clock ? conf.clock : systemClock,
   };
 }
 
 /** A cancelled run stops before its next model or tool call. */
 export function throwIfCancelled(run: RunContext): void {
-  if (run.signal.aborted) throw new WorkflowCancelledError("the run was cancelled");
+  if (run.signal.aborted) throw new ExecutionCancelledError("the run was cancelled");
 }

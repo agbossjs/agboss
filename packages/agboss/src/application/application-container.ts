@@ -15,6 +15,7 @@ import { IN_MEMORY_DATABASE, NEW_THREAD_ID } from "../infrastructure/instance-to
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import {
   INFRASTRUCTURE_DEFAULTS,
+  TEST_INFRASTRUCTURE_DEFAULTS,
   infrastructureOf,
   type Infrastructure,
 } from "../infrastructure/contracts.js";
@@ -41,6 +42,8 @@ export interface ApplicationContainerSources {
    * paused execution survives `recoverApp()`. Empty in production.
    */
   readonly instances?: ReadonlyMap<Class, unknown>;
+  /** A test's instance (`testWith`): an unlisted `Logger` is silent. */
+  readonly quiet?: boolean | undefined;
 }
 
 /** The parts every container of one application instance shares (one instance per class). */
@@ -54,7 +57,7 @@ export function applicationContainerOf(sources: ApplicationContainerSources): Ap
       [IN_MEMORY_DATABASE, sources.database ?? new InMemoryDatabase()],
       ...contextValuesOf(sources.contexts),
     ]),
-    defaults: INFRASTRUCTURE_DEFAULTS,
+    defaults: sources.quiet === true ? TEST_INFRASTRUCTURE_DEFAULTS : INFRASTRUCTURE_DEFAULTS,
     // a listed clock asked for by its own class is the same instance
     instances: new Map([...(sources.instances ?? []), [clock.constructor as Class, clock]]),
   };
@@ -94,6 +97,19 @@ export function resolveInfrastructure(
 ): Infrastructure {
   const container = createContainer({ modules: [], core: new Map() }, { ...options, application });
   return infrastructureOf((contract) => container.get(contract));
+}
+
+/**
+ * Instances of listed classes from the application's container (its observers): created now, once
+ * each, with their lifecycle hooks (`options.onCreate`) — a test's mock replaces one.
+ */
+export function resolveListed(
+  application: ApplicationContainer,
+  options: ContainerOptions,
+  classes: readonly Class[],
+): unknown[] {
+  const container = createContainer({ modules: [], core: new Map() }, { ...options, application });
+  return classes.map((cls) => container.get(cls));
 }
 
 /** The one loaded application that lists the workflow (none: it stands alone, or two list it). */

@@ -36,7 +36,13 @@ describe("#265 S30: continuing an interrupted execution", () => {
     await terns.complete(run.ternId, runningOutcome(run.path, run.cost.totalUsd));
 
     const recovered = await continueAgent(
-      { runId: run.runId, threadId: run.threadId, tenantId: run.tenantId, ternId: run.ternId },
+      {
+        runId: run.runId,
+        threadId: run.threadId,
+        tenantId: run.tenantId,
+        ternId: run.ternId,
+        startedVersion: "1.0.0",
+      },
       deps,
     );
 
@@ -64,7 +70,13 @@ describe("#265 S30: continuing an interrupted execution", () => {
     });
 
     const continued = continueAgent(
-      { runId: "run-lost", threadId, tenantId: "default", ternId: record.id },
+      {
+        runId: "run-lost",
+        threadId,
+        tenantId: "default",
+        ternId: record.id,
+        startedVersion: "1.0.0",
+      },
       deps,
     );
 

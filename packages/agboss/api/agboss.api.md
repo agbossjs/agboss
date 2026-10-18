@@ -150,7 +150,6 @@ export interface AgentExecutionOutput {
     // (undocumented)
     readonly data: ExecutionData;
     readonly finish?: string;
-    readonly metadata?: Readonly<Record<string, string>>;
     // (undocumented)
     readonly output?: unknown;
     readonly path: readonly string[];
@@ -158,6 +157,7 @@ export interface AgentExecutionOutput {
     readonly pending?: PendingPause;
     readonly runId: string;
     readonly start: string;
+    readonly startedVersion?: string;
     // (undocumented)
     readonly startInput: unknown;
     // (undocumented)
@@ -299,9 +299,10 @@ export interface AppDeps extends RunDeps<string> {
     //
     // (undocumented)
     readonly evaluation: EvalDeps;
+    // Warning: (ae-forgotten-export) The symbol "FrameworkLog" needs to be exported by the entry point index.d.ts
+    readonly log: FrameworkLog;
     readonly models: readonly string[];
-    // (undocumented)
-    readonly observer: ObserverManager;
+    readonly observer: ExecutionObserverManager;
     readonly warnings: readonly string[];
 }
 
@@ -356,6 +357,7 @@ export interface ApplicationOptions {
     readonly environment: Class;
     readonly executionContext?: ExecutionContextClass;
     readonly name: string;
+    readonly observers?: readonly ObserverClass[];
     readonly providers?: readonly Provider[];
     // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     readonly shutdownTimeout?: Milliseconds;
@@ -378,19 +380,6 @@ export interface AppOptions extends Omit<AppDepsOptions, "environment"> {
     readonly profile?: string | undefined;
     // (undocumented)
     readonly profileRoot?: string;
-}
-
-// @public
-export interface AppState {
-    readonly activeNode?: string;
-    // (undocumented)
-    readonly history?: readonly unknown[];
-    // (undocumented)
-    readonly runId: string;
-    // (undocumented)
-    readonly threadId?: string;
-    // (undocumented)
-    readonly variables?: Readonly<Record<string, unknown>>;
 }
 
 // @public
@@ -453,7 +442,6 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly memoryStrategies?: (services: WorkflowServices) => ReadonlyMap<string, BaseMemoryStrategy>;
     // Warning: (ae-forgotten-export) The symbol "ModelProviderType" needs to be exported by the entry point index.d.ts
     readonly modelProviders: readonly ModelProviderType[];
-    readonly observers?: (services: WorkflowServices) => readonly WorkflowObserver[];
     readonly onIncompatibleResume?: IncompatibleResumePolicy | undefined;
     // Warning: (ae-forgotten-export) The symbol "ResolvedPolicies" needs to be exported by the entry point index.d.ts
     //
@@ -587,8 +575,6 @@ export type BuiltPath<THead extends PathHead> = (THead extends SourceHead ? Flow
 // @public
 export interface CallOptions {
     readonly configurable?: Readonly<Record<string, unknown>>;
-    readonly executionContext?: unknown;
-    readonly metadata?: Readonly<Record<string, string>>;
     // Warning: (ae-forgotten-export) The symbol "RunStreamEvent" needs to be exported by the entry point index.d.ts
     readonly onStream?: (event: RunStreamEvent) => void;
     readonly record?: boolean;
@@ -647,13 +633,10 @@ export interface ChannelHandler<T = Record<string, unknown>> {
     requestApproval: (req: ChannelRequest<T>) => Promise<void>;
 }
 
-// @public (undocumented)
+// @public
 export interface ChannelRequest<T = Record<string, unknown>> {
     // (undocumented)
     readonly agentName: string;
-    // (undocumented)
-    readonly executionContext?: unknown;
-    readonly metadata: Record<string, unknown>;
     // (undocumented)
     readonly runId: string;
     // (undocumented)
@@ -810,9 +793,20 @@ export class ComponentError extends Error {
 }
 
 // @public
+export type ComponentName<TComponent extends Class> = [NameOf<InstanceType<TComponent>>] extends [
+never
+] ? string : NameOf<InstanceType<TComponent>>;
+
+// @public
 export interface ComponentRecord {
     // (undocumented)
     readonly name: string;
+}
+
+// @public
+export class ConsoleLogger extends Logger {
+    // (undocumented)
+    write(entry: LogEntry): void;
 }
 
 // Warning: (ae-forgotten-export) The symbol "DataKeysOf" needs to be exported by the entry point index.d.ts
@@ -1032,6 +1026,15 @@ export interface ExecutionBudgetOptions<TDeps extends readonly Token[]> extends 
 }
 
 // @public
+export class ExecutionCancelledError extends AGBossError {
+    constructor(message?: string);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    name: string;
+}
+
+// @public
 export abstract class ExecutionContext {
     readonly depth: number;
     readonly executionId: string;
@@ -1064,13 +1067,25 @@ export class ExecutionContextUnavailableError extends AGBossError {
 }
 
 // @public
+export interface ExecutionEndEvent extends ExecutionEvent {
+    readonly finish: ComponentRecord;
+    readonly spend: CostReport;
+}
+
+// @public
+export interface ExecutionErrorEvent extends ExecutionEvent {
+    // (undocumented)
+    readonly error: Error;
+}
+
+// @public
 export interface ExecutionEvent {
     readonly executionId: string;
     readonly parentExecutionId: string | undefined;
     readonly rootExecutionId: string;
+    readonly tenantId: string;
     // (undocumented)
     readonly threadId: string;
-    // (undocumented)
     readonly workflow: WorkflowRecord;
 }
 
@@ -1105,6 +1120,80 @@ export abstract class ExecutionLeaseRepository {
     abstract acquire(tenantId: string, rootExecutionId: string, lease: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
     abstract renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean>;
+}
+
+// @public
+export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnPiiPolicyStart & OnPiiPolicyEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated>;
+
+// @public
+export class ExecutionObserverManager implements Required<ExecutionObserver> {
+    constructor(observers: readonly ExecutionObserver[], onFailure?: ObserverFailure);
+    // (undocumented)
+    onActionEnd(event: ActionEndEvent): Promise<void>;
+    // (undocumented)
+    onActionStart(event: ActionStartEvent): Promise<void>;
+    // (undocumented)
+    onAgentEnd(event: AgentEndEvent): Promise<void>;
+    // (undocumented)
+    onAgentStart(event: AgentStartEvent): Promise<void>;
+    // (undocumented)
+    onChannelEnd(event: ChannelEndEvent): Promise<void>;
+    // (undocumented)
+    onChannelStart(event: ChannelStartEvent): Promise<void>;
+    // (undocumented)
+    onExecutionEnd(event: ExecutionEndEvent): Promise<void>;
+    // (undocumented)
+    onExecutionError(event: ExecutionErrorEvent): Promise<void>;
+    // (undocumented)
+    onExecutionPause(event: ExecutionPauseEvent): Promise<void>;
+    // (undocumented)
+    onExecutionRejected(event: ExecutionRejectedEvent): Promise<void>;
+    // (undocumented)
+    onExecutionResume(event: ExecutionResumeEvent): Promise<void>;
+    // (undocumented)
+    onExecutionStart(event: ExecutionStartEvent): Promise<void>;
+    // (undocumented)
+    onGuardrailEnd(event: GuardrailEndEvent): Promise<void>;
+    // (undocumented)
+    onGuardrailStart(event: GuardrailStartEvent): Promise<void>;
+    // (undocumented)
+    onJudgeEnd(event: JudgeEndEvent): Promise<void>;
+    // (undocumented)
+    onJudgeStart(event: JudgeStartEvent): Promise<void>;
+    // (undocumented)
+    onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): Promise<void>;
+    // (undocumented)
+    onModelEnd(event: ModelEndEvent): Promise<void>;
+    // (undocumented)
+    onModelStart(event: ModelStartEvent): Promise<void>;
+    // (undocumented)
+    onPiiPolicyEnd(event: PiiPolicyEndEvent): Promise<void>;
+    // (undocumented)
+    onPiiPolicyStart(event: PiiPolicyStartEvent): Promise<void>;
+    // (undocumented)
+    onRagEnd(event: RagEndEvent): Promise<void>;
+    // (undocumented)
+    onRagStart(event: RagStartEvent): Promise<void>;
+    // (undocumented)
+    onRouterEnd(event: RouterEndEvent): Promise<void>;
+    // (undocumented)
+    onRouterStart(event: RouterStartEvent): Promise<void>;
+    // (undocumented)
+    onToolEnd(event: ToolEndEvent): Promise<void>;
+    // (undocumented)
+    onToolStart(event: ToolStartEvent): Promise<void>;
+    // (undocumented)
+    onValuesOutdated(event: ValuesOutdatedEvent): Promise<void>;
+}
+
+// @public
+export enum ExecutionOperation {
+    // (undocumented)
+    Cancel = "cancel",
+    // (undocumented)
+    Execute = "execute",
+    // (undocumented)
+    Resume = "resume"
 }
 
 // @public
@@ -1153,6 +1242,12 @@ export interface ExecutionOutput<TOutput = unknown> {
 export type ExecutionOutputOf<TInstance> = WorkflowStartEntry<TInstance> extends {
     readonly output: infer TOutput;
 } ? TOutput : unknown;
+
+// @public
+export interface ExecutionPauseEvent extends ExecutionEvent {
+    // (undocumented)
+    readonly pause: PendingPause;
+}
 
 // @public
 export interface ExecutionRecord {
@@ -1226,6 +1321,24 @@ export enum ExecutionRecordStatus {
 }
 
 // @public
+export interface ExecutionRejectedEvent {
+    readonly code: string;
+    readonly message: string;
+    readonly operation: ExecutionOperation;
+    readonly tenantId: string;
+    readonly threadId?: string;
+}
+
+// @public
+export interface ExecutionResumeEvent extends ExecutionEvent {
+    readonly decision: unknown;
+    readonly reason: ResumeReason;
+}
+
+// @public
+export type ExecutionStartEvent = ExecutionEvent;
+
+// @public
 export enum ExecutionStatus {
     // (undocumented)
     Finished = "finished",
@@ -1289,6 +1402,9 @@ export class FlowSyntaxError extends AGBossError {
 }
 
 // @public
+export function formatLogEntry(entry: LogEntry): string;
+
+// @public
 export interface GeneratedTypeError {
     // (undocumented)
     readonly __error: string;
@@ -1318,7 +1434,7 @@ export interface GraphDeps<TName extends string> {
     readonly maxSteps: number;
     readonly memory?: ReadonlyMap<string, BaseMemoryStrategy>;
     // (undocumented)
-    readonly observer?: ObserverManager;
+    readonly observer?: ExecutionObserverManager;
     // Warning: (ae-forgotten-export) The symbol "PauseSeam" needs to be exported by the entry point index.d.ts
     readonly pause?: PauseSeam | undefined;
     // (undocumented)
@@ -1669,13 +1785,11 @@ export function Judge<const D extends readonly Token[] = []>(options: JudgeMeta 
 }): <C extends new (...args: ResolvedAll<D>) => JudgeHandler>(value: C) => C;
 
 // @public
-export interface JudgeEndEvent {
+export interface JudgeEndEvent extends NodeEvent {
     // (undocumented)
     readonly agentName: string;
     // (undocumented)
     readonly name: string;
-    // (undocumented)
-    readonly state: AppState;
     // (undocumented)
     readonly update: JudgeVerdict;
 }
@@ -1717,15 +1831,13 @@ export abstract class JudgeModel {
 }
 
 // @public
-export interface JudgeStartEvent {
+export interface JudgeStartEvent extends NodeEvent {
     // (undocumented)
     readonly agentName: string;
     // (undocumented)
     readonly input: unknown;
     // (undocumented)
     readonly name: string;
-    // (undocumented)
-    readonly state: AppState;
 }
 
 // @public
@@ -1759,11 +1871,10 @@ export interface Launches<TValue, THead extends PathHead> {
 }
 
 // @public
-export interface LaunchItemsTruncatedEvent extends ExecutionEvent {
+export interface LaunchItemsTruncatedEvent extends NodeEvent {
     readonly items: number;
     readonly launch: string;
     readonly maxItems: number;
-    readonly step: StepRecord;
 }
 
 // @public
@@ -1843,6 +1954,29 @@ export function loadWorkflowClass(path: string, options?: {
 }): Promise<Class>;
 
 // @public
+export interface LogEntry {
+    readonly code: string;
+    readonly executionId?: string;
+    // (undocumented)
+    readonly level: LogLevel;
+    readonly message: string;
+    readonly tenantId?: string;
+    readonly time: Date;
+}
+
+// @public
+export abstract class Logger {
+    abstract write(entry: LogEntry): void;
+}
+
+// @public
+export enum LogLevel {
+    Error = "error",
+    Info = "info",
+    Warn = "warn"
+}
+
+// @public
 export const MAX_DECISION_QUESTIONS = 200;
 
 // Warning: (ae-forgotten-export) The symbol "McpConnections" needs to be exported by the entry point index.d.ts
@@ -1900,7 +2034,7 @@ export interface ModelDefaults {
 }
 
 // @public
-export interface ModelEndEvent {
+export interface ModelEndEvent extends NodeEvent {
     // (undocumented)
     readonly calculatedCost?: number;
     // (undocumented)
@@ -1910,13 +2044,7 @@ export interface ModelEndEvent {
     // (undocumented)
     readonly rawContent: MessageContent;
     // (undocumented)
-    readonly state: AppState;
-    // (undocumented)
-    readonly usage: {
-        readonly promptTokens: number;
-        readonly completionTokens: number;
-        readonly totalTokens: number;
-    };
+    readonly usage: ModelUsage;
 }
 
 // @public
@@ -1960,15 +2088,31 @@ export interface ModelRouterOptions extends RouterBase {
 }
 
 // @public
-export interface ModelStartEvent {
+export interface ModelStartEvent extends NodeEvent {
     // (undocumented)
     readonly callerName: string;
     // (undocumented)
     readonly modelName: string;
     // (undocumented)
     readonly rawPayload: readonly BaseMessage[];
+}
+
+// @public
+export interface ModelUsage {
     // (undocumented)
-    readonly state: AppState;
+    readonly completionTokens: number;
+    // (undocumented)
+    readonly promptTokens: number;
+    // (undocumented)
+    readonly totalTokens: number;
+}
+
+// @public (undocumented)
+export function nameOf<TComponent extends Class>(component: TComponent): ComponentName<TComponent>;
+
+// @public
+export interface NodeEvent extends ExecutionEvent {
+    readonly step: StepRecord;
 }
 
 // @public
@@ -2039,74 +2183,13 @@ export interface NoulQuestion {
 export const OBSERVER_HOOKS: readonly ObserverHook[];
 
 // @public
-export type ObserverClass = Class<WorkflowObserver>;
+export type ObserverClass = Class<ExecutionObserver>;
 
 // @public
 export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;
 
 // @public
-export type ObserverHook = keyof WorkflowObserver;
-
-// @public
-export class ObserverManager implements Required<WorkflowObserver> {
-    constructor(observers: readonly WorkflowObserver[], onFailure?: ObserverFailure);
-    // (undocumented)
-    onActionEnd(event: ActionEndEvent): Promise<void>;
-    // (undocumented)
-    onActionStart(event: ActionStartEvent): Promise<void>;
-    // (undocumented)
-    onAgentEnd(event: AgentEndEvent): Promise<void>;
-    // (undocumented)
-    onAgentStart(event: AgentStartEvent): Promise<void>;
-    // (undocumented)
-    onChannelEnd(event: ChannelEndEvent): Promise<void>;
-    // (undocumented)
-    onChannelStart(event: ChannelStartEvent): Promise<void>;
-    // (undocumented)
-    onError(error: Error, state: AppState): Promise<void>;
-    // (undocumented)
-    onGuardrailEnd(event: GuardrailEndEvent): Promise<void>;
-    // (undocumented)
-    onGuardrailStart(event: GuardrailStartEvent): Promise<void>;
-    // (undocumented)
-    onJudgeEnd(event: JudgeEndEvent): Promise<void>;
-    // (undocumented)
-    onJudgeStart(event: JudgeStartEvent): Promise<void>;
-    // (undocumented)
-    onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): Promise<void>;
-    // (undocumented)
-    onModelEnd(event: ModelEndEvent): Promise<void>;
-    // (undocumented)
-    onModelStart(event: ModelStartEvent): Promise<void>;
-    // (undocumented)
-    onPiiPolicyEnd(event: PiiPolicyEndEvent): Promise<void>;
-    // (undocumented)
-    onPiiPolicyStart(event: PiiPolicyStartEvent): Promise<void>;
-    // (undocumented)
-    onRagEnd(event: RagEndEvent): Promise<void>;
-    // (undocumented)
-    onRagStart(event: RagStartEvent): Promise<void>;
-    // (undocumented)
-    onRouterEnd(event: RouterEndEvent): Promise<void>;
-    // (undocumented)
-    onRouterStart(event: RouterStartEvent): Promise<void>;
-    // (undocumented)
-    onRunRejected(event: RunRejectedEvent): Promise<void>;
-    // (undocumented)
-    onToolEnd(event: ToolEndEvent): Promise<void>;
-    // (undocumented)
-    onToolStart(event: ToolStartEvent): Promise<void>;
-    // (undocumented)
-    onValuesOutdated(event: ValuesOutdatedEvent): Promise<void>;
-    // (undocumented)
-    onWorkflowEnd(result: ExecutionOutput, state: AppState): Promise<void>;
-    // (undocumented)
-    onWorkflowPause(event: WorkflowPauseEvent): Promise<void>;
-    // (undocumented)
-    onWorkflowResume(event: WorkflowResumeEvent): Promise<void>;
-    // (undocumented)
-    onWorkflowStart(state: AppState): Promise<void>;
-}
+export type ObserverHook = keyof ExecutionObserver;
 
 // @public (undocumented)
 export interface OnActionEnd {
@@ -2173,12 +2256,6 @@ export interface OneOfWrapper<TVariants extends OneOfVariants = OneOfVariants> {
 }
 
 // @public
-export interface OnError {
-    // (undocumented)
-    onError(error: Error, state: AppState): HookResult;
-}
-
-// @public
 export interface OnErrorStep {
     // (undocumented)
     readonly error: ErrorClass;
@@ -2186,6 +2263,42 @@ export interface OnErrorStep {
     readonly kind: StepKind.OnError;
     // (undocumented)
     readonly path: SubPath;
+}
+
+// @public
+export interface OnExecutionEnd {
+    // (undocumented)
+    onExecutionEnd(event: ExecutionEndEvent): HookResult;
+}
+
+// @public
+export interface OnExecutionError {
+    // (undocumented)
+    onExecutionError(event: ExecutionErrorEvent): HookResult;
+}
+
+// @public
+export interface OnExecutionPause {
+    // (undocumented)
+    onExecutionPause(event: ExecutionPauseEvent): HookResult;
+}
+
+// @public
+export interface OnExecutionRejected {
+    // (undocumented)
+    onExecutionRejected(event: ExecutionRejectedEvent): HookResult;
+}
+
+// @public
+export interface OnExecutionResume {
+    // (undocumented)
+    onExecutionResume(event: ExecutionResumeEvent): HookResult;
+}
+
+// @public
+export interface OnExecutionStart {
+    // (undocumented)
+    onExecutionStart(event: ExecutionStartEvent): HookResult;
 }
 
 // @public (undocumented)
@@ -2271,12 +2384,6 @@ export interface OnRouterStart {
 }
 
 // @public
-export interface OnRunRejected {
-    // (undocumented)
-    onRunRejected(event: RunRejectedEvent): HookResult;
-}
-
-// @public
 export interface OnStart {
     onStart(): Promise<void> | void;
 }
@@ -2302,30 +2409,6 @@ export interface OnToolStart {
 export interface OnValuesOutdated {
     // (undocumented)
     onValuesOutdated(event: ValuesOutdatedEvent): HookResult;
-}
-
-// @public
-export interface OnWorkflowEnd {
-    // (undocumented)
-    onWorkflowEnd(result: ExecutionOutput, state: AppState): HookResult;
-}
-
-// @public
-export interface OnWorkflowPause {
-    // (undocumented)
-    onWorkflowPause(event: WorkflowPauseEvent): HookResult;
-}
-
-// @public
-export interface OnWorkflowResume {
-    // (undocumented)
-    onWorkflowResume(event: WorkflowResumeEvent): HookResult;
-}
-
-// @public
-export interface OnWorkflowStart {
-    // (undocumented)
-    onWorkflowStart(state: AppState): HookResult;
 }
 
 // Warning: (ae-forgotten-export) The symbol "OptionalInnerShape" needs to be exported by the entry point index.d.ts
@@ -2901,31 +2984,16 @@ export type RunId = string & {
     readonly __brand: "RunId";
 };
 
-// @public
-export type RunOperation = "execute" | "resume" | "cancel";
-
 // @public (undocumented)
 export interface RunOptions {
     readonly configurable?: Readonly<Record<string, unknown>> | undefined;
     // Warning: (ae-forgotten-export) The symbol "ExecutionContextValues" needs to be exported by the entry point index.d.ts
     readonly contexts?: ExecutionContextValues | undefined;
-    // (undocumented)
-    readonly executionContext?: unknown;
-    readonly metadata?: Readonly<Record<string, string>> | undefined;
     readonly onStream?: (event: RunStreamEvent) => void;
     readonly ownerId?: string | undefined;
     readonly replayOf?: string;
     readonly runId?: string;
     readonly signal?: AbortSignal | undefined;
-}
-
-// @public
-export interface RunRejectedEvent {
-    readonly code: string;
-    readonly message: string;
-    readonly operation: RunOperation;
-    readonly state: Omit<AppState, "runId">;
-    readonly threadId?: string;
 }
 
 // @public
@@ -3316,11 +3384,9 @@ export interface ToolDefaults {
 }
 
 // @public
-export interface ToolEndEvent {
+export interface ToolEndEvent extends NodeEvent {
     // (undocumented)
     readonly agentName: string;
-    // (undocumented)
-    readonly state: AppState;
     // (undocumented)
     readonly toolName: string;
     // (undocumented)
@@ -3367,13 +3433,11 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
 }
 
 // @public
-export interface ToolStartEvent {
+export interface ToolStartEvent extends NodeEvent {
     // (undocumented)
     readonly agentName: string;
     // (undocumented)
     readonly arguments: Readonly<Record<string, unknown>>;
-    // (undocumented)
-    readonly state: AppState;
     // (undocumented)
     readonly toolName: string;
 }
@@ -3454,9 +3518,8 @@ export interface ValueProvider<T = unknown> {
 export type ValueShape = DtoClass | ListWrapper | OptionalWrapper;
 
 // @public
-export interface ValuesOutdatedEvent extends ExecutionEvent {
+export interface ValuesOutdatedEvent extends NodeEvent {
     readonly outdated: readonly OutdatedValueReference[];
-    readonly step: StepRecord;
     readonly trigger: ScopeValueReference;
 }
 
@@ -3500,15 +3563,6 @@ export function Workflow(options: WorkflowOptions): <TClass extends Class>(value
 
 // @public
 export function workflow<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<TClass>, SourceHead>;
-
-// @public
-export class WorkflowCancelledError extends AGBossError {
-    constructor(message?: string);
-    // (undocumented)
-    static readonly code: string;
-    // (undocumented)
-    name: string;
-}
 
 // @public
 export type WorkflowClass = Class;
@@ -3584,9 +3638,6 @@ export class WorkflowLoadError extends Error {
 }
 
 // @public
-export type WorkflowObserver = Partial<OnWorkflowStart & OnWorkflowPause & OnWorkflowResume & OnWorkflowEnd & OnRunRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnError & OnGuardrailStart & OnGuardrailEnd & OnPiiPolicyStart & OnPiiPolicyEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated>;
-
-// @public
 export interface WorkflowOptions {
     readonly channelClasses?: readonly Class[];
     // (undocumented)
@@ -3607,7 +3658,6 @@ export interface WorkflowOptions {
     readonly maxSteps?: number;
     readonly mcp?: readonly Class[];
     readonly name: string;
-    readonly observers?: readonly ObserverClass[];
     // (undocumented)
     readonly piiPolicies?: readonly Class<PiiPolicy>[];
     readonly promptVariables?: Readonly<Record<string, string>>;
@@ -3617,27 +3667,12 @@ export interface WorkflowOptions {
 }
 
 // @public
-export interface WorkflowPauseEvent {
-    // (undocumented)
-    readonly pause: PendingPause;
-    // (undocumented)
-    readonly state: AppState;
-}
-
-// @public
 export interface WorkflowRecord {
     // (undocumented)
     readonly name: string;
     readonly startedVersion: string;
     // (undocumented)
     readonly version: string;
-}
-
-// @public
-export interface WorkflowResumeEvent {
-    readonly decision: unknown;
-    readonly reason: ResumeReason;
-    readonly state: AppState;
 }
 
 // @public
@@ -3687,29 +3722,28 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 
 // Warnings were encountered during analysis:
 //
-// src/app/app-deps.ts:38:3 - (ae-undocumented) Missing documentation for "observer".
-// src/app/app-deps.ts:39:3 - (ae-undocumented) Missing documentation for "evaluation".
-// src/app/app-deps.ts:80:3 - (ae-undocumented) Missing documentation for "newThreadId".
-// src/app/app-deps.ts:81:3 - (ae-undocumented) Missing documentation for "newRunId".
-// src/app/app-deps.ts:82:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/app-deps.ts:43:3 - (ae-undocumented) Missing documentation for "evaluation".
+// src/app/app-deps.ts:84:3 - (ae-undocumented) Missing documentation for "newThreadId".
+// src/app/app-deps.ts:85:3 - (ae-undocumented) Missing documentation for "newRunId".
+// src/app/app-deps.ts:86:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/create-app.ts:47:3 - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/create-app.ts:52:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:10:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:11:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/paused-runs.ts:20:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts:22:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts:23:3 - (ae-undocumented) Missing documentation for "Paused".
-// src/app/types.ts:75:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:76:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/app/types.ts:81:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:82:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/app/types.ts:96:3 - (ae-undocumented) Missing documentation for "cancelled".
-// src/app/types.ts:105:3 - (ae-undocumented) Missing documentation for "status".
-// src/app/types.ts:123:3 - (ae-undocumented) Missing documentation for "spend".
-// src/app/types.ts:144:3 - (ae-undocumented) Missing documentation for "name".
-// src/app/types.ts:145:3 - (ae-undocumented) Missing documentation for "version".
-// src/application/application.ts:78:1 - (ae-undocumented) Missing documentation for "Application".
+// src/app/types.ts:68:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:69:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/app/types.ts:74:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:75:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/app/types.ts:89:3 - (ae-undocumented) Missing documentation for "cancelled".
+// src/app/types.ts:98:3 - (ae-undocumented) Missing documentation for "status".
+// src/app/types.ts:116:3 - (ae-undocumented) Missing documentation for "spend".
+// src/app/types.ts:137:3 - (ae-undocumented) Missing documentation for "name".
+// src/app/types.ts:138:3 - (ae-undocumented) Missing documentation for "version".
+// src/application/application.ts:85:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
 // src/budgets/budget.ts:25:3 - (ae-undocumented) Missing documentation for "Week".
@@ -3744,17 +3778,15 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/components/decorators.ts:44:3 - (ae-undocumented) Missing documentation for "disableGuardrails".
 // src/components/decorators.ts:45:3 - (ae-undocumented) Missing documentation for "input".
 // src/components/decorators.ts:46:3 - (ae-undocumented) Missing documentation for "output".
-// src/components/decorators.ts:129:1 - (ae-undocumented) Missing documentation for "ChannelRequest".
-// src/components/decorators.ts:130:3 - (ae-undocumented) Missing documentation for "runId".
-// src/components/decorators.ts:131:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/components/decorators.ts:132:3 - (ae-undocumented) Missing documentation for "toolName".
-// src/components/decorators.ts:133:3 - (ae-undocumented) Missing documentation for "toolArguments".
-// src/components/decorators.ts:136:3 - (ae-undocumented) Missing documentation for "executionContext".
-// src/components/decorators.ts:139:1 - (ae-undocumented) Missing documentation for "ChannelDecision".
-// src/components/decorators.ts:140:3 - (ae-undocumented) Missing documentation for "approved".
-// src/components/decorators.ts:147:1 - (ae-undocumented) Missing documentation for "ChannelHandler".
-// src/components/decorators.ts:148:3 - (ae-undocumented) Missing documentation for "requestApproval".
-// src/components/decorators.ts:151:1 - (ae-undocumented) Missing documentation for "Channel".
+// src/components/decorators.ts:135:3 - (ae-undocumented) Missing documentation for "runId".
+// src/components/decorators.ts:136:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/components/decorators.ts:137:3 - (ae-undocumented) Missing documentation for "toolName".
+// src/components/decorators.ts:138:3 - (ae-undocumented) Missing documentation for "toolArguments".
+// src/components/decorators.ts:141:1 - (ae-undocumented) Missing documentation for "ChannelDecision".
+// src/components/decorators.ts:142:3 - (ae-undocumented) Missing documentation for "approved".
+// src/components/decorators.ts:149:1 - (ae-undocumented) Missing documentation for "ChannelHandler".
+// src/components/decorators.ts:150:3 - (ae-undocumented) Missing documentation for "requestApproval".
+// src/components/decorators.ts:153:1 - (ae-undocumented) Missing documentation for "Channel".
 // src/components/injection.ts:3:3 - (ae-undocumented) Missing documentation for "__type".
 // src/components/injection.ts:4:15 - (ae-undocumented) Missing documentation for "description".
 // src/components/injection.ts:10:1 - (ae-undocumented) Missing documentation for "Token".
@@ -3768,19 +3800,20 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/components/judge-decorators.ts:59:3 - (ae-undocumented) Missing documentation for "judge".
 // src/components/metadata.ts:101:1 - (ae-undocumented) Missing documentation for "ComponentError".
 // src/components/metadata.ts:102:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/name-of.ts:32:1 - (ae-undocumented) Missing documentation for "nameOf".
 // src/components/policy-decorators.ts:9:3 - (ae-undocumented) Missing documentation for "mask".
 // src/components/policy-decorators.ts:11:3 - (ae-undocumented) Missing documentation for "maskJson".
-// src/components/policy-decorators.ts:25:1 - (ae-undocumented) Missing documentation for "Guardrail".
-// src/components/policy-decorators.ts:27:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
-// src/components/policy-decorators.ts:28:3 - (ae-undocumented) Missing documentation for "afterToolCall".
-// src/components/policy-decorators.ts:29:3 - (ae-undocumented) Missing documentation for "onChannelDecision".
-// src/components/policy-decorators.ts:35:3 - (ae-undocumented) Missing documentation for "beforeAgentAnswer".
-// src/components/policy-decorators.ts:38:1 - (ae-undocumented) Missing documentation for "PiiPolicy".
-// src/components/policy-decorators.ts:51:1 - (ae-undocumented) Missing documentation for "Guardrail".
-// src/components/policy-decorators.ts:66:1 - (ae-undocumented) Missing documentation for "InboundChannelAdapter".
-// src/components/policy-decorators.ts:68:3 - (ae-undocumented) Missing documentation for "interpret".
-// src/components/policy-decorators.ts:71:1 - (ae-undocumented) Missing documentation for "InboundChannelAdapter".
-// src/components/policy-decorators.ts:93:1 - (ae-undocumented) Missing documentation for "SemanticInboundChannelAdapter".
+// src/components/policy-decorators.ts:26:1 - (ae-undocumented) Missing documentation for "Guardrail".
+// src/components/policy-decorators.ts:28:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
+// src/components/policy-decorators.ts:29:3 - (ae-undocumented) Missing documentation for "afterToolCall".
+// src/components/policy-decorators.ts:30:3 - (ae-undocumented) Missing documentation for "onChannelDecision".
+// src/components/policy-decorators.ts:36:3 - (ae-undocumented) Missing documentation for "beforeAgentAnswer".
+// src/components/policy-decorators.ts:39:1 - (ae-undocumented) Missing documentation for "PiiPolicy".
+// src/components/policy-decorators.ts:52:1 - (ae-undocumented) Missing documentation for "Guardrail".
+// src/components/policy-decorators.ts:67:1 - (ae-undocumented) Missing documentation for "InboundChannelAdapter".
+// src/components/policy-decorators.ts:69:3 - (ae-undocumented) Missing documentation for "interpret".
+// src/components/policy-decorators.ts:72:1 - (ae-undocumented) Missing documentation for "InboundChannelAdapter".
+// src/components/policy-decorators.ts:94:1 - (ae-undocumented) Missing documentation for "SemanticInboundChannelAdapter".
 // src/components/prompt-problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts:14:3 - (ae-undocumented) Missing documentation for "message".
 // src/components/prompt-problems.ts:23:12 - (ae-undocumented) Missing documentation for "name".
@@ -3804,111 +3837,107 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/core/errors.ts:19:3 - (ae-undocumented) Missing documentation for "details".
 // src/core/errors.ts:31:3 - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts:32:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts:12:3 - (ae-undocumented) Missing documentation for "runId".
-// src/core/observability.ts:13:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/core/observability.ts:16:3 - (ae-undocumented) Missing documentation for "variables".
-// src/core/observability.ts:17:3 - (ae-undocumented) Missing documentation for "history".
-// src/core/observability.ts:44:3 - (ae-undocumented) Missing documentation for "route".
-// src/core/observability.ts:45:3 - (ae-undocumented) Missing documentation for "reason".
-// src/core/observability.ts:58:3 - (ae-undocumented) Missing documentation for "toolName".
-// src/core/observability.ts:59:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:60:3 - (ae-undocumented) Missing documentation for "arguments".
-// src/core/observability.ts:61:3 - (ae-undocumented) Missing documentation for "state".
-// src/core/observability.ts:66:3 - (ae-undocumented) Missing documentation for "toolName".
-// src/core/observability.ts:67:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:68:3 - (ae-undocumented) Missing documentation for "update".
-// src/core/observability.ts:69:3 - (ae-undocumented) Missing documentation for "state".
-// src/core/observability.ts:74:3 - (ae-undocumented) Missing documentation for "point".
-// src/core/observability.ts:75:3 - (ae-undocumented) Missing documentation for "ctx".
-// src/core/observability.ts:76:3 - (ae-undocumented) Missing documentation for "decision".
-// src/core/observability.ts:78:1 - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
-// src/core/observability.ts:84:3 - (ae-undocumented) Missing documentation for "feedback".
-// src/core/observability.ts:85:3 - (ae-undocumented) Missing documentation for "overrideArgs".
-// src/core/observability.ts:87:1 - (ae-undocumented) Missing documentation for "PiiPolicyStartEvent".
-// src/core/observability.ts:88:1 - (ae-undocumented) Missing documentation for "PiiPolicyEndEvent".
-// src/core/observability.ts:102:3 - (ae-undocumented) Missing documentation for "modelName".
-// src/core/observability.ts:103:3 - (ae-undocumented) Missing documentation for "callerName".
-// src/core/observability.ts:104:3 - (ae-undocumented) Missing documentation for "rawPayload".
-// src/core/observability.ts:105:3 - (ae-undocumented) Missing documentation for "state".
+// src/core/observability.ts:40:3 - (ae-undocumented) Missing documentation for "route".
+// src/core/observability.ts:41:3 - (ae-undocumented) Missing documentation for "reason".
+// src/core/observability.ts:54:3 - (ae-undocumented) Missing documentation for "toolName".
+// src/core/observability.ts:55:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:56:3 - (ae-undocumented) Missing documentation for "arguments".
+// src/core/observability.ts:61:3 - (ae-undocumented) Missing documentation for "toolName".
+// src/core/observability.ts:62:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:63:3 - (ae-undocumented) Missing documentation for "update".
+// src/core/observability.ts:68:3 - (ae-undocumented) Missing documentation for "point".
+// src/core/observability.ts:69:3 - (ae-undocumented) Missing documentation for "ctx".
+// src/core/observability.ts:70:3 - (ae-undocumented) Missing documentation for "decision".
+// src/core/observability.ts:72:1 - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
+// src/core/observability.ts:78:3 - (ae-undocumented) Missing documentation for "feedback".
+// src/core/observability.ts:79:3 - (ae-undocumented) Missing documentation for "overrideArgs".
+// src/core/observability.ts:81:1 - (ae-undocumented) Missing documentation for "PiiPolicyStartEvent".
+// src/core/observability.ts:82:1 - (ae-undocumented) Missing documentation for "PiiPolicyEndEvent".
+// src/core/observability.ts:96:3 - (ae-undocumented) Missing documentation for "modelName".
+// src/core/observability.ts:97:3 - (ae-undocumented) Missing documentation for "callerName".
+// src/core/observability.ts:98:3 - (ae-undocumented) Missing documentation for "rawPayload".
+// src/core/observability.ts:103:3 - (ae-undocumented) Missing documentation for "promptTokens".
+// src/core/observability.ts:104:3 - (ae-undocumented) Missing documentation for "completionTokens".
+// src/core/observability.ts:105:3 - (ae-undocumented) Missing documentation for "totalTokens".
 // src/core/observability.ts:110:3 - (ae-undocumented) Missing documentation for "model".
 // src/core/observability.ts:111:3 - (ae-undocumented) Missing documentation for "callerName".
 // src/core/observability.ts:112:3 - (ae-undocumented) Missing documentation for "rawContent".
 // src/core/observability.ts:113:3 - (ae-undocumented) Missing documentation for "usage".
-// src/core/observability.ts:118:3 - (ae-undocumented) Missing documentation for "calculatedCost".
-// src/core/observability.ts:119:3 - (ae-undocumented) Missing documentation for "state".
-// src/core/observability.ts:124:3 - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts:125:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:126:3 - (ae-undocumented) Missing documentation for "input".
-// src/core/observability.ts:127:3 - (ae-undocumented) Missing documentation for "state".
-// src/core/observability.ts:132:3 - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts:133:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:134:3 - (ae-undocumented) Missing documentation for "update".
-// src/core/observability.ts:135:3 - (ae-undocumented) Missing documentation for "state".
-// src/core/observability.ts:140:3 - (ae-undocumented) Missing documentation for "pause".
-// src/core/observability.ts:141:3 - (ae-undocumented) Missing documentation for "state".
-// src/core/observer-hooks.ts:41:3 - (ae-undocumented) Missing documentation for "onWorkflowStart".
-// src/core/observer-hooks.ts:45:3 - (ae-undocumented) Missing documentation for "onWorkflowPause".
-// src/core/observer-hooks.ts:49:3 - (ae-undocumented) Missing documentation for "onWorkflowResume".
-// src/core/observer-hooks.ts:56:3 - (ae-undocumented) Missing documentation for "onRunRejected".
-// src/core/observer-hooks.ts:60:3 - (ae-undocumented) Missing documentation for "onWorkflowEnd".
-// src/core/observer-hooks.ts:62:1 - (ae-undocumented) Missing documentation for "OnAgentStart".
-// src/core/observer-hooks.ts:63:3 - (ae-undocumented) Missing documentation for "onAgentStart".
-// src/core/observer-hooks.ts:65:1 - (ae-undocumented) Missing documentation for "OnAgentEnd".
-// src/core/observer-hooks.ts:66:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
-// src/core/observer-hooks.ts:68:1 - (ae-undocumented) Missing documentation for "OnRouterStart".
-// src/core/observer-hooks.ts:69:3 - (ae-undocumented) Missing documentation for "onRouterStart".
-// src/core/observer-hooks.ts:71:1 - (ae-undocumented) Missing documentation for "OnRouterEnd".
-// src/core/observer-hooks.ts:72:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
-// src/core/observer-hooks.ts:74:1 - (ae-undocumented) Missing documentation for "OnToolStart".
-// src/core/observer-hooks.ts:75:3 - (ae-undocumented) Missing documentation for "onToolStart".
-// src/core/observer-hooks.ts:77:1 - (ae-undocumented) Missing documentation for "OnToolEnd".
-// src/core/observer-hooks.ts:78:3 - (ae-undocumented) Missing documentation for "onToolEnd".
-// src/core/observer-hooks.ts:82:3 - (ae-undocumented) Missing documentation for "onModelStart".
-// src/core/observer-hooks.ts:84:1 - (ae-undocumented) Missing documentation for "OnModelEnd".
-// src/core/observer-hooks.ts:85:3 - (ae-undocumented) Missing documentation for "onModelEnd".
-// src/core/observer-hooks.ts:87:1 - (ae-undocumented) Missing documentation for "OnRagStart".
-// src/core/observer-hooks.ts:88:3 - (ae-undocumented) Missing documentation for "onRagStart".
-// src/core/observer-hooks.ts:90:1 - (ae-undocumented) Missing documentation for "OnRagEnd".
-// src/core/observer-hooks.ts:91:3 - (ae-undocumented) Missing documentation for "onRagEnd".
-// src/core/observer-hooks.ts:99:3 - (ae-undocumented) Missing documentation for "onError".
-// src/core/observer-hooks.ts:101:1 - (ae-undocumented) Missing documentation for "OnGuardrailStart".
-// src/core/observer-hooks.ts:102:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
-// src/core/observer-hooks.ts:104:1 - (ae-undocumented) Missing documentation for "OnGuardrailEnd".
-// src/core/observer-hooks.ts:105:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
-// src/core/observer-hooks.ts:107:1 - (ae-undocumented) Missing documentation for "OnPiiPolicyStart".
-// src/core/observer-hooks.ts:108:3 - (ae-undocumented) Missing documentation for "onPiiPolicyStart".
-// src/core/observer-hooks.ts:110:1 - (ae-undocumented) Missing documentation for "OnPiiPolicyEnd".
-// src/core/observer-hooks.ts:111:3 - (ae-undocumented) Missing documentation for "onPiiPolicyEnd".
-// src/core/observer-hooks.ts:113:1 - (ae-undocumented) Missing documentation for "OnActionStart".
-// src/core/observer-hooks.ts:114:3 - (ae-undocumented) Missing documentation for "onActionStart".
-// src/core/observer-hooks.ts:116:1 - (ae-undocumented) Missing documentation for "OnActionEnd".
-// src/core/observer-hooks.ts:117:3 - (ae-undocumented) Missing documentation for "onActionEnd".
-// src/core/observer-hooks.ts:119:1 - (ae-undocumented) Missing documentation for "OnChannelStart".
-// src/core/observer-hooks.ts:120:3 - (ae-undocumented) Missing documentation for "onChannelStart".
-// src/core/observer-hooks.ts:122:1 - (ae-undocumented) Missing documentation for "OnChannelEnd".
-// src/core/observer-hooks.ts:123:3 - (ae-undocumented) Missing documentation for "onChannelEnd".
-// src/core/observer-hooks.ts:125:1 - (ae-undocumented) Missing documentation for "OnJudgeStart".
-// src/core/observer-hooks.ts:126:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
-// src/core/observer-hooks.ts:128:1 - (ae-undocumented) Missing documentation for "OnJudgeEnd".
-// src/core/observer-hooks.ts:129:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
-// src/core/observer-hooks.ts:136:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
-// src/core/observer-hooks.ts:217:14 - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
-// src/core/observer-manager.ts:63:3 - (ae-undocumented) Missing documentation for "onWorkflowStart".
-// src/core/observer-manager.ts:66:3 - (ae-undocumented) Missing documentation for "onWorkflowPause".
-// src/core/observer-manager.ts:69:3 - (ae-undocumented) Missing documentation for "onWorkflowResume".
-// src/core/observer-manager.ts:72:3 - (ae-undocumented) Missing documentation for "onWorkflowEnd".
-// src/core/observer-manager.ts:75:3 - (ae-undocumented) Missing documentation for "onRunRejected".
-// src/core/observer-manager.ts:78:3 - (ae-undocumented) Missing documentation for "onAgentStart".
-// src/core/observer-manager.ts:81:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
-// src/core/observer-manager.ts:84:3 - (ae-undocumented) Missing documentation for "onRouterStart".
-// src/core/observer-manager.ts:87:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
-// src/core/observer-manager.ts:90:3 - (ae-undocumented) Missing documentation for "onToolStart".
-// src/core/observer-manager.ts:93:3 - (ae-undocumented) Missing documentation for "onToolEnd".
-// src/core/observer-manager.ts:96:3 - (ae-undocumented) Missing documentation for "onModelStart".
-// src/core/observer-manager.ts:99:3 - (ae-undocumented) Missing documentation for "onModelEnd".
-// src/core/observer-manager.ts:102:3 - (ae-undocumented) Missing documentation for "onRagStart".
-// src/core/observer-manager.ts:105:3 - (ae-undocumented) Missing documentation for "onRagEnd".
-// src/core/observer-manager.ts:108:3 - (ae-undocumented) Missing documentation for "onError".
+// src/core/observability.ts:114:3 - (ae-undocumented) Missing documentation for "calculatedCost".
+// src/core/observability.ts:119:3 - (ae-undocumented) Missing documentation for "name".
+// src/core/observability.ts:120:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:121:3 - (ae-undocumented) Missing documentation for "input".
+// src/core/observability.ts:126:3 - (ae-undocumented) Missing documentation for "name".
+// src/core/observability.ts:127:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:128:3 - (ae-undocumented) Missing documentation for "update".
+// src/core/observability.ts:147:3 - (ae-undocumented) Missing documentation for "pause".
+// src/core/observability.ts:179:3 - (ae-undocumented) Missing documentation for "error".
+// src/core/observability.ts:184:3 - (ae-undocumented) Missing documentation for "Execute".
+// src/core/observability.ts:185:3 - (ae-undocumented) Missing documentation for "Resume".
+// src/core/observability.ts:186:3 - (ae-undocumented) Missing documentation for "Cancel".
+// src/core/observer-hooks.ts:43:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
+// src/core/observer-hooks.ts:47:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
+// src/core/observer-hooks.ts:51:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
+// src/core/observer-hooks.ts:59:3 - (ae-undocumented) Missing documentation for "onExecutionRejected".
+// src/core/observer-hooks.ts:63:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
+// src/core/observer-hooks.ts:71:3 - (ae-undocumented) Missing documentation for "onExecutionError".
+// src/core/observer-hooks.ts:73:1 - (ae-undocumented) Missing documentation for "OnAgentStart".
+// src/core/observer-hooks.ts:74:3 - (ae-undocumented) Missing documentation for "onAgentStart".
+// src/core/observer-hooks.ts:76:1 - (ae-undocumented) Missing documentation for "OnAgentEnd".
+// src/core/observer-hooks.ts:77:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
+// src/core/observer-hooks.ts:79:1 - (ae-undocumented) Missing documentation for "OnRouterStart".
+// src/core/observer-hooks.ts:80:3 - (ae-undocumented) Missing documentation for "onRouterStart".
+// src/core/observer-hooks.ts:82:1 - (ae-undocumented) Missing documentation for "OnRouterEnd".
+// src/core/observer-hooks.ts:83:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
+// src/core/observer-hooks.ts:85:1 - (ae-undocumented) Missing documentation for "OnToolStart".
+// src/core/observer-hooks.ts:86:3 - (ae-undocumented) Missing documentation for "onToolStart".
+// src/core/observer-hooks.ts:88:1 - (ae-undocumented) Missing documentation for "OnToolEnd".
+// src/core/observer-hooks.ts:89:3 - (ae-undocumented) Missing documentation for "onToolEnd".
+// src/core/observer-hooks.ts:93:3 - (ae-undocumented) Missing documentation for "onModelStart".
+// src/core/observer-hooks.ts:95:1 - (ae-undocumented) Missing documentation for "OnModelEnd".
+// src/core/observer-hooks.ts:96:3 - (ae-undocumented) Missing documentation for "onModelEnd".
+// src/core/observer-hooks.ts:98:1 - (ae-undocumented) Missing documentation for "OnRagStart".
+// src/core/observer-hooks.ts:99:3 - (ae-undocumented) Missing documentation for "onRagStart".
+// src/core/observer-hooks.ts:101:1 - (ae-undocumented) Missing documentation for "OnRagEnd".
+// src/core/observer-hooks.ts:102:3 - (ae-undocumented) Missing documentation for "onRagEnd".
+// src/core/observer-hooks.ts:104:1 - (ae-undocumented) Missing documentation for "OnGuardrailStart".
+// src/core/observer-hooks.ts:105:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
+// src/core/observer-hooks.ts:107:1 - (ae-undocumented) Missing documentation for "OnGuardrailEnd".
+// src/core/observer-hooks.ts:108:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
+// src/core/observer-hooks.ts:110:1 - (ae-undocumented) Missing documentation for "OnPiiPolicyStart".
+// src/core/observer-hooks.ts:111:3 - (ae-undocumented) Missing documentation for "onPiiPolicyStart".
+// src/core/observer-hooks.ts:113:1 - (ae-undocumented) Missing documentation for "OnPiiPolicyEnd".
+// src/core/observer-hooks.ts:114:3 - (ae-undocumented) Missing documentation for "onPiiPolicyEnd".
+// src/core/observer-hooks.ts:116:1 - (ae-undocumented) Missing documentation for "OnActionStart".
+// src/core/observer-hooks.ts:117:3 - (ae-undocumented) Missing documentation for "onActionStart".
+// src/core/observer-hooks.ts:119:1 - (ae-undocumented) Missing documentation for "OnActionEnd".
+// src/core/observer-hooks.ts:120:3 - (ae-undocumented) Missing documentation for "onActionEnd".
+// src/core/observer-hooks.ts:122:1 - (ae-undocumented) Missing documentation for "OnChannelStart".
+// src/core/observer-hooks.ts:123:3 - (ae-undocumented) Missing documentation for "onChannelStart".
+// src/core/observer-hooks.ts:125:1 - (ae-undocumented) Missing documentation for "OnChannelEnd".
+// src/core/observer-hooks.ts:126:3 - (ae-undocumented) Missing documentation for "onChannelEnd".
+// src/core/observer-hooks.ts:128:1 - (ae-undocumented) Missing documentation for "OnJudgeStart".
+// src/core/observer-hooks.ts:129:3 - (ae-undocumented) Missing documentation for "onJudgeStart".
+// src/core/observer-hooks.ts:131:1 - (ae-undocumented) Missing documentation for "OnJudgeEnd".
+// src/core/observer-hooks.ts:132:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
+// src/core/observer-hooks.ts:139:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
+// src/core/observer-hooks.ts:220:14 - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
+// src/core/observer-manager.ts:63:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
+// src/core/observer-manager.ts:66:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
+// src/core/observer-manager.ts:69:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
+// src/core/observer-manager.ts:72:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
+// src/core/observer-manager.ts:75:3 - (ae-undocumented) Missing documentation for "onExecutionError".
+// src/core/observer-manager.ts:78:3 - (ae-undocumented) Missing documentation for "onExecutionRejected".
+// src/core/observer-manager.ts:81:3 - (ae-undocumented) Missing documentation for "onAgentStart".
+// src/core/observer-manager.ts:84:3 - (ae-undocumented) Missing documentation for "onAgentEnd".
+// src/core/observer-manager.ts:87:3 - (ae-undocumented) Missing documentation for "onRouterStart".
+// src/core/observer-manager.ts:90:3 - (ae-undocumented) Missing documentation for "onRouterEnd".
+// src/core/observer-manager.ts:93:3 - (ae-undocumented) Missing documentation for "onToolStart".
+// src/core/observer-manager.ts:96:3 - (ae-undocumented) Missing documentation for "onToolEnd".
+// src/core/observer-manager.ts:99:3 - (ae-undocumented) Missing documentation for "onModelStart".
+// src/core/observer-manager.ts:102:3 - (ae-undocumented) Missing documentation for "onModelEnd".
+// src/core/observer-manager.ts:105:3 - (ae-undocumented) Missing documentation for "onRagStart".
+// src/core/observer-manager.ts:108:3 - (ae-undocumented) Missing documentation for "onRagEnd".
 // src/core/observer-manager.ts:111:3 - (ae-undocumented) Missing documentation for "onGuardrailStart".
 // src/core/observer-manager.ts:114:3 - (ae-undocumented) Missing documentation for "onGuardrailEnd".
 // src/core/observer-manager.ts:117:3 - (ae-undocumented) Missing documentation for "onPiiPolicyStart".
@@ -4095,41 +4124,41 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/decorators/workflow-finish.ts:47:1 - (ae-undocumented) Missing documentation for "WorkflowFinish".
 // src/flow/decorators/workflow-start.ts:16:3 - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/workflow-start.ts:17:3 - (ae-undocumented) Missing documentation for "input".
-// src/flow/decorators/workflow.ts:13:3 - (ae-undocumented) Missing documentation for "temperature".
-// src/flow/decorators/workflow.ts:14:3 - (ae-undocumented) Missing documentation for "maxTokens".
-// src/flow/decorators/workflow.ts:15:3 - (ae-undocumented) Missing documentation for "reasoning".
-// src/flow/decorators/workflow.ts:16:3 - (ae-undocumented) Missing documentation for "cache".
-// src/flow/decorators/workflow.ts:21:3 - (ae-undocumented) Missing documentation for "model".
-// src/flow/decorators/workflow.ts:29:3 - (ae-undocumented) Missing documentation for "model".
-// src/flow/decorators/workflow.ts:32:1 - (ae-undocumented) Missing documentation for "ToolDefaults".
-// src/flow/decorators/workflow.ts:33:3 - (ae-undocumented) Missing documentation for "maxToolCalls".
-// src/flow/decorators/workflow.ts:36:1 - (ae-undocumented) Missing documentation for "HistoryDefaults".
-// src/flow/decorators/workflow.ts:37:3 - (ae-undocumented) Missing documentation for "limit".
-// src/flow/decorators/workflow.ts:38:3 - (ae-undocumented) Missing documentation for "summaries".
-// src/flow/decorators/workflow.ts:43:3 - (ae-undocumented) Missing documentation for "maxPathDepth".
-// src/flow/decorators/workflow.ts:51:3 - (ae-undocumented) Missing documentation for "models".
-// src/flow/decorators/workflow.ts:52:3 - (ae-undocumented) Missing documentation for "router".
-// src/flow/decorators/workflow.ts:53:3 - (ae-undocumented) Missing documentation for "guardrail".
-// src/flow/decorators/workflow.ts:54:3 - (ae-undocumented) Missing documentation for "tools".
-// src/flow/decorators/workflow.ts:55:3 - (ae-undocumented) Missing documentation for "history".
-// src/flow/decorators/workflow.ts:56:3 - (ae-undocumented) Missing documentation for "flow".
-// src/flow/decorators/workflow.ts:61:3 - (ae-undocumented) Missing documentation for "model".
-// src/flow/decorators/workflow.ts:68:3 - (ae-undocumented) Missing documentation for "every".
-// src/flow/decorators/workflow.ts:69:3 - (ae-undocumented) Missing documentation for "keep".
-// src/flow/decorators/workflow.ts:70:3 - (ae-undocumented) Missing documentation for "model".
-// src/flow/decorators/workflow.ts:75:3 - (ae-undocumented) Missing documentation for "threshold".
-// src/flow/decorators/workflow.ts:84:3 - (ae-undocumented) Missing documentation for "input".
-// src/flow/decorators/workflow.ts:85:3 - (ae-undocumented) Missing documentation for "output".
+// src/flow/decorators/workflow.ts:12:3 - (ae-undocumented) Missing documentation for "temperature".
+// src/flow/decorators/workflow.ts:13:3 - (ae-undocumented) Missing documentation for "maxTokens".
+// src/flow/decorators/workflow.ts:14:3 - (ae-undocumented) Missing documentation for "reasoning".
+// src/flow/decorators/workflow.ts:15:3 - (ae-undocumented) Missing documentation for "cache".
+// src/flow/decorators/workflow.ts:20:3 - (ae-undocumented) Missing documentation for "model".
+// src/flow/decorators/workflow.ts:28:3 - (ae-undocumented) Missing documentation for "model".
+// src/flow/decorators/workflow.ts:31:1 - (ae-undocumented) Missing documentation for "ToolDefaults".
+// src/flow/decorators/workflow.ts:32:3 - (ae-undocumented) Missing documentation for "maxToolCalls".
+// src/flow/decorators/workflow.ts:35:1 - (ae-undocumented) Missing documentation for "HistoryDefaults".
+// src/flow/decorators/workflow.ts:36:3 - (ae-undocumented) Missing documentation for "limit".
+// src/flow/decorators/workflow.ts:37:3 - (ae-undocumented) Missing documentation for "summaries".
+// src/flow/decorators/workflow.ts:42:3 - (ae-undocumented) Missing documentation for "maxPathDepth".
+// src/flow/decorators/workflow.ts:50:3 - (ae-undocumented) Missing documentation for "models".
+// src/flow/decorators/workflow.ts:51:3 - (ae-undocumented) Missing documentation for "router".
+// src/flow/decorators/workflow.ts:52:3 - (ae-undocumented) Missing documentation for "guardrail".
+// src/flow/decorators/workflow.ts:53:3 - (ae-undocumented) Missing documentation for "tools".
+// src/flow/decorators/workflow.ts:54:3 - (ae-undocumented) Missing documentation for "history".
+// src/flow/decorators/workflow.ts:55:3 - (ae-undocumented) Missing documentation for "flow".
+// src/flow/decorators/workflow.ts:60:3 - (ae-undocumented) Missing documentation for "model".
+// src/flow/decorators/workflow.ts:67:3 - (ae-undocumented) Missing documentation for "every".
+// src/flow/decorators/workflow.ts:68:3 - (ae-undocumented) Missing documentation for "keep".
+// src/flow/decorators/workflow.ts:69:3 - (ae-undocumented) Missing documentation for "model".
+// src/flow/decorators/workflow.ts:74:3 - (ae-undocumented) Missing documentation for "threshold".
+// src/flow/decorators/workflow.ts:83:3 - (ae-undocumented) Missing documentation for "input".
+// src/flow/decorators/workflow.ts:84:3 - (ae-undocumented) Missing documentation for "output".
 // src/flow/decorators/workflow.ts:95:3 - (ae-undocumented) Missing documentation for "version".
 // src/flow/decorators/workflow.ts:96:3 - (ae-undocumented) Missing documentation for "flow".
 // src/flow/decorators/workflow.ts:101:3 - (ae-undocumented) Missing documentation for "maxConcurrentExecutions".
 // src/flow/decorators/workflow.ts:102:3 - (ae-undocumented) Missing documentation for "defaults".
-// src/flow/decorators/workflow.ts:111:3 - (ae-undocumented) Missing documentation for "guards".
-// src/flow/decorators/workflow.ts:112:3 - (ae-undocumented) Missing documentation for "piiPolicies".
-// src/flow/decorators/workflow.ts:113:3 - (ae-undocumented) Missing documentation for "guardrails".
-// src/flow/decorators/workflow.ts:114:3 - (ae-undocumented) Missing documentation for "compaction".
-// src/flow/decorators/workflow.ts:115:3 - (ae-undocumented) Missing documentation for "compactionPrompt".
-// src/flow/decorators/workflow.ts:123:1 - (ae-undocumented) Missing documentation for "Workflow".
+// src/flow/decorators/workflow.ts:109:3 - (ae-undocumented) Missing documentation for "guards".
+// src/flow/decorators/workflow.ts:110:3 - (ae-undocumented) Missing documentation for "piiPolicies".
+// src/flow/decorators/workflow.ts:111:3 - (ae-undocumented) Missing documentation for "guardrails".
+// src/flow/decorators/workflow.ts:112:3 - (ae-undocumented) Missing documentation for "compaction".
+// src/flow/decorators/workflow.ts:113:3 - (ae-undocumented) Missing documentation for "compactionPrompt".
+// src/flow/decorators/workflow.ts:121:1 - (ae-undocumented) Missing documentation for "Workflow".
 // src/flow/dto-wrappers.ts:23:3 - (ae-undocumented) Missing documentation for "kind".
 // src/flow/dto-wrappers.ts:24:3 - (ae-undocumented) Missing documentation for "variants".
 // src/flow/dto-wrappers.ts:32:3 - (ae-undocumented) Missing documentation for "kind".
@@ -4170,8 +4199,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/launch-types.ts:142:3 - (ae-undocumented) Missing documentation for "toParallelAgents".
 // src/flow/launch-types.ts:149:3 - (ae-undocumented) Missing documentation for "toParallelActions".
 // src/flow/launch-types.ts:164:3 - (ae-undocumented) Missing documentation for "toParallelAgents".
-// src/flow/observers/values-outdated.ts:17:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/flow/observers/values-outdated.ts:18:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/flow/observers/execution-event.ts:18:3 - (ae-undocumented) Missing documentation for "threadId".
 // src/flow/quorum-step.ts:29:3 - (ae-undocumented) Missing documentation for "[anyOfArbiters]".
 // src/flow/quorum-step.ts:30:3 - (ae-undocumented) Missing documentation for "arbiters".
 // src/flow/quorum-types.ts:46:3 - (ae-undocumented) Missing documentation for "deadline".
@@ -4281,6 +4309,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/execution-record.repository.ts:98:3 - (ae-undocumented) Missing documentation for "configSnapshots".
 // src/infrastructure/execution-record.repository.ts:107:3 - (ae-undocumented) Missing documentation for "addSummary".
 // src/infrastructure/execution-record.repository.ts:110:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
+// src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:41:9 - (ae-undocumented) Missing documentation for "getTuple".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:54:10 - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:69:9 - (ae-undocumented) Missing documentation for "put".
@@ -4371,30 +4401,29 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/thread.ts:14:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/types.ts:22:3 - (ae-undocumented) Missing documentation for "terns".
 // src/run/types.ts:38:1 - (ae-undocumented) Missing documentation for "RunOptions".
-// src/run/types.ts:47:3 - (ae-undocumented) Missing documentation for "executionContext".
-// src/run/types.ts:73:3 - (ae-undocumented) Missing documentation for "status".
-// src/run/types.ts:76:3 - (ae-undocumented) Missing documentation for "startInput".
-// src/run/types.ts:81:3 - (ae-undocumented) Missing documentation for "output".
-// src/run/types.ts:82:3 - (ae-undocumented) Missing documentation for "budgetUsd".
-// src/run/types.ts:83:3 - (ae-undocumented) Missing documentation for "cost".
-// src/run/types.ts:84:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/run/types.ts:87:3 - (ae-undocumented) Missing documentation for "ternId".
-// src/run/types.ts:88:3 - (ae-undocumented) Missing documentation for "data".
+// src/run/types.ts:70:3 - (ae-undocumented) Missing documentation for "status".
+// src/run/types.ts:73:3 - (ae-undocumented) Missing documentation for "startInput".
+// src/run/types.ts:78:3 - (ae-undocumented) Missing documentation for "output".
+// src/run/types.ts:79:3 - (ae-undocumented) Missing documentation for "budgetUsd".
+// src/run/types.ts:80:3 - (ae-undocumented) Missing documentation for "cost".
+// src/run/types.ts:81:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/run/types.ts:84:3 - (ae-undocumented) Missing documentation for "ternId".
+// src/run/types.ts:85:3 - (ae-undocumented) Missing documentation for "data".
 // src/tools/define-tool.ts:20:3 - (ae-undocumented) Missing documentation for "code".
 // src/tools/define-tool.ts:21:12 - (ae-undocumented) Missing documentation for "name".
-// src/workflow.ts:44:1 - (ae-undocumented) Missing documentation for "WorkflowTools".
-// src/workflow.ts:52:3 - (ae-undocumented) Missing documentation for "config".
-// src/workflow.ts:66:3 - (ae-undocumented) Missing documentation for "prompts".
-// src/workflow.ts:67:3 - (ae-undocumented) Missing documentation for "tools".
-// src/workflow.ts:68:3 - (ae-undocumented) Missing documentation for "mcpServers".
-// src/workflow.ts:84:42 - (ae-forgotten-export) The symbol "RagConnector" needs to be exported by the entry point index.d.ts
-// src/workflow.ts:95:3 - (ae-undocumented) Missing documentation for "piiPolicies".
-// src/workflow.ts:98:3 - (ae-undocumented) Missing documentation for "guardrails".
-// src/workflow.ts:101:3 - (ae-undocumented) Missing documentation for "toolPiiPolicies".
-// src/workflow.ts:104:3 - (ae-undocumented) Missing documentation for "toolGuardrails".
-// src/workflow.ts:107:3 - (ae-undocumented) Missing documentation for "workflowPiiPolicies".
-// src/workflow.ts:108:3 - (ae-undocumented) Missing documentation for "workflowGuardrails".
-// src/workflow.ts:115:14 - (ae-undocumented) Missing documentation for "resolveTools".
+// src/workflow.ts:43:1 - (ae-undocumented) Missing documentation for "WorkflowTools".
+// src/workflow.ts:51:3 - (ae-undocumented) Missing documentation for "config".
+// src/workflow.ts:65:3 - (ae-undocumented) Missing documentation for "prompts".
+// src/workflow.ts:66:3 - (ae-undocumented) Missing documentation for "tools".
+// src/workflow.ts:67:3 - (ae-undocumented) Missing documentation for "mcpServers".
+// src/workflow.ts:83:42 - (ae-forgotten-export) The symbol "RagConnector" needs to be exported by the entry point index.d.ts
+// src/workflow.ts:92:3 - (ae-undocumented) Missing documentation for "piiPolicies".
+// src/workflow.ts:95:3 - (ae-undocumented) Missing documentation for "guardrails".
+// src/workflow.ts:98:3 - (ae-undocumented) Missing documentation for "toolPiiPolicies".
+// src/workflow.ts:101:3 - (ae-undocumented) Missing documentation for "toolGuardrails".
+// src/workflow.ts:104:3 - (ae-undocumented) Missing documentation for "workflowPiiPolicies".
+// src/workflow.ts:105:3 - (ae-undocumented) Missing documentation for "workflowGuardrails".
+// src/workflow.ts:112:14 - (ae-undocumented) Missing documentation for "resolveTools".
 
 // (No @packageDocumentation comment for this package)
 
