@@ -65,7 +65,7 @@ describe("S20: after a restart only the unfinished branches run again", () => {
       const before = mockLlm(ItemClerkAgent).requests.length;
 
       const restarted = await recoverApp();
-      const done = await restarted.resume(paused.thread, approve);
+      const done = await restarted.resume(paused.threadId, approve);
 
       expect(done).toFinishWith(SummaryWorkflowFinish, { text: "a, b, c" });
       expect(mockLlm(ItemClerkAgent).requests.slice(before).map(nameIn)).toEqual(["b"]);

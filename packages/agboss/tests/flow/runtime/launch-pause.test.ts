@@ -63,7 +63,7 @@ describe("S20: a pause inside a branch", () => {
       const paused = await execute(app, ItemsWorkflowStart, SIX);
       const before = mockLlm(ItemClerkAgent).requests.length;
 
-      const done = await app.resume(paused.thread, approve);
+      const done = await app.resume(paused.threadId, approve);
 
       expect(done).toFinishWith(SummaryWorkflowFinish, { text: "a, b, c, d, e, f" });
       expect(mockLlm(ItemClerkAgent).requests.slice(before).map(itemOf)).toEqual(["b"]);
