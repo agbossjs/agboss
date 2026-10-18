@@ -929,7 +929,7 @@ export const quorumPaths = [
   its input message (`### field (from producer)`), never as `{{input.…}}` in instructions
   (`[prompt.input-in-instructions]`).
 - **`deps`, one contract for every kind** (`@Injectable`, `@Tool`, `@McpTool`, `@Rag`, `@Judge`,
-  `@Action`, a code `@Router`, `@Guardrail`, `@PiiPolicy`, `@Channel`, inbound adapters): `deps` are checked
+  `@Action`, a code `@Router`, `@Guardrail`, `@PiiPolicy`, `@Channel`): `deps` are checked
   against the constructor by the compiler and injected by the container. A token is a class or an
   `InjectionToken<T>`; values go in with `provide(TOKEN, value)` (a raw `{ provide, useValue }`
   does not compile). A dependency without a provider fails at assembly (`Consumer: "TOKEN" is not
@@ -1017,8 +1017,19 @@ export class SeenJobsRepository {
   `WorkflowFinishTextDto`, `ToolCallApprovalDecisionDto`, `RagSearchResultDto`, `PlainTextDto`
   (Wiki → Standard-DTOs). zod stays inside the framework.
 - **Tool names** are unique over what a model sees — local, MCP, `search_<rag>` and an agent's answer
-  tools (`answer-<dto>`) — else `[tool.duplicate-name]`. A tool with a `channel` (approval) needs that
-  channel in `@Workflow({ channelClasses })`, else assembly fails.
+  tools (`answer-<dto>`) — else `[tool.duplicate-name]`.
+- **Channels (#267)** are found through the tools that name them (`@Tool({ channel })`), like
+  services through `deps` — there is no `channelClasses`. A tool names a concrete `@Channel` (used as
+  is: `TerminalUserChannel`, `AutoApproveChannel`, …) or a **role**: a project's abstract class
+  `@ChannelRole({ name, description, approves: XDto | ask + answer, answeredBy: PauseAnswerer.… })`
+  that `extends ChannelOf<Self>` — `answeredBy` is required, `approves` must be the tool's input
+  (`[channel.wrong-tool]`), one `replyInterpreter` belongs to one role
+  (`[channel.shared-interpreter]`). Its one implementation (`@Channel`, `extends` the role) is
+  listed in `@Application({ providers })` — channel transport is infrastructure, never a workflow's
+  provider; none → `[di.missing-implementation]`, two → `[di.ambiguous-implementation]`. A channel has
+  one method, `send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>` (`ask = { pauseId, value }`,
+  typed by the generated `ChannelRoles`): `ChannelOutcome.awaitReply()` pauses the execution until
+  `app.resume`, `ChannelOutcome.decided(decision)` goes on at once (validated like a reply).
 - **Observers are registered only in `@Application({ observers: [...] })`** (#261), not discovered
   and never in `@Workflow`: typed hooks (`implements OnToolEnd, …`), one instance each, called for
   every execution of the application (filter by `event.workflow.name === nameOf(W)` — `nameOf(C)`
