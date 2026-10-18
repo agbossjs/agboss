@@ -2,7 +2,7 @@ import { LimitExceededError } from "../../graph/limits.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { NodeKind, type ErrorClass } from "../ast.js";
 import type { ComponentName } from "../registry.js";
-import { EdgeKind, type FlowGraph, type FlowNode } from "./flow-graph.js";
+import { EdgeKind, type FlowEdge, type FlowGraph, type FlowNode } from "./flow-graph.js";
 import type { AnalysisContext } from "./rules/context.js";
 
 /**
@@ -24,17 +24,42 @@ const catchesStepsLimit = (error: ErrorClass | undefined): boolean =>
 
 type Distances = ReadonlyMap<ComponentName, number>;
 
-/** Fewest steps over `edges` from the `seeds` (with their own weights), each node's weight added. */
+/** An edge with what taking it counts: the node it enters, and the branches a join waits for. */
+interface WeightedEdge {
+  readonly from: ComponentName;
+  readonly to: ComponentName;
+  readonly weight: number;
+}
+
+/** The steps of a join's branches that always run: `Always` + `FailFast` agents, no per-item run. */
+function alwaysRunning(graph: FlowGraph, edge: FlowEdge): number {
+  const launch = edge.kind === EdgeKind.Join ? edge.launch : undefined;
+  if (launch === undefined || launch.items !== undefined) return 0;
+  return launch.branches
+    .filter((branch) => branch.alwaysRuns)
+    .reduce((total, branch) => total + branch.copies * weightOf(graph.nodes.get(branch.node)), 0);
+}
+
+/** The edges that count (a launch edge does not: its branches count on the join), weighted. */
+const weighted = (graph: FlowGraph, edges: readonly FlowEdge[]): readonly WeightedEdge[] =>
+  edges
+    .filter((edge) => edge.kind !== EdgeKind.Launch)
+    .map((edge) => ({
+      from: edge.from,
+      to: edge.to,
+      weight: weightOf(graph.nodes.get(edge.to)) + alwaysRunning(graph, edge),
+    }));
+
+/** Fewest steps over `edges` from the `seeds` (with their own weights), each edge's weight added. */
 function shortest(
-  graph: FlowGraph,
   seeds: ReadonlyMap<ComponentName, number>,
-  edges: readonly (readonly [ComponentName, ComponentName])[],
+  edges: readonly WeightedEdge[],
 ): Distances {
   const distances = new Map(seeds);
   for (let changed = true; changed;) {
     changed = false;
-    for (const [from, to] of edges) {
-      const via = (distances.get(from) ?? Infinity) + weightOf(graph.nodes.get(to));
+    for (const { from, to, weight } of edges) {
+      const via = (distances.get(from) ?? Infinity) + weight;
       if (via >= (distances.get(to) ?? Infinity)) continue;
       distances.set(to, via);
       changed = true;
@@ -44,11 +69,7 @@ function shortest(
 }
 
 const fromStart = (graph: FlowGraph, start: ComponentName): Distances =>
-  shortest(
-    graph,
-    new Map([[start, 0]]),
-    graph.edges.map((edge) => [edge.from, edge.to] as const),
-  );
+  shortest(new Map([[start, 0]]), weighted(graph, graph.edges));
 
 /** Fewest steps from each node to a finish, the node included. */
 function toFinish(graph: FlowGraph): Distances {
@@ -58,9 +79,16 @@ function toFinish(graph: FlowGraph): Distances {
   for (const edge of graph.edges) {
     if (catchesStepsLimit(edge.error)) seeds.set(edge.from, 0);
   }
-  const exits = graph.edges.filter((edge) => edge.kind !== EdgeKind.Error);
-  const reversed = exits.map((edge) => [edge.to, edge.from] as const);
-  return shortest(graph, seeds, reversed);
+  const exits = graph.edges.filter(
+    (edge) => edge.kind !== EdgeKind.Error && edge.kind !== EdgeKind.JoinError,
+  );
+  // reversed: the weight of an edge is what entering its `to` counts, so it moves to `from`
+  const reversed = weighted(graph, exits).map((edge) => ({
+    from: edge.to,
+    to: edge.from,
+    weight: edge.weight - weightOf(graph.nodes.get(edge.to)) + weightOf(graph.nodes.get(edge.from)),
+  }));
+  return shortest(seeds, reversed);
 }
 
 /** The fewest steps of an execution through each node, from the given starts. */
@@ -118,7 +146,22 @@ export interface StepsRange {
   readonly most?: number;
 }
 
-/** The longest weighted path from `node` to a finish over the non-error edges; undefined on a cycle. */
+/**
+ * The most steps a join's branches can take (#273): every copy, a per-item launch `maxItems` times;
+ * undefined for a per-item launch without `maxItems` (`[launch.max-items-required]`).
+ */
+export function mostRunning(graph: FlowGraph, edge: FlowEdge): number | undefined {
+  const launch = edge.kind === EdgeKind.Join ? edge.launch : undefined;
+  if (launch === undefined) return 0;
+  const width = launch.items === undefined ? 1 : launch.maxItems;
+  if (width === undefined) return undefined;
+  return launch.branches.reduce(
+    (total, branch) => total + branch.copies * width * weightOf(graph.nodes.get(branch.node)),
+    0,
+  );
+}
+
+/** The longest weighted path from `node` to a finish; undefined on a cycle or an unbounded launch. */
 function longest(
   graph: FlowGraph,
   node: ComponentName,
@@ -130,15 +173,20 @@ function longest(
   const next = new Set([...onPath, node]);
   let most = 0;
   for (const edge of graph.edges) {
-    if (edge.from !== node) continue;
+    if (edge.from !== node || edge.kind === EdgeKind.Launch) continue;
     const after = longest(graph, edge.to, next, memo);
-    if (after === undefined) return undefined;
-    most = Math.max(most, after);
+    const branches = mostRunning(graph, edge);
+    if (after === undefined || branches === undefined) return undefined;
+    most = Math.max(most, after + branches);
   }
   const total = most + weightOf(graph.nodes.get(node));
   memo.set(node, total);
   return total;
 }
+
+/** The most steps of an execution from `start`: undefined when a cycle (or an unbounded launch) bounds it. */
+export const mostStepsFrom = (graph: FlowGraph, start: ComponentName): number | undefined =>
+  longest(graph, start, new Set(), new Map());
 
 /** The steps range of a workflow (`agboss describe`, #261): shortest way out, longest without cycles. */
 export function stepsRangeOf(graph: FlowGraph): StepsRange {

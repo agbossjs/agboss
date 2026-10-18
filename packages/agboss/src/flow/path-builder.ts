@@ -1,5 +1,4 @@
 import type { Class } from "../components/injection.js";
-import { AGBossError } from "../core/errors.js";
 import type { DtoClass } from "../dto/types.js";
 import {
   NodeKind,
@@ -7,6 +6,8 @@ import {
   type ChooseOneRoute,
   type ComponentSource,
   type ErrorClass,
+  type JoinStep,
+  type LaunchTargetKind,
   type PathSource,
   type ReturnedValue,
   type Step,
@@ -15,16 +16,14 @@ import {
 } from "./ast.js";
 import type { ReturnsOptions } from "./builder-types.js";
 import { isReturnedShape, Wrapper } from "./dto-wrappers.js";
+import { FlowSyntaxError, launchOrderProblem, launchStepOf } from "./launch-step.js";
 
 /**
  * The runtime of the path builder (#272): one immutable class behind every typed builder state;
  * `builder.ts` gives it its typed entry points. Every call returns a new builder.
  */
 
-/** A builder used where the grammar does not allow it (only reachable from untyped code). */
-export class FlowSyntaxError extends AGBossError {
-  static override readonly code: string = "flow.syntax";
-}
+export { FlowSyntaxError } from "./launch-step.js";
 
 /** How a builder's path begins: a source, a route, a case, or the side path of `.onError`. */
 export type PathStart =
@@ -73,8 +72,19 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     Object.freeze(this.steps);
   }
 
+  private get last(): Step | undefined {
+    return this.steps[this.steps.length - 1];
+  }
+
   private then(step: Step): PathBuilder<TSource> {
+    const problem = launchOrderProblem(this.last, step);
+    if (problem !== undefined) throw new FlowSyntaxError(problem);
     return new PathBuilder(this.start, this.source, [...this.steps, step]);
+  }
+
+  /** The join with a new handler or value: `.onJoinError(…)` and `.returns(…)` extend it. */
+  private withJoin(join: JoinStep): PathBuilder<TSource> {
+    return new PathBuilder(this.start, this.source, [...this.steps.slice(0, -1), Object.freeze(join)]);
   }
 
   private to(target: Class, targetKind: NodeKind): PathBuilder<TSource> {
@@ -82,7 +92,11 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   }
 
   returns(shape: unknown, options?: unknown, ...rest: readonly unknown[]): PathBuilder<TSource> {
-    return this.then({ kind: StepKind.Returns, value: returnedValue(shape, options, rest.length) });
+    const value = returnedValue(shape, options, rest.length);
+    const { last } = this;
+    if (last?.kind === StepKind.Join)
+      return this.withJoin({ ...last, returns: Object.freeze([...last.returns, value]) });
+    return this.then({ kind: StepKind.Returns, value });
   }
 
   toAgent(target: Class): PathBuilder<TSource> {
@@ -111,6 +125,35 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   onError(error: ErrorClass, path: PathBuilder): PathBuilder<TSource> {
     return this.then({ kind: StepKind.OnError, error, path: path.asSidePath() });
+  }
+
+  toParallelAgents(...args: readonly unknown[]): PathBuilder<TSource> {
+    return this.launch(NodeKind.Agent, args);
+  }
+
+  toParallelActions(...args: readonly unknown[]): PathBuilder<TSource> {
+    return this.launch(NodeKind.Action, args);
+  }
+
+  join(): PathBuilder<TSource> {
+    return this.then({ kind: StepKind.Join, returns: Object.freeze([]), onJoinError: Object.freeze([]) });
+  }
+
+  onJoinError(error: ErrorClass, path: PathBuilder): PathBuilder<TSource> {
+    const { last } = this;
+    if (last?.kind !== StepKind.Join || last.returns.length > 0)
+      throw new FlowSyntaxError(".onJoinError(E, …) stands right after .join(), before its .returns(…)");
+    const handler = Object.freeze({ error, path: path.asSidePath() });
+    return this.withJoin({ ...last, onJoinError: Object.freeze([...last.onJoinError, handler]) });
+  }
+
+  private launch(targetKind: LaunchTargetKind, args: readonly unknown[]): PathBuilder<TSource> {
+    const { last } = this;
+    const followsRouter =
+      last === undefined
+        ? this.source?.kind === NodeKind.Router
+        : last.kind === StepKind.To && last.targetKind === NodeKind.Router;
+    return this.then(launchStepOf(targetKind, args, { previous: last, followsRouter }));
   }
 
   private subPath(): SubPath {

@@ -36,17 +36,26 @@ function expected(node: FlowNode): readonly string[] | string {
   return [shapeLabel(output)];
 }
 
-const sorted = (labels: readonly string[]): string => [...labels].sort().join(", ");
+/** Edges whose values are not (only) the step's own `.returns(…)`. */
+const SKIPPED: ReadonlySet<EdgeKind> = new Set([
+  EdgeKind.Case,
+  EdgeKind.Error,
+  EdgeKind.Launch,
+  EdgeKind.JoinError,
+]);
+
+export const sorted = (labels: readonly string[]): string => [...labels].sort().join(", ");
 
 /** The `.returns` chain that names the values: `.returns(A).returns(optional(B))` (#299 S54). */
-const chain = (labels: readonly string[]): string =>
+export const chain = (labels: readonly string[]): string =>
   [...labels]
     .sort()
     .map((label) => `.returns(${label})`)
     .join("");
 
 function edgeViolation(node: FlowNode, edge: FlowEdge): RuleViolation | undefined {
-  if (edge.kind === EdgeKind.Case || edge.kind === EdgeKind.Error) return undefined;
+  // a launch edge adds a per-item branch's item; a join-error edge repeats its join edge's values
+  if (SKIPPED.has(edge.kind)) return undefined;
   const want = expected(node);
   const got = edge.writes.map((write) => shapeLabel(write.shape));
   if (typeof want === "string") return violation("flow.returns-mismatch", want, [node.name]);

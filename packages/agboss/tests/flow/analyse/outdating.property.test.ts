@@ -184,6 +184,8 @@ function analyse(graph: FlowGraph): Analysed {
     switches: [],
     choices: [],
     errorHandlers: [],
+    launches: [],
+    joinErrorHandlers: [],
     violations: [],
   };
   const context: AnalysisContext = {

@@ -1,12 +1,11 @@
 import type { AgentsConfigOf } from "../config/types.js";
 import { validateAgentsConfig } from "../config/types.js";
 import { analyseWorkflow, type FlowAnalysis } from "../flow/analyse/analyse.js";
-import { NodeKind } from "../flow/ast.js";
+import { maxStepsOf as stepsLimitOf } from "../flow/analyse/worst-case.js";
 import { agentMetasOf } from "../flow/runtime/agents.js";
 import { isCodeNode, runtimeGraphOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { loadRouters } from "../flow/runtime/routers.js";
 import { DEFAULT_WORKFLOW_SETTINGS, type WorkflowSettings } from "../graph/settings.js";
-import { STEPS_PER_WORKING_NODE } from "../graph/limits.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { checkGraph, dependencyTree } from "./container/graph-check.js";
 import {
@@ -90,12 +89,8 @@ const coreTokensOf = (mcp: Mcp): readonly Token[] => [
 ];
 
 /** Steps per execution: `maxSteps`, else (agents + routers) × 3. */
-const maxStepsOf = (workflow: Class, graph: RuntimeGraph): number => {
-  const working = [...graph.nodes.values()].filter(
-    (node) => node.kind === NodeKind.Agent || node.kind === NodeKind.Router,
-  ).length;
-  return workflowDeclarationOf(workflow).options.maxSteps ?? working * STEPS_PER_WORKING_NODE;
-};
+const maxStepsOf = (workflow: Class, graph: RuntimeGraph): number =>
+  stepsLimitOf(graph.analysis.graph, workflowDeclarationOf(workflow).options.maxSteps);
 
 const isDefinition = (value: unknown): value is { settings(): WorkflowSettings } =>
   typeof value === "object" &&

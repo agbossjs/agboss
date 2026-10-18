@@ -10,7 +10,8 @@ import type {
   ProducerOutputOf,
 } from "./generated-types.js";
 import type { DtoClass } from "../dto/types.js";
-import type { Returning, ValuesLeft } from "./returns-types.js";
+import type { Launches, RouterLaunches } from "./launch-types.js";
+import type { Returning, StepValues, ValuesLeft } from "./returns-types.js";
 
 /**
  * The types of the path builder (#272 S3). A builder carries, in its type, how its path starts
@@ -112,31 +113,38 @@ export type SwitchCheck<TCases extends readonly CasePath[], TOutput> = [
     : { readonly __error: "the switch is not exhaustive — one caseOf(…) per class of the output" }
   : { readonly __error: "a caseOf(…) names a class the step does not give" };
 
-/** After `.returns(…)` or `caseOf(…)`: the next transition. */
-export type AfterValue<TValue, THead extends PathHead> = BuiltPath<THead> &
-  Transitions<THead> & { readonly [pathValue]?: TValue };
+/**
+ * After `.returns(…)` or `caseOf(…)`: the next transition, or a parallel launch (#273) — not right
+ * after a join's values (`TCanLaunch` false).
+ */
+export type AfterValue<TValue, THead extends PathHead, TCanLaunch extends boolean = true> = BuiltPath<THead> &
+  Transitions<THead> &
+  (TCanLaunch extends true ? Launches<TValue, THead> : unknown) & { readonly [pathValue]?: TValue };
 
 /** After a step (a transition or a path source): what its kind and output allow. */
 export type AfterStep<TInstance, THead extends PathHead> = BuiltPath<THead> &
   StepContinuation<TInstance, THead>;
 
 type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInstance>] extends [never]
-  ? Returning<TInstance, MissingGeneratedTypes, THead>
+  ? Returning<StepValues<TInstance>, MissingGeneratedTypes, THead>
   : [KindOf<TInstance>] extends [NodeKind.Router]
-    ? RouterStep<THead>
+    ? RouterStep<THead, TInstance>
     : [KindOf<TInstance>] extends [NodeKind.Start]
-      ? Returning<TInstance, ValuesLeft<ProducerOutputOf<TInstance>>, THead>
+      ? Returning<StepValues<TInstance>, ValuesLeft<ProducerOutputOf<TInstance>>, THead>
       : ErrorHandling<TInstance, THead> &
           OutputContinuation<TInstance, ProducerOutputOf<TInstance>, THead>;
 
-/** A step with `output` names it with `.returns(…)` — a `oneOf` too, before its `.switch(…)`. */
+/**
+ * A step with `output` names it with `.returns(…)` — a `oneOf` too, before its `.switch(…)`; one
+ * without goes on at once, with a transition or a launch (#273).
+ */
 type OutputContinuation<TInstance, TOutput, THead extends PathHead> = [TOutput] extends [
   GeneratedTypeError,
 ]
-  ? Returning<TInstance, TOutput, THead>
+  ? Returning<StepValues<TInstance>, TOutput, THead>
   : [TOutput] extends [NoOutput]
-    ? Transitions<THead>
-    : Returning<TInstance, ValuesLeft<TOutput>, THead>;
+    ? Transitions<THead> & Launches<never, THead>
+    : Returning<StepValues<TInstance>, ValuesLeft<TOutput>, THead>;
 
 export interface Transitions<THead extends PathHead> {
   toAgent<const TClass extends Class>(
@@ -164,8 +172,12 @@ export interface ErrorHandling<TInstance, THead extends PathHead> {
   onError(error: ErrorClass, path: SidePath): AfterStep<TInstance, THead>;
 }
 
-export interface RouterStep<THead extends PathHead> {
-  onError(error: ErrorClass, path: SidePath): BuiltPath<THead> & RouterStep<THead>;
+/** After a router: its `.onError(…)`, then its choice — `.chooseOne(…)` or a launch (#273). */
+export interface RouterStep<THead extends PathHead, TInstance = unknown> extends RouterLaunches<
+  NameOf<TInstance>,
+  THead
+> {
+  onError(error: ErrorClass, path: SidePath): BuiltPath<THead> & RouterStep<THead, TInstance>;
   chooseOne(...routes: readonly [RoutePath, ...RoutePath[]]): BuiltPath<THead>;
 }
 

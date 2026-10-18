@@ -1,6 +1,6 @@
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import type { InputFieldShape } from "../../decorators/declaration.js";
-import { Wrapper } from "../../dto-wrappers.js";
+import { listOf, Wrapper } from "../../dto-wrappers.js";
 import type { ComponentName } from "../../registry.js";
 import {
   MAX_SCOPES_PER_NODE,
@@ -11,7 +11,7 @@ import {
 } from "../dataflow.js";
 import type { ResolvedField } from "../fields.js";
 import { shapeLabel } from "../labels.js";
-import { slotOf, SlotStatus, type SlotState } from "../scope.js";
+import { slotOf, slotOfValue, SlotStatus, type SlotState } from "../scope.js";
 import { aboutTargetsOf } from "./about.js";
 import type { AnalysisContext } from "./context.js";
 
@@ -38,6 +38,14 @@ const isMissing = (field: ResolvedField, slot: SlotState): boolean =>
   slot.status === SlotStatus.Absent ||
   (field.history !== undefined && slot.status === SlotStatus.Outdated);
 
+/** A single field whose class came from a join as a list of several values (#273): its list's state. */
+function severalJoined(field: ResolvedField, state: ScopeState): SlotState | undefined {
+  const inner = innerShape(field.shape);
+  if (field.isList || field.history !== undefined || typeof inner !== "function") return undefined;
+  const list = slotOf(state.scope, slotOfValue(listOf(inner)));
+  return list.status !== SlotStatus.Absent && list.count > 1 ? list : undefined;
+}
+
 function pathTo(context: AnalysisContext, node: ComponentName, state: ScopeState): string {
   return witnessPath(context.dataflow, { node, key: state.key }).join(" → ");
 }
@@ -52,7 +60,14 @@ function fieldViolations(
   const absent = slots.filter(({ slot }) => slot.status === SlotStatus.Absent);
   const found: RuleViolation[] = [];
   const [shallowest] = slots.filter(({ slot }) => isMissing(field, slot));
-  if (field.isRequired && shallowest !== undefined) {
+  const joined = shallowest === undefined ? undefined : severalJoined(field, shallowest.state);
+  if (joined !== undefined && shallowest !== undefined) {
+    const inner = shapeLabel(innerShape(field.shape));
+    const message =
+      `${field.label}: ${joined.producers.join(", ")} brings several ${inner} values on the path ` +
+      `${pathTo(context, node, shallowest.state)} — declare listOf(${inner}), or give the values different classes`;
+    found.push(violation("input.several-on-path", message, [node]));
+  } else if (field.isRequired && shallowest !== undefined) {
     const path = pathTo(context, node, shallowest.state);
     const message =
       shallowest.slot.status === SlotStatus.Outdated

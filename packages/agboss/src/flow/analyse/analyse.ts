@@ -10,6 +10,7 @@ import type { FlowGraph } from "./flow-graph.js";
 import { classLabel } from "./labels.js";
 import { projectInput, type InputShape } from "./projection.js";
 import { aboutRules } from "./rules/about.js";
+import { branchOutdatingRules } from "./rules/branch-outdating.js";
 import type { AnalyseOptions, AnalysisContext, FlowRule } from "./rules/context.js";
 import { cycleRules } from "./rules/cycles.js";
 import { dataInputRules } from "./rules/data-inputs.js";
@@ -18,6 +19,7 @@ import { depthRules } from "./rules/depth.js";
 import { errorRules } from "./rules/errors.js";
 import { graphRules } from "./rules/graph.js";
 import { guardrailRules } from "./rules/guardrails.js";
+import { launchRules } from "./rules/launches.js";
 import { modelRules } from "./rules/models.js";
 import { nameRules } from "./rules/names.js";
 import { optionsRules } from "./rules/options.js";
@@ -29,6 +31,7 @@ import { switchRules } from "./rules/switch.js";
 import { textAgentRules } from "./rules/text-agents.js";
 import { stepsRules } from "./steps.js";
 import { walkFlow } from "./walk.js";
+import { worstCasesOf, type WorstCase } from "./worst-case.js";
 
 /**
  * The static analyser of a v2 workflow (#272 PR 2, #270, #271): walks the flow's paths into a graph,
@@ -43,6 +46,8 @@ export interface FlowAnalysis {
   readonly fields: ReadonlyMap<ComponentName, readonly ResolvedField[]>;
   readonly dataflow: Dataflow;
   readonly warnings: readonly RuleViolation[];
+  /** The worst case of one call of each start (#261, #273). */
+  readonly worstCases: readonly WorstCase[];
 }
 
 /** Every finding of one workflow: its analysis (when it is a workflow), errors and warnings. */
@@ -70,6 +75,8 @@ const RULES: readonly FlowRule[] = [
   outdatedRules,
   aboutRules,
   stepsRules,
+  launchRules,
+  branchOutdatingRules,
 ];
 
 /** Every message names the workflow first. */
@@ -115,6 +122,7 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
     fields,
     dataflow,
     warnings,
+    worstCases: worstCasesOf(walked.graph, declaration.options.maxSteps),
   };
   return options.strict === true
     ? { analysis, errors: canonical([...errors, ...warnings]), warnings: [] }

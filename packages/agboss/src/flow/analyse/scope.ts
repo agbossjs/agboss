@@ -132,7 +132,8 @@ export const slotOfWrite = (write: ValueWrite): SlotKey =>
  * (the `{ about }` targets of each write are added to it, #271 S40 b).
  */
 export interface WriteOrigin {
-  readonly producer: ComponentName;
+  /** One step, or the branches of a launch that give one value of its join (#273). */
+  readonly producers: readonly ComponentName[];
   readonly builtFrom: readonly SlotKey[];
 }
 
@@ -184,7 +185,7 @@ export function afterWrites(
       const builtFrom = [...new Set([...origin.builtFrom, ...targets])].sort();
       next.set(slot, {
         status: SlotStatus.Current,
-        producers: [origin.producer],
+        producers: [...origin.producers].sort(),
         builtFrom,
         about,
         count,

@@ -2,7 +2,8 @@ import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import type { ComponentName } from "../../registry.js";
 import { statesOf, witnessSteps, type ScopeState, type WitnessStep } from "../dataflow.js";
 import type { ResolvedField } from "../fields.js";
-import { stepAlong, type OutdatingStep } from "../outdating.js";
+import { stepOf } from "../launches.js";
+import type { OutdatingStep } from "../outdating.js";
 import { scopeKey, slotLabel, slotOf, SlotStatus, type SlotKey } from "../scope.js";
 import type { AnalysisContext } from "./context.js";
 
@@ -46,7 +47,7 @@ function replay(context: AnalysisContext, site: OutdatingSite): OutdatingStep | 
   const { before, after } = site;
   return context.graph.edges
     .filter((edge) => edge.from === before.node && edge.to === after.node)
-    .flatMap((edge) => stepAlong(edge, before.state.scope, provenance))
+    .flatMap((edge) => stepOf(edge, before.state.scope, provenance))
     .find((step) => scopeKey(step.scope) === after.state.key);
 }
 

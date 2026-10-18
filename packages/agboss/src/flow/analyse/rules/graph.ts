@@ -29,14 +29,34 @@ function unreachableNodes(context: AnalysisContext): readonly RuleViolation[] {
     });
 }
 
-/** A node other than a finish whose path stops at it: no next step, route or case leaves it. */
+/** Edges a failure takes, and the edges into a launch's branches: neither continues a path. */
+const SIDE_EDGES: ReadonlySet<EdgeKind> = new Set([
+  EdgeKind.Error,
+  EdgeKind.JoinError,
+  EdgeKind.Launch,
+]);
+
+/** The branches of launches (#273): entered by launch edges only, their join continues them. */
+function branchesOf(context: AnalysisContext): ReadonlySet<string> {
+  const entered = new Map<string, boolean>();
+  for (const edge of context.graph.edges)
+    entered.set(edge.to, (entered.get(edge.to) ?? true) && edge.kind === EdgeKind.Launch);
+  return new Set([...entered].filter(([, isBranch]) => isBranch).map(([node]) => node));
+}
+
+/**
+ * A node other than a finish whose path stops at it: no next step, route or case leaves it (a
+ * launch's branch is continued by its join).
+ */
 function deadEnds(context: AnalysisContext): readonly RuleViolation[] {
   const { graph } = context;
   const leaving = new Set(
-    graph.edges.filter((edge) => edge.kind !== EdgeKind.Error).map((edge) => edge.from),
+    graph.edges.filter((edge) => !SIDE_EDGES.has(edge.kind)).map((edge) => edge.from),
   );
+  const branches = branchesOf(context);
   return [...graph.nodes.values()]
     .filter((node) => node.kind !== NodeKind.Finish && !leaving.has(node.name))
+    .filter((node) => !branches.has(node.name))
     .map((node) => {
       const message =
         `the path stops at ${node.name} — continue it with .to…(…), or end it with ` +

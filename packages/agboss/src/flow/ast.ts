@@ -5,7 +5,8 @@ import type { ReturnedShape } from "./dto-wrappers.js";
 /**
  * The graph of a v2 workflow as data (#272 → The AST): `@Workflow({ flow })` holds one `FlowPath`
  * per path. The builder (`builder.ts`) writes it; the analyser (PR 2) and the runtime (PR 4) read it.
- * Parallel steps (#273, #279) and child workflows (#263) extend `Step` by new members.
+ * Parallel launches and their joins (#273) are steps too; quorums (#279) and child workflows (#263)
+ * extend `Step` by new members.
  */
 
 /** What a node of the graph is. The values are the kind suffixes of component names. */
@@ -25,6 +26,10 @@ export enum StepKind {
   Switch = "switch",
   ChooseOne = "choose-one",
   OnError = "on-error",
+  /** `.toParallelAgents(…)` / `.toParallelActions(…)` (#273): branches launched at once. */
+  Launch = "launch",
+  /** `.join()` after a launch, with its `.onJoinError(…)` handlers and `.returns(…)` values. */
+  Join = "join",
 }
 
 /** A decorated component class: an agent, an action, a router, a finish or a workflow. */
@@ -105,7 +110,49 @@ export interface OnErrorStep {
   readonly path: SubPath;
 }
 
-export type Step = ReturnsStep | ToStep | SwitchStep | ChooseOneStep | OnErrorStep;
+/** What a launch runs (#273): agents, or actions — child workflows come with #263. */
+export type LaunchTargetKind = NodeKind.Agent | NodeKind.Action;
+
+/**
+ * `.toParallelAgents(A, B, …, { maxConcurrency, maxItems })` (#273): each listed target runs once
+ * (repeats are copies); with one target right after `.returns(listOf(XDto))` it runs once per item
+ * of that list (`perItem`).
+ */
+export interface LaunchStep {
+  readonly kind: StepKind.Launch;
+  readonly targetKind: LaunchTargetKind;
+  /** As listed, repeats included. */
+  readonly targets: readonly ComponentClass[];
+  /** One target after `.returns(listOf(XDto))`: one run per item of that list. */
+  readonly perItem: boolean;
+  /** At most this many branches in progress at once; a limit only. */
+  readonly maxConcurrency?: number;
+  /** A per-item launch takes the first `maxItems` items (`[launch.max-items-required]`). */
+  readonly maxItems?: number;
+}
+
+/** `.onJoinError(ErrorClass, toAction(X)…)`: the side path a failed launch takes. */
+export interface JoinErrorHandler {
+  readonly error: ErrorClass;
+  readonly path: SubPath;
+}
+
+/** `.join()` (#273): waits for every branch; what the branches give is its `.returns(…)` chain. */
+export interface JoinStep {
+  readonly kind: StepKind.Join;
+  /** `.join().returns(A).returns(listOf(B))`: one value per class the branches give. */
+  readonly returns: readonly ReturnedValue[];
+  readonly onJoinError: readonly JoinErrorHandler[];
+}
+
+export type Step =
+  | ReturnsStep
+  | ToStep
+  | SwitchStep
+  | ChooseOneStep
+  | OnErrorStep
+  | LaunchStep
+  | JoinStep;
 
 /** The steps inside `route(X)…`, `caseOf(D)…` or the side path of `.onError`. */
 export interface SubPath {

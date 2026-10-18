@@ -4,11 +4,14 @@ import {
   NodeKind,
   StepKind,
   type FlowPath,
+  type JoinStep,
+  type LaunchStep,
   type PathSource,
   type ReturnedValue,
   type Step,
 } from "./ast.js";
 import { declarationOf } from "./decorators/declaration.js";
+import { LAUNCH_CALLS } from "./launch-step.js";
 
 /**
  * The flow's paths printed in the grammar they are written in (#272 → Runtime: `agboss describe`,
@@ -42,6 +45,18 @@ const sourceCall = (source: PathSource): string =>
 const valueText = (value: Pick<ReturnedValue, "about"> & { readonly label: string }): string =>
   value.about === undefined ? value.label : `${value.label}, ${aboutLabel(value.about)}`;
 
+const returnsLine = (value: ReturnedValue): string =>
+  `.returns(${valueText({ ...value, label: shapeLabel(value.shape) })})`;
+
+/** `{ maxConcurrency: 3, maxItems: 50 }`, as written; empty without options. */
+function launchOptions(step: LaunchStep): string {
+  const options = [
+    ...(step.maxConcurrency === undefined ? [] : [`maxConcurrency: ${String(step.maxConcurrency)}`]),
+    ...(step.maxItems === undefined ? [] : [`maxItems: ${String(step.maxItems)}`]),
+  ];
+  return options.length === 0 ? "" : `, { ${options.join(", ")} }`;
+}
+
 class Printer {
   readonly lines: string[] = [];
 
@@ -70,24 +85,35 @@ class Printer {
   }
 
   /** `.onError(E, toAction(X)` and the side path's other steps, closed on its last line. */
-  private sidePath(error: string, steps: readonly Step[], depth: number): void {
+  private sidePath(error: string, steps: readonly Step[], depth: number, call: string): void {
     const [first, ...rest] = steps;
     const head =
       first?.kind === StepKind.To
         ? `${TO_CALL[first.targetKind]}(${this.label(first.target)})`
         : "";
-    this.line(depth, `.onError(${error}, ${head}`);
+    this.line(depth, `.${call}(${error}, ${head}`);
     this.steps(first?.kind === StepKind.To ? rest : steps, depth + 1);
     this.closeLast(")");
+  }
+
+  /** `.toParallelAgents(A, B, { maxConcurrency: 3 })` (#273). */
+  private launch(step: LaunchStep, depth: number): void {
+    const targets = step.targets.map((target) => this.label(target)).join(", ");
+    this.line(depth, `.${LAUNCH_CALLS[step.targetKind]}(${targets}${launchOptions(step)})`);
+  }
+
+  /** `.join()`, its `.onJoinError(…)` side paths, then its `.returns(…)` chain (#273). */
+  private join(step: JoinStep, depth: number): void {
+    this.line(depth, ".join()");
+    for (const handler of step.onJoinError)
+      this.sidePath(handler.error.name, handler.path.steps, depth, "onJoinError");
+    for (const value of step.returns) this.line(depth, returnsLine(value));
   }
 
   private step(step: Step, depth: number): void {
     switch (step.kind) {
       case StepKind.Returns:
-        this.line(
-          depth,
-          `.returns(${valueText({ ...step.value, label: shapeLabel(step.value.shape) })})`,
-        );
+        this.line(depth, returnsLine(step.value));
         return;
       case StepKind.To:
         this.line(depth, `.${TO_CALL[step.targetKind]}(${this.label(step.target)})`);
@@ -109,7 +135,13 @@ class Printer {
         this.line(depth, ")");
         return;
       case StepKind.OnError:
-        this.sidePath(step.error.name, step.path.steps, depth);
+        this.sidePath(step.error.name, step.path.steps, depth, "onError");
+        return;
+      case StepKind.Launch:
+        this.launch(step, depth);
+        return;
+      case StepKind.Join:
+        this.join(step, depth);
         return;
     }
   }

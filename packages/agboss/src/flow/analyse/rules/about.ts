@@ -1,7 +1,9 @@
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import type { ComponentName } from "../../registry.js";
 import { statesOf } from "../dataflow.js";
-import type { FlowGraph } from "../flow-graph.js";
+import { EdgeKind, type FlowGraph, type ValueWrite } from "../flow-graph.js";
+import { launchLabel } from "../join-groups.js";
+import { joinValueWrites } from "../launches.js";
 import { readSlots } from "../outdating.js";
 import {
   aboutOfWrite,
@@ -35,6 +37,39 @@ interface BuiltFromEdge {
   readonly about: readonly SlotKey[];
   /** Written by a `caseOf(…)`: its `{ about }` goes on the case. */
   readonly isCase: boolean;
+  /** Written by a join (#273): its `{ about }` goes on `.join().returns(…)`, after this launch. */
+  readonly join?: string;
+}
+
+/** A value a producer writes: on an edge from it, or as a branch of a join (#273). */
+interface ProducedWrite {
+  readonly write: ValueWrite;
+  readonly join?: string;
+}
+
+/** What each producer writes: its edges' values (not a launch edge's item) and its join values. */
+function producedWrites(context: AnalysisContext): ReadonlyMap<ComponentName, readonly ProducedWrite[]> {
+  const byProducer = new Map<ComponentName, ProducedWrite[]>();
+  const add = (producer: ComponentName, produced: ProducedWrite): void => {
+    byProducer.set(producer, [...(byProducer.get(producer) ?? []), produced]);
+  };
+  for (const edge of context.graph.edges) {
+    if (edge.kind === EdgeKind.Launch) continue;
+    for (const write of edge.writes) add(edge.from, { write });
+  }
+  for (const { edge, write, producers } of joinValueWrites(context.graph.edges)) {
+    const join = edge.launch === undefined ? edge.from : launchLabel(edge.launch);
+    for (const producer of producers) add(producer, { write, join });
+  }
+  return byProducer;
+}
+
+/** The producers of a cycle: its nodes, and the branches of the launches its nodes join. */
+function producersOf(context: AnalysisContext, cycle: readonly ComponentName[]): readonly ComponentName[] {
+  const branches = context.graph.edges
+    .filter((edge) => edge.kind === EdgeKind.Join && cycle.includes(edge.from) && cycle.includes(edge.to))
+    .flatMap((edge) => edge.launch?.branches.map((branch) => branch.node) ?? []);
+  return [...new Set([...cycle, ...branches])];
 }
 
 /** What the producers of a cycle build from what, over every scope that reaches them. */
@@ -42,13 +77,13 @@ function builtFromEdges(
   context: AnalysisContext,
   nodes: readonly ComponentName[],
 ): readonly BuiltFromEdge[] {
-  const { dataflow, graph } = context;
+  const { dataflow } = context;
+  const produced = producedWrites(context);
   const edges = new Map<string, BuiltFromEdge>();
-  for (const producer of nodes) {
-    const leaving = graph.edges.filter((edge) => edge.from === producer && edge.writes.length > 0);
+  for (const producer of producersOf(context, nodes)) {
     for (const state of statesOf(dataflow, producer)) {
       const read = readSlots(state.scope, producer, dataflow.provenance);
-      for (const write of leaving.flatMap((edge) => edge.writes)) {
+      for (const { write, join } of produced.get(producer) ?? []) {
         const from = slotOfWrite(write);
         const about = aboutOfWrite(write);
         const targets = about.filter(
@@ -62,6 +97,7 @@ function builtFromEdges(
             producer,
             about,
             isCase,
+            ...(join === undefined ? {} : { join }),
           });
         }
       }
@@ -96,6 +132,7 @@ function hintOf(
     return "write { about } on one of the values in the flow";
   const value = slotLabel(edge.from);
   const about = `{ about: ${slotLabel(target)} }`;
+  if (edge.join !== undefined) return `write .join().returns(${value}, ${about}) after ${edge.join}`;
   return edge.isCase
     ? `write caseOf(${value}, ${about}) after ${edge.producer}`
     : `write .returns(${value}, ${about}) after ${edge.producer}`;
@@ -143,13 +180,14 @@ function flowCycles(context: AnalysisContext): readonly (readonly ComponentName[
 /** The slots each producer's values are about, over every `{ about }` it is written with. */
 export function aboutTargetsOf(graph: FlowGraph): ReadonlyMap<ComponentName, ReadonlySet<SlotKey>> {
   const targets = new Map<ComponentName, Set<SlotKey>>();
-  for (const edge of graph.edges) {
-    for (const slot of edge.writes.flatMap(aboutOfWrite)) {
-      const own = targets.get(edge.from) ?? new Set<SlotKey>();
-      own.add(slot);
-      targets.set(edge.from, own);
-    }
-  }
+  const add = (producer: ComponentName, slots: readonly SlotKey[]): void => {
+    const own = targets.get(producer) ?? new Set<SlotKey>();
+    for (const slot of slots) own.add(slot);
+    if (own.size > 0) targets.set(producer, own);
+  };
+  for (const edge of graph.edges) add(edge.from, edge.writes.flatMap(aboutOfWrite));
+  for (const { write, producers } of joinValueWrites(graph.edges))
+    for (const producer of producers) add(producer, aboutOfWrite(write));
   return targets;
 }
 

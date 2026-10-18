@@ -1,9 +1,11 @@
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
 import { codeOfErrorClass, errorMatchOf, type ErrorRecord } from "../../core/error-record.js";
+import { AGBossError } from "../../core/errors.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
 import type { ResolvedField } from "../analyse/fields.js";
 import { EdgeKind, type FlowEdge } from "../analyse/flow-graph.js";
+import { launchLabel } from "../analyse/join-groups.js";
 import { NodeKind, type FlowPath } from "../ast.js";
 import { isFieldMap, type ComponentDeclaration } from "../decorators/declaration.js";
 import { isCodeRouter } from "../decorators/router.js";
@@ -99,12 +101,30 @@ const maxVisitsOf = (declaration: ComponentDeclaration): number | undefined =>
     ? declaration.options.maxVisits
     : undefined;
 
+/**
+ * A workflow with a parallel launch (#273): the analyser and `agboss check` accept it, but this
+ * version's runtime has no launch yet (PR 2), so assembly stops here instead of running a graph
+ * without its branches.
+ */
+export class LaunchNotRunnableError extends AGBossError {
+  static override readonly code: string = "flow.launch-not-runnable";
+}
+
+function rejectLaunches(analysis: FlowAnalysis): void {
+  const [launch] = analysis.graph.edges.flatMap((edge) => edge.launch ?? []);
+  if (launch === undefined) return;
+  throw new LaunchNotRunnableError(
+    `${analysis.workflow}: ${launchLabel(launch)} — parallel launches are checked (agboss check) but run only from #273 PR 2; this version cannot execute the workflow`,
+  );
+}
+
 /** The runtime's view of an analysed workflow. */
 export function runtimeGraphOf(
   analysis: FlowAnalysis,
   flow: readonly FlowPath[],
   type: Class,
 ): RuntimeGraph {
+  rejectLaunches(analysis);
   const nodes = new Map<string, RuntimeNode>();
   for (const node of analysis.graph.nodes.values()) {
     const maxVisits = maxVisitsOf(node.declaration);

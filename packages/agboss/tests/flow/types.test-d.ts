@@ -41,6 +41,7 @@ import type {
   OutputOf,
   ProducerOutputOf,
   Route,
+  RouterAnswerOf,
 } from "../../src/flow/generated-types.js";
 import type { ActionHandler, RouterHandler } from "../../src/flow/handlers.js";
 import { CreditOrderDto } from "./fixtures/credit-dtos.js";
@@ -106,6 +107,38 @@ import { reviewerAgentOptions } from "./fixtures/reviewer-agent.options.js";
 import { DraftChangesDto } from "./fixtures/data-dtos.js";
 import { ApprovalDto, CritiqueDto, DraftDto } from "./fixtures/review-dtos.js";
 import { CritiqueAction, StoryReviewerAgent } from "./fixtures/review.fixture.js";
+import { ItemBlindAgent } from "./fixtures/broken.fixture.js";
+import {
+  CompanyDto,
+  CustomerReplyDto as HelpDeskReplyDto,
+  LoyaltyOfferDto,
+  OrderStatusDto,
+} from "./fixtures/data-dtos.js";
+import { CompanyCheckDto, PaymentDto, RefundPolicyDto } from "./fixtures/launch-dtos.js";
+import {
+  AnswerAgent,
+  ArticleWriterAgent,
+  ChargePaymentAction,
+  CompanyAuditAgent,
+  CriticAgent,
+  HelpDeskRouter,
+  LoyaltyOfferAgent,
+  NotifyOperatorAction,
+  OffersRouter,
+  OrderLookupAgent,
+  PaymentWorkflowFinish,
+  PlanResearcherAgent,
+  PlannerAgent,
+  RankerAgent,
+  RefundPolicyAgent,
+  ReserveGoodsAction,
+  ScreeningAgent,
+  ScreeningFailedWorkflowFinish,
+  SendReceiptAction,
+  UpdateCrmAction,
+} from "./fixtures/launch.fixture.js";
+import { PlanDto, ResearchDto } from "./fixtures/review-dtos.js";
+import { LimitExceededError } from "../../src/graph/limits.js";
 
 /**
  * Compile-time checks of the v2 flow (#272 PR 1, S3). Checked by `tsc` (the gate's typecheck), not
@@ -649,5 +682,96 @@ describe("#280 AC1, AC2: code routers — options by decidedBy, route(input) typ
     expectTypeOf(unprompted).not.toBeAny();
     expectTypeOf(prompted).not.toBeAny();
     expectTypeOf(code).not.toBeAny();
+  });
+});
+
+describe("#273: parallel launches and their joins", () => {
+  const planned = () => agent(PlannerAgent).returns(PlanDto);
+  const screened = () => agent(ScreeningAgent).returns(listOf(CompanyDto));
+  const charged = () => action(ChargePaymentAction).returns(PaymentDto);
+
+  it("AC4: launch without join — a launch is followed by .join() only", () => {
+    const launched = planned().toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent);
+    // @ts-expect-error — a launch is followed by .join(), never by a transition
+    launched.toAgent(ArticleWriterAgent);
+    // @ts-expect-error — nor by .returns(…)
+    launched.returns(ResearchDto);
+    const flow: readonly FlowPath[] = [
+      // @ts-expect-error — a path that stops at a launch is not a path
+      start(OfferWorkflowStart).returns(ShortlistDto).toAgent(DraftAgent).returns(OfferDraftDto).toParallelAgents(ReviewerAgent),
+    ];
+    expectTypeOf(launched).toHaveProperty("join");
+    expectTypeOf(flow).not.toBeAny();
+  });
+
+  it("AC4: wrong target kind — agents for toParallelAgents, actions for toParallelActions", () => {
+    // @ts-expect-error — send-receipt-action is not an agent
+    charged().toParallelAgents(SendReceiptAction);
+    // @ts-expect-error — critic-agent is not an action
+    planned().toParallelActions(CriticAgent);
+    // @ts-expect-error — a router launches agents only
+    start(OfferWorkflowStart).returns(ShortlistDto).toRouter(MainRouter).toParallelActions(SendOfferAction);
+    expectTypeOf(charged()).toHaveProperty("toParallelActions");
+  });
+
+  it("AC5: join returns checked against the branches' output — listOf for copies", () => {
+    const joined = planned()
+      .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent, { maxConcurrency: 3 })
+      .join();
+    joined.returns(ResearchDto).returns(listOf(CritiqueDto)).toAgent(ArticleWriterAgent);
+    joined.returns(listOf(CritiqueDto), { about: PlanDto }).returns(ResearchDto);
+    // @ts-expect-error — two critic-agent copies give a list, not one CritiqueDto
+    joined.returns(CritiqueDto);
+    // @ts-expect-error — every value is named before the next step
+    joined.returns(ResearchDto).toAgent(ArticleWriterAgent);
+    // @ts-expect-error — .onError does not follow a join: .onJoinError(E, …)
+    joined.onError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish));
+    // @ts-expect-error — no launch right after a join's values
+    joined.returns(ResearchDto).returns(listOf(CritiqueDto)).toParallelAgents(CriticAgent);
+    expectTypeOf(joined).toHaveProperty("onJoinError");
+  });
+
+  it("AC2: per-item needs an XDto field — one run per item, the join a list", () => {
+    screened()
+      .toParallelAgents(CompanyAuditAgent, { maxConcurrency: 3, maxItems: 50 })
+      .join()
+      .onJoinError(LimitExceededError, toAction(NotifyOperatorAction))
+      .returns(listOf(CompanyCheckDto))
+      .toAgent(RankerAgent);
+    // @ts-expect-error — one run per item gives a list
+    screened().toParallelAgents(CompanyAuditAgent, { maxItems: 50 }).join().returns(CompanyCheckDto);
+    // @ts-expect-error — item-blind-agent reads no CompanyDto: [launch.item-not-read]
+    screened().toParallelAgents(ItemBlindAgent, { maxItems: 5 });
+    expectTypeOf<InputOf<ItemBlindAgent>>().toHaveProperty("__error");
+  });
+
+  it("AC11: output-less actions join — .join() goes on with .to…(…) at once", () => {
+    const joined = charged()
+      .toParallelActions(SendReceiptAction, UpdateCrmAction, ReserveGoodsAction, { maxConcurrency: 3 })
+      .join();
+    joined.toFinish(PaymentWorkflowFinish);
+    // @ts-expect-error — the actions give nothing: no .returns after their join
+    joined.returns(PaymentDto);
+    expectTypeOf(joined).toHaveProperty("toFinish");
+  });
+
+  it("AC6 / AC8: a router launch — optional for OnDemand and Skip, a code router's list", () => {
+    const joined = start(OfferWorkflowStart)
+      .returns(ShortlistDto)
+      .toRouter(HelpDeskRouter)
+      .toParallelAgents(OrderLookupAgent, RefundPolicyAgent, LoyaltyOfferAgent)
+      .join();
+    joined
+      .returns(optional(LoyaltyOfferDto))
+      .returns(OrderStatusDto)
+      .returns(optional(RefundPolicyDto))
+      .toAgent(AnswerAgent);
+    // @ts-expect-error — refund-policy-agent is OnDemand: its value may be missing
+    joined.returns(RefundPolicyDto);
+    expectTypeOf<RouterAnswerOf<OffersRouter>>().toEqualTypeOf<readonly (typeof LoyaltyOfferAgent)[]>();
+    expectTypeOf<InputOf<AnswerAgent>["order"]>().toEqualTypeOf<
+      Produced<OrderStatusDto, typeof OrderLookupAgent>
+    >();
+    expectTypeOf<ProducerOutputOf<AnswerAgent>>().toEqualTypeOf<HelpDeskReplyDto>();
   });
 });
