@@ -29,7 +29,8 @@ const run = (command: string, args: readonly string[], cwd = project) => {
   const result = spawnSync(process.execPath, [command, ...args], {
     cwd,
     encoding: "utf8",
-    env: { ...process.env, NO_COLOR: "1" },
+    // a developer's .env: the dev environment reads the model key (#266), no test calls a model
+    env: { ...process.env, NO_COLOR: "1", OPENROUTER_API_KEY: "test-key-never-sent" },
   });
   return {
     ok: result.status === 0,

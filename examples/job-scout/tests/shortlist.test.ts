@@ -2,9 +2,10 @@ import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { mcpServerStub, toolOf, workflowOf } from "agboss/testing";
-import { createAppDeps } from "agboss";
+import { createAppDeps, secret } from "agboss";
 import { JobScout } from "../src/job-scout.workflow.js";
-import { environment } from "../src/environments/test.environment.js";
+import { environment as testEnvironment } from "../src/environments/test.environment.js";
+import type { AppEnvironment } from "../src/environments/app.environment.js";
 import { SHORTLIST_DIR, SHORTLIST_FILE } from "../src/config/paths.js";
 import { SaveShortlist } from "../src/mcp/save-shortlist.mcp.js";
 import { ShortlistServer } from "../src/mcp/shortlist.server.js";
@@ -17,6 +18,12 @@ const job = (n: number) => ({
   fit: 80 + n,
 });
 const env = { OPENROUTER_API_KEY: "k", TERN_DB: ":memory:" };
+// these tests run the real providers' wiring: their key is the environment's, from the variable
+const environment: AppEnvironment = {
+  greenhouseApiUrl: testEnvironment.greenhouseApiUrl,
+  sqlitePath: testEnvironment.sqlitePath,
+  openRouterApiKey: secret("OPENROUTER_API_KEY"),
+};
 
 describe("the shortlist: MCP tools with the server injected (#109)", () => {
   afterAll(async () => {

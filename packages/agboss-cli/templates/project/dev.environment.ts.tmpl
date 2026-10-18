@@ -1,6 +1,8 @@
+import { secret } from "agboss";
 import type { AppEnvironment } from "./app.environment.js";
 
 /** The default environment (no --env): the same providers as every environment, other values. */
 export const environment: AppEnvironment = {
+  openRouterApiKey: secret("OPENROUTER_API_KEY"),
   apiUrl: "https://api.example.com",
 };

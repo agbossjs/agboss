@@ -16,7 +16,7 @@
     "compare": "agboss compare --workflow src/job-scout.workflow.ts",
     "rag:index": "agboss rag:index --workflow src/job-scout.workflow.ts",
     "probe": "tsx src/scripts/probe-boards.ts",
-    "types": "agboss check --workflow src/job-scout.workflow.ts",
+    "types": "agboss check --workflow src/job-scout.workflow.ts --env test",
     "typecheck": "npm run types && tsc --noEmit -p .",
     "test": "vitest run",
     "coverage": "vitest run --coverage"

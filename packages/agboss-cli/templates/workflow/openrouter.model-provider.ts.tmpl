@@ -1,11 +1,11 @@
 import {
   CachedPart,
   CacheRetention,
-  EnvironmentVariable,
   ModelCost,
   ModelProvider,
   OpenRouterProvider,
   PromptCaching,
+  RateLimitPolicy,
   Reasoning,
   RetryPolicy,
   TRANSIENT_FAILURES,
@@ -15,14 +15,15 @@ import { minutes, seconds } from "agboss/units";
 
 /**
  * Where the application's chat models come from: OpenRouter (decision models through
- * `DecisionsModelProvider`) — both listed in `@Application({ providers })`.
+ * `DecisionsModelProvider`) — both listed in `@Application({ providers })`. Both read their key from
+ * `openRouterApiKey` of the application's environment (`secret("OPENROUTER_API_KEY")`).
  */
 @ModelProvider({
-  name: "openrouter",
+  name: "openrouter-model-provider",
   description: "OpenRouter — many models behind one OpenAI-compatible API",
   serves: [/.*/],
   baseUrl: "https://openrouter.ai/api/v1",
-  apiKey: EnvironmentVariable.named("OPENROUTER_API_KEY", { secret: true }),
+  apiKey: "openRouterApiKey",
   timeout: minutes(2),
   // OpenRouter returns each call's cost
   cost: ModelCost.fromResponse(),
@@ -38,6 +39,8 @@ import { minutes, seconds } from "agboss/units";
     jitter: true,
     retryOn: TRANSIENT_FAILURES,
   }),
+  // your OpenRouter plan's limits, for the whole application (every instance shares them)
+  rateLimitPolicy: RateLimitPolicy.of({ maxConcurrentCalls: 8 }),
   circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
 })
 export class OpenRouterModelProvider extends OpenRouterProvider {

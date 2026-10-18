@@ -32,8 +32,9 @@ export function workflowScripts(workflow: Names, suffix = ""): Record<string, st
         `agboss ${command} --workflow ${path}`,
       ]),
     ),
-    // writes .agboss/types.d.ts: the generated types the flow compiles against (#272)
-    [`types${suffix}`]: `agboss check --workflow ${path}`,
+    // writes .agboss/types.d.ts: the generated types the flow compiles against (#272) — on the test
+    // environment, so `npm install` needs no model key (dev's `secret("OPENROUTER_API_KEY")`, #266)
+    [`types${suffix}`]: `agboss check --workflow ${path} --env test`,
   };
 }
 

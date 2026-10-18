@@ -1,7 +1,8 @@
-import { env } from "agboss";
+import { env, secret } from "agboss";
 import type { AppEnvironment } from "./app.environment.js";
 
 /** `--env staging`: values from the deployment's variables. */
 export const environment: AppEnvironment = {
+  openRouterApiKey: secret("OPENROUTER_API_KEY"),
   apiUrl: env("API_URL", { default: "https://staging-api.example.com" }),
 };
