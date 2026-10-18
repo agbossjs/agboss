@@ -50,7 +50,7 @@ export class TenantDailyBudget implements BudgetHandler {
   version: "1.0.0", // the release; each workflow's version is its behaviour version
   environment: EmptyEnvironment,
   workflows: [JobScout], // the top-level workflows
-  providers: [], // infrastructure only here; none → the built-in in-memory defaults
+  providers: [], // infrastructure only here: none → the built-in in-memory defaults and model providers
   budgets: [TenantDailyBudget], // every @Budget of the application (FinOps → Budgets)
 })
 export class JobScoutApplication {}
@@ -89,8 +89,10 @@ and the class with `Application` (`[name.kind-suffix]`); it lists workflows
 application (`[application.duplicate-workflow]`), and so is every component name
 (`[graph.duplicate-node-name]`); a start is the door of one workflow — one start in two workflows
 → `[application.ambiguous-start]`; every entry of `budgets` is a `@Budget` (`[budget.not-a-budget]`,
-its name ends with `-budget`); infrastructure is listed only in `@Application({ providers })`
-(`[di.infrastructure-in-workflow]`).
+its name ends with `-budget`); infrastructure — model providers too — is listed only in
+`@Application({ providers })` (`[di.infrastructure-in-workflow]`); every model of every workflow
+resolves to exactly one listed model provider by `serves` (`[model.unserved]`,
+`[model.ambiguous-provider]`, #266, [Model providers](Model-providers#which-provider-serves-a-model)).
 
 ## Infrastructure
 
@@ -109,6 +111,11 @@ two → `[di.ambiguous-implementation]`. A service that needs one injects the co
 | `ExecutionLeaseRepository`  | one lease per execution tree: who moves it (`acquire`, `renew`, `release`, #265) | in memory |
 | `ExecutionTreeRepository`   | the shared state of one request (`saveIfAbsent`, `findById` inside an execution; removed when the tree ends) | in memory |
 | `RateLimitRepository`       | concurrency slots as leases (`acquire(key, maxSlots, lease)`, `renew`, `release`) — the model providers' limits (#266) | in memory |
+
+**Model providers** (#266) are infrastructure too: `@ModelProvider` classes in the same
+`providers` list — none listed → the built-in `OpenRouterModelProvider` + `DecisionsModelProvider`,
+one listed → the list is complete. They are not created by the container and not injected; the
+application's model gateway calls them ([Model providers](Model-providers#register-them-in-the-application)).
 
 Nothing is written to the home folder: with the defaults, records, spend, pauses and leases live in
 the instance and are gone after a restart. Each contract has a ready SQLite implementation, enabled
@@ -277,7 +284,7 @@ default. Infrastructure is not an option: it is listed in `@Application({ provid
 | ------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `env`                     | `dev` — the environment file next to the application file ([Environments](Environments))                  |
 | `processEnv`              | `process.env` (provider keys, the `env()` / `secret()` variables)                                         |
-| `gateway`                 | the model providers of each workflow's `settings()` — the one model-call seam                            |
+| `gateway`                 | the application's model providers (`@Application({ providers })`, #266) — the one model-call seam         |
 | `transport`               | MCP stdio / streamable HTTP from the server's config                                                     |
 | `connectMcp`              | connect every server, check its contract (fail fast)                                                     |
 | `clock`                   | the system clock (the built-in ledger's UTC day, the records' times)                                     |

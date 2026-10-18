@@ -16,7 +16,8 @@ places — nothing a fingerprint (#125) could hash.
 
 - **Providers are components**: `@ModelProvider({ name, serves, baseUrl, apiKey, timeout, cost,
   reasoning, promptCaching, retryPolicy, circuitBreakerPolicy })` classes, registered with
-  `settings().modelProviders([...])`; `OpenAiCompatibleProvider<Fields>` with a typed
+  `settings().modelProviders([...])` (since #266: listed in `@Application({ providers })` — a
+  workflow names models only; resolution has no override and no default provider); `OpenAiCompatibleProvider<Fields>` with a typed
   `requestFields` member, `OpenRouterProvider`, `JevModelProvider`, own providers through
   `ModelProviderHandler`.
 - **Resolution by `serves`**, per purpose (chat / decision): override wins, otherwise exactly one

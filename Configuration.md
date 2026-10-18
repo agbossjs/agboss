@@ -1,9 +1,10 @@
 # Configuration
 
 Set in the application's and the workflow's components ([Components](Components)): defaults of
-every workflow in `@Application`, workflow-wide fields in `@Workflow`,
-limits and model providers in its `settings()`, agent fields in each `@Agent`, router fields in each
-`@Router`. Assembled and validated at startup; [profiles](Profiles-and-comparisons) override them
+every workflow and the model providers in `@Application` (`providers`, #266 — a workflow names
+models only, [Model providers](Model-providers#register-them-in-the-application)), workflow-wide
+fields in `@Workflow`, limits in its `settings()`, agent fields in each `@Agent`, router fields in
+each `@Router`. Assembled and validated at startup; [profiles](Profiles-and-comparisons) override them
 without code. Secrets are never there — model provider keys are process variables
 (`OPENROUTER_API_KEY` in `.env`), the app's own settings live in [environments](Environments).
 
@@ -11,7 +12,7 @@ without code. Secrets are never there — model provider keys are process variab
 import { Agent, Workflow, WorkflowFinish, WorkflowSettings, WorkflowStart, start, type WorkflowDefinition } from "agboss";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
 import { McpServer, McpServerClient } from "agboss/mcp";
-import { DecisionsModelProvider, OpenRouterModelProvider, Reasoning } from "agboss/models";
+import { Reasoning } from "agboss/models";
 import { usd } from "agboss/units";
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
@@ -56,8 +57,7 @@ export class ShortlistServer extends McpServerClient<typeof tools> {}
 export class JobScout implements WorkflowDefinition {
   settings(): WorkflowSettings {
     return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.1) }, perDay: { cost: usd(1) } })
-      .modelProviders([OpenRouterModelProvider, DecisionsModelProvider])
+      .limits({ perRun: { cost: usd(0.1) }, perDay: { cost: usd(1) } }) // no model providers: the application's
       .build();
   }
 }

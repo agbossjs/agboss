@@ -3,6 +3,25 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — model providers as infrastructure (#266, PR 1)
+
+- **Model providers are the application's** ([Model providers](Model-providers#register-them-in-the-application)):
+  `@ModelProvider` classes are listed only in `@Application({ providers })` — none listed → the
+  built-in `OpenRouterModelProvider` + `DecisionsModelProvider`; one listed → the list is complete,
+  the built-ins are not added next to it. A `@ModelProvider` in a workflow's `providers` →
+  `[di.infrastructure-in-workflow]`.
+- **Breaking — no provider setting on a workflow**: `WorkflowSettings.builder().modelProviders(…)`,
+  `.defaultModelProvider(…)` and `WorkflowSettings.models` are removed; move the list to the
+  application's `providers`. `AssembledWorkflow.models` → `modelProviders` (the application's list).
+- **Every model resolves to exactly one provider by `serves`, at assembly** — agents, model routers,
+  the default router, guards, compaction, judges: new rule codes `[model.unserved]` and
+  `[model.ambiguous-provider]` (all at once, before any model call). No default breaks a tie: one
+  model through two providers is two model strings.
+- **Breaking — `ModelProblemCode` `model.no-provider` → `model.unserved`**;
+  `ModelProviderDirectory.of(classes)` takes no default provider (`byName`, `defaultProvider` gone).
+- `agboss describe` prints `model: … → <provider>` for each model (`--json`: `models`);
+  `agboss check --models` checks every model of every workflow of the application.
+
 ## Unreleased — parallel launches at run time (#273, PR 2)
 
 - **Launches run** ([Workflow → Parallel launches at run time](Workflow#parallel-launches-at-run-time)):

@@ -1,14 +1,16 @@
 # Model providers
 
-Every model a workflow uses — an agent's, compaction's, a router's, a guard's — comes from a **model
-provider**: an `@ModelProvider` class from `agboss/models`. The provider says which models it
-serves, how it is reached (base URL, key, timeout), what a call costs, how its models reason and
-cache by default, and what happens when a call fails (retry policy, circuit breaker). Introduced in
-#151 ([ADR-0016](ADR-0016-Model-providers)).
+Every model a workflow uses — an agent's, compaction's, a router's, a guard's, a judge's — comes
+from a **model provider**: an `@ModelProvider` class from `agboss/models`. The provider says which
+models it serves, how it is reached (base URL, key, timeout), what a call costs, how its models
+reason and cache by default, and what happens when a call fails (retry policy, circuit breaker).
+Introduced in #151 ([ADR-0016](ADR-0016-Model-providers)); since #266 model providers are
+**application infrastructure**: listed in `@Application({ providers })`, shared by every workflow
+of the application — a workflow and its components name models only and never pick a provider.
 
 ## A provider
 
-```ts
+```ts file=src/model-providers/openrouter.model-provider.ts
 import {
   CachedPart, CacheRetention, EnvironmentVariable, ModelCost, ModelFailure, ModelProvider,
   OpenRouterProvider, PromptCaching, ProviderSort, Reasoning, RetryPolicy, type OpenRouterFields,
@@ -45,30 +47,60 @@ export class OpenRouterModelProvider extends OpenRouterProvider {
 `ProviderSort.Price` / `Throughput` / `Latency` — OpenRouter's `provider.sort`; closed sets are
 enums, so a string (`"price"`) does not compile.
 
-Register them in the workflow's `settings()`:
+## Register them in the application
+
+`@ModelProvider` classes are listed **only** in `@Application({ providers })`, next to the rest of the
+infrastructure ([App](App)). They are not created by the container (nothing injects a provider), and
+one in a workflow's `providers` fails the application's assembly with
+`[di.infrastructure-in-workflow] … is a @ModelProvider — infrastructure is listed only in
+@Application({ providers })`.
 
 <!-- snippet-context
-import { WorkflowSettings, type WorkflowDefinition } from "agboss";
-import { DecisionsModelProvider, OpenRouterModelProvider } from "agboss/models";
-import { usd } from "agboss/units";
-export class JobScout implements WorkflowDefinition {
+import { Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
+import { WorkflowStartTextDto } from "agboss/dto";
+@WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
+export class ChatWorkflowStart {}
+@WorkflowFinish({ name: "chat-workflow-finish", description: "The message", output: WorkflowStartTextDto })
+export class ChatWorkflowFinish {}
+@Workflow({
+  name: "job-scout-workflow",
+  version: "1.0.0",
+  flow: [
+    start(ChatWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toFinish(ChatWorkflowFinish),
+  ],
+})
+export class JobScout {}
 // @snippet
-}
 -->
 
-```ts
-settings(): WorkflowSettings {
-  return WorkflowSettings.builder()
-    .limits({ perRun: { cost: usd(0.1) } })
-    .modelProviders([OpenRouterModelProvider, DecisionsModelProvider])
-    .defaultModelProvider(OpenRouterModelProvider) // optional: breaks a tie
-    .build();
-}
+```ts file=src/job-scout.application.ts
+import { Application, EmptyEnvironment } from "agboss";
+import { DecisionsModelProvider } from "agboss/models";
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
+
+@Application({
+  name: "job-scout-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [JobScout],
+  // chat models through job-scout's own OpenRouter, decision models through the Decisions API
+  providers: [OpenRouterModelProvider, DecisionsModelProvider],
+})
+export class JobScoutApplication {}
 ```
 
-A workflow that registers none gets the built-in `OpenRouterModelProvider` (every chat model) and
-`DecisionsModelProvider` (the decision models, `DECISION_MODELS`). job-scout: `src/model-providers/openrouter.model-provider.ts`; `agboss create`
-generates the same.
+- **None listed** → the built-in `OpenRouterModelProvider` (every chat model) and
+  `DecisionsModelProvider` (the decision models, `DECISION_MODELS`).
+- **At least one listed** → the list is complete: the built-ins are **not** added next to it, so
+  what serves each model is visible in one place. An application listing only a local server and
+  using Jev lists `DecisionsModelProvider` too, or its routers fail with `[model.unserved]`.
+- A workflow has no provider setting (`settings().modelProviders(…)` and `defaultModelProvider(…)`
+  were removed in #266), and no component has one.
+
+job-scout: `src/model-providers/openrouter.model-provider.ts`, listed in `job-scout.application.ts`;
+`agboss create` generates the same.
 
 ### Built in
 
@@ -82,13 +114,28 @@ generates the same.
 
 ## Which provider serves a model
 
-- A component's override wins (`overrideModelProvider` arrives on the decorators with #152; the
-  resolver supports it already).
-- Otherwise exactly **one** registered provider must match the model name **for its purpose** — a
-  chat model (agents, compaction, LLM routers) needs a provider with `chat`, a decision (Jev) one
-  with decisions. So OpenRouter on `/.*/` and the decision models never clash.
-- None → `model.no-provider`; several → `model.ambiguous-provider` unless one is the
-  `defaultModelProvider`. Both fail at startup, before any model call.
+- Exactly **one** listed provider must match the model name **for its purpose** — a chat model
+  (agents, compaction, LLM routers, chat judges) needs a provider with `chat`, a decision (Jev and
+  the other decision models: routers, guards, decision judges) one with decisions. So OpenRouter on
+  `/.*/` and the decision models never clash.
+- Checked for **every** model of the application at assembly — agents, model routers, the default
+  router (`defaults.router.model`), guards, compaction and judges (arbiters and reply interpreters
+  join when they exist, #267) — all at once, before any model call (`createApp`, `testWith`,
+  `agboss check`):
+  - none → `[model.unserved] job-scout-workflow agents.scout-agent = local/llama: no listed provider
+    serves it for chat (listed: openrouter, decisions) — list a @ModelProvider that serves it in
+    @Application({ providers })`;
+  - several → `[model.ambiguous-provider] … served by several providers: local, local-mirror — one
+    model string per provider, each in one serves`. No default breaks the tie: one model through
+    two providers is two model strings, each in one provider's `serves`.
+- `agboss describe` prints the provider each model resolves to, though no component names it
+  (`--json`: `models: [{ key, model, provider }]`):
+
+```
+models
+  agents.scout-agent  model: moonshotai/kimi-k2.6 → openrouter
+  routers.main-router  model: typesafe/jev-1.13 → decisions
+```
 
 ## Cost
 
@@ -137,7 +184,8 @@ provider's, `false` = off, or a `PromptCaching` value).
 ## Fail fast: settings must fit their models
 
 At **every startup** (with the production gateway) and with **`agboss check --models`** ([CLI](CLI),
-part of `make check` for job-scout), every model use is checked against what its provider says the
+part of `make check` for job-scout — every model of **every workflow of the application** the
+workflow is in, each key prefixed with its workflow when there are several), every model use is checked against what its provider says the
 model supports (OpenRouter: its public model list — parameters, reasoning efforts, mandatory
 reasoning, cache pricing; Jev: its known models). **All problems at once**, each with the setting's
 key, the value, the model and what the model supports:
@@ -149,8 +197,8 @@ ConfigurationError: 2 model setting(s) do not fit their models
 ```
 
 Codes: `model.unsupported-setting` (reasoning form, cache retention or parts, `temperature`,
-`max_tokens`), `model.unknown-model`, `model.no-price`, `model.no-provider`,
-`model.ambiguous-provider`. **Nothing is substituted** — not the nearest effort, not the nearest
+`max_tokens`), `model.unknown-model`, `model.no-price`, `model.unserved`,
+`model.ambiguous-provider` (the last two also fail the assembly, above). **Nothing is substituted** — not the nearest effort, not the nearest
 retention, not "budget instead of both". Caching "where supported" on a model without caching is
 simply none.
 
