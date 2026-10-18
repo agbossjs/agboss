@@ -32,10 +32,10 @@ export { NotAWorkflowStartError } from "./starts.js";
  * (models, MCP transports) instead of its default. Infrastructure is not an option: it is listed in
  * `@Application({ providers })`.
  */
-export interface AppOptions extends AppDepsOptions {
+export interface AppOptions extends Omit<AppDepsOptions, "environment"> {
   /**
    * The environment: `environments/<env>.environment.ts` next to the application file (default
-   * `dev`); `environment` (values) wins over it.
+   * `dev`) — of an application that declares `@Application({ environment })`.
    */
   readonly env?: string | undefined;
   /** `profiles/<workflow>/<profile>.yaml` under `profileRoot` (default: the working directory). */

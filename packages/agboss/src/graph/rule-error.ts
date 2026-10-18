@@ -65,7 +65,11 @@ export type RuleCode =
   | "application.duplicate-workflow"
   | "application.ambiguous-start"
   | "budget.not-a-budget"
-  | "di.infrastructure-in-workflow";
+  | "di.infrastructure-in-workflow"
+  // environments and defaults (#261 PR 4), reported at the application's assembly
+  | "environment.contract-value"
+  | "environment.missing-field"
+  | "guardrail.no-model";
 
 /** One broken rule: its code, what is wrong, and the nodes (classes) involved. */
 export interface RuleViolation {

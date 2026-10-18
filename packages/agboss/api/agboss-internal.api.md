@@ -100,7 +100,7 @@ export interface DescribedEnvironment {
 }
 
 // @public
-export function describedEnvironmentFor(workflowFile: string, env: string | undefined, processEnv: NodeJS.ProcessEnv): Promise<DescribedEnvironment | undefined>;
+export function describedEnvironmentFor(owner: EnvironmentOwner, env: string | undefined, processEnv: NodeJS.ProcessEnv): Promise<DescribedEnvironment | undefined>;
 
 // @public
 export const describeServices: WorkflowServices;
@@ -114,10 +114,27 @@ export const describeServicesWith: (environment: DescribedEnvironment | undefine
 export const directoryOf: (settings: ModelProviderSettings | undefined) => ModelProviderDirectory;
 
 // Warning: (ae-forgotten-export) The symbol "EnvironmentSelection" needs to be exported by the entry point internal.d.ts
-// Warning: (ae-forgotten-export) The symbol "Defaults" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export function environmentFor(workflowFile: string | undefined, selection: EnvironmentSelection, processEnv: NodeJS.ProcessEnv, defaults?: Defaults): Promise<Environment | undefined>;
+export function environmentFor(owner: EnvironmentOwner, selection: EnvironmentSelection, processEnv: NodeJS.ProcessEnv, defaultName?: string): Promise<Environment | undefined>;
+
+// @public
+export interface EnvironmentOwner {
+    readonly application: string;
+    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point internal.d.ts
+    readonly contract?: Class | undefined;
+    readonly source?: string | undefined;
+}
+
+// @public
+export function environmentOwnerOfFile(workflowPath: string, options?: {
+    readonly typescript?: boolean;
+}): Promise<EnvironmentOwner>;
+
+// Warning: (ae-forgotten-export) The symbol "LoadedEnvironment" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export const environmentVariablesOf: (loaded: LoadedEnvironment) => readonly ProcessVariable[];
 
 // Warning: (ae-forgotten-export) The symbol "EvalDeps" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ScoringReport" needs to be exported by the entry point internal.d.ts
@@ -129,7 +146,6 @@ export function evaluate(deps: EvalDeps, bundle: string, options: {
 }): Promise<ScoringReport>;
 
 // Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point internal.d.ts
-// Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ExecutionOptions" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ExecutionOutput" needs to be exported by the entry point internal.d.ts
 //
@@ -198,7 +214,7 @@ export function inputLines(analysis: FlowAnalysis): readonly string[];
 // @public (undocumented)
 export const isMcpFacade: (tool: Tool) => tool is McpFacade;
 
-// @public (undocumented)
+// @public
 export function loadApplicationClass(workflowPath: string, options?: {
     readonly typescript?: boolean;
 }): Promise<Class>;
@@ -220,6 +236,19 @@ export function pathLines(path: FlowPath, label?: ComponentLabel): readonly stri
 
 // @public (undocumented)
 export const problemLine: (problem: ModelProblem) => string;
+
+// @public
+export interface ProcessVariable {
+    // (undocumented)
+    readonly field: string;
+    readonly required: boolean;
+    // Warning: (ae-forgotten-export) The symbol "VariableUse" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly use: VariableUse;
+    // (undocumented)
+    readonly variable: string;
+}
 
 // @public
 export class ProfileError extends Error {
@@ -247,6 +276,9 @@ export function replay<TName extends string>(run: RunDeps<TName>, evaluation: Ev
 export const requestOfTask: (graph: RuntimeGraph, task: string) => StartRequest;
 
 // @public
+export function resolveEnvironment(loaded: LoadedEnvironment, processEnv: NodeJS.ProcessEnv): Environment;
+
+// @public
 export type RunStreamEvent = {
     readonly kind: "textDelta";
     readonly delta: string;
@@ -258,6 +290,9 @@ export type RunStreamEvent = {
 
 // @public (undocumented)
 export function saveGolden(file: string, set: GoldenSet): Promise<void>;
+
+// @public
+export function selectedEnvironment(owner: EnvironmentOwner, env: string | undefined, defaultName?: string): Promise<LoadedEnvironment | undefined>;
 
 // @public
 export const shortVersion: (version: string) => string;
@@ -298,8 +333,11 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // Warnings were encountered during analysis:
 //
 // src/config/profiles.ts:9:12 - (ae-undocumented) Missing documentation for "name".
-// src/environments/resolve.ts:89:3 - (ae-undocumented) Missing documentation for "name".
-// src/environments/resolve.ts:90:3 - (ae-undocumented) Missing documentation for "values".
+// src/environments/resolve.ts:31:3 - (ae-undocumented) Missing documentation for "variable".
+// src/environments/resolve.ts:32:3 - (ae-undocumented) Missing documentation for "field".
+// src/environments/resolve.ts:33:3 - (ae-undocumented) Missing documentation for "use".
+// src/environments/resolve.ts:158:3 - (ae-undocumented) Missing documentation for "name".
+// src/environments/resolve.ts:159:3 - (ae-undocumented) Missing documentation for "values".
 // src/eval/golden.ts:21:14 - (ae-undocumented) Missing documentation for "goldenFile".
 // src/eval/golden.ts:24:1 - (ae-undocumented) Missing documentation for "loadGolden".
 // src/eval/golden.ts:35:1 - (ae-undocumented) Missing documentation for "saveGolden".
@@ -317,7 +355,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/flow/analyse/steps.ts:118:3 - (ae-undocumented) Missing documentation for "most".
 // src/flow/runtime/start-input.ts:82:3 - (ae-undocumented) Missing documentation for "start".
 // src/flow/runtime/start-input.ts:83:3 - (ae-undocumented) Missing documentation for "input".
-// src/loader/load-application.ts:39:1 - (ae-undocumented) Missing documentation for "loadApplicationClass".
 // src/models/problems.ts:20:14 - (ae-undocumented) Missing documentation for "problemLine".
 // src/tools/mcp/facade.ts:106:14 - (ae-undocumented) Missing documentation for "isMcpFacade".
 

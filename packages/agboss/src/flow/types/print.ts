@@ -56,7 +56,7 @@ function brandLines(imported: ClassImport, names: ImportTable): readonly string[
 
 function brandBlocks(names: ImportTable): readonly string[] {
   const byModule = new Map<string, ClassImport[]>();
-  for (const imported of names.classes) {
+  for (const imported of names.classes.filter((found) => names.isBranded(found.component))) {
     const from = names.specifier(imported.file);
     byModule.set(from, [...(byModule.get(from) ?? []), imported]);
   }
@@ -73,8 +73,19 @@ function brandBlocks(names: ImportTable): readonly string[] {
 }
 
 /** The whole file. */
-export function printTypes(tables: TypeTables, names: ImportTable, tablesModule: string): string {
+/** `Environment` extends each application's contract (#261): what `ENV` gives is typed by it. */
+const environmentLines = (contracts: readonly string[]): readonly string[] =>
+  contracts.length === 0
+    ? []
+    : [`  interface Environment extends ${[...contracts].sort().join(", ")} {}`];
+
+export function printTypes(
+  tables: TypeTables & { readonly environments?: readonly string[] },
+  names: ImportTable,
+  tablesModule: string,
+): string {
   const declarations = [
+    ...environmentLines(tables.environments ?? []),
     ...tableLines("ProducerOutputs", tables.producerOutputs),
     ...tableLines("Inputs", tables.inputs),
     ...tableLines("Outputs", tables.outputs),

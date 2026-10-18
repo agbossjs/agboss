@@ -1,11 +1,13 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { workflowOf, type Class } from "../components/index.js";
+import { type Class } from "../components/index.js";
+import { workflowInApplication } from "../application/workflow-application.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { AssembledWorkflow } from "../workflow.js";
 
+import { applicationsNear } from "./application-files.js";
 import { WorkflowLoadError } from "./load-errors.js";
 import { registerTypeScript } from "./typescript.js";
 
@@ -33,8 +35,15 @@ export async function loadWorkflowClass(
   return workflow;
 }
 
-/** Loads and assembles the workflow of a module file. */
+/**
+ * Loads and assembles the workflow of a module file — in its application when one loaded lists it
+ * (its providers and `defaults`, #261).
+ */
 export const loadWorkflow = async (
   path: string,
   options: { readonly typescript?: boolean } = {},
-): Promise<AssembledWorkflow> => workflowOf(await loadWorkflowClass(path, options));
+): Promise<AssembledWorkflow> => {
+  const workflow = await loadWorkflowClass(path, options);
+  await applicationsNear(path, workflow);
+  return workflowInApplication(workflow);
+};

@@ -1,11 +1,15 @@
 import type { Mocked } from "vitest";
 import type { AppDepsOptions } from "../app/app-deps.js";
 import { applicationOf, type AssembledApplication } from "../application/assemble.js";
-import { buildApplication, type BuiltApplication } from "../application/create-app.js";
-import type { Environment } from "../environments/define.js";
+import {
+  buildApplication,
+  environmentOwnerOf,
+  type BuiltApplication,
+} from "../application/create-app.js";
+import type { Environment } from "../flow/generated-types.js";
 import {
   environmentFor,
-  TEST_DEFAULT_ENVIRONMENTS,
+  TEST_DEFAULT_ENVIRONMENT,
   type EnvironmentSelection,
 } from "../environments/load.js";
 import type { Class } from "../components/injection.js";
@@ -28,7 +32,10 @@ import { reusableInfrastructure } from "../infrastructure/contracts.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { createVcrGateway, type VcrConfig } from "./vcr.js";
 
-/** What `testWith` takes besides the application. */
+/**
+ * What `testWith` takes besides the application. `env` names the environment (default `test`: a
+ * test never falls back to dev's values, and fails without `test.environment.ts`).
+ */
 export interface TestWithOptions extends EnvironmentSelection {
   /** Components kept real: MCP server classes connect through their configured transports. */
   readonly real?: readonly Class[];
@@ -137,16 +144,17 @@ export class TestEnvironment {
   }
 
   /**
-   * Assembles the application and resolves its environment once up front: every assembly error, a
-   * missing environment or variable fails the test before it runs.
+   * Assembles the application and resolves its environment once up front (`test` unless `env`
+   * names another): every assembly error, a missing environment or variable fails the test before
+   * it runs.
    */
   static async of(application: Class, options: TestWithOptions = {}): Promise<TestEnvironment> {
     const assembled = await applicationOf(application, {}, "testWith");
     const environment = await environmentFor(
-      assembled.source,
+      environmentOwnerOf(assembled),
       options,
       testEnv(),
-      TEST_DEFAULT_ENVIRONMENTS,
+      TEST_DEFAULT_ENVIRONMENT,
     );
     return new TestEnvironment(assembled, options, environment);
   }

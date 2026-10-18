@@ -62,7 +62,7 @@ export async function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypes
   const outFile = join(request.project, GENERATED_TYPES_FILE);
   const typescript = request.typescript === undefined ? {} : { typescript: request.typescript };
   const project = await loadFlowProject(request.files, typescript);
-  const { workflows } = project;
+  const { workflows, applications } = project;
   // in this repo the tables are the framework's sources (`tablesModule`): no package to import from
   const modules =
     request.tablesModule === undefined
@@ -72,6 +72,7 @@ export async function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypes
     return { status: FlowTypesStatus.NoFlow, outFile, errors: [], warnings: [], notes: [] };
   const generated = generateFlowTypes({
     workflows,
+    applications,
     modules,
     outFile,
     ...(request.tablesModule === undefined ? {} : { tablesModule: request.tablesModule }),

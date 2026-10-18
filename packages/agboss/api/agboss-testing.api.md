@@ -393,7 +393,7 @@ export const workflowMatchers: {
 // Warning: (ae-forgotten-export) The symbol "AssembledWorkflow" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function workflowOf(workflow: Class, application?: readonly ProviderModule[]): Promise<AssembledWorkflow>;
+export const workflowOf: (workflow: Class, application?: readonly ProviderModule[]) => Promise<AssembledWorkflow>;
 
 // Warnings were encountered during analysis:
 //

@@ -4,7 +4,7 @@ import type { RagConnector } from "../rag/types.js";
 import type { RouterEngine } from "../routers/index.js";
 import { schemaOf } from "../dto/schema.js";
 import { defineTool, type AnyTool, type Tool } from "../tools/index.js";
-import type { Environment } from "../environments/define.js";
+import type { Environment } from "../flow/generated-types.js";
 import { accountedRouters } from "./accounted-router.js";
 import { LiveJudgeModel } from "./judge-call.js";
 import { LiveSpendRecorder, SpendRecorder } from "./spend-recorder.js";
@@ -29,14 +29,16 @@ import { contextSources, ragMeta, searchTool } from "./rag.js";
 /** Core services a component can depend on. */
 export const ROUTER_FACTORY = new InjectionToken<(name: string) => RouterEngine>("ROUTER_FACTORY");
 /**
- * The app's environment (#182): the values of `environments/<name>.environment.ts`, typed by the
- * `Environment` contract — `@Injectable({ deps: [ENV] })`, `constructor(env: Environment)`.
+ * The application's environment (#182, #261): the values of `environments/<name>.environment.ts`,
+ * typed by `@Application({ environment: AppEnvironment })` through the generated types —
+ * `@Injectable({ deps: [ENV] })`, `constructor(environment: AppEnvironment)`. #261 PR 3 reads it
+ * as `applicationContext.environment` instead.
  */
 export const ENV = new InjectionToken<Environment>("ENV");
 
 const missingEnvironment = new UnavailableValue(
   (dependant) =>
-    `[di.missing-environment] ${dependant} injects ENV, but the app has no environment: add environments/dev.environment.ts next to the application file (export default defineEnvironment({ … })), or pass one to testWith(…, { environment })`,
+    `[di.missing-environment] ${dependant} injects ENV, but the application declares no environment: add @Application({ environment: AppEnvironment }) and environments/<name>.environment.ts next to the application file (export const environment: AppEnvironment = { … })`,
 );
 /** `deps: [ExecutionContext]`: a live object per consumer, reading the current step (#280). */
 const liveExecutionContext = new DependantValue((dependant) => new LiveExecutionContext(dependant));

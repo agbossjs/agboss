@@ -1,28 +1,40 @@
-import { inspect } from "node:util";
-import { describe, expect, it } from "vitest";
+/**
+ * #261 PR 4 (AC8): the environment contract is a class with declared fields only, declared once in
+ * `@Application({ environment })`; each environment is `export const environment: AppEnvironment =
+ * { … }` in `environments/<name>.environment.ts` next to the application file. Apps default to
+ * `dev`, tests to `test` — and fail without it.
+ */
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { type AppOptions } from "../../src/app/create-app.js";
+import { Application } from "../../src/application/application.js";
+import { applicationOf } from "../../src/application/assemble.js";
 import { createApp } from "../../src/application/create-app.js";
-import { createMemoryLedger } from "../../src/finops/ledger.js";
-import { defineEnvironment, fromEnv } from "../../src/index.js";
-import { createSqliteTernStore } from "../../src/terns/index.js";
+import type { Class } from "../../src/components/injection.js";
+import { EnvironmentFieldType, requireEnvironmentFields } from "../../src/environments/contract.js";
+import { EnvironmentErrorCode, GraphRuleError, Injectable, env, secret } from "../../src/index.js";
+import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TestEnvironment } from "../../src/testing/environment.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
+import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
+import type { SettingsEnvironment } from "../fixtures/environments/app/environments/app.environment.js";
 import {
   ApiClient,
   ApiSettings,
   ChatStart,
   Clerk,
+  SettingsApp,
   SettingsApplication,
 } from "../fixtures/environments/app/settings.workflow.js";
 import { NoEnvironmentApplication } from "../fixtures/environments/none/no-environment.workflow.js";
 import { ObservedApplication } from "../fixtures/environments/observed/observed.workflow.js";
+import { UntestedApplication } from "../fixtures/environments/untested/untested.workflow.js";
 import { toolResultsOf } from "../testing/fixtures/requests.js";
 import { execute } from "../helpers/flow.js";
 
-/** Everything external given; `processEnv` is what `fromEnv` reads. */
+/** Everything external given; `processEnv` is what `env(…)` and `secret(…)` read. */
 function offline(processEnv: NodeJS.ProcessEnv = {}): AppOptions {
   const book = new ScriptBook();
   return {
@@ -32,129 +44,242 @@ function offline(processEnv: NodeJS.ProcessEnv = {}): AppOptions {
   };
 }
 
-const STUB = { apiUrl: "http://stub.local", apiKey: "test-key", currency: "EUR" };
+const TOKEN = { FIXTURE_API_TOKEN: "t0ken" };
 
-describe("#182 AC1: no env named → dev.environment.ts next to the workflow file", () => {
-  it("createApp(W) gives its services the dev values: literals, and fromEnv defaults", async () => {
-    const app = await createApp(SettingsApplication, offline());
-    expect(app.resolve(ApiClient).env).toEqual({
+/** The rule violations an application's assembly fails with. */
+async function violationsOf(application: Class): Promise<string[]> {
+  const error: unknown = await applicationOf(application).then(
+    () => undefined,
+    (thrown: unknown) => thrown,
+  );
+  if (!(error instanceof GraphRuleError))
+    throw new Error(`expected a GraphRuleError: ${String(error)}`);
+  return error.violations.map((found) => `[${found.code}] ${found.message}`);
+}
+
+describe("#261 AC8: no env named → dev.environment.ts next to the application file", () => {
+  it("createApp gives its services the dev values: literals, defaults of env(), env.integer(), env.flag()", async () => {
+    const app = await createApp(SettingsApplication, offline(TOKEN));
+    const { apiUrl, currency, timeoutSeconds, debug } = app.resolve(ApiClient).environment;
+    expect({ apiUrl, currency, timeoutSeconds, debug }).toEqual({
       apiUrl: "https://api.dev.example.com",
-      apiKey: "dev-key",
       currency: "USD",
+      timeoutSeconds: 30,
+      debug: false,
     });
     await app.close();
   });
 
-  it("createApp(W, { env }) loads another file; a set variable wins over the default", async () => {
-    const vars = { FIXTURE_API_KEY: "s3cret", FIXTURE_CURRENCY: "ILS" };
+  it("createApp(App, { env }) loads another file; a set variable is parsed by its field's type", async () => {
+    const vars = { ...TOKEN, FIXTURE_CURRENCY: "ILS", FIXTURE_TIMEOUT: "5" };
     const app = await createApp(SettingsApplication, { ...offline(vars), env: "staging" });
-    expect(app.resolve(ApiClient).env).toEqual({
+    const { apiUrl, currency, timeoutSeconds } = app.resolve(ApiClient).environment;
+    expect({ apiUrl, currency, timeoutSeconds }).toEqual({
       apiUrl: "https://api.staging.example.com",
-      apiKey: "s3cret",
       currency: "ILS",
+      timeoutSeconds: 5,
     });
     await app.close();
   });
-});
 
-describe("#182 AC3: fromEnv is resolved at start", () => {
-  it("a missing required variable fails the start naming every missing one", async () => {
-    await expect(createApp(SettingsApplication, { ...offline(), env: "staging" })).rejects.toThrow(
-      'Environment "staging": missing variables FIXTURE_API_KEY, FIXTURE_CURRENCY',
-    );
-    await expect(
-      createApp(SettingsApplication, { ...offline({ FIXTURE_CURRENCY: "ILS" }), env: "staging" }),
-    ).rejects.toThrow(/missing variables FIXTURE_API_KEY$/);
-  });
-
-  it("an unknown name fails at once, listing the available environments", async () => {
-    await expect(createApp(SettingsApplication, { ...offline(), env: "nope" })).rejects.toThrow(
-      /Environment "nope" not found: .*nope\.environment\.ts\. Available: dev, staging/,
-    );
-  });
-
-  it("a secret is the real value for the service, masked wherever it is printed", async () => {
-    const app = await createApp(SettingsApplication, offline({ FIXTURE_API_KEY: "s3cret" }));
-    const env = app.resolve(ApiClient).env;
-    expect(env.apiKey).toBe("s3cret");
-    expect(JSON.stringify(env)).toBe(
-      '{"apiUrl":"https://api.dev.example.com","apiKey":"***","currency":"USD"}',
-    );
-    expect(inspect(env)).not.toContain("s3cret");
+  it("the environment is frozen", async () => {
+    const app = await createApp(SettingsApplication, offline(TOKEN));
+    expect(Object.isFrozen(app.resolve(ApiClient).environment)).toBe(true);
     await app.close();
   });
 });
 
-describe("#182 AC6: ENV injected with no environment → [di.missing-environment] at start", () => {
-  it("the app does not start and names the service that injects ENV", async () => {
+describe("#261 AC9: a missing process variable fails the start naming it, the field and the environment", () => {
+  it("every missing variable at once, never a value", async () => {
+    await expect(createApp(SettingsApplication, { ...offline(), env: "staging" })).rejects.toThrow(
+      "FIXTURE_API_TOKEN is not set (SettingsEnvironment.apiToken, staging); " +
+        "FIXTURE_CURRENCY is not set (SettingsEnvironment.currency, staging); " +
+        "FIXTURE_TIMEOUT is not set (SettingsEnvironment.timeoutSeconds, staging)",
+    );
+  });
+
+  it("a value that is not of the field's type fails the start too", async () => {
+    const vars = { ...TOKEN, FIXTURE_TIMEOUT: "soon", FIXTURE_DEBUG: "maybe" };
+    await expect(createApp(SettingsApplication, offline(vars))).rejects.toMatchObject({
+      code: EnvironmentErrorCode.InvalidValue,
+      message:
+        "FIXTURE_TIMEOUT is not an integer (SettingsEnvironment.timeoutSeconds, dev); " +
+        "FIXTURE_DEBUG is not a flag (true, false, 1, 0) (SettingsEnvironment.debug, dev)",
+    });
+  });
+
+  it("an unknown name fails at once, listing the environments (not the contract file)", async () => {
+    await expect(createApp(SettingsApplication, { ...offline(), env: "nope" })).rejects.toThrow(
+      /Environment "nope" not found: .*nope\.environment\.ts\. Available: dev, staging, test$/,
+    );
+  });
+
+  it("naming the contract's file is not an environment", async () => {
+    await expect(createApp(SettingsApplication, { ...offline(), env: "app" })).rejects.toThrow(
+      /app\.environment\.ts holds the contract SettingsEnvironment, not an environment/,
+    );
+  });
+});
+
+describe("#261: an application without an environment contract", () => {
+  it("a service injecting ENV fails the start with [di.missing-environment], naming the fix", async () => {
     await expect(createApp(NoEnvironmentApplication, offline())).rejects.toThrow(
-      /^\[di\.missing-environment\] ApiClient injects ENV, but the app has no environment/,
+      /^\[di\.missing-environment\] ApiClient injects ENV, but the application declares no environment: add @Application\(\{ environment: AppEnvironment \}\)/,
     );
   });
 
   it("#239: an observer injecting ENV (no tool does) fails the start the same way", async () => {
     await expect(createApp(ObservedApplication, offline())).rejects.toThrow(
-      /^\[di\.missing-environment\] RunLog injects ENV, but the app has no environment/,
+      /^\[di\.missing-environment\] RunLog injects ENV/,
     );
   });
 
-  it("naming an environment without an environments/ folder fails as not found", async () => {
-    await expect(createApp(NoEnvironmentApplication, { ...offline(), env: "dev" })).rejects.toThrow(
-      /Environment "dev" not found: .*Available: none/,
-    );
+  it("naming an environment fails: the application declares none", async () => {
+    await expect(
+      createApp(NoEnvironmentApplication, { ...offline(), env: "dev" }),
+    ).rejects.toMatchObject({
+      code: EnvironmentErrorCode.NoContract,
+      message: expect.stringContaining(
+        "no-environment-application declares no environment",
+      ) as string,
+    });
   });
 });
 
-const withValues = testWith(SettingsApplication, { environment: STUB });
-const byDefault = testWith(SettingsApplication);
+describe("#261 AC8: tests default to the test environment", () => {
+  beforeAll(() => {
+    vi.stubEnv("FIXTURE_API_TOKEN", "test-t0ken");
+  });
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
 
-describe("#182 AC4: a test gives its own environment; the service receives it", () => {
-  withValues(
-    "testWith(W, { environment }) — the agent's tool sees it",
+  const byDefault = testWith(SettingsApplication);
+  const asDev = testWith(SettingsApplication, { env: "dev" });
+
+  byDefault(
+    "no option → test.environment.ts — the agent's tool sees it",
     async ({ app, mockLlm }) => {
       mockLlm(Clerk).thenReturn(callTool(ApiSettings, { what: "all" }), replyWith("done"));
 
       await execute(app, ChatStart, { text: "which API?" });
 
-      expect(toolResultsOf(mockLlm(Clerk).lastRequest)).toEqual([JSON.stringify(STUB)]);
+      expect(toolResultsOf(mockLlm(Clerk).lastRequest)).toEqual([
+        JSON.stringify({ apiUrl: "https://api.test.example.com", currency: "EUR" }),
+      ]);
     },
   );
 
-  withValues("app.tool(X) uses the same values", async ({ app }) => {
-    expect(await app.tool(ApiSettings).invoke({ what: "all" })).toEqual({
-      kind: "ok",
-      value: STUB,
-    });
-  });
-});
-
-describe("#182: testWith picks an environment by the same rules as createApp", () => {
-  byDefault("no option → dev.environment.ts", async ({ app }) => {
+  asDev("{ env } names another one", async ({ app }) => {
     expect(await app.tool(ApiSettings).invoke({ what: "all" })).toMatchObject({
       value: { apiUrl: "https://api.dev.example.com", currency: "USD" },
     });
   });
 
-  it("{ env } with a missing variable fails before the test runs", async () => {
-    await expect(TestEnvironment.of(SettingsApplication, { env: "staging" })).rejects.toThrow(
-      /missing variables FIXTURE_API_KEY, FIXTURE_CURRENCY/,
+  it("no test.environment.ts → the test fails, saying to create it (never dev's values)", async () => {
+    await expect(TestEnvironment.of(UntestedApplication)).rejects.toThrow(
+      /Environment "test" not found: .*untested\/environments\/test\.environment\.ts — tests run on the test environment, never on dev's values: create it \(export const environment: SettingsEnvironment = \{ … \}\)/,
     );
+  });
+
+  it("testWith takes no environment values: one way, the environment files", () => {
+    // @ts-expect-error — `environment` is not an option: name an environment with `env`
+    expect(testWith(SettingsApplication, { environment: { apiUrl: "x" } })).toBeTypeOf("function");
   });
 });
 
-describe("#182 AC5: an environment file is checked against the contract by tsc", () => {
-  it("a missing or mistyped field does not compile", () => {
-    // @ts-expect-error — `currency` is missing: the contract requires it
-    const missing = defineEnvironment({ apiUrl: "https://x", apiKey: fromEnv("KEY") });
-    // @ts-expect-error — `apiUrl` is a string in the contract
-    const mistyped = defineEnvironment({ apiUrl: 42, apiKey: "k", currency: "USD" });
-    // @ts-expect-error — a field the contract does not have
-    const extra = defineEnvironment({ ...STUB, region: "eu" });
-    expect([missing, mistyped, extra]).toHaveLength(3);
+/** A contract with a value in a field: silently ignored by the environments, so an error. */
+export class ValuedEnvironment {
+  apiUrl!: string;
+  region = "europe-west1";
+}
+
+@Application({
+  name: "valued-application",
+  version: "1.0.0",
+  environment: ValuedEnvironment,
+  workflows: [SettingsApp],
+  budgets: TEST_BUDGETS,
+})
+class ValuedApplication {}
+
+/** A framework implementation that reads a field of the project's contract. */
+@Injectable()
+class FilePausedExecutionRepository extends InMemoryPausedExecutionRepository {}
+requireEnvironmentFields(FilePausedExecutionRepository, [
+  { field: "sqlitePath", type: EnvironmentFieldType.Text },
+  { field: "apiUrl", type: EnvironmentFieldType.Text },
+]);
+
+@Application({
+  name: "ledger-application",
+  version: "1.0.0",
+  environment: ValuedEnvironment,
+  workflows: [SettingsApp],
+  providers: [FilePausedExecutionRepository],
+  budgets: TEST_BUDGETS,
+})
+class LedgerApplication {}
+
+@Application({
+  name: "contractless-application",
+  version: "1.0.0",
+  workflows: [SettingsApp],
+  providers: [FilePausedExecutionRepository],
+  budgets: TEST_BUDGETS,
+})
+class ContractlessApplication {}
+
+describe("#261 AC8: the contract's rules, at the application's assembly", () => {
+  it("contract value: a field with a value → [environment.contract-value]", async () => {
+    expect(await violationsOf(ValuedApplication)).toEqual([
+      "[environment.contract-value] ValuedEnvironment.region has a value — the contract declares fields only; put the value in each environment",
+    ]);
   });
 
-  it("testWith's environment is typed by the contract too", () => {
-    // @ts-expect-error — `apiKey` and `currency` are missing
-    expect(testWith(SettingsApplication, { environment: { apiUrl: "x" } })).toBeTypeOf("function");
+  it("missing field names it: a listed implementation's field missing from the contract", async () => {
+    expect(await violationsOf(LedgerApplication)).toContain(
+      "[environment.missing-field] FilePausedExecutionRepository needs sqlitePath: string in ValuedEnvironment",
+    );
+    expect(await violationsOf(LedgerApplication)).not.toContainEqual(
+      expect.stringContaining("needs apiUrl"),
+    );
+  });
+
+  it("missing field without a contract names the fix", async () => {
+    expect(await violationsOf(ContractlessApplication)).toEqual([
+      "[environment.missing-field] FilePausedExecutionRepository needs sqlitePath: string in the environment contract — declare one: @Application({ environment: AppEnvironment })",
+      "[environment.missing-field] FilePausedExecutionRepository needs apiUrl: string in the environment contract — declare one: @Application({ environment: AppEnvironment })",
+    ]);
+  });
+});
+
+describe("#261 AC8: an environment is a typed object literal", () => {
+  it("a missing field, a mistyped one or a field the contract lacks does not compile", () => {
+    // @ts-expect-error — `debug` is missing: the contract requires it
+    const missing: SettingsEnvironment = {
+      apiUrl: "https://x",
+      apiToken: secret("TOKEN"),
+      currency: "USD",
+      timeoutSeconds: 1,
+    };
+    const mistyped: SettingsEnvironment = {
+      apiUrl: "https://x",
+      apiToken: secret("TOKEN"),
+      currency: "USD",
+      // @ts-expect-error — `timeoutSeconds` is a number: env.integer(…), not env(…)
+      timeoutSeconds: env("TIMEOUT"),
+      debug: false,
+    };
+    const extra: SettingsEnvironment = {
+      apiUrl: "https://x",
+      apiToken: secret("TOKEN"),
+      currency: "USD",
+      timeoutSeconds: 1,
+      debug: env.flag("DEBUG"),
+      // @ts-expect-error — a field the contract does not have
+      region: "eu",
+    };
+    expect([missing, mistyped, extra]).toHaveLength(3);
   });
 });

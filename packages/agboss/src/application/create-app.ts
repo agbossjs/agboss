@@ -4,7 +4,7 @@ import type { App } from "../app/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import { startComponents } from "../components/container/lifecycle.js";
 import type { Class } from "../components/injection.js";
-import { environmentFor } from "../environments/load.js";
+import { environmentFor, type EnvironmentOwner } from "../environments/load.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import type { Timers } from "../infrastructure/timers.js";
@@ -144,6 +144,13 @@ function stopOf(
   });
 }
 
+/** Where an assembled application's environments are, and its contract. */
+export const environmentOwnerOf = (assembled: AssembledApplication): EnvironmentOwner => ({
+  application: assembled.name,
+  source: assembled.source,
+  contract: assembled.environment,
+});
+
 /**
  * Builds an `@Application` into an app instance: every workflow assembled (all assembly errors at
  * once), the environment next to the application file, one container, the components' `onInit` →
@@ -157,7 +164,7 @@ export async function createApp<TApplication extends Class>(
 ): Promise<App> {
   const assembled = await applicationOf(application, options);
   const environment = await environmentFor(
-    assembled.source,
+    environmentOwnerOf(assembled),
     options,
     options.processEnv ?? process.env,
   );

@@ -1,8 +1,11 @@
 import { createAppDeps, type AppDeps, type AppDepsOptions } from "../app/app-deps.js";
-import { workflowOf } from "../components/assemble.js";
 import type { Class } from "../components/injection.js";
 import { ProfileError } from "../config/profiles.js";
-import { environmentFor, workflowFileOf } from "../environments/load.js";
+import { environmentFor } from "../environments/load.js";
+import {
+  environmentOwnerOfWorkflow,
+  workflowInApplication,
+} from "../application/workflow-application.js";
 import { withProfile } from "../profile-workflow.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { pairwise, runProfile, type ProfileOutcome } from "./compare.js";
@@ -94,12 +97,12 @@ export async function compareProfiles(
   options: CompareProfilesOptions,
 ): Promise<ProfileComparison> {
   const environment = await environmentFor(
-    workflowFileOf(workflow),
+    environmentOwnerOfWorkflow(workflow),
     options,
     options.processEnv ?? process.env,
   );
   return compareBundleProfiles(
-    await workflowOf(workflow),
+    await workflowInApplication(workflow),
     options.profiles,
     { ...options, ...(environment === undefined ? {} : { environment }) },
     () => Promise.resolve(options.tasks),
