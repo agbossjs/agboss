@@ -47,6 +47,7 @@ import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { buildApplication } from "../../src/application/create-app.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../src/index.js";
 
 class ToolInput {
   @Text() text!: string;
@@ -199,6 +200,7 @@ class TailsWorkflow {}
 @Application({
   name: "tails-test-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [TailsWorkflow],
   budgets: TEST_BUDGETS,
 })

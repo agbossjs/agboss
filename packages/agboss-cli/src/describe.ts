@@ -1,8 +1,7 @@
 import { describeWorkflow, loadWorkflow, withProfile } from "agboss";
 import { describedEnvironmentFor } from "agboss/internal";
-import { resolve } from "node:path";
 import { describeData } from "./cli/describe-data.js";
-import { envOption } from "./cli/environment.js";
+import { envOption, environmentOwner } from "./cli/environment.js";
 import { loadOptions, textOption, workflowPath, type CommandHandler } from "./cli/context.js";
 
 /** `agboss describe --workflow <path> [--profile <p>] [--env <name>] [--json]` — no API key or network needed. */
@@ -12,7 +11,7 @@ export const handle: CommandHandler = async (context) => {
   const workflow = await loadWorkflow(file, loadOptions(context));
   const bundle = await withProfile(workflow, profile, context.io.cwd);
   const environment = await describedEnvironmentFor(
-    resolve(file),
+    await environmentOwner(context, file),
     envOption(context),
     context.io.env,
   );

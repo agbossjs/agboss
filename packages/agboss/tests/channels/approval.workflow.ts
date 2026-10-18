@@ -19,6 +19,7 @@ import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto
 import { start } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../src/index.js";
 
 /** What the channel posted and what the tool did — the observable effects the tests read. */
 @Injectable()
@@ -140,6 +141,7 @@ export class Refunds extends NoLimits {}
 @Application({
   name: "refunds-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [Refunds],
   budgets: TEST_BUDGETS,
 })
@@ -176,6 +178,7 @@ export class AuditedRefunds extends NoLimits {}
 @Application({
   name: "audited-refunds-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [AuditedRefunds],
   budgets: TEST_BUDGETS,
 })

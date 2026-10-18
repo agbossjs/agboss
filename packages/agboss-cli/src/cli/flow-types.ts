@@ -19,7 +19,8 @@ function sourceRootOf(module: string): string | undefined {
 }
 
 /**
- * The module and the other workflow modules of its `src/` (`*.workflow.ts`): one
+ * The module and the other workflow and application modules of its `src/` (`*.workflow.ts`,
+ * `*.application.ts` — #261: an application's `defaults` and environment contract): one
  * `.agboss/types.d.ts` holds the types of every workflow of the project, so checking one keeps the
  * others'. A module outside a `src/` is generated alone.
  */
@@ -28,7 +29,11 @@ function workflowModulesOf(project: string, file: string): string[] {
   const root = sourceRootOf(given);
   if (root === undefined) return [given];
   const found = readdirSync(root, { recursive: true, encoding: "utf8" })
-    .filter((path) => path.endsWith(".workflow.ts") && !path.split(sep).includes("node_modules"))
+    .filter(
+      (path) =>
+        (path.endsWith(".workflow.ts") || path.endsWith(".application.ts")) &&
+        !path.split(sep).includes("node_modules"),
+    )
     .map((path) => join(root, path));
   return [given, ...found.filter((path) => path !== given)];
 }

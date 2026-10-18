@@ -10,8 +10,18 @@ export { createStartComponents } from "./app/start-components.js";
 export { renderTemplate } from "./components/render-template.js";
 export { ProfileError } from "./config/profiles.js";
 export { describeServices, describeServicesWith } from "./describe/describe-workflow.js";
-export { describedEnvironmentFor, environmentFor } from "./environments/load.js";
-export { type DescribedEnvironment } from "./environments/resolve.js";
+export {
+  describedEnvironmentFor,
+  environmentFor,
+  selectedEnvironment,
+  type EnvironmentOwner,
+} from "./environments/load.js";
+export {
+  environmentVariablesOf,
+  resolveEnvironment,
+  type DescribedEnvironment,
+  type ProcessVariable,
+} from "./environments/resolve.js";
 export { compareBundleProfiles } from "./eval/compare-profiles.js";
 export { formatComparison } from "./eval/compare-report.js";
 export { evaluate } from "./eval/eval.js";
@@ -28,7 +38,14 @@ export { inputLines } from "./describe/inputs.js";
 export { stepsRangeOf, type StepsRange } from "./flow/analyse/steps.js";
 export { executeUnchecked } from "./app/execute-unchecked.js";
 export { textStartOfWorkflow } from "./application/compose-app.js";
-export { loadApplicationClass } from "./loader/load-application.js";
+export {
+  defaultSourceOf,
+  defaultsLevelsOf,
+  DefaultsLevel,
+  type DefaultSource,
+  type DefaultsLevels,
+} from "./config/defaults.js";
+export { environmentOwnerOfFile, loadApplicationClass } from "./loader/load-application.js";
 export { requestOfTask, textRequestOf, type StartRequest } from "./flow/runtime/start-input.js";
 export { GENERATED_TYPES_FILE } from "./flow/types/generate.js";
 export {

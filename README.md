@@ -129,7 +129,7 @@ written to the home folder) and every budget. `createApp` and `testWith` take it
 
 ```ts file=src/job-scout.application.ts
 // src/job-scout.application.ts — what createApp(JobScoutApplication, { env }) and testWith run
-import { Application, Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
+import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope, EmptyEnvironment } from "agboss";
 import { usd, type Usd } from "agboss/units";
 import { JobScout } from "./job-scout.workflow.js";
 
@@ -143,6 +143,7 @@ export class TenantDailyBudget implements BudgetHandler {
 @Application({
   name: "job-scout-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [JobScout], // app.execute(ChatWorkflowStart, …) runs the workflow of that start
   budgets: [TenantDailyBudget], // config/budget.config.ts in a project; checked from #261 PR 5
 })
@@ -201,7 +202,7 @@ One package; the root `agboss` is the authoring API, the rest are focused entrie
 
 - `agboss` — `@Workflow`, `@Agent`, `@Router`, `@Tool`, `@Injectable`, `@Action`,
   `@WorkflowStart` / `@WorkflowFinish`, `@Judge`, `@Guardrail`, `@PiiPolicy`, `@Channel`,
-  `InjectionToken`, `provide`, `ENV`, `defineEnvironment`, `fromEnv`, the path builder (`start`,
+  `InjectionToken`, `provide`, `ENV`, `env`, `secret`, `Secret`, the path builder (`start`,
   `agent`, `router`, `action`, `route`, `caseOf`, `toAgent`, `toAction`, `toFinish`, …),
   `WorkflowSettings`, `@Application`, `createApp`, `@Budget`, the infrastructure contracts,
   `Decision`, observers, errors and types
@@ -234,56 +235,136 @@ only `agboss` — both enforced by ESLint.
 
 ## Environments
 
-Angular-style environment files, next to the application file in `environments/`. The application
-itself says nothing about them.
+One set per application, in `environments/` next to the application file (#261). The contract is a
+plain class with declared fields only, declared once in the application:
 
-```ts
-// src/environments/environment.ts — the contract: which fields every environment has
-declare module "agboss" {
-  interface Environment {
-    readonly apiUrl: string;
-    readonly apiKey: string;
-    readonly currency: string;
+<!-- snippet-context
+import { Application, Workflow, WorkflowStart, start, WorkflowFinish } from "agboss";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Budget, BudgetScope, BudgetPeriod, type BudgetHandler } from "agboss";
+import { usd, type Usd } from "agboss/units";
+@WorkflowStart({ name: "audit-workflow-start", description: "A request", input: WorkflowStartTextDto })
+export class AuditWorkflowStart {}
+@WorkflowFinish({ name: "audit-workflow-finish", description: "The answer", output: WorkflowStartTextDto })
+export class AuditWorkflowFinish {}
+@Workflow({
+  name: "audit-workflow",
+  version: "1.0.0",
+  flow: [
+    start(AuditWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toFinish(AuditWorkflowFinish),
+  ],
+})
+export class AuditWorkflow {}
+@Budget({ name: "audit-execution-budget", scope: BudgetScope.Execution })
+export class AuditExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.1);
   }
 }
-export {};
+// @snippet
+-->
+
+```ts file=src/audit/audit.application.ts
+import { AppEnvironment } from "./environments/app.environment.js";
+
+@Application({
+  name: "audit-application",
+  version: "1.0.0",
+  environment: AppEnvironment, // the contract: environments/app.environment.ts
+  workflows: [AuditWorkflow],
+  budgets: [AuditExecutionBudget],
+})
+export class AuditApplication {}
 ```
 
-```ts
-// src/environments/dev.environment.ts — one file per environment: dev, staging, test, …
-import { defineEnvironment, fromEnv } from "agboss";
+```ts file=src/audit/environments/app.environment.ts
+// environments/app.environment.ts — the contract: fields only, no values
+import type { Secret } from "agboss";
 
-export default defineEnvironment({
-  apiUrl: "https://api.example.com", // a value in the file
-  apiKey: fromEnv("API_KEY", { secret: true }), // a process variable, masked when printed
-  currency: fromEnv("CURRENCY", { default: "USD" }), // a process variable with a default
-});
-```
-
-`defineEnvironment` is typed by `Environment`: a missing or mistyped field is a `tsc` error in that
-file. Services inject the values with the framework's `ENV` token:
-
-```ts
-import { ENV, Injectable, type Environment } from "agboss";
-
-@Injectable({ deps: [ENV] })
-export class Api {
-  constructor(private readonly env: Environment) {}
+export class AppEnvironment {
+  auditUrl!: string;
+  databaseUrl!: Secret;
+  port!: number;
+  debug!: boolean;
 }
 ```
 
-- `agboss chat --workflow src/app.workflow.ts` (the application that lists it) loads `dev`; `--env staging` loads
-  `staging.environment.ts` (every workflow command takes `--env`). An unknown name fails at once
-  (exit 3) listing the available ones; a `fromEnv` variable without a value or default fails the
-  start naming every missing variable. `agboss check` validates the selected environment without
-  running anything, creating every component the start creates (tools, observers, judges, …), so it
-  fails exactly when the start would; `agboss describe` shows it with secrets masked.
-- From code: `createApp(Application, { env: "staging" })`. In tests:
-  `testWith(Application, { env: "test" })` or `testWith(Application, { environment: { … } })`
-  (typed by `Environment`).
-- A service injecting `ENV` in an application without `environments/` fails at start with
-  `[di.missing-environment]`.
-- Model provider keys are not part of it: they stay process variables (`EnvironmentVariable.named`).
+Each environment is a plain object typed by the contract, in `<name>.environment.ts` — the file name
+is the environment's name (`--env prod` → `prod.environment.ts`):
+
+```ts file=src/audit/environments/prod.environment.ts
+import { env, secret } from "agboss";
+import type { AppEnvironment } from "./app.environment.js";
+
+export const environment: AppEnvironment = {
+  auditUrl: env("AUDIT_URL"), // a process variable, read when the app starts
+  databaseUrl: secret("DATABASE_URL"), // a Secret: only from a process variable, no default
+  port: env.integer("PORT", { default: 8080 }),
+  debug: env.flag("DEBUG", { default: false }),
+};
+```
+
+```ts file=src/audit/environments/dev.environment.ts
+import { secret } from "agboss";
+import type { AppEnvironment } from "./app.environment.js";
+
+export const environment: AppEnvironment = {
+  auditUrl: "http://localhost:4000", // a value in the file
+  databaseUrl: secret("DATABASE_URL"), // `.env`: e.g. pglite://memory — dev without Docker
+  port: 8080,
+  debug: true,
+};
+```
+
+- A field missing in an environment, a mistyped one or one the contract lacks does not compile; a
+  literal in a `Secret` field does not compile either, and a `Secret` is not a `string`. A value in
+  the contract (`auditUrl: string = "…"` — the environments are object literals, it would be
+  ignored) fails assembly: `[environment.contract-value] AppEnvironment.auditUrl has a value — the
+contract declares fields only; put the value in each environment`. A framework implementation
+  listed in `providers` whose field the contract lacks fails with `[environment.missing-field]`.
+- There are no wrappers: no `declare module`, no `export default`, no `defineEnvironment` /
+  `fromEnv`. `agboss check` writes `interface Environment extends AppEnvironment {}` into
+  `.agboss/types.d.ts`, so services inject the values with the framework's `ENV` token, typed by
+  the contract — never `process.env`:
+
+```ts file=src/audit/services/audit-store.service.ts
+import { ENV, Injectable } from "agboss";
+import type { AppEnvironment } from "../environments/app.environment.js";
+
+@Injectable({ deps: [ENV] })
+export class AuditStoreService {
+  constructor(private readonly environment: AppEnvironment) {}
+
+  connectionString(): string {
+    return this.environment.databaseUrl.reveal(); // the only way to the value
+  }
+}
+```
+
+- A `Secret` prints as `***` everywhere it could be printed — logs, traces, JSON, `agboss describe`,
+  error messages; only `.reveal()` gives the value. Secrets are process variables and only that: in
+  Cloud Run a Secret Manager secret is bound to the variable at deploy
+  (`--set-secrets=DATABASE_URL=database-url:3`); the framework calls no cloud SDK.
+- `agboss chat --workflow src/app.workflow.ts` (the application that lists it) loads `dev`;
+  `--env staging` loads `staging.environment.ts` (every workflow command takes `--env`). An unknown
+  name fails at once (exit 3) listing the available ones; a variable without a value or default fails
+  the start naming it, the field and the environment, never the value:
+  `DATABASE_URL is not set (AppEnvironment.databaseUrl, prod)`. `agboss check` validates the selected
+  environment without running anything, creating every component the start creates, so it fails
+  exactly when the start would; `agboss check --env prod` lists the process variables it needs,
+  marked value / secret; `agboss describe` shows the environment with secrets masked.
+- From code: `createApp(Application, { env: "staging" })`. Tests run on `test`:
+  `testWith(Application)` loads `test.environment.ts` and fails without it (a test never reaches
+  dev's addresses by accident); `testWith(Application, { env: "dev" })` names another.
+- Dev / prod parity (12-factor): the same `providers` — the same implementations and code — in
+  every environment; only values differ.
+- `environment` is required: an application with no settings declares the framework's empty
+  contract, `@Application({ environment: EmptyEnvironment })` (any contract without fields works the
+  same), and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets `[di.missing-environment]` for an `ENV` consumer.)
+- Model provider keys are not part of it yet: they stay process variables
+  (`EnvironmentVariable.named`) until #266 reads them from the environment.
 
 ## Quality gates (judges)
 

@@ -25,6 +25,7 @@ import { MainRouter } from "./routers/main.router.js";
     // reasoning and caching: the model provider's (model-providers/), an agent may override them
     models: { temperature: 0 },
     router: { model: "typesafe/jev-1.13" },
+    guardrail: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 8 },
     history: { limit: 8 },
   },

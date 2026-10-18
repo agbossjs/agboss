@@ -1,4 +1,4 @@
-import { Application } from "agboss";
+import { Application, EmptyEnvironment } from "agboss";
 import {
   ApplicationDailyBudget,
   ExecutionBudget,
@@ -14,6 +14,7 @@ import { OfferWorkflow } from "./offer/offer.workflow.js";
 @Application({
   name: "flow-patterns-application",
   version: "1.0.0",
+  environment: EmptyEnvironment, // the patterns have no settings: no environment file
   workflows: [OfferWorkflow, CreditWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
 })

@@ -82,8 +82,9 @@ holds from its type**, not guess it from the name.
 - **Config-driven.** Agents, models, thinking and caching live in the workflow's components
   (`@Agent`, `@Router`, `@Workflow`), assembled into the config and validated at startup; limits
   live in the workflow's `settings()` (`WorkflowSettings.builder().limits(...)`), not in config.
-  Every chat model inherits `defaults.chat`; each router names its own `model`; guards use
-  `defaults.router` (Jev). Model choice is config, never code. Reference: Wiki → Configuration.
+  Every chat model inherits `defaults.chat`; each router names its own `model` or takes
+  `defaults.router.model`; guards take `defaults.guardrail.model` (Jev), never the router's —
+  `defaults` cascade application → workflow → component (#261). Model choice is config, never code. Reference: Wiki → Configuration.
 - **`MODEL_MAX` is the only way to say "no output cap"** — never a magic large number.
 - **Models come from model providers** (`@ModelProvider`, `agboss/models`, #151): each model
   is served by exactly one registered provider (`serves`); reasoning and caching are the

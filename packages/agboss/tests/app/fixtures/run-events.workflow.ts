@@ -36,6 +36,7 @@ import {
 import { start } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /** One observer event: the hook, the run and thread it carried, and what else the test checks. */
 export interface SeenEvent {
@@ -205,6 +206,7 @@ export class Applications {}
 @Application({
   name: "applications-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [Applications],
   budgets: TEST_BUDGETS,
 })

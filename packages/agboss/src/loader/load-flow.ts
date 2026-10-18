@@ -1,6 +1,7 @@
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readdirSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { applicationDeclarationOf } from "../application/application.js";
 import type { Class } from "../components/injection.js";
 import { walkFlow } from "../flow/analyse/walk.js";
 import type { LoadedModule } from "../flow/analyse/rules/context.js";
@@ -19,6 +20,8 @@ import { importedModules, registerTypeScript } from "./typescript.js";
 /** The v2 workflows of the loaded files and the project modules with their named exports. */
 export interface FlowProject {
   readonly workflows: readonly Class[];
+  /** The `@Application` classes the loaded modules export (#261: defaults, environment contract). */
+  readonly applications: readonly Class[];
   readonly modules: readonly LoadedModule[];
 }
 
@@ -29,6 +32,9 @@ export interface FlowLoadOptions {
 
 const isFlowWorkflow = (value: unknown): value is Class =>
   typeof value === "function" && declarationOf(value as Class)?.kind === NodeKind.Workflow;
+
+const isApplication = (value: unknown): value is Class =>
+  typeof value === "function" && applicationDeclarationOf(value as Class) !== undefined;
 
 const namespaceOf = async (file: string): Promise<Readonly<Record<string, unknown>>> =>
   (await import(pathToFileURL(file).href)) as Readonly<Record<string, unknown>>;
@@ -42,6 +48,23 @@ function componentFiles(workflows: readonly Class[]): readonly string[] {
     return [...nodes.values()].flatMap((node) =>
       node.declaration.source === undefined ? [] : [node.declaration.source],
     );
+  });
+}
+
+/**
+ * The files of each application's `environments/` folder (#261): its contract is imported from
+ * there by the generated types, whether or not tsx recorded the import.
+ */
+function environmentFilesOf(applications: readonly Class[]): string[] {
+  return applications.flatMap((application) => {
+    const source = applicationDeclarationOf(application)?.source;
+    if (source === undefined) return [];
+    const dir = join(dirname(source), "environments");
+    if (!existsSync(dir)) return [];
+    return readdirSync(dir)
+      .filter((file) => /\.environment\.(ts|mts|js|mjs)$/.test(file) && !file.endsWith(".d.ts"))
+      .sort()
+      .map((file) => join(dir, file));
   });
 }
 
@@ -67,5 +90,11 @@ export async function loadFlowProject(
     });
     if (exports !== undefined) modules.push({ file, exports });
   }
-  return { workflows, modules };
+  const applications = [
+    ...new Set(modules.flatMap((module) => Object.values(module.exports).filter(isApplication))),
+  ];
+  const loaded = new Set(modules.map((module) => module.file));
+  for (const file of environmentFilesOf(applications).filter((path) => !loaded.has(path)))
+    modules.push({ file, exports: await namespaceOf(file) });
+  return { workflows, applications, modules };
 }

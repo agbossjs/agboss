@@ -1,6 +1,7 @@
-import { defineEnvironment, fromEnv } from "agboss";
+import { env } from "agboss";
+import type { AppEnvironment } from "./app.environment.js";
 
 /** `--env staging`: values from the deployment's variables. */
-export default defineEnvironment({
-  apiUrl: fromEnv("API_URL", { default: "https://staging-api.example.com" }),
-});
+export const environment: AppEnvironment = {
+  apiUrl: env("API_URL", { default: "https://staging-api.example.com" }),
+};

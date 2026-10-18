@@ -39,6 +39,7 @@ import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../src/index.js";
 
 function offline(book: ScriptBook, stubs = new McpStubs(book)): AppOptions {
   return {
@@ -115,6 +116,7 @@ class ClerkDesk implements WorkflowDefinition {
 @Application({
   name: "clerk-desk-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [ClerkDesk],
   budgets: TEST_BUDGETS,
 })

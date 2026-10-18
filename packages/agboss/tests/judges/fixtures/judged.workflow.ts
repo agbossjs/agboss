@@ -22,6 +22,7 @@ import { LocalModelProvider } from "../../models/providers.fixture.js";
 import { start } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /** What the judge asks its model (a provider value: the judge gets it through its `deps`). */
 export const RUBRIC = new InjectionToken<string>("RUBRIC");
@@ -98,6 +99,7 @@ export class JudgedDesk implements WorkflowDefinition {
 @Application({
   name: "judged-desk-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [JudgedDesk],
   budgets: TEST_BUDGETS,
 })
@@ -140,6 +142,7 @@ export class ModellessDesk implements WorkflowDefinition {
 @Application({
   name: "modelless-desk-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [ModellessDesk],
   budgets: TEST_BUDGETS,
 })

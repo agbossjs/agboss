@@ -12,6 +12,7 @@ import { LimitExceededError } from "../../../../src/graph/limits.js";
 import { route, start, toFinish } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../../src/index.js";
 
 /**
  * #280 S19 — a code router whose answer the test picks: a target, a class outside its routes (what
@@ -135,6 +136,7 @@ export class AskWorkflow {}
 @Application({
   name: "ask-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [AskWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -164,6 +166,7 @@ export class AskCaughtWorkflow {}
 @Application({
   name: "ask-caught-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [AskCaughtWorkflow],
   budgets: TEST_BUDGETS,
 })

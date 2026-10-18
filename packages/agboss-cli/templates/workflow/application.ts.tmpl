@@ -1,15 +1,16 @@
-import { Application } from "agboss";
+import { {{agbossImports}} } from "agboss";
 import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./config/budget.config.js";
-import { {{pascal}}Workflow } from "./{{kebab}}.workflow.js";
+{{environmentImport}}import { {{pascal}}Workflow } from "./{{kebab}}.workflow.js";
 
 /**
  * The application — what `createApp` and `testWith` take: its workflows, its infrastructure
- * (`providers`; none listed → the built-in in-memory defaults) and every budget. Its environments
- * are in `environments/` next to this file.
+ * (`providers`; none listed → the built-in in-memory defaults), every budget and its environment
+ * contract (required; `environments/` next to this file).
  */
 @Application({
   name: "{{kebab}}-application",
   version: "0.1.0",
+  environment: {{environment}},
   workflows: [{{pascal}}Workflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
 })

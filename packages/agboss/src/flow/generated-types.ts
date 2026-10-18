@@ -85,6 +85,15 @@ export interface RouterAnswers {
   readonly [notGenerated]?: never;
 }
 
+/**
+ * The application's environment (#261): what `ENV` gives. The generated file makes it the
+ * application's contract — `interface Environment extends AppEnvironment {}` for
+ * `@Application({ environment: AppEnvironment })`; the project writes no `declare module`.
+ */
+export interface Environment {
+  readonly [notGenerated]?: never;
+}
+
 /** The `name` a branded component carries; `never` when it is not branded (not generated). */
 export type NameOf<TInstance> = TInstance extends {
   readonly [agbossComponent]?: infer TName extends string;

@@ -1,4 +1,5 @@
 import type { Class } from "../../components/injection.js";
+import { cascadeDefaults } from "../../config/defaults.js";
 import { GraphRuleError, violation, type RuleViolation } from "../../graph/rule-error.js";
 import { NodeKind } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
@@ -16,6 +17,7 @@ import { dataOutputRules } from "./rules/data-outputs.js";
 import { depthRules } from "./rules/depth.js";
 import { errorRules } from "./rules/errors.js";
 import { graphRules } from "./rules/graph.js";
+import { guardrailRules } from "./rules/guardrails.js";
 import { modelRules } from "./rules/models.js";
 import { nameRules } from "./rules/names.js";
 import { optionsRules } from "./rules/options.js";
@@ -60,6 +62,7 @@ const RULES: readonly FlowRule[] = [
   errorRules,
   returnsRules,
   routerRules,
+  guardrailRules,
   modelRules,
   optionsRules,
   dataInputRules,
@@ -94,8 +97,9 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
   const walked = walkFlow(declaration.options.flow);
   const fields = resolveFields(walked.graph);
   const dataflow = runDataflow(walked.graph, fields);
+  const defaults = cascadeDefaults(options.applicationDefaults, declaration.options.defaults);
   const context: AnalysisContext = {
-    workflow: declaration.options,
+    workflow: defaults === undefined ? declaration.options : { ...declaration.options, defaults },
     walked,
     graph: walked.graph,
     fields,

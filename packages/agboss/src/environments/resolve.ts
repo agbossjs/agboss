@@ -1,88 +1,157 @@
-import { inspect } from "node:util";
-import { isFromEnv, type Environment, type EnvironmentDefinition, type FromEnv } from "./define.js";
-
-/** An environment that cannot be used: not found, or variables missing (`code` tells which). */
-export class EnvironmentError extends Error {
-  override name = "EnvironmentError";
-  constructor(
-    readonly code: "environment.not-found" | "environment.missing-variables",
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
-const MASK = "***";
-
-/** The secret fields of each resolved environment: masked wherever it is printed. */
-const secretFields = new WeakMap<object, ReadonlySet<string>>();
-
-const secretsOf = (environment: object): ReadonlySet<string> =>
-  secretFields.get(environment) ?? new Set();
-
-/** The environment as it may be printed: every secret field masked. */
-const maskedEnvironment = (environment: object): Record<string, unknown> => {
-  const secrets = secretsOf(environment);
-  return Object.fromEntries(
-    Object.entries(environment).map(([key, value]) => [key, secrets.has(key) ? MASK : value]),
-  );
-};
-
-/** The values of a `defineEnvironment` file: tsc checked them against the `Environment` contract. */
-const checkedByTsc = (values: object): values is Environment => typeof values === "object";
-
-/** Frozen values that print masked: `JSON.stringify` (traces) and `console.log` (logs). */
-function sealed(values: Record<string, unknown>, secrets: ReadonlySet<string>): Environment {
-  secretFields.set(values, secrets);
-  Object.defineProperty(values, "toJSON", { value: () => maskedEnvironment(values) });
-  Object.defineProperty(values, inspect.custom, { value: () => maskedEnvironment(values) });
-  const frozen = Object.freeze(values);
-  if (!checkedByTsc(frozen)) throw new EnvironmentError("environment.not-found", "unreachable");
-  return frozen;
-}
-
-/** No values: what tools see while they are only described (`agboss describe` without an environment). */
-export const NO_ENVIRONMENT_VALUES: Environment = sealed({}, new Set());
-
-const valueOf = (spec: FromEnv, processEnv: NodeJS.ProcessEnv): string | undefined =>
-  processEnv[spec.variable] ?? spec.default;
-
-/** Every value of an environment file, its secret fields and the variables it misses. */
-function valuesOf(definition: EnvironmentDefinition, processEnv: NodeJS.ProcessEnv) {
-  const missing: string[] = [];
-  const secrets = new Set<string>();
-  const values: Record<string, unknown> = {};
-  for (const [key, spec] of Object.entries(definition.values)) {
-    if (!isFromEnv(spec)) {
-      values[key] = spec;
-      continue;
-    }
-    if (spec.secret === true) secrets.add(key);
-    const value = valueOf(spec, processEnv);
-    if (value === undefined) missing.push(spec.variable);
-    values[key] = value;
-  }
-  return { values: sealed(values, secrets), missing: [...new Set(missing)] };
-}
+import type { Environment } from "../flow/generated-types.js";
+import { EnvironmentError, EnvironmentErrorCode } from "./errors.js";
+import { resolvedSecret, SECRET_MASK, Secret, variableOfSecret } from "./secret.js";
+import { VariableKind, VariableReference } from "./variables.js";
+import { isProcessValue, leavesOf, mapLeaves, type ProcessValue } from "./walk.js";
 
 /**
- * Resolves every `fromEnv` of an environment file against the process environment; fails naming every
- * missing variable at once: `Environment "staging": missing variables OPENROUTER_API_KEY, CURRENCY`.
+ * An environment file resolved against the process (#261): every `env(…)` and `secret(…)` replaced
+ * by its variable's value. A missing variable fails the start naming it, the field and the
+ * environment — never a value: `DATABASE_URL is not set (AppEnvironment.databaseUrl, prod)`.
  */
+
+/** An environment file as loaded: its name, the contract's name and the exported object. */
+export interface LoadedEnvironment {
+  /** `prod` for `environments/prod.environment.ts`. */
+  readonly name: string;
+  /** The contract class's name (`AppEnvironment`), for messages. */
+  readonly contract: string;
+  /** `export const environment: AppEnvironment = { … }`. */
+  readonly values: unknown;
+}
+
+/** One process variable an environment reads, and how it is printed. */
+export enum VariableUse {
+  Value = "value",
+  Secret = "secret",
+}
+
+/** A process variable an environment reads: for `agboss check --env <name>`. */
+export interface ProcessVariable {
+  readonly variable: string;
+  readonly field: string;
+  readonly use: VariableUse;
+  /** Whether it is required (no default); a secret always is. */
+  readonly required: boolean;
+}
+
+const variableOf = (value: ProcessValue): string =>
+  value instanceof Secret ? variableOfSecret(value) : value.variable;
+
+/** The variable's value: unset or empty is no value. */
+const processValueOf = (processEnv: NodeJS.ProcessEnv, variable: string): string | undefined => {
+  const value = processEnv[variable];
+  return value === undefined || value === "" ? undefined : value;
+};
+
+const FLAGS: Readonly<Record<string, boolean>> = {
+  true: true,
+  "1": true,
+  false: false,
+  "0": false,
+};
+
+/** A set variable as its kind's value; undefined when it does not parse. */
+function parsed(reference: VariableReference, raw: string): string | number | boolean | undefined {
+  if (reference.kind === VariableKind.Text) return raw;
+  if (reference.kind === VariableKind.Flag) return FLAGS[raw.toLowerCase()];
+  return /^-?\d+$/.test(raw) ? Number(raw) : undefined;
+}
+
+/** What went wrong with the variables of one environment, collected over every field. */
+class Problems {
+  readonly missing: string[] = [];
+  readonly invalid: string[] = [];
+
+  constructor(private readonly loaded: LoadedEnvironment) {}
+
+  where(path: string): string {
+    return `${this.loaded.contract}.${path}, ${this.loaded.name}`;
+  }
+
+  throwIfAny(): void {
+    if (this.missing.length > 0)
+      throw new EnvironmentError(EnvironmentErrorCode.MissingVariables, this.missing.join("; "));
+    if (this.invalid.length > 0)
+      throw new EnvironmentError(EnvironmentErrorCode.InvalidValue, this.invalid.join("; "));
+  }
+}
+
+function resolvedValue(
+  value: ProcessValue,
+  path: string,
+  env: NodeJS.ProcessEnv,
+  problems: Problems,
+): unknown {
+  const variable = variableOf(value);
+  const raw = processValueOf(env, variable);
+  if (value instanceof Secret) {
+    if (raw !== undefined) return resolvedSecret(variable, raw);
+    problems.missing.push(`${variable} is not set (${problems.where(path)})`);
+    return undefined;
+  }
+  if (raw === undefined) {
+    if (value.fallback === undefined)
+      problems.missing.push(`${variable} is not set (${problems.where(path)})`);
+    return value.fallback;
+  }
+  const result = parsed(value, raw);
+  if (result === undefined)
+    problems.invalid.push(
+      `${variable} is not ${value.kind === VariableKind.Integer ? "an integer" : "a flag (true, false, 1, 0)"} (${problems.where(path)})`,
+    );
+  return result;
+}
+
+/** The values an environment file gives with this process environment; every problem at once. */
 export function resolveEnvironment(
-  name: string,
-  definition: EnvironmentDefinition,
+  loaded: LoadedEnvironment,
   processEnv: NodeJS.ProcessEnv,
 ): Environment {
-  const { values, missing } = valuesOf(definition, processEnv);
-  if (missing.length > 0) {
+  const problems = new Problems(loaded);
+  const values = mapLeaves(loaded.values, (value, path) =>
+    isProcessValue(value) ? resolvedValue(value, path, processEnv, problems) : value,
+  );
+  problems.throwIfAny();
+  return environmentOf(values);
+}
+
+/** The values of an environment file: tsc checked them against the contract. */
+const checkedByTsc = (values: object): values is Environment => typeof values === "object";
+
+/** The resolved object as the `Environment` type. */
+function environmentOf(values: unknown): Environment {
+  if (
+    typeof values !== "object" ||
+    values === null ||
+    Array.isArray(values) ||
+    !checkedByTsc(values)
+  ) {
     throw new EnvironmentError(
-      "environment.missing-variables",
-      `Environment "${name}": missing variables ${missing.join(", ")}`,
+      EnvironmentErrorCode.NotFound,
+      "an environment file must export an object: export const environment: AppEnvironment = { … }",
     );
   }
   return values;
 }
+
+/** No values: what tools see while they are only described (`agboss describe` without an environment). */
+export const NO_ENVIRONMENT_VALUES: Environment = environmentOf(Object.freeze({}));
+
+/** Every process variable an environment file reads, by field. */
+export const environmentVariablesOf = (loaded: LoadedEnvironment): readonly ProcessVariable[] =>
+  leavesOf(loaded.values).flatMap(([field, value]): ProcessVariable[] => {
+    if (!isProcessValue(value)) return [];
+    const isSecret = value instanceof Secret;
+    return [
+      {
+        variable: variableOf(value),
+        field,
+        use: isSecret ? VariableUse.Secret : VariableUse.Value,
+        required: isSecret || value.fallback === undefined,
+      },
+    ];
+  });
 
 /** An environment as `agboss describe` shows it: its values (missing ones unset) and printable fields. */
 export interface DescribedEnvironment {
@@ -92,19 +161,34 @@ export interface DescribedEnvironment {
   readonly fields: Readonly<Record<string, string>>;
 }
 
+/** How one field prints in `agboss describe`: a literal, a variable's value, `***`, or what is missing. */
+function fieldLabel(value: unknown, processEnv: NodeJS.ProcessEnv): string {
+  if (value instanceof Secret) {
+    const variable = variableOfSecret(value);
+    return processValueOf(processEnv, variable) === undefined
+      ? `<missing ${variable}>`
+      : `${SECRET_MASK} (${variable})`;
+  }
+  if (!(value instanceof VariableReference)) return JSON.stringify(value);
+  const raw = processValueOf(processEnv, value.variable);
+  if (raw === undefined)
+    return value.fallback === undefined
+      ? `<missing ${value.variable}>`
+      : JSON.stringify(value.fallback);
+  return JSON.stringify(parsed(value, raw) ?? raw);
+}
+
 /** An environment file for `agboss describe`: secrets masked, a missing variable shown, nothing fails. */
 export function describedEnvironment(
-  name: string,
-  definition: EnvironmentDefinition,
+  loaded: LoadedEnvironment,
   processEnv: NodeJS.ProcessEnv,
 ): DescribedEnvironment {
-  const fields = Object.fromEntries(
-    Object.entries(definition.values).map(([key, spec]) => {
-      if (!isFromEnv(spec)) return [key, JSON.stringify(spec)];
-      const value = valueOf(spec, processEnv);
-      if (value === undefined) return [key, `<missing ${spec.variable}>`];
-      return [key, spec.secret === true ? `${MASK} (${spec.variable})` : JSON.stringify(value)];
-    }),
+  const problems = new Problems(loaded);
+  const values = mapLeaves(loaded.values, (value, path) =>
+    isProcessValue(value) ? resolvedValue(value, path, processEnv, problems) : value,
   );
-  return { name, values: valuesOf(definition, processEnv).values, fields };
+  const fields = Object.fromEntries(
+    leavesOf(loaded.values).map(([field, value]) => [field, fieldLabel(value, processEnv)]),
+  );
+  return { name: loaded.name, values: environmentOf(values), fields };
 }

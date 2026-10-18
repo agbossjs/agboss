@@ -17,6 +17,7 @@ import { usd } from "../../src/units/index.js";
 import { start, toFinish } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../src/index.js";
 
 export class Payment {
   @Text() item!: string;
@@ -125,6 +126,7 @@ export class Shop implements WorkflowDefinition {
 @Application({
   name: "shop-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [Shop],
   budgets: TEST_BUDGETS,
 })
@@ -153,6 +155,7 @@ export class ShopCatchingLimits implements WorkflowDefinition {
 @Application({
   name: "shop-limits-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [ShopCatchingLimits],
   budgets: TEST_BUDGETS,
 })
@@ -180,6 +183,7 @@ export class ShopUncaught implements WorkflowDefinition {
 @Application({
   name: "shop-uncaught-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [ShopUncaught],
   budgets: TEST_BUDGETS,
 })

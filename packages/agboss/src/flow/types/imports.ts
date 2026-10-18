@@ -51,6 +51,7 @@ export class ImportTable {
   private readonly tables = new Set<TablesImport>();
   private readonly missing = new Set<Class>();
   private readonly dtoClasses = new Set<DtoClass>();
+  private readonly plain = new Set<Class>();
 
   constructor(
     private readonly locator: ClassLocator,
@@ -79,6 +80,17 @@ export class ImportTable {
     if (this.locator.fileOf(component, declarationOf(component)?.source) === undefined)
       return undefined;
     return this.ref(component);
+  }
+
+  /** Like `ref`, for a class the file imports but never brands (an environment contract, #261). */
+  refPlain(component: Class): string {
+    this.plain.add(component);
+    return this.ref(component);
+  }
+
+  /** Whether the file brands the class (every class it mentions but the plain ones). */
+  isBranded(component: Class): boolean {
+    return !this.plain.has(component);
   }
 
   /** The identifier of a DTO class (branded by its class name, S39). */

@@ -16,6 +16,7 @@ import type { ToolClass } from "../../../src/testing/index.js";
 import { start } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 export class Question {
   @Text({ prompt: "the question for the order desk" })
@@ -145,6 +146,7 @@ export function callerOf(url: string): CallerParts {
   @Application({
     name: "caller-application",
     version: "1.0.0",
+    environment: EmptyEnvironment,
     workflows: [Caller],
     budgets: TEST_BUDGETS,
   })

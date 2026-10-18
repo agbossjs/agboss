@@ -69,12 +69,13 @@ export { file } from "../components/file.js";
 export { TerminalUserChannel } from "../channels/terminal-channel.js";
 export { AutoApproveChannel, AutoRejectChannel } from "../channels/test-channels.js";
 export {
-  defineEnvironment,
-  fromEnv,
+  EmptyEnvironment,
+  env,
+  secret,
+  Secret,
   EnvironmentError,
+  EnvironmentErrorCode,
   type Environment,
-  type EnvironmentDefinition,
-  type EnvironmentValues,
-  type FromEnv,
-  type FromEnvOptions,
+  type EnvironmentValueOptions,
+  type EnvironmentVariableReader,
 } from "../environments/index.js";

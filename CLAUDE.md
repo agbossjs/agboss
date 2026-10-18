@@ -13,7 +13,7 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
   - Routers: each `@Router` names its own `model` — a **decision model** (`DECISION_MODELS`: Jev,
     `openai/gpt-6-luna-decisions`, pplx-decider, Clef, …; OpenRouter Decisions API via
     `DecisionsModelProvider` — probabilities, exact cost) or any chat model. Guards use
-    `defaults.router` (Jev). Judges on a decision model call `judgeModel.decide` with
+    `defaults.guardrail` (Jev), never `defaults.router`. Judges on a decision model call `judgeModel.decide` with
     `Decision.noul` / `Decision.choice` / `Decision.score` / `Decision.image` (typed answers);
     `invoke` or `decide` on the wrong kind of model → `ModelKindError`.
   - Agents: cheap chat models (default `moonshotai/kimi-k2.6`) via `@langchain/openai`, each with
@@ -234,12 +234,7 @@ import { ChatWorkflowStart } from "./workflow-starts/chat.workflow-start.js";
         route(HandOverWorkflowFinish),
       ),
   ],
-  defaults: {
-    models: { temperature: 0 },
-    router: { model: "typesafe/jev-1.13" },
-    tools: { maxToolCalls: 4 },
-    history: { limit: 5 },
-  },
+  defaults: { tools: { maxToolCalls: 4 }, history: { limit: 5 } }, // over the application's
   maxSteps: 4,
   providers: [OrderBook],
 })
@@ -285,15 +280,19 @@ export class ExecutionBudget implements BudgetHandler {
 
 ```ts file=src/desk/desk.application.ts
 // desk.application.ts — the application: its workflows, infrastructure (`providers`; none listed →
-// the built-in in-memory defaults) and budgets; `environments/` next to this file
+// the built-in in-memory defaults), budgets, the defaults of every workflow and the environment
+// contract (`environments/` next to this file — Environments below)
 import { Application } from "agboss";
 import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./config/budget.config.js";
 import { DeskWorkflow } from "./desk.workflow.js";
+import { AppEnvironment } from "./environments/app.environment.js";
 
 @Application({
   name: "desk-application",
   version: "1.0.0",
+  environment: AppEnvironment,
   workflows: [DeskWorkflow],
+  defaults: { models: { temperature: 0 }, router: { model: "typesafe/jev-1.13" } },
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
 })
 export class DeskApplication {}
@@ -526,6 +525,12 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `providers` → `[di.infrastructure-in-workflow]`), found by inheritance (two →
   `[di.ambiguous-implementation]`). Nothing is written to the home folder; SQLite implementations
   come with #265 PR 3.
+- **Defaults cascade (#261):** `@Application({ defaults })` → `@Workflow({ defaults })` → the
+  component's own field, merged field by field — the most specific level that sets a field wins,
+  nothing set → the built-in. `defaults.router.model` is the model of `DecidedBy.Model` routers
+  without their own (`[router.no-model]`), `defaults.guardrail.model` the guards' — separate, a
+  guard never takes the router's (`[guardrail.no-model]`); `agboss describe` shows each router's
+  and agent's value and where it came from (`(own)`, `(desk-application)`, `(built-in)`).
 - **Components keep no state:** another instance may continue an execution after a pause, so a
   component reads the execution from `ExecutionContext`, data that outlive a step live in the graph
   state, caches and deduplication are your own service over external storage. Lint
@@ -585,14 +590,66 @@ export class SeenJobsRepository {
 
 ### Environments
 
-The app's settings live in `environments/` next to the application file: the contract in
-`environment.ts` (`declare module "agboss" { interface Environment { … } }`), the values in
-`<name>.environment.ts` (`export default defineEnvironment({ … })`, `fromEnv("VAR", { default,
-secret })` for process variables). Services inject them with `ENV` (`@Injectable({ deps: [ENV] })`,
-`constructor(env: Environment)`), never `process.env`. `--env <name>` / `createApp(App, { env })` /
-`testWith(App, { env | environment })` pick one (default `dev`); a missing value fails at start
-naming it. Model provider keys stay process variables (`EnvironmentVariable.named`). README →
-Environments has the full example.
+One set per application, in `environments/` next to the application file (#261). The contract is a
+plain class with declared fields only, declared once — `@Application({ environment: AppEnvironment })`
+above, required (no settings → `environment: EmptyEnvironment`, no environment file needed); a
+value in it fails assembly (`[environment.contract-value]`), a field a listed framework
+implementation reads and the contract lacks too (`[environment.missing-field]`):
+
+```ts file=src/desk/environments/app.environment.ts
+// environments/app.environment.ts — the contract (a secret is a `Secret` field: README → Environments)
+export class AppEnvironment {
+  auditUrl!: string;
+  retries!: number;
+}
+```
+
+Each environment is a plain object typed by it (a missing field does not compile), in
+`<name>.environment.ts` — the file name is the environment's: `env("X")` (`env.integer`, `env.flag`,
+`{ default }`) reads a process variable at start, `secret("X")` a `Secret` (no default, a literal
+does not compile). Tests run on `test` — no `test.environment.ts` fails the test, so it never reaches
+dev's addresses:
+
+```ts file=src/desk/environments/dev.environment.ts
+import { env } from "agboss";
+import type { AppEnvironment } from "./app.environment.js";
+
+export const environment: AppEnvironment = {
+  auditUrl: env("AUDIT_URL", { default: "http://localhost:4000" }),
+  retries: env.integer("AUDIT_RETRIES", { default: 3 }),
+};
+```
+
+```ts file=src/desk/environments/test.environment.ts
+import type { AppEnvironment } from "./app.environment.js";
+
+export const environment: AppEnvironment = { auditUrl: "http://audit.test", retries: 0 };
+```
+
+Services inject it with `ENV`, typed by the contract through `.agboss/types.d.ts` (until #261 PR 3's
+`applicationContext.environment`), never `process.env`; a `Secret` prints as `***` everywhere and
+only `.reveal()` gives the value:
+
+```ts file=src/desk/services/audit.service.ts
+import { ENV, Injectable } from "agboss";
+import type { AppEnvironment } from "../environments/app.environment.js";
+
+@Injectable({ deps: [ENV] })
+export class AuditService {
+  constructor(private readonly environment: AppEnvironment) {}
+
+  eventsUrl(): string {
+    return `${this.environment.auditUrl}/events`;
+  }
+}
+```
+
+`--env <name>` / `createApp(App, { env })` / `testWith(App, { env })` pick one (default `dev`, tests
+`test`); a missing variable fails the start naming it, the field and the environment, never the value
+(`DATABASE_URL is not set (AppEnvironment.databaseUrl, prod)`); `agboss check --env <name>` lists the
+variables it needs, marked value / secret. Dev / prod parity: the same `providers` in every
+environment, only values differ. Model provider keys stay process variables
+(`EnvironmentVariable.named`) until #266. README → Environments has more.
 
 ### Judges and decision models
 

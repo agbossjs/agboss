@@ -4,7 +4,6 @@ import {
   Workflow,
   ENV,
   MODEL_MAX,
-  type Environment,
   Tool,
   type ToolHandler,
   WorkflowFinish,
@@ -14,11 +13,12 @@ import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../s
 import { start } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
+import { SettingsEnvironment } from "./environments/app.environment.js";
 
-/** A service that reads the app's environment (#182). */
+/** A service that reads the application's environment (#182, #261). */
 @Injectable({ deps: [ENV] })
 export class ApiClient {
-  constructor(readonly env: Environment) {}
+  constructor(readonly environment: SettingsEnvironment) {}
 }
 
 export class SettingsQuery {
@@ -28,7 +28,6 @@ export class SettingsQuery {
 
 export class SettingsInfo {
   @Text() apiUrl!: string;
-  @Text() apiKey!: string;
   @Text() currency!: string;
 }
 
@@ -43,8 +42,8 @@ export class ApiSettings implements ToolHandler<SettingsQuery, SettingsInfo> {
   constructor(private readonly client: ApiClient) {}
 
   run(): Promise<SettingsInfo> {
-    const { apiUrl, apiKey, currency } = this.client.env;
-    return Promise.resolve({ apiUrl, apiKey, currency });
+    const { apiUrl, currency } = this.client.environment;
+    return Promise.resolve({ apiUrl, currency });
   }
 }
 
@@ -79,7 +78,7 @@ export const settingsDefaults = {
   history: { limit: 4 },
 } as const;
 
-/** A workflow with `environments/` next to it: dev (defaults) and staging (required variables). */
+/** A workflow whose application has `environments/` next to it: dev, staging and test. */
 @Workflow({
   name: "settings-workflow",
   version: "1.0.0",
@@ -97,6 +96,7 @@ export class SettingsApp {}
 @Application({
   name: "settings-application",
   version: "1.0.0",
+  environment: SettingsEnvironment,
   workflows: [SettingsApp],
   budgets: TEST_BUDGETS,
 })

@@ -137,7 +137,7 @@ describe("AC11: router assembly rules — input and model (#270, #280)", () => {
       {
         code: "router.no-model",
         message:
-          "blind-router-workflow: blind-router has no model — set model on @Router, or defaults.router.model on the workflow",
+          "blind-router-workflow: blind-router uses DecidedBy.Model but has no model — set model or defaults.router.model",
       },
     ]);
   });

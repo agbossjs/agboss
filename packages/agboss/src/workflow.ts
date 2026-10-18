@@ -15,7 +15,7 @@ import type { RuntimeGraph } from "./flow/runtime/graph-model.js";
 import type { LoadedRouter } from "./flow/runtime/routers.js";
 import type { ModelProviderSettings, WorkflowLimits } from "./graph/settings.js";
 import type { ContainerOptions } from "./components/container/container.js";
-import type { Environment } from "./environments/define.js";
+import type { Environment } from "./flow/generated-types.js";
 import type { IncompatibleResumePolicy } from "./run/resume-guard.js";
 import type { WorkflowObserver } from "./core/observer-hooks.js";
 

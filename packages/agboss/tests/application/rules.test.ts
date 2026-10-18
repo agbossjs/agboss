@@ -22,6 +22,7 @@ import {
   OrdersWorkflowFinish,
   RefundsWorkflowStart,
 } from "./fixtures/desks.application.js";
+import { EmptyEnvironment } from "../../src/index.js";
 
 /** The codes and messages an application's assembly fails with. */
 async function violationsOf(application: Class): Promise<string[]> {
@@ -51,6 +52,7 @@ class NotABudget {
 @Application({
   name: "misnamed",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [],
   budgets: [DailyLimit, NotABudget],
 })
@@ -78,6 +80,7 @@ class SecondOrdersWorkflow {}
 @Application({
   name: "clashing-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [OrdersWorkflow, SecondOrdersWorkflow, OrdersAgent],
   budgets: TEST_BUDGETS,
 })
@@ -100,6 +103,7 @@ class LedgeredWorkflow {}
 @Application({
   name: "ledgered-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [LedgeredWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -141,6 +145,7 @@ class SecondPausedExecutionRepository extends InMemoryPausedExecutionRepository 
 @Application({
   name: "two-pauses-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [OrdersWorkflow],
   providers: [FirstPausedExecutionRepository, SecondPausedExecutionRepository],
   budgets: TEST_BUDGETS,

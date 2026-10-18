@@ -4,7 +4,6 @@ import type { AgentMeta } from "../../components/meta-types.js";
 import type { Guardrail, PiiPolicy } from "../../components/policy-decorators.js";
 import type { Price } from "../../config/types.js";
 import type { ObserverClass } from "../../core/observer-hooks.js";
-import { rememberWorkflowFile } from "../../environments/load.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import { NodeKind, type FlowPath } from "../ast.js";
 import { declared, recordDeclaration } from "./declaration.js";
@@ -22,6 +21,14 @@ export interface RouterDefaults {
   readonly model: string;
 }
 
+/**
+ * The model of guardrails without their own `model` (#261, #120) — separate from
+ * `defaults.router`: a guardrail never takes the router's model, and the framework has none built in.
+ */
+export interface GuardrailDefaults {
+  readonly model: string;
+}
+
 export interface ToolDefaults {
   readonly maxToolCalls?: number;
 }
@@ -36,9 +43,14 @@ export interface FlowDefaults {
   readonly maxPathDepth?: number;
 }
 
+/**
+ * Defaults of every component of a workflow — set on `@Application` (all workflows) and on
+ * `@Workflow` (its own), merged field by field; the most specific level that sets a field wins.
+ */
 export interface WorkflowDefaults {
   readonly models?: ModelDefaults;
   readonly router?: RouterDefaults;
+  readonly guardrail?: GuardrailDefaults;
   readonly tools?: ToolDefaults;
   readonly history?: HistoryDefaults;
   readonly flow?: FlowDefaults;
@@ -63,7 +75,7 @@ export interface GuardOptions {
   readonly threshold: number;
   /** What `GuardrailBlockedError.refusal` carries when the guard trips. */
   readonly refusal: string;
-  /** A decision model; `defaults.router.model` when absent. */
+  /** A decision model; `defaults.guardrail.model` when absent (#261). */
   readonly model?: string;
 }
 
@@ -113,7 +125,6 @@ export function Workflow(options: WorkflowOptions) {
   const recorded: WorkflowOptions = { ...options, flow: options.flow.map(plainPath) };
   return <TClass extends Class>(value: TClass): TClass => {
     recordDeclaration(value, declared(NodeKind.Workflow, recorded, source));
-    rememberWorkflowFile(value, source);
     return value;
   };
 }

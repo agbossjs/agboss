@@ -13,6 +13,7 @@ import { ArticleDto, ArticleRequestDto } from "./dtos.js";
 import { ApprovalDto, CritiqueDto, DraftDto, ResearchDto } from "./review-dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /**
  * #271 — the review loop (`caseOf(…, { about: DraftDto })` after the reviewer, #299) and a polish
@@ -117,6 +118,7 @@ export class StoryWorkflow {}
 @Application({
   name: "story-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [StoryWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -194,6 +196,7 @@ export class PolishWorkflow {}
 @Application({
   name: "polish-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [PolishWorkflow],
   budgets: TEST_BUDGETS,
 })

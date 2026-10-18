@@ -16,6 +16,7 @@ import { usd } from "../../../src/units/index.js";
 import { LocalModelProvider, TestOpenRouterProvider } from "../providers.fixture.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /** The summariser's summary: the writer reads it. */
 export class SummaryDto {
@@ -87,6 +88,7 @@ export class Priced implements WorkflowDefinition {
 @Application({
   name: "priced-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [Priced],
   budgets: TEST_BUDGETS,
 })

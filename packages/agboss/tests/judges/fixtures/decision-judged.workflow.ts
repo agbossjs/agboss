@@ -18,6 +18,7 @@ import { start } from "../../helpers/flow.js";
 import { DEFAULTS, Reply, settings, TaskStart } from "./judged.workflow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /** The decision model judges run on (OpenRouter Decisions API, images supported). */
 export const LUNA = "openai/gpt-6-luna-decisions";
@@ -109,6 +110,7 @@ export class DecisionDesk implements WorkflowDefinition {
 @Application({
   name: "decision-judged-desk-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [DecisionDesk],
   budgets: TEST_BUDGETS,
 })
@@ -135,6 +137,7 @@ export class ImageDesk implements WorkflowDefinition {
 @Application({
   name: "image-judged-desk-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [ImageDesk],
   budgets: TEST_BUDGETS,
 })

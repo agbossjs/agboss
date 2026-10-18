@@ -22,6 +22,7 @@ import {
 import { agent, route, start } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../../src/index.js";
 
 /** What the components read of their execution, in order (reset by `resetSeen`). */
 export const seen = {
@@ -211,6 +212,7 @@ export class ContextWorkflow {}
 @Application({
   name: "context-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [ContextWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -234,6 +236,7 @@ export class JudgedContextWorkflow {}
 @Application({
   name: "judged-context-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [JudgedContextWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -284,6 +287,7 @@ export class AuditWorkflow {}
 @Application({
   name: "audit-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [AuditWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -307,6 +311,7 @@ export class EagerAuditWorkflow {}
 @Application({
   name: "eager-audit-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [EagerAuditWorkflow],
   budgets: TEST_BUDGETS,
 })

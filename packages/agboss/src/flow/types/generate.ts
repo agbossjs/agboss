@@ -3,6 +3,11 @@ import type { Class } from "../../components/injection.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { checkWorkflow } from "../analyse/analyse.js";
 import type { LoadedModule } from "../analyse/rules/context.js";
+import {
+  applicationDeclarationOf,
+  type ApplicationOptions,
+} from "../../application/application.js";
+import { declaredFieldsOf } from "../../environments/contract.js";
 import { declarationOf } from "../decorators/declaration.js";
 import { ComponentRegistry, DtoRegistry, dtoClashMessage } from "../registry.js";
 import { ImportTable } from "./imports.js";
@@ -24,6 +29,11 @@ export const GENERATED_TYPES_FILE = ".agboss/types.d.ts";
 
 export interface FlowTypesRequest {
   readonly workflows: readonly Class[];
+  /**
+   * The project's `@Application` classes (#261): a workflow is checked with its application's
+   * `defaults`, and each environment contract types `Environment`.
+   */
+  readonly applications?: readonly Class[];
   readonly modules: readonly LoadedModule[];
   /** The absolute path of the file, `<project>/.agboss/types.d.ts`. */
   readonly outFile: string;
@@ -77,12 +87,31 @@ function nameClashes(workflows: readonly AnalysedWorkflow[], names: ImportTable)
   return found;
 }
 
+/** An application's contract; none for an untyped caller that left `environment` out. */
+const contractOf = (options: ApplicationOptions): Class[] => {
+  // `environment` is required by the type; untyped (JS) callers may still leave it out
+  const contract = (options as Partial<ApplicationOptions>).environment;
+  return contract === undefined ? [] : [contract];
+};
+
 export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   const options = {
     modules: request.modules,
     ...(request.strict === undefined ? {} : { strict: request.strict }),
   };
-  const checks = request.workflows.map((workflow) => checkWorkflow(workflow, options));
+  const applications = (request.applications ?? []).flatMap((application) => {
+    const declaration = applicationDeclarationOf(application);
+    return declaration === undefined ? [] : [declaration.options];
+  });
+  const checks = request.workflows.map((workflow) => {
+    const listing = applications.filter((app) => app.workflows.includes(workflow));
+    const [only] = listing;
+    const defaults = listing.length === 1 ? only?.defaults : undefined;
+    return checkWorkflow(
+      workflow,
+      defaults === undefined ? options : { ...options, applicationDefaults: defaults },
+    );
+  });
   const errors = checks.flatMap((check) => check.errors);
   const warnings = checks.flatMap((check) => check.warnings);
   const workflows = checks.flatMap((check): AnalysedWorkflow[] =>
@@ -94,8 +123,12 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   request.workflows.forEach((workflow, index) => {
     if (checks[index]?.analysis !== undefined) names.refIfExported(workflow);
   });
+  const contracts = [...new Set(applications.flatMap(contractOf))]
+    // an empty contract (an application with no settings) adds nothing to `Environment`
+    .filter((contract) => declaredFieldsOf(contract).length > 0)
+    .map((contract) => names.refPlain(contract));
   const tablesModule = names.specifier(request.tablesModule ?? "agboss");
-  const text = printTypes(tables, names, tablesModule);
+  const text = printTypes({ ...tables, environments: contracts }, names, tablesModule);
   const failures = [
     ...names.unexported.map((component) => unexportedClass(component, projectOf(request.outFile))),
     ...nameClashes(workflows, names),

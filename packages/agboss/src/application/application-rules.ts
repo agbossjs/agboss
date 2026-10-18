@@ -6,12 +6,14 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { kindSuffixProblem, NameKind } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
+import { environmentRuleViolations } from "../environments/contract.js";
 import type { ApplicationOptions } from "./application.js";
 
 /**
  * The rules of an `@Application` itself (#261), read from its declaration: its `name` and class end
- * with their kind, it lists workflows, its budgets are `@Budget`s, and infrastructure is listed only
- * in its `providers`.
+ * with their kind, it lists workflows, its budgets are `@Budget`s, infrastructure is listed only
+ * in its `providers`, and its environment contract declares fields only — every field a listed
+ * framework implementation reads among them.
  */
 
 const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
@@ -106,5 +108,10 @@ export function applicationRuleViolations(
     ...workflowListViolations(options),
     ...budgetViolations(options),
     ...infrastructureViolations(options),
+    ...environmentRuleViolations(
+      options.name,
+      options.environment,
+      (options.providers ?? []).filter(isClass),
+    ),
   ];
 }

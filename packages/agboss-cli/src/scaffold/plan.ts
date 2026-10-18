@@ -220,6 +220,6 @@ export function planWorkflow(spec: WorkflowSpec, api = false): FileToWrite[] {
     more.agent,
     ...otherAgentFiles,
     { path: `${dir}/${workflow.kebab}.workflow.ts`, content: module },
-    ...applicationFiles(dir, workflow),
+    ...applicationFiles(dir, workflow, api),
   ];
 }

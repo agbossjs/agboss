@@ -1,7 +1,10 @@
-import { defineEnvironment, fromEnv } from "../../../../../src/index.js";
+import { env, secret } from "../../../../../src/index.js";
+import type { SettingsEnvironment } from "./app.environment.js";
 
-export default defineEnvironment({
+export const environment: SettingsEnvironment = {
   apiUrl: "https://api.staging.example.com",
-  apiKey: fromEnv("FIXTURE_API_KEY", { secret: true }),
-  currency: fromEnv("FIXTURE_CURRENCY"),
-});
+  apiToken: secret("FIXTURE_API_TOKEN"),
+  currency: env("FIXTURE_CURRENCY"),
+  timeoutSeconds: env.integer("FIXTURE_TIMEOUT"),
+  debug: false,
+};

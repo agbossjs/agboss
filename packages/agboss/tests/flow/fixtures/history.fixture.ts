@@ -11,6 +11,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { DraftChangesDto } from "./data-dtos.js";
 import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto, ShortlistDto } from "./dtos.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /**
  * #299 S56 — earlier versions without tags: the review loop's reviewer reads
@@ -128,6 +129,7 @@ export class HistoryOfferWorkflow {}
 @Application({
   name: "history-offer-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [HistoryOfferWorkflow],
   budgets: TEST_BUDGETS,
 })

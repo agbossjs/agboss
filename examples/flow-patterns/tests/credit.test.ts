@@ -126,7 +126,7 @@ describe("describe", () => {
 
     expect(lines).toEqual(
       expect.arrayContaining([
-        "  desk-router  decisions typesafe/jev-1.13 · maxVisits 1 — Sends an order to the intake, ends on anything else",
+        "  desk-router  decisions typesafe/jev-1.13 (own) · maxVisits 1 — Sends an order to the intake, ends on anything else",
         "  credit-limit-router  code — Sends large orders for approval, charges the rest",
       ]),
     );

@@ -4,6 +4,7 @@ import { ComponentError } from "../components/metadata.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { NodeKind } from "../flow/ast.js";
 import type { Milliseconds } from "../units/index.js";
+import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 
 /**
  * `@Application` (#261) — the one point of the whole app: what `createApp(App, { env })` and
@@ -32,6 +33,18 @@ export interface ApplicationOptions {
    * instance continues it. Default `seconds(25)` — under the usual 30 s grace period and the lease.
    */
   readonly shutdownTimeout?: Milliseconds;
+  /**
+   * The environment contract, required — a class with declared fields only
+   * (`environments/app.environment.ts`); each `environments/<name>.environment.ts` next to the
+   * application file exports `const environment: AppEnvironment = { … }`. An application with no
+   * settings declares `EmptyEnvironment` (a contract without fields) and needs no environment file.
+   */
+  readonly environment: Class;
+  /**
+   * Defaults of every workflow (#261): merged field by field under each workflow's own `defaults`
+   * — the most specific level that sets a field wins (component over workflow over application).
+   */
+  readonly defaults?: WorkflowDefaults;
 }
 
 /** What `@Application` recorded: its options and the file it is declared in. */
@@ -42,10 +55,15 @@ export interface ApplicationDeclaration {
 
 const applications = new WeakMap<Class, ApplicationDeclaration>();
 
+/** The applications that list each workflow, as they are declared (loaded modules only). */
+const listedIn = new WeakMap<Class, Class[]>();
+
 export function Application(options: ApplicationOptions) {
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
     applications.set(value, source === undefined ? { options } : { options, source });
+    for (const workflow of options.workflows)
+      listedIn.set(workflow, [...(listedIn.get(workflow) ?? []), value]);
     return value;
   };
 }
@@ -65,3 +83,7 @@ export function requireApplication(cls: Class, where: string): ApplicationDeclar
       : `decorate ${name} with @Application({ name, version, workflows })`;
   throw new ComponentError(`${where} takes an @Application class: ${fix}`);
 }
+
+/** The applications loaded so far that list `workflow` (the CLI's commands on one workflow, eval). */
+export const applicationsListing = (workflow: Class): readonly Class[] =>
+  listedIn.get(workflow) ?? [];

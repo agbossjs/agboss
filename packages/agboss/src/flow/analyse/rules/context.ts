@@ -1,5 +1,5 @@
 import type { RuleViolation } from "../../../graph/rule-error.js";
-import type { WorkflowOptions } from "../../decorators/workflow.js";
+import type { WorkflowDefaults, WorkflowOptions } from "../../decorators/workflow.js";
 import type { ComponentName } from "../../registry.js";
 import type { Dataflow } from "../dataflow.js";
 import type { ResolvedField } from "../fields.js";
@@ -24,9 +24,12 @@ export interface AnalyseOptions {
   readonly modules?: readonly LoadedModule[];
   /** The models' tool calling; without it `[model.no-tool-calling]` is not checked. */
   readonly canCallTools?: ToolCallingCheck;
+  /** The defaults of the workflow's `@Application` (#261): the rules read the merged defaults. */
+  readonly applicationDefaults?: WorkflowDefaults;
 }
 
 export interface AnalysisContext {
+  /** The workflow's options, its `defaults` merged over its application's. */
   readonly workflow: WorkflowOptions;
   readonly walked: WalkedFlow;
   readonly graph: FlowGraph;

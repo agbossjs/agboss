@@ -13,6 +13,7 @@ import { route, start } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../test-flow/test.flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 const price = { inputPerMTok: 0.5, outputPerMTok: 3, cacheReadPerMTok: 0.1 };
 class ClockQuery {
@@ -97,6 +98,7 @@ export class MainRouter {}
       cache: true,
     },
     router: { model: "typesafe/jev-1.13" },
+    guardrail: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 8 },
     history: { limit: 5 },
   },
@@ -122,6 +124,7 @@ export class TestWorkflow {}
 @Application({
   name: "test-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [TestWorkflow],
   budgets: TEST_BUDGETS,
 })

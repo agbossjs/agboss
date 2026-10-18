@@ -2,129 +2,152 @@ import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Class } from "../components/injection.js";
-import { isEnvironmentDefinition, type Environment, type EnvironmentDefinition } from "./define.js";
+import type { Environment } from "../flow/generated-types.js";
+import { declaredFieldsOf } from "./contract.js";
+import { EnvironmentError, EnvironmentErrorCode } from "./errors.js";
 import {
   describedEnvironment,
-  EnvironmentError,
   resolveEnvironment,
   type DescribedEnvironment,
+  type LoadedEnvironment,
 } from "./resolve.js";
 
-/** The environments tried in order when none is named (Angular's development default). */
-export const APP_DEFAULT_ENVIRONMENTS = ["dev"] as const;
-/** Tests prefer `test.environment.ts` and fall back to `dev`. */
-export const TEST_DEFAULT_ENVIRONMENTS = ["test", "dev"] as const;
+/**
+ * Where an application's environments are and how one is chosen (#261): `environments/` next to the
+ * application file, one `<name>.environment.ts` per environment exporting
+ * `const environment: AppEnvironment = { … }`. Apps default to `dev`, tests to `test` — a test
+ * never falls back to another environment.
+ */
+
+/** The environment an app runs with when none is named (`createApp`, the CLI). */
+export const APP_DEFAULT_ENVIRONMENT = "dev";
+/** The environment a test runs with when none is named: its own, never dev's addresses. */
+export const TEST_DEFAULT_ENVIRONMENT = "test";
+
+/** What an application says about its environments: its name, file and contract. */
+export interface EnvironmentOwner {
+  /** The application's `name`, for messages. */
+  readonly application: string;
+  /** The file `@Application` is declared in: `environments/` is next to it. */
+  readonly source?: string | undefined;
+  /** `@Application({ environment })`; absent = a workflow no application lists (or an untyped caller). */
+  readonly contract?: Class | undefined;
+}
+
+/** Which environment to run with: a name, else the default. */
+export interface EnvironmentSelection {
+  /** The name of `environments/<env>.environment.ts` next to the application file. */
+  readonly env?: string | undefined;
+}
 
 const FILE = /^(.+)\.environment\.(ts|mts|js|mjs)$/;
+const EXTENSIONS = ["ts", "mts", "js", "mjs"] as const;
 
-/** Each `@Workflow` class's file: its `environments/` folder is next to it. */
-const workflowFiles = new WeakMap<Class, string>();
-
-export const rememberWorkflowFile = (workflow: Class, file: string | undefined): void => {
-  if (file !== undefined) workflowFiles.set(workflow, file);
-};
-
-export const workflowFileOf = (workflow: Class): string | undefined => workflowFiles.get(workflow);
-
-/** `environments/` next to the workflow file. */
-const environmentsDirOf = (workflowFile: string): string =>
-  join(dirname(workflowFile), "environments");
-
-/** The environment names of a folder (`dev`, `staging`, …), sorted; none when there is no folder. */
-function availableEnvironments(dir: string): string[] {
-  if (!existsSync(dir)) return [];
-  const names = readdirSync(dir).flatMap((file) => {
-    const name = FILE.exec(file)?.[1];
-    return name === undefined || name.endsWith(".d") ? [] : [name];
-  });
-  return [...new Set(names)].sort();
-}
+const environmentsDirOf = (source: string): string => join(dirname(source), "environments");
 
 const fileOf = (dir: string, name: string): string | undefined =>
-  ["ts", "mts", "js", "mjs"]
-    .map((ext) => join(dir, `${name}.environment.${ext}`))
-    .find((file) => existsSync(file));
+  EXTENSIONS.map((ext) => join(dir, `${name}.environment.${ext}`)).find((file) => existsSync(file));
 
-/** The `export default defineEnvironment({ … })` of `<dir>/<name>.environment.ts`. */
-async function loadEnvironmentDefinition(
-  dir: string,
-  name: string,
-): Promise<EnvironmentDefinition> {
+type EnvironmentModule = Readonly<Record<string, unknown>>;
+
+const importModule = async (file: string): Promise<EnvironmentModule> =>
+  (await import(pathToFileURL(file).href)) as EnvironmentModule;
+
+/** The environments of a folder (`dev`, `staging`, …): files that export `environment`, sorted. */
+async function availableEnvironments(dir: string): Promise<string[]> {
+  if (!existsSync(dir)) return [];
+  const names = [...new Set(readdirSync(dir).flatMap((file) => FILE.exec(file)?.[1] ?? []))].filter(
+    (name) => !name.endsWith(".d"),
+  );
+  const found: string[] = [];
+  for (const name of names.sort()) {
+    const file = fileOf(dir, name);
+    if (file !== undefined && "environment" in (await importModule(file))) found.push(name);
+  }
+  return found;
+}
+
+/** What to say when `<name>.environment.ts` is missing: the test environment names the fix. */
+async function notFound(owner: EnvironmentOwner, dir: string, name: string): Promise<never> {
+  const path = join(dir, `${name}.environment.ts`);
+  const contract = owner.contract?.name ?? "Environment";
+  if (name === TEST_DEFAULT_ENVIRONMENT) {
+    throw new EnvironmentError(
+      EnvironmentErrorCode.NotFound,
+      `Environment "test" not found: ${path} — tests run on the test environment, never on dev's values: create it (export const environment: ${contract} = { … })`,
+    );
+  }
+  const available = await availableEnvironments(dir);
+  throw new EnvironmentError(
+    EnvironmentErrorCode.NotFound,
+    `Environment "${name}" not found: ${path}. Available: ${available.length === 0 ? "none" : available.join(", ")}`,
+  );
+}
+
+/** The `environment` export of `<dir>/<name>.environment.ts`. */
+async function loadValues(owner: EnvironmentOwner, dir: string, name: string): Promise<unknown> {
   const file = fileOf(dir, name);
-  if (file === undefined) {
-    const available = availableEnvironments(dir);
-    throw new EnvironmentError(
-      "environment.not-found",
-      `Environment "${name}" not found: ${join(dir, `${name}.environment.ts`)}. Available: ${available.length === 0 ? "none" : available.join(", ")}`,
-    );
-  }
-  const module = (await import(pathToFileURL(file).href)) as { default?: unknown };
-  if (!isEnvironmentDefinition(module.default)) {
-    throw new EnvironmentError(
-      "environment.not-found",
-      `${file} must \`export default defineEnvironment({ … })\``,
-    );
-  }
-  return module.default;
+  if (file === undefined) return notFound(owner, dir, name);
+  const module = await importModule(file);
+  if ("environment" in module) return module.environment;
+  const contract = owner.contract?.name ?? "Environment";
+  const isContract = owner.contract !== undefined && Object.values(module).includes(owner.contract);
+  throw new EnvironmentError(
+    EnvironmentErrorCode.NotFound,
+    isContract
+      ? `${file} holds the contract ${contract}, not an environment — name another environment`
+      : `${file} must export the environment: export const environment: ${contract} = { … }`,
+  );
 }
 
-/** Which environment an app runs with: one given as values, or one named (default `dev`). */
-export interface EnvironmentSelection {
-  /** The name of `environments/<env>.environment.ts` next to the workflow file. */
-  readonly env?: string | undefined;
-  /** The values themselves (tests): no file is read. */
-  readonly environment?: Environment | undefined;
-}
-
-/** Names tried in order when `env` is not given; the first with a file wins, else the first name. */
-type Defaults = readonly string[];
-
-const defaultName = (dir: string, defaults: Defaults): string =>
-  defaults.find((name) => fileOf(dir, name) !== undefined) ?? defaults[0] ?? "dev";
-
-/** The folder and name to load; none = the app has no environment (no name, no folder). */
-function selected(
-  workflowFile: string | undefined,
+/** The environment file to load; none when the application declares no environment and none is named. */
+export async function selectedEnvironment(
+  owner: EnvironmentOwner,
   env: string | undefined,
-  defaults: Defaults = APP_DEFAULT_ENVIRONMENTS,
-): { readonly dir: string; readonly name: string } | undefined {
-  const dir = workflowFile === undefined ? undefined : environmentsDirOf(workflowFile);
-  if (env === undefined && (dir === undefined || !existsSync(dir))) return undefined;
-  const name = env ?? (dir === undefined ? (defaults[0] ?? "dev") : defaultName(dir, defaults));
-  if (dir === undefined) {
+  defaultName: string = APP_DEFAULT_ENVIRONMENT,
+): Promise<LoadedEnvironment | undefined> {
+  const { contract } = owner;
+  if (contract === undefined) {
+    if (env === undefined) return undefined;
     throw new EnvironmentError(
-      "environment.not-found",
-      `Environment "${name}" not found: the workflow's file is unknown`,
+      EnvironmentErrorCode.NoContract,
+      `Environment "${env}": ${owner.application} declares no environment — add @Application({ environment: AppEnvironment }) and environments/${env}.environment.ts next to the application file`,
     );
   }
-  return { dir, name };
+  const name = env ?? defaultName;
+  // a contract with no fields (an application with no settings) needs no file for its default
+  if (env === undefined && declaredFieldsOf(contract).length === 0) {
+    const file =
+      owner.source === undefined ? undefined : fileOf(environmentsDirOf(owner.source), name);
+    if (file === undefined) return { name, contract: contract.name, values: {} };
+  }
+  if (owner.source === undefined) {
+    throw new EnvironmentError(
+      EnvironmentErrorCode.NotFound,
+      `Environment "${name}" not found: the file of ${owner.application} is unknown`,
+    );
+  }
+  const values = await loadValues(owner, environmentsDirOf(owner.source), name);
+  return { name, contract: contract.name, values };
 }
 
-/**
- * The app's environment: the values given, else the named file resolved against `processEnv`. With no
- * name and no `environments/` folder the app has none (a service injecting `ENV` then fails at start).
- */
+/** The application's environment, resolved against `processEnv`; none when it declares none. */
 export async function environmentFor(
-  workflowFile: string | undefined,
+  owner: EnvironmentOwner,
   selection: EnvironmentSelection,
   processEnv: NodeJS.ProcessEnv,
-  defaults: Defaults = APP_DEFAULT_ENVIRONMENTS,
+  defaultName: string = APP_DEFAULT_ENVIRONMENT,
 ): Promise<Environment | undefined> {
-  if (selection.environment !== undefined) return selection.environment;
-  const target = selected(workflowFile, selection.env, defaults);
-  if (target === undefined) return undefined;
-  const definition = await loadEnvironmentDefinition(target.dir, target.name);
-  return resolveEnvironment(target.name, definition, processEnv);
+  const loaded = await selectedEnvironment(owner, selection.env, defaultName);
+  return loaded === undefined ? undefined : resolveEnvironment(loaded, processEnv);
 }
 
 /** The environment for `agboss describe`: like `environmentFor`, but a missing variable is shown, not fatal. */
 export async function describedEnvironmentFor(
-  workflowFile: string,
+  owner: EnvironmentOwner,
   env: string | undefined,
   processEnv: NodeJS.ProcessEnv,
 ): Promise<DescribedEnvironment | undefined> {
-  const target = selected(workflowFile, env);
-  if (target === undefined) return undefined;
-  const definition = await loadEnvironmentDefinition(target.dir, target.name);
-  return describedEnvironment(target.name, definition, processEnv);
+  const loaded = await selectedEnvironment(owner, env);
+  return loaded === undefined ? undefined : describedEnvironment(loaded, processEnv);
 }

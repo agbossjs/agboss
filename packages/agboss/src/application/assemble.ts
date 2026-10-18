@@ -26,6 +26,8 @@ export interface AssembledApplication {
   readonly version: string;
   /** The file `@Application` is declared in: its `environments/` folder is next to it. */
   readonly source?: string;
+  /** `@Application({ environment })`: the contract its environments are typed by. */
+  readonly environment?: Class;
   /** The application's own providers and budgets, then every workflow's providers. */
   readonly modules: readonly ProviderModule[];
   readonly budgets: readonly Class[];
@@ -45,14 +47,14 @@ export interface ApplicationAssembly {
 }
 
 /** The application's own module: its providers and its budgets (the container creates both). */
-const applicationModule = (options: ApplicationOptions): ProviderModule => ({
+export const applicationModule = (options: ApplicationOptions): ProviderModule => ({
   owner: options.name,
   declaredIn: "@Application",
   providers: [...(options.providers ?? []), ...(options.budgets ?? [])],
 });
 
 /** The modules of every workflow listed (each `@Workflow` class's own providers). */
-const workflowModules = (workflows: readonly Class[]): ProviderModule[] =>
+export const workflowModules = (workflows: readonly Class[]): ProviderModule[] =>
   workflows.flatMap((workflow) => {
     if (declarationOf(workflow)?.kind !== NodeKind.Workflow) return [];
     const module = moduleOf(workflow);
@@ -64,12 +66,13 @@ async function assembleWorkflows(
   workflows: readonly Class[],
   modules: readonly ProviderModule[],
   assembly: ApplicationAssembly,
+  owner: { readonly name: string; readonly defaults?: ApplicationOptions["defaults"] },
 ): Promise<{ readonly assembled: AssembledWorkflow[]; readonly errors: GraphRuleError[] }> {
   const assembled: AssembledWorkflow[] = [];
   const errors: GraphRuleError[] = [];
   for (const workflow of workflows) {
     try {
-      const bundle = await workflowOf(workflow, modules);
+      const bundle = await workflowOf(workflow, modules, owner);
       assembled.push(await withProfile(bundle, assembly.profile, assembly.profileRoot));
     } catch (error) {
       if (!(error instanceof GraphRuleError)) throw error;
@@ -96,6 +99,9 @@ function throwIfAny(own: readonly RuleViolation[], errors: readonly GraphRuleErr
   if (all.length > 0) throw new ApplicationRuleError(all);
 }
 
+const withEnvironment = (contract: Class | undefined): { readonly environment?: Class } =>
+  contract === undefined ? {} : { environment: contract };
+
 export async function applicationOf(
   application: Class,
   assembly: ApplicationAssembly = {},
@@ -107,13 +113,15 @@ export async function applicationOf(
   const workflows = options.workflows.filter(
     (workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow,
   );
-  const { assembled, errors } = await assembleWorkflows(workflows, modules, assembly);
+  const { assembled, errors } = await assembleWorkflows(workflows, modules, assembly, options);
   throwIfAny([...own, ...crossWorkflowViolations(assembled)], errors);
   return {
     application,
     name: options.name,
     version: options.version,
     ...(source === undefined ? {} : { source }),
+    // required by the type; an untyped (JS) caller may leave it out — then `ENV` is unavailable
+    ...withEnvironment((options as Partial<ApplicationOptions>).environment),
     modules,
     budgets: options.budgets ?? [],
     workflows: assembled,

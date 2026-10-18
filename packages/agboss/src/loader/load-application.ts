@@ -1,8 +1,8 @@
-import { existsSync, readdirSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
-import { applicationDeclarationOf } from "../application/application.js";
+import { resolve } from "node:path";
 import type { Class } from "../components/injection.js";
+import { environmentOwnerOfWorkflow } from "../application/workflow-application.js";
+import type { EnvironmentOwner } from "../environments/load.js";
+import { applicationsNear } from "./application-files.js";
 import { loadWorkflowClass } from "./load-workflow.js";
 import { WorkflowLoadError } from "./load-errors.js";
 import { registerTypeScript } from "./typescript.js";
@@ -14,28 +14,6 @@ import { registerTypeScript } from "./typescript.js";
  * file of its folder or a folder above it, up to the package (the folder with `package.json`).
  */
 
-const APPLICATION_FILE = /\.application\.(ts|mts|js|mjs)$/;
-
-/** The `*.application.ts` files of a folder and of every folder above it, up to the package. */
-function applicationFiles(from: string): string[] {
-  const files: string[] = [];
-  for (let dir = from; ; dir = dirname(dir)) {
-    const names = readdirSync(dir).filter((name) => APPLICATION_FILE.test(name));
-    files.push(...names.sort().map((name) => join(dir, name)));
-    if (existsSync(join(dir, "package.json")) || dirname(dir) === dir) return files;
-  }
-}
-
-const isApplicationOf = (value: unknown, workflow: Class): value is Class =>
-  typeof value === "function" &&
-  (applicationDeclarationOf(value as Class)?.options.workflows.includes(workflow) ?? false);
-
-/** The exported applications of a module that list `workflow`. */
-async function applicationsIn(file: string, workflow: Class): Promise<Class[]> {
-  const module = (await import(pathToFileURL(file).href)) as Record<string, unknown>;
-  return Object.values(module).filter((value) => isApplicationOf(value, workflow));
-}
-
 export async function loadApplicationClass(
   workflowPath: string,
   options: { readonly typescript?: boolean } = {},
@@ -43,12 +21,7 @@ export async function loadApplicationClass(
   const workflow = await loadWorkflowClass(workflowPath, options);
   if (options.typescript !== false) await registerTypeScript();
   const file = resolve(workflowPath);
-  const candidates = [file, ...applicationFiles(dirname(file)).filter((other) => other !== file)];
-  const found = new Set<Class>();
-  for (const candidate of candidates) {
-    for (const application of await applicationsIn(candidate, workflow)) found.add(application);
-    if (found.size > 0) break;
-  }
+  const found = await applicationsNear(file, workflow);
   const [application] = found;
   if (found.size === 1 && application !== undefined) return application;
   const names = [...found].map((cls) => cls.name).join(", ");
@@ -57,4 +30,17 @@ export async function loadApplicationClass(
       ? `${file}: no exported @Application lists ${workflow.name} — add one in a *.application.ts file next to it: @Application({ name, version, workflows: [${workflow.name}] })`
       : `${file}: ${names} all list ${workflow.name} — keep one application per workflow file`,
   );
+}
+
+/**
+ * Where the environments of the application that lists the workflow of a `--workflow <path>` file
+ * are (#261): its file and contract; a workflow no single application lists has none.
+ */
+export async function environmentOwnerOfFile(
+  workflowPath: string,
+  options: { readonly typescript?: boolean } = {},
+): Promise<EnvironmentOwner> {
+  const workflow = await loadWorkflowClass(workflowPath, options);
+  await applicationsNear(workflowPath, workflow);
+  return environmentOwnerOfWorkflow(workflow);
 }

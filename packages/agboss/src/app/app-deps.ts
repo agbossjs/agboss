@@ -1,7 +1,7 @@
 import { resolveTools, type AssembledWorkflow } from "../workflow.js";
 import { validateAgentsConfig, type AgentsConfigOf } from "../config/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
-import type { Environment } from "../environments/define.js";
+import type { Environment } from "../flow/generated-types.js";
 import type { ObserverManager } from "../core/observer-manager.js";
 import { startComponents } from "../components/container/lifecycle.js";
 import type { Clock } from "../finops/ledger.js";

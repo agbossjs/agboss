@@ -7,6 +7,7 @@ import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { CompanyDto, CompanyScoreDto, SearchRequestDto } from "./data-dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /** #270 AC20 / AC21 — a start's input as a map of fields and as a list. */
 
@@ -83,6 +84,7 @@ export class CompanyCheckWorkflow {}
 @Application({
   name: "company-check-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [CompanyCheckWorkflow],
   budgets: TEST_BUDGETS,
 })

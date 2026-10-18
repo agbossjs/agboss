@@ -73,6 +73,7 @@ export {
   type CompactionOptions,
   type FlowDefaults,
   type GuardOptions,
+  type GuardrailDefaults,
   type GuardsOptions,
   type HistoryDefaults,
   type ModelDefaults,

@@ -7,6 +7,7 @@ import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { testDefaults } from "../../helpers.js";
 import { start } from "../../helpers/flow.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /**
  * #261 PR 2 — an application of two workflows: orders and refunds, each its own start; a service
@@ -125,6 +126,7 @@ export class RefundsWorkflow {}
 @Application({
   name: "desks-application",
   version: "3.1.0",
+  environment: EmptyEnvironment,
   workflows: [OrdersWorkflow, RefundsWorkflow],
   providers: [RecordingCostLedgerRepository],
   budgets: TEST_BUDGETS,
@@ -148,6 +150,7 @@ export class OrdersCopyWorkflow {}
 @Application({
   name: "ambiguous-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [OrdersWorkflow, OrdersCopyWorkflow],
   budgets: TEST_BUDGETS,
 })

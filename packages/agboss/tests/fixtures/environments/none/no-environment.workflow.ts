@@ -20,6 +20,8 @@ import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 })
 export class NoEnvironmentApp {}
 
+// @ts-expect-error — environment is required (#261): this fixture omits it on purpose, to test
+// what an untyped caller gets at run time ([di.missing-environment])
 @Application({
   name: "no-environment-application",
   version: "1.0.0",

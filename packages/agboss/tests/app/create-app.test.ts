@@ -37,6 +37,7 @@ import { agent, execute, start } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../src/index.js";
 
 /** Everything external given: scripted models, memory stores, stubbed MCP servers. */
 function offline(book: ScriptBook, stubs = new McpStubs(book)): AppOptions {
@@ -95,6 +96,7 @@ class TwoStarts {}
 @Application({
   name: "two-starts-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [TwoStarts],
   budgets: TEST_BUDGETS,
 })
@@ -114,6 +116,7 @@ class Broken {}
 @Application({
   name: "broken-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [Broken],
   budgets: TEST_BUDGETS,
 })

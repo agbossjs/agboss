@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Every command reads the project's .env (model keys, fromEnv values) — once, here.
+// Every command reads the project's .env (model keys, env() / secret() values) — once, here.
 import "dotenv/config";
 import { runCli } from "./run-cli.js";
 import { runWithStar, type StarContext } from "./star.js";
