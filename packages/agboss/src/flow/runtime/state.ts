@@ -3,6 +3,13 @@ import type { ErrorRecord } from "../../core/error-record.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import type { ApprovalRecord } from "../../pause/index.js";
 import type { HistoryTurn } from "./history.js";
+import {
+  mergeBranchRecords,
+  type BranchOutcomeRecord,
+  type BranchRecordsUpdate,
+  type LaunchRecord,
+  type LaunchTicket,
+} from "./launch/records.js";
 import type { OutdatedValueRecord, ScopeRecords } from "./records.js";
 
 /**
@@ -10,7 +17,8 @@ import type { OutdatedValueRecord, ScopeRecords } from "./records.js";
  * only, written as a whole by each visit, #271 S11), the append-only `outdatedValues` channel the
  * outdating step moves values to, the path of node ids, visits per
  * node, steps, the error an `.onError` routes on, the node chosen next, the finish and its output,
- * plus the usage, budget, memory and approval channels. Nodes return only the keys they own.
+ * the launch in flight with its branches' outcome records and the launches so far (#273), plus the
+ * usage, budget, memory and approval channels. Nodes return only the keys they own.
  */
 
 const replace = <TValue>(_previous: TValue, next: TValue): TValue => next;
@@ -63,6 +71,15 @@ export const ExecutionState = Annotation.Root({
   /** The thread's finished executions (S8) and its compaction summaries, loaded once. */
   history: Annotation<HistoryTurn[]>({ reducer: replace, default: () => [] }),
   summaries: Annotation<string[]>({ reducer: replace, default: () => [] }),
+  /** The parallel launch in flight (#273 S20): written by its launching step, cleared by its join. */
+  launch: Annotation<LaunchTicket | null>({ reducer: replace, default: () => null }),
+  /** One outcome record per ended branch; a join reads and drops only its own launch's. */
+  branchRecords: Annotation<BranchOutcomeRecord[], BranchRecordsUpdate>({
+    reducer: mergeBranchRecords,
+    default: () => [],
+  }),
+  /** Every finished launch of the execution (`result.launches`). */
+  launches: Annotation<LaunchRecord[]>({ reducer: append, default: () => [] }),
   /** The approval decisions on tool calls in this execution. */
   approvals: Annotation<ApprovalRecord[]>({ reducer: append, default: () => [] }),
 });

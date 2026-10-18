@@ -17,6 +17,16 @@ export const startedVersionOf = (state: ExecutionStateType, workflow: WorkflowId
 export const visitNumberOf = (node: RuntimeNode, state: ExecutionStateType): number =>
   (state.visits[node.id] ?? 0) + 1;
 
+/** Which visit a frame is for: a node's own, or one branch of a launch (#273) — a copy or an item. */
+export interface StepSite {
+  readonly node: RuntimeNode;
+  readonly visitNumber: number;
+  /** `critic-agent#2` for a copy; the node's id otherwise. */
+  readonly nodeId?: string;
+  readonly copyNumber?: number;
+  readonly itemIndex?: number;
+}
+
 /**
  * The frame of one visit of `node` (#280): the execution's flat fields from its run, the step —
  * its component, node id, visit number (the one `maxVisits` counts) and its idempotency key. A
@@ -28,17 +38,28 @@ export function stepFrameOf(
   config: RunnableConfig | undefined,
   workflow: WorkflowIdentity,
 ): FrameSpec {
+  return stepFrameAt({ node, visitNumber: visitNumberOf(node, state) }, state, config, workflow);
+}
+
+/** The frame of a visit at `site`: a branch's has its copy id, copy number and item (#273). */
+export function stepFrameAt(
+  site: StepSite,
+  state: ExecutionStateType,
+  config: RunnableConfig | undefined,
+  workflow: WorkflowIdentity,
+): FrameSpec {
   const { run } = extractRunContext(config, state.runId);
   const executionId: string = run.runId;
-  const visitNumber = visitNumberOf(node, state);
+  const { node, visitNumber, itemIndex } = site;
+  const nodeId = site.nodeId ?? node.id;
   const step = {
     component: Object.freeze({ type: node.component, name: node.id }),
-    nodeId: node.id,
+    nodeId,
     visitNumber,
-    idempotencyKey: idempotencyKeyOf({ executionId, nodeId: node.id, visitNumber }),
+    idempotencyKey: idempotencyKeyOf({ executionId, nodeId, visitNumber, itemIndex }),
     callId: undefined,
-    itemIndex: undefined,
-    copyNumber: 1,
+    itemIndex,
+    copyNumber: site.copyNumber ?? 1,
   };
   return {
     execution: Object.freeze({

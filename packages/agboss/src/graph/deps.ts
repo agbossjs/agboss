@@ -9,6 +9,7 @@ import type { RouterEngine } from "../routers/index.js";
 import type { AnyTool } from "../tools/index.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
+import type { LaunchDecider } from "../flow/runtime/launch/launch-decider.js";
 import type {
   ChannelRequest,
   Guardrail,
@@ -57,6 +58,8 @@ export interface GraphDeps<TName extends string> {
   readonly routers: readonly LoadedRouter[];
   /** The decision engine of a router: its own model (Jev or a chat model). */
   readonly routerFor: (router: LoadedRouter) => RouterEngine;
+  /** A model router's decisions before a parallel launch (#273 S23): its `OnDemand` routes. */
+  readonly launchDecisionFor?: (router: LoadedRouter) => LaunchDecider;
   readonly observer?: ObserverManager;
   /** A component instance from the app's container: actions and finishes with a handler. */
   readonly container: { readonly get: <T>(token: Class<T>) => T };

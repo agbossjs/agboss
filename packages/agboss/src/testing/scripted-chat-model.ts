@@ -8,6 +8,7 @@ import { asError, TestFailure } from "./errors.js";
 import { ModelCallFailedError, type ScriptedTurn } from "./script.js";
 import type { ChatLine, ComponentScript, ModelRequest, ScriptBook } from "./script-book.js";
 import { extractText } from "../graph/multimodal.js";
+import { LAUNCH_ANSWER_TOOL } from "../prompts/router-launch.js";
 
 /** Output tokens that cost `usd` at the model's output price (no price or a free model → none). */
 const tokensFor = (usd: number, settings: ResolvedModelSettings): number =>
@@ -92,6 +93,7 @@ function replyOf(
   script: ComponentScript,
   book: ScriptBook,
   settings: ResolvedModelSettings,
+  tools: readonly ToolDefinition[],
 ): AIMessage {
   switch (turn.kind) {
     case "replyWith":
@@ -102,13 +104,45 @@ function replyOf(
       return toolCallReplyOf(turn, book, settings);
     case "failure":
       throw new ModelCallFailedError(turn.failure, script.label);
-    case "decision":
     case "decide":
-      throw new TestFailure(
-        "test.wrong-script",
-        `${script.label} chats: script it with replyWith(…) / callTool(…), not routeTo(…) / decideWith(…)`,
-      );
+      if (tools.some((tool) => tool.function.name === LAUNCH_ANSWER_TOOL))
+        return launchAnswerOf(turn, book, settings);
+      return wrongScript(script);
+    case "decision":
+      return wrongScript(script);
   }
+}
+
+const wrongScript = (script: ComponentScript): never => {
+  throw new TestFailure(
+    "test.wrong-script",
+    `${script.label} chats: script it with replyWith(…) / callTool(…), not routeTo(…) / decideWith(…)`,
+  );
+};
+
+/**
+ * A chat-model router before a launch (#273 S23) is scripted like a decision model —
+ * `decideWith({ "refund-policy-agent": 1 })` — and answers through its answer tool: P(yes) > 0.5 is
+ * `true`.
+ */
+function launchAnswerOf(
+  turn: TurnOf<"decide">,
+  book: ScriptBook,
+  settings: ResolvedModelSettings,
+): AIMessage {
+  const args = Object.fromEntries(
+    Object.entries(turn.answers).map(([target, answer]) => [
+      target,
+      typeof answer === "number" ? answer > 0.5 : answer,
+    ]),
+  );
+  const cost = turn.details.cost ?? 0;
+  return new AIMessage({
+    content: "",
+    usage_metadata: usageOf(tokensFor(cost, settings)),
+    response_metadata: costMetadataOf(cost, settings),
+    tool_calls: [{ id: book.nextToolCallId(), name: LAUNCH_ANSWER_TOOL, args }],
+  });
 }
 
 /**
@@ -146,7 +180,7 @@ export class ScriptedChatModel extends BaseChatModel {
     script.requests.push(req);
     let message: AIMessage;
     try {
-      message = replyOf(script.next(req), script, this.book, this.settings);
+      message = replyOf(script.next(req), script, this.book, this.settings, this.tools);
     } catch (error) {
       if (error instanceof TestFailure) this.book.report(error);
       throw asError(error);

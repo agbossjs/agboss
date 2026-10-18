@@ -1,11 +1,9 @@
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
 import { codeOfErrorClass, errorMatchOf, type ErrorRecord } from "../../core/error-record.js";
-import { AGBossError } from "../../core/errors.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
 import type { ResolvedField } from "../analyse/fields.js";
 import { EdgeKind, type FlowEdge } from "../analyse/flow-graph.js";
-import { launchLabel } from "../analyse/join-groups.js";
 import { NodeKind, type FlowPath } from "../ast.js";
 import { isFieldMap, type ComponentDeclaration } from "../decorators/declaration.js";
 import { isCodeRouter } from "../decorators/router.js";
@@ -16,12 +14,14 @@ import {
   type ValueShape,
 } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
+import { launchesOf, type RuntimeLaunch } from "./launch/runtime-launch.js";
 import { runtimeProvenanceOf, type RuntimeProvenance } from "./provenance.js";
 
 /**
  * A v2 workflow as its runtime reads it (#272 → Runtime): every node with its fields and its
  * outgoing edges grouped by how they are taken — the one next step, the `switch` cases by the
- * variant's class name, the router's routes by target, the `.onError` handlers.
+ * variant's class name, the router's routes by target, the `.onError` handlers, its parallel
+ * launches (#273).
  */
 
 /** A node's ways out. */
@@ -32,6 +32,8 @@ export interface NodeExits {
   /** `route(X)…` by the target's node id. */
   readonly routes: ReadonlyMap<string, FlowEdge>;
   readonly errors: readonly FlowEdge[];
+  /** Its parallel launches (#273), by the variant whose `caseOf(…)` launches (`""` outside one). */
+  readonly launches: ReadonlyMap<string, RuntimeLaunch>;
 }
 
 export interface RuntimeNode {
@@ -56,6 +58,10 @@ export interface RuntimeGraph {
   readonly flow: readonly FlowPath[];
   /** Every DTO class of the graph by class name (S5: a stored `variant` names its class). */
   readonly dtos: ReadonlyMap<string, DtoClass>;
+  /** Every parallel launch of the graph (#273): each has a join node of its own. */
+  readonly launches: readonly RuntimeLaunch[];
+  /** The nodes launched as branches: they run only inside a launch, their join continues them. */
+  readonly branchNodes: ReadonlySet<string>;
   /** What each producer's values are built from (#271): agents without `input`. */
   readonly provenance: RuntimeProvenance;
   readonly analysis: FlowAnalysis;
@@ -76,7 +82,8 @@ function exitsOf(edges: readonly FlowEdge[]): NodeExits {
   }
   const next = edges.find((edge) => edge.kind === EdgeKind.Next);
   const errors = edges.filter((edge) => edge.kind === EdgeKind.Error);
-  return { ...(next === undefined ? {} : { next }), cases, routes, errors };
+  const launches = launchesOf(edges);
+  return { ...(next === undefined ? {} : { next }), cases, routes, errors, launches };
 }
 
 /** A router decided by its class's `route(input)` (`DecidedBy.Code`, #280). */
@@ -101,30 +108,12 @@ const maxVisitsOf = (declaration: ComponentDeclaration): number | undefined =>
     ? declaration.options.maxVisits
     : undefined;
 
-/**
- * A workflow with a parallel launch (#273): the analyser and `agboss check` accept it, but this
- * version's runtime has no launch yet (PR 2), so assembly stops here instead of running a graph
- * without its branches.
- */
-export class LaunchNotRunnableError extends AGBossError {
-  static override readonly code: string = "flow.launch-not-runnable";
-}
-
-function rejectLaunches(analysis: FlowAnalysis): void {
-  const [launch] = analysis.graph.edges.flatMap((edge) => edge.launch ?? []);
-  if (launch === undefined) return;
-  throw new LaunchNotRunnableError(
-    `${analysis.workflow}: ${launchLabel(launch)} — parallel launches are checked (agboss check) but run only from #273 PR 2; this version cannot execute the workflow`,
-  );
-}
-
 /** The runtime's view of an analysed workflow. */
 export function runtimeGraphOf(
   analysis: FlowAnalysis,
   flow: readonly FlowPath[],
   type: Class,
 ): RuntimeGraph {
-  rejectLaunches(analysis);
   const nodes = new Map<string, RuntimeNode>();
   for (const node of analysis.graph.nodes.values()) {
     const maxVisits = maxVisitsOf(node.declaration);
@@ -144,6 +133,10 @@ export function runtimeGraphOf(
     type,
     nodes,
     starts: analysis.graph.starts,
+    launches: [...nodes.values()].flatMap((node) => [...node.exits.launches.values()]),
+    branchNodes: new Set(
+      analysis.graph.edges.flatMap((edge) => (edge.kind === EdgeKind.Launch ? [edge.to] : [])),
+    ),
     flow,
     dtos: dtoIndexOf(analysis),
     provenance: runtimeProvenanceOf(analysis.dataflow.provenance),
@@ -190,7 +183,10 @@ function dtoIndexOf(analysis: FlowAnalysis): ReadonlyMap<string, DtoClass> {
  * the error's class line, then nearest in its cause chain; `.onError(Error, …)` only when nothing
  * else matches. None → the failure is not handled.
  */
-export function errorHandlerOf(exits: NodeExits, record: ErrorRecord): FlowEdge | undefined {
+export function errorHandlerOf(
+  exits: Pick<NodeExits, "errors">,
+  record: ErrorRecord,
+): FlowEdge | undefined {
   let best: { readonly edge: FlowEdge; readonly rank: readonly number[] } | undefined;
   for (const edge of exits.errors) {
     if (edge.error === undefined) continue;

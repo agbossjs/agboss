@@ -48,6 +48,9 @@ const wrongReceived = (matcher: string, wanted: string): Verdict => ({
   pass: false,
   message: () => `${matcher}: expected ${wanted}`,
 });
+/** `critic-agent#2` → `critic-agent`: the node of a copy (#273). */
+const withoutCopyNumber = (nodeId: string): string => nodeId.replace(/#\d+$/, "");
+
 const RUN = "a run result (app.execute / app.resume)";
 const SCRIPT = "mockLlm(…) of an agent or a router";
 
@@ -79,7 +82,8 @@ export const workflowMatchers = {
   toFollowPath(this: MatcherContext, received: unknown, path: readonly Class[]): Verdict {
     if (!isExecutionOutput(received)) return wrongReceived("toFollowPath", RUN);
     const expected = path.map(nodeNameOf);
-    const pass = this.equals(received.path, expected);
+    // a copy of a repeated agent of a launch is `critic-agent#2` in the path: its class is its node
+    const pass = this.equals(received.path.map(withoutCopyNumber), expected);
     return verdict(
       this,
       pass,

@@ -1,7 +1,7 @@
 import type { ResolvedField } from "../analyse/fields.js";
 import { prettyJson } from "./json.js";
 import type { ScopeValueRecord, VariantElement } from "./records.js";
-import { previousOf, type ScopeView } from "./scope.js";
+import { elementProducerOf, previousOf, type ScopeView } from "./scope.js";
 
 /**
  * The input message (#270 Q51): built by the framework, always the same way — every `input` field
@@ -15,14 +15,14 @@ import { previousOf, type ScopeView } from "./scope.js";
 const listItems = (record: ScopeValueRecord): readonly unknown[] => {
   const values = Array.isArray(record.value) ? (record.value as readonly unknown[]) : [];
   const isOneOf = record.slot.startsWith("list:oneOf(");
-  return values.map((element) =>
+  return values.map((element, index) =>
     isOneOf
       ? {
-          producer: record.producer,
+          producer: elementProducerOf(record, index),
           variant: (element as VariantElement).variant,
           value: (element as VariantElement).value,
         }
-      : { producer: record.producer, value: element },
+      : { producer: elementProducerOf(record, index), value: element },
   );
 };
 

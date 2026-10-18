@@ -112,6 +112,9 @@ const executionStateOf = (): ExecutionStateType => ({
   history: [],
   summaries: [],
   approvals: [],
+  launch: null,
+  branchRecords: [],
+  launches: [],
 });
 
 /** The loop's input for a task (its input message), as the agent's node hands it over. */

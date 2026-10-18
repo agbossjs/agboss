@@ -1,3 +1,4 @@
+import type { LaunchRecord } from "../flow/runtime/launch/records.js";
 import type { Class } from "../components/injection.js";
 import type { CostReport } from "../finops/usage.js";
 import type { ExecutionInputOf, ExecutionOutputOf } from "../flow/generated-types.js";
@@ -84,6 +85,12 @@ export interface ExecutionOutput<TOutput = unknown> {
   /** Node ids (component names) in the order the execution visited them. */
   readonly path: readonly string[];
   readonly spend: CostReport;
+  /**
+   * Its parallel launches (#273), in the order they joined: each one's id, how many items (or
+   * listed targets) there were and were launched — `{ items: 200, taken: 50 }` after `maxItems` —
+   * and how each branch ended.
+   */
+  readonly launches: readonly LaunchRecord[];
   /** Conversation memory: what this turn compacted, when it did. */
   readonly compacted?: Compacted;
   /** The conversation in the tracing UI (session = thread), when tracing is on. */

@@ -23,6 +23,11 @@ export interface ScopeValueRecord {
   readonly slot: string;
   /** The `name` of the component that gave the value. */
   readonly producer: string;
+  /**
+   * A list a join gathered from several components (#273): the `name` of each element's producer,
+   * in the list's order. Absent when one component gave every element.
+   */
+  readonly elementProducers?: readonly string[];
   /** The DTO class name of a `oneOf` value. */
   readonly variant?: string;
   /** The value; a list slot holds an array (of `VariantElement`s for `listOf(oneOf(…))`). */

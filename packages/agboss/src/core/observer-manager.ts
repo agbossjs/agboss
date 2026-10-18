@@ -1,5 +1,6 @@
 import type { ExecutionOutput } from "../app/types.js";
 import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
+import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 import type {
   ActionEndEvent,
   ActionStartEvent,
@@ -139,5 +140,8 @@ export class ObserverManager implements Required<WorkflowObserver> {
   }
   onValuesOutdated(event: ValuesOutdatedEvent): Promise<void> {
     return this.each("onValuesOutdated", (o) => o.onValuesOutdated?.(event));
+  }
+  onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): Promise<void> {
+    return this.each("onLaunchItemsTruncated", (o) => o.onLaunchItemsTruncated?.(event));
   }
 }

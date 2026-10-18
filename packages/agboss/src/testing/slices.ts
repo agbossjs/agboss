@@ -109,6 +109,9 @@ const freshState = (runId: string): ExecutionStateType => ({
   history: [],
   summaries: [],
   approvals: [],
+  launch: null,
+  branchRecords: [],
+  launches: [],
 });
 
 export function agentSlice(built: BuiltApp, target: Class): AgentSlice {

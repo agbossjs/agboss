@@ -19,6 +19,7 @@ export function runResultOf(run: AgentExecutionOutput, withRecord: boolean): Exe
     runId: run.runId,
     path: run.path,
     spend: run.cost,
+    launches: run.data.launches ?? [],
     ...(run.finish === undefined ? {} : { finish: { name: run.finish }, output: run.output }),
     ...(run.pending === undefined ? {} : { pause: run.pending }),
     ...(run.compacted === undefined ? {} : { compacted: run.compacted }),

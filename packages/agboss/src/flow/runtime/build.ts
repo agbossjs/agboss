@@ -1,4 +1,4 @@
-import { END, START, StateGraph, type BaseCheckpointSaver } from "@langchain/langgraph";
+import { END, Send, START, StateGraph, type BaseCheckpointSaver } from "@langchain/langgraph";
 import { agentDefinitions } from "../../graph/agent-definitions.js";
 import { agentLoopGraph, noJudges, pauseSeamApproval } from "../../graph/agent-loop/index.js";
 import type { GraphDeps } from "../../graph/deps.js";
@@ -13,14 +13,21 @@ import { finishRunner } from "./runners/finish.js";
 import { codeRouterRunner } from "./runners/code-router.js";
 import { routerRunner } from "./runners/router.js";
 import { startRunner } from "./runners/start.js";
+import { branchNode } from "./launch/branch-runner.js";
+import { branchInputOf } from "./launch/branch-view.js";
+import { joinNode } from "./launch/join-node.js";
+import { LAUNCH_NEXT } from "./launch/launch-exit.js";
+import { LaunchRegistry } from "./launch/launch-registry.js";
 import { ExecutionState, type ExecutionStateType, type ExecutionStateUpdate } from "./state.js";
 import { visitNode, type SpentToday } from "./visit.js";
 
 /**
  * One LangGraph `StateGraph` per workflow (#272 → Runtime): a node per component, its id the
  * component's `name`; the execution enters at the start it was given and every node's conditional
- * edge follows the way out it chose (`next`), a finish ending it. LangGraph's `recursionLimit` is a
- * safety net far above the steps limit, never the limit a user sees.
+ * edge follows the way out it chose (`next`), a finish ending it. A parallel launch (#273 S20) sends
+ * each of its branches as one `Send` of the same superstep to its node, and every branch goes on to
+ * the launch's join node. LangGraph's `recursionLimit` is a safety net far above the steps limit,
+ * never the limit a user sees.
  */
 
 /** The limits one execution is held to and the spend of its account today. */
@@ -96,6 +103,15 @@ function runnerOf(node: RuntimeNode, deps: GraphDeps<string>, loops: Loops): Nod
   }
 }
 
+/** Where a node's visit goes: the node it chose, the end, or one `Send` per branch of its launch. */
+function nextOf(state: ExecutionStateType): string | Send[] {
+  if (state.next === LAUNCH_NEXT)
+    return (state.launch?.branches ?? []).map(
+      (branch) => new Send(branch.node, branchInputOf(state, branch)),
+    );
+  return state.next === "" ? END : state.next;
+}
+
 /** The limits of one execution: steps, and the run's and the day's money. */
 const resolvedLimits = (deps: GraphDeps<string>, run: RunLimits): ResolvedLimits => ({
   steps: deps.maxSteps,
@@ -111,8 +127,10 @@ function compile(deps: GraphDeps<string>, run: RunLimits, checkpointer?: BaseChe
     spentToday: run.spentToday,
     workflow,
     provenance: deps.graph.provenance,
+    graph: deps.graph,
     observer: deps.observer,
   };
+  const launchDeps = { ...visitDeps, registry: new LaunchRegistry() };
   const nodes = [...deps.graph.nodes.values()];
   // node ids are the components' names, known only at run time: `string`, not literal types
   const graph = new StateGraph<
@@ -122,13 +140,18 @@ function compile(deps: GraphDeps<string>, run: RunLimits, checkpointer?: BaseChe
     string
   >(ExecutionState);
   for (const node of nodes) {
-    graph.addNode(node.id, visitNode(node, runnerOf(node, deps, loops), visitDeps));
+    const runner = runnerOf(node, deps, loops);
+    const isBranch = deps.graph.branchNodes.has(node.id);
+    graph.addNode(
+      node.id,
+      isBranch ? branchNode(node, runner, launchDeps) : visitNode(node, runner, visitDeps),
+    );
   }
-  const ids = nodes.map((node) => node.id);
+  for (const launch of deps.graph.launches)
+    graph.addNode(launch.joinNodeId, joinNode(launch, launchDeps));
+  const ids = [...nodes.map((node) => node.id), ...deps.graph.launches.map((l) => l.joinNodeId)];
   graph.addConditionalEdges(START, (state) => state.start, [...deps.graph.starts]);
-  for (const id of ids) {
-    graph.addConditionalEdges(id, (state) => (state.next === "" ? END : state.next), [...ids, END]);
-  }
+  for (const id of ids) graph.addConditionalEdges(id, nextOf, [...ids, END]);
   const recursionLimit = (deps.maxSteps + ids.length) * RECURSION_SAFETY_FACTOR;
   const compiled = graph.compile(checkpointer === undefined ? {} : { checkpointer });
   return compiled.withConfig({ recursionLimit });
