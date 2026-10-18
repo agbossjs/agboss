@@ -29,7 +29,7 @@
         "src/studio.ts",
         // loaded by path: `--workflow <file>` and the environment of `--env <name>`
         "tests/fixtures/loader/**/*.workflow.ts",
-        "tests/fixtures/**/*.environment.ts",
+        "tests/**/fixtures/**/*.environment.ts",
         // loaded by path: the workflows `check:types` generates types for (#272)
         "tests/flow/fixtures/*.fixture.ts",
         // compile-time tests: checked by tsc (the gate's typecheck), not run by Vitest (#272)
