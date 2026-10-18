@@ -53,6 +53,7 @@ Each hook is its own interface with a typed payload (root entry `agboss`):
 | `OnJudgeStart` / `OnJudgeEnd`             | `JudgeStartEvent` / `JudgeEndEvent`                                                       |
 | `OnValuesOutdated`                        | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values))               |
 | `OnLaunchItemsTruncated`                  | `LaunchItemsTruncatedEvent` (step, launch, items, maxItems — [below](#parallel-launches)) |
+| `OnQuorumDecided`                         | `QuorumDecidedEvent` (step, launch, isReached, branches, group — [below](#quorums))       |
 
 `onExecutionStart` fires once per execution, at `execute` — a resume does not start it again, so
 the count of starts is the count of executions. One that pauses (an approval on a channel) emits
@@ -174,11 +175,11 @@ Under a quorum (#279, [Parallel](Parallel#at-run-time)) each branch's trace entr
 `verdict` (`BranchVerdict.Counted` with `acceptedSequence`, `Rejected` with `rejectedBy` — the
 arbiters that rejected it — or `Surplus`; a cancelled branch has none). The join adds a trace entry
 "quorum decided" (`launch`, `isReached`, the counted branches in counting order) and emits **one**
-`onQuorumDecided`: `QuorumDecidedEvent` carries the execution's fields, the launching `step`, the
+`onQuorumDecided`: `QuorumDecidedEvent` is a node event — the common fields and the launching `step` — with the
 `launch` id, `isReached`, every branch as `result.launches` shows it (`BranchRecord`: `status`,
 `verdict`, `acceptedSequence`, `rejectedBy`) and, for `.joinQuorumGroups(…)`, the winning `group`
-(`agents`, `priority`). No answer values. A model arbiter's calls are model calls of their own
-(`onModelStart` / `onModelEnd`), their cost under `arbiter:<name>`.
+(`agents`, `priority`). No answer values. A model arbiter's calls are not agent model calls (no
+`onModelStart` / `onModelEnd`); their cost is in `spend` under `arbiter:<name>`.
 
 ```ts
 import { BranchVerdict, Injectable, type OnQuorumDecided, type QuorumDecidedEvent } from "agboss";
