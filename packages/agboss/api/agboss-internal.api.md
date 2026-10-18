@@ -32,6 +32,11 @@ export const byComponentName: ComponentLabel;
 // @public
 export function checkModelUses(uses: readonly ModelUse[], directory: ModelProviderDirectory, options: ModelCheckOptions): Promise<readonly ModelProblem[]>;
 
+// Warning: (ae-forgotten-export) The symbol "FlowAnalysis" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function childLines(analysis: FlowAnalysis): readonly string[];
+
 // Warning: (ae-forgotten-export) The symbol "AssembledWorkflow" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "AppDepsOptions" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "AppDeps" needs to be exported by the entry point internal.d.ts
@@ -245,8 +250,6 @@ export const goldenFile: (root: string, bundle: string, name: string) => string;
 // @public
 export function goldenFromRecent(terns: TernRecords, bundle: string, name: string, limit: number, now?: () => Date): Promise<GoldenSet>;
 
-// Warning: (ae-forgotten-export) The symbol "FlowAnalysis" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function inputLines(analysis: FlowAnalysis): readonly string[];
 
