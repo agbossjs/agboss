@@ -59,8 +59,20 @@ function edgeViolation(node: FlowNode, edge: FlowEdge): RuleViolation | undefine
   return violation("flow.returns-mismatch", message, [node.name]);
 }
 
+/** `{ about }` on a start's `.returns(…)`: its input answers nothing (`[io.about-on-start]`). */
+function aboutOnStart(context: AnalysisContext): readonly RuleViolation[] {
+  return context.graph.edges
+    .filter((edge) => context.graph.nodes.get(edge.from)?.kind === NodeKind.Start)
+    .filter((edge) => edge.writes.some((write) => write.about !== undefined))
+    .map((edge) => {
+      const message = `${edge.from}: a start's input is not an answer about anything — remove { about }`;
+      return violation("io.about-on-start", message, [edge.from]);
+    });
+}
+
 export function returnsRules(context: AnalysisContext): readonly RuleViolation[] {
   const found = new Map<string, RuleViolation>();
+  for (const problem of aboutOnStart(context)) found.set(problem.message, problem);
   for (const edge of context.graph.edges) {
     const node = context.graph.nodes.get(edge.from);
     const problem = node === undefined ? undefined : edgeViolation(node, edge);

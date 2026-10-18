@@ -6,7 +6,8 @@ import type {
   Switching,
 } from "./builder-types.js";
 import type { OneOfWrapper, ReturnedShape, ValueOf } from "./dto-wrappers.js";
-import type { GeneratedTypeError, NameOf } from "./generated-types.js";
+import type { NodeKind } from "./ast.js";
+import type { GeneratedTypeError, KindOf, NameOf } from "./generated-types.js";
 
 /**
  * The types of `.returns(…)` (#272 AC2, AC15; #299 S54): what the step gives, from the generated
@@ -85,10 +86,15 @@ export type AfterReturns<
     : AfterValue<TGiven extends readonly [infer TOne] ? TOne : TGiven, THead>
   : BuiltPath<THead> & Returning<TInstance, TLeft, THead, TGiven>;
 
-/** The options a shape takes: `{ about }` beside one class or a list, nothing beside a `oneOf`. */
-export type ReturnsArguments<TShape> = TShape extends OneOfWrapper
+/**
+ * The options a shape takes: `{ about }` beside one class or a list, nothing beside a `oneOf`, and
+ * nothing after a start — its input is no answer about anything (`[io.about-on-start]`).
+ */
+export type ReturnsArguments<TShape, TInstance> = [KindOf<TInstance>] extends [NodeKind.Start]
   ? []
-  : [options?: ReturnsOptions];
+  : TShape extends OneOfWrapper
+    ? []
+    : [options?: ReturnsOptions];
 
 /**
  * `.returns(value, options?)` on a step whose values `TLeft` are still to be named (`ValuesLeft`
@@ -102,7 +108,7 @@ export interface Returning<
 > {
   returns<const TShape extends ReturnedShape>(
     value: TShape & ReturnsCheck<ValueOf<TShape>, TLeft, NameOf<TInstance>>,
-    ...options: ReturnsArguments<TShape>
+    ...options: ReturnsArguments<TShape, TInstance>
   ): AfterReturns<
     TInstance,
     Without<TLeft, ValueOf<TShape>>,

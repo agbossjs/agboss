@@ -100,6 +100,8 @@ describe("#270 AC6, #299 S54: returns and caseOf against ProducerOutputs", () =>
     agent(DraftAgent).returns(OfferDraftDto, { as: "before" });
     // @ts-expect-error — { about } names DTO classes
     agent(DraftAgent).returns(OfferDraftDto, { about: "ShortlistDto" });
+    // @ts-expect-error — a start's input is no answer about anything: no { about } after a start
+    start(CompanyBatchWorkflowStart).returns(listOf(CompanyDto), { about: ShortlistDto });
     agent(DraftAgent).returns(OfferDraftDto, { about: ShortlistDto });
     agent(DraftAgent).returns(OfferDraftDto, { about: [ShortlistDto, ProfileDto] });
   });

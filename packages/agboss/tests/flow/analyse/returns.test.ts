@@ -30,6 +30,31 @@ const returnsErrorsOf = (...flow: Parameters<typeof Workflow>[0]["flow"]) => {
     .map((found) => found.message);
 };
 
+describe("#299: { about } on a start's .returns", () => {
+  it("fails assembly: a start's input is no answer about anything", () => {
+    @Workflow({
+      name: "about-start-workflow",
+      version: "1.0.0",
+      flow: [
+        start(KitWorkflowStart)
+          .returns(ShortlistDto, { about: OfferDraftDto })
+          .toAgent(DraftKitAgent)
+          .returns(OfferDraftDto)
+          .toFinish(DraftKitWorkflowFinish),
+      ],
+    })
+    class AboutStartWorkflow {}
+
+    expect(checkWorkflow(AboutStartWorkflow).errors).toEqual([
+      expect.objectContaining({
+        code: "io.about-on-start",
+        message:
+          "about-start-workflow: kit-workflow-start: a start's input is not an answer about anything — remove { about }",
+      }),
+    ]);
+  });
+});
+
 describe("AC15: .returns(…) is exactly where values are", () => {
   it("a missing .returns after a step with output fails", () => {
     const paths = start(KitWorkflowStart)

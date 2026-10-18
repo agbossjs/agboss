@@ -42,6 +42,7 @@ export type RuleCode =
   | "input.outdated-on-path"
   | "io.ambiguous-cycle"
   | "io.ambiguous-about"
+  | "io.about-on-start"
   | "router.duplicate-route"
   | "router.empty-input"
   | "router.no-model"
