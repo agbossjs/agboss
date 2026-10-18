@@ -1,4 +1,5 @@
-import { ENV, Injectable, type Environment } from "agboss";
+import { ENV, Injectable } from "agboss";
+import type { AppEnvironment } from "../environments/app.environment.js";
 import { z } from "zod";
 import { JOB_SEARCH, type JobSearch } from "../config/search.config.js";
 import {
@@ -46,7 +47,7 @@ export class GreenhouseBoards {
 
   constructor(
     private readonly search: JobSearch,
-    private readonly env: Environment,
+    private readonly environment: AppEnvironment,
     private readonly fetchJson: FetchJson = fetchJsonOverHttp,
   ) {}
 
@@ -68,7 +69,7 @@ export class GreenhouseBoards {
   /** How many live jobs a board has, and how many of them are in a place (any of its words). */
   async probe(board: string, placeWords: readonly string[]): Promise<BoardProbe> {
     try {
-      const url = `${this.env.greenhouseApiUrl}/v1/boards/${encodeURIComponent(board)}/jobs`;
+      const url = `${this.environment.greenhouseApiUrl}/v1/boards/${encodeURIComponent(board)}/jobs`;
       const { jobs } = ProbeResponse.parse(await this.fetchJson(url));
       const words = placeWords.map((word) => word.toLowerCase());
       const inPlace = jobs.filter((job) =>
@@ -83,7 +84,7 @@ export class GreenhouseBoards {
   private board(board: string): Promise<BoardJob[]> {
     const cached = this.#cache.get(board);
     if (cached !== undefined) return cached;
-    const url = `${this.env.greenhouseApiUrl}/v1/boards/${encodeURIComponent(board)}/jobs?content=true`;
+    const url = `${this.environment.greenhouseApiUrl}/v1/boards/${encodeURIComponent(board)}/jobs?content=true`;
     const pending = this.fetchJson(url).then((body) => BoardResponse.parse(body).jobs);
     pending.catch(() => this.#cache.delete(board));
     this.#cache.set(board, pending);

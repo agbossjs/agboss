@@ -58,6 +58,12 @@ describe("job-scout workflow", () => {
       ),
     ).toBe(true);
     expect(has("rag: company_notes (tool, k 3)")).toBe(true);
+    // #261: the application's defaults under the workflow's own (history), each with its source
+    expect(
+      has(
+        "defaults: temperature 0 (job-scout-application) · maxTokens 4000 (own) · history 8 (job-scout-workflow)",
+      ),
+    ).toBe(true);
     expect(has("· search_company_notes (local)")).toBe(true);
   });
 });

@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defineEnvironment, fromEnv, type Environment } from "agboss";
+import { env } from "agboss";
 import { testWith } from "agboss/testing";
 import { JobScoutApplication } from "../src/job-scout.application.js";
+import type { AppEnvironment } from "../src/environments/app.environment.js";
 import { GreenhouseJobs } from "../src/tools/greenhouse-jobs.tool.js";
 
 const query = {
@@ -32,12 +33,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// `npm run chat` (the app) defaults to dev; testWith defaults to test.environment.ts when it exists.
+// `npm run chat` (the app) defaults to dev; testWith defaults to test.environment.ts (#261).
 const asChat = testWith(JobScoutApplication, { env: "dev" });
 const bare = testWith(JobScoutApplication);
 const asTest = testWith(JobScoutApplication, { env: "test" });
-const stub: Environment = { greenhouseApiUrl: "http://greenhouse.stub" };
-const ownValues = testWith(JobScoutApplication, { environment: stub });
 
 describe("#182: the app's environment reaches GreenhouseBoards", () => {
   asChat(
@@ -71,23 +70,15 @@ describe("#182: the app's environment reaches GreenhouseBoards", () => {
 
     expect(urls).toEqual(["https://greenhouse.test/v1/boards/fireblocks/jobs?content=true"]);
   });
-
-  ownValues("AC2: a test passes its own environment; the service receives it", async ({ app }) => {
-    const urls = recordBoardRequests();
-
-    await app.tool(GreenhouseJobs).invoke(query);
-
-    expect(urls).toEqual(["http://greenhouse.stub/v1/boards/fireblocks/jobs?content=true"]);
-  });
 });
 
-describe("#182 AC3: an environment of the wrong shape does not compile", () => {
+describe("#261 AC8: an environment of the wrong shape does not compile", () => {
   it("a missing or mistyped field is a tsc error in the environment file", () => {
-    // @ts-expect-error — greenhouseApiUrl is missing: the contract (environment.ts) requires it
-    const missing = defineEnvironment({});
+    // @ts-expect-error — greenhouseApiUrl is missing: the contract (app.environment.ts) requires it
+    const missing: AppEnvironment = {};
     // @ts-expect-error — greenhouseApiUrl is a string
-    const mistyped = defineEnvironment({ greenhouseApiUrl: 42 });
-    const fromVariable = defineEnvironment({ greenhouseApiUrl: fromEnv("GREENHOUSE_API_URL") });
+    const mistyped: AppEnvironment = { greenhouseApiUrl: 42 };
+    const fromVariable: AppEnvironment = { greenhouseApiUrl: env("GREENHOUSE_API_URL") };
     expect([missing, mistyped, fromVariable]).toHaveLength(3);
   });
 });

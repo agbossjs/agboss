@@ -1,6 +1,6 @@
-import { defineEnvironment } from "agboss";
+import type { AppEnvironment } from "./app.environment.js";
 
-/** `testWith(JobScoutApplication, { env: "test" })`: a host no test reaches (fetches are stubbed or recorded). */
-export default defineEnvironment({
+/** What `testWith(JobScoutApplication)` runs on: a host no test reaches (fetches are stubbed or recorded). */
+export const environment: AppEnvironment = {
   greenhouseApiUrl: "https://greenhouse.test",
-});
+};

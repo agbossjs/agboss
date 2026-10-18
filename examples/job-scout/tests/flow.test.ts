@@ -52,7 +52,7 @@ describe("job-scout on the path grammar (#272)", () => {
       "shortlist-agent",
     ]);
     expect(describeWorkflow(workflow)).toContain(
-      "  main-router  decisions typesafe/jev-1.13 · maxVisits 1 — Sends the job seeker's message to the agent that answers it",
+      "  main-router  decisions typesafe/jev-1.13 (own) · maxVisits 1 — Sends the job seeker's message to the agent that answers it",
     );
   });
 

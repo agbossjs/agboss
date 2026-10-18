@@ -10,7 +10,7 @@ import {
 import { WorkflowStartTextDto } from "agboss/dto";
 import { usd } from "agboss/units";
 import { DecisionsModelProvider, Reasoning } from "agboss/models";
-import { DEFAULTS, GUARDS, KIMI } from "./config/settings.js";
+import { GUARDS, KIMI } from "./config/settings.js";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { ProfilerAgent } from "./agents/profiler.agent.js";
 import { ScoutAgent } from "./agents/scout.agent.js";
@@ -49,7 +49,7 @@ import { JOB_SEARCH, jobSearchConfig } from "./config/search.config.js";
           .toFinish(ChatWorkflowFinish),
       ),
   ],
-  defaults: { ...DEFAULTS, history: { limit: 8 } },
+  defaults: { history: { limit: 8 } }, // the rest from the application's DEFAULTS (#261 cascade)
   guards: GUARDS,
   compaction: { every: 5, keep: 10, model: { model: KIMI, reasoning: Reasoning.off() } },
   mcp: [ShortlistServer],
