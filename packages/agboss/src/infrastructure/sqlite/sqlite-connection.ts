@@ -119,7 +119,11 @@ export function sqliteImplementation(implementation: Class): void {
 
 /** Whether an instance is of a SQLite implementation or a subclass of one (it keeps nothing outside its file). */
 export function isSqliteImplementation(instance: object): boolean {
-  for (let at: unknown = instance.constructor; typeof at === "function"; at = Object.getPrototypeOf(at)) {
+  for (
+    let at: unknown = instance.constructor;
+    typeof at === "function";
+    at = Object.getPrototypeOf(at)
+  ) {
     if (sqliteImplementations.has(at as Class)) return true;
   }
   return false;
