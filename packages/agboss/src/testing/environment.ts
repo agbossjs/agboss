@@ -34,7 +34,6 @@ import { mcpServersOf, usedComponentsOf } from "./workflow-parts.js";
 import { reusableInfrastructure } from "../infrastructure/contracts.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { createVcrGateway, type VcrConfig } from "./vcr.js";
-import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
 
 /**
  * What `testWith` takes besides the application. `env` names the environment (default `test`: a
@@ -136,12 +135,8 @@ export class TestEnvironment {
       ...environment,
       gateway:
         options.vcr && first !== undefined
-          ? createVcrGateway(
-              first,
-              options.vcr,
-              testEnv(),
-              environment.environment ?? NO_ENVIRONMENT_VALUES,
-              (failure) => this.book.report(failure),
+          ? createVcrGateway(first, options.vcr, { env: testEnv(), ...environment }, (failure) =>
+              this.book.report(failure),
             )
           : createScriptedGateway(this.book),
       connectMcp: stubbedMcpConnect(this.mcp, labels, real),

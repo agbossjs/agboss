@@ -4,6 +4,7 @@ import path from "node:path";
 import { DecisionError } from "../llm/decision-errors.js";
 import type { DecisionOutcome } from "../llm/decision-response.js";
 import type { Environment } from "../flow/generated-types.js";
+import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
 import {
   createProviderGateway,
   type DecideSpec,
@@ -106,6 +107,12 @@ export function vcrGateway(cassette: Cassette, real: () => ModelGateway): ModelG
   };
 }
 
+/** Where a recording reads its settings: the process, and the test's environment (its keys). */
+export interface VcrEnvironments {
+  readonly env: NodeJS.ProcessEnv;
+  readonly environment?: Environment | undefined;
+}
+
 /**
  * The VCR gateway of a test: the workflow's real providers behind the cassette — keys from the
  * test's environment (`environment`, record with one that holds them), base URLs from `env`.
@@ -113,8 +120,7 @@ export function vcrGateway(cassette: Cassette, real: () => ModelGateway): ModelG
 export function createVcrGateway(
   bundle: AssembledWorkflow,
   config: VcrConfig,
-  env: NodeJS.ProcessEnv,
-  environment: Environment,
+  { env, environment = NO_ENVIRONMENT_VALUES }: VcrEnvironments,
   report: (failure: Error) => Error,
 ): ModelGateway {
   const cassette = cassetteOf(cassetteFileOf(config), vcrModeOf(config, env), report);
