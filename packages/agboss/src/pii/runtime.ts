@@ -34,12 +34,15 @@ export interface PiiRuntimeParts {
   /** The model detection of a policy on its `detectWithModel` model. */
   readonly detectionOf: (policy: string, model: string) => ModelDetection;
   readonly contexts: Pick<RuntimeContexts, "tenantContext" | "executionContext">;
-  /** The key of tokens no policy key covers (sensitive fields, a project's detectors). */
+  /**
+   * The application's key (`@Application({ pseudonymKey })`, #120): tokens no policy key covers —
+   * sensitive fields, a project's detectors, a policy without its own key.
+   */
   readonly fieldKey: string;
 }
 
 function keyOf(meta: PiiPolicyMeta, parts: PiiRuntimeParts): string {
-  if (isCustomPolicy(meta)) return parts.fieldKey;
+  if (isCustomPolicy(meta) || meta.pseudonymKey === undefined) return parts.fieldKey;
   const variable = variableOfSecret(meta.pseudonymKey);
   const value = parts.processEnv[variable];
   if (value === undefined || value === "")

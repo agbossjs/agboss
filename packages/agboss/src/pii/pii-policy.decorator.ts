@@ -52,8 +52,11 @@ export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readon
   readonly rules: readonly [PiiRule, ...PiiRule[]];
   /** A chat model that finds names, street addresses and the other kinds without a format. */
   readonly detectWithModel?: string;
-  /** The HMAC key of `replaceWithToken()`: `secret("PII_PSEUDONYM_KEY")`, read when the app starts. */
-  readonly pseudonymKey: Secret;
+  /**
+   * The HMAC key of its `replaceWithToken()` rules: `secret("PII_PSEUDONYM_KEY")`, read when the app
+   * starts; absent → the application's (`@Application({ pseudonymKey })`).
+   */
+  readonly pseudonymKey?: Secret;
   /** Constructor dependencies (a `PiiRefusal` class's services), in order. */
   readonly deps?: D;
   readonly action?: never;

@@ -30,7 +30,6 @@ export function makeApprovalNode(
   };
 }
 
-// eslint-disable-next-line max-lines-per-function
 function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
   return async (state, config) => {
     const runCtx = extractRunContext(config, state.runId);

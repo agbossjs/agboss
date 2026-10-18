@@ -52,6 +52,8 @@ export interface AssembledApplication {
   readonly executionContext: ExecutionContextClass;
   /** `@Application({ piiPolicies })` (#120): every workflow's, and what its own log is masked by. */
   readonly piiPolicies: readonly Class[];
+  /** `@Application({ pseudonymKey })` (#120): the environment field of its PII key. */
+  readonly pseudonymKey?: string;
 }
 
 /** The default shutdown timeout (#265 S51): under the usual 30 s grace period and the 30 s lease. */
@@ -124,6 +126,14 @@ function throwIfAny(own: readonly RuleViolation[], errors: readonly GraphRuleErr
   if (all.length > 0) throw new ApplicationRuleError(all);
 }
 
+/** Its PII settings (#120): the policies of every workflow and the field of its key. */
+const piiOptionsOf = (
+  options: ApplicationOptions,
+): Pick<AssembledApplication, "piiPolicies" | "pseudonymKey"> => ({
+  piiPolicies: options.piiPolicies ?? [],
+  ...(options.pseudonymKey === undefined ? {} : { pseudonymKey: options.pseudonymKey }),
+});
+
 /** The context classes an application declares, else the built-in ones (#261). */
 export const declaredContextsOf = (
   options: Pick<ApplicationOptions, "tenantContext" | "executionContext">,
@@ -164,6 +174,6 @@ export async function applicationOf(
     workflows: assembled,
     shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
     ...declaredContextsOf(options),
-    piiPolicies: options.piiPolicies ?? [],
+    ...piiOptionsOf(options),
   };
 }

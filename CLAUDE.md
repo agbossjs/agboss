@@ -1069,9 +1069,9 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
 - **Knowledge bases:** a `@Rag` class implementing `RagConnector`, bound per agent with
   `rag: [{ use, mode: RagMode.Tool | RagMode.Context }]`. **MCP:** `@McpServer`
   (`extends McpServerClient`) in `mcp: [...]`, its tools as `@McpTool` classes.
-- **PII policies (#120, S38):** `@PiiPolicy({ name, description, rules: [pii(PiiKind | PiiGroup,
-PiiAction.…)], detectWithModel?, pseudonymKey: secret("…") })` (`-pii-policy`), or a project's
-  own detector — `@PiiPolicy({ name, action, deps })` + `implements PiiPolicyHandler`
+- **PII policies (#120, S38):** a declarative `@PiiPolicy` — `name` (`-pii-policy`),
+  `description`, `rules: [pii(kind or group, action)]`, `detectWithModel?`, `pseudonymKey?` — or a
+  project's own detector — `@PiiPolicy({ name, action, deps })` + `implements PiiPolicyHandler`
   (`findMatches(text)` → `PiiMatch { start, end }`). Only the kinds a rule names are found (formats
   validated: Luhn, IBAN, Israeli ID, SSN rules; names and addresses by `detectWithModel`); a kind
   rule beats a group rule, the longest span wins. Actions: `replaceWithKind()` → `<israeli-id>`,
@@ -1086,8 +1086,12 @@ PiiAction.…)], detectWithModel?, pseudonymKey: secret("…") })` (`-pii-policy
   an answer fails the execution (`PiiRefusedError`, `pii.refused`), in tool arguments or a result it
   rejects that call. Scope, checkpoint and every step's code hold real values; the token map is
   the state's `piiTokens` channel. Logs, traces, events and `result.record` are masked by the
-  application's and the workflow's lists, whatever an element excludes. `sensitive:
-PiiAction.…` on a DTO or a context field (masking actions only) applies the action to that field.
+  application's and the workflow's lists, whatever an element excludes. A `sensitive` action on a
+  DTO or a context field (masking actions only) applies to that field.
+  `@Application({ pseudonymKey: "piiPseudonymKey" })` names a `Secret` field of the environment:
+  the HMAC key of sensitive fields, project detectors and policies without their own key — one
+  token per value on every instance (a policy's own key wins); a policy that needs it when it is
+  not set fails the start, naming the field (`testWith`: a fixed test key).
 
 <!-- snippet-context
 import { Agent, PiiAction, PiiKind, PiiPolicy, pii, secret } from "agboss";

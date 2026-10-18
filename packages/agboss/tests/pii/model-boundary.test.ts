@@ -157,8 +157,7 @@ describe("#120 AC3: the kinds a policy names, a project's own detector", () => {
     await execute(app, PiiStart, { text: "employee EMP-0042 asks" });
 
     const sent = requestText(book.scriptOf("agent:support-agent").onlyRequest);
-    expect(sent).not.toContain("EMP-0042");
-    expect(tokensIn(sent, "employee-id")).toHaveLength(1);
+    expect(sent).toContain("employee <employee-id> asks");
     await app.close();
   });
 });

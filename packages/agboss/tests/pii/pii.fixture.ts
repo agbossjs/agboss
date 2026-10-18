@@ -66,7 +66,7 @@ export class EmployeeDirectory {
 
 @PiiPolicy({
   name: "employee-id-pii-policy",
-  action: PiiAction.replaceWithToken(),
+  action: PiiAction.replaceWithKind(),
   deps: [EmployeeDirectory],
 })
 export class EmployeeIdPiiPolicy implements PiiPolicyHandler {

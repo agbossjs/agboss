@@ -1088,7 +1088,12 @@ Assembly checks the lists: `[pii.conflicting-rules]` (two policies with differen
 kind, naming both), `[pii.exclude-not-inherited]`, `[pii.missing-refusal]`, `[pii.unused-refusal]`,
 `[pii.kind-needs-model]` (a name or an address without `detectWithModel`), `[pii.not-a-policy]`.
 Each `pseudonymKey` is read from its process variable when the app starts (a missing one fails the
-start); under `testWith` an unset one gets a fixed test key, and `mockLlm(CustomerPiiPolicy)`
+start). The application's own key, `@Application({ pseudonymKey: "piiPseudonymKey" })`, names a
+`Secret` field of its environment (`piiPseudonymKey: secret("PII_PSEUDONYM_KEY")`, like a model
+provider's `apiKey`): the key of sensitive fields, of project detectors and of every policy without
+its own — so one value is one token on every instance, and logs and traces from several machines
+agree; a policy's own key wins, and a policy that needs the application's when it is not set fails
+the start, naming the field. Under `testWith` an unset key gets a fixed test key, and `mockLlm(CustomerPiiPolicy)`
 scripts its model detection (`pii:<policy>` in the spend). Wiki → Guards (PII).
 
 ## Tracing (local, optional)

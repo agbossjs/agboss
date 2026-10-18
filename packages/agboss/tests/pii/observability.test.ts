@@ -75,7 +75,7 @@ class SeenApplication {}
 
 async function seenApp(book: ScriptBook) {
   return createApp(SeenApplication, {
-    processEnv: { [PII_KEY_VARIABLE]: "test-key" },
+    processEnv: { [PII_KEY_VARIABLE]: "test-key", PII_APP_KEY: "app-key" },
     gateway: createScriptedGateway(book),
   });
 }

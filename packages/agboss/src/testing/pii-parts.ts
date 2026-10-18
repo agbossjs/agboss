@@ -11,8 +11,7 @@ import { piiPolicyKeyOf } from "./scripted-gateway.js";
  * does not set gets a fixed test key — tests never need a real secret.
  */
 
-/** The key a test's tokens are made with when the variable is unset. */
-export const TEST_PSEUDONYM_KEY = "agboss-test-pseudonym-key";
+import { TEST_PSEUDONYM_KEY } from "../pii/application-key.js";
 
 const policyClassesOf = (assembled: AssembledApplication): readonly Class[] => [
   ...new Set(assembled.workflows.flatMap((workflow) => workflow.pii?.classes ?? [])),
@@ -34,7 +33,8 @@ export function testPseudonymKeys(
 ): Record<string, string> {
   const variables = policyClassesOf(assembled).flatMap((cls) => {
     const meta = piiPolicyMetaOf(cls);
-    return meta === undefined || isCustomPolicy(meta) ? [] : [variableOfSecret(meta.pseudonymKey)];
+    if (meta === undefined || isCustomPolicy(meta) || meta.pseudonymKey === undefined) return [];
+    return [variableOfSecret(meta.pseudonymKey)];
   });
   return Object.fromEntries(
     variables

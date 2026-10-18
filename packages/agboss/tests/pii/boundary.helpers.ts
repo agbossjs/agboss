@@ -12,7 +12,7 @@ export async function piiApp(book: ScriptBook = new ScriptBook()): Promise<{
   readonly book: ScriptBook;
 }> {
   const app = await createApp(PiiApplication, {
-    processEnv: { [PII_KEY_VARIABLE]: "test-key" },
+    processEnv: { [PII_KEY_VARIABLE]: "test-key", PII_APP_KEY: "app-key" },
     gateway: createScriptedGateway(book),
   });
   return { app, book };

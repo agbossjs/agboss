@@ -7,7 +7,7 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { kindSuffixProblem, NameKind } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
-import { environmentRuleViolations } from "../environments/contract.js";
+import { declaredFieldsOf, environmentRuleViolations } from "../environments/contract.js";
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import type { ApplicationOptions } from "./application.js";
 import { contextRuleViolations } from "../flow/context/context-rules.js";
@@ -123,6 +123,22 @@ function infrastructureViolations(options: ApplicationOptions): RuleViolation[] 
   });
 }
 
+/** `pseudonymKey` names a field the environment contract declares (#120). */
+function pseudonymKeyFieldViolations(options: ApplicationOptions): RuleViolation[] {
+  const field = options.pseudonymKey;
+  if (field === undefined) return [];
+  const contract = (options as Partial<ApplicationOptions>).environment;
+  if (contract !== undefined && declaredFieldsOf(contract).includes(field)) return [];
+  const where = contract?.name ?? "the environment contract";
+  return [
+    violation(
+      "environment.missing-field",
+      `@Application pseudonymKey needs ${field}: Secret in ${where}`,
+      [options.name],
+    ),
+  ];
+}
+
 export function applicationRuleViolations(
   application: Class,
   options: ApplicationOptions,
@@ -139,6 +155,7 @@ export function applicationRuleViolations(
       options.environment,
       (options.providers ?? []).filter(isClass),
     ),
+    ...pseudonymKeyFieldViolations(options),
     ...contextRuleViolations(options.name, options),
     ...sharedInterpreterViolations(channelUsesOf(options.workflows)),
   ];
