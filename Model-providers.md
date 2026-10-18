@@ -135,9 +135,10 @@ job-scout: `src/model-providers/openrouter.model-provider.ts`, listed in `job-sc
   and `agboss check` writes the types without a key (it reads the contract's shape); only
   `agboss check --models`, which connects, needs the secrets of the chosen environment.
 - **The base URL** is `baseUrl`, unless `baseUrlField` names a text field of the environment that
-  holds one — the built-ins read `openRouterBaseUrl`
-  (`openRouterBaseUrl: env("OPENROUTER_BASE_URL", { default: "https://openrouter.ai/api/v1" })`, a
-  proxy or a local stub).
+  holds one — the built-ins read `openRouterBaseUrl` (a proxy or a local stub). The field is
+  declared without a default, `openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")` with
+  `openRouterBaseUrl?: string` in the contract: unset, it is `undefined` and the provider uses its
+  decorator's `baseUrl` — the default is written once, in the decorator (#266 S87).
 - **The name ends with `-model-provider`** (`[name.kind-suffix] "local" on @ModelProvider — name it
   "local-model-provider"`, at the application's assembly) — the built-ins are
   `openrouter-model-provider` and `decisions-model-provider`. The name keys the provider's shared

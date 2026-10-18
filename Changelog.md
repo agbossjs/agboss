@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — optional environment variables (#266 S87, S90)
+
+- **`env.optional("X")`**, `env.integer.optional("X")`, `env.flag.optional("X")` — a variable that
+  may be unset: typed `T | undefined`, unset → `undefined` (not a missing variable), a set value
+  still checked; `agboss check --env` marks it `(optional)` ([Environments](Environments#the-environments)).
+  New public type `EnvironmentValueReader<T>`; `EnvironmentVariableReader` extends it.
+- **The base-URL field repeats no default**: `openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")`
+  — unset → the decorator's `baseUrl` ([Model providers](Model-providers)); job-scout and
+  `agboss create` declare it this way.
+
 ## Unreleased — PII policies and the model boundary (#120, PR 1)
 
 - **`@PiiPolicy` is rebuilt** ([Guards → PII policies](Guards#pii-policies)): declarative
@@ -77,7 +87,7 @@ Breaking changes and notable additions, newest first. The API reports
 - **Breaking — provider keys are `Secret`s of the environment**: `apiKey` names the field
   (`apiKey: "openRouterApiKey"`), set with `openRouterApiKey: secret("OPENROUTER_API_KEY")`;
   a base URL may come from a text field too (`baseUrlField: "openRouterBaseUrl"`,
-  `env("OPENROUTER_BASE_URL", { default })`). **`EnvironmentVariable`**, `MissingEnvironmentVariableError`,
+  `env.optional("OPENROUTER_BASE_URL")` since S90). **`EnvironmentVariable`**, `MissingEnvironmentVariableError`,
   `SettingValue`, `OPENROUTER_API_KEY` and `OPENROUTER_BASE_URL_SETTING` are removed — `env()` /
   `secret()` are the one way to read a process variable ([Environments](Environments#secrets)).
 - **`agboss check` without `--models` needs no secret values** (it reads the contract's shape);

@@ -74,7 +74,8 @@ export class AuditApplication {}
   a field (`auditUrl: string = "…"`) would be silently ignored — it fails assembly (`createApp`,
   `testWith`, `agboss check`): `[environment.contract-value] AppEnvironment.auditUrl has a value —
   the contract declares fields only; put the value in each environment`. A default is
-  `env("X", { default })` in an environment.
+  `env("X", { default })` in an environment; a value that may be missing is an optional field
+  (`region?: string`) read with `env.optional("X")`.
 - **Fields of the framework's own implementations** (`sqlitePath`, `langfusePublicKey`, …) are written
   by the project in its contract; nothing is added implicitly. A listed implementation whose field
   is missing fails assembly: `[environment.missing-field] SqliteExecutionRecordRepository needs
@@ -132,6 +133,13 @@ export const environment: AppEnvironment = {
   framework replaces each with the variable's value at start. A variable set to a value of the wrong
   type (`PORT=soon`) fails the start: `PORT is not an integer (AppEnvironment.port, prod)`
   (`environment.invalid-value`).
+- **Optional variables (#266 S90):** `env.optional("X")`, `env.integer.optional("X")` and
+  `env.flag.optional("X")` are typed `string | undefined`, `number | undefined`,
+  `boolean | undefined`, for an optional field of the contract. An unset (or empty) variable is
+  `undefined` — not a missing variable, the start goes on — and a set one is still checked
+  (`PORT=soon` fails as above). `agboss check --env <name>` marks it `value (optional)`,
+  `agboss describe` shows an unset one as `<unset X, optional>`. Use it where the reader has its own
+  default, such as a provider's base URL (below), so the default is not repeated.
 
 ## Choosing one
 
@@ -186,9 +194,8 @@ The values are frozen.
   (`openRouterApiKey?: Secret`) and `test.environment.ts` leave it out. A missing key fails the
   start of an app that calls the provider, naming the field
   ([Model providers](Model-providers#the-key-and-the-name)). A provider's **base URL** is read the
-  same way: `baseUrlField: "openRouterBaseUrl"` names a text field
-  (`openRouterBaseUrl: env("OPENROUTER_BASE_URL", { default: "https://openrouter.ai/api/v1" })`),
-  unset → the provider's `baseUrl`. There is no second way: `env()` / `secret()` in an environment
+  same way: `baseUrlField: "openRouterBaseUrl"` names a text field, declared without a default
+  (`openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")`): unset → the provider's `baseUrl`. There is no second way: `env()` / `secret()` in an environment
   are the only readers of process variables (`EnvironmentVariable` is removed, #266).
 - **`agboss check` reads the contract's shape, not its secrets**: without `--models` a secret whose
   variable is unset is no problem — writing types and checking the assembly need no key, so
