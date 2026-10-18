@@ -160,6 +160,12 @@ function checkWiring(bundle: WorkflowMeta, tools: Parameters<typeof checkToolCha
   checkObservers(bundle.observers ?? []);
 }
 
+/** The workflow's provider classes and its agents' memory strategies, checked before the graph. */
+function checkClasses(bundle: WorkflowMeta, agents: readonly AgentMeta[]): void {
+  checkProviderClasses(bundle);
+  checkMemoryStrategies(agents);
+}
+
 /**
  * Assembles a v2 `@Workflow` class into the workflow the core runs (#272): its paths analysed (every
  * rule, all violations at once — before any model call), router and agent texts loaded, config,
@@ -182,8 +188,7 @@ export async function workflowOf(
   const tools = toolsOf(bundle, agents);
   const mcp = mcpOf(bundle, tools.mcp);
   const rags = ragClassesOf(bundle, agents);
-  checkProviderClasses(bundle);
-  checkMemoryStrategies(agents);
+  checkClasses(bundle, agents);
   const judges = judgeClassesOf(agents);
   const components = componentClassesOf(bundle, agents, tools, rags, codeNodeClassesOf(graph));
   const modules = [...providerModulesOf(bundle), ...application];
