@@ -4,7 +4,7 @@ import { GreenhouseBoards, type FetchJson } from "../src/services/greenhouse-boa
 const probeBoard = (board: string, words: readonly string[], fetchJson: FetchJson) =>
   new GreenhouseBoards(
     { boards: {}, places: {} },
-    { greenhouseApiUrl: "https://boards-api.greenhouse.io" },
+    { greenhouseApiUrl: "https://boards-api.greenhouse.io", sqlitePath: ":memory:" },
     fetchJson,
   ).probe(board, words);
 import { workflowOf } from "agboss/testing";

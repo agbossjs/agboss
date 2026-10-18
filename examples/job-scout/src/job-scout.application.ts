@@ -1,4 +1,13 @@
-import { Application } from "agboss";
+import {
+  Application,
+  SqliteCheckpointSaver,
+  SqliteCostLedgerRepository,
+  SqliteExecutionLeaseRepository,
+  SqliteExecutionRecordRepository,
+  SqliteExecutionTreeRepository,
+  SqlitePausedExecutionRepository,
+  SqliteRateLimitRepository,
+} from "agboss";
 import {
   ApplicationDailyBudget,
   ExecutionBudget,
@@ -9,10 +18,13 @@ import { AppEnvironment } from "./environments/app.environment.js";
 import { JobScout } from "./job-scout.workflow.js";
 
 /**
- * job-scout as an application (#261): what `createApp`, `testWith` and the CLI run. No
- * infrastructure is listed, so records, spend, pauses and checkpoints live in memory — nothing is
- * written to the home folder. Its environments are in `environments/` next to this file, typed by
- * `AppEnvironment`; its `defaults` are every workflow's, under each workflow's own.
+ * job-scout as an application (#261): what `createApp`, `testWith` and the CLI run. Its
+ * infrastructure is the SQLite implementations (#265) on the environment's `sqlitePath` — records,
+ * spend, pauses, checkpoints, leases, tree keys and rate-limit slots in one file, so `--thread`,
+ * `eval`, `replay` and `golden` see earlier processes, and another instance on the file recovers
+ * a run whose process died; tests run on `:memory:`. Its environments are in `environments/` next
+ * to this file, typed by `AppEnvironment`; its `defaults` are every workflow's, under each
+ * workflow's own.
  */
 @Application({
   name: "job-scout-application",
@@ -20,6 +32,15 @@ import { JobScout } from "./job-scout.workflow.js";
   environment: AppEnvironment,
   defaults: DEFAULTS,
   workflows: [JobScout],
+  providers: [
+    SqliteExecutionRecordRepository,
+    SqliteCostLedgerRepository,
+    SqlitePausedExecutionRepository,
+    SqliteCheckpointSaver,
+    SqliteExecutionLeaseRepository,
+    SqliteExecutionTreeRepository,
+    SqliteRateLimitRepository,
+  ],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
 })
 export class JobScoutApplication {}

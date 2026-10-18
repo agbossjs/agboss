@@ -640,8 +640,13 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   when its tree ends), `RateLimitRepository` (slots as leases, for #266). Listed **only** in
   `@Application({ providers })` (a class that `extends` the contract, `@Injectable`; in a workflow's
   `providers` → `[di.infrastructure-in-workflow]`), found by inheritance (two →
-  `[di.ambiguous-implementation]`). Nothing is written to the home folder; SQLite implementations
-  come with #265 PR 3.
+  `[di.ambiguous-implementation]`). Nothing is written to the home folder. Every contract has a
+  ready SQLite implementation, enabled only by listing it (#265: `SqliteExecutionRecordRepository`,
+  `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`, `SqliteCheckpointSaver`,
+  `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`) —
+  one `node:sqlite` connection per instance on the environment's `sqlitePath` (required only then,
+  `[environment.missing-field]`; `:memory:` in tests), WAL + `busy_timeout`, atomic operations in
+  `BEGIN IMMEDIATE`, time from the framework's clock; job-scout lists them all.
 - **Defaults cascade (#261):** `@Application({ defaults })` → `@Workflow({ defaults })` → the
   component's own field, merged field by field — the most specific level that sets a field wins,
   nothing set → the built-in. `defaults.router.model` is the model of `DecidedBy.Model` routers
@@ -978,7 +983,7 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
     app/            one workflow of an application at run time; app-deps.ts — its wiring (model gateway,
                     MCP, tracing) on the application's infrastructure
     infrastructure/ the contracts + in-memory defaults (ledger, records, paused executions, leases,
-                    tree keys, rate-limit slots)
+                    tree keys, rate-limit slots); sqlite/ — the connection and every Sqlite* one
     budgets/        @Budget, BudgetScope, BudgetPeriod, BudgetHandler
     testing/        `agboss/testing`: testWith(App) (Vitest fixtures), scripted gateway, matchers, setup.ts
     components/     @Tool @Agent @McpServer @McpTool @Rag @Injectable @Workflow, DI container, workflowOf

@@ -118,6 +118,11 @@ export interface TernStore extends MemoryStore, ConfigStore {
   readonly append: (tern: NewTern) => Promise<Tern>;
   /** Completes a paused Tern (same id) with its final outcome. */
   readonly complete: (ternId: string, outcome: TernOutcome) => Promise<void>;
+  /**
+   * Compare-and-set (#265 S66 h): writes the outcome only while the Tern's status is `expected`;
+   * `true` when it did. Atomic, so a late write never replaces what another holder wrote since.
+   */
+  completeIfStatus(ternId: string, expected: TernStatus, outcome: TernOutcome): Promise<boolean>;
   /** The last `limit` Terns of a thread, oldest first. */
   readonly lastTerns: (threadId: string, limit: number) => Promise<Tern[]>;
   readonly byIds: (ids: readonly string[]) => Promise<Tern[]>;

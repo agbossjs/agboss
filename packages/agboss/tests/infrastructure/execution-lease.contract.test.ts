@@ -2,39 +2,26 @@
  * #265 AC11 (Q58): `ExecutionLeaseRepository` — one lease per tree, keyed by `(tenantId,
  * rootExecutionId)`: not given to another instance while valid, taken with `leaseEpoch + 1` after
  * it expired or was released, the old holder's `renew` then `false`; the framework's holder aborts
- * its work when that happens and wakes a waiting call on release. `PausedExecutionRepository`
- * gives exactly one of two concurrent `Pending → Resolved` transitions of one pause.
+ * its work when that happens and wakes a waiting call on release. One suite, run against the
+ * in-memory default and `SqliteExecutionLeaseRepository` (two instances on one file). The pause
+ * transition is in paused-execution.contract.test.ts.
  */
 import { describe, expect, it } from "vitest";
-import { ExecutionStatus } from "../../src/app/types.js";
 import { executionLeasesOf } from "../../src/app/execution-leases.js";
-import { ExecutionLeaseLostError } from "../../src/index.js";
-import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
+import { ExecutionLeaseLostError, type ExecutionLeaseRepository } from "../../src/index.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
-import {
-  InMemoryPausedExecutionRepository,
-  PauseStatus,
-} from "../../src/infrastructure/paused-execution.repository.js";
-import type { AgentExecutionOutput } from "../../src/run/types.js";
-import { createTestClock, type VirtualClock } from "../../src/testing/clock.js";
+import { SqliteExecutionLeaseRepository } from "../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { seconds } from "../../src/units/index.js";
+import { storeKinds } from "./contracts/store-kinds.js";
 
-/** Two instances' repositories over one database and one clock. */
-function twoInstances(): {
-  clock: VirtualClock;
-  first: InMemoryExecutionLeaseRepository;
-  second: InMemoryExecutionLeaseRepository;
-} {
-  const clock = createTestClock();
-  const database = new InMemoryDatabase();
-  return {
-    clock,
-    first: new InMemoryExecutionLeaseRepository(clock.now, "instance-1", database),
-    second: new InMemoryExecutionLeaseRepository(clock.now, "instance-2", database),
-  };
-}
+const kinds = storeKinds<ExecutionLeaseRepository>({
+  inMemory: ({ clock, instanceId, database }) =>
+    new InMemoryExecutionLeaseRepository(clock.now, instanceId, database),
+  sqlite: ({ clock, instanceId, connection }) =>
+    new SqliteExecutionLeaseRepository(connection(), clock.now, instanceId),
+});
 
-describe("#265 AC11: the lease contract (in-memory default)", () => {
+describe.each(kinds)("#265 AC11: the lease contract ($name)", ({ twoInstances }) => {
   it("a tree's lease held by one instance is not given to the other", async () => {
     const { first, second } = twoInstances();
 
@@ -99,88 +86,67 @@ describe("#265 AC11: the lease contract (in-memory default)", () => {
   });
 });
 
-describe("#265 AC11: the framework's holder of a tree's lease", () => {
-  it("a holder frozen past the lease loses it to the waiting instance: its signal aborts", async () => {
-    const { clock, first, second } = twoInstances();
-    const holder = await executionLeasesOf(first, clock.timers).hold("root-1");
-    const waiting = executionLeasesOf(second, clock.timers).hold("root-1");
+describe.each(kinds)(
+  "#265 AC11: the framework's holder of a tree's lease ($name)",
+  ({ twoInstances }) => {
+    it("a holder frozen past the lease loses it to the waiting instance: its signal aborts", async () => {
+      const { clock, first, second } = twoInstances();
+      const holder = await executionLeasesOf(first, clock.timers).hold("root-1");
+      const waiting = executionLeasesOf(second, clock.timers).hold("root-1");
 
-    await clock.advance(seconds(31));
-    const taken = await waiting;
+      await clock.advance(seconds(31));
+      const taken = await waiting;
 
-    expect(holder.signal.aborted).toBe(true);
-    expect(holder.signal.reason).toBeInstanceOf(ExecutionLeaseLostError);
-    await expect(holder.renewNow()).rejects.toBeInstanceOf(ExecutionLeaseLostError);
-    expect(taken.signal.aborted).toBe(false);
-    await taken.release();
-    await holder.release();
-  });
-
-  it("a live holder renews every third of the lease: the waiting call waits", async () => {
-    const { clock, first, second } = twoInstances();
-    const holder = await executionLeasesOf(first, clock.timers).hold("root-1");
-    let taken = false;
-    const waiting = executionLeasesOf(second, clock.timers)
-      .hold("root-1")
-      .then((lease) => {
-        taken = true;
-        return lease;
-      });
-
-    for (let step = 0; step < 9; step += 1) await clock.advance(seconds(10));
-
-    expect(taken).toBe(false);
-    expect(holder.signal.aborted).toBe(false);
-    await holder.release();
-    await (await waiting).release();
-    expect(taken).toBe(true);
-  });
-
-  it("a release wakes the waiting call at once, without the clock", async () => {
-    const { clock, first, second } = twoInstances();
-    const holder = await executionLeasesOf(first, clock.timers).hold("root-1");
-    const waiting = executionLeasesOf(second, clock.timers).hold("root-1");
-
-    await holder.release();
-    const taken = await waiting;
-
-    expect(taken.signal.aborted).toBe(false);
-    await taken.release();
-  });
-
-  it("the caller's signal ends the wait with its reason", async () => {
-    const { clock, first, second } = twoInstances();
-    const holder = await executionLeasesOf(first, clock.timers).hold("root-1");
-    const cancelled = new AbortController();
-    const waiting = executionLeasesOf(second, clock.timers).hold("root-1", cancelled.signal);
-
-    cancelled.abort(new Error("the caller gave up"));
-
-    await expect(waiting).rejects.toThrow("the caller gave up");
-    await holder.release();
-  });
-});
-
-const pausedRun = { runId: "run-1", threadId: "thread-1", status: ExecutionStatus.Paused };
-
-describe("#265 AC11: a pause goes from Pending to Resolved once", () => {
-  it("of two concurrent transitions of one pause exactly one succeeds, with its decision", async () => {
-    const repository = new InMemoryPausedExecutionRepository();
-    await repository.save({
-      // a paused run as the app stores it; only its thread matters here
-      run: pausedRun as AgentExecutionOutput,
-      workflowVersion: "1.0.0",
-      configHash: "hash",
-      status: PauseStatus.Pending,
+      expect(holder.signal.aborted).toBe(true);
+      expect(holder.signal.reason).toBeInstanceOf(ExecutionLeaseLostError);
+      await expect(holder.renewNow()).rejects.toBeInstanceOf(ExecutionLeaseLostError);
+      expect(taken.signal.aborted).toBe(false);
+      await taken.release();
+      await holder.release();
     });
 
-    const [first, second] = await Promise.all([
-      repository.resolveByThreadId("thread-1", { approved: true }),
-      repository.resolveByThreadId("thread-1", { approved: false }),
-    ]);
+    it("a live holder renews every third of the lease: the waiting call waits", async () => {
+      const { clock, first, second } = twoInstances();
+      const holder = await executionLeasesOf(first, clock.timers).hold("root-1");
+      let taken = false;
+      const waiting = executionLeasesOf(second, clock.timers)
+        .hold("root-1")
+        .then((lease) => {
+          taken = true;
+          return lease;
+        });
 
-    expect(first).toMatchObject({ status: PauseStatus.Resolved, decision: { approved: true } });
-    expect(second).toBeUndefined();
-    expect(await repository.resolveByThreadId("no-such-thread", {})).toBeUndefined();
-  });
-});
+      for (let step = 0; step < 9; step += 1) await clock.advance(seconds(10));
+
+      expect(taken).toBe(false);
+      expect(holder.signal.aborted).toBe(false);
+      await holder.release();
+      await (await waiting).release();
+      expect(taken).toBe(true);
+    });
+
+    it("a release wakes the waiting call at once, without the clock", async () => {
+      const { clock, first, second } = twoInstances();
+      const holder = await executionLeasesOf(first, clock.timers).hold("root-1");
+      const waiting = executionLeasesOf(second, clock.timers).hold("root-1");
+
+      await holder.release();
+      const taken = await waiting;
+
+      expect(taken.signal.aborted).toBe(false);
+      await taken.release();
+    });
+
+    it("the caller's signal ends the wait with its reason", async () => {
+      const { clock, first, second } = twoInstances();
+      const holder = await executionLeasesOf(first, clock.timers).hold("root-1");
+      const cancelled = new AbortController();
+      const waiting = executionLeasesOf(second, clock.timers).hold("root-1", cancelled.signal);
+
+      cancelled.abort(new Error("the caller gave up"));
+
+      await expect(waiting).rejects.toThrow("the caller gave up");
+      await holder.release();
+    });
+  },
+);

@@ -16,7 +16,7 @@ const greenhouse = (deps: {
       deps.search,
       new GreenhouseBoards(
         deps.search,
-        { greenhouseApiUrl: "https://boards-api.greenhouse.io" },
+        { greenhouseApiUrl: "https://boards-api.greenhouse.io", sqlitePath: ":memory:" },
         deps.fetchJson,
       ),
       testExecutionContext(),

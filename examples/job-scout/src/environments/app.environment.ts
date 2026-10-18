@@ -6,4 +6,6 @@
 export class AppEnvironment {
   /** The Greenhouse job-board API. */
   greenhouseApiUrl!: string;
+  /** The file of the SQLite implementations the application lists (`:memory:` in tests). */
+  sqlitePath!: string;
 }

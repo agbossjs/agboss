@@ -19,6 +19,7 @@ import {
   PausedExecutionRepository,
 } from "./paused-execution.repository.js";
 import { InMemoryRateLimitRepository, RateLimitRepository } from "./rate-limit.repository.js";
+import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
 
 /**
  * The infrastructure an application consumes (#261, S28; the shared contracts #265): a framework
@@ -75,7 +76,8 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
 /**
  * The parts a later app of the same test reuses as they are (`recoverApp()`, a second instance):
  * the stores of #261. The shared contracts are created per instance — their in-memory defaults
- * keep their rows in the test's one `InMemoryDatabase`, each instance with its own id.
+ * keep their rows in the test's one `InMemoryDatabase`, each instance with its own id — and so is
+ * every SQLite implementation: its rows are in the file, each instance opens its own connection.
  */
 const REUSED_PARTS = ["checkpointer", "records", "costLedger", "pausedExecutions"] as const;
 
@@ -84,8 +86,8 @@ export const reusableInfrastructure = (
   infrastructure: Infrastructure,
 ): ReadonlyMap<Class, unknown> =>
   new Map(
-    REUSED_PARTS.map((part) => {
+    REUSED_PARTS.flatMap((part) => {
       const instance: object = infrastructure[part];
-      return [instance.constructor as Class, instance] as const;
+      return isSqliteImplementation(instance) ? [] : [[instance.constructor as Class, instance]];
     }),
   );

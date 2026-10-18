@@ -1,6 +1,7 @@
 import { ResumeReason, type AppState } from "../core/observability.js";
 import type { ExecutionTreeRepository } from "../infrastructure/execution-tree.repository.js";
 import { PauseStatus } from "../infrastructure/paused-execution.repository.js";
+import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { recoveryPassOf, resumePassOf, RootCalls } from "./recovery-pass.js";
 import { runningOutcome } from "../run/execute.js";
 import { DEFAULT_TENANT_ID } from "../infrastructure/tenant.js";
@@ -86,8 +87,13 @@ class TreeMover implements TreeMoves {
     const state = { runId: run.runId, threadId: run.threadId };
     const leaving = this.#resuming.enter(run.runId);
     try {
-      // answered: the tree has work again — its record is `running` until it rests (#265 S30)
-      await deps.terns.complete(run.ternId, runningOutcome(run.path, run.cost.totalUsd));
+      // answered: the tree has work again — its record is `running` until it rests (#265 S30); only
+      // while it is still `paused`: a holder that took the decision meanwhile may have ended it (S66 h)
+      await deps.terns.completeIfStatus(
+        run.ternId,
+        ExecutionRecordStatus.Paused,
+        runningOutcome(run.path, run.cost.totalUsd),
+      );
       const lease = await leases.hold(run.runId, call.signal);
       const stored = await paused.find(run.threadId).catch(async (error: unknown) => {
         await lease.release();

@@ -109,15 +109,28 @@ export function toVersionScore(row: unknown): VersionScore {
   };
 }
 
+/** The migrations not yet applied, in one `BEGIN IMMEDIATE` transaction (two connections may open one file). */
 function migrate(db: DatabaseSync): void {
-  const { user_version: applied } = z
-    .object({ user_version: z.number() })
-    .parse(db.prepare("PRAGMA user_version").get());
-  MIGRATIONS.slice(applied).forEach((sql, offset) => {
-    db.exec(sql);
-    db.exec(`PRAGMA user_version = ${String(applied + offset + 1)}`);
-  });
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const { user_version: applied } = z
+      .object({ user_version: z.number() })
+      .parse(db.prepare("PRAGMA user_version").get());
+    MIGRATIONS.slice(applied).forEach((sql, offset) => {
+      db.exec(sql);
+      db.exec(`PRAGMA user_version = ${String(applied + offset + 1)}`);
+    });
+    db.exec("COMMIT");
+  } catch (error) {
+    if (db.isTransaction) db.exec("ROLLBACK");
+    throw error;
+  }
 }
+
+/** Migrates the Tern tables of an open database (a connection shared with other stores, #265). */
+export const migrateTernDatabase = (db: DatabaseSync): void => {
+  migrate(db);
+};
 
 /**
  * Opens (creating directories) and migrates the database. `node:sqlite` is loaded here, on first

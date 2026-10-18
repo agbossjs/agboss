@@ -125,7 +125,7 @@ The application is the one entry (#261): it lists the workflows, the infrastruct
 `extends CostLedgerRepository`, `ExecutionRecordRepository`, `PausedExecutionRepository`,
 LangGraph's `BaseCheckpointSaver` or one of the shared contracts of #265 — `ExecutionLeaseRepository`,
 `ExecutionTreeRepository`, `RateLimitRepository`; none listed → the built-in in-memory ones, nothing
-written to the home folder) and every budget. `createApp` and `testWith` take it, never a workflow:
+written to the home folder; the SQLite ones below) and every budget. `createApp` and `testWith` take it, never a workflow:
 
 ```ts file=src/job-scout.application.ts
 // src/job-scout.application.ts — what createApp(JobScoutApplication, { env }) and testWith run
@@ -148,6 +148,41 @@ export class TenantDailyBudget implements BudgetHandler {
   budgets: [TenantDailyBudget], // config/budget.config.ts in a project; checked from #261 PR 5
 })
 export class JobScoutApplication {}
+```
+
+Every storage contract has a ready **SQLite** implementation (#265), enabled only by listing it:
+`SqliteExecutionRecordRepository`, `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`,
+`SqliteCheckpointSaver`, `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`,
+`SqliteRateLimitRepository`. They share one file per application instance — `sqlitePath` of the
+environment contract, required only when one is listed (else `[environment.missing-field]`
+names it); WAL, `busy_timeout`, every atomic operation in `BEGIN IMMEDIATE`, time from the
+framework's clock. With them `--thread`, `agboss eval` / `replay` / `golden` see what earlier
+processes wrote, a pause survives a restart, and another instance on the file recovers a run
+whose process died; tests run on `sqlitePath: ":memory:"`. One file serves one machine (Wiki →
+Several-instances):
+
+<!-- snippet-context
+import { SqliteCheckpointSaver, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqlitePausedExecutionRepository, env } from "agboss";
+-->
+
+```ts
+// environments/app.environment.ts — the contract declares the file
+export class StoreEnvironment {
+  sqlitePath!: string; // required because SQLite implementations are listed
+}
+
+// environments/dev.environment.ts — a file of the project (git-ignored), or AGBOSS_SQLITE_PATH
+export const environment: StoreEnvironment = {
+  sqlitePath: env("AGBOSS_SQLITE_PATH", { default: ".agboss/job-scout.sqlite" }),
+};
+
+// @Application({ …, environment: StoreEnvironment, providers: durableStores })
+export const durableStores = [
+  SqliteExecutionRecordRepository,
+  SqlitePausedExecutionRepository,
+  SqliteCheckpointSaver,
+  SqliteExecutionLeaseRepository,
+];
 ```
 
 A rule needs no model: `@Router({ decidedBy: DecidedBy.Code, routes: [{ target: A }, { target: B }] })`
@@ -553,7 +588,8 @@ checkpoint — a decision recorded meanwhile first — so only the interrupted s
 started under another config is left to a compatible instance (logged once), unless
 `onIncompatibleResume` says `"resume"`. Observers get `onWorkflowResume` with
 `reason: ResumeReason.Recovered` (`ResumeReason.Answered` for `app.resume`). With the in-memory
-defaults nothing survives a restart, so recovery needs persistent stores. **`app.close()`** stops
+defaults nothing survives a restart, so recovery needs persistent stores — the SQLite ones on one
+machine. **`app.close()`** stops
 the sweep, runs `onStop`, waits for the running executions up to the shutdown timeout —
 `@Application({ shutdownTimeout })`, `app.close({ timeout })`, default `seconds(25)` — then
 interrupts them: each call rejects with `ApplicationStoppingError`, without `onError`, releases its

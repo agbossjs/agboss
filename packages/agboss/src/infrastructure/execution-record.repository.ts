@@ -47,6 +47,16 @@ export abstract class ExecutionRecordRepository {
   abstract append(tern: NewTern): Promise<Tern>;
   /** Completes a paused record (same id) with its final outcome. */
   abstract complete(ternId: string, outcome: TernOutcome): Promise<void>;
+  /**
+   * Compare-and-set (#265 S66 h): writes the outcome only while the record's status is `expected`,
+   * atomically; `true` when it did. A resume marks its paused record `running` this way, so its
+   * write never lands over the outcome a holder wrote meanwhile.
+   */
+  abstract completeIfStatus(
+    ternId: string,
+    expected: ExecutionRecordStatus,
+    outcome: TernOutcome,
+  ): Promise<boolean>;
   /** The last `limit` records of a thread, oldest first. */
   abstract lastTerns(threadId: string, limit: number): Promise<Tern[]>;
   abstract byIds(ids: readonly string[]): Promise<Tern[]>;
@@ -119,6 +129,13 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
   }
   complete(ternId: string, outcome: TernOutcome): Promise<void> {
     return this.#store.complete(ternId, outcome);
+  }
+  completeIfStatus(
+    ternId: string,
+    expected: ExecutionRecordStatus,
+    outcome: TernOutcome,
+  ): Promise<boolean> {
+    return this.#store.completeIfStatus(ternId, expected, outcome);
   }
   lastTerns(threadId: string, limit: number): Promise<Tern[]> {
     return this.#store.lastTerns(threadId, limit);
