@@ -9,9 +9,8 @@ import {
 } from "agboss";
 import { WorkflowStartTextDto } from "agboss/dto";
 import { usd } from "agboss/units";
-import { DecisionsModelProvider, Reasoning } from "agboss/models";
+import { Reasoning } from "agboss/models";
 import { GUARDS, KIMI } from "./config/settings.js";
-import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { ProfilerAgent } from "./agents/profiler.agent.js";
 import { ScoutAgent } from "./agents/scout.agent.js";
 import { ShortlistAgent } from "./agents/shortlist.agent.js";
@@ -68,7 +67,6 @@ export class JobScout implements WorkflowDefinition {
   settings(): WorkflowSettings {
     return WorkflowSettings.builder()
       .limits({ perRun: { cost: usd(0.1) }, perDay: { cost: usd(1) } })
-      .modelProviders([OpenRouterModelProvider, DecisionsModelProvider])
       .build();
   }
 }

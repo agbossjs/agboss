@@ -12,6 +12,11 @@ import type { MessageContent } from '@langchain/core/messages';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
+// Warning: (ae-forgotten-export) The symbol "WorkflowModels" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function applicationModelUsesOf(workflows: readonly WorkflowModels[]): readonly ModelUse[];
+
 // Warning: (ae-forgotten-export) The symbol "ComponentLabel" needs to be exported by the entry point internal.d.ts
 //
 // @public
@@ -20,7 +25,6 @@ export const byClassName: ComponentLabel;
 // @public
 export const byComponentName: ComponentLabel;
 
-// Warning: (ae-forgotten-export) The symbol "ModelUse" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ModelProviderDirectory" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ModelCheckOptions" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ModelProblem" needs to be exported by the entry point internal.d.ts
@@ -146,10 +150,10 @@ export const describeServices: WorkflowServices;
 // @public
 export const describeServicesWith: (environment: DescribedEnvironment | undefined) => WorkflowServices;
 
-// Warning: (ae-forgotten-export) The symbol "ModelProviderSettings" needs to be exported by the entry point internal.d.ts
+// Warning: (ae-forgotten-export) The symbol "ModelProviderType" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export const directoryOf: (settings: ModelProviderSettings | undefined) => ModelProviderDirectory;
+export const directoryOf: (providers: readonly ModelProviderType[]) => ModelProviderDirectory;
 
 // Warning: (ae-forgotten-export) The symbol "EnvironmentSelection" needs to be exported by the entry point internal.d.ts
 //
@@ -263,6 +267,19 @@ export function loadGolden(file: string): Promise<GoldenSet>;
 // @public
 export function modelSummaryOf(uses: readonly ModelUse[], directory: ModelProviderDirectory): readonly string[];
 
+// @public
+export interface ModelUse {
+    readonly key: string;
+    // (undocumented)
+    readonly model: string;
+    // Warning: (ae-forgotten-export) The symbol "ModelPurpose" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly purpose: ModelPurpose;
+    // Warning: (ae-forgotten-export) The symbol "ResolvedModelSettings" needs to be exported by the entry point internal.d.ts
+    readonly settings?: ResolvedModelSettings;
+}
+
 // Warning: (ae-forgotten-export) The symbol "AgentsConfigOf" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ModelNamingRouter" needs to be exported by the entry point internal.d.ts
 //
@@ -312,6 +329,11 @@ export function replay<TName extends string>(run: RunDeps<TName>, evaluation: Ev
 //
 // @public
 export const requestOfTask: (graph: RuntimeGraph, task: string) => StartRequest;
+
+// Warning: (ae-forgotten-export) The symbol "ResolvedModelUse" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function resolvedModelUsesOf(workflow: WorkflowModels): readonly ResolvedModelUse[];
 
 // @public
 export function resolveEnvironment(loaded: LoadedEnvironment, processEnv: NodeJS.ProcessEnv): Environment;
@@ -366,6 +388,9 @@ export const textStartOfWorkflow: (app: App, workflow: Class) => Class | undefin
 export const versionOf: (value: unknown) => string;
 
 // @public
+export function workflowsOfApplication(bundle: AssembledWorkflow): Promise<readonly AssembledWorkflow[]>;
+
+// @public
 export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult>;
 
 // Warnings were encountered during analysis:
@@ -401,6 +426,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/flow/runtime/start-input.ts:82:3 - (ae-undocumented) Missing documentation for "start".
 // src/flow/runtime/start-input.ts:83:3 - (ae-undocumented) Missing documentation for "input".
 // src/models/problems.ts:20:14 - (ae-undocumented) Missing documentation for "problemLine".
+// src/models/uses.ts:10:3 - (ae-undocumented) Missing documentation for "model".
+// src/models/uses.ts:11:3 - (ae-undocumented) Missing documentation for "purpose".
 // src/tools/mcp/facade.ts:106:14 - (ae-undocumented) Missing documentation for "isMcpFacade".
 
 // (No @packageDocumentation comment for this package)

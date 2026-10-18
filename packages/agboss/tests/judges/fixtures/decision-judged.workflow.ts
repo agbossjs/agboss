@@ -1,11 +1,4 @@
-import {
-  Agent,
-  Decision,
-  Judge,
-  Workflow,
-  type WorkflowDefinition,
-  type WorkflowSettings,
-} from "../../../src/index.js";
+import { Agent, Decision, Judge, Workflow } from "../../../src/index.js";
 import {
   JudgeModel,
   type JudgeHandler,
@@ -15,7 +8,7 @@ import {
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { ImageDetail } from "../../../src/index.js";
 import { start } from "../../helpers/flow.js";
-import { DEFAULTS, Reply, settings, TaskStart } from "./judged.workflow.js";
+import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -101,17 +94,14 @@ export class Illustrator {}
   ],
   defaults: DEFAULTS,
 })
-export class DecisionDesk implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return settings();
-  }
-}
+export class DecisionDesk {}
 
 @Application({
   name: "decision-judged-desk-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DecisionDesk],
+  providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
 })
 export class DecisionDeskApplication {}
@@ -128,17 +118,14 @@ export class DecisionDeskApplication {}
   ],
   defaults: DEFAULTS,
 })
-export class ImageDesk implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return settings();
-  }
-}
+export class ImageDesk {}
 
 @Application({
   name: "image-judged-desk-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ImageDesk],
+  providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
 })
 export class ImageDeskApplication {}

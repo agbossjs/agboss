@@ -35,11 +35,14 @@ export class BackupModelProvider extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};
 }
 
-/** job-scout's OpenRouter: serves every model, ignores one upstream provider. */
+/**
+ * job-scout's OpenRouter: serves every model but the local server's (one model string, one
+ * provider — #266), ignores one upstream provider.
+ */
 @ModelProvider({
   name: "openrouter",
   description: "OpenRouter",
-  serves: [/.*/],
+  serves: [/^(?!local\/)/],
   baseUrl: "http://openrouter.test/api/v1",
   apiKey: EnvironmentVariable.named("OPENROUTER_API_KEY", { secret: true }),
   timeout: minutes(2),

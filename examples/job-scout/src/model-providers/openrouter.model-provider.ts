@@ -14,8 +14,9 @@ import {
 import { minutes, seconds } from "agboss/units";
 
 /**
- * job-scout's chat models: OpenRouter, which returns each call's cost. Decision models (Jev, …)
- * decide through the framework's `DecisionsModelProvider` (decisions only, no chat).
+ * job-scout's chat models: OpenRouter, which returns each call's cost — listed with the framework's
+ * `DecisionsModelProvider` (decision models: Jev, …; decisions only, no chat) in
+ * `@Application({ providers })` (#266).
  */
 @ModelProvider({
   name: "openrouter",

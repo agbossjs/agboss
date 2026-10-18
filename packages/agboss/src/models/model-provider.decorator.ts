@@ -7,7 +7,10 @@ import type { PromptCaching } from "./prompt-caching.js";
 import type { Reasoning } from "./reasoning.js";
 import type { RetryPolicy } from "./retry-policy.js";
 
-/** `@ModelProvider({ … })`: where models are served from and how calls to it behave. */
+/**
+ * `@ModelProvider({ … })`: where models are served from and how calls to it behave — application
+ * infrastructure (#266), listed only in `@Application({ providers })`.
+ */
 export interface ModelProviderOptions {
   /** Identifies the provider (logs, overrides, fingerprints) — never its base URL. */
   readonly name: string;
@@ -59,6 +62,10 @@ export function modelProviderOf(cls: object): ModelProviderOptions {
   }
   return options;
 }
+
+/** Whether a class (or a value listed in `providers`) is a `@ModelProvider` class. */
+export const isModelProviderClass = (value: unknown): value is ModelProviderType =>
+  typeof value === "function" && providers.has(value);
 
 /** Whether a provider serves a model by name. */
 export const servesModel = (options: ModelProviderOptions, model: string): boolean =>

@@ -38,6 +38,7 @@ export { inputLines } from "./describe/inputs.js";
 export { stepsRangeOf, type StepsRange } from "./flow/analyse/steps.js";
 export { executeUnchecked } from "./app/execute-unchecked.js";
 export { textStartOfWorkflow } from "./application/compose-app.js";
+export { workflowsOfApplication } from "./application/workflow-application.js";
 export {
   defaultSourceOf,
   defaultsLevelsOf,
@@ -57,8 +58,9 @@ export {
 export { checkModelUses } from "./models/check.js";
 export { problemLine } from "./models/problems.js";
 export { type ProviderFetch } from "./models/resilient-fetch.js";
-export { modelUsesOf } from "./models/uses.js";
+export { modelUsesOf, type ModelUse } from "./models/uses.js";
 export { directoryOf, modelSummaryOf } from "./models/workflow-models.js";
+export { applicationModelUsesOf, resolvedModelUsesOf } from "./models/resolution.js";
 export { frameworkPackageJson } from "./package-json.js";
 export { type RunStreamEvent } from "./run/types.js";
 export { configSnapshot } from "./run/versions.js";

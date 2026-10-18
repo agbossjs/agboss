@@ -275,19 +275,15 @@ export interface ModelProblem {
 }
 
 // @public
-export type ModelProblemCode = "model.no-provider" | "model.ambiguous-provider" | "model.unknown-model" | "model.unsupported-setting" | "model.no-price" | "model.fallback-unmapped" | "model.fallback-no-price";
+export type ModelProblemCode = "model.unserved" | "model.ambiguous-provider" | "model.unknown-model" | "model.unsupported-setting" | "model.no-price" | "model.fallback-unmapped" | "model.fallback-no-price";
 
 // @public
 export function ModelProvider(options: ModelProviderOptions): <C extends ModelProviderType>(value: C) => C;
 
 // @public
 export class ModelProviderDirectory {
-    constructor(providers: readonly RegisteredModelProvider[], defaultProvider?: string | undefined);
-    // (undocumented)
-    byName(name: string): RegisteredModelProvider | undefined;
-    // (undocumented)
-    readonly defaultProvider?: string | undefined;
-    static of(classes: readonly ModelProviderType[], defaultProvider?: ModelProviderType): ModelProviderDirectory;
+    constructor(providers: readonly RegisteredModelProvider[]);
+    static of(classes: readonly ModelProviderType[]): ModelProviderDirectory;
     // Warning: (ae-forgotten-export) The symbol "RegisteredModelProvider" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -646,13 +642,13 @@ export interface WireRequest {
 // src/models/model-failure.ts:4:3 - (ae-undocumented) Missing documentation for "RateLimited".
 // src/models/model-failure.ts:5:3 - (ae-undocumented) Missing documentation for "ServerError".
 // src/models/model-failure.ts:6:3 - (ae-undocumented) Missing documentation for "NetworkError".
-// src/models/model-provider.decorator.ts:14:3 - (ae-undocumented) Missing documentation for "description".
-// src/models/model-provider.decorator.ts:17:3 - (ae-undocumented) Missing documentation for "baseUrl".
-// src/models/model-provider.decorator.ts:22:3 - (ae-undocumented) Missing documentation for "cost".
-// src/models/model-provider.decorator.ts:27:3 - (ae-undocumented) Missing documentation for "retryPolicy".
-// src/models/model-provider.decorator.ts:28:3 - (ae-undocumented) Missing documentation for "circuitBreakerPolicy".
-// src/models/model-provider.decorator.ts:36:1 - (ae-undocumented) Missing documentation for "ModelProviderError".
-// src/models/model-provider.decorator.ts:37:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/model-provider.decorator.ts:17:3 - (ae-undocumented) Missing documentation for "description".
+// src/models/model-provider.decorator.ts:20:3 - (ae-undocumented) Missing documentation for "baseUrl".
+// src/models/model-provider.decorator.ts:25:3 - (ae-undocumented) Missing documentation for "cost".
+// src/models/model-provider.decorator.ts:30:3 - (ae-undocumented) Missing documentation for "retryPolicy".
+// src/models/model-provider.decorator.ts:31:3 - (ae-undocumented) Missing documentation for "circuitBreakerPolicy".
+// src/models/model-provider.decorator.ts:39:1 - (ae-undocumented) Missing documentation for "ModelProviderError".
+// src/models/model-provider.decorator.ts:40:12 - (ae-undocumented) Missing documentation for "name".
 // src/models/openai-compatible.provider.ts:16:3 - (ae-undocumented) Missing documentation for "caching".
 // src/models/openai-compatible.provider.ts:17:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/openai-compatible.provider.ts:31:3 - (ae-undocumented) Missing documentation for "requestFields".
@@ -703,9 +699,7 @@ export interface WireRequest {
 // src/models/reasoning.ts:33:14 - (ae-undocumented) Missing documentation for "Reasoning".
 // src/models/resolve.ts:12:3 - (ae-undocumented) Missing documentation for "Chat".
 // src/models/resolve.ts:13:3 - (ae-undocumented) Missing documentation for "Decision".
-// src/models/resolve.ts:47:5 - (ae-undocumented) Missing documentation for "providers".
-// src/models/resolve.ts:48:5 - (ae-undocumented) Missing documentation for "defaultProvider".
-// src/models/resolve.ts:67:3 - (ae-undocumented) Missing documentation for "byName".
+// src/models/resolve.ts:48:15 - (ae-undocumented) Missing documentation for "providers".
 // src/models/retry-policy.ts:6:3 - (ae-undocumented) Missing documentation for "Exponential".
 // src/models/retry-policy.ts:7:3 - (ae-undocumented) Missing documentation for "Fixed".
 // src/models/retry-policy.ts:8:3 - (ae-undocumented) Missing documentation for "None".

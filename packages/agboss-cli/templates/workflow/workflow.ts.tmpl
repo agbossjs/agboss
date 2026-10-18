@@ -1,8 +1,6 @@
 import { Workflow, WorkflowSettings, route, start, type WorkflowDefinition } from "agboss";
 import { WorkflowStartTextDto } from "agboss/dto";
-import { DecisionsModelProvider } from "agboss/models";
 import { usd } from "agboss/units";
-import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { TextWorkflowStart } from "./workflow-starts/text.workflow-start.js";
 import { TextWorkflowFinish } from "./workflow-finishes/text.workflow-finish.js";
 import { MainRouter } from "./routers/main.router.js";
@@ -22,7 +20,8 @@ import { MainRouter } from "./routers/main.router.js";
       ),
   ],
   defaults: {
-    // reasoning and caching: the model provider's (model-providers/), an agent may override them
+    // reasoning and caching: the model provider's (model-providers/, listed in the application),
+    // an agent may override them
     models: { temperature: 0 },
     router: { model: "typesafe/jev-1.13" },
     guardrail: { model: "typesafe/jev-1.13" },
@@ -39,7 +38,6 @@ export class {{pascal}}Workflow implements WorkflowDefinition {
   settings(): WorkflowSettings {
     return WorkflowSettings.builder()
       .limits({ perRun: { cost: usd(0.1) }, perDay: { cost: usd(2) } })
-      .modelProviders([OpenRouterModelProvider, DecisionsModelProvider])
       .build();
   }
 }

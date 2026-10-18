@@ -9,7 +9,13 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
 - `@langchain/langgraph` (graph, and each agent's own loop as a subgraph), `@langchain/core`
   (messages, prompts, tools, test fakes), `zod` (inside the framework only — workflows use DTO
   classes, `agboss/dto`)
-- LLM access: **OpenRouter** only. Env: `OPENROUTER_API_KEY` (+ optional `OPENROUTER_BASE_URL`).
+- LLM access: **model providers** (#266) — `@ModelProvider` classes (`agboss/models`) listed only in
+  `@Application({ providers })`; none listed → the built-in `OpenRouterModelProvider` (chat) +
+  `DecisionsModelProvider` (decision models), one listed → the list is complete. A workflow and its
+  components name models only: every model of the application resolves to exactly one listed
+  provider by `serves` at assembly (`[model.unserved]`, `[model.ambiguous-provider]`; one model
+  through two providers = two model strings); `agboss describe` prints `model: … → <provider>`.
+  The built-ins are OpenRouter: env `OPENROUTER_API_KEY` (+ optional `OPENROUTER_BASE_URL`).
   - Routers: each `@Router` names its own `model` — a **decision model** (`DECISION_MODELS`: Jev,
     `openai/gpt-6-luna-decisions`, pplx-decider, Clef, …; OpenRouter Decisions API via
     `DecisionsModelProvider` — probabilities, exact cost) or any chat model. Guards use
@@ -281,8 +287,8 @@ export class ExecutionBudget implements BudgetHandler {
 
 ```ts file=src/desk/desk.application.ts
 // desk.application.ts — the application: its workflows, infrastructure (`providers`; none listed →
-// the built-in in-memory defaults), budgets, the defaults of every workflow and the environment
-// contract (`environments/` next to this file — Environments below)
+// the built-in in-memory defaults and the built-in OpenRouter + Decisions model providers), budgets,
+// the defaults of every workflow and the environment contract (`environments/` next to this file)
 import { Application } from "agboss";
 import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./config/budget.config.js";
 import { DeskWorkflow } from "./desk.workflow.js";
@@ -650,7 +656,9 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   LangGraph's `BaseCheckpointSaver`, and the contracts shared by instances (#265):
   `ExecutionLeaseRepository` (one lease per tree, `acquire` / `renew` / `release`),
   `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
-  when its tree ends), `RateLimitRepository` (slots as leases, for #266). Listed **only** in
+  when its tree ends), `RateLimitRepository` (slots as leases, for #266) — and the
+  `@ModelProvider` classes (#266; not created by the container, a misplaced one in a workflow's
+  `providers` is `[di.infrastructure-in-workflow]` too). Listed **only** in
   `@Application({ providers })` (a class that `extends` the contract, `@Injectable`; in a workflow's
   `providers` → `[di.infrastructure-in-workflow]`), found by inheritance (two →
   `[di.ambiguous-implementation]`). Nothing is written to the home folder. Every contract has a
@@ -784,8 +792,8 @@ export class AuditService {
 `test`); a missing variable fails the start naming it, the field and the environment, never the value
 (`DATABASE_URL is not set (AppEnvironment.databaseUrl, prod)`); `agboss check --env <name>` lists the
 variables it needs, marked value / secret. Dev / prod parity: the same `providers` in every
-environment, only values differ. Model provider keys stay process variables
-(`EnvironmentVariable.named`) until #266. README → Environments has more.
+environment, only values differ. Model provider keys stay process variables on each
+`@ModelProvider` (`apiKey: EnvironmentVariable.named(…)`). README → Environments has more.
 
 ### Judges and decision models
 

@@ -9,7 +9,8 @@ import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 /**
  * `@Application` (#261) — the one point of the whole app: what `createApp(App, { env })` and
  * `testWith(App)` take. It lists the top-level workflows, the infrastructure (`providers`: a
- * framework contract's implementation, found by inheritance; none → the built-in in-memory default)
+ * framework contract's implementation, found by inheritance; none → the built-in in-memory default;
+ * its model providers, #266)
  * and every budget of the application. Its `environments/` folder is next to its file.
  */
 export interface ApplicationOptions {
@@ -22,7 +23,9 @@ export interface ApplicationOptions {
   /**
    * Infrastructure, the only place it is registered: classes that `extends` a framework contract
    * (`CostLedgerRepository`, `ExecutionRecordRepository`, `PausedExecutionRepository`,
-   * `BaseCheckpointSaver`), created by the container — never `new`.
+   * `BaseCheckpointSaver`), created by the container — never `new`; and the `@ModelProvider`
+   * classes (#266) every model of the application resolves to by `serves` — none listed → the
+   * built-in `OpenRouterModelProvider` + `DecisionsModelProvider`, one listed → the list is complete.
    */
   readonly providers?: readonly Provider[];
   /** Every `@Budget` of the application (`config/budget.config.ts`). */

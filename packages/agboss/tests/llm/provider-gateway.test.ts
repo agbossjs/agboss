@@ -48,7 +48,7 @@ describe("AC6: the default gateway resolves each model's provider", () => {
     });
   });
 
-  it("AC6: a model no provider serves fails with model.no-provider at the call", async () => {
+  it("AC6: a model no provider serves fails with model.unserved at the call", async () => {
     const gateway = createProviderGateway(
       ModelProviderDirectory.of([LocalModelProvider]),
       options(),

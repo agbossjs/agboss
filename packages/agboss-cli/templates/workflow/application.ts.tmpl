@@ -1,17 +1,21 @@
 import { {{agbossImports}} } from "agboss";
+import { DecisionsModelProvider } from "agboss/models";
 import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./config/budget.config.js";
 {{environmentImport}}import { {{pascal}}Workflow } from "./{{kebab}}.workflow.js";
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 
 /**
  * The application — what `createApp` and `testWith` take: its workflows, its infrastructure
- * (`providers`; none listed → the built-in in-memory defaults), every budget and its environment
- * contract (required; `environments/` next to this file).
+ * (`providers`: its model providers — every model of every workflow resolves to one of them by
+ * `serves`; no repository listed → the built-in in-memory defaults), every budget and its
+ * environment contract (required; `environments/` next to this file).
  */
 @Application({
   name: "{{kebab}}-application",
   version: "0.1.0",
   environment: {{environment}},
   workflows: [{{pascal}}Workflow],
+  providers: [OpenRouterModelProvider, DecisionsModelProvider],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
 })
 export class {{pascal}}Application {}

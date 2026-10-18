@@ -10,7 +10,7 @@ import {
 } from "../../src/llm/gateway.js";
 import type { JevClient } from "../../src/llm/jev-client.js";
 import { MissingEnvironmentVariableError } from "../../src/models/index.js";
-import { directoryOf } from "../../src/models/workflow-models.js";
+import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "../../src/models/workflow-models.js";
 import { createModelRegistry } from "../../src/llm/registry.js";
 import { createRouter, type RouteOutcome } from "../../src/routers/index.js";
 import { routeTo, fakeChatFactory, testConfig, testRouter, unusedJevClient } from "../helpers.js";
@@ -80,12 +80,14 @@ describe("AC12: the default model gateway", () => {
   });
 
   it("AC12: the provider gateway needs every provider's API key before any call", () => {
-    expect(() => createProviderGateway(directoryOf(undefined), { env: {} })).toThrow(
+    expect(() => createProviderGateway(directoryOf(DEFAULT_MODEL_PROVIDERS), { env: {} })).toThrow(
       MissingEnvironmentVariableError,
     );
     expect(
       Object.keys(
-        createProviderGateway(directoryOf(undefined), { env: { OPENROUTER_API_KEY: "k" } }),
+        createProviderGateway(directoryOf(DEFAULT_MODEL_PROVIDERS), {
+          env: { OPENROUTER_API_KEY: "k" },
+        }),
       ),
     ).toEqual(["chatModel", "routeTo", "decide"]);
   });

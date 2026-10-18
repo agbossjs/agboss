@@ -9,6 +9,7 @@ import {
 } from "./application.js";
 import { applicationModule, workflowModules } from "./assemble.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
+import { NodeKind } from "../flow/ast.js";
 import { applicationsNear } from "../loader/application-files.js";
 
 /**
@@ -37,6 +38,22 @@ export async function workflowInApplication(workflow: Class): Promise<AssembledW
   const { options } = declaration;
   const modules = [applicationModule(options), ...workflowModules(options.workflows)];
   return workflowOf(workflow, modules, options);
+}
+
+/**
+ * The workflow and every other workflow its application lists, each assembled as the application
+ * assembles it (`agboss check --models` checks every model of the application, #266); one standing
+ * alone is the only one.
+ */
+export async function workflowsOfApplication(
+  bundle: AssembledWorkflow,
+): Promise<readonly AssembledWorkflow[]> {
+  const declaration = applicationOfWorkflow(bundle.graph.type);
+  const others = (declaration?.options.workflows ?? []).filter(
+    (workflow) =>
+      workflow !== bundle.graph.type && declarationOf(workflow)?.kind === NodeKind.Workflow,
+  );
+  return [bundle, ...(await Promise.all(others.map(workflowInApplication)))];
 }
 
 /** Where the environments of the workflow's application are; one standing alone has none. */

@@ -79,8 +79,6 @@ export class Priced implements WorkflowDefinition {
   settings(): WorkflowSettings {
     return WorkflowSettings.builder()
       .limits({ perRun: { cost: usd(0.05) } })
-      .modelProviders([TestOpenRouterProvider, DecisionsModelProvider, LocalModelProvider])
-      .defaultModelProvider(LocalModelProvider)
       .build();
   }
 }
@@ -90,6 +88,7 @@ export class Priced implements WorkflowDefinition {
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Priced],
+  providers: [TestOpenRouterProvider, DecisionsModelProvider, LocalModelProvider],
   budgets: TEST_BUDGETS,
 })
 export class PricedApplication {}

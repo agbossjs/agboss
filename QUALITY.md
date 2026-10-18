@@ -86,11 +86,14 @@ holds from its type**, not guess it from the name.
   `defaults.router.model`; guards take `defaults.guardrail.model` (Jev), never the router's —
   `defaults` cascade application → workflow → component (#261). Model choice is config, never code. Reference: Wiki → Configuration.
 - **`MODEL_MAX` is the only way to say "no output cap"** — never a magic large number.
-- **Models come from model providers** (`@ModelProvider`, `agboss/models`, #151): each model
-  is served by exactly one registered provider (`serves`); reasoning and caching are the
-  provider's, a component may override them (`thinking`, `cache` until #152). Cache markers and
-  every other provider-specific request field are set in one place, the provider's wire form
-  (`toWireRequest`) — no provider-specific request code outside `src/models` / `src/llm`.
+- **Models come from model providers** (`@ModelProvider`, `agboss/models`, #151): application
+  infrastructure, listed only in `@Application({ providers })` (#266; none → the built-in OpenRouter
+  - Decisions providers, one listed → the list is complete); each model of the application is
+    served by exactly one listed provider (`serves`) — `[model.unserved]` /
+    `[model.ambiguous-provider]` at assembly, a workflow never picks one; reasoning and caching are the
+    provider's, a component may override them (`thinking`, `cache` until #152). Cache markers and
+    every other provider-specific request field are set in one place, the provider's wire form
+    (`toWireRequest`) — no provider-specific request code outside `src/models` / `src/llm`.
 - **Settings must fit their models**: checked against the provider's capabilities at startup and
   by `agboss check --models` (in `make check`), all problems at once; nothing is silently substituted.
 - **Prompts are checked at assembly** (#199): every agent, router and route prompt is read

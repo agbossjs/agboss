@@ -7,6 +7,7 @@ import { kindSuffixProblem, NameKind } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
 import { environmentRuleViolations } from "../environments/contract.js";
+import { isModelProviderClass } from "../models/model-provider.decorator.js";
 import type { ApplicationOptions } from "./application.js";
 
 /**
@@ -80,18 +81,25 @@ function budgetViolations(options: ApplicationOptions): RuleViolation[] {
 
 const isClass = (provider: Provider): provider is Class => !("provide" in provider);
 
-/** A class that `extends` an infrastructure contract in a workflow's `providers`. */
+/** What makes a class infrastructure: the contract it `extends`, or `@ModelProvider` (#266). */
+function infrastructureKindOf(cls: Class): string | undefined {
+  if (isModelProviderClass(cls)) return "is a @ModelProvider";
+  const contract = infrastructureContractOf(cls);
+  return contract === undefined ? undefined : `extends ${nameOf(contract)}`;
+}
+
+/** Infrastructure in a workflow's `providers`: a contract's implementation or a model provider. */
 function infrastructureViolations(options: ApplicationOptions): RuleViolation[] {
   return options.workflows.flatMap((workflow) => {
     if (declarationOf(workflow)?.kind !== NodeKind.Workflow) return [];
     const module = moduleOf(workflow);
     return (module.providers ?? []).filter(isClass).flatMap((cls) => {
-      const contract = infrastructureContractOf(cls);
-      if (contract === undefined) return [];
+      const kind = infrastructureKindOf(cls);
+      if (kind === undefined) return [];
       return [
         violation(
           "di.infrastructure-in-workflow",
-          `${nameOf(cls)} extends ${nameOf(contract)} — infrastructure is listed only in @Application({ providers }), not in ${module.name}'s providers`,
+          `${nameOf(cls)} ${kind} — infrastructure is listed only in @Application({ providers }), not in ${module.name}'s providers`,
           [module.name],
         ),
       ];

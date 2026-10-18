@@ -13,7 +13,8 @@ import type { AnyTool, McpFacade, McpServerHandle } from "./tools/index.js";
 import type { RouterEngine } from "./routers/index.js";
 import type { RuntimeGraph } from "./flow/runtime/graph-model.js";
 import type { LoadedRouter } from "./flow/runtime/routers.js";
-import type { ModelProviderSettings, WorkflowLimits } from "./graph/settings.js";
+import type { WorkflowLimits } from "./graph/settings.js";
+import type { ModelProviderType } from "./models/model-provider.decorator.js";
 import type { ContainerOptions } from "./components/container/container.js";
 import type { Environment } from "./flow/generated-types.js";
 import type { IncompatibleResumePolicy } from "./run/resume-guard.js";
@@ -52,8 +53,11 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly limits: WorkflowLimits;
   /** Steps per execution: `@Workflow({ maxSteps })`, default (agents + routers) × 3. */
   readonly maxSteps: number;
-  /** From the workflow's `settings()`; absent = OpenRouter and Jev. */
-  readonly models?: ModelProviderSettings;
+  /**
+   * Its application's model providers (`@Application({ providers })`, #266): the listed
+   * `@ModelProvider` classes, else the built-in OpenRouter and Decisions providers.
+   */
+  readonly modelProviders: readonly ModelProviderType[];
   /** From the workflow's `settings()`: resumes of runs paused under another config; absent = reject. */
   readonly onIncompatibleResume?: IncompatibleResumePolicy | undefined;
   /** Every router of the flow with its texts loaded. */

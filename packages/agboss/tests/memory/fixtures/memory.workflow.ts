@@ -3,9 +3,7 @@ import {
   Injectable,
   Workflow,
   WorkflowFinish,
-  WorkflowSettings,
   WorkflowStart,
-  type WorkflowDefinition,
   MODEL_MAX,
 } from "../../../src/index.js";
 import { InjectionToken, provide } from "../../../src/components/injection.js";
@@ -116,11 +114,8 @@ const DEFAULTS = {
   history: { limit: 4 },
 } as const;
 
-const settings = (): WorkflowSettings =>
-  WorkflowSettings.builder()
-    .modelProviders([DecisionsModelProvider, LocalModelProvider])
-    .defaultModelProvider(LocalModelProvider)
-    .build();
+/** The model providers of both applications (#266): Jev's decisions, the local chat models. */
+const MODEL_PROVIDERS = [DecisionsModelProvider, LocalModelProvider];
 
 /** Three agents in a line: the built-in window (4 turns), a fixed window (2), a custom strategy. */
 @Workflow({
@@ -139,17 +134,14 @@ const settings = (): WorkflowSettings =>
   defaults: DEFAULTS,
   providers: [provide(NOTES, NOTED)],
 })
-export class MemoryDesk implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return settings();
-  }
-}
+export class MemoryDesk {}
 
 @Application({
   name: "memory-desk-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [MemoryDesk],
+  providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
 })
 export class MemoryDeskApplication {}
@@ -168,17 +160,14 @@ export class MemoryDeskApplication {}
   defaults: DEFAULTS,
   compaction: { every: 2, keep: 3, model: { model: "local/llama" } },
 })
-export class CompactingDesk implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return settings();
-  }
-}
+export class CompactingDesk {}
 
 @Application({
   name: "compacting-desk-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CompactingDesk],
+  providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
 })
 export class CompactingDeskApplication {}
