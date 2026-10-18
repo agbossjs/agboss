@@ -8,6 +8,7 @@ import {
   SpendRecorder,
   Workflow,
   WorkflowFinish,
+  WorkflowCancelledError,
   WorkflowStart,
   type LaunchItemsTruncatedEvent,
   type OnLaunchItemsTruncated,
@@ -58,6 +59,7 @@ export const fanOut = {
   mostInFlight: 0,
   keys: [] as string[],
   items: [] as (number | undefined)[],
+  threads: [] as string[],
   truncated: [] as LaunchItemsTruncatedEvent[],
 };
 
@@ -65,6 +67,7 @@ export function resetFanOut(): void {
   fanOut.events.length = 0;
   fanOut.keys.length = 0;
   fanOut.items.length = 0;
+  fanOut.threads.length = 0;
   fanOut.truncated.length = 0;
   fanOut.inFlight = 0;
   fanOut.mostInFlight = 0;
@@ -99,6 +102,7 @@ export class ProcessItemAction {
     const { step, signal } = this.executionContext;
     fanOut.keys.push(step.idempotencyKey);
     fanOut.items.push(step.itemIndex);
+    fanOut.threads.push(this.executionContext.threadId);
     fanOut.events.push(`start ${name}`);
     fanOut.inFlight += 1;
     fanOut.mostInFlight = Math.max(fanOut.mostInFlight, fanOut.inFlight);
@@ -171,6 +175,8 @@ export class FanOutLog implements OnLaunchItemsTruncated {
       .toParallelActions(ProcessItemAction, { maxConcurrency: 2, maxItems: 4 })
       .join()
       .onJoinError(ItemFailedError, toFinish(ItemsFailedWorkflowFinish))
+      // never taken: a cancel of the execution stops it whole (S21)
+      .onJoinError(WorkflowCancelledError, toFinish(ItemsFailedWorkflowFinish))
       .returns(listOf(ItemResultDto))
       .toFinish(SummaryWorkflowFinish),
   ],

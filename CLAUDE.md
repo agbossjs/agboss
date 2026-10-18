@@ -387,10 +387,12 @@ one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
   per-item launch takes the first `maxItems` items in list order — never an error: `result.launches`
   (`{ launch, items, taken, branches }`, `BranchStatus`) and `onLaunchItemsTruncated` show it. A
   copy is `critic-agent#2` in `result.path`, traces and events (`step.copyNumber` from 1, a per-item
-  run's `step.itemIndex` from 0); the join's lists keep listed / item order. A failed branch aborts
+  run's `step.itemIndex` from 0; every run of one launch is one visit of its node, so all share its
+  `visitNumber` and `maxVisits` counts launches); the join's lists keep listed / item order. A failed branch aborts
   its siblings (`FailFast`) and the join takes `.onJoinError(E, …)` (class and cause chain) or fails
   the execution with the branch's error; `FailurePolicy.Skip` drops only a `StepFailedError`, a
-  limit or a cancellation in a `Skip` branch fails the launch (S21). A model router before a
+  limit in a `Skip` branch fails the launch, and `app.cancel` cancels the whole execution — never a
+  branch outcome, never taken by `.onJoinError` (S21). A model router before a
   launch decides its `OnDemand` routes in one call — a `Decision.noul` per route on a decision
   model, one answer tool with a boolean per route on a chat model (tests: `decideWith({ "<target
 name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S23).
@@ -850,7 +852,7 @@ metadata, onStream })` runs the workflow of that start (any workflow of the appl
   `limits.perDay.cost`; money: `BudgetExceededError`). `perDay.cost` requires `perRun.cost`
   (`[limits.per-run-required]`).
 - **Errors** (root entry) are `AGBossError`s with stable `code`s (`limit` ⊃ `limit.budget`,
-  `limit.visits`, `step` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
+  `limit.visits`, `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
   `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`ActionFailedError`, the
   action's error as `cause`) / `step.guard` / `step.router` ⊃ `step.router.invalid-decision`,
   `workflow.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after

@@ -177,30 +177,71 @@ export class ClerkWorkflow {}
 })
 export class ClerkApplication {}
 
-// ── a branch past its node's maxVisits ──
+// ── a launch past its node's maxVisits ──
+
+@WorkflowStart({
+  name: "tired-workflow-start",
+  description: "A topic",
+  input: WorkflowStartTextDto,
+})
+export class TiredWorkflowStart {}
 
 @Agent({
-  name: "tired-clerk-agent",
-  description: "Handles one item, twice per execution at most",
-  prompt: "Handle the item.",
+  name: "tired-planner-agent",
+  description: "Plans",
+  prompt: "Plan.",
   model: "moonshotai/kimi-k2.6",
   maxVisits: 2,
-  input: { item: ItemDto },
-  output: ItemResultDto,
+  input: { message: WorkflowStartTextDto },
+  output: PlanDto,
 })
-export class TiredClerkAgent {}
+export class TiredPlannerAgent {}
+
+/** Launched twice as copies per pass: one visit per launch, so its second launch passes maxVisits 1. */
+@Agent({
+  name: "tired-critic-agent",
+  description: "Criticises the plan, once per execution",
+  prompt: "Criticise.",
+  model: "moonshotai/kimi-k2.6",
+  maxVisits: 1,
+  input: { plan: PlanDto },
+  output: CritiqueDto,
+})
+export class TiredCriticAgent {}
+
+@WorkflowFinish({ name: "tired-workflow-finish", description: "The plan", output: PlanDto })
+export class TiredWorkflowFinish {}
+
+@Router({
+  name: "tired-loop-router",
+  description: "Plans again or finishes",
+  decidedBy: DecidedBy.Code,
+  maxVisits: 2,
+  input: { critiques: listOf(CritiqueDto) },
+  routes: [{ target: TiredPlannerAgent }, { target: CritiquesWorkflowFinish }],
+})
+export class TiredLoopRouter {
+  route(input: { readonly critiques: readonly Produced<CritiqueDto, unknown>[] }): unknown {
+    const redo = input.critiques.some((critique) => critique.value.remark === "redo");
+    return redo ? TiredPlannerAgent : CritiquesWorkflowFinish;
+  }
+}
 
 @Workflow({
   name: "tired-workflow",
   version: "1.0.0",
   flow: [
-    start(ItemsWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelAgents(TiredClerkAgent, { maxItems: 10 })
+    start(TiredWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(TiredPlannerAgent),
+    agent(TiredPlannerAgent)
+      .returns(PlanDto)
+      .toParallelAgents(TiredCriticAgent, TiredCriticAgent)
       .join()
-      .onJoinError(VisitsLimitExceededError, toFinish(ItemsFailedWorkflowFinish))
-      .returns(listOf(ItemResultDto))
-      .toFinish(SummaryWorkflowFinish),
+      .onJoinError(VisitsLimitExceededError, toFinish(TiredWorkflowFinish))
+      .returns(listOf(CritiqueDto))
+      .toRouter(TiredLoopRouter)
+      .chooseOne(route(TiredPlannerAgent), route(CritiquesWorkflowFinish)),
   ],
 })
 export class TiredWorkflow {}

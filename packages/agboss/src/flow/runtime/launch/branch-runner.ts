@@ -2,6 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { handedOverReason } from "../../../app/handed-over.js";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
+import { WorkflowCancelledError } from "../../../core/errors.js";
 import { extractRunContext } from "../../../core/run-context.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { StepFailedError } from "../../../graph/errors.js";
@@ -30,7 +31,8 @@ import { BranchStatus, type BranchOutcomeRecord, type BranchTicket } from "./rec
  * checks the limits for its own visit, runs its node in its own frame (copy id, copy number, item),
  * and writes how it ended as a record: `Finished` with its value, `Skipped` for a step failure under
  * `FailurePolicy.Skip`, `Failed` (which aborts the launch, so its siblings end `Cancelled`) for
- * anything else. Only a pause and a hand-over pass through LangGraph: everything else meets at the join.
+ * anything else — a limit too. A pause, a hand-over and a cancel of the execution pass through
+ * LangGraph; everything else meets at the join.
  */
 
 export interface BranchDeps extends VisitDeps {
@@ -62,9 +64,9 @@ interface BranchEnd {
   readonly error?: ErrorRecord;
 }
 
+/** A run's bookkeeping: its path entry and step; the node's visit is counted once, by the join. */
 const visited = (run: BranchRun): ExecutionStateUpdate => ({
   path: [run.ticket.nodeId],
-  visits: { [run.node.id]: 1 },
   steps: run.ranAsStep ? 1 : 0,
 });
 
@@ -108,8 +110,7 @@ async function ran(run: BranchRun, runner: NodeRunner, daySpent: number): Promis
 /** A branch that threw: skipped, failed (aborting its siblings) or cancelled by a sibling. */
 function ended(run: BranchRun, error: unknown): BranchEnd {
   if (isGraphInterrupt(error)) throw error;
-  const handedOver = handedOverReason(run.config?.signal);
-  if (handedOver !== undefined) throw handedOver;
+  passThroughStops(run);
   const { live, ticket } = run;
   const usage = [...unrecordedSpendOf(error), ...run.services];
   live.spent.push(...usage);
@@ -127,10 +128,29 @@ function ended(run: BranchRun, error: unknown): BranchEnd {
   return { status, read: [], error: errorRecordOf(error), update };
 }
 
+/** The execution's own signal (`app.cancel`, the caller's signal, a hand-over), not the launch's. */
+const executionSignalOf = (run: BranchRun): AbortSignal =>
+  extractRunContext(run.config, run.state.runId).run.signal;
+
+/**
+ * A hand-over and a cancel of the execution are no outcome of the branch (S21): they stop the whole
+ * execution — never recorded, never `Skip`ped, never taken by `.onJoinError(…)`.
+ */
+function passThroughStops(run: BranchRun): void {
+  const handedOver = handedOverReason(run.config?.signal);
+  if (handedOver !== undefined) throw handedOver;
+  if (executionSignalOf(run).aborted || run.config?.signal?.aborted === true)
+    throw new WorkflowCancelledError("the execution was cancelled during a parallel launch");
+}
+
 async function runBranch(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   const { live } = run;
-  const isTaken = await live.slots.acquire(live.controller.signal);
-  if (!isTaken) return { status: BranchStatus.Cancelled, read: [], update: {} };
+  const stop = AbortSignal.any([executionSignalOf(run), live.controller.signal]);
+  const isTaken = await live.slots.acquire(stop);
+  if (!isTaken) {
+    passThroughStops(run);
+    return { status: BranchStatus.Cancelled, read: [], update: {} };
+  }
   let daySpent: number | null = run.state.daySpentBeforeRunUsd;
   try {
     if (isWorkingNode(run.node)) daySpent = await daySpentBeforeRun(run.state, run.deps);

@@ -63,11 +63,12 @@ const detailsOfStep = (step: StepCoordinates): ErrorDetails => ({
  * A step's own failure (#273 S22): an agent, a router, an action or a guard failed — never a limit,
  * a cancellation or a lost lease. It names the step (`component`, `nodeId`, `visitNumber`,
  * `itemIndex`), so `result`, the trace and the observers say which one failed; `FailurePolicy.Skip`
- * drops only these (S21). Subclasses by kind of node: `AgentFailedError`, `RouterFailedError`,
+ * drops only these (S21). Its own code `step.failed` (lineage `[step.agent, step.failed, step]`)
+ * makes `.onError(StepFailedError)` / `.onJoinError(StepFailedError)` take exactly these. Subclasses by kind of node: `AgentFailedError`, `RouterFailedError`,
  * `ActionFailedError`, `GuardFailedError`.
  */
 export class StepFailedError extends PaidStepError {
-  static override readonly code: string = "step";
+  static override readonly code: string = "step.failed";
   override name = "StepFailedError";
   /** The component (no class: the error is kept on a plain record). */
   readonly component: ComponentRecord;

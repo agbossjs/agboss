@@ -2,14 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   ActionFailedError,
   AgentFailedError,
+  errorRecordOf,
   GuardFailedError,
+  GuardrailBlockedError,
   LimitExceededError,
   PaidStepError,
   RouterDecisionError,
   RouterFailedError,
   StepFailedError,
+  WorkflowCancelledError,
 } from "../../../src/index.js";
 import { stepCoordinatesOf } from "../../../src/graph/errors.js";
+import { codeOfErrorClass, errorMatchOf } from "../../../src/core/error-record.js";
 import { runInFrame } from "../../../src/flow/context/frame.js";
 import { testExecutionContext, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -45,7 +49,7 @@ describe("S22: ActionFailedError", () => {
 
       expect(result.record?.lastError).toMatchObject({
         code: "step.action",
-        lineage: ["step.action", "step", "agboss"],
+        lineage: ["step.action", "step.failed", "step", "agboss"],
         details: { component: { name: "charge-action" }, nodeId: "charge-action", visitNumber: 1 },
         cause: { code: "test.payment" },
       });
@@ -80,5 +84,29 @@ describe("S22: the StepFailedError family", () => {
 
     expect(outside).toMatchObject({ nodeId: "critic-agent", visitNumber: 0 });
     expect(inside).toMatchObject({ nodeId: "critic-agent#2", visitNumber: 3, itemIndex: 4 });
+  });
+
+  it("StepFailedError has its own code: .onJoinError(StepFailedError, …) takes exactly what Skip drops", () => {
+    const step = { nodeId: "main-router", visitNumber: 1 };
+    const errors: readonly Error[] = [
+      new AgentFailedError("writer-agent", [], "boom"),
+      new RouterFailedError(step, "boom"),
+      new RouterDecisionError(step, "no route"),
+      new ActionFailedError("charge-action", "boom"),
+      new GuardFailedError("pii", [], "no answer"),
+      new GuardrailBlockedError("pii", "no", []), // a PaidStepError, not a StepFailedError
+      new PaidStepError("paid", [], undefined),
+      new LimitExceededError({ key: "maxSteps", limit: 1, actual: 2 }, [], 0),
+      new WorkflowCancelledError(),
+      new Error("plain"),
+    ];
+    const code = codeOfErrorClass(StepFailedError);
+
+    const caught = errors.map((error) => errorMatchOf(errorRecordOf(error), code) !== undefined);
+    const skipped = errors.map((error) => error instanceof StepFailedError);
+
+    expect(code).toBe("step.failed");
+    expect(caught).toEqual(skipped);
+    expect(skipped).toEqual([true, true, true, true, true, false, false, false, false, false]);
   });
 });

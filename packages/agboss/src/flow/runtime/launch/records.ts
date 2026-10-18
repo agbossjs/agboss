@@ -33,7 +33,7 @@ export interface BranchTicket {
   readonly copyNumber: number;
   /** The item's index of a per-item launch, from 0. */
   readonly itemIndex?: number;
-  /** The pass through `node` this branch is (the counter `maxVisits` checks). */
+  /** The pass through `node` this launch is — the same for every copy and item (`maxVisits`). */
   readonly visitNumber: number;
   /** The execution's steps before this branch's visit (`maxSteps`), counted in dispatch order. */
   readonly stepsBefore: number;

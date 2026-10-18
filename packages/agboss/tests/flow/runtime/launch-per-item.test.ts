@@ -84,8 +84,8 @@ describe("AC12: an action per item", () => {
     const keys = [...fanOut.keys].sort();
     expect(keys).toEqual([
       `${result.runId}:process-item-action:1:0`,
-      `${result.runId}:process-item-action:2:1`,
-      `${result.runId}:process-item-action:3:2`,
+      `${result.runId}:process-item-action:1:1`,
+      `${result.runId}:process-item-action:1:2`,
     ]);
     expect([...fanOut.items].sort()).toEqual([0, 1, 2]);
   });

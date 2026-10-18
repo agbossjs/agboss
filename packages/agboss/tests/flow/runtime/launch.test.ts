@@ -22,7 +22,10 @@ import {
   PlanLoopApplication,
   PlanLoopWorkflowStart,
   TiredApplication,
-  TiredClerkAgent,
+  TiredCriticAgent,
+  TiredPlannerAgent,
+  TiredWorkflowFinish,
+  TiredWorkflowStart,
 } from "./fixtures/launch-runs.workflow.js";
 import {
   CopiesApplication,
@@ -90,7 +93,7 @@ describe("AC1: copies of one target", () => {
         "stamps-workflow-finish",
       ]);
       expect(result).toFinishWith(StampsWorkflowFinish, {
-        text: "stamp-action#1 1 1; stamp-action#2 2 2",
+        text: "stamp-action#1 1 1; stamp-action#2 2 1",
       });
       expect(result.launches[0]?.branches).toEqual([
         { nodeId: "stamp-action#1", copyNumber: 1, status: BranchStatus.Finished },
@@ -189,18 +192,27 @@ describe("a launch over time", () => {
   );
 
   tired(
-    "VisitsLimitExceededError inside a branch fails the launch into its .onJoinError",
+    "each launch is one visit of its node: copies share it, the second launch passes maxVisits",
     async ({ app, mockLlm }) => {
-      mockLlm(TiredClerkAgent).thenReturnAlways(replyWith(ItemResultDto, { name: "done" }));
+      mockLlm(TiredPlannerAgent).thenReturn(
+        replyWith(PlanDto, { outline: "v1" }),
+        replyWith(PlanDto, { outline: "v2" }),
+      );
+      mockLlm(TiredCriticAgent).thenReturnAlways(replyWith(CritiqueDto, { remark: "redo" }));
 
-      const result = await execute(app, ItemsWorkflowStart, [item("a"), item("b"), item("c")]);
+      const result = await execute(app, TiredWorkflowStart, { text: "tea" });
 
-      expect(result).toFinishWith(ItemsFailedWorkflowFinish, { text: "failed on one of 3" });
-      expect(result.launches[0]?.branches[2]).toMatchObject({
-        itemIndex: 2,
-        status: BranchStatus.Failed,
-        error: { code: "limit.visits" },
-      });
+      // pass 1: both copies are visit 1 of tired-critic-agent; pass 2 would be visit 2 > maxVisits 1
+      expect(result).toFinishWith(TiredWorkflowFinish, { outline: "v2" });
+      expect(mockLlm(TiredCriticAgent).requests).toHaveLength(2);
+      expect(result.launches[1]?.branches).toMatchObject([
+        {
+          nodeId: "tired-critic-agent#1",
+          status: BranchStatus.Failed,
+          error: { code: "limit.visits" },
+        },
+        { nodeId: "tired-critic-agent#2" },
+      ]);
     },
   );
 });

@@ -20,7 +20,8 @@ import type { RuntimeLaunch } from "./runtime-launch.js";
  * copies of a repeated agent numbered from 1 (`critic-agent#1`, `critic-agent#2`) — or, per item,
  * the first `maxItems` items of the list the launching step wrote, in list order (the rest dropped
  * without an error, recorded); after a router, its `Always` targets and the `OnDemand` ones it
- * chose. Each branch's visit and step are counted here, in dispatch order, so they are the same
+ * chose. Every branch of a launch is the same visit of its node (copies and items are told apart
+ * by `copyNumber` and `itemIndex`); steps are counted here, in dispatch order, so they are the same
  * however the branches finish — and again after a resume.
  */
 
@@ -100,13 +101,12 @@ function itemBranches(site: DispatchSite, taken: number): readonly Planned[] {
   }));
 }
 
-/** Each planned branch's visit of its node and the steps before it, in dispatch order. */
+/** Each planned branch's visit of its node (the launch's one) and the steps before it. */
 function counted(site: DispatchSite, planned: readonly Planned[]): readonly BranchTicket[] {
-  const visits = new Map<string, number>();
   let steps = site.steps;
   return planned.map((branch, index) => {
-    const visitNumber = (visits.get(branch.node) ?? site.visits[branch.node] ?? 0) + 1;
-    visits.set(branch.node, visitNumber);
+    // every run of one launch is the same visit of its node: copies and items differ by number
+    const visitNumber = (site.visits[branch.node] ?? 0) + 1;
     const stepsBefore = steps;
     if (site.graph.nodes.get(branch.node)?.kind === NodeKind.Agent) steps += 1;
     return { ...branch, index, visitNumber, stepsBefore };

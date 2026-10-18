@@ -66,6 +66,10 @@ function launchRecordOf(
   };
 }
 
+/** One visit of each launched node: the launch is one pass through it, however many runs. */
+const visitsOf = (ticket: LaunchTicket): Record<string, number> =>
+  Object.fromEntries(ticket.branches.map((branch) => [branch.node, 1]));
+
 /** A failed launch: its `.onJoinError(…)` side path, else the branch's error. */
 function failedJoin(
   launch: RuntimeLaunch,
@@ -123,6 +127,7 @@ export function joinNode(launch: RuntimeLaunch, deps: JoinDeps): GraphNode {
     const live = deps.registry.find(ticket.launchId);
     deps.registry.remove(ticket.launchId);
     const done = {
+      visits: visitsOf(ticket),
       launch: null,
       branchRecords: { drop: ticket.launchId },
       launches: [launchRecordOf(ticket, records)],

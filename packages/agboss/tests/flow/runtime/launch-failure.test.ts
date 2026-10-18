@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect } from "vitest";
-import { ActionFailedError, BranchStatus, StepFailedError } from "../../../src/index.js";
+import {
+  ActionFailedError,
+  BranchStatus,
+  StepFailedError,
+  WorkflowCancelledError,
+} from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
@@ -52,7 +57,7 @@ describe("AC7: FailFast", () => {
       expect(result).toFinishWith(ItemsFailedWorkflowFinish);
       expect(result.record?.lastError).toMatchObject({
         code: "step.action",
-        details: { nodeId: "process-item-action", itemIndex: 1, visitNumber: 2 },
+        details: { nodeId: "process-item-action", itemIndex: 1, visitNumber: 1 },
         cause: { code: "test.item-failed" },
       });
       const failed = result.launches[0]?.branches[1];
@@ -80,4 +85,27 @@ describe("AC7: FailFast", () => {
     });
     expect(fanOut.events).toContain("aborted c");
   });
+});
+
+/** Until the log shows `event` (a branch started), at most two seconds. */
+async function untilEvent(event: string): Promise<void> {
+  for (let tick = 0; tick < 200 && !fanOut.events.includes(event); tick += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+describe("S21: a cancel of the execution is no branch outcome", () => {
+  items(
+    "app.cancel during a launch aborts every branch and rejects: no join, no .onJoinError",
+    async ({ app }) => {
+      const run = execute(app, ItemsWorkflowStart, [ok("a", 500), ok("b", 500)]);
+      run.catch(() => undefined);
+      await untilEvent("start b");
+
+      await app.cancel(fanOut.threads[0] ?? "");
+
+      await expect(run).rejects.toBeInstanceOf(WorkflowCancelledError);
+      expect(fanOut.events).toEqual(expect.arrayContaining(["aborted a", "aborted b"]));
+    },
+  );
 });
