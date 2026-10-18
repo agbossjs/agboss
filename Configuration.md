@@ -6,8 +6,10 @@ models only, [Model providers](Model-providers#register-them-in-the-application)
 fields in `@Workflow` (`maxSteps` among them), money in the application's `@Budget`s
 ([FinOps](FinOps#budgets)), agent fields in each `@Agent`, router fields in
 each `@Router`. Assembled and validated at startup; [profiles](Profiles-and-comparisons) override them
-without code. Secrets are never there — model provider keys are process variables
-(`OPENROUTER_API_KEY` in `.env`), the app's own settings live in [environments](Environments).
+without code. Secrets are never there — model provider keys are `Secret`s of the
+[environment](Environments) (`openRouterApiKey: secret("OPENROUTER_API_KEY")`, #266), like the app's
+own settings. A provider's policies — `retryPolicy`, `rateLimitPolicy`, `circuitBreakerPolicy` — are
+the provider's, app-wide ([Model providers](Model-providers#retry-rate-limit-and-circuit-breaker)).
 
 <!-- snippet-context
 import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";

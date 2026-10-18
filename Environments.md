@@ -179,8 +179,23 @@ The values are frozen.
   the variable at deploy (`gcloud run deploy … --set-secrets=DATABASE_URL=database-url:3`) and
   resolved when the instance starts; the framework calls no cloud SDK and nothing over the network
   for this — the same code runs locally (`.env`), in CI, Cloud Run and Kubernetes.
-- Model provider keys stay process variables (`EnvironmentVariable.named`) until #266 reads them
-  from the environment (`openRouterApiKey: Secret`).
+- **Model provider keys are secrets of the environment too** (#266 PR 2): a `@ModelProvider` names
+  the field that holds its key — `apiKey: "openRouterApiKey"`, the built-ins read `openRouterApiKey`
+  — and every environment that calls models sets it, `openRouterApiKey: secret("OPENROUTER_API_KEY")`.
+  Tests script or replay models, so the contract may declare it optional
+  (`openRouterApiKey?: Secret`) and `test.environment.ts` leave it out. A missing key fails the
+  start of an app that calls the provider, naming the field
+  ([Model providers](Model-providers#the-key-and-the-name)). A provider's **base URL** is read the
+  same way: `baseUrlField: "openRouterBaseUrl"` names a text field
+  (`openRouterBaseUrl: env("OPENROUTER_BASE_URL", { default: "https://openrouter.ai/api/v1" })`),
+  unset → the provider's `baseUrl`. There is no second way: `env()` / `secret()` in an environment
+  are the only readers of process variables (`EnvironmentVariable` is removed, #266).
+- **`agboss check` reads the contract's shape, not its secrets**: without `--models` a secret whose
+  variable is unset is no problem — writing types and checking the assembly need no key, so
+  `npm run types` (`postinstall`) works on a fresh `npm install`. `--models` connects to the
+  providers, so it needs the secrets: a missing one fails, naming its variable
+  (`OPENROUTER_API_KEY is not set (AppEnvironment.openRouterApiKey, dev)`). Every other variable
+  is checked either way.
 
 ## The CLI
 

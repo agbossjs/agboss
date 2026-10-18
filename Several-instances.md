@@ -20,7 +20,7 @@ shared implementation of each:
 | `CostLedgerRepository`      | budgets count the spend of every instance                                       |
 | `ExecutionLeaseRepository`  | one holder per execution tree (below)                                           |
 | `ExecutionTreeRepository`   | the shared state of one request, read by its executions on any instance         |
-| `RateLimitRepository`       | a model provider's limit is common to every instance (#266)                     |
+| `RateLimitRepository`       | a model provider's limit, its 429 pause and its circuit breaker hold on every instance (#266) |
 
 Each contract has a ready **SQLite** implementation (#265 PR 3), or a project lists its own
 (`extends` the contract, `@Injectable({ deps })`, [below](#your-own-implementation)).
@@ -35,7 +35,7 @@ Each contract has a ready **SQLite** implementation (#265 PR 3), or a project li
 | `CostLedgerRepository`      | `SqliteCostLedgerRepository`      | `cost_ledger`, `cost_ledger_max_spend` |
 | `ExecutionLeaseRepository`  | `SqliteExecutionLeaseRepository`  | `execution_leases`                |
 | `ExecutionTreeRepository`   | `SqliteExecutionTreeRepository`   | `execution_tree_keys`             |
-| `RateLimitRepository`       | `SqliteRateLimitRepository`       | `rate_limit_slots`                |
+| `RateLimitRepository`       | `SqliteRateLimitRepository`       | `rate_limit_slots`, `rate_limit_window_entries`, `rate_limit_pauses` |
 
 Every row carries the tenant (#261): the threads and the records `tenant_id`, `paused_executions`
 is keyed by `(tenant_id, thread_id)`, a checkpoint and its writes are tagged with the run's tenant,
@@ -380,4 +380,25 @@ lease is a holder frozen for that long.
   recovery works with persistent stores (records, checkpoints, paused executions, leases).
 - A stop releases its leases at once, but the other instances notice at their next sweep (within
   30 s); a crashed instance's trees wait for their lease to expire first (up to 30 s more).
-- Fairness between tenants waiting for a model provider's slots is per instance (#266).
+- Fairness between tenants waiting for a model provider's slots is per instance (#266): the
+  tenant-fair queue is in-process, and between instances a slot goes to whoever takes its lease
+  first. So is the AIMD slowdown after a 429 — the pause itself, the hard caps (`maxConcurrentCalls`,
+  `perMinute`) and an open circuit breaker are shared through `RateLimitRepository`.
+
+## A model provider's rate limit across instances (#266)
+
+`RateLimitRepository` holds three kinds of state, each atomic across instances:
+
+- **slots** — `acquire(key, maxSlots, lease)` / `renew` / `release`: a provider's
+  `maxConcurrentCalls` (`<provider>:slots`), a lease of a minute renewed while a call runs;
+- **windows** — `addToWindow(key, amount, window, limit?)` (the new total, `undefined` when it would
+  pass `limit`; `amount` 0 reads it) and `clearWindow(key)`: the per-minute calls and tokens, and a
+  circuit breaker's failures;
+- **pauses** — `pauseUntil(key, until)` (a later pause is kept) and `pausedUntil(key)`: the pause
+  after a 429 (`<provider>:cooldown`) and an open breaker (`<provider>:circuit-open`).
+
+`SqliteRateLimitRepository` keeps them in `rate_limit_slots`, `rate_limit_window_entries` and
+`rate_limit_pauses`; a file an older version wrote gets the two new tables when it is opened. Your
+own implementation (Redis, …) `extends RateLimitRepository` and implements all seven methods; the
+shared contract suite of the framework (`tests/infrastructure/rate-limit.contract.test.ts`) is the
+behaviour to match.

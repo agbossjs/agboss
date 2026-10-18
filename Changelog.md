@@ -3,6 +3,37 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — rate limits and retries, provider keys in the environment (#266, PR 2)
+
+- **`rateLimitPolicy`** on `@ModelProvider` ([Model providers](Model-providers#ratelimitpolicy)):
+  `RateLimitPolicy.of({ maxConcurrentCalls?, perMinute?: { calls?, tokens? }, balancing? })` — one
+  limit for the whole application, every execution, tenant and instance, its state in
+  `RateLimitRepository`. A call without room waits (its signal ends the wait — `app.cancel` with `ExecutionCancelledError`; the attempt's `timeout`
+  starts with the room); waiting tenants share free slots by `QueueBalancingStrategy`
+  (`TenantRoundRobin` default, `TenantLeastInFlight`, `TenantWeighted` by `tenant.weight`, `Fifo`); a
+  429 pauses the provider's whole queue for `Retry-After` (else the retry delay) on every instance,
+  then halves the instance's concurrency, back by one a minute (AIMD). No policy → no limit.
+- **`retryPolicy`** is the only backoff; a wait between attempts holds no slot.
+- **`RateLimitRepository`** gets windows and pauses: `addToWindow`, `clearWindow`, `pauseUntil`,
+  `pausedUntil` — abstract, so **breaking for your own implementation** (in memory and
+  `SqliteRateLimitRepository` implement them; a SQLite file gets two new tables on open)
+  ([Several instances](Several-instances#a-model-providers-rate-limit-across-instances-266)).
+- **Breaking — the circuit breaker's state** is in `RateLimitRepository` (an open breaker holds on
+  every instance) and on the application's `Clock`: `CircuitBreaker` takes
+  `(provider, policy, { rateLimits, clock })` and its methods are async; `CircuitBreakers` and the
+  process-wide breakers are removed.
+- **Breaking — provider keys are `Secret`s of the environment**: `apiKey` names the field
+  (`apiKey: "openRouterApiKey"`), set with `openRouterApiKey: secret("OPENROUTER_API_KEY")`;
+  a base URL may come from a text field too (`baseUrlField: "openRouterBaseUrl"`,
+  `env("OPENROUTER_BASE_URL", { default })`). **`EnvironmentVariable`**, `MissingEnvironmentVariableError`,
+  `SettingValue`, `OPENROUTER_API_KEY` and `OPENROUTER_BASE_URL_SETTING` are removed — `env()` /
+  `secret()` are the one way to read a process variable ([Environments](Environments#secrets)).
+- **`agboss check` without `--models` needs no secret values** (it reads the contract's shape);
+  `--models` connects and fails on a missing secret, naming its variable.
+- **Breaking — provider names end with `-model-provider`** (`[name.kind-suffix]`): the built-ins are
+  `openrouter-model-provider` and `decisions-model-provider` (in `describe`, the startup log and
+  model problems).
+
 ## Unreleased — quorums at run time (#279, PR 2)
 
 - **Quorums run** ([Parallel → At run time](Parallel#at-run-time)): decided in the launch's

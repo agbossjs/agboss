@@ -301,6 +301,15 @@ grows silently) —, `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unu
 execution by the app, so Studio's own runs are not capped by them. Optional extra backstop outside
 the app: a spending limit on the OpenRouter key itself.
 
+## Capacity is not money: rate limits
+
+Budgets and steps protect money and the graph; a provider's **capacity** is its own policy
+([Model providers](Model-providers#ratelimitpolicy), #266): `rateLimitPolicy` caps the calls in
+flight and per minute for the whole application, and after a 429 slows every caller down. A call
+waiting for room spends nothing and counts toward no budget; its real usage (tokens) is counted in
+the provider's per-minute window after the call, as its cost is counted in the budgets. A retried
+call is one call, paid once; a wait between its attempts holds no slot.
+
 ## Turn financials — part of every result
 
 Every `ExecutionOutput` carries `spend` (`CostReport`) — the core always reports it; each client
