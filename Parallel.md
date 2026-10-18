@@ -6,11 +6,10 @@ first five checked companies are enough, or one of several known combinations of
 the case. A **quorum** (#279) says how many answers are enough, how long to wait, which answers
 count and — with groups — which combination wins and where the execution goes next.
 
-> **Status.** PR 1 of #279: the grammar, `@Arbiter` / `@OnAnswer`, the analyser and the generated
-> types — `agboss check` checks and types every quorum, `agboss describe` prints it. Deciding a
-> quorum at run time (counting, cancelling the rest, the deadline on the `Clock`,
-> `QuorumNotReachedError`, `ArbiterError`) comes with #279 PR 2; until then a workflow with a quorum
-> does not assemble (`flow.quorum-not-runnable`).
+> **Status.** #279 PR 1 (the grammar, `@Arbiter` / `@OnAnswer`, the analyser, the generated
+> types) and PR 2 (quorums at run time: counting, cancelling the rest, the deadline on the `Clock`,
+> `QuorumNotReachedError`, `ArbiterError`, traces and `onQuorumDecided`, `agboss generate arbiter`).
+> A runnable example: `examples/flow-patterns/src/panel`.
 
 ## Writing it
 
@@ -117,7 +116,7 @@ export class InRangeArbiter {
 export class ValidScoreArbiter {}
 
 export const quorumPaths = [
-  // any two of three: the counted answers only, the third cancelled (#279 PR 2)
+  // any two of three: the counted answers only, the third cancelled
   start(CandidateWorkflowStart)
     .returns(CandidateDto)
     .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
@@ -247,11 +246,83 @@ counts: `full-review-agent ← deal: deal-workflow-start, legal: legal-agent (op
 critic-agent ×1–2` — a group counts at least the copies it lists and at most those launched, a
 `.joinQuorum(…)` from none to all.
 
-## At run time (#279 PR 2)
+## At run time
 
-Decided inside the launch's superstep (S26): each branch runs its agent and its arbiter chain under
-one `maxConcurrency` slot, then the registry records its verdict (`Counted`, `Rejected`, `Surplus`)
-and an `acceptedSequence`; it aborts the launch when the outcome is fixed (`max` taken, `min`
-unreachable, a group's winner fixed); the deadline is computed once from the `Clock`. The join
-rebuilds the outcome from the branch records. Not reached → `QuorumNotReachedError`, taken by
-`.onJoinError(QuorumNotReachedError, …)`; a failing arbiter → `ArbiterError` (`step.arbiter`).
+A quorum is decided inside its launch's superstep (S26), as answers arrive — never by waiting for
+every branch and deciding at the join:
+
+1. Each branch runs its agent and then its **arbiter chain** under one `maxConcurrency` slot and in
+   its own step frame (a code arbiter's `executionContext.step` is the branch's: `copyNumber`,
+   `itemIndex`). The `.acceptedBy(…)` steps are an AND in path order — the first rejection stops the
+   chain, later arbiters are not called; inside `anyOf(A, B)` the arbiters run in order and the first
+   that accepts accepts.
+2. The answer is recorded at once, synchronously after its chain: **`BranchVerdict.Counted`** with a
+   monotonic `acceptedSequence` while places are left, **`Rejected`** (with `rejectedBy`: the
+   arbiters that said no — every one of an `anyOf`), **`Surplus`** when it was accepted after the
+   quorum was already decided.
+3. Once the outcome is fixed — `max` answers counted (`max` defaults to `min`), a group has won (no
+   higher-priority group can still complete), `min` or every group can no longer be reached, every
+   branch is through, or the deadline passed — the launch is aborted: the branches still running or
+   waiting for a slot end **`BranchStatus.Cancelled`**; a code check still running is abandoned, a
+   model check's call (which cannot be stopped) is awaited for its cost; neither counts.
+4. The **join** decides from the branch records only: the counted answers in counting order
+   (`acceptedSequence` — never listed or finish order) go into the path scope; for groups the winning
+   group's agents' answers, on that group's own path. Not reached → **`QuorumNotReachedError`**
+   (`step.quorum`, a `StepFailedError` naming the launching step, with `min` and `counted`) into
+   `.onJoinError(QuorumNotReachedError, …)`, else the execution fails with it.
+
+| What happens in a branch | Its record |
+| --- | --- |
+| its answer counted | `Finished`, `Counted`, `acceptedSequence` |
+| an arbiter rejected it | `Finished`, `Rejected`, `rejectedBy` |
+| accepted after the quorum was decided | `Finished`, `Surplus` |
+| still running (or checked) when the quorum was decided | `Cancelled` |
+| its own step failed (`StepFailedError`) | `Skipped` — under a quorum it only leaves its place empty |
+| an arbiter threw, returned no boolean, or its model did not answer | `Failed` with `ArbiterError` (`step.arbiter`): the launch fails, `.onJoinError(ArbiterError, …)` takes it |
+| a limit, `app.cancel` | as for every launch (#273 S21): the launch fails / the execution is cancelled |
+
+Every branch's spend counts — a cancelled or surplus branch's too.
+
+### The deadline
+
+`deadline` (`seconds()`, `minutes()`, `hours()`) is turned into `deadlineAt` once, when the launch is
+dispatched, from the application's `Clock`, and kept in the launch's ticket (the state and every
+branch's payload). A `Clock` sleep ends the quorum at that moment: `min` reached → go on (groups: the
+highest-priority complete group), else `QuorumNotReachedError` ("the deadline passed"). A pause
+counts as elapsed time. Waiting in our own queues (#264 `maxConcurrentExecutions`, #266 rate limits)
+will be excluded once those queues exist. Tests move it with the `VirtualClock`
+(`await clock.advance(seconds(31))`, [Testing → The clock](Testing#the-clock)).
+
+### Pause, resume, recovery
+
+A branch may pause inside a quorum (an approval); its siblings finish in the same superstep and their
+records stay in the checkpoint's pending writes. On `resume` — or when another instance recovers the
+execution after a crash ([Several instances](Several-instances)) — the quorum is rebuilt from those
+records (counts, `max(acceptedSequence)`, verdicts), so only the unfinished branches run and counting
+goes on where it stopped. If `deadlineAt` has passed by then, the unfinished branches are cancelled
+without running and the join decides from the records.
+
+### Model arbiters
+
+A `DecidedBy.Model` arbiter makes one decision per answer, on its own `model`: a decision model gets
+one `Decision.noul` — the agent's criterion — over the arbiter's `prompt` and the answer as JSON; a
+chat model answers through one answer tool (`answer-arbiter`) with a boolean. P(yes) > 0.5 counts.
+Its spend is recorded under `arbiter:<name>`; the execution's budgets are checked before every call.
+The arbiter's prompt and criteria are part of the workflow's prompt version, its model of the model
+version, and its model is a model use like a router's (`arbiters.<name>` in `agboss describe` and
+`agboss check --models`). A code arbiter is created by the application's container at start.
+
+### What it shows
+
+`result.launches` adds, per quorum launch, `isQuorumReached`, `group` (the winning group's `agents`
+and `priority`) and, per branch, `verdict`, `acceptedSequence` and `rejectedBy`. The branch's trace
+entry carries the same; the join adds a trace entry "quorum decided" and the observer event
+`onQuorumDecided` ([Observability](Observability#quorums)).
+
+### `agboss generate arbiter`
+
+`agboss generate arbiter in-range --workflow src/panel/panel.workflow.ts` writes
+`arbiters/in-range.arbiter.ts`: a code arbiter with one `@OnAnswer(Agent) from<Agent>(answer:
+ArbiterAnswerOf<typeof Agent>): boolean` method per distinct agent of the flow's launch (`--agent
+<name>` picks the launch when there are several). It is not put into the flow — attach it with
+`.acceptedBy(InRangeArbiter)` where it belongs.

@@ -403,6 +403,9 @@ own path. `@Arbiter`s attached with `.acceptedBy(X)` (an AND in path order; `any
 that accepts) decide which answers count. After `.joinQuorum({ min })` with `min` below the agents
 launched a single answer is `optional(XDto)` in `.returns(…)` — a compile error and
 `[flow.quorum-return-not-optional]` otherwise; a repeated class stays `listOf(XDto)` in every form.
+At run time the quorum is decided as answers arrive: once it is fixed the rest of the launch is
+cancelled, only counted answers enter the path scope (in counting order), and a quorum not reached
+is `QuorumNotReachedError` into `.onJoinError(…)` — [Parallel → At run time](Parallel#at-run-time).
 
 ## Generated types
 

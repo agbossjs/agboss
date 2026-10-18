@@ -168,6 +168,30 @@ export class LaunchAudit implements OnLaunchItemsTruncated {
 }
 ```
 
+## Quorums
+
+Under a quorum (#279, [Parallel](Parallel#at-run-time)) each branch's trace entry also carries its
+`verdict` (`BranchVerdict.Counted` with `acceptedSequence`, `Rejected` with `rejectedBy` — the
+arbiters that rejected it — or `Surplus`; a cancelled branch has none). The join adds a trace entry
+"quorum decided" (`launch`, `isReached`, the counted branches in counting order) and emits **one**
+`onQuorumDecided`: `QuorumDecidedEvent` carries the execution's fields, the launching `step`, the
+`launch` id, `isReached`, every branch as `result.launches` shows it (`BranchRecord`: `status`,
+`verdict`, `acceptedSequence`, `rejectedBy`) and, for `.joinQuorumGroups(…)`, the winning `group`
+(`agents`, `priority`). No answer values. A model arbiter's calls are model calls of their own
+(`onModelStart` / `onModelEnd`), their cost under `arbiter:<name>`.
+
+```ts
+import { BranchVerdict, Injectable, type OnQuorumDecided, type QuorumDecidedEvent } from "agboss";
+
+@Injectable()
+export class QuorumAudit implements OnQuorumDecided {
+  onQuorumDecided(event: QuorumDecidedEvent) {
+    const rejected = event.branches.filter((branch) => branch.verdict === BranchVerdict.Rejected);
+    console.info(`${event.launch}: reached ${String(event.isReached)}, ${String(rejected.length)} rejected`);
+  }
+}
+```
+
 ## Registering an observer
 
 1. A class decorated with `@Injectable()` (its `deps` injected like any component).

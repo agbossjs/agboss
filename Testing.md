@@ -232,6 +232,18 @@ whatever order the branches answered in; assert on `result.launches` (`items`, `
 branch's `status`) and on `result.path`, where a copy is `critic-agent#2` — `toFollowPath` takes
 the class for each copy (`[…, CriticAgent, CriticAgent, …]`).
 
+### Quorums and arbiters
+
+A model arbiter (#279) is scripted like a decision model, by its class, with one answer per arriving
+answer — the question's key is `counts`: `mockLlm(ValidScoreArbiter).thenReturn(decideWith({ counts:
+0.9 }))` (on a chat model alike: above 0.5 is `true`). Its requests show what it judged: the
+criterion (`questions.counts.instructions`) and the answer under `### answer (from <agent>)`; answer
+by the agent with `.thenAnswer(…)`. A code arbiter calls no model — it runs as written; `mockOf(Arbiter)`
+replaces it. The answers arrive in the order the branches finish, so a test that needs one late
+answer gives that agent a tool that waits on the application's clock and moves the `clock` fixture
+(`await clock.advance(seconds(31))` past a deadline). Assert on `result.launches[0]`:
+`isQuorumReached`, `group`, and each branch's `status`, `verdict`, `acceptedSequence`, `rejectedBy`.
+
 ### What a component sent its model
 
 `mockLlm(X).requests` (every request, in order), `.onlyRequest` (fails unless exactly one),

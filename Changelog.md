@@ -3,6 +3,30 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — quorums at run time (#279, PR 2)
+
+- **Quorums run** ([Parallel → At run time](Parallel#at-run-time)): decided in the launch's
+  superstep as answers arrive — each branch's arbiter chain in its slot and frame, the answer
+  recorded at once (`BranchVerdict.Counted` with `acceptedSequence`, `Rejected` with `rejectedBy`,
+  `Surplus`), the rest cancelled once the quorum is fixed; the join decides from the records (counted
+  answers in counting order, the winning group's own path). `flow.quorum-not-runnable` is removed.
+- **New errors**: `QuorumNotReachedError` (`step.quorum`) and `ArbiterError` (`step.arbiter`), both
+  `StepFailedError`s, taken by `.onJoinError(E, …)`; `QuorumShortfall`.
+- **Deadline** on the application's `Clock`: `deadlineAt` at dispatch, kept in the launch's ticket; a
+  pause counts. After a resume or a crash the quorum is rebuilt from the finished branches' records;
+  an expired deadline cancels the rest without running it.
+- **Under a quorum** a branch's own step failure is `Skipped` (its place stays empty) whatever the
+  route's failure policy; an `ArbiterError` or a limit fails the launch.
+- **Model arbiters**: one decision per answer under `arbiter:<name>` (`answer-arbiter` on a chat
+  model), budgets checked before each call; their prompts and criteria in the prompt version, their
+  model a model use (`arbiters.<name>`). Code arbiters are created by the container at start.
+- **Shown**: `LaunchRecord.isQuorumReached`, `LaunchRecord.group` (`QuorumGroupRecord`),
+  `BranchRecord.verdict` / `acceptedSequence` / `rejectedBy`; trace entries; the hook
+  `onQuorumDecided` (`OnQuorumDecided`, `QuorumDecidedEvent` — a node event, `step` the launching step).
+- **Testing**: `mockLlm(ModelArbiter).thenReturn(decideWith({ counts: 0.9 }))`.
+- **CLI**: `agboss generate arbiter <name> --workflow … [--agent …]` — a code arbiter with one
+  `@OnAnswer` method per agent of a launch.
+
 ## Unreleased — logging, observers, describe (#261, PR 6; #269)
 
 - **Breaking: observers are registered only in `@Application({ observers })`**
@@ -71,7 +95,7 @@ Breaking changes and notable additions, newest first. The API reports
   `[arbiter.duplicate-agent]`, `[arbiter.answer-method-on-model]`, `[arbiter.method-name]`;
   `[input.missing-on-path]` names the agent a quorum may leave out and the fix.
 - `agboss describe` prints quorums and counts a quorum list's producers (`critic-agent ×1–2`).
-- A workflow with a quorum does not assemble until #279 PR 2 (`flow.quorum-not-runnable`).
+- A workflow with a quorum did not assemble until #279 PR 2 (`flow.quorum-not-runnable`, removed there).
 - `@QuorumRouter`, `QuorumStrategy`, `QuorumManager` and `.joinQuorum(n)` stay removed (AC11).
 ## Unreleased — budgets and limits at run time (#261, PR 5)
 
