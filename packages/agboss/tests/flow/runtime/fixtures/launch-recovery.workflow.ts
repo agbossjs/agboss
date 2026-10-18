@@ -48,7 +48,8 @@ export class RecoverableItemAction {
   execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
     const { name } = input.item.value;
     recoveryRuns.runs.push(name);
-    const isFirstHold = name === "hold" && recoveryRuns.runs.filter((run) => run === name).length === 1;
+    const isFirstHold =
+      name === "hold" && recoveryRuns.runs.filter((run) => run === name).length === 1;
     if (!isFirstHold) return Promise.resolve({ name });
     const { signal } = this.executionContext;
     return new Promise((_resolve, reject) => {

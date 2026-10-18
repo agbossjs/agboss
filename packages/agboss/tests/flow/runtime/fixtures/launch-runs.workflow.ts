@@ -36,7 +36,11 @@ import {
 
 // ── a launch inside a loop ──
 
-@WorkflowStart({ name: "plan-loop-workflow-start", description: "A topic", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "plan-loop-workflow-start",
+  description: "A topic",
+  input: WorkflowStartTextDto,
+})
 export class PlanLoopWorkflowStart {}
 
 @Agent({

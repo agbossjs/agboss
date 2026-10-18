@@ -49,7 +49,11 @@ export class PickyWorkflowStart {}
   prompt: "Pick everyone needed for the customer's message.",
   input: { message: WorkflowStartTextDto },
   routes: [
-    { target: RefundPolicyAgent, spawn: SpawnPolicy.OnDemand, prompt: "The message is about returns" },
+    {
+      target: RefundPolicyAgent,
+      spawn: SpawnPolicy.OnDemand,
+      prompt: "The message is about returns",
+    },
     { target: LoyaltyOfferAgent, spawn: SpawnPolicy.OnDemand, prompt: "The customer is loyal" },
   ],
 })
@@ -69,7 +73,11 @@ export class PickyRouter {}
 })
 export class PickyAnswerAgent {}
 
-@WorkflowFinish({ name: "picky-workflow-finish", description: "The reply", output: CustomerReplyDto })
+@WorkflowFinish({
+  name: "picky-workflow-finish",
+  description: "The reply",
+  output: CustomerReplyDto,
+})
 export class PickyWorkflowFinish {}
 
 @Workflow({
