@@ -8,9 +8,9 @@ import {
   LoopPublisherAgent,
   LoopResearcherAgent,
   LoopReviewerAgent,
-  LoopWorkflow,
   LoopWorkflowStart,
   LoopWriterAgent,
+  LoopApplication,
 } from "./fixtures/outdating.workflow.js";
 
 /**
@@ -19,7 +19,7 @@ import {
  * in what it said on an earlier visit.
  */
 
-const loop = testWith(LoopWorkflow);
+const loop = testWith(LoopApplication);
 
 const everything = (request: unknown): string => JSON.stringify(request);
 

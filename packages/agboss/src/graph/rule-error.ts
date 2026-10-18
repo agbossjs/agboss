@@ -57,7 +57,14 @@ export type RuleCode =
   | "agent.dynamic-options"
   | "model.no-tool-calling"
   // type generation (#272 PR 3), reported by `src/flow/types`
-  | "types.unexported-class";
+  | "types.unexported-class"
+  // the application (#261), reported at its assembly
+  | "application.no-workflows"
+  | "application.not-a-workflow"
+  | "application.duplicate-workflow"
+  | "application.ambiguous-start"
+  | "budget.not-a-budget"
+  | "di.infrastructure-in-workflow";
 
 /** One broken rule: its code, what is wrong, and the nodes (classes) involved. */
 export interface RuleViolation {

@@ -2,10 +2,10 @@
 import { describe, expect } from "vitest";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { AGBossError, WorkflowCancelledError } from "../../src/index.js";
-import { Buyer, Checker, Order, Shop } from "./fixtures.js";
+import { Buyer, Checker, Order, ShopApplication } from "./fixtures.js";
 import { execute } from "../helpers/flow.js";
 
-const shop = testWith(Shop);
+const shop = testWith(ShopApplication);
 
 describe("#194: a cancelled run is reported as WorkflowCancelledError", () => {
   shop(

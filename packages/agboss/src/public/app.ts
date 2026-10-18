@@ -1,5 +1,6 @@
 /**
- * Running a workflow (part of the root entry, #195): `createApp`, its dependencies and stores,
+ * Running an application (part of the root entry, #195, #261): `@Application`, `createApp`, the
+ * budgets, the infrastructure contracts, the workflow's dependencies,
  * resuming, profiles, comparisons and the public configuration and run types.
  */
 export {
@@ -12,15 +13,25 @@ export {
   createAppDeps,
   type AppDeps,
   type AppDepsOptions,
-  type AppStores,
   type McpConnect,
 } from "../app/app-deps.js";
-export { createApp, type AppOptions } from "../app/create-app.js";
-export type { PausedRun, PausedRunRepository } from "../app/paused-runs.js";
+export type { AppOptions } from "../app/create-app.js";
+export { Application, type ApplicationOptions } from "../application/application.js";
+export { createApp } from "../application/create-app.js";
+export type { ApplicationClass, WorkflowIsNotAnApplication } from "../application/types.js";
 export {
-  createSqlitePausedRunRepository,
-  type SqlitePausedRunRepository,
-} from "../app/sqlite-paused-runs.js";
+  Budget,
+  BudgetPeriod,
+  BudgetScope,
+  type BudgetHandler,
+  type BudgetOptions,
+  type ExecutionBudgetOptions,
+  type PeriodBudgetOptions,
+} from "../budgets/budget.js";
+export type { PausedRun } from "../app/paused-runs.js";
+export { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
+export { ExecutionRecordRepository } from "../infrastructure/execution-record.repository.js";
+export { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 export {
   IncompatibleResumeError,
   type IncompatibleResume,

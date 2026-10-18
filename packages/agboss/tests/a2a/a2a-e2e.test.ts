@@ -1,17 +1,17 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { A2AClient, type A2AEvent } from "../../src/a2a/index.js";
-import { createApp } from "../../src/app/create-app.js";
+import { createApp } from "../../src/application/create-app.js";
 import { callTool, replyWith, failWith, ModelFailure } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { callerOf, DeskReply } from "./fixtures/caller.workflow.js";
 import {
   offline,
   QuickLookup,
-  RemoteDesk,
   serve,
   SlowLookup,
   slowLookups,
   type Served,
+  RemoteDeskApplication,
 } from "./fixtures/remote.workflow.js";
 import { execute } from "../helpers/flow.js";
 
@@ -24,7 +24,7 @@ afterEach(async () => {
 });
 
 async function remote(book: ScriptBook, seen?: (string | undefined)[]) {
-  served = await serve(await createApp(RemoteDesk, offline(book)), seen);
+  served = await serve(await createApp(RemoteDeskApplication, offline(book)), seen);
   return served;
 }
 
@@ -117,12 +117,12 @@ describe("#192 AC2: an A2A client agent calls a remote workflow and gets a valid
     remoteBook.scriptOf("agent:desk-agent").thenReturn(replyWith("Order 7 shipped"));
     const seen: (string | undefined)[] = [];
     const { url } = await remote(remoteBook, seen);
-    const { Caller, PlanStart, AskDesk, RemoteDeskAgent } = callerOf(url);
+    const { CallerApplication, PlanStart, AskDesk, RemoteDeskAgent } = callerOf(url);
     const book = new ScriptBook();
     book
       .scriptOf("agent:planner-agent")
       .thenReturn(callTool(AskDesk, { question: "where is order 7?" }), replyWith("Shipped."));
-    const app = await createApp(Caller, offline(book));
+    const app = await createApp(CallerApplication, offline(book));
 
     const result = await execute(app, PlanStart, { text: "check order 7" });
     const client = app.resolve<A2AClient>(RemoteDeskAgent);
@@ -140,12 +140,12 @@ describe("#192 AC2: an A2A client agent calls a remote workflow and gets a valid
     const remoteBook = new ScriptBook();
     remoteBook.scriptOf("agent:desk-agent").thenReturn(replyWith("Order 7 shipped"));
     const { url } = await remote(remoteBook);
-    const { Caller, PlanStart, AskTicket } = callerOf(url);
+    const { CallerApplication, PlanStart, AskTicket } = callerOf(url);
     const book = new ScriptBook();
     book
       .scriptOf("agent:planner-agent")
       .thenReturn(callTool(AskTicket, { question: "ticket?" }), replyWith("No ticket."));
-    const app = await createApp(Caller, offline(book));
+    const app = await createApp(CallerApplication, offline(book));
 
     await execute(app, PlanStart, { text: "open a ticket" });
     await app.close();

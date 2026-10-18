@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { AppOptions } from "../../src/app/create-app.js";
-import { createApp } from "../../src/app/create-app.js";
+import { createApp } from "../../src/application/create-app.js";
 import { Decision } from "../../src/index.js";
 import { DecisionRequestError, DecisionResponseError } from "../../src/errors.js";
 import { createMemoryLedger } from "../../src/finops/ledger.js";
@@ -16,9 +16,9 @@ import { directoryOf } from "../../src/models/workflow-models.js";
 import { createSqliteTernStore } from "../../src/terns/index.js";
 import { completion, providerStub, toolCallCompletion, type StubReply } from "../models/stub.js";
 import { answerToolName } from "../../src/flow/analyse/rules/models.js";
-import { ImageDesk, LUNA, PNG } from "./fixtures/decision-judged.workflow.js";
+import { LUNA, PNG, ImageDeskApplication } from "./fixtures/decision-judged.workflow.js";
 import { TaskStart } from "./fixtures/judged.workflow.js";
-import { AskDto, LunaRouted } from "./fixtures/wrong-kind.workflow.js";
+import { AskDto, LunaRoutedApplication } from "./fixtures/wrong-kind.workflow.js";
 import { execute } from "../helpers/flow.js";
 
 const DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions";
@@ -37,7 +37,6 @@ const decided = (answers: Record<string, unknown>, cost: number): StubReply => (
 const wired = (stub: ReturnType<typeof providerStub>): AppOptions => ({
   processEnv: { OPENROUTER_API_KEY: "k" },
   providerFetch: stub.fetch,
-  stores: { terns: createSqliteTernStore(":memory:"), ledger: createMemoryLedger() },
 });
 
 const MODELS = [{ id: "local/llama" }];
@@ -51,7 +50,7 @@ describe("AC4: an image part in state is sent as a top-level image_url item", ()
       [completion("A rising chart."), decided({ matches: { type: "noul", noul: 0.93 } }, 0.0004)],
       MODELS,
     );
-    const app = await createApp(ImageDesk, wired(stub));
+    const app = await createApp(ImageDeskApplication, wired(stub));
 
     const result = await execute(app, TaskStart, { text: "describe the chart" });
     await app.close();
@@ -79,7 +78,7 @@ describe("AC4: an image part in state is sent as a top-level image_url item", ()
       [completion("A rising chart."), decided({ matches: { type: "choice", choice: "yes" } }, 0)],
       MODELS,
     );
-    const app = await createApp(ImageDesk, wired(stub));
+    const app = await createApp(ImageDeskApplication, wired(stub));
 
     const run = execute(app, TaskStart, { text: "describe the chart" });
 
@@ -111,7 +110,7 @@ describe("AC3: a router on openai/gpt-6-luna-decisions decides through the Decis
       ],
       MODELS,
     );
-    const app = await createApp(LunaRouted, wired(stub));
+    const app = await createApp(LunaRoutedApplication, wired(stub));
 
     const result = await execute(app, TaskStart, { text: "fix my build" });
     await app.close();

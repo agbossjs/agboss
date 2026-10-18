@@ -6,6 +6,8 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { OpeningsDto, ProfileDto, ResumeMissingDto, WorkflowStartTextDto } from "./dtos.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "./budgets.js";
 
 /** #272 example 1 — chat: a router in a loop. */
 
@@ -107,3 +109,11 @@ export const chatPaths = [
   flow: chatPaths,
 })
 export class ChatWorkflow {}
+
+@Application({
+  name: "chat-application",
+  version: "1.0.0",
+  workflows: [ChatWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class ChatApplication {}

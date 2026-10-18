@@ -10,7 +10,6 @@ import {
 import { usd } from "../../src/units/index.js";
 import {
   ChatStart,
-  Desk,
   lifecycle,
   MainRouter,
   NotesServer,
@@ -19,9 +18,9 @@ import {
   SaveNote,
   Support,
   Writer,
+  DeskApplication,
 } from "./fixtures/desk.workflow.js";
 import {
-  CodeReview,
   Coder,
   PullRequest,
   CodeDto,
@@ -29,12 +28,13 @@ import {
   Reviewer,
   ReviewGate,
   TaskStart,
+  CodeReviewApplication,
 } from "./fixtures/code-review.workflow.js";
 import { toolResultsOf } from "./fixtures/requests.js";
 import { execute } from "../helpers/flow.js";
 
-const test = testWith(Desk);
-const review = testWith(CodeReview);
+const test = testWith(DeskApplication);
+const review = testWith(CodeReviewApplication);
 const approve = { approved: true, by: "dana" };
 
 describe("AC12: scripted models — answers, tool calls, decisions by script", () => {

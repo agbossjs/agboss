@@ -12,6 +12,8 @@ import type { InputOf, OutputOf, Route } from "../../../src/flow/generated-types
 import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js";
 import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "./credit-dtos.js";
 import { WorkflowStartTextDto } from "./dtos.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "./budgets.js";
 
 /** #280 — the credit-limit flow: a code router inside a model router's route. */
 
@@ -172,6 +174,14 @@ export const creditPaths = [
 })
 export class CreditWorkflow {}
 
+@Application({
+  name: "credit-application",
+  version: "1.0.0",
+  workflows: [CreditWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class CreditApplication {}
+
 /** The same rule written as a model router: the flow is the same for both kinds (#280 AC5). */
 @Router({
   name: "credit-limit-by-model-router",
@@ -215,3 +225,11 @@ export const creditByModelPaths = [
   flow: creditByModelPaths,
 })
 export class CreditByModelWorkflow {}
+
+@Application({
+  name: "credit-by-model-application",
+  version: "1.0.0",
+  workflows: [CreditByModelWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class CreditByModelApplication {}

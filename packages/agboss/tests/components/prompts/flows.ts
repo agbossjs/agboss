@@ -1,4 +1,5 @@
-import { Agent, DecidedBy, Router, Workflow } from "../../../src/index.js";
+import { Agent, Application, DecidedBy, Router, Workflow } from "../../../src/index.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import type { Class } from "../../../src/components/injection.js";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { testConfig, testDefaults } from "../../helpers.js";
@@ -17,6 +18,7 @@ const price = testConfig.agents.alpha.price;
 /** chat → router "main-router" → agent "scout-agent" → the answer. Variables: boards, boardCount. */
 export function workflowWith(prompts: FlowPrompts): {
   workflow: Class;
+  application: Class;
   router: Class;
   scout: Class;
 } {
@@ -63,7 +65,15 @@ export function workflowWith(prompts: FlowPrompts): {
   })
   class Prompts {}
 
-  return { workflow: Prompts, router: Main, scout: Scout };
+  @Application({
+    name: "prompts-application",
+    version: "1.0.0",
+    workflows: [Prompts],
+    budgets: TEST_BUDGETS,
+  })
+  class PromptsApplication {}
+
+  return { workflow: Prompts, application: PromptsApplication, router: Main, scout: Scout };
 }
 
 /** A workflow whose router and route prompts use the workflow's variables. */

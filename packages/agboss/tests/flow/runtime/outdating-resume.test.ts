@@ -11,12 +11,12 @@ import {
   LoopPublisherAgent,
   LoopResearcherAgent,
   LoopReviewerAgent,
-  LoopWorkflow,
   LoopWorkflowFinish,
   LoopWorkflowStart,
   LoopWriterAgent,
   outdatingEvents,
   resetOutdatingLog,
+  LoopApplication,
 } from "./fixtures/outdating.workflow.js";
 
 /**
@@ -25,7 +25,7 @@ import {
  * goes on from them.
  */
 
-const loop = testWith(LoopWorkflow);
+const loop = testWith(LoopApplication);
 const approve = { approved: true, by: "dana" };
 
 beforeEach(resetOutdatingLog);

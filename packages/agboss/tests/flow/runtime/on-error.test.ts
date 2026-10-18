@@ -9,11 +9,11 @@ import {
   PaidFinish,
   PaymentFailedFinish,
   PayStart,
-  PayWorkflow,
   RefundTool,
+  PayApplication,
 } from "./fixtures/pay.workflow.js";
 
-const test = testWith(PayWorkflow);
+const test = testWith(PayApplication);
 const approve = { approved: true, by: "dana" };
 
 describe("#272 AC7: .onError(E, path) right after the step that throws", () => {

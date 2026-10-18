@@ -11,6 +11,8 @@ import {
   type ToolHandler,
 } from "../../../../src/index.js";
 import { start, toAgent, toFinish } from "../../../helpers/flow.js";
+import { Application } from "../../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 
 /** A payment failed: the general case. */
 export class PaymentError extends AGBossError {
@@ -132,3 +134,11 @@ export class DeclinedFinish {}
   ],
 })
 export class PayWorkflow {}
+
+@Application({
+  name: "pay-application",
+  version: "1.0.0",
+  workflows: [PayWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class PayApplication {}

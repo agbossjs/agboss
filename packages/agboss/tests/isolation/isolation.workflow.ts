@@ -13,6 +13,9 @@ import { usd } from "../../src/units/index.js";
 import { ApprovalDesk, ChatAppChannel, ChatStart, Reply } from "../channels/approval.workflow.js";
 import { start } from "../helpers/flow.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
+import { Application } from "../../src/application/application.js";
+import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
+import { SharedExecutionRecordRepository } from "../helpers/shared-infrastructure.js";
 
 /** What the payment tool got: the owner of each call (`executionContext.ownerId`) and the cards charged. */
 @Injectable()
@@ -96,6 +99,24 @@ export class Payments implements WorkflowDefinition {
   }
 }
 
+@Application({
+  name: "payments-application",
+  version: "1.0.0",
+  workflows: [Payments],
+  budgets: TEST_BUDGETS,
+})
+export class PaymentsApplication {}
+
+/** The payments over a durable record repository: a restarted instance keeps the threads' owners. */
+@Application({
+  name: "durable-payments-application",
+  version: "1.0.0",
+  workflows: [Payments],
+  providers: [SharedExecutionRecordRepository],
+  budgets: TEST_BUDGETS,
+})
+export class DurablePaymentsApplication {}
+
 /** The drafter's draft: the editor reads it. */
 export class DraftDto {
   @Text({ prompt: "the draft" })
@@ -145,6 +166,14 @@ export class Capped implements WorkflowDefinition {
   }
 }
 
+@Application({
+  name: "capped-application",
+  version: "1.0.0",
+  workflows: [Capped],
+  budgets: TEST_BUDGETS,
+})
+export class CappedApplication {}
+
 /** A daily cap with no run cap: refused at start (#202). */
 @Workflow({
   name: "day-cap-only-workflow",
@@ -166,3 +195,11 @@ export class DayCapOnly implements WorkflowDefinition {
       .build();
   }
 }
+
+@Application({
+  name: "day-cap-only-application",
+  version: "1.0.0",
+  workflows: [DayCapOnly],
+  budgets: TEST_BUDGETS,
+})
+export class DayCapOnlyApplication {}

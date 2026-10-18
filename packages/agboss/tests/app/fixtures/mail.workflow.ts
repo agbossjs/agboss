@@ -18,6 +18,13 @@ import {
 import type { IncompatibleResume } from "../../../src/run/resume-guard.js";
 import type { ToolHandler } from "../../../src/index.js";
 import { start } from "../../helpers/flow.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import {
+  SharedCheckpointSaver,
+  SharedExecutionRecordRepository,
+  SharedPausedExecutionRepository,
+} from "../../helpers/shared-infrastructure.js";
 
 /** Emails the tool really sent, in order (the tests reset it). */
 export const sent: string[] = [];
@@ -130,3 +137,56 @@ export class MailV2Migrating {
       .build();
   }
 }
+
+/** What every deployment runs on: a durable database shared by the app instances of a test. */
+const durable = [
+  SharedCheckpointSaver,
+  SharedPausedExecutionRepository,
+  SharedExecutionRecordRepository,
+];
+
+@Application({
+  name: "mail-v1-application",
+  version: "1.0.0",
+  workflows: [MailV1],
+  providers: durable,
+  budgets: TEST_BUDGETS,
+})
+export class MailV1Application {}
+
+@Application({
+  name: "mail-v2-application",
+  version: "2.0.0",
+  workflows: [MailV2],
+  providers: durable,
+  budgets: TEST_BUDGETS,
+})
+export class MailV2Application {}
+
+@Application({
+  name: "mail-v2-migrating-application",
+  version: "2.0.0",
+  workflows: [MailV2Migrating],
+  providers: durable,
+  budgets: TEST_BUDGETS,
+})
+export class MailV2MigratingApplication {}
+
+/** The first deployment with the built-in in-memory paused executions (checkpoints still shared). */
+@Application({
+  name: "mail-v1-memory-pauses-application",
+  version: "1.0.0",
+  workflows: [MailV1],
+  providers: [SharedCheckpointSaver, SharedExecutionRecordRepository],
+  budgets: TEST_BUDGETS,
+})
+export class MailV1MemoryPausesApplication {}
+
+/** The first deployment on the built-in in-memory infrastructure (one app instance per test). */
+@Application({
+  name: "mail-application",
+  version: "1.0.0",
+  workflows: [MailV1],
+  budgets: TEST_BUDGETS,
+})
+export class MailApplication {}

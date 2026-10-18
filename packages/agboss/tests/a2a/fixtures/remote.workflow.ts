@@ -20,6 +20,8 @@ import { createSqliteTernStore } from "../../../src/terns/index.js";
 import type { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
 import { start } from "../../helpers/flow.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 export class LookupQuery {
   @Text({ prompt: "the order id" })
@@ -118,11 +120,18 @@ export class RemoteDesk implements WorkflowDefinition {
   }
 }
 
+@Application({
+  name: "remote-desk-application",
+  version: "1.0.0",
+  workflows: [RemoteDesk],
+  budgets: TEST_BUDGETS,
+})
+export class RemoteDeskApplication {}
+
 /** Everything external given: scripted models, memory stores. */
 export const offline = (book: ScriptBook): AppOptions => ({
   processEnv: {},
   gateway: createScriptedGateway(book),
-  stores: { terns: createSqliteTernStore(":memory:"), ledger: createMemoryLedger() },
 });
 
 /** An app's workflow served over A2A on an ephemeral local port. */

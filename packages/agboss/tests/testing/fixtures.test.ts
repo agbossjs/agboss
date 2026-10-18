@@ -10,20 +10,20 @@ import {
 } from "../../src/testing/index.js";
 import {
   ChatStart,
-  Desk,
   MainRouter,
   OrderBook,
   OrderStatus,
   Reply,
   Support,
   Writer,
+  DeskApplication,
 } from "./fixtures/desk.workflow.js";
-import { CodeReview, Unused } from "./fixtures/code-review.workflow.js";
+import { Unused, CodeReviewApplication } from "./fixtures/code-review.workflow.js";
 import { toolResultsOf } from "./fixtures/requests.js";
 import { execute } from "../helpers/flow.js";
 
-const test = testWith(Desk);
-const review = testWith(CodeReview);
+const test = testWith(DeskApplication);
+const review = testWith(CodeReviewApplication);
 
 describe("AC12: mockOf — a typed mock injected instead of the class", () => {
   test("the app's tool gets the mock; mockOf returns the same instance the app uses", async ({
@@ -43,7 +43,7 @@ describe("AC12: mockOf — a typed mock injected instead of the class", () => {
 
   review("mockOf of a class the workflow does not use fails clearly", ({ mockOf }) => {
     expect(() => mockOf(Unused)).toThrow(TestSetupError);
-    expect(() => mockOf(Unused)).toThrow("mockOf(Unused): not a component of this workflow");
+    expect(() => mockOf(Unused)).toThrow("mockOf(Unused): not a component of this application");
   });
 
   test("mockOf after the app started fails clearly", async ({ app, mockOf }) => {
@@ -88,7 +88,7 @@ describe("AC12: mockLlm — what a component sent its model", () => {
     "mockLlm of a class that is not an agent or router of the workflow fails",
     ({ mockLlm }) => {
       expect(() => mockLlm(Unused)).toThrow(
-        "mockLlm(Unused): not an agent, router or judge of this workflow",
+        "mockLlm(Unused): not an agent, router or judge of this application",
       );
       expect(() => mockLlm(Writer)).toThrow(TestSetupError);
     },
@@ -125,10 +125,10 @@ describe("AC12: slices — one component of the real app on its own", () => {
 
   test("a slice of something the workflow does not have fails clearly", async ({ app }) => {
     await expect(app.router(Writer).routeTo("x")).rejects.toThrow(
-      "app.router(Writer): not a router of this workflow",
+      "app.router(Writer): not a router of this application",
     );
     await expect(app.agent(MainRouter).replyWith("x")).rejects.toThrow(
-      "app.agent(MainRouter): not an agent of this workflow",
+      "app.agent(MainRouter): not an agent of this application",
     );
   });
 

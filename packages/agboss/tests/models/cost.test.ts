@@ -6,10 +6,17 @@ import { costLabel, priceOf } from "../../src/models/cost.js";
 import { directoryOf, withProviderPrices } from "../../src/models/workflow-models.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
-import { Priced, Summariser, SummaryDto, TaskStart, Writer } from "./fixtures/priced.workflow.js";
+import {
+  Priced,
+  Summariser,
+  SummaryDto,
+  TaskStart,
+  Writer,
+  PricedApplication,
+} from "./fixtures/priced.workflow.js";
 import { execute } from "../helpers/flow.js";
 
-const test = testWith(Priced);
+const test = testWith(PricedApplication);
 const tokens = { usage_metadata: { input_tokens: 1_000_000, output_tokens: 1_000_000 } };
 
 describe("AC6: cost — from the provider's response, a price table as the fallback", () => {

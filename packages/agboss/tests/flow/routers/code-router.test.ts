@@ -5,7 +5,6 @@ import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "../fixtures/
 import {
   ApprovalAgent,
   ChargeCardAction,
-  CreditByModelWorkflow,
   CreditLimitByModelRouter,
   CreditLimitRouter,
   CreditService,
@@ -17,12 +16,14 @@ import {
   DeskRouter,
   OrderHeldWorkflowFinish,
   OrderIntakeAgent,
+  CreditByModelApplication,
+  CreditApplication,
 } from "../fixtures/credit.fixture.js";
 
 /** #280 AC1, AC5: a router decided by code — `route(input)`, no model call, the same flow. */
 
-const test = testWith(CreditWorkflow);
-const byModel = testWith(CreditByModelWorkflow);
+const test = testWith(CreditApplication);
+const byModel = testWith(CreditByModelApplication);
 
 const order = (total: number) => replyWith(CreditOrderDto, { customerId: "c-1", total });
 

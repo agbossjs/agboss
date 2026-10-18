@@ -3,7 +3,7 @@
  * dependency injected by the app's container (through `createApp`), not `undefined`.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../../src/app/create-app.js";
+import { createApp } from "../../src/application/create-app.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { toolResultsOf } from "../testing/fixtures/requests.js";
@@ -18,7 +18,7 @@ import {
   Vault,
   VaultChannel,
 } from "./fixture/deps-contract.components.js";
-import { Chat, KeptDto, offline, VaultWorkflow } from "./fixture/deps-contract.workflow.js";
+import { Chat, KeptDto, offline, VaultApplication } from "./fixture/deps-contract.workflow.js";
 import { execute } from "../helpers/flow.js";
 
 const runVault = async () => {
@@ -26,7 +26,7 @@ const runVault = async () => {
   book
     .scriptOf("agent:keeper-agent")
     .thenReturn(callTool(RevealTool, { what: "it" }), replyWith(KeptDto, { text: "ok" }));
-  const app = await createApp(VaultWorkflow, offline(book));
+  const app = await createApp(VaultApplication, offline(book));
   const result = await execute(app, Chat, { text: "open" });
   return { app, book, result };
 };

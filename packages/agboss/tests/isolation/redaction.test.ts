@@ -1,6 +1,6 @@
 /** #202: a tool's `sensitive` arguments are masked wherever a channel shows them. */
 import { describe, expect, it } from "vitest";
-import { createApp } from "../../src/app/create-app.js";
+import { createApp } from "../../src/application/create-app.js";
 import { redactedArguments, redactedDto } from "../../src/dto/redact.js";
 import { ListOf, Nested, Text } from "../../src/dto/index.js";
 import { schemaOf } from "../../src/dto/schema.js";
@@ -10,7 +10,7 @@ import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ApprovalDesk, ChatStart, type ButtonClick } from "../channels/approval.workflow.js";
-import { Pay, PaymentLog, Payments } from "./isolation.workflow.js";
+import { Pay, PaymentLog, PaymentsApplication } from "./isolation.workflow.js";
 import { execute } from "../helpers/flow.js";
 
 const card = { orderId: "A-1", cardNumber: "4111 1111 1111 1111" };
@@ -20,10 +20,9 @@ describe("#202: sensitive tool arguments are redacted in channel output", () => 
   it("the channel, the pause and the ask summary get the card masked; the tool gets it whole", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:cashier-agent").thenReturn(callTool(Pay, card), replyWith("Paid."));
-    const app = await createApp(Payments, {
+    const app = await createApp(PaymentsApplication, {
       processEnv: {},
       gateway: createScriptedGateway(book),
-      stores: { terns: createSqliteTernStore(":memory:"), ledger: createMemoryLedger() },
     });
 
     const paused = await execute(app, ChatStart, { text: "pay A-1" });

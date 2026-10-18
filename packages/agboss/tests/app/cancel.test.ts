@@ -5,19 +5,19 @@ import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
   blocking,
   Charge,
-  Checkout,
   Clerk,
   ReceiptDto,
   resetSeen,
   seen,
   Start,
   Wait,
+  CheckoutApplication,
 } from "./fixtures/run-context.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
 const approve = { approved: true, by: "dana" };
-const test = testWith(Checkout);
+const test = testWith(CheckoutApplication);
 
 beforeEach(resetSeen);
 

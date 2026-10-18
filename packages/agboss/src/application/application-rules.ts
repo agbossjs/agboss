@@ -1,0 +1,110 @@
+import { budgetOf } from "../budgets/budget.js";
+import type { Class, Provider } from "../components/injection.js";
+import { moduleOf } from "../components/module.js";
+import { NodeKind } from "../flow/ast.js";
+import { declarationOf } from "../flow/decorators/declaration.js";
+import { kindSuffixProblem, NameKind } from "../flow/names.js";
+import { violation, type RuleViolation } from "../graph/rule-error.js";
+import { infrastructureContractOf } from "../infrastructure/contracts.js";
+import type { ApplicationOptions } from "./application.js";
+
+/**
+ * The rules of an `@Application` itself (#261), read from its declaration: its `name` and class end
+ * with their kind, it lists workflows, its budgets are `@Budget`s, and infrastructure is listed only
+ * in its `providers`.
+ */
+
+const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
+
+/** `name` ends with `-<kind>` and the class with `<Kind>` (`job-scout-application`, `…Application`). */
+function nameViolations(
+  name: string,
+  cls: Class,
+  kind: NameKind,
+  classSuffix: string,
+): RuleViolation[] {
+  const found: RuleViolation[] = [];
+  const problem = kindSuffixProblem(name, kind);
+  if (problem !== undefined) found.push(violation(problem.code, problem.message, [name]));
+  const className = nameOf(cls);
+  if (className.length <= classSuffix.length || !className.endsWith(classSuffix)) {
+    found.push(
+      violation("name.kind-suffix", `class ${className} — name it ${className}${classSuffix}`, [
+        name,
+      ]),
+    );
+  }
+  return found;
+}
+
+function workflowListViolations(options: ApplicationOptions): RuleViolation[] {
+  if (options.workflows.length === 0) {
+    return [
+      violation(
+        "application.no-workflows",
+        `${options.name} lists no workflows — add them: @Application({ workflows: [...] })`,
+        [options.name],
+      ),
+    ];
+  }
+  return options.workflows.flatMap((workflow) =>
+    declarationOf(workflow)?.kind === NodeKind.Workflow
+      ? []
+      : [
+          violation(
+            "application.not-a-workflow",
+            `${nameOf(workflow)} in ${options.name}'s workflows is not a @Workflow class`,
+            [options.name],
+          ),
+        ],
+  );
+}
+
+function budgetViolations(options: ApplicationOptions): RuleViolation[] {
+  return (options.budgets ?? []).flatMap((cls) => {
+    const budget = budgetOf(cls);
+    if (budget === undefined) {
+      return [
+        violation(
+          "budget.not-a-budget",
+          `${nameOf(cls)} in ${options.name}'s budgets has no @Budget({ name, scope, … }) decorator`,
+          [options.name],
+        ),
+      ];
+    }
+    return nameViolations(budget.name, cls, NameKind.Budget, "Budget");
+  });
+}
+
+const isClass = (provider: Provider): provider is Class => !("provide" in provider);
+
+/** A class that `extends` an infrastructure contract in a workflow's `providers`. */
+function infrastructureViolations(options: ApplicationOptions): RuleViolation[] {
+  return options.workflows.flatMap((workflow) => {
+    if (declarationOf(workflow)?.kind !== NodeKind.Workflow) return [];
+    const module = moduleOf(workflow);
+    return (module.providers ?? []).filter(isClass).flatMap((cls) => {
+      const contract = infrastructureContractOf(cls);
+      if (contract === undefined) return [];
+      return [
+        violation(
+          "di.infrastructure-in-workflow",
+          `${nameOf(cls)} extends ${nameOf(contract)} — infrastructure is listed only in @Application({ providers }), not in ${module.name}'s providers`,
+          [module.name],
+        ),
+      ];
+    });
+  });
+}
+
+export function applicationRuleViolations(
+  application: Class,
+  options: ApplicationOptions,
+): RuleViolation[] {
+  return [
+    ...nameViolations(options.name, application, NameKind.Application, "Application"),
+    ...workflowListViolations(options),
+    ...budgetViolations(options),
+    ...infrastructureViolations(options),
+  ];
+}

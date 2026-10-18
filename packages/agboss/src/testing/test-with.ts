@@ -1,4 +1,5 @@
 import { test, type Mocked, type TestAPI } from "vitest";
+import type { ApplicationClass } from "../application/types.js";
 import type { Class } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
 import { TestEnvironment, type TestWithOptions } from "./environment.js";
@@ -9,9 +10,9 @@ import { createTestApp, type TestApp } from "./test-app.js";
 import { chatKeyOf, type ModelTarget } from "./scripted-gateway.js";
 import "./vitest-types.js";
 
-/** What every test of `testWith(Workflow)` gets as its fixtures. */
+/** What every test of `testWith(Application)` gets as its fixtures. */
 export interface WorkflowFixtures {
-  /** The workflow's real container and graph, everything external replaced; built on first use. */
+  /** The application's real container and graphs, models and MCP scripted; built on first use. */
   readonly app: TestApp;
   /**
    * Closes the current app (its `onStop` hooks run, as on a real stop) and returns a new one over
@@ -40,26 +41,28 @@ export interface WorkflowFixtures {
 const COMPACTION_KEY = chatKeyOf({ kind: "compaction" });
 
 interface Internal {
-  readonly testSetup: { readonly workflow: Class; readonly options: TestWithOptions };
+  readonly testSetup: { readonly application: Class; readonly options: TestWithOptions };
   readonly environment: TestEnvironment;
 }
 
 /**
- * A Vitest `test` for a workflow, like Spring's test context: each test gets the real container,
- * components and graph rules as `app`, with models scripted (`mockLlm`), MCP servers stubbed
- * (`mcpOf`) and the network blocked (`allowNetwork` to open hosts). Per test: memory stores,
- * deterministic ids, a controllable clock; `onStop` of real components runs after the test, also
- * when it failed. `const test = testWith(JobScout)`.
+ * A Vitest `test` for an application, like Spring's test context — the only form (#261): each test
+ * gets the whole application assembled, with its real container, components, graph rules and the
+ * infrastructure it lists (else the in-memory defaults), new per test, as `app`; models scripted
+ * (`mockLlm`), MCP servers stubbed (`mcpOf`), the network blocked (`allowNetwork` to open hosts),
+ * deterministic ids and a controllable clock. One workflow is tested through its start with
+ * `app.execute`. `onStop` of real components runs after the test, also when it failed.
+ * `const test = testWith(JobScoutApplication)`.
  */
-export function testWith(
-  workflow: Class,
+export function testWith<TApplication extends Class>(
+  application: ApplicationClass<TApplication>,
   options: TestWithOptions = {},
 ): TestAPI<WorkflowFixtures> {
   return test.extend<Internal & WorkflowFixtures>({
-    testSetup: { workflow, options },
+    testSetup: { application, options },
     environment: [
       async ({ testSetup }, use) => {
-        const environment = await TestEnvironment.of(testSetup.workflow, testSetup.options);
+        const environment = await TestEnvironment.of(testSetup.application, testSetup.options);
         const unblock = blockNetwork({
           allowed: testSetup.options.allowNetwork ?? [],
           onBlocked: (error) => environment.book.report(error),

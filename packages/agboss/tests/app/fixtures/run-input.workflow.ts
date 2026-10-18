@@ -22,6 +22,8 @@ import {
   type ToolStartEvent,
 } from "../../../src/index.js";
 import { start } from "../../helpers/flow.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /** What the components and the observer saw of their run, in order (reset with `resetSeen`). */
 export const seen = {
@@ -166,6 +168,14 @@ export class Done {}
   ],
 })
 export class JobSearch {}
+
+@Application({
+  name: "job-search-application",
+  version: "1.0.0",
+  workflows: [JobSearch],
+  budgets: TEST_BUDGETS,
+})
+export class JobSearchApplication {}
 
 @Agent({
   name: "typo-agent",

@@ -5,6 +5,8 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { CompanyDto, CompanyScoreDto, SearchRequestDto } from "./data-dtos.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "./budgets.js";
 
 /** #270 AC20 / AC21 — a start's input as a map of fields and as a list. */
 
@@ -76,3 +78,11 @@ export const startsPaths = [
   flow: startsPaths,
 })
 export class CompanyCheckWorkflow {}
+
+@Application({
+  name: "company-check-application",
+  version: "1.0.0",
+  workflows: [CompanyCheckWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class CompanyCheckApplication {}

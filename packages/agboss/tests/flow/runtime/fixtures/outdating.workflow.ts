@@ -26,6 +26,8 @@ import {
   JobScoresDto,
   ResearchDto,
 } from "../../fixtures/review-dtos.js";
+import { Application } from "../../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 
 /**
  * #271 PR 2 — workflows that outdate at run time: the review loop of the issue (`about(DraftDto, …)`
@@ -148,6 +150,14 @@ export class LoopWorkflowFinish {}
 })
 export class LoopWorkflow {}
 
+@Application({
+  name: "loop-application",
+  version: "1.0.0",
+  workflows: [LoopWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class LoopApplication {}
+
 @WorkflowStart({
   name: "jobs-workflow-start",
   description: "The candidate's message",
@@ -258,3 +268,11 @@ export class JobsRouter {}
   ],
 })
 export class JobsWorkflow {}
+
+@Application({
+  name: "jobs-application",
+  version: "1.0.0",
+  workflows: [JobsWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class JobsApplication {}

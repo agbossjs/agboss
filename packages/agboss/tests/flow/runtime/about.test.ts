@@ -9,14 +9,14 @@ import {
   CritiqueRouter,
   PolishAgent,
   PolishedWorkflowFinish,
-  PolishWorkflow,
   PublisherAgent,
   ResearcherAgent,
   StoryReviewerAgent,
-  StoryWorkflow,
   StoryWorkflowFinish,
   StoryWorkflowStart,
   StoryWriterAgent,
+  PolishApplication,
+  StoryApplication,
 } from "../fixtures/review.fixture.js";
 
 /**
@@ -24,8 +24,8 @@ import {
  * result are the shape's (outdating at run time: outdating.test.ts).
  */
 
-const story = testWith(StoryWorkflow);
-const polish = testWith(PolishWorkflow);
+const story = testWith(StoryApplication);
+const polish = testWith(PolishApplication);
 
 describe("#271 S15: an about(…) output answers and returns its shape", () => {
   story(

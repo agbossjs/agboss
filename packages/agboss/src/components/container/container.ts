@@ -38,11 +38,25 @@ export class DependantValue {
   constructor(readonly valueFor: (dependant: string) => unknown) {}
 }
 
+/**
+ * What every container of one application instance shares (#261): the providers of the application
+ * and of all its workflows, the infrastructure defaults and core values, and the instances — so a
+ * class is created once for the whole application, whichever workflow asks for it first.
+ */
+export interface ApplicationContainer {
+  readonly modules: readonly ProviderModule[];
+  readonly core: ReadonlyMap<Token, unknown>;
+  readonly defaults: ReadonlyMap<Class, Class>;
+  readonly instances: Map<Token, unknown>;
+}
+
 /** How one app's container differs: values that replace registrations (test mocks), a creation hook. */
 export interface ContainerOptions {
   readonly overrides?: ReadonlyMap<Token, unknown>;
   /** Called with every instance the container creates (not with values or overrides). */
   readonly onCreate?: (instance: unknown) => void;
+  /** The application this container belongs to: its providers, defaults and instances, shared. */
+  readonly application?: ApplicationContainer;
 }
 
 /** What the container is built from: the providers of every workflow, the core values, defaults. */
@@ -88,6 +102,17 @@ function construct(cls: Class, resolve: Resolve): unknown {
   return new (cls as unknown as new (...a: unknown[]) => unknown)(...args);
 }
 
+/** The container's own sources and its application's, one registration per token. */
+const registrationsOf = (
+  sources: ContainerSources,
+  shared: ApplicationContainer | undefined,
+): Registrations =>
+  new Registrations(
+    [...sources.modules, ...(shared?.modules ?? [])],
+    new Map([...(shared?.core ?? []), ...sources.core]),
+    sources.defaults ?? shared?.defaults,
+  );
+
 /**
  * Creates every class once, dependencies first; `created` records the order. A dependency on a
  * contract gets the one class that implements it (the same instance as asking for that class).
@@ -96,9 +121,9 @@ export function createContainer(
   sources: ContainerSources,
   options: ContainerOptions = {},
 ): Container {
-  const registrations = new Registrations(sources.modules, sources.core, sources.defaults);
+  const registrations = registrationsOf(sources, options.application);
   registrations.override(options.overrides ?? new Map());
-  const instances = new Map<Token, unknown>();
+  const instances = options.application?.instances ?? new Map<Token, unknown>();
   const created: string[] = [];
   const instanceOf = (cls: Class): unknown => {
     if (instances.has(cls)) return instances.get(cls);

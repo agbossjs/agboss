@@ -66,7 +66,6 @@ const compare = (judging: boolean) =>
     profileRoot: root,
     gateway: scriptedGateway(judging),
     processEnv: {},
-    stores: { ledger: createMemoryLedger(), terns: createSqliteTernStore(":memory:") },
   });
 
 describe("AC2 (#204): one eval system — A/B of two profiles from one API", () => {

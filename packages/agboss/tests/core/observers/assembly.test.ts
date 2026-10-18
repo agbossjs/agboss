@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createApp } from "../../../src/app/create-app.js";
+import { createApp } from "../../../src/application/create-app.js";
 import {
   ComponentError,
   Injectable,
@@ -12,7 +12,7 @@ import { closestHook } from "../../../src/components/observer-checks.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
 import { createSqliteTernStore } from "../../../src/terns/index.js";
-import { workflowWith } from "./fixture.js";
+import { applicationWith } from "./fixture.js";
 
 /** A typo next to a real hook: compiles, rejected at assembly with the hook it meant. */
 @Injectable()
@@ -89,11 +89,10 @@ class RejectedTypo implements OnRunRejected {
   }
 }
 
-const assemblyError = async (observers: Parameters<typeof workflowWith>[1]): Promise<string> =>
-  createApp(workflowWith("checked-workflow", observers), {
+const assemblyError = async (observers: Parameters<typeof applicationWith>[1]): Promise<string> =>
+  createApp(applicationWith("checked-workflow", observers), {
     processEnv: {},
     gateway: createScriptedGateway(new ScriptBook()),
-    stores: { terns: createSqliteTernStore(":memory:") },
   }).then(
     async (app) => {
       await app.close();

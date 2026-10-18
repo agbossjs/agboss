@@ -14,6 +14,8 @@ import { DecisionsModelProvider, Reasoning } from "../../../src/models/index.js"
 import { start } from "../../helpers/flow.js";
 import { usd } from "../../../src/units/index.js";
 import { LocalModelProvider, TestOpenRouterProvider } from "../providers.fixture.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /** The summariser's summary: the writer reads it. */
 export class SummaryDto {
@@ -81,3 +83,11 @@ export class Priced implements WorkflowDefinition {
       .build();
   }
 }
+
+@Application({
+  name: "priced-application",
+  version: "1.0.0",
+  workflows: [Priced],
+  budgets: TEST_BUDGETS,
+})
+export class PricedApplication {}

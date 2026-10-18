@@ -2,6 +2,7 @@ import { tokenName, type Class, type Token } from "../injection.js";
 import { ComponentError } from "../metadata.js";
 import { depsOf } from "./container.js";
 import { Registrations, type ProviderModule } from "./registrations.js";
+import { INFRASTRUCTURE_DEFAULTS } from "../../infrastructure/contracts.js";
 
 /** Core tokens as registrations for the checks: their values are not needed to check the graph. */
 const coreOf = (core: readonly Token[]): ReadonlyMap<Token, unknown> =>
@@ -25,14 +26,15 @@ export function dependencyTree(cls: Class, modules: readonly ProviderModule[]): 
 
 /**
  * Checks the dependency graph of `roots` without creating anything: every dependency registered (a
- * contract by one implementation), no cycles, no conflicting values. Errors name the component and the chain.
+ * contract by one implementation, an infrastructure contract else by its built-in default), no
+ * cycles, no conflicting values. Errors name the component and the chain.
  */
 export function checkGraph(
   roots: readonly Class[],
   modules: readonly ProviderModule[],
   core: readonly Token[],
 ): void {
-  const registrations = new Registrations(modules, coreOf(core));
+  const registrations = new Registrations(modules, coreOf(core), INFRASTRUCTURE_DEFAULTS);
   const done = new Set<Token>();
   const visit = (cls: Class, chain: readonly string[]): void => {
     if (done.has(cls)) return;

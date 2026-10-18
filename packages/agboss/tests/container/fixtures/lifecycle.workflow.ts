@@ -16,6 +16,8 @@ import {
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { usd } from "../../../src/units/index.js";
 import { start } from "../../helpers/flow.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /** What the hooks and the tool did, in order (`Pool.onInit`, `search started`, …). */
 export const events: string[] = [];
@@ -143,6 +145,14 @@ export class LifecycleWorkflow implements WorkflowDefinition {
   }
 }
 
+@Application({
+  name: "lifecycle-application",
+  version: "1.0.0",
+  workflows: [LifecycleWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class LifecycleApplication {}
+
 /** A pool whose `onInit` fails: the application does not start. */
 @Injectable()
 export class BrokenPoolProvider implements OnInit {
@@ -193,3 +203,11 @@ export class BrokenLifecycleWorkflow implements WorkflowDefinition {
       .build();
   }
 }
+
+@Application({
+  name: "broken-lifecycle-application",
+  version: "1.0.0",
+  workflows: [BrokenLifecycleWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class BrokenLifecycleApplication {}

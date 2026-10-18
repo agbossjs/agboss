@@ -24,7 +24,7 @@ import {
   replyWith,
   testWith,
 } from "../../../src/testing/index.js";
-import { auditCalls, EchoTool, Start, Worker, workflowWith } from "./fixture.js";
+import { auditCalls, EchoTool, Start, Worker, applicationWith } from "./fixture.js";
 import { execute } from "../../helpers/flow.js";
 import { ExecutionStatus } from "../../../src/app/types.js";
 
@@ -77,7 +77,7 @@ class RunRecorder
   }
 }
 
-const recorded = testWith(workflowWith("observed-workflow", [RunRecorder]));
+const recorded = testWith(applicationWith("observed-workflow", [RunRecorder]));
 
 describe("a registered observer", () => {
   recorded(
@@ -135,7 +135,7 @@ class BrokenObserver implements OnAgentStart {
 }
 
 const stamped = testWith(
-  workflowWith(
+  applicationWith(
     "stamped-workflow",
     [BrokenObserver, StampedObserver],
     [provide(CLOCK, () => "12:00")],

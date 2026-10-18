@@ -3,20 +3,26 @@ import type { RunStreamEvent } from "../../src/run/types.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
   Charge,
-  Checkout,
   Clerk,
   Probe,
   ReceiptDto,
   resetSeen,
   seen,
   Start,
+  CheckoutApplication,
 } from "./fixtures/run-context.workflow.js";
 import { execute } from "../helpers/flow.js";
-import { Mailer, MailV1, SendEmail, sent, Start as MailStart } from "./fixtures/mail.workflow.js";
+import {
+  Mailer,
+  MailApplication,
+  SendEmail,
+  sent,
+  Start as MailStart,
+} from "./fixtures/mail.workflow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
 const approve = { approved: true, by: "dana" };
-const checkout = testWith(Checkout);
+const checkout = testWith(CheckoutApplication);
 
 beforeEach(resetSeen);
 
@@ -80,7 +86,7 @@ describe("#280: a tool and an action read their execution through ExecutionConte
   );
 });
 
-const mail = testWith(MailV1);
+const mail = testWith(MailApplication);
 
 describe("#181: execute and resume forward onStream", () => {
   mail(

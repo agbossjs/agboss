@@ -4,17 +4,17 @@ import { replyWith, routeTo, testWith } from "../../../src/testing/index.js";
 import { usd } from "../../../src/units/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
-  CheapEditWorkflow,
   DoneFinish,
   DraftDto,
   EditorAgent,
   EditStart,
   GateRouter,
-  ShortEditWorkflow,
+  CheapEditApplication,
+  ShortEditApplication,
 } from "./fixtures/edit.workflow.js";
 
-const short = testWith(ShortEditWorkflow);
-const cheap = testWith(CheapEditWorkflow);
+const short = testWith(ShortEditApplication);
+const cheap = testWith(CheapEditApplication);
 
 const draft = (text: string, cost = 0) => replyWith(DraftDto, { text }, { cost: usd(cost) });
 

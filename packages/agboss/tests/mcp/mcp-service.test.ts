@@ -25,7 +25,6 @@ import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import {
   ChatStart,
-  Desk,
   NotesServer,
   OrderBook,
   OrderInfo,
@@ -33,16 +32,18 @@ import {
   OrderStatus,
   Reply,
   SaveNote,
+  DeskApplication,
 } from "../testing/fixtures/desk.workflow.js";
 import { start } from "../helpers/flow.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { ExecutionStatus } from "../../src/app/types.js";
+import { Application } from "../../src/application/application.js";
+import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 
 function offline(book: ScriptBook, stubs = new McpStubs(book)): AppOptions {
   return {
     processEnv: {},
     gateway: createScriptedGateway(book),
-    stores: { terns: createSqliteTernStore(":memory:"), ledger: createMemoryLedger() },
     connectMcp: stubbedMcpConnect(stubs, new Map(), new Set()),
   };
 }
@@ -111,6 +112,14 @@ class ClerkDesk implements WorkflowDefinition {
   }
 }
 
+@Application({
+  name: "clerk-desk-application",
+  version: "1.0.0",
+  workflows: [ClerkDesk],
+  budgets: TEST_BUDGETS,
+})
+export class ClerkDeskApplication {}
+
 @McpExpose({
   name: "desk-mcp",
   version: "1.0.0",
@@ -122,7 +131,7 @@ const opened: App[] = [];
 
 /** The app behind an MCP server, and an SDK client connected to it in memory. */
 async function connected(book = new ScriptBook(), stubs = new McpStubs(book)): Promise<Client> {
-  const app = await createApp(ClerkDesk, offline(book, stubs));
+  const app = await createApp(ClerkDeskApplication, offline(book, stubs));
   opened.push(app);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   await createMcpService(app, DeskMcp).connect(serverSide);
@@ -258,12 +267,12 @@ describe("McpService over an in-memory MCP transport", () => {
   });
 
   it("exporting a tool the workflow does not use fails when the server starts", async () => {
-    const app = await createApp(Desk, offline(new ScriptBook()));
+    const app = await createApp(DeskApplication, offline(new ScriptBook()));
     opened.push(app);
     const [, serverSide] = InMemoryTransport.createLinkedPair();
 
     await expect(createMcpService(app, DeskMcp).connect(serverSide)).rejects.toThrow(
-      /exports EchoCall, which is not a tool of workflow "desk-workflow"/,
+      /exports EchoCall, which is not a tool of application "desk-application"/,
     );
   });
 });

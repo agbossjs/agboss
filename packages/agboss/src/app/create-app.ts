@@ -1,9 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { rememberAppWorkflow } from "./app-workflow.js";
-import type { Class } from "../components/injection.js";
-import { workflowOf } from "../components/assemble.js";
-import { environmentFor, workflowFileOf } from "../environments/load.js";
-import { withProfile } from "../profile-workflow.js";
 import { resumeAgent } from "../run/resume-agent.js";
 import { checkThreadAccess, checkThreadOwner } from "../run/thread.js";
 import { checkRunLimits } from "./limit-check.js";
@@ -11,12 +7,13 @@ import { runAgent } from "../run/run-agent.js";
 import { runVersions } from "../run/versions.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import type { AssembledWorkflow } from "../workflow.js";
-import { createAppDeps, type AppDeps, type AppDepsOptions } from "./app-deps.js";
 import {
-  createMemoryPausedRunRepository,
-  pausedRunBook,
-  type PausedRunRepository,
-} from "./paused-runs.js";
+  createWorkflowDeps,
+  type AppDeps,
+  type AppDepsOptions,
+  type WorkflowDepsParts,
+} from "./app-deps.js";
+import { pausedRunBook } from "./paused-runs.js";
 import { UnknownToolError } from "./parts.js";
 import { cancelledOutcome, LiveRuns, runOptionsOf } from "./live-runs.js";
 import { admitRequest, observeCancelledPause, observeLeg } from "./run-events.js";
@@ -28,43 +25,49 @@ import { ApplicationStoppingError } from "./application-stopping.js";
 
 export { NotAWorkflowStartError } from "./starts.js";
 
-/** `createApp` options: a profile on top of the workflow, and any part instead of its default. */
+/**
+ * `createApp` options: the environment, a profile on top of each workflow, and any external part
+ * (models, MCP transports) instead of its default. Infrastructure is not an option: it is listed in
+ * `@Application({ providers })`.
+ */
 export interface AppOptions extends AppDepsOptions {
   /**
-   * The environment: `environments/<env>.environment.ts` next to the workflow file (default `dev`);
-   * `environment` (values) wins over it.
+   * The environment: `environments/<env>.environment.ts` next to the application file (default
+   * `dev`); `environment` (values) wins over it.
    */
   readonly env?: string | undefined;
   /** `profiles/<workflow>/<profile>.yaml` under `profileRoot` (default: the working directory). */
   readonly profile?: string | undefined;
   readonly profileRoot?: string;
-  /**
-   * Where paused runs wait for `resume` (default: in memory, this app only). For runs that survive
-   * a restart or a redeploy give `createSqlitePausedRunRepository()` plus a durable checkpointer.
-   */
-  readonly pausedRuns?: PausedRunRepository;
 }
 
 /** Why an execution or a resume is refused once `app.close()` has begun. */
 const STOPPING = "the app is stopping: app.close() was called, no new execution is accepted";
 
-/** An app with the parts it was built from (the testing toolkit's slices read them). */
+/**
+ * One workflow of an application instance, built, with the parts it was built from (the testing
+ * toolkit's slices read them): `refuse()` stops it taking new executions, `settled()` waits for
+ * the running ones (the application's graceful stop).
+ */
 export interface BuiltApp {
   readonly app: App;
   readonly deps: AppDeps;
   readonly bundle: AssembledWorkflow;
+  readonly refuse: () => void;
+  readonly settled: () => Promise<void>;
 }
 
-/** The app over already assembled parts (a profile applied, test replacements given). */
+/** One workflow of an application over already assembled parts (a profile applied). */
 // eslint-disable-next-line max-lines-per-function
 export async function buildApp(
   bundle: AssembledWorkflow,
-  options: AppOptions = {},
+  options: AppDepsOptions,
+  parts: WorkflowDepsParts,
 ): Promise<BuiltApp> {
   checkRunLimits(bundle.config.name, bundle.limits);
-  const deps = await createAppDeps(bundle, options);
+  const deps = await createWorkflowDeps(bundle, options, parts);
   const paused = pausedRunBook(
-    options.pausedRuns ?? createMemoryPausedRunRepository(),
+    parts.infrastructure.pausedExecutions,
     { workflowVersion: deps.config.version, configHash: runVersions(deps).configHash },
     bundle.onIncompatibleResume,
   );
@@ -78,6 +81,7 @@ export async function buildApp(
   const known = (thread: string, owner: string | undefined) =>
     checkThreadAccess(deps.terns, deps.config.name, thread, owner);
   let closed = false;
+  let released = false;
   const admit = <T>(
     operation: RunOperation,
     thread: string | undefined,
@@ -147,8 +151,9 @@ export async function buildApp(
       );
     },
     close: async () => {
-      if (closed) return;
       closed = true;
+      if (released) return;
+      released = true;
       await deps.close(() => live.settled());
     },
     resolve: (token) => deps.container.get(token),
@@ -164,24 +169,13 @@ export async function buildApp(
   };
   const { type } = bundle.graph;
   rememberAppWorkflow(app, { type, name: deps.config.name, version: deps.config.version });
-  return { app, deps, bundle };
-}
-
-/**
- * Builds a workflow into an app: the container, the graph (every assembly error at once), the
- * components' `onStart` hooks — `const app = await createApp(JobScout)`; then
- * `app.execute(ChatWorkflowStart, { text })`, `app.resume(thread, decision)`, `app.close()`.
- */
-export async function createApp(workflow: Class, options: AppOptions = {}): Promise<App> {
-  const bundle = await withProfile(
-    await workflowOf(workflow),
-    options.profile,
-    options.profileRoot,
-  );
-  const environment = await environmentFor(
-    workflowFileOf(workflow),
-    options,
-    options.processEnv ?? process.env,
-  );
-  return (await buildApp(bundle, { ...options, environment })).app;
+  return {
+    app,
+    deps,
+    bundle,
+    refuse: () => {
+      closed = true;
+    },
+    settled: () => live.settled(),
+  };
 }

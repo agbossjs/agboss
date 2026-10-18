@@ -20,6 +20,8 @@ import {
   type WorkflowDescriptor,
 } from "../../../../src/index.js";
 import { agent, route, start } from "../../../helpers/flow.js";
+import { Application } from "../../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 
 /** What the components read of their execution, in order (reset by `resetSeen`). */
 export const seen = {
@@ -206,6 +208,14 @@ export class ReviewRouter {}
 })
 export class ContextWorkflow {}
 
+@Application({
+  name: "context-application",
+  version: "1.0.0",
+  workflows: [ContextWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class ContextApplication {}
+
 /** start → judged writer → published: one visit, a judge's retry inside it. */
 @Workflow({
   name: "judged-context-workflow",
@@ -220,6 +230,14 @@ export class ContextWorkflow {}
   ],
 })
 export class JudgedContextWorkflow {}
+
+@Application({
+  name: "judged-context-application",
+  version: "1.0.0",
+  workflows: [JudgedContextWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class JudgedContextApplication {}
 
 /** Reads the context in its constructor — at application start, outside any execution. */
 @Injectable({ deps: [ExecutionContext] })
@@ -262,3 +280,11 @@ export class QuickWriterAgent {}
   ],
 })
 export class AuditWorkflow {}
+
+@Application({
+  name: "audit-application",
+  version: "1.0.0",
+  workflows: [AuditWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class AuditApplication {}

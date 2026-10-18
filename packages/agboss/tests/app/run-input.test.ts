@@ -14,10 +14,11 @@ import {
   seen,
   ShortlistDto,
   TypoSearch,
+  JobSearchApplication,
 } from "./fixtures/run-input.workflow.js";
 
 const approve = { approved: true, by: "dana" };
-const test = testWith(JobSearch);
+const test = testWith(JobSearchApplication);
 
 beforeEach(resetSeen);
 

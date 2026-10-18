@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../../../src/app/create-app.js";
+import { createApp } from "../../../src/application/create-app.js";
 import type { App } from "../../../src/app/types.js";
 import { createMemoryLedger } from "../../../src/finops/ledger.js";
 import { ExecutionContext, ExecutionContextUnavailableError } from "../../../src/index.js";
@@ -15,7 +15,6 @@ import {
 } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
-  AuditWorkflow,
   ContextStart,
   ContextWorkflow,
   DraftDto,
@@ -27,16 +26,17 @@ import {
   WriterAgent,
   resetSeen,
   seen,
+  AuditApplication,
+  ContextApplication,
 } from "./fixtures/context.workflow.js";
 
-const test = testWith(ContextWorkflow);
+const test = testWith(ContextApplication);
 
 /** The audit workflow's app, nothing running: its services are created on `resolve`. */
 const auditApp = (): Promise<App> =>
-  createApp(AuditWorkflow, {
+  createApp(AuditApplication, {
     processEnv: {},
     gateway: createScriptedGateway(new ScriptBook()),
-    stores: { terns: createSqliteTernStore(":memory:"), ledger: createMemoryLedger() },
   });
 
 /** The context a service got, read outside any execution. */

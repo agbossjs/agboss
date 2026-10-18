@@ -11,6 +11,8 @@ import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { DraftChangesDto } from "./data-dtos.js";
 import { ArticleDto, ArticleRequestDto } from "./dtos.js";
 import { ApprovalDto, CritiqueDto, DraftDto, ResearchDto } from "./review-dtos.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "./budgets.js";
 
 /** #271 — the review loop (`about(DraftDto, oneOf(…))` on the reviewer) and a polish loop (an action's `about(DraftDto, listOf(…))`). */
 
@@ -108,6 +110,14 @@ export const storyPaths = [
 })
 export class StoryWorkflow {}
 
+@Application({
+  name: "story-application",
+  version: "1.0.0",
+  workflows: [StoryWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class StoryApplication {}
+
 @Agent({
   name: "polish-agent",
   description: "Polishes the draft by the critiques",
@@ -176,3 +186,11 @@ export class CritiqueRouter {}
   ],
 })
 export class PolishWorkflow {}
+
+@Application({
+  name: "polish-application",
+  version: "1.0.0",
+  workflows: [PolishWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class PolishApplication {}

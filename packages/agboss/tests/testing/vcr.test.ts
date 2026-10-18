@@ -16,22 +16,26 @@ import {
 import { cassetteFileOf, vcrModeOf } from "../../src/testing/vcr.js";
 import {
   ChatStart,
-  Desk,
   MainRouter,
   OrderStatus,
   Reply,
   Support,
+  DeskApplication,
 } from "./fixtures/desk.workflow.js";
 import { usd } from "../../src/units/index.js";
 import { recordDesk, recordRun } from "./fixtures/vcr-recording.js";
-import { DecisionDesk, LUNA } from "../judges/fixtures/decision-judged.workflow.js";
+import {
+  DecisionDesk,
+  LUNA,
+  DecisionDeskApplication,
+} from "../judges/fixtures/decision-judged.workflow.js";
 import { TaskStart } from "../judges/fixtures/judged.workflow.js";
 import { execute } from "../helpers/flow.js";
 
 const dir = mkdtempSync(join(tmpdir(), "vcr-"));
 const cassette = { cassetteName: "desk-order", dir };
 const file = cassetteFileOf(cassette);
-const replay = testWith(Desk, { vcr: { ...cassette, mode: VCRMode.REPLAY } });
+const replay = testWith(DeskApplication, { vcr: { ...cassette, mode: VCRMode.REPLAY } });
 let recorded: ExecutionOutput;
 
 beforeAll(async () => {
@@ -91,7 +95,7 @@ describe("AC1 (#204): VCR — record once, replay in CI without a model", () => 
     vi.stubEnv("CI", "true");
     const missing = { cassetteName: "never-recorded", dir };
 
-    await expect(TestEnvironment.of(Desk, { vcr: missing })).rejects.toMatchObject({
+    await expect(TestEnvironment.of(DeskApplication, { vcr: missing })).rejects.toMatchObject({
       name: "CassetteMissingError",
       code: "test.cassette-missing",
     });
@@ -112,12 +116,14 @@ describe("AC1 (#204): VCR — record once, replay in CI without a model", () => 
 describe("#226: VCR records and replays a judge's decisions", () => {
   const judged = { cassetteName: "decision-judge", dir };
   const judgedFile = cassetteFileOf(judged);
-  const replayJudged = testWith(DecisionDesk, { vcr: { ...judged, mode: VCRMode.REPLAY } });
+  const replayJudged = testWith(DecisionDeskApplication, {
+    vcr: { ...judged, mode: VCRMode.REPLAY },
+  });
   let judgedRun: ExecutionOutput;
 
   beforeAll(async () => {
     judgedRun = await recordRun(
-      { workflow: DecisionDesk, start: TaskStart },
+      { application: DecisionDeskApplication, start: TaskStart },
       judgedFile,
       "find a TS job",
       (book) => {

@@ -38,14 +38,15 @@ import {
   WorkflowFinish,
 } from "../../src/index.js";
 import { WorkflowStartTextDto, WorkflowFinishTextDto, Text } from "../../src/dto/index.js";
-import { createSqliteTernStore } from "../../src/terns/index.js";
-import { buildApp } from "../../src/app/create-app.js";
-import { workflowOf } from "../../src/components/assemble.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { replyWith, callTool } from "../../src/testing/index.js";
 import { testDefaults } from "../helpers.js";
 import { execute, start } from "../helpers/flow.js";
+import { Application } from "../../src/application/application.js";
+import { applicationOf } from "../../src/application/assemble.js";
+import { buildApplication } from "../../src/application/create-app.js";
+import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 
 class ToolInput {
   @Text() text!: string;
@@ -195,6 +196,14 @@ class FinishNode {}
 })
 class TailsWorkflow {}
 
+@Application({
+  name: "tails-test-application",
+  version: "1.0.0",
+  workflows: [TailsWorkflow],
+  budgets: TEST_BUDGETS,
+})
+class TailsApplication {}
+
 describe("Observability Tails Hooks", () => {
   it("fires tails hooks in precise order", async () => {
     hookEvents.length = 0;
@@ -204,9 +213,8 @@ describe("Observability Tails Hooks", () => {
       .scriptOf("agent:safe-agent")
       .thenReturn(callTool(SafeTool, { text: "hello" }), replyWith("Hello user!"));
 
-    const { app } = await buildApp(await workflowOf(TailsWorkflow), {
+    const { app } = await buildApplication(await applicationOf(TailsApplication), {
       gateway: createScriptedGateway(book),
-      stores: { terns: createSqliteTernStore(":memory:") },
     });
 
     await execute(app, StartNode, { text: "hi" });

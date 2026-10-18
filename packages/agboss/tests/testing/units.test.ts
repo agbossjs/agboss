@@ -19,7 +19,7 @@ import { fetchHostOf, hostOf, isHostAllowed } from "../../src/testing/network-gu
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { chatKeyOf, createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { usd } from "../../src/units/index.js";
-import { ChatStart, Desk, Reply, Writer } from "./fixtures/desk.workflow.js";
+import { ChatStart, Reply, Writer, DeskApplication } from "./fixtures/desk.workflow.js";
 
 const free: ResolvedModelSettings = {
   model: "test/free",
@@ -138,18 +138,18 @@ describe("AC12: the scripted gateway on its own", () => {
 
 describe("AC12: setup errors name what is wrong", () => {
   it("real: [X] must be an MCP server of the workflow", async () => {
-    await expect(TestEnvironment.of(Desk, { real: [Writer] })).rejects.toThrow(
-      "real: [Writer] — not an MCP server of this workflow",
+    await expect(TestEnvironment.of(DeskApplication, { real: [Writer] })).rejects.toThrow(
+      "real: [Writer] — not an MCP server of this application",
     );
   });
 
   it("mcpOf(X) must be an MCP server of the workflow", async () => {
-    const environment = await TestEnvironment.of(Desk);
+    const environment = await TestEnvironment.of(DeskApplication);
 
     class Other extends McpServerClient<Record<string, never>> {}
 
     expect(() => environment.mcpOf(Other)).toThrow(
-      "mcpOf(Other): not an MCP server of this workflow",
+      "mcpOf(Other): not an MCP server of this application",
     );
     await environment.close();
   });

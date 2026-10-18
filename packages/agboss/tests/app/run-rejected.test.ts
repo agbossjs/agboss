@@ -5,7 +5,6 @@ import { NotAWorkflowStartError, type RunRejectedEvent } from "../../src/index.j
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
 import {
-  Applications,
   Apply,
   Ask,
   Clerk,
@@ -13,16 +12,17 @@ import {
   resetEvents,
   workflowEvents,
   AnswerDto,
+  ApplicationsApplication,
 } from "./fixtures/run-events.workflow.js";
-import { Redeem, VoucherClerk, Vouchers } from "./fixtures/run-rejected.workflow.js";
+import { Redeem, VoucherClerk, VouchersApplication } from "./fixtures/run-rejected.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
 const approve = { approved: true, by: "dana" };
 const alice = { owner: "alice" };
 const mallory = { owner: "mallory" };
-const test = testWith(Applications);
-const vouchers = testWith(Vouchers);
+const test = testWith(ApplicationsApplication);
+const vouchers = testWith(VouchersApplication);
 
 beforeEach(resetEvents);
 

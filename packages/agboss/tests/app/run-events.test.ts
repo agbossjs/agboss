@@ -4,7 +4,6 @@ import { AgentFailedError } from "../../src/graph/errors.js";
 import type { ExecutionOutput } from "../../src/index.js";
 import { callTool, failWith, ModelFailure, replyWith, testWith } from "../../src/testing/index.js";
 import {
-  Applications,
   Apply,
   Ask,
   Clerk,
@@ -13,12 +12,13 @@ import {
   resetEvents,
   workflowEvents,
   AnswerDto,
+  ApplicationsApplication,
 } from "./fixtures/run-events.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
 const approve = { approved: true, by: "dana" };
-const test = testWith(Applications);
+const test = testWith(ApplicationsApplication);
 
 beforeEach(resetEvents);
 

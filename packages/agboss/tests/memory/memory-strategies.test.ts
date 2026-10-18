@@ -8,8 +8,6 @@ import { usd } from "../../src/units/index.js";
 import type { BaseMemoryStrategy } from "../../src/memory/index.js";
 import {
   Answer,
-  CompactingDesk,
-  MemoryDesk,
   NOTED,
   Noter,
   RecallDto,
@@ -17,6 +15,8 @@ import {
   TaskStart,
   WindowDto,
   Windowed,
+  CompactingDeskApplication,
+  MemoryDeskApplication,
 } from "./fixtures/memory.workflow.js";
 import { execute, start } from "../helpers/flow.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -54,7 +54,7 @@ async function converse(app: TestApp, count: number) {
 }
 
 describe("memory strategies on agent model calls", () => {
-  const test = testWith(MemoryDesk);
+  const test = testWith(MemoryDeskApplication);
   beforeEach(() => {
     NOTED.length = 0;
   });
@@ -97,7 +97,7 @@ describe("memory strategies on agent model calls", () => {
 });
 
 describe("compaction is the built-in strategy's memory update", () => {
-  const test = testWith(CompactingDesk);
+  const test = testWith(CompactingDeskApplication);
 
   test("AC2: compaction cost is recorded in the run's cost report", async ({
     app,

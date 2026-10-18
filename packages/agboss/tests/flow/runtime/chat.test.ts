@@ -3,16 +3,16 @@ import { ExecutionStatus } from "../../../src/app/types.js";
 import { replyWith, routeTo, testWith } from "../../../src/testing/index.js";
 import {
   AskResumeWorkflowFinish,
-  ChatWorkflow,
   ChatWorkflowFinish,
   IntakeWorkflowStart,
   MainRouter,
   ProfilerAgent,
   ScoutAgent,
+  ChatApplication,
 } from "../fixtures/chat.fixture.js";
 import { OpeningsDto, ProfileDto, ResumeMissingDto } from "../fixtures/dtos.js";
 
-const test = testWith(ChatWorkflow);
+const test = testWith(ChatApplication);
 
 describe("#272 example 1: a router in a loop", () => {
   test("the profiler's profile goes back to the router, the scout's openings finish", async ({

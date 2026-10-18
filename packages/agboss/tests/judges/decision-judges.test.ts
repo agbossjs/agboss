@@ -8,20 +8,25 @@ import { AgentFailedError, DecisionRequestError, ModelKindError } from "../../sr
 import { Decision } from "../../src/index.js";
 import { decideWith, replyWith, routeTo, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
-import { AnswerGrounded, DecisionDesk, LUNA, Writer } from "./fixtures/decision-judged.workflow.js";
+import {
+  AnswerGrounded,
+  LUNA,
+  Writer,
+  DecisionDeskApplication,
+} from "./fixtures/decision-judged.workflow.js";
 import { Reply, TaskStart } from "./fixtures/judged.workflow.js";
 import {
   ChatDecider,
-  ChatDeciderDesk,
   ChatJudged,
   Coder,
   DecisionChatter,
-  DecisionChatterDesk,
   DecisionJudged,
   AskDto,
   Intake,
-  LunaRouted,
   Triage,
+  ChatDeciderDeskApplication,
+  DecisionChatterDeskApplication,
+  LunaRoutedApplication,
 } from "./fixtures/wrong-kind.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
@@ -29,7 +34,7 @@ import { ExecutionStatus } from "../../src/app/types.js";
 const task = { text: "find a TS job" };
 
 describe("AC1: a judge on a decision model", () => {
-  const test = testWith(DecisionDesk);
+  const test = testWith(DecisionDeskApplication);
 
   test("passes a reply from its typed answers; it was asked the state and the three questions", async ({
     app,
@@ -93,7 +98,7 @@ describe("AC1: a judge on a decision model", () => {
 });
 
 describe("AC2: decision spend is in the cost report under the judge's caller", () => {
-  const test = testWith(DecisionDesk);
+  const test = testWith(DecisionDeskApplication);
 
   test("each decision's cost, under judge:answer-grounded on the decision model (review)", async ({
     app,
@@ -119,7 +124,7 @@ describe("AC2: decision spend is in the cost report under the judge's caller", (
 });
 
 describe("AC3: a router on openai/gpt-6-luna-decisions routes", () => {
-  const test = testWith(LunaRouted);
+  const test = testWith(LunaRoutedApplication);
 
   test("its scripted decision picks the route", async ({ app, mockLlm }) => {
     mockLlm(Intake).thenReturn(replyWith(AskDto, { text: "A coding ask." }));
@@ -134,7 +139,7 @@ describe("AC3: a router on openai/gpt-6-luna-decisions routes", () => {
 });
 
 describe("AC5: the wrong call for a model's kind is a ModelKindError", () => {
-  const chatDecider = testWith(ChatDeciderDesk);
+  const chatDecider = testWith(ChatDeciderDeskApplication);
 
   chatDecider("decide on a chat model", async ({ app, mockLlm }) => {
     mockLlm(ChatJudged).thenReturn(replyWith("Fine."));
@@ -151,7 +156,7 @@ describe("AC5: the wrong call for a model's kind is a ModelKindError", () => {
     expect(mockLlm(ChatDecider).requests).toEqual([]);
   });
 
-  const decisionChatter = testWith(DecisionChatterDesk);
+  const decisionChatter = testWith(DecisionChatterDeskApplication);
 
   decisionChatter("invoke on a decision model", async ({ app, mockLlm }) => {
     mockLlm(DecisionJudged).thenReturn(replyWith("Fine."));

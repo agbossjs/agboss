@@ -6,9 +6,7 @@ import { testExecutionContext } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
   ContextStart,
-  ContextWorkflow,
   DraftDto,
-  JudgedContextWorkflow,
   JudgedWriterAgent,
   NoteTool,
   PublishAction,
@@ -16,6 +14,8 @@ import {
   WriterAgent,
   resetSeen,
   seen,
+  ContextApplication,
+  JudgedContextApplication,
 } from "./fixtures/context.workflow.js";
 
 beforeEach(resetSeen);
@@ -61,8 +61,8 @@ describe("#280 Q43: one idempotency key per operation", () => {
   });
 });
 
-const loop = testWith(ContextWorkflow);
-const judged = testWith(JudgedContextWorkflow);
+const loop = testWith(ContextApplication);
+const judged = testWith(JudgedContextApplication);
 
 describe("#280 AC7: the key differs on every pass of a cycle and every tool call", () => {
   loop(

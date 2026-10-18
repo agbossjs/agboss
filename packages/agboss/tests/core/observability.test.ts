@@ -35,14 +35,15 @@ import { DecidedBy, RagMode, WorkflowFinish } from "../../src/index.js";
 import { Rag } from "../../src/components/decorators.js";
 import { RagRetrieval } from "../../src/rag/types.js";
 import { WorkflowStartTextDto, WorkflowFinishTextDto, Text } from "../../src/dto/index.js";
-import { createSqliteTernStore } from "../../src/terns/index.js";
-import { buildApp } from "../../src/app/create-app.js";
-import { workflowOf } from "../../src/components/assemble.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { replyWith, callTool, routeTo } from "../../src/testing/index.js";
 import { testDefaults } from "../helpers.js";
 import { execute, route, start } from "../helpers/flow.js";
+import { Application } from "../../src/application/application.js";
+import { applicationOf } from "../../src/application/assemble.js";
+import { buildApplication } from "../../src/application/create-app.js";
+import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 
 class ToolInput {
   @Text() text!: string;
@@ -190,6 +191,14 @@ class ObsRouter {}
 })
 class ObsWorkflow {}
 
+@Application({
+  name: "obs-application",
+  version: "1.0.0",
+  workflows: [ObsWorkflow],
+  budgets: TEST_BUDGETS,
+})
+class ObsApplication {}
+
 describe("Global Observability Hooks", () => {
   it("fires hooks in correct order and provides AppState", async () => {
     hookEvents.length = 0; // reset
@@ -201,9 +210,8 @@ describe("Global Observability Hooks", () => {
       .scriptOf("agent:obs-agent")
       .thenReturn(callTool(ObsTool, { text: "hello" }), replyWith("Hello user!"));
 
-    const { app } = await buildApp(await workflowOf(ObsWorkflow), {
+    const { app } = await buildApplication(await applicationOf(ObsApplication), {
       gateway: createScriptedGateway(book),
-      stores: { terns: createSqliteTernStore(":memory:") },
     });
 
     book.scriptOf("router:obs-router").thenReturn(routeTo(ObsAgent));

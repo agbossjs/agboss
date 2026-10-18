@@ -59,7 +59,7 @@ function addTool(registry: ToolRegistry, exported: ExportedTool): void {
   const instance: unknown = app.hasTool(meta.name) ? app.resolve(exp) : undefined;
   if (!isToolHandler(instance)) {
     throw new Error(
-      `@McpExpose exports ${exp.name}, which is not a tool of workflow "${app.name}"`,
+      `@McpExpose exports ${exp.name}, which is not a tool of application "${app.name}"`,
     );
   }
   const tool = adapt(instance, meta);

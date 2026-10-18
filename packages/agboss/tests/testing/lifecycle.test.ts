@@ -3,16 +3,16 @@ import { replyWith, routeTo, testWith, type ModelScript } from "../../src/testin
 import { usd } from "../../src/units/index.js";
 import {
   ChatStart,
-  Desk,
   lifecycle,
   MainRouter,
   OrderBook,
   OrderStatus,
   Writer,
+  DeskApplication,
 } from "./fixtures/desk.workflow.js";
 import { execute } from "../helpers/flow.js";
 
-const test = testWith(Desk);
+const test = testWith(DeskApplication);
 
 /** One turn: the router sends the message to the writer, the writer answers, the reply is sent. */
 const scriptTurn = (mockLlm: (node: typeof MainRouter) => ModelScript, text: string): void => {

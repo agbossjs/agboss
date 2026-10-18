@@ -8,16 +8,16 @@ import {
   DraftDto,
   EditorAgent,
   EditStart,
-  EditWorkflow,
   GateRouter,
   GaveUpFinish,
   PatientEditorAgent,
-  PatientEditWorkflow,
   PatientGateRouter,
+  EditApplication,
+  PatientEditApplication,
 } from "./fixtures/edit.workflow.js";
 
-const edit = testWith(EditWorkflow);
-const patient = testWith(PatientEditWorkflow);
+const edit = testWith(EditApplication);
+const patient = testWith(PatientEditApplication);
 
 const drafts = (...texts: string[]) => texts.map((text) => replyWith(DraftDto, { text }));
 

@@ -7,7 +7,6 @@ import type {
 import type { Class } from "../components/injection.js";
 import { stopComponents } from "../components/container/lifecycle.js";
 import { ObserverManager } from "../core/observer-manager.js";
-import type { TernStore } from "../terns/index.js";
 import type { McpConnections } from "../tools/index.js";
 import type { RunTracing } from "../tracing/index.js";
 import type { AssembledWorkflow, ResolvedPolicies, WorkflowServices } from "../workflow.js";
@@ -74,33 +73,28 @@ export function containerDepsOf(
   };
 }
 
-/** Closes what the app opened besides its components: MCP connections, tracing, its own Tern store. */
+/** Closes what the app opened besides its components: MCP connections, tracing. */
 export const releaseOf =
-  (mcp: McpConnections, tracing: RunTracing | undefined, ownedTerns: TernStore | undefined) =>
-  async (): Promise<void> => {
+  (mcp: McpConnections, tracing: RunTracing | undefined) => async (): Promise<void> => {
     try {
       await mcp.close();
-      await tracing?.shutdown();
     } finally {
-      ownedTerns?.close();
+      await tracing?.shutdown();
     }
   };
 
 /**
- * The stop of an app (#261): `onStop` of the components, the running executions awaited, `onDestroy`,
- * then MCP, tracing and the Tern store the app opened — also when a hook failed.
+ * The stop of a workflow's parts (#261): with `created` (its own hooks) `onStop` of the
+ * components, the running executions awaited, `onDestroy`; without (the application runs the hooks)
+ * the executions awaited only. Then MCP and tracing — also when a hook failed.
  */
 export const closeOf =
-  (
-    created: unknown[],
-    mcp: McpConnections,
-    tracing: RunTracing | undefined,
-    ownedTerns: TernStore | undefined,
-  ) =>
+  (created: unknown[] | undefined, mcp: McpConnections, tracing: RunTracing | undefined) =>
   async (executionsDone?: () => Promise<void>): Promise<void> => {
     try {
-      await stopComponents(created, executionsDone);
+      if (created === undefined) await executionsDone?.();
+      else await stopComponents(created, executionsDone);
     } finally {
-      await releaseOf(mcp, tracing, ownedTerns)();
+      await releaseOf(mcp, tracing)();
     }
   };

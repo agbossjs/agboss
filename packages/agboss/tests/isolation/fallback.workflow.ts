@@ -19,6 +19,8 @@ import { minutes, seconds, usd } from "../../src/units/index.js";
 import { ChatStart, Reply } from "../channels/approval.workflow.js";
 import { start } from "../helpers/flow.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
+import { Application } from "../../src/application/application.js";
+import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 
 /** One failed call opens a breaker for a minute (names of their own: breakers are per process). */
 const breaker = { failureThreshold: 1, window: minutes(1), openFor: minutes(1) };
@@ -114,6 +116,14 @@ export class WithFallback implements WorkflowDefinition {
   }
 }
 
+@Application({
+  name: "fallback-application",
+  version: "1.0.0",
+  workflows: [WithFallback],
+  budgets: TEST_BUDGETS,
+})
+export class WithFallbackApplication {}
+
 @Workflow({
   name: "unmapped-workflow",
   version: "1.0.0",
@@ -132,3 +142,11 @@ export class UnmappedFallback implements WorkflowDefinition {
       .build();
   }
 }
+
+@Application({
+  name: "unmapped-application",
+  version: "1.0.0",
+  workflows: [UnmappedFallback],
+  budgets: TEST_BUDGETS,
+})
+export class UnmappedFallbackApplication {}

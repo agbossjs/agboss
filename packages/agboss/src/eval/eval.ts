@@ -1,11 +1,11 @@
 import type { SpendLedger } from "../finops/ledger.js";
 import type { SpendAccount } from "../index.js";
 import type { RouteOutcome, RouteRequest, RouterEngine } from "../routers/index.js";
-import type { Tern, TernStore } from "../terns/index.js";
+import type { Tern, TernRecords } from "../terns/index.js";
 import { ADEQUATE, INADEQUATE, JUDGE_INSTRUCTIONS } from "./prompts.js";
 
 export interface EvalDeps {
-  readonly terns: TernStore;
+  readonly terns: TernRecords;
   /** A two-option router (adequate / inadequate); Jev by default. */
   readonly judge: RouterEngine;
   readonly ledger: SpendLedger;

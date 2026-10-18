@@ -13,6 +13,9 @@ import {
 import { WorkflowStartTextDto, WorkflowFinishTextDto, Text } from "../../../src/dto/index.js";
 import { usd } from "../../../src/units/index.js";
 import { start } from "../../helpers/flow.js";
+import { Application } from "../../../src/application/application.js";
+import type { Class } from "../../../src/components/injection.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 export class EchoInput {
   @Text() text!: string;
@@ -100,4 +103,21 @@ export function workflowWith(
   })
   class ObservedWorkflow extends Limits {}
   return ObservedWorkflow;
+}
+
+/** The application of `workflowWith(…)`: what the tests build. */
+export function applicationWith(
+  name: string,
+  observers: readonly ObserverClass[],
+  providers: readonly Provider[] = [],
+): Class {
+  const workflow = workflowWith(name, observers, providers);
+  @Application({
+    name: name.replace(/-workflow$/, "-application"),
+    version: "1.0.0",
+    workflows: [workflow],
+    budgets: TEST_BUDGETS,
+  })
+  class ObservedApplication {}
+  return ObservedApplication;
 }

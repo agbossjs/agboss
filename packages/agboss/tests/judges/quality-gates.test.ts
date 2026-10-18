@@ -5,17 +5,17 @@
  * retries are spent. A judge without a model fails at app start.
  */
 import { describe, expect, it } from "vitest";
-import { createApp } from "../../src/app/create-app.js";
+import { createApp } from "../../src/application/create-app.js";
 import { QualityGateError } from "../../src/errors.js";
 import { replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
 import { offline } from "../components/fixture/deps-contract.workflow.js";
 import {
   Grounded,
-  JudgedDesk,
-  ModellessDesk,
   TaskStart,
   Writer,
+  JudgedDeskApplication,
+  ModellessDeskApplication,
 } from "./fixtures/judged.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
@@ -29,7 +29,7 @@ const textsOf = (request: ModelRequest | undefined): string[] =>
     : [];
 
 describe("quality gates of an agent", () => {
-  const test = testWith(JudgedDesk);
+  const test = testWith(JudgedDeskApplication);
 
   test("a reply the judge passes is the answer; the judge used its own model with its deps", async ({
     app,
@@ -108,7 +108,7 @@ describe("quality gates of an agent", () => {
 
 describe("AC3: a judge without a model", () => {
   it("is rejected at app start with judge.no-model", async () => {
-    await expect(createApp(ModellessDesk, offline())).rejects.toThrow(
+    await expect(createApp(ModellessDeskApplication, offline())).rejects.toThrow(
       /^\[judge\.no-model\] @Judge Modelless/u,
     );
   });

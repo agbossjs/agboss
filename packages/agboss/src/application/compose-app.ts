@@ -1,0 +1,89 @@
+import { rememberAppWorkflow } from "../app/app-workflow.js";
+import type { BuiltApp } from "../app/create-app.js";
+import type { App } from "../app/types.js";
+import { stopComponents } from "../components/container/lifecycle.js";
+import type { Class } from "../components/injection.js";
+import { NodeKind } from "../flow/ast.js";
+import type { AssembledApplication } from "./assemble.js";
+
+/**
+ * The app of an application instance (#261): `execute` runs the workflow its start belongs to (a
+ * start is the door of one workflow), `resume` / `cancel` the workflow of the thread; `close()`
+ * stops every workflow taking executions, runs `onStop` once for the whole application, waits for
+ * every running execution, then `onDestroy`.
+ */
+
+/** Each start class with the workflow it opens. */
+function startsOf(workflows: readonly BuiltApp[]): ReadonlyMap<Class, BuiltApp> {
+  const starts = new Map<Class, BuiltApp>();
+  for (const workflow of workflows) {
+    for (const node of workflow.bundle.graph.nodes.values()) {
+      if (node.kind === NodeKind.Start) starts.set(node.component, workflow);
+    }
+  }
+  return starts;
+}
+
+/** The start a plain text goes to: the first listed workflow's that has one. */
+const textStartOf = (workflows: readonly BuiltApp[]): Class | undefined =>
+  workflows.map((workflow) => workflow.app.textStart).find((start) => start !== undefined);
+
+/** The application's stop: no new executions anywhere, `onStop` once, every run awaited, `onDestroy`. */
+async function closeAll(workflows: readonly BuiltApp[], created: readonly unknown[]): Promise<void> {
+  workflows.forEach((workflow) => {
+    workflow.refuse();
+  });
+  try {
+    await stopComponents(created, async () => {
+      await Promise.all(workflows.map((workflow) => workflow.settled()));
+    });
+  } finally {
+    for (const workflow of workflows) await workflow.app.close();
+  }
+}
+
+export function composeApp(
+  assembled: AssembledApplication,
+  workflows: readonly BuiltApp[],
+  created: readonly unknown[],
+): App {
+  const [first] = workflows;
+  // the assembly rejects an application without workflows
+  if (first === undefined) throw new Error(`${assembled.name} has no workflows`);
+  const starts = startsOf(workflows);
+  /** The workflow a thread belongs to; an unknown thread goes to the first, which rejects it. */
+  const ofThread = async (thread: string): Promise<BuiltApp> => {
+    for (const workflow of workflows) {
+      if (await workflow.deps.terns.hasThread(workflow.deps.config.name, thread)) return workflow;
+    }
+    return first;
+  };
+  let closed = false;
+  const app: App = {
+    name: assembled.name,
+    version: assembled.version,
+    warnings: workflows.flatMap((workflow) => workflow.app.warnings),
+    models: [...new Set(workflows.flatMap((workflow) => workflow.app.models))],
+    textStart: textStartOf(workflows),
+    // a start no workflow has goes to the first, whose check rejects it (`onRunRejected`)
+    execute: (start, input, options) =>
+      (starts.get(start) ?? first).app.execute(start, input, options),
+    resume: async (thread, decision, options) =>
+      (await ofThread(thread)).app.resume(thread, decision, options),
+    cancel: async (thread, options) => (await ofThread(thread)).app.cancel(thread, options),
+    close: async () => {
+      if (closed) return;
+      closed = true;
+      await closeAll(workflows, created);
+    },
+    resolve: (token) => first.app.resolve(token),
+    hasTool: (name) => workflows.some((workflow) => workflow.app.hasTool(name)),
+  };
+  const { type } = first.bundle.graph;
+  rememberAppWorkflow(app, {
+    type,
+    name: first.deps.config.name,
+    version: first.deps.config.version,
+  });
+  return app;
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createApp, NotAWorkflowStartError, type AppOptions } from "../../src/app/create-app.js";
+import { NotAWorkflowStartError, type AppOptions } from "../../src/app/create-app.js";
+import { createApp } from "../../src/application/create-app.js";
 import { Agent, Workflow, NotPausedError, GraphRuleError, WorkflowStart } from "../../src/index.js";
 import { DtoValidationError, Text, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { createMemoryLedger } from "../../src/finops/ledger.js";
@@ -11,7 +12,6 @@ import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { usd } from "../../src/units/index.js";
 import {
   ChatStart,
-  Desk,
   lifecycle,
   MainRouter,
   NotesServer,
@@ -20,10 +20,10 @@ import {
   SaveNote,
   Support,
   Writer,
+  DeskApplication,
 } from "../testing/fixtures/desk.workflow.js";
 import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
 import {
-  CodeReview,
   CodeDto,
   Coder,
   PullRequest,
@@ -31,16 +31,18 @@ import {
   Reviewer,
   ReviewGate,
   TaskStart,
+  CodeReviewApplication,
 } from "../testing/fixtures/code-review.workflow.js";
 import { agent, execute, start } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
+import { Application } from "../../src/application/application.js";
+import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 
 /** Everything external given: scripted models, memory stores, stubbed MCP servers. */
 function offline(book: ScriptBook, stubs = new McpStubs(book)): AppOptions {
   return {
     processEnv: {},
     gateway: createScriptedGateway(book),
-    stores: { terns: createSqliteTernStore(":memory:"), ledger: createMemoryLedger() },
     connectMcp: stubbedMcpConnect(stubs, new Map(), new Set()),
   };
 }
@@ -90,6 +92,14 @@ const defaults = {
 })
 class TwoStarts {}
 
+@Application({
+  name: "two-starts-application",
+  version: "1.0.0",
+  workflows: [TwoStarts],
+  budgets: TEST_BUDGETS,
+})
+export class TwoStartsApplication {}
+
 @Workflow({
   name: "broken-workflow",
   version: "1.0.0",
@@ -101,11 +111,19 @@ class TwoStarts {}
 })
 class Broken {}
 
+@Application({
+  name: "broken-application",
+  version: "1.0.0",
+  workflows: [Broken],
+  budgets: TEST_BUDGETS,
+})
+export class BrokenApplication {}
+
 describe("AC12: createApp — the real app", () => {
   it("assembles before any model call and reports every assembly error at once", async () => {
     const book = new ScriptBook();
 
-    const built = createApp(Broken, offline(book));
+    const built = createApp(BrokenApplication, offline(book));
 
     await expect(built).rejects.toBeInstanceOf(GraphRuleError);
     const codes = await built.catch((error: unknown) =>
@@ -121,7 +139,7 @@ describe("AC12: createApp — the real app", () => {
       .thenReturn(replyWith(CodeDto, { text: "v1" }, { cost: usd(0.002) }));
     book.scriptOf("agent:reviewer-agent").thenReturn(replyWith(ReviewDto, { text: "clean" }));
     book.scriptOf("router:review-gate-router").thenReturn(routeTo(PullRequest));
-    const app = await createApp(CodeReview, offline(book));
+    const app = await createApp(CodeReviewApplication, offline(book));
 
     const result = await execute(app, TaskStart, { text: "Add a flag" });
     await app.close();
@@ -135,7 +153,7 @@ describe("AC12: createApp — the real app", () => {
     expect(result.thread).toMatch(/^[0-9a-f-]{36}$/);
     expect(result.spend.totalUsd).toBeCloseTo(0.002, 9);
     expect(app.textStart).toBe(TaskStart);
-    expect([app.name, app.version, app.warnings]).toEqual(["code-review-workflow", "1.0.0", []]);
+    expect([app.name, app.version, app.warnings]).toEqual(["code-review-application", "1.0.0", []]);
   });
 
   it("resume continues the paused run of a thread; a thread without a pause cannot resume", async () => {
@@ -146,7 +164,7 @@ describe("AC12: createApp — the real app", () => {
     book
       .scriptOf("agent:support-agent")
       .thenReturn(callTool(SaveNote, { title: "a", text: "b" }), replyWith("Saved."));
-    const app = await createApp(Desk, offline(book, stubs));
+    const app = await createApp(DeskApplication, offline(book, stubs));
 
     const paused = await execute(app, ChatStart, { text: "save a note" });
     const done = await app.resume(paused.thread, { approved: true, by: "dana" });
@@ -169,7 +187,7 @@ describe("AC12: createApp — the real app", () => {
 
   it("close runs onStop of the components it started, once", async () => {
     lifecycle.length = 0;
-    const app = await createApp(Desk, offline(new ScriptBook()));
+    const app = await createApp(DeskApplication, offline(new ScriptBook()));
     const started = [...lifecycle];
 
     await app.close();
@@ -181,7 +199,7 @@ describe("AC12: createApp — the real app", () => {
 
   it("checks the start and its input DTO before any call", async () => {
     const book = new ScriptBook();
-    const app = await createApp(CodeReview, offline(book));
+    const app = await createApp(CodeReviewApplication, offline(book));
 
     await expect(execute(app, ChatStart, { text: "hi" })).rejects.toBeInstanceOf(
       NotAWorkflowStartError,
@@ -198,7 +216,7 @@ describe("AC12: createApp — the real app", () => {
     const book = new ScriptBook();
     book.scriptOf("agent:ticket-agent").thenReturn(replyWith("ticket"));
     book.scriptOf("agent:writer-agent").thenReturn(replyWith("chat"));
-    const app = await createApp(TwoStarts, offline(book));
+    const app = await createApp(TwoStartsApplication, offline(book));
 
     const ticket = await execute(app, TicketStart, { text: "printer broken", id: "T-1" });
     const chat = await execute(app, ChatStart, { text: "hi" });

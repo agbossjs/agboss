@@ -14,13 +14,13 @@ import {
 } from "../../graph/agent-loop/fixtures.js";
 import {
   ContextStart,
-  ContextWorkflow,
   DraftDto,
   PublishAction,
   ReviewRouter,
   WriterAgent,
   resetSeen,
   seen,
+  ContextApplication,
 } from "./fixtures/context.workflow.js";
 
 const context = new LiveExecutionContext("ParallelTest");
@@ -75,7 +75,7 @@ describe("#280 AC7: parallel branches each see their own step", () => {
     });
   });
 
-  const test = testWith(ContextWorkflow);
+  const test = testWith(ContextApplication);
 
   test("two executions at once: each component reads its own execution", async ({
     app,

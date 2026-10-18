@@ -12,6 +12,8 @@ import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { about, optional } from "../../../src/flow/dto-wrappers.js";
 import { Reasoning } from "../../../src/models/index.js";
 import { agent, route, start } from "../../helpers/flow.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 const price = { inputPerMTok: 1, outputPerMTok: 2 };
 
@@ -110,3 +112,11 @@ export class Unused {}
   },
 })
 export class CodeReview {}
+
+@Application({
+  name: "code-review-application",
+  version: "1.0.0",
+  workflows: [CodeReview],
+  budgets: TEST_BUDGETS,
+})
+export class CodeReviewApplication {}

@@ -6,13 +6,13 @@ import type { OutdatedValueRecord, ScopeRecords } from "../flow/runtime/records.
 import type { GraphDeps } from "../graph/deps.js";
 import type { Compacted } from "./compaction.js";
 import type { PendingPause } from "../pause/index.js";
-import type { TernStore } from "../terns/index.js";
+import type { TernRecords } from "../terns/index.js";
 import type { RunTracing } from "../tracing/index.js";
 
 /** Graph dependencies plus the daily spend ledger and the Tern store. */
 export interface RunDeps<TName extends string> extends GraphDeps<TName> {
   readonly ledger: SpendLedger;
-  readonly terns: TernStore;
+  readonly terns: TernRecords;
   /** Compaction prompt (workflow override); default in src/prompts/compaction.ts. */
   readonly compactionPrompt?: string | undefined;
   /** Optional tracing (e.g. local Langfuse); runs are identical without it. */
