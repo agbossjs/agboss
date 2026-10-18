@@ -174,7 +174,7 @@ One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — the exe
 - when a renewal answers `false` (the lease expired — the instance was frozen or cut off for longer
   than 30 seconds — and another instance took it, `leaseEpoch + 1`), stops: its work is aborted
   through its signal and its call rejects with `ExecutionLeaseLostError` (`execution.lease-lost`).
-  That is not a failure of the execution: it reaches neither `.onError`, `onError` nor the execution
+  That is not a failure of the execution: it reaches neither `.onError`, `onExecutionError` nor the execution
   record — the new holder owns the execution and continues it.
 
 **Two resumes at once.** A resume has two phases: it first records its decision (the pause goes
@@ -208,18 +208,20 @@ it `running` again once it has recorded its decision). Every instance, at its st
    continued unless the workflow's `onIncompatibleResume` says `"resume"` — it is left to an
    instance of a compatible version (a rolling deploy) and logged once.
 
-Each recovery is logged (`execution.recovered`) and traced, and observers get `onWorkflowResume`
-with `reason: ResumeReason.Recovered` (`decision` when it took a recorded one), then
-`onWorkflowEnd` / `onWorkflowPause` / `onError` as for any pass.
+Each recovery is logged (`execution.recovered`, a warning in the application's
+[log](Observability#the-frameworks-log) with its `executionId` and `tenantId`; a root left to a
+compatible instance is `recovery.incompatible`, a failed one `recovery.failed`) and traced, and
+observers get `onExecutionResume` with `reason: ResumeReason.Recovered` (`decision` when it took a
+recorded one), then `onExecutionEnd` / `onExecutionPause` / `onExecutionError` as for any pass.
 
 <!-- snippet-context
-import { Injectable, ResumeReason, type OnWorkflowResume, type WorkflowResumeEvent } from "agboss";
+import { Injectable, ResumeReason, type OnExecutionResume, type ExecutionResumeEvent } from "agboss";
 -->
 
 ```ts
 @Injectable()
-export class RecoveryCounter implements OnWorkflowResume {
-  onWorkflowResume(event: WorkflowResumeEvent): void {
+export class RecoveryCounter implements OnExecutionResume {
+  onExecutionResume(event: ExecutionResumeEvent): void {
     if (event.reason === ResumeReason.Recovered) {
       // an instance died or stopped while this run moved: count it, alert
     }

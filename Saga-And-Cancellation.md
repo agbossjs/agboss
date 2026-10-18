@@ -19,7 +19,7 @@ start(OrderWorkflowStart)
 ## Global cancellation
 
 `app.cancel(threadId)` stops a running run **softly**: the run stops before its next model or tool call
-and `execute` rejects with `WorkflowCancelledError` (`workflow.cancelled`). A paused run is dropped
+and `execute` rejects with `ExecutionCancelledError` (`execution.cancelled`). A paused run is dropped
 instead (its `resume` then throws `NotPausedError`). `{ cancelled }` is `false` when the thread had
 neither.
 

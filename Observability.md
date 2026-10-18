@@ -1,75 +1,106 @@
 # Observability
 
-Observers see a run's events: workflow, agent, router, tool, model, knowledge base, guardrail, PII
-policy, action, channel and judge start / end, outdated values, truncated launches, and errors. They are registered, not discovered: only
-classes listed in `@Workflow({ observers: [...] })` are called. Tracing to Langfuse is built in
-([Tracing](Tracing)); observers are for everything else (metrics, your own tracer, audit).
+Observers see an application's executions: their start, pause, resume, end and failure, the
+requests refused before an execution, and the node events — agent, router, tool, model, knowledge
+base, guardrail, PII policy, action, channel and judge start / end, outdated values, truncated
+launches. They are registered, not discovered: only classes listed in
+`@Application({ observers: [...] })` are called (#261) — never in `@Workflow`; one instance each,
+for every execution of the application, child executions included. Tracing to Langfuse is built in
+([Tracing](Tracing)); observers are for everything else (metrics, your own tracer, audit). What the
+framework itself writes is its [log](#the-frameworks-log).
+
+## Every event
+
+One event object per hook, plain data — never the framework's internal state (the full record of
+an execution is `result.record`). Every execution event extends `ExecutionEvent`:
+
+| Field               | What                                                                          |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `executionId`       | unique per execution, the same after a resume (`result.runId`)                |
+| `parentExecutionId` | the parent execution; `undefined` at the root (child executions with #263)    |
+| `rootExecutionId`   | the root's id; the execution's own at the root                                |
+| `threadId`          | the conversation                                                              |
+| `tenantId`          | the tenant it works for (`"default"` when it names none)                      |
+| `workflow`          | a `WorkflowRecord` `{ name, version, startedVersion }` — no class             |
+
+A node event (`NodeEvent`) adds `step`, a `StepRecord` — the serialized `executionContext.step`:
+`component` (`{ name }`, no class), `nodeId` (`critic-agent#2` for a copy), `visitNumber`,
+`copyNumber`, `itemIndex`, `idempotencyKey`, `callId` (during a tool call). An observer interested
+in one workflow or component filters by name, taken with `nameOf(C)` (any AGBoss-decorated class;
+an undecorated one throws `ComponentError`): `event.workflow.name === nameOf(SupportWorkflow)`,
+`event.step.component.name === nameOf(CriticAgent)` — never by parsing `nodeId`.
 
 ## The hooks
 
 Each hook is its own interface with a typed payload (root entry `agboss`):
 
-| Hook interfaces                         | Payload                                                         |
-| ----------------------------------------- | ------------------------------------------------------------------ |
-| `OnWorkflowStart` / `OnWorkflowEnd`     | `AppState` / the `ExecutionOutput` and `AppState`               |
-| `OnWorkflowPause` / `OnWorkflowResume`  | `WorkflowPauseEvent` (pause) / `WorkflowResumeEvent` (decision) |
-| `OnAgentStart` / `OnAgentEnd`           | `AgentStartEvent` / `AgentEndEvent`                             |
-| `OnRouterStart` / `OnRouterEnd`         | `RouterStartEvent` / `RouterEndEvent`                           |
-| `OnToolStart` / `OnToolEnd`             | `ToolStartEvent` (tool, agent, arguments) / `ToolEndEvent`      |
-| `OnModelStart` / `OnModelEnd`           | `ModelStartEvent` / `ModelEndEvent` (model, usage, cost)        |
-| `OnRagStart` / `OnRagEnd`               | `RagStartEvent` / `RagEndEvent`                                 |
-| `OnActionStart` / `OnActionEnd`         | `ActionStartEvent` / `ActionEndEvent`                           |
-| `OnGuardrailStart` / `OnGuardrailEnd`   | `GuardrailStartEvent` / `GuardrailEndEvent`                     |
-| `OnPiiPolicyStart` / `OnPiiPolicyEnd`   | `PiiPolicyStartEvent` / `PiiPolicyEndEvent`                     |
-| `OnChannelStart` / `OnChannelEnd`       | `ChannelStartEvent` / `ChannelEndEvent`                         |
-| `OnJudgeStart` / `OnJudgeEnd`           | `JudgeStartEvent` / `JudgeEndEvent`                             |
-| `OnError`                               | the `Error` and `AppState`                                      |
-| `OnRunRejected`                         | `RunRejectedEvent` (operation, threadId?, code, message)        |
-| `OnValuesOutdated`                      | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values)) |
-| `OnLaunchItemsTruncated`                | `LaunchItemsTruncatedEvent` (step, launch, items, maxItems — [below](#parallel-launches)) |
+| Hook interfaces                           | Payload                                                                                   |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `OnExecutionStart`                        | `ExecutionStartEvent` (the common fields)                                                 |
+| `OnExecutionEnd`                          | `ExecutionEndEvent` (`finish`: a `ComponentRecord`, `spend`)                              |
+| `OnExecutionPause` / `OnExecutionResume`  | `ExecutionPauseEvent` (`pause`) / `ExecutionResumeEvent` (`reason`, `decision`)           |
+| `OnExecutionError`                        | `ExecutionErrorEvent` (`error`)                                                           |
+| `OnExecutionRejected`                     | `ExecutionRejectedEvent` (`operation`, `threadId?`, `tenantId`, `code`, `message`)        |
+| `OnAgentStart` / `OnAgentEnd`             | `AgentStartEvent` / `AgentEndEvent`                                                       |
+| `OnRouterStart` / `OnRouterEnd`           | `RouterStartEvent` / `RouterEndEvent`                                                     |
+| `OnToolStart` / `OnToolEnd`               | `ToolStartEvent` (tool, agent, arguments) / `ToolEndEvent`                                |
+| `OnModelStart` / `OnModelEnd`             | `ModelStartEvent` / `ModelEndEvent` (model, usage, cost)                                  |
+| `OnRagStart` / `OnRagEnd`                 | `RagStartEvent` / `RagEndEvent`                                                           |
+| `OnActionStart` / `OnActionEnd`           | `ActionStartEvent` / `ActionEndEvent`                                                     |
+| `OnGuardrailStart` / `OnGuardrailEnd`     | `GuardrailStartEvent` / `GuardrailEndEvent`                                               |
+| `OnPiiPolicyStart` / `OnPiiPolicyEnd`     | `PiiPolicyStartEvent` / `PiiPolicyEndEvent`                                               |
+| `OnChannelStart` / `OnChannelEnd`         | `ChannelStartEvent` / `ChannelEndEvent`                                                   |
+| `OnJudgeStart` / `OnJudgeEnd`             | `JudgeStartEvent` / `JudgeEndEvent`                                                       |
+| `OnValuesOutdated`                        | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values))               |
+| `OnLaunchItemsTruncated`                  | `LaunchItemsTruncatedEvent` (step, launch, items, maxItems — [below](#parallel-launches)) |
 
-Every event carries the run's `state` (`AppState`: `runId`, `threadId`, `activeNode`, …) for
-correlation: one `runId` for the whole run (its resumes included) and the conversation's real
-`threadId`.
-
-`onWorkflowStart` fires once per run, at `execute` — a resume does not start the run again, so the
-count of starts is the count of runs. A run that pauses (an approval on a channel) emits
-`onWorkflowPause` (`event.pause`: what it waits for) instead of `onWorkflowEnd`; `app.resume`
-emits `onWorkflowResume` (`event.decision`, `event.reason`: `ResumeReason.Answered`, or
-`ResumeReason.Recovered` when [recovery](Several-instances#recovery) continues an interrupted run). `onWorkflowEnd` / `onError` fire when the run finishes
-or fails, also after a resume. Cancelling a paused run (`app.cancel`) emits `onError` with
-`WorkflowCancelledError`. A run with one approval: start → pause → resume → end.
+`onExecutionStart` fires once per execution, at `execute` — a resume does not start it again, so
+the count of starts is the count of executions. One that pauses (an approval on a channel) emits
+`onExecutionPause` (`event.pause`: what it waits for); `app.resume` emits `onExecutionResume`
+(`event.decision`, `event.reason`: `ResumeReason.Answered`, or `ResumeReason.Recovered` when
+[recovery](Several-instances#recovery) continues an interrupted one). `onExecutionEnd` fires once,
+when the execution ends at a finish — also after a resume; it has no status: a pause is
+`onExecutionPause`, a failure `onExecutionError`. Cancelling a paused execution (`app.cancel`) emits
+`onExecutionError` with `ExecutionCancelledError`. One approval: start → pause → resume → end.
 
 ## Refused requests
 
-A request the app refuses before a run starts or is located emits `onRunRejected` and is still
-thrown to the caller. `RunRejectedEvent` carries the `operation` (`"execute"`, `"resume"` or
-`"cancel"`), the `threadId` the request named (absent for an `execute` without one), the error's
-stable `code`, a `message` without the input values, and `state` (the thread only). It never carries
-a `runId`: no run started, and another owner's run is not revealed.
+A request the app refuses before an execution starts or is located emits `onExecutionRejected` and
+is still thrown to the caller. `ExecutionRejectedEvent` carries the `operation`
+(`ExecutionOperation.Execute`, `Resume` or `Cancel`, #269), the `threadId` the request named (absent
+for an `execute` without one), the `tenantId` it named (`"default"` otherwise), the error's stable
+`code` and a `message` without the input values. It never carries an `executionId`: no execution
+started, and another owner's is not revealed.
 
-| Refusal                                         | Operation                     | `code`                 |
-| ------------------------------------------------- | -------------------------------- | ------------------------- |
-| a thread of another owner (`ThreadOwnerError`)  | `execute`, `resume`, `cancel` | `run.thread-owner`     |
-| nothing paused on the thread (`NotPausedError`) | `resume`                      | `run.not-paused`       |
-| an unknown thread (`UnknownThreadError`)        | `execute`                     | `run.unknown-thread`   |
-| a class that is not a start of the workflow     | `execute`                     | `workflow.not-a-start` |
-| an invalid start input (`DtoValidationError`)   | `execute`                     | `dto.invalid`          |
+| Refusal                                                    | Operation                     | `code`                 |
+| ---------------------------------------------------------- | ----------------------------- | ---------------------- |
+| a thread of another owner (`ThreadOwnerError`)             | `Execute`, `Resume`, `Cancel` | `run.thread-owner`     |
+| nothing paused on the thread (`NotPausedError`)            | `Resume`                      | `run.not-paused`       |
+| an unknown thread of the tenant (`UnknownThreadError`)     | `Execute`, `Cancel`           | `run.unknown-thread`   |
+| a class that is not a start of the workflow                | `Execute`                     | `workflow.not-a-start` |
+| invalid start input or context values (`DtoValidationError`) | `Execute`                   | `dto.invalid`          |
+| an exhausted budget before the first step                  | `Execute`                     | `limit.budget`         |
+| the app is stopping (`ApplicationStoppingError`)           | `Execute`, `Resume`           | `app.stopping`         |
 
-For an invalid start input the message names the DTO and its fields (`invalid Voucher at code`),
-never their values; the thrown error keeps the full message. A resume refused after a deploy
-(`IncompatibleResumeError`) is not a refused request: the paused run is known, so it is an `onError`
-with that run's `runId` and thread, and the run stays paused — resumable by an app whose
-`onIncompatibleResume` policy accepts it. A run whose day's budget is already spent does start
-(`onWorkflowStart`, its own `runId`) and fails at once with `onError` (`BudgetExceededError`).
+For invalid input the message names the DTO and its fields (`invalid Voucher at code`), never
+their values; the thrown error keeps the full message. A resume refused after a deploy
+(`IncompatibleResumeError`) is not a refused request: the paused execution is known, so it is an
+`onExecutionError` with its `executionId` and thread, and it stays paused — resumable by an app
+whose `onIncompatibleResume` policy accepts it.
 
 ```ts
-import { Injectable, type OnRunRejected, type RunRejectedEvent } from "agboss";
+import {
+  ExecutionOperation,
+  Injectable,
+  type ExecutionRejectedEvent,
+  type OnExecutionRejected,
+} from "agboss";
 
 @Injectable()
-export class Audit implements OnRunRejected {
-  onRunRejected(event: RunRejectedEvent) {
-    console.warn(`${event.operation} refused on ${event.threadId ?? "a new thread"}: ${event.code}`);
+export class Audit implements OnExecutionRejected {
+  onExecutionRejected(event: ExecutionRejectedEvent): void {
+    const what = event.operation === ExecutionOperation.Execute ? "a new execution" : event.operation;
+    console.warn(`${what} refused for ${event.tenantId}: ${event.code}`);
   }
 }
 ```
@@ -82,9 +113,8 @@ A write that renews a slot of the path scope outdates the older value and everyt
 `outdated` is never empty. `ValuesOutdatedEvent` is plain data, without any DTO value (the values
 are in `result.record.outdatedValues`):
 
-- the execution: `executionId` (the run's id, the same after a resume), `parentExecutionId`
-  (`undefined` until child workflows, #263), `rootExecutionId`, `threadId`, `workflow`
-  (`WorkflowRecord`: `name`, `version`, `startedVersion`);
+- the execution's common fields ([below](#every-event)): `executionId`, `parentExecutionId`,
+  `rootExecutionId`, `threadId`, `tenantId`, `workflow`;
 - `step` — the step that wrote, a `StepRecord`: `component` (`{ name }`), `nodeId`, `visitNumber`,
   `copyNumber` (from 1), `itemIndex`, `idempotencyKey`, `callId`;
 - `trigger` — the new value (`valueId`, `slot`, `producer`), the root of the cascade;
@@ -112,7 +142,7 @@ value (`DraftDto#1 outdated: replaced by DraftDto#2 from writer-agent`).
 ## Parallel launches
 
 A branch of a launch (#273) is named by its copy id in every event and trace: the second copy of
-a repeated agent is `critic-agent#2` in `onAgentStart` / `onAgentEnd` (`name`, `state.activeNode`),
+a repeated agent is `critic-agent#2` in `onAgentStart` / `onAgentEnd` (`name`, `step.nodeId`; `step.copyNumber` 2),
 in `result.path` and in `executionContext.step.nodeId`; a target listed once keeps its `name`, and
 a per-item run its node's `name` with its `step.itemIndex`. Each branch adds one trace entry when it
 ends, named `critic-agent#2` or `company-check-agent[3]` (its item's index), with its launch id,
@@ -142,80 +172,126 @@ export class LaunchAudit implements OnLaunchItemsTruncated {
 
 1. A class decorated with `@Injectable()` (its `deps` injected like any component).
 2. It implements the hooks it needs.
-3. It is listed in `@Workflow({ observers })`.
+3. It is listed in `@Application({ observers })` — the only place; `@Workflow` takes none.
 
 The container creates observers at app start. Assembly rejects an observer with no hook
-(`[observer.no-hooks]`) or a misspelled one (`[observer.unknown-hook]`, `did you mean onToolEnd?`). An
-observer that throws is reported as a process warning and never fails the run.
+(`[observer.no-hooks]`) or a misspelled one (`[observer.unknown-hook]`, `did you mean onToolEnd?`).
+An observer that throws is a warning in the application's log (`observer.failed`) and never fails
+the execution.
 
 ## Example: a tracer
 
 <!-- snippet-context
-import { Agent, WorkflowFinish, WorkflowStart, start } from "agboss";
+import { Agent, Budget, BudgetPeriod, BudgetScope, WorkflowFinish, WorkflowStart, Workflow, start, type BudgetHandler } from "agboss";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { usd, type Usd } from "agboss/units";
 @WorkflowStart({ name: "support-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
 @Agent({ name: "support-agent", description: "Answers", prompt: "Answer the message.", model: "moonshotai/kimi-k2.6" })
 export class SupportAgent {}
 @WorkflowFinish({ name: "support-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class ChatWorkflowFinish {}
+@Workflow({
+  name: "support-workflow",
+  version: "1.0.0",
+  flow: [start(ChatWorkflowStart).returns(WorkflowStartTextDto).toAgent(SupportAgent).toFinish(ChatWorkflowFinish)],
+})
+export class SupportWorkflow {}
+@Budget({ name: "support-application-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
+export class SupportApplicationBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(10);
+  }
+}
+@Budget({ name: "support-tenant-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class SupportTenantBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(1);
+  }
+}
+@Budget({ name: "support-execution-budget", scope: BudgetScope.Execution })
+export class SupportExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.1);
+  }
+}
 -->
 
 ```ts
 import {
+  Application,
+  EmptyEnvironment,
   Injectable,
-  Workflow,
-  WorkflowSettings,
   type AgentEndEvent,
   type AgentStartEvent,
-  type AppState,
+  type ExecutionErrorEvent,
   type ModelEndEvent,
   type OnAgentEnd,
   type OnAgentStart,
-  type OnError,
+  type OnExecutionError,
   type OnModelEnd,
-  type WorkflowDefinition,
 } from "agboss";
 
 @Injectable()
-export class ConsoleTracer implements OnAgentStart, OnAgentEnd, OnModelEnd, OnError {
-  onAgentStart(event: AgentStartEvent) {
-    console.log(`[trace] agent ${event.name} started in run ${event.state.runId}`);
+export class ConsoleTracer implements OnAgentStart, OnAgentEnd, OnModelEnd, OnExecutionError {
+  onAgentStart(event: AgentStartEvent): void {
+    console.log(`[trace] ${event.step.nodeId} started in ${event.executionId} (${event.tenantId})`);
   }
 
-  onAgentEnd(event: AgentEndEvent) {
-    console.log(`[trace] agent ${event.name} finished in run ${event.state.runId}`);
+  onAgentEnd(event: AgentEndEvent): void {
+    console.log(`[trace] ${event.step.nodeId} finished in ${event.executionId}`);
   }
 
-  onModelEnd(event: ModelEndEvent) {
+  onModelEnd(event: ModelEndEvent): void {
     console.log(`[trace] ${event.callerName} → ${event.model}: ${String(event.usage.totalTokens)} tokens`);
   }
 
-  onError(error: Error, state: AppState) {
-    console.error(`[trace] run ${state.runId} failed`, error);
+  onExecutionError(event: ExecutionErrorEvent): void {
+    console.error(`[trace] ${event.workflow.name} ${event.executionId} failed`, event.error);
   }
 }
 
-@Workflow({
-  name: "support-workflow",
+@Application({
+  name: "support-application",
   version: "1.0.0",
-  flow: [
-    start(ChatWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(SupportAgent)
-      .toFinish(ChatWorkflowFinish),
-  ],
-  defaults: {
-    models: { temperature: 0 },
-    router: { model: "typesafe/jev-1.13" },
-    history: { limit: 5 },
-  },
+  environment: EmptyEnvironment,
+  workflows: [SupportWorkflow],
+  budgets: [SupportApplicationBudget, SupportTenantBudget, SupportExecutionBudget],
   observers: [ConsoleTracer],
 })
-export class Support implements WorkflowDefinition {
-  settings() {
-    return WorkflowSettings.builder()
-      .build();
-  }
-}
+export class SupportApplication {}
 ```
+
+## The framework's log
+
+The framework writes its own log through the application's `Logger` (#261) — infrastructure like the
+`Clock`: the built-in `ConsoleLogger` writes one line per entry on standard error; your own
+`extends Logger` (`write(entry: LogEntry)`, `LogEntry`: `level`, `code`, `message`, `time`,
+`executionId?`, `tenantId?`) goes in `@Application({ providers })`. It replaces the process warnings
+of earlier versions. A logger that throws is ignored.
+
+**At start, once**, only what the decorators say — no project code is called (no `maxSpend()`, so
+no budget amount), nothing per tenant — two kinds of lines, then the startup warnings:
+
+```text
+15:02:11 INFO  Started job-scout-application 1.0.0 — environment prod, host scout-7f3a, process 41237
+15:02:11 INFO  Worst case of one chat-workflow-start call: 1 workflow execution, 1 at the same time, 12 agent and router steps
+15:02:11 WARN  [application.in-memory-pauses] in-memory pauses: another application instance cannot resume them and they are lost on restart [app.warning]
+```
+
+More at start is the project's own: a component with `OnStart` logs what it wants (a budget is a
+component and can be injected).
+
+**While it runs**, only problems of the system: `LogLevel.Warn` at risk (`execution.recovered`,
+`recovery.incompatible`, `observer.failed`) and `LogLevel.Error` broken (`recovery.failed`,
+`app.close-failed`), each with its `executionId` / `tenantId` for search. One execution's details
+are its trace; a tenant's spend is the cost ledger; a rejected execution is `onExecutionRejected`.
+
+**Assembly warnings** (in `app.warnings` and the start log; errors under `agboss check --strict`;
+silent in tests — `testWith` logs no start and no warning, and an unlisted `Logger` is silent
+there):
+
+| Code                                 | When                                                                                         |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `application.in-memory-cost-ledger`  | tenant or application budgets on the built-in in-memory ledger: each instance counts on its own, the counters reset on restart |
+| `application.in-memory-pauses`       | a workflow can pause (a tool with a channel) on the built-in in-memory paused executions or checkpoints |

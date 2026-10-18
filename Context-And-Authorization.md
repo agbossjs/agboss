@@ -172,7 +172,7 @@ come from is the project's choice; the framework loads nothing.
   required; with nothing declared `tenant: { tenantId?, weight? }` is optional (omitted → the
   tenant `"default"`) and passing `execution` does not compile.
 - Validated by the field decorators before the first step: invalid → the execution is rejected
-  with `dto.invalid` and `onRunRejected`; the message names the field, never the value
+  with `dto.invalid` and `onExecutionRejected`; the message names the field, never the value
   (`invalid ClinicTenantContext: units[0].unitId: …`).
 - Frozen for the whole execution, kept in its checkpoint: a resume — `app.resume(threadId,
 decision, { tenantId, ownerId })` — runs on the values it started with, and takes only the
@@ -290,10 +290,17 @@ const result = await app.execute(
   {
     ownerId: userId, // the thread belongs to this user: executionContext.ownerId
     tenant: { tenantId: "acme" }, // the organization: executionContext.tenant.tenantId
-    metadata: { requestId: "req_abc789" }, // for channels (ChannelRequest.metadata), not tools
   },
 );
 ```
+
+There is no untyped `metadata` or `executionContext` option (#261 PR 6): what a channel, a guardrail
+or any other component needs of the execution it reads through its injected `ExecutionContext`
+(the tenant, the owner, the project's own fields — `deps: [ExecutionContext]`; a channel's request
+is made inside the paused step). An MCP session takes the values from its authenticated caller —
+`createMcpService(app, Mcp).connect(transport, { tenant, execution, ownerId })` (`McpSessionOptions`,
+`agboss/mcp`) — and so does an A2A call — `adapter.execute(Start, request, onEvent, { tenant,
+execution, ownerId })` (`A2ACallOptions`); a resume through either takes the tenant's id.
 
 Tool arguments a channel shows (and `ExecutionOutput.pause.args`) have the input DTO's `sensitive`
 fields masked as `***`; the tool itself still gets them whole.

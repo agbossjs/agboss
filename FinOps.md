@@ -230,7 +230,7 @@ on its cost, its tenant's and the application's. All violations at once, before 
   the application's name). Several budgets of one scope with different periods work at once
   (tenant daily + tenant monthly).
 - **Before the first step** every budget is checked against its counter in the current period:
-  one exhausted **rejects** the execution — `BudgetExceededError`, an `onRunRejected` (code
+  one exhausted **rejects** the execution — `BudgetExceededError`, an `onExecutionRejected` (code
   `limit.budget`) — and the refused request leaves no trace: no thread (a new thread is created only
   once the budgets pass; `executionContext.threadId` read in `maxSpend()` of an execution on a new
   thread throws `ExecutionContextUnavailableError`), no record, no checkpoint, no model call, and

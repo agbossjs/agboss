@@ -147,19 +147,40 @@ own (`agboss eval` / `replay` / `golden`, `createAppDeps`) uses the infrastructu
 application that lists it.
 Running more than one instance: [Several instances](Several-instances).
 
+## At start: the log, the warnings, `describe`
+
+`createApp` logs once, through the application's `Logger` ([Observability → The framework's
+log](Observability#the-frameworks-log)): what started (application, version, environment, host,
+process) and the worst case of one call of each start in counts — then the startup warnings,
+`app.warnings`: a config changed without a version bump, and the assembly warnings
+(`[application.in-memory-cost-ledger]`, `[application.in-memory-pauses]`; errors under
+`agboss check --strict`). No `maxSpend()` is called and nothing per tenant is logged; `testWith`
+logs none of it. Observers are listed in `@Application({ observers })` only
+([Observability](Observability)).
+
+`agboss describe --workflow <path>` shows the workflow's application: each infrastructure contract
+with its implementation and why (`CostLedgerRepository → SqliteCostLedgerRepository (listed in
+@Application providers)` / `(built-in default: none listed)`, the `Logger` and the `Clock`
+included), the budgets by scope with their periods, the execution budget that caps the workflow (its
+own or the default — when it is the root of `app.execute`; nested, it spends from its root's), the
+observers and the assembly warnings; then its count limits (`maxSteps` set or default, each node's
+`maxVisits`, the worst case of each start). `--json` gives the same as `application` and `limits`.
+
 ## `app.execute(Start, input, options?)`
 
 - `Start` is a `@WorkflowStart` of any workflow of the application: the execution runs the
   workflow that start opens (else `NotAWorkflowStartError`); `input` is
   typed by the generated `.agboss/types.d.ts` (`agboss check`) and checked against the start's
   `input` before any call (`DtoValidationError`, the field named, never the value).
-- Options: `thread` continues a conversation (without it a new thread is created; its id is in the
-  result), `owner` (a thread created with an owner rejects another one — `ThreadOwnerError`),
-  `signal`, `metadata` (strings, kept by the run's resumes), `onStream` (token and tool-call events),
-  `configurable` (extra LangGraph keys). See [Context and Authorization](Context-And-Authorization).
+- Options: `threadId` continues a conversation (without it a new thread is created; its id is in
+  the result), `ownerId` (a thread created with an owner rejects another one — `ThreadOwnerError`),
+  `tenant` / `execution` (the typed values of the context levels), `signal`, `onStream` (token and
+  tool-call events), `configurable` (extra LangGraph keys), `record`. There is no untyped
+  `metadata` or `executionContext` option (#261 PR 6): channels, guardrails, MCP sessions and A2A
+  calls read the typed contexts. See [Context and Authorization](Context-And-Authorization).
 - Before the first step (#261 PR 5) each budget of the execution is read once (`maxSpend()`, in the
   execution's context) and checked: one exhausted refuses it with `BudgetExceededError`
-  (`limit.budget`) and an `onRunRejected` — no record, no model call ([FinOps](FinOps#at-run-time)).
+  (`limit.budget`) and an `onExecutionRejected` — no record, no model call ([FinOps](FinOps#at-run-time)).
 
 ## The result — `ExecutionOutput`
 
@@ -192,13 +213,13 @@ A resume has two phases (#265, Q58): it records the decision — the pause goes 
 atomically, so a second resume of the same pause gets `NotPausedError` — then takes the tree's lease
 and continues. While another call or instance moves the tree it waits, and returns the tree's
 current output once the holder took its decision ([Several instances](Several-instances#the-execution-lease)).
-Observers get `onWorkflowResume` with `reason: ResumeReason.Answered` (`ResumeReason.Recovered`
+Observers get `onExecutionResume` with `reason: ResumeReason.Answered` (`ResumeReason.Recovered`
 when [recovery](Several-instances#recovery) continues a tree).
 
 ## `app.cancel(threadId, { tenantId, ownerId })`
 
 Aborts a running run — it stops before its next model or tool call and `execute` rejects with
-`WorkflowCancelledError` — or drops a paused one, whose `resume` then throws `NotPausedError`;
+`ExecutionCancelledError` — or drops a paused one, whose `resume` then throws `NotPausedError`;
 `{ cancelled }` is `false` when the thread had neither ([Cancellation and idempotency](Saga-And-Cancellation)).
 A thread the tenant does not have is `UnknownThreadError` (#261: a thread's key is `tenantId` +
 `threadId`).
@@ -207,8 +228,8 @@ A thread the tenant does not have is `UnknownThreadError` (#261: a thread's key 
 
 From the call on, no new execution is accepted: `execute` / `resume` reject with
 `ApplicationStoppingError` (`app.stopping`) — nothing was cancelled, the request is refused before
-an execution starts, so observers get `onRunRejected` (`operation`, `code`, a message without input
-values); `cancel` still works. Then, in order (#265 S30 / S51):
+an execution starts, so observers get `onExecutionRejected` (`operation: ExecutionOperation`,
+`tenantId`, `code`, a message without input values); `cancel` still works. Then, in order (#265 S30 / S51):
 
 1. the instance stops its own [recovery sweep](Several-instances#recovery);
 2. `onStop` of the components;
@@ -216,7 +237,7 @@ values); `cancel` still works. Then, in order (#265 S30 / S51):
    **shutdown timeout**: `@Application({ shutdownTimeout })`, overridden by
    `app.close({ timeout })`, default `seconds(25)` (under the usual 30 s grace period of a
    platform and the 30 s lease). When it passes, what still runs is **interrupted**: its call
-   rejects with `ApplicationStoppingError`, without `.onError` or `onError` (it is no failure), the
+   rejects with `ApplicationStoppingError`, without `.onError` or `onExecutionError` (it is no failure), the
    tree's lease is released at once and its record stays `running` — so another instance continues
    it from its last checkpoint without waiting for the lease to expire;
 4. `onDestroy`, then MCP connections and tracing are closed.

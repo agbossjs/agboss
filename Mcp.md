@@ -60,10 +60,12 @@ await service.connectStdio(); // serves until stdin closes
 
 ## 3. Serving it over HTTP
 
-`McpService` knows no HTTP framework: `handleSse(res, messageEndpoint, context)` opens a session's
-event stream, `handleMessage(req, res, sessionId, body)` takes the client's messages. The `context`
-given to a session reaches the channels of the executions it starts — authorization stays out of
-the tools' code ([Context and Authorization](Context-And-Authorization)).
+`McpService` knows no HTTP framework: `handleSse(res, messageEndpoint, session)` opens a session's
+event stream, `handleMessage(req, res, sessionId, body)` takes the client's messages. The `session`
+(`McpSessionOptions`: `tenant`, `execution`, `ownerId` — the typed context values, #261) is what
+every execution and resume of the session runs with, taken from the authenticated caller, never
+from a call's arguments; components read it through their `ExecutionContext` — authorization stays
+out of the tools' code ([Context and Authorization](Context-And-Authorization)).
 
 <!-- snippet-context
 import type { McpService } from "agboss/mcp";
@@ -76,8 +78,8 @@ import { createServer } from "node:http";
 createServer((req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
   if (req.method === "GET" && url.pathname === "/mcp") {
-    const context = { tenant: req.headers.authorization }; // bound to this session
-    void service.handleSse(res, "/mcp/messages", context);
+    const tenantId = req.headers["x-tenant-id"]?.toString() ?? "default"; // after authentication
+    void service.handleSse(res, "/mcp/messages", { tenant: { tenantId } }); // bound to this session
     return;
   }
   if (req.method === "POST" && url.pathname === "/mcp/messages") {
@@ -88,5 +90,5 @@ createServer((req, res) => {
 }).listen(3001);
 ```
 
-`service.connect(transport, context)` takes any MCP SDK transport instead (e.g. in tests, an
+`service.connect(transport, session)` takes any MCP SDK transport instead (e.g. in tests, an
 in-memory pair).

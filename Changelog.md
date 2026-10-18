@@ -3,6 +3,52 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — logging, observers, describe (#261, PR 6; #269)
+
+- **Breaking: observers are registered only in `@Application({ observers })`**
+  ([Observability](Observability)); `@Workflow({ observers })` is removed (does not compile). One
+  manager per application instance, for every execution of every workflow.
+- **Breaking: hooks are named after executions** — `onExecutionStart`, `onExecutionEnd`,
+  `onExecutionPause`, `onExecutionResume`, `onExecutionError`, `onExecutionRejected` replace
+  `onWorkflowStart` / `End` / `Pause` / `Resume`, `onError` and `onRunRejected` (interfaces
+  `OnExecution…`; events `ExecutionStartEvent`, `ExecutionEndEvent` — `finish`, `spend`, once per
+  execution at a finish — `ExecutionPauseEvent`, `ExecutionResumeEvent`, `ExecutionErrorEvent`,
+  `ExecutionRejectedEvent`).
+- **Breaking: one event object per hook, no `AppState`** (removed): every execution event extends
+  `ExecutionEvent` (`executionId`, `parentExecutionId`, `rootExecutionId`, `threadId`, `tenantId`,
+  `workflow`); node events extend `NodeEvent` and add `step` (`StepRecord`). `ValuesOutdatedEvent`
+  and `LaunchItemsTruncatedEvent` gain `tenantId`.
+- **Breaking (#269): `ExecutionOperation.Execute | Resume | Cancel`** in
+  `ExecutionRejectedEvent.operation` replaces the strings; the event carries `tenantId`.
+- **Breaking: the untyped `executionContext` / `metadata` execute options are removed**, with
+  `ChannelRequest.metadata` / `.executionContext`, `GuardrailContext.metadata` / `.executionContext`
+  (no longer generic) and `RunContext.metadata`: components read the typed contexts through an
+  injected `ExecutionContext`; `McpService.connect(transport, session?)` / `handleSse(res, endpoint,
+  session?)` take `McpSessionOptions` (`tenant`, `execution`, `ownerId`); `A2ACallOptions` is
+  `signal`, `ownerId`, `tenant`, `execution`.
+- **New: the `Logger` contract** (infrastructure; `ConsoleLogger` by default, `LogLevel`,
+  `LogEntry`, `formatLogEntry`) replaces `process.emitWarning` (`execution.recovered`,
+  `recovery.incompatible`, `recovery.failed`, `app.close-failed`, `observer.failed`); in tests an
+  unlisted logger is silent. `ExecutionObserverManager`'s default failure listener no longer warns.
+- **Breaking: renames to executions** — `WorkflowObserver` → `ExecutionObserver`,
+  `ObserverManager` → `ExecutionObserverManager`, `WorkflowCancelledError` →
+  `ExecutionCancelledError` (code `workflow.cancelled` → `execution.cancelled`); `agboss migrate
+  imports` rewrites the imports.
+- **New: `nameOf(C)`** — the `name` of any AGBoss-decorated class (its literal type where the
+  generated types brand it), for filtering serialized events and records.
+- **New: the start log** — what started and the worst case of one call of each start; no
+  `maxSpend()` at start, nothing per tenant; `testWith` logs none of it.
+- **New: assembly warnings** `[application.in-memory-cost-ledger]`, `[application.in-memory-pauses]`
+  — in `app.warnings` and the start log, errors under `agboss check --strict`; `agboss check` runs a
+  new `application` check. The CLI's `run` / `chat` no longer print `app.warnings` themselves (the
+  start log has them).
+- **New in `agboss describe`**: the application — each contract's implementation and why, budgets
+  by scope with their periods, the workflow's execution budget, observers, warnings — and a
+  `limits` section (`maxSteps` set or default, `maxVisits`, worst cases); `--json` adds
+  `application` and a richer `limits`.
+- flow-patterns lists `SqliteCostLedgerRepository` (environment `sqlitePath`) so its strict check
+  passes.
+
 ## Unreleased — quorums in the grammar and the analyser (#279, PR 1)
 
 - **New: quorums** ([Parallel](Parallel)): after `.toParallelAgents(…)`,
