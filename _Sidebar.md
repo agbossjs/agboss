@@ -8,6 +8,7 @@
 - [Workflow — the paths](Workflow)
 - [Path scope](Path-scope)
 - [Workflow as a step](Workflow-as-a-step)
+- [Parallel — quorums and arbiters](Parallel)
 - [Routing patterns](Advanced-Routing)
 - [Rollback](Rollback)
 - [Routers](Routers)

@@ -351,6 +351,21 @@ and, when several agents gave it, each element with its own `producer` (`element
 record). Each value is built from what its branches read; a per-item run's item has its list's
 `valueId`, so its result is built from the list.
 
+## Quorums
+
+After a quorum (#279, [Parallel](Parallel)) only **counted** answers enter the scope — not counted,
+cancelled or rejected answers never do. They are the values the quorum's `.returns(…)` names (after
+`.joinQuorum(…)`, or after each `group(…)`), written at the join like any launch's values, and the
+next step reads them by type: a `listOf(XDto)` field gets the counted `XDto` answers, a single field
+the latest single value. An answer a `.joinQuorum({ min })` may leave out is `optional(XDto)`, so a
+required field reading it is `[input.missing-on-path]`, the message naming the agent a quorum may
+leave out (`skills-score-agent may be left out of the quorum`) and the fix — the field as
+`optional(SkillsScoreDto)` or `listOf(SkillsScoreDto)`.
+
+A group's path carries its own agents' values only, required; the next node knows which group won
+from the path it is on and from each `Produced<T, P>` value's `producer` — `P` is the union of the
+agents that can be counted for it. A counted answer nobody reads is `[flow.unused-output]`.
+
 ## Child workflows
 
 A child workflow (#263, [Workflow as a step](Workflow-as-a-step)) has a scope of its own, per

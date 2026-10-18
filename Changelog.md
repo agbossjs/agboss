@@ -3,6 +3,30 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — quorums in the grammar and the analyser (#279, PR 1)
+
+- **New: quorums** ([Parallel](Parallel)): after `.toParallelAgents(…)`,
+  `.joinQuorum({ min, max, deadline })` (options always an object; `max` defaults to `min`) and
+  `.joinQuorumGroups(group(A, B).priority(n).returns(…).to…(…), …, { deadline })` — every group
+  continues its own path, nothing follows the groups but `.onJoinError(…)`. New builder names:
+  `group`, `anyOf`; types `Quorums`, `QuorumJoined`, `GroupsJoined`, `GroupStart`, `GroupValues`,
+  `GroupPath`, `GroupHead`, `AgentsLaunched`, `QuorumOptions`, `QuorumGroupsOptions`,
+  `AnyOfArbiters`, `ArbiterChoice`; AST `QuorumKind`, `CountQuorum`, `GroupsQuorum`, `Quorum`,
+  `QuorumGroup`, `AcceptedBy`, `ArbiterClass` (`LaunchStep.acceptedBy`, `JoinStep.quorum`).
+- **New: `@Arbiter` and `@OnAnswer(Agent)`**, attached with `.acceptedBy(X)` (a chain is an AND,
+  `anyOf(X, Y)` the first that accepts, S57): by model (`criteria` per agent) or by code (one
+  method per agent class, typed by the decorator). New `agboss/units`: `hours()`.
+- **What `.returns(…)` may promise**: after `.joinQuorum({ min })` with `min` below the agents
+  launched a single answer is `optional(XDto)` (compile error and `[flow.quorum-return-not-optional]`
+  otherwise); a repeated class or a shared `output` is `listOf(XDto)` in every form; a group's
+  agents are required in its `.returns(…)` (`JoinOutputs["<launch> group(<agents>)"]`).
+- **New rules**: `[flow.quorum-impossible]`, `[flow.quorum-return-not-optional]`,
+  `[arbiter.not-an-arbiter]`, `[arbiter.unhandled-agent]`, `[arbiter.unknown-agent]`,
+  `[arbiter.duplicate-agent]`, `[arbiter.answer-method-on-model]`, `[arbiter.method-name]`;
+  `[input.missing-on-path]` names the agent a quorum may leave out and the fix.
+- `agboss describe` prints quorums and counts a quorum list's producers (`critic-agent ×1–2`).
+- A workflow with a quorum does not assemble until #279 PR 2 (`flow.quorum-not-runnable`).
+- `@QuorumRouter`, `QuorumStrategy`, `QuorumManager` and `.joinQuorum(n)` stay removed (AC11).
 ## Unreleased — budgets and limits at run time (#261, PR 5)
 
 - **Budgets are checked** ([FinOps](FinOps#budgets)): every execution's budgets — its workflow's

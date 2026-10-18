@@ -394,6 +394,16 @@ its own, run once after every branch ended (#273 PR 2).
 A router before a launch decides only its `OnDemand` routes; its `Always` ones always run
 ([Routing patterns → A router decides who is launched](Advanced-Routing#6-a-router-decides-who-is-launched)).
 
+### Quorums
+
+A launch of agents may be joined by a quorum instead of `.join()` (#279, [Parallel](Parallel)):
+`.joinQuorum({ min, max, deadline })` goes on with the counted answers, `.joinQuorumGroups(group(A,
+B).priority(1).returns(…).to…(…), …, { deadline })` with the first complete group, on that group's
+own path. `@Arbiter`s attached with `.acceptedBy(X)` (an AND in path order; `anyOf(X, Y)` the first
+that accepts) decide which answers count. After `.joinQuorum({ min })` with `min` below the agents
+launched a single answer is `optional(XDto)` in `.returns(…)` — a compile error and
+`[flow.quorum-return-not-optional]` otherwise; a repeated class stays `listOf(XDto)` in every form.
+
 ## Generated types
 
 `agboss check --workflow src/app.workflow.ts` loads the workflows (transpile-only, a stale file
@@ -450,7 +460,8 @@ test("a question about openings goes to the scout", async ({ app, mockLlm }) => 
 
 ## Not in the core yet
 
-Quorums (#279) build on these paths; child workflows (#263) are checked and typed — they run from
-#263 PR 2 ([Workflow as a step](Workflow-as-a-step)). The old
+Quorums (#279) — `.acceptedBy(…)`, `.joinQuorum(…)`, `.joinQuorumGroups(group(…)…)` — and child
+workflows (#263) are checked and typed; they run from #279 PR 2 ([Parallel](Parallel)) and #263 PR 2
+([Workflow as a step](Workflow-as-a-step)). The old
 flow DSL (`from(…).next(…)`, `chain`, `catchError`, `batchParallel`, `node`) is gone;
 [ADR-0019](ADR-0019-Flow-as-paths-with-path-scope) says why.

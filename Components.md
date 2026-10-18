@@ -49,6 +49,7 @@ One component per file, the kind in the name; `agboss create` / `agboss generate
 | `workflow-starts/<name>.workflow-start.ts`     | a `@WorkflowStart` — where a run starts ([Workflow](Workflow))           |
 | `routers/<name>.router.ts`                     | a `@Router` with its routes ([Routers](Routers))                         |
 | `actions/<name>.action.ts`                     | an `@Action` — code without a model                                      |
+| `arbiters/<name>.arbiter.ts`                   | an `@Arbiter` — whether an answer counts for a quorum ([Parallel](Parallel#arbiters)) |
 | `agents/<name>-agent.options.ts`               | an options const two agents share (`satisfies Omit<AgentOptions, …>`)    |
 | `workflow-finishes/<name>.workflow-finish.ts`  | a `@WorkflowFinish` — where a run finishes                               |
 | `agents/<name>.agent.ts` + `<name>.prompt.md`  | an `@Agent`; its prompt file in `promptUrls: ["./<name>.prompt.md"]`     |
@@ -281,6 +282,17 @@ export class ChargeAction implements ActionHandler<ChargeAction> {
 An action gets only its input; the execution comes through `deps: [ExecutionContext]`. What it
 throws is the step's failure (`ActionFailedError`, the original in `cause`), taken by an
 `.onError(…)` right after it ([Rollback](Rollback)).
+
+## An arbiter
+
+An `@Arbiter` (#279) decides whether one answer of a parallel launch counts for its quorum; it is
+attached in the flow with `.acceptedBy(X)` and never chooses where to go. `decidedBy:
+DecidedBy.Model` — `model`, `prompt`, one `criteria` entry per agent of the launch;
+`DecidedBy.Code` — one `@OnAnswer(Agent) from<Agent>(answer: XDto): boolean` method per agent class
+(the plain answer; the copy or item through `deps: [ExecutionContext]`). No `…Handler` interface:
+`@OnAnswer(Agent)` types the method itself, so a wrong answer type, return type or an extra
+parameter does not compile; coverage is `[arbiter.unhandled-agent]` at assembly. The whole contract
+is on [Parallel](Parallel#arbiters).
 
 ## The execution context
 

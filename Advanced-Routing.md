@@ -354,7 +354,7 @@ At run time (#273 PR 2, S21, S23):
 
 | Pattern | Issue |
 | --- | --- |
-| Quorum joins (`.joinQuorum(…)`), groups | #279 |
+| Quorum joins (`.joinQuorum(…)`), groups, arbiters — checked and typed ([Parallel](Parallel)), run from PR 2 | #279 |
 | Child workflows (`.toWorkflow(W)`, `caseOf` per child finish) | #263 |
 
 The transition DSL's `nextParallel` / `join`, `batchParallel`, `@QuorumRouter`, `parallel(…)` /
