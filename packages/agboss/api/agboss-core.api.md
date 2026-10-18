@@ -165,6 +165,92 @@ export interface DecisionRequest<Q extends DecisionQuestions = DecisionQuestions
 // @public
 export type DecisionState = string | Readonly<Record<string, unknown>> | readonly (string | DecisionImage)[];
 
+// Warning: (ae-forgotten-export) The symbol "OnExecutionPause" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "OnExecutionResume" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "OnExecutionRejected" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "OnValuesOutdated" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "OnLaunchItemsTruncated" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnPiiPolicyStart & OnPiiPolicyEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated>;
+
+// @public
+export class ExecutionObserverManager implements Required<ExecutionObserver> {
+    constructor(observers: readonly ExecutionObserver[], onFailure?: ObserverFailure);
+    // (undocumented)
+    onActionEnd(event: ActionEndEvent): Promise<void>;
+    // (undocumented)
+    onActionStart(event: ActionStartEvent): Promise<void>;
+    // (undocumented)
+    onAgentEnd(event: AgentEndEvent): Promise<void>;
+    // (undocumented)
+    onAgentStart(event: AgentStartEvent): Promise<void>;
+    // (undocumented)
+    onChannelEnd(event: ChannelEndEvent): Promise<void>;
+    // (undocumented)
+    onChannelStart(event: ChannelStartEvent): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionEndEvent" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    onExecutionEnd(event: ExecutionEndEvent): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionErrorEvent" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    onExecutionError(event: ExecutionErrorEvent): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionPauseEvent" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    onExecutionPause(event: ExecutionPauseEvent): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionRejectedEvent" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    onExecutionRejected(event: ExecutionRejectedEvent): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionResumeEvent" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    onExecutionResume(event: ExecutionResumeEvent): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionStartEvent" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    onExecutionStart(event: ExecutionStartEvent): Promise<void>;
+    // (undocumented)
+    onGuardrailEnd(event: GuardrailEndEvent): Promise<void>;
+    // (undocumented)
+    onGuardrailStart(event: GuardrailStartEvent): Promise<void>;
+    // (undocumented)
+    onJudgeEnd(event: JudgeEndEvent): Promise<void>;
+    // (undocumented)
+    onJudgeStart(event: JudgeStartEvent): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "LaunchItemsTruncatedEvent" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): Promise<void>;
+    // (undocumented)
+    onModelEnd(event: ModelEndEvent): Promise<void>;
+    // (undocumented)
+    onModelStart(event: ModelStartEvent): Promise<void>;
+    // (undocumented)
+    onPiiPolicyEnd(event: PiiPolicyEndEvent): Promise<void>;
+    // (undocumented)
+    onPiiPolicyStart(event: PiiPolicyStartEvent): Promise<void>;
+    // (undocumented)
+    onRagEnd(event: RagEndEvent): Promise<void>;
+    // (undocumented)
+    onRagStart(event: RagStartEvent): Promise<void>;
+    // (undocumented)
+    onRouterEnd(event: RouterEndEvent): Promise<void>;
+    // (undocumented)
+    onRouterStart(event: RouterStartEvent): Promise<void>;
+    // (undocumented)
+    onToolEnd(event: ToolEndEvent): Promise<void>;
+    // (undocumented)
+    onToolStart(event: ToolStartEvent): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "ValuesOutdatedEvent" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    onValuesOutdated(event: ValuesOutdatedEvent): Promise<void>;
+}
+
 // @public
 export function file(filePath: string): string;
 
@@ -357,90 +443,13 @@ export interface NoulQuestion {
 export const OBSERVER_HOOKS: readonly ObserverHook[];
 
 // @public
-export type ObserverClass = Class<WorkflowObserver>;
+export type ObserverClass = Class<ExecutionObserver>;
 
 // @public
 export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;
 
 // @public
-export type ObserverHook = keyof WorkflowObserver;
-
-// @public
-export class ObserverManager implements Required<WorkflowObserver> {
-    constructor(observers: readonly WorkflowObserver[], onFailure?: ObserverFailure);
-    // (undocumented)
-    onActionEnd(event: ActionEndEvent): Promise<void>;
-    // (undocumented)
-    onActionStart(event: ActionStartEvent): Promise<void>;
-    // (undocumented)
-    onAgentEnd(event: AgentEndEvent): Promise<void>;
-    // (undocumented)
-    onAgentStart(event: AgentStartEvent): Promise<void>;
-    // (undocumented)
-    onChannelEnd(event: ChannelEndEvent): Promise<void>;
-    // (undocumented)
-    onChannelStart(event: ChannelStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionEndEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onExecutionEnd(event: ExecutionEndEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionErrorEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onExecutionError(event: ExecutionErrorEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionPauseEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onExecutionPause(event: ExecutionPauseEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionRejectedEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onExecutionRejected(event: ExecutionRejectedEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionResumeEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onExecutionResume(event: ExecutionResumeEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionStartEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onExecutionStart(event: ExecutionStartEvent): Promise<void>;
-    // (undocumented)
-    onGuardrailEnd(event: GuardrailEndEvent): Promise<void>;
-    // (undocumented)
-    onGuardrailStart(event: GuardrailStartEvent): Promise<void>;
-    // (undocumented)
-    onJudgeEnd(event: JudgeEndEvent): Promise<void>;
-    // (undocumented)
-    onJudgeStart(event: JudgeStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "LaunchItemsTruncatedEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): Promise<void>;
-    // (undocumented)
-    onModelEnd(event: ModelEndEvent): Promise<void>;
-    // (undocumented)
-    onModelStart(event: ModelStartEvent): Promise<void>;
-    // (undocumented)
-    onPiiPolicyEnd(event: PiiPolicyEndEvent): Promise<void>;
-    // (undocumented)
-    onPiiPolicyStart(event: PiiPolicyStartEvent): Promise<void>;
-    // (undocumented)
-    onRagEnd(event: RagEndEvent): Promise<void>;
-    // (undocumented)
-    onRagStart(event: RagStartEvent): Promise<void>;
-    // (undocumented)
-    onRouterEnd(event: RouterEndEvent): Promise<void>;
-    // (undocumented)
-    onRouterStart(event: RouterStartEvent): Promise<void>;
-    // (undocumented)
-    onToolEnd(event: ToolEndEvent): Promise<void>;
-    // (undocumented)
-    onToolStart(event: ToolStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ValuesOutdatedEvent" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    onValuesOutdated(event: ValuesOutdatedEvent): Promise<void>;
-}
+export type ObserverHook = keyof ExecutionObserver;
 
 // @public (undocumented)
 export interface OnActionEnd {
@@ -765,15 +774,6 @@ export interface WorkflowDefinition {
     // (undocumented)
     settings(): WorkflowSettings;
 }
-
-// Warning: (ae-forgotten-export) The symbol "OnExecutionPause" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OnExecutionResume" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OnExecutionRejected" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OnValuesOutdated" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OnLaunchItemsTruncated" needs to be exported by the entry point index.d.ts
-//
-// @public
-export type WorkflowObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnPiiPolicyStart & OnPiiPolicyEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated>;
 
 // @public
 export class WorkflowSettings {

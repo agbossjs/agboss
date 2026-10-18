@@ -63,7 +63,7 @@ export interface OnExecutionEnd {
   onExecutionEnd(event: ExecutionEndEvent): HookResult;
 }
 /**
- * The execution failed (also after a resume, or cancelled while paused: `WorkflowCancelledError`),
+ * The execution failed (also after a resume, or cancelled while paused: `ExecutionCancelledError`),
  * or a resume of a paused one was refused as incompatible (`IncompatibleResumeError`; it stays
  * paused).
  */
@@ -148,7 +148,7 @@ export interface OnLaunchItemsTruncated {
 }
 
 /** Every hook, all optional: the type of an observer instance. */
-export type WorkflowObserver = Partial<
+export type ExecutionObserver = Partial<
   OnExecutionStart &
     OnExecutionPause &
     OnExecutionResume &
@@ -180,12 +180,12 @@ export type WorkflowObserver = Partial<
 >;
 
 /** The name of a hook, e.g. `"onToolEnd"`. */
-export type ObserverHook = keyof WorkflowObserver;
+export type ObserverHook = keyof ExecutionObserver;
 
 /** A class for `@Application({ observers })`: its instances implement some of the hooks. */
-export type ObserverClass = Class<WorkflowObserver>;
+export type ObserverClass = Class<ExecutionObserver>;
 
-/** Every hook name; a `Record` so a hook added to `WorkflowObserver` must be listed here. */
+/** Every hook name; a `Record` so a hook added to `ExecutionObserver` must be listed here. */
 const HOOKS: Readonly<Record<ObserverHook, true>> = {
   onExecutionStart: true,
   onExecutionPause: true,

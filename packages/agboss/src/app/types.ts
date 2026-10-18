@@ -155,7 +155,7 @@ export interface App {
   resume(threadId: string, decision: unknown, options?: ResumeOptions): Promise<ExecutionOutput>;
   /**
    * Cancels the thread's run: a running one is aborted (`executionContext.signal`; its `execute` rejects
-   * with `WorkflowCancelledError`), a paused one is dropped (its `resume` throws `NotPausedError`).
+   * with `ExecutionCancelledError`), a paused one is dropped (its `resume` throws `NotPausedError`).
    * A thread the tenant does not have → `UnknownThreadError`.
    */
   cancel(threadId: string, options?: CancelOptions): Promise<CancelOutput>;

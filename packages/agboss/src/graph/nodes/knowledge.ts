@@ -2,7 +2,7 @@ import { RunnableLambda, type RunnableConfig } from "@langchain/core/runnables";
 import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";
 import { CITE_INSTRUCTION, knowledgeBlock } from "../../prompts/rag.js";
 import type { KnowledgeSource } from "../../rag/types.js";
-import type { ObserverManager } from "../../core/observer-manager.js";
+import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 
 /**
@@ -15,7 +15,7 @@ export async function gatherKnowledge(
   sources: readonly KnowledgeSource[],
   query: string,
   config: RunnableConfig | undefined,
-  observer?: ObserverManager,
+  observer?: ExecutionObserverManager,
 ): Promise<{ readonly block: string; readonly records: UsageRecord[] }> {
   const records: UsageRecord[] = [];
   const blocks: string[] = [];

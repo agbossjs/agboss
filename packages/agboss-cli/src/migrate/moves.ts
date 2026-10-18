@@ -24,10 +24,18 @@ const FrameworkPackage = z.object({
 const specifierOf = (name: string, subpath: string): string =>
   subpath === "." ? name : `${name}/${subpath.replace(/^\.\//, "")}`;
 
+/** #261 PR 6: the observers and the cancel error are named after executions. */
+const EXECUTION_NAMES: Readonly<Record<string, Move>> = {
+  WorkflowObserver: { entry: "agboss", name: "ExecutionObserver" },
+  ObserverManager: { entry: "agboss", name: "ExecutionObserverManager" },
+  WorkflowCancelledError: { entry: "agboss", name: "ExecutionCancelledError" },
+};
+
 /** One name per meaning (#195): the public names that were renamed or left the root entry. */
 const RENAMED: ImportMoves["names"] = {
-  "agboss/core": { Router: { entry: "agboss", name: "RouterEngine" } },
+  "agboss/core": { Router: { entry: "agboss", name: "RouterEngine" }, ...EXECUTION_NAMES },
   agboss: {
+    ...EXECUTION_NAMES,
     McpServer: { entry: "agboss/mcp", name: "McpExpose" },
     McpServerOptions: { entry: "agboss/mcp", name: "McpExposeOptions" },
     McpService: { entry: "agboss/mcp" },

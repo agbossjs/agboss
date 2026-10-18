@@ -105,7 +105,7 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   type ObserverHook,
   /** @deprecated Import from "agboss" (#195). */
-  ObserverManager,
+  ExecutionObserverManager,
   /** @deprecated Import from "agboss" (#195). */
   type OnActionEnd,
   /** @deprecated Import from "agboss" (#195). */
@@ -213,7 +213,7 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   type WorkflowDefinition,
   /** @deprecated Import from "agboss" (#195). */
-  type WorkflowObserver,
+  type ExecutionObserver,
   /** @deprecated Import from "agboss" (#195). */
   WorkflowSettings,
 } from "../index.js";

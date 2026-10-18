@@ -115,7 +115,7 @@ describe("@Application observers are checked at assembly", () => {
   });
 
   it("rejects a class with only a misspelled hook, at tsc and at assembly", async () => {
-    // @ts-expect-error — OnlyTypo shares no hook with WorkflowObserver
+    // @ts-expect-error — OnlyTypo shares no hook with ExecutionObserver
     expect(await assemblyError([OnlyTypo])).toContain("did you mean onToolEnd?");
   });
 

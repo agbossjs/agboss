@@ -8,7 +8,7 @@ import {
   SpendRecorder,
   Workflow,
   WorkflowFinish,
-  WorkflowCancelledError,
+  ExecutionCancelledError,
   WorkflowStart,
   type LaunchItemsTruncatedEvent,
   type OnLaunchItemsTruncated,
@@ -175,7 +175,7 @@ export class FanOutLog implements OnLaunchItemsTruncated {
       .join()
       .onJoinError(ItemFailedError, toFinish(ItemsFailedWorkflowFinish))
       // never taken: a cancel of the execution stops it whole (S21)
-      .onJoinError(WorkflowCancelledError, toFinish(ItemsFailedWorkflowFinish))
+      .onJoinError(ExecutionCancelledError, toFinish(ItemsFailedWorkflowFinish))
       .returns(listOf(ItemResultDto))
       .toFinish(SummaryWorkflowFinish),
   ],

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect } from "vitest";
-import { WorkflowCancelledError } from "../../src/core/errors.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
 import type { ExecutionOutput } from "../../src/index.js";
 import { callTool, failWith, ModelFailure, replyWith, testWith } from "../../src/testing/index.js";
@@ -128,7 +128,7 @@ describe("#244 AC2: a run that fails after a resume, or is cancelled while pause
     expectOneRun(paused);
   });
 
-  test("a paused run is cancelled: start, pause, error (WorkflowCancelledError)", async ({
+  test("a paused run is cancelled: start, pause, error (ExecutionCancelledError)", async ({
     app,
     mockLlm,
   }) => {
@@ -142,7 +142,7 @@ describe("#244 AC2: a run that fails after a resume, or is cancelled while pause
 
     expect(cancelled).toEqual({ cancelled: true });
     expect(hooks()).toEqual(["execution-start", "execution-pause", "execution-error"]);
-    expect(workflowEvents().at(-1)?.detail).toBeInstanceOf(WorkflowCancelledError);
+    expect(workflowEvents().at(-1)?.detail).toBeInstanceOf(ExecutionCancelledError);
     expectOneRun(paused);
     // nothing is left to cancel: no second error
     expect(await app.cancel(paused.threadId)).toEqual({ cancelled: false });

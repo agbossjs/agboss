@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect } from "vitest";
-import { WorkflowCancelledError } from "../../src/core/errors.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { NotPausedError, UnknownThreadError } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
@@ -99,7 +99,7 @@ describe("#187 AC2: cancelling a running run stops it before the next model/tool
     const cancelled = await app.cancel(thread);
 
     expect(cancelled).toEqual({ cancelled: true });
-    await expect(run.done).rejects.toBeInstanceOf(WorkflowCancelledError);
+    await expect(run.done).rejects.toBeInstanceOf(ExecutionCancelledError);
     expect(seen.blocked).toHaveLength(1);
     expect(seen.blocked[0]?.aborted).toBe(true);
     expect(mockLlm(Clerk).requests).toHaveLength(1);
@@ -118,7 +118,7 @@ describe("#187 AC2: cancelling a running run stops it before the next model/tool
     await run.thread;
 
     expect(await app.cancel(paused.threadId)).toEqual({ cancelled: true });
-    await expect(run.done).rejects.toBeInstanceOf(WorkflowCancelledError);
+    await expect(run.done).rejects.toBeInstanceOf(ExecutionCancelledError);
     expect(seen.charges).toHaveLength(1);
     expect(mockLlm(Clerk).requests).toHaveLength(2);
     await expect(app.resume(paused.threadId, approve)).rejects.toBeInstanceOf(NotPausedError);

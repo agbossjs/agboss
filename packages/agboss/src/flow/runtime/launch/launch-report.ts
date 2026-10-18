@@ -1,6 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { RunnableLambda } from "@langchain/core/runnables";
-import type { ObserverManager } from "../../../core/observer-manager.js";
+import type { ExecutionObserverManager } from "../../../core/observer-manager.js";
 import type { ErrorRecord } from "../../../core/error-record.js";
 import type { FrameSpec } from "../../context/frame.js";
 import type { LaunchItemsTruncatedEvent } from "../../observers/launch-items-truncated.js";
@@ -63,7 +63,7 @@ export function reportBranch(
 
 /** Where a launch is reported from: the launching step's frame and the observers. */
 export interface LaunchReportSite {
-  readonly observer?: ObserverManager;
+  readonly observer?: ExecutionObserverManager;
   readonly config?: RunnableConfig;
   readonly frame: FrameSpec;
 }

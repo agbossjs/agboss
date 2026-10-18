@@ -1,5 +1,5 @@
 import type { BudgetCheck } from "../../budgets/execution-budgets.js";
-import type { ObserverManager } from "../../core/observer-manager.js";
+import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import type { AIMessage } from "@langchain/core/messages";
 import type { JudgeBinding, ModelBinding } from "../../llm/registry.js";
 import type { BaseMemoryStrategy } from "../../memory/types.js";
@@ -57,7 +57,7 @@ export interface AgentLoopDeps {
   readonly workflowGuardrails?: readonly Guardrail[];
   readonly toolPiiPolicies?: (tool: string) => ResolvedPolicies<PiiPolicy>;
   readonly toolGuardrails?: (tool: string) => ResolvedPolicies<Guardrail>;
-  readonly observer?: ObserverManager;
+  readonly observer?: ExecutionObserverManager;
 }
 
 /** One tool call of a move, with its id (assigned by the loop when the model gives none). */

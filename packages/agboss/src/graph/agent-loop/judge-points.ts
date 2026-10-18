@@ -1,5 +1,5 @@
 import type { GuardrailInput } from "../../core/observability.js";
-import type { WorkflowObserver } from "../../core/observer-hooks.js";
+import type { ExecutionObserver } from "../../core/observer-hooks.js";
 import type { ToolCallRequest } from "./deps.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 
@@ -75,7 +75,7 @@ export function mergePolicies(
 
 /** Tells the observers a guardrail ran: start with what it is shown, end with what it returned. */
 async function reportGuardrail<T>(
-  observer: WorkflowObserver | undefined,
+  observer: ExecutionObserver | undefined,
   name: string,
   input: GuardrailInput,
   run: () => Promise<T>,
@@ -95,7 +95,7 @@ export async function visitToolThenAgent(
   ctx: any,
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types, @typescript-eslint/no-explicit-any
   decision?: any,
-  observer?: WorkflowObserver,
+  observer?: ExecutionObserver,
 ): Promise<void> {
   if (!guardrails) return;
   for (const g of guardrails) {
@@ -127,7 +127,7 @@ export async function visitAgentAnswer(
   guardrails: readonly any[] | undefined,
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types, @typescript-eslint/no-explicit-any
   ctx: any,
-  observer?: WorkflowObserver,
+  observer?: ExecutionObserver,
 ): Promise<void> {
   if (!guardrails) return;
   for (const g of guardrails) {

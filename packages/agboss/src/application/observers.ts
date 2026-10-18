@@ -1,6 +1,6 @@
 import type { ApplicationContainer, ContainerOptions } from "../components/container/container.js";
-import type { WorkflowObserver } from "../core/observer-hooks.js";
-import { ObserverManager, type ObserverFailure } from "../core/observer-manager.js";
+import type { ExecutionObserver } from "../core/observer-hooks.js";
+import { ExecutionObserverManager, type ObserverFailure } from "../core/observer-manager.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import { resolveListed } from "./application-container.js";
 import type { AssembledApplication } from "./assemble.js";
@@ -25,8 +25,8 @@ export function observerManagerOf(
   application: ApplicationContainer,
   options: ContainerOptions,
   log: FrameworkLog,
-): ObserverManager {
+): ExecutionObserverManager {
   // each listed class is checked at assembly to implement observer hooks
-  const observers = resolveListed(application, options, assembled.observers) as WorkflowObserver[];
-  return new ObserverManager(observers, failureLoggedTo(log));
+  const observers = resolveListed(application, options, assembled.observers) as ExecutionObserver[];
+  return new ExecutionObserverManager(observers, failureLoggedTo(log));
 }

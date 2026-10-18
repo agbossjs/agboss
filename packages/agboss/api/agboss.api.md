@@ -302,7 +302,7 @@ export interface AppDeps extends RunDeps<string> {
     // Warning: (ae-forgotten-export) The symbol "FrameworkLog" needs to be exported by the entry point index.d.ts
     readonly log: FrameworkLog;
     readonly models: readonly string[];
-    readonly observer: ObserverManager;
+    readonly observer: ExecutionObserverManager;
     readonly warnings: readonly string[];
 }
 
@@ -1026,6 +1026,15 @@ export interface ExecutionBudgetOptions<TDeps extends readonly Token[]> extends 
 }
 
 // @public
+export class ExecutionCancelledError extends AGBossError {
+    constructor(message?: string);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    name: string;
+}
+
+// @public
 export abstract class ExecutionContext {
     readonly depth: number;
     readonly executionId: string;
@@ -1111,6 +1120,70 @@ export abstract class ExecutionLeaseRepository {
     abstract acquire(tenantId: string, rootExecutionId: string, lease: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
     abstract renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean>;
+}
+
+// @public
+export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnPiiPolicyStart & OnPiiPolicyEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated>;
+
+// @public
+export class ExecutionObserverManager implements Required<ExecutionObserver> {
+    constructor(observers: readonly ExecutionObserver[], onFailure?: ObserverFailure);
+    // (undocumented)
+    onActionEnd(event: ActionEndEvent): Promise<void>;
+    // (undocumented)
+    onActionStart(event: ActionStartEvent): Promise<void>;
+    // (undocumented)
+    onAgentEnd(event: AgentEndEvent): Promise<void>;
+    // (undocumented)
+    onAgentStart(event: AgentStartEvent): Promise<void>;
+    // (undocumented)
+    onChannelEnd(event: ChannelEndEvent): Promise<void>;
+    // (undocumented)
+    onChannelStart(event: ChannelStartEvent): Promise<void>;
+    // (undocumented)
+    onExecutionEnd(event: ExecutionEndEvent): Promise<void>;
+    // (undocumented)
+    onExecutionError(event: ExecutionErrorEvent): Promise<void>;
+    // (undocumented)
+    onExecutionPause(event: ExecutionPauseEvent): Promise<void>;
+    // (undocumented)
+    onExecutionRejected(event: ExecutionRejectedEvent): Promise<void>;
+    // (undocumented)
+    onExecutionResume(event: ExecutionResumeEvent): Promise<void>;
+    // (undocumented)
+    onExecutionStart(event: ExecutionStartEvent): Promise<void>;
+    // (undocumented)
+    onGuardrailEnd(event: GuardrailEndEvent): Promise<void>;
+    // (undocumented)
+    onGuardrailStart(event: GuardrailStartEvent): Promise<void>;
+    // (undocumented)
+    onJudgeEnd(event: JudgeEndEvent): Promise<void>;
+    // (undocumented)
+    onJudgeStart(event: JudgeStartEvent): Promise<void>;
+    // (undocumented)
+    onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): Promise<void>;
+    // (undocumented)
+    onModelEnd(event: ModelEndEvent): Promise<void>;
+    // (undocumented)
+    onModelStart(event: ModelStartEvent): Promise<void>;
+    // (undocumented)
+    onPiiPolicyEnd(event: PiiPolicyEndEvent): Promise<void>;
+    // (undocumented)
+    onPiiPolicyStart(event: PiiPolicyStartEvent): Promise<void>;
+    // (undocumented)
+    onRagEnd(event: RagEndEvent): Promise<void>;
+    // (undocumented)
+    onRagStart(event: RagStartEvent): Promise<void>;
+    // (undocumented)
+    onRouterEnd(event: RouterEndEvent): Promise<void>;
+    // (undocumented)
+    onRouterStart(event: RouterStartEvent): Promise<void>;
+    // (undocumented)
+    onToolEnd(event: ToolEndEvent): Promise<void>;
+    // (undocumented)
+    onToolStart(event: ToolStartEvent): Promise<void>;
+    // (undocumented)
+    onValuesOutdated(event: ValuesOutdatedEvent): Promise<void>;
 }
 
 // @public
@@ -1361,7 +1434,7 @@ export interface GraphDeps<TName extends string> {
     readonly maxSteps: number;
     readonly memory?: ReadonlyMap<string, BaseMemoryStrategy>;
     // (undocumented)
-    readonly observer?: ObserverManager;
+    readonly observer?: ExecutionObserverManager;
     // Warning: (ae-forgotten-export) The symbol "PauseSeam" needs to be exported by the entry point index.d.ts
     readonly pause?: PauseSeam | undefined;
     // (undocumented)
@@ -2110,74 +2183,13 @@ export interface NoulQuestion {
 export const OBSERVER_HOOKS: readonly ObserverHook[];
 
 // @public
-export type ObserverClass = Class<WorkflowObserver>;
+export type ObserverClass = Class<ExecutionObserver>;
 
 // @public
 export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;
 
 // @public
-export type ObserverHook = keyof WorkflowObserver;
-
-// @public
-export class ObserverManager implements Required<WorkflowObserver> {
-    constructor(observers: readonly WorkflowObserver[], onFailure?: ObserverFailure);
-    // (undocumented)
-    onActionEnd(event: ActionEndEvent): Promise<void>;
-    // (undocumented)
-    onActionStart(event: ActionStartEvent): Promise<void>;
-    // (undocumented)
-    onAgentEnd(event: AgentEndEvent): Promise<void>;
-    // (undocumented)
-    onAgentStart(event: AgentStartEvent): Promise<void>;
-    // (undocumented)
-    onChannelEnd(event: ChannelEndEvent): Promise<void>;
-    // (undocumented)
-    onChannelStart(event: ChannelStartEvent): Promise<void>;
-    // (undocumented)
-    onExecutionEnd(event: ExecutionEndEvent): Promise<void>;
-    // (undocumented)
-    onExecutionError(event: ExecutionErrorEvent): Promise<void>;
-    // (undocumented)
-    onExecutionPause(event: ExecutionPauseEvent): Promise<void>;
-    // (undocumented)
-    onExecutionRejected(event: ExecutionRejectedEvent): Promise<void>;
-    // (undocumented)
-    onExecutionResume(event: ExecutionResumeEvent): Promise<void>;
-    // (undocumented)
-    onExecutionStart(event: ExecutionStartEvent): Promise<void>;
-    // (undocumented)
-    onGuardrailEnd(event: GuardrailEndEvent): Promise<void>;
-    // (undocumented)
-    onGuardrailStart(event: GuardrailStartEvent): Promise<void>;
-    // (undocumented)
-    onJudgeEnd(event: JudgeEndEvent): Promise<void>;
-    // (undocumented)
-    onJudgeStart(event: JudgeStartEvent): Promise<void>;
-    // (undocumented)
-    onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): Promise<void>;
-    // (undocumented)
-    onModelEnd(event: ModelEndEvent): Promise<void>;
-    // (undocumented)
-    onModelStart(event: ModelStartEvent): Promise<void>;
-    // (undocumented)
-    onPiiPolicyEnd(event: PiiPolicyEndEvent): Promise<void>;
-    // (undocumented)
-    onPiiPolicyStart(event: PiiPolicyStartEvent): Promise<void>;
-    // (undocumented)
-    onRagEnd(event: RagEndEvent): Promise<void>;
-    // (undocumented)
-    onRagStart(event: RagStartEvent): Promise<void>;
-    // (undocumented)
-    onRouterEnd(event: RouterEndEvent): Promise<void>;
-    // (undocumented)
-    onRouterStart(event: RouterStartEvent): Promise<void>;
-    // (undocumented)
-    onToolEnd(event: ToolEndEvent): Promise<void>;
-    // (undocumented)
-    onToolStart(event: ToolStartEvent): Promise<void>;
-    // (undocumented)
-    onValuesOutdated(event: ValuesOutdatedEvent): Promise<void>;
-}
+export type ObserverHook = keyof ExecutionObserver;
 
 // @public (undocumented)
 export interface OnActionEnd {
@@ -3553,15 +3565,6 @@ export function Workflow(options: WorkflowOptions): <TClass extends Class>(value
 export function workflow<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public
-export class WorkflowCancelledError extends AGBossError {
-    constructor(message?: string);
-    // (undocumented)
-    static readonly code: string;
-    // (undocumented)
-    name: string;
-}
-
-// @public
 export type WorkflowClass = Class;
 
 // @public
@@ -3633,9 +3636,6 @@ export class WorkflowLoadError extends Error {
     // (undocumented)
     name: string;
 }
-
-// @public
-export type WorkflowObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnPiiPolicyStart & OnPiiPolicyEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated>;
 
 // @public
 export interface WorkflowOptions {

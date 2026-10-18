@@ -8,7 +8,7 @@ import {
 import type { PendingPause } from "../../pause/index.js";
 import type { AnyTool } from "../../tools/index.js";
 import type { ChannelRequest, InboundChannelAdapter } from "../../components/decorators.js";
-import type { ObserverManager } from "../../core/observer-manager.js";
+import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 
 /**
@@ -28,7 +28,7 @@ export interface ToolCallApproval {
 export interface ApprovalChannels {
   readonly dispatch?: (channelName: string, req: ChannelRequest) => Promise<void>;
   readonly adapterOf?: (channel: string) => InboundChannelAdapter | undefined;
-  readonly observer?: ObserverManager;
+  readonly observer?: ExecutionObserverManager;
 }
 
 interface AskContext {

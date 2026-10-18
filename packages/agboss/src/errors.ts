@@ -6,7 +6,7 @@
  */
 export {
   AGBossError,
-  WorkflowCancelledError,
+  ExecutionCancelledError,
   type ErrorDetails,
   type AGBossErrorOptions,
 } from "./core/errors.js";

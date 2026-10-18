@@ -1,6 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { RunnableLambda } from "@langchain/core/runnables";
-import type { ObserverManager } from "../../core/observer-manager.js";
+import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import type { StepDescriptor } from "../context/execution-context.js";
 import type { ExecutionFacts } from "../context/frame.js";
 import type { ValuesOutdatedEvent } from "../observers/values-outdated.js";
@@ -31,7 +31,7 @@ export interface ValuesOutdatedTrace {
 
 /** Where a visit's cascades are reported, and what labels them. */
 export interface OutdatingReportSite {
-  readonly observer?: ObserverManager;
+  readonly observer?: ExecutionObserverManager;
   readonly config?: RunnableConfig;
   readonly execution: ExecutionFacts;
   readonly step: StepDescriptor;

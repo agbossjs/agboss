@@ -1,6 +1,6 @@
-import { WorkflowCancelledError } from "../core/errors.js";
+import { ExecutionCancelledError } from "../core/errors.js";
 import type { ExecutionOperation, ExecutionRejectedEvent } from "../core/observability.js";
-import type { ObserverManager } from "../core/observer-manager.js";
+import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import { DtoValidationError } from "../dto/errors.js";
 import type { ExecutionEvent } from "../flow/observers/execution-event.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
@@ -45,7 +45,7 @@ export const executionEventAt = (
  * an interruption, which is not a failure: another instance goes on with the execution (#265).
  */
 export async function observeLeg(
-  observer: ObserverManager,
+  observer: ExecutionObserverManager,
   event: ExecutionEvent,
   leg: () => Promise<ExecutionOutput>,
 ): Promise<ExecutionOutput> {
@@ -63,12 +63,14 @@ export async function observeLeg(
   return result;
 }
 
-/** A paused execution was cancelled instead of resumed: it ends as failed, `WorkflowCancelledError`. */
+/** A paused execution was cancelled instead of resumed: it ends as failed, `ExecutionCancelledError`. */
 export function observeCancelledPause(
-  observer: ObserverManager,
+  observer: ExecutionObserverManager,
   event: ExecutionEvent,
 ): Promise<void> {
-  const error = new WorkflowCancelledError(`thread "${event.threadId}" was cancelled while paused`);
+  const error = new ExecutionCancelledError(
+    `thread "${event.threadId}" was cancelled while paused`,
+  );
   return observer.onExecutionError({ ...event, error });
 }
 
@@ -112,7 +114,7 @@ function rejectionOf(request: ExecutionRequest, error: unknown): ExecutionReject
  * id, its thread; it stays paused.
  */
 export async function admitRequest<T>(
-  observer: ObserverManager,
+  observer: ExecutionObserverManager,
   workflow: RunningWorkflow,
   request: ExecutionRequest,
   checks: () => Promise<T>,

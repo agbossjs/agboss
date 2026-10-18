@@ -27,10 +27,10 @@ export class AGBossError extends Error {
 }
 
 /** The run was cancelled: its signal aborted, or a cancel was requested before a node ran. */
-export class WorkflowCancelledError extends AGBossError {
-  static override readonly code: string = "workflow.cancelled";
-  override name = "WorkflowCancelledError";
-  constructor(message = "Workflow execution was cancelled externally") {
+export class ExecutionCancelledError extends AGBossError {
+  static override readonly code: string = "execution.cancelled";
+  override name = "ExecutionCancelledError";
+  constructor(message = "the execution was cancelled externally") {
     super(message);
   }
 }

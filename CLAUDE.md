@@ -1006,7 +1006,7 @@ export class SeenJobsRepository {
   `idempotencyKey`, `callId`). Execution hooks: `onExecutionStart` once per execution,
   `onExecutionPause` / `onExecutionResume` (`reason: ResumeReason`) around a pause,
   `onExecutionEnd` once when it ends at a finish (`finish`, `spend`), `onExecutionError` when it
-  fails — also after a resume (a cancelled paused one: `WorkflowCancelledError`). A request refused
+  fails — also after a resume (a cancelled paused one: `ExecutionCancelledError`). A request refused
   before an execution starts or is located (another owner's thread, nothing paused, an unknown
   thread, invalid input, an exhausted budget) → `onExecutionRejected` (`operation:
 ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input values, no
@@ -1112,7 +1112,7 @@ tenant, execution, onStream })` runs the workflow of that start (any workflow of
   application; one start in two workflows → `[application.ambiguous-start]`) → `ExecutionOutput`
   (`output` is the finish's DTO, `finish`, `path`, `spend`, `threadId`, `tenantId`, `runId`);
   `app.resume(threadId, decision, { tenantId, ownerId })` continues a paused run;
-  `app.cancel(threadId, { tenantId, ownerId })` aborts a running one (`WorkflowCancelledError`) or
+  `app.cancel(threadId, { tenantId, ownerId })` aborts a running one (`ExecutionCancelledError`) or
   drops a paused one (`resume` → `NotPausedError`). The options are named like the
   `ExecutionContext` fields they fill — `threadId`, never `thread`. A thread with an `ownerId`
   rejects another owner (`ThreadOwnerError`).
@@ -1222,7 +1222,7 @@ today; tenant-daily-budget allows $40`).
   `limit.steps`, `limit.visits`, `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
   `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`ActionFailedError`, the
   action's error as `cause`) / `step.guard` / `step.router` ⊃ `step.router.invalid-decision`,
-  `workflow.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
+  `execution.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
   `app.close()`, an `onExecutionRejected`, …); a new error
   class gets a `static code`. `.onError` matches by class, so a subclass is caught by its parent's
   side path.

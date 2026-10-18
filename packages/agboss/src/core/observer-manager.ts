@@ -28,7 +28,7 @@ import type {
   ToolEndEvent,
   ToolStartEvent,
 } from "./observability.js";
-import type { ObserverHook, WorkflowObserver } from "./observer-hooks.js";
+import type { ObserverHook, ExecutionObserver } from "./observer-hooks.js";
 
 /** Told when an observer's hook throws; the execution goes on. */
 export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;
@@ -41,15 +41,15 @@ const ignore: ObserverFailure = () => undefined;
  * An observer that throws is reported to `onFailure` (the application's log: a warning) and
  * skipped: it never fails the execution.
  */
-export class ObserverManager implements Required<WorkflowObserver> {
+export class ExecutionObserverManager implements Required<ExecutionObserver> {
   constructor(
-    private readonly observers: readonly WorkflowObserver[],
+    private readonly observers: readonly ExecutionObserver[],
     private readonly onFailure: ObserverFailure = ignore,
   ) {}
 
   private async each(
     hook: ObserverHook,
-    call: (observer: WorkflowObserver) => Promise<void> | void,
+    call: (observer: ExecutionObserver) => Promise<void> | void,
   ): Promise<void> {
     for (const observer of this.observers) {
       try {

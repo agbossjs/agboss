@@ -6,7 +6,7 @@ import type {
 } from "../components/decorators.js";
 import type { Class } from "../components/injection.js";
 import { stopComponents } from "../components/container/lifecycle.js";
-import { ObserverManager } from "../core/observer-manager.js";
+import { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { Clock } from "../infrastructure/clock.js";
 import { frameworkLogOf, type FrameworkLog, type Logger } from "../infrastructure/logger.js";
 import type { McpConnections } from "../tools/index.js";
@@ -74,11 +74,11 @@ export function containerDepsOf(
 
 /** The application's observers (none for a workflow on its own) and its log, stamped by its clock. */
 export const observedBy = (
-  observer: ObserverManager | undefined,
+  observer: ExecutionObserverManager | undefined,
   logger: Logger,
   clock: Clock,
-): { readonly observer: ObserverManager; readonly log: FrameworkLog } => ({
-  observer: observer ?? new ObserverManager([]),
+): { readonly observer: ExecutionObserverManager; readonly log: FrameworkLog } => ({
+  observer: observer ?? new ExecutionObserverManager([]),
   log: frameworkLogOf(logger, clock),
 });
 

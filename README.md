@@ -713,7 +713,7 @@ channel, a guardrail or any component reads them through its injected `Execution
 (`adapter.execute(Start, request, onEvent, { tenant, execution, ownerId })`) passes them from its
 authenticated caller. `app.cancel(threadId)` aborts a running
 run — it stops before its next model or tool call and `execute` rejects with
-`WorkflowCancelledError` — or drops a paused one, whose `resume` then throws `NotPausedError`;
+`ExecutionCancelledError` — or drops a paused one, whose `resume` then throws `NotPausedError`;
 `cancelled` is `false` when the thread had neither (a thread the tenant does not have is
 `UnknownThreadError`). From `app.close()` on, `execute` and `resume`
 are refused with `ApplicationStoppingError` (`app.stopping`, an `onExecutionRejected`); running executions
@@ -773,7 +773,7 @@ channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`) adds `step`, a `St
 and recovery emit `onExecutionResume` (`event.reason`, `event.decision`), `onExecutionEnd` fires once
 when it ends at a finish (`event.finish`: a `ComponentRecord`, `event.spend`) and
 `onExecutionError` when it fails (`event.error`) — also after a resume; cancelling a paused
-execution is an `onExecutionError` with `WorkflowCancelledError`. A request refused before an
+execution is an `onExecutionError` with `ExecutionCancelledError`. A request refused before an
 execution starts or is located — another owner's thread, a `resume` with nothing paused, an
 `execute` on an unknown thread or with an invalid input, an exhausted budget, a request after
 `app.close()` — emits `onExecutionRejected` (`operation`: `ExecutionOperation.Execute | Resume |

@@ -172,7 +172,7 @@ export interface ExecutionResumeEvent extends ExecutionEvent {
 
 /**
  * An execution failed (`onExecutionError`) — also after a resume, or cancelled while paused
- * (`WorkflowCancelledError`) — or a resume of a paused one was refused as incompatible
+ * (`ExecutionCancelledError`) — or a resume of a paused one was refused as incompatible
  * (`IncompatibleResumeError`; it stays paused).
  */
 export interface ExecutionErrorEvent extends ExecutionEvent {

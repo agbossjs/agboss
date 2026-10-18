@@ -1,5 +1,5 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { WorkflowCancelledError } from "./errors.js";
+import { ExecutionCancelledError } from "./errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { Clock, systemClock } from "../infrastructure/clock.js";
 
@@ -88,5 +88,5 @@ export function extractRunContext(
 
 /** A cancelled run stops before its next model or tool call. */
 export function throwIfCancelled(run: RunContext): void {
-  if (run.signal.aborted) throw new WorkflowCancelledError("the run was cancelled");
+  if (run.signal.aborted) throw new ExecutionCancelledError("the run was cancelled");
 }
