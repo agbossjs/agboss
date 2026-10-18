@@ -52,6 +52,50 @@ taken. If the holder's lease expires while a call waits, the waiting call takes 
 stores, not one atomic operation (`BaseCheckpointSaver` is taken as is, so ecosystem savers plug
 in): the race window is one round trip.
 
+## Recovery
+
+An execution whose instance died mid-step is continued by another instance, automatically (#265
+S30). The record of a root is `ExecutionRecordStatus.Running` while its tree moves (a resume makes
+it `running` again once it has recorded its decision). Every instance, at its start and then every
+30 seconds (the lease length, through the framework's clock):
+
+1. lists the `running` records (`ExecutionRecordRepository.findByStatus(ExecutionRecordStatus.Running,
+   limit, after)`, page by page);
+2. tries each one's lease: a live holder renews it, so only a tree whose holder **died** (its lease
+   expired) or **stopped** (released it) is taken, with `leaseEpoch + 1`; of two instances sweeping
+   at once one gets it;
+3. continues the tree from its **last checkpoint**, taking a decision a resume recorded meanwhile
+   first (a `Resolved` pause). Every step that finished keeps its writes — every step is
+   checkpointed before the next one starts — so **only the interrupted step runs again**; a
+   side-effecting tool keeps its effect once through `executionContext.step.idempotencyKey`;
+4. checks compatibility as `app.resume` does: a root started under another config hash is not
+   continued unless the workflow's `onIncompatibleResume` says `"resume"` — it is left to an
+   instance of a compatible version (a rolling deploy) and logged once.
+
+Each recovery is logged (`execution.recovered`) and traced, and observers get `onWorkflowResume`
+with `reason: ResumeReason.Recovered` (`decision` when it took a recorded one), then
+`onWorkflowEnd` / `onWorkflowPause` / `onError` as for any pass.
+
+<!-- snippet-context
+import { Injectable, ResumeReason, type OnWorkflowResume, type WorkflowResumeEvent } from "agboss";
+-->
+
+```ts
+@Injectable()
+export class RecoveryCounter implements OnWorkflowResume {
+  onWorkflowResume(event: WorkflowResumeEvent): void {
+    if (event.reason === ResumeReason.Recovered) {
+      // an instance died or stopped while this run moved: count it, alert
+    }
+  }
+}
+```
+
+**A graceful stop** (`app.close()`, SIGTERM — [App → app.close()](App#appcloseoptions)) first stops
+the instance's own sweep, waits for its running executions up to the shutdown timeout (default
+`seconds(25)`), then interrupts what is left: each releases its lease at once and stays `running`,
+so another instance takes it at its next sweep, without waiting for the lease to expire.
+
 ## The shared state of one request
 
 `ExecutionTreeRepository` keeps keys under the request's root execution: visible to the whole tree
@@ -171,6 +215,12 @@ test("a holder frozen past the lease loses it", async ({ clock }) => {
 });
 ```
 
+Recovery is tested the same way: kill one instance (a lease store of the test's own whose
+`renew` answers `false` and whose `acquire` gives nothing for that instance — a crashed process, as
+the store sees it), `await clock.advance(seconds(31))`, and the other instance's sweep continues the
+tree; or `await app.close({ timeout })` with an execution still running, and the other instance
+continues it at its next sweep.
+
 `await clock.advance(d)` lets the work already started reach its next wait, moves the time, then
 wakes every wait that is due in time order (lease renewals, a resume waiting for a lease) — a jump
 longer than the lease is a holder frozen for that long.
@@ -179,6 +229,8 @@ longer than the lease is a holder frozen for that long.
 
 - With the in-memory defaults nothing is shared between instances and nothing survives a restart:
   run one instance, or list shared stores.
-- Recovery of a tree whose holder died with nobody waiting (its record left running) comes with
-  #265 PR 2.
+- With the in-memory defaults nothing survives a restart, so there is nothing to recover:
+  recovery works with persistent stores (records, checkpoints, paused executions, leases).
+- A stop releases its leases at once, but the other instances notice at their next sweep (within
+  30 s); a crashed instance's trees wait for their lease to expire first (up to 30 s more).
 - Fairness between tenants waiting for a model provider's slots is per instance (#266).

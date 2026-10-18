@@ -77,7 +77,7 @@ const next = await app.execute(
 );
 console.log(next.output?.text, next.spend.totalUsd);
 
-await app.close(); // onStop hooks, MCP servers, tracing
+await app.close(); // onStop hooks, the running executions (up to the shutdown timeout), MCP, tracing
 ```
 
 ## The application's rules
@@ -153,6 +153,8 @@ A resume has two phases (#265, Q58): it records the decision — the pause goes 
 atomically, so a second resume of the same pause gets `NotPausedError` — then takes the tree's lease
 and continues. While another call or instance moves the tree it waits, and returns the tree's
 current output once the holder took its decision ([Several instances](Several-instances#the-execution-lease)).
+Observers get `onWorkflowResume` with `reason: ResumeReason.Answered` (`ResumeReason.Recovered`
+when [recovery](Several-instances#recovery) continues a tree).
 
 ## `app.cancel(thread)`
 
@@ -160,15 +162,42 @@ Aborts a running run — it stops before its next model or tool call and `execut
 `WorkflowCancelledError` — or drops a paused one, whose `resume` then throws `NotPausedError`;
 `{ cancelled }` is `false` when the thread had neither ([Cancellation and idempotency](Saga-And-Cancellation)).
 
-## `app.close()`
+## `app.close(options?)`
 
 From the call on, no new execution is accepted: `execute` / `resume` reject with
 `ApplicationStoppingError` (`app.stopping`) — nothing was cancelled, the request is refused before
 an execution starts, so observers get `onRunRejected` (`operation`, `code`, a message without input
-values); `cancel` still works. Runs `onStop` of the components, waits for the
-running executions of every workflow to finish or pause, runs `onDestroy`, then closes MCP
-connections and tracing. Every hook runs; failures are collected into one `AggregateError`.
-Calling it twice is fine.
+values); `cancel` still works. Then, in order (#265 S30 / S51):
+
+1. the instance stops its own [recovery sweep](Several-instances#recovery);
+2. `onStop` of the components;
+3. it waits for the running executions of every workflow to finish or pause — up to the
+   **shutdown timeout**: `@Application({ shutdownTimeout })`, overridden by
+   `app.close({ timeout })`, default `seconds(25)` (under the usual 30 s grace period of a
+   platform and the 30 s lease). When it passes, what still runs is **interrupted**: its call
+   rejects with `ApplicationStoppingError`, without `.onError` or `onError` (it is no failure), the
+   tree's lease is released at once and its record stays `running` — so another instance continues
+   it from its last checkpoint without waiting for the lease to expire;
+4. `onDestroy`, then MCP connections and tracing are closed.
+
+Every hook runs; failures are collected into one `AggregateError`. Calling it again is fine — with
+a shorter `timeout` it shortens the wait (`seconds(0)`: interrupt at once).
+
+<!-- snippet-context
+import type { App } from "agboss";
+declare const app: App;
+-->
+
+```ts
+import { seconds } from "agboss/units";
+
+await app.close({ timeout: seconds(10) }); // what still runs after 10 s moves to another instance
+```
+
+**SIGTERM / SIGINT.** `createApp` listens for both and calls `app.close()` (a platform stopping the
+instance, Ctrl+C); a second signal while it stops interrupts at once. The listeners are removed when
+`close()` finishes, however it was called; when nothing else listens for the signal received, it is
+then raised again, so the process ends as it would have without the app. `testWith` never listens.
 
 ## Lifecycle hooks
 
@@ -180,8 +209,8 @@ OnStop, OnDestroy`, each optional (#261):
 | ----------- | --------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | `onInit`    | the component is created, its dependencies injected and past their own `onInit`         | opening its own: a connection, a pool, a warm-up  |
 | `onStart`   | every component is past `onInit`; the app is ready; no `execute` yet                    | what needs the whole app: a check, a log line     |
-| `onStop`    | `app.close()`: no new executions are accepted, running ones go on                       | stop taking work, finish its own operations       |
-| `onDestroy` | the running executions on this instance have finished or paused; dependants first       | closing connections, releasing resources          |
+| `onStop`    | `app.close()` or SIGTERM: no new executions are accepted, running ones go on            | stop taking work, finish its own operations       |
+| `onDestroy` | the running executions on this instance have finished, paused or been interrupted       | closing connections, releasing resources          |
 
 <!-- snippet-context
 import { Injectable, type OnDestroy, type OnInit, type OnStart, type OnStop } from "agboss";

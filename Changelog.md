@@ -3,6 +3,28 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — recovery and the graceful stop (#265, PR 2)
+
+- **Recovery** ([Several instances → Recovery](Several-instances#recovery)): an execution's record
+  is `ExecutionRecordStatus.Running` while its tree moves (new public enum, root entry: `Running`,
+  `Answered`, `Guarded`, `Failed`, `Paused`); every instance looks for `running` roots at its start
+  and every 30 s, takes the lease of one whose holder died or stopped and continues it from its
+  last checkpoint (a resolved pause first) — only the interrupted step runs again. A root of another
+  config is left to a compatible instance and logged once.
+- **Breaking — `ExecutionRecordRepository`**: a new abstract `findByStatus(status, limit, after?)`
+  (a page of the records with that status, oldest first). A record is now written when the run
+  starts (`running`) and completed when it ends, instead of appended at the end.
+- **Breaking — `WorkflowResumeEvent`** has a `reason: ResumeReason` (new public enum:
+  `Answered` — `app.resume`; `Recovered` — recovery, `decision` only when it took one).
+- **The graceful stop**: `app.close(options?)` stops the sweep, runs `onStop`, waits for the running
+  executions up to the shutdown timeout — `@Application({ shutdownTimeout })`,
+  `app.close({ timeout })` (`CloseOptions`), default `seconds(25)` — then interrupts them: the call
+  rejects with `ApplicationStoppingError`, no `onError`, the lease released at once, the record
+  left `running` for recovery ([App → app.close()](App#appcloseoptions)).
+- **SIGTERM / SIGINT**: `createApp` calls `app.close()` on either (a second one interrupts at
+  once); the listeners are removed when `close()` finishes, and the signal is raised again when
+  nothing else listens. `testWith` never listens.
+
 ## Unreleased — the paths DSL revised: one value per `.returns`, `{ about }` in the flow, `historyOf` (#299)
 
 - **Breaking — `.returns(value, options?)` names one value** (#272 S54): a DTO class, `optional(…)`,
