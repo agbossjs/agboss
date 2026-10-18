@@ -2,7 +2,7 @@
 
 Observers see an application's executions: their start, pause, resume, end and failure, the
 requests refused before an execution, and the node events — agent, router, tool, model, knowledge
-base, guardrail, PII policy, action, channel and judge start / end, outdated values, truncated
+base, guardrail, action, channel and judge start / end, outdated values, truncated
 launches. They are registered, not discovered: only classes listed in
 `@Application({ observers: [...] })` are called (#261) — never in `@Workflow`; one instance each,
 for every execution of the application, child executions included. Tracing to Langfuse is built in
@@ -48,7 +48,6 @@ Each hook is its own interface with a typed payload (root entry `agboss`):
 | `OnRagStart` / `OnRagEnd`                 | `RagStartEvent` / `RagEndEvent`                                                           |
 | `OnActionStart` / `OnActionEnd`           | `ActionStartEvent` / `ActionEndEvent`                                                     |
 | `OnGuardrailStart` / `OnGuardrailEnd`     | `GuardrailStartEvent` / `GuardrailEndEvent`                                               |
-| `OnPiiPolicyStart` / `OnPiiPolicyEnd`     | `PiiPolicyStartEvent` / `PiiPolicyEndEvent`                                               |
 | `OnChannelStart` / `OnChannelEnd`         | `ChannelStartEvent` / `ChannelEndEvent`                                                   |
 | `OnJudgeStart` / `OnJudgeEnd`             | `JudgeStartEvent` / `JudgeEndEvent`                                                       |
 | `OnValuesOutdated`                        | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values))               |
@@ -192,6 +191,23 @@ export class QuorumAudit implements OnQuorumDecided {
   }
 }
 ```
+
+## PII in events, logs, traces and the record
+
+Every event an observer gets, every line of the framework's log, every span a trace exports and
+`result.record` are masked by the PII policies of the application and of the workflow (#120 AC7) —
+always the whole list: an agent's or a router's `excludePiiPolicies` changes only what its own
+model reads. The masking uses the formats and a project's own detectors, never a model (nothing
+outside a step calls one); a `blockWithRefusal` kind is shown as `<kind>` and fails nothing. An
+event keeps its shape — every string masked, a model call's `rawPayload` messages rebuilt with
+their content masked, class instances (an `Error`) kept. A trace of the graph's state also hides
+the execution's own PII channels: the token map's values (`piiTokens`), the sensitive values
+(`piiValues`) and the context fields marked `sensitive`. The tool itself, the scope and the
+checkpoint keep the real values ([Guards → PII policies](Guards#pii-policies)).
+
+There is no PII policy hook: `onPiiPolicyStart` / `onPiiPolicyEnd` (the old approval-time masking)
+are removed in #120 — an observer that still implements one fails assembly with
+`[observer.unknown-hook]`.
 
 ## Registering an observer
 

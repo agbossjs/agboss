@@ -111,12 +111,15 @@ executionContext: ClinicExecutionContext })`.
   so `this.clinicExecutionContext.tenant.units` is typed.
 - **Identity, never secrets:** the levels hold who we interact with (ids, roles, licence numbers),
   never access tokens, passwords or API keys. Identity that must not reach a model, a log or a trace
-  is marked `sensitive` (#120); a service gets a secret from the identity when it needs one
+  is marked `sensitive: PiiAction.…` (#120 — a masking action only: `replaceWithKind()`,
+  `replacePart(…)`, `replaceWithToken()`; `blockWithRefusal` does not compile there): its value is
+  masked wherever it appears in what a model reads, and the context fields in a trace of the state
+  are masked too ([Guards → PII policies](Guards#pii-policies)); a service gets a secret from the identity when it needs one
   (`credentialService.tokenFor(clinicianId)`), so it is never checkpointed, never inherited and
   never stale after a pause.
 
 ```ts file=clinic.context.ts
-import { ExecutionContext, Injectable, TenantContext } from "agboss";
+import { ExecutionContext, Injectable, PiiAction, TenantContext } from "agboss";
 import { ListOf, Nested, Text } from "agboss/dto";
 
 export class UnitDto {
@@ -128,7 +131,7 @@ export class UnitDto {
 }
 
 export class ClinicianDto {
-  @Text({ sensitive: true })
+  @Text({ sensitive: PiiAction.replaceWithToken() }) // the model sees <clinician-id:…>
   clinicianId!: string;
 }
 
@@ -303,7 +306,8 @@ is made inside the paused step). An MCP session takes the values from its authen
 execution, ownerId })` (`A2ACallOptions`); a resume through either takes the tenant's id.
 
 Tool arguments a channel shows (and `ExecutionOutput.pause.args`) have the input DTO's `sensitive`
-fields masked as `***`; the tool itself still gets them whole.
+fields through their action — `replacePart(…)` as written, a token or a kind as `<field-name>`
+(#120); the tool itself still gets them whole.
 
 ## In unit tests
 

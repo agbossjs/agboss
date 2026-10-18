@@ -34,7 +34,7 @@ On paths and in `input` / `output` a DTO is wrapped by what it means (`agboss/dt
 
 | DTO                        | Fields                                                     | Used for                                                          |
 | --------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------- |
-| `WorkflowStartTextDto`     | `text` (non-empty), `author?` (sensitive)                  | the text a run starts with — input of a text `@WorkflowStart`     |
+| `WorkflowStartTextDto`     | `text` (non-empty), `author?` (`sensitive: replaceWithToken()`)                  | the text a run starts with — input of a text `@WorkflowStart`     |
 | `WorkflowFinishTextDto`    | `text`                                                     | the text a run finishes with — output of a text `@WorkflowFinish` |
 | `WorkflowPauseQuestionDto` | `question`, `options?` (≤ 6)                               | what a workflow pause asks outside the run — a person or a system |
 | `WorkflowPauseAnswerDto`   | `replyWith`                                                   | the answer to that question                                       |

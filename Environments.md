@@ -197,6 +197,27 @@ The values are frozen.
   (`OPENROUTER_API_KEY is not set (AppEnvironment.openRouterApiKey, dev)`). Every other variable
   is checked either way.
 
+## The PII key
+
+The application's PII key (#120) is a `Secret` field of the environment, named by
+`@Application({ pseudonymKey: "piiPseudonymKey" })`, the same pattern as a model provider's
+`apiKey`. Each environment sets it, for example `piiPseudonymKey: secret("PII_PSEUDONYM_KEY")`.
+
+- **What uses it:** the `replaceWithToken()` HMAC of `sensitive` fields, of a project's own
+  detectors (`PiiPolicyHandler`) and of every `@PiiPolicy` without its own `pseudonymKey`.
+- **Why it is shared:** every instance uses the same key, so one value gets one token on every
+  machine, and logs and traces from different machines match.
+- **Precedence:** a policy's own `pseudonymKey` wins.
+- **Assembly check:** a `pseudonymKey` field the contract does not declare fails assembly with
+  `[environment.missing-field]`.
+- **At start:**
+  - A policy that needs the key when it is not set fails the start, naming the field and the
+    policies.
+  - When nothing needs the key and it is not set, `sensitive` fields use a key of the instance.
+  - `testWith` uses a fixed test key when the variable is unset.
+
+See [Guards → PII policies](Guards#pii-policies).
+
 ## The CLI
 
 | Command                                         | What it does with the environment                                                         |

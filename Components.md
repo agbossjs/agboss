@@ -176,8 +176,9 @@ export class JobQuery {
 | `@ListOf(Dto or Text…, { minItems?, maxItems? })` / `@Nested(Dto)` | `T[]` / `T` | each element / the nested DTO                            |
 
 Every decorator takes `prompt` (what the model reads — the field's JSON Schema `description`),
-`optional: true` or a `default`, `sensitive` (masked as `***` wherever the arguments are shown) and
-`example`.
+`optional: true` or a `default`, `sensitive: PiiAction.…` (#120: a masking action applied to the
+field on its way into a model and wherever the arguments are shown — [Guards → PII
+policies](Guards#pii-policies)) and `example`.
 
 - **The compiler checks**: the decorator fits the field's type (`@Text` on a `number`), `optional: true`
   ↔ `name?:` both ways, `@OneOf` values ≡ the field's union, the element type of `@ListOf` / `@Nested`.

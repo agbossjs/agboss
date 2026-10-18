@@ -3,6 +3,38 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — PII policies and the model boundary (#120, PR 1)
+
+- **`@PiiPolicy` is rebuilt** ([Guards → PII policies](Guards#pii-policies)): declarative
+  `{ name, description, rules: [pii(PiiKind | PiiGroup, PiiAction.…)], detectWithModel?, pseudonymKey?:
+  secret("…") }`, or a project's own detector `{ name, action, deps }` + `implements
+  PiiPolicyHandler` (`findMatches(text)` → `PiiMatch { start, end }`). **Breaking:** the
+  `PiiPolicy` interface (`mask` / `maskJson`) is removed; names end with `-pii-policy`.
+- **Actions** `PiiAction.replaceWithKind()`, `replacePart({ keep… } | { pattern })`,
+  `replaceWithToken()` (HMAC-SHA256), `blockWithRefusal({ refusal } | ())` + `PiiRefusal`;
+  `PiiRefusedError` (`pii.refused`), `PiiDetectionFailedError` (`pii.detection-failed`).
+- **Levels**: `@Application({ piiPolicies })` (new) → `@Workflow` → `@Agent` / `@Router`; the lists
+  add up, `excludePiiPolicies` removes. **Breaking:** `overridePiiPolicies` / `disablePiiPolicies`
+  are removed, and so are the PII policies of `@Tool` (a tool sees real values; its agent's
+  policies close its result). Assembly rules `[pii.conflicting-rules]`, `[pii.exclude-not-inherited]`,
+  `[pii.missing-refusal]`, `[pii.unused-refusal]`, `[pii.kind-needs-model]`, `[pii.not-a-policy]`.
+- **The model boundary** masks everything a model reads and reveals its moves before validation;
+  the token map is the execution state's `piiTokens` channel (S38, replaces #121's store).
+- **Observability**: events, the log, Langfuse spans and `result.record` are masked by the
+  application's and the workflow's lists ([Observability](Observability#pii-in-events-logs-traces-and-the-record));
+  **breaking:** `onPiiPolicyStart` / `onPiiPolicyEnd`, `OnPiiPolicyStart` / `OnPiiPolicyEnd`,
+  `PiiPolicyStartEvent` / `PiiPolicyEndEvent` and `PiiPolicyPayload` are removed — an observer that
+  implements one of the hooks fails assembly with `[observer.unknown-hook]`; delete the method
+  (there is nothing to migrate to: masking happens at the model boundary, not in a hook).
+- **Breaking — `sensitive: true | { kind }`** is replaced by `sensitive: PiiAction.…` (masking
+  actions) on DTO and context fields; `WorkflowStartTextDto.author` is `replaceWithToken()`; a channel
+  shows such a field through its action instead of `***`.
+- **`@Application({ pseudonymKey: "piiPseudonymKey" })`** names a `Secret` field of the environment
+  ([Environments](Environments#the-pii-key)): the HMAC key of `sensitive` fields, project detectors and
+  every policy without its own key (now optional) — one token per value on every instance. A
+  policy's own key wins; a policy that needs the application's when none is set fails the start; a
+  field the contract lacks is `[environment.missing-field]`.
+
 ## Unreleased — channel roles and discovery (#267, PR 1)
 
 - **Channels are found through the tools that name them** ([Tools → Approval channels](Tools#approval-channels)):
