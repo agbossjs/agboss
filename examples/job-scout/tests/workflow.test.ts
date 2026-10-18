@@ -16,7 +16,7 @@ describe("job-scout workflow", () => {
     expect(workflow.toolDependencies).toEqual({
       read_resume: "ResumeReader",
       greenhouse_jobs:
-        "JobFitJudge (ROUTER_FACTORY), JOB_SEARCH, GreenhouseBoards (JOB_SEARCH, ENV), ExecutionContext",
+        "JobFitJudge (ROUTER_FACTORY), JOB_SEARCH, GreenhouseBoards (JOB_SEARCH, ApplicationContext), ExecutionContext",
       read_shortlist: "ShortlistServer, SHORTLIST",
       save_shortlist: "ShortlistServer, SHORTLIST",
     });
@@ -43,7 +43,7 @@ describe("job-scout workflow", () => {
     expect(has("· read_resume (local)")).toBe(true);
     expect(
       has(
-        "· greenhouse_jobs (local) ← JobFitJudge (ROUTER_FACTORY), JOB_SEARCH, GreenhouseBoards (JOB_SEARCH, ENV)",
+        "· greenhouse_jobs (local) ← JobFitJudge (ROUTER_FACTORY), JOB_SEARCH, GreenhouseBoards (JOB_SEARCH, ApplicationContext)",
       ),
     ).toBe(true);
     expect(

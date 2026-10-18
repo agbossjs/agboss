@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { testExecutionContext } from "agboss/testing";
 import { GreenhouseBoards, type FetchJson } from "../src/services/greenhouse-boards.service.js";
 
+/** The application context of the dev environment: the public board API. */
+const { application } = testExecutionContext({
+  application: { environment: { greenhouseApiUrl: "https://boards-api.greenhouse.io", sqlitePath: ":memory:" },
+  },
+}).tenant;
+
 const probeBoard = (board: string, words: readonly string[], fetchJson: FetchJson) =>
-  new GreenhouseBoards(
-    { boards: {}, places: {} },
-    { greenhouseApiUrl: "https://boards-api.greenhouse.io", sqlitePath: ":memory:" },
-    fetchJson,
-  ).probe(board, words);
+  new GreenhouseBoards({ boards: {}, places: {} }, application, fetchJson).probe(board, words);
 import { workflowOf } from "agboss/testing";
 import { JobScout } from "../src/job-scout.workflow.js";
 import { jobScoutPromptVariables } from "../src/config/prompt-variables.js";
