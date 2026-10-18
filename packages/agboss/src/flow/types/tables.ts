@@ -1,6 +1,6 @@
 import type { RuleViolation } from "../../graph/rule-error.js";
 import { inputShapesOf, type FlowAnalysis } from "../analyse/analyse.js";
-import { EdgeKind, reachableFrom, type FlowNode } from "../analyse/flow-graph.js";
+import { EdgeKind, outputOf, reachableFrom, type FlowNode } from "../analyse/flow-graph.js";
 import { joinValueWrites } from "../analyse/launches.js";
 import { slotOfWrite } from "../analyse/scope.js";
 import type { InputShape } from "../analyse/projection.js";
@@ -13,7 +13,7 @@ import {
 } from "../decorators/router.js";
 import type { ComponentName } from "../registry.js";
 import type { ImportTable } from "./imports.js";
-import { inputEntry, type NodeInput } from "./inputs.js";
+import { childInputEntry, inputEntry, isInputProblem, type NodeInput } from "./inputs.js";
 import { joinEntries } from "./joins.js";
 import { outputText, startInputText, startOutputText, valueText } from "./shapes.js";
 
@@ -81,10 +81,6 @@ function nodesOf(workflows: readonly AnalysedWorkflow[]): ReadonlyMap<ComponentN
       if (!nodes.has(node.name)) nodes.set(node.name, node);
   return new Map([...nodes].sort(([first], [second]) => first.localeCompare(second)));
 }
-
-/** The problems an input's type reports: the data rules, and a per-item target's unread item. */
-const isInputProblem = (found: RuleViolation): boolean =>
-  found.code.startsWith("input.") || found.code === "launch.item-not-read";
 
 /** The routers a launch follows, in any workflow: `route()` returns a list there (#280). */
 const launchingRouters = (workflows: readonly AnalysedWorkflow[]): ReadonlySet<string> =>
@@ -191,6 +187,8 @@ function writeNode(
       return;
     }
     case NodeKind.Workflow:
+      // a child workflow gives its finishes' outputs (#263): `.returns(oneOf(…))` / `.returns(XDto)`
+      tables.producerOutputs.set(name, outputText(outputOf(node), names));
       return;
   }
 }
@@ -227,7 +225,9 @@ export function tablesOf(workflows: readonly AnalysedWorkflow[], names: ImportTa
     names.ref(node.component);
     writeNode(node, workflows, names, tables);
     if (node.kind === NodeKind.Start) continue;
-    const entry = inputEntry(nodeInput(workflows, node.name), names, componentOf);
+    const input = nodeInput(workflows, node.name);
+    const isChild = node.kind === NodeKind.Workflow;
+    const entry = isChild ? childInputEntry(input, names) : inputEntry(input, names, componentOf);
     tables.inputs.set(node.name, entry.type);
     if (entry.note !== undefined) tables.notes.push(entry.note);
   }

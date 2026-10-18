@@ -1,5 +1,6 @@
 import { resolveTools, type AssembledWorkflow } from "agboss";
 import {
+  childLines,
   configSnapshot,
   describeServicesWith,
   flowLines,
@@ -37,6 +38,8 @@ export function describeData(
     config: shortVersion(versionOf(configSnapshot(bundle))),
     flow: flowLines(bundle.graph.flow),
     inputs: inputLines(bundle.graph.analysis),
+    // the start each edge into a child workflow enters through (#263)
+    children: childLines(bundle.graph.analysis),
     routers: bundle.routers.map((router) => ({
       name: router.name,
       model: router.model,

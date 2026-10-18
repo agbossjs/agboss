@@ -26,8 +26,8 @@ import {
 } from "./path-builder.js";
 
 /**
- * The path builder (#272): `start(S)…`, `agent(X)…`, `router(R)…`, `action(X)…` begin a flow
- * path; `route(X)…`, `caseOf(D)…` and the side-path starters `toAction(X)…`, `toAgent(A)…`,
+ * The path builder (#272): `start(S)…`, `agent(X)…`, `router(R)…`, `action(X)…`, `workflow(W)…`
+ * (#263) begin a flow path; `route(X)…`, `caseOf(D)…` and the side-path starters `toAction(X)…`, `toAgent(A)…`,
  * `toRouter(R)…`, `toFinish(F)` of `.onError(E, …)` begin a sub-path and return the same builder.
  */
 
@@ -63,6 +63,17 @@ export function action<const TClass extends Class>(
 ): AfterStep<InstanceType<TClass>, SourceHead>;
 export function action(source: Class): PathBuilder<PathSource> {
   return fromComponent(NodeKind.Action, source);
+}
+
+/**
+ * The own path of a child workflow reached from two or more places (#263):
+ * `workflow(W).onError(…).returns(oneOf(…)).switch(…)`.
+ */
+export function workflow<const TClass extends Class>(
+  source: TClass & KindCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
+): AfterStep<InstanceType<TClass>, SourceHead>;
+export function workflow(source: Class): PathBuilder<PathSource> {
+  return fromComponent(NodeKind.Workflow, source);
 }
 
 /** One target of `.chooseOne(…)` and what follows it. */

@@ -1,4 +1,7 @@
 import { inputShapesOf, type FlowAnalysis } from "../flow/analyse/analyse.js";
+import { StartChoice, type ChildChoice } from "../flow/analyse/children.js";
+import { entryLabel, startLabel } from "../flow/analyse/rules/children.js";
+import { NodeKind } from "../flow/ast.js";
 import type { ResolvedField } from "../flow/analyse/fields.js";
 import { aboutLabel, shapeLabel } from "../flow/analyse/labels.js";
 
@@ -25,9 +28,10 @@ function fieldText(field: ResolvedField, producers: readonly string[]): string {
   return `${field.name}: ${who}${notes.length === 0 ? "" : ` (${notes.join(", ")})`}`;
 }
 
-/** One line per node that reads the path scope. */
+/** One line per node that reads the path scope (a child workflow's start: `childLines`). */
 export function inputLines(analysis: FlowAnalysis): readonly string[] {
   return [...analysis.fields].flatMap(([node, fields]) => {
+    if (analysis.graph.nodes.get(node)?.kind === NodeKind.Workflow) return [];
     const shapes = inputShapesOf(analysis, node);
     const declared = fields.filter((field) => !field.isPassThrough);
     if (declared.length === 0) return [];
@@ -55,4 +59,25 @@ export function aboutLines(analysis: FlowAnalysis): readonly string[] {
     ),
   );
   return [...new Set(lines)];
+}
+
+function choiceText(found: ChildChoice): string {
+  switch (found.choice) {
+    case StartChoice.Chosen:
+      return found.starts.map(startLabel).join("");
+    case StartChoice.NoMatch:
+      return "no start takes its value";
+    case StartChoice.Ambiguous:
+      return `ambiguous: ${found.starts.map((start) => start.name).join(", ")}`;
+  }
+}
+
+/**
+ * The start each edge into a child workflow enters through (#263):
+ * `screening-agent → company-check-workflow per item: company-check-workflow-start (CompanyDto)`.
+ */
+export function childLines(analysis: FlowAnalysis): readonly string[] {
+  return [
+    ...new Set(analysis.children.map((found) => `${entryLabel(found)}: ${choiceText(found)}`)),
+  ];
 }

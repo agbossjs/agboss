@@ -5,8 +5,9 @@ import type { ReturnedShape } from "./dto-wrappers.js";
 /**
  * The graph of a v2 workflow as data (#272 → The AST): `@Workflow({ flow })` holds one `FlowPath`
  * per path. The builder (`builder.ts`) writes it; the analyser (PR 2) and the runtime (PR 4) read it.
- * Parallel launches and their joins (#273) are steps too; quorums (#279) and child workflows (#263)
- * extend `Step` by new members.
+ * Parallel launches and their joins (#273) are steps too; a child workflow (#263) is a node of kind
+ * `Workflow`, entered by `.toWorkflow(W)` (a `ToStep`) or launched per item by
+ * `.toParallelWorkflows(W, …)` (a `LaunchStep`); quorums (#279) extend `Step` by new members.
  */
 
 /** What a node of the graph is. The values are the kind suffixes of component names. */
@@ -26,7 +27,10 @@ export enum StepKind {
   Switch = "switch",
   ChooseOne = "choose-one",
   OnError = "on-error",
-  /** `.toParallelAgents(…)` / `.toParallelActions(…)` (#273): branches launched at once. */
+  /**
+   * `.toParallelAgents(…)` / `.toParallelActions(…)` (#273), `.toParallelWorkflows(W, …)` (#263):
+   * branches launched at once.
+   */
   Launch = "launch",
   /** `.join()` after a launch, with its `.onJoinError(…)` handlers and `.returns(…)` values. */
   Join = "join",
@@ -72,7 +76,10 @@ export interface ReturnsStep {
   readonly value: ReturnedValue;
 }
 
-/** `.toAgent` / `.toRouter` / `.toAction` / `.toFinish`: the kind is the transition's. */
+/**
+ * `.toAgent` / `.toRouter` / `.toAction` / `.toFinish` / `.toWorkflow` (#263): the kind is the
+ * transition's.
+ */
 export interface ToStep {
   readonly kind: StepKind.To;
   readonly target: ComponentClass;
@@ -110,13 +117,14 @@ export interface OnErrorStep {
   readonly path: SubPath;
 }
 
-/** What a launch runs (#273): agents, or actions — child workflows come with #263. */
-export type LaunchTargetKind = NodeKind.Agent | NodeKind.Action;
+/** What a launch runs (#273): agents, actions, or a child workflow per item (#263). */
+export type LaunchTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Workflow;
 
 /**
  * `.toParallelAgents(A, B, …, { maxConcurrency, maxItems })` (#273): each listed target runs once
  * (repeats are copies); with one target right after `.returns(listOf(XDto))` it runs once per item
- * of that list (`perItem`).
+ * of that list (`perItem`). `.toParallelWorkflows(W, { maxConcurrency, maxItems })` (#263) runs one
+ * child workflow per item — always per item, one target.
  */
 export interface LaunchStep {
   readonly kind: StepKind.Launch;

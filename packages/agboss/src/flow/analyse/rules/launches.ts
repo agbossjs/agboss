@@ -45,7 +45,9 @@ function widthViolations(context: AnalysisContext, launch: FlowLaunch): readonly
     );
   const { element } = items;
   const [branch] = launch.branches;
+  // a child workflow takes its item through a start (`[graph.no-matching-start]`, #263)
   if (typeof element !== "function" || branch === undefined) return found;
+  if (launch.targetKind === NodeKind.Workflow) return found;
   const reads = (context.fields.get(branch.node) ?? []).some(
     (field) => field.slot === slotOfDto(element),
   );

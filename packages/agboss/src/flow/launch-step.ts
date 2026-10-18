@@ -11,7 +11,7 @@ import { isWrapper, Wrapper } from "./dto-wrappers.js";
 
 /**
  * The launch step of the path builder (#273): `.toParallelAgents(A, B, …, { maxConcurrency,
- * maxItems })` read from its arguments, and the order a launch imposes on the steps around it — a
+ * maxItems })` — and `.toParallelWorkflows(W, …)`, one child per item (#263) — read from its arguments, and the order a launch imposes on the steps around it — a
  * launch is followed by `.join()`, a join by its `.onJoinError(…)`, `.returns(…)` and one `.to…(…)`.
  * The typed builder makes the wrong forms compile errors; these checks hold for untyped code.
  */
@@ -25,6 +25,7 @@ export class FlowSyntaxError extends AGBossError {
 export const LAUNCH_CALLS: Readonly<Record<LaunchTargetKind, string>> = {
   [NodeKind.Agent]: "toParallelAgents",
   [NodeKind.Action]: "toParallelActions",
+  [NodeKind.Workflow]: "toParallelWorkflows",
 };
 
 /** `{ maxConcurrency, maxItems }`, read from the last argument. */
@@ -69,7 +70,27 @@ export interface LaunchSite {
   readonly followsRouter: boolean;
 }
 
-/** The launch step of `.toParallelAgents(…)` / `.toParallelActions(…)`. */
+/** A child workflow launch (#263) runs one child per item: one workflow, right after a list. */
+function childLaunchProblem(targets: readonly unknown[], site: LaunchSite): string | undefined {
+  if (targets.length !== 1)
+    return "toParallelWorkflows(W, { maxConcurrency, maxItems }) launches one child workflow class";
+  return carriesList(site.previous)
+    ? undefined
+    : "toParallelWorkflows(W, …) runs one child per item — write .returns(listOf(XDto)) right before it";
+}
+
+/** Why the launch cannot stand where it does: a router launches agents only; a child, per item. */
+function siteProblem(
+  targetKind: LaunchTargetKind,
+  targets: readonly unknown[],
+  site: LaunchSite,
+): string | undefined {
+  if (site.followsRouter && targetKind !== NodeKind.Agent)
+    return `a router launches agents only — .toParallelAgents(…), not ${LAUNCH_CALLS[targetKind]}(…)`;
+  return targetKind === NodeKind.Workflow ? childLaunchProblem(targets, site) : undefined;
+}
+
+/** The launch step of `.toParallelAgents(…)` / `.toParallelActions(…)` / `.toParallelWorkflows(…)`. */
 export function launchStepOf(
   targetKind: LaunchTargetKind,
   args: readonly unknown[],
@@ -81,10 +102,8 @@ export function launchStepOf(
   const targets = hasOptions ? args.slice(0, -1) : args;
   if (targets.length === 0 || targets.some((target) => typeof target !== "function"))
     throw new FlowSyntaxError(`${call}(…) takes one or more component classes`);
-  if (site.followsRouter && targetKind !== NodeKind.Agent)
-    throw new FlowSyntaxError(
-      `a router launches agents only — .toParallelAgents(…), not ${call}(…)`,
-    );
+  const problem = siteProblem(targetKind, targets, site);
+  if (problem !== undefined) throw new FlowSyntaxError(problem);
   const options = hasOptions ? optionsOf(last, call) : {};
   return Object.freeze({
     kind: StepKind.Launch,
@@ -109,6 +128,6 @@ export function launchOrderProblem(previous: Step | undefined, next: Step): stri
   if (isLaunch !== (next.kind === StepKind.Join))
     return isLaunch
       ? "a parallel launch is followed by .join()"
-      : ".join() follows a parallel launch: .toParallelAgents(…) or .toParallelActions(…)";
+      : ".join() follows a parallel launch: .toParallelAgents(…), .toParallelActions(…) or .toParallelWorkflows(…)";
   return previous?.kind === StepKind.Join ? afterJoinProblem(next) : undefined;
 }

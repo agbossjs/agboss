@@ -6,6 +6,7 @@ import type { DtoClass } from "../../dto/types.js";
 import type { ListWrapper, OutputShape, ReturnedShape, ValueShape } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import type { JoinGroup } from "./join-groups.js";
+import { childWorkflowOf } from "./child-workflow.js";
 import { dtoLabel, shapeLabel } from "./labels.js";
 
 /**
@@ -26,7 +27,10 @@ export enum EdgeKind {
   Route = "route",
   /** `.onError(E, toAction(X)…)`: the step failed, so it wrote nothing. */
   Error = "error",
-  /** `.toParallelAgents(X)`: to one branch of a launch, with the scope at the launch (#273). */
+  /**
+   * `.toParallelAgents(X)`, `.toParallelWorkflows(W, …)`: to one branch of a launch, with the scope
+   * at the launch (#273, #263).
+   */
   Launch = "launch",
   /** `.join()….to…(Y)`: from the launching step past its branches, with their values (#273). */
   Join = "join",
@@ -123,7 +127,7 @@ export interface FlowGraph {
   readonly starts: readonly ComponentName[];
 }
 
-/** The `output` shape of a node, when it declares one. */
+/** The `output` shape of a node, when it declares one; a child workflow's is its finishes' (#263). */
 export function outputOf(node: FlowNode): OutputShape | undefined {
   const { declaration } = node;
   switch (declaration.kind) {
@@ -131,6 +135,8 @@ export function outputOf(node: FlowNode): OutputShape | undefined {
     case NodeKind.Action:
     case NodeKind.Finish:
       return declaration.options.output;
+    case NodeKind.Workflow:
+      return childWorkflowOf(node.component)?.output;
     default:
       return undefined;
   }

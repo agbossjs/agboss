@@ -194,6 +194,7 @@ function analyse(graph: FlowGraph): Analysed {
     graph,
     fields,
     dataflow,
+    children: [],
     options: {},
   };
   const violations = [

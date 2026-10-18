@@ -2,6 +2,7 @@ import { dirname, relative } from "node:path";
 import type { Class } from "../../components/injection.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { checkWorkflow, type FlowCheck } from "../analyse/analyse.js";
+import { withChildWorkflows } from "../analyse/child-workflow.js";
 import type { AnalyseOptions, LoadedModule } from "../analyse/rules/context.js";
 import {
   applicationDeclarationOf,
@@ -96,24 +97,36 @@ const contractOf = (options: ApplicationOptions): Class[] => {
   return contract === undefined ? [] : [contract];
 };
 
-/** Each workflow with the one application that lists it (its defaults, its contexts), analysed. */
+/** The workflows analysed, each with the one application that lists it (its defaults, contexts). */
+interface CheckedWorkflows {
+  /** The request's workflows and every child workflow they launch (#263). */
+  readonly all: readonly Class[];
+  readonly owners: (ApplicationOptions | undefined)[];
+  readonly checks: FlowCheck[];
+}
+
+/**
+ * Each workflow with the one application that lists it (its defaults, its contexts), analysed; a
+ * child workflow is typed with its parents even when no file of the request exports it (#263).
+ */
 function checkedWorkflows(
   request: FlowTypesRequest,
   applications: readonly ApplicationOptions[],
   options: AnalyseOptions,
-): { readonly owners: (ApplicationOptions | undefined)[]; readonly checks: FlowCheck[] } {
-  const owners = request.workflows.map((workflow) => {
+): CheckedWorkflows {
+  const all = withChildWorkflows(request.workflows);
+  const owners = all.map((workflow) => {
     const listing = applications.filter((app) => app.workflows.includes(workflow));
     return listing.length === 1 ? listing[0] : undefined;
   });
-  const checks = request.workflows.map((workflow, index) => {
+  const checks = all.map((workflow, index) => {
     const defaults = owners[index]?.defaults;
     return checkWorkflow(
       workflow,
       defaults === undefined ? options : { ...options, applicationDefaults: defaults },
     );
   });
-  return { owners, checks };
+  return { all, owners, checks };
 }
 
 export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
@@ -125,7 +138,7 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
     const declaration = applicationDeclarationOf(application);
     return declaration === undefined ? [] : [declaration.options];
   });
-  const { owners, checks } = checkedWorkflows(request, applications, options);
+  const { all, owners, checks } = checkedWorkflows(request, applications, options);
   const errors = checks.flatMap((check) => check.errors);
   const warnings = checks.flatMap((check) => check.warnings);
   const workflows = checks.flatMap((check): AnalysedWorkflow[] =>
@@ -134,7 +147,7 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   const names = new ImportTable(new ClassLocator(request.modules), request.outFile);
   const tables = tablesOf(workflows, names);
   // each exported workflow class is branded too, so `createApp(W)` / `testWith(W)` do not compile
-  request.workflows.forEach((workflow, index) => {
+  all.forEach((workflow, index) => {
     if (checks[index]?.analysis !== undefined) names.refIfExported(workflow);
   });
   const contracts = [...new Set(applications.flatMap(contractOf))]
@@ -160,7 +173,6 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
     ...names.unexported.map((component) => unexportedClass(component, projectOf(request.outFile))),
     ...nameClashes(workflows, names),
   ];
-  const all = [...errors, ...failures];
-  const result = { errors: all, warnings, notes: tables.notes };
+  const result = { errors: [...errors, ...failures], warnings, notes: tables.notes };
   return failures.length === 0 ? { ...result, text } : result;
 }

@@ -4,6 +4,7 @@ import { GraphRuleError, violation, type RuleViolation } from "../../graph/rule-
 import { NodeKind } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
 import type { ComponentName } from "../registry.js";
+import { childEntriesOf, chooseStarts, type ChildChoice } from "./children.js";
 import { runDataflow, statesOf, type Dataflow } from "./dataflow.js";
 import { resolveFields, type ResolvedField } from "./fields.js";
 import type { FlowGraph } from "./flow-graph.js";
@@ -11,6 +12,8 @@ import { classLabel } from "./labels.js";
 import { projectInput, type InputShape } from "./projection.js";
 import { aboutRules } from "./rules/about.js";
 import { branchOutdatingRules } from "./rules/branch-outdating.js";
+import { childFailureWarnings } from "./rules/child-failure.js";
+import { childRules } from "./rules/children.js";
 import type { AnalyseOptions, AnalysisContext, FlowRule } from "./rules/context.js";
 import { cycleRules } from "./rules/cycles.js";
 import { dataInputRules } from "./rules/data-inputs.js";
@@ -20,6 +23,7 @@ import { errorRules } from "./rules/errors.js";
 import { graphRules } from "./rules/graph.js";
 import { guardrailRules } from "./rules/guardrails.js";
 import { launchRules } from "./rules/launches.js";
+import { limitHandlerRules } from "./rules/limit-handlers.js";
 import { modelRules } from "./rules/models.js";
 import { nameRules } from "./rules/names.js";
 import { optionsRules } from "./rules/options.js";
@@ -36,7 +40,8 @@ import { worstCasesOf, type WorstCase } from "./worst-case.js";
 /**
  * The static analyser of a v2 workflow (#272 PR 2, #270, #271): walks the flow's paths into a graph,
  * runs the data-flow engine (with outdating) to a fixed point, and checks every rule — all violations at once, before any
- * model call, in one `GraphRuleError`. Warnings (`[flow.path-too-deep]`) are errors under `strict`.
+ * model call, in one `GraphRuleError`. Warnings (`[flow.path-too-deep]`,
+ * `[graph.child-without-failure-finish]`) are errors under `strict`.
  * Its result is what type generation (PR 3) and the runtime (PR 4) read.
  */
 
@@ -46,6 +51,8 @@ export interface FlowAnalysis {
   readonly fields: ReadonlyMap<ComponentName, readonly ResolvedField[]>;
   readonly dataflow: Dataflow;
   readonly warnings: readonly RuleViolation[];
+  /** Every edge into a child workflow and the start it enters through (#263). */
+  readonly children: readonly ChildChoice[];
   /** The worst case of one call of each start (#261, #273). */
   readonly worstCases: readonly WorstCase[];
 }
@@ -77,6 +84,8 @@ const RULES: readonly FlowRule[] = [
   stepsRules,
   launchRules,
   branchOutdatingRules,
+  childRules,
+  limitHandlerRules,
 ];
 
 /** Every message names the workflow first. */
@@ -102,8 +111,10 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
     return { errors: [violation("graph.not-a-node", message, [])], warnings: [] };
   }
   const walked = walkFlow(declaration.options.flow);
-  const fields = resolveFields(walked.graph);
+  const entries = childEntriesOf(walked.graph);
+  const fields = resolveFields(walked.graph, entries);
   const dataflow = runDataflow(walked.graph, fields);
+  const children = chooseStarts(entries, dataflow);
   const defaults = cascadeDefaults(options.applicationDefaults, declaration.options.defaults);
   const context: AnalysisContext = {
     workflow: defaults === undefined ? declaration.options : { ...declaration.options, defaults },
@@ -111,17 +122,19 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
     graph: walked.graph,
     fields,
     dataflow,
+    children,
     options,
   };
   const named = naming(declaration.options.name);
   const errors = [...walked.violations, ...RULES.flatMap((rule) => rule(context))].map(named);
-  const warnings = depthRules(context).map(named);
+  const warnings = [...depthRules(context), ...childFailureWarnings(context)].map(named);
   const analysis: FlowAnalysis = {
     workflow: declaration.options.name,
     graph: walked.graph,
     fields,
     dataflow,
     warnings,
+    children,
     worstCases: worstCasesOf(walked.graph, declaration.options.maxSteps),
   };
   return options.strict === true

@@ -34,7 +34,7 @@ export {
   type CostSource,
 } from "./finops/usage.js";
 export { byClassName, byComponentName, flowLines, pathLines } from "./flow/print.js";
-export { inputLines } from "./describe/inputs.js";
+export { childLines, inputLines } from "./describe/inputs.js";
 export { stepsRangeOf, type StepsRange } from "./flow/analyse/steps.js";
 export { executeUnchecked } from "./app/execute-unchecked.js";
 export { standaloneContexts, type RuntimeContexts } from "./flow/context/runtime-contexts.js";

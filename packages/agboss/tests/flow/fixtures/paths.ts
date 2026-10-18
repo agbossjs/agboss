@@ -29,6 +29,9 @@ export const router = (source: Class): PathBuilder<PathSource> =>
 export const action = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Action, source);
 
+export const workflow = (source: Class): PathBuilder<PathSource> =>
+  fromComponent(NodeKind.Workflow, source);
+
 export const route = (target: Class): PathBuilder => subPathFrom({ kind: "route", target });
 
 export const caseOf = (dto: DtoClass, options?: ReturnsOptions): PathBuilder => {
