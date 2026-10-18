@@ -131,29 +131,6 @@ export class DecisionsModelProvider implements ModelProviderHandler {
 export const DEFAULT_MODEL_PROVIDERS: readonly [typeof OpenRouterModelProvider, typeof DecisionsModelProvider];
 
 // @public
-export class EnvironmentVariable {
-    // (undocumented)
-    readonly defaultValue: string | undefined;
-    // (undocumented)
-    readonly isSecret: boolean;
-    // (undocumented)
-    readonly name: string;
-    // (undocumented)
-    static named(name: string, options?: EnvironmentVariableOptions): EnvironmentVariable;
-    requireIn(env: NodeJS.ProcessEnv): string;
-    // (undocumented)
-    toString(): string;
-    valueIn(env: NodeJS.ProcessEnv): string | undefined;
-}
-
-// @public
-export interface EnvironmentVariableOptions {
-    readonly defaultValue?: string;
-    // (undocumented)
-    readonly secret: boolean;
-}
-
-// @public
 export interface ExponentialRetryOptions {
     // (undocumented)
     readonly initialDelay: Milliseconds;
@@ -186,12 +163,6 @@ export const JevModelProvider: typeof DecisionsModelProvider;
 
 // @public @deprecated (undocumented)
 export type JevModelProvider = DecisionsModelProvider;
-
-// @public (undocumented)
-export class MissingEnvironmentVariableError extends Error {
-    // (undocumented)
-    name: string;
-}
 
 // Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
 //
@@ -314,8 +285,8 @@ export interface ModelProviderHandler {
 // @public
 export interface ModelProviderOptions {
     readonly apiKey?: string;
-    // (undocumented)
-    readonly baseUrl: SettingValue;
+    readonly baseUrl: string;
+    readonly baseUrlField?: string;
     readonly circuitBreakerPolicy: CircuitBreakerPolicy;
     // (undocumented)
     readonly cost: ModelCost;
@@ -363,9 +334,6 @@ export abstract class OpenAiCompatibleProvider<TFields extends object = NoReques
 
 // @public (undocumented)
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-
-// @public
-export const OPENROUTER_BASE_URL_SETTING: EnvironmentVariable;
 
 // @public
 export interface OpenRouterFields {
@@ -595,9 +563,6 @@ export class RetryPolicyError extends RangeError {
 }
 
 // @public
-export type SettingValue = string | EnvironmentVariable;
-
-// @public
 export function toWireRequest(request: WireRequest, plan: WirePlan): WireRequest;
 
 // @public
@@ -656,14 +621,6 @@ export interface WireRequest {
 // src/models/cost.ts:7:3 - (ae-undocumented) Missing documentation for "outputPerMillion".
 // src/models/cost.ts:8:3 - (ae-undocumented) Missing documentation for "cachedInputPerMillion".
 // src/models/cost.ts:19:14 - (ae-undocumented) Missing documentation for "ModelCost".
-// src/models/environment-variable.ts:3:3 - (ae-undocumented) Missing documentation for "secret".
-// src/models/environment-variable.ts:8:1 - (ae-undocumented) Missing documentation for "MissingEnvironmentVariableError".
-// src/models/environment-variable.ts:9:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/environment-variable.ts:19:5 - (ae-undocumented) Missing documentation for "name".
-// src/models/environment-variable.ts:20:5 - (ae-undocumented) Missing documentation for "isSecret".
-// src/models/environment-variable.ts:21:5 - (ae-undocumented) Missing documentation for "defaultValue".
-// src/models/environment-variable.ts:24:3 - (ae-undocumented) Missing documentation for "named".
-// src/models/environment-variable.ts:44:3 - (ae-undocumented) Missing documentation for "toString".
 // src/models/handler.ts:11:3 - (ae-undocumented) Missing documentation for "provider".
 // src/models/handler.ts:12:3 - (ae-undocumented) Missing documentation for "baseUrl".
 // src/models/handler.ts:13:3 - (ae-undocumented) Missing documentation for "apiKey".
@@ -677,24 +634,23 @@ export interface WireRequest {
 // src/models/handler.ts:38:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/models/jev-alias.ts:4:14 - (ae-undocumented) Missing documentation for "JevModelProvider".
 // src/models/jev-alias.ts:6:1 - (ae-undocumented) Missing documentation for "JevModelProvider".
-// src/models/jev.provider.ts:15:14 - (ae-undocumented) Missing documentation for "OPENROUTER_BASE_URL".
+// src/models/jev.provider.ts:14:14 - (ae-undocumented) Missing documentation for "OPENROUTER_BASE_URL".
 // src/models/jev.provider.ts:65:3 - (ae-undocumented) Missing documentation for "knownModels".
 // src/models/jev.provider.ts:79:3 - (ae-undocumented) Missing documentation for "capabilities".
 // src/models/model-failure.ts:3:3 - (ae-undocumented) Missing documentation for "Timeout".
 // src/models/model-failure.ts:4:3 - (ae-undocumented) Missing documentation for "RateLimited".
 // src/models/model-failure.ts:5:3 - (ae-undocumented) Missing documentation for "ServerError".
 // src/models/model-failure.ts:6:3 - (ae-undocumented) Missing documentation for "NetworkError".
-// src/models/model-provider.decorator.ts:21:3 - (ae-undocumented) Missing documentation for "description".
-// src/models/model-provider.decorator.ts:24:3 - (ae-undocumented) Missing documentation for "baseUrl".
-// src/models/model-provider.decorator.ts:33:3 - (ae-undocumented) Missing documentation for "cost".
-// src/models/model-provider.decorator.ts:54:1 - (ae-undocumented) Missing documentation for "ModelProviderError".
-// src/models/model-provider.decorator.ts:55:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/model-provider.decorator.ts:20:3 - (ae-undocumented) Missing documentation for "description".
+// src/models/model-provider.decorator.ts:40:3 - (ae-undocumented) Missing documentation for "cost".
+// src/models/model-provider.decorator.ts:61:1 - (ae-undocumented) Missing documentation for "ModelProviderError".
+// src/models/model-provider.decorator.ts:62:12 - (ae-undocumented) Missing documentation for "name".
 // src/models/openai-compatible.provider.ts:16:3 - (ae-undocumented) Missing documentation for "caching".
 // src/models/openai-compatible.provider.ts:17:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/openai-compatible.provider.ts:31:3 - (ae-undocumented) Missing documentation for "requestFields".
 // src/models/openai-compatible.provider.ts:34:3 - (ae-undocumented) Missing documentation for "chat".
 // src/models/openai-compatible.provider.ts:94:9 - (ae-undocumented) Missing documentation for "capabilities".
-// src/models/openrouter-model.provider.ts:39:3 - (ae-undocumented) Missing documentation for "requestFields".
+// src/models/openrouter-model.provider.ts:44:3 - (ae-undocumented) Missing documentation for "requestFields".
 // src/models/openrouter.provider.ts:14:3 - (ae-undocumented) Missing documentation for "Price".
 // src/models/openrouter.provider.ts:15:3 - (ae-undocumented) Missing documentation for "Throughput".
 // src/models/openrouter.provider.ts:16:3 - (ae-undocumented) Missing documentation for "Latency".

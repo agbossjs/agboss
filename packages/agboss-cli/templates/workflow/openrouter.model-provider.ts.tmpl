@@ -23,6 +23,7 @@ import { minutes, seconds } from "agboss/units";
   description: "OpenRouter — many models behind one OpenAI-compatible API",
   serves: [/.*/],
   baseUrl: "https://openrouter.ai/api/v1",
+  baseUrlField: "openRouterBaseUrl", // the environment may point it at a proxy
   apiKey: "openRouterApiKey",
   timeout: minutes(2),
   // OpenRouter returns each call's cost

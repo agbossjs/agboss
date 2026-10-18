@@ -11,6 +11,8 @@ export class AppEnvironment {
    * the environments that call models; `test` leaves it out: tests script or replay every model.
    */
   openRouterApiKey?: Secret;
+  /** OpenRouter's base URL (`baseUrlField: "openRouterBaseUrl"`); unset → the provider's default. */
+  openRouterBaseUrl?: string;
   /** The Greenhouse job-board API. */
   greenhouseApiUrl!: string;
   /** The file of the SQLite implementations the application lists (`:memory:` in tests). */

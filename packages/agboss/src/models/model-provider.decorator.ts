@@ -1,7 +1,6 @@
 import type { Milliseconds } from "../units/index.js";
 import type { CircuitBreakerPolicy } from "./circuit-breaker.js";
 import type { ModelCost } from "./cost.js";
-import type { SettingValue } from "./environment-variable.js";
 import type { ModelProviderHandler } from "./handler.js";
 import type { PromptCaching } from "./prompt-caching.js";
 import type { RateLimitPolicy } from "./policies/rate-limit-policy.js";
@@ -21,7 +20,15 @@ export interface ModelProviderOptions {
   readonly description: string;
   /** Model names this provider serves; exactly one provider must serve each model. */
   readonly serves: readonly RegExp[];
-  readonly baseUrl: SettingValue;
+  /** The server's base URL (`https://openrouter.ai/api/v1`); `baseUrlField` may override it. */
+  readonly baseUrl: string;
+  /**
+   * A text field of the application's environment that sets the base URL when it holds one —
+   * `baseUrlField: "openRouterBaseUrl"` with `openRouterBaseUrl: env("OPENROUTER_BASE_URL", {
+   * default: "https://openrouter.ai/api/v1" })` (a proxy, a local stub). Unset or undeclared →
+   * `baseUrl`.
+   */
+  readonly baseUrlField?: string;
   /**
    * The `Secret` field of the application's environment that holds the key —
    * `apiKey: "openRouterApiKey"` with `openRouterApiKey: secret("OPENROUTER_API_KEY")` in each

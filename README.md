@@ -150,7 +150,7 @@ import {
   ModelCost,
   ModelProvider,
   OpenRouterProvider,
-  OPENROUTER_BASE_URL_SETTING,
+  OPENROUTER_BASE_URL,
   PromptCaching,
   QueueBalancingStrategy,
   RateLimitPolicy,
@@ -165,7 +165,8 @@ import { minutes, seconds } from "agboss/units";
   name: "openrouter-model-provider",
   description: "OpenRouter — every chat model job-scout uses",
   serves: [/.*/], // its chat models; decision models go to DecisionsModelProvider (no chat there)
-  baseUrl: OPENROUTER_BASE_URL_SETTING,
+  baseUrl: OPENROUTER_BASE_URL,
+  baseUrlField: "openRouterBaseUrl", // the environment may set another (a proxy, a stub)
   apiKey: "openRouterApiKey", // a Secret field of the application's environment
   timeout: minutes(2), // per attempt, from the moment it has room
   cost: ModelCost.fromResponse(),
@@ -196,6 +197,7 @@ import type { Secret } from "agboss";
 
 export class AppEnvironment {
   openRouterApiKey?: Secret; // dev, prod: openRouterApiKey: secret("OPENROUTER_API_KEY")
+  openRouterBaseUrl?: string; // env("OPENROUTER_BASE_URL", { default: OPENROUTER_BASE_URL })
 }
 ```
 
@@ -571,7 +573,10 @@ export class AuditStoreService {
   holds its key (`apiKey: "openRouterApiKey"`; the built-ins read `openRouterApiKey`), set with
   `openRouterApiKey: secret("OPENROUTER_API_KEY")` in each environment that calls models — a test
   environment may leave it out (tests script or replay models). A missing key fails the start of an
-  app that calls the provider; `agboss check --env test` writes the types without one.
+  app that calls the provider; `agboss check` (without `--models`) reads the contract's shape and
+  writes the types without one. A base URL is read the same way: `baseUrlField:
+"openRouterBaseUrl"` with `openRouterBaseUrl: env("OPENROUTER_BASE_URL", { default: … })` — one
+  way to read a process variable.
 
 ## Quality gates (judges)
 

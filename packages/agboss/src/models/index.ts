@@ -29,21 +29,10 @@ export {
   type OpenRouterRouting,
 } from "./openrouter.provider.js";
 export { OpenRouterModelProvider } from "./openrouter-model.provider.js";
-export {
-  DecisionsModelProvider,
-  JEV_MODELS,
-  OPENROUTER_BASE_URL,
-  OPENROUTER_BASE_URL_SETTING,
-} from "./jev.provider.js";
+export { DecisionsModelProvider, JEV_MODELS, OPENROUTER_BASE_URL } from "./jev.provider.js";
 export { DECISION_MODELS, isDecisionModel } from "./decision-models.js";
 // the deprecated `JevModelProvider` alias (a star export: re-exporting it by name is itself deprecated use)
 export * from "./jev-alias.js";
-export {
-  EnvironmentVariable,
-  MissingEnvironmentVariableError,
-  type EnvironmentVariableOptions,
-  type SettingValue,
-} from "./environment-variable.js";
 export { ModelCost, type ModelPrice, type ModelPrices } from "./cost.js";
 export {
   Reasoning,

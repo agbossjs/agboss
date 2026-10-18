@@ -1,17 +1,16 @@
 import type { Environment } from "../flow/generated-types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { ProviderCalls } from "./calls/provider-calls.js";
-import { providerKeyOf } from "./provider-key.js";
-import { settingValueIn } from "./environment-variable.js";
+import { providerBaseUrlOf, providerKeyOf } from "./provider-environment.js";
 import type { ProviderConnection } from "./handler.js";
 import { modelProviderOf, type ModelProviderOptions } from "./model-provider.decorator.js";
 import { resilientFetch, type FallbackTarget, type ProviderFetch } from "./resilient-fetch.js";
 
 /** How connections are made: the environments, whether keys must be set, the shared calls, the raw client. */
 export interface ConnectionOptions {
-  /** The process environment: base URLs set by a variable (`OPENROUTER_BASE_URL`). */
+  /** The process: the variables of an environment passed as written (not resolved yet). */
   readonly env: NodeJS.ProcessEnv;
-  /** The application's environment, resolved: the providers' keys (`apiKey` names a `Secret` field). */
+  /** The application's environment: the providers' keys (`apiKey`) and base URLs (`baseUrlField`). */
   readonly environment: Environment;
   /** False for `agboss check --models`: model lists are public, a missing key is not a problem there. */
   readonly requireKeys: boolean;
@@ -31,7 +30,7 @@ function connect(
   connection: ConnectionOptions,
   fallback: FallbackTarget | undefined,
 ): ProviderConnection {
-  const baseUrl = settingValueIn(options.baseUrl, connection.env);
+  const baseUrl = providerBaseUrlOf(options, connection);
   const { calls } = connection;
   const gate = calls?.gateOf(options.name, options.rateLimitPolicy);
   return {

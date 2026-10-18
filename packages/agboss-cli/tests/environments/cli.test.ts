@@ -1,10 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { envelope, fixture, agboss } from "../cli/agboss.js";
 
 const APP = fixture("environments/app/settings.workflow.ts");
 const NONE = fixture("environments/none/no-environment.workflow.ts");
 const OBSERVED = fixture("environments/observed/observed.workflow.ts");
 const TOKEN = { FIXTURE_API_TOKEN: "t0ken" };
+/** staging's values, its secret left unset. */
+const STAGING = { FIXTURE_CURRENCY: "EUR", FIXTURE_TIMEOUT: "5" };
 
 describe("#182 AC2: --env <name> on every workflow command", () => {
   it("an unknown name fails at once with exit 3, listing the available environments", async () => {
@@ -35,7 +37,7 @@ describe("#182: agboss check validates the selected environment without running 
     expect(call.stdout).toContain("assembly, environment");
   });
 
-  it("missing variables are a problem naming each of them (exit 3)", async () => {
+  it("missing variables are a problem naming each of them (exit 3) — secrets only with --models", async () => {
     const call = await agboss(["check", "--workflow", APP, "--env", "staging", "--json"]);
     expect(call.code).toBe(3);
     expect(envelope(call).result).toMatchObject({
@@ -43,12 +45,50 @@ describe("#182: agboss check validates the selected environment without running 
         {
           code: "environment.missing-variables",
           message:
-            "FIXTURE_API_TOKEN is not set (SettingsEnvironment.apiToken, staging); " +
             "FIXTURE_CURRENCY is not set (SettingsEnvironment.currency, staging); " +
             "FIXTURE_TIMEOUT is not set (SettingsEnvironment.timeoutSeconds, staging)",
         },
       ],
     });
+  });
+
+  it("#266: without --models a missing secret is no problem — types and assembly read the contract's shape", async () => {
+    const call = await agboss(
+      ["check", "--workflow", APP, "--env", "staging", "--json"],
+      process.cwd(),
+      STAGING,
+    );
+
+    expect(call.code).toBe(0);
+    expect(envelope(call).result).toMatchObject({
+      checks: ["assembly", "environment", "prompts", "types"],
+      problems: [],
+    });
+  });
+
+  it("#266: --models connects, so a missing secret fails, naming its variable", async () => {
+    // the providers' model lists, without a network: no model is listed
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(Response.json({ data: [] }))),
+    );
+    try {
+      const call = await agboss(
+        ["check", "--workflow", APP, "--env", "staging", "--models", "--json"],
+        process.cwd(),
+        STAGING,
+      );
+
+      expect(call.code).toBe(3);
+      expect((envelope(call).result as { problems: unknown[] }).problems).toContainEqual(
+        expect.objectContaining({
+          code: "environment.missing-variables",
+          message: "FIXTURE_API_TOKEN is not set (SettingsEnvironment.apiToken, staging)",
+        }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("#261 AC9: --env lists the process variables it needs, marked value / secret", async () => {

@@ -5,7 +5,6 @@ import { minutes, seconds } from "../units/index.js";
 import type { ModelCapabilities } from "./capabilities.js";
 import { ModelCost } from "./cost.js";
 import { DECISION_MODEL_PATTERN, DECISION_MODELS } from "./decision-models.js";
-import { EnvironmentVariable } from "./environment-variable.js";
 import type { DecideRequest, ModelProviderHandler } from "./handler.js";
 import { ModelProvider } from "./model-provider.decorator.js";
 import { PromptCaching } from "./prompt-caching.js";
@@ -14,11 +13,11 @@ import { RetryPolicy, TRANSIENT_FAILURES } from "./retry-policy.js";
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
-/** OpenRouter's base URL, `OPENROUTER_BASE_URL` overriding it (a proxy, a local stub). */
-export const OPENROUTER_BASE_URL_SETTING = EnvironmentVariable.named("OPENROUTER_BASE_URL", {
-  secret: false,
-  defaultValue: OPENROUTER_BASE_URL,
-});
+/**
+ * The built-ins' base URL field: `openRouterBaseUrl` of the application's environment, when it
+ * declares one (`env("OPENROUTER_BASE_URL", { default: OPENROUTER_BASE_URL })` — a proxy, a stub).
+ */
+export const OPENROUTER_BASE_URL_FIELD = "openRouterBaseUrl";
 
 /** A choice question's options sorted by name; yes/no and score questions as asked (a scale is ordered). */
 function sortedOptions(question: DecisionQuestion): DecisionQuestion {
@@ -46,7 +45,8 @@ export const JEV_MODELS: readonly string[] = ["typesafe/jev-1.13", "typesafe/jev
   name: "decisions-model-provider",
   description: "Decision models on OpenRouter's Decisions API",
   serves: [DECISION_MODEL_PATTERN],
-  baseUrl: OPENROUTER_BASE_URL_SETTING,
+  baseUrl: OPENROUTER_BASE_URL,
+  baseUrlField: OPENROUTER_BASE_URL_FIELD,
   apiKey: OPENROUTER_API_KEY_FIELD,
   timeout: seconds(30),
   cost: ModelCost.fromResponse(),

@@ -36,6 +36,8 @@ export interface CheckTarget {
   readonly env: NodeJS.ProcessEnv;
   /** `--env <name>`; undefined = the default. */
   readonly envName: string | undefined;
+  /** `--models`: the checks connect, so the environment's secrets must be set (#266). */
+  readonly needsSecrets: boolean;
 }
 
 /** A named check of `agboss check`; none needs an API key. */
@@ -94,6 +96,7 @@ export const handle: CommandHandler = async (context) => {
           bundle: assembly.bundle,
           env: context.io.env,
           envName: envOption(context),
+          needsSecrets: flagOption(context.values, "models"),
         })),
       );
   const checks = [

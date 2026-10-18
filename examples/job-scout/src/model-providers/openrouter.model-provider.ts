@@ -1,10 +1,10 @@
 import {
   CachedPart,
   CacheRetention,
-  EnvironmentVariable,
   ModelCost,
   ModelFailure,
   ModelProvider,
+  OPENROUTER_BASE_URL,
   OpenRouterProvider,
   PromptCaching,
   QueueBalancingStrategy,
@@ -26,10 +26,8 @@ import { minutes, seconds } from "agboss/units";
   name: "openrouter-model-provider",
   description: "OpenRouter — many models behind one OpenAI-compatible API",
   serves: [/.*/],
-  baseUrl: EnvironmentVariable.named("OPENROUTER_BASE_URL", {
-    secret: false,
-    defaultValue: "https://openrouter.ai/api/v1",
-  }),
+  baseUrl: OPENROUTER_BASE_URL,
+  baseUrlField: "openRouterBaseUrl", // a proxy or a stub, from the environment
   apiKey: "openRouterApiKey",
   timeout: minutes(2),
   cost: ModelCost.fromResponse(),

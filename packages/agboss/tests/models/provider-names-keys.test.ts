@@ -8,8 +8,13 @@ import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { EnvironmentError } from "../../src/environments/errors.js";
-import { NO_ENVIRONMENT_VALUES, resolveEnvironment } from "../../src/environments/resolve.js";
-import { secret } from "../../src/environments/secret.js";
+import {
+  NO_ENVIRONMENT_VALUES,
+  resolveEnvironment,
+  SecretResolution,
+} from "../../src/environments/resolve.js";
+import { Secret, secret } from "../../src/environments/secret.js";
+import { env } from "../../src/environments/variables.js";
 import { EmptyEnvironment, GraphRuleError } from "../../src/index.js";
 import {
   DecisionsModelProvider,
@@ -19,7 +24,7 @@ import {
   type NoRequestFields,
 } from "../../src/models/index.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
-import { providerKeyOf } from "../../src/models/provider-key.js";
+import { providerBaseUrlOf, providerKeyOf } from "../../src/models/provider-environment.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { LocalWorkflow } from "./fixtures/resolution.workflow.js";
 import { KEYS } from "./gateway.js";
@@ -115,5 +120,65 @@ describe("#266 S73 c: a provider's key comes from the application's environment"
 
   it("a provider without apiKey (a local server) needs no key", () => {
     expect(providerKeyOf(modelProviderOf(LocalModelProvider), NONE, true)).toBe(undefined);
+  });
+});
+
+describe("#266: a provider's base URL comes from the application's environment too", () => {
+  const openRouter = modelProviderOf(OpenRouterModelProvider);
+  const of = (values: Readonly<Record<string, unknown>>, env: NodeJS.ProcessEnv = {}) =>
+    providerBaseUrlOf(openRouter, {
+      environment: resolveEnvironment({ name: "test", contract: "C", values }, env),
+      env,
+    });
+
+  it("baseUrlField names a text field; the environment's value wins, else baseUrl", () => {
+    expect(openRouter).toMatchObject({
+      baseUrl: "https://openrouter.ai/api/v1",
+      baseUrlField: "openRouterBaseUrl",
+    });
+    expect(of({ openRouterBaseUrl: "http://proxy.test/v1" })).toBe("http://proxy.test/v1");
+    expect(of({})).toBe("https://openrouter.ai/api/v1");
+    expect(
+      of(
+        { openRouterBaseUrl: env("OPENROUTER_BASE_URL", { default: "http://d.test" }) },
+        { OPENROUTER_BASE_URL: "http://stub.test/v1" },
+      ),
+    ).toBe("http://stub.test/v1");
+  });
+
+  it("an environment as written: an env(…) reference takes its variable, else its default", () => {
+    const written = {
+      ...NO_ENVIRONMENT_VALUES,
+      openRouterBaseUrl: env("OPENROUTER_BASE_URL", { default: "http://default.test/v1" }),
+    };
+
+    expect(providerBaseUrlOf(openRouter, { environment: written, env: {} })).toBe(
+      "http://default.test/v1",
+    );
+    expect(
+      providerBaseUrlOf(openRouter, {
+        environment: written,
+        env: { OPENROUTER_BASE_URL: "http://set.test/v1" },
+      }),
+    ).toBe("http://set.test/v1");
+    expect(
+      providerBaseUrlOf(modelProviderOf(LocalModelProvider), { environment: written, env: {} }),
+    ).toBe("http://local.test/v1");
+  });
+});
+
+describe("#266: resolving an environment's shape without its secrets", () => {
+  const loaded = { name: "dev", contract: "C", values: { key: secret("KEY"), url: env("URL") } };
+
+  it("Deferred keeps a secret whose variable is unset; other variables are still required", () => {
+    const shaped = resolveEnvironment(loaded, { URL: "http://u.test" }, SecretResolution.Deferred);
+
+    expect(Reflect.get(shaped, "key")).toBeInstanceOf(Secret);
+    expect(() => resolveEnvironment(loaded, {}, SecretResolution.Deferred)).toThrow(
+      "URL is not set (C.url, dev)",
+    );
+    expect(() => resolveEnvironment(loaded, { URL: "http://u.test" })).toThrow(
+      "KEY is not set (C.key, dev)",
+    );
   });
 });

@@ -11,4 +11,6 @@ export class AppEnvironment {
   apiUrl!: string;
   /** OpenRouter's key, read by the model providers (`apiKey: "openRouterApiKey"`); tests script models. */
   openRouterApiKey?: Secret;
+  /** OpenRouter's base URL (`baseUrlField: "openRouterBaseUrl"`); unset → the provider's default. */
+  openRouterBaseUrl?: string;
 }

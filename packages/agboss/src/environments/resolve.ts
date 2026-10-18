@@ -20,6 +20,16 @@ export interface LoadedEnvironment {
   readonly values: unknown;
 }
 
+/**
+ * Whether resolving needs the secrets' values: `Required` at an app's start and under
+ * `agboss check --models`; `Deferred` for `agboss check` on its own — types and assembly read the
+ * contract's shape, so a secret whose variable is unset stays a `Secret` without a value.
+ */
+export enum SecretResolution {
+  Required = "required",
+  Deferred = "deferred",
+}
+
 /** One process variable an environment reads, and how it is printed. */
 export enum VariableUse {
   Value = "value",
@@ -63,7 +73,10 @@ class Problems {
   readonly missing: string[] = [];
   readonly invalid: string[] = [];
 
-  constructor(private readonly loaded: LoadedEnvironment) {}
+  constructor(
+    private readonly loaded: LoadedEnvironment,
+    readonly secrets: SecretResolution = SecretResolution.Required,
+  ) {}
 
   where(path: string): string {
     return `${this.loaded.contract}.${path}, ${this.loaded.name}`;
@@ -87,6 +100,7 @@ function resolvedValue(
   const raw = processValueOf(env, variable);
   if (value instanceof Secret) {
     if (raw !== undefined) return resolvedSecret(variable, raw);
+    if (problems.secrets === SecretResolution.Deferred) return value;
     problems.missing.push(`${variable} is not set (${problems.where(path)})`);
     return undefined;
   }
@@ -107,8 +121,9 @@ function resolvedValue(
 export function resolveEnvironment(
   loaded: LoadedEnvironment,
   processEnv: NodeJS.ProcessEnv,
+  secrets: SecretResolution = SecretResolution.Required,
 ): Environment {
-  const problems = new Problems(loaded);
+  const problems = new Problems(loaded, secrets);
   const values = mapLeaves(loaded.values, (value, path) =>
     isProcessValue(value) ? resolvedValue(value, path, processEnv, problems) : value,
   );
