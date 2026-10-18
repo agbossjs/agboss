@@ -1,5 +1,6 @@
 import { AGBossError } from "../core/errors.js";
-import { systemClock } from "../infrastructure/clock.js";
+import type { Clock } from "../infrastructure/clock.js";
+import type { RateLimitRepository } from "../infrastructure/rate-limit.repository.js";
 import type { Milliseconds } from "../units/index.js";
 
 /** A class decorated with `@ModelProvider` (the fallback of a breaker). */
@@ -38,54 +39,47 @@ export class ModelCallError extends AGBossError {
   }
 }
 
-/**
- * The process's time in milliseconds: the breakers are shared by every app of the process
- * (`processCircuitBreakers`), so they read the system clock, not an application's.
- */
-const systemTime = (): number => systemClock.now().getTime();
+/** Where a breaker keeps its state and reads the time: the application's (#265 S52, #262 S75 d). */
+export interface CircuitBreakerStore {
+  readonly rateLimits: RateLimitRepository;
+  readonly clock: Clock;
+}
 
-/** One provider's breaker: counts failed calls in a sliding window, opens, closes after `openFor`. */
+/**
+ * One provider's breaker: counts failed calls in a sliding window, opens for `openFor`, closes by
+ * itself. Its state — the failures and the open pause — is in the application's
+ * `RateLimitRepository`, so with SQLite (or Redis) it holds on every instance at once; its time is
+ * the application's `Clock`.
+ */
 export class CircuitBreaker {
-  private failures: number[] = [];
-  private openedAt: number | undefined;
+  readonly #failures: string;
+  readonly #open: string;
 
   constructor(
+    provider: string,
     private readonly policy: CircuitBreakerPolicy,
-    private readonly now: () => number = systemTime,
-  ) {}
+    private readonly store: CircuitBreakerStore,
+  ) {
+    this.#failures = `${provider}:circuit-failures`;
+    this.#open = `${provider}:circuit-open`;
+  }
 
   /** Open: calls must not reach the provider. Closes by itself once `openFor` has passed. */
-  isOpen(): boolean {
-    if (this.openedAt === undefined) return false;
-    if (this.now() - this.openedAt < this.policy.openFor) return true;
-    this.openedAt = undefined;
-    this.failures = [];
-    return false;
+  async isOpen(): Promise<boolean> {
+    return (await this.store.rateLimits.pausedUntil(this.#open)) !== undefined;
   }
 
-  recordFailure(): void {
-    const now = this.now();
-    this.failures = [...this.failures.filter((at) => now - at < this.policy.window), now];
-    if (this.failures.length >= this.policy.failureThreshold) this.openedAt = now;
+  /** One failed call; the threshold within the window opens the breaker (its count starts anew). */
+  async recordFailure(): Promise<void> {
+    const { rateLimits, clock } = this.store;
+    const failures = await rateLimits.addToWindow(this.#failures, 1, this.policy.window);
+    if ((failures ?? 0) < this.policy.failureThreshold) return;
+    await rateLimits.pauseUntil(this.#open, new Date(clock.now().getTime() + this.policy.openFor));
+    await rateLimits.clearWindow(this.#failures);
   }
 
-  recordSuccess(): void {
-    this.failures = [];
-  }
-}
-
-/** Breakers shared per provider name — one per process until #121 shares them across processes. */
-export class CircuitBreakers {
-  private readonly byProvider = new Map<string, CircuitBreaker>();
-
-  constructor(private readonly now: () => number = systemTime) {}
-
-  of(provider: string, policy: CircuitBreakerPolicy): CircuitBreaker {
-    const breaker = this.byProvider.get(provider) ?? new CircuitBreaker(policy, this.now);
-    this.byProvider.set(provider, breaker);
-    return breaker;
+  /** A call that succeeded: the failures counted so far are forgotten. */
+  async recordSuccess(): Promise<void> {
+    await this.store.rateLimits.clearWindow(this.#failures);
   }
 }
-
-/** The process's breakers: every app in the process shares a provider's breaker. */
-export const processCircuitBreakers = new CircuitBreakers();
