@@ -66,6 +66,19 @@ describe("#198 AC1: every command has --help and a --json description", () => {
     expect(result.routers.map((r) => r.name)).toEqual(["main-router"]);
   });
 
+  it("#266 AC2: agboss describe --json gives each model with the provider it resolves to", async () => {
+    const call = await agboss(["describe", "--workflow", WORKFLOW, "--json"]);
+
+    const result = envelope(call).result as {
+      models: { key: string; model: string; provider: string }[];
+    };
+    expect(result.models).toContainEqual({
+      key: "routers.main-router",
+      model: "typesafe/jev-1.13",
+      provider: "decisions",
+    });
+  });
+
   it("agboss describe without --json still prints the text", async () => {
     const call = await agboss(["describe", "--workflow", WORKFLOW]);
 
