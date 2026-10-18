@@ -8,10 +8,9 @@ import { accountedRouters } from "./accounted-router.js";
 import { LiveJudgeModel } from "./judge-call.js";
 import { LiveSpendRecorder, SpendRecorder } from "./spend-recorder.js";
 import { JudgeModel } from "./judge-decorators.js";
-import { ExecutionContext } from "../flow/context/execution-context.js";
-import { LiveExecutionContext } from "../flow/context/live-context.js";
+import { standaloneContexts } from "../flow/context/runtime-contexts.js";
+import { CONTEXT_TOKENS, contextValuesOf } from "./context-tokens.js";
 import { createContainer, DependantValue, type Container } from "./container/container.js";
-import { ENV, environmentValueOf } from "./environment-token.js";
 import type { ProviderModule } from "./container/registrations.js";
 import type { ToolHandler } from "./decorators.js";
 import { InjectionToken, type Class, type Token } from "./injection.js";
@@ -21,17 +20,13 @@ import { contextSources, ragMeta, searchTool } from "./rag.js";
 
 /** What a workflow creates per run of the app: the container, tool instances, knowledge sources. */
 
-export { ENV } from "./environment-token.js";
-
 /** Core services a component can depend on. */
 export const ROUTER_FACTORY = new InjectionToken<(name: string) => RouterEngine>("ROUTER_FACTORY");
-/** `deps: [ExecutionContext]`: a live object per consumer, reading the current step (#280). */
-const liveExecutionContext = new DependantValue((dependant) => new LiveExecutionContext(dependant));
 /** `deps: [JudgeModel]` in a `@Judge`: the model of the judge that is judging (#280). */
 const liveJudgeModel = new DependantValue((dependant) => new LiveJudgeModel(dependant));
 /** `deps: [SpendRecorder]`: what a tool or an action paid a service, into its step's spend (S43). */
 const liveSpendRecorder = new DependantValue((dependant) => new LiveSpendRecorder(dependant));
-export const CORE_TOKENS = [ROUTER_FACTORY, ENV, ExecutionContext, JudgeModel, SpendRecorder];
+export const CORE_TOKENS = [ROUTER_FACTORY, ...CONTEXT_TOKENS, JudgeModel, SpendRecorder];
 
 /**
  * A tool component instance as the core's tool (validation, timeout, errors to the model), typed
@@ -92,10 +87,11 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
   containers.set(bundle, perBundle);
   const existing = perBundle.get(services);
   if (existing !== undefined) return existing;
+  // the application's contexts (#261: `deps: [ApplicationContext]`, …); a workflow on its own has its own
+  const contexts = services.contexts ?? standaloneContexts(bundle);
   const core = new Map<Token, unknown>([
     [ROUTER_FACTORY, accountedRouters(services.router)],
-    [ENV, environmentValueOf(services.environment)],
-    [ExecutionContext, liveExecutionContext],
+    ...contextValuesOf(contexts),
     [JudgeModel, liveJudgeModel],
     [SpendRecorder, liveSpendRecorder],
   ]);

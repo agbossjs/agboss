@@ -52,7 +52,7 @@ export class A2AAdapter implements IA2AAdapter {
       // the payload comes off the wire: the app checks it against the start's input
       executeUnchecked(this.app, start, req.input, {
         ...call,
-        ...(req.thread === undefined ? {} : { thread: req.thread }),
+        ...(req.thread === undefined ? {} : { threadId: req.thread }),
         ...streamTo(onEvent),
       }),
     );

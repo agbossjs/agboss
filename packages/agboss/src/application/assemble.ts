@@ -12,6 +12,11 @@ import type { AssembledWorkflow } from "../workflow.js";
 import { requireApplication, type ApplicationOptions } from "./application.js";
 import { applicationRuleViolations } from "./application-rules.js";
 import { crossWorkflowViolations } from "./workflow-rules.js";
+import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
+import { ExecutionContext } from "../flow/context/execution-context.js";
+import { TenantContext } from "../flow/context/tenant-context.js";
+import { contextTokensOf } from "../components/context-tokens.js";
+import { checkContextFields } from "../flow/context/context-rules.js";
 
 /**
  * The assembly of an `@Application` (#261): its own rules (names, its workflows, budgets, where the
@@ -37,6 +42,9 @@ export interface AssembledApplication {
   readonly workflows: readonly AssembledWorkflow[];
   /** How long a stop waits for the running executions (`@Application({ shutdownTimeout })`). */
   readonly shutdownTimeout: Milliseconds;
+  /** The context classes it declares (#261), else the built-in ones. */
+  readonly tenantContext: TenantContextClass;
+  readonly executionContext: ExecutionContextClass;
 }
 
 /** The default shutdown timeout (#265 S51): under the usual 30 s grace period and the 30 s lease. */
@@ -71,13 +79,14 @@ async function assembleWorkflows(
   workflows: readonly Class[],
   modules: readonly ProviderModule[],
   assembly: ApplicationAssembly,
-  owner: { readonly name: string; readonly defaults?: ApplicationOptions["defaults"] },
+  owner: ApplicationOptions,
 ): Promise<{ readonly assembled: AssembledWorkflow[]; readonly errors: GraphRuleError[] }> {
   const assembled: AssembledWorkflow[] = [];
   const errors: GraphRuleError[] = [];
+  const contexts = contextTokensOf(declaredContextsOf(owner));
   for (const workflow of workflows) {
     try {
-      const bundle = await workflowOf(workflow, modules, owner);
+      const bundle = await workflowOf(workflow, modules, owner, contexts);
       assembled.push(await withProfile(bundle, assembly.profile, assembly.profileRoot));
     } catch (error) {
       if (!(error instanceof GraphRuleError)) throw error;
@@ -104,6 +113,14 @@ function throwIfAny(own: readonly RuleViolation[], errors: readonly GraphRuleErr
   if (all.length > 0) throw new ApplicationRuleError(all);
 }
 
+/** The context classes an application declares, else the built-in ones (#261). */
+export const declaredContextsOf = (
+  options: Pick<ApplicationOptions, "tenantContext" | "executionContext">,
+): Pick<AssembledApplication, "tenantContext" | "executionContext"> => ({
+  tenantContext: options.tenantContext ?? TenantContext,
+  executionContext: options.executionContext ?? ExecutionContext,
+});
+
 const withEnvironment = (contract: Class | undefined): { readonly environment?: Class } =>
   contract === undefined ? {} : { environment: contract };
 
@@ -113,6 +130,7 @@ export async function applicationOf(
   where = "createApp",
 ): Promise<AssembledApplication> {
   const { options, source } = requireApplication(application, where);
+  checkContextFields(options);
   const own = applicationRuleViolations(application, options);
   const modules = [applicationModule(options), ...workflowModules(options.workflows)];
   const workflows = options.workflows.filter(
@@ -125,11 +143,12 @@ export async function applicationOf(
     name: options.name,
     version: options.version,
     ...(source === undefined ? {} : { source }),
-    // required by the type; an untyped (JS) caller may leave it out — then `ENV` is unavailable
+    // required by the type; an untyped (JS) caller may leave it out — then the environment is empty
     ...withEnvironment((options as Partial<ApplicationOptions>).environment),
     modules,
     budgets: options.budgets ?? [],
     workflows: assembled,
     shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
+    ...declaredContextsOf(options),
   };
 }

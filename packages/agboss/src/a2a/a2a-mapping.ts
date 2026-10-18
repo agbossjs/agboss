@@ -32,7 +32,7 @@ export function failureStatusOf(error: unknown, signal: AbortSignal | undefined)
 /** The response for a run the app returned: its thread, status and finish output. */
 export function responseOf(output: ExecutionOutput): A2AExecutionResponse {
   return {
-    thread: output.thread,
+    thread: output.threadId,
     status: statusOf(output.status),
     ...(output.finish === undefined ? {} : { finish: output.finish.name, output: output.output }),
   };

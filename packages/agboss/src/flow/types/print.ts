@@ -73,7 +73,7 @@ function brandBlocks(names: ImportTable): readonly string[] {
 }
 
 /** The whole file. */
-/** `Environment` extends each application's contract (#261): what `ENV` gives is typed by it. */
+/** `Environment` extends each application's contract (#261): `applicationContext.environment`. */
 const environmentLines = (contracts: readonly string[]): readonly string[] =>
   contracts.length === 0
     ? []
@@ -83,6 +83,7 @@ export function printTypes(
   tables: TypeTables & { readonly environments?: readonly string[] },
   names: ImportTable,
   tablesModule: string,
+  augmentations: readonly string[] = [],
 ): string {
   const declarations = [
     ...environmentLines(tables.environments ?? []),
@@ -96,6 +97,13 @@ export function printTypes(
     ...tableLines("DtoBrands", dtoBrands(names)),
   ];
   const brands = brandBlocks(names);
-  const body = ["", `declare module "${tablesModule}" {`, ...declarations, "}", ...brands];
+  const body = [
+    "",
+    `declare module "${tablesModule}" {`,
+    ...declarations,
+    "}",
+    ...brands,
+    ...augmentations,
+  ];
   return [...HEADER, ...names.importLines(tablesModule), ...body, ""].join("\n");
 }

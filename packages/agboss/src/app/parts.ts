@@ -19,7 +19,7 @@ import { ComponentError } from "../components/metadata.js";
 import type { AnyTool } from "../tools/index.js";
 import type { PauseSeam } from "../pause/index.js";
 import type { ContainerOptions } from "../components/container/container.js";
-import type { Environment } from "../flow/generated-types.js";
+import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 
 export class UnknownToolError extends Error {
   override name = "UnknownToolError";
@@ -53,11 +53,11 @@ export const evaluationFor = (
 export const servicesFor = (
   bundle: AssembledWorkflow,
   gateway: ModelGateway,
-  environment: Environment | undefined,
+  contexts: RuntimeContexts,
   container: ContainerOptions,
 ): WorkflowServices => ({
   router: (name) => defaultRouterOf(name, bundle.config, gateway),
-  ...(environment === undefined ? {} : { environment }),
+  contexts,
   container,
 });
 

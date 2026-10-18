@@ -10,6 +10,7 @@ import {
   type LaunchRecord,
   type LaunchTicket,
 } from "./launch/records.js";
+import { DEFAULT_CONTEXT_VALUES, type ExecutionContextValues } from "../context/context-values.js";
 import type { OutdatedValueRecord, ScopeRecords } from "./records.js";
 
 /**
@@ -41,6 +42,14 @@ export const ExecutionState = Annotation.Root({
   start: Annotation<string>({ reducer: replace, default: () => "" }),
   /** The start's validated input (the start's scope value; internal `run.input`); checkpointed, so a resume reads it back. */
   startInput: Annotation<unknown>({ reducer: replace, default: () => ({}) }),
+  /**
+   * The values of the execution's contexts (#261): its tenant and its execution fields, validated
+   * at `execute` and frozen; checkpointed, so a resume runs on the values it started with.
+   */
+  contexts: Annotation<ExecutionContextValues>({
+    reducer: replace,
+    default: () => DEFAULT_CONTEXT_VALUES,
+  }),
   /** The workflow version the execution started on (`workflow.startedVersion`, #280); kept on resume. */
   startedVersion: Annotation<string>({ reducer: replace, default: () => "" }),
   /**

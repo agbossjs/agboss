@@ -7,7 +7,8 @@ import {
   applicationsListing,
   type ApplicationDeclaration,
 } from "./application.js";
-import { applicationModule, workflowModules } from "./assemble.js";
+import { applicationModule, declaredContextsOf, workflowModules } from "./assemble.js";
+import { contextTokensOf } from "../components/context-tokens.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { NodeKind } from "../flow/ast.js";
 import { applicationsNear } from "../loader/application-files.js";
@@ -37,7 +38,7 @@ export async function workflowInApplication(workflow: Class): Promise<AssembledW
   if (declaration === undefined) return workflowOf(workflow);
   const { options } = declaration;
   const modules = [applicationModule(options), ...workflowModules(options.workflows)];
-  return workflowOf(workflow, modules, options);
+  return workflowOf(workflow, modules, options, contextTokensOf(declaredContextsOf(options)));
 }
 
 /**

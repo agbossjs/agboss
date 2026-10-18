@@ -87,9 +87,13 @@ const toolDependenciesOf = (
 const codeNodeClassesOf = (graph: RuntimeGraph): readonly Class[] =>
   [...graph.nodes.values()].flatMap((node) => (isCodeNode(node) ? [node.component] : []));
 
-/** What every container of the workflow has besides its providers: core values, MCP servers. */
-const coreTokensOf = (mcp: Mcp): readonly Token[] => [
+/**
+ * What every container of the workflow has besides its providers: core values, the application's
+ * context classes (#261), MCP servers.
+ */
+const coreTokensOf = (mcp: Mcp, contexts: readonly Token[]): readonly Token[] => [
   ...CORE_TOKENS,
+  ...contexts,
   ...INFRASTRUCTURE_TOKENS,
   ...mcp.instances.keys(),
 ];
@@ -150,17 +154,25 @@ const levelsOf = (workflow: Class, owner: WorkflowOwner | undefined): DefaultsLe
   };
 };
 
+/** The workflow's tools have their channels, its observers real hooks. */
+function checkWiring(bundle: WorkflowMeta, tools: Parameters<typeof checkToolChannels>[1]): void {
+  checkToolChannels(bundle, tools);
+  checkObservers(bundle.observers ?? []);
+}
+
 /**
  * Assembles a v2 `@Workflow` class into the workflow the core runs (#272): its paths analysed (every
  * rule, all violations at once — before any model call), router and agent texts loaded, config,
  * prompts, tools, MCP; cost limits from `settings()`. `application` = the providers of its
  * `@Application` (and of the other workflows): its dependencies may come from them; `owner` = the
  * application itself — its `defaults` and its model providers, each model resolved to one (#266).
+ * `contexts` = its context classes (#261), which components may inject.
  */
 export async function workflowOf(
   workflow: Class,
   application: readonly ProviderModule[] = [],
   owner?: WorkflowOwner,
+  contexts: readonly Token[] = [],
 ): Promise<AssembledWorkflow> {
   const { bundle, analysis } = analysedModule(workflow, owner?.defaults);
   const graph = runtimeGraphOf(analysis, workflowDeclarationOf(workflow).options.flow, workflow);
@@ -174,7 +186,8 @@ export async function workflowOf(
   checkMemoryStrategies(agents);
   const judges = judgeClassesOf(agents);
   const components = componentClassesOf(bundle, agents, tools, rags, codeNodeClassesOf(graph));
-  checkGraph(components, [...providerModulesOf(bundle), ...application], coreTokensOf(mcp));
+  const modules = [...providerModulesOf(bundle), ...application];
+  checkGraph(components, modules, coreTokensOf(mcp, contexts));
   rememberServers(bundle, mcp.instances);
   const names = toolNames(tools, rags);
   const prompts = await promptsOf(agents, loader);
@@ -183,8 +196,7 @@ export async function workflowOf(
   const settings = settingsOf(workflow);
   validateAgentsConfig(config, [...names.values()]);
   const modelProviders = resolvedModelProvidersOf(owner?.providers, { config, routers });
-  checkToolChannels(bundle, tools);
-  checkObservers(bundle.observers ?? []);
+  checkWiring(bundle, tools);
   rememberDefaultsLevels(graph, levelsOf(workflow, owner));
   return {
     config,

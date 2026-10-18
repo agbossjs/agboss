@@ -5,10 +5,10 @@ import {
 } from "../components/container/container.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class, Token } from "../components/injection.js";
-import { ENV, environmentValueOf } from "../components/environment-token.js";
-import type { Environment } from "../flow/generated-types.js";
 import type { Clock } from "../finops/ledger.js";
-import { randomUUID } from "node:crypto";
+import type { Environment } from "../flow/generated-types.js";
+import { contextValuesOf } from "../components/context-tokens.js";
+import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import {
   INFRASTRUCTURE_CLOCK,
   INSTANCE_ID,
@@ -31,10 +31,11 @@ export interface ApplicationContainerSources {
   readonly modules: readonly ProviderModule[];
   readonly clock?: Clock | undefined;
   readonly newThreadId?: NewThreadId | undefined;
-  /** The application's environment: what its SQLite implementations read `sqlitePath` from. */
-  readonly environment?: Environment | undefined;
-  /** The instance's id (the holder of its leases); random unless a test names it. */
-  readonly instanceId?: string | undefined;
+  /**
+   * The instance's context levels (#261): its `ApplicationContext` — whose `instanceId` is the
+   * holder of its leases (#265 S63) — and the declared context classes.
+   */
+  readonly contexts: RuntimeContexts;
   /** Where the in-memory defaults keep their rows; a new one unless a test shares one. */
   readonly database?: InMemoryDatabase | undefined;
   /**
@@ -51,9 +52,9 @@ export function applicationContainerOf(sources: ApplicationContainerSources): Ap
     core: new Map<Token, unknown>([
       [INFRASTRUCTURE_CLOCK, sources.clock ?? ((): Date => new Date())],
       [NEW_THREAD_ID, sources.newThreadId],
-      [INSTANCE_ID, sources.instanceId ?? randomUUID()],
+      [INSTANCE_ID, sources.contexts.application.instanceId],
       [IN_MEMORY_DATABASE, sources.database ?? new InMemoryDatabase()],
-      [ENV, environmentValueOf(sources.environment)],
+      ...contextValuesOf(sources.contexts),
     ]),
     defaults: INFRASTRUCTURE_DEFAULTS,
     instances: new Map(sources.instances ?? []),
@@ -94,7 +95,9 @@ function applicationProvidersOf(bundle: AssembledWorkflow): ProviderModule {
  */
 export const standaloneInfrastructure = (
   bundle: AssembledWorkflow,
-  options: Pick<ApplicationContainerSources, "clock" | "newThreadId" | "environment">,
+  options: Pick<ApplicationContainerSources, "clock" | "newThreadId"> & {
+    readonly environment?: Environment | undefined;
+  },
   onCreate?: (instance: unknown) => void,
 ): Infrastructure =>
   resolveInfrastructure(
@@ -102,7 +105,7 @@ export const standaloneInfrastructure = (
       modules: [applicationProvidersOf(bundle)],
       clock: options.clock,
       newThreadId: options.newThreadId,
-      environment: options.environment,
+      contexts: standaloneContexts(bundle.config, options.environment),
     }),
     onCreate === undefined ? {} : { onCreate },
   );

@@ -24,7 +24,7 @@ export async function recoveryPassOf(
   const { deps, paused } = parts;
   const [record] = await deps.terns.byIds([interrupted.ternId]);
   if (record?.status !== "running") return undefined;
-  const stored = await paused.find(interrupted.threadId);
+  const stored = await paused.find(interrupted);
   if (stored?.status === PauseStatus.Resolved && stored.run.runId === interrupted.runId) {
     return { decision: stored.decision, pass: resumePassOf(stored, call) };
   }

@@ -6,10 +6,11 @@ import { drainRun, failedOutcome, workflowAccount } from "./execute.js";
 import { runConfig } from "./paused.js";
 import type { AgentExecutionOutput, RunDeps } from "./types.js";
 
-/** The record of an interrupted execution recovery continues: its run, thread and record id. */
+/** The record of an interrupted execution recovery continues: its run, thread, tenant and record id. */
 export interface InterruptedRun {
   readonly runId: string;
   readonly threadId: string;
+  readonly tenantId: string;
   readonly ternId: string;
 }
 

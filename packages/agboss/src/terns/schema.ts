@@ -41,12 +41,16 @@ const MIGRATIONS: readonly string[] = [
   `ALTER TABLE terns ADD COLUMN run_id TEXT;`,
   // 9 — recovery looks up the records still running (#265 S30)
   `CREATE INDEX IF NOT EXISTS terns_status ON terns(status);`,
+  // 10 — a thread belongs to its tenant (#261): its key is tenant + thread; older rows are "default"
+  `ALTER TABLE threads ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default';
+   ALTER TABLE terns ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default';`,
 ];
 
 const TernRow = z.object({
   id: z.string(),
   run_id: z.string().nullable(),
   thread_id: z.string(),
+  tenant_id: z.string(),
   bundle: z.string(),
   created_at: z.string(),
   task: z.string(),
@@ -81,6 +85,7 @@ export function toTern(row: unknown): Tern {
     id: r.id,
     runId: r.run_id,
     threadId: r.thread_id,
+    tenantId: r.tenant_id,
     bundle: r.bundle,
     createdAt: r.created_at,
     task: r.task,

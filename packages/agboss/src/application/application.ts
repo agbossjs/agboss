@@ -5,6 +5,7 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { NodeKind } from "../flow/ast.js";
 import type { Milliseconds } from "../units/index.js";
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
+import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
 
 /**
  * `@Application` (#261) — the one point of the whole app: what `createApp(App, { env })` and
@@ -43,6 +44,19 @@ export interface ApplicationOptions {
    * settings declares `EmptyEnvironment` (a contract without fields) and needs no environment file.
    */
   readonly environment: Class;
+  /**
+   * The project's tenant level (#261): a subclass of `TenantContext` with DTO field decorators
+   * (`config/context.config.ts`). Its fields are then required at every `app.execute(…, { tenant })`;
+   * omitted → the built-in `TenantContext` (`tenant: { tenantId? }`, default `"default"`).
+   */
+  readonly tenantContext?: TenantContextClass;
+  /**
+   * The project's execution level (#261): a subclass of `ExecutionContext` — who the execution
+   * talks to and what else it carries. Its fields come as `app.execute(…, { execution })`;
+   * omitted → the built-in `ExecutionContext`, and `execution` does not compile. Identity only,
+   * never secrets.
+   */
+  readonly executionContext?: ExecutionContextClass;
   /**
    * Defaults of every workflow (#261): merged field by field under each workflow's own `defaults`
    * — the most specific level that sets a field wins (component over workflow over application).

@@ -3,7 +3,6 @@ import { currentFrame } from "../flow/context/frame.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { IN_MEMORY_DATABASE } from "./clock.js";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
-import { DEFAULT_TENANT_ID } from "./tenant.js";
 
 /** A value kept under a key of an execution tree: plain JSON, so any store can keep it. */
 export type ExecutionTreeValue =
@@ -16,7 +15,7 @@ export type ExecutionTreeValue =
 
 /** The execution tree a key lives in: its tenant and its root execution. */
 export interface ExecutionTree {
-  /** The tenant of the request (`"default"` until tenants, #261). */
+  /** The tenant of the request (`"default"` when it names none, #261). */
   readonly tenantId: string;
   /** `executionContext.root.executionId` of the request. */
   readonly rootExecutionId: string;
@@ -26,10 +25,14 @@ export interface ExecutionTree {
 function currentTree(field: string): ExecutionTree {
   const frame = currentFrame();
   if (frame === undefined || frame.isClosed()) {
-    throw ExecutionContextUnavailableError.outside({ consumer: "ExecutionTreeRepository", field });
+    throw ExecutionContextUnavailableError.outside({
+      consumer: `ExecutionTreeRepository.${field}`,
+      field: "executionContext.root",
+    });
   }
   // one level until #263: the execution is its own root
-  return { tenantId: DEFAULT_TENANT_ID, rootExecutionId: frame.execution.executionId };
+  const { tenant, executionId } = frame.execution;
+  return { tenantId: tenant.tenantId, rootExecutionId: executionId };
 }
 
 /**

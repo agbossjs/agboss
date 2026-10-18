@@ -4,7 +4,15 @@ import type { App } from "../app/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import { startComponents } from "../components/container/lifecycle.js";
 import type { Class } from "../components/injection.js";
-import { environmentFor, type EnvironmentOwner } from "../environments/load.js";
+import {
+  APP_DEFAULT_ENVIRONMENT,
+  namedEnvironmentFor,
+  type EnvironmentOwner,
+} from "../environments/load.js";
+import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
+import { randomUUID } from "node:crypto";
+import { applicationContextOf } from "../flow/context/application-context.js";
+import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import type { Timers } from "../infrastructure/timers.js";
@@ -41,6 +49,28 @@ export interface InstanceSeams {
 }
 
 /**
+ * The instance's context levels (#261): its one `ApplicationContext` — name, version, its id,
+ * when it started (the framework's clock), the chosen environment and the host — and the context
+ * classes the application declares.
+ */
+function contextsOf(
+  assembled: AssembledApplication,
+  options: AppDepsOptions,
+  seams: InstanceSeams,
+): RuntimeContexts {
+  const application = applicationContextOf({
+    name: assembled.name,
+    version: assembled.version,
+    instanceId: seams.instanceId ?? randomUUID(),
+    startedAt: (options.clock ?? ((): Date => new Date()))(),
+    environmentName: options.environmentName ?? APP_DEFAULT_ENVIRONMENT,
+    environment: options.environment ?? NO_ENVIRONMENT_VALUES,
+  });
+  const { tenantContext, executionContext } = assembled;
+  return { application, tenantContext, executionContext };
+}
+
+/**
  * Every class the application and its workflows list (providers, budgets), created now — one
  * instance each, so a missing dependency fails at start and every one gets its hooks.
  */
@@ -70,12 +100,12 @@ export async function buildApplication(
   seams: InstanceSeams = {},
 ): Promise<BuiltApplication> {
   const created: unknown[] = [];
+  const contexts = contextsOf(assembled, options, seams);
   const shared = applicationContainerOf({
     modules: assembled.modules,
     clock: options.clock,
     newThreadId: options.newThreadId,
-    environment: options.environment,
-    instanceId: seams.instanceId,
+    contexts,
     database: seams.database,
     instances: seams.reused,
   });
@@ -97,6 +127,7 @@ export async function buildApplication(
           {
             infrastructure,
             created,
+            contexts,
             ...(seams.timers === undefined ? {} : { timers: seams.timers }),
           },
         ),
@@ -164,15 +195,12 @@ export async function createApp<TApplication extends Class>(
   options: AppOptions = {},
 ): Promise<App> {
   const assembled = await applicationOf(application, options);
-  const environment = await environmentFor(
+  const environment = await namedEnvironmentFor(
     environmentOwnerOf(assembled),
     options,
     options.processEnv ?? process.env,
   );
-  const built = await buildApplication(assembled, {
-    ...options,
-    ...(environment === undefined ? {} : { environment }),
-  });
+  const built = await buildApplication(assembled, { ...options, ...environment });
   closeOnStopSignals(built);
   return built.app;
 }

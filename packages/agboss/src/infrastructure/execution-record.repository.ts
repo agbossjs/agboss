@@ -31,17 +31,23 @@ export enum ExecutionRecordStatus {
 
 /**
  * Infrastructure (#261, S28): the records of the application's executions — threads and their
- * owners, one record per execution (a Tern until #268 renames it), quality scores, conversation
+ * owners — keyed by tenant + thread (#261) — one record per execution (a Tern until #268 renames
+ * it, carrying its `tenantId`), quality scores, conversation
  * summaries and config snapshots. One per application, listed only in `@Application({ providers })`;
  * the built-in default is in memory. Your own `extends ExecutionRecordRepository`.
  */
 export abstract class ExecutionRecordRepository {
-  /** A new thread of the workflow; with an `owner`, only that owner may continue it. */
-  abstract createThread(workflow: string, owner?: string): Promise<string>;
-  abstract hasThread(workflow: string, threadId: string): Promise<boolean>;
+  /**
+   * A new thread of the workflow in a tenant (#261: tenant + thread is its key; the id it makes is
+   * unique in the repository); with an `owner`, only that owner may continue it.
+   */
+  abstract createThread(workflow: string, tenantId: string, owner?: string): Promise<string>;
+  /** Whether the tenant has the thread: another tenant's thread does not exist for it. */
+  abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
   /** The thread's owner (`owner: undefined` = created without one); `undefined` = no such thread. */
   abstract threadOwner(
     workflow: string,
+    tenantId: string,
     threadId: string,
   ): Promise<{ readonly owner: string | undefined } | undefined>;
   abstract append(tern: NewTern): Promise<Tern>;
@@ -112,17 +118,18 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
     this.#store = store;
   }
 
-  createThread(workflow: string, owner?: string): Promise<string> {
-    return this.#store.createThread(workflow, owner);
+  createThread(workflow: string, tenantId: string, owner?: string): Promise<string> {
+    return this.#store.createThread(workflow, tenantId, owner);
   }
-  hasThread(workflow: string, threadId: string): Promise<boolean> {
-    return this.#store.hasThread(workflow, threadId);
+  hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean> {
+    return this.#store.hasThread(workflow, tenantId, threadId);
   }
   threadOwner(
     workflow: string,
+    tenantId: string,
     threadId: string,
   ): Promise<{ readonly owner: string | undefined } | undefined> {
-    return this.#store.threadOwner(workflow, threadId);
+    return this.#store.threadOwner(workflow, tenantId, threadId);
   }
   append(tern: NewTern): Promise<Tern> {
     return this.#store.append(tern);

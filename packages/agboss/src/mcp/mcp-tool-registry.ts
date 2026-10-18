@@ -144,7 +144,7 @@ function formatWorkflowOutput(result: ExecutionOutput): unknown {
   if (result.status === ExecutionStatus.Paused) {
     return {
       status: "paused",
-      threadId: result.thread,
+      threadId: result.threadId,
       message: "Workflow paused, requires resume.",
       pauseDetails: result.pause,
     };

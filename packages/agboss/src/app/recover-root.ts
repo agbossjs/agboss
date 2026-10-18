@@ -30,14 +30,15 @@ export interface RecoverRootParts {
 export const recoverRootOf =
   ({ deps, moves, current, policy }: RecoverRootParts): RecoverRoot =>
   async (record, signal) => {
-    const { runId, threadId } = record;
+    const { runId, threadId, tenantId } = record;
     if (runId === null) return;
     const started = {
       workflowVersion: record.configVersion ?? "",
       configHash: record.configHash ?? "",
     };
     checkResume({ thread: threadId, runId, paused: started, current }, policy);
-    const thread = await deps.terns.threadOwner(deps.config.name, threadId);
-    const owner = thread?.owner;
-    await moves.recovered({ runId, threadId, ternId: record.id }, { signal, owner });
+    const thread = await deps.terns.threadOwner(deps.config.name, tenantId, threadId);
+    const ownerId = thread?.owner;
+    const interrupted = { runId, threadId, tenantId, ternId: record.id };
+    await moves.recovered(interrupted, { signal, ownerId });
   };

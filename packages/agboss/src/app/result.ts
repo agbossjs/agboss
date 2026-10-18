@@ -15,7 +15,8 @@ const recordOf = (run: AgentExecutionOutput): ExecutionRecord => ({
 export function runResultOf(run: AgentExecutionOutput, withRecord: boolean): ExecutionOutput {
   return {
     status: run.status,
-    thread: run.threadId,
+    threadId: run.threadId,
+    tenantId: run.tenantId,
     runId: run.runId,
     path: run.path,
     spend: run.cost,

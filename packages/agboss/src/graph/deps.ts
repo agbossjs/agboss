@@ -20,6 +20,7 @@ import type { Class } from "../components/injection.js";
 import type { ResolvedPolicies } from "../workflow.js";
 import type { WorkflowLimits } from "./settings.js";
 import type { JudgeHandler } from "../components/judge-decorators.js";
+import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 
 /** What the workflow's graph is built from: its analysed paths, its agents and their parts. */
 export interface GraphDeps<TName extends string> {
@@ -61,6 +62,8 @@ export interface GraphDeps<TName extends string> {
   /** A model router's decisions before a parallel launch (#273 S23): its `OnDemand` routes. */
   readonly launchDecisionFor?: (router: LoadedRouter) => LaunchDecider;
   readonly observer?: ObserverManager;
+  /** The application's context levels (#261); absent = a workflow run on its own (eval, replay). */
+  readonly contexts?: RuntimeContexts;
   /** A component instance from the app's container: actions and finishes with a handler. */
   readonly container: { readonly get: <T>(token: Class<T>) => T };
 }

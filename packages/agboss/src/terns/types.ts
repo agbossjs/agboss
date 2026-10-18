@@ -19,6 +19,8 @@ export interface Tern {
   /** The run that wrote it (`ExecutionOutput.runId`, `executionContext.executionId`); null for Terns before #238. */
   readonly runId: string | null;
   readonly threadId: string;
+  /** The tenant of its thread (#261): `"default"` for a thread that names none. */
+  readonly tenantId: string;
   readonly bundle: string;
   readonly createdAt: string;
   readonly task: string;
@@ -107,12 +109,17 @@ export interface VersionScore {
 
 /** Durable memory of runs: threads, Terns, their quality scores and conversation summaries. */
 export interface TernStore extends MemoryStore, ConfigStore {
-  /** A new thread of the workflow; with an `owner`, only that owner may continue it (#202). */
-  readonly createThread: (bundle: string, owner?: string) => Promise<string>;
-  readonly hasThread: (bundle: string, threadId: string) => Promise<boolean>;
+  /**
+   * A new thread of the workflow in a tenant (#261: tenant + thread is its key); with an `owner`,
+   * only that owner may continue it (#202).
+   */
+  readonly createThread: (bundle: string, tenantId: string, owner?: string) => Promise<string>;
+  /** Whether the tenant has the thread: another tenant's thread does not exist for it. */
+  readonly hasThread: (bundle: string, tenantId: string, threadId: string) => Promise<boolean>;
   /** The thread's owner (`owner: undefined` = created without one); `undefined` = no such thread. */
   readonly threadOwner: (
     bundle: string,
+    tenantId: string,
     threadId: string,
   ) => Promise<{ readonly owner: string | undefined } | undefined>;
   readonly append: (tern: NewTern) => Promise<Tern>;

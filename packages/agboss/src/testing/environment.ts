@@ -6,11 +6,11 @@ import {
   environmentOwnerOf,
   type BuiltApplication,
 } from "../application/create-app.js";
-import type { Environment } from "../flow/generated-types.js";
 import {
-  environmentFor,
+  namedEnvironmentFor,
   TEST_DEFAULT_ENVIRONMENT,
   type EnvironmentSelection,
+  type NamedEnvironment,
 } from "../environments/load.js";
 import type { Class } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
@@ -106,7 +106,7 @@ export class TestEnvironment {
   private constructor(
     readonly assembled: AssembledApplication,
     options: TestWithOptions,
-    environment: Environment | undefined,
+    environment: NamedEnvironment,
   ) {
     const { workflows } = assembled;
     this.#nodes = workflows.flatMap((workflow) => [...workflow.graph.nodes.values()]);
@@ -124,7 +124,7 @@ export class TestEnvironment {
     const [first] = workflows;
     this.#options = {
       processEnv: testEnv(),
-      ...(environment === undefined ? {} : { environment }),
+      ...environment,
       gateway:
         options.vcr && first !== undefined
           ? createVcrGateway(first, options.vcr, testEnv(), (failure) => this.book.report(failure))
@@ -150,7 +150,7 @@ export class TestEnvironment {
    */
   static async of(application: Class, options: TestWithOptions = {}): Promise<TestEnvironment> {
     const assembled = await applicationOf(application, {}, "testWith");
-    const environment = await environmentFor(
+    const environment = await namedEnvironmentFor(
       environmentOwnerOf(assembled),
       options,
       testEnv(),

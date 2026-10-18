@@ -10,6 +10,8 @@ import { nodeNameOf } from "./failure-facts.js";
 import { toolNameOf } from "./script.js";
 import { standaloneCallFrameOf } from "../flow/context/call-frame.js";
 import { runInFrame } from "../flow/context/frame.js";
+import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
+import { defaultTenantOf, standaloneContexts } from "../flow/context/runtime-contexts.js";
 
 /** One tool of the app, as the agents get it (validation, timeout, errors as results). */
 export interface ToolSlice<TInput, TOutput> {
@@ -50,6 +52,7 @@ export function toolSlice<TInput, TOutput>(
     executionId: "tool-slice",
     callId: "tool-slice",
     signal,
+    tenant: defaultTenantOf(built.deps.contexts ?? standaloneContexts(built.deps.config)),
   };
   return {
     // the tool validates its result against the output DTO that `run` returns
@@ -94,6 +97,7 @@ const freshState = (runId: string): ExecutionStateType => ({
   start: "",
   startInput: {},
   startedVersion: "",
+  contexts: DEFAULT_CONTEXT_VALUES,
   scope: {},
   outdatedValues: [],
   path: [],

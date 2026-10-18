@@ -127,6 +127,8 @@ export {
   agbossDto,
   type DtoBrands,
   type ExecutionInputOf,
+  type ExecutionOptionsArgs,
+  type ExecutionOptionsOf,
   type ExecutionOutputOf,
   type GeneratedTypeError,
   type InputOf,

@@ -6,6 +6,22 @@ import {
   type WorkflowClass,
   type WorkflowDescriptor,
 } from "../flow/context/execution-context.js";
+import {
+  applicationContextOf,
+  type ApplicationContext,
+} from "../flow/context/application-context.js";
+import {
+  executionFieldsOf,
+  tenantContextOf,
+  tenantFieldsOf,
+  type ContextValues,
+  type ExecutionContextClass,
+  type TenantContextClass,
+  type TenantValues,
+} from "../flow/context/context-values.js";
+import { TenantContext } from "../flow/context/tenant-context.js";
+import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
+import type { Environment } from "../flow/generated-types.js";
 import { idempotencyKeyOf } from "../flow/context/idempotency.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 
@@ -76,47 +92,89 @@ function stepOf(executionId: string, options: TestStepOptions): StepDescriptor {
   });
 }
 
-/** A frozen root execution: the values a unit test gave, read the same at any time. */
-class FixedExecutionContext extends ExecutionContext {
-  readonly executionId: string;
-  readonly threadId: string;
-  readonly ownerId: string | undefined;
-  readonly signal: AbortSignal;
-  readonly workflow: WorkflowDescriptor;
-  readonly step: StepDescriptor;
-  readonly itemIndex = undefined;
-  readonly depth = 1;
+/** The application a unit test's context links up to; what is not given takes its default. */
+export interface TestApplicationOptions {
+  readonly name?: string;
+  readonly version?: string;
+  readonly instanceId?: string;
+  readonly environmentName?: string;
+  /** The environment's values (`applicationContext.environment`); default: none. */
+  readonly environment?: Environment;
+}
 
-  constructor(options: TestExecutionContextOptions) {
-    super();
-    this.executionId = options.executionId ?? "test-execution";
-    this.threadId = options.threadId ?? this.executionId;
-    this.ownerId = options.ownerId;
-    this.signal = options.signal ?? new AbortController().signal;
-    this.workflow = workflowOf(options.workflow ?? TestWorkflow);
-    this.step = stepOf(this.executionId, options.step ?? {});
-    Object.freeze(this);
-  }
+/** The context classes and values of a `testExecutionContext` (#261). */
+export interface TestContextOptions<
+  TExecution extends ExecutionContext,
+  TTenant extends TenantContext,
+> {
+  /** The project's `ExecutionContext` subclass (default: the built-in class). */
+  readonly executionContext?: ExecutionContextClass<TExecution>;
+  /** The project's `TenantContext` subclass (default: the built-in class). */
+  readonly tenantContext?: TenantContextClass<TTenant>;
+  /** The tenant's values, checked by its class's field decorators; default `"default"`. */
+  readonly tenant?: ContextValues<TTenant> | TenantValues;
+  /** The execution subclass's values, checked by its field decorators. */
+  readonly execution?: ContextValues<TExecution>;
+  readonly application?: TestApplicationOptions;
+}
 
-  get parent(): this | undefined {
-    return undefined;
-  }
+const applicationOf = (options: TestApplicationOptions = {}): ApplicationContext =>
+  applicationContextOf({
+    name: options.name ?? "test-application",
+    version: options.version ?? "0.0.0",
+    instanceId: options.instanceId ?? "test-instance",
+    startedAt: new Date(0),
+    environmentName: options.environmentName ?? "test",
+    environment: options.environment ?? NO_ENVIRONMENT_VALUES,
+  });
 
-  get root(): this {
-    return this;
-  }
-
-  executionOf(workflow: WorkflowClass): this | undefined {
-    return workflow === this.workflow.type ? this : undefined;
-  }
+/** The execution's own data: the values a unit test gave, read the same at any time. */
+function executionDataOf(options: TestExecutionContextOptions): Readonly<Record<string, unknown>> {
+  const executionId = options.executionId ?? "test-execution";
+  return {
+    executionId,
+    threadId: options.threadId ?? executionId,
+    ownerId: options.ownerId,
+    signal: options.signal ?? new AbortController().signal,
+    workflow: workflowOf(options.workflow ?? TestWorkflow),
+    step: stepOf(executionId, options.step ?? {}),
+    itemIndex: undefined,
+    depth: 1,
+    parent: undefined,
+  };
 }
 
 /**
- * An `ExecutionContext` for a component created in a unit test without the container (#280):
+ * An `ExecutionContext` for a component created in a unit test without the container (#280, #261):
  * `new WriteAuditAction(testExecutionContext(), fakeAuditRepository)`. Frozen, one level (no
  * parent), readable at any time — no execution needed. Defaults: execution `test-execution`, its
- * own thread, no owner, a signal nobody aborts, step `test-step` on its first visit.
+ * own thread, no owner, a signal nobody aborts, step `test-step` on its first visit, the tenant
+ * `"default"` of an application `test-application` on the `test` environment. With the project's
+ * subclasses (`executionContext`, `tenantContext`) the values are checked by their decorators:
+ * `testExecutionContext({ tenantContext: JobScoutTenantContext, tenant: { dailyBudget: usd(40) } }).tenant`.
  */
-export function testExecutionContext(options: TestExecutionContextOptions = {}): ExecutionContext {
-  return new FixedExecutionContext(options);
+export function testExecutionContext<
+  TExecution extends ExecutionContext = ExecutionContext,
+  TTenant extends TenantContext = TenantContext,
+>(
+  options: TestExecutionContextOptions & TestContextOptions<TExecution, TTenant> = {},
+): TExecution & { readonly tenant: TTenant } {
+  const executionType = options.executionContext ?? ExecutionContext;
+  const tenantType = options.tenantContext ?? TenantContext;
+  const tenant = tenantContextOf(
+    tenantType,
+    tenantFieldsOf(tenantType, options.tenant),
+    applicationOf(options.application),
+  );
+  const values = executionFieldsOf(executionType, options.execution);
+  // the framework's instance of the context class: its prototype, the test's values as own fields
+  const context = Object.create(executionType.prototype) as TExecution & {
+    readonly tenant: TTenant;
+  };
+  Object.assign(context, executionDataOf(options), values, { tenant });
+  Object.defineProperty(context, "root", { enumerable: true, value: context });
+  Object.defineProperty(context, "executionOf", {
+    value: (workflow: WorkflowClass) => (workflow === context.workflow.type ? context : undefined),
+  });
+  return Object.freeze(context);
 }

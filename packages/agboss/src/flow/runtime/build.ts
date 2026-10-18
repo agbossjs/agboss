@@ -20,6 +20,7 @@ import { LAUNCH_NEXT } from "./launch/launch-exit.js";
 import { LaunchRegistry } from "./launch/launch-registry.js";
 import { ExecutionState, type ExecutionStateType, type ExecutionStateUpdate } from "./state.js";
 import { visitNode, type SpentToday } from "./visit.js";
+import { standaloneContexts } from "../context/runtime-contexts.js";
 
 /**
  * One LangGraph `StateGraph` per workflow (#272 → Runtime): a node per component, its id the
@@ -126,6 +127,7 @@ function compile(deps: GraphDeps<string>, run: RunLimits, checkpointer?: BaseChe
     limits: resolvedLimits(deps, run),
     spentToday: run.spentToday,
     workflow,
+    contexts: deps.contexts ?? standaloneContexts(workflow),
     provenance: deps.graph.provenance,
     graph: deps.graph,
     observer: deps.observer,

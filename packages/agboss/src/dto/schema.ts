@@ -61,6 +61,10 @@ function fieldSchema(field: FieldSpec): z.ZodType {
   return Object.keys(meta).length === 0 ? shaped : shaped.meta(meta);
 }
 
+/** An object of these fields, each checked by its decorator (internal: DTOs and contexts). */
+export const fieldsSchemaOf = (fields: readonly FieldSpec[]): z.ZodObject =>
+  z.object(Object.fromEntries(fields.map((field) => [field.name, fieldSchema(field)])));
+
 /** A DTO as an object schema (registered first: undecorated fields and behaviour fail here). */
 export function objectSchemaOf(dto: DtoClass): ObjectSchema {
   const cached = schemas.get(dto);
@@ -68,16 +72,14 @@ export function objectSchemaOf(dto: DtoClass): ObjectSchema {
   if (isOpen(dto)) return z.record(z.string(), z.unknown());
   const fields = registerDto(dto);
   const own = rules.get(dto) ?? [];
-  const schema = z
-    .object(Object.fromEntries(fields.map((field) => [field.name, fieldSchema(field)])))
-    .superRefine((value, ctx) => {
-      for (const rule of own) {
-        const broken = rule(value);
-        if (broken !== undefined) {
-          ctx.addIssue({ code: "custom", path: [broken.field], message: broken.reason });
-        }
+  const schema = fieldsSchemaOf(fields).superRefine((value, ctx) => {
+    for (const rule of own) {
+      const broken = rule(value);
+      if (broken !== undefined) {
+        ctx.addIssue({ code: "custom", path: [broken.field], message: broken.reason });
       }
-    });
+    }
+  });
   schemas.set(dto, schema);
   rememberDtoOf(schema, dto);
   return schema;

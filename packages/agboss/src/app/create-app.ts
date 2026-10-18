@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { rememberAppWorkflow } from "./app-workflow.js";
-import { checkThreadAccess, checkThreadOwner } from "../run/thread.js";
+import { checkThreadAccess, checkThreadOwner, type ThreadAccess } from "../run/thread.js";
 import { checkRunLimits } from "./limit-check.js";
 import { runAgent } from "../run/run-agent.js";
 import { runVersions } from "../run/versions.js";
@@ -16,11 +16,16 @@ import { UnknownToolError } from "./parts.js";
 import { cancelledOutcome, LiveRuns, runOptionsOf } from "./live-runs.js";
 import { executionLeasesOf } from "./execution-leases.js";
 import { treeMovesOf } from "./tree-moves.js";
-import { DEFAULT_TENANT_ID } from "../infrastructure/tenant.js";
+import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
+import {
+  contextValuesOf,
+  defaultTenantOf,
+  standaloneContexts,
+} from "../flow/context/runtime-contexts.js";
 import { systemTimers } from "../infrastructure/timers.js";
 import { admitRequest, observeCancelledPause } from "./run-events.js";
 import { checkedStart, textStartOf } from "./starts.js";
-import type { App, ExecutionOutput } from "./types.js";
+import type { App, ExecutionOptions, ExecutionOutput } from "./types.js";
 import type { RunOperation } from "../core/observability.js";
 import { ApplicationStoppingError } from "./application-stopping.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
@@ -81,10 +86,9 @@ export async function buildApp(
   const { executionLeases, executionTrees: trees } = parts.infrastructure;
   const leases = executionLeasesOf(executionLeases, parts.timers ?? systemTimers);
   const moves = treeMovesOf({ deps, live, paused, leases, trees });
-  const owned = (thread: string, owner: string | undefined) =>
-    checkThreadOwner(deps.terns, deps.config.name, thread, owner);
-  const known = (thread: string, owner: string | undefined) =>
-    checkThreadAccess(deps.terns, deps.config.name, thread, owner);
+  const owned = (access: ThreadAccess) => checkThreadOwner(deps.terns, deps.config.name, access);
+  const known = (access: ThreadAccess) => checkThreadAccess(deps.terns, deps.config.name, access);
+  const contexts = deps.contexts ?? standaloneContexts(deps.config);
   let closed = false;
   let released = false;
   const admit = <T>(
@@ -102,46 +106,53 @@ export async function buildApp(
     warnings: deps.warnings,
     models: deps.models,
     textStart: textStartOf(bundle.graph),
-    execute: async (start, input, call = {}) => {
-      const checked = await admit("execute", call.thread, async () => {
+    execute: async (start, input, ...[given]) => {
+      const call: ExecutionOptions = given ?? {};
+      const checked = await admit("execute", call.threadId, async () => {
         accepting();
         const valid = checkedStart(start, input, bundle.graph);
-        if (call.thread !== undefined) await known(call.thread, call.owner);
-        return valid;
+        // the contexts' values, checked before the first step and frozen (#261)
+        const values = contextValuesOf(contexts, call);
+        const { tenantId } = values.tenant;
+        if (call.threadId !== undefined)
+          await known({ tenantId, threadId: call.threadId, ownerId: call.ownerId });
+        return { ...valid, contexts: values };
       });
-      // the thread is known before the run starts, so `cancel(thread)` reaches a new one too
-      const thread = call.thread ?? (await deps.terns.createThread(deps.config.name, call.owner));
+      const { tenantId } = checked.contexts.tenant;
+      // the thread is known before the run starts, so `cancel(threadId)` reaches a new one too
+      const threadId =
+        call.threadId ?? (await deps.terns.createThread(deps.config.name, tenantId, call.ownerId));
       // one id for the whole run: its observer events, `executionContext.executionId`, its Tern and its result
       const runId = deps.newRunId?.() ?? randomUUID();
-      const state = { runId, threadId: thread };
-      await deps.observer.onWorkflowStart(state);
-      const given = { start: checked.name, input: checked.input, threadId: thread };
-      const result = await moves.first(state, call, (moving, signal) =>
-        runAgent(given, moving, { ...runOptionsOf(call, signal), runId }),
+      await deps.observer.onWorkflowStart({ runId, threadId });
+      const begun = { start: checked.name, input: checked.input, threadId };
+      const { contexts: values } = checked;
+      const result = await moves.first({ runId, threadId, tenantId }, call, (moving, signal) =>
+        runAgent(begun, moving, { ...runOptionsOf(call, signal), runId, contexts: values }),
       );
       // the generated `WorkflowStarts` types the output; at run time it is the finish's validated DTO
       return result as ExecutionOutput<never>;
     },
-    cancel: async (thread, options = {}) => {
-      await admit("cancel", thread, () => owned(thread, options.owner));
+    cancel: async (threadId, options = {}) => {
+      const thread = { tenantId: options.tenantId ?? DEFAULT_TENANT_ID, threadId };
+      // another tenant's thread does not exist for the caller (#261): `UnknownThreadError`
+      await admit("cancel", threadId, () => known({ ...thread, ownerId: options.ownerId }));
       const running = live.abort(thread);
       const waiting = await paused.drop(thread);
       // a running resume completes its own Tern when the abort stops it
       if (waiting !== undefined && !running) {
-        await trees.deleteAllInTree({
-          tenantId: DEFAULT_TENANT_ID,
-          rootExecutionId: waiting.runId,
-        });
+        await trees.deleteAllInTree({ tenantId: thread.tenantId, rootExecutionId: waiting.runId });
         await deps.terns.complete(waiting.ternId, cancelledOutcome(waiting));
-        await observeCancelledPause(deps.observer, { runId: waiting.runId, threadId: thread });
+        await observeCancelledPause(deps.observer, { runId: waiting.runId, threadId });
       }
       return { cancelled: running || waiting !== undefined };
     },
     // two phases (Q58): the decision recorded (Pending → Resolved, atomic), then the tree moved
-    resume: async (thread, decision, call = {}) => {
-      const run = await admit("resume", thread, async () => {
+    resume: async (threadId, decision, call = {}) => {
+      const thread = { tenantId: call.tenantId ?? DEFAULT_TENANT_ID, threadId };
+      const run = await admit("resume", threadId, async () => {
         accepting();
-        await owned(thread, call.owner);
+        await owned({ ...thread, ownerId: call.ownerId });
         return paused.resolve(thread, decision);
       });
       return moves.resumed(run, call);
@@ -164,7 +175,8 @@ export async function buildApp(
     },
   };
   const { type } = bundle.graph;
-  rememberAppWorkflow(app, { type, name: deps.config.name, version: deps.config.version });
+  const workflow = { type, name: deps.config.name, version: deps.config.version };
+  rememberAppWorkflow(app, { workflow, tenant: defaultTenantOf(contexts) });
   return {
     app,
     deps,

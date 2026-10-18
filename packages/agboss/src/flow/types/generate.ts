@@ -1,8 +1,8 @@
 import { dirname, relative } from "node:path";
 import type { Class } from "../../components/injection.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import { checkWorkflow } from "../analyse/analyse.js";
-import type { LoadedModule } from "../analyse/rules/context.js";
+import { checkWorkflow, type FlowCheck } from "../analyse/analyse.js";
+import type { AnalyseOptions, LoadedModule } from "../analyse/rules/context.js";
 import {
   applicationDeclarationOf,
   type ApplicationOptions,
@@ -14,6 +14,7 @@ import { ImportTable } from "./imports.js";
 import { ClassLocator } from "./locate.js";
 import { printTypes } from "./print.js";
 import { tablesOf, type AnalysedWorkflow } from "./tables.js";
+import { contextTypesOf } from "./contexts.js";
 
 /**
  * Type generation (#272 PR 3, S2): a pure function of the loaded application — its v2 workflows and
@@ -31,7 +32,8 @@ export interface FlowTypesRequest {
   readonly workflows: readonly Class[];
   /**
    * The project's `@Application` classes (#261): a workflow is checked with its application's
-   * `defaults`, and each environment contract types `Environment`.
+   * `defaults`, each environment contract types `Environment`, and its declared context classes
+   * type `app.execute(…, { tenant, execution })` of its starts.
    */
   readonly applications?: readonly Class[];
   readonly modules: readonly LoadedModule[];
@@ -94,8 +96,28 @@ const contractOf = (options: ApplicationOptions): Class[] => {
   return contract === undefined ? [] : [contract];
 };
 
+/** Each workflow with the one application that lists it (its defaults, its contexts), analysed. */
+function checkedWorkflows(
+  request: FlowTypesRequest,
+  applications: readonly ApplicationOptions[],
+  options: AnalyseOptions,
+): { readonly owners: (ApplicationOptions | undefined)[]; readonly checks: FlowCheck[] } {
+  const owners = request.workflows.map((workflow) => {
+    const listing = applications.filter((app) => app.workflows.includes(workflow));
+    return listing.length === 1 ? listing[0] : undefined;
+  });
+  const checks = request.workflows.map((workflow, index) => {
+    const defaults = owners[index]?.defaults;
+    return checkWorkflow(
+      workflow,
+      defaults === undefined ? options : { ...options, applicationDefaults: defaults },
+    );
+  });
+  return { owners, checks };
+}
+
 export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
-  const options = {
+  const options: AnalyseOptions = {
     modules: request.modules,
     ...(request.strict === undefined ? {} : { strict: request.strict }),
   };
@@ -103,15 +125,7 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
     const declaration = applicationDeclarationOf(application);
     return declaration === undefined ? [] : [declaration.options];
   });
-  const checks = request.workflows.map((workflow) => {
-    const listing = applications.filter((app) => app.workflows.includes(workflow));
-    const [only] = listing;
-    const defaults = listing.length === 1 ? only?.defaults : undefined;
-    return checkWorkflow(
-      workflow,
-      defaults === undefined ? options : { ...options, applicationDefaults: defaults },
-    );
-  });
+  const { owners, checks } = checkedWorkflows(request, applications, options);
   const errors = checks.flatMap((check) => check.errors);
   const warnings = checks.flatMap((check) => check.warnings);
   const workflows = checks.flatMap((check): AnalysedWorkflow[] =>
@@ -127,8 +141,21 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
     // an empty contract (an application with no settings) adds nothing to `Environment`
     .filter((contract) => declaredFieldsOf(contract).length > 0)
     .map((contract) => names.refPlain(contract));
+  const contexts = contextTypesOf(
+    tables.workflowStarts,
+    checks.map((check, index) => ({
+      starts: check.analysis?.graph.starts ?? [],
+      application: owners[index],
+    })),
+    names,
+  );
   const tablesModule = names.specifier(request.tablesModule ?? "agboss");
-  const text = printTypes({ ...tables, environments: contracts }, names, tablesModule);
+  const text = printTypes(
+    { ...tables, workflowStarts: contexts.workflowStarts, environments: contracts },
+    names,
+    tablesModule,
+    contexts.augmentations,
+  );
   const failures = [
     ...names.unexported.map((component) => unexportedClass(component, projectOf(request.outFile))),
     ...nameClashes(workflows, names),
