@@ -4,7 +4,7 @@ import type { UsageRecord } from "../../finops/usage.js";
 import type { ApprovalRecord } from "../../pause/index.js";
 import type { AgentLoopStateType } from "./state.js";
 
-/** What the execution hands an agent's loop: its run, budget, spend, memory and input message. */
+/** What the execution hands an agent's loop: its run, spend, memory and input message. */
 export function loopInputOf(
   state: ExecutionStateType,
   agent: string,
@@ -12,7 +12,6 @@ export function loopInputOf(
 ): AgentLoopStateType {
   return {
     runId: state.runId,
-    budgetUsd: state.budgetUsd,
     usage: state.usage,
     approvals: state.approvals,
     history: state.history,

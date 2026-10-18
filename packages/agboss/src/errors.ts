@@ -1,7 +1,7 @@
 /**
  * The errors a run can fail with — every one a `AGBossError` with a stable `code`, so a flow
  * can `.onError(<class>, …)` it (also after a resume from a checkpoint) and a caller can tell them
- * apart. `limit` ⊃ `limit.budget`, `limit.visits`; `step` ⊃ `step.failed` (`StepFailedError`, #273 S22) ⊃
+ * apart. `limit` ⊃ `limit.budget`, `limit.steps`, `limit.visits`; `step` ⊃ `step.failed` (`StepFailedError`, #273 S22) ⊃
  * `step.agent`, `step.action`, `step.guard`, `step.router`.
  */
 export {
@@ -13,7 +13,12 @@ export {
 export { errorRecordOf, type ErrorRecord } from "./core/error-record.js";
 export { GraphRuleError, type RuleCode, type RuleViolation } from "./graph/rule-error.js";
 export { FlowSyntaxError } from "./flow/path-builder.js";
-export { BudgetExceededError, LimitExceededError, type LimitKey } from "./graph/limits.js";
+export {
+  BudgetExceededError,
+  LimitExceededError,
+  StepsLimitExceededError,
+  type BudgetBreach,
+} from "./graph/limits.js";
 export {
   AgentFailedError,
   GuardFailedError,
@@ -50,6 +55,5 @@ export {
   ModelKind,
   ModelKindError,
 } from "./llm/decision-errors.js";
-export { PerRunLimitRequiredError } from "./app/limit-check.js";
 export { ApplicationStoppingError } from "./app/application-stopping.js";
 export { ExecutionLeaseLostError } from "./app/lease-lost.js";

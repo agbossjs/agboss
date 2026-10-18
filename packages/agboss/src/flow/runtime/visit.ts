@@ -2,11 +2,11 @@ import { isGraphInterrupt } from "@langchain/langgraph";
 import { errorRecordOf } from "../../core/error-record.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { PaidStepError } from "../../graph/errors.js";
-import { LimitExceededError, type ResolvedLimits } from "../../graph/limits.js";
+import { LimitExceededError } from "../../graph/limits.js";
 import type { FlowEdge } from "../analyse/flow-graph.js";
 import { runInFrame } from "../context/frame.js";
 import { errorHandlerOf, type RuntimeNode } from "./graph-model.js";
-import { checkVisit, isWorkingNode } from "./limits.js";
+import { checkVisit, isWorkingNode, type ExecutionLimits } from "./limits.js";
 import type { GraphNode, NodeOutcome, NodeRunner } from "./node-runner.js";
 import { OutputInvalidError } from "./errors.js";
 import { RouterDecisionError } from "./router-error.js";
@@ -38,12 +38,8 @@ import type { RuntimeContexts } from "../context/runtime-contexts.js";
  * without one the execution fails with the error as it is.
  */
 
-/** The workflow's spend today, read once per execution (for `limits.perDay.cost`). */
-export type SpentToday = () => Promise<number>;
-
 export interface VisitDeps {
-  readonly limits: ResolvedLimits;
-  readonly spentToday: SpentToday;
+  readonly limits: ExecutionLimits;
   /** The workflow, for the step's `ExecutionContext` (#280). */
   readonly workflow: WorkflowIdentity;
   /** The application's context levels (#261), for the step's tenant. */
@@ -53,14 +49,6 @@ export interface VisitDeps {
   /** The graph: what a launch dispatches (#273). */
   readonly graph: RuntimeGraph;
   readonly observer?: ObserverManager;
-}
-
-export async function daySpentBeforeRun(
-  state: ExecutionStateType,
-  deps: VisitDeps,
-): Promise<number> {
-  if (state.daySpentBeforeRunUsd !== null) return state.daySpentBeforeRunUsd;
-  return deps.limits.dayCostUsd === undefined ? 0 : deps.spentToday();
 }
 
 /** The edge a visit leaves by; `undefined` at a finish (the execution ends). */
@@ -183,7 +171,6 @@ function caught(
 export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps): GraphNode {
   return async (state, config) => {
     let ranAsStep = false;
-    let daySpent: number | null = state.daySpentBeforeRunUsd;
     const kept = { startedVersion: startedVersionOf(state, deps.workflow) };
     // what the step's code paid services through `SpendRecorder` (#280 S43)
     const services: UsageRecord[] = [];
@@ -192,8 +179,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
     };
     try {
       if (isWorkingNode(node)) {
-        daySpent = await daySpentBeforeRun(state, deps);
-        checkVisit(state, node, deps.limits, daySpent);
+        await checkVisit(state, node, deps.limits, deps.workflow);
         ranAsStep = true;
       }
       const frame = {
@@ -211,13 +197,9 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
         const reportSite = { observer: deps.observer, config, frame };
         await reportTruncation(reportSite, launched.ticket, launched.launch.launch.maxItems);
       }
-      return { ...update, daySpentBeforeRunUsd: daySpent, ...kept };
+      return { ...update, ...kept };
     } catch (error) {
-      return {
-        ...caught(node, error, ranAsStep, services, config?.signal),
-        daySpentBeforeRunUsd: daySpent,
-        ...kept,
-      };
+      return { ...caught(node, error, ranAsStep, services, config?.signal), ...kept };
     }
   };
 }

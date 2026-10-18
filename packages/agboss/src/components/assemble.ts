@@ -169,7 +169,7 @@ function checkClasses(bundle: WorkflowMeta, agents: readonly AgentMeta[]): void 
 /**
  * Assembles a v2 `@Workflow` class into the workflow the core runs (#272): its paths analysed (every
  * rule, all violations at once — before any model call), router and agent texts loaded, config,
- * prompts, tools, MCP; cost limits from `settings()`. `application` = the providers of its
+ * prompts, tools, MCP; resumes from `settings()`. `application` = the providers of its
  * `@Application` (and of the other workflows): its dependencies may come from them; `owner` = the
  * application itself — its `defaults` and its model providers, each model resolved to one (#266).
  * `contexts` = its context classes (#261), which components may inject.
@@ -209,7 +209,6 @@ export async function workflowOf(
     maxSteps: maxStepsOf(workflow, graph),
     ...containerPartsOf(bundle, policyMapsOf(agents, tools.local, names)),
     ...channelPartsOf(bundle),
-    limits: settings.limits,
     modelProviders,
     onIncompatibleResume: settings.onIncompatibleResume,
     routers,

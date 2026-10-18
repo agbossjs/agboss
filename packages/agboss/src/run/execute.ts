@@ -2,17 +2,13 @@ import { WorkflowCancelledError } from "../core/errors.js";
 import { handedOverReason, isHandedOver } from "../app/handed-over.js";
 import { drainRecordingUsage } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
-import type { ExecutionGraph, RunLimits } from "../flow/runtime/build.js";
+import type { ExecutionGraph } from "../flow/runtime/build.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { PaidStepError } from "../graph/errors.js";
-import { BudgetExceededError, LimitExceededError, type LimitBreach } from "../graph/limits.js";
-import type { WorkflowLimits } from "../graph/settings.js";
+import { LimitExceededError } from "../graph/limits.js";
 import type { NewTern, TernOutcome } from "../terns/index.js";
-import { usd } from "../units/index.js";
-import { reserveSpend, type SpendHold } from "../finops/reservations.js";
-import { checkRunLimits } from "../app/limit-check.js";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
-import type { RunDeps, SpendAccount } from "./types.js";
+import type { RunDeps } from "./types.js";
 
 export type TernBase = Pick<
   NewTern,
@@ -35,7 +31,7 @@ export interface FinishContext<TName extends string> {
   readonly base: TernBase;
   readonly runId: string;
   readonly budgetUsd: number;
-  /** Where spend goes as it happens: the run's ledger account. */
+  /** Where spend goes as it happens: the Tern's list and the budgets' counters. */
   readonly record: (records: readonly UsageRecord[]) => Promise<void>;
   /** How many of the run's usage records are already in the ledger. */
   readonly recorded: number;
@@ -91,64 +87,6 @@ export const failedOutcome = (error: unknown, spent: readonly UsageRecord[]): Te
   steps: [],
   costUsd: totalCost(spent),
 });
-
-/** Writes spend to the account's ledger through the run's hold as it happens; remembers it for the Tern. */
-export function recorder(
-  hold: Pick<SpendHold, "record">,
-  spent: UsageRecord[],
-): (records: readonly UsageRecord[]) => Promise<void> {
-  return async (records) => {
-    spent.push(...records);
-    await hold.record(records);
-  };
-}
-
-/** The account a run pays from: the workflow's own, its daily cap `limits.perDay.cost`. */
-export const workflowAccount = <TName extends string>(deps: RunDeps<TName>): SpendAccount => ({
-  key: deps.config.name,
-  dailyCap: deps.limits.perDay?.cost ?? Number.POSITIVE_INFINITY,
-});
-
-/** What a run may spend, the limits the flow holds it to, and its hold on the account's day. */
-export interface RunBudget {
-  readonly budgetUsd: number;
-  readonly run: RunLimits;
-  readonly hold: SpendHold;
-}
-
-const limitsFor = (limits: WorkflowLimits, account: SpendAccount): WorkflowLimits => ({
-  ...(limits.perRun === undefined ? {} : { perRun: limits.perRun }),
-  ...(Number.isFinite(account.dailyCap) ? { perDay: { cost: usd(account.dailyCap) } } : {}),
-});
-
-/**
- * Run budget = run cap ∩ what is left of the account's day, **reserved** before the first call
- * (#202): the day's spend and the other runs' holds count, so concurrent runs never jointly pass
- * the cap. Nothing left → no calls at all. The flow's day check starts from the committed amount.
- */
-export async function allowedBudget<TName extends string>(
-  deps: RunDeps<TName>,
-  account: SpendAccount,
-): Promise<RunBudget> {
-  if (Number.isFinite(account.dailyCap)) checkRunLimits(deps.config.name, deps.limits);
-  const want = deps.limits.perRun?.cost ?? Number.POSITIVE_INFINITY;
-  const hold = await reserveSpend(deps.ledger, account, want);
-  if (hold.grantedUsd <= 0) {
-    hold.release();
-    const breach: LimitBreach = {
-      key: "limits.perDay.cost",
-      limit: account.dailyCap,
-      actual: hold.committedUsd,
-    };
-    throw new BudgetExceededError(breach, [], 0);
-  }
-  const committed = hold.committedUsd;
-  return {
-    budgetUsd: hold.grantedUsd,
-    run: { limits: limitsFor(deps.limits, account), spentToday: () => Promise.resolve(committed) },
-    hold,
-  };
-}
 
 /** LangGraph emits `{ __interrupt__ }` chunks when a run pauses; only real states carry usage. */
 async function* statesOnly(

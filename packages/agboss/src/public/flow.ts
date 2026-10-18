@@ -162,10 +162,6 @@ export {
 } from "../flow/runtime/records.js";
 export {
   WorkflowSettings,
-  WorkflowSettingsError,
-  type PerDayLimits,
-  type PerRunLimits,
   type WorkflowDefinition,
-  type WorkflowLimits,
   type WorkflowSettingsBuilder,
 } from "../graph/settings.js";

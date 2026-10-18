@@ -96,11 +96,28 @@ export function resolveInfrastructure(
   return infrastructureOf((contract) => container.get(contract));
 }
 
+/** The one loaded application that lists the workflow (none: it stands alone, or two list it). */
+function listingApplicationOf(bundle: AssembledWorkflow) {
+  const [only, ...others] = applicationsListing(bundle.graph.type);
+  return only === undefined || others.length > 0 ? undefined : applicationDeclarationOf(only);
+}
+
+/**
+ * The budgets of a workflow run on its own (eval, replay, golden, compare): its application's
+ * (#261), so those runs are checked and counted like the application's; none when it stands alone.
+ */
+export function standaloneBudgetsOf(
+  bundle: AssembledWorkflow,
+): { readonly budgets: readonly Class[]; readonly applicationName: string } | undefined {
+  const declaration = listingApplicationOf(bundle);
+  if (declaration === undefined) return undefined;
+  const { options } = declaration;
+  return { budgets: options.budgets ?? [], applicationName: options.name };
+}
+
 /** The providers of the one loaded application that lists the workflow (none: it stands alone). */
 function applicationProvidersOf(bundle: AssembledWorkflow): ProviderModule {
-  const [only, ...others] = applicationsListing(bundle.graph.type);
-  const declaration =
-    only === undefined || others.length > 0 ? undefined : applicationDeclarationOf(only);
+  const declaration = listingApplicationOf(bundle);
   if (declaration === undefined) return { owner: bundle.config.name, providers: [] };
   const { options } = declaration;
   return {

@@ -122,7 +122,16 @@ export async function buildApplication(
   try {
     for (const bundle of assembled.workflows) {
       workflows.push(
-        await buildApp(bundle, { ...options, container }, { infrastructure, created, contexts }),
+        await buildApp(
+          bundle,
+          { ...options, container },
+          {
+            infrastructure,
+            created,
+            contexts,
+            budgets: { budgets: assembled.budgets, applicationName: assembled.name },
+          },
+        ),
       );
     }
     createListed(assembled, workflows);

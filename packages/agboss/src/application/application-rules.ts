@@ -1,4 +1,5 @@
 import { budgetOf } from "../budgets/budget.js";
+import { budgetRuleViolations } from "../budgets/budget-rules.js";
 import type { Class, Provider } from "../components/injection.js";
 import { moduleOf } from "../components/module.js";
 import { NodeKind } from "../flow/ast.js";
@@ -13,7 +14,8 @@ import { contextRuleViolations } from "../flow/context/context-rules.js";
 
 /**
  * The rules of an `@Application` itself (#261), read from its declaration: its `name` and class end
- * with their kind, it lists workflows, its budgets are `@Budget`s, infrastructure is listed only
+ * with their kind, it lists workflows, its budgets are `@Budget`s that cap every workflow, every
+ * tenant and the whole application, infrastructure is listed only
  * in its `providers`, its environment contract declares fields only — every field a listed
  * framework implementation reads among them — and its context subclasses' fields take no prompt.
  */
@@ -116,6 +118,7 @@ export function applicationRuleViolations(
     ...nameViolations(options.name, application, NameKind.Application, "Application"),
     ...workflowListViolations(options),
     ...budgetViolations(options),
+    ...budgetRuleViolations(options),
     ...infrastructureViolations(options),
     ...environmentRuleViolations(
       options.name,

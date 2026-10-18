@@ -1,8 +1,8 @@
 import { AGBossError } from "../core/errors.js";
-import { executionGraphOf } from "../flow/runtime/build.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { continueRun, type ContinueOptions } from "./continue-run.js";
-import { drainRun, failedOutcome, workflowAccount } from "./execute.js";
+import { drainRun, failedOutcome } from "./execute.js";
+import { readingGraphOf } from "./run-budgets.js";
 import { runConfig } from "./paused.js";
 import type { AgentExecutionOutput, RunDeps } from "./types.js";
 
@@ -26,7 +26,7 @@ export class NothingToRecoverError extends AGBossError {
 /**
  * Continues an execution its instance left mid-step (#265 S30) from its last checkpoint: the
  * steps that finished keep their writes, only the interrupted one runs again — same run id, same
- * record, the rest of its budget held again. A tree whose graph had already finished (the instance
+ * record, the same budgets. A tree whose graph had already finished (the instance
  * died before writing the record) is only finished.
  */
 export async function continueAgent<TName extends string>(
@@ -34,12 +34,7 @@ export async function continueAgent<TName extends string>(
   deps: RunDeps<TName>,
   options: ContinueOptions = {},
 ): Promise<AgentExecutionOutput> {
-  const account = workflowAccount(deps);
-  const graph = executionGraphOf(deps, {
-    limits: deps.limits,
-    spentToday: () => deps.ledger.spentToday(account.key),
-  });
-  const snapshot = await graph.getState(runConfig(interrupted.runId));
+  const snapshot = await readingGraphOf(deps).getState(runConfig(interrupted.runId));
   // LangGraph boundary: a checkpoint's values are the flow's own state
   const before = snapshot.values as Partial<ExecutionStateType>;
   if (before.start === undefined || before.usage === undefined) {
@@ -55,9 +50,10 @@ export async function continueAgent<TName extends string>(
     start: before.start,
     startInput: before.startInput,
     budgetUsd: before.budgetUsd ?? 0,
+    budgets: before.budgets,
     spent,
   };
-  return continueRun(graph, run, deps, options, async (moving, streaming, record) =>
+  return continueRun(run, deps, options, async (moving, streaming, record) =>
     snapshot.next.length === 0
       ? (before as ExecutionStateType)
       : drainRun(await moving.stream(null, streaming), record, spent.length),

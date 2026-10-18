@@ -22,9 +22,14 @@ import {
 import { evaluationFor, flowFor, guardsFor, pauseFor, servicesFor, toolLookup } from "./parts.js";
 import { closeOf, releaseOf } from "./app-deps-parts.js";
 import { componentsAtStart } from "./start-components.js";
-import { spendLedgerOf } from "../infrastructure/cost-ledger.repository.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
-import { standaloneInfrastructure } from "../application/application-container.js";
+import {
+  standaloneBudgetsOf,
+  standaloneInfrastructure,
+} from "../application/application-container.js";
+import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
+import type { BudgetHandler } from "../budgets/budget.js";
+import type { Class } from "../components/injection.js";
 import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
 
 /** Run dependencies, eval dependencies, and resources to release after the run. */
@@ -114,7 +119,31 @@ export interface WorkflowDepsParts {
   readonly created?: unknown[];
   /** The application's context levels (#261); absent = the workflow's own (a workflow on its own). */
   readonly contexts?: RuntimeContexts;
+  /** The application's budgets (#261): every `@Budget` it lists and its name; absent = none. */
+  readonly budgets?: BudgetListing;
 }
+
+/** The budgets an application lists, and its name (the key of its application budgets). */
+export interface BudgetListing {
+  readonly budgets: readonly Class[];
+  readonly applicationName: string;
+}
+
+/** The application's budgets as a workflow runs them: instances from its container, its ledger. */
+const budgetsOf = (
+  listing: BudgetListing | undefined,
+  container: { readonly get: <T>(token: Class<T>) => T },
+  infrastructure: Infrastructure,
+  clock: Clock,
+): ApplicationBudgets | undefined =>
+  listing === undefined
+    ? undefined
+    : {
+        ...listing,
+        resolve: (budget) => container.get(budget as Class<BudgetHandler>),
+        ledger: infrastructure.costLedger,
+        clock,
+      };
 
 /** Collects the container's instances for their lifecycle hooks, keeping any hook already given. */
 function lifecycleOf(container: ContainerOptions | undefined, created: unknown[] = []) {
@@ -154,9 +183,10 @@ export async function createWorkflowDeps(
   const connect = options.connectMcp ?? connectConfigured(options.transport);
   const mcp = await connect(bundle, config, env);
   const { records: terns, checkpointer } = parts.infrastructure;
-  const ledger = spendLedgerOf(parts.infrastructure.costLedger);
   const tracing = await tracingOf(env);
   const ownsHooks = parts.created === undefined;
+  const components = componentsAtStart(bundle, services);
+  const budgets = budgetsOf(parts.budgets, components.container, parts.infrastructure, clock);
   const deps = {
     config,
     registry: createModelRegistry(config, gateway),
@@ -166,10 +196,10 @@ export async function createWorkflowDeps(
     tools: toolLookup(tools),
     pause: pauseFor(bundle, checkpointer),
     compactionPrompt: bundle.compactionPrompt,
-    ...componentsAtStart(bundle, services),
-    ledger,
+    ...components,
+    budgets,
     terns,
-    evaluation: evaluationFor(bundle, { terns, ledger }, gateway),
+    evaluation: evaluationFor(bundle, { terns, budgets }, gateway),
     tracing,
     contexts,
     clock,
@@ -200,7 +230,9 @@ export async function createAppDeps(
     opened.push(instance);
   });
   await startComponents(opened);
-  const deps = await createWorkflowDeps(bundle, options, { infrastructure }).catch(
+  const budgets = standaloneBudgetsOf(bundle);
+  const parts = { infrastructure, ...(budgets === undefined ? {} : { budgets }) };
+  const deps = await createWorkflowDeps(bundle, options, parts).catch(
     async (error: unknown) => {
       await stopComponents(opened);
       throw error;

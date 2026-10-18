@@ -9,13 +9,7 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   LimitExceededError,
   /** @deprecated Import from "agboss" (#195). */
-  type LimitKey,
-  /** @deprecated Import from "agboss" (#195). */
   optional,
-  /** @deprecated Import from "agboss" (#195). */
-  type PerDayLimits,
-  /** @deprecated Import from "agboss" (#195). */
-  type PerRunLimits,
   /** @deprecated Import from "agboss" (#195). */
   Router,
   /** @deprecated Import from "agboss" (#195). */
@@ -37,13 +31,9 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   type WorkflowFinishOptions,
   /** @deprecated Import from "agboss" (#195). */
-  type WorkflowLimits,
-  /** @deprecated Import from "agboss" (#195). */
   WorkflowSettings,
   /** @deprecated Import from "agboss" (#195). */
   type WorkflowSettingsBuilder,
-  /** @deprecated Import from "agboss" (#195). */
-  WorkflowSettingsError,
   /** @deprecated Import from "agboss" (#195). */
   WorkflowStart,
   /** @deprecated Import from "agboss" (#195). */

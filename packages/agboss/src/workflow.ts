@@ -13,7 +13,6 @@ import type { AnyTool, McpFacade, McpServerHandle } from "./tools/index.js";
 import type { RouterEngine } from "./routers/index.js";
 import type { RuntimeGraph } from "./flow/runtime/graph-model.js";
 import type { LoadedRouter } from "./flow/runtime/routers.js";
-import type { WorkflowLimits } from "./graph/settings.js";
 import type { ModelProviderType } from "./models/model-provider.decorator.js";
 import type { ContainerOptions } from "./components/container/container.js";
 import type { RuntimeContexts } from "./flow/context/runtime-contexts.js";
@@ -46,15 +45,13 @@ export type WorkflowTools =
   readonly AnyTool[] | ((services: WorkflowServices) => readonly AnyTool[]);
 
 /**
- * Everything one workflow needs: its flow, limits and routers, config, prompts, the tools it may
+ * Everything one workflow needs: its flow, steps limit and routers, config, prompts, the tools it may
  * use, the MCP servers behind its facades and, optionally, which tools wait for an approval (pause seam).
  */
 export interface AssembledWorkflow<TName extends string = string> {
   readonly config: AgentsConfigOf<TName>;
   /** The workflow's graph: its paths analysed at assembly (every rule, all at once). */
   readonly graph: RuntimeGraph;
-  /** From the workflow's `settings()`. */
-  readonly limits: WorkflowLimits;
   /** Steps per execution: `@Workflow({ maxSteps })`, default (agents + routers) × 3. */
   readonly maxSteps: number;
   /**

@@ -1,3 +1,4 @@
+import type { BudgetCheck } from "../../budgets/execution-budgets.js";
 import type { ObserverManager } from "../../core/observer-manager.js";
 import type { AIMessage } from "@langchain/core/messages";
 import type { JudgeBinding, ModelBinding } from "../../llm/registry.js";
@@ -45,7 +46,8 @@ export interface AgentJudge {
 export interface AgentLoopDeps {
   readonly agent: AgentDefinition;
   readonly bundle: string;
-  readonly runBudgetCap: number;
+  /** The execution's budgets (#261), checked before every model call. */
+  readonly budgets: BudgetCheck;
   /** Set only with a pause seam: which calls wait for a decision, and how it is asked. */
   readonly approval?: ToolCallApproval | undefined;
   readonly judges: JudgePoints;

@@ -1,5 +1,8 @@
-import type { SpendLedger } from "../finops/ledger.js";
-import type { SpendAccount } from "../index.js";
+import {
+  isApplicationSpendExhausted,
+  recordApplicationSpend,
+} from "../budgets/application-spend.js";
+import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
 import type { RouteOutcome, RouteRequest, RouterEngine } from "../routers/index.js";
 import type { Tern, TernRecords } from "../terns/index.js";
 import { ADEQUATE, INADEQUATE, JUDGE_INSTRUCTIONS } from "./prompts.js";
@@ -8,10 +11,15 @@ export interface EvalDeps {
   readonly terns: TernRecords;
   /** A two-option router (adequate / inadequate); Jev by default. */
   readonly judge: RouterEngine;
-  readonly ledger: SpendLedger;
-  /** Where eval spend goes: `<workflow>:eval`, its own day capped at `limits.perDay.cost`. */
-  readonly account: SpendAccount;
+  /**
+   * The application's budgets (#261): the judge's calls count in its application budgets, and
+   * scoring stops once one is exhausted by its last known limit; absent = not limited.
+   */
+  readonly budgets?: ApplicationBudgets | undefined;
 }
+
+/** Why an evaluation stopped early: an application budget is exhausted. */
+export const BUDGET_EXHAUSTED = "the application's budget is exhausted";
 
 export interface ScoringReport {
   readonly scored: number;
@@ -40,12 +48,12 @@ export async function scoreTerns(deps: EvalDeps, terns: readonly Tern[]): Promis
   let scored = 0;
   let costUsd = 0;
   for (const tern of terns) {
-    if ((await deps.ledger.spentToday(deps.account.key)) >= deps.account.dailyCap) {
-      return { scored, costUsd, stoppedBy: "eval budget exhausted" };
+    if (await isApplicationSpendExhausted(deps.budgets)) {
+      return { scored, costUsd, stoppedBy: BUDGET_EXHAUSTED };
     }
     const outcome = await deps.judge.route(judgeRequest(tern));
     if (outcome.usage !== undefined) {
-      await deps.ledger.record(deps.account.key, [outcome.usage]);
+      await recordApplicationSpend(deps.budgets, [outcome.usage]);
       costUsd += outcome.usage.costUsd;
     }
     const score = scoreOf(outcome);

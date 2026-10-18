@@ -16,7 +16,7 @@ export interface MemoryAfterTurn extends MemoryUpdate {
 /**
  * The built-in strategy of a workflow with `compaction`: agents see the sliding window over the
  * summaries and the turns not yet compacted; after a turn, every `every` uncompacted turns become one
- * summary written by the compaction model (through the model gateway, spend on the run's account).
+ * summary written by the compaction model (through the model gateway, spend counted in the execution's budgets).
  */
 export class CompactionStrategy<TName extends string> extends SlidingWindowStrategy {
   constructor(
@@ -42,7 +42,7 @@ const agentStrategiesOf = <TName extends string>(deps: RunDeps<TName>): BaseMemo
 
 /**
  * After a finished turn: the workflow's built-in strategy (compaction, when configured), then every
- * agent's own strategy update the memory; their spend is recorded to the run's account.
+ * agent's own strategy update the memory; their spend is counted in the execution's budgets.
  */
 export async function updateMemoryAfter<TName extends string>(
   ctx: FinishContext<TName>,
