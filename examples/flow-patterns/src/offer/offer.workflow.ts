@@ -1,6 +1,7 @@
 import {
   agent,
   caseOf,
+  oneOf,
   start,
   toAction,
   VisitsLimitExceededError,
@@ -41,8 +42,9 @@ import { OfferWorkflowStart } from "./workflow-starts/offer.workflow-start.js";
       .toAgent(ReviewerAgent),
 
     agent(ReviewerAgent)
+      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
       .switch(
-        caseOf(ChangesRequestedDto)
+        caseOf(ChangesRequestedDto, { about: OfferDraftDto }) // the changes are about this draft
           .toAgent(EditorAgent)
           .onError(
             VisitsLimitExceededError, // the editor's maxVisits spent: tell the recruiter, finish
