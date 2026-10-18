@@ -141,9 +141,28 @@ export interface WorkflowPauseEvent {
   readonly state: AppState;
 }
 
-/** `app.resume` picked a paused run up with `decision`; the run's id is the one it started with. */
+/** Why a run continues (#265 S30). */
+export enum ResumeReason {
+  /** `app.resume` answered its pause with a decision. */
+  Answered = "answered",
+  /**
+   * Recovery: its instance died or stopped while the run moved, and this instance continues it
+   * from its last checkpoint (taking a decision recorded meanwhile, if any).
+   */
+  Recovered = "recovered",
+}
+
+/**
+ * A run continues: `app.resume` picked a paused run up with `decision` (`ResumeReason.Answered`),
+ * or recovery continues an interrupted one (`ResumeReason.Recovered`; `decision` only when it
+ * takes a recorded one). The run's id is the one it started with.
+ */
 export interface WorkflowResumeEvent {
+  /** Why it continues. */
+  readonly reason: ResumeReason;
+  /** The decision it continues with (`undefined` for a recovery that takes none). */
   readonly decision: unknown;
+  /** Its run id and thread. */
   readonly state: AppState;
 }
 

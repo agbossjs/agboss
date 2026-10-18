@@ -39,6 +39,8 @@ const MIGRATIONS: readonly string[] = [
      owner TEXT NOT NULL);`,
   // 8 — a Tern names the run that wrote it (#238); older Terns have none
   `ALTER TABLE terns ADD COLUMN run_id TEXT;`,
+  // 9 — recovery looks up the records still running (#265 S30)
+  `CREATE INDEX IF NOT EXISTS terns_status ON terns(status);`,
 ];
 
 const TernRow = z.object({

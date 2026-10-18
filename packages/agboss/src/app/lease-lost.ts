@@ -19,7 +19,3 @@ export class ExecutionLeaseLostError extends AGBossError {
     this.rootExecutionId = rootExecutionId;
   }
 }
-
-/** Whether the work was stopped because its instance lost the tree's lease. */
-export const isLeaseLost = (signal: AbortSignal | undefined): boolean =>
-  signal?.aborted === true && signal.reason instanceof ExecutionLeaseLostError;

@@ -6,6 +6,7 @@ import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { PendingPause } from "../pause/index.js";
 import type { Compacted } from "../run/compaction.js";
 import type { RunStreamEvent } from "../run/types.js";
+import type { Milliseconds } from "../units/index.js";
 
 /**
  * How an execution ended for its caller (#269, Q56): at a finish (`result.output`, `result.finish`)
@@ -45,6 +46,15 @@ export interface ExecutionOptions {
 /** `app.cancel(thread, { owner })`: the caller's owner, checked like `execute`'s. */
 export interface CancelOptions {
   readonly owner?: string | undefined;
+}
+
+/**
+ * `app.close({ timeout })`: how long the stop waits for the running executions before it
+ * interrupts them (#265 S51) — default `@Application({ shutdownTimeout })`, else `seconds(25)`.
+ */
+export interface CloseOptions {
+  /** How long to wait before interrupting (`seconds(0)`: at once). */
+  readonly timeout?: Milliseconds;
 }
 
 /** What `app.cancel(thread)` did: `cancelled` when the thread had a running or a paused run. */
@@ -115,7 +125,12 @@ export interface App {
    * with `WorkflowCancelledError`), a paused one is dropped (its `resume` throws `NotPausedError`).
    */
   cancel(thread: string, options?: CancelOptions): Promise<CancelOutput>;
-  close(): Promise<void>;
+  /**
+   * Stops the app (#261, #265): no new executions, `onStop`, the running ones awaited up to the
+   * shutdown timeout — then interrupted, each releasing its lease and staying `running`, so another
+   * instance continues it — then `onDestroy`. A second call with a shorter `timeout` shortens the wait.
+   */
+  close(options?: CloseOptions): Promise<void>;
   /** Resolves a service or component from the app's internal container. */
   resolve<T>(token: Class<T>): T;
   /** Whether the workflow uses a tool of this name (local, MCP or knowledge-base search). */

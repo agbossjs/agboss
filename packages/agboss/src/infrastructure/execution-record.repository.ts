@@ -13,6 +13,23 @@ import {
 import { INFRASTRUCTURE_CLOCK, NEW_THREAD_ID } from "./clock.js";
 
 /**
+ * Where an execution's record is (#265 S30): `Running` while its tree moves — what recovery looks
+ * for — then how it ended, or `Paused`.
+ */
+export enum ExecutionRecordStatus {
+  /** The tree moves (or its instance died while it moved: recovery continues it). */
+  Running = "running",
+  /** It reached a workflow finish. */
+  Answered = "answered",
+  /** A guard stopped it. */
+  Guarded = "guarded",
+  /** It failed (its error in the record's `stopReason`). */
+  Failed = "failed",
+  /** It waits for a decision. */
+  Paused = "paused",
+}
+
+/**
  * Infrastructure (#261, S28): the records of the application's executions — threads and their
  * owners, one record per execution (a Tern until #268 renames it), quality scores, conversation
  * summaries and config snapshots. One per application, listed only in `@Application({ providers })`;
@@ -33,6 +50,15 @@ export abstract class ExecutionRecordRepository {
   /** The last `limit` records of a thread, oldest first. */
   abstract lastTerns(threadId: string, limit: number): Promise<Tern[]>;
   abstract byIds(ids: readonly string[]): Promise<Tern[]>;
+  /**
+   * A page of the records with `status`, oldest first: up to `limit`, after the record `after`
+   * (the last id of the previous page). Recovery reads `ExecutionRecordStatus.Running` (#265 S30).
+   */
+  abstract findByStatus(
+    status: ExecutionRecordStatus,
+    limit: number,
+    after?: string,
+  ): Promise<Tern[]>;
   /** Original (non-replay) records of a prompt version, oldest first. */
   abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Tern[]>;
   /** Answered records without a score, oldest first. */
@@ -98,6 +124,9 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
   }
   byIds(ids: readonly string[]): Promise<Tern[]> {
     return this.#store.byIds(ids);
+  }
+  findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Tern[]> {
+    return this.#store.byStatus(status, limit, after);
   }
   byVersion(workflow: string, promptVersion: string, limit: number): Promise<Tern[]> {
     return this.#store.byVersion(workflow, promptVersion, limit);

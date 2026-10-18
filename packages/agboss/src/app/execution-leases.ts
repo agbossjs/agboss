@@ -41,6 +41,8 @@ export interface ExecutionLeases {
    * `signal` (the caller's) ends the wait with its reason.
    */
   hold(rootExecutionId: string, signal?: AbortSignal): Promise<HeldExecutionLease>;
+  /** The tree's lease when it is free now (recovery, #265 S30); `undefined` while another holds it. */
+  tryHold(rootExecutionId: string): Promise<HeldExecutionLease | undefined>;
 }
 
 export function executionLeasesOf(
@@ -73,6 +75,7 @@ export function executionLeasesOf(
     };
   };
   return {
+    tryHold: take,
     hold: async (rootExecutionId, signal) => {
       const key = treeKeyOf(DEFAULT_TENANT_ID, rootExecutionId);
       for (;;) {

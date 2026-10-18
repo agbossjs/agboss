@@ -137,6 +137,22 @@ function ternReads(rows: Rows): Pick<TernStore, "lastTerns" | "byIds" | "byVersi
   };
 }
 
+/** Recovery's look-up (#265 S30): a page of the Terns with one status, oldest first. */
+function statusReads(rows: Rows): Pick<TernStore, "byStatus"> {
+  return {
+    byStatus: (status, limit, after) =>
+      Promise.resolve(
+        rows(
+          `SELECT * FROM terns WHERE status = ?
+           AND rowid > COALESCE((SELECT rowid FROM terns WHERE id = ?), 0) ORDER BY rowid LIMIT ?`,
+          status,
+          after ?? null,
+          limit,
+        ),
+      ),
+  };
+}
+
 const SUMMARY = `SELECT t.prompt_version, COUNT(DISTINCT t.id) AS terns, COUNT(s.score) AS scored,
     AVG(s.score) AS mean_score,
     (SELECT SUM(cost_usd) FROM terns x WHERE x.bundle = t.bundle AND x.prompt_version = t.prompt_version) AS cost_usd
@@ -182,6 +198,7 @@ export function createSqliteTernStore(
     ...threadMethods(db, now, newThreadId),
     ...ternWrites(db, now),
     ...ternReads(rows),
+    ...statusReads(rows),
     ...scoreMethods(db, now),
     ...memoryMethods(db, now),
     ...configMethods(db, now),

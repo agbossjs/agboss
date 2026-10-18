@@ -10,6 +10,10 @@ import type { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import type { Timers } from "../infrastructure/timers.js";
 import { applicationContainerOf, resolveInfrastructure } from "./application-container.js";
 import { composeApp } from "./compose-app.js";
+import { gracefulStopOf, type GracefulStop } from "./graceful-stop.js";
+import { startRecoverySweep } from "../infrastructure/recovery.js";
+import { closeOnStopSignals } from "./stop-signals.js";
+import { systemTimers } from "../infrastructure/timers.js";
 import { applicationOf, type AssembledApplication } from "./assemble.js";
 import type { ApplicationClass } from "./types.js";
 
@@ -19,6 +23,8 @@ export interface BuiltApplication {
   readonly assembled: AssembledApplication;
   readonly workflows: readonly BuiltApp[];
   readonly infrastructure: Infrastructure;
+  /** Resolves when `app.close()` has finished. */
+  readonly closed: Promise<void>;
 }
 
 /**
@@ -101,7 +107,41 @@ export async function buildApplication(
     await releaseAll(workflows);
     throw error;
   }
-  return { app: composeApp(assembled, workflows, created), assembled, workflows, infrastructure };
+  const stop = stopOf(assembled, workflows, { created, infrastructure, timers: seams.timers });
+  const app = composeApp(assembled, workflows, stop);
+  return { app, assembled, workflows, infrastructure, closed: stop.closed };
+}
+
+/** What the instance's stop and recovery work with besides its workflows. */
+interface InstanceParts {
+  readonly created: readonly unknown[];
+  readonly infrastructure: Infrastructure;
+  readonly timers: Timers | undefined;
+}
+
+/** The instance's recovery sweep, started now (`onStart` is done, #265 S30), and its graceful stop. */
+function stopOf(
+  assembled: AssembledApplication,
+  workflows: readonly BuiltApp[],
+  parts: InstanceParts,
+): GracefulStop {
+  const timers = parts.timers ?? systemTimers;
+  const interruption = new AbortController();
+  const sweep = startRecoverySweep({
+    records: parts.infrastructure.records,
+    workflows: new Map(workflows.map((workflow) => [workflow.deps.config.name, workflow.recover])),
+    timers,
+    signal: interruption.signal,
+  });
+  const { shutdownTimeout } = assembled;
+  return gracefulStopOf({
+    workflows,
+    created: parts.created,
+    sweep,
+    timers,
+    interruption,
+    shutdownTimeout,
+  });
 }
 
 /**
@@ -109,7 +149,7 @@ export async function buildApplication(
  * once), the environment next to the application file, one container, the components' `onInit` →
  * `onStart` — `const app = await createApp(JobScoutApplication, { env: "prod" })`; then
  * `app.execute(ScreeningWorkflowStart, input)` runs the workflow of that start,
- * `app.resume(thread, decision)`, `app.close()`.
+ * `app.resume(thread, decision)`, `app.close()` — also on SIGTERM / SIGINT (#265 S51).
  */
 export async function createApp<TApplication extends Class>(
   application: ApplicationClass<TApplication>,
@@ -125,5 +165,6 @@ export async function createApp<TApplication extends Class>(
     ...options,
     ...(environment === undefined ? {} : { environment }),
   });
+  closeOnStopSignals(built);
   return built.app;
 }

@@ -6,6 +6,7 @@ import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { GraphRuleError, type RuleViolation } from "../graph/rule-error.js";
 import { withProfile } from "../profile-workflow.js";
+import { seconds, type Milliseconds } from "../units/index.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { requireApplication, type ApplicationOptions } from "./application.js";
 import { applicationRuleViolations } from "./application-rules.js";
@@ -30,7 +31,12 @@ export interface AssembledApplication {
   readonly budgets: readonly Class[];
   /** The top-level workflows, in the order listed. */
   readonly workflows: readonly AssembledWorkflow[];
+  /** How long a stop waits for the running executions (`@Application({ shutdownTimeout })`). */
+  readonly shutdownTimeout: Milliseconds;
 }
+
+/** The default shutdown timeout (#265 S51): under the usual 30 s grace period and the 30 s lease. */
+const SHUTDOWN_TIMEOUT: Milliseconds = seconds(25);
 
 /** How the workflows are assembled: a profile on top of each (`profiles/<workflow>/<profile>.yaml`). */
 export interface ApplicationAssembly {
@@ -111,5 +117,6 @@ export async function applicationOf(
     modules,
     budgets: options.budgets ?? [],
     workflows: assembled,
+    shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
   };
 }

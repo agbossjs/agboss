@@ -1,7 +1,11 @@
 import type { MessageContent } from "@langchain/core/messages";
 /** Terminology: a Tern is one question → replyWith round (one run). A thread is a client's sequence of Terns. */
 
-export const TERN_STATUSES = ["answered", "guarded", "failed", "paused"] as const;
+/**
+ * Where a Tern is: `running` while its execution moves (#265 S30: what recovery looks for), then
+ * how it ended — `answered`, `guarded`, `failed` — or `paused`.
+ */
+export const TERN_STATUSES = ["running", "answered", "guarded", "failed", "paused"] as const;
 export type TernStatus = (typeof TERN_STATUSES)[number];
 
 /** One step inside a Tern: what one agent answered. */
@@ -117,6 +121,8 @@ export interface TernStore extends MemoryStore, ConfigStore {
   /** The last `limit` Terns of a thread, oldest first. */
   readonly lastTerns: (threadId: string, limit: number) => Promise<Tern[]>;
   readonly byIds: (ids: readonly string[]) => Promise<Tern[]>;
+  /** Up to `limit` Terns with `status`, oldest first, after the Tern `after` (a page of them). */
+  readonly byStatus: (status: TernStatus, limit: number, after?: string) => Promise<Tern[]>;
   /** Original (non-replay) Terns of a prompt version, oldest first. */
   readonly byVersion: (bundle: string, promptVersion: string, limit: number) => Promise<Tern[]>;
   /** Answered Terns without a score, oldest first. */
@@ -131,5 +137,5 @@ export interface TernStore extends MemoryStore, ConfigStore {
   readonly close: () => void;
 }
 
-/** What a run reads and writes of its records (the store without its own `close`). */
-export type TernRecords = Omit<TernStore, "close">;
+/** What a run reads and writes of its records (the store without its own `close`, nor recovery's look-up). */
+export type TernRecords = Omit<TernStore, "close" | "byStatus">;
