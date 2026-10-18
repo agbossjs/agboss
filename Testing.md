@@ -1,7 +1,10 @@
 # Testing — `agboss/testing`
 
-Test a workflow without models and without the network, from its first day: the real container,
-components and graph rules, with **everything external replaced automatically**. Vitest (≥ 3.2) is an
+Test an application without models and without the network, from its first day: the real
+container, components and graph rules of every workflow, with **everything external replaced
+automatically**. `testWith(Application)` is the only form (#261) — `testWith(Workflow)` does not
+compile; one workflow is tested through its start with `app.execute`, and a library workflow
+through a small test `@Application` of its own. Vitest (≥ 3.2) is an
 optional peer dependency.
 
 ```ts
@@ -13,7 +16,7 @@ export default defineConfig({ test: { setupFiles: ["agboss/testing/setup"] } });
 
 <!--
 ```ts file=job-scout.ts
-import { Agent, DecidedBy, Injectable, Router, TerminalUserChannel, Tool, Workflow, WorkflowFinish, WorkflowStart, route, start, type ToolHandler } from "agboss";
+import { Agent, Application, DecidedBy, Injectable, Router, TerminalUserChannel, Tool, Workflow, WorkflowFinish, WorkflowStart, route, start, type ToolHandler } from "agboss";
 import { ListOf, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
 import { McpServer, McpServerClient, McpTool } from "agboss/mcp";
 const model = "moonshotai/kimi-k2.6";
@@ -98,11 +101,13 @@ export class MainRouter {}
   channelClasses: [TerminalUserChannel],
 })
 export class JobScout {}
+@Application({ name: "job-scout-application", version: "1.0.0", workflows: [JobScout] })
+export class JobScoutApplication {}
 ```
 -->
 
 <!-- snippet-context
-import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
+import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
 const job = { title: "Senior Engineer", link: "https://boards.greenhouse.io/acme/jobs/1" };
 -->
 
@@ -110,7 +115,7 @@ const job = { title: "Senior Engineer", link: "https://boards.greenhouse.io/acme
 import { replyWith, callTool, routeTo, testWith } from "agboss/testing";
 import { expect } from "vitest";
 
-const test = testWith(JobScout);
+const test = testWith(JobScoutApplication);
 
 test("saving waits for approval; after it the agent's answer ends the turn", async ({ app, mockLlm, mcpOf }) => {
   mockLlm(MainRouter).thenReturn(routeTo(Shortlist)); // one router call: the agent's answer finishes the turn
@@ -131,19 +136,25 @@ test("saving waits for approval; after it the agent's answer ends the turn", asy
 
 Components are referenced **by class** everywhere; strings only for data.
 
-## `testWith(Workflow, { real?, allowNetwork? })`
+## `testWith(Application, { real?, allowNetwork? })`
 
 A Vitest `test` whose fixtures are:
 
 | Fixture   | What it is                                                                                 |
 | --------- | ------------------------------------------------------------------------------------------ |
-| `app`     | the workflow's [App](App) (`execute`, `resume`, `cancel`, `close`) — built on first use, so `mockOf` in the test body takes effect; plus `app.clock` and slices |
+| `app`     | the application's [App](App) (`execute`, `resume`, `cancel`, `close`) — built on first use (`execute`, or `await app.ready()` for a test that executes nothing; a second `ready()` does nothing), so `mockOf` in the test body takes effect; plus `app.clock` and slices |
 | `mockLlm` | the script of an agent or a router: `mockLlm(Scout).thenReturn(…)`                            |
-| `mockOf`  | a typed mock injected instead of a component                                               |
+| `mockOf`  | a typed mock injected instead of a component (a budget too: `mockOf(TenantDailyBudget).maxSpend`) |
 | `mcpOf`   | the stub of an MCP server                                                                  |
-| `recoverApp` | `await recoverApp()` closes the current app (its `onStop` hooks run, as on a real stop) and returns a new one over the same test state (checkpoints, ledger, clock, ids); the closed app fails every call with `test.app-closed` |
+| `recoverApp` | `await recoverApp()` closes the current app (its `onStop` hooks run, as on a real stop) and returns a new one over the same test state (the infrastructure the first app created — checkpoints, records, ledger, paused executions — the clock, the ids); the closed app fails every call with `test.app-closed` |
 
-The workflow is assembled when the test starts: an assembly error fails the test before it runs.
+The whole application is assembled when the test starts: a broken workflow fails every test of
+the file before it runs, the message naming it.
+
+**Isolation.** Each test gets a new container, new instances of every provider and new
+infrastructure: the implementations the application lists (`@Application({ providers })`), else
+the built-in in-memory defaults — nothing is substituted, and nothing one test leaves is seen by
+the next.
 
 ### Everything external is replaced
 
@@ -165,8 +176,8 @@ it (`app.execute`, `app.resume`, a slice) throws it.
 
 <!-- snippet-context
 import { ModelFailure, callTool, failWith, replyWith, routeTo, testWith } from "agboss/testing";
-import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
-testWith(JobScout)("scripts", ({ mockLlm }) => {
+import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
+testWith(JobScoutApplication)("scripts", ({ mockLlm }) => {
 // @snippet
 });
 -->
@@ -210,8 +221,8 @@ returns the same instance the app uses:
 <!-- snippet-context
 import { expect } from "vitest";
 import { testWith } from "agboss/testing";
-import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
-testWith(JobScout)("a mock", ({ mockOf }) => {
+import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
+testWith(JobScoutApplication)("a mock", ({ mockOf }) => {
 // @snippet
 });
 -->
@@ -307,7 +318,7 @@ compile error — `tsc` (in `make check`) fails when such a line compiles. One f
 
 <!-- snippet-context
 import { callTool } from "agboss/testing";
-import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
+import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
 -->
 
 ```ts
@@ -372,8 +383,8 @@ When the answer depends on the request, script a function instead of a list of t
 
 <!-- snippet-context
 import { callTool, replyWith, routeTo, testWith } from "agboss/testing";
-import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
-testWith(JobScout)("answers", ({ mockLlm }) => {
+import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
+testWith(JobScoutApplication)("answers", ({ mockLlm }) => {
 // @snippet
 });
 -->
@@ -404,14 +415,14 @@ Instead of scripts, a test can answer from a **cassette**: recorded once with th
 replayed in every later run — in milliseconds, without a key or network.
 
 <!-- snippet-context
-import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
+import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
 -->
 
 ```ts
 import { expect } from "vitest";
 import { VCRMode, testWith } from "agboss/testing";
 
-const test = testWith(JobScout, {
+const test = testWith(JobScoutApplication, {
   vcr: {
     cassetteName: "onboarding", // __snapshots__/onboarding.cassette.json
     mode: process.env.CI ? VCRMode.REPLAY : VCRMode.AUTO, // the default already

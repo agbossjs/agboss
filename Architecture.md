@@ -32,7 +32,7 @@ flowchart LR
   `GuardrailBlockedError`).
 - **limits** — steps (`maxSteps`), visits (`maxVisits`), spend per run and per day, checked before each working node;
   hitting one **fails** the run (`LimitExceededError`) unless an `.onError` takes it. See [Workflow](Workflow), [FinOps](FinOps).
-- **app** (`createApp` → `execute` / `resume` / `cancel` / `close`, [App](App)) over the run layer
+- **application** (`@Application`, `createApp(App)` → `execute` / `resume` / `cancel` / `close` over every workflow of it, [App](App)) over the run layer
   (`src/run`: `runAgent` / `resumeAgent`) — check the
   daily cap before the graph starts, record spend as it happens, write a Tern for every outcome
   (answered, paused, failed).
@@ -55,7 +55,7 @@ flowchart LR
 | `src/run`            | runAgent / resumeAgent: threads, Terns                     | graph, finops, terns, prompts, routers, tracing  |
 | `src/eval`           | Jev judge, eval, replay                                    | run, routers, terns, finops                      |
 | `src/workflow.ts`    | workflow (flow + limits + config + prompts + tools + MCP)  | config, graph, prompts, tools, routers (types)   |
-| `src/app`            | `createApp`, production wiring (`createAppDeps`)           | all of the above                                 |
+| `src/application`, `src/app` | `@Application`, `createApp`, one workflow's wiring (`createAppDeps`) | all of the above              |
 | `src/testing`        | `agboss/testing`: testWith, scripted models, matchers | app, graph, llm (gateway), tools — tests only   |
 | `src/internal.ts`    | `agboss/internal`: what the CLI is built on (not public) | app, loader, describe, eval                  |
 | `packages/agboss-cli` | the `agboss` command — a separate package            | `agboss` (+ `/internal`)                   |

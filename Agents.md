@@ -169,8 +169,12 @@ import { ChatFinish, ChatStart, RefundTool, SupportAgent, SupportWorkflow } from
 ```ts
 import { expect } from "vitest";
 import { callTool, replyWith, testWith } from "agboss/testing";
+import { Application } from "agboss";
 
-const test = testWith(SupportWorkflow);
+@Application({ name: "support-application", version: "1.0.0", workflows: [SupportWorkflow] })
+class SupportApplication {}
+
+const test = testWith(SupportApplication); // an application, never the workflow itself
 
 test("a refund request calls the refund tool, then answers", async ({ app, mockLlm }) => {
   mockLlm(SupportAgent).thenAnswer((request) =>

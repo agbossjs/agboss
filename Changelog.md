@@ -3,6 +3,43 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `@Application`, infrastructure, the test entry (#261, PR 2)
+
+- **Breaking — `@Application` is the one entry**: `@Application({ name, version, workflows,
+  providers, budgets })` (`name` ends with `-application`, the class with `Application`), and
+  `createApp(App, { env })` / `testWith(App)` take it. `createApp(Workflow)` and `testWith(Workflow)`
+  are removed — they do not compile (the generated `.agboss/types.d.ts` brands every workflow) and
+  fail at run time naming the fix. `app.execute(Start, …)` runs the workflow of that start (any
+  workflow of the application); `resume` / `cancel` find the workflow of the thread; `app.name` /
+  `app.version` are the application's. Environments are found next to the application file
+  ([App](App), [Testing](Testing)).
+- **New assembly rules** (`GraphRuleError`, all at once): `[application.no-workflows]`,
+  `[application.not-a-workflow]`, `[application.duplicate-workflow]`, `[application.ambiguous-start]`
+  (one start in two workflows), `[graph.duplicate-node-name]` across workflows,
+  `[budget.not-a-budget]`, `[di.infrastructure-in-workflow]`, `[name.kind-suffix]` on the
+  application and on budgets.
+- **Infrastructure**: `CostLedgerRepository`, `ExecutionRecordRepository`,
+  `PausedExecutionRepository` (new, root entry) and LangGraph's `BaseCheckpointSaver` — listed only in
+  `@Application({ providers })`, found by inheritance, each with a built-in in-memory default.
+  **Breaking**: `createApp({ stores, pausedRuns })`, `AppStores`, `PausedRunRepository` and
+  `createSqlitePausedRunRepository` are removed, and **nothing is written to the home folder any
+  more**: execution records (Terns) and the spend ledger were SQLite / JSONL files under
+  `~/.langgraph-agents/` (`TERN_DB`, `SPEND_LEDGER_DIR`) and are now in memory — gone on restart,
+  so `agboss eval` / `replay` only see records of their own process until the SQLite
+  implementations of #265 are listed ([App → Infrastructure](App#infrastructure)).
+- **Budgets, declarative**: `@Budget({ name, scope, period?, workflow?, deps? })` on a class that
+  `implements BudgetHandler` (`maxSpend(): Usd | Promise<Usd>`), `BudgetScope.Application | Tenant |
+  Execution`, `BudgetPeriod.Day | Week | Month`, all listed in `@Application({ budgets })`
+  (`config/budget.config.ts`). They are components (injectable, `mockOf`-able); the checks at run
+  time come with #261 PR 5 — until then `settings().limits` caps the money ([FinOps](FinOps#budgets)).
+- **Tests**: every framework fixture and test runs through an `@Application`; `app.ready()` builds
+  the test's application for a test that executes nothing; each test runs on the infrastructure the
+  application lists (else the in-memory defaults), new per test.
+- **CLI (until #268)**: `agboss run` / `chat --workflow <file>` run the application that lists the
+  workflow — exported by its module, or by a `*.application.ts` in its folder or a folder above it —
+  at that workflow's text start. `agboss create` / `generate workflow` write the workflow's
+  `*.application.ts` and `config/budget.config.ts`.
+
 ## Unreleased — one container per application instance (#261, PR 1)
 
 - **Breaking — no scopes**: one container per application instance, one instance per class (a class

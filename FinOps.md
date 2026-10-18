@@ -102,6 +102,55 @@ export class ExchangeRate implements ToolHandler<RateQuery, Rate> {
 - **Report**: every run returns `CostReport` (total, calls, cache-read tokens, per caller) and the
   budget it was allowed; the CLI prints it. Per-call traces: [Tracing](Tracing).
 
+## Budgets
+
+Money limits are `@Budget` components (#261): one template for every budget — the decorator says
+what it limits, `maxSpend()` how much, its data through the constructor like any component's. Every
+budget of the application is listed in `@Application({ budgets })`, written in
+`config/budget.config.ts`; `name` ends with `-budget`, the class with `Budget`.
+
+```ts
+// config/budget.config.ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
+import { usd, type Usd } from "agboss/units";
+
+@Budget({
+  name: "application-daily-budget",
+  scope: BudgetScope.Application, // the whole application per period
+  period: BudgetPeriod.Day, // UTC: Day | Week | Month
+})
+export class ApplicationDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(20);
+  }
+}
+
+@Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class TenantDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(5); // per organization; its own amount comes from tenant data (#261 PR 3)
+  }
+}
+
+@Budget({ name: "execution-budget", scope: BudgetScope.Execution }) // no workflow: the default
+export class ExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.1); // one full pass of app.execute, children included
+  }
+}
+```
+
+- The options are a union discriminated by `scope`: `period` is required for `Tenant` /
+  `Application` and does not compile on `Execution`; `workflow: X` (a workflow's own execution
+  budget) only on `Execution` — without it, the default execution budget of every workflow without
+  its own.
+- A budget is a component: injectable (`deps: [ApplicationDailyBudget]`), created at start with the
+  application, replaced in a test with `mockOf(TenantDailyBudget).maxSpend.mockReturnValue(usd(0.01))`.
+- **This release declares them.** The checks — `maxSpend()` read once per execution, every budget
+  checked before the first step and counted after every model call (`BudgetExceededError`), and the
+  `[budget.*-required]` rules — come with #261 PR 5; until then the money is capped by the
+  workflow's `settings().limits` below.
+
 ## Limit — per workflow
 
 Money limits come from the workflow's `settings()`, steps and visits from its components ([Workflow](Workflow)):
@@ -113,9 +162,11 @@ Money limits come from the workflow's `settings()`, steps and visits from its co
 | `@Workflow({ maxSteps })` | `maxSteps`                | agent and router visits per run (default (agents + routers) × 3) |
 | `maxVisits` on `@Router` / `@Agent` | `<name>.maxVisits` | visits of one node per run (`VisitsLimitExceededError`)    |
 
-- **Ledger**: append-only JSONL outside the repo, one file per workflow per UTC day —
-  `$SPEND_LEDGER_DIR/<workflow>/<YYYY-MM-DD>.jsonl` (default `~/.langgraph-agents/spend`). A new
-  day means a new file, which is the reset.
+- **Ledger**: the application's `CostLedgerRepository` (#261) — the spend per workflow per UTC
+  day; a new day is a new counter, which is the reset. Listed in `@Application({ providers })`
+  (a class that `extends CostLedgerRepository`), else the built-in in-memory one: each instance
+  counts on its own and the counters reset on restart — nothing is written to the home folder
+  any more (the SQLite ledger comes with #265).
 - **Before a run**: the day is read once; nothing left → `LimitExceededError` (`limits.perDay.cost`),
   no calls made. The run budget (`min(perRun.cost, perDay.cost − spent today)`) also stops an agent's
   loop before a model call it cannot afford.

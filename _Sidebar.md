@@ -11,7 +11,7 @@
 - [Routers](Routers)
 - [Guards](Guards)
 - [CLI — agboss](CLI)
-- [App — createApp](App)
+- [App — @Application and createApp](App)
 - [Context and Authorization](Context-And-Authorization)
 - [Testing](Testing)
 - [Suites and Comparisons](Testing-Suites-And-Comparisons)

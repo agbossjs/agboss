@@ -1,8 +1,12 @@
-# App — `createApp`
+# App — `@Application` and `createApp`
 
-A workflow, built and started: its container (every component, DI), its graph (every assembly rule —
-**all** violations at once, before any model call) and the components' `onStart` hooks. The CLI
-(`agboss chat`, `agboss run`) and the tests ([Testing](Testing)) use the same `app`.
+An **application** is the one point of the whole app (#261): it lists its workflows, its
+infrastructure and its budgets, and is what `createApp` and `testWith` take — never a single
+workflow (`createApp(Workflow)` / `testWith(Workflow)` do not compile). Built and started, it is
+one container for the whole application (every component, DI), every workflow's graph (every
+assembly rule — **all** violations at once, before any model call) and the components' `onInit` →
+`onStart` hooks. The CLI (`agboss chat`, `agboss run`) and the tests ([Testing](Testing)) use the
+same `app`.
 
 <!--
 ```ts file=job-scout.workflow.ts
@@ -28,14 +32,39 @@ export class JobScout {}
 ```
 -->
 
+```ts file=job-scout.application.ts
+// job-scout.application.ts — its environments/ folder is next to this file
+import { Application, Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
+import { usd, type Usd } from "agboss/units";
+import { JobScout } from "./job-scout.workflow.js";
+
+@Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class TenantDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(1);
+  }
+}
+
+@Application({
+  name: "job-scout-application", // ends with -application; the class with Application
+  version: "1.0.0", // the release; each workflow's version is its behaviour version
+  workflows: [JobScout], // the top-level workflows
+  providers: [], // infrastructure only here; none → the built-in in-memory defaults
+  budgets: [TenantDailyBudget], // every @Budget of the application (FinOps → Budgets)
+})
+export class JobScoutApplication {}
+```
+
 <!-- snippet-context
-import { ChatWorkflowStart, JobScout } from "./job-scout.workflow.js";
+import { ChatWorkflowStart } from "./job-scout.workflow.js";
+import { JobScoutApplication } from "./job-scout.application.js";
 -->
 
 ```ts
 import { ExecutionStatus, createApp } from "agboss";
 
-const app = await createApp(JobScout); // optional: { env: "staging", profile: "scout-low-thinking" }
+// optional: { env: "staging", profile: "scout-low-thinking" }
+const app = await createApp(JobScoutApplication);
 
 const first = await app.execute(ChatWorkflowStart, { text: "save the first job" });
 if (first.status === ExecutionStatus.Paused) {
@@ -51,9 +80,40 @@ console.log(next.output?.text, next.spend.totalUsd);
 await app.close(); // onStop hooks, MCP servers, tracing
 ```
 
+## The application's rules
+
+Checked at assembly, all at once (`GraphRuleError`, stable codes): `name` ends with `-application`
+and the class with `Application` (`[name.kind-suffix]`); it lists workflows
+(`[application.no-workflows]`, `[application.not-a-workflow]`); workflow names are unique in the
+application (`[application.duplicate-workflow]`), and so is every component name
+(`[graph.duplicate-node-name]`); a start is the door of one workflow — one start in two workflows
+→ `[application.ambiguous-start]`; every entry of `budgets` is a `@Budget` (`[budget.not-a-budget]`,
+its name ends with `-budget`); infrastructure is listed only in `@Application({ providers })`
+(`[di.infrastructure-in-workflow]`).
+
+## Infrastructure
+
+A framework contract with a built-in default, one per application. Registered **only** in
+`@Application({ providers })` — a class that `extends` the contract, created by the container
+(`@Injectable({ deps })`, never `new`); found by inheritance: none listed → the built-in default,
+two → `[di.ambiguous-implementation]`. A service that needs one injects the contract
+(`deps: [CostLedgerRepository]`) and gets the listed implementation.
+
+| Contract                    | What it keeps                                                      | Built-in default |
+| --------------------------- | ------------------------------------------------------------------ | ---------------- |
+| `ExecutionRecordRepository` | threads and their owners, one record per execution, scores, config snapshots | in memory |
+| `CostLedgerRepository`      | the spend per key and UTC day (`findSpentToday`, `saveAll`)        | in memory        |
+| `PausedExecutionRepository` | the paused execution of each thread (`findByThreadId`, `save`, `deleteByThreadId`) | in memory |
+| `BaseCheckpointSaver`       | LangGraph's checkpoints, taken as is (ecosystem savers plug in)    | `MemorySaver`    |
+
+Nothing is written to the home folder: with the defaults, records, spend and pauses live in the
+instance and are gone after a restart. The SQLite implementations (`SqliteExecutionRecordRepository`,
+…) come with #265; your own `extends` the contract and goes in `@Application({ providers })`.
+
 ## `app.execute(Start, input, options?)`
 
-- `Start` must be a `@WorkflowStart` of this workflow (else `NotAWorkflowStartError`); `input` is
+- `Start` is a `@WorkflowStart` of any workflow of the application: the execution runs the
+  workflow that start opens (else `NotAWorkflowStartError`); `input` is
   typed by the generated `.agboss/types.d.ts` (`agboss check`) and checked against the start's
   `input` before any call (`DtoValidationError`, the field named, never the value).
 - Options: `thread` continues a conversation (without it a new thread is created; its id is in the
@@ -80,7 +140,7 @@ with a stable `code`; the Tern and the spend are recorded first.
 
 ## `app.resume(thread, decision)`
 
-Continues the paused run of the thread with a `ToolCallApprovalDecisionDto` (`approved`, `by`,
+Continues, in the workflow the thread belongs to, the paused run of the thread with a `ToolCallApprovalDecisionDto` (`approved`, `by`,
 `reason?` — [Pause seam](Pause-seam)); same result shape. A thread without a paused run →
 `NotPausedError`. A run paused under another workflow version or config is checked by the
 workflow's `onIncompatibleResume` policy (`IncompatibleResumeError`).
@@ -97,8 +157,8 @@ From the call on, no new execution is accepted: `execute` / `resume` reject with
 `ApplicationStoppingError` (`app.stopping`) — nothing was cancelled, the request is refused before
 an execution starts, so observers get `onRunRejected` (`operation`, `code`, a message without input
 values); `cancel` still works. Runs `onStop` of the components, waits for the
-running executions to finish or pause, runs `onDestroy`, then closes MCP connections and tracing, and
-the stores the app opened. Every hook runs; failures are collected into one `AggregateError`.
+running executions of every workflow to finish or pause, runs `onDestroy`, then closes MCP
+connections and tracing. Every hook runs; failures are collected into one `AggregateError`.
 Calling it twice is fine.
 
 ## Lifecycle hooks
@@ -162,25 +222,24 @@ export class JobIndexService implements OnInit, OnStart, OnStop, OnDestroy {
 - Values (`provide(TOKEN, value)`) and test mocks have no hooks. Per-execution work is an observer,
   not a hook. `AfterAssemble` and the run-scoped `OnDestroy` are gone (#261).
 
-## Options — every part replaceable
+## Options
 
-`createApp(Workflow, options)` and `createAppDeps(bundle, options)` take the same parts; anything not
-given is the production default:
+`createApp(Application, options)` takes the external parts; anything not given is the production
+default. Infrastructure is not an option: it is listed in `@Application({ providers })`
+(`createApp({ stores, pausedRuns })` is gone, #261).
 
 | Option                    | Default                                                                                                  |
 | ------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `env`                     | `dev` — the environment file to load ([Configuration](Configuration#environments))                      |
+| `env`                     | `dev` — the environment file next to the application file ([Configuration](Configuration#environments)) |
 | `environment`             | the values of that file (give them directly instead)                                                     |
 | `processEnv`              | `process.env` (provider keys, `fromEnv` variables)                                                       |
-| `gateway`                 | the model providers of the workflow's `settings()` — the one model-call seam                             |
+| `gateway`                 | the model providers of each workflow's `settings()` — the one model-call seam                            |
 | `transport`               | MCP stdio / streamable HTTP from the server's config                                                     |
 | `connectMcp`              | connect every server, check its contract (fail fast)                                                     |
-| `stores`                  | `checkpointer` (memory), `ledger` (files), `terns` (SQLite) — given stores stay open on `close`          |
-| `clock`                   | the system clock (the ledger's UTC day, Tern times)                                                      |
+| `clock`                   | the system clock (the built-in ledger's UTC day, the records' times)                                     |
 | `newThreadId`, `newRunId` | random UUIDs                                                                                             |
 | `container`               | `overrides` (values instead of classes — test mocks), `onCreate`                                         |
-| `pausedRuns`              | in memory, this app only (`createSqlitePausedRunRepository(path)` keeps them across restarts)           |
 | `profile`, `profileRoot`  | none ([Profiles and comparisons](Profiles-and-comparisons))                                              |
 
-`agboss/testing` builds its apps with these: a scripted gateway, stubbed MCP servers, memory
-stores, a test clock, deterministic ids.
+`agboss/testing` builds its apps with these: a scripted gateway, stubbed MCP servers, a test clock,
+deterministic ids — on the infrastructure the application lists.

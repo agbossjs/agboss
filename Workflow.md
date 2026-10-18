@@ -320,8 +320,12 @@ import { ChatWorkflowFinish, IntakeWorkflowStart, MainRouter, OpeningsDto, Scout
 ```ts
 import { expect } from "vitest";
 import { replyWith, routeTo, testWith } from "agboss/testing";
+import { Application } from "agboss";
 
-const test = testWith(ChatWorkflow);
+@Application({ name: "chat-application", version: "1.0.0", workflows: [ChatWorkflow] })
+class ChatApplication {}
+
+const test = testWith(ChatApplication); // an application, never the workflow itself
 
 test("a question about openings goes to the scout", async ({ app, mockLlm }) => {
   mockLlm(MainRouter).thenReturn(routeTo(ScoutAgent));

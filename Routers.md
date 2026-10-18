@@ -439,8 +439,12 @@ import { Desk, DeskFinish, DeskRouter, DeskStart, FallbackAgent, SupportAgent } 
 ```ts
 import { expect } from "vitest";
 import { replyWith, routeTo, testWith } from "agboss/testing";
+import { Application } from "agboss";
 
-const test = testWith(Desk);
+@Application({ name: "desk-application", version: "1.0.0", workflows: [Desk] })
+class DeskApplication {}
+
+const test = testWith(DeskApplication); // an application, never the workflow itself
 
 test("help goes to support", async ({ app, mockLlm }) => {
   mockLlm(DeskRouter).thenAnswer((request) =>
@@ -471,8 +475,12 @@ import { CreditWorkflow } from "./credit.workflow.js";
 ```ts
 import { expect } from "vitest";
 import { testWith } from "agboss/testing";
+import { Application } from "agboss";
 
-const test = testWith(CreditWorkflow);
+@Application({ name: "credit-application", version: "1.0.0", workflows: [CreditWorkflow] })
+class CreditApplication {}
+
+const test = testWith(CreditApplication); // an application, never the workflow itself
 
 test("the credit service down holds the order", async ({ app, mockOf }) => {
   mockOf(CreditService).limitOf.mockRejectedValue(new CreditServiceUnavailableError("down"));

@@ -48,6 +48,8 @@ A search turn costs about $0.02; the others well under a cent.
 ## Components — every kind, by file convention
 
 ```
+src/job-scout.application.ts        @Application job-scout-application — its workflow and budgets; no infrastructure listed → in memory (#261)
+src/config/budget.config.ts         @Budget application-daily-budget | tenant-daily-budget | execution-budget
 src/job-scout.workflow.ts           @Workflow job-scout-workflow — the paths, defaults, guards, compaction, MCP, providers, channels; limits and model providers in settings()
 src/workflow-starts/, routers/, workflow-finishes/   @WorkflowStart chat-workflow-start → @Router main-router → @WorkflowFinish chat-workflow-finish
 src/agents/*.agent.ts + *.prompt.md @Agent profiler-agent | scout-agent | shortlist-agent (text agents, promptUrls)
@@ -82,7 +84,8 @@ npm run compare -- --profiles base,scout-low-thinking --golden core
 ## flow-patterns: a review loop and a code router
 
 `examples/flow-patterns/` (package `flow-patterns-example`, #295) — two workflows, one per
-`*.workflow.ts`, on the public entries only, tested by script (no model key, no cassette). They are
+`*.workflow.ts`, in one application (`src/flow-patterns.application.ts`: `app.execute` runs each by
+its start, #261), on the public entries only, tested by script (no model key, no cassette). They are
 what the manual checks of the flow point the CLI at; `make check` runs `agboss check` on both, their
 lint (flow style) and their tests with coverage.
 

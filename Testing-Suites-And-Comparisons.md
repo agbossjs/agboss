@@ -53,7 +53,7 @@ for (const profile of comparison.profiles) {
 console.log(comparison.warnings);
 ```
 
-`compareProfiles` takes the same options as `createApp` (a scripted `gateway`, `stores`, …), so a
+`compareProfiles` takes the same options as `createApp` (a scripted `gateway`, `processEnv`, …), so a
 comparison runs in a test without a model or network.
 
 ## With recorded runs

@@ -85,14 +85,14 @@ deprecated re-exports; `agboss migrate imports` rewrites them.
 
 | Path          | What lives there                                                                             |
 | ------------- | ---------------------------------------------------------------------------------------------- |
-| `app/`        | `createApp` → `app.execute` / `resume` / `cancel` / `close`; production wiring               |
+| `application/`, `app/` | `@Application`, `createApp(App)` → `app.execute` / `resume` / `cancel` / `close`; wiring |
 | `components/` | `@Tool` `@Agent` `@Injectable` `@Workflow` …, the DI container, assembly                     |
 | `graph/`      | the flow DSL, assembly rules, LangGraph build, the agent loop, limits, settings             |
 | `dto/`        | field decorators, DTO validation, the standard DTOs                                          |
 | `routers/`    | isolated routing engines (Jev, LLM); public inside the framework only via `index.ts`         |
 | `models/`     | model providers                                                                              |
 | `finops/`     | usage records, cost, daily ledger                                                            |
-| `testing/`    | `testWith`, scripted gateway, matchers, VCR                                                  |
+| `testing/`    | `testWith(App)`, scripted gateway, matchers, VCR                                             |
 | `index.ts`    | the root entry `agboss`                                                                |
 
 Module dependency rules: [Architecture](Architecture).

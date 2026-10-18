@@ -137,8 +137,8 @@ may override the prompt (`compactionPrompt`). See
 
 ## Environments
 
-The app's settings live in `environments/` next to the workflow file — the workflow itself says
-nothing about them. The contract is a module augmentation:
+The app's settings live in `environments/` next to the application file (`*.application.ts`, #261)
+— the application and its workflows say nothing about them. The contract is a module augmentation:
 
 ```ts
 // src/environments/environment.ts — which fields every environment has
@@ -172,7 +172,7 @@ export class Api {
 }
 ```
 
-`--env <name>` (every workflow command), `createApp(W, { env })` and
-`testWith(W, { env | environment })` pick one (default `dev`); an unknown name or a `fromEnv` variable
+`--env <name>` (every workflow command), `createApp(App, { env })` and
+`testWith(App, { env | environment })` pick one (default `dev`); an unknown name or a `fromEnv` variable
 without a value or default fails at start, naming it. `agboss check` validates the selected environment,
 `agboss describe` shows it with secrets masked.

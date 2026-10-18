@@ -59,8 +59,11 @@ writes one tool per OpenAPI 3 operation (DTOs, a client in `services/`, tests), 
 | `agboss compare --profiles base,<p>`  | profiles side by side ([Profiles and comparisons](Profiles-and-comparisons)) |
 | `agboss rag:index`                    | build / update knowledge-base indexes ([Knowledge bases](Knowledge-bases))   |
 
-`agboss chat` and `agboss run` build the workflow with `createApp` (the profile applied), send the text to its
-text start (`app.textStart`, the start whose input is `WorkflowStartTextDto`), print the finish's output, ask in the terminal when a run pauses for approval and continue it with
+`agboss chat` and `agboss run` build, with `createApp` (the profile applied), the **application that
+lists the `--workflow`** (#261; until #268 reads the application's path from `package.json`): the
+`@Application` exported by the workflow's module, else by a `*.application.ts` in its folder or a
+folder above it, up to the package — none or several fail naming the fix. They send the text to that
+workflow's text start (the start whose input is `WorkflowStartTextDto`), print the finish's output, ask in the terminal when a run pauses for approval and continue it with
 `app.resume(thread, decision)`, and close the app (components' `onStop`, MCP servers) at the end.
 
 `agboss migrate imports [<path>…]` rewrites imports of the deprecated entries to the current ones (the list:

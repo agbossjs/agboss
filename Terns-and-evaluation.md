@@ -41,9 +41,11 @@ task · answer · status (`answered` | `guarded` | `failed` | `paused`) · stop 
 - Every run writes a Tern — answered or failed.
 - `prompt_version` / `model_version` = short sha256 of all agent and router prompts / of the resolved
   model settings. Same config → same versions; change a prompt → a new `prompt_version`.
-- Storage: SQLite via built-in `node:sqlite` (no native dependency, Node ≥ 22.13), file
-  `$TERN_DB` (default `~/.langgraph-agents/terns.sqlite`) — outside the repo. Schema migrations are
-  versioned with `PRAGMA user_version`.
+- Storage: the application's `ExecutionRecordRepository` (#261) — listed in
+  `@Application({ providers })`, else the built-in one: an in-memory database of the instance
+  (built-in `node:sqlite`, `:memory:`), gone on restart; nothing is written to the home folder any
+  more, so `agboss eval` / `replay` see the records of their own process only until the SQLite
+  repository (#265) is listed. Schema migrations are versioned with `PRAGMA user_version`.
 - Module `src/terns` depends on nothing else in `src` (ESLint).
 
 ## Scoring quality

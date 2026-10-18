@@ -54,12 +54,15 @@ export class Errands {}
 ```
 
 <!-- snippet-context
-import { ExecutionStatus, createApp } from "agboss";
+import { Application, ExecutionStatus, createApp } from "agboss";
 import { Errands, TaskStart } from "./errands.workflow.js";
 -->
 
 ```ts
-const app = await createApp(Errands);
+@Application({ name: "errands-application", version: "1.0.0", workflows: [Errands] })
+class ErrandsApplication {}
+
+const app = await createApp(ErrandsApplication);
 const first = await app.execute(TaskStart, { text: "Email the report to my boss" });
 if (first.status === ExecutionStatus.Paused) {
   // first.pause = { agent, callId, tool: "send_email", args: { to: "…", body: "…" } } → ask someone
@@ -77,8 +80,10 @@ A tool no longer pauses **to ask a question** itself: `ctx.pause(question)` went
 Workflow questions — a `WorkflowPauseQuestionDto` asked of a person, the answer resuming the
 execution — come back as their own steps with channel roles (#267).
 
-Paused runs live in the app's `pausedRuns` repository — in memory by default;
-`createApp(W, { pausedRuns: createSqlitePausedRunRepository(path) })` keeps them across restarts.
+Paused runs live in the application's `PausedExecutionRepository` and their state in its
+`BaseCheckpointSaver` (#261) — in memory by default, lost on restart. A pause survives a restart
+when both are durable: a class that `extends PausedExecutionRepository` and a durable
+`BaseCheckpointSaver` listed in `@Application({ providers })` (the SQLite ones come with #265).
 
 ## How it works
 

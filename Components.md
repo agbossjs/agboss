@@ -510,9 +510,14 @@ export class Shop implements WorkflowDefinition {
   [Judges](Judges-And-Quality-Gates)), `ROUTER_FACTORY` (router engines for cheap decisions inside
   components — their spend during a tool call is the tool's) and `ENV` (the
   [environment](Configuration#environments)).
-- **One container per application instance, no scopes** (#261): it holds the providers of every
-  workflow, one instance per class (`OrdersService` listed by two workflows is one instance), created
-  at start. There is no `scope` option and no per-execution container.
+- **One container per application instance, no scopes** (#261): it holds the providers of the
+  `@Application` and of every workflow it lists, one instance per class (`OrdersService` listed by
+  two workflows is one instance), every listed class created at start. There is no `scope` option
+  and no per-execution container.
+- **Infrastructure** — `CostLedgerRepository`, `ExecutionRecordRepository`,
+  `PausedExecutionRepository`, `BaseCheckpointSaver` — is listed **only** in
+  `@Application({ providers })`; a class that extends one in a workflow's `providers` fails with
+  `[di.infrastructure-in-workflow]` ([App → Infrastructure](App#infrastructure)).
 - **Implementation by inheritance**: a dependency on a contract (an abstract class) gets the one listed
   class that is it or `extends` it — the same instance as asking for that class; none listed → the
   framework's default implementation of the contract, if it has one; two →

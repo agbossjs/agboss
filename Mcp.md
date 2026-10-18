@@ -46,14 +46,14 @@ For Claude Desktop and other local clients, the service talks over stdin/stdout:
 
 <!-- snippet-context
 import { createApp } from "agboss";
-declare class JobScout { settings(): import("agboss").WorkflowSettings }
+declare class JobScoutApplication {}
 declare class JobScoutMcp {}
 -->
 
 ```ts
 import { createMcpService } from "agboss/mcp";
 
-const app = await createApp(JobScout);
+const app = await createApp(JobScoutApplication);
 const service = createMcpService(app, JobScoutMcp);
 await service.connectStdio(); // serves until stdin closes
 ```
