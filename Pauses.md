@@ -19,8 +19,13 @@ waiting pause, one `PendingPause` each:
 | `answeredBy`       | who may answer it: `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel` (its role's) |
 | `agent`, `channel` | whose tool call waits, and the channel asked (a role's name or a `@Channel`'s)         |
 | `itemIndex`        | the item of a per-item launch it waits in — no copy of the item                        |
-| `childExecutionId` | the child execution it waits in; `undefined` in the root (children run with #263 PR 2) |
+| `childExecutionId` | the child execution it waits in ([Workflow as a step](Workflow-as-a-step#at-run-time)); `undefined` in the root |
 | `ask`              | the question: the tool call (`ToolCallApprovalAskDto`), `sensitive` fields masked      |
+
+A pause inside a child workflow is its root's: it is listed in the root's `pending` (with the
+child's `childExecutionId`, and for a per-item child its `itemIndex`), several children may wait at
+once, and `app.resume({ pauseId, decision })` answers it like any other — the child goes on with the
+id it paused with, then its parent.
 
 `status` is `ExecutionStatus.Paused` while `pending` is not empty; a finished execution has
 `pending: []`. `onExecutionPause` (`event.pending`) fires each time the execution rests because
@@ -142,6 +147,6 @@ one tree from two instances at once.
 ## Not yet
 
 Free-text replies through a role's `@ReplyInterpreter` (`app.resume({ pauseId, reply })`) come with
-#267 PR 3. Child workflows run with #263 PR 2: until then `childExecutionId` is always `undefined`.
+#267 PR 3.
 Choosing a channel implementation per environment (a terminal in dev, Slack in prod) is a
 documented limit: one implementation per application.

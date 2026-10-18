@@ -380,6 +380,14 @@ output of the finish it ended at: one `caseOf(XDto)` write (a case counts as rea
 `.returns(XDto)` write, or, after `.toParallelWorkflows(W, …)`, one element of the join's
 `listOf(oneOf(…))` slot; the values the child produced on its own path stay in its scope.
 
+At run time (#263 PR 2) the child's state is its own — its scope, `outdatedValues`, path and steps —
+and only its finish's output enters the parent's scope, written on the edge out of the child's
+node. That value is built from what the child's start read of the parent's scope (its start input's
+`valueId`s), so it is outdated like any other (#271 AC12): when the parent renews a value given to
+the child's start — a loop's second pick — the child's earlier result moves to `outdatedValues`
+(`OutdatedReason.BuiltFromReplaced`), and the second pass runs a new child execution on the new
+input.
+
 ## Rules
 
 Checked at assembly, all at once (`GraphRuleError`), each message naming the shortest path that

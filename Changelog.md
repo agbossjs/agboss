@@ -3,6 +3,36 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — child workflows at run time (#263, PR 2)
+
+- **Children run** ([Workflow as a step](Workflow-as-a-step#at-run-time)): `flow.child-not-runnable`
+  is removed. A child is a node of its parent whose subgraph is the child's compiled graph (Studio
+  draws it inside), on the parent's checkpoint thread under its task's `checkpoint_ns`; its own
+  `executionId`, kept in its state across a pause, a restart and a crash (no second
+  `onExecutionStart`); its own path, steps and `maxSteps`; no thread history; the parent's thread,
+  `ownerId`, tenant and execution fields inherited; the root's budgets spent (a child workflow's own
+  execution budget applies only as a root). A child need not be listed in
+  `@Application({ workflows })`: collected transitively, it goes through every application rule a
+  listed one does (names, models, DI and infrastructure, channel roles), budget coverage aside.
+- **PII tokens** (#120): a child starts with its parent's tokens and gives its own back — with its
+  value, or with its error (into the parent's state, never on the error) to the side path that
+  takes it, a per-item child's too.
+- **`ChildExecutionFailedError`** (`step.child`, a `StepFailedError`: `cause`, `childExecutionId`,
+  `itemIndex`, `workflow`): an uncaught error of the child, its own `maxSteps` / `maxVisits`
+  included; budgets and cancellation pass through unwrapped (S25). `PaidStepError` stays the base of
+  `StepFailedError` (`step.failed`, #273 S71).
+- **`toWorkflow(W)` side-path starter** (S85): `.onError(E, toWorkflow(W)…)`, also in `.onJoinError`.
+- **Records**: `result.children` / `result.record.children` (`ChildExecutionRecord`,
+  `ChildExecutionStatus`), `result.handledErrors` (`HandledErrorRecord`); observer events carry
+  `parentExecutionId` / `rootExecutionId`; `executionContext.parent`, `root`, `depth`, `itemIndex`,
+  `executionOf(W)` read the tree; `ExecutionTreeRepository` keys are the root's.
+- **Pauses inside a child** (#267): the root's — in `result.pending` with `childExecutionId` and, per
+  item, `itemIndex`; several children may wait at once; resumed by `pauseId` like any other.
+- **Testing**: `toHaveChildExecutions(W, [...])`, `toHaveHandledError(E, { at, by })`.
+- **The worst case** of a start counts its child executions (`maxItems` × the child's, at most
+  `maxConcurrency` at once) and their depth.
+- **Example**: `examples/flow-patterns/src/vendor/` — a child workflow per vendor.
+
 ## Unreleased — pauses and resume (#267, PR 2)
 
 - **Several pauses at once** ([Pauses](Pauses)): a paused branch of a parallel launch does not stop
@@ -344,7 +374,7 @@ VirtualClock(start?)` in unit tests. **Breaking:** the `TestClock` type is gone 
   `route(W)`, `workflow(W)` (the own path of a child reached from two places) and
   `.toParallelWorkflows(W, { maxConcurrency, maxItems })` (one child per item, `maxItems` required,
   joined like any launch; `WorkflowLaunchOptions`). Checked and typed by `agboss check`; a workflow
-  with a child does not assemble until #263 PR 2 (`flow.child-not-runnable`).
+  with a child did not assemble until #263 PR 2 (`flow.child-not-runnable`, removed there).
 - **The start is chosen per edge, by class**: one start → it; per item → the start taking the item;
   else the start taking the chain's current value, of several the one whose other required fields
   are on the path — `[graph.no-matching-start]` / `[graph.ambiguous-start]` otherwise, also compile

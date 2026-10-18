@@ -7,10 +7,11 @@ steps per item** — check → deep dive → score, with its own branches, repea
 where a per-item launch of one agent (`.toParallelAgents(A)`) runs exactly one step per item
 ([Workflow → Parallel launches](Workflow#parallel-launches)).
 
-> **Status.** PR 1 of #263: the grammar, the analyser and the generated types — `agboss check` checks
-> and types every child, `agboss describe` prints each edge's start. Running a child (a subgraph of
-> its parent, its own `maxSteps`, `ChildExecutionFailedError`, nested records) comes with #263 PR 2;
-> until then a workflow with a child does not assemble (`flow.child-not-runnable`).
+> **Status.** #263 PR 1 — the grammar, the analyser and the generated types; PR 2 — children at run
+> time: a subgraph node of the parent, their own executions, `ChildExecutionFailedError`, nested
+> records (`result.children`), `toHaveChildExecutions` / `toHaveHandledError`, and a child as an
+> error handler (`toWorkflow(W)` side paths). Recursion (`ThisWorkflow`, `maxDepth`) is #264. A
+> runnable example: `examples/flow-patterns/src/vendor/`.
 
 ## Writing it
 
@@ -211,6 +212,7 @@ export const ownPaths = [
 | Two or more ways in → own path | `workflow(W).onError(…).returns(oneOf(…)).switch(…)`; every path into it ends with `.toWorkflow(W)`; inline → `[flow.shared-node-inline]` |
 | One class = one node | `W` mentioned again in the graph is the same node; two stages running the same child are two workflow classes (`[flow.continuation-twice]`) |
 | The kind is checked | `toAgent(VendorCheckWorkflow)` does not compile, and is `[graph.wrong-kind]` in untyped code |
+| Not listed | a child need not be in `@Application({ workflows })`: it belongs to its parent's application, which assembles it and runs it alone through its own starts (`app.execute(VendorCheckWorkflowStart, …)`) |
 
 ## Which start
 
@@ -270,9 +272,163 @@ children
 | No soft failure | a per-item child with no finish reachable from one of its `.onError` side paths warns `[graph.child-without-failure-finish]` — one failed item would cancel the others (FailFast); an error under `agboss check --strict`; no flag silences it |
 | After a limit | a side path that can catch a `LimitExceededError` — the class, a subclass (`BudgetExceededError`, `VisitsLimitExceededError`, …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, never paying past the limit: `[graph.limit-handler-uses-model]` when it reaches an agent, a router or a child workflow. This holds for every `.onError` / `.onJoinError`, not only a child's |
 
-At run time (#263 PR 2) an uncaught failure of a child reaches its parent as
-`ChildExecutionFailedError` (`cause`, `childExecutionId`, `itemIndex`), its own limits wrapped in it;
-budgets and cancellation pass through unwrapped (S25).
+### At run time: whose limit it is (S25)
+
+An uncaught error of the child fails it, and the parent's step fails with
+**`ChildExecutionFailedError`** (`step.child`, a `StepFailedError`): `cause` — the child's error,
+`childExecutionId`, `itemIndex` (a per-item run's), `workflow`, and the step's coordinates
+(`component`, `nodeId`, `visitNumber`). The child's **own limits** are failures of the child and
+wrapped the same way: its `maxSteps` (`StepsLimitExceededError` in `cause`), the `maxVisits` of its
+nodes. So `.onError(StepFailedError, …)`, `.onError(ChildExecutionFailedError, …)` and
+`.onJoinError(…)` at the parent take them, and their side path may lead to an agent — the parent's
+steps and the tree's money are not spent. A handler naming the cause (`.onError(ItemFailedError,
+…)`, `.onError(StepsLimitExceededError, …)`) catches it through the cause chain; naming a limit, it
+leads only to actions and finishes.
+
+**Tree-wide limits are never wrapped**: an exhausted budget (`BudgetExceededError`) and a
+cancellation (`ExecutionCancelledError`) stop the whole execution as they are — `.onError(StepFailedError, …)`
+never takes them. Per item, FailFast holds: the running children are cancelled (their spend stays
+counted, their observers get `onExecutionError` with `ExecutionCancelledError`), no new one starts,
+and the join takes `.onJoinError(…)` against the parent's scope **as it was before the launch** —
+the children that finished first are in `result.children` / `result.record.children` and the
+traces, never in the side path's scope. There is no `FailurePolicy.Skip` for children: skipping a
+failed item is the child catching its error and ending at a failure finish.
+
+## A child as an error handler (S85)
+
+`toWorkflow(W)` is a side-path starter beside `toAction` / `toAgent` / `toRouter` / `toFinish`, in
+`.onError` and `.onJoinError`: a failure is handled by a whole workflow, entered through its one
+start (or the start the path's value fits), its result continued like after `.toWorkflow(W)`. A
+side path that can catch a limit stays actions and finishes only
+(`[graph.limit-handler-uses-model]`).
+
+<!-- snippet-context
+import { Action, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, start, toWorkflow } from "agboss";
+import { Text } from "agboss/dto";
+export class PaymentDto {
+  @Text({ prompt: "the payment" })
+  id!: string;
+}
+export class PaymentDoneDto {
+  @Text({ prompt: "what was paid" })
+  receipt!: string;
+}
+@WorkflowStart({ name: "pay-workflow-start", description: "A payment", input: PaymentDto })
+export class PayWorkflowStart {}
+@Action({ name: "charge-card-action", description: "Charges the card", input: { payment: PaymentDto }, output: PaymentDoneDto })
+export class ChargeCardAction {
+  execute(): Promise<PaymentDoneDto> {
+    return Promise.resolve({ receipt: "r" });
+  }
+}
+@Action({ name: "invoice-action", description: "Sends an invoice", input: { payment: PaymentDto }, output: PaymentDoneDto })
+export class InvoiceAction {
+  execute(): Promise<PaymentDoneDto> {
+    return Promise.resolve({ receipt: "invoice" });
+  }
+}
+@WorkflowStart({ name: "payment-recovery-workflow-start", description: "A failed payment", input: PaymentDto })
+export class PaymentRecoveryWorkflowStart {}
+@WorkflowFinish({ name: "invoiced-workflow-finish", description: "Invoiced", output: PaymentDoneDto })
+export class InvoicedWorkflowFinish {}
+@Workflow({
+  name: "payment-recovery-workflow",
+  version: "1.0.0",
+  flow: [
+    start(PaymentRecoveryWorkflowStart)
+      .returns(PaymentDto)
+      .toAction(InvoiceAction)
+      .returns(PaymentDoneDto)
+      .toFinish(InvoicedWorkflowFinish),
+  ],
+})
+export class PaymentRecoveryWorkflow {}
+@WorkflowFinish({ name: "paid-workflow-finish", description: "Paid", output: PaymentDoneDto })
+export class PaidWorkflowFinish {}
+@WorkflowFinish({ name: "recovered-workflow-finish", description: "Paid another way", output: PaymentDoneDto })
+export class RecoveredWorkflowFinish {}
+// @snippet
+@Workflow({ name: "pay-workflow", version: "1.0.0", flow: recoveryPaths })
+export class PayWorkflow {}
+-->
+
+```ts
+export const recoveryPaths = [
+  start(PayWorkflowStart)
+    .returns(PaymentDto)
+    .toAction(ChargeCardAction)
+    .onError(
+      StepFailedError, // the charge failed: the recovery workflow takes it from here
+      toWorkflow(PaymentRecoveryWorkflow)
+        .returns(PaymentDoneDto)
+        .toFinish(RecoveredWorkflowFinish),
+    )
+    .returns(PaymentDoneDto)
+    .toFinish(PaidWorkflowFinish),
+] as const;
+```
+
+## At run time
+
+A child is a **node of its parent whose subgraph is the child's compiled graph** (S24, S37):
+LangGraph Studio draws it inside the parent (`getGraphAsync({ xray: true })`), and it runs on the
+parent's checkpoint thread under the launching task's `checkpoint_ns` — the node and the task's id,
+so a second pass of a loop or a neighbouring item never reads an earlier child's checkpoint. One
+class is one node; only `ThisWorkflow` (#264) will be run from the registry.
+
+| | |
+| --- | --- |
+| Identity | its own `executionId`, made on its first entry and kept in its own state: a pause, a restart or a crash continues it with the same id — no second `onExecutionStart`, finished siblings not run again |
+| What it sees | its start's input only: no thread history, nothing of the parent's scope or its siblings; its own path, steps and `maxSteps` |
+| Inherited | the thread, `ownerId`, the tenant (`executionContext.tenant`, the same `TenantContext` and `ApplicationContext`) and the execution's own fields of the declared `ExecutionContext` — through its state, so a resume keeps them |
+| The tree | `executionContext.parent`, `.root`, `.depth`, `.itemIndex` (a per-item child's index from 0; `undefined` for a single child and a root), `.executionOf(W)` — the nearest execution of `W` from this one up, at any depth; `ExecutionTreeRepository` keys are the root's |
+| Money | a child spends from the **root's** budgets — the root's execution budget is the cost of one full pass, children included; its own spend is counted in the tenant and application budgets too; a child workflow's own execution budget applies only when it runs as the root (`app.execute`) |
+| PII tokens | it starts with the parent's token map (#120), so it reveals what the parent masked; its own come back with its value — or, when it fails, with its error into the parent's state (never on the error itself), so the side path that takes it reveals what the child masked in its finished steps; a per-item child's too |
+| Steps | each workflow counts its own: a child's steps never spend the parent's `maxSteps` |
+| Concurrency | `maxConcurrency` of a per-item launch: a sliding window, a child frees its slot when it ends, fails or pauses |
+| Pauses | a paused child does not stop its siblings — the execution pauses only when nothing else can move; its pause is the root's, in `result.pending` with its `childExecutionId` (and `itemIndex` per item), and `app.resume({ pauseId, decision })` continues it where it waits ([Pauses](Pauses)) |
+| Traces | a nested run named after the child workflow under the parent's step, its metadata `executionId`, `parentExecutionId`, `rootExecutionId`, `itemIndex` |
+
+**Records.** Every child execution that ended is a nested record in `result.children` (and
+`result.record.children`), in the order they ended — never in the thread's conversation history:
+`executionId`, `parentExecutionId`, `rootExecutionId`, `workflow`, `itemIndex`, `launchedBy`
+(`nodeId`, `visitNumber`), `start`, `input`, `status` (`ChildExecutionStatus.Finished` /
+`Failed` / `Cancelled`), `finish` and `output` or `error`, its own `path`, its own `spend` and its own
+`children`. `result.spend` holds the whole tree's. `result.handledErrors` lists the failures a side
+path took (`error`, `at`, `by`).
+
+**The application's rules.** A child need not be listed in `@Application({ workflows })`: the
+workflows are collected transitively, and an unlisted child goes through every rule a listed one
+does — names (`[name.kind-suffix]`, `[graph.duplicate-node-name]`), its models
+(`[model.unserved]`, `[model.ambiguous-provider]`), DI and infrastructure (`[di.*]`, infrastructure
+only in the application's `providers`, so `[environment.missing-field]` comes from what the
+application lists), channel roles. Budgets aside: a child spends from its root's, so it needs no
+execution budget of its own.
+
+**Worst case.** The start log and `describe` count the children: one call of a start is the
+execution itself plus each child edge's worst case, `maxItems` times per item (at most
+`maxConcurrency` at once) — `Worst case of one vendor-screening-workflow-start call: 51 workflow
+executions, 4 at the same time, …`.
+
+## Testing
+
+```ts no-check: the matchers on a result of the vendor screening above
+expect(result).toHaveChildExecutions(VendorCheckWorkflow, [
+  { item: { name: "Acme" }, finish: VendorScoredWorkflowFinish },
+  { item: { name: "Globex" }, failedWith: StepsLimitExceededError },
+  { item: { name: "Initech" }, cancelled: true },
+]);
+expect(result).toHaveHandledError(ChildExecutionFailedError, {
+  at: VendorCheckWorkflow,
+  by: NotifyOperatorAction,
+});
+```
+
+`toHaveChildExecutions(W, [...])` — the executions of `W` anywhere in the result's tree, in item
+order, each with its `item` (its start input, or one field of a map input) and how it ended:
+`finish`, `failedWith` (a class of its error or of a cause) or `cancelled`. `toHaveHandledError(E, {
+at, by })` — an error of `E` (or caused by one) happened at `at` and the side path starting at `by`
+took it. [Testing](Testing) has the rest.
 
 ## Patterns
 

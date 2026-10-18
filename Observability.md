@@ -17,7 +17,7 @@ an execution is `result.record`). Every execution event extends `ExecutionEvent`
 | Field               | What                                                                          |
 | ------------------- | ----------------------------------------------------------------------------- |
 | `executionId`       | unique per execution, the same after a resume (`result.runId`)                |
-| `parentExecutionId` | the parent execution; `undefined` at the root (child executions with #263)    |
+| `parentExecutionId` | the execution that launched this child (#263); `undefined` at the root        |
 | `rootExecutionId`   | the root's id; the execution's own at the root                                |
 | `threadId`          | the conversation                                                              |
 | `tenantId`          | the tenant it works for (`"default"` when it names none)                      |
@@ -167,6 +167,18 @@ export class LaunchAudit implements OnLaunchItemsTruncated {
   }
 }
 ```
+
+## Child executions
+
+A child workflow (#263, [Workflow as a step](Workflow-as-a-step#at-run-time)) is an execution of
+its own: `onExecutionStart` once when it is first entered (a resume or a recovery that continues it
+fires none), `onExecutionEnd` (`finish`, its own `spend`) when it ends at a finish, and
+`onExecutionError` when it fails or is cancelled (FailFast: `ExecutionCancelledError`). Its events
+and its node events carry its own `executionId`, its `parentExecutionId` and the
+`rootExecutionId` of the `app.execute` it belongs to, its parent's `threadId` and `tenantId`, and
+its own `workflow`; a pause inside a child is the root's `onExecutionPause`. In traces a child is a
+nested run named after its workflow under the parent's step (metadata `executionId`,
+`parentExecutionId`, `rootExecutionId`, `itemIndex`).
 
 ## Quorums
 

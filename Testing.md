@@ -388,6 +388,8 @@ One component of the real app on its own:
 | `toHaveReturned(XDto, fields?)`                  | `mockLlm(X)`, `mockAction(A)` | it returned a value of that class (a text agent: `WorkflowFinishTextDto`) with those fields |
 | `toHaveCalledTools([Tool, …])`                   | `mockLlm(Agent)`         | its model called exactly these tools, in order       |
 | `toHaveBeenAskedWith({ input?, system?, … })`      | `mockLlm(X)`             | some request has these parts (strings as substrings) |
+| `toHaveChildExecutions(W, [{ item, finish \| failedWith \| cancelled }, …])` | a run result | the executions of child workflow `W` in the result's tree, in item order, are exactly these (#263) |
+| `toHaveHandledError(E, { at?, by? })`             | a run result             | an error of `E` (or caused by one) happened at `at` and the side path starting at `by` took it (#263) |
 
 Failure messages name the classes: `expected the path ChatStart → MainRouter → Support, it was …`.
 The call matchers keep Vitest's names; on anything that is not a script — a `vi.fn()`, a
@@ -450,6 +452,39 @@ expect(result.record?.scope.find((value) => value.slot === "DraftDto")?.value).t
 An observer listed in `@Workflow({ observers })` sees each cascade as one `onValuesOutdated` event
 ([Observability](Observability#outdated-values)); `mockLlm(X).lastRequest.input` shows that no
 outdated value reached the model.
+
+### Child workflows
+
+A child workflow (#263, [Workflow as a step](Workflow-as-a-step)) runs fully inside its parent:
+script its agents with `mockLlm(…)` like the parent's. `result.children` holds a nested record per
+child execution (`ChildExecutionRecord`), `result.handledErrors` every failure a side path took;
+the two matchers read them:
+
+<!-- snippet-context
+import { expect } from "vitest";
+import { ChildExecutionFailedError, StepsLimitExceededError, type ExecutionOutput } from "agboss";
+declare class VendorCheckWorkflow {}
+declare class VendorScoredWorkflowFinish {}
+declare class ScreeningStoppedWorkflowFinish {}
+declare const result: ExecutionOutput;
+-->
+
+```ts
+expect(result).toHaveChildExecutions(VendorCheckWorkflow, [
+  { item: { name: "Acme" }, finish: VendorScoredWorkflowFinish },
+  { item: { name: "Globex" }, failedWith: StepsLimitExceededError }, // in the cause chain
+  { item: { name: "Initech" }, cancelled: true }, // a sibling failed first (FailFast)
+]);
+expect(result).toHaveHandledError(ChildExecutionFailedError, {
+  at: VendorCheckWorkflow,
+  by: ScreeningStoppedWorkflowFinish,
+});
+```
+
+`item` is the child's start input, or one field of a map input; `failedWith` matches the record's
+error or a cause (`ChildExecutionFailedError` → `ActionFailedError` → your domain error). A child
+that never started (the launch was aborted first) has no execution: it is a `Cancelled` branch in
+`result.launches` only.
 
 ## Lifecycle and isolation
 
@@ -624,8 +659,9 @@ mockLlm(MainRouter).thenAnswer((request) =>
 
 ## Blind spots
 
-1. **Child workflows** (#263) are not in the core yet; when they come, a child runs fully — script
-   its agents.
+1. **Child workflows** (#263) run fully: script the child's agents like the parent's —
+   `toHaveChildExecutions` / `toHaveHandledError` check how each child ended
+   ([below](#child-workflows)).
 2. **Side effects outside the container**: code that calls `fetch` directly is blocked like any live
    call and cannot be replaced with `mockOf` — put side effects in `@Injectable` services.
 3. **The graph is tested by running it**: assembly rules are checked when the test starts; the paths
