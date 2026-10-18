@@ -7,6 +7,8 @@ import type { ExecutionOptions } from "./types.js";
 export class LiveRuns {
   readonly #runs = new Map<string, Set<AbortController>>();
   readonly #inFlight = new Set<Promise<unknown>>();
+  /** Set once the app interrupts what still runs at its stop (#265 S51): later runs stop at once. */
+  #interrupted: unknown;
 
   /** Runs `work` with a signal that `abort(thread)` or the caller's own signal aborts. */
   async track<T>(
@@ -15,6 +17,7 @@ export class LiveRuns {
     work: (signal: AbortSignal) => Promise<T>,
   ): Promise<T> {
     const controller = new AbortController();
+    if (this.#interrupted !== undefined) controller.abort(this.#interrupted);
     const runs = this.#runs.get(thread) ?? new Set<AbortController>();
     runs.add(controller);
     this.#runs.set(thread, runs);
@@ -34,6 +37,17 @@ export class LiveRuns {
   /** Resolves when every run in flight has finished, paused or failed (graceful shutdown, #261). */
   async settled(): Promise<void> {
     await Promise.allSettled([...this.#inFlight]);
+  }
+
+  /**
+   * Aborts every run in flight, and every later one, with `reason` (the shutdown timeout passed,
+   * #265 S51): each stops without failing, releases its lease and stays `running` for recovery.
+   */
+  interrupt(reason: unknown): void {
+    this.#interrupted ??= reason;
+    for (const runs of this.#runs.values()) {
+      for (const controller of runs) controller.abort(reason);
+    }
   }
 
   /** Aborts the thread's runs in flight; `false` when none is running. */

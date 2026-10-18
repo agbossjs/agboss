@@ -1,0 +1,259 @@
+import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import {
+  Agent,
+  ExecutionContext,
+  ExecutionRecordStatus,
+  Injectable,
+  Tool,
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+  type AppState,
+  type ExecutionLease,
+  type ExecutionOutput,
+  type OnError,
+  type OnWorkflowEnd,
+  type OnWorkflowResume,
+  type ToolHandler,
+  type WorkflowResumeEvent,
+} from "../../../src/index.js";
+import { Application } from "../../../src/application/application.js";
+import {
+  INFRASTRUCTURE_CLOCK,
+  INSTANCE_ID,
+  IN_MEMORY_DATABASE,
+} from "../../../src/infrastructure/clock.js";
+import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
+import { TernStoreRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
+import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
+import { createSqliteTernStore, type Tern } from "../../../src/terns/index.js";
+import { seconds, type Milliseconds } from "../../../src/units/index.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { start } from "../../helpers/flow.js";
+
+/**
+ * #265 PR 2 — a clerk that takes steps (each one counted), holds (the first hold waits until its
+ * execution is stopped, or the test lets it go) and charges (each charge waits for an approval).
+ * The application lists a lease store whose instances the test can kill (a dead instance takes no
+ * lease and renews none — what a crashed process looks like to the store), and execution records
+ * whose `running` ones the test can stamp with another config (a record of another deploy).
+ */
+
+/** What the components and observers saw, in order (reset with `resetRecovery`). */
+export const seen = {
+  steps: [] as string[],
+  holds: [] as AbortSignal[],
+  charges: [] as string[],
+  resumes: [] as Pick<WorkflowResumeEvent, "reason" | "decision">[],
+  ends: [] as ExecutionOutput[],
+  errors: [] as Error[],
+  leases: [] as ExecutionLease[],
+};
+
+/** The test's levers: the dead instances, a hold to let go, a config to stamp the records with. */
+export const levers: {
+  readonly dead: Set<string>;
+  holdStarted?: () => void;
+  letGo?: () => void;
+  stampedHash?: string;
+} = { dead: new Set() };
+
+/** The records the test's first instance created (the instances of a test share them). */
+export const stores: { records?: StampedExecutionRecordRepository } = {};
+
+export function resetRecovery(): void {
+  delete stores.records;
+  for (const list of Object.values(seen)) list.length = 0;
+  levers.dead.clear();
+  delete levers.holdStarted;
+  delete levers.letGo;
+  delete levers.stampedHash;
+}
+
+/** Kills an instance (`instance-1`, …): from now on it takes no lease and keeps none. */
+export const kill = (instanceId: string): void => {
+  levers.dead.add(instanceId);
+};
+
+/** Until the observers saw `count` ends (a recovery runs in the background of its instance). */
+export async function ends(count: number): Promise<readonly ExecutionOutput[]> {
+  for (let tick = 0; tick < 2000 && seen.ends.length < count; tick += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  return seen.ends;
+}
+
+export class ReceiptDto {
+  @Text({ prompt: "what was done" })
+  text!: string;
+}
+
+export class Query {
+  @Text({ prompt: "what to do" })
+  text!: string;
+}
+
+/** A step: counted, so a test sees whether it ran again. */
+@Tool({ name: "step", description: "Takes a step", input: Query, output: Query })
+export class Step implements ToolHandler<Query, Query> {
+  run(input: Query): Promise<Query> {
+    seen.steps.push(input.text);
+    return Promise.resolve(input);
+  }
+}
+
+/** The first call waits until its execution is stopped or the test lets it go; later ones return. */
+@Tool({ name: "hold", description: "Waits", input: Query, output: Query, deps: [ExecutionContext] })
+export class Hold implements ToolHandler<Query, Query> {
+  constructor(private readonly executionContext: ExecutionContext) {}
+
+  run(input: Query): Promise<Query> {
+    const { signal } = this.executionContext;
+    seen.holds.push(signal);
+    if (seen.holds.length > 1) return Promise.resolve(input);
+    return new Promise((resolve) => {
+      levers.letGo = () => {
+        resolve(input);
+      };
+      signal.addEventListener("abort", () => {
+        resolve(input);
+      });
+      levers.holdStarted?.();
+    });
+  }
+}
+
+/** A write: each call waits for an approval. */
+@Tool({
+  name: "charge",
+  description: "Charges the card",
+  channel: TerminalUserChannel,
+  input: Query,
+  output: Query,
+})
+export class Charge implements ToolHandler<Query, Query> {
+  run(input: Query): Promise<Query> {
+    seen.charges.push(input.text);
+    return Promise.resolve(input);
+  }
+}
+
+@Agent({
+  name: "clerk-agent",
+  description: "Steps, holds and charges",
+  prompt: "Do what you are asked.",
+  tools: [Step, Hold, Charge],
+  model: "test/clerk",
+  input: { message: WorkflowStartTextDto },
+  output: ReceiptDto,
+})
+export class Clerk {}
+
+/** What the observers saw: resumes (with their reason), ends and errors. */
+@Injectable()
+export class RecoveryLog implements OnWorkflowResume, OnWorkflowEnd, OnError {
+  onWorkflowResume(event: WorkflowResumeEvent): void {
+    seen.resumes.push({ reason: event.reason, decision: event.decision });
+  }
+  onWorkflowEnd(result: ExecutionOutput): void {
+    seen.ends.push(result);
+  }
+  onError(error: Error, _state: AppState): void {
+    seen.errors.push(error);
+  }
+}
+
+/** The leases in the test's memory; a dead instance takes none and renews none. */
+@Injectable({ deps: [INFRASTRUCTURE_CLOCK, INSTANCE_ID, IN_MEMORY_DATABASE] })
+export class MortalExecutionLeaseRepository extends InMemoryExecutionLeaseRepository {
+  readonly #instanceId: string;
+
+  constructor(now: () => Date, instanceId: string, database: InMemoryDatabase) {
+    super(now, instanceId, database);
+    this.#instanceId = instanceId;
+  }
+
+  override async acquire(
+    tenantId: string,
+    rootExecutionId: string,
+    lease: Milliseconds,
+  ): Promise<ExecutionLease | undefined> {
+    if (levers.dead.has(this.#instanceId)) return undefined;
+    const taken = await super.acquire(tenantId, rootExecutionId, lease);
+    if (taken !== undefined) seen.leases.push(taken);
+    return taken;
+  }
+
+  override renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean> {
+    if (levers.dead.has(this.#instanceId)) return Promise.resolve(false);
+    return super.renew(executionLease, lease);
+  }
+}
+
+/** The records in memory; `levers.stampedHash` makes the running ones read as another deploy's. */
+@Injectable()
+export class StampedExecutionRecordRepository extends TernStoreRecordRepository {
+  constructor() {
+    super(createSqliteTernStore(":memory:"));
+    stores.records ??= this;
+  }
+
+  override async findByStatus(
+    status: ExecutionRecordStatus,
+    limit: number,
+    after?: string,
+  ): Promise<Tern[]> {
+    const page = await super.findByStatus(status, limit, after);
+    const configHash = levers.stampedHash;
+    return configHash === undefined ? page : page.map((record) => ({ ...record, configHash }));
+  }
+}
+
+@WorkflowStart({ name: "order-workflow-start", description: "A request", input: WorkflowStartTextDto })
+export class OrderWorkflowStart {}
+
+@WorkflowFinish({ name: "receipt-workflow-finish", description: "The receipt", output: ReceiptDto })
+export class ReceiptWorkflowFinish {}
+
+@Workflow({
+  name: "recovery-workflow",
+  version: "1.0.0",
+  defaults: {
+    models: { maxTokens: 100, temperature: 0 },
+    history: { limit: 1 },
+    tools: { maxToolCalls: 8 },
+  },
+  observers: [RecoveryLog],
+  channelClasses: [TerminalUserChannel],
+  flow: [
+    start(OrderWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(Clerk)
+      .returns(ReceiptDto)
+      .toFinish(ReceiptWorkflowFinish),
+  ],
+})
+export class RecoveryWorkflow {}
+
+const providers = [MortalExecutionLeaseRepository, StampedExecutionRecordRepository];
+
+@Application({
+  name: "recovery-application",
+  version: "1.0.0",
+  workflows: [RecoveryWorkflow],
+  providers,
+  budgets: TEST_BUDGETS,
+})
+export class RecoveryApplication {}
+
+/** The same application with its own shutdown timeout. */
+@Application({
+  name: "quick-stop-application",
+  version: "1.0.0",
+  workflows: [RecoveryWorkflow],
+  providers,
+  budgets: TEST_BUDGETS,
+  shutdownTimeout: seconds(5),
+})
+export class QuickStopApplication {}

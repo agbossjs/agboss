@@ -1,16 +1,15 @@
 import { rememberAppWorkflow } from "../app/app-workflow.js";
 import type { BuiltApp } from "../app/create-app.js";
 import type { App } from "../app/types.js";
-import { stopComponents } from "../components/container/lifecycle.js";
 import type { Class } from "../components/injection.js";
 import { NodeKind } from "../flow/ast.js";
 import type { AssembledApplication } from "./assemble.js";
+import type { GracefulStop } from "./graceful-stop.js";
 
 /**
  * The app of an application instance (#261): `execute` runs the workflow its start belongs to (a
- * start is the door of one workflow), `resume` / `cancel` the workflow of the thread; `close()`
- * stops every workflow taking executions, runs `onStop` once for the whole application, waits for
- * every running execution, then `onDestroy`.
+ * start is the door of one workflow), `resume` / `cancel` the workflow of the thread; `close()` is
+ * the instance's graceful stop (`graceful-stop.ts`).
  */
 
 /** Each start class with the workflow it opens. */
@@ -38,27 +37,10 @@ export const textStartOfWorkflow = (app: App, workflow: Class): Class | undefine
 const textStartOf = (workflows: readonly BuiltApp[]): Class | undefined =>
   workflows.map((workflow) => workflow.app.textStart).find((start) => start !== undefined);
 
-/** The application's stop: no new executions anywhere, `onStop` once, every run awaited, `onDestroy`. */
-async function closeAll(
-  workflows: readonly BuiltApp[],
-  created: readonly unknown[],
-): Promise<void> {
-  workflows.forEach((workflow) => {
-    workflow.refuse();
-  });
-  try {
-    await stopComponents(created, async () => {
-      await Promise.all(workflows.map((workflow) => workflow.settled()));
-    });
-  } finally {
-    for (const workflow of workflows) await workflow.app.close();
-  }
-}
-
 export function composeApp(
   assembled: AssembledApplication,
   workflows: readonly BuiltApp[],
-  created: readonly unknown[],
+  stop: GracefulStop,
 ): App {
   const [first] = workflows;
   // the assembly rejects an application without workflows
@@ -71,7 +53,6 @@ export function composeApp(
     }
     return first;
   };
-  let closed = false;
   const app: App = {
     name: assembled.name,
     version: assembled.version,
@@ -84,11 +65,7 @@ export function composeApp(
     resume: async (thread, decision, options) =>
       (await ofThread(thread)).app.resume(thread, decision, options),
     cancel: async (thread, options) => (await ofThread(thread)).app.cancel(thread, options),
-    close: async () => {
-      if (closed) return;
-      closed = true;
-      await closeAll(workflows, created);
-    },
+    close: (options) => stop.close(options),
     resolve: (token) => first.app.resolve(token),
     hasTool: (name) => workflows.some((workflow) => workflow.app.hasTool(name)),
   };

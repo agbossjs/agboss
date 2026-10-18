@@ -1,5 +1,5 @@
 import { WorkflowCancelledError } from "../core/errors.js";
-import { ExecutionLeaseLostError, isLeaseLost } from "../app/lease-lost.js";
+import { handedOverReason, isHandedOver } from "../app/handed-over.js";
 import { drainRecordingUsage } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
 import type { ExecutionGraph, RunLimits } from "../flow/runtime/build.js";
@@ -46,26 +46,41 @@ const errorMessage = (error: unknown): string =>
 
 /**
  * A run stopped by its signal reads as cancelled, whatever error the abort surfaced as — or, when
- * its instance lost the tree's lease, as `ExecutionLeaseLostError` (not a failure, #265).
+ * its instance lost the tree's lease or stopped, as `ExecutionLeaseLostError` /
+ * `ApplicationStoppingError` (not a failure, #265).
  */
 export const outcomeError = (error: unknown, signal: AbortSignal | undefined): unknown => {
-  if (isLeaseLost(signal)) return signal?.reason;
+  const handedOver = handedOverReason(signal);
+  if (handedOver !== undefined) return handedOver;
   return signal?.aborted === true && !(error instanceof WorkflowCancelledError)
     ? new WorkflowCancelledError("the run was cancelled")
     : error;
 };
 
 /**
- * Writes the failed record of a run that failed (#265: a lost lease writes nothing — the new
- * holder owns the record) and returns the error to throw.
+ * Writes the failed record of a run that failed (#265: a lost lease or an interruption writes
+ * nothing — the record stays `running`, another instance owns it) and returns the error to throw.
  */
 export async function recordFailure(
   error: unknown,
   write: () => Promise<unknown>,
 ): Promise<unknown> {
-  if (!(error instanceof ExecutionLeaseLostError)) await write();
+  if (!isHandedOver(error)) await write();
   return error;
 }
+
+/**
+ * The record of an execution while its tree moves (#265 S30): `running`, what it visited and spent
+ * so far — what recovery continues when its instance dies.
+ */
+export const runningOutcome = (route: readonly string[], costUsd: number): TernOutcome => ({
+  replyWith: "",
+  status: "running",
+  stopReason: "",
+  route,
+  steps: [],
+  costUsd,
+});
 
 export const failedOutcome = (error: unknown, spent: readonly UsageRecord[]): TernOutcome => ({
   replyWith: "",

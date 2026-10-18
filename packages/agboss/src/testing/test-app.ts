@@ -88,9 +88,9 @@ export function createTestApp(environment: TestEnvironment): TestApp {
       checked(environment, async () => {
         await built();
       }),
-    close: async () => {
+    close: async (options) => {
       closed = true;
-      if (building !== undefined) await (await building).app.close();
+      if (building !== undefined) await (await building).app.close(options);
     },
     agent: (agent) => ({
       replyWith: (task) =>

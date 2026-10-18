@@ -30,7 +30,10 @@ export {
 } from "../budgets/budget.js";
 export type { PausedRun } from "../app/paused-runs.js";
 export { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
-export { ExecutionRecordRepository } from "../infrastructure/execution-record.repository.js";
+export {
+  ExecutionRecordRepository,
+  ExecutionRecordStatus,
+} from "../infrastructure/execution-record.repository.js";
 export {
   PausedExecutionRepository,
   PauseStatus,
@@ -60,6 +63,7 @@ export {
   type App,
   type CancelOptions,
   type CancelOutput,
+  type CloseOptions,
   type ExecutionOptions,
   type ExecutionOutput,
 } from "../app/types.js";

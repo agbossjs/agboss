@@ -116,6 +116,7 @@ function ternReads(rows: Rows): Pick<TernStore, "lastTerns" | "byIds" | "byVersi
       Promise.resolve(
         rows(
           `SELECT * FROM terns WHERE bundle = ? AND prompt_version = ? AND replay_of IS NULL
+           AND status != 'running'
            ORDER BY rowid LIMIT ?`,
           bundle,
           version,
@@ -137,11 +138,28 @@ function ternReads(rows: Rows): Pick<TernStore, "lastTerns" | "byIds" | "byVersi
   };
 }
 
+/** Recovery's look-up (#265 S30): a page of the Terns with one status, oldest first. */
+function statusReads(rows: Rows): Pick<TernStore, "byStatus"> {
+  return {
+    byStatus: (status, limit, after) =>
+      Promise.resolve(
+        rows(
+          `SELECT * FROM terns WHERE status = ?
+           AND rowid > COALESCE((SELECT rowid FROM terns WHERE id = ?), 0) ORDER BY rowid LIMIT ?`,
+          status,
+          after ?? null,
+          limit,
+        ),
+      ),
+  };
+}
+
 const SUMMARY = `SELECT t.prompt_version, COUNT(DISTINCT t.id) AS terns, COUNT(s.score) AS scored,
     AVG(s.score) AS mean_score,
-    (SELECT SUM(cost_usd) FROM terns x WHERE x.bundle = t.bundle AND x.prompt_version = t.prompt_version) AS cost_usd
+    (SELECT SUM(cost_usd) FROM terns x WHERE x.bundle = t.bundle AND x.prompt_version = t.prompt_version
+      AND x.status != 'running') AS cost_usd
   FROM terns t LEFT JOIN scores s ON s.tern_id = t.id
-  WHERE t.bundle = ? GROUP BY t.prompt_version ORDER BY MIN(t.rowid)`;
+  WHERE t.bundle = ? AND t.status != 'running' GROUP BY t.prompt_version ORDER BY MIN(t.rowid)`;
 
 function scoreMethods(
   db: DatabaseSync,
@@ -182,6 +200,7 @@ export function createSqliteTernStore(
     ...threadMethods(db, now, newThreadId),
     ...ternWrites(db, now),
     ...ternReads(rows),
+    ...statusReads(rows),
     ...scoreMethods(db, now),
     ...memoryMethods(db, now),
     ...configMethods(db, now),

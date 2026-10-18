@@ -23,6 +23,7 @@ import { checkedStart, textStartOf } from "./starts.js";
 import type { App, ExecutionOutput } from "./types.js";
 import type { RunOperation } from "../core/observability.js";
 import { ApplicationStoppingError } from "./application-stopping.js";
+import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 
 export { NotAWorkflowStartError } from "./starts.js";
 
@@ -48,7 +49,8 @@ const STOPPING = "the app is stopping: app.close() was called, no new execution 
 /**
  * One workflow of an application instance, built, with the parts it was built from (the testing
  * toolkit's slices read them): `refuse()` stops it taking new executions, `settled()` waits for
- * the running ones (the application's graceful stop).
+ * the running ones, `interrupt(reason)` stops what still runs (the application's graceful stop),
+ * `recover` continues one of its interrupted roots (the recovery sweep, #265 S30).
  */
 export interface BuiltApp {
   readonly app: App;
@@ -56,6 +58,8 @@ export interface BuiltApp {
   readonly bundle: AssembledWorkflow;
   readonly refuse: () => void;
   readonly settled: () => Promise<void>;
+  readonly interrupt: (reason: ApplicationStoppingError) => void;
+  readonly recover: RecoverRoot;
 }
 
 /** One workflow of an application over already assembled parts (a profile applied). */
@@ -67,11 +71,12 @@ export async function buildApp(
 ): Promise<BuiltApp> {
   checkRunLimits(bundle.config.name, bundle.limits);
   const deps = await createWorkflowDeps(bundle, options, parts);
-  const paused = pausedRunBook(
-    parts.infrastructure.pausedExecutions,
-    { workflowVersion: deps.config.version, configHash: runVersions(deps).configHash },
-    bundle.onIncompatibleResume,
-  );
+  const current = {
+    workflowVersion: deps.config.version,
+    configHash: runVersions(deps).configHash,
+  };
+  const policy = bundle.onIncompatibleResume;
+  const paused = pausedRunBook(parts.infrastructure.pausedExecutions, current, policy);
   const live = new LiveRuns();
   const { executionLeases, executionTrees: trees } = parts.infrastructure;
   const leases = executionLeasesOf(executionLeases, parts.timers ?? systemTimers);
@@ -168,5 +173,9 @@ export async function buildApp(
       closed = true;
     },
     settled: () => live.settled(),
+    interrupt: (reason) => {
+      live.interrupt(reason);
+    },
+    recover: recoverRootOf({ deps, moves, current, policy }),
   };
 }

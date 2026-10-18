@@ -10,7 +10,7 @@ import { checkVisit, isWorkingNode } from "./limits.js";
 import type { GraphNode, NodeOutcome, NodeRunner } from "./node-runner.js";
 import { OutputInvalidError } from "./errors.js";
 import { RouterDecisionError } from "./router-error.js";
-import { isLeaseLost } from "../../app/lease-lost.js";
+import { handedOverReason } from "../../app/handed-over.js";
 import { reportOutdating } from "./outdating-report.js";
 import type { RuntimeProvenance } from "./provenance.js";
 import {
@@ -117,8 +117,9 @@ function caught(
   signal: AbortSignal | undefined,
 ): ExecutionStateUpdate {
   if (isGraphInterrupt(error)) throw error;
-  // a lost lease is no failure of the step: the instance stops, the new holder goes on (#265)
-  if (isLeaseLost(signal)) throw signal?.reason;
+  // a lost lease or an interruption is no failure of the step: another instance goes on (#265)
+  const handedOver = handedOverReason(signal);
+  if (handedOver !== undefined) throw handedOver;
   const record = errorRecordOf(error);
   const handler = errorHandlerOf(node.exits, record);
   if (handler === undefined) throw error;

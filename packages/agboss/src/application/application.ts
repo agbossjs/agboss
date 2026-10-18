@@ -3,6 +3,7 @@ import type { Class, Provider } from "../components/injection.js";
 import { ComponentError } from "../components/metadata.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { NodeKind } from "../flow/ast.js";
+import type { Milliseconds } from "../units/index.js";
 
 /**
  * `@Application` (#261) — the one point of the whole app: what `createApp(App, { env })` and
@@ -25,6 +26,12 @@ export interface ApplicationOptions {
   readonly providers?: readonly Provider[];
   /** Every `@Budget` of the application (`config/budget.config.ts`). */
   readonly budgets?: readonly Class[];
+  /**
+   * How long `app.close()` (and SIGTERM / SIGINT) waits for the running executions before it
+   * interrupts them (#265 S51): each releases its lease at once and stays `running`, so another
+   * instance continues it. Default `seconds(25)` — under the usual 30 s grace period and the lease.
+   */
+  readonly shutdownTimeout?: Milliseconds;
 }
 
 /** What `@Application` recorded: its options and the file it is declared in. */
