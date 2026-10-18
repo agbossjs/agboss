@@ -131,15 +131,29 @@ to exactly one listed provider by `serves` at assembly — none → `[model.unse
 `serves`). `agboss describe` prints `model: … → <provider>` for each, `agboss check --models` checks
 every model of every workflow of the application against its provider:
 
+A provider's **policies** are app-wide too: `retryPolicy` retries one call (attempts, exponential
+backoff with jitter, `Retry-After` honoured — the only place backoff is set); `rateLimitPolicy`
+(`RateLimitPolicy.of({ maxConcurrentCalls, perMinute: { calls, tokens }, balancing })`) is one limit
+for the whole application — every execution, tenant, parallel branch and instance shares it through
+`RateLimitRepository` — a call without room waits (its signal ends the wait, its timeout starts only
+with the room), waiting tenants share free slots by `QueueBalancingStrategy` (`TenantRoundRobin` by
+default, `TenantLeastInFlight`, `TenantWeighted` by `tenant.weight`, `Fifo`), and a 429 pauses the
+provider's whole queue for `Retry-After` on every instance, then halves this instance's
+concurrency and grows it back by one a minute; `circuitBreakerPolicy` stops calling a provider that
+is down — its state in `RateLimitRepository` as well. Without `rateLimitPolicy` there is no limit:
+set it per your provider plan. A provider's `name` ends with `-model-provider`; its key is a
+`Secret` field of the application's environment (`apiKey: "openRouterApiKey"`):
+
 ```ts file=src/model-providers/openrouter.model-provider.ts
 // src/model-providers/openrouter.model-provider.ts — job-scout's chat models, with its own request fields
 import {
   ModelCost,
   ModelProvider,
   OpenRouterProvider,
-  OPENROUTER_API_KEY,
   OPENROUTER_BASE_URL_SETTING,
   PromptCaching,
+  QueueBalancingStrategy,
+  RateLimitPolicy,
   Reasoning,
   RetryPolicy,
   TRANSIENT_FAILURES,
@@ -148,12 +162,12 @@ import {
 import { minutes, seconds } from "agboss/units";
 
 @ModelProvider({
-  name: "openrouter",
+  name: "openrouter-model-provider",
   description: "OpenRouter — every chat model job-scout uses",
   serves: [/.*/], // its chat models; decision models go to DecisionsModelProvider (no chat there)
   baseUrl: OPENROUTER_BASE_URL_SETTING,
-  apiKey: OPENROUTER_API_KEY,
-  timeout: minutes(2),
+  apiKey: "openRouterApiKey", // a Secret field of the application's environment
+  timeout: minutes(2), // per attempt, from the moment it has room
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
@@ -164,6 +178,11 @@ import { minutes, seconds } from "agboss/units";
     jitter: true,
     retryOn: TRANSIENT_FAILURES,
   }),
+  rateLimitPolicy: RateLimitPolicy.of({
+    maxConcurrentCalls: 8, // the plan's limits, for every instance at once
+    perMinute: { calls: 120 },
+    balancing: QueueBalancingStrategy.TenantRoundRobin,
+  }),
   circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
 })
 export class OpenRouterModelProvider extends OpenRouterProvider {
@@ -171,11 +190,21 @@ export class OpenRouterModelProvider extends OpenRouterProvider {
 }
 ```
 
+```ts file=src/environments/app.environment.ts
+// src/environments/app.environment.ts — the key both providers read; `test` leaves it out
+import type { Secret } from "agboss";
+
+export class AppEnvironment {
+  openRouterApiKey?: Secret; // dev, prod: openRouterApiKey: secret("OPENROUTER_API_KEY")
+}
+```
+
 ```ts file=src/job-scout.application.ts
 // src/job-scout.application.ts — what createApp(JobScoutApplication, { env }) and testWith run
-import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope, EmptyEnvironment } from "agboss";
+import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope } from "agboss";
 import { DecisionsModelProvider } from "agboss/models";
 import { usd, type Usd } from "agboss/units";
+import { AppEnvironment } from "./environments/app.environment.js";
 import { JobScout } from "./job-scout.workflow.js";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 
@@ -204,7 +233,7 @@ export class ExecutionBudget implements BudgetHandler {
 @Application({
   name: "job-scout-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
+  environment: AppEnvironment,
   workflows: [JobScout], // app.execute(ChatWorkflowStart, …) runs the workflow of that start
   providers: [OpenRouterModelProvider, DecisionsModelProvider], // every model resolves to one
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget], // checked before each step
@@ -330,7 +359,7 @@ npx agboss describe --workflow src/job-scout.workflow.ts   # agents, tools, depe
 npx agboss --help                                          # run, eval, replay, golden, compare, rag:index
 ```
 
-Needs `OPENROUTER_API_KEY` in `.env`. Docs: [Wiki → Components](https://github.com/agbossjs/agboss/wiki/Components) ·
+Needs `OPENROUTER_API_KEY` in `.env` (dev's `openRouterApiKey: secret("OPENROUTER_API_KEY")`). Docs: [Wiki → Components](https://github.com/agbossjs/agboss/wiki/Components) ·
 [Configuration](https://github.com/agbossjs/agboss/wiki/Configuration) · [Knowledge bases](https://github.com/agbossjs/agboss/wiki/Knowledge-bases) ·
 [Profiles and comparisons](https://github.com/agbossjs/agboss/wiki/Profiles-and-comparisons).
 
@@ -538,8 +567,11 @@ export class AuditStoreService {
 - `environment` is required: an application with no settings declares the framework's empty
   contract, `@Application({ environment: EmptyEnvironment })` (any contract without fields works the
   same), and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets an empty environment.)
-- Model provider keys are not part of it: each `@ModelProvider` names its key as a process variable
-  (`apiKey: EnvironmentVariable.named(...)`, read at start; #266 PR 1 keeps them there).
+- Model provider keys are part of it (#266): each `@ModelProvider` names the `Secret` field that
+  holds its key (`apiKey: "openRouterApiKey"`; the built-ins read `openRouterApiKey`), set with
+  `openRouterApiKey: secret("OPENROUTER_API_KEY")` in each environment that calls models — a test
+  environment may leave it out (tests script or replay models). A missing key fails the start of an
+  app that calls the provider; `agboss check --env test` writes the types without one.
 
 ## Quality gates (judges)
 

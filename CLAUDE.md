@@ -15,7 +15,16 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
   components name models only: every model of the application resolves to exactly one listed
   provider by `serves` at assembly (`[model.unserved]`, `[model.ambiguous-provider]`; one model
   through two providers = two model strings); `agboss describe` prints `model: … → <provider>`.
-  The built-ins are OpenRouter: env `OPENROUTER_API_KEY` (+ optional `OPENROUTER_BASE_URL`).
+  The built-ins are OpenRouter: their key is the `Secret` field `openRouterApiKey` of the
+  application's environment (`secret("OPENROUTER_API_KEY")`; a provider's `apiKey` names its field),
+  optional `OPENROUTER_BASE_URL`. Provider names end with `-model-provider` (`[name.kind-suffix]`).
+  Policies per provider, app-wide (#266 PR 2): `retryPolicy` retries one call (the only backoff);
+  `rateLimitPolicy: RateLimitPolicy.of({ maxConcurrentCalls, perMinute: { calls, tokens },
+balancing })` — one limit for every execution, tenant and instance (`RateLimitRepository`), a
+  call without room waits in a tenant-fair queue (`QueueBalancingStrategy`), a 429 pauses the whole
+  queue for `Retry-After` on every instance and halves the instance's concurrency (back by one a
+  minute); `circuitBreakerPolicy` — its state in `RateLimitRepository`, on the app's `Clock`. No
+  `rateLimitPolicy` → no limit.
   - Routers: each `@Router` names its own `model` — a **decision model** (`DECISION_MODELS`: Jev,
     `openai/gpt-6-luna-decisions`, pplx-decider, Clef, …; OpenRouter Decisions API via
     `DecisionsModelProvider` — probabilities, exact cost) or any chat model. Guards use
@@ -938,7 +947,8 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   LangGraph's `BaseCheckpointSaver`, and the contracts shared by instances (#265):
   `ExecutionLeaseRepository` (one lease per tree, `acquire` / `renew` / `release`),
   `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
-  when its tree ends), `RateLimitRepository` (slots as leases, for #266) — and the
+  when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
+  rate limit, 429 pause and circuit breaker, #266) — and the
   `@ModelProvider` classes (#266; not created by the container, a misplaced one in a workflow's
   `providers` is `[di.infrastructure-in-workflow]` too). Listed **only** in
   `@Application({ providers })` (a class that `extends` the contract, `@Injectable`; in a workflow's
@@ -1108,8 +1118,10 @@ export class AuditService {
 `test`); a missing variable fails the start naming it, the field and the environment, never the value
 (`DATABASE_URL is not set (AppEnvironment.databaseUrl, prod)`); `agboss check --env <name>` lists the
 variables it needs, marked value / secret. Dev / prod parity: the same `providers` in every
-environment, only values differ. Model provider keys stay process variables on each
-`@ModelProvider` (`apiKey: EnvironmentVariable.named(…)`). README → Environments has more.
+environment, only values differ. Model provider keys are `Secret` fields of it too (#266): a
+`@ModelProvider`'s `apiKey` names the field (`"openRouterApiKey"`), a test environment may leave it
+out (models are scripted) — so a project's `npm run types` is `agboss check --env test`. README →
+Environments has more.
 
 ### Judges and decision models
 
