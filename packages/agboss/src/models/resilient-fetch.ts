@@ -1,19 +1,15 @@
 import { systemClock, type Clock } from "../infrastructure/clock.js";
-import { timeoutError, timeoutOn, waitOf } from "../infrastructure/clock-timeout.js";
+import { waitOf } from "../infrastructure/clock-timeout.js";
 import type { Milliseconds } from "../units/index.js";
+import { attemptOnce, type Attempt, type ProviderFetch } from "./calls/model-call.js";
+import type { ProviderGate } from "./calls/provider-gate.js";
 import type { ModelCost } from "./cost.js";
 import { fallbackBody, markedFallbackResponse } from "./fallback.js";
 import { ModelCallError, type CircuitBreaker } from "./circuit-breaker.js";
-import {
-  failureOfError,
-  failureOfStatus,
-  retryAfterOf,
-  type ModelFailure,
-} from "./model-failure.js";
+import { ModelFailure, retryAfterOf } from "./model-failure.js";
 import { delayBefore, isRetried, longestWaitOf, type RetryPolicy } from "./retry-policy.js";
 
-/** The HTTP client of a provider: `fetch` with its timeout, retries and circuit breaker. */
-export type ProviderFetch = typeof fetch;
+export type { ProviderFetch } from "./calls/model-call.js";
 
 /**
  * Where calls go while the breaker is open: the fallback provider's base URL, key and client, its
@@ -34,7 +30,10 @@ export interface ResilienceOptions {
   readonly baseUrl: string;
   readonly timeout: Milliseconds;
   readonly retryPolicy: RetryPolicy;
-  readonly breaker: CircuitBreaker;
+  /** The provider's breaker (its state in the application's `RateLimitRepository`); none = never open. */
+  readonly breaker?: CircuitBreaker;
+  /** The provider's `rateLimitPolicy` in this instance; none = no limit. */
+  readonly gate?: ProviderGate;
   readonly fallback?: FallbackTarget;
   /** The timeout, the waits between attempts and `Retry-After` run on it (default: the system's). */
   readonly clock?: Clock;
@@ -63,80 +62,102 @@ async function toFallback(
   return markedFallbackResponse(response, model, fallback.cost);
 }
 
-type Attempt =
-  | { readonly kind: "answered"; readonly response: Response; readonly failure?: ModelFailure }
-  | { readonly kind: "threw"; readonly error: unknown; readonly failure: ModelFailure };
-
-/** One attempt under the provider's timeout on the clock (and the caller's own signal). */
-async function attemptOnce(
-  send: ProviderFetch,
-  input: Parameters<typeof fetch>[0],
-  init: RequestInit | undefined,
-  timeout: { readonly delay: Milliseconds; readonly clock: Clock },
-): Promise<Attempt> {
-  const timer = timeoutOn(timeout.clock, timeout.delay, timeoutError);
-  const signals = [timer.signal, ...(init?.signal ? [init.signal] : [])];
-  try {
-    const response = await send(input, { ...init, signal: AbortSignal.any(signals) });
-    const failure = failureOfStatus(response.status);
-    return failure === undefined
-      ? { kind: "answered", response }
-      : { kind: "answered", response, failure };
-  } catch (error) {
-    if (init?.signal?.aborted === true) throw error;
-    return { kind: "threw", error, failure: failureOfError(error) };
-  } finally {
-    timer.release();
-  }
-}
+/** `Retry-After` of a 429 or 5xx answer, in milliseconds; `undefined` when absent. */
+const retryAfterIn = (attempt: Attempt, clock: Clock): number | undefined =>
+  attempt.kind === "answered" ? retryAfterOf(attempt.response, clock.now().getTime()) : undefined;
 
 /** How long to wait before the next attempt; `undefined` = stop (not retried, or Retry-After too long). */
 function waitBefore(
   attempt: Attempt,
   tries: number,
   options: ResilienceOptions,
+  clock: Clock,
 ): number | undefined {
   const failure = attempt.failure;
   if (failure === undefined || !isRetried(options.retryPolicy, failure, tries)) return undefined;
   const planned = delayBefore(options.retryPolicy, tries, options.random ?? Math.random);
-  if (attempt.kind === "threw") return planned;
-  const retryAfter = retryAfterOf(attempt.response, (options.clock ?? systemClock).now().getTime());
+  const retryAfter = retryAfterIn(attempt, clock);
   if (retryAfter === undefined) return planned;
   return retryAfter > longestWaitOf(options.retryPolicy)
     ? undefined
     : Math.max(planned, retryAfter);
 }
 
+/** A 429 pauses the provider's whole queue for `Retry-After`, else the retry policy's next delay. */
+async function slowDownOn429(
+  attempt: Attempt,
+  tries: number,
+  options: ResilienceOptions,
+  clock: Clock,
+): Promise<void> {
+  if (options.gate === undefined || attempt.failure !== ModelFailure.RateLimited) return;
+  const pause =
+    retryAfterIn(attempt, clock) ??
+    delayBefore(options.retryPolicy, tries, options.random ?? Math.random);
+  await options.gate.slowDown(waitOf(pause));
+}
+
+/** While the breaker is open: the fallback, else fail fast with `model.circuit-open`. */
+async function whileOpen(
+  input: Parameters<typeof fetch>[0],
+  init: RequestInit | undefined,
+  options: ResilienceOptions,
+): Promise<Response> {
+  if (options.fallback !== undefined) return toFallback(input, init, options, options.fallback);
+  throw new ModelCallError(
+    "model.circuit-open",
+    options.provider,
+    `${options.provider} is failing; calls are paused`,
+  );
+}
+
+/** What an attempt's end means: the answer to give, the error to throw, or a wait and a retry. */
+type AttemptOutcome =
+  | { readonly kind: "answer"; readonly response: Response }
+  | { readonly kind: "failed"; readonly error: unknown }
+  | { readonly kind: "retry"; readonly wait: number };
+
+/** The end of attempt number `tries`: the breaker told, a 429 slowing the provider down. */
+async function outcomeOf(
+  attempt: Attempt,
+  tries: number,
+  options: ResilienceOptions,
+  clock: Clock,
+): Promise<AttemptOutcome> {
+  if (attempt.kind === "answered" && attempt.failure === undefined) {
+    await options.breaker?.recordSuccess();
+    return { kind: "answer", response: attempt.response };
+  }
+  await slowDownOn429(attempt, tries, options, clock);
+  const wait = waitBefore(attempt, tries, options, clock);
+  if (wait === undefined) {
+    await options.breaker?.recordFailure();
+    return attempt.kind === "threw"
+      ? { kind: "failed", error: attempt.error }
+      : { kind: "answer", response: attempt.response };
+  }
+  if (attempt.kind === "answered") await attempt.response.body?.cancel();
+  return { kind: "retry", wait };
+}
+
 /**
  * A provider's client: each call is tried under the retry policy (only the listed failures,
  * `Retry-After` honoured) as one call — retries are not separate attempts and are not paid twice;
- * the breaker counts failed calls and, open, sends calls to the fallback or fails fast.
+ * each attempt waits for room under the rate limit, the waits between them hold none; a 429 slows
+ * the whole provider down; the breaker counts failed calls and, open, sends calls to the fallback
+ * or fails fast.
  */
 export function resilientFetch(options: ResilienceOptions, send: ProviderFetch): ProviderFetch {
   const clock = options.clock ?? systemClock;
+  const limits = { gate: options.gate, timeout: options.timeout, clock };
   return async (input, init) => {
-    if (options.breaker.isOpen()) {
-      if (options.fallback !== undefined) return toFallback(input, init, options, options.fallback);
-      throw new ModelCallError(
-        "model.circuit-open",
-        options.provider,
-        `${options.provider} is failing; calls are paused`,
-      );
-    }
+    if ((await options.breaker?.isOpen()) === true) return whileOpen(input, init, options);
     for (let tries = 1; ; tries++) {
-      const attempt = await attemptOnce(send, input, init, { delay: options.timeout, clock });
-      if (attempt.kind === "answered" && attempt.failure === undefined) {
-        options.breaker.recordSuccess();
-        return attempt.response;
-      }
-      const wait = waitBefore(attempt, tries, options);
-      if (wait === undefined) {
-        options.breaker.recordFailure();
-        if (attempt.kind === "threw") throw attempt.error;
-        return attempt.response;
-      }
-      if (attempt.kind === "answered") await attempt.response.body?.cancel();
-      await clock.sleep(waitOf(wait));
+      const attempt = await attemptOnce(send, input, init, limits);
+      const outcome = await outcomeOf(attempt, tries, options, clock);
+      if (outcome.kind === "answer") return outcome.response;
+      if (outcome.kind === "failed") throw outcome.error;
+      await clock.sleep(waitOf(outcome.wait));
     }
   };
 }

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   ModelFailure,
   OpenRouterProvider,
+  QueueBalancingStrategy,
+  RateLimitPolicy,
   RetryPolicy,
   type OpenRouterFields,
 } from "../../src/models/index.js";
@@ -32,5 +34,31 @@ describe("AC6: requestFields are typed per provider (compile time)", () => {
 
     expect(typeof partial).toBe("function");
     expect(fixed.backoff).toBe("fixed");
+  });
+});
+
+describe("#266 AC9: timeouts and delays are values with units", () => {
+  it("bare numbers do not compile", () => {
+    const bare = () =>
+      RetryPolicy.exponential({
+        maxAttempts: 3,
+        // @ts-expect-error — a delay is seconds(…) / minutes(…), never a bare number
+        initialDelay: 1000,
+        maxDelay: seconds(20),
+        jitter: true,
+        retryOn: [ModelFailure.RateLimited],
+      });
+    const fixed = () =>
+      // @ts-expect-error — so is a fixed delay
+      RetryPolicy.fixed({ maxAttempts: 2, delay: 500, retryOn: [ModelFailure.Timeout] });
+    const balanced = RateLimitPolicy.of({
+      maxConcurrentCalls: 4,
+      balancing: QueueBalancingStrategy.TenantWeighted,
+    });
+    // @ts-expect-error — the balancing strategies are a closed set: an enum, not a string
+    const typo = () => RateLimitPolicy.of({ maxConcurrentCalls: 4, balancing: "weighted" });
+
+    expect([typeof bare, typeof fixed, typeof typo]).toEqual(["function", "function", "function"]);
+    expect(balanced.balancing).toBe(QueueBalancingStrategy.TenantWeighted);
   });
 });

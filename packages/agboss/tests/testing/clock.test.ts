@@ -9,7 +9,7 @@ import type { AppOptions } from "../../src/app/create-app.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { createApp } from "../../src/application/create-app.js";
 import { GraphRuleError } from "../../src/index.js";
-import { CircuitBreaker, ModelFailure, RetryPolicy } from "../../src/models/index.js";
+import { ModelFailure, RetryPolicy } from "../../src/models/index.js";
 import { resilientFetch } from "../../src/models/resilient-fetch.js";
 import { callTool, replyWith, testWith, VirtualClock } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -213,7 +213,6 @@ function clientOn(clock: VirtualClock, replies: readonly StubReply[]) {
         jitter: false,
         retryOn: [ModelFailure.RateLimited],
       }),
-      breaker: new CircuitBreaker({ failureThreshold: 9, window: minutes(1), openFor: seconds(1) }),
       clock,
     },
     stub.fetch,
@@ -252,11 +251,6 @@ describe("#262 AC12: a model call's waits run on the clock", () => {
         baseUrl: "http://p.test",
         timeout: seconds(5),
         retryPolicy: RetryPolicy.none(),
-        breaker: new CircuitBreaker({
-          failureThreshold: 9,
-          window: minutes(1),
-          openFor: seconds(1),
-        }),
         clock,
       },
       neverAnswers,
