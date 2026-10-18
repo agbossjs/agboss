@@ -48,9 +48,9 @@ A search turn costs about $0.02; the others well under a cent.
 ## Components — every kind, by file convention
 
 ```
-src/job-scout.application.ts        @Application job-scout-application — its workflow and budgets; no infrastructure listed → in memory (#261)
+src/job-scout.application.ts        @Application job-scout-application — its workflow, budgets, defaults (DEFAULTS) and environment contract; no infrastructure listed → in memory (#261)
 src/config/budget.config.ts         @Budget application-daily-budget | tenant-daily-budget | execution-budget
-src/job-scout.workflow.ts           @Workflow job-scout-workflow — the paths, defaults, guards, compaction, MCP, providers, channels; limits and model providers in settings()
+src/job-scout.workflow.ts           @Workflow job-scout-workflow — the paths, its own defaults (history), guards, compaction, MCP, providers, channels; limits and model providers in settings()
 src/workflow-starts/, routers/, workflow-finishes/   @WorkflowStart chat-workflow-start → @Router main-router → @WorkflowFinish chat-workflow-finish
 src/agents/*.agent.ts + *.prompt.md @Agent profiler-agent | scout-agent | shortlist-agent (text agents, promptUrls)
 src/tools/read-resume.tool.ts       @Tool ← ResumeReader
@@ -61,7 +61,7 @@ src/mcp/read-shortlist.mcp.ts       @McpTool — the shortlist as saved
 src/services/                       greenhouse-boards (HTTP), resume-reader (files, PDF), job-fit (Jev) — @Injectable
 src/rag/company-notes.rag.ts        @Rag company_notes (SQLite FTS5, topK 3, RagMode.Tool) over notes/companies/
 src/model-providers/                @ModelProvider openrouter (retries, circuit breaker, costs from the response)
-src/environments/                   environment.ts + dev / staging / test
+src/environments/                   app.environment.ts (the contract) + dev / staging / test
 src/config/                         search.config.ts (boards, places), settings, paths, prompt variables
 src/scripts/probe-boards.ts         `npm run probe -- --place israel <token…>`
 src/data/sample-resume.md

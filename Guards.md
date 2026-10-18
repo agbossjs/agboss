@@ -37,7 +37,7 @@ export class ChatWorkflowFinish {}
   ],
   defaults: {
     models: { temperature: 0 },
-    router: { model: "typesafe/jev-1.13" }, // the guards' model unless one sets its own
+    guardrail: { model: "typesafe/jev-1.13" }, // the guards' model unless one sets its own (#261)
     history: { limit: 5 },
   },
   guards: {

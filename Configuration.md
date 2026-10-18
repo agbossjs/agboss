@@ -1,10 +1,11 @@
 # Configuration
 
-Set in the workflow's components ([Components](Components)): workflow-wide fields in `@Workflow`,
+Set in the application's and the workflow's components ([Components](Components)): defaults of
+every workflow in `@Application`, workflow-wide fields in `@Workflow`,
 limits and model providers in its `settings()`, agent fields in each `@Agent`, router fields in each
 `@Router`. Assembled and validated at startup; [profiles](Profiles-and-comparisons) override them
 without code. Secrets are never there — model provider keys are process variables
-(`OPENROUTER_API_KEY` in `.env`), the app's own settings live in [environments](#environments).
+(`OPENROUTER_API_KEY` in `.env`), the app's own settings live in [environments](Environments).
 
 <!-- snippet-context
 import { Agent, Workflow, WorkflowFinish, WorkflowSettings, WorkflowStart, start, type WorkflowDefinition } from "agboss";
@@ -35,7 +36,8 @@ export class ShortlistServer extends McpServerClient<typeof tools> {}
   ],
   defaults: {
     models: { temperature: 0 }, // every chat model (agents, LLM routers)
-    router: { model: "typesafe/jev-1.13" }, // routers without their own model, guards, tools' decisions
+    router: { model: "typesafe/jev-1.13" }, // routers without their own model, tools' decisions
+    guardrail: { model: "typesafe/jev-1.13" }, // guards without their own model — never the router's
     tools: { maxToolCalls: 8 },
     history: { limit: 5 },
   },
@@ -60,6 +62,56 @@ export class JobScout implements WorkflowDefinition {
   }
 }
 ```
+
+## The `defaults` cascade — application → workflow → component (#261)
+
+`@Application({ defaults })` holds the defaults of every workflow it lists; `@Workflow({ defaults })`
+the workflow's own; a component's own field (`@Agent({ maxTokens })`, `@Router({ model })`, a guard's
+`model`) wins over both. The levels are merged **field by field** — a workflow that sets only
+`history.limit` takes the rest from the application — and the most specific level that sets a field
+wins; nothing set → the framework's built-in.
+
+<!-- snippet-context
+import { Application, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
+import { WorkflowStartTextDto } from "agboss/dto";
+@WorkflowStart({ name: "ask-workflow-start", description: "A question", input: WorkflowStartTextDto })
+export class AskWorkflowStart {}
+@WorkflowFinish({ name: "ask-workflow-finish", description: "The question, as is", output: WorkflowStartTextDto })
+export class AskWorkflowFinish {}
+// @snippet
+-->
+
+```ts
+@Workflow({
+  name: "ask-workflow",
+  version: "1.0.0",
+  flow: [
+    start(AskWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toFinish(AskWorkflowFinish),
+  ],
+  defaults: { history: { limit: 8 } }, // its own: over the application's history.limit
+})
+export class AskWorkflow {}
+
+@Application({
+  name: "ask-application",
+  version: "1.0.0",
+  workflows: [AskWorkflow],
+  defaults: {
+    models: { temperature: 0 },
+    router: { model: "typesafe/jev-1.13" }, // DecidedBy.Model routers without their own model
+    guardrail: { model: "typesafe/jev-1.13" }, // guards without their own model
+    history: { limit: 5, summaries: 2 }, // ask-workflow: limit 8, summaries 2
+  },
+})
+export class AskApplication {}
+```
+
+`agboss describe` shows where each value came from — a router's model `(own)` or
+`(defaults.router.model of ask-application)`, an agent's `defaults: temperature 0 (ask-application)
+· maxTokens 512 (own) · history 8 (ask-workflow)`, `(built-in)` when no level sets it. Closed sets
+of values are enums (`Reasoning`, …), never strings.
 
 ## `defaults.models` — applied to every chat model (agents and LLM routers)
 
@@ -91,10 +143,21 @@ model at startup and by `agboss check --models`.
 Per agent: `@Agent({ historyLimit, historySummaries })`, or a `memoryStrategy`
 ([Memory Management](Memory-Management)).
 
-## `defaults.router` — the model for routers, guards and components' decisions
+## `defaults.router` — the model for routers and components' decisions
 
-`{ model: "typesafe/jev-1.13" }` — a decision model or a chat model. A `@Router` without its own
-`model` uses it (`[router.no-model]` when neither is set) — see [Routers](Routers).
+`{ model: "typesafe/jev-1.13" }` — a decision model or a chat model; there is no `kind`, the model
+registry knows which it is. A `DecidedBy.Model` router without its own `model` uses it, its own
+`model` wins, `DecidedBy.Code` routers ignore it; a model router with no model anywhere fails
+assembly: `[router.no-model] main-router uses DecidedBy.Model but has no model — set model or
+defaults.router.model` — see [Routers](Routers). `ROUTER_FACTORY` routers and eval's judge use it
+too.
+
+## `defaults.guardrail` — the model for guards
+
+`{ model: "typesafe/jev-1.13" }` — separate from `defaults.router`: a guard never takes the router's
+model, and the framework has no built-in guardrail model. A guard's own `model` wins; a guard with no
+model anywhere fails assembly: `[guardrail.no-model] prompt_injection has no model — set model or
+defaults.guardrail.model` (#261; #120 turns guards into guardrails).
 
 ## Limits — `maxSteps`, `maxVisits`, `settings().limits(...)`
 
@@ -125,7 +188,8 @@ From `@Agent` classes: `model`, `description` (shown to routers), `prompt` / `pr
 
 ## `guards`
 
-Input and output guards: `threshold`, `refusal`, optional `model` per guard. See [Guards](Guards).
+Input and output guards: `threshold`, `refusal`, optional `model` per guard (else
+`defaults.guardrail.model`). See [Guards](Guards).
 
 ## `compaction` (optional)
 
@@ -137,42 +201,7 @@ may override the prompt (`compactionPrompt`). See
 
 ## Environments
 
-The app's settings live in `environments/` next to the application file (`*.application.ts`, #261)
-— the application and its workflows say nothing about them. The contract is a module augmentation:
-
-```ts
-// src/environments/environment.ts — which fields every environment has
-declare module "agboss" {
-  interface Environment {
-    readonly apiUrl: string;
-    readonly apiKey: string;
-  }
-}
-export {};
-```
-
-```ts
-// src/environments/dev.environment.ts — one file per environment: dev, staging, test, …
-import { defineEnvironment, fromEnv } from "agboss";
-
-export default defineEnvironment({
-  apiUrl: "https://api.example.com", // a value in the file
-  apiKey: fromEnv("API_KEY", { secret: true }), // a process variable, masked when printed
-});
-```
-
-Services inject the values with the `ENV` token, never `process.env`:
-
-```ts
-import { ENV, Injectable, type Environment } from "agboss";
-
-@Injectable({ deps: [ENV] })
-export class Api {
-  constructor(private readonly env: Environment) {}
-}
-```
-
-`--env <name>` (every workflow command), `createApp(App, { env })` and
-`testWith(App, { env | environment })` pick one (default `dev`); an unknown name or a `fromEnv` variable
-without a value or default fails at start, naming it. `agboss check` validates the selected environment,
-`agboss describe` shows it with secrets masked.
+The app's own settings: one set per application, in `environments/` next to the application file —
+the contract a class with declared fields only (`@Application({ environment: AppEnvironment })`), each
+environment a typed object literal, secrets `Secret` fields from process variables. See
+[Environments](Environments).

@@ -4,6 +4,7 @@
 - [Delivery Pipeline](Delivery-Pipeline)
 - [Architecture](Architecture)
 - [Configuration](Configuration)
+- [Environments](Environments)
 - [Workflow — the paths](Workflow)
 - [Path scope](Path-scope)
 - [Routing patterns](Advanced-Routing)

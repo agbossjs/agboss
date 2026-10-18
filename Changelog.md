@@ -3,6 +3,41 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — environments and defaults (#261, PR 4)
+
+- **Breaking — environments are typed object literals**: the contract is a plain class with declared
+  fields only (`environments/app.environment.ts`), declared once in
+  `@Application({ environment: AppEnvironment })`; each environment is
+  `export const environment: AppEnvironment = { … }` in `environments/<name>.environment.ts`.
+  `defineEnvironment`, `fromEnv`, `FromEnv`, `FromEnvOptions`, `EnvironmentValues`,
+  `EnvironmentDefinition` and the `declare module "agboss" { interface Environment … }` contract are
+  removed; `agboss check` writes `interface Environment extends AppEnvironment {}` into
+  `.agboss/types.d.ts`, so `ENV` is typed by the contract ([Environments](Environments)).
+- **New**: `env("X")`, `env.integer("X")`, `env.flag("X")` (each with `{ default }`), `secret("X")`
+  and `Secret` (prints as `***` everywhere, `.reveal()` gives the value; a literal in a `Secret`
+  field does not compile); `EnvironmentErrorCode` (`environment.not-found`,
+  `environment.missing-variables`, `environment.invalid-value`, `environment.no-contract`). A missing
+  variable fails the start as `DATABASE_URL is not set (AppEnvironment.databaseUrl, prod)`;
+  `agboss check --env <name>` lists the variables it needs, marked value / secret.
+- **Breaking — tests run on `test`**: `testWith(App)` loads `test.environment.ts` and fails without
+  it (no fallback to `dev`); `testWith(App, { environment })` and `createApp(App, { environment })`
+  are removed — name an environment with `env`. An application without `environment` has none:
+  naming one fails, `ENV` fails with `[di.missing-environment]`.
+- **New assembly rules**: `[environment.contract-value]` (a value in the contract),
+  `[environment.missing-field]` (a listed framework implementation's field missing from the
+  contract), `[guardrail.no-model]`.
+- **The `defaults` cascade**: `@Application({ defaults })` → `@Workflow({ defaults })` → the
+  component's own field, merged field by field, the most specific level wins
+  ([Configuration](Configuration#the-defaults-cascade--application--workflow--component-261)).
+  **Breaking**: guards take `defaults.guardrail.model` (new), never `defaults.router.model` — a guard
+  with no model anywhere fails with `[guardrail.no-model]`. `[router.no-model]` now reads
+  `… uses DecidedBy.Model but has no model — set model or defaults.router.model`. `agboss describe`
+  shows each router's model and each agent's temperature / maxTokens / history with where it came
+  from (`(own)`, `(<application or workflow>)`, `(built-in)`).
+- `loadWorkflow`, `studioGraphOf`, `compareProfiles` and `workflowOf` from `agboss/testing` assemble a
+  workflow in the application that lists it (its `*.application.ts` next to it or above): its
+  providers and `defaults`.
+
 ## Unreleased — recovery and the graceful stop (#265, PR 2)
 
 - **Recovery** ([Several instances → Recovery](Several-instances#recovery)): an execution's record

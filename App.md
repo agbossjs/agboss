@@ -268,9 +268,8 @@ default. Infrastructure is not an option: it is listed in `@Application({ provid
 
 | Option                    | Default                                                                                                  |
 | ------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `env`                     | `dev` — the environment file next to the application file ([Configuration](Configuration#environments)) |
-| `environment`             | the values of that file (give them directly instead)                                                     |
-| `processEnv`              | `process.env` (provider keys, `fromEnv` variables)                                                       |
+| `env`                     | `dev` — the environment file next to the application file ([Environments](Environments))                  |
+| `processEnv`              | `process.env` (provider keys, the `env()` / `secret()` variables)                                         |
 | `gateway`                 | the model providers of each workflow's `settings()` — the one model-call seam                            |
 | `transport`               | MCP stdio / streamable HTTP from the server's config                                                     |
 | `connectMcp`              | connect every server, check its contract (fail fast)                                                     |

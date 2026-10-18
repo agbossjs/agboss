@@ -59,7 +59,7 @@ One component per file, the kind in the name; `agboss create` / `agboss generate
 | `rag/<name>.rag.ts`                            | a `@Rag` knowledge base                                                  |
 | `services/<name>.service.ts`                   | an `@Injectable` (like an Angular service)                               |
 | `helpers/<name>.helper.ts`                     | plain functions                                                          |
-| `environments/<name>.environment.ts`           | an environment's values ([Configuration](Configuration#environments))    |
+| `environments/<name>.environment.ts`           | an environment's values ([Environments](Environments))                   |
 
 Prompts are `prompt` (inline) or `promptUrls` (files next to the component, read relative to the
 declaring module), plus `promptVariables`; `{{variables}}` are checked at assembly
@@ -509,7 +509,7 @@ export class Shop implements WorkflowDefinition {
   execution, [above](#the-execution-context)), `JudgeModel` (a judge's own model,
   [Judges](Judges-And-Quality-Gates)), `ROUTER_FACTORY` (router engines for cheap decisions inside
   components — their spend during a tool call is the tool's) and `ENV` (the
-  [environment](Configuration#environments)).
+  [environment](Environments), typed by `@Application({ environment })`).
 - **One container per application instance, no scopes** (#261): it holds the providers of the
   `@Application` and of every workflow it lists, one instance per class (`OrdersService` listed by
   two workflows is one instance), every listed class created at start. There is no `scope` option
