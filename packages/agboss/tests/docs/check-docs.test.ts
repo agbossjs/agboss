@@ -106,7 +106,7 @@ describe("#196 AC1: docs that compile", { timeout: 60_000 }, () => {
       "  guide.md:1: no package has the script `npm run test:routers`",
       "  guide.md:2: unknown command `agboss resume`",
       "  guide.md:2: `agboss check` has no option --nope",
-      "  guide.md:4: `agboss g widget`: expected workflow | agent | router | tool | mcp | rag | openapi",
+      "  guide.md:4: `agboss g widget`: expected workflow | agent | router | arbiter | tool | mcp | rag | openapi",
     ]);
   });
 });
