@@ -4,12 +4,19 @@
  * framework's internal state; `onExecutionRejected` names the refused operation (#269).
  */
 import { beforeEach, describe, expect } from "vitest";
-import { ExecutionOperation, UnknownThreadError, Workflow } from "../../../src/index.js";
+import {
+  ComponentError,
+  ExecutionOperation,
+  nameOf,
+  UnknownThreadError,
+  Workflow,
+} from "../../../src/index.js";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
   AnswerDto,
   Apply,
+  Applications,
   ApplicationsApplication,
   Ask,
   Clerk,
@@ -161,5 +168,31 @@ describe("#261 AC15: observers are registered only in @Application", () => {
       });
 
     expect(declare).not.toThrow();
+  });
+});
+
+describe("#261 AC7: nameOf(C) — the name of any AGBoss-decorated class", () => {
+  test("serialized events are filtered by the names of the classes", async ({ app, mockLlm }) => {
+    mockLlm(Clerk).thenReturn(replyWith(AnswerDto, { text: "One." }));
+
+    await execute(app, Ask, { text: "one" });
+
+    expect(executionEvents.every((event) => event.workflow.name === nameOf(Applications))).toBe(
+      true,
+    );
+    expect(nodeEvents[0]?.step.component.name).toBe(nameOf(Clerk));
+    expect([nameOf(Ask), nameOf(ApplicationsApplication), nameOf(Lookup)]).toEqual([
+      "ask-workflow-start",
+      "applications-application",
+      "lookup",
+    ]);
+  });
+
+  test("a class no AGBoss decorator describes throws", () => {
+    class Plain {
+      readonly kind = "plain";
+    }
+
+    expect(() => nameOf(Plain)).toThrow(ComponentError);
   });
 });

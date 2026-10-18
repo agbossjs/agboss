@@ -63,8 +63,8 @@
       "ignoreDependencies": ["@modelcontextprotocol/server-filesystem"],
     },
     "examples/flow-patterns": {
-      // the workflows, loaded by path (`agboss check --workflow …`)
-      "entry": ["src/**/*.workflow.ts"],
+      // the workflows, loaded by path (`agboss check --workflow …`), and the environments of `--env`
+      "entry": ["src/**/*.workflow.ts", "src/environments/*.environment.ts"],
       "project": ["src/**/*.ts", "tests/**/*.ts"],
     },
   },

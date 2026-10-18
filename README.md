@@ -760,7 +760,8 @@ environment } }`.
 
 Observers are registered only in `@Application({ observers: [...] })` (#261) — one instance each,
 created by the container at start with their `deps`, called for every execution of the
-application (filter by `event.workflow.name === nameOf(SupportWorkflow)`); none listed → none is
+application (filter by `event.workflow.name === nameOf(SupportWorkflow)` — `nameOf(C)` gives the
+`name` of any AGBoss-decorated class); none listed → none is
 called. Each hook gets one event object, plain data, never the framework's internal state. Every
 execution event (`ExecutionEvent`) carries `executionId`, `parentExecutionId`, `rootExecutionId`,
 `threadId`, `tenantId` and `workflow` — a `WorkflowRecord` `{ name, version, startedVersion }`, no

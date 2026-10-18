@@ -57,7 +57,9 @@ describe("job-scout on the path grammar (#272)", () => {
   });
 
   it("2 steps a run, at most 12; money is the application's budgets", () => {
-    expect(describeWorkflow(workflow)).toContain("limits    steps 2–2 (maxSteps 12)");
+    expect(describeWorkflow(workflow)).toContain(
+      "  maxSteps 12 (default: (agents + routers) × 3) · steps 2–2",
+    );
   });
 
   it("guards, the approval pause and compaction stay on", () => {

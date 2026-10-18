@@ -994,7 +994,8 @@ export class SeenJobsRepository {
   channel in `@Workflow({ channelClasses })`, else assembly fails.
 - **Observers are registered only in `@Application({ observers: [...] })`** (#261), not discovered
   and never in `@Workflow`: typed hooks (`implements OnToolEnd, …`), one instance each, called for
-  every execution of the application (filter by `event.workflow.name`); an observer with no or a
+  every execution of the application (filter by `event.workflow.name === nameOf(W)` — `nameOf(C)`
+  is the `name` of any decorated class); an observer with no or a
   misspelled hook fails assembly (`[observer.no-hooks]`, `[observer.unknown-hook]`), one that throws
   is a warning in the log (`observer.failed`). One event object per hook, plain data, never the
   internal state: every execution event (`ExecutionEvent`) has `executionId`, `parentExecutionId`,
