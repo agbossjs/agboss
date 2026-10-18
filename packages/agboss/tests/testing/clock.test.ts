@@ -5,6 +5,7 @@
  * its own `Clock`, which production uses. The gate rule itself: tests/lint/no-direct-time.test.ts.
  */
 import { beforeEach, describe, expect, it } from "vitest";
+import type { AppOptions } from "../../src/app/create-app.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { createApp } from "../../src/application/create-app.js";
 import { GraphRuleError } from "../../src/index.js";
@@ -154,6 +155,15 @@ describe("#262: a Clock the application lists", () => {
     const [started] = seen.starts;
     expect(started?.clock).toBeInstanceOf(FixedClockProvider);
     expect(started?.startedAt.toISOString()).toBe(FIXED_MOMENT);
+  });
+
+  it("is the one way to set the clock: createApp takes no clock option", () => {
+    const options: AppOptions = {
+      // @ts-expect-error — the clock is infrastructure, listed in @Application({ providers })
+      clock: new FixedClockProvider(),
+    };
+
+    expect(options).toBeDefined();
   });
 
   testWith(FixedClockApplication)(

@@ -118,14 +118,14 @@ function applicationProvidersOf(bundle: AssembledWorkflow): ProviderModule {
  */
 export function standaloneInfrastructure(
   bundle: AssembledWorkflow,
-  options: Partial<Pick<ApplicationContainerSources, "clock" | "newThreadId">> & {
+  options: Pick<ApplicationContainerSources, "newThreadId"> & {
     readonly environment?: Environment | undefined;
   },
   onCreate?: (instance: unknown) => void,
 ): Infrastructure {
   const modules = [applicationProvidersOf(bundle)];
   const container = onCreate === undefined ? {} : { onCreate };
-  const clock = options.clock ?? clockOf(modules, container);
+  const clock = clockOf(modules, container);
   return resolveInfrastructure(
     applicationContainerOf({
       modules,

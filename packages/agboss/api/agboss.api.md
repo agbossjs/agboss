@@ -284,7 +284,6 @@ export interface AppDeps extends RunDeps<string> {
 
 // @public
 export interface AppDepsOptions {
-    readonly clock?: Clock;
     readonly connectMcp?: McpConnect;
     // Warning: (ae-forgotten-export) The symbol "ContainerOptions" needs to be exported by the entry point index.d.ts
     //
@@ -3497,11 +3496,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 
 // Warnings were encountered during analysis:
 //
-// src/app/app-deps.ts:33:3 - (ae-undocumented) Missing documentation for "observer".
-// src/app/app-deps.ts:34:3 - (ae-undocumented) Missing documentation for "evaluation".
-// src/app/app-deps.ts:80:3 - (ae-undocumented) Missing documentation for "newThreadId".
-// src/app/app-deps.ts:81:3 - (ae-undocumented) Missing documentation for "newRunId".
-// src/app/app-deps.ts:82:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/app-deps.ts:32:3 - (ae-undocumented) Missing documentation for "observer".
+// src/app/app-deps.ts:33:3 - (ae-undocumented) Missing documentation for "evaluation".
+// src/app/app-deps.ts:74:3 - (ae-undocumented) Missing documentation for "newThreadId".
+// src/app/app-deps.ts:75:3 - (ae-undocumented) Missing documentation for "newRunId".
+// src/app/app-deps.ts:76:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/create-app.ts:47:3 - (ae-undocumented) Missing documentation for "profileRoot".

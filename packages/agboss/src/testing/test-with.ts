@@ -21,7 +21,10 @@ export interface WorkflowFixtures {
    * one container and instance id each, one set of stores and one clock for all.
    */
   readonly apps: readonly TestApp[];
-  /** The test's clock, shared by its instances: `await clock.advance(seconds(31))`. */
+  /**
+   * The test's `VirtualClock`, shared by its instances: `await clock.advance(seconds(31))`. Always
+   * this one, even when the application lists its own `Clock`: tests never run on real time.
+   */
   readonly clock: VirtualClock;
   /**
    * Closes the current app (its `onStop` hooks run, as on a real stop) and returns a new one over

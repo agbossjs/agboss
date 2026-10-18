@@ -4,7 +4,6 @@ import type { ContainerOptions } from "../components/container/container.js";
 import type { Environment } from "../flow/generated-types.js";
 import type { ObserverManager } from "../core/observer-manager.js";
 import { startComponents, stopComponents } from "../components/container/lifecycle.js";
-import type { Clock } from "../infrastructure/clock.js";
 import type { EvalDeps } from "../eval/eval.js";
 import type { RunDeps } from "../run/types.js";
 import { configSnapshot, runVersions } from "../run/versions.js";
@@ -72,11 +71,6 @@ export interface AppDepsOptions {
   readonly transport?: TransportFactory;
   /** Replaces how MCP servers are connected (test stubs). */
   readonly connectMcp?: McpConnect;
-  /**
-   * The application's time (#262): every time read and wait of the framework. Default: the `Clock`
-   * the application lists, else the system's; `testWith` gives its `VirtualClock`.
-   */
-  readonly clock?: Clock;
   readonly newThreadId?: NewThreadId;
   readonly newRunId?: () => string;
   readonly container?: ContainerOptions;

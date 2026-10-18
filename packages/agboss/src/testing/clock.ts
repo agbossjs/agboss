@@ -41,7 +41,8 @@ const settle = (): Promise<void> =>
  * shutdown timeout, a tool's or a model call's timeout, retry backoff and `Retry-After` pauses —
  * sleeps on it, so a test moves them without real waiting. `testWith` gives one per test as the
  * `clock` fixture (`app.clock` too), shared by the test's instances; a unit test of a component that
- * injects `Clock` passes one to its constructor.
+ * injects `Clock` passes one to its constructor. `testWith` always runs on it, even when the
+ * application lists its own `Clock`: tests never run on real time.
  */
 export class VirtualClock extends Clock {
   #current: number;

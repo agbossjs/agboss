@@ -37,13 +37,15 @@ export interface BuiltApplication {
 /**
  * What a test gives an application instance beyond `createApp`'s options (never given in
  * production): the instances an earlier app of the same test created (its stores, so a paused
- * execution survives `recoverApp()`), this instance's id and the in-memory rows the instances of
- * the test share (the test's `VirtualClock` comes as `options.clock`).
+ * execution survives `recoverApp()`), this instance's id, the in-memory rows the instances of
+ * the test share, and the test's `VirtualClock` — always, whatever `Clock` the application lists:
+ * tests never run on real time. In production the clock is the listed `Clock`, else the system's.
  */
 export interface InstanceSeams {
   readonly reused?: ReadonlyMap<Class, unknown>;
   readonly instanceId?: string;
   readonly database?: InMemoryDatabase;
+  readonly clock?: Clock;
 }
 
 /**
@@ -104,7 +106,7 @@ export async function buildApplication(
     options.container?.onCreate?.(instance);
   };
   // the clock first: the contexts read their start from it
-  const clock = options.clock ?? clockOf(assembled.modules, { ...options.container, onCreate });
+  const clock = seams.clock ?? clockOf(assembled.modules, { ...options.container, onCreate });
   const contexts = contextsOf(assembled, options, seams, clock);
   const shared = applicationContainerOf({
     modules: assembled.modules,
