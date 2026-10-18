@@ -514,10 +514,14 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   reject with `ApplicationStoppingError` (`app.stopping`).
 - **Infrastructure (#261):** a framework contract with a built-in in-memory default, one per
   application — `CostLedgerRepository`, `ExecutionRecordRepository`, `PausedExecutionRepository`,
-  LangGraph's `BaseCheckpointSaver`. Listed **only** in `@Application({ providers })` (a class that
-  `extends` the contract, `@Injectable`; in a workflow's `providers` →
-  `[di.infrastructure-in-workflow]`), found by inheritance (two → `[di.ambiguous-implementation]`).
-  Nothing is written to the home folder; SQLite implementations come with #265.
+  LangGraph's `BaseCheckpointSaver`, and the contracts shared by instances (#265):
+  `ExecutionLeaseRepository` (one lease per tree, `acquire` / `renew` / `release`),
+  `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
+  when its tree ends), `RateLimitRepository` (slots as leases, for #266). Listed **only** in
+  `@Application({ providers })` (a class that `extends` the contract, `@Injectable`; in a workflow's
+  `providers` → `[di.infrastructure-in-workflow]`), found by inheritance (two →
+  `[di.ambiguous-implementation]`). Nothing is written to the home folder; SQLite implementations
+  come with #265 PR 3.
 - **Components keep no state:** another instance may continue an execution after a pause, so a
   component reads the execution from `ExecutionContext`, data that outlive a step live in the graph
   state, caches and deduplication are your own service over external storage. Lint
@@ -606,6 +610,14 @@ metadata, onStream })` runs the workflow of that start (any workflow of the appl
   `app.resume(thread, decision)` continues a paused run; `app.cancel(thread)` aborts a running one
   (`WorkflowCancelledError`) or drops a paused one (`resume` → `NotPausedError`). A thread with an
   `owner` rejects another owner (`ThreadOwnerError`).
+- **The execution lease (#265, Q58):** `execute` / `resume` move a tree only while holding its lease
+  (keyed by tenant `"default"` and `rootExecutionId`, `seconds(30)`, renewed every 10 s and before
+  every checkpoint write, released when the pass ends). A `resume` records its decision first —
+  the pause goes `Pending → Resolved` atomically, a second resume of one pause gets
+  `NotPausedError` — then waits for the lease; the holder takes decisions resolved meanwhile and the
+  waiting call returns the tree's current output. A holder that lost the lease stops: its call
+  rejects with `ExecutionLeaseLostError` (`execution.lease-lost`) — no `.onError`, no `onError`, no
+  failed record. Wiki → Several-instances.
 - **`ExecutionContext` (#280)** is the one context of an execution, injected through the
   constructor (`deps: [ExecutionContext]`, a parameter named `executionContext`) into any component;
   there is no `ctx` parameter (tools, actions, judges get only their input). Read-only data:
@@ -644,7 +656,9 @@ metadata, onStream })` runs the workflow of that start (any workflow of the appl
   `app.execute`. Each test assembles the application anew on the implementations it lists (else
   the in-memory defaults); `app` is built on first use (`await app.ready()` for a test that
   executes nothing). Vitest fixtures `app`, `mockLlm`, `mockOf` (budgets too), `mcpOf`,
-  `recoverApp`; models answer by script — `replyWith(text)` or
+  `recoverApp`, `clock` (`await clock.advance(seconds(31))`) and, with
+  `testWith(App, { instances: 2 })`, `apps` (each instance its own container, one set of stores and
+  one clock); models answer by script — `replyWith(text)` or
   `replyWith(Dto, value)` (a structured answer), `callTool(Tool, args)` (args typed by the tool's
   input DTO), `routeTo(Target)`, `decideWith(answers)` (a decision judge),
   `failWith(ModelFailure.Timeout)`; the network is blocked. Matchers by class: `toFollowPath`,
@@ -773,7 +787,8 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
                     the application's assembly rules, its one container
     app/            one workflow of an application at run time; app-deps.ts — its wiring (model gateway,
                     MCP, tracing) on the application's infrastructure
-    infrastructure/ the consumed contracts + in-memory defaults (ledger, records, paused executions)
+    infrastructure/ the contracts + in-memory defaults (ledger, records, paused executions, leases,
+                    tree keys, rate-limit slots)
     budgets/        @Budget, BudgetScope, BudgetPeriod, BudgetHandler
     testing/        `agboss/testing`: testWith(App) (Vitest fixtures), scripted gateway, matchers, setup.ts
     components/     @Tool @Agent @McpServer @McpTool @Rag @Injectable @Workflow, DI container, workflowOf

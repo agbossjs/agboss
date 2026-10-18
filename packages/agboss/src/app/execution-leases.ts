@@ -15,7 +15,7 @@ import { leaseReleases } from "./lease-releases.js";
  */
 
 /** The length of a tree's lease — fixed, not a setting (Q58). */
-export const EXECUTION_LEASE: Milliseconds = seconds(30);
+const EXECUTION_LEASE: Milliseconds = seconds(30);
 
 /** A third of the lease: two renewals may fail before it expires. */
 const RENEW_EVERY: Milliseconds = seconds(10);
