@@ -84,6 +84,48 @@ describe.each(kinds)(
   },
 );
 
+describe.each(kinds)(
+  "#266 S58 / #265 S52: windows and pauses are shared by the instances ($name)",
+  ({ twoInstances }) => {
+    it("a window counts across instances within its length, then forgets", async () => {
+      const { clock, first, second } = twoInstances();
+
+      expect(await first.addToWindow("p:calls", 1, seconds(60), 2)).toBe(1);
+      expect(await second.addToWindow("p:calls", 1, seconds(60), 2)).toBe(2);
+      expect(await second.addToWindow("p:calls", 1, seconds(60), 2)).toBeUndefined();
+      expect(await first.addToWindow("p:calls", 0, seconds(60))).toBe(2);
+      await clock.advance(seconds(60));
+
+      expect(await first.addToWindow("p:calls", 1, seconds(60), 2)).toBe(1);
+    });
+
+    it("amounts add up; a cleared window starts from nothing; keys are apart", async () => {
+      const { first, second } = twoInstances();
+      await first.addToWindow("p:tokens", 1500, seconds(60));
+      await second.addToWindow("p:tokens", 500, seconds(60));
+      await second.addToWindow("q:tokens", 7, seconds(60));
+
+      expect(await first.addToWindow("p:tokens", 0, seconds(60))).toBe(2000);
+      await second.clearWindow("p:tokens");
+      expect(await first.addToWindow("p:tokens", 0, seconds(60))).toBe(0);
+      expect(await first.addToWindow("q:tokens", 0, seconds(60))).toBe(7);
+    });
+
+    it("a pause set by one instance holds on the other until it ends; a later one is kept", async () => {
+      const { clock, first, second } = twoInstances();
+      const start = clock.now().getTime();
+
+      await first.pauseUntil("p:cooldown", new Date(start + 30_000));
+      await second.pauseUntil("p:cooldown", new Date(start + 10_000));
+
+      expect(await second.pausedUntil("p:cooldown")).toEqual(new Date(start + 30_000));
+      expect(await second.pausedUntil("q:cooldown")).toBeUndefined();
+      await clock.advance(seconds(30));
+      expect(await first.pausedUntil("p:cooldown")).toBeUndefined();
+    });
+  },
+);
+
 describe("#265 AC1 (S27): the contracts", () => {
   it("ExecutionSlotRepository does not exist (S27); the three shared contracts do", () => {
     expect("ExecutionSlotRepository" in agboss).toBe(false);
