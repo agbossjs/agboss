@@ -2,7 +2,13 @@ import type { DtoClass } from "../../../dto/types.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import { NodeKind } from "../../ast.js";
 import type { ComponentDeclaration, InputFields } from "../../decorators/declaration.js";
-import { isValueShape, Wrapper, type DeclaredOutput, type ValueShape } from "../../dto-wrappers.js";
+import {
+  isValueShape,
+  Wrapper,
+  type HistoryWrapper,
+  type OutputShape,
+  type ValueShape,
+} from "../../dto-wrappers.js";
 import { dtoNameProblem, kindSuffixProblem, NameKind, type NameProblem } from "../../names.js";
 import { DtoRegistry, dtoClashMessage } from "../../registry.js";
 import type { AnalysisContext } from "./context.js";
@@ -22,8 +28,8 @@ const NAME_KINDS: Readonly<Record<NodeKind, NameKind>> = {
   [NodeKind.Workflow]: NameKind.Workflow,
 };
 
-/** The DTO classes inside a shape (an `about(…)` target included). */
-function dtosOf(shape: ValueShape | DeclaredOutput): readonly DtoClass[] {
+/** The DTO classes inside a shape. */
+function dtosOf(shape: ValueShape | OutputShape | HistoryWrapper): readonly DtoClass[] {
   if (typeof shape === "function") return [shape];
   switch (shape.kind) {
     case Wrapper.List:
@@ -32,13 +38,14 @@ function dtosOf(shape: ValueShape | DeclaredOutput): readonly DtoClass[] {
       return dtosOf(shape.inner);
     case Wrapper.OneOf:
       return shape.variants;
-    case Wrapper.About:
-      return [shape.about, ...dtosOf(shape.shape)];
+    case Wrapper.History:
+      return [shape.dto];
   }
 }
 
-const dtosOfFields = (fields: InputFields | undefined): readonly DtoClass[] =>
-  Object.values(fields ?? {}).flatMap(dtosOf);
+const dtosOfFields = (
+  fields: InputFields | Readonly<Record<string, ValueShape>> | undefined,
+): readonly DtoClass[] => Object.values(fields ?? {}).flatMap(dtosOf);
 
 /** The DTO classes a component declares: its input fields and its output. */
 function declaredDtos(declaration: ComponentDeclaration): readonly DtoClass[] {
@@ -64,11 +71,12 @@ function declaredDtos(declaration: ComponentDeclaration): readonly DtoClass[] {
 function usedDtos(context: AnalysisContext): readonly DtoClass[] {
   const nodes = [...context.graph.nodes.values()].flatMap((node) => declaredDtos(node.declaration));
   const edges = context.graph.edges.flatMap((edge) =>
-    edge.writes.flatMap((write) => dtosOf(write.shape)),
+    edge.writes.flatMap((write) => [...dtosOf(write.shape), ...(write.about ?? [])]),
   );
-  const cases = context.walked.switches.flatMap((site) =>
-    site.step.cases.map((branch) => branch.dto),
-  );
+  const cases = context.walked.switches.flatMap((site) => [
+    ...site.step.cases.flatMap((branch) => [branch.dto, ...(branch.about ?? [])]),
+    ...(site.returned === undefined ? [] : dtosOf(site.returned)),
+  ]);
   return [...new Set([...nodes, ...edges, ...cases])].sort((first, second) =>
     first.name.localeCompare(second.name),
   );

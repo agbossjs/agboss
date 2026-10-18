@@ -21,6 +21,8 @@ export interface NodeInput {
   readonly name: ComponentName;
   readonly fields: readonly ResolvedField[];
   readonly shapes: readonly InputShape[];
+  /** Who can have written any version a `historyOf` field reads, by field name (#299 S56). */
+  readonly versionProducers: ReadonlyMap<string, readonly ComponentName[]>;
   /** The data rules the input breaks, as `[code] message`. */
   readonly problems: readonly string[];
 }
@@ -49,6 +51,7 @@ function producersText(
 
 interface ShapeWriter {
   readonly fields: readonly ResolvedField[];
+  readonly versionProducers: NodeInput["versionProducers"];
   readonly names: ImportTable;
   readonly componentOf: ComponentOf;
 }
@@ -62,8 +65,10 @@ function fieldText(
   const key = propertyName(field.name);
   const present = projected.filter((candidate) => candidate.isPresent);
   if (present.length === 0) return `${key}?: undefined`;
+  // a history's earlier versions may come from any producer of its class
+  const versions = writer.versionProducers.get(field.name) ?? [];
   const producers = producersText(
-    present.flatMap((candidate) => candidate.producers),
+    [...present.flatMap((candidate) => candidate.producers), ...versions],
     writer.names,
     writer.componentOf,
   );
@@ -105,7 +110,12 @@ export function inputEntry(
   if (input.fields.length === 0) return { type: names.use(TablesImport.NoInput) };
   if (input.shapes.length === 0)
     return { type: errorType(`${input.name} is reached by no path from a workflow start`) };
-  const writer: ShapeWriter = { fields: input.fields, names, componentOf };
+  const writer: ShapeWriter = {
+    fields: input.fields,
+    versionProducers: input.versionProducers,
+    names,
+    componentOf,
+  };
   const groups = byPresence(input.shapes);
   if (groups.length > MAX_EXACT_INPUT_SHAPES) {
     const note = `${input.name}: ${String(groups.length)} input shapes — InputOf is flat (no narrowing between fields)`;

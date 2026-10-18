@@ -35,11 +35,12 @@ export function visitWrite(
     node,
     visitNumber: (state.visits[node.id] ?? 0) + 1,
     builtFrom: builtFromOf(read, state.scope, provenance),
+    scope: state.scope,
   };
   const given = outcome.value ?? { value: undefined };
   const written = recordsOfWrites(site, exit.writes, given);
   if (Object.keys(written).length === 0) return NOTHING;
-  const result = writeAndOutdate(state.scope, written, provenance);
+  const result = writeAndOutdate(state.scope, written);
   return {
     update: { scope: result.scope, outdatedValues: [...result.outdated] },
     outdated: result.outdated,

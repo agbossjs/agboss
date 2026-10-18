@@ -3,14 +3,9 @@ import { WorkflowFinishTextDto } from "../../dto/standard/framework.js";
 import { NodeKind, type ErrorClass } from "../ast.js";
 import type { ComponentDeclaration } from "../decorators/declaration.js";
 import type { DtoClass } from "../../dto/types.js";
-import {
-  aboutTargetOf,
-  outputShapeOf,
-  type OutputShape,
-  type ValueShape,
-} from "../dto-wrappers.js";
+import type { OutputShape, ValueShape } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
-import { shapeLabel } from "./labels.js";
+import { dtoLabel, shapeLabel } from "./labels.js";
 
 /**
  * The graph of a v2 workflow as the analyser sees it (#272 PR 2): one node per component `name`
@@ -32,11 +27,14 @@ export enum EdgeKind {
   Error = "error",
 }
 
-/** One value an edge puts into the path scope: a `.returns(…)` value or a `caseOf(…)` variant. */
+/**
+ * One value an edge puts into the path scope: a `.returns(…)` value or a `caseOf(…)` variant (a
+ * `.returns(oneOf(…))` writes nothing itself: each case writes its class).
+ */
 export interface ValueWrite {
   readonly shape: ValueShape;
-  /** `{ as: "before" }` (#270): the value also fills the tag slot. */
-  readonly tag?: string;
+  /** `{ about }` of its `.returns` or `caseOf` (#299 S54): what the value is about. */
+  readonly about?: readonly DtoClass[];
   /** Written by `caseOf(XDto)`: the switch read it to choose the branch (#270 AC19). */
   readonly isCase: boolean;
 }
@@ -67,25 +65,18 @@ export interface FlowGraph {
   readonly starts: readonly ComponentName[];
 }
 
-/** The `output` shape of a node, when it declares one (`about(…)` unwrapped). */
+/** The `output` shape of a node, when it declares one. */
 export function outputOf(node: FlowNode): OutputShape | undefined {
   const { declaration } = node;
   switch (declaration.kind) {
     case NodeKind.Agent:
     case NodeKind.Action:
-      return outputShapeOf(declaration.options.output);
     case NodeKind.Finish:
       return declaration.options.output;
     default:
       return undefined;
   }
 }
-
-/** The class a node's `output: about(TargetDto, …)` is about (#271); undefined without `about`. */
-export const aboutOf = (node: FlowNode): DtoClass | undefined =>
-  node.declaration.kind === NodeKind.Agent || node.declaration.kind === NodeKind.Action
-    ? aboutTargetOf(node.declaration.options.output)
-    : undefined;
 
 /** An agent without `output` answers with text (#270 AC10). */
 export const isTextAgent = (node: FlowNode): boolean =>
@@ -104,7 +95,8 @@ export const writesLeaving = (
 /** A canonical, comparable key of an edge. */
 export function edgeKey(edge: FlowEdge): string {
   const writes = edge.writes.map(
-    (write) => `${shapeLabel(write.shape)}#${write.tag ?? ""}:${String(write.isCase)}`,
+    (write) =>
+      `${shapeLabel(write.shape)}@${(write.about ?? []).map(dtoLabel).join("+")}:${String(write.isCase)}`,
   );
   return [edge.from, edge.to, edge.kind, edge.error?.name ?? "", writes.join(",")].join("|");
 }

@@ -23,7 +23,7 @@ function requestOf(
     summaries: defaultSummaries(deps.config),
     turns: deps.config.defaults.history.limit,
   });
-  const input = inputMessageOf(node.fields, state.scope);
+  const input = inputMessageOf(node.fields, state);
   return {
     input: memory === "" ? input : `${memory}\n\n${input}`,
     options: router.routes.map((route) => ({ name: route.option, description: route.condition })),
@@ -60,6 +60,6 @@ export function routerRunner(
       state: appState,
     });
     const usage = outcome.usage === undefined ? [] : [outcome.usage];
-    return { route: next, read: readInput(deps.graph, node, state.scope).read, usage };
+    return { route: next, read: readInput(deps.graph, node, state).read, usage };
   };
 }

@@ -1,20 +1,24 @@
 import { inputShapesOf, type FlowAnalysis } from "../flow/analyse/analyse.js";
 import type { ResolvedField } from "../flow/analyse/fields.js";
-import { NodeKind } from "../flow/ast.js";
-import { shapeLabel } from "../flow/analyse/labels.js";
-import { Wrapper } from "../flow/dto-wrappers.js";
+import { aboutLabel, shapeLabel } from "../flow/analyse/labels.js";
 
 /**
  * Each node's inputs and who can give them (#270 AC18), as `agboss describe` prints them:
  * `prepare-offer-action ← draft: editor-agent | draft-agent (latest), legal: legal-agent (optional)`.
- * `latest` — several producers reach the field and the newest value wins; a tagged field names its
- * tag; nothing reaches → `none`.
+ * `latest` — several producers reach the field and the newest value wins; a `historyOf` field says
+ * so, with its limit (#299); nothing reaches → `none`.
  */
+
+const historyNote = (field: ResolvedField): readonly string[] => {
+  if (field.history === undefined) return [];
+  const { limit } = field.history;
+  return [limit === undefined ? "historyOf" : `historyOf, limit ${String(limit)}`];
+};
 
 function fieldText(field: ResolvedField, producers: readonly string[]): string {
   const notes = [
     ...(producers.length > 1 ? ["latest"] : []),
-    ...(field.tag === undefined ? [] : [`tag ${field.tag}`]),
+    ...historyNote(field),
     ...(field.isRequired ? [] : ["optional"]),
   ];
   const who = producers.length === 0 ? "none" : producers.join(" | ");
@@ -38,16 +42,17 @@ export function inputLines(analysis: FlowAnalysis): readonly string[] {
 }
 
 /**
- * Each `about(…)` output (#271 M2): `reviewer-agent → about DraftDto: oneOf(ApprovalDto,
- * DraftChangesDto)` — what the answers are about (a new value of it outdates them), then their shape.
+ * Each value written with `{ about }` (#271 M2, #299 S54): `reviewer-agent → DraftChangesDto
+ * { about: DraftDto }` — the producer, the value, and what it is about (a new value of it outdates
+ * the value).
  */
 export function aboutLines(analysis: FlowAnalysis): readonly string[] {
-  return [...analysis.graph.nodes.values()].flatMap((node) => {
-    const { declaration } = node;
-    if (declaration.kind !== NodeKind.Agent && declaration.kind !== NodeKind.Action) return [];
-    const { output } = declaration.options;
-    if (output === undefined || typeof output === "function" || output.kind !== Wrapper.About)
-      return [];
-    return [`${node.name} → about ${shapeLabel(output.about)}: ${shapeLabel(output.shape)}`];
-  });
+  const lines = analysis.graph.edges.flatMap((edge) =>
+    edge.writes.flatMap((write) =>
+      write.about === undefined
+        ? []
+        : [`${edge.from} → ${shapeLabel(write.shape)} ${aboutLabel(write.about)}`],
+    ),
+  );
+  return [...new Set(lines)];
 }

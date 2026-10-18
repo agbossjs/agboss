@@ -1,6 +1,7 @@
 import type { RuleViolation } from "../../graph/rule-error.js";
 import { inputShapesOf, type FlowAnalysis } from "../analyse/analyse.js";
 import { reachableFrom, type FlowNode } from "../analyse/flow-graph.js";
+import { slotOfWrite } from "../analyse/scope.js";
 import type { InputShape } from "../analyse/projection.js";
 import { NodeKind, type ComponentClass } from "../ast.js";
 import {
@@ -80,16 +81,29 @@ function nodesOf(workflows: readonly AnalysedWorkflow[]): ReadonlyMap<ComponentN
 function nodeInput(workflows: readonly AnalysedWorkflow[], name: ComponentName): NodeInput {
   const shapes = new Map<string, InputShape>();
   const problems = new Set<string>();
+  const versionProducers = new Map<string, ComponentName[]>();
   let fields: NodeInput["fields"] = [];
   for (const { analysis, errors } of workflows) {
     if (!analysis.graph.nodes.has(name)) continue;
     fields = (analysis.fields.get(name) ?? []).filter((field) => !field.isPassThrough);
+    for (const field of fields.filter((candidate) => candidate.history !== undefined)) {
+      const writers = analysis.graph.edges
+        .filter((edge) => edge.writes.some((write) => slotOfWrite(write) === field.slot))
+        .map((edge) => edge.from);
+      versionProducers.set(field.name, [...(versionProducers.get(field.name) ?? []), ...writers]);
+    }
     for (const shape of inputShapesOf(analysis, name)) shapes.set(JSON.stringify(shape), shape);
     for (const found of errors)
       if (found.code.startsWith("input.") && found.nodes.includes(name))
         problems.add(`[${found.code}] ${found.message}`);
   }
-  return { name, fields, shapes: [...shapes.values()], problems: [...problems].sort() };
+  return {
+    name,
+    fields,
+    shapes: [...shapes.values()],
+    versionProducers,
+    problems: [...problems].sort(),
+  };
 }
 
 /** The outputs of the finishes a start reaches, in every workflow it is in. */

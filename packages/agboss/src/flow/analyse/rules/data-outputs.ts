@@ -3,7 +3,7 @@ import type { ComponentName } from "../../registry.js";
 import { statesOf } from "../dataflow.js";
 import { EdgeKind, type FlowEdge, type ValueWrite } from "../flow-graph.js";
 import { shapeLabel } from "../labels.js";
-import { slotOf, slotsOfValue, SlotStatus, writtenValue, type SlotKey } from "../scope.js";
+import { slotOf, slotOfWrite, SlotStatus, type SlotKey } from "../scope.js";
 import type { AnalysisContext } from "./context.js";
 
 /**
@@ -11,18 +11,13 @@ import type { AnalysisContext } from "./context.js";
  * on at least one path, a node that reads it before a newer value overwrites it, else
  * `[flow.unused-output]` (a dead store fails; a value read on one path and overwritten unread on
  * another passes). A value is identified by its producer and slot — one class is one node, so a
- * producer returns in one place. `caseOf(XDto)` is a read (the switch chose by it). A tagged value
- * whose tag no field reads → `[flow.unused-tag]`.
+ * producer returns in one place. `caseOf(XDto)` is a read (the switch chose by it).
  */
 
-/** How a field read a value: as its shape's `latest`, or by a tag. */
-const LATEST = "";
+/** `producer|slot`: which value was read. */
+const readKey = (producer: ComponentName, slot: SlotKey): string => `${producer}|${slot}`;
 
-/** `producer|slot|tag`: which value was read, and how. */
-const readKey = (producer: ComponentName, slot: SlotKey, role: string): string =>
-  `${producer}|${slot}|${role}`;
-
-/** Every value some field read on some reachable scope, with how it was read. */
+/** Every value some field read on some reachable scope. */
 function collectReads(context: AnalysisContext): ReadonlySet<string> {
   const reads = new Set<string>();
   for (const [node, fields] of context.fields) {
@@ -30,8 +25,7 @@ function collectReads(context: AnalysisContext): ReadonlySet<string> {
       for (const field of fields) {
         const slot = slotOf(state.scope, field.slot);
         if (slot.status === SlotStatus.Absent) continue;
-        for (const producer of slot.producers)
-          reads.add(readKey(producer, field.base, field.tag ?? LATEST));
+        for (const producer of slot.producers) reads.add(readKey(producer, field.slot));
       }
     }
   }
@@ -57,23 +51,9 @@ function valueViolations(
   reads: ReadonlySet<string>,
 ): readonly RuleViolation[] {
   const { edge, write } = value;
-  const slots = slotsOfValue(writtenValue(write.shape).value);
-  const roles = [...reads].filter((key) =>
-    slots.some((slot) => key.startsWith(`${edge.from}|${slot}|`)),
-  );
-  const found: RuleViolation[] = [];
-  if (roles.length === 0) {
-    const message = `${edge.from} returns ${shapeLabel(write.shape)} that no node reads — read it in a node below, or remove it`;
-    found.push(violation("flow.unused-output", message, [edge.from]));
-  }
-  const { tag } = write;
-  if (tag !== undefined && !roles.some((key) => key.endsWith(`|${tag}`))) {
-    const message =
-      `tag "${tag}" on ${shapeLabel(write.shape)} from ${edge.from} is never read by a field named ` +
-      `"${tag}" — rename the tag or the field`;
-    found.push(violation("flow.unused-tag", message, [edge.from]));
-  }
-  return found;
+  if (reads.has(readKey(edge.from, slotOfWrite(write)))) return [];
+  const message = `${edge.from} returns ${shapeLabel(write.shape)} that no node reads — read it in a node below, or remove it`;
+  return [violation("flow.unused-output", message, [edge.from])];
 }
 
 export function dataOutputRules(context: AnalysisContext): readonly RuleViolation[] {

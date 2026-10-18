@@ -67,7 +67,7 @@ function limitsLabel(bundle: AssembledWorkflow): string {
   return `${steps}${runCost} · day ${day}`;
 }
 
-/** Each `about(…)` output (#271), when the workflow has one. */
+/** Each value written with `{ about }` (#271, #299), when the workflow has one. */
 function aboutSection(bundle: AssembledWorkflow): string[] {
   const lines = aboutLines(bundle.graph.analysis);
   return lines.length === 0 ? [] : ["about", ...lines.map((line) => `  ${line}`)];

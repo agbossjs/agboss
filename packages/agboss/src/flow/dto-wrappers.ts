@@ -2,7 +2,8 @@ import type { DtoClass } from "../dto/types.js";
 
 /**
  * The type wrappers of #270 — `optional(XDto)`, `listOf(XDto)`, `oneOf(ADto, BDto, …)` — with
- * `about(TargetDto, shape)` of #271, and the variant helpers `variant(XDto, value)` / `isVariant(item, XDto)`. Each wrapper is a frozen
+ * `historyOf(XDto, { limit })` for an input that reads the earlier versions too (#299, S56), and the
+ * variant helpers `variant(XDto, value)` / `isVariant(item, XDto)`. Each wrapper is a frozen
  * descriptor the analyser and the runtime read, typed so the builder and `InputOf` can read it too.
  */
 
@@ -11,7 +12,7 @@ export enum Wrapper {
   Optional = "optional",
   List = "list",
   OneOf = "one-of",
-  About = "about",
+  History = "history",
 }
 
 /** The classes of a `oneOf(…)`: two or more. */
@@ -47,27 +48,36 @@ export type ValueShape = DtoClass | ListWrapper | OptionalWrapper;
 /** What a component gives: `XDto`, `listOf(…)` or `oneOf(…)` — never `optional(…)`. */
 export type OutputShape = DtoClass | ListWrapper | OneOfWrapper;
 
-/**
- * `about(TargetDto, shape)` (#271 S15) — an `output` whose answers are about the latest `TargetDto`:
- * a new `TargetDto` outdates them, and they never outdate it. A type statement, like `optional(…)`:
- * the value is the shape's, only its provenance changes.
- */
-export interface AboutWrapper<
-  TTarget extends DtoClass = DtoClass,
-  TShape extends OutputShape = OutputShape,
-> {
-  readonly kind: Wrapper.About;
-  /** What the answers are about: a new value of this class outdates them. */
-  readonly about: TTarget;
-  /** The answers themselves: the value the component gives (`OutputOf<X>`). */
-  readonly shape: TShape;
+/** What one `.returns(…)` names (#299, S54): a value shape, or the `oneOf(…)` a `.switch` branches. */
+export type ReturnedShape = ValueShape | OneOfWrapper;
+
+/** `historyOf(XDto, { limit })`'s options. */
+export interface HistoryOptions {
+  /** At most this many earlier versions, the latest ones; every earlier version when omitted. */
+  readonly limit?: number;
 }
 
-/** An agent's or an action's `output`: a shape, or `about(TargetDto, shape)` (#271). */
-export type DeclaredOutput = OutputShape | AboutWrapper;
+/**
+ * `historyOf(XDto, { limit })` (#299, S56) — an input field that reads the current `XDto` and the
+ * earlier versions of it in this execution: `HistoryOf<Produced<XDto, P>>` in `InputOf`.
+ */
+export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
+  readonly kind: Wrapper.History;
+  readonly dto: TDto;
+  readonly limit?: number;
+}
+
+/**
+ * What a `historyOf(XDto)` field holds: the current value and the earlier versions, oldest first
+ * (at most `limit` of them, the latest ones); `previous` is empty on the first visit.
+ */
+export interface HistoryOf<TValue> {
+  readonly current: TValue;
+  readonly previous: readonly TValue[];
+}
 
 /** Any wrapper descriptor. */
-export type AnyWrapper = OptionalWrapper | ListWrapper | OneOfWrapper | AboutWrapper;
+export type AnyWrapper = OptionalWrapper | ListWrapper | OneOfWrapper | HistoryWrapper;
 
 /** The value a shape stands for: `XDto` → `XDto`, `listOf(XDto)` → `readonly XDto[]`, … */
 export type ValueOf<TShape> =
@@ -79,8 +89,8 @@ export type ValueOf<TShape> =
         ? InstanceType<TVariants[number]>
         : TShape extends OptionalWrapper<infer TInner>
           ? ValueOf<TInner> | undefined
-          : TShape extends AboutWrapper<DtoClass, infer TAnswer>
-            ? ValueOf<TAnswer>
+          : TShape extends HistoryWrapper<infer TDto>
+            ? HistoryOf<InstanceType<TDto>>
             : never;
 
 export function optional<const TInner extends OptionalInnerShape>(
@@ -102,30 +112,18 @@ export function oneOf<const TVariants extends OneOfVariants>(
 }
 
 /**
- * `about(DraftDto, oneOf(ApprovalDto, DraftChangesDto))` — first what the answers are about, then
- * their shape (a class, `listOf(…)` or `oneOf(…)`). Only an agent's or an action's `output` takes it.
+ * `historyOf(OfferDraftDto, { limit: 2 })` — an `input` field that reads the current value of the
+ * class and its earlier versions (#299, S56); a path must bring a current value.
  */
-export function about<const TTarget extends DtoClass, const TShape extends OutputShape>(
-  target: TTarget,
-  shape: TShape,
-): AboutWrapper<TTarget, TShape> {
-  return Object.freeze({ kind: Wrapper.About, about: target, shape });
+export function historyOf<const TDto extends DtoClass>(
+  dto: TDto,
+  options: HistoryOptions = {},
+): HistoryWrapper<TDto> {
+  const { limit } = options;
+  return Object.freeze(
+    limit === undefined ? { kind: Wrapper.History, dto } : { kind: Wrapper.History, dto, limit },
+  );
 }
-
-/** The shape of a declared output: `about(…)` unwrapped, anything else as it is. */
-export function outputShapeOf(output: DeclaredOutput): OutputShape;
-export function outputShapeOf(output: DeclaredOutput | undefined): OutputShape | undefined;
-export function outputShapeOf(output: DeclaredOutput | undefined): OutputShape | undefined {
-  return output !== undefined && typeof output !== "function" && output.kind === Wrapper.About
-    ? output.shape
-    : output;
-}
-
-/** The class an `about(…)` output is about; undefined for any other output. */
-export const aboutTargetOf = (output: DeclaredOutput | undefined): DtoClass | undefined =>
-  output !== undefined && typeof output !== "function" && output.kind === Wrapper.About
-    ? output.about
-    : undefined;
 
 const WRAPPERS: readonly string[] = Object.values(Wrapper);
 
@@ -140,13 +138,17 @@ export function isWrapper(value: unknown): value is AnyWrapper {
   );
 }
 
-/** Whether a value is a value shape (`XDto`, `listOf(…)`, `optional(…)`) — what `.returns` takes. */
+/** Whether a value is a value shape (`XDto`, `listOf(…)`, `optional(…)`). */
 export function isValueShape(value: unknown): value is ValueShape {
   return (
     typeof value === "function" ||
-    (isWrapper(value) && value.kind !== Wrapper.OneOf && value.kind !== Wrapper.About)
+    (isWrapper(value) && (value.kind === Wrapper.List || value.kind === Wrapper.Optional))
   );
 }
+
+/** Whether a value is what one `.returns(…)` takes: a value shape or a `oneOf(…)`. */
+export const isReturnedShape = (value: unknown): value is ReturnedShape =>
+  isValueShape(value) || (isWrapper(value) && value.kind === Wrapper.OneOf);
 
 /** The key the class of a `oneOf` value is kept under (non-enumerable, never serialized). */
 const variantClass: unique symbol = Symbol("agboss.variant");

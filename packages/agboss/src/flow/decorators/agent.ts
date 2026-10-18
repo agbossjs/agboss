@@ -4,7 +4,7 @@ import type { AgentMeta, PolicyFields } from "../../components/meta-types.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import { RagMode } from "../../rag/types.js";
 import { NodeKind } from "../ast.js";
-import type { DeclaredOutput } from "../dto-wrappers.js";
+import type { OutputShape } from "../dto-wrappers.js";
 import { declared, recordDeclaration, type InputFields } from "./declaration.js";
 
 export { RagMode };
@@ -32,8 +32,8 @@ export interface AgentOptions extends PolicyFields {
   readonly model: string;
   /** What the agent reads from the path scope, by type. */
   readonly input?: InputFields;
-  /** What it answers with (`about(TargetDto, shape)` in a cycle, #271); without it, text. */
-  readonly output?: DeclaredOutput;
+  /** What it answers with; without it, text. What the answers are about is said in the flow (#299). */
+  readonly output?: OutputShape;
   /** Visits per execution; one more fails before the model call (`VisitsLimitExceededError`). */
   readonly maxVisits?: number;
   readonly tools?: AgentMeta["tools"];

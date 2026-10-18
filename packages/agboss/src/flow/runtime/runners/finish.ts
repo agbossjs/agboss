@@ -5,7 +5,7 @@ import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import { runGuards } from "../guards.js";
 import type { NodeRunner } from "../node-runner.js";
 import { OutputInvalidError } from "../errors.js";
-import { readInput } from "../scope.js";
+import { readInput, type ScopeView } from "../scope.js";
 import type { ScopeRecords } from "../records.js";
 
 /** What a finish with `input` is: `finish(input)` builds the execution's output. */
@@ -30,7 +30,7 @@ async function handled(
   graph: RuntimeGraph,
   node: RuntimeNode,
   deps: GraphDeps<string>,
-  scope: ScopeRecords,
+  view: ScopeView,
 ) {
   const instance: unknown = deps.container.get(node.component);
   if (!isHandler(instance)) {
@@ -38,7 +38,7 @@ async function handled(
       `${node.id} has input but no finish(input) — implement FinishHandler`,
     );
   }
-  const input = readInput(graph, node, scope);
+  const input = readInput(graph, node, view);
   return { value: await instance.finish(input.fields), read: input.read };
 }
 
@@ -54,7 +54,7 @@ export function finishRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
     const built =
       input === undefined
         ? passedThrough(node, state.scope)
-        : await handled(deps.graph, node, deps, state.scope);
+        : await handled(deps.graph, node, deps, state);
     const checked = validate(output, built.value);
     const usage = await runGuards(deps.guards.output, checked);
     return { finish: { output: checked }, read: built.read, usage };

@@ -20,12 +20,12 @@ export function agentRunner(
   return async (state, config) => {
     const threadId = extractRunContext(config, state.runId).threadId;
     const appState = { runId: state.runId, threadId, activeNode: node.id };
-    const input = inputMessageOf(node.fields, state.scope);
+    const input = inputMessageOf(node.fields, state);
     await deps.observer?.onAgentStart({ name: node.id, input, state: appState });
     const result = loopResultOf(await loop.invoke(loopInputOf(state, node.id, input), config));
     const value: NodeValue = result.answer ?? { value: { text: result.reply } };
     await deps.observer?.onAgentEnd({ name: node.id, update: value, state: appState });
-    const read = readInput(deps.graph, node, state.scope).read;
+    const read = readInput(deps.graph, node, state).read;
     return { value, read, usage: result.usage, approvals: result.approvals };
   };
 }

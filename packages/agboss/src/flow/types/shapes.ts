@@ -2,9 +2,7 @@ import type { WorkflowStartInput } from "../decorators/workflow-start.js";
 import type { InputFieldShape } from "../decorators/declaration.js";
 import {
   isValueShape,
-  outputShapeOf,
   Wrapper,
-  type DeclaredOutput,
   type ListElementShape,
   type OutputShape,
   type ValueShape,
@@ -46,9 +44,8 @@ export function valueText(shape: ValueShape | OutputShape, names: ImportTable): 
   }
 }
 
-/** What a producer gives: its output's shape (`about(…)` is provenance only), `NoOutput` without one. */
-export function outputText(declared: DeclaredOutput | undefined, names: ImportTable): string {
-  const output = outputShapeOf(declared);
+/** What a producer gives: its output's shape, `NoOutput` without one. */
+export function outputText(output: OutputShape | undefined, names: ImportTable): string {
   return output === undefined ? names.use(TablesImport.NoOutput) : valueText(output, names);
 }
 
@@ -71,7 +68,10 @@ export function startOutputText(input: WorkflowStartInput, names: ImportTable): 
     .join(", ")}]`;
 }
 
-/** An input field read from the path scope: `Produced<T, P>`, a list of them for a list field. */
+/**
+ * An input field read from the path scope: `Produced<T, P>`, a list of them for a list field,
+ * `HistoryOf<Produced<T, P>>` for a `historyOf(T)` field (#299 S56).
+ */
 export function producedText(
   shape: InputFieldShape,
   producers: string,
@@ -81,5 +81,9 @@ export function producedText(
     typeof shape !== "function" && shape.kind === Wrapper.Optional ? shape.inner : shape;
   const produced = names.use(TablesImport.Produced);
   if (typeof inner === "function") return `${produced}<${names.dto(inner)}, ${producers}>`;
+  if (inner.kind === Wrapper.History) {
+    const history = names.use(TablesImport.HistoryOf);
+    return `${history}<${produced}<${names.dto(inner.dto)}, ${producers}>>`;
+  }
   return `readonly ${produced}<${elementText(inner.element, names)}, ${producers}>[]`;
 }

@@ -1,6 +1,6 @@
 import type { Class } from "../components/injection.js";
 import type { DtoClass } from "../dto/types.js";
-import type { ValueShape } from "./dto-wrappers.js";
+import type { ReturnedShape } from "./dto-wrappers.js";
 
 /**
  * The graph of a v2 workflow as data (#272 → The AST): `@Workflow({ flow })` holds one `FlowPath`
@@ -49,16 +49,22 @@ export interface ComponentSource {
   readonly node: ComponentClass;
 }
 
-/** One value a `.returns(…)` puts on the path: `XDto`, `listOf(XDto)`, `optional(XDto)`, with a tag. */
+/**
+ * The one value a `.returns(…)` puts on the path (#299, S54): `XDto`, `listOf(XDto)`,
+ * `optional(XDto)`, or the `oneOf(…)` a `.switch(…)` branches — several values are a chain.
+ */
 export interface ReturnedValue {
-  readonly shape: ValueShape;
-  /** `{ as: "before" }` — the tag a field of that name reads (#270). */
-  readonly as?: string;
+  readonly shape: ReturnedShape;
+  /**
+   * `{ about: PlanDto }` — what the value is about (#271): a new value of one of these classes
+   * outdates it, and it never outdates them. Never on a `oneOf(…)`: its cases say it.
+   */
+  readonly about?: readonly DtoClass[];
 }
 
 export interface ReturnsStep {
   readonly kind: StepKind.Returns;
-  readonly values: readonly ReturnedValue[];
+  readonly value: ReturnedValue;
 }
 
 /** `.toAgent` / `.toRouter` / `.toAction` / `.toFinish`: the kind is the transition's. */
@@ -68,10 +74,11 @@ export interface ToStep {
   readonly targetKind: NodeKind;
 }
 
-/** One `caseOf(XDto)…` of a `.switch(…)`. */
+/** One `caseOf(XDto, { about })…` of a `.switch(…)`. */
 export interface SwitchCase {
   readonly dto: DtoClass;
-  readonly tag?: string;
+  /** `caseOf(ChangesRequestedDto, { about: OfferDraftDto })` — what this variant is about (#299). */
+  readonly about?: readonly DtoClass[];
   readonly path: SubPath;
 }
 

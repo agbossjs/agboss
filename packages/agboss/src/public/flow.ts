@@ -90,14 +90,15 @@ export type {
   RouterHandler,
 } from "../flow/handlers.js";
 export {
-  about,
+  historyOf,
   isVariant,
   listOf,
   oneOf,
   optional,
   variant,
-  type AboutWrapper,
-  type DeclaredOutput,
+  type HistoryOf,
+  type HistoryOptions,
+  type HistoryWrapper,
   type ListWrapper,
   type OneOfWrapper,
   type OptionalWrapper,

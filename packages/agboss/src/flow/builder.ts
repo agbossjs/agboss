@@ -5,6 +5,7 @@ import type {
   AfterStep,
   AfterValue,
   CaseHead,
+  CasePath,
   KindCheck,
   KindLabel,
   ReturnsOptions,
@@ -16,7 +17,13 @@ import type {
   SourceHead,
   TargetCheck,
 } from "./builder-types.js";
-import { fromComponent, fromSource, subPathFrom, type PathBuilder } from "./path-builder.js";
+import {
+  aboutTargets,
+  fromComponent,
+  fromSource,
+  subPathFrom,
+  type PathBuilder,
+} from "./path-builder.js";
 
 /**
  * The path builder (#272): `start(S)…`, `agent(X)…`, `router(R)…`, `action(X)…` begin a flow
@@ -66,14 +73,17 @@ export function route(target: Class): PathBuilder<undefined> {
   return subPathFrom({ kind: "route", target });
 }
 
-/** One case of `.switch(…)`: the class of the `oneOf` result, put on the path like `.returns`. */
+/**
+ * One case of `.switch(…)`: the class of the `oneOf` result, put on the path like `.returns`;
+ * `caseOf(ChangesRequestedDto, { about: OfferDraftDto })` says what this variant is about (#299).
+ */
 export function caseOf<const TDto extends DtoClass>(
   dto: TDto,
   options?: ReturnsOptions,
 ): AfterValue<InstanceType<TDto>, CaseHead<InstanceType<TDto>>>;
-export function caseOf(dto: DtoClass, options?: ReturnsOptions): PathBuilder<undefined> {
-  const tag = options?.as;
-  return subPathFrom(tag === undefined ? { kind: "case", dto } : { kind: "case", dto, tag });
+export function caseOf(dto: DtoClass, options?: ReturnsOptions): CasePath {
+  const about = aboutTargets(options);
+  return subPathFrom(about === undefined ? { kind: "case", dto } : { kind: "case", dto, about });
 }
 
 /** A side path of `.onError(E, …)`. */

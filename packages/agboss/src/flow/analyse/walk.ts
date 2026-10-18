@@ -7,10 +7,12 @@ import {
   type FlowPath,
   type OnErrorStep,
   type PathSource,
+  type ReturnsStep,
   type Step,
   type SwitchStep,
   type ToStep,
 } from "../ast.js";
+import { Wrapper, type OneOfWrapper } from "../dto-wrappers.js";
 import { declarationOf } from "../decorators/declaration.js";
 import type { ComponentName } from "../registry.js";
 import {
@@ -21,12 +23,13 @@ import {
   type FlowGraph,
   type ValueWrite,
 } from "./flow-graph.js";
-import { dtoLabel } from "./labels.js";
+import { dtoLabel, shapeLabel } from "./labels.js";
 import {
   MentionKind,
   type BranchSite,
   type Mention,
   type Placement,
+  type SwitchSite,
   type WalkedFlow,
 } from "./walked-flow.js";
 import { NodeTable } from "./nodes.js";
@@ -41,6 +44,8 @@ import { NodeTable } from "./nodes.js";
 interface Cursor {
   readonly current: ComponentName | undefined;
   readonly writes: readonly ValueWrite[];
+  /** A `.returns(oneOf(…))` the next `.switch(…)` branches (#299 S54 c). */
+  readonly oneOf?: OneOfWrapper;
   readonly entry: EdgeKind;
   readonly error?: ErrorClass;
   readonly depth: number;
@@ -53,7 +58,7 @@ class FlowWalker {
   readonly starts: ComponentName[] = [];
   readonly mentions: Mention[] = [];
   readonly placements: Placement[] = [];
-  readonly switches: BranchSite<SwitchStep>[] = [];
+  readonly switches: SwitchSite[] = [];
   readonly choices: BranchSite<ChooseOneStep>[] = [];
   readonly errorHandlers: BranchSite<OnErrorStep>[] = [];
   readonly violations: RuleViolation[] = [];
@@ -88,7 +93,7 @@ class FlowWalker {
   private walkStep(step: Step, cursor: Cursor, isFollowed: boolean): Cursor {
     switch (step.kind) {
       case StepKind.Returns:
-        return { ...cursor, writes: [...cursor.writes, ...returned(step.values)] };
+        return this.returns(step, cursor);
       case StepKind.To:
         return this.enter(step, cursor, isFollowed);
       case StepKind.Switch:
@@ -103,7 +108,21 @@ class FlowWalker {
     }
   }
 
+  /** A `.returns(…)`: its value travels on the next edge; a `oneOf` waits for its `.switch`. */
+  private returns(step: ReturnsStep, cursor: Cursor): Cursor {
+    const { shape, about } = step.value;
+    if (typeof shape !== "function" && shape.kind === Wrapper.OneOf)
+      return { ...cursor, oneOf: shape };
+    const write: ValueWrite =
+      about === undefined ? { shape, isCase: false } : { shape, about, isCase: false };
+    return { ...cursor, writes: [...cursor.writes, write] };
+  }
+
   private enter(step: ToStep, cursor: Cursor, isContinued: boolean): Cursor {
+    if (cursor.oneOf !== undefined && cursor.current !== undefined) {
+      const message = `${cursor.current}: .returns(${shapeLabel(cursor.oneOf)}) is branched by .switch(caseOf(…)…), not followed by .${step.targetKind === NodeKind.Finish ? "toFinish" : "to…"}(…)`;
+      this.violations.push(violation("flow.returns-mismatch", message, [cursor.current]));
+    }
     const target = this.table.resolve(step.target, step.targetKind);
     if (target !== undefined) this.arrive(target, cursor, isContinued);
     return {
@@ -132,17 +151,23 @@ class FlowWalker {
 
   private walkSwitch(step: SwitchStep, cursor: Cursor): void {
     if (cursor.current === undefined) return;
-    this.switches.push({ node: cursor.current, step });
+    const { oneOf: returned } = cursor;
+    this.switches.push(
+      returned === undefined
+        ? { node: cursor.current, step }
+        : { node: cursor.current, step, returned },
+    );
     for (const branch of step.cases) {
       const write: ValueWrite = {
         shape: branch.dto,
         isCase: true,
-        ...(branch.tag === undefined ? {} : { tag: branch.tag }),
+        ...(branch.about === undefined ? {} : { about: branch.about }),
       };
       const inner: Cursor = {
-        ...cursor,
+        current: cursor.current,
         writes: [write],
         entry: EdgeKind.Case,
+        path: cursor.path,
         depth: cursor.depth + 1,
       };
       if (!this.walkSteps(branch.path.steps, inner)) {
@@ -189,15 +214,6 @@ class FlowWalker {
 /** A route target's kind is the kind its class is declared with (the builder checked it). */
 const kindOfTarget = (target: ToStep["target"]): NodeKind =>
   declarationOf(target)?.kind ?? NodeKind.Agent;
-
-const returned = (
-  values: readonly { readonly shape: ValueWrite["shape"]; readonly as?: string }[],
-) =>
-  values.map((value): ValueWrite =>
-    value.as === undefined
-      ? { shape: value.shape, isCase: false }
-      : { shape: value.shape, tag: value.as, isCase: false },
-  );
 
 /** Walks every path of a flow. */
 export function walkFlow(flow: readonly FlowPath[]): WalkedFlow {

@@ -14,7 +14,7 @@ import {
   type SwitchCase,
 } from "./ast.js";
 import type { ReturnsOptions } from "./builder-types.js";
-import { isValueShape } from "./dto-wrappers.js";
+import { isReturnedShape, Wrapper } from "./dto-wrappers.js";
 
 /**
  * The runtime of the path builder (#272): one immutable class behind every typed builder state;
@@ -30,22 +30,35 @@ export class FlowSyntaxError extends AGBossError {
 export type PathStart =
   | { readonly kind: "source" }
   | { readonly kind: "route"; readonly target: Class }
-  | { readonly kind: "case"; readonly dto: DtoClass; readonly tag?: string }
+  | { readonly kind: "case"; readonly dto: DtoClass; readonly about?: readonly DtoClass[] }
   | { readonly kind: "side" };
 
-const isReturnsOptions = (value: unknown): value is ReturnsOptions =>
-  typeof value === "object" && value !== null && !isValueShape(value);
+/** `{ about: PlanDto }` or `{ about: [PlanDto, BudgetDto] }` as a list; undefined without one. */
+export function aboutTargets(options: ReturnsOptions | undefined): readonly DtoClass[] | undefined {
+  const about = options?.about;
+  if (about === undefined) return undefined;
+  const given: unknown = about;
+  const targets: readonly unknown[] = Array.isArray(given) ? given : [given];
+  if (targets.length === 0 || targets.some((target) => typeof target !== "function"))
+    throw new FlowSyntaxError("{ about } names one DTO class or a non-empty list of them");
+  return Object.freeze([...(targets as readonly DtoClass[])]);
+}
 
-/** The values of `.returns(A, optional(B), …)`, the last argument may be `{ as }`. */
-function returnedValues(args: readonly unknown[]): readonly ReturnedValue[] {
-  const last = args.at(-1);
-  const options = isReturnsOptions(last) ? last : undefined;
-  const shapes = options === undefined ? args : args.slice(0, -1);
-  return shapes.map((shape): ReturnedValue => {
-    if (!isValueShape(shape))
-      throw new FlowSyntaxError(".returns(…) takes DTO classes and wrappers");
-    return options?.as === undefined ? { shape } : { shape, as: options.as };
-  });
+/** The value of `.returns(value, options?)` (#299, S54): one shape, `{ about }` beside it. */
+function returnedValue(shape: unknown, options: unknown, extra: number): ReturnedValue {
+  if (!isReturnedShape(shape))
+    throw new FlowSyntaxError(".returns(…) takes a DTO class, optional(…), listOf(…) or oneOf(…)");
+  if (extra > 0 || (options !== undefined && (typeof options !== "object" || options === null)))
+    throw new FlowSyntaxError(
+      ".returns(…) takes one value — chain .returns(A).returns(optional(B)) for several",
+    );
+  const about = aboutTargets(options as ReturnsOptions | undefined);
+  if (about === undefined) return Object.freeze({ shape });
+  if (typeof shape !== "function" && shape.kind === Wrapper.OneOf)
+    throw new FlowSyntaxError(
+      "{ about } does not go on .returns(oneOf(…)) — write it on the case: caseOf(XDto, { about })",
+    );
+  return Object.freeze({ shape, about });
 }
 
 /** A flow path's builder holds its source; a sub-path's holds `undefined`. */
@@ -68,8 +81,8 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.then({ kind: StepKind.To, target, targetKind });
   }
 
-  returns(...args: readonly unknown[]): PathBuilder<TSource> {
-    return this.then({ kind: StepKind.Returns, values: returnedValues(args) });
+  returns(shape: unknown, options?: unknown, ...rest: readonly unknown[]): PathBuilder<TSource> {
+    return this.then({ kind: StepKind.Returns, value: returnedValue(shape, options, rest.length) });
   }
 
   toAgent(target: Class): PathBuilder<TSource> {
@@ -106,9 +119,9 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   private asCase(): SwitchCase {
     if (this.start.kind !== "case") throw new FlowSyntaxError(".switch(…) takes caseOf(…) paths");
-    const { dto, tag } = this.start;
+    const { dto, about } = this.start;
     const path = this.subPath();
-    return Object.freeze(tag === undefined ? { dto, path } : { dto, tag, path });
+    return Object.freeze(about === undefined ? { dto, path } : { dto, about, path });
   }
 
   private asRoute(): ChooseOneRoute {

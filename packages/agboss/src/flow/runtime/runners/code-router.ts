@@ -63,10 +63,10 @@ export function codeRouterRunner(node: RuntimeNode, deps: GraphDeps<string>): No
     if (!isCodeRouter(instance)) {
       throw new RouterFailedError(step, new TypeError(`${node.id} has no route(input)`));
     }
-    const input = readInput(deps.graph, node, state.scope);
+    const input = readInput(deps.graph, node, state);
     const { threadId } = extractRunContext(config, state.runId);
     const appState = { runId: state.runId, threadId, activeNode: node.id };
-    const message = inputMessageOf(node.fields, state.scope);
+    const message = inputMessageOf(node.fields, state);
     await deps.observer?.onRouterStart({ name: node.id, input: message, state: appState });
     const answer: unknown = await Promise.resolve()
       .then(() => instance.route(input.fields))

@@ -1,6 +1,6 @@
 /**
  * What an execution keeps of its data, as plain JSON (#270 S5, #271 S11): one record per slot of
- * the path scope, keyed by the slot (`OfferDraftDto`, `list:CompanyScoreDto`, `OfferDraftDto#before`).
+ * the path scope, keyed by the slot (`OfferDraftDto`, `list:CompanyScoreDto`).
  * A record is rebuilt into `Produced<T, P>` on read from the registries (producer by `name`, variant
  * by DTO class name), so it survives a serialising checkpointer.
  */
@@ -29,10 +29,16 @@ export interface ScopeValueRecord {
   readonly value: unknown;
   /**
    * The `valueId`s the producer read when it built the value (#271 rule 3): its `input` fields, or
-   * every current value for an agent without `input`, and its `about(…)` target — never an answer
-   * about the value it writes. A renewal of one of them outdates the value.
+   * every current value for an agent without `input`, and its `{ about }` targets — never an
+   * answer about the value it writes. A renewal of one of them outdates the value.
    */
   readonly builtFrom: readonly string[];
+  /**
+   * The slots the value is about (`{ about }` of its `.returns` or `caseOf` in the flow, #299 S54):
+   * a new value of one of them outdates it, and it never outdates them. Absent when it is about
+   * nothing.
+   */
+  readonly about?: readonly string[];
 }
 
 /** Why a value left the scope (#271 S11). */
@@ -41,7 +47,7 @@ export enum OutdatedReason {
   Replaced = "replaced",
   /** It was built from a value that was outdated. */
   BuiltFromReplaced = "built-from-replaced",
-  /** It is an answer about a value (`about(Target, …)`) that was outdated. */
+  /** It is an answer about a value (`{ about: Target }`) that was outdated. */
   AboutReplaced = "about-replaced",
 }
 

@@ -2,7 +2,7 @@ import type { DtoClass } from "../../../dto/types.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import { NodeKind } from "../../ast.js";
 import type { AgentDeclaration } from "../../decorators/declaration.js";
-import { outputShapeOf, Wrapper, type OutputShape } from "../../dto-wrappers.js";
+import { Wrapper, type OutputShape } from "../../dto-wrappers.js";
 import { toKebabCase } from "../../names.js";
 import { dtoLabel, shapeLabel } from "../labels.js";
 import type { AnalysisContext } from "./context.js";
@@ -32,7 +32,7 @@ function agentViolations(
   declaration: AgentDeclaration,
 ): readonly RuleViolation[] {
   const { model } = declaration.options;
-  const output = outputShapeOf(declaration.options.output);
+  const output = declaration.options.output;
   if (output === undefined) return [];
   const tooLong = answerClasses(output)
     .map(answerToolName)

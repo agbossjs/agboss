@@ -1,5 +1,6 @@
 import type { ChooseOneStep, OnErrorStep, PathSource, Step, SwitchStep } from "../ast.js";
 import type { RuleViolation } from "../../graph/rule-error.js";
+import type { OneOfWrapper } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import type { FlowGraph } from "./flow-graph.js";
 
@@ -31,11 +32,16 @@ export interface BranchSite<TStep extends Step> {
   readonly step: TStep;
 }
 
+/** A `.switch(…)` and the `.returns(oneOf(…))` written before it (#299 S54 c). */
+export interface SwitchSite extends BranchSite<SwitchStep> {
+  readonly returned?: OneOfWrapper;
+}
+
 export interface WalkedFlow {
   readonly graph: FlowGraph;
   readonly mentions: readonly Mention[];
   readonly placements: readonly Placement[];
-  readonly switches: readonly BranchSite<SwitchStep>[];
+  readonly switches: readonly SwitchSite[];
   readonly choices: readonly BranchSite<ChooseOneStep>[];
   readonly errorHandlers: readonly BranchSite<OnErrorStep>[];
   readonly violations: readonly RuleViolation[];

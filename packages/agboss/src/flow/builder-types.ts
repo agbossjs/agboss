@@ -9,7 +9,8 @@ import type {
   NoOutput,
   ProducerOutputOf,
 } from "./generated-types.js";
-import type { Returning } from "./returns-types.js";
+import type { DtoClass } from "../dto/types.js";
+import type { Returning, ValuesLeft } from "./returns-types.js";
 
 /**
  * The types of the path builder (#272 S3). A builder carries, in its type, how its path starts
@@ -44,9 +45,13 @@ export type RoutePath = BuiltPath<RouteHead>;
 export type CasePath = BuiltPath<CaseHead<unknown>>;
 export type SidePath = BuiltPath<SideHead>;
 
-/** `.returns(XDto, { as: "before" })` — the tag a field of that name reads (#270). */
+/**
+ * `.returns(CritiqueDto, { about: PlanDto })`, `caseOf(ChangesRequestedDto, { about: OfferDraftDto })`
+ * (#299, S54): what the value is about — a new value of one of these classes outdates it, and it
+ * never outdates them (#271).
+ */
 export interface ReturnsOptions {
-  readonly as?: string;
+  readonly about?: DtoClass | readonly [DtoClass, ...DtoClass[]];
 }
 
 /** How a message names each kind. */
@@ -94,15 +99,6 @@ export type TargetCheck<TClass extends Class, TKind extends NodeKind, TLabel ext
       : TResult
     : never;
 
-type UnionToIntersection<TUnion> = (
-  TUnion extends unknown ? (value: TUnion) => void : never
-) extends (value: infer TIntersection) => void
-  ? TIntersection
-  : never;
-
-/** Whether an output is a `oneOf` (a union of classes): it is followed by `.switch(…)`. */
-type IsUnion<TValue> = [TValue] extends [UnionToIntersection<TValue>] ? false : true;
-
 /** The values of the cases of a `.switch(…)`. */
 type CaseValueOf<TPath> = TPath extends { readonly [pathHead]?: CaseHead<infer TValue> }
   ? TValue
@@ -129,19 +125,18 @@ type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInstance>] e
   : [KindOf<TInstance>] extends [NodeKind.Router]
     ? RouterStep<THead>
     : [KindOf<TInstance>] extends [NodeKind.Start]
-      ? Returning<TInstance, ProducerOutputOf<TInstance>, THead>
+      ? Returning<TInstance, ValuesLeft<ProducerOutputOf<TInstance>>, THead>
       : ErrorHandling<TInstance, THead> &
           OutputContinuation<TInstance, ProducerOutputOf<TInstance>, THead>;
 
+/** A step with `output` names it with `.returns(…)` — a `oneOf` too, before its `.switch(…)`. */
 type OutputContinuation<TInstance, TOutput, THead extends PathHead> = [TOutput] extends [
   GeneratedTypeError,
 ]
   ? Returning<TInstance, TOutput, THead>
   : [TOutput] extends [NoOutput]
     ? Transitions<THead>
-    : IsUnion<TOutput> extends true
-      ? Switching<TOutput, THead>
-      : Returning<TInstance, TOutput, THead>;
+    : Returning<TInstance, ValuesLeft<TOutput>, THead>;
 
 export interface Transitions<THead extends PathHead> {
   toAgent<const TClass extends Class>(

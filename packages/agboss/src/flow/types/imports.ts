@@ -18,6 +18,7 @@ export enum TablesImport {
   NoInput = "NoInput",
   NoOutput = "NoOutput",
   Produced = "Produced",
+  HistoryOf = "HistoryOf",
 }
 
 /** A class the generated file mentions and the module it is imported from. */

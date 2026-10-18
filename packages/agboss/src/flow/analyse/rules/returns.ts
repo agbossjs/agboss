@@ -10,7 +10,8 @@ import type { AnalysisContext } from "./context.js";
  * `.returns(…)` is exactly where values are (#272 AC2, AC15; #270 "checked by the compiler and again
  * by assembly"): `start(S).returns(…)` gives the start's input; after a step with `output`
  * `.returns(output)` is required; after a step without one (an `@Action` done for its side effect, a
- * router) it is impossible; a `oneOf` output is branched by `.switch(caseOf(…)…)`.
+ * router) it is impossible; a `oneOf` output is written `.returns(oneOf(…))` and branched by
+ * `.switch(caseOf(…)…)` (#299 S54 c, checked with the switch in `switch.ts`).
  */
 
 /** What a start returns: its input DTO, its list, or one value per field of its map. */
@@ -30,12 +31,19 @@ function expected(node: FlowNode): readonly string[] | string {
   const output = outputOf(node);
   if (output === undefined) return [];
   if (typeof output !== "function" && output.kind === Wrapper.OneOf) {
-    return `${node.name} gives ${shapeLabel(output)} — branch it with .switch(caseOf(…)…), not .returns(…)`;
+    return `${node.name} gives ${shapeLabel(output)} — write .returns(${shapeLabel(output)}) and branch it with .switch(caseOf(…)…)`;
   }
   return [shapeLabel(output)];
 }
 
 const sorted = (labels: readonly string[]): string => [...labels].sort().join(", ");
+
+/** The `.returns` chain that names the values: `.returns(A).returns(optional(B))` (#299 S54). */
+const chain = (labels: readonly string[]): string =>
+  [...labels]
+    .sort()
+    .map((label) => `.returns(${label})`)
+    .join("");
 
 function edgeViolation(node: FlowNode, edge: FlowEdge): RuleViolation | undefined {
   if (edge.kind === EdgeKind.Case || edge.kind === EdgeKind.Error) return undefined;
@@ -45,9 +53,9 @@ function edgeViolation(node: FlowNode, edge: FlowEdge): RuleViolation | undefine
   if (sorted(want) === sorted(got)) return undefined;
   const message =
     want.length === 0
-      ? `${node.name} has no output — remove .returns(${sorted(got)}) after it`
-      : `${node.name} gives ${sorted(want)} — write .returns(${sorted(want)}) after it` +
-        (got.length === 0 ? "" : `, not .returns(${sorted(got)})`);
+      ? `${node.name} has no output — remove ${chain(got)} after it`
+      : `${node.name} gives ${sorted(want)} — write ${chain(want)} after it` +
+        (got.length === 0 ? "" : `, not ${chain(got)}`);
   return violation("flow.returns-mismatch", message, [node.name]);
 }
 

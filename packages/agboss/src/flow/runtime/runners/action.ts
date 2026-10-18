@@ -4,7 +4,6 @@ import type { DtoClass } from "../../../dto/types.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import { NodeKind } from "../../ast.js";
 import {
-  outputShapeOf,
   Wrapper,
   variantClassOf,
   type OneOfWrapper,
@@ -72,11 +71,11 @@ const failure = (node: string, error: unknown): unknown =>
 export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRunner {
   const { declaration } = node;
   if (declaration.kind !== NodeKind.Action) throw new TypeError(`${node.id} is not an action`);
-  const output = outputShapeOf(declaration.options.output);
+  const { output } = declaration.options;
   return async (state, config) => {
     const instance: unknown = deps.container.get(node.component);
     if (!isAction(instance)) throw new OutputInvalidError(`${node.id} has no execute(input)`);
-    const input = readInput(deps.graph, node, state.scope);
+    const input = readInput(deps.graph, node, state);
     const { threadId } = extractRunContext(config, state.runId);
     const appState = { runId: state.runId, threadId, activeNode: node.id };
     await deps.observer?.onActionStart({ name: node.id, input: input.fields, state: appState });

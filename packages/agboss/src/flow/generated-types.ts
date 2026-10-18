@@ -1,6 +1,6 @@
 import type { NodeKind } from "./ast.js";
 
-export type { Produced } from "./dto-wrappers.js";
+export type { HistoryOf, Produced } from "./dto-wrappers.js";
 
 /**
  * The tables `.agboss/types.d.ts` fills by declaration merging (#272 S3, #270 → Generated types).
@@ -8,7 +8,7 @@ export type { Produced } from "./dto-wrappers.js";
  * (`readonly [agbossComponent]?: "draft-agent"`, merged into the class's instance type), so empty
  * classes become distinct types. Before generation a lookup gives `MissingGeneratedTypes`, which
  * names the fix. Until PR 4 exports this module from `agboss`, the generator (`flow/types/`) augments
- * it here; it imports `Produced` from here too, so the generated file names one module.
+ * it here; it imports `Produced` and `HistoryOf` from here too, so the generated file names one module.
  */
 
 /** The brand key on component classes; its value is the component's `name`. */

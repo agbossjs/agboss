@@ -1,13 +1,14 @@
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import type { ComponentName } from "../../registry.js";
 import { statesOf } from "../dataflow.js";
+import type { FlowGraph } from "../flow-graph.js";
 import { readSlots } from "../outdating.js";
 import {
+  aboutOfWrite,
   slotLabel,
   slotOf,
-  slotsOfWrite,
+  slotOfWrite,
   SlotStatus,
-  untaggedSlot,
   type SlotKey,
 } from "../scope.js";
 import { isCycle, stronglyConnected } from "../strongly-connected.js";
@@ -16,11 +17,13 @@ import type { AnalysisContext } from "./context.js";
 /**
  * The direction of a cycle (#271 rule 5, AC4): when the classes written in a cycle of the flow are
  * built from each other (the writer reads the reviewer's notes, the reviewer reads the writer's
- * draft), one of their producers states what its answers are about — `about(DraftDto, …)`. A
+ * draft), the flow states what one of the answers is about — `.returns(CritiqueDto, { about:
+ * DraftDto })` or, for a `oneOf`, `caseOf(DraftChangesDto, { about: DraftDto })` (#299 S54). A
  * strongly connected component of the "built from" graph between classes with no `about` edge →
- * `[io.ambiguous-cycle]`, the hint naming the producer whose output to wrap. A producer that reads
- * two values of the class its `about` names → `[io.ambiguous-about]` (S14: no tag in `about`).
- * Outside cycles nothing is written.
+ * `[io.ambiguous-cycle]`, the hint naming the step to write it on. A producer whose values are
+ * `{ about: T }` and that reads `T` in two or more fields → `[io.ambiguous-about]` (#271 S14 after
+ * #299 S56: without tags, two values of `T` are read only as `historyOf(T)`, whose `current` is what
+ * the answers are about). Outside cycles nothing is written.
  */
 
 /** A written class built from a read one, by a producer. */
@@ -28,6 +31,10 @@ interface BuiltFromEdge {
   readonly from: SlotKey;
   readonly to: SlotKey;
   readonly producer: ComponentName;
+  /** What the written value is about (`{ about }`). */
+  readonly about: readonly SlotKey[];
+  /** Written by a `caseOf(…)`: its `{ about }` goes on the case. */
+  readonly isCase: boolean;
 }
 
 /** What the producers of a cycle build from what, over every scope that reaches them. */
@@ -40,11 +47,23 @@ function builtFromEdges(
   for (const producer of nodes) {
     const leaving = graph.edges.filter((edge) => edge.from === producer && edge.writes.length > 0);
     for (const state of statesOf(dataflow, producer)) {
-      const read = readSlots(state.scope, producer, dataflow.provenance).map(untaggedSlot);
-      for (const written of leaving.flatMap((edge) => edge.writes.flatMap(slotsOfWrite))) {
-        const from = untaggedSlot(written);
-        for (const to of read.filter((slot) => slot !== from))
-          edges.set(`${from}|${to}|${producer}`, { from, to, producer });
+      const read = readSlots(state.scope, producer, dataflow.provenance);
+      for (const write of leaving.flatMap((edge) => edge.writes)) {
+        const from = slotOfWrite(write);
+        const about = aboutOfWrite(write);
+        const targets = about.filter(
+          (slot) => slotOf(state.scope, slot).status === SlotStatus.Current,
+        );
+        for (const to of [...new Set([...read, ...targets])].filter((slot) => slot !== from)) {
+          const { isCase } = write;
+          edges.set(`${from}|${to}|${producer}|${about.join("+")}`, {
+            from,
+            to,
+            producer,
+            about,
+            isCase,
+          });
+        }
       }
     }
   }
@@ -70,13 +89,16 @@ function hintOf(
   edges: readonly BuiltFromEdge[],
 ): string {
   const target = firstWritten(context, slots);
-  const [producer] = edges
-    .filter((edge) => edge.to === target && slots.includes(edge.from))
-    .map((edge) => edge.producer)
-    .sort();
-  if (target === undefined || producer === undefined)
-    return "wrap one producer's output in about(…)";
-  return `wrap ${producer}'s output in about(${slotLabel(target)}, …)`;
+  const [edge] = edges
+    .filter((candidate) => candidate.to === target && slots.includes(candidate.from))
+    .sort((first, second) => first.producer.localeCompare(second.producer));
+  if (target === undefined || edge === undefined)
+    return "write { about } on one of the values in the flow";
+  const value = slotLabel(edge.from);
+  const about = `{ about: ${slotLabel(target)} }`;
+  return edge.isCase
+    ? `write caseOf(${value}, ${about}) after ${edge.producer}`
+    : `write .returns(${value}, ${about}) after ${edge.producer}`;
 }
 
 function cycleViolations(
@@ -87,14 +109,13 @@ function cycleViolations(
   const slots = [...new Set(edges.flatMap((edge) => [edge.from, edge.to]))].sort();
   const successors = (slot: SlotKey): readonly SlotKey[] =>
     edges.filter((edge) => edge.from === slot).map((edge) => edge.to);
-  const { aboutTargets } = context.dataflow.provenance;
   return stronglyConnected(slots, successors)
     .filter((classes) => classes.length > 1)
     .filter((classes) =>
-      edges.every((edge) => {
-        const target = aboutTargets.get(edge.producer);
-        return !classes.includes(edge.from) || target === undefined || !classes.includes(target);
-      }),
+      edges.every(
+        (edge) =>
+          !classes.includes(edge.from) || !edge.about.some((target) => classes.includes(target)),
+      ),
     )
     .map((classes) => {
       const producers = [
@@ -119,19 +140,33 @@ function flowCycles(context: AnalysisContext): readonly (readonly ComponentName[
   );
 }
 
-/** A producer reading two values of the class its `about` names (S14). */
+/** The slots each producer's values are about, over every `{ about }` it is written with. */
+export function aboutTargetsOf(graph: FlowGraph): ReadonlyMap<ComponentName, ReadonlySet<SlotKey>> {
+  const targets = new Map<ComponentName, Set<SlotKey>>();
+  for (const edge of graph.edges) {
+    for (const slot of edge.writes.flatMap(aboutOfWrite)) {
+      const own = targets.get(edge.from) ?? new Set<SlotKey>();
+      own.add(slot);
+      targets.set(edge.from, own);
+    }
+  }
+  return targets;
+}
+
+/** A producer whose values are `{ about: T }` reading `T` in two or more fields (S14, S56). */
 function aboutViolations(context: AnalysisContext): readonly RuleViolation[] {
-  return [...context.dataflow.provenance.aboutTargets].flatMap(([node, target]) => {
-    const fields = (context.fields.get(node) ?? []).filter((field) => field.base === target);
-    if (fields.length < 2) return [];
-    const label = slotLabel(target);
-    const pair = `${label.replace(/Dto$/, "")}PairDto`;
-    const message =
-      `${node} reads ${String(fields.length)} ${label} fields (${fields.map((field) => field.name).join(", ")}) ` +
-      `and its output is about(${label}, …) — about which one? Put both into one DTO built by a ` +
-      `step (${pair} with @Nested(${label}) fields) and write about(${pair}, …)`;
-    return [violation("io.ambiguous-about", message, [node])];
-  });
+  return [...aboutTargetsOf(context.graph)].flatMap(([node, targets]) =>
+    [...targets].sort().flatMap((target) => {
+      const fields = (context.fields.get(node) ?? []).filter((field) => field.slot === target);
+      if (fields.length < 2) return [];
+      const label = slotLabel(target);
+      const message =
+        `${node} reads ${String(fields.length)} ${label} fields (${fields.map((field) => field.name).join(", ")}) ` +
+        `and its values are { about: ${label} } — about which one? Read ${label} in one field: with ` +
+        `historyOf(${label}) the answers are about its current value`;
+      return [violation("io.ambiguous-about", message, [node])];
+    }),
+  );
 }
 
 export function aboutRules(context: AnalysisContext): readonly RuleViolation[] {
