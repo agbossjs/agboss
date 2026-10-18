@@ -31,7 +31,7 @@ export interface WorkflowModels {
 }
 
 /** `[model.unserved]` / `[model.ambiguous-provider]` for every model use no single provider serves. */
-export function modelResolutionViolations(workflow: WorkflowModels): RuleViolation[] {
+function modelResolutionViolations(workflow: WorkflowModels): RuleViolation[] {
   const directory = directoryOf(workflow.modelProviders);
   return modelUsesOf(workflow.config, workflow.routers).flatMap((use) => {
     const resolution = directory.resolve(use);
@@ -51,10 +51,18 @@ export function modelResolutionViolations(workflow: WorkflowModels): RuleViolati
   });
 }
 
-/** Fails the workflow's assembly when a model of it has no single provider. */
-export function checkModelResolution(workflow: WorkflowModels): void {
-  const found = modelResolutionViolations(workflow);
+/**
+ * The model providers of a workflow — its application's (`providers`), else the built-ins — with
+ * every model of it resolved to one of them; one that is not fails the workflow's assembly.
+ */
+export function resolvedModelProvidersOf(
+  listed: readonly Provider[] | undefined,
+  workflow: Omit<WorkflowModels, "modelProviders">,
+): readonly ModelProviderType[] {
+  const modelProviders = modelProvidersOf(listed);
+  const found = modelResolutionViolations({ ...workflow, modelProviders });
   if (found.length > 0) throw new GraphRuleError(found);
+  return modelProviders;
 }
 
 /**

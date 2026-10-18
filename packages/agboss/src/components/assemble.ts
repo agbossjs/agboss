@@ -42,10 +42,10 @@ import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import { checkObservers } from "./observer-checks.js";
 import { judgeClassesOf, judgePartsOf, judgeSettingsOf, type JudgeClass } from "./judge-parts.js";
 import { agentSettings } from "./agent-settings.js";
-import { checkModelResolution, modelProvidersOf } from "../models/resolution.js";
+import { resolvedModelProvidersOf } from "../models/resolution.js";
 
 /** The application a workflow is assembled in: its name, `defaults` and providers (its model providers). */
-export type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
+type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
   readonly providers?: readonly Provider[];
 };
 
@@ -182,8 +182,7 @@ export async function workflowOf(
   const config = configOf(bundle, agents, names, mcp, judges);
   const settings = settingsOf(workflow);
   validateAgentsConfig(config, [...names.values()]);
-  const modelProviders = modelProvidersOf(owner?.providers);
-  checkModelResolution({ config, routers, modelProviders });
+  const modelProviders = resolvedModelProvidersOf(owner?.providers, { config, routers });
   checkToolChannels(bundle, tools);
   checkObservers(bundle.observers ?? []);
   rememberDefaultsLevels(graph, levelsOf(workflow, owner));

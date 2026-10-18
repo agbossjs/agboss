@@ -10,6 +10,7 @@ import type { Class } from "../../src/components/injection.js";
 import { DecisionsModelProvider, OpenRouterModelProvider } from "../../src/models/index.js";
 import { DEFAULT_MODEL_PROVIDERS } from "../../src/models/workflow-models.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
+import { execute } from "../helpers/flow.js";
 import { LocalModelProvider } from "./providers.fixture.js";
 import {
   BuiltInApplication,
@@ -79,7 +80,7 @@ describe("#266 AC1: an application's model providers serve its executions", () =
   }) => {
     mockLlm(LocalAgent).thenReturn(replyWith("hello"));
 
-    const result = await app.execute(LocalStart, { text: "hi" });
+    const result = await execute(app, LocalStart, { text: "hi" });
 
     expect(result.output).toEqual({ text: "hello" });
   });
