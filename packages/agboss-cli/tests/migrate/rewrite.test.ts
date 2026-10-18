@@ -47,7 +47,7 @@ describe("migrateImports (#195)", () => {
     const after = migrate(
       [
         'import { Injectable, ROUTER_FACTORY, type Router } from "agboss/core";',
-        'import type { Duration } from "agboss/testing";',
+        'import type { Duration, TestClock } from "agboss/testing";',
         'import { testWith } from "agboss/testing";',
       ].join("\n"),
     );
@@ -55,7 +55,7 @@ describe("migrateImports (#195)", () => {
     expect(after.text).toBe(
       [
         'import { Injectable, ROUTER_FACTORY, type RouterEngine as Router } from "agboss";',
-        'import type { ClockDuration as Duration } from "agboss/testing";',
+        'import type { ClockDuration as Duration, VirtualClock as TestClock } from "agboss/testing";',
         'import { testWith } from "agboss/testing";',
       ].join("\n"),
     );

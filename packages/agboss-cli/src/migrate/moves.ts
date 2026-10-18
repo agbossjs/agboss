@@ -34,7 +34,10 @@ const RENAMED: ImportMoves["names"] = {
     McpSession: { entry: "agboss/mcp" },
     createMcpService: { entry: "agboss/mcp" },
   },
-  "agboss/testing": { Duration: { entry: "agboss/testing", name: "ClockDuration" } },
+  "agboss/testing": {
+    Duration: { entry: "agboss/testing", name: "ClockDuration" },
+    TestClock: { entry: "agboss/testing", name: "VirtualClock" }, // #262: the public test clock
+  },
 };
 
 /** The moves of the installed framework: its package.json's `deprecatedExports` + renames. */
