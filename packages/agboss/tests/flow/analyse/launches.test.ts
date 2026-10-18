@@ -9,13 +9,12 @@ import {
   type ModelRouterOptions,
 } from "../../../src/flow/decorators/router.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
-import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { listOf, oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { workflowOf } from "../../../src/components/assemble.js";
 import { NodeKind } from "../../../src/flow/ast.js";
 import { declarationOf } from "../../../src/flow/decorators/declaration.js";
 import { LimitExceededError } from "../../../src/graph/limits.js";
-import { BrokenScreeningWorkflow } from "../fixtures/broken.fixture.js";
+import { BrokenScreeningWorkflow } from "../fixtures/broken-launch.fixture.js";
 import {
   CompanyDto,
   CustomerReplyDto,
@@ -73,7 +72,10 @@ type Flow = WorkflowOptions["flow"];
 
 let count = 0;
 /** A workflow of one flow, named uniquely. */
-function workflowWith(flow: Flow, options: Partial<WorkflowOptions> = {}): abstract new () => unknown {
+function workflowWith(
+  flow: Flow,
+  options: Partial<WorkflowOptions> = {},
+): abstract new () => unknown {
   count += 1;
   @Workflow({ name: `launch-case-${String(count)}-workflow`, version: "1.0.0", flow, ...options })
   class LaunchCaseWorkflow {}
@@ -151,12 +153,19 @@ class ListsAgent {}
 })
 class EitherAgent {}
 
-@WorkflowFinish({ name: "critique-workflow-finish", description: "Critiques", output: listOf(CritiqueDto) })
-class CritiqueWorkflowFinish {}
+@Agent({
+  name: "critiques-agent",
+  description: "Reads every critique",
+  prompt: "Read the critiques.",
+  model: "moonshotai/kimi-k2.6",
+  input: { critiques: listOf(CritiqueDto) },
+  output: ArticleDraftDto,
+})
+class CritiquesAgent {}
 
-const researchFlow = (join: (path: ReturnType<typeof planned>) => ReturnType<typeof planned>): Flow => [
-  join(planned().toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent).join()),
-];
+const researchFlow = (
+  join: (path: ReturnType<typeof planned>) => ReturnType<typeof planned>,
+): Flow => [join(planned().toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent).join())];
 
 describe("#273: the issue's examples pass", () => {
   it.each([
@@ -173,7 +182,12 @@ describe("#273: the issue's examples pass", () => {
 describe("#273 AC5: the join's values — checked against the branches, read by type", () => {
   it("join returns checked: a repeated agent gives listOf(…), named exactly", () => {
     const flow = researchFlow((joined) =>
-      joined.returns(ResearchDto).returns(CritiqueDto).toAgent(ArticleWriterAgent).returns(ArticleDraftDto).toFinish(ArticleDraftWorkflowFinish),
+      joined
+        .returns(ResearchDto)
+        .returns(CritiqueDto)
+        .toAgent(ArticleWriterAgent)
+        .returns(ArticleDraftDto)
+        .toFinish(ArticleDraftWorkflowFinish),
     );
     expect(errorsOf(flow)).toContainEqual({
       code: "flow.returns-mismatch",
@@ -184,10 +198,17 @@ describe("#273 AC5: the join's values — checked against the branches, read by 
 
   it("several of one class → listOf: a single field reading it is [input.several-on-path]", () => {
     const flow = researchFlow((joined) =>
-      joined.returns(ResearchDto).returns(listOf(CritiqueDto)).toAgent(CritiqueReaderAgent).returns(ArticleDraftDto).toFinish(ArticleDraftWorkflowFinish),
+      joined
+        .returns(ResearchDto)
+        .returns(listOf(CritiqueDto))
+        .toAgent(CritiqueReaderAgent)
+        .returns(ArticleDraftDto)
+        .toFinish(ArticleDraftWorkflowFinish),
     );
     expect(codesOf(flow)).toContain("input.several-on-path");
-    expect(errorsOf(flow).find((found) => found.code === "input.several-on-path")?.message).toContain(
+    expect(
+      errorsOf(flow).find((found) => found.code === "input.several-on-path")?.message,
+    ).toContain(
       "critique-reader-agent.critique (CritiqueDto): critic-agent brings several CritiqueDto values on the path",
     );
   });
@@ -198,24 +219,41 @@ describe("#273 AC5: the join's values — checked against the branches, read by 
         .toParallelAgents(CriticAgent, CriticAgent)
         .join()
         .returns(listOf(CritiqueDto))
-        .toFinish(CritiqueWorkflowFinish),
-      planned().toParallelAgents(PlanResearcherAgent).join().returns(ResearchDto).toFinish(CritiqueWorkflowFinish),
+        .toAgent(CritiquesAgent)
+        .returns(ArticleDraftDto)
+        .toFinish(ArticleDraftWorkflowFinish),
+      planned()
+        .toParallelAgents(PlanResearcherAgent)
+        .join()
+        .returns(ResearchDto)
+        .toFinish(ArticleDraftWorkflowFinish),
     ];
     expect(errorsOf(flow).map((found) => found.message)).toContainEqual(
-      expect.stringContaining("the join of planner-agent → toParallelAgents(plan-researcher-agent) returns ResearchDto that no node reads"),
+      expect.stringContaining(
+        "the join of planner-agent → toParallelAgents(plan-researcher-agent) returns ResearchDto that no node reads",
+      ),
     );
   });
 
   it("a branch whose output cannot be joined: a list of lists, a lone oneOf", () => {
     const lists = errorsOf([
-      planned().toParallelAgents(ListsAgent, ListsAgent).join().toFinish(CritiqueWorkflowFinish),
+      planned()
+        .toParallelAgents(ListsAgent, ListsAgent)
+        .join()
+        .toFinish(ArticleDraftWorkflowFinish),
     ]);
     expect(lists.map((found) => found.message)).toContainEqual(
-      expect.stringContaining("lists-agent gives listOf(CritiqueDto), several times — a join holds no list of lists"),
+      expect.stringContaining(
+        "lists-agent gives listOf(CritiqueDto), several times — a join holds no list of lists",
+      ),
     );
-    const either = errorsOf([planned().toParallelAgents(EitherAgent).join().toFinish(CritiqueWorkflowFinish)]);
+    const either = errorsOf([
+      planned().toParallelAgents(EitherAgent).join().toFinish(ArticleDraftWorkflowFinish),
+    ]);
     expect(either.map((found) => found.message)).toContainEqual(
-      expect.stringContaining("either-agent gives oneOf(CritiqueDto, ResearchDto) — a join takes one class per branch"),
+      expect.stringContaining(
+        "either-agent gives oneOf(CritiqueDto, ResearchDto) — a join takes one class per branch",
+      ),
     );
   });
 
@@ -276,7 +314,9 @@ describe("#273 AC8: a value that may be missing is optional(…) for every consu
         .toFinish(HelpDeskWorkflowFinish),
     ];
     expect(errorsOf(flow).map((found) => found.message)).toContainEqual(
-      expect.stringContaining("refund-reader-agent.refund (RefundPolicyDto) is not produced on the path"),
+      expect.stringContaining(
+        "refund-reader-agent.refund (RefundPolicyDto) is not produced on the path",
+      ),
     );
   });
 });
@@ -296,7 +336,9 @@ describe("#273 AC10: every per-item launch has maxItems", () => {
         .toParallelAgents(CriticAgent, CriticAgent, { maxItems: 3 })
         .join()
         .returns(listOf(CritiqueDto))
-        .toFinish(CritiqueWorkflowFinish),
+        .toAgent(CritiquesAgent)
+        .returns(ArticleDraftDto)
+        .toFinish(ArticleDraftWorkflowFinish),
     ];
     expect(codesOf(widened)).toContain("launch.max-items-without-list");
   });
@@ -315,19 +357,30 @@ describe("#273 AC4: a launch is joined, and its branches end at the join", () =>
 
   it("a branch continued elsewhere is [launch.branch-continued]", () => {
     const flow = [
-      planned().toParallelAgents(CriticAgent, CriticAgent).join().returns(listOf(CritiqueDto)).toFinish(CritiqueWorkflowFinish),
-      agent(CriticAgent).returns(CritiqueDto).toFinish(CritiqueWorkflowFinish),
+      planned()
+        .toParallelAgents(CriticAgent, CriticAgent)
+        .join()
+        .returns(listOf(CritiqueDto))
+        .toAgent(CritiquesAgent)
+        .returns(ArticleDraftDto)
+        .toFinish(ArticleDraftWorkflowFinish),
+      agent(CriticAgent).returns(CritiqueDto).toFinish(ArticleDraftWorkflowFinish),
     ];
     expect(errorsOf(flow)).toContainEqual(
       expect.objectContaining({
         code: "launch.branch-continued",
-        message: expect.stringContaining("critic-agent is a branch of planner-agent → toParallelAgents(critic-agent, critic-agent)"),
+        message: expect.stringContaining(
+          "critic-agent is a branch of planner-agent → toParallelAgents(critic-agent, critic-agent)",
+        ),
       }),
     );
   });
 
   it("two .onJoinError handlers of one class on a join", () => {
-    const side = () => toAction(NotifyOperatorAction).returns(ScreeningFailedDto).toFinish(ScreeningFailedWorkflowFinish);
+    const side = () =>
+      toAction(NotifyOperatorAction)
+        .returns(ScreeningFailedDto)
+        .toFinish(ScreeningFailedWorkflowFinish);
     const flow = [
       screened()
         .toParallelAgents(CompanyAuditAgent, { maxItems: 3 })
@@ -359,7 +412,9 @@ describe("#273 AC4: a launch is joined, and its branches end at the join", () =>
     expect(errorsOf(flow)).toContainEqual(
       expect.objectContaining({
         code: "flow.returns-mismatch",
-        message: expect.stringContaining("gives nothing — its actions have no output; remove .returns(PaymentDto) after .join()"),
+        message: expect.stringContaining(
+          "gives nothing — its actions have no output; remove .returns(PaymentDto) after .join()",
+        ),
       }),
     );
   });
@@ -379,7 +434,10 @@ const modelRouter = (name: string, routes: ModelRouterOptions["routes"]) => {
   return LaunchRouter;
 };
 
-const routerFlow = (launcher: abstract new () => unknown, targets: readonly (abstract new () => unknown)[]): Flow => [
+const routerFlow = (
+  launcher: abstract new () => unknown,
+  targets: readonly (abstract new () => unknown)[],
+): Flow => [
   start(HelpDeskWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toRouter(launcher)
@@ -409,7 +467,9 @@ describe("#273 AC6, S50: a router's launch follows its routes' policies", () => 
       { target: OrderLookupAgent, spawn: SpawnPolicy.Always, prompt: "Always" },
       { target: RefundPolicyAgent, spawn: SpawnPolicy.OnDemand, prompt: " " },
     ] as unknown as ModelRouterOptions["routes"];
-    const codes = codesOf(routerFlow(modelRouter("prompted-router", routes), [OrderLookupAgent, RefundPolicyAgent]));
+    const codes = codesOf(
+      routerFlow(modelRouter("prompted-router", routes), [OrderLookupAgent, RefundPolicyAgent]),
+    );
     expect(codes).toContain("router.prompt-on-always");
     expect(codes).toContain("router.no-prompt");
   });
@@ -445,7 +505,9 @@ describe("#273 AC6, S50: a router's launch follows its routes' policies", () => 
 
 describe("#273: steps and the worst case count the launch", () => {
   it("maxSteps counts the copies that always run", () => {
-    expect(codesOf(flowOf(ResearchWorkflow), { maxSteps: 4 })).toContain("limits.max-steps-too-low");
+    expect(codesOf(flowOf(ResearchWorkflow), { maxSteps: 4 })).toContain(
+      "limits.max-steps-too-low",
+    );
     expect(codesOf(flowOf(ResearchWorkflow), { maxSteps: 5 })).toEqual([]);
   });
 
@@ -455,7 +517,9 @@ describe("#273: steps and the worst case count the launch", () => {
   });
 
   it("the worst case of one call: a per-item launch at maxItems, capped by maxSteps", () => {
-    const [wide] = checkWorkflow(workflowWith(flowOf(ScreeningWorkflow), { maxSteps: 100 })).analysis?.worstCases ?? [];
+    const [wide] =
+      checkWorkflow(workflowWith(flowOf(ScreeningWorkflow), { maxSteps: 100 })).analysis
+        ?.worstCases ?? [];
     expect(wide).toEqual({
       start: "screening-workflow-start",
       executions: 1,

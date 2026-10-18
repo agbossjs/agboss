@@ -46,7 +46,9 @@ function widthViolations(context: AnalysisContext, launch: FlowLaunch): readonly
   const { element } = items;
   const [branch] = launch.branches;
   if (typeof element !== "function" || branch === undefined) return found;
-  const reads = (context.fields.get(branch.node) ?? []).some((field) => field.slot === slotOfDto(element));
+  const reads = (context.fields.get(branch.node) ?? []).some(
+    (field) => field.slot === slotOfDto(element),
+  );
   if (!reads) {
     const item = dtoLabel(element);
     const message = `${branch.node} runs once per ${item} of ${list} (${label}), but reads no ${item} — add an input field of type ${item}`;
@@ -73,9 +75,13 @@ function joinReturnsViolations(join: JoinEdge): readonly RuleViolation[] {
   const label = launchLabel(join.launch);
   const nodes = [join.launch.launcher];
   const problems = join.groups.flatMap((group) =>
-    group.problem === undefined ? [] : [violation("flow.returns-mismatch", `${label}: ${group.problem}`, nodes)],
+    group.problem === undefined
+      ? []
+      : [violation("flow.returns-mismatch", `${label}: ${group.problem}`, nodes)],
   );
-  const want = join.groups.flatMap((group) => (group.shape === undefined ? [] : [shapeLabel(group.shape)]));
+  const want = join.groups.flatMap((group) =>
+    group.shape === undefined ? [] : [shapeLabel(group.shape)],
+  );
   const got = join.written.map(shapeLabel);
   if (problems.length > 0 || sorted(want) === sorted(got)) return problems;
   const message =
@@ -88,7 +94,10 @@ function joinReturnsViolations(join: JoinEdge): readonly RuleViolation[] {
 
 const ROUTER_LAUNCH: RouteListing = { call: ".toParallelAgents(…)", item: "" };
 
-function routerLaunchViolations(context: AnalysisContext, launch: FlowLaunch): readonly RuleViolation[] {
+function routerLaunchViolations(
+  context: AnalysisContext,
+  launch: FlowLaunch,
+): readonly RuleViolation[] {
   const router = context.graph.nodes.get(launch.launcher);
   if (router?.declaration.kind !== NodeKind.Router) return [];
   return [
@@ -98,7 +107,9 @@ function routerLaunchViolations(context: AnalysisContext, launch: FlowLaunch): r
 }
 
 const joinsOf = (edges: readonly FlowEdge[]): readonly JoinEdge[] =>
-  edges.flatMap((edge) => (edge.kind === EdgeKind.Join && edge.join !== undefined ? [edge.join] : []));
+  edges.flatMap((edge) =>
+    edge.kind === EdgeKind.Join && edge.join !== undefined ? [edge.join] : [],
+  );
 
 export function launchRules(context: AnalysisContext): readonly RuleViolation[] {
   const { launches } = context.walked;

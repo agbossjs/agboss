@@ -40,4 +40,3 @@ export class RefundPolicyDto {
   @Text({ prompt: "what the refund policy says" })
   policy!: string;
 }
-

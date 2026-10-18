@@ -36,16 +36,17 @@ function duplicates(handlers: readonly Handler[]): readonly RuleViolation[] {
 }
 
 export function errorRules(context: AnalysisContext): readonly RuleViolation[] {
-  const steps = context.walked.errorHandlers.map(
-    (found): Handler => ({ node: found.node, site: found.node, call: "onError", error: found.step.error.name }),
-  );
-  const joins = context.walked.joinErrorHandlers.map(
-    (found): Handler => ({
-      node: found.node,
-      site: `the join of ${launchLabel(found.launch)}`,
-      call: "onJoinError",
-      error: found.handler.error.name,
-    }),
-  );
+  const steps = context.walked.errorHandlers.map((found): Handler => ({
+    node: found.node,
+    site: found.node,
+    call: "onError",
+    error: found.step.error.name,
+  }));
+  const joins = context.walked.joinErrorHandlers.map((found): Handler => ({
+    node: found.node,
+    site: `the join of ${launchLabel(found.launch)}`,
+    call: "onJoinError",
+    error: found.handler.error.name,
+  }));
   return duplicates([...steps, ...joins]);
 }

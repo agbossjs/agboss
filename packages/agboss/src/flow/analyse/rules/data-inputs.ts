@@ -50,6 +50,30 @@ function pathTo(context: AnalysisContext, node: ComponentName, state: ScopeState
   return witnessPath(context.dataflow, { node, key: state.key }).join(" → ");
 }
 
+/** A field with no value to read on a path: several from a join, else not produced or outdated. */
+function missingViolation(
+  context: AnalysisContext,
+  node: ComponentName,
+  field: ResolvedField,
+  missing: { readonly state: ScopeState; readonly slot: SlotState },
+): RuleViolation | undefined {
+  const path = pathTo(context, node, missing.state);
+  const inner = shapeLabel(innerShape(field.shape));
+  const joined = severalJoined(field, missing.state);
+  if (joined !== undefined) {
+    const message =
+      `${field.label}: ${joined.producers.join(", ")} brings several ${inner} values on the path ` +
+      `${path} — declare listOf(${inner}), or give the values different classes`;
+    return violation("input.several-on-path", message, [node]);
+  }
+  if (!field.isRequired) return undefined;
+  const message =
+    missing.slot.status === SlotStatus.Outdated
+      ? `${field.label} has no current ${inner} on the path ${path} — the latest one is outdated; renew it on that path before ${node}`
+      : `${field.label} is not produced on the path ${path}`;
+  return violation("input.missing-on-path", message, [node]);
+}
+
 function fieldViolations(
   context: AnalysisContext,
   node: ComponentName,
@@ -60,21 +84,9 @@ function fieldViolations(
   const absent = slots.filter(({ slot }) => slot.status === SlotStatus.Absent);
   const found: RuleViolation[] = [];
   const [shallowest] = slots.filter(({ slot }) => isMissing(field, slot));
-  const joined = shallowest === undefined ? undefined : severalJoined(field, shallowest.state);
-  if (joined !== undefined && shallowest !== undefined) {
-    const inner = shapeLabel(innerShape(field.shape));
-    const message =
-      `${field.label}: ${joined.producers.join(", ")} brings several ${inner} values on the path ` +
-      `${pathTo(context, node, shallowest.state)} — declare listOf(${inner}), or give the values different classes`;
-    found.push(violation("input.several-on-path", message, [node]));
-  } else if (field.isRequired && shallowest !== undefined) {
-    const path = pathTo(context, node, shallowest.state);
-    const message =
-      shallowest.slot.status === SlotStatus.Outdated
-        ? `${field.label} has no current ${shapeLabel(innerShape(field.shape))} on the path ${path} — the latest one is outdated; renew it on that path before ${node}`
-        : `${field.label} is not produced on the path ${path}`;
-    found.push(violation("input.missing-on-path", message, [node]));
-  }
+  const missing =
+    shallowest === undefined ? undefined : missingViolation(context, node, field, shallowest);
+  if (missing !== undefined) found.push(missing);
   if (!field.isRequired && absent.length === states.length) {
     const message =
       `${field.label} is optional, but no path into ${node} produces it — return ` +

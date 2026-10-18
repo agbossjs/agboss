@@ -107,7 +107,7 @@ import { reviewerAgentOptions } from "./fixtures/reviewer-agent.options.js";
 import { DraftChangesDto } from "./fixtures/data-dtos.js";
 import { ApprovalDto, CritiqueDto, DraftDto } from "./fixtures/review-dtos.js";
 import { CritiqueAction, StoryReviewerAgent } from "./fixtures/review.fixture.js";
-import { ItemBlindAgent } from "./fixtures/broken.fixture.js";
+import { ItemBlindAgent } from "./fixtures/broken-launch.fixture.js";
 import {
   CompanyDto,
   CustomerReplyDto as HelpDeskReplyDto,
@@ -698,7 +698,11 @@ describe("#273: parallel launches and their joins", () => {
     launched.returns(ResearchDto);
     const flow: readonly FlowPath[] = [
       // @ts-expect-error — a path that stops at a launch is not a path
-      start(OfferWorkflowStart).returns(ShortlistDto).toAgent(DraftAgent).returns(OfferDraftDto).toParallelAgents(ReviewerAgent),
+      start(OfferWorkflowStart)
+        .returns(ShortlistDto)
+        .toAgent(DraftAgent)
+        .returns(OfferDraftDto)
+        .toParallelAgents(ReviewerAgent),
     ];
     expectTypeOf(launched).toHaveProperty("join");
     expectTypeOf(flow).not.toBeAny();
@@ -709,8 +713,9 @@ describe("#273: parallel launches and their joins", () => {
     charged().toParallelAgents(SendReceiptAction);
     // @ts-expect-error — critic-agent is not an action
     planned().toParallelActions(CriticAgent);
+    const routed = start(OfferWorkflowStart).returns(ShortlistDto).toRouter(MainRouter);
     // @ts-expect-error — a router launches agents only
-    start(OfferWorkflowStart).returns(ShortlistDto).toRouter(MainRouter).toParallelActions(SendOfferAction);
+    routed.toParallelActions(SendOfferAction);
     expectTypeOf(charged()).toHaveProperty("toParallelActions");
   });
 
@@ -738,8 +743,9 @@ describe("#273: parallel launches and their joins", () => {
       .onJoinError(LimitExceededError, toAction(NotifyOperatorAction))
       .returns(listOf(CompanyCheckDto))
       .toAgent(RankerAgent);
+    const audited = screened().toParallelAgents(CompanyAuditAgent, { maxItems: 50 }).join();
     // @ts-expect-error — one run per item gives a list
-    screened().toParallelAgents(CompanyAuditAgent, { maxItems: 50 }).join().returns(CompanyCheckDto);
+    audited.returns(CompanyCheckDto);
     // @ts-expect-error — item-blind-agent reads no CompanyDto: [launch.item-not-read]
     screened().toParallelAgents(ItemBlindAgent, { maxItems: 5 });
     expectTypeOf<InputOf<ItemBlindAgent>>().toHaveProperty("__error");
@@ -747,7 +753,9 @@ describe("#273: parallel launches and their joins", () => {
 
   it("AC11: output-less actions join — .join() goes on with .to…(…) at once", () => {
     const joined = charged()
-      .toParallelActions(SendReceiptAction, UpdateCrmAction, ReserveGoodsAction, { maxConcurrency: 3 })
+      .toParallelActions(SendReceiptAction, UpdateCrmAction, ReserveGoodsAction, {
+        maxConcurrency: 3,
+      })
       .join();
     joined.toFinish(PaymentWorkflowFinish);
     // @ts-expect-error — the actions give nothing: no .returns after their join
@@ -768,7 +776,9 @@ describe("#273: parallel launches and their joins", () => {
       .toAgent(AnswerAgent);
     // @ts-expect-error — refund-policy-agent is OnDemand: its value may be missing
     joined.returns(RefundPolicyDto);
-    expectTypeOf<RouterAnswerOf<OffersRouter>>().toEqualTypeOf<readonly (typeof LoyaltyOfferAgent)[]>();
+    expectTypeOf<RouterAnswerOf<OffersRouter>>().toEqualTypeOf<
+      readonly (typeof LoyaltyOfferAgent)[]
+    >();
     expectTypeOf<InputOf<AnswerAgent>["order"]>().toEqualTypeOf<
       Produced<OrderStatusDto, typeof OrderLookupAgent>
     >();

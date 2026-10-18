@@ -157,7 +157,9 @@ export function edgeKey(edge: FlowEdge): string {
       `${shapeLabel(write.shape)}@${(write.about ?? []).map(dtoLabel).join("+")}:${String(write.isCase)}`,
   );
   const joined = (edge.join?.written ?? []).map(shapeLabel).join(",");
-  return [edge.from, edge.to, edge.kind, edge.error?.name ?? "", writes.join(","), joined].join("|");
+  return [edge.from, edge.to, edge.kind, edge.error?.name ?? "", writes.join(","), joined].join(
+    "|",
+  );
 }
 
 /** Edges leaving each node, in canonical order. */

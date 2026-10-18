@@ -146,13 +146,7 @@ export interface JoinStep {
 }
 
 export type Step =
-  | ReturnsStep
-  | ToStep
-  | SwitchStep
-  | ChooseOneStep
-  | OnErrorStep
-  | LaunchStep
-  | JoinStep;
+  ReturnsStep | ToStep | SwitchStep | ChooseOneStep | OnErrorStep | LaunchStep | JoinStep;
 
 /** The steps inside `route(X)…`, `caseOf(D)…` or the side path of `.onError`. */
 export interface SubPath {

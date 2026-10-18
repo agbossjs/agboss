@@ -67,11 +67,21 @@ function groupOf(launch: FlowLaunch, gathered: Gathered): JoinGroup {
   const isSeveral = isList;
   if (typeof output !== "function" && output.kind === Wrapper.List)
     return isList
-      ? { slot, producers, isSeveral, problem: `${names} gives ${label}, several times — a join holds no list of lists; launch it once, or give it one value per run` }
+      ? {
+          slot,
+          producers,
+          isSeveral,
+          problem: `${names} gives ${label}, several times — a join holds no list of lists; launch it once, or give it one value per run`,
+        }
       : withShape(producers, output, false);
   if (isList) return withShape(producers, listOf(output), true);
   if (typeof output !== "function")
-    return { slot, producers, isSeveral, problem: `${names} gives ${label} — a join takes one class per branch; branch it with .toAgent(…).returns(${label}).switch(…) instead` };
+    return {
+      slot,
+      producers,
+      isSeveral,
+      problem: `${names} gives ${label} — a join takes one class per branch; branch it with .toAgent(…).returns(${label}).switch(…) instead`,
+    };
   const [branch] = branches;
   return withShape(producers, branch?.isOptional === true ? optional(output) : output, false);
 }

@@ -22,14 +22,19 @@ function joinText(analysis: FlowAnalysis, launch: FlowLaunch, names: ImportTable
   const groups = joinGroupsOf(launch, (name) => analysis.graph.nodes.get(name));
   const [problem] = groups.flatMap((group) => (group.problem === undefined ? [] : [group.problem]));
   if (problem !== undefined) return errorType(problem);
-  const values = groups.flatMap((group) => (group.shape === undefined ? [] : [valueText(group.shape, names)]));
+  const values = groups.flatMap((group) =>
+    group.shape === undefined ? [] : [valueText(group.shape, names)],
+  );
   const [one] = values;
   if (one === undefined) return names.use(TablesImport.NoOutput);
   return values.length === 1 ? one : `readonly [${values.join(", ")}]`;
 }
 
 /** Every launch of every workflow, by key; the first workflow's entry for a key wins. */
-export function joinEntries(workflows: readonly Analysed[], names: ImportTable): ReadonlyMap<string, string> {
+export function joinEntries(
+  workflows: readonly Analysed[],
+  names: ImportTable,
+): ReadonlyMap<string, string> {
   const entries = new Map<string, string>();
   for (const { analysis } of workflows) {
     for (const edge of analysis.graph.edges) {

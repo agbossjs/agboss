@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NodeKind, StepKind, type FlowPath } from "../../src/flow/ast.js";
-import { FlowSyntaxError, toAction, toFinish } from "../../src/flow/builder.js";
+import { FlowSyntaxError, toAction } from "../../src/flow/builder.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { listOf, optional } from "../../src/flow/dto-wrappers.js";
 import { flowLines } from "../../src/flow/print.js";
@@ -28,7 +28,7 @@ import {
   ScreeningWorkflow,
   SendReceiptAction,
 } from "./fixtures/launch.fixture.js";
-import { agent, action, router, start } from "./fixtures/paths.js";
+import { agent, action, router, start, toFinish } from "./fixtures/paths.js";
 import { PlanDto, ResearchDto } from "./fixtures/review-dtos.js";
 import { WorkflowStartTextDto } from "./fixtures/dtos.js";
 
@@ -113,21 +113,23 @@ describe("#273: the order around a launch holds for untyped code too (FlowSyntax
 
   it("a launch is followed by .join()", () => {
     expect(() => launched().toAgent(CriticAgent)).toThrow(FlowSyntaxError);
-    expect(() => launched().returns(ResearchDto)).toThrow("a parallel launch is followed by .join()");
+    expect(() => launched().returns(ResearchDto)).toThrow(
+      "a parallel launch is followed by .join()",
+    );
   });
 
   it(".join() follows a launch, .onJoinError stands before the join's .returns", () => {
     expect(() => agent(PlannerAgent).join()).toThrow(".join() follows a parallel launch");
     const valued = launched().join().returns(ResearchDto);
-    expect(() => valued.onJoinError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish))).toThrow(
-      ".onJoinError(E, …) stands right after .join(), before its .returns(…)",
-    );
+    expect(() =>
+      valued.onJoinError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish)),
+    ).toThrow(".onJoinError(E, …) stands right after .join(), before its .returns(…)");
   });
 
   it(".onError after a join, and a second launch right after a join, are refused", () => {
-    expect(() => launched().join().onError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish))).toThrow(
-      "use .onJoinError(E, …) right after .join()",
-    );
+    expect(() =>
+      launched().join().onError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish)),
+    ).toThrow("use .onJoinError(E, …) right after .join()");
     expect(() => launched().join().returns(ResearchDto).toParallelAgents(CriticAgent)).toThrow(
       "after .join() the path goes on with",
     );
@@ -136,7 +138,9 @@ describe("#273: the order around a launch holds for untyped code too (FlowSyntax
   it("targets are classes, the options last, the limits positive integers", () => {
     const planned = () => agent(PlannerAgent).returns(PlanDto);
     expect(() => planned().toParallelAgents()).toThrow("takes one or more component classes");
-    expect(() => planned().toParallelAgents("critic")).toThrow("takes one or more component classes");
+    expect(() => planned().toParallelAgents("critic")).toThrow(
+      "takes one or more component classes",
+    );
     expect(() => planned().toParallelAgents(CriticAgent, { maxConcurrency: 0 })).toThrow(
       "toParallelAgents(…, { maxConcurrency }) takes a positive integer",
     );
@@ -158,7 +162,9 @@ describe("#273: the order around a launch holds for untyped code too (FlowSyntax
         .toRouter(HelpDeskRouter)
         .toParallelActions(SendReceiptAction),
     ).toThrow("a router launches agents only");
-    expect(action(ChargePaymentAction).returns(PaymentDto).toParallelActions(SendReceiptAction).steps).toHaveLength(2);
+    expect(
+      action(ChargePaymentAction).returns(PaymentDto).toParallelActions(SendReceiptAction).steps,
+    ).toHaveLength(2);
   });
 });
 

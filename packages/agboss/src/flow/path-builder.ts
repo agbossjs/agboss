@@ -84,7 +84,10 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   /** The join with a new handler or value: `.onJoinError(…)` and `.returns(…)` extend it. */
   private withJoin(join: JoinStep): PathBuilder<TSource> {
-    return new PathBuilder(this.start, this.source, [...this.steps.slice(0, -1), Object.freeze(join)]);
+    return new PathBuilder(this.start, this.source, [
+      ...this.steps.slice(0, -1),
+      Object.freeze(join),
+    ]);
   }
 
   private to(target: Class, targetKind: NodeKind): PathBuilder<TSource> {
@@ -136,13 +139,19 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   }
 
   join(): PathBuilder<TSource> {
-    return this.then({ kind: StepKind.Join, returns: Object.freeze([]), onJoinError: Object.freeze([]) });
+    return this.then({
+      kind: StepKind.Join,
+      returns: Object.freeze([]),
+      onJoinError: Object.freeze([]),
+    });
   }
 
   onJoinError(error: ErrorClass, path: PathBuilder): PathBuilder<TSource> {
     const { last } = this;
     if (last?.kind !== StepKind.Join || last.returns.length > 0)
-      throw new FlowSyntaxError(".onJoinError(E, …) stands right after .join(), before its .returns(…)");
+      throw new FlowSyntaxError(
+        ".onJoinError(E, …) stands right after .join(), before its .returns(…)",
+      );
     const handler = Object.freeze({ error, path: path.asSidePath() });
     return this.withJoin({ ...last, onJoinError: Object.freeze([...last.onJoinError, handler]) });
   }

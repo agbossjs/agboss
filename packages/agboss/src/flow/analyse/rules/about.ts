@@ -48,7 +48,9 @@ interface ProducedWrite {
 }
 
 /** What each producer writes: its edges' values (not a launch edge's item) and its join values. */
-function producedWrites(context: AnalysisContext): ReadonlyMap<ComponentName, readonly ProducedWrite[]> {
+function producedWrites(
+  context: AnalysisContext,
+): ReadonlyMap<ComponentName, readonly ProducedWrite[]> {
   const byProducer = new Map<ComponentName, ProducedWrite[]>();
   const add = (producer: ComponentName, produced: ProducedWrite): void => {
     byProducer.set(producer, [...(byProducer.get(producer) ?? []), produced]);
@@ -65,9 +67,14 @@ function producedWrites(context: AnalysisContext): ReadonlyMap<ComponentName, re
 }
 
 /** The producers of a cycle: its nodes, and the branches of the launches its nodes join. */
-function producersOf(context: AnalysisContext, cycle: readonly ComponentName[]): readonly ComponentName[] {
+function producersOf(
+  context: AnalysisContext,
+  cycle: readonly ComponentName[],
+): readonly ComponentName[] {
   const branches = context.graph.edges
-    .filter((edge) => edge.kind === EdgeKind.Join && cycle.includes(edge.from) && cycle.includes(edge.to))
+    .filter(
+      (edge) => edge.kind === EdgeKind.Join && cycle.includes(edge.from) && cycle.includes(edge.to),
+    )
     .flatMap((edge) => edge.launch?.branches.map((branch) => branch.node) ?? []);
   return [...new Set([...cycle, ...branches])];
 }
@@ -132,7 +139,8 @@ function hintOf(
     return "write { about } on one of the values in the flow";
   const value = slotLabel(edge.from);
   const about = `{ about: ${slotLabel(target)} }`;
-  if (edge.join !== undefined) return `write .join().returns(${value}, ${about}) after ${edge.join}`;
+  if (edge.join !== undefined)
+    return `write .join().returns(${value}, ${about}) after ${edge.join}`;
   return edge.isCase
     ? `write caseOf(${value}, ${about}) after ${edge.producer}`
     : `write .returns(${value}, ${about}) after ${edge.producer}`;

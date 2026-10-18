@@ -117,7 +117,11 @@ export type SwitchCheck<TCases extends readonly CasePath[], TOutput> = [
  * After `.returns(…)` or `caseOf(…)`: the next transition, or a parallel launch (#273) — not right
  * after a join's values (`TCanLaunch` false).
  */
-export type AfterValue<TValue, THead extends PathHead, TCanLaunch extends boolean = true> = BuiltPath<THead> &
+export type AfterValue<
+  TValue,
+  THead extends PathHead,
+  TCanLaunch extends boolean = true,
+> = BuiltPath<THead> &
   Transitions<THead> &
   (TCanLaunch extends true ? Launches<TValue, THead> : unknown) & { readonly [pathValue]?: TValue };
 

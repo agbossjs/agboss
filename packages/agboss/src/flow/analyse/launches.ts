@@ -1,5 +1,11 @@
 import type { ComponentName } from "../registry.js";
-import { EdgeKind, type FlowEdge, type FlowLaunch, type JoinEdge, type ValueWrite } from "./flow-graph.js";
+import {
+  EdgeKind,
+  type FlowEdge,
+  type FlowLaunch,
+  type JoinEdge,
+  type ValueWrite,
+} from "./flow-graph.js";
 import { producersOfSlot } from "./join-groups.js";
 import {
   isAboutWritten,
@@ -84,7 +90,9 @@ function builtFromOf(
   provenance: Provenance,
 ): readonly SlotKey[] {
   const written = new Set(group.writes.map(slotOfWrite));
-  const read = group.producers.flatMap((branch) => branchReads(atLaunch, launch, branch, provenance));
+  const read = group.producers.flatMap((branch) =>
+    branchReads(atLaunch, launch, branch, provenance),
+  );
   return [...new Set(read)].filter((slot) => !isAboutWritten(atLaunch, slot, written)).sort();
 }
 
@@ -94,11 +102,18 @@ interface Written {
 }
 
 /** The join's values written over the scope at the launch, then their one cascade. */
-function joinWrites(launched: OutdatingStep, join: JoinEdge, provenance: Provenance): readonly OutdatingStep[] {
+function joinWrites(
+  launched: OutdatingStep,
+  join: JoinEdge,
+  provenance: Provenance,
+): readonly OutdatingStep[] {
   const atLaunch = launched.scope;
   let scopes: readonly Written[] = [{ scope: atLaunch, written: new Set() }];
   for (const group of groupWrites(join)) {
-    const origin = { producers: group.producers, builtFrom: builtFromOf(atLaunch, join.launch, group, provenance) };
+    const origin = {
+      producers: group.producers,
+      builtFrom: builtFromOf(atLaunch, join.launch, group, provenance),
+    };
     scopes = scopes.flatMap((before) =>
       afterWrites(before.scope, group.writes, origin).map((after) => ({
         scope: countSeveral(after.scope, join),
@@ -117,7 +132,11 @@ function joinWrites(launched: OutdatingStep, join: JoinEdge, provenance: Provena
 }
 
 /** Every scope an edge leads to: a join edge's values on top of its launching step's. */
-export function stepOf(edge: FlowEdge, scope: AbstractScope, provenance: Provenance): readonly OutdatingStep[] {
+export function stepOf(
+  edge: FlowEdge,
+  scope: AbstractScope,
+  provenance: Provenance,
+): readonly OutdatingStep[] {
   const launched = stepAlong(edge, scope, provenance);
   const { join } = edge;
   if (edge.kind !== EdgeKind.Join || join === undefined) return launched;

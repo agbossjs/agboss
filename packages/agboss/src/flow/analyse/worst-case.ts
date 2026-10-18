@@ -78,7 +78,10 @@ export function worstCasesOf(graph: FlowGraph, maxSteps: number | undefined): re
 
 /** The start log's line (#261): `Worst case of one x-workflow-start call: 1 workflow execution, …`. */
 export function worstCaseLine(worst: WorstCase): string {
-  const executions = worst.executions === 1 ? "1 workflow execution" : `${String(worst.executions)} workflow executions`;
+  const executions =
+    worst.executions === 1
+      ? "1 workflow execution"
+      : `${String(worst.executions)} workflow executions`;
   return (
     `Worst case of one ${worst.start} call: ${executions}, ` +
     `${String(worst.concurrentExecutions)} at the same time, ${String(worst.steps)} agent and router steps`

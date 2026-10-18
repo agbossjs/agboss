@@ -19,13 +19,19 @@ import { targetLabel } from "./routers.js";
 const targetsOf = (routes: readonly AnyRouterRoute[]): string =>
   routes.map((route) => targetLabel(route.target)).join(", ");
 
+/** A route's prompt as given — an `Always` route's type has none, untyped code may still give one. */
+function promptOf(route: AnyRouterRoute): unknown {
+  const given: unknown = Reflect.get(route, "prompt");
+  return given;
+}
+
 function modelRouteViolations(
   routerName: string,
   routes: readonly AnyRouterRoute[],
 ): readonly RuleViolation[] {
   const unstated = routes.filter((route) => route.spawn === undefined);
   const prompted = routes.filter(
-    (route) => route.spawn === SpawnPolicy.Always && route.prompt !== undefined,
+    (route) => route.spawn === SpawnPolicy.Always && promptOf(route) !== undefined,
   );
   const unprompted = routes.filter(
     (route) => route.spawn === SpawnPolicy.OnDemand && (route.prompt ?? "").trim() === "",

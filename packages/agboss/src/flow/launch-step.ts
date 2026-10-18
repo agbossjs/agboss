@@ -46,7 +46,9 @@ function limitOf(options: object, key: keyof ReadOptions, call: string): number 
 
 function optionsOf(last: unknown, call: string): ReadOptions {
   if (typeof last !== "object" || last === null)
-    throw new FlowSyntaxError(`${call}(…) takes component classes, then { maxConcurrency, maxItems }`);
+    throw new FlowSyntaxError(
+      `${call}(…) takes component classes, then { maxConcurrency, maxItems }`,
+    );
   const maxConcurrency = limitOf(last, "maxConcurrency", call);
   const maxItems = limitOf(last, "maxItems", call);
   return {
@@ -76,11 +78,13 @@ export function launchStepOf(
   const call = LAUNCH_CALLS[targetKind];
   const last = args[args.length - 1];
   const hasOptions = args.length > 0 && typeof last !== "function";
-  const targets = (hasOptions ? args.slice(0, -1) : args) as readonly unknown[];
+  const targets = hasOptions ? args.slice(0, -1) : args;
   if (targets.length === 0 || targets.some((target) => typeof target !== "function"))
     throw new FlowSyntaxError(`${call}(…) takes one or more component classes`);
   if (site.followsRouter && targetKind !== NodeKind.Agent)
-    throw new FlowSyntaxError(`a router launches agents only — .toParallelAgents(…), not ${call}(…)`);
+    throw new FlowSyntaxError(
+      `a router launches agents only — .toParallelAgents(…), not ${call}(…)`,
+    );
   const options = hasOptions ? optionsOf(last, call) : {};
   return Object.freeze({
     kind: StepKind.Launch,
@@ -91,14 +95,20 @@ export function launchStepOf(
   });
 }
 
-/** Why `next` cannot follow `previous` around a launch; undefined when it can. */
-export function launchOrderProblem(previous: Step | undefined, next: Step): string | undefined {
-  if (previous?.kind === StepKind.Launch && next.kind !== StepKind.Join)
-    return "a parallel launch is followed by .join()";
-  if (next.kind === StepKind.Join && previous?.kind !== StepKind.Launch)
-    return ".join() follows a parallel launch: .toParallelAgents(…) or .toParallelActions(…)";
-  if (previous?.kind !== StepKind.Join || next.kind === StepKind.To) return undefined;
+/** What may follow a join: `.onError(…)` is named, anything but a transition refused. */
+function afterJoinProblem(next: Step): string | undefined {
+  if (next.kind === StepKind.To) return undefined;
   return next.kind === StepKind.OnError
     ? ".onError(…) does not follow a join — use .onJoinError(E, …) right after .join()"
     : "after .join() the path goes on with .onJoinError(…), .returns(…) and one .to…(…)";
+}
+
+/** Why `next` cannot follow `previous` around a launch; undefined when it can. */
+export function launchOrderProblem(previous: Step | undefined, next: Step): string | undefined {
+  const isLaunch = previous?.kind === StepKind.Launch;
+  if (isLaunch !== (next.kind === StepKind.Join))
+    return isLaunch
+      ? "a parallel launch is followed by .join()"
+      : ".join() follows a parallel launch: .toParallelAgents(…) or .toParallelActions(…)";
+  return previous?.kind === StepKind.Join ? afterJoinProblem(next) : undefined;
 }

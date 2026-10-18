@@ -51,7 +51,9 @@ const returnsLine = (value: ReturnedValue): string =>
 /** `{ maxConcurrency: 3, maxItems: 50 }`, as written; empty without options. */
 function launchOptions(step: LaunchStep): string {
   const options = [
-    ...(step.maxConcurrency === undefined ? [] : [`maxConcurrency: ${String(step.maxConcurrency)}`]),
+    ...(step.maxConcurrency === undefined
+      ? []
+      : [`maxConcurrency: ${String(step.maxConcurrency)}`]),
     ...(step.maxItems === undefined ? [] : [`maxItems: ${String(step.maxItems)}`]),
   ];
   return options.length === 0 ? "" : `, { ${options.join(", ")} }`;

@@ -1,18 +1,7 @@
 import type { Class } from "../components/injection.js";
 import type { ErrorClass, NodeKind } from "./ast.js";
-import type {
-  KindLabel,
-  PathHead,
-  SidePath,
-  TargetCheck,
-  Transitions,
-} from "./builder-types.js";
-import type {
-  GeneratedTypeError,
-  JoinOutputOf,
-  NameOf,
-  NoOutput,
-} from "./generated-types.js";
+import type { KindLabel, PathHead, SidePath, TargetCheck, Transitions } from "./builder-types.js";
+import type { GeneratedTypeError, JoinOutputOf, NameOf, NoOutput } from "./generated-types.js";
 import type { IsSeveral, JoinValues, Returning, ValuesLeft } from "./returns-types.js";
 
 /**
@@ -35,8 +24,7 @@ export interface LaunchOptions {
 
 /** A launch's arguments: one or more component classes, then its options. */
 export type LaunchArguments =
-  | readonly [Class, ...Class[]]
-  | readonly [Class, ...Class[], LaunchOptions];
+  readonly [Class, ...Class[]] | readonly [Class, ...Class[], LaunchOptions];
 
 /** The targets of the arguments: every class, the options left out. */
 export type TargetsOf<TArgs extends readonly unknown[]> = TArgs extends readonly [

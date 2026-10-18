@@ -123,7 +123,10 @@ export type AfterReturns<
  * The options a shape takes: `{ about }` beside one class or a list, nothing beside a `oneOf`, and
  * nothing after a start — its input is no answer about anything (`[io.about-on-start]`).
  */
-export type ReturnsArguments<TShape, TSource extends ValuesSource> = TSource["takesAbout"] extends false
+export type ReturnsArguments<
+  TShape,
+  TSource extends ValuesSource,
+> = TSource["takesAbout"] extends false
   ? []
   : TShape extends OneOfWrapper
     ? []

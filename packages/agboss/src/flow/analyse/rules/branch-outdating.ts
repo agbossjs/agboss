@@ -48,7 +48,11 @@ interface JoinValue {
 
 const valueLabel = (write: ValueWrite): string => shapeLabel(writtenValue(write.shape).value);
 
-function siblingViolations(join: JoinEdge, atLaunch: AbstractScope, context: AnalysisContext): readonly RuleViolation[] {
+function siblingViolations(
+  join: JoinEdge,
+  atLaunch: AbstractScope,
+  context: AnalysisContext,
+): readonly RuleViolation[] {
   const values: readonly JoinValue[] = join.values.map((write) => ({
     write,
     producers: producersOfSlot(join.launch, join.groups, slotOfWrite(write)),
@@ -70,12 +74,21 @@ function siblingViolations(join: JoinEdge, atLaunch: AbstractScope, context: Ana
         const message =
           `${writer} returns ${valueLabel(renewing.write)}, which ${reader} of the same launch was built from: ` +
           `${reader}'s ${valueLabel(outdated.write)} is outdated at the join of ${launchLabel(join.launch)}`;
-        return [violation("launch.branch-outdates-sibling", message, [...renewing.producers, ...outdated.producers])];
+        return [
+          violation("launch.branch-outdates-sibling", message, [
+            ...renewing.producers,
+            ...outdated.producers,
+          ]),
+        ];
       }),
   );
 }
 
-function joinViolations(context: AnalysisContext, edge: FlowEdge, join: JoinEdge): readonly RuleViolation[] {
+function joinViolations(
+  context: AnalysisContext,
+  edge: FlowEdge,
+  join: JoinEdge,
+): readonly RuleViolation[] {
   const { provenance } = context.dataflow;
   return statesOf(context.dataflow, edge.from).flatMap((state) =>
     stepAlong(edge, state.scope, provenance).flatMap((launched) =>
@@ -88,7 +101,8 @@ export function branchOutdatingRules(context: AnalysisContext): readonly RuleVio
   const found = new Map<string, RuleViolation>();
   for (const edge of context.graph.edges) {
     if (edge.kind !== EdgeKind.Join || edge.join === undefined) continue;
-    for (const problem of joinViolations(context, edge, edge.join)) found.set(problem.message, problem);
+    for (const problem of joinViolations(context, edge, edge.join))
+      found.set(problem.message, problem);
   }
   return [...found.values()];
 }

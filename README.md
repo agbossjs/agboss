@@ -153,9 +153,17 @@ export class JobScoutApplication {}
 A rule needs no model: `@Router({ decidedBy: DecidedBy.Code, routes: [{ target: A }, { target: B }] })`
 on a class that `implements RouterHandler<Self>` decides in `route(input)`, returning one of its
 targets (`Route<Self>`) — no model call, cost 0, the same flow. Routes may carry the options of a
-parallel launch (#273): `spawn` (`SpawnPolicy.Always` by default on a model router's route,
-`OnDemand` on a code router's) and `failure` (`FailurePolicy.FailFast` by default)
+parallel launch (#273): `spawn` (stated on every route of a model router before a launch —
+`SpawnPolicy.Always` or `SpawnPolicy.OnDemand`; `OnDemand` by default on a code router's) and
+`failure` (`FailurePolicy.FailFast` by default)
 ([Wiki → Routers](https://github.com/agbossjs/agboss/wiki/Routers)).
+
+Several steps at once are a **parallel launch** (#273): `.toParallelAgents(ResearcherAgent,
+CriticAgent, CriticAgent, { maxConcurrency: 3 })` or `.toParallelActions(…)`, always followed by
+`.join()` and the values the branches give — `.join().returns(ResearchDto).returns(listOf(CritiqueDto))`,
+checked against the generated `JoinOutputs`; one agent after `.returns(listOf(CompanyDto))` runs once
+per item (`{ maxItems }` required). `agboss check` checks launches today; they run from #273 PR 2
+([Wiki → Workflow](https://github.com/agbossjs/agboss/wiki/Workflow)).
 
 `npx agboss check --workflow src/job-scout.workflow.ts` writes `.agboss/types.d.ts` — what types
 the paths, each node's input and `app.execute`; a generated project runs it on install

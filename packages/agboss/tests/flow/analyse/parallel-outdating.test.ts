@@ -107,7 +107,11 @@ class CompaniesAgent {}
   input: { plan: PlanDto },
   output: PlanDto,
 })
-class ReplanAction {}
+class ReplanAction {
+  execute(): Promise<PlanDto> {
+    return Promise.resolve({ outline: "again" });
+  }
+}
 
 @Action({
   name: "research-action",
@@ -115,7 +119,11 @@ class ReplanAction {}
   input: { plan: PlanDto },
   output: ResearchDto,
 })
-class ResearchAction {}
+class ResearchAction {
+  execute(): Promise<ResearchDto> {
+    return Promise.resolve({ facts: "found" });
+  }
+}
 
 @Agent({
   name: "summary-agent",
@@ -126,7 +134,11 @@ class ResearchAction {}
 })
 class SummaryAgent {}
 
-@WorkflowFinish({ name: "summary-workflow-finish", description: "The summary", output: ArticleDraftDto })
+@WorkflowFinish({
+  name: "summary-workflow-finish",
+  description: "The summary",
+  output: ArticleDraftDto,
+})
 class SummaryWorkflowFinish {}
 
 let count = 0;
@@ -134,7 +146,10 @@ function errorsOf(flow: WorkflowOptions["flow"]): readonly { code: string; messa
   count += 1;
   @Workflow({ name: `outdating-case-${String(count)}-workflow`, version: "1.0.0", flow })
   class OutdatingCaseWorkflow {}
-  return checkWorkflow(OutdatingCaseWorkflow).errors.map(({ code, message }) => ({ code, message }));
+  return checkWorkflow(OutdatingCaseWorkflow).errors.map(({ code, message }) => ({
+    code,
+    message,
+  }));
 }
 
 const planned = () =>
@@ -147,7 +162,13 @@ const summed = (path: PathBuilder<PathSource>): PathBuilder<PathSource> =>
 describe("#271 AC9: branch outdates sibling — every join kind", () => {
   it("agents: a branch renewing what a sibling read, named with the launch", () => {
     const flow = [
-      summed(planned().toParallelAgents(PlanReaderAgent, ReplannerAgent).join().returns(PlanDto).returns(ResearchDto)),
+      summed(
+        planned()
+          .toParallelAgents(PlanReaderAgent, ReplannerAgent)
+          .join()
+          .returns(PlanDto)
+          .returns(ResearchDto),
+      ),
     ];
     expect(errorsOf(flow)).toContainEqual({
       code: "launch.branch-outdates-sibling",
@@ -157,7 +178,13 @@ describe("#271 AC9: branch outdates sibling — every join kind", () => {
 
   it("actions: the same rule at the join of parallel actions", () => {
     const flow = [
-      summed(planned().toParallelActions(ResearchAction, ReplanAction).join().returns(PlanDto).returns(ResearchDto)),
+      summed(
+        planned()
+          .toParallelActions(ResearchAction, ReplanAction)
+          .join()
+          .returns(PlanDto)
+          .returns(ResearchDto),
+      ),
     ];
     expect(errorsOf(flow).map((found) => found.code)).toContain("launch.branch-outdates-sibling");
   });
@@ -177,16 +204,26 @@ describe("#271 AC9: branch outdates sibling — every join kind", () => {
     expect(errorsOf(flow)).toContainEqual(
       expect.objectContaining({
         code: "launch.branch-outdates-sibling",
-        message: expect.stringContaining("brief-reader-agent's OutlineDto is outdated at the join of brief-agent"),
+        message: expect.stringContaining(
+          "brief-reader-agent's OutlineDto is outdated at the join of brief-agent",
+        ),
       }),
     );
   });
 
   it("siblings that read nothing another renews pass", () => {
     const flow = [
-      summed(planned().toParallelAgents(PlanReaderAgent, CritiqueAgent).join().returns(CritiqueDto).returns(ResearchDto)),
+      summed(
+        planned()
+          .toParallelAgents(PlanReaderAgent, CritiqueAgent)
+          .join()
+          .returns(CritiqueDto)
+          .returns(ResearchDto),
+      ),
     ];
-    expect(errorsOf(flow).map((found) => found.code)).not.toContain("launch.branch-outdates-sibling");
+    expect(errorsOf(flow).map((found) => found.code)).not.toContain(
+      "launch.branch-outdates-sibling",
+    );
   });
 });
 
@@ -202,13 +239,19 @@ describe("#271 AC9: per-item never triggers", () => {
           .returns(listOf(PlanDto)),
       ),
     ];
-    expect(errorsOf(flow).map((found) => found.code)).not.toContain("launch.branch-outdates-sibling");
+    expect(errorsOf(flow).map((found) => found.code)).not.toContain(
+      "launch.branch-outdates-sibling",
+    );
   });
 
   it("copies of one agent never outdate each other", () => {
     const flow = [
-      summed(planned().toParallelAgents(ReplannerAgent, ReplannerAgent).join().returns(listOf(PlanDto))),
+      summed(
+        planned().toParallelAgents(ReplannerAgent, ReplannerAgent).join().returns(listOf(PlanDto)),
+      ),
     ];
-    expect(errorsOf(flow).map((found) => found.code)).not.toContain("launch.branch-outdates-sibling");
+    expect(errorsOf(flow).map((found) => found.code)).not.toContain(
+      "launch.branch-outdates-sibling",
+    );
   });
 });

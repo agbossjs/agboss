@@ -3,18 +3,14 @@ import {
   NodeKind,
   StepKind,
   type ChooseOneStep,
-  type ErrorClass,
   type FlowPath,
-  type JoinStep,
-  type LaunchStep,
   type OnErrorStep,
-  type PathSource,
   type ReturnsStep,
   type Step,
   type SwitchStep,
   type ToStep,
 } from "../ast.js";
-import { Wrapper, type OneOfWrapper } from "../dto-wrappers.js";
+import { Wrapper } from "../dto-wrappers.js";
 import { declarationOf } from "../decorators/declaration.js";
 import type { ComponentName } from "../registry.js";
 import {
@@ -25,8 +21,6 @@ import {
   type FlowEdge,
   type FlowGraph,
   type FlowLaunch,
-  type JoinEdge,
-  type ValueWrite,
 } from "./flow-graph.js";
 import { dtoLabel } from "./labels.js";
 import {
@@ -39,7 +33,8 @@ import {
   type WalkedFlow,
 } from "./walked-flow.js";
 import { NodeTable } from "./nodes.js";
-import { itemWrites, joinEdgeOf, launchOf } from "./walk-launch.js";
+import { nextCursor, type Cursor } from "./walk-cursor.js";
+import { walkJoin, walkLaunch, type LaunchRecorder } from "./walk-launch.js";
 
 /**
  * Walks the paths of a flow once (#272 PR 2): builds the graph (nodes, edges with what each step
@@ -47,22 +42,7 @@ import { itemWrites, joinEdgeOf, launchOf } from "./walk-launch.js";
  * how deep (depth), and every `switch` / `chooseOne` / `onError` with the node it follows.
  */
 
-/** Where a walk stands: the node the next step follows, and what the edge to the next node carries. */
-interface Cursor {
-  readonly current: ComponentName | undefined;
-  readonly writes: readonly ValueWrite[];
-  /** A `.returns(oneOf(…))` the next `.switch(…)` branches (#299 S54 c). */
-  readonly oneOf?: OneOfWrapper;
-  readonly entry: EdgeKind;
-  readonly error?: ErrorClass;
-  readonly depth: number;
-  readonly path: PathSource;
-  /** A launch waiting for its join, then a join waiting for its `.to…(…)` (#273). */
-  readonly launch?: FlowLaunch;
-  readonly join?: JoinEdge;
-}
-
-class FlowWalker {
+class FlowWalker implements LaunchRecorder {
   readonly table = new NodeTable();
   readonly edges: FlowEdge[] = [];
   readonly starts: ComponentName[] = [];
@@ -115,9 +95,9 @@ class FlowWalker {
         this.walkOnError(step, cursor);
         return cursor;
       case StepKind.Launch:
-        return this.walkLaunch(step, cursor);
+        return walkLaunch(this, step, cursor);
       case StepKind.Join:
-        return this.walkJoin(step, cursor);
+        return walkJoin(this, step, cursor, (steps, inner) => this.walkSteps(steps, inner));
     }
   }
 
@@ -159,42 +139,6 @@ class FlowWalker {
       ...(launch === undefined ? {} : { launch }),
       ...(join === undefined ? {} : { join }),
     });
-  }
-
-  /** A launch: one edge to each distinct target, the scope at the launch (+ its item) on it. */
-  private walkLaunch(step: LaunchStep, cursor: Cursor): Cursor {
-    if (cursor.current === undefined) return cursor;
-    const launch = launchOf(this.table, this.table.node(cursor.current), step, cursor.writes);
-    if (launch === undefined) return cursor;
-    this.launches.push(launch);
-    for (const node of launch.listed) {
-      this.placements.push({ node, depth: cursor.depth, path: cursor.path });
-      this.mentions.push({ node, kind: MentionKind.Entry, isContinued: false });
-    }
-    const writes = [...cursor.writes, ...itemWrites(launch)];
-    for (const branch of launch.branches)
-      this.edges.push({ from: cursor.current, to: branch.node, kind: EdgeKind.Launch, writes, launch });
-    return { ...cursor, launch };
-  }
-
-  /** A join: its `.onJoinError(…)` side paths, then the edge of the next `.to…(…)` (#273). */
-  private walkJoin(step: JoinStep, cursor: Cursor): Cursor {
-    const { current, launch } = cursor;
-    if (current === undefined || launch === undefined) return cursor;
-    for (const handler of step.onJoinError) {
-      this.joinErrorHandlers.push({ node: current, launch, handler });
-      const inner: Cursor = {
-        ...cursor,
-        entry: EdgeKind.JoinError,
-        error: handler.error,
-        depth: cursor.depth + 1,
-      };
-      if (this.walkSteps(handler.path.steps, inner)) continue;
-      const message = `${current}: .onJoinError(${handler.error.name}, …) leads nowhere — start it with toAction(…) or toFinish(…)`;
-      this.violations.push(violation("graph.dead-end", message, [current]));
-    }
-    const join = joinEdgeOf(launch, step, (name) => this.table.node(name));
-    return { ...cursor, entry: EdgeKind.Join, join };
   }
 
   private walkSwitch(step: SwitchStep, cursor: Cursor): void {
@@ -247,19 +191,6 @@ class FlowWalker {
     }
   }
 }
-
-/** Where a walk stands after a node is entered: nothing returned yet. */
-const nextCursor = (
-  current: ComponentName | undefined,
-  depth: number,
-  path: PathSource,
-): Cursor => ({
-  current,
-  writes: [],
-  entry: EdgeKind.Next,
-  depth,
-  path,
-});
 
 /** A route target's kind is the kind its class is declared with (the builder checked it). */
 const kindOfTarget = (target: ToStep["target"]): NodeKind =>

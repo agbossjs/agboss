@@ -368,13 +368,28 @@ one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
   per variant of a `oneOf(…)` output; `.onError(ErrorClass, toAction(…)… | toAgent(…)… | toFinish(…))` — the side
   path when the step before throws that class (its subclasses, or an error caused by it), written
   before the step's `.returns(…)`.
+- **Parallel launches (#273):** `.toParallelAgents(A, B, B, { maxConcurrency })` /
+  `.toParallelActions(…)` — each listed target runs once (a repeat is a copy), targets of that kind
+  only; with one target right after `.returns(listOf(XDto))` it runs once per item (`{ maxItems }`
+  required, `[launch.max-items-required]`; the target reads an `XDto` field, `[launch.item-not-read]`).
+  A launch is followed by `.join()` (else it does not compile), then `.onJoinError(E, side path)`
+  (never `.onError`), then `.join().returns(…)`: one value per class the branches give —
+  `listOf(XDto)` for copies, two agents with one `output` and per-item runs, `optional(XDto)` for a
+  router route that is `SpawnPolicy.OnDemand` or `FailurePolicy.Skip` — checked against the generated
+  `JoinOutputs`; actions without `output` give nothing, so `.join()` goes on with `.to…(…)`. A branch
+  sees the scope at the launch, its siblings' values only after the join; a branch renewing what a
+  sibling read is `[launch.branch-outdates-sibling]` (#271). After `.toRouter(R)` the launch lists
+  R's routes; a model router's routes state `spawn` (`[router.spawn-required]`, an `Always` route
+  has no prompt, `[router.prompt-on-always]`), a code router's `route()` returns the `OnDemand`
+  agents as a list. `agboss check` accepts launches; they run from #273 PR 2 (until then assembly
+  stops with `flow.launch-not-runnable`).
 - **Node kinds:** `@WorkflowStart` (input: a DTO, a list or a map of fields; input guards),
   `@Router`, `@Agent` (`input` fields, `output` — answered through answer tools, or text without
   them), `@Action` (code, no model: `execute(input)`; its execution through `deps: [ExecutionContext]`), `@WorkflowFinish`
   (output DTO, output guards). `app.execute(Start, input)` is typed by the generated tables:
   `input` is the start's input, `result.output` the finishes' outputs.
 - **Assembly rules** fail before any model call with **all** violations at once (`GraphRuleError`,
-  stable codes `flow.*` / `graph.*` / `input.*` / `io.*` / `router.*`): names end with their kind
+  stable codes `flow.*` / `graph.*` / `input.*` / `io.*` / `launch.*` / `router.*`): names end with their kind
   (`-agent`, `-router`, `-action`, `-workflow-start`, `-workflow-finish`, `-workflow`) and are unique
   in the application (`[name.kind-suffix]`, `[graph.duplicate-node-name]`); DTO classes on paths
   end with `Dto` (`[dto.name]`); a path ends in a finish; a router's `chooseOne` lists exactly its
@@ -465,6 +480,108 @@ export const offerPaths = [
         .returns(OfferSentDto)
         .toFinish(OfferSentWorkflowFinish),
     ),
+] as const;
+```
+
+<!-- snippet-context
+import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
+import { Flag, Text, WorkflowStartTextDto, listOf, optional } from "agboss/dto";
+
+export class CompanyDto {
+  @Text({ prompt: "the company's name" })
+  name!: string;
+}
+export class CompanyCheckDto {
+  @Flag({ prompt: "whether the company passed" })
+  passed!: boolean;
+}
+export class RankingDto {
+  @Text({ prompt: "the companies, best first" })
+  order!: string;
+}
+export class OrderStatusDto {
+  @Text({ prompt: "where the order is" })
+  status!: string;
+}
+export class RefundPolicyDto {
+  @Text({ prompt: "the refund policy" })
+  policy!: string;
+}
+export class LoyaltyOfferDto {
+  @Text({ prompt: "an offer" })
+  offer!: string;
+}
+export class CustomerReplyDto {
+  @Text({ prompt: "the reply" })
+  text!: string;
+}
+@WorkflowStart({ name: "screening-workflow-start", description: "What to look for", input: WorkflowStartTextDto })
+export class ScreeningWorkflowStart {}
+@WorkflowStart({ name: "support-workflow-start", description: "A customer's message", input: WorkflowStartTextDto })
+export class SupportWorkflowStart {}
+@Agent({ name: "screening-agent", description: "Finds companies", prompt: "Find them.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(CompanyDto) })
+export class ScreeningAgent {}
+@Agent({ name: "company-check-agent", description: "Checks one company", prompt: "Check it.", model: "moonshotai/kimi-k2.6", input: { company: CompanyDto }, output: CompanyCheckDto })
+export class CompanyCheckAgent {}
+@Agent({ name: "ranker-agent", description: "Ranks", prompt: "Rank.", model: "moonshotai/kimi-k2.6", input: { checks: listOf(CompanyCheckDto) }, output: RankingDto })
+export class RankerAgent {}
+@WorkflowFinish({ name: "ranking-workflow-finish", description: "The ranking", output: RankingDto })
+export class RankingWorkflowFinish {}
+@Agent({ name: "order-agent", description: "Looks the order up", prompt: "Look it up.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: OrderStatusDto })
+export class OrderAgent {}
+@Agent({ name: "refund-policy-agent", description: "Quotes the policy", prompt: "Quote it.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: RefundPolicyDto })
+export class RefundPolicyAgent {}
+@Agent({ name: "loyalty-agent", description: "Finds an offer", prompt: "Find one.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: LoyaltyOfferDto })
+export class LoyaltyAgent {}
+@Agent({ name: "answer-agent", description: "Replies", prompt: "Reply.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto, order: OrderStatusDto, refund: optional(RefundPolicyDto), loyalty: optional(LoyaltyOfferDto) }, output: CustomerReplyDto })
+export class AnswerAgent {}
+@WorkflowFinish({ name: "support-workflow-finish", description: "The reply", output: CustomerReplyDto })
+export class SupportWorkflowFinish {}
+@Router({
+  name: "support-router",
+  description: "Picks everyone needed",
+  decidedBy: DecidedBy.Model,
+  model: "typesafe/jev-1.13",
+  prompt: "Pick everyone needed for the customer's message.",
+  input: { message: WorkflowStartTextDto },
+  routes: [
+    { target: OrderAgent, spawn: SpawnPolicy.Always },
+    { target: RefundPolicyAgent, spawn: SpawnPolicy.OnDemand, prompt: "The message is about returns" },
+    { target: LoyaltyAgent, spawn: SpawnPolicy.Always, failure: FailurePolicy.Skip },
+  ],
+})
+export class SupportRouter {}
+// @snippet
+@Workflow({ name: "launch-workflow", version: "1.0.0", flow: launchPaths })
+export class LaunchWorkflow {}
+-->
+
+```ts
+export const launchPaths = [
+  // one agent per item of a list: its join gives one value per item
+  start(ScreeningWorkflowStart)
+    .returns(WorkflowStartTextDto)
+    .toAgent(ScreeningAgent)
+    .returns(listOf(CompanyDto))
+    .toParallelAgents(CompanyCheckAgent, { maxConcurrency: 3, maxItems: 50 })
+    .join()
+    .returns(listOf(CompanyCheckDto))
+    .toAgent(RankerAgent)
+    .returns(RankingDto)
+    .toFinish(RankingWorkflowFinish),
+
+  // a router decides who is launched; OnDemand / Skip routes give optional(…) values
+  start(SupportWorkflowStart)
+    .returns(WorkflowStartTextDto)
+    .toRouter(SupportRouter)
+    .toParallelAgents(OrderAgent, RefundPolicyAgent, LoyaltyAgent)
+    .join()
+    .returns(OrderStatusDto)
+    .returns(optional(RefundPolicyDto))
+    .returns(optional(LoyaltyOfferDto))
+    .toAgent(AnswerAgent)
+    .returns(CustomerReplyDto)
+    .toFinish(SupportWorkflowFinish),
 ] as const;
 ```
 
