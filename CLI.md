@@ -52,7 +52,7 @@ writes one tool per OpenAPI 3 operation (DTOs, a client in `services/`, tests), 
 | `agboss chat --workflow <path>`       | interactive chat (`--thread`, `--profile`, `--env`), on [`app`](App)         |
 | `agboss run --workflow <path> "task"` | one task, the answer to stdout, on [`app`](App)                              |
 | `agboss check --workflow <path>`      | writes `.agboss/types.d.ts`, then checks assembly (every flow rule at once), the environment and the prompts — exit 3 on any problem; no key ([Workflow](Workflow#generated-types)) |
-| `agboss describe --workflow <path>`   | the paths as written, each node's inputs with their producers, each `about(…)` output (`reviewer-agent → about DraftDto: oneOf(ApprovalDto, DraftChangesDto)`, [Path scope](Path-scope#outdating-current-values-only)), agents, tools, dependencies, knowledge bases, settings, config hash — no key |
+| `agboss describe --workflow <path>`   | the paths as written, each node's inputs with their producers, each value written `{ about }` (`reviewer-agent → DraftChangesDto { about: DraftDto }`, [Path scope](Path-scope#outdating-current-values-only)), `historyOf` fields with their limit, agents, tools, dependencies, knowledge bases, settings, config hash — no key |
 | `agboss check --models --workflow <path>` | every model setting against what its model supports — all problems at once, exit 1 on any; no key ([Model providers](Model-providers#fail-fast-settings-must-fit-their-models)) |
 | `agboss eval` / `agboss replay`           | score recent runs with Jev / re-run a prompt version                         |
 | `agboss golden add --name <n>`        | recent real tasks as a golden set                                            |

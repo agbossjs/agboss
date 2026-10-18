@@ -99,9 +99,10 @@ npm test
 ```
 
 - **`src/offer/`** — the review loop of [Workflow](Workflow): draft-agent → reviewer-agent; the
-  reviewer is reached from the draft and from the editor, so `agent(ReviewerAgent).switch(…)` is a
-  path of its own, and its output is `about(OfferDraftDto, oneOf(ChangesRequestedDto,
-  DraftApprovedDto))`. The editor has `maxVisits: 2`; the refused third visit is taken by
+  reviewer is reached from the draft and from the editor, so
+  `agent(ReviewerAgent).returns(oneOf(ChangesRequestedDto, DraftApprovedDto)).switch(…)` is a path
+  of its own, and the change requests are about the draft:
+  `caseOf(ChangesRequestedDto, { about: OfferDraftDto })`. The editor has `maxVisits: 2`; the refused third visit is taken by
   `.onError(VisitsLimitExceededError, toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish))`.
   Moving the `switch(…)` inline after `.toAgent(ReviewerAgent)` makes `agboss check` fail with
   `[flow.shared-node-inline]`.

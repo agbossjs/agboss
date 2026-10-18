@@ -107,8 +107,8 @@ export class OrderWorkflow {}
 ## How `.onError` behaves
 
 - It stands **right after the step that throws** (an agent, an action, a router), before that
-  step's `.returns(…)` / `.switch(…)`, or right after the source of an own path
-  (`agent(X).onError(E, …).switch(…)`). It catches that step's own failure only, never the next
+  step's `.returns(…)`, or right after the source of an own path
+  (`agent(X).onError(E, …).returns(oneOf(…)).switch(…)`). It catches that step's own failure only, never the next
   step's; the main path continues after it.
 - A step may have several; the most specific class wins, matched by class through the error's
   cause chain — a subclass is caught by its parent's handler, and so is an error caused by it

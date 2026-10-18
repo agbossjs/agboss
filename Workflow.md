@@ -59,6 +59,7 @@ export class MainRouter {}
 ## Writing a workflow
 
 <!-- snippet-context
+import { oneOf } from "agboss/dto";
 import { AskResumeWorkflowFinish, ChatWorkflowFinish, IntakeWorkflowStart, MainRouter, NoReplyWorkflowFinish, OpeningsDto, ProfileDto, ProfilerAgent, ResumeMissingDto, ScoutAgent } from "./chat.components.js";
 -->
 
@@ -79,8 +80,8 @@ import { usd } from "agboss/units";
     router(MainRouter)
       .chooseOne(
         route(ProfilerAgent)
+          .returns(oneOf(ProfileDto, ResumeMissingDto)) // its output, then one case per variant
           .switch(
-            // output: oneOf(ProfileDto, ResumeMissingDto) — one case per variant
             caseOf(ProfileDto)
               .toRouter(MainRouter), // the loop is visible: back to the router
             caseOf(ResumeMissingDto)
@@ -144,10 +145,10 @@ export class MainRouter {}
 | Part | |
 | --- | --- |
 | A line is a path | it starts with its source — `start(S)`, or `agent(X)` / `router(R)` / `action(A)` for a node reached from two or more places — then goes on with steps. The kind of every source and target is checked by the compiler (`agent(MainRouter)` does not compile) |
-| `.returns(…)` | `start(S).returns(InputDto)` — a start returns its input; after any other step, what the component's `output` gives (`.returns(A, B)` for a `oneOf`; none after a step without `output`). Checked by the compiler against the generated types |
+| `.returns(…)` | `start(S).returns(InputDto)` — a start returns its input; after any other step, what the component's `output` gives — one value per `.returns`, several (a start's map of fields) as a chain `.returns(A).returns(optional(B))` in any order; none after a step without `output`. `{ about: T }` beside one class or a list says what the value is about ([Path scope](Path-scope)). Checked by the compiler against the generated types |
 | Transitions | `.toAgent(X)`, `.toRouter(R)`, `.toAction(A)`, `.toFinish(F)` — each names its target's kind |
 | A router's choice | `.toRouter(R).chooseOne(route(A)…, route(B)…, route(F))` (or `router(R).chooseOne(…)` in its own path): exactly the router's `routes` (`[router.routes-mismatch]`), each `route(…)` continued to its end. How to choose stays in `@Router({ routes: [{ target, prompt }] })` ([Routers](Routers)) |
-| Branching by result | `.switch(caseOf(ADto)…, caseOf(BDto)…)` after an agent with a `oneOf` output — exhaustive (`[flow.switch-not-exhaustive]`, `[flow.switch-unknown-case]`) |
+| Branching by result | `.returns(oneOf(ADto, BDto)).switch(caseOf(ADto)…, caseOf(BDto)…)` after a step with a `oneOf` output — exhaustive (`[flow.switch-not-exhaustive]`, `[flow.switch-unknown-case]`); `caseOf(ADto, { about: T })` says what that variant is about, never `.returns(oneOf(…), { about })` |
 | Errors | `.onError(ErrorClass, toAction(…)… \| toAgent(…)… \| toFinish(F))` right after the step that throws, before its `.returns(…)` — see [Rollback](Rollback) |
 | One way in → inline | a node reached from one place is continued right there (also inside `route(…)`, `caseOf(…)` and `.onError(…)`); an own path for it → `[flow.single-entry-own-path]` |
 | Two or more ways in → own path | a non-terminal node reached from several places is continued in its own path (`agent(ReviewerAgent)…`), every path into it ends at it; inline → `[flow.shared-node-inline]` |
@@ -161,7 +162,7 @@ export class MainRouter {}
 <!--
 ```ts file=offer.components.ts
 import { Action, Agent, WorkflowFinish, WorkflowStart, type ActionHandler, type InputOf, type OutputOf } from "agboss";
-import { Flag, Text, about, oneOf } from "agboss/dto";
+import { Flag, Text, oneOf } from "agboss/dto";
 
 export class ShortlistDto {
   @Text({ prompt: "the shortlisted candidates" })
@@ -187,7 +188,7 @@ export class OfferSentDto {
 export class OfferWorkflowStart {}
 @Agent({ name: "draft-agent", description: "Drafts the offer", prompt: "Draft the offer.", model: "moonshotai/kimi-k2.6", input: { shortlist: ShortlistDto }, output: OfferDraftDto })
 export class DraftAgent {}
-@Agent({ name: "reviewer-agent", description: "Reviews the draft", prompt: "Review the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto }, output: about(OfferDraftDto, oneOf(ChangesRequestedDto, DraftApprovedDto)) })
+@Agent({ name: "reviewer-agent", description: "Reviews the draft", prompt: "Review the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto }, output: oneOf(ChangesRequestedDto, DraftApprovedDto) })
 export class ReviewerAgent {}
 @Agent({ name: "editor-agent", description: "Rewrites the draft by the review notes", prompt: "Rewrite the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto, changes: ChangesRequestedDto }, output: OfferDraftDto, maxVisits: 2 })
 export class EditorAgent {}
@@ -211,7 +212,7 @@ export class OfferSentWorkflowFinish {}
 -->
 
 <!-- snippet-context
-import { Workflow, VisitsLimitExceededError, agent, caseOf, start, toAction } from "agboss";
+import { Workflow, VisitsLimitExceededError, agent, caseOf, oneOf, start, toAction } from "agboss";
 import { ChangesRequestedDto, DraftAgent, DraftApprovedDto, EditorAgent, NotifyRecruiterAction, OfferDraftDto, OfferFailedWorkflowFinish, OfferSentDto, OfferSentWorkflowFinish, OfferWorkflowStart, ReviewerAgent, SendOfferAction, ShortlistDto } from "./offer.components.js";
 -->
 
@@ -227,8 +228,9 @@ import { ChangesRequestedDto, DraftAgent, DraftApprovedDto, EditorAgent, NotifyR
       .toAgent(ReviewerAgent), // every path into the reviewer ends at it
 
     agent(ReviewerAgent)
+      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
       .switch(
-        caseOf(ChangesRequestedDto)
+        caseOf(ChangesRequestedDto, { about: OfferDraftDto }) // the changes are about this draft
           .toAgent(EditorAgent) // maxVisits: 2 — the third edit is refused before its model call
           .onError(
             VisitsLimitExceededError,

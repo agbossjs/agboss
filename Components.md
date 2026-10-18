@@ -138,8 +138,8 @@ Data shapes — tool inputs and outputs, server tools, the inputs and outputs of
 **classes with one field decorator per field**, imported from `agboss/dto`. A DTO on a path (a
 node's `input` / `output`, `.returns(…)`, `caseOf(…)`) ends with `Dto` (`[dto.name]`) and its class
 name is unique in the application (`[dto.duplicate-name]`); on paths they are wrapped as
-`listOf(Dto)`, `oneOf(A, B)`, `optional(Dto)` (input only), `about(TargetDto, shape)` (an agent's
-or an action's `output` in a cycle: what its answers are about, [Path scope](Path-scope)) and
+`listOf(Dto)`, `oneOf(A, B)`, `optional(Dto)` (input only), `historyOf(Dto, { limit })` (input
+only: the current value and its earlier versions, [Path scope](Path-scope)) and
 `variant(Dto, value)` (an action returning one class of its `oneOf`). zod stays inside the framework.
 Decision: [ADR-0013](ADR-0013-DTO-classes-instead-of-zod); ready-made ones: [Standard DTOs](Standard-DTOs).
 
@@ -222,7 +222,7 @@ tools ([Agents](Agents)):
   promptUrls: ["./editor.prompt.md"],
   model: "moonshotai/kimi-k2.6",
   input: { draft: OfferDraftDto, changes: ChangesRequestedDto }, // read by type from the path
-  output: OfferDraftDto, // or oneOf(ADto, BDto), listOf(XDto), about(TargetDto, …)
+  output: OfferDraftDto, // or oneOf(ADto, BDto), listOf(XDto); what it is about: in the flow
   maxVisits: 2, // the third edit is refused before its model call
 })
 export class EditorAgent {}

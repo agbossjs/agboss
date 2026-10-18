@@ -3,6 +3,37 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the paths DSL revised: one value per `.returns`, `{ about }` in the flow, `historyOf` (#299)
+
+- **Breaking — `.returns(value, options?)` names one value** (#272 S54): a DTO class, `optional(…)`,
+  `listOf(…)` or `oneOf(…)`. Several values (a start's map of fields) are a chain,
+  `.returns(CompanyDto).returns(optional(SearchRequestDto))`, in any order; `.returns(A, B)` does not
+  compile (untyped code: `FlowSyntaxError`). `ReturnsStep` holds one `value`.
+- **Breaking — a `oneOf` output is written before its switch**: `.returns(oneOf(A, B)).switch(…)`;
+  a `.switch` without it, or with another `oneOf`, is `[flow.returns-mismatch]`.
+- **Breaking — `about(TargetDto, shape)` is removed** (with `AboutWrapper`, `DeclaredOutput`):
+  components declare a plain `output`; the flow says what a value is about —
+  `.returns(CritiqueDto, { about: PlanDto })`, `{ about: [PlanDto, BudgetEstimateDto] }`, and for a
+  `oneOf` on the case, `caseOf(ChangesRequestedDto, { about: OfferDraftDto })` (never on
+  `.returns(oneOf(…))`). A value's `about` slots are kept on `ScopeValueRecord.about`.
+  `{ about }` on a start's `.returns(…)` does not compile (`[io.about-on-start]` at assembly).
+  `[io.ambiguous-cycle]` hints name the `.returns` / `caseOf` to write it on.
+- **Breaking — no string tags** (#272 S56): `{ as: "before" }`, the tag slots, their labels
+  (`DraftDto[before]#1`) and `[flow.unused-tag]` are removed. **New `historyOf(Dto, { limit })`** in
+  `input` (root entry and `agboss/dto`; `HistoryOf<T>`, `HistoryWrapper`, `HistoryOptions`): the field
+  is `{ current, previous }` — the current value and the earlier versions oldest first, at most
+  `limit` — typed `HistoryOf<Produced<Dto, P>>` in `InputOf`, shown in the input message
+  (`### draft, earlier versions (oldest first)`) and by `describe`. It needs a current `Dto` on every
+  path (`[input.missing-on-path]`); the replaced versions are never `[input.outdated-on-path]`; a
+  `limit` that is not a positive integer → `[input.history-limit]`.
+- **`[io.ambiguous-about]`** now: a producer whose values are `{ about: T }` reading `T` in two or
+  more fields (with `historyOf(T)` the answers are about its current value);
+  **`[flow.ambiguous-field]`**: two fields of one node that read one slot.
+- **Breaking — `listOf(oneOf(A, B))` is one slot** (#272 S53): the filtered `list:ADto` / `list:BDto`
+  slots are gone; a `listOf(ADto)` field after such a step is `[input.missing-on-path]`.
+- [Path scope](Path-scope), [Workflow](Workflow), [Components](Components),
+  [Standard DTOs](Standard-DTOs).
+
 ## Unreleased — the shared contracts and the execution lease (#265, PR 1)
 
 - **New infrastructure contracts** (root entry), each with a built-in in-memory default, listed only

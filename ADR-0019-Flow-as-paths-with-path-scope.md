@@ -16,7 +16,7 @@ classes. Rollback was a saga engine that could not know how to undo a tool call.
 - **A flow line is a path** that reads as a sentence: `start(S).returns(InputDto).toRouter(R)
   .chooseOne(route(A).returns(XDto).toFinish(F), …)`. Transitions name the target's kind
   (`toAgent`, `toRouter`, `toAction`, `toFinish`); `.returns(…)` writes on the edge what the step
-  gave; `.switch(caseOf(…))` branches by the class of a `oneOf` result; `.onError(E, <side path>)`
+  gave (one value per `.returns`, #299); `.returns(oneOf(…)).switch(caseOf(…))` branches by the class of a `oneOf` result; `.onError(E, <side path>)`
   stands right after the step that throws. A node reached from two places has its own path
   (`agent(X)…`); one class is one node. Position never carries meaning ([Workflow](Workflow)).
 - **Components declare types only**: `input` by field (`{ draft: OfferDraftDto }`) and `output`

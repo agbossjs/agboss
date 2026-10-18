@@ -15,9 +15,10 @@ On paths and in `input` / `output` a DTO is wrapped by what it means (`agboss/dt
 
 | Wrapper | Where | |
 | --- | --- | --- |
-| `listOf(XDto)` / `listOf(oneOf(…))` | input, output, a start's input, `.returns(…)` | a list |
-| `oneOf(ADto, BDto, …)` | output of agents and actions | one of the classes; `.switch(caseOf(…))` branches by it |
+| `listOf(XDto)` / `listOf(oneOf(…))` | input, output, a start's input, `.returns(…)` | a list; a `listOf(oneOf(…))` is one polymorphic list — it never fills a `listOf(XDto)` field |
+| `oneOf(ADto, BDto, …)` | output of agents and actions | one of the classes; `.returns(oneOf(…)).switch(caseOf(…))` branches by it |
 | `optional(XDto)` / `optional(listOf(XDto))` | input only | may be absent |
+| `historyOf(XDto, { limit })` | input only | `HistoryOf<Produced<XDto, P>>`: `{ current, previous }`, the earlier versions oldest first (at most `limit`) |
 | `variant(XDto, value)` | an action's result | names the class of a `oneOf` it returns — never guessed by shape |
 | `isVariant(value, XDto)` | code | narrows a `oneOf` value |
 

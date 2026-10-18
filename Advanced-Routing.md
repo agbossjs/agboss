@@ -98,7 +98,7 @@ here the front router hands money matters to a second one:
 
 <!-- snippet-context
 import { Workflow, RouterFailedError, agent, caseOf, route, start, toFinish } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { WorkflowStartTextDto, oneOf } from "agboss/dto";
 import { AnswerDto, AnswerWorkflowFinish, BillingAgent, ChatAgent, EscalatedWorkflowFinish, FrontRouter, MoneyRouter, NeedsHumanDto, OpenTicketAction, RefundAgent, ReplyWorkflowFinish, TicketDto, TicketRouter, TicketWorkflowStart, TriageAgent, UnroutedWorkflowFinish } from "./nodes.js";
 -->
 
@@ -119,6 +119,7 @@ import { AnswerDto, AnswerWorkflowFinish, BillingAgent, ChatAgent, EscalatedWork
           .chooseOne(
             // 2. a branch by the result of the chosen agent
             route(BillingAgent)
+              .returns(oneOf(AnswerDto, NeedsHumanDto))
               .switch(
                 caseOf(AnswerDto)
                   .toFinish(AnswerWorkflowFinish),
@@ -152,7 +153,7 @@ export class FrontDeskWorkflow {}
 
 ## 2. A branch by the chosen step's result
 
-An agent with a `oneOf` output continues with `.switch(caseOf(…)…)` — one case per variant, each
+An agent with a `oneOf` output continues with `.returns(oneOf(…)).switch(caseOf(…)…)` — one case per variant, each
 its own path; a missing or unknown case fails assembly (`[flow.switch-not-exhaustive]`,
 `[flow.switch-unknown-case]`). Asking or refusing is just a case that leads to a finish.
 

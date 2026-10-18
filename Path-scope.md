@@ -7,20 +7,25 @@ The same definition is used by the analyser at assembly, by the generated types 
 
 ## Slots and writes
 
-- A **slot per shape**: `OfferDraftDto` and `listOf(OfferDraftDto)` are separate slots. A slot holds
-  its `latest` value and one value per **tag** (`.returns(OfferDraftDto, { as: "before" })`).
+- A **slot per shape**: `OfferDraftDto` and `listOf(OfferDraftDto)` are separate slots, and a
+  `listOf(oneOf(ADto, BDto))` is one slot of the whole polymorphic list — it never fills a
+  `listOf(ADto)` field (#299 S53: no filtered list drops the other variants; a step that hands on
+  two separate lists returns two lists). A slot holds one value: the latest.
 - Writes: a start's `.returns(…)` (its validated input), every `.returns(…)` after a step, and a
-  `caseOf(…)` branch (the variant it matched). A write replaces the slot's `latest` (and its tag
-  only, when tagged).
-- In the checkpoint a slot is plain data — `{ slot, tag, producer: "<name>", variant?: "<DtoClass>",
-  value }` — keyed by the DTO's class name, which is unique in the application
+  `caseOf(…)` branch (the variant it matched). A `.returns(…)` names **one value**; a step that
+  gives several — a start whose `input` is a map of fields — names them in a chain,
+  `.returns(CompanyDto).returns(optional(SearchRequestDto))`, in any order. A `oneOf` output is
+  written `.returns(oneOf(A, B))` and branched right after by `.switch(caseOf(A)…, caseOf(B)…)`.
+  A write replaces the slot's value.
+- In the checkpoint a slot is plain data — `{ slot, producer: "<name>", variant?: "<DtoClass>",
+  value, builtFrom, about? }` — keyed by the DTO's class name, which is unique in the application
   (`[dto.duplicate-name]`); renaming a DTO class changes the workflow's config fingerprint.
 
 ## Reads
 
-- A field `name: XDto` reads tag `name` if some path brings that tag, else `latest`;
-  `listOf(XDto)` reads the latest list; `optional(XDto)` may be absent. Two fields of one shape must
-  each resolve to their own tag (`[flow.ambiguous-field]`).
+- A field `name: XDto` reads the slot's current value; `listOf(XDto)` reads the latest list;
+  `optional(XDto)` may be absent. Two fields of one class would read the same value
+  (`[flow.ambiguous-field]`): the earlier versions are read with `historyOf(XDto)`.
 - Code (actions, finishes with `input`) gets each field as `Produced<T, P>` — `{ value, producer }`,
   `producer` the union of the classes the paths can bring; `isVariant(value, XDto)` narrows a
   `oneOf` value.
@@ -30,9 +35,9 @@ The same definition is used by the analyser at assembly, by the generated types 
   `{{input.…}}` fails assembly (`[prompt.input-in-instructions]`).
 
 <!--
-```ts file=tags.components.ts
+```ts file=history.components.ts
 import { Agent, WorkflowFinish, WorkflowStart } from "agboss";
-import { Text, about, oneOf, optional } from "agboss/dto";
+import { Text, historyOf, oneOf } from "agboss/dto";
 
 export class ShortlistDto {
   @Text({ prompt: "the shortlisted candidates" })
@@ -50,58 +55,85 @@ export class DraftApprovedDto {
   @Text({ prompt: "a note for the record", optional: true })
   note?: string;
 }
-export class DraftChangesDto {
-  @Text({ prompt: "what changed" })
-  summary!: string;
-}
-@WorkflowStart({ name: "tagged-offer-workflow-start", description: "A shortlist", input: ShortlistDto })
-export class TaggedOfferWorkflowStart {}
+@WorkflowStart({ name: "history-offer-workflow-start", description: "A shortlist", input: ShortlistDto })
+export class HistoryOfferWorkflowStart {}
 @Agent({ name: "first-draft-agent", description: "Drafts the offer", prompt: "Draft the offer.", model: "moonshotai/kimi-k2.6", input: { shortlist: ShortlistDto }, output: OfferDraftDto })
 export class FirstDraftAgent {}
-@Agent({ name: "draft-review-agent", description: "Reviews the latest draft", prompt: "Review the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto }, output: about(OfferDraftDto, oneOf(ChangesRequestedDto, DraftApprovedDto)) })
-export class DraftReviewAgent {}
-@Agent({ name: "draft-editor-agent", description: "Rewrites the draft", prompt: "Rewrite the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto, changes: ChangesRequestedDto }, output: OfferDraftDto, maxVisits: 2 })
+@Agent({ name: "draft-editor-agent", description: "Rewrites the draft", prompt: "Rewrite the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto, changes: ChangesRequestedDto }, output: OfferDraftDto, maxVisits: 3 })
 export class DraftEditorAgent {}
-@Agent({ name: "compare-agent", description: "Says what the editor changed", prompt: "Compare the drafts.", model: "moonshotai/kimi-k2.6", input: { before: OfferDraftDto, after: optional(OfferDraftDto) }, output: DraftChangesDto })
-export class CompareAgent {}
-@WorkflowFinish({ name: "draft-changes-workflow-finish", description: "What changed", output: DraftChangesDto })
-export class DraftChangesWorkflowFinish {}
+@WorkflowFinish({ name: "offer-workflow-finish", description: "The approved offer", input: { drafts: historyOf(OfferDraftDto) }, output: OfferDraftDto })
+export class OfferWorkflowFinish {
+  finish(input: { drafts: { current: { value: OfferDraftDto } } }): OfferDraftDto {
+    return input.drafts.current.value;
+  }
+}
 ```
 -->
 
-## Tags: two values of one shape
+## Earlier versions: `historyOf(XDto, { limit })`
+
+A node that needs the versions a value went through declares `historyOf(XDto)` in its `input`
+(#299 S56; there are no string tags). The field is `HistoryOf<Produced<XDto, P>>` —
+`{ current, previous }`: the current value, and the earlier versions of that slot in this execution,
+oldest first — every one, or at most `limit` (the latest ones).
 
 <!-- snippet-context
-import { Workflow, agent, caseOf, start } from "agboss";
-import { ChangesRequestedDto, CompareAgent, DraftApprovedDto, DraftChangesDto, DraftChangesWorkflowFinish, DraftEditorAgent, DraftReviewAgent, FirstDraftAgent, OfferDraftDto, ShortlistDto, TaggedOfferWorkflowStart } from "./tags.components.js";
+import { Agent, Workflow, agent, caseOf, start } from "agboss";
+import { historyOf, oneOf } from "agboss/dto";
+import { ChangesRequestedDto, DraftApprovedDto, DraftEditorAgent, FirstDraftAgent, HistoryOfferWorkflowStart, OfferDraftDto, OfferWorkflowFinish, ShortlistDto } from "./history.components.js";
 -->
 
 ```ts
+@Agent({
+  name: "draft-review-agent",
+  description: "Reviews the latest draft against the two before it",
+  prompt: "Review the draft.",
+  model: "moonshotai/kimi-k2.6",
+  input: { draft: historyOf(OfferDraftDto, { limit: 2 }) },
+  output: oneOf(ChangesRequestedDto, DraftApprovedDto),
+})
+export class DraftReviewAgent {}
+
 @Workflow({
-  name: "tagged-offer-workflow",
+  name: "history-offer-workflow",
   version: "1.0.0",
   flow: [
-    start(TaggedOfferWorkflowStart)
+    start(HistoryOfferWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(FirstDraftAgent)
-      .returns(OfferDraftDto, { as: "before" }) // the first draft, kept under its tag
-      .toAgent(DraftReviewAgent), // reads `draft`: the latest OfferDraftDto
+      .returns(OfferDraftDto)
+      .toAgent(DraftReviewAgent),
 
     agent(DraftReviewAgent)
+      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
       .switch(
-        caseOf(ChangesRequestedDto)
+        caseOf(ChangesRequestedDto, { about: OfferDraftDto }) // the changes are about this draft
           .toAgent(DraftEditorAgent)
-          .returns(OfferDraftDto, { as: "after" })
+          .returns(OfferDraftDto)
           .toAgent(DraftReviewAgent),
         caseOf(DraftApprovedDto)
-          .toAgent(CompareAgent) // input: { before: OfferDraftDto, after: optional(OfferDraftDto) }
-          .returns(DraftChangesDto)
-          .toFinish(DraftChangesWorkflowFinish),
+          .toFinish(OfferWorkflowFinish), // input: { drafts: historyOf(OfferDraftDto) }
       ),
   ],
 })
-export class TaggedOfferWorkflow {}
+export class HistoryOfferWorkflow {}
 ```
+
+| Review | `draft.current` | `draft.previous` |
+| --- | --- | --- |
+| 1 | v1 | `[]` |
+| 2 | v2 | `[v1]` |
+| 3 | v3 | `[v1, v2]` |
+| 4 | v4 | `[v2, v3]` (`limit: 2`) |
+
+- A `historyOf(XDto)` field needs a **current** `XDto` on every path into its node, else
+  `[input.missing-on-path]` — also where the latest `XDto` is outdated. The replaced versions are
+  its `previous`, never `[input.outdated-on-path]`.
+- `previous` is built from the slot's `outdatedValues` (below): each version with its producer.
+- The input message shows the current value as a field, then `### draft, earlier versions (oldest
+  first)` and the versions as a JSON array of `{ producer, value }` (`[]` on the first visit).
+- `limit` is a positive integer (`[input.history-limit]`); `describe` prints the field as
+  `draft: … (historyOf, limit 2)`.
 
 ## Outdating: current values only
 
@@ -122,14 +154,17 @@ before the user corrected it, the reviewer's notes about a draft that was rewrit
 - Limits: data from the outside world is not tracked (a tool's price may be stale), and a list is
   outdated as a whole, never item by item.
 
-### `about(TargetDto, shape)`: the direction of a cycle
+### `{ about }`: the direction of a cycle
 
 In a cycle whose classes are built from each other — the writer reads the reviewer's notes, the
-reviewer reads the writer's draft — the component that answers states what its answers are about:
-first the class, then the shape (a class, `listOf(…)` or `oneOf(…)`). A new draft outdates the
-answers about the older one; a new answer never outdates the draft. `about(…)` is a type statement
-like `optional(…)`, allowed only in an agent's or an action's `output`; `OutputOf<X>` and the answer
-tools are those of the shape.
+reviewer reads the writer's draft — the **flow** states what one of the values is about (#299 S54):
+`.returns(CritiqueDto, { about: DraftDto })` after a step that gives one class or a list
+(`{ about: [PlanDto, BudgetEstimateDto] }` for several), and for a `oneOf` on the branch,
+`caseOf(ArticleChangesDto, { about: DraftDto })` — never on `.returns(oneOf(…))`, whose variants
+mean different things (an approval is no critique of the draft). A start's `.returns(…)` takes no `{ about }`:
+its input answers nothing (a compile error, `[io.about-on-start]` at assembly). A new draft outdates the values
+about the older one; a new value about it never outdates the draft. Components declare a plain
+`output`; `OutputOf<X>` and the answer tools are those of the `output`.
 
 <!--
 ```ts file=review.components.ts
@@ -175,7 +210,7 @@ export class ArticleWorkflowFinish {}
 
 <!-- snippet-context
 import { Agent, Workflow, agent, caseOf, start } from "agboss";
-import { about, oneOf } from "agboss/dto";
+import { oneOf } from "agboss/dto";
 import { ApprovalDto, ArticleChangesDto, ArticleDto, ArticleRequestDto, ArticleWorkflowFinish, ArticleWorkflowStart, DraftDto, PublisherAgent, ResearchDto, ResearcherAgent, WriterAgent } from "./review.components.js";
 -->
 
@@ -187,7 +222,7 @@ import { ApprovalDto, ArticleChangesDto, ArticleDto, ArticleRequestDto, ArticleW
   model: "moonshotai/kimi-k2.6",
   maxVisits: 4,
   input: { draft: DraftDto },
-  output: about(DraftDto, oneOf(ApprovalDto, ArticleChangesDto)), // the answers are about this draft
+  output: oneOf(ApprovalDto, ArticleChangesDto),
 })
 export class ReviewerAgent {}
 
@@ -204,11 +239,12 @@ export class ReviewerAgent {}
     agent(WriterAgent) // two ways in: the first draft, a rewrite
       .returns(DraftDto)
       .toAgent(ReviewerAgent)
+      .returns(oneOf(ApprovalDto, ArticleChangesDto))
       .switch(
-        caseOf(ArticleChangesDto)
+        caseOf(ArticleChangesDto, { about: DraftDto }) // the notes are about this draft
           .toAgent(WriterAgent),
         caseOf(ApprovalDto)
-          .toAgent(PublisherAgent) // approval: current only while it is about the latest draft
+          .toAgent(PublisherAgent) // approval: built from the draft, current only with it
           .returns(ArticleDto)
           .toFinish(ArticleWorkflowFinish),
       ),
@@ -222,7 +258,7 @@ export class ArticleWorkflow {}
 | 2 | writer-agent → Draft#1 | — |
 | 3 | reviewer-agent → Changes#1 (about Draft#1) | — |
 | 4 | writer-agent → Draft#2 (read Changes#1) | Draft#1: replaced; Changes#1: about Draft#1 |
-| 5 | reviewer-agent → Approval#1 (about Draft#2) | — |
+| 5 | reviewer-agent → Approval#1 (built from Draft#2) | — |
 | 6 | publisher-agent reads Draft#2 and Approval#1 | — |
 
 The same agents behind a hub router that may send to any of them at any time do not assemble —
@@ -230,18 +266,18 @@ an unapproved draft can never be published:
 
 ```text
 [input.missing-on-path] writer-agent.research (ResearchDto) is not produced on the path article-workflow-start → editor-router → writer-agent
-[input.outdated-on-path] publisher-agent.approval (ApprovalDto) is outdated on the path … → reviewer-agent → editor-router → writer-agent → editor-router → publisher-agent (about DraftDto, replaced by writer-agent)
+[input.outdated-on-path] publisher-agent.approval (ApprovalDto) is outdated on the path … → reviewer-agent → editor-router → writer-agent → editor-router → publisher-agent (built from DraftDto, replaced by writer-agent)
 ```
 
-- A cycle of classes built from each other with no `about` on any of their producers →
-  `[io.ambiguous-cycle]`, the hint naming where to add it: `wrap reviewer-agent's output in
-  about(DraftDto, …)`. The same holds for `about(DraftDto, CritiqueDto)` and
-  `about(DraftDto, listOf(CritiqueDto))`.
-- `about` names a class, never one of two tagged versions: a component reading two values of the
-  class in its `about` (fields `before` and `after`) → `[io.ambiguous-about]`. Put both versions
-  into one DTO built by a step — `DraftPairDto` with `@Nested(DraftDto) before` and
-  `@Nested(DraftDto) after` — and write `about(DraftPairDto, …)`: a new draft outdates the pair
-  through `builtFrom`, and the pair outdates the answers about it.
+- A cycle of classes built from each other with no `{ about }` on any of their values →
+  `[io.ambiguous-cycle]`, the hint naming where to add it: `write caseOf(ArticleChangesDto, {
+  about: DraftDto }) after reviewer-agent`, or `write .returns(CritiqueDto, { about: DraftDto })
+  after critique-action` for a value of one class or a list.
+- `{ about: T }` means the **current** `T`. A producer whose values are `{ about: T }` and that reads
+  `T` in two or more fields (`draft: DraftDto` and `drafts: historyOf(DraftDto)`) →
+  `[io.ambiguous-about]`: read `T` in one field — with `historyOf(T)` the answers are about its
+  current value (#271 S14 after #299 S56: without tags, two values of `T` are read only through a
+  history).
 
 ### At run time
 
@@ -249,9 +285,9 @@ The runtime keeps the two channels the analyser reasons about, in the execution'
 
 - **`scope`** holds **current values only** — one `ScopeValueRecord` per slot: `valueId`, `slot`,
   `producer` (a component name), `variant` (for a `oneOf`), `value`, and `builtFrom` (the
-  `valueId`s its step read). `valueId` is `${nodeId}:${visitNumber}/${slot}` — `writer-agent:2/DraftDto`,
-  `writer-agent:1/DraftDto#before`, `chat-workflow-start:1/WorkflowStartTextDto` — the same in tests
-  and after a resume.
+  `valueId`s its step read) and `about` (the slots its `{ about }` in the flow names, when it has
+  one). `valueId` is `${nodeId}:${visitNumber}/${slot}` — `writer-agent:2/DraftDto`,
+  `chat-workflow-start:1/WorkflowStartTextDto` — the same in tests and after a resume.
 - **`outdatedValues`** is append-only: when a write renews a slot, the slot's older value and every
   value built from it, transitively, move there **in the same step**, each as an
   `OutdatedValueRecord` with `outdated: { byValueId, reason }`. `byValueId` is always the **root
@@ -261,12 +297,11 @@ The runtime keeps the two channels the analyser reasons about, in the execution'
   `BuiltFromReplaced` (it was built from one).
 
 `builtFrom` follows the same rules as the analysis: a step's `input` fields; every current value for
-an agent with `output` and no `input`; the producer's own `about(…)` target, even when it does not
-read it; never an answer about the class the step writes. After the write a value keeps only the
+an agent with `output` and no `input`; the value's own `{ about }` targets, even when its step does
+not read them; never a value about the class the step writes. After the write a value keeps only the
 sources still current — one its own write outdated (the draft a rewrite read) leaves its
 `builtFrom`, as in the analysis. The cascade starts from current values
-only, tag slots are independent (an untagged rewrite does not outdate what was built from
-`#before`), and `about` protects its target directly only — through a third class the target is
+only, and `{ about }` protects its target directly only — through a third class the target is
 outdated like any other value.
 
 Nothing that reads the scope can see an outdated value — input messages, handlers' `input`,
@@ -294,14 +329,15 @@ breaks it:
 | --- | --- |
 | `[input.missing-on-path]` | a required field has no current value on some path into the node |
 | `[input.outdated-on-path]` | a field (required or `optional`) whose value is outdated on some path into the node |
-| `[io.ambiguous-cycle]` | classes built from each other in a cycle, with no `about(…)` on their producers |
-| `[io.ambiguous-about]` | a component reading two values of the class its `about(…)` names |
+| `[io.ambiguous-cycle]` | classes built from each other in a cycle, with no `{ about }` on their values |
+| `[io.ambiguous-about]` | a producer whose values are `{ about: T }` reading `T` in two or more fields |
+| `[io.about-on-start]` | `{ about }` on a start's `.returns(…)` — its input is no answer about anything (also a compile error) |
 | `[input.never-produced]` | an `optional` field no path brings |
 | `[input.several-on-path]` | a single field where several values arrive |
 | `[flow.unused-output]` | a value returned on a path that no node reads (a `caseOf` counts as a read) |
-| `[flow.ambiguous-field]` | two fields of one shape that do not resolve to their own tags |
-| `[flow.unused-tag]` | a tag no field reads |
-| `[flow.returns-mismatch]` | `.returns(…)` that is not what the step gives |
+| `[flow.ambiguous-field]` | two fields of one node that read one slot (`historyOf` gives the earlier versions) |
+| `[input.history-limit]` | a `historyOf(…, { limit })` that is not a positive integer |
+| `[flow.returns-mismatch]` | `.returns(…)` that is not what the step gives; a `.switch` without its `.returns(oneOf(…))` |
 | `[dto.name]`, `[dto.duplicate-name]` | a DTO class on a path that does not end with `Dto`; two DTO classes of one name |
 
 The analyser works on the whole graph to a fixed point, path-sensitively: a node keeps every
