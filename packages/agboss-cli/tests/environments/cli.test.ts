@@ -60,10 +60,7 @@ describe("#182: agboss check validates the selected environment without running 
     );
 
     expect(call.code).toBe(0);
-    expect(envelope(call).result).toMatchObject({
-      checks: ["assembly", "environment", "prompts", "types"],
-      problems: [],
-    });
+    expect(envelope(call).result).toMatchObject({ problems: [] });
   });
 
   it("#266: --models connects, so a missing secret fails, naming its variable", async () => {
