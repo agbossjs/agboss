@@ -71,9 +71,12 @@ export interface QuorumMark {
   readonly rejectedBy?: readonly string[];
 }
 
-/** A judged answer: its mark and what its arbiters cost. */
+/**
+ * A judged answer: its mark and what its arbiters cost — or, when the quorum was decided before or
+ * while its arbiters checked it, no mark: the branch ends `Cancelled`, its spend kept.
+ */
 export interface MarkedAnswer {
-  readonly mark: QuorumMark;
+  readonly mark?: QuorumMark;
   readonly usage: readonly UsageRecord[];
 }
 
@@ -88,11 +91,22 @@ export function leaveQuorum(live: LiveLaunch, ticket: BranchTicket): void {
   cancelIfDecided(live);
 }
 
+/** An answer the decided quorum cancelled: no mark, its place left, its spend kept. */
+function cancelled(
+  live: LiveLaunch,
+  ticket: BranchTicket,
+  usage: readonly UsageRecord[],
+): MarkedAnswer {
+  leaveQuorum(live, ticket);
+  return { usage };
+}
+
 /**
  * The answer of a branch under a quorum: its arbiter chain (in the branch's frame), then its verdict
  * — synchronously after the chain, so `acceptedSequence` follows the order answers are accepted;
- * one accepted after the quorum was decided is `Surplus`. A launch already decided cancels the
- * answer before its arbiters are called (no check is paid for a decided quorum).
+ * one accepted after the quorum was decided (no arbiter to wait for) is `Surplus`. A check still
+ * running when the quorum is decided — `max` taken, the deadline passed — does not count (AC12):
+ * the answer is cancelled, and none is checked once the quorum is decided.
  */
 export async function markAnswer(
   live: LiveLaunch,
@@ -103,10 +117,12 @@ export async function markAnswer(
   const { quorum } = live;
   if (quorum === undefined) return undefined;
   const chain = arbiters.launch.launch.acceptedBy ?? [];
-  if (chain.length > 0) live.controller.signal.throwIfAborted();
+  const isChecked = chain.length > 0;
+  if (isChecked && live.controller.signal.aborted) return cancelled(live, ticket, []);
   const site = { node: ticket.node, answer: value?.value };
   const judged = await judgeAnswer(chain, site, arbiters.deps);
   const { usage } = judged;
+  if (isChecked && live.controller.signal.aborted) return cancelled(live, ticket, usage);
   if (!judged.isAccepted) {
     leaveQuorum(live, ticket);
     return { mark: { verdict: BranchVerdict.Rejected, rejectedBy: judged.rejectedBy }, usage };

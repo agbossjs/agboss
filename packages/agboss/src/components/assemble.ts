@@ -164,11 +164,13 @@ function checkClasses(bundle: WorkflowMeta, agents: readonly AgentMeta[]): void 
 /** The workflow's model arbiters (#279) and its model providers, every model resolved to one. */
 function modelPartsOf(
   owner: WorkflowOwner | undefined,
-  models: Omit<WorkflowModels, "modelProviders">,
+  models: Pick<WorkflowModels, "config" | "routers">,
+  graph: RuntimeGraph,
 ): Pick<AssembledWorkflow, "arbiters" | "modelProviders"> {
+  const arbiters = modelArbitersOf(graph.launches);
   return {
-    arbiters: models.arbiters ?? [],
-    modelProviders: resolvedModelProvidersOf(owner?.providers, models),
+    arbiters,
+    modelProviders: resolvedModelProvidersOf(owner?.providers, { ...models, arbiters }),
   };
 }
 
@@ -206,11 +208,7 @@ export async function workflowOf(
   const config = configOf(bundle, agents, names, mcp, judges);
   const settings = settingsOf(workflow);
   validateAgentsConfig(config, [...names.values()]);
-  const models = modelPartsOf(owner, {
-    config,
-    routers,
-    arbiters: modelArbitersOf(graph.launches),
-  });
+  const models = modelPartsOf(owner, { config, routers }, graph);
   checkWiring(bundle, tools);
   rememberDefaultsLevels(graph, levelsOf(workflow, owner));
   return {

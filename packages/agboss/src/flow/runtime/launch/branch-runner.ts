@@ -1,11 +1,8 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import { isGraphInterrupt } from "@langchain/langgraph";
-import type { Class } from "../../../components/injection.js";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
 import { extractRunContext } from "../../../core/run-context.js";
-import { totalCost, type UsageRecord } from "../../../finops/usage.js";
-import type { ArbiterClass } from "../../ast.js";
+import type { UsageRecord } from "../../../finops/usage.js";
 import { runInFrame } from "../../context/frame.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import { checkVisit, isWorkingNode } from "../limits.js";
@@ -13,8 +10,6 @@ import type { GraphNode, NodeOutcome, NodeRunner } from "../node-runner.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { startedVersionOf, stepFrameAt } from "../step-frame.js";
 import { unrecordedSpendOf, type VisitDeps } from "../visit.js";
-import type { ArbiterModel } from "./arbiter-model.js";
-import type { ArbiterDeps } from "./arbiters.js";
 import { executionSignalOf, failedStatusOf, passThroughStops } from "./branch-end.js";
 import {
   branchConfigOf,
@@ -23,10 +18,10 @@ import {
   branchTicketOf,
   type BranchLaunch,
 } from "./branch-view.js";
-import type { LaunchRegistry, LiveLaunch } from "./launch-registry.js";
+import type { LiveLaunch } from "./launch-registry.js";
 import { reportBranch } from "./launch-report.js";
-import { pendingRecordsOf } from "./pending-records.js";
-import { leaveQuorum, markAnswer, quorumMakerOf, type QuorumMark } from "./quorum-branch.js";
+import { arbiterDepsFor, liveLaunchOf, type BranchQuorumDeps } from "./branch-quorum.js";
+import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
 import { BranchStatus, type BranchOutcomeRecord, type BranchTicket } from "./records.js";
 
 /**
@@ -40,18 +35,8 @@ import { BranchStatus, type BranchOutcomeRecord, type BranchTicket } from "./rec
  * execution pass through LangGraph; everything else meets at the join.
  */
 
-/** What arbiters run on (#279): their instances from the container, their models. */
-export interface BranchArbiters {
-  readonly instanceOf: (arbiter: Class) => unknown;
-  readonly modelOf?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
-}
-
-export interface BranchDeps extends VisitDeps {
+export interface BranchDeps extends VisitDeps, BranchQuorumDeps {
   readonly graph: RuntimeGraph;
-  readonly registry: LaunchRegistry;
-  readonly arbiters?: BranchArbiters;
-  /** Where a quorum's finished branches are read back from after a resume or a crash. */
-  readonly checkpointer?: BaseCheckpointSaver;
 }
 
 /** One branch's run: where it stands, and what it gave or spent so far. */
@@ -85,40 +70,15 @@ const visited = (run: BranchRun): ExecutionStateUpdate => ({
   steps: run.ranAsStep ? 1 : 0,
 });
 
-/** The arbiters of the branch's quorum, the budgets checked before each model call. */
-function arbiterDepsOf(run: BranchRun, view: ExecutionStateType): ArbiterDeps {
-  const { budgets } = run.deps.limits;
-  const parts = run.deps.arbiters;
-  return {
-    instanceOf: parts?.instanceOf ?? ((): undefined => undefined),
-    ...(parts?.modelOf === undefined ? {} : { modelOf: parts.modelOf }),
-    beforeModelCall: async (spent) => {
-      await budgets.refresh();
-      const path = [...view.path, run.ticket.nodeId];
-      budgets.check(totalCost([...view.usage, ...run.services, ...spent]), path);
-    },
-  };
-}
-
-async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
+/** The branch's config (its signal: the execution's and the launch's) and its step frame. */
+function branchFrameOf(run: BranchRun, view: ExecutionStateType) {
   const { node, ticket, deps, live } = run;
-  const view = branchStateOf(run.state, run.owner.launch, ticket, live.spent);
-  if (isWorkingNode(node)) {
-    // the view's spend: the execution's at the launch plus the siblings that already ended (#273 S71)
-    await checkVisit(view, node, deps.limits, deps.workflow);
-    run.ranAsStep = true;
-  }
   const { run: execution } = extractRunContext(run.config, run.state.runId);
   const signal = AbortSignal.any([execution.signal, live.controller.signal]);
   const config = branchConfigOf(run.config, signal, run.state.runId);
   const { visitNumber, nodeId, copyNumber, itemIndex } = ticket;
-  const site = {
-    node,
-    visitNumber,
-    nodeId,
-    copyNumber,
-    ...(itemIndex === undefined ? {} : { itemIndex }),
-  };
+  const at = { node, visitNumber, nodeId, copyNumber };
+  const site = itemIndex === undefined ? at : { ...at, itemIndex };
   const reportUsage = (record: UsageRecord): void => {
     run.services.push({ ...record, caller: `${node.kind}:${node.id}` });
   };
@@ -126,20 +86,47 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
     ...stepFrameAt(site, view, config, deps.workflow, deps.contexts),
     services: { reportUsage },
   };
-  const arbiters = { launch: run.owner.launch, deps: arbiterDepsOf(run, view) };
+  return { config, frame };
+}
+
+/** How a branch whose node answered ended: finished with its verdict, or cancelled by its quorum. */
+function answeredEnd(
+  run: BranchRun,
+  outcome: NodeOutcome,
+  marked: MarkedAnswer | undefined,
+): BranchEnd {
+  const usage = [...(outcome.usage ?? []), ...(marked?.usage ?? []), ...run.services];
+  run.live.spent.push(...usage);
+  const update = { ...visited(run), usage, approvals: [...(outcome.approvals ?? [])] };
+  // a quorum decided while its arbiters checked the answer: cancelled, its spend kept (#279 AC12)
+  if (marked !== undefined && marked.mark === undefined)
+    return { status: BranchStatus.Cancelled, read: outcome.read, update };
+  return {
+    status: BranchStatus.Finished,
+    ...(outcome.value === undefined ? {} : { value: outcome.value }),
+    ...(marked?.mark === undefined ? {} : { mark: marked.mark }),
+    read: outcome.read,
+    update,
+  };
+}
+
+async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
+  const { node, ticket, deps, live } = run;
+  const { nodeId } = ticket;
+  const view = branchStateOf(run.state, run.owner.launch, ticket, live.spent);
+  if (isWorkingNode(node)) {
+    // the view's spend: the execution's at the launch plus the siblings that already ended (#273 S71)
+    await checkVisit(view, node, deps.limits, deps.workflow);
+    run.ranAsStep = true;
+  }
+  const { config, frame } = branchFrameOf(run, view);
+  const arbiterDeps = arbiterDepsFor({ ...deps, live, view, services: run.services, nodeId });
+  const arbiters = { launch: run.owner.launch, deps: arbiterDeps };
   const { outcome, marked } = await runInFrame(frame, async () => {
     const answered = await runner(view, config);
     return { outcome: answered, marked: await markAnswer(live, ticket, answered.value, arbiters) };
   });
-  const usage = [...(outcome.usage ?? []), ...(marked?.usage ?? []), ...run.services];
-  live.spent.push(...usage);
-  return {
-    status: BranchStatus.Finished,
-    ...(outcome.value === undefined ? {} : { value: outcome.value }),
-    ...(marked === undefined ? {} : { mark: marked.mark }),
-    read: outcome.read,
-    update: { ...visited(run), usage, approvals: [...(outcome.approvals ?? [])] },
-  };
+  return answeredEnd(run, outcome, marked);
 }
 
 /** A branch that threw: skipped, failed (aborting its siblings) or cancelled by a sibling. */
@@ -191,21 +178,6 @@ const recordOf = (launchId: string, index: number, end: BranchEnd): BranchOutcom
   ...(end.error === undefined ? {} : { error: end.error }),
   ...end.mark,
 });
-
-/** The launch's entry in this process; a quorum's rebuilt from the checkpoint (#279 S26). */
-function liveLaunchOf(
-  owner: BranchLaunch,
-  state: ExecutionStateType,
-  config: RunnableConfig | undefined,
-  deps: BranchDeps,
-): LiveLaunch {
-  const { launchId, maxConcurrency, branches } = owner.ticket;
-  const { clock } = extractRunContext(config, state.runId);
-  const pending = () => pendingRecordsOf(deps.checkpointer, config, launchId);
-  const makeQuorum = quorumMakerOf({ launch: owner.launch, ticket: owner.ticket, clock, pending });
-  const size = maxConcurrency ?? Math.max(branches.length, 1);
-  return deps.registry.liveOf(launchId, size, makeQuorum);
-}
 
 /** The LangGraph node of a branch node: it runs only as a launch's `Send`. */
 export function branchNode(node: RuntimeNode, runner: NodeRunner, deps: BranchDeps): GraphNode {

@@ -19,7 +19,10 @@ import { ArbiterError } from "./quorum-errors.js";
  * run in order and the first that accepts accepts. A code arbiter's `@OnAnswer(Agent)` method gets
  * the plain answer; a model arbiter asks its model with the agent's criterion. An arbiter that throws,
  * returns something other than a boolean or whose model does not answer fails the branch with
- * `ArbiterError` — never a rejection. A limit or a cancel passes through as it is.
+ * `ArbiterError` — never a rejection. A limit or a cancel passes through as it is. Once the launch is
+ * decided (its signal aborted) the chain stops: a running code check is abandoned at once; a model
+ * check's call, which cannot be stopped, is awaited for its cost — either way the answer does not
+ * count (the caller sees the aborted signal).
  */
 
 /** What the chain runs on: the arbiters' instances and models, and the limits before a model call. */
@@ -30,6 +33,8 @@ export interface ArbiterDeps {
   readonly modelOf?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
   /** Checks the execution's budgets before a model call, with what the chain spent so far. */
   readonly beforeModelCall: (spent: readonly UsageRecord[]) => Promise<void>;
+  /** The launch's signal: aborted once the quorum is decided. */
+  readonly signal: AbortSignal;
 }
 
 /** The answer judged: the branch's node and its value. */
@@ -53,13 +58,31 @@ const arbiterNameOf = (arbiter: ArbiterClass): string =>
 const judgementOf = (instance: unknown, method: string): unknown =>
   typeof instance === "object" && instance !== null ? Reflect.get(instance, method) : undefined;
 
+/** The check's answer, or `ABANDONED` when the launch is decided first (its rejection still handled). */
+const ABANDONED = Symbol("abandoned");
+
+function untilDecided(work: Promise<unknown>, signal: AbortSignal): Promise<unknown> {
+  if (signal.aborted) return Promise.resolve(ABANDONED);
+  return new Promise((resolve, reject) => {
+    const leave = (): void => {
+      resolve(ABANDONED);
+    };
+    signal.addEventListener("abort", leave, { once: true });
+    work.then(resolve, reject).finally(() => {
+      signal.removeEventListener("abort", leave);
+    });
+  });
+}
+
 async function byCode(arbiter: ArbiterClass, site: JudgedAnswer, deps: ArbiterDeps) {
   const method = answerMethodsOf(arbiter).find(({ agent }) => nameOfAgent(agent) === site.node);
   if (method === undefined) throw new TypeError(`no @OnAnswer method for ${site.node}`);
   const instance = deps.instanceOf(arbiter);
   const judge = judgementOf(instance, method.method);
   if (typeof judge !== "function") throw new TypeError(`${method.method} is not a method`);
-  const passed: unknown = await Promise.resolve(Reflect.apply(judge, instance, [site.answer]));
+  const work = Promise.resolve().then((): unknown => Reflect.apply(judge, instance, [site.answer]));
+  const passed = await untilDecided(work, deps.signal);
+  if (passed === ABANDONED) return { passed: false, usage: [] };
   if (typeof passed !== "boolean")
     throw new TypeError(`${method.method} returned ${String(passed)}, not true or false`);
   return { passed, usage: [] };
@@ -120,6 +143,7 @@ export async function judgeAnswer(
     for (const arbiter of step.arbiters) {
       const judged = await judgeOnce(arbiter, site, usage, deps);
       usage.push(...judged.usage);
+      if (deps.signal.aborted) return { isAccepted: false, rejectedBy: [], usage };
       if (judged.passed) {
         isAccepted = true;
         break;
