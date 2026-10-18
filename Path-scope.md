@@ -351,6 +351,20 @@ and, when several agents gave it, each element with its own `producer` (`element
 record). Each value is built from what its branches read; a per-item run's item has its list's
 `valueId`, so its result is built from the list.
 
+## Child workflows
+
+A child workflow (#263, [Workflow as a step](Workflow-as-a-step)) has a scope of its own, per
+execution: it **starts with its start input only** — nothing of the parent's scope is visible
+inside it, so a child node reading a class only the parent has is `[input.missing-on-path]` in the
+child's own check, and a value the parent returns for nobody but the child's other nodes stays
+unread (`[flow.unused-output]`). The edge into the child reads what its chosen start takes: the item
+(per item) or the chain's value, plus the start's other required fields from the parent's path —
+checked per edge (`[input.missing-on-path]`, `[input.outdated-on-path]`, `[input.several-on-path]`);
+an optional field of a map start may be missing. The child gives back exactly one value — the
+output of the finish it ended at: one `caseOf(XDto)` write (a case counts as read), a single
+`.returns(XDto)` write, or, after `.toParallelWorkflows(W, …)`, one element of the join's
+`listOf(oneOf(…))` slot; the values the child produced on its own path stay in its scope.
+
 ## Rules
 
 Checked at assembly, all at once (`GraphRuleError`), each message naming the shortest path that

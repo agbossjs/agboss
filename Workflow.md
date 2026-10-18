@@ -144,9 +144,10 @@ export class MainRouter {}
 
 | Part | |
 | --- | --- |
-| A line is a path | it starts with its source — `start(S)`, or `agent(X)` / `router(R)` / `action(A)` for a node reached from two or more places — then goes on with steps. The kind of every source and target is checked by the compiler (`agent(MainRouter)` does not compile) |
+| A line is a path | it starts with its source — `start(S)`, or `agent(X)` / `router(R)` / `action(A)` / `workflow(W)` for a node reached from two or more places — then goes on with steps. The kind of every source and target is checked by the compiler (`agent(MainRouter)` does not compile) |
 | `.returns(…)` | `start(S).returns(InputDto)` — a start returns its input; after any other step, what the component's `output` gives — one value per `.returns`, several (a start's map of fields) as a chain `.returns(A).returns(optional(B))` in any order; none after a step without `output`. `{ about: T }` beside one class or a list says what the value is about ([Path scope](Path-scope)). Checked by the compiler against the generated types |
-| Transitions | `.toAgent(X)`, `.toRouter(R)`, `.toAction(A)`, `.toFinish(F)` — each names its target's kind |
+| Transitions | `.toAgent(X)`, `.toRouter(R)`, `.toAction(A)`, `.toFinish(F)`, `.toWorkflow(W)` (a child workflow, #263) — each names its target's kind |
+| A child workflow | `.toWorkflow(W)` / `route(W)` — one child; `.toParallelWorkflows(W, { maxConcurrency, maxItems })` — one child per item, joined; the child's start chosen per edge by class, its result `.returns(XDto)` or `.returns(oneOf(…)).switch(…)` with one case per finish output class. See [Workflow as a step](Workflow-as-a-step) |
 | A router's choice | `.toRouter(R).chooseOne(route(A)…, route(B)…, route(F))` (or `router(R).chooseOne(…)` in its own path): exactly the router's `routes` (`[router.routes-mismatch]`), each `route(…)` continued to its end. How to choose stays in `@Router({ routes: [{ target, prompt }] })` ([Routers](Routers)) |
 | Branching by result | `.returns(oneOf(ADto, BDto)).switch(caseOf(ADto)…, caseOf(BDto)…)` after a step with a `oneOf` output — exhaustive (`[flow.switch-not-exhaustive]`, `[flow.switch-unknown-case]`); `caseOf(ADto, { about: T })` says what that variant is about, never `.returns(oneOf(…), { about })` |
 | Errors | `.onError(ErrorClass, toAction(…)… \| toAgent(…)… \| toFinish(F))` right after the step that throws, before its `.returns(…)` — see [Rollback](Rollback) |
@@ -373,7 +374,7 @@ export const launchPaths = [
 | What the join gives | one value per class: `XDto` for an agent listed once, `listOf(XDto)` for copies of one agent, for two agents with one `output` and for a per-item launch; `optional(XDto)` for a branch whose router route is `SpawnPolicy.OnDemand` or `FailurePolicy.Skip` ([Routing patterns](Advanced-Routing)); nothing for an action without `output`. `.join().returns(…)` names them as a chain in any order — `[flow.returns-mismatch]` otherwise; the generated `JoinOutputs` types it (keyed by the launch as written: `toParallelAgents(researcher-agent, critic-agent, critic-agent)`, `support-router.toParallelAgents(…)`, `toParallelAgents(company-check-agent) per item`) |
 | What a branch sees | the scope at the launch — plus, in a per-item run, its item as the latest single `XDto` (its target reads an `XDto` field: `[launch.item-not-read]`, also a compile error through the generated types). Its siblings' values only after the join ([Path scope → Parallel branches](Path-scope#parallel-branches)) |
 | Per item | one target right after `.returns(listOf(XDto))` — the list the chain carries, never one looked up in the scope; `{ maxItems }` is required (`[launch.max-items-required]`) and only there (`[launch.max-items-without-list]`); a longer list is truncated, never an error |
-| A branch is one step | its join continues it: a launched class continued elsewhere is `[launch.branch-continued]`. A chain of steps per item is a child workflow (#263) |
+| A branch is one step | its join continues it: a launched class continued elsewhere is `[launch.branch-continued]`. A chain of steps per item is a child workflow: `.toParallelWorkflows(W, { maxItems })` ([Workflow as a step](Workflow-as-a-step)) |
 | Several of one class | a single field reading a class the join gives as a list is `[input.several-on-path]` — declare `listOf(XDto)` |
 | Steps | the fewest steps count the copies of the agents that always run (`Always` + `FailFast`), never a per-item run; the worst case of one call counts every copy and `maxItems` runs, capped by `maxSteps` |
 | Errors | a branch's own failure is a `StepFailedError` (`step.failed`, its own code, above `step.agent`, `step.action`, `step.router`, `step.guard`) naming the step — `component`, `nodeId` (`critic-agent#2` for a copy), `visitNumber`, `itemIndex`; an action's exception is `ActionFailedError` with the original as `cause` ([Parallel launches at run time](#parallel-launches-at-run-time)) |
@@ -418,8 +419,11 @@ with `Dto` (`[dto.name]`); `.returns` matches the output (`[flow.returns-mismatc
 on every path (`[input.missing-on-path]`); a router's choice lists its routes; the existing graph
 rules — a workflow start exists, no unreachable node, no dead end, nothing after a finish, a cycle
 has `maxVisits`; a launch is joined (`[launch.join-required]`), a per-item launch has `maxItems`,
-a branch renewing what a sibling read is `[launch.branch-outdates-sibling]`. A path nested more than 4 levels deep is a warning (`[flow.path-too-deep]`), an
-error under `--strict`.
+a branch renewing what a sibling read is `[launch.branch-outdates-sibling]`; an edge into a child
+workflow enters through one start (`[graph.no-matching-start]`, `[graph.ambiguous-start]`), a side
+path that can catch a limit reaches no model (`[graph.limit-handler-uses-model]`). A path nested more
+than 4 levels deep is a warning (`[flow.path-too-deep]`), as is a per-item child that cannot fail
+softly (`[graph.child-without-failure-finish]`) — errors under `--strict`.
 
 ## Testing
 
@@ -453,6 +457,7 @@ test("a question about openings goes to the scout", async ({ app, mockLlm }) => 
 
 ## Not in the core yet
 
-Quorums (#279) and child workflows (`.toWorkflow(…)` — #263) build on these paths. The old
+Quorums (#279) build on these paths; child workflows (#263) are checked and typed — they run from
+#263 PR 2 ([Workflow as a step](Workflow-as-a-step)). The old
 flow DSL (`from(…).next(…)`, `chain`, `catchError`, `batchParallel`, `node`) is gone;
 [ADR-0019](ADR-0019-Flow-as-paths-with-path-scope) says why.

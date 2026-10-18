@@ -3,6 +3,31 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — child workflows in the grammar and the analyser (#263, PR 1)
+
+- **New: a workflow is a step** ([Workflow as a step](Workflow-as-a-step)): `.toWorkflow(W)`,
+  `route(W)`, `workflow(W)` (the own path of a child reached from two places) and
+  `.toParallelWorkflows(W, { maxConcurrency, maxItems })` (one child per item, `maxItems` required,
+  joined like any launch; `WorkflowLaunchOptions`). Checked and typed by `agboss check`; a workflow
+  with a child does not assemble until #263 PR 2 (`flow.child-not-runnable`).
+- **The start is chosen per edge, by class**: one start → it; per item → the start taking the item;
+  else the start taking the chain's current value, of several the one whose other required fields
+  are on the path — `[graph.no-matching-start]` / `[graph.ambiguous-start]` otherwise, also compile
+  errors through the child's `Inputs` entry. `agboss describe` prints each edge's start (`children`;
+  `--json`: `children`).
+- **The child's result** is its finishes' output classes (`ProducerOutputs`): `.returns(XDto)`, or
+  `.returns(oneOf(…)).switch(…)` with one case per class; after a per-item launch the join gives
+  `listOf(oneOf(…))` (`JoinOutputs` key `toParallelWorkflows(<child>) per item`). The child's scope
+  starts with its start input only.
+- **New rules**: `[graph.child-without-failure-finish]` (a warning, an error under `--strict`) and
+  `[graph.limit-handler-uses-model]` — **breaking for flows that catch a limit**: an `.onError` /
+  `.onJoinError` side path that can catch a `LimitExceededError` (its class, a subclass or a parent
+  such as `AGBossError` / `Error`) now fails assembly when it reaches an agent, a router or a child.
+- A workflow class mentioned as another kind (`toAgent(SomeWorkflow)`) is `[graph.wrong-kind]`, no
+  longer `[graph.not-a-node]`.
+- **New: `agboss check --strict`** — the analyser's warnings (`[flow.path-too-deep]`,
+  `[graph.child-without-failure-finish]`) are errors (exit 3); flow-patterns' `npm run check` uses it.
+
 ## Unreleased — contexts (#261, PR 3)
 
 - **The context levels** ([Context and Authorization](Context-And-Authorization#the-levels-261)):

@@ -7,6 +7,7 @@
 - [Environments](Environments)
 - [Workflow — the paths](Workflow)
 - [Path scope](Path-scope)
+- [Workflow as a step](Workflow-as-a-step)
 - [Routing patterns](Advanced-Routing)
 - [Rollback](Rollback)
 - [Routers](Routers)
