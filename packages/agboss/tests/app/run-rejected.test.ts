@@ -19,7 +19,13 @@ import {
   AnswerDto,
   ApplicationsApplication,
 } from "./fixtures/run-events.workflow.js";
-import { Redeem, VoucherClerk, VouchersApplication } from "./fixtures/run-rejected.workflow.js";
+import {
+  Redeem,
+  VoucherClerk,
+  VouchersApplication,
+  VouchersTenantDailyBudget,
+} from "./fixtures/run-rejected.workflow.js";
+import type { TestApp } from "../../src/testing/test-app.js";
 import { execute } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
@@ -179,4 +185,43 @@ describe("#261 AC10: a tenant's day spent before the execution → it is rejecte
       expect(mockLlm(VoucherClerk).requests).toHaveLength(1);
     },
   );
+});
+
+/** No thread was created: the first id the store would hand out is still unknown. */
+async function expectNoNewThread(app: Pick<TestApp, "cancel">): Promise<void> {
+  await expect(app.cancel("thread-1")).rejects.toBeInstanceOf(UnknownThreadError);
+}
+
+describe("#261: a request refused before it starts leaves no trace — no thread, no record", () => {
+  vouchers("a budget exhausted on a new thread", async ({ app, mockLlm, mockOf }) => {
+    mockOf(VouchersTenantDailyBudget).maxSpend.mockReturnValue(usd(0));
+
+    await expect(execute(app, Redeem, { text: "one", code: "V-1" })).rejects.toBeInstanceOf(
+      BudgetExceededError,
+    );
+
+    await expectNoNewThread(app);
+    expect(mockLlm(VoucherClerk).requests).toHaveLength(0);
+    expect(workflowEvents()).toEqual([]);
+  });
+
+  vouchers("an invalid start input", async ({ app }) => {
+    await expect(execute(app, Redeem, { text: "redeem", code: "BAD" })).rejects.toBeInstanceOf(
+      DtoValidationError,
+    );
+
+    await expectNoNewThread(app);
+  });
+
+  vouchers("a later admitted execution gets the first thread", async ({ app, mockLlm, mockOf }) => {
+    mockOf(VouchersTenantDailyBudget).maxSpend.mockReturnValueOnce(usd(0)).mockReturnValue(usd(1));
+    mockLlm(VoucherClerk).thenReturn(replyWith(AnswerDto, { text: "Redeemed." }));
+
+    await expect(execute(app, Redeem, { text: "one", code: "V-1" })).rejects.toBeInstanceOf(
+      BudgetExceededError,
+    );
+    const admitted = await execute(app, Redeem, { text: "two", code: "V-2" });
+
+    expect(admitted.threadId).toBe("thread-1");
+  });
 });

@@ -153,7 +153,6 @@ export async function openBudgets(
       key: keyOf(meta.scope, keys),
       maxSpend,
     };
-    await application.ledger.saveMaxSpend(accountOf(record), maxSpend);
     records.push(record);
   }
   const now = application.clock();
@@ -161,6 +160,9 @@ export async function openBudgets(
     const spent = await application.ledger.findSpentByCounter(counterOf(record, now));
     if (spent >= record.maxSpend) throw exhausted(record, spent, [], 0, []);
   }
+  // kept only once the execution is admitted: a refused request leaves no trace
+  for (const record of records)
+    await application.ledger.saveMaxSpend(accountOf(record), usd(record.maxSpend));
   return records;
 }
 

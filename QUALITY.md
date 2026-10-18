@@ -159,7 +159,7 @@ period?, workflow?, deps? })` + `implements BudgetHandler` (`maxSpend(): Usd | P
     application's name, the `tenantId`, the execution's id) and period; every call's cost is added
     to all of the execution's counters while it streams, so a crashed execution's spend still counts.
   - Before the first step every budget is checked: one exhausted **rejects** the execution
-    (`BudgetExceededError`, an `onRunRejected`, no record, no call). Before every working step the
+    (`BudgetExceededError`, an `onRunRejected`; no thread, no record, no call — a refused request leaves no trace). Before every working step the
     counters are read again (the tenant's other executions count) and every budget is checked;
     before every model call too. The first exhausted **fails the execution** — never a quiet stop,
     unless the path's `.onError(BudgetExceededError, …)` takes it — with `budget`, `scope`, `key`,

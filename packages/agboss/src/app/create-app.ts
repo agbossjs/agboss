@@ -117,23 +117,24 @@ export async function buildApp(
         return { ...valid, contexts: values };
       });
       const { tenantId } = checked.contexts.tenant;
-      // the thread is known before the run starts, so `cancel(threadId)` reaches a new one too
-      const threadId =
-        call.threadId ?? (await deps.terns.createThread(deps.config.name, tenantId, call.ownerId));
       // one id for the whole run: its observer events, `executionContext.executionId`, its Tern and its result
       const runId = deps.newRunId?.() ?? randomUUID();
       const { contexts: values } = checked;
-      // before the first step (#261): each budget's `maxSpend()` once; one exhausted rejects it
+      // before the first step (#261): each budget's `maxSpend()` once; one exhausted rejects it —
+      // before anything is written: no thread, no record, no checkpoint
       const budgets = await admit("execute", call.threadId, () =>
         openExecutionBudgets(deps, {
           executionId: runId,
-          threadId,
+          threadId: call.threadId,
           start: checked.name,
           ownerId: call.ownerId,
           signal: call.signal,
           contexts: values,
         }),
       );
+      // the thread is known before the run starts, so `cancel(threadId)` reaches a new one too
+      const threadId =
+        call.threadId ?? (await deps.terns.createThread(deps.config.name, tenantId, call.ownerId));
       await deps.observer.onWorkflowStart({ runId, threadId });
       const begun = { start: checked.name, input: checked.input, threadId };
       const result = await moves.first({ runId, threadId, tenantId }, call, (moving, signal) =>

@@ -133,6 +133,13 @@ describe("#261 AC10: every budget is checked before the first step", () => {
         "tenant acme spent $0 today; shop-tenant-daily-budget allows $0",
       );
       expect(mockLlm(DrafterAgent).requests).toHaveLength(0);
+      // a refused request leaves no trace: not even the amounts it read
+      const account = {
+        budget: "shop-tenant-daily-budget",
+        scope: BudgetScope.Tenant,
+        key: "acme",
+      };
+      expect(await lastLedger().findMaxSpendByAccount(account)).toBeUndefined();
     },
   );
 

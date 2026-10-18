@@ -5,7 +5,8 @@ import {
   type ExecutionBudgetRecord,
 } from "../budgets/execution-budgets.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
-import { runInFrame, type FrameSpec } from "../flow/context/frame.js";
+import { runInFrame, type ExecutionFacts, type FrameSpec } from "../flow/context/frame.js";
+import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { idempotencyKeyOf } from "../flow/context/idempotency.js";
 import { standaloneContexts, tenantOfExecution } from "../flow/context/runtime-contexts.js";
 import type { UsageRecord } from "../finops/usage.js";
@@ -23,11 +24,23 @@ import type { RunDeps } from "./types.js";
 /** What a new execution is before its first step: its ids, start, owner, signal and context values. */
 export interface ExecutionStart {
   readonly executionId: string;
-  readonly threadId: string;
+  /** The thread it continues; `undefined` for a new one — created only once its budgets pass. */
+  readonly threadId?: string | undefined;
   readonly start: string;
   readonly ownerId?: string | undefined;
   readonly signal?: AbortSignal | undefined;
   readonly contexts: ExecutionContextValues;
+}
+
+/**
+ * The execution's thread while its budgets are read: the one it continues; a new thread does not
+ * exist yet — it is created only once the budgets pass, so a refused request leaves no thread.
+ */
+function threadIdOf(start: ExecutionStart): string {
+  if (start.threadId !== undefined) return start.threadId;
+  throw new ExecutionContextUnavailableError(
+    `the thread of execution ${start.executionId} was read in maxSpend(): it is a new thread, created only once the execution's budgets pass — read threadId in a step`,
+  );
 }
 
 /** The frame of an execution's start: what an injected `ExecutionContext` reads in `maxSpend()`. */
@@ -45,15 +58,20 @@ function startFrameOf<TName extends string>(
   };
   const contexts = deps.contexts ?? standaloneContexts(workflow);
   return {
-    execution: Object.freeze({
-      executionId,
-      threadId: start.threadId,
-      ownerId: start.ownerId,
-      signal: start.signal ?? new AbortController().signal,
-      workflow: Object.freeze(workflow),
-      tenant: tenantOfExecution(contexts, start.contexts.tenant),
-      values: start.contexts.execution,
-    }),
+    execution: Object.freeze(
+      Object.defineProperty(
+        {
+          executionId,
+          ownerId: start.ownerId,
+          signal: start.signal ?? new AbortController().signal,
+          workflow: Object.freeze(workflow),
+          tenant: tenantOfExecution(contexts, start.contexts.tenant),
+          values: start.contexts.execution,
+        },
+        "threadId",
+        { enumerable: true, get: (): string => threadIdOf(start) },
+      ) as ExecutionFacts,
+    ),
     step: Object.freeze({
       component: Object.freeze({ type: node?.component ?? deps.graph.type, name: start.start }),
       nodeId: start.start,

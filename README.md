@@ -692,7 +692,7 @@ step (invalid → `dto.invalid`, an `onRunRejected`, the field named, never the 
 
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
 the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an
-`onRunRejected`), before any record or model call.
+`onRunRejected`), before anything is written: no thread (a new one is created once the budgets pass), no record, no model call.
 
 `execute` and `resume` forward `signal`, `metadata`, `onStream` (token and tool-call events) and
 `configurable` (extra LangGraph keys; the framework's own win). `app.cancel(threadId)` aborts a running

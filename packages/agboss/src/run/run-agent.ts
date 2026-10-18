@@ -67,14 +67,19 @@ async function runOnce<TName extends string>(
   const input = validStartInput(startNamed(deps.graph, start), payload);
   const contexts = options.contexts ?? DEFAULT_CONTEXT_VALUES;
   const { tenantId } = contexts.tenant;
-  const { threadId, history, summaries } = await openThread(deps, tenantId, requested);
-  const spent: UsageRecord[] = [];
   const runId = options.runId ?? deps.newRunId?.() ?? randomUUID();
-  const task = startLine(start, input);
-  const base = ternBaseOf(deps, { runId, threadId, tenantId, task }, options);
-  // before the first step: an exhausted budget rejects the execution — no record, no call
-  const site = { executionId: runId, threadId, start, contexts };
+  // a thread it continues must exist; a new one is created only once the budgets pass
+  const known = requested === undefined ? undefined : await openThread(deps, tenantId, requested);
+  // before the first step: an exhausted budget rejects the execution — no thread, record or call
+  const site = { executionId: runId, threadId: requested, start, contexts };
   const budgets = opened ?? (await openExecutionBudgets(deps, { ...options, ...site }));
+  const { threadId, history, summaries } = known ?? (await openThread(deps, tenantId, undefined));
+  const spent: UsageRecord[] = [];
+  const base = ternBaseOf(
+    deps,
+    { runId, threadId, tenantId, task: startLine(start, input) },
+    options,
+  );
   let ternId: string | undefined;
   try {
     // the record is `running` while the tree moves: what recovery continues (#265 S30)
