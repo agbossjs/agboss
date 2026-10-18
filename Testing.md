@@ -193,9 +193,11 @@ mockLlm(Reviewer).thenReturn(failWith(ModelFailure.Timeout));
 | Turn                                              | Meaning                                                                       |
 | -------------------------------------------------- | -------------------------------------------------------------------------------- |
 | `replyWith(text, { cost?, truncated? })`             | the agent's model answers; `cost: usd(0.002)` is priced as output tokens       |
-| `replyWith(Dto, value, { cost? })`                  | an agent with `output` answers through its answer tool (`answer-<dto>`)        |
+| `replyWith(Dto, value, { cost? })`                  | an agent with `output` answers through its answer tool (`answer-<dto>`): a class of its output — a class outside its `oneOf` does not compile (#262); a list output with an array; `cost` is the execution's spend |
 | `callTool(Tool, args)`                            | the agent's model calls a tool — `args` typed by the tool's input DTO          |
-| `routeTo(Target, { reason?, confidence?, cost? })` | the router chooses a route: the class of one of its routes' targets            |
+| `routeTo(...targets)`, `routeTo(Target, { reason?, confidence?, cost? })` | what the router's model chose, checked against `Route<R>` (#262, Q55): exactly one target after `.chooseOne(…)`; before `.toParallelAgents(…)` the `OnDemand` targets it launches — `routeTo()` only with an `Always` route, an `Always` target does not compile |
+| `decideWith(answers, { cost? })`                  | a decision model answers by question id (a judge, a model arbiter, a router before a launch) |
+| `waitFor(seconds(31))`                            | not a call of its own: the next turn answers only after that long on the test's clock (`clock.advance`) |
 | `failWith(ModelFailure.Timeout \| RateLimited \| ServerError \| NetworkError)` (the same enum as `agboss/models`) | the call fails: an agent fails the run at the agent, a router with `RouterFailedError` (`step.router`, the failure as its cause) |
 
 - **By position, never by call order across components:** a component's n-th model call gets its
@@ -204,13 +206,60 @@ mockLlm(Reviewer).thenReturn(failWith(ModelFailure.Timeout));
 - A script shorter than the run fails with `test.script-exhausted`
   (`script exhausted for Writer: 1 turn scripted, asked for #2`) — or end it with `.thenReturnAlways(turn)`.
 - `routeTo(X)` for a node that is not among the router's routes fails with `test.not-a-route`; an
-  agent scripted with `routeTo` or a router with `replyWith` fails with `test.wrong-script`.
+  agent scripted with `routeTo` or a router with `replyWith` fails with `test.wrong-script` — for a
+  component the generated types know (`agboss check`), both do not compile. A judge or an arbiter
+  (no generated entry) is scripted unchecked.
+
+### Binding turns to the input — `when(…)`
+
+`mockLlm(X).when(partial)` gives its turns to the calls whose input matches, whatever their order or
+depth; the calls no `when(…)` matches take the script's own turns. The partial is over **values**,
+typed by `PartialValues<InputOf<X>>` (#262): a deep partial of each field's `value` — the producer
+is not compared (where a value came from is `toFollowPath`'s and `agboss describe`'s), so moving a
+step does not break a data script; a misspelled field does not compile. Agents and model routers
+only.
+
+<!-- snippet-context
+import { replyWith, routeTo, testWith } from "agboss/testing";
+import { JobScoutApplication, MainRouter, Scout, Writer } from "./job-scout.js";
+testWith(JobScoutApplication)("when", ({ mockLlm }) => {
+// @snippet
+});
+-->
+
+```ts
+mockLlm(MainRouter).when({ message: { text: "find jobs" } }).thenReturn(routeTo(Scout));
+mockLlm(MainRouter).when({ message: { text: "write it up" } }).thenReturn(routeTo(Writer));
+mockLlm(Scout).thenReturn(replyWith("3 jobs found"));
+mockLlm(Writer).thenReturn(replyWith("A summary."));
+```
+
+- A key left out is not checked; a key given as `undefined` matches only an absent field —
+  `when({ review: undefined })` for the first visit of a loop, `when({ review: { status: … } })` for
+  the next.
+- A `listOf` field is compared by length and position (`when({ companies: [] })` is an empty list);
+  a `oneOf` element may be `variant(CompanyScoreDto, { score: 9 })` to match its class too. A
+  `historyOf` field takes `{ current?, previous? }`. Vitest's asymmetric matchers
+  (`expect.stringContaining(…)`) work anywhere.
+- A call no script matches fails the test, naming its input: `test.no-matching-script` —
+  `no script of mockLlm(Scout) matches the input {"profile":{"summary":"Go"}}`; a `when(…)` that ran
+  out fails as `test.script-exhausted`.
+
+### A script is an expectation
+
+When the test's body passed, a `thenReturn` turn no call took, a `when(…)` nothing matched and a
+`mockTool(…).thenFail(…)` no call caused fail the test at its end (`test.unused-script`, each one
+named: `mockLlm(MainRouter): 1 scripted turn never used`). A `thenReturnAlways` turn is never one —
+use it for a call that may or may not come (a router with one route decides without its model). A
+test that already failed reports its own failure, not the leftovers. A branch cancelled while it
+waits never answers: script only what it gets to.
 
 ### Parallel launches
 
 A router before `.toParallelAgents(…)` (#273) decides its `OnDemand` routes with one yes/no per
-route: script it with `decideWith`, P(yes) per target `name` — on a decision model and on a chat
-model alike (for a chat model, above 0.5 is `true` in its answer tool):
+route: script it with `routeTo(...)` — the `OnDemand` targets it launches, `routeTo()` for none
+(only with an `Always` route) — or with `decideWith`, P(yes) per target `name`; on a decision
+model and on a chat model alike (for a chat model, above 0.5 is `true` in its answer tool):
 
 <!-- snippet-context
 import { decideWith, testWith } from "agboss/testing";
@@ -220,8 +269,9 @@ testWith(JobScoutApplication)("launch decisions", ({ mockLlm }) => {
 });
 -->
 
-```ts
-mockLlm(MainRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9, "loyalty-agent": 0.1 }));
+```ts no-check: MainRouter of this page chooses one route; a launching router takes the same lines
+mockLlm(SupportRouter).thenReturn(routeTo(RefundPolicyAgent), routeTo());
+mockLlm(SupportRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9, "loyalty-agent": 0.1 }));
 ```
 
 Branches run at once, so the copies of one agent (and the runs of a per-item launch) take their
@@ -274,6 +324,37 @@ expect(mockOf(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
 Call it before the first `app.execute` (after it is a clear error). A class the workflow does not use
 (not a provider, a tool or a knowledge base of it) is an error too. Mocks have no lifecycle hooks.
 
+## `mockAction(A)` and `mockTool(T)`
+
+`mockAction(A)` (#262) watches an action — it still runs as written: `.inputs` is its input of every
+call (`Produced` records, as it read them), and the call matchers below check what it — or an error
+handler on a side path — received and returned. `mockTool(T).thenFail(ToolFailure.Timeout)` makes
+the tool's next call fail as a real timeout would (the agent's model reads `timed out after 30000
+ms`); the calls after the scripted failures run the tool. Both before the first `app.execute`.
+
+<!-- snippet-context
+import { expect } from "vitest";
+import { callTool, replyWith, routeTo, testWith, ToolFailure } from "agboss/testing";
+import { ChatWorkflowStart, JobScoutApplication, MainRouter, OrderStatus, Scout } from "./job-scout.js";
+testWith(JobScoutApplication)("a tool timeout", async ({ app, mockLlm, mockTool }) => {
+// @snippet
+});
+-->
+
+```ts
+mockTool(OrderStatus).thenFail(ToolFailure.Timeout);
+mockLlm(MainRouter).thenReturn(routeTo(Scout));
+mockLlm(Scout).thenReturn(
+  callTool(OrderStatus, { orderId: "7" }), // times out
+  callTool(OrderStatus, { orderId: "7" }), // runs the tool
+  replyWith("Shipped, after a retry."),
+);
+
+await app.execute(ChatWorkflowStart, { text: "where is order 7?" });
+
+expect(mockLlm(Scout)).toHaveBeenCalledTimes(3);
+```
+
 ## Slices
 
 One component of the real app on its own:
@@ -291,11 +372,46 @@ One component of the real app on its own:
 | `toFollowPath([Start, Router, Agent, …])`           | a run result             | the visited nodes are exactly these, in order (node ids are the components' names; a launch's copy `critic-agent#2` is its class) |
 | `toFinishWith(Finish, data?)`                    | a run result             | it finished there (with that output)                 |
 | `toHavePausedAt(Agent)`                          | a run result             | it waits for a human in that agent                   |
-| `toFailWith({ code?, node? })`                   | an error (`.rejects`)    | a code along its causes (`step.router`, `limit.budget` or a budget's name, `graph.dead-end`, `test.…`) and the node it names |
+| `toFailWith(ErrorClass, { …fields, cause? })`    | an error (`.rejects`)    | the error or one it was caused by is of that class (a subclass too) with those fields (deep partials); `cause` names a class further down the chain (#262) |
+| `toHaveBeenCalledWith(partial)`                  | `mockLlm(X)`, `mockAction(A)` | a call's input matched — the `when(…)` matcher, typed by `InputOf<X>` |
+| `toHaveBeenCalledTimes(n)`                       | `mockLlm(X)`, `mockAction(A)` | model calls of X (an agent that calls a tool and answers: 2), executions of A |
+| `toHaveReturned(XDto, fields?)`                  | `mockLlm(X)`, `mockAction(A)` | it returned a value of that class (a text agent: `WorkflowFinishTextDto`) with those fields |
 | `toHaveCalledTools([Tool, …])`                   | `mockLlm(Agent)`         | its model called exactly these tools, in order       |
 | `toHaveBeenAskedWith({ input?, system?, … })`      | `mockLlm(X)`             | some request has these parts (strings as substrings) |
 
 Failure messages name the classes: `expected the path ChatStart → MainRouter → Support, it was …`.
+The call matchers keep Vitest's names; on anything that is not a script — a `vi.fn()`, a
+`mockOf(…)` method — they are Vitest's own. `mockLlm(X).inputs` lists X's input of every call.
+
+### Errors, caused the real way
+
+The testing API cannot create a framework error by name: a test causes it — `failWith(ModelFailure.…)`,
+a rejecting `mockOf(…)` method, `mockTool(T).thenFail(ToolFailure.Timeout)`, judges via
+`decideWith`, a budget via `mockOf(Budget).maxSpend.mockReturnValue(usd(0.01))` plus a scripted cost,
+`maxSteps` / `maxVisits` by scripts that reach them, a cancellation by `app.cancel` / `signal` (also
+from inside a mock: `mockOf(MailerService).send.mockImplementation(() => app.cancel(threadId))`).
+An application test checks its own reaction — its `.onError` path and its finish — not the
+framework's counting; there is no `limits` option on `testWith`.
+
+<!-- snippet-context
+import { expect } from "vitest";
+import { RouterFailedError } from "agboss";
+import { failWith, ModelCallFailedError, ModelFailure, testWith } from "agboss/testing";
+import { ChatWorkflowStart, JobScoutApplication, MainRouter } from "./job-scout.js";
+testWith(JobScoutApplication)("a failed router", async ({ app, mockLlm }) => {
+// @snippet
+});
+-->
+
+```ts
+mockLlm(MainRouter).thenReturn(failWith(ModelFailure.Timeout));
+
+await expect(app.execute(ChatWorkflowStart, { text: "hi" })).rejects.toFailWith(RouterFailedError, {
+  nodeId: "main-router",
+  cause: ModelCallFailedError,
+});
+```
+
 
 ### Asserting outdating
 

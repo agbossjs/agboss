@@ -3,6 +3,44 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — scripts and matchers (#262, PR 2)
+
+- **`when(…)`** on `mockLlm(X)` ([Testing](Testing#binding-turns-to-the-input--when)): turns bound to
+  the node's input values, `PartialValues<InputOf<X>>` — values only, `undefined` for an absent
+  field, lists by length and position, `variant(XDto, { … })` for a `oneOf` element (`variant` takes
+  a partial value there). A call no script matches fails naming its input (`test.no-matching-script`).
+- **Scripts are expectations**: a `thenReturn` turn no call took, a `when(…)` nothing matched or a
+  scripted tool failure never caused fails a test whose body passed (`test.unused-script`;
+  `thenReturnAlways` never does). **Breaking for tests** that scripted turns their run never reaches:
+  drop them, or use `thenReturnAlways`.
+- **Typed scripts**: `replyWith(XDto, fields)` must be a class of the agent's output and
+  `routeTo(...targets)` follow `Route<R>` — one target after `.chooseOne(…)`, the `OnDemand`
+  targets (or none, with an `Always` route) before `.toParallelAgents(…)`, which `routeTo(…)` now
+  scripts too. The generated `RouterAnswers` has an entry for every router, model routers included.
+- **`waitFor(duration)`**: the next turn answers only after that long on the test's clock.
+- **A caller's own thread id** ([App](App)): `app.execute(Start, input, { threadId })` with an id
+  the tenant does not have yet creates that thread — keyed by `tenantId` + `threadId` (the same id
+  in another tenant is another thread), bound to `ownerId`, created only once the budgets pass.
+  Before, it was `UnknownThreadError`; that stays for `cancel` of an unknown thread. A bad id
+  (empty, over 200 characters, a control character) is the new `InvalidThreadIdError`
+  (`run.invalid-thread-id`). **Breaking for your own `ExecutionRecordRepository`:**
+  `createThread({ workflow, tenantId, ownerId?, threadId? }: NewThread)` takes one object and
+  returns the thread's id; every read by thread names both values — `lastTerns(tenantId, threadId,
+  limit)`, `uncovered(tenantId, threadId)`, `before(tenantId, threadId, ternId, limit)`,
+  `turnNumber(tenantId, threadId, ternId)`, `latestSummaries(tenantId, threadId, limit)`,
+  `summaryCount(tenantId, threadId)`; a `Summary` and a `MemoryTurn` carry `tenantId` next to
+  `threadId`. The SQLite thread store's migration 11 keys threads by `(tenant_id, id)`
+  (owners, Terns and summaries by `(tenant_id, thread_id)`); existing threads are `default`'s and
+  keep their ids.
+- **`mockAction(A)`** (the action still runs) and **`mockTool(T).thenFail(ToolFailure.Timeout)`**;
+  the call matchers **`toHaveBeenCalledWith`**, **`toHaveBeenCalledTimes`**, **`toHaveReturned`** on
+  `mockLlm(X)` / `mockAction(A)` (Vitest's own on anything else) and `mockLlm(X).inputs`.
+- **Breaking — `toFailWith(ErrorClass, { …fields, cause })`** replaces `toFailWith({ code, node })`
+  (`ExpectedFailure` removed): `toFailWith({ code: "step.action" })` →
+  `toFailWith(ActionFailedError)`, `{ node: MainRouter }` → `toFailWith(RouterFailedError, {
+  nodeId: nameOf(MainRouter) })`, a budget by its name → `toFailWith(BudgetExceededError, { budget:
+  { name: "tenant-daily-budget" } })`. The root `ErrorClass` takes the error's type
+  (`ErrorClass<TError>`).
 ## Unreleased — optional environment variables (#266 S87, S90)
 
 - **`env.optional("X")`**, `env.integer.optional("X")`, `env.flag.optional("X")` — a variable that

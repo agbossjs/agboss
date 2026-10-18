@@ -102,7 +102,7 @@ import {
 
 /** Where the facts live — any store; a value provider here. */
 export interface FactStore {
-  add(threadId: string, fact: string): Promise<void>;
+  add(tenantId: string, threadId: string, fact: string): Promise<void>; // a thread is tenant + id
 }
 export const FACTS = new InjectionToken<FactStore>("FACTS");
 
@@ -118,8 +118,8 @@ export class FactExtractionStrategy extends BaseMemoryStrategy {
   }
 
   /** After a turn: keep what matters (a model call here would report its usage). */
-  override async updateMemory({ threadId, turn }: MemoryTurn): Promise<MemoryUpdate> {
-    await this.facts.add(threadId, turn.start); // `start <name>: <input as JSON>`
+  override async updateMemory({ tenantId, threadId, turn }: MemoryTurn): Promise<MemoryUpdate> {
+    await this.facts.add(tenantId, threadId, turn.start); // `start <name>: <input as JSON>`
     return {};
   }
 }

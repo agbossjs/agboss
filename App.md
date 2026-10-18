@@ -173,7 +173,12 @@ observers and the assembly warnings; then its count limits (`maxSteps` set or de
   typed by the generated `.agboss/types.d.ts` (`agboss check`) and checked against the start's
   `input` before any call (`DtoValidationError`, the field named, never the value).
 - Options: `threadId` continues a conversation (without it a new thread is created; its id is in
-  the result), `ownerId` (a thread created with an owner rejects another one — `ThreadOwnerError`),
+  the result). An id the tenant does not have yet creates that thread (#262 Q4): the caller's own,
+  idempotent id — an order number, a ticket — keyed by `tenantId` + `threadId` (the same id in
+  another tenant is another thread) and bound to `ownerId`; it is created only once the budgets
+  pass, so a refused execution leaves nothing. An id that cannot be one (empty, over 200
+  characters, a control character) is `InvalidThreadIdError` (`run.invalid-thread-id`, an
+  `onExecutionRejected`). `ownerId` (a thread created with an owner rejects another one — `ThreadOwnerError`),
   `tenant` / `execution` (the typed values of the context levels), `signal`, `onStream` (token and
   tool-call events), `configurable` (extra LangGraph keys), `record`. There is no untyped
   `metadata` or `executionContext` option (#261 PR 6): channels, guardrails, MCP sessions and A2A
