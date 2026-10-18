@@ -1,5 +1,6 @@
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { errorRecordOf } from "../../core/error-record.js";
+import { extractRunContext } from "../../core/run-context.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { PaidStepError } from "../../graph/errors.js";
 import { LimitExceededError } from "../../graph/limits.js";
@@ -106,13 +107,14 @@ function launchedBy(
     readonly state: ExecutionStateType;
     readonly deps: VisitDeps;
     readonly executionId: string;
+    readonly now: Date;
   },
   write: VisitWrite,
 ): Launched | undefined {
   if (launch === undefined) return undefined;
-  const { state, deps, executionId } = site;
+  const { state, deps, executionId, now } = site;
   const scope = write.scope ?? state.scope;
-  const visit = { graph: deps.graph, node, state, outcome, executionId, scope };
+  const visit = { graph: deps.graph, node, state, outcome, executionId, scope, now };
   return { launch, ticket: launchTicketOf(visit, launch) };
 }
 
@@ -121,12 +123,12 @@ function succeeded(
   state: ExecutionStateType,
   outcome: NodeOutcome,
   deps: VisitDeps,
-  executionId: string,
+  at: { readonly executionId: string; readonly now: Date },
 ): Succeeded {
   const launch = launchFor(node, outcome);
   const exit = launch === undefined ? exitOf(node, state, outcome) : launchEdgeOf(launch);
   const write = visitWrite(node, state, exit, outcome, deps.provenance);
-  const launched = launchedBy(launch, node, outcome, { state, deps, executionId }, write);
+  const launched = launchedBy(launch, node, outcome, { state, deps, ...at }, write);
   const next =
     launched === undefined ? (exit?.to ?? "") : nextOfLaunch(launched.launch, launched.ticket);
   const update = {
@@ -188,8 +190,11 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       };
       const outcome = await runInFrame(frame, () => runner(state, config));
       const spent = { ...outcome, usage: [...(outcome.usage ?? []), ...services] };
-      const executionId = frame.execution.executionId;
-      const { update, write, launched } = succeeded(node, state, spent, deps, executionId);
+      const at = {
+        executionId: frame.execution.executionId,
+        now: extractRunContext(config, state.runId).clock.now(),
+      };
+      const { update, write, launched } = succeeded(node, state, spent, deps, at);
       const outdatedSoFar = [...state.outdatedValues, ...write.outdated];
       const site = { observer: deps.observer, config, ...frame, outdatedSoFar };
       await reportOutdating(write.cascades, site);

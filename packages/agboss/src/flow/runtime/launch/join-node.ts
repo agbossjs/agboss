@@ -1,5 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { ErrorRecord } from "../../../core/error-record.js";
+import type { FlowEdge } from "../../analyse/flow-graph.js";
 import { errorHandlerOf, type RuntimeGraph } from "../graph-model.js";
 import type { GraphNode } from "../node-runner.js";
 import { reportOutdating } from "../outdating-report.js";
@@ -15,6 +16,7 @@ import {
   type LaunchRecord,
   type LaunchTicket,
 } from "./records.js";
+import { decideQuorum, quorumNotReached, reportQuorum } from "./quorum-join.js";
 import type { RuntimeLaunch } from "./runtime-launch.js";
 
 /**
@@ -23,7 +25,8 @@ import type { RuntimeLaunch } from "./runtime-launch.js";
  * drops them, records the launch for `result.launches`, and goes on — on the main path with the
  * branches' values written into the scope at once (one outdating cascade), or, when a branch
  * failed, into the most specific `.onJoinError(E, …)` by the error's class and cause chain. No
- * handler: the execution fails with the branch's error as it was thrown.
+ * handler: the execution fails with the branch's error as it was thrown. A quorum join (#279)
+ * decides from the records (`quorum-join.ts`) and writes only the counted answers.
  */
 
 export interface JoinDeps extends VisitDeps {
@@ -45,6 +48,13 @@ class RecordedBranchError extends Error {
 const byIndex = (first: BranchOutcomeRecord, second: BranchOutcomeRecord): number =>
   first.index - second.index;
 
+/** What a quorum made of a branch's answer (#279), as `result.launches` shows it. */
+const verdictOf = ({ verdict, acceptedSequence, rejectedBy }: BranchOutcomeRecord) => ({
+  ...(verdict === undefined ? {} : { verdict }),
+  ...(acceptedSequence === undefined ? {} : { acceptedSequence }),
+  ...(rejectedBy === undefined ? {} : { rejectedBy }),
+});
+
 function launchRecordOf(
   ticket: LaunchTicket,
   records: readonly BranchOutcomeRecord[],
@@ -61,6 +71,7 @@ function launchRecordOf(
         ...(branch.itemIndex === undefined ? {} : { itemIndex: branch.itemIndex }),
         status: record?.status ?? BranchStatus.Cancelled,
         ...(record?.error === undefined ? {} : { error: record.error }),
+        ...(record === undefined ? {} : verdictOf(record)),
       };
     }),
   };
@@ -83,22 +94,25 @@ function failedJoin(
   throw thrown instanceof Error ? thrown : new RecordedBranchError(record);
 }
 
-/** The branches' values into the scope, their cascade reported under the launching step. */
+/** Where a join reads from: the execution's state, its config and the join's deps. */
+interface JoinContext {
+  readonly state: ExecutionStateType;
+  readonly config?: RunnableConfig;
+  readonly deps: JoinDeps;
+}
+
+/** The branches' values into the scope on `edge`, their cascade reported under the launching step. */
 async function joinedValues(
   launch: RuntimeLaunch,
+  edge: FlowEdge,
   ticket: LaunchTicket,
-  records: readonly BranchOutcomeRecord[],
-  context: {
-    readonly state: ExecutionStateType;
-    readonly config?: RunnableConfig;
-    readonly deps: JoinDeps;
-  },
+  finished: readonly BranchOutcomeRecord[],
+  context: JoinContext,
 ): Promise<ExecutionStateUpdate> {
   const { state, deps } = context;
-  const finished = finishedOf(records);
-  const site = { launch, ticket, finished, scope: state.scope, provenance: deps.provenance };
+  const site = { launch, edge, ticket, finished, scope: state.scope, provenance: deps.provenance };
   const written = joinValuesOf(site);
-  if (Object.keys(written).length === 0) return { next: launch.join.to };
+  if (Object.keys(written).length === 0) return { next: edge.to };
   const result = writeAndOutdate(state.scope, written);
   const node = deps.graph.nodes.get(ticket.launcher);
   if (node !== undefined && result.cascades.length > 0) {
@@ -111,8 +125,25 @@ async function joinedValues(
   return {
     scope: result.scope,
     outdatedValues: [...result.outdated],
-    next: launch.join.to,
+    next: edge.to,
   };
+}
+
+/** A quorum join: decided from the records, reported, then on with the counted answers or failed. */
+async function quorumJoined(
+  launch: RuntimeLaunch,
+  ticket: LaunchTicket,
+  records: readonly BranchOutcomeRecord[],
+  context: JoinContext,
+): Promise<ExecutionStateUpdate> {
+  const site = { launch, ticket, records, ...context };
+  const decision = decideQuorum(site);
+  const launches = [{ ...launchRecordOf(ticket, records), ...decision.extra }];
+  const [record] = launches;
+  if (record !== undefined) await reportQuorum(site, decision, record);
+  if (decision.reached === undefined) return { launches, ...quorumNotReached(site, decision) };
+  const { edge, counted } = decision.reached;
+  return { launches, ...(await joinedValues(launch, edge, ticket, counted, context)) };
 }
 
 /** The LangGraph node joining `launch`. */
@@ -136,6 +167,9 @@ export function joinNode(launch: RuntimeLaunch, deps: JoinDeps): GraphNode {
     if (failed !== undefined)
       return { ...done, ...failedJoin(launch, failed, live?.errors.get(failed.index)) };
     const context = config === undefined ? { state, deps } : { state, config, deps };
-    return { ...done, ...(await joinedValues(launch, ticket, records, context)) };
+    if (launch.quorum !== undefined)
+      return { ...done, ...(await quorumJoined(launch, ticket, records, context)) };
+    const finished = finishedOf(records);
+    return { ...done, ...(await joinedValues(launch, launch.join, ticket, finished, context)) };
   };
 }

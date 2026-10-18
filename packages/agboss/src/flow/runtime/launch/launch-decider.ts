@@ -4,7 +4,7 @@ import type { ChatDefaults, ResolvedModelSettings, RouterModel } from "../../../
 import { recordUsage, type UsageRecord } from "../../../finops/usage.js";
 import { DecisionResponseError } from "../../../llm/decision-errors.js";
 import { Decision, type DecisionQuestions } from "../../../llm/decisions.js";
-import type { ModelGateway } from "../../../llm/gateway.js";
+import type { ChatModelUser, ModelGateway } from "../../../llm/gateway.js";
 import { resolveSettings } from "../../../llm/registry.js";
 import {
   LAUNCH_ANSWER_DESCRIPTION,
@@ -20,8 +20,20 @@ import { withSortedKeys } from "../json.js";
  * target's `name` in the order of `@Router({ routes })`. A decision model answers one `decide` with
  * a `Decision.noul` per route; a chat model one answer tool with a boolean field per route (its keys
  * sorted, like every tool schema). A route is launched when its answer is yes: P(yes) > 0.5 — no
- * threshold setting. Every probability is kept for the trace.
+ * threshold setting. Every probability is kept for the trace. The same yes/no machinery answers a
+ * model arbiter (#279), under its own caller and texts (`DecisionVoice`).
  */
+
+/** Who asks a yes/no decision: its cost caller (the script key in tests), chat user and texts. */
+export interface DecisionVoice {
+  /** `router:<name>`, `arbiter:<name>`. */
+  readonly caller: string;
+  readonly user: ChatModelUser;
+  /** The system message of a chat model (the asker's own prompt follows). */
+  readonly system: string;
+  /** The one answer tool of a chat model: a boolean per question. */
+  readonly tool: { readonly name: string; readonly description: string };
+}
 
 /** One `OnDemand` route as a question. */
 export interface LaunchQuestion {
@@ -85,19 +97,21 @@ const failedOf = (error: unknown, usage?: UsageRecord): LaunchDecisionOutcome =>
 };
 
 async function decideOnDecisionModel(
-  name: string,
+  voice: DecisionVoice,
   model: string,
   gateway: ModelGateway,
   request: LaunchDecisionRequest,
 ): Promise<LaunchDecisionOutcome> {
   if (gateway.decide === undefined)
-    return failedOf(new TypeError(`${name}: the model gateway has no decisions (${model})`));
+    return failedOf(
+      new TypeError(`${voice.caller}: the model gateway has no decisions (${model})`),
+    );
   const questions: DecisionQuestions = Object.fromEntries(
     request.questions.map((question) => [question.target, Decision.noul(question.prompt)]),
   );
   const state = `${request.instructions}\n\n${request.input}`;
   try {
-    const caller = routerCaller(name);
+    const { caller } = voice;
     const outcome = await gateway.decide({ caller, model, request: { state, questions } });
     const probabilities = Object.fromEntries(
       Object.entries(outcome.answers).map(([id, answer]) => [
@@ -111,7 +125,7 @@ async function decideOnDecisionModel(
   }
 }
 
-function answerToolOf(request: LaunchDecisionRequest): ToolDefinition {
+function answerToolOf(request: LaunchDecisionRequest, voice: DecisionVoice): ToolDefinition {
   const properties = Object.fromEntries(
     request.questions.map((question) => [
       question.target,
@@ -122,52 +136,74 @@ function answerToolOf(request: LaunchDecisionRequest): ToolDefinition {
   return {
     type: "function",
     function: {
-      name: LAUNCH_ANSWER_TOOL,
-      description: LAUNCH_ANSWER_DESCRIPTION,
+      name: voice.tool.name,
+      description: voice.tool.description,
       parameters: withSortedKeys({ type: "object", properties, required }),
     },
   };
 }
 
 /** The booleans of the answer tool's call; a missing or non-boolean answer is not readable. */
-function answersOf(reply: AIMessage, request: LaunchDecisionRequest): Record<string, number> {
-  const call = reply.tool_calls?.find((candidate) => candidate.name === LAUNCH_ANSWER_TOOL);
-  if (call === undefined)
-    throw new DecisionResponseError(`no ${LAUNCH_ANSWER_TOOL} call in the router's reply`);
+function answersOf(
+  reply: AIMessage,
+  request: LaunchDecisionRequest,
+  tool: string,
+): Record<string, number> {
+  const call = reply.tool_calls?.find((candidate) => candidate.name === tool);
+  if (call === undefined) throw new DecisionResponseError(`no ${tool} call in the reply`);
   const args: Readonly<Record<string, unknown>> = call.args;
   return Object.fromEntries(
     request.questions.map(({ target }) => {
       const answer = args[target];
       if (typeof answer !== "boolean")
-        throw new DecisionResponseError(`${LAUNCH_ANSWER_TOOL}: "${target}" is not true or false`);
+        throw new DecisionResponseError(`${tool}: "${target}" is not true or false`);
       return [target, answer ? 1 : 0];
     }),
   );
 }
 
 async function decideOnChatModel(
-  name: string,
+  voice: DecisionVoice,
   settings: ResolvedModelSettings,
   gateway: ModelGateway,
   request: LaunchDecisionRequest,
 ): Promise<LaunchDecisionOutcome> {
-  const caller = routerCaller(name);
-  const chat = gateway.chatModel({ user: { kind: "router", router: name }, settings });
+  const { caller } = voice;
+  const chat = gateway.chatModel({ user: voice.user, settings });
   if (chat.bindTools === undefined)
-    return failedOf(new TypeError(`${name}: ${settings.model} cannot call tools`));
+    return failedOf(new TypeError(`${caller}: ${settings.model} cannot call tools`));
   let usage: UsageRecord | undefined;
   try {
     const messages = [
-      new SystemMessage(`${LAUNCH_ROUTER_SYSTEM}\n\n${request.instructions}`),
+      new SystemMessage(`${voice.system}\n\n${request.instructions}`),
       new HumanMessage(request.input),
     ];
-    const reply = await chat.bindTools([answerToolOf(request)]).invoke(messages);
+    const reply = await chat.bindTools([answerToolOf(request, voice)]).invoke(messages);
     const message = reply instanceof AIMessage ? reply : new AIMessage({ content: reply.content });
     usage = recordUsage(caller, settings, message);
-    return decidedOf(request, answersOf(message, request), usage);
+    return decidedOf(request, answersOf(message, request, voice.tool.name), usage);
   } catch (error) {
     return failedOf(error, usage);
   }
+}
+
+/** Yes/no decisions on a model for `voice`: one decide on a decision model, one tool on a chat model. */
+export function createYesNoDecider(
+  voice: DecisionVoice,
+  model: RouterModel,
+  deps: LaunchDeciderDeps,
+): LaunchDecider {
+  return {
+    decide: (request) =>
+      model.kind === "jev"
+        ? decideOnDecisionModel(voice, model.model, deps.gateway, request)
+        : decideOnChatModel(
+            voice,
+            resolveSettings(model, deps.chatDefaults),
+            deps.gateway,
+            request,
+          ),
+  };
 }
 
 /** The launch decider of a router on its model: a decision model, or a chat model. */
@@ -176,10 +212,11 @@ export function createLaunchDecider(
   model: RouterModel,
   deps: LaunchDeciderDeps,
 ): LaunchDecider {
-  return {
-    decide: (request) =>
-      model.kind === "jev"
-        ? decideOnDecisionModel(name, model.model, deps.gateway, request)
-        : decideOnChatModel(name, resolveSettings(model, deps.chatDefaults), deps.gateway, request),
+  const voice: DecisionVoice = {
+    caller: routerCaller(name),
+    user: { kind: "router", router: name },
+    system: LAUNCH_ROUTER_SYSTEM,
+    tool: { name: LAUNCH_ANSWER_TOOL, description: LAUNCH_ANSWER_DESCRIPTION },
   };
+  return createYesNoDecider(voice, model, deps);
 }

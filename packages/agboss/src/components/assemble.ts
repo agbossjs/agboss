@@ -3,7 +3,8 @@ import { validateAgentsConfig } from "../config/types.js";
 import { analyseWorkflow, type FlowAnalysis } from "../flow/analyse/analyse.js";
 import { maxStepsOf as stepsLimitOf } from "../flow/analyse/worst-case.js";
 import { agentMetasOf } from "../flow/runtime/agents.js";
-import { isCodeNode, runtimeGraphOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
+import { codeClassesOf, runtimeGraphOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
+import { modelArbitersOf } from "../flow/runtime/launch/runtime-launch.js";
 import { loadRouters } from "../flow/runtime/routers.js";
 import { DEFAULT_WORKFLOW_SETTINGS, type WorkflowSettings } from "../graph/settings.js";
 import type { AssembledWorkflow } from "../workflow.js";
@@ -41,7 +42,7 @@ import {
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import { judgeClassesOf, judgePartsOf, judgeSettingsOf, type JudgeClass } from "./judge-parts.js";
 import { agentSettings } from "./agent-settings.js";
-import { resolvedModelProvidersOf } from "../models/resolution.js";
+import { resolvedModelProvidersOf, type WorkflowModels } from "../models/resolution.js";
 
 /** The application a workflow is assembled in: its name, `defaults` and providers (its model providers). */
 type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
@@ -81,10 +82,6 @@ const toolDependenciesOf = (
       return tree === "" ? [] : [[names.get(cls) ?? cls.name, tree] as const];
     }),
   );
-
-/** The code nodes the container creates: actions, finishes with a handler, code routers. */
-const codeNodeClassesOf = (graph: RuntimeGraph): readonly Class[] =>
-  [...graph.nodes.values()].flatMap((node) => (isCodeNode(node) ? [node.component] : []));
 
 /**
  * What every container of the workflow has besides its providers: core values, the application's
@@ -164,6 +161,19 @@ function checkClasses(bundle: WorkflowMeta, agents: readonly AgentMeta[]): void 
   checkMemoryStrategies(agents);
 }
 
+/** The workflow's model arbiters (#279) and its model providers, every model resolved to one. */
+function modelPartsOf(
+  owner: WorkflowOwner | undefined,
+  models: Pick<WorkflowModels, "config" | "routers">,
+  graph: RuntimeGraph,
+): Pick<AssembledWorkflow, "arbiters" | "modelProviders"> {
+  const arbiters = modelArbitersOf(graph.launches);
+  return {
+    arbiters,
+    modelProviders: resolvedModelProvidersOf(owner?.providers, { ...models, arbiters }),
+  };
+}
+
 /**
  * Assembles a v2 `@Workflow` class into the workflow the core runs (#272): its paths analysed (every
  * rule, all violations at once — before any model call), router and agent texts loaded, config,
@@ -188,7 +198,7 @@ export async function workflowOf(
   const rags = ragClassesOf(bundle, agents);
   checkClasses(bundle, agents);
   const judges = judgeClassesOf(agents);
-  const components = componentClassesOf(bundle, agents, tools, rags, codeNodeClassesOf(graph));
+  const components = componentClassesOf(bundle, agents, tools, rags, codeClassesOf(graph));
   const modules = [...providerModulesOf(bundle), ...application];
   checkGraph(components, modules, coreTokensOf(mcp, contexts));
   rememberServers(bundle, mcp.instances);
@@ -198,7 +208,7 @@ export async function workflowOf(
   const config = configOf(bundle, agents, names, mcp, judges);
   const settings = settingsOf(workflow);
   validateAgentsConfig(config, [...names.values()]);
-  const modelProviders = resolvedModelProvidersOf(owner?.providers, { config, routers });
+  const models = modelPartsOf(owner, { config, routers }, graph);
   checkWiring(bundle, tools);
   rememberDefaultsLevels(graph, levelsOf(workflow, owner));
   return {
@@ -207,7 +217,7 @@ export async function workflowOf(
     maxSteps: maxStepsOf(workflow, graph),
     ...containerPartsOf(bundle, policyMapsOf(agents, tools.local, names)),
     ...channelPartsOf(bundle),
-    modelProviders,
+    ...models,
     onIncompatibleResume: settings.onIncompatibleResume,
     routers,
     prompts,

@@ -1,5 +1,6 @@
 import { InjectionToken, tokenName, type Class, type Token } from "../injection.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
+import { arbiterOf } from "../../flow/decorators/arbiter.js";
 import { ComponentError, componentOf } from "../metadata.js";
 import { Registrations, type ProviderModule, type Registration } from "./registrations.js";
 
@@ -14,13 +15,15 @@ import { Registrations, type ProviderModule, type Registration } from "./registr
 export const depsOf = (cls: Class): readonly Token[] => {
   const meta = componentOf(cls)?.meta;
   if (meta !== undefined && "deps" in meta) return meta.deps;
-  const options = declarationOf(cls)?.options;
+  const options = declarationOf(cls)?.options ?? arbiterOf(cls)?.options;
   return options !== undefined && "deps" in options ? (options.deps ?? []) : [];
 };
 
 /** Whether a framework decorator (a component's or a flow node's) describes the class. */
 export const isDecorated = (cls: Class): boolean =>
-  componentOf(cls) !== undefined || declarationOf(cls) !== undefined;
+  componentOf(cls) !== undefined ||
+  declarationOf(cls) !== undefined ||
+  arbiterOf(cls) !== undefined;
 
 /**
  * A core value the app does not have (e.g. no environment): registered so the graph checks pass,

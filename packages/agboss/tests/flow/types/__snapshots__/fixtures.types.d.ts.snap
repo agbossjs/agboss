@@ -21,6 +21,8 @@ import type { BrokenAgent, DraftAgent, EditorAgent, NotifyRecruiterAction, Offer
 import type { NotifyFinanceTeamAction, OrderFailedWorkflowFinish, OrderWorkflow, OrderWorkflowFinish, OrderWorkflowStart, RefundCardAction, ReleaseStockAction, ReserveStockAction, ShipOrderAction } from "../tests/flow/fixtures/order.fixture.js";
 import type { AuditorAgent, BoardSearchAgent, CandidateReviewWorkflowStart, CompanySearchWorkflowStart, CompanyShortlistAgent, CompanyShortlistWorkflowFinish, CompanyVetAgent, CultureScoreAgent, DealCriticAgent, DealRoomOpenedWorkflowFinish, DealWorkflowStart, DueDiligenceReportWorkflowFinish, FastScreenAgent, FitReviewWorkflowStart, FitSummaryAgent, FitSummaryWorkflowFinish, FullReviewAgent, LegalAgent, NotifyReviewerAction, OpenDealRoomAction, QuickRejectWorkflowFinish, ReviewerNotifiedWorkflowFinish, SalaryFitAgent, ScoreAAgent, ScoreBAgent, ScoreCAgent, ScoreReviewFailedWorkflowFinish, ScoreReviewWorkflowFinish, ScoreSummaryAgent, SecondOpinionRouter, SkillsScoreAgent } from "../tests/flow/fixtures/quorum-agents.js";
 import type { AuditDto, CandidateDto, CompanyShortlistDto, CultureScoreDto, DealCritiqueDto, DealDto, DueDiligenceReportDto, FastScreenDto, FitSummaryDto, LegalReviewDto, SalaryFitDto, ScoreDto, ScoreReviewDto, SkillsScoreDto } from "../tests/flow/fixtures/quorum-dtos.js";
+import type { CriticPanelAgent, DealPanelWorkflowStart, DealReportPanelAgent, DealReportPanelWorkflowFinish, FastPanelAgent, HirePanelAgent, LegalPanelAgent, NoQuorumPanelWorkflowFinish, PanelFailedWorkflowFinish, PanelItemsWorkflowStart, PanelReviewWorkflowFinish, PanelSummaryAgent, PanelUnjudgedWorkflowFinish, PanelWorkflowStart, QuickRejectPanelWorkflowFinish, RisksPanelAgent, SecondOpinionPanelWorkflowFinish, SkillsPanelAgent } from "../tests/flow/fixtures/quorum-runtime-parts.js";
+import type { AnyOfPanelWorkflow, ChainPanelWorkflow, ChatPanelWorkflow, CheckedPanelWorkflow, CopiesPanelWorkflow, DealPanelWorkflow, ItemPanelWorkflow, ModelPanelWorkflow, QuickPanelWorkflow, RecoveryPanelWorkflow, StrictPanelWorkflow } from "../tests/flow/fixtures/quorum-runtime.fixture.js";
 import type { CandidateReviewWorkflow, CompanySearchWorkflow, DueDiligenceWorkflow, FitReviewWorkflow } from "../tests/flow/fixtures/quorum.fixture.js";
 import type { ApprovalDto, CritiqueDto, DraftDto, PlanDto, ResearchDto } from "../tests/flow/fixtures/review-dtos.js";
 import type { CritiqueAction, CritiqueRouter, PolishAgent, PolishWorkflow, PolishedWorkflowFinish, PublisherAgent, ResearcherAgent, StoryReviewerAgent, StoryWorkflow, StoryWorkflowFinish, StoryWorkflowStart, StoryWriterAgent } from "../tests/flow/fixtures/review.fixture.js";
@@ -64,9 +66,12 @@ declare module "../src/flow/generated-types.js" {
     "company-vet-agent": CompanyCheckDto;
     "credit-workflow-start": WorkflowStartTextDto;
     "critic-agent": CritiqueDto;
+    "critic-panel-agent": DealCritiqueDto;
     "critique-action": readonly CritiqueDto[];
     "culture-score-agent": CultureScoreDto;
     "deal-critic-agent": DealCritiqueDto;
+    "deal-panel-workflow-start": DealDto;
+    "deal-report-panel-agent": DueDiligenceReportDto;
     "deal-workflow-start": DealDto;
     "deep-dive-agent": DeepDiveDto;
     "delivery-topic-agent": TopicAnswerDto;
@@ -76,6 +81,7 @@ declare module "../src/flow/generated-types.js" {
     "editor-agent": OfferDraftDto;
     "expert-answer-agent": ExpertDraftDto;
     "fast-answer-agent": FastDraftDto;
+    "fast-panel-agent": FastScreenDto;
     "fast-screen-agent": FastScreenDto;
     "final-reviewer-agent": ReviewDto;
     "first-draft-agent": OfferDraftDto;
@@ -85,12 +91,14 @@ declare module "../src/flow/generated-types.js" {
     "full-review-agent": DueDiligenceReportDto;
     "grader-agent": CompanyGradeDto;
     "help-desk-workflow-start": WorkflowStartTextDto;
+    "hire-panel-agent": ScoreDto;
     "history-offer-workflow-start": ShortlistDto;
     "intake-workflow-start": WorkflowStartTextDto;
     "item-blind-agent": CompanyCheckDto;
     "job-offer-agent": JobOfferDto;
     "job-offer-workflow-start": WorkflowStartTextDto;
     "legal-agent": LegalReviewDto;
+    "legal-panel-agent": LegalReviewDto;
     "link-offer-workflow-start": readonly [WorkflowStartTextDto, CompanyLinkDto];
     "loyalty-agent": LoyaltyOfferDto;
     "loyalty-offer-agent": LoyaltyOfferDto;
@@ -109,6 +117,9 @@ declare module "../src/flow/generated-types.js" {
     "order-lookup-agent": OrderStatusDto;
     "order-topic-agent": TopicAnswerDto;
     "order-workflow-start": OrderRequestDto;
+    "panel-items-workflow-start": readonly CandidateDto[];
+    "panel-summary-agent": ScoreReviewDto;
+    "panel-workflow-start": CandidateDto;
     "picked-offer-workflow-start": WorkflowStartTextDto;
     "plan-researcher-agent": ResearchDto;
     "planner-agent": PlanDto;
@@ -128,6 +139,7 @@ declare module "../src/flow/generated-types.js" {
     "review-draft-action": ChangesRequestedDto | DraftApprovedDto;
     "review-ranker-agent": GradedShortlistDto;
     "reviewer-agent": ChangesRequestedDto | DraftApprovedDto;
+    "risks-panel-agent": ScoreDto;
     "salary-fit-agent": SalaryFitDto;
     "score-a-agent": ScoreDto;
     "score-b-agent": ScoreDto;
@@ -139,6 +151,7 @@ declare module "../src/flow/generated-types.js" {
     "send-offer-action": OfferSentDto;
     "send-receipt-action": NoOutput;
     "ship-order-action": OrderShippedDto;
+    "skills-panel-agent": ScoreDto;
     "skills-score-agent": SkillsScoreDto;
     "story-reviewer-agent": ApprovalDto | DraftChangesDto;
     "story-workflow-start": ArticleRequestDto;
@@ -211,10 +224,14 @@ declare module "../src/flow/generated-types.js" {
     "credit-workflow-finish": NoInput;
     "credit-workflow-start": WorkflowStartTextDto;
     "critic-agent": { plan: Produced<PlanDto, typeof PlannerAgent> };
+    "critic-panel-agent": { deal: Produced<DealDto, typeof DealPanelWorkflowStart> };
     "critique-action": { draft: Produced<DraftDto, typeof PolishAgent> };
     "critique-router": { critiques: readonly Produced<CritiqueDto, typeof CritiqueAction>[] };
     "culture-score-agent": { candidate: Produced<CandidateDto, typeof FitReviewWorkflowStart> };
     "deal-critic-agent": { deal: Produced<DealDto, typeof DealWorkflowStart> };
+    "deal-panel-workflow-start": DealDto;
+    "deal-report-panel-agent": { legal: Produced<LegalReviewDto, typeof LegalPanelAgent>; critique: Produced<DealCritiqueDto, typeof CriticPanelAgent> };
+    "deal-report-panel-workflow-finish": NoInput;
     "deal-room-opened-workflow-finish": NoInput;
     "deal-workflow-start": DealDto;
     "deep-dive-agent": { promising: Produced<PromisingCompanyDto, typeof CompanyReviewerAgent> };
@@ -230,6 +247,7 @@ declare module "../src/flow/generated-types.js" {
       | { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderAgent>; loyalty: Produced<LoyaltyOfferDto, typeof LoyaltyAgent> }
       | { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderAgent>; loyalty?: undefined };
     "fast-answer-agent": { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderAgent> };
+    "fast-panel-agent": { deal: Produced<DealDto, typeof DealPanelWorkflowStart> };
     "fast-screen-agent": { deal: Produced<DealDto, typeof DealWorkflowStart> };
     "final-reviewer-agent": { article: Produced<ArticleDto, typeof WriterAgent> };
     "first-draft-agent": { shortlist: Produced<ShortlistDto, typeof HistoryOfferWorkflowStart> };
@@ -253,6 +271,7 @@ declare module "../src/flow/generated-types.js" {
     "help-desk-router": { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart> };
     "help-desk-workflow-finish": NoInput;
     "help-desk-workflow-start": WorkflowStartTextDto;
+    "hire-panel-agent": { candidate: Produced<CandidateDto, typeof PanelWorkflowStart> };
     "history-offer-workflow-start": ShortlistDto;
     "intake-workflow-start": WorkflowStartTextDto;
     "item-blind-agent": { readonly __error: "[launch.item-not-read] broken-screening-workflow: item-blind-agent runs once per CompanyDto of listOf(CompanyDto) (screening-agent → toParallelAgents(item-blind-agent)), but reads no CompanyDto — add an input field of type CompanyDto" };
@@ -260,6 +279,7 @@ declare module "../src/flow/generated-types.js" {
     "job-offer-workflow-finish": NoInput;
     "job-offer-workflow-start": WorkflowStartTextDto;
     "legal-agent": { deal: Produced<DealDto, typeof DealWorkflowStart> };
+    "legal-panel-agent": { deal: Produced<DealDto, typeof DealPanelWorkflowStart> };
     "link-offer-workflow-start": { message: WorkflowStartTextDto; link: CompanyLinkDto };
     "loyalty-agent": { order: Produced<OrderStatusDto, typeof OrderAgent> };
     "loyalty-offer-agent": { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart | typeof OffersWorkflowStart> };
@@ -268,6 +288,7 @@ declare module "../src/flow/generated-types.js" {
     "no-offer-failed-workflow-finish": NoInput;
     "no-offer-rejected-workflow-finish": NoInput;
     "no-order-workflow-finish": NoInput;
+    "no-quorum-panel-workflow-finish": NoInput;
     "no-reply-workflow-finish": NoInput;
     "notify-finance-team-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
     "notify-operator-action": { companies: readonly Produced<CompanyDto, typeof ScreeningAgent>[] };
@@ -292,6 +313,12 @@ declare module "../src/flow/generated-types.js" {
     "order-topic-agent": { intent: Produced<SupportIntentDto, typeof TopicsWorkflowStart> };
     "order-workflow-finish": { shipped: Produced<OrderShippedDto, typeof ShipOrderAction> };
     "order-workflow-start": OrderRequestDto;
+    "panel-failed-workflow-finish": NoInput;
+    "panel-items-workflow-start": readonly CandidateDto[];
+    "panel-review-workflow-finish": NoInput;
+    "panel-summary-agent": { scores: readonly Produced<ScoreDto, typeof HirePanelAgent | typeof RisksPanelAgent | typeof SkillsPanelAgent>[] };
+    "panel-unjudged-workflow-finish": NoInput;
+    "panel-workflow-start": CandidateDto;
     "payment-workflow-finish": NoInput;
     "picked-offer-workflow-start": WorkflowStartTextDto;
     "plan-researcher-agent": { plan: Produced<PlanDto, typeof PlannerAgent> };
@@ -303,6 +330,7 @@ declare module "../src/flow/generated-types.js" {
     "profiler-agent": { message: Produced<WorkflowStartTextDto, typeof IntakeWorkflowStart> };
     "publisher-agent": { draft: Produced<DraftDto, typeof StoryWriterAgent>; approval: Produced<ApprovalDto, typeof StoryReviewerAgent> };
     "quick-grade-workflow-start": CompanyDto;
+    "quick-reject-panel-workflow-finish": NoInput;
     "quick-reject-workflow-finish": NoInput;
     "ranker-agent": { checks: readonly Produced<CompanyCheckDto, typeof CompanyAuditAgent | typeof ItemBlindAgent>[] };
     "ranking-workflow-finish": NoInput;
@@ -320,6 +348,7 @@ declare module "../src/flow/generated-types.js" {
     "review-ranker-agent": { reviews: readonly Produced<CompanyGradeDto | CompanyRejectedDto | CompanyReviewFailedDto, typeof CompanyReviewWorkflow>[] };
     "reviewer-agent": { draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent> };
     "reviewer-notified-workflow-finish": NoInput;
+    "risks-panel-agent": { candidate: Produced<CandidateDto, typeof PanelWorkflowStart> };
     "salary-fit-agent": { candidate: Produced<CandidateDto, typeof FitReviewWorkflowStart> };
     "score-a-agent": { candidate: Produced<CandidateDto, typeof CandidateReviewWorkflowStart> };
     "score-b-agent": { candidate: Produced<CandidateDto, typeof CandidateReviewWorkflowStart> };
@@ -334,10 +363,12 @@ declare module "../src/flow/generated-types.js" {
     "screening-failed-workflow-finish": NoInput;
     "screening-stopped-workflow-finish": NoInput;
     "screening-workflow-start": WorkflowStartTextDto;
+    "second-opinion-panel-workflow-finish": NoInput;
     "second-opinion-router": { critiques: readonly Produced<DealCritiqueDto, typeof DealCriticAgent>[] };
     "send-offer-action": { draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent> };
     "send-receipt-action": { payment: Produced<PaymentDto, typeof ChargePaymentAction> };
     "ship-order-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
+    "skills-panel-agent": { candidate: Produced<CandidateDto, typeof PanelItemsWorkflowStart | typeof PanelWorkflowStart> };
     "skills-score-agent": { candidate: Produced<CandidateDto, typeof FitReviewWorkflowStart> };
     "story-reviewer-agent": { draft: Produced<DraftDto, typeof StoryWriterAgent> };
     "story-workflow-finish": NoInput;
@@ -375,6 +406,7 @@ declare module "../src/flow/generated-types.js" {
     "company-shortlist-workflow-finish": CompanyShortlistDto;
     "credit-workflow-finish": ChargeResultDto;
     "critique-action": readonly CritiqueDto[];
+    "deal-report-panel-workflow-finish": DueDiligenceReportDto;
     "deal-room-opened-workflow-finish": AuditDto;
     "draft-history-workflow-finish": DraftChangesDto;
     "due-diligence-report-workflow-finish": DueDiligenceReportDto;
@@ -386,6 +418,7 @@ declare module "../src/flow/generated-types.js" {
     "no-offer-failed-workflow-finish": CompanyReviewFailedDto;
     "no-offer-rejected-workflow-finish": CompanyRejectedDto;
     "no-order-workflow-finish": WorkflowStartTextDto;
+    "no-quorum-panel-workflow-finish": DealDto;
     "no-reply-workflow-finish": WorkflowStartTextDto;
     "notify-finance-team-action": NoOutput;
     "notify-operator-action": ScreeningFailedDto;
@@ -399,8 +432,12 @@ declare module "../src/flow/generated-types.js" {
     "order-failed-workflow-finish": OrderRequestDto;
     "order-held-workflow-finish": CreditOrderDto;
     "order-workflow-finish": OrderShippedDto;
+    "panel-failed-workflow-finish": CandidateDto;
+    "panel-review-workflow-finish": ScoreReviewDto;
+    "panel-unjudged-workflow-finish": CandidateDto;
     "payment-workflow-finish": PaymentDto;
     "polished-workflow-finish": DraftDto;
+    "quick-reject-panel-workflow-finish": FastScreenDto;
     "quick-reject-workflow-finish": FastScreenDto;
     "ranking-workflow-finish": RankingDto;
     "refund-card-action": NoOutput;
@@ -415,6 +452,7 @@ declare module "../src/flow/generated-types.js" {
     "score-review-workflow-finish": ScoreReviewDto;
     "screening-failed-workflow-finish": ScreeningFailedDto;
     "screening-stopped-workflow-finish": WorkflowStartTextDto;
+    "second-opinion-panel-workflow-finish": DealCritiqueDto;
     "send-offer-action": OfferSentDto;
     "send-receipt-action": NoOutput;
     "ship-order-action": OrderShippedDto;
@@ -436,6 +474,7 @@ declare module "../src/flow/generated-types.js" {
     "company-screening-workflow-start": { input: WorkflowStartTextDto; output: GradedShortlistDto | WorkflowStartTextDto };
     "company-search-workflow-start": { input: WorkflowStartTextDto; output: CompanyShortlistDto };
     "credit-workflow-start": { input: WorkflowStartTextDto; output: ChargeResultDto | CreditOrderDto | WorkflowStartTextDto };
+    "deal-panel-workflow-start": { input: DealDto; output: DealCritiqueDto | DealDto | DueDiligenceReportDto | FastScreenDto };
     "deal-workflow-start": { input: DealDto; output: AuditDto | DealDto | DueDiligenceReportDto | FastScreenDto };
     "fit-review-workflow-start": { input: CandidateDto; output: FitSummaryDto };
     "full-grade-workflow-start": { input: CompanyDto; output: CompanyGradeDto };
@@ -447,6 +486,8 @@ declare module "../src/flow/generated-types.js" {
     "offer-workflow-start": { input: ShortlistDto; output: OfferDraftDto | OfferSentDto };
     "offers-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
     "order-workflow-start": { input: OrderRequestDto; output: OrderRequestDto | OrderShippedDto };
+    "panel-items-workflow-start": { input: readonly CandidateDto[]; output: ScoreReviewDto };
+    "panel-workflow-start": { input: CandidateDto; output: CandidateDto | ScoreReviewDto };
     "picked-offer-workflow-start": { input: WorkflowStartTextDto; output: CompanyRejectedDto | CompanyReviewFailedDto | JobOfferDto | WorkflowStartTextDto };
     "quick-grade-workflow-start": { input: CompanyDto; output: CompanyGradeDto };
     "research-workflow-start": { input: WorkflowStartTextDto; output: ArticleDraftDto };
@@ -485,8 +526,15 @@ declare module "../src/flow/generated-types.js" {
     "toParallelAgents(legal-agent, deal-critic-agent, deal-critic-agent, auditor-agent, fast-screen-agent) group(deal-critic-agent, deal-critic-agent)": readonly DealCritiqueDto[];
     "toParallelAgents(legal-agent, deal-critic-agent, deal-critic-agent, auditor-agent, fast-screen-agent) group(fast-screen-agent)": FastScreenDto;
     "toParallelAgents(legal-agent, deal-critic-agent, deal-critic-agent, auditor-agent, fast-screen-agent) group(legal-agent, deal-critic-agent)": readonly [LegalReviewDto, readonly DealCritiqueDto[]];
+    "toParallelAgents(legal-panel-agent, critic-panel-agent, fast-panel-agent)": readonly [DealCritiqueDto, FastScreenDto, LegalReviewDto];
+    "toParallelAgents(legal-panel-agent, critic-panel-agent, fast-panel-agent) group(critic-panel-agent)": DealCritiqueDto;
+    "toParallelAgents(legal-panel-agent, critic-panel-agent, fast-panel-agent) group(fast-panel-agent)": FastScreenDto;
+    "toParallelAgents(legal-panel-agent, critic-panel-agent, fast-panel-agent) group(legal-panel-agent, critic-panel-agent)": readonly [DealCritiqueDto, LegalReviewDto];
     "toParallelAgents(plan-researcher-agent, critic-agent, critic-agent)": readonly [readonly CritiqueDto[], ResearchDto];
     "toParallelAgents(score-a-agent, score-b-agent, score-c-agent)": readonly ScoreDto[];
+    "toParallelAgents(skills-panel-agent, risks-panel-agent, hire-panel-agent)": readonly ScoreDto[];
+    "toParallelAgents(skills-panel-agent, skills-panel-agent, skills-panel-agent)": readonly ScoreDto[];
+    "toParallelAgents(skills-panel-agent) per item": readonly ScoreDto[];
     "toParallelAgents(skills-score-agent, culture-score-agent, salary-fit-agent)": readonly [CultureScoreDto, SalaryFitDto, SkillsScoreDto];
     "toParallelWorkflows(company-review-workflow) per item": readonly (CompanyGradeDto | CompanyRejectedDto | CompanyReviewFailedDto)[];
   }
@@ -1291,6 +1339,99 @@ declare module "../tests/flow/fixtures/quorum-dtos.js" {
   }
   interface SkillsScoreDto {
     readonly [agbossDto]?: "SkillsScoreDto";
+  }
+}
+
+declare module "../tests/flow/fixtures/quorum-runtime-parts.js" {
+  interface CriticPanelAgent {
+    readonly [agbossComponent]?: "critic-panel-agent";
+  }
+  interface DealPanelWorkflowStart {
+    readonly [agbossComponent]?: "deal-panel-workflow-start";
+  }
+  interface DealReportPanelAgent {
+    readonly [agbossComponent]?: "deal-report-panel-agent";
+  }
+  interface DealReportPanelWorkflowFinish {
+    readonly [agbossComponent]?: "deal-report-panel-workflow-finish";
+  }
+  interface FastPanelAgent {
+    readonly [agbossComponent]?: "fast-panel-agent";
+  }
+  interface HirePanelAgent {
+    readonly [agbossComponent]?: "hire-panel-agent";
+  }
+  interface LegalPanelAgent {
+    readonly [agbossComponent]?: "legal-panel-agent";
+  }
+  interface NoQuorumPanelWorkflowFinish {
+    readonly [agbossComponent]?: "no-quorum-panel-workflow-finish";
+  }
+  interface PanelFailedWorkflowFinish {
+    readonly [agbossComponent]?: "panel-failed-workflow-finish";
+  }
+  interface PanelItemsWorkflowStart {
+    readonly [agbossComponent]?: "panel-items-workflow-start";
+  }
+  interface PanelReviewWorkflowFinish {
+    readonly [agbossComponent]?: "panel-review-workflow-finish";
+  }
+  interface PanelSummaryAgent {
+    readonly [agbossComponent]?: "panel-summary-agent";
+  }
+  interface PanelUnjudgedWorkflowFinish {
+    readonly [agbossComponent]?: "panel-unjudged-workflow-finish";
+  }
+  interface PanelWorkflowStart {
+    readonly [agbossComponent]?: "panel-workflow-start";
+  }
+  interface QuickRejectPanelWorkflowFinish {
+    readonly [agbossComponent]?: "quick-reject-panel-workflow-finish";
+  }
+  interface RisksPanelAgent {
+    readonly [agbossComponent]?: "risks-panel-agent";
+  }
+  interface SecondOpinionPanelWorkflowFinish {
+    readonly [agbossComponent]?: "second-opinion-panel-workflow-finish";
+  }
+  interface SkillsPanelAgent {
+    readonly [agbossComponent]?: "skills-panel-agent";
+  }
+}
+
+declare module "../tests/flow/fixtures/quorum-runtime.fixture.js" {
+  interface AnyOfPanelWorkflow {
+    readonly [agbossComponent]?: "any-of-panel-workflow";
+  }
+  interface ChainPanelWorkflow {
+    readonly [agbossComponent]?: "chain-panel-workflow";
+  }
+  interface ChatPanelWorkflow {
+    readonly [agbossComponent]?: "chat-panel-workflow";
+  }
+  interface CheckedPanelWorkflow {
+    readonly [agbossComponent]?: "checked-panel-workflow";
+  }
+  interface CopiesPanelWorkflow {
+    readonly [agbossComponent]?: "copies-panel-workflow";
+  }
+  interface DealPanelWorkflow {
+    readonly [agbossComponent]?: "deal-panel-workflow";
+  }
+  interface ItemPanelWorkflow {
+    readonly [agbossComponent]?: "item-panel-workflow";
+  }
+  interface ModelPanelWorkflow {
+    readonly [agbossComponent]?: "model-panel-workflow";
+  }
+  interface QuickPanelWorkflow {
+    readonly [agbossComponent]?: "quick-panel-workflow";
+  }
+  interface RecoveryPanelWorkflow {
+    readonly [agbossComponent]?: "recovery-panel-workflow";
+  }
+  interface StrictPanelWorkflow {
+    readonly [agbossComponent]?: "strict-panel-workflow";
   }
 }
 

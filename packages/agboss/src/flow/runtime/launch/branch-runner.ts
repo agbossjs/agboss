@@ -1,19 +1,16 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { isGraphInterrupt } from "@langchain/langgraph";
-import { handedOverReason } from "../../../app/handed-over.js";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
-import { ExecutionCancelledError } from "../../../core/errors.js";
 import { extractRunContext } from "../../../core/run-context.js";
 import type { UsageRecord } from "../../../finops/usage.js";
-import { StepFailedError } from "../../../graph/errors.js";
 import { runInFrame } from "../../context/frame.js";
-import { FailurePolicy } from "../../decorators/router.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import { checkVisit, isWorkingNode } from "../limits.js";
 import type { GraphNode, NodeOutcome, NodeRunner } from "../node-runner.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { startedVersionOf, stepFrameAt } from "../step-frame.js";
 import { unrecordedSpendOf, type VisitDeps } from "../visit.js";
+import { executionSignalOf, failedStatusOf, passThroughStops } from "./branch-end.js";
 import {
   branchConfigOf,
   branchLaunchOf,
@@ -21,8 +18,10 @@ import {
   branchTicketOf,
   type BranchLaunch,
 } from "./branch-view.js";
-import type { LaunchRegistry, LiveLaunch } from "./launch-registry.js";
+import type { LiveLaunch } from "./launch-registry.js";
 import { reportBranch } from "./launch-report.js";
+import { arbiterDepsFor, liveLaunchOf, type BranchQuorumDeps } from "./branch-quorum.js";
+import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
 import { BranchStatus, type BranchOutcomeRecord, type BranchTicket } from "./records.js";
 
 /**
@@ -31,13 +30,13 @@ import { BranchStatus, type BranchOutcomeRecord, type BranchTicket } from "./rec
  * checks the limits for its own visit, runs its node in its own frame (copy id, copy number, item),
  * and writes how it ended as a record: `Finished` with its value, `Skipped` for a step failure under
  * `FailurePolicy.Skip`, `Failed` (which aborts the launch, so its siblings end `Cancelled`) for
- * anything else — a limit too. A pause, a hand-over and a cancel of the execution pass through
- * LangGraph; everything else meets at the join.
+ * anything else — a limit too. Under a quorum (#279) its arbiter chain runs in the same slot and
+ * frame, and the record carries the answer's verdict. A pause, a hand-over and a cancel of the
+ * execution pass through LangGraph; everything else meets at the join.
  */
 
-export interface BranchDeps extends VisitDeps {
+export interface BranchDeps extends VisitDeps, BranchQuorumDeps {
   readonly graph: RuntimeGraph;
-  readonly registry: LaunchRegistry;
 }
 
 /** One branch's run: where it stands, and what it gave or spent so far. */
@@ -62,6 +61,7 @@ interface BranchEnd {
   readonly value?: NodeOutcome["value"];
   readonly read: readonly string[];
   readonly error?: ErrorRecord;
+  readonly mark?: QuorumMark;
 }
 
 /** A run's bookkeeping: its path entry and step; the node's visit is counted once, by the join. */
@@ -70,25 +70,15 @@ const visited = (run: BranchRun): ExecutionStateUpdate => ({
   steps: run.ranAsStep ? 1 : 0,
 });
 
-async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
+/** The branch's config (its signal: the execution's and the launch's) and its step frame. */
+function branchFrameOf(run: BranchRun, view: ExecutionStateType) {
   const { node, ticket, deps, live } = run;
-  const view = branchStateOf(run.state, run.owner.launch, ticket, live.spent);
-  if (isWorkingNode(node)) {
-    // the view's spend: the execution's at the launch plus the siblings that already ended (#273 S71)
-    await checkVisit(view, node, deps.limits, deps.workflow);
-    run.ranAsStep = true;
-  }
   const { run: execution } = extractRunContext(run.config, run.state.runId);
   const signal = AbortSignal.any([execution.signal, live.controller.signal]);
   const config = branchConfigOf(run.config, signal, run.state.runId);
   const { visitNumber, nodeId, copyNumber, itemIndex } = ticket;
-  const site = {
-    node,
-    visitNumber,
-    nodeId,
-    copyNumber,
-    ...(itemIndex === undefined ? {} : { itemIndex }),
-  };
+  const at = { node, visitNumber, nodeId, copyNumber };
+  const site = itemIndex === undefined ? at : { ...at, itemIndex };
   const reportUsage = (record: UsageRecord): void => {
     run.services.push({ ...record, caller: `${node.kind}:${node.id}` });
   };
@@ -96,63 +86,78 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
     ...stepFrameAt(site, view, config, deps.workflow, deps.contexts),
     services: { reportUsage },
   };
-  const outcome = await runInFrame(frame, () => runner(view, config));
-  const usage = [...(outcome.usage ?? []), ...run.services];
-  live.spent.push(...usage);
+  return { config, frame };
+}
+
+/** How a branch whose node answered ended: finished with its verdict, or cancelled by its quorum. */
+function answeredEnd(
+  run: BranchRun,
+  outcome: NodeOutcome,
+  marked: MarkedAnswer | undefined,
+): BranchEnd {
+  const usage = [...(outcome.usage ?? []), ...(marked?.usage ?? []), ...run.services];
+  run.live.spent.push(...usage);
+  const update = { ...visited(run), usage, approvals: [...(outcome.approvals ?? [])] };
+  // a quorum decided while its arbiters checked the answer: cancelled, its spend kept (#279 AC12)
+  if (marked !== undefined && marked.mark === undefined)
+    return { status: BranchStatus.Cancelled, read: outcome.read, update };
   return {
     status: BranchStatus.Finished,
     ...(outcome.value === undefined ? {} : { value: outcome.value }),
+    ...(marked?.mark === undefined ? {} : { mark: marked.mark }),
     read: outcome.read,
-    update: {
-      ...visited(run),
-      usage,
-      approvals: [...(outcome.approvals ?? [])],
-    },
+    update,
   };
+}
+
+async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
+  const { node, ticket, deps, live } = run;
+  const { nodeId } = ticket;
+  const view = branchStateOf(run.state, run.owner.launch, ticket, live.spent);
+  if (isWorkingNode(node)) {
+    // the view's spend: the execution's at the launch plus the siblings that already ended (#273 S71)
+    await checkVisit(view, node, deps.limits, deps.workflow);
+    run.ranAsStep = true;
+  }
+  const { config, frame } = branchFrameOf(run, view);
+  const arbiterDeps = arbiterDepsFor({ ...deps, live, view, services: run.services, nodeId });
+  const arbiters = { launch: run.owner.launch, deps: arbiterDeps };
+  const { outcome, marked } = await runInFrame(frame, async () => {
+    const answered = await runner(view, config);
+    return { outcome: answered, marked: await markAnswer(live, ticket, answered.value, arbiters) };
+  });
+  return answeredEnd(run, outcome, marked);
 }
 
 /** A branch that threw: skipped, failed (aborting its siblings) or cancelled by a sibling. */
 function ended(run: BranchRun, error: unknown): BranchEnd {
   if (isGraphInterrupt(error)) throw error;
-  passThroughStops(run);
+  passThroughStops(run.config, run.state.runId);
   const { live, ticket } = run;
   const usage = [...unrecordedSpendOf(error), ...run.services];
   live.spent.push(...usage);
-  const isSkipped = ticket.failure === FailurePolicy.Skip && error instanceof StepFailedError;
-  const status = live.controller.signal.aborted
-    ? BranchStatus.Cancelled
-    : isSkipped
-      ? BranchStatus.Skipped
-      : BranchStatus.Failed;
+  const isQuorum = live.quorum !== undefined;
+  const status = failedStatusOf({ live, ticket, isQuorum }, error);
   if (status === BranchStatus.Failed) {
     live.errors.set(ticket.index, error);
     live.controller.abort();
   }
+  leaveQuorum(live, ticket);
   const update = { ...visited(run), usage };
   return { status, read: [], error: errorRecordOf(error), update };
 }
 
-/** The execution's own signal (`app.cancel`, the caller's signal, a hand-over), not the launch's. */
-const executionSignalOf = (run: BranchRun): AbortSignal =>
-  extractRunContext(run.config, run.state.runId).run.signal;
-
-/**
- * A hand-over and a cancel of the execution are no outcome of the branch (S21): they stop the whole
- * execution — never recorded, never `Skip`ped, never taken by `.onJoinError(…)`.
- */
-function passThroughStops(run: BranchRun): void {
-  const handedOver = handedOverReason(run.config?.signal);
-  if (handedOver !== undefined) throw handedOver;
-  if (executionSignalOf(run).aborted || run.config?.signal?.aborted === true)
-    throw new ExecutionCancelledError("the execution was cancelled during a parallel launch");
-}
-
 async function runBranch(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   const { live } = run;
-  const stop = AbortSignal.any([executionSignalOf(run), live.controller.signal]);
+  await live.quorum?.ready;
+  const stop = AbortSignal.any([
+    executionSignalOf(run.config, run.state.runId),
+    live.controller.signal,
+  ]);
   const isTaken = await live.slots.acquire(stop);
   if (!isTaken) {
-    passThroughStops(run);
+    passThroughStops(run.config, run.state.runId);
+    leaveQuorum(live, run.ticket);
     return { status: BranchStatus.Cancelled, read: [], update: {} };
   }
   try {
@@ -171,6 +176,7 @@ const recordOf = (launchId: string, index: number, end: BranchEnd): BranchOutcom
   ...(end.value === undefined ? {} : { value: end.value }),
   read: end.read,
   ...(end.error === undefined ? {} : { error: end.error }),
+  ...end.mark,
 });
 
 /** The LangGraph node of a branch node: it runs only as a launch's `Send`. */
@@ -178,18 +184,17 @@ export function branchNode(node: RuntimeNode, runner: NodeRunner, deps: BranchDe
   return async (state, config) => {
     const ticket = branchTicketOf(state);
     const owner = branchLaunchOf(state, deps.graph.launches);
-    const { launchId, maxConcurrency, branches } = owner.ticket;
-    const live = deps.registry.liveOf(launchId, maxConcurrency ?? Math.max(branches.length, 1));
+    const live = liveLaunchOf(owner, state, config, deps);
     const run: BranchRun = {
       ...{ node, state, config, ticket, owner, live, deps },
       services: [],
       ranAsStep: false,
     };
     const end = await runBranch(run, runner);
-    await reportBranch(config, launchId, ticket, end);
+    await reportBranch(config, owner.ticket.launchId, ticket, end);
     return {
       ...end.update,
-      branchRecords: { add: [recordOf(launchId, ticket.index, end)] },
+      branchRecords: { add: [recordOf(owner.ticket.launchId, ticket.index, end)] },
       next: owner.launch.joinNodeId,
       startedVersion: startedVersionOf(state, deps.workflow),
     };

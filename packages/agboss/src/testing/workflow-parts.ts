@@ -3,7 +3,7 @@ import type { Class, Provider } from "../components/injection.js";
 import { requireComponent } from "../components/metadata.js";
 import { moduleOf } from "../components/module.js";
 import { NodeKind } from "../flow/ast.js";
-import { isCodeNode } from "../flow/runtime/graph-model.js";
+import { codeClassesOf, isCodeNode } from "../flow/runtime/graph-model.js";
 import type { AssembledWorkflow } from "../workflow.js";
 
 /** The MCP server classes of every workflow of the application, and their names. */
@@ -38,6 +38,7 @@ function workflowComponentsOf(bundle: AssembledWorkflow): Class[] {
     ...agents.flatMap((agent) => agent.tools ?? []),
     ...agents.flatMap((agent) => (agent.rag ?? []).map((binding) => binding.use)),
     ...codeNodes,
+    ...codeClassesOf(bundle.graph),
   ];
 }
 

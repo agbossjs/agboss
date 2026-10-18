@@ -4,11 +4,11 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "AGBoss example: flow patterns \u2014 a review loop, a code router and parallel launches, scripted tests only",
+  "description": "AGBoss example: flow patterns \u2014 a review loop, a code router, parallel launches and a quorum, scripted tests only",
   "scripts": {
     "describe": "agboss describe",
     "types": "agboss check --workflow src/offer/offer.workflow.ts",
-    "check": "agboss check --strict --workflow src/offer/offer.workflow.ts && agboss check --strict --workflow src/credit/credit.workflow.ts && agboss check --strict --workflow src/review/review.workflow.ts",
+    "check": "agboss check --strict --workflow src/offer/offer.workflow.ts && agboss check --strict --workflow src/credit/credit.workflow.ts && agboss check --strict --workflow src/review/review.workflow.ts && agboss check --strict --workflow src/panel/panel.workflow.ts",
     "typecheck": "npm run types && tsc --noEmit -p .",
     "test": "vitest run",
     "coverage": "vitest run --coverage"

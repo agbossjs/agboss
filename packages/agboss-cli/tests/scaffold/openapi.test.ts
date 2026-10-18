@@ -205,7 +205,9 @@ describe("agboss generate openapi", () => {
     ]);
     expect(again.status, again.out).toBe(4);
 
-    expect(helpFor("generate")).toMatch(/<workflow\|agent\|router\|tool\|mcp\|rag\|openapi>/);
+    expect(helpFor("generate")).toMatch(
+      /<workflow\|agent\|router\|arbiter\|tool\|mcp\|rag\|openapi>/,
+    );
     expect(helpFor("generate")).toContain("--url <file|url>");
     expect(helpFor("generate")).toContain("--operations <ids>");
   });

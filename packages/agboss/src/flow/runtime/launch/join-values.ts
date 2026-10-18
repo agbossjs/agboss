@@ -1,4 +1,4 @@
-import type { ValueWrite } from "../../analyse/flow-graph.js";
+import type { FlowEdge, ValueWrite } from "../../analyse/flow-graph.js";
 import { producersOfSlot } from "../../analyse/join-groups.js";
 import { slotOfWrite, writtenValue } from "../../analyse/scope.js";
 import { builtFromOf, writtenProvenanceOf, type RuntimeProvenance } from "../provenance.js";
@@ -17,14 +17,17 @@ import type { RuntimeLaunch } from "./runtime-launch.js";
  * never the order they finished in), a single value from its one branch, nothing for an `optional`
  * one whose branch did not run or dropped out. Each value is built from what its branches read at
  * the launch (a per-item run counts as reading the list), so the join's values never outdate each
- * other; they are written at once, in one outdating cascade.
+ * other; they are written at once, in one outdating cascade. After a quorum (#279) only the counted
+ * answers are gathered, in counting order, on the edge the quorum takes (a group's own).
  */
 
 /** What a join reads: its launch, the branches' tickets and records, the scope at the launch. */
 export interface JoinSite {
   readonly launch: RuntimeLaunch;
+  /** The join edge taken: the launch's, or the winning group's. */
+  readonly edge: FlowEdge;
   readonly ticket: LaunchTicket;
-  /** The finished branches' records, by ticket index. */
+  /** The finished branches' records, by ticket index — a quorum's counted ones in counting order. */
   readonly finished: readonly BranchOutcomeRecord[];
   readonly scope: ScopeRecords;
   readonly provenance: RuntimeProvenance;
@@ -44,7 +47,7 @@ const elementOf = ({ record }: Gathered): unknown => {
 };
 
 function gatheredFor(site: JoinSite, write: ValueWrite): readonly Gathered[] {
-  const { launch, groups } = site.launch.join.join ?? { launch: site.launch.launch, groups: [] };
+  const { launch, groups } = site.edge.join ?? { launch: site.launch.launch, groups: [] };
   const producers = new Set<string>(producersOfSlot(launch, groups, slotOfWrite(write)));
   return site.finished.flatMap((record) => {
     const ticket = site.ticket.branches[record.index];
@@ -118,7 +121,7 @@ function joinRecord(
 
 /** Every value of the join, by slot. */
 export function joinValuesOf(site: JoinSite): ScopeRecords {
-  const writes = site.launch.join.join?.values ?? [];
+  const writes = site.edge.join?.values ?? [];
   const records = writes.flatMap((write) => joinRecord(site, write, writes) ?? []);
   return Object.fromEntries(records.map((record) => [record.slot, record]));
 }

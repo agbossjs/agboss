@@ -9,6 +9,10 @@ import { ModelCallFailedError, type ScriptedTurn } from "./script.js";
 import type { ChatLine, ComponentScript, ModelRequest, ScriptBook } from "./script-book.js";
 import { extractText } from "../graph/multimodal.js";
 import { LAUNCH_ANSWER_TOOL } from "../prompts/router-launch.js";
+import { ARBITER_ANSWER_TOOL } from "../prompts/arbiter.js";
+
+/** The yes/no answer tools a chat model answers like a decision model (`decideWith`). */
+const YES_NO_TOOLS: ReadonlySet<string> = new Set([LAUNCH_ANSWER_TOOL, ARBITER_ANSWER_TOOL]);
 
 /** Output tokens that cost `usd` at the model's output price (no price or a free model → none). */
 const tokensFor = (usd: number, settings: ResolvedModelSettings): number =>
@@ -104,10 +108,11 @@ function replyOf(
       return toolCallReplyOf(turn, book, settings);
     case "failure":
       throw new ModelCallFailedError(turn.failure, script.label);
-    case "decide":
-      if (tools.some((tool) => tool.function.name === LAUNCH_ANSWER_TOOL))
-        return launchAnswerOf(turn, book, settings);
+    case "decide": {
+      const tool = tools.find((candidate) => YES_NO_TOOLS.has(candidate.function.name));
+      if (tool !== undefined) return yesNoAnswerOf(turn, book, settings, tool.function.name);
       return wrongScript(script);
+    }
     case "decision":
       return wrongScript(script);
   }
@@ -121,14 +126,15 @@ const wrongScript = (script: ComponentScript): never => {
 };
 
 /**
- * A chat-model router before a launch (#273 S23) is scripted like a decision model —
- * `decideWith({ "refund-policy-agent": 1 })` — and answers through its answer tool: P(yes) > 0.5 is
- * `true`.
+ * A chat-model router before a launch (#273 S23) and a chat-model arbiter (#279) are scripted like a
+ * decision model — `decideWith({ "refund-policy-agent": 1 })`, `decideWith({ counts: 0.9 })` — and
+ * answer through their answer tool: P(yes) > 0.5 is `true`.
  */
-function launchAnswerOf(
+function yesNoAnswerOf(
   turn: TurnOf<"decide">,
   book: ScriptBook,
   settings: ResolvedModelSettings,
+  tool: string,
 ): AIMessage {
   const args = Object.fromEntries(
     Object.entries(turn.answers).map(([target, answer]) => [
@@ -141,7 +147,7 @@ function launchAnswerOf(
     content: "",
     usage_metadata: usageOf(tokensFor(cost, settings)),
     response_metadata: costMetadataOf(cost, settings),
-    tool_calls: [{ id: book.nextToolCallId(), name: LAUNCH_ANSWER_TOOL, args }],
+    tool_calls: [{ id: book.nextToolCallId(), name: tool, args }],
   });
 }
 

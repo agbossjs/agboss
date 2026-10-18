@@ -1,0 +1,16 @@
+import { Arbiter, DecidedBy, OnAnswer, type ArbiterAnswerOf } from "agboss";
+{{imports}}
+
+/**
+ * {{title}} — decides whether an answer of the launch counts for its quorum: one method per agent
+ * of the launch, each taking that agent's answer. Attach it in the flow between the launch and its
+ * quorum: `.toParallelAgents(…).acceptedBy({{pascal}}Arbiter).joinQuorum({ min })`. The copy or the
+ * item an answer comes from: `deps: [ExecutionContext]`, `executionContext.step`.
+ */
+@Arbiter({
+  name: "{{kebab}}-arbiter",
+  decidedBy: DecidedBy.Code,
+})
+export class {{pascal}}Arbiter {
+{{methods}}
+}

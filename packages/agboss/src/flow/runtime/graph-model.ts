@@ -15,9 +15,9 @@ import {
   type ValueShape,
 } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
-import { launchesOf, type RuntimeLaunch } from "./launch/runtime-launch.js";
+import { arbiterClassesOf, launchesOf, type RuntimeLaunch } from "./launch/runtime-launch.js";
+import { arbiterOf, isCodeArbiter } from "../decorators/arbiter.js";
 import { runtimeProvenanceOf, type RuntimeProvenance } from "./provenance.js";
-import { rejectQuorums } from "./quorum-not-runnable.js";
 
 /**
  * A v2 workflow as its runtime reads it (#272 → Runtime): every node with its fields and its
@@ -105,6 +105,20 @@ export const isCodeNode = (node: Pick<RuntimeNode, "declaration">): boolean => {
   );
 };
 
+/**
+ * The classes the container creates for a graph's code: actions, finishes with a handler, code
+ * routers and code arbiters (#279).
+ */
+export const codeClassesOf = (
+  graph: Pick<RuntimeGraph, "nodes" | "launches">,
+): readonly Class[] => [
+  ...[...graph.nodes.values()].flatMap((node) => (isCodeNode(node) ? [node.component] : [])),
+  ...arbiterClassesOf(graph.launches).filter((arbiter) => {
+    const options = arbiterOf(arbiter)?.options;
+    return options !== undefined && isCodeArbiter(options);
+  }),
+];
+
 const maxVisitsOf = (declaration: ComponentDeclaration): number | undefined =>
   declaration.kind === NodeKind.Agent || declaration.kind === NodeKind.Router
     ? declaration.options.maxVisits
@@ -136,7 +150,6 @@ export function runtimeGraphOf(
   type: Class,
 ): RuntimeGraph {
   rejectChildren(analysis);
-  rejectQuorums(analysis);
   const nodes = new Map<string, RuntimeNode>();
   for (const node of analysis.graph.nodes.values()) {
     const maxVisits = maxVisitsOf(node.declaration);

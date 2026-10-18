@@ -13,7 +13,7 @@ export interface ModelUse {
   readonly settings?: ResolvedModelSettings;
 }
 
-/** A router that names its model (`@Router({ model })`). */
+/** A router that names its model (`@Router({ model })`) — or a model arbiter (`@Arbiter({ model })`, #279). */
 export interface ModelNamingRouter {
   readonly name: string;
   readonly model: string;
@@ -40,10 +40,14 @@ const guardUses = (config: AgentsConfigOf<string>): ModelUse[] =>
     ),
   );
 
-/** Every model use of a workflow: agents, compaction, judges, the default router, guards and flow routers. */
+/**
+ * Every model use of a workflow: agents, compaction, judges, the default router, guards, flow routers
+ * and model arbiters (#279).
+ */
 export function modelUsesOf(
   config: AgentsConfigOf<string>,
   routers: readonly ModelNamingRouter[],
+  arbiters: readonly ModelNamingRouter[] = [],
 ): readonly ModelUse[] {
   const chat = (key: string, settings: Parameters<typeof resolveSettings>[0]): ModelUse => ({
     key,
@@ -67,6 +71,11 @@ export function modelUsesOf(
       key: `routers.${router.name}`,
       model: router.model,
       purpose: purposeOf(router.model),
+    })),
+    ...arbiters.map((arbiter): ModelUse => ({
+      key: `arbiters.${arbiter.name}`,
+      model: arbiter.model,
+      purpose: purposeOf(arbiter.model),
     })),
   ];
 }

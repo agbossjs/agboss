@@ -22,11 +22,14 @@ import { McpStubs, stubbedMcpConnect, type McpStub } from "./mcp-stubs.js";
 import { mockInstanceOf } from "./mocks.js";
 import { ScriptBook, type ModelScript } from "./script-book.js";
 import {
+  arbiterKeyOf,
   createScriptedGateway,
   judgeScriptKeyOf,
   routerKeyOf,
   type ModelTarget,
 } from "./scripted-gateway.js";
+import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
+import { arbiterClassesOf } from "../flow/runtime/launch/runtime-launch.js";
 import { mcpServersOf, usedComponentsOf } from "./workflow-parts.js";
 import { reusableInfrastructure } from "../infrastructure/contracts.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
@@ -95,6 +98,8 @@ export class TestEnvironment {
   readonly #nodes: readonly RuntimeNode[];
   readonly #used: ReadonlySet<Class>;
   readonly #judges: ReadonlySet<string>;
+  /** The arbiters of the application's quorums (#279). */
+  readonly #arbiters: ReadonlySet<Class>;
   readonly #servers: ReadonlyMap<Class, string>;
   readonly #options: AppDepsOptions;
   #reused: ReadonlyMap<Class, unknown> = new Map();
@@ -113,6 +118,9 @@ export class TestEnvironment {
     this.#used = usedComponentsOf(assembled);
     this.#judges = new Set(
       workflows.flatMap((workflow) => Object.keys(workflow.config.judges ?? {})),
+    );
+    this.#arbiters = new Set(
+      workflows.flatMap((workflow) => arbiterClassesOf(workflow.graph.launches)),
     );
     for (const node of this.#nodes) {
       const key = scriptKeyOf(node);
@@ -182,7 +190,7 @@ export class TestEnvironment {
 
   mockLlm(target: ModelTarget): ModelScript {
     const label = target.name;
-    const judge = judgeScriptKeyOf(target, this.#judges);
+    const judge = judgeScriptKeyOf(target, this.#judges) ?? this.#arbiterKeyOf(target);
     if (judge !== undefined) {
       this.book.name(judge, label);
       return this.book.scriptOf(judge);
@@ -193,10 +201,18 @@ export class TestEnvironment {
       const why =
         node !== undefined && isCodeRouterNode(node)
           ? "a code router calls no model — mockOf() the services its route() uses"
-          : "not an agent, router or judge of this application";
+          : this.#arbiters.has(target)
+            ? "a code arbiter calls no model — mockOf() it, or the services its methods use"
+            : "not an agent, router, judge or model arbiter of this application";
       throw new TestSetupError(`mockLlm(${label}): ${why}`);
     }
     return this.book.scriptOf(key);
+  }
+
+  /** The script key of a model arbiter of the application (#279); none for anything else. */
+  #arbiterKeyOf(target: ModelTarget): string | undefined {
+    const options = this.#arbiters.has(target) ? arbiterOf(target)?.options : undefined;
+    return options === undefined || isCodeArbiter(options) ? undefined : arbiterKeyOf(options.name);
   }
 
   mockOf<T>(cls: Class<T>): Mocked<T> {

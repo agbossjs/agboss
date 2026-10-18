@@ -6,6 +6,7 @@ import type { KnowledgeSource } from "../rag/types.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import {
   chatModelSettingsOf,
+  flowArbiterModelFactory,
   flowLaunchDeciderFactory,
   flowRouterFactory,
 } from "../graph/router-model.js";
@@ -137,7 +138,10 @@ export const flowFor = (
   bundle: AssembledWorkflow,
   config: AgentsConfigOf<string>,
   gateway: ModelGateway,
-): Pick<RunDeps<string>, "graph" | "maxSteps" | "routers" | "routerFor" | "launchDecisionFor"> => {
+): Pick<
+  RunDeps<string>,
+  "graph" | "maxSteps" | "routers" | "routerFor" | "launchDecisionFor" | "arbiterModelFor"
+> => {
   const routerDeps = {
     gateway,
     chatDefaults: config.defaults.models,
@@ -149,5 +153,6 @@ export const flowFor = (
     routers: bundle.routers,
     routerFor: flowRouterFactory(routerDeps),
     launchDecisionFor: flowLaunchDeciderFactory(routerDeps),
+    arbiterModelFor: flowArbiterModelFactory(routerDeps),
   };
 };

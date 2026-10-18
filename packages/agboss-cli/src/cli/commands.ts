@@ -124,13 +124,17 @@ const SCAFFOLD_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   },
   generate: {
     summary:
-      "add a workflow, agent, router, tool, MCP server, knowledge base or OpenAPI tools, wired (alias g)",
+      "add a workflow, agent, router, arbiter, tool, MCP server, knowledge base or OpenAPI tools, wired (alias g)",
     usage:
-      "agboss generate <workflow|agent|router|tool|mcp|rag|openapi> <name> [--workflow <path>] [options]",
+      "agboss generate <workflow|agent|router|arbiter|tool|mcp|rag|openapi> <name> [--workflow <path>] [options]",
     positionals: "<kind> <name>",
     options: [
       text("workflow", "<path>", "the workflow to add to (src/<name>/<name>.workflow.ts)"),
-      text("agent", "<name>", "the agent that uses the tool / MCP tool / knowledge base"),
+      text(
+        "agent",
+        "<name>",
+        "the agent that uses the tool / MCP tool / knowledge base; arbiter: an agent of the launch it judges",
+      ),
       text("description", "<text>", "an agent's role, or what a router decides"),
       text("dir", "<folder>", "mcp: a filesystem server over this folder"),
       text("command", "<cmd>", "mcp: a server started with this command (with --tool <name>)"),
