@@ -111,9 +111,16 @@ export interface VersionScore {
 export interface TernStore extends MemoryStore, ConfigStore {
   /**
    * A new thread of the workflow in a tenant (#261: tenant + thread is its key); with an `owner`,
-   * only that owner may continue it (#202).
+   * only that owner may continue it (#202); with a `threadId`, under the caller's own id (#262 Q4) —
+   * one that exists already is kept as it is. The reads by thread below take its key
+   * (`threadKeyOf(tenantId, threadId)`, tenant + thread).
    */
-  readonly createThread: (bundle: string, tenantId: string, owner?: string) => Promise<string>;
+  readonly createThread: (
+    bundle: string,
+    tenantId: string,
+    owner?: string,
+    threadId?: string,
+  ) => Promise<string>;
   /** Whether the tenant has the thread: another tenant's thread does not exist for it. */
   readonly hasThread: (bundle: string, tenantId: string, threadId: string) => Promise<boolean>;
   /** The thread's owner (`owner: undefined` = created without one); `undefined` = no such thread. */

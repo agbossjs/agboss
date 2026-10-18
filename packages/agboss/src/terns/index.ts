@@ -28,3 +28,4 @@ export {
   stableJson,
   versionOf,
 } from "./versions.js";
+export { isThreadId, MAX_THREAD_ID_LENGTH, threadIdOf, threadKeyOf } from "./thread-key.js";

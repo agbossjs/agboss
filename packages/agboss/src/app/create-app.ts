@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { rememberAppWorkflow } from "./app-workflow.js";
-import { checkThreadAccess, checkThreadOwner, type ThreadAccess } from "../run/thread.js";
+import {
+  checkThreadAccess,
+  checkThreadOwner,
+  isNewThread,
+  type NewThreadAccess,
+  type ThreadAccess,
+} from "../run/thread.js";
 import { runOpenedAgent } from "../run/run-agent.js";
 import { openExecutionBudgets } from "../run/run-budgets.js";
 import { runVersions } from "../run/versions.js";
@@ -91,6 +97,14 @@ export async function buildApp(
   const moves = treeMovesOf({ deps, live, paused, leases, trees });
   const owned = (access: ThreadAccess) => checkThreadOwner(deps.terns, deps.config.name, access);
   const known = (access: ThreadAccess) => checkThreadAccess(deps.terns, deps.config.name, access);
+  const fresh = (access: ThreadAccess) => isNewThread(deps.terns, deps.config.name, access);
+  /** A new thread — the caller's own id, or one made now; two creating one id: the first owns it. */
+  const newThread = async (access: NewThreadAccess): Promise<string> => {
+    const { tenantId, threadId, ownerId } = access;
+    const id = await deps.terns.createThread(deps.config.name, tenantId, ownerId, threadId);
+    if (threadId !== undefined) await owned({ tenantId, threadId: id, ownerId });
+    return id;
+  };
   const contexts = deps.contexts ?? standaloneContexts(deps.config);
   let closed = false;
   let released = false;
@@ -121,9 +135,10 @@ export async function buildApp(
         // the contexts' values, checked before the first step and frozen (#261)
         const values = contextValuesOf(contexts, call);
         const { tenantId } = values.tenant;
-        if (call.threadId !== undefined)
-          await known({ tenantId, threadId: call.threadId, ownerId: call.ownerId });
-        return { ...valid, contexts: values };
+        const thread = { tenantId, threadId: call.threadId ?? "", ownerId: call.ownerId };
+        // a given id the tenant does not have yet is the caller's own new thread (#262 Q4)
+        const isNew = call.threadId === undefined || (await fresh(thread));
+        return { ...valid, contexts: values, isNew };
       });
       const { tenantId } = checked.contexts.tenant;
       // one id for the whole run: its observer events, `executionContext.executionId`, its Tern and its result
@@ -142,8 +157,9 @@ export async function buildApp(
         }),
       );
       // the thread is known before the run starts, so `cancel(threadId)` reaches a new one too
-      const threadId =
-        call.threadId ?? (await deps.terns.createThread(deps.config.name, tenantId, call.ownerId));
+      const threadId = checked.isNew
+        ? await newThread({ tenantId, threadId: call.threadId, ownerId: call.ownerId })
+        : (call.threadId ?? "");
       const tree = { runId, threadId, tenantId, startedVersion: deps.config.version };
       await deps.observer.onExecutionStart(executionEventAt(tree, deps.config));
       const begun = { start: checked.name, input: checked.input, threadId };

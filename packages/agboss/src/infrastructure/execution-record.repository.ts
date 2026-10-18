@@ -39,10 +39,19 @@ export enum ExecutionRecordStatus {
  */
 export abstract class ExecutionRecordRepository {
   /**
-   * A new thread of the workflow in a tenant (#261: tenant + thread is its key; the id it makes is
-   * unique in the repository); with an `owner`, only that owner may continue it.
+   * A new thread of the workflow in a tenant (#261: tenant + thread is its key; an id it makes is
+   * unique in the repository); with an `owner`, only that owner may continue it; with a `threadId`,
+   * under the caller's own id (#262 Q4) — the same id in two tenants is two threads, and one that
+   * exists already is kept as it is. The reads by thread (`lastTerns`, `uncovered`, `before`,
+   * `turnNumber`, `latestSummaries`, `summaryCount`) and a summary's `threadId` take the thread's
+   * key in the repository (tenant + thread, made by the framework): an opaque string.
    */
-  abstract createThread(workflow: string, tenantId: string, owner?: string): Promise<string>;
+  abstract createThread(
+    workflow: string,
+    tenantId: string,
+    owner?: string,
+    threadId?: string,
+  ): Promise<string>;
   /** Whether the tenant has the thread: another tenant's thread does not exist for it. */
   abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
   /** The thread's owner (`owner: undefined` = created without one); `undefined` = no such thread. */
@@ -119,8 +128,13 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
     this.#store = store;
   }
 
-  createThread(workflow: string, tenantId: string, owner?: string): Promise<string> {
-    return this.#store.createThread(workflow, tenantId, owner);
+  createThread(
+    workflow: string,
+    tenantId: string,
+    owner?: string,
+    threadId?: string,
+  ): Promise<string> {
+    return this.#store.createThread(workflow, tenantId, owner, threadId);
   }
   hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean> {
     return this.#store.hasThread(workflow, tenantId, threadId);

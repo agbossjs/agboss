@@ -1221,7 +1221,11 @@ tenant, execution, onStream })` runs the workflow of that start (any workflow of
   generated types, validated before the first step (invalid → `dto.invalid`, `onExecutionRejected`, the
   field named, never the value), frozen, kept in the checkpoint (a resume runs on them). Nothing
   declared → `tenant: { tenantId }` optional (`"default"`), `execution` does not compile. A
-  thread's key is `tenantId` + `threadId`: another tenant's thread is `UnknownThreadError`; every
+  thread's key is `tenantId` + `threadId`: another tenant's thread does not exist for the caller —
+  `execute` with an id the tenant does not have yet creates the caller's own thread (#262 Q4: an
+  idempotent id; bound to `ownerId`; only once the budgets pass; 1–200 characters, no control
+  characters, else `InvalidThreadIdError`), `resume` / `cancel` of it are `NotPausedError` /
+  `UnknownThreadError`; every
   record, lease and tree key carries `tenantId`, traces too (LangGraph `metadata` / `tags`,
   Langfuse `tenant:<id>`). Identity only — never secrets (a service gets a secret from the
   identity). Injecting a subclass the application does not declare → `[context.not-declared]`.

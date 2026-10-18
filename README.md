@@ -813,7 +813,12 @@ const { cancelled } = await app.cancel(threadId, { tenantId: "acme", ownerId: us
 A thread created with an `ownerId` belongs to it: `execute` on that thread, `resume` and `cancel`
 with another owner (or none) throw `ThreadOwnerError` (`run.thread-owner`) before anything runs or
 is read. A thread belongs to its tenant too (#261): its key is `tenantId` + `threadId`, so another
-tenant's thread does not exist for the caller (`UnknownThreadError`); `resume` and `cancel` take
+tenant's thread does not exist for the caller. `execute` with a `threadId` the tenant does not have
+yet creates that thread — the caller's own, idempotent id (an order number, a ticket), bound to its
+`ownerId`; the same id in another tenant is another thread (#262 Q4). An id that cannot be one
+(empty, over 200 characters, a control character) is `InvalidThreadIdError`
+(`run.invalid-thread-id`); `cancel` of a thread the tenant does not have is `UnknownThreadError`,
+`resume` of one `NotPausedError`. `resume` and `cancel` take
 the tenant by its id, `{ tenantId, ownerId }` (omitted → `"default"`), and a resumed execution runs
 on the context values it started with. With nothing declared `tenant: { tenantId?, weight? }` is
 all there is (`weight`, a positive integer, default 1, is the tenant's share for #266's

@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
+import { threadIdOf } from "./thread-key.js";
 import { TERN_STATUSES, type Tern, type VersionScore } from "./types.js";
 
 /** Ordered schema migrations; `PRAGMA user_version` = how many are applied. */
@@ -84,7 +85,7 @@ export function toTern(row: unknown): Tern {
   return {
     id: r.id,
     runId: r.run_id,
-    threadId: r.thread_id,
+    threadId: threadIdOf(r.tenant_id, r.thread_id),
     tenantId: r.tenant_id,
     bundle: r.bundle,
     createdAt: r.created_at,

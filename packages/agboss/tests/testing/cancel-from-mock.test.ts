@@ -21,8 +21,8 @@ describe("AC14: app.cancel from inside a mock", () => {
   desk(
     "the service cancels while the tool runs: the execution is cancelled",
     async ({ app, mockLlm, mockOf }) => {
-      // a test's thread ids are deterministic: its first execution runs on thread-1
-      const threadId = "thread-1";
+      // the caller's own thread id (#262 Q4): this execution creates it, the mock cancels it
+      const threadId = "thread-cancelled";
       mockOf(OrderBook).statusOf.mockImplementation(async () => {
         await app.cancel(threadId);
         return "order 7 shipped";
@@ -31,7 +31,7 @@ describe("AC14: app.cancel from inside a mock", () => {
       // cancelled during the tool call: the agent's model is never asked again
       mockLlm(Support).thenReturn(callTool(OrderStatus, { orderId: "7" }));
 
-      const run = execute(app, ChatStart, { text: "where is 7?" });
+      const run = execute(app, ChatStart, { text: "where is 7?" }, { threadId });
 
       await expect(run).rejects.toFailWith(ExecutionCancelledError);
       expect(mockOf(OrderBook).statusOf.mock.calls).toEqual([["7"]]);

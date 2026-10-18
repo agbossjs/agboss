@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
+import { threadKeyOf } from "./thread-key.js";
 import type { TernStore } from "./types.js";
 
 /** A new thread id; random by default, deterministic in tests. */
@@ -17,16 +18,18 @@ export function threadMethods(
   newThreadId: NewThreadId,
 ): Pick<TernStore, "createThread" | "hasThread" | "threadOwner"> {
   return {
-    createThread: (bundle, tenantId, owner) => {
-      const id = newThreadId();
-      db.prepare("INSERT INTO threads (id, bundle, created_at, tenant_id) VALUES (?, ?, ?, ?)").run(
-        id,
-        bundle,
-        now().toISOString(),
-        tenantId,
-      );
-      if (owner !== undefined) {
-        db.prepare("INSERT INTO thread_owners VALUES (?, ?)").run(id, owner);
+    // a caller's own id (#262 Q4) may be created twice at once: the first one keeps it
+    createThread: (bundle, tenantId, owner, threadId) => {
+      const id = threadId ?? newThreadId();
+      const key = threadKeyOf(tenantId, id);
+      const { changes } = db
+        .prepare(
+          `INSERT INTO threads (id, bundle, created_at, tenant_id) VALUES (?, ?, ?, ?)
+           ON CONFLICT(id) DO NOTHING`,
+        )
+        .run(key, bundle, now().toISOString(), tenantId);
+      if (Number(changes) === 1 && owner !== undefined) {
+        db.prepare("INSERT INTO thread_owners VALUES (?, ?)").run(key, owner);
       }
       return Promise.resolve(id);
     },
@@ -36,7 +39,7 @@ export function threadMethods(
           `SELECT o.owner FROM threads t LEFT JOIN thread_owners o ON o.thread_id = t.id
            WHERE t.id = ? AND t.bundle = ? AND t.tenant_id = ?`,
         )
-        .get(threadId, bundle, tenantId);
+        .get(threadKeyOf(tenantId, threadId), bundle, tenantId);
       if (row === undefined) return Promise.resolve(undefined);
       const { owner } = OwnerRow.parse(row);
       return Promise.resolve({ owner: owner ?? undefined });
@@ -44,7 +47,7 @@ export function threadMethods(
     hasThread: (bundle, tenantId, threadId) => {
       const row = db
         .prepare("SELECT 1 FROM threads WHERE id = ? AND bundle = ? AND tenant_id = ?")
-        .get(threadId, bundle, tenantId);
+        .get(threadKeyOf(tenantId, threadId), bundle, tenantId);
       return Promise.resolve(row !== undefined);
     },
   };

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
+import { threadKeyOf } from "./thread-key.js";
 import type { Tern, TernOutcome, TernStore } from "./types.js";
 
 /** The current time (the application's clock, given by the caller). */
@@ -42,7 +43,7 @@ export function ternWrites(
            config_hash, run_id, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         t.id,
-        t.threadId,
+        threadKeyOf(t.tenantId, t.threadId),
         t.bundle,
         t.createdAt,
         t.task,

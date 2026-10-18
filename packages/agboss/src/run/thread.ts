@@ -1,6 +1,7 @@
 import { AGBossError } from "../core/errors.js";
 import type { HistoryTurn } from "../flow/runtime/history.js";
 import type { Tern, TernStore } from "../terns/index.js";
+import { isThreadId, MAX_THREAD_ID_LENGTH, threadKeyOf } from "../terns/index.js";
 import type { RunDeps } from "./types.js";
 
 export class UnknownThreadError extends AGBossError {
@@ -12,6 +13,12 @@ export class UnknownThreadError extends AGBossError {
 export class ThreadOwnerError extends AGBossError {
   static override readonly code: string = "run.thread-owner";
   override name = "ThreadOwnerError";
+}
+
+/** A thread id a caller picked that cannot be one: empty, over 200 characters, a control character. */
+export class InvalidThreadIdError extends AGBossError {
+  static override readonly code: string = "run.invalid-thread-id";
+  override name = "InvalidThreadIdError";
 }
 
 const notTheOwner = (threadId: string): ThreadOwnerError =>
@@ -29,6 +36,11 @@ export interface ThreadAccess {
   readonly ownerId: string | undefined;
 }
 
+/** A thread `execute` creates: the caller's own id, or none — then one is made. */
+export interface NewThreadAccess extends Omit<ThreadAccess, "threadId"> {
+  readonly threadId: string | undefined;
+}
+
 /**
  * A thread is used only by the owner it was created for (`ExecutionOptions.ownerId`): a different
  * owner, or none for an owned thread (and the other way round), fails before anything runs. The
@@ -42,6 +54,26 @@ export async function checkThreadOwner(
   const thread = await terns.threadOwner(bundle, access.tenantId, access.threadId);
   if (thread === undefined || thread.owner === access.ownerId) return;
   throw notTheOwner(access.threadId);
+}
+
+/**
+ * `execute` with a thread id (#262 Q4): an id the tenant has must belong to the caller's owner; an
+ * id it does not have yet is the caller's own new thread — `true`, created once the budgets pass
+ * (a refused execution creates nothing). An id that cannot be one is `InvalidThreadIdError`.
+ */
+export async function isNewThread(
+  terns: Pick<TernStore, "threadOwner">,
+  bundle: string,
+  access: ThreadAccess,
+): Promise<boolean> {
+  if (!isThreadId(access.threadId)) {
+    const why = `1 to ${String(MAX_THREAD_ID_LENGTH)} characters, no control characters`;
+    throw new InvalidThreadIdError(`Not a thread id: ${why}`);
+  }
+  const thread = await terns.threadOwner(bundle, access.tenantId, access.threadId);
+  if (thread === undefined) return true;
+  if (thread.owner !== access.ownerId) throw notTheOwner(access.threadId);
+  return false;
 }
 
 /** No such thread in the tenant — with no hint whether another tenant has the id. */
@@ -88,8 +120,9 @@ const toTurns = (terns: readonly Tern[]): HistoryTurn[] =>
 /** With compaction: the latest summaries + raw turns not yet summarised; without: the last turns. */
 async function memoryOf<TName extends string>(
   deps: RunDeps<TName>,
-  threadId: string,
+  thread: Pick<ThreadAccess, "tenantId" | "threadId">,
 ): Promise<{ readonly history: HistoryTurn[]; readonly summaries: string[] }> {
+  const threadId = threadKeyOf(thread.tenantId, thread.threadId);
   if (deps.config.compaction === undefined) {
     return {
       history: toTurns(await deps.terns.lastTerns(threadId, historyDepth(deps))),
@@ -122,5 +155,5 @@ export async function openThread<TName extends string>(
   if (!(await deps.terns.hasThread(bundle, tenantId, requested))) {
     throw unknownThread(bundle, requested);
   }
-  return { threadId: requested, ...(await memoryOf(deps, requested)) };
+  return { threadId: requested, ...(await memoryOf(deps, { tenantId, threadId: requested })) };
 }

@@ -41,7 +41,13 @@ export interface CallOptions {
  * execution's contexts, typed per start by the generated `.agboss/types.d.ts`.
  */
 export interface ExecutionOptions extends CallOptions {
-  /** The thread to continue, in the execution's tenant; omitted → a new thread. */
+  /**
+   * The thread, in the execution's tenant (its key: tenant + thread): one it has is continued; an
+   * id it does not have yet is created as the caller's own new thread (#262 Q4) — an idempotent id
+   * the caller picked; the same id in another tenant is another thread. Created only once the
+   * budgets pass: a refused execution creates nothing. 1–200 characters, no control characters,
+   * else `InvalidThreadIdError`. Omitted → a new thread with an id of its own.
+   */
   readonly threadId?: string | undefined;
   /**
    * Who the thread belongs to (its access key, `executionContext.ownerId`). A new thread is bound
