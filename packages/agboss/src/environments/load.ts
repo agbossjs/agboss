@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Class } from "../components/injection.js";
 import type { Environment } from "../flow/generated-types.js";
+import { declaredFieldsOf } from "./contract.js";
 import { EnvironmentError, EnvironmentErrorCode } from "./errors.js";
 import {
   describedEnvironment,
@@ -29,7 +30,7 @@ export interface EnvironmentOwner {
   readonly application: string;
   /** The file `@Application` is declared in: `environments/` is next to it. */
   readonly source?: string | undefined;
-  /** `@Application({ environment })`; absent = the application has no environment. */
+  /** `@Application({ environment })`; absent = a workflow no application lists (or an untyped caller). */
   readonly contract?: Class | undefined;
 }
 
@@ -114,6 +115,12 @@ export async function selectedEnvironment(
     );
   }
   const name = env ?? defaultName;
+  // a contract with no fields (an application with no settings) needs no file for its default
+  if (env === undefined && declaredFieldsOf(contract).length === 0) {
+    const file =
+      owner.source === undefined ? undefined : fileOf(environmentsDirOf(owner.source), name);
+    if (file === undefined) return { name, contract: contract.name, values: {} };
+  }
   if (owner.source === undefined) {
     throw new EnvironmentError(
       EnvironmentErrorCode.NotFound,

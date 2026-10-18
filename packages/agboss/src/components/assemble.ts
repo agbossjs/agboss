@@ -34,7 +34,11 @@ import { channelPartsOf } from "./channel-parts.js";
 import { PromptLoader } from "./prompt-render.js";
 import { checkMemoryStrategies, memoryPartsOf } from "./memory-parts.js";
 import { configDefaultsOf, guardsOf, moduleOf, workflowDeclarationOf } from "./module.js";
-import { cascadeDefaults, type DefaultsLevels } from "../config/defaults.js";
+import {
+  cascadeDefaults,
+  rememberDefaultsLevels,
+  type DefaultsLevels,
+} from "../config/defaults.js";
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import { checkObservers } from "./observer-checks.js";
 import { judgeClassesOf, judgePartsOf, judgeSettingsOf, type JudgeClass } from "./judge-parts.js";
@@ -137,10 +141,7 @@ function analysedModule(
 }
 
 /** The levels the workflow's defaults come from: its application's (if any) and its own. */
-const defaultsLevelsOf = (
-  workflow: Class,
-  owner: DefaultsLevels["application"],
-): DefaultsLevels => {
+const levelsOf = (workflow: Class, owner: DefaultsLevels["application"]): DefaultsLevels => {
   const { options } = workflowDeclarationOf(workflow);
   return {
     ...(owner === undefined ? {} : { application: owner }),
@@ -181,6 +182,7 @@ export async function workflowOf(
   validateAgentsConfig(config, [...names.values()]);
   checkToolChannels(bundle, tools);
   checkObservers(bundle.observers ?? []);
+  rememberDefaultsLevels(graph, levelsOf(workflow, owner));
   return {
     config,
     graph,
@@ -200,6 +202,5 @@ export async function workflowOf(
     serverTools: mcp.serverTools,
     toolDependencies: toolDependenciesOf(bundle, [...tools.local, ...tools.mcp], names),
     ...(bundle.compactionPrompt === undefined ? {} : { compactionPrompt: bundle.compactionPrompt }),
-    defaultsLevels: defaultsLevelsOf(workflow, owner),
   };
 }

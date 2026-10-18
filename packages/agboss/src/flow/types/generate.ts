@@ -3,7 +3,11 @@ import type { Class } from "../../components/injection.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { checkWorkflow } from "../analyse/analyse.js";
 import type { LoadedModule } from "../analyse/rules/context.js";
-import { applicationDeclarationOf } from "../../application/application.js";
+import {
+  applicationDeclarationOf,
+  type ApplicationOptions,
+} from "../../application/application.js";
+import { declaredFieldsOf } from "../../environments/contract.js";
 import { declarationOf } from "../decorators/declaration.js";
 import { ComponentRegistry, DtoRegistry, dtoClashMessage } from "../registry.js";
 import { ImportTable } from "./imports.js";
@@ -83,6 +87,13 @@ function nameClashes(workflows: readonly AnalysedWorkflow[], names: ImportTable)
   return found;
 }
 
+/** An application's contract; none for an untyped caller that left `environment` out. */
+const contractOf = (options: ApplicationOptions): Class[] => {
+  // `environment` is required by the type; untyped (JS) callers may still leave it out
+  const contract = (options as Partial<ApplicationOptions>).environment;
+  return contract === undefined ? [] : [contract];
+};
+
 export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   const options = {
     modules: request.modules,
@@ -112,11 +123,10 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   request.workflows.forEach((workflow, index) => {
     if (checks[index]?.analysis !== undefined) names.refIfExported(workflow);
   });
-  const contracts = [
-    ...new Set(
-      applications.flatMap((app) => (app.environment === undefined ? [] : [app.environment])),
-    ),
-  ].map((contract) => names.refPlain(contract));
+  const contracts = [...new Set(applications.flatMap(contractOf))]
+    // an empty contract (an application with no settings) adds nothing to `Environment`
+    .filter((contract) => declaredFieldsOf(contract).length > 0)
+    .map((contract) => names.refPlain(contract));
   const tablesModule = names.specifier(request.tablesModule ?? "agboss");
   const text = printTypes({ ...tables, environments: contracts }, names, tablesModule);
   const failures = [

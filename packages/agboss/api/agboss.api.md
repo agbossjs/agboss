@@ -340,7 +340,7 @@ export type ApplicationClass<TApplication extends Class> = TApplication & ([Name
 export interface ApplicationOptions {
     readonly budgets?: readonly Class[];
     readonly defaults?: WorkflowDefaults;
-    readonly environment?: Class;
+    readonly environment: Class;
     readonly name: string;
     readonly providers?: readonly Provider[];
     readonly version: string;
@@ -383,7 +383,6 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly compactionPrompt?: string;
     // (undocumented)
     readonly config: AgentsConfigOf<TName>;
-    readonly defaultsLevels?: DefaultsLevels;
     // Warning: (ae-forgotten-export) The symbol "RuntimeGraph" needs to be exported by the entry point index.d.ts
     readonly graph: RuntimeGraph;
     // (undocumented)
@@ -766,36 +765,6 @@ export type DecisionState = string | Readonly<Record<string, unknown>> | readonl
 // @public
 export type DeclaredOutput = OutputShape | AboutWrapper;
 
-// @public
-export enum DefaultsLevel {
-    // (undocumented)
-    Application = "application",
-    // (undocumented)
-    Workflow = "workflow"
-}
-
-// @public
-export interface DefaultsLevels {
-    // (undocumented)
-    readonly application?: {
-        readonly name: string;
-        readonly defaults?: WorkflowDefaults;
-    };
-    // (undocumented)
-    readonly workflow: {
-        readonly name: string;
-        readonly defaults?: WorkflowDefaults;
-    };
-}
-
-// @public
-export interface DefaultSource {
-    // (undocumented)
-    readonly level: DefaultsLevel;
-    // (undocumented)
-    readonly name: string;
-}
-
 // Warning: (ae-forgotten-export) The symbol "DescribedEnvironment" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -820,6 +789,10 @@ export class DtoValidationError extends AGBossError {
     readonly issues: readonly DtoIssue[];
     // (undocumented)
     name: string;
+}
+
+// @public
+export class EmptyEnvironment {
 }
 
 // @public
@@ -3150,7 +3123,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/types.ts:92:3 - (ae-undocumented) Missing documentation for "version".
 // src/app/types.ts:108:3 - (ae-undocumented) Missing documentation for "resume".
 // src/app/types.ts:118:3 - (ae-undocumented) Missing documentation for "close".
-// src/application/application.ts:53:1 - (ae-undocumented) Missing documentation for "Application".
+// src/application/application.ts:55:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
 // src/budgets/budget.ts:25:3 - (ae-undocumented) Missing documentation for "Week".
@@ -3230,12 +3203,6 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/components/spend-recorder.ts:20:3 - (ae-undocumented) Missing documentation for "record".
 // src/components/spend-recorder.ts:25:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/spend-recorder.ts:26:12 - (ae-undocumented) Missing documentation for "name".
-// src/config/defaults.ts:13:3 - (ae-undocumented) Missing documentation for "Application".
-// src/config/defaults.ts:14:3 - (ae-undocumented) Missing documentation for "Workflow".
-// src/config/defaults.ts:19:3 - (ae-undocumented) Missing documentation for "application".
-// src/config/defaults.ts:20:3 - (ae-undocumented) Missing documentation for "workflow".
-// src/config/defaults.ts:25:3 - (ae-undocumented) Missing documentation for "level".
-// src/config/defaults.ts:26:3 - (ae-undocumented) Missing documentation for "name".
 // src/config/types.ts:202:1 - (ae-undocumented) Missing documentation for "CompactionSettings".
 // src/config/types.ts:203:1 - (ae-undocumented) Missing documentation for "AgentsConfig".
 // src/config/types.ts:215:3 - (ae-forgotten-export) The symbol "AgentSettingsOf" needs to be exported by the entry point index.d.ts
@@ -3772,19 +3739,19 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/types.ts:76:3 - (ae-undocumented) Missing documentation for "data".
 // src/tools/define-tool.ts:18:3 - (ae-undocumented) Missing documentation for "code".
 // src/tools/define-tool.ts:19:12 - (ae-undocumented) Missing documentation for "name".
-// src/workflow.ts:41:1 - (ae-undocumented) Missing documentation for "WorkflowTools".
-// src/workflow.ts:49:3 - (ae-undocumented) Missing documentation for "config".
-// src/workflow.ts:64:3 - (ae-undocumented) Missing documentation for "prompts".
-// src/workflow.ts:65:3 - (ae-undocumented) Missing documentation for "tools".
-// src/workflow.ts:66:3 - (ae-undocumented) Missing documentation for "mcpServers".
-// src/workflow.ts:82:42 - (ae-forgotten-export) The symbol "RagConnector" needs to be exported by the entry point index.d.ts
-// src/workflow.ts:93:3 - (ae-undocumented) Missing documentation for "piiPolicies".
-// src/workflow.ts:96:3 - (ae-undocumented) Missing documentation for "guardrails".
-// src/workflow.ts:99:3 - (ae-undocumented) Missing documentation for "toolPiiPolicies".
-// src/workflow.ts:102:3 - (ae-undocumented) Missing documentation for "toolGuardrails".
-// src/workflow.ts:105:3 - (ae-undocumented) Missing documentation for "workflowPiiPolicies".
-// src/workflow.ts:106:3 - (ae-undocumented) Missing documentation for "workflowGuardrails".
-// src/workflow.ts:113:14 - (ae-undocumented) Missing documentation for "resolveTools".
+// src/workflow.ts:40:1 - (ae-undocumented) Missing documentation for "WorkflowTools".
+// src/workflow.ts:48:3 - (ae-undocumented) Missing documentation for "config".
+// src/workflow.ts:61:3 - (ae-undocumented) Missing documentation for "prompts".
+// src/workflow.ts:62:3 - (ae-undocumented) Missing documentation for "tools".
+// src/workflow.ts:63:3 - (ae-undocumented) Missing documentation for "mcpServers".
+// src/workflow.ts:79:42 - (ae-forgotten-export) The symbol "RagConnector" needs to be exported by the entry point index.d.ts
+// src/workflow.ts:90:3 - (ae-undocumented) Missing documentation for "piiPolicies".
+// src/workflow.ts:93:3 - (ae-undocumented) Missing documentation for "guardrails".
+// src/workflow.ts:96:3 - (ae-undocumented) Missing documentation for "toolPiiPolicies".
+// src/workflow.ts:99:3 - (ae-undocumented) Missing documentation for "toolGuardrails".
+// src/workflow.ts:102:3 - (ae-undocumented) Missing documentation for "workflowPiiPolicies".
+// src/workflow.ts:103:3 - (ae-undocumented) Missing documentation for "workflowGuardrails".
+// src/workflow.ts:110:14 - (ae-undocumented) Missing documentation for "resolveTools".
 
 // (No @packageDocumentation comment for this package)
 

@@ -84,8 +84,6 @@ export {
   type WorkflowOptions,
 } from "../flow/decorators/workflow.js";
 export type { InputFieldShape, InputFields } from "../flow/decorators/declaration.js";
-export type { DefaultSource, DefaultsLevels } from "../config/defaults.js";
-export { DefaultsLevel } from "../config/defaults.js";
 export type {
   ActionHandler,
   ActionResult,

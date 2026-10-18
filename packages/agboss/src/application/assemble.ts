@@ -99,6 +99,9 @@ function throwIfAny(own: readonly RuleViolation[], errors: readonly GraphRuleErr
   if (all.length > 0) throw new ApplicationRuleError(all);
 }
 
+const withEnvironment = (contract: Class | undefined): { readonly environment?: Class } =>
+  contract === undefined ? {} : { environment: contract };
+
 export async function applicationOf(
   application: Class,
   assembly: ApplicationAssembly = {},
@@ -117,7 +120,8 @@ export async function applicationOf(
     name: options.name,
     version: options.version,
     ...(source === undefined ? {} : { source }),
-    ...(options.environment === undefined ? {} : { environment: options.environment }),
+    // required by the type; an untyped (JS) caller may leave it out — then `ENV` is unavailable
+    ...withEnvironment((options as Partial<ApplicationOptions>).environment),
     modules,
     budgets: options.budgets ?? [],
     workflows: assembled,

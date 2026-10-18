@@ -27,6 +27,7 @@ import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/
 import { usd } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /** What the lifecycle hooks of real components did, in order (the lifecycle tests read it). */
 export const lifecycle: string[] = [];
@@ -270,6 +271,7 @@ export class Desk implements WorkflowDefinition {
 @Application({
   name: "desk-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [Desk],
   budgets: TEST_BUDGETS,
 })

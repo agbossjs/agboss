@@ -21,9 +21,15 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/paused-execution.repository.js";
 import { TernStoreRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
-import { createSqliteTernStore, type NewTern, type Tern, type TernOutcome } from "../../../src/terns/index.js";
+import {
+  createSqliteTernStore,
+  type NewTern,
+  type Tern,
+  type TernOutcome,
+} from "../../../src/terns/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /**
  * #265 PR 1 — a clerk that charges (each charge waits for an approval), holds (the first hold
@@ -190,7 +196,11 @@ export class SeenExecutionRecordRepository extends TernStoreRecordRepository {
   }
 }
 
-@WorkflowStart({ name: "order-workflow-start", description: "A request", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "order-workflow-start",
+  description: "A request",
+  input: WorkflowStartTextDto,
+})
 export class OrderWorkflowStart {}
 
 @WorkflowFinish({ name: "receipt-workflow-finish", description: "The receipt", output: ReceiptDto })
@@ -219,6 +229,7 @@ export class LeaseWorkflow {}
 @Application({
   name: "lease-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [LeaseWorkflow],
   providers: [HookedPausedExecutionRepository, SeenExecutionRecordRepository],
   budgets: TEST_BUDGETS,

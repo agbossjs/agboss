@@ -24,6 +24,7 @@ import {
 import type { AssembledWorkflow } from "../../src/workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { route, start } from "../helpers/flow.js";
+import { EmptyEnvironment } from "../../src/index.js";
 
 @WorkflowStart({
   name: "ask-workflow-start",
@@ -104,6 +105,7 @@ const applicationDefaults: WorkflowDefaults = {
 @Application({
   name: "ask-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [AskWorkflow],
   defaults: applicationDefaults,
   budgets: TEST_BUDGETS,
@@ -122,6 +124,7 @@ class OwnDefaultsWorkflow {}
 @Application({
   name: "own-defaults-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [OwnDefaultsWorkflow],
   defaults: applicationDefaults,
   budgets: TEST_BUDGETS,
@@ -135,6 +138,7 @@ class BareWorkflow {}
 @Application({
   name: "router-only-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [BareWorkflow],
   defaults: { router: { model: "typesafe/jev-application" } },
   budgets: TEST_BUDGETS,
@@ -144,6 +148,7 @@ class RouterOnlyApplication {}
 @Application({
   name: "bare-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [BareWorkflow],
   budgets: TEST_BUDGETS,
 })

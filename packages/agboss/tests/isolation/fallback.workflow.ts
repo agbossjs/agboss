@@ -21,6 +21,7 @@ import { start } from "../helpers/flow.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../src/index.js";
 
 /** One failed call opens a breaker for a minute (names of their own: breakers are per process). */
 const breaker = { failureThreshold: 1, window: minutes(1), openFor: minutes(1) };
@@ -119,6 +120,7 @@ export class WithFallback implements WorkflowDefinition {
 @Application({
   name: "fallback-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [WithFallback],
   budgets: TEST_BUDGETS,
 })
@@ -146,6 +148,7 @@ export class UnmappedFallback implements WorkflowDefinition {
 @Application({
   name: "unmapped-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [UnmappedFallback],
   budgets: TEST_BUDGETS,
 })

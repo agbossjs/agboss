@@ -31,6 +31,7 @@ import {
 } from "./deps-contract.components.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /** Scripted models and in-memory stores: nothing external. */
 export const offline = (book = new ScriptBook()): AppOptions => ({
@@ -121,6 +122,7 @@ export function applicationWith(
   @Application({
     name: name.replace(/-workflow$/, "-application"),
     version: "1.0.0",
+    environment: EmptyEnvironment,
     workflows: [workflow],
     budgets: TEST_BUDGETS,
   })
@@ -149,6 +151,7 @@ export class VaultWorkflow {}
 @Application({
   name: "vault-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [VaultWorkflow],
   budgets: TEST_BUDGETS,
 })

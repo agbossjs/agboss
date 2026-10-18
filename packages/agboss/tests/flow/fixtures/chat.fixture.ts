@@ -8,6 +8,7 @@ import { oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { OpeningsDto, ProfileDto, ResumeMissingDto, WorkflowStartTextDto } from "./dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /** #272 example 1 — chat: a router in a loop. */
 
@@ -114,6 +115,7 @@ export class ChatWorkflow {}
 @Application({
   name: "chat-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [ChatWorkflow],
   budgets: TEST_BUDGETS,
 })

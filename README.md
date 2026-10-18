@@ -129,7 +129,7 @@ written to the home folder) and every budget. `createApp` and `testWith` take it
 
 ```ts file=src/job-scout.application.ts
 // src/job-scout.application.ts — what createApp(JobScoutApplication, { env }) and testWith run
-import { Application, Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
+import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope, EmptyEnvironment } from "agboss";
 import { usd, type Usd } from "agboss/units";
 import { JobScout } from "./job-scout.workflow.js";
 
@@ -143,6 +143,7 @@ export class TenantDailyBudget implements BudgetHandler {
 @Application({
   name: "job-scout-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [JobScout], // app.execute(ChatWorkflowStart, …) runs the workflow of that start
   budgets: [TenantDailyBudget], // config/budget.config.ts in a project; checked from #261 PR 5
 })
@@ -359,8 +360,9 @@ export class AuditStoreService {
   dev's addresses by accident); `testWith(Application, { env: "dev" })` names another.
 - Dev / prod parity (12-factor): the same `providers` — the same implementations and code — in
   every environment; only values differ.
-- An application without `environment` has none: a service injecting `ENV` fails at start with
-  `[di.missing-environment]`, and naming an environment fails.
+- `environment` is required: an application with no settings declares the framework's empty
+  contract, `@Application({ environment: EmptyEnvironment })` (any contract without fields works the
+  same), and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets `[di.missing-environment]` for an `ENV` consumer.)
 - Model provider keys are not part of it yet: they stay process variables
   (`EnvironmentVariable.named`) until #266 reads them from the environment.
 

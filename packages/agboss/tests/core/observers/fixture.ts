@@ -16,6 +16,7 @@ import { start } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 export class EchoInput {
   @Text() text!: string;
@@ -115,6 +116,7 @@ export function applicationWith(
   @Application({
     name: name.replace(/-workflow$/, "-application"),
     version: "1.0.0",
+    environment: EmptyEnvironment,
     workflows: [workflow],
     budgets: TEST_BUDGETS,
   })

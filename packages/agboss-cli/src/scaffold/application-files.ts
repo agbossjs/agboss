@@ -4,8 +4,8 @@ import type { FileToWrite } from "./write.js";
 
 /**
  * The workflow's application and its budgets (#261) — until #268 wires `generate workflow` into
- * one application, each workflow folder has its own; `withEnvironment` = it declares the
- * environment contract `agboss create` writes next to it.
+ * one application, each workflow folder has its own. `environment` is required: `withEnvironment`
+ * = `agboss create` writes the contract and its environments, else `EmptyEnvironment` (no settings).
  */
 export const applicationFiles = (
   dir: string,
@@ -16,11 +16,12 @@ export const applicationFiles = (
     path: `${dir}/${workflow.kebab}.application.ts`,
     content: render("workflow/application.ts.tmpl", {
       ...vars(workflow),
-      // `agboss create` writes the environments next to the application (#261): it declares them
+      // `agboss create` writes the contract and its environments next to the application (#261)
       environmentImport: withEnvironment
         ? 'import { AppEnvironment } from "./environments/app.environment.js";\n'
         : "",
-      environment: withEnvironment ? "  environment: AppEnvironment,\n" : "",
+      agbossImports: withEnvironment ? "Application" : "Application, EmptyEnvironment",
+      environment: withEnvironment ? "AppEnvironment" : "EmptyEnvironment",
     }),
   },
   { path: `${dir}/config/budget.config.ts`, content: render("workflow/budget.config.ts.tmpl", {}) },

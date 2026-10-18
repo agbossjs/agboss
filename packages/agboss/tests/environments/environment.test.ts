@@ -33,6 +33,7 @@ import { ObservedApplication } from "../fixtures/environments/observed/observed.
 import { UntestedApplication } from "../fixtures/environments/untested/untested.workflow.js";
 import { toolResultsOf } from "../testing/fixtures/requests.js";
 import { execute } from "../helpers/flow.js";
+import { EmptyEnvironment } from "../../src/index.js";
 
 /** Everything external given; `processEnv` is what `env(…)` and `secret(…)` read. */
 function offline(processEnv: NodeJS.ProcessEnv = {}): AppOptions {
@@ -221,6 +222,7 @@ requireEnvironmentFields(FilePausedExecutionRepository, [
 })
 class LedgerApplication {}
 
+// @ts-expect-error — environment is required (#261): an untyped caller without one is checked too
 @Application({
   name: "contractless-application",
   version: "1.0.0",
@@ -229,6 +231,36 @@ class LedgerApplication {}
   budgets: TEST_BUDGETS,
 })
 class ContractlessApplication {}
+
+@Application({
+  name: "no-settings-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [SettingsApp],
+  budgets: TEST_BUDGETS,
+})
+class NoSettingsApplication {}
+
+describe("#261 AC1: environment is required; an application with no settings declares an empty contract", () => {
+  it("an @Application without environment does not compile (ContractlessApplication above)", () => {
+    expect(ContractlessApplication).toBeTypeOf("function");
+  });
+
+  it("an empty contract needs no environment file: createApp's dev and testWith's test are {}", async () => {
+    const app = await createApp(NoSettingsApplication, offline());
+    expect(app.resolve(ApiClient).environment).toEqual({});
+    await app.close();
+    await expect(TestEnvironment.of(NoSettingsApplication)).resolves.toBeInstanceOf(
+      TestEnvironment,
+    );
+  });
+
+  it("an environment named for an empty contract still needs its file", async () => {
+    await expect(createApp(NoSettingsApplication, { ...offline(), env: "prod" })).rejects.toThrow(
+      /Environment "prod" not found/,
+    );
+  });
+});
 
 describe("#261 AC8: the contract's rules, at the application's assembly", () => {
   it("contract value: a field with a value → [environment.contract-value]", async () => {

@@ -25,6 +25,7 @@ import {
   SharedExecutionRecordRepository,
   SharedPausedExecutionRepository,
 } from "../../helpers/shared-infrastructure.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /** Emails the tool really sent, in order (the tests reset it). */
 export const sent: string[] = [];
@@ -148,6 +149,7 @@ const durable = [
 @Application({
   name: "mail-v1-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [MailV1],
   providers: durable,
   budgets: TEST_BUDGETS,
@@ -157,6 +159,7 @@ export class MailV1Application {}
 @Application({
   name: "mail-v2-application",
   version: "2.0.0",
+  environment: EmptyEnvironment,
   workflows: [MailV2],
   providers: durable,
   budgets: TEST_BUDGETS,
@@ -166,6 +169,7 @@ export class MailV2Application {}
 @Application({
   name: "mail-v2-migrating-application",
   version: "2.0.0",
+  environment: EmptyEnvironment,
   workflows: [MailV2Migrating],
   providers: durable,
   budgets: TEST_BUDGETS,
@@ -176,6 +180,7 @@ export class MailV2MigratingApplication {}
 @Application({
   name: "mail-v1-memory-pauses-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [MailV1],
   providers: [SharedCheckpointSaver, SharedExecutionRecordRepository],
   budgets: TEST_BUDGETS,
@@ -186,6 +191,7 @@ export class MailV1MemoryPausesApplication {}
 @Application({
   name: "mail-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [MailV1],
   budgets: TEST_BUDGETS,
 })

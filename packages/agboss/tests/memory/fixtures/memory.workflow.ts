@@ -23,6 +23,7 @@ import { LocalModelProvider } from "../../models/providers.fixture.js";
 import { start } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /** Where the noting strategy keeps what it saw (a provider value, so tests read it). */
 export const NOTES = new InjectionToken<string[]>("NOTES");
@@ -147,6 +148,7 @@ export class MemoryDesk implements WorkflowDefinition {
 @Application({
   name: "memory-desk-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [MemoryDesk],
   budgets: TEST_BUDGETS,
 })
@@ -175,6 +177,7 @@ export class CompactingDesk implements WorkflowDefinition {
 @Application({
   name: "compacting-desk-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [CompactingDesk],
   budgets: TEST_BUDGETS,
 })

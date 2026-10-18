@@ -1,4 +1,4 @@
-import { defaultSourceOf, type DefaultSource } from "../config/defaults.js";
+import { defaultSourceOf, defaultsLevelsOf, type DefaultSource } from "../config/defaults.js";
 import { DEFAULT_MAX_TOKENS } from "../config/types.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
 import type { AssembledWorkflow } from "../workflow.js";
@@ -19,7 +19,7 @@ function sourceOf(
   section: "models" | "history" | "router",
   field: string,
 ): DefaultSource | undefined {
-  const levels = bundle.defaultsLevels;
+  const levels = defaultsLevelsOf(bundle.graph);
   return levels === undefined ? undefined : defaultSourceOf(levels, section, field);
 }
 

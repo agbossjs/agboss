@@ -16,6 +16,7 @@ import { usd } from "../../../../src/units/index.js";
 import { start } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../../src/index.js";
 
 /** What the components saw (reset by `resetSpendSeen`). */
 export const spendSeen = {
@@ -148,6 +149,7 @@ export class SpendWorkflow implements WorkflowDefinition {
 @Application({
   name: "spend-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [SpendWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -166,6 +168,7 @@ export class TightSpendWorkflow implements WorkflowDefinition {
 @Application({
   name: "tight-spend-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [TightSpendWorkflow],
   budgets: TEST_BUDGETS,
 })

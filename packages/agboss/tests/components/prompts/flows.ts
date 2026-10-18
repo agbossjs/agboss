@@ -5,6 +5,7 @@ import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { testConfig, testDefaults } from "../../helpers.js";
 import { route, start } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../../fixtures/test-flow/test.flow.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /** Prompts of one flow: the agent's (inline or files), the router's and its route's. */
 export interface FlowPrompts {
@@ -68,6 +69,7 @@ export function workflowWith(prompts: FlowPrompts): {
   @Application({
     name: "prompts-application",
     version: "1.0.0",
+    environment: EmptyEnvironment,
     workflows: [Prompts],
     budgets: TEST_BUDGETS,
   })

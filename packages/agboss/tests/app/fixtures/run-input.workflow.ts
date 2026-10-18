@@ -24,6 +24,7 @@ import {
 import { start } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /** What the components and the observer saw of their run, in order (reset with `resetSeen`). */
 export const seen = {
@@ -172,6 +173,7 @@ export class JobSearch {}
 @Application({
   name: "job-search-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [JobSearch],
   budgets: TEST_BUDGETS,
 })

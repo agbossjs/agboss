@@ -592,7 +592,8 @@ export class SeenJobsRepository {
 
 One set per application, in `environments/` next to the application file (#261). The contract is a
 plain class with declared fields only, declared once — `@Application({ environment: AppEnvironment })`
-above; a value in it fails assembly (`[environment.contract-value]`), a field a listed framework
+above, required (no settings → `environment: EmptyEnvironment`, no environment file needed); a
+value in it fails assembly (`[environment.contract-value]`), a field a listed framework
 implementation reads and the contract lacks too (`[environment.missing-field]`):
 
 ```ts file=src/desk/environments/app.environment.ts

@@ -14,6 +14,7 @@ import { usd } from "../../../../src/units/index.js";
 import { agent, route, start, toFinish } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../../src/index.js";
 
 /** The editor's draft: each visit replaces the one before in the path scope. */
 export class DraftDto {
@@ -92,6 +93,7 @@ export class EditWorkflow {}
 @Application({
   name: "edit-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [EditWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -135,6 +137,7 @@ export class PatientEditWorkflow {}
 @Application({
   name: "patient-edit-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [PatientEditWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -157,6 +160,7 @@ export class ShortEditWorkflow {}
 @Application({
   name: "short-edit-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [ShortEditWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -175,6 +179,7 @@ export class CheapEditWorkflow {
 @Application({
   name: "cheap-edit-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [CheapEditWorkflow],
   budgets: TEST_BUDGETS,
 })

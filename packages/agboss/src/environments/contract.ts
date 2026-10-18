@@ -47,6 +47,10 @@ const instanceOf = (contract: Class): Readonly<Record<string, unknown>> => {
   return typeof instance === "object" && instance !== null ? { ...instance } : {};
 };
 
+/** The fields the contract declares (empty for an application with no settings). */
+export const declaredFieldsOf = (contract: Class): readonly string[] =>
+  Object.keys(instanceOf(contract));
+
 function contractValueViolations(application: string, contract: Class): RuleViolation[] {
   return Object.entries(instanceOf(contract)).flatMap(([field, value]) =>
     value === undefined

@@ -34,11 +34,12 @@ export interface ApplicationOptions {
    */
   readonly shutdownTimeout?: Milliseconds;
   /**
-   * The environment contract — a class with declared fields only (`environments/app.environment.ts`);
-   * each `environments/<name>.environment.ts` next to the application file exports
-   * `const environment: AppEnvironment = { … }`. Absent = the application has no environment.
+   * The environment contract, required — a class with declared fields only
+   * (`environments/app.environment.ts`); each `environments/<name>.environment.ts` next to the
+   * application file exports `const environment: AppEnvironment = { … }`. An application with no
+   * settings declares `EmptyEnvironment` (a contract without fields) and needs no environment file.
    */
-  readonly environment?: Class;
+  readonly environment: Class;
   /**
    * Defaults of every workflow (#261): merged field by field under each workflow's own `defaults`
    * — the most specific level that sets a field wins (component over workflow over application).

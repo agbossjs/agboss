@@ -69,6 +69,7 @@ export { file } from "../components/file.js";
 export { TerminalUserChannel } from "../channels/terminal-channel.js";
 export { AutoApproveChannel, AutoRejectChannel } from "../channels/test-channels.js";
 export {
+  EmptyEnvironment,
   env,
   secret,
   Secret,

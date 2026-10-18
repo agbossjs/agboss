@@ -10,6 +10,7 @@ import { start } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { TestAnswer, TestChat, testPaths } from "./test.flow.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /**
  * The star test workflow (tests/fixtures/test-flow): chat → main-router ("test/router", a chat
@@ -36,6 +37,7 @@ export class StarWorkflow {
 @Application({
   name: "test-bundle-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [StarWorkflow],
   budgets: TEST_BUDGETS,
 })

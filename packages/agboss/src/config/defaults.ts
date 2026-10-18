@@ -55,6 +55,18 @@ export function cascadeDefaults(
   });
 }
 
+/** The levels each assembled workflow's defaults came from, by its graph (kept by a profile). */
+const levelsByGraph = new WeakMap<object, DefaultsLevels>();
+
+/** Records the levels of an assembled workflow (internal: `agboss describe` reads them). */
+export const rememberDefaultsLevels = (graph: object, levels: DefaultsLevels): void => {
+  levelsByGraph.set(graph, levels);
+};
+
+/** The levels an assembled workflow's defaults came from; undefined when not recorded. */
+export const defaultsLevelsOf = (graph: object): DefaultsLevels | undefined =>
+  levelsByGraph.get(graph);
+
 /** Where `defaults.<section>.<field>` came from; undefined when no level sets it (the built-in). */
 export function defaultSourceOf(
   levels: DefaultsLevels,

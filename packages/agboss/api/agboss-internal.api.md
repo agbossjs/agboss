@@ -89,6 +89,44 @@ export type CostSource = "api" | "price-table" | "tool";
 export function createStartComponents(bundle: AssembledWorkflow, services: WorkflowServices): void;
 
 // @public
+export enum DefaultsLevel {
+    // (undocumented)
+    Application = "application",
+    // (undocumented)
+    Workflow = "workflow"
+}
+
+// @public
+export interface DefaultsLevels {
+    // (undocumented)
+    readonly application?: {
+        readonly name: string;
+        readonly defaults?: WorkflowDefaults;
+    };
+    // (undocumented)
+    readonly workflow: {
+        readonly name: string;
+        readonly defaults?: WorkflowDefaults;
+    };
+}
+
+// @public
+export const defaultsLevelsOf: (graph: object) => DefaultsLevels | undefined;
+
+// @public
+export interface DefaultSource {
+    // (undocumented)
+    readonly level: DefaultsLevel;
+    // (undocumented)
+    readonly name: string;
+}
+
+// Warning: (ae-forgotten-export) The symbol "Section" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function defaultSourceOf(levels: DefaultsLevels, section: Section, field: string): DefaultSource | undefined;
+
+// @public
 export interface DescribedEnvironment {
     readonly fields: Readonly<Record<string, string>>;
     // (undocumented)
@@ -332,6 +370,13 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 
 // Warnings were encountered during analysis:
 //
+// src/config/defaults.ts:13:3 - (ae-undocumented) Missing documentation for "Application".
+// src/config/defaults.ts:14:3 - (ae-undocumented) Missing documentation for "Workflow".
+// src/config/defaults.ts:19:51 - (ae-forgotten-export) The symbol "WorkflowDefaults" needs to be exported by the entry point internal.d.ts
+// src/config/defaults.ts:19:3 - (ae-undocumented) Missing documentation for "application".
+// src/config/defaults.ts:20:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/config/defaults.ts:25:3 - (ae-undocumented) Missing documentation for "level".
+// src/config/defaults.ts:26:3 - (ae-undocumented) Missing documentation for "name".
 // src/config/profiles.ts:9:12 - (ae-undocumented) Missing documentation for "name".
 // src/environments/resolve.ts:31:3 - (ae-undocumented) Missing documentation for "variable".
 // src/environments/resolve.ts:32:3 - (ae-undocumented) Missing documentation for "field".

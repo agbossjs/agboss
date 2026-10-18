@@ -9,6 +9,18 @@ import { generateFlowTypes } from "../../../src/flow/types/generate.js";
 import * as contractModule from "../../fixtures/environments/app/environments/app.environment.js";
 import * as settingsModule from "../../fixtures/environments/app/settings.workflow.js";
 import * as dtoModule from "../../../src/dto/index.js";
+import { Application } from "../../../src/application/application.js";
+import { EmptyEnvironment } from "../../../src/index.js";
+import { TEST_BUDGETS } from "../fixtures/budgets.js";
+
+@Application({
+  name: "no-settings-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [settingsModule.SettingsApp],
+  budgets: TEST_BUDGETS,
+})
+class NoSettingsApplication {}
 
 const fixtures = new URL("../../fixtures/environments/app/", import.meta.url).pathname;
 const framework = new URL("../../../", import.meta.url).pathname;
@@ -42,6 +54,16 @@ describe("#261: Environment is typed by the application's contract", () => {
 
     expect(text).toBeUndefined();
     expect(errors.map((found) => found.code)).toEqual(["types.unexported-class"]);
+  });
+
+  it("an empty contract (no settings) adds nothing to Environment", () => {
+    const { text, errors } = generateFlowTypes({
+      ...request,
+      applications: [NoSettingsApplication],
+    });
+
+    expect(errors).toEqual([]);
+    expect(text).not.toContain("interface Environment");
   });
 
   it("without applications nothing extends Environment", () => {

@@ -14,6 +14,7 @@ import { Reasoning } from "../../../src/models/index.js";
 import { agent, route, start } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 const price = { inputPerMTok: 1, outputPerMTok: 2 };
 
@@ -116,6 +117,7 @@ export class CodeReview {}
 @Application({
   name: "code-review-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [CodeReview],
   budgets: TEST_BUDGETS,
 })
