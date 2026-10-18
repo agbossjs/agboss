@@ -1328,17 +1328,31 @@ today; tenant-daily-budget allows $40`).
   (`testWith(Workflow)` does not compile, #261); one workflow is tested through its start with
   `app.execute`. Each test assembles the application anew on the implementations it lists (else
   the in-memory defaults); `app` is built on first use (`await app.ready()` for a test that
-  executes nothing). Vitest fixtures `app`, `mockLlm`, `mockOf` (budgets too), `mcpOf`,
+  executes nothing). Vitest fixtures `app`, `mockLlm`, `mockAction`, `mockTool`, `mockOf` (budgets
+  too), `mcpOf`,
   `recoverApp`, `clock` — the test's `VirtualClock` (`agboss/testing`), the application's `Clock`
   in every test whatever it lists: fixed at `2026-01-05T09:00:00Z`, moved only by
   `await clock.advance(seconds(31))` (or `"25h"`), which wakes every due wait in time order, each
   one's work before the next, without real waiting — and, with
   `testWith(App, { instances: 2 })`, `apps` (each instance its own container, one set of stores and
   one clock); models answer by script — `replyWith(text)` or
-  `replyWith(Dto, value)` (a structured answer), `callTool(Tool, args)` (args typed by the tool's
-  input DTO), `routeTo(Target)`, `decideWith(answers)` (a decision judge),
-  `failWith(ModelFailure.Timeout)`; the network is blocked. Matchers by class: `toFollowPath`,
-  `toFinishWith`, … (`setupFiles: ["agboss/testing/setup"]`).
+  `replyWith(Dto, value, { cost })` (a structured answer, a class of the agent's output: checked by
+  the generated types, #262), `callTool(Tool, args)` (args typed by the tool's input DTO),
+  `routeTo(...targets)` (`Route<R>`: one target after `.chooseOne(…)`, the `OnDemand` ones before a
+  launch, `routeTo()` only with an `Always` route), `decideWith(answers)` (a decision judge),
+  `failWith(ModelFailure.Timeout)`, `waitFor(seconds(31))` (the next turn after that long on the
+  clock); the network is blocked. `mockLlm(X).when(PartialValues<InputOf<X>>)` binds turns to the
+  input values (agents and model routers; `undefined` = absent, lists by length and position,
+  `variant(XDto, { … })` for a `oneOf` element); a call no script matches fails naming its input
+  (`test.no-matching-script`). A script is an expectation: an unused `thenReturn` turn or `when(…)`
+  fails a passing test at its end (`test.unused-script`; never `thenReturnAlways`) — a test that
+  failed reports its own failure. Matchers by class: `toFollowPath`, `toFinishWith`,
+  `rejects.toFailWith(ErrorClass, { …fields, cause })` (through the cause chain), and the call
+  matchers on `mockLlm(X)` / `mockAction(A)` (the action runs): `.inputs`,
+  `toHaveBeenCalledWith(partial)`, `toHaveBeenCalledTimes(n)`, `toHaveReturned(XDto, fields?)` —
+  Vitest's own on anything else (`setupFiles: ["agboss/testing/setup"]`). Errors only the real way:
+  `failWith`, a rejecting `mockOf`, `mockTool(Tool).thenFail(ToolFailure.Timeout)`, scripts that
+  reach a limit (a budget: `mockOf(Budget).maxSpend` + a scripted cost), `app.cancel` / `signal`.
 - A recorded run instead of scripts: `testWith(App, { vcr: { cassetteName, dir, mode: VCRMode.REPLAY } })`
   — an unrecorded call throws `CassetteMissingError` (REPLAY by default under `CI`).
 - Units: `toolOf(new Tool(testExecutionContext(), fakes)).invoke(input)` for a tool,
