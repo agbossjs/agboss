@@ -1039,7 +1039,7 @@ export class SeenJobsRepository {
   internal state: every execution event (`ExecutionEvent`) has `executionId`, `parentExecutionId`,
   `rootExecutionId`, `threadId`, `tenantId`, `workflow` (`WorkflowRecord`: `name`, `version`,
   `startedVersion`, no class); node events (agent, router, tool, model, knowledge base, guardrail,
-  PII policy, action, channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`,
+  action, channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`,
   `onQuorumDecided`) add `step`
   (`StepRecord`: `component: { name }`, `nodeId`, `visitNumber`, `copyNumber`, `itemIndex`,
   `idempotencyKey`, `callId`). Execution hooks: `onExecutionStart` once per execution,
@@ -1069,6 +1069,52 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
 - **Knowledge bases:** a `@Rag` class implementing `RagConnector`, bound per agent with
   `rag: [{ use, mode: RagMode.Tool | RagMode.Context }]`. **MCP:** `@McpServer`
   (`extends McpServerClient`) in `mcp: [...]`, its tools as `@McpTool` classes.
+- **PII policies (#120, S38):** `@PiiPolicy({ name, description, rules: [pii(PiiKind | PiiGroup,
+PiiAction.…)], detectWithModel?, pseudonymKey: secret("…") })` (`-pii-policy`), or a project's
+  own detector — `@PiiPolicy({ name, action, deps })` + `implements PiiPolicyHandler`
+  (`findMatches(text)` → `PiiMatch { start, end }`). Only the kinds a rule names are found (formats
+  validated: Luhn, IBAN, Israeli ID, SSN rules; names and addresses by `detectWithModel`); a kind
+  rule beats a group rule, the longest span wins. Actions: `replaceWithKind()` → `<israeli-id>`,
+  `replacePart({ keepLast } | { pattern })` → `•••• 4242`, `replaceWithToken()` → `<email:7f3a91>`
+  (HMAC-SHA256, the only reversible one), `blockWithRefusal({ refusal })` or `blockWithRefusal()`
+  with `implements PiiRefusal` (`[pii.missing-refusal]` / `[pii.unused-refusal]`). Listed in
+  `piiPolicies` of `@Application` → `@Workflow` → `@Agent` / `@Router` — lists add up,
+  `excludePiiPolicies` removes one for that element (`[pii.exclude-not-inherited]`), two actions
+  for one kind are `[pii.conflicting-rules]`. Masked and revealed **only at the model boundary**:
+  everything a model reads is masked, its move revealed before any DTO is validated (a tool gets
+  `alice@example.com`; an unknown token is an invalid answer); a block rule in what comes in or in
+  an answer fails the execution (`PiiRefusedError`, `pii.refused`), in tool arguments or a result it
+  rejects that call. Scope, checkpoint and every step's code hold real values; the token map is
+  the state's `piiTokens` channel. Logs, traces, events and `result.record` are masked by the
+  application's and the workflow's lists, whatever an element excludes. `sensitive:
+PiiAction.…` on a DTO or a context field (masking actions only) applies the action to that field.
+
+<!-- snippet-context
+import { Agent, PiiAction, PiiKind, PiiPolicy, pii, secret } from "agboss";
+-->
+
+```ts
+@PiiPolicy({
+  name: "contact-pii-policy",
+  description: "Hides contact details from models",
+  rules: [
+    pii(PiiKind.Email, PiiAction.replaceWithToken()), // the model sees <email:7f3a91>, a tool the address
+    pii(PiiKind.Phone, PiiAction.replacePart({ keepLast: 2 })),
+  ],
+  pseudonymKey: secret("PII_PSEUDONYM_KEY"),
+})
+export class ContactPiiPolicy {}
+
+// @Application({ …, piiPolicies: [ContactPiiPolicy] }) — every agent and router of every workflow
+@Agent({
+  name: "order-agent",
+  description: "Looks orders up",
+  prompt: "Look the order up.",
+  model: "moonshotai/kimi-k2.6",
+  excludePiiPolicies: [ContactPiiPolicy], // its model sees contacts; logs and traces stay masked
+})
+export class OrderAgent {}
+```
 
 ### Environments
 
@@ -1176,7 +1222,7 @@ tenant, execution, onStream })` runs the workflow of that start (any workflow of
   identity). Injecting a subclass the application does not declare → `[context.not-declared]`.
 
 <!-- snippet-context
-import { ExecutionContext, Injectable, TenantContext } from "agboss";
+import { ExecutionContext, Injectable, PiiAction, TenantContext } from "agboss";
 import { OneOf, Text } from "agboss/dto";
 -->
 
@@ -1187,7 +1233,7 @@ export class ShopTenantContext extends TenantContext {
 }
 
 export class ShopExecutionContext extends ExecutionContext {
-  @Text({ sensitive: true }) // identity, marked for PII (#120) — never a secret
+  @Text({ sensitive: PiiAction.replaceWithToken() }) // identity, masked for models, logs, traces (#120)
   userId!: string;
 }
 
@@ -1361,7 +1407,9 @@ Components):
 - Getting something for a component is `…Of` (`schemaOf`, `modelOf`); attaching is
   `<verb>(what).on(target)`; storage contracts are `…Repository` with Spring Data method names.
 - **Values with units** — `usd(0.5)`, `seconds(30)`, `minutes(5)` (`agboss/units`), no `Ms` /
-  `Usd` in names. `override…` only for replacing what is inherited.
+  `Usd` in names. Inheritance (#120): lists add up, `exclude…` removes explicitly, a single setting
+  has the same name on every level — no `override…` settings (`overrideArguments` is a corrected
+  tool call, not inheritance).
 
 ## Conveyor
 

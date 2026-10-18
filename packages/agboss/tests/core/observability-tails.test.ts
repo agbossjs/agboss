@@ -3,7 +3,6 @@ import {
   Agent,
   Guardrail,
   Injectable,
-  PiiPolicy,
   Tool,
   Workflow,
   Action,
@@ -15,8 +14,6 @@ import {
   type OnChannelStart,
   type OnGuardrailEnd,
   type OnGuardrailStart,
-  type OnPiiPolicyEnd,
-  type OnPiiPolicyStart,
   type OnToolEnd,
   type OnToolStart,
   type OnExecutionEnd,
@@ -29,8 +26,6 @@ import {
   type ChannelStartEvent,
   type GuardrailEndEvent,
   type GuardrailStartEvent,
-  type PiiPolicyEndEvent,
-  type PiiPolicyStartEvent,
   type ToolEndEvent,
   type ToolStartEvent,
   WorkflowStart,
@@ -67,8 +62,6 @@ class TailsObserver
     OnToolEnd,
     OnGuardrailStart,
     OnGuardrailEnd,
-    OnPiiPolicyStart,
-    OnPiiPolicyEnd,
     OnChannelStart,
     OnChannelEnd
 {
@@ -107,32 +100,11 @@ class TailsObserver
     hookEvents.push(`GuardrailEnd:${ctx.name}`);
   }
 
-  async onPiiPolicyStart(ctx: PiiPolicyStartEvent) {
-    hookEvents.push(`PiiStart:${ctx.name}`);
-  }
-  async onPiiPolicyEnd(ctx: PiiPolicyEndEvent) {
-    hookEvents.push(`PiiEnd:${ctx.name}`);
-  }
-
   async onChannelStart(ctx: ChannelStartEvent) {
     hookEvents.push(`ChannelStart:${ctx.name}`);
   }
   async onChannelEnd(ctx: ChannelEndEvent) {
     hookEvents.push(`ChannelEnd:${ctx.name}`);
-  }
-}
-
-@PiiPolicy({ name: "MaskingPolicy" })
-class MaskingPolicy {
-  async maskJson(obj: any) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return obj;
-  }
-  async mask(text: string) {
-    return text;
-  }
-  async unmask(text: string) {
-    return text;
   }
 }
 
@@ -221,7 +193,7 @@ describe("Observability Tails Hooks", () => {
     await execute(app, StartNode, { text: "hi" });
 
     // Assert the exact flow
-    // Workflow -> Action -> Agent -> Pii -> Guardrail -> Tool -> Guardrail -> Pii -> Agent -> WorkflowEnd
+    // Workflow -> Action -> Agent -> Guardrail -> Tool -> Guardrail -> Agent -> WorkflowEnd
 
     // Check Action
     expect(hookEvents).toContain("ActionStart:format-action");
@@ -229,7 +201,6 @@ describe("Observability Tails Hooks", () => {
 
     // Order assertions
     const agentStart = hookEvents.indexOf("AgentStart:safe-agent");
-    const piiStart = hookEvents.indexOf("PiiStart:MaskingPolicy");
     const guardrailStart = hookEvents.indexOf("GuardrailStart:SafeGuard");
     const toolStart = hookEvents.indexOf("ToolStart:SafeTool");
     const toolEnd = hookEvents.indexOf("ToolEnd:SafeTool");

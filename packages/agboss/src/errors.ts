@@ -46,6 +46,8 @@ export {
   type QuorumShortfall,
 } from "./flow/runtime/launch/quorum-errors.js";
 export { NotAWorkflowStartError } from "./flow/runtime/start-input.js";
+export { PiiRefusedError } from "./pii/errors.js";
+export { PiiDetectionFailedError } from "./pii/detectors/model.js";
 export { ExecutionContextUnavailableError } from "./flow/context/errors.js";
 export { SpendOutsideStepError } from "./components/spend-recorder.js";
 export { ModelCallError, type ModelCallErrorCode } from "./models/circuit-breaker.js";

@@ -28,8 +28,6 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
     readonly description: string;
     // (undocumented)
     readonly disableGuardrails?: readonly Class<Guardrail>[];
-    // (undocumented)
-    readonly disablePiiPolicies?: readonly Class<PiiPolicy>[];
     // Warning: (ae-forgotten-export) The symbol "Guardrail" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -42,12 +40,6 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
     readonly output: Out;
     // (undocumented)
     readonly overrideGuardrails?: readonly Class<Guardrail>[];
-    // (undocumented)
-    readonly overridePiiPolicies?: readonly Class<PiiPolicy>[];
-    // Warning: (ae-forgotten-export) The symbol "PiiPolicy" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly piiPolicies?: readonly Class<PiiPolicy>[];
     // (undocumented)
     readonly prompt?: string;
     // (undocumented)
@@ -66,14 +58,11 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
 // src/components/decorators.ts:36:3 - (ae-undocumented) Missing documentation for "promptUrls".
 // src/components/decorators.ts:37:3 - (ae-undocumented) Missing documentation for "channel".
 // src/components/decorators.ts:38:3 - (ae-undocumented) Missing documentation for "timeoutMs".
-// src/components/decorators.ts:39:3 - (ae-undocumented) Missing documentation for "piiPolicies".
-// src/components/decorators.ts:40:3 - (ae-undocumented) Missing documentation for "guardrails".
-// src/components/decorators.ts:41:3 - (ae-undocumented) Missing documentation for "overridePiiPolicies".
-// src/components/decorators.ts:42:3 - (ae-undocumented) Missing documentation for "disablePiiPolicies".
-// src/components/decorators.ts:43:3 - (ae-undocumented) Missing documentation for "overrideGuardrails".
-// src/components/decorators.ts:44:3 - (ae-undocumented) Missing documentation for "disableGuardrails".
-// src/components/decorators.ts:45:3 - (ae-undocumented) Missing documentation for "input".
-// src/components/decorators.ts:46:3 - (ae-undocumented) Missing documentation for "output".
+// src/components/decorators.ts:39:3 - (ae-undocumented) Missing documentation for "guardrails".
+// src/components/decorators.ts:40:3 - (ae-undocumented) Missing documentation for "overrideGuardrails".
+// src/components/decorators.ts:41:3 - (ae-undocumented) Missing documentation for "disableGuardrails".
+// src/components/decorators.ts:42:3 - (ae-undocumented) Missing documentation for "input".
+// src/components/decorators.ts:43:3 - (ae-undocumented) Missing documentation for "output".
 
 // (No @packageDocumentation comment for this package)
 

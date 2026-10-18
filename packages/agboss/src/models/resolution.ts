@@ -29,13 +29,19 @@ export interface WorkflowModels {
   readonly routers: readonly ModelNamingRouter[];
   /** Its model arbiters (#279), by `name` and `model`. */
   readonly arbiters?: readonly ModelNamingRouter[];
+  /** Its PII policies' model detections (#120), by policy `name` and `model`. */
+  readonly pii?: { readonly detectors: readonly ModelNamingRouter[] };
   readonly modelProviders: readonly ModelProviderType[];
 }
+
+/** Every model use of a workflow's models. */
+const usesOf = (workflow: Omit<WorkflowModels, "modelProviders">): readonly ModelUse[] =>
+  modelUsesOf(workflow.config, workflow.routers, workflow.arbiters, workflow.pii?.detectors);
 
 /** `[model.unserved]` / `[model.ambiguous-provider]` for every model use no single provider serves. */
 function modelResolutionViolations(workflow: WorkflowModels): RuleViolation[] {
   const directory = directoryOf(workflow.modelProviders);
-  return modelUsesOf(workflow.config, workflow.routers, workflow.arbiters).flatMap((use) => {
+  return usesOf(workflow).flatMap((use) => {
     const resolution = directory.resolve(use);
     if (resolution.kind === "resolved") return [];
     const { code, supported } = resolution.problem;
@@ -74,7 +80,7 @@ export function resolvedModelProvidersOf(
 export function applicationModelUsesOf(workflows: readonly WorkflowModels[]): readonly ModelUse[] {
   const several = workflows.length > 1;
   return workflows.flatMap((workflow) =>
-    modelUsesOf(workflow.config, workflow.routers, workflow.arbiters).map((use) =>
+    usesOf(workflow).map((use) =>
       several ? { ...use, key: `${workflow.config.name} ${use.key}` } : use,
     ),
   );
@@ -91,7 +97,7 @@ export interface ResolvedModelUse {
 /** Each model use of a workflow with its provider's name — though no component names one. */
 export function resolvedModelUsesOf(workflow: WorkflowModels): readonly ResolvedModelUse[] {
   const directory = directoryOf(workflow.modelProviders);
-  return modelUsesOf(workflow.config, workflow.routers, workflow.arbiters).map((use) => {
+  return usesOf(workflow).map((use) => {
     const resolution = directory.resolve(use);
     const provider =
       resolution.kind === "resolved" ? resolution.provider.options.name : resolution.problem.code;

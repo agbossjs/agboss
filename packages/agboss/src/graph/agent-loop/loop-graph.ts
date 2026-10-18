@@ -11,10 +11,14 @@ import { makeReplyNode } from "./reply-node.js";
 import { AgentLoopState, LOOP_NODE, type AgentLoopStateType, type ToolTask } from "./state.js";
 import { makeToolNode } from "./tools-node.js";
 
-/** After a model turn: an answer tool → the answer; other tool calls → the boundary; none → the reply. */
+/**
+ * After a model turn: an answer tool → the answer; other tool calls → the boundary; none → the
+ * reply; no move (an invalid answer — a token nobody gave it, #120) → the model again.
+ */
 export const afterModel =
   (deps: AgentLoopDeps) =>
   (state: AgentLoopStateType): string => {
+    if (state.move === null) return LOOP_NODE.model;
     const calls = callsOf(state.move);
     if (calls.length === 0) return LOOP_NODE.reply;
     return calls.some((call) => isAnswerCall(deps.agent, call))
@@ -42,6 +46,7 @@ function createLoopGraph(deps: AgentLoopDeps, checkpointer: BaseCheckpointSaver 
     .addEdge(START, LOOP_NODE.input)
     .addEdge(LOOP_NODE.input, LOOP_NODE.model)
     .addConditionalEdges(LOOP_NODE.model, afterModel(deps), [
+      LOOP_NODE.model,
       LOOP_NODE.boundary,
       LOOP_NODE.reply,
       LOOP_NODE.answer,

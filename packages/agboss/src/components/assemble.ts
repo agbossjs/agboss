@@ -4,7 +4,6 @@ import { analyseWorkflow, type FlowAnalysis } from "../flow/analyse/analyse.js";
 import { maxStepsOf as stepsLimitOf } from "../flow/analyse/worst-case.js";
 import { agentMetasOf } from "../flow/runtime/agents.js";
 import { codeClassesOf, runtimeGraphOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
-import { modelArbitersOf } from "../flow/runtime/launch/runtime-launch.js";
 import { loadRouters } from "../flow/runtime/routers.js";
 import { DEFAULT_WORKFLOW_SETTINGS, type WorkflowSettings } from "../graph/settings.js";
 import type { AssembledWorkflow } from "../workflow.js";
@@ -42,11 +41,14 @@ import {
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import { judgeClassesOf, judgePartsOf, judgeSettingsOf, type JudgeClass } from "./judge-parts.js";
 import { agentSettings } from "./agent-settings.js";
-import { resolvedModelProvidersOf, type WorkflowModels } from "../models/resolution.js";
+import { piiPartsOf } from "./pii-parts.js";
+import { modelPartsOf } from "./model-parts.js";
 
 /** The application a workflow is assembled in: its name, `defaults` and providers (its model providers). */
 type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
   readonly providers?: readonly Provider[];
+  /** `@Application({ piiPolicies })`: every agent's and router's, before the workflow's own (#120). */
+  readonly piiPolicies?: readonly Class[];
 };
 
 function configOf(
@@ -156,19 +158,6 @@ function checkClasses(bundle: WorkflowMeta, agents: readonly AgentMeta[]): void 
   checkMemoryStrategies(agents);
 }
 
-/** The workflow's model arbiters (#279) and its model providers, every model resolved to one. */
-function modelPartsOf(
-  owner: WorkflowOwner | undefined,
-  models: Pick<WorkflowModels, "config" | "routers">,
-  graph: RuntimeGraph,
-): Pick<AssembledWorkflow, "arbiters" | "modelProviders"> {
-  const arbiters = modelArbitersOf(graph.launches);
-  return {
-    arbiters,
-    modelProviders: resolvedModelProvidersOf(owner?.providers, { ...models, arbiters }),
-  };
-}
-
 /**
  * Assembles a v2 `@Workflow` class into the workflow the core runs (#272): its paths analysed (every
  * rule, all violations at once — before any model call), router and agent texts loaded, config,
@@ -193,27 +182,28 @@ export async function workflowOf(
   const rags = ragClassesOf(bundle, agents);
   checkClasses(bundle, agents);
   const judges = judgeClassesOf(agents);
+  const pii = piiPartsOf(bundle, owner, agents, graph);
   const modules = [...providerModulesOf(bundle), ...application];
   checkChannels(workflow, modules, owner === undefined);
-  const components = componentClassesOf(bundle, agents, tools, rags, codeClassesOf(graph), modules);
+  const created = [...codeClassesOf(graph), ...pii.classes];
+  const components = componentClassesOf(bundle, agents, tools, rags, created, modules);
   checkGraph(components, modules, coreTokensOf(mcp, contexts));
   rememberServers(bundle, mcp.instances);
   const names = toolNames(tools, rags);
   const prompts = await promptsOf(agents, loader);
-  loader.throwIfAny();
   const config = configOf(bundle, agents, names, mcp, judges);
-  const settings = settingsOf(workflow);
   validateAgentsConfig(config, [...names.values()]);
-  const models = modelPartsOf(owner, { config, routers }, graph);
+  const models = modelPartsOf(owner, { config, routers }, graph, pii.detectors);
   rememberDefaultsLevels(graph, levelsOf(workflow, owner));
   return {
     config,
     graph,
     maxSteps: maxStepsOf(workflow, graph),
     ...containerPartsOf(bundle, policyMapsOf(agents, tools.local, names)),
+    pii,
     ...channelPartsOf(bundle, tools),
     ...models,
-    onIncompatibleResume: settings.onIncompatibleResume,
+    onIncompatibleResume: settingsOf(workflow).onIncompatibleResume,
     routers,
     prompts,
     tools: toolBuilder(bundle, agents, tools.local, tools.mcp, mcp.names),

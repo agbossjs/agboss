@@ -23,6 +23,7 @@ import {
 import { evaluationFor, flowFor, guardsFor, pauseFor, servicesFor, toolLookup } from "./parts.js";
 import { closeOf, observedBy, releaseOf } from "./app-deps-parts.js";
 import { componentsAtStart } from "./start-components.js";
+import { piiFor } from "./pii-parts.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { Clock } from "../infrastructure/clock.js";
 import {
@@ -128,6 +129,8 @@ export interface WorkflowDepsParts {
   readonly budgets?: BudgetListing;
   /** The application's observers (#261), one manager for all its workflows; absent = none. */
   readonly observer?: ExecutionObserverManager;
+  /** The key of the tokens of `sensitive` fields (#120), one per instance; absent = a new one. */
+  readonly piiFieldKey?: string;
 }
 
 /** The budgets an application lists, and its name (the key of its application budgets). */
@@ -179,7 +182,7 @@ export async function createWorkflowDeps(
   parts: WorkflowDepsParts,
 ): Promise<AppDeps> {
   const env = options.processEnv ?? process.env;
-  const { clock } = parts.infrastructure;
+  const { clock, records: terns, checkpointer } = parts.infrastructure;
   const contexts = parts.contexts ?? standaloneContexts(bundle.config, options.environment, clock);
   const clients = providerClientsOf(options, contexts.application, parts.infrastructure);
   const models = await modelsFor(bundle, options.gateway, clients);
@@ -190,9 +193,8 @@ export async function createWorkflowDeps(
   const config = models.priced(validateAgentsConfig(bundle.config, tools.map(nameOfTool)));
   const connect = options.connectMcp ?? connectConfigured(options.transport);
   const mcp = await connect(bundle, config, env);
-  const { records: terns, checkpointer } = parts.infrastructure;
-  const tracing = await tracingOf(env);
-  const ownsHooks = parts.created === undefined;
+  const pii = piiFor(bundle, config, { gateway, services, contexts, env }, parts.piiFieldKey);
+  const tracing = await tracingOf(env, pii.observability);
   const components = componentsAtStart(bundle, services);
   const budgets = budgetsOf(parts.budgets, components.container, parts.infrastructure, clock);
   const deps = {
@@ -205,17 +207,18 @@ export async function createWorkflowDeps(
     pause: pauseFor(bundle, checkpointer),
     compactionPrompt: bundle.compactionPrompt,
     ...components,
+    pii,
     budgets,
     terns,
     evaluation: evaluationFor(bundle, { terns, budgets }, gateway),
     tracing,
     contexts,
     clock,
-    ...observedBy(parts.observer, parts.infrastructure.logger, clock),
+    ...observedBy(parts.observer, parts.infrastructure.logger, clock, pii.observability),
     ...(options.newRunId === undefined ? {} : { newRunId: options.newRunId }),
-    close: closeOf(ownsHooks ? lifecycle.created : undefined, mcp, tracing),
+    close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),
   };
-  if (ownsHooks) {
+  if (parts.created === undefined) {
     await startComponents(lifecycle.created).catch(async (error: unknown) => {
       await releaseOf(mcp, tracing)();
       throw error;

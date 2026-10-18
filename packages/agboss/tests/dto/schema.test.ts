@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { Integer, ListOf, NoInputDto, OneOf, Text } from "../../src/dto/index.js";
 import { jsonSchemaOf } from "../../src/dto/schema.js";
+import { PiiAction } from "../../src/pii/actions.js";
 
 class Task {
   @Text({ prompt: "what to do", example: "write tests" })
@@ -16,7 +17,7 @@ class Task {
   @ListOf(Text, { optional: true, maxItems: 3 })
   labels?: string[];
 
-  @Text({ sensitive: true })
+  @Text({ sensitive: PiiAction.replaceWithKind() })
   owner!: string;
 }
 

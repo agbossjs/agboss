@@ -6,7 +6,8 @@ import type { BaseMemoryStrategy } from "../../memory/types.js";
 import type { KnowledgeSource } from "../../rag/types.js";
 import type { AnyTool } from "../../tools/index.js";
 import type { AnswerTools } from "../../flow/runtime/answer-tools.js";
-import type { Guardrail, PiiPolicy } from "../../components/policy-decorators.js";
+import type { Guardrail } from "../../components/policy-decorators.js";
+import type { PiiPolicySet } from "../../pii/policy-set.js";
 import type { ResolvedPolicies } from "../../workflow.js";
 import type { ToolCallApproval } from "./approval.js";
 import type { JudgePoints } from "./judge-points.js";
@@ -51,11 +52,10 @@ export interface AgentLoopDeps {
   /** Set only with a pause seam: which calls wait for a decision, and how it is asked. */
   readonly approval?: ToolCallApproval | undefined;
   readonly judges: JudgePoints;
-  readonly piiPolicies?: ResolvedPolicies<PiiPolicy>;
+  /** The PII policies at the agent's model (#120): masked into it, revealed out of it. */
+  readonly pii?: PiiPolicySet;
   readonly guardrails?: ResolvedPolicies<Guardrail>;
-  readonly workflowPiiPolicies?: readonly PiiPolicy[];
   readonly workflowGuardrails?: readonly Guardrail[];
-  readonly toolPiiPolicies?: (tool: string) => ResolvedPolicies<PiiPolicy>;
   readonly toolGuardrails?: (tool: string) => ResolvedPolicies<Guardrail>;
   readonly observer?: ExecutionObserverManager;
 }

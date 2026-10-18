@@ -65,6 +65,12 @@ export interface ApplicationOptions {
    */
   readonly executionContext?: ExecutionContextClass;
   /**
+   * The PII policies of every agent and router of every workflow (#120): `@PiiPolicy` classes. Lists
+   * add up — a workflow's and an element's own come on top, `excludePiiPolicies` removes one for an
+   * agent's or a router's model and tools; logs and traces are always masked by them.
+   */
+  readonly piiPolicies?: readonly Class[];
+  /**
    * Defaults of every workflow (#261): merged field by field under each workflow's own `defaults`
    * — the most specific level that sets a field wins (component over workflow over application).
    */

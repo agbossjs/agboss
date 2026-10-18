@@ -5,8 +5,9 @@
  */
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/application/create-app.js";
-import { Channel, Guardrail, PiiPolicy, Rag } from "../../src/components/decorators.js";
+import { Channel, Guardrail, Rag } from "../../src/components/decorators.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
+import { PiiAction, PiiPolicy, type PiiMatch, type PiiPolicyHandler } from "../../src/pii/index.js";
 import { Judge, type JudgeHandler } from "../../src/components/judge-decorators.js";
 import { type Provider } from "../../src/components/injection.js";
 import {
@@ -42,14 +43,11 @@ class NeedsGuardrail implements Guardrail {
   }
 }
 
-@PiiPolicy({ name: "needs-pii", deps: [MISSING] })
-class NeedsPolicy implements PiiPolicy {
+@PiiPolicy({ name: "needs-pii-policy", action: PiiAction.replaceWithKind(), deps: [MISSING] })
+class NeedsPolicy implements PiiPolicyHandler {
   constructor(readonly value: string) {}
-  mask(text: string): Promise<string> {
-    return Promise.resolve(text);
-  }
-  maskJson(obj: unknown): Promise<unknown> {
-    return Promise.resolve(obj);
+  findMatches(): readonly PiiMatch[] {
+    return [];
   }
 }
 

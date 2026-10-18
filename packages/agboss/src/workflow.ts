@@ -2,8 +2,9 @@ import type { JudgeHandler } from "./components/judge-decorators.js";
 import type { BaseMemoryStrategy } from "./memory/types.js";
 import type { AgentPrompts, AgentsConfigOf } from "./config/types.js";
 import type { KnowledgeSource, RagConnector } from "./rag/types.js";
-import type { Guardrail, PiiPolicy } from "./components/decorators.js";
+import type { Guardrail } from "./components/decorators.js";
 import type { ChannelSender } from "./channels/channel-sender.js";
+import type { AssembledPii } from "./pii/assembly.js";
 import type { Class } from "./components/injection.js";
 import type { AnyTool, McpFacade, McpServerHandle } from "./tools/index.js";
 import type { RouterEngine } from "./routers/index.js";
@@ -30,7 +31,7 @@ export interface WorkflowServices {
 }
 
 /** Tools as a list, or a factory when they need core services. */
-/** Per agent or tool: its policy instances, and whether they replace the workflow's own. */
+/** Per agent or tool: its guardrail instances, and whether they replace the workflow's own. */
 export interface ResolvedPolicies<TPolicy> {
   override: boolean;
   instances: readonly TPolicy[];
@@ -88,19 +89,14 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, ChannelSender>;
   /** A component by its class, from the workflow's container (created with its `deps` on first use). */
   readonly resolve: (services: WorkflowServices) => (token: Class) => unknown;
-  readonly piiPolicies?: (
-    services: WorkflowServices,
-  ) => ReadonlyMap<string, ResolvedPolicies<PiiPolicy>>;
+  /** Its PII policies (#120): per agent and router, for observability, and their model detections. */
+  readonly pii?: AssembledPii;
   readonly guardrails?: (
     services: WorkflowServices,
   ) => ReadonlyMap<string, ResolvedPolicies<Guardrail>>;
-  readonly toolPiiPolicies?: (
-    services: WorkflowServices,
-  ) => ReadonlyMap<string, ResolvedPolicies<PiiPolicy>>;
   readonly toolGuardrails?: (
     services: WorkflowServices,
   ) => ReadonlyMap<string, ResolvedPolicies<Guardrail>>;
-  readonly workflowPiiPolicies?: (services: WorkflowServices) => readonly PiiPolicy[];
   readonly workflowGuardrails?: (services: WorkflowServices) => readonly Guardrail[];
 }
 

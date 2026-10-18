@@ -1,4 +1,4 @@
-import type { Guardrail, PiiPolicy } from "../components/decorators.js";
+import type { Guardrail } from "../components/decorators.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
 import type { Class } from "../components/injection.js";
 import { stopComponents } from "../components/container/lifecycle.js";
@@ -7,6 +7,7 @@ import type { Clock } from "../infrastructure/clock.js";
 import { frameworkLogOf, type FrameworkLog, type Logger } from "../infrastructure/logger.js";
 import type { McpConnections } from "../tools/index.js";
 import type { RunTracing } from "../tracing/index.js";
+import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { AssembledWorkflow, ResolvedPolicies, WorkflowServices } from "../workflow.js";
 
 /**
@@ -28,12 +29,9 @@ export const channelLookup = (
 /** No policies of its own: the workflow's apply. */
 const noPolicies = (): ResolvedPolicies<never> => ({ override: false, instances: [], disable: [] });
 
-/** Per agent and per tool: its PII policies and guardrails; the workflow's own. */
+/** Per agent and per tool: its guardrails; the workflow's own. */
 export interface PolicyDeps {
-  readonly piiPolicies: (agent: string) => ResolvedPolicies<PiiPolicy>;
-  readonly toolPiiPolicies: (tool: string) => ResolvedPolicies<PiiPolicy>;
   readonly toolGuardrails: (tool: string) => ResolvedPolicies<Guardrail>;
-  readonly workflowPiiPolicies: readonly PiiPolicy[];
   readonly workflowGuardrails: readonly Guardrail[];
   readonly guardrails: (agent: string) => ResolvedPolicies<Guardrail>;
 }
@@ -42,10 +40,7 @@ export const policyDepsOf = (
   bundle: AssembledWorkflow,
   services: WorkflowServices,
 ): PolicyDeps => ({
-  piiPolicies: (agent: string) => bundle.piiPolicies?.(services).get(agent) ?? noPolicies(),
-  toolPiiPolicies: (tool: string) => bundle.toolPiiPolicies?.(services).get(tool) ?? noPolicies(),
   toolGuardrails: (tool: string) => bundle.toolGuardrails?.(services).get(tool) ?? noPolicies(),
-  workflowPiiPolicies: bundle.workflowPiiPolicies?.(services) ?? [],
   workflowGuardrails: bundle.workflowGuardrails?.(services) ?? [],
   guardrails: (agent: string) => bundle.guardrails?.(services).get(agent) ?? noPolicies(),
 });
@@ -68,14 +63,18 @@ export function containerDepsOf(
   };
 }
 
-/** The application's observers (none for a workflow on its own) and its log, stamped by its clock. */
+/**
+ * The application's observers (none for a workflow on its own) and its log, stamped by its clock —
+ * both masked by the workflow's observability policies (#120 AC7).
+ */
 export const observedBy = (
   observer: ExecutionObserverManager | undefined,
   logger: Logger,
   clock: Clock,
+  mask: ObservabilityMask,
 ): { readonly observer: ExecutionObserverManager; readonly log: FrameworkLog } => ({
-  observer: observer ?? new ExecutionObserverManager([]),
-  log: frameworkLogOf(logger, clock),
+  observer: (observer ?? new ExecutionObserverManager([])).masked((event) => mask.value(event)),
+  log: frameworkLogOf(logger, clock, (message) => mask.text(message)),
 });
 
 /** Closes what the app opened besides its components: MCP connections, tracing. */

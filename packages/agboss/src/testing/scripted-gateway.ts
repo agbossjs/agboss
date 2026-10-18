@@ -28,8 +28,12 @@ export function chatKeyOf(user: ChatModelUser): string {
       return `router:${user.router}`;
     case "arbiter":
       return arbiterKeyOf(user.arbiter);
+    case "pii-policy":
+      return piiPolicyKeyOf(user.policy);
   }
 }
+/** The script key of a `@PiiPolicy`'s model detection (#120): its cost caller. */
+export const piiPolicyKeyOf = (policy: string): string => `pii:${policy}`;
 export const judgeKeyOf = (judge: string): string => `judge:${judge}`;
 /** The script key of a model arbiter (#279): its cost caller. */
 export const arbiterKeyOf = (arbiter: string): string => `arbiter:${arbiter}`;

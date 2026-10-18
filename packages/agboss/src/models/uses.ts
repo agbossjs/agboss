@@ -41,13 +41,14 @@ const guardUses = (config: AgentsConfigOf<string>): ModelUse[] =>
   );
 
 /**
- * Every model use of a workflow: agents, compaction, judges, the default router, guards, flow routers
- * and model arbiters (#279).
+ * Every model use of a workflow: agents, compaction, judges, the default router, guards, flow routers,
+ * model arbiters (#279) and the PII policies' model detections (#120, `pii.<policy>`).
  */
 export function modelUsesOf(
   config: AgentsConfigOf<string>,
   routers: readonly ModelNamingRouter[],
   arbiters: readonly ModelNamingRouter[] = [],
+  piiDetectors: readonly ModelNamingRouter[] = [],
 ): readonly ModelUse[] {
   const chat = (key: string, settings: Parameters<typeof resolveSettings>[0]): ModelUse => ({
     key,
@@ -77,5 +78,6 @@ export function modelUsesOf(
       model: arbiter.model,
       purpose: purposeOf(arbiter.model),
     })),
+    ...piiDetectors.map((detector) => chat(`pii.${detector.name}`, { model: detector.model })),
   ];
 }

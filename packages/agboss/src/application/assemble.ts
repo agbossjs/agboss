@@ -50,6 +50,8 @@ export interface AssembledApplication {
   /** The context classes it declares (#261), else the built-in ones. */
   readonly tenantContext: TenantContextClass;
   readonly executionContext: ExecutionContextClass;
+  /** `@Application({ piiPolicies })` (#120): every workflow's, and what its own log is masked by. */
+  readonly piiPolicies: readonly Class[];
 }
 
 /** The default shutdown timeout (#265 S51): under the usual 30 s grace period and the 30 s lease. */
@@ -162,5 +164,6 @@ export async function applicationOf(
     workflows: assembled,
     shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
     ...declaredContextsOf(options),
+    piiPolicies: options.piiPolicies ?? [],
   };
 }

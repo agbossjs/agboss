@@ -740,7 +740,8 @@ all there is (`weight`, a positive integer, default 1, is the tenant's share for
 own subclasses with DTO field decorators, identity only, never secrets — gets their values typed
 per start (`tenant: ContextValues<ShopTenantContext>`, `execution: …`), checked before the first
 step (invalid → `dto.invalid`, an `onExecutionRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pause.args`) have the input DTO's
-`sensitive` fields masked as `***`; the tool itself still gets them whole.
+`sensitive` fields through their action (`replacePart` as written, a token or a kind as `<field>`,
+#120); the tool itself still gets them whole.
 
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
 the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an
@@ -807,7 +808,7 @@ application (filter by `event.workflow.name === nameOf(SupportWorkflow)` — `na
 called. Each hook gets one event object, plain data, never the framework's internal state. Every
 execution event (`ExecutionEvent`) carries `executionId`, `parentExecutionId`, `rootExecutionId`,
 `threadId`, `tenantId` and `workflow` — a `WorkflowRecord` `{ name, version, startedVersion }`, no
-class; a node event (agent, router, tool, model, knowledge base, guardrail, PII policy, action,
+class; a node event (agent, router, tool, model, knowledge base, guardrail, action,
 channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`) adds `step`, a `StepRecord`
 (`component: { name }`, `nodeId`, `visitNumber`, `copyNumber`, `itemIndex`, `idempotencyKey`,
 `callId`) — the serialized `executionContext.step`. `onExecutionStart` fires once per execution (at
@@ -1004,6 +1005,91 @@ export class WebSearchTool implements ToolHandler<SearchQueryDto, SearchResultsD
   }
 }
 ```
+
+## PII policies
+
+A `@PiiPolicy` says which personal data the models never see as is (#120). Policies are listed in
+`piiPolicies` of `@Application`, `@Workflow`, `@Agent` and `@Router`: the lists add up, and an agent
+or a router removes an inherited one with `excludePiiPolicies` — for its own model and tools only;
+logs, traces, observer events and `result.record` stay masked by the application's and the
+workflow's lists. Masking happens only at the model boundary: what a model reads is masked, what
+it gives back is revealed before any DTO is validated, so the scope, the checkpoint, every tool,
+action and finish see real values. `replaceWithToken()` is the reversible one — a tool gets the
+address the model only saw as `<email:7f3a91>` (an HMAC of the value with `pseudonymKey`; the
+token map is kept in the execution's checkpoint). A `blockWithRefusal` rule fails the execution
+with `PiiRefusedError` (`kind`, `refusal`) when the value comes in or is in an answer, and rejects
+only the call when it is in tool arguments or a tool result.
+
+<!-- snippet-context
+import {
+  Injectable,
+  PiiAction,
+  PiiGroup,
+  PiiKind,
+  PiiPolicy,
+  pii,
+  secret,
+  type PiiMatch,
+  type PiiPolicyHandler,
+  type PiiRefusal,
+} from "agboss";
+import { Text } from "agboss/dto";
+-->
+
+```ts
+@PiiPolicy({
+  name: "customer-pii-policy",
+  description: "Contact details hidden, cards refused, names found by a model",
+  rules: [
+    pii(PiiGroup.Contact, PiiAction.replaceWithKind()), // phones, addresses, postal codes
+    pii(PiiKind.Email, PiiAction.replaceWithToken()), // a kind rule beats its group's
+    pii(PiiKind.PersonName, PiiAction.replaceWithKind()),
+    pii(PiiKind.CardNumber, PiiAction.blockWithRefusal()), // the text from refusal(kind)
+  ],
+  detectWithModel: "moonshotai/kimi-k2.6",
+  pseudonymKey: secret("PII_PSEUDONYM_KEY"),
+})
+export class CustomerPiiPolicy implements PiiRefusal {
+  refusal(kind: PiiKind): string {
+    return `Please do not send a ${kind} here.`;
+  }
+}
+
+@Injectable()
+export class EmployeeDirectory {
+  readonly ids: readonly string[] = ["EMP-0042"];
+}
+
+// a project's own detector: the framework applies `action` to every range it finds
+@PiiPolicy({
+  name: "employee-id-pii-policy",
+  action: PiiAction.replaceWithToken(),
+  deps: [EmployeeDirectory],
+})
+export class EmployeeIdPiiPolicy implements PiiPolicyHandler {
+  constructor(private readonly employeeDirectory: EmployeeDirectory) {}
+
+  findMatches(text: string): readonly PiiMatch[] {
+    return this.employeeDirectory.ids.flatMap((id) => {
+      const start = text.indexOf(id);
+      return start < 0 ? [] : [{ start, end: start + id.length }];
+    });
+  }
+}
+
+// a field without a format of its own: the same actions (masking ones only)
+export class TicketDto {
+  @Text({ prompt: "the customer's account", sensitive: PiiAction.replacePart({ keepLast: 4 }) })
+  account!: string;
+}
+```
+
+Assembly checks the lists: `[pii.conflicting-rules]` (two policies with different actions for one
+kind, naming both), `[pii.exclude-not-inherited]`, `[pii.missing-refusal]`, `[pii.unused-refusal]`,
+`[pii.kind-needs-model]` (a name or an address without `detectWithModel`), `[pii.not-a-policy]`.
+Each `pseudonymKey` is read from its process variable when the app starts (a missing one fails the
+start); under `testWith` an unset one gets a fixed test key, and `mockLlm(CustomerPiiPolicy)`
+scripts its model detection (`pii:<policy>` in the spend). Wiki → Guards (PII).
 
 ## Tracing (local, optional)
 

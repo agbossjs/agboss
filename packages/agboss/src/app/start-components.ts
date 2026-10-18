@@ -19,12 +19,13 @@ type StartComponents = {
   ContainerDeps;
 
 /**
- * The graph's code — actions, finishes with a handler, code routers, code arbiters (#279) — created
- * now, so a missing dependency fails at start.
+ * The graph's code — actions, finishes with a handler, code routers, code arbiters (#279) — and
+ * its PII policies (#120), created now, so a missing dependency fails at start.
  */
 function createCodeNodes(bundle: AssembledWorkflow, services: WorkflowServices): void {
   const resolve = bundle.resolve(services);
   for (const component of codeClassesOf(bundle.graph)) resolve(component);
+  for (const policy of bundle.pii?.classes ?? []) resolve(policy);
 }
 
 /**

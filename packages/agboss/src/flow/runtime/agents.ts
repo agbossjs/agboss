@@ -34,9 +34,8 @@ function agentMetaOf(declaration: AgentDeclaration): AgentMeta {
     rag: options.rag,
     source,
     piiPolicies: options.piiPolicies,
+    excludePiiPolicies: options.excludePiiPolicies,
     guardrails: options.guardrails,
-    overridePiiPolicies: options.overridePiiPolicies,
-    disablePiiPolicies: options.disablePiiPolicies,
     overrideGuardrails: options.overrideGuardrails,
     disableGuardrails: options.disableGuardrails,
   });

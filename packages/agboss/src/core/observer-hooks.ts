@@ -15,8 +15,6 @@ import type {
   JudgeStartEvent,
   ModelEndEvent,
   ModelStartEvent,
-  PiiPolicyEndEvent,
-  PiiPolicyStartEvent,
   RagEndEvent,
   RagStartEvent,
   RouterEndEvent,
@@ -108,12 +106,6 @@ export interface OnGuardrailStart {
 export interface OnGuardrailEnd {
   onGuardrailEnd(event: GuardrailEndEvent): HookResult;
 }
-export interface OnPiiPolicyStart {
-  onPiiPolicyStart(event: PiiPolicyStartEvent): HookResult;
-}
-export interface OnPiiPolicyEnd {
-  onPiiPolicyEnd(event: PiiPolicyEndEvent): HookResult;
-}
 export interface OnActionStart {
   onActionStart(event: ActionStartEvent): HookResult;
 }
@@ -176,8 +168,6 @@ export type ExecutionObserver = Partial<
     OnRagEnd &
     OnGuardrailStart &
     OnGuardrailEnd &
-    OnPiiPolicyStart &
-    OnPiiPolicyEnd &
     OnActionStart &
     OnActionEnd &
     OnChannelStart &
@@ -215,8 +205,6 @@ const HOOKS: Readonly<Record<ObserverHook, true>> = {
   onRagEnd: true,
   onGuardrailStart: true,
   onGuardrailEnd: true,
-  onPiiPolicyStart: true,
-  onPiiPolicyEnd: true,
   onActionStart: true,
   onActionEnd: true,
   onChannelStart: true,

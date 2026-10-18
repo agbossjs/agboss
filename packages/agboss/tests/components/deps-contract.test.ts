@@ -37,8 +37,9 @@ describe("#183 AC1: every decorator kind with deps gets them injected at run tim
 
   it("@Tool / @Injectable: the tool's result carries the injected chain Vault ← SECRET", async () => {
     const { app, book } = await runVault();
+    // the tool returned the secret it was injected; the workflow's MaskSecret policy closes it (#120)
     expect(toolResultsOf(book.scriptOf("agent:keeper-agent").lastRequest)).toEqual([
-      '{"text":"s3cret"}',
+      '{"text":"<mask-secret>"}',
     ]);
     await app.close();
   });
@@ -52,9 +53,9 @@ describe("#183 AC1: every decorator kind with deps gets them injected at run tim
     await app.close();
   });
 
-  it("@PiiPolicy: the policy the app created masks with its injected secret", async () => {
+  it("@PiiPolicy: the policy the app created finds with its injected secret", async () => {
     const { app } = await runVault();
-    await expect(app.resolve(MaskSecret).mask("the s3cret word")).resolves.toBe("the *** word");
+    expect(app.resolve(MaskSecret).findMatches("the s3cret word")).toEqual([{ start: 4, end: 10 }]);
     await app.close();
   });
 

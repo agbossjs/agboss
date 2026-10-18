@@ -177,40 +177,6 @@ describe("agent-loop coverage", () => {
     expect(observer.onJudgeEnd).toHaveBeenCalled();
   });
 
-  it("approval-node calls pii policy observer and maskers", async () => {
-    const observer = { onPiiPolicyStart: vi.fn(), onPiiPolicyEnd: vi.fn() };
-    const policy = { mask: async (v) => String(v), maskJson: async (v) => String(v) };
-    const deps = {
-      agent: { name: "a1", tools: [{ name: "t1", channel: "c1" }] },
-      approval: {
-        requestApproval: async () => ({ approved: true, feedback: "fb", overrideArguments: {} }),
-      },
-      workflowPiiPolicies: [policy],
-      piiPolicies: { override: false, disable: [], instances: [] },
-      toolPiiPolicies: () => ({ override: false, disable: [], instances: [] }),
-      resolveTool: () => ({ name: "t1", channel: "c1" }),
-      observer,
-    };
-    const node = makeApprovalNode(deps);
-    await inTestFrame(() =>
-      node(
-        {
-          decisions: {},
-          results: {},
-          pendingPause: undefined,
-          move: {
-            tool_calls: [
-              { name: "t1", id: "c1", type: "function", function: { name: "t1", arguments: "{}" } },
-            ],
-          },
-          runId: "1",
-        },
-        {},
-      ),
-    );
-    expect(observer.onPiiPolicyStart).toHaveBeenCalled();
-  });
-
   it("createAppDeps fallbacks", async () => {
     const bundle = await workflowOf(CodeReview);
     const built = await createAppDeps(bundle, {
@@ -218,9 +184,7 @@ describe("agent-loop coverage", () => {
       connectMcp: async () => ({ close: async () => undefined }),
     });
     const deps = built;
-    expect(deps.toolPiiPolicies("t1")).toEqual({ override: false, instances: [], disable: [] });
     expect(deps.toolGuardrails("t1")).toEqual({ override: false, instances: [], disable: [] });
-    expect(deps.piiPolicies("a1")).toEqual({ override: false, instances: [], disable: [] });
     expect(deps.guardrails("a1")).toEqual({ override: false, instances: [], disable: [] });
     await deps.close();
   });
@@ -275,50 +239,6 @@ describe("agent-loop missing branches coverage", () => {
       {},
     );
     expect(result).toEqual({});
-  });
-
-  it("approval-node unknown policy constructor", async () => {
-    const observer = { onPiiPolicyStart: vi.fn(), onPiiPolicyEnd: vi.fn() };
-    class UnknownPolicy {
-      async mask(v) {
-        return String(v);
-      }
-      async maskJson(v) {
-        return String(v);
-      }
-    }
-    Object.defineProperty(UnknownPolicy, "name", { value: "" });
-    const policy = new UnknownPolicy();
-
-    const deps = {
-      agent: { name: "a1", tools: [{ name: "t1", channel: "c1" }] },
-      approval: {
-        requestApproval: async () => ({ approved: true, feedback: "fb", overrideArguments: {} }),
-      },
-      workflowPiiPolicies: [policy],
-      piiPolicies: { override: false, disable: [], instances: [] },
-      toolPiiPolicies: () => ({ override: false, disable: [], instances: [] }),
-      resolveTool: () => ({ name: "t1", channel: "c1" }),
-      observer,
-    };
-    const node = makeApprovalNode(deps);
-    await inTestFrame(() =>
-      node(
-        {
-          decisions: {},
-          results: {},
-          pendingPause: undefined,
-          move: {
-            tool_calls: [
-              { name: "t1", id: "c1", type: "function", function: { name: "t1", arguments: "{}" } },
-            ],
-          },
-          runId: "1",
-        },
-        {},
-      ),
-    );
-    expect(observer.onPiiPolicyStart).toHaveBeenCalled();
   });
 });
 

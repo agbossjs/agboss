@@ -1,11 +1,12 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";
 import {
-  renderToolResult,
   ToolTimeoutError,
   type AnyTool,
   type ToolCallContext,
+  type ToolOutput,
 } from "../../tools/index.js";
+import { argumentsRefusal, closedResult, type ClosedResult } from "./tool-pii.js";
 import { toolNamed, type AgentLoopDeps } from "./deps.js";
 import type { AgentLoopUpdate, ToolTask } from "./state.js";
 import { inToolCallFrame } from "../../flow/context/frame.js";
@@ -48,15 +49,33 @@ function callSignalOf(
 }
 
 /** Tool failures are recoverable: whatever went wrong, the model reads it as `Tool error: …`. */
-async function runTool(tool: AnyTool, args: unknown, context: ToolCallContext): Promise<string> {
+async function runTool(
+  tool: AnyTool,
+  args: unknown,
+  context: ToolCallContext,
+): Promise<ToolOutput<unknown>> {
   try {
-    return renderToolResult(await tool.invoke(args, context));
+    return await tool.invoke(args, context);
   } catch (error) {
     if (error && typeof error === "object" && "name" in error && error.name === "GraphInterrupt") {
       throw error;
     }
-    return renderToolResult({ kind: "error", message: errorMessage(error) });
+    return { kind: "error", message: errorMessage(error) };
   }
+}
+
+/** The call in its frame: refused by a block rule in its arguments, or run and its result closed (#120). */
+async function guardedCall(
+  deps: AgentLoopDeps,
+  tool: AnyTool,
+  task: ToolTask,
+  run: () => Promise<ToolOutput<unknown>>,
+): Promise<ClosedResult> {
+  const refusal = await argumentsRefusal(deps.pii, task.args);
+  if (refusal.content !== undefined)
+    return { content: refusal.content, piiTokens: {}, piiMasked: {}, usage: refusal.usage };
+  const closed = await closedResult(deps.pii, tool, await run());
+  return { ...closed, usage: [...refusal.usage, ...closed.usage] };
 }
 
 /**
@@ -91,15 +110,17 @@ export function makeToolNode(
     await reportNodeEvent((base) =>
       deps.observer?.onToolStart({ ...base, ...event, arguments: task.args }),
     );
-    const content = await inToolCallFrame(
+    const closed = await inToolCallFrame(
       task.callId,
       { reportUsage },
-      () => runTool(tool, task.args, context),
+      () => guardedCall(deps, tool, task, () => runTool(tool, task.args, context)),
       call.signal,
     ).finally(call.release);
+    const { content, piiTokens, piiMasked } = closed;
     await reportNodeEvent((base) =>
       deps.observer?.onToolEnd({ ...base, ...event, update: content }),
     );
-    return { results: { [task.callId]: { callId: task.callId, tool: task.tool, content } }, usage };
+    const results = { [task.callId]: { callId: task.callId, tool: task.tool, content } };
+    return { results, usage: [...usage, ...closed.usage], piiTokens, piiMasked };
   };
 }

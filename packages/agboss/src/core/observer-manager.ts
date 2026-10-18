@@ -14,8 +14,6 @@ import type {
   JudgeStartEvent,
   ModelEndEvent,
   ModelStartEvent,
-  PiiPolicyEndEvent,
-  PiiPolicyStartEvent,
   RagEndEvent,
   RagStartEvent,
   RouterEndEvent,
@@ -30,6 +28,11 @@ import type {
   ToolStartEvent,
 } from "./observability.js";
 import type { ObserverHook, ExecutionObserver } from "./observer-hooks.js";
+
+/** What an event goes through before any observer sees it (the PII observability mask, #120). */
+export type EventMask = (event: unknown) => Promise<unknown>;
+
+const unmasked: EventMask = (event) => Promise.resolve(event);
 
 /** Told when an observer's hook throws; the execution goes on. */
 export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;
@@ -46,15 +49,25 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   constructor(
     private readonly observers: readonly ExecutionObserver[],
     private readonly onFailure: ObserverFailure = ignore,
+    private readonly mask: EventMask = unmasked,
   ) {}
 
-  private async each(
+  /** The same observers, every event masked first (a workflow's PII policies, #120 AC7). */
+  masked(mask: EventMask): ExecutionObserverManager {
+    return new ExecutionObserverManager(this.observers, this.onFailure, mask);
+  }
+
+  private async each<TEvent>(
     hook: ObserverHook,
-    call: (observer: ExecutionObserver) => Promise<void> | void,
+    event: TEvent,
+    call: (observer: ExecutionObserver, event: TEvent) => Promise<void> | void,
   ): Promise<void> {
+    if (this.observers.length === 0) return;
+    // the mask keeps an event's shape: every string masked, class instances (errors) as they are
+    const shown = (await this.mask(event)) as TEvent;
     for (const observer of this.observers) {
       try {
-        await call(observer);
+        await call(observer, shown);
       } catch (error) {
         this.onFailure(observer.constructor.name, hook, error);
       }
@@ -62,90 +75,84 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   }
 
   onExecutionStart(event: ExecutionStartEvent): Promise<void> {
-    return this.each("onExecutionStart", (o) => o.onExecutionStart?.(event));
+    return this.each("onExecutionStart", event, (o, e) => o.onExecutionStart?.(e));
   }
   onExecutionPause(event: ExecutionPauseEvent): Promise<void> {
-    return this.each("onExecutionPause", (o) => o.onExecutionPause?.(event));
+    return this.each("onExecutionPause", event, (o, e) => o.onExecutionPause?.(e));
   }
   onExecutionResume(event: ExecutionResumeEvent): Promise<void> {
-    return this.each("onExecutionResume", (o) => o.onExecutionResume?.(event));
+    return this.each("onExecutionResume", event, (o, e) => o.onExecutionResume?.(e));
   }
   onExecutionEnd(event: ExecutionEndEvent): Promise<void> {
-    return this.each("onExecutionEnd", (o) => o.onExecutionEnd?.(event));
+    return this.each("onExecutionEnd", event, (o, e) => o.onExecutionEnd?.(e));
   }
   onExecutionError(event: ExecutionErrorEvent): Promise<void> {
-    return this.each("onExecutionError", (o) => o.onExecutionError?.(event));
+    return this.each("onExecutionError", event, (o, e) => o.onExecutionError?.(e));
   }
   onExecutionRejected(event: ExecutionRejectedEvent): Promise<void> {
-    return this.each("onExecutionRejected", (o) => o.onExecutionRejected?.(event));
+    return this.each("onExecutionRejected", event, (o, e) => o.onExecutionRejected?.(e));
   }
   onAgentStart(event: AgentStartEvent): Promise<void> {
-    return this.each("onAgentStart", (o) => o.onAgentStart?.(event));
+    return this.each("onAgentStart", event, (o, e) => o.onAgentStart?.(e));
   }
   onAgentEnd(event: AgentEndEvent): Promise<void> {
-    return this.each("onAgentEnd", (o) => o.onAgentEnd?.(event));
+    return this.each("onAgentEnd", event, (o, e) => o.onAgentEnd?.(e));
   }
   onRouterStart(event: RouterStartEvent): Promise<void> {
-    return this.each("onRouterStart", (o) => o.onRouterStart?.(event));
+    return this.each("onRouterStart", event, (o, e) => o.onRouterStart?.(e));
   }
   onRouterEnd(event: RouterEndEvent): Promise<void> {
-    return this.each("onRouterEnd", (o) => o.onRouterEnd?.(event));
+    return this.each("onRouterEnd", event, (o, e) => o.onRouterEnd?.(e));
   }
   onToolStart(event: ToolStartEvent): Promise<void> {
-    return this.each("onToolStart", (o) => o.onToolStart?.(event));
+    return this.each("onToolStart", event, (o, e) => o.onToolStart?.(e));
   }
   onToolEnd(event: ToolEndEvent): Promise<void> {
-    return this.each("onToolEnd", (o) => o.onToolEnd?.(event));
+    return this.each("onToolEnd", event, (o, e) => o.onToolEnd?.(e));
   }
   onModelStart(event: ModelStartEvent): Promise<void> {
-    return this.each("onModelStart", (o) => o.onModelStart?.(event));
+    return this.each("onModelStart", event, (o, e) => o.onModelStart?.(e));
   }
   onModelEnd(event: ModelEndEvent): Promise<void> {
-    return this.each("onModelEnd", (o) => o.onModelEnd?.(event));
+    return this.each("onModelEnd", event, (o, e) => o.onModelEnd?.(e));
   }
   onRagStart(event: RagStartEvent): Promise<void> {
-    return this.each("onRagStart", (o) => o.onRagStart?.(event));
+    return this.each("onRagStart", event, (o, e) => o.onRagStart?.(e));
   }
   onRagEnd(event: RagEndEvent): Promise<void> {
-    return this.each("onRagEnd", (o) => o.onRagEnd?.(event));
+    return this.each("onRagEnd", event, (o, e) => o.onRagEnd?.(e));
   }
   onGuardrailStart(event: GuardrailStartEvent): Promise<void> {
-    return this.each("onGuardrailStart", (o) => o.onGuardrailStart?.(event));
+    return this.each("onGuardrailStart", event, (o, e) => o.onGuardrailStart?.(e));
   }
   onGuardrailEnd(event: GuardrailEndEvent): Promise<void> {
-    return this.each("onGuardrailEnd", (o) => o.onGuardrailEnd?.(event));
-  }
-  onPiiPolicyStart(event: PiiPolicyStartEvent): Promise<void> {
-    return this.each("onPiiPolicyStart", (o) => o.onPiiPolicyStart?.(event));
-  }
-  onPiiPolicyEnd(event: PiiPolicyEndEvent): Promise<void> {
-    return this.each("onPiiPolicyEnd", (o) => o.onPiiPolicyEnd?.(event));
+    return this.each("onGuardrailEnd", event, (o, e) => o.onGuardrailEnd?.(e));
   }
   onActionStart(event: ActionStartEvent): Promise<void> {
-    return this.each("onActionStart", (o) => o.onActionStart?.(event));
+    return this.each("onActionStart", event, (o, e) => o.onActionStart?.(e));
   }
   onActionEnd(event: ActionEndEvent): Promise<void> {
-    return this.each("onActionEnd", (o) => o.onActionEnd?.(event));
+    return this.each("onActionEnd", event, (o, e) => o.onActionEnd?.(e));
   }
   onChannelStart(event: ChannelStartEvent): Promise<void> {
-    return this.each("onChannelStart", (o) => o.onChannelStart?.(event));
+    return this.each("onChannelStart", event, (o, e) => o.onChannelStart?.(e));
   }
   onChannelEnd(event: ChannelEndEvent): Promise<void> {
-    return this.each("onChannelEnd", (o) => o.onChannelEnd?.(event));
+    return this.each("onChannelEnd", event, (o, e) => o.onChannelEnd?.(e));
   }
   onJudgeStart(event: JudgeStartEvent): Promise<void> {
-    return this.each("onJudgeStart", (o) => o.onJudgeStart?.(event));
+    return this.each("onJudgeStart", event, (o, e) => o.onJudgeStart?.(e));
   }
   onJudgeEnd(event: JudgeEndEvent): Promise<void> {
-    return this.each("onJudgeEnd", (o) => o.onJudgeEnd?.(event));
+    return this.each("onJudgeEnd", event, (o, e) => o.onJudgeEnd?.(e));
   }
   onValuesOutdated(event: ValuesOutdatedEvent): Promise<void> {
-    return this.each("onValuesOutdated", (o) => o.onValuesOutdated?.(event));
+    return this.each("onValuesOutdated", event, (o, e) => o.onValuesOutdated?.(e));
   }
   onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): Promise<void> {
-    return this.each("onLaunchItemsTruncated", (o) => o.onLaunchItemsTruncated?.(event));
+    return this.each("onLaunchItemsTruncated", event, (o, e) => o.onLaunchItemsTruncated?.(e));
   }
   onQuorumDecided(event: QuorumDecidedEvent): Promise<void> {
-    return this.each("onQuorumDecided", (o) => o.onQuorumDecided?.(event));
+    return this.each("onQuorumDecided", event, (o, e) => o.onQuorumDecided?.(e));
   }
 }

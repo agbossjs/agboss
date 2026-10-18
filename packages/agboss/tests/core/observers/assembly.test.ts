@@ -78,6 +78,17 @@ class RejectedObserver implements OnExecutionRejected {
   }
 }
 
+/** The PII policy hooks removed in #120 PR 1: never emitted, so an observer with them fails. */
+@Injectable()
+class PiiPolicyObserver implements OnExecutionRejected {
+  onExecutionRejected(): void {
+    /* real hook */
+  }
+  onPiiPolicyStart(): void {
+    /* removed hook */
+  }
+}
+
 /** A typo of the refused-request hook next to the real one. */
 @Injectable()
 class RejectedTypo implements OnExecutionRejected {
@@ -135,6 +146,12 @@ describe("@Application observers are checked at assembly", () => {
     expect(await assemblyError([RejectedObserver])).toBe("assembled");
     expect(await assemblyError([RejectedTypo])).toBe(
       "[observer.unknown-hook] RejectedTypo.onExecutionRejection is not an observer hook — did you mean onExecutionRejected?",
+    );
+  });
+
+  it("#120: onPiiPolicyStart / onPiiPolicyEnd are removed — an observer with one fails", async () => {
+    expect(await assemblyError([PiiPolicyObserver])).toMatch(
+      /^\[observer\.unknown-hook\] PiiPolicyObserver\.onPiiPolicyStart is not an observer hook/,
     );
   });
 

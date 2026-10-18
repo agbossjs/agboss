@@ -8,7 +8,7 @@ import type { FlowEdge } from "../analyse/flow-graph.js";
 import { runInFrame } from "../context/frame.js";
 import { errorHandlerOf, type RuntimeNode } from "./graph-model.js";
 import { checkVisit, isWorkingNode, type ExecutionLimits } from "./limits.js";
-import type { GraphNode, NodeOutcome, NodeRunner } from "./node-runner.js";
+import { recordsOf, type GraphNode, type NodeOutcome, type NodeRunner } from "./node-runner.js";
 import { OutputInvalidError } from "./errors.js";
 import { RouterDecisionError } from "./router-error.js";
 import { handedOverReason } from "../../app/handed-over.js";
@@ -136,8 +136,7 @@ function succeeded(
     ...write.update,
     next,
     ...(launched === undefined ? {} : { launch: launched.ticket }),
-    usage: [...(outcome.usage ?? [])],
-    approvals: [...(outcome.approvals ?? [])],
+    ...recordsOf(outcome),
     ...(outcome.finish === undefined ? {} : { finish: node.id, output: outcome.finish.output }),
   };
   return { update, write, ...(launched === undefined ? {} : { launched }) };

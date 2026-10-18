@@ -1,6 +1,6 @@
 import { callerFile } from "../../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
-import type { AgentMeta } from "../../components/meta-types.js";
+import type { AgentMeta, PiiPolicyFields } from "../../components/meta-types.js";
 import { NodeKind, type ComponentClass } from "../ast.js";
 import { declared, recordDeclaration, type InputFields } from "./declaration.js";
 
@@ -65,8 +65,8 @@ export interface CodeRouterRoute {
   readonly prompt?: never;
 }
 
-/** What both kinds of router declare. */
-interface RouterBase {
+/** What both kinds of router declare (a code router's PII policies apply to nothing: no model). */
+interface RouterBase extends PiiPolicyFields {
   /** Ends with `-router` (`main-router`). */
   readonly name: string;
   readonly description: string;

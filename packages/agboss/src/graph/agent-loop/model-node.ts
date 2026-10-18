@@ -1,4 +1,4 @@
-import { AIMessage, SystemMessage, type AIMessageChunk } from "@langchain/core/messages";
+import { AIMessage, type AIMessageChunk, type BaseMessage } from "@langchain/core/messages";
 import type { ToolDefinition } from "@langchain/core/language_models/base";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { recordUsage, totalCost, type UsageRecord } from "../../finops/usage.js";
@@ -9,9 +9,10 @@ import type { AsyncNode } from "../types.js";
 import { callsOf, isAnswerCall, type AgentDefinition, type AgentLoopDeps } from "./deps.js";
 import { agentLimitError } from "./limits.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
-import { normalisePromptText } from "../text.js";
 import { extractRunContext, throwIfCancelled } from "../../core/run-context.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
+import type { MaskedRequest } from "../../pii/model-boundary.js";
+import { maskedRequest, outgoingMove } from "./model-pii.js";
 
 export class ToolCallingUnsupportedError extends Error {
   override name = "ToolCallingUnsupportedError";
@@ -30,21 +31,20 @@ export function toolDefinitionsOf(agent: AgentDefinition): readonly ToolDefiniti
   );
 }
 
-/** One model turn: the agent's instructions and conversation, its tools bound. */
+/** One model turn: the agent's instructions and conversation (masked, #120), its tools bound. */
 async function callModel(
-  state: AgentLoopStateType,
+  messages: readonly BaseMessage[],
   deps: AgentLoopDeps,
   config: RunnableConfig | undefined,
 ): Promise<AIMessageChunk> {
-  const { binding, instructions, name } = deps.agent;
+  const { binding, name } = deps.agent;
   // cache markers, where the model needs them, are placed by its provider on the wire (#151)
-  const messages = [new SystemMessage(normalisePromptText(instructions)), ...state.messages];
   const tools = toolDefinitionsOf(deps.agent);
-  if (tools.length === 0) return binding.model.invoke(messages, config);
+  if (tools.length === 0) return binding.model.invoke([...messages], config);
   if (binding.model.bindTools === undefined) {
     throw new ToolCallingUnsupportedError(`The model of agent "${name}" cannot call tools`);
   }
-  return binding.model.bindTools([...tools]).invoke(messages, config);
+  return binding.model.bindTools([...tools]).invoke([...messages], config);
 }
 
 /**
@@ -75,16 +75,18 @@ function checkBudget(state: AgentLoopStateType, deps: AgentLoopDeps): void {
 async function observedCall(
   state: AgentLoopStateType,
   deps: AgentLoopDeps,
+  request: MaskedRequest,
   config: RunnableConfig | undefined,
 ): Promise<{ readonly response: AIMessageChunk; readonly usageRecord: UsageRecord }> {
   const { name, binding } = deps.agent;
   const modelName = binding.settings.model;
-  const rawPayload = state.messages;
+  // what the model was sent, masked: the conversation without the instructions
+  const rawPayload = request.messages.slice(1);
   await reportNodeEvent((base) =>
     deps.observer?.onModelStart({ ...base, modelName, callerName: name, rawPayload }),
   );
-  const response = await callModel(state, deps, config).catch((error: unknown) => {
-    throw new AgentFailedError(name, loopUsage(state), error);
+  const response = await callModel(request.messages, deps, config).catch((error: unknown) => {
+    throw new AgentFailedError(name, [...loopUsage(state), ...request.usage], error);
   });
   const usageRecord = recordUsage(name, binding.settings, response);
   const ended = {
@@ -122,8 +124,13 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       } as const;
       throw agentLimitError(state, { ...breach, spent: [] });
     }
-    const { response, usageRecord } = await observedCall(state, deps, config);
-    const move = withCallIds(response, state);
+    const request = await maskedRequest(state, deps);
+    const { response, usageRecord } = await observedCall(state, deps, request, config);
+    const spent = [...request.usage, usageRecord];
+    const outgoing = await outgoingMove(withCallIds(response, state), request, state, deps, spent);
+    const pii = { piiTokens: request.tokens, piiMasked: request.cache };
+    if (outgoing.kind === "invalid") return { ...outgoing.update, modelCalls: 1, ...pii };
+    const move = outgoing.move;
     // answer tools are not tool calls: an invalid answer costs a retry, not `maxToolCalls` (S9)
     const calls = callsOf(move).filter((call) => !isAnswerCall(deps.agent, call)).length;
     const toolCalls = state.toolCalls + calls;
@@ -134,8 +141,14 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
         max: limits.toolCalls,
         actual: toolCalls,
       } as const;
-      throw agentLimitError(state, { ...breach, spent: [usageRecord] });
+      throw agentLimitError(state, { ...breach, spent: [...spent, ...outgoing.usage] });
     }
-    return { move, usage: [usageRecord], modelCalls: 1, toolCalls: calls };
+    return {
+      move,
+      usage: [...spent, ...outgoing.usage],
+      modelCalls: 1,
+      toolCalls: calls,
+      ...pii,
+    };
   };
 }

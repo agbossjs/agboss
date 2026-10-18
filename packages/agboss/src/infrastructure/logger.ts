@@ -89,11 +89,20 @@ const idsOf = (subject: LogSubject): Pick<LogEntry, "executionId" | "tenantId"> 
   ...(subject.tenantId === undefined ? {} : { tenantId: subject.tenantId }),
 });
 
+/** What a log message goes through before the logger (the PII policies' formats, #120 AC7). */
+export type LogMask = (message: string) => string;
+
+const unmaskedLine: LogMask = (message) => message;
+
 /** The framework's log over a `Logger`; a logger that throws is ignored. */
-export function frameworkLogOf(logger: Logger, clock: Clock): FrameworkLog {
+export function frameworkLogOf(
+  logger: Logger,
+  clock: Clock,
+  mask: LogMask = unmaskedLine,
+): FrameworkLog {
   const write = (level: LogLevel, code: string, message: string, subject: LogSubject): void => {
     try {
-      logger.write({ level, code, message, time: clock.now(), ...idsOf(subject) });
+      logger.write({ level, code, message: mask(message), time: clock.now(), ...idsOf(subject) });
     } catch {
       // the log is best effort: an execution never fails because its logger did
     }

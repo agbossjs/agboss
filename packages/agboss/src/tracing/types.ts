@@ -19,3 +19,8 @@ export interface RunTracing {
   /** Sends what is buffered and releases the exporter. */
   readonly shutdown: () => Promise<void>;
 }
+
+/** What every exported span's input, output and metadata go through (the PII policies, #120 AC7). */
+export interface TraceMask {
+  traceData(data: unknown): Promise<unknown>;
+}

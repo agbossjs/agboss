@@ -1,6 +1,12 @@
 import { A2AAgent } from "../../../src/a2a/a2a-decorator.js";
+import {
+  PiiAction,
+  PiiPolicy,
+  type PiiMatch,
+  type PiiPolicyHandler,
+} from "../../../src/pii/index.js";
 import { A2AClient } from "../../../src/a2a/a2a-client.js";
-import { Channel, Guardrail, PiiPolicy, Rag } from "../../../src/components/decorators.js";
+import { Channel, Guardrail, Rag } from "../../../src/components/decorators.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import type { ChannelSenderAsk } from "../../../src/channels/channel-sender.js";
 import { Action } from "../../../src/flow/decorators/action.js";
@@ -52,14 +58,12 @@ export class AuditGuardrail implements Guardrail {
   }
 }
 
-@PiiPolicy({ name: "mask-secret", deps: [Vault] })
-export class MaskSecret implements PiiPolicy {
+@PiiPolicy({ name: "mask-secret-pii-policy", action: PiiAction.replaceWithKind(), deps: [Vault] })
+export class MaskSecret implements PiiPolicyHandler {
   constructor(private readonly vault: Vault) {}
-  mask(text: string): Promise<string> {
-    return Promise.resolve(text.replaceAll(this.vault.secret, "***"));
-  }
-  maskJson(obj: unknown): Promise<unknown> {
-    return Promise.resolve(obj);
+  findMatches(text: string): readonly PiiMatch[] {
+    const start = text.indexOf(this.vault.secret);
+    return start < 0 ? [] : [{ start, end: start + this.vault.secret.length }];
   }
 }
 
