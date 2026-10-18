@@ -1,116 +1,147 @@
-import type { ToolDefinition } from "@langchain/core/language_models/base";
-import type { MessageContent } from "@langchain/core/messages";
-import type { DecisionQuestions, DecisionState } from "../llm/decisions.js";
-import { LiveCallBlockedError, TestFailure } from "./errors.js";
-import type { ScriptedTurn } from "./script.js";
+import { WorkflowFinishTextDto } from "../dto/standard/framework.js";
+import type { DtoClass } from "../dto/types.js";
+import { LiveCallBlockedError, TestFailure, TestSetupError } from "./errors.js";
+import { inputText, matchesInput, type RecordedInput } from "./input-match.js";
+import type { ModelRequest, ModelScript, WhenScript } from "./model-script.js";
+import { TurnQueue } from "./turn-queue.js";
+import type { ScriptedCall, ScriptedTurn } from "./turns.js";
 
-/** One message of a chat request: who said it and its text. */
-export interface ChatLine {
-  readonly role: string;
-  readonly text: MessageContent;
+/** What a component returned, for `toHaveReturned`: the class and its value (a list's array). */
+export interface ReturnedValue {
+  readonly dto: DtoClass;
+  readonly value: unknown;
 }
 
-/** What a component sent its model: an agent's chat, a router's decision request, or a judge's decision. */
-export type ModelRequest =
-  | {
-      readonly kind: "chat";
-      readonly system: string;
-      /** The input message (#270 Q51). */
-      readonly input: MessageContent;
-      readonly messages: readonly ChatLine[];
-      /** The tools the agent bound — its own and its answer tools, as the model sees them. */
-      readonly tools: readonly ToolDefinition[];
-    }
-  | {
-      readonly kind: "decision";
-      readonly input: MessageContent;
-      readonly options: readonly string[];
-      /** Each option's route text as the router's model got it. */
-      readonly routes: Readonly<Record<string, string>>;
-      readonly instructions: string;
-    }
-  | {
-      /** A judge's `ctx.model.decide`: the state and the questions, as sent. */
-      readonly kind: "decide";
-      /** The state as text (JSON unless it is a string). */
-      readonly input: MessageContent;
-      readonly state: DecisionState;
-      readonly questions: DecisionQuestions;
-    };
+/** One `when(…)` of a script: its matcher and its turns. */
+class WhenEntry implements WhenScript {
+  readonly queue = new TurnQueue();
 
-/** A component's script and what it was asked: `mockLlm(Scout).thenReturn(replyWith("…"))`. */
-export interface ModelScript {
-  /** Adds turns, taken by position: the component's n-th model call gets the n-th turn. */
-  thenReturn(...turns: readonly ScriptedTurn[]): ModelScript;
-  /** The turn every call after the scripted ones gets. */
-  thenReturnAlways(turn: ScriptedTurn): ModelScript;
-  /** A dynamic closure to handle requests. Overrides respond/thenReturnAlways if set. */
-  thenAnswer(handler: (req: ModelRequest) => ScriptedTurn): ModelScript;
-  /** Every request, in order. */
-  readonly requests: readonly ModelRequest[];
-  /** The one request (fails unless there was exactly one). */
-  readonly onlyRequest: ModelRequest;
-  /** The last request (fails when there was none). */
-  readonly lastRequest: ModelRequest;
-  /** The tools the component's model called, in order (tool names). */
-  readonly toolCalls: readonly string[];
-  /** How the test names the component (its class). */
-  readonly label: string;
-}
-
-const plural = (count: number, word: string): string =>
-  `${String(count)} ${word}${count === 1 ? "" : "s"}`;
-
-/** One component's script: turns by position (its model calls so far in this test), requests. */
-export class ComponentScript implements ModelScript {
-  readonly requests: ModelRequest[] = [];
-  readonly toolCalls: string[] = [];
-  #turns: ScriptedTurn[] = [];
-  #always: ScriptedTurn | undefined;
-  #handler: ((req: ModelRequest) => ScriptedTurn) | undefined;
-  #position = 0;
-
-  constructor(readonly label: string) {}
+  constructor(readonly partial: RecordedInput) {}
 
   thenReturn(...turns: readonly ScriptedTurn[]): this {
-    this.#turns.push(...turns);
+    this.queue.push(turns);
     return this;
   }
 
-  thenAnswer(handler: (req: ModelRequest) => ScriptedTurn): this {
+  thenReturnAlways(turn: ScriptedTurn): this {
+    this.queue.always(turn);
+    return this;
+  }
+}
+
+/** What a served turn says the component returned (an answer or a text reply), if anything. */
+function returnedOf(turn: ScriptedTurn): ReturnedValue | undefined {
+  if (turn.kind === "answer") return { dto: turn.dto, value: turn.value };
+  if (turn.kind === "reply") return { dto: WorkflowFinishTextDto, value: { text: turn.text } };
+  return undefined;
+}
+
+/**
+ * One component's script: `when(…)` entries first (by input), then its own turns by position, and
+ * what it was asked. `bindsInput` — an agent or a model router, whose calls carry their step's input.
+ */
+export class ComponentScript implements ModelScript {
+  readonly requests: ModelRequest[] = [];
+  readonly toolCalls: string[] = [];
+  readonly inputs: RecordedInput[] = [];
+  readonly returned: ReturnedValue[] = [];
+  readonly #queue = new TurnQueue();
+  readonly #whens: WhenEntry[] = [];
+  #handler: ((request: ModelRequest) => ScriptedTurn) | undefined;
+
+  constructor(
+    readonly label: string,
+    readonly bindsInput: boolean,
+  ) {}
+
+  thenReturn(...turns: readonly ScriptedTurn[]): this {
+    this.#queue.push(turns);
+    return this;
+  }
+
+  thenAnswer(handler: (request: ModelRequest) => ScriptedTurn): this {
     this.#handler = handler;
     return this;
   }
 
   thenReturnAlways(turn: ScriptedTurn): this {
-    this.#always = turn;
+    this.#queue.always(turn);
     return this;
   }
 
-  get isScripted(): boolean {
-    return this.#handler !== undefined || this.#turns.length > 0 || this.#always !== undefined;
+  when(partial: RecordedInput): WhenScript {
+    if (!this.bindsInput) {
+      throw new TestSetupError(
+        `mockLlm(${this.label}).when(…): only agents and model routers are called with an input`,
+      );
+    }
+    const entry = new WhenEntry(partial);
+    this.#whens.push(entry);
+    return entry;
   }
 
-  /** The turn for the next call; unscripted → blocked, past the end → exhausted. */
-  next(req?: ModelRequest): ScriptedTurn {
-    if (this.#handler !== undefined) {
-      if (!req) throw new Error("ModelRequest is required when using .thenAnswer()");
-      return this.#handler(req);
-    }
+  get isScripted(): boolean {
+    return this.#handler !== undefined || this.#queue.isScripted || this.#whens.length > 0;
+  }
+
+  /** The call's turn: a `when(…)` its input matches, else the script's own; recorded. */
+  next(request?: ModelRequest, input?: RecordedInput): ScriptedCall {
+    if (input !== undefined) this.inputs.push(input);
+    const call = this.#callFor(request, input);
+    const returned = returnedOf(call.turn);
+    if (returned !== undefined) this.returned.push(returned);
+    return call;
+  }
+
+  #callFor(request: ModelRequest | undefined, input: RecordedInput | undefined): ScriptedCall {
+    if (this.#handler !== undefined) return this.#answered(this.#handler, request);
     if (!this.isScripted) {
       throw new LiveCallBlockedError(
         `${this.label} has no script — a live model call is blocked in tests; script it with mockLlm(${this.label}).thenReturn(…)`,
       );
     }
-    const turn = this.#turns[this.#position] ?? this.#always;
-    this.#position += 1;
-    if (turn === undefined) {
-      throw new TestFailure(
-        "test.script-exhausted",
-        `script exhausted for ${this.label}: ${plural(this.#turns.length, "turn")} scripted, asked for #${String(this.#position)} — add turns or end with .thenReturnAlways(…)`,
-      );
+    const matching =
+      input === undefined ? [] : this.#whens.filter((entry) => matchesInput(input, entry.partial));
+    const call =
+      matching.length > 0
+        ? matching.map((entry) => entry.queue.take()).find((taken) => taken !== undefined)
+        : this.#queue.take();
+    return call ?? this.#unanswered(matching, input);
+  }
+
+  /** No turn for a call: its scripts ran out, or nothing matched its input. */
+  #unanswered(matching: readonly WhenEntry[], input: RecordedInput | undefined): never {
+    const [first] = matching;
+    if (first !== undefined || this.#queue.isScripted || this.#whens.length === 0) {
+      const queue = first?.queue ?? this.#queue;
+      throw new TestFailure("test.script-exhausted", queue.exhausted(this.label));
     }
-    return turn;
+    const message = `no script of mockLlm(${this.label}) matches the input ${inputText(input)}`;
+    throw new TestFailure("test.no-matching-script", message);
+  }
+
+  /** A `thenAnswer(…)` call: the handler's turn for the request. */
+  #answered(
+    handler: (request: ModelRequest) => ScriptedTurn,
+    request: ModelRequest | undefined,
+  ): ScriptedCall {
+    if (request === undefined) throw new TestSetupError("thenAnswer(…) needs the request");
+    const turn = handler(request);
+    if (turn.kind === "wait") throw new TestSetupError("thenAnswer(…) answers, it does not wait");
+    return { turn, delay: 0 };
+  }
+
+  /** What the test left unused: `thenReturn` turns no call took, `when(…)` nothing matched. */
+  leftovers(): readonly string[] {
+    const label = `mockLlm(${this.label})`;
+    const own = this.#queue.leftoverText(label);
+    const whens = this.#whens.flatMap((entry) => {
+      const named = `${label}.when(${inputText(entry.partial)})`;
+      if (entry.queue.taken === 0 && entry.queue.expectsUse) return [`${named}: never matched`];
+      const left = entry.queue.leftoverText(named);
+      return left === undefined ? [] : [left];
+    });
+    return [...(own === undefined ? [] : [own]), ...whens];
   }
 
   get onlyRequest(): ModelRequest {
@@ -130,48 +161,5 @@ export class ComponentScript implements ModelScript {
       throw new TestFailure("test.wrong-script", `mockLlm(${this.label}): no request was sent`);
     }
     return last;
-  }
-}
-
-/**
- * Every component's script in one test, shared by every app the test opens — so a run resumed in a
- * new app continues the same script. Failures that must fail the test are kept until reported.
- */
-export class ScriptBook {
-  readonly #scripts = new Map<string, ComponentScript>();
-  readonly #labels = new Map<string, string>();
-  readonly #failures: Error[] = [];
-  #toolCallIds = 0;
-
-  /** How the test names the component behind a key (its class), for messages. */
-  name(key: string, label: string): void {
-    this.#labels.set(key, label);
-  }
-
-  scriptOf(key: string): ComponentScript {
-    const existing = this.#scripts.get(key);
-    if (existing !== undefined) return existing;
-    const created = new ComponentScript(this.#labels.get(key) ?? key);
-    this.#scripts.set(key, created);
-    return created;
-  }
-
-  /** A tool call id unique within the test (results are keyed by it). */
-  nextToolCallId(): string {
-    this.#toolCallIds += 1;
-    return `call-${String(this.#toolCallIds)}`;
-  }
-
-  /** Remembers a failure the test must see, even if a run swallowed it (a tool error, a guard). */
-  report(failure: Error): Error {
-    this.#failures.push(failure);
-    return failure;
-  }
-
-  /** The first failure reported since the last call, if any (then forgotten). */
-  takeFailure(): Error | undefined {
-    const [first] = this.#failures;
-    this.#failures.length = 0;
-    return first;
   }
 }

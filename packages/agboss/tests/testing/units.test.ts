@@ -1,7 +1,6 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
 import { McpServerClient } from "../../src/mcp/index.js";
-import { GuardFailedError } from "../../src/graph/errors.js";
 import type { ResolvedModelSettings } from "../../src/config/types.js";
 import {
   replyWith,
@@ -14,7 +13,7 @@ import {
 import { millisecondsOf, VirtualClock, type ClockDuration } from "../../src/testing/clock.js";
 import { TestEnvironment } from "../../src/testing/environment.js";
 import { asError } from "../../src/testing/errors.js";
-import { failureFactsOf, nodeNameOf } from "../../src/testing/failure-facts.js";
+import { nodeNameOf } from "../../src/testing/failure-facts.js";
 import { fetchHostOf, hostOf, isHostAllowed } from "../../src/testing/network-guard.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { chatKeyOf, createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -73,11 +72,10 @@ describe("AC12: the network guard reads every way a request names its host", () 
   });
 });
 
-describe("AC12: failures name their codes and nodes", () => {
-  it("reads a guard's failure, a named node, and nothing from a non-error", () => {
-    expect(failureFactsOf(new GuardFailedError("pii", [], "down")).nodes).toEqual(["pii"]);
-    expect(failureFactsOf("not an error")).toEqual({ codes: [], nodes: [] });
+describe("AC12: a component's name in executions", () => {
+  it("is its decorator's name, else its class name", () => {
     expect(nodeNameOf(Writer)).toBe("writer-agent");
+    expect(nodeNameOf(class Plain {})).toBe("Plain");
   });
 });
 

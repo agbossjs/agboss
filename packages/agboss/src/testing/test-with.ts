@@ -1,4 +1,4 @@
-import { test, type Mocked, type TestAPI } from "vitest";
+import { test, type Mocked, type TestAPI, type TestContext } from "vitest";
 import type { ApplicationClass } from "../application/types.js";
 import type { Class } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
@@ -6,6 +6,8 @@ import { TestEnvironment, type TestWithOptions } from "./environment.js";
 import type { McpStub } from "./mcp-stubs.js";
 import { blockNetwork } from "./network-guard.js";
 import type { ModelScript } from "./script-book.js";
+import type { ActionScript } from "./action-script.js";
+import type { ToolScript } from "./tool-script.js";
 import { createTestApp, type TestApp } from "./test-app.js";
 import type { VirtualClock } from "./clock.js";
 import { TestSetupError } from "./errors.js";
@@ -36,7 +38,21 @@ export interface WorkflowFixtures {
    * The script of an agent, a router or a `@Judge`'s model (by class):
    * `mockLlm(Scout).thenReturn(replyWith("…"))`, `mockLlm(AnswerGrounded).thenReturn(replyWith("PASS"))`.
    */
-  readonly mockLlm: (component: ModelTarget) => ModelScript;
+  readonly mockLlm: <TComponent extends ModelTarget>(
+    component: TComponent,
+  ) => ModelScript<InstanceType<TComponent>>;
+  /**
+   * The recorded calls of an action — it still runs: `mockAction(NotifyRecruiterAction).inputs`,
+   * `expect(mockAction(A)).toHaveBeenCalledWith({ draft: { title: "…" } })` (#262 AC9).
+   */
+  readonly mockAction: <TAction extends Class>(
+    action: TAction,
+  ) => ActionScript<InstanceType<TAction>>;
+  /**
+   * The scripted failures of a tool: `mockTool(SearchJobsTool).thenFail(ToolFailure.Timeout)` —
+   * the next call fails as a real timeout would; the calls after the failures run the tool.
+   */
+  readonly mockTool: (tool: Class) => ToolScript;
   /**
    * The script of the workflow's compaction model (`@Workflow({ compaction })`); unscripted, it
    * writes a fixed summary at no cost.
@@ -61,9 +77,14 @@ function instancesOf(options: TestWithOptions): number {
   return count;
 }
 
-/** The test's environment, the network blocked around it; its apps closed after the test. */
+/**
+ * The test's environment, the network blocked around it; its apps closed after the test. A test
+ * whose body passed fails on what it scripted and never used (#262 AC7); one that already failed
+ * reports its own failure only.
+ */
 async function withEnvironment(
   testSetup: Internal["testSetup"],
+  task: TestContext["task"],
   use: (environment: TestEnvironment) => Promise<void>,
 ): Promise<void> {
   const environment = await TestEnvironment.of(testSetup.application, testSetup.options);
@@ -77,6 +98,8 @@ async function withEnvironment(
     unblock();
     await environment.close();
   }
+  const leftovers = task.result?.state === "fail" ? undefined : environment.book.leftoverFailure();
+  if (leftovers !== undefined) throw leftovers;
 }
 
 interface Internal {
@@ -99,7 +122,10 @@ export function testWith<TApplication extends Class>(
 ): TestAPI<WorkflowFixtures> {
   return test.extend<Internal & WorkflowFixtures>({
     testSetup: { application, options },
-    environment: [({ testSetup }, use) => withEnvironment(testSetup, use), { auto: true }],
+    environment: [
+      ({ testSetup, task }, use) => withEnvironment(testSetup, task, use),
+      { auto: true },
+    ],
     apps: async ({ environment, testSetup }, use) => {
       const count = instancesOf(testSetup.options);
       await use(Array.from({ length: count }, () => createTestApp(environment)));
@@ -123,11 +149,17 @@ export function testWith<TApplication extends Class>(
     mockLlm: async ({ environment }, use) => {
       await use((component) => environment.mockLlm(component));
     },
+    mockAction: async ({ environment }, use) => {
+      await use((action) => environment.mocks.mockAction(action));
+    },
+    mockTool: async ({ environment }, use) => {
+      await use((tool) => environment.mocks.mockTool(tool));
+    },
     mockCompaction: async ({ environment }, use) => {
       await use(() => environment.book.scriptOf(COMPACTION_KEY));
     },
     mockOf: async ({ environment }, use) => {
-      await use((component) => environment.mockOf(component));
+      await use((component) => environment.mocks.mockOf(component));
     },
     mcpOf: async ({ environment }, use) => {
       await use((server) => environment.mcpOf(server));

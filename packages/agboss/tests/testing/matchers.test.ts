@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { ExecutionStatus, type ExecutionOutput } from "../../src/app/types.js";
 import { buildCostReport } from "../../src/finops/usage.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
-import { GraphRuleError, LimitExceededError, RouterDecisionError } from "../../src/index.js";
+import {
+  GraphRuleError,
+  LimitExceededError,
+  nameOf,
+  RouterDecisionError,
+  RouterFailedError,
+} from "../../src/index.js";
 import { replyWith, callTool, routeTo, TestFailure, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -79,7 +85,7 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
     }).toThrow("it ended finished without a finish");
   });
 
-  it("toFailWith reads codes and nodes of the error and its causes", () => {
+  it("toFailWith matches a class and its fields along the cause chain (#262 AC10)", () => {
     const router = new RouterDecisionError(
       { nodeId: "main-router", visitNumber: 1 },
       '"ghost-agent" is not one of its routes',
@@ -98,18 +104,26 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
       { code: "graph.unreachable-node", message: "x", nodes: ["writer-agent"] },
     ]);
 
-    expect(router).toFailWith({ code: "step.router.invalid-decision", node: MainRouter });
-    expect(limit).toFailWith({ code: "maxSteps", node: Writer });
-    expect(agent).toFailWith({ code: "test.script-exhausted", node: Writer });
-    expect(rules).toFailWith({ code: "graph.unreachable-node", node: Writer });
+    expect(router).toFailWith(RouterDecisionError, { nodeId: "main-router" });
+    expect(router).toFailWith(RouterFailedError, { code: "step.router.invalid-decision" });
+    expect(limit).toFailWith(LimitExceededError, { key: "maxSteps" });
+    expect(agent).toFailWith(AgentFailedError, { agent: "writer-agent", cause: TestFailure });
+    expect(agent).toFailWith(TestFailure, { code: "test.script-exhausted" });
+    expect(rules).toFailWith(GraphRuleError, {
+      violations: [{ code: "graph.unreachable-node", nodes: [nameOf(Writer)] }],
+    });
+    expect(router).not.toFailWith(AgentFailedError);
     expect(() => {
-      expect(router).toFailWith({ code: "step.router", node: Writer });
+      expect(router).toFailWith(RouterFailedError, { nodeId: "writer-agent" });
     }).toThrow(
-      'expected a failure step.router at writer-agent, got RouterDecisionError: Router "main-router" decided wrongly: "ghost-agent" is not one of its routes',
+      'expected a failure RouterFailedError with {"nodeId":"writer-agent"} (or one it was caused by), got RouterDecisionError: Router "main-router" decided wrongly: "ghost-agent" is not one of its routes',
     );
     expect(() => {
-      expect("no error").toFailWith({});
-    }).toThrow("expected a failure, got no error");
+      expect(agent).toFailWith(AgentFailedError, { cause: RouterFailedError });
+    }).toThrow("got AgentFailedError");
+    expect(() => {
+      expect("no error").toFailWith(Error);
+    }).toThrow("expected a failure Error (or one it was caused by), got no error");
   });
 
   it("the run matchers want a run result", () => {

@@ -1,14 +1,10 @@
 import type { ExecutionOutput } from "../app/types.js";
 import type { Class } from "../components/injection.js";
-import { failureFactsOf, nodeNameOf } from "./failure-facts.js";
+import type { ErrorClass } from "../flow/ast.js";
+import { matchError, type ExpectedErrorFields } from "./error-matcher.js";
+import { nodeNameOf } from "./failure-facts.js";
 import { toolNameOf } from "./script.js";
 import { ComponentScript, type ModelRequest } from "./script-book.js";
-
-/** What `toFailWith` expects: a code (`step.router`, `limit.budget`, a budget's name, …) and/or a node. */
-export interface ExpectedFailure {
-  readonly code?: string;
-  readonly node?: Class;
-}
 
 /** Parts of a request `toHaveBeenAskedWith` looks for; strings match as substrings. */
 export interface ExpectedRequest {
@@ -108,17 +104,15 @@ export const workflowMatchers = {
     return verdict(this, pass, `the run to pause at ${nodeNameOf(agent)}`, endOf(received));
   },
 
-  toFailWith(this: MatcherContext, received: unknown, failure: ExpectedFailure): Verdict {
-    const facts = failureFactsOf(received);
-    const node = failure.node;
-    const pass =
-      received instanceof Error &&
-      (failure.code === undefined || facts.codes.includes(failure.code)) &&
-      (node === undefined || facts.nodes.includes(nodeNameOf(node)));
-    const wanted = [failure.code, node === undefined ? undefined : `at ${nodeNameOf(node)}`];
-    const got =
-      received instanceof Error ? `got ${received.name}: ${received.message}` : "got no error";
-    return verdict(this, pass, ["a failure", ...wanted].filter(Boolean).join(" "), got);
+  toFailWith(
+    this: MatcherContext,
+    received: unknown,
+    error: ErrorClass,
+    fields?: Readonly<Record<string, unknown>>,
+  ): Verdict {
+    const { pass, got } = matchError(received, error, fields);
+    const data = fields === undefined ? "" : ` with ${JSON.stringify(fields)}`;
+    return verdict(this, pass, `a failure ${error.name}${data} (or one it was caused by)`, got);
   },
 
   toHaveCalledTools(this: MatcherContext, received: unknown, tools: readonly Class[]): Verdict {
@@ -142,7 +136,11 @@ export interface WorkflowMatchers<R = unknown> {
   toFollowPath(path: readonly Class[]): R;
   toFinishWith(finish: Class, output?: unknown): R;
   toHavePausedAt(agent: Class): R;
-  toFailWith(failure: ExpectedFailure): R;
+  /** The error, or one it was caused by, is of this class and has these fields (#262 AC10). */
+  toFailWith<TError extends Error>(
+    error: ErrorClass<TError>,
+    fields?: ExpectedErrorFields<TError>,
+  ): R;
   toHaveCalledTools(tools: readonly Class[]): R;
   toHaveBeenAskedWith(request: ExpectedRequest): R;
 }

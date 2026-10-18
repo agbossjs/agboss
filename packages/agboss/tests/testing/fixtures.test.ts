@@ -4,10 +4,12 @@ import {
   callTool,
   routeTo,
   failWith,
+  ModelCallFailedError,
   ModelFailure,
   TestSetupError,
   testWith,
 } from "../../src/testing/index.js";
+import { nameOf, RouterFailedError } from "../../src/index.js";
 import {
   ChatStart,
   MainRouter,
@@ -135,9 +137,9 @@ describe("AC12: slices — one component of the real app on its own", () => {
   test("app.router(X) fails like the flow when its model fails", async ({ app, mockLlm }) => {
     mockLlm(MainRouter).thenReturn(failWith(ModelFailure.ServerError));
 
-    await expect(app.router(MainRouter).routeTo("x")).rejects.toFailWith({
-      code: "step.router",
-      node: MainRouter,
+    await expect(app.router(MainRouter).routeTo("x")).rejects.toFailWith(RouterFailedError, {
+      nodeId: nameOf(MainRouter),
+      cause: ModelCallFailedError,
     });
   });
 });

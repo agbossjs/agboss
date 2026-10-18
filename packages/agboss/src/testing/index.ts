@@ -1,7 +1,8 @@
 /**
  * `agboss/testing` — test a workflow without models and without the network: `testWith`
- * (Vitest fixtures `app`, `mockLlm`, `mockOf`, `mcpOf`, `recoverApp`), scripted model turns
- * (`replyWith`, `callTool`, `routeTo`, `decideWith`, `failWith`) and the matchers (register them with
+ * (Vitest fixtures `app`, `mockLlm`, `mockAction`, `mockTool`, `mockOf`, `mcpOf`, `recoverApp`,
+ * `clock`), scripted model turns (`replyWith`, `callTool`, `routeTo`, `decideWith`, `failWith`,
+ * `waitFor`, bound to inputs with `when(…)`) and the matchers (register them with
  * `setupFiles: ["agboss/testing/setup"]`). Vitest is an optional peer dependency.
  * Wiki → Testing.
  */
@@ -18,16 +19,39 @@ export {
   routeTo,
   decideWith,
   failWith,
+  waitFor,
   ModelCallFailedError,
   ModelFailure,
-  type AnswerDetails,
-  type DecideDetails,
-  type DecisionDetails,
-  type ScriptedAnswer,
-  type ScriptedTurn,
   type ToolClass,
 } from "./script.js";
-export type { ChatLine, ModelRequest, ModelScript } from "./script-book.js";
+export type {
+  AnswerDetails,
+  AnswerGiven,
+  AnswerTurn,
+  DecideDetails,
+  DecideTurn,
+  DecisionDetails,
+  FailureTurn,
+  ReplyTurn,
+  RouteTurn,
+  ScriptedAnswer,
+  ScriptedTurn,
+  ToolCallTurn,
+  WaitTurn,
+} from "./turns.js";
+export type { ChatLine, ModelRequest, ModelScript, WhenScript } from "./script-book.js";
+export type {
+  DeepPartial,
+  InputMatcherOf,
+  PartialValues,
+  RecordedInputOf,
+  ReturnedCheckOf,
+  TurnFor,
+} from "./script-types.js";
+export type { ActionScript } from "./action-script.js";
+export { ToolFailure, type ToolScript } from "./tool-script.js";
+export type { CallAssertion, CallMatchers } from "./vitest-types.js";
+export type { ExpectedErrorFields } from "./error-matcher.js";
 export type { McpStub, McpStubCall } from "./mcp-stubs.js";
 export { VirtualClock, type ClockDuration } from "./clock.js";
 export {
@@ -37,12 +61,7 @@ export {
   TestSetupError,
   type TestFailureCode,
 } from "./errors.js";
-export {
-  workflowMatchers,
-  type ExpectedFailure,
-  type ExpectedRequest,
-  type WorkflowMatchers,
-} from "./matchers.js";
+export { workflowMatchers, type ExpectedRequest, type WorkflowMatchers } from "./matchers.js";
 export { UNSCRIPTED_SUMMARY } from "./scripted-gateway.js";
 export { workflowOf } from "./workflow-of.js";
 export { toolOf } from "../components/runtime.js";
