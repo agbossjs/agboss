@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { PausedRun } from "../../app/paused-runs.js";
 import { Injectable } from "../../components/decorators.js";
 import type { AgentExecutionOutput } from "../../run/types.js";
-import { INFRASTRUCTURE_CLOCK } from "../clock.js";
+import { Clock } from "../clock.js";
 import {
   PausedExecutionRepository,
   PauseStatus,
@@ -90,11 +90,11 @@ function toPausedRun(row: unknown): PausedRun {
  * instances exactly one records its decision. With `SqliteCheckpointSaver` a pause survives a
  * restart. Listed in `@Application({ providers })`; needs `sqlitePath`.
  */
-@Injectable({ deps: [SqliteConnection, INFRASTRUCTURE_CLOCK] })
+@Injectable({ deps: [SqliteConnection, Clock] })
 export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
   constructor(
     private readonly connection: SqliteConnection,
-    private readonly now: () => Date,
+    private readonly clock: Clock,
   ) {
     super();
     connection.transaction(() => {
@@ -125,7 +125,7 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
         paused.configHash,
         paused.status,
         encodedDecision(paused.decision),
-        this.now().toISOString(),
+        this.clock.now().toISOString(),
       );
     return Promise.resolve();
   }

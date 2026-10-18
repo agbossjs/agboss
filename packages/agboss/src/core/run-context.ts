@@ -1,6 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { WorkflowCancelledError } from "./errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
+import { Clock, systemClock } from "../infrastructure/clock.js";
 
 /** The id of one run (one `execute`, kept by its resumes) — not the conversation thread. */
 export type RunId = string & { readonly __brand: "RunId" };
@@ -54,6 +55,8 @@ export function newRunContext(context: {
 export interface RunServices {
   readonly run: RunContext;
   readonly executionContext?: unknown;
+  /** The application's clock: a tool call's timeout runs on it (#262). */
+  readonly clock?: Clock;
 }
 
 /** What a node reads of its run (internal): the run context plus the services nodes need. */
@@ -63,6 +66,8 @@ export interface NodeRunContext {
   readonly threadId: string;
   readonly metadata: Readonly<Record<string, string>>;
   readonly executionContext?: unknown;
+  /** The application's clock; the system's for a graph run without one (a slice, a bare graph). */
+  readonly clock: Clock;
 }
 
 const isRunContext = (value: unknown): value is RunContext =>
@@ -86,6 +91,7 @@ export function extractRunContext(
     threadId: run.threadId,
     metadata: run.metadata,
     executionContext: conf.executionContext,
+    clock: conf.clock instanceof Clock ? conf.clock : systemClock,
   };
 }
 

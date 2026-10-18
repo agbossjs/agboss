@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { Injectable } from "../../components/decorators.js";
 import type { Milliseconds } from "../../units/index.js";
-import { INFRASTRUCTURE_CLOCK, INSTANCE_ID } from "../clock.js";
+import { ApplicationContext } from "../../flow/context/application-context.js";
+import { Clock } from "../clock.js";
 import { RateLimitRepository, type RateLimitLease } from "../rate-limit.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
@@ -20,19 +21,19 @@ const Count = z.object({ taken: z.number() });
  * only a slot still valid. Times are the framework clock's milliseconds. Listed in
  * `@Application({ providers })`; needs `sqlitePath`.
  */
-@Injectable({ deps: [SqliteConnection, INFRASTRUCTURE_CLOCK, INSTANCE_ID] })
+@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })
 export class SqliteRateLimitRepository extends RateLimitRepository {
   constructor(
     private readonly connection: SqliteConnection,
-    private readonly now: () => Date,
-    private readonly instanceId: string,
+    private readonly clock: Clock,
+    private readonly applicationContext: ApplicationContext,
   ) {
     super();
     connection.ensureSchema("rate_limit_slots", SCHEMA);
   }
 
   acquire(key: string, maxSlots: number, lease: Milliseconds): Promise<RateLimitLease | undefined> {
-    const now = this.now().getTime();
+    const now = this.clock.now().getTime();
     const { database } = this.connection;
     const slot = this.connection.transaction((): RateLimitLease | undefined => {
       database
@@ -47,19 +48,19 @@ export class SqliteRateLimitRepository extends RateLimitRepository {
       const next: RateLimitLease = {
         key,
         slotId: randomUUID(),
-        holderInstanceId: this.instanceId,
+        holderInstanceId: this.applicationContext.instanceId,
         expiresAt: new Date(now + lease),
       };
       database
         .prepare("INSERT INTO rate_limit_slots VALUES (?, ?, ?, ?)")
-        .run(next.slotId, key, this.instanceId, now + lease);
+        .run(next.slotId, key, this.applicationContext.instanceId, now + lease);
       return next;
     });
     return Promise.resolve(slot);
   }
 
   renew(rateLimitLease: RateLimitLease, lease: Milliseconds): Promise<boolean> {
-    const now = this.now().getTime();
+    const now = this.clock.now().getTime();
     const { changes } = this.connection.database
       .prepare("UPDATE rate_limit_slots SET expires_at = ? WHERE slot_id = ? AND expires_at > ?")
       .run(now + lease, rateLimitLease.slotId, now);

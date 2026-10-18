@@ -1,4 +1,5 @@
 import { AGBossError } from "../core/errors.js";
+import { systemClock } from "../infrastructure/clock.js";
 import type { Milliseconds } from "../units/index.js";
 
 /** A class decorated with `@ModelProvider` (the fallback of a breaker). */
@@ -37,6 +38,12 @@ export class ModelCallError extends AGBossError {
   }
 }
 
+/**
+ * The process's time in milliseconds: the breakers are shared by every app of the process
+ * (`processCircuitBreakers`), so they read the system clock, not an application's.
+ */
+const systemTime = (): number => systemClock.now().getTime();
+
 /** One provider's breaker: counts failed calls in a sliding window, opens, closes after `openFor`. */
 export class CircuitBreaker {
   private failures: number[] = [];
@@ -44,7 +51,7 @@ export class CircuitBreaker {
 
   constructor(
     private readonly policy: CircuitBreakerPolicy,
-    private readonly now: () => number = Date.now,
+    private readonly now: () => number = systemTime,
   ) {}
 
   /** Open: calls must not reach the provider. Closes by itself once `openFor` has passed. */
@@ -71,7 +78,7 @@ export class CircuitBreaker {
 export class CircuitBreakers {
   private readonly byProvider = new Map<string, CircuitBreaker>();
 
-  constructor(private readonly now: () => number = Date.now) {}
+  constructor(private readonly now: () => number = systemTime) {}
 
   of(provider: string, policy: CircuitBreakerPolicy): CircuitBreaker {
     const breaker = this.byProvider.get(provider) ?? new CircuitBreaker(policy, this.now);

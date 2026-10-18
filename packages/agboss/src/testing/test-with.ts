@@ -7,7 +7,7 @@ import type { McpStub } from "./mcp-stubs.js";
 import { blockNetwork } from "./network-guard.js";
 import type { ModelScript } from "./script-book.js";
 import { createTestApp, type TestApp } from "./test-app.js";
-import type { TestClock } from "./clock.js";
+import type { VirtualClock } from "./clock.js";
 import { TestSetupError } from "./errors.js";
 import { chatKeyOf, type ModelTarget } from "./scripted-gateway.js";
 import "./vitest-types.js";
@@ -21,8 +21,11 @@ export interface WorkflowFixtures {
    * one container and instance id each, one set of stores and one clock for all.
    */
   readonly apps: readonly TestApp[];
-  /** The test's clock, shared by its instances: `await clock.advance(seconds(31))`. */
-  readonly clock: TestClock;
+  /**
+   * The test's `VirtualClock`, shared by its instances: `await clock.advance(seconds(31))`. Always
+   * this one, even when the application lists its own `Clock`: tests never run on real time.
+   */
+  readonly clock: VirtualClock;
   /**
    * Closes the current app (its `onStop` hooks run, as on a real stop) and returns a new one over
    * the same test state (checkpoints, ledger, clock, ids) — "a paused run survives a restart".

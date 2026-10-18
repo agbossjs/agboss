@@ -784,7 +784,19 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`) —
   one `node:sqlite` connection per instance on the environment's `sqlitePath` (required only then,
   `[environment.missing-field]`; `:memory:` in tests), WAL + `busy_timeout`, atomic operations in
-  `BEGIN IMMEDIATE`, time from the framework's clock; job-scout lists them all.
+  `BEGIN IMMEDIATE`, time from the framework's clock; job-scout lists them all. A project subclasses
+  one with `extends` + `override` and `@Injectable({ deps: [SqliteConnection, Clock,
+ApplicationContext] })` (#265 S70).
+- **Time is the application's `Clock` (#262):** infrastructure too — `now()` and
+  `sleep(delay, signal?)`; the system's unless `@Application({ providers })` lists a class that
+  `extends Clock` (created first: it may not depend on the contexts, whose `startedAt` it gives).
+  Every time read and wait of the framework goes through it — the ledger's day, records, leases and
+  their renewals, the recovery sweep, the shutdown timeout, a tool's `timeoutMs`, a model call's
+  timeout, retry backoff and `Retry-After` pauses; a component that needs the time injects it
+  (`deps: [Clock]`). Lint `agboss/no-direct-time` fails `Date.now()`, `new Date()` / `Date()`
+  without arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout` and
+  `node:timers` in `packages/agboss/src` (the real implementation, `src/infrastructure/clock.ts`,
+  excepted).
 - **Defaults cascade (#261):** `@Application({ defaults })` → `@Workflow({ defaults })` → the
   component's own field, merged field by field — the most specific level that sets a field wins,
   nothing set → the built-in. `defaults.router.model` is the model of `DecidedBy.Model` routers
@@ -1042,7 +1054,10 @@ export class PlanService {
   `app.execute`. Each test assembles the application anew on the implementations it lists (else
   the in-memory defaults); `app` is built on first use (`await app.ready()` for a test that
   executes nothing). Vitest fixtures `app`, `mockLlm`, `mockOf` (budgets too), `mcpOf`,
-  `recoverApp`, `clock` (`await clock.advance(seconds(31))`) and, with
+  `recoverApp`, `clock` — the test's `VirtualClock` (`agboss/testing`), the application's `Clock`
+  in every test whatever it lists: fixed at `2026-01-05T09:00:00Z`, moved only by
+  `await clock.advance(seconds(31))` (or `"25h"`), which wakes every due wait in time order, each
+  one's work before the next, without real waiting — and, with
   `testWith(App, { instances: 2 })`, `apps` (each instance its own container, one set of stores and
   one clock); models answer by script — `replyWith(text)` or
   `replyWith(Dto, value)` (a structured answer), `callTool(Tool, args)` (args typed by the tool's
@@ -1052,7 +1067,8 @@ export class PlanService {
 - A recorded run instead of scripts: `testWith(App, { vcr: { cassetteName, dir, mode: VCRMode.REPLAY } })`
   — an unrecorded call throws `CassetteMissingError` (REPLAY by default under `CI`).
 - Units: `toolOf(new Tool(testExecutionContext(), fakes)).invoke(input)` for a tool,
-  `testExecutionContext({ … })` for any component's `ExecutionContext`, fakes from
+  `testExecutionContext({ … })` for any component's `ExecutionContext`, `new VirtualClock()` for
+  one that injects `Clock`, fakes from
   `@langchain/core/utils/testing`. Tests never call a real model; real-model checks are `make smoke`.
 
 ### Imports
@@ -1216,7 +1232,8 @@ examples/flow-patterns/      the flow's patterns (package flow-patterns-example,
                     src/credit/ (a code router beside a model router), src/review/ (parallel launches
                     in waves, #273), one *.workflow.ts each; tests/
 scripts/        the gate's checks (check-root, check-suppressions, check-docs + docs/, api-report,
-                public-entries, eslint-component-state), bootstrap-repo, bootstrap-labels, ticket, wiki,
+                public-entries, eslint-agboss-plugin: eslint-component-state + eslint-direct-time),
+                bootstrap-repo, bootstrap-labels, ticket, wiki,
                 langfuse, coverage-badge
 ../<repo>.wiki  GitHub Wiki working copy (separate git repo, never inside this repo)
 ```

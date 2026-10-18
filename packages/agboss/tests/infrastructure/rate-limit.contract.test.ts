@@ -13,10 +13,10 @@ import { seconds } from "../../src/units/index.js";
 import { storeKinds } from "./contracts/store-kinds.js";
 
 const kinds = storeKinds<RateLimitRepository>({
-  inMemory: ({ clock, instanceId, database }) =>
-    new InMemoryRateLimitRepository(clock.now, instanceId, database),
-  sqlite: ({ clock, instanceId, connection }) =>
-    new SqliteRateLimitRepository(connection(), clock.now, instanceId),
+  inMemory: ({ clock, application, database }) =>
+    new InMemoryRateLimitRepository(clock, application, database),
+  sqlite: ({ clock, application, connection }) =>
+    new SqliteRateLimitRepository(connection(), clock, application),
 });
 
 describe.each(kinds)(

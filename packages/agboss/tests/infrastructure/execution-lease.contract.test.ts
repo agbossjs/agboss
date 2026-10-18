@@ -15,10 +15,10 @@ import { seconds } from "../../src/units/index.js";
 import { storeKinds } from "./contracts/store-kinds.js";
 
 const kinds = storeKinds<ExecutionLeaseRepository>({
-  inMemory: ({ clock, instanceId, database }) =>
-    new InMemoryExecutionLeaseRepository(clock.now, instanceId, database),
-  sqlite: ({ clock, instanceId, connection }) =>
-    new SqliteExecutionLeaseRepository(connection(), clock.now, instanceId),
+  inMemory: ({ clock, application, database }) =>
+    new InMemoryExecutionLeaseRepository(clock, application, database),
+  sqlite: ({ clock, application, connection }) =>
+    new SqliteExecutionLeaseRepository(connection(), clock, application),
 });
 
 describe.each(kinds)("#265 AC11: the lease contract ($name)", ({ twoInstances }) => {
@@ -94,8 +94,8 @@ describe.each(kinds)(
   ({ twoInstances }) => {
     it("a holder frozen past the lease loses it to the waiting instance: its signal aborts", async () => {
       const { clock, first, second } = twoInstances();
-      const holder = await executionLeasesOf(first, clock.timers).hold(ROOT_1);
-      const waiting = executionLeasesOf(second, clock.timers).hold(ROOT_1);
+      const holder = await executionLeasesOf(first, clock).hold(ROOT_1);
+      const waiting = executionLeasesOf(second, clock).hold(ROOT_1);
 
       await clock.advance(seconds(31));
       const taken = await waiting;
@@ -110,9 +110,9 @@ describe.each(kinds)(
 
     it("a live holder renews every third of the lease: the waiting call waits", async () => {
       const { clock, first, second } = twoInstances();
-      const holder = await executionLeasesOf(first, clock.timers).hold(ROOT_1);
+      const holder = await executionLeasesOf(first, clock).hold(ROOT_1);
       let taken = false;
-      const waiting = executionLeasesOf(second, clock.timers)
+      const waiting = executionLeasesOf(second, clock)
         .hold(ROOT_1)
         .then((lease) => {
           taken = true;
@@ -130,8 +130,8 @@ describe.each(kinds)(
 
     it("a release wakes the waiting call at once, without the clock", async () => {
       const { clock, first, second } = twoInstances();
-      const holder = await executionLeasesOf(first, clock.timers).hold(ROOT_1);
-      const waiting = executionLeasesOf(second, clock.timers).hold(ROOT_1);
+      const holder = await executionLeasesOf(first, clock).hold(ROOT_1);
+      const waiting = executionLeasesOf(second, clock).hold(ROOT_1);
 
       await holder.release();
       const taken = await waiting;
@@ -142,9 +142,9 @@ describe.each(kinds)(
 
     it("the caller's signal ends the wait with its reason", async () => {
       const { clock, first, second } = twoInstances();
-      const holder = await executionLeasesOf(first, clock.timers).hold(ROOT_1);
+      const holder = await executionLeasesOf(first, clock).hold(ROOT_1);
       const cancelled = new AbortController();
-      const waiting = executionLeasesOf(second, clock.timers).hold(ROOT_1, cancelled.signal);
+      const waiting = executionLeasesOf(second, clock).hold(ROOT_1, cancelled.signal);
 
       cancelled.abort(new Error("the caller gave up"));
 

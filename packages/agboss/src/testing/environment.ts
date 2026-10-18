@@ -16,7 +16,7 @@ import type { Class } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
 import { NodeKind } from "../flow/ast.js";
 import { isCodeRouterNode, type RuntimeNode } from "../flow/runtime/graph-model.js";
-import { createTestClock } from "./clock.js";
+import { VirtualClock } from "./clock.js";
 import { TestSetupError } from "./errors.js";
 import { McpStubs, stubbedMcpConnect, type McpStub } from "./mcp-stubs.js";
 import { mockInstanceOf } from "./mocks.js";
@@ -86,7 +86,7 @@ function realServers(servers: ReadonlyMap<Class, string>, real: readonly Class[]
  */
 export class TestEnvironment {
   readonly book = new ScriptBook();
-  readonly clock = createTestClock();
+  readonly clock = new VirtualClock();
   readonly mcp = new McpStubs(this.book);
   /** The rows of the in-memory defaults, shared by every app instance of the test. */
   readonly database = new InMemoryDatabase();
@@ -130,7 +130,6 @@ export class TestEnvironment {
           ? createVcrGateway(first, options.vcr, testEnv(), (failure) => this.book.report(failure))
           : createScriptedGateway(this.book),
       connectMcp: stubbedMcpConnect(this.mcp, labels, real),
-      clock: this.clock.now,
       newThreadId: () => {
         this.#threads += 1;
         return `thread-${String(this.#threads)}`;
@@ -169,7 +168,7 @@ export class TestEnvironment {
         reused: this.#reused,
         instanceId: `instance-${String(this.#apps.length + 1)}`,
         database: this.database,
-        timers: this.clock.timers,
+        clock: this.clock,
       };
       const built = await buildApplication(this.assembled, this.#options, seams);
       if (this.#apps.length === 0) this.#reused = reusableInfrastructure(built.infrastructure);

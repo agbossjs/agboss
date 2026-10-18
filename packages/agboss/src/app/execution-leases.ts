@@ -1,7 +1,7 @@
 import type { ExecutionLeaseRepository } from "../infrastructure/execution-lease.repository.js";
 import { treeKeyOf } from "../infrastructure/in-memory-database.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
-import type { Timers } from "../infrastructure/timers.js";
+import type { Clock } from "../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import { ExecutionLeaseLostError } from "./lease-lost.js";
 import { leaseReleases } from "./lease-releases.js";
@@ -47,7 +47,7 @@ export interface ExecutionLeases {
 
 export function executionLeasesOf(
   repository: ExecutionLeaseRepository,
-  timers: Timers,
+  clock: Clock,
 ): ExecutionLeases {
   const take = async (tree: ExecutionTree): Promise<HeldExecutionLease | undefined> => {
     const { tenantId, rootExecutionId } = tree;
@@ -62,7 +62,7 @@ export function executionLeasesOf(
       lost.abort(new ExecutionLeaseLostError(rootExecutionId));
       lost.signal.throwIfAborted();
     };
-    void renewInBackground(timers, stopped.signal, renewNow);
+    void renewInBackground(clock, stopped.signal, renewNow);
     return {
       rootExecutionId,
       signal: lost.signal,
@@ -85,7 +85,7 @@ export function executionLeasesOf(
         try {
           const held = await take(tree);
           if (held !== undefined) return held;
-          await watch.wait((waiting) => timers.sleep(RETRY_EVERY, waiting), signal);
+          await watch.wait((waiting) => clock.sleep(RETRY_EVERY, waiting), signal);
         } finally {
           watch.close();
         }
@@ -96,12 +96,12 @@ export function executionLeasesOf(
 
 /** Renews every third of the lease until stopped or lost; a store error is retried next time. */
 async function renewInBackground(
-  timers: Timers,
+  clock: Clock,
   stopped: AbortSignal,
   renewNow: () => Promise<void>,
 ): Promise<void> {
   for (;;) {
-    await timers.sleep(RENEW_EVERY, stopped);
+    await clock.sleep(RENEW_EVERY, stopped);
     if (stopped.aborted) return;
     try {
       await renewNow();

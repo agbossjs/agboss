@@ -3,7 +3,7 @@ import type { BuiltApp } from "../app/create-app.js";
 import type { CloseOptions } from "../app/types.js";
 import { stopComponents } from "../components/container/lifecycle.js";
 import type { RecoverySweep } from "../infrastructure/recovery.js";
-import type { Timers } from "../infrastructure/timers.js";
+import type { Clock } from "../infrastructure/clock.js";
 import type { Milliseconds } from "../units/index.js";
 
 /**
@@ -20,7 +20,7 @@ export interface GracefulStopParts {
   /** Every component the container created (their hooks). */
   readonly created: readonly unknown[];
   readonly sweep: RecoverySweep;
-  readonly timers: Timers;
+  readonly clock: Clock;
   /** Aborted when the timeout passes: the sweep's recoveries stop with the rest. */
   readonly interruption: AbortController;
   /** `@Application({ shutdownTimeout })` or the default. */
@@ -39,7 +39,7 @@ const interruptionOf = (timeout: Milliseconds): ApplicationStoppingError =>
   );
 
 export function gracefulStopOf(parts: GracefulStopParts): GracefulStop {
-  const { workflows, timers } = parts;
+  const { workflows, clock } = parts;
   /** Aborted once the executions ended: the timers waiting to interrupt them are not needed. */
   const ended = new AbortController();
   let closing: Promise<void> | undefined;
@@ -60,7 +60,7 @@ export function gracefulStopOf(parts: GracefulStopParts): GracefulStop {
       interrupt(timeout);
       return;
     }
-    void timers.sleep(timeout, ended.signal).then(() => {
+    void clock.sleep(timeout, ended.signal).then(() => {
       interrupt(timeout);
     });
   };

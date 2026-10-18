@@ -9,7 +9,12 @@ import {
 import { toolNamed, type AgentLoopDeps } from "./deps.js";
 import type { AgentLoopUpdate, ToolTask } from "./state.js";
 import { inToolCallFrame } from "../../flow/context/frame.js";
-import { extractRunContext, throwIfCancelled, type RunContext } from "../../core/run-context.js";
+import {
+  extractRunContext,
+  throwIfCancelled,
+  type NodeRunContext,
+} from "../../core/run-context.js";
+import { timeoutOn, waitOf } from "../../infrastructure/clock-timeout.js";
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
@@ -21,27 +26,24 @@ interface CallSignal {
 
 /**
  * The call's signal (#280 S45): the execution's (cancel included) combined with a timer of the
- * tool's own `timeoutMs` — what `executionContext.signal` reads in the call's frame.
+ * tool's own `timeoutMs` on the application's clock (#262) — what `executionContext.signal` reads
+ * in the call's frame.
  */
 function callSignalOf(
   tool: AnyTool,
   config: RunnableConfig | undefined,
-  run: RunContext,
+  { run, clock }: NodeRunContext,
 ): CallSignal {
-  const timer = new AbortController();
-  const timeout = setTimeout(() => {
-    timer.abort(new ToolTimeoutError(tool.timeoutMs));
-  }, tool.timeoutMs);
-  const signals = [run.signal, timer.signal];
+  const timeout = timeoutOn(
+    clock,
+    waitOf(tool.timeoutMs),
+    () => new ToolTimeoutError(tool.timeoutMs),
+  );
+  const signals = [run.signal, timeout.signal];
   const signal = AbortSignal.any(
     config?.signal === undefined ? signals : [...signals, config.signal],
   );
-  return {
-    signal,
-    release: () => {
-      clearTimeout(timeout);
-    },
-  };
+  return { signal, release: timeout.release };
 }
 
 /** Tool failures are recoverable: whatever went wrong, the model reads it as `Tool error: …`. */
@@ -80,9 +82,10 @@ export function makeToolNode(
     throwIfCancelled(runCtx.run);
     const usage: UsageRecord[] = [];
     const caller = tool.costCaller ?? `tool:${tool.name}`;
-    const call = callSignalOf(tool, config, runCtx.run);
+    const call = callSignalOf(tool, config, runCtx);
     const context: ToolCallContext = {
       signal: call.signal,
+      clock: runCtx.clock,
       reportCost: (usd) => {
         usage.push(recordReportedCost(tool, usd));
       },

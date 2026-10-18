@@ -14,6 +14,7 @@ import { minutes, seconds } from "../../src/units/index.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import { CircuitBreakers, ModelProviderDirectory } from "../../src/models/index.js";
 import { ENV } from "./gateway.js";
+import { InstantClock } from "./time.js";
 import { TestOpenRouterProvider } from "./providers.fixture.js";
 import { completion, providerStub, type StubReply } from "./stub.js";
 
@@ -32,7 +33,7 @@ function client(
   extra: Partial<ResilienceOptions> = {},
 ) {
   const stub = providerStub(replies);
-  const waits: number[] = [];
+  const clock = new InstantClock();
   const options: ResilienceOptions = {
     provider: "openrouter",
     baseUrl: "http://openrouter.test/api/v1",
@@ -43,11 +44,7 @@ function client(
       window: minutes(1),
       openFor: seconds(30),
     }),
-    now: () => 0,
-    sleep: (ms) => {
-      waits.push(ms);
-      return Promise.resolve();
-    },
+    clock,
     random: () => 0.5,
     ...extra,
   };
@@ -56,7 +53,7 @@ function client(
     send: () =>
       send("http://openrouter.test/api/v1/chat/completions", { method: "POST", body: "{}" }),
     stub,
-    waits,
+    waits: clock.waits,
   };
 }
 
@@ -135,7 +132,7 @@ describe("AC6: retry policies — only the listed failures, Retry-After honoured
         retryOn: [ModelFailure.NetworkError],
       }),
       breaker: new CircuitBreaker({ failureThreshold: 9, window: minutes(1), openFor: seconds(1) }),
-      sleep: () => Promise.resolve(),
+      clock: new InstantClock(),
     };
     const aborted = new AbortController();
     aborted.abort();
@@ -156,7 +153,7 @@ describe("AC6: retry policies — only the listed failures, Retry-After honoured
       env: ENV,
       breakers: new CircuitBreakers(),
       send: stub.fetch,
-      sleep: () => Promise.resolve(),
+      clock: new InstantClock(),
     });
     const settings = { model: "moonshotai/kimi-k2.6", temperature: 0, maxTokens: 10 };
 

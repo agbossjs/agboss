@@ -10,7 +10,8 @@ import {
   type TernStore,
   type VersionScore,
 } from "../terns/index.js";
-import { INFRASTRUCTURE_CLOCK, NEW_THREAD_ID } from "./clock.js";
+import { Clock } from "./clock.js";
+import { NEW_THREAD_ID } from "./instance-tokens.js";
 
 /**
  * Where an execution's record is (#265 S30): `Running` while its tree moves — what recovery looks
@@ -206,9 +207,9 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
  * The built-in default: the records in an in-memory database of this application instance — lost
  * on restart, never written to disk.
  */
-@Injectable({ deps: [INFRASTRUCTURE_CLOCK, NEW_THREAD_ID] })
+@Injectable({ deps: [Clock, NEW_THREAD_ID] })
 export class InMemoryExecutionRecordRepository extends TernStoreRecordRepository {
-  constructor(now: () => Date, newThreadId: (() => string) | undefined) {
-    super(createSqliteTernStore(":memory:", now, newThreadId));
+  constructor(clock: Clock, newThreadId: (() => string) | undefined) {
+    super(createSqliteTernStore(":memory:", () => clock.now(), newThreadId));
   }
 }

@@ -11,7 +11,7 @@ import { resolveEnvironment } from "../../../src/environments/resolve.js";
 import type { Token } from "../../../src/components/injection.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { SqliteConnection } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
-import { createTestClock, type VirtualClock } from "../../../src/testing/clock.js";
+import { VirtualClock } from "../../../src/testing/clock.js";
 
 /**
  * One shared contract suite per storage contract (#265 PR 3), run against each kind of store: the
@@ -24,6 +24,8 @@ import { createTestClock, type VirtualClock } from "../../../src/testing/clock.j
 export interface InstanceSeam {
   readonly clock: VirtualClock;
   readonly instanceId: string;
+  /** The instance's application context: its `instanceId` (the holder of its leases). */
+  readonly application: ApplicationContext;
   /** The rows of the in-memory defaults, shared by the instances. */
   readonly database: InMemoryDatabase;
   /** This instance's own connection to the test's SQLite file. */
@@ -65,11 +67,11 @@ export function temporarySqlitePath(): string {
 }
 
 /** The application context of a test instance whose environment names the SQLite file. */
-const applicationOn = (path: string): ApplicationContext =>
+const applicationOn = (path: string, instanceId = "store-test"): ApplicationContext =>
   applicationContextOf({
     name: "store-test-application",
     version: "1.0.0",
-    instanceId: "store-test",
+    instanceId,
     startedAt: new Date(0),
     environmentName: "test",
     // the SQLite stores read `sqlitePath` only — resolved as an environment file would be
@@ -99,11 +101,12 @@ function inMemoryKind<TStore>(make: StoreFactories<TStore>["inMemory"]): StoreKi
   return {
     name: "in-memory",
     twoInstances: () => {
-      const clock = createTestClock();
+      const clock = new VirtualClock();
       const database = new InMemoryDatabase();
       const seam = (instanceId: string): InstanceSeam => ({
         clock,
         instanceId,
+        application: applicationOn(":memory:", instanceId),
         database,
         connection: noConnection,
       });
@@ -116,13 +119,14 @@ function sqliteKind<TStore>(make: StoreFactories<TStore>["sqlite"]): StoreKind<T
   return {
     name: "SQLite",
     twoInstances: () => {
-      const clock = createTestClock();
+      const clock = new VirtualClock();
       const path = temporarySqlitePath();
       const seam = (instanceId: string): InstanceSeam => {
         const connection = connectionTo(path);
         return {
           clock,
           instanceId,
+          application: applicationOn(path, instanceId),
           database: new InMemoryDatabase(),
           connection: () => connection,
         };

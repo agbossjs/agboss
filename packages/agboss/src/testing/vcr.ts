@@ -1,3 +1,4 @@
+import { systemClock } from "../infrastructure/clock.js";
 import fs from "node:fs";
 import path from "node:path";
 import { providerClientsOf } from "../app/models.js";
@@ -119,7 +120,8 @@ export function createVcrGateway(
     () =>
       (real ??= createProviderGateway(
         directoryOf(bundle.modelProviders),
-        providerClientsOf({}, env),
+        // recording talks to the real providers: in real time
+        providerClientsOf({}, env, systemClock),
       )),
   );
 }

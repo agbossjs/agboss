@@ -11,9 +11,10 @@ import { PauseStatus } from "../../../src/infrastructure/paused-execution.reposi
 import { SqliteCheckpointSaver } from "../../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import type { AgentExecutionOutput } from "../../../src/run/types.js";
+import { VirtualClock } from "../../../src/testing/clock.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
 
-const now = (): Date => new Date(0);
+const clock = new VirtualClock(new Date(0));
 
 /** A paused run of a tenant's thread, as the app stores it. */
 const pausedOf = (tenantId: string, threadId: string): PausedRun => ({
@@ -33,7 +34,7 @@ const pausedOf = (tenantId: string, threadId: string): PausedRun => ({
 
 describe("#261: SQLite paused executions are keyed by tenant + thread", () => {
   it("the same thread id in two tenants is two pauses; each resolves on its own", async () => {
-    const paused = new SqlitePausedExecutionRepository(connectionTo(temporarySqlitePath()), now);
+    const paused = new SqlitePausedExecutionRepository(connectionTo(temporarySqlitePath()), clock);
     await paused.save(pausedOf("acme", "thread-1"));
     await paused.save(pausedOf("globex", "thread-1"));
 
@@ -59,7 +60,7 @@ describe("#261: SQLite paused executions are keyed by tenant + thread", () => {
         '{"status":"paused","threadId":"thread-1","runId":"run-1","ternId":"t","budgetUsd":1}',
         '1.0.0', 'hash', 'pending', NULL, '1970-01-01T00:00:00.000Z');`);
 
-    const paused = new SqlitePausedExecutionRepository(connectionTo(path), now);
+    const paused = new SqlitePausedExecutionRepository(connectionTo(path), clock);
 
     const found = await paused.findByTenantIdAndThreadId("default", "thread-1");
     expect(found?.run).toMatchObject({ runId: "run-1", tenantId: "default" });

@@ -14,14 +14,13 @@ import { randomUUID } from "node:crypto";
 import { applicationContextOf } from "../flow/context/application-context.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
+import type { Clock } from "../infrastructure/clock.js";
 import type { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
-import type { Timers } from "../infrastructure/timers.js";
-import { applicationContainerOf, resolveInfrastructure } from "./application-container.js";
+import { applicationContainerOf, clockOf, resolveInfrastructure } from "./application-container.js";
 import { composeApp } from "./compose-app.js";
 import { gracefulStopOf, type GracefulStop } from "./graceful-stop.js";
 import { startRecoverySweep } from "../infrastructure/recovery.js";
 import { closeOnStopSignals } from "./stop-signals.js";
-import { systemTimers } from "../infrastructure/timers.js";
 import { applicationOf, type AssembledApplication } from "./assemble.js";
 import type { ApplicationClass } from "./types.js";
 
@@ -38,14 +37,15 @@ export interface BuiltApplication {
 /**
  * What a test gives an application instance beyond `createApp`'s options (never given in
  * production): the instances an earlier app of the same test created (its stores, so a paused
- * execution survives `recoverApp()`), this instance's id, the in-memory rows the instances of the
- * test share, and the virtual clock's timers.
+ * execution survives `recoverApp()`), this instance's id, the in-memory rows the instances of
+ * the test share, and the test's `VirtualClock` — always, whatever `Clock` the application lists:
+ * tests never run on real time. In production the clock is the listed `Clock`, else the system's.
  */
 export interface InstanceSeams {
   readonly reused?: ReadonlyMap<Class, unknown>;
   readonly instanceId?: string;
   readonly database?: InMemoryDatabase;
-  readonly timers?: Timers;
+  readonly clock?: Clock;
 }
 
 /**
@@ -57,12 +57,13 @@ function contextsOf(
   assembled: AssembledApplication,
   options: AppDepsOptions,
   seams: InstanceSeams,
+  clock: Clock,
 ): RuntimeContexts {
   const application = applicationContextOf({
     name: assembled.name,
     version: assembled.version,
     instanceId: seams.instanceId ?? randomUUID(),
-    startedAt: (options.clock ?? ((): Date => new Date()))(),
+    startedAt: clock.now(),
     environmentName: options.environmentName ?? APP_DEFAULT_ENVIRONMENT,
     environment: options.environment ?? NO_ENVIRONMENT_VALUES,
   });
@@ -100,37 +101,28 @@ export async function buildApplication(
   seams: InstanceSeams = {},
 ): Promise<BuiltApplication> {
   const created: unknown[] = [];
-  const contexts = contextsOf(assembled, options, seams);
+  const onCreate = (instance: unknown): void => {
+    created.push(instance);
+    options.container?.onCreate?.(instance);
+  };
+  // the clock first: the contexts read their start from it
+  const clock = seams.clock ?? clockOf(assembled.modules, { ...options.container, onCreate });
+  const contexts = contextsOf(assembled, options, seams, clock);
   const shared = applicationContainerOf({
     modules: assembled.modules,
-    clock: options.clock,
+    clock,
     newThreadId: options.newThreadId,
     contexts,
     database: seams.database,
     instances: seams.reused,
   });
   const container: ContainerOptions = { ...options.container, application: shared };
-  const infrastructure = resolveInfrastructure(shared, {
-    ...container,
-    onCreate: (instance) => {
-      created.push(instance);
-      options.container?.onCreate?.(instance);
-    },
-  });
+  const infrastructure = resolveInfrastructure(shared, { ...container, onCreate });
   const workflows: BuiltApp[] = [];
   try {
     for (const bundle of assembled.workflows) {
       workflows.push(
-        await buildApp(
-          bundle,
-          { ...options, container },
-          {
-            infrastructure,
-            created,
-            contexts,
-            ...(seams.timers === undefined ? {} : { timers: seams.timers }),
-          },
-        ),
+        await buildApp(bundle, { ...options, container }, { infrastructure, created, contexts }),
       );
     }
     createListed(assembled, workflows);
@@ -139,7 +131,7 @@ export async function buildApplication(
     await releaseAll(workflows);
     throw error;
   }
-  const stop = stopOf(assembled, workflows, { created, infrastructure, timers: seams.timers });
+  const stop = stopOf(assembled, workflows, { created, infrastructure });
   const app = composeApp(assembled, workflows, stop);
   return { app, assembled, workflows, infrastructure, closed: stop.closed };
 }
@@ -148,7 +140,6 @@ export async function buildApplication(
 interface InstanceParts {
   readonly created: readonly unknown[];
   readonly infrastructure: Infrastructure;
-  readonly timers: Timers | undefined;
 }
 
 /** The instance's recovery sweep, started now (`onStart` is done, #265 S30), and its graceful stop. */
@@ -157,12 +148,12 @@ function stopOf(
   workflows: readonly BuiltApp[],
   parts: InstanceParts,
 ): GracefulStop {
-  const timers = parts.timers ?? systemTimers;
+  const { clock } = parts.infrastructure;
   const interruption = new AbortController();
   const sweep = startRecoverySweep({
     records: parts.infrastructure.records,
     workflows: new Map(workflows.map((workflow) => [workflow.deps.config.name, workflow.recover])),
-    timers,
+    clock,
     signal: interruption.signal,
   });
   const { shutdownTimeout } = assembled;
@@ -170,7 +161,7 @@ function stopOf(
     workflows,
     created: parts.created,
     sweep,
-    timers,
+    clock,
     interruption,
     shutdownTimeout,
   });

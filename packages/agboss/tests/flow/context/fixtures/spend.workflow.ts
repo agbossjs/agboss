@@ -26,9 +26,13 @@ export const spendSeen = {
   actionSignalAborted: [] as boolean[],
 };
 
+/** The test's hook: called when a slow call has started waiting (its timeout runs on the clock). */
+export const spendHooks: { fetchStarted?: () => void } = {};
+
 export function resetSpendSeen(): void {
   spendSeen.aborts.length = 0;
   spendSeen.actionSignalAborted.length = 0;
+  delete spendHooks.fetchStarted;
 }
 
 export class SearchDto {
@@ -79,6 +83,7 @@ export class SlowFetchTool implements ToolHandler<SearchDto, SearchDto> {
         reject(reason instanceof Error ? reason : new Error("aborted"));
       });
       if (input.query === "never") resolve(input);
+      spendHooks.fetchStarted?.();
     });
   }
 }

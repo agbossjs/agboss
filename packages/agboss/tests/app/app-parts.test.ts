@@ -26,7 +26,10 @@ import { EmptyEnvironment } from "../../src/index.js";
 
 const offline = () => ({
   gateway: createScriptedGateway(new ScriptBook()),
-  stores: { terns: createSqliteTernStore(":memory:"), ledger: createMemoryLedger() },
+  stores: {
+    terns: createSqliteTernStore(":memory:", () => new Date()),
+    ledger: createMemoryLedger(),
+  },
 });
 
 class TicketDto {

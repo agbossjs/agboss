@@ -130,7 +130,7 @@ export async function fakeDeps(
   });
   // the unit tests read and share these stores themselves: the run's ledger and records
   const ledger = options.ledger ?? memoryLedger();
-  const terns = options.terns ?? createSqliteTernStore(":memory:");
+  const terns = options.terns ?? createSqliteTernStore(":memory:", () => new Date());
   return { ...deps, ledger, terns, evaluation: { ...deps.evaluation, ledger, terns } };
 }
 

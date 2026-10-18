@@ -2,7 +2,7 @@ import type { BuiltApp } from "../app/create-app.js";
 import type { BuiltApplication } from "../application/create-app.js";
 import type { App, ExecutionOutput } from "../app/types.js";
 import type { Class } from "../components/injection.js";
-import type { TestClock } from "./clock.js";
+import type { VirtualClock } from "./clock.js";
 import type { TestEnvironment } from "./environment.js";
 import { TestFailure, TestSetupError } from "./errors.js";
 import {
@@ -23,7 +23,7 @@ import { toolNameOf } from "./script.js";
  * after `close()` (or `recoverApp()`) fails with `test.app-closed`.
  */
 export interface TestApp extends Pick<App, "execute" | "resume" | "close" | "cancel"> {
-  readonly clock: TestClock;
+  readonly clock: VirtualClock;
   /**
    * Builds the test's application now (assembly, `onInit` → `onStart`), for a test that executes
    * nothing; the first `execute` builds it otherwise. A second call does nothing.

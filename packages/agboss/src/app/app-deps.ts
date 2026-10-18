@@ -4,7 +4,6 @@ import type { ContainerOptions } from "../components/container/container.js";
 import type { Environment } from "../flow/generated-types.js";
 import type { ObserverManager } from "../core/observer-manager.js";
 import { startComponents, stopComponents } from "../components/container/lifecycle.js";
-import type { Clock } from "../finops/ledger.js";
 import type { EvalDeps } from "../eval/eval.js";
 import type { RunDeps } from "../run/types.js";
 import { configSnapshot, runVersions } from "../run/versions.js";
@@ -25,7 +24,6 @@ import { closeOf, releaseOf } from "./app-deps-parts.js";
 import { componentsAtStart } from "./start-components.js";
 import { spendLedgerOf } from "../infrastructure/cost-ledger.repository.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
-import type { Timers } from "../infrastructure/timers.js";
 import { standaloneInfrastructure } from "../application/application-container.js";
 import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
 
@@ -73,8 +71,6 @@ export interface AppDepsOptions {
   readonly transport?: TransportFactory;
   /** Replaces how MCP servers are connected (test stubs). */
   readonly connectMcp?: McpConnect;
-  /** The time of the built-in infrastructure (the ledger's day, the records). Default: the system clock. */
-  readonly clock?: Clock;
   readonly newThreadId?: NewThreadId;
   readonly newRunId?: () => string;
   readonly container?: ContainerOptions;
@@ -116,8 +112,6 @@ export interface WorkflowDepsParts {
   readonly infrastructure: Infrastructure;
   /** The application's instances in creation order; absent = this workflow runs its own hooks. */
   readonly created?: unknown[];
-  /** The timers lease renewals and waits sleep on (default: the system's; tests: the virtual clock). */
-  readonly timers?: Timers;
   /** The application's context levels (#261); absent = the workflow's own (a workflow on its own). */
   readonly contexts?: RuntimeContexts;
 }
@@ -147,10 +141,12 @@ export async function createWorkflowDeps(
   parts: WorkflowDepsParts,
 ): Promise<AppDeps> {
   const env = options.processEnv ?? process.env;
-  const models = await modelsFor(bundle, options.gateway, providerClientsOf(options, env));
+  const { clock } = parts.infrastructure;
+  const clients = providerClientsOf(options, env, clock);
+  const models = await modelsFor(bundle, options.gateway, clients);
   const gateway = models.gateway;
   const lifecycle = lifecycleOf(options.container, parts.created);
-  const contexts = parts.contexts ?? standaloneContexts(bundle.config, options.environment);
+  const contexts = parts.contexts ?? standaloneContexts(bundle.config, options.environment, clock);
   const services = servicesFor(bundle, gateway, contexts, lifecycle.options);
   const tools: readonly AnyTool[] = resolveTools(bundle, services);
   const toolNames = tools.map((tool) => tool.name);
@@ -176,6 +172,7 @@ export async function createWorkflowDeps(
     evaluation: evaluationFor(bundle, { terns, ledger }, gateway),
     tracing,
     contexts,
+    clock,
     ...(options.newRunId === undefined ? {} : { newRunId: options.newRunId }),
     close: closeOf(ownsHooks ? lifecycle.created : undefined, mcp, tracing),
   };

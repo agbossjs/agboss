@@ -63,7 +63,7 @@ function ownerOutsideConstructor(ancestors) {
   return undefined;
 }
 
-const noComponentState = {
+export const noComponentState = {
   meta: {
     type: "problem",
     docs: { description: "No state on `this` outside the constructor of a component" },
@@ -87,13 +87,4 @@ const noComponentState = {
       UpdateExpression: (node) => check(node, node.argument),
     };
   },
-};
-
-export const componentStatePlugin = { rules: { "no-component-state": noComponentState } };
-
-/** The flat-config block: framework sources and examples. */
-export const componentStateRules = {
-  files: ["packages/agboss/src/**/*.ts", "examples/*/src/**/*.ts"],
-  plugins: { agboss: componentStatePlugin },
-  rules: { "agboss/no-component-state": "error" },
 };

@@ -19,7 +19,7 @@ import { mcpOf, toolsOf, type Mcp } from "./assemble-tools.js";
 import { ragClassesOf } from "./rag.js";
 import type { Class, Provider, Token } from "./injection.js";
 import type { ProviderModule } from "./container/registrations.js";
-import { INFRASTRUCTURE_TOKENS } from "../infrastructure/clock.js";
+import { INFRASTRUCTURE_TOKENS } from "../infrastructure/instance-tokens.js";
 import { containerPartsOf, policyMapsOf } from "./assemble-parts.js";
 import {
   checkProviderClasses,

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { applicationContextOf, type ApplicationContext } from "./application-context.js";
 import { NO_ENVIRONMENT_VALUES } from "../../environments/resolve.js";
+import { systemClock, type Clock } from "../../infrastructure/clock.js";
 import type { Environment } from "../generated-types.js";
 import {
   DEFAULT_TENANT,
@@ -26,17 +27,21 @@ export interface RuntimeContexts {
   readonly executionContext: ExecutionContextClass;
 }
 
-/** What a workflow run without an application gets (eval, replay): its own name, no settings. */
+/**
+ * What a workflow run without an application gets (eval, replay): its own name, no settings, its
+ * start read from `clock`.
+ */
 export function standaloneContexts(
   workflow: { readonly name: string; readonly version: string },
   environment: Environment = NO_ENVIRONMENT_VALUES,
+  clock: Clock = systemClock,
 ): RuntimeContexts {
   return {
     application: applicationContextOf({
       name: workflow.name,
       version: workflow.version,
       instanceId: randomUUID(),
-      startedAt: new Date(),
+      startedAt: clock.now(),
       environmentName: "dev",
       environment,
     }),

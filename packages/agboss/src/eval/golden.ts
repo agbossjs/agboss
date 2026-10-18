@@ -1,3 +1,4 @@
+import { systemClock } from "../infrastructure/clock.js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
@@ -43,7 +44,7 @@ export async function goldenFromRecent(
   bundle: string,
   name: string,
   limit: number,
-  now: () => Date = () => new Date(),
+  now: () => Date = () => systemClock.now(),
 ): Promise<GoldenSet> {
   const recent = await terns.recentOriginals(bundle, limit);
   const tasks = [...new Set(recent.map((tern) => tern.task))].map((task) => ({ task }));

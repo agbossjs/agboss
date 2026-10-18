@@ -13,8 +13,8 @@ import { sharedInMemory, storeKinds } from "./contracts/store-kinds.js";
 
 const kinds = storeKinds<CostLedgerRepository>({
   inMemory: (seam) =>
-    sharedInMemory(seam, "ledger", () => new InMemoryCostLedgerRepository(seam.clock.now)),
-  sqlite: ({ clock, connection }) => new SqliteCostLedgerRepository(connection(), clock.now),
+    sharedInMemory(seam, "ledger", () => new InMemoryCostLedgerRepository(seam.clock)),
+  sqlite: ({ clock, connection }) => new SqliteCostLedgerRepository(connection(), clock),
 });
 
 /** A model call that cost `costUsd` (only the cost is counted). */

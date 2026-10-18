@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { Clock } from "../infrastructure/clock.js";
 
 /**
  * What the framework hands its own tool wrapper per call (internal, #280): the call's signal (the
@@ -8,6 +9,8 @@ import type { z } from "zod";
  */
 export interface ToolCallContext {
   readonly signal: AbortSignal;
+  /** The application's clock: the tool's `timeoutMs` runs on it (default: the system's, #262). */
+  readonly clock?: Clock;
   /** USD of this call; it counts against the budgets as the tool's spend. */
   readonly reportCost: (usd: number) => void;
 }

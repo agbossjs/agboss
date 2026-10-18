@@ -15,7 +15,7 @@ import { sharedInMemory, storeKinds } from "./contracts/store-kinds.js";
 
 const kinds = storeKinds<PausedExecutionRepository>({
   inMemory: (seam) => sharedInMemory(seam, "paused", () => new InMemoryPausedExecutionRepository()),
-  sqlite: ({ clock, connection }) => new SqlitePausedExecutionRepository(connection(), clock.now),
+  sqlite: ({ clock, connection }) => new SqlitePausedExecutionRepository(connection(), clock),
 });
 
 /** A paused run as the app stores it (`budgetUsd: Infinity` — a run without a cost limit). */

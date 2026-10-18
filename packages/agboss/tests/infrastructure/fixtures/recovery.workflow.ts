@@ -18,12 +18,9 @@ import {
   type ToolHandler,
   type WorkflowResumeEvent,
 } from "../../../src/index.js";
+import { ApplicationContext, Clock } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import {
-  INFRASTRUCTURE_CLOCK,
-  INSTANCE_ID,
-  IN_MEMORY_DATABASE,
-} from "../../../src/infrastructure/clock.js";
+import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/instance-tokens.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import { TernStoreRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
@@ -166,13 +163,13 @@ export class RecoveryLog implements OnWorkflowResume, OnWorkflowEnd, OnError {
 }
 
 /** The leases in the test's memory; a dead instance takes none and renews none. */
-@Injectable({ deps: [INFRASTRUCTURE_CLOCK, INSTANCE_ID, IN_MEMORY_DATABASE] })
+@Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
 export class MortalExecutionLeaseRepository extends InMemoryExecutionLeaseRepository {
   readonly #instanceId: string;
 
-  constructor(now: () => Date, instanceId: string, database: InMemoryDatabase) {
-    super(now, instanceId, database);
-    this.#instanceId = instanceId;
+  constructor(clock: Clock, applicationContext: ApplicationContext, database: InMemoryDatabase) {
+    super(clock, applicationContext, database);
+    this.#instanceId = applicationContext.instanceId;
   }
 
   override async acquire(
@@ -196,7 +193,7 @@ export class MortalExecutionLeaseRepository extends InMemoryExecutionLeaseReposi
 @Injectable()
 export class StampedExecutionRecordRepository extends TernStoreRecordRepository {
   constructor() {
-    super(createSqliteTernStore(":memory:"));
+    super(createSqliteTernStore(":memory:", () => new Date()));
     stores.records ??= this;
   }
 

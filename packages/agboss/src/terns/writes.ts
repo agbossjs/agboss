@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import type { Tern, TernOutcome, TernStore } from "./types.js";
 
-type Clock = () => Date;
+/** The current time (the application's clock, given by the caller). */
+type Now = () => Date;
 
 const COMPLETE = `UPDATE terns SET replyWith = ?, status = ?, stop_reason = ?, route = ?, steps = ?,
   cost_usd = ? WHERE id = ?`;
@@ -19,7 +20,7 @@ const outcomeParams = (o: TernOutcome): SQLInputValue[] => [
 /** Appending a Tern and completing it — unconditionally, or only from an expected status (#265 S66 h). */
 export function ternWrites(
   db: DatabaseSync,
-  now: Clock,
+  now: Now,
 ): Pick<TernStore, "append" | "complete" | "completeIfStatus"> {
   return {
     complete: (id, o) => {

@@ -1,7 +1,7 @@
 import { Injectable } from "../components/decorators.js";
 import { utcDay, type SpendLedger } from "../finops/ledger.js";
 import type { UsageRecord } from "../finops/usage.js";
-import { INFRASTRUCTURE_CLOCK } from "./clock.js";
+import { Clock } from "./clock.js";
 
 /**
  * Infrastructure (#261, S28): where the spend of the application is counted, per key (a workflow
@@ -21,16 +21,16 @@ export abstract class CostLedgerRepository {
  * The built-in default: counters in memory — each application instance counts on its own and the
  * counters reset on restart. Never written to disk.
  */
-@Injectable({ deps: [INFRASTRUCTURE_CLOCK] })
+@Injectable({ deps: [Clock] })
 export class InMemoryCostLedgerRepository extends CostLedgerRepository {
   readonly #days = new Map<string, number>();
 
-  constructor(private readonly now: () => Date) {
+  constructor(private readonly clock: Clock) {
     super();
   }
 
   #keyOf(key: string): string {
-    return `${key}/${utcDay(this.now())}`;
+    return `${key}/${utcDay(this.clock.now())}`;
   }
 
   findSpentToday(key: string): Promise<number> {

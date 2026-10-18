@@ -189,7 +189,7 @@ export class HookedPausedExecutionRepository extends InMemoryPausedExecutionRepo
 @Injectable()
 export class SeenExecutionRecordRepository extends TernStoreRecordRepository {
   constructor() {
-    super(createSqliteTernStore(":memory:"));
+    super(createSqliteTernStore(":memory:", () => new Date()));
     seen.records.push(this);
   }
 

@@ -30,7 +30,6 @@ function breakerClient(replies: readonly StubReply[], time = clock()) {
       timeout: seconds(5),
       retryPolicy: RetryPolicy.none(),
       breaker,
-      now: time.now,
     },
     stub.fetch,
   );
