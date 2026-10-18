@@ -1,8 +1,8 @@
 /**
  * The errors a run can fail with — every one a `AGBossError` with a stable `code`, so a flow
  * can `.onError(<class>, …)` it (also after a resume from a checkpoint) and a caller can tell them
- * apart. `limit` ⊃ `limit.budget`, `limit.visits`; `step` ⊃ `step.agent`, `step.action`,
- * `step.guard`, `step.router`.
+ * apart. `limit` ⊃ `limit.budget`, `limit.visits`; `step` (`StepFailedError`, #273 S22) ⊃
+ * `step.agent`, `step.action`, `step.guard`, `step.router`.
  */
 export {
   AGBossError,
@@ -19,7 +19,9 @@ export {
   GuardFailedError,
   PaidStepError,
   QualityGateError,
+  StepFailedError,
   type JudgeFeedback,
+  type StepCoordinates,
 } from "./graph/errors.js";
 export {
   RouterDecisionError,

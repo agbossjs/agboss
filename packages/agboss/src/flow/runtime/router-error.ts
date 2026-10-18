@@ -1,7 +1,6 @@
 import type { UsageRecord } from "../../finops/usage.js";
 import type { RouteOutcome } from "../../routers/index.js";
-import { PaidStepError } from "../../graph/errors.js";
-import type { ComponentRecord } from "./records.js";
+import { StepFailedError } from "../../graph/errors.js";
 
 /**
  * A router's two failures (#280 S19), mirroring `AgentFailedError` / `AgentAnswerInvalidError`:
@@ -22,13 +21,9 @@ const describe = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause);
 
 /** A router could not decide: `route()` threw, or its model call failed (`cause` = the original). */
-export class RouterFailedError extends PaidStepError {
+export class RouterFailedError extends StepFailedError {
   static override readonly code: string = "step.router";
   override name = "RouterFailedError";
-  /** The router (no class: the error is kept on a plain record). */
-  readonly component: ComponentRecord;
-  readonly nodeId: string;
-  readonly visitNumber: number;
 
   constructor(
     step: RouterVisit,
@@ -36,14 +31,8 @@ export class RouterFailedError extends PaidStepError {
     usage: readonly UsageRecord[] = [],
     message = `Router "${step.nodeId}" failed: ${describe(cause)}`,
   ) {
-    super(message, usage, cause, {
-      component: { name: step.nodeId },
-      nodeId: step.nodeId,
-      visitNumber: step.visitNumber,
-    });
-    this.component = { name: step.nodeId };
-    this.nodeId = step.nodeId;
-    this.visitNumber = step.visitNumber;
+    const coordinates = { component: { name: step.nodeId }, ...step };
+    super(message, usage, cause, coordinates);
   }
 }
 
