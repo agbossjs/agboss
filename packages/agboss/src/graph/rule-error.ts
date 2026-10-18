@@ -81,7 +81,9 @@ export type RuleCode =
   | "guardrail.no-model"
   // model providers (#266 PR 1): every model of the application resolves to one provider
   | "model.unserved"
-  | "model.ambiguous-provider";
+  | "model.ambiguous-provider"
+  // contexts (#261 PR 3), reported at the application's assembly
+  | "context.prompt-unused";
 
 /** One broken rule: its code, what is wrong, and the nodes (classes) involved. */
 export interface RuleViolation {

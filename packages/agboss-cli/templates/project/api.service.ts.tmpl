@@ -1,17 +1,16 @@
-import { ENV, Injectable } from "agboss";
-import type { AppEnvironment } from "../environments/app.environment.js";
+import { ApplicationContext, Injectable } from "agboss";
 
 /**
  * The API this workflow's tools call. Its address comes from the application's environment —
  * `environments/<name>.environment.ts` next to the application file (`dev` unless `--env` names
- * another, `test` in tests).
+ * another, `test` in tests) — read as `applicationContext.environment`.
  */
-@Injectable({ deps: [ENV] })
+@Injectable({ deps: [ApplicationContext] })
 export class ApiService {
-  constructor(private readonly environment: AppEnvironment) {}
+  constructor(private readonly applicationContext: ApplicationContext) {}
 
   /** The full URL of `path` on the environment's API. */
   url(path: string): string {
-    return new URL(path, this.environment.apiUrl).href;
+    return new URL(path, this.applicationContext.environment.apiUrl).href;
   }
 }

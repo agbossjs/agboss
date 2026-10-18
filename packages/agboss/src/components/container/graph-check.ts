@@ -3,6 +3,7 @@ import { ComponentError } from "../metadata.js";
 import { depsOf } from "./container.js";
 import { Registrations, type ProviderModule } from "./registrations.js";
 import { INFRASTRUCTURE_DEFAULTS } from "../../infrastructure/contracts.js";
+import { undeclaredContextError } from "../context-tokens.js";
 
 /** Core tokens as registrations for the checks: their values are not needed to check the graph. */
 const coreOf = (core: readonly Token[]): ReadonlyMap<Token, unknown> =>
@@ -44,8 +45,11 @@ export function checkGraph(
     for (const dep of depsOf(cls)) {
       const found = registrations.find(dep, tokenName(cls));
       if (found === undefined) {
-        throw new ComponentError(
-          `${tokenName(cls)}: "${tokenName(dep)}" is not registered in @Workflow({ providers })`,
+        throw (
+          undeclaredContextError(dep, tokenName(cls)) ??
+          new ComponentError(
+            `${tokenName(cls)}: "${tokenName(dep)}" is not registered in @Workflow({ providers })`,
+          )
         );
       }
       if (found.kind === "class") visit(found.cls, path);

@@ -303,7 +303,8 @@ One package; the root `agboss` is the authoring API, the rest are focused entrie
 
 - `agboss` — `@Workflow`, `@Agent`, `@Router`, `@Tool`, `@Injectable`, `@Action`,
   `@WorkflowStart` / `@WorkflowFinish`, `@Judge`, `@Guardrail`, `@PiiPolicy`, `@Channel`,
-  `InjectionToken`, `provide`, `ENV`, `env`, `secret`, `Secret`, the path builder (`start`,
+  `InjectionToken`, `provide`, `env`, `secret`, `Secret`, the context levels (`ApplicationContext`,
+  `TenantContext`, `ExecutionContext`, `ContextValues`), the path builder (`start`,
   `agent`, `router`, `action`, `route`, `caseOf`, `toAgent`, `toAction`, `toFinish`, …),
   `WorkflowSettings`, `@Application`, `createApp`, `@Budget`, the infrastructure contracts,
   `Decision`, observers, errors and types
@@ -427,19 +428,19 @@ contract declares fields only; put the value in each environment`. A framework i
   listed in `providers` whose field the contract lacks fails with `[environment.missing-field]`.
 - There are no wrappers: no `declare module`, no `export default`, no `defineEnvironment` /
   `fromEnv`. `agboss check` writes `interface Environment extends AppEnvironment {}` into
-  `.agboss/types.d.ts`, so services inject the values with the framework's `ENV` token, typed by
-  the contract — never `process.env`:
+  `.agboss/types.d.ts`, so components read the values as `applicationContext.environment`
+  (`deps: [ApplicationContext]`, #261 — no separate token), typed by the contract — never
+  `process.env`; the chosen environment's name is `applicationContext.environmentName`:
 
 ```ts file=src/audit/services/audit-store.service.ts
-import { ENV, Injectable } from "agboss";
-import type { AppEnvironment } from "../environments/app.environment.js";
+import { ApplicationContext, Injectable } from "agboss";
 
-@Injectable({ deps: [ENV] })
+@Injectable({ deps: [ApplicationContext] })
 export class AuditStoreService {
-  constructor(private readonly environment: AppEnvironment) {}
+  constructor(private readonly applicationContext: ApplicationContext) {}
 
   connectionString(): string {
-    return this.environment.databaseUrl.reveal(); // the only way to the value
+    return this.applicationContext.environment.databaseUrl.reveal(); // the only way to the value
   }
 }
 ```
@@ -463,7 +464,7 @@ export class AuditStoreService {
   every environment; only values differ.
 - `environment` is required: an application with no settings declares the framework's empty
   contract, `@Application({ environment: EmptyEnvironment })` (any contract without fields works the
-  same), and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets `[di.missing-environment]` for an `ENV` consumer.)
+  same), and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets an empty environment.)
 - Model provider keys are not part of it: each `@ModelProvider` names its key as a process variable
   (`apiKey: EnvironmentVariable.named(...)`, read at start; #266 PR 1 keeps them there).
 
@@ -584,9 +585,11 @@ export class PayOrder implements ToolHandler<OrderQuery, OrderQuery> {
 run(query: OrderQuery): Promise<OrderQuery> {
   const { executionContext } = this;
   executionContext.executionId; // unique per execution, the same after a resume (= ExecutionOutput.runId)
-  executionContext.threadId; // the conversation (ExecutionOutput.thread)
-  executionContext.ownerId; // from execute(…, { owner }): who the thread belongs to
-  executionContext.signal; // aborted by app.cancel(thread) or the caller's signal
+  executionContext.threadId; // the conversation (ExecutionOutput.threadId)
+  executionContext.ownerId; // from execute(…, { ownerId }): who the thread belongs to
+  executionContext.tenant.tenantId; // the organization, "default" when none is passed
+  executionContext.tenant.application.environmentName; // the application level, through the tenant
+  executionContext.signal; // aborted by app.cancel(threadId) or the caller's signal
   executionContext.workflow; // { type, name, version, startedVersion }
   executionContext.step.idempotencyKey; // `${executionId}:${nodeId}:${visitNumber}[:${itemIndex}][:${callId}]`
   executionContext.step.callId; // the tool call's id (undefined outside a tool call)
@@ -601,7 +604,7 @@ the context throws `ExecutionContextUnavailableError` (`context.unavailable`) �
 import type { App } from "agboss";
 import { ChatWorkflowStart } from "./src/job-scout.workflow.js";
 declare const app: App;
-declare const thread: string;
+declare const threadId: string;
 declare const userId: string;
 declare const signal: AbortSignal;
 -->
@@ -610,14 +613,23 @@ declare const signal: AbortSignal;
 await app.execute(
   ChatWorkflowStart,
   { text: "Find me a backend job" },
-  { thread, owner: userId, signal, metadata: { tenant: "acme" } },
+  { threadId, ownerId: userId, signal, tenant: { tenantId: "acme" } },
 );
-const { cancelled } = await app.cancel(thread, { owner: userId });
+const { cancelled } = await app.cancel(threadId, { tenantId: "acme", ownerId: userId });
 ```
 
-A thread created with an `owner` belongs to it: `execute` on that thread, `resume` and `cancel`
+A thread created with an `ownerId` belongs to it: `execute` on that thread, `resume` and `cancel`
 with another owner (or none) throw `ThreadOwnerError` (`run.thread-owner`) before anything runs or
-is read. Tool arguments a channel shows (and `ExecutionOutput.pause.args`) have the input DTO's
+is read. A thread belongs to its tenant too (#261): its key is `tenantId` + `threadId`, so another
+tenant's thread does not exist for the caller (`UnknownThreadError`); `resume` and `cancel` take
+the tenant by its id, `{ tenantId, ownerId }` (omitted → `"default"`), and a resumed execution runs
+on the context values it started with. With nothing declared `tenant: { tenantId?, weight? }` is
+all there is (`weight`, a positive integer, default 1, is the tenant's share for #266's
+`TenantWeighted`); an application that declares
+`@Application({ tenantContext: ShopTenantContext, executionContext: ShopExecutionContext })` — its
+own subclasses with DTO field decorators, identity only, never secrets — gets their values typed
+per start (`tenant: ContextValues<ShopTenantContext>`, `execution: …`), checked before the first
+step (invalid → `dto.invalid`, an `onRunRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pause.args`) have the input DTO's
 `sensitive` fields masked as `***`; the tool itself still gets them whole.
 
 Each run reserves its `limits.perRun.cost` of the day before its first model call, so concurrent
@@ -625,10 +637,11 @@ runs never jointly pass `limits.perDay.cost`; a workflow that sets `perDay.cost`
 `perRun.cost` fails at start with `[limits.per-run-required]`.
 
 `execute` and `resume` forward `signal`, `metadata`, `onStream` (token and tool-call events) and
-`configurable` (extra LangGraph keys; the framework's own win). `app.cancel(thread)` aborts a running
+`configurable` (extra LangGraph keys; the framework's own win). `app.cancel(threadId)` aborts a running
 run — it stops before its next model or tool call and `execute` rejects with
 `WorkflowCancelledError` — or drops a paused one, whose `resume` then throws `NotPausedError`;
-`cancelled` is `false` when the thread had neither. From `app.close()` on, `execute` and `resume`
+`cancelled` is `false` when the thread had neither (a thread the tenant does not have is
+`UnknownThreadError`). From `app.close()` on, `execute` and `resume`
 are refused with `ApplicationStoppingError` (`app.stopping`, an `onRunRejected`); running executions
 go on and `cancel` still works. An execution tree is moved by one holder at a time (#265, Q58):
 `execute` and `resume` hold its lease (`seconds(30)`, renewed every 10 s and before every checkpoint
@@ -667,7 +680,9 @@ await app.close({ timeout: seconds(10) });
 ```
 
 In unit tests, `testExecutionContext({ … })` from
-`agboss/testing` is a frozen `ExecutionContext`: `new PayOrder(testExecutionContext())`.
+`agboss/testing` is a frozen `ExecutionContext`: `new PayOrder(testExecutionContext())`; its
+`tenant` and `tenant.application` are set with `{ tenantContext, tenant, application: {
+environment } }`.
 
 Observers see a run's workflow, agent, router, tool, model, guardrail, policy, action, channel and
 judge start/end events. `onWorkflowStart` fires once per run (at `execute`); a run that pauses emits

@@ -23,8 +23,9 @@ export function inMcpCallFrame<TResult>(
   call: McpCall,
   work: () => Promise<TResult>,
 ): Promise<TResult> {
-  const workflow = appWorkflowOf(app);
-  if (workflow === undefined) return work();
+  const known = appWorkflowOf(app);
+  if (known === undefined) return work();
+  const { workflow, tenant } = known;
   const callId = call.callId ?? `mcp_${name}_${randomUUID()}`;
   const executionId = `mcp_${callId}`;
   const frame = standaloneCallFrameOf({
@@ -34,6 +35,7 @@ export function inMcpCallFrame<TResult>(
     executionId,
     callId,
     signal: call.signal,
+    tenant,
   });
   return runInFrame(frame, work);
 }

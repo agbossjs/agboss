@@ -37,7 +37,12 @@ export function resetSharedDatabase(): void {
 }
 
 /** The paused executions in the shared database. */
-export const sharedPausedRuns = (): ReadonlyMap<string, PausedRun> => database.paused;
+/** One key per thread of a tenant (#261: the same id in two tenants is two threads). */
+const keyOf = (tenantId: string, threadId: string): string => `${tenantId}/${threadId}`;
+
+/** The paused run the shared database keeps for a thread (of the tenant `"default"`). */
+export const sharedPausedRun = (threadId: string, tenantId = "default"): PausedRun | undefined =>
+  database.paused.get(keyOf(tenantId, threadId));
 
 /** Checkpoints in the shared database: every instance reads the same storage. */
 @Injectable()
@@ -51,25 +56,29 @@ export class SharedCheckpointSaver extends MemorySaver {
 
 @Injectable()
 export class SharedPausedExecutionRepository extends PausedExecutionRepository {
-  findByThreadId(threadId: string): Promise<PausedRun | undefined> {
-    return Promise.resolve(database.paused.get(threadId));
+  findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedRun | undefined> {
+    return Promise.resolve(database.paused.get(keyOf(tenantId, threadId)));
   }
 
   save(paused: PausedRun): Promise<void> {
-    database.paused.set(paused.run.threadId, paused);
+    database.paused.set(keyOf(paused.run.tenantId, paused.run.threadId), paused);
     return Promise.resolve();
   }
 
-  resolveByThreadId(threadId: string, decision: unknown): Promise<PausedRun | undefined> {
-    const stored = database.paused.get(threadId);
+  resolveByTenantIdAndThreadId(
+    tenantId: string,
+    threadId: string,
+    decision: unknown,
+  ): Promise<PausedRun | undefined> {
+    const stored = database.paused.get(keyOf(tenantId, threadId));
     if (stored?.status !== PauseStatus.Pending) return Promise.resolve(undefined);
     const resolved = resolvedPause(stored, decision);
-    database.paused.set(threadId, resolved);
+    database.paused.set(keyOf(tenantId, threadId), resolved);
     return Promise.resolve(resolved);
   }
 
-  deleteByThreadId(threadId: string): Promise<void> {
-    database.paused.delete(threadId);
+  deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void> {
+    database.paused.delete(keyOf(tenantId, threadId));
     return Promise.resolve();
   }
 }

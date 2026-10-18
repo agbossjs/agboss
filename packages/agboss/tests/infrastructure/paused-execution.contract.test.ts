@@ -23,6 +23,7 @@ const pausedRunOf = (threadId: string, runId = "run-1"): PausedRun => ({
   run: {
     runId,
     threadId,
+    tenantId: "default",
     ternId: "tern-1",
     status: ExecutionStatus.Paused,
     start: "order-workflow-start",
@@ -45,17 +46,19 @@ describe.each(kinds)(
       await first.save(pausedRunOf("thread-1"));
 
       const [one, other] = await Promise.all([
-        first.resolveByThreadId("thread-1", { approved: true }),
-        second.resolveByThreadId("thread-1", { approved: false }),
+        first.resolveByTenantIdAndThreadId("default", "thread-1", { approved: true }),
+        second.resolveByTenantIdAndThreadId("default", "thread-1", { approved: false }),
       ]);
 
       expect(one).toMatchObject({ status: PauseStatus.Resolved, decision: { approved: true } });
       expect(other).toBeUndefined();
-      expect(await second.findByThreadId("thread-1")).toMatchObject({
+      expect(await second.findByTenantIdAndThreadId("default", "thread-1")).toMatchObject({
         status: PauseStatus.Resolved,
         decision: { approved: true },
       });
-      expect(await first.resolveByThreadId("no-such-thread", {})).toBeUndefined();
+      expect(
+        await first.resolveByTenantIdAndThreadId("default", "no-such-thread", {}),
+      ).toBeUndefined();
     });
   },
 );
@@ -67,8 +70,8 @@ describe.each(kinds)("#265 AC7: paused executions by thread ($name)", ({ twoInst
 
     await first.save(paused);
 
-    expect(await second.findByThreadId("thread-1")).toEqual(paused);
-    expect(await second.findByThreadId("thread-2")).toBeUndefined();
+    expect(await second.findByTenantIdAndThreadId("default", "thread-1")).toEqual(paused);
+    expect(await second.findByTenantIdAndThreadId("default", "thread-2")).toBeUndefined();
   });
 
   it("a later pause of the thread replaces the earlier one; a delete forgets it", async () => {
@@ -76,20 +79,24 @@ describe.each(kinds)("#265 AC7: paused executions by thread ($name)", ({ twoInst
     await first.save(pausedRunOf("thread-1", "run-1"));
     await first.save(pausedRunOf("thread-1", "run-2"));
 
-    const latest = await second.findByThreadId("thread-1");
-    await second.deleteByThreadId("thread-1");
+    const latest = await second.findByTenantIdAndThreadId("default", "thread-1");
+    await second.deleteByTenantIdAndThreadId("default", "thread-1");
 
     expect(latest?.run.runId).toBe("run-2");
-    expect(await first.findByThreadId("thread-1")).toBeUndefined();
+    expect(await first.findByTenantIdAndThreadId("default", "thread-1")).toBeUndefined();
   });
 
   it("a resolved pause without a decision reads back without one", async () => {
     const { first, second } = twoInstances();
     await first.save(pausedRunOf("thread-1"));
 
-    await first.resolveByThreadId("thread-1", undefined);
+    await first.resolveByTenantIdAndThreadId("default", "thread-1", undefined);
 
-    expect((await second.findByThreadId("thread-1"))?.decision).toBeUndefined();
-    expect((await second.findByThreadId("thread-1"))?.status).toBe(PauseStatus.Resolved);
+    expect(
+      (await second.findByTenantIdAndThreadId("default", "thread-1"))?.decision,
+    ).toBeUndefined();
+    expect((await second.findByTenantIdAndThreadId("default", "thread-1"))?.status).toBe(
+      PauseStatus.Resolved,
+    );
   });
 });

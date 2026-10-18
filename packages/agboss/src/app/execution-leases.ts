@@ -1,6 +1,6 @@
 import type { ExecutionLeaseRepository } from "../infrastructure/execution-lease.repository.js";
 import { treeKeyOf } from "../infrastructure/in-memory-database.js";
-import { DEFAULT_TENANT_ID } from "../infrastructure/tenant.js";
+import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { Timers } from "../infrastructure/timers.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import { ExecutionLeaseLostError } from "./lease-lost.js";
@@ -40,19 +40,20 @@ export interface ExecutionLeases {
    * The tree's lease: at once when free, else once its holder releases it or its lease expires;
    * `signal` (the caller's) ends the wait with its reason.
    */
-  hold(rootExecutionId: string, signal?: AbortSignal): Promise<HeldExecutionLease>;
+  hold(tree: ExecutionTree, signal?: AbortSignal): Promise<HeldExecutionLease>;
   /** The tree's lease when it is free now (recovery, #265 S30); `undefined` while another holds it. */
-  tryHold(rootExecutionId: string): Promise<HeldExecutionLease | undefined>;
+  tryHold(tree: ExecutionTree): Promise<HeldExecutionLease | undefined>;
 }
 
 export function executionLeasesOf(
   repository: ExecutionLeaseRepository,
   timers: Timers,
 ): ExecutionLeases {
-  const take = async (rootExecutionId: string): Promise<HeldExecutionLease | undefined> => {
-    const lease = await repository.acquire(DEFAULT_TENANT_ID, rootExecutionId, EXECUTION_LEASE);
+  const take = async (tree: ExecutionTree): Promise<HeldExecutionLease | undefined> => {
+    const { tenantId, rootExecutionId } = tree;
+    const lease = await repository.acquire(tenantId, rootExecutionId, EXECUTION_LEASE);
     if (lease === undefined) return undefined;
-    const key = treeKeyOf(DEFAULT_TENANT_ID, rootExecutionId);
+    const key = treeKeyOf(tenantId, rootExecutionId);
     const lost = new AbortController();
     const stopped = new AbortController();
     const renewNow = async (): Promise<void> => {
@@ -76,13 +77,13 @@ export function executionLeasesOf(
   };
   return {
     tryHold: take,
-    hold: async (rootExecutionId, signal) => {
-      const key = treeKeyOf(DEFAULT_TENANT_ID, rootExecutionId);
+    hold: async (tree, signal) => {
+      const key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
       for (;;) {
         signal?.throwIfAborted();
         const watch = leaseReleases.watch(key);
         try {
-          const held = await take(rootExecutionId);
+          const held = await take(tree);
           if (held !== undefined) return held;
           await watch.wait((waiting) => timers.sleep(RETRY_EVERY, waiting), signal);
         } finally {

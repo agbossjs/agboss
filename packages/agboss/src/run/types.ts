@@ -9,6 +9,7 @@ import type { Compacted } from "./compaction.js";
 import type { PendingPause } from "../pause/index.js";
 import type { TernRecords } from "../terns/index.js";
 import type { RunTracing } from "../tracing/index.js";
+import type { ExecutionContextValues } from "../flow/context/context-values.js";
 
 /** Graph dependencies plus the daily spend ledger and the Tern store. */
 export interface RunDeps<TName extends string> extends GraphDeps<TName> {
@@ -47,7 +48,13 @@ export interface RunOptions {
   /** The run's metadata, given to channels (`ChannelRequest.metadata`). */
   readonly metadata?: Readonly<Record<string, string>> | undefined;
   /** The thread's owner, read as `executionContext.ownerId` (checked by the app). */
-  readonly owner?: string | undefined;
+  readonly ownerId?: string | undefined;
+  /**
+   * The execution's context values (#261), validated by the app: its tenant (`tenantId` keys its
+   * thread and its tree) and its own fields. A new execution keeps them in its state; a resume
+   * reads them back from there. Default: the tenant `"default"`, no fields.
+   */
+  readonly contexts?: ExecutionContextValues | undefined;
   /** Extra LangGraph `configurable` keys for the run's nodes (the framework's own keys win). */
   readonly configurable?: Readonly<Record<string, unknown>> | undefined;
 }
@@ -75,6 +82,8 @@ export interface AgentExecutionOutput {
   readonly budgetUsd: number;
   readonly cost: CostReport;
   readonly threadId: string;
+  /** The tenant the execution works for (#261): with `threadId`, the key of its thread. */
+  readonly tenantId: string;
   readonly ternId: string;
   readonly data: ExecutionData;
   /** Conversation memory: what this turn compacted, when it did. */

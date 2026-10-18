@@ -46,10 +46,13 @@ describe("#280 Q43: one idempotency key per operation", () => {
       executionId: "exec-1",
       step: { component: WriterAgent, itemIndex: 36 },
     });
-    const { executionId, threadId, ownerId, signal, workflow } = agent;
+    const { executionId, threadId, ownerId, signal, workflow, tenant } = agent;
 
     const call = toolCallFrameOf(
-      { execution: { executionId, threadId, ownerId, signal, workflow }, step: agent.step },
+      {
+        execution: { executionId, threadId, ownerId, signal, workflow, tenant, values: {} },
+        step: agent.step,
+      },
       "call_1",
     );
 

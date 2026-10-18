@@ -16,6 +16,7 @@ import {
   type TernBase,
 } from "./execute.js";
 import { withMetadata } from "./run-services.js";
+import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import { streamConfig } from "./stream-config.js";
 import { finishRun } from "./finish.js";
 import { openThread } from "./thread.js";
@@ -38,7 +39,7 @@ export function runAgent<TName extends string>(
 /** What every Tern of the run has: its run, thread, start line, replay and versions. */
 const ternBaseOf = <TName extends string>(
   deps: RunDeps<TName>,
-  run: Pick<TernBase, "runId" | "threadId" | "task">,
+  run: Pick<TernBase, "runId" | "threadId" | "tenantId" | "task">,
   options: RunOptions,
 ): TernBase => ({
   ...run,
@@ -55,10 +56,13 @@ async function runOnce<TName extends string>(
   const { start, input: payload, threadId: requested } = RunInputSchema.parse(given);
   const input = validStartInput(startNamed(deps.graph, start), payload);
   const account = options.account ?? workflowAccount(deps);
-  const { threadId, history, summaries } = await openThread(deps, requested);
+  const contexts = options.contexts ?? DEFAULT_CONTEXT_VALUES;
+  const { tenantId } = contexts.tenant;
+  const { threadId, history, summaries } = await openThread(deps, tenantId, requested);
   const spent: UsageRecord[] = [];
   const runId = options.runId ?? deps.newRunId?.() ?? randomUUID();
-  const base = ternBaseOf(deps, { runId, threadId, task: startLine(start, input) }, options);
+  const task = startLine(start, input);
+  const base = ternBaseOf(deps, { runId, threadId, tenantId, task }, options);
   let release = (): void => undefined;
   let ternId: string | undefined;
   try {
@@ -67,10 +71,10 @@ async function runOnce<TName extends string>(
     // the record is `running` while the tree moves: what recovery continues (#265 S30)
     ternId = (await deps.terns.append({ ...base, ...runningOutcome([], 0) })).id;
     const graph = executionGraphOf(deps, run);
-    const identity = { threadId, runId, input };
+    const identity = { threadId, tenantId, runId, input };
     const config = streamConfig(deps, identity, options);
     const record = recorder(hold, spent);
-    const initial = { start, startInput: input, budgetUsd, history, summaries, runId };
+    const initial = { start, startInput: input, contexts, budgetUsd, history, summaries, runId };
     const state = await drainRun(await graph.stream(initial, config), record);
     const recorded = state.usage.length;
     const context = { deps, graph, base, runId, budgetUsd, record, recorded };

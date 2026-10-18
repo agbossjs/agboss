@@ -2,6 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { extractRunContext } from "../../core/run-context.js";
 import type { WorkflowDescriptor } from "../context/execution-context.js";
 import { currentFrame, type FrameSpec } from "../context/frame.js";
+import { tenantOfExecution, type RuntimeContexts } from "../context/runtime-contexts.js";
 import { idempotencyKeyOf } from "../context/idempotency.js";
 import type { RuntimeNode } from "./graph-model.js";
 import type { ExecutionStateType } from "./state.js";
@@ -28,7 +29,8 @@ export interface StepSite {
 }
 
 /**
- * The frame of one visit of `node` (#280): the execution's flat fields from its run, the step —
+ * The frame of one visit of `node` (#280): the execution's flat fields from its run, its tenant and
+ * its own fields from the state (#261: the values it started with, also after a resume), the step —
  * its component, node id, visit number (the one `maxVisits` counts) and its idempotency key. A
  * resume runs the visit again with the same state, so the same number and key.
  */
@@ -37,8 +39,10 @@ export function stepFrameOf(
   state: ExecutionStateType,
   config: RunnableConfig | undefined,
   workflow: WorkflowIdentity,
+  contexts: RuntimeContexts,
 ): FrameSpec {
-  return stepFrameAt({ node, visitNumber: visitNumberOf(node, state) }, state, config, workflow);
+  const site = { node, visitNumber: visitNumberOf(node, state) };
+  return stepFrameAt(site, state, config, workflow, contexts);
 }
 
 /** The frame of a visit at `site`: a branch's has its copy id, copy number and item (#273). */
@@ -47,6 +51,7 @@ export function stepFrameAt(
   state: ExecutionStateType,
   config: RunnableConfig | undefined,
   workflow: WorkflowIdentity,
+  contexts: RuntimeContexts,
 ): FrameSpec {
   const { run } = extractRunContext(config, state.runId);
   const executionId: string = run.runId;
@@ -65,9 +70,11 @@ export function stepFrameAt(
     execution: Object.freeze({
       executionId,
       threadId: run.threadId,
-      ownerId: run.owner,
+      ownerId: run.ownerId,
       signal: run.signal,
       workflow: Object.freeze({ ...workflow, startedVersion: startedVersionOf(state, workflow) }),
+      tenant: tenantOfExecution(contexts, state.contexts.tenant),
+      values: state.contexts.execution,
     }),
     step: Object.freeze(step),
   };

@@ -103,7 +103,7 @@ async function joinedValues(
   const node = deps.graph.nodes.get(ticket.launcher);
   if (node !== undefined && result.cascades.length > 0) {
     const at = { node, visitNumber: ticket.visitNumber };
-    const frame = stepFrameAt(at, state, context.config, deps.workflow);
+    const frame = stepFrameAt(at, state, context.config, deps.workflow, deps.contexts);
     const outdatedSoFar = [...state.outdatedValues, ...result.outdated];
     const report = { observer: deps.observer, config: context.config, ...frame, outdatedSoFar };
     await reportOutdating(result.cascades, report);

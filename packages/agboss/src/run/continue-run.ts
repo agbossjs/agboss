@@ -21,6 +21,8 @@ import { runVersions } from "./versions.js";
 export interface ContinuedRun {
   readonly runId: string;
   readonly threadId: string;
+  /** The tenant of its thread (#261); its context values come back from its checkpoint. */
+  readonly tenantId: string;
   /** Its record (a Tern), completed when this pass ends. */
   readonly ternId: string;
   readonly start: string;
@@ -38,7 +40,7 @@ export type ContinuedPass = (
   record: (records: readonly UsageRecord[]) => Promise<void>,
 ) => Promise<ExecutionStateType>;
 
-export type ContinueOptions = Omit<RunOptions, "replayOf" | "account" | "runId">;
+export type ContinueOptions = Omit<RunOptions, "replayOf" | "account" | "runId" | "contexts">;
 
 /**
  * One more pass of an execution that already ran (a resume with its decision, or recovery from
@@ -60,13 +62,15 @@ export async function continueRun<TName extends string>(
   const base: TernBase = {
     runId: run.runId,
     threadId: run.threadId,
+    tenantId: run.tenantId,
     bundle: deps.config.name,
     task: startLine(run.start, run.startInput),
     replayOf: null,
     ...runVersions(deps),
   };
   try {
-    const identity = { threadId: run.threadId, runId: run.runId, input: run.startInput };
+    const { threadId, tenantId, runId } = run;
+    const identity = { threadId, tenantId, runId, input: run.startInput };
     const streaming = streamConfig(deps, identity, { ...options, metadata });
     const state = await pass(graph, streaming, record);
     const context = {

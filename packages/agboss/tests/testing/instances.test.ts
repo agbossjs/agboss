@@ -31,7 +31,7 @@ describe("testWith(App, { instances: 2 })", () => {
     );
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
 
-    const cancelled = await apps[1]?.cancel(paused.thread);
+    const cancelled = await apps[1]?.cancel(paused.threadId);
 
     expect(apps).toHaveLength(2);
     expect(apps[0]).toBe(app);

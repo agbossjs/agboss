@@ -57,7 +57,9 @@ describe("threads and history (#272 S8: a turn is its start input and finish out
 
     const result = await runText("Hi", deps);
 
-    expect(await deps.terns.hasThread("test-bundle-workflow", result.threadId)).toBe(true);
+    expect(await deps.terns.hasThread("test-bundle-workflow", "default", result.threadId)).toBe(
+      true,
+    );
   });
 
   it("rejects an unknown thread before any call", async () => {

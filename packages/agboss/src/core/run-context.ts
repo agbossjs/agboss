@@ -1,5 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { WorkflowCancelledError } from "./errors.js";
+import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 
 /** The id of one run (one `execute`, kept by its resumes) — not the conversation thread. */
 export type RunId = string & { readonly __brand: "RunId" };
@@ -20,19 +21,22 @@ export interface RunContext {
   readonly signal: AbortSignal;
   /** `execute(…, { metadata })`, kept by the run's resumes. */
   readonly metadata: Readonly<Record<string, string>>;
-  /** Who the thread belongs to (`execute(…, { owner })`); only that owner may continue it. */
-  readonly owner?: string;
+  /** Who the thread belongs to (`execute(…, { ownerId })`); only that owner may continue it. */
+  readonly ownerId?: string;
+  /** The tenant the run works for (#261): `"default"` when it names none. */
+  readonly tenantId: string;
   /** The validated input of the workflow start the run began at (`{}` when unknown); kept by its resumes. */
   readonly input: Readonly<Record<string, unknown>>;
 }
 
-/** A run context with defaults: its own thread, a signal nobody aborts, no metadata, no input. */
+/** A run context with defaults: its own thread, the default tenant, a signal nobody aborts, no metadata, no input. */
 export function newRunContext(context: {
   readonly runId: string;
   readonly threadId?: string | undefined;
   readonly signal?: AbortSignal | undefined;
   readonly metadata?: Readonly<Record<string, string>> | undefined;
-  readonly owner?: string | undefined;
+  readonly ownerId?: string | undefined;
+  readonly tenantId?: string | undefined;
   readonly input?: Readonly<Record<string, unknown>> | undefined;
 }): RunContext {
   return {
@@ -41,7 +45,8 @@ export function newRunContext(context: {
     signal: context.signal ?? new AbortController().signal,
     metadata: context.metadata ?? {},
     input: context.input ?? {},
-    ...(context.owner === undefined ? {} : { owner: context.owner }),
+    tenantId: context.tenantId ?? DEFAULT_TENANT_ID,
+    ...(context.ownerId === undefined ? {} : { ownerId: context.ownerId }),
   };
 }
 

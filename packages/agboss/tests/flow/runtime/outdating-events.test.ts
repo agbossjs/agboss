@@ -6,7 +6,7 @@ import { writeAndOutdate } from "../../../src/flow/runtime/outdating.js";
 import { reportOutdating } from "../../../src/flow/runtime/outdating-report.js";
 import type { ScopeValueRecord } from "../../../src/flow/runtime/records.js";
 import { OutdatedReason, type ValuesOutdatedEvent } from "../../../src/index.js";
-import { replyWith, testWith } from "../../../src/testing/index.js";
+import { replyWith, testExecutionContext, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import { DraftChangesDto } from "../fixtures/data-dtos.js";
 import { ArticleDto } from "../fixtures/dtos.js";
@@ -92,7 +92,7 @@ describe("#271 AC10: onValuesOutdated", () => {
       executionId: result.runId,
       parentExecutionId: undefined,
       rootExecutionId: result.runId,
-      threadId: result.thread,
+      threadId: result.threadId,
       workflow: { name: "loop-workflow", version: "1.0.0", startedVersion: "1.0.0" },
       step: {
         component: { name: "loop-writer-agent" },
@@ -169,7 +169,15 @@ describe("#271 rule 11: the trace entry of a cascade", () => {
       itemIndex: undefined,
       copyNumber: 1,
     };
-    const execution = { executionId: "e", threadId: "t", ownerId: undefined, workflow };
+    const { tenant } = testExecutionContext();
+    const execution = {
+      executionId: "e",
+      threadId: "t",
+      ownerId: undefined,
+      workflow,
+      tenant,
+      values: {},
+    };
 
     await reportOutdating(outcome.cascades, {
       observer,

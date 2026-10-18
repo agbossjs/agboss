@@ -51,9 +51,9 @@ describe("AC12: isolation per test", () => {
       scriptTurn(mockLlm, "A2");
 
       const first = await execute(app, ChatStart, { text: "I am A" });
-      await execute(app, ChatStart, { text: "and again" }, { thread: first.thread });
+      await execute(app, ChatStart, { text: "and again" }, { threadId: first.threadId });
 
-      expect(first.thread).toBe("thread-1");
+      expect(first.threadId).toBe("thread-1");
       expect(mockLlm(MainRouter).lastRequest.input).toContain("I am A");
       expect(mockLlm(MainRouter).lastRequest.input).not.toContain("I am B");
     },
@@ -66,9 +66,9 @@ describe("AC12: isolation per test", () => {
       scriptTurn(mockLlm, "B2");
 
       const first = await execute(app, ChatStart, { text: "I am B" });
-      await execute(app, ChatStart, { text: "and again" }, { thread: first.thread });
+      await execute(app, ChatStart, { text: "and again" }, { threadId: first.threadId });
 
-      expect(first.thread).toBe("thread-1");
+      expect(first.threadId).toBe("thread-1");
       expect(mockLlm(MainRouter).lastRequest.input).toContain("I am B");
       expect(mockLlm(MainRouter).lastRequest.input).not.toContain("I am A");
     },

@@ -36,7 +36,7 @@ describe("#265 S30: continuing an interrupted execution", () => {
     await terns.complete(run.ternId, runningOutcome(run.path, run.cost.totalUsd));
 
     const recovered = await continueAgent(
-      { runId: run.runId, threadId: run.threadId, ternId: run.ternId },
+      { runId: run.runId, threadId: run.threadId, tenantId: run.tenantId, ternId: run.ternId },
       deps,
     );
 
@@ -48,10 +48,11 @@ describe("#265 S30: continuing an interrupted execution", () => {
   it("one that stopped before its first checkpoint has nothing to continue: failed", async () => {
     const terns = createSqliteTernStore(":memory:");
     const deps = await fakeDeps({}, { terns });
-    const threadId = await terns.createThread("test-bundle-workflow");
+    const threadId = await terns.createThread("test-bundle-workflow", "default");
     const record = await terns.append({
       runId: "run-lost",
       threadId,
+      tenantId: "default",
       bundle: "test-bundle-workflow",
       task: "start chat-workflow-start: Hi",
       replayOf: null,
@@ -62,7 +63,10 @@ describe("#265 S30: continuing an interrupted execution", () => {
       ...runningOutcome([], 0),
     });
 
-    const continued = continueAgent({ runId: "run-lost", threadId, ternId: record.id }, deps);
+    const continued = continueAgent(
+      { runId: "run-lost", threadId, tenantId: "default", ternId: record.id },
+      deps,
+    );
 
     await expect(continued).rejects.toBeInstanceOf(NothingToRecoverError);
     expect((await terns.byIds([record.id]))[0]?.status).toBe("failed");

@@ -8,7 +8,7 @@ import type { RunTracing } from "./types.js";
 /**
  * Tracing into a (self-hosted) Langfuse when LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY and
  * LANGFUSE_BASE_URL are set; undefined otherwise. LANGFUSE_PROJECT_ID (optional) enables links. Uses an isolated tracer provider — the core does
- * not register global OpenTelemetry. Session = conversation thread, tags = workflow.
+ * not register global OpenTelemetry. Session = conversation thread, tags = workflow and tenant.
  */
 export function langfuseTracing(env: NodeJS.ProcessEnv): RunTracing | undefined {
   const settings = langfuseSettings(env);
@@ -19,11 +19,12 @@ export function langfuseTracing(env: NodeJS.ProcessEnv): RunTracing | undefined 
   const provider = new BasicTracerProvider({ spanProcessors: [processor] });
   setLangfuseTracerProvider(provider);
   return {
-    callbacks: ({ bundle, threadId, runId }) => [
+    // a trace is filtered by organization (#261 AC6): the tenant as a tag and in the metadata
+    callbacks: ({ bundle, threadId, runId, tenantId }) => [
       new CallbackHandler({
         sessionId: threadId,
-        tags: [bundle],
-        traceMetadata: { bundle, runId },
+        tags: [bundle, `tenant:${tenantId}`],
+        traceMetadata: { bundle, runId, tenantId },
       }),
     ],
     sessionUrl: (threadId) =>

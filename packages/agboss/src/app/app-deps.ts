@@ -27,6 +27,7 @@ import { spendLedgerOf } from "../infrastructure/cost-ledger.repository.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { Timers } from "../infrastructure/timers.js";
 import { standaloneInfrastructure } from "../application/application-container.js";
+import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
 
 /** Run dependencies, eval dependencies, and resources to release after the run. */
 export interface AppDeps extends RunDeps<string> {
@@ -54,8 +55,13 @@ export type McpConnect = (
 export interface AppDepsOptions {
   /** The process environment: model provider keys, MCP servers, stores. Default: process.env. */
   readonly processEnv?: NodeJS.ProcessEnv;
-  /** The app's environment (`ENV`), resolved; absent = none (a service injecting `ENV` fails). */
+  /**
+   * The app's environment values, resolved (`applicationContext.environment`); absent = none —
+   * an empty environment.
+   */
   readonly environment?: Environment;
+  /** The chosen environment's name (`applicationContext.environmentName`); default `dev`. */
+  readonly environmentName?: string;
   /**
    * Every model call goes through it. Default: the workflow's model providers, credentials from
    * `processEnv`, each model's settings checked against what its provider says it supports.
@@ -112,6 +118,8 @@ export interface WorkflowDepsParts {
   readonly created?: unknown[];
   /** The timers lease renewals and waits sleep on (default: the system's; tests: the virtual clock). */
   readonly timers?: Timers;
+  /** The application's context levels (#261); absent = the workflow's own (a workflow on its own). */
+  readonly contexts?: RuntimeContexts;
 }
 
 /** Collects the container's instances for their lifecycle hooks, keeping any hook already given. */
@@ -142,7 +150,8 @@ export async function createWorkflowDeps(
   const models = await modelsFor(bundle, options.gateway, providerClientsOf(options, env));
   const gateway = models.gateway;
   const lifecycle = lifecycleOf(options.container, parts.created);
-  const services = servicesFor(bundle, gateway, options.environment, lifecycle.options);
+  const contexts = parts.contexts ?? standaloneContexts(bundle.config, options.environment);
+  const services = servicesFor(bundle, gateway, contexts, lifecycle.options);
   const tools: readonly AnyTool[] = resolveTools(bundle, services);
   const toolNames = tools.map((tool) => tool.name);
   const config = models.priced(validateAgentsConfig(bundle.config, toolNames));
@@ -166,6 +175,7 @@ export async function createWorkflowDeps(
     terns,
     evaluation: evaluationFor(bundle, { terns, ledger }, gateway),
     tracing,
+    contexts,
     ...(options.newRunId === undefined ? {} : { newRunId: options.newRunId }),
     close: closeOf(ownsHooks ? lifecycle.created : undefined, mcp, tracing),
   };

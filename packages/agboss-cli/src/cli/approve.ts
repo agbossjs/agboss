@@ -30,7 +30,7 @@ export async function untilDone(
       `${agent} wants to call ${tool} ${JSON.stringify(args)} — approve? [y/N] `,
     );
     const approved = /^y(es)?$/i.test((reply ?? "").trim());
-    const { thread } = result;
+    const { threadId: thread } = result;
     const decision = terminalDecision(approved);
     result = await busy((signal) => app.resume(thread, decision, { signal }));
   }
@@ -38,10 +38,10 @@ export async function untilDone(
 }
 
 /** First line under an answer: which conversation, and its trace when tracing is on. */
-export function threadLine(result: Pick<ExecutionOutput, "thread" | "traceUrl">): string {
+export function threadLine(result: Pick<ExecutionOutput, "threadId" | "traceUrl">): string {
   return result.traceUrl === undefined
-    ? `thread ${result.thread}`
-    : `thread ${result.thread} · ${result.traceUrl}`;
+    ? `thread ${result.threadId}`
+    : `thread ${result.threadId} · ${result.traceUrl}`;
 }
 
 /** `memory: turns 1–5 → summary 1/10` when this turn compacted the conversation. */

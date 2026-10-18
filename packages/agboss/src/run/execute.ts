@@ -18,6 +18,7 @@ export type TernBase = Pick<
   NewTern,
   | "runId"
   | "threadId"
+  | "tenantId"
   | "bundle"
   | "task"
   | "replayOf"

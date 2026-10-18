@@ -54,7 +54,7 @@ describe("#188: approval through a @Channel", () => {
     expect(desk.refunded).toEqual([]);
 
     const click: ButtonClick = { action: "approve", user: "dana" };
-    await app.resume(paused.thread, click);
+    await app.resume(paused.threadId, click);
     expect(desk.posted).toHaveLength(1);
     await app.close();
   });
@@ -67,13 +67,13 @@ describe("#188: approval through a @Channel", () => {
     const { app, desk, paused } = await pausedRefund(book);
 
     const click: ButtonClick = { action: "approve", user: "dana" };
-    const done = await app.resume(paused.thread, click);
+    const done = await app.resume(paused.threadId, click);
 
     expect(done).toMatchObject({
       status: ExecutionStatus.Finished,
       finish: { name: "reply-workflow-finish" },
       output: { text: "Refunded." },
-      thread: paused.thread,
+      threadId: paused.threadId,
     });
     expect(desk.refunded).toEqual(["A-1"]);
     await app.close();
@@ -87,7 +87,7 @@ describe("#188: approval through a @Channel", () => {
     const { app, desk, paused } = await pausedRefund(book);
 
     const click: ButtonClick = { action: "reject", user: "dana", reason: "over the limit" };
-    const done = await app.resume(paused.thread, click);
+    const done = await app.resume(paused.threadId, click);
 
     expect(done).toMatchObject({
       status: ExecutionStatus.Finished,

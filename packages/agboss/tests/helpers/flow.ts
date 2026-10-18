@@ -59,4 +59,4 @@ export const execute = (
   start: Class,
   input: unknown,
   options?: ExecutionOptions,
-): Promise<ExecutionOutput> => app.execute(start, input as never, options);
+): Promise<ExecutionOutput> => app.execute(start, input as never, ...([options] as [never]));

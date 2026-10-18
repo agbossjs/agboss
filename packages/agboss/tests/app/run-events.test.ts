@@ -25,13 +25,13 @@ beforeEach(resetEvents);
 const hooks = (seen = workflowEvents()): string[] => seen.map((event) => event.hook);
 
 /** Every event carries the run's id and its thread. */
-function expectOneRun(run: Pick<ExecutionOutput, "runId" | "thread">): void {
+function expectOneRun(run: Pick<ExecutionOutput, "runId" | "threadId">): void {
   expect(events.length).toBeGreaterThan(0);
   for (const event of events) {
     expect({ hook: event.hook, runId: event.runId, threadId: event.threadId }).toEqual({
       hook: event.hook,
       runId: run.runId,
-      threadId: run.thread,
+      threadId: run.threadId,
     });
   }
 }
@@ -47,7 +47,7 @@ describe("#244 AC1: workflow events across a pause and its resume", () => {
     );
 
     const paused = await execute(app, Ask, { text: "apply" });
-    const done = await app.resume(paused.thread, approve);
+    const done = await app.resume(paused.threadId, approve);
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(done.status).not.toBe(ExecutionStatus.Paused);
@@ -76,8 +76,8 @@ describe("#244 AC1: workflow events across a pause and its resume", () => {
     );
 
     const first = await execute(app, Ask, { text: "apply twice" });
-    const second = await app.resume(first.thread, approve);
-    const done = await app.resume(first.thread, approve);
+    const second = await app.resume(first.threadId, approve);
+    const done = await app.resume(first.threadId, approve);
 
     expect([first.status, second.status]).toEqual(["paused", "paused"]);
     expect(hooks()).toEqual([
@@ -115,7 +115,7 @@ describe("#244 AC2: a run that fails after a resume, or is cancelled while pause
     );
 
     const paused = await execute(app, Ask, { text: "apply" });
-    const resumed = app.resume(paused.thread, approve);
+    const resumed = app.resume(paused.threadId, approve);
 
     await expect(resumed).rejects.toBeInstanceOf(AgentFailedError);
     expect(hooks()).toEqual(["workflow-start", "workflow-pause", "workflow-resume", "error"]);
@@ -133,14 +133,14 @@ describe("#244 AC2: a run that fails after a resume, or is cancelled while pause
     );
 
     const paused = await execute(app, Ask, { text: "apply" });
-    const cancelled = await app.cancel(paused.thread);
+    const cancelled = await app.cancel(paused.threadId);
 
     expect(cancelled).toEqual({ cancelled: true });
     expect(hooks()).toEqual(["workflow-start", "workflow-pause", "error"]);
     expect(workflowEvents().at(-1)?.detail).toBeInstanceOf(WorkflowCancelledError);
     expectOneRun(paused);
     // nothing is left to cancel: no second error
-    expect(await app.cancel(paused.thread)).toEqual({ cancelled: false });
+    expect(await app.cancel(paused.threadId)).toEqual({ cancelled: false });
     expect(hooks()).toEqual(["workflow-start", "workflow-pause", "error"]);
   });
 });
@@ -157,7 +157,7 @@ describe("#244 AC3: node-level events carry the real threadId, not the run id", 
     );
 
     const paused = await execute(app, Ask, { text: "apply" });
-    const done = await app.resume(paused.thread, approve);
+    const done = await app.resume(paused.threadId, approve);
 
     const nodeEvents = events.filter((event) => !workflowEvents().includes(event));
     expect(new Set(nodeEvents.map((event) => event.hook))).toEqual(
@@ -170,8 +170,8 @@ describe("#244 AC3: node-level events carry the real threadId, not the run id", 
         "action-start",
       ]),
     );
-    expect(done.thread).not.toBe(done.runId);
-    expect(new Set(nodeEvents.map((event) => event.threadId))).toEqual(new Set([done.thread]));
+    expect(done.threadId).not.toBe(done.runId);
+    expect(new Set(nodeEvents.map((event) => event.threadId))).toEqual(new Set([done.threadId]));
     expectOneRun(done);
   });
 
@@ -186,9 +186,9 @@ describe("#244 AC3: node-level events carry the real threadId, not the run id", 
 
     const first = await execute(app, Ask, { text: "one" });
     resetEvents();
-    const second = await execute(app, Ask, { text: "two" }, { thread: first.thread });
+    const second = await execute(app, Ask, { text: "two" }, { threadId: first.threadId });
 
-    expect(second.thread).toBe(first.thread);
+    expect(second.threadId).toBe(first.threadId);
     expect(second.runId).not.toBe(first.runId);
     expectOneRun(second);
   });

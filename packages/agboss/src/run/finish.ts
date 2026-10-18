@@ -81,6 +81,7 @@ export async function finishRun<TName extends string>(
     budgetUsd: ctx.budgetUsd,
     cost: buildCostReport([...usage, ...memory.usage]),
     threadId: ctx.base.threadId,
+    tenantId: ctx.base.tenantId,
     ternId,
     runId: ctx.runId,
     data: {

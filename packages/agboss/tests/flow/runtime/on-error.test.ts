@@ -73,7 +73,7 @@ describe("#272 AC7: .onError(E, path) right after the step that throws", () => {
 
     const paused = await execute(app, PayStart, { id: "7", outcome: "decline" });
     const restarted = await recoverApp();
-    const done = await restarted.resume(paused.thread, approve, { record: true });
+    const done = await restarted.resume(paused.threadId, approve, { record: true });
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(paused).toHavePausedAt(ApologizerAgent);

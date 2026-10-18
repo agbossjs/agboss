@@ -73,13 +73,13 @@ function showResult(session: Session, result: ExecutionOutput): void {
 async function turn(session: Session, line: string): Promise<void> {
   const busy = busyOf(session);
   try {
-    const thread = session.thread === undefined ? {} : { thread: session.thread };
+    const thread = session.thread === undefined ? {} : { threadId: session.thread };
     session.interrupted = false;
     const first = await busy((signal) =>
       executeUnchecked(session.app, session.start, { text: line }, { ...thread, signal }),
     );
     const result = await untilDone(first, session.app, session.ask, busy);
-    session.thread = result.thread;
+    session.thread = result.threadId;
     showResult(session, result);
   } catch (error) {
     if (session.interrupted) session.say(styleText("yellow", "interrupted"));

@@ -5,7 +5,7 @@ import {
   runInFrame,
   type FrameSpec,
 } from "../../../src/flow/context/frame.js";
-import { LiveExecutionContext } from "../../../src/flow/context/live-context.js";
+import { liveExecutionContextOf } from "../../../src/flow/context/live-context.js";
 import { ExecutionContextUnavailableError } from "../../../src/index.js";
 import { testExecutionContext } from "../../../src/testing/index.js";
 import { WriterAgent } from "./fixtures/context.workflow.js";
@@ -13,11 +13,14 @@ import { WriterAgent } from "./fixtures/context.workflow.js";
 /** The frame of the writer's first visit in execution `exec-1`. */
 function writerFrame(): FrameSpec {
   const agent = testExecutionContext({ executionId: "exec-1", step: { component: WriterAgent } });
-  const { executionId, threadId, ownerId, signal, workflow } = agent;
-  return { execution: { executionId, threadId, ownerId, signal, workflow }, step: agent.step };
+  const { executionId, threadId, ownerId, signal, workflow, tenant } = agent;
+  return {
+    execution: { executionId, threadId, ownerId, signal, workflow, tenant, values: {} },
+    step: agent.step,
+  };
 }
 
-const context = new LiveExecutionContext("FrameTest");
+const context = liveExecutionContextOf(undefined, "FrameTest");
 
 describe("#280 S18: a frame per step, closed in finally", () => {
   it("outside any frame there is none", () => {

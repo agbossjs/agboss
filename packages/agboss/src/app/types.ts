@@ -1,7 +1,12 @@
 import type { LaunchRecord } from "../flow/runtime/launch/records.js";
 import type { Class } from "../components/injection.js";
 import type { CostReport } from "../finops/usage.js";
-import type { ExecutionInputOf, ExecutionOutputOf } from "../flow/generated-types.js";
+import type {
+  ExecutionInputOf,
+  ExecutionOptionsArgs,
+  ExecutionOutputOf,
+} from "../flow/generated-types.js";
+import type { ContextFields, TenantValues } from "../flow/context/context-values.js";
 import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { PendingPause } from "../pause/index.js";
@@ -18,24 +23,17 @@ export enum ExecutionStatus {
   Paused = "paused",
 }
 
-/** Per call: the conversation to continue (omit for a new one) and what the run carries. */
-export interface ExecutionOptions {
-  readonly thread?: string;
-  /** Stops the run, like `app.cancel(thread)`. */
+/** What every leg of an execution takes, `execute` and `resume` alike. */
+export interface CallOptions {
+  /** Stops the run, like `app.cancel(threadId)`. */
   readonly signal?: AbortSignal | undefined;
   /** Token and tool-call events while the run works. */
   readonly onStream?: (event: RunStreamEvent) => void;
   /**
    * The caller's own value for channels and guardrails (`ChannelRequest.executionContext`) — not
-   * the injected `ExecutionContext`; #261 replaces it with typed `execution: { … }` values.
+   * the injected `ExecutionContext` nor its `execution` values.
    */
   readonly executionContext?: unknown;
-  /**
-   * Who the thread belongs to (a user, a tenant). A new thread is bound to it; continuing,
-   * resuming or cancelling a thread with another owner (or none for an owned thread) throws
-   * `ThreadOwnerError` before anything runs. Read as `executionContext.ownerId`.
-   */
-  readonly owner?: string | undefined;
   /** For channels (`ChannelRequest.metadata`); a resume keeps it unless it passes its own. */
   readonly metadata?: Readonly<Record<string, string>>;
   /** Extra LangGraph `configurable` keys for the run's nodes (the framework's own keys win). */
@@ -44,9 +42,44 @@ export interface ExecutionOptions {
   readonly record?: boolean;
 }
 
-/** `app.cancel(thread, { owner })`: the caller's owner, checked like `execute`'s. */
+/**
+ * `app.execute(Start, input, options)` (#261): named like the `ExecutionContext` fields they fill —
+ * the conversation to continue (`threadId`, omit for a new one), its owner, and the values of the
+ * execution's contexts, typed per start by the generated `.agboss/types.d.ts`.
+ */
+export interface ExecutionOptions extends CallOptions {
+  /** The thread to continue, in the execution's tenant; omitted → a new thread. */
+  readonly threadId?: string | undefined;
+  /**
+   * Who the thread belongs to (its access key, `executionContext.ownerId`). A new thread is bound
+   * to it; continuing, resuming or cancelling a thread with another owner (or none for an owned
+   * thread) throws `ThreadOwnerError` before anything runs.
+   */
+  readonly ownerId?: string | undefined;
+  /**
+   * The tenant's values (`ContextValues<T>` of the declared `TenantContext`): with nothing declared
+   * `{ tenantId?, weight? }`, omitted → the tenant `"default"`. Validated before the first step
+   * (invalid → `dto.invalid`, `onRunRejected`), frozen, inherited by child executions.
+   */
+  readonly tenant?: TenantValues;
+  /** The values of the declared `ExecutionContext` subclass; with the built-in class none. */
+  readonly execution?: ContextFields;
+}
+
+/**
+ * `app.resume(threadId, decision, options)`: a resume finds what exists, so it takes keys and
+ * access only — the tenant by its id (omitted → `"default"`) and the thread's owner. It runs on
+ * the context values the execution started with (its checkpoint).
+ */
+export interface ResumeOptions extends CallOptions {
+  readonly tenantId?: string | undefined;
+  readonly ownerId?: string | undefined;
+}
+
+/** `app.cancel(threadId, { tenantId, ownerId })`: the thread's tenant and the caller's owner. */
 export interface CancelOptions {
-  readonly owner?: string | undefined;
+  readonly tenantId?: string | undefined;
+  readonly ownerId?: string | undefined;
 }
 
 /**
@@ -70,7 +103,10 @@ export interface CancelOutput {
  */
 export interface ExecutionOutput<TOutput = unknown> {
   readonly status: ExecutionStatus;
-  readonly thread: string;
+  /** The execution's thread: `options.threadId` to continue it. */
+  readonly threadId: string;
+  /** The tenant of the thread (#261): `"default"` when the execution named none. */
+  readonly tenantId: string;
   /**
    * The run's id: the same in its observer events, `executionContext.executionId`, its Tern and its trace, and
    * kept by its resumes.
@@ -120,18 +156,16 @@ export interface App {
   execute<TStart extends Class>(
     start: TStart,
     input: ExecutionInputOf<InstanceType<TStart>>,
-    options?: ExecutionOptions,
+    ...options: ExecutionOptionsArgs<InstanceType<TStart>>
   ): Promise<ExecutionOutput<ExecutionOutputOf<InstanceType<TStart>>>>;
-  resume(
-    thread: string,
-    decision: unknown,
-    options?: Omit<ExecutionOptions, "thread">,
-  ): Promise<ExecutionOutput>;
+  /** Continues the thread's paused run (in `options.tenantId`) with `decision`. */
+  resume(threadId: string, decision: unknown, options?: ResumeOptions): Promise<ExecutionOutput>;
   /**
    * Cancels the thread's run: a running one is aborted (`executionContext.signal`; its `execute` rejects
    * with `WorkflowCancelledError`), a paused one is dropped (its `resume` throws `NotPausedError`).
+   * A thread the tenant does not have → `UnknownThreadError`.
    */
-  cancel(thread: string, options?: CancelOptions): Promise<CancelOutput>;
+  cancel(threadId: string, options?: CancelOptions): Promise<CancelOutput>;
   /**
    * Stops the app (#261, #265): no new executions, `onStop`, the running ones awaited up to the
    * shutdown timeout — then interrupted, each releasing its lease and staying `running`, so another

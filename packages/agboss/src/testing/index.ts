@@ -48,6 +48,8 @@ export { workflowOf } from "./workflow-of.js";
 export { toolOf } from "../components/runtime.js";
 export {
   testExecutionContext,
+  type TestApplicationOptions,
+  type TestContextOptions,
   type TestExecutionContextOptions,
   type TestStepOptions,
 } from "./execution-context.js";

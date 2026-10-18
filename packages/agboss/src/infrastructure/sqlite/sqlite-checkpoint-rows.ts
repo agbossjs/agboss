@@ -12,12 +12,16 @@ import { z } from "zod";
 export const CHECKPOINT_SCHEMA = `CREATE TABLE IF NOT EXISTS checkpoints (
   thread_id TEXT NOT NULL, checkpoint_ns TEXT NOT NULL, checkpoint_id TEXT NOT NULL,
   parent_checkpoint_id TEXT, checkpoint_type TEXT NOT NULL, checkpoint BLOB NOT NULL,
-  metadata_type TEXT NOT NULL, metadata BLOB NOT NULL,
+  metadata_type TEXT NOT NULL, metadata BLOB NOT NULL, tenant_id TEXT NOT NULL DEFAULT 'default',
   PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id));
 CREATE TABLE IF NOT EXISTS checkpoint_writes (
   thread_id TEXT NOT NULL, checkpoint_ns TEXT NOT NULL, checkpoint_id TEXT NOT NULL,
   task_id TEXT NOT NULL, idx INTEGER NOT NULL, channel TEXT NOT NULL, value_type TEXT NOT NULL,
-  value BLOB NOT NULL, PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx));`;
+  value BLOB NOT NULL, tenant_id TEXT NOT NULL DEFAULT 'default',
+  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx));`;
+
+/** The tables `tenant_id` is added to in a file written before tenants (#261, #265 S69 e). */
+export const TENANT_TAGGED_TABLES: readonly string[] = ["checkpoints", "checkpoint_writes"];
 
 /** What the saver's methods take (LangGraph's types are not all re-exported). */
 export type PutWritesArguments = Parameters<BaseCheckpointSaver["putWrites"]>;
@@ -47,14 +51,19 @@ export const WriteRow = z.object({
   value: Blob,
 });
 
-/** Where a checkpoint is: its thread, namespace and (absent = the latest) id. */
+/**
+ * Where a checkpoint is: its thread, namespace and (absent = the latest) id — and the tenant it is
+ * tagged with (#261: the run's `configurable.tenant_id`, `"default"` without one).
+ */
 export interface CheckpointKey {
+  readonly tenantId: string;
   readonly threadId: string;
   readonly namespace: string;
   readonly checkpointId: string | undefined;
 }
 
 const Configurable = z.object({
+  tenant_id: z.string().min(1).optional(),
   thread_id: z.string().min(1).optional(),
   checkpoint_ns: z.string().optional(),
   checkpoint_id: z.string().min(1).optional(),
@@ -69,6 +78,7 @@ export function keyOf(config: RunnableConfig, operation: string): CheckpointKey 
     );
   }
   return {
+    tenantId: configurable.tenant_id ?? "default",
     threadId: configurable.thread_id,
     namespace: configurable.checkpoint_ns ?? "",
     checkpointId: configurable.checkpoint_id,

@@ -1,10 +1,11 @@
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 
-/** What a trace is about: the workflow, the conversation thread and the run. */
+/** What a trace is about: the workflow, the conversation thread, the run and its tenant (#261). */
 export interface TraceContext {
   readonly bundle: string;
   readonly threadId: string;
   readonly runId: string;
+  readonly tenantId: string;
 }
 
 /**

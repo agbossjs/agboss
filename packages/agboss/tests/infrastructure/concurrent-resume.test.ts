@@ -53,7 +53,10 @@ function answerNextPauseFrom(other: TestApp): { call: Promise<ExecutionOutput> |
     call.catch(() => undefined);
     answered.call = call;
     for (let tick = 0; tick < 1000; tick += 1) {
-      const stored = await repository.findByThreadId(paused.run.threadId);
+      const stored = await repository.findByTenantIdAndThreadId(
+        paused.run.tenantId,
+        paused.run.threadId,
+      );
       if (stored?.status === PauseStatus.Resolved) return;
       await new Promise((resolve) => setImmediate(resolve));
     }
@@ -70,7 +73,7 @@ describe("#265 AC11 / #267 AC12: a tree is moved by one lease holder at a time",
     );
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
 
-    const resumed = await second(apps).resume(paused.thread, approve);
+    const resumed = await second(apps).resume(paused.threadId, approve);
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(resumed.output).toEqual({ text: "Charged." });
@@ -89,8 +92,8 @@ describe("#265 AC11 / #267 AC12: a tree is moved by one lease holder at a time",
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
 
     const [first, double] = await Promise.allSettled([
-      app.resume(paused.thread, approve),
-      second(apps).resume(paused.thread, approve),
+      app.resume(paused.threadId, approve),
+      second(apps).resume(paused.threadId, approve),
     ]);
 
     expect(first.status).toBe("fulfilled");
@@ -115,7 +118,7 @@ describe("#267 AC12 (Q58): a resume while the tree moves waits; the holder takes
     const paused = await execute(app, OrderWorkflowStart, { text: "charge twice" });
     const answered = answerNextPauseFrom(second(apps));
 
-    const moved = await app.resume(paused.thread, approve);
+    const moved = await app.resume(paused.threadId, approve);
     const waited = await answered.call;
 
     expect(moved.output).toEqual({ text: "Charged twice." });
@@ -145,7 +148,7 @@ describe("#265 AC11 (Q58): a holder frozen past the lease loses it, the waiting 
     const holding = new Promise<void>((resolve) => {
       hooks.holdStarted = resolve;
     });
-    const frozen = app.resume(paused.thread, approve);
+    const frozen = app.resume(paused.threadId, approve);
     frozen.catch(() => undefined);
     await holding;
 
@@ -184,7 +187,7 @@ describe("#265 S66 h: a resume's late `running` write never lands over the holde
       }
     };
 
-    const moved = await app.resume(paused.thread, approve);
+    const moved = await app.resume(paused.threadId, approve);
     const waited = await answered.call;
     await clock.advance(seconds(31));
 
@@ -192,7 +195,7 @@ describe("#265 S66 h: a resume's late `running` write never lands over the holde
       { status: "running", landed: true },
       { status: "running", landed: false },
     ]);
-    const [stored] = (await seen.records[0]?.lastTerns(paused.thread, 1)) ?? [];
+    const [stored] = (await seen.records[0]?.lastTerns(paused.threadId, 1)) ?? [];
     expect(stored?.status).toBe("answered");
     expect(moved.output).toEqual({ text: "Charged twice." });
     expect(waited?.output).toEqual({ text: "Charged twice." });

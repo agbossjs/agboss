@@ -12,5 +12,6 @@ export const executeUnchecked = (
   input: unknown,
   options?: ExecutionOptions,
 ): Promise<ExecutionOutput> =>
-  // the generated `ExecutionInputOf<Start>` is not known here: the run validates the input itself
-  app.execute(start, input as never, options);
+  // the generated `ExecutionInputOf<Start>` is not known here: the run validates the input and the
+  // contexts' values itself
+  app.execute(start, input as never, ...([options] as [never]));

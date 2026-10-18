@@ -181,11 +181,6 @@ export interface DecisionRequest<Q extends DecisionQuestions = DecisionQuestions
 // @public
 export type DecisionState = string | Readonly<Record<string, unknown>> | readonly (string | DecisionImage)[];
 
-// Warning: (ae-forgotten-export) The symbol "Environment" needs to be exported by the entry point index.d.ts
-//
-// @public
-export const ENV: InjectionToken<Environment>;
-
 // @public
 export function file(filePath: string): string;
 

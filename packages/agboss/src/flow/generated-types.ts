@@ -1,4 +1,6 @@
 import type { NodeKind } from "./ast.js";
+import type { ExecutionOptions } from "../app/types.js";
+import type { ContextValues, TenantValues } from "./context/context-values.js";
 
 export type { HistoryOf, Produced } from "./dto-wrappers.js";
 
@@ -69,7 +71,10 @@ export interface Outputs {
   readonly [notGenerated]?: never;
 }
 
-/** Input and output per start: `app.execute(Start, input)` and `result.output`. */
+/**
+ * Input and output per start: `app.execute(Start, input)` and `result.output`; `tenant` /
+ * `execution` — the context subclasses its application declares (#261), typing the options.
+ */
 export interface WorkflowStarts {
   readonly [notGenerated]?: never;
 }
@@ -97,7 +102,7 @@ export interface RouterAnswers {
 }
 
 /**
- * The application's environment (#261): what `ENV` gives. The generated file makes it the
+ * The application's environment (#261): `applicationContext.environment`. The generated file makes it the
  * application's contract — `interface Environment extends AppEnvironment {}` for
  * `@Application({ environment: AppEnvironment })`; the project writes no `declare module`.
  */
@@ -174,3 +179,36 @@ export type ExecutionInputOf<TInstance> =
 /** What `result.output` is after `app.execute(Start, …)`: the outputs of the finishes it reaches. */
 export type ExecutionOutputOf<TInstance> =
   WorkflowStartEntry<TInstance> extends { readonly output: infer TOutput } ? TOutput : unknown;
+
+/**
+ * The context classes of a start's application (#261), from its generated entry: `tenant` and
+ * `execution` are there only when the application declares its own subclass.
+ */
+type StartTenantOf<TInstance> =
+  WorkflowStartEntry<TInstance> extends { readonly tenant: infer TTenant } ? TTenant : never;
+type StartExecutionOf<TInstance> =
+  WorkflowStartEntry<TInstance> extends { readonly execution: infer TExecution }
+    ? TExecution
+    : never;
+
+/** `tenant`: the declared subclass's values, required; else the built-in `{ tenantId?, weight? }`. */
+type TenantOptionOf<TInstance> = [StartTenantOf<TInstance>] extends [never]
+  ? { readonly tenant?: TenantValues }
+  : { readonly tenant: ContextValues<StartTenantOf<TInstance>> };
+
+/** `execution`: the declared subclass's values, required; with the built-in class it does not compile. */
+type ExecutionOptionOf<TInstance> = [StartExecutionOf<TInstance>] extends [never]
+  ? { readonly execution?: never }
+  : { readonly execution: ContextValues<StartExecutionOf<TInstance>> };
+
+/** What `app.execute(Start, input, options)` takes for a start: its application's contexts typed. */
+export type ExecutionOptionsOf<TInstance> = Omit<ExecutionOptions, "tenant" | "execution"> &
+  TenantOptionOf<TInstance> &
+  ExecutionOptionOf<TInstance>;
+
+/** The options argument of `app.execute`: required when the start's application declares contexts. */
+export type ExecutionOptionsArgs<TInstance> = [
+  StartTenantOf<TInstance> | StartExecutionOf<TInstance>,
+] extends [never]
+  ? [options?: ExecutionOptionsOf<TInstance>]
+  : [options: ExecutionOptionsOf<TInstance>];

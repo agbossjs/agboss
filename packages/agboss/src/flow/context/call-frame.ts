@@ -1,6 +1,7 @@
 import type { Class } from "../../components/injection.js";
 import type { WorkflowDescriptor } from "./execution-context.js";
 import type { FrameSpec } from "./frame.js";
+import type { TenantContext } from "./tenant-context.js";
 import { idempotencyKeyOf } from "./idempotency.js";
 
 /** A tool called on its own, not by an agent: over MCP, or `app.tool(T).invoke(…)` in a test. */
@@ -12,6 +13,8 @@ export interface StandaloneCall {
   readonly executionId: string;
   readonly callId: string;
   readonly signal: AbortSignal;
+  /** The tenant the call runs for: the application's default one (#261). */
+  readonly tenant: TenantContext;
 }
 
 /**
@@ -28,6 +31,8 @@ export function standaloneCallFrameOf(call: StandaloneCall): FrameSpec {
       ownerId: undefined,
       signal: call.signal,
       workflow: Object.freeze({ ...workflow, startedVersion: workflow.version }),
+      tenant: call.tenant,
+      values: Object.freeze({}),
     }),
     step: Object.freeze({
       component: Object.freeze({ type, name }),

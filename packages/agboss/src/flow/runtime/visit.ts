@@ -27,6 +27,7 @@ import { launchEdgeOf, launchFor, launchTicketOf, nextOfLaunch } from "./launch/
 import { reportTruncation } from "./launch/launch-report.js";
 import type { LaunchTicket } from "./launch/records.js";
 import type { RuntimeLaunch } from "./launch/runtime-launch.js";
+import type { RuntimeContexts } from "../context/runtime-contexts.js";
 
 /**
  * A node's visit (#272 → Runtime): limits checked before an agent or a router runs, the node run,
@@ -45,6 +46,8 @@ export interface VisitDeps {
   readonly spentToday: SpentToday;
   /** The workflow, for the step's `ExecutionContext` (#280). */
   readonly workflow: WorkflowIdentity;
+  /** The application's context levels (#261), for the step's tenant. */
+  readonly contexts: RuntimeContexts;
   /** What values are built from (#271). */
   readonly provenance: RuntimeProvenance;
   /** The graph: what a launch dispatches (#273). */
@@ -194,7 +197,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
         ranAsStep = true;
       }
       const frame = {
-        ...stepFrameOf(node, state, config, deps.workflow),
+        ...stepFrameOf(node, state, config, deps.workflow, deps.contexts),
         services: { reportUsage },
       };
       const outcome = await runInFrame(frame, () => runner(state, config));

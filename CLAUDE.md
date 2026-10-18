@@ -770,20 +770,20 @@ import type { AppEnvironment } from "./app.environment.js";
 export const environment: AppEnvironment = { auditUrl: "http://audit.test", retries: 0 };
 ```
 
-Services inject it with `ENV`, typed by the contract through `.agboss/types.d.ts` (until #261 PR 3's
-`applicationContext.environment`), never `process.env`; a `Secret` prints as `***` everywhere and
-only `.reveal()` gives the value:
+Components read it as `applicationContext.environment` (`deps: [ApplicationContext]`, #261 PR 3 —
+there is no separate token), typed by the contract through `.agboss/types.d.ts`, never
+`process.env`; the chosen environment's name is `applicationContext.environmentName`. A `Secret`
+prints as `***` everywhere and only `.reveal()` gives the value:
 
 ```ts file=src/desk/services/audit.service.ts
-import { ENV, Injectable } from "agboss";
-import type { AppEnvironment } from "../environments/app.environment.js";
+import { ApplicationContext, Injectable } from "agboss";
 
-@Injectable({ deps: [ENV] })
+@Injectable({ deps: [ApplicationContext] })
 export class AuditService {
-  constructor(private readonly environment: AppEnvironment) {}
+  constructor(private readonly applicationContext: ApplicationContext) {}
 
   eventsUrl(): string {
-    return `${this.environment.auditUrl}/events`;
+    return `${this.applicationContext.environment.auditUrl}/events`;
   }
 }
 ```
@@ -809,15 +809,63 @@ Routers and guards use decision models too. README → Quality gates has a full 
 ### Runs: context, limits, errors
 
 - `const app = await createApp(DeskApplication, { env })` (#261: always an `@Application`;
-  `createApp(Workflow)` does not compile). `app.execute(Start, input, { thread, owner, signal,
-metadata, onStream })` runs the workflow of that start (any workflow of the application; one
-  start in two workflows → `[application.ambiguous-start]`) → `ExecutionOutput`
-  (`output` is the finish's DTO, `finish`, `path`, `spend`, `thread`, `runId`);
-  `app.resume(thread, decision)` continues a paused run; `app.cancel(thread)` aborts a running one
-  (`WorkflowCancelledError`) or drops a paused one (`resume` → `NotPausedError`). A thread with an
-  `owner` rejects another owner (`ThreadOwnerError`).
+  `createApp(Workflow)` does not compile). `app.execute(Start, input, { threadId, ownerId, signal,
+tenant, execution, metadata, onStream })` runs the workflow of that start (any workflow of the
+  application; one start in two workflows → `[application.ambiguous-start]`) → `ExecutionOutput`
+  (`output` is the finish's DTO, `finish`, `path`, `spend`, `threadId`, `tenantId`, `runId`);
+  `app.resume(threadId, decision, { tenantId, ownerId })` continues a paused run;
+  `app.cancel(threadId, { tenantId, ownerId })` aborts a running one (`WorkflowCancelledError`) or
+  drops a paused one (`resume` → `NotPausedError`). The options are named like the
+  `ExecutionContext` fields they fill — `threadId`, never `thread`. A thread with an `ownerId`
+  rejects another owner (`ThreadOwnerError`).
+- **Context levels (#261 PR 3):** `ApplicationContext` (`name`, `version`, `instanceId`,
+  `startedAt`, `environmentName`, `environment`, `host`) → `TenantContext` (`tenantId`, `weight` —
+  a positive integer, default 1, for #266's `TenantWeighted` — and the project's fields) →
+  `ExecutionContext` (`executionContext.tenant`, `.tenant.application` — the same objects).
+  Each is its type and its DI token; a component takes the one of its level. The project extends a
+  level by subclassing with DTO field decorators (no `prompt`: `[context.prompt-unused]`) and
+  declares it once, `@Application({ tenantContext, executionContext })`; the values come per
+  execution, `tenant: { … }` / `execution: { … }` — `ContextValues<T>`, typed per start by the
+  generated types, validated before the first step (invalid → `dto.invalid`, `onRunRejected`, the
+  field named, never the value), frozen, kept in the checkpoint (a resume runs on them). Nothing
+  declared → `tenant: { tenantId }` optional (`"default"`), `execution` does not compile. A
+  thread's key is `tenantId` + `threadId`: another tenant's thread is `UnknownThreadError`; every
+  record, lease and tree key carries `tenantId`, traces too (LangGraph `metadata` / `tags`,
+  Langfuse `tenant:<id>`). Identity only — never secrets (a service gets a secret from the
+  identity). Injecting a subclass the application does not declare → `[context.not-declared]`.
+
+<!-- snippet-context
+import { ExecutionContext, Injectable, TenantContext } from "agboss";
+import { OneOf, Text } from "agboss/dto";
+-->
+
+```ts
+export class ShopTenantContext extends TenantContext {
+  @OneOf({ values: ["free", "pro"] })
+  plan!: "free" | "pro";
+}
+
+export class ShopExecutionContext extends ExecutionContext {
+  @Text({ sensitive: true }) // identity, marked for PII (#120) — never a secret
+  userId!: string;
+}
+
+// @Application({ …, tenantContext: ShopTenantContext, executionContext: ShopExecutionContext })
+// app.execute(SupportWorkflowStart, message, {
+//   threadId, ownerId: userId, tenant: { tenantId, plan }, execution: { userId } });
+
+@Injectable({ deps: [ShopTenantContext] }) // inside an execution: its tenant; outside → context.unavailable
+export class PlanService {
+  constructor(private readonly shopTenantContext: ShopTenantContext) {}
+
+  isPro(): boolean {
+    return this.shopTenantContext.plan === "pro";
+  }
+}
+```
+
 - **The execution lease (#265, Q58):** `execute` / `resume` move a tree only while holding its lease
-  (keyed by tenant `"default"` and `rootExecutionId`, `seconds(30)`, renewed every 10 s and before
+  (keyed by `tenantId` and `rootExecutionId`, `seconds(30)`, renewed every 10 s and before
   every checkpoint write, released when the pass ends). A `resume` records its decision first —
   the pause goes `Pending → Resolved` atomically, a second resume of one pause gets
   `NotPausedError` — then waits for the lease; the holder takes decisions resolved meanwhile and the
@@ -838,14 +886,16 @@ metadata, onStream })` runs the workflow of that start (any workflow of the appl
 - **`ExecutionContext` (#280)** is the one context of an execution, injected through the
   constructor (`deps: [ExecutionContext]`, a parameter named `executionContext`) into any component;
   there is no `ctx` parameter (tools, actions, judges get only their input). Read-only data:
-  `executionId`, `threadId`, `ownerId`, `signal`, `workflow` (`type`, `name`, `version`,
+  `executionId`, `threadId`, `ownerId`, `tenant`, `signal`, `workflow` (`type`, `name`, `version`,
   `startedVersion`), `step` (`component`, `nodeId`, `visitNumber`, `idempotencyKey` =
   `${executionId}:${nodeId}:${visitNumber}[:${itemIndex}][:${callId}]`, `callId` during a tool
   call, `itemIndex`, `copyNumber`), the tree (`parent`, `root`, `depth`, `executionOf(W)`; one level
   until #263). Every read gives the current step (an `AsyncLocalStorage` frame per node visit and per
   tool call, closed when it ends); outside an execution or after its step ended a read throws
   `ExecutionContextUnavailableError` (`context.unavailable`). No input, no metadata in it: domain
-  data come through `input`. Units: `new X(testExecutionContext(), fakes)`. Framework code reads the
+  data come through `input`. Units: `new X(testExecutionContext(), fakes)` — with
+  `{ tenantContext, tenant, executionContext, execution, application: { environment } }` for the
+  levels. Framework code reads the
   run with the internal `extractRunContext` — never by parsing `configurable`.
 - **Spend of services that are not models** (#280 S43): `deps: [SpendRecorder]` in a `@Tool` /
   `@Action`, `this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) })` — into the

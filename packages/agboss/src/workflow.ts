@@ -16,7 +16,7 @@ import type { LoadedRouter } from "./flow/runtime/routers.js";
 import type { WorkflowLimits } from "./graph/settings.js";
 import type { ModelProviderType } from "./models/model-provider.decorator.js";
 import type { ContainerOptions } from "./components/container/container.js";
-import type { Environment } from "./flow/generated-types.js";
+import type { RuntimeContexts } from "./flow/context/runtime-contexts.js";
 import type { IncompatibleResumePolicy } from "./run/resume-guard.js";
 import type { WorkflowObserver } from "./core/observer-hooks.js";
 
@@ -24,8 +24,12 @@ import type { WorkflowObserver } from "./core/observer-hooks.js";
 export interface WorkflowServices {
   /** A router on the workflow's default router model (Jev) — cheap decisions inside tools. */
   readonly router: (name: string) => RouterEngine;
-  /** The app's environment (`ENV`); absent = the app has none. */
-  readonly environment?: Environment;
+  /**
+   * The application's context levels (#261, framework wiring — `RuntimeContexts` is internal,
+   * `agboss/internal`): its `ApplicationContext` (with the environment) and
+   * the declared context classes; absent = a workflow on its own (eval, replay), its own defaults.
+   */
+  readonly contexts?: RuntimeContexts;
   /** Framework wiring of the app's container: replacements (test mocks) and lifecycle. */
   readonly container?: ContainerOptions;
 }

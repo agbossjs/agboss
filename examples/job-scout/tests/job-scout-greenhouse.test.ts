@@ -5,6 +5,13 @@ import { GreenhouseJobs } from "../src/tools/greenhouse-jobs.tool.js";
 import { GreenhouseBoards } from "../src/services/greenhouse-boards.service.js";
 import { JobFitJudge } from "../src/services/job-fit.service.js";
 
+/** The application context of the dev environment: the public board API. */
+const { application } = testExecutionContext({
+  application: {
+    environment: { greenhouseApiUrl: "https://boards-api.greenhouse.io", sqlitePath: ":memory:" },
+  },
+}).tenant;
+
 const greenhouse = (deps: {
   judge: FitJudge;
   fetchJson: (url: string) => Promise<unknown>;
@@ -14,11 +21,7 @@ const greenhouse = (deps: {
     new GreenhouseJobs(
       { rate: deps.judge },
       deps.search,
-      new GreenhouseBoards(
-        deps.search,
-        { greenhouseApiUrl: "https://boards-api.greenhouse.io", sqlitePath: ":memory:" },
-        deps.fetchJson,
-      ),
+      new GreenhouseBoards(deps.search, application, deps.fetchJson),
       testExecutionContext(),
     ),
   );

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { runInFrame, type FrameSpec } from "../../../src/flow/context/frame.js";
-import { LiveExecutionContext } from "../../../src/flow/context/live-context.js";
+import { liveExecutionContextOf } from "../../../src/flow/context/live-context.js";
 import { defineTool } from "../../../src/tools/index.js";
 import { replyWith, routeTo, testExecutionContext, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -23,7 +23,7 @@ import {
   ContextApplication,
 } from "./fixtures/context.workflow.js";
 
-const context = new LiveExecutionContext("ParallelTest");
+const context = liveExecutionContextOf(undefined, "ParallelTest");
 
 /** A tool that reads its step after `delayMs`, while the other call runs. */
 const reader = (name: string, delayMs: number, steps: Map<string, unknown>) =>
@@ -42,8 +42,11 @@ const reader = (name: string, delayMs: number, steps: Map<string, unknown>) =>
 
 function agentFrame(): FrameSpec {
   const agent = testExecutionContext({ executionId: "exec-1", step: { component: WriterAgent } });
-  const { executionId, threadId, ownerId, signal, workflow } = agent;
-  return { execution: { executionId, threadId, ownerId, signal, workflow }, step: agent.step };
+  const { executionId, threadId, ownerId, signal, workflow, tenant } = agent;
+  return {
+    execution: { executionId, threadId, ownerId, signal, workflow, tenant, values: {} },
+    step: agent.step,
+  };
 }
 
 describe("#280 AC7: parallel branches each see their own step", () => {

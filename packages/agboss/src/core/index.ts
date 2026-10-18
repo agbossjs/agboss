@@ -57,8 +57,6 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   type DecisionState,
   /** @deprecated Import from "agboss" (#195). */
-  ENV,
-  /** @deprecated Import from "agboss" (#195). */
   file,
   /** @deprecated Import from "agboss" (#195). */
   Guardrail,

@@ -51,7 +51,7 @@ describe("#271 AC11: outdating across a pause", () => {
       const paused = await execute(app, LoopWorkflowStart, { topic: "t" });
       const eventsBeforePause = outdatingEvents.length;
       const restarted = await recoverApp();
-      const done = await restarted.resume(paused.thread, approve, { record: true });
+      const done = await restarted.resume(paused.threadId, approve, { record: true });
 
       expect(paused.status).toBe(ExecutionStatus.Paused);
       expect(eventsBeforePause).toBe(1);

@@ -20,6 +20,8 @@ class StreamingCallbackHandler extends BaseCallbackHandler {
 /** What a run streams with besides its options: its ids and its start's input. */
 export interface RunIdentity {
   readonly threadId: string;
+  /** The tenant of its thread (#261). */
+  readonly tenantId: string;
   readonly runId: string;
   /** The start's validated input (the internal `run.input` when it is an object). */
   readonly input?: unknown;
@@ -32,7 +34,8 @@ const runContextOf = (identity: RunIdentity, options: RunOptions): RunContext =>
     threadId: identity.threadId,
     signal: options.signal,
     metadata: options.metadata,
-    owner: options.owner,
+    ownerId: options.ownerId,
+    tenantId: identity.tenantId,
     input: objectInput(identity.input),
   });
 
@@ -56,21 +59,35 @@ export function streamConfig<TName extends string>(
   streamMode: "values";
   durability: "sync";
   runName: string;
+  metadata: Readonly<Record<string, string>>;
+  tags: string[];
   callbacks: BaseCallbackHandler[];
   signal?: AbortSignal;
 } {
-  const { threadId, runId } = identity;
-  const callbacks = deps.tracing?.callbacks({ bundle: deps.config.name, threadId, runId }) ?? [];
+  const { threadId, runId, tenantId } = identity;
+  const trace = { bundle: deps.config.name, threadId, runId, tenantId };
+  const callbacks = deps.tracing?.callbacks(trace) ?? [];
   if (options.onStream !== undefined) {
     callbacks.push(new StreamingCallbackHandler(options.onStream));
   }
   const run = runContextOf(identity, options);
   const services = { run, executionContext: options.executionContext };
   return {
-    ...runConfig(runId, services, options.configurable),
+    // the checkpoint thread is the run; its rows are tagged with the run's tenant (#261 AC6)
+    ...runConfig(runId, services, { ...options.configurable, tenant_id: tenantId }),
     streamMode: "values",
     durability: "sync",
     runName: deps.config.name,
+    // the standard LangGraph fields (#261 AC6): a trace or checkpoint is found by its organization
+    metadata: {
+      tenantId,
+      executionId: runId,
+      rootExecutionId: runId,
+      threadId,
+      workflowName: deps.config.name,
+      workflowVersion: deps.config.version,
+    },
+    tags: [`tenant:${tenantId}`, deps.config.name],
     callbacks,
     ...(options.signal === undefined ? {} : { signal: options.signal }),
   };

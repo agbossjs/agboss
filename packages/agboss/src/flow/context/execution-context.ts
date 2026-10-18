@@ -1,8 +1,9 @@
 import type { Class } from "../../components/injection.js";
 import type { ComponentRecord } from "../runtime/records.js";
+import type { TenantContext } from "./tenant-context.js";
 
 /**
- * The execution context (#280): the one context of an execution, injected through the
+ * The execution context (#280, #261): the one context of an execution, injected through the
  * constructor (`deps: [ExecutionContext]`, `constructor(private readonly executionContext:
  * ExecutionContext)`). It holds data about the current execution and its current step only — no
  * container, no I/O — and is read-only. Wiki → Components.
@@ -57,24 +58,30 @@ export interface StepDescriptor extends StepRecord {
  * belongs to ended, throws `ExecutionContextUnavailableError`.
  */
 export abstract class ExecutionContext {
+  // `declare`: the framework sets them on its own instance; a subclass adds its fields only
   /** Unique per execution; the same after a resume. */
-  abstract readonly executionId: string;
+  declare readonly executionId: string;
   /** The conversation the execution belongs to (`ExecutionOutput.thread`). */
-  abstract readonly threadId: string;
-  /** Who the thread belongs to (`execute(…, { owner })`); `undefined` for a thread without one. */
-  abstract readonly ownerId: string | undefined;
-  /** Aborted by `app.cancel(thread)` or by the caller's own `signal`. */
-  abstract readonly signal: AbortSignal;
-  abstract readonly workflow: WorkflowDescriptor;
-  abstract readonly step: StepDescriptor;
+  declare readonly threadId: string;
+  /** Who the thread belongs to (`execute(…, { ownerId })`); `undefined` for a thread without one. */
+  declare readonly ownerId: string | undefined;
+  /**
+   * The organization the execution works for (#261): the execution's one `TenantContext` — the
+   * project's subclass when the application declares one — and through it `tenant.application`.
+   */
+  declare readonly tenant: TenantContext;
+  /** Aborted by `app.cancel(threadId)` or by the caller's own `signal`. */
+  declare readonly signal: AbortSignal;
+  declare readonly workflow: WorkflowDescriptor;
+  declare readonly step: StepDescriptor;
   /** The index of a child launched per item (#263); `undefined` for a root or a single child. */
-  abstract readonly itemIndex: number | undefined;
+  declare readonly itemIndex: number | undefined;
   /** The parent execution, `undefined` at the root (one level until #263). */
-  abstract readonly parent: this | undefined;
+  declare readonly parent: this | undefined;
   /** The root execution; `root === this` at the root. */
-  abstract readonly root: this;
+  declare readonly root: this;
   /** The level in the execution tree, from 1 at the root. */
-  abstract readonly depth: number;
+  declare readonly depth: number;
   /** The nearest execution of `workflow` in the chain, this one included; `undefined` when none. */
-  abstract executionOf(workflow: WorkflowClass): this | undefined;
+  declare readonly executionOf: (workflow: WorkflowClass) => this | undefined;
 }

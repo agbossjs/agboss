@@ -69,11 +69,13 @@ export {
 export {
   ExecutionStatus,
   type App,
+  type CallOptions,
   type CancelOptions,
   type CancelOutput,
   type CloseOptions,
   type ExecutionOptions,
   type ExecutionOutput,
+  type ResumeOptions,
 } from "../app/types.js";
 export type { RunId } from "../core/run-context.js";
 export {
@@ -85,6 +87,14 @@ export {
   type WorkflowDescriptor,
   type WorkflowRecord,
 } from "../flow/context/execution-context.js";
+export { ApplicationContext, type HostContext } from "../flow/context/application-context.js";
+export { TenantContext } from "../flow/context/tenant-context.js";
+export type {
+  ContextValues,
+  ExecutionContextClass,
+  TenantContextClass,
+  TenantValues,
+} from "../flow/context/context-values.js";
 export { loadWorkflow, loadWorkflowClass, WorkflowLoadError } from "../loader/load-workflow.js";
 export { withProfile } from "../profile-workflow.js";
 export {

@@ -1,5 +1,6 @@
 import type { AppDeps } from "../app/app-deps.js";
 import { executionGraphOf, type ExecutionGraph } from "../flow/runtime/build.js";
+import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 
 /**
  * The workflow's graph for LangGraph Studio: Studio runs it itself, so tracing callbacks (when on)
@@ -16,6 +17,7 @@ export function studioGraph(deps: AppDeps): ExecutionGraph {
     bundle: deps.config.name,
     threadId: "studio",
     runId: "studio",
+    tenantId: DEFAULT_TENANT_ID,
   });
   return graph.withConfig({ callbacks });
 }

@@ -5,7 +5,7 @@ import type { StepDescriptor } from "./execution-context.js";
 export interface UnavailableRead {
   /** The class that read it (`AuditRepository`), or `the app` for a direct read. */
   readonly consumer: string;
-  /** The field read (`executionContext.step`). */
+  /** The field read, with its context (`executionContext.step`, `tenantContext.tenantId`). */
   readonly field: string;
 }
 
@@ -24,7 +24,7 @@ export class ExecutionContextUnavailableError extends AGBossError {
   /** A read outside any execution. */
   static outside(read: UnavailableRead): ExecutionContextUnavailableError {
     return new ExecutionContextUnavailableError(
-      `${read.consumer} read executionContext.${read.field} outside an execution. Read it inside a method called during an execution.`,
+      `${read.consumer} read ${read.field} outside an execution. Read it inside a method called during an execution, or take ApplicationContext.`,
     );
   }
 

@@ -14,6 +14,21 @@ import { shortVersion, versionOf } from "../terns/index.js";
 import { isMcpFacade, type AnyTool } from "../tools/index.js";
 import { NO_ENVIRONMENT_VALUES, type DescribedEnvironment } from "../environments/resolve.js";
 import { modelProviderLine, resolvedModelUsesOf } from "../models/resolution.js";
+import { applicationContextOf } from "../flow/context/application-context.js";
+import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
+
+/** The application context `describe` builds tools with: an empty environment unless one is given. */
+const describedApplication = (environment: DescribedEnvironment | undefined): RuntimeContexts => ({
+  ...standaloneContexts({ name: "describe", version: "0.0.0" }),
+  application: applicationContextOf({
+    name: "describe",
+    version: "0.0.0",
+    instanceId: "describe",
+    startedAt: new Date(0),
+    environmentName: environment?.name ?? "dev",
+    environment: environment?.values ?? NO_ENVIRONMENT_VALUES,
+  }),
+});
 
 /**
  * Tools are built with a router that is never called and, unless one is given, an empty environment —
@@ -24,7 +39,7 @@ export const describeServices: WorkflowServices = {
     name,
     route: () => Promise.reject(new Error("describe does not call routers")),
   }),
-  environment: NO_ENVIRONMENT_VALUES,
+  contexts: describedApplication(undefined),
 };
 
 /** A component's reasoning; unset = its model provider's. */
@@ -159,13 +174,13 @@ function agentLines(bundle: AssembledWorkflow, tools: ReadonlyMap<string, AnyToo
   });
 }
 
-/** Describing services with the app's environment (its tools may inject `ENV`). */
+/** Describing services with the app's environment (its tools may read `applicationContext.environment`). */
 export const describeServicesWith = (
   environment: DescribedEnvironment | undefined,
 ): WorkflowServices =>
   environment === undefined
     ? describeServices
-    : { ...describeServices, environment: environment.values };
+    : { ...describeServices, contexts: describedApplication(environment) };
 
 const environmentLines = (environment: DescribedEnvironment | undefined): string[] =>
   environment === undefined

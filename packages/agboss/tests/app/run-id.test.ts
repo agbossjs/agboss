@@ -60,7 +60,7 @@ describe("#238: one run id per run", () => {
 
     const paused = await execute(app, SearchStart, { text: "apply", limit: 1 });
     const beforeResume = seen.events.length;
-    const done = await app.resume(paused.thread, approve);
+    const done = await app.resume(paused.threadId, approve);
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(done.runId).toBe(paused.runId);
@@ -81,7 +81,7 @@ describe("#238: one run id per run", () => {
       app,
       SearchStart,
       { text: "two", limit: 1 },
-      { thread: first.thread },
+      { threadId: first.threadId },
     );
 
     expect(first.runId).not.toBe(second.runId);

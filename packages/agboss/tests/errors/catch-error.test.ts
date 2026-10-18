@@ -48,7 +48,7 @@ describe("#194 AC1: catchError(BudgetExceededError) when the run budget runs out
 
       const paused = await execute(app, Order, { text: "buy a lamp" });
       const restarted = await recoverApp();
-      const done = await restarted.resume(paused.thread, approve);
+      const done = await restarted.resume(paused.threadId, approve);
 
       expect(paused).toHavePausedAt(Buyer);
       expect(done).toFinishWith(OverBudget);

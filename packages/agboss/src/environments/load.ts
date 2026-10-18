@@ -142,6 +142,24 @@ export async function environmentFor(
   return loaded === undefined ? undefined : resolveEnvironment(loaded, processEnv);
 }
 
+/** The chosen environment's name and values (`applicationContext.environmentName` / `.environment`). */
+export interface NamedEnvironment {
+  readonly environmentName?: string;
+  readonly environment?: Environment;
+}
+
+/** Like `environmentFor`, with the chosen environment's name: what an application instance runs on. */
+export async function namedEnvironmentFor(
+  owner: EnvironmentOwner,
+  selection: EnvironmentSelection,
+  processEnv: NodeJS.ProcessEnv,
+  defaultName: string = APP_DEFAULT_ENVIRONMENT,
+): Promise<NamedEnvironment> {
+  const loaded = await selectedEnvironment(owner, selection.env, defaultName);
+  if (loaded === undefined) return {};
+  return { environmentName: loaded.name, environment: resolveEnvironment(loaded, processEnv) };
+}
+
 /** The environment for `agboss describe`: like `environmentFor`, but a missing variable is shown, not fatal. */
 export async function describedEnvironmentFor(
   owner: EnvironmentOwner,

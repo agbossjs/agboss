@@ -91,7 +91,10 @@ async function ran(run: BranchRun, runner: NodeRunner, daySpent: number): Promis
   const reportUsage = (record: UsageRecord): void => {
     run.services.push({ ...record, caller: `${node.kind}:${node.id}` });
   };
-  const frame = { ...stepFrameAt(site, view, config, deps.workflow), services: { reportUsage } };
+  const frame = {
+    ...stepFrameAt(site, view, config, deps.workflow, deps.contexts),
+    services: { reportUsage },
+  };
   const outcome = await runInFrame(frame, () => runner(view, config));
   const usage = [...(outcome.usage ?? []), ...run.services];
   live.spent.push(...usage);

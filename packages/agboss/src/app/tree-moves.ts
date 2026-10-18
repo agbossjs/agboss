@@ -4,7 +4,6 @@ import { PauseStatus } from "../infrastructure/paused-execution.repository.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { recoveryPassOf, resumePassOf, RootCalls } from "./recovery-pass.js";
 import { runningOutcome } from "../run/execute.js";
-import { DEFAULT_TENANT_ID } from "../infrastructure/tenant.js";
 import type { InterruptedRun } from "../run/continue-agent.js";
 import type { AgentExecutionOutput, RunDeps } from "../run/types.js";
 import type { AppDeps } from "./app-deps.js";
@@ -12,11 +11,11 @@ import { currentOutputOf } from "./current-output.js";
 import type { ExecutionLeases, HeldExecutionLease } from "./execution-leases.js";
 import { LeasedCheckpointSaver } from "./leased-checkpointer.js";
 import { isHandedOver } from "./handed-over.js";
-import type { LiveRuns } from "./live-runs.js";
+import type { LiveRuns, TreeCall } from "./live-runs.js";
 import type { PausedRunBook } from "./paused-runs.js";
 import { runResultOf } from "./result.js";
 import { observeLeg } from "./run-events.js";
-import { ExecutionStatus, type ExecutionOptions, type ExecutionOutput } from "./types.js";
+import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 
 /**
  * Moving an execution tree under its lease (#265, Q58; the concurrent resumes of #267): one pass
@@ -42,15 +41,16 @@ export interface TreeMoveParts {
   readonly trees: ExecutionTreeRepository;
 }
 
-export type TreeCall = Omit<ExecutionOptions, "thread">;
+export type { TreeCall } from "./live-runs.js";
+
+/** The tree of a run: its id, its conversation thread and its tenant (the observer state of its passes). */
+export interface TreeState extends Required<Pick<AppState, "runId" | "threadId">> {
+  readonly tenantId: string;
+}
 
 export interface TreeMoves {
   /** A new tree's first pass (`app.execute`) under its lease, then the drain. */
-  first(
-    state: Required<Pick<AppState, "runId" | "threadId">>,
-    call: TreeCall,
-    pass: TreePass,
-  ): Promise<ExecutionOutput>;
+  first(state: TreeState, call: TreeCall, pass: TreePass): Promise<ExecutionOutput>;
   /** A resume's second phase: the tree's lease (waiting while another call holds it), then its decisions. */
   resumed(run: AgentExecutionOutput, call: TreeCall): Promise<ExecutionOutput>;
   /**
@@ -69,8 +69,14 @@ const leasedDeps = (deps: AppDeps, lease: HeldExecutionLease): AppDeps =>
         pause: { checkpointer: new LeasedCheckpointSaver(deps.pause.checkpointer, lease) },
       };
 
-/** The tree of a run: its id and conversation thread (the observer state of its passes). */
-type TreeState = Required<Pick<AppState, "runId" | "threadId">>;
+/** The tree's key in the stores: its tenant and its root execution. */
+const treeOf = (state: TreeState) => ({ tenantId: state.tenantId, rootExecutionId: state.runId });
+
+/** The observer state of a pass: the run and its thread (#261 PR 6 adds the tenant to events). */
+const observedOf = (state: TreeState): Required<Pick<AppState, "runId" | "threadId">> => ({
+  runId: state.runId,
+  threadId: state.threadId,
+});
 
 class TreeMover implements TreeMoves {
   /** The roots a resume of this instance is moving or about to move: its own sweep leaves them. */
@@ -79,12 +85,12 @@ class TreeMover implements TreeMoves {
   constructor(private readonly parts: TreeMoveParts) {}
 
   async first(state: TreeState, call: TreeCall, pass: TreePass): Promise<ExecutionOutput> {
-    return this.drained(state, call, await this.parts.leases.hold(state.runId), pass);
+    return this.drained(state, call, await this.parts.leases.hold(treeOf(state)), pass);
   }
 
   async resumed(run: AgentExecutionOutput, call: TreeCall): Promise<ExecutionOutput> {
     const { deps, paused, leases } = this.parts;
-    const state = { runId: run.runId, threadId: run.threadId };
+    const state = { runId: run.runId, threadId: run.threadId, tenantId: run.tenantId };
     const leaving = this.#resuming.enter(run.runId);
     try {
       // answered: the tree has work again — its record is `running` until it rests (#265 S30); only
@@ -94,14 +100,14 @@ class TreeMover implements TreeMoves {
         ExecutionRecordStatus.Paused,
         runningOutcome(run.path, run.cost.totalUsd),
       );
-      const lease = await leases.hold(run.runId, call.signal);
-      const stored = await paused.find(run.threadId).catch(async (error: unknown) => {
+      const lease = await leases.hold(treeOf(state), call.signal);
+      const stored = await paused.find(state).catch(async (error: unknown) => {
         await lease.release();
         throw error;
       });
       if (stored?.status !== PauseStatus.Resolved || stored.run.runId !== run.runId) {
         await lease.release();
-        return await currentOutputOf(deps, paused, { thread: run.threadId, runId: run.runId });
+        return await currentOutputOf(deps, paused, state);
       }
       await this.announce(ResumeReason.Answered, stored.decision, state);
       return await this.drained(state, call, lease, resumePassOf(stored, call));
@@ -115,7 +121,9 @@ class TreeMover implements TreeMoves {
     call: TreeCall,
   ): Promise<ExecutionOutput | undefined> {
     if (this.#resuming.has(interrupted.runId)) return undefined;
-    const lease = await this.parts.leases.tryHold(interrupted.runId);
+    const { runId, threadId, tenantId } = interrupted;
+    const state = { runId, threadId, tenantId };
+    const lease = await this.parts.leases.tryHold(treeOf(state));
     if (lease === undefined) return undefined;
     const recovery = await recoveryPassOf(this.parts, interrupted, call).catch(
       async (error: unknown) => {
@@ -127,7 +135,6 @@ class TreeMover implements TreeMoves {
       await lease.release();
       return undefined;
     }
-    const state = { runId: interrupted.runId, threadId: interrupted.threadId };
     const text = `execution ${state.runId} is recovered: it continues from its last checkpoint`;
     process.emitWarning(text, { code: "execution.recovered" });
     await this.announce(ResumeReason.Recovered, recovery.decision, state);
@@ -135,7 +142,11 @@ class TreeMover implements TreeMoves {
   }
 
   private announce(reason: ResumeReason, decision: unknown, state: TreeState): Promise<void> {
-    return this.parts.deps.observer.onWorkflowResume({ reason, decision, state });
+    return this.parts.deps.observer.onWorkflowResume({
+      reason,
+      decision,
+      state: observedOf(state),
+    });
   }
 
   /** Passes until the tree finishes or rests paused with nothing resolved; the lease released at the end. */
@@ -150,15 +161,15 @@ class TreeMover implements TreeMoves {
       let result = await this.observedPass(state, call, lease, pass);
       for (;;) {
         if (result.status !== ExecutionStatus.Paused) break;
-        const stored = await paused.find(state.threadId);
+        const stored = await paused.find(state);
         if (stored?.status !== PauseStatus.Resolved) break;
         await this.announce(ResumeReason.Answered, stored.decision, state);
         result = await this.observedPass(state, call, lease, resumePassOf(stored, call));
       }
-      if (result.status === ExecutionStatus.Finished) await this.forget(state.runId);
+      if (result.status === ExecutionStatus.Finished) await this.forget(state);
       return result;
     } catch (error) {
-      if (!isHandedOver(error)) await this.forget(state.runId);
+      if (!isHandedOver(error)) await this.forget(state);
       throw error;
     } finally {
       await lease.release();
@@ -175,8 +186,8 @@ class TreeMover implements TreeMoves {
     const { deps, live, paused } = this.parts;
     const caller = call.signal === undefined ? [lease.signal] : [call.signal, lease.signal];
     const moving = leasedDeps(deps, lease);
-    return observeLeg(deps.observer, state, async () => {
-      const run = await live.track(state.threadId, AbortSignal.any(caller), (signal) =>
+    return observeLeg(deps.observer, observedOf(state), async () => {
+      const run = await live.track(state, AbortSignal.any(caller), (signal) =>
         pass(moving, signal),
       );
       await paused.settle(run);
@@ -184,8 +195,8 @@ class TreeMover implements TreeMoves {
     });
   }
 
-  private forget(rootExecutionId: string): Promise<void> {
-    return this.parts.trees.deleteAllInTree({ tenantId: DEFAULT_TENANT_ID, rootExecutionId });
+  private forget(state: TreeState): Promise<void> {
+    return this.parts.trees.deleteAllInTree(treeOf(state));
   }
 }
 

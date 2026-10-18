@@ -153,7 +153,7 @@ describe("AC12: createApp — the real app", () => {
       status: ExecutionStatus.Finished,
     });
     expect(result).toFollowPath([TaskStart, Coder, Reviewer, ReviewGate, PullRequest]);
-    expect(result.thread).toMatch(/^[0-9a-f-]{36}$/);
+    expect(result.threadId).toMatch(/^[0-9a-f-]{36}$/);
     expect(result.spend.totalUsd).toBeCloseTo(0.002, 9);
     expect(app.textStart).toBe(TaskStart);
     expect([app.name, app.version, app.warnings]).toEqual(["code-review-application", "1.0.0", []]);
@@ -170,7 +170,7 @@ describe("AC12: createApp — the real app", () => {
     const app = await createApp(DeskApplication, offline(book, stubs));
 
     const paused = await execute(app, ChatStart, { text: "save a note" });
-    const done = await app.resume(paused.thread, { approved: true, by: "dana" });
+    const done = await app.resume(paused.threadId, { approved: true, by: "dana" });
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
@@ -180,11 +180,11 @@ describe("AC12: createApp — the real app", () => {
     expect(done).toMatchObject({
       finish: { name: "reply-workflow-finish" },
       output: { text: "Saved." },
-      thread: paused.thread,
+      threadId: paused.threadId,
     });
-    await expect(app.resume(paused.thread, { approved: true, by: "dana" })).rejects.toBeInstanceOf(
-      NotPausedError,
-    );
+    await expect(
+      app.resume(paused.threadId, { approved: true, by: "dana" }),
+    ).rejects.toBeInstanceOf(NotPausedError);
     await app.close();
   });
 

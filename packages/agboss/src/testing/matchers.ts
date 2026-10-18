@@ -42,7 +42,7 @@ const verdict = (
 });
 
 const isExecutionOutput = (value: unknown): value is ExecutionOutput =>
-  typeof value === "object" && value !== null && "path" in value && "thread" in value;
+  typeof value === "object" && value !== null && "path" in value && "threadId" in value;
 
 const wrongReceived = (matcher: string, wanted: string): Verdict => ({
   pass: false,

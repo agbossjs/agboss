@@ -9,12 +9,13 @@ import { infrastructureContractOf } from "../infrastructure/contracts.js";
 import { environmentRuleViolations } from "../environments/contract.js";
 import { isModelProviderClass } from "../models/model-provider.decorator.js";
 import type { ApplicationOptions } from "./application.js";
+import { contextRuleViolations } from "../flow/context/context-rules.js";
 
 /**
  * The rules of an `@Application` itself (#261), read from its declaration: its `name` and class end
  * with their kind, it lists workflows, its budgets are `@Budget`s, infrastructure is listed only
- * in its `providers`, and its environment contract declares fields only — every field a listed
- * framework implementation reads among them.
+ * in its `providers`, its environment contract declares fields only — every field a listed
+ * framework implementation reads among them — and its context subclasses' fields take no prompt.
  */
 
 const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
@@ -121,5 +122,6 @@ export function applicationRuleViolations(
       options.environment,
       (options.providers ?? []).filter(isClass),
     ),
+    ...contextRuleViolations(options.name, options),
   ];
 }

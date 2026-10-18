@@ -2,6 +2,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type { UsageRecord } from "../../finops/usage.js";
 import { idempotencyKeyOf } from "./idempotency.js";
 import type { StepDescriptor, WorkflowDescriptor } from "./execution-context.js";
+import type { ContextFields } from "./context-values.js";
+import type { TenantContext } from "./tenant-context.js";
 
 /**
  * The frame of a step (#280 S18): what the injected `ExecutionContext` reads. The node runner
@@ -17,6 +19,10 @@ export interface ExecutionFacts {
   readonly ownerId: string | undefined;
   readonly signal: AbortSignal;
   readonly workflow: WorkflowDescriptor;
+  /** The execution's tenant (#261): frozen, linked to the application. */
+  readonly tenant: TenantContext;
+  /** The project's own fields of the execution (`execute(…, { execution })`), frozen. */
+  readonly values: ContextFields;
 }
 
 /**

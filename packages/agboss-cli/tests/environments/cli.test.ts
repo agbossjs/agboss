@@ -66,27 +66,20 @@ describe("#182: agboss check validates the selected environment without running 
     expect(call.stdout).not.toContain("t0ken");
   });
 
-  it("a service injecting ENV in an application without an environment is [di.missing-environment]", async () => {
+  it("#261 PR 3: a service reading the environment of an application without one checks fine", async () => {
     const call = await agboss(["check", "--workflow", NONE, "--json"]);
-    expect(call.code).toBe(3);
-    expect(envelope(call).result).toMatchObject({ problems: [{ code: "di.missing-environment" }] });
+    expect(call.code).toBe(0);
+    expect(envelope(call).result).toMatchObject({ problems: [] });
   });
 });
 
 describe("#239: agboss check creates what the app's start creates", () => {
-  it("an observer injecting ENV, no environment → [di.missing-environment], as createApp", async () => {
+  it("an observer taking ApplicationContext, no environment → it starts, as createApp", async () => {
     const call = await agboss(["check", "--workflow", OBSERVED, "--json"]);
-    expect(call.code).toBe(3);
+    expect(call.code).toBe(0);
     expect(envelope(call).result).toMatchObject({
       checks: ["assembly", "environment", "prompts", "types"],
-      problems: [
-        {
-          code: "di.missing-environment",
-          message: expect.stringMatching(
-            /^\[di\.missing-environment\] RunLog injects ENV, but the application declares no environment/,
-          ) as string,
-        },
-      ],
+      problems: [],
     });
   });
 });

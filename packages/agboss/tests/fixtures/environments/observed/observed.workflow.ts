@@ -1,9 +1,8 @@
 import {
   Agent,
-  ENV,
+  ApplicationContext,
   Injectable,
   Workflow,
-  type Environment,
   type OnWorkflowStart,
 } from "../../../../src/index.js";
 import { ChatStart, Reply, settingsDefaults } from "../app/settings.workflow.js";
@@ -13,16 +12,16 @@ import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 
 /** An observer — not a tool — that reads the app's environment; created when the app starts. */
-@Injectable({ deps: [ENV] })
+@Injectable({ deps: [ApplicationContext] })
 export class RunLog implements OnWorkflowStart {
-  constructor(readonly env: Environment) {}
+  constructor(readonly applicationContext: ApplicationContext) {}
 
   onWorkflowStart(): void {
-    // a real one would log to `this.env`'s sink
+    // a real one would log to the sink of `this.applicationContext.environment`
   }
 }
 
-/** An agent with no tools: nothing but the observer injects ENV. */
+/** An agent with no tools: nothing but the observer reads the environment. */
 @Agent({
   name: "greeter-agent",
   description: "Greets",
@@ -32,7 +31,7 @@ export class RunLog implements OnWorkflowStart {
 })
 export class Greeter {}
 
-/** #239: ENV injected only by an observer, and no `environments/` folder next to this file. */
+/** #239: the environment read only by an observer, and no `environments/` folder next to this file. */
 @Workflow({
   name: "observed-workflow",
   version: "1.0.0",
@@ -48,7 +47,7 @@ export class Greeter {}
 export class ObservedApp {}
 
 // @ts-expect-error — environment is required (#261): this fixture omits it on purpose, to test
-// what an untyped caller gets at run time ([di.missing-environment])
+// what an untyped caller gets at run time (an empty environment)
 @Application({
   name: "observed-application",
   version: "1.0.0",
