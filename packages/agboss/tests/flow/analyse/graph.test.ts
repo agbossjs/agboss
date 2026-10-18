@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { analyseWorkflow, checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
@@ -35,13 +36,15 @@ const reviewPaths = (editor: typeof EditKitAgent | typeof PolishKitAgent) => [
     .toAgent(DraftKitAgent)
     .returns(OfferDraftDto)
     .toAgent(ReviewKitAgent),
-  agent(ReviewKitAgent).switch(
-    caseOf(ChangesRequestedDto).toAgent(editor).returns(OfferDraftDto).toAgent(ReviewKitAgent),
-    caseOf(DraftApprovedDto)
-      .toAction(SendKitAction)
-      .returns(OfferSentDto)
-      .toFinish(SentKitWorkflowFinish),
-  ),
+  agent(ReviewKitAgent)
+    .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
+    .switch(
+      caseOf(ChangesRequestedDto).toAgent(editor).returns(OfferDraftDto).toAgent(ReviewKitAgent),
+      caseOf(DraftApprovedDto)
+        .toAction(SendKitAction)
+        .returns(OfferSentDto)
+        .toFinish(SentKitWorkflowFinish),
+    ),
 ];
 
 @Workflow({ name: "bounded-loop-workflow", version: "1.0.0", flow: reviewPaths(EditKitAgent) })
@@ -60,13 +63,15 @@ class UnboundedLoopWorkflow {}
       .returns(OfferDraftDto)
       .toAgent(ReviewKitAgent),
     start(SecondKitWorkflowStart).returns(OfferDraftDto).toAgent(EditKitAgent),
-    agent(ReviewKitAgent).switch(
-      caseOf(ChangesRequestedDto).toAgent(EditKitAgent),
-      caseOf(DraftApprovedDto)
-        .toAction(SendKitAction)
-        .returns(OfferSentDto)
-        .toFinish(SentKitWorkflowFinish),
-    ),
+    agent(ReviewKitAgent)
+      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
+      .switch(
+        caseOf(ChangesRequestedDto).toAgent(EditKitAgent),
+        caseOf(DraftApprovedDto)
+          .toAction(SendKitAction)
+          .returns(OfferSentDto)
+          .toFinish(SentKitWorkflowFinish),
+      ),
     agent(EditKitAgent).returns(OfferDraftDto).toAgent(ReviewKitAgent),
   ],
 })
@@ -81,13 +86,15 @@ class TwoEntryCycleWorkflow {}
       .toAgent(DraftKitAgent)
       .returns(OfferDraftDto)
       .toAgent(ReviewKitAgent),
-    agent(ReviewKitAgent).switch(
-      caseOf(ChangesRequestedDto)
-        .toAgent(PolishKitAgent)
-        .returns(OfferDraftDto)
-        .toAgent(ReviewKitAgent),
-      caseOf(DraftApprovedDto).toAction(SendKitAction),
-    ),
+    agent(ReviewKitAgent)
+      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
+      .switch(
+        caseOf(ChangesRequestedDto)
+          .toAgent(PolishKitAgent)
+          .returns(OfferDraftDto)
+          .toAgent(ReviewKitAgent),
+        caseOf(DraftApprovedDto).toAction(SendKitAction),
+      ),
     agent(EditKitAgent)
       .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish)

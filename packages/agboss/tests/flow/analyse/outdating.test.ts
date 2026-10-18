@@ -7,7 +7,7 @@ import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { about, oneOf, optional } from "../../../src/flow/dto-wrappers.js";
+import { oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import type { ComponentName } from "../../../src/flow/registry.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { DraftChangesDto } from "../fixtures/data-dtos.js";
@@ -81,10 +81,12 @@ class EditorRouter {}
     router(EditorRouter).chooseOne(
       route(ResearcherAgent).returns(ResearchDto).toRouter(EditorRouter),
       route(StoryWriterAgent).returns(DraftDto).toRouter(EditorRouter),
-      route(StoryReviewerAgent).switch(
-        caseOf(ApprovalDto).toRouter(EditorRouter),
-        caseOf(DraftChangesDto).toRouter(EditorRouter),
-      ),
+      route(StoryReviewerAgent)
+        .returns(oneOf(ApprovalDto, DraftChangesDto))
+        .switch(
+          caseOf(ApprovalDto, { about: DraftDto }).toRouter(EditorRouter),
+          caseOf(DraftChangesDto, { about: DraftDto }).toRouter(EditorRouter),
+        ),
       route(PublisherAgent).returns(ArticleDto).toFinish(StoryWorkflowFinish),
     ),
   ],
@@ -364,10 +366,12 @@ const gateWorkflow = (name: string, publisher: object): object => {
         .returns(DraftDto)
         .toRouter(gate as never),
       router(gate as never).chooseOne(
-        route(StoryReviewerAgent).switch(
-          caseOf(DraftChangesDto).toAgent(GateWriterAgent),
-          caseOf(ApprovalDto).toRouter(gate as never),
-        ),
+        route(StoryReviewerAgent)
+          .returns(oneOf(ApprovalDto, DraftChangesDto))
+          .switch(
+            caseOf(DraftChangesDto, { about: DraftDto }).toAgent(GateWriterAgent),
+            caseOf(ApprovalDto, { about: DraftDto }).toRouter(gate as never),
+          ),
         route(publisher as never)
           .returns(ArticleDto)
           .toFinish(StoryWorkflowFinish),
@@ -446,7 +450,8 @@ const pickLoop = (name: string, picker: object): object => {
     version: "1.0.0",
     flow: [
       start(ThreadWorkflowStart)
-        .returns(WorkflowStartTextDto, CandidateProfileDto)
+        .returns(WorkflowStartTextDto)
+        .returns(CandidateProfileDto)
         .toAgent(picker as never),
       agent(picker as never)
         .returns(JobPickDto)
@@ -502,6 +507,7 @@ class LoopReviewerAgent {}
     agent(GateWriterAgent)
       .returns(DraftDto)
       .toAgent(LoopReviewerAgent)
+      .returns(oneOf(ApprovalDto, DraftChangesDto))
       .switch(
         caseOf(DraftChangesDto).toAgent(GateWriterAgent),
         caseOf(ApprovalDto)
@@ -581,7 +587,7 @@ class RewriteAgent {}
   model: "moonshotai/kimi-k2.6",
   maxVisits: 6,
   input: { draft: DraftDto },
-  output: about(DraftDto, oneOf(ApprovalDto, DraftChangesDto)),
+  output: oneOf(ApprovalDto, DraftChangesDto),
 })
 class InnerReviewerAgent {}
 
@@ -608,9 +614,10 @@ class ReplanRouter {}
     agent(NotesDraftAgent)
       .returns(DraftDto)
       .toAgent(InnerReviewerAgent)
+      .returns(oneOf(ApprovalDto, DraftChangesDto))
       .switch(
-        caseOf(DraftChangesDto).toAgent(NotesDraftAgent),
-        caseOf(ApprovalDto)
+        caseOf(DraftChangesDto, { about: DraftDto }).toAgent(NotesDraftAgent),
+        caseOf(ApprovalDto, { about: DraftDto })
           .toRouter(ReplanRouter)
           .chooseOne(
             route(OuterPlannerAgent),
@@ -631,15 +638,20 @@ class OneWriterWorkflow {}
       .toAgent(PlanDraftAgent)
       .returns(DraftDto)
       .toAgent(InnerReviewerAgent),
-    agent(InnerReviewerAgent).switch(
-      caseOf(DraftChangesDto).toAgent(RewriteAgent).returns(DraftDto).toAgent(InnerReviewerAgent),
-      caseOf(ApprovalDto)
-        .toRouter(ReplanRouter)
-        .chooseOne(
-          route(OuterPlannerAgent),
-          route(PublisherAgent).returns(ArticleDto).toFinish(StoryWorkflowFinish),
-        ),
-    ),
+    agent(InnerReviewerAgent)
+      .returns(oneOf(ApprovalDto, DraftChangesDto))
+      .switch(
+        caseOf(DraftChangesDto, { about: DraftDto })
+          .toAgent(RewriteAgent)
+          .returns(DraftDto)
+          .toAgent(InnerReviewerAgent),
+        caseOf(ApprovalDto, { about: DraftDto })
+          .toRouter(ReplanRouter)
+          .chooseOne(
+            route(OuterPlannerAgent),
+            route(PublisherAgent).returns(ArticleDto).toFinish(StoryWorkflowFinish),
+          ),
+      ),
   ],
 })
 class TwoWritersWorkflow {}

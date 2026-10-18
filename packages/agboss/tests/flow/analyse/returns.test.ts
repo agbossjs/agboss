@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import { ChangesRequestedDto, OfferDraftDto, ShortlistDto } from "../fixtures/dtos.js";
+import { oneOf } from "../../../src/flow/dto-wrappers.js";
+import {
+  ChangesRequestedDto,
+  DraftApprovedDto,
+  OfferDraftDto,
+  ShortlistDto,
+} from "../fixtures/dtos.js";
 import {
   DraftKitAgent,
   DraftKitWorkflowFinish,
@@ -70,7 +76,7 @@ describe("AC15: .returns(…) is exactly where values are", () => {
     ]);
   });
 
-  it("a oneOf output is branched by a switch, not returned", () => {
+  it("a oneOf output is written .returns(oneOf(…)) and branched by a switch", () => {
     const paths = start(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
@@ -80,7 +86,22 @@ describe("AC15: .returns(…) is exactly where values are", () => {
       .toFinish(DraftKitWorkflowFinish);
 
     expect(returnsErrorsOf(paths)).toEqual([
-      "returns-workflow: review-kit-agent gives oneOf(ChangesRequestedDto, DraftApprovedDto) — branch it with .switch(caseOf(…)…), not .returns(…)",
+      "returns-workflow: review-kit-agent gives oneOf(ChangesRequestedDto, DraftApprovedDto) — write .returns(oneOf(ChangesRequestedDto, DraftApprovedDto)) and branch it with .switch(caseOf(…)…)",
+    ]);
+  });
+
+  it("#299 S54 c: .returns(oneOf(…)) is followed by its .switch, never by a .to…", () => {
+    const paths = start(KitWorkflowStart)
+      .returns(ShortlistDto)
+      .toAgent(DraftKitAgent)
+      .returns(OfferDraftDto)
+      .toAgent(ReviewKitAgent)
+      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
+      .toFinish(DraftKitWorkflowFinish);
+
+    expect(returnsErrorsOf(paths)).toEqual([
+      "returns-workflow: review-kit-agent gives oneOf(ChangesRequestedDto, DraftApprovedDto) — write .returns(oneOf(ChangesRequestedDto, DraftApprovedDto)) and branch it with .switch(caseOf(…)…)",
+      "returns-workflow: review-kit-agent: .returns(oneOf(ChangesRequestedDto, DraftApprovedDto)) is branched by .switch(caseOf(…)…), not followed by .toFinish(…)",
     ]);
   });
 });

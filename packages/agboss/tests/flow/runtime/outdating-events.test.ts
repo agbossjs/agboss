@@ -149,14 +149,13 @@ const value = (valueId: string, builtFrom: readonly string[] = []): ScopeValueRe
 describe("#271 rule 11: the trace entry of a cascade", () => {
   it("one 'values outdated' entry per cascade, with a sentence per value and no values", async () => {
     const draft1 = value("writer-agent:1/DraftDto");
-    const changes1 = value("critic-agent:1/DraftChangesDto", [draft1.valueId]);
-    const draft2 = value("writer-agent:2/DraftDto");
-    const provenance = {
-      readsEverything: new Set<string>(),
-      aboutTargets: new Map([["critic-agent", "DraftDto"]]),
+    const changes1 = {
+      ...value("critic-agent:1/DraftChangesDto", [draft1.valueId]),
+      about: ["DraftDto"],
     };
+    const draft2 = value("writer-agent:2/DraftDto");
     const scope = { DraftDto: draft1, DraftChangesDto: changes1 };
-    const outcome = writeAndOutdate(scope, { DraftDto: draft2 }, provenance);
+    const outcome = writeAndOutdate(scope, { DraftDto: draft2 });
     const trace = new TraceLog();
     const seen: ValuesOutdatedEvent[] = [];
     const observer = new ObserverManager([{ onValuesOutdated: (event) => void seen.push(event) }]);

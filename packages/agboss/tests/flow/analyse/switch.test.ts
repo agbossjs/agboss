@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
+import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import {
   ChangesRequestedDto,
@@ -19,14 +20,19 @@ import {
 } from "../fixtures/kit.fixture.js";
 import { caseOf, start } from "../fixtures/paths.js";
 
-/** `.switch(caseOf(…)…)` is exhaustive over the `oneOf` it follows (#272 AC5). */
+/**
+ * `.switch(caseOf(…)…)` is exhaustive over the `oneOf` it follows (#272 AC5), written after
+ * `.returns(oneOf(…))` (#299 S54 c).
+ */
 
-const toReview = () =>
+const reviewed = () =>
   start(KitWorkflowStart)
     .returns(ShortlistDto)
     .toAgent(DraftKitAgent)
     .returns(OfferDraftDto)
     .toAgent(ReviewKitAgent);
+
+const toReview = () => reviewed().returns(oneOf(ChangesRequestedDto, DraftApprovedDto));
 
 const changes = () =>
   caseOf(ChangesRequestedDto)
@@ -72,6 +78,22 @@ class UnknownCaseWorkflow {}
 class SwitchWithoutOneOfWorkflow {}
 
 @Workflow({
+  name: "unreturned-one-of-workflow",
+  version: "1.0.0",
+  flow: [reviewed().switch(approved(), changes())],
+})
+class UnreturnedOneOfWorkflow {}
+
+@Workflow({
+  name: "wrong-one-of-workflow",
+  version: "1.0.0",
+  flow: [
+    reviewed().returns(oneOf(ChangesRequestedDto, OfferSentDto)).switch(approved(), changes()),
+  ],
+})
+class WrongOneOfWorkflow {}
+
+@Workflow({
   name: "empty-case-workflow",
   version: "1.0.0",
   flow: [toReview().switch(changes(), caseOf(DraftApprovedDto))],
@@ -111,6 +133,20 @@ describe("AC5: exhaustive switch", () => {
           "switch-without-one-of-workflow: draft-kit-agent gives OfferDraftDto, not a oneOf — .switch(caseOf(…)…) follows a step with a oneOf output; write .returns(…) after it instead",
       }),
     );
+  });
+
+  it("#299 S54 c: the oneOf is written before the switch, and is the step's output", () => {
+    const mismatch = (workflow: abstract new () => unknown) =>
+      checkWorkflow(workflow)
+        .errors.filter((found) => found.code === "flow.returns-mismatch")
+        .map((found) => found.message);
+
+    expect(mismatch(UnreturnedOneOfWorkflow)).toEqual([
+      "unreturned-one-of-workflow: review-kit-agent gives oneOf(ChangesRequestedDto, DraftApprovedDto) — write .returns(oneOf(ChangesRequestedDto, DraftApprovedDto)) before its .switch(…)",
+    ]);
+    expect(mismatch(WrongOneOfWorkflow)).toEqual([
+      "wrong-one-of-workflow: review-kit-agent gives oneOf(ChangesRequestedDto, DraftApprovedDto) — write .returns(oneOf(ChangesRequestedDto, DraftApprovedDto)), not .returns(oneOf(ChangesRequestedDto, OfferSentDto))",
+    ]);
   });
 
   it("a case that leads nowhere is a dead end", () => {

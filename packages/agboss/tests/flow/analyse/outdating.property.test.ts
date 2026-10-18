@@ -28,7 +28,7 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { about, optional } from "../../../src/flow/dto-wrappers.js";
+import { optional } from "../../../src/flow/dto-wrappers.js";
 import type { ComponentName } from "../../../src/flow/registry.js";
 import type { RuleViolation } from "../../../src/graph/rule-error.js";
 import { ArticleRequestDto } from "../fixtures/dtos.js";
@@ -97,14 +97,12 @@ function agentNode(index: number, spec: AgentSpec): FlowNode {
       return [`f${String(dto)}`, spec.optionals[field] === true ? optional(shape) : shape];
     }),
   );
-  const output =
-    spec.about === undefined ? dtoAt(spec.output) : about(dtoAt(spec.about), dtoAt(spec.output));
   const options = {
     name: `p${String(index)}-agent`,
     description: "A random agent",
     prompt: "Do it.",
     model: "moonshotai/kimi-k2.6",
-    output,
+    output: dtoAt(spec.output),
   };
   @Agent(spec.readsEverything ? options : { ...options, input })
   class RandomAgent {}
@@ -136,7 +134,12 @@ function graphOf(spec: GraphSpec): FlowGraph {
         from: target(index),
         to: target(next),
         kind: EdgeKind.Next,
-        writes: [{ shape: dtoAt(agent.output), isCase: false }],
+        // `{ about }` is the flow's: on the write of the agent's value (#299 S54)
+        writes: [
+          agent.about === undefined
+            ? { shape: dtoAt(agent.output), isCase: false }
+            : { shape: dtoAt(agent.output), about: [dtoAt(agent.about)], isCase: false },
+        ],
       })),
     ),
   ];
@@ -253,7 +256,7 @@ function visit(run: Run, analysed: Analysed, node: FlowNode, findings: RunFindin
 
 function simulate(analysed: Analysed, choices: readonly number[]): RunFindings {
   const findings: RunFindings = { unsound: [], unreported: [], stale: [], aboutBroken: [] };
-  const run = new Run(analysed.dataflow.provenance.aboutTargets);
+  const run = new Run();
   let at = analysed.graph.nodes.get(named(START));
   for (let step = 0; at !== undefined && step <= choices.length; step += 1) {
     visit(run, analysed, at, findings);
@@ -263,7 +266,9 @@ function simulate(analysed: Analysed, choices: readonly number[]): RunFindings {
     const slots = edge.writes.flatMap((write) =>
       typeof write.shape === "function" ? [slotOfDto(write.shape)] : [],
     );
-    run.write(edge.from, slots, readsOf(run, analysed, at));
+    const [target] = edge.writes.flatMap((write) => write.about ?? []);
+    const about = target === undefined ? undefined : slotOfDto(target);
+    run.write(edge.from, slots, readsOf(run, analysed, at), about);
     at = analysed.graph.nodes.get(edge.to);
   }
   return { ...findings, aboutBroken: run.aboutBroken };

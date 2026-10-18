@@ -9,7 +9,7 @@ import { ChatWorkflow } from "../fixtures/chat.fixture.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
 import { OrderWorkflow } from "../fixtures/order.fixture.js";
 import { SupportWorkflow } from "../fixtures/support.fixture.js";
-import { TaggedOfferWorkflow } from "../fixtures/tags.fixture.js";
+import { HistoryOfferWorkflow } from "../fixtures/history.fixture.js";
 
 /** The #272 examples 1–3 and the #270 examples assemble: no rule is broken. */
 
@@ -20,7 +20,7 @@ describe("AC11: the #272 and #270 examples pass every rule", () => {
     ["article (two classes of one agent)", ArticleWorkflow],
     ["order (errors and a rollback)", OrderWorkflow],
     ["support (#270: router, optional loyalty)", SupportWorkflow],
-    ["tagged offer (#270: tags in a loop)", TaggedOfferWorkflow],
+    ["history offer (#299: historyOf in a loop)", HistoryOfferWorkflow],
   ])("%s", (_, workflow) => {
     expect(checkWorkflow(workflow)).toMatchObject({ errors: [], warnings: [] });
   });

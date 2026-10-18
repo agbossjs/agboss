@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import {
   analyseWorkflow,
   inputShapesOf,
@@ -68,20 +69,22 @@ class ReorderedSupportWorkflow {}
   name: "offer-workflow",
   version: "1.0.0",
   flow: [
-    agent(ReviewerAgent).switch(
-      caseOf(DraftApprovedDto)
-        .toAction(SendOfferAction)
-        .returns(OfferSentDto)
-        .toFinish(OfferSentWorkflowFinish),
-      caseOf(ChangesRequestedDto)
-        .toAgent(EditorAgent)
-        .onError(
-          VisitsLimitExceededError,
-          toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish),
-        )
-        .returns(OfferDraftDto)
-        .toAgent(ReviewerAgent),
-    ),
+    agent(ReviewerAgent)
+      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
+      .switch(
+        caseOf(DraftApprovedDto)
+          .toAction(SendOfferAction)
+          .returns(OfferSentDto)
+          .toFinish(OfferSentWorkflowFinish),
+        caseOf(ChangesRequestedDto, { about: OfferDraftDto })
+          .toAgent(EditorAgent)
+          .onError(
+            VisitsLimitExceededError,
+            toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish),
+          )
+          .returns(OfferDraftDto)
+          .toAgent(ReviewerAgent),
+      ),
     start(OfferWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftAgent)

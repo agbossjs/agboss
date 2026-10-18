@@ -11,7 +11,8 @@ import {
   toFinish,
   toRouter,
 } from "../../src/flow/builder.js";
-import { listOf, optional, type ValueShape } from "../../src/flow/dto-wrappers.js";
+import type { DtoClass } from "../../src/dto/types.js";
+import { listOf, oneOf, optional, type ReturnedShape } from "../../src/flow/dto-wrappers.js";
 import {
   articlePaths,
   ArticleDraftAgent,
@@ -84,10 +85,10 @@ function callUntyped(target: object, method: string, args: readonly unknown[]): 
   return result;
 }
 
-const returns = (shape: ValueShape, as?: string): Step =>
-  as === undefined
-    ? { kind: StepKind.Returns, values: [{ shape }] }
-    : { kind: StepKind.Returns, values: [{ shape, as }] };
+const returns = (shape: ReturnedShape, about?: readonly DtoClass[]): Step =>
+  about === undefined
+    ? { kind: StepKind.Returns, value: { shape } }
+    : { kind: StepKind.Returns, value: { shape, about } };
 
 const to = (target: abstract new () => unknown, targetKind: NodeKind): Step => ({
   kind: StepKind.To,
@@ -154,6 +155,7 @@ describe("AC3 / AC5 / AC6: router own path, chooseOne and switch (#272 example 1
             target: ProfilerAgent,
             path: {
               steps: [
+                returns(oneOf(ProfileDto, ResumeMissingDto)),
                 {
                   kind: StepKind.Switch,
                   cases: [
@@ -183,13 +185,15 @@ describe("AC3 / AC5 / AC6: router own path, chooseOne and switch (#272 example 1
 describe("AC7: onError side paths (#272 examples 2a and 3)", () => {
   it("puts the side path right after the step, before its returns", () => {
     const [, reviewerPath] = offerPaths;
-    const switchStep = reviewerPath.steps[0];
+    const [returned, switchStep] = reviewerPath.steps;
 
+    expect(returned).toEqual(returns(oneOf(ChangesRequestedDto, DraftApprovedDto)));
     expect(switchStep).toEqual({
       kind: StepKind.Switch,
       cases: [
         {
           dto: ChangesRequestedDto,
+          about: [OfferDraftDto],
           path: {
             steps: [
               to(EditorAgent, NodeKind.Agent),
@@ -329,41 +333,81 @@ describe("AC7: a side path may start with any transition", () => {
   });
 });
 
-describe("#270: returned values and tags", () => {
-  it("records a tag on returns and on caseOf", () => {
-    const tagged = start(OfferWorkflowStart)
+describe("#299 S54: one value per .returns, { about } in the flow", () => {
+  it("records { about } on returns — one class or a list of them — and on caseOf", () => {
+    const critiqued = start(OfferWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftAgent)
-      .returns(OfferDraftDto, { as: "before" });
-    const taggedCase = caseOf(ChangesRequestedDto, { as: "latest" }).toAgent(EditorAgent);
+      .returns(OfferDraftDto, { about: ShortlistDto });
+    const both = callUntyped(builder.agent(DraftAgent), "returns", [
+      OfferDraftDto,
+      { about: [ShortlistDto, ReviewDto] },
+    ]);
+    const aboutCase = caseOf(ChangesRequestedDto, { about: OfferDraftDto }).toAgent(EditorAgent);
 
-    expect(tagged.steps.at(-1)).toEqual(returns(OfferDraftDto, "before"));
-    expect(builder.agent(ReviewerAgent).switch(taggedCase, caseOf(DraftApprovedDto)).steps).toEqual(
-      [
-        {
-          kind: StepKind.Switch,
-          cases: [
-            {
-              dto: ChangesRequestedDto,
-              tag: "latest",
-              path: { steps: [to(EditorAgent, NodeKind.Agent)] },
-            },
-            { dto: DraftApprovedDto, path: { steps: [] } },
-          ],
-        },
-      ],
+    expect(critiqued.steps.at(-1)).toEqual(returns(OfferDraftDto, [ShortlistDto]));
+    expect(Reflect.get(both as object, "steps")).toEqual([
+      returns(OfferDraftDto, [ShortlistDto, ReviewDto]),
+    ]);
+    expect(
+      callUntyped(builder.agent(ReviewerAgent), "switch", [aboutCase, caseOf(DraftApprovedDto)]),
+    ).toEqual(
+      expect.objectContaining({
+        steps: [
+          {
+            kind: StepKind.Switch,
+            cases: [
+              {
+                dto: ChangesRequestedDto,
+                about: [OfferDraftDto],
+                path: { steps: [to(EditorAgent, NodeKind.Agent)] },
+              },
+              { dto: DraftApprovedDto, path: { steps: [] } },
+            ],
+          },
+        ],
+      }),
     );
   });
 
-  it("records several values and wrappers of one returns", () => {
+  it("several values are a chain of .returns, each one value with its wrappers", () => {
     const listed = start(OfferWorkflowStart);
-    const values = [listOf(ShortlistDto), optional(OfferDraftDto)];
+    const values = [listOf(ShortlistDto), optional(OfferDraftDto)] as const;
 
-    const path = callUntyped(listed, "returns", values);
-
-    expect(Reflect.get(path as object, "steps")).toEqual([
-      { kind: StepKind.Returns, values: [{ shape: values[0] }, { shape: values[1] }] },
+    const path = callUntyped(callUntyped(listed, "returns", [values[0]]) as object, "returns", [
+      values[1],
     ]);
+
+    expect(Reflect.get(path as object, "steps")).toEqual([returns(values[0]), returns(values[1])]);
+  });
+
+  it.each([
+    [
+      "two values in one .returns",
+      () => callUntyped(builder.agent(DraftAgent), "returns", [OfferDraftDto, ShortlistDto]),
+    ],
+    [
+      "three arguments",
+      () => callUntyped(builder.agent(DraftAgent), "returns", [OfferDraftDto, {}, ShortlistDto]),
+    ],
+    [
+      "{ about } on a oneOf",
+      () =>
+        callUntyped(builder.agent(ReviewerAgent), "returns", [
+          oneOf(ChangesRequestedDto, DraftApprovedDto),
+          { about: OfferDraftDto },
+        ]),
+    ],
+    [
+      "an empty { about }",
+      () => callUntyped(builder.agent(DraftAgent), "returns", [OfferDraftDto, { about: [] }]),
+    ],
+    [
+      "{ about } that is not a class",
+      () => callUntyped(builder.agent(DraftAgent), "returns", [OfferDraftDto, { about: "X" }]),
+    ],
+  ])("refuses %s from untyped code", (_name, misuse) => {
+    expect(misuse).toThrow(FlowSyntaxError);
   });
 });
 

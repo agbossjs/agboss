@@ -22,18 +22,17 @@ import {
   type CodeRouterOptions,
   type ModelRouterOptions,
 } from "../../src/flow/decorators/router.js";
+import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
+import type { WorkflowStartOptions } from "../../src/flow/decorators/workflow-start.js";
 import {
-  WorkflowFinish,
-  type WorkflowFinishOptions,
-} from "../../src/flow/decorators/workflow-finish.js";
-import {
-  about,
+  historyOf,
   isVariant,
   listOf,
   oneOf,
   optional,
   variant,
   type Produced,
+  type HistoryOf,
   type ValueOf,
 } from "../../src/flow/dto-wrappers.js";
 import type {
@@ -207,24 +206,27 @@ describe("AC15: .returns follows every step with an output and no step without o
   });
 });
 
-describe("AC5: switch(caseOf(…)) after a oneOf output", () => {
+describe("AC5: .returns(oneOf(…)).switch(caseOf(…)) after a oneOf output (#299 S54 c)", () => {
   it("caseOf outside oneOf does not compile, nor a missing case", () => {
-    agent(ReviewerAgent).switch(
+    const reviewed = agent(ReviewerAgent).returns(oneOf(ChangesRequestedDto, DraftApprovedDto));
+    reviewed.switch(
       caseOf(ChangesRequestedDto).toAgent(EditorAgent),
       caseOf(DraftApprovedDto).toAction(SendOfferAction),
     );
-    agent(ReviewerAgent).switch(
+    reviewed.switch(
       // @ts-expect-error — OfferSentDto is not an output of reviewer-agent
       caseOf(OfferSentDto).toAction(SendOfferAction),
       caseOf(ChangesRequestedDto).toAgent(EditorAgent),
       caseOf(DraftApprovedDto).toAction(SendOfferAction),
     );
     // @ts-expect-error — the switch is not exhaustive: DraftApprovedDto has no case
-    agent(ReviewerAgent).switch(caseOf(ChangesRequestedDto).toAgent(EditorAgent));
-    // @ts-expect-error — a oneOf output is branched with .switch, never returned
+    reviewed.switch(caseOf(ChangesRequestedDto).toAgent(EditorAgent));
+    // @ts-expect-error — a oneOf output is returned whole, oneOf(…), never one of its classes
     agent(ReviewerAgent).returns(ChangesRequestedDto);
+    // @ts-expect-error — the oneOf is the step's own: the same classes
+    agent(ReviewerAgent).returns(oneOf(ChangesRequestedDto, OfferSentDto));
     // @ts-expect-error — a single output is returned, not switched
-    agent(DraftAgent).switch(caseOf(OfferDraftDto).toAgent(ReviewerAgent));
+    agent(DraftAgent).returns(OfferDraftDto).switch(caseOf(OfferDraftDto).toAgent(ReviewerAgent));
     expectTypeOf<ProducerOutputOf<ProfilerAgent>>().toEqualTypeOf<ProfileDto | ResumeMissingDto>();
   });
 });
@@ -296,59 +298,55 @@ describe("#270 AC22: wrappers compose one way", () => {
   });
 });
 
-describe("#271 S15: about(TargetDto, shape) — only in an output", () => {
-  it("about only in output: a class, listOf(…) or oneOf(…) as its shape", () => {
-    expectTypeOf(about(DraftDto, CritiqueDto).about).toEqualTypeOf<typeof DraftDto>();
-    expectTypeOf(about(DraftDto, listOf(CritiqueDto)).shape.element).toEqualTypeOf<
-      typeof CritiqueDto
+describe("#299 S54 / S56: about is the flow's, historyOf an input's", () => {
+  it("historyOf names one DTO class and a limit; only an input field takes it", () => {
+    expectTypeOf(historyOf(DraftDto, { limit: 2 }).dto).toEqualTypeOf<typeof DraftDto>();
+    expectTypeOf<ValueOf<ReturnType<typeof historyOf<typeof DraftDto>>>>().toEqualTypeOf<
+      HistoryOf<DraftDto>
     >();
-    const critique = about(DraftDto, CritiqueDto);
-    expectTypeOf<ValueOf<typeof critique>>().toEqualTypeOf<CritiqueDto>();
-    // @ts-expect-error — an output is never optional, so neither is an about shape
-    about(DraftDto, optional(CritiqueDto));
-    // @ts-expect-error — about names one class, not a list of them
-    about(listOf(DraftDto), CritiqueDto);
-    // @ts-expect-error — about is not nested
-    about(DraftDto, about(OfferDraftDto, CritiqueDto));
-    // @ts-expect-error — an input field is a type to read, never about anything
-    optional(about(DraftDto, CritiqueDto));
+    // @ts-expect-error — historyOf names one class, not a list
+    historyOf(listOf(DraftDto));
+    // @ts-expect-error — a history always has its current value: never optional
+    optional(historyOf(DraftDto));
     // @ts-expect-error — a list element is a class or a oneOf
-    listOf(about(DraftDto, CritiqueDto));
-    // @ts-expect-error — oneOf(…).about(…) does not exist (S15): one way, about(Target, oneOf(…))
-    oneOf(ApprovalDto, CritiqueDto).about(DraftDto);
+    listOf(historyOf(DraftDto));
+    // @ts-expect-error — the limit is a number of versions
+    historyOf(DraftDto, { limit: "2" });
+    // @ts-expect-error — a step returns values, never a history of them
+    agent(DraftAgent).returns(historyOf(OfferDraftDto));
   });
 
-  it("an about output is allowed on an agent and an action, nowhere else", () => {
+  it("a component declares a plain output; historyOf is no output and no start input", () => {
     @Agent({
       name: "typed-critic-agent",
       description: "Critiques",
       prompt: "Critique it.",
       model: "moonshotai/kimi-k2.6",
-      input: { draft: DraftDto },
-      output: about(DraftDto, listOf(CritiqueDto)),
+      input: { drafts: historyOf(DraftDto, { limit: 3 }) },
+      output: listOf(CritiqueDto),
     })
     class TypedCriticAgent {}
     expectTypeOf(TypedCriticAgent).toBeConstructibleWith();
-    const finishOptions: WorkflowFinishOptions = {
-      name: "about-workflow-finish",
-      description: "Bad",
-      // @ts-expect-error — a finish's output is one DTO: a finish answers nothing about anything
-      output: about(DraftDto, CritiqueDto),
-    };
-    expectTypeOf(finishOptions.name).toEqualTypeOf<string>();
     @Agent({
-      name: "about-input-agent",
+      name: "history-output-agent",
       description: "Bad",
-      prompt: "Read it.",
+      prompt: "Answer.",
       model: "moonshotai/kimi-k2.6",
-      // @ts-expect-error — an input field is never about(…)
-      input: { draft: about(DraftDto, CritiqueDto) },
+      // @ts-expect-error — an output is a value: historyOf is read, never answered
+      output: historyOf(DraftDto),
     })
-    class AboutInputAgent {}
-    expectTypeOf(AboutInputAgent).toBeConstructibleWith();
+    class HistoryOutputAgent {}
+    expectTypeOf(HistoryOutputAgent).toBeConstructibleWith();
+    const startOptions: WorkflowStartOptions = {
+      name: "history-workflow-start",
+      description: "Bad",
+      // @ts-expect-error — a start takes values: there is nothing earlier yet
+      input: { drafts: historyOf(DraftDto) },
+    };
+    expectTypeOf(startOptions.name).toEqualTypeOf<string>();
   });
 
-  it("OutputOf<X> of an about(…) output is its shape (about changes provenance, never the value)", () => {
+  it("OutputOf<X> is the declared output; { about } in the flow changes provenance, never the value", () => {
     expectTypeOf<OutputOf<CritiqueAction>>().toEqualTypeOf<readonly CritiqueDto[]>();
     expectTypeOf<ProducerOutputOf<StoryReviewerAgent>>().toEqualTypeOf<
       ApprovalDto | DraftChangesDto

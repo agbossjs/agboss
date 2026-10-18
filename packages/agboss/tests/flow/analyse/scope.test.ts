@@ -35,7 +35,7 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
-import { agent, route, start } from "../fixtures/paths.js";
+import { agent, returnsEach, route, start } from "../fixtures/paths.js";
 import {
   FastAnswerAgent,
   LoyaltyAgent,
@@ -173,7 +173,8 @@ class ContractWorkflowFinish {}
   version: "1.0.0",
   flow: [
     start(ContractWorkflowStart)
-      .returns(ReviewDto, ReviewDto)
+      .returns(ReviewDto)
+      .returns(ReviewDto)
       .toAgent(ContractSummaryAgent)
       .returns(ShortlistDto)
       .toFinish(ContractWorkflowFinish),
@@ -218,9 +219,7 @@ class WideWorkflowFinish {
   name: "wide-workflow",
   version: "1.0.0",
   flow: [
-    start(WideWorkflowStart)
-      .returns(...manyDtos.map(optional))
-      .toFinish(WideWorkflowFinish),
+    returnsEach(start(WideWorkflowStart), manyDtos.map(optional)).toFinish(WideWorkflowFinish),
   ],
 })
 class WideWorkflow {}
@@ -241,11 +240,24 @@ class ScreenAgent {}
   name: "file-profiles-action",
   description: "Files the profiles found",
   input: {
-    profiles: listOf(ProfileDto),
     results: listOf(oneOf(ResumeMissingDto, ProfileDto)),
   },
 })
 class FileProfilesAction {
+  async execute(): Promise<void> {
+    await Promise.resolve();
+  }
+}
+
+/** Reads the profiles alone: a mixed list is never filtered into one (#299 S53). */
+@Action({
+  name: "file-only-profiles-action",
+  description: "Files only the profiles",
+  input: {
+    profiles: listOf(ProfileDto),
+  },
+})
+class FileOnlyProfilesAction {
   async execute(): Promise<void> {
     await Promise.resolve();
   }
@@ -271,6 +283,20 @@ class ScreenedWorkflowFinish {}
   ],
 })
 class ScreenWorkflow {}
+
+@Workflow({
+  name: "filtered-screen-workflow",
+  version: "1.0.0",
+  flow: [
+    start(KitWorkflowStart)
+      .returns(ShortlistDto)
+      .toAgent(ScreenAgent)
+      .returns(listOf(oneOf(ProfileDto, ResumeMissingDto)))
+      .toAction(FileOnlyProfilesAction)
+      .toFinish(ScreenedWorkflowFinish),
+  ],
+})
+class FilteredScreenWorkflow {}
 
 const present = (name: string, producer: string) => ({
   name,
@@ -318,10 +344,20 @@ describe("#270 AC4: the path scope", () => {
     );
   });
 
-  it("a listOf(oneOf(…)) fills a field of the whole list and one of each class's elements", () => {
+  it("#299 AC1 (S53): a listOf(oneOf(…)) reaches a field of the whole list, in any order of classes", () => {
     expect(inputShapesOf(analyseWorkflow(ScreenWorkflow), "file-profiles-action")).toEqual([
-      [present("profiles", "screen-agent"), present("results", "screen-agent")],
+      [present("results", "screen-agent")],
     ]);
+  });
+
+  it("#299 AC1 (S53): it never fills a listOf(one class) — no filtered slot", () => {
+    expect(checkWorkflow(FilteredScreenWorkflow).errors).toContainEqual(
+      expect.objectContaining({
+        code: "input.missing-on-path",
+        message:
+          "filtered-screen-workflow: file-only-profiles-action.profiles (listOf(ProfileDto)) is not produced on the path kit-workflow-start → screen-agent → file-only-profiles-action",
+      }),
+    );
   });
 
   it("several values of one class at once fail a single field", () => {

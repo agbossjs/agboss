@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { shapeLabel } from "../../src/flow/analyse/labels.js";
 import { slotLabel, type SlotKey } from "../../src/flow/analyse/scope.js";
+import * as rootEntry from "../../src/index.js";
+import * as dtoEntry from "../../src/dto/index.js";
 import {
-  about,
-  aboutTargetOf,
+  historyOf,
+  isReturnedShape,
   isValueShape,
   isVariant,
   isWrapper,
   listOf,
   oneOf,
   optional,
-  outputShapeOf,
   variant,
   withVariant,
   Wrapper,
@@ -91,38 +92,38 @@ describe("#270 AC2: variant and isVariant", () => {
   });
 });
 
-describe("#271 S15: about(TargetDto, shape) — a frozen descriptor around an output shape", () => {
-  const answers = oneOf(ChangesRequestedDto, DraftApprovedDto);
-
-  it("records what the answers are about and their shape: { about: Target, shape }", () => {
-    const wrapper = about(OfferDraftDto, answers);
-
-    expect(wrapper).toEqual({ kind: Wrapper.About, about: OfferDraftDto, shape: answers });
-    expect(Object.isFrozen(wrapper)).toBe(true);
+describe("#299 S56: historyOf(Dto, { limit }) — the current value and the earlier versions", () => {
+  it("is a frozen descriptor with its class and its limit", () => {
+    expect(historyOf(OfferDraftDto)).toEqual({ kind: Wrapper.History, dto: OfferDraftDto });
+    expect(historyOf(OfferDraftDto, { limit: 2 })).toEqual({
+      kind: Wrapper.History,
+      dto: OfferDraftDto,
+      limit: 2,
+    });
+    expect(Object.isFrozen(historyOf(OfferDraftDto))).toBe(true);
   });
 
-  it("is a wrapper, but not a value shape: .returns(…) and input fields never take it", () => {
-    expect(isWrapper(about(OfferDraftDto, answers))).toBe(true);
-    expect(isValueShape(about(OfferDraftDto, answers))).toBe(false);
-  });
-
-  it("unwraps to its shape and names its target; any other output has no target", () => {
-    expect(outputShapeOf(about(OfferDraftDto, listOf(ChangesRequestedDto)))).toEqual(
-      listOf(ChangesRequestedDto),
-    );
-    expect(outputShapeOf(answers)).toBe(answers);
-    expect(outputShapeOf(undefined)).toBeUndefined();
-    expect(aboutTargetOf(about(OfferDraftDto, ChangesRequestedDto))).toBe(OfferDraftDto);
-    expect(aboutTargetOf(ChangesRequestedDto)).toBeUndefined();
-    expect(aboutTargetOf(answers)).toBeUndefined();
-    expect(aboutTargetOf(undefined)).toBeUndefined();
+  it("is an input field shape only: neither a value shape nor what .returns(…) takes", () => {
+    expect(isWrapper(historyOf(OfferDraftDto))).toBe(true);
+    expect(isValueShape(historyOf(OfferDraftDto))).toBe(false);
+    expect(isReturnedShape(historyOf(OfferDraftDto))).toBe(false);
+    expect(isReturnedShape(oneOf(ChangesRequestedDto, DraftApprovedDto))).toBe(true);
   });
 
   it("is written in messages as in code", () => {
-    expect(shapeLabel(about(OfferDraftDto, answers))).toBe(
-      "about(OfferDraftDto, oneOf(ChangesRequestedDto, DraftApprovedDto))",
+    expect(shapeLabel(historyOf(OfferDraftDto))).toBe("historyOf(OfferDraftDto)");
+    expect(shapeLabel(historyOf(OfferDraftDto, { limit: 2 }))).toBe(
+      "historyOf(OfferDraftDto, { limit: 2 })",
     );
     expect(slotLabel("list:CritiqueDto" as SlotKey)).toBe("listOf(CritiqueDto)");
-    expect(slotLabel("OfferDraftDto#before" as SlotKey)).toBe('OfferDraftDto as "before"');
+  });
+});
+
+describe("#299 AC2: about(…) is gone — what values are about is said in the flow", () => {
+  it("neither the root entry nor agboss/dto exports about", () => {
+    expect("about" in rootEntry).toBe(false);
+    expect("about" in dtoEntry).toBe(false);
+    expect(rootEntry.historyOf).toBe(historyOf);
+    expect(dtoEntry.historyOf).toBe(historyOf);
   });
 });

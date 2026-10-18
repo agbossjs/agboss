@@ -85,7 +85,8 @@ const readerOf = (
     version: "1.0.0",
     flow: [
       start(RedraftWorkflowStart)
-        .returns(ShortlistDto, optional(OfferDraftDto))
+        .returns(ShortlistDto)
+        .returns(optional(OfferDraftDto))
         .toAgent(RedraftAgent)
         .returns(OfferDraftDto)
         .toFinish(DraftKitWorkflowFinish),

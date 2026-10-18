@@ -61,7 +61,8 @@ export class CompanyScoreWorkflowFinish {}
 
 export const startsPaths = [
   start(CompanyCheckWorkflowStart)
-    .returns(CompanyDto, optional(SearchRequestDto))
+    .returns(CompanyDto)
+    .returns(optional(SearchRequestDto))
     .toAgent(CompanyCheckAgent)
     .returns(CompanyScoreDto)
     .toFinish(CompanyScoreWorkflowFinish),

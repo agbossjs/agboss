@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { analyseWorkflow } from "../../../src/flow/analyse/analyse.js";
+import { runtimeGraphOf } from "../../../src/flow/runtime/graph-model.js";
 import { writeAndOutdate } from "../../../src/flow/runtime/outdating.js";
 import { builtFromOf, type RuntimeProvenance } from "../../../src/flow/runtime/provenance.js";
 import {
@@ -6,47 +8,53 @@ import {
   type ScopeRecords,
   type ScopeValueRecord,
 } from "../../../src/flow/runtime/records.js";
+import { recordsOfWrites } from "../../../src/flow/runtime/scope.js";
+import { PolishWorkflow } from "../fixtures/review.fixture.js";
 import { CritiqueDto, DraftDto } from "../fixtures/review-dtos.js";
 
 /**
  * #271 S11 / S40 / S42 — the runtime step on its own: what a value is built from, and what a write
- * outdates (the root trigger, the reason, tags, `about` protecting its target directly only).
+ * outdates (the root trigger, the reason, `{ about }` — on the record since #299 — protecting its
+ * target directly only).
  */
 
 const record = (
   valueId: string,
   builtFrom: readonly string[] = [],
-  slot = valueId.split("/")[1] ?? "",
+  about?: readonly string[],
 ): ScopeValueRecord => ({
   valueId,
-  slot,
+  slot: valueId.split("/")[1] ?? "",
   producer: valueId.split(":")[0] ?? "",
   value: { of: valueId },
   builtFrom,
+  ...(about === undefined ? {} : { about }),
 });
 
 const scopeOf = (...records: readonly ScopeValueRecord[]): ScopeRecords =>
   Object.fromEntries(records.map((value) => [value.slot, value]));
 
-const provenance: RuntimeProvenance = {
-  readsEverything: new Set(["notes-agent"]),
-  aboutTargets: new Map([["critic-agent", "DraftDto"]]),
-};
+const provenance: RuntimeProvenance = { readsEverything: new Set(["notes-agent"]) };
 
 const draft1 = record("writer-agent:1/DraftDto");
-const critique1 = record("critic-agent:1/CritiqueDto", [draft1.valueId]);
+const critique1 = record("critic-agent:1/CritiqueDto", [draft1.valueId], ["DraftDto"]);
 const research1 = record("researcher-agent:1/ResearchDto", [critique1.valueId]);
 const plan1 = record("planner-agent:1/PlanDto", [research1.valueId]);
 
 describe("#271 S11: what a value is built from at run time", () => {
-  it("its input fields and its own about target, even when it does not read the target", () => {
-    const site = {
-      producer: "critic-agent",
-      read: [],
-      writes: [{ shape: CritiqueDto, isCase: false }],
-    };
+  it("a write's own { about } target, even when its step does not read the target (S40 b)", () => {
+    const graph = runtimeGraphOf(analyseWorkflow(PolishWorkflow), [], PolishWorkflow);
+    const node = graph.nodes.get("critique-action");
+    const exit = node?.exits.next;
+    if (node === undefined || exit === undefined) throw new Error("no critique-action exit");
+    const draft = record("polish-agent:1/DraftDto");
+    const site = { node, visitNumber: 1, builtFrom: [], scope: scopeOf(draft) };
 
-    expect(builtFromOf(site, scopeOf(draft1), provenance)).toEqual([draft1.valueId]);
+    const written = recordsOfWrites(site, exit.writes, { value: [{ remark: "r" }] });
+
+    expect(written["list:CritiqueDto"]).toEqual(
+      expect.objectContaining({ builtFrom: [draft.valueId], about: ["DraftDto"] }),
+    );
   });
 
   it("never an answer about the value it writes (the about direction, rule 5)", () => {
@@ -75,7 +83,7 @@ describe("#271 S11: what a value is built from at run time", () => {
 
 describe("#271 S11: the cascade of a write", () => {
   it("the first write into a slot outdates nothing", () => {
-    const outcome = writeAndOutdate(scopeOf(), scopeOf(draft1), provenance);
+    const outcome = writeAndOutdate(scopeOf(), scopeOf(draft1));
 
     expect({ outdated: outcome.outdated, cascades: outcome.cascades }).toEqual({
       outdated: [],
@@ -85,12 +93,11 @@ describe("#271 S11: the cascade of a write", () => {
   });
 
   it("S42: about protects its target directly only — through a third class the cascade goes on", () => {
-    const critique2 = record("critic-agent:2/CritiqueDto", [draft1.valueId]);
+    const critique2 = record("critic-agent:2/CritiqueDto", [draft1.valueId], ["DraftDto"]);
 
     const outcome = writeAndOutdate(
       scopeOf(draft1, critique1, research1, plan1),
       scopeOf(critique2),
-      provenance,
     );
 
     expect(outcome.outdated.map((value) => [value.valueId, value.outdated.reason])).toEqual([
@@ -104,11 +111,7 @@ describe("#271 S11: the cascade of a write", () => {
   it("a new draft outdates the answers about the old one: AboutReplaced, one root for all", () => {
     const draft2 = record("writer-agent:2/DraftDto");
 
-    const outcome = writeAndOutdate(
-      scopeOf(draft1, critique1, research1),
-      scopeOf(draft2),
-      provenance,
-    );
+    const outcome = writeAndOutdate(scopeOf(draft1, critique1, research1), scopeOf(draft2));
 
     expect(outcome.cascades).toHaveLength(1);
     expect(outcome.cascades[0]?.trigger).toEqual(draft2);
@@ -122,11 +125,7 @@ describe("#271 S11: the cascade of a write", () => {
   it("S40 (c): a source the write itself outdated leaves the new value's builtFrom", () => {
     const draft2 = record("writer-agent:2/DraftDto", [draft1.valueId, research1.valueId]);
 
-    const outcome = writeAndOutdate(
-      scopeOf(draft1, critique1, research1),
-      scopeOf(draft2),
-      provenance,
-    );
+    const outcome = writeAndOutdate(scopeOf(draft1, critique1, research1), scopeOf(draft2));
 
     expect(outcome.scope.DraftDto?.builtFrom).toEqual([]);
     expect(outcome.cascades[0]?.trigger.builtFrom).toEqual([]);
@@ -135,7 +134,7 @@ describe("#271 S11: the cascade of a write", () => {
   it("a source still current after the write stays in builtFrom", () => {
     const plan2 = record("planner-agent:2/PlanDto", [draft1.valueId, plan1.valueId]);
 
-    const outcome = writeAndOutdate(scopeOf(draft1, plan1), scopeOf(plan2), provenance);
+    const outcome = writeAndOutdate(scopeOf(draft1, plan1), scopeOf(plan2));
 
     expect(outcome.scope.PlanDto?.builtFrom).toEqual([draft1.valueId]);
   });
@@ -145,40 +144,32 @@ describe("#271 S11: the cascade of a write", () => {
     const forward = scopeOf(draft1, critique1, research1, plan1);
     const backward = scopeOf(plan1, research1, critique1, draft1);
 
-    const first = writeAndOutdate(forward, scopeOf(draft2), provenance);
-    const second = writeAndOutdate(backward, scopeOf(draft2), provenance);
+    const first = writeAndOutdate(forward, scopeOf(draft2));
+    const second = writeAndOutdate(backward, scopeOf(draft2));
 
     expect(second.outdated).toEqual(first.outdated);
   });
 
-  it("tag slots are independent: an untagged rewrite leaves what was built from #before", () => {
-    const before = record("writer-agent:1/DraftDto#before", [], "DraftDto#before");
-    const diff = record("diff-agent:1/DiffDto", [before.valueId]);
-    const draft2 = record("writer-agent:2/DraftDto");
-
-    const outdating = writeAndOutdate(scopeOf(draft1, before, diff), scopeOf(draft2), provenance);
-
-    expect(outdating.outdated.map((value) => value.valueId)).toEqual([draft1.valueId]);
-    expect(Object.keys(outdating.scope).sort()).toEqual(["DiffDto", "DraftDto", "DraftDto#before"]);
-  });
-
   it("a write of several slots: each outdated value names the trigger whose chain reached it", () => {
-    const list1 = record("search-agent:1/list:oneOf(ADto,BDto)", [], "list:oneOf(ADto,BDto)");
-    const a1 = record("search-agent:1/list:ADto", [], "list:ADto");
-    const fromA = record("reader-agent:1/ReportDto", [a1.valueId]);
-    const list2 = record("search-agent:2/list:oneOf(ADto,BDto)", [], "list:oneOf(ADto,BDto)");
-    const a2 = record("search-agent:2/list:ADto", [], "list:ADto");
+    const company1 = record("check-workflow-start:1/CompanyDto");
+    const search1 = record("check-workflow-start:1/SearchRequestDto");
+    const fromSearch = record("reader-agent:1/ReportDto", [search1.valueId]);
+    const company2 = record("check-workflow-start:2/CompanyDto");
+    const search2 = record("check-workflow-start:2/SearchRequestDto");
 
-    const outcome = writeAndOutdate(scopeOf(list1, a1, fromA), scopeOf(list2, a2), provenance);
+    const outcome = writeAndOutdate(
+      scopeOf(company1, search1, fromSearch),
+      scopeOf(company2, search2),
+    );
 
     expect(outcome.cascades.map((cascade) => cascade.trigger.valueId)).toEqual([
-      a2.valueId,
-      list2.valueId,
+      company2.valueId,
+      search2.valueId,
     ]);
     expect(outcome.outdated.map((value) => [value.valueId, value.outdated.byValueId])).toEqual([
-      [a1.valueId, a2.valueId],
-      [list1.valueId, list2.valueId],
-      [fromA.valueId, a2.valueId],
+      [company1.valueId, company2.valueId],
+      [search1.valueId, search2.valueId],
+      [fromSearch.valueId, search2.valueId],
     ]);
   });
 });

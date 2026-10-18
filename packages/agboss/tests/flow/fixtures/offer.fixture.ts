@@ -4,7 +4,7 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { about, oneOf } from "../../../src/flow/dto-wrappers.js";
+import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import {
@@ -48,7 +48,7 @@ export class DraftAgent {}
   input: {
     draft: OfferDraftDto,
   },
-  output: about(OfferDraftDto, oneOf(ChangesRequestedDto, DraftApprovedDto)), // the answers are about the draft (#271)
+  output: oneOf(ChangesRequestedDto, DraftApprovedDto), // what the changes are about: in the flow (#299)
 })
 export class ReviewerAgent {}
 
@@ -128,8 +128,9 @@ export const offerPaths = [
     .toAgent(ReviewerAgent),
 
   agent(ReviewerAgent)
+    .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
     .switch(
-      caseOf(ChangesRequestedDto)
+      caseOf(ChangesRequestedDto, { about: OfferDraftDto })
         .toAgent(EditorAgent)
         .onError(
           VisitsLimitExceededError,
