@@ -122,7 +122,6 @@ const SHOP_BUDGETS = [TestApplicationDailyBudget, TestTenantDailyBudget, ShopExe
       .toFinish(Done),
   ],
   defaults,
-  channelClasses: [TerminalUserChannel],
 })
 export class Shop {}
 
@@ -149,7 +148,6 @@ export class ShopApplication {}
       .toFinish(Done),
   ],
   defaults,
-  channelClasses: [TerminalUserChannel],
 })
 export class ShopCatchingLimits {}
 
@@ -175,7 +173,6 @@ export class ShopCatchingLimitsApplication {}
       .toFinish(Done),
   ],
   defaults,
-  channelClasses: [TerminalUserChannel],
 })
 export class ShopUncaught {}
 

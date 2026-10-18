@@ -209,7 +209,6 @@ export class BedsWorkflowFinish {}
   version: "1.0.0",
   defaults: { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 3 } },
   providers: [UnitDirectoryService],
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(BedRequestWorkflowStart)
       .returns(WorkflowStartTextDto)

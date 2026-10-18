@@ -4,6 +4,7 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/application/create-app.js";
+import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { toolResultsOf } from "../testing/fixtures/requests.js";
@@ -11,8 +12,6 @@ import {
   MaskSecret,
   RemoteAgent,
   RevealTool,
-  SecretInbound,
-  SemanticInbound,
   seen,
   StrictJudge,
   Vault,
@@ -59,21 +58,12 @@ describe("#183 AC1: every decorator kind with deps gets them injected at run tim
     await app.close();
   });
 
-  it("@Channel, @InboundChannelAdapter, @SemanticInboundChannelAdapter: created with deps", async () => {
+  it("@Channel: created with deps", async () => {
     const { app } = await runVault();
-    await app.resolve(VaultChannel).requestApproval({
-      runId: "r1",
-      agentName: "keeper",
-      toolName: "reveal",
-      toolArguments: {},
-    });
-    expect(seen).toContain("channel:reveal:s3cret");
-    await expect(app.resolve(SecretInbound).interpret("s3cret")).resolves.toEqual({
-      approved: true,
-    });
-    await expect(app.resolve(SemanticInbound).interpret("a s3cret")).resolves.toEqual({
-      approved: true,
-    });
+    await expect(app.resolve(VaultChannel).send({ pauseId: "p1", value: {} })).resolves.toEqual(
+      ChannelOutcome.awaitReply(),
+    );
+    expect(seen).toContain("channel:p1:s3cret");
     await app.close();
   });
 

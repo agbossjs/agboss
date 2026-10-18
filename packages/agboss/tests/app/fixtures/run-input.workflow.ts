@@ -157,7 +157,6 @@ export class Done {}
     tools: { maxToolCalls: 3 },
   },
   providers: [Shortlist],
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(SearchStart)
       .returns(SearchInDto)

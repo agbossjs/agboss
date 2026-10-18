@@ -7,7 +7,7 @@ import { resetSharedDatabase } from "../helpers/shared-infrastructure.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
-import { ApprovalDesk, ChatStart, type ButtonClick } from "../channels/approval.workflow.js";
+import { ApprovalDesk, ChatStart } from "../channels/approval.workflow.js";
 import {
   DurablePaymentsApplication,
   Pay,
@@ -22,7 +22,7 @@ const offline = (book: ScriptBook): AppOptions => ({
   gateway: createScriptedGateway(book),
 });
 
-const approve: ButtonClick = { action: "approve", user: "dana" };
+const approve = { approved: true, by: "dana" };
 const card = { orderId: "A-1", cardNumber: "4111 1111 1111 1111" };
 
 describe("#202 AC1: threads are bound to their owner", () => {

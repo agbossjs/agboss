@@ -51,11 +51,17 @@ const fixtures = new URL("../fixtures/", import.meta.url).pathname;
 const outFile = join(framework, GENERATED_TYPES_FILE);
 const tablesModule = join(framework, "src/flow/generated-types.ts");
 
-/** Every fixture module with its named exports — what the loader records under tsx. */
+/**
+ * Every fixture module with its named exports — what the loader records under tsx — and the
+ * framework's DTO module the fixtures import (a channel role's ask and answer DTOs, #267).
+ */
 async function fixtureModules(): Promise<readonly LoadedModule[]> {
-  const files = readdirSync(fixtures)
-    .filter((file) => file.endsWith(".ts") && !file.endsWith(".d.ts"))
-    .map((file) => join(fixtures, file));
+  const files = [
+    ...readdirSync(fixtures)
+      .filter((file) => file.endsWith(".ts") && !file.endsWith(".d.ts"))
+      .map((file) => join(fixtures, file)),
+    join(framework, "src/dto/index.ts"),
+  ];
   return Promise.all(
     files.map(async (file) => ({
       file,

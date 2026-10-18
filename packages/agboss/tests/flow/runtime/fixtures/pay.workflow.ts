@@ -118,7 +118,6 @@ export class DeclinedFinish {}
 @Workflow({
   name: "pay-workflow",
   version: "1.0.0",
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(PayStart)
       .returns(OrderDto)

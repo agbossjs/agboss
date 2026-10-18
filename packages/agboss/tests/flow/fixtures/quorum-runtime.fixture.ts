@@ -65,7 +65,6 @@ const PANEL = [SkillsPanelAgent, RisksPanelAgent, HirePanelAgent] as const;
 @Workflow({
   name: "quick-panel-workflow",
   version: "1.0.0",
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(PanelWorkflowStart)
       .returns(CandidateDto)
@@ -82,7 +81,6 @@ export class QuickPanelWorkflow {}
 @Workflow({
   name: "checked-panel-workflow",
   version: "1.0.0",
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(PanelWorkflowStart)
       .returns(CandidateDto)
@@ -102,7 +100,6 @@ export class CheckedPanelWorkflow {}
 @Workflow({
   name: "strict-panel-workflow",
   version: "1.0.0",
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(PanelWorkflowStart)
       .returns(CandidateDto)
@@ -120,7 +117,6 @@ export class StrictPanelWorkflow {}
 @Workflow({
   name: "model-panel-workflow",
   version: "1.0.0",
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(PanelWorkflowStart)
       .returns(CandidateDto)
@@ -139,7 +135,6 @@ export class ModelPanelWorkflow {}
 @Workflow({
   name: "chat-panel-workflow",
   version: "1.0.0",
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(PanelWorkflowStart)
       .returns(CandidateDto)
@@ -157,7 +152,6 @@ export class ChatPanelWorkflow {}
 @Workflow({
   name: "chain-panel-workflow",
   version: "1.0.0",
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(PanelWorkflowStart)
       .returns(CandidateDto)
@@ -176,7 +170,6 @@ export class ChainPanelWorkflow {}
 @Workflow({
   name: "any-of-panel-workflow",
   version: "1.0.0",
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(PanelWorkflowStart)
       .returns(CandidateDto)
@@ -194,7 +187,6 @@ export class AnyOfPanelWorkflow {}
 @Workflow({
   name: "item-panel-workflow",
   version: "1.0.0",
-  channelClasses: [TerminalUserChannel],
   maxSteps: 10,
   flow: [
     start(PanelItemsWorkflowStart)
@@ -213,7 +205,6 @@ export class ItemPanelWorkflow {}
 @Workflow({
   name: "copies-panel-workflow",
   version: "1.0.0",
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(PanelWorkflowStart)
       .returns(CandidateDto)
@@ -233,7 +224,6 @@ export class CopiesPanelWorkflow {}
 @Workflow({
   name: "recovery-panel-workflow",
   version: "1.0.0",
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(PanelWorkflowStart)
       .returns(CandidateDto)

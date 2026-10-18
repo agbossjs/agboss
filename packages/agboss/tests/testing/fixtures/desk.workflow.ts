@@ -257,7 +257,6 @@ export class MainRouter {}
     tools: { maxToolCalls: 4 },
     history: { limit: 4 },
   },
-  channelClasses: [TerminalUserChannel],
   guards: {
     input: { prompt_injection: { threshold: 0.7, refusal: "I can't help with that." } },
   },

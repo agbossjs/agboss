@@ -57,7 +57,6 @@ export class VoucherClerk {}
     history: { limit: 1 },
     tools: { maxToolCalls: 3 },
   },
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(Redeem)
       .returns(VoucherDto)

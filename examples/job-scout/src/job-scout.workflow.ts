@@ -1,4 +1,4 @@
-import { Workflow, provide, route, start, TerminalUserChannel } from "agboss";
+import { Workflow, provide, route, start } from "agboss";
 import { WorkflowStartTextDto } from "agboss/dto";
 import { Reasoning } from "agboss/models";
 import { GUARDS, KIMI } from "./config/settings.js";
@@ -52,6 +52,5 @@ import { JOB_SEARCH, jobSearchConfig } from "./config/search.config.js";
     provide(NOTES_INDEX, { folder: NOTES_DIR, dbFile: NOTES_DB }),
   ],
   promptVariables: jobScoutPromptVariables(jobSearchConfig),
-  channelClasses: [TerminalUserChannel],
 })
 export class JobScout {}

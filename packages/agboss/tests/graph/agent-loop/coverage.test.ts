@@ -323,14 +323,14 @@ describe("agent-loop missing branches coverage", () => {
 });
 
 describe("app-deps branches coverage", () => {
-  it("requestApproval throws on unknown channel", async () => {
+  it("channelOf throws on unknown channel", async () => {
     const bundle = await workflowOf(CodeReview);
     const built = await createAppDeps(bundle, {
       gateway: { chatModel: () => ({}), embeddings: () => ({}) } as any,
       connectMcp: async () => ({ close: async () => undefined }),
     });
     const deps = built;
-    await expect(deps.requestApproval("unknown-channel", {})).rejects.toThrow("Unknown channel");
+    expect(() => deps.channelOf("unknown-channel")).toThrow("Unknown channel");
     await deps.close();
   });
 
@@ -358,9 +358,9 @@ describe("app-deps branches coverage", () => {
     expect(result).toEqual({});
   });
 
-  it("app-deps requestApproval successful call", async () => {
+  it("app-deps channelOf gives the channel of that name", async () => {
     // We need a channel to be returned by bundle.channels
-    const mockChannel = { requestApproval: vi.fn().mockResolvedValue(undefined) };
+    const mockChannel = { send: vi.fn().mockResolvedValue(undefined) };
     const bundle = await workflowOf(CodeReview);
     const originalChannels = bundle.channels;
     bundle.channels = () => new Map([["my-channel", mockChannel]]);
@@ -370,8 +370,7 @@ describe("app-deps branches coverage", () => {
       connectMcp: async () => ({ close: async () => undefined }),
     });
 
-    await built.requestApproval("my-channel", {});
-    expect(mockChannel.requestApproval).toHaveBeenCalled();
+    expect(built.channelOf("my-channel")).toBe(mockChannel);
 
     bundle.channels = originalChannels;
     await built.close();

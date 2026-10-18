@@ -143,7 +143,6 @@ export class NoteWorkflow {}
   name: "send-workflow",
   version: "1.0.0",
   defaults: { models: { temperature: 0 }, history: { limit: 1 }, tools: { maxToolCalls: 2 } },
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(SendWorkflowStart)
       .returns(WorkflowStartTextDto)
