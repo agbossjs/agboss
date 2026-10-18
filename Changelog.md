@@ -3,6 +3,31 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the shared contracts and the execution lease (#265, PR 1)
+
+- **New infrastructure contracts** (root entry), each with a built-in in-memory default, listed only
+  in `@Application({ providers })` and found by inheritance: `ExecutionLeaseRepository`
+  (`acquire(tenantId, rootExecutionId, lease)`, `renew`, `release`; `ExecutionLease { tenantId,
+  rootExecutionId, holderInstanceId, leaseEpoch, expiresAt }`), `ExecutionTreeRepository`
+  (`saveIfAbsent(key, value)` / `findById(key)` inside an execution; an implementation provides
+  `saveIfAbsentInTree`, `findByIdInTree`, `deleteAllInTree`) and `RateLimitRepository`
+  (`acquire(key, maxSlots, lease)`, `renew`, `release`; `RateLimitLease`). There is no
+  `ExecutionSlotRepository` ([Several instances](Several-instances)).
+- **The execution lease** (Q58): `app.execute` and `app.resume` move a tree only while holding its
+  lease (`seconds(30)`, renewed every 10 s and before every checkpoint write, released when the pass
+  ends). An instance that lost it stops, and its call rejects with `ExecutionLeaseLostError`
+  (`execution.lease-lost`) — no `.onError`, no `onError`, no failed record: the new holder continues.
+- **Breaking — `PausedExecutionRepository`**: a paused run has a `status` (`PauseStatus.Pending` /
+  `Resolved`) and, once resolved, its `decision`; a new abstract `resolveByThreadId(threadId,
+  decision)` turns a pending pause to resolved atomically. A resume records its decision first
+  (a second resume of the same pause → `NotPausedError`), then waits for the tree's lease; the holder
+  takes decisions resolved meanwhile and the waiting call returns the tree's current output.
+- **Tree keys** of `ExecutionTreeRepository` are removed when the tree finishes, fails or is
+  cancelled; a pause keeps them.
+- **Testing**: `testWith(App, { instances: 2 })` with the fixtures `apps` and `clock`;
+  `clock.advance` takes `seconds(…)` too and returns a promise — **`await` it** (the framework's
+  waits sleep on the test clock) ([Testing](Testing)).
+
 ## Unreleased — `@Application`, infrastructure, the test entry (#261, PR 2)
 
 - **Breaking — `@Application` is the one entry**: `@Application({ name, version, workflows,

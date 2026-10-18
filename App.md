@@ -103,12 +103,16 @@ two → `[di.ambiguous-implementation]`. A service that needs one injects the co
 | --------------------------- | ------------------------------------------------------------------ | ---------------- |
 | `ExecutionRecordRepository` | threads and their owners, one record per execution, scores, config snapshots | in memory |
 | `CostLedgerRepository`      | the spend per key and UTC day (`findSpentToday`, `saveAll`)        | in memory        |
-| `PausedExecutionRepository` | the paused execution of each thread (`findByThreadId`, `save`, `deleteByThreadId`) | in memory |
+| `PausedExecutionRepository` | the paused execution of each thread (`findByThreadId`, `save`, `resolveByThreadId` — `Pending → Resolved` with its decision, atomic —, `deleteByThreadId`) | in memory |
 | `BaseCheckpointSaver`       | LangGraph's checkpoints, taken as is (ecosystem savers plug in)    | `MemorySaver`    |
+| `ExecutionLeaseRepository`  | one lease per execution tree: who moves it (`acquire`, `renew`, `release`, #265) | in memory |
+| `ExecutionTreeRepository`   | the shared state of one request (`saveIfAbsent`, `findById` inside an execution; removed when the tree ends) | in memory |
+| `RateLimitRepository`       | concurrency slots as leases (`acquire(key, maxSlots, lease)`, `renew`, `release`) — the model providers' limits (#266) | in memory |
 
-Nothing is written to the home folder: with the defaults, records, spend and pauses live in the
-instance and are gone after a restart. The SQLite implementations (`SqliteExecutionRecordRepository`,
-…) come with #265; your own `extends` the contract and goes in `@Application({ providers })`.
+Nothing is written to the home folder: with the defaults, records, spend, pauses and leases live in
+the instance and are gone after a restart. The SQLite implementations (`SqliteExecutionRecordRepository`,
+…) come with #265 PR 3; your own `extends` the contract and goes in `@Application({ providers })`.
+Running more than one instance: [Several instances](Several-instances).
 
 ## `app.execute(Start, input, options?)`
 
@@ -144,6 +148,11 @@ Continues, in the workflow the thread belongs to, the paused run of the thread w
 `reason?` — [Pause seam](Pause-seam)); same result shape. A thread without a paused run →
 `NotPausedError`. A run paused under another workflow version or config is checked by the
 workflow's `onIncompatibleResume` policy (`IncompatibleResumeError`).
+
+A resume has two phases (#265, Q58): it records the decision — the pause goes `Pending → Resolved`
+atomically, so a second resume of the same pause gets `NotPausedError` — then takes the tree's lease
+and continues. While another call or instance moves the tree it waits, and returns the tree's
+current output once the holder took its decision ([Several instances](Several-instances#the-execution-lease)).
 
 ## `app.cancel(thread)`
 

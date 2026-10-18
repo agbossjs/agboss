@@ -136,7 +136,7 @@ test("saving waits for approval; after it the agent's answer ends the turn", asy
 
 Components are referenced **by class** everywhere; strings only for data.
 
-## `testWith(Application, { real?, allowNetwork? })`
+## `testWith(Application, { real?, allowNetwork?, instances? })`
 
 A Vitest `test` whose fixtures are:
 
@@ -146,6 +146,8 @@ A Vitest `test` whose fixtures are:
 | `mockLlm` | the script of an agent or a router: `mockLlm(Scout).thenReturn(…)`                            |
 | `mockOf`  | a typed mock injected instead of a component (a budget too: `mockOf(TenantDailyBudget).maxSpend`) |
 | `mcpOf`   | the stub of an MCP server                                                                  |
+| `apps`    | with `testWith(App, { instances: 2 })`: every instance of the application (`apps[0]` is `app`), each its own container and instance id, over one set of stores and one clock ([Several instances](Several-instances#testing-several-instances)) |
+| `clock`   | the test's clock, shared by its instances: `await clock.advance(seconds(31))` |
 | `recoverApp` | `await recoverApp()` closes the current app (its `onStop` hooks run, as on a real stop) and returns a new one over the same test state (the infrastructure the first app created — checkpoints, records, ledger, paused executions — the clock, the ids); the closed app fails every call with `test.app-closed` |
 
 The whole application is assembled when the test starts: a broken workflow fails every test of
@@ -294,8 +296,10 @@ outdated value reached the model.
 - Per test: its own checkpoints, spend ledger, Terns and paused runs (in memory), deterministic ids
   (`thread-1`, `run-1`, …) and a clock fixed at the start. Two tests — even in parallel, with the same
   thread id — never see each other.
-- `app.clock.advance("25h")` moves the time (units `ms`, `s`, `m`, `h`, `d`): the per-day limit
-  (`limits.perDay.cost`) starts a new UTC day.
+- `await app.clock.advance("25h")` moves the time (units `ms`, `s`, `m`, `h`, `d`, or a value with
+  its unit, `seconds(31)`): the per-day limit (`limits.perDay.cost`) starts a new UTC day. The work
+  already started first reaches its next wait; then the time jumps and the framework's waits that
+  are due — lease renewals, a resume waiting for a tree's lease — wake in time order.
 
 ## Three kinds of tests
 

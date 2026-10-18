@@ -12,6 +12,7 @@
 - [Guards](Guards)
 - [CLI — agboss](CLI)
 - [App — @Application and createApp](App)
+- [Several instances](Several-instances)
 - [Context and Authorization](Context-And-Authorization)
 - [Testing](Testing)
 - [Suites and Comparisons](Testing-Suites-And-Comparisons)
