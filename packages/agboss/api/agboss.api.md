@@ -2746,7 +2746,6 @@ export abstract class SpendRecorder {
 
 // @public
 export class SqliteCheckpointSaver extends BaseCheckpointSaver {
-    // Warning: (ae-forgotten-export) The symbol "SqliteConnection" needs to be exported by the entry point index.d.ts
     constructor(connection: SqliteConnection);
     // (undocumented)
     deleteThread(threadId: string): Promise<void>;
@@ -2765,6 +2764,16 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
     //
     // (undocumented)
     putWrites(...input: PutWritesArguments): Promise<void>;
+}
+
+// @public
+export class SqliteConnection implements OnDestroy {
+    constructor(environment: Environment);
+    get database(): DatabaseSync;
+    ensureSchema(name: string, ddl: string): void;
+    onDestroy(): void;
+    readonly path: string;
+    transaction<TResult>(work: () => TResult): TResult;
 }
 
 // @public

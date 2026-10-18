@@ -51,6 +51,7 @@ export {
   RateLimitRepository,
   type RateLimitLease,
 } from "../infrastructure/rate-limit.repository.js";
+export type { SqliteConnection } from "../infrastructure/sqlite/sqlite-connection.js";
 export { SqliteCheckpointSaver } from "../infrastructure/sqlite/sqlite-checkpoint-saver.js";
 export { SqliteCostLedgerRepository } from "../infrastructure/sqlite/sqlite-cost-ledger.repository.js";
 export { SqliteExecutionLeaseRepository } from "../infrastructure/sqlite/sqlite-execution-lease.repository.js";

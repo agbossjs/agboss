@@ -58,7 +58,7 @@ export function inImmediateTransaction<TResult>(
   }
 }
 
-/** The connection of one application instance, created by the container for its SQLite stores. */
+/** The SQLite connection of one application instance: created only by the container (exported as a type), shared by its SQLite stores. */
 @Injectable({ deps: [ENV] })
 export class SqliteConnection implements OnDestroy {
   /** The file (`sqlitePath`); `:memory:` keeps the database in this connection only. */
