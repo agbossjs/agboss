@@ -158,7 +158,11 @@ describe("budgets (#261): the credit desk's own execution budget, the tenant's d
     expect(mockLlm(ApprovalAgent).requests).toHaveLength(0);
   });
 
-  test("a tenant whose day is spent is refused before any call", async ({ app, mockLlm, mockOf }) => {
+  test("a tenant whose day is spent is refused before any call", async ({
+    app,
+    mockLlm,
+    mockOf,
+  }) => {
     mockOf(TenantDailyBudget).maxSpend.mockReturnValue(usd(0));
 
     const run = app.execute(CreditWorkflowStart, { text: "tea" }, { tenant: { tenantId: "acme" } });
