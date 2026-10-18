@@ -41,6 +41,7 @@ import {
   NoQuorumPanelWorkflowFinish,
   PanelFailedWorkflowFinish,
   PanelItemsWorkflowStart,
+  PanelChatArbiter,
   PanelModelArbiter,
   PanelReviewWorkflowFinish,
   PanelSummaryAgent,
@@ -136,6 +137,24 @@ export class StrictPanelWorkflow {}
   ],
 })
 export class ModelPanelWorkflow {}
+
+@Workflow({
+  name: "chat-panel-workflow",
+  version: "1.0.0",
+  channelClasses: [TerminalUserChannel],
+  flow: [
+    start(PanelWorkflowStart)
+      .returns(CandidateDto)
+      .toParallelAgents(...PANEL)
+      .acceptedBy(PanelChatArbiter)
+      .joinQuorum({ min: 2, max: 3 })
+      .returns(listOf(ScoreDto))
+      .toAgent(PanelSummaryAgent)
+      .returns(ScoreReviewDto)
+      .toFinish(PanelReviewWorkflowFinish),
+  ],
+})
+export class ChatPanelWorkflow {}
 
 @Workflow({
   name: "chain-panel-workflow",
@@ -352,3 +371,12 @@ export class DealPanelApplication {}
   budgets: TEST_BUDGETS,
 })
 export class RecoveryPanelApplication {}
+
+@Application({
+  name: "chat-panel-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [ChatPanelWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class ChatPanelApplication {}

@@ -22,7 +22,7 @@ import type { NotifyFinanceTeamAction, OrderFailedWorkflowFinish, OrderWorkflow,
 import type { AuditorAgent, BoardSearchAgent, CandidateReviewWorkflowStart, CompanySearchWorkflowStart, CompanyShortlistAgent, CompanyShortlistWorkflowFinish, CompanyVetAgent, CultureScoreAgent, DealCriticAgent, DealRoomOpenedWorkflowFinish, DealWorkflowStart, DueDiligenceReportWorkflowFinish, FastScreenAgent, FitReviewWorkflowStart, FitSummaryAgent, FitSummaryWorkflowFinish, FullReviewAgent, LegalAgent, NotifyReviewerAction, OpenDealRoomAction, QuickRejectWorkflowFinish, ReviewerNotifiedWorkflowFinish, SalaryFitAgent, ScoreAAgent, ScoreBAgent, ScoreCAgent, ScoreReviewFailedWorkflowFinish, ScoreReviewWorkflowFinish, ScoreSummaryAgent, SecondOpinionRouter, SkillsScoreAgent } from "../tests/flow/fixtures/quorum-agents.js";
 import type { AuditDto, CandidateDto, CompanyShortlistDto, CultureScoreDto, DealCritiqueDto, DealDto, DueDiligenceReportDto, FastScreenDto, FitSummaryDto, LegalReviewDto, SalaryFitDto, ScoreDto, ScoreReviewDto, SkillsScoreDto } from "../tests/flow/fixtures/quorum-dtos.js";
 import type { CriticPanelAgent, DealPanelWorkflowStart, DealReportPanelAgent, DealReportPanelWorkflowFinish, FastPanelAgent, HirePanelAgent, LegalPanelAgent, NoQuorumPanelWorkflowFinish, PanelFailedWorkflowFinish, PanelItemsWorkflowStart, PanelReviewWorkflowFinish, PanelSummaryAgent, PanelUnjudgedWorkflowFinish, PanelWorkflowStart, QuickRejectPanelWorkflowFinish, RisksPanelAgent, SecondOpinionPanelWorkflowFinish, SkillsPanelAgent } from "../tests/flow/fixtures/quorum-runtime-parts.js";
-import type { AnyOfPanelWorkflow, ChainPanelWorkflow, CheckedPanelWorkflow, CopiesPanelWorkflow, DealPanelWorkflow, ItemPanelWorkflow, ModelPanelWorkflow, QuickPanelWorkflow, RecoveryPanelWorkflow, StrictPanelWorkflow } from "../tests/flow/fixtures/quorum-runtime.fixture.js";
+import type { AnyOfPanelWorkflow, ChainPanelWorkflow, ChatPanelWorkflow, CheckedPanelWorkflow, CopiesPanelWorkflow, DealPanelWorkflow, ItemPanelWorkflow, ModelPanelWorkflow, QuickPanelWorkflow, RecoveryPanelWorkflow, StrictPanelWorkflow } from "../tests/flow/fixtures/quorum-runtime.fixture.js";
 import type { CandidateReviewWorkflow, CompanySearchWorkflow, DueDiligenceWorkflow, FitReviewWorkflow } from "../tests/flow/fixtures/quorum.fixture.js";
 import type { ApprovalDto, CritiqueDto, DraftDto, PlanDto, ResearchDto } from "../tests/flow/fixtures/review-dtos.js";
 import type { CritiqueAction, CritiqueRouter, PolishAgent, PolishWorkflow, PolishedWorkflowFinish, PublisherAgent, ResearcherAgent, StoryReviewerAgent, StoryWorkflow, StoryWorkflowFinish, StoryWorkflowStart, StoryWriterAgent } from "../tests/flow/fixtures/review.fixture.js";
@@ -1405,6 +1405,9 @@ declare module "../tests/flow/fixtures/quorum-runtime.fixture.js" {
   }
   interface ChainPanelWorkflow {
     readonly [agbossComponent]?: "chain-panel-workflow";
+  }
+  interface ChatPanelWorkflow {
+    readonly [agbossComponent]?: "chat-panel-workflow";
   }
   interface CheckedPanelWorkflow {
     readonly [agbossComponent]?: "checked-panel-workflow";

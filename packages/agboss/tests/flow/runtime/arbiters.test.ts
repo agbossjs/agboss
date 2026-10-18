@@ -15,6 +15,7 @@ import {
   panel,
   PanelFailedWorkflowFinish,
   PanelItemsWorkflowStart,
+  PanelChatArbiter,
   PanelModelArbiter,
   PanelReviewWorkflowFinish,
   PanelSummaryAgent,
@@ -27,6 +28,7 @@ import {
 } from "../fixtures/quorum-runtime-parts.js";
 import {
   AnyOfPanelApplication,
+  ChatPanelApplication,
   ChainPanelApplication,
   CheckedPanelApplication,
   CopiesPanelApplication,
@@ -50,6 +52,7 @@ const anyOf = testWith(AnyOfPanelApplication);
 const items = testWith(ItemPanelApplication);
 const copies = testWith(CopiesPanelApplication);
 const strict = testWith(StrictPanelApplication);
+const chat = testWith(ChatPanelApplication);
 
 const score = (value: number) => replyWith(ScoreDto, { score: value });
 const summary = replyWith(ScoreReviewDto, { text: "summed up" });
@@ -119,6 +122,27 @@ describe("AC5: a model arbiter judges each answer by its agent's criterion", () 
       });
     },
   );
+});
+
+describe("AC5: a model arbiter on a chat model", () => {
+  chat("it answers through its answer tool, a boolean per answer", async ({ app, mockLlm }) => {
+    mockLlm(SkillsPanelAgent).thenReturn(score(7));
+    mockLlm(RisksPanelAgent).thenReturn(score(6));
+    mockLlm(HirePanelAgent).thenReturn(score(9));
+    mockLlm(PanelChatArbiter).thenAnswer(
+      judgeBy({ "skills-panel-agent": 0.9, "risks-panel-agent": 0.1, "hire-panel-agent": 0.8 }),
+    );
+    mockLlm(PanelSummaryAgent).thenReturn(summary);
+
+    const result = await execute(app, PanelWorkflowStart, ANNA);
+
+    expect(result.launches[0]?.branches).toMatchObject([
+      { verdict: BranchVerdict.Counted },
+      { verdict: BranchVerdict.Rejected, rejectedBy: ["panel-chat-arbiter"] },
+      { verdict: BranchVerdict.Counted },
+    ]);
+    expect(mockLlm(PanelChatArbiter).requests).toHaveLength(3);
+  });
 });
 
 describe("AC6: a code arbiter, the copy and the item from ExecutionContext", () => {

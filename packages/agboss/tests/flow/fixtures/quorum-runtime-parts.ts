@@ -245,6 +245,19 @@ export class InRangeArbiter {
 })
 export class PanelModelArbiter {}
 
+@Arbiter({
+  name: "panel-chat-arbiter",
+  decidedBy: DecidedBy.Model,
+  model: "moonshotai/kimi-k2.6",
+  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  criteria: [
+    { agent: SkillsPanelAgent, prompt: "Scores the technical skills" },
+    { agent: RisksPanelAgent, prompt: "Names a concrete risk" },
+    { agent: HirePanelAgent, prompt: "Ends with a clear hire / no hire" },
+  ],
+})
+export class PanelChatArbiter {}
+
 /** Per item: only the even items count — the item from `executionContext.step.itemIndex`. */
 @Arbiter({ name: "even-item-arbiter", decidedBy: DecidedBy.Code, deps: [ExecutionContext] })
 export class EvenItemArbiter {
