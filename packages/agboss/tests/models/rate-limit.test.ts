@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
-import { WorkflowCancelledError } from "../../src/core/errors.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import {
   ModelFailure,
   RateLimitPolicy,
@@ -161,7 +161,7 @@ describe("#266 AC4: a call without room waits", () => {
     await clock.advance(seconds(1));
     expect(await app.cancel("thread-4")).toEqual({ cancelled: true });
     aborted.abort(new Error("the caller left"));
-    await expect(cancelled).rejects.toBeInstanceOf(WorkflowCancelledError);
+    await expect(cancelled).rejects.toBeInstanceOf(ExecutionCancelledError);
     await expect(signalled).rejects.toThrow();
     // the waiting call got its slot after 20 s and took 20 s more: 40 s since it asked, no timeout
     const [held, waited] = await advanceUntil(clock, Promise.all([holders, waiting]));

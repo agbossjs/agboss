@@ -14,7 +14,7 @@ export interface Waiter extends GateTicket {
   readonly isSettled: () => boolean;
 }
 
-/** Why a signal ended a wait: its reason (`app.cancel` gives a `WorkflowCancelledError`). */
+/** Why a signal ended a wait: its reason (`app.cancel` gives a `ExecutionCancelledError`). */
 const abortErrorOf = (signal: AbortSignal): Error =>
   signal.reason instanceof Error ? signal.reason : new DOMException("aborted", "AbortError");
 
