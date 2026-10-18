@@ -104,6 +104,7 @@ describe("#270 AC13: agboss check generates .agboss/types.d.ts for the fixtures"
     const generated = generateFlowTypes(await requestFor(FIXTURE_WORKFLOWS));
 
     expect(generated.errors.map((found) => found.code)).toEqual([
+      "graph.ambiguous-start",
       "launch.item-not-read",
       "flow.unused-output",
       "input.missing-on-path",

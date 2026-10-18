@@ -44,7 +44,8 @@ function ambiguous(found: ChildChoice): RuleViolation {
   const { child, value } = found.entry;
   const taken = value === undefined ? "the value" : shapeLabel(value);
   const message =
-    `${entryLabel(found)}: ${found.starts.map((start) => start.name).join(" and ")} all take ` +
+    `${entryLabel(found)}: ${found.starts.map((start) => start.name).join(" and ")} ` +
+    `${found.starts.length === 2 ? "both" : "all"} take ` +
     `${taken} — a start is chosen by class: make one start's input a subclass ` +
     `(class QuickCheckRequestDto extends ${taken} {})`;
   return violation("graph.ambiguous-start", message, [child.name]);

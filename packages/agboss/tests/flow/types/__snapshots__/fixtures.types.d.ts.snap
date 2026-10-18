@@ -2,6 +2,7 @@
 // run `agboss check` again after changing a workflow or a component.
 import type { HistoryOf, NoInput, NoOutput, Produced, agbossComponent, agbossDto } from "../src/flow/generated-types.js";
 import type { ArticleDraftAgent, ArticleWorkflow, ArticleWorkflowFinish, ArticleWorkflowStart, DraftReviewerAgent, FinalReviewerAgent, WriterAgent } from "../tests/flow/fixtures/article.fixture.js";
+import type { BrokenReviewWorkflow, BrokenReviewWorkflowStart, CompanyGraderAgent, FullGradeWorkflowStart, QuickGradeWorkflowStart, TwinGradeWorkflow } from "../tests/flow/fixtures/broken-children.fixture.js";
 import type { BrokenScreeningWorkflow, ItemBlindAgent } from "../tests/flow/fixtures/broken-launch.fixture.js";
 import type { BrokenOfferWorkflow } from "../tests/flow/fixtures/broken.fixture.js";
 import type { AskResumeWorkflowFinish, ChatWorkflow, ChatWorkflowFinish, IntakeWorkflowStart, MainRouter, NoReplyWorkflowFinish, ProfilerAgent, ScoutAgent } from "../tests/flow/fixtures/chat.fixture.js";
@@ -36,6 +37,7 @@ declare module "../src/flow/generated-types.js" {
     "bed-agent": BedsDto;
     "bed-request-workflow-start": WorkflowStartTextDto;
     "broken-agent": OfferDraftDto;
+    "broken-review-workflow-start": WorkflowStartTextDto;
     "charge-card-action": ChargeResultDto;
     "charge-payment-action": PaymentDto;
     "checkout-workflow-start": WorkflowStartTextDto;
@@ -44,6 +46,7 @@ declare module "../src/flow/generated-types.js" {
     "company-check-agent": CompanyScoreDto;
     "company-check-workflow-start": readonly [CompanyDto, SearchRequestDto | undefined];
     "company-finder-agent": readonly CompanyDto[];
+    "company-grader-agent": CompanyGradeDto;
     "company-link-review-workflow-start": CompanyLinkDto;
     "company-picker-agent": CompanyDto;
     "company-review-workflow": CompanyGradeDto | CompanyRejectedDto | CompanyReviewFailedDto;
@@ -63,6 +66,7 @@ declare module "../src/flow/generated-types.js" {
     "fast-answer-agent": FastDraftDto;
     "final-reviewer-agent": ReviewDto;
     "first-draft-agent": OfferDraftDto;
+    "full-grade-workflow-start": CompanyDto;
     "grader-agent": CompanyGradeDto;
     "help-desk-workflow-start": WorkflowStartTextDto;
     "history-offer-workflow-start": ShortlistDto;
@@ -92,6 +96,7 @@ declare module "../src/flow/generated-types.js" {
     "polish-agent": DraftDto;
     "profiler-agent": ProfileDto | ResumeMissingDto;
     "publisher-agent": ArticleDto;
+    "quick-grade-workflow-start": CompanyDto;
     "ranker-agent": RankingDto;
     "refund-card-action": NoOutput;
     "refund-policy-agent": RefundPolicyDto;
@@ -115,6 +120,7 @@ declare module "../src/flow/generated-types.js" {
     "story-writer-agent": DraftDto;
     "support-workflow-start": WorkflowStartTextDto;
     "topics-workflow-start": SupportIntentDto;
+    "twin-grade-workflow": CompanyGradeDto;
     "update-crm-action": NoOutput;
     "verdict-agent": ApprovedVerdictDto | RejectedVerdictDto;
     "verdict-workflow-start": ShortlistDto;
@@ -141,6 +147,7 @@ declare module "../src/flow/generated-types.js" {
     "bed-request-workflow-start": WorkflowStartTextDto;
     "beds-workflow-finish": NoInput;
     "broken-agent": { readonly __error: "[input.missing-on-path] broken-offer-workflow: broken-agent.unrelated (UnrelatedDto) is not produced on the path offer-workflow-start → draft-agent → broken-agent" };
+    "broken-review-workflow-start": WorkflowStartTextDto;
     "charge-card-action":
       | { order: Produced<CreditOrderDto, typeof OrderIntakeAgent>; approval: Produced<CreditApprovalDto, typeof ApprovalAgent> }
       | { order: Produced<CreditOrderDto, typeof OrderIntakeAgent>; approval?: undefined };
@@ -155,8 +162,9 @@ declare module "../src/flow/generated-types.js" {
     "company-check-workflow-start": { company: CompanyDto; request?: SearchRequestDto };
     "company-finder-agent": { message: Produced<WorkflowStartTextDto, typeof CompanyScreeningWorkflowStart> };
     "company-graded-workflow-finish": NoInput;
+    "company-grader-agent": { company: Produced<CompanyDto, typeof FullGradeWorkflowStart | typeof QuickGradeWorkflowStart> };
     "company-link-review-workflow-start": CompanyLinkDto;
-    "company-picker-agent": { message: Produced<WorkflowStartTextDto, typeof JobOfferWorkflowStart | typeof PickedOfferWorkflowStart> };
+    "company-picker-agent": { message: Produced<WorkflowStartTextDto, typeof BrokenReviewWorkflowStart | typeof JobOfferWorkflowStart | typeof PickedOfferWorkflowStart> };
     "company-rejected-workflow-finish": NoInput;
     "company-review-failed-workflow-finish": NoInput;
     "company-review-workflow": NoInput;
@@ -187,6 +195,7 @@ declare module "../src/flow/generated-types.js" {
     "fast-answer-agent": { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderAgent> };
     "final-reviewer-agent": { article: Produced<ArticleDto, typeof WriterAgent> };
     "first-draft-agent": { shortlist: Produced<ShortlistDto, typeof HistoryOfferWorkflowStart> };
+    "full-grade-workflow-start": CompanyDto;
     "graded-shortlist-workflow-finish": NoInput;
     "grader-agent": { deepDive: Produced<DeepDiveDto, typeof DeepDiveAgent> };
     "help-desk-router": { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart> };
@@ -195,7 +204,7 @@ declare module "../src/flow/generated-types.js" {
     "history-offer-workflow-start": ShortlistDto;
     "intake-workflow-start": WorkflowStartTextDto;
     "item-blind-agent": { readonly __error: "[launch.item-not-read] broken-screening-workflow: item-blind-agent runs once per CompanyDto of listOf(CompanyDto) (screening-agent → toParallelAgents(item-blind-agent)), but reads no CompanyDto — add an input field of type CompanyDto" };
-    "job-offer-agent": { grade: Produced<CompanyGradeDto, typeof CompanyReviewWorkflow> };
+    "job-offer-agent": { grade: Produced<CompanyGradeDto, typeof CompanyReviewWorkflow | typeof TwinGradeWorkflow> };
     "job-offer-workflow-finish": NoInput;
     "job-offer-workflow-start": WorkflowStartTextDto;
     "link-offer-workflow-start": { message: WorkflowStartTextDto; link: CompanyLinkDto };
@@ -238,6 +247,7 @@ declare module "../src/flow/generated-types.js" {
     "polished-workflow-finish": NoInput;
     "profiler-agent": { message: Produced<WorkflowStartTextDto, typeof IntakeWorkflowStart> };
     "publisher-agent": { draft: Produced<DraftDto, typeof StoryWriterAgent>; approval: Produced<ApprovalDto, typeof StoryReviewerAgent> };
+    "quick-grade-workflow-start": CompanyDto;
     "ranker-agent": { checks: readonly Produced<CompanyCheckDto, typeof CompanyAuditAgent | typeof ItemBlindAgent>[] };
     "ranking-workflow-finish": NoInput;
     "refund-card-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
@@ -276,6 +286,7 @@ declare module "../src/flow/generated-types.js" {
     "topics-router": { intent: Produced<SupportIntentDto, typeof TopicsWorkflowStart> };
     "topics-workflow-finish": NoInput;
     "topics-workflow-start": SupportIntentDto;
+    "twin-grade-workflow": { readonly __error: "[graph.ambiguous-start] broken-review-workflow: company-picker-agent → twin-grade-workflow: full-grade-workflow-start and quick-grade-workflow-start both take CompanyDto — a start is chosen by class: make one start's input a subclass (class QuickCheckRequestDto extends CompanyDto {})" };
     "update-crm-action": { payment: Produced<PaymentDto, typeof ChargePaymentAction> };
     "verdict-agent": { shortlist: Produced<ShortlistDto, typeof VerdictWorkflowStart> };
     "verdict-workflow-start": ShortlistDto;
@@ -339,6 +350,7 @@ declare module "../src/flow/generated-types.js" {
   interface WorkflowStarts {
     "article-workflow-start": { input: ArticleRequestDto; output: ReviewDto };
     "bed-request-workflow-start": { input: WorkflowStartTextDto; output: BedsDto; tenant: ClinicTenantContext; execution: ClinicExecutionContext };
+    "broken-review-workflow-start": { input: WorkflowStartTextDto; output: JobOfferDto };
     "checkout-workflow-start": { input: WorkflowStartTextDto; output: PaymentDto };
     "company-batch-workflow-start": { input: readonly CompanyDto[]; output: CompanyScoreDto };
     "company-check-workflow-start": { input: { company: CompanyDto; request?: SearchRequestDto }; output: CompanyScoreDto };
@@ -346,6 +358,7 @@ declare module "../src/flow/generated-types.js" {
     "company-review-workflow-start": { input: CompanyDto; output: CompanyGradeDto | CompanyRejectedDto | CompanyReviewFailedDto };
     "company-screening-workflow-start": { input: WorkflowStartTextDto; output: GradedShortlistDto | WorkflowStartTextDto };
     "credit-workflow-start": { input: WorkflowStartTextDto; output: ChargeResultDto | CreditOrderDto | WorkflowStartTextDto };
+    "full-grade-workflow-start": { input: CompanyDto; output: CompanyGradeDto };
     "help-desk-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
     "history-offer-workflow-start": { input: ShortlistDto; output: DraftChangesDto };
     "intake-workflow-start": { input: WorkflowStartTextDto; output: OpeningsDto | ResumeMissingDto | WorkflowStartTextDto };
@@ -355,6 +368,7 @@ declare module "../src/flow/generated-types.js" {
     "offers-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
     "order-workflow-start": { input: OrderRequestDto; output: OrderRequestDto | OrderShippedDto };
     "picked-offer-workflow-start": { input: WorkflowStartTextDto; output: CompanyRejectedDto | CompanyReviewFailedDto | JobOfferDto | WorkflowStartTextDto };
+    "quick-grade-workflow-start": { input: CompanyDto; output: CompanyGradeDto };
     "research-workflow-start": { input: WorkflowStartTextDto; output: ArticleDraftDto };
     "screening-workflow-start": { input: WorkflowStartTextDto; output: RankingDto | ScreeningFailedDto };
     "story-workflow-start": { input: ArticleRequestDto; output: ArticleDto | DraftDto };
@@ -463,6 +477,27 @@ declare module "../tests/flow/fixtures/article.fixture.js" {
   }
   interface WriterAgent {
     readonly [agbossComponent]?: "writer-agent";
+  }
+}
+
+declare module "../tests/flow/fixtures/broken-children.fixture.js" {
+  interface BrokenReviewWorkflow {
+    readonly [agbossComponent]?: "broken-review-workflow";
+  }
+  interface BrokenReviewWorkflowStart {
+    readonly [agbossComponent]?: "broken-review-workflow-start";
+  }
+  interface CompanyGraderAgent {
+    readonly [agbossComponent]?: "company-grader-agent";
+  }
+  interface FullGradeWorkflowStart {
+    readonly [agbossComponent]?: "full-grade-workflow-start";
+  }
+  interface QuickGradeWorkflowStart {
+    readonly [agbossComponent]?: "quick-grade-workflow-start";
+  }
+  interface TwinGradeWorkflow {
+    readonly [agbossComponent]?: "twin-grade-workflow";
   }
 }
 
