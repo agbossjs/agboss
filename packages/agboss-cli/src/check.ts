@@ -4,6 +4,7 @@ import {
   loadOptions,
   textOption,
   workflowPath,
+  type CommandContext,
   type CommandHandler,
 } from "./cli/context.js";
 import { environmentProblems } from "./cli/check-environment.js";
@@ -15,6 +16,7 @@ import { writeCheckedTypes } from "./cli/flow-types.js";
 
 /** What a check gets: the assembled workflow and where it came from. */
 export interface CheckTarget {
+  readonly context: CommandContext;
   readonly file: string;
   readonly bundle: AssembledWorkflow;
   readonly env: NodeJS.ProcessEnv;
@@ -68,6 +70,7 @@ export const handle: CommandHandler = async (context) => {
     for (const check of selected)
       problems.push(
         ...(await check.run({
+          context,
           file,
           bundle: assembly.bundle,
           env: context.io.env,

@@ -14,14 +14,18 @@ export const fixture = (name: string): string =>
     import.meta.url,
   ).pathname;
 
-/** `agboss <argv…>` with no API key and no terminal; TypeScript is already compiled by vitest. */
-export async function agboss(argv: readonly string[], cwd = process.cwd()): Promise<AgbossCall> {
+/** `agboss <argv…>` with no API key (unless `env` gives one) and no terminal; TypeScript is already compiled by vitest. */
+export async function agboss(
+  argv: readonly string[],
+  cwd = process.cwd(),
+  env: NodeJS.ProcessEnv = {},
+): Promise<AgbossCall> {
   let stdout = "";
   let stderr = "";
   const code = await runCli(argv, {
     stdout: { write: (text: string) => (stdout += text) },
     stderr: { write: (text: string) => (stderr += text) },
-    env: {},
+    env,
     cwd,
     stdinIsTTY: false,
     registerTypeScript: false,

@@ -1,6 +1,6 @@
-import { defineEnvironment } from "agboss";
+import type { AppEnvironment } from "./app.environment.js";
 
-/** The default environment (no --env). */
-export default defineEnvironment({
+/** The default environment (no --env): the same providers as every environment, other values. */
+export const environment: AppEnvironment = {
   apiUrl: "https://api.example.com",
-});
+};

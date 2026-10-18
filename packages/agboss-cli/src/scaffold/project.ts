@@ -54,8 +54,9 @@ function workflowTest(spec: WorkflowSpec): FileToWrite {
 }
 
 /**
- * The environments next to the application file, where the app looks for them (#239, #261), and the service
- * that injects `ENV` — the project's tools use it — with its test.
+ * The environments next to the application file, where the app looks for them (#239, #261): the
+ * contract, dev, staging and test (tests run on it); and the service that injects `ENV` — the
+ * project's tools use it — with its test.
  */
 function environmentFiles(spec: WorkflowSpec): FileToWrite[] {
   const workflow = namesOf(spec.name);
@@ -65,9 +66,10 @@ function environmentFiles(spec: WorkflowSpec): FileToWrite[] {
     content: render(`project/${template}.tmpl`, {}),
   });
   return [
-    file("environments/environment.ts", "environment.ts"),
+    file("environments/app.environment.ts", "app.environment.ts"),
     file("environments/dev.environment.ts", "dev.environment.ts"),
     file("environments/staging.environment.ts", "staging.environment.ts"),
+    file("environments/test.environment.ts", "test.environment.ts"),
     file("services/api.service.ts", "api.service.ts"),
     file("services/api.service.test.ts", "api.service.test.ts"),
   ];

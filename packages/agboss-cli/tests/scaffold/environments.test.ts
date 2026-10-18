@@ -1,6 +1,7 @@
 /**
- * #239: `agboss create` puts the environments where the runtime looks — next to the workflow file — and
- * injects `ENV` for real (the tools' `ApiService`); `agboss check` fails exactly when the start would.
+ * #239, #261: `agboss create` puts the environments where the runtime looks — next to the
+ * application file, its contract declared in `@Application({ environment })` — and injects `ENV` for
+ * real (the tools' `ApiService`); `agboss check` fails exactly when the start would.
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
@@ -17,7 +18,7 @@ const workflow = "src/shop/shop.workflow.ts";
 const environments = join(project, "src/shop/environments");
 const read = (path: string): string => readFileSync(join(project, path), "utf8");
 const MISSING =
-  /^\[di\.missing-environment\] ApiService injects ENV, but the app has no environment/;
+  /^Environment "dev" not found: .*environments\/dev\.environment\.ts\. Available: none/;
 
 afterAll(() => {
   rmSync(project, { recursive: true, force: true });
@@ -33,10 +34,16 @@ describe("#239: environments next to the workflow file, ENV injected for real", 
     }) as WorkflowSpec;
     await applyChanges(project, { create: planProject(spec), modify: [] });
 
-    for (const file of ["environment.ts", "dev.environment.ts", "staging.environment.ts"])
+    for (const file of [
+      "app.environment.ts",
+      "dev.environment.ts",
+      "staging.environment.ts",
+      "test.environment.ts",
+    ])
       expect(existsSync(join(environments, file)), file).toBe(true);
     expect(existsSync(join(project, "src/environments"))).toBe(false);
     expect(read("src/shop/services/api.service.ts")).toContain("@Injectable({ deps: [ENV] })");
+    expect(read("src/shop/shop.application.ts")).toContain("  environment: AppEnvironment,\n");
     expect(read("src/shop/tools/find-order.tool.ts")).toContain(
       "deps: [ExecutionContext, ApiService]",
     );
@@ -55,8 +62,11 @@ describe("#239: environments next to the workflow file, ENV injected for real", 
     expect(described.out).toContain("· find_order (local) ← ExecutionContext, ApiService (ENV)");
   }, 240_000);
 
-  it("AC2: the environments moved away → agboss check fails with [di.missing-environment], as the app's start", () => {
-    renameSync(environments, `${environments}-moved`);
+  it("AC2: the environment files moved away → agboss check fails with environment.not-found, as the app's start", () => {
+    const files = ["dev", "staging", "test"].map((name) =>
+      join(environments, `${name}.environment.ts`),
+    );
+    for (const file of files) renameSync(file, `${file}.moved`);
     try {
       const check = agbossIn(project, ["check", "--workflow", workflow, "--json"]);
       expect(check.status, check.out).toBe(3);
@@ -64,16 +74,14 @@ describe("#239: environments next to the workflow file, ENV injected for real", 
         result: { problems: { code: string; message: string }[] };
       };
       expect(result.problems).toHaveLength(1);
-      expect(result.problems[0]?.code).toBe("di.missing-environment");
+      expect(result.problems[0]?.code).toBe("environment.not-found");
       expect(result.problems[0]?.message).toMatch(MISSING);
       // the app's start (testWith builds the app as createApp does) fails the same way
       const tests = vitestOf(project, ["--project", "unit"]);
       expect(tests.ok).toBe(false);
-      expect(tests.out).toContain(
-        "[di.missing-environment] ApiService injects ENV, but the app has no environment",
-      );
+      expect(tests.out).toContain('Environment "test" not found');
     } finally {
-      renameSync(`${environments}-moved`, environments);
+      for (const file of files) renameSync(`${file}.moved`, file);
     }
     expect(agbossIn(project, ["check", "--workflow", workflow]).ok).toBe(true);
   }, 120_000);

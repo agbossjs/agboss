@@ -1,0 +1,6 @@
+import type { AppEnvironment } from "./app.environment.js";
+
+/** What `testWith` runs on by default: never dev's addresses, so no test reaches the real API. */
+export const environment: AppEnvironment = {
+  apiUrl: "https://api.test.example.com",
+};
