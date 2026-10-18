@@ -455,7 +455,35 @@ pause the second gets `NotPausedError` — then waits while another call or inst
 and returns the tree's current output once the holder took its decision. An instance that lost the
 lease (frozen past it) stops and its call rejects with `ExecutionLeaseLostError`
 (`execution.lease-lost`) — no `onError`, no failed record: the new holder continues (Wiki →
-Several-instances). In unit tests, `testExecutionContext({ … })` from
+Several-instances).
+
+An execution's record is `ExecutionRecordStatus.Running` while its tree moves. **Recovery** (#265):
+every instance looks for `running` roots at its start and every 30 s, takes the lease of each whose
+holder died (its lease expired) or stopped (released it), and continues it from its last
+checkpoint — a decision recorded meanwhile first — so only the interrupted step runs again; a root
+started under another config is left to a compatible instance (logged once), unless
+`onIncompatibleResume` says `"resume"`. Observers get `onWorkflowResume` with
+`reason: ResumeReason.Recovered` (`ResumeReason.Answered` for `app.resume`). With the in-memory
+defaults nothing survives a restart, so recovery needs persistent stores. **`app.close()`** stops
+the sweep, runs `onStop`, waits for the running executions up to the shutdown timeout —
+`@Application({ shutdownTimeout })`, `app.close({ timeout })`, default `seconds(25)` — then
+interrupts them: each call rejects with `ApplicationStoppingError`, without `onError`, releases its
+lease at once and stays `running`, so another instance continues it without waiting for the lease
+to expire. `createApp` calls `app.close()` on SIGTERM / SIGINT (a second signal interrupts at once)
+until the close finishes; `testWith` never listens.
+
+<!-- snippet-context
+import type { App } from "agboss";
+import { seconds } from "agboss/units";
+declare const app: App;
+-->
+
+```ts
+// one instance of a rolling deploy stops: what still runs after 10 s moves to another instance
+await app.close({ timeout: seconds(10) });
+```
+
+In unit tests, `testExecutionContext({ … })` from
 `agboss/testing` is a frozen `ExecutionContext`: `new PayOrder(testExecutionContext())`.
 
 Observers see a run's workflow, agent, router, tool, model, guardrail, policy, action, channel and

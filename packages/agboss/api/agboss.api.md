@@ -258,8 +258,7 @@ export type AnswersOf<Q extends DecisionQuestions> = {
 // @public
 export interface App {
     cancel(thread: string, options?: CancelOptions): Promise<CancelOutput>;
-    // (undocumented)
-    close(): Promise<void>;
+    close(options?: CloseOptions): Promise<void>;
     execute<TStart extends Class>(start: TStart, input: ExecutionInputOf<InstanceType<TStart>>, options?: ExecutionOptions): Promise<ExecutionOutput<ExecutionOutputOf<InstanceType<TStart>>>>;
     hasTool(name: string): boolean;
     readonly models: readonly string[];
@@ -325,6 +324,8 @@ export interface ApplicationOptions {
     readonly budgets?: readonly Class[];
     readonly name: string;
     readonly providers?: readonly Provider[];
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
+    readonly shutdownTimeout?: Milliseconds;
     readonly version: string;
     readonly workflows: readonly Class[];
 }
@@ -588,6 +589,11 @@ export interface ChooseOneStep {
 
 // @public
 export type Class<T = unknown> = abstract new (...args: never[]) => T;
+
+// @public
+export interface CloseOptions {
+    readonly timeout?: Milliseconds;
+}
 
 // Warning: (ae-forgotten-export) The symbol "RouterBase" needs to be exported by the entry point index.d.ts
 //
@@ -914,7 +920,6 @@ export class ExecutionLeaseLostError extends AGBossError {
 
 // @public
 export abstract class ExecutionLeaseRepository {
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     abstract acquire(tenantId: string, rootExecutionId: string, lease: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
     abstract renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean>;
@@ -994,6 +999,7 @@ export abstract class ExecutionRecordRepository {
     // (undocumented)
     abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
     abstract createThread(workflow: string, owner?: string): Promise<string>;
+    abstract findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Tern[]>;
     // (undocumented)
     abstract hasThread(workflow: string, threadId: string): Promise<boolean>;
     abstract lastTerns(threadId: string, limit: number): Promise<Tern[]>;
@@ -1018,6 +1024,15 @@ export abstract class ExecutionRecordRepository {
     abstract turnNumber(threadId: string, ternId: string): Promise<number>;
     abstract uncovered(threadId: string): Promise<Tern[]>;
     abstract unscored(workflow: string, promptVersion: string | undefined, limit: number): Promise<Tern[]>;
+}
+
+// @public
+export enum ExecutionRecordStatus {
+    Answered = "answered",
+    Failed = "failed",
+    Guarded = "guarded",
+    Paused = "paused",
+    Running = "running"
 }
 
 // @public
@@ -2250,6 +2265,12 @@ export function resumeAgent<TName extends string>(paused: AgentExecutionOutput, 
 export type ResumeDecision = "resume" | "reject";
 
 // @public
+export enum ResumeReason {
+    Answered = "answered",
+    Recovered = "recovered"
+}
+
+// @public
 export interface ResumeVersions {
     // (undocumented)
     readonly configHash: string;
@@ -3019,9 +3040,8 @@ export interface WorkflowRecord {
 
 // @public
 export interface WorkflowResumeEvent {
-    // (undocumented)
     readonly decision: unknown;
-    // (undocumented)
+    readonly reason: ResumeReason;
     readonly state: AppState;
 }
 
@@ -3095,25 +3115,24 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/app-deps.ts:74:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/create-app.ts:42:3 - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/create-app.ts:43:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:10:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:11:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/limit-check.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/limit-check.ts:10:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/paused-runs.ts:19:3 - (ae-undocumented) Missing documentation for "run".
-// src/app/types.ts:15:3 - (ae-undocumented) Missing documentation for "Finished".
-// src/app/types.ts:16:3 - (ae-undocumented) Missing documentation for "Paused".
-// src/app/types.ts:21:3 - (ae-undocumented) Missing documentation for "thread".
-// src/app/types.ts:47:3 - (ae-undocumented) Missing documentation for "owner".
-// src/app/types.ts:52:3 - (ae-undocumented) Missing documentation for "cancelled".
-// src/app/types.ts:61:3 - (ae-undocumented) Missing documentation for "status".
-// src/app/types.ts:62:3 - (ae-undocumented) Missing documentation for "thread".
-// src/app/types.ts:76:3 - (ae-undocumented) Missing documentation for "spend".
-// src/app/types.ts:91:3 - (ae-undocumented) Missing documentation for "name".
-// src/app/types.ts:92:3 - (ae-undocumented) Missing documentation for "version".
-// src/app/types.ts:108:3 - (ae-undocumented) Missing documentation for "resume".
-// src/app/types.ts:118:3 - (ae-undocumented) Missing documentation for "close".
-// src/application/application.ts:38:1 - (ae-undocumented) Missing documentation for "Application".
+// src/app/types.ts:16:3 - (ae-undocumented) Missing documentation for "Finished".
+// src/app/types.ts:17:3 - (ae-undocumented) Missing documentation for "Paused".
+// src/app/types.ts:22:3 - (ae-undocumented) Missing documentation for "thread".
+// src/app/types.ts:48:3 - (ae-undocumented) Missing documentation for "owner".
+// src/app/types.ts:62:3 - (ae-undocumented) Missing documentation for "cancelled".
+// src/app/types.ts:71:3 - (ae-undocumented) Missing documentation for "status".
+// src/app/types.ts:72:3 - (ae-undocumented) Missing documentation for "thread".
+// src/app/types.ts:86:3 - (ae-undocumented) Missing documentation for "spend".
+// src/app/types.ts:101:3 - (ae-undocumented) Missing documentation for "name".
+// src/app/types.ts:102:3 - (ae-undocumented) Missing documentation for "version".
+// src/app/types.ts:118:3 - (ae-undocumented) Missing documentation for "resume".
+// src/application/application.ts:45:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
 // src/budgets/budget.ts:25:3 - (ae-undocumented) Missing documentation for "Week".
@@ -3250,8 +3269,6 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/core/observability.ts:135:3 - (ae-undocumented) Missing documentation for "state".
 // src/core/observability.ts:140:3 - (ae-undocumented) Missing documentation for "pause".
 // src/core/observability.ts:141:3 - (ae-undocumented) Missing documentation for "state".
-// src/core/observability.ts:146:3 - (ae-undocumented) Missing documentation for "decision".
-// src/core/observability.ts:147:3 - (ae-undocumented) Missing documentation for "state".
 // src/core/observer-hooks.ts:40:3 - (ae-undocumented) Missing documentation for "onWorkflowStart".
 // src/core/observer-hooks.ts:44:3 - (ae-undocumented) Missing documentation for "onWorkflowPause".
 // src/core/observer-hooks.ts:48:3 - (ae-undocumented) Missing documentation for "onWorkflowResume".
@@ -3634,15 +3651,15 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/settings.ts:57:5 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:60:3 - (ae-undocumented) Missing documentation for "builder".
 // src/graph/settings.ts:101:3 - (ae-undocumented) Missing documentation for "settings".
-// src/infrastructure/execution-record.repository.ts:24:3 - (ae-undocumented) Missing documentation for "hasThread".
-// src/infrastructure/execution-record.repository.ts:30:3 - (ae-undocumented) Missing documentation for "append".
-// src/infrastructure/execution-record.repository.ts:35:3 - (ae-undocumented) Missing documentation for "byIds".
-// src/infrastructure/execution-record.repository.ts:44:3 - (ae-undocumented) Missing documentation for "saveScore".
-// src/infrastructure/execution-record.repository.ts:45:3 - (ae-undocumented) Missing documentation for "meanScore".
-// src/infrastructure/execution-record.repository.ts:46:3 - (ae-undocumented) Missing documentation for "summary".
-// src/infrastructure/execution-record.repository.ts:54:3 - (ae-undocumented) Missing documentation for "configSnapshots".
-// src/infrastructure/execution-record.repository.ts:63:3 - (ae-undocumented) Missing documentation for "addSummary".
-// src/infrastructure/execution-record.repository.ts:66:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record.repository.ts:41:3 - (ae-undocumented) Missing documentation for "hasThread".
+// src/infrastructure/execution-record.repository.ts:47:3 - (ae-undocumented) Missing documentation for "append".
+// src/infrastructure/execution-record.repository.ts:52:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record.repository.ts:70:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record.repository.ts:71:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record.repository.ts:72:3 - (ae-undocumented) Missing documentation for "summary".
+// src/infrastructure/execution-record.repository.ts:80:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record.repository.ts:89:3 - (ae-undocumented) Missing documentation for "addSummary".
+// src/infrastructure/execution-record.repository.ts:92:3 - (ae-undocumented) Missing documentation for "summaryCount".
 // src/llm/decision-errors.ts:5:3 - (ae-undocumented) Missing documentation for "code".
 // src/llm/decision-errors.ts:6:12 - (ae-undocumented) Missing documentation for "name".
 // src/llm/decision-errors.ts:11:3 - (ae-undocumented) Missing documentation for "code".
@@ -3692,8 +3709,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/models/circuit-breaker.ts:33:5 - (ae-undocumented) Missing documentation for "provider".
 // src/routers/types.ts:43:3 - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts:44:3 - (ae-undocumented) Missing documentation for "route".
-// src/run/resume-agent.ts:26:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/resume-agent.ts:27:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/resume-agent.ts:13:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/resume-agent.ts:14:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/resume-guard.ts:10:3 - (ae-undocumented) Missing documentation for "workflowVersion".
 // src/run/resume-guard.ts:11:3 - (ae-undocumented) Missing documentation for "configHash".
 // src/run/resume-guard.ts:16:3 - (ae-undocumented) Missing documentation for "thread".

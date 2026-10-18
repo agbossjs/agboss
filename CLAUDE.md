@@ -623,6 +623,17 @@ metadata, onStream })` runs the workflow of that start (any workflow of the appl
   waiting call returns the tree's current output. A holder that lost the lease stops: its call
   rejects with `ExecutionLeaseLostError` (`execution.lease-lost`) — no `.onError`, no `onError`, no
   failed record. Wiki → Several-instances.
+- **Recovery and the graceful stop (#265 S30 / S51):** a root's record is
+  `ExecutionRecordStatus.Running` while its tree moves. Every instance looks for `running` roots at
+  start and every 30 s (`ExecutionRecordRepository.findByStatus`), takes the lease of one whose
+  holder died or stopped and continues it from its last checkpoint (a resolved pause first) — only
+  the interrupted step runs again; another config's root is left to a compatible instance (logged
+  once). Observers: `onWorkflowResume` with `reason: ResumeReason.Recovered` (`Answered` for
+  `app.resume`). `app.close()` stops the sweep, `onStop`, waits up to the shutdown timeout
+  (`@Application({ shutdownTimeout })`, `app.close({ timeout })`, default `seconds(25)`), then
+  interrupts what is left: its call rejects with `ApplicationStoppingError`, no `onError`, the lease
+  released at once, the record stays `running`. `createApp` closes on SIGTERM / SIGINT (listeners
+  removed when `close()` finishes); `testWith` never listens.
 - **`ExecutionContext` (#280)** is the one context of an execution, injected through the
   constructor (`deps: [ExecutionContext]`, a parameter named `executionContext`) into any component;
   there is no `ctx` parameter (tools, actions, judges get only their input). Read-only data:
