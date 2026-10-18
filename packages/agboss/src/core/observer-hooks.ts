@@ -1,6 +1,7 @@
 import type { Class } from "../components/injection.js";
 import type { ExecutionOutput } from "../app/types.js";
 import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
+import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 import type {
   ActionEndEvent,
   ActionStartEvent,
@@ -134,6 +135,14 @@ export interface OnJudgeEnd {
 export interface OnValuesOutdated {
   onValuesOutdated(event: ValuesOutdatedEvent): HookResult;
 }
+/**
+ * A per-item launch took the first `maxItems` items of a longer list (#273): once per such launch,
+ * with how many items there were — truncation is never an error.
+ */
+export interface OnLaunchItemsTruncated {
+  /** Called once per truncated launch, after the launching step. */
+  onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): HookResult;
+}
 
 /** Every hook, all optional: the type of an observer instance. */
 export type WorkflowObserver = Partial<
@@ -163,7 +172,8 @@ export type WorkflowObserver = Partial<
     OnChannelEnd &
     OnJudgeStart &
     OnJudgeEnd &
-    OnValuesOutdated
+    OnValuesOutdated &
+    OnLaunchItemsTruncated
 >;
 
 /** The name of a hook, e.g. `"onToolEnd"`. */
@@ -201,6 +211,7 @@ const HOOKS: Readonly<Record<ObserverHook, true>> = {
   onJudgeStart: true,
   onJudgeEnd: true,
   onValuesOutdated: true,
+  onLaunchItemsTruncated: true,
 };
 
 export const OBSERVER_HOOKS: readonly ObserverHook[] = Object.keys(HOOKS).filter(

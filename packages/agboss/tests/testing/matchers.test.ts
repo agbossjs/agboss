@@ -24,6 +24,7 @@ const run = (parts: Partial<ExecutionOutput>): ExecutionOutput => ({
   status: ExecutionStatus.Finished,
   path: PATH,
   spend: buildCostReport([]),
+  launches: [],
   finish: { name: "reply-workflow-finish" },
   output: { text: "Hi." },
   ...parts,

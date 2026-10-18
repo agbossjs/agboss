@@ -83,7 +83,12 @@ export async function finishRun<TName extends string>(
     threadId: ctx.base.threadId,
     ternId,
     runId: ctx.runId,
-    data: { scope: state.scope, outdatedValues: state.outdatedValues, lastError: state.lastError },
+    data: {
+      scope: state.scope,
+      outdatedValues: state.outdatedValues,
+      lastError: state.lastError,
+      launches: state.launches,
+    },
     ...(paused || state.finish === "" ? {} : { finish: state.finish, output: state.output }),
     ...(pending === undefined ? {} : { pending }),
     ...traceUrlOf(ctx.deps, ctx.base.threadId),

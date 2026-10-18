@@ -3,7 +3,7 @@ import type { RuntimeNode } from "./graph-model.js";
 import type { NodeOutcome } from "./node-runner.js";
 import { writeAndOutdate, type OutdatingCascade } from "./outdating.js";
 import { builtFromOf, type RuntimeProvenance } from "./provenance.js";
-import type { OutdatedValueRecord } from "./records.js";
+import type { OutdatedValueRecord, ScopeRecords } from "./records.js";
 import { recordsOfWrites } from "./scope.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 
@@ -17,6 +17,8 @@ export interface VisitWrite {
   readonly outdated: readonly OutdatedValueRecord[];
   /** One per root trigger that outdated something (reported as events and trace entries). */
   readonly cascades: readonly OutdatingCascade[];
+  /** The scope after the write; absent when the visit wrote nothing. */
+  readonly scope?: ScopeRecords;
 }
 
 const NOTHING: VisitWrite = { update: {}, outdated: [], cascades: [] };
@@ -45,5 +47,6 @@ export function visitWrite(
     update: { scope: result.scope, outdatedValues: [...result.outdated] },
     outdated: result.outdated,
     cascades: result.cascades,
+    scope: result.scope,
   };
 }

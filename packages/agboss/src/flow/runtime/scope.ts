@@ -135,17 +135,22 @@ function fieldValue(
     return produced(graph, record.producer, record.value, record.variant);
   }
   const isOneOf = record.slot.startsWith("list:oneOf(");
-  return (record.value as readonly unknown[]).map((element) =>
-    isOneOf
+  return (record.value as readonly unknown[]).map((element, index) => {
+    const producer = elementProducerOf(record, index);
+    return isOneOf
       ? produced(
           graph,
-          record.producer,
+          producer,
           (element as VariantElement).value,
           (element as VariantElement).variant,
         )
-      : produced(graph, record.producer, element),
-  );
+      : produced(graph, producer, element);
+  });
 }
+
+/** Who gave one element of a list: its own producer when a join gathered several (#273). */
+export const elementProducerOf = (record: ScopeValueRecord, index: number): string =>
+  record.elementProducers?.[index] ?? record.producer;
 
 /** Reads a node's fields from the scope; an absent `optional` field is `undefined`. */
 export function readInput(graph: RuntimeGraph, node: RuntimeNode, view: ScopeView): ReadInput {

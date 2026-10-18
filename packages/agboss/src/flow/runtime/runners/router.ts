@@ -11,6 +11,7 @@ import type { LoadedRouter } from "../routers.js";
 import { readInput } from "../scope.js";
 import type { ExecutionStateType } from "../state.js";
 import { visitNumberOf } from "../step-frame.js";
+import { modelRouterLaunch } from "../launch/router-decision.js";
 
 /** The router's request: its static texts, the thread's memory, then its input message (#270 Q51). */
 function requestOf(
@@ -49,10 +50,17 @@ export function routerRunner(
     const request = requestOf(router, node, state, deps);
     const input = typeof request.input === "string" ? request.input : JSON.stringify(request.input);
     await deps.observer?.onRouterStart({ name: node.id, input, state: appState });
-    const outcome = await engine.route(request);
-    if (outcome.kind === "failed") {
-      throw routerFailureOf({ nodeId: node.id, visitNumber: visitNumberOf(node, state) }, outcome);
+    const step = { nodeId: node.id, visitNumber: visitNumberOf(node, state) };
+    const read = readInput(deps.graph, node, state).read;
+    if (node.exits.launches.size > 0) {
+      const decider = deps.launchDecisionFor?.(router);
+      const launch = await modelRouterLaunch({ node, router, step, input, decider, ...{ config } });
+      const update = { route: launch.launch.join(", "), reason: launch.reason };
+      await deps.observer?.onRouterEnd({ name: node.id, update, state: appState });
+      return { launch: launch.launch, read, usage: launch.usage };
     }
+    const outcome = await engine.route(request);
+    if (outcome.kind === "failed") throw routerFailureOf(step, outcome);
     const { next, reason } = outcome.decision;
     await deps.observer?.onRouterEnd({
       name: node.id,
@@ -60,6 +68,6 @@ export function routerRunner(
       state: appState,
     });
     const usage = outcome.usage === undefined ? [] : [outcome.usage];
-    return { route: next, read: readInput(deps.graph, node, state).read, usage };
+    return { route: next, read, usage };
   };
 }

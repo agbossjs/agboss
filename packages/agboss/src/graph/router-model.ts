@@ -4,6 +4,7 @@ import { createRouter, type RouterEngine } from "../routers/index.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
 
 import { isDecisionModel } from "../models/decision-models.js";
+import { createLaunchDecider, type LaunchDecider } from "../flow/runtime/launch/launch-decider.js";
 
 export { isDecisionModel };
 
@@ -27,6 +28,17 @@ export function flowRouterFactory(
 ): (router: LoadedRouter) => RouterEngine {
   return (router) =>
     createRouter(router.name, routerModelOf(router.model, deps), deps.chatDefaults, deps.gateway);
+}
+
+/** A router's launch decisions (#273 S23) on its own model. */
+export function flowLaunchDeciderFactory(
+  deps: FlowRouterFactoryDeps,
+): (router: LoadedRouter) => LaunchDecider {
+  return (router) =>
+    createLaunchDecider(router.name, routerModelOf(router.model, deps), {
+      gateway: deps.gateway,
+      chatDefaults: deps.chatDefaults,
+    });
 }
 
 /**

@@ -4,7 +4,11 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 import type { KnowledgeSource } from "../rag/types.js";
 import type { AgentsConfigOf } from "../config/types.js";
-import { chatModelSettingsOf, flowRouterFactory } from "../graph/router-model.js";
+import {
+  chatModelSettingsOf,
+  flowLaunchDeciderFactory,
+  flowRouterFactory,
+} from "../graph/router-model.js";
 import type { EvalDeps } from "../eval/eval.js";
 import type { RunDeps } from "../run/types.js";
 import type { ModelGateway } from "../llm/gateway.js";
@@ -137,14 +141,21 @@ export const flowFor = (
   bundle: AssembledWorkflow,
   config: AgentsConfigOf<string>,
   gateway: ModelGateway,
-): Pick<RunDeps<string>, "graph" | "limits" | "maxSteps" | "routers" | "routerFor"> => ({
-  graph: bundle.graph,
-  limits: bundle.limits,
-  maxSteps: bundle.maxSteps,
-  routers: bundle.routers,
-  routerFor: flowRouterFactory({
+): Pick<
+  RunDeps<string>,
+  "graph" | "limits" | "maxSteps" | "routers" | "routerFor" | "launchDecisionFor"
+> => {
+  const routerDeps = {
     gateway,
     chatDefaults: config.defaults.models,
     chatModelSettings: chatModelSettingsOf(config),
-  }),
-});
+  };
+  return {
+    graph: bundle.graph,
+    limits: bundle.limits,
+    maxSteps: bundle.maxSteps,
+    routers: bundle.routers,
+    routerFor: flowRouterFactory(routerDeps),
+    launchDecisionFor: flowLaunchDeciderFactory(routerDeps),
+  };
+};

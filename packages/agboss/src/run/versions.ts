@@ -1,6 +1,7 @@
 import { agentLoopPromptTexts } from "../prompts/agents.js";
 import { DEFAULT_COMPACTION_PROMPT } from "../prompts/compaction.js";
 import { ragPromptTexts } from "../prompts/rag.js";
+import { routerLaunchPromptTexts } from "../prompts/router-launch.js";
 import { routerPromptTexts } from "../routers/index.js";
 import { versionOf } from "../terns/index.js";
 import { byComponentName, flowLines } from "../flow/print.js";
@@ -70,6 +71,10 @@ export function runVersions<TName extends string>(
       })),
       agentLoop: agentLoopPromptTexts,
       rag: ragPromptTexts,
+      // a router before a launch (#273 S23): only a workflow that has one
+      ...(deps.graph.launches.some((launch) => launch.launch.isRouterLaunch)
+        ? { routerLaunch: routerLaunchPromptTexts }
+        : {}),
       ...(deps.config.compaction === undefined
         ? {}
         : { compaction: deps.compactionPrompt ?? DEFAULT_COMPACTION_PROMPT }),

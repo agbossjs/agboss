@@ -108,3 +108,8 @@ export {
   type AgentsConfigOf,
   type CompactionSettings,
 } from "../config/types.js";
+export {
+  BranchStatus,
+  type BranchRecord,
+  type LaunchRecord,
+} from "../flow/runtime/launch/records.js";

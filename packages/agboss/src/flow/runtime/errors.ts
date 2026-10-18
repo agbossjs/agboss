@@ -1,7 +1,12 @@
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { AGBossError, WorkflowCancelledError } from "../../core/errors.js";
 import type { UsageRecord } from "../../finops/usage.js";
-import { AgentFailedError, PaidStepError } from "../../graph/errors.js";
+import {
+  AgentFailedError,
+  PaidStepError,
+  StepFailedError,
+  stepCoordinatesOf,
+} from "../../graph/errors.js";
 import { LimitExceededError } from "../../graph/limits.js";
 import type { ComponentRecord } from "./records.js";
 
@@ -37,37 +42,27 @@ export class VisitsLimitExceededError extends LimitExceededError {
 export class AgentAnswerInvalidError extends AgentFailedError {
   static override readonly code: string = "step.agent.invalid-answer";
   override name = "AgentAnswerInvalidError";
-  readonly component: ComponentRecord;
-  readonly nodeId: string;
   readonly attempts: number;
 
   constructor(agent: string, attempts: number, problem: string, usage: readonly UsageRecord[]) {
     super(agent, usage, `no valid answer after ${String(attempts)} attempts: ${problem}`, {
-      component: { name: agent },
-      nodeId: agent,
       attempts,
     });
-    this.component = { name: agent };
-    this.nodeId = agent;
     this.attempts = attempts;
   }
 }
 
-/** An action threw (S22): the original error is the `cause`, so `.onError` can take either. */
-export class ActionFailedError extends PaidStepError {
+/**
+ * An action threw (S22): a `StepFailedError` naming its step (an item's index too), the original
+ * error as the `cause`, so `.onError` can take either.
+ */
+export class ActionFailedError extends StepFailedError {
   static override readonly code: string = "step.action";
   override name = "ActionFailedError";
-  readonly component: ComponentRecord;
-  readonly nodeId: string;
 
   constructor(action: string, cause: unknown) {
     const reason = cause instanceof Error ? cause.message : String(cause);
-    super(`Action "${action}" failed: ${reason}`, [], cause, {
-      component: { name: action },
-      nodeId: action,
-    });
-    this.component = { name: action };
-    this.nodeId = action;
+    super(`Action "${action}" failed: ${reason}`, [], cause, stepCoordinatesOf(action));
   }
 }
 

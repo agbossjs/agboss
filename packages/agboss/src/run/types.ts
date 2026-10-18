@@ -1,3 +1,4 @@
+import type { LaunchRecord } from "../flow/runtime/launch/records.js";
 import type { ExecutionStatus } from "../app/types.js";
 import type { ErrorRecord } from "../core/error-record.js";
 import type { SpendLedger } from "../finops/ledger.js";
@@ -56,6 +57,8 @@ export interface ExecutionData {
   readonly scope: ScopeRecords;
   readonly outdatedValues: readonly OutdatedValueRecord[];
   readonly lastError: ErrorRecord | null;
+  /** The execution's parallel launches (#273); absent in a run stored before them. */
+  readonly launches?: readonly LaunchRecord[];
 }
 
 /** How one execution (or its resume) ended for the app. Failures are thrown, not returned. */

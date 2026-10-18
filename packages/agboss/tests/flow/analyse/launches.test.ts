@@ -544,11 +544,17 @@ describe("#273: steps and the worst case count the launch", () => {
   });
 });
 
-describe("#273 PR 1: a launch is checked, not run yet", () => {
-  it("assembly stops with a clear error until #273 PR 2", async () => {
-    await expect(workflowOf(ResearchWorkflow)).rejects.toThrow(
-      "research-workflow: planner-agent → toParallelAgents(plan-researcher-agent, critic-agent, critic-agent) — parallel launches are checked (agboss check) but run only from #273 PR 2",
-    );
+describe("#273 PR 2: a launch assembles", () => {
+  it("a workflow with launches assembles into one join node per launch", async () => {
+    const assembled = await workflowOf(ResearchWorkflow);
+
+    expect(assembled.graph.launches.map((launch) => launch.joinNodeId)).toEqual([
+      "planner-agent.join",
+    ]);
+    expect([...assembled.graph.branchNodes].sort()).toEqual([
+      "critic-agent",
+      "plan-researcher-agent",
+    ]);
   });
 });
 

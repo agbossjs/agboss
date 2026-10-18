@@ -39,6 +39,7 @@ export async function currentOutputOf(
     runId: tree.runId,
     path: state.path ?? [],
     spend: buildCostReport(state.usage ?? []),
+    launches: state.launches ?? [],
     finish: { name: state.finish },
     output: state.output,
   };

@@ -22,6 +22,11 @@ import {
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import { visitWrite, type VisitWrite } from "./visit-write.js";
 import type { ObserverManager } from "../../core/observer-manager.js";
+import type { RuntimeGraph } from "./graph-model.js";
+import { launchEdgeOf, launchFor, launchTicketOf, nextOfLaunch } from "./launch/launch-exit.js";
+import { reportTruncation } from "./launch/launch-report.js";
+import type { LaunchTicket } from "./launch/records.js";
+import type { RuntimeLaunch } from "./launch/runtime-launch.js";
 
 /**
  * A node's visit (#272 → Runtime): limits checked before an agent or a router runs, the node run,
@@ -42,10 +47,15 @@ export interface VisitDeps {
   readonly workflow: WorkflowIdentity;
   /** What values are built from (#271). */
   readonly provenance: RuntimeProvenance;
+  /** The graph: what a launch dispatches (#273). */
+  readonly graph: RuntimeGraph;
   readonly observer?: ObserverManager;
 }
 
-async function daySpentBeforeRun(state: ExecutionStateType, deps: VisitDeps): Promise<number> {
+export async function daySpentBeforeRun(
+  state: ExecutionStateType,
+  deps: VisitDeps,
+): Promise<number> {
   if (state.daySpentBeforeRunUsd !== null) return state.daySpentBeforeRunUsd;
   return deps.limits.dayCostUsd === undefined ? 0 : deps.spentToday();
 }
@@ -76,36 +86,68 @@ function exitOf(
 }
 
 /** Spend a failure carries that the execution's state does not hold yet. */
-const unrecordedSpendOf = (error: unknown): readonly UsageRecord[] =>
+export const unrecordedSpendOf = (error: unknown): readonly UsageRecord[] =>
   error instanceof PaidStepError || error instanceof LimitExceededError ? error.usage : [];
 
 function visited(node: RuntimeNode, isStep: boolean): ExecutionStateUpdate {
   return { path: [node.id], visits: { [node.id]: 1 }, steps: isStep ? 1 : 0 };
 }
 
+/** A launch a visit took: its graph launch and the ticket of its branches (#273). */
+interface Launched {
+  readonly launch: RuntimeLaunch;
+  readonly ticket: LaunchTicket;
+}
+
 /** A visit that succeeded: its bookkeeping, its way out and what its write did to the scope. */
 interface Succeeded {
   readonly update: ExecutionStateUpdate;
   readonly write: VisitWrite;
+  readonly launched?: Launched;
+}
+
+/** The launch a visit takes, with the ticket of its branches; none for a visit that launches nothing. */
+function launchedBy(
+  launch: RuntimeLaunch | undefined,
+  node: RuntimeNode,
+  outcome: NodeOutcome,
+  site: {
+    readonly state: ExecutionStateType;
+    readonly deps: VisitDeps;
+    readonly executionId: string;
+  },
+  write: VisitWrite,
+): Launched | undefined {
+  if (launch === undefined) return undefined;
+  const { state, deps, executionId } = site;
+  const scope = write.scope ?? state.scope;
+  const visit = { graph: deps.graph, node, state, outcome, executionId, scope };
+  return { launch, ticket: launchTicketOf(visit, launch) };
 }
 
 function succeeded(
   node: RuntimeNode,
   state: ExecutionStateType,
   outcome: NodeOutcome,
-  provenance: RuntimeProvenance,
+  deps: VisitDeps,
+  executionId: string,
 ): Succeeded {
-  const exit = exitOf(node, state, outcome);
-  const write = visitWrite(node, state, exit, outcome, provenance);
+  const launch = launchFor(node, outcome);
+  const exit = launch === undefined ? exitOf(node, state, outcome) : launchEdgeOf(launch);
+  const write = visitWrite(node, state, exit, outcome, deps.provenance);
+  const launched = launchedBy(launch, node, outcome, { state, deps, executionId }, write);
+  const next =
+    launched === undefined ? (exit?.to ?? "") : nextOfLaunch(launched.launch, launched.ticket);
   const update = {
     ...visited(node, isWorkingNode(node)),
     ...write.update,
-    next: exit?.to ?? "",
+    next,
+    ...(launched === undefined ? {} : { launch: launched.ticket }),
     usage: [...(outcome.usage ?? [])],
     approvals: [...(outcome.approvals ?? [])],
     ...(outcome.finish === undefined ? {} : { finish: node.id, output: outcome.finish.output }),
   };
-  return { update, write };
+  return { update, write, ...(launched === undefined ? {} : { launched }) };
 }
 
 /** A failure the node's `.onError` takes: kept as a record, the side path next; else rethrown. */
@@ -157,10 +199,15 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       };
       const outcome = await runInFrame(frame, () => runner(state, config));
       const spent = { ...outcome, usage: [...(outcome.usage ?? []), ...services] };
-      const { update, write } = succeeded(node, state, spent, deps.provenance);
+      const executionId = frame.execution.executionId;
+      const { update, write, launched } = succeeded(node, state, spent, deps, executionId);
       const outdatedSoFar = [...state.outdatedValues, ...write.outdated];
       const site = { observer: deps.observer, config, ...frame, outdatedSoFar };
       await reportOutdating(write.cascades, site);
+      if (launched !== undefined) {
+        const reportSite = { observer: deps.observer, config, frame };
+        await reportTruncation(reportSite, launched.ticket, launched.launch.launch.maxItems);
+      }
       return { ...update, daySpentBeforeRunUsd: daySpent, ...kept };
     } catch (error) {
       return {

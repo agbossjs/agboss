@@ -10,6 +10,7 @@ import type { NodeRunner } from "../node-runner.js";
 import { RouterDecisionError, RouterFailedError, type RouterVisit } from "../router-error.js";
 import { readInput } from "../scope.js";
 import { visitNumberOf } from "../step-frame.js";
+import { codeRouterLaunch } from "../launch/router-decision.js";
 
 /** What a code router's class is: `route(input)` (`implements RouterHandler<Self>`). */
 interface CodeRouterInstance {
@@ -73,6 +74,12 @@ export function codeRouterRunner(node: RuntimeNode, deps: GraphDeps<string>): No
       .catch((error: unknown) => {
         throw failure(step, error);
       });
+    if (node.exits.launches.size > 0) {
+      const launch = codeRouterLaunch(node, step, answer);
+      const decided = { route: launch.join(", "), reason: "decided by code" };
+      await deps.observer?.onRouterEnd({ name: node.id, update: decided, state: appState });
+      return { launch, read: input.read };
+    }
     const route = chosenRoute(node, step, answer);
     const update = { route, reason: "decided by code" };
     await deps.observer?.onRouterEnd({ name: node.id, update, state: appState });
