@@ -357,6 +357,14 @@ export function selectedEnvironment(owner: EnvironmentOwner, env: string | undef
 // @public
 export const shortVersion: (version: string) => string;
 
+// Warning: (ae-forgotten-export) The symbol "RuntimeContexts" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function standaloneContexts(workflow: {
+    readonly name: string;
+    readonly version: string;
+}, environment?: Environment): RuntimeContexts;
+
 // @public
 export interface StartRequest {
     // (undocumented)

@@ -209,7 +209,7 @@ const result = await app.execute(
 
 ### 4. Resume the Run
 
-The paused run's result carries its `thread`. Once the reply arrives out-of-band (e.g., the user
+The paused run's result carries its `threadId`. Once the reply arrives out-of-band (e.g., the user
 clicks "Approve" in Slack), resume that thread with it. With an `inboundAdapter`, pass the raw reply
 and the adapter turns it into the decision; without one, pass a `ChannelDecision`. `agboss chat` asks in
 the terminal and resumes by itself.
@@ -224,17 +224,17 @@ declare const app: App;
 const paused = await app.execute(ChatStart, { text: "Delete user 123" });
 
 // Through the channel's adapter: the raw reply
-await app.resume(paused.thread, { action: "approve", user: "admin@example.com" });
+await app.resume(paused.threadId, { action: "approve", user: "admin@example.com" });
 
 // Without an adapter: the decision itself
-await app.resume(paused.thread, {
+await app.resume(paused.threadId, {
   approved: false,
   by: "admin@example.com",
   feedback: "Please double check the user ID, 123 belongs to the CEO.",
 });
 
 // Approve but override the arguments (bypassing the LLM)
-await app.resume(paused.thread, {
+await app.resume(paused.threadId, {
   approved: true,
   by: "admin@example.com",
   overrideArguments: { userId: "456" }, // Corrected argument!
@@ -244,6 +244,6 @@ await app.resume(paused.thread, {
 ### Important Concepts
 
 - **Override Arguments**: If the user modifies the tool arguments during the approval step, returning `overrideArguments` in the decision will inject those modified arguments straight into the tool, bypassing the LLM.
-- **Timeouts and Rejections**: Channels are asynchronous fire-and-forget mechanisms. If a run should timeout, use an external cron job or scheduler to call `app.resume(thread, { approved: false, by: "scheduler", feedback: "Timeout" })`.
+- **Timeouts and Rejections**: Channels are asynchronous fire-and-forget mechanisms. If a run should timeout, use an external cron job or scheduler to call `app.resume(threadId, { approved: false, by: "scheduler", feedback: "Timeout" })`.
 - **Durable pauses**: by default paused runs live in memory (the built-in in-memory `PausedExecutionRepository` and checkpointer, #261) and are lost on restart — dev and tests only. In production list durable implementations in `@Application({ providers })`: a class that `extends PausedExecutionRepository` and a durable `BaseCheckpointSaver` — e.g. `SqlitePausedExecutionRepository` and `SqliteCheckpointSaver` (#265, `sqlitePath` in the environment).
 - **Resume across deployments**: each pause stores the workflow version and config hash it paused under. Resuming it on an app with another config hash throws `IncompatibleResumeError` (naming both versions) unless the workflow accepts it: `WorkflowSettings.builder().onIncompatibleResume(({ paused }) => paused.workflowVersion === "1.0.0" ? "resume" : "reject")`. A rejected resume leaves the run paused.

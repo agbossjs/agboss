@@ -4,6 +4,7 @@
 
 ```ts
 
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { z } from 'zod';
 
 // @public
@@ -95,7 +96,7 @@ export class RouterDecisionError extends RouterFailedError {
 export type RouterOptions = ModelRouterOptions | CodeRouterOptions;
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "model.unserved" | "model.ambiguous-provider";
+export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "context.prompt-unused";
 
 // @public
 export interface RuleViolation {
@@ -177,6 +178,10 @@ export class WorkflowSettings {
     static builder(): WorkflowSettingsBuilder;
     // (undocumented)
     readonly limits: WorkflowLimits;
+    // Warning: (ae-forgotten-export) The symbol "ModelProviderSettings" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly models: ModelProviderSettings;
     // Warning: (ae-forgotten-export) The symbol "IncompatibleResumePolicy" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -188,7 +193,11 @@ export interface WorkflowSettingsBuilder {
     // (undocumented)
     readonly build: () => WorkflowSettings;
     // (undocumented)
+    readonly defaultModelProvider: (provider: ModelProviderType) => WorkflowSettingsBuilder;
+    // (undocumented)
     readonly limits: (limits: WorkflowLimits) => WorkflowSettingsBuilder;
+    // Warning: (ae-forgotten-export) The symbol "ModelProviderType" needs to be exported by the entry point index.d.ts
+    readonly modelProviders: (providers: readonly ModelProviderType[]) => WorkflowSettingsBuilder;
     readonly onIncompatibleResume: (policy: IncompatibleResumePolicy) => WorkflowSettingsBuilder;
 }
 
@@ -237,23 +246,25 @@ export interface WorkflowStartOptions {
 // src/graph/limits.ts:36:3 - (ae-undocumented) Missing documentation for "path".
 // src/graph/limits.ts:37:3 - (ae-undocumented) Missing documentation for "spentUsd".
 // src/graph/limits.ts:38:3 - (ae-undocumented) Missing documentation for "usage".
-// src/graph/rule-error.ts:88:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:89:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:90:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:101:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:102:3 - (ae-undocumented) Missing documentation for "violations".
-// src/graph/settings.ts:7:3 - (ae-undocumented) Missing documentation for "cost".
-// src/graph/settings.ts:12:3 - (ae-undocumented) Missing documentation for "cost".
-// src/graph/settings.ts:17:3 - (ae-undocumented) Missing documentation for "perRun".
-// src/graph/settings.ts:18:3 - (ae-undocumented) Missing documentation for "perDay".
-// src/graph/settings.ts:26:1 - (ae-undocumented) Missing documentation for "WorkflowSettingsError".
-// src/graph/settings.ts:27:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/settings.ts:32:3 - (ae-undocumented) Missing documentation for "limits".
-// src/graph/settings.ts:38:3 - (ae-undocumented) Missing documentation for "build".
-// src/graph/settings.ts:47:5 - (ae-undocumented) Missing documentation for "limits".
-// src/graph/settings.ts:48:5 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
-// src/graph/settings.ts:51:3 - (ae-undocumented) Missing documentation for "builder".
-// src/graph/settings.ts:75:3 - (ae-undocumented) Missing documentation for "settings".
+// src/graph/rule-error.ts:87:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:88:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:89:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:100:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:101:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/settings.ts:8:3 - (ae-undocumented) Missing documentation for "cost".
+// src/graph/settings.ts:13:3 - (ae-undocumented) Missing documentation for "cost".
+// src/graph/settings.ts:18:3 - (ae-undocumented) Missing documentation for "perRun".
+// src/graph/settings.ts:19:3 - (ae-undocumented) Missing documentation for "perDay".
+// src/graph/settings.ts:27:1 - (ae-undocumented) Missing documentation for "WorkflowSettingsError".
+// src/graph/settings.ts:28:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/settings.ts:40:3 - (ae-undocumented) Missing documentation for "limits".
+// src/graph/settings.ts:43:3 - (ae-undocumented) Missing documentation for "defaultModelProvider".
+// src/graph/settings.ts:49:3 - (ae-undocumented) Missing documentation for "build".
+// src/graph/settings.ts:55:5 - (ae-undocumented) Missing documentation for "limits".
+// src/graph/settings.ts:56:5 - (ae-undocumented) Missing documentation for "models".
+// src/graph/settings.ts:57:5 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
+// src/graph/settings.ts:60:3 - (ae-undocumented) Missing documentation for "builder".
+// src/graph/settings.ts:101:3 - (ae-undocumented) Missing documentation for "settings".
 
 // (No @packageDocumentation comment for this package)
 

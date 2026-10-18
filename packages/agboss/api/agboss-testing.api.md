@@ -231,6 +231,20 @@ export interface TestApp extends Pick<App, "execute" | "resume" | "close" | "can
 }
 
 // @public
+export interface TestApplicationOptions {
+    // Warning: (ae-forgotten-export) The symbol "Environment" needs to be exported by the entry point index.d.ts
+    readonly environment?: Environment;
+    // (undocumented)
+    readonly environmentName?: string;
+    // (undocumented)
+    readonly instanceId?: string;
+    // (undocumented)
+    readonly name?: string;
+    // (undocumented)
+    readonly version?: string;
+}
+
+// @public
 export interface TestClock {
     // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     advance(duration: ClockDuration | Milliseconds): Promise<void>;
@@ -241,9 +255,26 @@ export interface TestClock {
 }
 
 // Warning: (ae-forgotten-export) The symbol "ExecutionContext" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "TenantContext" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function testExecutionContext(options?: TestExecutionContextOptions): ExecutionContext;
+export interface TestContextOptions<TExecution extends ExecutionContext, TTenant extends TenantContext> {
+    // (undocumented)
+    readonly application?: TestApplicationOptions;
+    readonly execution?: ContextValues<TExecution>;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionContextClass" needs to be exported by the entry point index.d.ts
+    readonly executionContext?: ExecutionContextClass<TExecution>;
+    // Warning: (ae-forgotten-export) The symbol "ContextValues" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "TenantValues" needs to be exported by the entry point index.d.ts
+    readonly tenant?: ContextValues<TTenant> | TenantValues;
+    // Warning: (ae-forgotten-export) The symbol "TenantContextClass" needs to be exported by the entry point index.d.ts
+    readonly tenantContext?: TenantContextClass<TTenant>;
+}
+
+// @public
+export function testExecutionContext<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(options?: TestExecutionContextOptions & TestContextOptions<TExecution, TTenant>): TExecution & {
+    readonly tenant: TTenant;
+};
 
 // @public
 export interface TestExecutionContextOptions {
@@ -407,15 +438,20 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/errors.ts:23:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/errors.ts:35:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/errors.ts:44:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/execution-context.ts:16:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/testing/execution-context.ts:17:3 - (ae-undocumented) Missing documentation for "callId".
-// src/testing/execution-context.ts:18:3 - (ae-undocumented) Missing documentation for "itemIndex".
-// src/testing/execution-context.ts:19:3 - (ae-undocumented) Missing documentation for "copyNumber".
-// src/testing/execution-context.ts:24:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/testing/execution-context.ts:25:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/testing/execution-context.ts:26:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/testing/execution-context.ts:27:3 - (ae-undocumented) Missing documentation for "signal".
-// src/testing/execution-context.ts:30:3 - (ae-undocumented) Missing documentation for "step".
+// src/testing/execution-context.ts:32:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/testing/execution-context.ts:33:3 - (ae-undocumented) Missing documentation for "callId".
+// src/testing/execution-context.ts:34:3 - (ae-undocumented) Missing documentation for "itemIndex".
+// src/testing/execution-context.ts:35:3 - (ae-undocumented) Missing documentation for "copyNumber".
+// src/testing/execution-context.ts:40:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/testing/execution-context.ts:41:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/testing/execution-context.ts:42:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/testing/execution-context.ts:43:3 - (ae-undocumented) Missing documentation for "signal".
+// src/testing/execution-context.ts:46:3 - (ae-undocumented) Missing documentation for "step".
+// src/testing/execution-context.ts:97:3 - (ae-undocumented) Missing documentation for "name".
+// src/testing/execution-context.ts:98:3 - (ae-undocumented) Missing documentation for "version".
+// src/testing/execution-context.ts:99:3 - (ae-undocumented) Missing documentation for "instanceId".
+// src/testing/execution-context.ts:100:3 - (ae-undocumented) Missing documentation for "environmentName".
+// src/testing/execution-context.ts:118:3 - (ae-undocumented) Missing documentation for "application".
 // src/testing/matchers.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/testing/matchers.ts:10:3 - (ae-undocumented) Missing documentation for "node".
 // src/testing/matchers.ts:15:3 - (ae-undocumented) Missing documentation for "kind".
@@ -442,9 +478,9 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/script.ts:66:1 - (ae-undocumented) Missing documentation for "replyWith".
 // src/testing/script.ts:136:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/script.ts:137:3 - (ae-undocumented) Missing documentation for "failure".
-// src/testing/slices.ts:16:3 - (ae-undocumented) Missing documentation for "invoke".
-// src/testing/slices.ts:21:3 - (ae-undocumented) Missing documentation for "routeTo".
-// src/testing/slices.ts:29:3 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/slices.ts:18:3 - (ae-undocumented) Missing documentation for "invoke".
+// src/testing/slices.ts:23:3 - (ae-undocumented) Missing documentation for "routeTo".
+// src/testing/slices.ts:31:3 - (ae-undocumented) Missing documentation for "replyWith".
 // src/testing/test-app.ts:26:3 - (ae-undocumented) Missing documentation for "clock".
 // src/testing/test-app.ts:32:3 - (ae-undocumented) Missing documentation for "agent".
 // src/testing/test-app.ts:33:3 - (ae-undocumented) Missing documentation for "router".
