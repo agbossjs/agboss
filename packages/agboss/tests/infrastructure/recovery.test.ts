@@ -62,7 +62,7 @@ async function holding(app: TestApp): Promise<StartedExecution> {
   const held = new Promise<void>((resolve) => {
     levers.holdStarted = resolve;
   });
-  const call = app.execute(OrderWorkflowStart, { text: "step, then hold" });
+  const call = execute(app, OrderWorkflowStart, { text: "step, then hold" });
   call.catch(() => undefined);
   await held;
   return { call };

@@ -9,6 +9,7 @@ import { ApplicationStoppingError, ExecutionRecordStatus } from "../../src/index
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { seconds } from "../../src/units/index.js";
+import { execute } from "../helpers/flow.js";
 import {
   Clerk,
   Hold,
@@ -37,7 +38,7 @@ async function holding(app: TestApp): Promise<StartedExecution> {
   const held = new Promise<void>((resolve) => {
     levers.holdStarted = resolve;
   });
-  const call = app.execute(OrderWorkflowStart, { text: "hold" });
+  const call = execute(app, OrderWorkflowStart, { text: "hold" });
   call.catch(() => undefined);
   await held;
   return { call };
