@@ -1,4 +1,9 @@
-import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../../src/budgets/budget.js";
+import {
+  Budget,
+  BudgetPeriod,
+  BudgetScope,
+  type BudgetHandler,
+} from "../../../src/budgets/budget.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 
 /**

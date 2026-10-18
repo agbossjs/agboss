@@ -2,7 +2,7 @@ import { ENV, Injectable, type Environment } from "agboss";
 
 /**
  * The API this workflow's tools call. Its address comes from the app's environment —
- * `environments/<name>.environment.ts` next to the workflow file (`dev` unless `--env` names another).
+ * `environments/<name>.environment.ts` next to the application file (`dev` unless `--env` names another).
  */
 @Injectable({ deps: [ENV] })
 export class ApiService {

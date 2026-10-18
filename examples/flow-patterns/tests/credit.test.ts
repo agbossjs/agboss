@@ -5,6 +5,7 @@ import { ChargeCardAction } from "../src/credit/actions/charge-card.action.js";
 import { ApprovalAgent } from "../src/credit/agents/approval.agent.js";
 import { OrderIntakeAgent } from "../src/credit/agents/order-intake.agent.js";
 import { CreditWorkflow } from "../src/credit/credit.workflow.js";
+import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
 import { CreditApprovalDto } from "../src/credit/dtos/credit-approval.dto.js";
 import { CreditOrderDto } from "../src/credit/dtos/credit-order.dto.js";
 import { CreditLimitRouter } from "../src/credit/routers/credit-limit.router.js";
@@ -18,7 +19,7 @@ import { CreditWorkflowStart } from "../src/credit/workflow-starts/credit.workfl
 
 /** A code router (`route(input)`, no model) inside a model router's route. */
 
-const test = testWith(CreditWorkflow);
+const test = testWith(FlowPatternsApplication);
 
 const order = (total: number) => replyWith(CreditOrderDto, { customerId: "c-1", total });
 

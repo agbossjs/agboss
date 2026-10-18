@@ -9,7 +9,7 @@ import { callTool, replyWith, routeTo, testWith } from "agboss/testing";
 import { describe, expect, vi } from "vitest";
 import {
   ChatStart,
-  Desk,
+  DeskApplication,
   MainRouter,
   NotesServer,
   Reply,
@@ -25,7 +25,7 @@ import {
   untilDone,
 } from "../../src/cli/approve.js";
 
-const test = testWith(Desk);
+const test = testWith(DeskApplication);
 
 describe("terminal approval (agboss run and agboss chat)", () => {
   test("asks about the pending call; yes runs the tool and the run finishes", async ({

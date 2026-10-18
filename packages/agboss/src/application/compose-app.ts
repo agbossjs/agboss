@@ -24,12 +24,25 @@ function startsOf(workflows: readonly BuiltApp[]): ReadonlyMap<Class, BuiltApp> 
   return starts;
 }
 
+/** Each app's workflows by class, with the start a plain text goes to in each (internal). */
+const textStarts = new WeakMap<App, ReadonlyMap<Class, Class | undefined>>();
+
+/**
+ * The start a plain text goes to in one workflow of the app (the CLI's `--workflow` until #268
+ * chooses by `--start`); `undefined` when the workflow has none or is not in the app.
+ */
+export const textStartOfWorkflow = (app: App, workflow: Class): Class | undefined =>
+  textStarts.get(app)?.get(workflow);
+
 /** The start a plain text goes to: the first listed workflow's that has one. */
 const textStartOf = (workflows: readonly BuiltApp[]): Class | undefined =>
   workflows.map((workflow) => workflow.app.textStart).find((start) => start !== undefined);
 
 /** The application's stop: no new executions anywhere, `onStop` once, every run awaited, `onDestroy`. */
-async function closeAll(workflows: readonly BuiltApp[], created: readonly unknown[]): Promise<void> {
+async function closeAll(
+  workflows: readonly BuiltApp[],
+  created: readonly unknown[],
+): Promise<void> {
   workflows.forEach((workflow) => {
     workflow.refuse();
   });
@@ -79,6 +92,10 @@ export function composeApp(
     resolve: (token) => first.app.resolve(token),
     hasTool: (name) => workflows.some((workflow) => workflow.app.hasTool(name)),
   };
+  textStarts.set(
+    app,
+    new Map(workflows.map((workflow) => [workflow.bundle.graph.type, workflow.app.textStart])),
+  );
   const { type } = first.bundle.graph;
   rememberAppWorkflow(app, {
     type,

@@ -5,13 +5,13 @@
 export const JOB_SCOUT_CHECK = `import { callTool, replyWith, routeTo, testWith } from "agboss/testing";
 import { expect } from "vitest";
 import { BillingAgent } from "../src/agents/billing.agent.js";
-import { JobScout } from "../src/job-scout.workflow.js";
+import { JobScoutApplication } from "../src/job-scout.application.js";
 import { MainRouter } from "../src/routers/main.router.js";
 import { RefundTool } from "../src/tools/refund.tool.js";
 import { ChatWorkflowFinish } from "../src/workflow-finishes/chat.workflow-finish.js";
 import { ChatWorkflowStart } from "../src/workflow-starts/chat.workflow-start.js";
 
-const test = testWith(JobScout);
+const test = testWith(JobScoutApplication);
 
 test("the generated agent is a route of the router and calls its generated tool", async ({
   app,
