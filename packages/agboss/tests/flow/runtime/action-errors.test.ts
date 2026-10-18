@@ -78,7 +78,9 @@ describe("S22: the StepFailedError family", () => {
     const step = { ...context.step, nodeId: "critic-agent#2" };
     const outside = new AgentFailedError("critic-agent", [], "boom");
 
-    const inside = await runInFrame({ execution: { ...context, values: {} }, step }, () =>
+    const { executionId, threadId, ownerId, signal, workflow, tenant } = context;
+    const execution = { executionId, threadId, ownerId, signal, workflow, tenant, values: {} };
+    const inside = await runInFrame({ execution, step }, () =>
       Promise.resolve(new AgentFailedError("critic-agent", [], "boom")),
     );
 
