@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect } from "vitest";
-import { ExecutionStatus, type ExecutionOutput } from "../../../src/app/types.js";
+import { ExecutionStatus } from "../../../src/app/types.js";
 import { ApplicationStoppingError, BranchStatus, BranchVerdict } from "../../../src/index.js";
 import { callTool, replyWith, testWith, type VirtualClock } from "../../../src/testing/index.js";
 import type { TestApp } from "../../../src/testing/test-app.js";
@@ -13,6 +13,7 @@ import {
   PanelReviewWorkflowFinish,
   PanelSummaryAgent,
   PanelWorkflowStart,
+  panel,
   resetPanel,
   textOf,
   RisksPanelAgent,
@@ -121,7 +122,7 @@ describe("S26: a crash inside a quorum", () => {
 
       await expect(call).rejects.toBeInstanceOf(ApplicationStoppingError);
       expect(recovered).toMatchObject({ output: { text: "summed up" } });
-      expect((recovered as ExecutionOutput).launches[0]?.branches).toMatchObject([
+      expect(panel.decided[0]?.branches).toMatchObject([
         { verdict: BranchVerdict.Counted, acceptedSequence: 1 },
         { verdict: BranchVerdict.Counted, acceptedSequence: 3 },
         { verdict: BranchVerdict.Counted, acceptedSequence: 2 },
@@ -141,7 +142,8 @@ describe("S26: a crash inside a quorum", () => {
 
       const { recovered } = await crashAndRecover(apps, clock, 300, false);
 
-      expect((recovered as ExecutionOutput).launches[0]?.branches).toMatchObject([
+      expect(recovered).toMatchObject({ output: { text: "summed up" } });
+      expect(panel.decided[0]?.branches).toMatchObject([
         { verdict: BranchVerdict.Counted, acceptedSequence: 1 },
         { nodeId: "risks-panel-agent", status: BranchStatus.Cancelled },
         { verdict: BranchVerdict.Counted, acceptedSequence: 2 },

@@ -66,7 +66,6 @@ const PANEL = [SkillsPanelAgent, RisksPanelAgent, HirePanelAgent] as const;
   name: "quick-panel-workflow",
   version: "1.0.0",
   channelClasses: [TerminalUserChannel],
-  observers: [QuorumLog],
   flow: [
     start(PanelWorkflowStart)
       .returns(CandidateDto)
@@ -84,7 +83,6 @@ export class QuickPanelWorkflow {}
   name: "checked-panel-workflow",
   version: "1.0.0",
   channelClasses: [TerminalUserChannel],
-  observers: [QuorumLog],
   flow: [
     start(PanelWorkflowStart)
       .returns(CandidateDto)
@@ -236,7 +234,6 @@ export class CopiesPanelWorkflow {}
   name: "recovery-panel-workflow",
   version: "1.0.0",
   channelClasses: [TerminalUserChannel],
-  observers: [RecoveryLog],
   flow: [
     start(PanelWorkflowStart)
       .returns(CandidateDto)
@@ -253,7 +250,6 @@ export class RecoveryPanelWorkflow {}
 @Workflow({
   name: "deal-panel-workflow",
   version: "1.0.0",
-  observers: [QuorumLog],
   flow: [
     start(DealPanelWorkflowStart)
       .returns(DealDto)
@@ -286,6 +282,7 @@ export class DealPanelWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [QuickPanelWorkflow],
+  observers: [QuorumLog],
   budgets: TEST_BUDGETS,
 })
 export class QuickPanelApplication {}
@@ -295,6 +292,7 @@ export class QuickPanelApplication {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CheckedPanelWorkflow],
+  observers: [QuorumLog],
   budgets: TEST_BUDGETS,
 })
 export class CheckedPanelApplication {}
@@ -358,6 +356,7 @@ export class CopiesPanelApplication {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DealPanelWorkflow],
+  observers: [QuorumLog],
   budgets: TEST_BUDGETS,
 })
 export class DealPanelApplication {}
@@ -367,6 +366,7 @@ export class DealPanelApplication {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryPanelWorkflow],
+  observers: [RecoveryLog, QuorumLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],
   budgets: TEST_BUDGETS,
 })
