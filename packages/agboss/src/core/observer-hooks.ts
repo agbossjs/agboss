@@ -1,6 +1,7 @@
 import type { Class } from "../components/injection.js";
 import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
+import type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
 import type {
   ActionEndEvent,
   ActionStartEvent,
@@ -146,6 +147,14 @@ export interface OnLaunchItemsTruncated {
   /** Called once per truncated launch, after the launching step. */
   onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): HookResult;
 }
+/**
+ * A quorum join decided (#279): once per quorum, with each branch's verdict (counted, rejected and
+ * by which arbiters, surplus, or none when cancelled) and the winning group.
+ */
+export interface OnQuorumDecided {
+  /** Called once per quorum join, before the execution goes on (or into `.onJoinError`). */
+  onQuorumDecided(event: QuorumDecidedEvent): HookResult;
+}
 
 /** Every hook, all optional: the type of an observer instance. */
 export type ExecutionObserver = Partial<
@@ -176,7 +185,8 @@ export type ExecutionObserver = Partial<
     OnJudgeStart &
     OnJudgeEnd &
     OnValuesOutdated &
-    OnLaunchItemsTruncated
+    OnLaunchItemsTruncated &
+    OnQuorumDecided
 >;
 
 /** The name of a hook, e.g. `"onToolEnd"`. */
@@ -215,6 +225,7 @@ const HOOKS: Readonly<Record<ObserverHook, true>> = {
   onJudgeEnd: true,
   onValuesOutdated: true,
   onLaunchItemsTruncated: true,
+  onQuorumDecided: true,
 };
 
 export const OBSERVER_HOOKS: readonly ObserverHook[] = Object.keys(HOOKS).filter(

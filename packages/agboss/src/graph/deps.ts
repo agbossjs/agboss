@@ -10,6 +10,8 @@ import type { AnyTool } from "../tools/index.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
 import type { LaunchDecider } from "../flow/runtime/launch/launch-decider.js";
+import type { ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
+import type { ArbiterClass } from "../flow/ast.js";
 import type {
   ChannelRequest,
   Guardrail,
@@ -58,6 +60,8 @@ export interface GraphDeps<TName extends string> {
   readonly routerFor: (router: LoadedRouter) => RouterEngine;
   /** A model router's decisions before a parallel launch (#273 S23): its `OnDemand` routes. */
   readonly launchDecisionFor?: (router: LoadedRouter) => LaunchDecider;
+  /** A model arbiter's model (#279): one yes/no decision per answer; none for a code arbiter. */
+  readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
   readonly observer?: ExecutionObserverManager;
   /**
    * The application's context levels (#261, framework wiring: `RuntimeContexts` is internal,

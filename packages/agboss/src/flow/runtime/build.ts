@@ -2,6 +2,7 @@ import { END, Send, START, StateGraph, type BaseCheckpointSaver } from "@langcha
 import { agentDefinitions } from "../../graph/agent-definitions.js";
 import { agentLoopGraph, noJudges, pauseSeamApproval } from "../../graph/agent-loop/index.js";
 import type { GraphDeps } from "../../graph/deps.js";
+import type { Class } from "../../components/injection.js";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import { NodeKind } from "../ast.js";
 import { isCodeRouterNode, type RuntimeNode } from "./graph-model.js";
@@ -121,7 +122,16 @@ function compile(deps: GraphDeps<string>, run: RunLimits, checkpointer?: BaseChe
     graph: deps.graph,
     observer: deps.observer,
   };
-  const launchDeps = { ...visitDeps, registry: new LaunchRegistry() };
+  const launchDeps = {
+    ...visitDeps,
+    registry: new LaunchRegistry(),
+    // a quorum's arbiters (#279): code ones from the container, model ones on their model
+    arbiters: {
+      instanceOf: (arbiter: Class): unknown => deps.container.get(arbiter),
+      ...(deps.arbiterModelFor === undefined ? {} : { modelOf: deps.arbiterModelFor }),
+    },
+    ...(checkpointer === undefined ? {} : { checkpointer }),
+  };
   const nodes = [...deps.graph.nodes.values()];
   // node ids are the components' names, known only at run time: `string`, not literal types
   const graph = new StateGraph<

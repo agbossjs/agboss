@@ -5,6 +5,9 @@ import type { LoadedRouter } from "../flow/runtime/routers.js";
 
 import { isDecisionModel } from "../models/decision-models.js";
 import { createLaunchDecider, type LaunchDecider } from "../flow/runtime/launch/launch-decider.js";
+import { createArbiterModel, type ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
+import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
+import type { ArbiterClass } from "../flow/ast.js";
 
 export { isDecisionModel };
 
@@ -39,6 +42,25 @@ export function flowLaunchDeciderFactory(
       gateway: deps.gateway,
       chatDefaults: deps.chatDefaults,
     });
+}
+
+/** A model arbiter's model (#279): its own `model`, a decision model or a chat model; none for code. */
+export function flowArbiterModelFactory(
+  deps: FlowRouterFactoryDeps,
+): (arbiter: ArbiterClass) => ArbiterModel | undefined {
+  const made = new Map<ArbiterClass, ArbiterModel>();
+  return (arbiter) => {
+    const options = arbiterOf(arbiter)?.options;
+    if (options === undefined || isCodeArbiter(options)) return undefined;
+    const found = made.get(arbiter);
+    if (found !== undefined) return found;
+    const model = createArbiterModel(options.name, routerModelOf(options.model, deps), {
+      gateway: deps.gateway,
+      chatDefaults: deps.chatDefaults,
+    });
+    made.set(arbiter, model);
+    return model;
+  };
 }
 
 /**

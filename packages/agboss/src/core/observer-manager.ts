@@ -1,5 +1,6 @@
 import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
+import type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
 import type {
   ActionEndEvent,
   ActionStartEvent,
@@ -143,5 +144,8 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   }
   onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): Promise<void> {
     return this.each("onLaunchItemsTruncated", (o) => o.onLaunchItemsTruncated?.(event));
+  }
+  onQuorumDecided(event: QuorumDecidedEvent): Promise<void> {
+    return this.each("onQuorumDecided", (o) => o.onQuorumDecided?.(event));
   }
 }

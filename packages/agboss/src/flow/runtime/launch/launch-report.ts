@@ -5,7 +5,7 @@ import type { ErrorRecord } from "../../../core/error-record.js";
 import type { FrameSpec } from "../../context/frame.js";
 import type { LaunchItemsTruncatedEvent } from "../../observers/launch-items-truncated.js";
 import { nodeEventOf } from "../../observers/execution-event.js";
-import type { BranchStatus, BranchTicket, LaunchTicket } from "./records.js";
+import type { BranchStatus, BranchTicket, BranchVerdict, LaunchTicket } from "./records.js";
 
 /**
  * What a launch tells the world (#273): one trace entry per branch when it ends — a child run of
@@ -23,6 +23,17 @@ export interface BranchTrace {
   readonly status: BranchStatus;
   /** A failed, skipped or cancelled branch's error: its code and message. */
   readonly error?: Pick<ErrorRecord, "code" | "message">;
+  /** Under a quorum (#279): counted, rejected (and by which arbiters) or surplus. */
+  readonly verdict?: BranchVerdict;
+  readonly acceptedSequence?: number;
+  readonly rejectedBy?: readonly string[];
+}
+
+/** What a quorum made of a branch's answer, as its trace entry shows it. */
+interface BranchMark {
+  readonly verdict: BranchVerdict;
+  readonly acceptedSequence?: number;
+  readonly rejectedBy?: readonly string[];
 }
 
 const traceEntry = RunnableLambda.from((trace: object) => trace);
@@ -46,7 +57,11 @@ export function reportBranch(
   config: RunnableConfig | undefined,
   launch: string,
   ticket: BranchTicket,
-  ended: { readonly status: BranchStatus; readonly error?: ErrorRecord },
+  ended: {
+    readonly status: BranchStatus;
+    readonly error?: ErrorRecord;
+    readonly mark?: BranchMark;
+  },
 ): Promise<void> {
   const trace: BranchTrace = {
     launch,
@@ -57,6 +72,7 @@ export function reportBranch(
     ...(ended.error === undefined
       ? {}
       : { error: { code: ended.error.code, message: ended.error.message } }),
+    ...ended.mark,
   };
   return traced(config, branchLabelOf(ticket), trace);
 }

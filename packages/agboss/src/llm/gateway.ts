@@ -19,7 +19,8 @@ export type ChatModelUser =
   | { readonly kind: "agent"; readonly agent: string }
   | { readonly kind: "compaction" }
   | { readonly kind: "judge"; readonly judge: string }
-  | { readonly kind: "router"; readonly router: string };
+  | { readonly kind: "router"; readonly router: string }
+  | { readonly kind: "arbiter"; readonly arbiter: string };
 
 /** A chat model request: its user and complete settings (agents, compaction, judges, LLM routers). */
 export interface ChatModelSpec {

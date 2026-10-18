@@ -189,12 +189,12 @@ describe("#279 AC9: the printout and describe", () => {
   });
 });
 
-describe("#279: until PR 2 a workflow with a quorum does not assemble", () => {
-  it("flow.quorum-not-runnable names the launch", async () => {
-    await expect(workflowOf(CandidateReviewWorkflow)).rejects.toMatchObject({
-      code: "flow.quorum-not-runnable",
-      message:
-        "candidate-review-workflow: candidate-review-workflow-start → toParallelAgents(score-a-agent, score-b-agent, score-c-agent) — quorums and arbiters are checked (agboss check) but run only from #279 PR 2; this version cannot execute the workflow",
-    });
+describe("#279 PR 2: a workflow with a quorum assembles", () => {
+  it("its model arbiters are model uses of the workflow", async () => {
+    const assembled = await workflowOf(CandidateReviewWorkflow);
+
+    expect(assembled.arbiters).toEqual([
+      { name: "valid-score-arbiter", model: "typesafe/jev-1.13" },
+    ]);
   });
 });

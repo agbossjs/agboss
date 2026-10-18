@@ -12,6 +12,7 @@ import type { Class } from "./components/injection.js";
 import type { AnyTool, McpFacade, McpServerHandle } from "./tools/index.js";
 import type { RouterEngine } from "./routers/index.js";
 import type { RuntimeGraph } from "./flow/runtime/graph-model.js";
+import type { ModelArbiterUse } from "./flow/runtime/launch/runtime-launch.js";
 import type { LoadedRouter } from "./flow/runtime/routers.js";
 import type { ModelProviderType } from "./models/model-provider.decorator.js";
 import type { ContainerOptions } from "./components/container/container.js";
@@ -62,6 +63,8 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly onIncompatibleResume?: IncompatibleResumePolicy | undefined;
   /** Every router of the flow with its texts loaded. */
   readonly routers: readonly LoadedRouter[];
+  /** Its model arbiters (#279), by `name` and `model`: model uses like the routers'. */
+  readonly arbiters?: readonly ModelArbiterUse[];
   readonly prompts: AgentPrompts<TName>;
   readonly tools: WorkflowTools;
   readonly mcpServers: readonly McpServerHandle<string>[];

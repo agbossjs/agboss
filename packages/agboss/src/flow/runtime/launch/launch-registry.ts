@@ -1,12 +1,15 @@
 import type { UsageRecord } from "../../../finops/usage.js";
+import type { QuorumState } from "./quorum.js";
 
 /**
  * What the process keeps of a launch while it runs (#273 S20), per launch id: the semaphore of
  * `maxConcurrency` (a sliding window: a branch takes a slot when it starts and frees it when it ends,
  * fails, is cancelled or pauses), the `AbortController` a `FailFast` failure aborts, the spend of
  * the branches that ended (so a later branch checks the money limits against it) and the errors
- * themselves (thrown as they are when no `.onJoinError(…)` takes them). In-process is enough: only
- * the tree's lease holder moves a tree (Q58); after a crash or a resume the entry is made anew.
+ * themselves (thrown as they are when no `.onJoinError(…)` takes them), and — for a quorum (#279
+ * S26) — its state, rebuilt from the finished branches' records when the entry is made anew. In-process
+ * is enough: only the tree's lease holder moves a tree (Q58); after a crash or a resume the entry is
+ * made anew.
  */
 
 /** A counting semaphore whose waiters leave when the launch is aborted. */
@@ -47,6 +50,14 @@ export class Semaphore {
   }
 }
 
+/** A quorum in this process: its state, once rebuilt, and the signal that stops its deadline. */
+export interface LiveQuorum {
+  readonly state: QuorumState;
+  /** Resolves when the state holds the records of the branches that finished before (a resume). */
+  readonly ready: Promise<void>;
+  readonly stop: AbortController;
+}
+
 /** One launch in this process. */
 export interface LiveLaunch {
   readonly slots: Semaphore;
@@ -55,21 +66,29 @@ export interface LiveLaunch {
   readonly spent: UsageRecord[];
   /** The errors of failed branches by ticket index, as they were thrown. */
   readonly errors: Map<number, unknown>;
+  /** A quorum join's state (#279). */
+  readonly quorum?: LiveQuorum;
 }
+
+/** Makes a launch's quorum when its entry is made (it may abort the launch: the quorum is decided). */
+export type QuorumMaker = (controller: AbortController) => LiveQuorum | undefined;
 
 /** The launches of one execution graph, by launch id. */
 export class LaunchRegistry {
   private readonly live = new Map<string, LiveLaunch>();
 
   /** The launch's entry, made on its first branch (here, or again after a resume). */
-  liveOf(launchId: string, maxConcurrency: number): LiveLaunch {
+  liveOf(launchId: string, maxConcurrency: number, makeQuorum?: QuorumMaker): LiveLaunch {
     const found = this.live.get(launchId);
     if (found !== undefined) return found;
+    const controller = new AbortController();
+    const quorum = makeQuorum?.(controller);
     const made: LiveLaunch = {
       slots: new Semaphore(maxConcurrency),
-      controller: new AbortController(),
+      controller,
       spent: [],
       errors: new Map(),
+      ...(quorum === undefined ? {} : { quorum }),
     };
     this.live.set(launchId, made);
     return made;
@@ -80,8 +99,9 @@ export class LaunchRegistry {
     return this.live.get(launchId);
   }
 
-  /** Removed when the join has read the launch. */
+  /** Removed when the join has read the launch (a quorum's deadline stops). */
   remove(launchId: string): void {
+    this.live.get(launchId)?.quorum?.stop.abort();
     this.live.delete(launchId);
   }
 }

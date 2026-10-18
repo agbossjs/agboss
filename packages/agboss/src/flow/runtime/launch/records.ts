@@ -21,6 +21,18 @@ export enum BranchStatus {
   Cancelled = "cancelled",
 }
 
+/**
+ * What a quorum made of a finished branch's answer (#279 S26): `Counted` — it took a place (only
+ * these enter the path scope); `Rejected` — an arbiter of its `.acceptedBy(…)` chain said no;
+ * `Surplus` — accepted after the quorum was already decided (`max` taken, a group won, the deadline
+ * passed).
+ */
+export enum BranchVerdict {
+  Counted = "counted",
+  Rejected = "rejected",
+  Surplus = "surplus",
+}
+
 /** One branch a launch dispatched: which node, which copy or item, and its counters. */
 export interface BranchTicket {
   /** Its position in the launch, from 0: listed order, or the item's index — the join's order. */
@@ -51,6 +63,8 @@ export interface LaunchTicket {
   readonly launcher: string;
   readonly visitNumber: number;
   readonly maxConcurrency?: number;
+  /** A quorum's deadline (#279 S26): epoch milliseconds on the application's `Clock`, set at dispatch. */
+  readonly deadlineAt?: number;
   /** How many items (or listed targets) there were, and how many were launched. */
   readonly items: number;
   readonly taken: number;
@@ -67,6 +81,11 @@ export interface BranchOutcomeRecord {
   /** The `valueId`s it read (a per-item run's item counts as its list). */
   readonly read: readonly string[];
   readonly error?: ErrorRecord;
+  /** Under a quorum (#279): what became of its answer, and its place in the counting order. */
+  readonly verdict?: BranchVerdict;
+  readonly acceptedSequence?: number;
+  /** The arbiters that rejected it (every one of an `anyOf(…)`), by `name`. */
+  readonly rejectedBy?: readonly string[];
 }
 
 /** What a node writes to the outcome records: a branch adds its own, a join drops its launch's. */
@@ -97,6 +116,18 @@ export interface BranchRecord {
   readonly status: BranchStatus;
   /** A failed, skipped or cancelled branch's error (S21: a skipped one's stays visible). */
   readonly error?: ErrorRecord;
+  /** Under a quorum (#279): counted, rejected or surplus — a cancelled branch has none. */
+  readonly verdict?: BranchVerdict;
+  /** A counted answer's place in the counting order, from 1 (the join's order). */
+  readonly acceptedSequence?: number;
+  /** The arbiters that rejected its answer, by `name`. */
+  readonly rejectedBy?: readonly string[];
+}
+
+/** The `group(…)` of `.joinQuorumGroups(…)` that won (#279): its agents as listed, its priority. */
+export interface QuorumGroupRecord {
+  readonly agents: readonly string[];
+  readonly priority?: number;
 }
 
 /**
@@ -113,4 +144,8 @@ export interface LaunchRecord {
   readonly taken: number;
   /** Every launched branch, in the join's order. */
   readonly branches: readonly BranchRecord[];
+  /** A quorum's join (#279): whether it was reached. */
+  readonly isQuorumReached?: boolean;
+  /** `.joinQuorumGroups(…)`: the group that won. */
+  readonly group?: QuorumGroupRecord;
 }

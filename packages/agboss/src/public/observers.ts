@@ -5,3 +5,4 @@ export * from "../core/observer-manager.js";
 export type { ExecutionEvent, NodeEvent } from "../flow/observers/execution-event.js";
 export type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 export type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
+export type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";

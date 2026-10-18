@@ -5,6 +5,7 @@ import type { NodeOutcome } from "../node-runner.js";
 import type { ScopeRecords } from "../records.js";
 import type { ExecutionStateType } from "../state.js";
 import { visitNumberOf } from "../step-frame.js";
+import { deadlineAtOf } from "./deadline.js";
 import { dispatchOf } from "./dispatch.js";
 import type { LaunchTicket } from "./records.js";
 import { NO_VARIANT, type RuntimeLaunch } from "./runtime-launch.js";
@@ -46,13 +47,22 @@ export interface LaunchingVisit {
   readonly executionId: string;
   /** The scope after the step's own write. */
   readonly scope: ScopeRecords;
+  /** The moment of dispatch on the application's `Clock` (a quorum's `deadlineAt`, #279). */
+  readonly now: Date;
 }
+
+/** A quorum's deadline from the moment of dispatch; none without one. */
+const deadlineOf = (launch: RuntimeLaunch, now: Date): number | undefined => {
+  const deadline = launch.quorum?.deadline;
+  return deadline === undefined ? undefined : deadlineAtOf(now, deadline);
+};
 
 /** The ticket of the launch a visit takes: its branches, counted after the step's own visit. */
 export function launchTicketOf(visit: LaunchingVisit, launch: RuntimeLaunch): LaunchTicket {
   const { node, state, outcome } = visit;
   const isStep = isWorkingNode(node);
-  return dispatchOf({
+  const deadlineAt = deadlineOf(launch, visit.now);
+  const ticket = dispatchOf({
     graph: visit.graph,
     launch,
     launcher: node,
@@ -63,4 +73,5 @@ export function launchTicketOf(visit: LaunchingVisit, launch: RuntimeLaunch): La
     steps: state.steps + (isStep ? 1 : 0),
     ...(outcome.launch === undefined ? {} : { chosen: outcome.launch }),
   });
+  return deadlineAt === undefined ? ticket : { ...ticket, deadlineAt };
 }

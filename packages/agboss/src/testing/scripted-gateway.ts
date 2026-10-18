@@ -26,9 +26,13 @@ export function chatKeyOf(user: ChatModelUser): string {
       return judgeKeyOf(user.judge);
     case "router":
       return `router:${user.router}`;
+    case "arbiter":
+      return arbiterKeyOf(user.arbiter);
   }
 }
 export const judgeKeyOf = (judge: string): string => `judge:${judge}`;
+/** The script key of a model arbiter (#279): its cost caller. */
+export const arbiterKeyOf = (arbiter: string): string => `arbiter:${arbiter}`;
 
 /** What `mockLlm` scripts: an agent or a router (by class), or a `@Judge`. */
 export type ModelTarget = Class;
