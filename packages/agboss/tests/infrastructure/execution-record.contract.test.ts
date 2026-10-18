@@ -38,6 +38,7 @@ const record = (threadId: string, runId: string, status: ExecutionRecordStatus):
   ...outcome(status),
   runId,
   threadId,
+  tenantId: "default",
   bundle: "desk-workflow",
   task: "where is order 7?",
   promptVersion: "p1",
@@ -51,16 +52,16 @@ describe.each(kinds)("#265 AC7: execution records ($name)", ({ twoInstances }) =
   it("a thread made on one instance is known to the other, with its owner", async () => {
     const { first, second } = twoInstances();
 
-    const thread = await first.createThread("desk-workflow", "dana");
+    const thread = await first.createThread("desk-workflow", "default", "dana");
 
-    expect(await second.hasThread("desk-workflow", thread)).toBe(true);
-    expect(await second.threadOwner("desk-workflow", thread)).toEqual({ owner: "dana" });
-    expect(await second.hasThread("other-workflow", thread)).toBe(false);
+    expect(await second.hasThread("desk-workflow", "default", thread)).toBe(true);
+    expect(await second.threadOwner("desk-workflow", "default", thread)).toEqual({ owner: "dana" });
+    expect(await second.hasThread("other-workflow", "default", thread)).toBe(false);
   });
 
   it("the running roots are listed page by page, oldest first", async () => {
     const { first, second } = twoInstances();
-    const thread = await first.createThread("desk-workflow");
+    const thread = await first.createThread("desk-workflow", "default");
     const ids: string[] = [];
     for (const runId of ["run-1", "run-2", "run-3"]) {
       ids.push((await first.append(record(thread, runId, ExecutionRecordStatus.Running))).id);
@@ -81,7 +82,7 @@ describe.each(kinds)("#265 AC7: execution records ($name)", ({ twoInstances }) =
 
   it("compare-and-set: the write lands only from the expected status (S66 h)", async () => {
     const { first, second } = twoInstances();
-    const thread = await first.createThread("desk-workflow");
+    const thread = await first.createThread("desk-workflow", "default");
     const { id } = await first.append(record(thread, "run-1", ExecutionRecordStatus.Paused));
 
     // the holder finished the tree; the resume's `running` write arrives after it
@@ -98,7 +99,7 @@ describe.each(kinds)("#265 AC7: execution records ($name)", ({ twoInstances }) =
 
   it("compare-and-set: of two writes from one status exactly one lands", async () => {
     const { first, second } = twoInstances();
-    const thread = await first.createThread("desk-workflow");
+    const thread = await first.createThread("desk-workflow", "default");
     const { id } = await first.append(record(thread, "run-1", ExecutionRecordStatus.Paused));
 
     const landed = await Promise.all([

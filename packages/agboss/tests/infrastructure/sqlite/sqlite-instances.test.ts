@@ -92,7 +92,7 @@ describe("#265 PR 3: a pause on the SQLite file", () => {
     );
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
 
-    const resumed = await instance(apps, 1).resume(paused.thread, approve);
+    const resumed = await instance(apps, 1).resume(paused.threadId, approve);
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(resumed.output).toEqual({ text: "Charged." });
@@ -109,7 +109,7 @@ describe("#265 PR 3: a pause on the SQLite file", () => {
       const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
 
       const restarted = await recoverApp();
-      const resumed = await restarted.resume(paused.thread, approve);
+      const resumed = await restarted.resume(paused.threadId, approve);
 
       expect(resumed.status).toBe(ExecutionStatus.Finished);
       expect(resumed.output).toEqual({ text: "Charged." });

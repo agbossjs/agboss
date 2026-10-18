@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach } from "vitest";
 import { createContainer } from "../../../src/components/container/container.js";
-import { ENV } from "../../../src/components/environment-token.js";
+import {
+  applicationContextOf,
+  ApplicationContext,
+} from "../../../src/flow/context/application-context.js";
+import { resolveEnvironment } from "../../../src/environments/resolve.js";
 import type { Token } from "../../../src/components/injection.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { SqliteConnection } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
@@ -60,11 +64,26 @@ export function temporarySqlitePath(): string {
   return join(folder, "application.sqlite");
 }
 
+/** The application context of a test instance whose environment names the SQLite file. */
+const applicationOn = (path: string): ApplicationContext =>
+  applicationContextOf({
+    name: "store-test-application",
+    version: "1.0.0",
+    instanceId: "store-test",
+    startedAt: new Date(0),
+    environmentName: "test",
+    // the SQLite stores read `sqlitePath` only — resolved as an environment file would be
+    environment: resolveEnvironment(
+      { name: "test", contract: "StoreEnvironment", values: { sqlitePath: path } },
+      {},
+    ),
+  });
+
 /** A connection of this test to `path` as an application's container makes it, closed after it. */
 export function connectionTo(path: string): SqliteConnection {
   const container = createContainer({
     modules: [],
-    core: new Map<Token, unknown>([[ENV, { sqlitePath: path }]]),
+    core: new Map<Token, unknown>([[ApplicationContext, applicationOn(path)]]),
   });
   const connection = container.get(SqliteConnection);
   if (!(connection instanceof SqliteConnection)) throw new Error("not a SqliteConnection");

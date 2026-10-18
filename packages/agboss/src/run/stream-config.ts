@@ -73,7 +73,8 @@ export function streamConfig<TName extends string>(
   const run = runContextOf(identity, options);
   const services = { run, executionContext: options.executionContext };
   return {
-    ...runConfig(runId, services, options.configurable),
+    // the checkpoint thread is the run; its rows are tagged with the run's tenant (#261 AC6)
+    ...runConfig(runId, services, { ...options.configurable, tenant_id: tenantId }),
     streamMode: "values",
     durability: "sync",
     runName: deps.config.name,

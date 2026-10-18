@@ -30,7 +30,7 @@ function createCodeNodes(bundle: AssembledWorkflow, services: WorkflowServices):
 /**
  * The parts of an app its container creates when the app starts (after its tools): code nodes, channels
  * and their adapters, context knowledge, memory strategies, judges, observers. One function for
- * `createApp` and `agboss check` (#239), so the check fails on a dependency (`ENV`, a provider) exactly
+ * `createApp` and `agboss check` (#239), so the check fails on a dependency (a provider, a context subclass) exactly
  * when the start would.
  */
 export const componentsAtStart = (
@@ -51,7 +51,7 @@ export const componentsAtStart = (
 /**
  * Every component the app's start creates, with these services (`agboss check`): its tools, then the
  * rest — no model called, no MCP server connected, no lifecycle hook run. Throws what the start
- * would throw, e.g. `[di.missing-environment]` for an `ENV` consumer of an app with no environment.
+ * would throw, e.g. `[context.not-declared]` for a context subclass the application does not declare.
  */
 export function createStartComponents(bundle: AssembledWorkflow, services: WorkflowServices): void {
   resolveTools(bundle, services);

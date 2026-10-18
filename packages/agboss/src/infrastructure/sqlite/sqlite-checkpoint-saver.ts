@@ -3,6 +3,7 @@ import { BaseCheckpointSaver, copyCheckpoint, type CheckpointTuple } from "@lang
 import { Injectable } from "../../components/decorators.js";
 import {
   CHECKPOINT_SCHEMA,
+  TENANT_TAGGED_TABLES,
   CheckpointRow,
   checkpointOf,
   configOf,
@@ -22,7 +23,8 @@ import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 /**
  * LangGraph's `BaseCheckpointSaver` on the application's SQLite file (#265 S32, our own on
- * `node:sqlite` — no second driver): checkpoints and pending writes, serialized by `this.serde`.
+ * `node:sqlite` — no second driver): checkpoints and pending writes, serialized by `this.serde`,
+ * each row tagged with its run's tenant (#261: `configurable.tenant_id`).
  * Listed in `@Application({ providers })` (needs `sqlitePath`) with `SqlitePausedExecutionRepository`,
  * a pause survives a restart and is resumed on any instance on the file; recovery continues a
  * `running` tree from its last checkpoint. Ecosystem savers (`PostgresSaver`, …) plug in the same way.
@@ -32,6 +34,8 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
   constructor(private readonly connection: SqliteConnection) {
     super();
     connection.ensureSchema("checkpoints", CHECKPOINT_SCHEMA);
+    for (const table of TENANT_TAGGED_TABLES)
+      connection.addColumn(table, "tenant_id", "TEXT NOT NULL DEFAULT 'default'");
   }
 
   async getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
@@ -67,14 +71,14 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
     checkpoint: Checkpoint,
     metadata: CheckpointMetadata,
   ): Promise<RunnableConfig> {
-    const { threadId, namespace, checkpointId: parentId } = keyOf(config, "put");
+    const { tenantId, threadId, namespace, checkpointId: parentId } = keyOf(config, "put");
     const [[checkpointType, dumped], [metadataType, dumpedMetadata]] = await Promise.all([
       this.serde.dumpsTyped(copyCheckpoint(checkpoint)),
       this.serde.dumpsTyped(metadata),
     ]);
     this.connection.transaction(() => {
       this.connection.database
-        .prepare("INSERT OR REPLACE INTO checkpoints VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .prepare("INSERT OR REPLACE INTO checkpoints VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
         .run(
           threadId,
           namespace,
@@ -84,13 +88,14 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
           dumped,
           metadataType,
           dumpedMetadata,
+          tenantId,
         );
     });
     return configOf(threadId, namespace, checkpoint.id);
   }
 
   async putWrites(...[config, writes, taskId]: PutWritesArguments): Promise<void> {
-    const { threadId, namespace, checkpointId } = keyOf(config, "putWrites");
+    const { tenantId, threadId, namespace, checkpointId } = keyOf(config, "putWrites");
     if (checkpointId === undefined) {
       throw new Error("SqliteCheckpointSaver.putWrites: the config has no checkpoint_id");
     }
@@ -110,7 +115,7 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
             : "DO UPDATE SET channel = excluded.channel, value_type = excluded.value_type, value = excluded.value";
         database
           .prepare(
-            `INSERT INTO checkpoint_writes VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO checkpoint_writes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (thread_id, checkpoint_ns, checkpoint_id, task_id, idx) ${conflict}`,
           )
           .run(
@@ -122,6 +127,7 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
             write.channel,
             write.type,
             write.bytes,
+            tenantId,
           );
       }
     });

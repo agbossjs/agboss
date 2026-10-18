@@ -7,7 +7,8 @@ import { JobFitJudge } from "../src/services/job-fit.service.js";
 
 /** The application context of the dev environment: the public board API. */
 const { application } = testExecutionContext({
-  application: { environment: { greenhouseApiUrl: "https://boards-api.greenhouse.io", sqlitePath: ":memory:" },
+  application: {
+    environment: { greenhouseApiUrl: "https://boards-api.greenhouse.io", sqlitePath: ":memory:" },
   },
 }).tenant;
 

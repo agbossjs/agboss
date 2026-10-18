@@ -52,7 +52,7 @@ describe("#265 PR 3: records persist across processes on the SQLite file", () =>
       OrderWorkflowStart,
       { text: "note two" },
       {
-        thread: first.thread,
+        threadId: first.threadId,
       },
     );
     const environment = await environmentFor(
@@ -64,10 +64,10 @@ describe("#265 PR 3: records persist across processes on the SQLite file", () =>
       ...(environment === undefined ? {} : { environment }),
       gateway: createScriptedGateway(new ScriptBook()),
     });
-    const records = await standalone.terns.lastTerns(first.thread, 10);
+    const records = await standalone.terns.lastTerns(first.threadId, 10);
     await standalone.close();
 
-    expect(second.thread).toBe(first.thread);
+    expect(second.threadId).toBe(first.threadId);
     expect(records.map((record) => record.replyWith)).toHaveLength(2);
     expect(records.map((record) => record.status)).toEqual(["answered", "answered"]);
   });
