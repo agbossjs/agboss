@@ -143,7 +143,7 @@ holds from its type**, not guess it from the name.
   (`ModelCost.fromPrices`, `costSource: "price-table"`). A call with neither fails.
 - **Money limits are `@Budget` components** (#261), every one listed in
   `@Application({ budgets })` and written in `config/budget.config.ts`: `@Budget({ name, scope,
-  period?, workflow?, deps? })` + `implements BudgetHandler` (`maxSpend(): Usd | Promise<Usd>`, no
+period?, workflow?, deps? })` + `implements BudgetHandler` (`maxSpend(): Usd | Promise<Usd>`, no
   parameters — the data come through the constructor: `ExecutionContext`, the project's tenant
   context, a billing service; never the request body). `BudgetScope.Execution` — one full pass of
   `app.execute`, a workflow's own (`workflow: X`) or the default; `BudgetScope.Tenant` /
@@ -164,7 +164,7 @@ holds from its type**, not guess it from the name.
     before every model call too. The first exhausted **fails the execution** — never a quiet stop,
     unless the path's `.onError(BudgetExceededError, …)` takes it — with `budget`, `scope`, `key`,
     `maxSpend`, `spent` and a sentence (`tenant acme spent $40.05 today; tenant-daily-budget allows
-    $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLimitExceededError`
+$40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLimitExceededError`
     (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`, `BudgetExceededError`.
   - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
     parallel executions of one tenant may overrun it a little, and a budget may be exceeded by the

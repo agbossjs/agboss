@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { describeWorkflow } from "agboss";
+import { BudgetExceededError, describeWorkflow } from "agboss";
+import { usd } from "agboss/units";
+import { CreditExecutionBudget, TenantDailyBudget } from "../src/config/budget.config.js";
 import { replyWith, routeTo, testWith, workflowOf } from "agboss/testing";
 import { ChargeCardAction } from "../src/credit/actions/charge-card.action.js";
 import { ApprovalAgent } from "../src/credit/agents/approval.agent.js";
@@ -139,5 +141,33 @@ describe("describe", () => {
       10_000,
     );
     await expect(service.limitOf({ customerId: "c-1", requestKey: "k" })).resolves.toBe(100);
+  });
+});
+
+describe("budgets (#261): the credit desk's own execution budget, the tenant's day", () => {
+  test("the desk's $0.05 is spent: the next step never runs", async ({ app, mockLlm }) => {
+    mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+    mockLlm(OrderIntakeAgent).thenReturn(
+      replyWith(CreditOrderDto, { customerId: "c-1", total: 500 }, { cost: usd(0.06) }),
+    );
+
+    const run = app.execute(CreditWorkflowStart, { text: "500 dollars of tea" });
+
+    await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(run).rejects.toMatchObject({ budget: { name: "credit-execution-budget" } });
+    expect(mockLlm(ApprovalAgent).requests).toHaveLength(0);
+  });
+
+  test("a tenant whose day is spent is refused before any call", async ({ app, mockLlm, mockOf }) => {
+    mockOf(TenantDailyBudget).maxSpend.mockReturnValue(usd(0));
+
+    const run = app.execute(CreditWorkflowStart, { text: "tea" }, { tenant: { tenantId: "acme" } });
+
+    await expect(run).rejects.toThrow("tenant acme spent $0 today; tenant-daily-budget allows $0");
+    expect(mockLlm(DeskRouter).requests).toHaveLength(0);
+  });
+
+  it("a budget's maxSpend() is a plain method", () => {
+    expect(new CreditExecutionBudget().maxSpend()).toBe(usd(0.05));
   });
 });

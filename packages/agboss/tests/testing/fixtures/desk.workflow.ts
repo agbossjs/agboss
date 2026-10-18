@@ -24,7 +24,12 @@ import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TestApplicationDailyBudget } from "../../flow/fixtures/budgets.js";
-import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../../src/budgets/budget.js";
+import {
+  Budget,
+  BudgetPeriod,
+  BudgetScope,
+  type BudgetHandler,
+} from "../../../src/budgets/budget.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 

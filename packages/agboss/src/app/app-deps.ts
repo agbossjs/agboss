@@ -232,12 +232,10 @@ export async function createAppDeps(
   await startComponents(opened);
   const budgets = standaloneBudgetsOf(bundle);
   const parts = { infrastructure, ...(budgets === undefined ? {} : { budgets }) };
-  const deps = await createWorkflowDeps(bundle, options, parts).catch(
-    async (error: unknown) => {
-      await stopComponents(opened);
-      throw error;
-    },
-  );
+  const deps = await createWorkflowDeps(bundle, options, parts).catch(async (error: unknown) => {
+    await stopComponents(opened);
+    throw error;
+  });
   return {
     ...deps,
     close: async (executionsDone) => {

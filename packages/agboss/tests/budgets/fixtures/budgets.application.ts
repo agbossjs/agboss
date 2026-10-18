@@ -15,7 +15,12 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
-import { Decimal, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import {
+  Decimal,
+  Text,
+  WorkflowFinishTextDto,
+  WorkflowStartTextDto,
+} from "../../../src/dto/index.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import { start } from "../../helpers/flow.js";
 
@@ -46,10 +51,18 @@ export class ShopTenantContext extends TenantContext {
   dailyBudgetUsd!: number;
 }
 
-@WorkflowStart({ name: "brief-workflow-start", description: "A brief", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "brief-workflow-start",
+  description: "A brief",
+  input: WorkflowStartTextDto,
+})
 export class BriefStart {}
 
-@WorkflowFinish({ name: "brief-workflow-finish", description: "The text", output: WorkflowFinishTextDto })
+@WorkflowFinish({
+  name: "brief-workflow-finish",
+  description: "The text",
+  output: WorkflowFinishTextDto,
+})
 export class BriefFinish {}
 
 export class DraftDto {

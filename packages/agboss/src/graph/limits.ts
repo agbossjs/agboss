@@ -65,19 +65,21 @@ export class LimitExceededError extends AGBossError {
 }
 
 /** `$40`, `$40.05`, `$0.0125`: up to four decimals, no trailing zeros. */
-export const dollars = (amount: number): string =>
-  `$${amount.toFixed(4).replace(/\.?0+$/, "")}`;
+export const dollars = (amount: number): string => `$${amount.toFixed(4).replace(/\.?0+$/, "")}`;
 
 /** What exhausted a budget: the budget, whose spend it counts, its limit and the spend reached. */
 export interface BudgetBreach {
   /** The budget (no class: the error is kept on a plain record). */
   readonly budget: ComponentRecord;
+  /** What the budget limits: an execution, a tenant or the application. */
   readonly scope: BudgetScope;
   /** The tenant and application budgets' period; none for an execution budget. */
   readonly period?: BudgetPeriod | undefined;
   /** The application's name, the `tenantId`, or the root execution's id. */
   readonly key: string;
+  /** What `maxSpend()` gave at the start of the execution. */
   readonly maxSpend: Usd;
+  /** What the budget's counter reached. */
   readonly spent: Usd;
 }
 
@@ -104,11 +106,15 @@ function budgetSentence(breach: BudgetBreach): string {
 export class BudgetExceededError extends LimitExceededError {
   static override readonly code: string = "limit.budget";
   override name = "BudgetExceededError";
+  /** The budget, compared with `nameOf(TenantDailyBudget)`. */
   readonly budget: ComponentRecord;
+  /** What it limits: an execution, a tenant or the application. */
   readonly scope: BudgetScope;
   /** The application's name, the `tenantId`, or the root execution's id. */
   override readonly key: string;
+  /** What `maxSpend()` gave at the start of the execution. */
   readonly maxSpend: Usd;
+  /** What the budget's counter reached. */
   readonly spent: Usd;
 
   constructor(

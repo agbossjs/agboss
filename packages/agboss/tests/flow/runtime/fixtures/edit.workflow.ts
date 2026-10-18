@@ -170,7 +170,11 @@ export class ShortEditApplication {}
 @Workflow({ name: "cheap-edit-workflow", version: "1.0.0", flow: editPaths })
 export class CheapEditWorkflow {}
 
-@Budget({ name: "cheap-edit-execution-budget", scope: BudgetScope.Execution, workflow: CheapEditWorkflow })
+@Budget({
+  name: "cheap-edit-execution-budget",
+  scope: BudgetScope.Execution,
+  workflow: CheapEditWorkflow,
+})
 export class CheapEditExecutionBudget implements BudgetHandler {
   maxSpend(): Usd {
     return usd(0.015);

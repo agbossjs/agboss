@@ -137,10 +137,7 @@ export const flowFor = (
   bundle: AssembledWorkflow,
   config: AgentsConfigOf<string>,
   gateway: ModelGateway,
-): Pick<
-  RunDeps<string>,
-  "graph" | "maxSteps" | "routers" | "routerFor" | "launchDecisionFor"
-> => {
+): Pick<RunDeps<string>, "graph" | "maxSteps" | "routers" | "routerFor" | "launchDecisionFor"> => {
   const routerDeps = {
     gateway,
     chatDefaults: config.defaults.models,

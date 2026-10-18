@@ -61,7 +61,10 @@ describe("evaluate", () => {
     const report = await evaluate(evaluation, "test-bundle-workflow", { limit: 10 });
 
     expect(report).toEqual({ scored: 2, costUsd: 0.002 });
-    expect(ledger.recorded.map((record) => record.caller)).toEqual(["router:judge", "router:judge"]);
+    expect(ledger.recorded.map((record) => record.caller)).toEqual([
+      "router:judge",
+      "router:judge",
+    ]);
     expect((await deps.terns.summary("test-bundle-workflow"))[0]?.meanScore).toBeCloseTo(0.8);
     expect(await evaluate(evaluation, "test-bundle-workflow", { limit: 10 })).toEqual({
       scored: 0,
@@ -92,9 +95,13 @@ describe("evaluate", () => {
       scope: BudgetScope.Application,
       key: "test-application",
     };
-    // the last execution read $0.001; the day has spent more since
-    await ledger.saveMaxSpend(account, usd(0.001));
-    const evaluation: EvalDeps = { terns: deps.terns, budgets: deps.budgets, judge: judge(adequate()) };
+    // the last execution read $0: the day has spent it
+    await ledger.saveMaxSpend(account, usd(0));
+    const evaluation: EvalDeps = {
+      terns: deps.terns,
+      budgets: deps.budgets,
+      judge: judge(adequate()),
+    };
 
     expect(await evaluate(evaluation, "test-bundle-workflow", { limit: 10 })).toEqual({
       scored: 0,

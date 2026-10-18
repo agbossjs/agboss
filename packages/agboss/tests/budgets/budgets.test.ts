@@ -101,7 +101,11 @@ describe("#261 AC10: maxSpend() is read once per execution, in its context", () 
       await execute(app, BriefStart, { text: "a brief" }, { tenant: acme });
 
       const ledger = lastLedger();
-      const account = { budget: "shop-tenant-daily-budget", scope: BudgetScope.Tenant, key: "acme" };
+      const account = {
+        budget: "shop-tenant-daily-budget",
+        scope: BudgetScope.Tenant,
+        key: "acme",
+      };
       expect(await ledger.findMaxSpendByAccount(account)).toBe(0.05);
     },
   );
@@ -125,7 +129,9 @@ describe("#261 AC10: every budget is checked before the first step", () => {
         spent: 0,
         path: [],
       });
-      await expect(run).rejects.toThrow("tenant acme spent $0 today; shop-tenant-daily-budget allows $0");
+      await expect(run).rejects.toThrow(
+        "tenant acme spent $0 today; shop-tenant-daily-budget allows $0",
+      );
       expect(mockLlm(DrafterAgent).requests).toHaveLength(0);
     },
   );
@@ -141,7 +147,12 @@ describe("#261 AC10: every budget is checked before the first step", () => {
       await expect(
         execute(app, BriefStart, { text: "one" }, { tenant: acme }),
       ).rejects.toBeInstanceOf(BudgetExceededError);
-      const second = execute(app, BriefStart, { text: "two" }, { tenant: { ...acme, tenantId: "b" } });
+      const second = execute(
+        app,
+        BriefStart,
+        { text: "two" },
+        { tenant: { ...acme, tenantId: "b" } },
+      );
 
       await expect(second).rejects.toThrow(
         "shop-application spent $0.02 today; shop-application-daily-budget allows $0.01",
@@ -184,12 +195,19 @@ describe("#261 AC10: every model call is counted in all of the execution's budge
     const month = `${day.slice(0, 7)}-01`;
     const spent = (budget: string, scope: BudgetScope, key: string, period: string) =>
       ledger.findSpentByCounter({ budget, scope, key, period });
-    expect(await spent("shop-tenant-daily-budget", BudgetScope.Tenant, "acme", day)).toBeCloseTo(0.03);
-    expect(await spent("shop-tenant-monthly-budget", BudgetScope.Tenant, "acme", month)).toBeCloseTo(
+    expect(await spent("shop-tenant-daily-budget", BudgetScope.Tenant, "acme", day)).toBeCloseTo(
       0.03,
     );
     expect(
-      await spent("shop-application-daily-budget", BudgetScope.Application, "shop-application", day),
+      await spent("shop-tenant-monthly-budget", BudgetScope.Tenant, "acme", month),
+    ).toBeCloseTo(0.03);
+    expect(
+      await spent(
+        "shop-application-daily-budget",
+        BudgetScope.Application,
+        "shop-application",
+        day,
+      ),
     ).toBeCloseTo(0.03);
     expect(
       await spent("brief-execution-budget", BudgetScope.Execution, result.runId, ""),
@@ -209,7 +227,9 @@ describe("#261 AC10: every model call is counted in all of the execution's budge
         budget: { name: "cheap-edit-execution-budget" },
         scope: BudgetScope.Execution,
       });
-      await expect(first).rejects.toThrow(/^execution .+ spent \$0\.016; cheap-edit-execution-budget allows \$0\.015$/);
+      await expect(first).rejects.toThrow(
+        /^execution .+ spent \$0\.016; cheap-edit-execution-budget allows \$0\.015$/,
+      );
       // the tenant's day: $0.016 + $0.003 = $0.019 < $0.02, then one more call crosses it
       const second = execute(app, EditStart, { text: "two" });
       await expect(second).rejects.toMatchObject({ budget: { name: "cheap-tenant-daily-budget" } });
@@ -303,9 +323,11 @@ describe("#261 AC10: every workflow, every tenant and the application are capped
 
   it("[budget.duplicate-default-execution-budget]: two budgets without workflow", async () => {
     const budgets = [ShopApplicationDailyBudget, ShopTenantMonthlyBudget, DefaultExecutionBudget];
-    expect(await violationsOf(applicationWith([...budgets, SecondDefaultExecutionBudget]))).toEqual([
-      "[budget.duplicate-default-execution-budget] budgets-rules-application has 2 default execution budgets (default-execution-budget, second-default-execution-budget) — keep one without workflow",
-    ]);
+    expect(await violationsOf(applicationWith([...budgets, SecondDefaultExecutionBudget]))).toEqual(
+      [
+        "[budget.duplicate-default-execution-budget] budgets-rules-application has 2 default execution budgets (default-execution-budget, second-default-execution-budget) — keep one without workflow",
+      ],
+    );
   });
 
   it("the default covers every workflow without its own", async () => {

@@ -72,7 +72,7 @@ describe("describe a workflow", () => {
         l.includes("limits: modelCalls 12 (default) · toolCalls 8"),
       ),
     ).toBe(true);
-    expect(lines).toContain("limits    steps 1–2 (maxSteps 9) · day no daily cap");
+    expect(lines).toContain("limits    steps 1–2 (maxSteps 9)");
     expect(describeWorkflow(test, "fast")[0]).toMatch(
       /^test-workflow 1\.0\.0 \(profile fast\) · config [0-9a-f]{8}$/,
     );

@@ -4,7 +4,8 @@ import { BudgetScope } from "../../src/budgets/budget.js";
 import { replay } from "../../src/eval/replay.js";
 import { runVersions } from "../../src/index.js";
 import type { RouterEngine } from "../../src/routers/index.js";
-import { routeTo, fakeDeps, memoryLedger, runText, usageRecord } from "../helpers.js";
+import { routeTo, fakeDeps, memoryLedger, runText } from "../helpers.js";
+import { usd } from "../../src/units/index.js";
 
 const judgeWith = (...confidences: number[]): RouterEngine => {
   const route = vi.fn<RouterEngine["route"]>();
@@ -46,16 +47,19 @@ describe("replay", () => {
     expect(rows.map((row) => row.promptVersion)).toContain(runVersions(changed).promptVersion);
   });
 
-  it("stops replaying when the tenant's day is spent", async () => {
+  it("stops replaying when the application's budget is spent (its last known limit)", async () => {
     const ledger = memoryLedger();
     const deps = await fakeDeps(
       { "test/router": [routeTo("alpha-agent")], "test/alpha": ["a"] },
       { ledger },
     );
     await runText("T", deps);
-    const today = new Date().toISOString().slice(0, 10);
-    const tenant = { budget: "test-tenant-daily-budget", scope: BudgetScope.Tenant, key: "default" };
-    await ledger.saveAll([{ ...tenant, period: today }], [usageRecord("earlier", 1000)]);
+    const application = {
+      budget: "test-application-daily-budget",
+      scope: BudgetScope.Application,
+      key: "test-application",
+    };
+    await ledger.saveMaxSpend(application, usd(0));
     const evaluation: EvalDeps = { terns: deps.terns, budgets: deps.budgets, judge: judgeWith() };
 
     const report = await replay(deps, evaluation, {

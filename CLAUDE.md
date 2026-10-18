@@ -587,7 +587,7 @@ export class SupportWorkflowFinish {}
 })
 export class SupportRouter {}
 // @snippet
-@Workflow({ name: "launch-workflow", version: "1.0.0", flow: launchPaths })
+@Workflow({ name: "launch-workflow", version: "1.0.0", flow: launchPaths, maxSteps: 60 })
 export class LaunchWorkflow {}
 -->
 

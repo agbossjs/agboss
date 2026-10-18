@@ -76,10 +76,7 @@ describe("AC12: isolation per test", () => {
 });
 
 describe("AC12: a controllable clock — the per-day limit resets after midnight UTC", () => {
-  test('app.clock.advance("25h") starts a new day for a daily budget', async ({
-    app,
-    mockLlm,
-  }) => {
+  test('app.clock.advance("25h") starts a new day for a daily budget', async ({ app, mockLlm }) => {
     // the first run spends the day's 0.05: the second is refused before any call
     mockLlm(MainRouter).thenReturnAlways(routeTo(Writer));
     mockLlm(Writer).thenReturn(replyWith("one", { cost: usd(0.05) }), replyWith("three"));

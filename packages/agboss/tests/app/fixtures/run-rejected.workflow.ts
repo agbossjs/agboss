@@ -70,7 +70,11 @@ export class VoucherClerk {}
 export class Vouchers {}
 
 /** A tenant may spend $0.05 a day: one dear reply spends it. */
-@Budget({ name: "vouchers-tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+@Budget({
+  name: "vouchers-tenant-daily-budget",
+  scope: BudgetScope.Tenant,
+  period: BudgetPeriod.Day,
+})
 export class VouchersTenantDailyBudget implements BudgetHandler {
   maxSpend(): Usd {
     return usd(0.05);

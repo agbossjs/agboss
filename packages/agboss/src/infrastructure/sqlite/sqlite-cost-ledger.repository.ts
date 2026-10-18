@@ -81,7 +81,9 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
          WHERE budget = ? AND scope = ? AND scope_key = ?`,
       )
       .get(account.budget, scopeOf(account), account.key);
-    return Promise.resolve(row === undefined ? undefined : usd(MaxSpendRow.parse(row).max_spend_usd));
+    return Promise.resolve(
+      row === undefined ? undefined : usd(MaxSpendRow.parse(row).max_spend_usd),
+    );
   }
 
   saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void> {

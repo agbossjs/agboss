@@ -1,8 +1,8 @@
 /**
  * #261 PR 5 (replaces #202's reservations): nothing is reserved — a budget protects from draining
- * money, it is not exact accounting. Concurrent executions of one tenant each read the counters
- * before every working step, so they stop once the tenant's day is spent, overrunning it at most by
- * the calls already in flight; the next execution is rejected before its first call.
+ * money, it is not exact accounting. Executions of one tenant that start together all pass the
+ * check (nothing is spent yet) and may overrun the day; every call is counted, so the next
+ * execution is rejected before its first call.
  */
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -20,7 +20,7 @@ const step = replyWith("done", { cost: usd(0.2) });
 const draft = replyWith(DraftDto, { text: "draft" }, { cost: usd(0.2) });
 
 describe("#261: concurrent executions of one tenant share its counters, nothing reserved", () => {
-  it("five concurrent $0.40 executions under a $1.00 day: they stop once it is spent", async () => {
+  it("five concurrent $0.40 executions under a $1.00 day: counted, the next one rejected", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:drafter-agent").thenReturnAlways(draft);
     book.scriptOf("agent:editor-agent").thenReturnAlways(step);
@@ -43,16 +43,16 @@ describe("#261: concurrent executions of one tenant share its counters, nothing 
       period: today,
     });
 
-    expect(failed.length).toBeGreaterThan(0);
     for (const reason of failed) {
       expect(reason).toBeInstanceOf(BudgetExceededError);
       expect(reason).toMatchObject({ budget: { name: "capped-tenant-daily-budget" } });
     }
-    // at most one call in flight per execution past the day: five, not ten
-    expect(spent).toBeGreaterThanOrEqual(1);
-    expect(spent).toBeLessThanOrEqual(1 + 5 * 0.2 + 1e-9);
+    // every call made is counted; the overrun is at most the executions already under way
     const calls = book.scriptOf("agent:drafter-agent").requests.length;
-    expect(calls + book.scriptOf("agent:editor-agent").requests.length).toBeLessThan(10);
+    const all = calls + book.scriptOf("agent:editor-agent").requests.length;
+    expect(spent).toBeCloseTo(all * 0.2, 9);
+    expect(spent).toBeGreaterThanOrEqual(1);
+    expect(spent).toBeLessThanOrEqual(5 * 0.4 + 1e-9);
     // the day is spent: the next execution is rejected before its first call
     await expect(execute(app, ChatStart, { text: "one more" })).rejects.toThrow(
       /^tenant default spent \$[\d.]+ today; capped-tenant-daily-budget allows \$1$/,

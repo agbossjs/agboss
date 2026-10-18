@@ -161,10 +161,7 @@ describe("agent-loop coverage", () => {
     };
     const node = makeModelNode(deps);
     await expect(
-      node(
-        { messages: [], usage: [], from: { usage: 0 }, modelCalls: 0, flowPath: [] },
-        {},
-      ),
+      node({ messages: [], usage: [], from: { usage: 0 }, modelCalls: 0, flowPath: [] }, {}),
     ).rejects.toThrow("cannot call tools");
   });
 

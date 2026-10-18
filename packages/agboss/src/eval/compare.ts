@@ -32,7 +32,8 @@ export const TIE_BELOW = 0.6;
 
 async function judged(evaluation: EvalDeps, request: RouteRequest) {
   const outcome = await evaluation.judge.route(request);
-  if (outcome.usage !== undefined) await recordApplicationSpend(evaluation.budgets, [outcome.usage]);
+  if (outcome.usage !== undefined)
+    await recordApplicationSpend(evaluation.budgets, [outcome.usage]);
   return outcome;
 }
 

@@ -76,9 +76,7 @@ export function budgetsOfExecution(
   const execution = all.filter((budget) => budget.meta.scope === BudgetScope.Execution);
   const own = execution.find((budget) => budget.meta.workflow === workflow);
   const chosen = own ?? execution.find((budget) => budget.meta.workflow === undefined);
-  return all.filter(
-    (budget) => budget.meta.scope !== BudgetScope.Execution || budget === chosen,
-  );
+  return all.filter((budget) => budget.meta.scope !== BudgetScope.Execution || budget === chosen);
 }
 
 /** Whose spend an execution's budget counts. */
@@ -240,10 +238,14 @@ export class BudgetMeter implements BudgetCheck {
    */
   budgetUsd(): number {
     const now = this.clock();
-    return Math.min(
-      ...this.records.map((record) => record.maxSpend - this.#spentOf(record, this.spentBefore, now)),
-      Number.POSITIVE_INFINITY,
-    ) + this.spentBefore;
+    return (
+      Math.min(
+        ...this.records.map(
+          (record) => record.maxSpend - this.#spentOf(record, this.spentBefore, now),
+        ),
+        Number.POSITIVE_INFINITY,
+      ) + this.spentBefore
+    );
   }
 
   /** Adds the calls' cost to every counter of the execution's budgets (their current period). */

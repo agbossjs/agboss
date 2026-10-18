@@ -13,6 +13,7 @@ import { usd, type Usd } from "../units/index.js";
 export interface BudgetAccount {
   /** The budget's `name` (`tenant-daily-budget`). */
   readonly budget: string;
+  /** What the budget limits: an execution, a tenant or the application. */
   readonly scope: BudgetScope;
   /** The application's name, the `tenantId`, or the root execution's id. */
   readonly key: string;
@@ -32,7 +33,10 @@ export abstract class CostLedgerRepository {
   abstract findSpentByCounter(counter: CostCounter): Promise<Usd>;
 
   /** Adds the cost of these model (and service) calls to every counter, atomically per counter. */
-  abstract saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void>;
+  abstract saveAll(
+    counters: readonly CostCounter[],
+    records: readonly UsageRecord[],
+  ): Promise<void>;
 
   /**
    * The `maxSpend()` an execution last read for the account — the last known limit, for a report

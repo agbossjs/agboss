@@ -15,12 +15,7 @@ import { start } from "../helpers/flow.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS, TestApplicationDailyBudget } from "../flow/fixtures/budgets.js";
-import {
-  Budget,
-  BudgetPeriod,
-  BudgetScope,
-  type BudgetHandler,
-} from "../../src/budgets/budget.js";
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../src/budgets/budget.js";
 import { SharedExecutionRecordRepository } from "../helpers/shared-infrastructure.js";
 import { EmptyEnvironment } from "../../src/index.js";
 

@@ -65,7 +65,11 @@ export function executionBudgetCheck(maxSpend: number): BudgetCheck {
     key: "test-execution",
     maxSpend,
   };
-  return meterOf({ ledger: new InMemoryCostLedgerRepository(), clock: () => new Date() }, [record], 0);
+  return meterOf(
+    { ledger: new InMemoryCostLedgerRepository(), clock: () => new Date() },
+    [record],
+    0,
+  );
 }
 
 export function harness(

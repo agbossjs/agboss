@@ -1,6 +1,10 @@
 import type { UsageRecord } from "../finops/usage.js";
 import { budgetOf, BudgetScope } from "./budget.js";
-import { counterOf, type ApplicationBudgets, type ExecutionBudgetRecord } from "./execution-budgets.js";
+import {
+  counterOf,
+  type ApplicationBudgets,
+  type ExecutionBudgetRecord,
+} from "./execution-budgets.js";
 
 /**
  * The application's spend outside any execution (#261 PR 5): an evaluation's judge calls
@@ -54,8 +58,6 @@ export async function recordApplicationSpend(
 ): Promise<void> {
   if (application === undefined || records.length === 0) return;
   const now = application.clock();
-  const counters = (await applicationRecords(application)).map((record) =>
-    counterOf(record, now),
-  );
+  const counters = (await applicationRecords(application)).map((record) => counterOf(record, now));
   if (counters.length > 0) await application.ledger.saveAll(counters, records);
 }
