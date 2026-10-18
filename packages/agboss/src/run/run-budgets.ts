@@ -12,6 +12,7 @@ import { standaloneContexts, tenantOfExecution } from "../flow/context/runtime-c
 import type { UsageRecord } from "../finops/usage.js";
 import { executionGraphOf, type ExecutionGraph } from "../flow/runtime/build.js";
 import { InMemoryCostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
+import { systemClock } from "../infrastructure/clock.js";
 import type { RunDeps } from "./types.js";
 
 /**
@@ -92,7 +93,7 @@ export interface PassBudgets {
 
 /** No application, no budgets: a pass checked against nothing. */
 const unbudgeted = (): PassBudgets => ({
-  meter: meterOf({ ledger: new InMemoryCostLedgerRepository(), clock: () => new Date() }, [], 0),
+  meter: meterOf({ ledger: new InMemoryCostLedgerRepository(), clock: systemClock }, [], 0),
   records: [],
 });
 

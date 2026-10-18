@@ -1,3 +1,4 @@
+import type { Clock } from "../infrastructure/clock.js";
 import type { Class } from "../components/injection.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
 import { BudgetExceededError } from "../graph/limits.js";
@@ -54,8 +55,8 @@ export interface ApplicationBudgets {
   /** The budget instance (the container's, or a test's mock). */
   readonly resolve: (budget: Class) => BudgetHandler;
   readonly ledger: CostLedgerRepository;
-  /** The framework's clock: the period a call is counted in. */
-  readonly clock: () => Date;
+  /** The application's `Clock` (#262): the period a call is counted in. */
+  readonly clock: Clock;
 }
 
 const listed = (budgets: readonly Class[]): readonly ListedBudget[] =>
@@ -155,7 +156,7 @@ export async function openBudgets(
     };
     records.push(record);
   }
-  const now = application.clock();
+  const now = application.clock.now();
   for (const record of records) {
     const spent = await application.ledger.findSpentByCounter(counterOf(record, now));
     if (spent >= record.maxSpend) throw exhausted(record, spent, [], 0, []);
@@ -204,14 +205,14 @@ export class BudgetMeter implements BudgetCheck {
   constructor(
     readonly records: readonly ExecutionBudgetRecord[],
     private readonly ledger: CostLedgerRepository,
-    private readonly clock: () => Date,
+    private readonly clock: Clock,
     private readonly spentBefore: number,
   ) {}
 
   /** Reads every counter of the execution's budgets in their current period. */
   async refresh(): Promise<void> {
     const recorded = this.#recorded;
-    const now = this.clock();
+    const now = this.clock.now();
     const values = new Map<string, number>();
     for (const record of this.records) {
       const counter = counterOf(record, now);
@@ -227,7 +228,7 @@ export class BudgetMeter implements BudgetCheck {
   }
 
   check(executionSpent: number, path: readonly string[], usage: readonly UsageRecord[] = []): void {
-    const now = this.clock();
+    const now = this.clock.now();
     for (const record of this.records) {
       const spent = this.#spentOf(record, executionSpent, now);
       if (spent >= record.maxSpend) throw exhausted(record, spent, path, executionSpent, usage);
@@ -239,7 +240,7 @@ export class BudgetMeter implements BudgetCheck {
    * left, plus what it spent before this pass (`Infinity` without budgets).
    */
   budgetUsd(): number {
-    const now = this.clock();
+    const now = this.clock.now();
     return (
       Math.min(
         ...this.records.map(
@@ -253,7 +254,7 @@ export class BudgetMeter implements BudgetCheck {
   /** Adds the calls' cost to every counter of the execution's budgets (their current period). */
   async record(records: readonly UsageRecord[]): Promise<void> {
     if (records.length === 0 || this.records.length === 0) return;
-    const now = this.clock();
+    const now = this.clock.now();
     // counted first: a read meanwhile sees a little less, never twice the same call
     this.#recorded += totalCost(records);
     await this.ledger.saveAll(

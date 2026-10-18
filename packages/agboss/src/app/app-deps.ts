@@ -23,6 +23,7 @@ import { evaluationFor, flowFor, guardsFor, pauseFor, servicesFor, toolLookup } 
 import { closeOf, releaseOf } from "./app-deps-parts.js";
 import { componentsAtStart } from "./start-components.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
+import type { Clock } from "../infrastructure/clock.js";
 import {
   standaloneBudgetsOf,
   standaloneInfrastructure,

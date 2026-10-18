@@ -43,7 +43,7 @@ export async function isApplicationSpendExhausted(
   application: ApplicationBudgets | undefined,
 ): Promise<boolean> {
   if (application === undefined) return false;
-  const now = application.clock();
+  const now = application.clock.now();
   for (const record of await applicationRecords(application)) {
     const spent = await application.ledger.findSpentByCounter(counterOf(record, now));
     if (spent >= record.maxSpend) return true;
@@ -57,7 +57,7 @@ export async function recordApplicationSpend(
   records: readonly UsageRecord[],
 ): Promise<void> {
   if (application === undefined || records.length === 0) return;
-  const now = application.clock();
+  const now = application.clock.now();
   const counters = (await applicationRecords(application)).map((record) => counterOf(record, now));
   if (counters.length > 0) await application.ledger.saveAll(counters, records);
 }

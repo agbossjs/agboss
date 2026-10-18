@@ -5,6 +5,7 @@ import {
 } from "../../../src/budgets/execution-budgets.js";
 import { BudgetScope } from "../../../src/budgets/budget.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
+import { systemClock } from "../../../src/infrastructure/clock.js";
 /**
  * The agent loop on its own (#150): a scripted model picked by the conversation, tools that log
  * what they did, and helpers to start, pause, resume and read the loop. Imports `src` only, so the
@@ -65,11 +66,7 @@ export function executionBudgetCheck(maxSpend: number): BudgetCheck {
     key: "test-execution",
     maxSpend,
   };
-  return meterOf(
-    { ledger: new InMemoryCostLedgerRepository(), clock: () => new Date() },
-    [record],
-    0,
-  );
+  return meterOf({ ledger: new InMemoryCostLedgerRepository(), clock: systemClock }, [record], 0);
 }
 
 export function harness(
