@@ -13,7 +13,10 @@ import {
 } from "agboss/models";
 import { minutes, seconds } from "agboss/units";
 
-/** Where this workflow's chat models come from: OpenRouter (decision models through `DecisionsModelProvider`). */
+/**
+ * Where the application's chat models come from: OpenRouter (decision models through
+ * `DecisionsModelProvider`) — both listed in `@Application({ providers })`.
+ */
 @ModelProvider({
   name: "openrouter",
   description: "OpenRouter — many models behind one OpenAI-compatible API",
