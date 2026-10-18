@@ -266,11 +266,11 @@ export class LazyAuditService {
 })
 export class QuickWriterAgent {}
 
-/** A workflow whose providers inject the context (one reads it too early). */
+/** A workflow whose provider injects the context and reads it only when called. */
 @Workflow({
   name: "audit-workflow",
   version: "1.0.0",
-  providers: [EagerAuditService, LazyAuditService],
+  providers: [LazyAuditService],
   flow: [
     start(ContextStart)
       .returns(WorkflowStartTextDto)
@@ -288,3 +288,26 @@ export class AuditWorkflow {}
   budgets: TEST_BUDGETS,
 })
 export class AuditApplication {}
+
+/** A workflow whose provider reads the context in its constructor: created at start, it fails. */
+@Workflow({
+  name: "eager-audit-workflow",
+  version: "1.0.0",
+  providers: [EagerAuditService],
+  flow: [
+    start(ContextStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(QuickWriterAgent)
+      .returns(DraftDto)
+      .toFinish(PublishedFinish),
+  ],
+})
+export class EagerAuditWorkflow {}
+
+@Application({
+  name: "eager-audit-application",
+  version: "1.0.0",
+  workflows: [EagerAuditWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class EagerAuditApplication {}
