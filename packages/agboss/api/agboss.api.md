@@ -10,10 +10,13 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { BaseMessage } from '@langchain/core/messages';
 import type { BaseMessageLike } from '@langchain/core/messages';
+import { CheckpointTuple } from '@langchain/langgraph';
 import { CompiledStateGraph } from '@langchain/langgraph';
+import type { DatabaseSync } from 'node:sqlite';
 import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
 import { OverwriteValue } from '@langchain/langgraph';
+import type { RunnableConfig } from '@langchain/core/runnables';
 import { StateDefinition } from '@langchain/langgraph';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
@@ -1013,6 +1016,7 @@ export abstract class ExecutionRecordRepository {
     abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Tern[]>;
     // Warning: (ae-forgotten-export) The symbol "TernOutcome" needs to be exported by the entry point index.d.ts
     abstract complete(ternId: string, outcome: TernOutcome): Promise<void>;
+    abstract completeIfStatus(ternId: string, expected: ExecutionRecordStatus, outcome: TernOutcome): Promise<boolean>;
     // Warning: (ae-forgotten-export) The symbol "ConfigSnapshot" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -2741,6 +2745,91 @@ export abstract class SpendRecorder {
 }
 
 // @public
+export class SqliteCheckpointSaver extends BaseCheckpointSaver {
+    // Warning: (ae-forgotten-export) The symbol "SqliteConnection" needs to be exported by the entry point index.d.ts
+    constructor(connection: SqliteConnection);
+    // (undocumented)
+    deleteThread(threadId: string): Promise<void>;
+    // (undocumented)
+    getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
+    // Warning: (ae-forgotten-export) The symbol "ListOptions" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    list(config: RunnableConfig, options?: ListOptions): AsyncGenerator<CheckpointTuple>;
+    // Warning: (ae-forgotten-export) The symbol "Checkpoint" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "CheckpointMetadata" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    put(config: RunnableConfig, checkpoint: Checkpoint, metadata: CheckpointMetadata): Promise<RunnableConfig>;
+    // Warning: (ae-forgotten-export) The symbol "PutWritesArguments" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    putWrites(...input: PutWritesArguments): Promise<void>;
+}
+
+// @public
+export class SqliteCostLedgerRepository extends CostLedgerRepository {
+    constructor(connection: SqliteConnection, now: () => Date);
+    // (undocumented)
+    findSpentToday(key: string): Promise<number>;
+    // (undocumented)
+    saveAll(key: string, records: readonly UsageRecord[]): Promise<void>;
+}
+
+// @public
+export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
+    constructor(connection: SqliteConnection, now: () => Date, instanceId: string);
+    // (undocumented)
+    acquire(tenantId: string, rootExecutionId: string, lease: Milliseconds): Promise<ExecutionLease | undefined>;
+    // (undocumented)
+    release(executionLease: ExecutionLease): Promise<void>;
+    // (undocumented)
+    renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean>;
+}
+
+// Warning: (ae-forgotten-export) The symbol "TernStoreRecordRepository" needs to be exported by the entry point index.d.ts
+//
+// @public
+export class SqliteExecutionRecordRepository extends TernStoreRecordRepository {
+    constructor(connection: SqliteConnection, now: () => Date, newThreadId: NewThreadId | undefined);
+}
+
+// @public
+export class SqliteExecutionTreeRepository extends ExecutionTreeRepository {
+    constructor(connection: SqliteConnection);
+    // (undocumented)
+    deleteAllInTree(tree: ExecutionTree): Promise<void>;
+    // (undocumented)
+    findByIdInTree(tree: ExecutionTree, key: string): Promise<ExecutionTreeValue | undefined>;
+    // (undocumented)
+    saveIfAbsentInTree(tree: ExecutionTree, key: string, value: ExecutionTreeValue): Promise<boolean>;
+}
+
+// @public
+export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
+    constructor(connection: SqliteConnection, now: () => Date);
+    // (undocumented)
+    deleteByThreadId(threadId: string): Promise<void>;
+    // (undocumented)
+    findByThreadId(threadId: string): Promise<PausedRun | undefined>;
+    // (undocumented)
+    resolveByThreadId(threadId: string, decision: unknown): Promise<PausedRun | undefined>;
+    // (undocumented)
+    save(paused: PausedRun): Promise<void>;
+}
+
+// @public
+export class SqliteRateLimitRepository extends RateLimitRepository {
+    constructor(connection: SqliteConnection, now: () => Date, instanceId: string);
+    // (undocumented)
+    acquire(key: string, maxSlots: number, lease: Milliseconds): Promise<RateLimitLease | undefined>;
+    // (undocumented)
+    release(rateLimitLease: RateLimitLease): Promise<void>;
+    // (undocumented)
+    renew(rateLimitLease: RateLimitLease, lease: Milliseconds): Promise<boolean>;
+}
+
+// @public
 export function start<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Start, KindLabel<NodeKind.Start>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public (undocumented)
@@ -3816,12 +3905,32 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/settings.ts:101:3 - (ae-undocumented) Missing documentation for "settings".
 // src/infrastructure/execution-record.repository.ts:41:3 - (ae-undocumented) Missing documentation for "hasThread".
 // src/infrastructure/execution-record.repository.ts:47:3 - (ae-undocumented) Missing documentation for "append".
-// src/infrastructure/execution-record.repository.ts:52:3 - (ae-undocumented) Missing documentation for "byIds".
-// src/infrastructure/execution-record.repository.ts:70:3 - (ae-undocumented) Missing documentation for "saveScore".
-// src/infrastructure/execution-record.repository.ts:71:3 - (ae-undocumented) Missing documentation for "meanScore".
-// src/infrastructure/execution-record.repository.ts:81:3 - (ae-undocumented) Missing documentation for "configSnapshots".
-// src/infrastructure/execution-record.repository.ts:90:3 - (ae-undocumented) Missing documentation for "addSummary".
-// src/infrastructure/execution-record.repository.ts:93:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record.repository.ts:62:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record.repository.ts:80:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record.repository.ts:81:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record.repository.ts:91:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record.repository.ts:100:3 - (ae-undocumented) Missing documentation for "addSummary".
+// src/infrastructure/execution-record.repository.ts:103:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:37:9 - (ae-undocumented) Missing documentation for "getTuple".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:50:10 - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:65:9 - (ae-undocumented) Missing documentation for "put".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:92:9 - (ae-undocumented) Missing documentation for "putWrites".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:130:3 - (ae-undocumented) Missing documentation for "deleteThread".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:31:3 - (ae-undocumented) Missing documentation for "findSpentToday".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:38:3 - (ae-undocumented) Missing documentation for "saveAll".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:38:3 - (ae-undocumented) Missing documentation for "acquire".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:66:3 - (ae-undocumented) Missing documentation for "renew".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:83:3 - (ae-undocumented) Missing documentation for "release".
+// src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:41:3 - (ae-undocumented) Missing documentation for "saveIfAbsentInTree".
+// src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:56:3 - (ae-undocumented) Missing documentation for "findByIdInTree".
+// src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:67:3 - (ae-undocumented) Missing documentation for "deleteAllInTree".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:88:3 - (ae-undocumented) Missing documentation for "findByThreadId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:95:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:112:3 - (ae-undocumented) Missing documentation for "resolveByThreadId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:127:3 - (ae-undocumented) Missing documentation for "deleteByThreadId".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:34:3 - (ae-undocumented) Missing documentation for "acquire".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:61:3 - (ae-undocumented) Missing documentation for "renew".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:69:3 - (ae-undocumented) Missing documentation for "release".
 // src/llm/decision-errors.ts:5:3 - (ae-undocumented) Missing documentation for "code".
 // src/llm/decision-errors.ts:6:12 - (ae-undocumented) Missing documentation for "name".
 // src/llm/decision-errors.ts:11:3 - (ae-undocumented) Missing documentation for "code".
