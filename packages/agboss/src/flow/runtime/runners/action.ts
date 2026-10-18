@@ -11,6 +11,7 @@ import {
 } from "../../dto-wrappers.js";
 import type { RuntimeNode } from "../graph-model.js";
 import type { NodeRunner } from "../node-runner.js";
+import { stepNodeIdOf } from "../step-frame.js";
 import { ActionFailedError, OutputInvalidError, passesThrough } from "../errors.js";
 import { readInput, type NodeValue } from "../scope.js";
 
@@ -77,12 +78,13 @@ export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
     if (!isAction(instance)) throw new OutputInvalidError(`${node.id} has no execute(input)`);
     const input = readInput(deps.graph, node, state);
     const { threadId } = extractRunContext(config, state.runId);
-    const appState = { runId: state.runId, threadId, activeNode: node.id };
-    await deps.observer?.onActionStart({ name: node.id, input: input.fields, state: appState });
+    const name = stepNodeIdOf(node);
+    const appState = { runId: state.runId, threadId, activeNode: name };
+    await deps.observer?.onActionStart({ name, input: input.fields, state: appState });
     const result = await instance.execute(input.fields).catch((error: unknown) => {
       throw failure(node.id, error);
     });
-    await deps.observer?.onActionEnd({ name: node.id, update: result, state: appState });
+    await deps.observer?.onActionEnd({ name, update: result, state: appState });
     if (output === undefined) return { read: input.read };
     return { value: checkedValue(node.id, output, result), read: input.read };
   };

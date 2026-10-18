@@ -1,7 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { extractRunContext } from "../../core/run-context.js";
 import type { WorkflowDescriptor } from "../context/execution-context.js";
-import type { FrameSpec } from "../context/frame.js";
+import { currentFrame, type FrameSpec } from "../context/frame.js";
 import { idempotencyKeyOf } from "../context/idempotency.js";
 import type { RuntimeNode } from "./graph-model.js";
 import type { ExecutionStateType } from "./state.js";
@@ -72,3 +72,9 @@ export function stepFrameAt(
     step: Object.freeze(step),
   };
 }
+
+/** The node id of the step running now: `critic-agent#2` for a copy of a launch (#273), else the node's. */
+export const stepNodeIdOf = (node: RuntimeNode): string => {
+  const frame = currentFrame();
+  return frame === undefined || frame.isClosed() ? node.id : frame.step.nodeId;
+};

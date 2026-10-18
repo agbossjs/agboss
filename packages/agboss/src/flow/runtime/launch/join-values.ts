@@ -65,34 +65,51 @@ const isList = (write: ValueWrite): boolean => {
   return typeof value !== "function";
 };
 
+/** Who gave a value: its one branch, or every branch of a list (each element's when they differ). */
+interface Producers {
+  readonly producer: string;
+  readonly elementProducers?: readonly string[];
+  readonly valueId: string;
+}
+
+function producersOf(
+  site: JoinSite,
+  gathered: readonly Gathered[],
+  slot: string,
+  asList: boolean,
+): Producers {
+  const [first] = gathered;
+  const { launcher, visitNumber } = site.ticket;
+  if (!asList && first !== undefined)
+    return {
+      producer: first.ticket.node,
+      valueId: valueIdOf(first.ticket.node, first.ticket.visitNumber, slot),
+    };
+  const names = gathered.map(({ ticket }) => ticket.node);
+  const producer = first?.ticket.node ?? launcher;
+  const isMixed = names.some((name) => name !== producer);
+  return {
+    producer,
+    ...(isMixed ? { elementProducers: names } : {}),
+    valueId: valueIdOf(launcher, visitNumber, slot),
+  };
+}
+
 function joinRecord(
   site: JoinSite,
   write: ValueWrite,
   writes: readonly ValueWrite[],
 ): ScopeValueRecord | undefined {
   const gathered = gatheredFor(site, write);
-  const [first] = gathered;
   const asList = isList(write);
+  const [first] = gathered;
   if (first === undefined && !asList) return undefined;
   const slot = slotOfWrite(write);
-  const producers = gathered.map(({ ticket }) => ticket.node);
-  const producer = first?.ticket.node ?? site.ticket.launcher;
-  const isMixed = producers.some((name) => name !== producer);
-  const { builtFrom, about } = writtenProvenanceOf(
-    sourcesOf(site, gathered, writes),
-    write,
-    site.scope,
-    writes,
-  );
-  const valueId =
-    asList || first === undefined
-      ? valueIdOf(site.ticket.launcher, site.ticket.visitNumber, slot)
-      : valueIdOf(first.ticket.node, first.ticket.visitNumber, slot);
+  const sources = sourcesOf(site, gathered, writes);
+  const { builtFrom, about } = writtenProvenanceOf(sources, write, site.scope, writes);
   return {
-    valueId,
+    ...producersOf(site, gathered, slot, asList),
     slot,
-    producer,
-    ...(asList && isMixed ? { elementProducers: producers } : {}),
     value: asList ? gathered.map(elementOf) : first?.record.value?.value,
     builtFrom,
     ...(about.length === 0 ? {} : { about }),

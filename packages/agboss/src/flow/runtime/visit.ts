@@ -106,6 +106,25 @@ interface Succeeded {
   readonly launched?: Launched;
 }
 
+/** The launch a visit takes, with the ticket of its branches; none for a visit that launches nothing. */
+function launchedBy(
+  launch: RuntimeLaunch | undefined,
+  node: RuntimeNode,
+  outcome: NodeOutcome,
+  site: {
+    readonly state: ExecutionStateType;
+    readonly deps: VisitDeps;
+    readonly executionId: string;
+  },
+  write: VisitWrite,
+): Launched | undefined {
+  if (launch === undefined) return undefined;
+  const { state, deps, executionId } = site;
+  const scope = write.scope ?? state.scope;
+  const visit = { graph: deps.graph, node, state, outcome, executionId, scope };
+  return { launch, ticket: launchTicketOf(visit, launch) };
+}
+
 function succeeded(
   node: RuntimeNode,
   state: ExecutionStateType,
@@ -116,15 +135,13 @@ function succeeded(
   const launch = launchFor(node, outcome);
   const exit = launch === undefined ? exitOf(node, state, outcome) : launchEdgeOf(launch);
   const write = visitWrite(node, state, exit, outcome, deps.provenance);
-  const scope = write.scope ?? state.scope;
-  const visit = { graph: deps.graph, node, state, outcome, executionId, scope };
-  const launched =
-    launch === undefined ? undefined : { launch, ticket: launchTicketOf(visit, launch) };
+  const launched = launchedBy(launch, node, outcome, { state, deps, executionId }, write);
+  const next =
+    launched === undefined ? (exit?.to ?? "") : nextOfLaunch(launched.launch, launched.ticket);
   const update = {
     ...visited(node, isWorkingNode(node)),
     ...write.update,
-    next:
-      launched === undefined ? (exit?.to ?? "") : nextOfLaunch(launched.launch, launched.ticket),
+    next,
     ...(launched === undefined ? {} : { launch: launched.ticket }),
     usage: [...(outcome.usage ?? [])],
     approvals: [...(outcome.approvals ?? [])],

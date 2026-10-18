@@ -1,6 +1,10 @@
-import { describe, expect } from "vitest";
+import { beforeEach, describe, expect } from "vitest";
+import { BranchStatus } from "../../../src/index.js";
 import { replyWith, testWith } from "../../../src/testing/index.js";
+import { execute } from "../../helpers/flow.js";
 import {
+  CheckoutWorkflowStart,
+  PaymentWorkflowFinish,
   ArticleDraftWorkflowFinish,
   ArticleWriterAgent,
   CriticAgent,
@@ -10,7 +14,30 @@ import {
 } from "../fixtures/launch.fixture.js";
 import { ArticleDraftDto } from "../fixtures/launch-dtos.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "../fixtures/review-dtos.js";
-import { ResearchApplication } from "./fixtures/launch.applications.js";
+import { CheckoutApplication, ResearchApplication } from "./fixtures/launch.applications.js";
+import {
+  CritiquesWorkflowFinish,
+  LoopCriticAgent,
+  LoopPlannerAgent,
+  PlanLoopApplication,
+  PlanLoopWorkflowStart,
+  TiredApplication,
+  TiredClerkAgent,
+} from "./fixtures/launch-runs.workflow.js";
+import {
+  CopiesApplication,
+  ItemResultDto,
+  ItemsFailedWorkflowFinish,
+  FanOutApplication,
+  FanOutUnboundedApplication,
+  fanOut,
+  ItemsWorkflowStart,
+  OneItemWorkflowStart,
+  resetFanOut,
+  StampsWorkflowFinish,
+  SummaryWorkflowFinish,
+  type ItemDto,
+} from "./fixtures/fan-out.workflow.js";
 
 const research = testWith(ResearchApplication);
 
@@ -38,4 +65,142 @@ describe("AC1: different agents, a repeated one", () => {
     expect(result).toFinishWith(ArticleDraftWorkflowFinish, { text: "the article" });
     expect(mockLlm(ArticleWriterAgent).requests[0]?.input).toContain("too long");
   });
+});
+
+const items = testWith(FanOutApplication);
+const unbounded = testWith(FanOutUnboundedApplication);
+const copies = testWith(CopiesApplication);
+const checkout = testWith(CheckoutApplication);
+
+const item = (name: string, delay = 0): ItemDto => ({ name, delay, outcome: "ok" });
+const SAME_ITEMS = [item("a", 10), item("b", 0), item("c", 5)];
+
+beforeEach(resetFanOut);
+
+describe("AC1: copies of one target", () => {
+  copies(
+    "each copy has its own id, copy number and visit; the join lists both",
+    async ({ app }) => {
+      const result = await execute(app, OneItemWorkflowStart, item("x"));
+
+      expect(result.path).toEqual([
+        "one-item-workflow-start",
+        "stamp-action#1",
+        "stamp-action#2",
+        "stamps-workflow-finish",
+      ]);
+      expect(result).toFinishWith(StampsWorkflowFinish, {
+        text: "stamp-action#1 1 1; stamp-action#2 2 2",
+      });
+      expect(result.launches[0]?.branches).toEqual([
+        { nodeId: "stamp-action#1", copyNumber: 1, status: BranchStatus.Finished },
+        { nodeId: "stamp-action#2", copyNumber: 2, status: BranchStatus.Finished },
+      ]);
+    },
+  );
+});
+
+describe("AC3: maxConcurrency", () => {
+  items("at most n in progress — sliding window", async ({ app }) => {
+    await execute(app, ItemsWorkflowStart, [
+      item("a", 80),
+      item("b", 5),
+      item("c", 5),
+      item("d", 5),
+    ]);
+
+    expect(fanOut.mostInFlight).toBe(2);
+    // c and d start as b and c end, while a still runs: no waves
+    expect(fanOut.events.indexOf("start c")).toBeGreaterThan(fanOut.events.indexOf("end b"));
+    expect(fanOut.events.indexOf("start d")).toBeLessThan(fanOut.events.indexOf("end a"));
+  });
+
+  items("same result for any n — two at a time", async ({ app }) => {
+    const result = await execute(app, ItemsWorkflowStart, SAME_ITEMS);
+
+    expect(fanOut.mostInFlight).toBe(2);
+    expect(result).toFinishWith(SummaryWorkflowFinish, { text: "a, b, c" });
+  });
+
+  unbounded("same result for any n — all at once", async ({ app }) => {
+    const result = await execute(app, ItemsWorkflowStart, SAME_ITEMS);
+
+    expect(fanOut.mostInFlight).toBe(3);
+    expect(result).toFinishWith(SummaryWorkflowFinish, { text: "a, b, c" });
+  });
+});
+
+describe("AC9: parallel actions", () => {
+  checkout(
+    "parallel actions: each runs once, the finish reads the payment from the path",
+    async ({ app }) => {
+      const result = await app.execute(CheckoutWorkflowStart, { text: "pay-1" });
+
+      expect(result).toFinishWith(PaymentWorkflowFinish, { paymentId: "pay-1", amount: 1 });
+      expect(result.path).toEqual([
+        "checkout-workflow-start",
+        "charge-payment-action",
+        "send-receipt-action",
+        "update-crm-action",
+        "reserve-goods-action",
+        "payment-workflow-finish",
+      ]);
+      expect(result.launches[0]?.branches.map((branch) => branch.status)).toEqual([
+        BranchStatus.Finished,
+        BranchStatus.Finished,
+        BranchStatus.Finished,
+      ]);
+    },
+  );
+});
+
+const loop = testWith(PlanLoopApplication);
+const tired = testWith(TiredApplication);
+
+describe("a launch over time", () => {
+  loop(
+    "a launch inside a loop: each pass its own launch id, records of the earlier pass ignored",
+    async ({ app, mockLlm }) => {
+      mockLlm(LoopPlannerAgent).thenReturn(
+        replyWith(PlanDto, { outline: "v1" }),
+        replyWith(PlanDto, { outline: "v2" }),
+      );
+      mockLlm(LoopCriticAgent).thenReturn(
+        replyWith(CritiqueDto, { remark: "redo" }),
+        replyWith(CritiqueDto, { remark: "thin" }),
+        replyWith(CritiqueDto, { remark: "fine" }),
+        replyWith(CritiqueDto, { remark: "good" }),
+      );
+
+      const result = await execute(app, PlanLoopWorkflowStart, { text: "tea" });
+
+      expect(result).toFinishWith(CritiquesWorkflowFinish, { text: "fine, good" });
+      expect(result.launches.map((launch) => launch.launch)).toEqual([
+        `${result.runId}:loop-planner-agent:1`,
+        `${result.runId}:loop-planner-agent:2`,
+      ]);
+      expect(result.path.filter((node) => node.startsWith("loop-critic-agent"))).toEqual([
+        "loop-critic-agent#1",
+        "loop-critic-agent#2",
+        "loop-critic-agent#1",
+        "loop-critic-agent#2",
+      ]);
+    },
+  );
+
+  tired(
+    "VisitsLimitExceededError inside a branch fails the launch into its .onJoinError",
+    async ({ app, mockLlm }) => {
+      mockLlm(TiredClerkAgent).thenReturnAlways(replyWith(ItemResultDto, { name: "done" }));
+
+      const result = await execute(app, ItemsWorkflowStart, [item("a"), item("b"), item("c")]);
+
+      expect(result).toFinishWith(ItemsFailedWorkflowFinish, { text: "failed on one of 3" });
+      expect(result.launches[0]?.branches[2]).toMatchObject({
+        itemIndex: 2,
+        status: BranchStatus.Failed,
+        error: { code: "limit.visits" },
+      });
+    },
+  );
 });

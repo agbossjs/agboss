@@ -74,8 +74,9 @@ function failedJoin(
 ): ExecutionStateUpdate {
   const record = failed.error ?? { name: "Error", code: "Error", lineage: [], message: "failed" };
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
-  if (handler === undefined) throw thrown ?? new RecordedBranchError(record);
-  return { lastError: record, next: handler.to };
+  if (handler !== undefined) return { lastError: record, next: handler.to };
+  // the branch's error as it was thrown; read back from its record when another process ran it
+  throw thrown instanceof Error ? thrown : new RecordedBranchError(record);
 }
 
 /** The branches' values into the scope, their cascade reported under the launching step. */
