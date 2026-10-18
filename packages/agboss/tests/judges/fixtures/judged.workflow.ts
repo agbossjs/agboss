@@ -5,9 +5,7 @@ import {
   provide,
   Workflow,
   WorkflowFinish,
-  WorkflowSettings,
   WorkflowStart,
-  type WorkflowDefinition,
   MODEL_MAX,
 } from "../../../src/index.js";
 import {
@@ -71,11 +69,8 @@ export const DEFAULTS = {
   history: { limit: 4 },
 } as const;
 
-export const settings = (): WorkflowSettings =>
-  WorkflowSettings.builder()
-    .modelProviders([DecisionsModelProvider, LocalModelProvider])
-    .defaultModelProvider(LocalModelProvider)
-    .build();
+/** The judged applications' model providers (#266): Jev's decisions, the local chat models. */
+export const MODEL_PROVIDERS = [DecisionsModelProvider, LocalModelProvider];
 
 /** One agent gated by one judge, one retry. */
 @Workflow({
@@ -90,17 +85,14 @@ export const settings = (): WorkflowSettings =>
   defaults: DEFAULTS,
   providers: [provide(RUBRIC, "Is the reply grounded in the task? Answer PASS or FAIL: <why>.")],
 })
-export class JudgedDesk implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return settings();
-  }
-}
+export class JudgedDesk {}
 
 @Application({
   name: "judged-desk-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [JudgedDesk],
+  providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
 })
 export class JudgedDeskApplication {}
@@ -133,11 +125,7 @@ export class Careless {}
   ],
   defaults: DEFAULTS,
 })
-export class ModellessDesk implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return settings();
-  }
-}
+export class ModellessDesk {}
 
 @Application({
   name: "modelless-desk-application",

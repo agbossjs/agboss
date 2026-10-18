@@ -5,6 +5,7 @@ import {
   flowLines,
   inputLines,
   isMcpFacade,
+  resolvedModelUsesOf,
   stepsRangeOf,
   shortVersion,
   type DescribedEnvironment,
@@ -49,6 +50,8 @@ export function describeData(
       tools: agent.tools ?? [],
       rag: (agent.rag ?? []).map((kb) => kb.name),
     })),
+    // the provider each model resolves to by `serves` (#266)
+    models: resolvedModelUsesOf(bundle),
     tools,
     unassignedTools: tools.map((tool) => tool.name).filter((name) => !assigned.has(name)),
     limits: { ...bundle.limits, maxSteps: bundle.maxSteps },

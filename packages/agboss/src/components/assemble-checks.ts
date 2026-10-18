@@ -1,6 +1,7 @@
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { ComponentError, componentOf, requireComponent, type ToolMeta } from "./metadata.js";
 import { tokenName, type Class } from "./injection.js";
+import { isModelProviderClass } from "../models/model-provider.decorator.js";
 import type { AgentMeta, PolicyFields, WorkflowMeta } from "./meta-types.js";
 import { ragMeta, searchToolName } from "./rag.js";
 import type { PromptLoader } from "./prompt-render.js";
@@ -81,9 +82,12 @@ export const componentClassesOf = (
   ...agents.flatMap((a) => a.memoryStrategy ?? []),
 ];
 
-/** Whether a framework decorator marks the class (a component or a flow node). */
+/**
+ * Whether a framework decorator marks the class (a component, a flow node, or a `@ModelProvider` —
+ * misplaced in a workflow, reported by the application as `[di.infrastructure-in-workflow]`).
+ */
 const isDecorated = (cls: Class): boolean =>
-  componentOf(cls) !== undefined || declarationOf(cls) !== undefined;
+  componentOf(cls) !== undefined || declarationOf(cls) !== undefined || isModelProviderClass(cls);
 
 /** Every class in `providers` carries a decorator — the container cannot know an undecorated one's deps. */
 export function checkProviderClasses(bundle: WorkflowMeta): void {

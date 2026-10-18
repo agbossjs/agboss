@@ -23,6 +23,7 @@ import {
 } from "../infrastructure/contracts.js";
 import type { NewThreadId } from "../terns/index.js";
 import type { AssembledWorkflow } from "../workflow.js";
+import { containerProvidersOf } from "../models/resolution.js";
 import { applicationDeclarationOf, applicationsListing } from "./application.js";
 
 /** What the shared container of an application instance is built from besides its providers. */
@@ -78,7 +79,11 @@ function applicationProvidersOf(bundle: AssembledWorkflow): ProviderModule {
     only === undefined || others.length > 0 ? undefined : applicationDeclarationOf(only);
   if (declaration === undefined) return { owner: bundle.config.name, providers: [] };
   const { options } = declaration;
-  return { owner: options.name, declaredIn: "@Application", providers: options.providers ?? [] };
+  return {
+    owner: options.name,
+    declaredIn: "@Application",
+    providers: containerProvidersOf(options.providers),
+  };
 }
 
 /**

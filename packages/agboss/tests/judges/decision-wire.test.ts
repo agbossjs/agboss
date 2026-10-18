@@ -12,7 +12,7 @@ import { createMemoryLedger } from "../../src/finops/ledger.js";
 import { createModelGateway } from "../../src/llm/gateway.js";
 import { resolutionProblems } from "../../src/models/check.js";
 import { modelUsesOf } from "../../src/models/uses.js";
-import { directoryOf } from "../../src/models/workflow-models.js";
+import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "../../src/models/workflow-models.js";
 import { createSqliteTernStore } from "../../src/terns/index.js";
 import { completion, providerStub, toolCallCompletion, type StubReply } from "../models/stub.js";
 import { answerToolName } from "../../src/flow/analyse/rules/models.js";
@@ -206,12 +206,12 @@ describe("the eval judge (compareProfiles) is defaults.router: any decision mode
     agents: { a: { model: "x/y", description: "a" } },
   });
 
-  it("a decision model decides through the Decisions API; as a chat model it is model.no-provider", () => {
-    const directory = directoryOf(undefined);
+  it("a decision model decides through the Decisions API; as a chat model it is model.unserved", () => {
+    const directory = directoryOf(DEFAULT_MODEL_PROVIDERS);
 
     expect(resolutionProblems(modelUsesOf(config({ kind: "jev" }), []), directory)).toEqual([]);
     expect(resolutionProblems(modelUsesOf(config({ kind: "llm" }), []), directory)).toMatchObject([
-      { code: "model.no-provider", key: "defaults.router", model: LUNA },
+      { code: "model.unserved", key: "defaults.router", model: LUNA },
     ]);
   });
 });

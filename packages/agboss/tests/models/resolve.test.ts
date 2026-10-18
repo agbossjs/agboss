@@ -8,19 +8,14 @@ import {
   ModelPurpose,
 } from "../../src/models/index.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
-import { directoryOf } from "../../src/models/workflow-models.js";
+import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "../../src/models/workflow-models.js";
 import {
   LocalMirrorModelProvider,
   LocalModelProvider,
   TestOpenRouterProvider,
 } from "./providers.fixture.js";
 
-const chat = (model: string, override?: string) => ({
-  key: "agents.scout",
-  model,
-  purpose: ModelPurpose.Chat,
-  ...(override === undefined ? {} : { override }),
-});
+const chat = (model: string) => ({ key: "agents.scout", model, purpose: ModelPurpose.Chat });
 
 const providerOf = (directory: ModelProviderDirectory, query: ReturnType<typeof chat>) => {
   const resolution = directory.resolve(query);
@@ -44,57 +39,41 @@ describe("AC6: which provider serves a model (serves patterns)", () => {
     ).toBe("decisions");
   });
 
-  it("AC6: a component's override wins over serves", () => {
-    const both = ModelProviderDirectory.of([LocalModelProvider, LocalMirrorModelProvider]);
-
-    expect(providerOf(both, chat("local/llama", "local-mirror"))).toBe("local-mirror");
-  });
-
-  it("AC6: no provider → model.no-provider, with the key and the registered providers", () => {
+  it("AC6: no provider → model.unserved, with the key and the listed providers", () => {
     const onlyLocal = ModelProviderDirectory.of([LocalModelProvider]);
 
     expect(onlyLocal.resolve(chat("moonshotai/kimi-k2.6"))).toEqual({
       kind: "problem",
       problem: {
-        code: "model.no-provider",
+        code: "model.unserved",
         key: "agents.scout",
         value: "moonshotai/kimi-k2.6",
         model: "moonshotai/kimi-k2.6",
-        supported: "no registered provider serves it for chat (registered: local)",
+        supported: "no listed provider serves it for chat (listed: local)",
       },
     });
   });
 
-  it("AC6: several providers → model.ambiguous-provider, unless one is the default", () => {
+  it("#266 AC2: several providers → model.ambiguous-provider — no default breaks the tie", () => {
     const both = ModelProviderDirectory.of([LocalModelProvider, LocalMirrorModelProvider]);
-    const withDefault = ModelProviderDirectory.of(
-      [LocalModelProvider, LocalMirrorModelProvider],
-      LocalMirrorModelProvider,
-    );
 
     expect(providerOf(both, chat("local/llama"))).toBe("model.ambiguous-provider");
-    expect(providerOf(withDefault, chat("local/llama"))).toBe("local-mirror");
   });
 
-  it("AC6: an override to a provider that does not serve the model, or does not exist, is model.no-provider", () => {
-    expect(providerOf(directory, chat("moonshotai/kimi-k2.6", "local"))).toBe("model.no-provider");
-    expect(providerOf(directory, chat("moonshotai/kimi-k2.6", "nobody"))).toBe("model.no-provider");
-  });
-
-  it("AC6: a workflow that registers none gets OpenRouter for chat and Jev for decisions", () => {
-    const defaults = directoryOf(undefined);
+  it("AC6: the built-ins serve OpenRouter for chat and Jev for decisions", () => {
+    const defaults = directoryOf(DEFAULT_MODEL_PROVIDERS);
 
     expect(providerOf(defaults, chat("test/alpha"))).toBe("openrouter");
     expect(
       providerOf(defaults, { ...chat("typesafe/jev-1.13"), purpose: ModelPurpose.Decision }),
     ).toBe("decisions");
-    expect(providerOf(defaults, chat("typesafe/jev-1.13"))).toBe("model.no-provider");
+    expect(providerOf(defaults, chat("typesafe/jev-1.13"))).toBe("model.unserved");
     // #226: every decision model, not only Jev, is the Decisions API's — none is a chat model
     for (const model of DECISION_MODELS) {
       expect(providerOf(defaults, { ...chat(model), purpose: ModelPurpose.Decision })).toBe(
         "decisions",
       );
-      expect(providerOf(defaults, chat(model))).toBe("model.no-provider");
+      expect(providerOf(defaults, chat(model))).toBe("model.unserved");
     }
   });
 

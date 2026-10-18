@@ -13,6 +13,7 @@ import { configSnapshot } from "../run/versions.js";
 import { shortVersion, versionOf } from "../terns/index.js";
 import { isMcpFacade, type AnyTool } from "../tools/index.js";
 import { NO_ENVIRONMENT_VALUES, type DescribedEnvironment } from "../environments/resolve.js";
+import { modelProviderLine, resolvedModelUsesOf } from "../models/resolution.js";
 
 /**
  * Tools are built with a router that is never called and, unless one is given, an empty environment —
@@ -193,6 +194,9 @@ export function describeWorkflow(
     ...bundleLines(bundle),
     ...environmentLines(environment),
     ...flowSection(bundle),
+    // the provider each model resolves to by `serves` (#266), though no component names one
+    "models",
+    ...resolvedModelUsesOf(bundle).map((use) => `  ${modelProviderLine(use)}`),
     "agents",
     ...agentLines(bundle, tools),
     `unassigned tools: ${unassigned.join(", ") || "none"}`,

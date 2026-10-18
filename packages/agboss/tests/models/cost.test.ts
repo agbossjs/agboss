@@ -53,7 +53,7 @@ describe("AC6: cost — from the provider's response, a price table as the fallb
 
   it("AC6: a provider's price table prices the models that set none; fromResponse prices none", async () => {
     const bundle = await workflowOf(Priced);
-    const priced = withProviderPrices(bundle.config, directoryOf(bundle.models));
+    const priced = withProviderPrices(bundle.config, directoryOf(bundle.modelProviders));
 
     expect(priced.agents["summariser-agent"]?.price).toEqual({
       inputPerMTok: 1,

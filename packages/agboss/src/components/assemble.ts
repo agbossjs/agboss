@@ -17,7 +17,7 @@ import {
 } from "./runtime.js";
 import { mcpOf, toolsOf, type Mcp } from "./assemble-tools.js";
 import { ragClassesOf } from "./rag.js";
-import type { Class, Token } from "./injection.js";
+import type { Class, Provider, Token } from "./injection.js";
 import type { ProviderModule } from "./container/registrations.js";
 import { INFRASTRUCTURE_TOKENS } from "../infrastructure/clock.js";
 import { containerPartsOf, policyMapsOf } from "./assemble-parts.js";
@@ -42,6 +42,12 @@ import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import { checkObservers } from "./observer-checks.js";
 import { judgeClassesOf, judgePartsOf, judgeSettingsOf, type JudgeClass } from "./judge-parts.js";
 import { agentSettings } from "./agent-settings.js";
+import { checkModelResolution, modelProvidersOf } from "../models/resolution.js";
+
+/** The application a workflow is assembled in: its name, `defaults` and providers (its model providers). */
+export type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
+  readonly providers?: readonly Provider[];
+};
 
 function configOf(
   bundle: WorkflowMeta,
@@ -136,7 +142,7 @@ function analysedModule(
 }
 
 /** The levels the workflow's defaults come from: its application's (if any) and its own. */
-const levelsOf = (workflow: Class, owner: DefaultsLevels["application"]): DefaultsLevels => {
+const levelsOf = (workflow: Class, owner: WorkflowOwner | undefined): DefaultsLevels => {
   const { options } = workflowDeclarationOf(workflow);
   return {
     ...(owner === undefined ? {} : { application: owner }),
@@ -147,13 +153,14 @@ const levelsOf = (workflow: Class, owner: DefaultsLevels["application"]): Defaul
 /**
  * Assembles a v2 `@Workflow` class into the workflow the core runs (#272): its paths analysed (every
  * rule, all violations at once — before any model call), router and agent texts loaded, config,
- * prompts, tools, MCP; cost limits and model providers from `settings()`. `application` = the
- * providers of its `@Application` (and of the other workflows): its dependencies may come from them.
+ * prompts, tools, MCP; cost limits from `settings()`. `application` = the providers of its
+ * `@Application` (and of the other workflows): its dependencies may come from them; `owner` = the
+ * application itself — its `defaults` and its model providers, each model resolved to one (#266).
  */
 export async function workflowOf(
   workflow: Class,
   application: readonly ProviderModule[] = [],
-  owner?: DefaultsLevels["application"],
+  owner?: WorkflowOwner,
 ): Promise<AssembledWorkflow> {
   const { bundle, analysis } = analysedModule(workflow, owner?.defaults);
   const graph = runtimeGraphOf(analysis, workflowDeclarationOf(workflow).options.flow, workflow);
@@ -175,6 +182,8 @@ export async function workflowOf(
   const config = configOf(bundle, agents, names, mcp, judges);
   const settings = settingsOf(workflow);
   validateAgentsConfig(config, [...names.values()]);
+  const modelProviders = modelProvidersOf(owner?.providers);
+  checkModelResolution({ config, routers, modelProviders });
   checkToolChannels(bundle, tools);
   checkObservers(bundle.observers ?? []);
   rememberDefaultsLevels(graph, levelsOf(workflow, owner));
@@ -185,7 +194,7 @@ export async function workflowOf(
     ...containerPartsOf(bundle, policyMapsOf(agents, tools.local, names)),
     ...channelPartsOf(bundle),
     limits: settings.limits,
-    models: settings.models,
+    modelProviders,
     onIncompatibleResume: settings.onIncompatibleResume,
     routers,
     prompts,

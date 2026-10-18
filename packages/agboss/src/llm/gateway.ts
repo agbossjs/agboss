@@ -108,7 +108,7 @@ export function createModelGateway(clients: ModelClients): DecidingGateway {
 }
 
 /**
- * Production: every model from the workflow's model providers (`settings().modelProviders([...])`) —
+ * Production: every model from the application's model providers (`@Application({ providers })`) —
  * chat models and Jev decisions, each through its provider's connection; keys from `env`.
  */
 export function createProviderGateway(

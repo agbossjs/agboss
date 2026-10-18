@@ -116,6 +116,10 @@ export function createVcrGateway(
   let real: ModelGateway | undefined;
   return vcrGateway(
     cassette,
-    () => (real ??= createProviderGateway(directoryOf(bundle.models), providerClientsOf({}, env))),
+    () =>
+      (real ??= createProviderGateway(
+        directoryOf(bundle.modelProviders),
+        providerClientsOf({}, env),
+      )),
   );
 }

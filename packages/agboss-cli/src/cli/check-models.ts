@@ -1,13 +1,15 @@
 import { type AssembledWorkflow } from "agboss";
 import {
+  applicationModelUsesOf,
   checkModelUses,
   directoryOf,
   modelSummaryOf,
-  modelUsesOf,
   problemLine,
+  workflowsOfApplication,
+  type ModelUse,
   type ProviderFetch,
 } from "agboss/internal";
-import type { ModelProblem } from "agboss/models";
+import type { ModelProblem, ModelProviderDirectory } from "agboss/models";
 
 /** What `agboss check --models` prints and the exit code it ends with. */
 export interface ModelCheckReport {
@@ -15,31 +17,50 @@ export interface ModelCheckReport {
   readonly exitCode: 0 | 1;
 }
 
-/** Every model setting that does not fit its model, as its provider lists it (no API key). */
+/** The model uses of every workflow of an application and the directory of its model providers. */
+interface ApplicationModels {
+  readonly uses: readonly ModelUse[];
+  readonly directory: ModelProviderDirectory;
+}
+
+/** The model uses of every workflow of the workflow's application, and who serves them (#266). */
+async function applicationModelsOf(bundle: AssembledWorkflow): Promise<ApplicationModels> {
+  const workflows = await workflowsOfApplication(bundle);
+  // one application, one list of model providers: every workflow of it has the same
+  return { uses: applicationModelUsesOf(workflows), directory: directoryOf(bundle.modelProviders) };
+}
+
+/**
+ * Every model setting of the application the workflow is in (every workflow it lists) that does not
+ * fit its model, as its resolved provider lists it (no API key).
+ */
 export async function modelProblemsOf(
   bundle: AssembledWorkflow,
   env: NodeJS.ProcessEnv,
   send?: ProviderFetch,
 ): Promise<readonly ModelProblem[]> {
-  const directory = directoryOf(bundle.models);
-  return checkModelUses(modelUsesOf(bundle.config, bundle.routers), directory, {
-    env,
-    ...(send === undefined ? {} : { send }),
-  });
+  return problemsOf(await applicationModelsOf(bundle), env, send);
 }
 
+const problemsOf = (
+  { uses, directory }: ApplicationModels,
+  env: NodeJS.ProcessEnv,
+  send: ProviderFetch | undefined,
+): Promise<readonly ModelProblem[]> =>
+  checkModelUses(uses, directory, { env, ...(send === undefined ? {} : { send }) });
+
 /**
- * `agboss check --models`: every model setting of the workflow against what its provider says the model
- * supports — all problems at once, exit code 1 when there is any. Needs no API key.
+ * `agboss check --models`: every model setting of the application against what its provider says the
+ * model supports — all problems at once, exit code 1 when there is any. Needs no API key.
  */
 export async function checkWorkflowModels(
   bundle: AssembledWorkflow,
   env: NodeJS.ProcessEnv,
   send?: ProviderFetch,
 ): Promise<ModelCheckReport> {
-  const directory = directoryOf(bundle.models);
-  const uses = modelUsesOf(bundle.config, bundle.routers);
-  const problems = await modelProblemsOf(bundle, env, send);
+  const models = await applicationModelsOf(bundle);
+  const { uses, directory } = models;
+  const problems = await problemsOf(models, env, send);
   if (problems.length === 0) {
     return {
       lines: [

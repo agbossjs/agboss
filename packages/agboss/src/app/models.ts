@@ -33,7 +33,7 @@ export async function modelsFor(
   given: ModelGateway | undefined,
   clients: ProviderClientOptions,
 ): Promise<AppModels> {
-  const directory = directoryOf(bundle.models);
+  const directory = directoryOf(bundle.modelProviders);
   const uses = modelUsesOf(bundle.config, bundle.routers);
   const unresolved = resolutionProblems(uses, directory);
   if (unresolved.length > 0) throw new ConfigurationError(unresolved);

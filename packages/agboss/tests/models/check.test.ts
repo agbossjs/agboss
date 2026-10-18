@@ -16,10 +16,7 @@ import { CLAUDE_ENTRY, GPT5_ENTRY, KIMI_ENTRY, providerStub } from "./stub.js";
 
 /** A fresh directory: each provider instance fetches its model list once. */
 const directoryOf = () =>
-  ModelProviderDirectory.of(
-    [TestOpenRouterProvider, DecisionsModelProvider, LocalModelProvider],
-    LocalModelProvider,
-  );
+  ModelProviderDirectory.of([TestOpenRouterProvider, DecisionsModelProvider, LocalModelProvider]);
 const models = [KIMI_ENTRY, CLAUDE_ENTRY, GPT5_ENTRY, { id: "local/qwen" }, { id: "local/llama" }];
 
 const config = (agents: AgentsConfigOf<string>["agents"]): AgentsConfigOf<string> => ({
@@ -184,8 +181,8 @@ describe("AC6: fail fast — settings must fit their models, all problems at onc
         onlyLocal,
       ).map((p) => [p.code, p.key]),
     ).toEqual([
-      ["model.no-provider", "agents.a"],
-      ["model.no-provider", "defaults.router"],
+      ["model.unserved", "agents.a"],
+      ["model.unserved", "defaults.router"],
     ]);
   });
 });

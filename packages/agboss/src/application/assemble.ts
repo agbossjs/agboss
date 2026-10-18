@@ -5,6 +5,7 @@ import { moduleOf } from "../components/module.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { GraphRuleError, type RuleViolation } from "../graph/rule-error.js";
+import { containerProvidersOf } from "../models/resolution.js";
 import { withProfile } from "../profile-workflow.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import type { AssembledWorkflow } from "../workflow.js";
@@ -14,7 +15,8 @@ import { crossWorkflowViolations } from "./workflow-rules.js";
 
 /**
  * The assembly of an `@Application` (#261): its own rules (names, its workflows, budgets, where the
- * infrastructure is listed), every workflow assembled with the application's providers, then the
+ * infrastructure is listed), every workflow assembled with the application's providers (each model
+ * resolved to one of its model providers, #266), then the
  * rules across workflows (a start is the door of one workflow, names unique in the application).
  * Every violation at once, before any model call.
  */
@@ -46,11 +48,14 @@ export interface ApplicationAssembly {
   readonly profileRoot?: string | undefined;
 }
 
-/** The application's own module: its providers and its budgets (the container creates both). */
+/**
+ * The application's own module: its providers and its budgets (the container creates both) — not its
+ * `@ModelProvider` classes, which its workflows resolve their models to (#266).
+ */
 export const applicationModule = (options: ApplicationOptions): ProviderModule => ({
   owner: options.name,
   declaredIn: "@Application",
-  providers: [...(options.providers ?? []), ...(options.budgets ?? [])],
+  providers: [...containerProvidersOf(options.providers), ...(options.budgets ?? [])],
 });
 
 /** The modules of every workflow listed (each `@Workflow` class's own providers). */

@@ -1,10 +1,4 @@
-import {
-  Agent,
-  Workflow,
-  MODEL_MAX,
-  WorkflowSettings,
-  type WorkflowDefinition,
-} from "../../src/index.js";
+import { Agent, Workflow, MODEL_MAX } from "../../src/index.js";
 import {
   DecisionsModelProvider,
   ModelCost,
@@ -109,19 +103,14 @@ const defaults = {
   ],
   defaults,
 })
-export class WithFallback implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .modelProviders([Primary202, DecisionsModelProvider, Backup202])
-      .build();
-  }
-}
+export class WithFallback {}
 
 @Application({
   name: "fallback-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [WithFallback],
+  providers: [Primary202, DecisionsModelProvider, Backup202],
   budgets: TEST_BUDGETS,
 })
 export class WithFallbackApplication {}
@@ -137,19 +126,14 @@ export class WithFallbackApplication {}
   ],
   defaults,
 })
-export class UnmappedFallback implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .modelProviders([Unmapped202, DecisionsModelProvider, Backup202])
-      .build();
-  }
-}
+export class UnmappedFallback {}
 
 @Application({
   name: "unmapped-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [UnmappedFallback],
+  providers: [Unmapped202, DecisionsModelProvider, Backup202],
   budgets: TEST_BUDGETS,
 })
 export class UnmappedFallbackApplication {}

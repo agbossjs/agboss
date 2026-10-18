@@ -1,6 +1,6 @@
 /** Stable codes of a model setting that cannot work (startup and `agboss check --models`). */
 export type ModelProblemCode =
-  | "model.no-provider"
+  | "model.unserved"
   | "model.ambiguous-provider"
   | "model.unknown-model"
   | "model.unsupported-setting"

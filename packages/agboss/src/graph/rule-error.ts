@@ -78,7 +78,10 @@ export type RuleCode =
   // environments and defaults (#261 PR 4), reported at the application's assembly
   | "environment.contract-value"
   | "environment.missing-field"
-  | "guardrail.no-model";
+  | "guardrail.no-model"
+  // model providers (#266 PR 1): every model of the application resolves to one provider
+  | "model.unserved"
+  | "model.ambiguous-provider";
 
 /** One broken rule: its code, what is wrong, and the nodes (classes) involved. */
 export interface RuleViolation {

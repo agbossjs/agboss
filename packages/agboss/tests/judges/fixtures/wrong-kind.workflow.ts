@@ -1,12 +1,4 @@
-import {
-  Agent,
-  Decision,
-  Judge,
-  Workflow,
-  Router,
-  type WorkflowDefinition,
-  type WorkflowSettings,
-} from "../../../src/index.js";
+import { Agent, Decision, Judge, Workflow, Router } from "../../../src/index.js";
 import {
   JudgeModel,
   type JudgeHandler,
@@ -17,7 +9,7 @@ import { LUNA } from "./decision-judged.workflow.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { DecidedBy, WorkflowFinish } from "../../../src/index.js";
 import { route, start } from "../../helpers/flow.js";
-import { DEFAULTS, Reply, settings, TaskStart } from "./judged.workflow.js";
+import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -75,17 +67,14 @@ export class DecisionJudged {}
   ],
   defaults: DEFAULTS,
 })
-export class ChatDeciderDesk implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return settings();
-  }
-}
+export class ChatDeciderDesk {}
 
 @Application({
   name: "chat-decider-desk-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChatDeciderDesk],
+  providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
 })
 export class ChatDeciderDeskApplication {}
@@ -101,17 +90,14 @@ export class ChatDeciderDeskApplication {}
   ],
   defaults: DEFAULTS,
 })
-export class DecisionChatterDesk implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return settings();
-  }
-}
+export class DecisionChatterDesk {}
 
 @Application({
   name: "decision-chatter-desk-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DecisionChatterDesk],
+  providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
 })
 export class DecisionChatterDeskApplication {}
@@ -169,17 +155,14 @@ export class Triage {}
   ],
   defaults: DEFAULTS,
 })
-export class LunaRouted implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return settings();
-  }
-}
+export class LunaRouted {}
 
 @Application({
   name: "luna-routed-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LunaRouted],
+  providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
 })
 export class LunaRoutedApplication {}
