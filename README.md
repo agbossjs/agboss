@@ -121,6 +121,33 @@ export class JobScout implements WorkflowDefinition {
 }
 ```
 
+The application is the one entry (#261): it lists the workflows, the infrastructure (a class that
+`extends CostLedgerRepository`, `ExecutionRecordRepository`, `PausedExecutionRepository` or
+LangGraph's `BaseCheckpointSaver`; none listed → the built-in in-memory ones, nothing written to
+the home folder) and every budget. `createApp` and `testWith` take it, never a workflow:
+
+```ts file=src/job-scout.application.ts
+// src/job-scout.application.ts — what createApp(JobScoutApplication, { env }) and testWith run
+import { Application, Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
+import { usd, type Usd } from "agboss/units";
+import { JobScout } from "./job-scout.workflow.js";
+
+@Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class TenantDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(1);
+  }
+}
+
+@Application({
+  name: "job-scout-application",
+  version: "1.0.0",
+  workflows: [JobScout], // app.execute(ChatWorkflowStart, …) runs the workflow of that start
+  budgets: [TenantDailyBudget], // config/budget.config.ts in a project; checked from #261 PR 5
+})
+export class JobScoutApplication {}
+```
+
 A rule needs no model: `@Router({ decidedBy: DecidedBy.Code, routes: [{ target: A }, { target: B }] })`
 on a class that `implements RouterHandler<Self>` decides in `route(input)`, returning one of its
 targets (`Route<Self>`) — no model call, cost 0, the same flow. Routes may carry the options of a
@@ -132,7 +159,8 @@ parallel launch (#273): `spawn` (`SpawnPolicy.Always` by default on a model rout
 the paths, each node's input and `app.execute`; a generated project runs it on install
 (`npm run types`).
 
-The whole shape — DTOs, a service, a tool, an agent, a router, the workflow and its test — is the
+The whole shape — DTOs, a service, a tool, an agent, a router, the workflow, its application and
+its test — is the
 worked example in [`CLAUDE.md`](CLAUDE.md) → Architecture (compiled and run by `make check`).
 
 ```bash
@@ -174,7 +202,8 @@ One package; the root `agboss` is the authoring API, the rest are focused entrie
   `@WorkflowStart` / `@WorkflowFinish`, `@Judge`, `@Guardrail`, `@PiiPolicy`, `@Channel`,
   `InjectionToken`, `provide`, `ENV`, `defineEnvironment`, `fromEnv`, the path builder (`start`,
   `agent`, `router`, `action`, `route`, `caseOf`, `toAgent`, `toAction`, `toFinish`, …),
-  `WorkflowSettings`, `createApp`, `Decision`, observers, errors and types
+  `WorkflowSettings`, `@Application`, `createApp`, `@Budget`, the infrastructure contracts,
+  `Decision`, observers, errors and types
 - `agboss/dto` — field decorators (`@Text`, `@ListOf`, …), the DTO wrappers (`listOf`, `oneOf`,
   `optional`, `variant`) and the standard DTOs
 - `agboss/units` — `usd()`, `seconds()`, `minutes()`
@@ -204,8 +233,8 @@ only `agboss` — both enforced by ESLint.
 
 ## Environments
 
-Angular-style environment files, next to the workflow file in `environments/`. The workflow itself
-says nothing about them.
+Angular-style environment files, next to the application file in `environments/`. The application
+itself says nothing about them.
 
 ```ts
 // src/environments/environment.ts — the contract: which fields every environment has
@@ -242,15 +271,16 @@ export class Api {
 }
 ```
 
-- `agboss chat --workflow src/app.workflow.ts` loads `dev`; `--env staging` loads
+- `agboss chat --workflow src/app.workflow.ts` (the application that lists it) loads `dev`; `--env staging` loads
   `staging.environment.ts` (every workflow command takes `--env`). An unknown name fails at once
   (exit 3) listing the available ones; a `fromEnv` variable without a value or default fails the
   start naming every missing variable. `agboss check` validates the selected environment without
   running anything, creating every component the start creates (tools, observers, judges, …), so it
   fails exactly when the start would; `agboss describe` shows it with secrets masked.
-- From code: `createApp(Workflow, { env: "staging" })`. In tests: `testWith(Workflow, { env: "test" })`
-  or `testWith(Workflow, { environment: { … } })` (typed by `Environment`).
-- A service injecting `ENV` in a workflow without `environments/` fails at start with
+- From code: `createApp(Application, { env: "staging" })`. In tests:
+  `testWith(Application, { env: "test" })` or `testWith(Application, { environment: { … } })`
+  (typed by `Environment`).
+- A service injecting `ENV` in an application without `environments/` fails at start with
   `[di.missing-environment]`.
 - Model provider keys are not part of it: they stay process variables (`EnvironmentVariable.named`).
 
@@ -467,7 +497,8 @@ export class MetricsObserver implements OnWorkflowStart, OnAgentStart, OnRunReje
 ## FinOps
 
 Every model call is a usage record (caller, model, tokens, USD) in the run's `spend`
-(`ExecutionOutput.spend`: total, per caller, per category) and in the daily ledger; the money limits
+(`ExecutionOutput.spend`: total, per caller, per category) and in the daily ledger (the
+application's `CostLedgerRepository`, in memory unless one is listed); the money limits
 of `settings().limits({ perRun: { cost }, perDay: { cost } })` are checked before every model call
 and every agent or router visit, and crossing one fails the run with `BudgetExceededError`. A
 decision a tool's service makes through `ROUTER_FACTORY` is the tool's spend (`tool:<name>`). A

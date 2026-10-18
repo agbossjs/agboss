@@ -223,6 +223,7 @@ export interface TestApp extends Pick<App, "execute" | "resume" | "close" | "can
     agent(agent: Class): AgentSlice;
     // (undocumented)
     readonly clock: TestClock;
+    ready(): Promise<void>;
     // (undocumented)
     router(router: Class): RouterSlice;
     // (undocumented)
@@ -290,8 +291,10 @@ export interface TestStepOptions {
     readonly visitNumber?: number;
 }
 
+// Warning: (ae-forgotten-export) The symbol "ApplicationClass" needs to be exported by the entry point index.d.ts
+//
 // @public
-export function testWith(workflow: Class, options?: TestWithOptions): TestAPI<WorkflowFixtures>;
+export function testWith<TApplication extends Class>(application: ApplicationClass<TApplication>, options?: TestWithOptions): TestAPI<WorkflowFixtures>;
 
 // Warning: (ae-forgotten-export) The symbol "EnvironmentSelection" needs to be exported by the entry point index.d.ts
 //
@@ -382,10 +385,11 @@ export const workflowMatchers: {
     toHaveBeenAskedWith(this: MatcherContext, received: unknown, request: ExpectedRequest): Verdict;
 };
 
+// Warning: (ae-forgotten-export) The symbol "ProviderModule" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "AssembledWorkflow" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function workflowOf(workflow: Class): Promise<AssembledWorkflow>;
+export function workflowOf(workflow: Class, application?: readonly ProviderModule[]): Promise<AssembledWorkflow>;
 
 // Warnings were encountered during analysis:
 //
@@ -437,10 +441,10 @@ export function workflowOf(workflow: Class): Promise<AssembledWorkflow>;
 // src/testing/slices.ts:16:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:21:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:29:3 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/test-app.ts:24:3 - (ae-undocumented) Missing documentation for "clock".
-// src/testing/test-app.ts:25:3 - (ae-undocumented) Missing documentation for "agent".
-// src/testing/test-app.ts:26:3 - (ae-undocumented) Missing documentation for "router".
-// src/testing/test-app.ts:27:3 - (ae-undocumented) Missing documentation for "tool".
+// src/testing/test-app.ts:26:3 - (ae-undocumented) Missing documentation for "clock".
+// src/testing/test-app.ts:32:3 - (ae-undocumented) Missing documentation for "agent".
+// src/testing/test-app.ts:33:3 - (ae-undocumented) Missing documentation for "router".
+// src/testing/test-app.ts:34:3 - (ae-undocumented) Missing documentation for "tool".
 // src/testing/vcr.ts:20:1 - (ae-undocumented) Missing documentation for "VCRMode".
 // src/testing/vcr.ts:31:3 - (ae-undocumented) Missing documentation for "cassetteName".
 

@@ -137,13 +137,16 @@ holds from its type**, not guess it from the name.
 - **Prefer reported cost over estimates**: a provider with `ModelCost.fromResponse()` (OpenRouter,
   Jev) reports each call's exact cost (`costSource: "api"`); otherwise tokens × its price table
   (`ModelCost.fromPrices`, `costSource: "price-table"`). A call with neither fails.
+- **Budgets are `@Budget` components** listed in `@Application({ budgets })` (#261,
+  `config/budget.config.ts`: `BudgetScope.Application` / `Tenant` per `BudgetPeriod`, `Execution`
+  per workflow or the default); they are checked at run time from #261 PR 5 — until then:
 - **Money limits per workflow** in its `settings()`:
   `.limits({ perRun: { cost: usd(0.1) }, perDay: { cost: usd(1) } })` (values with units,
   `agboss/units`); steps in `@Workflow({ maxSteps })`, visits in each node's `maxVisits`.
   - `perDay.cost` — USD the workflow (`config.name`) may spend per UTC day; the counter resets at
-    00:00 UTC. Spend is kept in a ledger outside the repo (`SPEND_LEDGER_DIR`, default
-    `~/.langgraph-agents/spend/<workflow>/<YYYY-MM-DD>.jsonl`) and written call by call while the
-    run streams, so a crashed run's spend still counts.
+    00:00 UTC. Spend is kept in the application's `CostLedgerRepository` (#261: listed in
+    `@Application({ providers })`, else the built-in in-memory one — nothing in the home folder)
+    and written call by call while the run streams, so a crashed run's spend still counts.
   - `perRun.cost` — USD one run may spend.
   - Every limit is checked before each visit. Hitting one **fails the run** — never a quiet stop,
     unless the path's `.onError(…)` takes it — with `LimitExceededError` naming the boundary key
@@ -172,7 +175,7 @@ holds from its type**, not guess it from the name.
 ## Tests
 
 - **Coverage ≥ 80%** lines / branches / functions / statements (enforced).
-- Tests never hit a real LLM or network. Whole workflows: `testWith(Workflow)` from
+- Tests never hit a real LLM or network. The whole application: `testWith(Application)` from
   `agboss/testing` (scripted models, stubbed MCP servers, blocked network, matchers by class);
   units: `FakeListChatModel` / `FakeStreamingChatModel` from `@langchain/core/utils/testing`.
 - Compile-time tests: `// @ts-expect-error — <reason>` lines in a `*.test.ts`, checked by `tsc`.

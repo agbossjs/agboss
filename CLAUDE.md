@@ -61,10 +61,13 @@ and the worked example is assembled and run by script in the framework's tests
 ### A workflow, end to end
 
 A workflow is a folder of components, one class per file, wired by a `*.workflow.ts` module whose
-`flow` is a list of **paths** (#272, Wiki → ADR-0019-Flow-as-paths-with-path-scope). Commands find
-it by path (`agboss chat --workflow src/desk/desk.workflow.ts`); `agboss check` writes
-`.agboss/types.d.ts`, which types the paths, every node's input and `app.execute`. The shape every
-workflow follows — a support desk with one tool, one injected service, one agent and a router:
+`flow` is a list of **paths** (#272, Wiki → ADR-0019-Flow-as-paths-with-path-scope); an
+**`@Application`** (`*.application.ts`, #261) lists its workflows, its infrastructure and its
+budgets, and is what `createApp` and `testWith` take. Commands find it by the workflow's path
+(`agboss chat --workflow src/desk/desk.workflow.ts` runs the application that lists it, until #268);
+`agboss check` writes `.agboss/types.d.ts`, which types the paths, every node's input and
+`app.execute`. The shape every workflow follows — a support desk with one tool, one injected
+service, one agent and a router:
 
 ```ts file=src/desk/tools/order-status.dto.ts
 // tools/order-status.dto.ts — data crossing a tool boundary are DTO classes, one decorator per field
@@ -249,12 +252,59 @@ export class DeskWorkflow implements WorkflowDefinition {
 }
 ```
 
-The test drives it by script — no model, no network:
+```ts file=src/desk/config/budget.config.ts
+// config/budget.config.ts — every budget of the application, one template: what it limits, how much
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
+import { usd, type Usd } from "agboss/units";
+
+@Budget({
+  name: "application-daily-budget",
+  scope: BudgetScope.Application,
+  period: BudgetPeriod.Day,
+})
+export class ApplicationDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(1);
+  }
+}
+
+@Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class TenantDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(1);
+  }
+}
+
+@Budget({ name: "execution-budget", scope: BudgetScope.Execution }) // the default of every workflow
+export class ExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.05);
+  }
+}
+```
+
+```ts file=src/desk/desk.application.ts
+// desk.application.ts — the application: its workflows, infrastructure (`providers`; none listed →
+// the built-in in-memory defaults) and budgets; `environments/` next to this file
+import { Application } from "agboss";
+import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./config/budget.config.js";
+import { DeskWorkflow } from "./desk.workflow.js";
+
+@Application({
+  name: "desk-application",
+  version: "1.0.0",
+  workflows: [DeskWorkflow],
+  budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
+})
+export class DeskApplication {}
+```
+
+The test drives it by script — the whole application, no model, no network:
 
 ```ts file=tests/desk.test.ts
 import { expect } from "vitest";
 import { callTool, replyWith, routeTo, testWith } from "agboss/testing";
-import { DeskWorkflow } from "../src/desk/desk.workflow.js";
+import { DeskApplication } from "../src/desk/desk.application.js";
 import { MainRouter } from "../src/desk/routers/main.router.js";
 import { SupportAgent } from "../src/desk/agents/support.agent.js";
 import { OrderBook } from "../src/desk/services/order-book.service.js";
@@ -262,7 +312,7 @@ import { OrderStatus } from "../src/desk/tools/order-status.tool.js";
 import { ChatWorkflowStart } from "../src/desk/workflow-starts/chat.workflow-start.js";
 import { ChatWorkflowFinish } from "../src/desk/workflow-finishes/chat.workflow-finish.js";
 
-const test = testWith(DeskWorkflow);
+const test = testWith(DeskApplication); // the only form: testWith(DeskWorkflow) does not compile
 
 test("an order question goes to support, which looks the order up", async ({ app, mockLlm }) => {
   mockLlm(MainRouter).thenReturn(routeTo(SupportAgent));
@@ -462,6 +512,12 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   the hook); `app.close()` → `onStop` (no new executions) → the running ones awaited → `onDestroy`
   (dependants first; failures collected into one error); from `app.close()` on `execute` / `resume`
   reject with `ApplicationStoppingError` (`app.stopping`).
+- **Infrastructure (#261):** a framework contract with a built-in in-memory default, one per
+  application — `CostLedgerRepository`, `ExecutionRecordRepository`, `PausedExecutionRepository`,
+  LangGraph's `BaseCheckpointSaver`. Listed **only** in `@Application({ providers })` (a class that
+  `extends` the contract, `@Injectable`; in a workflow's `providers` →
+  `[di.infrastructure-in-workflow]`), found by inheritance (two → `[di.ambiguous-implementation]`).
+  Nothing is written to the home folder; SQLite implementations come with #265.
 - **Components keep no state:** another instance may continue an execution after a pause, so a
   component reads the execution from `ExecutionContext`, data that outlive a step live in the graph
   state, caches and deduplication are your own service over external storage. Lint
@@ -520,12 +576,12 @@ export class SeenJobsRepository {
 
 ### Environments
 
-The app's settings live in `environments/` next to the workflow file: the contract in
+The app's settings live in `environments/` next to the application file: the contract in
 `environment.ts` (`declare module "agboss" { interface Environment { … } }`), the values in
 `<name>.environment.ts` (`export default defineEnvironment({ … })`, `fromEnv("VAR", { default,
 secret })` for process variables). Services inject them with `ENV` (`@Injectable({ deps: [ENV] })`,
-`constructor(env: Environment)`), never `process.env`. `--env <name>` / `createApp(W, { env })` /
-`testWith(W, { env | environment })` pick one (default `dev`); a missing value fails at start
+`constructor(env: Environment)`), never `process.env`. `--env <name>` / `createApp(App, { env })` /
+`testWith(App, { env | environment })` pick one (default `dev`); a missing value fails at start
 naming it. Model provider keys stay process variables (`EnvironmentVariable.named`). README →
 Environments has the full example.
 
@@ -542,7 +598,10 @@ Routers and guards use decision models too. README → Quality gates has a full 
 
 ### Runs: context, limits, errors
 
-- `app.execute(Start, input, { thread, owner, signal, metadata, onStream })` → `ExecutionOutput`
+- `const app = await createApp(DeskApplication, { env })` (#261: always an `@Application`;
+  `createApp(Workflow)` does not compile). `app.execute(Start, input, { thread, owner, signal,
+metadata, onStream })` runs the workflow of that start (any workflow of the application; one
+  start in two workflows → `[application.ambiguous-start]`) → `ExecutionOutput`
   (`output` is the finish's DTO, `finish`, `path`, `spend`, `thread`, `runId`);
   `app.resume(thread, decision)` continues a paused run; `app.cancel(thread)` aborts a running one
   (`WorkflowCancelledError`) or drops a paused one (`resume` → `NotPausedError`). A thread with an
@@ -580,13 +639,17 @@ Routers and guards use decision models too. README → Quality gates has a full 
 
 ### Testing
 
-- Whole workflows: `testWith(Workflow, options?)` from `agboss/testing` gives Vitest fixtures
-  `app`, `mockLlm`, `mockOf`, `mcpOf`, `recoverApp`; models answer by script — `replyWith(text)` or
+- The whole application: `testWith(Application, options?)` from `agboss/testing` — the only form
+  (`testWith(Workflow)` does not compile, #261); one workflow is tested through its start with
+  `app.execute`. Each test assembles the application anew on the implementations it lists (else
+  the in-memory defaults); `app` is built on first use (`await app.ready()` for a test that
+  executes nothing). Vitest fixtures `app`, `mockLlm`, `mockOf` (budgets too), `mcpOf`,
+  `recoverApp`; models answer by script — `replyWith(text)` or
   `replyWith(Dto, value)` (a structured answer), `callTool(Tool, args)` (args typed by the tool's
   input DTO), `routeTo(Target)`, `decideWith(answers)` (a decision judge),
   `failWith(ModelFailure.Timeout)`; the network is blocked. Matchers by class: `toFollowPath`,
   `toFinishWith`, … (`setupFiles: ["agboss/testing/setup"]`).
-- A recorded run instead of scripts: `testWith(W, { vcr: { cassetteName, dir, mode: VCRMode.REPLAY } })`
+- A recorded run instead of scripts: `testWith(App, { vcr: { cassetteName, dir, mode: VCRMode.REPLAY } })`
   — an unrecorded call throws `CassetteMissingError` (REPLAY by default under `CI`).
 - Units: `toolOf(new Tool(testExecutionContext(), fakes)).invoke(input)` for a tool,
   `testExecutionContext({ … })` for any component's `ExecutionContext`, fakes from
@@ -688,7 +751,7 @@ Quizzes: `.claude/skills/QUIZ.md`. Stages: `scripts/ticket.sh status <N> <Status
   file-scope `/* eslint-disable */`, ever. Tests must assert (`requireAssertions`) and must not fake
   framework failures (e.g. an interrupt by its name). The repo root is allow-listed
   (`.root-allowlist`): notes and specs go to Issues / Wiki.
-- Tests never call a real LLM. A workflow is tested with `agboss/testing` (`testWith`: models
+- Tests never call a real LLM. An application is tested with `agboss/testing` (`testWith`: models
   by script, MCP servers stubbed, network blocked); units use fakes from `@langchain/core/utils/testing`.
 - Read existing code before planning — the spec may be stale, the code is not.
 - **No specs, plans or docs as files.** Specs and implementation plans → GitHub Issues (bodies via
@@ -706,9 +769,13 @@ Quizzes: `.claude/skills/QUIZ.md`. Stages: `scripts/ticket.sh status <N> <Status
 packages/agboss/        the framework (npm package `agboss`; builds to dist/; no command — see -cli)
   src/
     index.ts        the root entry `agboss` (public/: components, flow, observers, app) + errors.ts
-    app/            createApp → app.execute / resume / close; app-deps.ts — production wiring (model gateway,
-                    MCP, ledger, Terns, tracing), every part replaceable
-    testing/        `agboss/testing`: testWith (Vitest fixtures), scripted gateway, matchers, setup.ts
+    application/    @Application, createApp(App) → app.execute / resume / cancel / close over every workflow,
+                    the application's assembly rules, its one container
+    app/            one workflow of an application at run time; app-deps.ts — its wiring (model gateway,
+                    MCP, tracing) on the application's infrastructure
+    infrastructure/ the consumed contracts + in-memory defaults (ledger, records, paused executions)
+    budgets/        @Budget, BudgetScope, BudgetPeriod, BudgetHandler
+    testing/        `agboss/testing`: testWith(App) (Vitest fixtures), scripted gateway, matchers, setup.ts
     components/     @Tool @Agent @McpServer @McpTool @Rag @Injectable @Workflow, DI container, workflowOf
     dto/            `agboss/dto`: field decorators, DTO schemas and validation, standard/ DTOs
     units/          `agboss/units`: usd(), seconds(), minutes()
@@ -738,11 +805,11 @@ packages/agboss-cli/    the `agboss` / `agboss` command (#205; depends on agboss
   tests/            CLI tests; workflows come from the framework's tests/fixtures
   bin/              the CLI launcher (bin names `agboss` and `agboss`)
 examples/job-scout/          the example (package job-scout-example; depends on agboss)
-  src/              job-scout.workflow.ts (one path a turn), studio.ts; workflow-starts/ (*.workflow-start.ts), routers/
+  src/              job-scout.application.ts, job-scout.workflow.ts (one path a turn), studio.ts; workflow-starts/ (*.workflow-start.ts), routers/
                     (*.router.ts), agents/ (*.agent.ts + *.prompt.md), workflow-finishes/
                     (*.workflow-finish.ts), tools/ (*.tool.ts +
                     *.dto.ts), services/ (*.service.ts), mcp/ (*.server.ts, *.mcp.ts, *.dto.ts),
-                    rag/ (*.rag.ts), helpers/ (*.helper.ts), config/, scripts/, data/
+                    rag/ (*.rag.ts), helpers/ (*.helper.ts), config/ (budget.config.ts, …), scripts/, data/
   tests/  profiles/  golden/
 examples/flow-patterns/      the flow's patterns (package flow-patterns-example, #295): src/offer/ (a review loop),
                     src/credit/ (a code router beside a model router), one *.workflow.ts each; tests/
