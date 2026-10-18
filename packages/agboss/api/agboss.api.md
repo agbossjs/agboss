@@ -910,6 +910,33 @@ export type ExecutionInputOf<TInstance> = WorkflowStartEntry<TInstance> extends 
 } ? TInput : WorkflowStartEntry<TInstance>;
 
 // @public
+export interface ExecutionLease {
+    readonly expiresAt: Date;
+    readonly holderInstanceId: string;
+    readonly leaseEpoch: number;
+    readonly rootExecutionId: string;
+    readonly tenantId: string;
+}
+
+// @public
+export class ExecutionLeaseLostError extends AGBossError {
+    constructor(rootExecutionId: string);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    name: string;
+    readonly rootExecutionId: string;
+}
+
+// @public
+export abstract class ExecutionLeaseRepository {
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
+    abstract acquire(tenantId: string, rootExecutionId: string, lease: Milliseconds): Promise<ExecutionLease | undefined>;
+    abstract release(executionLease: ExecutionLease): Promise<void>;
+    abstract renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean>;
+}
+
+// @public
 export interface ExecutionOptions {
     readonly configurable?: Readonly<Record<string, unknown>>;
     readonly executionContext?: unknown;
@@ -1016,6 +1043,26 @@ export enum ExecutionStatus {
     // (undocumented)
     Paused = "paused"
 }
+
+// @public
+export interface ExecutionTree {
+    readonly rootExecutionId: string;
+    readonly tenantId: string;
+}
+
+// @public
+export abstract class ExecutionTreeRepository {
+    abstract deleteAllInTree(tree: ExecutionTree): Promise<void>;
+    findById(key: string): Promise<ExecutionTreeValue | undefined>;
+    abstract findByIdInTree(tree: ExecutionTree, key: string): Promise<ExecutionTreeValue | undefined>;
+    saveIfAbsent(key: string, value: ExecutionTreeValue): Promise<boolean>;
+    abstract saveIfAbsentInTree(tree: ExecutionTree, key: string, value: ExecutionTreeValue): Promise<boolean>;
+}
+
+// @public
+export type ExecutionTreeValue = string | number | boolean | null | readonly ExecutionTreeValue[] | {
+    readonly [field: string]: ExecutionTreeValue;
+};
 
 // @public
 export enum FailurePolicy {
@@ -1979,13 +2026,22 @@ export type PathSource = StartSource | ComponentSource;
 export abstract class PausedExecutionRepository {
     abstract deleteByThreadId(threadId: string): Promise<void>;
     abstract findByThreadId(threadId: string): Promise<PausedRun | undefined>;
+    abstract resolveByThreadId(threadId: string, decision: unknown): Promise<PausedRun | undefined>;
     abstract save(paused: PausedRun): Promise<void>;
 }
 
 // @public
 export interface PausedRun extends ResumeVersions {
+    readonly decision?: unknown;
     // (undocumented)
     readonly run: AgentExecutionOutput;
+    readonly status: PauseStatus;
+}
+
+// @public
+export enum PauseStatus {
+    Pending = "pending",
+    Resolved = "resolved"
 }
 
 // @public
@@ -2154,6 +2210,21 @@ export enum RagMode {
 
 // @public
 export type RagStartEvent = StartEvent<string>;
+
+// @public
+export interface RateLimitLease {
+    readonly expiresAt: Date;
+    readonly holderInstanceId: string;
+    readonly key: string;
+    readonly slotId: string;
+}
+
+// @public
+export abstract class RateLimitRepository {
+    abstract acquire(key: string, maxSlots: number, lease: Milliseconds): Promise<RateLimitLease | undefined>;
+    abstract release(rateLimitLease: RateLimitLease): Promise<void>;
+    abstract renew(rateLimitLease: RateLimitLease, lease: Milliseconds): Promise<boolean>;
+}
 
 // @public (undocumented)
 export const resolveTools: (bundle: AssembledWorkflow, services: WorkflowServices) => readonly AnyTool[];
@@ -3003,17 +3074,19 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 
 // Warnings were encountered during analysis:
 //
-// src/app/app-deps.ts:32:3 - (ae-undocumented) Missing documentation for "observer".
-// src/app/app-deps.ts:33:3 - (ae-undocumented) Missing documentation for "evaluation".
-// src/app/app-deps.ts:71:3 - (ae-undocumented) Missing documentation for "newThreadId".
-// src/app/app-deps.ts:72:3 - (ae-undocumented) Missing documentation for "newRunId".
-// src/app/app-deps.ts:73:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/app-deps.ts:33:3 - (ae-undocumented) Missing documentation for "observer".
+// src/app/app-deps.ts:34:3 - (ae-undocumented) Missing documentation for "evaluation".
+// src/app/app-deps.ts:72:3 - (ae-undocumented) Missing documentation for "newThreadId".
+// src/app/app-deps.ts:73:3 - (ae-undocumented) Missing documentation for "newRunId".
+// src/app/app-deps.ts:74:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/create-app.ts:41:3 - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/create-app.ts:42:3 - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/lease-lost.ts:10:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-lost.ts:11:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/limit-check.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/limit-check.ts:10:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/paused-runs.ts:13:3 - (ae-undocumented) Missing documentation for "run".
+// src/app/paused-runs.ts:19:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts:15:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts:16:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/app/types.ts:21:3 - (ae-undocumented) Missing documentation for "thread".
@@ -3604,8 +3677,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/models/circuit-breaker.ts:33:5 - (ae-undocumented) Missing documentation for "provider".
 // src/routers/types.ts:43:3 - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts:44:3 - (ae-undocumented) Missing documentation for "route".
-// src/run/resume-agent.ts:19:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/resume-agent.ts:20:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/resume-agent.ts:26:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/resume-agent.ts:27:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/resume-guard.ts:10:3 - (ae-undocumented) Missing documentation for "workflowVersion".
 // src/run/resume-guard.ts:11:3 - (ae-undocumented) Missing documentation for "configHash".
 // src/run/resume-guard.ts:16:3 - (ae-undocumented) Missing documentation for "thread".
