@@ -393,7 +393,7 @@ one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
   limit or a cancellation in a `Skip` branch fails the launch (S21). A model router before a
   launch decides its `OnDemand` routes in one call — a `Decision.noul` per route on a decision
   model, one answer tool with a boolean per route on a chat model (tests: `decideWith({ "<target
-  name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S23).
+name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S23).
 - **Node kinds:** `@WorkflowStart` (input: a DTO, a list or a map of fields; input guards),
   `@Router`, `@Agent` (`input` fields, `output` — answered through answer tools, or text without
   them), `@Action` (code, no model: `execute(input)`; its execution through `deps: [ExecutionContext]`), `@WorkflowFinish`
