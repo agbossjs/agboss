@@ -296,7 +296,12 @@ each group on its own path. `@Arbiter` classes decide which answers count, attac
 `.acceptedBy(X)` before the quorum (a chain is an AND, `anyOf(A, B)` stops at the first that
 accepts): by model, a criterion per agent; by code, one `@OnAnswer(Agent)` method per agent. A single
 answer a quorum may leave out is `optional(XDto)` in `.returns(…)` — the compiler and `agboss check`
-say so on the quorum. Checked and typed today; it runs from #279 PR 2
+say so on the quorum. At run time the quorum is decided as answers arrive: once `max` answers are
+counted (or a group has won, or the quorum can no longer be reached) the other branches are
+cancelled; the deadline runs on the application's `Clock`; not reached → `QuorumNotReachedError`
+into `.onJoinError(…)`; a failing arbiter is `ArbiterError`. `result.launches` and `onQuorumDecided`
+show each answer as counted, rejected (and by which arbiter), surplus or cancelled, and the winning
+group; `agboss generate arbiter` writes a code arbiter for a launch
 ([Wiki → Parallel](https://github.com/agbossjs/agboss/wiki/Parallel)).
 
 A whole **workflow is a step** too (#263): `.toWorkflow(CompanyCheckWorkflow)` runs an ordinary

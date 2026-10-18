@@ -28,8 +28,11 @@ export enum BranchStatus {
  * passed).
  */
 export enum BranchVerdict {
+  /** It took a place; its value enters the path scope. */
   Counted = "counted",
+  /** An arbiter rejected it. */
   Rejected = "rejected",
+  /** Accepted after the quorum was decided. */
   Surplus = "surplus",
 }
 
@@ -126,7 +129,9 @@ export interface BranchRecord {
 
 /** The `group(…)` of `.joinQuorumGroups(…)` that won (#279): its agents as listed, its priority. */
 export interface QuorumGroupRecord {
+  /** Its agents by `name`, as listed (a repeat is one more copy). */
   readonly agents: readonly string[];
+  /** Its priority (1 is the highest); absent when the group has none. */
   readonly priority?: number;
 }
 

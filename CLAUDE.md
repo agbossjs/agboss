@@ -55,9 +55,10 @@ In `examples/job-scout/` (each is `agboss <command> --workflow src/job-scout.wor
 takes `--profile <name>` (`profiles/<workflow>/<name>.yaml`) and `--thread <id>`.
 
 In `examples/flow-patterns/` (#295; scripted tests only, no model key): `npm run check` (`agboss
-check` on its three workflows) · `npm run describe -- --workflow src/offer/offer.workflow.ts` (the
+check` on its four workflows) · `npm run describe -- --workflow src/offer/offer.workflow.ts` (the
 review loop), `src/credit/credit.workflow.ts` (a code router) or `src/review/review.workflow.ts`
-(parallel launches in waves, #273) · `npm test`.
+(parallel launches in waves, #273), `src/panel/panel.workflow.ts` (a quorum with a code and a model
+arbiter, #279) · `npm test`.
 
 ## Architecture
 
@@ -436,8 +437,23 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   `[flow.quorum-return-not-optional]`, also a compile error); a group's listed agents are required
   in its `.returns(…)`. `[flow.quorum-impossible]`: `min` above the agents (or `maxItems`), a group
   that can never complete. `agboss describe` counts a list's producers (`critiques: critic-agent
-×1–2`). Until #279 PR 2 a workflow with a quorum is checked but does not assemble
-  (`flow.quorum-not-runnable`).
+×1–2`). At run time (#279 PR 2, S26) the quorum is decided inside the launch's superstep: after
+  each branch's agent its arbiter chain runs in the same slot and frame, then the answer is
+  recorded at once — `BranchVerdict.Counted` (with its `acceptedSequence`, the join's order),
+  `Rejected` (`rejectedBy`: the arbiters) or `Surplus` (accepted after the quorum was decided); once
+  `max` is counted, a group has won, or the quorum can no longer be reached, the rest is cancelled
+  (`BranchStatus.Cancelled`, a running check too). Under a quorum a branch's own step failure only
+  leaves its place empty. `deadlineAt` is taken from the `Clock` at dispatch and kept in the
+  launch's ticket (a pause counts as time); after a resume or a crash the quorum is rebuilt from the
+  finished branches' records and an expired deadline cancels the rest without running them. The
+  join decides from the records only: the counted answers (the winning group's own path), or
+  `QuorumNotReachedError` (`step.quorum`) into `.onJoinError(…)`; an arbiter that throws or whose
+  model does not answer is `ArbiterError` (`step.arbiter`), both `StepFailedError`s. A model
+  arbiter makes one decision per answer under `arbiter:<name>` (tests: `mockLlm(Arbiter)
+.thenReturn(decideWith({ counts: 0.9 }))`; a code arbiter is created by the container).
+  `result.launches` (`isQuorumReached`, `group`, each branch's verdict) and
+  `onQuorumDecided` (`QuorumDecidedEvent`) show it. `agboss generate arbiter <name> --workflow …
+[--agent …]` writes a code arbiter for a launch.
 - **Node kinds:** `@WorkflowStart` (input: a DTO, a list or a map of fields; input guards),
   `@Router`, `@Agent` (`input` fields, `output` — answered through answer tools, or text without
   them), `@Action` (code, no model: `execute(input)`; its execution through `deps: [ExecutionContext]`), `@WorkflowFinish`
@@ -838,7 +854,7 @@ export class InRangeArbiter {
 export class ValidScoreArbiter {}
 
 export const quorumPaths = [
-  // any two of three: the counted answers only, the third cancelled (#279 PR 2)
+  // any two of three: the counted answers only, the third cancelled
   start(CandidateWorkflowStart)
     .returns(CandidateDto)
     .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
@@ -1001,7 +1017,8 @@ export class SeenJobsRepository {
   internal state: every execution event (`ExecutionEvent`) has `executionId`, `parentExecutionId`,
   `rootExecutionId`, `threadId`, `tenantId`, `workflow` (`WorkflowRecord`: `name`, `version`,
   `startedVersion`, no class); node events (agent, router, tool, model, knowledge base, guardrail,
-  PII policy, action, channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`) add `step`
+  PII policy, action, channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`,
+  `onQuorumDecided`) add `step`
   (`StepRecord`: `component: { name }`, `nodeId`, `visitNumber`, `copyNumber`, `itemIndex`,
   `idempotencyKey`, `callId`). Execution hooks: `onExecutionStart` once per execution,
   `onExecutionPause` / `onExecutionResume` (`reason: ResumeReason`) around a pause,
@@ -1013,7 +1030,8 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
   `executionId`), still thrown; `IncompatibleResumeError` → `onExecutionError` on the paused
   execution, which stays paused. `onValuesOutdated` (`trigger`, `outdated` — no DTO values) once
   per outdating cascade, never empty; `onLaunchItemsTruncated` (`launch`, `items`, `maxItems`) when
-  a per-item launch dropped items (#273).
+  a per-item launch dropped items (#273); `onQuorumDecided` (`launch`, `isReached`, `branches`,
+  `group`) once per quorum (#279).
 - **The framework's log (#261):** the `Logger` contract is infrastructure (`ConsoleLogger` — one
   line per entry on stderr — unless `@Application({ providers })` lists an `extends Logger`; silent
   in tests unless listed). At start, once, only what the decorators say: what started and the worst
@@ -1221,7 +1239,8 @@ today; tenant-daily-budget allows $40`).
 - **Errors** (root entry) are `AGBossError`s with stable `code`s (`limit` ⊃ `limit.budget`,
   `limit.steps`, `limit.visits`, `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
   `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`ActionFailedError`, the
-  action's error as `cause`) / `step.guard` / `step.router` ⊃ `step.router.invalid-decision`,
+  action's error as `cause`) / `step.guard` / `step.router` ⊃ `step.router.invalid-decision` /
+  `step.arbiter` (`ArbiterError`) / `step.quorum` (`QuorumNotReachedError`, #279),
   `execution.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
   `app.close()`, an `onExecutionRejected`, …); a new error
   class gets a `static code`. `.onError` matches by class, so a subclass is caught by its parent's
@@ -1270,7 +1289,7 @@ entries. A public surface change updates the api-extractor reports (`npm run api
 (`.suppressions.json`), the generated `.agboss/types.d.ts` of the framework's test fixtures
 (`npm run check:types`, #272 — before lint and `tsc`), build, the API reports, **compiled docs**,
 prettier, ESLint, `tsc` (tests included; the examples' types written first), tests with coverage,
-`agboss check --strict` on flow-patterns' three workflows (warnings are errors) and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
+`agboss check --strict` on flow-patterns' four workflows (warnings are errors) and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
 every ` ```ts ` block of README, CLAUDE, QUALITY and WORKFLOW (and `docs/`) against the built
 package — a doc whose snippets declare a `@Workflow` gets its `.agboss/types.d.ts` written first —
 and check that every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention — and every
@@ -1411,7 +1430,7 @@ examples/job-scout/          the example (package job-scout-example; depends on 
   tests/  profiles/  golden/
 examples/flow-patterns/      the flow's patterns (package flow-patterns-example, #295): src/offer/ (a review loop),
                     src/credit/ (a code router beside a model router), src/review/ (parallel launches
-                    in waves, #273), one *.workflow.ts each; tests/
+                    in waves, #273), src/panel/ (a quorum, #279), one *.workflow.ts each; tests/
 scripts/        the gate's checks (check-root, check-suppressions, check-docs + docs/, api-report,
                 public-entries, eslint-agboss-plugin: eslint-component-state + eslint-direct-time),
                 bootstrap-repo, bootstrap-labels, ticket, wiki,

@@ -50,7 +50,9 @@ export class QuorumNotReachedError extends StepFailedError {
   override name = "QuorumNotReachedError";
   /** The launch: `${executionId}:${nodeId}:${visitNumber}` of the launching step. */
   readonly launch: string;
+  /** `.joinQuorum({ min })`; undefined for `.joinQuorumGroups(…)`. */
   readonly min: number | undefined;
+  /** How many answers were counted. */
   readonly counted: number;
 
   constructor(launch: string, step: StepCoordinates, shortfall: QuorumShortfall) {
