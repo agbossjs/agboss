@@ -87,9 +87,13 @@ export function mergeBranchRecords(
 
 /** One branch of a finished launch, as the execution reports it (`result.launches`). */
 export interface BranchRecord {
+  /** `critic-agent#2` for a copy, the node's `name` otherwise. */
   readonly nodeId: string;
+  /** Which copy of a repeated target, from 1. */
   readonly copyNumber: number;
+  /** The item's index of a per-item launch, from 0. */
   readonly itemIndex?: number;
+  /** How it ended. */
   readonly status: BranchStatus;
   /** A failed, skipped or cancelled branch's error (S21: a skipped one's stays visible). */
   readonly error?: ErrorRecord;
@@ -103,7 +107,10 @@ export interface BranchRecord {
 export interface LaunchRecord {
   /** `${executionId}:${nodeId}:${visitNumber}` of the launching step. */
   readonly launch: string;
+  /** The list's length (a per-item launch), or how many targets the launch lists. */
   readonly items: number;
+  /** How many branches were launched: at most `maxItems`; a router's `OnDemand` "no" left out. */
   readonly taken: number;
+  /** Every launched branch, in the join's order. */
   readonly branches: readonly BranchRecord[];
 }

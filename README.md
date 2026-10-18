@@ -197,7 +197,9 @@ Several steps at once are a **parallel launch** (#273): `.toParallelAgents(Resea
 CriticAgent, CriticAgent, { maxConcurrency: 3 })` or `.toParallelActions(…)`, always followed by
 `.join()` and the values the branches give — `.join().returns(ResearchDto).returns(listOf(CritiqueDto))`,
 checked against the generated `JoinOutputs`; one agent after `.returns(listOf(CompanyDto))` runs once
-per item (`{ maxItems }` required). `agboss check` checks launches today; they run from #273 PR 2
+per item (`{ maxItems }` required; a longer list is truncated, never an error — `result.launches`
+says `{ items, taken }`). At most `maxConcurrency` branches run at once, a new one starting as
+another ends; a failed branch cancels the others and the join takes `.onJoinError(E, …)`
 ([Wiki → Workflow](https://github.com/agbossjs/agboss/wiki/Workflow)).
 
 `npx agboss check --workflow src/job-scout.workflow.ts` writes `.agboss/types.d.ts` — what types
@@ -231,7 +233,9 @@ cd examples/job-scout && npm run chat # "my resume src/data/sample-resume.md"
 [`examples/flow-patterns`](examples/flow-patterns) — the flow's patterns with scripted tests only
 (no model key): `src/offer/` a review loop (`agent(ReviewerAgent).returns(oneOf(…)).switch(…)`,
 `caseOf(ChangesRequestedDto, { about: OfferDraftDto })`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
-router (`DecidedBy.Code`, `route(input)` through `deps`) beside a model router. Point the CLI at it:
+router (`DecidedBy.Code`, `route(input)` through `deps`) beside a model router, `src/review/`
+parallel launches in waves (a reviewer per section, then a critic beside two fact checker copies).
+Point the CLI at it:
 
 ```bash
 cd examples/flow-patterns && npx agboss describe --workflow src/offer/offer.workflow.ts
@@ -269,7 +273,7 @@ deprecated re-exports for one minor release (`/concurrency` went with the old fl
 ```
 packages/agboss/   the framework (published as `agboss`)
 examples/job-scout/     the example (uses only the public API)
-examples/flow-patterns/ the flow's patterns: a review loop, a code router (scripted tests only)
+examples/flow-patterns/ the flow's patterns: a review loop, a code router, parallel launches (scripted tests only)
 ```
 
 `make check` — build, API reports, compiled docs, format, lint, types, tests with coverage for both packages. `npm run dev` —

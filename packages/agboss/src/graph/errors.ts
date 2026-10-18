@@ -25,6 +25,7 @@ export class PaidStepError extends AGBossError {
 
 /** Which step an error belongs to (#273 S22): its component, node id, visit and item. */
 export interface StepCoordinates {
+  /** The step's component, by `name`. */
   readonly component: ComponentRecord;
   /** The node id in `result.path`: the component's `name` (`critic-agent#2` for a copy, #273). */
   readonly nodeId: string;
@@ -70,8 +71,11 @@ export class StepFailedError extends PaidStepError {
   override name = "StepFailedError";
   /** The component (no class: the error is kept on a plain record). */
   readonly component: ComponentRecord;
+  /** The step's node id: `critic-agent#2` for a copy of a launch. */
   readonly nodeId: string;
+  /** The pass through the node, from 1 (`0` outside any step). */
   readonly visitNumber: number;
+  /** The item's index of a per-item launch; `undefined` otherwise. */
   readonly itemIndex: number | undefined;
 
   constructor(

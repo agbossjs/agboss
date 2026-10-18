@@ -140,6 +140,7 @@ export interface OnValuesOutdated {
  * with how many items there were — truncation is never an error.
  */
 export interface OnLaunchItemsTruncated {
+  /** Called once per truncated launch, after the launching step. */
   onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): HookResult;
 }
 
