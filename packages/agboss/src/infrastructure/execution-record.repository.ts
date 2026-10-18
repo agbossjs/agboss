@@ -59,7 +59,7 @@ export abstract class ExecutionRecordRepository {
     limit: number,
     after?: string,
   ): Promise<Tern[]>;
-  /** Original (non-replay) records of a prompt version, oldest first. */
+  /** Original (non-replay) records of a prompt version, oldest first; `running` ones left out. */
   abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Tern[]>;
   /** Answered records without a score, oldest first. */
   abstract unscored(
@@ -69,6 +69,7 @@ export abstract class ExecutionRecordRepository {
   ): Promise<Tern[]>;
   abstract saveScore(ternId: string, judge: string, score: number): Promise<void>;
   abstract meanScore(ternIds: readonly string[]): Promise<number | null>;
+  /** Mean score and cost per prompt version; `running` records left out (a run in flight is no result). */
   abstract summary(workflow: string): Promise<VersionScore[]>;
   /** Stores the snapshot the first time; `drift` when the version already has another hash. */
   abstract rememberConfig(
