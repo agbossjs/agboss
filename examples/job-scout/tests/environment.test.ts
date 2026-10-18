@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { env } from "agboss";
 import { testWith } from "agboss/testing";
 import { JobScoutApplication } from "../src/job-scout.application.js";
@@ -31,6 +31,14 @@ function recordBoardRequests(): string[] {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+// dev's records go to .agboss/job-scout.sqlite; a test on dev's values keeps them in memory
+beforeAll(() => {
+  vi.stubEnv("AGBOSS_SQLITE_PATH", ":memory:");
+});
+afterAll(() => {
+  vi.unstubAllEnvs();
 });
 
 // `npm run chat` (the app) defaults to dev; testWith defaults to test.environment.ts (#261).
@@ -78,7 +86,10 @@ describe("#261 AC8: an environment of the wrong shape does not compile", () => {
     const missing: AppEnvironment = {};
     // @ts-expect-error — greenhouseApiUrl is a string
     const mistyped: AppEnvironment = { greenhouseApiUrl: 42 };
-    const fromVariable: AppEnvironment = { greenhouseApiUrl: env("GREENHOUSE_API_URL") };
+    const fromVariable: AppEnvironment = {
+      greenhouseApiUrl: env("GREENHOUSE_API_URL"),
+      sqlitePath: env("AGBOSS_SQLITE_PATH"),
+    };
     expect([missing, mistyped, fromVariable]).toHaveLength(3);
   });
 });

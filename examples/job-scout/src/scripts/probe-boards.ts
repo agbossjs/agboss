@@ -15,7 +15,10 @@ if (place === "" || positionals.length === 0) {
   process.exit(1);
 }
 // the public board API, as in dev.environment.ts (the probe runs outside the app)
-const environment: AppEnvironment = { greenhouseApiUrl: "https://boards-api.greenhouse.io" };
+const environment: AppEnvironment = {
+  greenhouseApiUrl: "https://boards-api.greenhouse.io",
+  sqlitePath: ":memory:",
+};
 const boards = new GreenhouseBoards(jobSearchConfig, environment);
 const words = jobSearchConfig.places[place] ?? [place];
 const results = await Promise.all(
