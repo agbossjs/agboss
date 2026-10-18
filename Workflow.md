@@ -150,6 +150,8 @@ export class MainRouter {}
 | A router's choice | `.toRouter(R).chooseOne(route(A)…, route(B)…, route(F))` (or `router(R).chooseOne(…)` in its own path): exactly the router's `routes` (`[router.routes-mismatch]`), each `route(…)` continued to its end. How to choose stays in `@Router({ routes: [{ target, prompt }] })` ([Routers](Routers)) |
 | Branching by result | `.returns(oneOf(ADto, BDto)).switch(caseOf(ADto)…, caseOf(BDto)…)` after a step with a `oneOf` output — exhaustive (`[flow.switch-not-exhaustive]`, `[flow.switch-unknown-case]`); `caseOf(ADto, { about: T })` says what that variant is about, never `.returns(oneOf(…), { about })` |
 | Errors | `.onError(ErrorClass, toAction(…)… \| toAgent(…)… \| toFinish(F))` right after the step that throws, before its `.returns(…)` — see [Rollback](Rollback) |
+| Parallel launch | `.toParallelAgents(A, B, B, { maxConcurrency })` / `.toParallelActions(…)` (#273): each listed target runs once, a repeat is a copy; agents only / actions only (another kind does not compile); one target right after `.returns(listOf(XDto))` runs once per item, `{ maxItems }` required. See [Parallel launches](#parallel-launches) |
+| Join | a launch is followed by `.join()` (a path that stops at a launch does not compile), then `.onJoinError(ErrorClass, side path)` — never `.onError` — then `.join().returns(…)`: one value per class the branches give, checked against the generated `JoinOutputs` |
 | One way in → inline | a node reached from one place is continued right there (also inside `route(…)`, `caseOf(…)` and `.onError(…)`); an own path for it → `[flow.single-entry-own-path]` |
 | Two or more ways in → own path | a non-terminal node reached from several places is continued in its own path (`agent(ReviewerAgent)…`), every path into it ends at it; inline → `[flow.shared-node-inline]` |
 | Finishes are terminal | `.toFinish(F)` / `route(F)` — always inline, from any number of places |
@@ -290,6 +292,92 @@ export class AuditLogAction implements ActionHandler<AuditLogAction> {
 }
 ```
 
+## Parallel launches
+
+Several steps at once are a launch and its join (#273). The launch lists its targets — agents, or
+actions — and the join names what they give; the next step reads those values from the scope by
+type, like any other.
+
+<!-- snippet-context
+import { Action, Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
+import { Flag, Integer, Text, WorkflowStartTextDto, listOf } from "agboss/dto";
+
+export class CompanyDto {
+  @Text({ prompt: "the company's name" })
+  name!: string;
+}
+export class CompanyCheckDto {
+  @Flag({ prompt: "whether the company passed" })
+  passed!: boolean;
+}
+export class RankingDto {
+  @Text({ prompt: "the companies, best first" })
+  order!: string;
+}
+export class PaymentDto {
+  @Integer({ prompt: "the amount in whole dollars" })
+  amount!: number;
+}
+@WorkflowStart({ name: "screening-workflow-start", description: "What to look for", input: WorkflowStartTextDto })
+export class ScreeningWorkflowStart {}
+@WorkflowStart({ name: "checkout-workflow-start", description: "The payment", input: PaymentDto })
+export class CheckoutWorkflowStart {}
+@Agent({ name: "screening-agent", description: "Finds companies", prompt: "Find them.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(CompanyDto) })
+export class ScreeningAgent {}
+@Agent({ name: "company-check-agent", description: "Checks one company", prompt: "Check it.", model: "moonshotai/kimi-k2.6", input: { company: CompanyDto }, output: CompanyCheckDto })
+export class CompanyCheckAgent {}
+@Agent({ name: "ranker-agent", description: "Ranks", prompt: "Rank.", model: "moonshotai/kimi-k2.6", input: { checks: listOf(CompanyCheckDto) }, output: RankingDto })
+export class RankerAgent {}
+@WorkflowFinish({ name: "ranking-workflow-finish", description: "The ranking", output: RankingDto })
+export class RankingWorkflowFinish {}
+@Action({ name: "send-receipt-action", description: "Sends the receipt", input: { payment: PaymentDto } })
+export class SendReceiptAction {
+  async execute(): Promise<void> {}
+}
+@Action({ name: "update-crm-action", description: "Updates the CRM", input: { payment: PaymentDto } })
+export class UpdateCrmAction {
+  async execute(): Promise<void> {}
+}
+@WorkflowFinish({ name: "payment-workflow-finish", description: "The payment", output: PaymentDto })
+export class PaymentWorkflowFinish {}
+// @snippet
+@Workflow({ name: "launches-workflow", version: "1.0.0", flow: launchPaths })
+export class LaunchesWorkflow {}
+-->
+
+```ts
+export const launchPaths = [
+  // one agent per item of a list: at most 3 at once, the first 50 items
+  start(ScreeningWorkflowStart)
+    .returns(WorkflowStartTextDto)
+    .toAgent(ScreeningAgent)
+    .returns(listOf(CompanyDto))
+    .toParallelAgents(CompanyCheckAgent, { maxConcurrency: 3, maxItems: 50 })
+    .join()
+    .returns(listOf(CompanyCheckDto)) // one value per item, in the list's order
+    .toAgent(RankerAgent)
+    .returns(RankingDto)
+    .toFinish(RankingWorkflowFinish),
+
+  // side effects at once: actions without output give the join nothing to name
+  start(CheckoutWorkflowStart)
+    .returns(PaymentDto)
+    .toParallelActions(SendReceiptAction, UpdateCrmAction)
+    .join()
+    .toFinish(PaymentWorkflowFinish), // reads PaymentDto from the path
+] as const;
+```
+
+| Rule | |
+| --- | --- |
+| What the join gives | one value per class: `XDto` for an agent listed once, `listOf(XDto)` for copies of one agent, for two agents with one `output` and for a per-item launch; `optional(XDto)` for a branch whose router route is `SpawnPolicy.OnDemand` or `FailurePolicy.Skip` ([Routing patterns](Advanced-Routing)); nothing for an action without `output`. `.join().returns(…)` names them as a chain in any order — `[flow.returns-mismatch]` otherwise; the generated `JoinOutputs` types it (keyed by the launch as written: `toParallelAgents(researcher-agent, critic-agent, critic-agent)`, `support-router.toParallelAgents(…)`, `toParallelAgents(company-check-agent) per item`) |
+| What a branch sees | the scope at the launch — plus, in a per-item run, its item as the latest single `XDto` (its target reads an `XDto` field: `[launch.item-not-read]`, also a compile error through the generated types). Its siblings' values only after the join ([Path scope → Parallel branches](Path-scope#parallel-branches)) |
+| Per item | one target right after `.returns(listOf(XDto))` — the list the chain carries, never one looked up in the scope; `{ maxItems }` is required (`[launch.max-items-required]`) and only there (`[launch.max-items-without-list]`); a longer list is truncated, never an error |
+| A branch is one step | its join continues it: a launched class continued elsewhere is `[launch.branch-continued]`. A chain of steps per item is a child workflow (#263) |
+| Several of one class | a single field reading a class the join gives as a list is `[input.several-on-path]` — declare `listOf(XDto)` |
+| Steps | the fewest steps count the copies of the agents that always run (`Always` + `FailFast`), never a per-item run; the worst case of one call counts every copy and `maxItems` runs, capped by `maxSteps` |
+| Runtime | `agboss check` checks launches; they run from #273 PR 2 — until then assembly (`createApp`) stops with `flow.launch-not-runnable` |
+
 ## Generated types
 
 `agboss check --workflow src/app.workflow.ts` loads the workflows (transpile-only, a stale file
@@ -307,7 +395,8 @@ in the application (`[name.kind-suffix]`, `[graph.duplicate-node-name]`); DTO cl
 with `Dto` (`[dto.name]`); `.returns` matches the output (`[flow.returns-mismatch]`); every input is
 on every path (`[input.missing-on-path]`); a router's choice lists its routes; the existing graph
 rules — a workflow start exists, no unreachable node, no dead end, nothing after a finish, a cycle
-has `maxVisits`. A path nested more than 4 levels deep is a warning (`[flow.path-too-deep]`), an
+has `maxVisits`; a launch is joined (`[launch.join-required]`), a per-item launch has `maxItems`,
+a branch renewing what a sibling read is `[launch.branch-outdates-sibling]`. A path nested more than 4 levels deep is a warning (`[flow.path-too-deep]`), an
 error under `--strict`.
 
 ## Testing
@@ -342,7 +431,7 @@ test("a question about openings goes to the scout", async ({ app, mockLlm }) => 
 
 ## Not in the core yet
 
-Parallel launches and joins (`.toParallelAgents(…)`, `.join()`, quorums — #273), child workflows
-(`.toWorkflow(…)` — #263) and code routers (`DecidedBy.Code` — #280) build on these paths. The old
+Launches run from #273 PR 2 (the grammar, the analyser and the types are here); quorums (#279) and
+child workflows (`.toWorkflow(…)` — #263) build on these paths. The old
 flow DSL (`from(…).next(…)`, `chain`, `catchError`, `batchParallel`, `node`) is gone;
 [ADR-0019](ADR-0019-Flow-as-paths-with-path-scope) says why.

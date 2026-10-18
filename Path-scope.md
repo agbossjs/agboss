@@ -320,6 +320,29 @@ ArticleChangesDto#1 outdated: about DraftDto#1, replaced by DraftDto#2 from writ
 The labels `DraftDto#2` are ordinals within a slot. A second execution on a thread starts with its
 start input only: its `scope` and `outdatedValues` begin empty.
 
+## Parallel branches
+
+A branch of a launch (#273) sees the scope at the launch — the launching step's values written —
+plus, in a per-item run, its item as the latest single `XDto`; its siblings' values enter the scope
+only at the join, all at once, each built from what its branches read at the launch (a per-item run
+counts as reading its list). Several values of one class from one join — copies of one agent, two
+agents with one `output`, a per-item launch — are one `listOf(XDto)` slot, so a single `XDto` field
+there is `[input.several-on-path]`.
+
+A branch that returns a new value of a class another branch of the same launch read — directly, or
+through what the value it read was built from — would bring that sibling's result to the join
+already outdated: `[launch.branch-outdates-sibling]`, checked at the join whether anything reads it
+later or not (#271 S13):
+
+```text
+[launch.branch-outdates-sibling] replanner-agent returns PlanDto, which researcher-agent of the same
+launch was built from: researcher-agent's ResearchDto is outdated at the join of
+planner-agent → toParallelAgents(researcher-agent, replanner-agent)
+```
+
+A per-item launch and the copies of one agent never trigger it: their join writes one list slot
+(`listOf(PlanDto)` is not `PlanDto`), which no branch read.
+
 ## Rules
 
 Checked at assembly, all at once (`GraphRuleError`), each message naming the shortest path that
@@ -333,7 +356,8 @@ breaks it:
 | `[io.ambiguous-about]` | a producer whose values are `{ about: T }` reading `T` in two or more fields |
 | `[io.about-on-start]` | `{ about }` on a start's `.returns(…)` — its input is no answer about anything (also a compile error) |
 | `[input.never-produced]` | an `optional` field no path brings |
-| `[input.several-on-path]` | a single field where several values arrive |
+| `[input.several-on-path]` | a single field where several values arrive (one step's, or a join's list) |
+| `[launch.branch-outdates-sibling]` | a branch of a launch renewing a value another branch of it was built from ([Parallel branches](#parallel-branches)) |
 | `[flow.unused-output]` | a value returned on a path that no node reads (a `caseOf` counts as a read) |
 | `[flow.ambiguous-field]` | two fields of one node that read one slot (`historyOf` gives the earlier versions) |
 | `[input.history-limit]` | a `historyOf(…, { limit })` that is not a positive integer |

@@ -253,13 +253,101 @@ export class PriorityWorkflow {}
 A code router may also sit inside a model router's `route(…)` — `route(PriorityRouter).chooseOne(…)`
 — or the other way round; routers chain in any mix with no step between them.
 
+## 6. A router decides who is launched
+
+After `.toRouter(R)` a parallel launch (#273) lists the router's routes (`[router.routes-mismatch]`)
+and its routes carry the launch's policies: `spawn` — `SpawnPolicy.Always` (the framework launches
+it; no model sees it, so it has no prompt) or `SpawnPolicy.OnDemand` (the router decides; a model
+router reads its route `prompt`) — and `failure` — `FailurePolicy.FailFast` (default) or
+`FailurePolicy.Skip` (a failed agent drops out of the join). A value of an `OnDemand` or `Skip`
+branch is `optional(XDto)` in `.join().returns(…)` and in every consumer's `input`.
+
+<!-- snippet-context
+import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
+import { Text, WorkflowStartTextDto, optional } from "agboss/dto";
+
+export class OrderStatusDto {
+  @Text({ prompt: "where the order is" })
+  status!: string;
+}
+export class RefundPolicyDto {
+  @Text({ prompt: "the refund policy" })
+  policy!: string;
+}
+export class LoyaltyOfferDto {
+  @Text({ prompt: "an offer" })
+  offer!: string;
+}
+export class CustomerReplyDto {
+  @Text({ prompt: "the reply" })
+  text!: string;
+}
+@WorkflowStart({ name: "support-workflow-start", description: "A customer's message", input: WorkflowStartTextDto })
+export class SupportWorkflowStart {}
+@Agent({ name: "order-agent", description: "Looks the order up", prompt: "Look it up.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: OrderStatusDto })
+export class OrderAgent {}
+@Agent({ name: "refund-policy-agent", description: "Quotes the policy", prompt: "Quote it.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: RefundPolicyDto })
+export class RefundPolicyAgent {}
+@Agent({ name: "loyalty-agent", description: "Finds an offer", prompt: "Find one.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: LoyaltyOfferDto })
+export class LoyaltyAgent {}
+@Agent({ name: "answer-agent", description: "Replies", prompt: "Reply.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto, order: OrderStatusDto, refund: optional(RefundPolicyDto), loyalty: optional(LoyaltyOfferDto) }, output: CustomerReplyDto })
+export class AnswerAgent {}
+@WorkflowFinish({ name: "support-workflow-finish", description: "The reply", output: CustomerReplyDto })
+export class SupportWorkflowFinish {}
+// @snippet
+@Workflow({
+  name: "support-workflow",
+  version: "1.0.0",
+  flow: [
+    start(SupportWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toRouter(SupportRouter)
+      .toParallelAgents(OrderAgent, RefundPolicyAgent, LoyaltyAgent)
+      .join()
+      .returns(OrderStatusDto)
+      .returns(optional(RefundPolicyDto)) // OnDemand — may not launch
+      .returns(optional(LoyaltyOfferDto)) // Skip — may drop out
+      .toAgent(AnswerAgent)
+      .returns(CustomerReplyDto)
+      .toFinish(SupportWorkflowFinish),
+  ],
+})
+export class SupportWorkflow {}
+-->
+
+```ts
+@Router({
+  name: "support-router",
+  description: "Picks everyone needed for the customer's message",
+  decidedBy: DecidedBy.Model,
+  model: "typesafe/jev-1.13",
+  prompt: "Pick everyone needed for the customer's message.",
+  input: { message: WorkflowStartTextDto },
+  routes: [
+    { target: OrderAgent, spawn: SpawnPolicy.Always },
+    { target: RefundPolicyAgent, spawn: SpawnPolicy.OnDemand, prompt: "The message is about returns" },
+    { target: LoyaltyAgent, spawn: SpawnPolicy.Always, failure: FailurePolicy.Skip },
+  ],
+})
+export class SupportRouter {}
+```
+
+| Rule | |
+| --- | --- |
+| A model router states `spawn` | before a launch every route of a model router says `spawn` — `[router.spawn-required]`; an `Always` route has no prompt — `[router.prompt-on-always]` (a compile error too); an `OnDemand` one has one — `[router.no-prompt]` |
+| It decides something | at least one `OnDemand` route — `[router.all-routes-always]` |
+| A code router | its route is `OnDemand` unless it says `spawn: SpawnPolicy.Always`; before a launch its `route(input)` returns the `OnDemand` agents to launch — `RouterAnswerOf<Self>` is a list (`readonly [Route<Self>, ...Route<Self>[]]` when no route is `Always`, so `[]` does not compile) |
+| Agents only | a router launches agents: `.toParallelActions(…)` after a router does not compile |
+| Policies live in the router | with `.chooseOne(…)` they are `[router.policy-with-choose-one]`; a launch from an agent, a start or an action has none (all `Always` + `FailFast`) |
+
+The `OnDemand` decision (one yes/no question per route) and `Skip` at run time come with #273 PR 2.
+
 ## Not in the core yet
 
 | Pattern | Issue |
 | --- | --- |
-| Several branches at once — `.toParallelAgents(…)`, `.toParallelActions(…)`, a per-item launch from `listOf(…)` — with a mandatory `.join()` | #273 |
+| Launches at run time — the `OnDemand` decisions, `Skip`, `maxConcurrency`, truncation at `maxItems` (the grammar and the analyser are in, [pattern 6](#6-a-router-decides-who-is-launched)) | #273 PR 2 |
 | Quorum joins (`.joinQuorum(…)`), groups | #279 |
-| A code router's list answer for a launch (`route()` returns `Route<R>[]`, `spawn: SpawnPolicy.Always` launched by the framework) and a model router's `OnDemand` decisions | #273 |
 | Child workflows (`.toWorkflow(W)`, `caseOf` per child finish) | #263 |
 
 The transition DSL's `nextParallel` / `join`, `batchParallel`, `@QuorumRouter`, `parallel(…)` /

@@ -3,6 +3,32 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — parallel launches in the grammar and the analyser (#273, PR 1)
+
+- **Launches** ([Workflow → Parallel launches](Workflow#parallel-launches)):
+  `.toParallelAgents(A, B, B, { maxConcurrency })` and `.toParallelActions(…)`, a per-item launch
+  (one target right after `.returns(listOf(XDto))`, `{ maxItems }` required), the mandatory
+  `.join()`, `.onJoinError(ErrorClass, side path)` and `.join().returns(…)` — checked by the compiler
+  against the new generated table `JoinOutputs` (`JoinOutputOf<Key>`) and by the analyser. New
+  public types: `LaunchOptions`, `Launched`, `Joined`, `JoinErrorHandling`, `Launches`,
+  `RouterLaunches`, `ValuesSource` / `StepValues` / `JoinValues`, the AST's `LaunchStep`,
+  `JoinStep`, `JoinErrorHandler`, `LaunchTargetKind`; `StepKind.Launch`, `StepKind.Join`.
+- **Breaking (types only) — `Returning<TSource, …>`** takes a values source (`StepValues<X>`,
+  `JoinValues<Key>`) instead of a component instance; `AfterValue` and `RouterStep` have a new
+  optional type parameter.
+- **New rule codes**: `[launch.join-required]`, `[launch.max-items-required]`,
+  `[launch.max-items-without-list]`, `[launch.item-not-read]`, `[launch.branch-continued]`,
+  `[launch.branch-outdates-sibling]` ([Path scope → Parallel branches](Path-scope#parallel-branches),
+  #271 AC9), `[router.spawn-required]`, `[router.prompt-on-always]`; `[router.no-prompt]` for an
+  `OnDemand` route without prompt; `[router.all-routes-always]` now applies to router launches.
+- **A model router states `spawn` on every route before a launch** (#273 S50,
+  [Routing patterns → 6](Advanced-Routing#6-a-router-decides-who-is-launched)); a code router's
+  `RouterAnswerOf<Self>` is a list when a launch follows it.
+- `agboss describe` prints launches and joins; the steps checks count the copies that always run;
+  the worst case of one call of each start is computed with the analysis.
+- **Not run yet**: a workflow with a launch passes `agboss check`, but `createApp` stops with
+  `flow.launch-not-runnable` until #273 PR 2.
+
 ## Unreleased — environments and defaults (#261, PR 4)
 
 - **Breaking — environments are typed object literals**: the contract is a plain class with declared
