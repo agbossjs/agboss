@@ -17,21 +17,26 @@ import type {
   SourceHead,
   TargetCheck,
 } from "./builder-types.js";
+import type { LaunchCheck, TargetNames } from "./launch-types.js";
 import {
   aboutTargets,
   fromComponent,
   fromSource,
+  groupFrom,
   subPathFrom,
   type PathBuilder,
 } from "./path-builder.js";
+import type { GroupStart } from "./quorum-types.js";
 
 /**
  * The path builder (#272): `start(S)…`, `agent(X)…`, `router(R)…`, `action(X)…`, `workflow(W)…`
  * (#263) begin a flow path; `route(X)…`, `caseOf(D)…` and the side-path starters `toAction(X)…`, `toAgent(A)…`,
- * `toRouter(R)…`, `toFinish(F)` of `.onError(E, …)` begin a sub-path and return the same builder.
+ * `toRouter(R)…`, `toFinish(F)` of `.onError(E, …)` and `group(A, …)…` of `.joinQuorumGroups(…)`
+ * (#279) begin a sub-path and return the same builder; `anyOf(A, B)` goes inside `.acceptedBy(…)`.
  */
 
 export { FlowSyntaxError } from "./path-builder.js";
+export { anyOf } from "./quorum-step.js";
 
 /** A path from a start: `start(S).returns(InputDto)…`. */
 export function start<const TClass extends Class>(
@@ -130,4 +135,16 @@ export function toFinish<const TClass extends Class>(
 ): SidePath;
 export function toFinish(target: Class): PathBuilder<undefined> {
   return sidePath().toFinish(target);
+}
+
+/**
+ * One group of `.joinQuorumGroups(…)` (#279): `group(LegalAgent, CriticAgent).priority(1)
+ * .returns(…)….to…(…)` — complete when every place is counted (a repeat needs one more copy); it
+ * names its values and continues its own path.
+ */
+export function group<const TAgents extends readonly [Class, ...Class[]]>(
+  ...agents: TAgents & LaunchCheck<TAgents, NodeKind.Agent>
+): GroupStart<TargetNames<TAgents>>;
+export function group(...agents: readonly Class[]): unknown {
+  return groupFrom(agents);
 }

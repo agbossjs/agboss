@@ -1,5 +1,5 @@
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import { NodeKind, type JoinStep, type LaunchStep, type Step } from "../ast.js";
+import { NodeKind, QuorumKind, type JoinStep, type LaunchStep, type Step } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
 import {
   failurePolicyOf,
@@ -10,7 +10,7 @@ import {
   type AnyRouterRoute,
   type RouterOptions,
 } from "../decorators/router.js";
-import { isValueShape, Wrapper, type ListWrapper } from "../dto-wrappers.js";
+import { Wrapper, type ListWrapper } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import {
   EdgeKind,
@@ -24,8 +24,16 @@ import {
 } from "./flow-graph.js";
 import { joinGroupsOf, type NodeLookup } from "./join-groups.js";
 import type { NodeTable } from "./nodes.js";
+import { countQuorumGroupsOf, joinValuesOf } from "./quorum-joins.js";
 import type { Cursor } from "./walk-cursor.js";
-import { MentionKind, type JoinErrorSite, type Mention, type Placement } from "./walked-flow.js";
+import { walkGroups } from "./walk-quorum.js";
+import {
+  MentionKind,
+  type JoinErrorSite,
+  type Mention,
+  type Placement,
+  type QuorumSite,
+} from "./walked-flow.js";
 
 /**
  * How the walk reads a launch and its join (#273): the distinct targets with their copies and — on
@@ -86,6 +94,7 @@ export function launchOf(
     ...(step.maxConcurrency === undefined ? {} : { maxConcurrency: step.maxConcurrency }),
     ...(step.maxItems === undefined ? {} : { maxItems: step.maxItems }),
     isRouterLaunch: launcher.kind === NodeKind.Router,
+    ...(step.acceptedBy === undefined ? {} : { acceptedBy: step.acceptedBy }),
   };
 }
 
@@ -95,13 +104,17 @@ export function itemWrites(launch: FlowLaunch): readonly ValueWrite[] {
   return typeof element === "function" ? [valueWrite(element, undefined, false)] : [];
 }
 
-/** The join of a launch: the values written after `.join()`, and what the branches give. */
+/**
+ * The join of a launch: the values written after `.join()`, and what the branches give — after
+ * `.joinQuorum(…)` the answers a quorum may leave out are optional (#279).
+ */
 export function joinEdgeOf(launch: FlowLaunch, step: JoinStep, nodeOf: NodeLookup): JoinEdge {
   const written = step.returns.map((value) => value.shape);
-  const values = step.returns.flatMap((value) =>
-    isValueShape(value.shape) ? [valueWrite(value.shape, value.about, false)] : [],
-  );
-  return { launch, values, written, groups: joinGroupsOf(launch, nodeOf) };
+  const values = joinValuesOf(step.returns);
+  const { quorum } = step;
+  if (quorum?.kind !== QuorumKind.Count)
+    return { launch, values, written, groups: joinGroupsOf(launch, nodeOf) };
+  return { launch, values, written, groups: countQuorumGroupsOf(launch, quorum, nodeOf), quorum };
 }
 
 /** What the walker keeps that a launch and its join add to. */
@@ -112,6 +125,7 @@ export interface LaunchRecorder {
   readonly mentions: Mention[];
   readonly launches: FlowLaunch[];
   readonly joinErrorHandlers: JoinErrorSite[];
+  readonly quorumJoins: QuorumSite[];
   readonly violations: RuleViolation[];
 }
 
@@ -156,6 +170,9 @@ export function walkJoin(
     const message = `${current}: .onJoinError(${handler.error.name}, …) leads nowhere — start it with toAction(…) or toFinish(…)`;
     walker.violations.push(violation("graph.dead-end", message, [current]));
   }
+  const { quorum } = step;
+  if (quorum !== undefined) walker.quorumJoins.push({ node: current, launch, quorum });
+  if (quorum?.kind === QuorumKind.Groups) return walkGroups(walker, quorum, cursor, walkSide);
   const join = joinEdgeOf(launch, step, (name) => walker.table.node(name));
   return { ...cursor, entry: EdgeKind.Join, join };
 }

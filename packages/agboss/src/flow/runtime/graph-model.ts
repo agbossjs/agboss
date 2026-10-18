@@ -17,6 +17,7 @@ import {
 import type { ComponentName } from "../registry.js";
 import { launchesOf, type RuntimeLaunch } from "./launch/runtime-launch.js";
 import { runtimeProvenanceOf, type RuntimeProvenance } from "./provenance.js";
+import { rejectQuorums } from "./quorum-not-runnable.js";
 
 /**
  * A v2 workflow as its runtime reads it (#272 → Runtime): every node with its fields and its
@@ -135,6 +136,7 @@ export function runtimeGraphOf(
   type: Class,
 ): RuntimeGraph {
   rejectChildren(analysis);
+  rejectQuorums(analysis);
   const nodes = new Map<string, RuntimeNode>();
   for (const node of analysis.graph.nodes.values()) {
     const maxVisits = maxVisitsOf(node.declaration);

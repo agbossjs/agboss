@@ -35,7 +35,16 @@ export interface CaseHead<TValue> {
 export interface SideHead {
   readonly side: true;
 }
-export type PathHead = SourceHead | RouteHead | CaseHead<unknown> | SideHead;
+/**
+ * A `group(…)` of `.joinQuorumGroups(…)` (#279): the agents' names as listed and the values its
+ * `.returns(…)` chain named, checked by `.joinQuorumGroups(…)` against its `JoinOutputs` entry.
+ */
+export interface GroupHead<TNames extends string, TGiven extends readonly unknown[]> {
+  readonly group: TNames;
+  readonly given: TGiven;
+}
+export type PathHead =
+  SourceHead | RouteHead | CaseHead<unknown> | SideHead | GroupHead<string, readonly unknown[]>;
 
 /** A path as built so far: a `FlowPath` from a source, a `SubPath` otherwise, its head in its type. */
 export type BuiltPath<THead extends PathHead> = (THead extends SourceHead ? FlowPath : SubPath) & {
@@ -105,6 +114,13 @@ export type TargetCheck<TClass extends Class, TKind extends NodeKind, TLabel ext
 /** The values of the cases of a `.switch(…)`. */
 type CaseValueOf<TPath> = TPath extends { readonly [pathHead]?: CaseHead<infer TValue> }
   ? TValue
+  : never;
+
+/** The group a path was built from (`group(…)…`, #279); `never` for any other path. */
+export type GroupOfPath<TPath> = TPath extends {
+  readonly [pathHead]?: GroupHead<infer TNames, infer TGiven>;
+}
+  ? GroupHead<TNames, TGiven>
   : never;
 
 export type SwitchCheck<TCases extends readonly CasePath[], TOutput> = [

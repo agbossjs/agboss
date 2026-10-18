@@ -15,6 +15,7 @@ import { shapeLabel } from "../labels.js";
 import { slotOf, slotOfValue, SlotStatus, type SlotState } from "../scope.js";
 import { aboutTargetsOf } from "./about.js";
 import type { AnalysisContext } from "./context.js";
+import { leftOutHint } from "./quorum-inputs.js";
 
 /**
  * The input rules of #270, proved on the reachable abstract scopes (S10): a required field absent
@@ -51,6 +52,20 @@ function pathTo(context: AnalysisContext, node: ComponentName, state: ScopeState
   return witnessPath(context.dataflow, { node, key: state.key }).join(" → ");
 }
 
+/** The quorum hint of a missing value (#279): who may be left out, and the fix. */
+const quorumHint = (
+  context: AnalysisContext,
+  node: ComponentName,
+  field: ResolvedField,
+  state: ScopeState,
+): string =>
+  leftOutHint(
+    context.graph,
+    field,
+    shapeLabel(innerShape(field.shape)),
+    witnessPath(context.dataflow, { node, key: state.key }),
+  );
+
 /** A field with no value to read on a path: several from a join, else not produced or outdated. */
 function missingViolation(
   context: AnalysisContext,
@@ -71,7 +86,7 @@ function missingViolation(
   const message =
     missing.slot.status === SlotStatus.Outdated
       ? `${field.label} has no current ${inner} on the path ${path} — the latest one is outdated; renew it on that path before ${node}`
-      : `${field.label} is not produced on the path ${path}`;
+      : `${field.label} is not produced on the path ${path}${quorumHint(context, node, field, missing.state)}`;
   return violation("input.missing-on-path", message, [node]);
 }
 

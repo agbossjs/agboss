@@ -7,7 +7,9 @@
 export {
   action,
   agent,
+  anyOf,
   caseOf,
+  group,
   route,
   router,
   start,
@@ -24,6 +26,7 @@ export type {
   CaseHead,
   CasePath,
   ErrorHandling,
+  GroupHead,
   PathHead,
   ReturnsOptions,
   RouteContinuation,
@@ -38,6 +41,7 @@ export type {
 } from "../flow/builder-types.js";
 export type { JoinValues, Returning, StepValues, ValuesSource } from "../flow/returns-types.js";
 export type {
+  AgentsLaunched,
   JoinErrorHandling,
   Joined,
   Launched,
@@ -47,19 +51,37 @@ export type {
   RouterLaunches,
   WorkflowLaunchOptions,
 } from "../flow/launch-types.js";
+export type {
+  GroupPath,
+  GroupStart,
+  GroupValues,
+  GroupsJoined,
+  QuorumGroupsOptions,
+  QuorumJoined,
+  QuorumOptions,
+  Quorums,
+} from "../flow/quorum-types.js";
+export type { AnyOfArbiters, ArbiterChoice } from "../flow/quorum-step.js";
 export {
   NodeKind,
+  QuorumKind,
   StepKind,
+  type AcceptedBy,
+  type ArbiterClass,
   type ChooseOneRoute,
   type ChooseOneStep,
+  type CountQuorum,
   type ErrorClass,
   type FlowPath,
+  type GroupsQuorum,
   type JoinErrorHandler,
   type JoinStep,
   type LaunchStep,
   type LaunchTargetKind,
   type OnErrorStep,
   type PathSource,
+  type Quorum,
+  type QuorumGroup,
   type ReturnedValue,
   type ReturnsStep,
   type Step,
@@ -70,6 +92,18 @@ export {
 } from "../flow/ast.js";
 export { Agent, RagMode, type AgentOptions, type AgentRag } from "../flow/decorators/agent.js";
 export { Action, type ActionOptions } from "../flow/decorators/action.js";
+export {
+  Arbiter,
+  OnAnswer,
+  type AnswerJudgement,
+  type ArbiterAnswerOf,
+  type ArbiterCriterion,
+  type ArbiterDecorator,
+  type ArbiterOptions,
+  type CodeArbiterOptions,
+  type ModelArbiterOptions,
+  type OnAnswerDecorator,
+} from "../flow/decorators/arbiter.js";
 export {
   DecidedBy,
   FailurePolicy,

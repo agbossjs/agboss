@@ -5,6 +5,7 @@ import { launchLabel } from "../join-groups.js";
 import { dtoLabel, shapeLabel } from "../labels.js";
 import { slotOfDto } from "../scope.js";
 import type { AnalysisContext } from "./context.js";
+import { quorumReturnsViolations } from "./quorum-returns.js";
 import { chain, sorted } from "./returns.js";
 import { launchViolations } from "./router-launch.js";
 import { routeSetViolations, type RouteListing } from "./routers.js";
@@ -72,8 +73,9 @@ function continuedBranches(context: AnalysisContext): readonly RuleViolation[] {
   return [...found.values()];
 }
 
-/** `.join().returns(…)` against what the branches give. */
+/** `.join().returns(…)` against what the branches give (a quorum's: `quorumReturnsViolations`). */
 function joinReturnsViolations(join: JoinEdge): readonly RuleViolation[] {
+  if (join.quorum !== undefined) return quorumReturnsViolations(join);
   const label = launchLabel(join.launch);
   const nodes = [join.launch.launcher];
   const problems = join.groups.flatMap((group) =>

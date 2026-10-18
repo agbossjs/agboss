@@ -1,6 +1,7 @@
 import type {
   ChooseOneStep,
   JoinErrorHandler,
+  Quorum,
   OnErrorStep,
   PathSource,
   Step,
@@ -51,6 +52,13 @@ export interface JoinErrorSite {
   readonly handler: JoinErrorHandler;
 }
 
+/** A quorum join (#279) and the launch it counts the answers of. */
+export interface QuorumSite {
+  readonly node: ComponentName;
+  readonly launch: FlowLaunch;
+  readonly quorum: Quorum;
+}
+
 export interface WalkedFlow {
   readonly graph: FlowGraph;
   readonly mentions: readonly Mention[];
@@ -61,5 +69,7 @@ export interface WalkedFlow {
   /** Every parallel launch, in the order written (#273). */
   readonly launches: readonly FlowLaunch[];
   readonly joinErrorHandlers: readonly JoinErrorSite[];
+  /** Every `.joinQuorum(…)` / `.joinQuorumGroups(…)`, in the order written (#279). */
+  readonly quorumJoins: readonly QuorumSite[];
   readonly violations: readonly RuleViolation[];
 }
