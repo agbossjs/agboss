@@ -1,7 +1,7 @@
 import { callerFile } from "../../components/call-site.js";
 import type { ResolvedAll, Token } from "../../components/injection.js";
 import { NodeKind } from "../ast.js";
-import type { DeclaredOutput } from "../dto-wrappers.js";
+import type { OutputShape } from "../dto-wrappers.js";
 import { declared, recordDeclaration, type InputFields } from "./declaration.js";
 
 /**
@@ -14,8 +14,8 @@ export interface ActionOptions<TDeps extends readonly Token[] = readonly Token[]
   readonly name: string;
   readonly description: string;
   readonly input?: InputFields;
-  /** What it returns: a shape, or `about(TargetDto, shape)` (#271). */
-  readonly output?: DeclaredOutput;
+  /** What it returns; what the values are about is said in the flow (#299). */
+  readonly output?: OutputShape;
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
   readonly deps?: TDeps;
 }

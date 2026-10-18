@@ -1,7 +1,12 @@
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
 import type { NodeKind } from "../ast.js";
-import { isWrapper, type ListWrapper, type OptionalWrapper } from "../dto-wrappers.js";
+import {
+  isWrapper,
+  type HistoryWrapper,
+  type ListWrapper,
+  type OptionalWrapper,
+} from "../dto-wrappers.js";
 import type { ActionOptions } from "./action.js";
 import type { AgentOptions } from "./agent.js";
 import type { RouterOptions } from "./router.js";
@@ -14,15 +19,19 @@ import type { WorkflowStartOptions } from "./workflow-start.js";
  * file it is declared in. Components declare types only (#270): no producer is named anywhere.
  */
 
-/** One input field's type: `XDto`, `optional(…)` or `listOf(…)` — a type, never a producer. */
-export type InputFieldShape = DtoClass | ListWrapper | OptionalWrapper;
+/**
+ * One input field's type: `XDto`, `optional(…)`, `listOf(…)` or `historyOf(XDto)` (the current value
+ * and its earlier versions, #299) — a type, never a producer.
+ */
+export type InputFieldShape = DtoClass | ListWrapper | OptionalWrapper | HistoryWrapper;
 
 /** A component's `input`: field name → its type (`{ draft: OfferDraftDto, legal: optional(…) }`). */
 export type InputFields = Readonly<Record<string, InputFieldShape>>;
 
 /** Whether a start's `input` is a map of fields (not one DTO, not a list). */
-export const isFieldMap = (input: DtoClass | ListWrapper | InputFields): input is InputFields =>
-  typeof input !== "function" && !isWrapper(input);
+export const isFieldMap = <TFields extends InputFields>(
+  input: DtoClass | ListWrapper | TFields,
+): input is TFields => typeof input !== "function" && !isWrapper(input);
 
 /** A declaration of one kind: the options as written and the declaring file (`promptUrls`, …). */
 export interface Declared<TKind extends NodeKind, TOptions> {

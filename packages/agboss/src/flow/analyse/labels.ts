@@ -3,8 +3,9 @@ import type { DtoClass } from "../../dto/types.js";
 import { NodeKind, type PathSource } from "../ast.js";
 import {
   Wrapper,
-  type DeclaredOutput,
+  type HistoryWrapper,
   type OneOfWrapper,
+  type OutputShape,
   type ValueShape,
 } from "../dto-wrappers.js";
 
@@ -20,8 +21,8 @@ export const classLabel = (component: Class): string => component.name || "(anon
 export const sortedVariants = (wrapper: OneOfWrapper): readonly DtoClass[] =>
   [...wrapper.variants].sort((first, second) => dtoLabel(first).localeCompare(dtoLabel(second)));
 
-/** A shape as it is written: `XDto`, `listOf(XDto)`, `optional(…)`, `oneOf(A, B)`, `about(T, …)`. */
-export function shapeLabel(shape: ValueShape | DeclaredOutput): string {
+/** A shape as it is written: `XDto`, `listOf(XDto)`, `optional(…)`, `oneOf(A, B)`, `historyOf(X)`. */
+export function shapeLabel(shape: ValueShape | OutputShape | HistoryWrapper): string {
   if (typeof shape === "function") return dtoLabel(shape);
   switch (shape.kind) {
     case Wrapper.List:
@@ -30,8 +31,10 @@ export function shapeLabel(shape: ValueShape | DeclaredOutput): string {
       return `optional(${shapeLabel(shape.inner)})`;
     case Wrapper.OneOf:
       return `oneOf(${sortedVariants(shape).map(dtoLabel).join(", ")})`;
-    case Wrapper.About:
-      return `about(${dtoLabel(shape.about)}, ${shapeLabel(shape.shape)})`;
+    case Wrapper.History:
+      return shape.limit === undefined
+        ? `historyOf(${dtoLabel(shape.dto)})`
+        : `historyOf(${dtoLabel(shape.dto)}, { limit: ${String(shape.limit)} })`;
   }
 }
 
@@ -53,5 +56,13 @@ export function sourceCallOf(kind: NodeKind): string {
 }
 
 /** A path as a message names it: `start(OfferWorkflowStart)`, `agent(ReviewerAgent)`. */
+/** `{ about: PlanDto }`, `{ about: [PlanDto, BudgetDto] }` — as the flow writes it (#299). */
+export function aboutLabel(about: readonly DtoClass[]): string {
+  const [one] = about;
+  const targets =
+    about.length === 1 && one !== undefined ? dtoLabel(one) : `[${about.map(dtoLabel).join(", ")}]`;
+  return `{ about: ${targets} }`;
+}
+
 export const pathLabel = (source: PathSource): string =>
   `${sourceCallOf(source.kind)}(${classLabel(source.node)})`;

@@ -84,6 +84,7 @@ export class TicketStart {}
     start(TicketStart)
       .returns(TicketDto)
       .toAction(ClassifyAction)
+      .returns(oneOf(BugDto, QuestionDto))
       .switch(
         caseOf(BugDto)
           .toFinish(ReportFinish),

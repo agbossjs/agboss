@@ -1,5 +1,5 @@
 import type { Class } from "../components/injection.js";
-import { shapeLabel } from "./analyse/labels.js";
+import { aboutLabel, shapeLabel } from "./analyse/labels.js";
 import {
   NodeKind,
   StepKind,
@@ -38,11 +38,9 @@ const TO_CALL: Readonly<Record<NodeKind, string>> = {
 const sourceCall = (source: PathSource): string =>
   source.kind === NodeKind.Start ? "start" : source.kind;
 
-const valuesText = (values: readonly ReturnedValue[]): string => {
-  const shapes = values.map((value) => shapeLabel(value.shape));
-  const tag = values.find((value) => value.as !== undefined)?.as;
-  return [...shapes, ...(tag === undefined ? [] : [`{ as: "${tag}" }`])].join(", ");
-};
+/** `XDto`, `XDto, { about: PlanDto }` — a `.returns(…)` or a `caseOf(…)`'s arguments. */
+const valueText = (value: Pick<ReturnedValue, "about"> & { readonly label: string }): string =>
+  value.about === undefined ? value.label : `${value.label}, ${aboutLabel(value.about)}`;
 
 class Printer {
   readonly lines: string[] = [];
@@ -86,7 +84,10 @@ class Printer {
   private step(step: Step, depth: number): void {
     switch (step.kind) {
       case StepKind.Returns:
-        this.line(depth, `.returns(${valuesText(step.values)})`);
+        this.line(
+          depth,
+          `.returns(${valueText({ ...step.value, label: shapeLabel(step.value.shape) })})`,
+        );
         return;
       case StepKind.To:
         this.line(depth, `.${TO_CALL[step.targetKind]}(${this.label(step.target)})`);
@@ -94,8 +95,7 @@ class Printer {
       case StepKind.Switch:
         this.line(depth, ".switch(");
         step.cases.forEach((branch, index) => {
-          const tag = branch.tag === undefined ? "" : `, { as: "${branch.tag}" }`;
-          const head = `caseOf(${branch.dto.name}${tag})`;
+          const head = `caseOf(${valueText({ ...branch, label: branch.dto.name })})`;
           this.branch(head, branch.path.steps, depth + 1, index === step.cases.length - 1);
         });
         this.line(depth, ")");

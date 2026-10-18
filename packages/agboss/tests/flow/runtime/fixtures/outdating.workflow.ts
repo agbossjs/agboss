@@ -13,7 +13,7 @@ import {
   type ToolHandler,
   type ValuesOutdatedEvent,
 } from "../../../../src/index.js";
-import { about, oneOf, optional } from "../../../../src/flow/dto-wrappers.js";
+import { oneOf, optional } from "../../../../src/flow/dto-wrappers.js";
 import { agent, caseOf, route, start } from "../../../helpers/flow.js";
 import { DraftChangesDto } from "../../fixtures/data-dtos.js";
 import { ArticleDto, ArticleRequestDto } from "../../fixtures/dtos.js";
@@ -30,8 +30,8 @@ import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 
 /**
- * #271 PR 2 — workflows that outdate at run time: the review loop of the issue (`about(DraftDto, …)`
- * on the reviewer, which may pause on a tool) and a job search without a cycle, where a new profile
+ * #271 PR 2 — workflows that outdate at run time: the review loop of the issue (the reviewer's
+ * answers `{ about: DraftDto }` in the flow, #299; it may pause on a tool) and a job search without a cycle, where a new profile
  * outdates the jobs found for the old one, their scores and the pick (three levels). Every cascade
  * is seen by `OutdatingLog`.
  */
@@ -105,7 +105,7 @@ export class LoopWriterAgent {}
   maxVisits: 8,
   tools: [AskEditorTool],
   input: { draft: DraftDto },
-  output: about(DraftDto, oneOf(ApprovalDto, DraftChangesDto)),
+  output: oneOf(ApprovalDto, DraftChangesDto),
 })
 export class LoopReviewerAgent {}
 
@@ -138,10 +138,11 @@ export class LoopWorkflowFinish {}
     agent(LoopWriterAgent)
       .returns(DraftDto)
       .toAgent(LoopReviewerAgent)
+      .returns(oneOf(ApprovalDto, DraftChangesDto))
       .switch(
-        caseOf(DraftChangesDto)
+        caseOf(DraftChangesDto, { about: DraftDto })
           .toAgent(LoopWriterAgent),
-        caseOf(ApprovalDto)
+        caseOf(ApprovalDto, { about: DraftDto })
           .toAgent(LoopPublisherAgent)
           .returns(ArticleDto)
           .toFinish(LoopWorkflowFinish),

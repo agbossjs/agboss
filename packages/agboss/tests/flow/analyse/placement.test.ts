@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import {
@@ -43,6 +44,7 @@ const reviewSwitch = () =>
       .toAgent(DraftKitAgent)
       .returns(OfferDraftDto)
       .toAgent(ReviewKitAgent)
+      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
       .switch(...reviewSwitch()),
   ],
 })
@@ -57,7 +59,9 @@ class InlineSharedWorkflow {}
       .toAgent(DraftKitAgent)
       .returns(OfferDraftDto)
       .toAgent(ReviewKitAgent),
-    agent(ReviewKitAgent).switch(...reviewSwitch()),
+    agent(ReviewKitAgent)
+      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
+      .switch(...reviewSwitch()),
   ],
 })
 class OwnPathWorkflow {}

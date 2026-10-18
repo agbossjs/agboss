@@ -90,6 +90,7 @@ export const chatPaths = [
   router(MainRouter)
     .chooseOne(
       route(ProfilerAgent)
+        .returns(oneOf(ProfileDto, ResumeMissingDto))
         .switch(
           caseOf(ProfileDto)
             .toRouter(MainRouter),

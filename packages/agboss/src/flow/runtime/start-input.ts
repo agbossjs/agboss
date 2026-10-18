@@ -4,8 +4,8 @@ import { validate } from "../../dto/schema.js";
 import type { DtoClass } from "../../dto/types.js";
 import { WorkflowStartTextDto } from "../../dto/standard/framework.js";
 import { NodeKind } from "../ast.js";
-import { isFieldMap, type InputFieldShape } from "../decorators/declaration.js";
-import { Wrapper, type ListWrapper } from "../dto-wrappers.js";
+import { isFieldMap } from "../decorators/declaration.js";
+import { Wrapper, type ListWrapper, type ValueShape } from "../dto-wrappers.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 
 /**
@@ -25,7 +25,7 @@ function validList(list: ListWrapper, value: unknown, field: string): unknown[] 
   return (value as readonly unknown[]).map((item) => validate(dto, item));
 }
 
-function validField(shape: InputFieldShape, value: unknown, field: string): unknown {
+function validField(shape: ValueShape, value: unknown, field: string): unknown {
   if (typeof shape === "function") return validate(shape, value);
   if (shape.kind === Wrapper.List) return validList(shape, value, field);
   return value === undefined ? undefined : validField(shape.inner, value, field);

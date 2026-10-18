@@ -4,6 +4,7 @@ import type { DtoClass } from "../../src/dto/types.js";
 import { NodeKind, type PathSource } from "../../src/flow/ast.js";
 import type { ReturnsOptions } from "../../src/flow/builder-types.js";
 import {
+  aboutTargets,
   fromComponent,
   fromSource,
   subPathFrom,
@@ -32,10 +33,10 @@ export const action = (source: Class): PathBuilder<PathSource> =>
 export const route = (target: Class): PathBuilder<undefined> =>
   subPathFrom({ kind: "route", target });
 
-export const caseOf = (dto: DtoClass, options?: ReturnsOptions): PathBuilder<undefined> =>
-  subPathFrom(
-    options?.as === undefined ? { kind: "case", dto } : { kind: "case", dto, tag: options.as },
-  );
+export const caseOf = (dto: DtoClass, options?: ReturnsOptions): PathBuilder<undefined> => {
+  const about = aboutTargets(options);
+  return subPathFrom(about === undefined ? { kind: "case", dto } : { kind: "case", dto, about });
+};
 
 const side = (): PathBuilder<undefined> => subPathFrom({ kind: "side" });
 

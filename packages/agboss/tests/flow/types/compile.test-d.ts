@@ -1,6 +1,13 @@
 import { describe, expectTypeOf, it } from "vitest";
 import { agent, caseOf, start } from "../../../src/flow/builder.js";
-import { listOf, optional, type Produced } from "../../../src/flow/dto-wrappers.js";
+import {
+  historyOf,
+  listOf,
+  oneOf,
+  optional,
+  type HistoryOf,
+  type Produced,
+} from "../../../src/flow/dto-wrappers.js";
 import type {
   DtoBrands,
   InputOf,
@@ -16,7 +23,19 @@ import {
   LoyaltyOfferDto,
   SearchRequestDto,
 } from "../fixtures/data-dtos.js";
-import { OfferDraftDto, ProfileDto, ShortlistDto } from "../fixtures/dtos.js";
+import {
+  ChangesRequestedDto,
+  DraftApprovedDto,
+  OfferDraftDto,
+  ProfileDto,
+  ShortlistDto,
+} from "../fixtures/dtos.js";
+import {
+  DraftEditorAgent,
+  DraftHistoryWorkflowFinish,
+  FirstDraftAgent,
+  ReviewDraftAction,
+} from "../fixtures/history.fixture.js";
 import {
   ApprovedVerdictDto,
   ApprovedWorkflowFinish,
@@ -24,7 +43,12 @@ import {
   RejectedWorkflowFinish,
   VerdictAgent,
 } from "../fixtures/markers.fixture.js";
-import { DraftAgent, EditorAgent, ReviewerAgent } from "../fixtures/offer.fixture.js";
+import {
+  DraftAgent,
+  EditorAgent,
+  ReviewerAgent,
+  SendOfferAction,
+} from "../fixtures/offer.fixture.js";
 import {
   BatchRankAgent,
   CompanyBatchWorkflowStart,
@@ -43,19 +67,75 @@ import {
  * test: tsc fails this file if the line compiles.
  */
 
-describe("#270 AC6: returns and caseOf against ProducerOutputs", () => {
-  it("a map start returns all its fields at once, in any order", () => {
-    start(CompanyCheckWorkflowStart).returns(CompanyDto, optional(SearchRequestDto));
-    start(CompanyCheckWorkflowStart).returns(optional(SearchRequestDto), CompanyDto);
-    // @ts-expect-error — the start gives a CompanyDto and an optional SearchRequestDto
-    start(CompanyCheckWorkflowStart).returns(CompanyDto);
+describe("#270 AC6, #299 S54: returns and caseOf against ProducerOutputs", () => {
+  it("a map start names its fields in a chain of .returns, in any order", () => {
+    start(CompanyCheckWorkflowStart)
+      .returns(CompanyDto)
+      .returns(optional(SearchRequestDto))
+      .toAgent(CompanyCheckAgent);
+    start(CompanyCheckWorkflowStart)
+      .returns(optional(SearchRequestDto))
+      .returns(CompanyDto)
+      .toAgent(CompanyCheckAgent);
+    // @ts-expect-error — the start gives an optional SearchRequestDto too: name it before .toAgent
+    start(CompanyCheckWorkflowStart).returns(CompanyDto).toAgent(CompanyCheckAgent);
     // @ts-expect-error — the request is optional(SearchRequestDto), not a SearchRequestDto
-    start(CompanyCheckWorkflowStart).returns(CompanyDto, SearchRequestDto);
+    start(CompanyCheckWorkflowStart).returns(CompanyDto).returns(SearchRequestDto);
+    // @ts-expect-error — the CompanyDto is named already
+    start(CompanyCheckWorkflowStart).returns(CompanyDto).returns(CompanyDto);
+    const named = start(CompanyCheckWorkflowStart)
+      .returns(CompanyDto)
+      .returns(optional(SearchRequestDto));
     // @ts-expect-error — the start gives two values, not three
-    start(CompanyCheckWorkflowStart).returns(CompanyDto, optional(SearchRequestDto), ProfileDto);
+    named.returns(ProfileDto);
     expectTypeOf<ProducerOutputOf<CompanyCheckWorkflowStart>>().toEqualTypeOf<
       readonly [CompanyDto, SearchRequestDto | undefined]
     >();
+  });
+
+  it("AC3: one value per .returns — the multi-argument form and { as } do not compile", () => {
+    // @ts-expect-error — several values are a chain: .returns(CompanyDto).returns(optional(…))
+    start(CompanyCheckWorkflowStart).returns(CompanyDto, optional(SearchRequestDto));
+    // @ts-expect-error — no string tags (#299 S56): { as } is gone
+    agent(DraftAgent).returns(OfferDraftDto, { as: "before" });
+    // @ts-expect-error — { about } names DTO classes
+    agent(DraftAgent).returns(OfferDraftDto, { about: "ShortlistDto" });
+    // @ts-expect-error — a start's input is no answer about anything: no { about } after a start
+    start(CompanyBatchWorkflowStart).returns(listOf(CompanyDto), { about: ShortlistDto });
+    agent(DraftAgent).returns(OfferDraftDto, { about: ShortlistDto });
+    agent(DraftAgent).returns(OfferDraftDto, { about: [ShortlistDto, ProfileDto] });
+  });
+
+  it("AC3: { about } goes on the case of a oneOf, never on .returns(oneOf(…))", () => {
+    const reviewed = agent(ReviewerAgent);
+    // @ts-expect-error — the variants mean different things: write caseOf(X, { about })
+    reviewed.returns(oneOf(ChangesRequestedDto, DraftApprovedDto), { about: OfferDraftDto });
+    // @ts-expect-error — a oneOf output is .returns(oneOf(…)), then .switch(…)
+    reviewed.switch(
+      caseOf(ChangesRequestedDto).toAgent(EditorAgent),
+      caseOf(DraftApprovedDto).toAction(SendOfferAction),
+    );
+    // @ts-expect-error — after .returns(oneOf(…)) comes its .switch, not a transition
+    reviewed.returns(oneOf(ChangesRequestedDto, DraftApprovedDto)).toAgent(EditorAgent);
+    reviewed
+      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
+      .switch(
+        caseOf(ChangesRequestedDto, { about: OfferDraftDto }).toAgent(EditorAgent),
+        caseOf(DraftApprovedDto).toAction(SendOfferAction),
+      );
+  });
+
+  it("AC3: from(Dto, tag) does not exist; historyOf is HistoryOf<Produced<…>> in InputOf (AC4)", () => {
+    expectTypeOf<typeof import("../../../src/index.js")>().not.toHaveProperty("from");
+    expectTypeOf<typeof import("../../../src/index.js")>().not.toHaveProperty("about");
+    expectTypeOf<typeof import("../../../src/dto/index.js")>().not.toHaveProperty("about");
+    expectTypeOf<InputOf<ReviewDraftAction>>().toEqualTypeOf<{
+      draft: HistoryOf<Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>>;
+    }>();
+    expectTypeOf<InputOf<DraftHistoryWorkflowFinish>["drafts"]["previous"]>().toEqualTypeOf<
+      readonly Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>[]
+    >();
+    expectTypeOf(historyOf(OfferDraftDto, { limit: 2 }).limit).toEqualTypeOf<number | undefined>();
   });
 
   it("a list start returns its list; a single producer one value", () => {
@@ -63,11 +143,12 @@ describe("#270 AC6: returns and caseOf against ProducerOutputs", () => {
     // @ts-expect-error — the start gives a list of CompanyDto
     start(CompanyBatchWorkflowStart).returns(CompanyDto);
     const drafted = start(CompanyCheckWorkflowStart)
-      .returns(CompanyDto, optional(SearchRequestDto))
+      .returns(CompanyDto)
+      .returns(optional(SearchRequestDto))
       .toAgent(CompanyCheckAgent);
     drafted.returns(CompanyScoreDto);
     // @ts-expect-error — company-check-agent gives one CompanyScoreDto
-    drafted.returns(CompanyScoreDto, CompanyDto);
+    drafted.returns(CompanyScoreDto).returns(CompanyDto);
     expectTypeOf<ProducerOutputOf<CompanyBatchWorkflowStart>>().toEqualTypeOf<
       readonly CompanyDto[]
     >();
@@ -76,11 +157,12 @@ describe("#270 AC6: returns and caseOf against ProducerOutputs", () => {
 
 describe("S39: DTO brands tell two DTOs of the same shape apart", () => {
   it("a case for one of two same-shaped DTOs twice does not compile", () => {
-    agent(VerdictAgent).switch(
+    const verdict = agent(VerdictAgent).returns(oneOf(ApprovedVerdictDto, RejectedVerdictDto));
+    verdict.switch(
       caseOf(ApprovedVerdictDto).toFinish(ApprovedWorkflowFinish),
       caseOf(RejectedVerdictDto).toFinish(RejectedWorkflowFinish),
     );
-    agent(VerdictAgent).switch(
+    verdict.switch(
       // @ts-expect-error — the switch is not exhaustive: RejectedVerdictDto has no case
       caseOf(ApprovedVerdictDto).toFinish(ApprovedWorkflowFinish),
       caseOf(ApprovedVerdictDto).toFinish(RejectedWorkflowFinish),

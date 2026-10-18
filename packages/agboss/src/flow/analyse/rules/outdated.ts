@@ -3,7 +3,7 @@ import type { ComponentName } from "../../registry.js";
 import { statesOf, witnessSteps, type ScopeState, type WitnessStep } from "../dataflow.js";
 import type { ResolvedField } from "../fields.js";
 import { stepAlong, type OutdatingStep } from "../outdating.js";
-import { scopeKey, slotLabel, slotOf, SlotStatus, untaggedSlot, type SlotKey } from "../scope.js";
+import { scopeKey, slotLabel, slotOf, SlotStatus, type SlotKey } from "../scope.js";
 import type { AnalysisContext } from "./context.js";
 
 /**
@@ -11,7 +11,9 @@ import type { AnalysisContext } from "./context.js";
  * holds an outdated value in some reachable scope of its node. A field never reads an outdated
  * value and never falls back to an older one, so the graph does not assemble. The message names
  * the shortest path to that scope and the step that outdated the value: what it was built from (or
- * what it is about) and who replaced it.
+ * what it is about) and who replaced it. A `historyOf(XDto)` field is not checked here: its earlier
+ * versions are what it reads (#299 S56), and a path without a current `XDto` is
+ * `[input.missing-on-path]` (`data-inputs.ts`).
  */
 
 const isOutdated = (state: ScopeState, field: ResolvedField): boolean =>
@@ -70,9 +72,7 @@ function reasonOf(
   const [direct] = chain;
   const root = chain[chain.length - 1];
   if (site === undefined || direct === undefined || root === undefined) return "outdated";
-  const { aboutTargets } = context.dataflow.provenance;
-  const { producers } = slotOf(site.before.state.scope, field.slot);
-  const isAbout = producers.some((producer) => aboutTargets.get(producer) === untaggedSlot(direct));
+  const isAbout = slotOf(site.before.state.scope, field.slot).about.includes(direct);
   const how = `${isAbout ? "about" : "built from"} ${slotLabel(direct)}`;
   const writer = site.before.node;
   return direct === root
@@ -100,6 +100,8 @@ export function outdatedRules(context: AnalysisContext): readonly RuleViolation[
     const scopes = context.dataflow.scopes.get(node);
     // past the scope guard the states are incomplete: `[flow.analysis-too-large]` says so instead
     if (scopes === undefined || scopes.isTooLarge) return [];
-    return fields.flatMap((field) => fieldViolation(context, node, field) ?? []);
+    return fields
+      .filter((field) => field.history === undefined)
+      .flatMap((field) => fieldViolation(context, node, field) ?? []);
   });
 }

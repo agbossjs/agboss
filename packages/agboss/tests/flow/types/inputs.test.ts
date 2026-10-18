@@ -20,7 +20,6 @@ const field: ResolvedField = {
   label: "note-agent.note (NoteDto)",
   shape: NoteDto,
   ...slotOfField(NoteDto),
-  base: slotOfField(NoteDto).slot,
   isPassThrough: false,
 };
 const names = (): ImportTable =>
@@ -32,8 +31,11 @@ const componentOf = (): never => {
   throw new RangeError("no producer is written here");
 };
 const entry = (input: Partial<NodeInput>): string =>
-  inputEntry({ name, fields: [field], shapes: [], problems: [], ...input }, names(), componentOf)
-    .type;
+  inputEntry(
+    { name, fields: [field], shapes: [], versionProducers: new Map(), problems: [], ...input },
+    names(),
+    componentOf,
+  ).type;
 
 describe("#270 AC13: Inputs entries", () => {
   it("a node without input fields takes NoInput", () => {

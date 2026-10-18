@@ -96,7 +96,7 @@ export class RouterDecisionError extends RouterFailedError {
 export type RouterOptions = ModelRouterOptions | CodeRouterOptions;
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.unused-tag" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "di.infrastructure-in-workflow";
+export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "di.infrastructure-in-workflow";
 
 // @public
 export interface RuleViolation {
@@ -225,17 +225,17 @@ export interface WorkflowStartOptions {
 
 // Warnings were encountered during analysis:
 //
-// src/flow/ast.ts:66:3 - (ae-undocumented) Missing documentation for "kind".
-// src/flow/ast.ts:67:3 - (ae-undocumented) Missing documentation for "target".
-// src/flow/ast.ts:68:3 - (ae-undocumented) Missing documentation for "targetKind".
+// src/flow/ast.ts:72:3 - (ae-undocumented) Missing documentation for "kind".
+// src/flow/ast.ts:73:3 - (ae-undocumented) Missing documentation for "target".
+// src/flow/ast.ts:74:3 - (ae-undocumented) Missing documentation for "targetKind".
 // src/flow/decorators/workflow-finish.ts:15:3 - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/workflow-finish.ts:16:3 - (ae-undocumented) Missing documentation for "input".
 // src/flow/decorators/workflow-finish.ts:17:3 - (ae-undocumented) Missing documentation for "output".
 // src/flow/decorators/workflow-finish.ts:44:1 - (ae-undocumented) Missing documentation for "WorkflowFinish".
 // src/flow/decorators/workflow-finish.ts:47:1 - (ae-undocumented) Missing documentation for "WorkflowFinish".
-// src/flow/decorators/workflow-start.ts:15:3 - (ae-undocumented) Missing documentation for "description".
-// src/flow/decorators/workflow-start.ts:16:3 - (ae-undocumented) Missing documentation for "input".
-// src/flow/dto-wrappers.ts:86:1 - (ae-undocumented) Missing documentation for "optional".
+// src/flow/decorators/workflow-start.ts:16:3 - (ae-undocumented) Missing documentation for "description".
+// src/flow/decorators/workflow-start.ts:17:3 - (ae-undocumented) Missing documentation for "input".
+// src/flow/dto-wrappers.ts:96:1 - (ae-undocumented) Missing documentation for "optional".
 // src/flow/runtime/router-error.ts:55:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/router-error.ts:56:12 - (ae-undocumented) Missing documentation for "name".
 // src/graph/limits.ts:31:3 - (ae-undocumented) Missing documentation for "code".
@@ -246,11 +246,11 @@ export interface WorkflowStartOptions {
 // src/graph/limits.ts:36:3 - (ae-undocumented) Missing documentation for "path".
 // src/graph/limits.ts:37:3 - (ae-undocumented) Missing documentation for "spentUsd".
 // src/graph/limits.ts:38:3 - (ae-undocumented) Missing documentation for "usage".
-// src/graph/rule-error.ts:71:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:72:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:73:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:84:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:85:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:72:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:73:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:74:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:85:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:86:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:8:3 - (ae-undocumented) Missing documentation for "cost".
 // src/graph/settings.ts:13:3 - (ae-undocumented) Missing documentation for "cost".
 // src/graph/settings.ts:18:3 - (ae-undocumented) Missing documentation for "perRun".

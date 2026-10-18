@@ -4,7 +4,11 @@ import type { DtoClass } from "../../../src/dto/types.js";
 import type { SlotKey } from "../../../src/flow/analyse/scope.js";
 import type { ComponentName } from "../../../src/flow/registry.js";
 import { writeAndOutdate } from "../../../src/flow/runtime/outdating.js";
-import { builtFromOf, type RuntimeProvenance } from "../../../src/flow/runtime/provenance.js";
+import {
+  builtFromOf,
+  writtenProvenanceOf,
+  type RuntimeProvenance,
+} from "../../../src/flow/runtime/provenance.js";
 import type {
   OutdatedValueRecord,
   ScopeRecords,
@@ -16,7 +20,8 @@ import { CritiqueDto, DraftDto, PlanDto, ResearchDto } from "../fixtures/review-
 
 /**
  * #271 S40 — the runtime agrees with the reference model the analyser is checked against: random
- * producers (fields, an `about` target, or reading everything) and random sequences of their visits;
+ * producers (fields, a `{ about }` target on the flow's write of their value — #299 S54 — or
+ * reading everything) and random sequences of their visits;
  * after every write the scope holds exactly the reference's current values, each with the same live
  * sources (what it read, minus what its own write outdated), and `outdatedValues` exactly the
  * rest — every one naming a value of the write that outdated it as its root trigger.
@@ -43,14 +48,18 @@ const nameOf = (index: number): string => `p${String(index)}-agent`;
 const slotOf = (index: number): string => dtoAt(index).name;
 
 function provenanceOf(producers: readonly ProducerSpec[]): RuntimeProvenance {
-  const aboutTargets = new Map<string, string>();
   const readsEverything = new Set<string>();
   producers.forEach((spec, index) => {
-    if (spec.about !== undefined) aboutTargets.set(nameOf(index), slotOf(spec.about));
     if (spec.readsEverything) readsEverything.add(nameOf(index));
   });
-  return { aboutTargets, readsEverything };
+  return { readsEverything };
 }
+
+/** The flow's write of a producer's value: its class, `{ about }` when the spec has one. */
+const writeOf = (spec: ProducerSpec) =>
+  spec.about === undefined
+    ? { shape: dtoAt(spec.output), isCase: false }
+    : { shape: dtoAt(spec.output), about: [dtoAt(spec.about)], isCase: false };
 
 /** The runtime's side of one execution. */
 interface RuntimeRun {
@@ -71,8 +80,9 @@ function runtimeWrite(
   const producer = nameOf(index);
   const slot = slotOf(spec.output);
   const read = spec.reads.flatMap((dto) => run.scope[slotOf(dto)]?.valueId ?? []);
-  const writes = [{ shape: dtoAt(spec.output), isCase: false }];
-  const builtFrom = builtFromOf({ producer, read, writes }, run.scope, provenance);
+  const write = writeOf(spec);
+  const sources = builtFromOf({ producer, read, writes: [write] }, run.scope, provenance);
+  const { builtFrom, about } = writtenProvenanceOf(sources, write, run.scope);
   const visit = (run.visits.get(producer) ?? 0) + 1;
   run.visits.set(producer, visit);
   const written: ScopeValueRecord = {
@@ -81,8 +91,9 @@ function runtimeWrite(
     producer,
     value: {},
     builtFrom,
+    ...(about.length === 0 ? {} : { about }),
   };
-  const outcome = writeAndOutdate(run.scope, { [slot]: written }, provenance);
+  const outcome = writeAndOutdate(run.scope, { [slot]: written });
   for (const value of outcome.outdated)
     if (value.outdated.byValueId !== written.valueId)
       run.problems.push(`${value.valueId} has another root`);
@@ -115,13 +126,7 @@ describe("#271 S40: the runtime against the reference model", () => {
         fc.array(fc.nat({ max: 9 }), { minLength: 1, maxLength: 40 }),
         (producers, visits) => {
           const provenance = provenanceOf(producers);
-          const aboutTargets = new Map(
-            [...provenance.aboutTargets].map(([name, slot]) => [
-              name as ComponentName,
-              slot as SlotKey,
-            ]),
-          );
-          const reference = new Run(aboutTargets);
+          const reference = new Run();
           const run: RuntimeRun = {
             scope: {},
             outdated: [],
@@ -136,10 +141,12 @@ describe("#271 S40: the runtime against the reference model", () => {
             const reads = spec.readsEverything
               ? reference.currentSlots()
               : spec.reads.map((dto) => slotOf(dto) as SlotKey);
+            const about = spec.about === undefined ? undefined : (slotOf(spec.about) as SlotKey);
             reference.write(
               nameOf(index) as ComponentName,
               [slotOf(spec.output) as SlotKey],
               reads,
+              about,
             );
             runtimeWrite(run, spec, index, provenance);
             expect(runtimeScope(run)).toEqual(referenceScope(reference, run.ids));

@@ -59,14 +59,15 @@ export {
 } from "./standard/domain.js";
 /** The DTO wrappers of the flow (#272): the same values as the root entry's. */
 export {
-  about,
+  historyOf,
   isVariant,
   listOf,
   oneOf,
   optional,
   variant,
-  type AboutWrapper,
-  type DeclaredOutput,
+  type HistoryOf,
+  type HistoryOptions,
+  type HistoryWrapper,
   type ListWrapper,
   type OneOfWrapper,
   type OptionalWrapper,

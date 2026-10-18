@@ -85,16 +85,16 @@ export interface WorkflowStartOptions {
 
 // Warnings were encountered during analysis:
 //
-// src/flow/ast.ts:66:3 - (ae-undocumented) Missing documentation for "kind".
-// src/flow/ast.ts:67:3 - (ae-undocumented) Missing documentation for "target".
-// src/flow/ast.ts:68:3 - (ae-undocumented) Missing documentation for "targetKind".
+// src/flow/ast.ts:72:3 - (ae-undocumented) Missing documentation for "kind".
+// src/flow/ast.ts:73:3 - (ae-undocumented) Missing documentation for "target".
+// src/flow/ast.ts:74:3 - (ae-undocumented) Missing documentation for "targetKind".
 // src/flow/decorators/workflow-finish.ts:15:3 - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/workflow-finish.ts:16:3 - (ae-undocumented) Missing documentation for "input".
 // src/flow/decorators/workflow-finish.ts:17:3 - (ae-undocumented) Missing documentation for "output".
 // src/flow/decorators/workflow-finish.ts:44:1 - (ae-undocumented) Missing documentation for "WorkflowFinish".
 // src/flow/decorators/workflow-finish.ts:47:1 - (ae-undocumented) Missing documentation for "WorkflowFinish".
-// src/flow/decorators/workflow-start.ts:15:3 - (ae-undocumented) Missing documentation for "description".
-// src/flow/decorators/workflow-start.ts:16:3 - (ae-undocumented) Missing documentation for "input".
+// src/flow/decorators/workflow-start.ts:16:3 - (ae-undocumented) Missing documentation for "description".
+// src/flow/decorators/workflow-start.ts:17:3 - (ae-undocumented) Missing documentation for "input".
 
 // (No @packageDocumentation comment for this package)
 

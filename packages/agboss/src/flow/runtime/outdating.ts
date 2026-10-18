@@ -1,4 +1,3 @@
-import type { RuntimeProvenance } from "./provenance.js";
 import {
   OutdatedReason,
   type OutdatedValueRecord,
@@ -11,7 +10,7 @@ import {
  * step): a write replaces the older value of each slot it fills; every current value built from a
  * replaced or outdated value is outdated too, recursively. Outdated values leave `scope` in the same
  * step for the append-only `outdatedValues`, so nothing that reads inputs, prompts or a finish can
- * see them. The cascade starts from current values only; tag slots are independent (S5).
+ * see them. The cascade starts from current values only.
  * `byValueId` is always the root trigger — the new value whose write started the chain — the same
  * whatever order the cascade is walked in. The new values keep only their live sources.
  */
@@ -44,19 +43,15 @@ function reachedFrom(root: ScopeValueRecord, rest: readonly ScopeValueRecord[]):
   return reached;
 }
 
-/** A slot without its tag: `DraftDto#before` → `DraftDto`. */
-const untaggedOf = (slot: string): string => slot.split("#")[0] ?? slot;
-
-/** Why a value reached by a cascade was outdated. */
+/** Why a value reached by a cascade was outdated: through what it is about, or what it read. */
 function reasonOf(
   record: ScopeValueRecord,
   outdated: ReadonlyMap<string, ScopeValueRecord>,
-  provenance: RuntimeProvenance,
 ): OutdatedReason {
-  const target = provenance.aboutTargets.get(record.producer);
+  const about = record.about ?? [];
   const isAbout = record.builtFrom.some((source) => {
     const cause = outdated.get(source);
-    return cause !== undefined && untaggedOf(cause.slot) === target;
+    return cause !== undefined && about.includes(cause.slot);
   });
   return isAbout ? OutdatedReason.AboutReplaced : OutdatedReason.BuiltFromReplaced;
 }
@@ -82,11 +77,7 @@ function liveSourcesOf(record: ScopeValueRecord, live: ReadonlySet<string>): Sco
 }
 
 /** Writes `written` into `scope` and outdates what the write makes stale. */
-export function writeAndOutdate(
-  scope: ScopeRecords,
-  written: ScopeRecords,
-  provenance: RuntimeProvenance,
-): WriteOutcome {
+export function writeAndOutdate(scope: ScopeRecords, written: ScopeRecords): WriteOutcome {
   const triggers = Object.values(written).sort(byValueId);
   const rest = Object.values(scope).filter((record) => written[record.slot] === undefined);
   const rootOf = new Map<string, ScopeValueRecord>();
@@ -104,7 +95,7 @@ export function writeAndOutdate(
     .map((record): OutdatedValueRecord => {
       const reason = replaced.has(record.valueId)
         ? OutdatedReason.Replaced
-        : reasonOf(record, outdatedById, provenance);
+        : reasonOf(record, outdatedById);
       const root = rootOf.get(record.valueId)?.valueId ?? "";
       return { ...record, outdated: { byValueId: root, reason } };
     })

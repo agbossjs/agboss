@@ -8,6 +8,7 @@ export const FIXTURE_WORKFLOWS: readonly string[] = [
   "broken.fixture.ts",
   "chat.fixture.ts",
   "credit.fixture.ts",
+  "history.fixture.ts",
   "markers.fixture.ts",
   "offer.fixture.ts",
   "order.fixture.ts",

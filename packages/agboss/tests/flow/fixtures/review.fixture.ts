@@ -5,7 +5,7 @@ import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { about, listOf, oneOf, optional } from "../../../src/flow/dto-wrappers.js";
+import { listOf, oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { DraftChangesDto } from "./data-dtos.js";
@@ -14,7 +14,10 @@ import { ApprovalDto, CritiqueDto, DraftDto, ResearchDto } from "./review-dtos.j
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
 
-/** #271 — the review loop (`about(DraftDto, oneOf(…))` on the reviewer) and a polish loop (an action's `about(DraftDto, listOf(…))`). */
+/**
+ * #271 — the review loop (`caseOf(…, { about: DraftDto })` after the reviewer, #299) and a polish
+ * loop (an action's `.returns(listOf(CritiqueDto), { about: DraftDto })`).
+ */
 
 @WorkflowStart({
   name: "story-workflow-start",
@@ -59,7 +62,7 @@ export class StoryWriterAgent {}
   input: {
     draft: DraftDto,
   },
-  output: about(DraftDto, oneOf(ApprovalDto, DraftChangesDto)), // the answers are about this draft
+  output: oneOf(ApprovalDto, DraftChangesDto), // both answers are about the draft: in the flow
 })
 export class StoryReviewerAgent {}
 
@@ -93,10 +96,11 @@ export const storyPaths = [
   agent(StoryWriterAgent)
     .returns(DraftDto)
     .toAgent(StoryReviewerAgent)
+    .returns(oneOf(ApprovalDto, DraftChangesDto))
     .switch(
-      caseOf(DraftChangesDto)
+      caseOf(DraftChangesDto, { about: DraftDto })
         .toAgent(StoryWriterAgent),
-      caseOf(ApprovalDto)
+      caseOf(ApprovalDto, { about: DraftDto })
         .toAgent(PublisherAgent)
         .returns(ArticleDto)
         .toFinish(StoryWorkflowFinish),
@@ -139,7 +143,7 @@ export class PolishAgent {}
   input: {
     draft: DraftDto,
   },
-  output: about(DraftDto, listOf(CritiqueDto)),
+  output: listOf(CritiqueDto),
 })
 export class CritiqueAction implements ActionHandler<CritiqueAction> {
   execute(input: InputOf<CritiqueAction>): Promise<OutputOf<CritiqueAction>> {
@@ -180,7 +184,7 @@ export class CritiqueRouter {}
     agent(PolishAgent)
       .returns(DraftDto)
       .toAction(CritiqueAction)
-      .returns(listOf(CritiqueDto))
+      .returns(listOf(CritiqueDto), { about: DraftDto })
       .toRouter(CritiqueRouter)
       .chooseOne(route(PolishAgent), route(PolishedWorkflowFinish)),
   ],

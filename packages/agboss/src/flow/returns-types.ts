@@ -1,13 +1,22 @@
-import type { AfterValue, PathHead, ReturnsOptions } from "./builder-types.js";
-import type { ValueOf, ValueShape } from "./dto-wrappers.js";
-import type { GeneratedTypeError, NameOf } from "./generated-types.js";
+import type {
+  AfterValue,
+  BuiltPath,
+  PathHead,
+  ReturnsOptions,
+  Switching,
+} from "./builder-types.js";
+import type { OneOfWrapper, ReturnedShape, ValueOf } from "./dto-wrappers.js";
+import type { NodeKind } from "./ast.js";
+import type { GeneratedTypeError, KindOf, NameOf } from "./generated-types.js";
 
 /**
- * The types of `.returns(…)` (#272 AC2, AC15): what the step gives, from the generated
- * `ProducerOutputs`. A producer that gives several values at once — a start whose `input` is a map
- * of fields (#270 AC21), later a join (#273) — is a tuple there, one member per value in declaration
- * order (`readonly [CompanyDto, SearchRequestDto | undefined]`); `.returns(A, optional(B))` must
- * name the same values, in any order (assembly compares them as a set too).
+ * The types of `.returns(…)` (#272 AC2, AC15; #299 S54): what the step gives, from the generated
+ * `ProducerOutputs`. `.returns(value, options?)` names one value; a producer that gives several
+ * values at once — a start whose `input` is a map of fields (#270 AC21), later a join (#273) — is a
+ * tuple there, one member per value in declaration order
+ * (`readonly [CompanyDto, SearchRequestDto | undefined]`), and its values are named by a chain
+ * `.returns(CompanyDto).returns(optional(SearchRequestDto))`, in any order (assembly compares them
+ * as a set too). `{ about }` goes on a `.returns` of one class or a list, never on a `oneOf(…)`.
  */
 
 export type Same<TFirst, TSecond> = [TFirst] extends [TSecond]
@@ -24,7 +33,7 @@ export type IsSeveral<TOutput> = TOutput extends readonly unknown[]
   : false;
 
 /** One value of a set, kept whole: `B | undefined` stays one member when the set is a union. */
-interface Member<TValue> {
+export interface Member<TValue> {
   readonly value: TValue;
 }
 
@@ -34,66 +43,77 @@ type Members<TValues extends readonly unknown[]> = {
 
 type IsIn<TMember, TMembers> = TMembers extends unknown ? Same<TMember, TMembers> : never;
 
-type AllIn<TValues extends readonly unknown[], TOthers extends readonly unknown[]> = false extends {
-  [K in keyof TValues]: true extends IsIn<Member<TValues[K]>, Members<TOthers>> ? true : false;
-}[number]
-  ? false
-  : true;
+/**
+ * The values a `.returns` chain must still name (`Member`s), or the generated entry's error: every
+ * member of a tuple, else the one value.
+ */
+export type ValuesLeft<TOutput> = [TOutput] extends [GeneratedTypeError]
+  ? TOutput
+  : [TOutput] extends [readonly unknown[]]
+    ? IsSeveral<TOutput> extends true
+      ? Members<TOutput>
+      : Member<TOutput>
+    : Member<TOutput>;
 
-/** Two lists of values with the same members, in any order. */
-export type SameValues<
-  TFirst extends readonly unknown[],
-  TSecond extends readonly unknown[],
-> = TFirst["length"] extends TSecond["length"]
-  ? AllIn<TFirst, TSecond> extends true
-    ? AllIn<TSecond, TFirst>
-    : false
-  : false;
-
-/** The values `.returns(A, optional(B), …)` names. */
-export type ValuesOf<TShapes extends readonly ValueShape[]> = {
-  -readonly [K in keyof TShapes]: ValueOf<TShapes[K]>;
-};
+/** The values left once `TValue` is named. */
+type Without<TLeft, TValue> = TLeft extends unknown
+  ? Same<TLeft, Member<TValue>> extends true
+    ? never
+    : TLeft
+  : never;
 
 interface NotGiven<TName extends string> {
   readonly __error: `not what ${TName} gives — see ProducerOutputs["${TName}"]`;
 }
 
-/** `.returns(X)`: `unknown` when `X` is what the step gives, else a readable error. */
-export type ReturnsCheck<TValue, TOutput, TName extends string> = [TOutput] extends [
-  GeneratedTypeError,
-]
-  ? TOutput
-  : IsSeveral<TOutput> extends true
-    ? { readonly __error: `${TName} gives several values — name each of them in .returns(…)` }
-    : Same<TValue, TOutput> extends true
-      ? unknown
-      : NotGiven<TName>;
-
-/** `.returns(A, optional(B), …)`: `unknown` when the values are what the step gives. */
-export type SeveralReturnsCheck<
-  TValues extends readonly unknown[],
-  TOutput,
-  TName extends string,
-> = [TOutput] extends [GeneratedTypeError]
-  ? TOutput
-  : TOutput extends readonly unknown[]
-    ? IsSeveral<TOutput> extends true
-      ? SameValues<TValues, TOutput> extends true
-        ? unknown
-        : NotGiven<TName>
-      : NotGiven<TName>
+/** `.returns(X)`: `unknown` when `X` is (one of) what the step gives and not named yet. */
+export type ReturnsCheck<TValue, TLeft, TName extends string> = [TLeft] extends [GeneratedTypeError]
+  ? TLeft
+  : true extends IsIn<Member<TValue>, TLeft>
+    ? unknown
     : NotGiven<TName>;
 
-/** Several values at once: two or more shapes. */
-export type SeveralShapes = readonly [ValueShape, ValueShape, ...ValueShape[]];
+/** What follows `.returns(…)`: the chain goes on while values are left; a `oneOf` is switched. */
+export type AfterReturns<
+  TInstance,
+  TLeft,
+  TGiven extends readonly unknown[],
+  TShape,
+  THead extends PathHead,
+> = [TLeft] extends [never]
+  ? TShape extends OneOfWrapper
+    ? BuiltPath<THead> & Switching<ValueOf<TShape>, THead>
+    : AfterValue<TGiven extends readonly [infer TOne] ? TOne : TGiven, THead>
+  : BuiltPath<THead> & Returning<TInstance, TLeft, THead, TGiven>;
 
-export interface Returning<TInstance, TOutput, THead extends PathHead> {
-  returns<const TShape extends ValueShape>(
-    value: TShape & ReturnsCheck<ValueOf<TShape>, TOutput, NameOf<TInstance>>,
-    options?: ReturnsOptions,
-  ): AfterValue<ValueOf<TShape>, THead>;
-  returns<const TShapes extends SeveralShapes>(
-    ...values: TShapes & SeveralReturnsCheck<ValuesOf<TShapes>, TOutput, NameOf<TInstance>>
-  ): AfterValue<ValuesOf<TShapes>, THead>;
+/**
+ * The options a shape takes: `{ about }` beside one class or a list, nothing beside a `oneOf`, and
+ * nothing after a start — its input is no answer about anything (`[io.about-on-start]`).
+ */
+export type ReturnsArguments<TShape, TInstance> = [KindOf<TInstance>] extends [NodeKind.Start]
+  ? []
+  : TShape extends OneOfWrapper
+    ? []
+    : [options?: ReturnsOptions];
+
+/**
+ * `.returns(value, options?)` on a step whose values `TLeft` are still to be named (`ValuesLeft`
+ * of its `ProducerOutputs` entry); `TGiven` are the ones its chain named so far.
+ */
+export interface Returning<
+  TInstance,
+  TLeft,
+  THead extends PathHead,
+  TGiven extends readonly unknown[] = [],
+> {
+  returns<const TShape extends ReturnedShape>(
+    value: TShape & ReturnsCheck<ValueOf<TShape>, TLeft, NameOf<TInstance>>,
+    ...options: ReturnsArguments<TShape, TInstance>
+  ): AfterReturns<
+    TInstance,
+    Without<TLeft, ValueOf<TShape>>,
+    [...TGiven, ValueOf<TShape>],
+    TShape,
+    THead
+  >;
 }

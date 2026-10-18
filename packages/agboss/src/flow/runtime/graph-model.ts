@@ -7,7 +7,12 @@ import { EdgeKind, type FlowEdge } from "../analyse/flow-graph.js";
 import { NodeKind, type FlowPath } from "../ast.js";
 import { isFieldMap, type ComponentDeclaration } from "../decorators/declaration.js";
 import { isCodeRouter } from "../decorators/router.js";
-import { Wrapper, type DeclaredOutput, type ValueShape } from "../dto-wrappers.js";
+import {
+  Wrapper,
+  type HistoryWrapper,
+  type OutputShape,
+  type ValueShape,
+} from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import { runtimeProvenanceOf, type RuntimeProvenance } from "./provenance.js";
 
@@ -49,7 +54,7 @@ export interface RuntimeGraph {
   readonly flow: readonly FlowPath[];
   /** Every DTO class of the graph by class name (S5: a stored `variant` names its class). */
   readonly dtos: ReadonlyMap<string, DtoClass>;
-  /** What each producer's values are built from (#271): agents without `input`, `about` targets. */
+  /** What each producer's values are built from (#271): agents without `input`. */
   readonly provenance: RuntimeProvenance;
   readonly analysis: FlowAnalysis;
 }
@@ -127,7 +132,7 @@ export function runtimeGraphOf(
 }
 
 /** The DTO classes a shape names. */
-function dtosOf(shape: ValueShape | DeclaredOutput): readonly DtoClass[] {
+function dtosOf(shape: ValueShape | OutputShape | HistoryWrapper): readonly DtoClass[] {
   if (typeof shape === "function") return [shape];
   switch (shape.kind) {
     case Wrapper.List:
@@ -136,15 +141,15 @@ function dtosOf(shape: ValueShape | DeclaredOutput): readonly DtoClass[] {
       return dtosOf(shape.inner);
     case Wrapper.OneOf:
       return shape.variants;
-    case Wrapper.About:
-      return [shape.about, ...dtosOf(shape.shape)];
+    case Wrapper.History:
+      return [shape.dto];
   }
 }
 
 /** The shapes a declaration names: its input fields and its output. */
 function declaredShapes(
   declaration: ComponentDeclaration,
-): readonly (ValueShape | DeclaredOutput)[] {
+): readonly (ValueShape | OutputShape | HistoryWrapper)[] {
   const { options } = declaration;
   const input = "input" in options ? options.input : undefined;
   const output = "output" in options ? options.output : undefined;

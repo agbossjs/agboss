@@ -107,7 +107,9 @@ describe("describe", () => {
         "  start(OfferWorkflowStart)",
         "  agent(ReviewerAgent)",
         "  reviewer-agent ← draft: draft-agent | editor-agent (latest)",
-        "  reviewer-agent → about OfferDraftDto: oneOf(ChangesRequestedDto, DraftApprovedDto)",
+        "    .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))",
+        "      caseOf(ChangesRequestedDto, { about: OfferDraftDto })",
+        "  reviewer-agent → ChangesRequestedDto { about: OfferDraftDto }",
       ]),
     );
   });

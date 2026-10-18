@@ -185,8 +185,8 @@ cd examples/job-scout && npm run chat # "my resume src/data/sample-resume.md"
 ```
 
 [`examples/flow-patterns`](examples/flow-patterns) — the flow's patterns with scripted tests only
-(no model key): `src/offer/` a review loop (`agent(ReviewerAgent).switch(…)`,
-`about(OfferDraftDto, oneOf(…))`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
+(no model key): `src/offer/` a review loop (`agent(ReviewerAgent).returns(oneOf(…)).switch(…)`,
+`caseOf(ChangesRequestedDto, { about: OfferDraftDto })`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
 router (`DecidedBy.Code`, `route(input)` through `deps`) beside a model router. Point the CLI at it:
 
 ```bash

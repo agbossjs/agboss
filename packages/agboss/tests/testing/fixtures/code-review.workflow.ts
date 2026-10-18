@@ -9,7 +9,7 @@ import {
   WorkflowStart,
 } from "../../../src/index.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { about, optional } from "../../../src/flow/dto-wrappers.js";
+import { optional } from "../../../src/flow/dto-wrappers.js";
 import { Reasoning } from "../../../src/models/index.js";
 import { agent, route, start } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
@@ -47,7 +47,7 @@ export class Coder {}
   model: "test/reviewer",
   price,
   input: { code: CodeDto },
-  output: about(CodeDto, ReviewDto), // the review is about this code (#271)
+  output: ReviewDto,
 })
 export class Reviewer {}
 
@@ -95,7 +95,7 @@ export class Unused {}
     agent(Coder)
       .returns(CodeDto)
       .toAgent(Reviewer)
-      .returns(ReviewDto)
+      .returns(ReviewDto, { about: CodeDto }) // the review is about this code (#271)
       .toRouter(ReviewGate)
       .chooseOne(route(Coder), route(PullRequest)),
   ],

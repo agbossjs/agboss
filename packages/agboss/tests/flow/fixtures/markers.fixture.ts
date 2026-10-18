@@ -59,6 +59,7 @@ export const verdictPaths = [
   start(VerdictWorkflowStart)
     .returns(ShortlistDto)
     .toAgent(VerdictAgent)
+    .returns(oneOf(ApprovedVerdictDto, RejectedVerdictDto))
     .switch(
       caseOf(ApprovedVerdictDto)
         .toFinish(ApprovedWorkflowFinish),

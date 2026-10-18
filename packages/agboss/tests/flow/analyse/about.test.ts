@@ -7,24 +7,15 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
-import {
-  about,
-  listOf,
-  oneOf,
-  optional,
-  type DeclaredOutput,
-} from "../../../src/flow/dto-wrappers.js";
+import type { DtoClass } from "../../../src/dto/types.js";
+import type { ReturnsOptions } from "../../../src/flow/builder-types.js";
+import type { InputFieldShape } from "../../../src/flow/decorators/declaration.js";
+import { historyOf, oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import type { ComponentName } from "../../../src/flow/registry.js";
 import { DraftChangesDto } from "../fixtures/data-dtos.js";
 import { ArticleDto, ArticleRequestDto } from "../fixtures/dtos.js";
 import { agent, caseOf, route, start } from "../fixtures/paths.js";
-import {
-  ApprovalDto,
-  CritiqueDto,
-  DraftDto,
-  DraftPairDto,
-  PlanDto,
-} from "../fixtures/review-dtos.js";
+import { ApprovalDto, CritiqueDto, DraftDto, PlanDto } from "../fixtures/review-dtos.js";
 import {
   PolishWorkflow,
   StoryWorkflow,
@@ -32,7 +23,14 @@ import {
   StoryWorkflowStart,
 } from "../fixtures/review.fixture.js";
 
-/** #271 rule 5 (AC4): the direction of a cycle is written with `about(…)`; S14 (no tag in `about`). */
+/**
+ * #271 rule 5 (AC4): the direction of a cycle is written with `{ about }` in the flow — on a
+ * `.returns(…)` or a `caseOf(…)` (#299 S54); `[io.ambiguous-about]` after S56 (no tags).
+ */
+
+/** `{ about: target }`, or nothing. */
+const aboutOf = (target: DtoClass | undefined): ReturnsOptions | undefined =>
+  target === undefined ? undefined : { about: target };
 
 const errorsOf = (workflow: object, code: string): readonly string[] =>
   checkWorkflow(workflow as never)
@@ -68,7 +66,8 @@ class LoopWriterAgent {}
 })
 class LoopPublisherAgent {}
 
-const reviewLoop = (name: string, output: DeclaredOutput): object => {
+/** The loop; `{ about: target }` on the reviewer's changes (none when the target is undefined). */
+const reviewLoop = (name: string, target: DtoClass | undefined): object => {
   @Agent({
     name: `${name}-reviewer-agent`,
     description: "Approves the draft or asks for changes",
@@ -76,7 +75,7 @@ const reviewLoop = (name: string, output: DeclaredOutput): object => {
     model: "moonshotai/kimi-k2.6",
     maxVisits: 3,
     input: { draft: DraftDto },
-    output,
+    output: oneOf(ApprovalDto, DraftChangesDto),
   })
   class ReviewerAgent {}
   @Workflow({
@@ -87,8 +86,9 @@ const reviewLoop = (name: string, output: DeclaredOutput): object => {
       agent(LoopWriterAgent)
         .returns(DraftDto)
         .toAgent(ReviewerAgent)
+        .returns(oneOf(ApprovalDto, DraftChangesDto))
         .switch(
-          caseOf(DraftChangesDto).toAgent(LoopWriterAgent),
+          caseOf(DraftChangesDto, aboutOf(target)).toAgent(LoopWriterAgent),
           caseOf(ApprovalDto)
             .toAgent(LoopPublisherAgent)
             .returns(ArticleDto)
@@ -100,9 +100,9 @@ const reviewLoop = (name: string, output: DeclaredOutput): object => {
   return ReviewLoopWorkflow;
 };
 
-describe("#271 AC4: a two-class cycle states its direction with about(…)", () => {
+describe("#271 AC4: a two-class cycle states its direction with { about }", () => {
   it("two-class cycle: with about it assembles, and a new draft outdates the older notes", () => {
-    const workflow = reviewLoop("about", about(DraftDto, oneOf(ApprovalDto, DraftChangesDto)));
+    const workflow = reviewLoop("about", DraftDto);
 
     expect(checkWorkflow(workflow as never)).toMatchObject({ errors: [] });
     expect(statusesAt(workflow, "about-reviewer-agent", "DraftChangesDto")).toEqual(
@@ -113,27 +113,24 @@ describe("#271 AC4: a two-class cycle states its direction with about(…)", () 
     );
   });
 
-  it("cycle without about — hint: names the producer to wrap; the review loop fixture assembles", () => {
-    const workflow = reviewLoop("plain", oneOf(ApprovalDto, DraftChangesDto));
+  it("cycle without about — hint: names the case to write it on; the review loop fixture assembles", () => {
+    const workflow = reviewLoop("plain", undefined);
 
     expect(errorsOf(workflow, "io.ambiguous-cycle")).toEqual([
       "plain-workflow: DraftChangesDto, DraftDto are built from each other in the cycle through " +
-        "loop-writer-agent, plain-reviewer-agent — say what the answers are about: wrap " +
-        "plain-reviewer-agent's output in about(DraftDto, …)",
+        "loop-writer-agent, plain-reviewer-agent — say what the answers are about: write " +
+        "caseOf(DraftChangesDto, { about: DraftDto }) after plain-reviewer-agent",
     ]);
     expect(checkWorkflow(StoryWorkflow)).toMatchObject({ errors: [] });
   });
 
   it("about the wrong class does not direct the cycle", () => {
-    const workflow = reviewLoop(
-      "off",
-      about(ArticleRequestDto, oneOf(ApprovalDto, DraftChangesDto)),
-    );
+    const workflow = reviewLoop("off", ArticleRequestDto);
 
     expect(errorsOf(workflow, "io.ambiguous-cycle")).toHaveLength(1);
   });
 
-  it("about(DraftDto, CritiqueDto) and about(DraftDto, listOf(CritiqueDto)) direct a cycle too", () => {
+  it(".returns(CritiqueDto, { about }) and .returns(listOf(CritiqueDto), { about }) direct a cycle too", () => {
     expect(checkWorkflow(PolishWorkflow)).toMatchObject({ errors: [] });
     expect(statusesAt(PolishWorkflow, "polish-agent", "list:CritiqueDto")).toEqual(
       new Set([SlotStatus.Absent, SlotStatus.Current]),
@@ -141,19 +138,21 @@ describe("#271 AC4: a two-class cycle states its direction with about(…)", () 
     expect(statusesAt(PolishWorkflow, "critique-action", "list:CritiqueDto")).toEqual(
       new Set([SlotStatus.Absent, SlotStatus.Outdated]),
     );
-    expect(checkWorkflow(critiqueLoop(about(DraftDto, CritiqueDto)) as never)).toMatchObject({
+    expect(checkWorkflow(critiqueLoop(DraftDto) as never)).toMatchObject({
       errors: [],
     });
-    expect(errorsOf(critiqueLoop(CritiqueDto), "io.ambiguous-cycle")).toEqual([
-      expect.stringContaining("wrap single-critique-action's output in about(DraftDto, …)"),
+    expect(errorsOf(critiqueLoop(undefined), "io.ambiguous-cycle")).toEqual([
+      expect.stringContaining(
+        "write .returns(CritiqueDto, { about: DraftDto }) after single-critique-action",
+      ),
     ]);
   });
 });
 
 // --- one critique, from an action -----------------------------------------------------------
 
-function critiqueLoop(output: DeclaredOutput): object {
-  const suffix = output === CritiqueDto ? "plain" : "about";
+function critiqueLoop(target: DtoClass | undefined): object {
+  const suffix = target === undefined ? "plain" : "about";
   @Agent({
     name: `${suffix}-critiqued-writer-agent`,
     description: "Rewrites the draft by the critique",
@@ -168,7 +167,7 @@ function critiqueLoop(output: DeclaredOutput): object {
     name: "single-critique-action",
     description: "Critiques",
     input: { draft: DraftDto },
-    output,
+    output: CritiqueDto,
   })
   class SingleCritiqueAction {
     execute(): Promise<CritiqueDto> {
@@ -202,7 +201,7 @@ function critiqueLoop(output: DeclaredOutput): object {
       agent(CritiquedWriterAgent)
         .returns(DraftDto)
         .toAction(SingleCritiqueAction)
-        .returns(CritiqueDto)
+        .returns(CritiqueDto, aboutOf(target))
         .toRouter(CritiqueGateRouter)
         .chooseOne(route(CritiquedWriterAgent), route(DraftWorkflowFinish)),
     ],
@@ -224,10 +223,11 @@ function critiqueLoop(output: DeclaredOutput): object {
 })
 class PlannerAgent {}
 
+/** The plan loop; `{ about }` on the writer's draft and on the reviewer's notes, as given. */
 const planLoop = (
   name: string,
-  writerOutput: DeclaredOutput,
-  reviewerOutput: DeclaredOutput,
+  writerAbout: DtoClass | undefined,
+  reviewerAbout: DtoClass | undefined,
 ): object => {
   @Agent({
     name: `${name}-plan-writer-agent`,
@@ -235,7 +235,7 @@ const planLoop = (
     prompt: "Write it.",
     model: "moonshotai/kimi-k2.6",
     input: { plan: PlanDto },
-    output: writerOutput,
+    output: DraftDto,
   })
   class PlanWriterAgent {}
   @Agent({
@@ -244,7 +244,7 @@ const planLoop = (
     prompt: "Review it.",
     model: "moonshotai/kimi-k2.6",
     input: { draft: DraftDto },
-    output: reviewerOutput,
+    output: oneOf(ApprovalDto, DraftChangesDto),
   })
   class PlanReviewerAgent {}
   @Workflow({
@@ -255,10 +255,11 @@ const planLoop = (
       agent(PlannerAgent)
         .returns(PlanDto)
         .toAgent(PlanWriterAgent)
-        .returns(DraftDto)
+        .returns(DraftDto, aboutOf(writerAbout))
         .toAgent(PlanReviewerAgent)
+        .returns(oneOf(ApprovalDto, DraftChangesDto))
         .switch(
-          caseOf(DraftChangesDto).toAgent(PlannerAgent),
+          caseOf(DraftChangesDto, aboutOf(reviewerAbout)).toAgent(PlannerAgent),
           caseOf(ApprovalDto)
             .toAgent(LoopPublisherAgent)
             .returns(ArticleDto)
@@ -271,18 +272,16 @@ const planLoop = (
 };
 
 describe("#271 AC4: a three-class cycle", () => {
-  const answers = oneOf(ApprovalDto, DraftChangesDto);
-
   it("three-class cycle: without about → error with the hint", () => {
-    expect(errorsOf(planLoop("plain", DraftDto, answers), "io.ambiguous-cycle")).toEqual([
+    expect(errorsOf(planLoop("plain", undefined, undefined), "io.ambiguous-cycle")).toEqual([
       "plain-plan-workflow: DraftChangesDto, DraftDto, PlanDto are built from each other in the " +
         "cycle through plain-plan-reviewer-agent, plain-plan-writer-agent, planner-agent — say what " +
-        "the answers are about: wrap plain-plan-writer-agent's output in about(PlanDto, …)",
+        "the answers are about: write .returns(DraftDto, { about: PlanDto }) after plain-plan-writer-agent",
     ]);
   });
 
   it("three-class cycle: with about outdating is correct on every path", () => {
-    const workflow = planLoop("about", DraftDto, about(DraftDto, answers));
+    const workflow = planLoop("about", undefined, DraftDto);
 
     expect(checkWorkflow(workflow as never)).toMatchObject({ errors: [] });
     expect(statusesAt(workflow, "about-plan-writer-agent", "PlanDto")).toEqual(
@@ -297,19 +296,19 @@ describe("#271 AC4: a three-class cycle", () => {
   });
 
   it("the hint's own fix assembles too", () => {
-    const workflow = planLoop("hinted", about(PlanDto, DraftDto), answers);
+    const workflow = planLoop("hinted", PlanDto, undefined);
 
     expect(errorsOf(workflow, "io.ambiguous-cycle")).toEqual([]);
   });
 });
 
-// --- two inputs of the class named in about (S14) ---------------------------------------------
+// --- two inputs of the class named in about (S14 after S56) ----------------------------------
 
-describe("#271 S14: about names a class, never one of two tagged versions", () => {
+describe("#299: [io.ambiguous-about] — a value about T whose producer reads T in two fields", () => {
   const editLoop = (
     name: string,
-    input: Record<string, typeof DraftDto | typeof DraftPairDto>,
-    target: typeof DraftDto | typeof DraftPairDto,
+    input: Readonly<Record<string, InputFieldShape>>,
+    target: DtoClass | undefined,
   ): object => {
     @Agent({
       name: `${name}-diff-reviewer-agent`,
@@ -318,23 +317,20 @@ describe("#271 S14: about names a class, never one of two tagged versions", () =
       model: "moonshotai/kimi-k2.6",
       maxVisits: 3,
       input,
-      output: about(target, oneOf(ApprovalDto, DraftChangesDto)),
+      output: oneOf(ApprovalDto, DraftChangesDto),
     })
     class DiffReviewerAgent {}
     @Workflow({
       name: `${name}-edit-workflow`,
       version: "1.0.0",
       flow: [
-        start(StoryWorkflowStart)
-          .returns(ArticleRequestDto)
-          .toAgent(LoopWriterAgent)
-          .returns(DraftDto, { as: "before" })
-          .toAgent(LoopWriterAgent),
+        start(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(LoopWriterAgent),
         agent(LoopWriterAgent)
-          .returns(DraftDto, { as: "after" })
+          .returns(DraftDto)
           .toAgent(DiffReviewerAgent)
+          .returns(oneOf(ApprovalDto, DraftChangesDto))
           .switch(
-            caseOf(DraftChangesDto).toAgent(LoopWriterAgent),
+            caseOf(DraftChangesDto, aboutOf(target)).toAgent(LoopWriterAgent),
             caseOf(ApprovalDto)
               .toAgent(LoopPublisherAgent)
               .returns(ArticleDto)
@@ -346,19 +342,31 @@ describe("#271 S14: about names a class, never one of two tagged versions", () =
     return EditWorkflow;
   };
 
-  it("two inputs of the about class → [io.ambiguous-about] with the pair DTO hint", () => {
-    const workflow = editLoop("tagged", { before: DraftDto, after: DraftDto }, DraftDto);
+  it("the current value and its history in two fields, the notes about it → [io.ambiguous-about]", () => {
+    const workflow = editLoop("twice", { draft: DraftDto, drafts: historyOf(DraftDto) }, DraftDto);
 
     expect(errorsOf(workflow, "io.ambiguous-about")).toEqual([
-      "tagged-edit-workflow: tagged-diff-reviewer-agent reads 2 DraftDto fields (before, after) " +
-        "and its output is about(DraftDto, …) — about which one? Put both into one DTO built by a " +
-        "step (DraftPairDto with @Nested(DraftDto) fields) and write about(DraftPairDto, …)",
+      "twice-edit-workflow: twice-diff-reviewer-agent reads 2 DraftDto fields (draft, drafts) and " +
+        "its values are { about: DraftDto } — about which one? Read DraftDto in one field: with " +
+        "historyOf(DraftDto) the answers are about its current value",
     ]);
+    expect(errorsOf(workflow, "flow.ambiguous-field")).toEqual([]);
   });
 
-  it("DraftPairDto instead of a tag: one input of the about class is not ambiguous", () => {
-    const workflow = editLoop("pair", { pair: DraftPairDto }, DraftPairDto);
+  it("historyOf alone: the answers are about its current value, nothing is ambiguous", () => {
+    const workflow = editLoop("history", { drafts: historyOf(DraftDto, { limit: 1 }) }, DraftDto);
 
+    expect(checkWorkflow(workflow as never)).toMatchObject({ errors: [] });
+  });
+
+  it("without { about } two fields of one class are [flow.ambiguous-field] instead", () => {
+    const workflow = editLoop("plain", { draft: DraftDto, drafts: historyOf(DraftDto) }, undefined);
+
+    expect(errorsOf(workflow, "flow.ambiguous-field")).toEqual([
+      "plain-edit-workflow: plain-diff-reviewer-agent has two DraftDto fields (draft, drafts) — " +
+        "they read the same value; read it in one field (historyOf(DraftDto) gives the earlier " +
+        "versions too)",
+    ]);
     expect(errorsOf(workflow, "io.ambiguous-about")).toEqual([]);
   });
 });
