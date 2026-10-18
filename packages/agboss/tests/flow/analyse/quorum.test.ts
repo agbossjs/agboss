@@ -65,7 +65,7 @@ type Flow = WorkflowOptions["flow"];
 let count = 0;
 function workflowWith(flow: Flow): abstract new () => unknown {
   count += 1;
-  @Workflow({ name: `quorum-case-${String(count)}-workflow`, version: "1.0.0", flow })
+  @Workflow({ name: `quorum-case-${String(count)}-workflow`, version: "1.0.0", flow, maxSteps: 60 })
   class QuorumCaseWorkflow {}
   return QuorumCaseWorkflow;
 }

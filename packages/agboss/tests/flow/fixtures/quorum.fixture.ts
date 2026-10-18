@@ -1,4 +1,13 @@
-import { action, agent, anyOf, group, route, start, toAction, toFinish } from "../../../src/flow/builder.js";
+import {
+  action,
+  agent,
+  anyOf,
+  group,
+  route,
+  start,
+  toAction,
+  toFinish,
+} from "../../../src/flow/builder.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Arbiter, OnAnswer } from "../../../src/flow/decorators/arbiter.js";
 import { DecidedBy } from "../../../src/flow/decorators/router.js";
@@ -168,6 +177,7 @@ export class ConvincingReasonArbiter {}
 @Workflow({
   name: "company-search-workflow",
   version: "1.0.0",
+  maxSteps: 60, // a launch of up to 50 items
   flow: [
     start(CompanySearchWorkflowStart)
       .returns(WorkflowStartTextDto)
@@ -229,10 +239,7 @@ export class DueDiligenceArbiter {}
           .priority(2)
           .returns(listOf(DealCritiqueDto))
           .toRouter(SecondOpinionRouter)
-          .chooseOne(
-            route(FullReviewAgent),
-            route(NotifyReviewerAction),
-          ),
+          .chooseOne(route(FullReviewAgent), route(NotifyReviewerAction)),
         group(FastScreenAgent)
           .priority(3)
           .returns(FastScreenDto)

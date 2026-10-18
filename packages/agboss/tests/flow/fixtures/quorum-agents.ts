@@ -32,16 +32,41 @@ const MODEL = "moonshotai/kimi-k2.6";
 
 // ── any two of three ──
 
-@WorkflowStart({ name: "candidate-review-workflow-start", description: "A candidate", input: CandidateDto })
+@WorkflowStart({
+  name: "candidate-review-workflow-start",
+  description: "A candidate",
+  input: CandidateDto,
+})
 export class CandidateReviewWorkflowStart {}
 
-@Agent({ name: "score-a-agent", description: "Scores the skills", prompt: "Score the skills.", model: MODEL, input: { candidate: CandidateDto }, output: ScoreDto })
+@Agent({
+  name: "score-a-agent",
+  description: "Scores the skills",
+  prompt: "Score the skills.",
+  model: MODEL,
+  input: { candidate: CandidateDto },
+  output: ScoreDto,
+})
 export class ScoreAAgent {}
 
-@Agent({ name: "score-b-agent", description: "Scores the risks", prompt: "Score the risks.", model: MODEL, input: { candidate: CandidateDto }, output: ScoreDto })
+@Agent({
+  name: "score-b-agent",
+  description: "Scores the risks",
+  prompt: "Score the risks.",
+  model: MODEL,
+  input: { candidate: CandidateDto },
+  output: ScoreDto,
+})
 export class ScoreBAgent {}
 
-@Agent({ name: "score-c-agent", description: "Scores the hire", prompt: "Score the hire.", model: MODEL, input: { candidate: CandidateDto }, output: ScoreDto })
+@Agent({
+  name: "score-c-agent",
+  description: "Scores the hire",
+  prompt: "Score the hire.",
+  model: MODEL,
+  input: { candidate: CandidateDto },
+  output: ScoreDto,
+})
 export class ScoreCAgent {}
 
 @Agent({
@@ -54,24 +79,57 @@ export class ScoreCAgent {}
 })
 export class ScoreSummaryAgent {}
 
-@WorkflowFinish({ name: "score-review-workflow-finish", description: "The review", output: ScoreReviewDto })
+@WorkflowFinish({
+  name: "score-review-workflow-finish",
+  description: "The review",
+  output: ScoreReviewDto,
+})
 export class ScoreReviewWorkflowFinish {}
 
-@WorkflowFinish({ name: "score-review-failed-workflow-finish", description: "No quorum", output: CandidateDto })
+@WorkflowFinish({
+  name: "score-review-failed-workflow-finish",
+  description: "No quorum",
+  output: CandidateDto,
+})
 export class ScoreReviewFailedWorkflowFinish {}
 
 // ── different DTOs: optional after the quorum ──
 
-@WorkflowStart({ name: "fit-review-workflow-start", description: "A candidate", input: CandidateDto })
+@WorkflowStart({
+  name: "fit-review-workflow-start",
+  description: "A candidate",
+  input: CandidateDto,
+})
 export class FitReviewWorkflowStart {}
 
-@Agent({ name: "skills-score-agent", description: "Scores skills", prompt: "Score.", model: MODEL, input: { candidate: CandidateDto }, output: SkillsScoreDto })
+@Agent({
+  name: "skills-score-agent",
+  description: "Scores skills",
+  prompt: "Score.",
+  model: MODEL,
+  input: { candidate: CandidateDto },
+  output: SkillsScoreDto,
+})
 export class SkillsScoreAgent {}
 
-@Agent({ name: "culture-score-agent", description: "Scores culture", prompt: "Score.", model: MODEL, input: { candidate: CandidateDto }, output: CultureScoreDto })
+@Agent({
+  name: "culture-score-agent",
+  description: "Scores culture",
+  prompt: "Score.",
+  model: MODEL,
+  input: { candidate: CandidateDto },
+  output: CultureScoreDto,
+})
 export class CultureScoreAgent {}
 
-@Agent({ name: "salary-fit-agent", description: "Checks the salary", prompt: "Check.", model: MODEL, input: { candidate: CandidateDto }, output: SalaryFitDto })
+@Agent({
+  name: "salary-fit-agent",
+  description: "Checks the salary",
+  prompt: "Check.",
+  model: MODEL,
+  input: { candidate: CandidateDto },
+  output: SalaryFitDto,
+})
 export class SalaryFitAgent {}
 
 @Agent({
@@ -88,18 +146,40 @@ export class SalaryFitAgent {}
 })
 export class FitSummaryAgent {}
 
-@WorkflowFinish({ name: "fit-summary-workflow-finish", description: "The fit", output: FitSummaryDto })
+@WorkflowFinish({
+  name: "fit-summary-workflow-finish",
+  description: "The fit",
+  output: FitSummaryDto,
+})
 export class FitSummaryWorkflowFinish {}
 
 // ── per item, a chain of arbiters ──
 
-@WorkflowStart({ name: "company-search-workflow-start", description: "What to look for", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "company-search-workflow-start",
+  description: "What to look for",
+  input: WorkflowStartTextDto,
+})
 export class CompanySearchWorkflowStart {}
 
-@Agent({ name: "board-search-agent", description: "Finds companies", prompt: "Find.", model: MODEL, input: { message: WorkflowStartTextDto }, output: listOf(CompanyDto) })
+@Agent({
+  name: "board-search-agent",
+  description: "Finds companies",
+  prompt: "Find.",
+  model: MODEL,
+  input: { message: WorkflowStartTextDto },
+  output: listOf(CompanyDto),
+})
 export class BoardSearchAgent {}
 
-@Agent({ name: "company-vet-agent", description: "Checks one company", prompt: "Check.", model: MODEL, input: { company: CompanyDto }, output: CompanyCheckDto })
+@Agent({
+  name: "company-vet-agent",
+  description: "Checks one company",
+  prompt: "Check.",
+  model: MODEL,
+  input: { company: CompanyDto },
+  output: CompanyCheckDto,
+})
 export class CompanyVetAgent {}
 
 @Agent({
@@ -112,7 +192,11 @@ export class CompanyVetAgent {}
 })
 export class CompanyShortlistAgent {}
 
-@WorkflowFinish({ name: "company-shortlist-workflow-finish", description: "The shortlist", output: CompanyShortlistDto })
+@WorkflowFinish({
+  name: "company-shortlist-workflow-finish",
+  description: "The shortlist",
+  output: CompanyShortlistDto,
+})
 export class CompanyShortlistWorkflowFinish {}
 
 // ── groups with priority ──
@@ -120,16 +204,44 @@ export class CompanyShortlistWorkflowFinish {}
 @WorkflowStart({ name: "deal-workflow-start", description: "A deal", input: DealDto })
 export class DealWorkflowStart {}
 
-@Agent({ name: "legal-agent", description: "Legal review", prompt: "Review.", model: MODEL, input: { deal: DealDto }, output: LegalReviewDto })
+@Agent({
+  name: "legal-agent",
+  description: "Legal review",
+  prompt: "Review.",
+  model: MODEL,
+  input: { deal: DealDto },
+  output: LegalReviewDto,
+})
 export class LegalAgent {}
 
-@Agent({ name: "deal-critic-agent", description: "Objects", prompt: "Object.", model: MODEL, input: { deal: DealDto }, output: DealCritiqueDto })
+@Agent({
+  name: "deal-critic-agent",
+  description: "Objects",
+  prompt: "Object.",
+  model: MODEL,
+  input: { deal: DealDto },
+  output: DealCritiqueDto,
+})
 export class DealCriticAgent {}
 
-@Agent({ name: "auditor-agent", description: "Audits", prompt: "Audit.", model: MODEL, input: { deal: DealDto }, output: AuditDto })
+@Agent({
+  name: "auditor-agent",
+  description: "Audits",
+  prompt: "Audit.",
+  model: MODEL,
+  input: { deal: DealDto },
+  output: AuditDto,
+})
 export class AuditorAgent {}
 
-@Agent({ name: "fast-screen-agent", description: "Screens", prompt: "Screen.", model: MODEL, input: { deal: DealDto }, output: FastScreenDto })
+@Agent({
+  name: "fast-screen-agent",
+  description: "Screens",
+  prompt: "Screen.",
+  model: MODEL,
+  input: { deal: DealDto },
+  output: FastScreenDto,
+})
 export class FastScreenAgent {}
 
 @Agent({
@@ -142,14 +254,22 @@ export class FastScreenAgent {}
 })
 export class FullReviewAgent {}
 
-@Action({ name: "open-deal-room-action", description: "Opens the deal room", input: { audit: AuditDto } })
+@Action({
+  name: "open-deal-room-action",
+  description: "Opens the deal room",
+  input: { audit: AuditDto },
+})
 export class OpenDealRoomAction implements ActionHandler<OpenDealRoomAction> {
   async execute(input: InputOf<OpenDealRoomAction>): Promise<void> {
     await Promise.resolve(input.audit.value.passed);
   }
 }
 
-@Action({ name: "notify-reviewer-action", description: "Tells a reviewer", input: { deal: DealDto } })
+@Action({
+  name: "notify-reviewer-action",
+  description: "Tells a reviewer",
+  input: { deal: DealDto },
+})
 export class NotifyReviewerAction implements ActionHandler<NotifyReviewerAction> {
   async execute(input: InputOf<NotifyReviewerAction>): Promise<void> {
     await Promise.resolve(input.deal.value.name);
@@ -170,14 +290,30 @@ export class NotifyReviewerAction implements ActionHandler<NotifyReviewerAction>
 })
 export class SecondOpinionRouter {}
 
-@WorkflowFinish({ name: "due-diligence-report-workflow-finish", description: "The report", output: DueDiligenceReportDto })
+@WorkflowFinish({
+  name: "due-diligence-report-workflow-finish",
+  description: "The report",
+  output: DueDiligenceReportDto,
+})
 export class DueDiligenceReportWorkflowFinish {}
 
-@WorkflowFinish({ name: "deal-room-opened-workflow-finish", description: "The audit", output: AuditDto })
+@WorkflowFinish({
+  name: "deal-room-opened-workflow-finish",
+  description: "The audit",
+  output: AuditDto,
+})
 export class DealRoomOpenedWorkflowFinish {}
 
-@WorkflowFinish({ name: "quick-reject-workflow-finish", description: "Rejected at once", output: FastScreenDto })
+@WorkflowFinish({
+  name: "quick-reject-workflow-finish",
+  description: "Rejected at once",
+  output: FastScreenDto,
+})
 export class QuickRejectWorkflowFinish {}
 
-@WorkflowFinish({ name: "reviewer-notified-workflow-finish", description: "Left to a reviewer", output: DealDto })
+@WorkflowFinish({
+  name: "reviewer-notified-workflow-finish",
+  description: "Left to a reviewer",
+  output: DealDto,
+})
 export class ReviewerNotifiedWorkflowFinish {}
