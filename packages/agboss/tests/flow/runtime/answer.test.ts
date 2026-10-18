@@ -65,7 +65,9 @@ describe("#272 S6 / S9: an agent with output answers through its answer tool", (
       const run = execute(app, EditStart, { text: "a poem" });
 
       await expect(run).rejects.toBeInstanceOf(AgentAnswerInvalidError);
-      await expect(run).rejects.toFailWith({ code: "step.agent.invalid-answer" });
+      await expect(run).rejects.toFailWith(AgentAnswerInvalidError, {
+        code: "step.agent.invalid-answer",
+      });
       expect(mockLlm(EditorAgent).requests).toHaveLength(3);
     },
   );

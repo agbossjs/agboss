@@ -15,6 +15,7 @@ import {
   PricedApplication,
 } from "./fixtures/priced.workflow.js";
 import { execute } from "../helpers/flow.js";
+import { BudgetExceededError } from "../../src/errors.js";
 
 const test = testWith(PricedApplication);
 const tokens = { usage_metadata: { input_tokens: 1_000_000, output_tokens: 1_000_000 } };
@@ -86,6 +87,8 @@ describe("AC6: limits per run use the providers' cost", () => {
     ]);
 
     const overRun = execute(app, TaskStart, { text: "again" });
-    await expect(overRun).rejects.toFailWith({ code: "priced-execution-budget" });
+    await expect(overRun).rejects.toFailWith(BudgetExceededError, {
+      budget: { name: "priced-execution-budget" },
+    });
   });
 });

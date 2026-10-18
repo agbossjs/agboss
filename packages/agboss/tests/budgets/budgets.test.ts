@@ -116,7 +116,6 @@ describe("#261 AC10: every budget is checked before the first step", () => {
     "an exhausted tenant budget rejects the execution: no record, no model call",
     async ({ app, mockLlm, mockOf }) => {
       mockOf(ShopTenantDailyBudget).maxSpend.mockReturnValue(usd(0));
-      mockLlm(DrafterAgent).thenReturn(draft(0));
 
       const run = execute(app, BriefStart, { text: "a brief" }, { tenant: acme });
 
@@ -174,7 +173,6 @@ describe("#261 AC10: every model call is counted in all of the execution's budge
     "the first exhausted budget stops the execution before the next call",
     async ({ app, mockLlm }) => {
       mockLlm(DrafterAgent).thenReturn(draft(0.06));
-      mockLlm(ReviewerAgent).thenReturn(replyWith("never"));
 
       const run = execute(app, BriefStart, { text: "a brief" }, { tenant: acme });
 

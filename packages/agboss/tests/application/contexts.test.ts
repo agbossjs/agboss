@@ -103,7 +103,7 @@ describe("#261 AC4: the values are validated before the first step and frozen", 
     app,
     mockLlm,
   }) => {
-    mockLlm(BedAgent).thenReturn(replyWith(BedsDto, { text: "never" }));
+    // no script: a model call would fail the test as a blocked live call
     const tenant = { tenantId: "haifa-clinic", units: [{ unitId: 4711, name: "ICU" }] };
 
     const refused = execute(

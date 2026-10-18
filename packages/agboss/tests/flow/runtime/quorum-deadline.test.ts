@@ -32,6 +32,8 @@ const checked = testWith(CheckedPanelApplication);
 
 const score = (value: number) => replyWith(ScoreDto, { score: value });
 const slow = (value: number, wait: number) => [callTool(WaitTool, { seconds: wait }), score(value)];
+/** A branch cancelled while it waits: it never answers, so its script has no answer (#262). */
+const cancelledWhileWaiting = (wait: number) => callTool(WaitTool, { seconds: wait });
 const summary = replyWith(ScoreReviewDto, { text: "summed up" });
 const ANNA = { name: "Anna" };
 const approve = { approved: true, by: "dana" };
@@ -68,7 +70,7 @@ describe("AC2: between min and max, the deadline", () => {
     async ({ app, mockLlm, clock }) => {
       mockLlm(SkillsPanelAgent).thenReturn(score(7));
       mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(...slow(9, 60));
+      mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting(60));
       mockLlm(PanelSummaryAgent).thenReturn(summary);
 
       const execution = execute(app, PanelWorkflowStart, ANNA);
@@ -90,8 +92,8 @@ describe("AC2: between min and max, the deadline", () => {
     "the deadline with min not reached: QuorumNotReachedError into .onJoinError",
     async ({ app, mockLlm, clock }) => {
       mockLlm(SkillsPanelAgent).thenReturn(score(7));
-      mockLlm(RisksPanelAgent).thenReturn(...slow(6, 60));
-      mockLlm(HirePanelAgent).thenReturn(...slow(9, 60));
+      mockLlm(RisksPanelAgent).thenReturn(cancelledWhileWaiting(60));
+      mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting(60));
 
       const execution = execute(app, PanelWorkflowStart, ANNA, { record: true });
       await untilWaiting(2);
@@ -133,7 +135,8 @@ describe("AC10: the deadline counts real time, pauses included", () => {
     "the deadline passes during a pause: the paused branch is cancelled without running",
     async ({ app, mockLlm, clock }) => {
       mockLlm(SkillsPanelAgent).thenReturn(score(7));
-      mockLlm(RisksPanelAgent).thenReturn(callTool(ConfirmScoreTool, { score: 6 }), score(6));
+      // cancelled at its pause: the answer after the confirmation never comes
+      mockLlm(RisksPanelAgent).thenReturn(callTool(ConfirmScoreTool, { score: 6 }));
       mockLlm(HirePanelAgent).thenReturn(score(9));
       mockLlm(PanelSummaryAgent).thenReturn(summary);
 

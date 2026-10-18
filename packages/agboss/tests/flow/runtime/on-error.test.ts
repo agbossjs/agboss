@@ -12,6 +12,7 @@ import {
   RefundTool,
   PayApplication,
 } from "./fixtures/pay.workflow.js";
+import { ActionFailedError } from "../../../src/errors.js";
 
 const test = testWith(PayApplication);
 const approve = { approved: true, by: "dana" };
@@ -57,7 +58,7 @@ describe("#272 AC7: .onError(E, path) right after the step that throws", () => {
   test("no handler for the failure: the execution fails", async ({ app }) => {
     const run = execute(app, PayStart, { id: "9", outcome: "crash" });
 
-    await expect(run).rejects.toFailWith({ code: "step.action" });
+    await expect(run).rejects.toFailWith(ActionFailedError, { code: "step.action" });
     await expect(run).rejects.toThrow("the ledger is down");
   });
 

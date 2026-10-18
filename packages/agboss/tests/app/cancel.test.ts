@@ -37,10 +37,8 @@ describe("#187 AC1: after cancelling a paused run, approving it does not execute
     app,
     mockLlm,
   }) => {
-    mockLlm(Clerk).thenReturn(
-      callTool(Charge, { text: "10 USD" }),
-      replyWith(ReceiptDto, { text: "Charged." }),
-    );
+    // the run pauses at the charge's approval and is cancelled there: no receipt
+    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const paused = await execute(app, Start, { text: "charge" });
 
     const cancelled = await app.cancel(paused.threadId);
@@ -59,10 +57,8 @@ describe("#187 AC1: after cancelling a paused run, approving it does not execute
     recoverApp,
     mockLlm,
   }) => {
-    mockLlm(Clerk).thenReturn(
-      callTool(Charge, { text: "10 USD" }),
-      replyWith(ReceiptDto, { text: "Charged." }),
-    );
+    // the run pauses at the charge's approval and is cancelled there: no receipt
+    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const paused = await execute(app, Start, { text: "charge" });
     await app.cancel(paused.threadId);
 
@@ -89,10 +85,7 @@ describe("#187 AC2: cancelling a running run stops it before the next model/tool
     app,
     mockLlm,
   }) => {
-    mockLlm(Clerk).thenReturn(
-      callTool(Wait, { text: "a long job" }),
-      replyWith(ReceiptDto, { text: "never" }),
-    );
+    mockLlm(Clerk).thenReturn(callTool(Wait, { text: "a long job" }));
     const run = waitingRun(() => execute(app, Start, { text: "wait" }));
     const thread = await run.thread;
 
@@ -111,7 +104,6 @@ describe("#187 AC2: cancelling a running run stops it before the next model/tool
     mockLlm(Clerk).thenReturn(
       callTool(Charge, { text: "10 USD" }),
       callTool(Wait, { text: "a receipt" }),
-      replyWith(ReceiptDto, { text: "never" }),
     );
     const paused = await execute(app, Start, { text: "charge, then wait" });
     const run = waitingRun(() => app.resume(paused.threadId, approve));

@@ -132,10 +132,7 @@ describe("#244 AC2: a run that fails after a resume, or is cancelled while pause
     app,
     mockLlm,
   }) => {
-    mockLlm(Clerk).thenReturn(
-      callTool(Apply, { text: "job 1" }),
-      replyWith(AnswerDto, { text: "never" }),
-    );
+    mockLlm(Clerk).thenReturn(callTool(Apply, { text: "job 1" }));
 
     const paused = await execute(app, Ask, { text: "apply" });
     const cancelled = await app.cancel(paused.threadId);

@@ -53,10 +53,8 @@ async function runningRecords(): Promise<number> {
   return records?.length ?? 0;
 }
 
-const holdThenAnswer = [
-  callTool(Hold, { text: "a long job" }),
-  replyWith(ReceiptDto, { text: "Done." }),
-] as const;
+const hold = callTool(Hold, { text: "a long job" });
+const holdThenAnswer = [hold, replyWith(ReceiptDto, { text: "Done." })] as const;
 
 describe("#265 S51: the stop waits for the running executions", () => {
   test("one that ends within the timeout ends normally", async ({ app, mockLlm }) => {
@@ -77,7 +75,7 @@ describe("#265 S51: the stop waits for the running executions", () => {
     clock,
     mockLlm,
   }) => {
-    mockLlm(Clerk).thenReturn(...holdThenAnswer);
+    mockLlm(Clerk).thenReturn(hold); // interrupted while it holds: no answer
     const started = await holding(app);
 
     const closed = app.close();
@@ -96,7 +94,7 @@ describe("#265 S51: the stop waits for the running executions", () => {
 
 describe("#265 S51: the timeout is the application's, or the call's", () => {
   quick("@Application({ shutdownTimeout: seconds(5) })", async ({ app, clock, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(...holdThenAnswer);
+    mockLlm(Clerk).thenReturn(hold); // interrupted while it holds: no answer
     await holding(app);
 
     const closed = app.close();
@@ -107,7 +105,7 @@ describe("#265 S51: the timeout is the application's, or the call's", () => {
   });
 
   quick("app.close({ timeout }) overrides it", async ({ app, clock, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(...holdThenAnswer);
+    mockLlm(Clerk).thenReturn(hold); // interrupted while it holds: no answer
     await holding(app);
 
     const closed = app.close({ timeout: seconds(10) });
@@ -121,7 +119,7 @@ describe("#265 S51: the timeout is the application's, or the call's", () => {
   });
 
   test("a second close with a shorter timeout shortens the wait", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(...holdThenAnswer);
+    mockLlm(Clerk).thenReturn(hold); // interrupted while it holds: no answer
     await holding(app);
 
     const first = app.close();
