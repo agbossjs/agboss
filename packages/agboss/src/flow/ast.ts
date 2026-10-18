@@ -44,8 +44,8 @@ export type ComponentClass = Class;
 /** A `@WorkflowStart` class. */
 export type StartClass = Class;
 
-/** An error class `.onError(…)` catches (matched by its stable `code` through the cause chain). */
-export type ErrorClass = abstract new (...args: never[]) => Error;
+/** An error class: what `.onError(…)` catches (by class, through the cause chain) and `toFailWith` matches. */
+export type ErrorClass<TError extends Error = Error> = abstract new (...args: never[]) => TError;
 
 /** A path's first node: a start, or the shared node whose own path it is. */
 export type PathSource = StartSource | ComponentSource;

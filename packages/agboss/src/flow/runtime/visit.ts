@@ -29,6 +29,7 @@ import { reportTruncation } from "./launch/launch-report.js";
 import type { LaunchTicket } from "./launch/records.js";
 import type { RuntimeLaunch } from "./launch/runtime-launch.js";
 import type { RuntimeContexts } from "../context/runtime-contexts.js";
+import { readInput } from "./scope.js";
 
 /**
  * A node's visit (#272 → Runtime): limits checked before an agent or a router runs, the node run,
@@ -185,7 +186,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       }
       const frame = {
         ...stepFrameOf(node, state, config, deps.workflow, deps.contexts),
-        services: { reportUsage },
+        services: { reportUsage, input: () => readInput(deps.graph, node, state).fields },
       };
       const outcome = await runInFrame(frame, () => runner(state, config));
       const spent = { ...outcome, usage: [...(outcome.usage ?? []), ...services] };

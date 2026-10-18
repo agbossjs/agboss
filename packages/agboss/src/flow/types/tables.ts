@@ -5,12 +5,7 @@ import { joinValueWrites } from "../analyse/launches.js";
 import { slotOfWrite } from "../analyse/scope.js";
 import type { InputShape } from "../analyse/projection.js";
 import { NodeKind, type ComponentClass } from "../ast.js";
-import {
-  isCodeRouter,
-  onDemandRoutesOf,
-  routesOf,
-  type RouterOptions,
-} from "../decorators/router.js";
+import { onDemandRoutesOf, routesOf, type RouterOptions } from "../decorators/router.js";
 import type { ComponentName } from "../registry.js";
 import type { ImportTable } from "./imports.js";
 import { childInputEntry, inputEntry, isInputProblem, type NodeInput } from "./inputs.js";
@@ -23,7 +18,7 @@ import { outputText, startInputText, startOutputText, valueText } from "./shapes
  * `Outputs` (`OutputOf<X>`: what an action or a finish returns), `WorkflowStarts` (input and output
  * per start), `Routes` (`Route<R>`: the targets a router decides on — every route after
  * `.chooseOne(…)`, the `OnDemand` ones before a launch, #280), `RouterAnswers` (what a code
- * router's `route()` returns) and `JoinOutputs` (what the join of each launch gives, #273). A
+ * router's `route()` returns, and what a model router's scripted `routeTo(…)` gives, #262) and `JoinOutputs` (what the join of each launch gives, #273). A
  * component in
  * several workflows gets one entry: the input shapes and the reachable finishes of all of them.
  */
@@ -182,8 +177,8 @@ function writeNode(
       const route = targets.length === 0 ? "never" : [...new Set(targets)].sort().join(" | ");
       tables.routes.set(name, route);
       const hasAlways = onDemandRoutesOf(options).length < options.routes.length;
-      if (isCodeRouter(options))
-        tables.routerAnswers.set(name, routerAnswerText(route, form, hasAlways));
+      // a code router's `route()` returns it; a model router's scripted `routeTo(…)` gives it (#262)
+      tables.routerAnswers.set(name, routerAnswerText(route, form, hasAlways));
       return;
     }
     case NodeKind.Workflow:

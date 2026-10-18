@@ -519,8 +519,15 @@ declare module "../src/flow/generated-types.js" {
     "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;
   }
   interface RouterAnswers {
+    "answer-router": typeof ExpertAnswerAgent | typeof FastAnswerAgent | typeof LoyaltyAgent;
+    "credit-limit-by-model-router": typeof ApprovalAgent | typeof ChargeCardAction;
     "credit-limit-router": typeof ApprovalAgent | typeof ChargeCardAction;
+    "critique-router": typeof PolishAgent | typeof PolishedWorkflowFinish;
+    "desk-router": typeof NoOrderWorkflowFinish | typeof OrderIntakeAgent;
+    "help-desk-router": readonly typeof RefundPolicyAgent[];
+    "main-router": typeof NoReplyWorkflowFinish | typeof ProfilerAgent | typeof ScoutAgent;
     "offers-router": readonly typeof LoyaltyOfferAgent[];
+    "second-opinion-router": typeof FullReviewAgent | typeof NotifyReviewerAction;
     "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;
   }
   interface JoinOutputs {

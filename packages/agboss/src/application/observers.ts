@@ -25,8 +25,9 @@ export function observerManagerOf(
   application: ApplicationContainer,
   options: ContainerOptions,
   log: FrameworkLog,
+  extra: readonly ExecutionObserver[] = [],
 ): ExecutionObserverManager {
   // each listed class is checked at assembly to implement observer hooks
   const observers = resolveListed(application, options, assembled.observers) as ExecutionObserver[];
-  return new ExecutionObserverManager(observers, failureLoggedTo(log));
+  return new ExecutionObserverManager([...observers, ...extra], failureLoggedTo(log));
 }

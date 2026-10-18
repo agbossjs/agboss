@@ -171,14 +171,29 @@ export interface ProducedValue<TValue, TProducer> {
   readonly value: TValue;
 }
 
+/** Some fields of a `oneOf` value with its class: an element matcher in a test's `when(…)` (#262). */
+export type PartialVariant<TDto extends DtoClass> = Partial<InstanceType<TDto>> & {
+  readonly [variantClass]: TDto;
+};
+
 /** An action's `oneOf` result: names the class it returns; the runtime never guesses it by shape. */
+export function variant<TDto extends DtoClass>(dto: TDto, value: InstanceType<TDto>): Variant<TDto>;
+/**
+ * In a test (#262): an element of a `listOf(oneOf(…))` input matched by its class and the fields
+ * given — `when({ scores: [variant(CompanyScoreDto, { score: 9 })] })`.
+ */
 export function variant<TDto extends DtoClass>(
   dto: TDto,
-  value: InstanceType<TDto>,
-): Variant<TDto> {
-  const result: InstanceType<TDto> = { ...value };
+  value: Partial<InstanceType<TDto>>,
+): PartialVariant<TDto>;
+export function variant<TDto extends DtoClass>(
+  dto: TDto,
+  value: Partial<InstanceType<TDto>>,
+): Variant<TDto> | PartialVariant<TDto> {
+  const result: Partial<InstanceType<TDto>> = { ...value };
   Object.defineProperty(result, variantClass, { value: dto, enumerable: false });
-  return result as Variant<TDto>;
+  // marked just above; a full value (the first overload) is a Variant, a partial one a PartialVariant
+  return result as PartialVariant<TDto>;
 }
 
 /** The class `variant(XDto, value)` marked a value with; undefined for a plain value. */

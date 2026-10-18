@@ -31,6 +31,11 @@ export interface ExecutionFacts {
  */
 export interface FrameServices {
   readonly reportUsage?: (usage: UsageRecord) => void;
+  /**
+   * The step's input as its node reads it (`InputOf<X>`, read when asked): what a test's
+   * `when(…)` script binds a model call to (#262). Absent in a tool call's frame.
+   */
+  readonly input?: () => Readonly<Record<string, unknown>>;
 }
 
 /** What a frame is opened with. */
