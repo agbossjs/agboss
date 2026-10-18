@@ -284,7 +284,6 @@ export interface AppDeps extends RunDeps<string> {
 
 // @public
 export interface AppDepsOptions {
-    // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
     readonly clock?: Clock;
     readonly connectMcp?: McpConnect;
     // Warning: (ae-forgotten-export) The symbol "ContainerOptions" needs to be exported by the entry point index.d.ts
@@ -640,6 +639,12 @@ export interface ChooseOneStep {
 
 // @public
 export type Class<T = unknown> = abstract new (...args: never[]) => T;
+
+// @public
+export abstract class Clock {
+    abstract now(): Date;
+    abstract sleep(delay: Milliseconds, signal?: AbortSignal): Promise<void>;
+}
 
 // @public
 export interface CloseOptions {
@@ -2677,6 +2682,7 @@ export function runAgent<TName extends string>(input: unknown, deps: RunDeps<TNa
 
 // @public
 export interface RunDeps<TName extends string> extends GraphDeps<TName> {
+    readonly clock?: Clock | undefined;
     readonly compactionPrompt?: string | undefined;
     // Warning: (ae-forgotten-export) The symbol "SpendLedger" needs to be exported by the entry point index.d.ts
     //
@@ -2882,7 +2888,7 @@ export class SqliteConnection implements OnDestroy {
 
 // @public
 export class SqliteCostLedgerRepository extends CostLedgerRepository {
-    constructor(connection: SqliteConnection, now: () => Date);
+    constructor(connection: SqliteConnection, clock: Clock);
     // (undocumented)
     findSpentToday(key: string): Promise<number>;
     // (undocumented)
@@ -2891,7 +2897,7 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
 
 // @public
 export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
-    constructor(connection: SqliteConnection, now: () => Date, instanceId: string);
+    constructor(connection: SqliteConnection, clock: Clock, applicationContext: ApplicationContext);
     // (undocumented)
     acquire(tenantId: string, rootExecutionId: string, lease: Milliseconds): Promise<ExecutionLease | undefined>;
     // (undocumented)
@@ -2904,7 +2910,7 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
 //
 // @public
 export class SqliteExecutionRecordRepository extends TernStoreRecordRepository {
-    constructor(connection: SqliteConnection, now: () => Date, newThreadId: NewThreadId | undefined);
+    constructor(connection: SqliteConnection, clock: Clock, newThreadId: NewThreadId | undefined);
 }
 
 // @public
@@ -2920,7 +2926,7 @@ export class SqliteExecutionTreeRepository extends ExecutionTreeRepository {
 
 // @public
 export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
-    constructor(connection: SqliteConnection, now: () => Date);
+    constructor(connection: SqliteConnection, clock: Clock);
     // (undocumented)
     deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void>;
     // (undocumented)
@@ -2933,7 +2939,7 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
 
 // @public
 export class SqliteRateLimitRepository extends RateLimitRepository {
-    constructor(connection: SqliteConnection, now: () => Date, instanceId: string);
+    constructor(connection: SqliteConnection, clock: Clock, applicationContext: ApplicationContext);
     // (undocumented)
     acquire(key: string, maxSlots: number, lease: Milliseconds): Promise<RateLimitLease | undefined>;
     // (undocumented)
@@ -3491,14 +3497,14 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 
 // Warnings were encountered during analysis:
 //
-// src/app/app-deps.ts:34:3 - (ae-undocumented) Missing documentation for "observer".
-// src/app/app-deps.ts:35:3 - (ae-undocumented) Missing documentation for "evaluation".
-// src/app/app-deps.ts:78:3 - (ae-undocumented) Missing documentation for "newThreadId".
-// src/app/app-deps.ts:79:3 - (ae-undocumented) Missing documentation for "newRunId".
-// src/app/app-deps.ts:80:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/app-deps.ts:33:3 - (ae-undocumented) Missing documentation for "observer".
+// src/app/app-deps.ts:34:3 - (ae-undocumented) Missing documentation for "evaluation".
+// src/app/app-deps.ts:80:3 - (ae-undocumented) Missing documentation for "newThreadId".
+// src/app/app-deps.ts:81:3 - (ae-undocumented) Missing documentation for "newRunId".
+// src/app/app-deps.ts:82:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/create-app.ts:48:3 - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/create-app.ts:47:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:10:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:11:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/limit-check.ts:9:3 - (ae-undocumented) Missing documentation for "code".
@@ -3755,10 +3761,10 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/eval/compare-report.ts:16:3 - (ae-undocumented) Missing documentation for "failed".
 // src/eval/compare-report.ts:17:3 - (ae-undocumented) Missing documentation for "diff".
 // src/eval/compare-report.ts:18:3 - (ae-undocumented) Missing documentation for "stoppedBy".
-// src/eval/compare.ts:90:1 - (ae-undocumented) Missing documentation for "PairwiseResult".
-// src/eval/compare.ts:91:3 - (ae-undocumented) Missing documentation for "wins".
-// src/eval/compare.ts:92:3 - (ae-undocumented) Missing documentation for "losses".
-// src/eval/compare.ts:93:3 - (ae-undocumented) Missing documentation for "ties".
+// src/eval/compare.ts:91:1 - (ae-undocumented) Missing documentation for "PairwiseResult".
+// src/eval/compare.ts:92:3 - (ae-undocumented) Missing documentation for "wins".
+// src/eval/compare.ts:93:3 - (ae-undocumented) Missing documentation for "losses".
+// src/eval/compare.ts:94:3 - (ae-undocumented) Missing documentation for "ties".
 // src/finops/usage.ts:34:3 - (ae-undocumented) Missing documentation for "caller".
 // src/finops/usage.ts:35:3 - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts:36:3 - (ae-undocumented) Missing documentation for "costUsd".
@@ -4056,13 +4062,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/settings.ts:48:5 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:51:3 - (ae-undocumented) Missing documentation for "builder".
 // src/graph/settings.ts:75:3 - (ae-undocumented) Missing documentation for "settings".
-// src/infrastructure/execution-record.repository.ts:53:3 - (ae-undocumented) Missing documentation for "append".
-// src/infrastructure/execution-record.repository.ts:68:3 - (ae-undocumented) Missing documentation for "byIds".
-// src/infrastructure/execution-record.repository.ts:86:3 - (ae-undocumented) Missing documentation for "saveScore".
-// src/infrastructure/execution-record.repository.ts:87:3 - (ae-undocumented) Missing documentation for "meanScore".
-// src/infrastructure/execution-record.repository.ts:97:3 - (ae-undocumented) Missing documentation for "configSnapshots".
-// src/infrastructure/execution-record.repository.ts:106:3 - (ae-undocumented) Missing documentation for "addSummary".
-// src/infrastructure/execution-record.repository.ts:109:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record.repository.ts:54:3 - (ae-undocumented) Missing documentation for "append".
+// src/infrastructure/execution-record.repository.ts:69:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record.repository.ts:87:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record.repository.ts:88:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record.repository.ts:98:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record.repository.ts:107:3 - (ae-undocumented) Missing documentation for "addSummary".
+// src/infrastructure/execution-record.repository.ts:110:3 - (ae-undocumented) Missing documentation for "summaryCount".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:41:9 - (ae-undocumented) Missing documentation for "getTuple".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:54:10 - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:69:9 - (ae-undocumented) Missing documentation for "put".
@@ -4070,9 +4076,9 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:136:3 - (ae-undocumented) Missing documentation for "deleteThread".
 // src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:31:3 - (ae-undocumented) Missing documentation for "findSpentToday".
 // src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:38:3 - (ae-undocumented) Missing documentation for "saveAll".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:38:3 - (ae-undocumented) Missing documentation for "acquire".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:66:3 - (ae-undocumented) Missing documentation for "renew".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:83:3 - (ae-undocumented) Missing documentation for "release".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:39:3 - (ae-undocumented) Missing documentation for "acquire".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:73:3 - (ae-undocumented) Missing documentation for "renew".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:90:3 - (ae-undocumented) Missing documentation for "release".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:41:3 - (ae-undocumented) Missing documentation for "saveIfAbsentInTree".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:56:3 - (ae-undocumented) Missing documentation for "findByIdInTree".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:67:3 - (ae-undocumented) Missing documentation for "deleteAllInTree".
@@ -4080,9 +4086,9 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:115:3 - (ae-undocumented) Missing documentation for "save".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:133:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndThreadId".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:156:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:34:3 - (ae-undocumented) Missing documentation for "acquire".
-// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:61:3 - (ae-undocumented) Missing documentation for "renew".
-// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:69:3 - (ae-undocumented) Missing documentation for "release".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:35:3 - (ae-undocumented) Missing documentation for "acquire".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:62:3 - (ae-undocumented) Missing documentation for "renew".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:70:3 - (ae-undocumented) Missing documentation for "release".
 // src/llm/decision-errors.ts:5:3 - (ae-undocumented) Missing documentation for "code".
 // src/llm/decision-errors.ts:6:12 - (ae-undocumented) Missing documentation for "name".
 // src/llm/decision-errors.ts:11:3 - (ae-undocumented) Missing documentation for "code".
@@ -4126,10 +4132,10 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/llm/decisions.ts:138:22 - (ae-forgotten-export) The symbol "score" needs to be exported by the entry point index.d.ts
 // src/llm/decisions.ts:138:22 - (ae-forgotten-export) The symbol "image" needs to be exported by the entry point index.d.ts
 // src/loader/load-errors.ts:3:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/circuit-breaker.ts:28:48 - (ae-undocumented) Missing documentation for "code".
-// src/models/circuit-breaker.ts:29:3 - (ae-undocumented) Missing documentation for "code".
-// src/models/circuit-breaker.ts:30:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/circuit-breaker.ts:33:5 - (ae-undocumented) Missing documentation for "provider".
+// src/models/circuit-breaker.ts:29:48 - (ae-undocumented) Missing documentation for "code".
+// src/models/circuit-breaker.ts:30:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/circuit-breaker.ts:31:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/circuit-breaker.ts:34:5 - (ae-undocumented) Missing documentation for "provider".
 // src/routers/types.ts:43:3 - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts:44:3 - (ae-undocumented) Missing documentation for "route".
 // src/run/resume-agent.ts:13:3 - (ae-undocumented) Missing documentation for "code".
@@ -4149,23 +4155,23 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/thread.ts:8:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/thread.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/run/thread.ts:14:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/types.ts:16:3 - (ae-undocumented) Missing documentation for "ledger".
-// src/run/types.ts:17:3 - (ae-undocumented) Missing documentation for "terns".
-// src/run/types.ts:28:3 - (ae-undocumented) Missing documentation for "key".
-// src/run/types.ts:29:3 - (ae-undocumented) Missing documentation for "dailyCap".
-// src/run/types.ts:37:1 - (ae-undocumented) Missing documentation for "RunOptions".
-// src/run/types.ts:42:3 - (ae-undocumented) Missing documentation for "account".
-// src/run/types.ts:47:3 - (ae-undocumented) Missing documentation for "executionContext".
-// src/run/types.ts:73:3 - (ae-undocumented) Missing documentation for "status".
-// src/run/types.ts:76:3 - (ae-undocumented) Missing documentation for "startInput".
-// src/run/types.ts:81:3 - (ae-undocumented) Missing documentation for "output".
-// src/run/types.ts:82:3 - (ae-undocumented) Missing documentation for "budgetUsd".
-// src/run/types.ts:83:3 - (ae-undocumented) Missing documentation for "cost".
-// src/run/types.ts:84:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/run/types.ts:87:3 - (ae-undocumented) Missing documentation for "ternId".
-// src/run/types.ts:88:3 - (ae-undocumented) Missing documentation for "data".
-// src/tools/define-tool.ts:18:3 - (ae-undocumented) Missing documentation for "code".
-// src/tools/define-tool.ts:19:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/types.ts:17:3 - (ae-undocumented) Missing documentation for "ledger".
+// src/run/types.ts:18:3 - (ae-undocumented) Missing documentation for "terns".
+// src/run/types.ts:31:3 - (ae-undocumented) Missing documentation for "key".
+// src/run/types.ts:32:3 - (ae-undocumented) Missing documentation for "dailyCap".
+// src/run/types.ts:40:1 - (ae-undocumented) Missing documentation for "RunOptions".
+// src/run/types.ts:45:3 - (ae-undocumented) Missing documentation for "account".
+// src/run/types.ts:50:3 - (ae-undocumented) Missing documentation for "executionContext".
+// src/run/types.ts:76:3 - (ae-undocumented) Missing documentation for "status".
+// src/run/types.ts:79:3 - (ae-undocumented) Missing documentation for "startInput".
+// src/run/types.ts:84:3 - (ae-undocumented) Missing documentation for "output".
+// src/run/types.ts:85:3 - (ae-undocumented) Missing documentation for "budgetUsd".
+// src/run/types.ts:86:3 - (ae-undocumented) Missing documentation for "cost".
+// src/run/types.ts:87:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/run/types.ts:90:3 - (ae-undocumented) Missing documentation for "ternId".
+// src/run/types.ts:91:3 - (ae-undocumented) Missing documentation for "data".
+// src/tools/define-tool.ts:20:3 - (ae-undocumented) Missing documentation for "code".
+// src/tools/define-tool.ts:21:12 - (ae-undocumented) Missing documentation for "name".
 // src/workflow.ts:45:1 - (ae-undocumented) Missing documentation for "WorkflowTools".
 // src/workflow.ts:53:3 - (ae-undocumented) Missing documentation for "config".
 // src/workflow.ts:69:3 - (ae-undocumented) Missing documentation for "prompts".

@@ -222,7 +222,7 @@ export interface TestApp extends Pick<App, "execute" | "resume" | "close" | "can
     // (undocumented)
     agent(agent: Class): AgentSlice;
     // (undocumented)
-    readonly clock: TestClock;
+    readonly clock: VirtualClock;
     ready(): Promise<void>;
     // (undocumented)
     router(router: Class): RouterSlice;
@@ -242,16 +242,6 @@ export interface TestApplicationOptions {
     readonly name?: string;
     // (undocumented)
     readonly version?: string;
-}
-
-// @public
-export interface TestClock {
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
-    advance(duration: ClockDuration | Milliseconds): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly now: Clock;
 }
 
 // Warning: (ae-forgotten-export) The symbol "ExecutionContext" needs to be exported by the entry point index.d.ts
@@ -381,11 +371,22 @@ export enum VCRMode {
     REPLAY = "REPLAY"
 }
 
+// Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
+//
+// @public
+export class VirtualClock extends Clock {
+    constructor(start?: Date);
+    advance(duration: ClockDuration | Milliseconds): Promise<void>;
+    now(): Date;
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
+    sleep(delay: Milliseconds, signal?: AbortSignal): Promise<void>;
+}
+
 // @public
 export interface WorkflowFixtures {
     readonly app: TestApp;
     readonly apps: readonly TestApp[];
-    readonly clock: TestClock;
+    readonly clock: VirtualClock;
     readonly mcpOf: <TServer extends McpServerClient<ServerTools>>(server: new () => TServer) => McpStub<TServer>;
     readonly mockCompaction: () => ModelScript;
     // Warning: (ae-forgotten-export) The symbol "ModelTarget" needs to be exported by the entry point index.d.ts
@@ -432,7 +433,6 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/models/model-failure.ts:4:3 - (ae-undocumented) Missing documentation for "RateLimited".
 // src/models/model-failure.ts:5:3 - (ae-undocumented) Missing documentation for "ServerError".
 // src/models/model-failure.ts:6:3 - (ae-undocumented) Missing documentation for "NetworkError".
-// src/testing/clock.ts:29:3 - (ae-undocumented) Missing documentation for "now".
 // src/testing/errors.ts:12:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/errors.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/testing/errors.ts:23:12 - (ae-undocumented) Missing documentation for "name".
@@ -485,8 +485,8 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/test-app.ts:32:3 - (ae-undocumented) Missing documentation for "agent".
 // src/testing/test-app.ts:33:3 - (ae-undocumented) Missing documentation for "router".
 // src/testing/test-app.ts:34:3 - (ae-undocumented) Missing documentation for "tool".
-// src/testing/vcr.ts:20:1 - (ae-undocumented) Missing documentation for "VCRMode".
-// src/testing/vcr.ts:31:3 - (ae-undocumented) Missing documentation for "cassetteName".
+// src/testing/vcr.ts:21:1 - (ae-undocumented) Missing documentation for "VCRMode".
+// src/testing/vcr.ts:32:3 - (ae-undocumented) Missing documentation for "cassetteName".
 
 // (No @packageDocumentation comment for this package)
 

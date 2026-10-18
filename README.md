@@ -239,6 +239,31 @@ export const durableStores = [
 ];
 ```
 
+**Time is the application's `Clock`** (#262, infrastructure like the stores): every time the
+framework reads (the ledger's day, records, leases) and every wait it makes (lease renewals,
+recovery, the shutdown timeout, a tool's `timeoutMs`, model call timeouts, retry backoff,
+`Retry-After` pauses) goes through it — the system's clock unless `@Application({ providers })`
+lists a class that `extends Clock`. A component that needs the time injects it; `testWith` runs
+every test on a `VirtualClock` (`agboss/testing`), moved by `await clock.advance(seconds(30))`
+without real waiting. Direct time in the framework (`Date.now()`, `new Date()`, `setTimeout`, …)
+fails lint (`agboss/no-direct-time`):
+
+```ts
+// services/reminder.service.ts — the time comes from the application's Clock, never Date.now()
+import { Clock, Injectable } from "agboss";
+import { seconds } from "agboss/units";
+
+@Injectable({ deps: [Clock] })
+export class ReminderService {
+  constructor(private readonly clock: Clock) {}
+
+  async remindLater(): Promise<Date> {
+    await this.clock.sleep(seconds(30)); // in a test: await clock.advance(seconds(30))
+    return this.clock.now();
+  }
+}
+```
+
 A rule needs no model: `@Router({ decidedBy: DecidedBy.Code, routes: [{ target: A }, { target: B }] })`
 on a class that `implements RouterHandler<Self>` decides in `route(input)`, returning one of its
 targets (`Route<Self>`) — no model call, cost 0, the same flow. Routes may carry the options of a
@@ -318,13 +343,14 @@ One package; the root `agboss` is the authoring API, the rest are focused entrie
   `InjectionToken`, `provide`, `env`, `secret`, `Secret`, the context levels (`ApplicationContext`,
   `TenantContext`, `ExecutionContext`, `ContextValues`), the path builder (`start`,
   `agent`, `router`, `action`, `route`, `caseOf`, `toAgent`, `toAction`, `toFinish`, …),
-  `WorkflowSettings`, `@Application`, `createApp`, `@Budget`, the infrastructure contracts,
+  `WorkflowSettings`, `@Application`, `createApp`, `@Budget`, the infrastructure contracts (`Clock`
+  among them),
   `Decision`, observers, errors and types
 - `agboss/dto` — field decorators (`@Text`, `@ListOf`, …), the DTO wrappers (`listOf`, `oneOf`,
   `optional`, `variant`) and the standard DTOs
 - `agboss/units` — `usd()`, `seconds()`, `minutes()`
 - `agboss/models` — model providers (`@ModelProvider`, listed in `@Application({ providers })`)
-- `agboss/testing` — `testWith`, `replyWith`, `mcpOf`, VCR (+ `agboss/testing/setup`)
+- `agboss/testing` — `testWith`, `replyWith`, `mcpOf`, `VirtualClock`, VCR (+ `agboss/testing/setup`)
 - `agboss/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`, `@McpTool`,
   `@McpExpose`, `@Rag`, A2A, memory)
 
@@ -332,7 +358,7 @@ Importing `agboss` has no side effects: tracing, the MCP SDK and SQLite load onl
 uses them. The old entries `agboss/core`, `/graph`, `/router`, `/tool` and `/channels` are
 deprecated re-exports for one minor release (`/concurrency` went with the old flow DSL, #272); `agboss migrate imports` rewrites them
 (and the renamed `Router` engine type → `RouterEngine`, root `McpServer` → `McpExpose` from
-`agboss/mcp`, testing `Duration` → `ClockDuration`). Every entry's surface is in
+`agboss/mcp`, testing `Duration` → `ClockDuration`, `TestClock` → `VirtualClock`). Every entry's surface is in
 `packages/agboss/api/*.api.md`; `npm run api:update` after an intended API change.
 
 ## Repository
