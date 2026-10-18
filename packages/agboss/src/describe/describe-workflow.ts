@@ -73,15 +73,11 @@ function bundleLines(bundle: AssembledWorkflow): string[] {
   ];
 }
 
-/** `steps 3–9 (maxSteps 12) · run $0.1 · day $1`: the steps range (#261) and the cost limits. */
+/** `steps 3–9 (maxSteps 12)`: the steps range (#261); money is the application's budgets. */
 function limitsLabel(bundle: AssembledWorkflow): string {
-  const { perRun, perDay } = bundle.limits;
   const range = stepsRangeOf(bundle.graph.analysis.graph);
   const most = range.most === undefined ? "" : `–${String(range.most)}`;
-  const steps = `steps ${String(range.least)}${most} (maxSteps ${String(bundle.maxSteps)})`;
-  const runCost = perRun?.cost === undefined ? "" : ` · run $${String(perRun.cost)}`;
-  const day = perDay?.cost === undefined ? "no daily cap" : `$${String(perDay.cost)}`;
-  return `${steps}${runCost} · day ${day}`;
+  return `steps ${String(range.least)}${most} (maxSteps ${String(bundle.maxSteps)})`;
 }
 
 /** Each value written with `{ about }` (#271, #299), when the workflow has one. */

@@ -1,13 +1,14 @@
 import { systemClock } from "../infrastructure/clock.js";
-import { isDayCapReached } from "../graph/limits.js";
+import { recordApplicationSpend } from "../budgets/application-spend.js";
+import { isPeriodBudgetExhausted } from "../graph/limits.js";
 import { runAgent } from "../run/run-agent.js";
 import { requestOfTask } from "../flow/runtime/start-input.js";
 import type { RunDeps } from "../run/types.js";
 import type { RouteRequest } from "../routers/index.js";
-import { judgeRequest, scoreOf, type EvalDeps } from "./eval.js";
+import { BUDGET_EXHAUSTED, judgeRequest, scoreOf, type EvalDeps } from "./eval.js";
 import { FIRST_BETTER, PAIR_INSTRUCTIONS, SECOND_BETTER } from "./prompts.js";
 
-/** One side of a comparison: a workflow with (or without) a profile, run on the eval account. */
+/** One side of a comparison: a workflow with (or without) a profile, within the application's budgets. */
 export interface ProfileRun {
   readonly name: string;
   readonly deps: RunDeps<string>;
@@ -32,11 +33,11 @@ export const TIE_BELOW = 0.6;
 async function judged(evaluation: EvalDeps, request: RouteRequest) {
   const outcome = await evaluation.judge.route(request);
   if (outcome.usage !== undefined)
-    await evaluation.ledger.record(evaluation.account.key, [outcome.usage]);
+    await recordApplicationSpend(evaluation.budgets, [outcome.usage]);
   return outcome;
 }
 
-/** Runs every task as a first contact on the eval account; scores each replyWith with the judge. */
+/** Runs every task as a first contact; scores each replyWith with the judge — until a tenant's or the application's budget is exhausted. */
 export async function runProfile(
   run: ProfileRun,
   tasks: readonly string[],
@@ -51,7 +52,7 @@ export async function runProfile(
     const started = clock();
     try {
       const request = requestOfTask(run.deps.graph, task);
-      const result = await runAgent(request, run.deps, { account: run.evaluation.account });
+      const result = await runAgent(request, run.deps);
       latenciesMs.push(clock() - started);
       costUsd += result.cost.totalUsd;
       const [tern] = await run.deps.terns.byIds([result.ternId]);
@@ -60,7 +61,7 @@ export async function runProfile(
         tern === undefined ? undefined : scoreOf(await judged(run.evaluation, judgeRequest(tern))),
       );
     } catch (error) {
-      if (isDayCapReached(error)) {
+      if (isPeriodBudgetExhausted(error)) {
         return {
           name: run.name,
           version: run.deps.config.version,
@@ -69,7 +70,7 @@ export async function runProfile(
           costUsd,
           latenciesMs,
           failed,
-          stoppedBy: "eval budget exhausted",
+          stoppedBy: BUDGET_EXHAUSTED,
         };
       }
       failed += 1;

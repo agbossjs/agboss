@@ -18,7 +18,6 @@ import type {
 } from "../components/decorators.js";
 import type { Class } from "../components/injection.js";
 import type { ResolvedPolicies } from "../workflow.js";
-import type { WorkflowLimits } from "./settings.js";
 import type { JudgeHandler } from "../components/judge-decorators.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 
@@ -51,8 +50,6 @@ export interface GraphDeps<TName extends string> {
   readonly channelAdapters?: (channel: string) => InboundChannelAdapter | undefined;
   /** The workflow's graph: its paths, analysed (`@Workflow({ flow })`). */
   readonly graph: RuntimeGraph;
-  /** From the workflow's `settings()`. */
-  readonly limits: WorkflowLimits;
   /** Steps per execution (`@Workflow({ maxSteps })`, default (agents + routers) × 3). */
   readonly maxSteps: number;
   /** Every router of the graph with its texts loaded (part of the run's versions). */

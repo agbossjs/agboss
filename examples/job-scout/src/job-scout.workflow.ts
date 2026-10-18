@@ -1,14 +1,5 @@
-import {
-  Workflow,
-  provide,
-  route,
-  start,
-  WorkflowSettings,
-  type WorkflowDefinition,
-  TerminalUserChannel,
-} from "agboss";
+import { Workflow, provide, route, start, TerminalUserChannel } from "agboss";
 import { WorkflowStartTextDto } from "agboss/dto";
-import { usd } from "agboss/units";
 import { Reasoning } from "agboss/models";
 import { GUARDS, KIMI } from "./config/settings.js";
 import { ProfilerAgent } from "./agents/profiler.agent.js";
@@ -63,10 +54,4 @@ import { JOB_SEARCH, jobSearchConfig } from "./config/search.config.js";
   promptVariables: jobScoutPromptVariables(jobSearchConfig),
   channelClasses: [TerminalUserChannel],
 })
-export class JobScout implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.1) }, perDay: { cost: usd(1) } })
-      .build();
-  }
-}
+export class JobScout {}

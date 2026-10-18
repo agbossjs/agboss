@@ -56,7 +56,7 @@ async function compareRuns(
 
 /**
  * The one A/B engine (`agboss compare` runs it too): builds the app parts of every profile, runs each
- * task as a first contact on the eval account, scores it with the workflow's judge (through the
+ * task as a first contact within the application's budgets, scores it with the workflow's judge (through the
  * model gateway), judges every profile pairwise against the first, and closes the apps.
  */
 export async function compareBundleProfiles(

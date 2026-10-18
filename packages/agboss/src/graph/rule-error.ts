@@ -79,6 +79,12 @@ export type RuleCode =
   | "application.duplicate-workflow"
   | "application.ambiguous-start"
   | "budget.not-a-budget"
+  // budgets at run time (#261 PR 5): every workflow, every tenant and the application capped
+  | "budget.execution-budget-required"
+  | "budget.duplicate-execution-budget"
+  | "budget.duplicate-default-execution-budget"
+  | "budget.tenant-budget-required"
+  | "budget.application-budget-required"
   | "di.infrastructure-in-workflow"
   // environments and defaults (#261 PR 4), reported at the application's assembly
   | "environment.contract-value"

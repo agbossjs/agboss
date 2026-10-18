@@ -5,7 +5,7 @@
  */
 import { describe, expect } from "vitest";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
-import { BudgetExceededError, LimitExceededError } from "../../src/index.js";
+import { BudgetExceededError, BudgetScope, LimitExceededError } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 import {
   Buyer,
@@ -87,7 +87,11 @@ describe("#194: the budget failure is thrown typed where it happens", () => {
 
     expect(error).toBeInstanceOf(BudgetExceededError);
     expect(error).toBeInstanceOf(LimitExceededError);
-    expect(error).toMatchObject({ code: "limit.budget", key: "limits.perRun.cost" });
-    expect(error).toFailWith({ code: "limits.perRun.cost", node: Checker });
+    expect(error).toMatchObject({
+      code: "limit.budget",
+      budget: { name: "shop-execution-budget" },
+      scope: BudgetScope.Execution,
+    });
+    expect(error).toFailWith({ code: "shop-execution-budget", node: Checker });
   });
 });

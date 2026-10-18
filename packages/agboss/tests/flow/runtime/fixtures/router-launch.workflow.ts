@@ -8,15 +8,18 @@ import {
   SpawnPolicy,
   Workflow,
   WorkflowFinish,
-  WorkflowSettings,
   WorkflowStart,
   type Produced,
-  type WorkflowDefinition,
 } from "../../../../src/index.js";
 import { WorkflowStartTextDto } from "../../fixtures/dtos.js";
 import { Application } from "../../../../src/application/application.js";
-import { usd } from "../../../../src/units/index.js";
-import { TEST_BUDGETS } from "../../fixtures/budgets.js";
+import { usd, type Usd } from "../../../../src/units/index.js";
+import {
+  TEST_BUDGETS,
+  TestApplicationDailyBudget,
+  TestTenantDailyBudget,
+} from "../../fixtures/budgets.js";
+import { Budget, BudgetScope, type BudgetHandler } from "../../../../src/budgets/budget.js";
 import { CustomerReplyDto, LoyaltyOfferDto, OrderStatusDto } from "../../fixtures/data-dtos.js";
 import {
   HelpDeskRouter,
@@ -209,11 +212,13 @@ export class BudgetAnswerAgent {}
       .toFinish(HelpDeskWorkflowFinish),
   ],
 })
-export class BudgetDeskWorkflow implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.05) } })
-      .build();
+export class BudgetDeskWorkflow {}
+
+/** $0.05 an execution: one dear branch spends it. */
+@Budget({ name: "budget-desk-execution-budget", scope: BudgetScope.Execution })
+export class BudgetDeskExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.05);
   }
 }
 
@@ -222,6 +227,6 @@ export class BudgetDeskWorkflow implements WorkflowDefinition {
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BudgetDeskWorkflow],
-  budgets: TEST_BUDGETS,
+  budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, BudgetDeskExecutionBudget],
 })
 export class BudgetDeskApplication {}

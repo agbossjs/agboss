@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { rememberAppWorkflow } from "./app-workflow.js";
 import { checkThreadAccess, checkThreadOwner, type ThreadAccess } from "../run/thread.js";
-import { checkRunLimits } from "./limit-check.js";
-import { runAgent } from "../run/run-agent.js";
+import { runOpenedAgent } from "../run/run-agent.js";
+import { openExecutionBudgets } from "../run/run-budgets.js";
 import { runVersions } from "../run/versions.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import {
@@ -73,7 +73,6 @@ export async function buildApp(
   options: AppDepsOptions,
   parts: WorkflowDepsParts,
 ): Promise<BuiltApp> {
-  checkRunLimits(bundle.config.name, bundle.limits);
   const deps = await createWorkflowDeps(bundle, options, parts);
   const current = {
     workflowVersion: deps.config.version,
@@ -118,16 +117,33 @@ export async function buildApp(
         return { ...valid, contexts: values };
       });
       const { tenantId } = checked.contexts.tenant;
+      // one id for the whole run: its observer events, `executionContext.executionId`, its Tern and its result
+      const runId = deps.newRunId?.() ?? randomUUID();
+      const { contexts: values } = checked;
+      // before the first step (#261): each budget's `maxSpend()` once; one exhausted rejects it —
+      // before anything is written: no thread, no record, no checkpoint
+      const budgets = await admit("execute", call.threadId, () =>
+        openExecutionBudgets(deps, {
+          executionId: runId,
+          threadId: call.threadId,
+          start: checked.name,
+          ownerId: call.ownerId,
+          signal: call.signal,
+          contexts: values,
+        }),
+      );
       // the thread is known before the run starts, so `cancel(threadId)` reaches a new one too
       const threadId =
         call.threadId ?? (await deps.terns.createThread(deps.config.name, tenantId, call.ownerId));
-      // one id for the whole run: its observer events, `executionContext.executionId`, its Tern and its result
-      const runId = deps.newRunId?.() ?? randomUUID();
       await deps.observer.onWorkflowStart({ runId, threadId });
       const begun = { start: checked.name, input: checked.input, threadId };
-      const { contexts: values } = checked;
       const result = await moves.first({ runId, threadId, tenantId }, call, (moving, signal) =>
-        runAgent(begun, moving, { ...runOptionsOf(call, signal), runId, contexts: values }),
+        runOpenedAgent(
+          begun,
+          moving,
+          { ...runOptionsOf(call, signal), runId, contexts: values },
+          budgets,
+        ),
       );
       // the generated `WorkflowStarts` types the output; at run time it is the finish's validated DTO
       return result as ExecutionOutput<never>;

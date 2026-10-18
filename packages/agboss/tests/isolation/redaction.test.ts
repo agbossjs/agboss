@@ -4,7 +4,6 @@ import { createApp } from "../../src/application/create-app.js";
 import { redactedArguments, redactedDto } from "../../src/dto/redact.js";
 import { ListOf, Nested, Text } from "../../src/dto/index.js";
 import { schemaOf } from "../../src/dto/schema.js";
-import { createMemoryLedger } from "../../src/finops/ledger.js";
 import { createSqliteTernStore } from "../../src/terns/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";

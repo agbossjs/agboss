@@ -118,6 +118,7 @@ describe("#261: the rules of an application, all at once", () => {
       '[name.kind-suffix] "daily" on @Budget — name it "daily-budget"',
       "[name.kind-suffix] class DailyLimit — name it DailyLimitBudget",
       "[budget.not-a-budget] NotABudget in misnamed's budgets has no @Budget({ name, scope, … }) decorator",
+      "[budget.tenant-budget-required] misnamed has no tenant budget — add a @Budget({ scope: BudgetScope.Tenant, period }) to its budgets",
     ]);
   });
 

@@ -13,7 +13,7 @@ import { checkVisit, isWorkingNode } from "../limits.js";
 import type { GraphNode, NodeOutcome, NodeRunner } from "../node-runner.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { startedVersionOf, stepFrameAt } from "../step-frame.js";
-import { daySpentBeforeRun, unrecordedSpendOf, type VisitDeps } from "../visit.js";
+import { unrecordedSpendOf, type VisitDeps } from "../visit.js";
 import {
   branchConfigOf,
   branchLaunchOf,
@@ -70,11 +70,12 @@ const visited = (run: BranchRun): ExecutionStateUpdate => ({
   steps: run.ranAsStep ? 1 : 0,
 });
 
-async function ran(run: BranchRun, runner: NodeRunner, daySpent: number): Promise<BranchEnd> {
+async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   const { node, ticket, deps, live } = run;
   const view = branchStateOf(run.state, run.owner.launch, ticket, live.spent);
   if (isWorkingNode(node)) {
-    checkVisit(view, node, deps.limits, daySpent);
+    // the view's spend: the execution's at the launch plus the siblings that already ended (#273 S71)
+    await checkVisit(view, node, deps.limits, deps.workflow);
     run.ranAsStep = true;
   }
   const { run: execution } = extractRunContext(run.config, run.state.runId);
@@ -154,14 +155,10 @@ async function runBranch(run: BranchRun, runner: NodeRunner): Promise<BranchEnd>
     passThroughStops(run);
     return { status: BranchStatus.Cancelled, read: [], update: {} };
   }
-  let daySpent: number | null = run.state.daySpentBeforeRunUsd;
   try {
-    if (isWorkingNode(run.node)) daySpent = await daySpentBeforeRun(run.state, run.deps);
-    const end = await ran(run, runner, daySpent ?? 0);
-    return { ...end, update: { ...end.update, daySpentBeforeRunUsd: daySpent } };
+    return await ran(run, runner);
   } catch (error) {
-    const end = ended(run, error);
-    return { ...end, update: { ...end.update, daySpentBeforeRunUsd: daySpent } };
+    return ended(run, error);
   } finally {
     live.slots.release();
   }

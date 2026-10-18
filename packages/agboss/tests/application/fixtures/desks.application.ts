@@ -2,7 +2,11 @@ import { Application } from "../../../src/application/application.js";
 import { Agent, Injectable, Workflow, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
 import type { OnInit } from "../../../src/components/container/lifecycle.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { CostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
+import {
+  CostLedgerRepository,
+  type CostCounter,
+} from "../../../src/infrastructure/cost-ledger.repository.js";
+import { usd, type Usd } from "../../../src/units/index.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { testDefaults } from "../../helpers.js";
@@ -30,17 +34,28 @@ export class DeskDirectoryService implements OnInit {
   }
 }
 
-/** The application's cost ledger: every recorded spend kept, by key. */
+/** The application's cost ledger: every recorded spend kept, by the budgets it counts in. */
 @Injectable()
 export class RecordingCostLedgerRepository extends CostLedgerRepository {
-  readonly saved: { readonly key: string; readonly records: readonly UsageRecord[] }[] = [];
+  readonly saved: {
+    readonly budgets: readonly string[];
+    readonly records: readonly UsageRecord[];
+  }[] = [];
 
-  findSpentToday(): Promise<number> {
-    return Promise.resolve(0);
+  findSpentByCounter(): Promise<Usd> {
+    return Promise.resolve(usd(0));
   }
 
-  saveAll(key: string, records: readonly UsageRecord[]): Promise<void> {
-    this.saved.push({ key, records });
+  saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void> {
+    this.saved.push({ budgets: counters.map((counter) => counter.budget), records });
+    return Promise.resolve();
+  }
+
+  findMaxSpendByAccount(): Promise<Usd | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  saveMaxSpend(): Promise<void> {
     return Promise.resolve();
   }
 }

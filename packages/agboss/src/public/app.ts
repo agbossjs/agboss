@@ -30,7 +30,11 @@ export {
 } from "../budgets/budget.js";
 export type { PausedRun } from "../app/paused-runs.js";
 export { Clock } from "../infrastructure/clock.js";
-export { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
+export {
+  CostLedgerRepository,
+  type BudgetAccount,
+  type CostCounter,
+} from "../infrastructure/cost-ledger.repository.js";
 export {
   ExecutionRecordRepository,
   ExecutionRecordStatus,
@@ -110,7 +114,7 @@ export type { GraphDeps } from "../graph/deps.js";
 export { resumeAgent } from "../run/resume-agent.js";
 export { runAgent } from "../run/run-agent.js";
 export { studioGraphOf } from "../studio.js";
-export type { AgentExecutionOutput, RunDeps, RunOptions, SpendAccount } from "../run/types.js";
+export type { AgentExecutionOutput, RunDeps, RunOptions } from "../run/types.js";
 export { runVersions } from "../run/versions.js";
 export type { UsageRecord } from "../finops/usage.js";
 export {

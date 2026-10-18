@@ -1,9 +1,9 @@
 import { buildCostReport } from "../finops/usage.js";
-import { executionGraphOf } from "../flow/runtime/build.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { PauseStatus } from "../infrastructure/paused-execution.repository.js";
 import { NotPausedError } from "../run/resume-agent.js";
 import { runConfig } from "../run/paused.js";
+import { readingGraphOf } from "../run/run-budgets.js";
 import type { RunDeps } from "../run/types.js";
 import type { PausedRunBook } from "./paused-runs.js";
 import type { ThreadKey } from "./live-runs.js";
@@ -24,11 +24,7 @@ export async function currentOutputOf(
   if (stored?.status === PauseStatus.Pending && stored.run.runId === tree.runId) {
     return runResultOf(stored.run, false);
   }
-  const graph = executionGraphOf(deps, {
-    limits: deps.limits,
-    spentToday: () => Promise.resolve(0),
-  });
-  const snapshot = await graph.getState(runConfig(tree.runId));
+  const snapshot = await readingGraphOf(deps).getState(runConfig(tree.runId));
   // LangGraph boundary: a checkpoint's values are the flow's own state
   const state = snapshot.values as Partial<ExecutionStateType>;
   if (snapshot.next.length > 0 || state.finish === undefined || state.finish === "") {

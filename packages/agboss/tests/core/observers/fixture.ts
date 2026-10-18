@@ -7,11 +7,8 @@ import {
   type Provider,
   WorkflowFinish,
   WorkflowStart,
-  WorkflowSettings,
-  type WorkflowDefinition,
 } from "../../../src/index.js";
 import { WorkflowStartTextDto, WorkflowFinishTextDto, Text } from "../../../src/dto/index.js";
-import { usd } from "../../../src/units/index.js";
 import { start } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";
@@ -70,20 +67,12 @@ export class Start {}
 })
 export class Finish {}
 
-class Limits implements WorkflowDefinition {
-  settings() {
-    return WorkflowSettings.builder()
-      .limits({ perDay: { cost: usd(100) }, perRun: { cost: usd(1) } })
-      .build();
-  }
-}
-
 /** A workflow `start → worker (echo tool) → finish` with the given observers. */
 export function workflowWith(
   name: string,
   observers: readonly ObserverClass[],
   providers: readonly Provider[] = [],
-): typeof Limits {
+): Class {
   @Workflow({
     name,
     version: "1",
@@ -102,7 +91,7 @@ export function workflowWith(
     observers,
     providers: [AuditService, ...providers],
   })
-  class ObservedWorkflow extends Limits {}
+  class ObservedWorkflow {}
   return ObservedWorkflow;
 }
 

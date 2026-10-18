@@ -9,11 +9,11 @@ import {
   WorkflowStart,
 } from "../../../../src/index.js";
 import { optional } from "../../../../src/flow/dto-wrappers.js";
-import { WorkflowSettings } from "../../../../src/index.js";
-import { usd } from "../../../../src/units/index.js";
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../../../src/index.js";
+import { usd, type Usd } from "../../../../src/units/index.js";
 import { agent, route, start, toFinish } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
-import { TEST_BUDGETS } from "../../fixtures/budgets.js";
+import { TEST_BUDGETS, TestApplicationDailyBudget } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
 
 /** The editor's draft: each visit replaces the one before in the path scope. */
@@ -166,13 +166,25 @@ export class ShortEditWorkflow {}
 })
 export class ShortEditApplication {}
 
-/** The loop with $0.015 per execution and $0.02 per day. */
+/** The loop with its own execution budget of $0.015 and a tenant budget of $0.02 a day. */
 @Workflow({ name: "cheap-edit-workflow", version: "1.0.0", flow: editPaths })
-export class CheapEditWorkflow {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.015) }, perDay: { cost: usd(0.02) } })
-      .build();
+export class CheapEditWorkflow {}
+
+@Budget({
+  name: "cheap-edit-execution-budget",
+  scope: BudgetScope.Execution,
+  workflow: CheapEditWorkflow,
+})
+export class CheapEditExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.015);
+  }
+}
+
+@Budget({ name: "cheap-tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class CheapTenantDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.02);
   }
 }
 
@@ -181,6 +193,6 @@ export class CheapEditWorkflow {
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CheapEditWorkflow],
-  budgets: TEST_BUDGETS,
+  budgets: [TestApplicationDailyBudget, CheapTenantDailyBudget, CheapEditExecutionBudget],
 })
 export class CheapEditApplication {}

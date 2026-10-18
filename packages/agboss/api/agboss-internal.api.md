@@ -50,7 +50,7 @@ export function compareBundleProfiles(bundle: AssembledWorkflow, names: readonly
 // Warning: (ae-forgotten-export) The symbol "RunDeps" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export const configSnapshot: <TName extends string>(deps: Pick<RunDeps<TName>, "config" | "prompts" | "compactionPrompt" | "graph" | "limits" | "maxSteps" | "routers">) => unknown;
+export const configSnapshot: <TName extends string>(deps: Pick<RunDeps<TName>, "config" | "prompts" | "compactionPrompt" | "graph" | "maxSteps" | "routers">) => unknown;
 
 // @public
 export const COST_CATEGORIES: readonly ["agents", "routing", "guards", "review", "tools", "compaction", "retrieval"];
@@ -448,8 +448,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/finops/usage.ts:80:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
 // src/finops/usage.ts:81:3 - (ae-undocumented) Missing documentation for "byCaller".
 // src/finops/usage.ts:84:3 - (ae-undocumented) Missing documentation for "byModel".
-// src/flow/analyse/steps.ts:145:3 - (ae-undocumented) Missing documentation for "least".
-// src/flow/analyse/steps.ts:146:3 - (ae-undocumented) Missing documentation for "most".
+// src/flow/analyse/steps.ts:164:3 - (ae-undocumented) Missing documentation for "least".
+// src/flow/analyse/steps.ts:165:3 - (ae-undocumented) Missing documentation for "most".
 // src/flow/context/runtime-contexts.ts:25:3 - (ae-undocumented) Missing documentation for "application".
 // src/flow/context/runtime-contexts.ts:26:3 - (ae-undocumented) Missing documentation for "tenantContext".
 // src/flow/context/runtime-contexts.ts:27:3 - (ae-undocumented) Missing documentation for "executionContext".

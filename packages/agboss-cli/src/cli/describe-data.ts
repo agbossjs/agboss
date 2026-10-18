@@ -57,7 +57,7 @@ export function describeData(
     models: resolvedModelUsesOf(bundle),
     tools,
     unassignedTools: tools.map((tool) => tool.name).filter((name) => !assigned.has(name)),
-    limits: { ...bundle.limits, maxSteps: bundle.maxSteps },
+    limits: { maxSteps: bundle.maxSteps },
     steps: stepsRangeOf(bundle.graph.analysis.graph),
   };
 }

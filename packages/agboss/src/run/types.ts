@@ -1,7 +1,7 @@
 import type { LaunchRecord } from "../flow/runtime/launch/records.js";
 import type { ExecutionStatus } from "../app/types.js";
 import type { ErrorRecord } from "../core/error-record.js";
-import type { SpendLedger } from "../finops/ledger.js";
+import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
 import type { CostReport } from "../finops/usage.js";
 import type { OutdatedValueRecord, ScopeRecords } from "../flow/runtime/records.js";
 import type { GraphDeps } from "../graph/deps.js";
@@ -12,9 +12,13 @@ import type { RunTracing } from "../tracing/index.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import type { Clock } from "../infrastructure/clock.js";
 
-/** Graph dependencies plus the daily spend ledger and the Tern store. */
+/** Graph dependencies plus the application's budgets and the Tern store. */
 export interface RunDeps<TName extends string> extends GraphDeps<TName> {
-  readonly ledger: SpendLedger;
+  /**
+   * The application's budgets and their ledger (#261): every execution is checked and counted
+   * against them; absent = a workflow run without an application (no budgets).
+   */
+  readonly budgets?: ApplicationBudgets | undefined;
   readonly terns: TernRecords;
   /** Compaction prompt (workflow override); default in src/prompts/compaction.ts. */
   readonly compactionPrompt?: string | undefined;
@@ -24,12 +28,6 @@ export interface RunDeps<TName extends string> extends GraphDeps<TName> {
   readonly newRunId?: () => string;
   /** The application's clock (#262): tool timeouts run on it; default the system's. */
   readonly clock?: Clock | undefined;
-}
-
-/** Which ledger account pays for a run and its daily cap. Default: the workflow itself. */
-export interface SpendAccount {
-  readonly key: string;
-  readonly dailyCap: number;
 }
 
 /** A stream event for real-time UI/CLI updates. */
@@ -42,7 +40,6 @@ export interface RunOptions {
   readonly runId?: string;
   /** Id of the Tern this run replays (eval). */
   readonly replayOf?: string;
-  readonly account?: SpendAccount;
   /** Aborts the run (graph and in-flight model calls), e.g. when the user presses Esc. */
   readonly signal?: AbortSignal | undefined;
   /** Callback to receive token streaming and tool calls in real time. */

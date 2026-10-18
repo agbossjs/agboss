@@ -1,7 +1,7 @@
 import type { Class } from "../components/injection.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { AgentFailedError, GuardFailedError } from "../graph/errors.js";
-import { LimitExceededError } from "../graph/limits.js";
+import { BudgetExceededError, LimitExceededError } from "../graph/limits.js";
 import { RouterFailedError } from "../flow/runtime/router-error.js";
 import { ActionFailedError } from "../flow/runtime/errors.js";
 import { GraphRuleError } from "../graph/rule-error.js";
@@ -18,6 +18,8 @@ export interface FailureFacts {
 
 function codesOf(error: Error): string[] {
   if (error instanceof GraphRuleError) return error.violations.map((item) => item.code);
+  // a budget by its name (`tenant-daily-budget`), any other limit by what it is keyed by (`maxSteps`)
+  if (error instanceof BudgetExceededError) return [error.budget.name, error.code];
   if (error instanceof LimitExceededError) return [error.key, error.code];
   return "code" in error && typeof error.code === "string" ? [error.code] : [];
 }

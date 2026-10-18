@@ -6,7 +6,6 @@ import type { AppState } from "../../core/observability.js";
 import { withSortedKeys } from "../../flow/runtime/json.js";
 import { toolDefinitionOf } from "../../tools/index.js";
 import { AgentFailedError } from "../errors.js";
-import { BudgetExceededError } from "../limits.js";
 import type { AsyncNode } from "../types.js";
 import { callsOf, isAnswerCall, type AgentDefinition, type AgentLoopDeps } from "./deps.js";
 import { agentLimitError } from "./limits.js";
@@ -17,16 +16,6 @@ import { extractRunContext, throwIfCancelled } from "../../core/run-context.js";
 export class ToolCallingUnsupportedError extends Error {
   override name = "ToolCallingUnsupportedError";
 }
-
-/**
- * The run's budget. An unlimited one (`Infinity`) does not survive a checkpoint — JSON keeps it as
- * `null` — so anything that is not a finite amount reads as unlimited.
- */
-const budgetOf = (state: AgentLoopStateType, deps: AgentLoopDeps): number =>
-  Math.min(
-    deps.runBudgetCap,
-    Number.isFinite(state.budgetUsd) ? state.budgetUsd : Number.POSITIVE_INFINITY,
-  );
 
 /**
  * The agent's tools as the model sees them — its own and its answer tools (S6), sorted by name,
@@ -74,13 +63,12 @@ function withCallIds(response: AIMessageChunk, state: AgentLoopStateType): AIMes
   return new AIMessage({ content: response.content, tool_calls: toolCalls });
 }
 
-/** The run's money is spent: no more model calls — the execution fails with its budget. */
+/**
+ * A budget of the execution is exhausted: no more model calls — the execution stops with
+ * `BudgetExceededError` (the loop's spend so far travels with it to the ledger).
+ */
 function checkBudget(state: AgentLoopStateType, deps: AgentLoopDeps): void {
-  const budget = budgetOf(state, deps);
-  const spent = totalCost(state.usage);
-  if (spent < budget) return;
-  const breach = { key: "limits.perRun.cost", limit: budget, actual: spent } as const;
-  throw new BudgetExceededError(breach, state.flowPath, spent, loopUsage(state));
+  deps.budgets.check(totalCost(state.usage), state.flowPath, loopUsage(state));
 }
 
 /** The model call between its observer events; a failed call fails the agent with the loop's spend. */
@@ -118,7 +106,7 @@ async function observedCall(
 }
 
 /**
- * One model call = one node. Before it: the run budget and `modelCalls`; after it: the usage record
+ * One model call = one node. Before it: the execution's budgets and `modelCalls`; after it: the usage record
  * and `toolCalls` for the calls the move asks for. A failed call fails the agent with the loop's spend.
  */
 export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {

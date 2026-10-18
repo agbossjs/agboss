@@ -4,7 +4,7 @@ import { failureFactsOf, nodeNameOf } from "./failure-facts.js";
 import { toolNameOf } from "./script.js";
 import { ComponentScript, type ModelRequest } from "./script-book.js";
 
-/** What `toFailWith` expects: a code (`step.router`, `limits.perDay.cost`, …) and/or a node. */
+/** What `toFailWith` expects: a code (`step.router`, `limit.budget`, a budget's name, …) and/or a node. */
 export interface ExpectedFailure {
   readonly code?: string;
   readonly node?: Class;

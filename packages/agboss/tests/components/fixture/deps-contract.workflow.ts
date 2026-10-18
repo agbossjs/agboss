@@ -12,7 +12,6 @@ import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/
 import { Reasoning } from "../../../src/models/index.js";
 import { start } from "../../helpers/flow.js";
 import type { AppOptions } from "../../../src/app/create-app.js";
-import { createMemoryLedger } from "../../../src/finops/ledger.js";
 import { createSqliteTernStore } from "../../../src/terns/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";

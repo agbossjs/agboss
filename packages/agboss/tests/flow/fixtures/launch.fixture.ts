@@ -211,6 +211,9 @@ export class ScreeningFailedWorkflowFinish {}
       .returns(RankingDto)
       .toFinish(RankingWorkflowFinish),
   ],
+  // the worst case (50 items) takes 52 steps: the default (agents + routers) × 3 cannot hold it
+  // (#273 S68 f); 9 stops a long list, into the join's handler
+  maxSteps: 9,
 })
 export class ScreeningWorkflow {}
 

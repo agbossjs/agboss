@@ -11,7 +11,6 @@ import {
   type AgentEndEvent,
   WorkflowStart,
   WorkflowFinish,
-  WorkflowSettings,
 } from "../../src/index.js";
 import { testWith, replyWith } from "../../src/testing/index.js";
 
@@ -45,7 +44,6 @@ class Start {}
 })
 class Finish {}
 
-import { usd } from "../../src/units/index.js";
 import { execute, start } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -63,16 +61,7 @@ import { EmptyEnvironment } from "../../src/index.js";
   flow: [start(Start).returns(WorkflowStartTextDto).toAgent(WorkerAgent).toFinish(Finish)],
   observers: [MyMetricsObserver],
 })
-class ObsWf {
-  settings() {
-    return WorkflowSettings.builder()
-      .limits({
-        perDay: { cost: usd(100) },
-        perRun: { cost: usd(1) },
-      })
-      .build();
-  }
-}
+class ObsWf {}
 
 @Application({
   name: "obs-wf-application",

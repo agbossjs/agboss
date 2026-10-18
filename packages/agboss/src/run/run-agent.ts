@@ -5,16 +5,14 @@ import { startLine } from "../flow/runtime/history.js";
 import { startNamed, validStartInput } from "../flow/runtime/start-input.js";
 import { RunInputSchema } from "../input.js";
 import {
-  allowedBudget,
   drainRun,
   failedOutcome,
   outcomeError,
   recordFailure,
-  recorder,
   runningOutcome,
-  workflowAccount,
   type TernBase,
 } from "./execute.js";
+import { openExecutionBudgets, recorder, type PassBudgets } from "./run-budgets.js";
 import { withMetadata } from "./run-services.js";
 import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import { streamConfig } from "./stream-config.js";
@@ -24,9 +22,10 @@ import type { AgentExecutionOutput, RunDeps, RunOptions } from "./types.js";
 import { runVersions } from "./versions.js";
 
 /**
- * Public entry point: validates the input, opens or continues a thread, checks the daily cap
- * (nothing left → no calls), runs the graph within the workflow's limits from the given start,
- * records spend as it happens and writes a Tern for every outcome — finished, paused or failed.
+ * Public entry point: validates the input, opens or continues a thread, opens the execution's
+ * budgets (each `maxSpend()` once; one exhausted → `BudgetExceededError` before any record or
+ * call), runs the graph within its limits from the given start, records spend into the budgets as
+ * it happens and writes a Tern for every outcome — finished, paused or failed.
  */
 export function runAgent<TName extends string>(
   input: unknown,
@@ -34,6 +33,16 @@ export function runAgent<TName extends string>(
   options: RunOptions = {},
 ): Promise<AgentExecutionOutput> {
   return runOnce(input, deps, options);
+}
+
+/** `runAgent` with the budgets the app already opened (and checked) before the execution's start. */
+export function runOpenedAgent<TName extends string>(
+  input: unknown,
+  deps: RunDeps<TName>,
+  options: RunOptions,
+  opened: PassBudgets,
+): Promise<AgentExecutionOutput> {
+  return runOnce(input, deps, options, opened);
 }
 
 /** What every Tern of the run has: its run, thread, start line, replay and versions. */
@@ -52,29 +61,36 @@ async function runOnce<TName extends string>(
   given: unknown,
   deps: RunDeps<TName>,
   options: RunOptions,
+  opened?: PassBudgets,
 ): Promise<AgentExecutionOutput> {
   const { start, input: payload, threadId: requested } = RunInputSchema.parse(given);
   const input = validStartInput(startNamed(deps.graph, start), payload);
-  const account = options.account ?? workflowAccount(deps);
   const contexts = options.contexts ?? DEFAULT_CONTEXT_VALUES;
   const { tenantId } = contexts.tenant;
-  const { threadId, history, summaries } = await openThread(deps, tenantId, requested);
-  const spent: UsageRecord[] = [];
   const runId = options.runId ?? deps.newRunId?.() ?? randomUUID();
-  const task = startLine(start, input);
-  const base = ternBaseOf(deps, { runId, threadId, tenantId, task }, options);
-  let release = (): void => undefined;
+  // a thread it continues must exist; a new one is created only once the budgets pass
+  const known = requested === undefined ? undefined : await openThread(deps, tenantId, requested);
+  // before the first step: an exhausted budget rejects the execution — no thread, record or call
+  const site = { executionId: runId, threadId: requested, start, contexts };
+  const budgets = opened ?? (await openExecutionBudgets(deps, { ...options, ...site }));
+  const { threadId, history, summaries } = known ?? (await openThread(deps, tenantId, undefined));
+  const spent: UsageRecord[] = [];
+  const base = ternBaseOf(
+    deps,
+    { runId, threadId, tenantId, task: startLine(start, input) },
+    options,
+  );
   let ternId: string | undefined;
   try {
-    const { budgetUsd, run, hold } = await allowedBudget(deps, account);
-    release = hold.release;
     // the record is `running` while the tree moves: what recovery continues (#265 S30)
     ternId = (await deps.terns.append({ ...base, ...runningOutcome([], 0) })).id;
-    const graph = executionGraphOf(deps, run);
+    const graph = executionGraphOf(deps, { budgets: budgets.meter });
     const identity = { threadId, tenantId, runId, input };
     const config = streamConfig(deps, identity, options);
-    const record = recorder(hold, spent);
-    const initial = { start, startInput: input, contexts, budgetUsd, history, summaries, runId };
+    const record = recorder(budgets.meter, spent);
+    const budgetUsd = budgets.meter.budgetUsd();
+    const kept = { budgetUsd, budgets: budgets.records, history, summaries, runId };
+    const initial = { start, startInput: input, contexts, ...kept };
     const state = await drainRun(await graph.stream(initial, config), record);
     const recorded = state.usage.length;
     const context = { deps, graph, base, runId, budgetUsd, record, recorded };
@@ -88,8 +104,5 @@ async function runOnce<TName extends string>(
         ? deps.terns.append({ ...base, ...failed })
         : deps.terns.complete(ternId, failed),
     );
-  } finally {
-    // ended or paused: what the run did not spend goes back to the day (a resume reserves anew)
-    release();
   }
 }

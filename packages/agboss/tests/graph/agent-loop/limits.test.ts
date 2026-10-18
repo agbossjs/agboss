@@ -64,13 +64,16 @@ describe("AC7: limits per call of the agent — modelCalls and toolCalls", () =>
     expect(h.modelCalls).toEqual([0, 1]);
   });
 
-  it("a run budget already spent fails the loop before its model call (limits.perRun.cost)", async () => {
-    const h = harness({ moves: [replyWith("never")], runBudgetCap: 0 });
+  it("an execution budget already spent fails the loop before its model call", async () => {
+    const h = harness({ moves: [replyWith("never")], executionBudget: 0 });
 
     const end = runLoop(h.graph, startInput(), "t");
 
     await expect(end).rejects.toBeInstanceOf(BudgetExceededError);
-    await expect(end).rejects.toMatchObject({ key: "limits.perRun.cost" });
+    await expect(end).rejects.toMatchObject({
+      budget: { name: "test-execution-budget" },
+      key: "test-execution",
+    });
     expect(h.modelCalls).toEqual([]);
   });
 });

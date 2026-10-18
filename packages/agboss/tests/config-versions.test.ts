@@ -8,7 +8,6 @@ import { TestWorkflow } from "./fixtures/test-workflow/test.workflow.js";
 import { workflowOf } from "../src/testing/index.js";
 import { createSqliteTernStore } from "../src/terns/index.js";
 import { runVersions } from "../src/run/versions.js";
-import { usd } from "../src/units/index.js";
 import { routeTo, fakeDeps, runText } from "./helpers.js";
 
 describe("config versions", () => {
@@ -29,12 +28,10 @@ describe("config versions", () => {
     });
     const otherModel = runVersions({ ...deps, routers: [{ ...main, model: "typesafe/jev-2" }] });
     const limited = runVersions({ ...deps, maxSteps: 3 });
-    const cheaper = runVersions({ ...deps, limits: { perRun: { cost: usd(0.5) } } });
 
     expect(reworded.promptVersion).not.toBe(base.promptVersion);
     expect(otherModel.modelVersion).not.toBe(base.modelVersion);
     expect(limited.configHash).not.toBe(base.configHash);
-    expect(cheaper.configHash).not.toBe(base.configHash);
   });
 
   it("AC2: every run is labelled with the declared version and the config hash", async () => {

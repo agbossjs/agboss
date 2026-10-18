@@ -6,26 +6,10 @@ import {
   percentile,
   profileReport,
 } from "../../src/eval/compare-report.js";
-import type { EvalDeps } from "../../src/eval/eval.js";
-import type { SpendLedger } from "../../src/finops/ledger.js";
-import type { UsageRecord } from "../../src/finops/usage.js";
+import { BUDGET_EXHAUSTED, type EvalDeps } from "../../src/eval/eval.js";
+import { BudgetScope } from "../../src/budgets/budget.js";
 import type { RouteOutcome, RouterEngine } from "../../src/routers/index.js";
-import { routeTo, fakeDeps, usageRecord } from "../helpers.js";
-
-/** A ledger that remembers which account each record went to. */
-function keyedLedger(spentToday = 0): SpendLedger & { readonly keys: string[] } {
-  const keys: string[] = [];
-  const records: UsageRecord[] = [];
-  return {
-    keys,
-    spentToday: () => Promise.resolve(spentToday + records.reduce((sum, r) => sum + r.costUsd, 0)),
-    record: (key, recs) => {
-      keys.push(...recs.map(() => key));
-      records.push(...recs);
-      return Promise.resolve();
-    },
-  };
-}
+import { routeTo, fakeDeps, memoryLedger, usageRecord } from "../helpers.js";
 
 const judgeSaying = (outcome: RouteOutcome): RouterEngine => ({
   name: "judge",
@@ -38,8 +22,13 @@ const adequate = (confidence: number): RouteOutcome => ({
   usage: usageRecord("router:judge", 0.00004),
 });
 
+/** A run of the star with the test budgets; `spentToday` already spent by the tenant `default`. */
 async function profileRun(name: string, spentToday = 0) {
-  const ledger = keyedLedger(spentToday);
+  const ledger = memoryLedger();
+  const today = new Date().toISOString().slice(0, 10);
+  const tenant = { budget: "test-tenant-daily-budget", scope: BudgetScope.Tenant, key: "default" };
+  if (spentToday > 0)
+    await ledger.saveAll([{ ...tenant, period: today }], [usageRecord("earlier", spentToday)]);
   const deps = await fakeDeps(
     {
       "test/router": Array.from({ length: 4 }, () => routeTo("alpha-agent")),
@@ -49,15 +38,14 @@ async function profileRun(name: string, spentToday = 0) {
   );
   const evaluation: EvalDeps = {
     terns: deps.terns,
-    ledger,
+    budgets: deps.budgets,
     judge: judgeSaying(adequate(0.8)),
-    account: { key: "test-bundle-workflow:eval", dailyCap: 5 },
   };
   return { run: { name, deps, evaluation }, ledger };
 }
 
 describe("compare — per profile", () => {
-  it("AC4, AC5: runs every task on the eval account, scores, costs and times it", async () => {
+  it("AC4, AC5: runs every task within the application's budgets, scores, costs and times it", async () => {
     const { run, ledger } = await profileRun("base");
     let now = 0;
 
@@ -75,15 +63,15 @@ describe("compare — per profile", () => {
     });
     expect(outcome.answers).toHaveLength(2);
     expect(outcome.latenciesMs).toEqual([100, 100]);
-    expect(new Set(ledger.keys)).toEqual(new Set(["test-bundle-workflow:eval"]));
+    expect(ledger.recorded.filter((record) => record.caller === "router:judge")).toHaveLength(2);
   });
 
-  it("AC5: stops cleanly when the eval budget is spent", async () => {
-    const { run } = await profileRun("base", 5);
+  it("AC5: stops cleanly when the tenant's day is spent", async () => {
+    const { run } = await profileRun("base", 1000);
 
     const outcome = await runProfile(run, ["t1", "t2"]);
 
-    expect(outcome).toMatchObject({ answers: [], stoppedBy: "eval budget exhausted" });
+    expect(outcome).toMatchObject({ answers: [], stoppedBy: BUDGET_EXHAUSTED });
   });
 });
 
@@ -101,12 +89,7 @@ describe("compare — pairwise", () => {
   const evaluationWith = async (...outcomes: RouteOutcome[]): Promise<EvalDeps> => {
     const route = vi.fn<RouterEngine["route"]>();
     outcomes.forEach((o) => route.mockResolvedValueOnce(o));
-    return {
-      terns: (await fakeDeps({})).terns,
-      ledger: keyedLedger(),
-      judge: { name: "judge", route },
-      account: { key: "k:eval", dailyCap: 5 },
-    };
+    return { terns: (await fakeDeps({})).terns, judge: { name: "judge", route } };
   };
   const pick = (next: string, confidence: number): RouteOutcome => ({
     kind: "decided",

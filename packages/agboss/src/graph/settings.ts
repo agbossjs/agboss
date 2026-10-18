@@ -1,35 +1,7 @@
-import { z } from "zod";
-import type { Usd } from "../units/index.js";
 import type { IncompatibleResumePolicy } from "../run/resume-guard.js";
 
-/** Limits of one run: its spend (steps are `@Workflow({ maxSteps })`, #272). */
-export interface PerRunLimits {
-  readonly cost?: Usd;
-}
-
-/** Limits of one workflow per UTC day. */
-export interface PerDayLimits {
-  readonly cost?: Usd;
-}
-
-/** `.limits({ perRun: { cost: usd(0.5) }, perDay: { cost: usd(5) } })`. */
-export interface WorkflowLimits {
-  readonly perRun?: PerRunLimits;
-  readonly perDay?: PerDayLimits;
-}
-
-const WorkflowLimitsSchema = z.object({
-  perRun: z.strictObject({ cost: z.number().min(0).optional() }).optional(),
-  perDay: z.object({ cost: z.number().min(0).optional() }).optional(),
-});
-
-export class WorkflowSettingsError extends Error {
-  override name = "WorkflowSettingsError";
-}
-
-/** Builds `WorkflowSettings`; each method sets one part, `build()` checks and freezes them. */
+/** Builds `WorkflowSettings`; each method sets one part, `build()` freezes them. */
 export interface WorkflowSettingsBuilder {
-  readonly limits: (limits: WorkflowLimits) => WorkflowSettingsBuilder;
   /**
    * Decides a resume of a run paused under another config hash (an earlier deployment): "resume"
    * continues it on the current graph, "reject" fails with `IncompatibleResumeError` (the default).
@@ -39,41 +11,30 @@ export interface WorkflowSettingsBuilder {
 }
 
 /**
- * A workflow's settings, returned by its `settings()`. Model providers are not among them: they are
- * the application's (`@Application({ providers })`, #266) — a workflow names models only.
+ * A workflow's settings, returned by its `settings()`. Money limits are not among them: they are
+ * the application's `@Budget`s (#261); steps are `@Workflow({ maxSteps })`; model providers are the
+ * application's (`@Application({ providers })`, #266) — a workflow names models only.
  */
 export class WorkflowSettings {
-  private constructor(
-    readonly limits: WorkflowLimits,
-    readonly onIncompatibleResume: IncompatibleResumePolicy | undefined,
-  ) {}
+  private constructor(readonly onIncompatibleResume: IncompatibleResumePolicy | undefined) {}
 
   static builder(): WorkflowSettingsBuilder {
-    let limits: WorkflowLimits = {};
     let onIncompatibleResume: IncompatibleResumePolicy | undefined;
     const builder: WorkflowSettingsBuilder = {
-      limits: (value) => {
-        const parsed = WorkflowLimitsSchema.safeParse(value);
-        if (!parsed.success) {
-          throw new WorkflowSettingsError(`limits: ${z.prettifyError(parsed.error)}`);
-        }
-        limits = value;
-        return builder;
-      },
       onIncompatibleResume: (policy) => {
         onIncompatibleResume = policy;
         return builder;
       },
-      build: () => new WorkflowSettings(Object.freeze({ ...limits }), onIncompatibleResume),
+      build: () => new WorkflowSettings(onIncompatibleResume),
     };
     return builder;
   }
 }
 
-/** What a `@Workflow` class may implement: `settings()` — cost limits, resumes. */
+/** What a `@Workflow` class may implement: `settings()` — resumes of runs paused under another config. */
 export interface WorkflowDefinition {
   settings(): WorkflowSettings;
 }
 
-/** The settings of a workflow without `settings()`: no cost limits, incompatible resumes rejected. */
+/** The settings of a workflow without `settings()`: incompatible resumes rejected. */
 export const DEFAULT_WORKFLOW_SETTINGS: WorkflowSettings = WorkflowSettings.builder().build();

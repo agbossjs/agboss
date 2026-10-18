@@ -1,8 +1,8 @@
-import { isDayCapReached } from "../graph/limits.js";
+import { isPeriodBudgetExhausted } from "../graph/limits.js";
 import { runAgent } from "../run/run-agent.js";
 import type { RunDeps } from "../run/types.js";
 import { requestOfStartLine } from "../flow/runtime/start-input.js";
-import { scoreTerns, type EvalDeps } from "./eval.js";
+import { BUDGET_EXHAUSTED, scoreTerns, type EvalDeps } from "./eval.js";
 
 export interface ReplayReport {
   readonly promptVersion: string;
@@ -16,7 +16,7 @@ export interface ReplayReport {
 
 /**
  * `npm run replay`: re-runs the tasks of an old prompt version with the current config (as new
- * threads, `replayOf` set), scores both sides and compares. All spend goes to the eval account.
+ * threads, `replayOf` set), scores both sides and compares — within the application's budgets.
  */
 export async function replay<TName extends string>(
   run: RunDeps<TName>,
@@ -35,14 +35,11 @@ export async function replay<TName extends string>(
     const request = requestOfStartLine(original.task);
     if (request === undefined) continue;
     try {
-      const result = await runAgent(request, run, {
-        replayOf: original.id,
-        account: evaluation.account,
-      });
+      const result = await runAgent(request, run, { replayOf: original.id });
       replayedIds.push(result.ternId);
       costUsd += result.cost.totalUsd;
     } catch (error) {
-      if (isDayCapReached(error)) stoppedBy = "eval budget exhausted";
+      if (isPeriodBudgetExhausted(error)) stoppedBy = BUDGET_EXHAUSTED;
     }
   }
   const scoring = await scoreTerns(evaluation, await run.terns.byIds(replayedIds));

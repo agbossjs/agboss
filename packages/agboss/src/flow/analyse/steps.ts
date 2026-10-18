@@ -1,4 +1,4 @@
-import { LimitExceededError } from "../../graph/limits.js";
+import { STEPS_PER_WORKING_NODE, StepsLimitExceededError } from "../../graph/limits.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { NodeKind, type ErrorClass } from "../ast.js";
 import type { ComponentName } from "../registry.js";
@@ -9,7 +9,7 @@ import type { AnalysisContext } from "./rules/context.js";
  * `maxSteps` bounds at assembly (#261 AC17, two passes over the graph): for every node, the fewest
  * steps from a start up to it and including it, plus the fewest from it to a finish. Weights: an
  * agent or a router visit is 1; a start, an action and a finish are 0. A node with a handler of the
- * steps limit (`.onError(LimitExceededError, …)`) counts as reaching a finish: the visit past the
+ * steps limit (`.onError(StepsLimitExceededError, …)`, or a parent class) counts as reaching a finish: the visit past the
  * limit fails before it runs, into the handler. Only a hand-set
  * `maxSteps` is checked: the default always fits.
  */
@@ -17,10 +17,10 @@ import type { AnalysisContext } from "./rules/context.js";
 const weightOf = (node: FlowNode | undefined): number =>
   node?.kind === NodeKind.Agent || node?.kind === NodeKind.Router ? 1 : 0;
 
-/** Whether `.onError(error, …)` catches the steps limit (`LimitExceededError` or a parent class). */
+/** Whether `.onError(error, …)` catches the steps limit (`StepsLimitExceededError` or a parent class). */
 const catchesStepsLimit = (error: ErrorClass | undefined): boolean =>
   error !== undefined &&
-  (error === LimitExceededError || LimitExceededError.prototype instanceof error);
+  (error === StepsLimitExceededError || StepsLimitExceededError.prototype instanceof error);
 
 type Distances = ReadonlyMap<ComponentName, number>;
 
@@ -129,9 +129,28 @@ function boundViolations(graph: FlowGraph, maxSteps: number): readonly RuleViola
   return [...tooLow, ...branches];
 }
 
+/**
+ * The default `maxSteps` — (agents + routers) × 3 — must hold the worst case (#273 S68 f): a flow
+ * whose longest path, with every launch at full width (`maxItems` runs of a per-item launch, every
+ * copy), takes more steps fails, and the fix is an explicit `@Workflow({ maxSteps })` — never a
+ * silently larger default. A cycle is bounded by `maxSteps` itself, so it is not checked here.
+ */
+function defaultViolations(graph: FlowGraph): readonly RuleViolation[] {
+  const working = [...graph.nodes.values()].filter((node) => weightOf(node) > 0).length;
+  const limit = working * STEPS_PER_WORKING_NODE;
+  return graph.starts.flatMap((start) => {
+    const most = mostStepsFrom(graph, start);
+    if (most === undefined || most <= limit) return [];
+    const message =
+      `the worst case from ${start} takes ${String(most)} steps, but the default maxSteps ` +
+      `(agents + routers) × ${String(STEPS_PER_WORKING_NODE)} is ${String(limit)} — set @Workflow({ maxSteps })`;
+    return [violation("limits.max-steps-too-low", message, [start])];
+  });
+}
+
 export function stepsRules(context: AnalysisContext): readonly RuleViolation[] {
   const { maxSteps, name } = context.workflow;
-  if (maxSteps === undefined) return [];
+  if (maxSteps === undefined) return defaultViolations(context.graph);
   const counted = [...context.graph.nodes.values()].some((node) => weightOf(node) > 0);
   if (counted) return boundViolations(context.graph, maxSteps);
   const message =

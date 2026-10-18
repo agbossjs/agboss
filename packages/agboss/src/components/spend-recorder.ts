@@ -13,8 +13,8 @@ export interface ServiceSpend {
 /**
  * Where a tool or an action records what it paid a service that is not a model (#280 S43):
  * `deps: [SpendRecorder]`, `this.spendRecorder.record({ service, cost })`. The record joins the
- * spend of the current tool call or step — the run's cost report, `perRun.cost` / `perDay.cost`
- * (`BudgetExceededError` on the next check, like model spend) and the daily ledger.
+ * spend of the current tool call or step — the execution's cost report and every one of its budgets
+ * (`BudgetExceededError` on the next check, like model spend).
  */
 export abstract class SpendRecorder {
   abstract record(spend: ServiceSpend): void;

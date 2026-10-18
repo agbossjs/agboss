@@ -58,7 +58,7 @@ describe("#280 S43: SpendRecorder — what a tool or an action paid a service", 
       const run = execute(app, SpendStart, { text: "find jobs" });
 
       await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
-      await expect(run).rejects.toMatchObject({ key: "limits.perRun.cost" });
+      await expect(run).rejects.toMatchObject({ budget: { name: "tight-spend-execution-budget" } });
       expect(mockLlm(SearcherAgent).requests).toHaveLength(1);
     },
   );

@@ -1,3 +1,4 @@
+import { NO_BUDGET_CHECK } from "../budgets/execution-budgets.js";
 import type { BuiltApp } from "../app/create-app.js";
 import type { Class } from "../components/injection.js";
 import { agentDefinitions } from "../graph/agent-definitions.js";
@@ -109,7 +110,7 @@ const freshState = (runId: string): ExecutionStateType => ({
   output: undefined,
   budgetUsd: Number.POSITIVE_INFINITY,
   usage: [],
-  daySpentBeforeRunUsd: null,
+  budgets: [],
   history: [],
   summaries: [],
   approvals: [],
@@ -127,7 +128,7 @@ export function agentSlice(built: BuiltApp, target: Class): AgentSlice {
   const loop = agentLoopGraph({
     agent,
     bundle: built.deps.config.name,
-    runBudgetCap: Number.POSITIVE_INFINITY,
+    budgets: NO_BUDGET_CHECK,
     judges: noJudges,
   });
   return {

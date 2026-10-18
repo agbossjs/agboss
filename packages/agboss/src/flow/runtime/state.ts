@@ -1,4 +1,5 @@
 import { Annotation } from "@langchain/langgraph";
+import type { ExecutionBudgetRecord } from "../../budgets/execution-budgets.js";
 import type { ErrorRecord } from "../../core/error-record.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import type { ApprovalRecord } from "../../pause/index.js";
@@ -75,8 +76,11 @@ export const ExecutionState = Annotation.Root({
   /** FinOps: what this execution may spend; every model call appends one record. */
   budgetUsd: Annotation<number>({ reducer: replace, default: () => Number.POSITIVE_INFINITY }),
   usage: Annotation<UsageRecord[]>({ reducer: append, default: () => [] }),
-  /** The workflow's spend today before this execution (read once, at the first working node). */
-  daySpentBeforeRunUsd: Annotation<number | null>({ reducer: replace, default: () => null }),
+  /**
+   * The execution's budgets (#261): each one's `maxSpend()` read once, at its start, kept for the
+   * whole execution — a resume and a recovery count against the same amounts.
+   */
+  budgets: Annotation<readonly ExecutionBudgetRecord[]>({ reducer: replace, default: () => [] }),
   /** The thread's finished executions (S8) and its compaction summaries, loaded once. */
   history: Annotation<HistoryTurn[]>({ reducer: replace, default: () => [] }),
   summaries: Annotation<string[]>({ reducer: replace, default: () => [] }),

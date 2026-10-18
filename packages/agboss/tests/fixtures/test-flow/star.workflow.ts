@@ -1,7 +1,5 @@
 import { MODEL_MAX } from "../../../src/config/types.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import { WorkflowSettings } from "../../../src/graph/settings.js";
-import { usd } from "../../../src/units/index.js";
 import type { Class } from "../../../src/components/injection.js";
 import type { ToolHandlerClass } from "../../../src/components/decorators.js";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -14,7 +12,7 @@ import { EmptyEnvironment } from "../../../src/index.js";
 
 /**
  * The star test workflow (tests/fixtures/test-flow): chat → main-router ("test/router", a chat
- * model scripted with `routeTo`) → alpha-agent / beta-agent → the answer. $1 per run, $10 per day.
+ * model scripted with `routeTo`) → alpha-agent / beta-agent → the answer; money: the test budgets.
  */
 @Workflow({
   name: "test-bundle-workflow",
@@ -26,13 +24,7 @@ import { EmptyEnvironment } from "../../../src/index.js";
     history: { limit: 2 },
   },
 })
-export class StarWorkflow {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(1) }, perDay: { cost: usd(10) } })
-      .build();
-  }
-}
+export class StarWorkflow {}
 
 @Application({
   name: "test-bundle-application",
@@ -43,17 +35,16 @@ export class StarWorkflow {
 })
 export class StarApplication {}
 
-/** What `toolWorkflowOf` builds: alpha with its tools and limits, the run's cost limit. */
+/** What `toolWorkflowOf` builds: alpha with its tools and limits. */
 export interface ToolWorkflowOptions {
   readonly tools: readonly ToolHandlerClass[];
   readonly maxToolCalls?: number;
-  readonly runCost?: number;
   /** The approval channels its tools need. */
   readonly channelClasses?: readonly Class[];
 }
 
 /**
- * chat → alpha-agent (with `tools`, a text agent) → the answer; $`runCost` per run, $10 per day.
+ * chat → alpha-agent (with `tools`, a text agent) → the answer.
  * For the agent-loop tests: alpha's model is "test/alpha".
  */
 export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
@@ -84,15 +75,6 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
     },
     channelClasses: options.channelClasses ?? [],
   })
-  class ToolWorkflow {
-    settings(): WorkflowSettings {
-      return WorkflowSettings.builder()
-        .limits({
-          perRun: { cost: usd(options.runCost ?? 1) },
-          perDay: { cost: usd(10) },
-        })
-        .build();
-    }
-  }
+  class ToolWorkflow {}
   return ToolWorkflow;
 }

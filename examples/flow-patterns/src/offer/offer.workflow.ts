@@ -1,15 +1,4 @@
-import {
-  agent,
-  caseOf,
-  oneOf,
-  start,
-  toAction,
-  VisitsLimitExceededError,
-  Workflow,
-  WorkflowSettings,
-  type WorkflowDefinition,
-} from "agboss";
-import { usd } from "agboss/units";
+import { agent, caseOf, oneOf, start, toAction, VisitsLimitExceededError, Workflow } from "agboss";
 import { NotifyRecruiterAction } from "./actions/notify-recruiter.action.js";
 import { SendOfferAction } from "./actions/send-offer.action.js";
 import { DraftAgent } from "./agents/draft.agent.js";
@@ -62,10 +51,4 @@ import { OfferWorkflowStart } from "./workflow-starts/offer.workflow-start.js";
   maxSteps: 12,
   providers: [RecruiterInbox, OfferMailer],
 })
-export class OfferWorkflow implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.1) }, perDay: { cost: usd(1) } })
-      .build();
-  }
-}
+export class OfferWorkflow {}

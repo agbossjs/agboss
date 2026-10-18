@@ -129,7 +129,7 @@ describe("#201 AC2: paused runs survive an app restart with durable stores", () 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(record).toMatchObject({
       workflowVersion: "1.0.0",
-      run: { status: ExecutionStatus.Paused, budgetUsd: Number.POSITIVE_INFINITY },
+      run: { status: ExecutionStatus.Paused, budgetUsd: 100 }, // the test execution budget
     });
     expect(sharedPausedRun(paused.threadId)).toBeUndefined();
     expect(done.status).toBe(ExecutionStatus.Finished);

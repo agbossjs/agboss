@@ -3,16 +3,18 @@ import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { crossFieldRule } from "../../../src/dto/schema.js";
 import {
   Agent,
+  Budget,
+  BudgetPeriod,
+  BudgetScope,
   Workflow,
-  WorkflowSettings,
   WorkflowStart,
-  type WorkflowDefinition,
+  type BudgetHandler,
 } from "../../../src/index.js";
-import { usd } from "../../../src/units/index.js";
+import { usd, type Usd } from "../../../src/units/index.js";
 import { start } from "../../helpers/flow.js";
 import { AnswerDto, Apply, Done, Lookup, RunLog } from "./run-events.workflow.js";
 import { Application } from "../../../src/application/application.js";
-import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { TestApplicationDailyBudget, TestExecutionBudget } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 
 /** A start input with a code a rule checks; the rule's reason echoes the value it rejects. */
@@ -65,11 +67,17 @@ export class VoucherClerk {}
       .toFinish(Done),
   ],
 })
-export class Vouchers implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.05) }, perDay: { cost: usd(0.05) } })
-      .build();
+export class Vouchers {}
+
+/** A tenant may spend $0.05 a day: one dear reply spends it. */
+@Budget({
+  name: "vouchers-tenant-daily-budget",
+  scope: BudgetScope.Tenant,
+  period: BudgetPeriod.Day,
+})
+export class VouchersTenantDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.05);
   }
 }
 
@@ -78,6 +86,6 @@ export class Vouchers implements WorkflowDefinition {
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Vouchers],
-  budgets: TEST_BUDGETS,
+  budgets: [TestApplicationDailyBudget, VouchersTenantDailyBudget, TestExecutionBudget],
 })
 export class VouchersApplication {}

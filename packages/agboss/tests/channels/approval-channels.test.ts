@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type AppOptions } from "../../src/app/create-app.js";
 import { createApp } from "../../src/application/create-app.js";
-import { createMemoryLedger } from "../../src/finops/ledger.js";
 import { createSqliteTernStore } from "../../src/terns/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";

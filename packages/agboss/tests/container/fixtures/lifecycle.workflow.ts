@@ -4,17 +4,14 @@ import {
   Tool,
   Workflow,
   WorkflowFinish,
-  WorkflowSettings,
   WorkflowStart,
   type OnDestroy,
   type OnInit,
   type OnStart,
   type OnStop,
   type ToolHandler,
-  type WorkflowDefinition,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { usd } from "../../../src/units/index.js";
 import { start } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -138,13 +135,7 @@ export class SearchWorkflowFinish {}
   ],
   providers: [JobIndexService, ConnectionPoolProvider],
 })
-export class LifecycleWorkflow implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(1) } })
-      .build();
-  }
-}
+export class LifecycleWorkflow {}
 
 @Application({
   name: "lifecycle-application",
@@ -198,13 +189,7 @@ export class BrokenScoutAgent {}
   ],
   providers: [BrokenPoolProvider],
 })
-export class BrokenLifecycleWorkflow implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(1) } })
-      .build();
-  }
-}
+export class BrokenLifecycleWorkflow {}
 
 @Application({
   name: "broken-lifecycle-application",

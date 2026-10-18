@@ -30,13 +30,12 @@ const routerTexts = (routers: readonly LoadedRouter[]) =>
 export const configSnapshot = <TName extends string>(
   deps: Pick<
     RunDeps<TName>,
-    "config" | "prompts" | "compactionPrompt" | "graph" | "limits" | "maxSteps" | "routers"
+    "config" | "prompts" | "compactionPrompt" | "graph" | "maxSteps" | "routers"
   >,
 ): unknown => ({
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   config: stripFunctions(deps.config),
   flow: flowLines(deps.graph.flow, byComponentName),
-  limits: deps.limits,
   maxSteps: deps.maxSteps,
   routers: routerTexts(deps.routers),
   prompts: agentTexts(deps.prompts),

@@ -42,13 +42,12 @@ const NOTHING_HANDED_OVER: HandedOver = { usage: 0, approvals: 0 };
 
 /**
  * The state of one agent's loop (its subgraph, #150): what the execution handed it — the run, its
- * budget and spend so far, the thread's memory, its input message — plus the conversation with the
+ * spend so far, the thread's memory, its input message — plus the conversation with the
  * model, the move under way, finished calls and decisions by call id, the counters its limits check
  * and its answer. Checkpointed node by node — each tool call is its own task.
  */
 export const AgentLoopState = Annotation.Root({
   runId: Annotation<string>({ reducer: replace, default: () => "" }),
-  budgetUsd: Annotation<number>({ reducer: replace, default: () => Number.POSITIVE_INFINITY }),
   usage: Annotation<UsageRecord[]>({ reducer: append, default: () => [] }),
   approvals: Annotation<ApprovalRecord[]>({ reducer: append, default: () => [] }),
   history: Annotation<HistoryTurn[]>({ reducer: replace, default: () => [] }),

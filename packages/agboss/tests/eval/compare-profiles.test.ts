@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { compareProfiles } from "../../src/index.js";
-import { createMemoryLedger } from "../../src/finops/ledger.js";
 import type { ModelGateway } from "../../src/llm/gateway.js";
 import type { RouteOutcome, RouteRequest } from "../../src/routers/index.js";
 import { createSqliteTernStore } from "../../src/terns/index.js";

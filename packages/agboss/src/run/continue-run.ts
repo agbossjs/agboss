@@ -1,16 +1,10 @@
-import { reserveSpend } from "../finops/reservations.js";
+import type { ExecutionBudgetRecord } from "../budgets/execution-budgets.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
-import type { ExecutionGraph } from "../flow/runtime/build.js";
+import { executionGraphOf, type ExecutionGraph } from "../flow/runtime/build.js";
 import { startLine } from "../flow/runtime/history.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
-import {
-  failedOutcome,
-  outcomeError,
-  recordFailure,
-  recorder,
-  workflowAccount,
-  type TernBase,
-} from "./execute.js";
+import { failedOutcome, outcomeError, recordFailure, type TernBase } from "./execute.js";
+import { continuedExecutionBudgets, recorder } from "./run-budgets.js";
 import { finishRun } from "./finish.js";
 import { withMetadata } from "./run-services.js";
 import { streamConfig } from "./stream-config.js";
@@ -28,6 +22,8 @@ export interface ContinuedRun {
   readonly start: string;
   readonly startInput: unknown;
   readonly budgetUsd: number;
+  /** Its budgets, as it keeps them in its state (the amounts read at its start). */
+  readonly budgets: readonly ExecutionBudgetRecord[] | undefined;
   /** What it spent before this pass, already in the ledger. */
   readonly spent: readonly UsageRecord[];
   readonly metadata?: Readonly<Record<string, string>> | undefined;
@@ -40,15 +36,15 @@ export type ContinuedPass = (
   record: (records: readonly UsageRecord[]) => Promise<void>,
 ) => Promise<ExecutionStateType>;
 
-export type ContinueOptions = Omit<RunOptions, "replayOf" | "account" | "runId" | "contexts">;
+export type ContinueOptions = Omit<RunOptions, "replayOf" | "runId" | "contexts">;
 
 /**
  * One more pass of an execution that already ran (a resume with its decision, or recovery from
- * its last checkpoint, #265 S30): same run id, same record, its budget minus what it spent held
- * again while it moves. Spend recorded before is not recorded again; a failure completes the record.
+ * its last checkpoint, #265 S30): same run id, same record, the same budgets — the amounts read at
+ * its start, their counters read anew. Spend recorded before is not recorded again; a failure
+ * completes the record.
  */
 export async function continueRun<TName extends string>(
-  graph: ExecutionGraph,
   run: ContinuedRun,
   deps: RunDeps<TName>,
   options: ContinueOptions,
@@ -56,9 +52,9 @@ export async function continueRun<TName extends string>(
 ): Promise<AgentExecutionOutput> {
   const metadata = options.metadata ?? run.metadata;
   const spent: UsageRecord[] = [];
-  const left = run.budgetUsd - totalCost(run.spent);
-  const hold = await reserveSpend(deps.ledger, workflowAccount(deps), Math.max(0, left));
-  const record = recorder(hold, spent);
+  const budgets = await continuedExecutionBudgets(deps, run.budgets, totalCost(run.spent));
+  const graph = executionGraphOf(deps, { budgets: budgets.meter });
+  const record = recorder(budgets.meter, spent);
   const base: TernBase = {
     runId: run.runId,
     threadId: run.threadId,
@@ -90,7 +86,5 @@ export async function continueRun<TName extends string>(
     throw await recordFailure(cause, () =>
       deps.terns.complete(run.ternId, failedOutcome(cause, [...run.spent, ...spent])),
     );
-  } finally {
-    hold.release();
   }
 }

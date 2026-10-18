@@ -5,7 +5,16 @@ import { workflowOf } from "../src/components/assemble.js";
 import type { Class } from "../src/components/injection.js";
 import { MODEL_MAX, type AgentsConfigOf } from "../src/config/types.js";
 import type { UsageRecord } from "../src/finops/usage.js";
-import type { SpendLedger } from "../src/finops/ledger.js";
+import {
+  CostLedgerRepository,
+  InMemoryCostLedgerRepository,
+  type CostCounter,
+} from "../src/infrastructure/cost-ledger.repository.js";
+import { Budget, BudgetScope, type BudgetHandler } from "../src/budgets/budget.js";
+import type { ApplicationBudgets } from "../src/budgets/execution-budgets.js";
+import { usd, type Usd } from "../src/units/index.js";
+import { systemClock } from "../src/infrastructure/clock.js";
+import { TestApplicationDailyBudget, TestTenantDailyBudget } from "./flow/fixtures/budgets.js";
 import type { WorkflowDefaults } from "../src/flow/decorators/workflow.js";
 import type { JevClient } from "../src/llm/jev-client.js";
 import type { ModelFactory } from "../src/llm/registry.js";
@@ -89,23 +98,39 @@ export const fakeGateway = (
   jevClient: JevClient = unusedJevClient,
 ): ModelGateway => createModelGateway({ chatModel, jevClient });
 
-/** In-memory ledger: starts at `spentToday`, remembers what runs record. */
-export function memoryLedger(spentToday = 0): SpendLedger & { readonly recorded: UsageRecord[] } {
-  const recorded: UsageRecord[] = [];
-  return {
-    recorded,
-    spentToday: () =>
-      Promise.resolve(spentToday + recorded.reduce((sum, record) => sum + record.costUsd, 0)),
-    record: (_bundle, records) => {
-      recorded.push(...records);
-      return Promise.resolve();
-    },
-  };
+/** The in-memory cost ledger, remembering every call it counted (once per call, over all counters). */
+export class RecordingCostLedger extends InMemoryCostLedgerRepository {
+  readonly recorded: UsageRecord[] = [];
+
+  override async saveAll(
+    counters: readonly CostCounter[],
+    records: readonly UsageRecord[],
+  ): Promise<void> {
+    this.recorded.push(...records);
+    await super.saveAll(counters, records);
+  }
+}
+
+/** A cost ledger that remembers what executions record. */
+export const memoryLedger = (): RecordingCostLedger => new RecordingCostLedger();
+
+/** A default execution budget of `amount` USD (a constant, as a test application lists one). */
+export function executionBudgetOf(amount: number): Class<BudgetHandler> {
+  @Budget({ name: "test-execution-budget", scope: BudgetScope.Execution })
+  class AmountExecutionBudget implements BudgetHandler {
+    maxSpend(): Usd {
+      return usd(amount);
+    }
+  }
+  return AmountExecutionBudget;
 }
 
 /** What `fakeDeps` may be given instead of its defaults. */
 export interface FakeDepsOptions {
-  readonly ledger?: SpendLedger;
+  /** Where the budgets count; default a new `RecordingCostLedger`. */
+  readonly ledger?: CostLedgerRepository;
+  /** The default execution budget, USD (default 1); the tenant's and the application's are $1000 a day. */
+  readonly executionBudget?: number;
   readonly terns?: TernStore;
   readonly workflow?: Class;
   readonly newRunId?: () => string;
@@ -128,10 +153,20 @@ export async function fakeDeps(
     processEnv: {},
     ...(options.newRunId === undefined ? {} : { newRunId: options.newRunId }),
   });
-  // the unit tests read and share these stores themselves: the run's ledger and records
-  const ledger = options.ledger ?? memoryLedger();
+  // the unit tests read and share these stores themselves: the budgets' ledger and the records
+  const budgets: ApplicationBudgets = {
+    budgets: [
+      TestApplicationDailyBudget,
+      TestTenantDailyBudget,
+      executionBudgetOf(options.executionBudget ?? 1),
+    ],
+    applicationName: "test-application",
+    resolve: (budget) => deps.container.get(budget as Class<BudgetHandler>),
+    ledger: options.ledger ?? memoryLedger(),
+    clock: systemClock,
+  };
   const terns = options.terns ?? createSqliteTernStore(":memory:", () => new Date());
-  return { ...deps, ledger, terns, evaluation: { ...deps.evaluation, ledger, terns } };
+  return { ...deps, budgets, terns, evaluation: { ...deps.evaluation, budgets, terns } };
 }
 
 /** Runs the star's chat start with a text (on the thread given, else a new one). */

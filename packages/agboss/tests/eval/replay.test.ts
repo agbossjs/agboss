@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import type { EvalDeps } from "../../src/eval/eval.js";
+import { BUDGET_EXHAUSTED, type EvalDeps } from "../../src/eval/eval.js";
+import { BudgetScope } from "../../src/budgets/budget.js";
 import { replay } from "../../src/eval/replay.js";
 import { runVersions } from "../../src/index.js";
 import type { RouterEngine } from "../../src/routers/index.js";
 import { routeTo, fakeDeps, memoryLedger, runText } from "../helpers.js";
+import { usd } from "../../src/units/index.js";
 
 const judgeWith = (...confidences: number[]): RouterEngine => {
   const route = vi.fn<RouterEngine["route"]>();
@@ -29,15 +31,13 @@ describe("replay", () => {
       ...deps,
       prompts: { ...deps.prompts, "alpha-agent": "You are alpha, now precise." },
     };
-    const ledger = memoryLedger();
     const evaluation: EvalDeps = {
       terns: deps.terns,
-      ledger,
+      budgets: deps.budgets,
       judge: judgeWith(0.6, 0.9),
-      account: { key: "test-bundle-workflow:eval", dailyCap: 5 },
     };
 
-    const report = await replay({ ...changed, ledger }, evaluation, {
+    const report = await replay(changed, evaluation, {
       promptVersion: oldVersion,
       limit: 10,
     });
@@ -47,21 +47,26 @@ describe("replay", () => {
     expect(rows.map((row) => row.promptVersion)).toContain(runVersions(changed).promptVersion);
   });
 
-  it("stops replaying when the eval budget is spent", async () => {
-    const deps = await fakeDeps({ "test/router": [routeTo("alpha-agent")], "test/alpha": ["a"] });
+  it("stops replaying when the application's budget is spent (its last known limit)", async () => {
+    const ledger = memoryLedger();
+    const deps = await fakeDeps(
+      { "test/router": [routeTo("alpha-agent")], "test/alpha": ["a"] },
+      { ledger },
+    );
     await runText("T", deps);
-    const evaluation: EvalDeps = {
-      terns: deps.terns,
-      ledger: memoryLedger(5),
-      judge: judgeWith(),
-      account: { key: "k", dailyCap: 5 },
+    const application = {
+      budget: "test-application-daily-budget",
+      scope: BudgetScope.Application,
+      key: "test-application",
     };
+    await ledger.saveMaxSpend(application, usd(0));
+    const evaluation: EvalDeps = { terns: deps.terns, budgets: deps.budgets, judge: judgeWith() };
 
-    const report = await replay({ ...deps, ledger: memoryLedger(5) }, evaluation, {
+    const report = await replay(deps, evaluation, {
       promptVersion: runVersions(deps).promptVersion,
       limit: 10,
     });
 
-    expect(report).toMatchObject({ replayed: 0, stoppedBy: "eval budget exhausted" });
+    expect(report).toMatchObject({ replayed: 0, stoppedBy: BUDGET_EXHAUSTED });
   });
 });

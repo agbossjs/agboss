@@ -17,7 +17,6 @@ import { createMcpService, McpExpose } from "../../src/mcp/index.js";
 import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
 import { Text } from "../../src/dto/index.js";
 import { jsonSchemaOf } from "../../src/dto/schema.js";
-import { createMemoryLedger } from "../../src/finops/ledger.js";
 import { createSqliteTernStore } from "../../src/terns/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";

@@ -805,10 +805,6 @@ export class WorkflowSettings {
     //
     // (undocumented)
     static builder(): WorkflowSettingsBuilder;
-    // Warning: (ae-forgotten-export) The symbol "WorkflowLimits" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly limits: WorkflowLimits;
     // Warning: (ae-forgotten-export) The symbol "IncompatibleResumePolicy" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -970,10 +966,9 @@ export class WorkflowSettings {
 // src/core/observer-manager.ts:141:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
 // src/core/observer-manager.ts:144:3 - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
 // src/flow/decorators/workflow.ts:123:1 - (ae-undocumented) Missing documentation for "Workflow".
-// src/graph/settings.ts:47:5 - (ae-undocumented) Missing documentation for "limits".
-// src/graph/settings.ts:48:5 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
-// src/graph/settings.ts:51:3 - (ae-undocumented) Missing documentation for "builder".
-// src/graph/settings.ts:75:3 - (ae-undocumented) Missing documentation for "settings".
+// src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
+// src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
+// src/graph/settings.ts:36:3 - (ae-undocumented) Missing documentation for "settings".
 // src/llm/decisions.ts:5:3 - (ae-undocumented) Missing documentation for "Auto".
 // src/llm/decisions.ts:6:3 - (ae-undocumented) Missing documentation for "Low".
 // src/llm/decisions.ts:7:3 - (ae-undocumented) Missing documentation for "High".

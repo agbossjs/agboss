@@ -1,6 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 import { describe, it, expect, vi } from "vitest";
+import { NO_BUDGET_CHECK } from "../../../src/budgets/execution-budgets.js";
 import { makeReplyNode } from "../../../src/graph/agent-loop/reply-node.js";
 import { NO_ANSWER_TOOLS } from "../../../src/flow/runtime/answer-tools.js";
 import {
@@ -156,14 +157,11 @@ describe("agent-loop coverage", () => {
         },
       },
       resolveTools: () => [{ name: "t1" }],
-      runBudgetCap: Number.POSITIVE_INFINITY,
+      budgets: NO_BUDGET_CHECK,
     };
     const node = makeModelNode(deps);
     await expect(
-      node(
-        { messages: [], usage: [], from: { usage: 0 }, modelCalls: 0, flowPath: [], budgetUsd: 1 },
-        {},
-      ),
+      node({ messages: [], usage: [], from: { usage: 0 }, modelCalls: 0, flowPath: [] }, {}),
     ).rejects.toThrow("cannot call tools");
   });
 

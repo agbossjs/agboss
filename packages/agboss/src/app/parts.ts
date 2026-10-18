@@ -35,18 +35,14 @@ export const toolLookup = (tools: readonly AnyTool[]): ((name: string) => AnyToo
   };
 };
 
-/** Eval / replay: a Jev judge, spend on `<workflow>:eval` — its own day, capped like the workflow's. */
+/** Eval / replay: a Jev judge, its spend counted in the application's budgets. */
 export const evaluationFor = (
   bundle: AssembledWorkflow,
-  stores: Pick<EvalDeps, "terns" | "ledger">,
+  stores: Pick<EvalDeps, "terns" | "budgets">,
   gateway: ModelGateway,
 ): EvalDeps => ({
   ...stores,
   judge: defaultRouterOf("judge", bundle.config, gateway),
-  account: {
-    key: `${bundle.config.name}:eval`,
-    dailyCap: bundle.limits.perDay?.cost ?? Number.POSITIVE_INFINITY,
-  },
 });
 
 /** Core services for the workflow's components; one object, so tools and knowledge share instances. */
@@ -136,15 +132,12 @@ export function defaultRouterOf(
   };
 }
 
-/** The workflow's graph, limits and routers; each router decides on its own model. */
+/** The workflow's graph, steps limit and routers; each router decides on its own model. */
 export const flowFor = (
   bundle: AssembledWorkflow,
   config: AgentsConfigOf<string>,
   gateway: ModelGateway,
-): Pick<
-  RunDeps<string>,
-  "graph" | "limits" | "maxSteps" | "routers" | "routerFor" | "launchDecisionFor"
-> => {
+): Pick<RunDeps<string>, "graph" | "maxSteps" | "routers" | "routerFor" | "launchDecisionFor"> => {
   const routerDeps = {
     gateway,
     chatDefaults: config.defaults.models,
@@ -152,7 +145,6 @@ export const flowFor = (
   };
   return {
     graph: bundle.graph,
-    limits: bundle.limits,
     maxSteps: bundle.maxSteps,
     routers: bundle.routers,
     routerFor: flowRouterFactory(routerDeps),

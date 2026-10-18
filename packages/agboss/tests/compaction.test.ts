@@ -4,7 +4,6 @@ import type { RunDeps } from "../src/index.js";
 import { createModelRegistry, type ModelFactory } from "../src/llm/registry.js";
 import { compactIfDue } from "../src/run/compaction.js";
 import { flowRouterFactory } from "../src/graph/router-model.js";
-import { usd } from "../src/units/index.js";
 import { ScriptedChatModel } from "./fakes/scripted-model.js";
 import {
   routeTo,
@@ -53,7 +52,7 @@ async function setup({
     s.model === "test/compactor" ? summariser : s.model === "test/alpha" ? alpha : router,
   );
   const ledger = memoryLedger();
-  const base = await fakeDeps({}, { ledger });
+  const base = await fakeDeps({}, { ledger, executionBudget: runBudgetCap });
   const alphaSettings = base.config.agents["alpha-agent"];
   if (alphaSettings === undefined) throw new Error("the star has alpha-agent");
   const config = {
@@ -77,7 +76,6 @@ async function setup({
   const deps: RunDeps<string> = {
     ...base,
     config,
-    limits: { perRun: { cost: usd(runBudgetCap) } },
     registry: createModelRegistry(config, fakeGateway(factory)),
     routerFor: flowRouterFactory({
       gateway: fakeGateway(factory),

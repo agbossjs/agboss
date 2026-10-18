@@ -7,15 +7,18 @@ import {
   Tool,
   Workflow,
   WorkflowFinish,
-  WorkflowSettings,
   WorkflowStart,
   type ToolHandler,
-  type WorkflowDefinition,
 } from "../../../../src/index.js";
-import { usd } from "../../../../src/units/index.js";
+import { usd, type Usd } from "../../../../src/units/index.js";
 import { start } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
-import { TEST_BUDGETS } from "../../fixtures/budgets.js";
+import {
+  TEST_BUDGETS,
+  TestApplicationDailyBudget,
+  TestTenantDailyBudget,
+} from "../../fixtures/budgets.js";
+import { Budget, BudgetScope, type BudgetHandler } from "../../../../src/budgets/budget.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
 
 /** What the components saw (reset by `resetSpendSeen`). */
@@ -141,15 +144,9 @@ const paths = [
     .toFinish(ShippedFinish),
 ];
 
-/** start → searcher (paid search) → ship (paid courier) → shipped; $1 per run. */
+/** start → searcher (paid search) → ship (paid courier) → shipped; the test budgets ($100 an execution). */
 @Workflow({ name: "spend-workflow", version: "1.0.0", providers: [ShipAction], flow: paths })
-export class SpendWorkflow implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(1) }, perDay: { cost: usd(10) } })
-      .build();
-  }
-}
+export class SpendWorkflow {}
 
 @Application({
   name: "spend-application",
@@ -160,13 +157,18 @@ export class SpendWorkflow implements WorkflowDefinition {
 })
 export class SpendApplication {}
 
-/** The same with $0.001 per run: one paid search spends it. */
+/** The same with its own execution budget of $0.001: one paid search spends it. */
 @Workflow({ name: "tight-spend-workflow", version: "1.0.0", providers: [ShipAction], flow: paths })
-export class TightSpendWorkflow implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.001) }, perDay: { cost: usd(10) } })
-      .build();
+export class TightSpendWorkflow {}
+
+@Budget({
+  name: "tight-spend-execution-budget",
+  scope: BudgetScope.Execution,
+  workflow: TightSpendWorkflow,
+})
+export class TightSpendExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.001);
   }
 }
 
@@ -175,6 +177,6 @@ export class TightSpendWorkflow implements WorkflowDefinition {
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TightSpendWorkflow],
-  budgets: TEST_BUDGETS,
+  budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, TightSpendExecutionBudget],
 })
 export class TightSpendApplication {}
