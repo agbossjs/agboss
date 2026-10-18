@@ -16,7 +16,7 @@ import type { Environment } from "../../flow/generated-types.js";
  * never block the writer), `busy_timeout` (a writer waits for the other's lock), and every atomic
  * operation in one `BEGIN IMMEDIATE` transaction. The driver is synchronous: a transaction is one
  * group of statements with no `await` inside, and a busy wait blocks this instance's event loop.
- * Time values are parameters from the framework's clock, never SQLite's (`CURRENT_TIMESTAMP`).
+ * Time values are parameters from the framework's clock, never SQLite's own.
  */
 
 /** How long a writer waits for another connection's lock before the store fails (milliseconds). */
@@ -117,6 +117,10 @@ export function sqliteImplementation(implementation: Class): void {
   ]);
 }
 
-/** Whether an instance is of a SQLite implementation (it keeps nothing outside its file). */
-export const isSqliteImplementation = (instance: object): boolean =>
-  sqliteImplementations.has(instance.constructor as Class);
+/** Whether an instance is of a SQLite implementation or a subclass of one (it keeps nothing outside its file). */
+export function isSqliteImplementation(instance: object): boolean {
+  for (let at: unknown = instance.constructor; typeof at === "function"; at = Object.getPrototypeOf(at)) {
+    if (sqliteImplementations.has(at as Class)) return true;
+  }
+  return false;
+}

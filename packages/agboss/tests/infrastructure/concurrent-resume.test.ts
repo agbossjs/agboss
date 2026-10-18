@@ -161,3 +161,41 @@ describe("#265 AC11 (Q58): a holder frozen past the lease loses it, the waiting 
     expect(seen.charges).toEqual(["first", "second"]);
   });
 });
+
+describe("#265 S66 h: a resume's late `running` write never lands over the holder's end", () => {
+  test("the holder finishes the tree first: the resume's compare-and-set write does not land, the record stays answered", async ({
+    app,
+    apps,
+    clock,
+    mockLlm,
+  }) => {
+    mockLlm(Clerk).thenReturn(
+      callTool(Charge, { text: "first" }),
+      callTool(Charge, { text: "second" }),
+      replyWith(ReceiptDto, { text: "Charged twice." }),
+    );
+    const paused = await execute(app, OrderWorkflowStart, { text: "charge twice" });
+    const answered = answerNextPauseFrom(second(apps));
+    hooks.beforeGuardedWrite = async () => {
+      // the first resume's own write goes at once; the other's waits until the holder ended the tree
+      if (seen.guarded.length === 0) return;
+      for (let tick = 0; tick < 1000 && !seen.completed.includes("answered"); tick += 1) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+    };
+
+    const moved = await app.resume(paused.thread, approve);
+    const waited = await answered.call;
+    await clock.advance(seconds(31));
+
+    expect(seen.guarded).toEqual([
+      { status: "running", landed: true },
+      { status: "running", landed: false },
+    ]);
+    const [stored] = (await seen.records[0]?.lastTerns(paused.thread, 1)) ?? [];
+    expect(stored?.status).toBe("answered");
+    expect(moved.output).toEqual({ text: "Charged twice." });
+    expect(waited?.output).toEqual({ text: "Charged twice." });
+    expect(seen.resumes).toEqual([approve, approve]);
+  });
+});

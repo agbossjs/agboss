@@ -3,6 +3,7 @@ import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
   ExecutionContext,
+  ExecutionRecordStatus,
   ExecutionTreeRepository,
   Injectable,
   PauseStatus,
@@ -49,18 +50,24 @@ export const seen = {
   resumes: [] as unknown[],
   appended: [] as string[],
   completed: [] as string[],
+  /** Each compare-and-set write: the status it wrote and whether it landed. */
+  guarded: [] as { readonly status: string; readonly landed: boolean }[],
+  records: [] as SeenExecutionRecordRepository[],
 };
 
 /** The test's hooks: run after a pause is saved; resolves when the first hold starts. */
 export const hooks: {
   afterSave?: (paused: PausedRun, repository: HookedPausedExecutionRepository) => Promise<void>;
   holdStarted?: () => void;
+  /** Runs before a compare-and-set record write (a resume's `running`). */
+  beforeGuardedWrite?: () => Promise<void>;
 } = {};
 
 export function resetLease(): void {
   for (const list of Object.values(seen)) list.length = 0;
   delete hooks.afterSave;
   delete hooks.holdStarted;
+  delete hooks.beforeGuardedWrite;
 }
 
 export class ReceiptDto {
@@ -183,6 +190,18 @@ export class HookedPausedExecutionRepository extends InMemoryPausedExecutionRepo
 export class SeenExecutionRecordRepository extends TernStoreRecordRepository {
   constructor() {
     super(createSqliteTernStore(":memory:"));
+    seen.records.push(this);
+  }
+
+  override async completeIfStatus(
+    ternId: string,
+    expected: ExecutionRecordStatus,
+    outcome: TernOutcome,
+  ): Promise<boolean> {
+    await hooks.beforeGuardedWrite?.();
+    const landed = await super.completeIfStatus(ternId, expected, outcome);
+    seen.guarded.push({ status: outcome.status, landed });
+    return landed;
   }
 
   override append(tern: NewTern): Promise<Tern> {

@@ -1,16 +1,19 @@
 /**
  * #265 AC2: `ExecutionTreeRepository` — `saveIfAbsent` is atomic; the keys of a request are
  * visible to its whole tree on any instance, invisible to other requests, and removed when the
- * tree ends. The contract on the in-memory default (two instances over one database), then the
- * same through an application with two instances.
+ * tree ends. One suite, run against the in-memory default (two instances over one database) and
+ * `SqliteExecutionTreeRepository` (two instances on one file), then the same through an
+ * application with two instances.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { ExecutionContextUnavailableError } from "../../src/index.js";
-import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import {
   InMemoryExecutionTreeRepository,
   type ExecutionTree,
+  type ExecutionTreeRepository,
 } from "../../src/infrastructure/execution-tree.repository.js";
+import { SqliteExecutionTreeRepository } from "../../src/infrastructure/sqlite/sqlite-execution-tree.repository.js";
+import { storeKinds } from "./contracts/store-kinds.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -28,18 +31,22 @@ import {
 const tree: ExecutionTree = { tenantId: "default", rootExecutionId: "root-1" };
 const otherRequest: ExecutionTree = { tenantId: "default", rootExecutionId: "root-2" };
 
-/** Two instances' repositories over one database (what `{ instances: 2 }` gives). */
-const twoInstances = (): [InMemoryExecutionTreeRepository, InMemoryExecutionTreeRepository] => {
-  const database = new InMemoryDatabase();
-  return [
-    new InMemoryExecutionTreeRepository(database),
-    new InMemoryExecutionTreeRepository(database),
-  ];
+const kinds = storeKinds<ExecutionTreeRepository>({
+  inMemory: ({ database }) => new InMemoryExecutionTreeRepository(database),
+  sqlite: ({ connection }) => new SqliteExecutionTreeRepository(connection()),
+});
+
+/** The two instances' repositories of one test. */
+const pairOf = (
+  twoInstances: (typeof kinds)[number]["twoInstances"],
+): [ExecutionTreeRepository, ExecutionTreeRepository] => {
+  const { first, second } = twoInstances();
+  return [first, second];
 };
 
-describe("#265 AC2: the contract (in-memory default)", () => {
+describe.each(kinds)("#265 AC2: the contract ($name)", ({ twoInstances }) => {
   it("one true of two: two concurrent saves of one key, on two instances", async () => {
-    const [first, second] = twoInstances();
+    const [first, second] = pairOf(twoInstances);
 
     const claimed = await Promise.all([
       first.saveIfAbsentInTree(tree, "subtopic:7", true),
@@ -50,7 +57,7 @@ describe("#265 AC2: the contract (in-memory default)", () => {
   });
 
   it("visible to the tree on any instance, invisible to other requests", async () => {
-    const [first, second] = twoInstances();
+    const [first, second] = pairOf(twoInstances);
 
     await first.saveIfAbsentInTree(tree, "subtopic:7", { by: "researcher" });
 
@@ -60,7 +67,7 @@ describe("#265 AC2: the contract (in-memory default)", () => {
   });
 
   it("removed at the end: deleting the tree removes its keys only", async () => {
-    const [first, second] = twoInstances();
+    const [first, second] = pairOf(twoInstances);
     await first.saveIfAbsentInTree(tree, "subtopic:7", true);
     await first.saveIfAbsentInTree(otherRequest, "subtopic:7", true);
 
@@ -71,7 +78,7 @@ describe("#265 AC2: the contract (in-memory default)", () => {
   });
 
   it("a value is a copy: changing the saved object changes nothing stored", async () => {
-    const [first] = twoInstances();
+    const [first] = pairOf(twoInstances);
     const value = { topics: ["a"] };
     await first.saveIfAbsentInTree(tree, "plan", value);
 
@@ -80,8 +87,17 @@ describe("#265 AC2: the contract (in-memory default)", () => {
     expect(await first.findByIdInTree(tree, "plan")).toEqual({ topics: ["a"] });
   });
 
+  it("a value comes back as JSON gives it: nested lists, objects, null", async () => {
+    const [first, second] = pairOf(twoInstances);
+    const value = { plan: ["a", 1, true, null], by: { agent: "researcher" } };
+
+    await first.saveIfAbsentInTree(tree, "plan", value);
+
+    expect(await second.findByIdInTree(tree, "plan")).toEqual(value);
+  });
+
   it("saveIfAbsent / findById outside an execution throw ExecutionContextUnavailableError", async () => {
-    const [first] = twoInstances();
+    const [first] = pairOf(twoInstances);
 
     await expect(async () => first.saveIfAbsent("k", true)).rejects.toThrow(
       ExecutionContextUnavailableError,
