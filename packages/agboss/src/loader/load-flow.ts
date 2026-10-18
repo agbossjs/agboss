@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { applicationDeclarationOf } from "../application/application.js";
 import type { Class } from "../components/injection.js";
+import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { walkFlow } from "../flow/analyse/walk.js";
 import type { LoadedModule } from "../flow/analyse/rules/context.js";
 import { NodeKind } from "../flow/ast.js";
@@ -39,9 +40,9 @@ const isApplication = (value: unknown): value is Class =>
 const namespaceOf = async (file: string): Promise<Readonly<Record<string, unknown>>> =>
   (await import(pathToFileURL(file).href)) as Readonly<Record<string, unknown>>;
 
-/** The files the components of the workflows were declared in. */
+/** The files the components of the workflows — their child workflows' too (#263) — were declared in. */
 function componentFiles(workflows: readonly Class[]): readonly string[] {
-  return workflows.flatMap((workflow) => {
+  return withChildWorkflows(workflows).flatMap((workflow) => {
     const declaration = declarationOf(workflow);
     if (declaration?.kind !== NodeKind.Workflow) return [];
     const { nodes } = walkFlow(declaration.options.flow).graph;

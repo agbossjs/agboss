@@ -208,7 +208,7 @@ describe("AC11: assembly reports all errors at once, before any model call", () 
     expect(messages).toEqual(
       expect.arrayContaining([
         "wrong-kinds-workflow: toAgent(KitRouter): kit-router is a router, not an agent — use toRouter(KitRouter)",
-        "wrong-kinds-workflow: toAgent(UndecoratedAgent): UndecoratedAgent has no @WorkflowStart / @Agent / @Action / @Router / @WorkflowFinish decorator — decorate it",
+        "wrong-kinds-workflow: toAgent(UndecoratedAgent): UndecoratedAgent has no @WorkflowStart / @Agent / @Action / @Router / @WorkflowFinish / @Workflow decorator — decorate it",
       ]),
     );
   });

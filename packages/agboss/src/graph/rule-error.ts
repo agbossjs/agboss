@@ -57,6 +57,11 @@ export type RuleCode =
   | "launch.item-not-read"
   | "launch.branch-continued"
   | "launch.branch-outdates-sibling"
+  // child workflows (#263 PR 1), reported by `src/flow/analyse`
+  | "graph.no-matching-start"
+  | "graph.ambiguous-start"
+  | "graph.child-without-failure-finish"
+  | "graph.limit-handler-uses-model"
   | "name.kind-suffix"
   | "dto.name"
   | "dto.duplicate-name"

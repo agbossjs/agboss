@@ -118,6 +118,11 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.to(target, NodeKind.Finish);
   }
 
+  /** `.toWorkflow(W)` (#263): one child execution of `W`, entered through the start its value fits. */
+  toWorkflow(target: Class): PathBuilder<TSource> {
+    return this.to(target, NodeKind.Workflow);
+  }
+
   switch(...cases: readonly PathBuilder[]): PathBuilder<TSource> {
     return this.then({ kind: StepKind.Switch, cases: cases.map((path) => path.asCase()) });
   }
@@ -136,6 +141,11 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   toParallelActions(...args: readonly unknown[]): PathBuilder<TSource> {
     return this.launch(NodeKind.Action, args);
+  }
+
+  /** `.toParallelWorkflows(W, { maxConcurrency, maxItems })` (#263): one child per item of the list. */
+  toParallelWorkflows(...args: readonly unknown[]): PathBuilder<TSource> {
+    return this.launch(NodeKind.Workflow, args);
   }
 
   join(): PathBuilder<TSource> {

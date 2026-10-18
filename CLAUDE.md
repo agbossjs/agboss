@@ -365,9 +365,10 @@ wires both, then regenerates the types. A project's `npm run types` (`agboss che
 `@Workflow({ flow: [...] })` is a list of paths, each from a source to its finishes — built into
 one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
 
-- **Sources:** `start(Start)` (where an execution begins); `agent(X)` / `router(R)` / `action(A)` —
-  the path of a node reached from two places (a review loop), written once.
-- **Steps:** `.toAgent(X)`, `.toRouter(R)`, `.toAction(A)`, `.toFinish(F)`; `.returns(Dto)` says
+- **Sources:** `start(Start)` (where an execution begins); `agent(X)` / `router(R)` / `action(A)` /
+  `workflow(W)` (#263) — the path of a node reached from two places (a review loop), written once.
+- **Steps:** `.toAgent(X)`, `.toRouter(R)`, `.toAction(A)`, `.toFinish(F)`, `.toWorkflow(W)`
+  (#263); `.returns(Dto)` says
   what the step before put on the path (its **scope**: later nodes read their `input` fields from
   it, `[input.missing-on-path]` when no path brings one) — one value per `.returns`, several as a
   chain `.returns(A).returns(optional(B))` (#299); `.chooseOne(route(X)…)` — the router's
@@ -402,6 +403,27 @@ one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
   launch decides its `OnDemand` routes in one call — a `Decision.noul` per route on a decision
   model, one answer tool with a boolean per route on a chat model (tests: `decideWith({ "<target
 name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S23).
+- **Child workflows (#263):** a step may be an ordinary `@Workflow` of the application —
+  `.toWorkflow(W)` (one child), `route(W)`, or `.toParallelWorkflows(W, { maxConcurrency, maxItems })`
+  (one child per item, right after `.returns(listOf(ItemDto))`, `maxItems` required, then `.join()`).
+  Each edge picks the child's start by class, never by name: a child with one start is entered
+  through it; else the start with a required field of the item's type (per item) or of the chain's
+  current value (the `.returns` / `caseOf` right before) — of several, the one whose other required
+  fields are on the parent's path; none → `[graph.no-matching-start]` (the starts and their inputs
+  listed), two → `[graph.ambiguous-start]` (fix: a subclass as one start's input) — both compile
+  errors too, through the child's generated `Inputs` entry. `agboss describe` prints each edge's start.
+  The child's scope starts with its start input only (`[input.missing-on-path]` per edge for the
+  chosen start's required fields; its optional ones may be missing); its result is one of its
+  finishes' outputs — `.returns(XDto)` for one class, `.returns(oneOf(…)).switch(caseOf(…)…)` with one
+  case per class (two finishes of one class are one case; a case counts as read), and
+  `.join().returns(listOf(oneOf(…)))` after a per-item launch (S53: one polymorphic list). Errors:
+  `.onError(E, …)` right after `.toWorkflow(W)` or `workflow(W)`, `.onJoinError(E, …)` right after
+  the join (the other does not compile). A per-item child with no finish reachable from one of its
+  `.onError` side paths warns `[graph.child-without-failure-finish]` (an error under `--strict`).
+  Any side path that can catch a `LimitExceededError` (the class, a subclass, a parent such as
+  `AGBossError`) leads only to actions and finishes — `[graph.limit-handler-uses-model]`. Until
+  #263 PR 2 a workflow with a child is checked (`agboss check`) but does not assemble
+  (`flow.child-not-runnable`).
 - **Node kinds:** `@WorkflowStart` (input: a DTO, a list or a map of fields; input guards),
   `@Router`, `@Agent` (`input` fields, `output` — answered through answer tools, or text without
   them), `@Action` (code, no model: `execute(input)`; its execution through `deps: [ExecutionContext]`), `@WorkflowFinish`
@@ -601,6 +623,101 @@ export const launchPaths = [
     .toAgent(AnswerAgent)
     .returns(CustomerReplyDto)
     .toFinish(SupportWorkflowFinish),
+] as const;
+```
+
+<!-- snippet-context
+import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, start, toAction } from "agboss";
+import { Flag, Text, WorkflowStartTextDto, listOf, oneOf } from "agboss/dto";
+
+export class VendorDto {
+  @Text({ prompt: "the vendor's name" })
+  name!: string;
+}
+export class VendorScoreDto {
+  @Text({ prompt: "how well the vendor fits" })
+  score!: string;
+}
+export class VendorRejectedDto {
+  @Text({ prompt: "why the vendor is not a fit" })
+  reason!: string;
+}
+export class VendorCheckFailedDto {
+  @Flag({ prompt: "the check could not be done" })
+  failed!: boolean;
+}
+export class VendorRankingDto {
+  @Text({ prompt: "the vendors, best first" })
+  order!: string;
+}
+@WorkflowStart({ name: "vendor-check-workflow-start", description: "One vendor", input: VendorDto })
+export class VendorCheckWorkflowStart {}
+@Agent({ name: "vendor-checker-agent", description: "Checks a vendor", prompt: "Check it.", model: "moonshotai/kimi-k2.6", input: { vendor: VendorDto }, output: oneOf(VendorScoreDto, VendorRejectedDto) })
+export class VendorCheckerAgent {}
+@Action({ name: "mark-vendor-failed-action", description: "Records a failed check", input: { vendor: VendorDto }, output: VendorCheckFailedDto })
+export class MarkVendorFailedAction {
+  execute(): Promise<VendorCheckFailedDto> {
+    return Promise.resolve({ failed: true });
+  }
+}
+@WorkflowFinish({ name: "vendor-scored-workflow-finish", description: "Scored", output: VendorScoreDto })
+export class VendorScoredWorkflowFinish {}
+@WorkflowFinish({ name: "vendor-rejected-workflow-finish", description: "Not a fit", output: VendorRejectedDto })
+export class VendorRejectedWorkflowFinish {}
+@WorkflowFinish({ name: "vendor-check-failed-workflow-finish", description: "Not checked", output: VendorCheckFailedDto })
+export class VendorCheckFailedWorkflowFinish {}
+@WorkflowStart({ name: "vendor-screening-workflow-start", description: "What to look for", input: WorkflowStartTextDto })
+export class VendorScreeningWorkflowStart {}
+@Agent({ name: "vendor-finder-agent", description: "Finds vendors", prompt: "Find them.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(VendorDto) })
+export class VendorFinderAgent {}
+@Agent({ name: "vendor-ranker-agent", description: "Ranks", prompt: "Rank.", model: "moonshotai/kimi-k2.6", input: { checks: listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)) }, output: VendorRankingDto })
+export class VendorRankerAgent {}
+@WorkflowFinish({ name: "vendor-ranking-workflow-finish", description: "The ranking", output: VendorRankingDto })
+export class VendorRankingWorkflowFinish {}
+// @snippet
+@Workflow({ name: "vendor-screening-workflow", version: "1.0.0", flow: childPaths })
+export class VendorScreeningWorkflow {}
+-->
+
+```ts
+// the child: an ordinary @Workflow — one vendor, its own branches, a soft failure on its side path
+@Workflow({
+  name: "vendor-check-workflow",
+  version: "1.0.0",
+  flow: [
+    start(VendorCheckWorkflowStart)
+      .returns(VendorDto)
+      .toAgent(VendorCheckerAgent)
+      .onError(
+        StepFailedError, // the child catches its own failure: one more class for its parent
+        toAction(MarkVendorFailedAction)
+          .returns(VendorCheckFailedDto)
+          .toFinish(VendorCheckFailedWorkflowFinish),
+      )
+      .returns(oneOf(VendorScoreDto, VendorRejectedDto))
+      .switch(
+        caseOf(VendorScoreDto)
+          .toFinish(VendorScoredWorkflowFinish),
+        caseOf(VendorRejectedDto)
+          .toFinish(VendorRejectedWorkflowFinish),
+      ),
+  ],
+})
+export class VendorCheckWorkflow {}
+
+export const childPaths = [
+  // one child per item: each VendorDto enters vendor-check-workflow-start; the join is the list
+  // of the child's finish output classes
+  start(VendorScreeningWorkflowStart)
+    .returns(WorkflowStartTextDto)
+    .toAgent(VendorFinderAgent)
+    .returns(listOf(VendorDto))
+    .toParallelWorkflows(VendorCheckWorkflow, { maxConcurrency: 3, maxItems: 50 })
+    .join()
+    .returns(listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)))
+    .toAgent(VendorRankerAgent)
+    .returns(VendorRankingDto)
+    .toFinish(VendorRankingWorkflowFinish),
 ] as const;
 ```
 
@@ -957,7 +1074,7 @@ entries. A public surface change updates the api-extractor reports (`npm run api
 (`.suppressions.json`), the generated `.agboss/types.d.ts` of the framework's test fixtures
 (`npm run check:types`, #272 — before lint and `tsc`), build, the API reports, **compiled docs**,
 prettier, ESLint, `tsc` (tests included; the examples' types written first), tests with coverage,
-`agboss check` on flow-patterns' three workflows and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
+`agboss check --strict` on flow-patterns' three workflows (warnings are errors) and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
 every ` ```ts ` block of README, CLAUDE, QUALITY and WORKFLOW (and `docs/`) against the built
 package — a doc whose snippets declare a `@Workflow` gets its `.agboss/types.d.ts` written first —
 and check that every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention — and every

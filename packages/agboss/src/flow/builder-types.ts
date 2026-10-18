@@ -68,9 +68,11 @@ interface KindLabels {
 export type KindLabel<TKind extends NodeKind> = KindLabels[TKind];
 
 /** The label of a route target. */
-export type RouteTargetLabel = "a route target (an agent, an action, a router or a finish)";
+export type RouteTargetLabel =
+  "a route target (an agent, an action, a router, a child workflow or a finish)";
 
-export type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | NodeKind.Finish;
+export type RouteTargetKind =
+  NodeKind.Agent | NodeKind.Action | NodeKind.Router | NodeKind.Finish | NodeKind.Workflow;
 
 export interface WrongKind<TName extends string, TLabel extends string> {
   readonly __error: `${TName} is not ${TLabel}`;
@@ -163,6 +165,14 @@ export interface Transitions<THead extends PathHead> {
   toFinish<const TClass extends Class>(
     target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>,
   ): BuiltPath<THead>;
+  /**
+   * One child execution of `W` (#263): it enters through the start whose input takes the chain's
+   * value, gives one of its finishes' outputs — `.returns(XDto)`, or `.returns(oneOf(…))` and a
+   * `.switch(…)` with one case per class — and its failure is caught by `.onError(…)` right after.
+   */
+  toWorkflow<const TClass extends Class>(
+    target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
+  ): AfterStep<InstanceType<TClass>, THead>;
 }
 
 export interface Switching<TOutput, THead extends PathHead> {

@@ -1,6 +1,7 @@
 import type { RuleViolation } from "../../../graph/rule-error.js";
 import type { WorkflowDefaults, WorkflowOptions } from "../../decorators/workflow.js";
 import type { ComponentName } from "../../registry.js";
+import type { ChildChoice } from "../children.js";
 import type { Dataflow } from "../dataflow.js";
 import type { ResolvedField } from "../fields.js";
 import type { FlowGraph } from "../flow-graph.js";
@@ -35,6 +36,8 @@ export interface AnalysisContext {
   readonly graph: FlowGraph;
   readonly fields: ReadonlyMap<ComponentName, readonly ResolvedField[]>;
   readonly dataflow: Dataflow;
+  /** Every edge into a child workflow and its start (#263). */
+  readonly children: readonly ChildChoice[];
   readonly options: AnalyseOptions;
 }
 

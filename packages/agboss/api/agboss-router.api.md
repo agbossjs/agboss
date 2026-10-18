@@ -85,9 +85,9 @@ export interface WorkflowStartOptions {
 
 // Warnings were encountered during analysis:
 //
-// src/flow/ast.ts:77:3 - (ae-undocumented) Missing documentation for "kind".
-// src/flow/ast.ts:78:3 - (ae-undocumented) Missing documentation for "target".
-// src/flow/ast.ts:79:3 - (ae-undocumented) Missing documentation for "targetKind".
+// src/flow/ast.ts:84:3 - (ae-undocumented) Missing documentation for "kind".
+// src/flow/ast.ts:85:3 - (ae-undocumented) Missing documentation for "target".
+// src/flow/ast.ts:86:3 - (ae-undocumented) Missing documentation for "targetKind".
 // src/flow/decorators/workflow-finish.ts:15:3 - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/workflow-finish.ts:16:3 - (ae-undocumented) Missing documentation for "input".
 // src/flow/decorators/workflow-finish.ts:17:3 - (ae-undocumented) Missing documentation for "output".

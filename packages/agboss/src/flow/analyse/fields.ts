@@ -2,6 +2,7 @@ import { WorkflowStartTextDto } from "../../dto/standard/framework.js";
 import { NodeKind } from "../ast.js";
 import type { InputFieldShape, InputFields } from "../decorators/declaration.js";
 import type { ComponentName } from "../registry.js";
+import { childFieldsOf, type ChildEntry } from "./children.js";
 import type { FlowGraph, FlowNode } from "./flow-graph.js";
 import { shapeLabel } from "./labels.js";
 import { slotOfField, type SlotKey } from "./scope.js";
@@ -10,6 +11,7 @@ import { slotOfField, type SlotKey } from "./scope.js";
  * Which slot each input field reads (#270): the slot of its shape — the latest value of its class
  * or list. A `historyOf(XDto)` field reads the current `XDto` and, at run time, its earlier
  * versions (#299 S56). A finish without `input` reads the latest value of its `output` type (Q50).
+ * A child workflow (#263) reads the fields of the starts its edges enter through (`children.ts`).
  */
 
 export interface ResolvedField {
@@ -74,9 +76,14 @@ function passThroughField(node: FlowNode): ResolvedField | undefined {
 /** The resolved fields of every node that reads the path scope. */
 export function resolveFields(
   graph: FlowGraph,
+  children: readonly ChildEntry[] = [],
 ): ReadonlyMap<ComponentName, readonly ResolvedField[]> {
   const byNode = new Map<ComponentName, readonly ResolvedField[]>();
   for (const node of graph.nodes.values()) {
+    if (node.kind === NodeKind.Workflow) {
+      byNode.set(node.name, childFieldsOf(children, node.name));
+      continue;
+    }
     const passThrough = passThroughField(node);
     if (passThrough !== undefined) {
       byNode.set(node.name, [passThrough]);

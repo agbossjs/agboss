@@ -256,6 +256,18 @@ says `{ items, taken }`). At most `maxConcurrency` branches run at once, a new o
 another ends; a failed branch cancels the others and the join takes `.onJoinError(E, …)`
 ([Wiki → Workflow](https://github.com/agbossjs/agboss/wiki/Workflow)).
 
+A whole **workflow is a step** too (#263): `.toWorkflow(CompanyCheckWorkflow)` runs an ordinary
+`@Workflow` of the application as a child — a component "start input → one of its finishes'
+outputs", runnable and testable on its own. Its start is chosen by the class of what comes in (one
+start, else the one taking the chain's current value; `[graph.no-matching-start]` /
+`[graph.ambiguous-start]` otherwise), its scope starts with that input only, and its result is
+branched by class — `.returns(oneOf(CompanyScoreDto, CompanyRejectedDto)).switch(caseOf(…)…)`, one
+case per finish output class. `.toParallelWorkflows(CompanyCheckWorkflow, { maxConcurrency: 3,
+maxItems: 50 })` runs one child per item, joined as `.join().returns(listOf(oneOf(…)))`; a child
+reached from two places has its own path `workflow(W).onError(…).returns(oneOf(…)).switch(…)`.
+`agboss check` checks and types it today; it runs from #263 PR 2
+([Wiki → Workflow-as-a-step](https://github.com/agbossjs/agboss/wiki/Workflow-as-a-step)).
+
 `npx agboss check --workflow src/job-scout.workflow.ts` writes `.agboss/types.d.ts` — what types
 the paths, each node's input and `app.execute`; a generated project runs it on install
 (`npm run types`).

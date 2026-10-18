@@ -5,8 +5,9 @@ import type { GeneratedTypeError, JoinOutputOf, NameOf, NoOutput } from "./gener
 import type { IsSeveral, JoinValues, Returning, ValuesLeft } from "./returns-types.js";
 
 /**
- * The types of a parallel launch (#273): `.toParallelAgents(A, B, …, { maxConcurrency, maxItems })`
- * and `.toParallelActions(…)` take targets of their kind only, are followed by `.join()` only (a path
+ * The types of a parallel launch (#273): `.toParallelAgents(A, B, …, { maxConcurrency, maxItems })`,
+ * `.toParallelActions(…)` and `.toParallelWorkflows(W, { maxConcurrency, maxItems })` (#263, one
+ * child per item) take targets of their kind only, are followed by `.join()` only (a path
  * that stops at a launch is not a path), and the join names what the branches give with
  * `.returns(…)` — checked against its generated `JoinOutputs` entry, keyed by the launch as written
  * (`toParallelAgents(researcher-agent, critic-agent, critic-agent)`, a router's launch prefixed by
@@ -20,6 +21,14 @@ export interface LaunchOptions {
   readonly maxConcurrency?: number;
   /** A per-item launch runs its target for the first `maxItems` items (`[launch.max-items-required]`). */
   readonly maxItems?: number;
+}
+
+/**
+ * `{ maxConcurrency, maxItems }` of `.toParallelWorkflows(W, …)` (#263): a child per item, so
+ * `maxItems` is always set.
+ */
+export interface WorkflowLaunchOptions extends LaunchOptions {
+  readonly maxItems: number;
 }
 
 /** A launch's arguments: one or more component classes, then its options. */
@@ -103,6 +112,14 @@ type JoinContinuation<TOutput, TKey extends string, THead extends PathHead> = [T
 export type Joined<TKey extends string, THead extends PathHead> = JoinErrorHandling<TKey, THead> &
   JoinContinuation<JoinOutputOf<TKey>, TKey, THead>;
 
+/** A child workflow launched per item (#263): the chain's last value is a list, the child checked. */
+export type ChildLaunchCheck<TClass extends Class, TValue> =
+  IsPerItem<readonly [TClass], TValue> extends true
+    ? TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>
+    : {
+        readonly __error: "toParallelWorkflows(W, …) runs one child per item — write .returns(listOf(XDto)) right before it";
+      };
+
 /** The launches a step's values (`TValue`, the chain's last one per item) may lead into. */
 export interface Launches<TValue, THead extends PathHead> {
   toParallelAgents<const TArgs extends LaunchArguments>(
@@ -117,6 +134,11 @@ export interface Launches<TValue, THead extends PathHead> {
     LaunchKey<"toParallelActions", TargetsOf<TArgs>, IsPerItem<TargetsOf<TArgs>, TValue>, "">,
     THead
   >;
+  /** One child execution of `W` per item of the list (#263), at most `maxConcurrency` at once. */
+  toParallelWorkflows<const TClass extends Class>(
+    workflow: TClass & ChildLaunchCheck<TClass, TValue>,
+    options: WorkflowLaunchOptions,
+  ): Launched<LaunchKey<"toParallelWorkflows", readonly [TClass], true, "">, THead>;
 }
 
 /** A router's launch (`.toRouter(R).toParallelAgents(…)`): agents only, never per item. */

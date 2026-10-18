@@ -1,4 +1,5 @@
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
+import { NodeKind } from "../../ast.js";
 import type { InputFieldShape } from "../../decorators/declaration.js";
 import { listOf, Wrapper } from "../../dto-wrappers.js";
 import type { ComponentName } from "../../registry.js";
@@ -173,9 +174,10 @@ function nodeViolations(
   return [...declared, ...fields.flatMap((field) => fieldViolations(context, node, field, states))];
 }
 
+/** A child workflow's input is checked per edge, by the start chosen there (`children.ts`). */
 export function dataInputRules(context: AnalysisContext): readonly RuleViolation[] {
   const about = aboutTargetsOf(context.graph);
-  return [...context.graph.nodes.keys()].flatMap((node) =>
-    nodeViolations(context, node, about.get(node) ?? new Set()),
-  );
+  return [...context.graph.nodes.values()]
+    .filter((node) => node.kind !== NodeKind.Workflow)
+    .flatMap((node) => nodeViolations(context, node.name, about.get(node.name) ?? new Set()));
 }

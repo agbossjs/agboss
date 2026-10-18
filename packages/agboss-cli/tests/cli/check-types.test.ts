@@ -123,3 +123,18 @@ describe("S7: agboss generate regenerates the types at its end", () => {
     ]);
   });
 });
+
+describe("#263 AC11: agboss check --strict — the analyser's warnings are errors", () => {
+  const DEEP = fixture("cli/deep.workflow.ts");
+
+  it("without --strict a warning is printed and the check passes; with it the check fails", async () => {
+    const warned = await agboss(["check", "--workflow", DEEP], project());
+    const strict = await agboss(["check", "--strict", "--workflow", DEEP], project());
+
+    expect(warned.code).toBe(0);
+    expect(warned.stdout).toContain(`${DEEP} flow.path-too-deep deep-workflow: the path`);
+    expect(strict.code).toBe(3);
+    expect(strict.stdout).toContain(`${DEEP} flow.path-too-deep deep-workflow: the path`);
+    expect(strict.stdout).not.toContain("ok: ");
+  });
+});

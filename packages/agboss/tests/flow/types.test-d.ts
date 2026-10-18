@@ -11,6 +11,7 @@ import {
   toAgent,
   toFinish,
   toRouter,
+  workflow,
 } from "../../src/flow/builder.js";
 import { Action } from "../../src/flow/decorators/action.js";
 import { Agent, RagMode, type AgentOptions } from "../../src/flow/decorators/agent.js";
@@ -138,6 +139,25 @@ import {
   UpdateCrmAction,
 } from "./fixtures/launch.fixture.js";
 import { PlanDto, ResearchDto } from "./fixtures/review-dtos.js";
+import {
+  CompanyGradeDto,
+  CompanyRejectedDto,
+  CompanyReviewFailedDto,
+  JobOfferDto,
+} from "./fixtures/child-dtos.js";
+import {
+  CompanyFinderAgent,
+  CompanyPickerAgent,
+  CompanyReviewWorkflow,
+  JobOfferAgent,
+  JobOfferWorkflowFinish,
+  NoOfferFailedWorkflowFinish,
+  NoOfferRejectedWorkflowFinish,
+  ReviewErrorWorkflowFinish,
+  ReviewRankerAgent,
+} from "./fixtures/children.fixture.js";
+import { TwinGradeWorkflow } from "./fixtures/broken-children.fixture.js";
+import { StepFailedError } from "../../src/graph/errors.js";
 import { LimitExceededError } from "../../src/graph/limits.js";
 
 /**
@@ -783,5 +803,84 @@ describe("#273: parallel launches and their joins", () => {
       Produced<OrderStatusDto, typeof OrderLookupAgent>
     >();
     expectTypeOf<ProducerOutputOf<AnswerAgent>>().toEqualTypeOf<HelpDeskReplyDto>();
+  });
+});
+
+describe("#263: child workflows", () => {
+  const picked = () => agent(CompanyPickerAgent).returns(CompanyDto);
+  const found = () => agent(CompanyFinderAgent).returns(listOf(CompanyDto));
+  const graded = () =>
+    caseOf(CompanyGradeDto)
+      .toAgent(JobOfferAgent)
+      .returns(JobOfferDto)
+      .toFinish(JobOfferWorkflowFinish);
+  const rejected = () => caseOf(CompanyRejectedDto).toFinish(NoOfferRejectedWorkflowFinish);
+  const failed = () => caseOf(CompanyReviewFailedDto).toFinish(NoOfferFailedWorkflowFinish);
+  const REVIEWED = oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto);
+
+  it("AC3: child outputs — one case per finish output class, written as .returns(oneOf(…))", () => {
+    const reviewed = picked().toWorkflow(CompanyReviewWorkflow).returns(REVIEWED);
+    reviewed.switch(graded(), rejected(), failed());
+    // @ts-expect-error — the switch is not exhaustive: no caseOf(CompanyReviewFailedDto)
+    reviewed.switch(graded(), rejected());
+    const unknown = caseOf(JobOfferDto).toFinish(JobOfferWorkflowFinish);
+    // @ts-expect-error — no finish of the child gives JobOfferDto
+    reviewed.switch(graded(), rejected(), failed(), unknown);
+    // @ts-expect-error — the child gives one of three classes, not CompanyGradeDto
+    picked().toWorkflow(CompanyReviewWorkflow).returns(CompanyGradeDto);
+    expectTypeOf<ProducerOutputOf<CompanyReviewWorkflow>>().toEqualTypeOf<
+      CompanyGradeDto | CompanyRejectedDto | CompanyReviewFailedDto
+    >();
+  });
+
+  it("AC12: onError / onJoinError placement — .onError right after .toWorkflow(W), .onJoinError after the join", () => {
+    picked()
+      .toWorkflow(CompanyReviewWorkflow)
+      .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
+      .returns(REVIEWED)
+      .switch(graded(), rejected(), failed());
+    const single = picked().toWorkflow(CompanyReviewWorkflow);
+    // @ts-expect-error — .onJoinError follows a join, not .toWorkflow(W)
+    single.onJoinError(StepFailedError, toFinish(ReviewErrorWorkflowFinish));
+    const joined = found().toParallelWorkflows(CompanyReviewWorkflow, { maxItems: 5 }).join();
+    // @ts-expect-error — .onError does not follow a join: .onJoinError(E, …)
+    joined.onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish));
+    joined
+      .onJoinError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
+      .returns(listOf(REVIEWED))
+      .toAgent(ReviewRankerAgent);
+    expectTypeOf(joined).toHaveProperty("onJoinError");
+  });
+
+  it("AC5 / AC17: per item only, maxItems required; the join gives the list of the child's classes", () => {
+    const joined = found()
+      .toParallelWorkflows(CompanyReviewWorkflow, { maxConcurrency: 3, maxItems: 50 })
+      .join();
+    joined.returns(listOf(REVIEWED)).toAgent(ReviewRankerAgent);
+    // @ts-expect-error — the join is a list of the three classes, not of one
+    joined.returns(listOf(CompanyGradeDto));
+    // @ts-expect-error — one child per item: right after .returns(listOf(XDto))
+    picked().toParallelWorkflows(CompanyReviewWorkflow, { maxItems: 5 });
+    // @ts-expect-error — maxItems is required
+    found().toParallelWorkflows(CompanyReviewWorkflow, { maxConcurrency: 3 });
+    // @ts-expect-error — company-picker-agent is not a workflow
+    found().toParallelWorkflows(CompanyPickerAgent, { maxItems: 5 });
+    expectTypeOf(joined).toHaveProperty("returns");
+  });
+
+  it("own path workflow(W), the kind of every child checked, the start choice a compile error", () => {
+    workflow(CompanyReviewWorkflow)
+      .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
+      .returns(REVIEWED)
+      .switch(graded(), rejected(), failed());
+    // @ts-expect-error — company-picker-agent is not a workflow
+    workflow(CompanyPickerAgent);
+    // @ts-expect-error — job-offer-agent is not a workflow
+    picked().toWorkflow(JobOfferAgent);
+    // @ts-expect-error — company-review-workflow is not an agent
+    picked().toAgent(CompanyReviewWorkflow);
+    // @ts-expect-error — two starts of twin-grade-workflow take CompanyDto: [graph.ambiguous-start]
+    picked().toWorkflow(TwinGradeWorkflow);
+    expectTypeOf<InputOf<TwinGradeWorkflow>>().toHaveProperty("__error");
   });
 });

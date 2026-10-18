@@ -42,10 +42,12 @@ const WORKFLOW_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   check: {
     summary:
       "every validation that needs no API key: assembly, graph rules, environment, prompts (+ models)",
-    usage: "agboss check --workflow <path> [--models] [--profile <name>] [--env <name>] [--json]",
+    usage:
+      "agboss check --workflow <path> [--models] [--strict] [--profile <name>] [--env <name>] [--json]",
     options: [
       WORKFLOW,
       flag("models", "also check models against their providers (lists them over the network)"),
+      flag("strict", "the analyser's warnings are errors ([flow.path-too-deep], …)"),
       flag("prompts", "prompts: files exist, every {{variable}} is known — always checked"),
       PROFILE,
       ENV,

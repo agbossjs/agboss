@@ -1,4 +1,5 @@
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
+import { NodeKind } from "../../ast.js";
 import type { ComponentName } from "../../registry.js";
 import { statesOf, witnessSteps, type ScopeState, type WitnessStep } from "../dataflow.js";
 import type { ResolvedField } from "../fields.js";
@@ -98,6 +99,8 @@ function fieldViolation(
 
 export function outdatedRules(context: AnalysisContext): readonly RuleViolation[] {
   return [...context.fields].flatMap(([node, fields]) => {
+    // a child workflow's input is checked per edge, by the start chosen there (`children.ts`)
+    if (context.graph.nodes.get(node)?.kind === NodeKind.Workflow) return [];
     const scopes = context.dataflow.scopes.get(node);
     // past the scope guard the states are incomplete: `[flow.analysis-too-large]` says so instead
     if (scopes === undefined || scopes.isTooLarge) return [];

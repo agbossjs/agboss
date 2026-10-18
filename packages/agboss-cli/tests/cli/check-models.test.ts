@@ -71,7 +71,7 @@ describe("AC6: agboss check --models", () => {
 
   it("AC6: agboss help lists the check command", () => {
     expect(COMMANDS.check?.usage).toBe(
-      "agboss check --workflow <path> [--models] [--profile <name>] [--env <name>] [--json]",
+      "agboss check --workflow <path> [--models] [--strict] [--profile <name>] [--env <name>] [--json]",
     );
   });
 });

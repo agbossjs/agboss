@@ -1,6 +1,6 @@
 /**
  * The workflow's graph (part of the root entry, #272): the path builder (`start`, `agent`,
- * `router`, `action`, `route`, `caseOf`, the side-path starters), the flow's decorators with their
+ * `router`, `action`, `workflow` — a child's own path, #263 — `route`, `caseOf`, the side-path starters), the flow's decorators with their
  * `<Kind>Options`, the handler contracts, the DTO wrappers, the tables `.agboss/types.d.ts` fills
  * (`agboss check`) and their lookups, and the workflow settings and limits.
  */
@@ -15,6 +15,7 @@ export {
   toAgent,
   toFinish,
   toRouter,
+  workflow,
 } from "../flow/builder.js";
 export type {
   AfterStep,
@@ -40,9 +41,11 @@ export type {
   JoinErrorHandling,
   Joined,
   Launched,
+  ChildLaunchCheck,
   LaunchOptions,
   Launches,
   RouterLaunches,
+  WorkflowLaunchOptions,
 } from "../flow/launch-types.js";
 export {
   NodeKind,

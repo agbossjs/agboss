@@ -1,4 +1,5 @@
 import type { Class } from "../../components/injection.js";
+import type { RuleViolation } from "../../graph/rule-error.js";
 import type { ResolvedField } from "../analyse/fields.js";
 import type { InputShape, ProjectedField } from "../analyse/projection.js";
 import type { ComponentName } from "../registry.js";
@@ -35,6 +36,17 @@ export interface InputEntry {
 
 /** Writes a component's class by its name (the producers of `Produced<T, P>`). */
 export type ComponentOf = (name: ComponentName) => Class;
+
+/** Rules an input's type reports besides `input.*`: an unread item, a child's start (#263). */
+const INPUT_RULES: ReadonlySet<string> = new Set([
+  "launch.item-not-read",
+  "graph.no-matching-start",
+  "graph.ambiguous-start",
+]);
+
+/** Whether a rule's problem is one an input's type reports. */
+export const isInputProblem = (found: RuleViolation): boolean =>
+  found.code.startsWith("input.") || INPUT_RULES.has(found.code);
 
 const errorType = (message: string): string => `{ readonly __error: ${JSON.stringify(message)} }`;
 
@@ -126,3 +138,13 @@ export function inputEntry(
     type: members.length === 1 ? members.join("") : members.map((m) => `| ${m}`).join("\n"),
   };
 }
+
+/**
+ * A child workflow's `Inputs` entry (#263): its start is chosen per edge, so the entry only carries
+ * the problems of that choice (`[graph.no-matching-start]`, `[input.missing-on-path]`, …) — which
+ * make `.toWorkflow(W)` a compile error — and `NoInput` otherwise.
+ */
+export const childInputEntry = (input: NodeInput, names: ImportTable): InputEntry =>
+  input.problems.length > 0
+    ? { type: errorType(input.problems.join("; ")) }
+    : { type: names.use(TablesImport.NoInput) };

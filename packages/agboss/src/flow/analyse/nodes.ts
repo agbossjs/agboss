@@ -1,6 +1,6 @@
 import type { Class } from "../../components/injection.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import { NodeKind } from "../ast.js";
+import type { NodeKind } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
 import { ComponentRegistry, type ComponentName } from "../registry.js";
 import type { FlowNode } from "./flow-graph.js";
@@ -20,7 +20,7 @@ export class NodeTable {
   /** The node of `component`, mentioned as `kind`; `undefined` when it cannot be a node. */
   resolve(component: Class, kind: NodeKind): ComponentName | undefined {
     const declaration = declarationOf(component);
-    if (declaration === undefined || declaration.kind === NodeKind.Workflow) {
+    if (declaration === undefined) {
       this.reportOnce("graph.not-a-node", classLabel(component), notANode(component, kind));
       return undefined;
     }
@@ -61,7 +61,7 @@ export class NodeTable {
 
 const notANode = (component: Class, kind: NodeKind): string =>
   `${toCallOf(kind)}(${classLabel(component)}): ${classLabel(component)} has no ` +
-  "@WorkflowStart / @Agent / @Action / @Router / @WorkflowFinish decorator — decorate it";
+  "@WorkflowStart / @Agent / @Action / @Router / @WorkflowFinish / @Workflow decorator — decorate it";
 
 const wrongKind = (component: Class, name: string, actual: NodeKind, mentioned: NodeKind): string =>
   `${toCallOf(mentioned)}(${classLabel(component)}): ${name} is ${articled(actual)}, not ` +

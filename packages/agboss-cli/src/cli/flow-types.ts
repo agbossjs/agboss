@@ -42,12 +42,14 @@ function workflowModulesOf(project: string, file: string): string[] {
 async function generate(
   context: CommandContext,
   file: string,
+  strict = false,
 ): Promise<FlowTypesResult | undefined> {
   try {
     const result = await writeFlowTypes({
       files: workflowModulesOf(context.io.cwd, file),
       project: context.io.cwd,
       ...loadOptions(context),
+      ...(strict ? { strict } : {}),
     });
     return result.status === FlowTypesStatus.NoFlow ? undefined : result;
   } catch (error) {
@@ -57,12 +59,21 @@ async function generate(
   }
 }
 
+/** The analyser's warnings (#272, #263): errors only under `--strict`. */
+const WARNING_CODES: ReadonlySet<string> = new Set([
+  "flow.path-too-deep",
+  "graph.child-without-failure-finish",
+]);
+
 const problemsOf = (file: string, result: FlowTypesResult): readonly CheckProblem[] =>
   result.errors.map((found) => ({ file, code: found.code, message: found.message }));
 
 /** What writing the types gave `agboss check`: its warnings and notes, and the file if written. */
 export interface TypesOutcome {
-  /** Generation's own problems (`[types.unexported-class]`, a name clash): the file was not written. */
+  /**
+   * Generation's own problems (`[types.unexported-class]`, a name clash): the file was not written;
+   * under `--strict` also the analyser's warnings, which are errors there.
+   */
   readonly problems: readonly CheckProblem[];
   readonly warnings: readonly string[];
   /** The written file, relative to the project; undefined when not written. */
@@ -77,11 +88,15 @@ export interface TypesOutcome {
 export async function writeCheckedTypes(
   context: CommandContext,
   file: string,
+  strict = false,
 ): Promise<TypesOutcome> {
-  const result = await generate(context, file);
+  const result = await generate(context, file, strict);
   if (result === undefined) return { problems: [], warnings: [] };
-  // a rule violation is the assembly's to report; generation's own codes are `types.*`
-  const problems = problemsOf(file, result).filter((found) => found.code.startsWith("types."));
+  // a rule violation is the assembly's to report; generation's own codes are `types.*` — and,
+  // under --strict, the warnings the assembly does not see as errors
+  const problems = problemsOf(file, result).filter(
+    (found) => found.code.startsWith("types.") || (strict && WARNING_CODES.has(found.code)),
+  );
   const warnings = [
     ...result.warnings.map((found) => problemText({ file, ...found })),
     ...result.notes,

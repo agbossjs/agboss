@@ -5,9 +5,11 @@
  */
 export const FIXTURE_WORKFLOWS: readonly string[] = [
   "article.fixture.ts",
+  "broken-children.fixture.ts",
   "broken-launch.fixture.ts",
   "broken.fixture.ts",
   "chat.fixture.ts",
+  "children.fixture.ts",
   "clinic.fixture.ts",
   "credit.fixture.ts",
   "history.fixture.ts",
