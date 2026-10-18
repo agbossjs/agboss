@@ -13,7 +13,7 @@ import { fakeDeps, routeTo, runText } from "../helpers.js";
 
 describe("#265 S30: continuing an interrupted execution", () => {
   it("a record is running while its run moves, then completed with how it ended", async () => {
-    const terns = createSqliteTernStore(":memory:");
+    const terns = createSqliteTernStore(":memory:", () => new Date());
     const deps = await fakeDeps(
       { "test/router": [routeTo("alpha-agent")], "test/alpha": ["ok"] },
       { terns },
@@ -26,7 +26,7 @@ describe("#265 S30: continuing an interrupted execution", () => {
   });
 
   it("a graph that had already finished is only finished: its record completed, no step again", async () => {
-    const terns = createSqliteTernStore(":memory:");
+    const terns = createSqliteTernStore(":memory:", () => new Date());
     const deps = await fakeDeps(
       { "test/router": [routeTo("alpha-agent")], "test/alpha": ["ok"] },
       { terns },
@@ -46,7 +46,7 @@ describe("#265 S30: continuing an interrupted execution", () => {
   });
 
   it("one that stopped before its first checkpoint has nothing to continue: failed", async () => {
-    const terns = createSqliteTernStore(":memory:");
+    const terns = createSqliteTernStore(":memory:", () => new Date());
     const deps = await fakeDeps({}, { terns });
     const threadId = await terns.createThread("test-bundle-workflow", "default");
     const record = await terns.append({

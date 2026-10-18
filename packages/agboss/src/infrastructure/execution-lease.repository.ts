@@ -1,6 +1,8 @@
 import { Injectable } from "../components/decorators.js";
 import type { Milliseconds } from "../units/index.js";
-import { INFRASTRUCTURE_CLOCK, INSTANCE_ID, IN_MEMORY_DATABASE } from "./clock.js";
+import { ApplicationContext } from "../flow/context/application-context.js";
+import { Clock } from "./clock.js";
+import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
 
 /**
@@ -54,11 +56,11 @@ const isSameLease = (stored: ExecutionLease, held: ExecutionLease): boolean =>
  * The built-in default: leases in this instance's memory — every operation is one synchronous
  * step, so it is atomic. With one instance nothing contends; the instances of one test share it.
  */
-@Injectable({ deps: [INFRASTRUCTURE_CLOCK, INSTANCE_ID, IN_MEMORY_DATABASE] })
+@Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
 export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
   constructor(
-    private readonly now: () => Date,
-    private readonly instanceId: string,
+    private readonly clock: Clock,
+    private readonly applicationContext: ApplicationContext,
     private readonly database: InMemoryDatabase,
   ) {
     super();
@@ -70,14 +72,14 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
     lease: Milliseconds,
   ): Promise<ExecutionLease | undefined> {
     const key = treeKeyOf(tenantId, rootExecutionId);
-    const now = this.now();
+    const now = this.clock.now();
     const stored = this.database.executionLeases.get(key);
     const held = stored !== undefined && !stored.released && stored.lease.expiresAt > now;
     if (held) return Promise.resolve(undefined);
     const taken: ExecutionLease = {
       tenantId,
       rootExecutionId,
-      holderInstanceId: this.instanceId,
+      holderInstanceId: this.applicationContext.instanceId,
       leaseEpoch: (stored?.lease.leaseEpoch ?? 0) + 1,
       expiresAt: new Date(now.getTime() + lease),
     };
@@ -91,7 +93,7 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
     if (stored === undefined || stored.released || !isSameLease(stored.lease, executionLease)) {
       return Promise.resolve(false);
     }
-    const expiresAt = new Date(this.now().getTime() + lease);
+    const expiresAt = new Date(this.clock.now().getTime() + lease);
     this.database.executionLeases.set(key, {
       lease: { ...stored.lease, expiresAt },
       released: false,

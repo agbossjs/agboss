@@ -1,6 +1,7 @@
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { systemClock } from "../infrastructure/clock.js";
 import type { UsageRecord } from "./usage.js";
 
 /**
@@ -12,7 +13,10 @@ export interface SpendLedger {
   readonly record: (bundle: string, records: readonly UsageRecord[]) => Promise<void>;
 }
 
-export type Clock = () => Date;
+/** The current time, read by a ledger for its UTC day (an application's `Clock`, as a function). */
+export type Now = () => Date;
+
+const systemNow: Now = () => systemClock.now();
 
 /** "2026-09-24" for any moment of that UTC day. */
 export const utcDay = (moment: Date): string => moment.toISOString().slice(0, 10);
@@ -35,7 +39,7 @@ const isNotFound = (error: unknown): boolean =>
   error instanceof Error && "code" in error && error.code === "ENOENT";
 
 /** Append-only JSONL, one file per workflow per UTC day: <dir>/<workflow>/<YYYY-MM-DD>.jsonl. */
-export function createFileLedger(dir: string, now: Clock = () => new Date()): SpendLedger {
+export function createFileLedger(dir: string, now: Now = systemNow): SpendLedger {
   const fileFor = (bundle: string): string => join(dir, bundle, `${utcDay(now())}.jsonl`);
   return {
     spentToday: async (bundle) => {
@@ -67,7 +71,7 @@ export function createFileLedger(dir: string, now: Clock = () => new Date()): Sp
 }
 
 /** In-process ledger (tests, one-off runs): spend per workflow per UTC day of `now`. */
-export function createMemoryLedger(now: Clock = () => new Date()): SpendLedger {
+export function createMemoryLedger(now: Now = systemNow): SpendLedger {
   const days = new Map<string, number>();
   const keyOf = (bundle: string): string => `${bundle}/${utcDay(now())}`;
   return {

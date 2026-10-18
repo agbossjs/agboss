@@ -14,7 +14,8 @@ import { memoryMethods } from "./summaries.js";
 import { threadMethods, type NewThreadId } from "./threads.js";
 import type { Tern, TernStore } from "./types.js";
 
-type Clock = () => Date;
+/** The current time (the application's clock, given by the caller). */
+type Now = () => Date;
 export type { NewThreadId } from "./threads.js";
 type Rows = (sql: string, ...params: SQLInputValue[]) => Tern[];
 
@@ -87,7 +88,7 @@ const SUMMARY = `SELECT t.prompt_version, COUNT(DISTINCT t.id) AS terns, COUNT(s
 
 function scoreMethods(
   db: DatabaseSync,
-  now: Clock,
+  now: Now,
 ): Pick<TernStore, "saveScore" | "meanScore" | "summary"> {
   return {
     saveScore: (ternId, judge, score) => {
@@ -111,7 +112,7 @@ function scoreMethods(
 /** Terns in SQLite (built-in `node:sqlite`) on a file of their own. `:memory:` for tests. */
 export function createSqliteTernStore(
   path: string,
-  now: Clock = () => new Date(),
+  now: Now,
   newThreadId: NewThreadId = randomUUID,
 ): TernStore {
   return ternStoreOn(openTernDatabase(path), now, newThreadId);
@@ -123,14 +124,14 @@ export function createSqliteTernStore(
  */
 export function sharedTernStore(
   db: DatabaseSync,
-  now: Clock = () => new Date(),
+  now: Now,
   newThreadId: NewThreadId = randomUUID,
 ): TernStore {
   migrateTernDatabase(db);
   return ternStoreOn(db, now, newThreadId);
 }
 
-function ternStoreOn(db: DatabaseSync, now: Clock, newThreadId: NewThreadId): TernStore {
+function ternStoreOn(db: DatabaseSync, now: Now, newThreadId: NewThreadId): TernStore {
   const rows: Rows = (sql, ...params) =>
     db
       .prepare(sql)

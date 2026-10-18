@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "../components/decorators.js";
 import type { Milliseconds } from "../units/index.js";
-import { INFRASTRUCTURE_CLOCK, INSTANCE_ID, IN_MEMORY_DATABASE } from "./clock.js";
+import { ApplicationContext } from "../flow/context/application-context.js";
+import { Clock } from "./clock.js";
+import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 
 /** One slot taken under a key (a model provider's `maxConcurrentCalls`, #266), held as a lease. */
@@ -43,11 +45,11 @@ export abstract class RateLimitRepository {
  * The built-in default: the slots in this instance's memory; every operation is one synchronous
  * step, so it is atomic. The instances of one test share it.
  */
-@Injectable({ deps: [INFRASTRUCTURE_CLOCK, INSTANCE_ID, IN_MEMORY_DATABASE] })
+@Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
 export class InMemoryRateLimitRepository extends RateLimitRepository {
   constructor(
-    private readonly now: () => Date,
-    private readonly instanceId: string,
+    private readonly clock: Clock,
+    private readonly applicationContext: ApplicationContext,
     private readonly database: InMemoryDatabase,
   ) {
     super();
@@ -55,7 +57,7 @@ export class InMemoryRateLimitRepository extends RateLimitRepository {
 
   /** The key's slots whose lease has not expired. */
   #validSlots(key: string): readonly RateLimitLease[] {
-    const now = this.now();
+    const now = this.clock.now();
     return (this.database.rateLimitSlots.get(key) ?? []).filter((slot) => slot.expiresAt > now);
   }
 
@@ -65,8 +67,8 @@ export class InMemoryRateLimitRepository extends RateLimitRepository {
     const slot: RateLimitLease = {
       key,
       slotId: randomUUID(),
-      holderInstanceId: this.instanceId,
-      expiresAt: new Date(this.now().getTime() + lease),
+      holderInstanceId: this.applicationContext.instanceId,
+      expiresAt: new Date(this.clock.now().getTime() + lease),
     };
     this.database.rateLimitSlots.set(key, [...valid, slot]);
     return Promise.resolve(slot);
@@ -75,7 +77,7 @@ export class InMemoryRateLimitRepository extends RateLimitRepository {
   renew(rateLimitLease: RateLimitLease, lease: Milliseconds): Promise<boolean> {
     const valid = this.#validSlots(rateLimitLease.key);
     if (!valid.some((slot) => slot.slotId === rateLimitLease.slotId)) return Promise.resolve(false);
-    const expiresAt = new Date(this.now().getTime() + lease);
+    const expiresAt = new Date(this.clock.now().getTime() + lease);
     const renewed = valid.map((slot) =>
       slot.slotId === rateLimitLease.slotId ? { ...slot, expiresAt } : slot,
     );

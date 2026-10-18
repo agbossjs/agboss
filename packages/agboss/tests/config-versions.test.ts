@@ -51,7 +51,7 @@ describe("config versions", () => {
   });
 
   it("AC2: the same version with other content is drift; snapshots are kept", async () => {
-    const store = createSqliteTernStore(":memory:");
+    const store = createSqliteTernStore(":memory:", () => new Date());
 
     expect(await store.rememberConfig("b", "1.0.0", "h1", "{a}")).toEqual({ drift: false });
     expect(await store.rememberConfig("b", "1.0.0", "h1", "{a}")).toEqual({ drift: false });
@@ -60,7 +60,7 @@ describe("config versions", () => {
   });
 
   it("AC4: a 12-character hash from before canonical JSON is not comparable — no drift", async () => {
-    const store = createSqliteTernStore(":memory:");
+    const store = createSqliteTernStore(":memory:", () => new Date());
 
     await store.rememberConfig("b", "1.0.0", "a".repeat(12), "{old}");
     expect(await store.rememberConfig("b", "1.0.0", "b".repeat(64), "{new}")).toEqual({
@@ -78,7 +78,7 @@ describe("config versions", () => {
     // the records outlive the app instance: a durable repository both starts share
     const infrastructure = {
       ...standaloneInfrastructure(base, {}),
-      records: new TernStoreRecordRepository(createSqliteTernStore(":memory:")),
+      records: new TernStoreRecordRepository(createSqliteTernStore(":memory:", () => new Date())),
     };
     const options = { processEnv: env, providerFetch };
     const first = await createWorkflowDeps(base, options, { infrastructure });

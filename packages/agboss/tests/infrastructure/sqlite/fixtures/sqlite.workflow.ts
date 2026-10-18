@@ -5,8 +5,11 @@ import { afterAll, beforeEach } from "vitest";
 import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
 import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
+  ApplicationContext,
+  Clock,
   Injectable,
   SqliteCheckpointSaver,
+  SqliteConnection,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -17,8 +20,6 @@ import {
   type ExecutionLease,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
-import { INFRASTRUCTURE_CLOCK, INSTANCE_ID } from "../../../../src/infrastructure/clock.js";
-import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import type { Milliseconds } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { start } from "../../../helpers/flow.js";
@@ -60,13 +61,13 @@ export function sqliteFilePerTest(): { readonly path: string } {
 }
 
 /** The leases on the file; a dead instance takes none and renews none. */
-@Injectable({ deps: [SqliteConnection, INFRASTRUCTURE_CLOCK, INSTANCE_ID] })
+@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })
 export class MortalSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRepository {
   readonly #instanceId: string;
 
-  constructor(connection: SqliteConnection, now: () => Date, instanceId: string) {
-    super(connection, now, instanceId);
-    this.#instanceId = instanceId;
+  constructor(connection: SqliteConnection, clock: Clock, applicationContext: ApplicationContext) {
+    super(connection, clock, applicationContext);
+    this.#instanceId = applicationContext.instanceId;
   }
 
   override async acquire(

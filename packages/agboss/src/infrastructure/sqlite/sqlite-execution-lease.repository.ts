@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { Injectable } from "../../components/decorators.js";
 import type { Milliseconds } from "../../units/index.js";
-import { INFRASTRUCTURE_CLOCK, INSTANCE_ID } from "../clock.js";
+import { ApplicationContext } from "../../flow/context/application-context.js";
+import { Clock } from "../clock.js";
 import { ExecutionLeaseRepository, type ExecutionLease } from "../execution-lease.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
@@ -24,12 +25,12 @@ const LeaseRow = z.object({
  * `renew` and `release` are one statement each, matching the holder and the epoch. Times are the
  * framework clock's milliseconds. Listed in `@Application({ providers })`; needs `sqlitePath`.
  */
-@Injectable({ deps: [SqliteConnection, INFRASTRUCTURE_CLOCK, INSTANCE_ID] })
+@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })
 export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
   constructor(
     private readonly connection: SqliteConnection,
-    private readonly now: () => Date,
-    private readonly instanceId: string,
+    private readonly clock: Clock,
+    private readonly applicationContext: ApplicationContext,
   ) {
     super();
     connection.ensureSchema("execution_leases", SCHEMA);
@@ -40,7 +41,7 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     rootExecutionId: string,
     lease: Milliseconds,
   ): Promise<ExecutionLease | undefined> {
-    const now = this.now().getTime();
+    const now = this.clock.now().getTime();
     const { database } = this.connection;
     const taken = this.connection.transaction((): ExecutionLease | undefined => {
       const row = database
@@ -51,20 +52,26 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
       const next: ExecutionLease = {
         tenantId,
         rootExecutionId,
-        holderInstanceId: this.instanceId,
+        holderInstanceId: this.applicationContext.instanceId,
         leaseEpoch: (stored?.lease_epoch ?? 0) + 1,
         expiresAt: new Date(now + lease),
       };
       database
         .prepare("INSERT OR REPLACE INTO execution_leases VALUES (?, ?, ?, ?, ?, 0)")
-        .run(tenantId, rootExecutionId, this.instanceId, next.leaseEpoch, now + lease);
+        .run(
+          tenantId,
+          rootExecutionId,
+          this.applicationContext.instanceId,
+          next.leaseEpoch,
+          now + lease,
+        );
       return next;
     });
     return Promise.resolve(taken);
   }
 
   renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean> {
-    const expiresAt = this.now().getTime() + lease;
+    const expiresAt = this.clock.now().getTime() + lease;
     const { changes } = this.connection.database
       .prepare(
         `UPDATE execution_leases SET expires_at = ? WHERE tenant_id = ? AND root_execution_id = ?

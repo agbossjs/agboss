@@ -1,6 +1,7 @@
 import { BaseCheckpointSaver, MemorySaver } from "@langchain/langgraph";
 import { Injectable } from "../components/decorators.js";
 import type { Class } from "../components/injection.js";
+import { Clock, SystemClock } from "./clock.js";
 import { CostLedgerRepository, InMemoryCostLedgerRepository } from "./cost-ledger.repository.js";
 import {
   ExecutionRecordRepository,
@@ -33,6 +34,7 @@ export class InMemoryCheckpointSaver extends MemorySaver {}
 
 /** Each contract with its built-in default (in memory: nothing is written to disk). */
 export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class, Class>([
+  [Clock, SystemClock],
   [BaseCheckpointSaver, InMemoryCheckpointSaver],
   [ExecutionRecordRepository, InMemoryExecutionRecordRepository],
   [CostLedgerRepository, InMemoryCostLedgerRepository],
@@ -52,6 +54,8 @@ export const infrastructureContractOf = (cls: Class): Class | undefined =>
 
 /** What an application instance runs on: one instance per contract. */
 export interface Infrastructure {
+  /** The instance's time (#262): the listed `Clock`, else the system's; a test's `VirtualClock`. */
+  readonly clock: Clock;
   readonly checkpointer: BaseCheckpointSaver;
   readonly records: ExecutionRecordRepository;
   readonly costLedger: CostLedgerRepository;
@@ -63,6 +67,7 @@ export interface Infrastructure {
 
 /** The infrastructure from the application's container (a listed class, else the default). */
 export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrastructure => ({
+  clock: resolve(Clock) as Clock,
   // each contract resolves to an instance of a class that extends it (registrations by inheritance)
   checkpointer: resolve(BaseCheckpointSaver) as BaseCheckpointSaver,
   records: resolve(ExecutionRecordRepository) as ExecutionRecordRepository,

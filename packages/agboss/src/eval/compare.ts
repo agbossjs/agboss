@@ -1,3 +1,4 @@
+import { systemClock } from "../infrastructure/clock.js";
 import { isDayCapReached } from "../graph/limits.js";
 import { runAgent } from "../run/run-agent.js";
 import { requestOfTask } from "../flow/runtime/start-input.js";
@@ -39,7 +40,7 @@ async function judged(evaluation: EvalDeps, request: RouteRequest) {
 export async function runProfile(
   run: ProfileRun,
   tasks: readonly string[],
-  clock: () => number = Date.now,
+  clock: () => number = () => systemClock.now().getTime(),
 ): Promise<ProfileOutcome> {
   const answers: (string | undefined)[] = [];
   const scores: (number | undefined)[] = [];

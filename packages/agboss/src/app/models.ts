@@ -1,5 +1,6 @@
 import type { AgentsConfigOf } from "../config/types.js";
 import { createProviderGateway, type ModelGateway } from "../llm/gateway.js";
+import type { Clock } from "../infrastructure/clock.js";
 import type { ProviderClientOptions } from "../llm/provider-clients.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
 import { checkModelUses, resolutionProblems } from "../models/check.js";
@@ -15,12 +16,17 @@ export interface AppModels {
   readonly summary: readonly string[];
 }
 
-/** The production clients' options from the app's: the environment and, in tests, a stub client. */
+/**
+ * The production clients' options from the app's: the environment, the application's clock and, in
+ * tests, a stub client.
+ */
 export const providerClientsOf = (
   options: { readonly providerFetch?: ProviderFetch },
   env: NodeJS.ProcessEnv,
+  clock: Clock,
 ): ProviderClientOptions => ({
   env,
+  clock,
   ...(options.providerFetch === undefined ? {} : { send: options.providerFetch }),
 });
 

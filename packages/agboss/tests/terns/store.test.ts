@@ -26,7 +26,7 @@ const tern = (overrides: Partial<NewTern> = {}): NewTern => ({
 
 describe("SQLite Tern store", () => {
   it("#265: a run in flight is no result — summary and byVersion leave out running Terns", async () => {
-    const store = createSqliteTernStore(":memory:");
+    const store = createSqliteTernStore(":memory:", () => new Date());
     const thread = await store.createThread("b", "default");
     await store.append(tern({ threadId: thread, task: "done", costUsd: 0.01 }));
     await store.append(tern({ threadId: thread, task: "moving", status: "running", costUsd: 0.5 }));
@@ -39,7 +39,7 @@ describe("SQLite Tern store", () => {
   });
 
   it("#265 S30: pages the Terns with a status, oldest first (recovery's running records)", async () => {
-    const store = createSqliteTernStore(":memory:");
+    const store = createSqliteTernStore(":memory:", () => new Date());
     const thread = await store.createThread("b", "default");
     for (const task of ["one", "two", "three"])
       await store.append(tern({ threadId: thread, task, status: "running" }));
@@ -54,7 +54,7 @@ describe("SQLite Tern store", () => {
   });
 
   it("creates threads per bundle", async () => {
-    const store = createSqliteTernStore(":memory:");
+    const store = createSqliteTernStore(":memory:", () => new Date());
     const id = await store.createThread("b", "default");
 
     expect(await store.hasThread("b", "default", id)).toBe(true);
@@ -62,7 +62,7 @@ describe("SQLite Tern store", () => {
   });
 
   it("appends Terns and returns the last N of a thread, oldest first", async () => {
-    const store = createSqliteTernStore(":memory:");
+    const store = createSqliteTernStore(":memory:", () => new Date());
     const thread = await store.createThread("b", "default");
     for (const task of ["one", "two", "three"])
       await store.append(tern({ threadId: thread, task }));
@@ -75,7 +75,7 @@ describe("SQLite Tern store", () => {
   });
 
   it("records every outcome with its status", async () => {
-    const store = createSqliteTernStore(":memory:");
+    const store = createSqliteTernStore(":memory:", () => new Date());
     const thread = await store.createThread("b", "default");
     const failed = await store.append(tern({ threadId: thread, status: "failed", replyWith: "" }));
 
@@ -83,7 +83,7 @@ describe("SQLite Tern store", () => {
   });
 
   it("scores only answered Terns and summarises by prompt version", async () => {
-    const store = createSqliteTernStore(":memory:");
+    const store = createSqliteTernStore(":memory:", () => new Date());
     const thread = await store.createThread("b", "default");
     const a = await store.append(tern({ threadId: thread }));
     await store.append(tern({ threadId: thread, status: "failed" }));
@@ -102,7 +102,7 @@ describe("SQLite Tern store", () => {
   });
 
   it("lists original Terns of a version, not their replays", async () => {
-    const store = createSqliteTernStore(":memory:");
+    const store = createSqliteTernStore(":memory:", () => new Date());
     const thread = await store.createThread("b", "default");
     const original = await store.append(tern({ threadId: thread }));
     await store.append(tern({ threadId: thread, replayOf: original.id }));
@@ -112,11 +112,11 @@ describe("SQLite Tern store", () => {
 
   it("opens an existing database without re-running migrations", async () => {
     const path = join(await mkdtemp(join(tmpdir(), "terns-")), "nested", "terns.sqlite");
-    const first = createSqliteTernStore(path);
+    const first = createSqliteTernStore(path, () => new Date());
     const thread = await first.createThread("b", "default");
     first.close();
 
-    const second = createSqliteTernStore(path);
+    const second = createSqliteTernStore(path, () => new Date());
 
     expect(await second.hasThread("b", "default", thread)).toBe(true);
     second.close();
@@ -125,7 +125,7 @@ describe("SQLite Tern store", () => {
   it("AC9 (#150): migration 5 drops the attempts column — Terns written with it stay readable", async () => {
     const path = join(await mkdtemp(join(tmpdir(), "terns-")), "with-attempts.sqlite");
     const { DatabaseSync } = await import("node:sqlite");
-    const first = createSqliteTernStore(path);
+    const first = createSqliteTernStore(path, () => new Date());
     const thread = await first.createThread("b", "default");
     first.close();
     const old = new DatabaseSync(path);
@@ -141,7 +141,7 @@ describe("SQLite Tern store", () => {
       PRAGMA user_version = 4;`);
     old.close();
 
-    const store = createSqliteTernStore(path);
+    const store = createSqliteTernStore(path, () => new Date());
     const fresh = await store.append(tern({ threadId: thread }));
 
     expect((await store.byIds(["old"]))[0]).toMatchObject({ id: "old", task: "q", replyWith: "a" });
@@ -164,7 +164,7 @@ describe("SQLite Tern store", () => {
       PRAGMA user_version = 1;`);
     old.close();
 
-    const store = createSqliteTernStore(path);
+    const store = createSqliteTernStore(path, () => new Date());
     const fresh = await store.append(tern({ threadId: "t" }));
 
     expect((await store.byIds(["old"]))[0]).toMatchObject({

@@ -24,7 +24,7 @@ interface SharedDatabase {
 const database: SharedDatabase = {
   checkpoints: new MemorySaver(),
   paused: new Map(),
-  records: createSqliteTernStore(":memory:"),
+  records: createSqliteTernStore(":memory:", () => new Date()),
 };
 
 /** Empties the shared database (each test starts with none). */
@@ -33,7 +33,7 @@ export function resetSharedDatabase(): void {
   database.checkpoints.writes = {};
   database.paused.clear();
   database.records.close();
-  database.records = createSqliteTernStore(":memory:");
+  database.records = createSqliteTernStore(":memory:", () => new Date());
 }
 
 /** The paused executions in the shared database. */

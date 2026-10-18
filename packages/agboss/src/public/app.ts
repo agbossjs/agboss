@@ -29,6 +29,7 @@ export {
   type PeriodBudgetOptions,
 } from "../budgets/budget.js";
 export type { PausedRun } from "../app/paused-runs.js";
+export { Clock } from "../infrastructure/clock.js";
 export { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
 export {
   ExecutionRecordRepository,
@@ -51,7 +52,7 @@ export {
   RateLimitRepository,
   type RateLimitLease,
 } from "../infrastructure/rate-limit.repository.js";
-export type { SqliteConnection } from "../infrastructure/sqlite/sqlite-connection.js";
+export { SqliteConnection } from "../infrastructure/sqlite/sqlite-connection.js";
 export { SqliteCheckpointSaver } from "../infrastructure/sqlite/sqlite-checkpoint-saver.js";
 export { SqliteCostLedgerRepository } from "../infrastructure/sqlite/sqlite-cost-ledger.repository.js";
 export { SqliteExecutionLeaseRepository } from "../infrastructure/sqlite/sqlite-execution-lease.repository.js";

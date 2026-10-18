@@ -22,7 +22,6 @@ import {
   defaultTenantOf,
   standaloneContexts,
 } from "../flow/context/runtime-contexts.js";
-import { systemTimers } from "../infrastructure/timers.js";
 import { admitRequest, observeCancelledPause } from "./run-events.js";
 import { checkedStart, textStartOf } from "./starts.js";
 import type { App, ExecutionOptions, ExecutionOutput } from "./types.js";
@@ -84,7 +83,7 @@ export async function buildApp(
   const paused = pausedRunBook(parts.infrastructure.pausedExecutions, current, policy);
   const live = new LiveRuns();
   const { executionLeases, executionTrees: trees } = parts.infrastructure;
-  const leases = executionLeasesOf(executionLeases, parts.timers ?? systemTimers);
+  const leases = executionLeasesOf(executionLeases, parts.infrastructure.clock);
   const moves = treeMovesOf({ deps, live, paused, leases, trees });
   const owned = (access: ThreadAccess) => checkThreadOwner(deps.terns, deps.config.name, access);
   const known = (access: ThreadAccess) => checkThreadAccess(deps.terns, deps.config.name, access);

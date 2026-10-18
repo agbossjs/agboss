@@ -5,14 +5,15 @@ import type { TernStore } from "./types.js";
 /** A new thread id; random by default, deterministic in tests. */
 export type NewThreadId = () => string;
 
-type Clock = () => Date;
+/** The current time (the application's clock, given by the caller). */
+type Now = () => Date;
 
 /** Threads, their owners and their tenants (#202, #261: a thread's key is tenant + thread). */
 const OwnerRow = z.object({ owner: z.string().nullable() });
 
 export function threadMethods(
   db: DatabaseSync,
-  now: Clock,
+  now: Now,
   newThreadId: NewThreadId,
 ): Pick<TernStore, "createThread" | "hasThread" | "threadOwner"> {
   return {

@@ -11,7 +11,7 @@ import {
   testWith,
   UNSCRIPTED_SUMMARY,
 } from "../../src/testing/index.js";
-import { createTestClock, millisecondsOf, type ClockDuration } from "../../src/testing/clock.js";
+import { millisecondsOf, VirtualClock, type ClockDuration } from "../../src/testing/clock.js";
 import { TestEnvironment } from "../../src/testing/environment.js";
 import { asError } from "../../src/testing/errors.js";
 import { failureFactsOf, nodeNameOf } from "../../src/testing/failure-facts.js";
@@ -31,7 +31,7 @@ const request = { input: "x", options: [{ name: "a", description: "A" }] };
 
 describe("AC12: the clock, ids and errors of a test", () => {
   it("durations carry their unit; anything else is a setup error", async () => {
-    const clock = createTestClock("2026-01-01T00:00:00.000Z");
+    const clock = new VirtualClock(new Date("2026-01-01T00:00:00.000Z"));
     await clock.advance("1.5s");
 
     expect(clock.now().toISOString()).toBe("2026-01-01T00:00:01.500Z");

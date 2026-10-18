@@ -1,6 +1,7 @@
 import { Injectable } from "../../components/decorators.js";
 import { sharedTernStore, type NewThreadId } from "../../terns/index.js";
-import { INFRASTRUCTURE_CLOCK, NEW_THREAD_ID } from "../clock.js";
+import { Clock } from "../clock.js";
+import { NEW_THREAD_ID } from "../instance-tokens.js";
 import { TernStoreRecordRepository } from "../execution-record.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
@@ -12,10 +13,10 @@ import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
  * are compare-and-set (`completeIfStatus`, one statement). Listed in `@Application({ providers })`;
  * needs `sqlitePath`.
  */
-@Injectable({ deps: [SqliteConnection, INFRASTRUCTURE_CLOCK, NEW_THREAD_ID] })
+@Injectable({ deps: [SqliteConnection, Clock, NEW_THREAD_ID] })
 export class SqliteExecutionRecordRepository extends TernStoreRecordRepository {
-  constructor(connection: SqliteConnection, now: () => Date, newThreadId: NewThreadId | undefined) {
-    super(sharedTernStore(connection.database, now, newThreadId));
+  constructor(connection: SqliteConnection, clock: Clock, newThreadId: NewThreadId | undefined) {
+    super(sharedTernStore(connection.database, () => clock.now(), newThreadId));
   }
 }
 

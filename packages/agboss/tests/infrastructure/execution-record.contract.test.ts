@@ -17,10 +17,10 @@ const kinds = storeKinds<ExecutionRecordRepository>({
     sharedInMemory(
       seam,
       "records",
-      () => new InMemoryExecutionRecordRepository(seam.clock.now, undefined),
+      () => new InMemoryExecutionRecordRepository(seam.clock, undefined),
     ),
   sqlite: ({ clock, connection }) =>
-    new SqliteExecutionRecordRepository(connection(), clock.now, undefined),
+    new SqliteExecutionRecordRepository(connection(), clock, undefined),
 });
 
 /** An outcome with `status`. */

@@ -1,3 +1,4 @@
+import type { Clock } from "../infrastructure/clock.js";
 import { processCircuitBreakers, type CircuitBreakers } from "./circuit-breaker.js";
 import { settingValueIn } from "./environment-variable.js";
 import type { ProviderConnection } from "./handler.js";
@@ -12,8 +13,8 @@ export interface ConnectionOptions {
   readonly breakers?: CircuitBreakers;
   /** The raw HTTP client under retries and breakers. Default: global fetch. */
   readonly send?: ProviderFetch;
-  /** Waits between attempts. Default: a timer. */
-  readonly sleep?: (ms: number) => Promise<void>;
+  /** The application's clock: timeouts, waits between attempts. Default: the system's. */
+  readonly clock?: Clock;
 }
 
 const keyOf = (options: ModelProviderOptions, connection: ConnectionOptions): string | undefined =>
@@ -42,7 +43,7 @@ function connect(
         retryPolicy: options.retryPolicy,
         breaker: breakers.of(options.name, options.circuitBreakerPolicy),
         ...(fallback === undefined ? {} : { fallback }),
-        ...(connection.sleep === undefined ? {} : { sleep: connection.sleep }),
+        ...(connection.clock === undefined ? {} : { clock: connection.clock }),
       },
       connection.send ?? ((input, init) => fetch(input, init)),
     ),

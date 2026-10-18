@@ -3,6 +3,8 @@ import type { z } from "zod";
 import { pathOf } from "../dto/errors.js";
 import type { Tool, ToolCallContext, ToolOutput } from "./types.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
+import { systemClock, type Clock } from "../infrastructure/clock.js";
+import { timeoutOn, waitOf } from "../infrastructure/clock-timeout.js";
 
 export const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 
@@ -51,16 +53,20 @@ function untilAborted<TValue>(work: Promise<TValue>, signal: AbortSignal): Promi
   });
 }
 
+/** The tool's timeout on the clock (the application's; none given → the system's). */
+interface ToolTimeout {
+  readonly timeoutMs: number;
+  readonly clock: Clock | undefined;
+}
+
 async function runWithTimeout<TValue>(
   run: (signal: AbortSignal) => Promise<TValue>,
   outer: AbortSignal,
-  timeoutMs: number,
+  { timeoutMs, clock }: ToolTimeout,
 ): Promise<TValue> {
   if (outer.aborted) throw outer.reason as Error; // never start work for a cancelled run
-  const timeout = new AbortController();
-  const timer = setTimeout(() => {
-    timeout.abort(new ToolTimeoutError(timeoutMs));
-  }, timeoutMs);
+  const reason = (): Error => new ToolTimeoutError(timeoutMs);
+  const timeout = timeoutOn(clock ?? systemClock, waitOf(timeoutMs), reason);
   const signal = AbortSignal.any([outer, timeout.signal]);
   try {
     return await untilAborted(
@@ -68,7 +74,7 @@ async function runWithTimeout<TValue>(
       signal,
     );
   } finally {
-    clearTimeout(timer);
+    timeout.release();
   }
 }
 
@@ -99,7 +105,7 @@ export function defineTool<TName extends string, TInput, TOutput>(
       produced = await runWithTimeout(
         (signal) => definition.run(input.data, { ...ctx, signal }),
         ctx.signal,
-        timeoutMs,
+        { timeoutMs, clock: ctx.clock },
       );
     } catch (error) {
       if (

@@ -7,7 +7,7 @@ import {
   ExecutionRecordStatus,
   type ExecutionRecordRepository,
 } from "./execution-record.repository.js";
-import type { Timers } from "./timers.js";
+import type { Clock } from "./clock.js";
 
 /**
  * Automatic recovery (#265 S30): every application instance looks for the roots left `running` —
@@ -33,7 +33,7 @@ export interface RecoverySweep {
 export interface RecoverySources {
   readonly records: ExecutionRecordRepository;
   readonly workflows: ReadonlyMap<string, RecoverRoot>;
-  readonly timers: Timers;
+  readonly clock: Clock;
   /** Stops the recoveries in flight like the app's other executions (the shutdown timeout). */
   readonly signal: AbortSignal;
 }
@@ -81,7 +81,7 @@ class Sweeper implements RecoverySweep {
           `recovery could not list the running executions: ${String(error)}`,
         );
       }
-      await this.sources.timers.sleep(SWEEP_EVERY, this.#stopped.signal);
+      await this.sources.clock.sleep(SWEEP_EVERY, this.#stopped.signal);
     }
   }
 

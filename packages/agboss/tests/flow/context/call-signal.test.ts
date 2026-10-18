@@ -8,6 +8,7 @@ import {
   SlowFetchTool,
   SpendStart,
   resetSpendSeen,
+  spendHooks,
   spendSeen,
   SpendApplication,
 } from "./fixtures/spend.workflow.js";
@@ -19,14 +20,21 @@ const test = testWith(SpendApplication);
 describe("#280 S45: in a tool call, executionContext.signal is the call's", () => {
   test("a call waiting on its signal is aborted at its own timeoutMs; the execution goes on", async ({
     app,
+    clock,
     mockLlm,
   }) => {
     mockLlm(SearcherAgent).thenReturn(
       callTool(SlowFetchTool, { query: "slow" }),
       replyWith(ResultDto, { text: "gave up on the slow page" }),
     );
+    const started = new Promise<void>((resolve) => {
+      spendHooks.fetchStarted = resolve;
+    });
 
-    const done = await execute(app, SpendStart, { text: "fetch" });
+    const running = execute(app, SpendStart, { text: "fetch" });
+    await started;
+    await clock.advance("50ms"); // the tool's timeoutMs, on the test's clock (#262)
+    const done = await running;
 
     expect(spendSeen.aborts).toEqual(["ToolTimeoutError"]);
     expect(done.output).toEqual({ text: "gave up on the slow page" });

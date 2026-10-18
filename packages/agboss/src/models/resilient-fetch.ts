@@ -1,3 +1,5 @@
+import { systemClock, type Clock } from "../infrastructure/clock.js";
+import { timeoutError, timeoutOn, waitOf } from "../infrastructure/clock-timeout.js";
 import type { Milliseconds } from "../units/index.js";
 import type { ModelCost } from "./cost.js";
 import { fallbackBody, markedFallbackResponse } from "./fallback.js";
@@ -26,7 +28,7 @@ export interface FallbackTarget {
   readonly cost: ModelCost;
 }
 
-/** Everything a provider's client needs besides the request; clock, sleep and random for tests. */
+/** Everything a provider's client needs besides the request; the application's clock, random for tests. */
 export interface ResilienceOptions {
   readonly provider: string;
   readonly baseUrl: string;
@@ -34,15 +36,10 @@ export interface ResilienceOptions {
   readonly retryPolicy: RetryPolicy;
   readonly breaker: CircuitBreaker;
   readonly fallback?: FallbackTarget;
-  readonly now?: () => number;
-  readonly sleep?: (ms: number) => Promise<void>;
+  /** The timeout, the waits between attempts and `Retry-After` run on it (default: the system's). */
+  readonly clock?: Clock;
   readonly random?: () => number;
 }
-
-const realSleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 
 const urlOf = (input: Parameters<typeof fetch>[0]): string =>
   typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
@@ -70,14 +67,15 @@ type Attempt =
   | { readonly kind: "answered"; readonly response: Response; readonly failure?: ModelFailure }
   | { readonly kind: "threw"; readonly error: unknown; readonly failure: ModelFailure };
 
-/** One attempt under the provider's timeout (and the caller's own signal). */
+/** One attempt under the provider's timeout on the clock (and the caller's own signal). */
 async function attemptOnce(
   send: ProviderFetch,
   input: Parameters<typeof fetch>[0],
   init: RequestInit | undefined,
-  timeout: Milliseconds,
+  timeout: { readonly delay: Milliseconds; readonly clock: Clock },
 ): Promise<Attempt> {
-  const signals = [AbortSignal.timeout(timeout), ...(init?.signal ? [init.signal] : [])];
+  const timer = timeoutOn(timeout.clock, timeout.delay, timeoutError);
+  const signals = [timer.signal, ...(init?.signal ? [init.signal] : [])];
   try {
     const response = await send(input, { ...init, signal: AbortSignal.any(signals) });
     const failure = failureOfStatus(response.status);
@@ -87,6 +85,8 @@ async function attemptOnce(
   } catch (error) {
     if (init?.signal?.aborted === true) throw error;
     return { kind: "threw", error, failure: failureOfError(error) };
+  } finally {
+    timer.release();
   }
 }
 
@@ -100,7 +100,7 @@ function waitBefore(
   if (failure === undefined || !isRetried(options.retryPolicy, failure, tries)) return undefined;
   const planned = delayBefore(options.retryPolicy, tries, options.random ?? Math.random);
   if (attempt.kind === "threw") return planned;
-  const retryAfter = retryAfterOf(attempt.response, (options.now ?? Date.now)());
+  const retryAfter = retryAfterOf(attempt.response, (options.clock ?? systemClock).now().getTime());
   if (retryAfter === undefined) return planned;
   return retryAfter > longestWaitOf(options.retryPolicy)
     ? undefined
@@ -113,7 +113,7 @@ function waitBefore(
  * the breaker counts failed calls and, open, sends calls to the fallback or fails fast.
  */
 export function resilientFetch(options: ResilienceOptions, send: ProviderFetch): ProviderFetch {
-  const sleep = options.sleep ?? realSleep;
+  const clock = options.clock ?? systemClock;
   return async (input, init) => {
     if (options.breaker.isOpen()) {
       if (options.fallback !== undefined) return toFallback(input, init, options, options.fallback);
@@ -124,7 +124,7 @@ export function resilientFetch(options: ResilienceOptions, send: ProviderFetch):
       );
     }
     for (let tries = 1; ; tries++) {
-      const attempt = await attemptOnce(send, input, init, options.timeout);
+      const attempt = await attemptOnce(send, input, init, { delay: options.timeout, clock });
       if (attempt.kind === "answered" && attempt.failure === undefined) {
         options.breaker.recordSuccess();
         return attempt.response;
@@ -136,7 +136,7 @@ export function resilientFetch(options: ResilienceOptions, send: ProviderFetch):
         return attempt.response;
       }
       if (attempt.kind === "answered") await attempt.response.body?.cancel();
-      await sleep(wait);
+      await clock.sleep(waitOf(wait));
     }
   };
 }

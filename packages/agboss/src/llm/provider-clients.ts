@@ -1,5 +1,6 @@
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { ResolvedModelSettings } from "../config/types.js";
+import type { Clock } from "../infrastructure/clock.js";
 import type { CircuitBreakers } from "../models/circuit-breaker.js";
 import { connectionOf } from "../models/connections.js";
 import type { ProviderConnection } from "../models/handler.js";
@@ -18,7 +19,8 @@ export interface ProviderClientOptions {
   readonly env: NodeJS.ProcessEnv;
   readonly breakers?: CircuitBreakers;
   readonly send?: ProviderFetch;
-  readonly sleep?: (ms: number) => Promise<void>;
+  /** The application's clock (timeouts, retry waits). Default: the system's. */
+  readonly clock?: Clock;
 }
 
 export class ProviderCapabilityError extends Error {
