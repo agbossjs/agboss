@@ -1,8 +1,15 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
-import { openTernDatabase, placeholders, toTern, toVersionScore } from "./schema.js";
+import {
+  migrateTernDatabase,
+  openTernDatabase,
+  placeholders,
+  toTern,
+  toVersionScore,
+} from "./schema.js";
 import { configMethods } from "./configs.js";
+import { ternWrites } from "./writes.js";
 import { memoryMethods } from "./summaries.js";
 import type { Tern, TernStore } from "./types.js";
 
@@ -43,53 +50,6 @@ function threadMethods(
         .prepare("SELECT 1 FROM threads WHERE id = ? AND bundle = ?")
         .get(threadId, bundle);
       return Promise.resolve(row !== undefined);
-    },
-  };
-}
-
-function ternWrites(db: DatabaseSync, now: Clock): Pick<TernStore, "append" | "complete"> {
-  return {
-    complete: (id, o) => {
-      db.prepare(
-        `UPDATE terns SET replyWith = ?, status = ?, stop_reason = ?, route = ?, steps = ?, cost_usd = ?
-         WHERE id = ?`,
-      ).run(
-        o.replyWith,
-        o.status,
-        o.stopReason,
-        JSON.stringify(o.route),
-        JSON.stringify(o.steps),
-        o.costUsd,
-        id,
-      );
-      return Promise.resolve();
-    },
-    append: (tern) => {
-      const t: Tern = { ...tern, id: randomUUID(), createdAt: now().toISOString() };
-      db.prepare(
-        `INSERT INTO terns (id, thread_id, bundle, created_at, task, replyWith, status, stop_reason,
-           route, steps, cost_usd, prompt_version, model_version, replay_of, config_version,
-           config_hash, run_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(
-        t.id,
-        t.threadId,
-        t.bundle,
-        t.createdAt,
-        t.task,
-        t.replyWith,
-        t.status,
-        t.stopReason,
-        JSON.stringify(t.route),
-        JSON.stringify(t.steps),
-        t.costUsd,
-        t.promptVersion,
-        t.modelVersion,
-        t.replayOf,
-        t.configVersion,
-        t.configHash,
-        t.runId,
-      );
-      return Promise.resolve(t);
     },
   };
 }
@@ -184,13 +144,29 @@ function scoreMethods(
   };
 }
 
-/** Terns in SQLite (built-in `node:sqlite`). `:memory:` for tests. */
+/** Terns in SQLite (built-in `node:sqlite`) on a file of their own. `:memory:` for tests. */
 export function createSqliteTernStore(
   path: string,
   now: Clock = () => new Date(),
   newThreadId: NewThreadId = randomUUID,
 ): TernStore {
-  const db = openTernDatabase(path);
+  return ternStoreOn(openTernDatabase(path), now, newThreadId);
+}
+
+/**
+ * Terns on an open database — a connection other stores share (#265): its tables migrated first.
+ * `close` closes that connection.
+ */
+export function sharedTernStore(
+  db: DatabaseSync,
+  now: Clock = () => new Date(),
+  newThreadId: NewThreadId = randomUUID,
+): TernStore {
+  migrateTernDatabase(db);
+  return ternStoreOn(db, now, newThreadId);
+}
+
+function ternStoreOn(db: DatabaseSync, now: Clock, newThreadId: NewThreadId): TernStore {
   const rows: Rows = (sql, ...params) =>
     db
       .prepare(sql)

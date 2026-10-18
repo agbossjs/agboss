@@ -4,19 +4,14 @@ import type { RagConnector } from "../rag/types.js";
 import type { RouterEngine } from "../routers/index.js";
 import { schemaOf } from "../dto/schema.js";
 import { defineTool, type AnyTool, type Tool } from "../tools/index.js";
-import type { Environment } from "../flow/generated-types.js";
 import { accountedRouters } from "./accounted-router.js";
 import { LiveJudgeModel } from "./judge-call.js";
 import { LiveSpendRecorder, SpendRecorder } from "./spend-recorder.js";
 import { JudgeModel } from "./judge-decorators.js";
 import { ExecutionContext } from "../flow/context/execution-context.js";
 import { LiveExecutionContext } from "../flow/context/live-context.js";
-import {
-  createContainer,
-  DependantValue,
-  UnavailableValue,
-  type Container,
-} from "./container/container.js";
+import { createContainer, DependantValue, type Container } from "./container/container.js";
+import { ENV, environmentValueOf } from "./environment-token.js";
 import type { ProviderModule } from "./container/registrations.js";
 import type { ToolHandler } from "./decorators.js";
 import { InjectionToken, type Class, type Token } from "./injection.js";
@@ -26,20 +21,10 @@ import { contextSources, ragMeta, searchTool } from "./rag.js";
 
 /** What a workflow creates per run of the app: the container, tool instances, knowledge sources. */
 
+export { ENV } from "./environment-token.js";
+
 /** Core services a component can depend on. */
 export const ROUTER_FACTORY = new InjectionToken<(name: string) => RouterEngine>("ROUTER_FACTORY");
-/**
- * The application's environment (#182, #261): the values of `environments/<name>.environment.ts`,
- * typed by `@Application({ environment: AppEnvironment })` through the generated types —
- * `@Injectable({ deps: [ENV] })`, `constructor(environment: AppEnvironment)`. #261 PR 3 reads it
- * as `applicationContext.environment` instead.
- */
-export const ENV = new InjectionToken<Environment>("ENV");
-
-const missingEnvironment = new UnavailableValue(
-  (dependant) =>
-    `[di.missing-environment] ${dependant} injects ENV, but the application declares no environment: add @Application({ environment: AppEnvironment }) and environments/<name>.environment.ts next to the application file (export const environment: AppEnvironment = { … })`,
-);
 /** `deps: [ExecutionContext]`: a live object per consumer, reading the current step (#280). */
 const liveExecutionContext = new DependantValue((dependant) => new LiveExecutionContext(dependant));
 /** `deps: [JudgeModel]` in a `@Judge`: the model of the judge that is judging (#280). */
@@ -109,7 +94,7 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
   if (existing !== undefined) return existing;
   const core = new Map<Token, unknown>([
     [ROUTER_FACTORY, accountedRouters(services.router)],
-    [ENV, services.environment ?? missingEnvironment],
+    [ENV, environmentValueOf(services.environment)],
     [ExecutionContext, liveExecutionContext],
     [JudgeModel, liveJudgeModel],
     [SpendRecorder, liveSpendRecorder],

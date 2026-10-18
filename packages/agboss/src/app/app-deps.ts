@@ -3,7 +3,7 @@ import { validateAgentsConfig, type AgentsConfigOf } from "../config/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import type { Environment } from "../flow/generated-types.js";
 import type { ObserverManager } from "../core/observer-manager.js";
-import { startComponents } from "../components/container/lifecycle.js";
+import { startComponents, stopComponents } from "../components/container/lifecycle.js";
 import type { Clock } from "../finops/ledger.js";
 import type { EvalDeps } from "../eval/eval.js";
 import type { RunDeps } from "../run/types.js";
@@ -179,14 +179,34 @@ export async function createWorkflowDeps(
 }
 
 /**
- * The run dependencies of one workflow on its own (eval, replay, compare): like a workflow of an
- * application with no `providers` — the built-in in-memory infrastructure, nothing written to disk —
- * and its own lifecycle hooks.
+ * The run dependencies of one workflow on its own (eval, replay, golden, compare): on the
+ * infrastructure of the application that lists it (its `providers` — e.g. the SQLite
+ * implementations, so records persist across processes), else the built-in in-memory one, and
+ * its own lifecycle hooks; `close()` also closes what the infrastructure opened.
  */
 export async function createAppDeps(
   bundle: AssembledWorkflow,
   options: AppDepsOptions = {},
 ): Promise<AppDeps> {
-  const infrastructure = standaloneInfrastructure(bundle, options);
-  return createWorkflowDeps(bundle, options, { infrastructure });
+  const opened: unknown[] = [];
+  const infrastructure = standaloneInfrastructure(bundle, options, (instance) => {
+    opened.push(instance);
+  });
+  await startComponents(opened);
+  const deps = await createWorkflowDeps(bundle, options, { infrastructure }).catch(
+    async (error: unknown) => {
+      await stopComponents(opened);
+      throw error;
+    },
+  );
+  return {
+    ...deps,
+    close: async (executionsDone) => {
+      try {
+        await deps.close(executionsDone);
+      } finally {
+        await stopComponents(opened);
+      }
+    },
+  };
 }

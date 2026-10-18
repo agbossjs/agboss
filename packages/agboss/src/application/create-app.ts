@@ -74,6 +74,7 @@ export async function buildApplication(
     modules: assembled.modules,
     clock: options.clock,
     newThreadId: options.newThreadId,
+    environment: options.environment,
     instanceId: seams.instanceId,
     database: seams.database,
     instances: seams.reused,
