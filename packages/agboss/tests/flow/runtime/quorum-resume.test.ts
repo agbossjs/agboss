@@ -20,7 +20,10 @@ import {
   untilWaiting,
   WaitTool,
 } from "../fixtures/quorum-runtime-parts.js";
-import { CheckedPanelApplication, RecoveryPanelApplication } from "../fixtures/quorum-runtime.fixture.js";
+import {
+  CheckedPanelApplication,
+  RecoveryPanelApplication,
+} from "../fixtures/quorum-runtime.fixture.js";
 
 /**
  * #279 PR 2 (S26) — a pause inside a quorum: the branches that finished before it keep their records
