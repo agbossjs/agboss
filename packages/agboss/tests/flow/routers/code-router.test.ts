@@ -185,7 +185,7 @@ describe("M1: describe shows how each router decides", () => {
     expect(lines).toEqual(
       expect.arrayContaining([
         "routers",
-        "  desk-router  decisions typesafe/jev-1.13 — Sends an order to the intake, ends on anything else",
+        "  desk-router  decisions typesafe/jev-1.13 (own) — Sends an order to the intake, ends on anything else",
         "  credit-limit-router  code — Sends large orders for approval, charges the rest",
       ]),
     );

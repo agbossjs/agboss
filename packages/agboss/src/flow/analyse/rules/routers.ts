@@ -87,7 +87,7 @@ function declarationRules(
   const hasModel =
     options.model !== undefined || context.workflow.defaults?.router?.model !== undefined;
   if (!isCodeRouter(options) && !hasModel) {
-    const message = `${router.name} has no model — set model on @Router, or defaults.router.model on the workflow`;
+    const message = `${router.name} uses DecidedBy.Model but has no model — set model or defaults.router.model`;
     found.push(violation("router.no-model", message, [router.name]));
   }
   return found;

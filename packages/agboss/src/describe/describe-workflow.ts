@@ -8,6 +8,7 @@ import { isDecisionModel } from "../graph/router-model.js";
 import { NodeKind } from "../flow/ast.js";
 import { isCodeRouterNode } from "../flow/runtime/graph-model.js";
 import { aboutLines, inputLines } from "./inputs.js";
+import { agentDefaultsLine, routerModelSource } from "./defaults.js";
 import { configSnapshot } from "../run/versions.js";
 import { shortVersion, versionOf } from "../terns/index.js";
 import { isMcpFacade, type AnyTool } from "../tools/index.js";
@@ -93,7 +94,7 @@ const visitsLabel = (maxVisits: number | undefined): string =>
 function routerLines(bundle: AssembledWorkflow): string[] {
   const models = bundle.routers.map(
     (router) =>
-      `  ${router.name}  ${isDecisionModel(router.model) ? "decisions" : "llm"} ${router.model}${visitsLabel(router.maxVisits)} — ${router.description}`,
+      `  ${router.name}  ${isDecisionModel(router.model) ? "decisions" : "llm"} ${router.model} ${routerModelSource(bundle, router)}${visitsLabel(router.maxVisits)} — ${router.description}`,
   );
   const code = [...bundle.graph.nodes.values()].flatMap((node) =>
     node.declaration.kind === NodeKind.Router && isCodeRouterNode(node)
@@ -146,6 +147,7 @@ function agentLines(bundle: AssembledWorkflow, tools: ReadonlyMap<string, AnyToo
       `  ${name}  ${agent.model} · reasoning ${thinkingLabel(agent.thinking ?? c.defaults.models.thinking)} · ${ceilingLabel(agent.maxTokens ?? c.defaults.models.maxTokens)} · ${history}`,
       `    ${agent.description}`,
       ...settingsLines(agent, c),
+      agentDefaultsLine(bundle, agent),
       ...(own.length === 0
         ? ["    tools: none"]
         : own.map(

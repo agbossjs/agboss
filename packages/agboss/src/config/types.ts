@@ -153,7 +153,7 @@ export const GuardSettingsSchema = z.object({
   threshold: z.number().min(0).max(1),
   /** Returned as the replyWith when the guard trips. */
   refusal: z.string().min(1),
-  /** Omit to use defaults.router (Jev). */
+  /** Its own model or defaults.guardrail.model (#261), resolved at assembly. */
   model: RouterModelSchema.optional(),
 });
 

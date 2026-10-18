@@ -1,6 +1,6 @@
 import type { AgentsConfigOf } from "../config/types.js";
 import { validateAgentsConfig } from "../config/types.js";
-import { analyseWorkflow } from "../flow/analyse/analyse.js";
+import { analyseWorkflow, type FlowAnalysis } from "../flow/analyse/analyse.js";
 import { NodeKind } from "../flow/ast.js";
 import { agentMetasOf } from "../flow/runtime/agents.js";
 import { isCodeNode, runtimeGraphOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
@@ -33,7 +33,9 @@ import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { channelPartsOf } from "./channel-parts.js";
 import { PromptLoader } from "./prompt-render.js";
 import { checkMemoryStrategies, memoryPartsOf } from "./memory-parts.js";
-import { moduleOf, workflowDeclarationOf } from "./module.js";
+import { configDefaultsOf, guardsOf, moduleOf, workflowDeclarationOf } from "./module.js";
+import { cascadeDefaults, type DefaultsLevels } from "../config/defaults.js";
+import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import { checkObservers } from "./observer-checks.js";
 import { judgeClassesOf, judgePartsOf, judgeSettingsOf, type JudgeClass } from "./judge-parts.js";
 import { agentSettings } from "./agent-settings.js";
@@ -104,6 +106,48 @@ function settingsOf(workflow: Class): WorkflowSettings {
   return isDefinition(instance) ? instance.settings() : DEFAULT_WORKFLOW_SETTINGS;
 }
 
+/** The workflow's module with its defaults merged over its application's (#261 cascade). */
+function withApplicationDefaults(
+  bundle: WorkflowMeta,
+  workflow: Class,
+  applicationDefaults: WorkflowDefaults | undefined,
+): WorkflowMeta {
+  if (applicationDefaults === undefined) return bundle;
+  const { options } = workflowDeclarationOf(workflow);
+  const defaults = cascadeDefaults(applicationDefaults, options.defaults);
+  return {
+    ...bundle,
+    defaults: configDefaultsOf(defaults),
+    guards: guardsOf(options.guards, defaults),
+  };
+}
+
+/** The workflow's module over its application's defaults, and its paths analysed with them. */
+function analysedModule(
+  workflow: Class,
+  applicationDefaults: WorkflowDefaults | undefined,
+): { readonly bundle: WorkflowMeta; readonly analysis: FlowAnalysis } {
+  return {
+    bundle: withApplicationDefaults(moduleOf(workflow), workflow, applicationDefaults),
+    analysis: analyseWorkflow(
+      workflow,
+      applicationDefaults === undefined ? {} : { applicationDefaults },
+    ),
+  };
+}
+
+/** The levels the workflow's defaults come from: its application's (if any) and its own. */
+const defaultsLevelsOf = (
+  workflow: Class,
+  owner: DefaultsLevels["application"],
+): DefaultsLevels => {
+  const { options } = workflowDeclarationOf(workflow);
+  return {
+    ...(owner === undefined ? {} : { application: owner }),
+    workflow: { name: options.name, defaults: options.defaults },
+  };
+};
+
 /**
  * Assembles a v2 `@Workflow` class into the workflow the core runs (#272): its paths analysed (every
  * rule, all violations at once — before any model call), router and agent texts loaded, config,
@@ -113,9 +157,9 @@ function settingsOf(workflow: Class): WorkflowSettings {
 export async function workflowOf(
   workflow: Class,
   application: readonly ProviderModule[] = [],
+  owner?: DefaultsLevels["application"],
 ): Promise<AssembledWorkflow> {
-  const bundle = moduleOf(workflow);
-  const analysis = analyseWorkflow(workflow);
+  const { bundle, analysis } = analysedModule(workflow, owner?.defaults);
   const graph = runtimeGraphOf(analysis, workflowDeclarationOf(workflow).options.flow, workflow);
   const agents = agentMetasOf(graph);
   const loader = new PromptLoader(bundle.promptVariables ?? {});
@@ -156,5 +200,6 @@ export async function workflowOf(
     serverTools: mcp.serverTools,
     toolDependencies: toolDependenciesOf(bundle, [...tools.local, ...tools.mcp], names),
     ...(bundle.compactionPrompt === undefined ? {} : { compactionPrompt: bundle.compactionPrompt }),
+    defaultsLevels: defaultsLevelsOf(workflow, owner),
   };
 }

@@ -13,9 +13,10 @@ import type { AnyTool, McpFacade, McpServerHandle } from "./tools/index.js";
 import type { RouterEngine } from "./routers/index.js";
 import type { RuntimeGraph } from "./flow/runtime/graph-model.js";
 import type { LoadedRouter } from "./flow/runtime/routers.js";
+import type { DefaultsLevels } from "./config/defaults.js";
 import type { ModelProviderSettings, WorkflowLimits } from "./graph/settings.js";
 import type { ContainerOptions } from "./components/container/container.js";
-import type { Environment } from "./environments/define.js";
+import type { Environment } from "./flow/generated-types.js";
 import type { IncompatibleResumePolicy } from "./run/resume-guard.js";
 import type { WorkflowObserver } from "./core/observer-hooks.js";
 
@@ -58,6 +59,8 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly onIncompatibleResume?: IncompatibleResumePolicy | undefined;
   /** Every router of the flow with its texts loaded. */
   readonly routers: readonly LoadedRouter[];
+  /** The levels its `defaults` were merged from (#261): `agboss describe` says where each came from. */
+  readonly defaultsLevels?: DefaultsLevels;
   readonly prompts: AgentPrompts<TName>;
   readonly tools: WorkflowTools;
   readonly mcpServers: readonly McpServerHandle<string>[];

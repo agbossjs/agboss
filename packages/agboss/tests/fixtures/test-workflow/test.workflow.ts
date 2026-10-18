@@ -97,6 +97,7 @@ export class MainRouter {}
       cache: true,
     },
     router: { model: "typesafe/jev-1.13" },
+    guardrail: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 8 },
     history: { limit: 5 },
   },

@@ -15,7 +15,7 @@ import { ComponentError } from "../components/metadata.js";
 import type { AnyTool } from "../tools/index.js";
 import type { PauseSeam } from "../pause/index.js";
 import type { ContainerOptions } from "../components/container/container.js";
-import type { Environment } from "../environments/define.js";
+import type { Environment } from "../flow/generated-types.js";
 
 export class UnknownToolError extends Error {
   override name = "UnknownToolError";
@@ -92,13 +92,18 @@ export const pauseFor = (
   checkpointer,
 });
 
-/** Guards from config + their texts; each guard is a router (Jev unless it sets a model). */
+/**
+ * Guards from config + their texts; each guard is a router on its own model or
+ * `defaults.guardrail.model` (#261, resolved at assembly — `[guardrail.no-model]` otherwise).
+ */
 export const guardsFor = (config: AgentsConfigOf<string>, gateway: ModelGateway): GuardSet =>
-  buildGuards(config.guards, guardPrompts, (name, model) =>
-    model === undefined
-      ? defaultRouterOf(`guard:${name}`, config, gateway)
-      : createRouter(`guard:${name}`, model, config.defaults.models, gateway),
-  );
+  buildGuards(config.guards, guardPrompts, (name, model) => {
+    if (model === undefined)
+      throw new ComponentError(
+        `[guardrail.no-model] ${name} has no model — set model or defaults.guardrail.model`,
+      );
+    return createRouter(`guard:${name}`, model, config.defaults.models, gateway);
+  });
 
 /** A model is needed for it, and `defaults.router.model` is not set. */
 export class NoDefaultRouterError extends ComponentError {
