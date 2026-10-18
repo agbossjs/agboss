@@ -17,8 +17,10 @@ import { VirtualClock } from "../../src/testing/clock.js";
 import { seconds } from "../../src/units/index.js";
 import { ChatStart } from "../channels/approval.workflow.js";
 import { execute } from "../helpers/flow.js";
-import { LimitedApplication } from "./fixtures/limited.workflow.js";
-import { instanceCalls } from "./gateway.js";
+import { LimitedApplication, LimitedModelProvider } from "./fixtures/limited.workflow.js";
+import { instanceCalls, KEYS } from "./gateway.js";
+import { createProviderGateway } from "../../src/llm/gateway.js";
+import { ModelProviderDirectory } from "../../src/models/index.js";
 import { advanceUntil, instancesOf, slowProvider } from "./slow-provider.js";
 import { completion } from "./stub.js";
 
@@ -232,5 +234,30 @@ describe("#266 AC7: without rateLimitPolicy there is no limit", () => {
 
     const start = new VirtualClock().now().getTime();
     expect(provider.stats().started.map((at) => (at - start) / 1000)).toEqual([0, 2]);
+  });
+});
+
+describe("#266 × #279: every model call goes through the provider's gate — arbiters too", () => {
+  it("an arbiter's chat model shares the provider's maxConcurrentCalls with every other caller", async () => {
+    const clock = new VirtualClock();
+    const provider = slowProvider(clock, { ...LIMITED, takes: seconds(5) });
+    const gateway = createProviderGateway(ModelProviderDirectory.of([LimitedModelProvider]), {
+      env: {},
+      environment: KEYS,
+      calls: instanceCalls(clock),
+      send: provider.fetch,
+      clock,
+    });
+    const settings = { model: "limited/model", temperature: 0, maxTokens: 10 };
+    const arbiter = () =>
+      gateway
+        .chatModel({ user: { kind: "arbiter", arbiter: "quality-arbiter" }, settings })
+        .invoke("hi");
+    const agent = () =>
+      gateway.chatModel({ user: { kind: "agent", agent: "limited-agent" }, settings }).invoke("hi");
+
+    await advanceUntil(clock, Promise.all([arbiter(), arbiter(), agent()]));
+
+    expect(provider.stats()).toMatchObject({ most: 2, answered: 3 });
   });
 });
