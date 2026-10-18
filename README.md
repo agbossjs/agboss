@@ -125,13 +125,66 @@ The application is the one entry (#261): it lists the workflows, the infrastruct
 `extends CostLedgerRepository`, `ExecutionRecordRepository`, `PausedExecutionRepository`,
 LangGraph's `BaseCheckpointSaver` or one of the shared contracts of #265 — `ExecutionLeaseRepository`,
 `ExecutionTreeRepository`, `RateLimitRepository`; none listed → the built-in in-memory ones, nothing
-written to the home folder; the SQLite ones below) and every budget. `createApp` and `testWith` take it, never a workflow:
+written to the home folder; the SQLite ones below), its **model providers** and every budget.
+`createApp` and `testWith` take it, never a workflow.
+
+Model providers are infrastructure too (#266): `@ModelProvider` classes listed in
+`@Application({ providers })` — none listed → the built-in `OpenRouterModelProvider` (chat) and
+`DecisionsModelProvider` (Jev and the other decision models); one listed → the list is complete,
+the built-ins are not added next to it. A workflow and its components only name models; every model
+of the application (agents, model routers, the default router, guards, compaction, judges) resolves
+to exactly one listed provider by `serves` at assembly — none → `[model.unserved]`, two →
+`[model.ambiguous-provider]` (one model through two providers = two model strings, each in one
+`serves`). `agboss describe` prints `model: … → <provider>` for each, `agboss check --models` checks
+every model of every workflow of the application against its provider:
+
+```ts file=src/model-providers/openrouter.model-provider.ts
+// src/model-providers/openrouter.model-provider.ts — job-scout's chat models, with its own request fields
+import {
+  ModelCost,
+  ModelProvider,
+  OpenRouterProvider,
+  OPENROUTER_API_KEY,
+  OPENROUTER_BASE_URL_SETTING,
+  PromptCaching,
+  Reasoning,
+  RetryPolicy,
+  TRANSIENT_FAILURES,
+  type OpenRouterFields,
+} from "agboss/models";
+import { minutes, seconds } from "agboss/units";
+
+@ModelProvider({
+  name: "openrouter",
+  description: "OpenRouter — every chat model job-scout uses",
+  serves: [/.*/], // its chat models; decision models go to DecisionsModelProvider (no chat there)
+  baseUrl: OPENROUTER_BASE_URL_SETTING,
+  apiKey: OPENROUTER_API_KEY,
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+  reasoning: Reasoning.modelDecides(),
+  promptCaching: PromptCaching.off(),
+  retryPolicy: RetryPolicy.exponential({
+    maxAttempts: 3,
+    initialDelay: seconds(1),
+    maxDelay: seconds(20),
+    jitter: true,
+    retryOn: TRANSIENT_FAILURES,
+  }),
+  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+})
+export class OpenRouterModelProvider extends OpenRouterProvider {
+  override readonly requestFields: OpenRouterFields = { provider: { ignore: ["Inceptron"] } };
+}
+```
 
 ```ts file=src/job-scout.application.ts
 // src/job-scout.application.ts — what createApp(JobScoutApplication, { env }) and testWith run
 import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope, EmptyEnvironment } from "agboss";
+import { DecisionsModelProvider } from "agboss/models";
 import { usd, type Usd } from "agboss/units";
 import { JobScout } from "./job-scout.workflow.js";
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 
 @Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
 export class TenantDailyBudget implements BudgetHandler {
@@ -145,6 +198,7 @@ export class TenantDailyBudget implements BudgetHandler {
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [JobScout], // app.execute(ChatWorkflowStart, …) runs the workflow of that start
+  providers: [OpenRouterModelProvider, DecisionsModelProvider], // every model resolves to one
   budgets: [TenantDailyBudget], // config/budget.config.ts in a project; checked from #261 PR 5
 })
 export class JobScoutApplication {}
@@ -256,7 +310,7 @@ One package; the root `agboss` is the authoring API, the rest are focused entrie
 - `agboss/dto` — field decorators (`@Text`, `@ListOf`, …), the DTO wrappers (`listOf`, `oneOf`,
   `optional`, `variant`) and the standard DTOs
 - `agboss/units` — `usd()`, `seconds()`, `minutes()`
-- `agboss/models` — model providers
+- `agboss/models` — model providers (`@ModelProvider`, listed in `@Application({ providers })`)
 - `agboss/testing` — `testWith`, `replyWith`, `mcpOf`, VCR (+ `agboss/testing/setup`)
 - `agboss/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`, `@McpTool`,
   `@McpExpose`, `@Rag`, A2A, memory)
@@ -410,8 +464,8 @@ export class AuditStoreService {
 - `environment` is required: an application with no settings declares the framework's empty
   contract, `@Application({ environment: EmptyEnvironment })` (any contract without fields works the
   same), and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets `[di.missing-environment]` for an `ENV` consumer.)
-- Model provider keys are not part of it yet: they stay process variables
-  (`EnvironmentVariable.named`) until #266 reads them from the environment.
+- Model provider keys are not part of it: each `@ModelProvider` names its key as a process variable
+  (`apiKey: EnvironmentVariable.named(...)`, read at start; #266 PR 1 keeps them there).
 
 ## Quality gates (judges)
 
