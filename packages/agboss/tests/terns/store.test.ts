@@ -24,6 +24,21 @@ const tern = (overrides: Partial<NewTern> = {}): NewTern => ({
 });
 
 describe("SQLite Tern store", () => {
+  it("#265 S30: pages the Terns with a status, oldest first (recovery's running records)", async () => {
+    const store = createSqliteTernStore(":memory:");
+    const thread = await store.createThread("b");
+    for (const task of ["one", "two", "three"])
+      await store.append(tern({ threadId: thread, task, status: "running" }));
+    await store.append(tern({ threadId: thread, task: "done" }));
+
+    const first = await store.byStatus("running", 2);
+    const next = await store.byStatus("running", 2, first.at(-1)?.id);
+
+    expect(first.map((item) => item.task)).toEqual(["one", "two"]);
+    expect(next.map((item) => item.task)).toEqual(["three"]);
+    expect(await store.byStatus("paused", 2)).toEqual([]);
+  });
+
   it("creates threads per bundle", async () => {
     const store = createSqliteTernStore(":memory:");
     const id = await store.createThread("b");
