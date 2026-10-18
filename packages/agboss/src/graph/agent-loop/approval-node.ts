@@ -7,6 +7,7 @@ import { JudgePoint, visitToolThenAgent, mergePolicies } from "./judge-points.js
 import { extractRunContext } from "../../core/run-context.js";
 import { redactedArguments } from "../../dto/redact.js";
 import { inToolCallFrame } from "../../flow/context/frame.js";
+import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import type { AnyTool } from "../../tools/index.js";
 
 /** One sentence on what the call will do (the ask's `summary`), `sensitive` fields masked. */
@@ -35,13 +36,11 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
   // eslint-disable-next-line max-lines-per-function, complexity
   return async (state, config) => {
     const runCtx = extractRunContext(config, state.runId);
-    const appState = { runId: state.runId, threadId: runCtx.threadId, activeNode: deps.agent.name };
     const [call] = awaitingApproval(state, deps);
     if (call === undefined || deps.approval === undefined) return {};
     const tool = toolNamed(deps.agent, call.tool);
     // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
     if (!tool || !tool.channel) return {};
-    const metadata = runCtx.metadata;
 
     const decision = await deps.approval.requestApproval(
       {
@@ -55,8 +54,6 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
       deps.agent.name,
       tool,
       { runId: state.runId, threadId: runCtx.threadId },
-      metadata,
-      runCtx.executionContext,
     );
     let feedback = decision.feedback;
     let overrideArgs = decision.overrideArguments;
@@ -68,13 +65,9 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
 
     for (const policy of combinedPii) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/prefer-nullish-coalescing
-      const pName = policy.constructor.name || "UnknownPiiPolicy";
-      await deps.observer?.onPiiPolicyStart({
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        name: pName,
-        input: { feedback, overrideArgs },
-        state: appState,
-      });
+      const pName: string = policy.constructor.name || "UnknownPiiPolicy";
+      const input = { feedback, overrideArgs };
+      await reportNodeEvent((base) => deps.observer?.onPiiPolicyStart({ ...base, name: pName, input }));
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (feedback !== undefined && typeof policy.mask === "function") {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -85,12 +78,8 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         overrideArgs = await policy.maskJson(overrideArgs);
       }
-      await deps.observer?.onPiiPolicyEnd({
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        name: pName,
-        update: { feedback, overrideArgs },
-        state: appState,
-      });
+      const update = { feedback, overrideArgs };
+      await reportNodeEvent((base) => deps.observer?.onPiiPolicyEnd({ ...base, name: pName, update }));
     }
 
     const recorded =
@@ -115,7 +104,6 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
       agent: deps.agent.name,
       call,
       runId: runCtx.runId,
-      metadata: runCtx.metadata,
     };
     await visitToolThenAgent(
       combinedGuardrails,
@@ -123,7 +111,6 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
       ctx,
       recorded,
       deps.observer,
-      appState,
     );
     return { decisions: { [call.callId]: recorded } };
   };

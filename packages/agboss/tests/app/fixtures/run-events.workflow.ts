@@ -10,28 +10,30 @@ import {
   WorkflowStart,
   type ActionStartEvent,
   type AgentStartEvent,
-  type AppState,
   type ChannelEndEvent,
   type ChannelStartEvent,
-  type ExecutionOutput,
+  type ExecutionEndEvent,
+  type ExecutionErrorEvent,
+  type ExecutionEvent,
+  type ExecutionPauseEvent,
+  type ExecutionRejectedEvent,
+  type ExecutionResumeEvent,
+  type ExecutionStartEvent,
   type ModelStartEvent,
   type OnActionStart,
   type OnAgentStart,
   type OnChannelEnd,
   type OnChannelStart,
-  type OnError,
+  type OnExecutionEnd,
+  type OnExecutionError,
+  type OnExecutionPause,
+  type OnExecutionRejected,
+  type OnExecutionResume,
+  type OnExecutionStart,
   type OnModelStart,
-  type OnRunRejected,
   type OnToolStart,
-  type OnWorkflowEnd,
-  type OnWorkflowPause,
-  type OnWorkflowResume,
-  type OnWorkflowStart,
   type ToolHandler,
-  type RunRejectedEvent,
   type ToolStartEvent,
-  type WorkflowPauseEvent,
-  type WorkflowResumeEvent,
 } from "../../../src/index.js";
 import { start } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
@@ -49,17 +51,21 @@ export interface SeenEvent {
 /** Every event the observer saw, in order (reset with `resetEvents`). */
 export const events: SeenEvent[] = [];
 
-/** Every request the app refused before a run (`onRunRejected`), in order. */
-export const rejections: RunRejectedEvent[] = [];
+/** Every request the app refused before an execution (`onExecutionRejected`), in order. */
+export const rejections: ExecutionRejectedEvent[] = [];
+
+/** Every execution-level event as the observer got it (its common fields checked by tests). */
+export const executionEvents: ExecutionEvent[] = [];
 
 export function resetEvents(): void {
   events.length = 0;
   rejections.length = 0;
+  executionEvents.length = 0;
 }
 
-/** The workflow-level events only (`workflow-start`, `workflow-pause`, …, `error`). */
+/** The execution-level events only (`execution-start`, `execution-pause`, …, `execution-error`). */
 export const workflowEvents = (): SeenEvent[] =>
-  events.filter((event) => event.hook.startsWith("workflow-") || event.hook === "error");
+  events.filter((event) => event.hook.startsWith("execution-"));
 
 /** The clerk's answer, kept by the finish. */
 export class AnswerDto {
@@ -112,16 +118,16 @@ export class FileAway {
   }
 }
 
-/** Records every workflow-level event and the node events that name a thread. */
+/** Records every execution-level event and the node events, each with its execution and thread. */
 @Injectable()
 export class RunLog
   implements
-    OnWorkflowStart,
-    OnWorkflowPause,
-    OnWorkflowResume,
-    OnWorkflowEnd,
-    OnError,
-    OnRunRejected,
+    OnExecutionStart,
+    OnExecutionPause,
+    OnExecutionResume,
+    OnExecutionEnd,
+    OnExecutionError,
+    OnExecutionRejected,
     OnAgentStart,
     OnModelStart,
     OnToolStart,
@@ -129,44 +135,48 @@ export class RunLog
     OnChannelEnd,
     OnActionStart
 {
-  private push(hook: string, state: AppState, detail?: unknown): void {
-    events.push({ hook, runId: state.runId, threadId: state.threadId, detail });
+  private push(hook: string, event: ExecutionEvent, detail?: unknown): void {
+    events.push({ hook, runId: event.executionId, threadId: event.threadId, detail });
   }
-  onWorkflowStart(state: AppState): void {
-    this.push("workflow-start", state);
+  private pushExecution(hook: string, event: ExecutionEvent, detail?: unknown): void {
+    executionEvents.push(event);
+    this.push(hook, event, detail);
   }
-  onWorkflowPause(event: WorkflowPauseEvent): void {
-    this.push("workflow-pause", event.state, event.pause);
+  onExecutionStart(event: ExecutionStartEvent): void {
+    this.pushExecution("execution-start", event);
   }
-  onWorkflowResume(event: WorkflowResumeEvent): void {
-    this.push("workflow-resume", event.state, event.decision);
+  onExecutionPause(event: ExecutionPauseEvent): void {
+    this.pushExecution("execution-pause", event, event.pause);
   }
-  onWorkflowEnd(result: ExecutionOutput, state: AppState): void {
-    this.push("workflow-end", state, result.status);
+  onExecutionResume(event: ExecutionResumeEvent): void {
+    this.pushExecution("execution-resume", event, event.decision);
   }
-  onError(error: Error, state: AppState): void {
-    this.push("error", state, error);
+  onExecutionEnd(event: ExecutionEndEvent): void {
+    this.pushExecution("execution-end", event, event.finish);
   }
-  onRunRejected(event: RunRejectedEvent): void {
+  onExecutionError(event: ExecutionErrorEvent): void {
+    this.pushExecution("execution-error", event, event.error);
+  }
+  onExecutionRejected(event: ExecutionRejectedEvent): void {
     rejections.push(event);
   }
   onAgentStart(event: AgentStartEvent): void {
-    this.push("agent-start", event.state);
+    this.push("agent-start", event);
   }
   onModelStart(event: ModelStartEvent): void {
-    this.push("model-start", event.state);
+    this.push("model-start", event);
   }
   onToolStart(event: ToolStartEvent): void {
-    this.push("tool-start", event.state);
+    this.push("tool-start", event);
   }
   onChannelStart(event: ChannelStartEvent): void {
-    this.push("channel-start", event.state);
+    this.push("channel-start", event);
   }
   onChannelEnd(event: ChannelEndEvent): void {
-    this.push("channel-end", event.state);
+    this.push("channel-end", event);
   }
   onActionStart(event: ActionStartEvent): void {
-    this.push("action-start", event.state);
+    this.push("action-start", event);
   }
 }
 
@@ -190,7 +200,6 @@ export class Done {}
     tools: { maxToolCalls: 3 },
   },
   providers: [FileAway],
-  observers: [RunLog],
   channelClasses: [TerminalUserChannel],
   flow: [
     start(Ask)
@@ -209,5 +218,6 @@ export class Applications {}
   environment: EmptyEnvironment,
   workflows: [Applications],
   budgets: TEST_BUDGETS,
+  observers: [RunLog],
 })
 export class ApplicationsApplication {}

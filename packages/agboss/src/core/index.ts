@@ -19,8 +19,6 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   type AnswersOf,
   /** @deprecated Import from "agboss" (#195). */
-  type AppState,
-  /** @deprecated Import from "agboss" (#195). */
   BindTool,
   /** @deprecated Import from "agboss" (#195). */
   Channel,
@@ -123,7 +121,7 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   type OnDestroy,
   /** @deprecated Import from "agboss" (#195). */
-  type OnError,
+  type OnExecutionError,
   /** @deprecated Import from "agboss" (#195). */
   type OnGuardrailEnd,
   /** @deprecated Import from "agboss" (#195). */
@@ -157,9 +155,9 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   type OnToolStart,
   /** @deprecated Import from "agboss" (#195). */
-  type OnWorkflowEnd,
+  type OnExecutionEnd,
   /** @deprecated Import from "agboss" (#195). */
-  type OnWorkflowStart,
+  type OnExecutionStart,
   /** @deprecated Import from "agboss" (#195). */
   PiiPolicy,
   /** @deprecated Import from "agboss" (#195). */

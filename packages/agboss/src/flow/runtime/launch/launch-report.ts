@@ -2,8 +2,9 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { RunnableLambda } from "@langchain/core/runnables";
 import type { ObserverManager } from "../../../core/observer-manager.js";
 import type { ErrorRecord } from "../../../core/error-record.js";
-import type { ExecutionFacts, FrameSpec } from "../../context/frame.js";
+import type { FrameSpec } from "../../context/frame.js";
 import type { LaunchItemsTruncatedEvent } from "../../observers/launch-items-truncated.js";
+import { nodeEventOf } from "../../observers/execution-event.js";
 import type { BranchStatus, BranchTicket, LaunchTicket } from "./records.js";
 
 /**
@@ -67,26 +68,16 @@ export interface LaunchReportSite {
   readonly frame: FrameSpec;
 }
 
-function truncatedEvent(
-  execution: ExecutionFacts,
+const truncatedEvent = (
   frame: FrameSpec,
   ticket: LaunchTicket,
   maxItems: number,
-): LaunchItemsTruncatedEvent {
-  const { executionId, threadId, workflow } = execution;
-  const { name, version, startedVersion } = workflow;
-  return {
-    executionId,
-    parentExecutionId: undefined,
-    rootExecutionId: executionId,
-    threadId,
-    workflow: { name, version, startedVersion },
-    step: { ...frame.step, component: { name: frame.step.component.name } },
-    launch: ticket.launchId,
-    items: ticket.items,
-    maxItems,
-  };
-}
+): LaunchItemsTruncatedEvent => ({
+  ...nodeEventOf(frame),
+  launch: ticket.launchId,
+  items: ticket.items,
+  maxItems,
+});
 
 /** A per-item launch that took fewer items than its list had: the trace entry and the event. */
 export async function reportTruncation(
@@ -95,7 +86,7 @@ export async function reportTruncation(
   maxItems: number | undefined,
 ): Promise<void> {
   if (maxItems === undefined || ticket.items <= maxItems) return;
-  const event = truncatedEvent(site.frame.execution, site.frame, ticket, maxItems);
+  const event = truncatedEvent(site.frame, ticket, maxItems);
   const { launch, items } = event;
   await traced(site.config, "launch items truncated", { launch, items, maxItems });
   await site.observer?.onLaunchItemsTruncated(event);

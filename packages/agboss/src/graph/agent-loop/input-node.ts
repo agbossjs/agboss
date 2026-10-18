@@ -1,7 +1,6 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { formatMemory } from "../../flow/runtime/history.js";
 import { gatherKnowledge } from "../nodes/knowledge.js";
-import { extractRunContext } from "../../core/run-context.js";
 import type { ApprovalRecord } from "../../pause/index.js";
 import type { AsyncNode } from "../types.js";
 import type { AgentLoopDeps } from "./deps.js";
@@ -41,14 +40,11 @@ const joined = (parts: readonly string[]): string => parts.filter((p) => p !== "
 export function makeInputNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
   const { agent } = deps;
   return async (state, config) => {
-    const threadId = extractRunContext(config, state.runId).threadId;
-    const appState = { runId: state.runId, threadId, activeNode: agent.name };
     const knowledge = await gatherKnowledge(
       agent.knowledge,
       state.inputMessage,
       config,
       deps.observer,
-      appState,
     );
     const view = await memoryViewOf(agent, state);
     const memory = formatMemory(view, {

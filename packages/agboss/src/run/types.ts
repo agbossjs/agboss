@@ -44,9 +44,6 @@ export interface RunOptions {
   readonly signal?: AbortSignal | undefined;
   /** Callback to receive token streaming and tool calls in real time. */
   readonly onStream?: (event: RunStreamEvent) => void;
-  readonly executionContext?: unknown;
-  /** The run's metadata, given to channels (`ChannelRequest.metadata`). */
-  readonly metadata?: Readonly<Record<string, string>> | undefined;
   /** The thread's owner, read as `executionContext.ownerId` (checked by the app). */
   readonly ownerId?: string | undefined;
   /**
@@ -94,6 +91,6 @@ export interface AgentExecutionOutput {
   readonly runId: string;
   /** Present only when paused: the tool call waiting for an approval. */
   readonly pending?: PendingPause;
-  /** The run's metadata (`RunOptions.metadata`), kept so its resume gives channels the same metadata. */
-  readonly metadata?: Readonly<Record<string, string>>;
+  /** The workflow version it started on (`workflow.startedVersion`); absent in a run stored before it. */
+  readonly startedVersion?: string;
 }

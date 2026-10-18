@@ -4,7 +4,6 @@ import type { Class } from "./injection.js";
 import { componentOf } from "./metadata.js";
 import type { AgentMeta, PolicyFields, WorkflowMeta } from "./meta-types.js";
 import { containerFor } from "./runtime.js";
-import type { WorkflowObserver } from "../core/observer-hooks.js";
 
 /** Per agent or tool: its policy classes, and whether they replace the workflow's own. */
 interface PolicyClasses {
@@ -89,7 +88,6 @@ function resolvePolicies<TPolicy>(
 /** The parts of a workflow whose instances come from its container (per `services`). */
 export type ContainerParts = Pick<
   AssembledWorkflow,
-  | "observers"
   | "resolve"
   | "piiPolicies"
   | "guardrails"
@@ -99,18 +97,16 @@ export type ContainerParts = Pick<
   | "workflowGuardrails"
 >;
 
-/** Observers and policies of a workflow, created by its container. */
+/** The policies of a workflow, created by its container. */
 export function containerPartsOf(bundle: WorkflowMeta, policies: PolicyMaps): ContainerParts {
   const get = (services: WorkflowServices, cls: Class): unknown =>
     containerFor(bundle, services).get(cls);
   const pii = (services: WorkflowServices) => (cls: Class) => get(services, cls) as PiiPolicy;
   const guardrail = (services: WorkflowServices) => (cls: Class) => get(services, cls) as Guardrail;
-  const observers = bundle.observers ?? [];
   const wfPii = bundle.piiPolicies ?? [];
   const wfGuardrails = bundle.guardrails ?? [];
   return {
     resolve: (services) => (cls) => get(services, cls),
-    observers: (services) => observers.map((cls) => get(services, cls) as WorkflowObserver),
     piiPolicies: (services) => resolvePolicies(policies.agentPii, pii(services)),
     guardrails: (services) => resolvePolicies(policies.agentGuardrails, guardrail(services)),
     toolPiiPolicies: (services) => resolvePolicies(policies.toolPii, pii(services)),

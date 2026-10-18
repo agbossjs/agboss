@@ -11,13 +11,13 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type AppState,
+  type ExecutionErrorEvent,
   type ExecutionTreeValue,
-  type OnError,
-  type OnWorkflowResume,
+  type OnExecutionError,
+  type OnExecutionResume,
   type PausedRun,
   type ToolHandler,
-  type WorkflowResumeEvent,
+  type ExecutionResumeEvent,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/paused-execution.repository.js";
@@ -167,11 +167,11 @@ export class Clerk {}
 
 /** The errors and resumes the observers saw. */
 @Injectable()
-export class LeaseLog implements OnError, OnWorkflowResume {
-  onError(error: Error, _state: AppState): void {
-    seen.errors.push(error);
+export class LeaseLog implements OnExecutionError, OnExecutionResume {
+  onExecutionError(event: ExecutionErrorEvent): void {
+    seen.errors.push(event.error);
   }
-  onWorkflowResume(event: WorkflowResumeEvent): void {
+  onExecutionResume(event: ExecutionResumeEvent): void {
     seen.resumes.push(event.decision);
   }
 }
@@ -233,7 +233,6 @@ export class ReceiptWorkflowFinish {}
     history: { limit: 1 },
     tools: { maxToolCalls: 8 },
   },
-  observers: [LeaseLog],
   channelClasses: [TerminalUserChannel],
   flow: [
     start(OrderWorkflowStart)
@@ -250,6 +249,7 @@ export class LeaseWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LeaseWorkflow],
+  observers: [LeaseLog],
   providers: [HookedPausedExecutionRepository, SeenExecutionRecordRepository],
   budgets: TEST_BUDGETS,
 })

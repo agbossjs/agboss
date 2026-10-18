@@ -3,7 +3,7 @@ import {
   ApplicationContext,
   Injectable,
   Workflow,
-  type OnWorkflowStart,
+  type OnExecutionStart,
 } from "../../../../src/index.js";
 import { ChatStart, Reply, settingsDefaults } from "../app/settings.workflow.js";
 import { start } from "../../../helpers/flow.js";
@@ -13,10 +13,10 @@ import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 
 /** An observer — not a tool — that reads the app's environment; created when the app starts. */
 @Injectable({ deps: [ApplicationContext] })
-export class RunLog implements OnWorkflowStart {
+export class RunLog implements OnExecutionStart {
   constructor(readonly applicationContext: ApplicationContext) {}
 
-  onWorkflowStart(): void {
+  onExecutionStart(): void {
     // a real one would log to the sink of `this.applicationContext.environment`
   }
 }
@@ -42,7 +42,6 @@ export class Greeter {}
       .toFinish(Reply),
   ],
   defaults: settingsDefaults,
-  observers: [RunLog],
 })
 export class ObservedApp {}
 
@@ -52,6 +51,7 @@ export class ObservedApp {}
   name: "observed-application",
   version: "1.0.0",
   workflows: [ObservedApp],
+  observers: [RunLog],
   budgets: TEST_BUDGETS,
 })
 export class ObservedApplication {}

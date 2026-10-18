@@ -1,34 +1,30 @@
 import type { BaseMessage, MessageContent } from "@langchain/core/messages";
 import type { JudgeVerdict } from "../components/judge-decorators.js";
+import type { CostReport } from "../finops/usage.js";
+import type { ExecutionEvent, NodeEvent } from "../flow/observers/execution-event.js";
+import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { NodeValue } from "../flow/runtime/scope.js";
 import type { PendingPause } from "../pause/index.js";
 import type { RagRetrieval } from "../rag/types.js";
 
 /**
- * The payloads observer hooks receive (`@Workflow({ observers })`). Each event names the node it
- * is about and carries the run's `AppState`.
+ * The payloads observer hooks receive (`@Application({ observers })`, #261): one event object per
+ * hook, plain data. Every execution event carries `executionId`, `parentExecutionId`,
+ * `rootExecutionId`, `threadId`, `tenantId` and `workflow` (`ExecutionEvent`); a node event adds
+ * the `step` it is about (`NodeEvent`). The full record of an execution is `result.record`.
  */
-export interface AppState {
-  readonly runId: string;
-  readonly threadId?: string;
-  /** Name of the current agent, router, tool's agent or action. */
-  readonly activeNode?: string;
-  readonly variables?: Readonly<Record<string, unknown>>;
-  readonly history?: readonly unknown[];
-}
 
-/** The start of a named step (agent, router, knowledge base, guardrail, policy, action, channel). */
-interface StartEvent<I> {
+/** The start of a named part of a step (agent, router, knowledge base, guardrail, policy, action, channel). */
+interface StartEvent<I> extends NodeEvent {
+  /** What starts: the agent, router or action (`step.component.name`), or the part inside it. */
   readonly name: string;
   readonly input: I;
-  readonly state: AppState;
 }
 
-/** The end of a named step, with what it produced. */
-interface EndEvent<U> {
+/** The end of a named part of a step, with what it produced. */
+interface EndEvent<U> extends NodeEvent {
   readonly name: string;
   readonly update: U;
-  readonly state: AppState;
 }
 
 /** An agent starts: `input` is its input message (#270 Q51). */
@@ -54,19 +50,17 @@ export type RagStartEvent = StartEvent<string>;
 export type RagEndEvent = EndEvent<RagRetrieval>;
 
 /** A tool is called by an agent, with the model's (validated) arguments. */
-export interface ToolStartEvent {
+export interface ToolStartEvent extends NodeEvent {
   readonly toolName: string;
   readonly agentName: string;
   readonly arguments: Readonly<Record<string, unknown>>;
-  readonly state: AppState;
 }
 
 /** A tool returned: `update` is the text the model sees. */
-export interface ToolEndEvent {
+export interface ToolEndEvent extends NodeEvent {
   readonly toolName: string;
   readonly agentName: string;
   readonly update: string;
-  readonly state: AppState;
 }
 
 /** What a guardrail is shown: the judge point, its context and (on a channel) the decision. */
@@ -98,92 +92,115 @@ export type ChannelStartEvent = StartEvent<unknown>;
 export type ChannelEndEvent = EndEvent<unknown>;
 
 /** A model is called by an agent (`callerName`) with the conversation so far. */
-export interface ModelStartEvent {
+export interface ModelStartEvent extends NodeEvent {
   readonly modelName: string;
   readonly callerName: string;
   readonly rawPayload: readonly BaseMessage[];
-  readonly state: AppState;
+}
+
+/** The tokens of one model call. */
+export interface ModelUsage {
+  readonly promptTokens: number;
+  readonly completionTokens: number;
+  readonly totalTokens: number;
 }
 
 /** A model answered: its content, token usage and cost. */
-export interface ModelEndEvent {
+export interface ModelEndEvent extends NodeEvent {
   readonly model: string;
   readonly callerName: string;
   readonly rawContent: MessageContent;
-  readonly usage: {
-    readonly promptTokens: number;
-    readonly completionTokens: number;
-    readonly totalTokens: number;
-  };
+  readonly usage: ModelUsage;
   readonly calculatedCost?: number;
-  readonly state: AppState;
 }
 
 /** A judge evaluates an agent's reply (`input`). */
-export interface JudgeStartEvent {
+export interface JudgeStartEvent extends NodeEvent {
   readonly name: string;
   readonly agentName: string;
   readonly input: unknown;
-  readonly state: AppState;
 }
 
 /** A judge's verdict. */
-export interface JudgeEndEvent {
+export interface JudgeEndEvent extends NodeEvent {
   readonly name: string;
   readonly agentName: string;
   readonly update: JudgeVerdict;
-  readonly state: AppState;
 }
 
-/** A run paused (`ExecutionStatus.Paused`): `pause` is what it waits for. */
-export interface WorkflowPauseEvent {
+/** An execution starts (`onExecutionStart`): once, at `app.execute` — a resume does not start it again. */
+export type ExecutionStartEvent = ExecutionEvent;
+
+/**
+ * An execution ended at a finish (`onExecutionEnd`): once per execution, also when it finishes
+ * after a resume — a pause is `onExecutionPause`, a failure `onExecutionError`.
+ */
+export interface ExecutionEndEvent extends ExecutionEvent {
+  /** The workflow finish it reached. */
+  readonly finish: ComponentRecord;
+  /** What it cost, all its passes together. */
+  readonly spend: CostReport;
+}
+
+/** An execution paused (`ExecutionStatus.Paused`): `pause` is what it waits for. */
+export interface ExecutionPauseEvent extends ExecutionEvent {
   readonly pause: PendingPause;
-  readonly state: AppState;
 }
 
-/** Why a run continues (#265 S30). */
+/** Why an execution continues (#265 S30). */
 export enum ResumeReason {
   /** `app.resume` answered its pause with a decision. */
   Answered = "answered",
   /**
-   * Recovery: its instance died or stopped while the run moved, and this instance continues it
-   * from its last checkpoint (taking a decision recorded meanwhile, if any).
+   * Recovery: its instance died or stopped while the execution moved, and this instance continues
+   * it from its last checkpoint (taking a decision recorded meanwhile, if any).
    */
   Recovered = "recovered",
 }
 
 /**
- * A run continues: `app.resume` picked a paused run up with `decision` (`ResumeReason.Answered`),
- * or recovery continues an interrupted one (`ResumeReason.Recovered`; `decision` only when it
- * takes a recorded one). The run's id is the one it started with.
+ * An execution continues: `app.resume` picked a paused one up with `decision`
+ * (`ResumeReason.Answered`), or recovery continues an interrupted one (`ResumeReason.Recovered`;
+ * `decision` only when it takes a recorded one). Its id is the one it started with.
  */
-export interface WorkflowResumeEvent {
+export interface ExecutionResumeEvent extends ExecutionEvent {
   /** Why it continues. */
   readonly reason: ResumeReason;
   /** The decision it continues with (`undefined` for a recovery that takes none). */
   readonly decision: unknown;
-  /** Its run id and thread. */
-  readonly state: AppState;
 }
 
-/** What a caller asked the app for: `app.execute`, `app.resume` or `app.cancel`. */
-export type RunOperation = "execute" | "resume" | "cancel";
+/**
+ * An execution failed (`onExecutionError`) — also after a resume, or cancelled while paused
+ * (`WorkflowCancelledError`) — or a resume of a paused one was refused as incompatible
+ * (`IncompatibleResumeError`; it stays paused).
+ */
+export interface ExecutionErrorEvent extends ExecutionEvent {
+  readonly error: Error;
+}
+
+/** What a caller asked the app for (#269): `app.execute`, `app.resume` or `app.cancel`. */
+export enum ExecutionOperation {
+  Execute = "execute",
+  Resume = "resume",
+  Cancel = "cancel",
+}
 
 /**
- * A request the app refused before any run work (`onRunRejected`): a thread of another owner, a
- * resume with nothing paused, an unknown thread, an invalid start input. No run started or was
- * located, so it carries no run id (never another owner's) and never the input values; the error
- * is still thrown to the caller.
+ * A request the app refused before any execution work (`onExecutionRejected`): a thread of another
+ * owner, a resume with nothing paused, an unknown thread, invalid start input or context values, an
+ * exhausted budget, a stopping app. No execution started or was located, so it carries no
+ * `executionId` (never another owner's) and never the input values; the error is still thrown.
  */
-export interface RunRejectedEvent {
+export interface ExecutionRejectedEvent {
   /** The app call that was refused. */
-  readonly operation: RunOperation;
+  readonly operation: ExecutionOperation;
   /** The thread the request named; absent for an `execute` without one. */
   readonly threadId?: string;
+  /** The tenant the request named (`"default"` when it named none, or its values were invalid). */
+  readonly tenantId: string;
   /** The error's stable code (`run.thread-owner`, `run.not-paused`, `dto.invalid`, …). */
   readonly code: string;
   /** What went wrong, without the input values (`invalid WorkflowStartTextDto at text`). */
   readonly message: string;
-  /** The request's thread, as on other events; no `runId`. */
-  readonly state: Omit<AppState, "runId">;
 }

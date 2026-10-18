@@ -155,7 +155,13 @@ describe("AC12: createApp — the real app", () => {
     expect(result.threadId).toMatch(/^[0-9a-f-]{36}$/);
     expect(result.spend.totalUsd).toBeCloseTo(0.002, 9);
     expect(app.textStart).toBe(TaskStart);
-    expect([app.name, app.version, app.warnings]).toEqual(["code-review-application", "1.0.0", []]);
+    expect([app.name, app.version, app.warnings]).toEqual([
+      "code-review-application",
+      "1.0.0",
+      [
+        "[application.in-memory-cost-ledger] in-memory cost ledger: each application instance counts budgets on its own and the counters reset on restart",
+      ],
+    ]);
   });
 
   it("resume continues the paused run of a thread; a thread without a pause cannot resume", async () => {

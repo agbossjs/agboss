@@ -12,6 +12,8 @@ export interface InterruptedRun {
   readonly threadId: string;
   readonly tenantId: string;
   readonly ternId: string;
+  /** The workflow version it started on (its record's). */
+  readonly startedVersion: string;
 }
 
 /**

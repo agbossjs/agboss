@@ -1,6 +1,7 @@
-import type { AppState, GuardrailInput } from "../../core/observability.js";
+import type { GuardrailInput } from "../../core/observability.js";
 import type { WorkflowObserver } from "../../core/observer-hooks.js";
 import type { ToolCallRequest } from "./deps.js";
+import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 
 /** Where in an agent's loop a judge looks. */
 export enum JudgePoint {
@@ -73,22 +74,16 @@ export function mergePolicies(
 }
 
 /** Tells the observers a guardrail ran: start with what it is shown, end with what it returned. */
-interface GuardrailReport {
-  readonly observer?: WorkflowObserver;
-  readonly appState?: AppState;
-}
-
 async function reportGuardrail<T>(
-  report: GuardrailReport,
+  observer: WorkflowObserver | undefined,
   name: string,
   input: GuardrailInput,
   run: () => Promise<T>,
 ): Promise<T> {
-  const { observer, appState } = report;
-  if (observer === undefined || appState === undefined) return run();
-  await observer.onGuardrailStart?.({ name, input, state: appState });
+  if (observer === undefined) return run();
+  await reportNodeEvent((base) => observer.onGuardrailStart?.({ ...base, name, input }));
   const result = await run();
-  await observer.onGuardrailEnd?.({ name, update: result, state: appState });
+  await reportNodeEvent((base) => observer.onGuardrailEnd?.({ ...base, name, update: result }));
   return result;
 }
 
@@ -101,7 +96,6 @@ export async function visitToolThenAgent(
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types, @typescript-eslint/no-explicit-any
   decision?: any,
   observer?: WorkflowObserver,
-  appState?: AppState,
 ): Promise<void> {
   if (!guardrails) return;
   for (const g of guardrails) {
@@ -111,7 +105,7 @@ export async function visitToolThenAgent(
       const gName: string = g.constructor.name || "UnknownGuardrail";
       const onChannel = point === JudgePoint.OnChannelDecision;
       const result: unknown = await reportGuardrail(
-        { observer, appState },
+        observer,
         gName,
         { point, ctx, decision },
         async (): Promise<unknown> =>
@@ -134,7 +128,6 @@ export async function visitAgentAnswer(
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types, @typescript-eslint/no-explicit-any
   ctx: any,
   observer?: WorkflowObserver,
-  appState?: AppState,
 ): Promise<void> {
   if (!guardrails) return;
   for (const g of guardrails) {
@@ -143,7 +136,7 @@ export async function visitAgentAnswer(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/prefer-nullish-coalescing
       const gName: string = g.constructor.name || "UnknownGuardrail";
       await reportGuardrail(
-        { observer, appState },
+        observer,
         gName,
         { point: "beforeAgentAnswer", ctx },
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access

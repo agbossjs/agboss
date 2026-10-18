@@ -38,10 +38,17 @@ export const textStartOfWorkflow = (app: App, workflow: Class): Class | undefine
 const textStartOf = (workflows: readonly BuiltApp[]): Class | undefined =>
   workflows.map((workflow) => workflow.app.textStart).find((start) => start !== undefined);
 
+/** What an instance adds to its workflows' apps: its graceful stop and its startup warnings. */
+export interface InstanceSurface {
+  readonly stop: GracefulStop;
+  /** The assembly warnings, then each workflow's (a config changed without a version bump). */
+  readonly warnings: readonly string[];
+}
+
 export function composeApp(
   assembled: AssembledApplication,
   workflows: readonly BuiltApp[],
-  stop: GracefulStop,
+  { stop, warnings }: InstanceSurface,
 ): App {
   const [first] = workflows;
   // the assembly rejects an application without workflows
@@ -58,7 +65,7 @@ export function composeApp(
   const app: App = {
     name: assembled.name,
     version: assembled.version,
-    warnings: workflows.flatMap((workflow) => workflow.app.warnings),
+    warnings,
     models: [...new Set(workflows.flatMap((workflow) => workflow.app.models))],
     textStart: textStartOf(workflows),
     // a start no workflow has goes to the first, whose check rejects it (`onRunRejected`)

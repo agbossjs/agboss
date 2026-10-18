@@ -6,7 +6,6 @@ import type {
 } from "../components/decorators.js";
 import type { Class } from "../components/injection.js";
 import { stopComponents } from "../components/container/lifecycle.js";
-import { ObserverManager } from "../core/observer-manager.js";
 import type { McpConnections } from "../tools/index.js";
 import type { RunTracing } from "../tracing/index.js";
 import type { AssembledWorkflow, ResolvedPolicies, WorkflowServices } from "../workflow.js";
@@ -52,10 +51,9 @@ export const policyDepsOf = (
   channelAdapters: (channel: string) => adapters?.get(channel),
 });
 
-/** The container's instances: lookup by class, and the observers (created eagerly). */
+/** The container's instances: lookup by class. */
 export interface ContainerDeps {
   readonly container: { readonly get: <T>(token: Class<T>) => T };
-  readonly observer: ObserverManager;
 }
 
 export function containerDepsOf(
@@ -68,8 +66,6 @@ export function containerDepsOf(
       // the container creates `token` itself: the instance is of that class
       get: <T>(token: Class<T>): T => resolve(token) as T,
     },
-    // created now (eagerly), so their `onStart` runs with the app's
-    observer: new ObserverManager(bundle.observers?.(services) ?? []),
   };
 }
 

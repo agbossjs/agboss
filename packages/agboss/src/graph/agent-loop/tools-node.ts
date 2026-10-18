@@ -15,6 +15,7 @@ import {
   type NodeRunContext,
 } from "../../core/run-context.js";
 import { timeoutOn, waitOf } from "../../infrastructure/clock-timeout.js";
+import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
@@ -72,13 +73,6 @@ export function makeToolNode(
     const tool = toolNamed(deps.agent, task.tool);
     const runCtx = extractRunContext(config, task.runId);
     if (tool === undefined) return {};
-    const appState = {
-      runId: runCtx.runId,
-      threadId: runCtx.threadId,
-      activeNode: deps.agent.name,
-      variables: {},
-      history: [],
-    };
     throwIfCancelled(runCtx.run);
     const usage: UsageRecord[] = [];
     const caller = tool.costCaller ?? `tool:${tool.name}`;
@@ -93,15 +87,17 @@ export function makeToolNode(
     const reportUsage = (spent: UsageRecord): void => {
       usage.push({ ...spent, caller });
     };
-    const event = { toolName: task.tool, agentName: deps.agent.name, state: appState };
-    await deps.observer?.onToolStart({ ...event, arguments: task.args });
+    const event = { toolName: task.tool, agentName: deps.agent.name };
+    await reportNodeEvent((base) =>
+      deps.observer?.onToolStart({ ...base, ...event, arguments: task.args }),
+    );
     const content = await inToolCallFrame(
       task.callId,
       { reportUsage },
       () => runTool(tool, task.args, context),
       call.signal,
     ).finally(call.release);
-    await deps.observer?.onToolEnd({ ...event, update: content });
+    await reportNodeEvent((base) => deps.observer?.onToolEnd({ ...base, ...event, update: content }));
     return { results: { [task.callId]: { callId: task.callId, tool: task.tool, content } }, usage };
   };
 }

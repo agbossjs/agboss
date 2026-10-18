@@ -136,7 +136,6 @@ export function moduleOf(workflow: Class): WorkflowMeta {
     providers: options.providers,
     promptVariables: options.promptVariables,
     channelClasses: options.channelClasses,
-    observers: options.observers,
   });
   modules.set(workflow, module);
   return module;

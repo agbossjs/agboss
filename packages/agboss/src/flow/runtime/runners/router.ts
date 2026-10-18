@@ -1,4 +1,3 @@
-import { extractRunContext } from "../../../core/run-context.js";
 import { defaultSummaries } from "../../../graph/agent-definitions.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import type { RouteRequest, RouterEngine } from "../../../routers/index.js";
@@ -12,6 +11,7 @@ import { readInput } from "../scope.js";
 import type { ExecutionStateType } from "../state.js";
 import { visitNumberOf } from "../step-frame.js";
 import { modelRouterLaunch } from "../launch/router-decision.js";
+import { reportNodeEvent } from "../../observers/execution-event.js";
 
 /** The router's request: its static texts, the thread's memory, then its input message (#270 Q51). */
 function requestOf(
@@ -45,28 +45,24 @@ export function routerRunner(
   deps: GraphDeps<string>,
 ): NodeRunner {
   return async (state, config) => {
-    const threadId = extractRunContext(config, state.runId).threadId;
-    const appState = { runId: state.runId, threadId, activeNode: node.id };
+    const name = node.id;
     const request = requestOf(router, node, state, deps);
     const input = typeof request.input === "string" ? request.input : JSON.stringify(request.input);
-    await deps.observer?.onRouterStart({ name: node.id, input, state: appState });
+    await reportNodeEvent((base) => deps.observer?.onRouterStart({ ...base, name, input }));
     const step = { nodeId: node.id, visitNumber: visitNumberOf(node, state) };
     const read = readInput(deps.graph, node, state).read;
     if (node.exits.launches.size > 0) {
       const decider = deps.launchDecisionFor?.(router);
       const launch = await modelRouterLaunch({ node, router, step, input, decider, ...{ config } });
       const update = { route: launch.launch.join(", "), reason: launch.reason };
-      await deps.observer?.onRouterEnd({ name: node.id, update, state: appState });
+      await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
       return { launch: launch.launch, read, usage: launch.usage };
     }
     const outcome = await engine.route(request);
     if (outcome.kind === "failed") throw routerFailureOf(step, outcome);
     const { next, reason } = outcome.decision;
-    await deps.observer?.onRouterEnd({
-      name: node.id,
-      update: { route: next, reason },
-      state: appState,
-    });
+    const update = { route: next, reason };
+    await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
     const usage = outcome.usage === undefined ? [] : [outcome.usage];
     return { route: next, read, usage };
   };

@@ -62,12 +62,6 @@ export function makeCollectNode(
         agent: deps.agent.name,
         call,
         runId: runCtx.runId,
-        metadata: runCtx.metadata,
-      };
-      const appState = {
-        runId: state.runId,
-        threadId: runCtx.threadId,
-        activeNode: deps.agent.name,
       };
       await visitToolThenAgent(
         combinedGuardrails,
@@ -75,7 +69,6 @@ export function makeCollectNode(
         ctx,
         undefined,
         deps.observer,
-        appState,
       );
     }
     const messages = calls.map(

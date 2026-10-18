@@ -13,6 +13,20 @@ import { envOption } from "./cli/environment.js";
 import { assemble, modelProblem, problemText, type CheckProblem } from "./cli/check-problems.js";
 import { CliError } from "./cli/errors.js";
 import { writeCheckedTypes } from "./cli/flow-types.js";
+import { applicationWarningsOf } from "agboss/internal";
+
+/**
+ * The application's assembly warnings (#261): its budgets on an in-memory cost ledger, its pauses
+ * in memory — printed, and errors under `--strict`.
+ */
+function applicationProblems({ context, file, bundle }: CheckTarget): Promise<CheckProblem[]> {
+  const found = applicationWarningsOf(bundle).map((warning) => ({ file, ...warning }));
+  if (flagOption(context.values, "strict")) return Promise.resolve(found);
+  found.forEach((problem) => {
+    context.say(`warning: ${problemText(problem)}`);
+  });
+  return Promise.resolve([]);
+}
 
 /** What a check gets: the assembled workflow and where it came from. */
 export interface CheckTarget {
@@ -38,6 +52,7 @@ export interface WorkflowCheck {
  */
 export const CHECKS: readonly WorkflowCheck[] = [
   { name: "environment", run: environmentProblems },
+  { name: "application", run: applicationProblems },
   {
     // assembly reads and checks every prompt (#199): its problems are reported as prompt.* by
     // assemble(); a workflow that assembled has none left

@@ -79,8 +79,6 @@ export interface TreeCall extends CallOptions {
 /** What `execute` / `resume` hand the run: the call's options with the tracked signal. */
 export const runOptionsOf = (call: TreeCall, signal: AbortSignal): RunOptions => ({
   signal,
-  executionContext: call.executionContext,
-  metadata: call.metadata,
   ownerId: call.ownerId,
   configurable: call.configurable,
   ...(call.onStream === undefined ? {} : { onStream: call.onStream }),

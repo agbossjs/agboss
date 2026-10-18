@@ -34,8 +34,8 @@ export class AuditService {
   onToolEnd(): void {
     auditCalls.push("onToolEnd");
   }
-  onWorkflowStart(): void {
-    auditCalls.push("onWorkflowStart");
+  onExecutionStart(): void {
+    auditCalls.push("onExecutionStart");
   }
 }
 
@@ -67,12 +67,8 @@ export class Start {}
 })
 export class Finish {}
 
-/** A workflow `start → worker (echo tool) → finish` with the given observers. */
-export function workflowWith(
-  name: string,
-  observers: readonly ObserverClass[],
-  providers: readonly Provider[] = [],
-): Class {
+/** A workflow `start → worker (echo tool) → finish` with the given providers. */
+export function workflowWith(name: string, providers: readonly Provider[] = []): Class {
   @Workflow({
     name,
     version: "1",
@@ -88,26 +84,31 @@ export function workflowWith(
         .toAgent(Worker)
         .toFinish(Finish),
     ],
-    observers,
     providers: [AuditService, ...providers],
   })
   class ObservedWorkflow {}
   return ObservedWorkflow;
 }
 
-/** The application of `workflowWith(…)`: what the tests build. */
+/**
+ * The application of `workflowWith(…)` with the given observers (`@Application({ observers })`,
+ * #261): what the tests build; `infrastructure` goes in its own providers (a `Logger`).
+ */
 export function applicationWith(
   name: string,
   observers: readonly ObserverClass[],
   providers: readonly Provider[] = [],
+  infrastructure: readonly Provider[] = [],
 ): Class {
-  const workflow = workflowWith(name, observers, providers);
+  const workflow = workflowWith(name, providers);
   @Application({
     name: name.replace(/-workflow$/, "-application"),
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [workflow],
     budgets: TEST_BUDGETS,
+    observers,
+    providers: infrastructure,
   })
   class ObservedApplication {}
   return ObservedApplication;

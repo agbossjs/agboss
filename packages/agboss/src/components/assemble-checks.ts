@@ -72,7 +72,6 @@ export const componentClassesOf = (
   ),
   ...rags,
   ...codeNodes,
-  ...(bundle.observers ?? []),
   ...(bundle.guardrails ?? []),
   ...(bundle.piiPolicies ?? []),
   ...channelComponentClassesOf(bundle),

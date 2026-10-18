@@ -1,9 +1,10 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { RunnableLambda } from "@langchain/core/runnables";
 import type { ObserverManager } from "../../core/observer-manager.js";
-import type { StepDescriptor, StepRecord } from "../context/execution-context.js";
+import type { StepDescriptor } from "../context/execution-context.js";
 import type { ExecutionFacts } from "../context/frame.js";
 import type { ValuesOutdatedEvent } from "../observers/values-outdated.js";
+import { nodeEventOf } from "../observers/execution-event.js";
 import type { OutdatingCascade } from "./outdating.js";
 import {
   OutdatedReason,
@@ -88,27 +89,12 @@ export function traceOf(
   };
 }
 
-/** The step as plain data: its component by name only. */
-const stepRecordOf = (step: StepDescriptor): StepRecord => ({
-  ...step,
-  component: { name: step.component.name },
-});
-
 /** The event of one cascade. */
-function eventOf(site: OutdatingReportSite, trace: ValuesOutdatedTrace): ValuesOutdatedEvent {
-  const { executionId, threadId, workflow } = site.execution;
-  const { name, version, startedVersion } = workflow;
-  return {
-    executionId,
-    parentExecutionId: undefined,
-    rootExecutionId: executionId,
-    threadId,
-    workflow: { name, version, startedVersion },
-    step: stepRecordOf(site.step),
-    trigger: trace.trigger,
-    outdated: trace.outdated,
-  };
-}
+const eventOf = (site: OutdatingReportSite, trace: ValuesOutdatedTrace): ValuesOutdatedEvent => ({
+  ...nodeEventOf(site),
+  trigger: trace.trigger,
+  outdated: trace.outdated,
+});
 
 const traceEntry = RunnableLambda.from((trace: ValuesOutdatedTrace) => trace);
 

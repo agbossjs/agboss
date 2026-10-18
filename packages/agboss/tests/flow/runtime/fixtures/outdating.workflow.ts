@@ -128,7 +128,6 @@ export class LoopWorkflowFinish {}
   name: "loop-workflow",
   version: "1.0.0",
   maxSteps: 30,
-  observers: [OutdatingLog],
   channelClasses: [TerminalUserChannel],
   flow: [
     start(LoopWorkflowStart)
@@ -157,6 +156,7 @@ export class LoopWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LoopWorkflow],
+  observers: [OutdatingLog],
   budgets: TEST_BUDGETS,
 })
 export class LoopApplication {}
@@ -251,7 +251,6 @@ export class JobsRouter {}
   name: "jobs-workflow",
   version: "1.0.0",
   maxSteps: 20,
-  observers: [OutdatingLog],
   flow: [
     start(JobsWorkflowStart)
       .returns(WorkflowStartTextDto)
@@ -277,6 +276,7 @@ export class JobsWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [JobsWorkflow],
+  observers: [OutdatingLog],
   budgets: TEST_BUDGETS,
 })
 export class JobsApplication {}

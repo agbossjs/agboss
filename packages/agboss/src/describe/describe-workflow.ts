@@ -3,7 +3,6 @@ import { DEFAULT_MAX_TOKENS, type Thinking } from "../config/types.js";
 import { resolveAgentLimits, type AgentLimit } from "../graph/agent-loop/index.js";
 import { reasoningLabel, reasoningOfThinking } from "../models/reasoning.js";
 import { flowLines } from "../flow/print.js";
-import { stepsRangeOf } from "../flow/analyse/steps.js";
 import { isDecisionModel } from "../graph/router-model.js";
 import { NodeKind } from "../flow/ast.js";
 import { isCodeRouterNode } from "../flow/runtime/graph-model.js";
@@ -15,6 +14,8 @@ import { isMcpFacade, type AnyTool } from "../tools/index.js";
 import { NO_ENVIRONMENT_VALUES, type DescribedEnvironment } from "../environments/resolve.js";
 import { modelProviderLine, resolvedModelUsesOf } from "../models/resolution.js";
 import { applicationContextOf } from "../flow/context/application-context.js";
+import { applicationLines } from "./application.js";
+import { limitLines } from "./limits.js";
 import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
 
 /** The application context `describe` builds tools with: an empty environment unless one is given. */
@@ -69,15 +70,7 @@ function bundleLines(bundle: AssembledWorkflow): string[] {
     `guards    input: ${inputGuards.join(", ") || "none"} · output: ${outputGuards.join(", ") || "none"}`,
     `memory    ${memory}`,
     `pause     on — tools with channel wait for external signal`,
-    `limits    ${limitsLabel(bundle)}`,
   ];
-}
-
-/** `steps 3–9 (maxSteps 12)`: the steps range (#261); money is the application's budgets. */
-function limitsLabel(bundle: AssembledWorkflow): string {
-  const range = stepsRangeOf(bundle.graph.analysis.graph);
-  const most = range.most === undefined ? "" : `–${String(range.most)}`;
-  return `steps ${String(range.least)}${most} (maxSteps ${String(bundle.maxSteps)})`;
 }
 
 /** Each value written with `{ about }` (#271, #299), when the workflow has one. */
@@ -193,7 +186,10 @@ const environmentLines = (environment: DescribedEnvironment | undefined): string
         ...Object.entries(environment.fields).map(([key, value]) => `  ${key} = ${value}`),
       ];
 
-/** The workflow at a glance: settings, the flow as transitions, and which agent can use which tool. */
+/**
+ * The workflow at a glance: settings, its application (implementations and why, budgets by scope,
+ * observers), the flow as transitions, its count limits, and which agent can use which tool.
+ */
 export function describeWorkflow(
   bundle: AssembledWorkflow,
   profile = "base",
@@ -210,8 +206,10 @@ export function describeWorkflow(
   return [
     `${c.name} ${c.version}${profile === "base" ? "" : ` (profile ${profile})`} · config ${shortVersion(versionOf(configSnapshot(bundle)))}`,
     ...bundleLines(bundle),
+    ...applicationLines(bundle),
     ...environmentLines(environment),
     ...flowSection(bundle),
+    ...limitLines(bundle),
     // the provider each model resolves to by `serves` (#266), though no component names one
     "models",
     ...resolvedModelUsesOf(bundle).map((use) => `  ${modelProviderLine(use)}`),

@@ -37,12 +37,12 @@ describe("#238: one run id per run", () => {
     const done = await execute(app, SearchStart, { text: "rust jobs", limit: 5 });
 
     expect(seen.events.map((event) => event.split(":")[0])).toEqual([
-      "workflow-start",
+      "execution-start",
       "model-start",
       "tool-start",
       "model-start",
       "action-start",
-      "workflow-end",
+      "execution-end",
     ]);
     expect(seen.tools).toHaveLength(1);
     expect(seen.actions).toHaveLength(1);

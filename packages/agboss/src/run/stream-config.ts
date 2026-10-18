@@ -33,7 +33,6 @@ const runContextOf = (identity: RunIdentity, options: RunOptions): RunContext =>
     runId: identity.runId,
     threadId: identity.threadId,
     signal: options.signal,
-    metadata: options.metadata,
     ownerId: options.ownerId,
     tenantId: identity.tenantId,
     input: objectInput(identity.input),
@@ -73,7 +72,6 @@ export function streamConfig<TName extends string>(
   const run = runContextOf(identity, options);
   const services = {
     run,
-    executionContext: options.executionContext,
     ...(deps.clock === undefined ? {} : { clock: deps.clock }),
   };
   return {

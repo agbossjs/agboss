@@ -7,7 +7,6 @@ import {
   Tool,
   Workflow,
   Action,
-  type AppState,
   type OnActionEnd,
   type OnActionStart,
   type OnAgentEnd,
@@ -20,8 +19,8 @@ import {
   type OnPiiPolicyStart,
   type OnToolEnd,
   type OnToolStart,
-  type OnWorkflowEnd,
-  type OnWorkflowStart,
+  type OnExecutionEnd,
+  type OnExecutionStart,
   type ActionEndEvent,
   type ActionStartEvent,
   type AgentEndEvent,
@@ -58,8 +57,8 @@ const hookEvents: string[] = [];
 @Injectable()
 class TailsObserver
   implements
-    OnWorkflowStart,
-    OnWorkflowEnd,
+    OnExecutionStart,
+    OnExecutionEnd,
     OnAgentStart,
     OnAgentEnd,
     OnActionStart,
@@ -73,10 +72,10 @@ class TailsObserver
     OnChannelStart,
     OnChannelEnd
 {
-  async onWorkflowStart() {
+  async onExecutionStart() {
     hookEvents.push("WorkflowStart");
   }
-  async onWorkflowEnd() {
+  async onExecutionEnd() {
     hookEvents.push("WorkflowEnd");
   }
 
@@ -186,7 +185,6 @@ class FinishNode {}
   name: "tails-test-workflow",
   version: "1.0.0",
   defaults: testDefaults,
-  observers: [TailsObserver],
   flow: [
     start(StartNode)
       .returns(WorkflowStartTextDto)
@@ -202,6 +200,7 @@ class TailsWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TailsWorkflow],
+  observers: [TailsObserver],
   budgets: TEST_BUDGETS,
 })
 class TailsApplication {}

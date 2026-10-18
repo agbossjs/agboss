@@ -1,19 +1,20 @@
-import { beforeEach, describe, expect, vi } from "vitest";
-import type { ExecutionOutput } from "../../../src/app/types.js";
+import { beforeEach, describe, expect } from "vitest";
 import {
   Injectable,
   InjectionToken,
   provide,
   type AgentEndEvent,
   type AgentStartEvent,
-  type AppState,
+  type ExecutionEndEvent,
+  type ExecutionErrorEvent,
+  type ExecutionStartEvent,
   type OnAgentEnd,
   type OnAgentStart,
-  type OnError,
+  type OnExecutionError,
   type OnToolEnd,
   type OnToolStart,
-  type OnWorkflowEnd,
-  type OnWorkflowStart,
+  type OnExecutionEnd,
+  type OnExecutionStart,
   type ToolEndEvent,
   type ToolStartEvent,
 } from "../../../src/index.js";
@@ -25,6 +26,7 @@ import {
   testWith,
 } from "../../../src/testing/index.js";
 import { auditCalls, EchoTool, Start, Worker, applicationWith } from "./fixture.js";
+import { logged, RecordingLogger, resetLogged } from "../../helpers/log.js";
 import { execute } from "../../helpers/flow.js";
 import { ExecutionStatus } from "../../../src/app/types.js";
 
@@ -32,7 +34,7 @@ import { ExecutionStatus } from "../../../src/app/types.js";
 const events: string[] = [];
 const toolEvents: (ToolStartEvent | ToolEndEvent)[] = [];
 const agentStarts: AgentStartEvent[] = [];
-const results: ExecutionOutput[] = [];
+const results: ExecutionEndEvent[] = [];
 
 beforeEach(() => {
   for (const list of [events, toolEvents, agentStarts, results, auditCalls]) list.length = 0;
@@ -42,20 +44,20 @@ beforeEach(() => {
 @Injectable()
 class RunRecorder
   implements
-    OnWorkflowStart,
-    OnWorkflowEnd,
+    OnExecutionStart,
+    OnExecutionEnd,
     OnAgentStart,
     OnAgentEnd,
     OnToolStart,
     OnToolEnd,
-    OnError
+    OnExecutionError
 {
-  onWorkflowStart(state: AppState): void {
-    events.push(`workflow-start:${state.runId.startsWith("run-") ? "run" : state.runId}`);
+  onExecutionStart(event: ExecutionStartEvent): void {
+    events.push(`execution-start:${event.executionId.startsWith("run-") ? "run" : event.executionId}`);
   }
-  onWorkflowEnd(result: ExecutionOutput): void {
-    events.push("workflow-end");
-    results.push(result);
+  onExecutionEnd(event: ExecutionEndEvent): void {
+    events.push("execution-end");
+    results.push(event);
   }
   onAgentStart(event: AgentStartEvent): void {
     events.push(`agent-start:${event.name}`);
@@ -72,8 +74,8 @@ class RunRecorder
     events.push(`tool-end:${event.toolName}:${event.update}`);
     toolEvents.push(event);
   }
-  onError(error: Error): void {
-    events.push(`error:${error.name}`);
+  onExecutionError(event: ExecutionErrorEvent): void {
+    events.push(`error:${event.error.name}`);
   }
 }
 
@@ -88,16 +90,18 @@ describe("a registered observer", () => {
       const result = await execute(app, Start, { text: "hello" });
 
       expect(events).toEqual([
-        "workflow-start:run",
+        "execution-start:run",
         "agent-start:worker-agent",
         "tool-start:echo",
         'tool-end:echo:{"text":"echo hi"}',
         "agent-end:worker-agent",
-        "workflow-end",
+        "execution-end",
       ]);
       expect(toolEvents[0]).toMatchObject({ agentName: "worker-agent", arguments: { text: "hi" } });
       expect(agentStarts[0]).toMatchObject({ name: "worker-agent" });
-      expect(results).toEqual([result]);
+      expect(results).toEqual([
+        expect.objectContaining({ executionId: result.runId, finish: result.finish, spend: result.spend }),
+      ]);
     },
   );
 
@@ -139,6 +143,7 @@ const stamped = testWith(
     "stamped-workflow",
     [BrokenObserver, StampedObserver],
     [provide(CLOCK, () => "12:00")],
+    [RecordingLogger],
   ),
 );
 
@@ -146,17 +151,20 @@ describe("observers with dependencies and failures", () => {
   stamped(
     "gets its deps from the container; a throwing observer does not fail the run",
     async ({ app, mockLlm }) => {
-      const warning = vi.spyOn(process, "emitWarning").mockImplementation(() => undefined);
+      resetLogged();
       mockLlm(Worker).thenReturn(replyWith("done"));
 
       const result = await execute(app, Start, { text: "hello" });
 
       expect(result.status).toBe(ExecutionStatus.Finished);
       expect(events).toEqual(["12:00 worker-agent"]);
-      expect(warning).toHaveBeenCalledWith("BrokenObserver.onAgentStart threw: observer bug", {
-        code: "observer.failed",
-      });
-      warning.mockRestore();
+      expect(logged).toEqual([
+        expect.objectContaining({
+          level: "warn",
+          code: "observer.failed",
+          message: "BrokenObserver.onAgentStart threw: observer bug",
+        }),
+      ]);
     },
   );
 });

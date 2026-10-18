@@ -13,7 +13,6 @@ import {
   type TernBase,
 } from "./execute.js";
 import { openExecutionBudgets, recorder, type PassBudgets } from "./run-budgets.js";
-import { withMetadata } from "./run-services.js";
 import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import { streamConfig } from "./stream-config.js";
 import { finishRun } from "./finish.js";
@@ -94,8 +93,7 @@ async function runOnce<TName extends string>(
     const state = await drainRun(await graph.stream(initial, config), record);
     const recorded = state.usage.length;
     const context = { deps, graph, base, runId, budgetUsd, record, recorded };
-    const output = await finishRun({ ...context, callbacks: config.callbacks }, state, ternId);
-    return withMetadata(output, options.metadata);
+    return await finishRun({ ...context, callbacks: config.callbacks }, state, ternId);
   } catch (error) {
     const cause = outcomeError(error, options.signal);
     const failed = failedOutcome(cause, spent);

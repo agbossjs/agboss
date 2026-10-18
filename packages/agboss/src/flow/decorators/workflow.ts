@@ -3,7 +3,6 @@ import type { Class, Provider } from "../../components/injection.js";
 import type { AgentMeta } from "../../components/meta-types.js";
 import type { Guardrail, PiiPolicy } from "../../components/policy-decorators.js";
 import type { Price } from "../../config/types.js";
-import type { ObserverClass } from "../../core/observer-hooks.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import { NodeKind, type FlowPath } from "../ast.js";
 import { declared, recordDeclaration } from "./declaration.js";
@@ -87,7 +86,8 @@ export interface GuardsOptions {
 
 /**
  * `@Workflow` — the graph as paths (`flow`), the workflow's count limits and its module: services,
- * MCP servers, channels, observers, policies and memory (until #261 moves them to `@Application`).
+ * MCP servers, channels, policies and memory; observers are the application's (`@Application({
+ * observers })`, #261).
  */
 export interface WorkflowOptions {
   /** Ends with `-workflow` (`offer-workflow`). */
@@ -106,8 +106,6 @@ export interface WorkflowOptions {
   readonly mcp?: readonly Class[];
   /** `@Channel` classes its tools' approvals go through. */
   readonly channelClasses?: readonly Class[];
-  /** Observer classes (`implements OnToolEnd, …`); only these get hooks. */
-  readonly observers?: readonly ObserverClass[];
   readonly guards?: GuardsOptions;
   readonly piiPolicies?: readonly Class<PiiPolicy>[];
   readonly guardrails?: readonly Class<Guardrail>[];

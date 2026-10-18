@@ -102,6 +102,7 @@ const SQLITE_STORES = [
   version: "1.0.0",
   environment: SqliteTestEnvironment,
   workflows: [RecoveryWorkflow],
+  observers: [RecoveryLog],
   providers: [MortalSqliteExecutionLeaseRepository, ...SQLITE_STORES],
   budgets: TEST_BUDGETS,
 })
@@ -116,7 +117,6 @@ export class SqliteRecoveryApplication {}
     history: { limit: 1 },
     tools: { maxToolCalls: 8 },
   },
-  observers: [RecoveryLog],
   channelClasses: [TerminalUserChannel],
   flow: [
     start(OrderWorkflowStart)
@@ -133,6 +133,7 @@ export class NoteWorkflow {}
   version: "1.0.0",
   environment: SqliteTestEnvironment,
   workflows: [NoteWorkflow],
+  observers: [RecoveryLog],
   providers: [SqliteExecutionLeaseRepository, ...SQLITE_STORES],
   budgets: TEST_BUDGETS,
 })

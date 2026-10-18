@@ -1,14 +1,11 @@
-import type { StepRecord } from "../context/execution-context.js";
-import type { ExecutionEvent } from "./values-outdated.js";
+import type { NodeEvent } from "./execution-event.js";
 
 /**
  * A per-item launch got a longer list than its `maxItems` (#273, `onLaunchItemsTruncated`): it
  * launched the first `maxItems` items in the list's order and dropped the rest — never an error.
- * Plain data, no item values.
+ * Plain data, no item values; `step` is the launching step.
  */
-export interface LaunchItemsTruncatedEvent extends ExecutionEvent {
-  /** The launching step. */
-  readonly step: StepRecord;
+export interface LaunchItemsTruncatedEvent extends NodeEvent {
   /** `${executionId}:${nodeId}:${visitNumber}` of the launching step (`result.launches`). */
   readonly launch: string;
   /** How many items the list had. */

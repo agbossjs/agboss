@@ -14,6 +14,7 @@ import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { seconds } from "../../src/units/index.js";
 import { DesksApplication } from "./fixtures/desks.application.js";
+import { recordingLog } from "../helpers/log.js";
 
 /** A process stand-in: its listeners, and the signals it was sent. */
 class FakeProcess extends EventEmitter implements StopSignalSource {
@@ -32,6 +33,7 @@ function closableApp(): {
   readonly calls: (CloseOptions | undefined)[];
   readonly finish: () => Promise<void>;
   readonly closed: Promise<void>;
+  readonly log: ReturnType<typeof recordingLog>["log"];
 } {
   const calls: (CloseOptions | undefined)[] = [];
   let finish = (): void => undefined;
@@ -47,6 +49,7 @@ function closableApp(): {
     },
     calls,
     closed,
+    log: recordingLog().log,
     finish: async () => {
       finish();
       await closed;
@@ -113,24 +116,24 @@ describe("#265 S51: the stop signals", () => {
     expect(source.sent).toEqual([]);
   });
 
-  it("a close that fails on a signal is reported as a warning, not thrown", async () => {
-    const warn = vi.spyOn(process, "emitWarning").mockImplementation(() => undefined);
+  it("a close that fails on a signal is logged as an error (app.close-failed), not thrown", async () => {
+    const { log, entries } = recordingLog();
     const source = new FakeProcess();
     let failed = (): void => undefined;
     const closed = new Promise<void>((resolve) => {
       failed = resolve;
     });
     const app = { close: () => Promise.reject(new Error("a hook failed")) };
-    closeOnStopSignals({ app, closed }, source);
+    closeOnStopSignals({ app, closed, log }, source);
 
     source.emit("SIGTERM", "SIGTERM");
     failed();
     await closed;
     await new Promise((resolve) => setImmediate(resolve));
 
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining("a hook failed"), {
-      code: "app.close-failed",
-    });
+    expect(entries).toEqual([
+      { level: "error", code: "app.close-failed", message: expect.stringContaining("a hook failed") },
+    ]);
   });
 });
 

@@ -2,8 +2,8 @@ import { describe, expect } from "vitest";
 import {
   Workflow,
   Agent,
-  OnWorkflowStart,
-  AppState,
+  OnExecutionStart,
+  type ExecutionStartEvent,
   OnAgentStart,
   type AgentStartEvent,
   Injectable,
@@ -17,8 +17,8 @@ import { testWith, replyWith } from "../../src/testing/index.js";
 const logs: string[] = [];
 
 @Injectable()
-class MyMetricsObserver implements OnWorkflowStart, OnAgentStart, OnAgentEnd {
-  onWorkflowStart(state: AppState) {
+class MyMetricsObserver implements OnExecutionStart, OnAgentStart, OnAgentEnd {
+  onExecutionStart(_event: ExecutionStartEvent) {
     logs.push(`start-wf`);
   }
   onAgentStart(ctx: AgentStartEvent) {
@@ -59,7 +59,6 @@ import { EmptyEnvironment } from "../../src/index.js";
     history: { limit: 1 },
   },
   flow: [start(Start).returns(WorkflowStartTextDto).toAgent(WorkerAgent).toFinish(Finish)],
-  observers: [MyMetricsObserver],
 })
 class ObsWf {}
 
@@ -68,6 +67,7 @@ class ObsWf {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ObsWf],
+  observers: [MyMetricsObserver],
   budgets: TEST_BUDGETS,
 })
 export class ObsWfApplication {}

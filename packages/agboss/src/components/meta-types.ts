@@ -5,7 +5,6 @@ import type { JudgeHandler } from "./judge-decorators.js";
 import type { ToolHandlerClass } from "./decorators.js";
 import type { BaseMemoryStrategy } from "../memory/types.js";
 import type { Class, Provider } from "./injection.js";
-import type { ObserverClass } from "../core/observer-hooks.js";
 
 type AgentSettings = AgentsConfig["agents"][string];
 
@@ -87,8 +86,6 @@ export interface WorkflowMeta {
   readonly compactionPrompt?: string;
   readonly promptVariables?: Readonly<Record<string, string>>;
   readonly channelClasses?: readonly Class[];
-  /** Observer classes (`implements OnToolEnd, …`), created by the container; only these get hooks. */
-  readonly observers?: readonly ObserverClass[];
 }
 
 /** `@Channel` — settings of a channel. */

@@ -22,10 +22,15 @@ import {
   defaultTenantOf,
   standaloneContexts,
 } from "../flow/context/runtime-contexts.js";
-import { admitRequest, observeCancelledPause } from "./run-events.js";
+import {
+  admitRequest,
+  executionEventAt,
+  observeCancelledPause,
+  type ExecutionRequest,
+} from "./run-events.js";
 import { checkedStart, textStartOf } from "./starts.js";
 import type { App, ExecutionOptions, ExecutionOutput } from "./types.js";
-import type { RunOperation } from "../core/observability.js";
+import { ExecutionOperation } from "../core/observability.js";
 import { ApplicationStoppingError } from "./application-stopping.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 
@@ -89,11 +94,8 @@ export async function buildApp(
   const contexts = deps.contexts ?? standaloneContexts(deps.config);
   let closed = false;
   let released = false;
-  const admit = <T>(
-    operation: RunOperation,
-    thread: string | undefined,
-    checks: () => Promise<T>,
-  ) => admitRequest(deps.observer, { operation, threadId: thread }, checks);
+  const admit = <T>(request: ExecutionRequest, checks: () => Promise<T>) =>
+    admitRequest(deps.observer, deps.config, request, checks);
   /** From `app.close()` on (`onStop`), no new execution is accepted; running ones go on (#261). */
   const accepting = (): void => {
     if (closed) throw new ApplicationStoppingError(STOPPING);
@@ -106,7 +108,14 @@ export async function buildApp(
     textStart: textStartOf(bundle.graph),
     execute: async (start, input, ...[given]) => {
       const call: ExecutionOptions = given ?? {};
-      const checked = await admit("execute", call.threadId, async () => {
+      const named = call.tenant?.tenantId;
+      const requested = {
+        operation: ExecutionOperation.Execute,
+        threadId: call.threadId,
+        // the tenant the request named (unchecked: a rejection names it only when it is a string)
+        tenantId: typeof named === "string" ? named : undefined,
+      };
+      const checked = await admit(requested, async () => {
         accepting();
         const valid = checkedStart(start, input, bundle.graph);
         // the contexts' values, checked before the first step and frozen (#261)
@@ -122,7 +131,7 @@ export async function buildApp(
       const { contexts: values } = checked;
       // before the first step (#261): each budget's `maxSpend()` once; one exhausted rejects it —
       // before anything is written: no thread, no record, no checkpoint
-      const budgets = await admit("execute", call.threadId, () =>
+      const budgets = await admit({ ...requested, tenantId }, () =>
         openExecutionBudgets(deps, {
           executionId: runId,
           threadId: call.threadId,
@@ -135,9 +144,10 @@ export async function buildApp(
       // the thread is known before the run starts, so `cancel(threadId)` reaches a new one too
       const threadId =
         call.threadId ?? (await deps.terns.createThread(deps.config.name, tenantId, call.ownerId));
-      await deps.observer.onWorkflowStart({ runId, threadId });
+      const tree = { runId, threadId, tenantId, startedVersion: deps.config.version };
+      await deps.observer.onExecutionStart(executionEventAt(tree, deps.config));
       const begun = { start: checked.name, input: checked.input, threadId };
-      const result = await moves.first({ runId, threadId, tenantId }, call, (moving, signal) =>
+      const result = await moves.first(tree, call, (moving, signal) =>
         runOpenedAgent(
           begun,
           moving,
@@ -151,21 +161,24 @@ export async function buildApp(
     cancel: async (threadId, options = {}) => {
       const thread = { tenantId: options.tenantId ?? DEFAULT_TENANT_ID, threadId };
       // another tenant's thread does not exist for the caller (#261): `UnknownThreadError`
-      await admit("cancel", threadId, () => known({ ...thread, ownerId: options.ownerId }));
+      const request = { operation: ExecutionOperation.Cancel, ...thread };
+      await admit(request, () => known({ ...thread, ownerId: options.ownerId }));
       const running = live.abort(thread);
       const waiting = await paused.drop(thread);
       // a running resume completes its own Tern when the abort stops it
       if (waiting !== undefined && !running) {
         await trees.deleteAllInTree({ tenantId: thread.tenantId, rootExecutionId: waiting.runId });
         await deps.terns.complete(waiting.ternId, cancelledOutcome(waiting));
-        await observeCancelledPause(deps.observer, { runId: waiting.runId, threadId });
+        const startedVersion = waiting.startedVersion ?? deps.config.version;
+        const cancelled = { ...thread, runId: waiting.runId, startedVersion };
+        await observeCancelledPause(deps.observer, executionEventAt(cancelled, deps.config));
       }
       return { cancelled: running || waiting !== undefined };
     },
     // two phases (Q58): the decision recorded (Pending → Resolved, atomic), then the tree moved
     resume: async (threadId, decision, call = {}) => {
       const thread = { tenantId: call.tenantId ?? DEFAULT_TENANT_ID, threadId };
-      const run = await admit("resume", threadId, async () => {
+      const run = await admit({ operation: ExecutionOperation.Resume, ...thread }, async () => {
         accepting();
         await owned({ ...thread, ownerId: call.ownerId });
         return paused.resolve(thread, decision);

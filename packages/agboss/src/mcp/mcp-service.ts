@@ -12,7 +12,7 @@ import {
   mcpServerOptionsOf,
   type SseTransport,
 } from "./mcp-service-helpers.js";
-import { collectTools } from "./mcp-tool-registry.js";
+import { collectTools, type McpSessionOptions } from "./mcp-tool-registry.js";
 
 export interface McpSession {
   readonly sessionId: string;
@@ -28,7 +28,7 @@ export class McpService {
   private readonly options: McpExposeOptions;
   private readonly activeTransports = new Map<
     string,
-    { transport: SseTransport; context: unknown }
+    { transport: SseTransport; session: McpSessionOptions }
   >();
 
   constructor(
@@ -42,12 +42,12 @@ export class McpService {
     this.options = options;
   }
 
-  private createServerInstance(context: unknown): McpServer {
+  private createServerInstance(session: McpSessionOptions): McpServer {
     const mcp = new McpServer(
       { name: this.options.name, version: this.options.version },
       { capabilities: { tools: {} } },
     );
-    const { tools, handlers } = collectTools(this.app, this.options.exports, context);
+    const { tools, handlers } = collectTools(this.app, this.options.exports, session);
 
     mcp.server.setRequestHandler(ListToolsRequestSchema, () => ({ tools }));
     mcp.server.setRequestHandler(CallToolRequestSchema, (request, extra) => {
@@ -63,9 +63,12 @@ export class McpService {
     return mcp;
   }
 
-  /** Connects a new server instance to `transport` (any MCP SDK server transport). */
-  public async connect(transport: Transport, context?: unknown): Promise<void> {
-    await this.createServerInstance(context).connect(transport);
+  /**
+   * Connects a new server instance to `transport` (any MCP SDK server transport); every call of
+   * the session runs with `session` (its caller's owner and context values).
+   */
+  public async connect(transport: Transport, session: McpSessionOptions = {}): Promise<void> {
+    await this.createServerInstance(session).connect(transport);
   }
 
   /**
@@ -83,13 +86,13 @@ export class McpService {
   public async handleSse(
     res: ServerResponse,
     messageEndpoint: string,
-    context?: unknown,
+    session: McpSessionOptions = {},
   ): Promise<McpSession> {
-    const server = this.createServerInstance(context);
+    const server = this.createServerInstance(session);
     const transport = createSseTransport(messageEndpoint, res);
     await server.connect(transport);
 
-    this.activeTransports.set(transport.sessionId, { transport, context });
+    this.activeTransports.set(transport.sessionId, { transport, session });
 
     res.on("close", () => {
       this.activeTransports.delete(transport.sessionId);

@@ -168,7 +168,6 @@ export class FanOutLog implements OnLaunchItemsTruncated {
 @Workflow({
   name: "fan-out-workflow",
   version: "1.0.0",
-  observers: [FanOutLog],
   flow: [
     start(ItemsWorkflowStart)
       .returns(listOf(ItemDto))
@@ -188,6 +187,7 @@ export class FanOutWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [FanOutWorkflow],
+  observers: [FanOutLog],
   budgets: TEST_BUDGETS,
 })
 export class FanOutApplication {}

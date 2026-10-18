@@ -76,13 +76,11 @@ export function makeAnswerNode(
     }
     const reply = sortedJson(reading.answer.value);
     const runCtx = extractRunContext(config, state.runId);
-    const ctx = { agent, replyWith: reply, runId: runCtx.runId, metadata: runCtx.metadata };
-    const appState = { runId: state.runId, threadId: runCtx.threadId, activeNode: agent };
+    const ctx = { agent, replyWith: reply, runId: runCtx.runId };
     await visitAgentAnswer(
       mergePolicies(deps.workflowGuardrails, deps.guardrails),
       ctx,
       deps.observer,
-      appState,
     );
     const received = toolMessages(calls, "Answer received.");
     return { messages: [...move, ...received], move: null, reply, answer: reading.answer };

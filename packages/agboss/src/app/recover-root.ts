@@ -39,6 +39,7 @@ export const recoverRootOf =
     checkResume({ thread: threadId, runId, paused: started, current }, policy);
     const thread = await deps.terns.threadOwner(deps.config.name, tenantId, threadId);
     const ownerId = thread?.owner;
-    const interrupted = { runId, threadId, tenantId, ternId: record.id };
+    const startedVersion = record.configVersion ?? deps.config.version;
+    const interrupted = { runId, threadId, tenantId, ternId: record.id, startedVersion };
     await moves.recovered(interrupted, { signal, ownerId });
   };
