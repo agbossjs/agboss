@@ -3,6 +3,26 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — channel roles and discovery (#267, PR 1)
+
+- **Channels are found through the tools that name them** ([Tools → Approval channels](Tools#approval-channels)):
+  **breaking — `@Workflow({ channelClasses })` is removed**; one channel instance per application.
+- **`@ChannelRole`** — a project's abstract class (`extends ChannelOf<Self>`) with `approves: XDto`
+  or `ask` / `answer`, a required `answeredBy: PauseAnswerer.ThreadOwner | PauseAnswerer.Channel`
+  and an optional `replyInterpreter`; its one implementation (`@Channel`, `extends` the role) is
+  listed in `@Application({ providers })`. New assembly codes: `[channel.wrong-tool]`,
+  `[channel.shared-interpreter]`, `[channel.role-form]`, `[di.missing-implementation]`,
+  `[di.ambiguous-implementation]`; a `@Channel` in a workflow's `providers` is
+  `[di.infrastructure-in-workflow]`.
+- **Breaking — the channel contract**: one method, `send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>`
+  (`ask = { pauseId, value }`, typed by the generated `ChannelRoles`), returning
+  `ChannelOutcome.awaitReply()` (pause) or `ChannelOutcome.decided(decision)` (no pause).
+  `requestApproval`, `ChannelRequest` and `ChannelDecision` are removed.
+- **Breaking — `InboundChannelAdapter` and `SemanticInboundChannelAdapter` are removed** (and
+  `@Channel({ inboundAdapter })`): `app.resume(threadId, decision)` takes the
+  `ToolCallApprovalDecisionDto` itself until free-text replies come with #267 PR 3.
+- `AutoApproveChannel` / `AutoRejectChannel` now decide at once (`decided`) — no pause.
+
 ## Unreleased — rate limits and retries, provider keys in the environment (#266, PR 2)
 
 - **`rateLimitPolicy`** on `@ModelProvider` ([Model providers](Model-providers#ratelimitpolicy)):

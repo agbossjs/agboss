@@ -98,7 +98,6 @@ export class MainRouter {}
   },
   mcp: [ShortlistServer],
   providers: [OrderBook],
-  channelClasses: [TerminalUserChannel],
 })
 export class JobScout {}
 @Application({ name: "job-scout-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [JobScout] })

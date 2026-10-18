@@ -149,6 +149,141 @@ unassigned tools: none
 ```
 
 
+## Approval channels
+
+A tool that needs a decision before it runs names a channel: `@Tool({ channel })` (or `@McpTool`).
+Channels are found through the tools that name them, like services through `deps` — there is no
+`channelClasses` (#267) — and one instance serves every workflow of the application. A tool names
+either a concrete `@Channel` as is (`TerminalUserChannel`, `AutoApproveChannel`,
+`AutoRejectChannel`) or a **channel role** — the project's abstract class that says what it approves
+and who may answer:
+
+<!-- snippet-context
+import { Agent, Application, EmptyEnvironment, Injectable, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
+import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+export class RefundCardInputDto {
+  @Text() orderId!: string;
+  @Integer({ min: 1 }) amountCents!: number;
+}
+export class RefundCardOutputDto {
+  @Text() status!: string;
+}
+@Injectable()
+export class SlackService {
+  post(_channel: string, _text: string, _replyKey: string): Promise<void> {
+    return Promise.resolve();
+  }
+}
+// @snippet
+@Agent({ name: "refund-agent", description: "Refunds", prompt: "Refund.", model: "moonshotai/kimi-k2.6", tools: [RefundCardTool] })
+export class RefundAgent {}
+@WorkflowStart({ name: "refund-workflow-start", description: "A request", input: WorkflowStartTextDto })
+export class RefundWorkflowStart {}
+@WorkflowFinish({ name: "refund-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
+export class RefundWorkflowFinish {}
+@Workflow({
+  name: "refund-workflow",
+  version: "1.0.0",
+  flow: [start(RefundWorkflowStart).returns(WorkflowStartTextDto).toAgent(RefundAgent).toFinish(RefundWorkflowFinish)],
+  providers: [SlackService],
+})
+export class RefundWorkflow {}
+@Application({
+  name: "refund-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [RefundWorkflow],
+  providers: [SlackRefundApprovalChannel], // the role's one implementation: channel transport
+})
+export class RefundApplication {}
+-->
+
+```ts file=refunds.ts
+import {
+  Channel,
+  ChannelOf,
+  ChannelOutcome,
+  ChannelRole,
+  ExecutionContext,
+  PauseAnswerer,
+  Tool,
+  type ChannelAsk,
+  type ToolHandler,
+} from "agboss";
+
+// channels/refund-approval.channel.ts — the role: what it approves, who answers
+@ChannelRole({
+  name: "refund-approval-channel",
+  description: "Approves card refunds",
+  approves: RefundCardInputDto, // the tools' input DTO — imports go DTO ← role ← tool
+  answeredBy: PauseAnswerer.Channel,
+})
+export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
+
+// channels/slack-refund-approval.channel.ts — its implementation, listed in the application
+@Channel({
+  name: "slack-refund-approval-channel",
+  description: "Asks a finance manager in Slack",
+  deps: [ExecutionContext, SlackService],
+})
+export class SlackRefundApprovalChannel extends RefundApprovalChannel {
+  constructor(
+    private readonly executionContext: ExecutionContext,
+    private readonly slackService: SlackService,
+  ) {
+    super();
+  }
+
+  async send(ask: ChannelAsk<RefundApprovalChannel>): Promise<ChannelOutcome<RefundApprovalChannel>> {
+    const cents: number = ask.value.arguments.amountCents; // typed by RefundCardInputDto
+    const tenant = this.executionContext.tenant.tenantId;
+    await this.slackService.post("#finance", `Refund ${String(cents)}¢ (${tenant})?`, ask.pauseId);
+    return ChannelOutcome.awaitReply();
+  }
+}
+
+// tools/refund-card.tool.ts — the tool names the role
+@Tool({
+  name: "refund_card",
+  description: "Refunds a card payment",
+  input: RefundCardInputDto,
+  output: RefundCardOutputDto,
+  channel: RefundApprovalChannel,
+})
+export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCardOutputDto> {
+  run({ orderId }: RefundCardInputDto): Promise<RefundCardOutputDto> {
+    return Promise.resolve({ status: `refunded ${orderId}` });
+  }
+}
+```
+
+- **`@ChannelRole({ name, description, answeredBy, approves | ask + answer, replyInterpreter? })`**
+  — two forms, never both (`[channel.role-form]`): `approves: XDto` for a tool approval (the
+  question is `ToolCallApprovalAskDto` with `arguments: XDto`, the answer
+  `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`), or `ask` / `answer` for a workflow
+  question. `answeredBy` is required — `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel`, no
+  default. A tool whose `input` is not its role's `approves` (or that names a question role) fails
+  assembly with `[channel.wrong-tool]`; one `replyInterpreter` class in two roles with
+  `[channel.shared-interpreter]`.
+- **The implementation** is a `@Channel` that `extends` the role, listed in
+  `@Application({ providers })` — found by inheritance, like any contract: none →
+  `[di.missing-implementation]`, two → `[di.ambiguous-implementation]`; a `@Channel` in a workflow's
+  `providers` → `[di.infrastructure-in-workflow]` (channel transport is infrastructure). Different
+  questions to different people are different roles; one question to several places, or a place
+  chosen by the request's data, is one implementation that does it inside. Child workflows' tools
+  count too: their roles need an implementation in the parent's application.
+- **`send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>`** is the one method: `ask` is
+  `{ pauseId, value }` (the value typed by the generated `ChannelRoles` table — `agboss check`;
+  `ChannelQuestionOf<Role>` is the question, `ChannelAnswerOf<Role>` the answer `decided` takes;
+  the execution through `deps`). `ChannelOutcome.awaitReply()` — the execution pauses and is saved
+  until the reply ([Pause seam](Pause-seam)); `ChannelOutcome.decided(decision)` — the answer now
+  (a rule such as "up to $50 at once", `AutoApproveChannel`): no pause, the decision validated like
+  a reply. A `send` that returns anything else fails the step.
+- Not yet (#267 PR 2 / PR 3): resuming by `pauseId`, `answeredBy` checked on `resume`, several
+  pauses at once, free-text replies through `@ReplyInterpreter`. Choosing an implementation per
+  environment (a terminal in dev, Slack in prod) is a documented limit: one implementation per
+  application.
+
 ## Testing
 
 A tool is a plain class: construct it with fakes and call it through the same adapter the agent loop

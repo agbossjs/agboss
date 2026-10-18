@@ -497,7 +497,6 @@ import { OrdersService } from "./services/orders.service.js";
   maxSteps: 6,
   mcp: [ShortlistServer],
   providers: [OrdersService, provide(SHORTLIST, "./shortlist/shortlist.md")],
-  channelClasses: [TerminalUserChannel],
 })
 export class Shop {} // money: the application's @Budgets (FinOps → Budgets)
 ```
@@ -530,7 +529,9 @@ export class Shop {} // money: the application's @Budgets (FinOps → Budgets)
 - **Assembly** (`workflowOf` / `createApp`, before the first request): the dependency graph is checked
   and every instance is created once, dependencies first. A cycle, an unregistered provider
   (`Consumer: "TOKEN" is not registered …`), an undecorated class in `providers`
-  (`[di.undecorated-provider]`), a tool with a `channel` missing from `channelClasses`, a missing
+  (`[di.undecorated-provider]`), a channel role with no or two implementations in
+  `@Application({ providers })` (`[di.missing-implementation]`, `[di.ambiguous-implementation]`,
+  #267), a missing
   prompt file or prompt variable fail with the component's name.
 - **Lifecycle hooks**: `implements OnInit, OnStart, OnStop, OnDestroy`, each optional
   ([App → Lifecycle hooks](App#lifecycle-hooks)).
@@ -569,7 +570,7 @@ export class SeenJobsRepository {
 
 The lint rule `agboss/no-component-state` flags an assignment to `this.x` (`=`, `+=`, `++`) outside
 the constructor of any component (`@Injectable`, `@Tool`, `@McpTool`, `@Rag`, `@Action`, a code
-`@Router`, `@Judge`, `@Guardrail`, `@PiiPolicy`, `@Channel`, inbound adapters, `@A2AAgent`).
+`@Router`, `@Judge`, `@Guardrail`, `@PiiPolicy`, `@Channel`, `@A2AAgent`).
 - `agboss describe` shows each tool's dependencies.
 
 ## Add…

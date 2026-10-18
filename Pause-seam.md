@@ -7,9 +7,11 @@ and how, so a pause never contradicts limits, spend recording or Terns.
 
 ## Plug it in
 
-A tool that needs approval names a **channel** — who is asked — and the workflow lists the channel
-classes it uses (`TerminalUserChannel` asks in the terminal; `AutoApproveChannel` /
-`AutoRejectChannel` for tests and scripts; or your own `@Channel` class):
+A tool that needs approval names a **channel** — who is asked — found through the tool, nothing to
+list in the workflow (#267): a concrete `@Channel` used as is (`TerminalUserChannel` asks in the
+terminal; `AutoApproveChannel` / `AutoRejectChannel` decide at once, for tests and scripts) or a
+**channel role** whose implementation the application lists
+([Tools → Approval channels](Tools#approval-channels)):
 
 <!-- snippet-context
 import { Agent, ExecutionStatus, TerminalUserChannel, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "agboss";
@@ -48,7 +50,6 @@ export class Assistant {}
       .toAgent(Assistant)
       .toFinish(Done),
   ],
-  channelClasses: [TerminalUserChannel], // a tool's channel missing here fails assembly
 })
 export class Errands {}
 ```
@@ -102,6 +103,11 @@ flowchart LR
    compiled subgraph inside the agent's flow node, so everything before the pause is checkpointed
    and never repeated; the spend so far is read from the loop's checkpoint and written to the
    ledger at the pause.
+   The tool's channel is asked **once**, when the call first stops: `send({ pauseId, value })` —
+   `pauseId` a random 128-bit token, `value` the call (`ToolCallApprovalAskDto`, `sensitive`
+   fields masked). `ChannelOutcome.awaitReply()` keeps the pause; `ChannelOutcome.decided(decision)`
+   takes it back — the step goes on with that decision, validated like a reply, and nothing is
+   paused. On resume the channel is not asked again.
 2. **One call per pause**: two calls needing approval in one model turn → two pauses, in call order.
 3. `app.resume(threadId, decision)` continues the same step: approved → the tool runs **once**;
    rejected → the model reads `Tool error: the call was rejected by <by>[: <feedback>]`. The model is
