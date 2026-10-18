@@ -37,6 +37,11 @@ Each contract has a ready **SQLite** implementation (#265 PR 3), or a project li
 | `ExecutionTreeRepository`   | `SqliteExecutionTreeRepository`   | `execution_tree_keys`             |
 | `RateLimitRepository`       | `SqliteRateLimitRepository`       | `rate_limit_slots`                |
 
+Every row carries the tenant (#261): the threads and the records `tenant_id`, `paused_executions`
+is keyed by `(tenant_id, thread_id)`, a checkpoint and its writes are tagged with the run's tenant,
+the leases and tree keys are keyed by it; a file written before tenants is migrated on first use,
+its rows in the tenant `"default"`.
+
 Each one is enabled only by listing it in `@Application({ providers })` — list one, some or all; a
 contract not listed keeps its in-memory default. They are built on `node:sqlite` (no native
 driver to install; `SqliteCheckpointSaver` is our own `BaseCheckpointSaver`, serializing with
@@ -96,8 +101,9 @@ export const sqliteStores = [
 
 ## The execution lease
 
-One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — `tenantId` is `"default"`
-until tenants come (#261). Whoever moves the tree holds it: `app.execute` from its first step,
+One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — the execution's tenant
+(#261, `"default"` when it names none); the holder's `holderInstanceId` is its instance's
+`ApplicationContext.instanceId`. Whoever moves the tree holds it: `app.execute` from its first step,
 `app.resume` once it has recorded its decision. The holder:
 
 - renews the lease in the background every 10 seconds (a third of its fixed length, `seconds(30)` —
@@ -273,7 +279,7 @@ test("a pause made on one instance is resumed on the other", async ({ app, apps,
   mockLlm(ClerkAgent).thenReturn(callTool(ChargeTool, { amount: "10" }), replyWith("Charged."));
   const paused = await app.execute(OrderWorkflowStart, { text: "charge" });
 
-  const resumed = await apps[1].resume(paused.thread, { approved: true, by: "dana" });
+  const resumed = await apps[1].resume(paused.threadId, { approved: true, by: "dana" });
 
   expect(resumed.output).toEqual({ text: "Charged." });
 });

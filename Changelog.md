@@ -3,6 +3,47 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — contexts (#261, PR 3)
+
+- **The context levels** ([Context and Authorization](Context-And-Authorization#the-levels-261)):
+  `ApplicationContext` (`name`, `version`, `instanceId`, `startedAt`, `environmentName`,
+  `environment`, `host` — `HostContext`) → `TenantContext` (`tenantId`, `weight`, #266 S60) →
+  `ExecutionContext` (new: `tenant`), each its type and its DI token. New public names:
+  `ApplicationContext`, `HostContext`, `TenantContext`, `ContextValues<T>`, `TenantValues`,
+  `TenantContextClass`, `ExecutionContextClass`, `RuntimeContexts`, `CallOptions`,
+  `ResumeOptions`, `ExecutionOptionsOf`, `ExecutionOptionsArgs`; `agboss/testing`:
+  `TestContextOptions`, `TestApplicationOptions`.
+- **The project's subclasses**: `@Application({ tenantContext, executionContext })`; values per
+  execution, `app.execute(Start, input, { tenant, execution })`, typed per start by the generated
+  types (the `WorkflowStarts` entry names the start's `tenant` / `execution` classes, and a declared
+  execution subclass's `tenant` is typed as the tenant subclass), validated before the first step
+  (`dto.invalid`, `onRunRejected`), frozen, kept in the checkpoint. New rule codes:
+  `[context.prompt-unused]`, `[context.not-declared]`.
+- **Breaking — `ENV` is removed**: read the environment as `applicationContext.environment`
+  (`deps: [ApplicationContext]`); `[di.missing-environment]` is gone (an application without a
+  contract has an empty environment).
+- **Breaking — the options are named like the context fields**: `app.execute(…, { threadId,
+ownerId })` (was `thread`, `owner`), `app.resume(threadId, decision, { tenantId, ownerId })`,
+  `app.cancel(threadId, { tenantId, ownerId })`; `ExecutionOutput.threadId` (was `thread`) and the
+  new `ExecutionOutput.tenantId`.
+- **Breaking — a thread belongs to its tenant**: its key is `tenantId` + `threadId`;
+  `app.cancel` of a thread the tenant does not have throws `UnknownThreadError` (it answered
+  `{ cancelled: false }`). The storage contracts take the tenant:
+  `ExecutionRecordRepository.createThread(workflow, tenantId, owner?)`, `hasThread(workflow,
+tenantId, threadId)`, `threadOwner(workflow, tenantId, threadId)`; every record carries
+  `tenantId` (Tern store migration 10); `PausedExecutionRepository.findByTenantIdAndThreadId`,
+  `resolveByTenantIdAndThreadId`, `deleteByTenantIdAndThreadId` (were `…ByThreadId`), keyed by the
+  paused run's `tenantId`. Leases and tree keys use the execution's tenant (was always
+  `"default"`); `holderInstanceId` is `ApplicationContext.instanceId`.
+- **SQLite (#265 S69 e)**: `paused_executions` is keyed by `(tenant_id, thread_id)` and the
+  `checkpoints` / `checkpoint_writes` rows carry `tenant_id` (the run's `configurable.tenant_id`); a
+  file written before is migrated on first use, its rows in the tenant `"default"`.
+  `SqliteConnection` reads `sqlitePath` from `applicationContext.environment`.
+- **Traces carry the tenant**: a run's LangGraph `metadata` (`tenantId`, `executionId`,
+  `rootExecutionId`, `threadId`, `workflowName`, `workflowVersion`) and `tags` (`tenant:<id>`), the
+  Langfuse trace's tag `tenant:<id>` and metadata `tenantId`; `TraceContext.tenantId`.
+- `testExecutionContext({ tenantContext, tenant, executionContext, execution, application })`.
+
 ## Unreleased — model providers as infrastructure (#266, PR 1)
 
 - **Model providers are the application's** ([Model providers](Model-providers#register-them-in-the-application)):

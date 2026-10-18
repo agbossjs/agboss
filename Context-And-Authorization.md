@@ -5,6 +5,38 @@ checkpointer — it survives steps, pauses and the next execution of the thread)
 context** — which execution and which step is running, and who the thread belongs to. Domain data
 always come through a node's `input`; the context carries identity and execution metadata only.
 
+## The levels (#261)
+
+The contexts form one hierarchy, like Spring's `ApplicationContext`; each level links up, and a
+component takes the one object of its level and reaches everything above through it:
+
+```
+ApplicationContext        the application: name, version, instanceId, startedAt, environmentName, environment, host
+└── TenantContext         the organization: tenantId, weight + the project's own fields (units, plan, …)
+    └── ExecutionContext  one execution: executionId, threadId, ownerId, tenant, signal, workflow, the tree, step
+        └── step          component, nodeId, visitNumber, idempotencyKey, callId, itemIndex, copyNumber
+```
+
+Exactly three context tokens exist, each its type and its DI token: `deps: [ApplicationContext]`,
+`deps: [TenantContext]`, `deps: [ExecutionContext]` (or the project's subclass of a level, below).
+
+- **`ApplicationContext`** — an immutable description of the running instance, one object, made by
+  the framework at start: `name`, `version` (`@Application`), `instanceId` (the holder of its
+  leases, [Several instances](Several-instances)), `startedAt` (the framework's clock),
+  `environmentName` (`"prod"`), `environment` (the values, typed by the contract —
+  [Environments](Environments)) and `host` (`hostname`, `pid`, `platform`, `runtimeVersion`). It is
+  readable at any time: startup services, observers, budgets. There is no separate environment
+  token: `this.applicationContext.environment.auditUrl`.
+- **`TenantContext`** — the organization the execution works for: `tenantId` (`"default"` when the
+  execution names none), `weight` (a positive integer, default 1 — its share of a model provider's
+  slots under `QueueBalancingStrategy.TenantWeighted`, #266) and the project's own fields;
+  `tenantContext.application` links up.
+- **`ExecutionContext`** (#280) — one execution, `executionContext.tenant` and through it
+  `executionContext.tenant.application`: the same objects, not copies.
+
+`TenantContext` and `ExecutionContext` read the current execution on every access; read outside
+one they throw `ExecutionContextUnavailableError` (below) — `ApplicationContext` never does.
+
 ## `ExecutionContext` (#280)
 
 `ExecutionContext` is the one context of an execution. Any component — a tool, an action, a judge,
@@ -15,9 +47,10 @@ actions and judges get only their input.
 | Field                     | What                                                                                     |
 | ------------------------- | ---------------------------------------------------------------------------------------- |
 | `executionId`             | unique per execution, the same after a resume (`ExecutionOutput.runId`)                  |
-| `threadId`                | the conversation (`ExecutionOutput.thread`)                                              |
-| `ownerId`                 | from `execute(…, { owner })`: who the thread belongs to; `undefined` for an open thread  |
-| `signal`                  | aborted by `app.cancel(thread)` or the caller's `signal`; in a tool call also at the tool's `timeoutMs` |
+| `threadId`                | the conversation (`ExecutionOutput.threadId`)                                            |
+| `ownerId`                 | from `execute(…, { ownerId })`: who the thread belongs to; `undefined` for an open thread |
+| `tenant`                  | the execution's `TenantContext` (the declared subclass); `tenant.application` above it    |
+| `signal`                  | aborted by `app.cancel(threadId)` or the caller's `signal`; in a tool call also at the tool's `timeoutMs` |
 | `workflow`                | `{ type, name, version, startedVersion }` — the `@Workflow` class, its name, versions    |
 | `step`                    | the step running now (below) — different in each parallel branch and each tool call      |
 | `parent`, `root`, `depth` | the execution tree: one level until #263 (`parent` `undefined`, `root === this`, `1`)    |
@@ -48,21 +81,119 @@ app-scoped component and in parallel branches. It is read-only and holds no inpu
 no access to the container.
 
 - **Outside an execution** — in a constructor at application start — a read throws
-  `ExecutionContextUnavailableError` (`code: "context.unavailable"`), naming the class that read it:
-  `AuditService read executionContext.executionId outside an execution.` Injecting it is always
-  allowed; only reading it fails, never with `undefined`.
+  `ExecutionContextUnavailableError` (`code: "context.unavailable"`), naming the class and the field
+  it read: `AuditService read executionContext.executionId outside an execution. Read it inside a
+method called during an execution, or take ApplicationContext.` (`tenantContext.units` for the
+  tenant level). Injecting it is always allowed; only reading it fails, never with `undefined`.
 - **After its step ended** — a forgotten promise reading it once the tool call or the step returned —
   it throws the same error naming the ended step: `the execution context was read after its step
 ended (payment-agent:1 tool call call_7f3a in execution 4f1c…)`. A tool call's frame closes while
   its agent goes on; a read never falls back to the agent's frame. What code already took out of the
   context (the `step` object, the `signal`) keeps working.
 
-The tenant and the application levels above an execution (`executionContext.tenant`,
-`ApplicationContext`) and project subclasses of `ExecutionContext` come with #261.
+## The project's levels: subclasses
+
+The levels are fixed (application → tenant → execution → step); the project extends the tenant and
+the execution level by **subclassing** them, with DTO field decorators (`agboss/dto`), and declares
+the subclasses once, `@Application({ tenantContext, executionContext })` — workflows declare none.
+How an organization is structured inside (clinics → units → wards) is data in the tenant
+subclass, nested with `@ListOf` / `@Nested`, not new framework levels.
+
+- Fields of a context take **no `prompt`**: no model reads a context, the field's name is its
+  meaning — a `prompt` fails assembly, `[context.prompt-unused] ClinicTenantContext.units has a
+prompt — no model reads a context; remove it`. A field without a decorator fails it too
+  (`dto.undecorated-field`).
+- A component injects the subclass as its token (`deps: [ClinicExecutionContext]`, a parameter
+  named after its type); the base token (`deps: [ExecutionContext]`) gives the same subclass's
+  object. A subclass the application does not declare → `[context.not-declared] … — @Application({
+executionContext: ClinicExecutionContext })`.
+- `agboss check` types a declared execution subclass's `tenant` as the declared tenant subclass,
+  so `this.clinicExecutionContext.tenant.units` is typed.
+- **Identity, never secrets:** the levels hold who we interact with (ids, roles, licence numbers),
+  never access tokens, passwords or API keys. Identity that must not reach a model, a log or a trace
+  is marked `sensitive` (#120); a service gets a secret from the identity when it needs one
+  (`credentialService.tokenFor(clinicianId)`), so it is never checkpointed, never inherited and
+  never stale after a pause.
+
+```ts file=clinic.context.ts
+import { ExecutionContext, Injectable, TenantContext } from "agboss";
+import { ListOf, Nested, Text } from "agboss/dto";
+
+export class UnitDto {
+  @Text()
+  unitId!: string;
+
+  @Text()
+  name!: string;
+}
+
+export class ClinicianDto {
+  @Text({ sensitive: true })
+  clinicianId!: string;
+}
+
+// config/context.config.ts — the project's tenant level
+export class ClinicTenantContext extends TenantContext {
+  @ListOf(UnitDto)
+  units!: UnitDto[];
+}
+
+// the project's execution level: who talks now
+export class ClinicExecutionContext extends ExecutionContext {
+  @Nested(ClinicianDto)
+  clinician!: ClinicianDto;
+
+  @Text()
+  unitId!: string;
+}
+
+// the organization's level
+@Injectable({ deps: [ClinicTenantContext] })
+export class UnitDirectoryService {
+  constructor(private readonly clinicTenantContext: ClinicTenantContext) {}
+
+  unitName(unitId: string): string {
+    const unit = this.clinicTenantContext.units.find((candidate) => candidate.unitId === unitId);
+    return unit?.name ?? unitId;
+  }
+}
+```
+
+### The values, per execution
+
+`app.execute(Start, input, { threadId, ownerId, tenant: { … }, execution: { … } })` — `tenant` and
+`execution` are `ContextValues<T>` of the declared subclasses: their data fields only, without the
+links up and without what the framework fills (`executionId`, the tree, `step`); a tenant's
+`tenantId` and `weight` are optional. A project's loader returns them:
+`async contextOf(tenantId: string): Promise<ContextValues<ClinicTenantContext>>` — where the data
+come from is the project's choice; the framework loads nothing.
+
+- Typed per start by the generated `.agboss/types.d.ts`: with declared subclasses their values are
+  required; with nothing declared `tenant: { tenantId?, weight? }` is optional (omitted → the
+  tenant `"default"`) and passing `execution` does not compile.
+- Validated by the field decorators before the first step: invalid → the execution is rejected
+  with `dto.invalid` and `onRunRejected`; the message names the field, never the value
+  (`invalid ClinicTenantContext: units[0].unitId: …`).
+- Frozen for the whole execution, kept in its checkpoint: a resume — `app.resume(threadId,
+decision, { tenantId, ownerId })` — runs on the values it started with, and takes only the
+  tenant's id (a plan changed meanwhile applies from the next execution). Child executions (#263)
+  inherit them.
+
+### A thread belongs to its tenant
+
+The key of a thread is `tenantId` + `threadId`: another tenant's thread does not exist for the
+caller — `execute(…, { threadId })` and `app.cancel(threadId, { tenantId })` throw
+`UnknownThreadError` (with no hint that the id is taken elsewhere), `app.resume` finds no pause
+(`NotPausedError`). Inside the tenant `ownerId` stays the access key (`ThreadOwnerError`).
+Every record the framework stores carries `tenantId` — the execution records, the paused
+executions, the leases and the tree keys — and so does what it sends: a run's LangGraph `metadata`
+(`tenantId`, `executionId`, `rootExecutionId`, `threadId`, `workflowName`, `workflowVersion`) and
+`tags` (`tenant:<id>`, the workflow), and the Langfuse trace (tag `tenant:<id>`, metadata
+`tenantId`), so traces filter by organization.
 
 ## Authorization in a tool
 
-A thread created with an `owner` belongs to it: `execute` on that thread, `resume` and `cancel` with
+A thread created with an `ownerId` belongs to it: `execute` on that thread, `resume` and `cancel` with
 another owner (or none) throw `ThreadOwnerError` (`run.thread-owner`) before anything runs or is
 read. Inside the execution a tool reads the owner as `executionContext.ownerId` and asks a service
 what that owner may do — the context holds identity, never permissions or secrets.
@@ -157,7 +288,8 @@ const result = await app.execute(
   DataWorkflowStart,
   { text: "Process my confidential data" },
   {
-    owner: userId, // the thread belongs to this user: executionContext.ownerId
+    ownerId: userId, // the thread belongs to this user: executionContext.ownerId
+    tenant: { tenantId: "acme" }, // the organization: executionContext.tenant.tenantId
     metadata: { requestId: "req_abc789" }, // for channels (ChannelRequest.metadata), not tools
   },
 );
@@ -170,7 +302,8 @@ fields masked as `***`; the tool itself still gets them whole.
 
 A component created without the container takes `testExecutionContext({ … })` from
 `agboss/testing` — a frozen `ExecutionContext` readable at any time, with defaults for what is not
-given ([Testing](Testing)):
+given ([Testing](Testing)); `{ tenantContext, tenant, executionContext, execution, application: {
+environment } }` set the levels, checked like at `execute`:
 
 <!-- snippet-context
 import { testExecutionContext, toolOf } from "agboss/testing";
@@ -183,4 +316,17 @@ const tool = toolOf(
   new SecureDataTool(testExecutionContext({ ownerId: "usr_admin" }), new RoleService()),
 );
 const answer = await tool.invoke({ query: "salaries" });
+```
+
+<!-- snippet-context
+import { testExecutionContext } from "agboss/testing";
+import { ClinicTenantContext, UnitDirectoryService } from "./clinic.context.js";
+-->
+
+```ts
+const { tenant } = testExecutionContext({
+  tenantContext: ClinicTenantContext,
+  tenant: { tenantId: "haifa-clinic", units: [{ unitId: "icu", name: "Intensive care" }] },
+});
+const unitName: string = new UnitDirectoryService(tenant).unitName("icu"); // "Intensive care"
 ```

@@ -126,7 +126,7 @@ test("saving waits for approval; after it the agent's answer ends the turn", asy
   });
 
   const paused = await app.execute(ChatWorkflowStart, { text: "save the first job" });
-  const done = await app.resume(paused.thread, { approved: true, by: "dana" });
+  const done = await app.resume(paused.threadId, { approved: true, by: "dana" });
 
   expect(paused).toHavePausedAt(Shortlist);
   expect(done).toFinishWith(ChatWorkflowFinish, { text: "Saved 1 job." });
@@ -379,7 +379,11 @@ execution running. What is not given takes its default: execution `test-executio
 no owner, a signal nobody aborts, workflow `test-workflow` (or the `@Workflow` class given as
 `workflow`), step `test-step` on its first visit (or `step: { component, visitNumber, callId,
 itemIndex, copyNumber }` — the step's name from the component's decorator). The idempotency key is
-built as at run time.
+built as at run time. The levels above (#261): the tenant `"default"` of an application
+`test-application` on the `test` environment — or `tenantContext` / `tenant`, `executionContext` /
+`execution` (the project's subclasses and their values, checked by their decorators like at
+`execute`) and `application: { name, version, environmentName, environment }`; a service of the
+tenant or application level takes `testExecutionContext({ … }).tenant` or `.tenant.application`.
 
 <!-- snippet-context
 import { ExecutionContext, Injectable } from "agboss";

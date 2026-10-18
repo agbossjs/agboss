@@ -6,7 +6,7 @@
 
 - `app.execute(Start, input)` without `thread` = **first contact**: a new thread is created, its id
   comes back in the result (`thread`). The client sends it with every next question.
-- `app.execute(Start, input, { thread })` with an unknown id → `UnknownThreadError` before any call.
+- `app.execute(Start, input, { threadId })` with an id the tenant does not have → `UnknownThreadError` before any call.
 - The router and every agent see the last **`historyLimit`** Terns of the thread (question → answer),
   oldest first, before the task. Failed or guarded turns are shown with their status.
 - CLI: `agboss run --workflow <path> --thread <id> "…"`; every run prints `thread: <id>`.

@@ -18,7 +18,7 @@ start(OrderWorkflowStart)
 
 ## Global cancellation
 
-`app.cancel(thread)` stops a running run **softly**: the run stops before its next model or tool call
+`app.cancel(threadId)` stops a running run **softly**: the run stops before its next model or tool call
 and `execute` rejects with `WorkflowCancelledError` (`workflow.cancelled`). A paused run is dropped
 instead (its `resume` then throws `NotPausedError`). `{ cancelled }` is `false` when the thread had
 neither.
@@ -26,13 +26,13 @@ neither.
 <!-- snippet-context
 import type { App } from "agboss";
 declare const app: App;
-declare const thread: string;
+declare const threadId: string;
 declare const userId: string;
 -->
 
 ```ts
 // e.g. in the API handler of a "Cancel" button
-const { cancelled } = await app.cancel(thread, { owner: userId });
+const { cancelled } = await app.cancel(threadId, { ownerId: userId });
 ```
 
 The caller's own `signal` (`execute(…, { signal })`) aborts the same way; tools and actions see

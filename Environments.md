@@ -81,7 +81,7 @@ export class AuditApplication {}
   sqlitePath: string in AppEnvironment` (the SQLite implementations come with #265).
 - `environment` is required: an application with no settings declares the framework's empty
   contract, `@Application({ environment: EmptyEnvironment })` (any contract without fields works the
-  same), and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets `[di.missing-environment]` for an `ENV` consumer.)
+  same), and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets an empty environment.)
 
 ## The environments
 
@@ -148,19 +148,19 @@ export const environment: AppEnvironment = {
 ## Reading it
 
 `agboss check` writes `interface Environment extends AppEnvironment {}` into `.agboss/types.d.ts`,
-so the framework's `ENV` token gives the values typed by the contract (#261 PR 3 moves this to
-`applicationContext.environment`). Components read it through the constructor, never `process.env`:
+so `applicationContext.environment` gives the values typed by the contract (#261 PR 3 — there is no
+separate environment token; the chosen environment's name is `applicationContext.environmentName`).
+Components read it through the constructor (`deps: [ApplicationContext]`), never `process.env`:
 
 ```ts file=src/services/audit-store.service.ts
-import { ENV, Injectable } from "agboss";
-import type { AppEnvironment } from "../environments/app.environment.js";
+import { ApplicationContext, Injectable } from "agboss";
 
-@Injectable({ deps: [ENV] })
+@Injectable({ deps: [ApplicationContext] })
 export class AuditStoreService {
-  constructor(private readonly environment: AppEnvironment) {}
+  constructor(private readonly applicationContext: ApplicationContext) {}
 
   connectionString(): string {
-    return this.environment.databaseUrl.reveal(); // the only way to the value
+    return this.applicationContext.environment.databaseUrl.reveal(); // the only way to the value
   }
 }
 ```

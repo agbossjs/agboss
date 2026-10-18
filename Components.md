@@ -326,7 +326,9 @@ export class AuditService {
   forgotten promise) throws `ExecutionContextUnavailableError` (`context.unavailable`).
 - **Parent and root** are objects (`parent?.executionId`, `root.executionId`); `executionOf(W)` finds
   the nearest execution of `@Workflow` `W` in the chain. All three return the project's own subclass
-  type (`this`); subclasses and the tenant / application levels come with #261.
+  type (`this`). Above it, `executionContext.tenant` (`TenantContext`) and
+  `executionContext.tenant.application` (`ApplicationContext`) — the levels, and the project's
+  subclasses declared in `@Application({ tenantContext, executionContext })` (#261).
 
 Field reference: [Context and Authorization](Context-And-Authorization).
 
@@ -508,8 +510,10 @@ export class Shop implements WorkflowDefinition {
   `{ provide, useValue }` does not compile). The core provides `ExecutionContext` (the current
   execution, [above](#the-execution-context)), `JudgeModel` (a judge's own model,
   [Judges](Judges-And-Quality-Gates)), `ROUTER_FACTORY` (router engines for cheap decisions inside
-  components — their spend during a tool call is the tool's) and `ENV` (the
-  [environment](Environments), typed by `@Application({ environment })`).
+  components — their spend during a tool call is the tool's) and the context levels —
+  `ApplicationContext` (with the [environment](Environments), typed by
+  `@Application({ environment })`), `TenantContext` and the declared subclasses
+  ([Context and Authorization](Context-And-Authorization)).
 - **One container per application instance, no scopes** (#261): it holds the providers of the
   `@Application` and of every workflow it lists, one instance per class (`OrdersService` listed by
   two workflows is one instance), every listed class created at start. There is no `scope` option

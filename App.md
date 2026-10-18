@@ -69,12 +69,12 @@ const app = await createApp(JobScoutApplication);
 
 const first = await app.execute(ChatWorkflowStart, { text: "save the first job" });
 if (first.status === ExecutionStatus.Paused) {
-  await app.resume(first.thread, { approved: true, by: "dana" });
+  await app.resume(first.threadId, { approved: true, by: "dana" });
 }
 const next = await app.execute(
   ChatWorkflowStart,
   { text: "and the second" },
-  { thread: first.thread },
+  { threadId: first.threadId },
 );
 console.log(next.output?.text, next.spend.totalUsd);
 
@@ -156,8 +156,11 @@ Running more than one instance: [Several instances](Several-instances).
 A run that fails (a limit, a router, an agent) and that no `.onError` takes throws an `AGBossError`
 with a stable `code`; the Tern and the spend are recorded first.
 
-## `app.resume(thread, decision)`
+## `app.resume(threadId, decision, { tenantId, ownerId })`
 
+A resume finds what exists, so it takes keys and access only: the tenant by its id (omitted →
+`"default"`) and the thread's `ownerId`; the execution runs on the context values it started with
+([Context and Authorization](Context-And-Authorization#the-values-per-execution)).
 Continues, in the workflow the thread belongs to, the paused run of the thread with a `ToolCallApprovalDecisionDto` (`approved`, `by`,
 `reason?` — [Pause seam](Pause-seam)); same result shape. A thread without a paused run →
 `NotPausedError`. A run paused under another workflow version or config is checked by the
@@ -170,11 +173,13 @@ current output once the holder took its decision ([Several instances](Several-in
 Observers get `onWorkflowResume` with `reason: ResumeReason.Answered` (`ResumeReason.Recovered`
 when [recovery](Several-instances#recovery) continues a tree).
 
-## `app.cancel(thread)`
+## `app.cancel(threadId, { tenantId, ownerId })`
 
 Aborts a running run — it stops before its next model or tool call and `execute` rejects with
 `WorkflowCancelledError` — or drops a paused one, whose `resume` then throws `NotPausedError`;
 `{ cancelled }` is `false` when the thread had neither ([Cancellation and idempotency](Saga-And-Cancellation)).
+A thread the tenant does not have is `UnknownThreadError` (#261: a thread's key is `tenantId` +
+`threadId`).
 
 ## `app.close(options?)`
 

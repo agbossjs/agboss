@@ -2,7 +2,7 @@
 
 A run ends at a workflow finish and the next question is a new run in the same thread — unless a
 tool needs a decision first. Then the run **pauses**: `app.execute` returns `status: ExecutionStatus.Paused` with
-the waiting call in `pause`, and `app.resume(thread, decision)` continues it. The core defines where
+the waiting call in `pause`, and `app.resume(threadId, decision)` continues it. The core defines where
 and how, so a pause never contradicts limits, spend recording or Terns.
 
 ## Plug it in
@@ -67,7 +67,7 @@ const app = await createApp(ErrandsApplication);
 const first = await app.execute(TaskStart, { text: "Email the report to my boss" });
 if (first.status === ExecutionStatus.Paused) {
   // first.pause = { agent, callId, tool: "send_email", args: { to: "…", body: "…" } } → ask someone
-  const done = await app.resume(first.thread, { approved: true, by: "pavel" });
+  const done = await app.resume(first.threadId, { approved: true, by: "pavel" });
   console.log(done.output);
 }
 ```
@@ -103,7 +103,7 @@ flowchart LR
    and never repeated; the spend so far is read from the loop's checkpoint and written to the
    ledger at the pause.
 2. **One call per pause**: two calls needing approval in one model turn → two pauses, in call order.
-3. `app.resume(thread, decision)` continues the same step: approved → the tool runs **once**;
+3. `app.resume(threadId, decision)` continues the same step: approved → the tool runs **once**;
    rejected → the model reads `Tool error: the call was rejected by <by>[: <feedback>]`. The model is
    **not** asked again for the turn that asked for the call — it continues with the results.
 
