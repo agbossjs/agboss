@@ -57,6 +57,15 @@ export type RuleCode =
   | "launch.item-not-read"
   | "launch.branch-continued"
   | "launch.branch-outdates-sibling"
+  // quorums (#279 PR 1), reported by `src/flow/analyse`
+  | "flow.quorum-impossible"
+  | "flow.quorum-return-not-optional"
+  | "arbiter.not-an-arbiter"
+  | "arbiter.unhandled-agent"
+  | "arbiter.unknown-agent"
+  | "arbiter.duplicate-agent"
+  | "arbiter.answer-method-on-model"
+  | "arbiter.method-name"
   // child workflows (#263 PR 1), reported by `src/flow/analyse`
   | "graph.no-matching-start"
   | "graph.ambiguous-start"

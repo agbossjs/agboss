@@ -7,6 +7,7 @@ import {
   aboutTargets,
   fromComponent,
   fromSource,
+  groupFrom,
   subPathFrom,
   type PathBuilder,
 } from "../../../src/flow/path-builder.js";
@@ -59,3 +60,6 @@ export const toAgent = (target: Class): PathBuilder =>
 export const toFinish = (target: Class): PathBuilder =>
   side()
     .toFinish(target);
+
+/** `group(A, B, …)` of `.joinQuorumGroups(…)` (#279). */
+export const group = (...agents: readonly Class[]): PathBuilder => groupFrom(agents);

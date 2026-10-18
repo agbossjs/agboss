@@ -37,7 +37,7 @@ export interface Member<TValue> {
   readonly value: TValue;
 }
 
-type Members<TValues extends readonly unknown[]> = {
+export type Members<TValues extends readonly unknown[]> = {
   [K in keyof TValues]: Member<TValues[K]>;
 }[number];
 

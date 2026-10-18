@@ -2,6 +2,7 @@ import type { Class } from "../components/injection.js";
 import type { ErrorClass, NodeKind } from "./ast.js";
 import type { KindLabel, PathHead, SidePath, TargetCheck, Transitions } from "./builder-types.js";
 import type { GeneratedTypeError, JoinOutputOf, NameOf, NoOutput } from "./generated-types.js";
+import type { Quorums } from "./quorum-types.js";
 import type { IsSeveral, JoinValues, Returning, ValuesLeft } from "./returns-types.js";
 
 /**
@@ -53,7 +54,7 @@ export type LaunchCheck<TArgs extends readonly unknown[], TKind extends NodeKind
 };
 
 /** The names of the targets, as listed: `researcher-agent, critic-agent, critic-agent`. */
-type TargetNames<TTargets extends readonly unknown[]> = TTargets extends readonly [
+export type TargetNames<TTargets extends readonly unknown[]> = TTargets extends readonly [
   infer TFirst extends Class,
   ...infer TRest,
 ]
@@ -94,6 +95,22 @@ export interface Launched<TKey extends string, THead extends PathHead> {
   join(): Joined<TKey, THead>;
 }
 
+/**
+ * After an agents' launch: `.join()`, or its arbiters and a quorum join (#279) — `TCount` the
+ * number of agents launched, `number` for a per-item launch.
+ */
+export type AgentsLaunched<
+  TKey extends string,
+  THead extends PathHead,
+  TCount extends number,
+> = Launched<TKey, THead> & Quorums<TKey, THead, TCount>;
+
+/** How many agents a launch runs: as listed, repeats included; unknown per item. */
+type LaunchCount<
+  TTargets extends readonly unknown[],
+  TPerItem extends boolean,
+> = TPerItem extends true ? number : TTargets["length"];
+
 /** `.onJoinError(E, toAction(X)…)` right after `.join()`: a failed branch, a limit in a branch. */
 export interface JoinErrorHandling<TKey extends string, THead extends PathHead> {
   onJoinError(error: ErrorClass, path: SidePath): Joined<TKey, THead>;
@@ -124,9 +141,10 @@ export type ChildLaunchCheck<TClass extends Class, TValue> =
 export interface Launches<TValue, THead extends PathHead> {
   toParallelAgents<const TArgs extends LaunchArguments>(
     ...targets: TArgs & LaunchCheck<TArgs, NodeKind.Agent>
-  ): Launched<
+  ): AgentsLaunched<
     LaunchKey<"toParallelAgents", TargetsOf<TArgs>, IsPerItem<TargetsOf<TArgs>, TValue>, "">,
-    THead
+    THead,
+    LaunchCount<TargetsOf<TArgs>, IsPerItem<TargetsOf<TArgs>, TValue>>
   >;
   toParallelActions<const TArgs extends LaunchArguments>(
     ...targets: TArgs & LaunchCheck<TArgs, NodeKind.Action>
@@ -145,5 +163,9 @@ export interface Launches<TValue, THead extends PathHead> {
 export interface RouterLaunches<TName extends string, THead extends PathHead> {
   toParallelAgents<const TArgs extends LaunchArguments>(
     ...targets: TArgs & LaunchCheck<TArgs, NodeKind.Agent>
-  ): Launched<LaunchKey<"toParallelAgents", TargetsOf<TArgs>, false, `${TName}.`>, THead>;
+  ): AgentsLaunched<
+    LaunchKey<"toParallelAgents", TargetsOf<TArgs>, false, `${TName}.`>,
+    THead,
+    TargetsOf<TArgs>["length"]
+  >;
 }

@@ -186,6 +186,7 @@ function analyse(graph: FlowGraph): Analysed {
     errorHandlers: [],
     launches: [],
     joinErrorHandlers: [],
+    quorumJoins: [],
     violations: [],
   };
   const context: AnalysisContext = {

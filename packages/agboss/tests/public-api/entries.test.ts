@@ -65,6 +65,8 @@ const OLD_DSL = [
   "WorkflowAction",
   "BatchParallelStrategy",
   "QuorumRouter",
+  "QuorumStrategy",
+  "QuorumManager",
   "LocalSagaStrategy",
 ];
 
@@ -125,6 +127,8 @@ describe("#272 AC8: the path grammar replaces the old flow DSL in every entry", 
   });
 
   it("export the unit helpers", () => {
-    expect(Object.keys(units).sort()).toEqual(["UnitError", "minutes", "seconds", "usd"].sort());
+    expect(Object.keys(units).sort()).toEqual(
+      ["UnitError", "hours", "minutes", "seconds", "usd"].sort(),
+    );
   });
 });

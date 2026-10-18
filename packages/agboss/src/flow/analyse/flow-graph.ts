@@ -1,6 +1,12 @@
 import type { Class } from "../../components/injection.js";
 import { WorkflowFinishTextDto } from "../../dto/standard/framework.js";
-import { NodeKind, type ErrorClass, type LaunchTargetKind } from "../ast.js";
+import {
+  NodeKind,
+  type AcceptedBy,
+  type ErrorClass,
+  type LaunchTargetKind,
+  type Quorum,
+} from "../ast.js";
 import type { ComponentDeclaration } from "../decorators/declaration.js";
 import type { DtoClass } from "../../dto/types.js";
 import type { ListWrapper, OutputShape, ReturnedShape, ValueShape } from "../dto-wrappers.js";
@@ -83,6 +89,15 @@ export interface FlowLaunch {
   readonly maxItems?: number;
   /** Launched right after a router: its routes' policies apply. */
   readonly isRouterLaunch: boolean;
+  /** `.acceptedBy(…)` (#279): the arbiters each answer passes, in path order. */
+  readonly acceptedBy?: readonly AcceptedBy[];
+}
+
+/** The `group(…)` of `.joinQuorumGroups(…)` a join edge continues (#279). */
+export interface JoinGroupOrigin {
+  /** The group's agents as listed, repeats included. */
+  readonly agents: readonly ComponentName[];
+  readonly priority?: number;
 }
 
 /** What a join edge carries besides the launching step's own values (#273). */
@@ -94,6 +109,10 @@ export interface JoinEdge {
   readonly written: readonly ReturnedShape[];
   /** What the branches give, by class: the values the join must name. */
   readonly groups: readonly JoinGroup[];
+  /** `.joinQuorum(…)` / `.joinQuorumGroups(…)` (#279); absent for `.join()`. */
+  readonly quorum?: Quorum;
+  /** The group of `.joinQuorumGroups(…)` this edge continues: one edge per group. */
+  readonly group?: JoinGroupOrigin;
 }
 
 export interface FlowEdge {

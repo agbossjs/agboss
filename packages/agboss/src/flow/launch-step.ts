@@ -1,7 +1,9 @@
 import { AGBossError } from "../core/errors.js";
 import {
   NodeKind,
+  QuorumKind,
   StepKind,
+  type JoinStep,
   type ComponentClass,
   type LaunchStep,
   type LaunchTargetKind,
@@ -114,12 +116,28 @@ export function launchStepOf(
   });
 }
 
-/** What may follow a join: `.onError(…)` is named, anything but a transition refused. */
-function afterJoinProblem(next: Step): string | undefined {
+/**
+ * What may follow a join: `.onError(…)` is named, anything but a transition refused; nothing follows
+ * `.joinQuorumGroups(…)` — each group continues its own path (#279).
+ */
+function afterJoinProblem(join: JoinStep, next: Step): string | undefined {
+  if (join.quorum?.kind === QuorumKind.Groups)
+    return "nothing follows .joinQuorumGroups(…) but .onJoinError(…) — each group continues its own path";
   if (next.kind === StepKind.To) return undefined;
   return next.kind === StepKind.OnError
     ? ".onError(…) does not follow a join — use .onJoinError(E, …) right after .join()"
     : "after .join() the path goes on with .onJoinError(…), .returns(…) and one .to…(…)";
+}
+
+/** Why a join cannot follow the launch before it: a launch with arbiters needs a quorum (AC12). */
+function quorumJoinProblem(launch: LaunchStep, isQuorum: boolean): string | undefined {
+  if (!isQuorum)
+    return launch.acceptedBy === undefined
+      ? undefined
+      : ".acceptedBy(…) is followed by .joinQuorum(…) or .joinQuorumGroups(…), not .join()";
+  return launch.targetKind === NodeKind.Agent
+    ? undefined
+    : "a quorum counts agents' answers — .joinQuorum(…) follows .toParallelAgents(…)";
 }
 
 /** Why `next` cannot follow `previous` around a launch; undefined when it can. */
@@ -129,5 +147,7 @@ export function launchOrderProblem(previous: Step | undefined, next: Step): stri
     return isLaunch
       ? "a parallel launch is followed by .join()"
       : ".join() follows a parallel launch: .toParallelAgents(…), .toParallelActions(…) or .toParallelWorkflows(…)";
-  return previous?.kind === StepKind.Join ? afterJoinProblem(next) : undefined;
+  if (previous?.kind === StepKind.Launch && next.kind === StepKind.Join)
+    return quorumJoinProblem(previous, next.quorum !== undefined);
+  return previous?.kind === StepKind.Join ? afterJoinProblem(previous, next) : undefined;
 }

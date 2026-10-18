@@ -29,6 +29,7 @@ import { nameRules } from "./rules/names.js";
 import { optionsRules } from "./rules/options.js";
 import { outdatedRules } from "./rules/outdated.js";
 import { placementRules } from "./rules/placement.js";
+import { quorumRules } from "./rules/quorum.js";
 import { returnsRules } from "./rules/returns.js";
 import { routerRules } from "./rules/routers.js";
 import { switchRules } from "./rules/switch.js";
@@ -83,6 +84,7 @@ const RULES: readonly FlowRule[] = [
   aboutRules,
   stepsRules,
   launchRules,
+  quorumRules,
   branchOutdatingRules,
   childRules,
   limitHandlerRules,

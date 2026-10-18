@@ -4,6 +4,9 @@
 
 ```ts
 
+// @public
+export const hours: (amount: number) => Milliseconds;
+
 // Warning: (ae-forgotten-export) The symbol "Brand" needs to be exported by the entry point index.d.ts
 //
 // @public

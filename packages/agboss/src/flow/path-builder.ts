@@ -2,6 +2,7 @@ import type { Class } from "../components/injection.js";
 import type { DtoClass } from "../dto/types.js";
 import {
   NodeKind,
+  QuorumKind,
   StepKind,
   type ChooseOneRoute,
   type ComponentSource,
@@ -9,14 +10,22 @@ import {
   type JoinStep,
   type LaunchTargetKind,
   type PathSource,
-  type ReturnedValue,
+  type QuorumGroup,
   type Step,
   type SubPath,
   type SwitchCase,
 } from "./ast.js";
-import type { ReturnsOptions } from "./builder-types.js";
-import { isReturnedShape, Wrapper } from "./dto-wrappers.js";
 import { FlowSyntaxError, launchOrderProblem, launchStepOf } from "./launch-step.js";
+import {
+  acceptedByOf,
+  acceptingLaunch,
+  countQuorumOf,
+  groupsQuorumOf,
+  priorityOf,
+  quorumGroupOf,
+  type GroupStart,
+} from "./quorum-step.js";
+import { returnedValue } from "./returns-step.js";
 
 /**
  * The runtime of the path builder (#272): one immutable class behind every typed builder state;
@@ -24,41 +33,15 @@ import { FlowSyntaxError, launchOrderProblem, launchStepOf } from "./launch-step
  */
 
 export { FlowSyntaxError } from "./launch-step.js";
+export { aboutTargets } from "./returns-step.js";
 
 /** How a builder's path begins: a source, a route, a case, or the side path of `.onError`. */
 export type PathStart =
   | { readonly kind: "source" }
   | { readonly kind: "route"; readonly target: Class }
   | { readonly kind: "case"; readonly dto: DtoClass; readonly about?: readonly DtoClass[] }
-  | { readonly kind: "side" };
-
-/** `{ about: PlanDto }` or `{ about: [PlanDto, BudgetDto] }` as a list; undefined without one. */
-export function aboutTargets(options: ReturnsOptions | undefined): readonly DtoClass[] | undefined {
-  const about = options?.about;
-  if (about === undefined) return undefined;
-  const given: unknown = about;
-  const targets: readonly unknown[] = Array.isArray(given) ? given : [given];
-  if (targets.length === 0 || targets.some((target) => typeof target !== "function"))
-    throw new FlowSyntaxError("{ about } names one DTO class or a non-empty list of them");
-  return Object.freeze([...(targets as readonly DtoClass[])]);
-}
-
-/** The value of `.returns(value, options?)` (#299, S54): one shape, `{ about }` beside it. */
-function returnedValue(shape: unknown, options: unknown, extra: number): ReturnedValue {
-  if (!isReturnedShape(shape))
-    throw new FlowSyntaxError(".returns(…) takes a DTO class, optional(…), listOf(…) or oneOf(…)");
-  if (extra > 0 || (options !== undefined && (typeof options !== "object" || options === null)))
-    throw new FlowSyntaxError(
-      ".returns(…) takes one value — chain .returns(A).returns(optional(B)) for several",
-    );
-  const about = aboutTargets(options);
-  if (about === undefined) return Object.freeze({ shape });
-  if (typeof shape !== "function" && shape.kind === Wrapper.OneOf)
-    throw new FlowSyntaxError(
-      "{ about } does not go on .returns(oneOf(…)) — write it on the case: caseOf(XDto, { about })",
-    );
-  return Object.freeze({ shape, about });
-}
+  | { readonly kind: "side" }
+  | GroupStart;
 
 /** A flow path's builder holds its source; a sub-path's holds `undefined`. */
 type SourceOf = PathSource | undefined;
@@ -84,10 +67,12 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   /** The join with a new handler or value: `.onJoinError(…)` and `.returns(…)` extend it. */
   private withJoin(join: JoinStep): PathBuilder<TSource> {
-    return new PathBuilder(this.start, this.source, [
-      ...this.steps.slice(0, -1),
-      Object.freeze(join),
-    ]);
+    return this.withLast(Object.freeze(join));
+  }
+
+  /** The last step replaced: a join extended, a launch given one more arbiter. */
+  private withLast(step: Step): PathBuilder<TSource> {
+    return new PathBuilder(this.start, this.source, [...this.steps.slice(0, -1), step]);
   }
 
   private to(target: Class, targetKind: NodeKind): PathBuilder<TSource> {
@@ -97,6 +82,10 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   returns(shape: unknown, options?: unknown, ...rest: readonly unknown[]): PathBuilder<TSource> {
     const value = returnedValue(shape, options, rest.length);
     const { last } = this;
+    if (last?.kind === StepKind.Join && last.quorum?.kind === QuorumKind.Groups)
+      throw new FlowSyntaxError(
+        "each group names its values: group(…).returns(…) — not after .joinQuorumGroups(…)",
+      );
     if (last?.kind === StepKind.Join)
       return this.withJoin({ ...last, returns: Object.freeze([...last.returns, value]) });
     return this.then({ kind: StepKind.Returns, value });
@@ -156,6 +145,43 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     });
   }
 
+  /** `.acceptedBy(A)` / `.acceptedBy(anyOf(A, B))` (#279): one more arbiter of the launch, AND. */
+  acceptedBy(choice: unknown): PathBuilder<TSource> {
+    const launch = acceptingLaunch(this.last);
+    const acceptedBy = Object.freeze([...(launch.acceptedBy ?? []), acceptedByOf(choice)]);
+    return this.withLast(Object.freeze({ ...launch, acceptedBy }));
+  }
+
+  /** `.joinQuorum({ min, max, deadline })` (#279): goes on with the counted answers. */
+  joinQuorum(options: unknown): PathBuilder<TSource> {
+    return this.then({
+      kind: StepKind.Join,
+      returns: Object.freeze([]),
+      onJoinError: Object.freeze([]),
+      quorum: countQuorumOf(options),
+    });
+  }
+
+  /** `.joinQuorumGroups(group(…)…, { deadline })` (#279): each group continues its own path. */
+  joinQuorumGroups(...args: readonly unknown[]): PathBuilder<TSource> {
+    const asGroup = (path: unknown): QuorumGroup | undefined =>
+      path instanceof PathBuilder ? path.asGroup() : undefined;
+    return this.then({
+      kind: StepKind.Join,
+      returns: Object.freeze([]),
+      onJoinError: Object.freeze([]),
+      quorum: groupsQuorumOf(args, asGroup),
+    });
+  }
+
+  /** `group(…).priority(n)`: 1 is the highest; written right after `group(…)`. */
+  priority(priority: unknown): PathBuilder<TSource> {
+    if (this.start.kind !== "group" || this.steps.length > 0)
+      throw new FlowSyntaxError(".priority(n) stands right after group(…)");
+    const start = { ...this.start, priority: priorityOf(priority) };
+    return new PathBuilder(start, this.source, this.steps);
+  }
+
   onJoinError(error: ErrorClass, path: PathBuilder): PathBuilder<TSource> {
     const { last } = this;
     if (last?.kind !== StepKind.Join || last.returns.length > 0)
@@ -192,6 +218,11 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return Object.freeze({ target: this.start.target, path: this.subPath() });
   }
 
+  /** A group: its leading `.returns(…)` chain are its values, the rest its own path. */
+  private asGroup(): QuorumGroup | undefined {
+    return this.start.kind === "group" ? quorumGroupOf(this.start, this.steps) : undefined;
+  }
+
   private asSidePath(): SubPath {
     if (this.start.kind !== "side")
       throw new FlowSyntaxError(".onError(E, …) takes a side path: toAction(…), toFinish(…), …");
@@ -210,3 +241,10 @@ export const fromComponent = (
 /** A sub-path's builder. */
 export const subPathFrom = (start: PathStart): PathBuilder<undefined> =>
   new PathBuilder(start, undefined, []);
+
+/** `group(A, B, …)` of `.joinQuorumGroups(…)` (#279): one or more agent classes, repeats counted. */
+export function groupFrom(agents: readonly unknown[]): PathBuilder<undefined> {
+  if (agents.length === 0 || agents.some((agent) => typeof agent !== "function"))
+    throw new FlowSyntaxError("group(…) takes one or more agent classes of the launch");
+  return subPathFrom({ kind: "group", agents: Object.freeze([...(agents as readonly Class[])]) });
+}

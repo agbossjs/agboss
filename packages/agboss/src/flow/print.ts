@@ -4,6 +4,7 @@ import {
   NodeKind,
   StepKind,
   type FlowPath,
+  type GroupsQuorum,
   type JoinStep,
   type LaunchStep,
   type PathSource,
@@ -12,6 +13,12 @@ import {
 } from "./ast.js";
 import { declarationOf } from "./decorators/declaration.js";
 import { LAUNCH_CALLS } from "./launch-step.js";
+import {
+  acceptedByLine,
+  countQuorumOptions,
+  groupsQuorumOptions,
+  isGroupsQuorum,
+} from "./print-quorum.js";
 
 /**
  * The flow's paths printed in the grammar they are written in (#272 → Runtime: `agboss describe`,
@@ -102,11 +109,35 @@ class Printer {
   private launch(step: LaunchStep, depth: number): void {
     const targets = step.targets.map((target) => this.label(target)).join(", ");
     this.line(depth, `.${LAUNCH_CALLS[step.targetKind]}(${targets}${launchOptions(step)})`);
+    for (const accepted of step.acceptedBy ?? [])
+      this.line(depth, acceptedByLine(accepted, this.label));
   }
 
-  /** `.join()`, its `.onJoinError(…)` side paths, then its `.returns(…)` chain (#273). */
+  /** `.joinQuorumGroups(` each `group(…)` with its priority, values and path, its options `)` (#279). */
+  private groups(quorum: GroupsQuorum, depth: number): void {
+    this.line(depth, ".joinQuorumGroups(");
+    const options = groupsQuorumOptions(quorum);
+    quorum.groups.forEach((group, index) => {
+      this.line(depth + 1, `group(${group.agents.map((agent) => this.label(agent)).join(", ")})`);
+      if (group.priority !== undefined)
+        this.line(depth + 2, `.priority(${String(group.priority)})`);
+      for (const value of group.returns) this.line(depth + 2, returnsLine(value));
+      this.steps(group.path.steps, depth + 2);
+      if (index < quorum.groups.length - 1 || options !== undefined) this.closeLast(",");
+    });
+    if (options !== undefined) this.line(depth + 1, options);
+    this.line(depth, ")");
+  }
+
+  /** `.join()` / `.joinQuorum(…)` / `.joinQuorumGroups(…)`, its `.onJoinError(…)`, its `.returns(…)`. */
   private join(step: JoinStep, depth: number): void {
-    this.line(depth, ".join()");
+    const { quorum } = step;
+    if (isGroupsQuorum(quorum)) this.groups(quorum, depth);
+    else
+      this.line(
+        depth,
+        quorum === undefined ? ".join()" : `.joinQuorum(${countQuorumOptions(quorum)})`,
+      );
     for (const handler of step.onJoinError)
       this.sidePath(handler.error.name, handler.path.steps, depth, "onJoinError");
     for (const value of step.returns) this.line(depth, returnsLine(value));

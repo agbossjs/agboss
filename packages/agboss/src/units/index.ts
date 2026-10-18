@@ -31,3 +31,7 @@ export const seconds = (amount: number): Milliseconds =>
 /** A duration given in minutes. */
 export const minutes = (amount: number): Milliseconds =>
   (nonNegative(amount, "minutes") * 60_000) as Milliseconds;
+
+/** A duration given in hours (a quorum's `deadline`, #279). */
+export const hours = (amount: number): Milliseconds =>
+  (nonNegative(amount, "hours") * 3_600_000) as Milliseconds;

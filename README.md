@@ -289,6 +289,16 @@ says `{ items, taken }`). At most `maxConcurrency` branches run at once, a new o
 another ends; a failed branch cancels the others and the join takes `.onJoinError(E, …)`
 ([Wiki → Workflow](https://github.com/agbossjs/agboss/wiki/Workflow)).
 
+Not every answer is always needed: a **quorum** (#279) counts them — `.joinQuorum({ min: 2, max: 3,
+deadline: seconds(30) })` goes on with the counted answers, `.joinQuorumGroups(group(LegalAgent,
+CriticAgent).priority(1).returns(…).toAgent(…), …)` with the first complete group (by priority),
+each group on its own path. `@Arbiter` classes decide which answers count, attached with
+`.acceptedBy(X)` before the quorum (a chain is an AND, `anyOf(A, B)` stops at the first that
+accepts): by model, a criterion per agent; by code, one `@OnAnswer(Agent)` method per agent. A single
+answer a quorum may leave out is `optional(XDto)` in `.returns(…)` — the compiler and `agboss check`
+say so on the quorum. Checked and typed today; it runs from #279 PR 2
+([Wiki → Parallel](https://github.com/agbossjs/agboss/wiki/Parallel)).
+
 A whole **workflow is a step** too (#263): `.toWorkflow(CompanyCheckWorkflow)` runs an ordinary
 `@Workflow` of the application as a child — a component "start input → one of its finishes'
 outputs", runnable and testable on its own. Its start is chosen by the class of what comes in (one

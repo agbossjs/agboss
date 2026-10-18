@@ -1,5 +1,6 @@
 import type { FlowLaunch } from "../analyse/flow-graph.js";
-import { joinGroupsOf, launchKeyOf } from "../analyse/join-groups.js";
+import { joinGroupsOf, launchKeyOf, type JoinGroup } from "../analyse/join-groups.js";
+import { groupKeyOf } from "../analyse/quorum-joins.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
 import { TablesImport, type ImportTable } from "./imports.js";
 import { valueText } from "./shapes.js";
@@ -8,7 +9,9 @@ import { valueText } from "./shapes.js";
  * The `JoinOutputs` table (#273): what the join of each launch gives, keyed as the typed builder
  * spells the launch — one value per class (a tuple for several, in a canonical order: the chain
  * names them in any order), `NoOutput` when its actions give nothing, the rule's message when a
- * branch's output cannot be joined.
+ * branch's output cannot be joined; and each `group(…)` of a `.joinQuorumGroups(…)` (#279), keyed
+ * `<launch> group(<agents>)`: what its counted places give. A `.joinQuorum(…)` has no entry of its
+ * own — the typed builder makes the launch's single values optional (`QuorumOutput`).
  */
 
 /** The workflows the table is written from. */
@@ -19,7 +22,13 @@ interface Analysed {
 const errorType = (message: string): string => `{ readonly __error: ${JSON.stringify(message)} }`;
 
 function joinText(analysis: FlowAnalysis, launch: FlowLaunch, names: ImportTable): string {
-  const groups = joinGroupsOf(launch, (name) => analysis.graph.nodes.get(name));
+  return valuesText(
+    joinGroupsOf(launch, (name) => analysis.graph.nodes.get(name)),
+    names,
+  );
+}
+
+function valuesText(groups: readonly JoinGroup[], names: ImportTable): string {
   const [problem] = groups.flatMap((group) => (group.problem === undefined ? [] : [group.problem]));
   if (problem !== undefined) return errorType(problem);
   const values = groups.flatMap((group) =>
@@ -38,10 +47,14 @@ export function joinEntries(
   const entries = new Map<string, string>();
   for (const { analysis } of workflows) {
     for (const edge of analysis.graph.edges) {
-      const { launch } = edge;
+      const { launch, join } = edge;
       if (launch === undefined) continue;
       const key = launchKeyOf(launch);
       if (!entries.has(key)) entries.set(key, joinText(analysis, launch, names));
+      const group = join?.group;
+      if (join === undefined || group === undefined) continue;
+      const groupKey = groupKeyOf(launch, group.agents);
+      if (!entries.has(groupKey)) entries.set(groupKey, valuesText(join.groups, names));
     }
   }
   return entries;

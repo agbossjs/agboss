@@ -4,12 +4,14 @@ import { entryLabel, startLabel } from "../flow/analyse/rules/children.js";
 import { NodeKind } from "../flow/ast.js";
 import type { ResolvedField } from "../flow/analyse/fields.js";
 import { aboutLabel, shapeLabel } from "../flow/analyse/labels.js";
+import { quorumCounts } from "./quorum-counts.js";
 
 /**
  * Each node's inputs and who can give them (#270 AC18), as `agboss describe` prints them:
  * `prepare-offer-action ← draft: editor-agent | draft-agent (latest), legal: legal-agent (optional)`.
  * `latest` — several producers reach the field and the newest value wins; a `historyOf` field says
- * so, with its limit (#299); nothing reaches → `none`.
+ * so, with its limit (#299); a list a quorum counts gives each producer's counts (`critic-agent
+ * ×1–2`, #279); nothing reaches → `none`.
  */
 
 const historyNote = (field: ResolvedField): readonly string[] => {
@@ -18,13 +20,21 @@ const historyNote = (field: ResolvedField): readonly string[] => {
   return [limit === undefined ? "historyOf" : `historyOf, limit ${String(limit)}`];
 };
 
-function fieldText(field: ResolvedField, producers: readonly string[]): string {
+function fieldText(
+  field: ResolvedField,
+  producers: readonly string[],
+  counts: ReadonlyMap<string, string>,
+): string {
   const notes = [
     ...(producers.length > 1 ? ["latest"] : []),
     ...historyNote(field),
     ...(field.isRequired ? [] : ["optional"]),
   ];
-  const who = producers.length === 0 ? "none" : producers.join(" | ");
+  const counted = producers.map((producer) => {
+    const count = counts.get(producer);
+    return count === undefined ? producer : `${producer} ${count}`;
+  });
+  const who = producers.length === 0 ? "none" : counted.join(" | ");
   return `${field.name}: ${who}${notes.length === 0 ? "" : ` (${notes.join(", ")})`}`;
 }
 
@@ -39,7 +49,7 @@ export function inputLines(analysis: FlowAnalysis): readonly string[] {
       const producers = new Set(
         shapes.flatMap((shape) => shape.find((item) => item.name === field.name)?.producers ?? []),
       );
-      return fieldText(field, [...producers].sort());
+      return fieldText(field, [...producers].sort(), quorumCounts(analysis, node, field));
     });
     return [`${node} ← ${texts.join(", ")}`];
   });

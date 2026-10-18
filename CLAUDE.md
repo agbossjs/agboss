@@ -418,13 +418,33 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   `AGBossError`) leads only to actions and finishes — `[graph.limit-handler-uses-model]`. Until
   #263 PR 2 a workflow with a child is checked (`agboss check`) but does not assemble
   (`flow.child-not-runnable`).
+- **Quorums (#279):** after `.toParallelAgents(…)` a join may count answers instead of waiting for
+  all — `.joinQuorum({ min, max, deadline })` (options always an object; `max` defaults to `min`,
+  `deadline` in units: `seconds()`, `minutes()`, `hours()`) or `.joinQuorumGroups(group(A, B)
+.priority(1).returns(…).to…(…), …, { deadline })`, where every group continues its own path (1
+  is the highest priority; nothing follows the groups but `.onJoinError(E, …)`). `@Arbiter`
+  classes (`arbiters/*.arbiter.ts`, `-arbiter`) decide whether an answer counts, attached with
+  `.acceptedBy(X)` between the launch and the quorum (`.acceptedBy(…).join()` does not compile):
+  several `.acceptedBy(…)` are an AND in path order, `.acceptedBy(anyOf(A, B))` stops at the first
+  that accepts (S57). `decidedBy: DecidedBy.Model` — `model`, `prompt` and one `criteria` entry per
+  agent of the launch; `DecidedBy.Code` — one `@OnAnswer(Agent) from<Agent>(answer: XDto): boolean`
+  method per agent class (copy / item through `deps: [ExecutionContext]`); a missing one is
+  `[arbiter.unhandled-agent]`, an extra one `[arbiter.unknown-agent]`, two `[arbiter.duplicate-agent]`.
+  What `.returns(…)` may promise: the shape comes from the launch (a repeated class or a shared
+  `output` → `listOf(XDto)` in every form); after `.joinQuorum({ min })` with `min` below the
+  agents launched a single answer is `optional(XDto)` (a required one is
+  `[flow.quorum-return-not-optional]`, also a compile error); a group's listed agents are required
+  in its `.returns(…)`. `[flow.quorum-impossible]`: `min` above the agents (or `maxItems`), a group
+  that can never complete. `agboss describe` counts a list's producers (`critiques: critic-agent
+×1–2`). Until #279 PR 2 a workflow with a quorum is checked but does not assemble
+  (`flow.quorum-not-runnable`).
 - **Node kinds:** `@WorkflowStart` (input: a DTO, a list or a map of fields; input guards),
   `@Router`, `@Agent` (`input` fields, `output` — answered through answer tools, or text without
   them), `@Action` (code, no model: `execute(input)`; its execution through `deps: [ExecutionContext]`), `@WorkflowFinish`
   (output DTO, output guards). `app.execute(Start, input)` is typed by the generated tables:
   `input` is the start's input, `result.output` the finishes' outputs.
 - **Assembly rules** fail before any model call with **all** violations at once (`GraphRuleError`,
-  stable codes `flow.*` / `graph.*` / `input.*` / `io.*` / `launch.*` / `router.*`): names end with their kind
+  stable codes `flow.*` / `graph.*` / `input.*` / `io.*` / `launch.*` / `router.*` / `arbiter.*`): names end with their kind
   (`-agent`, `-router`, `-action`, `-workflow-start`, `-workflow-finish`, `-workflow`) and are unique
   in the application (`[name.kind-suffix]`, `[graph.duplicate-node-name]`); DTO classes on paths
   end with `Dto` (`[dto.name]`); a path ends in a finish; a router's `chooseOne` lists exactly its
@@ -715,6 +735,141 @@ export const childPaths = [
 ] as const;
 ```
 
+<!-- snippet-context
+import { Agent, Arbiter, DecidedBy, OnAnswer, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, start } from "agboss";
+import { Integer, Text, listOf, optional } from "agboss/dto";
+import { minutes, seconds } from "agboss/units";
+
+export class CandidateDto {
+  @Text({ prompt: "the candidate" })
+  name!: string;
+}
+export class ScoreDto {
+  @Integer({ prompt: "the score, 1–10" })
+  score!: number;
+}
+export class ScoreReviewDto {
+  @Text({ prompt: "the review" })
+  text!: string;
+}
+export class LegalReviewDto {
+  @Text({ prompt: "the legal risks" })
+  risks!: string;
+}
+export class CritiqueDto {
+  @Text({ prompt: "an objection" })
+  objection!: string;
+}
+export class FastScreenDto {
+  @Text({ prompt: "why the deal is rejected" })
+  reason!: string;
+}
+export class DealReportDto {
+  @Text({ prompt: "the report" })
+  text!: string;
+}
+@WorkflowStart({ name: "candidate-workflow-start", description: "A candidate", input: CandidateDto })
+export class CandidateWorkflowStart {}
+@Agent({ name: "score-a-agent", description: "Scores skills", prompt: "Score.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
+export class ScoreAAgent {}
+@Agent({ name: "score-b-agent", description: "Scores risks", prompt: "Score.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
+export class ScoreBAgent {}
+@Agent({ name: "score-c-agent", description: "Scores the hire", prompt: "Score.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
+export class ScoreCAgent {}
+@Agent({ name: "score-summary-agent", description: "Sums up", prompt: "Sum up.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto, scores: listOf(ScoreDto) }, output: ScoreReviewDto })
+export class ScoreSummaryAgent {}
+@WorkflowFinish({ name: "score-review-workflow-finish", description: "The review", output: ScoreReviewDto })
+export class ScoreReviewWorkflowFinish {}
+@WorkflowStart({ name: "deal-workflow-start", description: "A deal", input: CandidateDto })
+export class DealWorkflowStart {}
+@Agent({ name: "legal-agent", description: "Legal review", prompt: "Review.", model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: LegalReviewDto })
+export class LegalAgent {}
+@Agent({ name: "critic-agent", description: "Objects", prompt: "Object.", model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: CritiqueDto })
+export class CriticAgent {}
+@Agent({ name: "fast-screen-agent", description: "Screens", prompt: "Screen.", model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: FastScreenDto })
+export class FastScreenAgent {}
+@Agent({ name: "full-review-agent", description: "Reports", prompt: "Report.", model: "moonshotai/kimi-k2.6", input: { legal: optional(LegalReviewDto), critiques: listOf(CritiqueDto) }, output: DealReportDto })
+export class FullReviewAgent {}
+@WorkflowFinish({ name: "deal-report-workflow-finish", description: "The report", output: DealReportDto })
+export class DealReportWorkflowFinish {}
+@WorkflowFinish({ name: "quick-reject-workflow-finish", description: "Rejected at once", output: FastScreenDto })
+export class QuickRejectWorkflowFinish {}
+// @snippet
+@Workflow({ name: "quorum-workflow", version: "1.0.0", flow: quorumPaths })
+export class QuorumWorkflow {}
+-->
+
+```ts
+// arbiters/in-range.arbiter.ts — by code: one @OnAnswer(Agent) method per agent of the launch
+@Arbiter({ name: "in-range-arbiter", decidedBy: DecidedBy.Code })
+export class InRangeArbiter {
+  @OnAnswer(ScoreAAgent)
+  fromScoreA(answer: ScoreDto): boolean {
+    return this.isInRange(answer);
+  }
+
+  @OnAnswer(ScoreBAgent)
+  fromScoreB(answer: ScoreDto): boolean {
+    return this.isInRange(answer);
+  }
+
+  @OnAnswer(ScoreCAgent)
+  fromScoreC(answer: ScoreDto): boolean {
+    return this.isInRange(answer);
+  }
+
+  private isInRange(answer: ScoreDto): boolean {
+    return answer.score >= 1 && answer.score <= 10;
+  }
+}
+
+// arbiters/valid-score.arbiter.ts — by model: a criterion for every agent of the launch
+@Arbiter({
+  name: "valid-score-arbiter",
+  decidedBy: DecidedBy.Model,
+  model: "typesafe/jev-1.13",
+  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  criteria: [
+    { agent: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
+    { agent: ScoreBAgent, prompt: "Names at least two concrete risks" },
+    { agent: ScoreCAgent, prompt: "Ends with a clear hire / no hire" },
+  ],
+})
+export class ValidScoreArbiter {}
+
+export const quorumPaths = [
+  // any two of three: the counted answers only, the third cancelled (#279 PR 2)
+  start(CandidateWorkflowStart)
+    .returns(CandidateDto)
+    .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
+    .acceptedBy(anyOf(InRangeArbiter, ValidScoreArbiter)) // the model only when the code rejects
+    .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
+    .returns(listOf(ScoreDto))
+    .toAgent(ScoreSummaryAgent)
+    .returns(ScoreReviewDto)
+    .toFinish(ScoreReviewWorkflowFinish),
+
+  // groups: the first complete one (by priority) continues its own path
+  start(DealWorkflowStart)
+    .returns(CandidateDto)
+    .toParallelAgents(LegalAgent, CriticAgent, CriticAgent, FastScreenAgent)
+    .joinQuorumGroups(
+      group(LegalAgent, CriticAgent)
+        .priority(1)
+        .returns(LegalReviewDto)
+        .returns(listOf(CritiqueDto)) // critic-agent is launched twice: a list, even of one
+        .toAgent(FullReviewAgent)
+        .returns(DealReportDto)
+        .toFinish(DealReportWorkflowFinish),
+      group(FastScreenAgent)
+        .priority(2)
+        .returns(FastScreenDto)
+        .toFinish(QuickRejectWorkflowFinish),
+      { deadline: minutes(1) },
+    ),
+] as const;
+```
+
 - **Routers:** a route **to a workflow finish** is worded as a stop instruction
   ("Stop and send the answer: …"), never "the answer is ready". `decidedBy` names who decides
   (#280): `DecidedBy.Model` — the router's `model` (a decision model like Jev, or a chat model)
@@ -735,9 +890,9 @@ export const childPaths = [
 ### Components and dependency injection
 
 - **One class per file, folders by kind:** `workflow-starts/`, `routers/`, `agents/`, `actions/`,
-  `workflow-finishes/`, `tools/`, `services/`, `mcp/`, `rag/`, `environments/`; files
+  `workflow-finishes/`, `arbiters/`, `tools/`, `services/`, `mcp/`, `rag/`, `environments/`; files
   `*.workflow-start.ts`, `*.router.ts`, `*.agent.ts` (+ `*.prompt.md`), `*.action.ts`,
-  `*.workflow-finish.ts`, `*.tool.ts`, `*.dto.ts`, `*.service.ts`, `*.server.ts` + `*.mcp.ts`,
+  `*.workflow-finish.ts`, `*.arbiter.ts`, `*.tool.ts`, `*.dto.ts`, `*.service.ts`, `*.server.ts` + `*.mcp.ts`,
   `*.rag.ts`, `*.helper.ts`.
 - **Decorator = metadata, constructor = dependencies, methods = a contract:** `implements` for your
   own (`ToolHandler<In, Out>`, `ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler`,

@@ -28,6 +28,7 @@ import {
   type BranchSite,
   type JoinErrorSite,
   type Mention,
+  type QuorumSite,
   type Placement,
   type SwitchSite,
   type WalkedFlow,
@@ -35,6 +36,7 @@ import {
 import { NodeTable } from "./nodes.js";
 import { nextCursor, type Cursor } from "./walk-cursor.js";
 import { walkJoin, walkLaunch, type LaunchRecorder } from "./walk-launch.js";
+import { isGroupsJoin } from "./walk-quorum.js";
 
 /**
  * Walks the paths of a flow once (#272 PR 2): builds the graph (nodes, edges with what each step
@@ -53,6 +55,7 @@ class FlowWalker implements LaunchRecorder {
   readonly errorHandlers: BranchSite<OnErrorStep>[] = [];
   readonly launches: FlowLaunch[] = [];
   readonly joinErrorHandlers: JoinErrorSite[] = [];
+  readonly quorumJoins: QuorumSite[] = [];
   readonly violations: RuleViolation[] = [];
 
   walkPath(path: FlowPath): void {
@@ -75,7 +78,7 @@ class FlowWalker implements LaunchRecorder {
       const message = `${cursor.current}: a parallel launch is followed by .join() — the branches' values meet there`;
       this.violations.push(violation("launch.join-required", message, [cursor.current]));
     }
-    return steps.some((step) => step.kind === StepKind.To);
+    return steps.some((step) => step.kind === StepKind.To || isGroupsJoin(step));
   }
 
   /** One step; returns where the walk stands after it (every kind of step has its case). */
@@ -217,6 +220,7 @@ export function walkFlow(flow: readonly FlowPath[]): WalkedFlow {
     errorHandlers: walker.errorHandlers,
     launches: walker.launches,
     joinErrorHandlers: walker.joinErrorHandlers,
+    quorumJoins: walker.quorumJoins,
     violations: [...walker.table.violations, ...walker.violations],
   };
 }
