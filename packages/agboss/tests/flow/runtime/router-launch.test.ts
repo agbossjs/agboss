@@ -233,4 +233,21 @@ describe("#280 S47 (f): a code router launches its Always targets and what route
       await expect(none).rejects.toBeInstanceOf(RouterDecisionError);
     },
   );
+
+  strict(
+    "Skip on a code router's route: a failed agent drops out, the execution goes on",
+    async ({ app, mockLlm }) => {
+      mockLlm(RefundPolicyAgent).thenReturn(refund);
+      mockLlm(LoyaltyOfferAgent).thenReturn(failWith(ModelFailure.Timeout));
+      mockLlm(PickyAnswerAgent).thenReturn(reply);
+
+      const result = await execute(app, StrictWorkflowStart, { text: "both" });
+
+      expect(result).toFinishWith(PickyWorkflowFinish);
+      expect(result.launches[0]?.branches.map((branch) => branch.status)).toEqual([
+        BranchStatus.Finished,
+        BranchStatus.Skipped,
+      ]);
+    },
+  );
 });

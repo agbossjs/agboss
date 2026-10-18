@@ -34,6 +34,8 @@ const optionsOf = (node: RuntimeNode): RouterOptions => {
   return node.declaration.options;
 };
 
+const isClass = (value: unknown): value is Class => typeof value === "function";
+
 const nameOf = (target: Class): string => declarationOf(target)?.options.name ?? target.name;
 
 /** The `OnDemand` routes' targets, in the order of `@Router({ routes })`. */
@@ -115,7 +117,7 @@ export function codeRouterLaunch(
     );
   const allowed = onDemandTargetsOf(node);
   const names = (answer as readonly unknown[]).map((target) =>
-    typeof target === "function" ? nameOf(target as Class) : String(target),
+    isClass(target) ? nameOf(target) : String(target),
   );
   const outside = names.find((name) => !allowed.includes(name));
   if (outside !== undefined)

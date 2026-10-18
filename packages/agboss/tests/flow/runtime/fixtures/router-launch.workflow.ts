@@ -2,6 +2,7 @@ import {
   Agent,
   DecidedBy,
   EmptyEnvironment,
+  FailurePolicy,
   optional,
   Router,
   SpawnPolicy,
@@ -120,7 +121,10 @@ export class StrictWorkflowStart {}
   description: "Answers as told",
   decidedBy: DecidedBy.Code,
   input: { message: WorkflowStartTextDto },
-  routes: [{ target: RefundPolicyAgent }, { target: LoyaltyOfferAgent }],
+  routes: [
+    { target: RefundPolicyAgent },
+    { target: LoyaltyOfferAgent, failure: FailurePolicy.Skip },
+  ],
 })
 export class StrictRouter {
   route(input: { readonly message: Produced<WorkflowStartTextDto, unknown> }): unknown {
