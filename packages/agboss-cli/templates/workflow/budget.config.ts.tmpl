@@ -1,7 +1,11 @@
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
 import { usd, type Usd } from "agboss/units";
 
-/** Every budget of the application, one template each: what it limits, and how much. */
+/**
+ * Every budget of the application, one template each: what it limits, and how much. Every
+ * execution is checked against its execution budget, its tenant's and the application's before its
+ * first step, and every model call is counted in all of them.
+ */
 
 @Budget({
   name: "application-daily-budget",

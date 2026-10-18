@@ -5,18 +5,19 @@ import {
   Tool,
   type ToolHandler,
   WorkflowFinish,
-  WorkflowSettings,
   WorkflowStart,
-  type WorkflowDefinition,
+  Budget,
+  BudgetScope,
+  type BudgetHandler,
   BudgetExceededError,
   LimitExceededError,
 } from "../../src/index.js";
 import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
-import { usd } from "../../src/units/index.js";
+import { usd, type Usd } from "../../src/units/index.js";
 import { start, toFinish } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
-import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
+import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
 
 export class Payment {
@@ -98,11 +99,15 @@ export class Done {}
 })
 export class OverBudget {}
 
-/** A run budget of $0.01: a buyer that spends more leaves nothing for the checker. */
-const settings = (): WorkflowSettings =>
-  WorkflowSettings.builder()
-    .limits({ perRun: { cost: usd(0.01) } })
-    .build();
+/** An execution budget of $0.01: a buyer that spends more leaves nothing for the checker. */
+@Budget({ name: "shop-execution-budget", scope: BudgetScope.Execution })
+export class ShopExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.01);
+  }
+}
+
+const SHOP_BUDGETS = [TestApplicationDailyBudget, TestTenantDailyBudget, ShopExecutionBudget];
 
 @Workflow({
   name: "shop-workflow",
@@ -119,16 +124,14 @@ const settings = (): WorkflowSettings =>
   defaults,
   channelClasses: [TerminalUserChannel],
 })
-export class Shop implements WorkflowDefinition {
-  settings = settings;
-}
+export class Shop {}
 
 @Application({
   name: "shop-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Shop],
-  budgets: TEST_BUDGETS,
+  budgets: SHOP_BUDGETS,
 })
 export class ShopApplication {}
 
@@ -148,16 +151,14 @@ export class ShopApplication {}
   defaults,
   channelClasses: [TerminalUserChannel],
 })
-export class ShopCatchingLimits implements WorkflowDefinition {
-  settings = settings;
-}
+export class ShopCatchingLimits {}
 
 @Application({
   name: "shop-limits-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ShopCatchingLimits],
-  budgets: TEST_BUDGETS,
+  budgets: SHOP_BUDGETS,
 })
 export class ShopCatchingLimitsApplication {}
 
@@ -176,15 +177,13 @@ export class ShopCatchingLimitsApplication {}
   defaults,
   channelClasses: [TerminalUserChannel],
 })
-export class ShopUncaught implements WorkflowDefinition {
-  settings = settings;
-}
+export class ShopUncaught {}
 
 @Application({
   name: "shop-uncaught-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ShopUncaught],
-  budgets: TEST_BUDGETS,
+  budgets: SHOP_BUDGETS,
 })
 export class ShopUncaughtApplication {}

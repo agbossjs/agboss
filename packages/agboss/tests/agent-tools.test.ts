@@ -1,7 +1,13 @@
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it } from "vitest";
 import { LimitExceededError } from "../src/graph/limits.js";
-import { ROUTER_FACTORY, Tool, type RouterEngine, type ToolHandler } from "../src/index.js";
+import {
+  BudgetScope,
+  ROUTER_FACTORY,
+  Tool,
+  type RouterEngine,
+  type ToolHandler,
+} from "../src/index.js";
 import { Text } from "../src/dto/index.js";
 import { ScriptedChatModel, type Reply } from "./fakes/scripted-model.js";
 import { Clock } from "./fixtures/test-workflow/test.workflow.js";
@@ -63,16 +69,24 @@ class PaidSearch implements ToolHandler<SearchQuery, SearchResults> {
   }
 }
 
+/** The execution budget of `setup` (`runCost`) is what stopped the execution. */
+const EXECUTION_BUDGET_SPENT = {
+  code: "limit.budget",
+  budget: { name: "test-execution-budget" },
+  scope: BudgetScope.Execution,
+};
+
 async function setup({ alpha, maxToolCalls = 3, runCost = 1, toolCostUsd = 0.01 }: Setup) {
   paid.costUsd = toolCostUsd;
   const model = new ScriptedChatModel(alpha);
   const ledger = memoryLedger();
-  const workflow = toolWorkflowOf({ tools: [Clock, PaidSearch], maxToolCalls, runCost });
+  const workflow = toolWorkflowOf({ tools: [Clock, PaidSearch], maxToolCalls });
   const deps = await fakeDeps(
     {},
     {
       workflow,
       ledger,
+      executionBudget: runCost,
       jevClient: paidDecision,
       chatModel: (settings) =>
         settings.model === "test/alpha" ? model : new FakeListChatModel({ responses: [] }),
@@ -144,7 +158,7 @@ describe("agents with tools", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("stops the loop when the run budget is spent: the next call fails at limits.perRun.cost", async () => {
+  it("stops the loop when the execution budget is spent: the next call fails with it", async () => {
     const { deps, model, ledger } = await setup({
       alpha: [toTokyo, "never sent"],
       runCost: 0.0004,
@@ -152,7 +166,7 @@ describe("agents with tools", () => {
 
     const failure = runText("Time?", deps);
 
-    await expect(failure).rejects.toMatchObject({ key: "limits.perRun.cost" });
+    await expect(failure).rejects.toMatchObject(EXECUTION_BUDGET_SPENT);
     expect(model.sent).toHaveLength(1);
     expect(ledger.recorded.map((record) => record.caller)).toContain("alpha-agent");
   });
@@ -169,10 +183,10 @@ describe("tool costs in FinOps", () => {
     expect(result.cost.byCaller["tool:paid_search"]).toBeCloseTo(0.01);
   });
 
-  it("stops after a paid tool spends the run budget", async () => {
+  it("stops after a paid tool spends the execution budget", async () => {
     const { deps, model } = await setup({ alpha: [search, "never sent"], runCost: 0.005 });
 
-    await expect(runText("Search", deps)).rejects.toMatchObject({ key: "limits.perRun.cost" });
+    await expect(runText("Search", deps)).rejects.toMatchObject(EXECUTION_BUDGET_SPENT);
     expect(model.sent).toHaveLength(1);
   });
 

@@ -13,7 +13,6 @@ import {
 } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
 import { buildCostReport } from "../../src/finops/usage.js";
-import { createMemoryLedger } from "../../src/finops/ledger.js";
 import { createSqliteTernStore } from "../../src/terns/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -26,10 +25,7 @@ import { EmptyEnvironment } from "../../src/index.js";
 
 const offline = () => ({
   gateway: createScriptedGateway(new ScriptBook()),
-  stores: {
-    terns: createSqliteTernStore(":memory:", () => new Date()),
-    ledger: createMemoryLedger(),
-  },
+  stores: { terns: createSqliteTernStore(":memory:", () => new Date()) },
 });
 
 class TicketDto {

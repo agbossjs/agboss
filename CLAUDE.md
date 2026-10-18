@@ -24,13 +24,14 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
     `invoke` or `decide` on the wrong kind of model → `ModelKindError`.
   - Agents: cheap chat models (default `moonshotai/kimi-k2.6`) via `@langchain/openai`, each with
     `maxTokens` (`MODEL_MAX` = model's maximum), `thinking`, `cache`.
-  - Everything is set in the workflow's components (`@Workflow` with its `flow` of paths and
-    `settings()`, `@Router`, `@Agent`) — reference: Architecture below (compiled by `make check`), then Wiki →
+  - Everything is set in the workflow's components (`@Workflow` with its `flow` of paths,
+    `@Router`, `@Agent`) and its application (`@Application`, its `@Budget`s) — reference: Architecture below (compiled by `make check`), then Wiki →
     Workflow, Routers, Components, Configuration (compiled by CI, see Quality gates).
 - Observability: Langfuse tracing via env (`LANGFUSE_*` keys, loaded only when set). FinOps: built-in cost
-  accounting; `@Workflow({ maxSteps })` and each node's `maxVisits`, money in the workflow's
-  `settings().limits(...)` — per run (cost) and per day (cost, resets 00:00 UTC); hitting any limit
-  fails the run unless an `.onError(…)` takes it (`QUALITY.md` → FinOps).
+  accounting; `@Workflow({ maxSteps })` and each node's `maxVisits` count steps, money is the
+  application's `@Budget`s — per execution, per tenant and for the whole application per
+  `BudgetPeriod` (UTC); an exhausted one rejects an execution before its first step or stops it
+  with `BudgetExceededError`, unless an `.onError(…)` takes it (`QUALITY.md` → FinOps).
 - Vitest (+ v8 coverage), ESLint (`typescript-eslint` strict), Prettier,
   `@langchain/langgraph-cli` for LangGraph Studio
 
@@ -216,10 +217,9 @@ export class MainRouter {}
 ```
 
 ```ts file=src/desk/desk.workflow.ts
-// desk.workflow.ts — the module: the paths (`flow`), defaults, providers; limits in settings()
-import { Workflow, WorkflowSettings, route, start, type WorkflowDefinition } from "agboss";
+// desk.workflow.ts — the module: the paths (`flow`), defaults, providers; money: the application's budgets
+import { Workflow, route, start } from "agboss";
 import { WorkflowStartTextDto } from "agboss/dto";
-import { usd } from "agboss/units";
 import { SupportAgent } from "./agents/support.agent.js";
 import { MainRouter } from "./routers/main.router.js";
 import { OrderBook } from "./services/order-book.service.js";
@@ -245,13 +245,7 @@ import { ChatWorkflowStart } from "./workflow-starts/chat.workflow-start.js";
   maxSteps: 4,
   providers: [OrderBook],
 })
-export class DeskWorkflow implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.05) }, perDay: { cost: usd(1) } })
-      .build();
-  }
-}
+export class DeskWorkflow {}
 ```
 
 ```ts file=src/desk/config/budget.config.ts
@@ -1028,18 +1022,29 @@ export class PlanService {
   run with the internal `extractRunContext` — never by parsing `configurable`.
 - **Spend of services that are not models** (#280 S43): `deps: [SpendRecorder]` in a `@Tool` /
   `@Action`, `this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) })` — into the
-  current tool call's or step's spend (`tool:<name>` / `action:<name>`), counted in the money
-  limits; outside a frame `[spend.outside-step]`. In a tool call `executionContext.signal` is the
+  current tool call's or step's spend (`tool:<name>` / `action:<name>`), counted in the
+  execution's budgets; outside a frame `[spend.outside-step]`. In a tool call `executionContext.signal` is the
   call's: the execution's signal and the tool's `timeoutMs` timer (S45).
-- **Limits:** `@Workflow({ maxSteps })` — visits of agents and routers in one run (default:
-  (agents + routers) × 3); a node's `maxVisits`; money in `settings()`:
-  `.limits({ perRun: { cost }, perDay: { cost } })` (values with units: `usd()`). Hitting one
-  **fails the run** — unless an `.onError(…)` takes it — with `LimitExceededError` naming the key
-  (`maxSteps`, `<node>.maxVisits` as `VisitsLimitExceededError`, `limits.perRun.cost`,
-  `limits.perDay.cost`; money: `BudgetExceededError`). `perDay.cost` requires `perRun.cost`
-  (`[limits.per-run-required]`).
+- **Limits:** `@Workflow({ maxSteps })` — visits of agents and routers in one execution (default:
+  (agents + routers) × 3), checked at assembly: `[limits.max-steps-too-low]` (no finish fits in a
+  hand-set `maxSteps`, or the default cannot hold the worst case of a per-item launch — set
+  `maxSteps`), `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`; a node's
+  `maxVisits`. **Money is `@Budget` components** (#261), all in `@Application({ budgets })`
+  (`config/budget.config.ts`): `@Budget({ name, scope, period?, workflow?, deps? })` +
+  `implements BudgetHandler` (`maxSpend(): Usd | Promise<Usd>`) — `BudgetScope.Execution` (a
+  workflow's own `workflow: X`, or the default), `Tenant` and `Application` per
+  `BudgetPeriod.Day | Week | Month`; every workflow, a tenant and the application covered at assembly
+  (`[budget.*-required]`, `[budget.duplicate-…]`). `maxSpend()` is read once per execution, at its
+  start (its `ExecutionContext` readable), and kept for the whole execution; an exhausted budget
+  rejects the execution before the first step (`onRunRejected`), and every model call's cost is
+  counted in all of them — the first exhausted stops it before the next step or call. Nothing is
+  reserved (a small overrun on a race, or by one call, is accepted). Hitting a limit **fails the
+  execution** — unless an `.onError(…)` takes it — one class per limit, all `LimitExceededError`s:
+  `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`,
+  `BudgetExceededError` (`budget`, `scope`, `key`, `maxSpend`, `spent`: `tenant acme spent $40.05
+today; tenant-daily-budget allows $40`).
 - **Errors** (root entry) are `AGBossError`s with stable `code`s (`limit` ⊃ `limit.budget`,
-  `limit.visits`, `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
+  `limit.steps`, `limit.visits`, `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
   `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`ActionFailedError`, the
   action's error as `cause`) / `step.guard` / `step.router` ⊃ `step.router.invalid-decision`,
   `workflow.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
@@ -1129,7 +1134,7 @@ Components):
 - **When + what** for things tied to a moment: `BeforeToolCallJudge`, `AfterToolCallJudge`,
   `BeforeAgentAnswerJudge`.
 - **One limit → flat `max…`** (`maxVisits`); **several related → an object** named by what they
-  are, the scope stated once (`limits: { perRun: { cost }, perDay: { cost } }`).
+  are, the scope stated once (`circuitBreakerPolicy: { failureThreshold, window, openFor }`).
 - **Closed sets are enums**, not string unions, in the public API.
 - **One field name per meaning** across variants (`reason` for every verdict).
 - **Full words.** Kept abbreviations: DTO, PII, MCP, RAG, JSON, CSV, CLI, URL, ID, API and the
@@ -1191,7 +1196,8 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
                     MCP, tracing) on the application's infrastructure
     infrastructure/ the contracts + in-memory defaults (ledger, records, paused executions, leases,
                     tree keys, rate-limit slots); sqlite/ — the connection and every Sqlite* one
-    budgets/        @Budget, BudgetScope, BudgetPeriod, BudgetHandler
+    budgets/        @Budget, BudgetScope, BudgetPeriod, BudgetHandler; the rules; at run time: maxSpend()
+                    once per execution, the checks and the counting (execution-budgets.ts)
     testing/        `agboss/testing`: testWith(App) (Vitest fixtures), scripted gateway, matchers, setup.ts
     components/     @Tool @Agent @McpServer @McpTool @Rag @Injectable @Workflow, DI container, workflowOf
     dto/            `agboss/dto`: field decorators, DTO schemas and validation, standard/ DTOs

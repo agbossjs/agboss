@@ -80,8 +80,8 @@ holds from its type**, not guess it from the name.
   Assembly rules run at assembly, before any model call, and report **all** violations at once
   (`GraphRuleError` with stable codes). A new rule gets a code and a test.
 - **Config-driven.** Agents, models, thinking and caching live in the workflow's components
-  (`@Agent`, `@Router`, `@Workflow`), assembled into the config and validated at startup; limits
-  live in the workflow's `settings()` (`WorkflowSettings.builder().limits(...)`), not in config.
+  (`@Agent`, `@Router`, `@Workflow`), assembled into the config and validated at startup; steps
+  live in `@Workflow({ maxSteps })` and money in the application's `@Budget`s, not in config.
   Every chat model inherits `defaults.chat`; each router names its own `model` or takes
   `defaults.router.model`; guards take `defaults.guardrail.model` (Jev), never the router's —
   `defaults` cascade application → workflow → component (#261). Model choice is config, never code. Reference: Wiki → Configuration.
@@ -141,29 +141,39 @@ holds from its type**, not guess it from the name.
 - **Prefer reported cost over estimates**: a provider with `ModelCost.fromResponse()` (OpenRouter,
   Jev) reports each call's exact cost (`costSource: "api"`); otherwise tokens × its price table
   (`ModelCost.fromPrices`, `costSource: "price-table"`). A call with neither fails.
-- **Budgets are `@Budget` components** listed in `@Application({ budgets })` (#261,
-  `config/budget.config.ts`: `BudgetScope.Application` / `Tenant` per `BudgetPeriod`, `Execution`
-  per workflow or the default); they are checked at run time from #261 PR 5 — until then:
-- **Money limits per workflow** in its `settings()`:
-  `.limits({ perRun: { cost: usd(0.1) }, perDay: { cost: usd(1) } })` (values with units,
-  `agboss/units`); steps in `@Workflow({ maxSteps })`, visits in each node's `maxVisits`.
-  - `perDay.cost` — USD the workflow (`config.name`) may spend per UTC day; the counter resets at
-    00:00 UTC. Spend is kept in the application's `CostLedgerRepository` (#261: listed in
-    `@Application({ providers })`, else the built-in in-memory one — nothing in the home folder)
-    and written call by call while the run streams, so a crashed run's spend still counts.
-  - `perRun.cost` — USD one run may spend.
-  - Every limit is checked before each visit. Hitting one **fails the run** — never a quiet stop,
-    unless the path's `.onError(…)` takes it — with `LimitExceededError` naming the boundary key
-    (`maxSteps`, `limits.perRun.cost`, `limits.perDay.cost`, `<node>.maxVisits` as
-    `VisitsLimitExceededError`), the path and the spend so far.
-  - Each run **reserves** its budget (`perRun.cost` ∩ what is left of the day) before its first
-    call; spend shrinks the hold, the end (or a pause) releases the rest. Concurrent runs sharing a
-    ledger in one process see each other's holds, so together they never pass `perDay.cost` — a run
-    that finds nothing left fails with `limits.perDay.cost` before any call. `perDay.cost` therefore
-    **requires** `perRun.cost`: without it the app fails at start with `[limits.per-run-required]`.
-    Holds are per process: several processes on one file ledger are not coordinated.
-  - Cost limits are soft by one call (a call in flight cannot be stopped). With `MODEL_MAX` one
-    call is bounded only by the model.
+- **Money limits are `@Budget` components** (#261), every one listed in
+  `@Application({ budgets })` and written in `config/budget.config.ts`: `@Budget({ name, scope,
+  period?, workflow?, deps? })` + `implements BudgetHandler` (`maxSpend(): Usd | Promise<Usd>`, no
+  parameters — the data come through the constructor: `ExecutionContext`, the project's tenant
+  context, a billing service; never the request body). `BudgetScope.Execution` — one full pass of
+  `app.execute`, a workflow's own (`workflow: X`) or the default; `BudgetScope.Tenant` /
+  `Application` — per `BudgetPeriod.Day | Week | Month` (UTC). Assembly requires an execution budget
+  for every workflow (own or the default), a tenant and an application budget, and no duplicates
+  (`[budget.*-required]`, `[budget.duplicate-…]`). Steps are `@Workflow({ maxSteps })`, visits each
+  node's `maxVisits` — counts, never money.
+  - `maxSpend()` is read **once per execution**, at its start (in its frame: an injected
+    `ExecutionContext` reads it), and kept in its state for the whole execution — a resume and a
+    recovery count against the same amounts; the ledger keeps the last one read.
+  - The ledger (`CostLedgerRepository`: listed in `@Application({ providers })`, else the built-in
+    in-memory one — nothing in the home folder) keeps one counter per budget, scope key (the
+    application's name, the `tenantId`, the execution's id) and period; every call's cost is added
+    to all of the execution's counters while it streams, so a crashed execution's spend still counts.
+  - Before the first step every budget is checked: one exhausted **rejects** the execution
+    (`BudgetExceededError`, an `onRunRejected`, no record, no call). Before every working step the
+    counters are read again (the tenant's other executions count) and every budget is checked;
+    before every model call too. The first exhausted **fails the execution** — never a quiet stop,
+    unless the path's `.onError(BudgetExceededError, …)` takes it — with `budget`, `scope`, `key`,
+    `maxSpend`, `spent` and a sentence (`tenant acme spent $40.05 today; tenant-daily-budget allows
+    $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLimitExceededError`
+    (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`, `BudgetExceededError`.
+  - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
+    parallel executions of one tenant may overrun it a little, and a budget may be exceeded by the
+    cost of one call (a call in flight cannot be stopped; with `MODEL_MAX` one call is bounded only
+    by the model). A branch of a parallel launch counts the spend at the launch plus its siblings that
+    already ended (#273).
+  - `maxSteps` is checked at assembly: `[limits.max-steps-too-low]` (no finish fits in a hand-set
+    `maxSteps`, or the default (agents + routers) × 3 cannot hold the worst case of a per-item
+    launch — set `maxSteps`), `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`.
   - A provider's fallback (`circuitBreakerPolicy.fallback`) maps each used model to its own
     (`fallbackModels`, checked at startup: `model.fallback-unmapped` / `model.fallback-no-price`);
     a fallback call is sent and recorded as that model, at the fallback's prices.

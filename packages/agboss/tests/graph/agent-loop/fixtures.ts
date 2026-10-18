@@ -1,3 +1,10 @@
+import {
+  meterOf,
+  NO_BUDGET_CHECK,
+  type BudgetCheck,
+} from "../../../src/budgets/execution-budgets.js";
+import { BudgetScope } from "../../../src/budgets/budget.js";
+import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 /**
  * The agent loop on its own (#150): a scripted model picked by the conversation, tools that log
  * what they did, and helpers to start, pause, resume and read the loop. Imports `src` only, so the
@@ -34,7 +41,8 @@ export interface HarnessOptions {
   readonly limits?: Partial<AgentLoopLimits>;
   readonly guardrails?: any[];
   readonly tools?: (log: (effect: string) => void) => AnyTool[];
-  readonly runBudgetCap?: number;
+  /** The execution budget of the loop's execution, USD (default: none). */
+  readonly executionBudget?: number;
   readonly log?: (effect: string) => void;
   readonly onModelCall?: (move: number) => void;
 }
@@ -48,6 +56,17 @@ export interface Harness {
 }
 
 export const AGENT = "coder";
+
+/** The budgets of an execution with one execution budget of `maxSpend` USD (nothing counted yet). */
+export function executionBudgetCheck(maxSpend: number): BudgetCheck {
+  const record = {
+    budget: { name: "test-execution-budget" },
+    scope: BudgetScope.Execution,
+    key: "test-execution",
+    maxSpend,
+  };
+  return meterOf({ ledger: new InMemoryCostLedgerRepository(), clock: () => new Date() }, [record], 0);
+}
 
 export function harness(
   options: HarnessOptions,
@@ -78,7 +97,10 @@ export function harness(
         answerTools: NO_ANSWER_TOOLS,
       },
       bundle: "test-bundle",
-      runBudgetCap: options.runBudgetCap ?? Number.POSITIVE_INFINITY,
+      budgets:
+        options.executionBudget === undefined
+          ? NO_BUDGET_CHECK
+          : executionBudgetCheck(options.executionBudget),
       approval: options.approval === false ? undefined : pauseSeamApproval(),
       judges: noJudges,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -110,7 +132,7 @@ const executionStateOf = (): ExecutionStateType => ({
   output: undefined,
   budgetUsd: Number.POSITIVE_INFINITY,
   usage: [],
-  daySpentBeforeRunUsd: null,
+  budgets: [],
   history: [],
   summaries: [],
   approvals: [],

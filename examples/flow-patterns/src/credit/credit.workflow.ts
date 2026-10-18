@@ -4,11 +4,8 @@ import {
   start,
   toFinish,
   Workflow,
-  WorkflowSettings,
-  type WorkflowDefinition,
 } from "agboss";
 import { WorkflowStartTextDto } from "agboss/dto";
-import { usd } from "agboss/units";
 import { ChargeCardAction } from "./actions/charge-card.action.js";
 import { ApprovalAgent } from "./agents/approval.agent.js";
 import { OrderIntakeAgent } from "./agents/order-intake.agent.js";
@@ -59,10 +56,4 @@ import { CreditWorkflowStart } from "./workflow-starts/credit.workflow-start.js"
   maxSteps: 8,
   providers: [CreditService],
 })
-export class CreditWorkflow implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.05) }, perDay: { cost: usd(1) } })
-      .build();
-  }
-}
+export class CreditWorkflow {}

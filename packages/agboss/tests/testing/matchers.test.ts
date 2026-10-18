@@ -85,7 +85,7 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
       '"ghost-agent" is not one of its routes',
     );
     const limit = new LimitExceededError(
-      { key: "limits.perDay.cost", limit: 1, actual: 2 },
+      { key: "maxSteps", limit: 1, actual: 2 },
       ["writer-agent"],
       2,
     );
@@ -99,7 +99,7 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
     ]);
 
     expect(router).toFailWith({ code: "step.router.invalid-decision", node: MainRouter });
-    expect(limit).toFailWith({ code: "limits.perDay.cost", node: Writer });
+    expect(limit).toFailWith({ code: "maxSteps", node: Writer });
     expect(agent).toFailWith({ code: "test.script-exhausted", node: Writer });
     expect(rules).toFailWith({ code: "graph.unreachable-node", node: Writer });
     expect(() => {

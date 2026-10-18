@@ -1,7 +1,6 @@
 /** #202 AC3: a fallback call is sent as the fallback's model and priced with the fallback's prices. */
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/application/create-app.js";
-import { createMemoryLedger } from "../../src/finops/ledger.js";
 import { ConfigurationError } from "../../src/models/index.js";
 import type { ProviderFetch } from "../../src/models/resilient-fetch.js";
 import { createSqliteTernStore } from "../../src/terns/index.js";

@@ -3,8 +3,9 @@ import { usd, type Usd } from "agboss/units";
 
 /**
  * Every budget of job-scout (#261): the whole application per day, a tenant per day, and the
- * default execution budget of every workflow. Declared here; they are checked when the runtime
- * budgets land (#261 PR 5) — until then the workflow's `settings().limits` caps the money.
+ * default execution budget of every workflow. Each execution is checked against them before its
+ * first step (one exhausted → it is rejected) and every model call is counted in all of them (the
+ * first exhausted stops it with `BudgetExceededError`).
  */
 
 @Budget({

@@ -56,11 +56,8 @@ describe("job-scout on the path grammar (#272)", () => {
     );
   });
 
-  it("limits come from settings() — $0.10 a run, $1 a day; 2 steps a run, at most 12", () => {
-    expect(workflow.limits).toEqual({ perRun: { cost: 0.1 }, perDay: { cost: 1 } });
-    expect(describeWorkflow(workflow)).toContain(
-      "limits    steps 2–2 (maxSteps 12) · run $0.1 · day $1",
-    );
+  it("2 steps a run, at most 12; money is the application's budgets", () => {
+    expect(describeWorkflow(workflow)).toContain("limits    steps 2–2 (maxSteps 12)");
   });
 
   it("guards, the approval pause and compaction stay on", () => {

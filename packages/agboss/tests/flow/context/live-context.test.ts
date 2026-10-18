@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../../src/application/create-app.js";
 import type { App } from "../../../src/app/types.js";
-import { createMemoryLedger } from "../../../src/finops/ledger.js";
 import { ExecutionContext, ExecutionContextUnavailableError } from "../../../src/index.js";
 import { createSqliteTernStore } from "../../../src/terns/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";

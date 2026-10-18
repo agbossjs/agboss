@@ -1,6 +1,7 @@
 import { Application, EmptyEnvironment } from "agboss";
 import {
   ApplicationDailyBudget,
+  CreditExecutionBudget,
   ExecutionBudget,
   TenantDailyBudget,
 } from "./config/budget.config.js";
@@ -18,6 +19,6 @@ import { ReviewWorkflow } from "./review/review.workflow.js";
   version: "1.0.0",
   environment: EmptyEnvironment, // the patterns have no settings: no environment file
   workflows: [OfferWorkflow, CreditWorkflow, ReviewWorkflow],
-  budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
+  budgets: [ApplicationDailyBudget, TenantDailyBudget, CreditExecutionBudget, ExecutionBudget],
 })
 export class FlowPatternsApplication {}

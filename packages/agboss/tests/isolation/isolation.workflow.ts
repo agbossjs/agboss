@@ -9,12 +9,18 @@ import {
   type ToolHandler,
 } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
-import { usd } from "../../src/units/index.js";
+import { usd, type Usd } from "../../src/units/index.js";
 import { ApprovalDesk, ChatAppChannel, ChatStart, Reply } from "../channels/approval.workflow.js";
 import { start } from "../helpers/flow.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
-import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
+import { TEST_BUDGETS, TestApplicationDailyBudget } from "../flow/fixtures/budgets.js";
+import {
+  Budget,
+  BudgetPeriod,
+  BudgetScope,
+  type BudgetHandler,
+} from "../../src/budgets/budget.js";
 import { SharedExecutionRecordRepository } from "../helpers/shared-infrastructure.js";
 import { EmptyEnvironment } from "../../src/index.js";
 
@@ -147,7 +153,7 @@ export class Drafter {}
 })
 export class Editor {}
 
-/** Two paid steps per run under a run cap of $0.40 and a daily cap of $1.00. */
+/** Two paid steps per execution: its own budget of $0.40, the tenant's $1.00 a day. */
 @Workflow({
   name: "capped-workflow",
   version: "1.0.0",
@@ -161,11 +167,19 @@ export class Editor {}
   ],
   defaults,
 })
-export class Capped implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.4) }, perDay: { cost: usd(1) } })
-      .build();
+export class Capped {}
+
+@Budget({ name: "capped-execution-budget", scope: BudgetScope.Execution, workflow: Capped })
+export class CappedExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.4);
+  }
+}
+
+@Budget({ name: "capped-tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class CappedTenantDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(1);
   }
 }
 
@@ -174,37 +188,6 @@ export class Capped implements WorkflowDefinition {
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Capped],
-  budgets: TEST_BUDGETS,
+  budgets: [TestApplicationDailyBudget, CappedTenantDailyBudget, CappedExecutionBudget],
 })
 export class CappedApplication {}
-
-/** A daily cap with no run cap: refused at start (#202). */
-@Workflow({
-  name: "day-cap-only-workflow",
-  version: "1.0.0",
-  flow: [
-    start(ChatStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(Drafter)
-      .returns(DraftDto)
-      .toAgent(Editor)
-      .toFinish(Reply),
-  ],
-  defaults,
-})
-export class DayCapOnly implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perDay: { cost: usd(1) } })
-      .build();
-  }
-}
-
-@Application({
-  name: "day-cap-only-application",
-  version: "1.0.0",
-  environment: EmptyEnvironment,
-  workflows: [DayCapOnly],
-  budgets: TEST_BUDGETS,
-})
-export class DayCapOnlyApplication {}

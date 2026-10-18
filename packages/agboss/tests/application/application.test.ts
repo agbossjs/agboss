@@ -118,7 +118,10 @@ describe("#261 AC2: one container for the application", () => {
     expect(costLedgerRepository).toBe(app.resolve(RecordingCostLedgerRepository));
     expect(app.resolve(DeskDirectoryService)).toBe(app.resolve(DeskDirectoryService));
     const saved = app.resolve(RecordingCostLedgerRepository).saved;
-    expect(new Set(saved.map((entry) => entry.key))).toEqual(new Set(["orders-workflow"]));
+    // every call counted in each budget of the execution (the test budgets: one per scope)
+    expect(saved.map((entry) => entry.budgets)).toEqual([
+      ["test-application-daily-budget", "test-tenant-daily-budget", "test-execution-budget"],
+    ]);
     expect(saved.flatMap((entry) => entry.records.map((record) => record.costUsd))).toEqual([0.25]);
     await app.close();
   });

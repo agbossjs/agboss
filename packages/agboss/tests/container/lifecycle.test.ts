@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/application/create-app.js";
 import { startComponents, stopComponents } from "../../src/components/container/lifecycle.js";
-import { createMemoryLedger } from "../../src/finops/ledger.js";
 import { ApplicationStoppingError, WorkflowCancelledError, type App } from "../../src/index.js";
 import {
   Ask,

@@ -4,10 +4,13 @@ import { codeOfErrorClass, errorRecordOf, recordMatches } from "../../src/core/e
 import {
   AgentFailedError,
   BudgetExceededError,
+  BudgetScope,
   LimitExceededError,
   PaidStepError,
   WorkflowCancelledError,
 } from "../../src/index.js";
+
+import { usd } from "../../src/units/index.js";
 
 class FlightApiDown extends Error {}
 class BookingError extends Error {
@@ -18,7 +21,13 @@ class CodedUserError extends BookingError {
 }
 
 const budget = new BudgetExceededError(
-  { key: "limits.perRun.cost", limit: 0.01, actual: 0.02 },
+  {
+    budget: { name: "shop-execution-budget" },
+    scope: BudgetScope.Execution,
+    key: "run-1",
+    maxSpend: usd(0.01),
+    spent: usd(0.02),
+  },
   ["order", "buyer"],
   0.02,
 );
@@ -35,7 +44,15 @@ describe("#194: error records", () => {
       code: "limit.budget",
       lineage: ["limit.budget", "limit", "agboss"],
       message: budget.message,
-      details: { key: "limits.perRun.cost", limit: 0.01, actual: 0.02 },
+      details: {
+        key: "run-1",
+        limit: 0.01,
+        actual: 0.02,
+        budget: { name: "shop-execution-budget" },
+        scope: "execution",
+        maxSpend: 0.01,
+        spent: 0.02,
+      },
     });
     expect(roundTrip(errorRecordOf(agent))).toMatchObject({
       code: "step.agent",

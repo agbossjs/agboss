@@ -35,7 +35,7 @@ const SHAPE_PINS = [
   "every kind of component",
   "one path a turn",
   // the steps a run takes at most count the agents
-  "limits come from settings()",
+  "2 steps a run, at most 12",
   "the main router is Jev",
   // the recorded run replays the main router's request by hash: a new agent changes the router's
   // routes, so the request no longer matches the cassette — by design (#204), re-recorded per change

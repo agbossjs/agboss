@@ -15,7 +15,6 @@ import {
   type ToolHandler,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { createMemoryLedger } from "../../../src/finops/ledger.js";
 import { createSqliteTernStore } from "../../../src/terns/index.js";
 import type { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";

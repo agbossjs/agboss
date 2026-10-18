@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { routeTo, fakeDeps, memoryLedger, runText } from "../helpers.js";
+import { routeTo, fakeDeps, runText } from "../helpers.js";
 
 describe("runAgent writes Terns", () => {
   it("records a finished run: its start line, its finish line, the path and the versions", async () => {
@@ -19,7 +19,7 @@ describe("runAgent writes Terns", () => {
   });
 
   it("records a failed run too", async () => {
-    const deps = await fakeDeps({}, { ledger: memoryLedger(10) });
+    const deps = await fakeDeps({});
 
     await expect(runText("Anything", deps)).rejects.toThrow();
 

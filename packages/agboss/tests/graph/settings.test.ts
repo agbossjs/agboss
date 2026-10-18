@@ -1,32 +1,21 @@
 import { describe, expect, it } from "vitest";
-import {
-  WorkflowSettings,
-  WorkflowSettingsError,
-  type WorkflowDefinition,
-} from "../../src/graph/settings.js";
+import { WorkflowSettings, type WorkflowDefinition } from "../../src/graph/settings.js";
 import { minutes, seconds, UnitError, usd } from "../../src/units/index.js";
+import type { IncompatibleResumePolicy } from "../../src/run/resume-guard.js";
 
 describe("AC1: workflow settings and units", () => {
+  const policy: IncompatibleResumePolicy = () => "resume";
+
   class TestWorkflow implements WorkflowDefinition {
     settings(): WorkflowSettings {
-      return WorkflowSettings.builder()
-        .limits({ perRun: { cost: usd(0.5) }, perDay: { cost: usd(5) } })
-        .build();
+      return WorkflowSettings.builder().onIncompatibleResume(policy).build();
     }
   }
 
-  it("settings() returns the limits set through the builder", () => {
-    expect(new TestWorkflow().settings().limits).toEqual({
-      perRun: { cost: 0.5 },
-      perDay: { cost: 5 },
-    });
-    expect(WorkflowSettings.builder().build().limits).toEqual({});
-  });
-
-  it("steps are not a money limit: they are @Workflow({ maxSteps })", () => {
-    expect(() => WorkflowSettings.builder().limits({ perRun: { steps: 3 } } as never)).toThrow(
-      WorkflowSettingsError,
-    );
+  it("settings() returns what the builder set; money is not among them (#261: @Budget)", () => {
+    expect(new TestWorkflow().settings().onIncompatibleResume).toBe(policy);
+    expect(WorkflowSettings.builder().build().onIncompatibleResume).toBeUndefined();
+    expect(WorkflowSettings.builder()).not.toHaveProperty("limits");
   });
 
   it("usd, seconds and minutes carry checked amounts", () => {

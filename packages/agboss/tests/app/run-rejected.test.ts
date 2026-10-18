@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect } from "vitest";
 import { DtoValidationError } from "../../src/dto/index.js";
-import { NotPausedError, ThreadOwnerError, UnknownThreadError } from "../../src/errors.js";
+import {
+  BudgetExceededError,
+  NotPausedError,
+  ThreadOwnerError,
+  UnknownThreadError,
+} from "../../src/errors.js";
 import { NotAWorkflowStartError, type RunRejectedEvent } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
@@ -152,25 +157,26 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
   );
 });
 
-describe("#246: a day's budget spent before the run → the run's own onError, not onRunRejected", () => {
+describe("#261 AC10: a tenant's day spent before the execution → it is rejected before its first step", () => {
   vouchers(
-    "the next run starts (its id, a failed Tern) and fails with limit.budget at once",
+    "the next execution never starts: onRunRejected with limit.budget, no start, no model call",
     async ({ app, mockLlm }) => {
       mockLlm(VoucherClerk).thenReturn(
         replyWith(AnswerDto, { text: "Too dear." }, { cost: usd(0.06) }),
       );
-      // the run's one reply spends more than the day allows
+      // the execution's one reply spends more than the tenant's day allows
       await execute(app, Redeem, { text: "one", code: "V-1" });
       resetEvents();
 
       const run = execute(app, Redeem, { text: "two", code: "V-2" });
 
-      await expect(run).rejects.toFailWith({ code: "limits.perDay.cost" });
-      const [start, error] = workflowEvents();
-      expect([start?.hook, error?.hook]).toEqual(["workflow-start", "error"]);
-      expect(error?.runId).toBe(start?.runId);
-      expect(error?.detail).toMatchObject({ code: "limit.budget" });
-      expect(rejections).toEqual([]);
+      await expect(run).rejects.toBeInstanceOf(BudgetExceededError);
+      await expect(run).rejects.toThrow(
+        "tenant default spent $0.06 today; vouchers-tenant-daily-budget allows $0.05",
+      );
+      expectRejected({ operation: "execute", code: "limit.budget" });
+      expect(workflowEvents()).toEqual([]);
+      expect(mockLlm(VoucherClerk).requests).toHaveLength(1);
     },
   );
 });

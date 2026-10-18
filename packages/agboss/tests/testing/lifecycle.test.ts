@@ -76,7 +76,7 @@ describe("AC12: isolation per test", () => {
 });
 
 describe("AC12: a controllable clock — the per-day limit resets after midnight UTC", () => {
-  test('app.clock.advance("25h") starts a new day for limits.perDay.cost', async ({
+  test('app.clock.advance("25h") starts a new day for a daily budget', async ({
     app,
     mockLlm,
   }) => {
@@ -86,7 +86,7 @@ describe("AC12: a controllable clock — the per-day limit resets after midnight
 
     await execute(app, ChatStart, { text: "1" });
     const overDay = execute(app, ChatStart, { text: "2" });
-    await expect(overDay).rejects.toFailWith({ code: "limits.perDay.cost" });
+    await expect(overDay).rejects.toFailWith({ code: "desk-tenant-daily-budget" });
     await app.clock.advance("25h");
     const nextDay = await execute(app, ChatStart, { text: "3" });
 

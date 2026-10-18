@@ -85,10 +85,9 @@ export class JobFitJudge {}
 -->
 
 ```ts file=src/job-scout.workflow.ts
-// src/job-scout.workflow.ts — the paths, defaults and providers; limits in settings()
-import { Workflow, WorkflowSettings, route, start, type WorkflowDefinition } from "agboss";
+// src/job-scout.workflow.ts — the paths, defaults and providers; money is the application's budgets
+import { Workflow, route, start } from "agboss";
 import { WorkflowStartTextDto } from "agboss/dto";
-import { usd } from "agboss/units";
 
 @Workflow({
   name: "job-scout-workflow",
@@ -112,13 +111,7 @@ import { usd } from "agboss/units";
   },
   providers: [JobFitJudge],
 })
-export class JobScout implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.1) }, perDay: { cost: usd(1) } })
-      .build();
-  }
-}
+export class JobScout {}
 ```
 
 The application is the one entry (#261): it lists the workflows, the infrastructure (a class that
@@ -186,10 +179,25 @@ import { usd, type Usd } from "agboss/units";
 import { JobScout } from "./job-scout.workflow.js";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 
+// config/budget.config.ts in a project: the whole application, a tenant per day, every execution
+@Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
+export class ApplicationDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(5);
+  }
+}
+
 @Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
 export class TenantDailyBudget implements BudgetHandler {
   maxSpend(): Usd {
     return usd(1);
+  }
+}
+
+@Budget({ name: "execution-budget", scope: BudgetScope.Execution }) // the default of every workflow
+export class ExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.1);
   }
 }
 
@@ -199,7 +207,7 @@ export class TenantDailyBudget implements BudgetHandler {
   environment: EmptyEnvironment,
   workflows: [JobScout], // app.execute(ChatWorkflowStart, …) runs the workflow of that start
   providers: [OpenRouterModelProvider, DecisionsModelProvider], // every model resolves to one
-  budgets: [TenantDailyBudget], // config/budget.config.ts in a project; checked from #261 PR 5
+  budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget], // checked before each step
 })
 export class JobScoutApplication {}
 ```
@@ -403,6 +411,18 @@ export class AuditExecutionBudget implements BudgetHandler {
     return usd(0.1);
   }
 }
+@Budget({ name: "audit-tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class AuditTenantDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(1);
+  }
+}
+@Budget({ name: "audit-application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
+export class AuditApplicationDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(5);
+  }
+}
 // @snippet
 -->
 
@@ -414,7 +434,7 @@ import { AppEnvironment } from "./environments/app.environment.js";
   version: "1.0.0",
   environment: AppEnvironment, // the contract: environments/app.environment.ts
   workflows: [AuditWorkflow],
-  budgets: [AuditExecutionBudget],
+  budgets: [AuditApplicationDailyBudget, AuditTenantDailyBudget, AuditExecutionBudget],
 })
 export class AuditApplication {}
 ```
@@ -670,9 +690,9 @@ per start (`tenant: ContextValues<ShopTenantContext>`, `execution: …`), checke
 step (invalid → `dto.invalid`, an `onRunRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pause.args`) have the input DTO's
 `sensitive` fields masked as `***`; the tool itself still gets them whole.
 
-Each run reserves its `limits.perRun.cost` of the day before its first model call, so concurrent
-runs never jointly pass `limits.perDay.cost`; a workflow that sets `perDay.cost` without
-`perRun.cost` fails at start with `[limits.per-run-required]`.
+Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
+the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an
+`onRunRejected`), before any record or model call.
 
 `execute` and `resume` forward `signal`, `metadata`, `onStream` (token and tool-call events) and
 `configurable` (extra LangGraph keys; the framework's own win). `app.cancel(threadId)` aborts a running
@@ -769,15 +789,85 @@ export class MetricsObserver implements OnWorkflowStart, OnAgentStart, OnRunReje
 ## FinOps
 
 Every model call is a usage record (caller, model, tokens, USD) in the run's `spend`
-(`ExecutionOutput.spend`: total, per caller, per category) and in the daily ledger (the
-application's `CostLedgerRepository`, in memory unless one is listed); the money limits
-of `settings().limits({ perRun: { cost }, perDay: { cost } })` are checked before every model call
-and every agent or router visit, and crossing one fails the run with `BudgetExceededError`. A
-decision a tool's service makes through `ROUTER_FACTORY` is the tool's spend (`tool:<name>`). A
-paid service that is **not** a model is recorded with `SpendRecorder` (`deps: [SpendRecorder]`, in
-a `@Tool` or an `@Action`): the record joins the spend of the current tool call or step and counts
-in the same limits. Called outside a step or a tool call, `record` throws `SpendOutsideStepError`
+(`ExecutionOutput.spend`: total, per caller, per category) and in the counters of every budget of
+the execution (the application's `CostLedgerRepository`, in memory unless one is listed).
+
+**Money limits are `@Budget` components** (#261), all of them in `@Application({ budgets })`
+(written in `config/budget.config.ts`), one template — `@Budget({ name, scope, period?, workflow?,
+deps? })` on a class that `implements BudgetHandler`, one method `maxSpend(): Usd | Promise<Usd>`:
+
+- `BudgetScope.Execution` — one full pass of `app.execute`: a workflow's own (`workflow: X`, at
+  most one) or the one default (no `workflow`) for every workflow without its own;
+- `BudgetScope.Tenant` — one organization (`tenantId`) per `BudgetPeriod.Day | Week | Month` (UTC);
+- `BudgetScope.Application` — the whole application per period.
+
+Every workflow is covered (`[budget.execution-budget-required]`), there is at least one tenant and
+one application budget (`[budget.tenant-budget-required]`, `[budget.application-budget-required]`),
+and no workflow has two (`[budget.duplicate-execution-budget]`,
+`[budget.duplicate-default-execution-budget]`) — checked at assembly. `maxSpend()` is read once per
+execution, at its start, in its `ExecutionContext` (a budget injects it, or the project's tenant
+context, or a service such as billing — a trusted source, never the request body) and kept for the
+whole execution, a resume included; the ledger keeps the last one read. Before the first step every
+budget is checked — one exhausted rejects the execution (`onRunRejected`); every model call's real
+cost is then counted in all of them, and before the next step or model call the first exhausted
+stops the execution with `BudgetExceededError` — `budget` (`{ name }`), `scope`, `key` (the
+application's name, the `tenantId` or the execution's id), `maxSpend`, `spent`, and a sentence:
+`tenant acme spent $40.05 today; tenant-daily-budget allows $40`. `.onError(BudgetExceededError, …)`
+takes it. Nothing is reserved: a budget protects from draining money, so parallel executions of one
+tenant may overrun it a little, and one call may cross it (its cost is known after it). A decision a
+tool's service makes through `ROUTER_FACTORY` is the tool's spend (`tool:<name>`). A paid service
+that is **not** a model is recorded with `SpendRecorder` (`deps: [SpendRecorder]`, in a `@Tool` or
+an `@Action`): the record joins the spend of the current tool call or step and counts in the same
+budgets. Called outside a step or a tool call, `record` throws `SpendOutsideStepError`
 (`[spend.outside-step]`).
+
+<!-- snippet-context
+import { ExecutionContext, TenantContext } from "agboss";
+import { Decimal } from "agboss/dto";
+export class ShopTenantContext extends TenantContext {
+  @Decimal()
+  dailyBudgetUsd!: number;
+}
+-->
+
+```ts
+// config/budget.config.ts — the tenant's own amount, from its server-side data
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
+import { usd, type Usd } from "agboss/units";
+
+@Budget({
+  name: "tenant-daily-budget",
+  scope: BudgetScope.Tenant,
+  period: BudgetPeriod.Day,
+  deps: [ShopTenantContext],
+})
+export class TenantDailyBudget implements BudgetHandler {
+  constructor(private readonly shopTenantContext: ShopTenantContext) {}
+
+  maxSpend(): Usd {
+    return usd(this.shopTenantContext.dailyBudgetUsd);
+  }
+}
+
+@Budget({ name: "execution-budget", scope: BudgetScope.Execution, deps: [ExecutionContext] })
+export class ExecutionBudget implements BudgetHandler {
+  constructor(private readonly executionContext: ExecutionContext) {}
+
+  maxSpend(): Usd {
+    return this.executionContext.tenant.weight > 1 ? usd(0.5) : usd(0.1); // a bigger tenant
+  }
+}
+```
+
+A budget is unit-tested without the container —
+`new TenantDailyBudget(testExecutionContext({ tenantContext: ShopTenantContext, tenant: { dailyBudgetUsd: 40 } }).tenant).maxSpend()`
+is `usd(40)` — and an application test reaches an exhausted one the real way:
+`mockOf(TenantDailyBudget).maxSpend.mockReturnValue(usd(0.01))` plus a scripted cost
+(`replyWith(…, { cost: usd(0.02) })`). Steps are not money: `@Workflow({ maxSteps })` (default
+(agents + routers) × 3; `StepsLimitExceededError`), checked at assembly too —
+`[limits.max-steps-too-low]` when no finish fits in a hand-set `maxSteps`, or when the default
+cannot hold the worst case of a per-item launch (`maxItems` runs: set `maxSteps`),
+`[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`.
 
 <!-- snippet-context
 import { Text } from "agboss/dto";

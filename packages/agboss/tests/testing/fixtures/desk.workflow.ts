@@ -15,18 +15,17 @@ import {
   DecidedBy,
   Router,
   WorkflowFinish,
-  WorkflowSettings,
   WorkflowStart,
-  type WorkflowDefinition,
 } from "../../../src/index.js";
 import { Reasoning } from "../../../src/models/index.js";
 import { route, start } from "../../helpers/flow.js";
 import { McpServer, McpServerClient, McpTool } from "../../../src/mcp/index.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { usd } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
-import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { TestApplicationDailyBudget } from "../../flow/fixtures/budgets.js";
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../../src/budgets/budget.js";
+import { usd, type Usd } from "../../../src/units/index.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 
 /** What the lifecycle hooks of real components did, in order (the lifecycle tests read it). */
@@ -260,11 +259,20 @@ export class MainRouter {}
   mcp: [NotesServer],
   providers: [OrderBook],
 })
-export class Desk implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.05) }, perDay: { cost: usd(0.05) } })
-      .build();
+export class Desk {}
+
+/** $0.05 an execution and $0.05 a day for a tenant. */
+@Budget({ name: "desk-execution-budget", scope: BudgetScope.Execution })
+export class DeskExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.05);
+  }
+}
+
+@Budget({ name: "desk-tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class DeskTenantDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.05);
   }
 }
 
@@ -273,6 +281,6 @@ export class Desk implements WorkflowDefinition {
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Desk],
-  budgets: TEST_BUDGETS,
+  budgets: [TestApplicationDailyBudget, DeskTenantDailyBudget, DeskExecutionBudget],
 })
 export class DeskApplication {}

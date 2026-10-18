@@ -1,6 +1,5 @@
-import { Workflow, WorkflowSettings, route, start, type WorkflowDefinition } from "agboss";
+import { Workflow, route, start } from "agboss";
 import { WorkflowStartTextDto } from "agboss/dto";
-import { usd } from "agboss/units";
 import { TextWorkflowStart } from "./workflow-starts/text.workflow-start.js";
 import { TextWorkflowFinish } from "./workflow-finishes/text.workflow-finish.js";
 import { MainRouter } from "./routers/main.router.js";
@@ -34,10 +33,4 @@ import { MainRouter } from "./routers/main.router.js";
   },
   mcp: [{{servers}}],
 {{providers}}})
-export class {{pascal}}Workflow implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.1) }, perDay: { cost: usd(2) } })
-      .build();
-  }
-}
+export class {{pascal}}Workflow {}

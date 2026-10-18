@@ -68,7 +68,7 @@ describe("AC6: cost — from the provider's response, a price table as the fallb
 });
 
 describe("AC6: limits per run use the providers' cost", () => {
-  test("a run's spend counts both sources, and crossing limits.perRun.cost fails the run", async ({
+  test("a run's spend counts both sources, and crossing the execution budget fails the run", async ({
     app,
     mockLlm,
   }) => {
@@ -86,6 +86,6 @@ describe("AC6: limits per run use the providers' cost", () => {
     ]);
 
     const overRun = execute(app, TaskStart, { text: "again" });
-    await expect(overRun).rejects.toFailWith({ code: "limits.perRun.cost" });
+    await expect(overRun).rejects.toFailWith({ code: "priced-execution-budget" });
   });
 });

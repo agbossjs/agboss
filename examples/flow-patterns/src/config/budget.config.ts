@@ -1,10 +1,13 @@
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
 import { usd, type Usd } from "agboss/units";
+import { CreditWorkflow } from "../credit/credit.workflow.js";
 
 /**
- * Every budget of the flow patterns (#261): the whole application per day, a tenant per day, and
- * the default execution budget of both workflows. Declared here; they are checked when the
- * runtime budgets land (#261 PR 5).
+ * Every budget of the flow patterns (#261): the whole application per day, a tenant per day, the
+ * credit desk's own execution budget and the default execution budget of the other workflows.
+ * Each execution is checked against its budgets before its first step (one exhausted → it is
+ * rejected) and every model call is counted in all of them (the first exhausted stops it with
+ * `BudgetExceededError`).
  */
 
 @Budget({
@@ -26,6 +29,17 @@ export class ApplicationDailyBudget implements BudgetHandler {
 export class TenantDailyBudget implements BudgetHandler {
   maxSpend(): Usd {
     return usd(1);
+  }
+}
+
+@Budget({
+  name: "credit-execution-budget",
+  scope: BudgetScope.Execution,
+  workflow: CreditWorkflow,
+})
+export class CreditExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.05); // one credit order: its own cap, not the default
   }
 }
 

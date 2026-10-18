@@ -6,16 +6,15 @@ import {
   MODEL_MAX,
   WorkflowFinish,
   WorkflowStart,
-  WorkflowSettings,
-  type WorkflowDefinition,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { DecisionsModelProvider, Reasoning } from "../../../src/models/index.js";
 import { start } from "../../helpers/flow.js";
-import { usd } from "../../../src/units/index.js";
 import { LocalModelProvider, TestOpenRouterProvider } from "../providers.fixture.js";
 import { Application } from "../../../src/application/application.js";
-import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
+import { Budget, BudgetScope, type BudgetHandler } from "../../../src/budgets/budget.js";
+import { usd, type Usd } from "../../../src/units/index.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 
 /** The summariser's summary: the writer reads it. */
@@ -75,11 +74,13 @@ export class Answer {}
     history: { limit: 2 },
   },
 })
-export class Priced implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.05) } })
-      .build();
+export class Priced {}
+
+/** $0.05 an execution: a dear summary spends it. */
+@Budget({ name: "priced-execution-budget", scope: BudgetScope.Execution })
+export class PricedExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.05);
   }
 }
 
@@ -89,6 +90,6 @@ export class Priced implements WorkflowDefinition {
   environment: EmptyEnvironment,
   workflows: [Priced],
   providers: [TestOpenRouterProvider, DecisionsModelProvider, LocalModelProvider],
-  budgets: TEST_BUDGETS,
+  budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, PricedExecutionBudget],
 })
 export class PricedApplication {}
