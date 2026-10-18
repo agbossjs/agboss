@@ -26,7 +26,8 @@ async function violationsOf(application: Class): Promise<string[]> {
     () => undefined,
     (thrown: unknown) => thrown,
   );
-  if (!(error instanceof GraphRuleError)) throw new Error(`expected a GraphRuleError: ${String(error)}`);
+  if (!(error instanceof GraphRuleError))
+    throw new Error(`expected a GraphRuleError: ${String(error)}`);
   return error.violations.map((found) => `[${found.code}] ${found.message}`);
 }
 

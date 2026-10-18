@@ -21,13 +21,21 @@ const defaults = {
   history: { limit: 1 },
 } as const;
 
-@WorkflowFinish({ name: "notes-workflow-finish", description: "The note", output: WorkflowFinishTextDto })
+@WorkflowFinish({
+  name: "notes-workflow-finish",
+  description: "The note",
+  output: WorkflowFinishTextDto,
+})
 export class NotesFinish {}
 
 @Agent({ name: "drafting-agent", prompt: "Draft.", description: "Drafts", model: "local/llama" })
 export class DraftingAgent {}
 
-@WorkflowStart({ name: "drafting-workflow-start", description: "A topic", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "drafting-workflow-start",
+  description: "A topic",
+  input: WorkflowStartTextDto,
+})
 export class DraftingStart {}
 
 @Workflow({
@@ -51,7 +59,11 @@ export class DraftingWorkflow {}
 })
 export class PolishingAgent {}
 
-@WorkflowStart({ name: "polishing-workflow-start", description: "A draft", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "polishing-workflow-start",
+  description: "A draft",
+  input: WorkflowStartTextDto,
+})
 export class PolishingStart {}
 
 @Workflow({

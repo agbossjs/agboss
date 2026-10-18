@@ -74,9 +74,6 @@ export class ModelProviderDirectory {
         `no listed provider serves it for ${query.purpose} (listed: ${names(this.providers)})`,
       );
     if (others.length === 0) return { kind: "resolved", provider: only };
-    return problem(
-      "model.ambiguous-provider",
-      `served by several providers: ${names(serving)}`,
-    );
+    return problem("model.ambiguous-provider", `served by several providers: ${names(serving)}`);
   }
 }
