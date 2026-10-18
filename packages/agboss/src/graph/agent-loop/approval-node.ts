@@ -53,7 +53,6 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
       },
       deps.agent.name,
       tool,
-      { runId: state.runId, threadId: runCtx.threadId },
     );
     let feedback = decision.feedback;
     let overrideArgs = decision.overrideArguments;

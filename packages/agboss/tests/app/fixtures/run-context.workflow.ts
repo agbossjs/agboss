@@ -174,7 +174,6 @@ const defaults = {
   version: "1.0.0",
   defaults,
   providers: [Pay],
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(Start)
       .returns(WorkflowStartTextDto)

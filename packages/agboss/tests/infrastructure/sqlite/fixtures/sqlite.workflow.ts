@@ -117,7 +117,6 @@ export class SqliteRecoveryApplication {}
     history: { limit: 1 },
     tools: { maxToolCalls: 8 },
   },
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(OrderWorkflowStart)
       .returns(WorkflowStartTextDto)

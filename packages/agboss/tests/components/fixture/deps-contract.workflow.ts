@@ -21,11 +21,9 @@ import {
   RemoteAgent,
   RevealTool,
   SECRET,
-  SemanticInbound,
   StampAction,
   StrictJudge,
   Vault,
-  VaultChannel,
   VaultDocs,
 } from "./deps-contract.components.js";
 import { Application } from "../../../src/application/application.js";
@@ -142,8 +140,7 @@ export function applicationWith(
   ],
   ...base,
   piiPolicies: [MaskSecret],
-  channelClasses: [VaultChannel],
-  providers: [Vault, provide(SECRET, "s3cret"), SemanticInbound, RemoteAgent],
+  providers: [Vault, provide(SECRET, "s3cret"), RemoteAgent],
 })
 export class VaultWorkflow {}
 

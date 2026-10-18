@@ -24,13 +24,13 @@ import { INFRASTRUCTURE_TOKENS } from "../infrastructure/instance-tokens.js";
 import { containerPartsOf, policyMapsOf } from "./assemble-parts.js";
 import {
   checkProviderClasses,
-  checkToolChannels,
   componentClassesOf,
   promptsOf,
   toolNames,
 } from "./assemble-checks.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { channelPartsOf } from "./channel-parts.js";
+import { checkChannels } from "../channels/channel-rules.js";
 import { PromptLoader } from "./prompt-render.js";
 import { checkMemoryStrategies, memoryPartsOf } from "./memory-parts.js";
 import { configDefaultsOf, guardsOf, moduleOf, workflowDeclarationOf } from "./module.js";
@@ -150,11 +150,6 @@ const levelsOf = (workflow: Class, owner: WorkflowOwner | undefined): DefaultsLe
   };
 };
 
-/** The workflow's tools have their channels. */
-function checkWiring(bundle: WorkflowMeta, tools: Parameters<typeof checkToolChannels>[1]): void {
-  checkToolChannels(bundle, tools);
-}
-
 /** The workflow's provider classes and its agents' memory strategies, checked before the graph. */
 function checkClasses(bundle: WorkflowMeta, agents: readonly AgentMeta[]): void {
   checkProviderClasses(bundle);
@@ -198,8 +193,9 @@ export async function workflowOf(
   const rags = ragClassesOf(bundle, agents);
   checkClasses(bundle, agents);
   const judges = judgeClassesOf(agents);
-  const components = componentClassesOf(bundle, agents, tools, rags, codeClassesOf(graph));
   const modules = [...providerModulesOf(bundle), ...application];
+  checkChannels(workflow, modules, owner === undefined);
+  const components = componentClassesOf(bundle, agents, tools, rags, codeClassesOf(graph), modules);
   checkGraph(components, modules, coreTokensOf(mcp, contexts));
   rememberServers(bundle, mcp.instances);
   const names = toolNames(tools, rags);
@@ -209,14 +205,13 @@ export async function workflowOf(
   const settings = settingsOf(workflow);
   validateAgentsConfig(config, [...names.values()]);
   const models = modelPartsOf(owner, { config, routers }, graph);
-  checkWiring(bundle, tools);
   rememberDefaultsLevels(graph, levelsOf(workflow, owner));
   return {
     config,
     graph,
     maxSteps: maxStepsOf(workflow, graph),
     ...containerPartsOf(bundle, policyMapsOf(agents, tools.local, names)),
-    ...channelPartsOf(bundle),
+    ...channelPartsOf(bundle, tools),
     ...models,
     onIncompatibleResume: settings.onIncompatibleResume,
     routers,

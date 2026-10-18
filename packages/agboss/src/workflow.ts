@@ -2,12 +2,8 @@ import type { JudgeHandler } from "./components/judge-decorators.js";
 import type { BaseMemoryStrategy } from "./memory/types.js";
 import type { AgentPrompts, AgentsConfigOf } from "./config/types.js";
 import type { KnowledgeSource, RagConnector } from "./rag/types.js";
-import type {
-  ChannelHandler,
-  Guardrail,
-  InboundChannelAdapter,
-  PiiPolicy,
-} from "./components/decorators.js";
+import type { Guardrail, PiiPolicy } from "./components/decorators.js";
+import type { ChannelSender } from "./channels/channel-sender.js";
 import type { Class } from "./components/injection.js";
 import type { AnyTool, McpFacade, McpServerHandle } from "./tools/index.js";
 import type { RouterEngine } from "./routers/index.js";
@@ -88,8 +84,8 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly toolDependencies?: Readonly<Record<string, string>>;
   /** Compaction prompt override (workflows with `compaction`). */
   readonly compactionPrompt?: string;
-  /** The workflow's channels (`channelClasses`) by name, created by its container. */
-  readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, ChannelHandler>;
+  /** The channels its tools name (#267), by name, created by the application's container. */
+  readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, ChannelSender>;
   /** A component by its class, from the workflow's container (created with its `deps` on first use). */
   readonly resolve: (services: WorkflowServices) => (token: Class) => unknown;
   readonly piiPolicies?: (
@@ -106,10 +102,6 @@ export interface AssembledWorkflow<TName extends string = string> {
   ) => ReadonlyMap<string, ResolvedPolicies<Guardrail>>;
   readonly workflowPiiPolicies?: (services: WorkflowServices) => readonly PiiPolicy[];
   readonly workflowGuardrails?: (services: WorkflowServices) => readonly Guardrail[];
-  /** Per channel name: the channel's `inboundAdapter`, created by the workflow's container. */
-  readonly channelAdapters?: (
-    services: WorkflowServices,
-  ) => ReadonlyMap<string, InboundChannelAdapter>;
 }
 
 export const resolveTools = (

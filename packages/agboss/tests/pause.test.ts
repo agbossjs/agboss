@@ -38,7 +38,7 @@ class SendEmail implements ToolHandler<Email, EmailSent> {
 
 const callSend: Reply = [{ tool: "send_email", args: { to: "boss@example.com" } }];
 
-const workflow = toolWorkflowOf({ tools: [SendEmail], channelClasses: [TerminalUserChannel] });
+const workflow = toolWorkflowOf({ tools: [SendEmail] });
 
 async function setup(alphaReplies: readonly Reply[], withSeam = true) {
   sent.length = 0;

@@ -85,12 +85,10 @@ export interface WorkflowMeta {
   readonly providers?: readonly Provider[];
   readonly compactionPrompt?: string;
   readonly promptVariables?: Readonly<Record<string, string>>;
-  readonly channelClasses?: readonly Class[];
 }
 
 /** `@Channel` — settings of a channel. */
 export interface ChannelMeta {
   readonly name: string;
   readonly description?: string;
-  readonly inboundAdapter?: Class;
 }

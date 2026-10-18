@@ -8,12 +8,12 @@ import { createSqliteTernStore } from "../../src/terns/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
-import { ApprovalDesk, ChatStart, type ButtonClick } from "../channels/approval.workflow.js";
+import { ApprovalDesk, ChatStart } from "../channels/approval.workflow.js";
 import { Pay, PaymentLog, PaymentsApplication } from "./isolation.workflow.js";
 import { execute } from "../helpers/flow.js";
 
 const card = { orderId: "A-1", cardNumber: "4111 1111 1111 1111" };
-const approve: ButtonClick = { action: "approve", user: "dana" };
+const approve = { approved: true, by: "dana" };
 
 describe("#202: sensitive tool arguments are redacted in channel output", () => {
   it("the channel, the pause and the ask summary get the card masked; the tool gets it whole", async () => {
@@ -27,8 +27,10 @@ describe("#202: sensitive tool arguments are redacted in channel output", () => 
     const paused = await execute(app, ChatStart, { text: "pay A-1" });
 
     const desk = app.resolve(ApprovalDesk);
-    expect(desk.posted.map((post) => post.toolArguments)).toEqual([
-      { orderId: "A-1", cardNumber: "***" },
+    expect(desk.posted).toEqual([
+      expect.objectContaining({
+        value: expect.objectContaining({ arguments: { orderId: "A-1", cardNumber: "***" } }),
+      }),
     ]);
     expect(paused.pause).toMatchObject({ args: { orderId: "A-1", cardNumber: "***" } });
     expect(JSON.stringify(paused)).not.toContain("4111");

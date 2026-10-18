@@ -9,12 +9,7 @@ export {
   BindTool,
   Guardrail,
   PiiPolicy,
-  SemanticInboundChannelAdapter,
-  InboundChannelAdapter,
   Channel,
-  type ChannelHandler,
-  type ChannelRequest,
-  type ChannelDecision,
   type ToolHandler,
   type ToolOptions,
 } from "../components/decorators.js";
@@ -67,6 +62,21 @@ export {
 } from "../components/injection.js";
 export type { PromptInput } from "../components/prompt-input.js";
 export { file } from "../components/file.js";
+export {
+  ChannelRole,
+  PauseAnswerer,
+  type ChannelApprovalRoleOptions,
+  type ChannelRoleBaseOptions,
+  type ChannelQuestionRoleOptions,
+  type ChannelRoleOptions,
+} from "../channels/channel-role.decorator.js";
+export { ChannelOf, type ChannelAsk, type ChannelHandler } from "../channels/channel-handler.js";
+export {
+  ChannelOutcome,
+  ChannelOutcomeKind,
+  type AwaitReplyOutcome,
+  type DecidedOutcome,
+} from "../channels/channel-outcome.js";
 export { TerminalUserChannel } from "../channels/terminal-channel.js";
 export { AutoApproveChannel, AutoRejectChannel } from "../channels/test-channels.js";
 export {

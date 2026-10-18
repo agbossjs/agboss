@@ -5,14 +5,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/application/create-app.js";
-import {
-  Channel,
-  Guardrail,
-  InboundChannelAdapter,
-  PiiPolicy,
-  Rag,
-  type ChannelHandler,
-} from "../../src/components/decorators.js";
+import { Channel, Guardrail, PiiPolicy, Rag } from "../../src/components/decorators.js";
+import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { Judge, type JudgeHandler } from "../../src/components/judge-decorators.js";
 import { type Provider } from "../../src/components/injection.js";
 import {
@@ -67,28 +61,34 @@ class NeedsAction {
   }
 }
 
-@InboundChannelAdapter({ name: "needs-inbound", deps: [MISSING] })
-class NeedsInbound implements InboundChannelAdapter {
-  constructor(readonly value: string) {}
-  interpret(): Promise<{ approved: boolean }> {
-    return Promise.resolve({ approved: true });
-  }
-}
-
 @Channel({ name: "needs-channel", deps: [MISSING] })
-class NeedsChannel implements ChannelHandler {
+class NeedsChannel {
   constructor(readonly value: string) {}
-  requestApproval(): Promise<void> {
-    return Promise.resolve();
+  send(): Promise<ChannelOutcome<NeedsChannel>> {
+    return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 
-@Channel({ name: "adapted", inboundAdapter: NeedsInbound })
-class AdaptedChannel implements ChannelHandler {
-  requestApproval(): Promise<void> {
-    return Promise.resolve();
+class Approved {
+  @Text() id!: string;
+}
+
+/** A tool approved through the channel: the channel is found from it (#267). */
+@Tool({
+  name: "approved",
+  description: "d",
+  input: Approved,
+  output: Approved,
+  channel: NeedsChannel,
+})
+class ApprovedTool implements ToolHandler<Approved, Approved> {
+  run(input: Approved): Promise<Approved> {
+    return Promise.resolve(input);
   }
 }
+
+@Agent({ name: "approving-agent", description: "d", model: "test/a", tools: [ApprovedTool] })
+class ApprovingAgent {}
 
 @Judge({ name: "needs-judge", model: "test/j", deps: [MISSING] })
 class NeedsJudge implements JudgeHandler {
@@ -115,16 +115,7 @@ describe("#183 AC2: a missing provider fails at assembly, naming the consumer an
       "NeedsGuardrail",
     ],
     ["an agent's PII policy", applicationWith("p-workflow", {}, PolicedAgent), "NeedsPolicy"],
-    [
-      "a channel",
-      applicationWith("c-workflow", { channelClasses: [NeedsChannel] }),
-      "NeedsChannel",
-    ],
-    [
-      "a channel's inbound adapter",
-      applicationWith("i-workflow", { channelClasses: [AdaptedChannel] }),
-      "NeedsInbound",
-    ],
+    ["a tool's channel", applicationWith("c-workflow", {}, ApprovingAgent), "NeedsChannel"],
     ["an agent's judge", applicationWith("j-workflow", {}, JudgedAgent), "NeedsJudge"],
     [
       "a workflow action",

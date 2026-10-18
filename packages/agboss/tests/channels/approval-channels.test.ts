@@ -9,7 +9,6 @@ import {
   ApprovalDesk,
   ChatStart,
   Refund,
-  type ButtonClick,
   AuditedRefundsApplication,
   RefundsApplication,
 } from "./approval.workflow.js";
@@ -43,7 +42,7 @@ describe("#261: a channel reads the execution through its ExecutionContext", () 
     await execute(app, ChatStart, { text: "refund order A-1" }, { tenant: { tenantId: "acme" } });
 
     expect(desk.tenants).toEqual(["acme"]);
-    expect(desk.posted[0]).not.toHaveProperty("metadata");
+    expect(Object.keys(desk.posted[0] ?? {})).toEqual(["pauseId", "value"]);
     await app.close();
   });
 });
@@ -61,29 +60,26 @@ describe("#188: approval through a @Channel", () => {
       pause: { agent: "clerk-agent", tool: "refund" },
     });
     expect(desk.posted).toEqual([
-      expect.objectContaining({
-        agentName: "clerk-agent",
-        toolName: "refund",
-        toolArguments: { orderId: "A-1" },
-      }),
+      {
+        pauseId: expect.stringMatching(/^[0-9a-f]{32}$/),
+        value: expect.objectContaining({ tool: "refund", arguments: { orderId: "A-1" } }),
+      },
     ]);
     expect(desk.refunded).toEqual([]);
 
-    const click: ButtonClick = { action: "approve", user: "dana" };
-    await app.resume(paused.threadId, click);
+    await app.resume(paused.threadId, { approved: true, by: "dana" });
     expect(desk.posted).toHaveLength(1);
     await app.close();
   });
 
-  it("AC2: an approval delivered through the channel's adapter resumes the run and the tool runs", async () => {
+  it("AC2: an approval resumes the run and the tool runs", async () => {
     const book = new ScriptBook();
     book
       .scriptOf("agent:clerk-agent")
       .thenReturn(callTool(Refund, { orderId: "A-1" }), replyWith("Refunded."));
     const { app, desk, paused } = await pausedRefund(book);
 
-    const click: ButtonClick = { action: "approve", user: "dana" };
-    const done = await app.resume(paused.threadId, click);
+    const done = await app.resume(paused.threadId, { approved: true, by: "dana" });
 
     expect(done).toMatchObject({
       status: ExecutionStatus.Finished,
@@ -102,8 +98,11 @@ describe("#188: approval through a @Channel", () => {
       .thenReturn(callTool(Refund, { orderId: "A-1" }), replyWith("Not refunded."));
     const { app, desk, paused } = await pausedRefund(book);
 
-    const click: ButtonClick = { action: "reject", user: "dana", reason: "over the limit" };
-    const done = await app.resume(paused.threadId, click);
+    const done = await app.resume(paused.threadId, {
+      approved: false,
+      by: "dana",
+      feedback: "over the limit",
+    });
 
     expect(done).toMatchObject({
       status: ExecutionStatus.Finished,
@@ -118,7 +117,7 @@ describe("#188: approval through a @Channel", () => {
 
   it("channels are created by the container: an unregistered channel dependency fails the build", async () => {
     await expect(createApp(AuditedRefundsApplication, offline(new ScriptBook()))).rejects.toThrow(
-      'AuditedChannel: "AUDIT_LOG" is not registered in @Workflow({ providers })',
+      'AuditedRefundApprovalChannel: "AUDIT_LOG" is not registered in @Workflow({ providers })',
     );
   });
 });

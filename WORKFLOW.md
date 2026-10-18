@@ -104,75 +104,90 @@ Conventional commits with the issue number: `feat(#12): …`, `fix(#13): …`, `
 
 ## Tool Call Approvals (Channels)
 
-The `@Channel` decorator provides a unified way to handle human-in-the-loop and out-of-band tool call approvals. It decouples the workflow's business logic from the specific mechanism (CLI, Slack, Webhooks, gRPC) used to obtain the approval.
+A tool that needs a decision before it runs names a **channel** (#267). Channels are found through
+the tools that name them — there is nothing to list in the workflow — and are created once per
+application, shared by all its workflows.
 
-### 1. Define a Channel
+### 1. Declare the role and implement it
 
-A channel is a class that implements `ChannelHandler`: `requestApproval(req)` is called once each
-time a run pauses at one of its tools (`req`: `runId`, `agentName`, `toolName`, `toolArguments`).
-The container creates it, so it takes `deps` like a tool; the execution — its tenant, the project's
-own context fields — comes through an injected `ExecutionContext` (the request is made inside the
-paused step, #261). An optional `inboundAdapter`
-(`@InboundChannelAdapter`) turns the reply your channel receives (a button click, a webhook body)
-into the decision.
+A **role** is the project's abstract class: what it approves and who may answer (`answeredBy` is
+required — a forgotten value must not let a customer approve their own refund). Its implementation
+`extends` it and has one method, `send`: post the question somewhere (the pause's `pauseId` is the
+reply key and the idempotency key of the call) and say what happens — `ChannelOutcome.awaitReply()`
+pauses the execution until the reply, `ChannelOutcome.decided(decision)` goes on at once. The
+execution — its tenant, the project's context fields — comes through an injected `ExecutionContext`.
 
 <!-- snippet-context
 import { Injectable } from "agboss";
+import { Text } from "agboss/dto";
 @Injectable()
 export class SlackClient {
-  post(_text: string): Promise<void> {
+  post(_text: string, _replyKey: string): Promise<void> {
     return Promise.resolve();
   }
+}
+export class DeleteUserInputDto {
+  @Text() userId!: string;
 }
 -->
 
 ```typescript file=channels.ts
 import {
   Channel,
+  ChannelOf,
+  ChannelOutcome,
+  ChannelRole,
   ExecutionContext,
-  InboundChannelAdapter,
-  type ChannelHandler,
-  type ChannelRequest,
+  PauseAnswerer,
+  type ChannelAsk,
 } from "agboss";
 
-@InboundChannelAdapter({ name: "slack-click" })
-export class SlackClick implements InboundChannelAdapter<{ action: string; user: string }> {
-  interpret(click: { action: string; user: string }) {
-    return Promise.resolve({ approved: click.action === "approve", by: click.user });
-  }
-}
+@ChannelRole({
+  name: "user-deletion-approval-channel",
+  description: "Approves deleting a user",
+  approves: DeleteUserInputDto, // the input of the tools it approves ([channel.wrong-tool] else)
+  answeredBy: PauseAnswerer.Channel, // Slack authenticates who answers
+})
+export abstract class UserDeletionApprovalChannel extends ChannelOf<UserDeletionApprovalChannel> {}
 
 @Channel({
-  name: "slack_approval",
-  inboundAdapter: SlackClick,
+  name: "slack-user-deletion-approval-channel",
+  description: "Asks an admin in Slack",
   deps: [SlackClient, ExecutionContext],
 })
-export class SlackChannel implements ChannelHandler {
+export class SlackUserDeletionApprovalChannel extends UserDeletionApprovalChannel {
   constructor(
-    private readonly slack: SlackClient,
+    private readonly slackClient: SlackClient,
     private readonly executionContext: ExecutionContext,
-  ) {}
+  ) {
+    super();
+  }
 
-  requestApproval = (req: ChannelRequest): Promise<void> =>
-    this.slack.post(
-      `Approve ${req.toolName} for run ${req.runId} (${this.executionContext.tenant.tenantId})?`,
-    );
+  async send(
+    ask: ChannelAsk<UserDeletionApprovalChannel>,
+  ): Promise<ChannelOutcome<UserDeletionApprovalChannel>> {
+    const { userId } = ask.value.arguments; // typed by DeleteUserInputDto
+    const tenant = this.executionContext.tenant.tenantId;
+    await this.slackClient.post(`Delete user ${userId} (${tenant})?`, ask.pauseId);
+    return ChannelOutcome.awaitReply();
+  }
 }
 ```
 
-### 2. Attach the Channel to a Tool
+### 2. Name the role on the tool, list the implementation in the application
 
-Set `channel` on `@Tool` / `@McpTool` to the channel class, and list the class in
-`@Workflow({ channelClasses })`. Every call of that tool pauses the run before the tool runs.
+`@Tool({ channel })` (or `@McpTool`) names the role; every call of that tool asks the channel before
+the tool runs. The implementation is channel transport — infrastructure — listed only in
+`@Application({ providers })` (none → `[di.missing-implementation]`, two →
+`[di.ambiguous-implementation]`, in a workflow's `providers` → `[di.infrastructure-in-workflow]`). A
+tool may also name a concrete `@Channel` as is (`TerminalUserChannel`; `AutoApproveChannel` /
+`AutoRejectChannel`, which decide at once, for tests and scripts).
 
 <!-- snippet-context
-import { Agent, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "agboss";
+import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "agboss";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
-import { SlackChannel } from "./channels.js";
-class DeleteUser {
-  @Text() userId!: string;
-}
-class Deleted {
+import { DeleteUserInputDto, SlackClient, SlackUserDeletionApprovalChannel, UserDeletionApprovalChannel } from "./channels.js";
+export class UserDeletedDto {
   @Text() userId!: string;
 }
 // @snippet
@@ -186,21 +201,29 @@ export class ChatFinish {}
   name: "admin-workflow",
   version: "1.0.0",
   flow: [start(ChatStart).returns(WorkflowStartTextDto).toAgent(AdminAgent).toFinish(ChatFinish)],
-  channelClasses: [SlackChannel],
+  providers: [SlackClient],
 })
 export class AdminWorkflow {}
+@Application({
+  name: "admin-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [AdminWorkflow],
+  providers: [SlackUserDeletionApprovalChannel], // the role's one implementation
+})
+export class AdminApplication {}
 -->
 
 ```typescript file=tools.ts
 @Tool({
   name: "delete_user",
   description: "Deletes a user account.",
-  input: DeleteUser,
-  output: Deleted,
-  channel: SlackChannel, // calls wait for an approval through SlackChannel
+  input: DeleteUserInputDto,
+  output: UserDeletedDto,
+  channel: UserDeletionApprovalChannel, // calls wait for an approval through the role
 })
-export class DeleteUserTool implements ToolHandler<DeleteUser, Deleted> {
-  run({ userId }: DeleteUser): Promise<Deleted> {
+export class DeleteUserTool implements ToolHandler<DeleteUserInputDto, UserDeletedDto> {
+  run({ userId }: DeleteUserInputDto): Promise<UserDeletedDto> {
     return Promise.resolve({ userId }); // runs only once the call is approved
   }
 }
@@ -228,10 +251,10 @@ const result = await app.execute(
 
 ### 4. Resume the Run
 
-The paused run's result carries its `threadId`. Once the reply arrives out-of-band (e.g., the user
-clicks "Approve" in Slack), resume that thread with it. With an `inboundAdapter`, pass the raw reply
-and the adapter turns it into the decision; without one, pass a `ChannelDecision`. `agboss chat` asks in
-the terminal and resumes by itself.
+After `awaitReply()` the paused run's result carries its `threadId`. Once the reply arrives
+out-of-band (e.g., the admin clicks "Approve" in Slack), resume that thread with the decision, a
+`ToolCallApprovalDecisionDto` validated on the way in. `agboss chat` asks in the terminal and resumes
+by itself. (Resuming a pause by its `pauseId` and free-text replies come with #267 PR 2 and PR 3.)
 
 <!-- snippet-context
 import type { App } from "agboss";
@@ -242,10 +265,6 @@ declare const app: App;
 ```typescript
 const paused = await app.execute(ChatStart, { text: "Delete user 123" });
 
-// Through the channel's adapter: the raw reply
-await app.resume(paused.threadId, { action: "approve", user: "admin@example.com" });
-
-// Without an adapter: the decision itself
 await app.resume(paused.threadId, {
   approved: false,
   by: "admin@example.com",
@@ -263,6 +282,7 @@ await app.resume(paused.threadId, {
 ### Important Concepts
 
 - **Override Arguments**: If the user modifies the tool arguments during the approval step, returning `overrideArguments` in the decision will inject those modified arguments straight into the tool, bypassing the LLM.
-- **Timeouts and Rejections**: Channels are asynchronous fire-and-forget mechanisms. If a run should timeout, use an external cron job or scheduler to call `app.resume(threadId, { approved: false, by: "scheduler", feedback: "Timeout" })`.
+- **Decided at once**: a rule-based channel ("up to $50 approve at once") returns `ChannelOutcome.decided(decision)` — the step goes on with no pause, the decision validated like a reply. No channel needs the application to resume itself, and nothing waits in memory for a person.
+- **Timeouts and Rejections**: If a run should timeout, use an external cron job or scheduler to call `app.resume(threadId, { approved: false, by: "scheduler", feedback: "Timeout" })`.
 - **Durable pauses**: by default paused runs live in memory (the built-in in-memory `PausedExecutionRepository` and checkpointer, #261) and are lost on restart — dev and tests only. In production list durable implementations in `@Application({ providers })`: a class that `extends PausedExecutionRepository` and a durable `BaseCheckpointSaver` — e.g. `SqlitePausedExecutionRepository` and `SqliteCheckpointSaver` (#265, `sqlitePath` in the environment).
 - **Resume across deployments**: each pause stores the workflow version and config hash it paused under. Resuming it on an app with another config hash throws `IncompatibleResumeError` (naming both versions) unless the workflow accepts it: `WorkflowSettings.builder().onIncompatibleResume(({ paused }) => paused.workflowVersion === "1.0.0" ? "resume" : "reject")`. A rejected resume leaves the run paused.

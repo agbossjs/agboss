@@ -59,20 +59,6 @@ export type ComponentMeta =
       readonly meta: { readonly name: string; readonly deps: readonly Token[] };
     }
   | {
-      readonly kind: "inbound-adapter";
-      readonly meta: { readonly name: string; readonly deps: readonly Token[] };
-    }
-  | {
-      readonly kind: "semantic-inbound-adapter";
-      readonly meta: {
-        readonly name: string;
-        readonly model: string;
-        readonly prompt: string;
-        readonly temperature?: number;
-        readonly deps: readonly Token[];
-      };
-    }
-  | {
       readonly kind: "judge";
       readonly meta: import("./judge-decorators.js").JudgeMeta & {
         readonly deps: readonly Token[];
@@ -119,8 +105,6 @@ export function requireComponent<K extends ComponentMeta["kind"]>(
 const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   "pii-policy": "@PiiPolicy",
   guardrail: "@Guardrail",
-  "inbound-adapter": "@InboundChannelAdapter",
-  "semantic-inbound-adapter": "@SemanticInboundChannelAdapter",
   tool: "Tool",
   "mcp-server": "McpServer",
   "mcp-tool": "McpTool",

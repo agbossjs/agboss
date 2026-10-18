@@ -1,9 +1,5 @@
-import type {
-  ChannelRequest,
-  Guardrail,
-  InboundChannelAdapter,
-  PiiPolicy,
-} from "../components/decorators.js";
+import type { Guardrail, PiiPolicy } from "../components/decorators.js";
+import type { ChannelSender } from "../channels/channel-sender.js";
 import type { Class } from "../components/injection.js";
 import { stopComponents } from "../components/container/lifecycle.js";
 import { ExecutionObserverManager } from "../core/observer-manager.js";
@@ -14,22 +10,25 @@ import type { RunTracing } from "../tracing/index.js";
 import type { AssembledWorkflow, ResolvedPolicies, WorkflowServices } from "../workflow.js";
 
 /**
- * Dispatches an approval request to the workflow's channel of that name. The channels are created
- * here, with the app (so their lifecycle hooks run and a missing dependency fails at start).
+ * The workflow's channel of a name (#267). The channels are created here, with the app (so their
+ * lifecycle hooks run and a missing dependency fails at start).
  */
-export const approvalRequester = (bundle: AssembledWorkflow, services: WorkflowServices) => {
+export const channelLookup = (
+  bundle: AssembledWorkflow,
+  services: WorkflowServices,
+): ((channelName: string) => ChannelSender) => {
   const channels = bundle.channels?.(services);
-  return async (channelName: string, req: ChannelRequest): Promise<void> => {
+  return (channelName: string): ChannelSender => {
     const channel = channels?.get(channelName);
     if (!channel) throw new Error(`Unknown channel: ${channelName}`);
-    await channel.requestApproval(req);
+    return channel;
   };
 };
 
 /** No policies of its own: the workflow's apply. */
 const noPolicies = (): ResolvedPolicies<never> => ({ override: false, instances: [], disable: [] });
 
-/** Per agent and per tool: its PII policies and guardrails; the workflow's own; channel adapters. */
+/** Per agent and per tool: its PII policies and guardrails; the workflow's own. */
 export interface PolicyDeps {
   readonly piiPolicies: (agent: string) => ResolvedPolicies<PiiPolicy>;
   readonly toolPiiPolicies: (tool: string) => ResolvedPolicies<PiiPolicy>;
@@ -37,13 +36,11 @@ export interface PolicyDeps {
   readonly workflowPiiPolicies: readonly PiiPolicy[];
   readonly workflowGuardrails: readonly Guardrail[];
   readonly guardrails: (agent: string) => ResolvedPolicies<Guardrail>;
-  readonly channelAdapters: (channel: string) => InboundChannelAdapter | undefined;
 }
 
 export const policyDepsOf = (
   bundle: AssembledWorkflow,
   services: WorkflowServices,
-  adapters = bundle.channelAdapters?.(services),
 ): PolicyDeps => ({
   piiPolicies: (agent: string) => bundle.piiPolicies?.(services).get(agent) ?? noPolicies(),
   toolPiiPolicies: (tool: string) => bundle.toolPiiPolicies?.(services).get(tool) ?? noPolicies(),
@@ -51,7 +48,6 @@ export const policyDepsOf = (
   workflowPiiPolicies: bundle.workflowPiiPolicies?.(services) ?? [],
   workflowGuardrails: bundle.workflowGuardrails?.(services) ?? [],
   guardrails: (agent: string) => bundle.guardrails?.(services).get(agent) ?? noPolicies(),
-  channelAdapters: (channel: string) => adapters?.get(channel),
 });
 
 /** The container's instances: lookup by class. */

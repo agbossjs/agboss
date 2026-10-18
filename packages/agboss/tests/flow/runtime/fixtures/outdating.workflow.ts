@@ -128,7 +128,6 @@ export class LoopWorkflowFinish {}
   name: "loop-workflow",
   version: "1.0.0",
   maxSteps: 30,
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(LoopWorkflowStart)
       .returns(ArticleRequestDto)

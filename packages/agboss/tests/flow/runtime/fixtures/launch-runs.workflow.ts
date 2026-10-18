@@ -156,7 +156,6 @@ export class ItemClerkAgent {}
   name: "clerk-workflow",
   version: "1.0.0",
   maxSteps: 20,
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(ItemsWorkflowStart)
       .returns(listOf(ItemDto))

@@ -102,7 +102,6 @@ class Clerk {}
     tools: { maxToolCalls: 2 },
     history: { limit: 2 },
   },
-  channelClasses: [TerminalUserChannel],
   mcp: [NotesServer],
   providers: [OrderBook],
 })

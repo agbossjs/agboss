@@ -39,8 +39,6 @@ export class StarApplication {}
 export interface ToolWorkflowOptions {
   readonly tools: readonly ToolHandlerClass[];
   readonly maxToolCalls?: number;
-  /** The approval channels its tools need. */
-  readonly channelClasses?: readonly Class[];
 }
 
 /**
@@ -73,7 +71,6 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
       history: { limit: 2 },
       router: { model: "typesafe/jev-test" },
     },
-    channelClasses: options.channelClasses ?? [],
   })
   class ToolWorkflow {}
   return ToolWorkflow;

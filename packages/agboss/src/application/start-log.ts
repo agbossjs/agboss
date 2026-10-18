@@ -1,7 +1,7 @@
 import { BaseCheckpointSaver } from "@langchain/langgraph";
 import { budgetOf, BudgetScope } from "../budgets/budget.js";
 import type { Class, Provider } from "../components/injection.js";
-import { moduleOf } from "../components/module.js";
+import { channelUsesOf } from "../channels/discovery.js";
 import { worstCaseLine } from "../flow/analyse/worst-case.js";
 import type { ApplicationContext } from "../flow/context/application-context.js";
 import { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
@@ -51,7 +51,7 @@ const hasPeriodBudget = (budgets: readonly Provider[]): boolean =>
 
 /** Whether an execution may pause: a workflow with a channel (an approval) pauses at it. */
 const canPause = (workflows: readonly AssembledWorkflow[]): boolean =>
-  workflows.some((workflow) => (moduleOf(workflow.graph.type).channelClasses ?? []).length > 0);
+  workflows.some((workflow) => channelUsesOf([workflow.graph.type]).length > 0);
 
 /**
  * The assembly warnings (#261): tenant or application budgets on an in-memory ledger; possible

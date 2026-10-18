@@ -209,7 +209,6 @@ export class Done {}
     tools: { maxToolCalls: 3 },
   },
   providers: [FileAway],
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(Ask)
       .returns(WorkflowStartTextDto)

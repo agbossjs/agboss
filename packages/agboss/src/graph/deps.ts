@@ -12,12 +12,8 @@ import type { LoadedRouter } from "../flow/runtime/routers.js";
 import type { LaunchDecider } from "../flow/runtime/launch/launch-decider.js";
 import type { ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
 import type { ArbiterClass } from "../flow/ast.js";
-import type {
-  ChannelRequest,
-  Guardrail,
-  InboundChannelAdapter,
-  PiiPolicy,
-} from "../components/decorators.js";
+import type { Guardrail, PiiPolicy } from "../components/decorators.js";
+import type { ChannelSender } from "../channels/channel-sender.js";
 import type { Class } from "../components/injection.js";
 import type { ResolvedPolicies } from "../workflow.js";
 import type { JudgeHandler } from "../components/judge-decorators.js";
@@ -40,16 +36,14 @@ export interface GraphDeps<TName extends string> {
   readonly knowledge?: (agent: string) => readonly KnowledgeSource[];
   /** Optional pause seam (approval of tool calls). Off by default. */
   readonly pause?: PauseSeam | undefined;
-  /** Dispatches an approval request to the specified channel. */
-  readonly requestApproval?: (channelName: string, req: ChannelRequest) => Promise<void>;
+  /** The channel a tool names, by its name (#267): created with the app. */
+  readonly channelOf?: (channelName: string) => ChannelSender;
   readonly piiPolicies?: (agent: string) => ResolvedPolicies<PiiPolicy>;
   readonly toolPiiPolicies?: (tool: string) => ResolvedPolicies<PiiPolicy>;
   readonly toolGuardrails?: (tool: string) => ResolvedPolicies<Guardrail>;
   readonly workflowPiiPolicies?: readonly PiiPolicy[];
   readonly workflowGuardrails?: readonly Guardrail[];
   readonly guardrails?: (agent: string) => ResolvedPolicies<Guardrail>;
-  /** The inbound adapter of a channel: reads the reply a run is resumed with. */
-  readonly channelAdapters?: (channel: string) => InboundChannelAdapter | undefined;
   /** The workflow's graph: its paths, analysed (`@Workflow({ flow })`). */
   readonly graph: RuntimeGraph;
   /** Steps per execution (`@Workflow({ maxSteps })`, default (agents + routers) × 3). */

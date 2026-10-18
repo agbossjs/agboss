@@ -91,7 +91,6 @@ const defaults = {
       .toFinish(Reply),
   ],
   defaults,
-  channelClasses: [ChatAppChannel],
   providers: [ApprovalDesk, PaymentLog],
 })
 export class Payments implements WorkflowDefinition {

@@ -116,7 +116,6 @@ const workflow = {
     history: { limit: 1 },
     tools: { maxToolCalls: 2 },
   },
-  channelClasses: [TerminalUserChannel],
   flow: [
     start(Start)
       .returns(WorkflowStartTextDto)

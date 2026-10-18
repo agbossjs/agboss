@@ -1,15 +1,8 @@
 import { A2AAgent } from "../../../src/a2a/a2a-decorator.js";
 import { A2AClient } from "../../../src/a2a/a2a-client.js";
-import {
-  Channel,
-  Guardrail,
-  InboundChannelAdapter,
-  PiiPolicy,
-  Rag,
-  SemanticInboundChannelAdapter,
-  type ChannelHandler,
-  type ChannelRequest,
-} from "../../../src/components/decorators.js";
+import { Channel, Guardrail, PiiPolicy, Rag } from "../../../src/components/decorators.js";
+import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
+import type { ChannelSenderAsk } from "../../../src/channels/channel-sender.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import {
   Judge,
@@ -79,28 +72,12 @@ export class StampAction {
   }
 }
 
-@InboundChannelAdapter({ name: "inbound", deps: [Vault] })
-export class SecretInbound implements InboundChannelAdapter<string> {
+@Channel({ name: "vault-desk", deps: [Vault] })
+export class VaultChannel {
   constructor(private readonly vault: Vault) {}
-  interpret(input: string): Promise<{ approved: boolean }> {
-    return Promise.resolve({ approved: input === this.vault.secret });
-  }
-}
-
-@SemanticInboundChannelAdapter({ name: "semantic", model: "test/m", prompt: "p", deps: [Vault] })
-export class SemanticInbound implements InboundChannelAdapter<string> {
-  constructor(private readonly vault: Vault) {}
-  interpret(input: string): Promise<{ approved: boolean }> {
-    return Promise.resolve({ approved: input.includes(this.vault.secret) });
-  }
-}
-
-@Channel({ name: "vault-desk", inboundAdapter: SecretInbound, deps: [Vault] })
-export class VaultChannel implements ChannelHandler {
-  constructor(private readonly vault: Vault) {}
-  requestApproval(req: ChannelRequest): Promise<void> {
-    seen.push(`channel:${req.toolName}:${this.vault.secret}`);
-    return Promise.resolve();
+  send(ask: ChannelSenderAsk): Promise<ChannelOutcome<VaultChannel>> {
+    seen.push(`channel:${ask.pauseId}:${this.vault.secret}`);
+    return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 

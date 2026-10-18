@@ -1,6 +1,10 @@
 import type { NodeKind } from "./ast.js";
 import type { ExecutionOptions } from "../app/types.js";
 import type { ContextValues, TenantValues } from "./context/context-values.js";
+import type {
+  ToolCallApprovalAskDto,
+  ToolCallApprovalDecisionDto,
+} from "../dto/standard/framework.js";
 
 export type { HistoryOf, Produced } from "./dto-wrappers.js";
 
@@ -100,6 +104,49 @@ export interface Routes {
 export interface RouterAnswers {
   readonly [notGenerated]?: never;
 }
+
+/**
+ * What each channel role asks and how it is answered (#267), by the role's `name`: a role with
+ * `approves: XDto` asks `ToolCallApprovalAskDto` with `arguments: XDto` and is answered with
+ * `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`; a role with `ask` / `answer` asks and
+ * is answered with those DTOs. A concrete `@Channel` a tool names as is approves those tools. The
+ * built-in channels approve any tool.
+ */
+export interface ChannelRoles {
+  readonly [notGenerated]?: never;
+  readonly "terminal-user-channel": {
+    readonly ask: ToolCallApprovalAskDto;
+    readonly answer: ToolCallApprovalDecisionDto;
+  };
+  readonly "auto-approve-channel": {
+    readonly ask: ToolCallApprovalAskDto;
+    readonly answer: ToolCallApprovalDecisionDto;
+  };
+  readonly "auto-reject-channel": {
+    readonly ask: ToolCallApprovalAskDto;
+    readonly answer: ToolCallApprovalDecisionDto;
+  };
+}
+
+/**
+ * What a channel of `TRole` is asked (`ChannelAsk<TRole>["value"]`), from the generated
+ * `ChannelRoles` entry of the role: the tool call for an `approves` role, the `ask` DTO for a
+ * question role; `MissingGeneratedTypes` before `agboss check`.
+ */
+export type ChannelQuestionOf<TRole> =
+  GeneratedEntry<ChannelRoles, TRole> extends { readonly ask: infer TAsk }
+    ? TAsk
+    : MissingGeneratedTypes;
+
+/**
+ * The answer that decides a pause of `TRole` (`ChannelOutcome.decided(…)`, a reply): the
+ * `ToolCallApprovalDecisionDto` for an `approves` role, the `answer` DTO for a question role;
+ * `MissingGeneratedTypes` before `agboss check`.
+ */
+export type ChannelAnswerOf<TRole> =
+  GeneratedEntry<ChannelRoles, TRole> extends { readonly answer: infer TAnswer }
+    ? TAnswer
+    : MissingGeneratedTypes;
 
 /**
  * The application's environment (#261): `applicationContext.environment`. The generated file makes it the

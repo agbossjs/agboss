@@ -47,11 +47,7 @@ function agentLoops(deps: GraphDeps<string>, run: RunLimits) {
   const approval =
     deps.pause === undefined
       ? undefined
-      : pauseSeamApproval({
-          dispatch: deps.requestApproval,
-          adapterOf: deps.channelAdapters,
-          observer: deps.observer,
-        });
+      : pauseSeamApproval({ channelOf: deps.channelOf, observer: deps.observer });
   return new Map(
     [...agentDefinitions(deps)].map(([name, agent]) => [
       name,

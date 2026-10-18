@@ -18,8 +18,6 @@ const COMPONENT_DECORATORS = new Set([
   "Guardrail",
   "PiiPolicy",
   "Judge",
-  "InboundChannelAdapter",
-  "SemanticInboundChannelAdapter",
   "A2AAgent",
 ]);
 

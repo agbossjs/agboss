@@ -23,13 +23,9 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   Channel,
   /** @deprecated Import from "agboss" (#195). */
-  type ChannelDecision,
-  /** @deprecated Import from "agboss" (#195). */
   type ChannelEndEvent,
   /** @deprecated Import from "agboss" (#195). */
   type ChannelHandler,
-  /** @deprecated Import from "agboss" (#195). */
-  type ChannelRequest,
   /** @deprecated Import from "agboss" (#195). */
   type ChannelStartEvent,
   /** @deprecated Import from "agboss" (#195). */
@@ -66,8 +62,6 @@ export {
   type GuardrailStartEvent,
   /** @deprecated Import from "agboss" (#195). */
   ImageDetail,
-  /** @deprecated Import from "agboss" (#195). */
-  InboundChannelAdapter,
   /** @deprecated Import from "agboss" (#195). */
   Injectable,
   /** @deprecated Import from "agboss" (#195). */
@@ -194,8 +188,6 @@ export {
   type ScoreAnswer,
   /** @deprecated Import from "agboss" (#195). */
   type ScoreQuestion,
-  /** @deprecated Import from "agboss" (#195). */
-  SemanticInboundChannelAdapter,
   /** @deprecated Import from "agboss" (#195). */
   studioGraphOf,
   /** @deprecated Import from "agboss" (#195). */

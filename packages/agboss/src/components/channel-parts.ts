@@ -1,53 +1,61 @@
-import type { ChannelHandler, InboundChannelAdapter } from "./decorators.js";
+import { channelNameOf, isChannelRole } from "../channels/discovery.js";
+import { implementationsOf } from "../channels/channel-rules.js";
+import type { ChannelSender } from "../channels/channel-sender.js";
+import type { ProviderModule } from "./container/registrations.js";
 import type { Class } from "./injection.js";
-import { ComponentError, componentOf, requireComponent } from "./metadata.js";
-import type { WorkflowMeta } from "./meta-types.js";
+import { componentOf } from "./metadata.js";
 import { containerFor } from "./runtime.js";
+import type { ToolClasses } from "./assemble-checks.js";
+import type { WorkflowMeta } from "./meta-types.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 
-/** A workflow channel: its name and class, and the class of its inbound adapter (if any). */
-interface ChannelClasses {
-  readonly name: string;
-  readonly cls: Class;
-  readonly adapter?: Class;
-}
+/**
+ * The channels of a workflow (#267): the classes its tools name, found from the graph — no
+ * `channelClasses`. A role resolves to its one implementation in the application's providers
+ * (by inheritance, like any contract); a concrete `@Channel` is used as is. One instance per
+ * application: the container shares it with every workflow.
+ */
 
-const ADAPTER_KINDS: ReadonlySet<string> = new Set(["inbound-adapter", "semantic-inbound-adapter"]);
-
-function channelClassesOf(bundle: WorkflowMeta): readonly ChannelClasses[] {
-  return (bundle.channelClasses ?? []).map((cls) => {
-    const { name, inboundAdapter } = requireComponent(cls, "channel", "workflowOf").meta;
-    if (inboundAdapter === undefined) return { name, cls };
-    if (!ADAPTER_KINDS.has(componentOf(inboundAdapter)?.kind ?? "")) {
-      throw new ComponentError(
-        `@Channel "${name}": inboundAdapter ${inboundAdapter.name} is not an @InboundChannelAdapter`,
-      );
-    }
-    return { name, cls, adapter: inboundAdapter };
+/** The distinct channel classes the workflow's tools name. */
+function channelClassesOf(tools: ToolClasses): readonly Class[] {
+  const named = [...tools.local, ...tools.mcp].flatMap((cls) => {
+    const component = componentOf(cls);
+    const channel =
+      component?.kind === "tool" || component?.kind === "mcp-tool"
+        ? component.meta.channel
+        : undefined;
+    return channel === undefined ? [] : [channel];
   });
+  return [...new Set(named)];
 }
 
-/** Every channel class and inbound adapter class, for the dependency graph check. */
-export const channelComponentClassesOf = (bundle: WorkflowMeta): Class[] =>
-  channelClassesOf(bundle).flatMap((c) => (c.adapter === undefined ? [c.cls] : [c.cls, c.adapter]));
+/**
+ * The classes the container creates for the channels, for the dependency graph check: a role's
+ * implementation (its `deps`), a concrete channel itself. A role without exactly one implementation
+ * is reported by the channel rules, not here.
+ */
+export const channelComponentClassesOf = (
+  tools: ToolClasses,
+  modules: readonly ProviderModule[],
+): Class[] =>
+  channelClassesOf(tools).flatMap((cls) =>
+    isChannelRole(cls) ? implementationsOf(cls, modules).slice(0, 1) : [cls],
+  );
 
-/** The workflow's channels and their inbound adapters by channel name, created by its container. */
+/** The workflow's channels by name (a role's name for a role), created by its container. */
 export function channelPartsOf(
   bundle: WorkflowMeta,
-): Required<Pick<AssembledWorkflow, "channels" | "channelAdapters">> {
-  const channels = channelClassesOf(bundle);
-  const get = (services: WorkflowServices, cls: Class): unknown =>
-    containerFor(bundle, services).get(cls);
+  tools: ToolClasses,
+): Required<Pick<AssembledWorkflow, "channels">> {
+  const channels = channelClassesOf(tools);
   return {
-    channels: (services) =>
-      new Map(channels.map((c) => [c.name, get(services, c.cls) as ChannelHandler])),
-    channelAdapters: (services) =>
+    channels: (services: WorkflowServices) =>
       new Map(
-        channels.flatMap((c) =>
-          c.adapter === undefined
-            ? []
-            : [[c.name, get(services, c.adapter) as InboundChannelAdapter] as const],
-        ),
+        channels.map((cls) => [
+          channelNameOf(cls),
+          // the container gives a role's implementation (by inheritance): a channel, checked at assembly
+          containerFor(bundle, services).get(cls) as ChannelSender,
+        ]),
       ),
   };
 }

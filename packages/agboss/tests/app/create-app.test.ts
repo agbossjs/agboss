@@ -86,7 +86,6 @@ const defaults = {
     start(ChatStart).returns(WorkflowStartTextDto).toAgent(Writer).toFinish(Reply),
   ],
   defaults,
-  channelClasses: [TerminalUserChannel],
   mcp: [NotesServer],
   providers: [OrderBook],
 })

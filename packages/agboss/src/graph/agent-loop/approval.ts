@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { interrupt, isGraphInterrupt } from "@langchain/langgraph";
 import { redactedArguments } from "../../dto/redact.js";
 import { validate } from "../../dto/schema.js";
@@ -7,99 +8,102 @@ import {
 } from "../../dto/standard/framework.js";
 import type { PendingPause } from "../../pause/index.js";
 import type { AnyTool } from "../../tools/index.js";
-import type { ChannelRequest, InboundChannelAdapter } from "../../components/decorators.js";
+import type { ChannelSender } from "../../channels/channel-sender.js";
+import { ChannelOutcomeKind, isChannelOutcome } from "../../channels/channel-outcome.js";
 import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 
 /**
  * How the loop gets a decision on a tool call before it runs — one call per ask. It is backed by the
- * pause seam: the run pauses, the tool's channel is asked, and `resume` brings the decision.
+ * pause seam: the tool's channel is asked once; it answers now (`ChannelOutcome.decided`) or the
+ * run pauses (`awaitReply`) and `resume` brings the decision.
  */
 export interface ToolCallApproval {
   readonly requestApproval: (
     ask: ToolCallApprovalAskDto,
     agent: string,
     tool: AnyTool,
-    run: { readonly runId: string; readonly threadId: string },
   ) => Promise<ToolCallApprovalDecisionDto>;
 }
 
-/** Where an ask goes and how a reply comes back: the workflow's channels and their adapters. */
+/** Where an ask goes: the channels the tools name, by name (#267). */
 export interface ApprovalChannels {
-  readonly dispatch?: (channelName: string, req: ChannelRequest) => Promise<void>;
-  readonly adapterOf?: (channel: string) => InboundChannelAdapter | undefined;
+  readonly channelOf?: (channelName: string) => ChannelSender;
   readonly observer?: ExecutionObserverManager;
 }
 
-interface AskContext {
-  readonly ask: ToolCallApprovalAskDto;
-  readonly agent: string;
-  readonly tool: AnyTool;
-  readonly runId: string;
-  readonly threadId: string;
-}
+/** A pause's id: a random 128-bit token, made once per pause before its `send` (#267 AC3). */
+const newPauseId = (): string => randomBytes(16).toString("hex");
 
-/**
- * The run just paused at the ask: the tool's channel gets the request (once per pause), its
- * arguments with the input DTO's `sensitive` fields masked — a channel shows them to people (#202).
- */
-async function askChannel(channels: ApprovalChannels, ctx: AskContext): Promise<void> {
-  const channel = ctx.tool.channel;
-  if (channel === undefined || channels.dispatch === undefined) return;
-  const shown = redactedArguments(ctx.tool.input, ctx.ask.arguments);
+/** The decision the channel gave now; `undefined` when the run waits for the reply. */
+async function askChannel(
+  channels: ApprovalChannels,
+  ask: ToolCallApprovalAskDto,
+  channel: string,
+): Promise<{ readonly decision: unknown } | undefined> {
+  if (channels.channelOf === undefined) return undefined;
   const { observer } = channels;
   await reportNodeEvent((base) =>
-    observer?.onChannelStart({ ...base, name: channel, input: shown }),
+    observer?.onChannelStart({ ...base, name: channel, input: ask.arguments }),
   );
-  await channels.dispatch(channel, {
-    runId: ctx.runId,
-    agentName: ctx.agent,
-    toolName: ctx.tool.name,
-    toolArguments: shown,
-  });
+  const outcome: unknown = await channels
+    .channelOf(channel)
+    .send({ pauseId: newPauseId(), value: ask });
+  if (!isChannelOutcome(outcome)) {
+    throw new TypeError(
+      `channel ${channel}: send() must return ChannelOutcome.awaitReply() or ChannelOutcome.decided(…)`,
+    );
+  }
+  return outcome.kind === ChannelOutcomeKind.Decided ? { decision: outcome.decision } : undefined;
 }
 
-/** The reply `resume` brought, read by the channel's inbound adapter when it has one. */
-async function interpretReply(
+/** The decision (a reply or the channel's own), reported and validated like any external input. */
+async function decisionOf(
   channels: ApprovalChannels,
-  ctx: AskContext,
-  raw: unknown,
-): Promise<unknown> {
-  const channel = ctx.tool.channel;
-  if (channel === undefined) return raw;
+  channel: string,
+  decision: unknown,
+): Promise<ToolCallApprovalDecisionDto> {
   const { observer } = channels;
-  await reportNodeEvent((base) => observer?.onChannelEnd({ ...base, name: channel, update: raw }));
-  const adapter = channels.adapterOf?.(channel);
-  if (adapter === undefined) return raw;
-  const interpreted: unknown = await adapter.interpret(raw);
-  return interpreted;
+  await reportNodeEvent((base) =>
+    observer?.onChannelEnd({ ...base, name: channel, update: decision }),
+  );
+  return validate(ToolCallApprovalDecisionDto, decision);
 }
 
 /**
- * The pause seam as an approval: `interrupt` pauses the run at the call (the checkpoint is the
- * boundary — nothing ran before it) and the tool's channel is asked; on resume `interrupt` returns
- * the reply, which the channel's adapter interprets and which is validated like any external input.
+ * The pause seam as an approval: `interrupt` stops the run at the call (the checkpoint is the
+ * boundary — nothing ran before it) and the tool's channel is asked, once — on resume `interrupt`
+ * returns the reply and the channel is not asked again. A channel that decides at once
+ * (`ChannelOutcome.decided`) takes the interrupt back: the step goes on with no pause.
  */
 export function pauseSeamApproval(channels: ApprovalChannels = {}): ToolCallApproval {
   return {
-    requestApproval: async (ask, agent, tool, run) => {
-      const ctx: AskContext = { ask, agent, tool, ...run };
+    requestApproval: async (ask, agent, tool) => {
+      const channel = tool.channel ?? "";
+      // what the channel, the caller and the paused-run store see: `sensitive` fields masked (#202)
+      const shown: ToolCallApprovalAskDto = {
+        callId: ask.callId,
+        tool: ask.tool,
+        arguments: redactedArguments(tool.input, ask.arguments),
+        summary: ask.summary,
+      };
       const pending: PendingPause = {
         kind: "approval",
         agent,
         callId: ask.callId,
         tool: ask.tool,
-        // what the caller and the paused-run store see: `sensitive` fields masked (#202)
-        args: redactedArguments(tool.input, ask.arguments),
+        args: shown.arguments,
       };
-      let raw: unknown;
+      let reply: unknown;
       try {
-        raw = interrupt<PendingPause, unknown>(pending);
-      } catch (e) {
-        if (isGraphInterrupt(e)) await askChannel(channels, ctx);
-        throw e;
+        reply = interrupt<PendingPause, unknown>(pending);
+      } catch (error) {
+        if (!isGraphInterrupt(error)) throw error;
+        const decided = await askChannel(channels, shown, channel);
+        if (decided === undefined) throw error;
+        reply = decided.decision;
       }
-      return validate(ToolCallApprovalDecisionDto, await interpretReply(channels, ctx, raw));
+      return decisionOf(channels, channel, reply);
     },
   };
 }

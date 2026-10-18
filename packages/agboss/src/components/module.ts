@@ -135,7 +135,6 @@ export function moduleOf(workflow: Class): WorkflowMeta {
     mcp: options.mcp,
     providers: options.providers,
     promptVariables: options.promptVariables,
-    channelClasses: options.channelClasses,
   });
   modules.set(workflow, module);
   return module;

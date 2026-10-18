@@ -4,34 +4,42 @@
 
 ```ts
 
-// Warning: (ae-forgotten-export) The symbol "ChannelHandler" needs to be exported by the entry point index.d.ts
-//
-// @public (undocumented)
-export class AutoApproveChannel implements ChannelHandler {
-    // Warning: (ae-forgotten-export) The symbol "ChannelRequest" needs to be exported by the entry point index.d.ts
+// @public
+export class AutoApproveChannel {
+    // (undocumented)
+    readonly [agbossComponent]?: "auto-approve-channel";
+    // Warning: (ae-forgotten-export) The symbol "ChannelOutcome" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
-    requestApproval: (req: ChannelRequest) => Promise<void>;
+    send(): Promise<ChannelOutcome<AutoApproveChannel>>;
 }
 
-// @public (undocumented)
-export class AutoRejectChannel implements ChannelHandler {
+// @public
+export class AutoRejectChannel {
     // (undocumented)
-    requestApproval: (req: ChannelRequest) => Promise<void>;
+    readonly [agbossComponent]?: "auto-reject-channel";
+    // (undocumented)
+    send(): Promise<ChannelOutcome<AutoRejectChannel>>;
 }
 
-// @public (undocumented)
-export class TerminalUserChannel implements ChannelHandler {
-    requestApproval: (req: ChannelRequest) => Promise<void>;
+// @public
+export class TerminalUserChannel {
+    // (undocumented)
+    readonly [agbossComponent]?: "terminal-user-channel";
+    // Warning: (ae-forgotten-export) The symbol "ChannelAsk" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    send(ask: ChannelAsk<TerminalUserChannel>): Promise<ChannelOutcome<TerminalUserChannel>>;
 }
 
 // Warnings were encountered during analysis:
 //
-// src/channels/terminal-channel.ts:4:1 - (ae-undocumented) Missing documentation for "TerminalUserChannel".
-// src/channels/test-channels.ts:3:1 - (ae-undocumented) Missing documentation for "AutoApproveChannel".
-// src/channels/test-channels.ts:9:3 - (ae-undocumented) Missing documentation for "requestApproval".
-// src/channels/test-channels.ts:15:1 - (ae-undocumented) Missing documentation for "AutoRejectChannel".
-// src/channels/test-channels.ts:21:3 - (ae-undocumented) Missing documentation for "requestApproval".
+// src/channels/terminal-channel.ts:13:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/terminal-channel.ts:15:3 - (ae-undocumented) Missing documentation for "send".
+// src/channels/test-channels.ts:11:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/test-channels.ts:13:3 - (ae-undocumented) Missing documentation for "send".
+// src/channels/test-channels.ts:24:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/test-channels.ts:26:3 - (ae-undocumented) Missing documentation for "send".
 
 // (No @packageDocumentation comment for this package)
 
