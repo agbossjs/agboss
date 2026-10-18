@@ -5,7 +5,7 @@ import type {
   PiiPolicy,
 } from "../components/decorators.js";
 import type { Class } from "../components/injection.js";
-import { stopAll } from "../components/lifecycle.js";
+import { stopComponents } from "../components/container/lifecycle.js";
 import { ObserverManager } from "../core/observer-manager.js";
 import type { TernStore } from "../terns/index.js";
 import type { McpConnections } from "../tools/index.js";
@@ -74,7 +74,22 @@ export function containerDepsOf(
   };
 }
 
-/** Runs `onStop` of the components, then closes MCP, tracing and the Tern store the app opened. */
+/** Closes what the app opened besides its components: MCP connections, tracing, its own Tern store. */
+export const releaseOf =
+  (mcp: McpConnections, tracing: RunTracing | undefined, ownedTerns: TernStore | undefined) =>
+  async (): Promise<void> => {
+    try {
+      await mcp.close();
+      await tracing?.shutdown();
+    } finally {
+      ownedTerns?.close();
+    }
+  };
+
+/**
+ * The stop of an app (#261): `onStop` of the components, the running executions awaited, `onDestroy`,
+ * then MCP, tracing and the Tern store the app opened — also when a hook failed.
+ */
 export const closeOf =
   (
     created: unknown[],
@@ -82,12 +97,10 @@ export const closeOf =
     tracing: RunTracing | undefined,
     ownedTerns: TernStore | undefined,
   ) =>
-  async (): Promise<void> => {
+  async (executionsDone?: () => Promise<void>): Promise<void> => {
     try {
-      await stopAll(created);
+      await stopComponents(created, executionsDone);
     } finally {
-      await mcp.close();
-      await tracing?.shutdown();
-      ownedTerns?.close();
+      await releaseOf(mcp, tracing, ownedTerns)();
     }
   };

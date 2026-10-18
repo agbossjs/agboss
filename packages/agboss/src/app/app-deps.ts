@@ -3,10 +3,10 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { resolveTools, type AssembledWorkflow } from "../workflow.js";
 import { validateAgentsConfig, type AgentsConfigOf } from "../config/types.js";
-import type { ContainerOptions } from "../components/container.js";
+import type { ContainerOptions } from "../components/container/container.js";
 import type { Environment } from "../environments/define.js";
 import type { ObserverManager } from "../core/observer-manager.js";
-import { initAll, assembleAll, startAll } from "../components/lifecycle.js";
+import { startComponents } from "../components/container/lifecycle.js";
 import { createFileLedger, type Clock, type SpendLedger } from "../finops/ledger.js";
 import type { EvalDeps } from "../eval/eval.js";
 import type { RunDeps } from "../run/types.js";
@@ -30,7 +30,7 @@ import {
   type TransportFactory,
 } from "../tools/index.js";
 import { evaluationFor, flowFor, guardsFor, pauseFor, servicesFor, toolLookup } from "./parts.js";
-import { closeOf } from "./app-deps-parts.js";
+import { closeOf, releaseOf } from "./app-deps-parts.js";
 import { componentsAtStart } from "./start-components.js";
 
 /** Daily spend ledgers live outside the repo. */
@@ -47,8 +47,11 @@ export interface AppDeps extends RunDeps<string> {
   readonly warnings: readonly string[];
   /** One line per model use: its provider, reasoning and caching (the startup log). */
   readonly models: readonly string[];
-  /** Runs `onStop` of the components, closes MCP connections, tracing and the stores it opened. */
-  readonly close: () => Promise<void>;
+  /**
+   * Runs `onStop` of the components, waits for `executionsDone` (the running executions), runs
+   * `onDestroy`, then closes MCP connections, tracing and the stores it opened.
+   */
+  readonly close: (executionsDone?: () => Promise<void>) => Promise<void>;
 }
 
 /** Where an app keeps its state; each one given is shared and stays open when the app closes. */
@@ -156,7 +159,8 @@ function lifecycleOf(container: ContainerOptions | undefined) {
  * Production wiring of a workflow: its model providers behind the model gateway (every model setting
  * checked against its model first), MCP servers, file
  * spend ledger, Tern store; every part can be given instead (`options`, e.g. by `agboss/testing`).
- * Fails fast when an MCP server is unavailable or drifted. Components' `onStart` runs at the end.
+ * Fails fast when an MCP server is unavailable or drifted. The components' `onInit` → `onStart` run at
+ * the end; a failing one stops the start (MCP, tracing and the stores it opened are closed).
  */
 export async function createAppDeps(
   bundle: AssembledWorkflow,
@@ -191,8 +195,9 @@ export async function createAppDeps(
     ...(options.newRunId === undefined ? {} : { newRunId: options.newRunId }),
     close: closeOf(lifecycle.created, mcp, tracing, ownsTerns ? terns : undefined),
   };
-  await initAll(lifecycle.created);
-  await assembleAll(lifecycle.created);
-  await startAll(lifecycle.created);
+  await startComponents(lifecycle.created).catch(async (error: unknown) => {
+    await releaseOf(mcp, tracing, ownsTerns ? terns : undefined)();
+    throw error;
+  });
   return { ...deps, models: models.summary, warnings: await versionWarnings(deps) };
 }

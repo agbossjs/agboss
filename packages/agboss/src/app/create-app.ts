@@ -24,6 +24,7 @@ import { checkedStart, textStartOf } from "./starts.js";
 import { runResultOf } from "./result.js";
 import type { App, ExecutionOutput } from "./types.js";
 import type { RunOperation } from "../core/observability.js";
+import { ApplicationStoppingError } from "./application-stopping.js";
 
 export { NotAWorkflowStartError } from "./starts.js";
 
@@ -43,6 +44,9 @@ export interface AppOptions extends AppDepsOptions {
    */
   readonly pausedRuns?: PausedRunRepository;
 }
+
+/** Why an execution or a resume is refused once `app.close()` has begun. */
+const STOPPING = "the app is stopping: app.close() was called, no new execution is accepted";
 
 /** An app with the parts it was built from (the testing toolkit's slices read them). */
 export interface BuiltApp {
@@ -73,12 +77,16 @@ export async function buildApp(
     checkThreadOwner(deps.terns, deps.config.name, thread, owner);
   const known = (thread: string, owner: string | undefined) =>
     checkThreadAccess(deps.terns, deps.config.name, thread, owner);
+  let closed = false;
   const admit = <T>(
     operation: RunOperation,
     thread: string | undefined,
     checks: () => Promise<T>,
   ) => admitRequest(deps.observer, { operation, threadId: thread }, checks);
-  let closed = false;
+  /** From `app.close()` on (`onStop`), no new execution is accepted; running ones go on (#261). */
+  const accepting = (): void => {
+    if (closed) throw new ApplicationStoppingError(STOPPING);
+  };
   const app: App = {
     name: deps.config.name,
     version: deps.config.version,
@@ -87,6 +95,7 @@ export async function buildApp(
     textStart: textStartOf(bundle.graph),
     execute: async (start, input, call = {}) => {
       const checked = await admit("execute", call.thread, async () => {
+        accepting();
         const valid = checkedStart(start, input, bundle.graph);
         if (call.thread !== undefined) await known(call.thread, call.owner);
         return valid;
@@ -122,6 +131,7 @@ export async function buildApp(
     },
     resume: async (thread, decision, call = {}) => {
       const run = await admit("resume", thread, async () => {
+        accepting();
         await owned(thread, call.owner);
         return paused.resumable(thread);
       });
@@ -139,7 +149,7 @@ export async function buildApp(
     close: async () => {
       if (closed) return;
       closed = true;
-      await deps.close();
+      await deps.close(() => live.settled());
     },
     resolve: (token) => deps.container.get(token),
     hasTool: (name) => {

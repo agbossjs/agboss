@@ -14,7 +14,6 @@ export const FLOW_FILES = [
   "packages/agboss/tests/helpers/flow.ts",
   "packages/agboss/tests/fixtures/test-flow/*.ts",
   "packages/agboss/tests/components/prompts/flows.ts",
-  "packages/agboss/tests/components/run-scope/fixture.ts",
   "packages/agboss/tests/core/observers/fixture.ts",
   "packages/agboss/tests/errors/fixtures.ts",
   "packages/agboss/tests/flow/types/fixture-workflows.ts",

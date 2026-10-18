@@ -8,8 +8,14 @@ import { loadRouters } from "../flow/runtime/routers.js";
 import { DEFAULT_WORKFLOW_SETTINGS, type WorkflowSettings } from "../graph/settings.js";
 import { STEPS_PER_WORKING_NODE } from "../graph/limits.js";
 import type { AssembledWorkflow } from "../workflow.js";
-import { checkGraph, dependencyTree } from "./container.js";
-import { CORE_TOKENS, ragParts, rememberServers, toolBuilder } from "./runtime.js";
+import { checkGraph, dependencyTree } from "./container/graph-check.js";
+import {
+  CORE_TOKENS,
+  providerModulesOf,
+  ragParts,
+  rememberServers,
+  toolBuilder,
+} from "./runtime.js";
 import { mcpOf, toolsOf, type Mcp } from "./assemble-tools.js";
 import { ragClassesOf } from "./rag.js";
 import type { Class } from "./injection.js";
@@ -59,7 +65,7 @@ const toolDependenciesOf = (
 ): Record<string, string> =>
   Object.fromEntries(
     tools.flatMap((cls) => {
-      const tree = dependencyTree(cls, bundle.providers ?? []);
+      const tree = dependencyTree(cls, providerModulesOf(bundle));
       return tree === "" ? [] : [[names.get(cls) ?? cls.name, tree] as const];
     }),
   );
@@ -109,7 +115,7 @@ export async function workflowOf(workflow: Class): Promise<AssembledWorkflow> {
   const judges = judgeClassesOf(agents);
   checkGraph(
     componentClassesOf(bundle, agents, tools, rags, codeNodeClassesOf(graph)),
-    bundle.providers ?? [],
+    providerModulesOf(bundle),
     [...CORE_TOKENS, ...mcp.instances.keys()],
   );
   rememberServers(bundle, mcp.instances);

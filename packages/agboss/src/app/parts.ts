@@ -14,7 +14,7 @@ import { createRouter, type RouterEngine } from "../routers/index.js";
 import { ComponentError } from "../components/metadata.js";
 import type { AnyTool } from "../tools/index.js";
 import type { PauseSeam } from "../pause/index.js";
-import type { ContainerOptions } from "../components/container.js";
+import type { ContainerOptions } from "../components/container/container.js";
 import type { Environment } from "../environments/define.js";
 
 export class UnknownToolError extends Error {

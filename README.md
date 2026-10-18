@@ -340,7 +340,7 @@ Every component reads the execution it runs in through its constructor (#280):
 `deps: [ExecutionContext]`, a parameter named `executionContext` — tools, actions, judges and
 services alike; there is no `ctx` parameter. It is data only and read-only, and every read gives the
 current execution and step (one frame per node visit and per tool call), so it is safe in an
-app-scoped component and in parallel branches. One execution has one id: its observer events
+component (one instance for the app) and in parallel branches. One execution has one id: its observer events
 (`state.runId`), `executionContext.executionId`, its Tern (`Tern.runId`), its trace and its result
 (`ExecutionOutput.runId`) carry the same one, also after a resume. What a node reads comes in its
 input — for a model, its input message (each `input` field as `### field (from producer)`), never
@@ -415,7 +415,9 @@ runs never jointly pass `limits.perDay.cost`; a workflow that sets `perDay.cost`
 `configurable` (extra LangGraph keys; the framework's own win). `app.cancel(thread)` aborts a running
 run — it stops before its next model or tool call and `execute` rejects with
 `WorkflowCancelledError` — or drops a paused one, whose `resume` then throws `NotPausedError`;
-`cancelled` is `false` when the thread had neither. In unit tests, `testExecutionContext({ … })` from
+`cancelled` is `false` when the thread had neither. From `app.close()` on, `execute` and `resume`
+are refused with `ApplicationStoppingError` (`app.stopping`, an `onRunRejected`); running executions
+go on and `cancel` still works. In unit tests, `testExecutionContext({ … })` from
 `agboss/testing` is a frozen `ExecutionContext`: `new PayOrder(testExecutionContext())`.
 
 Observers see a run's workflow, agent, router, tool, model, guardrail, policy, action, channel and
@@ -425,7 +427,7 @@ judge start/end events. `onWorkflowStart` fires once per run (at `execute`); a r
 after a resume; cancelling a paused run is an `onError` with `WorkflowCancelledError`. Every event
 carries the run's one `runId` and its real `threadId`. A request refused before a run starts or is
 located — another owner's thread, a `resume` with nothing paused, an `execute` on an unknown thread
-or with an invalid start input — emits `onRunRejected` (`operation`, `threadId` when given, the
+or with an invalid start input, a request after `app.close()` — emits `onRunRejected` (`operation`, `threadId` when given, the
 error's stable `code`, a `message` without the input values; never a `runId`) and still throws. A
 resume refused as incompatible after a deploy (`IncompatibleResumeError`) is an `onError` on the
 paused run, with its `runId` and thread; the run stays paused. A write that renews a value of the

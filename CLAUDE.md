@@ -453,25 +453,41 @@ export const offerPaths = [
   `InjectionToken<T>`; values go in with `provide(TOKEN, value)` (a raw `{ provide, useValue }`
   does not compile). A dependency without a provider fails at assembly (`Consumer: "TOKEN" is not
 registered …`); a class in `providers` without a decorator fails with `[di.undecorated-provider]`.
-- **Scopes (#184):** `scope: "app"` (default, one instance shared by every run) or `"run"` (one per
-  run in a child container; `onDestroy` when the run ends). Per-run state belongs in a run-scoped
-  component. App → run dependencies fail with `[di.scope-mismatch]`; lint
-  (`agboss/no-run-state-in-singleton`) flags `this.x = …` in `run()` of an app-scoped one.
+- **One container per application instance, no scopes (#261):** one instance per class (a class
+  listed by two workflows is one instance), created at start. A dependency on a contract gets the
+  one listed class that `extends` it (two → `[di.ambiguous-implementation]`); one token with
+  different values → `[di.conflicting-values]`; no `new`: `provide(Class, …)` fails with
+  `[di.instance-provider]`. Hooks, each optional: `implements OnInit, OnStart, OnStop, OnDestroy` —
+  `onInit` (dependencies first) → `onStart` at start (a failure stops it, naming the component and
+  the hook); `app.close()` → `onStop` (no new executions) → the running ones awaited → `onDestroy`
+  (dependants first; failures collected into one error); from `app.close()` on `execute` / `resume`
+  reject with `ApplicationStoppingError` (`app.stopping`).
+- **Components keep no state:** another instance may continue an execution after a pause, so a
+  component reads the execution from `ExecutionContext`, data that outlive a step live in the graph
+  state, caches and deduplication are your own service over external storage. Lint
+  (`agboss/no-component-state`) flags `this.x = …` outside the constructor of any component.
 
 <!-- snippet-context
-import { Injectable, InjectionToken, provide, type Provider } from "agboss";
-interface SearchConfig { readonly maxResults: number }
+import { Injectable } from "agboss";
+interface RedisClient {
+  sAdd(key: string, member: string): Promise<number>;
+}
+@Injectable()
+export class RedisClientProvider {
+  readonly client: RedisClient = { sAdd: () => Promise.resolve(1) };
+}
 // @snippet
-export const providers: Provider[] = [SearchSession, provide(SEARCH_CONFIG, { maxResults: 20 })];
 -->
 
 ```ts
-export const SEARCH_CONFIG = new InjectionToken<SearchConfig>("SEARCH_CONFIG");
+@Injectable({ deps: [RedisClientProvider] })
+export class SeenJobsRepository {
+  constructor(private readonly redisClientProvider: RedisClientProvider) {}
 
-@Injectable({ scope: "run", deps: [SEARCH_CONFIG] })
-export class SearchSession {
-  readonly seen = new Set<string>(); // one per run: never shared between two runs
-  constructor(readonly config: SearchConfig) {}
+  async markSeen(executionId: string, jobId: string): Promise<boolean> {
+    const added: number = await this.redisClientProvider.client.sAdd(`seen:${executionId}`, jobId);
+    return added === 1; // the state lives in Redis: any instance continues the execution
+  }
 }
 ```
 
@@ -557,7 +573,8 @@ Routers and guards use decision models too. README → Quality gates has a full 
   (`[limits.per-run-required]`).
 - **Errors** (root entry) are `AGBossError`s with stable `code`s (`limit` ⊃ `limit.budget`,
   `limit.visits`, `step.agent` / `step.action` / `step.router` ⊃ `step.router.invalid-decision`,
-  `workflow.cancelled`, …); a new error
+  `workflow.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
+  `app.close()`, an `onRunRejected`, …); a new error
   class gets a `static code`. `.onError` matches by class, so a subclass is caught by its parent's
   side path.
 
@@ -730,7 +747,7 @@ examples/job-scout/          the example (package job-scout-example; depends on 
 examples/flow-patterns/      the flow's patterns (package flow-patterns-example, #295): src/offer/ (a review loop),
                     src/credit/ (a code router beside a model router), one *.workflow.ts each; tests/
 scripts/        the gate's checks (check-root, check-suppressions, check-docs + docs/, api-report,
-                public-entries, eslint-run-state), bootstrap-repo, bootstrap-labels, ticket, wiki,
+                public-entries, eslint-component-state), bootstrap-repo, bootstrap-labels, ticket, wiki,
                 langfuse, coverage-badge
 ../<repo>.wiki  GitHub Wiki working copy (separate git repo, never inside this repo)
 ```

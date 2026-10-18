@@ -69,13 +69,12 @@ export function BindTool(tool: Class, options?: BindToolOptions): MethodDecorato
 export function BindTool(toolName: string, options?: BindToolOptions): MethodDecorator;
 
 // Warning: (ae-forgotten-export) The symbol "ChannelMeta" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "Scoped" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "ResolvedAll" needs to be exported by the entry point index.d.ts
 //
 // @public (undocumented)
 export function Channel<const D extends readonly Token[] = []>(options: ChannelMeta & {
     readonly deps?: D;
-} & Scoped): <C extends new (...args: ResolvedAll<D>) => ChannelHandler>(value: C) => C;
+}): <C extends new (...args: ResolvedAll<D>) => ChannelHandler>(value: C) => C;
 
 // @public (undocumented)
 export interface ChannelDecision {
@@ -194,7 +193,6 @@ export function file(filePath: string): string;
 export function Guardrail<const D extends readonly Token[] = []>(options: {
     name: string;
     deps?: D;
-    scope?: Scope;
 }): <C extends new (...args: ResolvedAll<D>) => Guardrail>(value: C) => C;
 
 // @public (undocumented)
@@ -245,7 +243,6 @@ export enum ImageDetail {
 export function InboundChannelAdapter<const D extends readonly Token[] = []>(options: {
     name: string;
     deps?: D;
-    scope?: Scope;
 }): <C extends new (...args: ResolvedAll<D>) => InboundChannelAdapter<any>>(value: C) => C;
 
 // @public (undocumented)
@@ -257,7 +254,7 @@ export interface InboundChannelAdapter<T = unknown> {
 // @public
 export function Injectable<const D extends readonly Token[] = []>(options?: {
     readonly deps?: D;
-} & Scoped): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+}): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
 
 // @public
 export class InjectionToken<T> {
@@ -271,7 +268,7 @@ export class InjectionToken<T> {
 // @public
 export function Judge<const D extends readonly Token[] = []>(options: JudgeMeta & {
     readonly deps?: D;
-} & Scoped): <C extends new (...args: ResolvedAll<D>) => JudgeHandler>(value: C) => C;
+}): <C extends new (...args: ResolvedAll<D>) => JudgeHandler>(value: C) => C;
 
 // @public
 export interface JudgeEndEvent {
@@ -506,7 +503,6 @@ export interface OnChannelStart {
 
 // @public
 export interface OnDestroy {
-    // (undocumented)
     onDestroy(): Promise<void> | void;
 }
 
@@ -588,15 +584,13 @@ export interface OnRouterStart {
     onRouterStart(event: RouterStartEvent): HookResult;
 }
 
-// @public (undocumented)
+// @public
 export interface OnStart {
-    // (undocumented)
     onStart(): Promise<void> | void;
 }
 
-// @public (undocumented)
+// @public
 export interface OnStop {
-    // (undocumented)
     onStop(): Promise<void> | void;
 }
 
@@ -628,7 +622,6 @@ export interface OnWorkflowStart {
 export function PiiPolicy<const D extends readonly Token[] = []>(options: {
     name: string;
     deps?: D;
-    scope?: Scope;
 }): <C extends new (...args: ResolvedAll<D>) => PiiPolicy>(value: C) => C;
 
 // @public
@@ -711,9 +704,6 @@ export type RouterEndEvent = EndEvent<RouterDecided>;
 
 // @public
 export type RouterStartEvent = StartEvent<string>;
-
-// @public
-export type Scope = "app" | "run";
 
 // @public (undocumented)
 export interface ScoreAnswer {
@@ -833,35 +823,30 @@ export class WorkflowSettings {
 //
 // src/components/bind-tool.ts:22:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/bind-tool.ts:24:1 - (ae-undocumented) Missing documentation for "BindTool".
-// src/components/decorators.ts:139:1 - (ae-undocumented) Missing documentation for "ChannelRequest".
-// src/components/decorators.ts:140:3 - (ae-undocumented) Missing documentation for "runId".
-// src/components/decorators.ts:141:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/components/decorators.ts:142:3 - (ae-undocumented) Missing documentation for "toolName".
-// src/components/decorators.ts:143:3 - (ae-undocumented) Missing documentation for "toolArguments".
-// src/components/decorators.ts:146:3 - (ae-undocumented) Missing documentation for "executionContext".
-// src/components/decorators.ts:149:1 - (ae-undocumented) Missing documentation for "ChannelDecision".
-// src/components/decorators.ts:150:3 - (ae-undocumented) Missing documentation for "approved".
-// src/components/decorators.ts:157:1 - (ae-undocumented) Missing documentation for "ChannelHandler".
-// src/components/decorators.ts:158:3 - (ae-undocumented) Missing documentation for "requestApproval".
-// src/components/decorators.ts:161:1 - (ae-undocumented) Missing documentation for "Channel".
+// src/components/decorators.ts:129:1 - (ae-undocumented) Missing documentation for "ChannelRequest".
+// src/components/decorators.ts:130:3 - (ae-undocumented) Missing documentation for "runId".
+// src/components/decorators.ts:131:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/components/decorators.ts:132:3 - (ae-undocumented) Missing documentation for "toolName".
+// src/components/decorators.ts:133:3 - (ae-undocumented) Missing documentation for "toolArguments".
+// src/components/decorators.ts:136:3 - (ae-undocumented) Missing documentation for "executionContext".
+// src/components/decorators.ts:139:1 - (ae-undocumented) Missing documentation for "ChannelDecision".
+// src/components/decorators.ts:140:3 - (ae-undocumented) Missing documentation for "approved".
+// src/components/decorators.ts:147:1 - (ae-undocumented) Missing documentation for "ChannelHandler".
+// src/components/decorators.ts:148:3 - (ae-undocumented) Missing documentation for "requestApproval".
+// src/components/decorators.ts:151:1 - (ae-undocumented) Missing documentation for "Channel".
 // src/components/injection.ts:3:3 - (ae-undocumented) Missing documentation for "__type".
 // src/components/injection.ts:4:15 - (ae-undocumented) Missing documentation for "description".
 // src/components/injection.ts:10:1 - (ae-undocumented) Missing documentation for "Token".
-// src/components/injection.ts:42:3 - (ae-undocumented) Missing documentation for "provide".
-// src/components/injection.ts:43:3 - (ae-undocumented) Missing documentation for "useValue".
-// src/components/injection.ts:44:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
+// src/components/injection.ts:31:3 - (ae-undocumented) Missing documentation for "provide".
+// src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "useValue".
+// src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
 // src/components/judge-decorators.ts:15:3 - (ae-undocumented) Missing documentation for "description".
 // src/components/judge-decorators.ts:52:3 - (ae-undocumented) Missing documentation for "passed".
 // src/components/judge-decorators.ts:53:3 - (ae-undocumented) Missing documentation for "feedback".
 // src/components/judge-decorators.ts:54:3 - (ae-undocumented) Missing documentation for "metrics".
 // src/components/judge-decorators.ts:59:3 - (ae-undocumented) Missing documentation for "judge".
-// src/components/lifecycle.ts:13:1 - (ae-undocumented) Missing documentation for "OnStart".
-// src/components/lifecycle.ts:14:3 - (ae-undocumented) Missing documentation for "onStart".
-// src/components/lifecycle.ts:17:1 - (ae-undocumented) Missing documentation for "OnStop".
-// src/components/lifecycle.ts:18:3 - (ae-undocumented) Missing documentation for "onStop".
-// src/components/lifecycle.ts:66:3 - (ae-undocumented) Missing documentation for "onDestroy".
-// src/components/metadata.ts:104:1 - (ae-undocumented) Missing documentation for "ComponentError".
-// src/components/metadata.ts:105:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/metadata.ts:99:1 - (ae-undocumented) Missing documentation for "ComponentError".
+// src/components/metadata.ts:100:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/policy-decorators.ts:9:3 - (ae-undocumented) Missing documentation for "mask".
 // src/components/policy-decorators.ts:11:3 - (ae-undocumented) Missing documentation for "maskJson".
 // src/components/policy-decorators.ts:25:1 - (ae-undocumented) Missing documentation for "Guardrail".
@@ -870,11 +855,11 @@ export class WorkflowSettings {
 // src/components/policy-decorators.ts:29:3 - (ae-undocumented) Missing documentation for "onChannelDecision".
 // src/components/policy-decorators.ts:35:3 - (ae-undocumented) Missing documentation for "beforeAgentAnswer".
 // src/components/policy-decorators.ts:38:1 - (ae-undocumented) Missing documentation for "PiiPolicy".
-// src/components/policy-decorators.ts:56:1 - (ae-undocumented) Missing documentation for "Guardrail".
-// src/components/policy-decorators.ts:76:1 - (ae-undocumented) Missing documentation for "InboundChannelAdapter".
-// src/components/policy-decorators.ts:78:3 - (ae-undocumented) Missing documentation for "interpret".
-// src/components/policy-decorators.ts:81:1 - (ae-undocumented) Missing documentation for "InboundChannelAdapter".
-// src/components/policy-decorators.ts:109:1 - (ae-undocumented) Missing documentation for "SemanticInboundChannelAdapter".
+// src/components/policy-decorators.ts:51:1 - (ae-undocumented) Missing documentation for "Guardrail".
+// src/components/policy-decorators.ts:66:1 - (ae-undocumented) Missing documentation for "InboundChannelAdapter".
+// src/components/policy-decorators.ts:68:3 - (ae-undocumented) Missing documentation for "interpret".
+// src/components/policy-decorators.ts:71:1 - (ae-undocumented) Missing documentation for "InboundChannelAdapter".
+// src/components/policy-decorators.ts:93:1 - (ae-undocumented) Missing documentation for "SemanticInboundChannelAdapter".
 // src/components/prompt-problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts:14:3 - (ae-undocumented) Missing documentation for "message".
 // src/components/prompt-problems.ts:23:12 - (ae-undocumented) Missing documentation for "name".

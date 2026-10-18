@@ -1,4 +1,4 @@
-import type { ResolvedAll, Scope, Token } from "./injection.js";
+import type { ResolvedAll, Token } from "./injection.js";
 import { recordComponent } from "./metadata.js";
 
 /** PII policies, guardrails and inbound channel adapters: created by the workflow's container with their `deps`. */
@@ -38,17 +38,12 @@ export interface Guardrail {
 export function PiiPolicy<const D extends readonly Token[] = []>(options: {
   name: string;
   deps?: D;
-  scope?: Scope;
 }) {
   return <C extends new (...args: ResolvedAll<D>) => PiiPolicy>(value: C): C => {
-    recordComponent(
-      value,
-      {
-        kind: "pii-policy",
-        meta: { name: options.name, deps: options.deps ?? [] },
-      },
-      options.scope,
-    );
+    recordComponent(value, {
+      kind: "pii-policy",
+      meta: { name: options.name, deps: options.deps ?? [] },
+    });
     return value;
   };
 }
@@ -56,17 +51,12 @@ export function PiiPolicy<const D extends readonly Token[] = []>(options: {
 export function Guardrail<const D extends readonly Token[] = []>(options: {
   name: string;
   deps?: D;
-  scope?: Scope;
 }) {
   return <C extends new (...args: ResolvedAll<D>) => Guardrail>(value: C): C => {
-    recordComponent(
-      value,
-      {
-        kind: "guardrail",
-        meta: { name: options.name, deps: options.deps ?? [] },
-      },
-      options.scope,
-    );
+    recordComponent(value, {
+      kind: "guardrail",
+      meta: { name: options.name, deps: options.deps ?? [] },
+    });
     return value;
   };
 }
@@ -81,18 +71,13 @@ export interface InboundChannelAdapter<T = unknown> {
 export function InboundChannelAdapter<const D extends readonly Token[] = []>(options: {
   name: string;
   deps?: D;
-  scope?: Scope;
 }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return <C extends new (...args: ResolvedAll<D>) => InboundChannelAdapter<any>>(value: C): C => {
-    recordComponent(
-      value,
-      {
-        kind: "inbound-adapter",
-        meta: { name: options.name, deps: options.deps ?? [] },
-      },
-      options.scope,
-    );
+    recordComponent(value, {
+      kind: "inbound-adapter",
+      meta: { name: options.name, deps: options.deps ?? [] },
+    });
     return value;
   };
 }
@@ -103,7 +88,6 @@ export interface SemanticAdapterOptions<D extends readonly Token[] = []> {
   prompt: string;
   temperature?: number;
   deps?: D;
-  scope?: Scope;
 }
 
 export function SemanticInboundChannelAdapter<const D extends readonly Token[] = []>(
@@ -111,14 +95,10 @@ export function SemanticInboundChannelAdapter<const D extends readonly Token[] =
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return <C extends new (...args: ResolvedAll<D>) => InboundChannelAdapter<any>>(value: C): C => {
-    recordComponent(
-      value,
-      {
-        kind: "semantic-inbound-adapter",
-        meta: { ...options, deps: options.deps ?? [] },
-      },
-      options.scope,
-    );
+    recordComponent(value, {
+      kind: "semantic-inbound-adapter",
+      meta: { ...options, deps: options.deps ?? [] },
+    });
     return value;
   };
 }

@@ -13,7 +13,6 @@ import {
   workflowAccount,
   type TernBase,
 } from "./execute.js";
-import { inRunScope } from "../components/run-scope.js";
 import { withMetadata } from "./run-services.js";
 import { streamConfig } from "./stream-config.js";
 import { finishRun } from "./finish.js";
@@ -25,14 +24,13 @@ import { runVersions } from "./versions.js";
  * Public entry point: validates the input, opens or continues a thread, checks the daily cap
  * (nothing left → no calls), runs the graph within the workflow's limits from the given start,
  * records spend as it happens and writes a Tern for every outcome — finished, paused or failed.
- * The execution has its own run-scoped components (`scope: "run"`), destroyed when it ends.
  */
 export function runAgent<TName extends string>(
   input: unknown,
   deps: RunDeps<TName>,
   options: RunOptions = {},
 ): Promise<AgentExecutionOutput> {
-  return inRunScope(() => runOnce(input, deps, options));
+  return runOnce(input, deps, options);
 }
 
 /** What every Tern of the run has: its run, thread, start line, replay and versions. */
