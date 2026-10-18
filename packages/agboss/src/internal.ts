@@ -19,6 +19,7 @@ export {
 export {
   environmentVariablesOf,
   resolveEnvironment,
+  SecretResolution,
   type DescribedEnvironment,
   type ProcessVariable,
 } from "./environments/resolve.js";

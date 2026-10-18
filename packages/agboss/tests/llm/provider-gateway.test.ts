@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import { providerClients, ProviderCapabilityError } from "../../src/llm/provider-clients.js";
 import {
-  CircuitBreakers,
   ConfigurationError,
   DecisionsModelProvider,
   ModelProviderDirectory,
@@ -11,13 +10,14 @@ import {
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import type { ProviderResolution, RegisteredModelProvider } from "../../src/models/resolve.js";
 import { request } from "../routers/fixtures.js";
-import { ENV } from "../models/gateway.js";
+import { ENV, instanceCalls, KEYS } from "../models/gateway.js";
 import { LocalModelProvider } from "../models/providers.fixture.js";
 import { providerStub } from "../models/stub.js";
 
 const options = (send = providerStub().fetch) => ({
   env: ENV,
-  breakers: new CircuitBreakers(),
+  environment: KEYS,
+  calls: instanceCalls(),
   send,
 });
 

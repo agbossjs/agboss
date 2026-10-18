@@ -1,7 +1,7 @@
 /**
  * `agboss/models` — model providers: `@ModelProvider` classes (`OpenAiCompatibleProvider`,
  * `OpenRouterProvider`, `DecisionsModelProvider`), what each model costs, how it reasons and caches,
- * retries and circuit breakers, and the fail-fast check of settings against models.
+ * retries, rate limits and circuit breakers, and the fail-fast check of settings against models.
  * Wiki → Model providers.
  */
 export {
@@ -29,22 +29,10 @@ export {
   type OpenRouterRouting,
 } from "./openrouter.provider.js";
 export { OpenRouterModelProvider } from "./openrouter-model.provider.js";
-export {
-  DecisionsModelProvider,
-  JEV_MODELS,
-  OPENROUTER_API_KEY,
-  OPENROUTER_BASE_URL,
-  OPENROUTER_BASE_URL_SETTING,
-} from "./jev.provider.js";
+export { DecisionsModelProvider, JEV_MODELS, OPENROUTER_BASE_URL } from "./jev.provider.js";
 export { DECISION_MODELS, isDecisionModel } from "./decision-models.js";
 // the deprecated `JevModelProvider` alias (a star export: re-exporting it by name is itself deprecated use)
 export * from "./jev-alias.js";
-export {
-  EnvironmentVariable,
-  MissingEnvironmentVariableError,
-  type EnvironmentVariableOptions,
-  type SettingValue,
-} from "./environment-variable.js";
 export { ModelCost, type ModelPrice, type ModelPrices } from "./cost.js";
 export {
   Reasoning,
@@ -71,11 +59,18 @@ export {
 export { ModelFailure } from "./model-failure.js";
 export {
   CircuitBreaker,
-  CircuitBreakers,
   ModelCallError,
   type CircuitBreakerPolicy,
+  type CircuitBreakerStore,
   type ModelCallErrorCode,
 } from "./circuit-breaker.js";
+export {
+  QueueBalancingStrategy,
+  RateLimitPolicy,
+  RateLimitPolicyError,
+  type PerMinuteLimits,
+  type RateLimitOptions,
+} from "./policies/rate-limit-policy.js";
 export { ConfigurationError, type ModelProblem, type ModelProblemCode } from "./problems.js";
 export { ModelPurpose, ModelProviderDirectory } from "./resolve.js";
 export { DEFAULT_MODEL_PROVIDERS } from "./workflow-models.js";

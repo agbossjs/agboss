@@ -4,6 +4,7 @@ import {
   describeServices,
   environmentVariablesOf,
   resolveEnvironment,
+  SecretResolution,
   selectedEnvironment,
   standaloneContexts,
   type ProcessVariable,
@@ -19,6 +20,11 @@ export interface EnvironmentTarget {
   readonly bundle: AssembledWorkflow;
   readonly envName: string | undefined;
   readonly env: NodeJS.ProcessEnv;
+  /**
+   * Whether the secrets' values are needed (`--models`, which connects); else the check reads the
+   * contract's shape and a secret whose variable is unset is no problem (#266).
+   */
+  readonly needsSecrets: boolean;
 }
 
 /** `[di.missing-environment] …` → its code; another component error is the app's start failing. */
@@ -39,7 +45,8 @@ const variableLine = (found: ProcessVariable): string =>
 
 /**
  * `agboss check` without running anything: the selected environment is found, every variable it
- * reads is set, and every component the app's start creates (tools, observers, judges, channels, …)
+ * reads is set — its secrets only with `--models`, which connects (writing types and checking the
+ * assembly need no key, #266) — and every component the app's start creates (tools, observers, judges, channels, …)
  * gets its dependencies — `applicationContext.environment` the selected environment's values, empty
  * without one (#239, #261). With `--env` it
  * lists the process variables that environment needs, marked value / secret.
@@ -52,7 +59,9 @@ export async function environmentProblems(target: EnvironmentTarget): Promise<Ch
       target.context.say(`environment ${loaded.name}: process variables`);
       for (const found of environmentVariablesOf(loaded)) target.context.say(variableLine(found));
     }
-    const environment = loaded === undefined ? undefined : resolveEnvironment(loaded, target.env);
+    const secrets = target.needsSecrets ? SecretResolution.Required : SecretResolution.Deferred;
+    const environment =
+      loaded === undefined ? undefined : resolveEnvironment(loaded, target.env, secrets);
     const { router } = describeServices;
     createStartComponents(target.bundle, {
       router,

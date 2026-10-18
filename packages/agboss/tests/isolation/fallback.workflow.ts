@@ -17,7 +17,7 @@ import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
 
-/** One failed call opens a breaker for a minute (names of their own: breakers are per process). */
+/** One failed call opens a breaker for a minute (names of their own: breaker state is per name). */
 const breaker = { failureThreshold: 1, window: minutes(1), openFor: minutes(1) };
 
 const common = {
@@ -30,7 +30,7 @@ const common = {
 /** The fallback: its own model and its own, higher prices. */
 @ModelProvider({
   ...common,
-  name: "backup-202",
+  name: "backup-202-model-provider",
   description: "The backup server",
   serves: [/^backup\//],
   baseUrl: "http://backup-202.test/v1",
@@ -56,7 +56,7 @@ const primary = {
 /** Falls back to the backup with `primary/model` mapped to `backup/model`. */
 @ModelProvider({
   ...primary,
-  name: "primary-202",
+  name: "primary-202-model-provider",
   circuitBreakerPolicy: {
     ...breaker,
     fallback: Backup202,
@@ -70,7 +70,7 @@ export class Primary202 extends OpenAiCompatibleProvider {
 /** Falls back to the backup without saying which of its models takes over. */
 @ModelProvider({
   ...primary,
-  name: "unmapped-202",
+  name: "unmapped-202-model-provider",
   circuitBreakerPolicy: { ...breaker, fallback: Backup202 },
 })
 export class Unmapped202 extends OpenAiCompatibleProvider {

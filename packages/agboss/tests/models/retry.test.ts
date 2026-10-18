@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { recordUsage } from "../../src/finops/usage.js";
 import {
   Backoff,
-  CircuitBreaker,
   ModelFailure,
+  RateLimitPolicy,
   RetryPolicy,
   RetryPolicyError,
 } from "../../src/models/index.js";
@@ -12,8 +12,10 @@ import { resilientFetch, type ResilienceOptions } from "../../src/models/resilie
 import { delayBefore } from "../../src/models/retry-policy.js";
 import { minutes, seconds } from "../../src/units/index.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
-import { CircuitBreakers, ModelProviderDirectory } from "../../src/models/index.js";
-import { ENV } from "./gateway.js";
+import { ModelProviderDirectory } from "../../src/models/index.js";
+import { ENV, instanceCalls, KEYS } from "./gateway.js";
+import { advanceUntil, slowProvider } from "./slow-provider.js";
+import { VirtualClock } from "../../src/testing/clock.js";
 import { InstantClock } from "./time.js";
 import { TestOpenRouterProvider } from "./providers.fixture.js";
 import { completion, providerStub, type StubReply } from "./stub.js";
@@ -39,11 +41,6 @@ function client(
     baseUrl: "http://openrouter.test/api/v1",
     timeout: seconds(5),
     retryPolicy,
-    breaker: new CircuitBreaker({
-      failureThreshold: 100,
-      window: minutes(1),
-      openFor: seconds(30),
-    }),
     clock,
     random: () => 0.5,
     ...extra,
@@ -131,7 +128,6 @@ describe("AC6: retry policies — only the listed failures, Retry-After honoured
         delay: seconds(0),
         retryOn: [ModelFailure.NetworkError],
       }),
-      breaker: new CircuitBreaker({ failureThreshold: 9, window: minutes(1), openFor: seconds(1) }),
       clock: new InstantClock(),
     };
     const aborted = new AbortController();
@@ -151,7 +147,8 @@ describe("AC6: retry policies — only the listed failures, Retry-After honoured
     const stub = providerStub([{ status: 502 }, { status: 502 }, completion("ok", 0.002)]);
     const gateway = createProviderGateway(ModelProviderDirectory.of([TestOpenRouterProvider]), {
       env: ENV,
-      breakers: new CircuitBreakers(),
+      environment: KEYS,
+      calls: instanceCalls(),
       send: stub.fetch,
       clock: new InstantClock(),
     });
@@ -218,5 +215,45 @@ describe("AC6: failures, waits and policies", () => {
         retryOn: [],
       }),
     ).toThrow(RetryPolicyError);
+  });
+});
+
+describe("#266 AC6: backoff is the retry policy's, and a sleeping retry holds no slot", () => {
+  it("backoff with jitter, Retry-After, no slot while sleeping", async () => {
+    const clock = new VirtualClock();
+    const provider = slowProvider(clock, { replies: [{ status: 500 }, completion()] });
+    const gate = instanceCalls(clock).gateOf(
+      "p-model-provider",
+      RateLimitPolicy.of({ maxConcurrentCalls: 1 }),
+    );
+    const send = resilientFetch(
+      {
+        provider: "p-model-provider",
+        baseUrl: "http://p.test",
+        timeout: seconds(30),
+        retryPolicy: RetryPolicy.exponential({
+          maxAttempts: 3,
+          initialDelay: seconds(1),
+          maxDelay: seconds(20),
+          jitter: true,
+          retryOn: [ModelFailure.ServerError],
+        }),
+        ...(gate === undefined ? {} : { gate }),
+        clock,
+        random: () => 0.5,
+      },
+      provider.fetch,
+    );
+    const call = () =>
+      send("http://p.test/chat/completions", { method: "POST", body: "{}" }).then((response) =>
+        response.text(),
+      );
+
+    // the first call fails at 1 s and sleeps 750 ms (1 s with jitter at 0.5): the second gets the
+    // only slot meanwhile, so the retry waits for it — sleeping held no slot
+    await advanceUntil(clock, Promise.all([call(), call()]), seconds(0.25), 40);
+
+    const zero = new VirtualClock().now().getTime();
+    expect(provider.stats().started.map((at) => (at - zero) / 1000)).toEqual([0, 1, 2]);
   });
 });

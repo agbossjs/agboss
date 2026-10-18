@@ -4,7 +4,7 @@ import type { Milliseconds } from "../units/index.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import { Clock } from "./clock.js";
 import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
-import type { InMemoryDatabase } from "./in-memory-database.js";
+import type { InMemoryDatabase, WindowEntry } from "./in-memory-database.js";
 
 /** One slot taken under a key (a model provider's `maxConcurrentCalls`, #266), held as a lease. */
 export interface RateLimitLease {
@@ -39,7 +39,42 @@ export abstract class RateLimitRepository {
 
   /** Frees the slot at once. */
   abstract release(rateLimitLease: RateLimitLease): Promise<void>;
+
+  /**
+   * Counts `amount` now under `key`, in a sliding `window` (one window per key), unless the total
+   * counted in the last `window` would pass `limit`: the new total, or `undefined` when refused
+   * (nothing is counted). `amount` 0 reads the total. Atomic across instances (#266: a provider's
+   * `perMinute` calls and tokens, the failures of its circuit breaker).
+   */
+  abstract addToWindow(
+    key: string,
+    amount: number,
+    window: Milliseconds,
+    limit?: number,
+  ): Promise<number | undefined>;
+
+  /** Forgets everything counted under `key` (a circuit breaker's failures after a success). */
+  abstract clearWindow(key: string): Promise<void>;
+
+  /**
+   * Pauses `key` until `until` — a provider's queue after a 429, an open circuit breaker (#266 S58,
+   * #265 S52), on every instance at once; a later pause already stored is kept.
+   */
+  abstract pauseUntil(key: string, until: Date): Promise<void>;
+
+  /** When `key`'s pause ends; `undefined` when it is not paused (an ended pause included). */
+  abstract pausedUntil(key: string): Promise<Date | undefined>;
 }
+
+/** The entries still inside `window` (ending now). */
+const insideWindow = (
+  entries: readonly WindowEntry[],
+  now: number,
+  window: Milliseconds,
+): readonly WindowEntry[] => entries.filter((entry) => now - entry.at < window);
+
+const totalOf = (entries: readonly WindowEntry[]): number =>
+  entries.reduce((sum, entry) => sum + entry.amount, 0);
 
 /**
  * The built-in default: the slots in this instance's memory; every operation is one synchronous
@@ -91,5 +126,38 @@ export class InMemoryRateLimitRepository extends RateLimitRepository {
     );
     this.database.rateLimitSlots.set(rateLimitLease.key, left);
     return Promise.resolve();
+  }
+
+  addToWindow(
+    key: string,
+    amount: number,
+    window: Milliseconds,
+    limit?: number,
+  ): Promise<number | undefined> {
+    const now = this.clock.now().getTime();
+    const kept = insideWindow(this.database.rateLimitWindows.get(key) ?? [], now, window);
+    const total = totalOf(kept) + amount;
+    if (limit !== undefined && total > limit) {
+      this.database.rateLimitWindows.set(key, kept);
+      return Promise.resolve(undefined);
+    }
+    this.database.rateLimitWindows.set(key, amount === 0 ? kept : [...kept, { at: now, amount }]);
+    return Promise.resolve(total);
+  }
+
+  clearWindow(key: string): Promise<void> {
+    this.database.rateLimitWindows.delete(key);
+    return Promise.resolve();
+  }
+
+  pauseUntil(key: string, until: Date): Promise<void> {
+    const stored = this.database.rateLimitPauses.get(key);
+    if (stored === undefined || stored < until) this.database.rateLimitPauses.set(key, until);
+    return Promise.resolve();
+  }
+
+  pausedUntil(key: string): Promise<Date | undefined> {
+    const stored = this.database.rateLimitPauses.get(key);
+    return Promise.resolve(stored !== undefined && stored > this.clock.now() ? stored : undefined);
   }
 }

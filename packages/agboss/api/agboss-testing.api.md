@@ -484,8 +484,8 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/test-app.ts:32:3 - (ae-undocumented) Missing documentation for "agent".
 // src/testing/test-app.ts:33:3 - (ae-undocumented) Missing documentation for "router".
 // src/testing/test-app.ts:34:3 - (ae-undocumented) Missing documentation for "tool".
-// src/testing/vcr.ts:21:1 - (ae-undocumented) Missing documentation for "VCRMode".
-// src/testing/vcr.ts:32:3 - (ae-undocumented) Missing documentation for "cassetteName".
+// src/testing/vcr.ts:22:1 - (ae-undocumented) Missing documentation for "VCRMode".
+// src/testing/vcr.ts:33:3 - (ae-undocumented) Missing documentation for "cassetteName".
 
 // (No @packageDocumentation comment for this package)
 

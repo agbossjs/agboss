@@ -135,7 +135,9 @@ export class TestEnvironment {
       ...environment,
       gateway:
         options.vcr && first !== undefined
-          ? createVcrGateway(first, options.vcr, testEnv(), (failure) => this.book.report(failure))
+          ? createVcrGateway(first, options.vcr, { env: testEnv(), ...environment }, (failure) =>
+              this.book.report(failure),
+            )
           : createScriptedGateway(this.book),
       connectMcp: stubbedMcpConnect(this.mcp, labels, real),
       newThreadId: () => {

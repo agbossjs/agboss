@@ -1,9 +1,10 @@
 import { systemClock } from "../infrastructure/clock.js";
 import fs from "node:fs";
 import path from "node:path";
-import { providerClientsOf } from "../app/models.js";
 import { DecisionError } from "../llm/decision-errors.js";
 import type { DecisionOutcome } from "../llm/decision-response.js";
+import type { Environment } from "../flow/generated-types.js";
+import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
 import {
   createProviderGateway,
   type DecideSpec,
@@ -106,11 +107,20 @@ export function vcrGateway(cassette: Cassette, real: () => ModelGateway): ModelG
   };
 }
 
-/** The VCR gateway of a test: the workflow's real providers (keys from `env`) behind the cassette. */
+/** Where a recording reads its settings: the process, and the test's environment (its keys). */
+export interface VcrEnvironments {
+  readonly env: NodeJS.ProcessEnv;
+  readonly environment?: Environment | undefined;
+}
+
+/**
+ * The VCR gateway of a test: the workflow's real providers behind the cassette — keys from the
+ * test's environment (`environment`, record with one that holds them), base URLs from `env`.
+ */
 export function createVcrGateway(
   bundle: AssembledWorkflow,
   config: VcrConfig,
-  env: NodeJS.ProcessEnv,
+  { env, environment = NO_ENVIRONMENT_VALUES }: VcrEnvironments,
   report: (failure: Error) => Error,
 ): ModelGateway {
   const cassette = cassetteOf(cassetteFileOf(config), vcrModeOf(config, env), report);
@@ -120,8 +130,8 @@ export function createVcrGateway(
     () =>
       (real ??= createProviderGateway(
         directoryOf(bundle.modelProviders),
-        // recording talks to the real providers: in real time
-        providerClientsOf({}, env, systemClock),
+        // recording talks to the real providers: in real time, no rate limit or breaker of a test
+        { env, environment, clock: systemClock },
       )),
   );
 }

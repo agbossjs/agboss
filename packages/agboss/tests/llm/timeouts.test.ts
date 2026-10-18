@@ -1,15 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createJevClient } from "../../src/llm/jev-client.js";
-import {
-  CircuitBreaker,
-  ModelFailure,
-  OpenRouterModelProvider,
-  RetryPolicy,
-} from "../../src/models/index.js";
+import { ModelFailure, OpenRouterModelProvider, RetryPolicy } from "../../src/models/index.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { resilientFetch } from "../../src/models/resilient-fetch.js";
 import { milliseconds } from "../models/time.js";
-import { minutes, seconds } from "../../src/units/index.js";
+import { minutes } from "../../src/units/index.js";
 
 /** A fetch that never answers until its signal aborts. */
 const neverAnswers: typeof fetch = (_url, init) =>
@@ -19,9 +14,6 @@ const neverAnswers: typeof fetch = (_url, init) =>
     });
   });
 
-const breaker = () =>
-  new CircuitBreaker({ failureThreshold: 10, window: minutes(1), openFor: seconds(1) });
-
 describe("model calls: the provider's timeout and retries (#95, now on the provider #151)", () => {
   it("AC1: a request that gets no replyWith fails within the provider's timeout instead of hanging", async () => {
     const send = resilientFetch(
@@ -30,7 +22,6 @@ describe("model calls: the provider's timeout and retries (#95, now on the provi
         baseUrl: "http://p.test",
         timeout: milliseconds(50),
         retryPolicy: RetryPolicy.none(),
-        breaker: breaker(),
       },
       neverAnswers,
     );
@@ -56,7 +47,6 @@ describe("model calls: the provider's timeout and retries (#95, now on the provi
           delay: milliseconds(0),
           retryOn: [ModelFailure.Timeout],
         }),
-        breaker: breaker(),
       },
       counting,
     );

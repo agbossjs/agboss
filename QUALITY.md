@@ -98,6 +98,10 @@ holds from its type**, not guess it from the name.
     provider's, a component may override them (`thinking`, `cache` until #152). Cache markers and
     every other provider-specific request field are set in one place, the provider's wire form
     (`toWireRequest`) — no provider-specific request code outside `src/models` / `src/llm`.
+- **Provider policies are the provider's** (#266): `retryPolicy` is the only place backoff is set
+  (a sleeping retry holds no slot); `rateLimitPolicy` and `circuitBreakerPolicy` keep their shared
+  state — slots, per-minute windows, the 429 pause, the open breaker — in the application's
+  `RateLimitRepository`, never in process memory, and read the time from its `Clock`.
 - **Settings must fit their models**: checked against the provider's capabilities at startup and
   by `agboss check --models` (in `make check`), all problems at once; nothing is silently substituted.
 - **Prompts are checked at assembly** (#199): every agent, router and route prompt is read

@@ -33,9 +33,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// dev's records go to .agboss/job-scout.sqlite; a test on dev's values keeps them in memory
+// dev's records go to .agboss/job-scout.sqlite; a test on dev's values keeps them in memory; dev
+// reads the model key (a developer's .env) — no test calls a model with it
 beforeAll(() => {
   vi.stubEnv("AGBOSS_SQLITE_PATH", ":memory:");
+  vi.stubEnv("OPENROUTER_API_KEY", "test-key-never-sent");
 });
 afterAll(() => {
   vi.unstubAllEnvs();

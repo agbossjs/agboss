@@ -30,8 +30,8 @@ describe("AC6: agboss check --models", () => {
       exitCode: 1,
       lines: [
         "ConfigurationError: 2 model setting(s) do not fit their models",
-        "  model.unknown-model  agents.summariser-agent = local/llama — model local/llama: local does not list it",
-        "  model.unknown-model  agents.writer-agent = moonshotai/kimi-k2.6 — model moonshotai/kimi-k2.6: openrouter does not list it",
+        "  model.unknown-model  agents.summariser-agent = local/llama — model local/llama: local-model-provider does not list it",
+        "  model.unknown-model  agents.writer-agent = moonshotai/kimi-k2.6 — model moonshotai/kimi-k2.6: openrouter-model-provider does not list it",
       ],
     });
   });
@@ -47,7 +47,7 @@ describe("AC6: agboss check --models", () => {
       exitCode: 1,
       lines: [
         "ConfigurationError: 1 model setting(s) do not fit their models",
-        "  model.unknown-model  polishing-workflow agents.polishing-agent = moonshotai/kimi-k2.6 — model moonshotai/kimi-k2.6: openrouter does not list it",
+        "  model.unknown-model  polishing-workflow agents.polishing-agent = moonshotai/kimi-k2.6 — model moonshotai/kimi-k2.6: openrouter-model-provider does not list it",
       ],
     });
   });
@@ -61,10 +61,10 @@ describe("AC6: agboss check --models", () => {
 
     expect(report.exitCode).toBe(0);
     expect(report.lines.map((line) => line.split(" · ").slice(0, 2).join(" · "))).toEqual([
-      "drafting-workflow agents.drafting-agent  local/llama · provider local",
-      "drafting-workflow defaults.router  typesafe/jev-1.13 · provider decisions",
-      "polishing-workflow agents.polishing-agent  moonshotai/kimi-k2.6 · provider openrouter",
-      "polishing-workflow defaults.router  typesafe/jev-1.13 · provider decisions",
+      "drafting-workflow agents.drafting-agent  local/llama · provider local-model-provider",
+      "drafting-workflow defaults.router  typesafe/jev-1.13 · provider decisions-model-provider",
+      "polishing-workflow agents.polishing-agent  moonshotai/kimi-k2.6 · provider openrouter-model-provider",
+      "polishing-workflow defaults.router  typesafe/jev-1.13 · provider decisions-model-provider",
       "ok: 4 model settings fit their models",
     ]);
   });

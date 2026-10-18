@@ -2801,6 +2801,10 @@ export interface RateLimitLease {
 // @public
 export abstract class RateLimitRepository {
     abstract acquire(key: string, maxSlots: number, lease: Milliseconds): Promise<RateLimitLease | undefined>;
+    abstract addToWindow(key: string, amount: number, window: Milliseconds, limit?: number): Promise<number | undefined>;
+    abstract clearWindow(key: string): Promise<void>;
+    abstract pausedUntil(key: string): Promise<Date | undefined>;
+    abstract pauseUntil(key: string, until: Date): Promise<void>;
     abstract release(rateLimitLease: RateLimitLease): Promise<void>;
     abstract renew(rateLimitLease: RateLimitLease, lease: Milliseconds): Promise<boolean>;
 }
@@ -3269,6 +3273,14 @@ export class SqliteRateLimitRepository extends RateLimitRepository {
     constructor(connection: SqliteConnection, clock: Clock, applicationContext: ApplicationContext);
     // (undocumented)
     acquire(key: string, maxSlots: number, lease: Milliseconds): Promise<RateLimitLease | undefined>;
+    // (undocumented)
+    addToWindow(key: string, amount: number, window: Milliseconds, limit?: number): Promise<number | undefined>;
+    // (undocumented)
+    clearWindow(key: string): Promise<void>;
+    // (undocumented)
+    pausedUntil(key: string): Promise<Date | undefined>;
+    // (undocumented)
+    pauseUntil(key: string, until: Date): Promise<void>;
     // (undocumented)
     release(rateLimitLease: RateLimitLease): Promise<void>;
     // (undocumented)
@@ -4401,9 +4413,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:115:3 - (ae-undocumented) Missing documentation for "save".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:133:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndThreadId".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:156:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:35:3 - (ae-undocumented) Missing documentation for "acquire".
-// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:62:3 - (ae-undocumented) Missing documentation for "renew".
-// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:70:3 - (ae-undocumented) Missing documentation for "release".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:49:3 - (ae-undocumented) Missing documentation for "acquire".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:76:3 - (ae-undocumented) Missing documentation for "renew".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:84:3 - (ae-undocumented) Missing documentation for "release".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:91:3 - (ae-undocumented) Missing documentation for "addToWindow".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:122:3 - (ae-undocumented) Missing documentation for "clearWindow".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:129:3 - (ae-undocumented) Missing documentation for "pauseUntil".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:139:3 - (ae-undocumented) Missing documentation for "pausedUntil".
 // src/llm/decision-errors.ts:5:3 - (ae-undocumented) Missing documentation for "code".
 // src/llm/decision-errors.ts:6:12 - (ae-undocumented) Missing documentation for "name".
 // src/llm/decision-errors.ts:11:3 - (ae-undocumented) Missing documentation for "code".
@@ -4447,10 +4463,10 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/llm/decisions.ts:138:22 - (ae-forgotten-export) The symbol "score" needs to be exported by the entry point index.d.ts
 // src/llm/decisions.ts:138:22 - (ae-forgotten-export) The symbol "image" needs to be exported by the entry point index.d.ts
 // src/loader/load-errors.ts:3:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/circuit-breaker.ts:29:48 - (ae-undocumented) Missing documentation for "code".
-// src/models/circuit-breaker.ts:30:3 - (ae-undocumented) Missing documentation for "code".
-// src/models/circuit-breaker.ts:31:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/circuit-breaker.ts:34:5 - (ae-undocumented) Missing documentation for "provider".
+// src/models/circuit-breaker.ts:30:48 - (ae-undocumented) Missing documentation for "code".
+// src/models/circuit-breaker.ts:31:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/circuit-breaker.ts:32:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/circuit-breaker.ts:35:5 - (ae-undocumented) Missing documentation for "provider".
 // src/routers/types.ts:43:3 - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts:44:3 - (ae-undocumented) Missing documentation for "route".
 // src/run/resume-agent.ts:15:3 - (ae-undocumented) Missing documentation for "code".

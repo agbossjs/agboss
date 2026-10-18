@@ -1,5 +1,6 @@
 import { TestWorkflow, TestApplication } from "./fixtures/test-workflow/test.workflow.js";
 import { workflowOf } from "../src/testing/index.js";
+import { KEYS } from "./models/gateway.js";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,7 +17,8 @@ import { ExecutionStatus } from "../src/app/types.js";
 describe("createAppDeps", () => {
   it("wires every agent of the flow with a prompt, and its Jev router", async () => {
     const deps = await createAppDeps(await workflowOf(TestWorkflow), {
-      processEnv: { OPENROUTER_API_KEY: "k", TERN_DB: ":memory:" },
+      processEnv: { TERN_DB: ":memory:" },
+      environment: KEYS,
       providerFetch: providerStub([], [{ id: "test/researcher" }, { id: "test/coder" }]).fetch,
     });
 

@@ -1,7 +1,6 @@
 import {
   CachedPart,
   CacheRetention,
-  EnvironmentVariable,
   ModelCost,
   ModelFailure,
   ModelProvider,
@@ -19,11 +18,11 @@ const breaker = { failureThreshold: 3, window: minutes(1), openFor: seconds(30) 
 
 /** A backup OpenAI-compatible server: the fallback while OpenRouter's breaker is open. */
 @ModelProvider({
-  name: "backup",
+  name: "backup-model-provider",
   description: "A backup server",
   serves: [/^backup\//],
   baseUrl: "http://backup.test/v1",
-  apiKey: EnvironmentVariable.named("BACKUP_KEY", { secret: true, defaultValue: "backup-key" }),
+  apiKey: "backupApiKey",
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
@@ -40,11 +39,11 @@ export class BackupModelProvider extends OpenAiCompatibleProvider {
  * provider — #266), ignores one upstream provider.
  */
 @ModelProvider({
-  name: "openrouter",
+  name: "openrouter-model-provider",
   description: "OpenRouter",
   serves: [/^(?!local\/)/],
   baseUrl: "http://openrouter.test/api/v1",
-  apiKey: EnvironmentVariable.named("OPENROUTER_API_KEY", { secret: true }),
+  apiKey: "openRouterApiKey",
   timeout: minutes(2),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
@@ -71,7 +70,7 @@ export class TestOpenRouterProvider extends OpenRouterProvider {
 
 /** A local server with a price table: OpenAI's dialect, no key. */
 @ModelProvider({
-  name: "local",
+  name: "local-model-provider",
   description: "A local OpenAI-compatible server",
   serves: [/^local\//],
   baseUrl: "http://local.test/v1",
@@ -102,7 +101,7 @@ export class LocalModelProvider extends OpenAiCompatibleProvider {
 
 /** A second provider serving `local/*` — two of them make a model ambiguous. */
 @ModelProvider({
-  name: "local-mirror",
+  name: "local-mirror-model-provider",
   description: "A mirror of the local server",
   serves: [/^local\//],
   baseUrl: "http://mirror.test/v1",

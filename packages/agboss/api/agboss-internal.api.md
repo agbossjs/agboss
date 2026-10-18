@@ -393,7 +393,7 @@ export const requestOfTask: (graph: RuntimeGraph, task: string) => StartRequest;
 export function resolvedModelUsesOf(workflow: WorkflowModels): readonly ResolvedModelUse[];
 
 // @public
-export function resolveEnvironment(loaded: LoadedEnvironment, processEnv: NodeJS.ProcessEnv): Environment;
+export function resolveEnvironment(loaded: LoadedEnvironment, processEnv: NodeJS.ProcessEnv, secrets?: SecretResolution): Environment;
 
 // @public
 export type RunStreamEvent = {
@@ -423,6 +423,14 @@ export interface RuntimeContexts {
 
 // @public (undocumented)
 export function saveGolden(file: string, set: GoldenSet): Promise<void>;
+
+// @public
+export enum SecretResolution {
+    // (undocumented)
+    Deferred = "deferred",
+    // (undocumented)
+    Required = "required"
+}
 
 // @public
 export function selectedEnvironment(owner: EnvironmentOwner, env: string | undefined, defaultName?: string): Promise<LoadedEnvironment | undefined>;
@@ -496,11 +504,13 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/limits.ts:18:3 - (ae-undocumented) Missing documentation for "steps".
 // src/describe/limits.ts:21:3 - (ae-undocumented) Missing documentation for "worstCases".
 // src/describe/limits.ts:24:1 - (ae-undocumented) Missing documentation for "describedLimitsOf".
-// src/environments/resolve.ts:31:3 - (ae-undocumented) Missing documentation for "variable".
-// src/environments/resolve.ts:32:3 - (ae-undocumented) Missing documentation for "field".
-// src/environments/resolve.ts:33:3 - (ae-undocumented) Missing documentation for "use".
-// src/environments/resolve.ts:158:3 - (ae-undocumented) Missing documentation for "name".
-// src/environments/resolve.ts:159:3 - (ae-undocumented) Missing documentation for "values".
+// src/environments/resolve.ts:29:3 - (ae-undocumented) Missing documentation for "Required".
+// src/environments/resolve.ts:30:3 - (ae-undocumented) Missing documentation for "Deferred".
+// src/environments/resolve.ts:41:3 - (ae-undocumented) Missing documentation for "variable".
+// src/environments/resolve.ts:42:3 - (ae-undocumented) Missing documentation for "field".
+// src/environments/resolve.ts:43:3 - (ae-undocumented) Missing documentation for "use".
+// src/environments/resolve.ts:173:3 - (ae-undocumented) Missing documentation for "name".
+// src/environments/resolve.ts:174:3 - (ae-undocumented) Missing documentation for "values".
 // src/eval/golden.ts:22:14 - (ae-undocumented) Missing documentation for "goldenFile".
 // src/eval/golden.ts:25:1 - (ae-undocumented) Missing documentation for "loadGolden".
 // src/eval/golden.ts:36:1 - (ae-undocumented) Missing documentation for "saveGolden".

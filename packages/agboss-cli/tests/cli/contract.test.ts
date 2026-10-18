@@ -75,7 +75,7 @@ describe("#198 AC1: every command has --help and a --json description", () => {
     expect(result.models).toContainEqual({
       key: "routers.main-router",
       model: "typesafe/jev-1.13",
-      provider: "decisions",
+      provider: "decisions-model-provider",
     });
   });
 

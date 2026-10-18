@@ -57,7 +57,7 @@ describe("#266 AC1: model providers are the application's infrastructure", () =>
 
   it("a listed set is complete: the built-ins are not added next to it", async () => {
     expect(await violationsOf(LocalOnlyApplication)).toEqual([
-      "[model.unserved] local-workflow defaults.router = typesafe/jev-1.13: no listed provider serves it for decision (listed: local) — list a @ModelProvider that serves it in @Application({ providers })",
+      "[model.unserved] local-workflow defaults.router = typesafe/jev-1.13: no listed provider serves it for decision (listed: local-model-provider) — list a @ModelProvider that serves it in @Application({ providers })",
     ]);
   });
 

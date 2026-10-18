@@ -4,7 +4,7 @@ import type { RateLimitLease } from "./rate-limit.repository.js";
 
 /**
  * The rows of the in-memory defaults of the shared contracts (#265): leases, tree keys and
- * rate-limit slots. One per application instance in production (in memory nothing is shared
+ * rate-limit slots, windows and pauses. One per application instance in production (in memory nothing is shared
  * between instances); the instances of one test share one (`testWith(App, { instances: 2 })`), so
  * the framework's own implementations are tested across instances. Never written to disk.
  */
@@ -15,6 +15,16 @@ export class InMemoryDatabase {
   readonly executionTrees = new Map<string, Map<string, ExecutionTreeValue>>();
   /** The slots taken under each key. */
   readonly rateLimitSlots = new Map<string, readonly RateLimitLease[]>();
+  /** What is counted under each key of a sliding window (a provider's per-minute calls, tokens). */
+  readonly rateLimitWindows = new Map<string, readonly WindowEntry[]>();
+  /** Until when each key is paused (a provider's queue after a 429, an open breaker). */
+  readonly rateLimitPauses = new Map<string, Date>();
+}
+
+/** An amount counted under a window's key, at a moment (the framework clock's milliseconds). */
+export interface WindowEntry {
+  readonly at: number;
+  readonly amount: number;
 }
 
 /** A tree's lease as stored: the lease and whether its holder released it. */

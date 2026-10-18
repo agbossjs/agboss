@@ -12,7 +12,20 @@ const SCHEMA = `CREATE TABLE IF NOT EXISTS rate_limit_slots (
   expires_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS rate_limit_slots_key ON rate_limit_slots(slot_key, expires_at);`;
 
+/**
+ * The windows and pauses (#266 S58, #265 S52), added to a file an older version wrote: a migration
+ * by `CREATE TABLE IF NOT EXISTS` — the slots' table is left as it is.
+ */
+const WINDOWS_SCHEMA = `CREATE TABLE IF NOT EXISTS rate_limit_window_entries (
+  window_key TEXT NOT NULL, counted_at INTEGER NOT NULL, amount REAL NOT NULL);
+CREATE INDEX IF NOT EXISTS rate_limit_window_entries_key
+  ON rate_limit_window_entries(window_key, counted_at);
+CREATE TABLE IF NOT EXISTS rate_limit_pauses (
+  pause_key TEXT PRIMARY KEY, paused_until INTEGER NOT NULL);`;
+
 const Count = z.object({ taken: z.number() });
+const Total = z.object({ total: z.number().nullable() });
+const Pause = z.object({ paused_until: z.number() });
 
 /**
  * `RateLimitRepository` on the application's SQLite file (#265, S32): one row per slot. `acquire`
@@ -30,6 +43,7 @@ export class SqliteRateLimitRepository extends RateLimitRepository {
   ) {
     super();
     connection.ensureSchema("rate_limit_slots", SCHEMA);
+    connection.ensureSchema("rate_limit_windows", WINDOWS_SCHEMA);
   }
 
   acquire(key: string, maxSlots: number, lease: Milliseconds): Promise<RateLimitLease | undefined> {
@@ -72,6 +86,64 @@ export class SqliteRateLimitRepository extends RateLimitRepository {
       .prepare("DELETE FROM rate_limit_slots WHERE slot_id = ?")
       .run(rateLimitLease.slotId);
     return Promise.resolve();
+  }
+
+  addToWindow(
+    key: string,
+    amount: number,
+    window: Milliseconds,
+    limit?: number,
+  ): Promise<number | undefined> {
+    const now = this.clock.now().getTime();
+    const { database } = this.connection;
+    const total = this.connection.transaction((): number | undefined => {
+      database
+        .prepare("DELETE FROM rate_limit_window_entries WHERE window_key = ? AND counted_at <= ?")
+        .run(key, now - window);
+      const counted = Total.parse(
+        database
+          .prepare(
+            "SELECT SUM(amount) AS total FROM rate_limit_window_entries WHERE window_key = ?",
+          )
+          .get(key),
+      );
+      const next = (counted.total ?? 0) + amount;
+      if (limit !== undefined && next > limit) return undefined;
+      if (amount !== 0) {
+        database
+          .prepare("INSERT INTO rate_limit_window_entries VALUES (?, ?, ?)")
+          .run(key, now, amount);
+      }
+      return next;
+    });
+    return Promise.resolve(total);
+  }
+
+  clearWindow(key: string): Promise<void> {
+    this.connection.database
+      .prepare("DELETE FROM rate_limit_window_entries WHERE window_key = ?")
+      .run(key);
+    return Promise.resolve();
+  }
+
+  pauseUntil(key: string, until: Date): Promise<void> {
+    this.connection.database
+      .prepare(
+        `INSERT INTO rate_limit_pauses VALUES (?, ?) ON CONFLICT(pause_key)
+         DO UPDATE SET paused_until = MAX(paused_until, excluded.paused_until)`,
+      )
+      .run(key, until.getTime());
+    return Promise.resolve();
+  }
+
+  pausedUntil(key: string): Promise<Date | undefined> {
+    const row = this.connection.database
+      .prepare("SELECT paused_until FROM rate_limit_pauses WHERE pause_key = ?")
+      .get(key);
+    const until = row === undefined ? undefined : Pause.parse(row).paused_until;
+    return Promise.resolve(
+      until !== undefined && until > this.clock.now().getTime() ? new Date(until) : undefined,
+    );
   }
 }
 

@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { KEYS } from "./models/gateway.js";
 import { createWorkflowDeps } from "../src/app/app-deps.js";
 import { standaloneInfrastructure } from "../src/application/application-container.js";
 import { TernStoreRecordRepository } from "../src/infrastructure/execution-record.repository.js";
@@ -69,7 +70,6 @@ describe("config versions", () => {
   });
 
   it("AC2: a config changed without a version bump warns on start", async () => {
-    const env = { OPENROUTER_API_KEY: "k" };
     const base = await workflowOf(TestWorkflow);
     const providerFetch = providerStub([], [{ id: "test/researcher" }, { id: "test/coder" }]).fetch;
     // the records outlive the app instance: a durable repository both starts share
@@ -77,7 +77,7 @@ describe("config versions", () => {
       ...standaloneInfrastructure(base, {}),
       records: new TernStoreRecordRepository(createSqliteTernStore(":memory:", () => new Date())),
     };
-    const options = { processEnv: env, providerFetch };
+    const options = { processEnv: {}, environment: KEYS, providerFetch };
     const first = await createWorkflowDeps(base, options, { infrastructure });
     await first.close();
     const changed = {

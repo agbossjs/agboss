@@ -8,7 +8,7 @@ import { kindSuffixProblem, NameKind } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
 import { environmentRuleViolations } from "../environments/contract.js";
-import { isModelProviderClass } from "../models/model-provider.decorator.js";
+import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import type { ApplicationOptions } from "./application.js";
 import { contextRuleViolations } from "../flow/context/context-rules.js";
 
@@ -84,6 +84,15 @@ function budgetViolations(options: ApplicationOptions): RuleViolation[] {
 
 const isClass = (provider: Provider): provider is Class => !("provide" in provider);
 
+/** A listed `@ModelProvider`'s `name` ends with `-model-provider` (#266 S73 c). */
+function modelProviderNameViolations(options: ApplicationOptions): RuleViolation[] {
+  return (options.providers ?? []).filter(isModelProviderClass).flatMap((cls) => {
+    const { name } = modelProviderOf(cls);
+    const problem = kindSuffixProblem(name, NameKind.ModelProvider);
+    return problem === undefined ? [] : [violation(problem.code, problem.message, [options.name])];
+  });
+}
+
 /** What makes a class infrastructure: the contract it `extends`, or `@ModelProvider` (#266). */
 function infrastructureKindOf(cls: Class): string | undefined {
   if (isModelProviderClass(cls)) return "is a @ModelProvider";
@@ -119,6 +128,7 @@ export function applicationRuleViolations(
     ...workflowListViolations(options),
     ...budgetViolations(options),
     ...budgetRuleViolations(options),
+    ...modelProviderNameViolations(options),
     ...infrastructureViolations(options),
     ...environmentRuleViolations(
       options.name,

@@ -61,12 +61,10 @@ export interface ChatRequest {
 
 // @public
 export class CircuitBreaker {
-    constructor(policy: CircuitBreakerPolicy, now?: () => number);
-    isOpen(): boolean;
-    // (undocumented)
-    recordFailure(): void;
-    // (undocumented)
-    recordSuccess(): void;
+    constructor(provider: string, policy: CircuitBreakerPolicy, store: CircuitBreakerStore);
+    isOpen(): Promise<boolean>;
+    recordFailure(): Promise<void>;
+    recordSuccess(): Promise<void>;
 }
 
 // @public
@@ -87,10 +85,15 @@ export interface CircuitBreakerPolicy {
 }
 
 // @public
-export class CircuitBreakers {
-    constructor(now?: () => number);
+export interface CircuitBreakerStore {
+    // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
+    //
     // (undocumented)
-    of(provider: string, policy: CircuitBreakerPolicy): CircuitBreaker;
+    readonly clock: Clock;
+    // Warning: (ae-forgotten-export) The symbol "RateLimitRepository" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly rateLimits: RateLimitRepository;
 }
 
 // @public
@@ -128,29 +131,6 @@ export class DecisionsModelProvider implements ModelProviderHandler {
 export const DEFAULT_MODEL_PROVIDERS: readonly [typeof OpenRouterModelProvider, typeof DecisionsModelProvider];
 
 // @public
-export class EnvironmentVariable {
-    // (undocumented)
-    readonly defaultValue: string | undefined;
-    // (undocumented)
-    readonly isSecret: boolean;
-    // (undocumented)
-    readonly name: string;
-    // (undocumented)
-    static named(name: string, options?: EnvironmentVariableOptions): EnvironmentVariable;
-    requireIn(env: NodeJS.ProcessEnv): string;
-    // (undocumented)
-    toString(): string;
-    valueIn(env: NodeJS.ProcessEnv): string | undefined;
-}
-
-// @public
-export interface EnvironmentVariableOptions {
-    readonly defaultValue?: string;
-    // (undocumented)
-    readonly secret: boolean;
-}
-
-// @public
 export interface ExponentialRetryOptions {
     // (undocumented)
     readonly initialDelay: Milliseconds;
@@ -183,12 +163,6 @@ export const JevModelProvider: typeof DecisionsModelProvider;
 
 // @public @deprecated (undocumented)
 export type JevModelProvider = DecisionsModelProvider;
-
-// @public (undocumented)
-export class MissingEnvironmentVariableError extends Error {
-    // (undocumented)
-    name: string;
-}
 
 // Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
 //
@@ -310,10 +284,9 @@ export interface ModelProviderHandler {
 
 // @public
 export interface ModelProviderOptions {
-    readonly apiKey?: EnvironmentVariable;
-    // (undocumented)
-    readonly baseUrl: SettingValue;
-    // (undocumented)
+    readonly apiKey?: string;
+    readonly baseUrl: string;
+    readonly baseUrlField?: string;
     readonly circuitBreakerPolicy: CircuitBreakerPolicy;
     // (undocumented)
     readonly cost: ModelCost;
@@ -321,8 +294,8 @@ export interface ModelProviderOptions {
     readonly description: string;
     readonly name: string;
     readonly promptCaching: PromptCaching;
+    readonly rateLimitPolicy?: RateLimitPolicy;
     readonly reasoning: Reasoning;
-    // (undocumented)
     readonly retryPolicy: RetryPolicy;
     readonly serves: readonly RegExp[];
     readonly timeout: Milliseconds;
@@ -360,13 +333,7 @@ export abstract class OpenAiCompatibleProvider<TFields extends object = NoReques
 }
 
 // @public (undocumented)
-export const OPENROUTER_API_KEY: EnvironmentVariable;
-
-// @public (undocumented)
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-
-// @public
-export const OPENROUTER_BASE_URL_SETTING: EnvironmentVariable;
 
 // @public
 export interface OpenRouterFields {
@@ -404,6 +371,14 @@ export interface OpenRouterRouting {
     readonly order?: readonly string[];
     // (undocumented)
     readonly sort?: ProviderSort;
+}
+
+// @public
+export interface PerMinuteLimits {
+    // (undocumented)
+    readonly calls?: number;
+    // (undocumented)
+    readonly tokens?: number;
 }
 
 // @public
@@ -464,6 +439,43 @@ export enum ProviderSort {
     Price = "price",
     // (undocumented)
     Throughput = "throughput"
+}
+
+// @public
+export enum QueueBalancingStrategy {
+    Fifo = "fifo",
+    TenantLeastInFlight = "tenant-least-in-flight",
+    TenantRoundRobin = "tenant-round-robin",
+    TenantWeighted = "tenant-weighted"
+}
+
+// @public
+export interface RateLimitOptions {
+    readonly balancing?: QueueBalancingStrategy;
+    readonly maxConcurrentCalls?: number;
+    // (undocumented)
+    readonly perMinute?: PerMinuteLimits;
+}
+
+// @public
+export interface RateLimitPolicy {
+    // (undocumented)
+    readonly balancing: QueueBalancingStrategy;
+    // (undocumented)
+    readonly maxConcurrentCalls: number | undefined;
+    // (undocumented)
+    readonly perMinute: PerMinuteLimits;
+}
+
+// @public (undocumented)
+export const RateLimitPolicy: {
+    of(options: RateLimitOptions): RateLimitPolicy;
+};
+
+// @public (undocumented)
+export class RateLimitPolicyError extends RangeError {
+    // (undocumented)
+    name: string;
 }
 
 // @public
@@ -551,9 +563,6 @@ export class RetryPolicyError extends RangeError {
 }
 
 // @public
-export type SettingValue = string | EnvironmentVariable;
-
-// @public
 export function toWireRequest(request: WireRequest, plan: WirePlan): WireRequest;
 
 // @public
@@ -598,29 +607,20 @@ export interface WireRequest {
 // src/models/capabilities.ts:27:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/capabilities.ts:30:3 - (ae-undocumented) Missing documentation for "reasoning".
 // src/models/capabilities.ts:31:3 - (ae-undocumented) Missing documentation for "promptCaching".
-// src/models/circuit-breaker.ts:13:3 - (ae-undocumented) Missing documentation for "failureThreshold".
-// src/models/circuit-breaker.ts:14:3 - (ae-undocumented) Missing documentation for "window".
-// src/models/circuit-breaker.ts:15:3 - (ae-undocumented) Missing documentation for "openFor".
-// src/models/circuit-breaker.ts:16:3 - (ae-undocumented) Missing documentation for "fallback".
-// src/models/circuit-breaker.ts:29:48 - (ae-undocumented) Missing documentation for "code".
-// src/models/circuit-breaker.ts:30:3 - (ae-undocumented) Missing documentation for "code".
-// src/models/circuit-breaker.ts:31:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/circuit-breaker.ts:34:5 - (ae-undocumented) Missing documentation for "provider".
-// src/models/circuit-breaker.ts:66:3 - (ae-undocumented) Missing documentation for "recordFailure".
-// src/models/circuit-breaker.ts:72:3 - (ae-undocumented) Missing documentation for "recordSuccess".
-// src/models/circuit-breaker.ts:83:3 - (ae-undocumented) Missing documentation for "of".
+// src/models/circuit-breaker.ts:14:3 - (ae-undocumented) Missing documentation for "failureThreshold".
+// src/models/circuit-breaker.ts:15:3 - (ae-undocumented) Missing documentation for "window".
+// src/models/circuit-breaker.ts:16:3 - (ae-undocumented) Missing documentation for "openFor".
+// src/models/circuit-breaker.ts:17:3 - (ae-undocumented) Missing documentation for "fallback".
+// src/models/circuit-breaker.ts:30:48 - (ae-undocumented) Missing documentation for "code".
+// src/models/circuit-breaker.ts:31:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/circuit-breaker.ts:32:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/circuit-breaker.ts:35:5 - (ae-undocumented) Missing documentation for "provider".
+// src/models/circuit-breaker.ts:44:3 - (ae-undocumented) Missing documentation for "rateLimits".
+// src/models/circuit-breaker.ts:45:3 - (ae-undocumented) Missing documentation for "clock".
 // src/models/cost.ts:6:3 - (ae-undocumented) Missing documentation for "inputPerMillion".
 // src/models/cost.ts:7:3 - (ae-undocumented) Missing documentation for "outputPerMillion".
 // src/models/cost.ts:8:3 - (ae-undocumented) Missing documentation for "cachedInputPerMillion".
 // src/models/cost.ts:19:14 - (ae-undocumented) Missing documentation for "ModelCost".
-// src/models/environment-variable.ts:3:3 - (ae-undocumented) Missing documentation for "secret".
-// src/models/environment-variable.ts:8:1 - (ae-undocumented) Missing documentation for "MissingEnvironmentVariableError".
-// src/models/environment-variable.ts:9:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/environment-variable.ts:18:5 - (ae-undocumented) Missing documentation for "name".
-// src/models/environment-variable.ts:19:5 - (ae-undocumented) Missing documentation for "isSecret".
-// src/models/environment-variable.ts:20:5 - (ae-undocumented) Missing documentation for "defaultValue".
-// src/models/environment-variable.ts:23:3 - (ae-undocumented) Missing documentation for "named".
-// src/models/environment-variable.ts:43:3 - (ae-undocumented) Missing documentation for "toString".
 // src/models/handler.ts:11:3 - (ae-undocumented) Missing documentation for "provider".
 // src/models/handler.ts:12:3 - (ae-undocumented) Missing documentation for "baseUrl".
 // src/models/handler.ts:13:3 - (ae-undocumented) Missing documentation for "apiKey".
@@ -634,27 +634,23 @@ export interface WireRequest {
 // src/models/handler.ts:38:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/models/jev-alias.ts:4:14 - (ae-undocumented) Missing documentation for "JevModelProvider".
 // src/models/jev-alias.ts:6:1 - (ae-undocumented) Missing documentation for "JevModelProvider".
-// src/models/jev.provider.ts:15:14 - (ae-undocumented) Missing documentation for "OPENROUTER_BASE_URL".
-// src/models/jev.provider.ts:30:14 - (ae-undocumented) Missing documentation for "OPENROUTER_API_KEY".
-// src/models/jev.provider.ts:61:3 - (ae-undocumented) Missing documentation for "knownModels".
-// src/models/jev.provider.ts:75:3 - (ae-undocumented) Missing documentation for "capabilities".
+// src/models/jev.provider.ts:14:14 - (ae-undocumented) Missing documentation for "OPENROUTER_BASE_URL".
+// src/models/jev.provider.ts:65:3 - (ae-undocumented) Missing documentation for "knownModels".
+// src/models/jev.provider.ts:79:3 - (ae-undocumented) Missing documentation for "capabilities".
 // src/models/model-failure.ts:3:3 - (ae-undocumented) Missing documentation for "Timeout".
 // src/models/model-failure.ts:4:3 - (ae-undocumented) Missing documentation for "RateLimited".
 // src/models/model-failure.ts:5:3 - (ae-undocumented) Missing documentation for "ServerError".
 // src/models/model-failure.ts:6:3 - (ae-undocumented) Missing documentation for "NetworkError".
-// src/models/model-provider.decorator.ts:17:3 - (ae-undocumented) Missing documentation for "description".
-// src/models/model-provider.decorator.ts:20:3 - (ae-undocumented) Missing documentation for "baseUrl".
-// src/models/model-provider.decorator.ts:25:3 - (ae-undocumented) Missing documentation for "cost".
-// src/models/model-provider.decorator.ts:30:3 - (ae-undocumented) Missing documentation for "retryPolicy".
-// src/models/model-provider.decorator.ts:31:3 - (ae-undocumented) Missing documentation for "circuitBreakerPolicy".
-// src/models/model-provider.decorator.ts:39:1 - (ae-undocumented) Missing documentation for "ModelProviderError".
-// src/models/model-provider.decorator.ts:40:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/model-provider.decorator.ts:20:3 - (ae-undocumented) Missing documentation for "description".
+// src/models/model-provider.decorator.ts:40:3 - (ae-undocumented) Missing documentation for "cost".
+// src/models/model-provider.decorator.ts:61:1 - (ae-undocumented) Missing documentation for "ModelProviderError".
+// src/models/model-provider.decorator.ts:62:12 - (ae-undocumented) Missing documentation for "name".
 // src/models/openai-compatible.provider.ts:16:3 - (ae-undocumented) Missing documentation for "caching".
 // src/models/openai-compatible.provider.ts:17:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/openai-compatible.provider.ts:31:3 - (ae-undocumented) Missing documentation for "requestFields".
 // src/models/openai-compatible.provider.ts:34:3 - (ae-undocumented) Missing documentation for "chat".
 // src/models/openai-compatible.provider.ts:94:9 - (ae-undocumented) Missing documentation for "capabilities".
-// src/models/openrouter-model.provider.ts:39:3 - (ae-undocumented) Missing documentation for "requestFields".
+// src/models/openrouter-model.provider.ts:44:3 - (ae-undocumented) Missing documentation for "requestFields".
 // src/models/openrouter.provider.ts:14:3 - (ae-undocumented) Missing documentation for "Price".
 // src/models/openrouter.provider.ts:15:3 - (ae-undocumented) Missing documentation for "Throughput".
 // src/models/openrouter.provider.ts:16:3 - (ae-undocumented) Missing documentation for "Latency".
@@ -668,6 +664,15 @@ export interface WireRequest {
 // src/models/openrouter.provider.ts:74:44 - (ae-undocumented) Missing documentation for "reasoningFields".
 // src/models/openrouter.provider.ts:76:12 - (ae-undocumented) Missing documentation for "cachingPlan".
 // src/models/openrouter.provider.ts:94:12 - (ae-undocumented) Missing documentation for "capabilitiesOf".
+// src/models/policies/rate-limit-policy.ts:21:3 - (ae-undocumented) Missing documentation for "calls".
+// src/models/policies/rate-limit-policy.ts:22:3 - (ae-undocumented) Missing documentation for "tokens".
+// src/models/policies/rate-limit-policy.ts:29:3 - (ae-undocumented) Missing documentation for "perMinute".
+// src/models/policies/rate-limit-policy.ts:36:3 - (ae-undocumented) Missing documentation for "maxConcurrentCalls".
+// src/models/policies/rate-limit-policy.ts:37:3 - (ae-undocumented) Missing documentation for "perMinute".
+// src/models/policies/rate-limit-policy.ts:38:3 - (ae-undocumented) Missing documentation for "balancing".
+// src/models/policies/rate-limit-policy.ts:41:1 - (ae-undocumented) Missing documentation for "RateLimitPolicyError".
+// src/models/policies/rate-limit-policy.ts:42:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/policies/rate-limit-policy.ts:52:14 - (ae-undocumented) Missing documentation for "RateLimitPolicy".
 // src/models/problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/models/problems.ts:14:3 - (ae-undocumented) Missing documentation for "key".
 // src/models/problems.ts:15:3 - (ae-undocumented) Missing documentation for "value".
