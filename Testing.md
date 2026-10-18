@@ -16,7 +16,7 @@ export default defineConfig({ test: { setupFiles: ["agboss/testing/setup"] } });
 
 <!--
 ```ts file=job-scout.ts
-import { Agent, Application, DecidedBy, Injectable, Router, TerminalUserChannel, Tool, Workflow, WorkflowFinish, WorkflowStart, route, start, type ToolHandler } from "agboss";
+import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, type ToolHandler, TerminalUserChannel, route, Router, start, Workflow, WorkflowFinish, WorkflowStart } from "agboss";
 import { ListOf, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
 import { McpServer, McpServerClient, McpTool } from "agboss/mcp";
 const model = "moonshotai/kimi-k2.6";
@@ -101,7 +101,7 @@ export class MainRouter {}
   channelClasses: [TerminalUserChannel],
 })
 export class JobScout {}
-@Application({ name: "job-scout-application", version: "1.0.0", workflows: [JobScout] })
+@Application({ name: "job-scout-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [JobScout] })
 export class JobScoutApplication {}
 ```
 -->

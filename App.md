@@ -34,7 +34,7 @@ export class JobScout {}
 
 ```ts file=job-scout.application.ts
 // job-scout.application.ts — its environments/ folder is next to this file
-import { Application, Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
+import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope, EmptyEnvironment } from "agboss";
 import { usd, type Usd } from "agboss/units";
 import { JobScout } from "./job-scout.workflow.js";
 
@@ -48,6 +48,7 @@ export class TenantDailyBudget implements BudgetHandler {
 @Application({
   name: "job-scout-application", // ends with -application; the class with Application
   version: "1.0.0", // the release; each workflow's version is its behaviour version
+  environment: EmptyEnvironment,
   workflows: [JobScout], // the top-level workflows
   providers: [], // infrastructure only here; none → the built-in in-memory defaults
   budgets: [TenantDailyBudget], // every @Budget of the application (FinOps → Budgets)

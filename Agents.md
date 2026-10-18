@@ -169,9 +169,9 @@ import { ChatFinish, ChatStart, RefundTool, SupportAgent, SupportWorkflow } from
 ```ts
 import { expect } from "vitest";
 import { callTool, replyWith, testWith } from "agboss/testing";
-import { Application } from "agboss";
+import { Application, EmptyEnvironment } from "agboss";
 
-@Application({ name: "support-application", version: "1.0.0", workflows: [SupportWorkflow] })
+@Application({ name: "support-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [SupportWorkflow] })
 class SupportApplication {}
 
 const test = testWith(SupportApplication); // an application, never the workflow itself

@@ -21,8 +21,9 @@ Breaking changes and notable additions, newest first. The API reports
   `agboss check --env <name>` lists the variables it needs, marked value / secret.
 - **Breaking — tests run on `test`**: `testWith(App)` loads `test.environment.ts` and fails without
   it (no fallback to `dev`); `testWith(App, { environment })` and `createApp(App, { environment })`
-  are removed — name an environment with `env`. An application without `environment` has none:
-  naming one fails, `ENV` fails with `[di.missing-environment]`.
+  are removed — name an environment with `env`. **Breaking — `@Application({ environment })` is
+  required**: an application with no settings declares `environment: EmptyEnvironment` (new, a
+  contract without fields), which needs no environment file (its environments are `{}`).
 - **New assembly rules**: `[environment.contract-value]` (a value in the contract),
   `[environment.missing-field]` (a listed framework implementation's field missing from the
   contract), `[guardrail.no-model]`.

@@ -79,8 +79,9 @@ export class AuditApplication {}
   by the project in its contract; nothing is added implicitly. A listed implementation whose field
   is missing fails assembly: `[environment.missing-field] SqliteExecutionRecordRepository needs
   sqlitePath: string in AppEnvironment` (the SQLite implementations come with #265).
-- An application without `environment` has none: a service injecting `ENV` fails at start with
-  `[di.missing-environment]`, and naming an environment fails (`environment.no-contract`).
+- `environment` is required: an application with no settings declares the framework's empty
+  contract, `@Application({ environment: EmptyEnvironment })` (any contract without fields works the
+  same), and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets `[di.missing-environment]` for an `ENV` consumer.)
 
 ## The environments
 

@@ -322,9 +322,9 @@ import { ChatWorkflowFinish, IntakeWorkflowStart, MainRouter, OpeningsDto, Scout
 ```ts
 import { expect } from "vitest";
 import { replyWith, routeTo, testWith } from "agboss/testing";
-import { Application } from "agboss";
+import { Application, EmptyEnvironment } from "agboss";
 
-@Application({ name: "chat-application", version: "1.0.0", workflows: [ChatWorkflow] })
+@Application({ name: "chat-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [ChatWorkflow] })
 class ChatApplication {}
 
 const test = testWith(ChatApplication); // an application, never the workflow itself

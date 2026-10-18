@@ -439,9 +439,9 @@ import { Desk, DeskFinish, DeskRouter, DeskStart, FallbackAgent, SupportAgent } 
 ```ts
 import { expect } from "vitest";
 import { replyWith, routeTo, testWith } from "agboss/testing";
-import { Application } from "agboss";
+import { Application, EmptyEnvironment } from "agboss";
 
-@Application({ name: "desk-application", version: "1.0.0", workflows: [Desk] })
+@Application({ name: "desk-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [Desk] })
 class DeskApplication {}
 
 const test = testWith(DeskApplication); // an application, never the workflow itself
@@ -475,9 +475,9 @@ import { CreditWorkflow } from "./credit.workflow.js";
 ```ts
 import { expect } from "vitest";
 import { testWith } from "agboss/testing";
-import { Application } from "agboss";
+import { Application, EmptyEnvironment } from "agboss";
 
-@Application({ name: "credit-application", version: "1.0.0", workflows: [CreditWorkflow] })
+@Application({ name: "credit-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [CreditWorkflow] })
 class CreditApplication {}
 
 const test = testWith(CreditApplication); // an application, never the workflow itself

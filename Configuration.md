@@ -82,6 +82,7 @@ export class AskWorkflowFinish {}
 -->
 
 ```ts
+import { EmptyEnvironment } from "agboss";
 @Workflow({
   name: "ask-workflow",
   version: "1.0.0",
@@ -97,6 +98,7 @@ export class AskWorkflow {}
 @Application({
   name: "ask-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [AskWorkflow],
   defaults: {
     models: { temperature: 0 },
