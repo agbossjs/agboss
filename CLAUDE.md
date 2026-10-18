@@ -1074,7 +1074,7 @@ entries. A public surface change updates the api-extractor reports (`npm run api
 (`.suppressions.json`), the generated `.agboss/types.d.ts` of the framework's test fixtures
 (`npm run check:types`, #272 — before lint and `tsc`), build, the API reports, **compiled docs**,
 prettier, ESLint, `tsc` (tests included; the examples' types written first), tests with coverage,
-`agboss check` on flow-patterns' three workflows and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
+`agboss check --strict` on flow-patterns' three workflows (warnings are errors) and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
 every ` ```ts ` block of README, CLAUDE, QUALITY and WORKFLOW (and `docs/`) against the built
 package — a doc whose snippets declare a `@Workflow` gets its `.agboss/types.d.ts` written first —
 and check that every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention — and every

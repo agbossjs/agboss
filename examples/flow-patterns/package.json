@@ -8,7 +8,7 @@
   "scripts": {
     "describe": "agboss describe",
     "types": "agboss check --workflow src/offer/offer.workflow.ts",
-    "check": "agboss check --workflow src/offer/offer.workflow.ts && agboss check --workflow src/credit/credit.workflow.ts && agboss check --workflow src/review/review.workflow.ts",
+    "check": "agboss check --strict --workflow src/offer/offer.workflow.ts && agboss check --strict --workflow src/credit/credit.workflow.ts && agboss check --strict --workflow src/review/review.workflow.ts",
     "typecheck": "npm run types && tsc --noEmit -p .",
     "test": "vitest run",
     "coverage": "vitest run --coverage"

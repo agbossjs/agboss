@@ -52,11 +52,15 @@ export const CHECKS: readonly WorkflowCheck[] = [
   },
 ];
 
-/** `agboss check --workflow <path> [--models] [--profile <p>] [--env <name>] [--json]` — no API key needed. */
+/**
+ * `agboss check --workflow <path> [--models] [--strict] [--profile <p>] [--env <name>] [--json]` —
+ * no API key needed.
+ */
 export const handle: CommandHandler = async (context) => {
   const file = workflowPath(context);
-  // the flow's types (#272): .agboss/types.d.ts written before the checks report
-  const typed = await writeCheckedTypes(context, file);
+  // the flow's types (#272): .agboss/types.d.ts written before the checks report; --strict makes
+  // the analyser's warnings errors
+  const typed = await writeCheckedTypes(context, file, flagOption(context.values, "strict"));
   const selected = CHECKS.filter(
     (check) => check.flag === undefined || flagOption(context.values, check.flag),
   );
