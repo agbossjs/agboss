@@ -10,7 +10,7 @@ Breaking changes and notable additions, newest first. The API reports
   `environment`, `host` — `HostContext`) → `TenantContext` (`tenantId`, `weight`, #266 S60) →
   `ExecutionContext` (new: `tenant`), each its type and its DI token. New public names:
   `ApplicationContext`, `HostContext`, `TenantContext`, `ContextValues<T>`, `TenantValues`,
-  `TenantContextClass`, `ExecutionContextClass`, `RuntimeContexts`, `CallOptions`,
+  `TenantContextClass`, `ExecutionContextClass`, `CallOptions`,
   `ResumeOptions`, `ExecutionOptionsOf`, `ExecutionOptionsArgs`; `agboss/testing`:
   `TestContextOptions`, `TestApplicationOptions`.
 - **The project's subclasses**: `@Application({ tenantContext, executionContext })`; values per
