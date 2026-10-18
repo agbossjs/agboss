@@ -99,6 +99,12 @@ export class ImportTable {
     return this.ref(dto);
   }
 
+  /** Like `dto`, for a DTO the file may leave out: `undefined` when no loaded module exports it. */
+  dtoIfExported(dto: DtoClass): string | undefined {
+    if (this.locator.fileOf(dto, declarationOf(dto)?.source) === undefined) return undefined;
+    return this.dto(dto);
+  }
+
   /** The DTO classes mentioned and where each is imported from (the exported ones). */
   get dtos(): readonly DtoImport[] {
     return [...this.dtoClasses].flatMap((dto) => {

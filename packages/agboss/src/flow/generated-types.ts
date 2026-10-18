@@ -1,6 +1,10 @@
 import type { NodeKind } from "./ast.js";
 import type { ExecutionOptions } from "../app/types.js";
 import type { ContextValues, TenantValues } from "./context/context-values.js";
+import type {
+  ToolCallApprovalAskDto,
+  ToolCallApprovalDecisionDto,
+} from "../dto/standard/framework.js";
 
 export type { HistoryOf, Produced } from "./dto-wrappers.js";
 
@@ -100,6 +104,39 @@ export interface Routes {
 export interface RouterAnswers {
   readonly [notGenerated]?: never;
 }
+
+/** A tool approval of any tool: what the built-in channels ask and are answered with. */
+interface AnyToolCallApproval {
+  readonly ask: ToolCallApprovalAskDto;
+  readonly answer: ToolCallApprovalDecisionDto;
+}
+
+/**
+ * What each channel role asks and how it is answered (#267), by the role's `name`: a role with
+ * `approves: XDto` asks `ToolCallApprovalAskDto` with `arguments: XDto` and is answered with
+ * `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`; a role with `ask` / `answer` asks and
+ * is answered with those DTOs. A concrete `@Channel` a tool names as is approves those tools. The
+ * built-in channels approve any tool.
+ */
+export interface ChannelRoles {
+  readonly [notGenerated]?: never;
+  readonly "terminal-user-channel": AnyToolCallApproval;
+  readonly "auto-approve-channel": AnyToolCallApproval;
+  readonly "auto-reject-channel": AnyToolCallApproval;
+}
+
+/** A role's entry, or `MissingGeneratedTypes` before `agboss check`. */
+type ChannelRoleEntryOf<TRole> = GeneratedEntry<ChannelRoles, TRole>;
+
+/** What a channel of `TRole` is asked (`ChannelAsk<TRole>["value"]`). */
+export type ChannelQuestionOf<TRole> =
+  ChannelRoleEntryOf<TRole> extends { readonly ask: infer TAsk } ? TAsk : MissingGeneratedTypes;
+
+/** The answer that decides a pause of `TRole` (`ChannelOutcome.decided(…)`, a reply). */
+export type ChannelAnswerOf<TRole> =
+  ChannelRoleEntryOf<TRole> extends { readonly answer: infer TAnswer }
+    ? TAnswer
+    : MissingGeneratedTypes;
 
 /**
  * The application's environment (#261): `applicationContext.environment`. The generated file makes it the

@@ -11,6 +11,9 @@ import { environmentRuleViolations } from "../environments/contract.js";
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import type { ApplicationOptions } from "./application.js";
 import { contextRuleViolations } from "../flow/context/context-rules.js";
+import { componentOf } from "../components/metadata.js";
+import { channelUsesOf } from "../channels/discovery.js";
+import { sharedInterpreterViolations } from "../channels/channel-rules.js";
 
 /**
  * The rules of an `@Application` itself (#261), read from its declaration: its `name` and class end
@@ -96,6 +99,7 @@ function modelProviderNameViolations(options: ApplicationOptions): RuleViolation
 /** What makes a class infrastructure: the contract it `extends`, or `@ModelProvider` (#266). */
 function infrastructureKindOf(cls: Class): string | undefined {
   if (isModelProviderClass(cls)) return "is a @ModelProvider";
+  if (componentOf(cls)?.kind === "channel") return "is a @Channel (channel transport)";
   const contract = infrastructureContractOf(cls);
   return contract === undefined ? undefined : `extends ${nameOf(contract)}`;
 }
@@ -136,5 +140,6 @@ export function applicationRuleViolations(
       (options.providers ?? []).filter(isClass),
     ),
     ...contextRuleViolations(options.name, options),
+    ...sharedInterpreterViolations(channelUsesOf(options.workflows)),
   ];
 }

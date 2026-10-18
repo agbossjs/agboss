@@ -1,6 +1,6 @@
 import { resolveTools, type AssembledWorkflow, type WorkflowServices } from "../workflow.js";
 import {
-  approvalRequester,
+  channelLookup,
   containerDepsOf,
   policyDepsOf,
   type ContainerDeps,
@@ -11,7 +11,7 @@ import { judgesFor, knowledgeFor, memoryFor } from "./parts.js";
 
 /** What the container creates at start, as the app's run dependencies. */
 type StartComponents = {
-  readonly requestApproval: ReturnType<typeof approvalRequester>;
+  readonly channelOf: ReturnType<typeof channelLookup>;
 } & PolicyDeps &
   ReturnType<typeof knowledgeFor> &
   ReturnType<typeof memoryFor> &
@@ -28,8 +28,8 @@ function createCodeNodes(bundle: AssembledWorkflow, services: WorkflowServices):
 }
 
 /**
- * The parts of an app its container creates when the app starts (after its tools): code nodes, channels
- * and their adapters, context knowledge, memory strategies, judges, observers. One function for
+ * The parts of an app its container creates when the app starts (after its tools): code nodes, channels,
+ * context knowledge, memory strategies, judges, observers. One function for
  * `createApp` and `agboss check` (#239), so the check fails on a dependency (a provider, a context subclass) exactly
  * when the start would.
  */
@@ -39,7 +39,7 @@ export const componentsAtStart = (
 ): StartComponents => {
   createCodeNodes(bundle, services);
   return {
-    requestApproval: approvalRequester(bundle, services),
+    channelOf: channelLookup(bundle, services),
     ...policyDepsOf(bundle, services),
     ...knowledgeFor(bundle, services),
     ...memoryFor(bundle, services),

@@ -104,8 +104,6 @@ export interface WorkflowOptions {
   readonly providers?: readonly Provider[];
   /** `@McpServer` classes its `@McpTool`s call. */
   readonly mcp?: readonly Class[];
-  /** `@Channel` classes its tools' approvals go through. */
-  readonly channelClasses?: readonly Class[];
   readonly guards?: GuardsOptions;
   readonly piiPolicies?: readonly Class<PiiPolicy>[];
   readonly guardrails?: readonly Class<Guardrail>[];

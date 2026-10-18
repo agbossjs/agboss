@@ -17,6 +17,7 @@ import { InjectionToken, type Class, type Token } from "./injection.js";
 import { componentOf, requireComponent, type ToolMeta } from "./metadata.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { contextSources, ragMeta, searchTool } from "./rag.js";
+import { channelNameOf } from "../channels/discovery.js";
 
 /** What a workflow creates per run of the app: the container, tool instances, knowledge sources. */
 
@@ -59,9 +60,7 @@ export const adapt = (handler: ToolHandler<any, any>, meta: ToolMeta): AnyTool =
     description: meta.description,
     input: schemaOf(meta.input),
     output: schemaOf(meta.output),
-    ...(meta.channel === undefined
-      ? {}
-      : { channel: requireComponent(meta.channel, "channel", "toolOf").meta.name }),
+    ...(meta.channel === undefined ? {} : { channel: channelNameOf(meta.channel) }),
     ...(meta.timeoutMs === undefined ? {} : { timeoutMs: meta.timeoutMs }),
     run: (input) => handler.run(input),
   });

@@ -127,46 +127,23 @@ export function Rag<const D extends readonly Token[] = []>(options: {
 }
 
 /**
- * An approval request a channel sends out: the paused tool call. The execution — its tenant, its
- * project fields, the thread's owner — comes through the channel's constructor
- * (`deps: [ExecutionContext]`, #261); the request is made inside the paused step.
+ * A channel (#267): a role's implementation (`extends` a `@ChannelRole` class), or a concrete
+ * channel a tool names as is. The container creates it with its `deps`; the execution comes
+ * through an injected `ExecutionContext`. One instance per application, shared by all workflows.
  */
-export interface ChannelRequest<T = Record<string, unknown>> {
-  readonly runId: string;
-  readonly agentName: string;
-  readonly toolName: string;
-  readonly toolArguments: T;
-}
-
-export interface ChannelDecision {
-  readonly approved: boolean;
-  /** Sent back to the LLM if rejected. */
-  readonly feedback?: string;
-  /** Overrides the tool arguments with new values, bypassing the LLM. */
-  readonly overrideArguments?: Record<string, unknown>;
-}
-
-export interface ChannelHandler<T = Record<string, unknown>> {
-  requestApproval: (req: ChannelRequest<T>) => Promise<void>;
-}
-
 export function Channel<const D extends readonly Token[] = []>(
   options: ChannelMeta & { readonly deps?: D },
 ) {
-  return <C extends new (...args: ResolvedAll<D>) => ChannelHandler>(value: C): C => {
+  // any role's `send` (`ChannelHandler<Role>`): the ask's type is the role's, checked by `implements`
+  return <C extends new (...args: ResolvedAll<D>) => { send(ask: never): Promise<unknown> }>(
+    value: C,
+  ): C => {
     recordComponent(value, { kind: "channel", meta: withDeps(options) });
     return value;
   };
 }
 
-export {
-  Guardrail,
-  InboundChannelAdapter,
-  PiiPolicy,
-  SemanticInboundChannelAdapter,
-  type GuardrailContext,
-  type SemanticAdapterOptions,
-} from "./policy-decorators.js";
+export { Guardrail, PiiPolicy, type GuardrailContext } from "./policy-decorators.js";
 export {
   BindTool,
   getBoundTools,

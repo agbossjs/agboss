@@ -1,6 +1,6 @@
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
-import { NodeKind, StepKind, type FlowPath, type Step } from "../ast.js";
+import { NodeKind, QuorumKind, StepKind, type FlowPath, type Step } from "../ast.js";
 import {
   declarationOf,
   isFieldMap,
@@ -126,18 +126,25 @@ function summarise(declaration: WorkflowDeclaration): ChildWorkflow {
   };
 }
 
-/** The workflow classes a flow launches: `.toWorkflow(W)`, `route(W)`, `.toParallelWorkflows(W, …)`. */
-function childClassesOf(flow: readonly FlowPath[]): readonly Class[] {
-  const named = flow.flatMap((path) => [
-    path.source.node,
-    ...allSteps(path.steps).flatMap((step): readonly Class[] => {
-      if (step.kind === StepKind.To) return [step.target];
-      if (step.kind === StepKind.Launch) return step.targets;
-      return step.kind === StepKind.ChooseOne ? step.routes.map((route) => route.target) : [];
-    }),
-  ]);
-  return named.filter((target) => declarationOf(target)?.kind === NodeKind.Workflow);
+/** The node classes the steps name (a quorum group's own path included). */
+function stepClassesOf(steps: readonly Step[]): readonly Class[] {
+  return allSteps(steps).flatMap((step): readonly Class[] => {
+    if (step.kind === StepKind.To) return [step.target];
+    if (step.kind === StepKind.Launch) return step.targets;
+    if (step.kind === StepKind.Join && step.quorum?.kind === QuorumKind.Groups)
+      return step.quorum.groups.flatMap((group) => stepClassesOf(group.path.steps));
+    return step.kind === StepKind.ChooseOne ? step.routes.map((route) => route.target) : [];
+  });
 }
+
+/** Every node class a flow names: its sources and the targets of every step, side paths included. */
+export function flowClassesOf(flow: readonly FlowPath[]): readonly Class[] {
+  return flow.flatMap((path) => [path.source.node, ...stepClassesOf(path.steps)]);
+}
+
+/** The workflow classes a flow launches: `.toWorkflow(W)`, `route(W)`, `.toParallelWorkflows(W, …)`. */
+const childClassesOf = (flow: readonly FlowPath[]): readonly Class[] =>
+  flowClassesOf(flow).filter((target) => declarationOf(target)?.kind === NodeKind.Workflow);
 
 /** The workflows and, depth first, every child workflow they launch, each once. */
 export function withChildWorkflows(workflows: readonly Class[]): readonly Class[] {

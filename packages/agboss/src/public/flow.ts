@@ -162,6 +162,7 @@ export {
 export {
   agbossComponent,
   agbossDto,
+  type ChannelRoles,
   type DtoBrands,
   type ExecutionInputOf,
   type ExecutionOptionsArgs,

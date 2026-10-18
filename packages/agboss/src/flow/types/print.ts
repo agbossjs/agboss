@@ -1,10 +1,12 @@
 import { declarationOf } from "../decorators/declaration.js";
 import { TablesImport, type ClassImport, type ImportTable } from "./imports.js";
 import type { TypeTable, TypeTables } from "./tables.js";
+import { channelBrandOf } from "./channel-roles.js";
 
 /**
  * Prints `.agboss/types.d.ts` (#272 S3, S39): the imports, the tables augmented into the tables
- * module, and the brands — `readonly [agbossComponent]?: "<name>"` on every component class and
+ * module, and the brands — `readonly [agbossComponent]?: "<name>"` on every component class (and
+ * every channel role, #267) and
  * `readonly [agbossDto]?: "<ClassName>"` on every DTO class, by module augmentation of the module
  * each is declared in. Keys and modules are sorted, so the same application gives the same bytes.
  */
@@ -46,11 +48,12 @@ function dtoBrands(names: ImportTable): TypeTable {
 
 /** The brand of one class: its component `name`, or a DTO's class name. */
 function brandLines(imported: ClassImport, names: ImportTable): readonly string[] {
-  const declaration = declarationOf(imported.component);
+  const name =
+    declarationOf(imported.component)?.options.name ?? channelBrandOf(imported.component);
   const brand =
-    declaration === undefined
+    name === undefined
       ? `readonly [${names.use(TablesImport.DtoBrand)}]?: ${JSON.stringify(imported.component.name)};`
-      : `readonly [${names.use(TablesImport.ComponentBrand)}]?: ${JSON.stringify(declaration.options.name)};`;
+      : `readonly [${names.use(TablesImport.ComponentBrand)}]?: ${JSON.stringify(name)};`;
   return [`  interface ${imported.component.name} {`, `${INDENT}${brand}`, "  }"];
 }
 
@@ -80,7 +83,10 @@ const environmentLines = (contracts: readonly string[]): readonly string[] =>
     : [`  interface Environment extends ${[...contracts].sort().join(", ")} {}`];
 
 export function printTypes(
-  tables: TypeTables & { readonly environments?: readonly string[] },
+  tables: TypeTables & {
+    readonly environments?: readonly string[];
+    readonly channelRoles?: TypeTable;
+  },
   names: ImportTable,
   tablesModule: string,
   augmentations: readonly string[] = [],
@@ -94,6 +100,7 @@ export function printTypes(
     ...tableLines("Routes", tables.routes),
     ...tableLines("RouterAnswers", tables.routerAnswers),
     ...tableLines("JoinOutputs", tables.joinOutputs),
+    ...tableLines("ChannelRoles", tables.channelRoles ?? new Map()),
     ...tableLines("DtoBrands", dtoBrands(names)),
   ];
   const brands = brandBlocks(names);

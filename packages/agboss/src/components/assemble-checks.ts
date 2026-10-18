@@ -1,11 +1,12 @@
 import { declarationOf } from "../flow/decorators/declaration.js";
-import { ComponentError, componentOf, requireComponent, type ToolMeta } from "./metadata.js";
+import { ComponentError, componentOf, requireComponent } from "./metadata.js";
 import { tokenName, type Class } from "./injection.js";
 import { isModelProviderClass } from "../models/model-provider.decorator.js";
 import type { AgentMeta, PolicyFields, WorkflowMeta } from "./meta-types.js";
 import { ragMeta, searchToolName } from "./rag.js";
 import type { PromptLoader } from "./prompt-render.js";
 import { channelComponentClassesOf } from "./channel-parts.js";
+import type { ProviderModule } from "./container/registrations.js";
 
 /** A workflow's tool classes: local `@Tool`s and `@McpTool`s. */
 export interface ToolClasses {
@@ -64,6 +65,7 @@ export const componentClassesOf = (
   tools: ToolClasses,
   rags: readonly Class[],
   codeNodes: readonly Class[],
+  modules: readonly ProviderModule[],
 ): Class[] => [
   ...tools.local,
   ...tools.mcp,
@@ -74,7 +76,7 @@ export const componentClassesOf = (
   ...codeNodes,
   ...(bundle.guardrails ?? []),
   ...(bundle.piiPolicies ?? []),
-  ...channelComponentClassesOf(bundle),
+  ...channelComponentClassesOf(tools, modules),
   ...agents.flatMap(policyClassesOf),
   ...agents.flatMap((a) => a.judges ?? []),
   ...providerClassesOf(bundle),
@@ -117,25 +119,3 @@ export const promptsOf = async (
   );
   return Object.fromEntries(prompts);
 };
-
-/** Every tool with a channel must use one of the workflow's `channelClasses`. */
-export function checkToolChannels(bundle: WorkflowMeta, tools: ToolClasses): void {
-  const declaredChannels = new Set(
-    (bundle.channelClasses ?? []).map(
-      (cls) => requireComponent(cls, "channel", "workflowOf").meta.name,
-    ),
-  );
-  const check = (decorator: string, meta: ToolMeta): void => {
-    if (!meta.channel) return;
-    const channelMeta = requireComponent(meta.channel, "channel", "workflowOf").meta;
-    if (!declaredChannels.has(channelMeta.name)) {
-      throw new ComponentError(
-        `${decorator} "${meta.name}" references a channel not listed in @Workflow channelClasses`,
-      );
-    }
-  };
-  for (const cls of tools.local) check("@Tool", requireComponent(cls, "tool", "workflowOf").meta);
-  for (const cls of tools.mcp) {
-    check("@McpTool", requireComponent(cls, "mcp-tool", "workflowOf").meta);
-  }
-}
