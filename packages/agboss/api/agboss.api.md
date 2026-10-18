@@ -1136,7 +1136,7 @@ export interface EnvironmentVariableReader extends EnvironmentValueReader<string
 }
 
 // @public
-export type ErrorClass = abstract new (...args: never[]) => Error;
+export type ErrorClass<TError extends Error = Error> = abstract new (...args: never[]) => TError;
 
 // @public
 export type ErrorDetails = Readonly<Record<string, unknown>>;
@@ -3890,6 +3890,11 @@ export type Variant<TDto extends DtoClass> = InstanceType<TDto> & {
 // @public
 export function variant<TDto extends DtoClass>(dto: TDto, value: InstanceType<TDto>): Variant<TDto>;
 
+// Warning: (ae-forgotten-export) The symbol "PartialVariant" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function variant<TDto extends DtoClass>(dto: TDto, value: Partial<InstanceType<TDto>>): PartialVariant<TDto>;
+
 // @public
 export class VisitsLimitExceededError extends LimitExceededError {
     constructor(nodeId: string, maxVisits: number, path: readonly string[], spentUsd: number);
@@ -4518,14 +4523,14 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/generated-types.ts:83:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts:91:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts:96:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
-// src/flow/generated-types.ts:105:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
-// src/flow/generated-types.ts:116:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
-// src/flow/generated-types.ts:117:3 - (ae-undocumented) Missing documentation for ""terminal-user-channel"".
-// src/flow/generated-types.ts:118:5 - (ae-forgotten-export) The symbol "ToolCallApprovalAskDto" needs to be exported by the entry point index.d.ts
-// src/flow/generated-types.ts:119:5 - (ae-forgotten-export) The symbol "ToolCallApprovalDecisionDto" needs to be exported by the entry point index.d.ts
-// src/flow/generated-types.ts:121:3 - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
-// src/flow/generated-types.ts:125:3 - (ae-undocumented) Missing documentation for ""auto-reject-channel"".
-// src/flow/generated-types.ts:157:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
+// src/flow/generated-types.ts:106:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
+// src/flow/generated-types.ts:117:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
+// src/flow/generated-types.ts:118:3 - (ae-undocumented) Missing documentation for ""terminal-user-channel"".
+// src/flow/generated-types.ts:119:5 - (ae-forgotten-export) The symbol "ToolCallApprovalAskDto" needs to be exported by the entry point index.d.ts
+// src/flow/generated-types.ts:120:5 - (ae-forgotten-export) The symbol "ToolCallApprovalDecisionDto" needs to be exported by the entry point index.d.ts
+// src/flow/generated-types.ts:122:3 - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
+// src/flow/generated-types.ts:126:3 - (ae-undocumented) Missing documentation for ""auto-reject-channel"".
+// src/flow/generated-types.ts:158:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/handlers.ts:17:3 - (ae-undocumented) Missing documentation for "execute".
 // src/flow/handlers.ts:22:3 - (ae-undocumented) Missing documentation for "finish".
 // src/flow/handlers.ts:31:3 - (ae-undocumented) Missing documentation for "route".
