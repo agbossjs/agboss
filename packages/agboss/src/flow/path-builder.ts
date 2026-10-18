@@ -52,7 +52,7 @@ function returnedValue(shape: unknown, options: unknown, extra: number): Returne
     throw new FlowSyntaxError(
       ".returns(…) takes one value — chain .returns(A).returns(optional(B)) for several",
     );
-  const about = aboutTargets(options as ReturnsOptions | undefined);
+  const about = aboutTargets(options);
   if (about === undefined) return Object.freeze({ shape });
   if (typeof shape !== "function" && shape.kind === Wrapper.OneOf)
     throw new FlowSyntaxError(

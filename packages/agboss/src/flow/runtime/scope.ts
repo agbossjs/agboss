@@ -1,4 +1,3 @@
-import type { DtoClass } from "../../dto/types.js";
 import type { ResolvedField } from "../analyse/fields.js";
 import type { ValueWrite } from "../analyse/flow-graph.js";
 import { slotOfField, slotOfWrite } from "../analyse/scope.js";

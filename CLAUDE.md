@@ -361,11 +361,12 @@ one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
 
 - **Sources:** `start(Start)` (where an execution begins); `agent(X)` / `router(R)` / `action(A)` —
   the path of a node reached from two places (a review loop), written once.
-- **Steps:** `.toAgent(X)`, `.toRouter(R)`, `.toAction(A)`, `.toFinish(F)`; `.returns(Dto, …)` says
+- **Steps:** `.toAgent(X)`, `.toRouter(R)`, `.toAction(A)`, `.toFinish(F)`; `.returns(Dto)` says
   what the step before put on the path (its **scope**: later nodes read their `input` fields from
-  it, `[input.missing-on-path]` when no path brings one); `.chooseOne(route(X)…)` — the router's
-  choice, one `route(…)` per `@Router` route; `.switch(caseOf(Dto)…)` — a branch per variant of a
-  `oneOf(…)` output; `.onError(ErrorClass, toAction(…)… | toAgent(…)… | toFinish(…))` — the side
+  it, `[input.missing-on-path]` when no path brings one) — one value per `.returns`, several as a
+  chain `.returns(A).returns(optional(B))` (#299); `.chooseOne(route(X)…)` — the router's
+  choice, one `route(…)` per `@Router` route; `.returns(oneOf(A, B)).switch(caseOf(A)…)` — a branch
+  per variant of a `oneOf(…)` output; `.onError(ErrorClass, toAction(…)… | toAgent(…)… | toFinish(…))` — the side
   path when the step before throws that class (its subclasses, or an error caused by it), written
   before the step's `.returns(…)`.
 - **Node kinds:** `@WorkflowStart` (input: a DTO, a list or a map of fields; input guards),
@@ -380,15 +381,17 @@ one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
   end with `Dto` (`[dto.name]`); a path ends in a finish; a router's `chooseOne` lists exactly its
   routes (`[router.routes-mismatch]`); a node on a cycle has `maxVisits`. No field reads an outdated
   value — one built from an older version of what was renewed since (`[input.outdated-on-path]`,
-  #271); in a cycle of classes built from each other the reviewer's `output` says what its answers
-  are about, `about(OfferDraftDto, oneOf(…))` (`[io.ambiguous-cycle]`). At run time the scope holds
+  #271); in a cycle of classes built from each other the flow says what one value is about —
+  `.returns(CritiqueDto, { about: DraftDto })`, or on a case `caseOf(ChangesRequestedDto, { about:
+OfferDraftDto })` (`[io.ambiguous-cycle]`, #299); a node reads the earlier versions of a value as
+  `historyOf(OfferDraftDto, { limit: 2 })` — `{ current, previous }` (no tags). At run time the scope holds
   current values only: a write moves the older value and everything built from it to
   `outdatedValues` (`result.record`, `outdated: { byValueId, reason: OutdatedReason… }`), one
   `onValuesOutdated` event per cascade (Wiki → Path-scope).
 
 <!-- snippet-context
 import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, agent, caseOf, start, toAction } from "agboss";
-import { Flag, Text, about, oneOf } from "agboss/dto";
+import { Flag, Text, oneOf } from "agboss/dto";
 
 export class ShortlistDto {
   @Text({ prompt: "the shortlisted candidates" })
@@ -414,7 +417,7 @@ export class OfferSentDto {
 export class OfferWorkflowStart {}
 @Agent({ name: "draft-agent", description: "Drafts the offer", prompt: "Draft the offer.", model: "moonshotai/kimi-k2.6", input: { shortlist: ShortlistDto }, output: OfferDraftDto })
 export class DraftAgent {}
-@Agent({ name: "reviewer-agent", description: "Reviews the draft", prompt: "Review the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto }, output: about(OfferDraftDto, oneOf(ChangesRequestedDto, DraftApprovedDto)) })
+@Agent({ name: "reviewer-agent", description: "Reviews the draft", prompt: "Review the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto }, output: oneOf(ChangesRequestedDto, DraftApprovedDto) })
 export class ReviewerAgent {}
 @Agent({ name: "editor-agent", description: "Rewrites the draft", prompt: "Rewrite the draft.", model: "moonshotai/kimi-k2.6", input: { draft: OfferDraftDto, changes: ChangesRequestedDto }, output: OfferDraftDto, maxVisits: 2 })
 export class EditorAgent {}
@@ -447,8 +450,9 @@ export const offerPaths = [
     .toAgent(ReviewerAgent),
 
   agent(ReviewerAgent)
+    .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
     .switch(
-      caseOf(ChangesRequestedDto)
+      caseOf(ChangesRequestedDto, { about: OfferDraftDto }) // the changes are about this draft
         .toAgent(EditorAgent)
         .onError(
           VisitsLimitExceededError, // the editor's maxVisits spent: tell the recruiter, finish
@@ -553,7 +557,8 @@ export class SeenJobsRepository {
 
 - **Data are DTO classes** (`agboss/dto`): `@Text`, `@Integer`, `@Flag`, `@OneOf`,
   `@ListOf`, `@Nested`, …; plain data, no methods; on paths wrapped as `listOf(Dto)`,
-  `oneOf(A, B)`, `optional(Dto)`, `variant(Dto, "tag")`. Standard ones: `WorkflowStartTextDto`,
+  `oneOf(A, B)`, `optional(Dto)`, `historyOf(Dto, { limit })` (an input: the current value and the
+  earlier versions), `variant(Dto, value)`. Standard ones: `WorkflowStartTextDto`,
   `WorkflowFinishTextDto`, `ToolCallApprovalDecisionDto`, `RagSearchResultDto`, `PlainTextDto`
   (Wiki → Standard-DTOs). zod stays inside the framework.
 - **Tool names** are unique over what a model sees — local, MCP, `search_<rag>` and an agent's answer

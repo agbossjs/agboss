@@ -79,7 +79,7 @@ export class Run {
   /** The about edge is never followed (S10): no value is outdated directly by an answer about it. */
   private checkAbout(outdated: RunValue, cause: number): void {
     const answer = this.values.get(cause);
-    if (answer !== undefined && answer.about === outdated.slot)
+    if (answer?.about === outdated.slot)
       this.aboutBroken.push(
         `${answer.producer}'s answer outdated the ${outdated.slot} it is about`,
       );

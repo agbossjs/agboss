@@ -39,6 +39,13 @@ export interface ValueWrite {
   readonly isCase: boolean;
 }
 
+/** A write of `shape`, with its `{ about }` when it has one. */
+export const valueWrite = (
+  shape: ValueShape,
+  about: readonly DtoClass[] | undefined,
+  isCase: boolean,
+): ValueWrite => (about === undefined ? { shape, isCase } : { shape, about, isCase });
+
 export interface FlowEdge {
   readonly from: ComponentName;
   readonly to: ComponentName;

@@ -18,12 +18,13 @@ import type { ComponentName } from "../registry.js";
 import {
   EdgeKind,
   edgeKey,
+  valueWrite,
   writesLeaving,
   type FlowEdge,
   type FlowGraph,
   type ValueWrite,
 } from "./flow-graph.js";
-import { dtoLabel, shapeLabel } from "./labels.js";
+import { dtoLabel } from "./labels.js";
 import {
   MentionKind,
   type BranchSite,
@@ -70,14 +71,7 @@ class FlowWalker {
       if (path.source.kind === NodeKind.Start) this.starts.push(source);
       else this.mentions.push({ node: source, kind: MentionKind.OwnPath, isContinued: true });
     }
-    const cursor: Cursor = {
-      current: source,
-      writes: [],
-      entry: EdgeKind.Next,
-      depth: 0,
-      path: path.source,
-    };
-    this.walkSteps(path.steps, cursor);
+    this.walkSteps(path.steps, nextCursor(source, 0, path.source));
   }
 
   /** Walks a step list; returns whether it reached a node of its own (a `.to…` step). */
@@ -108,30 +102,21 @@ class FlowWalker {
     }
   }
 
-  /** A `.returns(…)`: its value travels on the next edge; a `oneOf` waits for its `.switch`. */
+  /**
+   * A `.returns(…)`: its value travels on the next edge; a `oneOf` waits for its `.switch` (one
+   * followed by a transition is the returns rule's `[flow.returns-mismatch]`).
+   */
   private returns(step: ReturnsStep, cursor: Cursor): Cursor {
     const { shape, about } = step.value;
     if (typeof shape !== "function" && shape.kind === Wrapper.OneOf)
       return { ...cursor, oneOf: shape };
-    const write: ValueWrite =
-      about === undefined ? { shape, isCase: false } : { shape, about, isCase: false };
-    return { ...cursor, writes: [...cursor.writes, write] };
+    return { ...cursor, writes: [...cursor.writes, valueWrite(shape, about, false)] };
   }
 
   private enter(step: ToStep, cursor: Cursor, isContinued: boolean): Cursor {
-    if (cursor.oneOf !== undefined && cursor.current !== undefined) {
-      const message = `${cursor.current}: .returns(${shapeLabel(cursor.oneOf)}) is branched by .switch(caseOf(…)…), not followed by .${step.targetKind === NodeKind.Finish ? "toFinish" : "to…"}(…)`;
-      this.violations.push(violation("flow.returns-mismatch", message, [cursor.current]));
-    }
     const target = this.table.resolve(step.target, step.targetKind);
     if (target !== undefined) this.arrive(target, cursor, isContinued);
-    return {
-      current: target,
-      writes: [],
-      entry: EdgeKind.Next,
-      depth: cursor.depth,
-      path: cursor.path,
-    };
+    return nextCursor(target, cursor.depth, cursor.path);
   }
 
   /** A mention of `target` reached from the cursor: its placement, mention and incoming edge. */
@@ -152,20 +137,15 @@ class FlowWalker {
   private walkSwitch(step: SwitchStep, cursor: Cursor): void {
     if (cursor.current === undefined) return;
     const { oneOf: returned } = cursor;
-    this.switches.push(
-      returned === undefined
-        ? { node: cursor.current, step }
-        : { node: cursor.current, step, returned },
-    );
+    this.switches.push({
+      node: cursor.current,
+      step,
+      ...(returned === undefined ? {} : { returned }),
+    });
     for (const branch of step.cases) {
-      const write: ValueWrite = {
-        shape: branch.dto,
-        isCase: true,
-        ...(branch.about === undefined ? {} : { about: branch.about }),
-      };
       const inner: Cursor = {
         current: cursor.current,
-        writes: [write],
+        writes: [valueWrite(branch.dto, branch.about, true)],
         entry: EdgeKind.Case,
         path: cursor.path,
         depth: cursor.depth + 1,
@@ -184,13 +164,7 @@ class FlowWalker {
       const target = this.table.resolve(route.target, kindOfTarget(route.target));
       if (target === undefined) continue;
       this.arrive(target, { ...cursor, entry: EdgeKind.Route, depth }, route.path.steps.length > 0);
-      this.walkSteps(route.path.steps, {
-        current: target,
-        writes: [],
-        entry: EdgeKind.Next,
-        depth,
-        path: cursor.path,
-      });
+      this.walkSteps(route.path.steps, nextCursor(target, depth, cursor.path));
     }
   }
 
@@ -210,6 +184,19 @@ class FlowWalker {
     }
   }
 }
+
+/** Where a walk stands after a node is entered: nothing returned yet. */
+const nextCursor = (
+  current: ComponentName | undefined,
+  depth: number,
+  path: PathSource,
+): Cursor => ({
+  current,
+  writes: [],
+  entry: EdgeKind.Next,
+  depth,
+  path,
+});
 
 /** A route target's kind is the kind its class is declared with (the builder checked it). */
 const kindOfTarget = (target: ToStep["target"]): NodeKind =>

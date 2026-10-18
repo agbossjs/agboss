@@ -5,19 +5,6 @@
 ```ts
 
 // @public
-export function about<const TTarget extends DtoClass, const TShape extends OutputShape>(target: TTarget, shape: TShape): AboutWrapper<TTarget, TShape>;
-
-// @public
-export interface AboutWrapper<TTarget extends DtoClass = DtoClass, TShape extends OutputShape = OutputShape> {
-    readonly about: TTarget;
-    // Warning: (ae-forgotten-export) The symbol "Wrapper" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly kind: Wrapper.About;
-    readonly shape: TShape;
-}
-
-// @public
 export class AddressDto {
     // (undocumented)
     city: string;
@@ -93,9 +80,6 @@ export const Decimal: FieldFactory<number, NumberLimits>;
 export const DecimalString: FieldFactory<string, DecimalStringLimits>;
 
 // @public
-export type DeclaredOutput = OutputShape | AboutWrapper;
-
-// @public
 export type DtoClass<T = object> = abstract new () => T;
 
 // @public
@@ -163,6 +147,34 @@ export interface FieldOptions<T> {
 
 // @public
 export const Flag: FieldFactory<boolean, object>;
+
+// @public
+export interface HistoryOf<TValue> {
+    // (undocumented)
+    readonly current: TValue;
+    // (undocumented)
+    readonly previous: readonly TValue[];
+}
+
+// @public
+export function historyOf<const TDto extends DtoClass>(dto: TDto, options?: HistoryOptions): HistoryWrapper<TDto>;
+
+// @public
+export interface HistoryOptions {
+    readonly limit?: number;
+}
+
+// @public
+export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
+    // (undocumented)
+    readonly dto: TDto;
+    // Warning: (ae-forgotten-export) The symbol "Wrapper" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly kind: Wrapper.History;
+    // (undocumented)
+    readonly limit?: number;
+}
 
 // @public
 export const Integer: FieldFactory<number, NumberLimits>;
@@ -359,7 +371,7 @@ export const Url: FieldFactory<string, object>;
 export const Uuid: FieldFactory<string, object>;
 
 // @public
-export type ValueOf<TShape> = TShape extends DtoClass<infer TValue> ? TValue : TShape extends ListWrapper<infer TElement> ? readonly ValueOf<TElement>[] : TShape extends OneOfWrapper<infer TVariants> ? InstanceType<TVariants[number]> : TShape extends OptionalWrapper<infer TInner> ? ValueOf<TInner> | undefined : TShape extends AboutWrapper<DtoClass, infer TAnswer> ? ValueOf<TAnswer> : never;
+export type ValueOf<TShape> = TShape extends DtoClass<infer TValue> ? TValue : TShape extends ListWrapper<infer TElement> ? readonly ValueOf<TElement>[] : TShape extends OneOfWrapper<infer TVariants> ? InstanceType<TVariants[number]> : TShape extends OptionalWrapper<infer TInner> ? ValueOf<TInner> | undefined : TShape extends HistoryWrapper<infer TDto> ? HistoryOf<InstanceType<TDto>> : never;
 
 // @public
 export type ValueShape = DtoClass | ListWrapper | OptionalWrapper;
@@ -464,19 +476,23 @@ export class WorkflowStartTextDto {
 // src/dto/types.ts:50:3 - (ae-undocumented) Missing documentation for "default".
 // src/dto/types.ts:125:3 - (ae-undocumented) Missing documentation for "__call".
 // src/dto/types.ts:126:3 - (ae-undocumented) Missing documentation for "__call".
-// src/flow/dto-wrappers.ts:22:3 - (ae-undocumented) Missing documentation for "kind".
-// src/flow/dto-wrappers.ts:23:3 - (ae-undocumented) Missing documentation for "variants".
-// src/flow/dto-wrappers.ts:31:3 - (ae-undocumented) Missing documentation for "kind".
-// src/flow/dto-wrappers.ts:32:3 - (ae-undocumented) Missing documentation for "element".
-// src/flow/dto-wrappers.ts:40:3 - (ae-undocumented) Missing documentation for "kind".
-// src/flow/dto-wrappers.ts:41:3 - (ae-undocumented) Missing documentation for "inner".
-// src/flow/dto-wrappers.ts:59:3 - (ae-undocumented) Missing documentation for "kind".
-// src/flow/dto-wrappers.ts:86:1 - (ae-undocumented) Missing documentation for "optional".
-// src/flow/dto-wrappers.ts:92:1 - (ae-undocumented) Missing documentation for "listOf".
-// src/flow/dto-wrappers.ts:98:1 - (ae-undocumented) Missing documentation for "oneOf".
-// src/flow/dto-wrappers.ts:167:1 - (ae-undocumented) Missing documentation for "ProducedValue".
-// src/flow/dto-wrappers.ts:168:3 - (ae-undocumented) Missing documentation for "producer".
-// src/flow/dto-wrappers.ts:169:3 - (ae-undocumented) Missing documentation for "value".
+// src/flow/dto-wrappers.ts:23:3 - (ae-undocumented) Missing documentation for "kind".
+// src/flow/dto-wrappers.ts:24:3 - (ae-undocumented) Missing documentation for "variants".
+// src/flow/dto-wrappers.ts:32:3 - (ae-undocumented) Missing documentation for "kind".
+// src/flow/dto-wrappers.ts:33:3 - (ae-undocumented) Missing documentation for "element".
+// src/flow/dto-wrappers.ts:41:3 - (ae-undocumented) Missing documentation for "kind".
+// src/flow/dto-wrappers.ts:42:3 - (ae-undocumented) Missing documentation for "inner".
+// src/flow/dto-wrappers.ts:65:3 - (ae-undocumented) Missing documentation for "kind".
+// src/flow/dto-wrappers.ts:66:3 - (ae-undocumented) Missing documentation for "dto".
+// src/flow/dto-wrappers.ts:67:3 - (ae-undocumented) Missing documentation for "limit".
+// src/flow/dto-wrappers.ts:75:3 - (ae-undocumented) Missing documentation for "current".
+// src/flow/dto-wrappers.ts:76:3 - (ae-undocumented) Missing documentation for "previous".
+// src/flow/dto-wrappers.ts:96:1 - (ae-undocumented) Missing documentation for "optional".
+// src/flow/dto-wrappers.ts:102:1 - (ae-undocumented) Missing documentation for "listOf".
+// src/flow/dto-wrappers.ts:108:1 - (ae-undocumented) Missing documentation for "oneOf".
+// src/flow/dto-wrappers.ts:169:1 - (ae-undocumented) Missing documentation for "ProducedValue".
+// src/flow/dto-wrappers.ts:170:3 - (ae-undocumented) Missing documentation for "producer".
+// src/flow/dto-wrappers.ts:171:3 - (ae-undocumented) Missing documentation for "value".
 
 // (No @packageDocumentation comment for this package)
 

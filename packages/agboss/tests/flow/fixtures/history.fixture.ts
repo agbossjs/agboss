@@ -92,7 +92,11 @@ export class DraftEditorAgent {}
 export class DraftHistoryWorkflowFinish implements FinishHandler<DraftHistoryWorkflowFinish> {
   finish(input: InputOf<DraftHistoryWorkflowFinish>): OutputOf<DraftHistoryWorkflowFinish> {
     const { current, previous } = input.drafts;
-    return { changes: [...previous, current].map((draft) => draft.value.text).join(" → ") };
+    return {
+      changes: [...previous, current]
+        .map((draft) => draft.value.text)
+        .join(" → "),
+    };
   }
 }
 

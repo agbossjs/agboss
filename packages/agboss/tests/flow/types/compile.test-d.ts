@@ -83,11 +83,11 @@ describe("#270 AC6, #299 S54: returns and caseOf against ProducerOutputs", () =>
     start(CompanyCheckWorkflowStart).returns(CompanyDto).returns(SearchRequestDto);
     // @ts-expect-error — the CompanyDto is named already
     start(CompanyCheckWorkflowStart).returns(CompanyDto).returns(CompanyDto);
-    // @ts-expect-error — the start gives two values, not three
-    start(CompanyCheckWorkflowStart)
+    const named = start(CompanyCheckWorkflowStart)
       .returns(CompanyDto)
-      .returns(optional(SearchRequestDto))
-      .returns(ProfileDto);
+      .returns(optional(SearchRequestDto));
+    // @ts-expect-error — the start gives two values, not three
+    named.returns(ProfileDto);
     expectTypeOf<ProducerOutputOf<CompanyCheckWorkflowStart>>().toEqualTypeOf<
       readonly [CompanyDto, SearchRequestDto | undefined]
     >();

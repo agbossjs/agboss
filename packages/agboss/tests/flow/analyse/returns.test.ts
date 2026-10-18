@@ -101,7 +101,6 @@ describe("AC15: .returns(…) is exactly where values are", () => {
 
     expect(returnsErrorsOf(paths)).toEqual([
       "returns-workflow: review-kit-agent gives oneOf(ChangesRequestedDto, DraftApprovedDto) — write .returns(oneOf(ChangesRequestedDto, DraftApprovedDto)) and branch it with .switch(caseOf(…)…)",
-      "returns-workflow: review-kit-agent: .returns(oneOf(ChangesRequestedDto, DraftApprovedDto)) is branched by .switch(caseOf(…)…), not followed by .toFinish(…)",
     ]);
   });
 });
