@@ -43,7 +43,7 @@ async function execute(
       app,
       start,
       { text: task },
-      { ...(thread === undefined ? {} : { thread }), onStream: streamTo(context) },
+      { ...(thread === undefined ? {} : { threadId: thread }), onStream: streamTo(context) },
     );
     return await untilDone(
       first,
@@ -57,7 +57,7 @@ async function execute(
 
 function report(context: CommandContext, app: App, result: ExecutionOutput): void {
   (context.json ? context.io.stderr : context.io.stdout).write("\n");
-  context.warn(`${threadLine(result)}  (continue with --thread ${result.thread})`);
+  context.warn(`${threadLine(result)}  (continue with --thread ${result.threadId})`);
   context.warn(`config: ${app.name} | ${summaryLine(result)}`);
   const memory = memoryLine(result);
   if (memory !== undefined) context.warn(memory);
@@ -89,7 +89,7 @@ export const handle: CommandHandler = async (context) => {
     });
     const result = await execute(context, app, start, task);
     report(context, app, result);
-    const { thread, status, finish, output: answer } = result;
+    const { threadId: thread, status, finish, output: answer } = result;
     const output = {
       thread,
       status,

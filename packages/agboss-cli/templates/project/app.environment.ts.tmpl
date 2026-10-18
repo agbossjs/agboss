@@ -2,8 +2,8 @@
  * The application's environment contract: the fields every `<name>.environment.ts` next to it
  * defines — declared fields only, no values (a default is `env("X", { default })` in an
  * environment; a secret is a `Secret` field set with `secret("X")`). Declared once:
- * `@Application({ environment: AppEnvironment })`. Inject it with `@Injectable({ deps: [ENV] })` and
- * `constructor(environment: AppEnvironment)`, as `../services/api.service.ts` does.
+ * `@Application({ environment: AppEnvironment })`. Read it as `applicationContext.environment`
+ * (`@Injectable({ deps: [ApplicationContext] })`), as `../services/api.service.ts` does.
  */
 export class AppEnvironment {
   apiUrl!: string;

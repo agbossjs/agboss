@@ -55,7 +55,8 @@ function workflowTest(spec: WorkflowSpec): FileToWrite {
 
 /**
  * The environments next to the application file, where the app looks for them (#239, #261): the
- * contract, dev, staging and test (tests run on it); and the service that injects `ENV` — the
+ * contract, dev, staging and test (tests run on it); and the service that reads it through
+ * `ApplicationContext` — the
  * project's tools use it — with its test.
  */
 function environmentFiles(spec: WorkflowSpec): FileToWrite[] {

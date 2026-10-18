@@ -1,9 +1,13 @@
+import { testExecutionContext } from "agboss/testing";
 import { describe, expect, it } from "vitest";
 import { ApiService } from "./api.service.js";
 
 describe("ApiService", () => {
   it("builds URLs on the environment's API", () => {
-    const api = new ApiService({ apiUrl: "https://api.example.com" });
+    const { application } = testExecutionContext({
+      application: { environment: { apiUrl: "https://api.example.com" } },
+    }).tenant;
+    const api = new ApiService(application);
 
     expect(api.url("/status")).toBe("https://api.example.com/status");
   });

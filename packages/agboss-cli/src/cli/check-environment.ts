@@ -5,6 +5,7 @@ import {
   environmentVariablesOf,
   resolveEnvironment,
   selectedEnvironment,
+  standaloneContexts,
   type ProcessVariable,
 } from "agboss/internal";
 import type { CheckProblem } from "./check-problems.js";
@@ -39,7 +40,8 @@ const variableLine = (found: ProcessVariable): string =>
 /**
  * `agboss check` without running anything: the selected environment is found, every variable it
  * reads is set, and every component the app's start creates (tools, observers, judges, channels, …)
- * gets its dependencies — with no environment, none of them injects `ENV` (#239). With `--env` it
+ * gets its dependencies — `applicationContext.environment` the selected environment's values, empty
+ * without one (#239, #261). With `--env` it
  * lists the process variables that environment needs, marked value / secret.
  */
 export async function environmentProblems(target: EnvironmentTarget): Promise<CheckProblem[]> {
@@ -54,7 +56,7 @@ export async function environmentProblems(target: EnvironmentTarget): Promise<Ch
     const { router } = describeServices;
     createStartComponents(target.bundle, {
       router,
-      ...(environment === undefined ? {} : { environment }),
+      contexts: standaloneContexts(target.bundle.config, environment),
     });
     return [];
   } catch (error) {

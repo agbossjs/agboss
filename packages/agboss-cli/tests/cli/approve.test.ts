@@ -88,10 +88,10 @@ describe("terminal lines", () => {
   });
 
   test("the thread line links the trace when tracing is on", () => {
-    expect(threadLine({ thread: "t1", traceUrl: "http://traces/sessions/t1" })).toBe(
+    expect(threadLine({ threadId: "t1", traceUrl: "http://traces/sessions/t1" })).toBe(
       "thread t1 · http://traces/sessions/t1",
     );
-    expect(threadLine({ thread: "t1" })).toBe("thread t1");
+    expect(threadLine({ threadId: "t1" })).toBe("thread t1");
   });
 
   test("a run without a path says so; a paused one says it waits", () => {

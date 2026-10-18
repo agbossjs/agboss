@@ -1,6 +1,6 @@
 /**
  * #239, #261: `agboss create` puts the environments where the runtime looks — next to the
- * application file, its contract declared in `@Application({ environment })` — and injects `ENV` for
+ * application file, its contract declared in `@Application({ environment })` — and reads it through `ApplicationContext` for
  * real (the tools' `ApiService`); `agboss check` fails exactly when the start would.
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
@@ -24,8 +24,8 @@ afterAll(() => {
   rmSync(project, { recursive: true, force: true });
 });
 
-describe("#239: environments next to the workflow file, ENV injected for real", () => {
-  it("AC1: a fresh project — its ApiService (deps: [ENV]) starts with the app and its test passes", async () => {
+describe("#239: environments next to the workflow file, read through ApplicationContext for real", () => {
+  it("AC1: a fresh project — its ApiService (deps: [ApplicationContext]) starts with the app and its test passes", async () => {
     mkdirSync(tmp, { recursive: true });
     const spec = specFromFlags("shop", {
       yes: true,
@@ -42,7 +42,7 @@ describe("#239: environments next to the workflow file, ENV injected for real", 
     ])
       expect(existsSync(join(environments, file)), file).toBe(true);
     expect(existsSync(join(project, "src/environments"))).toBe(false);
-    expect(read("src/shop/services/api.service.ts")).toContain("@Injectable({ deps: [ENV] })");
+    expect(read("src/shop/services/api.service.ts")).toContain("@Injectable({ deps: [ApplicationContext] })");
     expect(read("src/shop/shop.application.ts")).toContain("  environment: AppEnvironment,\n");
     expect(read("src/shop/tools/find-order.tool.ts")).toContain(
       "deps: [ExecutionContext, ApiService]",
@@ -59,7 +59,9 @@ describe("#239: environments next to the workflow file, ENV injected for real", 
     const described = agbossIn(project, ["describe", "--workflow", workflow]);
     expect(described.out).toContain("environment dev");
     expect(described.out).toContain('apiUrl = "https://api.example.com"');
-    expect(described.out).toContain("· find_order (local) ← ExecutionContext, ApiService (ENV)");
+    expect(described.out).toContain(
+      "· find_order (local) ← ExecutionContext, ApiService (ApplicationContext)",
+    );
   }, 240_000);
 
   it("AC2: the environment files moved away → agboss check fails with environment.not-found, as the app's start", () => {
