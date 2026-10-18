@@ -155,7 +155,7 @@ describe("help (#93)", () => {
   it("AC5: create (c) and generate (g) are listed, with their options", () => {
     expect(usage()).toMatch(/create\s+a new project from a short questionnaire \(alias c\)/);
     expect(usage()).toMatch(
-      /generate\s+add a workflow, agent, router, tool, MCP server, knowledge base or OpenAPI tools, wired \(alias g\)/,
+      /generate\s+add a workflow, agent, router, arbiter, tool, MCP server, knowledge base or OpenAPI tools, wired \(alias g\)/,
     );
     expect(helpFor("generate")).toContain("--agent <name>");
   });

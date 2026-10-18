@@ -1,6 +1,7 @@
 import { namesOf } from "./names.js";
 import { planWorkflow } from "./plan.js";
 import { planAgent, planRouter } from "./generate-flow.js";
+import { planArbiter } from "./generate-arbiter.js";
 import { ScaffoldUsageError } from "./errors.js";
 import { planMcp, planRag, planTool, withScripts } from "./generate-parts.js";
 import { planOpenApi } from "./openapi.js";
@@ -8,7 +9,16 @@ import { workflowScripts } from "./project.js";
 import { placeTests } from "./test-location.js";
 import type { Changes } from "./write.js";
 
-export const KINDS = ["workflow", "agent", "router", "tool", "mcp", "rag", "openapi"] as const;
+export const KINDS = [
+  "workflow",
+  "agent",
+  "router",
+  "arbiter",
+  "tool",
+  "mcp",
+  "rag",
+  "openapi",
+] as const;
 export type Kind = (typeof KINDS)[number];
 
 export interface GenerateOptions {
@@ -40,6 +50,7 @@ const PLANS: Readonly<
   },
   agent: planAgent,
   router: planRouter,
+  arbiter: planArbiter,
   tool: planTool,
   mcp: planMcp,
   rag: planRag,
