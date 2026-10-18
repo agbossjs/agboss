@@ -25,7 +25,8 @@ export interface WorkflowServices {
   /** A router on the workflow's default router model (Jev) — cheap decisions inside tools. */
   readonly router: (name: string) => RouterEngine;
   /**
-   * The application's context levels (#261): its `ApplicationContext` (with the environment) and
+   * The application's context levels (#261, framework wiring — `RuntimeContexts` is internal,
+   * `agboss/internal`): its `ApplicationContext` (with the environment) and
    * the declared context classes; absent = a workflow on its own (eval, replay), its own defaults.
    */
   readonly contexts?: RuntimeContexts;

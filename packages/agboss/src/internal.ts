@@ -37,7 +37,7 @@ export { byClassName, byComponentName, flowLines, pathLines } from "./flow/print
 export { inputLines } from "./describe/inputs.js";
 export { stepsRangeOf, type StepsRange } from "./flow/analyse/steps.js";
 export { executeUnchecked } from "./app/execute-unchecked.js";
-export { standaloneContexts } from "./flow/context/runtime-contexts.js";
+export { standaloneContexts, type RuntimeContexts } from "./flow/context/runtime-contexts.js";
 export { textStartOfWorkflow } from "./application/compose-app.js";
 export { workflowsOfApplication } from "./application/workflow-application.js";
 export {

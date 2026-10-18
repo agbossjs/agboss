@@ -62,7 +62,10 @@ export interface GraphDeps<TName extends string> {
   /** A model router's decisions before a parallel launch (#273 S23): its `OnDemand` routes. */
   readonly launchDecisionFor?: (router: LoadedRouter) => LaunchDecider;
   readonly observer?: ObserverManager;
-  /** The application's context levels (#261); absent = a workflow run on its own (eval, replay). */
+  /**
+   * The application's context levels (#261, framework wiring: `RuntimeContexts` is internal,
+   * `agboss/internal`); absent = a workflow run on its own (eval, replay).
+   */
   readonly contexts?: RuntimeContexts;
   /** A component instance from the app's container: actions and finishes with a handler. */
   readonly container: { readonly get: <T>(token: Class<T>) => T };

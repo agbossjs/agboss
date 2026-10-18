@@ -77,7 +77,6 @@ export {
   type ExecutionOutput,
   type ResumeOptions,
 } from "../app/types.js";
-export type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 export type { RunId } from "../core/run-context.js";
 export {
   ExecutionContext,
