@@ -463,10 +463,16 @@ describe("#273 AC6, S50: a router's launch follows its routes' policies", () => 
   });
 
   it("[router.prompt-on-always] and [router.no-prompt] (untyped options)", () => {
-    const routes = [
-      { target: OrderLookupAgent, spawn: SpawnPolicy.Always, prompt: "Always" },
+    // what untyped code may write: a prompt on an Always route, a blank one on an OnDemand route
+    const always: ModelRouterOptions["routes"][number] = {
+      target: OrderLookupAgent,
+      spawn: SpawnPolicy.Always,
+    };
+    Reflect.set(always, "prompt", "Always");
+    const routes: ModelRouterOptions["routes"] = [
+      always,
       { target: RefundPolicyAgent, spawn: SpawnPolicy.OnDemand, prompt: " " },
-    ] as unknown as ModelRouterOptions["routes"];
+    ];
     const codes = codesOf(
       routerFlow(modelRouter("prompted-router", routes), [OrderLookupAgent, RefundPolicyAgent]),
     );
