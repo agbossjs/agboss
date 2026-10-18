@@ -122,9 +122,10 @@ export class JobScout implements WorkflowDefinition {
 ```
 
 The application is the one entry (#261): it lists the workflows, the infrastructure (a class that
-`extends CostLedgerRepository`, `ExecutionRecordRepository`, `PausedExecutionRepository` or
-LangGraph's `BaseCheckpointSaver`; none listed → the built-in in-memory ones, nothing written to
-the home folder) and every budget. `createApp` and `testWith` take it, never a workflow:
+`extends CostLedgerRepository`, `ExecutionRecordRepository`, `PausedExecutionRepository`,
+LangGraph's `BaseCheckpointSaver` or one of the shared contracts of #265 — `ExecutionLeaseRepository`,
+`ExecutionTreeRepository`, `RateLimitRepository`; none listed → the built-in in-memory ones, nothing
+written to the home folder) and every budget. `createApp` and `testWith` take it, never a workflow:
 
 ```ts file=src/job-scout.application.ts
 // src/job-scout.application.ts — what createApp(JobScoutApplication, { env }) and testWith run
@@ -447,7 +448,14 @@ run — it stops before its next model or tool call and `execute` rejects with
 `WorkflowCancelledError` — or drops a paused one, whose `resume` then throws `NotPausedError`;
 `cancelled` is `false` when the thread had neither. From `app.close()` on, `execute` and `resume`
 are refused with `ApplicationStoppingError` (`app.stopping`, an `onRunRejected`); running executions
-go on and `cancel` still works. In unit tests, `testExecutionContext({ … })` from
+go on and `cancel` still works. An execution tree is moved by one holder at a time (#265, Q58):
+`execute` and `resume` hold its lease (`seconds(30)`, renewed every 10 s and before every checkpoint
+write, released when the pass ends). A `resume` first records its decision — of two resumes of one
+pause the second gets `NotPausedError` — then waits while another call or instance holds the lease,
+and returns the tree's current output once the holder took its decision. An instance that lost the
+lease (frozen past it) stops and its call rejects with `ExecutionLeaseLostError`
+(`execution.lease-lost`) — no `onError`, no failed record: the new holder continues (Wiki →
+Several-instances). In unit tests, `testExecutionContext({ … })` from
 `agboss/testing` is a frozen `ExecutionContext`: `new PayOrder(testExecutionContext())`.
 
 Observers see a run's workflow, agent, router, tool, model, guardrail, policy, action, channel and

@@ -6,6 +6,8 @@ import { startComponents } from "../components/container/lifecycle.js";
 import type { Class } from "../components/injection.js";
 import { environmentFor } from "../environments/load.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
+import type { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
+import type { Timers } from "../infrastructure/timers.js";
 import { applicationContainerOf, resolveInfrastructure } from "./application-container.js";
 import { composeApp } from "./compose-app.js";
 import { applicationOf, type AssembledApplication } from "./assemble.js";
@@ -20,10 +22,17 @@ export interface BuiltApplication {
 }
 
 /**
- * Instances an earlier app of the same test created, reused by this one (its infrastructure, so a
- * paused execution survives `recoverApp()`); never given in production.
+ * What a test gives an application instance beyond `createApp`'s options (never given in
+ * production): the instances an earlier app of the same test created (its stores, so a paused
+ * execution survives `recoverApp()`), this instance's id, the in-memory rows the instances of the
+ * test share, and the virtual clock's timers.
  */
-export type ReusedInstances = ReadonlyMap<Class, unknown>;
+export interface InstanceSeams {
+  readonly reused?: ReadonlyMap<Class, unknown>;
+  readonly instanceId?: string;
+  readonly database?: InMemoryDatabase;
+  readonly timers?: Timers;
+}
 
 /**
  * Every class the application and its workflows list (providers, budgets), created now — one
@@ -52,14 +61,16 @@ async function releaseAll(built: readonly BuiltApp[]): Promise<void> {
 export async function buildApplication(
   assembled: AssembledApplication,
   options: AppDepsOptions = {},
-  reused: ReusedInstances = new Map(),
+  seams: InstanceSeams = {},
 ): Promise<BuiltApplication> {
   const created: unknown[] = [];
   const shared = applicationContainerOf({
     modules: assembled.modules,
     clock: options.clock,
     newThreadId: options.newThreadId,
-    instances: reused,
+    instanceId: seams.instanceId,
+    database: seams.database,
+    instances: seams.reused,
   });
   const container: ContainerOptions = { ...options.container, application: shared };
   const infrastructure = resolveInfrastructure(shared, {
@@ -73,7 +84,15 @@ export async function buildApplication(
   try {
     for (const bundle of assembled.workflows) {
       workflows.push(
-        await buildApp(bundle, { ...options, container }, { infrastructure, created }),
+        await buildApp(
+          bundle,
+          { ...options, container },
+          {
+            infrastructure,
+            created,
+            ...(seams.timers === undefined ? {} : { timers: seams.timers }),
+          },
+        ),
       );
     }
     createListed(assembled, workflows);

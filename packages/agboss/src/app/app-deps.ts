@@ -25,6 +25,7 @@ import { closeOf, releaseOf } from "./app-deps-parts.js";
 import { componentsAtStart } from "./start-components.js";
 import { spendLedgerOf } from "../infrastructure/cost-ledger.repository.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
+import type { Timers } from "../infrastructure/timers.js";
 import { standaloneInfrastructure } from "../application/application-container.js";
 
 /** Run dependencies, eval dependencies, and resources to release after the run. */
@@ -109,6 +110,8 @@ export interface WorkflowDepsParts {
   readonly infrastructure: Infrastructure;
   /** The application's instances in creation order; absent = this workflow runs its own hooks. */
   readonly created?: unknown[];
+  /** The timers lease renewals and waits sleep on (default: the system's; tests: the virtual clock). */
+  readonly timers?: Timers;
 }
 
 /** Collects the container's instances for their lifecycle hooks, keeping any hook already given. */

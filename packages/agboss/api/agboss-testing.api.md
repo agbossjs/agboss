@@ -232,7 +232,8 @@ export interface TestApp extends Pick<App, "execute" | "resume" | "close" | "can
 
 // @public
 export interface TestClock {
-    advance(duration: ClockDuration): void;
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
+    advance(duration: ClockDuration | Milliseconds): Promise<void>;
     // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -301,6 +302,7 @@ export function testWith<TApplication extends Class>(application: ApplicationCla
 // @public
 export interface TestWithOptions extends EnvironmentSelection {
     readonly allowNetwork?: readonly string[];
+    readonly instances?: number;
     readonly real?: readonly Class[];
     readonly vcr?: VcrConfig;
 }
@@ -351,6 +353,8 @@ export enum VCRMode {
 // @public
 export interface WorkflowFixtures {
     readonly app: TestApp;
+    readonly apps: readonly TestApp[];
+    readonly clock: TestClock;
     readonly mcpOf: <TServer extends McpServerClient<ServerTools>>(server: new () => TServer) => McpStub<TServer>;
     readonly mockCompaction: () => ModelScript;
     // Warning: (ae-forgotten-export) The symbol "ModelTarget" needs to be exported by the entry point index.d.ts
@@ -397,7 +401,7 @@ export function workflowOf(workflow: Class, application?: readonly ProviderModul
 // src/models/model-failure.ts:4:3 - (ae-undocumented) Missing documentation for "RateLimited".
 // src/models/model-failure.ts:5:3 - (ae-undocumented) Missing documentation for "ServerError".
 // src/models/model-failure.ts:6:3 - (ae-undocumented) Missing documentation for "NetworkError".
-// src/testing/clock.ts:23:3 - (ae-undocumented) Missing documentation for "now".
+// src/testing/clock.ts:29:3 - (ae-undocumented) Missing documentation for "now".
 // src/testing/errors.ts:12:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/errors.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/testing/errors.ts:23:12 - (ae-undocumented) Missing documentation for "name".

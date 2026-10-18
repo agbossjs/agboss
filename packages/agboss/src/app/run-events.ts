@@ -4,13 +4,15 @@ import type { ObserverManager } from "../core/observer-manager.js";
 import { DtoValidationError } from "../dto/errors.js";
 import { IncompatibleResumeError } from "../run/resume-guard.js";
 import type { ExecutionOutput } from "./types.js";
+import { ExecutionLeaseLostError } from "./lease-lost.js";
 
 const asError = (error: unknown): Error =>
   error instanceof Error ? error : new Error(String(error));
 
 /**
  * One leg of a run (its `execute`, or a `resume`), observed: it paused → `onWorkflowPause`, it
- * finished → `onWorkflowEnd`, it threw → `onError` (and the error is rethrown).
+ * finished → `onWorkflowEnd`, it threw → `onError` (and the error is rethrown) — except a lost
+ * lease, which is not a failure: the new holder goes on with the run (#265).
  */
 export async function observeLeg(
   observer: ObserverManager,
@@ -21,7 +23,7 @@ export async function observeLeg(
   try {
     result = await leg();
   } catch (error) {
-    await observer.onError(asError(error), state);
+    if (!(error instanceof ExecutionLeaseLostError)) await observer.onError(asError(error), state);
     throw error;
   }
   await (result.pause === undefined

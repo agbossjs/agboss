@@ -50,3 +50,4 @@ export {
 } from "./llm/decision-errors.js";
 export { PerRunLimitRequiredError } from "./app/limit-check.js";
 export { ApplicationStoppingError } from "./app/application-stopping.js";
+export { ExecutionLeaseLostError } from "./app/lease-lost.js";

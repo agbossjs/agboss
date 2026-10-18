@@ -2,7 +2,11 @@ import { MemorySaver } from "@langchain/langgraph";
 import type { PausedRun } from "../../src/app/paused-runs.js";
 import { Injectable } from "../../src/components/decorators.js";
 import { TernStoreRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
-import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
+import {
+  PausedExecutionRepository,
+  PauseStatus,
+  resolvedPause,
+} from "../../src/infrastructure/paused-execution.repository.js";
 import { createSqliteTernStore, type TernStore } from "../../src/terns/index.js";
 
 /**
@@ -54,6 +58,14 @@ export class SharedPausedExecutionRepository extends PausedExecutionRepository {
   save(paused: PausedRun): Promise<void> {
     database.paused.set(paused.run.threadId, paused);
     return Promise.resolve();
+  }
+
+  resolveByThreadId(threadId: string, decision: unknown): Promise<PausedRun | undefined> {
+    const stored = database.paused.get(threadId);
+    if (stored?.status !== PauseStatus.Pending) return Promise.resolve(undefined);
+    const resolved = resolvedPause(stored, decision);
+    database.paused.set(threadId, resolved);
+    return Promise.resolve(resolved);
   }
 
   deleteByThreadId(threadId: string): Promise<void> {

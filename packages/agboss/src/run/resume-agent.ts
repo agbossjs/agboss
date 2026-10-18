@@ -6,7 +6,14 @@ import { ExecutionStatus } from "../app/types.js";
 import { executionGraphOf, type ExecutionGraph } from "../flow/runtime/build.js";
 import { startLine } from "../flow/runtime/history.js";
 import type { AgentLoopStateType } from "../graph/agent-loop/state.js";
-import { drainRun, failedOutcome, outcomeError, recorder, workflowAccount } from "./execute.js";
+import {
+  drainRun,
+  failedOutcome,
+  outcomeError,
+  recordFailure,
+  recorder,
+  workflowAccount,
+} from "./execute.js";
 import { withMetadata } from "./run-services.js";
 import { streamConfig } from "./stream-config.js";
 import { finishRun } from "./finish.js";
@@ -101,8 +108,9 @@ async function resumeOnce<TName extends string>(
     return withMetadata(output, metadata);
   } catch (error) {
     const cause = outcomeError(error, options.signal);
-    await deps.terns.complete(paused.ternId, failedOutcome(cause, [...before.usage, ...spent]));
-    throw cause;
+    throw await recordFailure(cause, () =>
+      deps.terns.complete(paused.ternId, failedOutcome(cause, [...before.usage, ...spent])),
+    );
   } finally {
     hold.release();
   }

@@ -7,13 +7,22 @@ import {
   InMemoryExecutionRecordRepository,
 } from "./execution-record.repository.js";
 import {
+  ExecutionLeaseRepository,
+  InMemoryExecutionLeaseRepository,
+} from "./execution-lease.repository.js";
+import {
+  ExecutionTreeRepository,
+  InMemoryExecutionTreeRepository,
+} from "./execution-tree.repository.js";
+import {
   InMemoryPausedExecutionRepository,
   PausedExecutionRepository,
 } from "./paused-execution.repository.js";
+import { InMemoryRateLimitRepository, RateLimitRepository } from "./rate-limit.repository.js";
 
 /**
- * The infrastructure an application consumes (#261, S28): a framework contract with a built-in
- * default, one per application. Registered only in `@Application({ providers })`; the
+ * The infrastructure an application consumes (#261, S28; the shared contracts #265): a framework
+ * contract with a built-in default, one per application. Registered only in `@Application({ providers })`; the
  * implementation is found by inheritance — none listed → the default, two → ambiguous.
  */
 
@@ -27,6 +36,9 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [ExecutionRecordRepository, InMemoryExecutionRecordRepository],
   [CostLedgerRepository, InMemoryCostLedgerRepository],
   [PausedExecutionRepository, InMemoryPausedExecutionRepository],
+  [ExecutionLeaseRepository, InMemoryExecutionLeaseRepository],
+  [ExecutionTreeRepository, InMemoryExecutionTreeRepository],
+  [RateLimitRepository, InMemoryRateLimitRepository],
 ]);
 
 /** Whether `cls` is `contract` or extends it. */
@@ -43,6 +55,9 @@ export interface Infrastructure {
   readonly records: ExecutionRecordRepository;
   readonly costLedger: CostLedgerRepository;
   readonly pausedExecutions: PausedExecutionRepository;
+  readonly executionLeases: ExecutionLeaseRepository;
+  readonly executionTrees: ExecutionTreeRepository;
+  readonly rateLimits: RateLimitRepository;
 }
 
 /** The infrastructure from the application's container (a listed class, else the default). */
@@ -52,4 +67,25 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   records: resolve(ExecutionRecordRepository) as ExecutionRecordRepository,
   costLedger: resolve(CostLedgerRepository) as CostLedgerRepository,
   pausedExecutions: resolve(PausedExecutionRepository) as PausedExecutionRepository,
+  executionLeases: resolve(ExecutionLeaseRepository) as ExecutionLeaseRepository,
+  executionTrees: resolve(ExecutionTreeRepository) as ExecutionTreeRepository,
+  rateLimits: resolve(RateLimitRepository) as RateLimitRepository,
 });
+
+/**
+ * The parts a later app of the same test reuses as they are (`recoverApp()`, a second instance):
+ * the stores of #261. The shared contracts are created per instance — their in-memory defaults
+ * keep their rows in the test's one `InMemoryDatabase`, each instance with its own id.
+ */
+const REUSED_PARTS = ["checkpointer", "records", "costLedger", "pausedExecutions"] as const;
+
+/** The instances a later app of the same test reuses, by their class. */
+export const reusableInfrastructure = (
+  infrastructure: Infrastructure,
+): ReadonlyMap<Class, unknown> =>
+  new Map(
+    REUSED_PARTS.map((part) => {
+      const instance: object = infrastructure[part];
+      return [instance.constructor as Class, instance] as const;
+    }),
+  );

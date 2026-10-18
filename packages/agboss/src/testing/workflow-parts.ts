@@ -1,5 +1,4 @@
 import type { AssembledApplication } from "../application/assemble.js";
-import type { BuiltApplication } from "../application/create-app.js";
 import type { Class, Provider } from "../components/injection.js";
 import { requireComponent } from "../components/metadata.js";
 import { moduleOf } from "../components/module.js";
@@ -49,11 +48,3 @@ export function usedComponentsOf(assembled: AssembledApplication): ReadonlySet<C
     ...assembled.workflows.flatMap(workflowComponentsOf),
   ]);
 }
-
-/** The infrastructure instances of an app, by their class: what the next app of the test reuses. */
-export const reusedInfrastructure = (built: BuiltApplication): ReadonlyMap<Class, unknown> =>
-  new Map(
-    Object.values(built.infrastructure).map(
-      (instance: object) => [instance.constructor as Class, instance] as const,
-    ),
-  );

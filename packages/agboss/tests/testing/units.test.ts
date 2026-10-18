@@ -30,9 +30,9 @@ const free: ResolvedModelSettings = {
 const request = { input: "x", options: [{ name: "a", description: "A" }] };
 
 describe("AC12: the clock, ids and errors of a test", () => {
-  it("durations carry their unit; anything else is a setup error", () => {
+  it("durations carry their unit; anything else is a setup error", async () => {
     const clock = createTestClock("2026-01-01T00:00:00.000Z");
-    clock.advance("1.5s");
+    await clock.advance("1.5s");
 
     expect(clock.now().toISOString()).toBe("2026-01-01T00:00:01.500Z");
     expect([millisecondsOf("2d"), millisecondsOf("5m"), millisecondsOf("10ms")]).toEqual([
