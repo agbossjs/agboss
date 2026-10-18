@@ -5,7 +5,7 @@ import type { ChannelMeta } from "./meta-types.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 import type { McpServerClient, ServerTools } from "./mcp-client.js";
 import { recordComponent } from "./metadata.js";
-import type { Guardrail, PiiPolicy } from "./policy-decorators.js";
+import type { Guardrail } from "./policy-decorators.js";
 
 /**
  * The contract of a tool (`@Tool`, `@McpTool`): `implements ToolHandler<OrderQuery, OrderStatus>` — its
@@ -36,10 +36,7 @@ export interface ToolOptions<
   readonly promptUrls?: readonly string[];
   readonly channel?: Class;
   readonly timeoutMs?: number;
-  readonly piiPolicies?: readonly Class<PiiPolicy>[];
   readonly guardrails?: readonly Class<Guardrail>[];
-  readonly overridePiiPolicies?: readonly Class<PiiPolicy>[];
-  readonly disablePiiPolicies?: readonly Class<PiiPolicy>[];
   readonly overrideGuardrails?: readonly Class<Guardrail>[];
   readonly disableGuardrails?: readonly Class<Guardrail>[];
   readonly input: In;
@@ -143,7 +140,7 @@ export function Channel<const D extends readonly Token[] = []>(
   };
 }
 
-export { Guardrail, PiiPolicy, type GuardrailContext } from "./policy-decorators.js";
+export { Guardrail, type GuardrailContext } from "./policy-decorators.js";
 export {
   BindTool,
   getBoundTools,

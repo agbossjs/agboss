@@ -1,6 +1,7 @@
 import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import type { ExecutionOutput } from "./types.js";
+import type { ObservabilityMask } from "../pii/observability-mask.js";
 
 /** The full record of an execution (`{ record: true }`, #270 AC16). */
 const recordOf = (run: AgentExecutionOutput): ExecutionRecord => ({
@@ -27,4 +28,14 @@ export function runResultOf(run: AgentExecutionOutput, withRecord: boolean): Exe
     ...(run.traceUrl === undefined ? {} : { traceUrl: run.traceUrl }),
     ...(withRecord ? { record: recordOf(run) } : {}),
   };
+}
+
+/** The result with its record masked by the workflow's observability policies (#120 AC7). */
+export async function maskedRecordOf(
+  result: ExecutionOutput,
+  mask: ObservabilityMask | undefined,
+): Promise<ExecutionOutput> {
+  if (result.record === undefined || mask === undefined) return result;
+  // the mask keeps the record's shape: every string masked, nothing else changed
+  return { ...result, record: (await mask.value(result.record)) as ExecutionRecord };
 }

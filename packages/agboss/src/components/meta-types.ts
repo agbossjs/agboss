@@ -1,6 +1,6 @@
 import type { AgentsConfig } from "../config/types.js";
 import type { RagMode } from "../rag/types.js";
-import type { Guardrail, PiiPolicy } from "./policy-decorators.js";
+import type { Guardrail } from "./policy-decorators.js";
 import type { JudgeHandler } from "./judge-decorators.js";
 import type { ToolHandlerClass } from "./decorators.js";
 import type { BaseMemoryStrategy } from "../memory/types.js";
@@ -14,21 +14,27 @@ export interface RagBinding {
   readonly mode: RagMode;
 }
 
-/** The policy settings an agent or a tool may declare (`@Agent`, `@Tool`). */
+/** The guardrail settings an agent or a tool may declare (`@Agent`, `@Tool`). */
 export interface PolicyFields {
-  readonly piiPolicies?: readonly Class<PiiPolicy>[];
   readonly guardrails?: readonly Class<Guardrail>[];
-  readonly overridePiiPolicies?: readonly Class<PiiPolicy>[];
-  readonly disablePiiPolicies?: readonly Class<PiiPolicy>[];
   readonly overrideGuardrails?: readonly Class<Guardrail>[];
   readonly disableGuardrails?: readonly Class<Guardrail>[];
+}
+
+/**
+ * The PII policies an agent or a router adds to what it inherits (`@Application` → `@Workflow`),
+ * and the inherited ones it removes for its own model and tools (#120) — never for logs and traces.
+ */
+export interface PiiPolicyFields {
+  readonly piiPolicies?: readonly Class[];
+  readonly excludePiiPolicies?: readonly Class[];
 }
 
 /**
  * One agent's settings as assembly reads them (from its `@Agent` options, #272): its model, prompt,
  * tools (class references), knowledge bases, judges and memory.
  */
-export interface AgentMeta extends PolicyFields {
+export interface AgentMeta extends PolicyFields, PiiPolicyFields {
   readonly name: string;
   readonly description: string;
   readonly prompt?: string;
@@ -74,7 +80,7 @@ export interface WorkflowMeta {
   readonly source?: string;
   readonly defaults: AgentsConfig["defaults"];
   readonly guards?: AgentsConfig["guards"];
-  readonly piiPolicies?: readonly Class<PiiPolicy>[];
+  readonly piiPolicies?: readonly Class[];
   readonly guardrails?: readonly Class<Guardrail>[];
   /**
    * Conversation compaction: the built-in memory strategy summarises every `every` turns with

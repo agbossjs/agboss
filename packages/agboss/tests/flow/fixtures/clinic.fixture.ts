@@ -1,6 +1,7 @@
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Injectable, Tool, type ToolHandler } from "../../../src/components/decorators.js";
 import { ListOf, Nested, Text } from "../../../src/dto/index.js";
+import { PiiAction } from "../../../src/pii/actions.js";
 import { ApplicationContext } from "../../../src/flow/context/application-context.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { TenantContext } from "../../../src/flow/context/tenant-context.js";
@@ -32,7 +33,7 @@ export class UnitDto {
 }
 
 export class ClinicianDto {
-  @Text({ sensitive: true })
+  @Text({ sensitive: PiiAction.replaceWithKind() })
   clinicianId!: string;
 }
 

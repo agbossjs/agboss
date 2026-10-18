@@ -13,6 +13,7 @@ import {
 } from "./launch/records.js";
 import { DEFAULT_CONTEXT_VALUES, type ExecutionContextValues } from "../context/context-values.js";
 import type { OutdatedValueRecord, ScopeRecords } from "./records.js";
+import { mergeTokens, type PiiTokenMap } from "../../pii/tokens.js";
 
 /**
  * The state of one v2 execution (#272 → Runtime): the path scope (one record per slot; current values
@@ -95,6 +96,11 @@ export const ExecutionState = Annotation.Root({
   launches: Annotation<LaunchRecord[]>({ reducer: append, default: () => [] }),
   /** The approval decisions on tool calls in this execution. */
   approvals: Annotation<ApprovalRecord[]>({ reducer: append, default: () => [] }),
+  /**
+   * The PII token map (#120 S38): token → value of every `replaceWithToken()` the model boundary
+   * made — tokens are deterministic, so branches merge by key; kept by a pause, a resume and recovery.
+   */
+  piiTokens: Annotation<PiiTokenMap>({ reducer: mergeTokens, default: () => ({}) }),
 });
 
 export type ExecutionStateType = typeof ExecutionState.State;

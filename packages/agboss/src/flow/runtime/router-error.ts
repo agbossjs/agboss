@@ -56,8 +56,9 @@ export class RouterDecisionError extends RouterFailedError {
 export function routerFailureOf(
   step: RouterVisit,
   outcome: Extract<RouteOutcome, { kind: "failed" }>,
+  spent: readonly UsageRecord[] = [],
 ): RouterFailedError {
-  const usage = outcome.usage === undefined ? [] : [outcome.usage];
+  const usage = [...spent, ...(outcome.usage === undefined ? [] : [outcome.usage])];
   return outcome.cause === undefined
     ? new RouterDecisionError(step, outcome.reason, usage)
     : new RouterFailedError(step, outcome.cause, usage);

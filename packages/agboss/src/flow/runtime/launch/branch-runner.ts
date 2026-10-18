@@ -6,7 +6,7 @@ import type { UsageRecord } from "../../../finops/usage.js";
 import { runInFrame } from "../../context/frame.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import { checkVisit, isWorkingNode } from "../limits.js";
-import type { GraphNode, NodeOutcome, NodeRunner } from "../node-runner.js";
+import { recordsOf, type GraphNode, type NodeOutcome, type NodeRunner } from "../node-runner.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { startedVersionOf, stepFrameAt } from "../step-frame.js";
 import { unrecordedSpendOf, type VisitDeps } from "../visit.js";
@@ -97,7 +97,7 @@ function answeredEnd(
 ): BranchEnd {
   const usage = [...(outcome.usage ?? []), ...(marked?.usage ?? []), ...run.services];
   run.live.spent.push(...usage);
-  const update = { ...visited(run), usage, approvals: [...(outcome.approvals ?? [])] };
+  const update = { ...visited(run), ...recordsOf(outcome), usage };
   // a quorum decided while its arbiters checked the answer: cancelled, its spend kept (#279 AC12)
   if (marked !== undefined && marked.mark === undefined)
     return { status: BranchStatus.Cancelled, read: outcome.read, update };

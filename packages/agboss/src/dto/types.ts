@@ -1,3 +1,5 @@
+import type { MaskingPiiAction } from "../pii/actions.js";
+
 /**
  * DTOs (#118): data shapes as classes, one field decorator per field. The decorator says what the model
  * reads (`prompt`) and what is checked at runtime; its type says what the compiler checks.
@@ -27,8 +29,11 @@ export type ScalarKind =
 
 export type FieldKind = ScalarKind | "one-of" | "list-of" | "nested";
 
-/** A sensitive field's action. `true` for now; the actions themselves (`PiiAction`) come with #120. */
-export type Sensitivity = true | { readonly kind: string };
+/**
+ * A sensitive field's action (#120): `sensitive: PiiAction.replaceWithToken()` — a masking action
+ * only (`replaceWithKind`, `replacePart`, `replaceWithToken`); `blockWithRefusal` does not compile.
+ */
+export type Sensitivity = MaskingPiiAction;
 
 /** Options every field decorator takes. */
 export interface FieldOptions<T> {

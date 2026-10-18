@@ -325,10 +325,10 @@ export interface RequiredField<T> {
     readonly optional?: false;
 }
 
+// Warning: (ae-forgotten-export) The symbol "MaskingPiiAction" needs to be exported by the entry point index.d.ts
+//
 // @public
-export type Sensitivity = true | {
-    readonly kind: string;
-};
+export type Sensitivity = MaskingPiiAction;
 
 // Warning: (ae-forgotten-export) The symbol "TextLimits" needs to be exported by the entry point index.d.ts
 //
@@ -450,32 +450,32 @@ export class WorkflowStartTextDto {
 // src/dto/standard/domain.ts:124:3 - (ae-undocumented) Missing documentation for "title".
 // src/dto/standard/domain.ts:127:3 - (ae-undocumented) Missing documentation for "url".
 // src/dto/standard/domain.ts:130:3 - (ae-undocumented) Missing documentation for "quote".
-// src/dto/standard/framework.ts:7:3 - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts:10:3 - (ae-undocumented) Missing documentation for "author".
-// src/dto/standard/framework.ts:16:3 - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts:22:3 - (ae-undocumented) Missing documentation for "question".
-// src/dto/standard/framework.ts:29:3 - (ae-undocumented) Missing documentation for "options".
-// src/dto/standard/framework.ts:35:3 - (ae-undocumented) Missing documentation for "replyWith".
-// src/dto/standard/framework.ts:47:3 - (ae-undocumented) Missing documentation for "callId".
-// src/dto/standard/framework.ts:50:3 - (ae-undocumented) Missing documentation for "tool".
-// src/dto/standard/framework.ts:53:3 - (ae-undocumented) Missing documentation for "arguments".
-// src/dto/standard/framework.ts:56:3 - (ae-undocumented) Missing documentation for "summary".
-// src/dto/standard/framework.ts:62:3 - (ae-undocumented) Missing documentation for "approved".
-// src/dto/standard/framework.ts:65:3 - (ae-undocumented) Missing documentation for "by".
-// src/dto/standard/framework.ts:68:3 - (ae-undocumented) Missing documentation for "feedback".
-// src/dto/standard/framework.ts:71:3 - (ae-undocumented) Missing documentation for "overrideArguments".
-// src/dto/standard/framework.ts:83:3 - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts:89:3 - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts:92:3 - (ae-undocumented) Missing documentation for "source".
-// src/dto/standard/framework.ts:95:3 - (ae-undocumented) Missing documentation for "score".
-// src/dto/types.ts:37:3 - (ae-undocumented) Missing documentation for "sensitive".
-// src/dto/types.ts:38:3 - (ae-undocumented) Missing documentation for "example".
-// src/dto/types.ts:43:3 - (ae-undocumented) Missing documentation for "optional".
-// src/dto/types.ts:44:3 - (ae-undocumented) Missing documentation for "default".
-// src/dto/types.ts:49:3 - (ae-undocumented) Missing documentation for "optional".
-// src/dto/types.ts:50:3 - (ae-undocumented) Missing documentation for "default".
-// src/dto/types.ts:125:3 - (ae-undocumented) Missing documentation for "__call".
-// src/dto/types.ts:126:3 - (ae-undocumented) Missing documentation for "__call".
+// src/dto/standard/framework.ts:8:3 - (ae-undocumented) Missing documentation for "text".
+// src/dto/standard/framework.ts:15:3 - (ae-undocumented) Missing documentation for "author".
+// src/dto/standard/framework.ts:21:3 - (ae-undocumented) Missing documentation for "text".
+// src/dto/standard/framework.ts:27:3 - (ae-undocumented) Missing documentation for "question".
+// src/dto/standard/framework.ts:34:3 - (ae-undocumented) Missing documentation for "options".
+// src/dto/standard/framework.ts:40:3 - (ae-undocumented) Missing documentation for "replyWith".
+// src/dto/standard/framework.ts:52:3 - (ae-undocumented) Missing documentation for "callId".
+// src/dto/standard/framework.ts:55:3 - (ae-undocumented) Missing documentation for "tool".
+// src/dto/standard/framework.ts:58:3 - (ae-undocumented) Missing documentation for "arguments".
+// src/dto/standard/framework.ts:61:3 - (ae-undocumented) Missing documentation for "summary".
+// src/dto/standard/framework.ts:67:3 - (ae-undocumented) Missing documentation for "approved".
+// src/dto/standard/framework.ts:70:3 - (ae-undocumented) Missing documentation for "by".
+// src/dto/standard/framework.ts:73:3 - (ae-undocumented) Missing documentation for "feedback".
+// src/dto/standard/framework.ts:76:3 - (ae-undocumented) Missing documentation for "overrideArguments".
+// src/dto/standard/framework.ts:88:3 - (ae-undocumented) Missing documentation for "text".
+// src/dto/standard/framework.ts:94:3 - (ae-undocumented) Missing documentation for "text".
+// src/dto/standard/framework.ts:97:3 - (ae-undocumented) Missing documentation for "source".
+// src/dto/standard/framework.ts:100:3 - (ae-undocumented) Missing documentation for "score".
+// src/dto/types.ts:42:3 - (ae-undocumented) Missing documentation for "sensitive".
+// src/dto/types.ts:43:3 - (ae-undocumented) Missing documentation for "example".
+// src/dto/types.ts:48:3 - (ae-undocumented) Missing documentation for "optional".
+// src/dto/types.ts:49:3 - (ae-undocumented) Missing documentation for "default".
+// src/dto/types.ts:54:3 - (ae-undocumented) Missing documentation for "optional".
+// src/dto/types.ts:55:3 - (ae-undocumented) Missing documentation for "default".
+// src/dto/types.ts:130:3 - (ae-undocumented) Missing documentation for "__call".
+// src/dto/types.ts:131:3 - (ae-undocumented) Missing documentation for "__call".
 // src/flow/dto-wrappers.ts:23:3 - (ae-undocumented) Missing documentation for "kind".
 // src/flow/dto-wrappers.ts:24:3 - (ae-undocumented) Missing documentation for "variants".
 // src/flow/dto-wrappers.ts:32:3 - (ae-undocumented) Missing documentation for "kind".

@@ -140,6 +140,7 @@ const executionStateOf = (): ExecutionStateType => ({
   launch: null,
   branchRecords: [],
   launches: [],
+  piiTokens: {},
 });
 
 /** The loop's input for a task (its input message), as the agent's node hands it over. */

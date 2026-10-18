@@ -26,6 +26,8 @@ import { frameworkLogOf, type FrameworkLog } from "../infrastructure/logger.js";
 import { observerManagerOf } from "./observers.js";
 import { assemblyWarningsOf, logStart, warningText } from "./start-log.js";
 import type { ApplicationClass } from "./types.js";
+import { applicationPiiKeyOf, applicationPiiMaskOf } from "./application-pii.js";
+import { TEST_PSEUDONYM_KEY } from "../pii/application-key.js";
 
 /** An application instance with the parts it was built from (the testing toolkit reads them). */
 export interface BuiltApplication {
@@ -126,12 +128,19 @@ export async function buildApplication(
   });
   const container: ContainerOptions = { ...options.container, application: shared };
   const infrastructure = resolveInfrastructure(shared, { ...container, onCreate });
-  const log = frameworkLogOf(infrastructure.logger, clock);
+  const processEnv = options.processEnv ?? process.env;
+  const environment = options.environment ?? NO_ENVIRONMENT_VALUES;
+  // a test's instances share a fixed PII key when the application sets none (#120)
+  const fallback = seams.quiet === true ? TEST_PSEUDONYM_KEY : undefined;
+  const piiFieldKey = applicationPiiKeyOf(assembled, { environment, env: processEnv, fallback });
+  const piiParts = { processEnv, fieldKey: piiFieldKey, contexts };
+  const mask = applicationPiiMaskOf(assembled, shared, { ...container, onCreate }, piiParts);
+  const log = frameworkLogOf(infrastructure.logger, clock, (message) => mask.text(message));
   const workflows: BuiltApp[] = [];
   try {
     const observer = observerManagerOf(assembled, shared, { ...container, onCreate }, log);
     const budgets = { budgets: assembled.budgets, applicationName: assembled.name };
-    const parts = { infrastructure, created, contexts, budgets, observer };
+    const parts = { infrastructure, created, contexts, budgets, observer, piiFieldKey };
     for (const bundle of assembled.workflows) {
       workflows.push(await buildApp(bundle, { ...options, container }, parts));
     }

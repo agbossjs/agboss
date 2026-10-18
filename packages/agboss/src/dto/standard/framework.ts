@@ -1,12 +1,17 @@
 import { Decimal, Flag, ListOf, Nested, Text } from "../decorators.js";
 import { markOpen } from "../metadata.js";
+import { PiiAction } from "../../pii/actions.js";
 
 /** The text a workflow run starts with (the input of a text `@WorkflowStart`). */
 export class WorkflowStartTextDto {
   @Text({ prompt: "the text the run starts with", minLength: 1 })
   text!: string;
 
-  @Text({ prompt: "who or what sent it, if the caller knows", optional: true, sensitive: true })
+  @Text({
+    prompt: "who or what sent it, if the caller knows",
+    optional: true,
+    sensitive: PiiAction.replaceWithToken(),
+  })
   author?: string;
 }
 

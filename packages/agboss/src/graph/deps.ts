@@ -12,8 +12,9 @@ import type { LoadedRouter } from "../flow/runtime/routers.js";
 import type { LaunchDecider } from "../flow/runtime/launch/launch-decider.js";
 import type { ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
 import type { ArbiterClass } from "../flow/ast.js";
-import type { Guardrail, PiiPolicy } from "../components/decorators.js";
+import type { Guardrail } from "../components/decorators.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
+import type { PiiRuntime } from "../pii/runtime.js";
 import type { Class } from "../components/injection.js";
 import type { ResolvedPolicies } from "../workflow.js";
 import type { JudgeHandler } from "../components/judge-decorators.js";
@@ -38,10 +39,9 @@ export interface GraphDeps<TName extends string> {
   readonly pause?: PauseSeam | undefined;
   /** The channel a tool names, by its name (#267): created with the app. */
   readonly channelOf?: (channelName: string) => ChannelSender;
-  readonly piiPolicies?: (agent: string) => ResolvedPolicies<PiiPolicy>;
-  readonly toolPiiPolicies?: (tool: string) => ResolvedPolicies<PiiPolicy>;
+  /** The PII policies at each agent's and router's model (#120); absent = none. */
+  readonly pii?: PiiRuntime;
   readonly toolGuardrails?: (tool: string) => ResolvedPolicies<Guardrail>;
-  readonly workflowPiiPolicies?: readonly PiiPolicy[];
   readonly workflowGuardrails?: readonly Guardrail[];
   readonly guardrails?: (agent: string) => ResolvedPolicies<Guardrail>;
   /** The workflow's graph: its paths, analysed (`@Workflow({ flow })`). */

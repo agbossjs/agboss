@@ -34,6 +34,7 @@ import { mcpServersOf, usedComponentsOf } from "./workflow-parts.js";
 import { reusableInfrastructure } from "../infrastructure/contracts.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { createVcrGateway, type VcrConfig } from "./vcr.js";
+import { piiScriptKeyOf, testPseudonymKeys } from "./pii-parts.js";
 
 /**
  * What `testWith` takes besides the application. `env` names the environment (default `test`: a
@@ -131,7 +132,7 @@ export class TestEnvironment {
     const labels = new Map([...this.#servers].map(([cls, name]) => [name, cls.name] as const));
     const [first] = workflows;
     this.#options = {
-      processEnv: testEnv(),
+      processEnv: { ...testEnv(), ...testPseudonymKeys(assembled, testEnv()) },
       ...environment,
       gateway:
         options.vcr && first !== undefined
@@ -192,7 +193,7 @@ export class TestEnvironment {
 
   mockLlm(target: ModelTarget): ModelScript {
     const label = target.name;
-    const judge = judgeScriptKeyOf(target, this.#judges) ?? this.#arbiterKeyOf(target);
+    const judge = judgeScriptKeyOf(target, this.#judges) ?? this.#modelComponentKeyOf(target);
     if (judge !== undefined) {
       this.book.name(judge, label);
       return this.book.scriptOf(judge);
@@ -211,10 +212,15 @@ export class TestEnvironment {
     return this.book.scriptOf(key);
   }
 
-  /** The script key of a model arbiter of the application (#279); none for anything else. */
-  #arbiterKeyOf(target: ModelTarget): string | undefined {
+  /**
+   * The script key of a model arbiter (#279) or a PII policy's model detection (#120) of the
+   * application; none for anything else.
+   */
+  #modelComponentKeyOf(target: ModelTarget): string | undefined {
     const options = this.#arbiters.has(target) ? arbiterOf(target)?.options : undefined;
-    return options === undefined || isCodeArbiter(options) ? undefined : arbiterKeyOf(options.name);
+    return options === undefined || isCodeArbiter(options)
+      ? piiScriptKeyOf(target, this.assembled)
+      : arbiterKeyOf(options.name);
   }
 
   mockOf<T>(cls: Class<T>): Mocked<T> {

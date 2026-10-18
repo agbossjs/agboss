@@ -1,5 +1,5 @@
 import type { AssembledWorkflow, ResolvedPolicies, WorkflowServices } from "../workflow.js";
-import type { Guardrail, PiiPolicy } from "./decorators.js";
+import type { Guardrail } from "./decorators.js";
 import type { Class } from "./injection.js";
 import { componentOf } from "./metadata.js";
 import type { AgentMeta, PolicyFields, WorkflowMeta } from "./meta-types.js";
@@ -12,26 +12,11 @@ interface PolicyClasses {
   readonly disable: readonly Class[];
 }
 
-/** Policy classes by agent name and by tool name. */
+/** Guardrail classes by agent name and by tool name. */
 export interface PolicyMaps {
-  readonly agentPii: ReadonlyMap<string, PolicyClasses>;
   readonly agentGuardrails: ReadonlyMap<string, PolicyClasses>;
-  readonly toolPii: ReadonlyMap<string, PolicyClasses>;
   readonly toolGuardrails: ReadonlyMap<string, PolicyClasses>;
 }
-
-const piiClassesOf = (fields: PolicyFields): PolicyClasses =>
-  fields.overridePiiPolicies
-    ? {
-        override: true,
-        classes: fields.overridePiiPolicies,
-        disable: fields.disablePiiPolicies ?? [],
-      }
-    : {
-        override: false,
-        classes: fields.piiPolicies ?? [],
-        disable: fields.disablePiiPolicies ?? [],
-      };
 
 const guardrailClassesOf = (fields: PolicyFields): PolicyClasses =>
   fields.overrideGuardrails
@@ -52,7 +37,7 @@ function toolPolicyFields(cls: Class): PolicyFields {
   return component?.kind === "tool" ? component.meta : {};
 }
 
-/** The policy classes of every agent and every local tool (tools by their tool name). */
+/** The guardrail classes of every agent and every local tool (tools by their tool name). */
 export function policyMapsOf(
   agents: readonly AgentMeta[],
   localTools: readonly Class[],
@@ -60,9 +45,7 @@ export function policyMapsOf(
 ): PolicyMaps {
   const toolName = (cls: Class): string => names.get(cls) ?? cls.name;
   return {
-    agentPii: new Map(agents.map((a) => [a.name, piiClassesOf(a)])),
     agentGuardrails: new Map(agents.map((a) => [a.name, guardrailClassesOf(a)])),
-    toolPii: new Map(localTools.map((t) => [toolName(t), piiClassesOf(toolPolicyFields(t))])),
     toolGuardrails: new Map(
       localTools.map((t) => [toolName(t), guardrailClassesOf(toolPolicyFields(t))]),
     ),
@@ -88,30 +71,19 @@ function resolvePolicies<TPolicy>(
 /** The parts of a workflow whose instances come from its container (per `services`). */
 export type ContainerParts = Pick<
   AssembledWorkflow,
-  | "resolve"
-  | "piiPolicies"
-  | "guardrails"
-  | "toolPiiPolicies"
-  | "toolGuardrails"
-  | "workflowPiiPolicies"
-  | "workflowGuardrails"
+  "resolve" | "guardrails" | "toolGuardrails" | "workflowGuardrails"
 >;
 
-/** The policies of a workflow, created by its container. */
+/** The guardrails of a workflow, created by its container. */
 export function containerPartsOf(bundle: WorkflowMeta, policies: PolicyMaps): ContainerParts {
   const get = (services: WorkflowServices, cls: Class): unknown =>
     containerFor(bundle, services).get(cls);
-  const pii = (services: WorkflowServices) => (cls: Class) => get(services, cls) as PiiPolicy;
   const guardrail = (services: WorkflowServices) => (cls: Class) => get(services, cls) as Guardrail;
-  const wfPii = bundle.piiPolicies ?? [];
   const wfGuardrails = bundle.guardrails ?? [];
   return {
     resolve: (services) => (cls) => get(services, cls),
-    piiPolicies: (services) => resolvePolicies(policies.agentPii, pii(services)),
     guardrails: (services) => resolvePolicies(policies.agentGuardrails, guardrail(services)),
-    toolPiiPolicies: (services) => resolvePolicies(policies.toolPii, pii(services)),
     toolGuardrails: (services) => resolvePolicies(policies.toolGuardrails, guardrail(services)),
-    workflowPiiPolicies: (services) => wfPii.map(pii(services)),
     workflowGuardrails: (services) => wfGuardrails.map(guardrail(services)),
   };
 }

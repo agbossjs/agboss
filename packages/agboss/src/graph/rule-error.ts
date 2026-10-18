@@ -108,7 +108,14 @@ export type RuleCode =
   | "channel.wrong-tool"
   | "channel.shared-interpreter"
   | "di.missing-implementation"
-  | "di.ambiguous-implementation";
+  | "di.ambiguous-implementation"
+  // PII policies (#120 PR 1), reported at each workflow's assembly
+  | "pii.not-a-policy"
+  | "pii.exclude-not-inherited"
+  | "pii.conflicting-rules"
+  | "pii.missing-refusal"
+  | "pii.unused-refusal"
+  | "pii.kind-needs-model";
 
 /** One broken rule: its code, what is wrong, and the nodes (classes) involved. */
 export interface RuleViolation {

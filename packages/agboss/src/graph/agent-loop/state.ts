@@ -4,6 +4,8 @@ import type { UsageRecord } from "../../finops/usage.js";
 import type { AgentAnswer } from "../../flow/runtime/answer-tools.js";
 import type { HistoryTurn } from "../../flow/runtime/history.js";
 import type { ApprovalRecord } from "../../pause/index.js";
+import type { SensitiveValue } from "../../pii/policy-set.js";
+import { mergeTokens, type PiiTokenMap } from "../../pii/tokens.js";
 
 const append = <TItem>(left: readonly TItem[], right: readonly TItem[]): TItem[] => [
   ...left,
@@ -74,6 +76,12 @@ export const AgentLoopState = Annotation.Root({
   retries: Annotation<number>({ reducer: add, default: () => 0 }),
   /** Invalid answers so far (S9: 2 retries, then `AgentAnswerInvalidError`). */
   invalidAnswers: Annotation<number>({ reducer: add, default: () => 0 }),
+  /** The execution's PII tokens (#120 S38): handed in, every new one added by key. */
+  piiTokens: Annotation<PiiTokenMap>({ reducer: mergeTokens, default: () => ({}) }),
+  /** Texts this loop already masked for its model, by role and hash (`maskCacheKey`, #120). */
+  piiMasked: Annotation<Readonly<Record<string, string>>>({ reducer: merge, default: () => ({}) }),
+  /** The execution's sensitive context values (#120 AC13), masked wherever they appear. */
+  piiValues: Annotation<readonly SensitiveValue[]>({ reducer: replace, default: () => [] }),
 });
 
 export type AgentLoopStateType = typeof AgentLoopState.State;

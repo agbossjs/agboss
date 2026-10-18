@@ -7,7 +7,6 @@ import { JudgePoint, visitToolThenAgent, mergePolicies } from "./judge-points.js
 import { extractRunContext } from "../../core/run-context.js";
 import { redactedArguments } from "../../dto/redact.js";
 import { inToolCallFrame } from "../../flow/context/frame.js";
-import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import type { AnyTool } from "../../tools/index.js";
 
 /** One sentence on what the call will do (the ask's `summary`), `sensitive` fields masked. */
@@ -31,9 +30,7 @@ export function makeApprovalNode(
   };
 }
 
-// eslint-disable-next-line max-lines-per-function
 function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
-  // eslint-disable-next-line max-lines-per-function, complexity
   return async (state, config) => {
     const runCtx = extractRunContext(config, state.runId);
     const [call] = awaitingApproval(state, deps);
@@ -54,49 +51,19 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
       deps.agent.name,
       tool,
     );
-    let feedback = decision.feedback;
-    let overrideArgs = decision.overrideArguments;
-    const combinedPii = mergePolicies(
-      deps.workflowPiiPolicies,
-      deps.piiPolicies,
-      deps.toolPiiPolicies?.(call.tool),
-    );
-
-    for (const policy of combinedPii) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/prefer-nullish-coalescing
-      const pName: string = policy.constructor.name || "UnknownPiiPolicy";
-      const input = { feedback, overrideArgs };
-      await reportNodeEvent((base) =>
-        deps.observer?.onPiiPolicyStart({ ...base, name: pName, input }),
-      );
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (feedback !== undefined && typeof policy.mask === "function") {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        feedback = await policy.mask(feedback);
-      }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (overrideArgs !== undefined && typeof policy.maskJson === "function") {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        overrideArgs = await policy.maskJson(overrideArgs);
-      }
-      const update = { feedback, overrideArgs };
-      await reportNodeEvent((base) =>
-        deps.observer?.onPiiPolicyEnd({ ...base, name: pName, update }),
-      );
-    }
-
+    // what the approver decided goes on as it is: the model boundary masks the feedback (#120)
     const recorded =
-      feedback === undefined
+      decision.feedback === undefined
         ? {
             approved: decision.approved,
             by: decision.by,
-            overrideArguments: overrideArgs,
+            overrideArguments: decision.overrideArguments,
           }
         : {
             approved: decision.approved,
             by: decision.by,
-            feedback: feedback,
-            overrideArguments: overrideArgs,
+            feedback: decision.feedback,
+            overrideArguments: decision.overrideArguments,
           };
     const combinedGuardrails = mergePolicies(
       deps.workflowGuardrails,

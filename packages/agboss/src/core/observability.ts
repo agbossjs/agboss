@@ -73,14 +73,6 @@ export type GuardrailStartEvent = StartEvent<GuardrailInput>;
 /** A guardrail ran: `update` is what it returned (a verdict, overrides, or nothing). */
 export type GuardrailEndEvent = EndEvent<unknown>;
 
-/** The human's feedback and argument overrides, before and after a PII policy masked them. */
-export interface PiiPolicyPayload {
-  readonly feedback?: string;
-  readonly overrideArgs?: unknown;
-}
-export type PiiPolicyStartEvent = StartEvent<PiiPolicyPayload>;
-export type PiiPolicyEndEvent = EndEvent<PiiPolicyPayload>;
-
 /** An `@Action` starts with its input fields (`Produced` values). */
 export type ActionStartEvent = StartEvent<Readonly<Record<string, unknown>>>;
 /** An action finished: `update` is what its `execute` returned. */

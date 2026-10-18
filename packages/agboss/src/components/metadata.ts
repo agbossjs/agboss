@@ -50,9 +50,10 @@ export type ComponentMeta =
         readonly deps: readonly Token[];
       };
     }
+  /** `@PiiPolicy` (#120): declarative rules, or a project's own detector. */
   | {
       readonly kind: "pii-policy";
-      readonly meta: { readonly name: string; readonly deps: readonly Token[] };
+      readonly meta: import("../pii/pii-policy.decorator.js").PiiPolicyMeta;
     }
   | {
       readonly kind: "guardrail";

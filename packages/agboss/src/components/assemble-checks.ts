@@ -50,21 +50,22 @@ export const toolNames = (tools: ToolClasses, rags: readonly Class[]): Map<Class
 const providerClassesOf = (bundle: WorkflowMeta): readonly Class[] =>
   (bundle.providers ?? []).flatMap((p) => ("provide" in p ? [] : [p]));
 
-/** The policy classes (PII policies, guardrails) an agent or a tool declares. */
+/** The guardrail classes an agent or a tool declares. */
 const policyClassesOf = (fields: PolicyFields): readonly Class[] => [
-  ...(fields.piiPolicies ?? []),
   ...(fields.guardrails ?? []),
-  ...(fields.overridePiiPolicies ?? []),
   ...(fields.overrideGuardrails ?? []),
 ];
 
-/** Every class the container creates for the workflow, for the dependency graph check. */
+/**
+ * Every class the container creates for the workflow, for the dependency graph check; `created` =
+ * its code nodes and its PII policies (#120).
+ */
 export const componentClassesOf = (
   bundle: WorkflowMeta,
   agents: readonly AgentMeta[],
   tools: ToolClasses,
   rags: readonly Class[],
-  codeNodes: readonly Class[],
+  created: readonly Class[],
   modules: readonly ProviderModule[],
 ): Class[] => [
   ...tools.local,
@@ -73,9 +74,8 @@ export const componentClassesOf = (
     policyClassesOf(requireComponent(cls, "tool", "workflowOf").meta),
   ),
   ...rags,
-  ...codeNodes,
+  ...created,
   ...(bundle.guardrails ?? []),
-  ...(bundle.piiPolicies ?? []),
   ...channelComponentClassesOf(tools, modules),
   ...agents.flatMap(policyClassesOf),
   ...agents.flatMap((a) => a.judges ?? []),
@@ -101,7 +101,10 @@ export function checkProviderClasses(bundle: WorkflowMeta): void {
   }
 }
 
-/** Each agent's prompt, read and checked, with the workflow's and the agent's own `{{variables}}`. */
+/**
+ * Each agent's prompt, read and checked, with the workflow's and the agent's own `{{variables}}`;
+ * every prompt problem the loader saw (the routers' too) fails here, all at once.
+ */
 export const promptsOf = async (
   agents: readonly AgentMeta[],
   loader: PromptLoader,
@@ -117,5 +120,6 @@ export const promptsOf = async (
       return [agent.name, prompt] as const;
     }),
   );
+  loader.throwIfAny();
   return Object.fromEntries(prompts);
 };

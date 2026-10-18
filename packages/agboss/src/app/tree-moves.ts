@@ -13,7 +13,7 @@ import { LeasedCheckpointSaver } from "./leased-checkpointer.js";
 import { isHandedOver } from "./handed-over.js";
 import type { LiveRuns, TreeCall } from "./live-runs.js";
 import type { PausedRunBook } from "./paused-runs.js";
-import { runResultOf } from "./result.js";
+import { maskedRecordOf, runResultOf } from "./result.js";
 import { executionEventAt, observeLeg, type ObservedExecution } from "./run-events.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 
@@ -186,7 +186,7 @@ class TreeMover implements TreeMoves {
         pass(moving, signal),
       );
       await paused.settle(run);
-      return runResultOf(run, call.record === true);
+      return maskedRecordOf(runResultOf(run, call.record === true), deps.pii?.observability);
     });
   }
 

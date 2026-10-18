@@ -65,6 +65,20 @@ export interface ApplicationOptions {
    */
   readonly executionContext?: ExecutionContextClass;
   /**
+   * The PII policies of every agent and router of every workflow (#120): `@PiiPolicy` classes. Lists
+   * add up — a workflow's and an element's own come on top, `excludePiiPolicies` removes one for an
+   * agent's or a router's model and tools; logs and traces are always masked by them.
+   */
+  readonly piiPolicies?: readonly Class[];
+  /**
+   * The application's PII key (#120): names a `Secret` field of the environment
+   * (`pseudonymKey: "piiPseudonymKey"` with `piiPseudonymKey: secret("PII_PSEUDONYM_KEY")`). Tokens of
+   * `sensitive` fields, of a project's own detectors and of any policy without its own
+   * `pseudonymKey` are made with it, so one value is one token on every instance. A policy's own key
+   * wins; a policy that needs this one when it is not set fails the start, naming the field.
+   */
+  readonly pseudonymKey?: string;
+  /**
    * Defaults of every workflow (#261): merged field by field under each workflow's own `defaults`
    * — the most specific level that sets a field wins (component over workflow over application).
    */

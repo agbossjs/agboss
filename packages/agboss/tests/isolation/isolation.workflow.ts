@@ -5,6 +5,7 @@ import {
   Workflow,
   WorkflowSettings,
   type WorkflowDefinition,
+  PiiAction,
   Tool,
   type ToolHandler,
 } from "../../src/index.js";
@@ -30,7 +31,7 @@ class PayRequest {
   @Text({ prompt: "the order id" })
   orderId!: string;
 
-  @Text({ prompt: "the card number", sensitive: true })
+  @Text({ prompt: "the card number", sensitive: PiiAction.replacePart({ keepLast: 4 }) })
   cardNumber!: string;
 }
 

@@ -14,6 +14,7 @@ const KEPT = [
   "judges",
   "guardrails",
   "piiPolicies",
+  "excludePiiPolicies",
   "routes",
   "flow",
   "providers",

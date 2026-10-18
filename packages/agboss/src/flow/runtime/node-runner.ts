@@ -1,6 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { UsageRecord } from "../../finops/usage.js";
 import type { ApprovalRecord } from "../../pause/index.js";
+import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { NodeValue } from "./scope.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 
@@ -21,6 +22,8 @@ export interface NodeOutcome {
   readonly read: readonly string[];
   readonly usage?: readonly UsageRecord[];
   readonly approvals?: readonly ApprovalRecord[];
+  /** The PII tokens its model boundary made (#120): added to the execution's by key. */
+  readonly piiTokens?: PiiTokenMap;
 }
 
 /** Runs one node: an agent's loop, a router's decision, an action's or a finish's handler, … */
@@ -34,3 +37,16 @@ export type GraphNode = (
   state: ExecutionStateType,
   config?: RunnableConfig,
 ) => Promise<ExecutionStateUpdate>;
+
+/** What a visit adds to the execution's appended channels: its spend, decisions and PII tokens. */
+export interface VisitRecords {
+  readonly usage: UsageRecord[];
+  readonly approvals: ApprovalRecord[];
+  readonly piiTokens: PiiTokenMap;
+}
+
+export const recordsOf = (outcome: NodeOutcome): VisitRecords => ({
+  usage: [...(outcome.usage ?? [])],
+  approvals: [...(outcome.approvals ?? [])],
+  piiTokens: outcome.piiTokens ?? {},
+});

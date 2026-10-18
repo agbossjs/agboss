@@ -1,7 +1,7 @@
 import { callerFile } from "../../components/call-site.js";
 import type { Class, Provider } from "../../components/injection.js";
 import type { AgentMeta } from "../../components/meta-types.js";
-import type { Guardrail, PiiPolicy } from "../../components/policy-decorators.js";
+import type { Guardrail } from "../../components/policy-decorators.js";
 import type { Price } from "../../config/types.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import { NodeKind, type FlowPath } from "../ast.js";
@@ -105,7 +105,8 @@ export interface WorkflowOptions {
   /** `@McpServer` classes its `@McpTool`s call. */
   readonly mcp?: readonly Class[];
   readonly guards?: GuardsOptions;
-  readonly piiPolicies?: readonly Class<PiiPolicy>[];
+  /** `@PiiPolicy` classes of every agent and router, over the application's (#120: lists add up). */
+  readonly piiPolicies?: readonly Class[];
   readonly guardrails?: readonly Class<Guardrail>[];
   readonly compaction?: CompactionOptions;
   readonly compactionPrompt?: string;
