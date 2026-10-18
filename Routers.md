@@ -293,7 +293,7 @@ router decides only the `OnDemand` ones — and `failure: FailurePolicy.FailFast
 A model router's `OnDemand` route needs its `prompt`; an `Always` route has none (it is never shown
 to the model).
 
-- They apply only before `.toParallelAgents(…)` (#273, not built yet). With `.chooseOne(…)` every
+- They apply only before `.toParallelAgents(…)` (#273). With `.chooseOne(…)` every
   route is a choice — `Route<Self>` is every target — and an explicit `spawn` or `failure` fails
   assembly with `[router.policy-with-choose-one]`.
 - Before a launch `Route<Self>` leaves the `Always` targets out (by the kind's default too), and
@@ -302,7 +302,9 @@ to the model).
 - After `.toParallelAgents(…)` a code router's `route()` returns a list of the `OnDemand` targets
   to launch: `readonly Route<Self>[]` with an `Always` route, a non-empty
   `readonly [Route<Self>, ...Route<Self>[]]` without one — so `return []` compiles only with an
-  `Always` route (the generated `RouterAnswers` table; the launch itself comes with #273).
+  `Always` route (the generated `RouterAnswers` table). At run time the framework launches the
+  `Always` targets and what `route()` returns; how a model router decides its `OnDemand` routes —
+  one call, a yes/no per route — is in [Routing patterns](Advanced-Routing#6-a-router-decides-who-is-launched).
 
 ## Errors
 

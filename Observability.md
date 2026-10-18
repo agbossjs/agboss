@@ -1,7 +1,7 @@
 # Observability
 
 Observers see a run's events: workflow, agent, router, tool, model, knowledge base, guardrail, PII
-policy, action, channel and judge start / end, outdated values, and errors. They are registered, not discovered: only
+policy, action, channel and judge start / end, outdated values, truncated launches, and errors. They are registered, not discovered: only
 classes listed in `@Workflow({ observers: [...] })` are called. Tracing to Langfuse is built in
 ([Tracing](Tracing)); observers are for everything else (metrics, your own tracer, audit).
 
@@ -26,6 +26,7 @@ Each hook is its own interface with a typed payload (root entry `agboss`):
 | `OnError`                               | the `Error` and `AppState`                                      |
 | `OnRunRejected`                         | `RunRejectedEvent` (operation, threadId?, code, message)        |
 | `OnValuesOutdated`                      | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values)) |
+| `OnLaunchItemsTruncated`                | `LaunchItemsTruncatedEvent` (step, launch, items, maxItems — [below](#parallel-launches)) |
 
 Every event carries the run's `state` (`AppState`: `runId`, `threadId`, `activeNode`, …) for
 correlation: one `runId` for the whole run (its resumes included) and the conversation's real
@@ -107,6 +108,35 @@ export class OutdatingAudit implements OnValuesOutdated {
 
 The trace gets the same cascade as one "values outdated" entry under the step, with a sentence per
 value (`DraftDto#1 outdated: replaced by DraftDto#2 from writer-agent`).
+
+## Parallel launches
+
+A branch of a launch (#273) is named by its copy id in every event and trace: the second copy of
+a repeated agent is `critic-agent#2` in `onAgentStart` / `onAgentEnd` (`name`, `state.activeNode`),
+in `result.path` and in `executionContext.step.nodeId`; a target listed once keeps its `name`, and
+a per-item run its node's `name` with its `step.itemIndex`. Each branch adds one trace entry when it
+ends, named `critic-agent#2` or `company-check-agent[3]` (its item's index), with its launch id,
+`copyNumber`, `itemIndex` and `status` (`BranchStatus`, and the error's code and message when it
+failed, was skipped or cancelled); a model router's launch decision adds a "launch decision" entry
+with every route's P(yes).
+
+A per-item launch whose list is longer than its `maxItems` launches the first `maxItems` items and
+drops the rest — never an error. It emits **one** `onLaunchItemsTruncated` and a trace entry "launch
+items truncated"; `LaunchItemsTruncatedEvent` carries the execution's fields (`executionId`,
+`threadId`, `workflow`, …), the launching `step`, the `launch` id
+(`${executionId}:${nodeId}:${visitNumber}`, the same as in `result.launches`), how many `items` the
+list had and the `maxItems` that were taken. No item values.
+
+```ts
+import { Injectable, type LaunchItemsTruncatedEvent, type OnLaunchItemsTruncated } from "agboss";
+
+@Injectable()
+export class LaunchAudit implements OnLaunchItemsTruncated {
+  onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent) {
+    console.warn(`${event.step.nodeId} found ${String(event.items)}, ran ${String(event.maxItems)}`);
+  }
+}
+```
 
 ## Registering an observer
 

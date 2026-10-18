@@ -340,13 +340,20 @@ export class SupportRouter {}
 | Agents only | a router launches agents: `.toParallelActions(…)` after a router does not compile |
 | Policies live in the router | with `.chooseOne(…)` they are `[router.policy-with-choose-one]`; a launch from an agent, a start or an action has none (all `Always` + `FailFast`) |
 
-The `OnDemand` decision (one yes/no question per route) and `Skip` at run time come with #273 PR 2.
+At run time (#273 PR 2, S21, S23):
+
+| | |
+| --- | --- |
+| A model router decides in one call | one independent yes/no question per `OnDemand` route, its text the route's `prompt`, keyed by the target's `name` in the order of `routes`; the router's own `prompt` leads the state it decides on. A decision model (Jev) answers one `decide` with a `Decision.noul` per route; a chat model one answer tool (`answer-launch`) with a boolean field per route. A route is launched when its answer is yes — P(yes) above 0.5, no threshold setting; every probability goes into the trace ("launch decision"). `Always` routes are never shown to the model |
+| All no | with an `Always` route only the `Always` targets run; with none, nothing would run → `RouterDecisionError` (`step.router.invalid-decision`), as for a code router's empty list |
+| A code router | `route(input)` returns the `OnDemand` targets to launch, as a list; one class, a target outside its `OnDemand` routes (an `Always` one included) or `[]` without an `Always` route → `RouterDecisionError` |
+| `FailurePolicy.Skip` | drops only the branch's own step failure — `error instanceof StepFailedError` (`AgentFailedError`, `AgentAnswerInvalidError`, `QualityGateError`, …): the branch ends `BranchStatus.Skipped`, its error stays in `result.launches`, its siblings go on and its value is absent (`optional`). A limit (`maxSteps`, `maxVisits`, a budget) in a `Skip` branch fails the launch like `FailFast`; a cancel of the execution stops it whole (`WorkflowCancelledError`). `.onJoinError(StepFailedError, …)` takes exactly what `Skip` drops: `StepFailedError` has its own code, `step.failed` |
+| In a test | script the router's decision like a decision model's, by target name: `mockLlm(SupportRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9 }))` — also for a chat-model router (P(yes) above 0.5 is `true`) ([Testing](Testing)) |
 
 ## Not in the core yet
 
 | Pattern | Issue |
 | --- | --- |
-| Launches at run time — the `OnDemand` decisions, `Skip`, `maxConcurrency`, truncation at `maxItems` (the grammar and the analyser are in, [pattern 6](#6-a-router-decides-who-is-launched)) | #273 PR 2 |
 | Quorum joins (`.joinQuorum(…)`), groups | #279 |
 | Child workflows (`.toWorkflow(W)`, `caseOf` per child finish) | #263 |
 

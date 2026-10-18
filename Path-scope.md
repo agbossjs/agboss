@@ -343,6 +343,14 @@ planner-agent → toParallelAgents(researcher-agent, replanner-agent)
 A per-item launch and the copies of one agent never trigger it: their join writes one list slot
 (`listOf(PlanDto)` is not `PlanDto`), which no branch read.
 
+At run time (#273 PR 2) the branches write nothing into the scope: each ends with an outcome
+record, and the join writes every value at once — one outdating cascade — so siblings never outdate
+each other, as the analysis says. A single value keeps its branch's id (`refund-policy-agent:1/RefundPolicyDto`);
+a list the launching step's (`planner-agent:1/list:CritiqueDto`), its elements in listed / item order
+and, when several agents gave it, each element with its own `producer` (`elementProducers` in the
+record). Each value is built from what its branches read; a per-item run's item has its list's
+`valueId`, so its result is built from the list.
+
 ## Rules
 
 Checked at assembly, all at once (`GraphRuleError`), each message naming the shortest path that

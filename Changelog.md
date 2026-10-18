@@ -3,6 +3,43 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — parallel launches at run time (#273, PR 2)
+
+- **Launches run** ([Workflow → Parallel launches at run time](Workflow#parallel-launches-at-run-time)):
+  each branch is one LangGraph `Send` of one superstep, `maxConcurrency` a sliding window (a paused
+  branch frees its slot), the join a node of its own reading only its launch's outcome records
+  (launch id `${executionId}:${nodeId}:${visitNumber}`); the join's lists keep listed / item order.
+  `flow.launch-not-runnable` is gone.
+- **New: `StepFailedError`** (`step.failed`, #273 S22; lineage e.g. `[step.agent, step.failed, step]`) — a step's own failure, naming it: `component`,
+  `nodeId` (`critic-agent#2` for a copy), `visitNumber`, `itemIndex`; `StepCoordinates`.
+  **Breaking (class hierarchy)** — `AgentFailedError`, `GuardFailedError`, `RouterFailedError`
+  (with `RouterDecisionError`) and `ActionFailedError` extend it instead of `PaidStepError`
+  directly (still `PaidStepError`s); `AgentAnswerInvalidError`'s and `ActionFailedError`'s
+  `component` / `nodeId` come from it, and every step error's record `details` now carries
+  `visitNumber` (and `itemIndex` in a per-item run).
+- **`FailFast` and `Skip`** (S21): a failed branch aborts its siblings (`BranchStatus.Cancelled`, their
+  spend counted) and the join takes the most specific `.onJoinError(E, …)` by class and cause chain,
+  else the execution fails with the branch's error; `FailurePolicy.Skip` drops only a
+  `StepFailedError` — a limit in a `Skip` branch fails the launch; `app.cancel` during a launch
+  cancels the whole execution (`WorkflowCancelledError`), never routed by the join.
+- **One visit per launch**: every copy and item of a launch is the same visit of its node (the
+  launch's `visitNumber`, told apart by `copyNumber` / `itemIndex`); `maxVisits` counts launches.
+- **Router launches** (S23, #280 S47 f): a model router decides its `OnDemand` routes in one call —
+  a `Decision.noul` per route on a decision model, one answer tool `answer-launch` with a boolean per
+  route on a chat model; all no without an `Always` route → `RouterDecisionError`. A code router's
+  `route()` list is launched beside its `Always` targets. Tests script both with
+  `decideWith({ "<target>": P(yes) })` ([Testing → Parallel launches](Testing#parallel-launches)).
+- **New: `result.launches`** (`ExecutionOutput.launches: LaunchRecord[]` — `launch`, `items`,
+  `taken`, `branches: BranchRecord[]`), `BranchStatus`, and the hook `onLaunchItemsTruncated`
+  (`OnLaunchItemsTruncated`, `LaunchItemsTruncatedEvent`) when a per-item launch dropped items past
+  `maxItems` ([Observability → Parallel launches](Observability#parallel-launches)); a trace entry per
+  ended branch (`critic-agent#2`, `company-check-agent[3]`), "launch items truncated" and "launch
+  decision". Agent and action events name a copy by its copy id; `toFollowPath` takes the class for
+  a copy. A list a join gathered from several agents names each element's producer
+  (`ScopeValueRecord.elementProducers`).
+- **Example**: `examples/flow-patterns/src/review/` — a section reviewer per section, a mapping
+  action, then a style critic beside two fact checker copies.
+
 ## Unreleased — the SQLite implementations (#265, PR 3)
 
 - **Every storage contract has a ready SQLite implementation**, enabled only by listing it in
@@ -46,8 +83,8 @@ Breaking changes and notable additions, newest first. The API reports
   `RouterAnswerOf<Self>` is a list when a launch follows it.
 - `agboss describe` prints launches and joins; the steps checks count the copies that always run;
   the worst case of one call of each start is computed with the analysis.
-- **Not run yet**: a workflow with a launch passes `agboss check`, but `createApp` stops with
-  `flow.launch-not-runnable` until #273 PR 2.
+- **Not run yet**: a workflow with a launch passed `agboss check`, but `createApp` stopped with
+  `flow.launch-not-runnable` until #273 PR 2 (above).
 
 ## Unreleased — environments and defaults (#261, PR 4)
 

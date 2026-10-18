@@ -207,6 +207,31 @@ mockLlm(Reviewer).thenReturn(failWith(ModelFailure.Timeout));
 - `routeTo(X)` for a node that is not among the router's routes fails with `test.not-a-route`; an
   agent scripted with `routeTo` or a router with `replyWith` fails with `test.wrong-script`.
 
+### Parallel launches
+
+A router before `.toParallelAgents(…)` (#273) decides its `OnDemand` routes with one yes/no per
+route: script it with `decideWith`, P(yes) per target `name` — on a decision model and on a chat
+model alike (for a chat model, above 0.5 is `true` in its answer tool):
+
+<!-- snippet-context
+import { decideWith, testWith } from "agboss/testing";
+import { JobScoutApplication, MainRouter } from "./job-scout.js";
+testWith(JobScoutApplication)("launch decisions", ({ mockLlm }) => {
+// @snippet
+});
+-->
+
+```ts
+mockLlm(MainRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9, "loyalty-agent": 0.1 }));
+```
+
+Branches run at once, so the copies of one agent (and the runs of a per-item launch) take their
+turns in the order they call their model — not by copy or item. When a reply must fit the item,
+answer by the request with `.thenAnswer(…)` (below). The join's values keep listed / item order
+whatever order the branches answered in; assert on `result.launches` (`items`, `taken`, each
+branch's `status`) and on `result.path`, where a copy is `critic-agent#2` — `toFollowPath` takes
+the class for each copy (`[…, CriticAgent, CriticAgent, …]`).
+
 ### What a component sent its model
 
 `mockLlm(X).requests` (every request, in order), `.onlyRequest` (fails unless exactly one),
@@ -252,7 +277,7 @@ One component of the real app on its own:
 
 | Matcher                                          | On                       | Passes when                                          |
 | -------------------------------------------------- | ---------------------------- | ------------------------------------------------------- |
-| `toFollowPath([Start, Router, Agent, …])`           | a run result             | the visited nodes are exactly these, in order (node ids are the components' names) |
+| `toFollowPath([Start, Router, Agent, …])`           | a run result             | the visited nodes are exactly these, in order (node ids are the components' names; a launch's copy `critic-agent#2` is its class) |
 | `toFinishWith(Finish, data?)`                    | a run result             | it finished there (with that output)                 |
 | `toHavePausedAt(Agent)`                          | a run result             | it waits for a human in that agent                   |
 | `toFailWith({ code?, node? })`                   | an error (`.rejects`)    | a code along its causes (`step.router`, `limits.perDay.cost`, `graph.dead-end`, `test.…`) and the node it names |

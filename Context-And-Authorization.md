@@ -24,7 +24,8 @@ actions and judges get only their input.
 | `executionOf(W)`          | the nearest execution of workflow `W` in the chain (this one included), else `undefined` |
 | `itemIndex`               | the index of a child launched per item (#263); `undefined` otherwise                     |
 
-`step`: `component` (`{ type, name }`), `nodeId` (the node's id in `result.path` and traces),
+`step`: `component` (`{ type, name }`), `nodeId` (the node's id in `result.path` and traces —
+`critic-agent#2` for the second copy of a repeated target of a launch),
 `visitNumber` (the pass through this node, from 1 — the counter `maxVisits` checks), `callId` (the
 model's tool-call id while a tool call runs, else `undefined`), `itemIndex` (per-item launches,
 #273), `copyNumber` (from 1, #273) and `idempotencyKey`:

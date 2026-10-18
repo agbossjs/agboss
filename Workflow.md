@@ -376,7 +376,29 @@ export const launchPaths = [
 | A branch is one step | its join continues it: a launched class continued elsewhere is `[launch.branch-continued]`. A chain of steps per item is a child workflow (#263) |
 | Several of one class | a single field reading a class the join gives as a list is `[input.several-on-path]` — declare `listOf(XDto)` |
 | Steps | the fewest steps count the copies of the agents that always run (`Always` + `FailFast`), never a per-item run; the worst case of one call counts every copy and `maxItems` runs, capped by `maxSteps` |
-| Runtime | `agboss check` checks launches; they run from #273 PR 2 — until then assembly (`createApp`) stops with `flow.launch-not-runnable` |
+| Errors | a branch's own failure is a `StepFailedError` (`step.failed`, its own code, above `step.agent`, `step.action`, `step.router`, `step.guard`) naming the step — `component`, `nodeId` (`critic-agent#2` for a copy), `visitNumber`, `itemIndex`; an action's exception is `ActionFailedError` with the original as `cause` ([Parallel launches at run time](#parallel-launches-at-run-time)) |
+
+### Parallel launches at run time
+
+Each branch of a launch is one LangGraph `Send` of one superstep; the launch's join is a node of
+its own, run once after every branch ended (#273 PR 2).
+
+| What happens | |
+| --- | --- |
+| Launch id | `${executionId}:${nodeId}:${visitNumber}` of the launching step — a launch inside a loop has a new id each pass, and its join reads only its own branches' records |
+| `maxConcurrency` | a sliding window, not waves: a branch takes a slot when it starts and frees it when it ends, fails, is cancelled — or pauses, so a paused branch never holds a slot. With 50 items and `maxConcurrency: 3`, a new run starts as soon as one ends. Without it, every branch runs at once |
+| Order | the join's lists are in listed order (copies) or the items' order — never the order the branches finished in; replays and tests are deterministic |
+| Copies | a target listed twice runs twice: `critic-agent#1`, `critic-agent#2` in `result.path`, traces and observer events; `executionContext.step.copyNumber` is 1, 2 (1 for a target listed once); every copy is the same visit of its node (the launch's `visitNumber`) with its own idempotency key, its node id `critic-agent#2` |
+| Per item | the first `maxItems` items of the list, in its order; the rest are dropped without an error and the drop is visible: `result.launches` (`{ launch, items: 200, taken: 50, branches }`), a trace entry "launch items truncated" and `onLaunchItemsTruncated` ([Observability](Observability)). Each run's `step.itemIndex` is its item's index (from 0) and its idempotency key `${executionId}:${nodeId}:${visitNumber}:${itemIndex}` — one `visitNumber` for every item of the launch; an empty list launches nothing and the join gives `[]` at once |
+| Limits | each branch counts against the execution's `maxSteps` (an agent's run is a step), its node's `maxVisits` (one launch is one visit of its node, however many copies or items — those are bounded by the listed targets and `maxItems`) and the money limits (with the spend of the siblings that already ended); a limit reached in a branch fails it like any failure |
+| Cancel | `app.cancel` (or the caller's signal) during a launch cancels the whole execution: every running branch is aborted and the call rejects with `WorkflowCancelledError` — never a branch outcome, never `Skip`ped, never taken by `.onJoinError(…)` (S21) |
+| `FailFast` | a failed branch aborts the launch: running siblings see their signal (`executionContext.signal`) abort, waiting ones never start — both end `BranchStatus.Cancelled`. Their spend still counts |
+| The join | every branch finished (or dropped out) → its values go into the scope at once, one outdating cascade; a branch failed → the most specific `.onJoinError(E, …)` by the error's class and cause chain (`.onJoinError(ItemFailedError, …)` takes the domain error inside an `ActionFailedError`); none → the execution fails with the branch's error as it was thrown |
+| Pause and recovery | LangGraph keeps each finished branch's writes: on `app.resume` only the paused branch goes on, and after a crash the instance that takes the tree over ([Several instances](Several-instances)) runs only the branches that had not ended |
+| `result.launches` | one `LaunchRecord` per joined launch, in order: `launch` (its id), `items`, `taken` (a router's `OnDemand` "no" is left out), `branches` — each `{ nodeId, copyNumber, itemIndex?, status: BranchStatus.Finished \| Failed \| Skipped \| Cancelled, error? }` |
+
+A router before a launch decides only its `OnDemand` routes; its `Always` ones always run
+([Routing patterns → A router decides who is launched](Advanced-Routing#6-a-router-decides-who-is-launched)).
 
 ## Generated types
 
@@ -431,7 +453,6 @@ test("a question about openings goes to the scout", async ({ app, mockLlm }) => 
 
 ## Not in the core yet
 
-Launches run from #273 PR 2 (the grammar, the analyser and the types are here); quorums (#279) and
-child workflows (`.toWorkflow(…)` — #263) build on these paths. The old
+Quorums (#279) and child workflows (`.toWorkflow(…)` — #263) build on these paths. The old
 flow DSL (`from(…).next(…)`, `chain`, `catchError`, `batchParallel`, `node`) is gone;
 [ADR-0019](ADR-0019-Flow-as-paths-with-path-scope) says why.
