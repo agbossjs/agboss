@@ -9,7 +9,7 @@
     "chat": "agboss chat --workflow src/job-scout.workflow.ts",
     "run": "agboss run --workflow src/job-scout.workflow.ts",
     "describe": "agboss describe --workflow src/job-scout.workflow.ts",
-    "check:models": "agboss check --models --workflow src/job-scout.workflow.ts",
+    "check:models": "agboss check --models --workflow src/job-scout.workflow.ts --env test",
     "eval": "agboss eval --workflow src/job-scout.workflow.ts",
     "replay": "agboss replay --workflow src/job-scout.workflow.ts",
     "golden": "agboss golden --workflow src/job-scout.workflow.ts",
