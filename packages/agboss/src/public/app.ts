@@ -31,7 +31,23 @@ export {
 export type { PausedRun } from "../app/paused-runs.js";
 export { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
 export { ExecutionRecordRepository } from "../infrastructure/execution-record.repository.js";
-export { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
+export {
+  PausedExecutionRepository,
+  PauseStatus,
+} from "../infrastructure/paused-execution.repository.js";
+export {
+  ExecutionLeaseRepository,
+  type ExecutionLease,
+} from "../infrastructure/execution-lease.repository.js";
+export {
+  ExecutionTreeRepository,
+  type ExecutionTree,
+  type ExecutionTreeValue,
+} from "../infrastructure/execution-tree.repository.js";
+export {
+  RateLimitRepository,
+  type RateLimitLease,
+} from "../infrastructure/rate-limit.repository.js";
 export {
   IncompatibleResumeError,
   type IncompatibleResume,

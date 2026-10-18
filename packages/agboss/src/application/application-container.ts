@@ -6,7 +6,14 @@ import {
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class, Token } from "../components/injection.js";
 import type { Clock } from "../finops/ledger.js";
-import { INFRASTRUCTURE_CLOCK, NEW_THREAD_ID } from "../infrastructure/clock.js";
+import { randomUUID } from "node:crypto";
+import {
+  INFRASTRUCTURE_CLOCK,
+  INSTANCE_ID,
+  IN_MEMORY_DATABASE,
+  NEW_THREAD_ID,
+} from "../infrastructure/clock.js";
+import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import {
   INFRASTRUCTURE_DEFAULTS,
   infrastructureOf,
@@ -20,6 +27,10 @@ export interface ApplicationContainerSources {
   readonly modules: readonly ProviderModule[];
   readonly clock?: Clock | undefined;
   readonly newThreadId?: NewThreadId | undefined;
+  /** The instance's id (the holder of its leases); random unless a test names it. */
+  readonly instanceId?: string | undefined;
+  /** Where the in-memory defaults keep their rows; a new one unless a test shares one. */
+  readonly database?: InMemoryDatabase | undefined;
   /**
    * Instances an earlier app of the same test already created (its infrastructure): reused, so a
    * paused execution survives `recoverApp()`. Empty in production.
@@ -34,6 +45,8 @@ export function applicationContainerOf(sources: ApplicationContainerSources): Ap
     core: new Map<Token, unknown>([
       [INFRASTRUCTURE_CLOCK, sources.clock ?? ((): Date => new Date())],
       [NEW_THREAD_ID, sources.newThreadId],
+      [INSTANCE_ID, sources.instanceId ?? randomUUID()],
+      [IN_MEMORY_DATABASE, sources.database ?? new InMemoryDatabase()],
     ]),
     defaults: INFRASTRUCTURE_DEFAULTS,
     instances: new Map(sources.instances ?? []),

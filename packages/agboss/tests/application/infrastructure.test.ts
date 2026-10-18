@@ -14,6 +14,9 @@ import { CostLedgerRepository } from "../../src/infrastructure/cost-ledger.repos
 import { ExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { UnknownThreadError } from "../../src/run/thread.js";
+import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
+import { InMemoryExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
+import { InMemoryRateLimitRepository } from "../../src/infrastructure/rate-limit.repository.js";
 import { replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -48,6 +51,10 @@ describe("#261 S28: the built-in infrastructure is in memory", () => {
     expect(infrastructure.records).toBeInstanceOf(ExecutionRecordRepository);
     expect(infrastructure.pausedExecutions).toBeInstanceOf(PausedExecutionRepository);
     expect(infrastructure.checkpointer).toBeInstanceOf(BaseCheckpointSaver);
+    // #265: the shared contracts, in memory too
+    expect(infrastructure.executionLeases).toBeInstanceOf(InMemoryExecutionLeaseRepository);
+    expect(infrastructure.executionTrees).toBeInstanceOf(InMemoryExecutionTreeRepository);
+    expect(infrastructure.rateLimits).toBeInstanceOf(InMemoryRateLimitRepository);
     await app.close();
   });
 
