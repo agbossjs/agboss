@@ -116,9 +116,9 @@ in call order. Calls needing approval are asked first, one per pause, in call or
 Counted from the flow handing the agent its work to its answer. Until `@Agent({ limits })` (#152),
 `toolCalls` comes from `maxToolCalls` (the agent's, then `defaults.tools.maxToolCalls`) when set.
 Hitting one **fails** the run with `LimitExceededError`; the loop's spend so far still reaches the
-ledger. `agboss describe` shows them: `limits: modelCalls 12 (default) · toolCalls 8`. A spent run
-budget ends the loop without a model call (`stopped: run budget exhausted`); the next working node
-then fails the run at `limits.perRun.cost`. 
+ledger. `agboss describe` shows them: `limits: modelCalls 12 (default) · toolCalls 8`. An exhausted
+budget of the execution (#261: its own, its tenant's or the application's) ends the loop before the
+next model call with `BudgetExceededError` ([FinOps](FinOps#at-run-time)).
 
 ## Approval
 

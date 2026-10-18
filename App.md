@@ -38,10 +38,25 @@ import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope, Emp
 import { usd, type Usd } from "agboss/units";
 import { JobScout } from "./job-scout.workflow.js";
 
+// config/budget.config.ts in a project: the whole application, a tenant per day, every execution
+@Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
+export class ApplicationDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(5);
+  }
+}
+
 @Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
 export class TenantDailyBudget implements BudgetHandler {
   maxSpend(): Usd {
     return usd(1);
+  }
+}
+
+@Budget({ name: "execution-budget", scope: BudgetScope.Execution }) // the default of every workflow
+export class ExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.1);
   }
 }
 
@@ -51,7 +66,7 @@ export class TenantDailyBudget implements BudgetHandler {
   environment: EmptyEnvironment,
   workflows: [JobScout], // the top-level workflows
   providers: [], // infrastructure only here: none → the built-in in-memory defaults and model providers
-  budgets: [TenantDailyBudget], // every @Budget of the application (FinOps → Budgets)
+  budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget], // FinOps → Budgets
 })
 export class JobScoutApplication {}
 ```
@@ -89,7 +104,11 @@ and the class with `Application` (`[name.kind-suffix]`); it lists workflows
 application (`[application.duplicate-workflow]`), and so is every component name
 (`[graph.duplicate-node-name]`); a start is the door of one workflow — one start in two workflows
 → `[application.ambiguous-start]`; every entry of `budgets` is a `@Budget` (`[budget.not-a-budget]`,
-its name ends with `-budget`); infrastructure — model providers too — is listed only in
+its name ends with `-budget`), every workflow has an execution budget — its own or the default — and
+there is a tenant and an application budget (`[budget.execution-budget-required]`,
+`[budget.duplicate-execution-budget]`, `[budget.duplicate-default-execution-budget]`,
+`[budget.tenant-budget-required]`, `[budget.application-budget-required]`,
+[FinOps](FinOps#assembly)); infrastructure — model providers too — is listed only in
 `@Application({ providers })` (`[di.infrastructure-in-workflow]`); every model of every workflow
 resolves to exactly one listed model provider by `serves` (`[model.unserved]`,
 `[model.ambiguous-provider]`, #266, [Model providers](Model-providers#which-provider-serves-a-model)).
@@ -105,7 +124,7 @@ two → `[di.ambiguous-implementation]`. A service that needs one injects the co
 | Contract                    | What it keeps                                                      | Built-in default |
 | --------------------------- | ------------------------------------------------------------------ | ---------------- |
 | `ExecutionRecordRepository` | threads and their owners, one record per execution (`completeIfStatus`: a compare-and-set status write), scores, config snapshots | in memory |
-| `CostLedgerRepository`      | the spend per key and UTC day (`findSpentToday`, `saveAll`)        | in memory        |
+| `CostLedgerRepository`      | the budgets' counters per budget, scope key and period, and each budget's last `maxSpend()` (`findSpentByCounter`, `saveAll`, `findMaxSpendByAccount`, `saveMaxSpend`) | in memory        |
 | `PausedExecutionRepository` | the paused execution of each thread (`findByThreadId`, `save`, `resolveByThreadId` — `Pending → Resolved` with its decision, atomic —, `deleteByThreadId`) | in memory |
 | `BaseCheckpointSaver`       | LangGraph's checkpoints, taken as is (ecosystem savers plug in)    | `MemorySaver`    |
 | `ExecutionLeaseRepository`  | one lease per execution tree: who moves it (`acquire`, `renew`, `release`, #265) | in memory |
@@ -138,6 +157,9 @@ Running more than one instance: [Several instances](Several-instances).
   result), `owner` (a thread created with an owner rejects another one — `ThreadOwnerError`),
   `signal`, `metadata` (strings, kept by the run's resumes), `onStream` (token and tool-call events),
   `configurable` (extra LangGraph keys). See [Context and Authorization](Context-And-Authorization).
+- Before the first step (#261 PR 5) each budget of the execution is read once (`maxSpend()`, in the
+  execution's context) and checked: one exhausted refuses it with `BudgetExceededError`
+  (`limit.budget`) and an `onRunRejected` — no record, no model call ([FinOps](FinOps#at-run-time)).
 
 ## The result — `ExecutionOutput`
 

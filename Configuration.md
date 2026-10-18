@@ -3,17 +3,17 @@
 Set in the application's and the workflow's components ([Components](Components)): defaults of
 every workflow and the model providers in `@Application` (`providers`, #266 — a workflow names
 models only, [Model providers](Model-providers#register-them-in-the-application)), workflow-wide
-fields in `@Workflow`, limits in its `settings()`, agent fields in each `@Agent`, router fields in
+fields in `@Workflow` (`maxSteps` among them), money in the application's `@Budget`s
+([FinOps](FinOps#budgets)), agent fields in each `@Agent`, router fields in
 each `@Router`. Assembled and validated at startup; [profiles](Profiles-and-comparisons) override them
 without code. Secrets are never there — model provider keys are process variables
 (`OPENROUTER_API_KEY` in `.env`), the app's own settings live in [environments](Environments).
 
 <!-- snippet-context
-import { Agent, Workflow, WorkflowFinish, WorkflowSettings, WorkflowStart, start, type WorkflowDefinition } from "agboss";
+import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
 import { McpServer, McpServerClient } from "agboss/mcp";
 import { Reasoning } from "agboss/models";
-import { usd } from "agboss/units";
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
 @Agent({ name: "scout-agent", description: "Finds jobs", prompt: "Find jobs on {{boards}}.", model: "moonshotai/kimi-k2.6" })
@@ -27,7 +27,7 @@ export class ShortlistServer extends McpServerClient<typeof tools> {}
 
 ```ts
 @Workflow({
-  name: "job-scout-workflow", // kebab-case, ends with -workflow — the key of the daily spend ledger
+  name: "job-scout-workflow", // kebab-case, ends with -workflow — unique in the application
   version: "2.0.0", // labels every run; profiles set their own
   flow: [
     start(ChatWorkflowStart)
@@ -54,13 +54,7 @@ export class ShortlistServer extends McpServerClient<typeof tools> {}
   mcp: [ShortlistServer],
   promptVariables: { boards: "acme (Acme)" },
 })
-export class JobScout implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.1) }, perDay: { cost: usd(1) } }) // no model providers: the application's
-      .build();
-  }
-}
+export class JobScout {} // no money limits, no model providers: the application's
 ```
 
 ## The `defaults` cascade — application → workflow → component (#261)
@@ -161,15 +155,18 @@ model, and the framework has no built-in guardrail model. A guard's own `model` 
 model anywhere fails assembly: `[guardrail.no-model] prompt_injection has no model — set model or
 defaults.guardrail.model` (#261; #120 turns guards into guardrails).
 
-## Limits — `maxSteps`, `maxVisits`, `settings().limits(...)`
+## Limits — `maxSteps`, `maxVisits`, `@Budget`
 
-`@Workflow({ maxSteps })` — visits of agents and routers in one run (default (agents + routers) × 3);
-`maxVisits` on a router or an agent — its visits in one run; money in `settings()`:
-`perRun: { cost }` and `perDay: { cost }` (values with units: `usd()` from `agboss/units`). Hitting
-one **fails the run** — unless an `.onError(…)` takes it — with `LimitExceededError` naming the key
-(`maxSteps`, `<node>.maxVisits` as `VisitsLimitExceededError`, `limits.perRun.cost`,
-`limits.perDay.cost`). `perDay.cost` requires `perRun.cost` (`[limits.per-run-required]`). Details:
-[FinOps](FinOps).
+`@Workflow({ maxSteps })` — visits of agents and routers in one execution (default (agents +
+routers) × 3, checked at assembly: `[limits.max-steps-too-low]`, `[limits.branch-exceeds-max-steps]`,
+`[limits.max-steps-unused]`); `maxVisits` on a router or an agent — its visits in one execution.
+Money is not a workflow setting (#261): the application's `@Budget`s — an execution budget for every
+workflow (its own `workflow: X`, or the default), tenant and application budgets per
+`BudgetPeriod` — listed in `@Application({ budgets })`; `settings()` has no `limits` any more.
+Hitting a limit **fails the execution** — unless an `.onError(…)` takes it — one class per limit,
+all `LimitExceededError`s: `StepsLimitExceededError`, `VisitsLimitExceededError`,
+`BudgetExceededError`; an exhausted budget also rejects an execution before its first step.
+Details: [FinOps](FinOps).
 
 ## `mcp` — `@McpServer` classes
 

@@ -3,6 +3,47 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — budgets and limits at run time (#261, PR 5)
+
+- **Budgets are checked** ([FinOps](FinOps#budgets)): every execution's budgets — its workflow's
+  own execution budget (else the default), every tenant budget, every application budget — have
+  their `maxSpend()` read once, at its start, in its `ExecutionContext`, and kept in its state for
+  the whole execution (a resume and a recovery count against the same amounts). Before the first
+  step an exhausted one **rejects** the execution (`BudgetExceededError`, `onRunRejected`) leaving
+  no trace — no thread (a new thread is now created after the check), no record, no call; every model call's cost is then counted in all of them, and before every step and model
+  call the first exhausted stops the execution. Nothing is reserved (#202's holds are gone): a small
+  overrun on a race, or by one call, is accepted.
+- **New assembly rules**: `[budget.execution-budget-required]`, `[budget.duplicate-execution-budget]`,
+  `[budget.duplicate-default-execution-budget]`, `[budget.tenant-budget-required]`,
+  `[budget.application-budget-required]` — every application lists an execution budget for every
+  workflow (own or the default), a tenant and an application budget.
+- **Breaking — `settings().limits` is removed**: `WorkflowSettings.builder().limits(…)`,
+  `WorkflowLimits`, `PerRunLimits`, `PerDayLimits`, `PerRunLimitRequiredError`
+  (`[limits.per-run-required]`), `WorkflowSettingsError`, `LimitKey`, `SpendAccount` and
+  `RunOptions.account` are gone; money is `@Budget`s only. `settings()` keeps `onIncompatibleResume`.
+- **Breaking — the limit errors** ([FinOps](FinOps#steps-and-visits)): `StepsLimitExceededError`
+  (`limit.steps`: `workflow`, `maxSteps`, `steps`; `support-workflow took 41 steps; its maxSteps is
+  40`) for `maxSteps`; `BudgetExceededError` names its budget — `budget` (`{ name }`), `scope`, `key`
+  (the application's name, the `tenantId`, the execution's id), `maxSpend`, `spent`, a sentence
+  (`tenant acme spent $40.05 today; tenant-daily-budget allows $40`) — instead of the keys
+  `limits.perRun.cost` / `limits.perDay.cost`. `toFailWith({ code })` matches a budget by its name.
+- **Breaking — `CostLedgerRepository`** counts per budget, scope key and period:
+  `findSpentByCounter(counter)`, `saveAll(counters, records)`, `findMaxSpendByAccount(account)`,
+  `saveMaxSpend(account, maxSpend)` (new types `BudgetAccount`, `CostCounter`; were
+  `findSpentToday(key)` / `saveAll(key, records)`). The ledgers read no time any more — the runtime
+  names each counter's period from the application's `Clock` — so `InMemoryCostLedgerRepository()`
+  and `SqliteCostLedgerRepository(connection)` take no clock. `SqliteCostLedgerRepository` drops the old
+  per-workflow day table of a file written before (#265 S69 e).
+- **`maxSteps` and launches** (#273 S68 f): the default (agents + routers) × 3 must hold the worst
+  case of a per-item launch (`maxItems` runs) — else `[limits.max-steps-too-low]`; set
+  `@Workflow({ maxSteps })`. `.onError(StepsLimitExceededError, …)` (or a parent class) counts as a
+  way out for the steps rules.
+- **Eval / replay / compare** run within the application's budgets; the judge's calls count in the
+  application budgets, held to their last known `maxSpend()` (the eval account `<workflow>:eval` is
+  gone).
+- `agboss describe`: `limits    steps 2–2 (maxSteps 12)` (no money there; budgets by scope come with
+  PR 6).
+
 ## Unreleased — the clock (#262, PR 1)
 
 - **`Clock` is public** (root `agboss`, an infrastructure contract): `now()` and
@@ -24,7 +65,7 @@ VirtualClock(start?)` in unit tests. **Breaking:** the `TestClock` type is gone 
 - **`SqliteConnection` is a value export** (#265 S70): the DI token a subclass of a SQLite
   implementation names. **Breaking** for a project that constructs one of them itself: the
   constructors take `(connection, clock: Clock, applicationContext: ApplicationContext)` (the
-  leases and rate-limit slots), `(connection, clock)` (the ledger, the paused executions) —
+  leases and rate-limit slots), `(connection, clock)` (the paused executions; the ledger takes `(connection)` since #261 PR 5) —
   [Several instances → Extending a SQLite implementation](Several-instances#extending-a-sqlite-implementation).
 - **Breaking:** the `clock` option of `createApp` / `createAppDeps` (`AppOptions`, `AppDepsOptions`) is removed — one way to set the clock: list a `Clock` subclass in `@Application({ providers })`; tests get the `VirtualClock` from `testWith`.
 

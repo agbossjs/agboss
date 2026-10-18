@@ -280,7 +280,7 @@ One component of the real app on its own:
 | `toFollowPath([Start, Router, Agent, …])`           | a run result             | the visited nodes are exactly these, in order (node ids are the components' names; a launch's copy `critic-agent#2` is its class) |
 | `toFinishWith(Finish, data?)`                    | a run result             | it finished there (with that output)                 |
 | `toHavePausedAt(Agent)`                          | a run result             | it waits for a human in that agent                   |
-| `toFailWith({ code?, node? })`                   | an error (`.rejects`)    | a code along its causes (`step.router`, `limits.perDay.cost`, `graph.dead-end`, `test.…`) and the node it names |
+| `toFailWith({ code?, node? })`                   | an error (`.rejects`)    | a code along its causes (`step.router`, `limit.budget` or a budget's name, `graph.dead-end`, `test.…`) and the node it names |
 | `toHaveCalledTools([Tool, …])`                   | `mockLlm(Agent)`         | its model called exactly these tools, in order       |
 | `toHaveBeenAskedWith({ input?, system?, … })`      | `mockLlm(X)`             | some request has these parts (strings as substrings) |
 
@@ -322,7 +322,7 @@ outdated value reached the model.
   (`thread-1`, `run-1`, …) and a clock fixed at the start. Two tests — even in parallel, with the same
   thread id — never see each other.
 - `await app.clock.advance("25h")` moves the time (units `ms`, `s`, `m`, `h`, `d`, or a value with
-  its unit, `seconds(31)`): the per-day limit (`limits.perDay.cost`) starts a new UTC day. The work
+  its unit, `seconds(31)`): a daily budget (`BudgetPeriod.Day`) starts a new UTC day, its counter from zero. The work
   already started first reaches its next wait; then the time jumps and the framework's waits that
   are due wake in time order ([The clock](#the-clock)).
 

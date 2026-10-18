@@ -107,9 +107,8 @@ export class Scout {}
 - `tools` lists classes — a missing or not-imported tool does not compile; at startup names are
   re-checked against the registry (`UnknownAgentToolError`).
 - The agent runs the framework's own loop ([Agents](Agents)): usage recorded per model call, the
-  run budget checked before each call (spent → `stopped: run budget exhausted`, then the run fails
-  at `limits.perRun.cost`), `maxToolCalls` → `agents.<name>.limits.toolCalls` (default 20) **fails
-  the run** with `LimitExceededError`; the loop's spend still reaches the daily ledger.
+  execution's budgets checked before each call (one exhausted → `BudgetExceededError`), `maxToolCalls` → `agents.<name>.limits.toolCalls` (default 20) **fails
+  the run** with `LimitExceededError`; the loop's spend still reaches the budgets' counters.
 - Each call runs as its own task with its own signal; parallel calls of one turn run concurrently.
   In the call, `executionContext.signal` is the call's (#280 S45): the execution's signal (cancel
   included) combined with a timer of the tool's `timeoutMs`, cleared when the call ends — so

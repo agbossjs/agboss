@@ -64,9 +64,8 @@ import { AskResumeWorkflowFinish, ChatWorkflowFinish, IntakeWorkflowStart, MainR
 -->
 
 ```ts file=chat.workflow.ts
-import { Workflow, WorkflowSettings, caseOf, route, router, start, type WorkflowDefinition } from "agboss";
+import { Workflow, caseOf, route, router, start } from "agboss";
 import { WorkflowStartTextDto } from "agboss/dto";
-import { usd } from "agboss/units";
 
 @Workflow({
   name: "chat-workflow",
@@ -100,13 +99,7 @@ import { usd } from "agboss/units";
   },
   maxSteps: 8,
 })
-export class ChatWorkflow implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.05) }, perDay: { cost: usd(1) } })
-      .build();
-  }
-}
+export class ChatWorkflow {} // money: the application's @Budgets (FinOps → Budgets)
 ```
 
 The components behind it declare types only — what they read (`input`, by field) and what they
@@ -342,7 +335,7 @@ export class UpdateCrmAction {
 @WorkflowFinish({ name: "payment-workflow-finish", description: "The payment", output: PaymentDto })
 export class PaymentWorkflowFinish {}
 // @snippet
-@Workflow({ name: "launches-workflow", version: "1.0.0", flow: launchPaths })
+@Workflow({ name: "launches-workflow", version: "1.0.0", flow: launchPaths, maxSteps: 60 })
 export class LaunchesWorkflow {}
 -->
 

@@ -32,7 +32,7 @@ Each contract has a ready **SQLite** implementation (#265 PR 3), or a project li
 | `BaseCheckpointSaver`       | `SqliteCheckpointSaver`           | `checkpoints`, `checkpoint_writes` |
 | `PausedExecutionRepository` | `SqlitePausedExecutionRepository` | `paused_executions`               |
 | `ExecutionRecordRepository` | `SqliteExecutionRecordRepository` | the Tern tables (`threads`, `terns`, …) |
-| `CostLedgerRepository`      | `SqliteCostLedgerRepository`      | `cost_ledger`                     |
+| `CostLedgerRepository`      | `SqliteCostLedgerRepository`      | `cost_ledger`, `cost_ledger_max_spend` |
 | `ExecutionLeaseRepository`  | `SqliteExecutionLeaseRepository`  | `execution_leases`                |
 | `ExecutionTreeRepository`   | `SqliteExecutionTreeRepository`   | `execution_tree_keys`             |
 | `RateLimitRepository`       | `SqliteRateLimitRepository`       | `rate_limit_slots`                |
@@ -110,8 +110,8 @@ The subclass takes the base class's dependencies first — every one a public to
 
 | Implementation | Its `deps` |
 | --- | --- |
-| `SqliteCheckpointSaver`, `SqliteExecutionTreeRepository` | `[SqliteConnection]` |
-| `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository` | `[SqliteConnection, Clock]` |
+| `SqliteCheckpointSaver`, `SqliteExecutionTreeRepository`, `SqliteCostLedgerRepository` (#261 PR 5: each counter's period is named by the runtime from the `Clock`) | `[SqliteConnection]` |
+| `SqlitePausedExecutionRepository` | `[SqliteConnection, Clock]` |
 | `SqliteExecutionLeaseRepository`, `SqliteRateLimitRepository` | `[SqliteConnection, Clock, ApplicationContext]` |
 
 <!-- snippet-context

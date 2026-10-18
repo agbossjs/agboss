@@ -8,7 +8,7 @@ compiles against the current package.
 
 ```
 examples/job-scout/src/
-  job-scout.workflow.ts            @Workflow — the module (the paths, defaults, providers; limits in settings())
+  job-scout.workflow.ts            @Workflow — the module (the paths, defaults, providers, maxSteps)
   workflow-starts/  routers/  agents/  actions/  workflow-finishes/
   tools/  services/  mcp/  rag/  helpers/  environments/
 ```
@@ -457,17 +457,8 @@ export class MainRouter {}
 -->
 
 ```ts
-import {
-  TerminalUserChannel,
-  Workflow,
-  WorkflowSettings,
-  provide,
-  route,
-  start,
-  type WorkflowDefinition,
-} from "agboss";
+import { TerminalUserChannel, Workflow, provide, route, start } from "agboss";
 import { WorkflowStartTextDto } from "agboss/dto";
-import { usd } from "agboss/units";
 import { ShortlistServer } from "./mcp/shortlist.server.js";
 import { OrdersService } from "./services/orders.service.js";
 
@@ -496,13 +487,7 @@ import { OrdersService } from "./services/orders.service.js";
   providers: [OrdersService, provide(SHORTLIST, "./shortlist/shortlist.md")],
   channelClasses: [TerminalUserChannel],
 })
-export class Shop implements WorkflowDefinition {
-  settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .limits({ perRun: { cost: usd(0.1) }, perDay: { cost: usd(1) } })
-      .build();
-  }
-}
+export class Shop {} // money: the application's @Budgets (FinOps → Budgets)
 ```
 
 - `providers` registers what components inject: classes (`@Injectable({ deps })`, created by the

@@ -69,9 +69,10 @@ Re-runs the stored tasks of the old version with the **current** config as new t
 
 ## Budget
 
-Eval and replay pay from the account `<workflow>:eval` — its own UTC day, capped at the workflow's
-**`limits.perDay.cost`** (no cap when unset); production runs keep their own day. Both stop cleanly
-when the eval day is spent.
+Eval and replay run within the application's budgets (#261): a replayed execution is checked and
+counted like any (an exhausted tenant or application budget stops the replay), and the judge's calls
+count in the application budgets, scoring stopping once one is exhausted by its last known limit
+([FinOps](FinOps#eval-spend)). Both stop cleanly.
 
 ## Calibrate the judge first
 

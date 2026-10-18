@@ -29,7 +29,8 @@ prompts:
 ```
 
 - Overridable: `defaults`, `compaction`, `agents.*` (any field, any depth), `prompts`. The flow,
-  its routers and the limits are code (`@Workflow({ flow })`, `settings()`) — not profile keys (#116).
+  its routers and the limits are code (`@Workflow({ flow, maxSteps })`, the application's
+  `@Budget`s) — not profile keys (#116).
 - Objects merge key by key; arrays and scalars replace. The merged config is validated again.
 - Typos and unknown agents fail with the file and the key (`profiles/…yaml: agents.coder.thinkin: …`).
 - `schema/profile.schema.json` is generated from the zod schema (`npm run schema`; a test fails
@@ -65,5 +66,5 @@ scout-low-thinking vs baseline:
 - Each task runs as a first contact on every profile.
 - **mean** — Jev's P(adequate); **vs base** — per task Jev picks the better of the two answers
   (A/B order randomised; an unsure verdict is a tie).
-- Everything is paid from `<workflow>:eval` (its own day, capped at `limits.perDay.cost`), never the
-  production day; the run stops cleanly when it is spent.
+- Everything runs within the application's budgets (#261): the comparison stops cleanly once a
+  tenant or application budget is exhausted ([FinOps](FinOps#eval-spend)).

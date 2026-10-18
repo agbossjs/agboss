@@ -10,8 +10,8 @@
   uncached input × input price + cache read/write × cache prices (fallback: input price) + output ×
   output price. A call with neither fails — never silently free.
 - **Tool costs**: what a tool spends on models through the framework is recorded as the tool's —
-  `tool:<name>` — in the same loop as the agent's model calls, so it counts in the run budget check
-  before the next model call, in the daily ledger and in a failed agent's spend. A decision a
+  `tool:<name>` — in the same loop as the agent's model calls, so it counts in the budget check
+  before the next model call, in the budgets' counters and in a failed agent's spend. A decision a
   tool's service makes through `ROUTER_FACTORY` during the call (job-scout's fit judge) is accounted
   this way, with the decision's model and exact cost; a knowledge-base search reports its retrieval
   cost under `rag:<name>` (`costSource: "tool"`).
@@ -19,9 +19,9 @@
   its `deps` and records what one call of the service cost —
   `this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) })`. The record (`model`: the
   service, `costSource: "tool"`) joins the current tool call's spend (`tool:<name>`) or the step's
-  (`action:<name>`, category `tools`), so it counts in `perRun.cost` / `perDay.cost` — the next
-  check (before the agent's next model call, or the next agent or router visit) fails the run with
-  `BudgetExceededError` — and in the daily ledger and the run's `spend`. Called outside a step or a
+  (`action:<name>`, category `tools`), so it counts in every budget of the execution — the next
+  check (before the agent's next model call, or the next agent or router visit) stops it with
+  `BudgetExceededError` — and in the run's `spend`. Called outside a step or a
   tool call (a constructor, a timer after the call ended) it throws `SpendOutsideStepError`
   (`[spend.outside-step]`). `ExecutionContext` stays read-only: spend never goes through it.
 
@@ -99,8 +99,8 @@ export class ExchangeRate implements ToolHandler<RateQuery, Rate> {
 }
 ```
 
-- **Report**: every run returns `CostReport` (total, calls, cache-read tokens, per caller) and the
-  budget it was allowed; the CLI prints it. Per-call traces: [Tracing](Tracing).
+- **Report**: every run returns `CostReport` (total, calls, cache-read tokens, per caller) and what
+  it was allowed to spend (the least its budgets had left at its start); the CLI prints it. Per-call traces: [Tracing](Tracing).
 
 ## Budgets
 
@@ -146,40 +146,160 @@ export class ExecutionBudget implements BudgetHandler {
   its own.
 - A budget is a component: injectable (`deps: [ApplicationDailyBudget]`), created at start with the
   application, replaced in a test with `mockOf(TenantDailyBudget).maxSpend.mockReturnValue(usd(0.01))`.
-- **This release declares them.** The checks — `maxSpend()` read once per execution, every budget
-  checked before the first step and counted after every model call (`BudgetExceededError`), and the
-  `[budget.*-required]` rules — come with #261 PR 5; until then the money is capped by the
-  workflow's `settings().limits` below.
+- **Who reads what**: a budget's data come through its constructor — the injected
+  `ExecutionContext` (the execution, its step, `executionContext.tenant`), the project's tenant
+  context (`deps: [ShopTenantContext]`, its own amount from server-side tenant data) or a service
+  such as `BillingService` — a trusted source, never the request body.
 
-## Limit — per workflow
+<!-- snippet-context
+import { Budget, BudgetPeriod, BudgetScope, TenantContext, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "agboss";
+import { Decimal, WorkflowStartTextDto } from "agboss/dto";
+import { usd, type Usd } from "agboss/units";
+export class ShopTenantContext extends TenantContext {
+  @Decimal()
+  dailyBudgetUsd!: number;
+}
+@WorkflowStart({ name: "screening-workflow-start", description: "A role", input: WorkflowStartTextDto })
+export class ScreeningWorkflowStart {}
+@WorkflowFinish({ name: "screening-workflow-finish", description: "The role as given", output: WorkflowStartTextDto })
+export class ScreeningWorkflowFinish {}
+@Workflow({
+  name: "screening-workflow",
+  version: "1.0.0",
+  flow: [
+    start(ScreeningWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toFinish(ScreeningWorkflowFinish),
+  ],
+})
+export class ScreeningWorkflow {}
+-->
 
-Money limits come from the workflow's `settings()`, steps and visits from its components ([Workflow](Workflow)):
+```ts
+// config/budget.config.ts — the tenant's own daily amount, from its context (its fields: Context-And-Authorization)
+@Budget({
+  name: "tenant-daily-budget",
+  scope: BudgetScope.Tenant,
+  period: BudgetPeriod.Day,
+  deps: [ShopTenantContext],
+})
+export class ShopTenantDailyBudget implements BudgetHandler {
+  constructor(private readonly shopTenantContext: ShopTenantContext) {}
 
-| Limit                    | Boundary key               | Meaning                                                          |
-| ------------------------ | --------------------------- | ------------------------------------------------------------------ |
-| `perRun.cost`            | `limits.perRun.cost`       | USD one run may spend                                            |
-| `perDay.cost`            | `limits.perDay.cost`       | USD the workflow may spend per **UTC** day — resets at 00:00 UTC |
-| `@Workflow({ maxSteps })` | `maxSteps`                | agent and router visits per run (default (agents + routers) × 3) |
-| `maxVisits` on `@Router` / `@Agent` | `<name>.maxVisits` | visits of one node per run (`VisitsLimitExceededError`)    |
+  maxSpend(): Usd {
+    return usd(this.shopTenantContext.dailyBudgetUsd);
+  }
+}
 
-- **Ledger**: the application's `CostLedgerRepository` (#261) — the spend per workflow per UTC
-  day; a new day is a new counter, which is the reset. Listed in `@Application({ providers })`
-  (a class that `extends CostLedgerRepository`), else the built-in in-memory one: each instance
-  counts on its own and the counters reset on restart — nothing is written to the home folder
-  any more (the SQLite ledger comes with #265).
-- **Before a run**: the day is read once; nothing left → `LimitExceededError` (`limits.perDay.cost`),
-  no calls made. The run budget (`min(perRun.cost, perDay.cost − spent today)`) also stops an agent's
-  loop before a model call it cannot afford.
-- **During a run**: every model call is written to the ledger as the graph streams. Before each
-  working node (agent, router) the limits are checked; crossing one **fails** the run with
-  `LimitExceededError` (key, limit, actual, path, spend) — never a quiet stop — and the failed Tern
-  carries the spend. A paid failure (an agent crossing `agents.<name>.limits.*`, a router that could not routeTo)
-  carries its spend, which is written to the ledger before rethrowing — failures are paid for
-  too. A paused run's spend is written at the pause.
-- **Soft by one call**: a call in flight cannot be stopped; parallel runs of one workflow can overshoot
-  the daily cap by their in-flight calls. `MODEL_MAX` makes a single call bounded only by the model.
-- `npm run studio` runs the flow graph with the workflow's limits; the day's spend is read from the ledger.
-- Optional extra backstop outside the app: a spending limit on the OpenRouter key itself.
+@Budget({
+  name: "screening-execution-budget",
+  scope: BudgetScope.Execution,
+  workflow: ScreeningWorkflow, // its own: replaces the default for executions of this workflow
+})
+export class ScreeningExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.5);
+  }
+}
+```
+
+### Assembly
+
+Every workflow of the application is covered by its own execution budget or by the one default, and
+there is at least one tenant budget and one application budget — so no execution runs without a cap
+on its cost, its tenant's and the application's. All violations at once, before any model call:
+
+| Code | When |
+| --- | --- |
+| `[budget.execution-budget-required]` | a workflow with no own execution budget and no default — `screening-workflow has no execution budget and there is no default — add one with workflow: ScreeningWorkflow or one without workflow` |
+| `[budget.duplicate-execution-budget]` | two own execution budgets for one workflow |
+| `[budget.duplicate-default-execution-budget]` | two execution budgets without `workflow` |
+| `[budget.tenant-budget-required]` | no `BudgetScope.Tenant` budget (a single-tenant application has its one tenant, `"default"`) |
+| `[budget.application-budget-required]` | no `BudgetScope.Application` budget |
+| `[budget.not-a-budget]` | a class in `budgets` without `@Budget` |
+
+### At run time
+
+- **`maxSpend()` once per execution**, at its start — in the frame of its start step, so an injected
+  `ExecutionContext` reads the execution (its `tenant`, its own fields, `step.nodeId` is the start's)
+  — and kept in the execution's state for the whole execution: a resume (also after a restart) and
+  a recovery count against the same amounts; a plan change applies from the next execution. The
+  framework never calls `maxSpend()` outside an execution.
+- **Which budgets**: the execution budget of the started workflow (its own, else the default),
+  every tenant budget (keyed by the execution's `tenantId`) and every application budget (keyed by
+  the application's name). Several budgets of one scope with different periods work at once
+  (tenant daily + tenant monthly).
+- **Before the first step** every budget is checked against its counter in the current period:
+  one exhausted **rejects** the execution — `BudgetExceededError`, an `onRunRejected` (code
+  `limit.budget`) — and the refused request leaves no trace: no thread (a new thread is created only
+  once the budgets pass; `executionContext.threadId` read in `maxSpend()` of an execution on a new
+  thread throws `ExecutionContextUnavailableError`), no record, no checkpoint, no model call, and
+  the amounts it read are not kept as the last known limit.
+- **During the execution** every model call's (and paid service's) real cost is added to all of
+  its counters as the execution streams. Before every agent and router step the counters are read
+  again — the tenant's other executions count — and every budget is checked; before every model
+  call of an agent's loop too. The first exhausted **stops** the execution with
+  `BudgetExceededError` (into the step's `.onError(BudgetExceededError, …)` if it has one, else the
+  execution fails; the spend so far is in the ledger and the failed record).
+- **A parallel launch** (#273): a branch is checked against the spend at the launch plus its
+  siblings that already ended.
+- **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
+  parallel executions of one tenant may overrun it a little (each sees the others' calls once they
+  are recorded), and a budget may be exceeded by the cost of one call (its cost is known after it;
+  a call is not pre-checked by its `maxTokens`; `MODEL_MAX` makes one call bounded only by the model).
+
+```text
+BudgetExceededError {
+  code: "limit.budget",
+  message: "tenant acme spent $40.05 today; tenant-daily-budget allows $40",
+  budget: { name: "tenant-daily-budget" }, // ComponentRecord: nameOf(TenantDailyBudget)
+  scope: BudgetScope.Tenant,
+  key: "acme",                             // the application's name, the tenantId, or the execution's id
+  maxSpend: 40,
+  spent: 40.05,
+}
+```
+
+### The ledger
+
+The application's `CostLedgerRepository` (#261 S28) keeps one counter per budget, scope key and
+period — `findSpentByCounter({ budget, scope, key, period })`, `saveAll(counters, records)` (each
+call's cost added to every counter, atomically per counter) — and the last `maxSpend()` read per
+budget and key (`findMaxSpendByAccount`, `saveMaxSpend`: "the last known limit" for a report
+outside an execution). A period is named by its first UTC day: `2026-10-18` for that day,
+`2026-10-12` for the week starting Monday the 12th, `2026-10-01` for the month; an execution budget's
+counter has no period. Listed in `@Application({ providers })` (a class that
+`extends CostLedgerRepository`), else the built-in in-memory one — each instance counts on its own
+and the counters reset on restart; `SqliteCostLedgerRepository` (#265) shares them between the
+instances on one file and survives a restart (a file written before budgets has its old per-workflow
+day counters dropped).
+
+### Tests
+
+A budget is unit-tested without the container:
+`new ShopTenantDailyBudget(testExecutionContext({ tenantContext: ShopTenantContext, tenant: { tenantId: "acme", dailyBudgetUsd: 40 } }).tenant).maxSpend()`
+is `usd(40)`. An application test reaches an exhausted budget the real way —
+`mockOf(TenantDailyBudget).maxSpend.mockReturnValue(usd(0.01))` plus a scripted cost
+(`replyWith(…, { cost: usd(0.02) })`) — and checks its own reaction (the `.onError` path, the
+rejection). There is no `limits` option in `testWith`.
+
+## Steps and visits
+
+Counts protect the graph, not money ([Workflow](Workflow)):
+
+| Limit | Error | Meaning |
+| --- | --- | --- |
+| `@Workflow({ maxSteps })` | `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`: `support-workflow took 41 steps; its maxSteps is 40`) | agent and router visits per execution (default (agents + routers) × 3) |
+| `maxVisits` on `@Router` / `@Agent` | `VisitsLimitExceededError` (`component`, `nodeId`, `maxVisits`, `visits`) | visits of one node per execution |
+
+One class per limit, all subclasses of `LimitExceededError` (`.onError(LimitExceededError, …)` takes
+any; codes `limit.steps`, `limit.visits`, `limit.budget`). `maxSteps` is checked at assembly:
+`[limits.max-steps-too-low]` — no finish fits in a hand-set `maxSteps`, or the default cannot hold the
+worst case of a per-item launch (`maxItems` runs: set `@Workflow({ maxSteps })`, the default never
+grows silently) —, `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`.
+`npm run studio` runs the flow graph with its steps and visits limited; budgets are opened per
+execution by the app, so Studio's own runs are not capped by them. Optional extra backstop outside
+the app: a spending limit on the OpenRouter key itself.
 
 ## Turn financials — part of every result
 
@@ -216,8 +336,11 @@ price table; `tool-reported` = the tool's own cost.
 
 ## Eval spend
 
-`npm run eval` / `npm run replay` / `compare` pay from `<workflow>:eval` — its own day, capped at the
-workflow's `limits.perDay.cost` (no cap when unset); they never eat the production day. See [Terns and evaluation](Terns-and-evaluation).
+`npm run eval` / `npm run replay` / `compare` run within the application's budgets: a replayed or
+compared execution is an execution like any (its tenant `"default"`), and stops the evaluation once a
+tenant or application budget is exhausted; the judge's own calls are outside any execution — they are
+counted in the application budgets and stop scoring once one is exhausted by its last known limit
+(the `maxSpend()` the last execution read). See [Terns and evaluation](Terns-and-evaluation).
 
 ## Tests
 
