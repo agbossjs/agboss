@@ -6,7 +6,7 @@
 
 import type { BaseCallbackHandler } from '@langchain/core/callbacks/base';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { BaseCheckpointSaver } from '@langchain/langgraph';
+import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { BaseMessage } from '@langchain/core/messages';
 import type { MessageContent } from '@langchain/core/messages';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
@@ -181,11 +181,11 @@ export const GENERATED_TYPES_FILE = ".agboss/types.d.ts";
 // @public (undocumented)
 export const goldenFile: (root: string, bundle: string, name: string) => string;
 
-// Warning: (ae-forgotten-export) The symbol "TernStore" needs to be exported by the entry point internal.d.ts
+// Warning: (ae-forgotten-export) The symbol "TernRecords" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "GoldenSet" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export function goldenFromRecent(terns: TernStore, bundle: string, name: string, limit: number, now?: () => Date): Promise<GoldenSet>;
+export function goldenFromRecent(terns: TernRecords, bundle: string, name: string, limit: number, now?: () => Date): Promise<GoldenSet>;
 
 // Warning: (ae-forgotten-export) The symbol "FlowAnalysis" needs to be exported by the entry point internal.d.ts
 //
@@ -197,6 +197,11 @@ export function inputLines(analysis: FlowAnalysis): readonly string[];
 //
 // @public (undocumented)
 export const isMcpFacade: (tool: Tool) => tool is McpFacade;
+
+// @public (undocumented)
+export function loadApplicationClass(workflowPath: string, options?: {
+    readonly typescript?: boolean;
+}): Promise<Class>;
 
 // @public (undocumented)
 export function loadGolden(file: string): Promise<GoldenSet>;
@@ -282,6 +287,9 @@ export function stepsRangeOf(graph: FlowGraph): StepsRange;
 export function textRequestOf(graph: RuntimeGraph, text: string): StartRequest;
 
 // @public
+export const textStartOfWorkflow: (app: App, workflow: Class) => Class | undefined;
+
+// @public
 export const versionOf: (value: unknown) => string;
 
 // @public
@@ -309,6 +317,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/flow/analyse/steps.ts:118:3 - (ae-undocumented) Missing documentation for "most".
 // src/flow/runtime/start-input.ts:82:3 - (ae-undocumented) Missing documentation for "start".
 // src/flow/runtime/start-input.ts:83:3 - (ae-undocumented) Missing documentation for "input".
+// src/loader/load-application.ts:39:1 - (ae-undocumented) Missing documentation for "loadApplicationClass".
 // src/models/problems.ts:20:14 - (ae-undocumented) Missing documentation for "problemLine".
 // src/tools/mcp/facade.ts:106:14 - (ae-undocumented) Missing documentation for "isMcpFacade".
 

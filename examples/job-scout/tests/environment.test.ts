@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { defineEnvironment, fromEnv, type Environment } from "agboss";
 import { testWith } from "agboss/testing";
-import { JobScout } from "../src/job-scout.workflow.js";
+import { JobScoutApplication } from "../src/job-scout.application.js";
 import { GreenhouseJobs } from "../src/tools/greenhouse-jobs.tool.js";
 
 const query = {
@@ -33,11 +33,11 @@ afterEach(() => {
 });
 
 // `npm run chat` (the app) defaults to dev; testWith defaults to test.environment.ts when it exists.
-const asChat = testWith(JobScout, { env: "dev" });
-const bare = testWith(JobScout);
-const asTest = testWith(JobScout, { env: "test" });
+const asChat = testWith(JobScoutApplication, { env: "dev" });
+const bare = testWith(JobScoutApplication);
+const asTest = testWith(JobScoutApplication, { env: "test" });
 const stub: Environment = { greenhouseApiUrl: "http://greenhouse.stub" };
-const ownValues = testWith(JobScout, { environment: stub });
+const ownValues = testWith(JobScoutApplication, { environment: stub });
 
 describe("#182: the app's environment reaches GreenhouseBoards", () => {
   asChat(

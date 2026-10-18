@@ -9,16 +9,16 @@ import {
   SearcherAgent,
   SerpSearchTool,
   SpendStart,
-  SpendWorkflow,
-  TightSpendWorkflow,
   resetSpendSeen,
   spendSeen,
+  SpendApplication,
+  TightSpendApplication,
 } from "./fixtures/spend.workflow.js";
 
 beforeEach(resetSpendSeen);
 
-const test = testWith(SpendWorkflow);
-const tight = testWith(TightSpendWorkflow);
+const test = testWith(SpendApplication);
+const tight = testWith(TightSpendApplication);
 
 describe("#280 S43: SpendRecorder — what a tool or an action paid a service", () => {
   test("record inside a tool and inside an action: both in the result's spend", async ({

@@ -130,3 +130,6 @@ export interface TernStore extends MemoryStore, ConfigStore {
   readonly summary: (bundle: string) => Promise<VersionScore[]>;
   readonly close: () => void;
 }
+
+/** What a run reads and writes of its records (the store without its own `close`). */
+export type TernRecords = Omit<TernStore, "close">;

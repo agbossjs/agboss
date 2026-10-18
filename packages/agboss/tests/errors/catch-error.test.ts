@@ -15,16 +15,16 @@ import {
   Order,
   Pay,
   PurchaseDto,
-  Shop,
-  ShopCatchingLimits,
-  ShopUncaught,
+  ShopApplication,
+  ShopCatchingLimitsApplication,
+  ShopUncaughtApplication,
 } from "./fixtures.js";
 import { execute } from "../helpers/flow.js";
 
 const approve = { approved: true, by: "dana" };
-const shop = testWith(Shop);
-const parentCatch = testWith(ShopCatchingLimits);
-const uncaught = testWith(ShopUncaught);
+const shop = testWith(ShopApplication);
+const parentCatch = testWith(ShopCatchingLimitsApplication);
+const uncaught = testWith(ShopUncaughtApplication);
 
 describe("#194 AC1: catchError(BudgetExceededError) when the run budget runs out", () => {
   shop("the run takes the error branch instead of failing", async ({ app, mockLlm }) => {

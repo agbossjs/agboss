@@ -10,6 +10,8 @@ import {
   type Produced,
 } from "../../../../src/index.js";
 import { caseOf, start } from "../../../helpers/flow.js";
+import { Application } from "../../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 
 export class TicketDto {
   @Text({ prompt: "the ticket" })
@@ -91,3 +93,11 @@ export class TicketStart {}
   ],
 })
 export class TriageWorkflow {}
+
+@Application({
+  name: "triage-application",
+  version: "1.0.0",
+  workflows: [TriageWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class TriageApplication {}

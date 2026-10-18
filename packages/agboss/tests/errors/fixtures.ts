@@ -15,6 +15,8 @@ import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { usd } from "../../src/units/index.js";
 import { start, toFinish } from "../helpers/flow.js";
+import { Application } from "../../src/application/application.js";
+import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 
 export class Payment {
   @Text() item!: string;
@@ -120,6 +122,14 @@ export class Shop implements WorkflowDefinition {
   settings = settings;
 }
 
+@Application({
+  name: "shop-application",
+  version: "1.0.0",
+  workflows: [Shop],
+  budgets: TEST_BUDGETS,
+})
+export class ShopApplication {}
+
 /** The same shop, catching the parent class: a budget error is a limit error. */
 @Workflow({
   name: "shop-limits-workflow",
@@ -140,6 +150,14 @@ export class ShopCatchingLimits implements WorkflowDefinition {
   settings = settings;
 }
 
+@Application({
+  name: "shop-limits-application",
+  version: "1.0.0",
+  workflows: [ShopCatchingLimits],
+  budgets: TEST_BUDGETS,
+})
+export class ShopCatchingLimitsApplication {}
+
 /** No catch: the budget error fails the run, typed. */
 @Workflow({
   name: "shop-uncaught-workflow",
@@ -158,3 +176,11 @@ export class ShopCatchingLimits implements WorkflowDefinition {
 export class ShopUncaught implements WorkflowDefinition {
   settings = settings;
 }
+
+@Application({
+  name: "shop-uncaught-application",
+  version: "1.0.0",
+  workflows: [ShopUncaught],
+  budgets: TEST_BUDGETS,
+})
+export class ShopUncaughtApplication {}

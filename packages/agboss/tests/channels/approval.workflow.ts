@@ -17,6 +17,8 @@ import {
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { start } from "../helpers/flow.js";
+import { Application } from "../../src/application/application.js";
+import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 
 /** What the channel posted and what the tool did — the observable effects the tests read. */
 @Injectable()
@@ -135,6 +137,14 @@ class NoLimits implements WorkflowDefinition {
 })
 export class Refunds extends NoLimits {}
 
+@Application({
+  name: "refunds-application",
+  version: "1.0.0",
+  workflows: [Refunds],
+  budgets: TEST_BUDGETS,
+})
+export class RefundsApplication {}
+
 export const AUDIT_LOG = new InjectionToken<string[]>("AUDIT_LOG");
 
 /** A channel whose dependency nobody provides. */
@@ -162,3 +172,11 @@ export class AuditedChannel implements ChannelHandler {
   providers: [ApprovalDesk],
 })
 export class AuditedRefunds extends NoLimits {}
+
+@Application({
+  name: "audited-refunds-application",
+  version: "1.0.0",
+  workflows: [AuditedRefunds],
+  budgets: TEST_BUDGETS,
+})
+export class AuditedRefundsApplication {}

@@ -2,6 +2,7 @@ import { renderTemplate } from "agboss/internal";
 import { readFileSync } from "node:fs";
 import { ScaffoldError, ScaffoldUsageError } from "./errors.js";
 import { namesOf, type Names } from "./names.js";
+import { applicationFiles } from "./application-files.js";
 import { mcpFiles, ragFiles } from "./parts.js";
 import { agentRoute, endpointFiles, MAIN_ROUTER, routerFile } from "./flow-files.js";
 import { addImport, wire } from "./wire.js";
@@ -219,5 +220,6 @@ export function planWorkflow(spec: WorkflowSpec, api = false): FileToWrite[] {
     more.agent,
     ...otherAgentFiles,
     { path: `${dir}/${workflow.kebab}.workflow.ts`, content: module },
+    ...applicationFiles(dir, workflow),
   ];
 }

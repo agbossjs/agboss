@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createAppDeps } from "../../src/app/app-deps.js";
-import { createApp } from "../../src/app/create-app.js";
+import { createApp } from "../../src/application/create-app.js";
 import { toolLookup, UnknownToolError } from "../../src/app/parts.js";
 import { runResultOf } from "../../src/app/result.js";
 import { workflowOf } from "../../src/testing/index.js";
@@ -20,6 +20,8 @@ import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { Desk, OrderBook, Reply } from "../testing/fixtures/desk.workflow.js";
 import { start } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
+import { Application } from "../../src/application/application.js";
+import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 
 const offline = () => ({
   gateway: createScriptedGateway(new ScriptBook()),
@@ -61,6 +63,14 @@ class Tickets implements WorkflowDefinition {
   }
 }
 
+@Application({
+  name: "tickets-application",
+  version: "1.0.0",
+  workflows: [Tickets],
+  budgets: TEST_BUDGETS,
+})
+export class TicketsApplication {}
+
 describe("AC12: the app's parts", () => {
   it("an unknown tool name is a wiring bug", () => {
     expect(() => toolLookup([])("nope")).toThrow(UnknownToolError);
@@ -97,7 +107,7 @@ describe("AC12: the app's parts", () => {
   });
 
   it("with no start of WorkflowStartTextDto, a plain text has no start", async () => {
-    const app = await createApp(Tickets, offline());
+    const app = await createApp(TicketsApplication, offline());
 
     expect(app.textStart).toBeUndefined();
     await app.close();

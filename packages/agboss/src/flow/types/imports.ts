@@ -73,6 +73,13 @@ export class ImportTable {
     return identifier;
   }
 
+  /** Like `ref`, for a class the file may leave out: nothing is recorded when no module exports it. */
+  refIfExported(component: Class): string | undefined {
+    if (this.locator.fileOf(component, declarationOf(component)?.source) === undefined)
+      return undefined;
+    return this.ref(component);
+  }
+
   /** The identifier of a DTO class (branded by its class name, S39). */
   dto(dto: DtoClass): string {
     this.dtoClasses.add(dto);

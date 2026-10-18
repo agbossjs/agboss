@@ -5,10 +5,10 @@ import { Agent, GraphRuleError, Workflow, WorkflowFinish } from "../../../src/in
 import { Text } from "../../../src/dto/index.js";
 import { replyWith, routeTo, testWith } from "../../../src/testing/index.js";
 import { Alpha, TestAnswer, TestChat, TestMain } from "../../fixtures/test-flow/test.flow.js";
-import { StarWorkflow } from "../../helpers.js";
+import { StarApplication } from "../../fixtures/test-flow/star.workflow.js";
 import { execute, start } from "../../helpers/flow.js";
 
-const star = testWith(StarWorkflow);
+const star = testWith(StarApplication);
 
 class SummaryDto {
   @Text({ prompt: "the summary" })

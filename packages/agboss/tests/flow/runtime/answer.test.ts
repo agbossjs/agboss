@@ -7,20 +7,20 @@ import {
   DraftDto,
   EditorAgent,
   EditStart,
-  EditWorkflow,
   GateRouter,
+  EditApplication,
 } from "./fixtures/edit.workflow.js";
 import {
   ChatStart,
-  Desk,
   MainRouter,
   OrderStatus,
   Reply,
   Support,
+  DeskApplication,
 } from "../../testing/fixtures/desk.workflow.js";
 
-const edit = testWith(EditWorkflow);
-const desk = testWith(Desk);
+const edit = testWith(EditApplication);
+const desk = testWith(DeskApplication);
 
 /** An answer-tool call whose arguments do not fit its DTO. */
 const invalid = replyWith(DraftDto, { body: "no text field" } as never);

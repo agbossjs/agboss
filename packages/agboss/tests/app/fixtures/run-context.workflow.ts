@@ -11,6 +11,8 @@ import {
 } from "../../../src/index.js";
 import type { StepDescriptor, ToolHandler } from "../../../src/index.js";
 import { start } from "../../helpers/flow.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /** What a component read of its execution (`deps: [ExecutionContext]`, #280). */
 export interface ExecutionSnapshot {
@@ -182,3 +184,11 @@ const defaults = {
   ],
 })
 export class Checkout {}
+
+@Application({
+  name: "checkout-application",
+  version: "1.0.0",
+  workflows: [Checkout],
+  budgets: TEST_BUDGETS,
+})
+export class CheckoutApplication {}

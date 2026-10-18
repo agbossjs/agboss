@@ -123,15 +123,15 @@ export async function fakeDeps(
   script: ModelScript,
   options: FakeDepsOptions = {},
 ): Promise<AppDeps> {
-  return createAppDeps(await workflowOf(options.workflow ?? StarWorkflow), {
+  const deps = await createAppDeps(await workflowOf(options.workflow ?? StarWorkflow), {
     gateway: fakeGateway(options.chatModel ?? fakeChatFactory(script), options.jevClient),
     processEnv: {},
-    stores: {
-      ledger: options.ledger ?? memoryLedger(),
-      terns: options.terns ?? createSqliteTernStore(":memory:"),
-    },
     ...(options.newRunId === undefined ? {} : { newRunId: options.newRunId }),
   });
+  // the unit tests read and share these stores themselves: the run's ledger and records
+  const ledger = options.ledger ?? memoryLedger();
+  const terns = options.terns ?? createSqliteTernStore(":memory:");
+  return { ...deps, ledger, terns, evaluation: { ...deps.evaluation, ledger, terns } };
 }
 
 /** Runs the star's chat start with a text (on the thread given, else a new one). */

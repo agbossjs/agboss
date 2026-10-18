@@ -7,12 +7,12 @@ import {
   BatchRankAgent,
   CompanyBatchWorkflowStart,
   CompanyCheckAgent,
-  CompanyCheckWorkflow,
   CompanyCheckWorkflowStart,
   CompanyScoreWorkflowFinish,
+  CompanyCheckApplication,
 } from "../fixtures/starts.fixture.js";
 
-const test = testWith(CompanyCheckWorkflow);
+const test = testWith(CompanyCheckApplication);
 
 describe("#270 AC20 / AC21: starts with a map of fields or a list, typed by the generated types", () => {
   test("a map start: the fields reach the agent; the finish passes its output through", async ({

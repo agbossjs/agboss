@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createApp, type AppOptions } from "../../src/app/create-app.js";
+import { type AppOptions } from "../../src/app/create-app.js";
+import { createApp } from "../../src/application/create-app.js";
 import { createMemoryLedger } from "../../src/finops/ledger.js";
 import { createSqliteTernStore } from "../../src/terns/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
@@ -7,11 +8,11 @@ import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import {
   ApprovalDesk,
-  AuditedRefunds,
   ChatStart,
   Refund,
-  Refunds,
   type ButtonClick,
+  AuditedRefundsApplication,
+  RefundsApplication,
 } from "./approval.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
@@ -20,13 +21,12 @@ function offline(book: ScriptBook): AppOptions {
   return {
     processEnv: {},
     gateway: createScriptedGateway(book),
-    stores: { terns: createSqliteTernStore(":memory:"), ledger: createMemoryLedger() },
   };
 }
 
 /** The refunds app, its desk, and a run paused at the refund call. */
 async function pausedRefund(book: ScriptBook) {
-  const app = await createApp(Refunds, offline(book));
+  const app = await createApp(RefundsApplication, offline(book));
   const desk = app.resolve(ApprovalDesk);
   const paused = await execute(app, ChatStart, { text: "refund order A-1" });
   return { app, desk, paused };
@@ -101,7 +101,7 @@ describe("#188: approval through a @Channel", () => {
   });
 
   it("channels are created by the container: an unregistered channel dependency fails the build", async () => {
-    await expect(createApp(AuditedRefunds, offline(new ScriptBook()))).rejects.toThrow(
+    await expect(createApp(AuditedRefundsApplication, offline(new ScriptBook()))).rejects.toThrow(
       'AuditedChannel: "AUDIT_LOG" is not registered in @Workflow({ providers })',
     );
   });

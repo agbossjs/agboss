@@ -11,6 +11,8 @@ import { Reasoning, ReasoningEffort } from "../../../src/models/index.js";
 import { DateTime, TimeZone, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { route, start } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../test-flow/test.flow.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 const price = { inputPerMTok: 0.5, outputPerMTok: 3, cacheReadPerMTok: 0.1 };
 class ClockQuery {
@@ -116,3 +118,11 @@ export class MainRouter {}
   ],
 })
 export class TestWorkflow {}
+
+@Application({
+  name: "test-application",
+  version: "1.0.0",
+  workflows: [TestWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class TestApplication {}

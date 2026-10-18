@@ -21,6 +21,8 @@ import {
 import { DecisionsModelProvider } from "../../../src/models/index.js";
 import { LocalModelProvider } from "../../models/providers.fixture.js";
 import { start } from "../../helpers/flow.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /** Where the noting strategy keeps what it saw (a provider value, so tests read it). */
 export const NOTES = new InjectionToken<string[]>("NOTES");
@@ -142,6 +144,14 @@ export class MemoryDesk implements WorkflowDefinition {
   }
 }
 
+@Application({
+  name: "memory-desk-application",
+  version: "1.0.0",
+  workflows: [MemoryDesk],
+  budgets: TEST_BUDGETS,
+})
+export class MemoryDeskApplication {}
+
 /** One agent; every 2 turns are compacted by a priced model. */
 @Workflow({
   name: "compacting-desk-workflow",
@@ -161,3 +171,11 @@ export class CompactingDesk implements WorkflowDefinition {
     return settings();
   }
 }
+
+@Application({
+  name: "compacting-desk-application",
+  version: "1.0.0",
+  workflows: [CompactingDesk],
+  budgets: TEST_BUDGETS,
+})
+export class CompactingDeskApplication {}

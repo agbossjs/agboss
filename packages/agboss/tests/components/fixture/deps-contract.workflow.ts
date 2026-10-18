@@ -29,12 +29,13 @@ import {
   VaultChannel,
   VaultDocs,
 } from "./deps-contract.components.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /** Scripted models and in-memory stores: nothing external. */
 export const offline = (book = new ScriptBook()): AppOptions => ({
   processEnv: {},
   gateway: createScriptedGateway(book),
-  stores: { terns: createSqliteTernStore(":memory:"), ledger: createMemoryLedger() },
 });
 
 @WorkflowStart({
@@ -110,6 +111,23 @@ export function workflowWith(
   return Built;
 }
 
+/** The application of `workflowWith(…)`: what `createApp` assembles. */
+export function applicationWith(
+  name: string,
+  extra: Partial<WorkflowOptions>,
+  agent: Class = Plain,
+): Class {
+  const workflow = workflowWith(name, extra, agent);
+  @Application({
+    name: name.replace(/-workflow$/, "-application"),
+    version: "1.0.0",
+    workflows: [workflow],
+    budgets: TEST_BUDGETS,
+  })
+  class BuiltApplication {}
+  return BuiltApplication;
+}
+
 /** Every kind that takes `deps`, all wired: tool, guardrail, judge, RAG, action, PII, channel, A2A. */
 @Workflow({
   name: "vault-workflow",
@@ -127,3 +145,11 @@ export function workflowWith(
   providers: [Vault, provide(SECRET, "s3cret"), SemanticInbound, RemoteAgent],
 })
 export class VaultWorkflow {}
+
+@Application({
+  name: "vault-application",
+  version: "1.0.0",
+  workflows: [VaultWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class VaultApplication {}

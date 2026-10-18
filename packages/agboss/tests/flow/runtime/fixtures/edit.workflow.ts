@@ -12,6 +12,8 @@ import { optional } from "../../../../src/flow/dto-wrappers.js";
 import { WorkflowSettings } from "../../../../src/index.js";
 import { usd } from "../../../../src/units/index.js";
 import { agent, route, start, toFinish } from "../../../helpers/flow.js";
+import { Application } from "../../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 
 /** The editor's draft: each visit replaces the one before in the path scope. */
 export class DraftDto {
@@ -87,6 +89,14 @@ export class GateRouter {}
 })
 export class EditWorkflow {}
 
+@Application({
+  name: "edit-application",
+  version: "1.0.0",
+  workflows: [EditWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class EditApplication {}
+
 @Agent({ name: "patient-editor-agent", ...editor })
 export class PatientEditorAgent {}
 
@@ -122,6 +132,14 @@ export class PatientGateRouter {}
 })
 export class PatientEditWorkflow {}
 
+@Application({
+  name: "patient-edit-application",
+  version: "1.0.0",
+  workflows: [PatientEditWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class PatientEditApplication {}
+
 const editPaths = [
   start(EditStart)
     .returns(WorkflowStartTextDto)
@@ -136,6 +154,14 @@ const editPaths = [
 @Workflow({ name: "short-edit-workflow", version: "1.0.0", maxSteps: 3, flow: editPaths })
 export class ShortEditWorkflow {}
 
+@Application({
+  name: "short-edit-application",
+  version: "1.0.0",
+  workflows: [ShortEditWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class ShortEditApplication {}
+
 /** The loop with $0.015 per execution and $0.02 per day. */
 @Workflow({ name: "cheap-edit-workflow", version: "1.0.0", flow: editPaths })
 export class CheapEditWorkflow {
@@ -145,3 +171,11 @@ export class CheapEditWorkflow {
       .build();
   }
 }
+
+@Application({
+  name: "cheap-edit-application",
+  version: "1.0.0",
+  workflows: [CheapEditWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class CheapEditApplication {}

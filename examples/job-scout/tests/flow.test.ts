@@ -3,6 +3,7 @@ import { workflowOf } from "agboss/testing";
 import { describeWorkflow } from "agboss";
 import { replyWith, callTool, routeTo, testWith } from "agboss/testing";
 import { JobScout } from "../src/job-scout.workflow.js";
+import { JobScoutApplication } from "../src/job-scout.application.js";
 import { MainRouter } from "../src/routers/main.router.js";
 import { ProfilerAgent } from "../src/agents/profiler.agent.js";
 import { ShortlistAgent } from "../src/agents/shortlist.agent.js";
@@ -69,7 +70,7 @@ describe("job-scout on the path grammar (#272)", () => {
   });
 });
 
-const test = testWith(JobScout);
+const test = testWith(JobScoutApplication);
 const job = {
   title: "Backend Engineer",
   company: "Fireblocks",

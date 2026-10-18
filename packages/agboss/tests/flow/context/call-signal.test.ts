@@ -7,14 +7,14 @@ import {
   SearcherAgent,
   SlowFetchTool,
   SpendStart,
-  SpendWorkflow,
   resetSpendSeen,
   spendSeen,
+  SpendApplication,
 } from "./fixtures/spend.workflow.js";
 
 beforeEach(resetSpendSeen);
 
-const test = testWith(SpendWorkflow);
+const test = testWith(SpendApplication);
 
 describe("#280 S45: in a tool call, executionContext.signal is the call's", () => {
   test("a call waiting on its signal is aborted at its own timeoutMs; the execution goes on", async ({

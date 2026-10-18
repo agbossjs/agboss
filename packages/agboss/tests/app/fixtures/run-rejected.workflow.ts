@@ -11,6 +11,8 @@ import {
 import { usd } from "../../../src/units/index.js";
 import { start } from "../../helpers/flow.js";
 import { AnswerDto, Apply, Done, Lookup, RunLog } from "./run-events.workflow.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /** A start input with a code a rule checks; the rule's reason echoes the value it rejects. */
 export class VoucherDto extends WorkflowStartTextDto {
@@ -69,3 +71,11 @@ export class Vouchers implements WorkflowDefinition {
       .build();
   }
 }
+
+@Application({
+  name: "vouchers-application",
+  version: "1.0.0",
+  workflows: [Vouchers],
+  budgets: TEST_BUDGETS,
+})
+export class VouchersApplication {}

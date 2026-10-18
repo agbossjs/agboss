@@ -7,6 +7,8 @@ import type { ToolHandlerClass } from "../../../src/components/decorators.js";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { start } from "../../helpers/flow.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { TestAnswer, TestChat, testPaths } from "./test.flow.js";
 
 /**
@@ -30,6 +32,14 @@ export class StarWorkflow {
       .build();
   }
 }
+
+@Application({
+  name: "test-bundle-application",
+  version: "1.0.0",
+  workflows: [StarWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class StarApplication {}
 
 /** What `toolWorkflowOf` builds: alpha with its tools and limits, the run's cost limit. */
 export interface ToolWorkflowOptions {

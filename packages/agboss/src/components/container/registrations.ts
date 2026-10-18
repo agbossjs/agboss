@@ -8,11 +8,17 @@ import { ComponentError } from "../metadata.js";
  * one registered class that is it or extends it.
  */
 
-/** One list of providers and who lists it (a workflow's name), for the messages. */
+/** One list of providers and who lists it (a workflow's or the application's name), for the messages. */
 export interface ProviderModule {
   readonly owner: string;
   readonly providers: readonly Provider[];
+  /** The decorator that lists them (default `@Workflow`). */
+  readonly declaredIn?: "@Workflow" | "@Application";
 }
+
+/** `@Workflow "desk-workflow"` / `@Application "desk-application"`. */
+const ownerOf = (module: ProviderModule): string =>
+  `${module.declaredIn ?? "@Workflow"} "${module.owner}"`;
 
 /** What a token resolves to: a value, or a class the container creates (one instance per class). */
 export type Registration =
@@ -27,15 +33,15 @@ const implementsContract = (cls: Class, contract: Class): boolean =>
 function checkValueToken(token: Token, owner: string): void {
   if (token instanceof InjectionToken) return;
   throw new ComponentError(
-    `[di.instance-provider] @Workflow "${owner}": provide(${tokenName(token)}, …) binds an instance to a class — list ${tokenName(token)} in providers and let the container create it; values go with an InjectionToken`,
+    `[di.instance-provider] ${owner}: provide(${tokenName(token)}, …) binds an instance to a class — list ${tokenName(token)} in providers and let the container create it; values go with an InjectionToken`,
   );
 }
 
 const conflictingValues = (token: Token, first: string, second: string): ComponentError =>
   new ComponentError(
     first === second
-      ? `[di.conflicting-values] ${tokenName(token)} has two different values in @Workflow "${first}" — keep one`
-      : `[di.conflicting-values] ${tokenName(token)} has different values in @Workflow "${first}" and @Workflow "${second}" — use different tokens or an environment value`,
+      ? `[di.conflicting-values] ${tokenName(token)} has two different values in ${first} — keep one`
+      : `[di.conflicting-values] ${tokenName(token)} has different values in ${first} and ${second} — use different tokens or an environment value`,
   );
 
 /** The registrations of an application instance: the core values, then every module's providers. */
@@ -50,8 +56,9 @@ export class Registrations {
     private readonly defaults: ReadonlyMap<Class, Class> = new Map(),
   ) {
     for (const [token, value] of core) this.#values.set(token, value);
-    for (const { owner, providers } of modules) {
-      for (const provider of providers) {
+    for (const module of modules) {
+      const owner = ownerOf(module);
+      for (const provider of module.providers) {
         if ("provide" in provider) this.#addValue(provider.provide, provider.useValue, owner);
         else if (!this.#classes.has(provider)) this.#classes.set(provider, owner);
       }
@@ -94,7 +101,7 @@ export class Registrations {
 
   #ambiguous(contract: Class, found: readonly Class[], dependant: string): ComponentError {
     const listed = found
-      .map((cls) => `${tokenName(cls)} (@Workflow "${this.#classes.get(cls) ?? ""}")`)
+      .map((cls) => `${tokenName(cls)} (${this.#classes.get(cls) ?? ""})`)
       .join(", ");
     return new ComponentError(
       `[di.ambiguous-implementation] ${dependant} depends on ${tokenName(contract)}, and ${String(found.length)} listed classes implement it: ${listed} — list one`,

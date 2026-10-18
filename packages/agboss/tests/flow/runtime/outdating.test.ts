@@ -17,13 +17,11 @@ import {
   AdviceAgent,
   AdviceDto,
   JobsRouter,
-  JobsWorkflow,
   JobsWorkflowFinish,
   JobsWorkflowStart,
   LoopPublisherAgent,
   LoopResearcherAgent,
   LoopReviewerAgent,
-  LoopWorkflow,
   LoopWorkflowFinish,
   LoopWorkflowStart,
   LoopWriterAgent,
@@ -32,14 +30,16 @@ import {
   ScoreAgent,
   SearchAgent,
   resetOutdatingLog,
+  JobsApplication,
+  LoopApplication,
 } from "./fixtures/outdating.workflow.js";
 import {
   DoneFinish,
   DraftDto as EditDraftDto,
   EditStart,
-  EditWorkflow,
   EditorAgent,
   GateRouter,
+  EditApplication,
 } from "./fixtures/edit.workflow.js";
 
 /**
@@ -48,9 +48,9 @@ import {
  * trigger and the reason; nothing outdated reaches an input, a prompt or a finish.
  */
 
-const loop = testWith(LoopWorkflow);
-const jobs = testWith(JobsWorkflow);
-const edit = testWith(EditWorkflow);
+const loop = testWith(LoopApplication);
+const jobs = testWith(JobsApplication);
+const edit = testWith(EditApplication);
 
 beforeEach(resetOutdatingLog);
 

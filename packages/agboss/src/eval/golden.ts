@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
-import type { TernStore } from "../terns/index.js";
+import type { TernRecords } from "../terns/index.js";
 
 /** A saved set of tasks for reproducible comparisons: `golden/<workflow>/<name>.yaml`. */
 export const GoldenSetSchema = z.strictObject({
@@ -39,7 +39,7 @@ export async function saveGolden(file: string, set: GoldenSet): Promise<void> {
 
 /** The last `limit` distinct real tasks of a workflow (answered, not replays), oldest first. */
 export async function goldenFromRecent(
-  terns: TernStore,
+  terns: TernRecords,
   bundle: string,
   name: string,
   limit: number,

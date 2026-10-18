@@ -18,7 +18,9 @@ import {
 } from "./runtime.js";
 import { mcpOf, toolsOf, type Mcp } from "./assemble-tools.js";
 import { ragClassesOf } from "./rag.js";
-import type { Class } from "./injection.js";
+import type { Class, Token } from "./injection.js";
+import type { ProviderModule } from "./container/registrations.js";
+import { INFRASTRUCTURE_TOKENS } from "../infrastructure/clock.js";
 import { containerPartsOf, policyMapsOf } from "./assemble-parts.js";
 import {
   checkProviderClasses,
@@ -74,6 +76,13 @@ const toolDependenciesOf = (
 const codeNodeClassesOf = (graph: RuntimeGraph): readonly Class[] =>
   [...graph.nodes.values()].flatMap((node) => (isCodeNode(node) ? [node.component] : []));
 
+/** What every container of the workflow has besides its providers: core values, MCP servers. */
+const coreTokensOf = (mcp: Mcp): readonly Token[] => [
+  ...CORE_TOKENS,
+  ...INFRASTRUCTURE_TOKENS,
+  ...mcp.instances.keys(),
+];
+
 /** Steps per execution: `maxSteps`, else (agents + routers) × 3. */
 const maxStepsOf = (workflow: Class, graph: RuntimeGraph): number => {
   const working = [...graph.nodes.values()].filter(
@@ -98,9 +107,13 @@ function settingsOf(workflow: Class): WorkflowSettings {
 /**
  * Assembles a v2 `@Workflow` class into the workflow the core runs (#272): its paths analysed (every
  * rule, all violations at once — before any model call), router and agent texts loaded, config,
- * prompts, tools, MCP; cost limits and model providers from `settings()`.
+ * prompts, tools, MCP; cost limits and model providers from `settings()`. `application` = the
+ * providers of its `@Application` (and of the other workflows): its dependencies may come from them.
  */
-export async function workflowOf(workflow: Class): Promise<AssembledWorkflow> {
+export async function workflowOf(
+  workflow: Class,
+  application: readonly ProviderModule[] = [],
+): Promise<AssembledWorkflow> {
   const bundle = moduleOf(workflow);
   const analysis = analyseWorkflow(workflow);
   const graph = runtimeGraphOf(analysis, workflowDeclarationOf(workflow).options.flow, workflow);
@@ -113,11 +126,8 @@ export async function workflowOf(workflow: Class): Promise<AssembledWorkflow> {
   checkProviderClasses(bundle);
   checkMemoryStrategies(agents);
   const judges = judgeClassesOf(agents);
-  checkGraph(
-    componentClassesOf(bundle, agents, tools, rags, codeNodeClassesOf(graph)),
-    providerModulesOf(bundle),
-    [...CORE_TOKENS, ...mcp.instances.keys()],
-  );
+  const components = componentClassesOf(bundle, agents, tools, rags, codeNodeClassesOf(graph));
+  checkGraph(components, [...providerModulesOf(bundle), ...application], coreTokensOf(mcp));
   rememberServers(bundle, mcp.instances);
   const names = toolNames(tools, rags);
   const prompts = await promptsOf(agents, loader);

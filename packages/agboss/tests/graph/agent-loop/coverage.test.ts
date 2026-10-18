@@ -13,7 +13,7 @@ import { makeModelNode } from "../../../src/graph/agent-loop/model-node.js";
 import { makeJudgeNode } from "../../../src/graph/agent-loop/judge-node.js";
 import { makeApprovalNode } from "../../../src/graph/agent-loop/approval-node.js";
 import { servicesFor } from "../../../src/app/parts.js";
-import { buildApp } from "../../../src/app/create-app.js";
+import { createAppDeps } from "../../../src/app/app-deps.js";
 import { workflowOf } from "../../../src/components/assemble.js";
 import { CodeReview } from "../../testing/fixtures/code-review.workflow.js";
 
@@ -212,11 +212,11 @@ describe("agent-loop coverage", () => {
 
   it("createAppDeps fallbacks", async () => {
     const bundle = await workflowOf(CodeReview);
-    const built = await buildApp(bundle, {
+    const built = await createAppDeps(bundle, {
       gateway: { chatModel: () => ({}), embeddings: () => ({}) } as any,
       connectMcp: async () => ({ close: async () => undefined }),
     });
-    const deps = built.deps;
+    const deps = built;
     expect(deps.toolPiiPolicies("t1")).toEqual({ override: false, instances: [], disable: [] });
     expect(deps.toolGuardrails("t1")).toEqual({ override: false, instances: [], disable: [] });
     expect(deps.piiPolicies("a1")).toEqual({ override: false, instances: [], disable: [] });
@@ -322,11 +322,11 @@ describe("agent-loop missing branches coverage", () => {
 describe("app-deps branches coverage", () => {
   it("requestApproval throws on unknown channel", async () => {
     const bundle = await workflowOf(CodeReview);
-    const built = await buildApp(bundle, {
+    const built = await createAppDeps(bundle, {
       gateway: { chatModel: () => ({}), embeddings: () => ({}) } as any,
       connectMcp: async () => ({ close: async () => undefined }),
     });
-    const deps = built.deps;
+    const deps = built;
     await expect(deps.requestApproval("unknown-channel", {})).rejects.toThrow("Unknown channel");
     await deps.close();
   });
@@ -362,15 +362,15 @@ describe("app-deps branches coverage", () => {
     const originalChannels = bundle.channels;
     bundle.channels = () => new Map([["my-channel", mockChannel]]);
 
-    const built = await buildApp(bundle, {
+    const built = await createAppDeps(bundle, {
       gateway: { chatModel: () => ({}), embeddings: () => ({}) } as any,
       connectMcp: async () => ({ close: async () => undefined }),
     });
 
-    await built.deps.requestApproval("my-channel", {});
+    await built.requestApproval("my-channel", {});
     expect(mockChannel.requestApproval).toHaveBeenCalled();
 
     bundle.channels = originalChannels;
-    await built.deps.close();
+    await built.close();
   });
 });

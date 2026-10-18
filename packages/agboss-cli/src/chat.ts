@@ -1,5 +1,5 @@
 import { createApp, loadWorkflowClass, type App, type ExecutionOutput } from "agboss";
-import { executeUnchecked } from "agboss/internal";
+import { executeUnchecked, loadApplicationClass, textStartOfWorkflow } from "agboss/internal";
 import "dotenv/config";
 import { stdin } from "node:process";
 import { createInterface } from "node:readline";
@@ -106,8 +106,9 @@ async function converse(session: Session): Promise<void> {
   }
 }
 
+/** Until #268: the application that lists the --workflow (its module, or *.application.ts beside it). */
 async function appOf(context: CommandContext, file: string): Promise<App> {
-  return createApp(await loadWorkflowClass(file, loadOptions(context)), {
+  return createApp(await loadApplicationClass(file, loadOptions(context)), {
     profile: textOption(context.values, "profile"),
     profileRoot: context.io.cwd,
     env: envOption(context),
@@ -117,7 +118,9 @@ async function appOf(context: CommandContext, file: string): Promise<App> {
 
 /** `agboss chat --workflow <path> [--thread <id>] [--profile <p>] [--env <id>]`. */
 export const handle: CommandHandler = async (context) => {
-  const app = await appOf(context, workflowPath(context));
+  const file = workflowPath(context);
+  const app = await appOf(context, file);
+  const workflow = await loadWorkflowClass(file, loadOptions(context));
   const out = context.json ? process.stderr : process.stdout;
   const rl = createInterface({ input: stdin, terminal: false });
   const say = (text: string): void => {
@@ -125,7 +128,7 @@ export const handle: CommandHandler = async (context) => {
   };
   const session: Session = {
     app,
-    start: textStartOrFail(app),
+    start: textStartOrFail({ name: app.name, textStart: textStartOfWorkflow(app, workflow) }),
     ask: askWith(rl, (text) => out.write(text)),
     say,
     out,

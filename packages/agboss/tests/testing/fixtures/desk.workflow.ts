@@ -25,6 +25,8 @@ import { McpServer, McpServerClient, McpTool } from "../../../src/mcp/index.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { usd } from "../../../src/units/index.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /** What the lifecycle hooks of real components did, in order (the lifecycle tests read it). */
 export const lifecycle: string[] = [];
@@ -263,3 +265,11 @@ export class Desk implements WorkflowDefinition {
       .build();
   }
 }
+
+@Application({
+  name: "desk-application",
+  version: "1.0.0",
+  workflows: [Desk],
+  budgets: TEST_BUDGETS,
+})
+export class DeskApplication {}

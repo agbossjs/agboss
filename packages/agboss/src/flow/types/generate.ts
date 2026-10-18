@@ -90,6 +90,10 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   );
   const names = new ImportTable(new ClassLocator(request.modules), request.outFile);
   const tables = tablesOf(workflows, names);
+  // each exported workflow class is branded too, so `createApp(W)` / `testWith(W)` do not compile
+  request.workflows.forEach((workflow, index) => {
+    if (checks[index]?.analysis !== undefined) names.refIfExported(workflow);
+  });
   const tablesModule = names.specifier(request.tablesModule ?? "agboss");
   const text = printTypes(tables, names, tablesModule);
   const failures = [

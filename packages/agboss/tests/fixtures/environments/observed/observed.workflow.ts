@@ -9,6 +9,8 @@ import {
 import { ChatStart, Reply, settingsDefaults } from "../app/settings.workflow.js";
 import { start } from "../../../helpers/flow.js";
 import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
+import { Application } from "../../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 
 /** An observer — not a tool — that reads the app's environment; created when the app starts. */
 @Injectable({ deps: [ENV] })
@@ -44,3 +46,11 @@ export class Greeter {}
   observers: [RunLog],
 })
 export class ObservedApp {}
+
+@Application({
+  name: "observed-application",
+  version: "1.0.0",
+  workflows: [ObservedApp],
+  budgets: TEST_BUDGETS,
+})
+export class ObservedApplication {}

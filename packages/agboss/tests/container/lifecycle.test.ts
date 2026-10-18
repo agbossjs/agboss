@@ -1,21 +1,26 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../../src/app/create-app.js";
+import { createApp } from "../../src/application/create-app.js";
 import { startComponents, stopComponents } from "../../src/components/container/lifecycle.js";
 import { createMemoryLedger } from "../../src/finops/ledger.js";
 import { ApplicationStoppingError, WorkflowCancelledError, type App } from "../../src/index.js";
-import { Applications, Ask, rejections, resetEvents } from "../app/fixtures/run-events.workflow.js";
+import {
+  Ask,
+  rejections,
+  resetEvents,
+  ApplicationsApplication,
+} from "../app/fixtures/run-events.workflow.js";
 import { createSqliteTernStore } from "../../src/terns/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import {
-  BrokenLifecycleWorkflow,
   events,
   gate,
-  LifecycleWorkflow,
   ScoutAgent,
   SearchJobsTool,
   SearchWorkflowStart,
+  BrokenLifecycleApplication,
+  LifecycleApplication,
 } from "./fixtures/lifecycle.workflow.js";
 import { execute } from "../helpers/flow.js";
 
@@ -47,7 +52,7 @@ const named = (name: string, hooks: Record<string, () => void>): object => {
   return Object.assign(new cls(), hooks);
 };
 
-const search = testWith(LifecycleWorkflow);
+const search = testWith(LifecycleApplication);
 
 describe("#261 AC3: lifecycle hooks — order", () => {
   search(
@@ -84,18 +89,16 @@ const scriptedApp = async (): Promise<App> => {
   book
     .scriptOf("agent:scout-agent")
     .thenReturn(callTool(SearchJobsTool, { text: "TS" }), replyWith("found"));
-  const terns = createSqliteTernStore(":memory:", undefined, () => "t-1");
-  return createApp(LifecycleWorkflow, {
+  return createApp(LifecycleApplication, {
     gateway: createScriptedGateway(book),
-    stores: { terns, ledger: createMemoryLedger() },
+    newThreadId: () => "t-1",
   });
 };
 
 /** An app whose observer records the refused requests. */
 const observedApp = (): Promise<App> =>
-  createApp(Applications, {
+  createApp(ApplicationsApplication, {
     gateway: createScriptedGateway(new ScriptBook()),
-    stores: { terns: createSqliteTernStore(":memory:"), ledger: createMemoryLedger() },
   });
 
 describe("#261 AC3: after app.close() no new execution is accepted", () => {
@@ -200,9 +203,8 @@ describe("#261 AC3: lifecycle hooks — errors", () => {
 
   it("a failing onInit of a real component: the app does not start, the error names it", async () => {
     await expect(
-      createApp(BrokenLifecycleWorkflow, {
+      createApp(BrokenLifecycleApplication, {
         gateway: createScriptedGateway(new ScriptBook()),
-        stores: { terns: createSqliteTernStore(":memory:"), ledger: createMemoryLedger() },
       }),
     ).rejects.toThrow("[di.hook-failed] BrokenPoolProvider.onInit failed: no database at start");
   });

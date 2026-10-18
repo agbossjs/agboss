@@ -1,6 +1,7 @@
 import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
-import { createApp, type AppOptions } from "../../src/app/create-app.js";
+import { type AppOptions } from "../../src/app/create-app.js";
+import { createApp } from "../../src/application/create-app.js";
 import { createMemoryLedger } from "../../src/finops/ledger.js";
 import { defineEnvironment, fromEnv } from "../../src/index.js";
 import { createSqliteTernStore } from "../../src/terns/index.js";
@@ -14,10 +15,10 @@ import {
   ApiSettings,
   ChatStart,
   Clerk,
-  SettingsApp,
+  SettingsApplication,
 } from "../fixtures/environments/app/settings.workflow.js";
-import { NoEnvironmentApp } from "../fixtures/environments/none/no-environment.workflow.js";
-import { ObservedApp } from "../fixtures/environments/observed/observed.workflow.js";
+import { NoEnvironmentApplication } from "../fixtures/environments/none/no-environment.workflow.js";
+import { ObservedApplication } from "../fixtures/environments/observed/observed.workflow.js";
 import { toolResultsOf } from "../testing/fixtures/requests.js";
 import { execute } from "../helpers/flow.js";
 
@@ -27,7 +28,6 @@ function offline(processEnv: NodeJS.ProcessEnv = {}): AppOptions {
   return {
     processEnv,
     gateway: createScriptedGateway(book),
-    stores: { terns: createSqliteTernStore(":memory:"), ledger: createMemoryLedger() },
     connectMcp: stubbedMcpConnect(new McpStubs(book), new Map(), new Set()),
   };
 }
@@ -36,7 +36,7 @@ const STUB = { apiUrl: "http://stub.local", apiKey: "test-key", currency: "EUR" 
 
 describe("#182 AC1: no env named → dev.environment.ts next to the workflow file", () => {
   it("createApp(W) gives its services the dev values: literals, and fromEnv defaults", async () => {
-    const app = await createApp(SettingsApp, offline());
+    const app = await createApp(SettingsApplication, offline());
     expect(app.resolve(ApiClient).env).toEqual({
       apiUrl: "https://api.dev.example.com",
       apiKey: "dev-key",
@@ -47,7 +47,7 @@ describe("#182 AC1: no env named → dev.environment.ts next to the workflow fil
 
   it("createApp(W, { env }) loads another file; a set variable wins over the default", async () => {
     const vars = { FIXTURE_API_KEY: "s3cret", FIXTURE_CURRENCY: "ILS" };
-    const app = await createApp(SettingsApp, { ...offline(vars), env: "staging" });
+    const app = await createApp(SettingsApplication, { ...offline(vars), env: "staging" });
     expect(app.resolve(ApiClient).env).toEqual({
       apiUrl: "https://api.staging.example.com",
       apiKey: "s3cret",
@@ -59,22 +59,22 @@ describe("#182 AC1: no env named → dev.environment.ts next to the workflow fil
 
 describe("#182 AC3: fromEnv is resolved at start", () => {
   it("a missing required variable fails the start naming every missing one", async () => {
-    await expect(createApp(SettingsApp, { ...offline(), env: "staging" })).rejects.toThrow(
+    await expect(createApp(SettingsApplication, { ...offline(), env: "staging" })).rejects.toThrow(
       'Environment "staging": missing variables FIXTURE_API_KEY, FIXTURE_CURRENCY',
     );
     await expect(
-      createApp(SettingsApp, { ...offline({ FIXTURE_CURRENCY: "ILS" }), env: "staging" }),
+      createApp(SettingsApplication, { ...offline({ FIXTURE_CURRENCY: "ILS" }), env: "staging" }),
     ).rejects.toThrow(/missing variables FIXTURE_API_KEY$/);
   });
 
   it("an unknown name fails at once, listing the available environments", async () => {
-    await expect(createApp(SettingsApp, { ...offline(), env: "nope" })).rejects.toThrow(
+    await expect(createApp(SettingsApplication, { ...offline(), env: "nope" })).rejects.toThrow(
       /Environment "nope" not found: .*nope\.environment\.ts\. Available: dev, staging/,
     );
   });
 
   it("a secret is the real value for the service, masked wherever it is printed", async () => {
-    const app = await createApp(SettingsApp, offline({ FIXTURE_API_KEY: "s3cret" }));
+    const app = await createApp(SettingsApplication, offline({ FIXTURE_API_KEY: "s3cret" }));
     const env = app.resolve(ApiClient).env;
     expect(env.apiKey).toBe("s3cret");
     expect(JSON.stringify(env)).toBe(
@@ -87,26 +87,26 @@ describe("#182 AC3: fromEnv is resolved at start", () => {
 
 describe("#182 AC6: ENV injected with no environment → [di.missing-environment] at start", () => {
   it("the app does not start and names the service that injects ENV", async () => {
-    await expect(createApp(NoEnvironmentApp, offline())).rejects.toThrow(
+    await expect(createApp(NoEnvironmentApplication, offline())).rejects.toThrow(
       /^\[di\.missing-environment\] ApiClient injects ENV, but the app has no environment/,
     );
   });
 
   it("#239: an observer injecting ENV (no tool does) fails the start the same way", async () => {
-    await expect(createApp(ObservedApp, offline())).rejects.toThrow(
+    await expect(createApp(ObservedApplication, offline())).rejects.toThrow(
       /^\[di\.missing-environment\] RunLog injects ENV, but the app has no environment/,
     );
   });
 
   it("naming an environment without an environments/ folder fails as not found", async () => {
-    await expect(createApp(NoEnvironmentApp, { ...offline(), env: "dev" })).rejects.toThrow(
+    await expect(createApp(NoEnvironmentApplication, { ...offline(), env: "dev" })).rejects.toThrow(
       /Environment "dev" not found: .*Available: none/,
     );
   });
 });
 
-const withValues = testWith(SettingsApp, { environment: STUB });
-const byDefault = testWith(SettingsApp);
+const withValues = testWith(SettingsApplication, { environment: STUB });
+const byDefault = testWith(SettingsApplication);
 
 describe("#182 AC4: a test gives its own environment; the service receives it", () => {
   withValues(
@@ -136,7 +136,7 @@ describe("#182: testWith picks an environment by the same rules as createApp", (
   });
 
   it("{ env } with a missing variable fails before the test runs", async () => {
-    await expect(TestEnvironment.of(SettingsApp, { env: "staging" })).rejects.toThrow(
+    await expect(TestEnvironment.of(SettingsApplication, { env: "staging" })).rejects.toThrow(
       /missing variables FIXTURE_API_KEY, FIXTURE_CURRENCY/,
     );
   });
@@ -155,6 +155,6 @@ describe("#182 AC5: an environment file is checked against the contract by tsc",
 
   it("testWith's environment is typed by the contract too", () => {
     // @ts-expect-error — `apiKey` and `currency` are missing
-    expect(testWith(SettingsApp, { environment: { apiUrl: "x" } })).toBeTypeOf("function");
+    expect(testWith(SettingsApplication, { environment: { apiUrl: "x" } })).toBeTypeOf("function");
   });
 });

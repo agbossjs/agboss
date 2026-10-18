@@ -20,6 +20,8 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/in
 import { DecisionsModelProvider } from "../../../src/models/index.js";
 import { LocalModelProvider } from "../../models/providers.fixture.js";
 import { start } from "../../helpers/flow.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /** What the judge asks its model (a provider value: the judge gets it through its `deps`). */
 export const RUBRIC = new InjectionToken<string>("RUBRIC");
@@ -93,6 +95,14 @@ export class JudgedDesk implements WorkflowDefinition {
   }
 }
 
+@Application({
+  name: "judged-desk-application",
+  version: "1.0.0",
+  workflows: [JudgedDesk],
+  budgets: TEST_BUDGETS,
+})
+export class JudgedDeskApplication {}
+
 /** A judge with no model: assembly must refuse it. */
 @Judge({ name: "modelless", model: "" })
 export class Modelless implements JudgeHandler {
@@ -126,3 +136,11 @@ export class ModellessDesk implements WorkflowDefinition {
     return settings();
   }
 }
+
+@Application({
+  name: "modelless-desk-application",
+  version: "1.0.0",
+  workflows: [ModellessDesk],
+  budgets: TEST_BUDGETS,
+})
+export class ModellessDeskApplication {}

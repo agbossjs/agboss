@@ -1,23 +1,16 @@
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { MemorySaver } from "@langchain/langgraph";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp, type AppOptions } from "../../src/app/create-app.js";
-import { createMemoryPausedRunRepository } from "../../src/app/paused-runs.js";
-import { createSqlitePausedRunRepository } from "../../src/app/sqlite-paused-runs.js";
+import { createApp } from "../../src/application/create-app.js";
 import type { Class } from "../../src/components/injection.js";
-import { createMemoryLedger } from "../../src/finops/ledger.js";
 import { IncompatibleResumeError, NotPausedError } from "../../src/index.js";
-import { createSqliteTernStore } from "../../src/terns/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import {
   asked,
-  MailV1,
-  MailV2,
-  MailV2Migrating,
+  MailV1Application,
+  MailV1MemoryPausesApplication,
+  MailV2Application,
+  MailV2MigratingApplication,
   observed,
   SendEmail,
   sent,
@@ -25,13 +18,15 @@ import {
 } from "./fixtures/mail.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
+import { resetSharedDatabase, sharedPausedRuns } from "../helpers/shared-infrastructure.js";
 
 const approve = { approved: true, by: "dana" };
 
-/** One deployment's stores; `shared` ones outlive an app, like a database and a checkpointer. */
-function storesOf(book: ScriptBook, shared: Pick<AppOptions, "stores" | "pausedRuns">) {
-  return { processEnv: {}, gateway: createScriptedGateway(book), ...shared };
-}
+/** One deployment: scripted models; its infrastructure is the shared database it lists. */
+const deploymentOf = (book: ScriptBook) => ({
+  processEnv: {},
+  gateway: createScriptedGateway(book),
+});
 
 function scripted(): ScriptBook {
   const book = new ScriptBook();
@@ -41,24 +36,17 @@ function scripted(): ScriptBook {
   return book;
 }
 
-/** Pauses a run on the first deployment, then builds `next` over the same stores. */
+/** Pauses a run on the first deployment, then builds `next` over the same database. */
 async function pauseThenDeploy(next: Class) {
   const book = scripted();
-  const shared = {
-    stores: {
-      checkpointer: new MemorySaver(),
-      terns: createSqliteTernStore(":memory:"),
-      ledger: createMemoryLedger(),
-    },
-    pausedRuns: createMemoryPausedRunRepository(),
-  };
-  const v1 = await createApp(MailV1, storesOf(book, shared));
+  const v1 = await createApp(MailV1Application, deploymentOf(book));
   const paused = await execute(v1, Start, { text: "Email the boss" });
   await v1.close();
-  return { paused, next: await createApp(next, storesOf(book, shared)), shared, book };
+  return { paused, next: await createApp(next, deploymentOf(book)), book };
 }
 
 beforeEach(() => {
+  resetSharedDatabase();
   sent.length = 0;
   asked.length = 0;
   observed.length = 0;
@@ -66,7 +54,7 @@ beforeEach(() => {
 
 describe("#201 AC1: a run paused under another workflow version is not resumed blindly", () => {
   it("resuming on a deployment with another config hash fails with IncompatibleResumeError naming both versions", async () => {
-    const { paused, next } = await pauseThenDeploy(MailV2);
+    const { paused, next } = await pauseThenDeploy(MailV2Application);
 
     const resumed = next.resume(paused.thread, approve);
 
@@ -83,11 +71,11 @@ describe("#201 AC1: a run paused under another workflow version is not resumed b
   });
 
   it("a rejected resume leaves the run paused: a deployment that accepts it continues it", async () => {
-    const { paused, next, shared, book } = await pauseThenDeploy(MailV2);
+    const { paused, next, book } = await pauseThenDeploy(MailV2Application);
     await expect(next.resume(paused.thread, approve)).rejects.toThrow(IncompatibleResumeError);
     await next.close();
 
-    const migrating = await createApp(MailV2Migrating, storesOf(book, shared));
+    const migrating = await createApp(MailV2MigratingApplication, deploymentOf(book));
     const done = await migrating.resume(paused.thread, approve);
 
     expect(done.status).toBe(ExecutionStatus.Finished);
@@ -96,7 +84,7 @@ describe("#201 AC1: a run paused under another workflow version is not resumed b
   });
 
   it("with onIncompatibleResume returning 'resume' the run continues on the new graph", async () => {
-    const { paused, next } = await pauseThenDeploy(MailV2Migrating);
+    const { paused, next } = await pauseThenDeploy(MailV2MigratingApplication);
 
     const done = await next.resume(paused.thread, approve);
 
@@ -113,7 +101,7 @@ describe("#201 AC1: a run paused under another workflow version is not resumed b
   });
 
   it("the same deployment restarted resumes without asking the policy", async () => {
-    const { paused, next } = await pauseThenDeploy(MailV1);
+    const { paused, next } = await pauseThenDeploy(MailV1Application);
 
     const done = await next.resume(paused.thread, approve);
 
@@ -123,30 +111,18 @@ describe("#201 AC1: a run paused under another workflow version is not resumed b
 });
 
 describe("#201 AC2: paused runs survive an app restart with durable stores", () => {
-  /** A restart: every store re-opened from its file; only the checkpointer object is shared. */
-  async function restartOn(pausedRuns: (db: string) => AppOptions["pausedRuns"]) {
-    const db = join(mkdtempSync(join(tmpdir(), "agboss-201-")), "terns.sqlite");
+  /** A restart: the app instance goes, the database it lists stays. */
+  async function restartOn(application: Class) {
     const book = scripted();
-    const checkpointer = new MemorySaver();
-    const ledger = createMemoryLedger();
-    const open = () => {
-      const terns = createSqliteTernStore(db);
-      return { stores: { checkpointer, ledger, terns }, pausedRuns: pausedRuns(db), terns };
-    };
-    const first = open();
-    const app = await createApp(MailV1, storesOf(book, first));
+    const app = await createApp(application, deploymentOf(book));
     const paused = await execute(app, Start, { text: "Email the boss" });
     await app.close();
-    first.terns.close();
-    const second = open();
-    return { db, paused, restarted: await createApp(MailV1, storesOf(book, second)) };
+    return { paused, restarted: await createApp(application, deploymentOf(book)) };
   }
 
-  it("a run paused before the restart is resumed by the new process from the Tern database", async () => {
-    const { db, paused, restarted } = await restartOn((file) =>
-      createSqlitePausedRunRepository(file),
-    );
-    const record = await createSqlitePausedRunRepository(db).get(paused.thread);
+  it("a run paused before the restart is resumed by the new instance from the durable repository", async () => {
+    const { paused, restarted } = await restartOn(MailV1Application);
+    const record = sharedPausedRuns().get(paused.thread);
 
     const done = await restarted.resume(paused.thread, approve);
 
@@ -155,14 +131,14 @@ describe("#201 AC2: paused runs survive an app restart with durable stores", () 
       workflowVersion: "1.0.0",
       run: { status: ExecutionStatus.Paused, budgetUsd: Number.POSITIVE_INFINITY },
     });
-    expect(await createSqlitePausedRunRepository(db).get(paused.thread)).toBeUndefined();
+    expect(sharedPausedRuns().get(paused.thread)).toBeUndefined();
     expect(done.status).toBe(ExecutionStatus.Finished);
     expect(done.output).toEqual({ text: "Sent." });
     expect(sent).toEqual(["boss@example.com"]);
   });
 
-  it("with the in-memory repository the restarted app does not know the paused run", async () => {
-    const { paused, restarted } = await restartOn(() => createMemoryPausedRunRepository());
+  it("with the built-in in-memory repository the restarted app does not know the paused run", async () => {
+    const { paused, restarted } = await restartOn(MailV1MemoryPausesApplication);
 
     await expect(restarted.resume(paused.thread, approve)).rejects.toBeInstanceOf(NotPausedError);
   });
@@ -170,7 +146,7 @@ describe("#201 AC2: paused runs survive an app restart with durable stores", () 
 
 describe("#246 AC3: an incompatible resume is the paused run's onError; the run stays paused", () => {
   it("onError(IncompatibleResumeError) with the paused run's id and thread, then a policy resumes it", async () => {
-    const { paused, next, shared, book } = await pauseThenDeploy(MailV2);
+    const { paused, next, book } = await pauseThenDeploy(MailV2Application);
     observed.length = 0;
 
     const refused = next.resume(paused.thread, approve);
@@ -185,7 +161,7 @@ describe("#246 AC3: an incompatible resume is the paused run's onError; the run 
     ]);
     await next.close();
 
-    const migrating = await createApp(MailV2Migrating, storesOf(book, shared));
+    const migrating = await createApp(MailV2MigratingApplication, deploymentOf(book));
     const done = await migrating.resume(paused.thread, approve);
 
     expect(done).toMatchObject({

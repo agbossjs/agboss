@@ -12,7 +12,6 @@ import {
 } from "../../src/testing/index.js";
 import {
   ChatStart,
-  Desk,
   MainRouter,
   NOTES_DIR,
   NotesServer,
@@ -21,13 +20,14 @@ import {
   SaveNote,
   Support,
   Writer,
+  DeskApplication,
 } from "./fixtures/desk.workflow.js";
 import { toolResultsOf } from "./fixtures/requests.js";
 import { execute } from "../helpers/flow.js";
 
-const test = testWith(Desk);
-const local = testWith(Desk, { allowNetwork: ["localhost"] });
-const realNotes = testWith(Desk, { real: [NotesServer] });
+const test = testWith(DeskApplication);
+const local = testWith(DeskApplication, { allowNetwork: ["localhost"] });
+const realNotes = testWith(DeskApplication, { real: [NotesServer] });
 
 const unguardedFetch = globalThis.fetch;
 const unguardedGet = http.get;

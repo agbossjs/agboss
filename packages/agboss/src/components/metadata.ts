@@ -78,6 +78,8 @@ export type ComponentMeta =
         readonly deps: readonly Token[];
       };
     }
+  /** `@Budget` (#261): a money limit, listed in `@Application({ budgets })`. */
+  | { readonly kind: "budget"; readonly meta: import("../budgets/budget.js").BudgetMeta }
   | {
       readonly kind: "a2a-agent";
       readonly meta: {
@@ -128,4 +130,5 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   rag: "Rag",
   judge: "Judge",
   channel: "Channel",
+  budget: "Budget",
 };

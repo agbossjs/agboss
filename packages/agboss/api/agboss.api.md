@@ -323,10 +323,25 @@ export interface AppDepsOptions {
     readonly processEnv?: NodeJS.ProcessEnv;
     // Warning: (ae-forgotten-export) The symbol "ProviderFetch" needs to be exported by the entry point index.d.ts
     readonly providerFetch?: ProviderFetch;
-    // (undocumented)
-    readonly stores?: AppStores;
     // Warning: (ae-forgotten-export) The symbol "TransportFactory" needs to be exported by the entry point index.d.ts
     readonly transport?: TransportFactory;
+}
+
+// @public (undocumented)
+export function Application(options: ApplicationOptions): <TClass extends Class>(value: TClass) => TClass;
+
+// Warning: (ae-forgotten-export) The symbol "NameOf" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type ApplicationClass<TApplication extends Class> = TApplication & ([NameOf<InstanceType<TApplication>>] extends [never] ? unknown : NameOf<InstanceType<TApplication>> extends `${string}-workflow` ? WorkflowIsNotAnApplication : unknown);
+
+// @public
+export interface ApplicationOptions {
+    readonly budgets?: readonly Class[];
+    readonly name: string;
+    readonly providers?: readonly Provider[];
+    readonly version: string;
+    readonly workflows: readonly Class[];
 }
 
 // @public
@@ -340,7 +355,6 @@ export class ApplicationStoppingError extends AGBossError {
 // @public
 export interface AppOptions extends AppDepsOptions {
     readonly env?: string | undefined;
-    readonly pausedRuns?: PausedRunRepository;
     readonly profile?: string | undefined;
     // (undocumented)
     readonly profileRoot?: string;
@@ -357,19 +371,6 @@ export interface AppState {
     readonly threadId?: string;
     // (undocumented)
     readonly variables?: Readonly<Record<string, unknown>>;
-}
-
-// @public
-export interface AppStores {
-    readonly checkpointer?: BaseCheckpointSaver;
-    // Warning: (ae-forgotten-export) The symbol "SpendLedger" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly ledger?: SpendLedger;
-    // Warning: (ae-forgotten-export) The symbol "TernStore" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly terns?: TernStore;
 }
 
 // @public
@@ -449,11 +450,42 @@ export function BindTool(tool: Class, options?: BindToolOptions): MethodDecorato
 export function BindTool(toolName: string, options?: BindToolOptions): MethodDecorator;
 
 // @public
+export function Budget<const TDeps extends readonly Token[] = []>(options: BudgetOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => BudgetHandler>(value: TClass) => TClass;
+
+// @public
 export class BudgetExceededError extends LimitExceededError {
     // (undocumented)
     static readonly code: string;
     // (undocumented)
     name: string;
+}
+
+// @public
+export interface BudgetHandler {
+    // Warning: (ae-forgotten-export) The symbol "Usd" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    maxSpend(): Usd | Promise<Usd>;
+}
+
+// @public
+export type BudgetOptions<TDeps extends readonly Token[] = readonly Token[]> = ExecutionBudgetOptions<TDeps> | PeriodBudgetOptions<TDeps>;
+
+// @public
+export enum BudgetPeriod {
+    // (undocumented)
+    Day = "day",
+    // (undocumented)
+    Month = "month",
+    // (undocumented)
+    Week = "week"
+}
+
+// @public
+export enum BudgetScope {
+    Application = "application",
+    Execution = "execution",
+    Tenant = "tenant"
 }
 
 // @public
@@ -647,13 +679,16 @@ export interface ComponentRecord {
 }
 
 // @public
-export function createApp(workflow: Class, options?: AppOptions): Promise<App>;
+export abstract class CostLedgerRepository {
+    abstract findSpentToday(key: string): Promise<number>;
+    abstract saveAll(key: string, records: readonly UsageRecord[]): Promise<void>;
+}
+
+// @public
+export function createApp<TApplication extends Class>(application: ApplicationClass<TApplication>, options?: AppOptions): Promise<App>;
 
 // @public
 export function createAppDeps(bundle: AssembledWorkflow, options?: AppDepsOptions): Promise<AppDeps>;
-
-// @public
-export function createSqlitePausedRunRepository(path?: string, now?: () => Date): SqlitePausedRunRepository;
 
 // @public
 export enum DecidedBy {
@@ -816,6 +851,18 @@ export interface ErrorRecord {
 // @public
 export function errorRecordOf(thrown: unknown): ErrorRecord;
 
+// Warning: (ae-forgotten-export) The symbol "BudgetCommonOptions" needs to be exported by the entry point index.d.ts
+//
+// @public
+export interface ExecutionBudgetOptions<TDeps extends readonly Token[]> extends BudgetCommonOptions<TDeps> {
+    // (undocumented)
+    readonly period?: never;
+    // (undocumented)
+    readonly scope: BudgetScope.Execution;
+    // (undocumented)
+    readonly workflow?: Class;
+}
+
 // @public
 export abstract class ExecutionContext {
     abstract readonly depth: number;
@@ -911,6 +958,55 @@ export interface ExecutionRecord {
     readonly scope: readonly ScopeValueRecord[];
     // (undocumented)
     readonly spend: CostReport;
+}
+
+// @public
+export abstract class ExecutionRecordRepository {
+    // Warning: (ae-forgotten-export) The symbol "NewSummary" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "Summary" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    abstract addSummary(summary: NewSummary): Promise<Summary>;
+    // Warning: (ae-forgotten-export) The symbol "NewTern" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "Tern" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    abstract append(tern: NewTern): Promise<Tern>;
+    abstract before(threadId: string, ternId: string, limit: number): Promise<Tern[]>;
+    // (undocumented)
+    abstract byIds(ids: readonly string[]): Promise<Tern[]>;
+    abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Tern[]>;
+    // Warning: (ae-forgotten-export) The symbol "TernOutcome" needs to be exported by the entry point index.d.ts
+    abstract complete(ternId: string, outcome: TernOutcome): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "ConfigSnapshot" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
+    abstract createThread(workflow: string, owner?: string): Promise<string>;
+    // (undocumented)
+    abstract hasThread(workflow: string, threadId: string): Promise<boolean>;
+    abstract lastTerns(threadId: string, limit: number): Promise<Tern[]>;
+    abstract latestSummaries(threadId: string, limit: number): Promise<Summary[]>;
+    // (undocumented)
+    abstract meanScore(ternIds: readonly string[]): Promise<number | null>;
+    abstract recentOriginals(workflow: string, limit: number): Promise<Tern[]>;
+    abstract rememberConfig(workflow: string, version: string, hash: string, snapshot: string): Promise<{
+        readonly drift: boolean;
+    }>;
+    // (undocumented)
+    abstract saveScore(ternId: string, judge: string, score: number): Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "VersionScore" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    abstract summary(workflow: string): Promise<VersionScore[]>;
+    // (undocumented)
+    abstract summaryCount(threadId: string): Promise<number>;
+    abstract threadOwner(workflow: string, threadId: string): Promise<{
+        readonly owner: string | undefined;
+    } | undefined>;
+    abstract turnNumber(threadId: string, ternId: string): Promise<number>;
+    abstract uncovered(threadId: string): Promise<Tern[]>;
+    abstract unscored(workflow: string, promptVersion: string | undefined, limit: number): Promise<Tern[]>;
 }
 
 // @public
@@ -1880,27 +1976,32 @@ export type PathHead = SourceHead | RouteHead | CaseHead<unknown> | SideHead;
 export type PathSource = StartSource | ComponentSource;
 
 // @public
+export abstract class PausedExecutionRepository {
+    abstract deleteByThreadId(threadId: string): Promise<void>;
+    abstract findByThreadId(threadId: string): Promise<PausedRun | undefined>;
+    abstract save(paused: PausedRun): Promise<void>;
+}
+
+// @public
 export interface PausedRun extends ResumeVersions {
     // (undocumented)
     readonly run: AgentExecutionOutput;
 }
 
 // @public
-export interface PausedRunRepository {
+export interface PerDayLimits {
     // (undocumented)
-    readonly delete: (thread: string) => Promise<void>;
-    // (undocumented)
-    readonly get: (thread: string) => Promise<PausedRun | undefined>;
-    // (undocumented)
-    readonly set: (paused: PausedRun) => Promise<void>;
+    readonly cost?: Usd;
 }
 
 // @public
-export interface PerDayLimits {
-    // Warning: (ae-forgotten-export) The symbol "Usd" needs to be exported by the entry point index.d.ts
-    //
+export interface PeriodBudgetOptions<TDeps extends readonly Token[]> extends BudgetCommonOptions<TDeps> {
     // (undocumented)
-    readonly cost?: Usd;
+    readonly period: BudgetPeriod;
+    // (undocumented)
+    readonly scope: BudgetScope.Tenant | BudgetScope.Application;
+    // (undocumented)
+    readonly workflow?: never;
 }
 
 // @public
@@ -2083,7 +2184,6 @@ export interface ReturnedValue {
 // @public (undocumented)
 export interface Returning<TInstance, TOutput, THead extends PathHead> {
     // Warning: (ae-forgotten-export) The symbol "ReturnsCheck" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "NameOf" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
     returns<const TShape extends ValueShape>(value: TShape & ReturnsCheck<ValueOf<TShape>, TOutput, NameOf<TInstance>>, options?: ReturnsOptions): AfterValue<ValueOf<TShape>, THead>;
@@ -2249,7 +2349,7 @@ export interface Routes {
 }
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.unused-tag" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class";
+export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.unused-tag" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "di.infrastructure-in-workflow";
 
 // @public
 export interface RuleViolation {
@@ -2267,11 +2367,15 @@ export function runAgent<TName extends string>(input: unknown, deps: RunDeps<TNa
 // @public
 export interface RunDeps<TName extends string> extends GraphDeps<TName> {
     readonly compactionPrompt?: string | undefined;
+    // Warning: (ae-forgotten-export) The symbol "SpendLedger" needs to be exported by the entry point index.d.ts
+    //
     // (undocumented)
     readonly ledger: SpendLedger;
     readonly newRunId?: () => string;
+    // Warning: (ae-forgotten-export) The symbol "TernRecords" needs to be exported by the entry point index.d.ts
+    //
     // (undocumented)
-    readonly terns: TernStore;
+    readonly terns: TernRecords;
     // Warning: (ae-forgotten-export) The symbol "RunTracing" needs to be exported by the entry point index.d.ts
     readonly tracing?: RunTracing | undefined;
 }
@@ -2411,12 +2515,6 @@ export class SpendOutsideStepError extends AGBossError {
 export abstract class SpendRecorder {
     // (undocumented)
     abstract record(spend: ServiceSpend): void;
-}
-
-// @public
-export interface SqlitePausedRunRepository extends PausedRunRepository {
-    // (undocumented)
-    readonly close: () => void;
 }
 
 // @public
@@ -2765,6 +2863,12 @@ export interface WorkflowFinishOptions<TDeps extends readonly Token[] = readonly
 }
 
 // @public
+export interface WorkflowIsNotAnApplication {
+    // (undocumented)
+    readonly __error: "a @Workflow is not an application — list it in an @Application({ workflows }) and pass the application";
+}
+
+// @public
 export interface WorkflowLimits {
     // (undocumented)
     readonly perDay?: PerDayLimits;
@@ -2899,24 +3003,17 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 
 // Warnings were encountered during analysis:
 //
-// src/app/app-deps.ts:44:3 - (ae-undocumented) Missing documentation for "observer".
-// src/app/app-deps.ts:45:3 - (ae-undocumented) Missing documentation for "evaluation".
-// src/app/app-deps.ts:66:3 - (ae-undocumented) Missing documentation for "ledger".
-// src/app/app-deps.ts:67:3 - (ae-undocumented) Missing documentation for "terns".
-// src/app/app-deps.ts:94:3 - (ae-undocumented) Missing documentation for "stores".
-// src/app/app-deps.ts:97:3 - (ae-undocumented) Missing documentation for "newThreadId".
-// src/app/app-deps.ts:98:3 - (ae-undocumented) Missing documentation for "newRunId".
-// src/app/app-deps.ts:99:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/app-deps.ts:32:3 - (ae-undocumented) Missing documentation for "observer".
+// src/app/app-deps.ts:33:3 - (ae-undocumented) Missing documentation for "evaluation".
+// src/app/app-deps.ts:71:3 - (ae-undocumented) Missing documentation for "newThreadId".
+// src/app/app-deps.ts:72:3 - (ae-undocumented) Missing documentation for "newRunId".
+// src/app/app-deps.ts:73:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/create-app.ts:40:3 - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/create-app.ts:41:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/limit-check.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/limit-check.ts:10:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/paused-runs.ts:12:3 - (ae-undocumented) Missing documentation for "run".
-// src/app/paused-runs.ts:20:3 - (ae-undocumented) Missing documentation for "get".
-// src/app/paused-runs.ts:21:3 - (ae-undocumented) Missing documentation for "set".
-// src/app/paused-runs.ts:22:3 - (ae-undocumented) Missing documentation for "delete".
-// src/app/sqlite-paused-runs.ts:48:3 - (ae-undocumented) Missing documentation for "close".
+// src/app/paused-runs.ts:13:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts:15:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts:16:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/app/types.ts:21:3 - (ae-undocumented) Missing documentation for "thread".
@@ -2929,6 +3026,18 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/types.ts:92:3 - (ae-undocumented) Missing documentation for "version".
 // src/app/types.ts:108:3 - (ae-undocumented) Missing documentation for "resume".
 // src/app/types.ts:118:3 - (ae-undocumented) Missing documentation for "close".
+// src/application/application.ts:38:1 - (ae-undocumented) Missing documentation for "Application".
+// src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
+// src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
+// src/budgets/budget.ts:25:3 - (ae-undocumented) Missing documentation for "Week".
+// src/budgets/budget.ts:26:3 - (ae-undocumented) Missing documentation for "Month".
+// src/budgets/budget.ts:31:3 - (ae-undocumented) Missing documentation for "maxSpend".
+// src/budgets/budget.ts:47:3 - (ae-undocumented) Missing documentation for "scope".
+// src/budgets/budget.ts:48:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/budgets/budget.ts:49:3 - (ae-undocumented) Missing documentation for "period".
+// src/budgets/budget.ts:56:3 - (ae-undocumented) Missing documentation for "scope".
+// src/budgets/budget.ts:57:3 - (ae-undocumented) Missing documentation for "period".
+// src/budgets/budget.ts:58:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/channels/terminal-channel.ts:4:1 - (ae-undocumented) Missing documentation for "TerminalUserChannel".
 // src/channels/test-channels.ts:3:1 - (ae-undocumented) Missing documentation for "AutoApproveChannel".
 // src/channels/test-channels.ts:9:3 - (ae-undocumented) Missing documentation for "requestApproval".
@@ -2974,8 +3083,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/components/judge-decorators.ts:53:3 - (ae-undocumented) Missing documentation for "feedback".
 // src/components/judge-decorators.ts:54:3 - (ae-undocumented) Missing documentation for "metrics".
 // src/components/judge-decorators.ts:59:3 - (ae-undocumented) Missing documentation for "judge".
-// src/components/metadata.ts:99:1 - (ae-undocumented) Missing documentation for "ComponentError".
-// src/components/metadata.ts:100:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/metadata.ts:101:1 - (ae-undocumented) Missing documentation for "ComponentError".
+// src/components/metadata.ts:102:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/policy-decorators.ts:9:3 - (ae-undocumented) Missing documentation for "mask".
 // src/components/policy-decorators.ts:11:3 - (ae-undocumented) Missing documentation for "maskJson".
 // src/components/policy-decorators.ts:25:1 - (ae-undocumented) Missing documentation for "Guardrail".
@@ -3418,11 +3527,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/limits.ts:38:3 - (ae-undocumented) Missing documentation for "usage".
 // src/graph/limits.ts:66:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/limits.ts:67:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:64:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:65:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:66:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:77:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:78:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:71:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:72:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:73:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:84:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:85:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:8:3 - (ae-undocumented) Missing documentation for "cost".
 // src/graph/settings.ts:13:3 - (ae-undocumented) Missing documentation for "cost".
 // src/graph/settings.ts:18:3 - (ae-undocumented) Missing documentation for "perRun".
@@ -3437,6 +3546,15 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/settings.ts:57:5 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:60:3 - (ae-undocumented) Missing documentation for "builder".
 // src/graph/settings.ts:101:3 - (ae-undocumented) Missing documentation for "settings".
+// src/infrastructure/execution-record.repository.ts:24:3 - (ae-undocumented) Missing documentation for "hasThread".
+// src/infrastructure/execution-record.repository.ts:30:3 - (ae-undocumented) Missing documentation for "append".
+// src/infrastructure/execution-record.repository.ts:35:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record.repository.ts:44:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record.repository.ts:45:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record.repository.ts:46:3 - (ae-undocumented) Missing documentation for "summary".
+// src/infrastructure/execution-record.repository.ts:54:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record.repository.ts:63:3 - (ae-undocumented) Missing documentation for "addSummary".
+// src/infrastructure/execution-record.repository.ts:66:3 - (ae-undocumented) Missing documentation for "summaryCount".
 // src/llm/decision-errors.ts:5:3 - (ae-undocumented) Missing documentation for "code".
 // src/llm/decision-errors.ts:6:12 - (ae-undocumented) Missing documentation for "name".
 // src/llm/decision-errors.ts:11:3 - (ae-undocumented) Missing documentation for "code".

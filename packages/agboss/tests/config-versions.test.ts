@@ -1,8 +1,8 @@
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createAppDeps } from "../src/app/app-deps.js";
+import { createWorkflowDeps } from "../src/app/app-deps.js";
+import { standaloneInfrastructure } from "../src/application/application-container.js";
+import { TernStoreRecordRepository } from "../src/infrastructure/execution-record.repository.js";
 import { providerStub } from "./models/stub.js";
 import { TestWorkflow } from "./fixtures/test-workflow/test.workflow.js";
 import { workflowOf } from "../src/testing/index.js";
@@ -72,20 +72,23 @@ describe("config versions", () => {
   });
 
   it("AC2: a config changed without a version bump warns on start", async () => {
-    const env = {
-      OPENROUTER_API_KEY: "k",
-      TERN_DB: join(await mkdtemp(join(tmpdir(), "versions-")), "t.sqlite"),
-    };
+    const env = { OPENROUTER_API_KEY: "k" };
     const base = await workflowOf(TestWorkflow);
     const providerFetch = providerStub([], [{ id: "test/researcher" }, { id: "test/coder" }]).fetch;
-    const first = await createAppDeps(base, { processEnv: env, providerFetch });
+    // the records outlive the app instance: a durable repository both starts share
+    const infrastructure = {
+      ...standaloneInfrastructure(base, {}),
+      records: new TernStoreRecordRepository(createSqliteTernStore(":memory:")),
+    };
+    const options = { processEnv: env, providerFetch };
+    const first = await createWorkflowDeps(base, options, { infrastructure });
     await first.close();
     const changed = {
       ...base,
       prompts: { ...base.prompts, "coder-agent": "A different coder prompt." },
     };
 
-    const second = await createAppDeps(changed, { processEnv: env, providerFetch });
+    const second = await createWorkflowDeps(changed, options, { infrastructure });
     await second.close();
 
     expect(first.warnings).toEqual([]);

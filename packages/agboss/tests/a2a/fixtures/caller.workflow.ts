@@ -14,6 +14,8 @@ import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/
 import type { Class } from "../../../src/components/injection.js";
 import type { ToolClass } from "../../../src/testing/index.js";
 import { start } from "../../helpers/flow.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 export class Question {
   @Text({ prompt: "the question for the order desk" })
@@ -45,7 +47,7 @@ export class DeskCredentials {
 
 /** The caller workflow, bound to a remote desk at `url` (known once the server listens). */
 export interface CallerParts {
-  readonly Caller: Class;
+  readonly CallerApplication: Class;
   readonly PlanStart: Class;
   readonly AskDesk: ToolClass<Question>;
   readonly AskTicket: ToolClass<Question>;
@@ -140,5 +142,13 @@ export function callerOf(url: string): CallerParts {
     }
   }
 
-  return { Caller, PlanStart, AskDesk, AskTicket, RemoteDeskAgent };
+  @Application({
+    name: "caller-application",
+    version: "1.0.0",
+    workflows: [Caller],
+    budgets: TEST_BUDGETS,
+  })
+  class CallerApplication {}
+
+  return { CallerApplication, PlanStart, AskDesk, AskTicket, RemoteDeskAgent };
 }

@@ -1,5 +1,10 @@
-import { createApp, loadWorkflowClass, type App, type ExecutionOutput } from "agboss";
-import { executeUnchecked, type RunStreamEvent } from "agboss/internal";
+import { createApp, loadWorkflowClass, type App, type Class, type ExecutionOutput } from "agboss";
+import {
+  executeUnchecked,
+  loadApplicationClass,
+  textStartOfWorkflow,
+  type RunStreamEvent,
+} from "agboss/internal";
 import "dotenv/config";
 import { createInterface } from "node:readline";
 import { styleText } from "node:util";
@@ -25,13 +30,18 @@ function streamTo(context: CommandContext): (event: RunStreamEvent) => void {
   };
 }
 
-async function execute(context: CommandContext, app: App, task: string): Promise<ExecutionOutput> {
+async function execute(
+  context: CommandContext,
+  app: App,
+  start: Class,
+  task: string,
+): Promise<ExecutionOutput> {
   const thread = textOption(context.values, "thread");
   const rl = createInterface({ input: process.stdin, terminal: false });
   try {
     const first = await executeUnchecked(
       app,
-      textStartOrFail(app),
+      start,
       { text: task },
       { ...(thread === undefined ? {} : { thread }), onStream: streamTo(context) },
     );
@@ -61,7 +71,8 @@ function report(context: CommandContext, app: App, result: ExecutionOutput): voi
 /** `agboss run --workflow <path> [--thread <id>] [--profile <p>] [--env <id>] "<task>"`. */
 export const handle: CommandHandler = async (context) => {
   const { file, task } = runTargetOf(context);
-  const app = await createApp(await loadWorkflowClass(file, loadOptions(context)), {
+  // until #268: the application that lists the --workflow (its module, or *.application.ts beside it)
+  const app = await createApp(await loadApplicationClass(file, loadOptions(context)), {
     profile: textOption(context.values, "profile"),
     profileRoot: context.io.cwd,
     env: envOption(context),
@@ -71,7 +82,12 @@ export const handle: CommandHandler = async (context) => {
     context.warn(`warning: ${warning}`);
   });
   try {
-    const result = await execute(context, app, task);
+    const workflow = await loadWorkflowClass(file, loadOptions(context));
+    const start = textStartOrFail({
+      name: app.name,
+      textStart: textStartOfWorkflow(app, workflow),
+    });
+    const result = await execute(context, app, start, task);
     report(context, app, result);
     const { thread, status, finish, output: answer } = result;
     const output = {

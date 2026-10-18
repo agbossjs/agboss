@@ -18,6 +18,8 @@ import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { DecidedBy, WorkflowFinish } from "../../../src/index.js";
 import { route, start } from "../../helpers/flow.js";
 import { DEFAULTS, Reply, settings, TaskStart } from "./judged.workflow.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /** On a chat model, yet asks for a decision. */
 @Judge({ name: "chat-decider", model: "local/judge", deps: [JudgeModel] })
@@ -78,6 +80,14 @@ export class ChatDeciderDesk implements WorkflowDefinition {
   }
 }
 
+@Application({
+  name: "chat-decider-desk-application",
+  version: "1.0.0",
+  workflows: [ChatDeciderDesk],
+  budgets: TEST_BUDGETS,
+})
+export class ChatDeciderDeskApplication {}
+
 @Workflow({
   name: "decision-chatter-desk-workflow",
   version: "1.0.0",
@@ -94,6 +104,14 @@ export class DecisionChatterDesk implements WorkflowDefinition {
     return settings();
   }
 }
+
+@Application({
+  name: "decision-chatter-desk-application",
+  version: "1.0.0",
+  workflows: [DecisionChatterDesk],
+  budgets: TEST_BUDGETS,
+})
+export class DecisionChatterDeskApplication {}
 
 /** What the intake read the ask as. */
 export class AskDto {
@@ -153,3 +171,11 @@ export class LunaRouted implements WorkflowDefinition {
     return settings();
   }
 }
+
+@Application({
+  name: "luna-routed-application",
+  version: "1.0.0",
+  workflows: [LunaRouted],
+  budgets: TEST_BUDGETS,
+})
+export class LunaRoutedApplication {}

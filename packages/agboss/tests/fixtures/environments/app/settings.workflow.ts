@@ -12,6 +12,8 @@ import {
 } from "../../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { start } from "../../../helpers/flow.js";
+import { Application } from "../../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 
 /** A service that reads the app's environment (#182). */
 @Injectable({ deps: [ENV] })
@@ -91,3 +93,11 @@ export const settingsDefaults = {
   providers: [ApiClient],
 })
 export class SettingsApp {}
+
+@Application({
+  name: "settings-application",
+  version: "1.0.0",
+  workflows: [SettingsApp],
+  budgets: TEST_BUDGETS,
+})
+export class SettingsApplication {}

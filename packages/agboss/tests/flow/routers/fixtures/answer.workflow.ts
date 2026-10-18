@@ -10,6 +10,8 @@ import {
 } from "../../../../src/index.js";
 import { LimitExceededError } from "../../../../src/graph/limits.js";
 import { route, start, toFinish } from "../../../helpers/flow.js";
+import { Application } from "../../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 
 /**
  * #280 S19 — a code router whose answer the test picks: a target, a class outside its routes (what
@@ -130,6 +132,14 @@ export class AskRouter {
 })
 export class AskWorkflow {}
 
+@Application({
+  name: "ask-application",
+  version: "1.0.0",
+  workflows: [AskWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class AskApplication {}
+
 /** The same router with a side path for any of its failures: `RouterFailedError` takes both. */
 @Workflow({
   name: "ask-caught-workflow",
@@ -150,3 +160,11 @@ export class AskWorkflow {}
   ],
 })
 export class AskCaughtWorkflow {}
+
+@Application({
+  name: "ask-caught-application",
+  version: "1.0.0",
+  workflows: [AskCaughtWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class AskCaughtApplication {}

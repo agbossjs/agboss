@@ -1,4 +1,4 @@
-import { TestWorkflow } from "./fixtures/test-workflow/test.workflow.js";
+import { TestWorkflow, TestApplication } from "./fixtures/test-workflow/test.workflow.js";
 import { workflowOf } from "../src/testing/index.js";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it, vi } from "vitest";
 import { createAppDeps } from "../src/app/app-deps.js";
-import { createApp } from "../src/app/create-app.js";
+import { createApp } from "../src/application/create-app.js";
 import type { ModelGateway } from "../src/llm/gateway.js";
 import { TestChat } from "./fixtures/test-flow/test.flow.js";
 import { providerStub } from "./models/stub.js";
@@ -50,7 +50,10 @@ describe("AC12: createAppDeps on an injected model gateway", () => {
       TERN_DB: ":memory:",
       SPEND_LEDGER_DIR: mkdtempSync(join(tmpdir(), "agboss-135-")),
     };
-    const app = await createApp(TestWorkflow, { processEnv: env, gateway: { chatModel, routeTo } });
+    const app = await createApp(TestApplication, {
+      processEnv: env,
+      gateway: { chatModel, routeTo },
+    });
 
     const result = await execute(app, TestChat, { text: "What time is it?" });
     await app.close();

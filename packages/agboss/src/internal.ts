@@ -27,6 +27,8 @@ export { byClassName, byComponentName, flowLines, pathLines } from "./flow/print
 export { inputLines } from "./describe/inputs.js";
 export { stepsRangeOf, type StepsRange } from "./flow/analyse/steps.js";
 export { executeUnchecked } from "./app/execute-unchecked.js";
+export { textStartOfWorkflow } from "./application/compose-app.js";
+export { loadApplicationClass } from "./loader/load-application.js";
 export { requestOfTask, textRequestOf, type StartRequest } from "./flow/runtime/start-input.js";
 export { GENERATED_TYPES_FILE } from "./flow/types/generate.js";
 export {

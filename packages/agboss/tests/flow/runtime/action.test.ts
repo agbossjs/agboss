@@ -6,10 +6,10 @@ import {
   reported,
   ReportFinish,
   TicketStart,
-  TriageWorkflow,
+  TriageApplication,
 } from "./fixtures/triage.workflow.js";
 
-const test = testWith(TriageWorkflow);
+const test = testWith(TriageApplication);
 
 beforeEach(() => {
   reported.length = 0;

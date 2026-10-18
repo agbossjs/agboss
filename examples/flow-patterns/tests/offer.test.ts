@@ -10,6 +10,7 @@ import { ChangesRequestedDto } from "../src/offer/dtos/changes-requested.dto.js"
 import { DraftApprovedDto } from "../src/offer/dtos/draft-approved.dto.js";
 import { OfferDraftDto } from "../src/offer/dtos/offer-draft.dto.js";
 import { OfferWorkflow } from "../src/offer/offer.workflow.js";
+import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
 import { OfferMailer } from "../src/offer/services/offer-mailer.service.js";
 import { RecruiterInbox } from "../src/offer/services/recruiter-inbox.service.js";
 import { OfferFailedWorkflowFinish } from "../src/offer/workflow-finishes/offer-failed.workflow-finish.js";
@@ -18,7 +19,7 @@ import { OfferWorkflowStart } from "../src/offer/workflow-starts/offer.workflow-
 
 /** The review loop: draft → reviewer, reviewer → editor → reviewer until it approves. */
 
-const test = testWith(OfferWorkflow);
+const test = testWith(FlowPatternsApplication);
 
 const draft = (text: string) => replyWith(OfferDraftDto, { text });
 const changes = (notes: string) => replyWith(ChangesRequestedDto, { notes });

@@ -1,10 +1,10 @@
 import { testWith } from "agboss/testing";
 import { expect } from "vitest";
-import { {{workflowPascal}}Workflow } from "../{{workflowKebab}}.workflow.js";
+import { {{workflowPascal}}Application } from "../{{workflowKebab}}.application.js";
 import { {{pascal}}Tool } from "./{{kebab}}.tool.js";
 
-// the tool as the app builds it: its ApiService gets the environment next to the workflow file
-const test = testWith({{workflowPascal}}Workflow);
+// the tool as the app builds it: its ApiService gets the environment next to the application file
+const test = testWith({{workflowPascal}}Application);
 
 test("{{snake}} answers a query on the environment's API", async ({ app }) => {
   const result = await app.tool({{pascal}}Tool).invoke({ query: "example" });

@@ -15,6 +15,8 @@ export enum NameKind {
   Action = "action",
   Router = "router",
   Tool = "tool",
+  Application = "application",
+  Budget = "budget",
 }
 
 /** The decorator each kind is declared with, as a message names it. */
@@ -26,6 +28,8 @@ const DECORATORS: Readonly<Record<NameKind, string>> = {
   [NameKind.Action]: "@Action",
   [NameKind.Router]: "@Router",
   [NameKind.Tool]: "@Tool",
+  [NameKind.Application]: "@Application",
+  [NameKind.Budget]: "@Budget",
 };
 
 /** The stable codes of the name rules. */

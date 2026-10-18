@@ -2,24 +2,24 @@ import { describe, expect } from "vitest";
 import { LimitExceededError, RouterDecisionError, RouterFailedError } from "../../../src/index.js";
 import { failWith, ModelFailure, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
-import { CreditWorkflow, CreditWorkflowStart, DeskRouter } from "../fixtures/credit.fixture.js";
+import { CreditWorkflowStart, DeskRouter, CreditApplication } from "../fixtures/credit.fixture.js";
 import {
-  AskCaughtWorkflow,
   AskRouter,
-  AskWorkflow,
   AskWorkflowStart,
   DoneWorkflowFinish,
   HeldWorkflowFinish,
   RefusedWorkflowFinish,
   RightAction,
   type Answer,
+  AskCaughtApplication,
+  AskApplication,
 } from "./fixtures/answer.workflow.js";
 
 /** #280 S19: a router that fails (`RouterFailedError`) and one that decides wrongly (`RouterDecisionError`). */
 
-const test = testWith(AskWorkflow);
-const caught = testWith(AskCaughtWorkflow);
-const credit = testWith(CreditWorkflow);
+const test = testWith(AskApplication);
+const caught = testWith(AskCaughtApplication);
+const credit = testWith(CreditApplication);
 
 const ask = (answer: Answer) => ({ answer });
 

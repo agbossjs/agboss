@@ -14,6 +14,8 @@ import {
 } from "../../../../src/index.js";
 import { usd } from "../../../../src/units/index.js";
 import { start } from "../../../helpers/flow.js";
+import { Application } from "../../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 
 /** What the components saw (reset by `resetSpendSeen`). */
 export const spendSeen = {
@@ -143,6 +145,14 @@ export class SpendWorkflow implements WorkflowDefinition {
   }
 }
 
+@Application({
+  name: "spend-application",
+  version: "1.0.0",
+  workflows: [SpendWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class SpendApplication {}
+
 /** The same with $0.001 per run: one paid search spends it. */
 @Workflow({ name: "tight-spend-workflow", version: "1.0.0", providers: [ShipAction], flow: paths })
 export class TightSpendWorkflow implements WorkflowDefinition {
@@ -152,3 +162,11 @@ export class TightSpendWorkflow implements WorkflowDefinition {
       .build();
   }
 }
+
+@Application({
+  name: "tight-spend-application",
+  version: "1.0.0",
+  workflows: [TightSpendWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class TightSpendApplication {}

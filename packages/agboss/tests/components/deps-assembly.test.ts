@@ -4,7 +4,7 @@
  * compile error.
  */
 import { describe, expect, it } from "vitest";
-import { createApp } from "../../src/app/create-app.js";
+import { createApp } from "../../src/application/create-app.js";
 import {
   Channel,
   Guardrail,
@@ -33,7 +33,7 @@ import {
   Done,
   offline,
   Plain as PlainAgent,
-  workflowWith,
+  applicationWith,
 } from "./fixture/deps-contract.workflow.js";
 
 const MISSING = new InjectionToken<string>("MISSING");
@@ -104,26 +104,31 @@ class PolicedAgent {}
 @Agent({ name: "judged-agent", description: "d", model: "test/j", judges: [NeedsJudge] })
 class JudgedAgent {}
 
-const assemble = (workflow: Parameters<typeof createApp>[0]) => createApp(workflow, offline());
+const assemble = (application: Parameters<typeof createApp>[0]) =>
+  createApp(application, offline());
 
 describe("#183 AC2: a missing provider fails at assembly, naming the consumer and the token", () => {
   it.each([
     [
       "a workflow guardrail",
-      workflowWith("g-workflow", { guardrails: [NeedsGuardrail] }),
+      applicationWith("g-workflow", { guardrails: [NeedsGuardrail] }),
       "NeedsGuardrail",
     ],
-    ["an agent's PII policy", workflowWith("p-workflow", {}, PolicedAgent), "NeedsPolicy"],
-    ["a channel", workflowWith("c-workflow", { channelClasses: [NeedsChannel] }), "NeedsChannel"],
+    ["an agent's PII policy", applicationWith("p-workflow", {}, PolicedAgent), "NeedsPolicy"],
+    [
+      "a channel",
+      applicationWith("c-workflow", { channelClasses: [NeedsChannel] }),
+      "NeedsChannel",
+    ],
     [
       "a channel's inbound adapter",
-      workflowWith("i-workflow", { channelClasses: [AdaptedChannel] }),
+      applicationWith("i-workflow", { channelClasses: [AdaptedChannel] }),
       "NeedsInbound",
     ],
-    ["an agent's judge", workflowWith("j-workflow", {}, JudgedAgent), "NeedsJudge"],
+    ["an agent's judge", applicationWith("j-workflow", {}, JudgedAgent), "NeedsJudge"],
     [
       "a workflow action",
-      workflowWith("a-workflow", {
+      applicationWith("a-workflow", {
         flow: [
           start(Chat)
             .returns(WorkflowStartTextDto)
@@ -169,7 +174,7 @@ class Reader {}
 
 describe("#183 AC3: tool names are unique over the exposed names", () => {
   it("a tool named like a RAG search tool (search_<rag>) fails at assembly", async () => {
-    await expect(assemble(workflowWith("shadow-workflow", {}, Reader))).rejects.toThrow(
+    await expect(assemble(applicationWith("shadow-workflow", {}, Reader))).rejects.toThrow(
       '[tool.duplicate-name] Duplicate tool name "search_manuals" found in classes ShadowSearch and Manuals',
     );
   });
@@ -189,7 +194,7 @@ describe("#183: providers are decorated classes or provide() values", () => {
     ["a class whose constructor has only default parameters", Defaulted],
   ])("%s in providers fails at assembly", async (_kind, cls) => {
     await expect(
-      assemble(workflowWith("undecorated-workflow", { providers: [cls] })),
+      assemble(applicationWith("undecorated-workflow", { providers: [cls] })),
     ).rejects.toThrow(
       `[di.undecorated-provider] @Workflow "undecorated-workflow": ${cls.name} in providers has no decorator`,
     );

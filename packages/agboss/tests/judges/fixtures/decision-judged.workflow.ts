@@ -16,6 +16,8 @@ import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { ImageDetail } from "../../../src/index.js";
 import { start } from "../../helpers/flow.js";
 import { DEFAULTS, Reply, settings, TaskStart } from "./judged.workflow.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /** The decision model judges run on (OpenRouter Decisions API, images supported). */
 export const LUNA = "openai/gpt-6-luna-decisions";
@@ -104,6 +106,14 @@ export class DecisionDesk implements WorkflowDefinition {
   }
 }
 
+@Application({
+  name: "decision-judged-desk-application",
+  version: "1.0.0",
+  workflows: [DecisionDesk],
+  budgets: TEST_BUDGETS,
+})
+export class DecisionDeskApplication {}
+
 /** An agent gated by a judge that looks at an image. */
 @Workflow({
   name: "image-judged-desk-workflow",
@@ -121,3 +131,11 @@ export class ImageDesk implements WorkflowDefinition {
     return settings();
   }
 }
+
+@Application({
+  name: "image-judged-desk-application",
+  version: "1.0.0",
+  workflows: [ImageDesk],
+  budgets: TEST_BUDGETS,
+})
+export class ImageDeskApplication {}

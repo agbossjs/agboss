@@ -3,19 +3,19 @@ import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { fakeDeps, routeTo, runText } from "../helpers.js";
 import {
   Apply,
-  JobSearch,
   Lookup,
   resetSeen,
   SearchStart,
   Searcher,
   seen,
   ShortlistDto,
+  JobSearchApplication,
 } from "./fixtures/run-input.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
 const approve = { approved: true, by: "dana" };
-const test = testWith(JobSearch);
+const test = testWith(JobSearchApplication);
 
 beforeEach(resetSeen);
 

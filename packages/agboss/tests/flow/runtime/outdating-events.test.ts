@@ -20,6 +20,7 @@ import {
   LoopWriterAgent,
   outdatingEvents,
   resetOutdatingLog,
+  LoopApplication,
 } from "./fixtures/outdating.workflow.js";
 
 /**
@@ -27,7 +28,7 @@ import {
  * never empty, never a DTO value, with the common execution fields and the step that wrote.
  */
 
-const loop = testWith(LoopWorkflow);
+const loop = testWith(LoopApplication);
 
 beforeEach(resetOutdatingLog);
 

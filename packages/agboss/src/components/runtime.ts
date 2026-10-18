@@ -36,7 +36,7 @@ export const ENV = new InjectionToken<Environment>("ENV");
 
 const missingEnvironment = new UnavailableValue(
   (dependant) =>
-    `[di.missing-environment] ${dependant} injects ENV, but the app has no environment: add environments/dev.environment.ts next to the workflow file (export default defineEnvironment({ … })), or pass one to testWith(…, { environment })`,
+    `[di.missing-environment] ${dependant} injects ENV, but the app has no environment: add environments/dev.environment.ts next to the application file (export default defineEnvironment({ … })), or pass one to testWith(…, { environment })`,
 );
 /** `deps: [ExecutionContext]`: a live object per consumer, reading the current step (#280). */
 const liveExecutionContext = new DependantValue((dependant) => new LiveExecutionContext(dependant));

@@ -10,9 +10,9 @@ import { CreatePetTool } from "./tools/create-pet.tool.js";
 import { GetPetTool } from "./tools/get-pet.tool.js";
 import { TextWorkflowFinish } from "./workflow-finishes/text.workflow-finish.js";
 import { TextWorkflowStart } from "./workflow-starts/text.workflow-start.js";
-import { ZooWorkflow } from "./zoo.workflow.js";
+import { ZooApplication } from "./zoo.application.js";
 
-const test = testWith(ZooWorkflow);
+const test = testWith(ZooApplication);
 
 afterEach(() => {
   vi.unstubAllGlobals();

@@ -1,16 +1,13 @@
-import { MemorySaver } from "@langchain/langgraph";
-import { buildApp } from "../../../src/app/create-app.js";
+import { applicationOf } from "../../../src/application/assemble.js";
+import { buildApplication } from "../../../src/application/create-app.js";
 import type { ExecutionOutput } from "../../../src/app/types.js";
-import { workflowOf } from "../../../src/components/assemble.js";
 import type { Class } from "../../../src/components/injection.js";
-import { createMemoryLedger } from "../../../src/finops/ledger.js";
-import { createSqliteTernStore } from "../../../src/terns/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
 import { Cassette } from "../../../src/testing/vcr-cassette.js";
 import { vcrGateway } from "../../../src/testing/vcr.js";
-import { ChatStart, Desk } from "./desk.workflow.js";
+import { ChatStart, DeskApplication } from "./desk.workflow.js";
 import { execute } from "../../helpers/flow.js";
 
 /**
@@ -22,27 +19,22 @@ export function recordDesk(
   text: string,
   script: (book: ScriptBook) => void,
 ): Promise<ExecutionOutput> {
-  return recordRun({ workflow: Desk, start: ChatStart }, file, text, script);
+  return recordRun({ application: DeskApplication, start: ChatStart }, file, text, script);
 }
 
 /** Records a run of any workflow from `start` into `file`, the scripted models standing in. */
 export async function recordRun(
-  { workflow, start }: { readonly workflow: Class; readonly start: Class },
+  { application, start }: { readonly application: Class; readonly start: Class },
   file: string,
   text: string,
   script: (book: ScriptBook) => void,
 ): Promise<ExecutionOutput> {
   const book = new ScriptBook();
   script(book);
-  const { app } = await buildApp(await workflowOf(workflow), {
+  const { app } = await buildApplication(await applicationOf(application), {
     processEnv: {},
     gateway: vcrGateway(Cassette.recording(file), () => createScriptedGateway(book)),
     connectMcp: stubbedMcpConnect(new McpStubs(book), new Map(), new Set()),
-    stores: {
-      checkpointer: new MemorySaver(),
-      ledger: createMemoryLedger(),
-      terns: createSqliteTernStore(":memory:"),
-    },
     newRunId: () => "run-1",
   });
   try {

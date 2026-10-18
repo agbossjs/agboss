@@ -7,13 +7,13 @@ import { replyWith, callTool, routeTo, TestFailure, testWith } from "../../src/t
 import { execute } from "../helpers/flow.js";
 import {
   ChatStart,
-  Desk,
   MainRouter,
   OrderStatus,
   ReadNote,
   Reply,
   Support,
   Writer,
+  DeskApplication,
 } from "./fixtures/desk.workflow.js";
 
 const PATH = ["chat-workflow-start", "main-router", "writer-agent", "reply-workflow-finish"];
@@ -129,7 +129,7 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
   });
 });
 
-const test = testWith(Desk);
+const test = testWith(DeskApplication);
 
 describe("AC12: matchers on mockLlm(…)", () => {
   test("toHaveCalledTools and toHaveBeenAskedWith name the class", async ({ app, mockLlm }) => {

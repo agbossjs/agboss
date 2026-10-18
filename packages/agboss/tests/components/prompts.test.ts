@@ -6,6 +6,7 @@ import { createApp, PromptError } from "../../src/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { replyWith, routeTo, testWith, workflowOf } from "../../src/testing/index.js";
 import { runVersions } from "../../src/run/versions.js";
+import { applicationOf } from "../../src/application/assemble.js";
 import { fakeDeps } from "../helpers.js";
 import { TestChat } from "../fixtures/test-flow/test.flow.js";
 import { execute } from "../helpers/flow.js";
@@ -15,8 +16,8 @@ const AGENT_KNOWN = "known: boards, boardCount";
 const ROUTER_KNOWN = "known: boards";
 
 /** The problem lines of the PromptError assembly fails with. */
-async function problemsOf(workflow: Class): Promise<string[]> {
-  const error: unknown = await workflowOf(workflow).then(
+async function problemsOf(application: Class): Promise<string[]> {
+  const error: unknown = await applicationOf(application).then(
     () => undefined,
     (thrown: unknown) => thrown,
   );
@@ -26,53 +27,53 @@ async function problemsOf(workflow: Class): Promise<string[]> {
 
 describe("#199 AC1: every prompt is read and checked at assembly", () => {
   it("a {{typo}} in an agent's prompt file fails createApp naming the file, line and known variables", async () => {
-    const { workflow } = workflowWith({ agent: { promptUrls: ["./typo.prompt.md"] } });
+    const { application } = workflowWith({ agent: { promptUrls: ["./typo.prompt.md"] } });
 
-    await expect(createApp(workflow)).rejects.toThrow(
+    await expect(createApp(application)).rejects.toThrow(
       `[prompt.unknown-variable] tests/components/prompts/typo.prompt.md:4 {{knownPlace}} — ${AGENT_KNOWN}`,
     );
   });
 
   it("a {{typo}} in a router prompt fails createApp naming the router", async () => {
-    const { workflow } = workflowWith({ router: "Pick one.\nThe boards: {{bords}}" });
+    const { application } = workflowWith({ router: "Pick one.\nThe boards: {{bords}}" });
 
-    await expect(createApp(workflow)).rejects.toThrow(
+    await expect(createApp(application)).rejects.toThrow(
       `[prompt.unknown-variable] @Router "main-router" prompt:2 {{bords}} — ${ROUTER_KNOWN}`,
     );
   });
 
   it("a {{typo}} in a route prompt fails createApp naming the router and the route", async () => {
-    const { workflow } = workflowWith({ route: "Scouting {{bord}}" });
+    const { application } = workflowWith({ route: "Scouting {{bord}}" });
 
-    await expect(createApp(workflow)).rejects.toThrow(
+    await expect(createApp(application)).rejects.toThrow(
       `[prompt.unknown-variable] @Router "main-router" route "scout-agent" prompt:1 {{bord}} — ${ROUTER_KNOWN}`,
     );
   });
 
   it("a missing promptUrls file fails at assembly, not on the agent's first call", async () => {
-    const { workflow } = workflowWith({ agent: { promptUrls: ["./nowhere.prompt.md"] } });
+    const { application } = workflowWith({ agent: { promptUrls: ["./nowhere.prompt.md"] } });
 
-    expect(await problemsOf(workflow)).toEqual([
+    expect(await problemsOf(application)).toEqual([
       '[prompt.missing-file] tests/components/prompts/nowhere.prompt.md (promptUrls of @Agent "scout-agent") does not exist',
     ]);
   });
 
   it("an inline prompt that is just a .md path fails — it would be sent as text", async () => {
-    const { workflow } = workflowWith({ agent: { prompt: "./scout.prompt.md" } });
+    const { application } = workflowWith({ agent: { prompt: "./scout.prompt.md" } });
 
-    expect(await problemsOf(workflow)).toEqual([
+    expect(await problemsOf(application)).toEqual([
       '[prompt.path-as-text] @Agent "scout-agent": prompt "./scout.prompt.md" is a file path, not prompt text — use promptUrls: ["./scout.prompt.md"]',
     ]);
   });
 
   it("all problems of all prompts are reported at once", async () => {
-    const { workflow } = workflowWith({
+    const { application } = workflowWith({
       agent: { promptUrls: ["./typo.prompt.md", "./nowhere.prompt.md"] },
       router: "{{bords}}",
       route: "{{bord}}",
     });
 
-    const problems = await problemsOf(workflow);
+    const problems = await problemsOf(application);
 
     expect([...problems].sort()).toEqual(
       [
@@ -85,7 +86,7 @@ describe("#199 AC1: every prompt is read and checked at assembly", () => {
   });
 });
 
-const test = testWith(Templated.workflow);
+const test = testWith(Templated.application);
 
 describe("#199: router and route prompts are templated", () => {
   test("the router's model gets its prompt and route texts with the variables filled", async ({
