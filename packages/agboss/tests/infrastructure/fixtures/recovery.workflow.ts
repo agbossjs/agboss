@@ -31,6 +31,7 @@ import { createSqliteTernStore, type Tern } from "../../../src/terns/index.js";
 import { seconds, type Milliseconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";
+import { EmptyEnvironment } from "../../../src/index.js";
 
 /**
  * #265 PR 2 — a clerk that takes steps (each one counted), holds (the first hold waits until its
@@ -210,7 +211,11 @@ export class StampedExecutionRecordRepository extends TernStoreRecordRepository 
   }
 }
 
-@WorkflowStart({ name: "order-workflow-start", description: "A request", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "order-workflow-start",
+  description: "A request",
+  input: WorkflowStartTextDto,
+})
 export class OrderWorkflowStart {}
 
 @WorkflowFinish({ name: "receipt-workflow-finish", description: "The receipt", output: ReceiptDto })
@@ -241,6 +246,7 @@ const providers = [MortalExecutionLeaseRepository, StampedExecutionRecordReposit
 @Application({
   name: "recovery-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   providers,
   budgets: TEST_BUDGETS,
@@ -251,6 +257,7 @@ export class RecoveryApplication {}
 @Application({
   name: "quick-stop-application",
   version: "1.0.0",
+  environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   providers,
   budgets: TEST_BUDGETS,
