@@ -18,7 +18,7 @@ import { fetchHostOf, hostOf, isHostAllowed } from "../../src/testing/network-gu
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { chatKeyOf, createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { usd } from "../../src/units/index.js";
-import { ChatStart, Reply, Writer, DeskApplication } from "./fixtures/desk.workflow.js";
+import { ChatStart, OrderQuery, Reply, Writer, DeskApplication } from "./fixtures/desk.workflow.js";
 
 const free: ResolvedModelSettings = {
   model: "test/free",
@@ -75,7 +75,7 @@ describe("AC12: the network guard reads every way a request names its host", () 
 describe("AC12: a component's name in executions", () => {
   it("is its decorator's name, else its class name", () => {
     expect(nodeNameOf(Writer)).toBe("writer-agent");
-    expect(nodeNameOf(class Plain {})).toBe("Plain");
+    expect(nodeNameOf(OrderQuery)).toBe("OrderQuery");
   });
 });
 

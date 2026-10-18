@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { variant, withVariant } from "../../src/flow/dto-wrappers.js";
 import { inputText, matchesInput, matchesPartial } from "../../src/testing/input-match.js";
 import { ChangesRequestedDto, DraftApprovedDto } from "../flow/fixtures/dtos.js";
+import { ReviewerAgent } from "../flow/fixtures/offer.fixture.js";
 
-class ReviewerAgent {}
 const produced = (value: unknown) => ({ producer: ReviewerAgent, value });
 
 describe("#262 AC6: matching a node's input", () => {

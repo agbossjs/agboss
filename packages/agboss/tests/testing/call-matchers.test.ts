@@ -115,14 +115,16 @@ describe("AC9: anything that is not a script keeps Vitest's own matchers", () =>
     }).toThrow(/expected "spy" to be called with arguments/);
   });
 
-  desk("a mockOf(…) method too", async ({ app, mockLlm, mockOf }) => {
-    mockOf(OrderBook).statusOf.mockResolvedValue("lost");
-    mockLlm(DeskRouter).thenReturn(routeTo(Support));
-    mockLlm(Support).thenReturn(callTool(OrderStatus, { orderId: "7" }), replyWith("Lost."));
+  desk(
+    "a mockOf(…) method is a vi.fn(): the same matchers apply to it",
+    async ({ app, mockLlm, mockOf }) => {
+      mockOf(OrderBook).statusOf.mockResolvedValue("lost");
+      mockLlm(DeskRouter).thenReturn(routeTo(Support));
+      mockLlm(Support).thenReturn(callTool(OrderStatus, { orderId: "7" }), replyWith("Lost."));
 
-    await execute(app, ChatStart, { text: "where is 7?" });
+      await execute(app, ChatStart, { text: "where is 7?" });
 
-    expect(mockOf(OrderBook).statusOf).toHaveBeenCalledWith("7");
-    expect(mockOf(OrderBook).statusOf).toHaveBeenCalledTimes(1);
-  });
+      expect(mockOf(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
+    },
+  );
 });

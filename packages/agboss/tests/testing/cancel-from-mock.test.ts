@@ -34,7 +34,7 @@ describe("AC14: app.cancel from inside a mock", () => {
       const run = execute(app, ChatStart, { text: "where is 7?" });
 
       await expect(run).rejects.toFailWith(ExecutionCancelledError);
-      expect(mockOf(OrderBook).statusOf).toHaveBeenCalledTimes(1);
+      expect(mockOf(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
     },
   );
 });
