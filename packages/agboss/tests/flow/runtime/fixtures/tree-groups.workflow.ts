@@ -1,4 +1,11 @@
-import { listOf, Action, Workflow, WorkflowFinish, WorkflowStart, type Produced } from "../../../../src/index.js";
+import {
+  listOf,
+  Action,
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+  type Produced,
+} from "../../../../src/index.js";
 import { start } from "../../../helpers/flow.js";
 import {
   GroupDoneDto,

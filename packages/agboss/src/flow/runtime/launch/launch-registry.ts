@@ -2,7 +2,7 @@ import type { UsageRecord } from "../../../finops/usage.js";
 import type { QuorumState } from "./quorum.js";
 import type { QueueTime } from "./deadline.js";
 import type { Clock } from "../../../infrastructure/clock.js";
-import { TreeSlots } from "../tree-slots.js";
+import { seconds, type Milliseconds } from "../../../units/index.js";
 
 /**
  * What the process keeps of a launch while it runs (#273 S20), per launch id: the semaphore of
@@ -113,36 +113,169 @@ export class LaunchRegistry {
 }
 
 /**
- * The errors of failed branches across the passes of one process (#267 AC10): a `FailFast`
- * failure withdraws its paused siblings, and the join runs in the next pass — a new graph, a new
- * registry — so the error the branch threw is kept here, as it was thrown, for the join to route
- * (`.onJoinError`) and rethrow. One per workflow of an application instance; a launch's entries go
- * with its join, an execution's with its tree. Another instance has the branch's record only.
+ * The tree's concurrency cap (#264 S27): `@Workflow({ maxConcurrentExecutions })` of the root — how
+ * many executions of one tree (the root and all its descendants) work at once. A priority semaphore
+ * per tree, in-process: only the tree's lease holder moves it (Q58) and its children are subgraphs
+ * of its checkpoint (#263 S24), so its slots never leave this process — no storage contract.
+ *
+ * A slot is an execution, not a step: an execution holds one while at least one of its steps runs
+ * (parallel branches of one execution share it) and gives it back when its last running step ends,
+ * pauses or fails — so an execution waiting at a join or for its child holds none, and the tree
+ * cannot deadlock. A step without a free slot waits in the queue (a throttle, never an error) in
+ * this order: a parent whose children have all finished (it closes a branch), then the deepest
+ * execution; every `AGING_STEP` of waiting counts as one level deeper, read from the application's
+ * `Clock` when a slot frees. A child workflow's own, smaller `maxConcurrentExecutions` caps its
+ * subtree inside the tree's. A waiter whose signal aborts (a cancel, a `FailFast` launch) leaves the
+ * queue. After a pause or a crash the next pass makes the tree's slots anew: the unfinished tasks
+ * claim them again (a resume elsewhere starts with no slot held).
  */
-export class BranchErrors {
-  readonly #errors = new Map<string, unknown>();
 
-  keep(launchId: string, index: number, error: unknown): void {
-    this.#errors.set(`${launchId}#${String(index)}`, error);
+/** Every 10 s of waiting counts as one level deeper: a framework constant, not a setting. */
+export const AGING_STEP: Milliseconds = seconds(10);
+
+/** An execution of the tree whose workflow caps its subtree below the caps around it. */
+export interface SubtreeCap {
+  readonly executionId: string;
+  readonly maxConcurrentExecutions: number;
+}
+
+/** A step's claim on its tree's slots: its execution and that execution's place in the queue. */
+export interface SlotClaim {
+  readonly executionId: string;
+  /** The execution's depth in its tree, from 1 at the root. */
+  readonly depth: number;
+  /** Its children have all finished: the step closes a branch of the tree. */
+  readonly closesBranch: boolean;
+  /** The capped subtrees it is in, outermost first. */
+  readonly subtrees: readonly SubtreeCap[];
+}
+
+/** Told when a claim starts and stops waiting: a quorum's deadline excludes that time (#279). */
+export interface QueueWatch {
+  enter(): void;
+  leave(): void;
+}
+
+/** A slot taken for one step: released once, when the step ends. */
+export interface SlotHold {
+  release(): void;
+}
+
+interface Waiter {
+  readonly claim: SlotClaim;
+  readonly enqueuedAt: number;
+  readonly sequence: number;
+  readonly grant: () => void;
+}
+
+/** An execution at work: its running steps and the capped subtrees it counts in. */
+interface Working {
+  steps: number;
+  readonly subtrees: readonly string[];
+}
+
+/** The tree's slots: a priority semaphore of `maxConcurrentExecutions` executions. */
+export class TreeSlots {
+  readonly #working = new Map<string, Working>();
+  readonly #subtreeWork = new Map<string, number>();
+  readonly #waiting: Waiter[] = [];
+  #sequence = 0;
+
+  constructor(
+    readonly maxConcurrentExecutions: number,
+    private readonly clock: Clock,
+  ) {}
+
+  /** Takes a slot for one step of `claim`'s execution; `undefined` when `signal` aborts first. */
+  take(claim: SlotClaim, signal: AbortSignal, watch?: QueueWatch): Promise<SlotHold | undefined> {
+    if (signal.aborted) return Promise.resolve(undefined);
+    if (this.#canWork(claim)) return Promise.resolve(this.#hold(claim));
+    return new Promise<SlotHold | undefined>((resolve) => {
+      const leave = (): void => {
+        this.#waiting.splice(this.#waiting.indexOf(waiter), 1);
+        watch?.leave();
+        resolve(undefined);
+      };
+      const waiter: Waiter = {
+        claim,
+        enqueuedAt: this.clock.now().getTime(),
+        sequence: (this.#sequence += 1),
+        grant: (): void => {
+          signal.removeEventListener("abort", leave);
+          watch?.leave();
+          resolve(this.#hold(claim));
+        },
+      };
+      this.#waiting.push(waiter);
+      watch?.enter();
+      signal.addEventListener("abort", leave, { once: true });
+    });
   }
 
-  /** The error the branch threw, when this process ran it. */
-  find(launchId: string, index: number): unknown {
-    return this.#errors.get(`${launchId}#${String(index)}`);
+  #canWork(claim: SlotClaim): boolean {
+    if (this.#working.has(claim.executionId)) return true;
+    if (this.#working.size >= this.maxConcurrentExecutions) return false;
+    return claim.subtrees.every(
+      (subtree) =>
+        (this.#subtreeWork.get(subtree.executionId) ?? 0) < subtree.maxConcurrentExecutions,
+    );
   }
 
-  /** Forgets a launch's errors (its join read them). */
-  forgetLaunch(launchId: string): void {
-    for (const key of this.#errors.keys())
-      if (key.startsWith(`${launchId}#`)) this.#errors.delete(key);
+  #hold(claim: SlotClaim): SlotHold {
+    const { executionId } = claim;
+    const found = this.#working.get(executionId);
+    if (found !== undefined) found.steps += 1;
+    else {
+      const subtrees = claim.subtrees.map((subtree) => subtree.executionId);
+      this.#working.set(executionId, { steps: 1, subtrees });
+      for (const id of subtrees) this.#subtreeWork.set(id, (this.#subtreeWork.get(id) ?? 0) + 1);
+    }
+    let isReleased = false;
+    return {
+      release: (): void => {
+        if (isReleased) return;
+        isReleased = true;
+        this.#release(executionId);
+      },
+    };
   }
 
-  /** Forgets an execution's errors (its tree ended); a launch id starts with the execution's id. */
-  forgetExecution(executionId: string): void {
-    for (const key of this.#errors.keys()) {
-      if (key.startsWith(`${executionId}:`)) this.#errors.delete(key);
+  #release(executionId: string): void {
+    const working = this.#working.get(executionId);
+    if (working === undefined) return;
+    working.steps -= 1;
+    if (working.steps > 0) return;
+    this.#working.delete(executionId);
+    for (const id of working.subtrees)
+      this.#subtreeWork.set(id, (this.#subtreeWork.get(id) ?? 1) - 1);
+    this.#grantWaiting();
+  }
+
+  /** Grants the waiting claims that may work now, best first (a granted execution's other steps too). */
+  #grantWaiting(): void {
+    for (let next = this.#next(); next !== undefined; next = this.#next()) {
+      this.#waiting.splice(this.#waiting.indexOf(next), 1);
+      next.grant();
     }
   }
+
+  #next(): Waiter | undefined {
+    const now = this.clock.now().getTime();
+    const ready = this.#waiting.filter((waiter) => this.#canWork(waiter.claim));
+    return ready.sort((first, second) => compareWaiters(first, second, now))[0];
+  }
+}
+
+/** A waiter's level in the queue: its depth, one deeper per `AGING_STEP` waited. */
+const levelOf = (waiter: Waiter, now: number): number =>
+  waiter.claim.depth + Math.floor((now - waiter.enqueuedAt) / AGING_STEP);
+
+/** Queue order: a branch closing first, then the deepest (aged) level, then the first come. */
+function compareWaiters(first: Waiter, second: Waiter, now: number): number {
+  const closing = Number(second.claim.closesBranch) - Number(first.claim.closesBranch);
+  if (closing !== 0) return closing;
+  const level = levelOf(second, now) - levelOf(first, now);
+  return level !== 0 ? level : first.sequence - second.sequence;
 }
 
 /**

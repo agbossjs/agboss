@@ -476,8 +476,8 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   join) first, then the deepest, `seconds(10)` of waiting = one level deeper (`AGING_STEP`, the
   `Clock`). Both a launch's `maxConcurrency` and the cap hold; a child's own smaller cap limits its
   subtree (a larger one → `[limits.child-concurrency-above-parent]`, a warning). A quorum's deadline
-  excludes the time its branches wait for a slot (`QueueTime`). In-process (`runtime/tree-slots.ts`:
-  `TreeSlots` per `rootExecutionId`, made per pass): a resume or a recovery rebuilds the queue from the
+  excludes the time its branches wait for a slot (`QueueTime`). In-process (`TreeSlots` per `rootExecutionId`
+  in `runtime/launch/launch-registry.ts`, made per pass; the claim `inTreeSlot` in `runtime/step-frame.ts`): a resume or a recovery rebuilds the queue from the
   unfinished tasks; a waiter whose signal aborts (`FailFast`, a cancel) leaves it. `agboss describe`
   prints `maxConcurrentExecutions 6 (set)` for a workflow that launches children.
 - **Quorums (#279):** after `.toParallelAgents(…)` a join may count answers instead of waiting for

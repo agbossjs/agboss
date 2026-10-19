@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect } from "vitest";
-import { ApplicationStoppingError, ChildExecutionFailedError } from "../../../src/index.js";
-import { replyWith, testWith } from "../../../src/testing/index.js";
+import {
+  ApplicationStoppingError,
+  ChildExecutionFailedError,
+  QuorumNotReachedError,
+} from "../../../src/index.js";
+import { replyWith, TestConcurrency, testWith, waitFor } from "../../../src/testing/index.js";
 import type { TestApp } from "../../../src/testing/test-app.js";
 import { seconds } from "../../../src/units/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -19,6 +23,7 @@ import {
   VotingDoneWorkflowFinish,
   VotingWorkflowStart,
 } from "./fixtures/tree-vote.workflow.js";
+import { StrictVotingWorkflowStart } from "./fixtures/tree-strict-vote.workflow.js";
 
 /**
  * #264 PR 2 — the tree's queue (AC9, AC10): a parent that closes its branch goes first, then the
@@ -26,8 +31,10 @@ import {
  * empties the queue; after a crash the other instance rebuilds it from the unfinished tasks.
  */
 
-const test = testWith(TreeCapApplication);
-const instances = testWith(TreeCapRecoveryApplication, { instances: 2 });
+/** The tree's slots are about branches running at once: real concurrency, not the default order. */
+const REAL = { concurrency: TestConcurrency.Real };
+const test = testWith(TreeCapApplication, REAL);
+const instances = testWith(TreeCapRecoveryApplication, { ...REAL, instances: 2 });
 
 const task = (name: string, outcome: TaskDto["outcome"] = "ok"): TaskDto => ({
   name,
@@ -102,6 +109,29 @@ describe("AC9: time in the queue does not count toward a quorum's deadline", () 
     // the voters waited 40 s behind w: past the 30 s deadline, but that was the tree's queue
     expect(treeLog.events).toEqual(["start w", "end w", "voted v"]);
     expect(result).toFinishWith(VotingDoneWorkflowFinish, { name: "2 done" });
+  });
+
+  test("past the moved deadline the reason names it: the ticket's plus the time in the queue", async ({
+    app,
+    clock,
+    mockLlm,
+  }) => {
+    mockLlm(FirstVoterAgent).thenReturn(replyWith(VoteDto, { yes: true }));
+    mockLlm(SecondVoterAgent).thenReturn(waitFor(seconds(31)), replyWith(VoteDto, { yes: true }));
+    const items = [{ name: "w", seconds: 40, outcome: "ok" }, instant("v")];
+
+    const execution = execute(app, StrictVotingWorkflowStart, items);
+    execution.catch(() => undefined);
+    await untilLogged("start w");
+    await clock.advance(seconds(40));
+    await clock.advance(seconds(31));
+
+    // dispatched at 09:00:00 with a 30 s deadline, 40 s in the queue: it passed at 09:01:10
+    await expect(execution).rejects.toFailWith(QuorumNotReachedError, {
+      message: expect.stringContaining(
+        "the deadline passed (2026-01-05T09:01:10.000Z: the ticket's deadline plus 40 s in the tree's queue)",
+      ) as string,
+    });
   });
 });
 

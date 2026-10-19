@@ -38,6 +38,8 @@ export interface QuorumJoinSite {
   readonly state: ExecutionStateType;
   readonly config?: RunnableConfig;
   readonly deps: JoinDeps;
+  /** The time its branches waited in the tree's queue (#264), in ms: the deadline moved by it. */
+  readonly queuedFor?: number;
 }
 
 /** A reached quorum: the edge it takes and the counted answers' records, in counting order. */
@@ -108,11 +110,20 @@ export async function reportQuorum(
   await deps.observer.onQuorumDecided(event);
 }
 
+/** The deadline that passed: the ticket's, moved by the time in the tree's queue (#264). */
+function deadlinePassed(deadlineAt: number, queuedFor: number): string {
+  if (queuedFor === 0) return "the deadline passed";
+  const effective = new Date(deadlineAt + queuedFor).toISOString();
+  const queued = `${String(queuedFor / 1000)} s in the tree's queue`;
+  return `the deadline passed (${effective}: the ticket's deadline plus ${queued})`;
+}
+
 /** Why the quorum was not reached: its deadline, or nothing left that could reach it. */
 function reasonOf(site: QuorumJoinSite): string {
   const { deadlineAt } = site.ticket;
   const { clock } = extractRunContext(site.config, site.state.runId);
-  if (deadlineAt !== undefined && hasExpired(clock, deadlineAt)) return "the deadline passed";
+  if (deadlineAt !== undefined && hasExpired(clock, deadlineAt + (site.queuedFor ?? 0)))
+    return deadlinePassed(deadlineAt, site.queuedFor ?? 0);
   return site.launch.quorum?.kind === QuorumKind.Groups
     ? "no group can complete any more"
     : "min can no longer be reached";

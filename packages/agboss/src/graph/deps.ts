@@ -11,7 +11,7 @@ import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
 import type { LaunchDecider } from "../flow/runtime/launch/launch-decider.js";
 import type { ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
-import type { BranchErrors } from "../flow/runtime/launch/launch-registry.js";
+import type { BranchErrors } from "../flow/runtime/launch/branch-end.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
 import type { ArbiterClass } from "../flow/ast.js";
 import type { Guardrail } from "../components/decorators.js";

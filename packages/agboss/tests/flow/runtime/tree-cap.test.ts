@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../../src/app/types.js";
-import { callTool, replyWith, testWith, type ModelRequest } from "../../../src/testing/index.js";
+import {
+  callTool,
+  replyWith,
+  TestConcurrency,
+  testWith,
+  type ModelRequest,
+} from "../../../src/testing/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { answerOf, execute } from "../../helpers/flow.js";
 import {
@@ -34,7 +40,9 @@ import {
  * and the cap wins; a child's own cap holds its subtree. Tasks work on the test's virtual clock.
  */
 
-const test = testWith(TreeCapApplication);
+/** The tree's slots are about branches running at once: real concurrency, not the default order. */
+const REAL = { concurrency: TestConcurrency.Real };
+const test = testWith(TreeCapApplication, REAL);
 
 const task = (name: string, outcome: TaskDto["outcome"] = "ok"): TaskDto => ({
   name,

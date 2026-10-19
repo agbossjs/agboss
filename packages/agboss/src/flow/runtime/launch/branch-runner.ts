@@ -14,6 +14,7 @@ import {
   executionSignalOf,
   failedStatusOf,
   passThroughStops,
+  type BranchErrors,
 } from "./branch-end.js";
 import {
   branchLaunchOf,
@@ -22,14 +23,14 @@ import {
   scheduledOf,
   type BranchLaunch,
 } from "./branch-view.js";
-import type { BranchErrors, LiveLaunch } from "./launch-registry.js";
+import type { LiveLaunch } from "./launch-registry.js";
 import { reportBranch } from "./launch-report.js";
 import { arbiterDepsFor, liveLaunchOf, type BranchQuorumDeps } from "./branch-quorum.js";
 import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
 import { BranchStatus, type BranchTicket } from "./records.js";
 import { withdrawSiblingPauses } from "./withdrawn-pauses.js";
 import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
-import { inTreeSlot } from "../tree-slots.js";
+import { inTreeSlot } from "../step-frame.js";
 import { branchFrameOf } from "./branch-view.js";
 import type { PausedExecutionRepository } from "../../../infrastructure/paused-execution.repository.js";
 import type { ChildExecutionRecord } from "../child-records.js";

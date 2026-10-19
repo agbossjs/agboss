@@ -63,12 +63,14 @@ export function resetTreeLog(): void {
   treeLog.mostWorking = 0;
 }
 
-/** Resolves once `event` is in the log. */
+/** Resolves once `event` is in the log; rejects when it never comes (the test fails, no busy loop). */
 export async function untilLogged(event: string): Promise<void> {
-  while (!treeLog.events.includes(event))
+  for (let tick = 0; !treeLog.events.includes(event); tick += 1) {
+    if (tick > 200_000) throw new Error(`"${event}" never came: ${treeLog.events.join(", ")}`);
     await new Promise<void>((resolve) => {
       setImmediate(resolve);
     });
+  }
 }
 
 /** Waits until its execution stops; never resolves on its own. */

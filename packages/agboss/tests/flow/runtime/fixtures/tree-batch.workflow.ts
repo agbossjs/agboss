@@ -1,4 +1,10 @@
-import { listOf, Workflow, WorkflowFinish, WorkflowStart, type Produced } from "../../../../src/index.js";
+import {
+  listOf,
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+  type Produced,
+} from "../../../../src/index.js";
 import { start } from "../../../helpers/flow.js";
 import { GroupDoneDto, TaskDoneDto, TaskDto, TaskWorkflow } from "./tree-task.workflow.js";
 

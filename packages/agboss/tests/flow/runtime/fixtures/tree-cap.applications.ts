@@ -10,6 +10,7 @@ import { BatchWorkflow, SerialBatchWorkflow, SingleFileWorkflow } from "./tree-b
 import { ChecksWorkflow } from "./tree-checks.workflow.js";
 import { GroupsWorkflow, NarrowGroupsWorkflow } from "./tree-groups.workflow.js";
 import { VotingWorkflow } from "./tree-vote.workflow.js";
+import { StrictVotingWorkflow } from "./tree-strict-vote.workflow.js";
 
 /** #264 PR 2 — the applications of the tree's concurrency cap. */
 
@@ -25,6 +26,7 @@ import { VotingWorkflow } from "./tree-vote.workflow.js";
     NarrowGroupsWorkflow,
     ChecksWorkflow,
     VotingWorkflow,
+    StrictVotingWorkflow,
   ],
   budgets: TEST_BUDGETS,
 })

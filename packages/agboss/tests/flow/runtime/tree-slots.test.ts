@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { seconds } from "../../../src/units/index.js";
 import { QueueTime, watchDeadline } from "../../../src/flow/runtime/launch/deadline.js";
-import { TreeSlotRegistry } from "../../../src/flow/runtime/launch/launch-registry.js";
 import {
   AGING_STEP,
+  TreeSlotRegistry,
   TreeSlots,
   type SlotClaim,
   type SlotHold,
-} from "../../../src/flow/runtime/tree-slots.js";
+} from "../../../src/flow/runtime/launch/launch-registry.js";
 
 /**
  * #264 PR 2 — `TreeSlots`, the tree's priority semaphore (S27), on a virtual clock: at most
@@ -51,16 +51,15 @@ describe("AC8: the cap — at most maxConcurrentExecutions executions at work", 
     await take(claim("b"));
     const third = take(claim("c"));
     await flush();
-
-    expect(granted).toEqual(["a", "b"]);
-    expect(slots.waitingCount).toBe(1);
+    const whileFull = [...granted];
     first?.release();
     await third;
+
+    expect(whileFull).toEqual(["a", "b"]);
     expect(granted).toEqual(["a", "b", "c"]);
-    expect(slots.workingCount).toBe(2);
   });
 
-  it("an execution's parallel steps share its one slot", async () => {
+  it("an execution's parallel steps share its one slot, held until its last step ends", async () => {
     const granted: string[] = [];
     const slots = new TreeSlots(1, new VirtualClock());
     const take = taker(slots, granted);
@@ -68,41 +67,52 @@ describe("AC8: the cap — at most maxConcurrentExecutions executions at work", 
     const one = await take(claim("a"));
     const two = await take(claim("a"));
     one?.release();
-
-    expect(granted).toEqual(["a", "a"]);
-    expect(slots.workingCount).toBe(1);
+    const other = take(claim("b"));
+    await flush();
+    const whileWorking = [...granted];
     two?.release();
-    expect(slots.workingCount).toBe(0);
+    await other;
+
+    expect(whileWorking).toEqual(["a", "a"]);
+    expect(granted).toEqual(["a", "a", "b"]);
   });
 
   it("a slot released twice frees it once", async () => {
+    const granted: string[] = [];
     const slots = new TreeSlots(1, new VirtualClock());
-    const take = taker(slots, []);
+    const take = taker(slots, granted);
     const hold = await take(claim("a"));
-    const other = await take(claim("a"));
+    const another = await take(claim("a"));
 
     hold?.release();
     hold?.release();
+    const other = take(claim("b"));
+    await flush();
+    const afterTwice = [...granted];
+    another?.release();
+    await other;
 
-    expect(slots.workingCount).toBe(1);
-    other?.release();
-    expect(slots.workingCount).toBe(0);
+    expect(afterTwice).toEqual(["a", "a"]);
+    expect(granted).toEqual(["a", "a", "b"]);
   });
 
   it("a waiter whose signal aborts leaves the queue without a slot", async () => {
+    const granted: string[] = [];
     const slots = new TreeSlots(1, new VirtualClock());
-    const take = taker(slots, []);
+    const take = taker(slots, granted);
     const stop = new AbortController();
     const hold = await take(claim("a"));
 
     const waiting = take(claim("b"), stop.signal);
     stop.abort();
-
-    await expect(waiting).resolves.toBeUndefined();
-    expect(slots.waitingCount).toBe(0);
+    const left = await waiting;
     hold?.release();
-    expect(slots.workingCount).toBe(0);
-    await expect(take(claim("c"), stop.signal)).resolves.toBeUndefined();
+    await take(claim("c"));
+
+    // b left: the slot a freed went straight to c
+    expect(left).toBeUndefined();
+    expect(granted).toEqual(["a", "c"]);
+    await expect(take(claim("d"), stop.signal)).resolves.toBeUndefined();
   });
 
   it("a capped subtree holds its own executions below the tree's cap", async () => {

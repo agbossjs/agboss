@@ -19,6 +19,7 @@ import {
   stepFrameOf,
   visitNumberOf,
   type WorkflowIdentity,
+  inTreeSlot,
 } from "./step-frame.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import { visitWrite, type VisitWrite } from "./visit-write.js";
@@ -32,7 +33,6 @@ import type { RuntimeContexts } from "../context/runtime-contexts.js";
 import { readInput } from "./scope.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { ChildExecutionRecord } from "./child-records.js";
-import { inTreeSlot } from "./tree-slots.js";
 import type { TreeSlotRegistry } from "./launch/launch-registry.js";
 
 /**

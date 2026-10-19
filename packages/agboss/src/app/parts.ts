@@ -1,4 +1,4 @@
-import { BranchErrors } from "../flow/runtime/launch/launch-registry.js";
+import { BranchErrors } from "../flow/runtime/launch/branch-end.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
 import type { BaseMemoryStrategy } from "../memory/types.js";
 import type { JudgeHandler } from "../components/judge-decorators.js";
