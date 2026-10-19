@@ -11,7 +11,7 @@ import {
   Start,
   CheckoutApplication,
 } from "./fixtures/run-context.workflow.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 import {
   Mailer,
   MailApplication,
@@ -21,7 +21,7 @@ import {
 } from "./fixtures/mail.workflow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 const checkout = testWith(CheckoutApplication);
 
 beforeEach(resetSeen);
@@ -69,7 +69,7 @@ describe("#280: a tool and an action read their execution through ExecutionConte
       );
 
       const paused = await execute(app, Start, { text: "charge" });
-      const done = await app.resume(paused.threadId, approve);
+      const done = await app.resume(answerOf(paused, approve));
 
       expect(paused.status).toBe(ExecutionStatus.Paused);
       expect(done.status).toBe(ExecutionStatus.Finished);
@@ -112,7 +112,7 @@ describe("#181: execute and resume forward onStream", () => {
       { text: "mail" },
       { configurable: { region: "eu" } },
     );
-    await app.resume(paused.threadId, approve, { onStream: (event) => events.push(event) });
+    await app.resume(answerOf(paused, approve), { onStream: (event) => events.push(event) });
 
     expect(events).toContainEqual({ kind: "textDelta", delta: "Sent." });
   });

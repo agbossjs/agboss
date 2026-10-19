@@ -204,7 +204,7 @@ export async function createWorkflowDeps(
     prompts: bundle.prompts,
     guards: guardsFor(config, gateway),
     tools: toolLookup(tools),
-    pause: pauseFor(bundle, checkpointer),
+    pause: pauseFor(checkpointer, parts.infrastructure.pausedExecutions),
     compactionPrompt: bundle.compactionPrompt,
     ...components,
     pii,

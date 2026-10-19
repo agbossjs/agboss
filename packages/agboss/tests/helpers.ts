@@ -21,6 +21,8 @@ import type { ModelFactory } from "../src/llm/registry.js";
 import { createModelGateway, type ModelGateway } from "../src/llm/gateway.js";
 import type { RouteRequest } from "../src/routers/index.js";
 import { runAgent } from "../src/run/run-agent.js";
+import { resumeAgent } from "../src/run/resume-agent.js";
+import { treeResumeNow } from "../src/app/tree-resume.js";
 import type { AgentExecutionOutput, RunDeps, RunOptions } from "../src/run/types.js";
 import { createSqliteTernStore, type TernStore } from "../src/terns/index.js";
 import { StarWorkflow } from "./fixtures/test-flow/star.workflow.js";
@@ -215,4 +217,28 @@ export function recordingRouters<TDeps extends RunDeps<string>>(
     };
   };
   return { deps: { ...deps, routerFor }, requests };
+}
+
+/**
+ * A resume of a run on its own (no app, #267 S35): the decision recorded on the run's first pending
+ * pause (`Pending → Resolved`, answered by `answerer`), then the run moved with the tree's answers.
+ * A run that is no longer paused moves with none — `resumeAgent` refuses it (`NotPausedError`).
+ */
+export async function resumeWith(
+  paused: AgentExecutionOutput,
+  decision: unknown,
+  deps: RunDeps<string>,
+  answerer = "tester",
+): Promise<AgentExecutionOutput> {
+  const [pending] = paused.pending;
+  if (pending !== undefined) {
+    const resolution = { decision, answerer };
+    await deps.pause?.pauses.resolveByTenantIdAndPauseId(
+      paused.tenantId,
+      pending.pauseId,
+      resolution,
+    );
+  }
+  const none = { values: {}, pauseIds: [], taken: [], decisions: [], answerers: [] };
+  return resumeAgent(paused, (await treeResumeNow(deps, paused)) ?? none, deps);
 }

@@ -5,7 +5,7 @@ import { callTool, replyWith, testWith, type VirtualClock } from "../../../src/t
 import type { TestApp } from "../../../src/testing/test-app.js";
 import { ends, resetRecovery } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { seconds } from "../../../src/units/index.js";
-import { execute } from "../../helpers/flow.js";
+import { execute, answerOf } from "../../helpers/flow.js";
 import { ScoreDto, ScoreReviewDto } from "../fixtures/quorum-dtos.js";
 import {
   ConfirmScoreTool,
@@ -38,7 +38,7 @@ const checked = testWith(CheckedPanelApplication);
 const score = (value: number) => replyWith(ScoreDto, { score: value });
 const summary = replyWith(ScoreReviewDto, { text: "summed up" });
 const ANNA = { name: "Anna" };
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 
 beforeEach(resetPanel);
 
@@ -54,7 +54,7 @@ describe("S26: a pause and a resume inside a quorum", () => {
       const paused = await execute(app, PanelWorkflowStart, ANNA);
       expect(paused.status).toBe(ExecutionStatus.Paused);
       await clock.advance(seconds(20));
-      const done = await app.resume(paused.threadId, approve);
+      const done = await app.resume(answerOf(paused, approve));
 
       expect(done).toFinishWith(PanelReviewWorkflowFinish);
       expect(done.launches[0]?.branches).toMatchObject([

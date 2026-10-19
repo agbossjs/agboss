@@ -214,7 +214,7 @@ export const environmentOwnerOf = (assembled: AssembledApplication): Environment
  * once), the environment next to the application file, one container, the components' `onInit` →
  * `onStart` — `const app = await createApp(JobScoutApplication, { env: "prod" })`; then
  * `app.execute(ScreeningWorkflowStart, input)` runs the workflow of that start,
- * `app.resume(thread, decision)`, `app.close()` — also on SIGTERM / SIGINT (#265 S51).
+ * `app.resume({ pauseId, decision })`, `app.close()` — also on SIGTERM / SIGINT (#265 S51).
  */
 export async function createApp<TApplication extends Class>(
   application: ApplicationClass<TApplication>,

@@ -1,3 +1,4 @@
+import { BranchErrors } from "../flow/runtime/launch/launch-registry.js";
 import type { BaseMemoryStrategy } from "../memory/types.js";
 import type { JudgeHandler } from "../components/judge-decorators.js";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
@@ -19,6 +20,7 @@ import { createRouter, type RouterEngine } from "../routers/index.js";
 import { ComponentError } from "../components/metadata.js";
 import type { AnyTool } from "../tools/index.js";
 import type { PauseSeam } from "../pause/index.js";
+import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 
@@ -85,13 +87,11 @@ export const judgesFor = (
   return judges === undefined ? {} : { judges };
 };
 
-/** The pause seam, when the workflow has tools that wait for an approval; on the app's checkpointer. */
+/** The pause seam (#267 S35): the app's checkpointer and its record of every pause. */
 export const pauseFor = (
-  bundle: AssembledWorkflow,
   checkpointer: BaseCheckpointSaver,
-): PauseSeam | undefined => ({
-  checkpointer,
-});
+  pauses: PausedExecutionRepository,
+): PauseSeam => ({ checkpointer, pauses });
 
 /**
  * Guards from config + their texts; each guard is a router on its own model or
@@ -140,7 +140,13 @@ export const flowFor = (
   gateway: ModelGateway,
 ): Pick<
   RunDeps<string>,
-  "graph" | "maxSteps" | "routers" | "routerFor" | "launchDecisionFor" | "arbiterModelFor"
+  | "graph"
+  | "maxSteps"
+  | "routers"
+  | "routerFor"
+  | "launchDecisionFor"
+  | "arbiterModelFor"
+  | "branchErrors"
 > => {
   const routerDeps = {
     gateway,
@@ -154,5 +160,7 @@ export const flowFor = (
     routerFor: flowRouterFactory(routerDeps),
     launchDecisionFor: flowLaunchDeciderFactory(routerDeps),
     arbiterModelFor: flowArbiterModelFactory(routerDeps),
+    // a launch's branch errors, kept across passes (a withdrawal's join rethrows the original)
+    branchErrors: new BranchErrors(),
   };
 };

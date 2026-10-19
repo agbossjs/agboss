@@ -9,7 +9,7 @@ import { ExecutionLeaseLostError, ExecutionStatus, ResumeReason } from "../../..
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
 import type { TestApp } from "../../../src/testing/test-app.js";
 import { seconds } from "../../../src/units/index.js";
-import { execute } from "../../helpers/flow.js";
+import { execute, answerOf } from "../../helpers/flow.js";
 import {
   Charge,
   Clerk,
@@ -28,7 +28,7 @@ import { SqliteRecoveryApplication, sqliteFilePerTest } from "./fixtures/sqlite.
 sqliteFilePerTest();
 const test = testWith(SqliteRecoveryApplication, { instances: 2 });
 const single = testWith(SqliteRecoveryApplication);
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 
 beforeEach(resetRecovery);
 afterEach(() => {
@@ -91,7 +91,7 @@ describe("#265 PR 3: a pause on the SQLite file", () => {
     );
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
 
-    const resumed = await instance(apps, 1).resume(paused.threadId, approve);
+    const resumed = await instance(apps, 1).resume(answerOf(paused, approve));
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(resumed.output).toEqual({ text: "Charged." });
@@ -108,7 +108,7 @@ describe("#265 PR 3: a pause on the SQLite file", () => {
       const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
 
       const restarted = await recoverApp();
-      const resumed = await restarted.resume(paused.threadId, approve);
+      const resumed = await restarted.resume(answerOf(paused, approve));
 
       expect(resumed.status).toBe(ExecutionStatus.Finished);
       expect(resumed.output).toEqual({ text: "Charged." });

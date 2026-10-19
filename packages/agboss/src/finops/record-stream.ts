@@ -10,20 +10,57 @@ export interface HasUsage {
 }
 
 /**
+ * A usage record as a multiset key, by its fields (never by how an object was built: a record read
+ * back from a checkpoint may list them in another order): two equal records are the same spend.
+ */
+const keyOf = (record: UsageRecord): string =>
+  JSON.stringify([
+    record.caller,
+    record.model,
+    record.costUsd,
+    record.costSource,
+    record.inputTokens,
+    record.outputTokens,
+    record.cacheReadTokens,
+    record.cacheWriteTokens,
+  ]);
+
+/**
+ * The records of `usage` not in `recorded`, as multisets: the first `n` equal records are the ones
+ * already recorded. Order does not matter — the branches of a parallel launch (and the loops paused
+ * in them, #267) add theirs in any order, so a position says nothing about what is in the ledger.
+ */
+export function unrecordedOf(
+  usage: readonly UsageRecord[],
+  recorded: readonly UsageRecord[],
+): readonly UsageRecord[] {
+  const left = new Map<string, number>();
+  for (const record of recorded) left.set(keyOf(record), (left.get(keyOf(record)) ?? 0) + 1);
+  return usage.filter((record) => {
+    const count = left.get(keyOf(record)) ?? 0;
+    if (count === 0) return true;
+    left.set(keyOf(record), count - 1);
+    return false;
+  });
+}
+
+/**
  * Drains a stream of full states, handing every new usage record to `record` as soon as it
- * appears, and returns the last state. Spend is persisted even if the run fails midway.
+ * appears — new: not among `alreadyRecorded` and what this drain recorded — and returns the last
+ * state. Spend is persisted even if the run fails midway.
  */
 export async function drainRecordingUsage<TState extends HasUsage>(
   states: AsyncIterable<TState>,
   record: (records: readonly UsageRecord[]) => Promise<void>,
-  alreadyRecorded = 0,
+  alreadyRecorded: readonly UsageRecord[] = [],
 ): Promise<TState> {
   let last: TState | undefined;
-  let recorded = alreadyRecorded;
+  const recorded = [...alreadyRecorded];
   for await (const state of states) {
-    // usage only grows; a resumed run's first states may be shorter than what is already recorded
-    await record(state.usage.slice(recorded));
-    recorded = Math.max(recorded, state.usage.length);
+    // a resumed run's first states may hold less than what is already recorded
+    const fresh = unrecordedOf(state.usage, recorded);
+    await record(fresh);
+    recorded.push(...fresh);
     last = state;
   }
   if (last === undefined) throw new EmptyRunError("The run produced no state");

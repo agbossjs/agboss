@@ -92,6 +92,7 @@ describe("AC12: the app's parts", () => {
       data: { scope: {}, outdatedValues: [], lastError: null },
       compacted: { fromTurn: 1, toTurn: 5, summaries: 1, keep: 10 },
       traceUrl: "http://traces/t",
+      pending: [],
     };
 
     expect(runResultOf(run, false)).toMatchObject({

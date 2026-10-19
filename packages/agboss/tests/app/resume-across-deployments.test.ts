@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/application/create-app.js";
 import type { Class } from "../../src/components/injection.js";
-import { IncompatibleResumeError, NotPausedError } from "../../src/index.js";
+import { IncompatibleResumeError, UnknownPauseError } from "../../src/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -16,11 +16,11 @@ import {
   sent,
   Start,
 } from "./fixtures/mail.workflow.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { resetSharedDatabase, sharedPausedRun } from "../helpers/shared-infrastructure.js";
 
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 
 /** One deployment: scripted models; its infrastructure is the shared database it lists. */
 const deploymentOf = (book: ScriptBook) => ({
@@ -56,7 +56,7 @@ describe("#201 AC1: a run paused under another workflow version is not resumed b
   it("resuming on a deployment with another config hash fails with IncompatibleResumeError naming both versions", async () => {
     const { paused, next } = await pauseThenDeploy(MailV2Application);
 
-    const resumed = next.resume(paused.threadId, approve);
+    const resumed = next.resume(answerOf(paused, approve));
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     await expect(resumed).rejects.toBeInstanceOf(IncompatibleResumeError);
@@ -72,11 +72,11 @@ describe("#201 AC1: a run paused under another workflow version is not resumed b
 
   it("a rejected resume leaves the run paused: a deployment that accepts it continues it", async () => {
     const { paused, next, book } = await pauseThenDeploy(MailV2Application);
-    await expect(next.resume(paused.threadId, approve)).rejects.toThrow(IncompatibleResumeError);
+    await expect(next.resume(answerOf(paused, approve))).rejects.toThrow(IncompatibleResumeError);
     await next.close();
 
     const migrating = await createApp(MailV2MigratingApplication, deploymentOf(book));
-    const done = await migrating.resume(paused.threadId, approve);
+    const done = await migrating.resume(answerOf(paused, approve));
 
     expect(done.status).toBe(ExecutionStatus.Finished);
     expect(done.output).toEqual({ text: "Sent." });
@@ -86,7 +86,7 @@ describe("#201 AC1: a run paused under another workflow version is not resumed b
   it("with onIncompatibleResume returning 'resume' the run continues on the new graph", async () => {
     const { paused, next } = await pauseThenDeploy(MailV2MigratingApplication);
 
-    const done = await next.resume(paused.threadId, approve);
+    const done = await next.resume(answerOf(paused, approve));
 
     expect(done.status).toBe(ExecutionStatus.Finished);
     expect(done.output).toEqual({ text: "Sent." });
@@ -103,7 +103,7 @@ describe("#201 AC1: a run paused under another workflow version is not resumed b
   it("the same deployment restarted resumes without asking the policy", async () => {
     const { paused, next } = await pauseThenDeploy(MailV1Application);
 
-    const done = await next.resume(paused.threadId, approve);
+    const done = await next.resume(answerOf(paused, approve));
 
     expect(done.output).toEqual({ text: "Sent." });
     expect(asked).toEqual([]);
@@ -124,7 +124,7 @@ describe("#201 AC2: paused runs survive an app restart with durable stores", () 
     const { paused, restarted } = await restartOn(MailV1Application);
     const record = sharedPausedRun(paused.threadId);
 
-    const done = await restarted.resume(paused.threadId, approve);
+    const done = await restarted.resume(answerOf(paused, approve));
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(record).toMatchObject({
@@ -140,7 +140,9 @@ describe("#201 AC2: paused runs survive an app restart with durable stores", () 
   it("with the built-in in-memory repository the restarted app does not know the paused run", async () => {
     const { paused, restarted } = await restartOn(MailV1MemoryPausesApplication);
 
-    await expect(restarted.resume(paused.threadId, approve)).rejects.toBeInstanceOf(NotPausedError);
+    await expect(restarted.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(
+      UnknownPauseError,
+    );
   });
 });
 
@@ -149,7 +151,7 @@ describe("#246 AC3: an incompatible resume is the paused run's onError; the run 
     const { paused, next, book } = await pauseThenDeploy(MailV2Application);
     observed.length = 0;
 
-    const refused = next.resume(paused.threadId, approve);
+    const refused = next.resume(answerOf(paused, approve));
 
     await expect(refused).rejects.toBeInstanceOf(IncompatibleResumeError);
     expect(observed).toEqual([
@@ -162,7 +164,7 @@ describe("#246 AC3: an incompatible resume is the paused run's onError; the run 
     await next.close();
 
     const migrating = await createApp(MailV2MigratingApplication, deploymentOf(book));
-    const done = await migrating.resume(paused.threadId, approve);
+    const done = await migrating.resume(answerOf(paused, approve));
 
     expect(done).toMatchObject({
       status: ExecutionStatus.Finished,

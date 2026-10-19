@@ -11,10 +11,10 @@ import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ApprovalDesk, ChatStart } from "../channels/approval.workflow.js";
 import { Pay, PaymentLog, PaymentsApplication } from "./isolation.workflow.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 
 const card = { orderId: "A-1", cardNumber: "4111 1111 1111 1111" };
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 
 describe("#202: sensitive tool arguments are redacted in channel output", () => {
   it("the channel, the pause and the ask summary get the card masked; the tool gets it whole", async () => {
@@ -33,9 +33,11 @@ describe("#202: sensitive tool arguments are redacted in channel output", () => 
         value: expect.objectContaining({ arguments: { orderId: "A-1", cardNumber: "•••• 1111" } }),
       }),
     ]);
-    expect(paused.pause).toMatchObject({ args: { orderId: "A-1", cardNumber: "•••• 1111" } });
+    expect(paused.pending).toMatchObject([
+      { ask: { arguments: { orderId: "A-1", cardNumber: "•••• 1111" } } },
+    ]);
     expect(JSON.stringify(paused)).not.toContain("4111 1111");
-    await app.resume(paused.threadId, approve);
+    await app.resume(answerOf(paused, approve));
     expect(app.resolve(PaymentLog).cards).toEqual(["4111 1111 1111 1111"]);
     await app.close();
   });

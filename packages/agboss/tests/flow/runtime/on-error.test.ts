@@ -1,7 +1,7 @@
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../../src/app/types.js";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
-import { execute } from "../../helpers/flow.js";
+import { execute, answerOf } from "../../helpers/flow.js";
 import {
   ApologizerAgent,
   ApologyDto,
@@ -15,7 +15,7 @@ import {
 import { ActionFailedError } from "../../../src/errors.js";
 
 const test = testWith(PayApplication);
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 
 describe("#272 AC7: .onError(E, path) right after the step that throws", () => {
   test("the main path continues when the step succeeds", async ({ app }) => {
@@ -74,7 +74,7 @@ describe("#272 AC7: .onError(E, path) right after the step that throws", () => {
 
     const paused = await execute(app, PayStart, { id: "7", outcome: "decline" });
     const restarted = await recoverApp();
-    const done = await restarted.resume(paused.threadId, approve, { record: true });
+    const done = await restarted.resume(answerOf(paused, approve), { record: true });
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(paused).toHavePausedAt(ApologizerAgent);

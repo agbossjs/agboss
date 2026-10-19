@@ -6,7 +6,6 @@ import {
   ExecutionRecordStatus,
   ExecutionTreeRepository,
   Injectable,
-  PauseStatus,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -48,6 +47,7 @@ export const seen = {
   trees: [] as ExecutionTreeRepository[],
   errors: [] as Error[],
   resumes: [] as unknown[],
+  answerers: [] as (string | undefined)[],
   appended: [] as string[],
   completed: [] as string[],
   /** Each compare-and-set write: the status it wrote and whether it landed. */
@@ -173,6 +173,7 @@ export class LeaseLog implements OnExecutionError, OnExecutionResume {
   }
   onExecutionResume(event: ExecutionResumeEvent): void {
     seen.resumes.push(event.decision);
+    seen.answerers.push(event.answeredBy);
   }
 }
 
@@ -181,7 +182,7 @@ export class LeaseLog implements OnExecutionError, OnExecutionResume {
 export class HookedPausedExecutionRepository extends InMemoryPausedExecutionRepository {
   override async save(paused: PausedRun): Promise<void> {
     await super.save(paused);
-    if (paused.status === PauseStatus.Pending) await hooks.afterSave?.(paused, this);
+    await hooks.afterSave?.(paused, this);
   }
 }
 

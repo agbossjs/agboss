@@ -15,7 +15,7 @@ import {
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { seconds } from "../../src/units/index.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 import { logged, resetLogged } from "../helpers/log.js";
 import {
   Charge,
@@ -34,7 +34,7 @@ import {
 
 const test = testWith(RecoveryApplication, { instances: 2 });
 const three = testWith(RecoveryApplication, { instances: 3 });
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 
 beforeEach(resetRecovery);
 afterEach(() => {
@@ -152,7 +152,7 @@ describe("#265 AC12: a root left running by an instance that died", () => {
     kill("instance-1");
     const stuck = new AbortController();
     // recorded, then the instance dies before it moves the tree: its call waits for a lease forever
-    const answered = instance(apps, 0).resume(paused.threadId, approve, { signal: stuck.signal });
+    const answered = instance(apps, 0).resume(answerOf(paused, approve), { signal: stuck.signal });
     answered.catch(() => undefined);
 
     await clock.advance(seconds(30));
@@ -177,7 +177,7 @@ describe("#265 S30: why a run continues", () => {
     );
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
 
-    await app.resume(paused.threadId, approve);
+    await app.resume(answerOf(paused, approve));
 
     expect(seen.resumes).toEqual([{ reason: ResumeReason.Answered, decision: approve }]);
   });

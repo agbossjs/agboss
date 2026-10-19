@@ -7,10 +7,11 @@ import { FailurePolicy } from "../../decorators/router.js";
 import type { LiveLaunch } from "./launch-registry.js";
 import { ArbiterError } from "./quorum-errors.js";
 import { BranchStatus, type BranchTicket } from "./records.js";
+import { isWithdrawn } from "./withdrawn-pauses.js";
 
 /**
  * How a branch that threw ended (#273 S21, #279): `Cancelled` when its launch was aborted first (a
- * sibling failed, the quorum was decided, the deadline passed); `Skipped` for its own step failure
+ * sibling failed, the quorum was decided, the deadline passed) or its pause was withdrawn (#267); `Skipped` for its own step failure
  * under `FailurePolicy.Skip` — or under a quorum, where a failed branch only leaves its place empty;
  * `Failed` for anything else (a limit, an `ArbiterError`), which aborts the launch. A hand-over and a
  * cancel of the execution are no outcome of the branch: they stop the whole execution.
@@ -25,7 +26,7 @@ export interface BranchFailureSite {
 
 /** The status of a branch that threw `error`. */
 export function failedStatusOf(site: BranchFailureSite, error: unknown): BranchStatus {
-  if (site.live.controller.signal.aborted) return BranchStatus.Cancelled;
+  if (site.live.controller.signal.aborted || isWithdrawn(error)) return BranchStatus.Cancelled;
   if (error instanceof ArbiterError || !(error instanceof StepFailedError))
     return BranchStatus.Failed;
   const isDropped = site.ticket.failure === FailurePolicy.Skip || site.isQuorum;

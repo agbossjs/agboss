@@ -1,6 +1,5 @@
 import { type App, type ExecutionOutput } from "agboss";
 import type { ToolCallApprovalDecisionDto } from "agboss/dto";
-import { userInfo } from "node:os";
 
 /** Asks the human a question; undefined when input ended (Ctrl+D). */
 export type Ask = (question: string) => Promise<string | undefined>;
@@ -10,13 +9,16 @@ export type Busy = <T>(work: (signal: AbortSignal | undefined) => Promise<T>) =>
 
 const idle: Busy = (work) => work(undefined);
 
-/** The terminal's decision on a call: `by` is the OS user who answered. */
+/** The terminal's decision on a call; who answered is the thread's owner (the terminal's run). */
 export function terminalDecision(approved: boolean): ToolCallApprovalDecisionDto {
-  const by = userInfo().username;
-  return approved ? { approved, by } : { approved, by, feedback: "declined in the terminal" };
+  return approved ? { approved } : { approved, reason: "declined in the terminal" };
 }
 
-/** A paused run asks in the terminal, then continues in the same process. */
+/**
+ * A paused run asks in the terminal, one pause after another, then continues in the same process.
+ * Only the pauses its thread's owner answers come with an id; a channel's own pause is answered
+ * where the channel asked (the run stays paused).
+ */
 export async function untilDone(
   first: ExecutionOutput,
   app: Pick<App, "resume">,
@@ -24,17 +26,17 @@ export async function untilDone(
   busy: Busy = idle,
 ): Promise<ExecutionOutput> {
   let result = first;
-  while (result.pause !== undefined) {
-    const { agent, tool, args } = result.pause;
+  for (;;) {
+    const waiting = result.pending.find((pause) => pause.pauseId !== undefined);
+    if (waiting?.pauseId === undefined) return result;
+    const { agent, ask: question } = waiting;
     const reply = await ask(
-      `${agent} wants to call ${tool} ${JSON.stringify(args)} — approve? [y/N] `,
+      `${agent} wants to call ${question.tool} ${JSON.stringify(question.arguments)} — approve? [y/N] `,
     );
     const approved = /^y(es)?$/i.test((reply ?? "").trim());
-    const { threadId: thread } = result;
-    const decision = terminalDecision(approved);
-    result = await busy((signal) => app.resume(thread, decision, { signal }));
+    const request = { pauseId: waiting.pauseId, decision: terminalDecision(approved) };
+    result = await busy((signal) => app.resume(request, { signal }));
   }
-  return result;
 }
 
 /** First line under an answer: which conversation, and its trace when tracing is on. */

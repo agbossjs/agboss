@@ -80,11 +80,7 @@ const { graph } = harness(
 );
 
 const input =
-  mode === "start"
-    ? startInput()
-    : mode === "resume"
-      ? decision({ approved: true, by: "lead" })
-      : null;
+  mode === "start" ? startInput() : mode === "resume" ? decision({ approved: true }) : null;
 
 /** The agent's step around the loop (what the node runner opens in a workflow, #280). */
 const agent = testExecutionContext({ executionId: THREAD });

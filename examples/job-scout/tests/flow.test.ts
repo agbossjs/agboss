@@ -113,7 +113,8 @@ describe("job-scout by script (#135): a turn, the approval pause and resume", ()
     });
 
     const paused = await app.execute(ChatWorkflowStart, { text: "save the first job" });
-    const done = await app.resume(paused.threadId, { approved: true, by: "dana" });
+    const pauseId = paused.pending[0]?.pauseId ?? "";
+    const done = await app.resume({ pauseId, decision: { approved: true } });
 
     expect(paused).toHavePausedAt(ShortlistAgent);
     expect(done).toFinishWith(ChatWorkflowFinish, { text: "Saved 1 job." });
@@ -137,7 +138,8 @@ describe("job-scout by script (#135): a turn, the approval pause and resume", ()
     const shortlist = mcpOf(ShortlistServer);
 
     const paused = await app.execute(ChatWorkflowStart, { text: "save the first job" });
-    const done = await app.resume(paused.threadId, { approved: false, by: "dana", reason: "no" });
+    const pauseId = paused.pending[0]?.pauseId ?? "";
+    const done = await app.resume({ pauseId, decision: { approved: false, reason: "no" } });
 
     expect(done).toFinishWith(ChatWorkflowFinish, { text: "Not saved." });
     expect(shortlist.calls).toEqual([]);

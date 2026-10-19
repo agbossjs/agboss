@@ -13,6 +13,7 @@ import {
   RefundsApplication,
 } from "./approval.workflow.js";
 import { execute } from "../helpers/flow.js";
+import type { ResumeRequest } from "../../src/app/types.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
 function offline(book: ScriptBook): AppOptions {
@@ -20,6 +21,16 @@ function offline(book: ScriptBook): AppOptions {
     processEnv: {},
     gateway: createScriptedGateway(book),
   };
+}
+
+/** Who answers through the desk (a `PauseAnswerer.Channel` role: the desk knows its staff). */
+const dana = { answeredBy: "dana" };
+
+/** The answer to the desk's first ask: by the `pauseId` the channel was sent. */
+function deskAnswer(desk: ApprovalDesk, decision: unknown): ResumeRequest {
+  const [ask] = desk.posted;
+  if (ask === undefined) throw new Error("the desk was asked nothing");
+  return { pauseId: ask.pauseId, decision };
 }
 
 /** The refunds app, its desk, and a run paused at the refund call. */
@@ -57,7 +68,7 @@ describe("#188: approval through a @Channel", () => {
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pause: { agent: "clerk-agent", tool: "refund" },
+      pending: [{ agent: "clerk-agent", ask: { tool: "refund" } }],
     });
     expect(desk.posted).toEqual([
       {
@@ -67,7 +78,7 @@ describe("#188: approval through a @Channel", () => {
     ]);
     expect(desk.refunded).toEqual([]);
 
-    await app.resume(paused.threadId, { approved: true, by: "dana" });
+    await app.resume(deskAnswer(desk, { approved: true }), dana);
     expect(desk.posted).toHaveLength(1);
     await app.close();
   });
@@ -79,7 +90,7 @@ describe("#188: approval through a @Channel", () => {
       .thenReturn(callTool(Refund, { orderId: "A-1" }), replyWith("Refunded."));
     const { app, desk, paused } = await pausedRefund(book);
 
-    const done = await app.resume(paused.threadId, { approved: true, by: "dana" });
+    const done = await app.resume(deskAnswer(desk, { approved: true }), dana);
 
     expect(done).toMatchObject({
       status: ExecutionStatus.Finished,
@@ -98,11 +109,10 @@ describe("#188: approval through a @Channel", () => {
       .thenReturn(callTool(Refund, { orderId: "A-1" }), replyWith("Not refunded."));
     const { app, desk, paused } = await pausedRefund(book);
 
-    const done = await app.resume(paused.threadId, {
-      approved: false,
-      by: "dana",
-      feedback: "over the limit",
-    });
+    const done = await app.resume(
+      deskAnswer(desk, { approved: false, reason: "over the limit" }),
+      dana,
+    );
 
     expect(done).toMatchObject({
       status: ExecutionStatus.Finished,

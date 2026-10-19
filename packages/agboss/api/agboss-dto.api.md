@@ -357,11 +357,9 @@ export class ToolCallApprovalDecisionDto {
     // (undocumented)
     approved: boolean;
     // (undocumented)
-    by: string;
-    // (undocumented)
-    feedback?: string;
-    // (undocumented)
     overrideArguments?: ToolArguments;
+    // (undocumented)
+    reason?: string;
 }
 
 // @public (undocumented)
@@ -455,24 +453,23 @@ export class WorkflowStartTextDto {
 // src/dto/standard/domain.ts:124:3 - (ae-undocumented) Missing documentation for "title".
 // src/dto/standard/domain.ts:127:3 - (ae-undocumented) Missing documentation for "url".
 // src/dto/standard/domain.ts:130:3 - (ae-undocumented) Missing documentation for "quote".
-// src/dto/standard/framework.ts:8:3 - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts:15:3 - (ae-undocumented) Missing documentation for "author".
-// src/dto/standard/framework.ts:21:3 - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts:27:3 - (ae-undocumented) Missing documentation for "question".
-// src/dto/standard/framework.ts:34:3 - (ae-undocumented) Missing documentation for "options".
-// src/dto/standard/framework.ts:40:3 - (ae-undocumented) Missing documentation for "replyWith".
-// src/dto/standard/framework.ts:52:3 - (ae-undocumented) Missing documentation for "callId".
-// src/dto/standard/framework.ts:55:3 - (ae-undocumented) Missing documentation for "tool".
-// src/dto/standard/framework.ts:58:3 - (ae-undocumented) Missing documentation for "arguments".
-// src/dto/standard/framework.ts:61:3 - (ae-undocumented) Missing documentation for "summary".
-// src/dto/standard/framework.ts:67:3 - (ae-undocumented) Missing documentation for "approved".
-// src/dto/standard/framework.ts:70:3 - (ae-undocumented) Missing documentation for "by".
-// src/dto/standard/framework.ts:73:3 - (ae-undocumented) Missing documentation for "feedback".
-// src/dto/standard/framework.ts:76:3 - (ae-undocumented) Missing documentation for "overrideArguments".
-// src/dto/standard/framework.ts:88:3 - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts:94:3 - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts:97:3 - (ae-undocumented) Missing documentation for "source".
-// src/dto/standard/framework.ts:100:3 - (ae-undocumented) Missing documentation for "score".
+// src/dto/standard/framework.ts:9:3 - (ae-undocumented) Missing documentation for "text".
+// src/dto/standard/framework.ts:16:3 - (ae-undocumented) Missing documentation for "author".
+// src/dto/standard/framework.ts:22:3 - (ae-undocumented) Missing documentation for "text".
+// src/dto/standard/framework.ts:28:3 - (ae-undocumented) Missing documentation for "question".
+// src/dto/standard/framework.ts:35:3 - (ae-undocumented) Missing documentation for "options".
+// src/dto/standard/framework.ts:41:3 - (ae-undocumented) Missing documentation for "replyWith".
+// src/dto/standard/framework.ts:53:3 - (ae-undocumented) Missing documentation for "callId".
+// src/dto/standard/framework.ts:56:3 - (ae-undocumented) Missing documentation for "tool".
+// src/dto/standard/framework.ts:59:3 - (ae-undocumented) Missing documentation for "arguments".
+// src/dto/standard/framework.ts:62:3 - (ae-undocumented) Missing documentation for "summary".
+// src/dto/standard/framework.ts:71:3 - (ae-undocumented) Missing documentation for "approved".
+// src/dto/standard/framework.ts:74:3 - (ae-undocumented) Missing documentation for "reason".
+// src/dto/standard/framework.ts:80:3 - (ae-undocumented) Missing documentation for "overrideArguments".
+// src/dto/standard/framework.ts:98:3 - (ae-undocumented) Missing documentation for "text".
+// src/dto/standard/framework.ts:104:3 - (ae-undocumented) Missing documentation for "text".
+// src/dto/standard/framework.ts:107:3 - (ae-undocumented) Missing documentation for "source".
+// src/dto/standard/framework.ts:110:3 - (ae-undocumented) Missing documentation for "score".
 // src/dto/types.ts:42:3 - (ae-undocumented) Missing documentation for "sensitive".
 // src/dto/types.ts:43:3 - (ae-undocumented) Missing documentation for "example".
 // src/dto/types.ts:48:3 - (ae-undocumented) Missing documentation for "optional".

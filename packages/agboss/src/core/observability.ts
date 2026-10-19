@@ -134,9 +134,13 @@ export interface ExecutionEndEvent extends ExecutionEvent {
   readonly spend: CostReport;
 }
 
-/** An execution paused (`ExecutionStatus.Paused`): `pause` is what it waits for. */
+/**
+ * An execution paused (`ExecutionStatus.Paused`) because nothing else of it can move: `pending` is
+ * every pause it waits for (#267 S35) — fired again after a partial resume when others remain; a
+ * `PauseAnswerer.Channel` pause comes without its `pauseId`.
+ */
 export interface ExecutionPauseEvent extends ExecutionEvent {
-  readonly pause: PendingPause;
+  readonly pending: readonly PendingPause[];
 }
 
 /** Why an execution continues (#265 S30). */
@@ -160,6 +164,11 @@ export interface ExecutionResumeEvent extends ExecutionEvent {
   readonly reason: ResumeReason;
   /** The decision it continues with (`undefined` for a recovery that takes none). */
   readonly decision: unknown;
+  /**
+   * Who gave it (#267 AC4): the resume's `answeredBy` for a `PauseAnswerer.Channel` pause, the
+   * owner for a `ThreadOwner` one (`undefined` for an unowned thread, or a recovery that takes none).
+   */
+  readonly answeredBy: string | undefined;
 }
 
 /**

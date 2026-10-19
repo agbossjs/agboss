@@ -39,6 +39,7 @@ import type { App, ExecutionOptions, ExecutionOutput } from "./types.js";
 import { ExecutionOperation } from "../core/observability.js";
 import { ApplicationStoppingError } from "./application-stopping.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
+import { resumeOf } from "./resume.js";
 
 export { NotAWorkflowStartError } from "./starts.js";
 
@@ -90,7 +91,8 @@ export async function buildApp(
     configHash: runVersions(deps).configHash,
   };
   const policy = bundle.onIncompatibleResume;
-  const paused = pausedRunBook(parts.infrastructure.pausedExecutions, current, policy);
+  const pauses = parts.infrastructure.pausedExecutions;
+  const paused = pausedRunBook(pauses, current);
   const live = new LiveRuns();
   const { executionLeases, executionTrees: trees } = parts.infrastructure;
   const leases = executionLeasesOf(executionLeases, parts.infrastructure.clock);
@@ -98,6 +100,9 @@ export async function buildApp(
   const owned = (access: ThreadAccess) => checkThreadOwner(deps.terns, deps.config.name, access);
   const known = (access: ThreadAccess) => checkThreadAccess(deps.terns, deps.config.name, access);
   const fresh = (access: ThreadAccess) => isNewThread(deps.terns, deps.config.name, access);
+  const answers = { pauses, paused, owned, tools: deps.tools, current, policy };
+  const ownerOf = async (tenantId: string, threadId: string): Promise<string | undefined> =>
+    (await deps.terns.threadOwner(deps.config.name, tenantId, threadId))?.owner;
   /** A new thread — the caller's own id, or one made now; two creating one id: the first owns it. */
   const newThread = async (access: NewThreadAccess): Promise<string> => {
     const { tenantId, threadId, ownerId } = access;
@@ -191,16 +196,7 @@ export async function buildApp(
       }
       return { cancelled: running || waiting !== undefined };
     },
-    // two phases (Q58): the decision recorded (Pending → Resolved, atomic), then the tree moved
-    resume: async (threadId, decision, call = {}) => {
-      const thread = { tenantId: call.tenantId ?? DEFAULT_TENANT_ID, threadId };
-      const run = await admit({ operation: ExecutionOperation.Resume, ...thread }, async () => {
-        accepting();
-        await owned({ ...thread, ownerId: call.ownerId });
-        return paused.resolve(thread, decision);
-      });
-      return moves.resumed(run, call);
-    },
+    resume: resumeOf({ ...answers, admit, accepting, moves, ownerOf }),
     close: async () => {
       closed = true;
       if (released) return;

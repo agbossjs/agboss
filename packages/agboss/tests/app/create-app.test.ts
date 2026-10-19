@@ -32,7 +32,7 @@ import {
   TaskStart,
   CodeReviewApplication,
 } from "../testing/fixtures/code-review.workflow.js";
-import { agent, execute, start } from "../helpers/flow.js";
+import { agent, execute, start, answerOf } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -174,11 +174,11 @@ describe("AC12: createApp — the real app", () => {
     const app = await createApp(DeskApplication, offline(book, stubs));
 
     const paused = await execute(app, ChatStart, { text: "save a note" });
-    const done = await app.resume(paused.threadId, { approved: true, by: "dana" });
+    const done = await app.resume(answerOf(paused, { approved: true }));
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pause: { agent: "support-agent", tool: "save_note" },
+      pending: [{ agent: "support-agent", ask: { tool: "save_note" } }],
     });
     expect(paused).toFollowPath([ChatStart, MainRouter, Support]);
     expect(done).toMatchObject({
@@ -186,9 +186,9 @@ describe("AC12: createApp — the real app", () => {
       output: { text: "Saved." },
       threadId: paused.threadId,
     });
-    await expect(
-      app.resume(paused.threadId, { approved: true, by: "dana" }),
-    ).rejects.toBeInstanceOf(NotPausedError);
+    await expect(app.resume(answerOf(paused, { approved: true }))).rejects.toBeInstanceOf(
+      NotPausedError,
+    );
     await app.close();
   });
 

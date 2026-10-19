@@ -3,7 +3,7 @@ import { describe, expect } from "vitest";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { maskedText } from "../../src/pii/masking.js";
 import { PiiAction } from "../../src/index.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 import { requestText, tokensIn } from "./boundary.helpers.js";
 import {
   approvedRecipients,
@@ -13,7 +13,7 @@ import {
   SendApprovedEmail,
 } from "./tokens.fixture.js";
 
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 const test = testWith(MailApplication);
 
 describe("#120: tokens survive a pause, a resume and a recovery", () => {
@@ -32,9 +32,9 @@ describe("#120: tokens survive a pause, a resume and a recovery", () => {
 
     const paused = await execute(app, MailStart, { text: "mail dana@acme.com" });
     const restarted = await recoverApp();
-    const done = await restarted.resume(paused.threadId, approve);
+    const done = await restarted.resume(answerOf(paused, approve));
 
-    expect(paused.pause).toMatchObject({ args: { to: "dana@acme.com" } });
+    expect(paused.pending).toMatchObject([{ ask: { arguments: { to: "dana@acme.com" } } }]);
     expect(approvedRecipients).toEqual(["dana@acme.com"]);
     expect(done.output).toEqual({ text: "Sent to dana@acme.com." });
   });

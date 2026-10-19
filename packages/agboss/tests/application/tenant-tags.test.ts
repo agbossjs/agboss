@@ -3,6 +3,7 @@
  * paused executions, the thread, the standard LangGraph fields of a run (`metadata`, `tags`) and
  * the trace exporter's — so one organization's data and traces are found by its id.
  */
+import { answerOf } from "../helpers/flow.js";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/application/create-app.js";
 import {
@@ -46,7 +47,7 @@ describe("#261 AC6: every stored record carries tenantId", () => {
     const stored = await app
       .resolve(PausedExecutionRepository)
       .findByTenantIdAndThreadId("haifa-clinic", paused.threadId);
-    await app.resume(paused.threadId, { approved: true, by: "dana" }, { tenantId: "haifa-clinic" });
+    await app.resume(answerOf(paused, { approved: true }), { tenantId: "haifa-clinic" });
     const records = app.resolve(ExecutionRecordRepository);
     const [record] = await records.findByStatus(ExecutionRecordStatus.Answered, 10);
 

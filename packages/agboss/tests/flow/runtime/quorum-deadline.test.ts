@@ -3,7 +3,7 @@ import { ExecutionStatus } from "../../../src/app/types.js";
 import { BranchStatus, BranchVerdict } from "../../../src/index.js";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
 import { seconds } from "../../../src/units/index.js";
-import { execute } from "../../helpers/flow.js";
+import { execute, answerOf } from "../../helpers/flow.js";
 import { ScoreDto, ScoreReviewDto } from "../fixtures/quorum-dtos.js";
 import {
   ConfirmScoreTool,
@@ -36,7 +36,7 @@ const slow = (value: number, wait: number) => [callTool(WaitTool, { seconds: wai
 const cancelledWhileWaiting = (wait: number) => callTool(WaitTool, { seconds: wait });
 const summary = replyWith(ScoreReviewDto, { text: "summed up" });
 const ANNA = { name: "Anna" };
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 
 beforeEach(resetPanel);
 
@@ -143,7 +143,7 @@ describe("AC10: the deadline counts real time, pauses included", () => {
       const paused = await execute(app, PanelWorkflowStart, ANNA);
       expect(paused.status).toBe(ExecutionStatus.Paused);
       await clock.advance(seconds(31));
-      const done = await app.resume(paused.threadId, approve);
+      const done = await app.resume(answerOf(paused, approve));
 
       expect(done).toFinishWith(PanelReviewWorkflowFinish);
       expect(done.launches[0]?.branches).toMatchObject([

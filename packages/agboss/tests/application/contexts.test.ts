@@ -11,9 +11,9 @@ import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import {
   ExecutionContextUnavailableError,
-  NotPausedError,
   TenantContext,
   UnknownThreadError,
+  UnknownPauseError,
 } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
@@ -28,13 +28,13 @@ import {
   resetClinicSeen,
   UnitDirectoryService,
 } from "../flow/fixtures/clinic.fixture.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 
 const test = testWith(ClinicApplication);
 
 const haifa = { tenantId: "haifa-clinic", units: [{ unitId: "icu", name: "Intensive care" }] };
 const levi = { clinician: { clinicianId: "c-12" }, unitId: "icu" };
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 
 beforeEach(resetClinicSeen);
 
@@ -174,7 +174,7 @@ describe("#261 AC4: the values are validated before the first step and frozen", 
       { tenant: haifa, execution: levi },
     );
 
-    const done = await app.resume(paused.threadId, approve, { tenantId: "haifa-clinic" });
+    const done = await app.resume(answerOf(paused, approve), { tenantId: "haifa-clinic" });
 
     expect(done.output).toEqual({ text: "booked" });
     expect(clinicSeen.readings[0]).toMatchObject({ tenantId: "haifa-clinic", clinicianId: "c-12" });
@@ -244,11 +244,11 @@ describe("#261 AC5: the default tenant; a thread's key is tenant + thread", () =
       { tenant: haifa, execution: levi },
     );
 
-    await expect(app.resume(paused.threadId, approve)).rejects.toBeInstanceOf(NotPausedError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(UnknownPauseError);
     await expect(
-      app.resume(paused.threadId, approve, { tenantId: "tel-aviv-clinic" }),
-    ).rejects.toBeInstanceOf(NotPausedError);
-    const done = await app.resume(paused.threadId, approve, { tenantId: "haifa-clinic" });
+      app.resume(answerOf(paused, approve), { tenantId: "tel-aviv-clinic" }),
+    ).rejects.toBeInstanceOf(UnknownPauseError);
+    const done = await app.resume(answerOf(paused, approve), { tenantId: "haifa-clinic" });
     expect(done.tenantId).toBe("haifa-clinic");
   });
 });

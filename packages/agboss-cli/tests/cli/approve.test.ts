@@ -4,7 +4,6 @@
  */
 import { executeUnchecked } from "agboss/internal";
 import { ExecutionStatus } from "agboss";
-import { userInfo } from "node:os";
 import { callTool, replyWith, routeTo, testWith } from "agboss/testing";
 import { describe, expect, vi } from "vitest";
 import {
@@ -76,14 +75,11 @@ describe("terminal approval (agboss run and agboss chat)", () => {
 });
 
 describe("terminal lines", () => {
-  test("#141 AC5: the terminal fills `by` with the OS user and gives a reason when declined", () => {
-    const by = userInfo().username;
-
-    expect(terminalDecision(true)).toEqual({ approved: true, by });
+  test("#267: the terminal gives a reason when declined; who answered is the thread's owner, not a field", () => {
+    expect(terminalDecision(true)).toEqual({ approved: true });
     expect(terminalDecision(false)).toEqual({
       approved: false,
-      by,
-      feedback: "declined in the terminal",
+      reason: "declined in the terminal",
     });
   });
 

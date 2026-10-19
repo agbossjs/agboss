@@ -1,5 +1,5 @@
 import type { Guardrail } from "../components/decorators.js";
-import type { ChannelSender } from "../channels/channel-sender.js";
+import type { PauseChannel } from "../flow/runtime/pause.js";
 import type { Class } from "../components/injection.js";
 import { stopComponents } from "../components/container/lifecycle.js";
 import { ExecutionObserverManager } from "../core/observer-manager.js";
@@ -17,9 +17,9 @@ import type { AssembledWorkflow, ResolvedPolicies, WorkflowServices } from "../w
 export const channelLookup = (
   bundle: AssembledWorkflow,
   services: WorkflowServices,
-): ((channelName: string) => ChannelSender) => {
+): ((channelName: string) => PauseChannel) => {
   const channels = bundle.channels?.(services);
-  return (channelName: string): ChannelSender => {
+  return (channelName: string): PauseChannel => {
     const channel = channels?.get(channelName);
     if (!channel) throw new Error(`Unknown channel: ${channelName}`);
     return channel;

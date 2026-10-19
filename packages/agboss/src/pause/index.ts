@@ -1,2 +1,8 @@
-/** Public API of the pause seam. See Wiki → Pause seam for the rules. */
-export { type ApprovalRecord, type PauseSeam, type PendingPause } from "./types.js";
+/** Public API of the pause seam. See Wiki → Pauses for the rules. */
+export {
+  pendingPauseOf,
+  type ApprovalRecord,
+  type PauseSeam,
+  type PendingPause,
+  type WaitingPause,
+} from "./types.js";

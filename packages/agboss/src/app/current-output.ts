@@ -1,6 +1,7 @@
 import { buildCostReport } from "../finops/usage.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { PauseStatus } from "../infrastructure/paused-execution.repository.js";
+import type { AgentExecutionOutput } from "../run/types.js";
 import { NotPausedError } from "../run/resume-agent.js";
 import { runConfig } from "../run/paused.js";
 import { readingGraphOf } from "../run/run-budgets.js";
@@ -10,10 +11,24 @@ import type { ThreadKey } from "./live-runs.js";
 import { runResultOf } from "./result.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 
+/** The stored run with only the pauses still pending now (another call may have answered some). */
+async function stillPending(
+  deps: RunDeps<string>,
+  run: AgentExecutionOutput,
+): Promise<AgentExecutionOutput> {
+  const records =
+    (await deps.pause?.pauses.findAllByTenantIdAndRootExecutionId(run.tenantId, run.runId)) ?? [];
+  const pending = new Set(
+    records.flatMap((pause) => (pause.status === PauseStatus.Pending ? [pause.pauseId] : [])),
+  );
+  return { ...run, pending: run.pending.filter((pause) => pending.has(pause.pauseId)) };
+}
+
 /**
  * Where a tree is now, for a resume whose decision another holder took (#267, Q58): paused again
- * (the stored pause), or finished (its last checkpoint) — read from the shared stores, so it holds
- * whichever instance moved the tree. A tree dropped by a cancel meanwhile → `NotPausedError`.
+ * (the stored run, with the pauses still pending), or finished (its last checkpoint) — read from the
+ * shared stores, so it holds whichever instance moved the tree. A tree dropped by a cancel
+ * meanwhile → `NotPausedError`.
  */
 export async function currentOutputOf(
   deps: RunDeps<string>,
@@ -21,9 +36,8 @@ export async function currentOutputOf(
   tree: ThreadKey & { readonly runId: string },
 ): Promise<ExecutionOutput> {
   const stored = await paused.find(tree);
-  if (stored?.status === PauseStatus.Pending && stored.run.runId === tree.runId) {
-    return runResultOf(stored.run, false);
-  }
+  if (stored?.run.runId === tree.runId)
+    return runResultOf(await stillPending(deps, stored.run), false);
   const snapshot = await readingGraphOf(deps).getState(runConfig(tree.runId));
   // LangGraph boundary: a checkpoint's values are the flow's own state
   const state = snapshot.values as Partial<ExecutionStateType>;
@@ -38,6 +52,7 @@ export async function currentOutputOf(
     path: state.path ?? [],
     spend: buildCostReport(state.usage ?? []),
     launches: state.launches ?? [],
+    pending: [],
     finish: { name: state.finish },
     output: state.output,
   };

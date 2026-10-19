@@ -12,7 +12,7 @@ function contentOf(state: AgentLoopStateType, call: ToolCallRequest): string {
   const stored = state.results[call.callId];
   if (stored !== undefined) return stored.content;
   const decision = state.decisions[call.callId];
-  return rejectionMessage(decision?.by ?? "the loop", decision?.feedback);
+  return rejectionMessage(decision?.by ?? "the loop", decision?.reason);
 }
 
 /** The decided calls of this move, as the flow keeps them (#100: the turn ends after a decision). */

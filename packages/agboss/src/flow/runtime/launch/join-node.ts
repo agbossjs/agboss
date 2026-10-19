@@ -9,7 +9,7 @@ import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { stepFrameAt } from "../step-frame.js";
 import type { VisitDeps } from "../visit.js";
 import { finishedOf, joinValuesOf } from "./join-values.js";
-import type { LaunchRegistry } from "./launch-registry.js";
+import type { BranchErrors, LaunchRegistry } from "./launch-registry.js";
 import {
   BranchStatus,
   type BranchOutcomeRecord,
@@ -32,6 +32,8 @@ import type { RuntimeLaunch } from "./runtime-launch.js";
 export interface JoinDeps extends VisitDeps {
   readonly graph: RuntimeGraph;
   readonly registry: LaunchRegistry;
+  /** A failed branch's error from an earlier pass of this process (#267 AC10). */
+  readonly branchErrors?: BranchErrors;
 }
 
 /** A branch's error read back from its record (another process ran it, before a crash). */
@@ -157,6 +159,8 @@ export function joinNode(launch: RuntimeLaunch, deps: JoinDeps): GraphNode {
       .sort(byIndex);
     const live = deps.registry.find(ticket.launchId);
     deps.registry.remove(ticket.launchId);
+    const thrownOf = (index: number): unknown =>
+      live?.errors.get(index) ?? deps.branchErrors?.find(ticket.launchId, index);
     const done = {
       visits: visitsOf(ticket),
       launch: null,
@@ -164,8 +168,9 @@ export function joinNode(launch: RuntimeLaunch, deps: JoinDeps): GraphNode {
       launches: [launchRecordOf(ticket, records)],
     };
     const failed = records.find((record) => record.status === BranchStatus.Failed);
-    if (failed !== undefined)
-      return { ...done, ...failedJoin(launch, failed, live?.errors.get(failed.index)) };
+    const thrown = failed === undefined ? undefined : thrownOf(failed.index);
+    deps.branchErrors?.forgetLaunch(ticket.launchId);
+    if (failed !== undefined) return { ...done, ...failedJoin(launch, failed, thrown) };
     const context = config === undefined ? { state, deps } : { state, config, deps };
     if (launch.quorum !== undefined)
       return { ...done, ...(await quorumJoined(launch, ticket, records, context)) };

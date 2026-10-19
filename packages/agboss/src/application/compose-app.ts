@@ -9,7 +9,8 @@ import type { GracefulStop } from "./graceful-stop.js";
 
 /**
  * The app of an application instance (#261): `execute` runs the workflow its start belongs to (a
- * start is the door of one workflow), `resume` / `cancel` the workflow of the thread; `close()` is
+ * start is the door of one workflow), `resume` the workflow its pause waits in, `cancel` the
+ * workflow of the thread; `close()` is
  * the instance's graceful stop (`graceful-stop.ts`).
  */
 
@@ -62,6 +63,12 @@ export function composeApp(
     }
     return first;
   };
+  /** The workflow a tenant's pause waits in; an unknown pause goes to the first, which rejects it. */
+  const ofPause = async (pauseId: string, tenantId = DEFAULT_TENANT_ID): Promise<BuiltApp> => {
+    const pause = await first.deps.pause?.pauses.findByTenantIdAndPauseId(tenantId, pauseId);
+    const named = workflows.find((workflow) => workflow.deps.config.name === pause?.workflow);
+    return named ?? first;
+  };
   const app: App = {
     name: assembled.name,
     version: assembled.version,
@@ -71,8 +78,8 @@ export function composeApp(
     // a start no workflow has goes to the first, whose check rejects it (`onRunRejected`)
     execute: (start, input, ...options) =>
       (starts.get(start) ?? first).app.execute(start, input, ...options),
-    resume: async (threadId, decision, options) =>
-      (await ofThread(threadId, options?.tenantId)).app.resume(threadId, decision, options),
+    resume: async (request, options) =>
+      (await ofPause(request.pauseId, options?.tenantId)).app.resume(request, options),
     cancel: async (threadId, options) =>
       (await ofThread(threadId, options?.tenantId)).app.cancel(threadId, options),
     close: (options) => stop.close(options),

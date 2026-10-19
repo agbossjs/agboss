@@ -19,11 +19,13 @@ import {
   branchTicketOf,
   type BranchLaunch,
 } from "./branch-view.js";
-import type { LiveLaunch } from "./launch-registry.js";
+import type { BranchErrors, LiveLaunch } from "./launch-registry.js";
 import { reportBranch } from "./launch-report.js";
 import { arbiterDepsFor, liveLaunchOf, type BranchQuorumDeps } from "./branch-quorum.js";
 import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
 import { BranchStatus, type BranchOutcomeRecord, type BranchTicket } from "./records.js";
+import { withdrawSiblingPauses } from "./withdrawn-pauses.js";
+import type { PausedExecutionRepository } from "../../../infrastructure/paused-execution.repository.js";
 
 /**
  * One branch of a launch (#273 S20, S21): one `Send` task. It takes a slot of the launch's
@@ -38,6 +40,10 @@ import { BranchStatus, type BranchOutcomeRecord, type BranchTicket } from "./rec
 
 export interface BranchDeps extends VisitDeps, BranchQuorumDeps {
   readonly graph: RuntimeGraph;
+  /** The application's pauses: a `FailFast` failure withdraws its paused siblings' (#267 AC10). */
+  readonly pauses?: PausedExecutionRepository;
+  /** Where a failed branch's error waits for a join in a later pass of this process. */
+  readonly branchErrors?: BranchErrors;
 }
 
 /** One branch's run: where it stands, and what it gave or spent so far. */
@@ -130,8 +136,18 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   return answeredEnd(run, outcome, marked);
 }
 
+/** A failed branch aborts its launch: its siblings stop, their pending pauses are withdrawn. */
+async function abortLaunch(run: BranchRun): Promise<void> {
+  const { live, deps, state, owner, ticket } = run;
+  live.controller.abort();
+  if (deps.pauses === undefined) return;
+  const tenantId = state.contexts.tenant.tenantId;
+  const site = { tenantId, rootExecutionId: state.runId, launch: owner.ticket, failed: ticket };
+  await withdrawSiblingPauses(deps.pauses, site);
+}
+
 /** A branch that threw: skipped, failed (aborting its siblings) or cancelled by a sibling. */
-function ended(run: BranchRun, error: unknown): BranchEnd {
+async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
   if (isGraphInterrupt(error)) throw error;
   passThroughStops(run.config, run.state.runId);
   const { live, ticket } = run;
@@ -141,7 +157,8 @@ function ended(run: BranchRun, error: unknown): BranchEnd {
   const status = failedStatusOf({ live, ticket, isQuorum }, error);
   if (status === BranchStatus.Failed) {
     live.errors.set(ticket.index, error);
-    live.controller.abort();
+    run.deps.branchErrors?.keep(run.owner.ticket.launchId, ticket.index, error);
+    await abortLaunch(run);
   }
   leaveQuorum(live, ticket);
   const update = { ...visited(run), usage };
@@ -164,7 +181,7 @@ async function runBranch(run: BranchRun, runner: NodeRunner): Promise<BranchEnd>
   try {
     return await ran(run, runner);
   } catch (error) {
-    return ended(run, error);
+    return await ended(run, error);
   } finally {
     live.slots.release();
   }

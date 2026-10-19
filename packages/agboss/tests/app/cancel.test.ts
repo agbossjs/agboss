@@ -13,10 +13,10 @@ import {
   Wait,
   CheckoutApplication,
 } from "./fixtures/run-context.workflow.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 const test = testWith(CheckoutApplication);
 
 beforeEach(resetSeen);
@@ -42,7 +42,7 @@ describe("#187 AC1: after cancelling a paused run, approving it does not execute
     const paused = await execute(app, Start, { text: "charge" });
 
     const cancelled = await app.cancel(paused.threadId);
-    const resumed = app.resume(paused.threadId, approve);
+    const resumed = app.resume(answerOf(paused, approve));
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(cancelled).toEqual({ cancelled: true });
@@ -64,7 +64,9 @@ describe("#187 AC1: after cancelling a paused run, approving it does not execute
 
     const restarted = await recoverApp();
 
-    await expect(restarted.resume(paused.threadId, approve)).rejects.toBeInstanceOf(NotPausedError);
+    await expect(restarted.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(
+      NotPausedError,
+    );
     expect(seen.charges).toEqual([]);
   });
 
@@ -97,7 +99,7 @@ describe("#187 AC2: cancelling a running run stops it before the next model/tool
     expect(seen.blocked[0]?.aborted).toBe(true);
     expect(mockLlm(Clerk).requests).toHaveLength(1);
     expect(seen.payments).toEqual([]);
-    await expect(app.resume(thread, approve)).rejects.toBeInstanceOf(NotPausedError);
+    expect(await app.cancel(thread)).toEqual({ cancelled: false });
   });
 
   test("a resumed run in flight is cancelled the same way", async ({ app, mockLlm }) => {
@@ -106,13 +108,13 @@ describe("#187 AC2: cancelling a running run stops it before the next model/tool
       callTool(Wait, { text: "a receipt" }),
     );
     const paused = await execute(app, Start, { text: "charge, then wait" });
-    const run = waitingRun(() => app.resume(paused.threadId, approve));
+    const run = waitingRun(() => app.resume(answerOf(paused, approve)));
     await run.thread;
 
     expect(await app.cancel(paused.threadId)).toEqual({ cancelled: true });
     await expect(run.done).rejects.toBeInstanceOf(ExecutionCancelledError);
     expect(seen.charges).toHaveLength(1);
     expect(mockLlm(Clerk).requests).toHaveLength(2);
-    await expect(app.resume(paused.threadId, approve)).rejects.toBeInstanceOf(NotPausedError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(NotPausedError);
   });
 });

@@ -33,8 +33,10 @@ export interface FinishContext<TName extends string> {
   readonly budgetUsd: number;
   /** Where spend goes as it happens: the Tern's list and the budgets' counters. */
   readonly record: (records: readonly UsageRecord[]) => Promise<void>;
-  /** How many of the run's usage records are already in the ledger. */
-  readonly recorded: number;
+  /** The run's usage records already in the ledger (this pass's and the passes before). */
+  readonly recorded: readonly UsageRecord[];
+  /** The resolved pauses this pass answered: their loops went on, they no longer wait. */
+  readonly takenPauseIds?: ReadonlySet<string> | undefined;
   readonly callbacks: BaseCallbackHandler[];
 }
 
@@ -105,7 +107,7 @@ const unrecordedSpendOf = (error: unknown): readonly UsageRecord[] =>
 export function drainRun(
   states: AsyncIterable<ExecutionStateType>,
   record: (records: readonly UsageRecord[]) => Promise<void>,
-  alreadyRecorded = 0,
+  alreadyRecorded: readonly UsageRecord[] = [],
 ): Promise<ExecutionStateType> {
   return drainRecordingUsage(statesOnly(states), record, alreadyRecorded).catch(
     async (error: unknown) => {

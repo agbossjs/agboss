@@ -155,7 +155,7 @@ export class RunLog
     this.pushExecution("execution-start", event);
   }
   onExecutionPause(event: ExecutionPauseEvent): void {
-    this.pushExecution("execution-pause", event, event.pause);
+    this.pushExecution("execution-pause", event, event.pending);
   }
   onExecutionResume(event: ExecutionResumeEvent): void {
     this.pushExecution("execution-resume", event, event.decision);

@@ -7,7 +7,6 @@ import { emptyCheckpoint } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
 import { ExecutionStatus } from "../../../src/app/types.js";
 import type { PausedRun } from "../../../src/app/paused-runs.js";
-import { PauseStatus } from "../../../src/infrastructure/paused-execution.repository.js";
 import { SqliteCheckpointSaver } from "../../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import type { AgentExecutionOutput } from "../../../src/run/types.js";
@@ -29,21 +28,20 @@ const pausedOf = (tenantId: string, threadId: string): PausedRun => ({
   } as AgentExecutionOutput,
   workflowVersion: "1.0.0",
   configHash: "hash",
-  status: PauseStatus.Pending,
 });
 
 describe("#261: SQLite paused executions are keyed by tenant + thread", () => {
-  it("the same thread id in two tenants is two pauses; each resolves on its own", async () => {
+  it("the same thread id in two tenants is two paused runs; each is found and deleted on its own", async () => {
     const paused = new SqlitePausedExecutionRepository(connectionTo(temporarySqlitePath()), clock);
     await paused.save(pausedOf("acme", "thread-1"));
     await paused.save(pausedOf("globex", "thread-1"));
 
-    const resolved = await paused.resolveByTenantIdAndThreadId("acme", "thread-1", { ok: true });
-
-    expect(resolved?.run.runId).toBe("run-acme");
-    expect(await paused.findByTenantIdAndThreadId("globex", "thread-1")).toMatchObject({
-      status: PauseStatus.Pending,
-    });
+    expect((await paused.findByTenantIdAndThreadId("acme", "thread-1"))?.run.runId).toBe(
+      "run-acme",
+    );
+    expect((await paused.findByTenantIdAndThreadId("globex", "thread-1"))?.run.runId).toBe(
+      "run-globex",
+    );
     await paused.deleteByTenantIdAndThreadId("acme", "thread-1");
     expect(await paused.findByTenantIdAndThreadId("acme", "thread-1")).toBeUndefined();
     expect(await paused.findByTenantIdAndThreadId("globex", "thread-1")).toBeDefined();

@@ -18,7 +18,7 @@ export class TerminalUserChannel {
       "",
       `[APPROVAL REQUIRED] Tool '${tool}' wants to run (pause ${ask.pauseId}).`,
       `Arguments: ${inspect(args, { depth: 4 })}`,
-      "Answer the prompt in this terminal, or from code: app.resume(thread, { approved, by }).",
+      "Answer the prompt in this terminal, or from code: app.resume({ pauseId, decision: { approved } }).",
       "",
     ];
     process.stdout.write(`${lines.join("\n")}\n`);

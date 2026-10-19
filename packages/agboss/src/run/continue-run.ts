@@ -25,6 +25,8 @@ export interface ContinuedRun {
   readonly budgets: readonly ExecutionBudgetRecord[] | undefined;
   /** What it spent before this pass, already in the ledger. */
   readonly spent: readonly UsageRecord[];
+  /** The resolved pauses this pass answers (a resume's); none for a recovery. */
+  readonly takenPauseIds?: ReadonlySet<string>;
 }
 
 /** Streams the pass, recording spend as it happens; returns the last state. */
@@ -73,7 +75,8 @@ export async function continueRun<TName extends string>(
       runId: run.runId,
       budgetUsd: run.budgetUsd,
       record,
-      recorded: Math.max(run.spent.length, state.usage.length),
+      recorded: [...run.spent, ...spent],
+      takenPauseIds: run.takenPauseIds,
       callbacks: streaming.callbacks,
     };
     return await finishRun(context, state, run.ternId);
