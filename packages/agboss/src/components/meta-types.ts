@@ -1,7 +1,7 @@
 import type { AgentsConfig } from "../config/types.js";
 import type { RagMode } from "../rag/types.js";
 import type { Guardrail } from "./policy-decorators.js";
-import type { JudgeHandler } from "./judge-decorators.js";
+import type { JudgeHandlerClass } from "./judge-decorators.js";
 import type { ToolHandlerClass } from "./decorators.js";
 import type { BaseMemoryStrategy } from "../memory/types.js";
 import type { Class, Provider } from "./injection.js";
@@ -61,7 +61,7 @@ export interface AgentMeta extends PolicyFields, PiiPolicyFields {
   /** `@Tool` or `@McpTool` classes. */
   readonly tools?: readonly ToolHandlerClass[];
   /** `@Judge` classes. */
-  readonly judges?: readonly Class<JudgeHandler>[];
+  readonly judges?: readonly JudgeHandlerClass[];
   readonly maxRetries?: number;
   /** Knowledge bases: `{ use: CompanyDocs, mode: RagMode.Tool }` — `mode` is required. */
   readonly rag?: readonly RagBinding[];

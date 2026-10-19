@@ -1,7 +1,7 @@
 /**
  * #185: `@Agent({ judges, maxRetries })` quality gates run — each `@Judge` is created by the
  * container with its deps, judges with its own model through the model gateway (spend in the cost
- * report), sends its feedback back for a retry, and fails the run with `QualityGateError` once the
+ * report), sends its reason back for a retry, and fails the run with `QualityGateError` once the
  * retries are spent. A judge without a model fails at app start.
  */
 import { describe, expect, it } from "vitest";
@@ -48,7 +48,7 @@ describe("quality gates of an agent", () => {
     expect(asked).toContain("Reply: Acme is hiring a TS engineer.");
   });
 
-  test("a rejected reply is retried with the judge's feedback in the agent's next model call", async ({
+  test("a rejected reply is retried with the judge's reason in the agent's next model call", async ({
     app,
     mockLlm,
   }) => {
@@ -66,7 +66,7 @@ describe("quality gates of an agent", () => {
     expect(textsOf(second).at(-1)).toContain("[grounded] names no company");
   });
 
-  test("AC1: a judge that always rejects ends the run with QualityGateError carrying its feedback", async ({
+  test("AC1: a judge that always rejects ends the run with QualityGateError carrying its reason", async ({
     app,
     mockLlm,
   }) => {
@@ -80,7 +80,7 @@ describe("quality gates of an agent", () => {
       code: "step.agent.quality-gate",
       agent: "writer-agent",
       retries: 1,
-      feedback: [{ judge: "grounded", feedback: "names no company" }],
+      rejections: [{ judge: "grounded", reason: "names no company" }],
     });
     // the first reply and its one retry (maxRetries: 1), each judged
     expect(mockLlm(Writer).requests).toHaveLength(2);

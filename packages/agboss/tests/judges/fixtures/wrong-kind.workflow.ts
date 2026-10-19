@@ -1,12 +1,12 @@
 import { Agent, Decision, Judge, Workflow, Router } from "../../../src/index.js";
 import {
   JudgeModel,
+  JudgeVerdict,
   type JudgeHandler,
   type JudgeInput,
-  type JudgeVerdict,
 } from "../../../src/index.js";
 import { LUNA } from "./decision-judged.workflow.js";
-import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { PlainTextDto, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { DecidedBy, WorkflowFinish } from "../../../src/index.js";
 import { route, start } from "../../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
@@ -15,26 +15,27 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 
 /** On a chat model, yet asks for a decision. */
-@Judge({ name: "chat-decider", model: "local/judge", deps: [JudgeModel] })
-export class ChatDecider implements JudgeHandler {
+@Judge({ name: "chat-decider", model: "local/judge", reply: PlainTextDto, deps: [JudgeModel] })
+export class ChatDecider implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput): Promise<JudgeVerdict> {
+  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const a = await this.judgeModel.decide({
-      state: reply,
+      state: reply.text,
       questions: { ok: Decision.noul("The reply is fine") },
     });
-    return { passed: a.ok.noul > 0.5 };
+    return a.ok.noul > 0.5 ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "not fine" });
   }
 }
 
 /** On a decision model, yet chats. */
-@Judge({ name: "decision-chatter", model: LUNA, deps: [JudgeModel] })
-export class DecisionChatter implements JudgeHandler {
+@Judge({ name: "decision-chatter", model: LUNA, reply: PlainTextDto, deps: [JudgeModel] })
+export class DecisionChatter implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput): Promise<JudgeVerdict> {
-    return { passed: (await this.judgeModel.invoke(`Is this fine? ${reply}`)) === "yes" };
+  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const fine = (await this.judgeModel.invoke(`Is this fine? ${reply.text}`)) === "yes";
+    return fine ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "not fine" });
   }
 }
 

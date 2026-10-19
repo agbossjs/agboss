@@ -39,7 +39,7 @@ export interface AgentDefinition {
 /** One `@Judge` of an agent: its name, its instance (from the container) and its model (chat or decisions). */
 export interface AgentJudge {
   readonly name: string;
-  readonly handler: JudgeHandler;
+  readonly handler: JudgeHandler<unknown>;
   readonly binding: JudgeBinding;
 }
 

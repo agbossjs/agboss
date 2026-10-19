@@ -34,7 +34,7 @@ export interface GraphDeps<TName extends string> {
   /** Agents' own memory strategies (`@Agent({ memoryStrategy })`); the rest use the built-in one. */
   readonly memory?: ReadonlyMap<string, BaseMemoryStrategy>;
   /** The agents' `@Judge`s by judge name, created by the container (models in `registry.judges`). */
-  readonly judges?: ReadonlyMap<string, JudgeHandler>;
+  readonly judges?: ReadonlyMap<string, JudgeHandler<unknown>>;
   /** Context-mode knowledge bases per agent (knowledge bases, #88). */
   readonly knowledge?: (agent: string) => readonly KnowledgeSource[];
   /** Optional pause seam (approval of tool calls). Off by default. */

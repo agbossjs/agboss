@@ -12,6 +12,7 @@ import {
 import { makeToolNode } from "../../../src/graph/agent-loop/tools-node.js";
 import { makeModelNode } from "../../../src/graph/agent-loop/model-node.js";
 import { makeJudgeNode } from "../../../src/graph/agent-loop/judge-node.js";
+import { JudgeVerdict } from "../../../src/components/judge-decorators.js";
 import { makeApprovalNode } from "../../../src/graph/agent-loop/approval-node.js";
 import { servicesFor } from "../../../src/app/parts.js";
 import { createAppDeps } from "../../../src/app/app-deps.js";
@@ -167,12 +168,12 @@ describe("agent-loop coverage", () => {
   });
 
   it("judge-node calls observer", async () => {
-    const handler = { judge: () => Promise.resolve({ passed: true }) };
+    const handler = { judge: () => Promise.resolve(JudgeVerdict.passed()) };
     const judges = [{ name: "j1", handler, binding: { settings: { model: "m" } } }];
     const observer = { onJudgeStart: vi.fn(), onJudgeEnd: vi.fn() };
     const deps = { agent: { name: "a1", judges, binding: {} }, observer };
     const node = makeJudgeNode(deps);
-    await inTestFrame(() => node({ reply: "test", runId: "1", messages: [] }, {}));
+    await inTestFrame(() => node({ reply: "test", answer: null, runId: "1", messages: [] }, {}));
     expect(observer.onJudgeStart).toHaveBeenCalled();
     expect(observer.onJudgeEnd).toHaveBeenCalled();
   });

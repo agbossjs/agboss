@@ -112,30 +112,30 @@ export class AgentFailedError extends StepFailedError {
   }
 }
 
-/** One judge's reason for rejecting an agent's reply. */
-export interface JudgeFeedback {
+/** One judge's rejection of an agent's reply: the judge and its verdict's `reason`. */
+export interface JudgeRejection {
   readonly judge: string;
-  readonly feedback: string;
+  readonly reason: string;
 }
 
 /** An agent's reply still failed its judges after `maxRetries` retries. */
 export class QualityGateError extends AgentFailedError {
   static override readonly code: string = "step.agent.quality-gate";
   override name = "QualityGateError";
-  /** What the judges said about the last reply. */
-  readonly feedback: readonly JudgeFeedback[];
+  /** The judges that rejected the last reply, each with its reason. */
+  readonly rejections: readonly JudgeRejection[];
   readonly retries: number;
 
   constructor(
     agent: string,
     usage: readonly UsageRecord[],
-    feedback: readonly JudgeFeedback[],
+    rejections: readonly JudgeRejection[],
     retries: number,
   ) {
-    const said = feedback.map((f) => `[${f.judge}] ${f.feedback}`).join("; ");
+    const said = rejections.map((r) => `[${r.judge}] ${r.reason}`).join("; ");
     const reason = `quality gate not passed after ${String(retries)} retries: ${said}`;
-    super(agent, usage, reason, { feedback: feedback.map((f) => ({ ...f })), retries });
-    this.feedback = feedback;
+    super(agent, usage, reason, { rejections: rejections.map((r) => ({ ...r })), retries });
+    this.rejections = rejections;
     this.retries = retries;
   }
 }

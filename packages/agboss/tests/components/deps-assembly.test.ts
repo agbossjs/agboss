@@ -8,7 +8,7 @@ import { createApp } from "../../src/application/create-app.js";
 import { Channel, Guardrail, Rag } from "../../src/components/decorators.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { PiiAction, PiiPolicy, type PiiMatch, type PiiPolicyHandler } from "../../src/pii/index.js";
-import { Judge, type JudgeHandler } from "../../src/components/judge-decorators.js";
+import { Judge, JudgeVerdict, type JudgeHandler } from "../../src/components/judge-decorators.js";
 import { type Provider } from "../../src/components/injection.js";
 import {
   Action,
@@ -19,7 +19,7 @@ import {
   Tool,
   type ToolHandler,
 } from "../../src/index.js";
-import { WorkflowStartTextDto } from "../../src/dto/index.js";
+import { PlainTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { start } from "../helpers/flow.js";
 import { Text } from "../../src/dto/index.js";
 import type { RagRetrieval } from "../../src/rag/types.js";
@@ -88,11 +88,11 @@ class ApprovedTool implements ToolHandler<Approved, Approved> {
 @Agent({ name: "approving-agent", description: "d", model: "test/a", tools: [ApprovedTool] })
 class ApprovingAgent {}
 
-@Judge({ name: "needs-judge", model: "test/j", deps: [MISSING] })
-class NeedsJudge implements JudgeHandler {
+@Judge({ name: "needs-judge", model: "test/j", reply: PlainTextDto, deps: [MISSING] })
+class NeedsJudge implements JudgeHandler<PlainTextDto> {
   constructor(readonly value: string) {}
-  judge(): Promise<{ passed: boolean }> {
-    return Promise.resolve({ passed: true });
+  judge(): Promise<JudgeVerdict> {
+    return Promise.resolve(JudgeVerdict.passed());
   }
 }
 

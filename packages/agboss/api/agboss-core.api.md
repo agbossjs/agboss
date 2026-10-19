@@ -307,10 +307,12 @@ export class InjectionToken<T> {
     readonly description: string;
 }
 
+// Warning: (ae-forgotten-export) The symbol "JudgeReplyShape" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "JudgeOptions" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "ValueOf" needs to be exported by the entry point index.d.ts
+//
 // @public
-export function Judge<const D extends readonly Token[] = []>(options: JudgeMeta & {
-    readonly deps?: D;
-}): <C extends new (...args: ResolvedAll<D>) => JudgeHandler>(value: C) => C;
+export function Judge<const TReply extends JudgeReplyShape, const D extends readonly Token[] = []>(options: JudgeOptions<TReply, D>): <C extends new (...args: ResolvedAll<D>) => JudgeHandler<ValueOf<TReply>>>(value: C) => C;
 
 // Warning: (ae-forgotten-export) The symbol "NodeEvent" needs to be exported by the entry point index.d.ts
 //
@@ -325,19 +327,18 @@ export interface JudgeEndEvent extends NodeEvent {
 }
 
 // @public
-export interface JudgeHandler {
+export interface JudgeHandler<TReply> {
     // Warning: (ae-forgotten-export) The symbol "JudgeInput" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    judge(input: JudgeInput): Promise<JudgeVerdict>;
+    judge: (input: JudgeInput<TReply>) => Promise<JudgeVerdict>;
 }
 
 // @public
-export interface JudgeMeta {
+export interface JudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
     // (undocumented)
     readonly description?: string;
     readonly model: string;
     readonly name: string;
+    readonly reply: TReply;
 }
 
 // @public
@@ -357,15 +358,17 @@ export interface JudgeStartEvent extends NodeEvent {
     readonly name: string;
 }
 
+// Warning: (ae-forgotten-export) The symbol "PassedJudgeVerdict" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "FailedJudgeVerdict" needs to be exported by the entry point index.d.ts
+//
 // @public
-export interface JudgeVerdict {
-    // (undocumented)
-    readonly feedback?: string;
-    // (undocumented)
-    readonly metrics?: Readonly<Record<string, number | string | boolean>>;
-    // (undocumented)
-    readonly passed: boolean;
-}
+export type JudgeVerdict = PassedJudgeVerdict | FailedJudgeVerdict;
+
+// @public
+export const JudgeVerdict: {
+    readonly passed: (options?: PassedJudgeVerdictOptions) => PassedJudgeVerdict;
+    readonly failed: (options: FailedJudgeVerdictOptions) => FailedJudgeVerdict;
+};
 
 // @public
 export const MAX_DECISION_QUESTIONS = 200;
@@ -743,11 +746,9 @@ export class WorkflowSettings {
 // src/components/injection.ts:31:3 - (ae-undocumented) Missing documentation for "provide".
 // src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "useValue".
 // src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
-// src/components/judge-decorators.ts:15:3 - (ae-undocumented) Missing documentation for "description".
-// src/components/judge-decorators.ts:52:3 - (ae-undocumented) Missing documentation for "passed".
-// src/components/judge-decorators.ts:53:3 - (ae-undocumented) Missing documentation for "feedback".
-// src/components/judge-decorators.ts:54:3 - (ae-undocumented) Missing documentation for "metrics".
-// src/components/judge-decorators.ts:59:3 - (ae-undocumented) Missing documentation for "judge".
+// src/components/judge-decorators.ts:26:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/judge-decorators.ts:110:3 - (ae-forgotten-export) The symbol "PassedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
+// src/components/judge-decorators.ts:115:3 - (ae-forgotten-export) The symbol "FailedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
 // src/components/metadata.ts:88:1 - (ae-undocumented) Missing documentation for "ComponentError".
 // src/components/metadata.ts:89:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/policy-decorators.ts:24:1 - (ae-undocumented) Missing documentation for "Guardrail".

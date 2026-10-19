@@ -35,7 +35,7 @@ import { returnsRules } from "./rules/returns.js";
 import { concurrencyErrors, concurrencyWarnings, recursionRules } from "./rules/recursion.js";
 import { routerRules } from "./rules/routers.js";
 import { switchRules } from "./rules/switch.js";
-import { textAgentRules } from "./rules/text-agents.js";
+import { judgeReplyRules, textAgentRules } from "./rules/text-agents.js";
 import { stepsRules } from "./steps.js";
 import { walkFlow } from "./walk.js";
 import { worstCasesOf, type WorstCase } from "./worst-case.js";
@@ -76,6 +76,7 @@ const RULES: readonly FlowRule[] = [
   cycleRules,
   switchRules,
   textAgentRules,
+  judgeReplyRules,
   errorRules,
   returnsRules,
   routerRules,

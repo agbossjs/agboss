@@ -17,6 +17,7 @@ import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
 import {
   AuditGuardrail,
+  KeptDto,
   MaskSecret,
   RemoteAgent,
   RevealTool,
@@ -51,10 +52,7 @@ export class Chat {}
 export class Done {}
 
 /** What the keeper kept. */
-export class KeptDto {
-  @Text({ prompt: "what was kept" })
-  text!: string;
-}
+export { KeptDto } from "./deps-contract.components.js";
 
 @WorkflowFinish({ name: "kept-workflow-finish", description: "What was kept", output: KeptDto })
 export class Kept {}

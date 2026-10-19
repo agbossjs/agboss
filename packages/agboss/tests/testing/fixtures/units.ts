@@ -11,6 +11,7 @@ import {
   Injectable,
   Judge,
   JudgeModel,
+  JudgeVerdict,
   PiiAction,
   PiiKind,
   PiiPolicy,
@@ -21,13 +22,12 @@ import {
   type GuardrailContext,
   type JudgeHandler,
   type JudgeInput,
-  type JudgeVerdict,
   type PiiMatch,
   type PiiPolicyHandler,
   type ToolHandler,
 } from "../../../src/index.js";
 import { Rag } from "../../../src/components/decorators.js";
-import { OneOf, Text } from "../../../src/dto/index.js";
+import { OneOf, PlainTextDto, Text } from "../../../src/dto/index.js";
 import type { RagConnector, RagRetrieval } from "../../../src/rag/types.js";
 import { usd } from "../../../src/units/index.js";
 
@@ -111,27 +111,40 @@ export class BrokenJobsTool implements ToolHandler<JobSearch, JobList> {
 
 // ── judges ──
 
-@Judge({ name: "grounded-judge", model: "typesafe/jev-1.13", deps: [JudgeModel] })
-export class GroundedJudge implements JudgeHandler {
+@Judge({
+  name: "grounded-judge",
+  model: "typesafe/jev-1.13",
+  reply: PlainTextDto,
+  deps: [JudgeModel],
+})
+export class GroundedJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply, task }: JudgeInput): Promise<JudgeVerdict> {
+  async judge({ reply, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const answers = await this.judgeModel.decide({
-      state: { task, reply },
+      state: { task, reply: reply.text },
       questions: { grounded: Decision.noul("Is every claim of the reply grounded in the task?") },
     });
-    const passed = answers.grounded.noul > 0.5;
-    return passed ? { passed } : { passed, feedback: "cite the source of every claim" };
+    return answers.grounded.noul > 0.5
+      ? JudgeVerdict.passed()
+      : JudgeVerdict.failed({ reason: "cite the source of every claim" });
   }
 }
 
-@Judge({ name: "tone-judge", model: "moonshotai/kimi-k2.6", deps: [JudgeModel] })
-export class ToneJudge implements JudgeHandler {
+@Judge({
+  name: "tone-judge",
+  model: "moonshotai/kimi-k2.6",
+  reply: PlainTextDto,
+  deps: [JudgeModel],
+})
+export class ToneJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput): Promise<JudgeVerdict> {
-    const said = await this.judgeModel.invoke(`Is this polite? Answer PASS or FAIL.\n${reply}`);
-    return { passed: said.trim() === "PASS" };
+  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const said = await this.judgeModel.invoke(
+      `Is this polite? Answer PASS or FAIL.\n${reply.text}`,
+    );
+    return said.trim() === "PASS" ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "rude" });
   }
 }
 

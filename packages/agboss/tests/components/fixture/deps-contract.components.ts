@@ -12,9 +12,9 @@ import type { ChannelSenderAsk } from "../../../src/channels/channel-sender.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import {
   Judge,
+  JudgeVerdict,
   type JudgeHandler,
   type JudgeInput,
-  type JudgeVerdict,
 } from "../../../src/components/judge-decorators.js";
 import { Injectable, InjectionToken, Tool, type ToolHandler } from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
@@ -85,11 +85,21 @@ export class VaultChannel {
   }
 }
 
-@Judge({ name: "strict", model: "test/strict", deps: [Vault] })
-export class StrictJudge implements JudgeHandler {
+/** What the keeper agent answers (the strict judge judges it). */
+export class KeptDto {
+  @Text({ prompt: "what was kept" })
+  text!: string;
+}
+
+@Judge({ name: "strict", model: "test/strict", reply: KeptDto, deps: [Vault] })
+export class StrictJudge implements JudgeHandler<KeptDto> {
   constructor(private readonly vault: Vault) {}
-  judge({ reply }: JudgeInput): Promise<JudgeVerdict> {
-    return Promise.resolve({ passed: !reply.includes(this.vault.secret) });
+  judge({ reply }: JudgeInput<KeptDto>): Promise<JudgeVerdict> {
+    return Promise.resolve(
+      reply.text.includes(this.vault.secret)
+        ? JudgeVerdict.failed({ reason: "leaks the secret" })
+        : JudgeVerdict.passed(),
+    );
   }
 }
 

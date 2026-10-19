@@ -122,7 +122,9 @@ export type RuleCode =
   | "pii.conflicting-rules"
   | "pii.missing-refusal"
   | "pii.unused-refusal"
-  | "pii.kind-needs-model";
+  | "pii.kind-needs-model"
+  // typed judges (#262 PR 4, S115): every class an agent answers with is one its judges judge
+  | "judge.wrong-reply";
 
 /** One broken rule: its code, what is wrong, and the nodes (classes) involved. */
 export interface RuleViolation {
