@@ -1,7 +1,7 @@
 /**
  * The errors a run can fail with — every one a `AGBossError` with a stable `code`, so a flow
  * can `.onError(<class>, …)` it (also after a resume from a checkpoint) and a caller can tell them
- * apart. `limit` ⊃ `limit.budget`, `limit.steps`, `limit.visits`; `step` ⊃ `step.failed` (`StepFailedError`, #273 S22) ⊃
+ * apart. `limit` ⊃ `limit.budget`, `limit.steps`, `limit.visits`, `limit.depth` (#264); `step` ⊃ `step.failed` (`StepFailedError`, #273 S22) ⊃
  * `step.agent`, `step.action`, `step.guard`, `step.router`, `step.arbiter`, `step.quorum` (#279) and
  * `step.child` (`ChildExecutionFailedError`, #263).
  */
@@ -50,6 +50,7 @@ export { NotAWorkflowStartError } from "./flow/runtime/start-input.js";
 export { PiiRefusedError } from "./pii/errors.js";
 export { PiiDetectionFailedError } from "./pii/detectors/model.js";
 export { ChildExecutionFailedError } from "./flow/runtime/child-errors.js";
+export { DepthLimitExceededError } from "./flow/runtime/depth-limit.js";
 export { ExecutionContextUnavailableError } from "./flow/context/errors.js";
 export { SpendOutsideStepError } from "./components/spend-recorder.js";
 export { ModelCallError, type ModelCallErrorCode } from "./models/circuit-breaker.js";

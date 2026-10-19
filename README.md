@@ -349,6 +349,21 @@ inside its parent's checkpoint and budgets; an uncaught failure of its own fails
 with `ChildExecutionFailedError`, and `result.children` holds the nested records
 ([Wiki → Workflow-as-a-step](https://github.com/agbossjs/agboss/wiki/Workflow-as-a-step)).
 
+A workflow may **launch itself** (#264): `ThisWorkflow` stands for the enclosing workflow in
+`.toWorkflow(ThisWorkflow)`, `route(ThisWorkflow)` or `.toParallelWorkflows(ThisWorkflow, { maxItems
+})` — a topic too broad for one report researched subtopic by subtopic by the same workflow. A
+recursive workflow sets `@Workflow({ maxDepth: 3 })` (`[graph.recursion-without-depth]`); the root is
+at depth 1 (`executionContext.depth`, and each child record's `depth`), so the last level is
+`depth === maxDepth`. There the framework stops it, never the prompt: an agent's `oneOf` variant
+whose `caseOf(…)` launches `ThisWorkflow` leaves its response schema, a model router does not see such
+a route, a code router returning one fails with `RouterDecisionError` — so every such branch keeps a
+way out (`[graph.recursion-without-exit]`); a launch decided by code past `maxDepth` does not start
+and fails its step with `ChildExecutionFailedError` caused by `DepthLimitExceededError`
+(`.onError(LimitExceededError, …)` takes it). Only direct recursion: a workflow launching one that
+launches it is `[graph.mutual-recursion]`. The root's execution budget counts every level; each
+level has its own `maxSteps`; `agboss describe` prints `recursive: ThisWorkflow, maxDepth 3, on the
+last level: researcher-agent → TopicReportDto only`.
+
 `npx agboss check --workflow src/job-scout.workflow.ts` writes `.agboss/types.d.ts` — what types
 the paths, each node's input and `app.execute`; a generated project runs it on install
 (`npm run types`).
@@ -381,7 +396,8 @@ cd examples/job-scout && npm run chat # "my resume src/data/sample-resume.md"
 (no model key): `src/offer/` a review loop (`agent(ReviewerAgent).returns(oneOf(…)).switch(…)`,
 `caseOf(ChangesRequestedDto, { about: OfferDraftDto })`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
 router (`DecidedBy.Code`, `route(input)` through `deps`) beside a model router, `src/review/`
-parallel launches in waves (a reviewer per section, then a critic beside two fact checker copies).
+parallel launches in waves (a reviewer per section, then a critic beside two fact checker copies),
+`src/topic/` a workflow that researches its subtopics itself (`ThisWorkflow`, `maxDepth`, #264).
 Point the CLI at it:
 
 ```bash

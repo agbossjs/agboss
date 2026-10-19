@@ -135,7 +135,13 @@ export interface FlowNode {
   readonly kind: NodeKind;
   readonly component: Class;
   readonly declaration: ComponentDeclaration;
+  /** `ThisWorkflow` (#264): the enclosing workflow it launches (its declaration is this node's). */
+  readonly recursionOf?: Class;
 }
+
+/** The workflow a child node launches: its class, or for `ThisWorkflow` the enclosing one (#264). */
+export const childClassOf = (node: Pick<FlowNode, "component" | "recursionOf">): Class =>
+  node.recursionOf ?? node.component;
 
 export interface FlowGraph {
   /** By `name`, sorted. */
@@ -155,7 +161,7 @@ export function outputOf(node: FlowNode): OutputShape | undefined {
     case NodeKind.Finish:
       return declaration.options.output;
     case NodeKind.Workflow:
-      return childWorkflowOf(node.component)?.output;
+      return childWorkflowOf(childClassOf(node))?.output;
     default:
       return undefined;
   }

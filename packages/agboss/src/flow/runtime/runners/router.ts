@@ -13,6 +13,8 @@ import { modelRouterLaunch } from "../launch/router-decision.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
 import { maskedModelText, type MaskedModelText } from "../../../pii/model-boundary.js";
 import { boundaryInputOf } from "./boundary-input.js";
+import { RecursionDecider } from "../../analyse/recursion.js";
+import { unreadyRoutesOf } from "../soft-stop.js";
 
 /**
  * What the router's model reads besides its static texts: the thread's memory, then its input
@@ -43,6 +45,18 @@ const requestOf = (router: LoadedRouter, input: string): RouteRequest => ({
   instructions: router.instructions,
 });
 
+/** The request as the model sees it: on the last level, without the recursive routes (#264). */
+function shownRequest(
+  node: RuntimeNode,
+  request: RouteRequest,
+  deps: GraphDeps<string>,
+): RouteRequest {
+  const hidden = unreadyRoutesOf(deps.graph, node.id, RecursionDecider.ModelRouter);
+  if (hidden.length === 0) return request;
+  const options = request.options.filter((option) => !hidden.includes(option.name));
+  return { ...request, options };
+}
+
 /**
  * A model router (`DecidedBy.Model`, #272): its model decides on its `input` only — never the whole
  * path scope — through the decision gateway. A failed model call fails the step with
@@ -71,7 +85,7 @@ export function routerRunner(
       await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
       return { launch: launch.launch, read, usage: [...masked.usage, ...launch.usage], piiTokens };
     }
-    const outcome = await engine.route(request);
+    const outcome = await engine.route(shownRequest(node, request, deps));
     if (outcome.kind === "failed") throw routerFailureOf(step, outcome, masked.usage);
     const { next, reason } = outcome.decision;
     const update = { route: next, reason };

@@ -51,6 +51,8 @@ export interface ChildExecutionRecord {
   readonly workflow: WorkflowRecord;
   /** Its item's index in a per-item launch (`.toParallelWorkflows`), from 0. */
   readonly itemIndex?: number;
+  /** Its level in the tree (`executionContext.depth`): the root is 1, its children 2 (#264). */
+  readonly depth: number;
   /** The parent's step that launched it. */
   readonly launchedBy: ChildLaunchRecord;
   /** The start it entered through (chosen by class, per edge). */

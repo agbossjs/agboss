@@ -1,6 +1,15 @@
 import { END, Send, START, StateGraph, type BaseCheckpointSaver } from "@langchain/langgraph";
 import { agentDefinitions } from "../../graph/agent-definitions.js";
-import { agentLoopGraph, noJudges, pauseSeamApproval } from "../../graph/agent-loop/index.js";
+import {
+  agentLoopGraph,
+  noJudges,
+  pauseSeamApproval,
+  type AgentDefinition,
+  type AgentLoopGraph,
+} from "../../graph/agent-loop/index.js";
+import { RecursionDecider } from "../analyse/recursion.js";
+import { lastLevelAnswerTools, recursiveBranchOf } from "./soft-stop.js";
+import { agentRunner, type AgentLoops } from "./runners/agent.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import type { Class } from "../../components/injection.js";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
@@ -8,7 +17,6 @@ import { NodeKind } from "../ast.js";
 import { isCodeRouterNode, type RuntimeNode } from "./graph-model.js";
 import type { NodeRunner } from "./node-runner.js";
 import { actionRunner } from "./runners/action.js";
-import { agentRunner } from "./runners/agent.js";
 import { finishRunner } from "./runners/finish.js";
 import { codeRouterRunner } from "./runners/code-router.js";
 import { routerRunner } from "./runners/router.js";
@@ -21,6 +29,8 @@ import { ExecutionState, type ExecutionStateType, type ExecutionStateUpdate } fr
 import { visitNode } from "./visit.js";
 import { childRunner, type ChildGraph } from "./child.js";
 import { nodeDepsOf } from "./node-deps.js";
+import { isThisWorkflow } from "../this-workflow.js";
+import { nodeOptionsOf, recursiveChildOf, type OwnGraph } from "./recursive-child.js";
 
 /**
  * One LangGraph `StateGraph` per workflow (#272 → Runtime): a node per component, its id the
@@ -42,8 +52,11 @@ class UnknownAgentError extends Error {
   override name = "UnknownAgentError";
 }
 
-/** Every agent's loop, compiled once per graph (approval only with a pause seam). */
-function agentLoops(deps: GraphDeps<string>, run: RunLimits) {
+/**
+ * Every agent's loop, compiled once per graph (approval only with a pause seam); an agent whose
+ * variants recurse gets a second loop for the last level, its recursive variants left out (#264).
+ */
+function agentLoops(deps: GraphDeps<string>, run: RunLimits): ReadonlyMap<string, AgentLoops> {
   const approval =
     deps.pause === undefined
       ? undefined
@@ -52,33 +65,37 @@ function agentLoops(deps: GraphDeps<string>, run: RunLimits) {
           pauses: deps.pause.pauses,
           observer: deps.observer,
         });
+  const loopOf = (name: string, agent: AgentDefinition): AgentLoopGraph =>
+    agentLoopGraph(
+      {
+        agent,
+        bundle: deps.config.name,
+        budgets: run.budgets,
+        approval,
+        judges: noJudges,
+        ...(deps.pii === undefined ? {} : { pii: deps.pii.policiesOf(name) }),
+        guardrails: deps.guardrails?.(name),
+        workflowGuardrails: deps.workflowGuardrails,
+        toolGuardrails: deps.toolGuardrails,
+        observer: deps.observer,
+      },
+      deps.pause?.checkpointer,
+    );
+  const { recursion } = deps.graph.analysis;
   return new Map(
-    [...agentDefinitions(deps)].map(([name, agent]) => [
-      name,
-      agentLoopGraph(
-        {
-          agent,
-          bundle: deps.config.name,
-          budgets: run.budgets,
-          approval,
-          judges: noJudges,
-          ...(deps.pii === undefined ? {} : { pii: deps.pii.policiesOf(name) }),
-          guardrails: deps.guardrails?.(name),
-          workflowGuardrails: deps.workflowGuardrails,
-          toolGuardrails: deps.toolGuardrails,
-          observer: deps.observer,
-        },
-        deps.pause?.checkpointer,
-      ),
-    ]),
+    [...agentDefinitions(deps)].map(([name, agent]) => {
+      const branch = recursiveBranchOf(recursion, name, RecursionDecider.Agent);
+      const loop = loopOf(name, agent);
+      if (branch === undefined) return [name, { loop }] as const;
+      const answerTools = lastLevelAnswerTools(agent.answerTools, branch);
+      return [name, { loop, lastLevel: loopOf(name, { ...agent, answerTools }) }] as const;
+    }),
   );
 }
 
-type Loops = ReturnType<typeof agentLoops>;
-
 /** What a node's runner is made of: the agents' loops and the child workflows' graphs (#263). */
 interface Parts {
-  readonly loops: Loops;
+  readonly loops: ReadonlyMap<string, AgentLoops>;
   readonly children: ReadonlyMap<string, ChildGraph>;
   readonly checkpointer?: BaseCheckpointSaver | undefined;
 }
@@ -106,9 +123,9 @@ function runnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Parts): Nod
 /** The runner of a node that runs a graph of its own: an agent's loop, a child workflow (#263). */
 function subgraphRunnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Parts): NodeRunner {
   if (node.kind === NodeKind.Agent) {
-    const loop = parts.loops.get(node.id);
-    if (loop === undefined) throw new UnknownAgentError(`Unknown agent: ${node.id}`);
-    return agentRunner(node, loop, deps);
+    const loops = parts.loops.get(node.id);
+    if (loops === undefined) throw new UnknownAgentError(`Unknown agent: ${node.id}`);
+    return agentRunner(node, loops, deps);
   }
   const child = parts.children.get(node.id);
   if (child === undefined) throw new UnknownAgentError(`Unknown child workflow: ${node.id}`);
@@ -130,10 +147,15 @@ function childGraphsOf(
   run: RunLimits,
   checkpointer: BaseCheckpointSaver | undefined,
   chain: readonly Class[],
+  self: OwnGraph,
 ): ReadonlyMap<string, ChildGraph> {
   const children = new Map<string, ChildGraph>();
   for (const node of deps.graph.nodes.values()) {
     if (node.kind !== NodeKind.Workflow) continue;
+    if (isThisWorkflow(node.component)) {
+      children.set(node.id, recursiveChildOf(deps, self));
+      continue;
+    }
     const childDeps = deps.childDepsOf?.(node.component);
     if (childDeps === undefined || chain.includes(node.component))
       throw new ChildWorkflowUnavailableError(
@@ -145,6 +167,7 @@ function childGraphsOf(
       deps: childDeps,
       graph,
       workflow: { type: node.component, name, version },
+      isRecursive: false,
     });
   }
   return children;
@@ -165,9 +188,10 @@ function compile(
   checkpointer?: BaseCheckpointSaver,
   chain: readonly Class[] = [],
 ) {
+  const self: OwnGraph = {};
   const parts: Parts = {
     loops: agentLoops(deps, run),
-    children: childGraphsOf(deps, run, checkpointer, chain),
+    children: childGraphsOf(deps, run, checkpointer, chain, self),
     checkpointer,
   };
   const { visitDeps, launchDeps } = nodeDepsOf(deps, run, checkpointer);
@@ -185,9 +209,7 @@ function compile(
     const action = isBranch
       ? branchNode(node, runner, launchDeps)
       : visitNode(node, runner, visitDeps);
-    // a child workflow's graph is the node's subgraph: Studio draws it inside the parent (S37)
-    const child = parts.children.get(node.id);
-    graph.addNode(node.id, action, child === undefined ? {} : { subgraphs: [child.graph] });
+    graph.addNode(node.id, action, nodeOptionsOf(parts.children.get(node.id), deps));
   }
   for (const launch of deps.graph.launches)
     graph.addNode(launch.joinNodeId, joinNode(launch, launchDeps));
@@ -196,7 +218,9 @@ function compile(
   for (const id of ids) graph.addConditionalEdges(id, nextOf, [...ids, END]);
   const recursionLimit = (deps.maxSteps + ids.length) * RECURSION_SAFETY_FACTOR;
   const compiled = graph.compile(checkpointer === undefined ? {} : { checkpointer });
-  return compiled.withConfig({ recursionLimit });
+  const own = compiled.withConfig({ recursionLimit });
+  self.graph = own;
+  return own;
 }
 
 /** The compiled execution graph of a workflow. */

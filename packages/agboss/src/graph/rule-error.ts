@@ -71,6 +71,10 @@ export type RuleCode =
   | "graph.ambiguous-start"
   | "graph.child-without-failure-finish"
   | "graph.limit-handler-uses-model"
+  // recursion (#264 PR 1), reported by `src/flow/analyse`
+  | "graph.recursion-without-depth"
+  | "graph.recursion-without-exit"
+  | "graph.mutual-recursion"
   | "name.kind-suffix"
   | "dto.name"
   | "dto.duplicate-name"
@@ -82,6 +86,7 @@ export type RuleCode =
   | "model.no-tool-calling"
   // type generation (#272 PR 3), reported by `src/flow/types`
   | "types.unexported-class"
+  | "types.this-workflow-outputs"
   // the application (#261), reported at its assembly
   | "application.no-workflows"
   | "application.not-a-workflow"

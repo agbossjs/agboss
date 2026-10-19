@@ -41,13 +41,21 @@ const namespaceOf = (snapshot: Snapshot): string => {
   return typeof namespace === "string" ? namespace : "";
 };
 
+/** Where the paused loops are read: the graph, its checkpoints, the run, the open interrupts. */
+interface PausedSearch {
+  readonly graph: ExecutionGraph;
+  readonly checkpointer: BaseCheckpointSaver;
+  readonly runId: string;
+  readonly isOpen: (interruptValue: unknown) => boolean;
+}
+
+/** A checkpoint of a child execution: its state holds the child's identity (#263 S24). */
+const isChildState = (values: unknown): boolean =>
+  typeof values === "object" && values !== null && "child" in values && values.child !== undefined;
+
 /** The agent loops the open interrupts of `snapshot` wait in — inside a child, the child's own. */
-async function loopsIn(
-  snapshot: Snapshot,
-  checkpointer: BaseCheckpointSaver,
-  runId: string,
-  isOpen: (interruptValue: unknown) => boolean,
-): Promise<readonly PausedLoop[]> {
+async function loopsIn(snapshot: Snapshot, search: PausedSearch): Promise<readonly PausedLoop[]> {
+  const { checkpointer, runId, isOpen } = search;
   const tasks = snapshot.tasks.filter((candidate) =>
     candidate.interrupts.some((pending) => isOpen(pending.value)),
   );
@@ -55,11 +63,14 @@ async function loopsIn(
   const loops = await Promise.all(
     tasks.map(async (task): Promise<readonly PausedLoop[]> => {
       // a child workflow's node (#263): its own snapshot, read with the root's; the loops are below it
-      if (isSnapshot(task.state)) return loopsIn(task.state, checkpointer, runId, isOpen);
+      if (isSnapshot(task.state)) return loopsIn(task.state, search);
       const own = `${task.name}:${task.id}`;
-      const tuple = await checkpointer.getTuple({
-        configurable: { thread_id: runId, checkpoint_ns: parent === "" ? own : `${parent}|${own}` },
-      });
+      const namespace = parent === "" ? own : `${parent}|${own}`;
+      const config = { configurable: { thread_id: runId, checkpoint_ns: namespace } };
+      const tuple = await checkpointer.getTuple(config);
+      // `ThisWorkflow` (#264): the workflow's own graph, run from the registry — read it the same way
+      if (isChildState(tuple?.checkpoint.channel_values))
+        return loopsIn(await search.graph.getState(config, { subgraphs: true }), search);
       // LangGraph boundary: checkpoint values are untyped; they are the agent loop's own state
       return tuple === undefined
         ? []
@@ -84,7 +95,7 @@ export async function pausedLoopsOf(
   isOpen: (interruptValue: unknown) => boolean,
 ): Promise<readonly PausedLoop[]> {
   const snapshot = await graph.getState(runConfig(runId), { subgraphs: true });
-  return loopsIn(snapshot, checkpointer, runId, isOpen);
+  return loopsIn(snapshot, { graph, checkpointer, runId, isOpen });
 }
 
 /**

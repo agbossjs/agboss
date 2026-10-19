@@ -10,6 +10,7 @@ import { resolveFields, type ResolvedField } from "./fields.js";
 import type { FlowGraph } from "./flow-graph.js";
 import { classLabel } from "./labels.js";
 import { projectInput, type InputShape } from "./projection.js";
+import { recursionOf, type Recursion } from "./recursion.js";
 import { aboutRules } from "./rules/about.js";
 import { branchOutdatingRules } from "./rules/branch-outdating.js";
 import { childFailureWarnings } from "./rules/child-failure.js";
@@ -31,6 +32,7 @@ import { outdatedRules } from "./rules/outdated.js";
 import { placementRules } from "./rules/placement.js";
 import { quorumRules } from "./rules/quorum.js";
 import { returnsRules } from "./rules/returns.js";
+import { recursionRules } from "./rules/recursion.js";
 import { routerRules } from "./rules/routers.js";
 import { switchRules } from "./rules/switch.js";
 import { textAgentRules } from "./rules/text-agents.js";
@@ -56,6 +58,8 @@ export interface FlowAnalysis {
   readonly children: readonly ChildChoice[];
   /** The worst case of one call of each start (#261, #273). */
   readonly worstCases: readonly WorstCase[];
+  /** How it launches itself (`ThisWorkflow`, #264); absent when it does not. */
+  readonly recursion?: Recursion;
 }
 
 /** Every finding of one workflow: its analysis (when it is a workflow), errors and warnings. */
@@ -112,7 +116,7 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
     const message = `${classLabel(workflow)} has no @Workflow decorator — decorate it with @Workflow({ name, version, flow })`;
     return { errors: [violation("graph.not-a-node", message, [])], warnings: [] };
   }
-  const walked = walkFlow(declaration.options.flow);
+  const walked = walkFlow(declaration.options.flow, workflow);
   const entries = childEntriesOf(walked.graph);
   const fields = resolveFields(walked.graph, entries);
   const dataflow = runDataflow(walked.graph, fields);
@@ -128,7 +132,12 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
     options,
   };
   const named = naming(declaration.options.name);
-  const errors = [...walked.violations, ...RULES.flatMap((rule) => rule(context))].map(named);
+  const recursion = recursionOf(walked.graph, declaration.options.maxDepth);
+  const errors = [
+    ...walked.violations,
+    ...RULES.flatMap((rule) => rule(context)),
+    ...recursionRules(context, workflow, recursion),
+  ].map(named);
   const warnings = [...depthRules(context), ...childFailureWarnings(context)].map(named);
   const analysis: FlowAnalysis = {
     workflow: declaration.options.name,
@@ -137,7 +146,8 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
     dataflow,
     warnings,
     children,
-    worstCases: worstCasesOf(walked.graph, declaration.options.maxSteps),
+    worstCases: worstCasesOf(walked.graph, declaration.options, workflow),
+    ...(recursion === undefined ? {} : { recursion }),
   };
   return options.strict === true
     ? { analysis, errors: canonical([...errors, ...warnings]), warnings: [] }

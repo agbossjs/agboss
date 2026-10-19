@@ -2,6 +2,7 @@
 // run `agboss check` again after changing a workflow or a component.
 import type { HistoryOf, NoInput, NoOutput, Produced, agbossComponent, agbossDto } from "../src/flow/generated-types.js";
 import type { ToolCallApprovalAskDto, ToolCallApprovalDecisionDto } from "../src/dto/index.js";
+import type { ThisWorkflow } from "../src/public/flow.js";
 import type { ArticleDraftAgent, ArticleWorkflow, ArticleWorkflowFinish, ArticleWorkflowStart, DraftReviewerAgent, FinalReviewerAgent, WriterAgent } from "../tests/flow/fixtures/article.fixture.js";
 import type { BrokenReviewWorkflow, BrokenReviewWorkflowStart, CompanyGraderAgent, FullGradeWorkflowStart, QuickGradeWorkflowStart, TwinGradeWorkflow } from "../tests/flow/fixtures/broken-children.fixture.js";
 import type { BrokenScreeningWorkflow, ItemBlindAgent } from "../tests/flow/fixtures/broken-launch.fixture.js";
@@ -25,6 +26,7 @@ import type { AuditDto, CandidateDto, CompanyShortlistDto, CultureScoreDto, Deal
 import type { CriticPanelAgent, DealPanelWorkflowStart, DealReportPanelAgent, DealReportPanelWorkflowFinish, FastPanelAgent, HirePanelAgent, LegalPanelAgent, NoQuorumPanelWorkflowFinish, PanelFailedWorkflowFinish, PanelItemsWorkflowStart, PanelReviewWorkflowFinish, PanelSummaryAgent, PanelUnjudgedWorkflowFinish, PanelWorkflowStart, QuickRejectPanelWorkflowFinish, RisksPanelAgent, SecondOpinionPanelWorkflowFinish, SkillsPanelAgent } from "../tests/flow/fixtures/quorum-runtime-parts.js";
 import type { AnyOfPanelWorkflow, ChainPanelWorkflow, ChatPanelWorkflow, CheckedPanelWorkflow, CopiesPanelWorkflow, DealPanelWorkflow, ItemPanelWorkflow, ModelPanelWorkflow, QuickPanelWorkflow, RecoveryPanelWorkflow, StrictPanelWorkflow } from "../tests/flow/fixtures/quorum-runtime.fixture.js";
 import type { CandidateReviewWorkflow, CompanySearchWorkflow, DueDiligenceWorkflow, FitReviewWorkflow } from "../tests/flow/fixtures/quorum.fixture.js";
+import type { DeepResearchWorkflow, DeepResearchWorkflowStart, FailTopicAction, OutlineAgent, OutlineDepthRouter, OutlineWorkflow, OutlineWorkflowStart, ReportMergerAgent, ResearchFailedDto, ResearchFailedWorkflowFinish, ResearchReportDto, ResearchReportWorkflowFinish, ResearchTooBroadDto, ResearchTopicDto, SplitTopicAction, TopicResearcherAgent } from "../tests/flow/fixtures/recursion.fixture.js";
 import type { CardRefundsWorkflow, RefundApprovalChannel, RefundCardInputDto, RefundCardOutputDto, RefundClerkAgent, RefundWorkflowFinish, RefundWorkflowStart } from "../tests/flow/fixtures/refunds.fixture.js";
 import type { ApprovalDto, CritiqueDto, DraftDto, PlanDto, ResearchDto } from "../tests/flow/fixtures/review-dtos.js";
 import type { CritiqueAction, CritiqueRouter, PolishAgent, PolishWorkflow, PolishedWorkflowFinish, PublisherAgent, ResearcherAgent, StoryReviewerAgent, StoryWorkflow, StoryWorkflowFinish, StoryWorkflowStart, StoryWriterAgent } from "../tests/flow/fixtures/review.fixture.js";
@@ -76,12 +78,14 @@ declare module "../src/flow/generated-types.js" {
     "deal-report-panel-agent": DueDiligenceReportDto;
     "deal-workflow-start": DealDto;
     "deep-dive-agent": DeepDiveDto;
+    "deep-research-workflow-start": ResearchTopicDto;
     "delivery-topic-agent": TopicAnswerDto;
     "draft-agent": OfferDraftDto;
     "draft-editor-agent": OfferDraftDto;
     "draft-reviewer-agent": ReviewDto;
     "editor-agent": OfferDraftDto;
     "expert-answer-agent": ExpertDraftDto;
+    "fail-topic-action": ResearchFailedDto;
     "fast-answer-agent": FastDraftDto;
     "fast-panel-agent": FastScreenDto;
     "fast-screen-agent": FastScreenDto;
@@ -119,6 +123,8 @@ declare module "../src/flow/generated-types.js" {
     "order-lookup-agent": OrderStatusDto;
     "order-topic-agent": TopicAnswerDto;
     "order-workflow-start": OrderRequestDto;
+    "outline-agent": ResearchReportDto;
+    "outline-workflow-start": ResearchTopicDto;
     "panel-items-workflow-start": readonly CandidateDto[];
     "panel-summary-agent": ScoreReviewDto;
     "panel-workflow-start": CandidateDto;
@@ -136,6 +142,7 @@ declare module "../src/flow/generated-types.js" {
     "refund-topic-agent": TopicAnswerDto;
     "refund-workflow-start": WorkflowStartTextDto;
     "release-stock-action": NoOutput;
+    "report-merger-agent": ResearchReportDto;
     "research-workflow-start": WorkflowStartTextDto;
     "researcher-agent": ResearchDto;
     "reserve-goods-action": NoOutput;
@@ -157,10 +164,13 @@ declare module "../src/flow/generated-types.js" {
     "ship-order-action": OrderShippedDto;
     "skills-panel-agent": ScoreDto;
     "skills-score-agent": SkillsScoreDto;
+    "split-topic-action": readonly ResearchTopicDto[];
     "story-reviewer-agent": ApprovalDto | DraftChangesDto;
     "story-workflow-start": ArticleRequestDto;
     "story-writer-agent": DraftDto;
     "support-workflow-start": WorkflowStartTextDto;
+    "this-workflow": ResearchFailedDto | ResearchReportDto;
+    "topic-researcher-agent": ResearchReportDto | ResearchTooBroadDto;
     "topics-workflow-start": SupportIntentDto;
     "twin-grade-workflow": CompanyGradeDto;
     "update-crm-action": NoOutput;
@@ -239,6 +249,7 @@ declare module "../src/flow/generated-types.js" {
     "deal-room-opened-workflow-finish": NoInput;
     "deal-workflow-start": DealDto;
     "deep-dive-agent": { promising: Produced<PromisingCompanyDto, typeof CompanyReviewerAgent> };
+    "deep-research-workflow-start": ResearchTopicDto;
     "delivery-topic-agent": { intent: Produced<SupportIntentDto, typeof TopicsWorkflowStart> };
     "desk-router": { message: Produced<WorkflowStartTextDto, typeof CreditWorkflowStart> };
     "draft-agent": { shortlist: Produced<ShortlistDto, typeof OfferWorkflowStart> };
@@ -250,6 +261,7 @@ declare module "../src/flow/generated-types.js" {
     "expert-answer-agent":
       | { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderAgent>; loyalty: Produced<LoyaltyOfferDto, typeof LoyaltyAgent> }
       | { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderAgent>; loyalty?: undefined };
+    "fail-topic-action": { topic: Produced<ResearchTopicDto, typeof DeepResearchWorkflowStart | typeof OutlineWorkflowStart> };
     "fast-answer-agent": { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderAgent> };
     "fast-panel-agent": { deal: Produced<DealDto, typeof DealPanelWorkflowStart> };
     "fast-screen-agent": { deal: Produced<DealDto, typeof DealWorkflowStart> };
@@ -317,6 +329,9 @@ declare module "../src/flow/generated-types.js" {
     "order-topic-agent": { intent: Produced<SupportIntentDto, typeof TopicsWorkflowStart> };
     "order-workflow-finish": { shipped: Produced<OrderShippedDto, typeof ShipOrderAction> };
     "order-workflow-start": OrderRequestDto;
+    "outline-agent": { topic: Produced<ResearchTopicDto, typeof OutlineWorkflowStart> };
+    "outline-depth-router": { topic: Produced<ResearchTopicDto, typeof OutlineWorkflowStart> };
+    "outline-workflow-start": ResearchTopicDto;
     "panel-failed-workflow-finish": NoInput;
     "panel-items-workflow-start": readonly CandidateDto[];
     "panel-review-workflow-finish": NoInput;
@@ -346,6 +361,9 @@ declare module "../src/flow/generated-types.js" {
     "refund-workflow-start": WorkflowStartTextDto;
     "rejected-workflow-finish": NoInput;
     "release-stock-action": { reservation: Produced<StockReservationDto, typeof ReserveStockAction> };
+    "report-merger-agent": { topic: Produced<ResearchTopicDto, typeof DeepResearchWorkflowStart>; results: readonly Produced<ResearchFailedDto | ResearchReportDto, typeof ThisWorkflow>[] };
+    "research-failed-workflow-finish": NoInput;
+    "research-report-workflow-finish": NoInput;
     "research-workflow-start": WorkflowStartTextDto;
     "researcher-agent": { request: Produced<ArticleRequestDto, typeof StoryWorkflowStart> };
     "reserve-goods-action": { payment: Produced<PaymentDto, typeof ChargePaymentAction> };
@@ -377,6 +395,7 @@ declare module "../src/flow/generated-types.js" {
     "ship-order-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
     "skills-panel-agent": { candidate: Produced<CandidateDto, typeof PanelItemsWorkflowStart | typeof PanelWorkflowStart> };
     "skills-score-agent": { candidate: Produced<CandidateDto, typeof FitReviewWorkflowStart> };
+    "split-topic-action": { topic: Produced<ResearchTopicDto, typeof DeepResearchWorkflowStart>; tooBroad: Produced<ResearchTooBroadDto, typeof TopicResearcherAgent> };
     "story-reviewer-agent": { draft: Produced<DraftDto, typeof StoryWriterAgent> };
     "story-workflow-finish": NoInput;
     "story-workflow-start": ArticleRequestDto;
@@ -387,6 +406,8 @@ declare module "../src/flow/generated-types.js" {
       | { fast: Produced<FastDraftDto, typeof FastAnswerAgent>; expert?: undefined }
       | { fast?: undefined; expert: Produced<ExpertDraftDto, typeof ExpertAnswerAgent> };
     "support-workflow-start": WorkflowStartTextDto;
+    "this-workflow": NoInput;
+    "topic-researcher-agent": { topic: Produced<ResearchTopicDto, typeof DeepResearchWorkflowStart> };
     "topics-router": { intent: Produced<SupportIntentDto, typeof TopicsWorkflowStart> };
     "topics-workflow-finish": NoInput;
     "topics-workflow-start": SupportIntentDto;
@@ -417,6 +438,7 @@ declare module "../src/flow/generated-types.js" {
     "deal-room-opened-workflow-finish": AuditDto;
     "draft-history-workflow-finish": DraftChangesDto;
     "due-diligence-report-workflow-finish": DueDiligenceReportDto;
+    "fail-topic-action": ResearchFailedDto;
     "fit-summary-workflow-finish": FitSummaryDto;
     "graded-shortlist-workflow-finish": GradedShortlistDto;
     "help-desk-workflow-finish": CustomerReplyDto;
@@ -451,6 +473,8 @@ declare module "../src/flow/generated-types.js" {
     "refund-workflow-finish": RefundCardOutputDto;
     "rejected-workflow-finish": RejectedVerdictDto;
     "release-stock-action": NoOutput;
+    "research-failed-workflow-finish": ResearchFailedDto;
+    "research-report-workflow-finish": ResearchReportDto;
     "reserve-goods-action": NoOutput;
     "reserve-stock-action": StockReservationDto;
     "review-draft-action": ChangesRequestedDto | DraftApprovedDto;
@@ -464,6 +488,7 @@ declare module "../src/flow/generated-types.js" {
     "send-offer-action": OfferSentDto;
     "send-receipt-action": NoOutput;
     "ship-order-action": OrderShippedDto;
+    "split-topic-action": readonly ResearchTopicDto[];
     "story-workflow-finish": ArticleDto;
     "support-workflow-finish": CustomerReplyDto;
     "topics-workflow-finish": TopicAnswerDto;
@@ -484,6 +509,7 @@ declare module "../src/flow/generated-types.js" {
     "credit-workflow-start": { input: WorkflowStartTextDto; output: ChargeResultDto | CreditOrderDto | WorkflowStartTextDto };
     "deal-panel-workflow-start": { input: DealDto; output: DealCritiqueDto | DealDto | DueDiligenceReportDto | FastScreenDto };
     "deal-workflow-start": { input: DealDto; output: AuditDto | DealDto | DueDiligenceReportDto | FastScreenDto };
+    "deep-research-workflow-start": { input: ResearchTopicDto; output: ResearchFailedDto | ResearchReportDto };
     "fit-review-workflow-start": { input: CandidateDto; output: FitSummaryDto };
     "full-grade-workflow-start": { input: CompanyDto; output: CompanyGradeDto };
     "help-desk-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
@@ -494,6 +520,7 @@ declare module "../src/flow/generated-types.js" {
     "offer-workflow-start": { input: ShortlistDto; output: OfferDraftDto | OfferSentDto };
     "offers-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
     "order-workflow-start": { input: OrderRequestDto; output: OrderRequestDto | OrderShippedDto };
+    "outline-workflow-start": { input: ResearchTopicDto; output: ResearchFailedDto | ResearchReportDto };
     "panel-items-workflow-start": { input: readonly CandidateDto[]; output: ScoreReviewDto };
     "panel-workflow-start": { input: CandidateDto; output: CandidateDto | ScoreReviewDto };
     "picked-offer-workflow-start": { input: WorkflowStartTextDto; output: CompanyRejectedDto | CompanyReviewFailedDto | JobOfferDto | WorkflowStartTextDto };
@@ -515,6 +542,7 @@ declare module "../src/flow/generated-types.js" {
     "help-desk-router": typeof RefundPolicyAgent;
     "main-router": typeof NoReplyWorkflowFinish | typeof ProfilerAgent | typeof ScoutAgent;
     "offers-router": typeof LoyaltyOfferAgent;
+    "outline-depth-router": typeof OutlineAgent | typeof ThisWorkflow;
     "second-opinion-router": typeof FullReviewAgent | typeof NotifyReviewerAction;
     "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;
   }
@@ -527,6 +555,7 @@ declare module "../src/flow/generated-types.js" {
     "help-desk-router": readonly typeof RefundPolicyAgent[];
     "main-router": typeof NoReplyWorkflowFinish | typeof ProfilerAgent | typeof ScoutAgent;
     "offers-router": readonly typeof LoyaltyOfferAgent[];
+    "outline-depth-router": typeof OutlineAgent | typeof ThisWorkflow;
     "second-opinion-router": typeof FullReviewAgent | typeof NotifyReviewerAction;
     "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;
   }
@@ -553,6 +582,7 @@ declare module "../src/flow/generated-types.js" {
     "toParallelAgents(skills-panel-agent) per item": readonly ScoreDto[];
     "toParallelAgents(skills-score-agent, culture-score-agent, salary-fit-agent)": readonly [CultureScoreDto, SalaryFitDto, SkillsScoreDto];
     "toParallelWorkflows(company-review-workflow) per item": readonly (CompanyGradeDto | CompanyRejectedDto | CompanyReviewFailedDto)[];
+    "toParallelWorkflows(this-workflow) per item": readonly (ResearchFailedDto | ResearchReportDto)[];
   }
   interface ChannelRoles {
     "refund-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: RefundCardInputDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: RefundCardInputDto } };
@@ -612,6 +642,10 @@ declare module "../src/flow/generated-types.js" {
     "RefundPolicyDto": RefundPolicyDto;
     "RejectedVerdictDto": RejectedVerdictDto;
     "ResearchDto": ResearchDto;
+    "ResearchFailedDto": ResearchFailedDto;
+    "ResearchReportDto": ResearchReportDto;
+    "ResearchTooBroadDto": ResearchTooBroadDto;
+    "ResearchTopicDto": ResearchTopicDto;
     "ResumeMissingDto": ResumeMissingDto;
     "ReviewDto": ReviewDto;
     "SalaryFitDto": SalaryFitDto;
@@ -636,6 +670,12 @@ declare module "../src/dto/index.js" {
   }
   interface ToolCallApprovalDecisionDto {
     readonly [agbossDto]?: "ToolCallApprovalDecisionDto";
+  }
+}
+
+declare module "../src/public/flow.js" {
+  interface ThisWorkflow {
+    readonly [agbossComponent]?: "this-workflow";
   }
 }
 
@@ -1479,6 +1519,57 @@ declare module "../tests/flow/fixtures/quorum.fixture.js" {
   }
   interface FitReviewWorkflow {
     readonly [agbossComponent]?: "fit-review-workflow";
+  }
+}
+
+declare module "../tests/flow/fixtures/recursion.fixture.js" {
+  interface DeepResearchWorkflow {
+    readonly [agbossComponent]?: "deep-research-workflow";
+  }
+  interface DeepResearchWorkflowStart {
+    readonly [agbossComponent]?: "deep-research-workflow-start";
+  }
+  interface FailTopicAction {
+    readonly [agbossComponent]?: "fail-topic-action";
+  }
+  interface OutlineAgent {
+    readonly [agbossComponent]?: "outline-agent";
+  }
+  interface OutlineDepthRouter {
+    readonly [agbossComponent]?: "outline-depth-router";
+  }
+  interface OutlineWorkflow {
+    readonly [agbossComponent]?: "outline-workflow";
+  }
+  interface OutlineWorkflowStart {
+    readonly [agbossComponent]?: "outline-workflow-start";
+  }
+  interface ReportMergerAgent {
+    readonly [agbossComponent]?: "report-merger-agent";
+  }
+  interface ResearchFailedDto {
+    readonly [agbossDto]?: "ResearchFailedDto";
+  }
+  interface ResearchFailedWorkflowFinish {
+    readonly [agbossComponent]?: "research-failed-workflow-finish";
+  }
+  interface ResearchReportDto {
+    readonly [agbossDto]?: "ResearchReportDto";
+  }
+  interface ResearchReportWorkflowFinish {
+    readonly [agbossComponent]?: "research-report-workflow-finish";
+  }
+  interface ResearchTooBroadDto {
+    readonly [agbossDto]?: "ResearchTooBroadDto";
+  }
+  interface ResearchTopicDto {
+    readonly [agbossDto]?: "ResearchTopicDto";
+  }
+  interface SplitTopicAction {
+    readonly [agbossComponent]?: "split-topic-action";
+  }
+  interface TopicResearcherAgent {
+    readonly [agbossComponent]?: "topic-researcher-agent";
   }
 }
 

@@ -9,6 +9,7 @@ import {
 } from "../decorators/declaration.js";
 import { oneOf, type OutputShape, type ValueShape } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
+import { isThisWorkflow } from "../this-workflow.js";
 import { dtoLabel } from "./labels.js";
 import { slotOfField, type SlotKey } from "./scope.js";
 
@@ -142,9 +143,14 @@ export function flowClassesOf(flow: readonly FlowPath[]): readonly Class[] {
   return flow.flatMap((path) => [path.source.node, ...stepClassesOf(path.steps)]);
 }
 
-/** The workflow classes a flow launches: `.toWorkflow(W)`, `route(W)`, `.toParallelWorkflows(W, …)`. */
-const childClassesOf = (flow: readonly FlowPath[]): readonly Class[] =>
-  flowClassesOf(flow).filter((target) => declarationOf(target)?.kind === NodeKind.Workflow);
+/**
+ * The workflow classes a flow launches: `.toWorkflow(W)`, `route(W)`, `.toParallelWorkflows(W, …)` —
+ * never `ThisWorkflow` (#264), which is the workflow itself.
+ */
+export const childClassesOf = (flow: readonly FlowPath[]): readonly Class[] =>
+  flowClassesOf(flow).filter(
+    (target) => declarationOf(target)?.kind === NodeKind.Workflow && !isThisWorkflow(target),
+  );
 
 /** The workflows and, depth first, every child workflow they launch, each once. */
 export function withChildWorkflows(workflows: readonly Class[]): readonly Class[] {
