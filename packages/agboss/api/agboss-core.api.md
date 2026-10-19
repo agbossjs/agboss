@@ -707,10 +707,12 @@ export interface ValueProvider<T = unknown> {
     readonly useValue: T;
 }
 
+// Warning: (ae-forgotten-export) The symbol "FlowPath" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "WorkflowOptions" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "ThisWorkflowCheck" needs to be exported by the entry point index.d.ts
 //
 // @public (undocumented)
-export function Workflow(options: WorkflowOptions): <TClass extends Class>(value: TClass) => TClass;
+export function Workflow<const TName extends string, const TFlow extends readonly FlowPath[]>(options: WorkflowOptions<TName, TFlow> & ThisWorkflowCheck<TName, TFlow>): <TClass extends Class>(value: TClass) => TClass;
 
 // @public
 export interface WorkflowDefinition {
@@ -848,7 +850,7 @@ export class WorkflowSettings {
 // src/core/observer-manager.ts:149:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
 // src/core/observer-manager.ts:152:3 - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
 // src/core/observer-manager.ts:155:3 - (ae-undocumented) Missing documentation for "onQuorumDecided".
-// src/flow/decorators/workflow.ts:125:1 - (ae-undocumented) Missing documentation for "Workflow".
+// src/flow/decorators/workflow.ts:130:1 - (ae-undocumented) Missing documentation for "Workflow".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
 // src/graph/settings.ts:36:3 - (ae-undocumented) Missing documentation for "settings".

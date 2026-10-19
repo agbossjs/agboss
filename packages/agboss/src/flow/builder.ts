@@ -4,6 +4,7 @@ import { NodeKind, type PathSource } from "./ast.js";
 import type {
   AfterStep,
   AfterValue,
+  BuiltPath,
   CaseHead,
   CasePath,
   KindCheck,
@@ -13,7 +14,6 @@ import type {
   RouteTargetKind,
   RouteTargetLabel,
   SideHead,
-  SidePath,
   SourceHead,
   TargetCheck,
 } from "./builder-types.js";
@@ -145,7 +145,7 @@ export function toWorkflow(target: Class): PathBuilder<undefined> {
 /** The side path `.onError(E, toFinish(F))`: the failure ends the execution at a finish. */
 export function toFinish<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>,
-): SidePath;
+): BuiltPath<SideHead>;
 export function toFinish(target: Class): PathBuilder<undefined> {
   return sidePath().toFinish(target);
 }

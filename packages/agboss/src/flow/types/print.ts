@@ -100,6 +100,7 @@ export function printTypes(
     ...tableLines("Routes", tables.routes),
     ...tableLines("RouterAnswers", tables.routerAnswers),
     ...tableLines("JoinOutputs", tables.joinOutputs),
+    ...tableLines("ThisWorkflowOutputs", tables.thisWorkflowOutputs),
     ...tableLines("ChannelRoles", tables.channelRoles ?? new Map()),
     ...tableLines("DtoBrands", dtoBrands(names)),
   ];

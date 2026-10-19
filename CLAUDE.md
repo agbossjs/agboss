@@ -465,8 +465,10 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   (`[graph.mutual-recursion]`, also for a class undefined by a circular import). Each level has its own
   `maxSteps`; the root's budgets count the tree. `agboss describe`: `recursive: ThisWorkflow, maxDepth
 3, on the last level: researcher-agent → TopicReportDto only`, a list's producers `this-workflow ×0–5`.
-  `ThisWorkflow` is typed once per project: recursive workflows with different finish classes fail type
-  generation (`[types.this-workflow-outputs]`).
+  `ThisWorkflow` is typed per path (S112): a `.returns(…)` after a `ThisWorkflow` launch (any form, a
+  side path's too) is a claim carried in the path's type up to `@Workflow({ name, flow })`, which
+  checks it against the generated `ThisWorkflowOutputs[name]` (`input`, `output`, `join`) — a wrong
+  class fails on `flow`; recursive workflows with different finishes live side by side.
 - **The tree's concurrency cap (#264 PR 2, S27):** `@Workflow({ maxConcurrentExecutions })` of the
   root (default 10, a whole number from 1 — `[limits.max-concurrent-executions-invalid]`) — how many
   executions of the tree work at once. An execution holds a slot while one of its working steps

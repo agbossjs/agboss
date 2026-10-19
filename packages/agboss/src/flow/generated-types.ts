@@ -65,6 +65,17 @@ export interface JoinOutputs {
   readonly [notGenerated]?: never;
 }
 
+/**
+ * `ThisWorkflow` per recursive workflow (#264 S112), keyed by the workflow's `name`: `input` — the
+ * problems of launching it (`[graph.no-matching-start]`, `[input.missing-on-path]`, …) or
+ * `NoInput`; `output` — what one child gives (its finishes' outputs); `join` — what the join of its
+ * per-item launch gives, when it has one. `@Workflow({ name, flow })` checks the `.returns(…)` after
+ * each `ThisWorkflow` launch of its flow against it.
+ */
+export interface ThisWorkflowOutputs {
+  readonly [notGenerated]?: never;
+}
+
 /** Each node's input, path-sensitive (`Produced` fields; a plain DTO for tools). */
 export interface Inputs {
   readonly [notGenerated]?: never;

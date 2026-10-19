@@ -362,7 +362,10 @@ and fails its step with `ChildExecutionFailedError` caused by `DepthLimitExceede
 (`.onError(LimitExceededError, …)` takes it). Only direct recursion: a workflow launching one that
 launches it is `[graph.mutual-recursion]`. The root's execution budget counts every level; each
 level has its own `maxSteps`; `agboss describe` prints `recursive: ThisWorkflow, maxDepth 3, on the
-last level: researcher-agent → TopicReportDto only`.
+last level: researcher-agent → TopicReportDto only`. Each recursive workflow is typed by its own
+entry: the `.returns(…)` after a `ThisWorkflow` launch is checked by `@Workflow({ name, flow })`
+against the generated `ThisWorkflowOutputs[name]`, so one project holds recursive workflows with
+different finishes.
 
 The whole tree shares one **concurrency cap** (#264): `@Workflow({ maxConcurrentExecutions: 6 })` of
 the root (default 10) — how many executions of the tree, the root and all its descendants, work on a

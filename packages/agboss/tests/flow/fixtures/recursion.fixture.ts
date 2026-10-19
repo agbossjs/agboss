@@ -171,7 +171,7 @@ export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
   }
 }
 
-/** The same finishes as the research: `ThisWorkflow` is typed once per project. */
+/** The same finishes as the research; each recursive workflow has its own `ThisWorkflowOutputs` entry. */
 @Workflow({
   name: "outline-workflow",
   version: "1.0.0",

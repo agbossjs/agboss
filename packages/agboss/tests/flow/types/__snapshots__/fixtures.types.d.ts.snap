@@ -21,6 +21,7 @@ import type { AnswerAgent, ArticleDraftWorkflowFinish, ArticleWriterAgent, Charg
 import type { ApprovedVerdictDto, ApprovedWorkflowFinish, RejectedVerdictDto, RejectedWorkflowFinish, VerdictAgent, VerdictWorkflow, VerdictWorkflowStart } from "../tests/flow/fixtures/markers.fixture.js";
 import type { BrokenAgent, DraftAgent, EditorAgent, NotifyRecruiterAction, OfferFailedWorkflowFinish, OfferSentWorkflowFinish, OfferWorkflow, OfferWorkflowStart, ReviewerAgent, SendOfferAction } from "../tests/flow/fixtures/offer.fixture.js";
 import type { NotifyFinanceTeamAction, OrderFailedWorkflowFinish, OrderWorkflow, OrderWorkflowFinish, OrderWorkflowStart, RefundCardAction, ReleaseStockAction, ReserveStockAction, ShipOrderAction } from "../tests/flow/fixtures/order.fixture.js";
+import type { ChartMergerAgent, MarkUnitFailedAction, OrgChartFailedDto, OrgChartFailedWorkflowFinish, OrgChartWorkflow, OrgChartWorkflowStart, OrgDepthRouter, OrgDrillWorkflow, OrgDrillWorkflowStart, OrgMapperAgent, OrgRetryWorkflow, OrgRetryWorkflowStart, OrgSplitDto, OrgUnitDto, SplitUnitAction, TeamChartDto, TeamChartWorkflowFinish, UnitCharterAgent, UnitPickerAgent } from "../tests/flow/fixtures/org-chart.fixture.js";
 import type { AuditorAgent, BoardSearchAgent, CandidateReviewWorkflowStart, CompanySearchWorkflowStart, CompanyShortlistAgent, CompanyShortlistWorkflowFinish, CompanyVetAgent, CultureScoreAgent, DealCriticAgent, DealRoomOpenedWorkflowFinish, DealWorkflowStart, DueDiligenceReportWorkflowFinish, FastScreenAgent, FitReviewWorkflowStart, FitSummaryAgent, FitSummaryWorkflowFinish, FullReviewAgent, LegalAgent, NotifyReviewerAction, OpenDealRoomAction, QuickRejectWorkflowFinish, ReviewerNotifiedWorkflowFinish, SalaryFitAgent, ScoreAAgent, ScoreBAgent, ScoreCAgent, ScoreReviewFailedWorkflowFinish, ScoreReviewWorkflowFinish, ScoreSummaryAgent, SecondOpinionRouter, SkillsScoreAgent } from "../tests/flow/fixtures/quorum-agents.js";
 import type { AuditDto, CandidateDto, CompanyShortlistDto, CultureScoreDto, DealCritiqueDto, DealDto, DueDiligenceReportDto, FastScreenDto, FitSummaryDto, LegalReviewDto, SalaryFitDto, ScoreDto, ScoreReviewDto, SkillsScoreDto } from "../tests/flow/fixtures/quorum-dtos.js";
 import type { CriticPanelAgent, DealPanelWorkflowStart, DealReportPanelAgent, DealReportPanelWorkflowFinish, FastPanelAgent, HirePanelAgent, LegalPanelAgent, NoQuorumPanelWorkflowFinish, PanelFailedWorkflowFinish, PanelItemsWorkflowStart, PanelReviewWorkflowFinish, PanelSummaryAgent, PanelUnjudgedWorkflowFinish, PanelWorkflowStart, QuickRejectPanelWorkflowFinish, RisksPanelAgent, SecondOpinionPanelWorkflowFinish, SkillsPanelAgent } from "../tests/flow/fixtures/quorum-runtime-parts.js";
@@ -53,6 +54,7 @@ declare module "../src/flow/generated-types.js" {
     "candidate-review-workflow-start": CandidateDto;
     "charge-card-action": ChargeResultDto;
     "charge-payment-action": PaymentDto;
+    "chart-merger-agent": TeamChartDto;
     "checkout-workflow-start": WorkflowStartTextDto;
     "company-audit-agent": CompanyCheckDto;
     "company-batch-workflow-start": readonly CompanyDto[];
@@ -110,6 +112,7 @@ declare module "../src/flow/generated-types.js" {
     "loyalty-agent": LoyaltyOfferDto;
     "loyalty-offer-agent": LoyaltyOfferDto;
     "mark-review-failed-action": CompanyReviewFailedDto;
+    "mark-unit-failed-action": OrgChartFailedDto;
     "notify-finance-team-action": NoOutput;
     "notify-operator-action": ScreeningFailedDto;
     "notify-recruiter-action": NoOutput;
@@ -124,6 +127,10 @@ declare module "../src/flow/generated-types.js" {
     "order-lookup-agent": OrderStatusDto;
     "order-topic-agent": TopicAnswerDto;
     "order-workflow-start": OrderRequestDto;
+    "org-chart-workflow-start": OrgUnitDto;
+    "org-drill-workflow-start": OrgUnitDto;
+    "org-mapper-agent": OrgSplitDto | TeamChartDto;
+    "org-retry-workflow-start": OrgUnitDto;
     "outline-agent": ResearchReportDto;
     "outline-workflow-start": ResearchTopicDto;
     "panel-items-workflow-start": readonly CandidateDto[];
@@ -168,14 +175,16 @@ declare module "../src/flow/generated-types.js" {
     "skills-panel-agent": ScoreDto;
     "skills-score-agent": SkillsScoreDto;
     "split-topic-action": readonly ResearchTopicDto[];
+    "split-unit-action": readonly OrgUnitDto[];
     "story-reviewer-agent": ApprovalDto | DraftChangesDto;
     "story-workflow-start": ArticleRequestDto;
     "story-writer-agent": DraftDto;
     "support-workflow-start": WorkflowStartTextDto;
-    "this-workflow": ResearchFailedDto | ResearchReportDto;
     "topic-researcher-agent": ResearchReportDto | ResearchTooBroadDto;
     "topics-workflow-start": SupportIntentDto;
     "twin-grade-workflow": CompanyGradeDto;
+    "unit-charter-agent": TeamChartDto;
+    "unit-picker-agent": OrgUnitDto | TeamChartDto;
     "update-crm-action": NoOutput;
     "verdict-agent": ApprovedVerdictDto | RejectedVerdictDto;
     "verdict-workflow-start": ShortlistDto;
@@ -210,6 +219,7 @@ declare module "../src/flow/generated-types.js" {
       | { order: Produced<CreditOrderDto, typeof OrderIntakeAgent>; approval: Produced<CreditApprovalDto, typeof ApprovalAgent> }
       | { order: Produced<CreditOrderDto, typeof OrderIntakeAgent>; approval?: undefined };
     "charge-payment-action": { message: Produced<WorkflowStartTextDto, typeof CheckoutWorkflowStart> };
+    "chart-merger-agent": { unit: Produced<OrgUnitDto, typeof OrgChartWorkflowStart>; charts: readonly Produced<OrgChartFailedDto | TeamChartDto, typeof ThisWorkflow>[] };
     "chat-workflow-finish": NoInput;
     "checkout-workflow-start": WorkflowStartTextDto;
     "company-audit-agent": { company: Produced<CompanyDto, typeof ScreeningAgent> };
@@ -305,6 +315,7 @@ declare module "../src/flow/generated-types.js" {
     "main-router": { message: Produced<WorkflowStartTextDto, typeof IntakeWorkflowStart> };
     "manual-quote-workflow-finish": NoInput;
     "mark-review-failed-action": { promising: Produced<PromisingCompanyDto, typeof CompanyReviewerAgent> };
+    "mark-unit-failed-action": { unit: Produced<OrgUnitDto, typeof OrgChartWorkflowStart | typeof OrgDrillWorkflowStart | typeof UnitPickerAgent> };
     "no-offer-failed-workflow-finish": NoInput;
     "no-offer-rejected-workflow-finish": NoInput;
     "no-order-workflow-finish": NoInput;
@@ -333,6 +344,12 @@ declare module "../src/flow/generated-types.js" {
     "order-topic-agent": { intent: Produced<SupportIntentDto, typeof TopicsWorkflowStart> };
     "order-workflow-finish": { shipped: Produced<OrderShippedDto, typeof ShipOrderAction> };
     "order-workflow-start": OrderRequestDto;
+    "org-chart-failed-workflow-finish": NoInput;
+    "org-chart-workflow-start": OrgUnitDto;
+    "org-depth-router": { unit: Produced<OrgUnitDto, typeof OrgDrillWorkflowStart> };
+    "org-drill-workflow-start": OrgUnitDto;
+    "org-mapper-agent": { unit: Produced<OrgUnitDto, typeof OrgChartWorkflowStart> };
+    "org-retry-workflow-start": OrgUnitDto;
     "outline-agent": { topic: Produced<ResearchTopicDto, typeof OutlineWorkflowStart> };
     "outline-depth-router": { topic: Produced<ResearchTopicDto, typeof OutlineWorkflowStart> };
     "outline-workflow-start": ResearchTopicDto;
@@ -405,6 +422,7 @@ declare module "../src/flow/generated-types.js" {
     "skills-panel-agent": { candidate: Produced<CandidateDto, typeof PanelItemsWorkflowStart | typeof PanelWorkflowStart> };
     "skills-score-agent": { candidate: Produced<CandidateDto, typeof FitReviewWorkflowStart> };
     "split-topic-action": { topic: Produced<ResearchTopicDto, typeof DeepResearchWorkflowStart>; tooBroad: Produced<ResearchTooBroadDto, typeof TopicResearcherAgent> };
+    "split-unit-action": { unit: Produced<OrgUnitDto, typeof OrgChartWorkflowStart>; split: Produced<OrgSplitDto, typeof OrgMapperAgent> };
     "story-reviewer-agent": { draft: Produced<DraftDto, typeof StoryWriterAgent> };
     "story-workflow-finish": NoInput;
     "story-workflow-start": ArticleRequestDto;
@@ -415,12 +433,14 @@ declare module "../src/flow/generated-types.js" {
       | { fast: Produced<FastDraftDto, typeof FastAnswerAgent>; expert?: undefined }
       | { fast?: undefined; expert: Produced<ExpertDraftDto, typeof ExpertAnswerAgent> };
     "support-workflow-start": WorkflowStartTextDto;
-    "this-workflow": NoInput;
+    "team-chart-workflow-finish": NoInput;
     "topic-researcher-agent": { topic: Produced<ResearchTopicDto, typeof DeepResearchWorkflowStart> };
     "topics-router": { intent: Produced<SupportIntentDto, typeof TopicsWorkflowStart> };
     "topics-workflow-finish": NoInput;
     "topics-workflow-start": SupportIntentDto;
     "twin-grade-workflow": { readonly __error: "[graph.ambiguous-start] broken-review-workflow: company-picker-agent → twin-grade-workflow: full-grade-workflow-start and quick-grade-workflow-start both take CompanyDto — a start is chosen by class: make one start's input a subclass (class QuickCheckRequestDto extends CompanyDto {})" };
+    "unit-charter-agent": { unit: Produced<OrgUnitDto, typeof OrgRetryWorkflowStart> };
+    "unit-picker-agent": { unit: Produced<OrgUnitDto, typeof OrgDrillWorkflowStart> };
     "update-crm-action": { payment: Produced<PaymentDto, typeof ChargePaymentAction> };
     "verdict-agent": { shortlist: Produced<ShortlistDto, typeof VerdictWorkflowStart> };
     "verdict-workflow-start": ShortlistDto;
@@ -454,6 +474,7 @@ declare module "../src/flow/generated-types.js" {
     "job-offer-workflow-finish": JobOfferDto;
     "manual-quote-workflow-finish": QuoteRequestDto;
     "mark-review-failed-action": CompanyReviewFailedDto;
+    "mark-unit-failed-action": OrgChartFailedDto;
     "no-offer-failed-workflow-finish": CompanyReviewFailedDto;
     "no-offer-rejected-workflow-finish": CompanyRejectedDto;
     "no-order-workflow-finish": WorkflowStartTextDto;
@@ -471,6 +492,7 @@ declare module "../src/flow/generated-types.js" {
     "order-failed-workflow-finish": OrderRequestDto;
     "order-held-workflow-finish": CreditOrderDto;
     "order-workflow-finish": OrderShippedDto;
+    "org-chart-failed-workflow-finish": OrgChartFailedDto;
     "panel-failed-workflow-finish": CandidateDto;
     "panel-review-workflow-finish": ScoreReviewDto;
     "panel-unjudged-workflow-finish": CandidateDto;
@@ -502,8 +524,10 @@ declare module "../src/flow/generated-types.js" {
     "send-receipt-action": NoOutput;
     "ship-order-action": OrderShippedDto;
     "split-topic-action": readonly ResearchTopicDto[];
+    "split-unit-action": readonly OrgUnitDto[];
     "story-workflow-finish": ArticleDto;
     "support-workflow-finish": CustomerReplyDto;
+    "team-chart-workflow-finish": TeamChartDto;
     "topics-workflow-finish": TopicAnswerDto;
     "update-crm-action": NoOutput;
   }
@@ -533,6 +557,9 @@ declare module "../src/flow/generated-types.js" {
     "offer-workflow-start": { input: ShortlistDto; output: OfferDraftDto | OfferSentDto };
     "offers-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
     "order-workflow-start": { input: OrderRequestDto; output: OrderRequestDto | OrderShippedDto };
+    "org-chart-workflow-start": { input: OrgUnitDto; output: OrgChartFailedDto | TeamChartDto };
+    "org-drill-workflow-start": { input: OrgUnitDto; output: OrgChartFailedDto | TeamChartDto };
+    "org-retry-workflow-start": { input: OrgUnitDto; output: OrgChartFailedDto | TeamChartDto };
     "outline-workflow-start": { input: ResearchTopicDto; output: ResearchFailedDto | ResearchReportDto };
     "panel-items-workflow-start": { input: readonly CandidateDto[]; output: ScoreReviewDto };
     "panel-workflow-start": { input: CandidateDto; output: CandidateDto | ScoreReviewDto };
@@ -556,6 +583,7 @@ declare module "../src/flow/generated-types.js" {
     "help-desk-router": typeof RefundPolicyAgent;
     "main-router": typeof NoReplyWorkflowFinish | typeof ProfilerAgent | typeof ScoutAgent;
     "offers-router": typeof LoyaltyOfferAgent;
+    "org-depth-router": typeof ThisWorkflow | typeof UnitPickerAgent;
     "outline-depth-router": typeof OutlineAgent | typeof ThisWorkflow;
     "quote-size-router": typeof ManualQuoteWorkflowFinish | typeof PriceQuoteAction;
     "second-opinion-router": typeof FullReviewAgent | typeof NotifyReviewerAction;
@@ -570,6 +598,7 @@ declare module "../src/flow/generated-types.js" {
     "help-desk-router": readonly typeof RefundPolicyAgent[];
     "main-router": typeof NoReplyWorkflowFinish | typeof ProfilerAgent | typeof ScoutAgent;
     "offers-router": readonly typeof LoyaltyOfferAgent[];
+    "org-depth-router": typeof ThisWorkflow | typeof UnitPickerAgent;
     "outline-depth-router": typeof OutlineAgent | typeof ThisWorkflow;
     "quote-size-router": typeof ManualQuoteWorkflowFinish | typeof PriceQuoteAction;
     "second-opinion-router": typeof FullReviewAgent | typeof NotifyReviewerAction;
@@ -598,7 +627,13 @@ declare module "../src/flow/generated-types.js" {
     "toParallelAgents(skills-panel-agent) per item": readonly ScoreDto[];
     "toParallelAgents(skills-score-agent, culture-score-agent, salary-fit-agent)": readonly [CultureScoreDto, SalaryFitDto, SkillsScoreDto];
     "toParallelWorkflows(company-review-workflow) per item": readonly (CompanyGradeDto | CompanyRejectedDto | CompanyReviewFailedDto)[];
-    "toParallelWorkflows(this-workflow) per item": readonly (ResearchFailedDto | ResearchReportDto)[];
+  }
+  interface ThisWorkflowOutputs {
+    "deep-research-workflow": { readonly input: NoInput; readonly output: ResearchFailedDto | ResearchReportDto; readonly join: readonly (ResearchFailedDto | ResearchReportDto)[] };
+    "org-chart-workflow": { readonly input: NoInput; readonly output: OrgChartFailedDto | TeamChartDto; readonly join: readonly (OrgChartFailedDto | TeamChartDto)[] };
+    "org-drill-workflow": { readonly input: NoInput; readonly output: OrgChartFailedDto | TeamChartDto };
+    "org-retry-workflow": { readonly input: NoInput; readonly output: OrgChartFailedDto | TeamChartDto };
+    "outline-workflow": { readonly input: NoInput; readonly output: ResearchFailedDto | ResearchReportDto };
   }
   interface ChannelRoles {
     "refund-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: RefundCardInputDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: RefundCardInputDto } };
@@ -648,6 +683,9 @@ declare module "../src/flow/generated-types.js" {
     "OrderRequestDto": OrderRequestDto;
     "OrderShippedDto": OrderShippedDto;
     "OrderStatusDto": OrderStatusDto;
+    "OrgChartFailedDto": OrgChartFailedDto;
+    "OrgSplitDto": OrgSplitDto;
+    "OrgUnitDto": OrgUnitDto;
     "PaymentDto": PaymentDto;
     "PlanDto": PlanDto;
     "ProfileDto": ProfileDto;
@@ -676,6 +714,7 @@ declare module "../src/flow/generated-types.js" {
     "SkillsScoreDto": SkillsScoreDto;
     "StockReservationDto": StockReservationDto;
     "SupportIntentDto": SupportIntentDto;
+    "TeamChartDto": TeamChartDto;
     "ToolCallApprovalAskDto": ToolCallApprovalAskDto;
     "ToolCallApprovalDecisionDto": ToolCallApprovalDecisionDto;
     "TopicAnswerDto": TopicAnswerDto;
@@ -1289,6 +1328,66 @@ declare module "../tests/flow/fixtures/order.fixture.js" {
   }
   interface ShipOrderAction {
     readonly [agbossComponent]?: "ship-order-action";
+  }
+}
+
+declare module "../tests/flow/fixtures/org-chart.fixture.js" {
+  interface ChartMergerAgent {
+    readonly [agbossComponent]?: "chart-merger-agent";
+  }
+  interface MarkUnitFailedAction {
+    readonly [agbossComponent]?: "mark-unit-failed-action";
+  }
+  interface OrgChartFailedDto {
+    readonly [agbossDto]?: "OrgChartFailedDto";
+  }
+  interface OrgChartFailedWorkflowFinish {
+    readonly [agbossComponent]?: "org-chart-failed-workflow-finish";
+  }
+  interface OrgChartWorkflow {
+    readonly [agbossComponent]?: "org-chart-workflow";
+  }
+  interface OrgChartWorkflowStart {
+    readonly [agbossComponent]?: "org-chart-workflow-start";
+  }
+  interface OrgDepthRouter {
+    readonly [agbossComponent]?: "org-depth-router";
+  }
+  interface OrgDrillWorkflow {
+    readonly [agbossComponent]?: "org-drill-workflow";
+  }
+  interface OrgDrillWorkflowStart {
+    readonly [agbossComponent]?: "org-drill-workflow-start";
+  }
+  interface OrgMapperAgent {
+    readonly [agbossComponent]?: "org-mapper-agent";
+  }
+  interface OrgRetryWorkflow {
+    readonly [agbossComponent]?: "org-retry-workflow";
+  }
+  interface OrgRetryWorkflowStart {
+    readonly [agbossComponent]?: "org-retry-workflow-start";
+  }
+  interface OrgSplitDto {
+    readonly [agbossDto]?: "OrgSplitDto";
+  }
+  interface OrgUnitDto {
+    readonly [agbossDto]?: "OrgUnitDto";
+  }
+  interface SplitUnitAction {
+    readonly [agbossComponent]?: "split-unit-action";
+  }
+  interface TeamChartDto {
+    readonly [agbossDto]?: "TeamChartDto";
+  }
+  interface TeamChartWorkflowFinish {
+    readonly [agbossComponent]?: "team-chart-workflow-finish";
+  }
+  interface UnitCharterAgent {
+    readonly [agbossComponent]?: "unit-charter-agent";
+  }
+  interface UnitPickerAgent {
+    readonly [agbossComponent]?: "unit-picker-agent";
   }
 }
 

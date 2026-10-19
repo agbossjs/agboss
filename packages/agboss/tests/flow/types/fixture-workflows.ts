@@ -17,6 +17,7 @@ export const FIXTURE_WORKFLOWS: readonly string[] = [
   "markers.fixture.ts",
   "offer.fixture.ts",
   "order.fixture.ts",
+  "org-chart.fixture.ts",
   "quorum.fixture.ts",
   "quorum-runtime.fixture.ts",
   "recursion.fixture.ts",

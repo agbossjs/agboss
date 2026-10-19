@@ -1,9 +1,11 @@
 import type { Class } from "../components/injection.js";
 import type { ErrorClass, NodeKind } from "./ast.js";
 import type { KindLabel, PathHead, SidePath, TargetCheck, Transitions } from "./builder-types.js";
+import type { ClaimsOf } from "./builder-types.js";
 import type { GeneratedTypeError, JoinOutputOf, NameOf, NoOutput } from "./generated-types.js";
 import type { Quorums } from "./quorum-types.js";
 import type { IsSeveral, JoinValues, Returning, ValuesLeft } from "./returns-types.js";
+import type { ThisWorkflowLaunched, ThisWorkflowName, WithClaims } from "./this-workflow-types.js";
 
 /**
  * The types of a parallel launch (#273): `.toParallelAgents(A, B, …, { maxConcurrency, maxItems })`,
@@ -113,7 +115,10 @@ type LaunchCount<
 
 /** `.onJoinError(E, toAction(X)…)` right after `.join()`: a failed branch, a limit in a branch. */
 export interface JoinErrorHandling<TKey extends string, THead extends PathHead> {
-  onJoinError(error: ErrorClass, path: SidePath): Joined<TKey, THead>;
+  onJoinError<const TPath extends SidePath>(
+    error: ErrorClass,
+    path: TPath,
+  ): Joined<TKey, WithClaims<THead, ClaimsOf<TPath>>>;
 }
 
 /** What follows a join: its values named with `.returns(…)`, or — when it gives none — `.to…(…)`. */
@@ -137,6 +142,15 @@ export type ChildLaunchCheck<TClass extends Class, TValue> =
         readonly __error: "toParallelWorkflows(W, …) runs one child per item — write .returns(listOf(XDto)) right before it";
       };
 
+/**
+ * After `.toParallelWorkflows(W, …)`: its `.join()` — for `ThisWorkflow` one whose `.returns(…)` is
+ * claimed and checked by `@Workflow({ name, flow })` (#264 S112), not a project-wide `JoinOutputs` entry.
+ */
+export type ChildLaunched<TClass extends Class, THead extends PathHead> =
+  ThisWorkflowName extends NameOf<InstanceType<TClass>>
+    ? ThisWorkflowLaunched<THead>
+    : Launched<LaunchKey<"toParallelWorkflows", readonly [TClass], true, "">, THead>;
+
 /** The launches a step's values (`TValue`, the chain's last one per item) may lead into. */
 export interface Launches<TValue, THead extends PathHead> {
   toParallelAgents<const TArgs extends LaunchArguments>(
@@ -156,7 +170,7 @@ export interface Launches<TValue, THead extends PathHead> {
   toParallelWorkflows<const TClass extends Class>(
     workflow: TClass & ChildLaunchCheck<TClass, TValue>,
     options: WorkflowLaunchOptions,
-  ): Launched<LaunchKey<"toParallelWorkflows", readonly [TClass], true, "">, THead>;
+  ): ChildLaunched<TClass, THead>;
 }
 
 /** A router's launch (`.toRouter(R).toParallelAgents(…)`): agents only, never per item. */
