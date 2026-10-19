@@ -21,7 +21,9 @@ Breaking changes and notable additions, newest first. The API reports
   Replacement)]`, `environment`), every call in its step's frame (`executionContext.signal` with a
   `timeout` on the runner's `VirtualClock`, `run.clock`; `SpendRecorder` and its model calls into
   `spend`), its model by script (`model: decideWith(…)`, `replyWith(…)`, `routeTo(…)`); a call gives
-  `{ output, spend }` and rejects as the component threw. `testPii([Policies])` checks the
+  `{ output, spend }` and rejects as the component threw. The calls run for the tenant and execution
+  values given — `{ tenantContext, tenant, executionContext, execution }`, as `testExecutionContext`
+  takes them, validated the same way. `testPii([Policies])` checks the
   policies' own rules first (`-pii-policy`) and gives `mask(text)` / `reveal(text)`. The
   `agboss create` / `agboss generate tool` / `agboss generate openapi` tool tests use `testTool`.
 - **`testWith(App, { instances: 2 })`** is the documented way to test across instances: one store

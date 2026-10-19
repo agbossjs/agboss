@@ -333,6 +333,9 @@ a repeated step = the next copy); it never supplies an input.
   — a step the router never launched, or a slot `maxConcurrency` keeps for a branch that waits —
   the execution fails at once with `test.unreachable-step`, naming the step and the waiting
   branches. A listed step never reached fails the test at its end, like an unused `when(…)`.
+- **A limit:** the gates see the branches already dispatched. With executions running at once (two
+  `app.execute` calls, `{ instances: 2 }`), a step of a launch another execution has not reached
+  yet can be reported unreachable — order the steps of one execution at a time.
 
 <!-- snippet-context
 declare class PanelApplication {}
@@ -698,7 +701,10 @@ component's own container — its `deps` resolved, `overrides: [override(Class, 
 replacing classes by classes (no `new`, no instance: `provide(Class, …)` stays
 `[di.instance-provider]`), the `environment` as `applicationContext.environment` — and runs every
 call in the frame of its step, as the flow would: an `ExecutionContext` of the execution
-`test-execution` (the default tenant, the component's step), `executionContext.signal` aborting
+`test-execution` (the component's step; the tenant and the execution's values the options give —
+`tenantContext` / `tenant`, `executionContext` / `execution`, as [`testExecutionContext`](#testexecutioncontext--)
+takes them and checked by the classes' field decorators, a wrong one a `DtoValidationError` when the
+runner is made — else the default tenant), `executionContext.signal` aborting
 after `timeout` on the runner's `VirtualClock` (`run.clock`), `SpendRecorder` and the component's
 model calls into the call's `spend`. A component that calls a model answers from `model` — one turn
 per call, a list for several (`replyWith`, `decideWith`, `routeTo`, `failWith`, typed like
