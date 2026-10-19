@@ -105,6 +105,23 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
   );
 
   testWith(TreasuryApplication)(
+    "a pending pause is not in the record: it is in result.pending",
+    async ({ app, mockLlm }) => {
+      mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, { payee: "ann", amountCents: 1 }));
+
+      const paused = await execute(
+        app,
+        TreasuryWorkflowStart,
+        { text: "pay ann" },
+        { record: true },
+      );
+
+      expect(paused.record?.pauses).toEqual([]);
+      expect(paused.pending).toHaveLength(1);
+    },
+  );
+
+  testWith(TreasuryApplication)(
     "a thread owner's pause answered with a reply: its id and the owner; the interpreter's decision",
     async ({ app, mockLlm }) => {
       mockLlm(TreasurerAgent).thenReturn(

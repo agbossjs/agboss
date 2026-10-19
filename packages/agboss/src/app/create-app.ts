@@ -41,7 +41,7 @@ import { ApplicationStoppingError } from "./application-stopping.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf } from "./child-deps.js";
 import { resumeOf } from "./resume.js";
-import { replyAnsweringOf } from "./reply-answer.js";
+import { replyAnsweringOf, replyAnsweringPartsOf } from "./reply-answer.js";
 
 export { NotAWorkflowStartError } from "./starts.js";
 
@@ -98,13 +98,13 @@ export async function buildApp(
   const live = new LiveRuns();
   const { executionLeases, executionTrees: trees, clock } = parts.infrastructure;
   const leases = executionLeasesOf(executionLeases, clock);
-  const moves = treeMovesOf({ deps, live, paused, leases, trees });
+  const moves = treeMovesOf({ deps, live, paused, leases, trees, clock });
   const owned = (access: ThreadAccess) => checkThreadOwner(deps.terns, deps.config.name, access);
   const known = (access: ThreadAccess) => checkThreadAccess(deps.terns, deps.config.name, access);
   const fresh = (access: ThreadAccess) => isNewThread(deps.terns, deps.config.name, access);
   // a pause inside a child (#263) is validated against the child's tool
   const answers = { pauses, paused, owned, tools: treeToolsOf(deps), current, policy };
-  const replies = { replies: replyAnsweringOf(deps, deps.replies), clock };
+  const replies = { replies: replyAnsweringOf(replyAnsweringPartsOf(deps), deps.replies), clock };
   const ownerOf = async (tenantId: string, threadId: string): Promise<string | undefined> =>
     (await deps.terns.threadOwner(deps.config.name, tenantId, threadId))?.owner;
   /** A new thread — the caller's own id, or one made now; two creating one id: the first owns it. */

@@ -18,7 +18,7 @@ import { announceResume, markTaken, treeResumeNow } from "./tree-resume.js";
 import { maskedRecordOf, runResultOf, withPauseAnswers } from "./result.js";
 import { executionEventAt, observeLeg, type ObservedExecution } from "./run-events.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
-import { systemClock } from "../infrastructure/clock.js";
+import type { Clock } from "../infrastructure/clock.js";
 
 /**
  * Moving an execution tree under its lease (#265, Q58; the concurrent resumes of #267): one pass
@@ -42,6 +42,8 @@ export interface TreeMoveParts {
   readonly paused: PausedRunBook;
   readonly leases: ExecutionLeases;
   readonly trees: ExecutionTreeRepository;
+  /** The application's clock: when a tree's pauses were cancelled. */
+  readonly clock: Clock;
 }
 
 export type { TreeCall } from "./live-runs.js";
@@ -246,9 +248,9 @@ class TreeMover implements TreeMoves {
   private async forget(state: TreeState): Promise<void> {
     await this.parts.trees.deleteAllInTree(treeOf(state));
     this.parts.deps.branchErrors?.forgetExecution(state.runId);
-    const { pause, clock } = this.parts.deps;
+    const { pause } = this.parts.deps;
     if (pause !== undefined)
-      await withdrawPauses(pause.pauses, treeOf(state), (clock ?? systemClock).now());
+      await withdrawPauses(pause.pauses, treeOf(state), this.parts.clock.now());
   }
 }
 

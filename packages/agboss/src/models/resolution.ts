@@ -44,9 +44,9 @@ export interface WorkflowModels {
 /** Every model use of a workflow's models. */
 const usesOf = (workflow: Omit<WorkflowModels, "modelProviders">): readonly ModelUse[] =>
   modelUsesOf(workflow.config, workflow.routers, {
-    arbiters: workflow.arbiters ?? [],
-    piiDetectors: workflow.pii?.detectors ?? [],
-    interpreters: workflow.replyInterpreters ?? [],
+    arbiters: workflow.arbiters,
+    piiDetectors: workflow.pii?.detectors,
+    interpreters: workflow.replyInterpreters,
   });
 
 /** `[model.unserved]` / `[model.ambiguous-provider]` for every model use no single provider serves. */

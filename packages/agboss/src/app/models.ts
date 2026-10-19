@@ -46,9 +46,8 @@ export async function modelsFor(
 ): Promise<AppModels> {
   const directory = directoryOf(bundle.modelProviders);
   const uses = modelUsesOf(bundle.config, bundle.routers, {
-    arbiters: [],
-    piiDetectors: bundle.pii?.detectors ?? [],
-    interpreters: bundle.replyInterpreters ?? [],
+    piiDetectors: bundle.pii?.detectors,
+    interpreters: bundle.replyInterpreters,
   });
   const unresolved = resolutionProblems(uses, directory);
   if (unresolved.length > 0) throw new ConfigurationError(unresolved);

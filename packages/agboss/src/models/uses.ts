@@ -49,14 +49,12 @@ export interface ModelNamingInterpreter {
 /** The components besides routers that name their own model. */
 export interface ModelNamingComponents {
   /** Model arbiters (#279). */
-  readonly arbiters: readonly ModelNamingRouter[];
+  readonly arbiters?: readonly ModelNamingRouter[];
   /** The PII policies' model detections (#120). */
-  readonly piiDetectors: readonly ModelNamingRouter[];
+  readonly piiDetectors?: readonly ModelNamingRouter[] | undefined;
   /** Reply interpreters (#267 PR 3): a model one's chat model. */
-  readonly interpreters: readonly ModelNamingInterpreter[];
+  readonly interpreters?: readonly ModelNamingInterpreter[] | undefined;
 }
-
-const NO_COMPONENTS: ModelNamingComponents = { arbiters: [], piiDetectors: [], interpreters: [] };
 
 /**
  * Every model use of a workflow: agents, compaction, judges, the default router, guards, flow routers,
@@ -66,9 +64,9 @@ const NO_COMPONENTS: ModelNamingComponents = { arbiters: [], piiDetectors: [], i
 export function modelUsesOf(
   config: AgentsConfigOf<string>,
   routers: readonly ModelNamingRouter[],
-  components: ModelNamingComponents = NO_COMPONENTS,
+  components: ModelNamingComponents = {},
 ): readonly ModelUse[] {
-  const { arbiters, piiDetectors, interpreters } = components;
+  const { arbiters = [], piiDetectors = [], interpreters = [] } = components;
   const chat = (key: string, settings: Parameters<typeof resolveSettings>[0]): ModelUse => ({
     key,
     model: settings.model,
