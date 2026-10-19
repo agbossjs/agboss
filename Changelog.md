@@ -3,6 +3,22 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `ThisWorkflow` typed per path (#264, PR 3)
+
+- **`ThisWorkflow` is typed per workflow** ([Workflow as a step → Recursion](Workflow-as-a-step#recursion-264)):
+  `agboss check` writes a `ThisWorkflowOutputs` entry per recursive workflow (`input`, `output`,
+  `join`), keyed by its `name`; `[types.this-workflow-outputs]` is removed — recursive workflows
+  with different finishes live in one project. No project code changes.
+- **The `.returns(…)` after a `ThisWorkflow` launch** (`.toWorkflow`, `route`, `workflow`,
+  `toWorkflow` as a side path, the join of `.toParallelWorkflows`) is checked by
+  `@Workflow({ name, flow })`: a wrong class fails on `flow`, no longer at the `.returns(…)`.
+- **Builder types** (API reports): every path head (`SourceHead`, `RouteHead`, `CaseHead`,
+  `SideHead`, `GroupHead`) takes a `claims` type parameter; `.switch`, `.chooseOne`, `.onError`,
+  `.onJoinError` and `.joinQuorumGroups` are generic over their sub-paths; `WorkflowOptions<TName,
+  TFlow>` and `Workflow(…)` are generic; new `ThisWorkflowOutputs`, `ThisWorkflowCheck`,
+  `ThisWorkflowStepClaim`, `ThisWorkflowJoinClaim`, `ClaimsOf`, `WithClaims`, `ChildLaunched`. The
+  generated `ProducerOutputs`, `Inputs` and `JoinOutputs` no longer hold a `this-workflow` entry.
+
 ## Unreleased — the tree's concurrency cap (#264, PR 2)
 
 - **`@Workflow({ maxConcurrentExecutions })`** works ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)):
@@ -69,7 +85,7 @@ Breaking changes and notable additions, newest first. The API reports
   past `maxDepth` does not start; the level above gets it as the `cause` of `ChildExecutionFailedError`.
 - **`[graph.mutual-recursion]`**: mutual recursion, a flow naming its own class, a class undefined
   while the flow is built. **`[types.this-workflow-outputs]`**: recursive workflows of one project
-  with different finish classes.
+  with different finish classes (removed in PR 3).
 - `agboss describe`: the `recursive:` line, per-item child results counted (`this-workflow ×0–5`);
   the worst case counts the levels down to `maxDepth`.
 

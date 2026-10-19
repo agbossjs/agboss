@@ -580,9 +580,27 @@ topic-research-workflow-start, results: this-workflow ×0–5`: the execution's 
 never a subtopic (a `listOf(TopicDto)` never fills one `TopicDto` field). The worst case counts the
 levels down to `maxDepth`.
 
-**Typed once.** `ThisWorkflow` is one class, so one entry of a project's `.agboss/types.d.ts`: two
-recursive workflows of one project whose finishes give different classes fail type generation
-(`[types.this-workflow-outputs]`).
+**Typed per path (S112).** `ThisWorkflow` is one class for every recursive workflow, so what it
+gives is not one project-wide entry: `agboss check` writes one `ThisWorkflowOutputs` entry per
+recursive workflow, keyed by its `name` — `input` (the problems of launching it, or `NoInput`),
+`output` (what one child gives: its finishes' outputs) and, with a per-item launch, `join`:
+
+```ts no-check: an excerpt of a generated .agboss/types.d.ts
+interface ThisWorkflowOutputs {
+  "topic-research-workflow": { readonly input: NoInput; readonly output: TopicFailedDto | TopicReportDto; readonly join: readonly (TopicFailedDto | TopicReportDto)[] };
+  "org-chart-workflow": { readonly input: NoInput; readonly output: OrgChartFailedDto | TeamChartDto; readonly join: readonly (OrgChartFailedDto | TeamChartDto)[] };
+}
+```
+
+A `.returns(…)` right after a `ThisWorkflow` launch — `.toWorkflow(ThisWorkflow)`, `route(ThisWorkflow)`,
+`workflow(ThisWorkflow)`, the side-path starter `toWorkflow(ThisWorkflow)`, or the `.join()` of
+`.toParallelWorkflows(ThisWorkflow, …)` — is not checked where it is written: the path's type
+carries it as a claim through every sub-path (`caseOf`, `route`, `.switch`, `.chooseOne`,
+`.onError`, `.onJoinError`) up to `@Workflow({ name, flow })`, which checks every claim of its flow
+against its own entry. A wrong class is a compile error on `flow` (`a .returns(…) after
+ThisWorkflow is not what org-chart-workflow gives — see ThisWorkflowOutputs["org-chart-workflow"]["output"]`);
+the project code is the same as for any child. Several recursive workflows with different finishes
+live in one project.
 
 ## Testing
 
