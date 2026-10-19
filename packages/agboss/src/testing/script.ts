@@ -1,86 +1,56 @@
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import type { DtoClass } from "../dto/types.js";
-import { answerToolName } from "../flow/analyse/rules/models.js";
-import type { Usd } from "../units/index.js";
-import { TestSetupError } from "./errors.js";
-
 import { ModelFailure } from "../models/model-failure.js";
+import { seconds, type Milliseconds } from "../units/index.js";
+import { millisecondsOf, type ClockDuration } from "./clock.js";
+import { TestSetupError } from "./errors.js";
+import type {
+  AnswerDetails,
+  AnswerTurn,
+  DecideDetails,
+  DecideTurn,
+  DecisionDetails,
+  FailureTurn,
+  ReplyTurn,
+  RouteTurn,
+  ScriptedAnswer,
+  ToolCallTurn,
+  WaitTurn,
+} from "./turns.js";
 
 /** How a scripted model call fails — the failures a provider's retry policy knows. */
 export { ModelFailure };
 
-/** Optional parts of a scripted text replyWith. */
-export interface AnswerDetails {
-  /** What the call cost (priced as output tokens of the agent's model). */
-  readonly cost?: Usd;
-  /** The replyWith hit the output limit (`finish_reason: "length"`). */
-  readonly truncated?: boolean;
-}
-
-/** Optional parts of a scripted router decision. */
-export interface DecisionDetails {
-  readonly reason?: string;
-  /** Probability of the choice (Jev reports one; guards read it). Default 1. */
-  readonly confidence?: number;
-  readonly cost?: Usd;
-}
-
-/** A scripted answer to one decision question: P(yes) (`noul`), an option (`choice`), a level's index or text (`score`). */
-export type ScriptedAnswer = number | string;
-
-/** Optional parts of a scripted decision (`decideWith`). */
-export interface DecideDetails {
-  /** What the decision cost (the Decisions API's `usage.cost`). */
-  readonly cost?: Usd;
-}
-
-/** One scripted model turn: a text, a tool call, a router decision, a decision's answers, or a failure. */
-export type ScriptedTurn =
-  | { readonly kind: "replyWith"; readonly text: string; readonly details: AnswerDetails }
-  | {
-      readonly kind: "tool-call";
-      readonly tool: string;
-      readonly args: Readonly<Record<string, unknown>>;
-      /** The call's cost (an answer through an answer tool); none = free. */
-      readonly details?: AnswerDetails;
-    }
-  | {
-      readonly kind: "decision";
-      readonly target: Class;
-      readonly details: DecisionDetails;
-    }
-  | {
-      readonly kind: "decide";
-      readonly answers: Readonly<Record<string, ScriptedAnswer>>;
-      readonly details: DecideDetails;
-    }
-  | { readonly kind: "failure"; readonly failure: ModelFailure };
-
 /**
  * An agent's model answers: with text — `replyWith("3 jobs found", { cost: usd(0.002) })` — or, for
- * an agent with `output`, through the answer tool of a class (#272 S6) —
- * `replyWith(OfferDraftDto, { text: "…" })`, a list output with an array of values.
+ * an agent with `output`, through the answer tool of a class (#272 S6) — `replyWith(OfferDraftDto,
+ * { text: "…" })`, a list output with an array of values. The class and the fields are checked
+ * against the agent's generated output by `mockLlm(Agent).thenReturn(…)` (a class outside its
+ * `oneOf` does not compile); `{ cost }` is added to the execution's spend.
  */
-export function replyWith(text: string, details?: AnswerDetails): ScriptedTurn;
+export function replyWith(text: string, details?: AnswerDetails): ReplyTurn;
 export function replyWith<TDto extends DtoClass>(
   dto: TDto,
-  value: NoInfer<InstanceType<TDto>> | readonly NoInfer<InstanceType<TDto>>[],
+  value: NoInfer<InstanceType<TDto>>,
   details?: AnswerDetails,
-): ScriptedTurn;
+): AnswerTurn<InstanceType<TDto>, false>;
+export function replyWith<TDto extends DtoClass>(
+  dto: TDto,
+  values: readonly NoInfer<InstanceType<TDto>>[],
+  details?: AnswerDetails,
+): AnswerTurn<InstanceType<TDto>, true>;
 export function replyWith(
   textOrDto: string | DtoClass,
   detailsOrValue?: unknown,
   answerDetails: AnswerDetails = {},
-): ScriptedTurn {
+): ReplyTurn | AnswerTurn {
   if (typeof textOrDto === "string") {
+    // the text overload's second argument is its details
     const details = (detailsOrValue ?? {}) as AnswerDetails;
-    return { kind: "replyWith", text: textOrDto, details };
+    return { kind: "reply", text: textOrDto, details };
   }
-  const args = Array.isArray(detailsOrValue)
-    ? { items: detailsOrValue as readonly unknown[] }
-    : Object.fromEntries(Object.entries(detailsOrValue ?? {}));
-  return { kind: "tool-call", tool: answerToolName(textOrDto), args, details: answerDetails };
+  return { kind: "answer", dto: textOrDto, value: detailsOrValue, details: answerDetails };
 }
 
 /** A tool class, typed by the input its `run` takes. */
@@ -104,7 +74,7 @@ export function toolNameOf(tool: Class): string {
 export function callTool<TInput extends object>(
   tool: ToolClass<TInput>,
   args: NoInfer<TInput>,
-): ScriptedTurn {
+): ToolCallTurn {
   return {
     kind: "tool-call",
     tool: toolNameOf(tool),
@@ -112,24 +82,47 @@ export function callTool<TInput extends object>(
   };
 }
 
-/** A router decides for one of its routes: `routeTo(ScoutAgent)`, `routeTo(ChatWorkflowFinish)`. */
-export const routeTo = (target: Class, details: DecisionDetails = {}): ScriptedTurn => ({
-  kind: "decision",
-  target,
-  details,
-});
+/**
+ * What a model router chose (Q55), checked against the router `mockLlm(R)` scripts: after
+ * `.chooseOne(…)` exactly one target — `routeTo(ProfilerAgent)`, `routeTo(ChatWorkflowFinish, {
+ * cost })`; before `.toParallelAgents(…)` the `OnDemand` targets it launches — `routeTo()` (only
+ * with an `Always` route), `routeTo(CultureScoreAgent)`. A target outside the router's routes, an
+ * `Always` target or a wrong count does not compile.
+ */
+export function routeTo<const TTargets extends readonly Class[]>(
+  ...targets: TTargets
+): RouteTurn<TTargets>;
+export function routeTo<const TTarget extends Class>(
+  target: TTarget,
+  details: DecisionDetails,
+): RouteTurn<readonly [TTarget]>;
+export function routeTo(...args: readonly (Class | DecisionDetails)[]): RouteTurn {
+  const targets = args.filter((arg): arg is Class => typeof arg === "function");
+  const details = args.find((arg): arg is DecisionDetails => typeof arg !== "function") ?? {};
+  return { kind: "route", targets, details };
+}
 
 /**
- * A decision model answers a judge's `ctx.model.decide`, by question id:
- * `decideWith({ grounded: 0.9, tone: "neutral", quality: 2 }, { cost: usd(0.0002) })`.
+ * A decision model answers, by question id — a judge's `judgeModel.decide`, a model arbiter, a
+ * router before a launch: `decideWith({ grounded: 0.9, tone: "neutral", quality: 2 }, { cost })`.
  */
 export const decideWith = (
   answers: Readonly<Record<string, ScriptedAnswer>>,
   details: DecideDetails = {},
-): ScriptedTurn => ({ kind: "decide", answers, details });
+): DecideTurn => ({ kind: "decide", answers, details });
 
 /** The model call fails: `failWith(ModelFailure.Timeout)`. */
-export const failWith = (failure: ModelFailure): ScriptedTurn => ({ kind: "failure", failure });
+export const failWith = (failure: ModelFailure): FailureTurn => ({ kind: "failure", failure });
+
+/**
+ * The next turn answers only after this long on the test's clock:
+ * `thenReturn(waitFor(seconds(31)), replyWith("late"))` — moved by `clock.advance(…)`, so a
+ * deadline or a timeout is reached without real waiting.
+ */
+export const waitFor = (duration: ClockDuration | Milliseconds): WaitTurn => ({
+  kind: "wait",
+  delay: seconds(millisecondsOf(duration) / 1000),
+});
 
 /** A scripted model failure, as an agent's loop sees it. */
 export class ModelCallFailedError extends Error {

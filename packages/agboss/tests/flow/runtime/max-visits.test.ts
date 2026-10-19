@@ -26,7 +26,8 @@ describe("#272 AC14: a visit past maxVisits fails before the node runs", () => {
     "visit past maxVisits fails before the call: the third edit is refused",
     async ({ app, mockLlm }) => {
       mockLlm(GateRouter).thenReturnAlways(routeTo(EditorAgent));
-      mockLlm(EditorAgent).thenReturn(...drafts("v1", "v2", "v3"));
+      // the third visit is refused before its call: two drafts are all the editor writes
+      mockLlm(EditorAgent).thenReturn(...drafts("v1", "v2"));
 
       const run = execute(app, EditStart, { text: "a poem" });
 

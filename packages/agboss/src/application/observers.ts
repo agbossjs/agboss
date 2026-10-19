@@ -19,14 +19,21 @@ const failureLoggedTo =
     log.warn("observer.failed", `${observer}.${hook} threw: ${message}`);
   };
 
+/** Observers of an instance besides the application's (a test's call recorder, #262). */
+export interface ObserverSeams {
+  readonly observers?: readonly ExecutionObserver[];
+}
+
 /** The manager of the application's observers, each created now (its hooks run with the others'). */
 export function observerManagerOf(
   assembled: AssembledApplication,
   application: ApplicationContainer,
   options: ContainerOptions,
   log: FrameworkLog,
+  seams: ObserverSeams = {},
 ): ExecutionObserverManager {
   // each listed class is checked at assembly to implement observer hooks
   const observers = resolveListed(application, options, assembled.observers) as ExecutionObserver[];
-  return new ExecutionObserverManager(observers, failureLoggedTo(log));
+  const all = [...observers, ...(seams.observers ?? [])];
+  return new ExecutionObserverManager(all, failureLoggedTo(log));
 }

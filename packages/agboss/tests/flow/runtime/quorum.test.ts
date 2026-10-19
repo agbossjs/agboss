@@ -36,6 +36,8 @@ const strict = testWith(StrictPanelApplication);
 
 const score = (value: number) => replyWith(ScoreDto, { score: value });
 const slow = (value: number, wait = 60) => [callTool(WaitTool, { seconds: wait }), score(value)];
+/** A branch cancelled while it waits: it never answers, so its script has no answer (#262). */
+const cancelledWhileWaiting = (wait = 60) => callTool(WaitTool, { seconds: wait });
 const summary = replyWith(ScoreReviewDto, { text: "summed up" });
 const ANNA = { name: "Anna" };
 
@@ -47,7 +49,7 @@ describe("AC1: min counted → go on, the rest cancelled", () => {
     async ({ app, mockLlm }) => {
       mockLlm(SkillsPanelAgent).thenReturn(score(7));
       mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(...slow(9));
+      mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting());
       mockLlm(PanelSummaryAgent).thenReturn(summary);
 
       const result = await execute(app, PanelWorkflowStart, ANNA);
@@ -83,7 +85,7 @@ describe("AC3: min unreachable fails at once", () => {
     async ({ app, mockLlm }) => {
       mockLlm(SkillsPanelAgent).thenReturn(score(11));
       mockLlm(RisksPanelAgent).thenReturn(score(12));
-      mockLlm(HirePanelAgent).thenReturn(...slow(8));
+      mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting());
 
       const result = await execute(app, PanelWorkflowStart, ANNA, { record: true });
 
@@ -143,7 +145,7 @@ describe("regression: the join's order and the spend", () => {
     async ({ app, mockLlm, clock }) => {
       mockLlm(SkillsPanelAgent).thenReturn(...slow(7, 5));
       mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(...slow(9, 60));
+      mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting());
       mockLlm(PanelSummaryAgent).thenReturn(summary);
 
       const execution = execute(app, PanelWorkflowStart, ANNA);
@@ -185,7 +187,7 @@ describe("regression: the join's order and the spend", () => {
   quick("the quorum's outcome is told to observers", async ({ app, mockLlm }) => {
     mockLlm(SkillsPanelAgent).thenReturn(score(7));
     mockLlm(RisksPanelAgent).thenReturn(score(6));
-    mockLlm(HirePanelAgent).thenReturn(...slow(9));
+    mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting());
     mockLlm(PanelSummaryAgent).thenReturn(summary);
 
     const result = await execute(app, PanelWorkflowStart, ANNA);

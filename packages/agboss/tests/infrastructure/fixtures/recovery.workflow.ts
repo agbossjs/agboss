@@ -168,7 +168,11 @@ export class RecoveryLog implements OnExecutionResume, OnExecutionEnd, OnExecuti
     seen.resumes.push({ reason: event.reason, decision: event.decision });
   }
   async onExecutionEnd(event: ExecutionEndEvent): Promise<void> {
-    const [record] = await this.executionRecordRepository.lastTerns(event.threadId, 1);
+    const [record] = await this.executionRecordRepository.lastTerns(
+      event.tenantId,
+      event.threadId,
+      1,
+    );
     const line = record?.replyWith ?? "";
     const prefix = `finish ${event.finish.name}: `;
     const output: unknown = line.startsWith(prefix) ? JSON.parse(line.slice(prefix.length)) : line;

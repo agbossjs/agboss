@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { describeWorkflow } from "../../../src/index.js";
+import { describeWorkflow, nameOf, RouterFailedError } from "../../../src/index.js";
 import { replyWith, routeTo, testWith, workflowOf } from "../../../src/testing/index.js";
 import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "../fixtures/credit-dtos.js";
 import {
@@ -149,7 +149,7 @@ describe("AC1 (S19): a failing route() is RouterFailedError, its cause caught by
       component: { name: "credit-limit-router" },
       cause: { message: "the credit database is down" },
     });
-    await expect(run).rejects.toFailWith({ code: "step.router", node: CreditLimitRouter });
+    await expect(run).rejects.toFailWith(RouterFailedError, { nodeId: nameOf(CreditLimitRouter) });
   });
 });
 

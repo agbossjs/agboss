@@ -384,6 +384,11 @@ export type Variant<TDto extends DtoClass> = InstanceType<TDto> & {
 // @public
 export function variant<TDto extends DtoClass>(dto: TDto, value: InstanceType<TDto>): Variant<TDto>;
 
+// Warning: (ae-forgotten-export) The symbol "PartialVariant" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function variant<TDto extends DtoClass>(dto: TDto, value: Partial<InstanceType<TDto>>): PartialVariant<TDto>;
+
 // @public
 export class WorkflowFinishTextDto {
     // (undocumented)

@@ -15,6 +15,7 @@ export {
   type ConfigStore,
   type MemoryStore,
   type NewSummary,
+  type NewThread,
   type Summary,
   type TernOutcome,
   type TernStore,

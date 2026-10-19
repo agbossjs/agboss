@@ -8,6 +8,7 @@ import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import { checkVisit, isWorkingNode } from "../limits.js";
 import { recordsOf, type GraphNode, type NodeOutcome, type NodeRunner } from "../node-runner.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
+import { readInput } from "../scope.js";
 import { startedVersionOf, stepFrameAt } from "../step-frame.js";
 import { unrecordedSpendOf, type VisitDeps } from "../visit.js";
 import { executionSignalOf, failedStatusOf, passThroughStops } from "./branch-end.js";
@@ -84,7 +85,7 @@ function branchFrameOf(run: BranchRun, view: ExecutionStateType) {
   };
   const frame = {
     ...stepFrameAt(site, view, config, deps.workflow, deps.contexts),
-    services: { reportUsage },
+    services: { reportUsage, input: () => readInput(deps.graph, node, view).fields },
   };
   return { config, frame };
 }

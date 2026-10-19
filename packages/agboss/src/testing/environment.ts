@@ -1,4 +1,3 @@
-import type { Mocked } from "vitest";
 import type { AppDepsOptions } from "../app/app-deps.js";
 import { applicationOf, type AssembledApplication } from "../application/assemble.js";
 import {
@@ -19,7 +18,6 @@ import { isCodeRouterNode, type RuntimeNode } from "../flow/runtime/graph-model.
 import { VirtualClock } from "./clock.js";
 import { TestSetupError } from "./errors.js";
 import { McpStubs, stubbedMcpConnect, type McpStub } from "./mcp-stubs.js";
-import { mockInstanceOf } from "./mocks.js";
 import { ScriptBook, type ModelScript } from "./script-book.js";
 import {
   arbiterKeyOf,
@@ -31,6 +29,7 @@ import {
 import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
 import { arbiterClassesOf } from "../flow/runtime/launch/runtime-launch.js";
 import { mcpServersOf, usedComponentsOf } from "./workflow-parts.js";
+import { TestMocks } from "./test-mocks.js";
 import { reusableInfrastructure } from "../infrastructure/contracts.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { createVcrGateway, type VcrConfig } from "./vcr.js";
@@ -94,7 +93,8 @@ export class TestEnvironment {
   readonly mcp = new McpStubs(this.book);
   /** The rows of the in-memory defaults, shared by every app instance of the test. */
   readonly database = new InMemoryDatabase();
-  readonly #mocks = new Map<Class, unknown>();
+  /** `mockOf`, `mockTool`, `mockAction`: what the test replaces or watches. */
+  readonly mocks: TestMocks;
   readonly #apps: BuiltApplication[] = [];
   readonly #nodes: readonly RuntimeNode[];
   readonly #used: ReadonlySet<Class>;
@@ -123,6 +123,7 @@ export class TestEnvironment {
     this.#arbiters = new Set(
       workflows.flatMap((workflow) => arbiterClassesOf(workflow.graph.launches)),
     );
+    this.mocks = new TestMocks(this.book, this.#nodes, this.#used);
     for (const node of this.#nodes) {
       const key = scriptKeyOf(node);
       if (key !== undefined) this.book.name(key, node.component.name);
@@ -139,7 +140,7 @@ export class TestEnvironment {
           ? createVcrGateway(first, options.vcr, { env: testEnv(), ...environment }, (failure) =>
               this.book.report(failure),
             )
-          : createScriptedGateway(this.book),
+          : createScriptedGateway(this.book, this.clock),
       connectMcp: stubbedMcpConnect(this.mcp, labels, real),
       newThreadId: () => {
         this.#threads += 1;
@@ -149,7 +150,7 @@ export class TestEnvironment {
         this.#runs += 1;
         return `run-${String(this.#runs)}`;
       },
-      container: { overrides: this.#mocks },
+      container: this.mocks.container,
     };
   }
 
@@ -174,6 +175,7 @@ export class TestEnvironment {
    * servers scripted, the infrastructure of the first app kept.
    */
   newApp(): Promise<BuiltApplication> {
+    this.mocks.started();
     const building = this.#building.then(async () => {
       const seams = {
         reused: this.#reused,
@@ -181,6 +183,7 @@ export class TestEnvironment {
         database: this.database,
         clock: this.clock,
         quiet: true,
+        observers: [this.mocks.actions],
       };
       const built = await buildApplication(this.assembled, this.#options, seams);
       if (this.#apps.length === 0) this.#reused = reusableInfrastructure(built.infrastructure);
@@ -221,23 +224,6 @@ export class TestEnvironment {
     return options === undefined || isCodeArbiter(options)
       ? piiScriptKeyOf(target, this.assembled)
       : arbiterKeyOf(options.name);
-  }
-
-  mockOf<T>(cls: Class<T>): Mocked<T> {
-    const existing = this.#mocks.get(cls);
-    // the mock stored for this class was created by mockInstanceOf(cls) below
-    if (existing !== undefined) return existing as Mocked<T>;
-    if (!this.#used.has(cls)) {
-      throw new TestSetupError(`mockOf(${cls.name}): not a component of this application`);
-    }
-    if (this.#apps.length > 0) {
-      throw new TestSetupError(
-        `mockOf(${cls.name}) after the app started: call it before the first app.execute(…)`,
-      );
-    }
-    const mock = mockInstanceOf(cls);
-    this.#mocks.set(cls, mock);
-    return mock;
   }
 
   mcpOf<TServer extends McpServerClient<ServerTools>>(server: new () => TServer): McpStub<TServer> {

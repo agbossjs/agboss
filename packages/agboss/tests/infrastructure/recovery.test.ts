@@ -220,7 +220,8 @@ describe("#265 AC12: an incompatible version", () => {
     mockLlm,
   }) => {
     resetLogged();
-    mockLlm(Clerk).thenReturn(...stepHoldAnswer);
+    // the root is never continued: the answer after the hold never comes
+    mockLlm(Clerk).thenReturn(...stepHoldAnswer.slice(0, 2));
     await ready(apps);
     await holding(instance(apps, 0));
     kill("instance-1");

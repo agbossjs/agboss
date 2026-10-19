@@ -169,8 +169,7 @@ describe("S21: Skip drops only the branch's own step failure", () => {
       mockLlm(OrderLookupAgent).thenReturn(
         replyWith(OrderStatusDto, { status: "shipped" }, { cost: usd(0.06) }),
       );
-      mockLlm(LoyaltyOfferAgent).thenReturn(loyalty);
-      mockLlm(BudgetAnswerAgent).thenReturn(reply);
+      // no scripts for the loyalty branch and the answer: neither is reached
 
       const run = execute(app, BudgetDeskWorkflowStart, { text: "where is it?" });
 

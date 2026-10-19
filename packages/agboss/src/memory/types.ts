@@ -24,6 +24,8 @@ export interface MemoryContext extends MemoryView {
 
 /** A finished (not paused) turn of the thread, handed to every strategy in use after it. */
 export interface MemoryTurn {
+  /** The thread: its tenant and its id (#261 S72: the thread's key). */
+  readonly tenantId: string;
   readonly threadId: string;
   readonly runId: string;
   readonly turn: HistoryTurn;

@@ -187,7 +187,7 @@ describe("S39: DTO classes are branded too", () => {
 });
 
 describe("#280: Route<R> and what route() returns", () => {
-  it("Routes after .chooseOne(…) lists every target; RouterAnswers is written for code routers", async () => {
+  it("Routes after .chooseOne(…) lists every target; RouterAnswers is written for every router (#262)", async () => {
     const { text } = generateFlowTypes(
       await requestFor([join(fixtures, "credit.fixture.ts"), join(fixtures, "topics.fixture.ts")]),
     );
@@ -196,7 +196,7 @@ describe("#280: Route<R> and what route() returns", () => {
       '  interface Routes {\n    "credit-limit-by-model-router": typeof ApprovalAgent | typeof ChargeCardAction;\n    "credit-limit-router": typeof ApprovalAgent | typeof ChargeCardAction;\n    "desk-router": typeof NoOrderWorkflowFinish | typeof OrderIntakeAgent;\n    "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;\n  }',
     );
     expect(text).toContain(
-      '  interface RouterAnswers {\n    "credit-limit-router": typeof ApprovalAgent | typeof ChargeCardAction;\n    "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;\n  }',
+      '  interface RouterAnswers {\n    "credit-limit-by-model-router": typeof ApprovalAgent | typeof ChargeCardAction;\n    "credit-limit-router": typeof ApprovalAgent | typeof ChargeCardAction;\n    "desk-router": typeof NoOrderWorkflowFinish | typeof OrderIntakeAgent;\n    "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;\n  }',
     );
   });
 

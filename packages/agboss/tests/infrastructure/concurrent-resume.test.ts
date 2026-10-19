@@ -195,7 +195,7 @@ describe("#265 S66 h: a resume's late `running` write never lands over the holde
       { status: "running", landed: true },
       { status: "running", landed: false },
     ]);
-    const [stored] = (await seen.records[0]?.lastTerns(paused.threadId, 1)) ?? [];
+    const [stored] = (await seen.records[0]?.lastTerns(paused.tenantId, paused.threadId, 1)) ?? [];
     expect(stored?.status).toBe("answered");
     expect(moved.output).toEqual({ text: "Charged twice." });
     expect(waited?.output).toEqual({ text: "Charged twice." });

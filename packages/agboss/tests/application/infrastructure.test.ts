@@ -69,9 +69,8 @@ describe("#261 S28: the built-in infrastructure is in memory", () => {
     await first.close();
     const second = await createApp(DesksApplication, options);
 
-    const continued = execute(second, OrdersWorkflowStart, { text: "again" }, { threadId: thread });
-
-    await expect(continued).rejects.toBeInstanceOf(UnknownThreadError);
+    // the second instance has its own records: the first one's thread is unknown to it
+    await expect(second.cancel(thread)).rejects.toBeInstanceOf(UnknownThreadError);
     expect(readdirSync(folder)).toEqual([]);
     await second.close();
   });

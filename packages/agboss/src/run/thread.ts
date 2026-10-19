@@ -3,6 +3,21 @@ import type { HistoryTurn } from "../flow/runtime/history.js";
 import type { Tern, TernStore } from "../terns/index.js";
 import type { RunDeps } from "./types.js";
 
+/** At most this long: a thread id is a key, not data. */
+const MAX_THREAD_ID_LENGTH = 200;
+
+/** A control character (U+0000–U+001F, U+007F): never in a thread id. */
+const isControl = (code: number): boolean => code < 0x20 || code === 0x7f;
+
+/** A thread id a caller may pick (#262 Q4): 1 to 200 characters, no control characters. */
+function isThreadId(threadId: string): boolean {
+  if (threadId.length === 0 || threadId.length > MAX_THREAD_ID_LENGTH) return false;
+  for (let index = 0; index < threadId.length; index += 1) {
+    if (isControl(threadId.charCodeAt(index))) return false;
+  }
+  return true;
+}
+
 export class UnknownThreadError extends AGBossError {
   static override readonly code: string = "run.unknown-thread";
   override name = "UnknownThreadError";
@@ -12,6 +27,12 @@ export class UnknownThreadError extends AGBossError {
 export class ThreadOwnerError extends AGBossError {
   static override readonly code: string = "run.thread-owner";
   override name = "ThreadOwnerError";
+}
+
+/** A thread id a caller picked that cannot be one: empty, over 200 characters, a control character. */
+export class InvalidThreadIdError extends AGBossError {
+  static override readonly code: string = "run.invalid-thread-id";
+  override name = "InvalidThreadIdError";
 }
 
 const notTheOwner = (threadId: string): ThreadOwnerError =>
@@ -29,6 +50,11 @@ export interface ThreadAccess {
   readonly ownerId: string | undefined;
 }
 
+/** A thread `execute` creates: the caller's own id, or none — then one is made. */
+export interface NewThreadAccess extends Omit<ThreadAccess, "threadId"> {
+  readonly threadId: string | undefined;
+}
+
 /**
  * A thread is used only by the owner it was created for (`ExecutionOptions.ownerId`): a different
  * owner, or none for an owned thread (and the other way round), fails before anything runs. The
@@ -42,6 +68,26 @@ export async function checkThreadOwner(
   const thread = await terns.threadOwner(bundle, access.tenantId, access.threadId);
   if (thread === undefined || thread.owner === access.ownerId) return;
   throw notTheOwner(access.threadId);
+}
+
+/**
+ * `execute` with a thread id (#262 Q4): an id the tenant has must belong to the caller's owner; an
+ * id it does not have yet is the caller's own new thread — `true`, created once the budgets pass
+ * (a refused execution creates nothing). An id that cannot be one is `InvalidThreadIdError`.
+ */
+export async function isNewThread(
+  terns: Pick<TernStore, "threadOwner">,
+  bundle: string,
+  access: ThreadAccess,
+): Promise<boolean> {
+  if (!isThreadId(access.threadId)) {
+    const why = `1 to ${String(MAX_THREAD_ID_LENGTH)} characters, no control characters`;
+    throw new InvalidThreadIdError(`Not a thread id: ${why}`);
+  }
+  const thread = await terns.threadOwner(bundle, access.tenantId, access.threadId);
+  if (thread === undefined) return true;
+  if (thread.owner !== access.ownerId) throw notTheOwner(access.threadId);
+  return false;
 }
 
 /** No such thread in the tenant — with no hint whether another tenant has the id. */
@@ -88,16 +134,17 @@ const toTurns = (terns: readonly Tern[]): HistoryTurn[] =>
 /** With compaction: the latest summaries + raw turns not yet summarised; without: the last turns. */
 async function memoryOf<TName extends string>(
   deps: RunDeps<TName>,
-  threadId: string,
+  thread: Pick<ThreadAccess, "tenantId" | "threadId">,
 ): Promise<{ readonly history: HistoryTurn[]; readonly summaries: string[] }> {
+  const { tenantId, threadId } = thread;
   if (deps.config.compaction === undefined) {
     return {
-      history: toTurns(await deps.terns.lastTerns(threadId, historyDepth(deps))),
+      history: toTurns(await deps.terns.lastTerns(tenantId, threadId, historyDepth(deps))),
       summaries: [],
     };
   }
-  const raw = await deps.terns.uncovered(threadId);
-  const summaries = await deps.terns.latestSummaries(threadId, summariesDepth(deps));
+  const raw = await deps.terns.uncovered(tenantId, threadId);
+  const summaries = await deps.terns.latestSummaries(tenantId, threadId, summariesDepth(deps));
   return {
     history: toTurns(raw.slice(-historyDepth(deps))),
     summaries: summaries.map((summary) => summary.text),
@@ -116,11 +163,11 @@ export async function openThread<TName extends string>(
 }> {
   const bundle = deps.config.name;
   if (requested === undefined) {
-    const threadId = await deps.terns.createThread(bundle, tenantId);
+    const threadId = await deps.terns.createThread({ workflow: bundle, tenantId });
     return { threadId, history: [], summaries: [] };
   }
   if (!(await deps.terns.hasThread(bundle, tenantId, requested))) {
     throw unknownThread(bundle, requested);
   }
-  return { threadId: requested, ...(await memoryOf(deps, requested)) };
+  return { threadId: requested, ...(await memoryOf(deps, { tenantId, threadId: requested })) };
 }

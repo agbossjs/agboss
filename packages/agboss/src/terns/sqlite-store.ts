@@ -21,11 +21,12 @@ type Rows = (sql: string, ...params: SQLInputValue[]) => Tern[];
 
 function ternReads(rows: Rows): Pick<TernStore, "lastTerns" | "byIds" | "byVersion" | "unscored"> {
   return {
-    lastTerns: (threadId, limit) =>
+    lastTerns: (tenantId, threadId, limit) =>
       Promise.resolve(
         rows(
-          `SELECT * FROM (SELECT rowid AS seq, * FROM terns WHERE thread_id = ?
+          `SELECT * FROM (SELECT rowid AS seq, * FROM terns WHERE tenant_id = ? AND thread_id = ?
            ORDER BY rowid DESC LIMIT ?) ORDER BY seq`,
+          tenantId,
           threadId,
           limit,
         ),

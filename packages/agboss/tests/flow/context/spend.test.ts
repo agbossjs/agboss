@@ -50,10 +50,7 @@ describe("#280 S43: SpendRecorder — what a tool or an action paid a service", 
   tight(
     "over budget: the next check fails the run with BudgetExceededError",
     async ({ app, mockLlm }) => {
-      mockLlm(SearcherAgent).thenReturn(
-        callTool(SerpSearchTool, { query: "jobs" }),
-        replyWith(ResultDto, { text: "never" }),
-      );
+      mockLlm(SearcherAgent).thenReturn(callTool(SerpSearchTool, { query: "jobs" }));
 
       const run = execute(app, SpendStart, { text: "find jobs" });
 

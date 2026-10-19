@@ -22,6 +22,8 @@ const compactionInput = (previous: readonly Tern[], window: readonly Tern[]): st
   `Turns to compact:\n${asTurns(window)}`;
 
 export interface CompactionRun {
+  /** The thread: its tenant and its id (#261 S72). */
+  readonly tenantId: string;
   readonly threadId: string;
   readonly budgetLeftUsd: number;
   readonly callbacks: BaseCallbackHandler[];
@@ -41,12 +43,13 @@ export async function compactIfDue<TName extends string>(
   const usage: UsageRecord[] = [];
   if (settings === undefined || model === undefined || run.budgetLeftUsd <= 0) return { usage };
   try {
-    const window = (await deps.terns.uncovered(run.threadId)).slice(0, settings.every);
+    const { tenantId, threadId } = run;
+    const window = (await deps.terns.uncovered(tenantId, threadId)).slice(0, settings.every);
     const [first] = window;
     const last = window.at(-1);
     if (window.length < settings.every || first === undefined || last === undefined)
       return { usage };
-    const previous = await deps.terns.before(run.threadId, first.id, settings.every);
+    const previous = await deps.terns.before(tenantId, threadId, first.id, settings.every);
     const response = await model.model.invoke(
       [
         new SystemMessage(deps.compactionPrompt ?? DEFAULT_COMPACTION_PROMPT),
@@ -58,7 +61,8 @@ export async function compactIfDue<TName extends string>(
     const text = response.text.trim();
     if (text === "") return { usage };
     await deps.terns.addSummary({
-      threadId: run.threadId,
+      tenantId,
+      threadId,
       bundle: deps.config.name,
       fromTernId: first.id,
       toTernId: last.id,
@@ -66,12 +70,12 @@ export async function compactIfDue<TName extends string>(
       text,
       costUsd: totalCost(usage),
     });
-    const count = await deps.terns.summaryCount(run.threadId);
+    const count = await deps.terns.summaryCount(tenantId, threadId);
     return {
       usage,
       compacted: {
-        fromTurn: await deps.terns.turnNumber(run.threadId, first.id),
-        toTurn: await deps.terns.turnNumber(run.threadId, last.id),
+        fromTurn: await deps.terns.turnNumber(tenantId, threadId, first.id),
+        toTurn: await deps.terns.turnNumber(tenantId, threadId, last.id),
         summaries: Math.min(count, settings.keep),
         keep: settings.keep,
       },

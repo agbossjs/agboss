@@ -103,7 +103,7 @@ describe("#261 AC4: the values are validated before the first step and frozen", 
     app,
     mockLlm,
   }) => {
-    mockLlm(BedAgent).thenReturn(replyWith(BedsDto, { text: "never" }));
+    // no script: a model call would fail the test as a blocked live call
     const tenant = { tenantId: "haifa-clinic", units: [{ unitId: 4711, name: "ICU" }] };
 
     const refused = execute(
@@ -195,11 +195,14 @@ describe("#261 AC5: the default tenant; a thread's key is tenant + thread", () =
     expect(clinicSeen.readings[0]).toMatchObject({ tenantId: "default", weight: 1 });
   });
 
-  test("another tenant's thread does not exist for the caller: execute and cancel", async ({
+  test("another tenant's thread does not exist for the caller: its id is a thread of its own", async ({
     app,
     mockLlm,
   }) => {
-    mockLlm(BedAgent).thenReturn(replyWith(BedsDto, { text: "none" }));
+    mockLlm(BedAgent).thenReturn(
+      replyWith(BedsDto, { text: "none" }),
+      replyWith(BedsDto, { text: "none either" }),
+    );
     const first = await app.execute(
       BedRequestWorkflowStart,
       { text: "a bed" },
@@ -213,11 +216,18 @@ describe("#261 AC5: the default tenant; a thread's key is tenant + thread", () =
       { threadId: first.threadId, tenant: telAviv, execution: levi },
     );
 
-    await expect(continued).rejects.toBeInstanceOf(UnknownThreadError);
-    await expect(continued).rejects.not.toThrow(/haifa/);
-    await expect(
-      app.cancel(first.threadId, { tenantId: "tel-aviv-clinic" }),
-    ).rejects.toBeInstanceOf(UnknownThreadError);
+    // the same id in tel-aviv is a new thread of tel-aviv's (#262 Q4): haifa's turns are not in it
+    expect((await continued).threadId).toBe(first.threadId);
+    const [inHaifa, inTelAviv] = mockLlm(BedAgent).requests;
+    expect(inTelAviv?.kind === "chat" && inTelAviv.messages.length).toBe(
+      inHaifa?.kind === "chat" && inHaifa.messages.length,
+    );
+    expect(await app.cancel(first.threadId, { tenantId: "tel-aviv-clinic" })).toEqual({
+      cancelled: false,
+    });
+    await expect(app.cancel(first.threadId, { tenantId: "eilat-clinic" })).rejects.toBeInstanceOf(
+      UnknownThreadError,
+    );
     expect(await app.cancel(first.threadId, { tenantId: "haifa-clinic" })).toEqual({
       cancelled: false,
     });

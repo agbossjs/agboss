@@ -95,7 +95,7 @@ describe("#238: the Tern names the run that wrote it", () => {
     const result = await runText("Answer", deps, { runId: "run-given" });
 
     expect(result.runId).toBe("run-given");
-    const [tern] = await deps.terns.lastTerns(result.threadId, 1);
+    const [tern] = await deps.terns.lastTerns(result.tenantId, result.threadId, 1);
     expect(tern).toMatchObject({ id: result.ternId, runId: "run-given", status: "answered" });
   });
 });

@@ -97,9 +97,10 @@ export interface Routes {
 }
 
 /**
- * What a code router's `route()` returns, by name (#280): one target after `.chooseOne(…)`; after
- * `.toParallelAgents(…)` (#273) a list — `readonly [Route<R>, ...Route<R>[]]` without an `Always`
- * route, so `[]` does not compile.
+ * What a router answers, by name: a code router's `route()` (#280), a model router's scripted
+ * `routeTo(…)` in tests (#262) — one target after `.chooseOne(…)`; after `.toParallelAgents(…)`
+ * (#273) a list — `readonly [Route<R>, ...Route<R>[]]` without an `Always` route, so `[]` does
+ * not compile.
  */
 export interface RouterAnswers {
   readonly [notGenerated]?: never;

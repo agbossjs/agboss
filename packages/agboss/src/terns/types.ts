@@ -44,6 +44,8 @@ export type NewTern = Omit<Tern, "id" | "createdAt">;
 /** A memory note of consecutive turns of a thread (compaction). Never re-compacted. */
 export interface Summary {
   readonly id: string;
+  /** The thread it summarises: its tenant and its id (#261 S72: the thread's key). */
+  readonly tenantId: string;
   readonly threadId: string;
   readonly bundle: string;
   readonly fromTernId: string;
@@ -78,18 +80,46 @@ export interface ConfigStore {
   readonly recentOriginals: (bundle: string, limit: number) => Promise<Tern[]>;
 }
 
-/** Conversation memory: which turns are not yet summarised, and the summaries. */
+/**
+ * Conversation memory: which turns are not yet summarised, and the summaries. A thread is named by
+ * its key, its tenant and its id (#261 S72): the same id in two tenants is two threads.
+ */
 export interface MemoryStore {
   /** Turns of the thread after the last summary, oldest first. */
-  readonly uncovered: (threadId: string) => Promise<Tern[]>;
+  readonly uncovered: (tenantId: string, threadId: string) => Promise<Tern[]>;
   /** Up to `limit` turns right before `ternId`, oldest first. */
-  readonly before: (threadId: string, ternId: string, limit: number) => Promise<Tern[]>;
+  readonly before: (
+    tenantId: string,
+    threadId: string,
+    ternId: string,
+    limit: number,
+  ) => Promise<Tern[]>;
   /** 1-based position of a turn in its thread. */
-  readonly turnNumber: (threadId: string, ternId: string) => Promise<number>;
+  readonly turnNumber: (tenantId: string, threadId: string, ternId: string) => Promise<number>;
   readonly addSummary: (summary: NewSummary) => Promise<Summary>;
   /** The latest `limit` summaries of the thread, oldest first. */
-  readonly latestSummaries: (threadId: string, limit: number) => Promise<Summary[]>;
-  readonly summaryCount: (threadId: string) => Promise<number>;
+  readonly latestSummaries: (
+    tenantId: string,
+    threadId: string,
+    limit: number,
+  ) => Promise<Summary[]>;
+  readonly summaryCount: (tenantId: string, threadId: string) => Promise<number>;
+}
+
+/**
+ * A thread to create (#261, #262 Q4): of a workflow in a tenant — its key is the tenant and the
+ * id; with an `ownerId` only that owner may continue it; with a `threadId` it is the caller's own
+ * id (one the tenant has already is kept as it is), else one is made.
+ */
+export interface NewThread {
+  /** The workflow the thread belongs to. */
+  readonly workflow: string;
+  /** The tenant: with `threadId`, the thread's key. */
+  readonly tenantId: string;
+  /** The only owner who may continue it; none → anyone of the tenant. */
+  readonly ownerId?: string | undefined;
+  /** The caller's own id; none → a new one is made. */
+  readonly threadId?: string | undefined;
 }
 
 /** What changes when a paused Tern finishes. */
@@ -109,11 +139,8 @@ export interface VersionScore {
 
 /** Durable memory of runs: threads, Terns, their quality scores and conversation summaries. */
 export interface TernStore extends MemoryStore, ConfigStore {
-  /**
-   * A new thread of the workflow in a tenant (#261: tenant + thread is its key); with an `owner`,
-   * only that owner may continue it (#202).
-   */
-  readonly createThread: (bundle: string, tenantId: string, owner?: string) => Promise<string>;
+  /** A new thread (`NewThread`); its id. */
+  readonly createThread: (thread: NewThread) => Promise<string>;
   /** Whether the tenant has the thread: another tenant's thread does not exist for it. */
   readonly hasThread: (bundle: string, tenantId: string, threadId: string) => Promise<boolean>;
   /** The thread's owner (`owner: undefined` = created without one); `undefined` = no such thread. */
@@ -130,8 +157,8 @@ export interface TernStore extends MemoryStore, ConfigStore {
    * `true` when it did. Atomic, so a late write never replaces what another holder wrote since.
    */
   completeIfStatus(ternId: string, expected: TernStatus, outcome: TernOutcome): Promise<boolean>;
-  /** The last `limit` Terns of a thread, oldest first. */
-  readonly lastTerns: (threadId: string, limit: number) => Promise<Tern[]>;
+  /** The last `limit` Terns of a thread (its tenant and id), oldest first. */
+  readonly lastTerns: (tenantId: string, threadId: string, limit: number) => Promise<Tern[]>;
   readonly byIds: (ids: readonly string[]) => Promise<Tern[]>;
   /** Up to `limit` Terns with `status`, oldest first, after the Tern `after` (a page of them). */
   readonly byStatus: (status: TernStatus, limit: number, after?: string) => Promise<Tern[]>;

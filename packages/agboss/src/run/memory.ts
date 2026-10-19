@@ -28,6 +28,7 @@ export class CompactionStrategy<TName extends string> extends SlidingWindowStrat
 
   override updateMemory(turn: MemoryTurn): Promise<MemoryAfterTurn> {
     return compactIfDue(this.deps, {
+      tenantId: turn.tenantId,
       threadId: turn.threadId,
       budgetLeftUsd: turn.budgetLeftUsd,
       callbacks: this.callbacks,
@@ -50,6 +51,7 @@ export async function updateMemoryAfter<TName extends string>(
   history: HistoryTurn,
 ): Promise<MemoryAfterTurn> {
   const turn: MemoryTurn = {
+    tenantId: ctx.base.tenantId,
     threadId: ctx.base.threadId,
     runId: ctx.runId,
     turn: history,

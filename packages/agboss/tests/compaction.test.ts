@@ -147,7 +147,7 @@ describe("conversation compaction", () => {
     expect(input).toContain("[1] S2");
     expect(input).toContain("[2] S3");
     expect(input).not.toContain("S1");
-    expect(await deps.terns.summaryCount(results[0]?.threadId ?? "")).toBe(3);
+    expect(await deps.terns.summaryCount("default", results[0]?.threadId ?? "")).toBe(3);
   });
 
   it("AC4: each reader sees its own number of summaries (0 = none)", async () => {
@@ -185,10 +185,10 @@ describe("conversation compaction", () => {
     const [first] = await converse(deps, 2);
     const compaction = { every: 2, keep: 10, model: { model: "test/compactor", price } };
     const due = { ...deps, config: { ...deps.config, compaction } };
-    const threadId = first?.threadId ?? "";
+    const thread = { tenantId: "default", threadId: first?.threadId ?? "" };
 
-    const spent = await compactIfDue(due, { threadId, budgetLeftUsd: 0, callbacks: [] });
-    const funded = await compactIfDue(due, { threadId, budgetLeftUsd: 1, callbacks: [] });
+    const spent = await compactIfDue(due, { ...thread, budgetLeftUsd: 0, callbacks: [] });
+    const funded = await compactIfDue(due, { ...thread, budgetLeftUsd: 1, callbacks: [] });
 
     expect(spent.compacted).toBeUndefined();
     expect(funded.compacted).toMatchObject({ fromTurn: 1, toTurn: 2 });

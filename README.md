@@ -404,7 +404,8 @@ One package; the root `agboss` is the authoring API, the rest are focused entrie
   `optional`, `variant`) and the standard DTOs
 - `agboss/units` — `usd()`, `seconds()`, `minutes()`
 - `agboss/models` — model providers (`@ModelProvider`, listed in `@Application({ providers })`)
-- `agboss/testing` — `testWith`, `replyWith`, `mcpOf`, `VirtualClock`, VCR (+ `agboss/testing/setup`)
+- `agboss/testing` — `testWith`, the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
+  `mcpOf`, `VirtualClock`, VCR (+ `agboss/testing/setup`: the matchers)
 - `agboss/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`, `@McpTool`,
   `@McpExpose`, `@Rag`, A2A, memory)
 
@@ -661,6 +662,84 @@ decision judge with its answers by question id (an option, P(yes), a level's ind
 Routers and guards work on any decision model too (`@Router({ model: "openai/gpt-6-luna-decisions" })`):
 one choice question over the routes, options sorted so declaration order never changes the request.
 
+## Testing
+
+`testWith(Application)` (`agboss/testing`) runs the whole application in each test — its real
+container and infrastructure, models by script, MCP servers stubbed, the network blocked, a
+`VirtualClock`. Scripts are typed by the generated `.agboss/types.d.ts` (`agboss check`, #262):
+`replyWith(XDto, fields)` must be a class of the agent's output (a class outside its `oneOf` does
+not compile), `routeTo(…)` a target of the router's routes — exactly one after `.chooseOne(…)`, the
+`OnDemand` targets it launches before `.toParallelAgents(…)` (`routeTo()` only with an `Always`
+route). `when(…)` binds turns to the node's input values, at any depth: a deep partial of each
+field's `value` (the producer is not compared), `undefined` for an absent field, a `listOf` field by
+length and position, a `oneOf` element as `variant(XDto, { … })`; a call no script matches fails the
+test, naming its input. A script is an expectation: a `thenReturn` turn no call took, or a `when(…)`
+nothing matched, fails a test whose body passed (`thenReturnAlways` never does).
+`waitFor(seconds(31))` before a turn makes the call take that long on the test's clock.
+
+<!-- snippet-context
+import { ExecutionCancelledError } from "agboss";
+import { Text } from "agboss/dto";
+export class ChangesRequestedDto {
+  @Text({ prompt: "what to change" })
+  notes!: string;
+}
+export class DraftApprovedDto {}
+declare class OfferApplication {}
+declare class OfferWorkflowStart {}
+declare class ReviewerAgent {}
+declare class EditorAgent {}
+declare class SendOfferAction {}
+declare class SearchJobsTool {}
+declare class MailerService {
+  send(text: string): Promise<void>;
+}
+// the start's input, typed by the generated types of a real project
+declare const shortlist: never;
+-->
+
+```ts
+import { expect } from "vitest";
+import { replyWith, testWith, ToolFailure, waitFor } from "agboss/testing";
+import { seconds, usd } from "agboss/units";
+
+const test = testWith(OfferApplication);
+
+test("the reviewer asks for changes once, then approves", async ({ app, mockLlm, mockAction }) => {
+  mockLlm(ReviewerAgent)
+    .when({ draft: { text: "v1" } })
+    .thenReturn(replyWith(ChangesRequestedDto, { notes: "shorter" }));
+  mockLlm(ReviewerAgent)
+    .when({ draft: { text: "v2" } })
+    .thenReturn(waitFor(seconds(1)), replyWith(DraftApprovedDto, {}, { cost: usd(0.01) }));
+  mockLlm(EditorAgent).thenReturn(replyWith("v2"));
+
+  await app.execute(OfferWorkflowStart, shortlist);
+
+  expect(mockLlm(ReviewerAgent)).toHaveBeenCalledTimes(2);
+  expect(mockLlm(ReviewerAgent)).toHaveReturned(ChangesRequestedDto, { notes: "shorter" });
+  expect(mockAction(SendOfferAction)).toHaveBeenCalledWith({ draft: { text: "v2" } });
+});
+
+test("a cancel from inside a mock cancels the execution", async ({ app, mockOf, mockTool }) => {
+  mockTool(SearchJobsTool).thenFail(ToolFailure.Timeout); // the next call fails as a timeout would
+  mockOf(MailerService).send.mockImplementation(() => app.cancel("thread-1").then(() => undefined));
+
+  await expect(app.execute(OfferWorkflowStart, shortlist)).rejects.toFailWith(
+    ExecutionCancelledError,
+  );
+});
+```
+
+Calls are checked with Vitest's names on `mockLlm(X)` and `mockAction(A)` (the action still runs):
+`.inputs`, `toHaveBeenCalledWith(…)` (the matcher of `when`), `toHaveBeenCalledTimes(n)` (model
+calls; an action's executions), `toHaveReturned(XDto, fields?)`; on anything else — a `vi.fn()`, a
+`mockOf(…)` method — they are Vitest's own. `toHaveBeenAskedWith` checks the prompt itself. Errors
+are caused the real way — `failWith(ModelFailure.…)`, a rejecting `mockOf(…)`,
+`mockTool(Tool).thenFail(ToolFailure.Timeout)`, scripts that reach a limit, `app.cancel` — and
+matched with `rejects.toFailWith(ErrorClass, { …fields, cause: CauseClass })` through the cause
+chain; the testing API has no way to create a framework error.
+
 ## Execution Context & Observers
 
 Every component reads the execution it runs in through its constructor (#280):
@@ -734,7 +813,12 @@ const { cancelled } = await app.cancel(threadId, { tenantId: "acme", ownerId: us
 A thread created with an `ownerId` belongs to it: `execute` on that thread, `resume` and `cancel`
 with another owner (or none) throw `ThreadOwnerError` (`run.thread-owner`) before anything runs or
 is read. A thread belongs to its tenant too (#261): its key is `tenantId` + `threadId`, so another
-tenant's thread does not exist for the caller (`UnknownThreadError`); `resume` and `cancel` take
+tenant's thread does not exist for the caller. `execute` with a `threadId` the tenant does not have
+yet creates that thread — the caller's own, idempotent id (an order number, a ticket), bound to its
+`ownerId`; the same id in another tenant is another thread (#262 Q4). An id that cannot be one
+(empty, over 200 characters, a control character) is `InvalidThreadIdError`
+(`run.invalid-thread-id`); `cancel` of a thread the tenant does not have is `UnknownThreadError`,
+`resume` of one `NotPausedError`. `resume` and `cancel` take
 the tenant by its id, `{ tenantId, ownerId }` (omitted → `"default"`), and a resumed execution runs
 on the context values it started with. With nothing declared `tenant: { tenantId?, weight? }` is
 all there is (`weight`, a positive integer, default 1, is the tenant's share for #266's

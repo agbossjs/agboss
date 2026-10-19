@@ -96,7 +96,8 @@ describe("#120 AC3: detectWithModel finds names in free text", () => {
   test("an answer that is not the JSON asked for fails closed", async ({ app, mockLlm }) => {
     mockLlm(NamesPiiPolicy).thenReturnAlways(replyWith("no idea"));
     mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));
-    const agent = mockLlm(DeskAgent).thenReturn(replyWith("ok"));
+    // no script: the detection fails before the agent is asked (a call would fail the test)
+    const agent = mockLlm(DeskAgent);
 
     const failure = await execute(app, DeskStart, { text: "Dana Cohen" }).catch(
       (error: unknown) => error,

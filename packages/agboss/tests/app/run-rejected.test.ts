@@ -2,6 +2,7 @@ import { beforeEach, describe, expect } from "vitest";
 import { DtoValidationError } from "../../src/dto/index.js";
 import {
   BudgetExceededError,
+  InvalidThreadIdError,
   NotPausedError,
   ThreadOwnerError,
   UnknownThreadError,
@@ -126,18 +127,28 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
     });
   });
 
-  test("execute on an unknown thread: run.unknown-thread, before onWorkflowStart", async ({
+  test("execute with an id that cannot be a thread: run.invalid-thread-id, before onWorkflowStart", async ({
     app,
   }) => {
-    const run = execute(app, Ask, { text: "hello" }, { threadId: "no-such-thread" });
+    // an id the tenant does not have yet is the caller's own new thread (#262 Q4); a bad one is not
+    const run = execute(app, Ask, { text: "hello" }, { threadId: "bad\nid" });
 
-    await expect(run).rejects.toBeInstanceOf(UnknownThreadError);
+    await expect(run).rejects.toBeInstanceOf(InvalidThreadIdError);
     expectRejected({
       operation: ExecutionOperation.Execute,
+      threadId: "bad\nid",
+      code: "run.invalid-thread-id",
+    });
+    expect(workflowEvents()).toEqual([]);
+  });
+
+  test("cancel of an unknown thread: run.unknown-thread", async ({ app }) => {
+    await expect(app.cancel("no-such-thread")).rejects.toBeInstanceOf(UnknownThreadError);
+    expectRejected({
+      operation: ExecutionOperation.Cancel,
       threadId: "no-such-thread",
       code: "run.unknown-thread",
     });
-    expect(workflowEvents()).toEqual([]);
   });
 
   test("execute from a class that is not a start of the workflow: workflow.not-a-start", async ({

@@ -92,6 +92,6 @@ describe("#194: the budget failure is thrown typed where it happens", () => {
       budget: { name: "shop-execution-budget" },
       scope: BudgetScope.Execution,
     });
-    expect(error).toFailWith({ code: "shop-execution-budget", node: Checker });
+    expect(error).toFailWith(BudgetExceededError, { budget: { name: "shop-execution-budget" } });
   });
 });

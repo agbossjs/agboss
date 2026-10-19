@@ -4,9 +4,12 @@ import {
   callTool,
   routeTo,
   failWith,
+  ModelCallFailedError,
   ModelFailure,
+  TestFailure,
   testWith,
 } from "../../src/testing/index.js";
+import { AgentFailedError, nameOf, RouterFailedError } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 import {
   ChatStart,
@@ -96,9 +99,9 @@ describe("AC12: scripted models — answers, tool calls, decisions by script", (
   test("failWith: a router's failed call fails the run at the router", async ({ app, mockLlm }) => {
     mockLlm(MainRouter).thenReturn(failWith(ModelFailure.Timeout));
 
-    await expect(execute(app, ChatStart, { text: "hi" })).rejects.toFailWith({
-      code: "step.router",
-      node: MainRouter,
+    await expect(execute(app, ChatStart, { text: "hi" })).rejects.toFailWith(RouterFailedError, {
+      nodeId: nameOf(MainRouter),
+      cause: ModelCallFailedError,
     });
   });
 
@@ -106,7 +109,10 @@ describe("AC12: scripted models — answers, tool calls, decisions by script", (
     mockLlm(MainRouter).thenReturn(routeTo(Writer));
     mockLlm(Writer).thenReturn(failWith(ModelFailure.RateLimited));
 
-    await expect(execute(app, ChatStart, { text: "hi" })).rejects.toFailWith({ node: Writer });
+    await expect(execute(app, ChatStart, { text: "hi" })).rejects.toFailWith(AgentFailedError, {
+      agent: nameOf(Writer),
+      cause: ModelCallFailedError,
+    });
   });
 
   test("a script shorter than the run fails clearly, naming the class", async ({
@@ -119,7 +125,7 @@ describe("AC12: scripted models — answers, tool calls, decisions by script", (
 
     const run = execute(app, ChatStart, { text: "hi" }, { threadId: first.threadId });
 
-    await expect(run).rejects.toFailWith({ code: "test.script-exhausted" });
+    await expect(run).rejects.toFailWith(TestFailure, { code: "test.script-exhausted" });
     await expect(run).rejects.toThrow(/script exhausted for Writer: 1 turn scripted, asked for #2/);
   });
 
@@ -196,7 +202,7 @@ describe("#148 AC4: recoverApp() closes the current app and returns a new one ov
   test("the old app fails with test.app-closed after a restart", async ({ app, recoverApp }) => {
     await recoverApp();
 
-    await expect(execute(app, ChatStart, { text: "hi" })).rejects.toFailWith({
+    await expect(execute(app, ChatStart, { text: "hi" })).rejects.toFailWith(TestFailure, {
       code: "test.app-closed",
     });
     await expect(app.tool(OrderStatus).invoke({ orderId: "1" })).rejects.toThrow(
@@ -214,7 +220,7 @@ describe("#148 AC4: recoverApp() closes the current app and returns a new one ov
     const second = await recoverApp();
     const third = await recoverApp();
 
-    await expect(execute(second, ChatStart, { text: "hi" })).rejects.toFailWith({
+    await expect(execute(second, ChatStart, { text: "hi" })).rejects.toFailWith(TestFailure, {
       code: "test.app-closed",
     });
     expect((await execute(third, ChatStart, { text: "hi" })).output).toEqual({ text: "third" });

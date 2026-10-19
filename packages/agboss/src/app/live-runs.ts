@@ -2,15 +2,12 @@ import { ExecutionCancelledError } from "../core/errors.js";
 import type { RunOptions, AgentExecutionOutput } from "../run/types.js";
 import type { TernOutcome } from "../terns/index.js";
 import type { CallOptions } from "./types.js";
+import { threadMapKeyOf, type ThreadOfTenant } from "../infrastructure/thread-map-key.js";
 
 /** A thread's key in the app (#261): its tenant and its id — the same id in two tenants is two threads. */
-export interface ThreadKey {
-  readonly tenantId: string;
-  readonly threadId: string;
-}
+export type ThreadKey = ThreadOfTenant;
 
-/** One string per thread key (a `Map` key). */
-const keyOf = (thread: ThreadKey): string => JSON.stringify([thread.tenantId, thread.threadId]);
+const keyOf = threadMapKeyOf;
 
 /** The runs in flight by thread: what `app.cancel(threadId)` aborts. */
 export class LiveRuns {

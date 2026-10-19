@@ -4,12 +4,19 @@
 
 ```ts
 
+import type { Assertion } from 'vitest';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import type { MessageContent } from '@langchain/core/messages';
 import { Mocked } from 'vitest';
 import { TestAPI } from 'vitest';
 import type { ToolDefinition } from '@langchain/core/language_models/base';
 import { z } from 'zod';
+
+// @public
+export interface ActionScript<TSelf = unknown> {
+    readonly inputs: readonly RecordedInputOf<TSelf>[];
+    readonly label: string;
+}
 
 // @public
 export interface AgentSlice {
@@ -25,7 +32,42 @@ export interface AnswerDetails {
 }
 
 // @public
-export function callTool<TInput extends object>(tool: ToolClass<TInput>, args: NoInfer<TInput>): ScriptedTurn;
+export interface AnswerGiven<TValue, TIsList extends boolean> {
+    // (undocumented)
+    readonly isList: TIsList;
+    // (undocumented)
+    readonly value: TValue;
+}
+
+// @public
+export interface AnswerTurn<TValue = unknown, TIsList extends boolean = boolean> {
+    // (undocumented)
+    readonly [answerGiven]?: AnswerGiven<TValue, TIsList>;
+    // (undocumented)
+    readonly details: AnswerDetails;
+    // Warning: (ae-forgotten-export) The symbol "DtoClass" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly dto: DtoClass;
+    // (undocumented)
+    readonly kind: "answer";
+    readonly value: unknown;
+}
+
+// @public
+export type CallAssertion<TReceived, TSelf> = Omit<Assertion<TReceived>, keyof CallMatchers<TSelf> | "not"> & CallMatchers<TSelf> & {
+    readonly not: Omit<Assertion<TReceived>, keyof CallMatchers<TSelf>> & CallMatchers<TSelf>;
+};
+
+// @public
+export interface CallMatchers<TSelf> {
+    toHaveBeenCalledTimes(times: number): void;
+    toHaveBeenCalledWith(partial: InputMatcherOf<TSelf>): void;
+    toHaveReturned<TDto extends DtoClass>(dto: TDto & ReturnedCheckOf<TSelf, TDto>, partial?: DeepPartial<InstanceType<TDto>> | readonly DeepPartial<InstanceType<TDto>>[]): void;
+}
+
+// @public
+export function callTool<TInput extends object>(tool: ToolClass<TInput>, args: NoInfer<TInput>): ToolCallTurn;
 
 // @public
 export class CassetteMissingError extends TestFailure {
@@ -51,7 +93,17 @@ export interface DecideDetails {
 }
 
 // @public
-export const decideWith: (answers: Readonly<Record<string, ScriptedAnswer>>, details?: DecideDetails) => ScriptedTurn;
+export interface DecideTurn {
+    // (undocumented)
+    readonly answers: Readonly<Record<string, ScriptedAnswer>>;
+    // (undocumented)
+    readonly details: DecideDetails;
+    // (undocumented)
+    readonly kind: "decide";
+}
+
+// @public
+export const decideWith: (answers: Readonly<Record<string, ScriptedAnswer>>, details?: DecideDetails) => DecideTurn;
 
 // @public
 export interface DecisionDetails {
@@ -63,14 +115,16 @@ export interface DecisionDetails {
 }
 
 // @public
-export interface ExpectedFailure {
-    // (undocumented)
-    readonly code?: string;
-    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly node?: Class;
-}
+export type DeepPartial<TValue> = TValue extends readonly (infer TElement)[] ? readonly DeepPartial<TElement>[] : TValue extends object ? {
+    readonly [TKey in keyof TValue]?: DeepPartial<TValue[TKey]>;
+} : TValue;
+
+// Warning: (ae-forgotten-export) The symbol "ExpectedCause" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type ExpectedErrorFields<TError extends Error> = Error extends TError ? Readonly<Record<string, unknown>> & ExpectedCause : {
+    readonly [TKey in Exclude<keyof TError, "cause" | "stack">]?: DeepPartial<TError[TKey]>;
+} & ExpectedCause;
 
 // @public
 export interface ExpectedRequest {
@@ -87,7 +141,21 @@ export interface ExpectedRequest {
 }
 
 // @public
-export const failWith: (failure: ModelFailure) => ScriptedTurn;
+export interface FailureTurn {
+    // (undocumented)
+    readonly failure: ModelFailure;
+    // (undocumented)
+    readonly kind: "failure";
+}
+
+// @public
+export const failWith: (failure: ModelFailure) => FailureTurn;
+
+// Warning: (ae-forgotten-export) The symbol "IsKnown" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "InputOf" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type InputMatcherOf<TSelf> = IsKnown<TSelf> extends true ? PartialValues<InputOf<TSelf>> : Readonly<Record<string, unknown>>;
 
 // @public
 export class LiveCallBlockedError extends TestFailure {
@@ -160,59 +228,88 @@ export type ModelRequest = {
 };
 
 // @public
-export interface ModelScript {
+export interface ModelScript<TSelf = unknown> {
+    readonly inputs: readonly RecordedInputOf<TSelf>[];
     readonly label: string;
     readonly lastRequest: ModelRequest;
     readonly onlyRequest: ModelRequest;
     readonly requests: readonly ModelRequest[];
-    thenAnswer(handler: (req: ModelRequest) => ScriptedTurn): ModelScript;
-    thenReturn(...turns: readonly ScriptedTurn[]): ModelScript;
-    thenReturnAlways(turn: ScriptedTurn): ModelScript;
+    thenAnswer(handler: (request: ModelRequest) => ScriptedTurn): ModelScript<TSelf>;
+    thenReturn(...turns: readonly TurnFor<TSelf>[]): ModelScript<TSelf>;
+    thenReturnAlways(turn: TurnFor<TSelf>): ModelScript<TSelf>;
     readonly toolCalls: readonly string[];
+    when(partial: InputMatcherOf<TSelf>): WhenScript<TSelf>;
+}
+
+// Warning: (ae-forgotten-export) The symbol "GeneratedTypeError" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "FieldPartial" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type PartialValues<TInput> = TInput extends GeneratedTypeError ? never : TInput extends unknown ? {
+    readonly [TKey in keyof TInput]?: FieldPartial<TInput[TKey]>;
+} : never;
+
+// @public
+export type RecordedInputOf<TSelf> = IsKnown<TSelf> extends true ? InputOf<TSelf> : Readonly<Record<string, unknown>>;
+
+// @public
+export interface ReplyTurn {
+    // (undocumented)
+    readonly details: AnswerDetails;
+    // (undocumented)
+    readonly kind: "reply";
+    // (undocumented)
+    readonly text: string;
 }
 
 // @public
-export function replyWith(text: string, details?: AnswerDetails): ScriptedTurn;
+export function replyWith(text: string, details?: AnswerDetails): ReplyTurn;
 
-// Warning: (ae-forgotten-export) The symbol "DtoClass" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
-export function replyWith<TDto extends DtoClass>(dto: TDto, value: NoInfer<InstanceType<TDto>> | readonly NoInfer<InstanceType<TDto>>[], details?: AnswerDetails): ScriptedTurn;
+export function replyWith<TDto extends DtoClass>(dto: TDto, value: NoInfer<InstanceType<TDto>>, details?: AnswerDetails): AnswerTurn<InstanceType<TDto>, false>;
+
+// @public (undocumented)
+export function replyWith<TDto extends DtoClass>(dto: TDto, values: readonly NoInfer<InstanceType<TDto>>[], details?: AnswerDetails): AnswerTurn<InstanceType<TDto>, true>;
+
+// Warning: (ae-forgotten-export) The symbol "ReturnedValueOf" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "ReturnedOf" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type ReturnedCheckOf<TSelf, TDto extends DtoClass> = IsKnown<TSelf> extends false ? unknown : InstanceType<TDto> extends ReturnedValueOf<ReturnedOf<TSelf>> ? unknown : {
+    readonly __error: "toHaveReturned: the component does not return this class";
+};
 
 // @public
 export interface RouterSlice {
+    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
+    //
     // (undocumented)
     routeTo(input: string): Promise<Class>;
 }
 
 // @public
-export const routeTo: (target: Class, details?: DecisionDetails) => ScriptedTurn;
+export function routeTo<const TTargets extends readonly Class[]>(...targets: TTargets): RouteTurn<TTargets>;
+
+// @public (undocumented)
+export function routeTo<const TTarget extends Class>(target: TTarget, details: DecisionDetails): RouteTurn<readonly [TTarget]>;
+
+// @public
+export interface RouteTurn<TTargets extends readonly unknown[] = readonly Class[]> {
+    // (undocumented)
+    readonly [routeGiven]?: TTargets;
+    // (undocumented)
+    readonly details: DecisionDetails;
+    // (undocumented)
+    readonly kind: "route";
+    // (undocumented)
+    readonly targets: readonly Class[];
+}
 
 // @public
 export type ScriptedAnswer = number | string;
 
 // @public
-export type ScriptedTurn = {
-    readonly kind: "replyWith";
-    readonly text: string;
-    readonly details: AnswerDetails;
-} | {
-    readonly kind: "tool-call";
-    readonly tool: string;
-    readonly args: Readonly<Record<string, unknown>>;
-    readonly details?: AnswerDetails;
-} | {
-    readonly kind: "decision";
-    readonly target: Class;
-    readonly details: DecisionDetails;
-} | {
-    readonly kind: "decide";
-    readonly answers: Readonly<Record<string, ScriptedAnswer>>;
-    readonly details: DecideDetails;
-} | {
-    readonly kind: "failure";
-    readonly failure: ModelFailure;
-};
+export type ScriptedTurn = ReplyTurn | AnswerTurn | ToolCallTurn | RouteTurn | DecideTurn | FailureTurn | WaitTurn;
 
 // Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point index.d.ts
 //
@@ -291,7 +388,7 @@ export class TestFailure extends Error {
 }
 
 // @public
-export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.cassette-missing";
+export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.cassette-missing" | "test.no-matching-script" | "test.unused-script";
 
 // @public
 export class TestSetupError extends Error {
@@ -328,6 +425,16 @@ export interface TestWithOptions extends EnvironmentSelection {
 }
 
 // @public
+export interface ToolCallTurn {
+    // (undocumented)
+    readonly args: Readonly<Record<string, unknown>>;
+    // (undocumented)
+    readonly kind: "tool-call";
+    // (undocumented)
+    readonly tool: string;
+}
+
+// @public
 export type ToolClass<TInput extends object> = Class<{
     run(input: TInput): Promise<unknown>;
 }>;
@@ -337,6 +444,11 @@ export type ToolClassOf<TInput, TOutput> = Class<{
     run(input: TInput): Promise<TOutput>;
 }>;
 
+// @public
+export enum ToolFailure {
+    Timeout = "timeout"
+}
+
 // Warning: (ae-forgotten-export) The symbol "Tool" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -345,12 +457,25 @@ export function toolOf<TInput, TOutput>(instance: {
 }): Tool<string, TInput, TOutput>;
 
 // @public
+export interface ToolScript {
+    thenFail(...failures: readonly ToolFailure[]): ToolScript;
+}
+
+// @public
 export interface ToolSlice<TInput, TOutput> {
     // Warning: (ae-forgotten-export) The symbol "ToolOutput" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
     invoke(input: TInput): Promise<ToolOutput<TOutput>>;
 }
+
+// Warning: (ae-forgotten-export) The symbol "KindOf" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "NodeKind" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "AgentTurnFor" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "RouterTurnFor" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type TurnFor<TSelf> = IsKnown<TSelf> extends false ? ScriptedTurn : KindOf<TSelf> extends NodeKind.Agent ? AgentTurnFor<TSelf> : KindOf<TSelf> extends NodeKind.Router ? RouterTurnFor<TSelf> : ScriptedTurn;
 
 // @public
 export const UNSCRIPTED_SUMMARY = "(summary of the earlier turns)";
@@ -382,22 +507,42 @@ export class VirtualClock extends Clock {
 }
 
 // @public
+export const waitFor: (duration: ClockDuration | Milliseconds) => WaitTurn;
+
+// @public
+export interface WaitTurn {
+    // (undocumented)
+    readonly delay: Milliseconds;
+    // (undocumented)
+    readonly kind: "wait";
+}
+
+// @public
+export interface WhenScript<TSelf = unknown> {
+    // (undocumented)
+    thenReturn(...turns: readonly TurnFor<TSelf>[]): WhenScript<TSelf>;
+    thenReturnAlways(turn: TurnFor<TSelf>): WhenScript<TSelf>;
+}
+
+// @public
 export interface WorkflowFixtures {
     readonly app: TestApp;
     readonly apps: readonly TestApp[];
     readonly clock: VirtualClock;
     readonly mcpOf: <TServer extends McpServerClient<ServerTools>>(server: new () => TServer) => McpStub<TServer>;
+    readonly mockAction: <TAction extends Class>(action: TAction) => ActionScript<InstanceType<TAction>>;
     readonly mockCompaction: () => ModelScript;
     // Warning: (ae-forgotten-export) The symbol "ModelTarget" needs to be exported by the entry point index.d.ts
-    readonly mockLlm: (component: ModelTarget) => ModelScript;
+    readonly mockLlm: <TComponent extends ModelTarget>(component: TComponent) => ModelScript<InstanceType<TComponent>>;
     readonly mockOf: <T>(component: Class<T>) => Mocked<T>;
+    readonly mockTool: (tool: Class) => ToolScript;
     readonly recoverApp: () => Promise<TestApp>;
 }
 
 // @public
 export interface WorkflowMatchers<R = unknown> {
-    // (undocumented)
-    toFailWith(failure: ExpectedFailure): R;
+    // Warning: (ae-forgotten-export) The symbol "ErrorClass" needs to be exported by the entry point index.d.ts
+    toFailWith<TError extends Error>(error: ErrorClass<TError>, fields?: ExpectedErrorFields<TError>): R;
     // (undocumented)
     toFinishWith(finish: Class, output?: unknown): R;
     // (undocumented)
@@ -415,7 +560,7 @@ export const workflowMatchers: {
     toFollowPath(this: MatcherContext, received: unknown, path: readonly Class[]): Verdict;
     toFinishWith(this: MatcherContext, received: unknown, finish: Class, output?: unknown): Verdict;
     toHavePausedAt(this: MatcherContext, received: unknown, agent: Class): Verdict;
-    toFailWith(this: MatcherContext, received: unknown, failure: ExpectedFailure): Verdict;
+    toFailWith(this: MatcherContext, received: unknown, error: ErrorClass, fields?: Readonly<Record<string, unknown>>): Verdict;
     toHaveCalledTools(this: MatcherContext, received: unknown, tools: readonly Class[]): Verdict;
     toHaveBeenAskedWith(this: MatcherContext, received: unknown, request: ExpectedRequest): Verdict;
 };
@@ -432,11 +577,11 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/models/model-failure.ts:4:3 - (ae-undocumented) Missing documentation for "RateLimited".
 // src/models/model-failure.ts:5:3 - (ae-undocumented) Missing documentation for "ServerError".
 // src/models/model-failure.ts:6:3 - (ae-undocumented) Missing documentation for "NetworkError".
-// src/testing/errors.ts:12:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:13:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/errors.ts:23:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:35:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:44:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:14:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:15:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:25:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:37:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:46:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/execution-context.ts:32:3 - (ae-undocumented) Missing documentation for "visitNumber".
 // src/testing/execution-context.ts:33:3 - (ae-undocumented) Missing documentation for "callId".
 // src/testing/execution-context.ts:34:3 - (ae-undocumented) Missing documentation for "itemIndex".
@@ -451,32 +596,30 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/execution-context.ts:99:3 - (ae-undocumented) Missing documentation for "instanceId".
 // src/testing/execution-context.ts:100:3 - (ae-undocumented) Missing documentation for "environmentName".
 // src/testing/execution-context.ts:118:3 - (ae-undocumented) Missing documentation for "application".
-// src/testing/matchers.ts:9:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/matchers.ts:10:3 - (ae-undocumented) Missing documentation for "node".
-// src/testing/matchers.ts:15:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/matchers.ts:16:3 - (ae-undocumented) Missing documentation for "system".
-// src/testing/matchers.ts:17:3 - (ae-undocumented) Missing documentation for "input".
-// src/testing/matchers.ts:18:3 - (ae-undocumented) Missing documentation for "instructions".
-// src/testing/matchers.ts:19:3 - (ae-undocumented) Missing documentation for "options".
-// src/testing/matchers.ts:82:3 - (ae-forgotten-export) The symbol "MatcherContext" needs to be exported by the entry point index.d.ts
-// src/testing/matchers.ts:82:3 - (ae-forgotten-export) The symbol "Verdict" needs to be exported by the entry point index.d.ts
-// src/testing/matchers.ts:142:3 - (ae-undocumented) Missing documentation for "toFollowPath".
-// src/testing/matchers.ts:143:3 - (ae-undocumented) Missing documentation for "toFinishWith".
-// src/testing/matchers.ts:144:3 - (ae-undocumented) Missing documentation for "toHavePausedAt".
-// src/testing/matchers.ts:145:3 - (ae-undocumented) Missing documentation for "toFailWith".
-// src/testing/matchers.ts:146:3 - (ae-undocumented) Missing documentation for "toHaveCalledTools".
-// src/testing/matchers.ts:147:3 - (ae-undocumented) Missing documentation for "toHaveBeenAskedWith".
+// src/testing/matchers.ts:11:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/matchers.ts:12:3 - (ae-undocumented) Missing documentation for "system".
+// src/testing/matchers.ts:13:3 - (ae-undocumented) Missing documentation for "input".
+// src/testing/matchers.ts:14:3 - (ae-undocumented) Missing documentation for "instructions".
+// src/testing/matchers.ts:15:3 - (ae-undocumented) Missing documentation for "options".
+// src/testing/matchers.ts:78:3 - (ae-forgotten-export) The symbol "MatcherContext" needs to be exported by the entry point index.d.ts
+// src/testing/matchers.ts:78:3 - (ae-forgotten-export) The symbol "Verdict" needs to be exported by the entry point index.d.ts
+// src/testing/matchers.ts:136:3 - (ae-undocumented) Missing documentation for "toFollowPath".
+// src/testing/matchers.ts:137:3 - (ae-undocumented) Missing documentation for "toFinishWith".
+// src/testing/matchers.ts:138:3 - (ae-undocumented) Missing documentation for "toHavePausedAt".
+// src/testing/matchers.ts:144:3 - (ae-undocumented) Missing documentation for "toHaveCalledTools".
+// src/testing/matchers.ts:145:3 - (ae-undocumented) Missing documentation for "toHaveBeenAskedWith".
 // src/testing/mcp-stubs.ts:14:3 - (ae-undocumented) Missing documentation for "tool".
 // src/testing/mcp-stubs.ts:15:3 - (ae-undocumented) Missing documentation for "args".
-// src/testing/script-book.ts:9:3 - (ae-undocumented) Missing documentation for "role".
-// src/testing/script-book.ts:10:3 - (ae-undocumented) Missing documentation for "text".
-// src/testing/script-book.ts:37:7 - (ae-forgotten-export) The symbol "DecisionState" needs to be exported by the entry point index.d.ts
-// src/testing/script-book.ts:38:7 - (ae-forgotten-export) The symbol "DecisionQuestions" needs to be exported by the entry point index.d.ts
-// src/testing/script.ts:23:3 - (ae-undocumented) Missing documentation for "reason".
-// src/testing/script.ts:26:3 - (ae-undocumented) Missing documentation for "cost".
-// src/testing/script.ts:66:1 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/script.ts:136:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/script.ts:137:3 - (ae-undocumented) Missing documentation for "failure".
+// src/testing/model-script.ts:9:3 - (ae-undocumented) Missing documentation for "role".
+// src/testing/model-script.ts:10:3 - (ae-undocumented) Missing documentation for "text".
+// src/testing/model-script.ts:37:7 - (ae-forgotten-export) The symbol "DecisionState" needs to be exported by the entry point index.d.ts
+// src/testing/model-script.ts:38:7 - (ae-forgotten-export) The symbol "DecisionQuestions" needs to be exported by the entry point index.d.ts
+// src/testing/model-script.ts:46:3 - (ae-undocumented) Missing documentation for "thenReturn".
+// src/testing/script.ts:33:1 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/script.ts:38:1 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/script.ts:95:1 - (ae-undocumented) Missing documentation for "routeTo".
+// src/testing/script.ts:129:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/script.ts:130:3 - (ae-undocumented) Missing documentation for "failure".
 // src/testing/slices.ts:19:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:24:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:32:3 - (ae-undocumented) Missing documentation for "replyWith".
@@ -484,6 +627,31 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/test-app.ts:32:3 - (ae-undocumented) Missing documentation for "agent".
 // src/testing/test-app.ts:33:3 - (ae-undocumented) Missing documentation for "router".
 // src/testing/test-app.ts:34:3 - (ae-undocumented) Missing documentation for "tool".
+// src/testing/turns.ts:23:3 - (ae-undocumented) Missing documentation for "reason".
+// src/testing/turns.ts:26:3 - (ae-undocumented) Missing documentation for "cost".
+// src/testing/turns.ts:45:3 - (ae-undocumented) Missing documentation for "value".
+// src/testing/turns.ts:46:3 - (ae-undocumented) Missing documentation for "isList".
+// src/testing/turns.ts:51:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:52:3 - (ae-undocumented) Missing documentation for "text".
+// src/testing/turns.ts:53:3 - (ae-undocumented) Missing documentation for "details".
+// src/testing/turns.ts:58:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:59:3 - (ae-undocumented) Missing documentation for "dto".
+// src/testing/turns.ts:62:3 - (ae-undocumented) Missing documentation for "details".
+// src/testing/turns.ts:63:3 - (ae-undocumented) Missing documentation for "[answerGiven]".
+// src/testing/turns.ts:68:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:69:3 - (ae-undocumented) Missing documentation for "tool".
+// src/testing/turns.ts:70:3 - (ae-undocumented) Missing documentation for "args".
+// src/testing/turns.ts:75:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:76:3 - (ae-undocumented) Missing documentation for "targets".
+// src/testing/turns.ts:77:3 - (ae-undocumented) Missing documentation for "details".
+// src/testing/turns.ts:78:3 - (ae-undocumented) Missing documentation for "[routeGiven]".
+// src/testing/turns.ts:83:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:84:3 - (ae-undocumented) Missing documentation for "answers".
+// src/testing/turns.ts:85:3 - (ae-undocumented) Missing documentation for "details".
+// src/testing/turns.ts:90:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:91:3 - (ae-undocumented) Missing documentation for "failure".
+// src/testing/turns.ts:100:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:101:3 - (ae-undocumented) Missing documentation for "delay".
 // src/testing/vcr.ts:22:1 - (ae-undocumented) Missing documentation for "VCRMode".
 // src/testing/vcr.ts:33:3 - (ae-undocumented) Missing documentation for "cassetteName".
 

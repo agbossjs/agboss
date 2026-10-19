@@ -1,3 +1,4 @@
+import type { ExecutionObserver } from "../core/observer-hooks.js";
 import type { AppDepsOptions } from "../app/app-deps.js";
 import { buildApp, type AppOptions, type BuiltApp } from "../app/create-app.js";
 import type { App } from "../app/types.js";
@@ -55,6 +56,8 @@ export interface InstanceSeams {
   readonly clock?: Clock;
   /** A test's instance: an unlisted `Logger` is silent, and the start is not logged. */
   readonly quiet?: boolean;
+  /** Observers of the instance besides the application's (a test's call recorder, #262). */
+  readonly observers?: readonly ExecutionObserver[];
 }
 
 /**
@@ -138,7 +141,7 @@ export async function buildApplication(
   const log = frameworkLogOf(infrastructure.logger, clock, (message) => mask.text(message));
   const workflows: BuiltApp[] = [];
   try {
-    const observer = observerManagerOf(assembled, shared, { ...container, onCreate }, log);
+    const observer = observerManagerOf(assembled, shared, { ...container, onCreate }, log, seams);
     const budgets = { budgets: assembled.budgets, applicationName: assembled.name };
     const parts = { infrastructure, created, contexts, budgets, observer, piiFieldKey };
     for (const bundle of assembled.workflows) {

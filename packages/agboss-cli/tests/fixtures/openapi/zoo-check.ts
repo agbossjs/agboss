@@ -24,7 +24,8 @@ test("the OpenAPI tools send the method, path, query and body", async ({ app, mo
     calls.push({ url, method: init.method, body: init.body });
     return Promise.resolve(new Response(JSON.stringify({ id: 42, name: "Rex", kind: "dog" })));
   });
-  mockLlm(MainRouter).thenReturn(routeTo(KeeperAgent), routeTo(TextWorkflowFinish));
+  // one route: the router decides without its model (#262: a second routeTo would not compile)
+  mockLlm(MainRouter).thenReturnAlways(routeTo(KeeperAgent));
   mockLlm(KeeperAgent).thenReturn(
     callTool(GetPetTool, { id: 42, days: 7, fields: ["name", "kind"] }),
     callTool(CreatePetTool, { body: { name: "Rex", kind: "dog", owner: { email: "a@b.co" } } }),

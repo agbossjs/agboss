@@ -8,8 +8,12 @@ import {
 } from "../llm/decisions.js";
 import type { DecideSpec } from "../llm/gateway.js";
 import { asError, TestFailure } from "./errors.js";
-import { ModelCallFailedError, type ScriptedAnswer, type ScriptedTurn } from "./script.js";
-import type { ModelRequest, ScriptBook } from "./script-book.js";
+import type { Clock } from "../infrastructure/clock.js";
+import { nodeNameOf } from "./failure-facts.js";
+import { ModelCallFailedError } from "./script.js";
+import type { ScriptBook } from "./script-book.js";
+import { scriptedCall, waitBeforeAnswer } from "./scripted-call.js";
+import type { ScriptedAnswer, ScriptedTurn, TurnOf } from "./turns.js";
 
 type Wrong = (why: string) => TestFailure;
 
@@ -82,16 +86,44 @@ function answersOf(
   );
 }
 
+/** `routeTo(…)` of a router before a launch on a decision model: yes for each target (#262 Q55). */
+function routeAnswers(
+  turn: TurnOf<"route">,
+  spec: DecideSpec,
+  label: string,
+): DecisionOutcome["answers"] {
+  const ids = Object.keys(spec.request.questions);
+  const launched = turn.targets.map(nodeNameOf);
+  const unknown = launched.filter((name) => !ids.includes(name));
+  if (unknown.length > 0) {
+    const message = `routeTo(${unknown.join(", ")}) for ${label}: not among the routes it launches (${ids.join(", ")})`;
+    throw new TestFailure("test.not-a-route", message);
+  }
+  return Object.fromEntries(
+    ids.map((id) => [id, { type: "noul", noul: launched.includes(id) ? 1 : 0 }] as const),
+  );
+}
+
+/** The answers of a turn: `decideWith(…)`, or a launching router's `routeTo(…)`. */
+function answersFor(
+  turn: ScriptedTurn,
+  spec: DecideSpec,
+  label: string,
+): DecisionOutcome["answers"] {
+  if (turn.kind === "decide") return answersOf(turn, spec, label);
+  if (turn.kind === "route" && spec.caller.startsWith("router:"))
+    return routeAnswers(turn, spec, label);
+  throw new TestFailure(
+    "test.wrong-script",
+    `${label} decides on ${spec.model}: script it with decideWith(…), not replyWith(…) / callTool(…) / routeTo(…)`,
+  );
+}
+
 function outcomeOf(turn: ScriptedTurn, spec: DecideSpec, label: string): DecisionOutcome {
   if (turn.kind === "failure") throw new ModelCallFailedError(turn.failure, label);
-  if (turn.kind !== "decide") {
-    throw new TestFailure(
-      "test.wrong-script",
-      `${label} decides on ${spec.model}: script it with decideWith(…), not replyWith(…) / callTool(…) / routeTo(…)`,
-    );
-  }
+  const cost = turn.kind === "decide" || turn.kind === "route" ? turn.details.cost : undefined;
   return {
-    answers: answersOf(turn, spec, label),
+    answers: answersFor(turn, spec, label),
     usage: {
       caller: spec.caller,
       model: spec.model,
@@ -99,33 +131,34 @@ function outcomeOf(turn: ScriptedTurn, spec: DecideSpec, label: string): Decisio
       outputTokens: 0,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
-      costUsd: turn.details.cost ?? 0,
+      costUsd: cost ?? 0,
       costSource: "api",
     },
   };
 }
 
 /**
- * A judge's decision in a test: answered by its script (`mockLlm(Judge).thenReturn(decideWith(…))`),
- * the request recorded. A script that does not fit the questions fails the test.
+ * A decision in a test — a judge's, a model arbiter's, a router's before a launch: answered by its
+ * script (`mockLlm(Judge).thenReturn(decideWith(…))`), the request recorded, after its
+ * `waitFor(…)`. A script that does not fit the questions fails the test.
  */
-export function scriptedDecide(book: ScriptBook, spec: DecideSpec): Promise<DecisionOutcome> {
+export async function scriptedDecide(
+  book: ScriptBook,
+  clock: Clock,
+  spec: DecideSpec,
+): Promise<DecisionOutcome> {
   const script = book.scriptOf(spec.caller);
-  const req: ModelRequest = {
-    kind: "decide",
-    input:
-      typeof spec.request.state === "string"
-        ? spec.request.state
-        : JSON.stringify(spec.request.state),
-    state: spec.request.state,
-    questions: spec.request.questions,
-  };
-  script.requests.push(req);
+  const { state, questions } = spec.request;
+  const input = typeof state === "string" ? state : JSON.stringify(state);
   try {
-    checkDecisionRequest(spec.request);
-    return Promise.resolve(outcomeOf(script.next(req), spec, script.label));
+    const request = { kind: "decide", input, state, questions } as const;
+    const call = scriptedCall(script, request, () => {
+      checkDecisionRequest(spec.request);
+    });
+    await waitBeforeAnswer(clock, call);
+    return outcomeOf(call.turn, spec, script.label);
   } catch (error) {
     if (error instanceof TestFailure) book.report(error);
-    return Promise.reject(asError(error));
+    throw asError(error);
   }
 }

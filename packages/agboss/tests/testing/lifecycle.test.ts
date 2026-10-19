@@ -11,6 +11,7 @@ import {
   DeskApplication,
 } from "./fixtures/desk.workflow.js";
 import { execute } from "../helpers/flow.js";
+import { BudgetExceededError } from "../../src/errors.js";
 
 const test = testWith(DeskApplication);
 
@@ -83,7 +84,9 @@ describe("AC12: a controllable clock — the per-day limit resets after midnight
 
     await execute(app, ChatStart, { text: "1" });
     const overDay = execute(app, ChatStart, { text: "2" });
-    await expect(overDay).rejects.toFailWith({ code: "desk-tenant-daily-budget" });
+    await expect(overDay).rejects.toFailWith(BudgetExceededError, {
+      budget: { name: "desk-tenant-daily-budget" },
+    });
     await app.clock.advance("25h");
     const nextDay = await execute(app, ChatStart, { text: "3" });
 

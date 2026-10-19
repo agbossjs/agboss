@@ -1,19 +1,18 @@
 import type { ChatModelUser, DecisionSpec, ModelGateway } from "../llm/gateway.js";
 import { componentOf } from "../components/metadata.js";
 import type { Class } from "../components/injection.js";
+import type { Clock } from "../infrastructure/clock.js";
+import { VirtualClock } from "./clock.js";
 import { routerCaller, type RouteOutcome } from "../routers/index.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { asError, TestFailure } from "./errors.js";
 import { nodeNameOf } from "./failure-facts.js";
-import {
-  ModelCallFailedError,
-  replyWith,
-  type DecisionDetails,
-  type ScriptedTurn,
-} from "./script.js";
+import { ModelCallFailedError, replyWith } from "./script.js";
 import type { ComponentScript, ScriptBook, ModelRequest } from "./script-book.js";
+import { scriptedCall, waitBeforeAnswer } from "./scripted-call.js";
 import { ScriptedChatModel } from "./scripted-chat-model.js";
 import { scriptedDecide } from "./scripted-decisions.js";
+import type { DecisionDetails, ScriptedTurn } from "./turns.js";
 
 /** The script key of a chat model's user and of a router. */
 export function chatKeyOf(user: ChatModelUser): string {
@@ -89,13 +88,19 @@ function outcomeOf(turn: ScriptedTurn, spec: DecisionSpec, script: ComponentScri
     const cause = new ModelCallFailedError(turn.failure, script.label);
     return { kind: "failed", reason: cause.message, cause };
   }
-  if (turn.kind !== "decision") {
+  if (turn.kind !== "route") {
     throw new TestFailure(
       "test.wrong-script",
       `${script.label} is a router: script it with routeTo(…), not replyWith(…) / callTool(…)`,
     );
   }
-  const next = optionOf(turn.target);
+  const [target, ...more] = turn.targets;
+  if (target === undefined || more.length > 0) {
+    const given = turn.targets.map(optionOf).join(", ");
+    const message = `routeTo(${given}) for ${script.label}: it chooses one route — name exactly one target`;
+    throw new TestFailure("test.wrong-script", message);
+  }
+  const next = optionOf(target);
   const options = spec.request.options.map((option) => option.name);
   if (!options.includes(next)) {
     throw new TestFailure(
@@ -112,35 +117,45 @@ function outcomeOf(turn: ScriptedTurn, spec: DecisionSpec, script: ComponentScri
   return usage === undefined ? { kind: "decided", decision } : { kind: "decided", decision, usage };
 }
 
+/** A router's decision request, as `mockLlm(Router).requests` records it. */
+const decisionRequestOf = (spec: DecisionSpec): ModelRequest => ({
+  kind: "decision",
+  input: spec.request.input,
+  options: spec.request.options.map((option) => option.name),
+  routes: Object.fromEntries(spec.request.options.map((o) => [o.name, o.description])),
+  instructions: spec.request.instructions ?? "",
+});
+
 /**
  * The model gateway of a test: every chat model and every decision answers by script. A failure
  * that must fail the test (no script, script exhausted, not a route) is reported to the book and
  * returned as a failed outcome — the run fails, the test sees the reported failure.
  */
-export function createScriptedGateway(book: ScriptBook): ModelGateway {
+export function createScriptedGateway(
+  book: ScriptBook,
+  clock: Clock = new VirtualClock(),
+): ModelGateway {
   const compaction = book.scriptOf("compaction");
   if (!compaction.isScripted) compaction.thenReturnAlways(replyWith(UNSCRIPTED_SUMMARY));
   return {
-    chatModel: ({ user, settings }) => new ScriptedChatModel(book, chatKeyOf(user), settings),
-    routeTo: (spec) => {
+    chatModel: ({ user, settings }) =>
+      new ScriptedChatModel({ book, clock, key: chatKeyOf(user) }, settings),
+    routeTo: async (spec) => {
       const script = book.scriptOf(routerKeyOf(spec.router));
-      const req: ModelRequest = {
-        kind: "decision",
-        input: spec.request.input,
-        options: spec.request.options.map((option) => option.name),
-        routes: Object.fromEntries(spec.request.options.map((o) => [o.name, o.description])),
-        instructions: spec.request.instructions ?? "",
-      };
-      script.requests.push(req);
+      const request = decisionRequestOf(spec);
       if (!script.isScripted && spec.router.startsWith("guard:")) {
-        return Promise.resolve(GUARD_PASSES);
+        script.requests.push(request);
+        return GUARD_PASSES;
       }
       try {
-        return Promise.resolve(outcomeOf(script.next(req), spec, script));
+        const call = scriptedCall(script, request);
+        await waitBeforeAnswer(clock, call);
+        return outcomeOf(call.turn, spec, script);
       } catch (error) {
-        return Promise.resolve(failed(book.report(asError(error)).message));
+        if (!(error instanceof TestFailure)) throw error;
+        return failed(book.report(asError(error)).message);
       }
     },
-    decide: (spec) => scriptedDecide(book, spec),
+    decide: (spec) => scriptedDecide(book, clock, spec),
   };
 }

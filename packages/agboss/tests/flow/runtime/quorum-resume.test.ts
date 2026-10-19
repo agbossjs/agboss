@@ -136,7 +136,8 @@ describe("S26: a crash inside a quorum", () => {
     "an expired deadlineAt cancels the unfinished branch without running it",
     async ({ apps, clock, mockLlm }) => {
       mockLlm(SkillsPanelAgent).thenReturn(score(7));
-      mockLlm(RisksPanelAgent).thenReturn(callTool(WaitTool, { seconds: 60 }), score(6));
+      // cancelled without running again after the crash: its answer never comes
+      mockLlm(RisksPanelAgent).thenReturn(callTool(WaitTool, { seconds: 60 }));
       mockLlm(HirePanelAgent).thenReturn(score(9));
       mockLlm(PanelSummaryAgent).thenReturn(summary);
 

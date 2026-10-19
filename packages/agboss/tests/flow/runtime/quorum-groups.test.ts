@@ -82,7 +82,7 @@ describe("AC7: groups with priority", () => {
   );
 
   deal("at the deadline the highest complete group is taken", async ({ app, mockLlm, clock }) => {
-    mockLlm(LegalPanelAgent).thenReturn(wait(120), legal);
+    mockLlm(LegalPanelAgent).thenReturn(wait(120)); // cancelled at the deadline: no answer
     mockLlm(CriticPanelAgent).thenReturn(wait(10), critique);
     mockLlm(FastPanelAgent).thenReturn(screen);
 
@@ -99,7 +99,7 @@ describe("AC7: groups with priority", () => {
   deal("one answer completing two groups: the higher wins", async ({ app, mockLlm, clock }) => {
     mockLlm(LegalPanelAgent).thenReturn(legal);
     mockLlm(CriticPanelAgent).thenReturn(wait(5), critique);
-    mockLlm(FastPanelAgent).thenReturn(wait(60), screen);
+    mockLlm(FastPanelAgent).thenReturn(wait(60)); // cancelled once a group won: no answer
     mockLlm(DealReportPanelAgent).thenReturn(report);
 
     const execution = execute(app, DealPanelWorkflowStart, ACME);
@@ -115,7 +115,7 @@ describe("AC7: groups with priority", () => {
   deal(
     "no group can complete any more: QuorumNotReachedError at once",
     async ({ app, mockLlm }) => {
-      mockLlm(LegalPanelAgent).thenReturn(wait(60), legal);
+      mockLlm(LegalPanelAgent).thenReturn(wait(60)); // cancelled: no group can complete
       mockLlm(CriticPanelAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
       mockLlm(FastPanelAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
 
@@ -138,7 +138,7 @@ describe("AC9: which group won, and what was counted", () => {
     async ({ app, mockLlm }) => {
       mockLlm(LegalPanelAgent).thenReturn(legal);
       mockLlm(CriticPanelAgent).thenReturn(critique);
-      mockLlm(FastPanelAgent).thenReturn(wait(60), screen);
+      mockLlm(FastPanelAgent).thenReturn(wait(60)); // cancelled once a group won: no answer
       mockLlm(DealReportPanelAgent).thenReturn(report);
 
       const result = await execute(app, DealPanelWorkflowStart, ACME);

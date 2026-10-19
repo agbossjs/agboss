@@ -7,6 +7,7 @@ import { beforeEach, describe, expect } from "vitest";
 import {
   ComponentError,
   ExecutionOperation,
+  InvalidThreadIdError,
   nameOf,
   UnknownThreadError,
   Workflow,
@@ -143,9 +144,10 @@ describe("#269: onExecutionRejected names the refused operation (ExecutionOperat
       UnknownThreadError,
     );
     await expect(app.resume("no-such-thread", approve)).rejects.toThrow();
+    // an unknown id is the caller's own new thread (#262 Q4): an invalid one is refused
     await expect(
-      execute(app, Ask, { text: "x" }, { threadId: "no-such-thread" }),
-    ).rejects.toBeInstanceOf(UnknownThreadError);
+      execute(app, Ask, { text: "x" }, { threadId: "no\nthread" }),
+    ).rejects.toBeInstanceOf(InvalidThreadIdError);
 
     expect(rejections.map(({ operation, tenantId }) => ({ operation, tenantId }))).toEqual([
       { operation: ExecutionOperation.Cancel, tenantId: "acme" },

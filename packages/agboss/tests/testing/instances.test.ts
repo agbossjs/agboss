@@ -4,14 +4,13 @@
  * itself: clock.test.ts).
  */
 import { describe, expect, it } from "vitest";
-import { callTool, replyWith, testWith } from "../../src/testing/index.js";
+import { callTool, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
   Charge,
   Clerk,
   LeaseApplication,
   OrderWorkflowStart,
-  ReceiptDto,
 } from "../infrastructure/fixtures/lease.workflow.js";
 
 const test = testWith(LeaseApplication, { instances: 2 });
@@ -23,10 +22,8 @@ describe("testWith(App, { instances: 2 })", () => {
     clock,
     mockLlm,
   }) => {
-    mockLlm(Clerk).thenReturn(
-      callTool(Charge, { text: "1 USD" }),
-      replyWith(ReceiptDto, { text: "Charged." }),
-    );
+    // the run pauses at the charge's approval and is cancelled there: the receipt never comes
+    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "1 USD" }));
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
 
     const cancelled = await apps[1]?.cancel(paused.threadId);
