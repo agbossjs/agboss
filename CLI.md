@@ -20,7 +20,7 @@ agboss c support-desk --yes --agents "triage:Sorts requests,answerer:Answers que
 ```
 
 The skeleton runs at once: tools return a marked placeholder (`TODO`), prompts are drafted from the roles,
-every tool has a test (`toolOf(new XTool())`) and the workflow has one on `testWith`
+every tool has a test (`testTool(XTool)`) and the workflow has one on `testWith`
 (`src/<workflow>/<workflow>.workflow.test.ts`: the main router and the first agent by script — it runs
 offline, [Testing](Testing)). Files follow the [conventions](Components#file-conventions): `*.agent.ts` + `*.prompt.md`, `*.tool.ts` + `*.tool.test.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`, and the flow's `workflow-starts/text.workflow-start.ts` (`TextWorkflowStart`, named `<workflow>-text-workflow-start`), `routers/main.router.ts` (`<workflow>-main-router`), `workflow-finishes/text.workflow-finish.ts` (`TextWorkflowFinish`, `<workflow>-text-workflow-finish`) — names carry the workflow, so a second workflow in the project never clashes; a text-only MCP server tool replies with `PlainTextDto`. The workflow is one path ([Workflow](Workflow)): `start(TextWorkflowStart).returns(WorkflowStartTextDto).toRouter(MainRouter).chooseOne(route(TriageAgent).toFinish(TextWorkflowFinish), …)` — the main router chooses the agent that answers, each agent's text finishes the run — with limits in `settings()`. The environments go to `environments/` (`environment.ts`, `dev` and `staging`). `npm run types` (`agboss check`) writes `.agboss/types.d.ts` — run on install (`postinstall`) and by `npm run check` (= types + tsc + `npm test`). `vitest.config.ts` has three projects by file name — `unit`
 (`*.test.ts`), `integration` (`*.integration.test.ts`), `suites` (`*.suite.test.ts`, real models); empty

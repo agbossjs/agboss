@@ -292,17 +292,25 @@ export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCar
 
 ## Testing
 
-A tool is a plain class: construct it with fakes and call it through the same adapter the agent loop
-uses — `toolOf` validates the input and output DTOs and maps errors exactly like a real call:
+A tool is tested on its own with `testTool` (`agboss/testing`, #262): its own container — its
+`deps` resolved, `overrides` replacing classes by classes — and every call in the frame of a tool
+call, as the agent loop runs it: the input and output validated against the DTOs, the call's
+`executionContext.signal` aborting after `timeout` (default its `timeoutMs`) on the runner's clock,
+`SpendRecorder` into the call's `spend`. A failure rejects as the tool threw it
+([Testing → Unit runners](Testing#unit-runners--one-component-on-its-own)):
 
 <!-- snippet-context
-import { ExecutionContext, InjectionToken, Tool, type ToolHandler } from "agboss";
+import { ExecutionContext, Injectable, Tool, type ToolHandler } from "agboss";
 import { Text } from "agboss/dto";
-interface IssuesApi { search(query: string): Promise<{ title: string }[]> }
-const ISSUES_API = new InjectionToken<IssuesApi>("ISSUES_API");
+@Injectable()
+export class IssuesApi {
+  search(_query: string): Promise<{ title: string }[]> {
+    return Promise.reject(new Error("the real issue tracker"));
+  }
+}
 class IssueQuery { @Text() query!: string; }
 class IssueCount { @Text() summary!: string; }
-@Tool({ name: "count_issues", description: "Counts issues", input: IssueQuery, output: IssueCount, deps: [ExecutionContext, ISSUES_API] })
+@Tool({ name: "count_issues", description: "Counts issues", input: IssueQuery, output: IssueCount, deps: [ExecutionContext, IssuesApi] })
 class CountIssues implements ToolHandler<IssueQuery, IssueCount> {
   constructor(private readonly executionContext: ExecutionContext, private readonly issuesApi: IssuesApi) {}
   async run({ query }: IssueQuery): Promise<IssueCount> {
@@ -313,16 +321,22 @@ class CountIssues implements ToolHandler<IssueQuery, IssueCount> {
 -->
 
 ```ts
+import { override, testTool } from "agboss/testing";
 import { expect, test } from "vitest";
-import { testExecutionContext, toolOf } from "agboss/testing";
+
+@Injectable()
+export class TwoIssuesApi extends IssuesApi {
+  override search(): Promise<{ title: string }[]> {
+    return Promise.resolve([{ title: "a" }, { title: "b" }]);
+  }
+}
 
 test("counts the issues the API found", async () => {
-  const fakeApi = { search: () => Promise.resolve([{ title: "a" }, { title: "b" }]) };
-  const tool = toolOf(new CountIssues(testExecutionContext(), fakeApi));
+  const countIssues = testTool(CountIssues, { overrides: [override(IssuesApi, TwoIssuesApi)] });
 
-  const result = await tool.invoke({ query: "login" });
+  const { output } = await countIssues({ query: "login" });
 
-  expect(result).toEqual({ kind: "ok", value: { summary: "2 issues" } });
+  expect(output).toEqual({ summary: "2 issues" });
 });
 ```
 

@@ -130,8 +130,9 @@ export class SearchOrders implements ToolHandler<OrderQuery, OrderStatus> {
   compile error (standard decorators have no parameter-type metadata, so they are listed once).
 - `run` gets only its input — there is no `ctx` parameter (#280); the execution, its step and the
   call's idempotency key come from the injected `ExecutionContext`.
-- Test with plain `new` and fakes: `toolOf(new SearchOrders(testExecutionContext(), fakeOrders))`
-  — no container ([Tools](Tools), [Testing](Testing)).
+- Test it on its own with `testTool(SearchOrders, { overrides: [override(OrderBook, FakeOrderBook)] })`
+  — its own container, the frame of a tool call, no `new` ([Tools](Tools#testing),
+  [Testing](Testing#unit-runners--one-component-on-its-own)).
 
 ## DTOs
 

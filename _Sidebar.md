@@ -18,6 +18,7 @@
 - [Several instances](Several-instances)
 - [Context and Authorization](Context-And-Authorization)
 - [Testing](Testing)
+- [The test split](Test-split)
 - [Suites and Comparisons](Testing-Suites-And-Comparisons)
 - [Components](Components)
 - [Standard DTOs](Standard-DTOs)

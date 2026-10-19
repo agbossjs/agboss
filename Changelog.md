@@ -3,6 +3,34 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — concurrency, instances and unit runners (#262, PR 3)
+
+- **Parallel branches in tests** ([Testing → Parallel branches](Testing#parallel-branches--testconcurrency)):
+  `testWith(App, { concurrency })` — **`TestConcurrency.Sequential`, the new default**: the branches
+  of a launch run one at a time, in listed / item order; `TestConcurrency.Real` runs them as
+  production does (within `maxConcurrency`); `TestConcurrency.inOrder([step(A), step(B, partial)])`
+  makes them complete in that order through completion gates (`step(Node, partial?)` takes the
+  matcher of `when(…)`). A step waiting at its gate is cancelled at once by a `FailFast`, a decided
+  quorum or `app.cancel`; when no branch can move and the next step is not waiting, the execution
+  fails at once with `test.unreachable-step`; a listed step never reached fails the test at its
+  end. **Breaking for tests:** a test that relied on branches running at once (a sliding window, a
+  surplus answer, an agent waiting for its siblings) sets `concurrency: TestConcurrency.Real`.
+- **Unit runners** ([Testing → Unit runners](Testing#unit-runners--one-component-on-its-own)):
+  `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`
+  and `testPii` — one component on its own container (`overrides: [override(Class,
+  Replacement)]`, `environment`), every call in its step's frame (`executionContext.signal` with a
+  `timeout` on the runner's `VirtualClock`, `run.clock`; `SpendRecorder` and its model calls into
+  `spend`), its model by script (`model: decideWith(…)`, `replyWith(…)`, `routeTo(…)`); a call gives
+  `{ output, spend }` and rejects as the component threw. `testPii([Policies])` checks the
+  policies' own rules first (`-pii-policy`) and gives `mask(text)` / `reveal(text)`. The
+  `agboss create` / `agboss generate tool` / `agboss generate openapi` tool tests use `testTool`.
+- **`testWith(App, { instances: 2 })`** is the documented way to test across instances: one store
+  set, one clock, a container each — a lease, a pause resumed on the other instance, a rate-limit
+  slot ([Several instances](Several-instances#testing-several-instances)).
+- `GuardrailContext` is exported from `agboss` (the context `testGuardrail`'s hooks take).
+- New page [The test split](Test-split): unit tests with scripts → evaluation and golden sets →
+  `make smoke`; no test calls a real model.
+
 ## Unreleased — recursion and the soft stop (#264, PR 1)
 
 - **`ThisWorkflow`** ([Workflow as a step → Recursion](Workflow-as-a-step#recursion-264)): a workflow
