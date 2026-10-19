@@ -288,6 +288,34 @@ export class TreasuryWorkflowFinish {}
 })
 export class TreasuryWorkflow {}
 
+@WorkflowStart({
+  name: "treasury-desk-workflow-start",
+  description: "A request handed to the treasury as a child workflow",
+  input: WorkflowStartTextDto,
+})
+export class TreasuryDeskWorkflowStart {}
+
+@WorkflowFinish({
+  name: "treasury-desk-workflow-finish",
+  description: "The treasury's answer",
+  output: WorkflowFinishTextDto,
+})
+export class TreasuryDeskWorkflowFinish {}
+
+/** The treasury as a child (#263): its pauses are read in the child's execution frame. */
+@Workflow({
+  name: "treasury-desk-workflow",
+  version: "1.0.0",
+  flow: [
+    start(TreasuryDeskWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toWorkflow(TreasuryWorkflow)
+      .returns(WorkflowFinishTextDto)
+      .toFinish(TreasuryDeskWorkflowFinish),
+  ],
+})
+export class TreasuryDeskWorkflow {}
+
 /** The decisions' e-mail addresses are hidden from logs, traces and records. */
 @PiiPolicy({
   name: "treasury-pii-policy",
@@ -311,7 +339,7 @@ const treasuryChannels = [
   name: "treasury-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [TreasuryWorkflow],
+  workflows: [TreasuryWorkflow, TreasuryDeskWorkflow],
   budgets: TEST_BUDGETS,
   providers: treasuryChannels,
   piiPolicies: [TreasuryPiiPolicy],

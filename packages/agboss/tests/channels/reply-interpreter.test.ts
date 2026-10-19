@@ -31,6 +31,8 @@ import {
   TreasurerAgent,
   TreasuryApplication,
   TreasuryWorkflowFinish,
+  TreasuryDeskWorkflowFinish,
+  TreasuryDeskWorkflowStart,
   TreasuryWorkflowStart,
   treasuryLedger,
   treasuryPauses,
@@ -296,6 +298,32 @@ describe("#267 AC8: a code interpreter reads a reply", () => {
       owner,
     );
 
+    expect(replyDesk.readings).toEqual([
+      { tenantId: "acme", ownerId: "alice", nodeId: "treasurer-agent", callId: "call-1" },
+    ]);
+  });
+
+  test("a pause inside a child workflow is read in the child's frame", async ({ app, mockLlm }) => {
+    mockLlm(TreasurerAgent).thenReturn(
+      callTool(BookExpenseTool, { purpose: "taxi" }),
+      replyWith("Booked."),
+    );
+    const owner = { ownerId: "alice", tenantId: "acme" };
+    const paused = await execute(
+      app,
+      TreasuryDeskWorkflowStart,
+      { text: "book a taxi" },
+      { ownerId: "alice", tenant: { tenantId: "acme" } },
+    );
+    const [pending] = paused.pending;
+
+    const done = await app.resume(
+      { pauseId: pending?.pauseId ?? "", reply: '{"approved":true}' },
+      owner,
+    );
+
+    expect(done).toFinishWith(TreasuryDeskWorkflowFinish, { text: "Booked." });
+    expect(pending?.childExecutionId).toBeDefined();
     expect(replyDesk.readings).toEqual([
       { tenantId: "acme", ownerId: "alice", nodeId: "treasurer-agent", callId: "call-1" },
     ]);

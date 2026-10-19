@@ -29,7 +29,7 @@ import type { AnyOfPanelWorkflow, ChainPanelWorkflow, ChatPanelWorkflow, Checked
 import type { CandidateReviewWorkflow, CompanySearchWorkflow, DueDiligenceWorkflow, FitReviewWorkflow } from "../tests/flow/fixtures/quorum.fixture.js";
 import type { DeepResearchWorkflow, DeepResearchWorkflowStart, FailTopicAction, OutlineAgent, OutlineDepthRouter, OutlineWorkflow, OutlineWorkflowStart, ReportMergerAgent, ResearchFailedDto, ResearchFailedWorkflowFinish, ResearchReportDto, ResearchReportWorkflowFinish, ResearchTooBroadDto, ResearchTopicDto, SplitTopicAction, TopicResearcherAgent } from "../tests/flow/fixtures/recursion.fixture.js";
 import type { CardRefundsWorkflow, RefundApprovalChannel, RefundCardInputDto, RefundCardOutputDto, RefundClerkAgent, RefundWorkflowFinish, RefundWorkflowStart } from "../tests/flow/fixtures/refunds.fixture.js";
-import type { ExpenseApprovalChannel, ExpenseReplyInterpreter, ExpenseRequestDto, PayoutApprovalChannel, PayoutReplyInterpreter, PayoutRequestDto, TransferApprovalChannel, TransferRequestDto, TreasurerAgent, TreasuryWorkflow, TreasuryWorkflowFinish, TreasuryWorkflowStart } from "../tests/flow/fixtures/replies.fixture.js";
+import type { ExpenseApprovalChannel, ExpenseReplyInterpreter, ExpenseRequestDto, PayoutApprovalChannel, PayoutReplyInterpreter, PayoutRequestDto, TransferApprovalChannel, TransferRequestDto, TreasurerAgent, TreasuryDeskWorkflow, TreasuryDeskWorkflowFinish, TreasuryDeskWorkflowStart, TreasuryWorkflow, TreasuryWorkflowFinish, TreasuryWorkflowStart } from "../tests/flow/fixtures/replies.fixture.js";
 import type { ApprovalDto, CritiqueDto, DraftDto, PlanDto, ResearchDto } from "../tests/flow/fixtures/review-dtos.js";
 import type { CritiqueAction, CritiqueRouter, PolishAgent, PolishWorkflow, PolishedWorkflowFinish, PublisherAgent, ResearcherAgent, StoryReviewerAgent, StoryWorkflow, StoryWorkflowFinish, StoryWorkflowStart, StoryWriterAgent } from "../tests/flow/fixtures/review.fixture.js";
 import type { BatchRankAgent, CompanyBatchWorkflowStart, CompanyCheckAgent, CompanyCheckWorkflow, CompanyCheckWorkflowStart, CompanyScoreWorkflowFinish } from "../tests/flow/fixtures/starts.fixture.js";
@@ -184,6 +184,8 @@ declare module "../src/flow/generated-types.js" {
     "topic-researcher-agent": ResearchReportDto | ResearchTooBroadDto;
     "topics-workflow-start": SupportIntentDto;
     "treasurer-agent": NoOutput;
+    "treasury-desk-workflow-start": WorkflowStartTextDto;
+    "treasury-workflow": WorkflowFinishTextDto;
     "treasury-workflow-start": WorkflowStartTextDto;
     "twin-grade-workflow": CompanyGradeDto;
     "unit-charter-agent": TeamChartDto;
@@ -444,6 +446,9 @@ declare module "../src/flow/generated-types.js" {
     "topics-workflow-finish": NoInput;
     "topics-workflow-start": SupportIntentDto;
     "treasurer-agent": { message: Produced<WorkflowStartTextDto, typeof TreasuryWorkflowStart> };
+    "treasury-desk-workflow-finish": NoInput;
+    "treasury-desk-workflow-start": WorkflowStartTextDto;
+    "treasury-workflow": NoInput;
     "treasury-workflow-finish": NoInput;
     "treasury-workflow-start": WorkflowStartTextDto;
     "twin-grade-workflow": { readonly __error: "[graph.ambiguous-start] broken-review-workflow: company-picker-agent → twin-grade-workflow: full-grade-workflow-start and quick-grade-workflow-start both take CompanyDto — a start is chosen by class: make one start's input a subclass (class QuickCheckRequestDto extends CompanyDto {})" };
@@ -539,6 +544,7 @@ declare module "../src/flow/generated-types.js" {
     "support-workflow-finish": CustomerReplyDto;
     "team-chart-workflow-finish": TeamChartDto;
     "topics-workflow-finish": TopicAnswerDto;
+    "treasury-desk-workflow-finish": WorkflowFinishTextDto;
     "treasury-workflow-finish": WorkflowFinishTextDto;
     "update-crm-action": NoOutput;
   }
@@ -583,6 +589,7 @@ declare module "../src/flow/generated-types.js" {
     "story-workflow-start": { input: ArticleRequestDto; output: ArticleDto | DraftDto };
     "support-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
     "topics-workflow-start": { input: SupportIntentDto; output: TopicAnswerDto };
+    "treasury-desk-workflow-start": { input: WorkflowStartTextDto; output: WorkflowFinishTextDto };
     "treasury-workflow-start": { input: WorkflowStartTextDto; output: WorkflowFinishTextDto };
     "verdict-workflow-start": { input: ShortlistDto; output: ApprovedVerdictDto | RejectedVerdictDto };
   }
@@ -1764,6 +1771,15 @@ declare module "../tests/flow/fixtures/replies.fixture.js" {
   }
   interface TreasurerAgent {
     readonly [agbossComponent]?: "treasurer-agent";
+  }
+  interface TreasuryDeskWorkflow {
+    readonly [agbossComponent]?: "treasury-desk-workflow";
+  }
+  interface TreasuryDeskWorkflowFinish {
+    readonly [agbossComponent]?: "treasury-desk-workflow-finish";
+  }
+  interface TreasuryDeskWorkflowStart {
+    readonly [agbossComponent]?: "treasury-desk-workflow-start";
   }
   interface TreasuryWorkflow {
     readonly [agbossComponent]?: "treasury-workflow";
