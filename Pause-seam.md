@@ -112,7 +112,8 @@ flowchart LR
    random 128-bit `pauseId`, `Pending`, not sent.
 2. **Send once**: a record not yet sent asks the channel — `send({ pauseId, value })`, `value` the
    call (`ToolCallApprovalAskDto`, `sensitive` fields masked). `ChannelOutcome.decided(decision)`
-   forgets the record and the step goes on with that decision, validated like a reply.
+   closes the record at once (`Taken`, `PauseResolution.Decided`, kept for the audit trail and its
+   retention) and the step goes on with that decision, validated like a reply.
    `ChannelOutcome.awaitReply()` marks the record sent — only while it is still `Pending`, so a
    reply that resolved it while `send` was returning is never overwritten and is taken at once —
    and the step stops at LangGraph's `interrupt({ pauseId })`: the run is **paused**, not finished.

@@ -204,6 +204,23 @@ export class QuorumAudit implements OnQuorumDecided {
 }
 ```
 
+## Pause answers
+
+Who answered each pause, and how, is not an event of its own — it is in the execution record
+(#267 S107): `result.record.pauses` (`{ record: true }` on `execute` / `resume`) lists every
+resolved pause of the tree in the order asked — `PauseAnswerRecord` (`pauseId` — none for a
+`PauseAnswerer.Channel` pause —, `step`, `role`, `answeredBy`, `responder`, `resolution:
+PauseResolution.Decided | Replied | Withdrawn | Cancelled`, `askedAt`, `resolvedAt`, `decision`),
+the decision masked like the rest of the record ([Pauses → who answered](Pauses#who-answered-resultrecordpauses)).
+`onExecutionResume` still names each decision a pass takes and its `answeredBy`. A reply
+interpreter's model call (#267 PR 3) is traced under the pause's execution (its tenant and root
+execution in the trace's metadata) and its cost is in `spend` under `reply-interpreter:<name>` —
+not an agent model call (no `onModelStart` / `onModelEnd`). It runs in the pause's execution frame
+(its tenant for the rate limits) and its model reads through the application's and the workflow's
+PII policies. The record's `pauses` come from the execution records
+(`ExecutionRecordRepository.findPauseAnswersByTenantIdAndRootExecutionId`): the pause records'
+retention never changes them.
+
 ## PII in events, logs, traces and the record
 
 Every event an observer gets, every line of the framework's log, every span a trace exports and

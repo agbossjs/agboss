@@ -65,6 +65,82 @@ console.log(result.threadId, result.runId, result.pending.length);
 - `app.cancel(threadId)` stays by thread — a conversation is cancelled, not a pause: its pauses are
   withdrawn.
 
+## Answering with free text: `app.resume({ pauseId, reply }, options)`
+
+A webhook that only has the person's words — a Slack thread reply, a mail — passes them as they
+are; the pause's role reads them with its **reply interpreter** (#267 PR 3), named on the role:
+
+<!-- snippet-context
+import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpreter, type App } from "agboss";
+import { Integer, Text } from "agboss/dto";
+declare const app: App;
+declare const replyKey: string;
+export class RefundCardInputDto {
+  @Text() orderId!: string;
+  @Integer() amountCents!: number;
+}
+-->
+
+```ts
+@ReplyInterpreter({
+  name: "refund-reply-interpreter",
+  description: "Turns a manager's free-text reply into a refund decision",
+  decidedBy: DecidedBy.Model,
+  model: "moonshotai/kimi-k2.6",
+  prompt:
+    "The manager answered a refund approval in free text. Decide approve / reject and any changed amount.",
+})
+export class RefundReplyInterpreter {}
+
+@ChannelRole({
+  name: "refund-approval-channel",
+  description: "Approves card refunds",
+  approves: RefundCardInputDto,
+  answeredBy: PauseAnswerer.Channel,
+  replyInterpreter: RefundReplyInterpreter, // one interpreter belongs to one role
+})
+export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
+
+// the webhook passes the text as it came; the result is the same as with a decision
+await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy: "manager-17" });
+```
+
+- **Exactly one of `decision` or `reply`** — by types (`ResumeRequest = DecisionResumeRequest |
+  ReplyResumeRequest`) and at run time: both, or an empty `reply`, is `DtoValidationError` before the
+  pause is looked up. The credential (`ownerId` / `answeredBy`) is checked as for a decision.
+- **The interpreter gets the pause's original question and the reply** — `{ ask, reply }`, where the
+  amount to halve is in `ask.arguments` — and what it gives is validated like a decision (the role's
+  answer DTO: `ToolCallApprovalDecisionDto` for an `approves` role, `overrideArguments` checked by
+  the tool's input). Code downstream decides by types, never by the text.
+- **`DecidedBy.Model`** — a chat model answers through one answer tool of the role's answer DTO; its
+  static `prompt` / `promptUrls` are its instructions, the question and the reply come in the input
+  message (`### ask` / `### reply`, #270 Q51). A decision model cannot give a typed answer —
+  `[reply-interpreter.decision-model]` at assembly. The call goes through the provider its model
+  resolves to by `serves` (`[model.unserved]` like any model), is checked against the tree's budgets
+  before it is made (an exhausted one → `BudgetExceededError`, the pause untouched), is counted in
+  their ledger at once and in the execution's `spend` when the step takes the answer — once — and is
+  traced under the pause's execution (cost caller `reply-interpreter:<name>`). Its model reads the
+  question and the reply through the application's and the workflow's PII policies (#120), like an
+  agent's: a `replaceWithToken()` value is a token for the model, its answer is revealed before it is
+  validated (the tool gets the real value), a token no map knows is a decline (the pause stays
+  `Pending`), a `blockWithRefusal` value in them throws `PiiRefusedError`.
+- **`DecidedBy.Code`** — `implements ReplyInterpreterHandler<Self>`: `interpret(input:
+  InputOf<Self>): Promise<OutputOf<Self>>`, typed by the generated `.agboss/types.d.ts`; `deps` like
+  any component, created by the application's container. It declines a reply it cannot read by
+  throwing.
+- **Either kind reads in the pause's execution frame**: an injected `ExecutionContext` reads the
+  pause's execution — its `tenant`, `ownerId`, the execution's own fields — and the waiting step
+  (`step.nodeId`, `step.callId`, its idempotency key), so the provider's rate limits see the tenant.
+- **The pause survives a bad reply**: interpretation runs before the pause is closed. A reply that
+  cannot be read as a valid answer — the interpreter declined (a code one threw, a model gave no
+  answer) or its answer is invalid for the role — throws `UninterpretableReplyError`
+  (`pause.uninterpretable-reply`, the reason as its `cause`), and the pause stays `Pending`: ask for a
+  clearer answer, or answer with a `decision`. A `reply` for a role without `replyInterpreter` is
+  `ReplyInterpreterMissingError` (`pause.no-reply-interpreter`), the pause untouched.
+- Assembly checks, all at once with the channel rules: `[name.kind-suffix]` (`-reply-interpreter`),
+  `[reply-interpreter.not-an-interpreter]` (a `replyInterpreter` class without `@ReplyInterpreter`),
+  `[reply-interpreter.no-interpret-method]`, `[channel.shared-interpreter]` (one class in two roles).
+
 ## Who may answer
 
 `@ChannelRole({ …, answeredBy })` is required (no default): a forgotten value must not let a customer
@@ -98,13 +174,50 @@ after a crash — finds the same `pauseId`:
 | ------------- | ---------------------------------------------------------------------------------------- |
 | `Pending`     | waiting; `isSent` once its channel's `send` returned                                     |
 | `Resolved`    | a resume recorded its decision (atomically, from `Pending` only); the holder takes it    |
-| `Taken`       | its step took the decision and went on                                                   |
+| `Taken`       | its step took the decision and went on — or its channel decided at once                  |
 | `Cancelled`   | withdrawn: a sibling failed under `FailFast`, the thread was cancelled, or the tree ended |
 
 An answer to anything but `Pending` → `NotPausedError` (`run.not-paused`): a double click, a late
-answer to a withdrawn question. `ChannelOutcome.decided(…)` leaves no record — the call never waited.
-Records stay after the tree ends (they answer late resumes); a project's repository may expire old
-ones.
+answer to a withdrawn question. Each record also says how it was resolved (`PauseResolution`), with
+its answer (`answer: PauseAnswer` — the decision, who answered, what reading a reply cost) and when
+(`askedAt`, `resolvedAt`, on the application's `Clock`):
+
+| `PauseResolution` | How                                                                   | Status      |
+| ----------------- | --------------------------------------------------------------------- | ----------- |
+| `Decided`         | its channel answered `ChannelOutcome.decided(…)` — the call never paused | `Taken`  |
+| `Replied`         | `awaitReply()`, then `app.resume` (a `decision` or a `reply`)          | `Resolved` → `Taken` |
+| `Withdrawn`       | a `FailFast` sibling failed before an answer                           | `Cancelled` |
+| `Cancelled`       | `app.cancel`, or its tree ended before an answer                       | `Cancelled` |
+
+**Retention** (#267 S107): a resolved record (`Taken`, `Cancelled`) is kept
+`@Application({ pauseRecordRetention })` after it was resolved — default `hours(24)` — and then
+removed by the [recovery sweep](Several-instances#recovery) (every 30 s, on the `Clock`) through
+`PausedExecutionRepository.deleteResolvedBefore(cutoff)`. Within the window a late answer gets
+`NotPausedError`; after it the id is unknown — `UnknownPauseError`. A `Pending` pause (and a
+`Resolved` one no pass took yet) is never removed, however old.
+
+## Who answered: `result.record.pauses`
+
+`{ record: true }` on `execute` / `resume` returns the execution record
+([Observability → the execution record](Observability)); its `pauses` are the audit trail — every
+resolved pause of the tree, in the order they were asked:
+
+| Field                    | What it is                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------ |
+| `pauseId`                | its id — `undefined` for a `PauseAnswerer.Channel` pause (only its channel has it) |
+| `step`                   | the waiting step: agent, node, visit, copy, item, tool call (`StepRecord`)     |
+| `role`, `answeredBy`     | the channel asked and who may answer                                           |
+| `responder`              | the `ownerId` / `answeredBy` of `app.resume`; `undefined` when decided at once, withdrawn or cancelled |
+| `resolution`             | `PauseResolution`                                                              |
+| `askedAt`, `resolvedAt`  | ISO 8601, the application's `Clock`                                            |
+| `decision`               | what was decided, masked by the application's PII policies; `undefined` when withdrawn or cancelled |
+
+The list is the permanent history: each entry is written when its pause is resolved — answered,
+decided at once, withdrawn or cancelled — into the execution records
+(`ExecutionRecordRepository.savePauseAnswer(tenantId, rootExecutionId, answer)`, once per pause), and
+read back with `findPauseAnswersByTenantIdAndRootExecutionId`. The pause records are operational
+state and are never read for it: the retention above removes a pause record, never its entry, so an
+execution paused for days still lists every pause it was asked.
 
 **`FailFast` drops paused siblings** (#273 S21): a branch that fails cancels its launch, and its paused
 siblings' pauses are withdrawn — the tree goes on to the join (its `.onJoinError(…)`, else the
@@ -142,11 +255,13 @@ first.
 was sent. `AutoApproveChannel` / `AutoRejectChannel` named on a tool decide at once (no pause), and
 `mockOf(Implementation).send.mockResolvedValue(ChannelOutcome.decided({ approved: true }))` scripts a
 role's implementation ([Testing](Testing)). `testWith(App, { instances: 2 })` answers two pauses of
-one tree from two instances at once.
+one tree from two instances at once. A model reply interpreter is scripted by what it reads —
+`mockLlm(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`
+— and a code one replaced with `mockOf(Interpreter).interpret` (`mockLlm` of a code interpreter is a
+setup error: it calls no model). Retention is tested with `clock.advance(…)`: the sweep runs on the
+test's clock.
 
 ## Not yet
 
-Free-text replies through a role's `@ReplyInterpreter` (`app.resume({ pauseId, reply })`) come with
-#267 PR 3.
 Choosing a channel implementation per environment (a terminal in dev, Slack in prod) is a
 documented limit: one implementation per application.

@@ -3,6 +3,53 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — reply interpreters, pause answer records and retention (#267, PR 3)
+
+- **Free-text replies** ([Pauses → free text](Pauses#answering-with-free-text-appresume-pauseid-reply--options)):
+  `app.resume({ pauseId, reply }, options)` — `ResumeRequest` is now `DecisionResumeRequest |
+  ReplyResumeRequest`, exactly one of `decision` / a non-empty `reply` (else `DtoValidationError`).
+  The role's `replyInterpreter` — a **`@ReplyInterpreter`** class (`-reply-interpreter`):
+  `DecidedBy.Model` (a chat model, one answer tool, static `prompt` / `promptUrls`) or
+  `DecidedBy.Code` (`implements ReplyInterpreterHandler<Self>`, `interpret({ ask, reply })`, `deps`,
+  created by the container) — reads the reply with the pause's question; its answer is validated
+  like a decision. A model interpreter's call resolves its provider by `serves`, is checked against
+  the tree's budgets first, counted in their ledger and in the execution's `spend` (once) and traced
+  under `reply-interpreter:<name>`. Either kind reads in the pause's execution frame (its
+  `ExecutionContext`: tenant, owner, the waiting step); a model one through the application's and
+  the workflow's PII policies, its answer revealed before validation (an unknown token is a decline).
+- **`UninterpretableReplyError`** (`pause.uninterpretable-reply`): a reply nobody can read — the
+  interpreter declined, or its answer is invalid (the reason as `cause`); the pause stays `Pending`.
+  **`ReplyInterpreterMissingError`** (`pause.no-reply-interpreter`): a `reply` for a role without an
+  interpreter, the pause untouched.
+- Assembly: `[reply-interpreter.not-an-interpreter]`, `[reply-interpreter.decision-model]`,
+  `[reply-interpreter.no-interpret-method]`, `[name.kind-suffix]` for `-reply-interpreter`; model
+  interpreters are model uses (`[model.unserved]`, `agboss check --models`: `replyInterpreters.<name>`).
+- Tests: `mockLlm(Interpreter).when({ reply })` scripts a model interpreter
+  ([Testing → Reply interpreters](Testing#reply-interpreters)); `mockOf(Interpreter)` a code one.
+- **Who answered each pause** ([Pauses → who answered](Pauses#who-answered-resultrecordpauses), S107):
+  `ExecutionRecord.pauses: PauseAnswerRecord[]` — every resolved pause of the tree in the order
+  asked (`pauseId` — none for a `PauseAnswerer.Channel` pause —, `step`, `role`, `answeredBy`,
+  `responder`, `resolution`, `askedAt`, `resolvedAt`, `decision` PII-masked, none when withdrawn or
+  cancelled); **`enum PauseResolution { Decided, Replied, Withdrawn, Cancelled }`**. Written when a
+  pause is resolved into the execution records — the permanent history, untouched by the retention:
+  **new abstract methods on `ExecutionRecordRepository`** (a project's own implementation adds them)
+  `savePauseAnswer(tenantId, rootExecutionId, answer)` and
+  `findPauseAnswersByTenantIdAndRootExecutionId(tenantId, rootExecutionId)`; the built-in and SQLite
+  ones keep them in a `pause_answers` table (migration 12 of the record store).
+- **Retention**: `@Application({ pauseRecordRetention })`, default `hours(24)` — resolved records
+  (`Taken`, `Cancelled`) are removed by the recovery sweep through
+  `PausedExecutionRepository.deleteResolvedBefore(cutoff)`; within the window a late answer is
+  `NotPausedError`, after it `UnknownPauseError`; `Pending` is never removed.
+- **Breaking — `PausedExecutionRepository`** (a project's own implementation changes):
+  `PauseRecord.resolution` (the decision and who answered) is now **`answer: PauseAnswer`**
+  (`decision`, `answerer`, `usage?`) — the interface `PauseResolution` became `PauseAnswer`, and
+  `PauseResolution` is the enum above; new record fields `copyNumber`, `askedAt`, `resolution`,
+  `resolvedAt`. `resolveByTenantIdAndPauseId(tenantId, pauseId, answer, at)`,
+  `cancelByTenantIdAndPauseId(tenantId, pauseId, resolution: PauseCancellation, at)`; new
+  `decideByTenantIdAndPauseId` (a channel's `ChannelOutcome.decided(…)` closes its record as `Taken` /
+  `Decided` instead of deleting it) and `deleteResolvedBefore(cutoff)`;
+  `deleteByTenantIdAndPauseId` is removed. `SqlitePausedExecutionRepository` migrates a PR 2 file.
+
 ## Unreleased — judges see the answer as its DTO (#262, PR 4)
 
 - **Breaking — `@Judge({ name, model, reply, deps })` + `JudgeHandler<TReply>`**

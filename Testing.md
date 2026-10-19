@@ -298,6 +298,36 @@ deadline, an agent with a tool that waits on the application's clock and the `cl
 (`await clock.advance(seconds(31))`). Assert on `result.launches[0]`:
 `isQuorumReached`, `group`, and each branch's `status`, `verdict`, `acceptedSequence`, `rejectedBy`.
 
+### Reply interpreters
+
+A model reply interpreter (#267 PR 3) is scripted by its class, its input the pause's `{ ask, reply }`
+— so `when(…)` binds a turn to the reply it reads, and its answer is the role's answer DTO:
+
+<!-- snippet-context
+import { ToolCallApprovalDecisionDto } from "agboss/dto";
+import { replyWith, type ModelScript } from "agboss/testing";
+declare function mockLlm(target: unknown): ModelScript;
+declare class RefundReplyInterpreter {}
+-->
+
+```ts
+mockLlm(RefundReplyInterpreter)
+  .when({ reply: "ok, but only half" })
+  .thenReturn(
+    replyWith(ToolCallApprovalDecisionDto, {
+      approved: true,
+      overrideArguments: { orderId: "7", amountCents: 500 },
+    }),
+  );
+```
+
+A text reply (`replyWith("I cannot tell")`) is the model declining: `app.resume` throws
+`UninterpretableReplyError` and the pause stays pending. `.inputs` lists what it read; its request
+is a chat request (`system`: the framework's text and its `prompt`; `input`: `### ask` and
+`### reply`). A code interpreter calls no model (`mockLlm` of it is a setup error) — the container
+creates it as written, and `mockOf(Interpreter).interpret.mockResolvedValue({ approved: false })`
+replaces it.
+
 ### What a component sent its model
 
 `mockLlm(X).requests` (every request, in order), `.onlyRequest` (fails unless exactly one),

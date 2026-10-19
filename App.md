@@ -124,9 +124,9 @@ two → `[di.ambiguous-implementation]`. A service that needs one injects the co
 
 | Contract                    | What it keeps                                                      | Built-in default |
 | --------------------------- | ------------------------------------------------------------------ | ---------------- |
-| `ExecutionRecordRepository` | threads and their owners, one record per execution (`completeIfStatus`: a compare-and-set status write), scores, config snapshots | in memory |
+| `ExecutionRecordRepository` | threads and their owners, one record per execution (`completeIfStatus`: a compare-and-set status write), scores, config snapshots, who answered each pause (`savePauseAnswer`, #267 S107) | in memory |
 | `CostLedgerRepository`      | the budgets' counters per budget, scope key and period, and each budget's last `maxSpend()` (`findSpentByCounter`, `saveAll`, `findMaxSpendByAccount`, `saveMaxSpend`) | in memory        |
-| `PausedExecutionRepository` | the paused execution of each thread (`findByThreadId`, `save`, `resolveByThreadId` — `Pending → Resolved` with its decision, atomic —, `deleteByThreadId`) | in memory |
+| `PausedExecutionRepository` | the paused execution of each thread (`findByTenantIdAndThreadId`, `save`, `deleteByTenantIdAndThreadId`) and every pause by its id (`findOrCreateByStepKey`, `resolveByTenantIdAndPauseId` — `Pending → Resolved` with its answer, atomic —, `decideByTenantIdAndPauseId`, `cancelByTenantIdAndPauseId`, `markTakenByTenantIdAndPauseId`, `deleteResolvedBefore` — [Pauses](Pauses#a-pauses-life)) | in memory |
 | `BaseCheckpointSaver`       | LangGraph's checkpoints, taken as is (ecosystem savers plug in)    | `MemorySaver`    |
 | `ExecutionLeaseRepository`  | one lease per execution tree: who moves it (`acquire`, `renew`, `release`, #265) | in memory |
 | `ExecutionTreeRepository`   | the shared state of one request (`saveIfAbsent`, `findById` inside an execution; removed when the tree ends) | in memory |

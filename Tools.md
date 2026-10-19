@@ -264,7 +264,9 @@ export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCar
   question. `answeredBy` is required — `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel`, no
   default. A tool whose `input` is not its role's `approves` (or that names a question role) fails
   assembly with `[channel.wrong-tool]`; one `replyInterpreter` class in two roles with
-  `[channel.shared-interpreter]`.
+  `[channel.shared-interpreter]`. `replyInterpreter` is a `@ReplyInterpreter` class (#267 PR 3) that
+  reads a free-text `app.resume({ pauseId, reply })` with the pause's question into the role's
+  answer — by its chat model or by its code ([Pauses → free text](Pauses#answering-with-free-text-appresume-pauseid-reply--options)).
 - **The implementation** is a `@Channel` that `extends` the role, listed in
   `@Application({ providers })` — found by inheritance, like any contract: none →
   `[di.missing-implementation]`, two → `[di.ambiguous-implementation]`; a `@Channel` in a workflow's
@@ -278,7 +280,8 @@ export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCar
   the execution through `deps`). `ChannelOutcome.awaitReply()` — the call pauses and is saved
   until the reply ([Pauses](Pauses), [Pause seam](Pause-seam)); `ChannelOutcome.decided(decision)` — the answer now
   (a rule such as "up to $50 at once", `AutoApproveChannel`): no pause, the decision validated like
-  a reply. A `send` that returns anything else fails the step.
+  a reply, its pause record closed at once (`PauseResolution.Decided`). A `send` that returns
+  anything else fails the step.
 - **Who answers** (#267 PR 2): the role's `answeredBy`. A `PauseAnswerer.ThreadOwner` pause is
   answered with the thread's `ownerId` and its `pauseId` is listed in `result.pending`; a
   `PauseAnswerer.Channel` pause — the reply comes through the channel's own system — is answered
@@ -286,7 +289,7 @@ export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCar
   listed (it is the right to answer). The `pauseId` is made once per pause, before the first `send`:
   a retried `send` gets the same one — use it as the idempotency key of the post. Several pauses
   at once, concurrent answers, validation: [Pauses](Pauses).
-- Not yet (#267 PR 3): free-text replies through `@ReplyInterpreter`. Choosing an implementation per
+- Not yet: choosing an implementation per
   environment (a terminal in dev, Slack in prod) is a documented limit: one implementation per
   application.
 

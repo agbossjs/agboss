@@ -232,6 +232,24 @@ export class RecoveryCounter implements OnExecutionResume {
 }
 ```
 
+**The same sweep keeps the pause records small** (#267 S107): at each look it removes, across
+tenants, the resolved pause records (`Taken`, `Cancelled`) resolved more than
+`@Application({ pauseRecordRetention })` ago — default `hours(24)` —
+through `PausedExecutionRepository.deleteResolvedBefore(cutoff)`, `cutoff` = the `Clock`'s now minus
+the retention. Every instance may run it; it is idempotent. Within the window a late answer to a
+taken or withdrawn pause gets `NotPausedError`, after it `UnknownPauseError`; a `Pending` pause is
+never removed ([Pauses → a pause's life](Pauses#a-pauses-life)). A project's own
+`PausedExecutionRepository` implements `deleteResolvedBefore` too — one statement over the records'
+status and `resolvedAt` (`SqlitePausedExecutionRepository`: an index on `(status, resolved_at)`). Who
+answered each pause is not in these records: it is written into the execution records when the
+pause is resolved (`ExecutionRecordRepository.savePauseAnswer`), so the sweep never changes
+`result.record.pauses`.
+
+A free-text reply (`app.resume({ pauseId, reply })`, #267 PR 3) is read on the instance that got
+the call, before the pause is resolved and before the tree's lease is taken: the interpreter's
+model call holds no lease, and its spend reaches the tree's budgets through the shared ledger at
+once, whichever instance then moves the tree.
+
 **A graceful stop** (`app.close()`, SIGTERM — [App → app.close()](App#appcloseoptions)) first stops
 the instance's own sweep, waits for its running executions up to the shutdown timeout (default
 `seconds(25)`), then interrupts what is left: each releases its lease at once and stays `running`,
