@@ -1440,7 +1440,7 @@ export abstract class ExecutionRecordRepository {
     //
     // (undocumented)
     abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
-    abstract createThread(workflow: string, tenantId: string, owner?: string): Promise<string>;
+    abstract createThread(workflow: string, tenantId: string, owner?: string, threadId?: string): Promise<string>;
     abstract findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Tern[]>;
     abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
     abstract lastTerns(threadId: string, limit: number): Promise<Tern[]>;
@@ -1861,6 +1861,14 @@ export type InputOf<TInstance> = GeneratedEntry<Inputs, TInstance>;
 export interface Inputs {
     // (undocumented)
     readonly [notGenerated]?: never;
+}
+
+// @public
+export class InvalidThreadIdError extends AGBossError {
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    name: string;
 }
 
 // @public
@@ -4082,21 +4090,21 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/app-deps.ts:87:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/create-app.ts:52:3 - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/create-app.ts:58:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:10:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:11:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/paused-runs.ts:20:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts:22:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts:23:3 - (ae-undocumented) Missing documentation for "Paused".
-// src/app/types.ts:68:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:69:3 - (ae-undocumented) Missing documentation for "ownerId".
 // src/app/types.ts:74:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/types.ts:75:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/app/types.ts:89:3 - (ae-undocumented) Missing documentation for "cancelled".
-// src/app/types.ts:98:3 - (ae-undocumented) Missing documentation for "status".
-// src/app/types.ts:116:3 - (ae-undocumented) Missing documentation for "spend".
-// src/app/types.ts:137:3 - (ae-undocumented) Missing documentation for "name".
-// src/app/types.ts:138:3 - (ae-undocumented) Missing documentation for "version".
+// src/app/types.ts:80:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:81:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/app/types.ts:95:3 - (ae-undocumented) Missing documentation for "cancelled".
+// src/app/types.ts:104:3 - (ae-undocumented) Missing documentation for "status".
+// src/app/types.ts:122:3 - (ae-undocumented) Missing documentation for "spend".
+// src/app/types.ts:143:3 - (ae-undocumented) Missing documentation for "name".
+// src/app/types.ts:144:3 - (ae-undocumented) Missing documentation for "version".
 // src/application/application.ts:99:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
@@ -4645,13 +4653,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
 // src/graph/settings.ts:36:3 - (ae-undocumented) Missing documentation for "settings".
 // src/infrastructure/cost-ledger.repository.ts:31:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
-// src/infrastructure/execution-record.repository.ts:54:3 - (ae-undocumented) Missing documentation for "append".
-// src/infrastructure/execution-record.repository.ts:69:3 - (ae-undocumented) Missing documentation for "byIds".
-// src/infrastructure/execution-record.repository.ts:87:3 - (ae-undocumented) Missing documentation for "saveScore".
-// src/infrastructure/execution-record.repository.ts:88:3 - (ae-undocumented) Missing documentation for "meanScore".
-// src/infrastructure/execution-record.repository.ts:98:3 - (ae-undocumented) Missing documentation for "configSnapshots".
-// src/infrastructure/execution-record.repository.ts:107:3 - (ae-undocumented) Missing documentation for "addSummary".
-// src/infrastructure/execution-record.repository.ts:110:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record.repository.ts:63:3 - (ae-undocumented) Missing documentation for "append".
+// src/infrastructure/execution-record.repository.ts:78:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record.repository.ts:96:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record.repository.ts:97:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record.repository.ts:107:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record.repository.ts:116:3 - (ae-undocumented) Missing documentation for "addSummary".
+// src/infrastructure/execution-record.repository.ts:119:3 - (ae-undocumented) Missing documentation for "summaryCount".
 // src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:41:9 - (ae-undocumented) Missing documentation for "getTuple".
@@ -4805,11 +4813,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/resume-guard.ts:40:3 - (ae-undocumented) Missing documentation for "runId".
 // src/run/resume-guard.ts:41:3 - (ae-undocumented) Missing documentation for "paused".
 // src/run/resume-guard.ts:42:3 - (ae-undocumented) Missing documentation for "current".
-// src/run/thread.ts:6:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
-// src/run/thread.ts:7:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:8:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/thread.ts:13:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:14:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:7:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
+// src/run/thread.ts:8:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:9:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:14:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:15:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:20:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:21:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/types.ts:22:3 - (ae-undocumented) Missing documentation for "terns".
 // src/run/types.ts:38:1 - (ae-undocumented) Missing documentation for "RunOptions".
 // src/run/types.ts:70:3 - (ae-undocumented) Missing documentation for "status".
