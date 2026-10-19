@@ -1,6 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
+import { extractRunContext } from "../../../core/run-context.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { runInFrame } from "../../context/frame.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
