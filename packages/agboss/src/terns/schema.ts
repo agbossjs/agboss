@@ -176,7 +176,8 @@ function migrate(db: DatabaseSync): void {
   try {
     migrateInTransaction(db);
     const broken = db.prepare("PRAGMA foreign_key_check").all();
-    if (broken.length > 0) throw new Error(`migration left ${String(broken.length)} broken references`);
+    if (broken.length > 0)
+      throw new Error(`migration left ${String(broken.length)} broken references`);
   } finally {
     if (restore) db.exec("PRAGMA foreign_keys = ON");
   }

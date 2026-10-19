@@ -54,7 +54,10 @@ describe("#265 S30: continuing an interrupted execution", () => {
   it("one that stopped before its first checkpoint has nothing to continue: failed", async () => {
     const terns = createSqliteTernStore(":memory:", () => new Date());
     const deps = await fakeDeps({}, { terns });
-    const threadId = await terns.createThread({ workflow: "test-bundle-workflow", tenantId: "default" });
+    const threadId = await terns.createThread({
+      workflow: "test-bundle-workflow",
+      tenantId: "default",
+    });
     const record = await terns.append({
       runId: "run-lost",
       threadId,

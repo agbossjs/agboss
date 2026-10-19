@@ -85,4 +85,3 @@ export class InMemoryPausedExecutionRepository extends PausedExecutionRepository
     return Promise.resolve();
   }
 }
-

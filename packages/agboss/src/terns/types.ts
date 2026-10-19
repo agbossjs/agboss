@@ -98,7 +98,11 @@ export interface MemoryStore {
   readonly turnNumber: (tenantId: string, threadId: string, ternId: string) => Promise<number>;
   readonly addSummary: (summary: NewSummary) => Promise<Summary>;
   /** The latest `limit` summaries of the thread, oldest first. */
-  readonly latestSummaries: (tenantId: string, threadId: string, limit: number) => Promise<Summary[]>;
+  readonly latestSummaries: (
+    tenantId: string,
+    threadId: string,
+    limit: number,
+  ) => Promise<Summary[]>;
   readonly summaryCount: (tenantId: string, threadId: string) => Promise<number>;
 }
 

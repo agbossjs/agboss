@@ -52,7 +52,11 @@ describe.each(kinds)("#265 AC7: execution records ($name)", ({ twoInstances }) =
   it("a thread made on one instance is known to the other, with its owner", async () => {
     const { first, second } = twoInstances();
 
-    const thread = await first.createThread({ workflow: "desk-workflow", tenantId: "default", ownerId: "dana" });
+    const thread = await first.createThread({
+      workflow: "desk-workflow",
+      tenantId: "default",
+      ownerId: "dana",
+    });
 
     expect(await second.hasThread("desk-workflow", "default", thread)).toBe(true);
     expect(await second.threadOwner("desk-workflow", "default", thread)).toEqual({ owner: "dana" });
