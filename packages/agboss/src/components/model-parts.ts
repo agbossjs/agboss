@@ -13,6 +13,11 @@ export interface PolicyModels {
   readonly guardrails: readonly LoadedGuardrail[];
 }
 
+/** The model-calling components besides config and routers: policies and reply interpreters. */
+export interface ModelUsers extends PolicyModels {
+  readonly replyInterpreters: readonly AssembledReplyInterpreter[];
+}
+
 /**
  * The workflow's model arbiters (#279), its reply interpreters (#267) and its model providers,
  * every model resolved to one — its policies' models (#120) too.
@@ -21,18 +26,18 @@ export function modelPartsOf(
   owner: { readonly providers?: readonly Provider[] } | undefined,
   models: Pick<WorkflowModels, "config" | "routers">,
   graph: RuntimeGraph,
-  policies: PolicyModels,
-  replyInterpreters: readonly AssembledReplyInterpreter[],
+  users: ModelUsers,
 ): Pick<AssembledWorkflow, "arbiters" | "modelProviders" | "replyInterpreters"> {
   const arbiters = modelArbitersOf(graph.launches);
+  const { replyInterpreters } = users;
   return {
     arbiters,
     replyInterpreters,
     modelProviders: resolvedModelProvidersOf(owner?.providers, {
       ...models,
       arbiters,
-      pii: { detectors: policies.pii },
-      guardrails: { guardrails: policies.guardrails },
+      pii: { detectors: users.pii },
+      guardrails: { guardrails: users.guardrails },
       replyInterpreters,
     }),
   };

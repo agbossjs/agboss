@@ -73,6 +73,12 @@ function configOf(
   };
 }
 
+/** The workflow's MCP servers and the server tools declared on them. */
+const mcpPartsOf = (mcp: Mcp): Pick<AssembledWorkflow, "mcpServers" | "serverTools"> => ({
+  mcpServers: mcp.handles,
+  serverTools: mcp.serverTools,
+});
+
 /** Each tool's dependency tree by tool name (tools without dependencies are left out). */
 const toolDependenciesOf = (
   bundle: WorkflowMeta,
@@ -190,7 +196,8 @@ export async function workflowOf(
   const prompts = await promptsOf(agents, loader);
   const config = configOf(bundle, agents, names, mcp, judges);
   validateAgentsConfig(config, [...names.values()]);
-  const models = modelPartsOf(owner, { config, routers }, graph, policies.models, replyInterpreters);
+  const modelUsers = { ...policies.models, replyInterpreters };
+  const models = modelPartsOf(owner, { config, routers }, graph, modelUsers);
   rememberDefaultsLevels(graph, levelsOf(workflow, owner));
   return {
     config,
@@ -207,8 +214,7 @@ export async function workflowOf(
     ...(rags.length === 0 ? {} : ragParts(bundle, agents, rags)),
     ...memoryPartsOf(bundle, agents),
     ...judgePartsOf(bundle, judges),
-    mcpServers: mcp.handles,
-    serverTools: mcp.serverTools,
+    ...mcpPartsOf(mcp),
     toolDependencies: toolDependenciesOf(bundle, [...tools.local, ...tools.mcp], names),
     ...(bundle.compactionPrompt === undefined ? {} : { compactionPrompt: bundle.compactionPrompt }),
   };
