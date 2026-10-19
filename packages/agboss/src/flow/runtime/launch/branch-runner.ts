@@ -100,17 +100,12 @@ function branchFrameOf(run: BranchRun, view: ExecutionStateType) {
   const recordChild = (record: ChildExecutionRecord): void => {
     run.children.push(record);
   };
-  const keepPiiTokens = (tokens: PiiTokenMap): void => {
-    run.piiTokens = { ...run.piiTokens, ...tokens };
-  };
+  const keepPiiTokens = (tokens: PiiTokenMap): void =>
+    void (run.piiTokens = { ...run.piiTokens, ...tokens });
+  const input = () => readInput(deps.graph, node, view).fields;
   const frame = {
     ...stepFrameAt(site, view, config, deps.workflow, deps.contexts),
-    services: {
-      reportUsage,
-      recordChild,
-      keepPiiTokens,
-      input: () => readInput(deps.graph, node, view).fields,
-    },
+    services: { reportUsage, recordChild, keepPiiTokens, input },
   };
   return { config, frame };
 }

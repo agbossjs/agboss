@@ -13,15 +13,14 @@ import { finishRunner } from "./runners/finish.js";
 import { codeRouterRunner } from "./runners/code-router.js";
 import { routerRunner } from "./runners/router.js";
 import { startRunner } from "./runners/start.js";
-import { branchNode, type BranchDeps } from "./launch/branch-runner.js";
+import { branchNode } from "./launch/branch-runner.js";
 import { branchInputOf } from "./launch/branch-view.js";
-import { joinNode, type JoinDeps } from "./launch/join-node.js";
+import { joinNode } from "./launch/join-node.js";
 import { LAUNCH_NEXT } from "./launch/launch-exit.js";
-import { LaunchRegistry } from "./launch/launch-registry.js";
 import { ExecutionState, type ExecutionStateType, type ExecutionStateUpdate } from "./state.js";
-import { visitNode, type VisitDeps } from "./visit.js";
-import { standaloneContexts } from "../context/runtime-contexts.js";
+import { visitNode } from "./visit.js";
 import { childRunner, type ChildGraph } from "./child.js";
+import { nodeDepsOf } from "./node-deps.js";
 
 /**
  * One LangGraph `StateGraph` per workflow (#272 → Runtime): a node per component, its id the
@@ -158,45 +157,6 @@ function nextOf(state: ExecutionStateType): string | Send[] {
       (branch) => new Send(branch.node, branchInputOf(state, branch)),
     );
   return state.next === "" ? END : state.next;
-}
-
-/** What a launch's branches and join share in one pass: its registry, arbiters and stores. */
-function launchDepsOf(
-  deps: GraphDeps<string>,
-  visitDeps: VisitDeps,
-  checkpointer: BaseCheckpointSaver | undefined,
-): BranchDeps & JoinDeps {
-  return {
-    ...visitDeps,
-    registry: new LaunchRegistry(),
-    // a quorum's arbiters (#279): code ones from the container, model ones on their model
-    arbiters: {
-      instanceOf: (arbiter: Class): unknown => deps.container.get(arbiter),
-      ...(deps.arbiterModelFor === undefined ? {} : { modelOf: deps.arbiterModelFor }),
-    },
-    ...(checkpointer === undefined ? {} : { checkpointer }),
-    ...(deps.pause === undefined ? {} : { pauses: deps.pause.pauses }),
-    ...(deps.branchErrors === undefined ? {} : { branchErrors: deps.branchErrors }),
-  };
-}
-
-/** What every visit and every launch of the graph runs with. */
-function nodeDepsOf(
-  deps: GraphDeps<string>,
-  run: RunLimits,
-  checkpointer: BaseCheckpointSaver | undefined,
-) {
-  const workflow = { type: deps.graph.type, name: deps.config.name, version: deps.config.version };
-  const visitDeps = {
-    limits: { maxSteps: deps.maxSteps, budgets: run.budgets },
-    workflow,
-    contexts: deps.contexts ?? standaloneContexts(workflow),
-    provenance: deps.graph.provenance,
-    graph: deps.graph,
-    observer: deps.observer,
-  };
-  const launchDeps = launchDepsOf(deps, visitDeps, checkpointer);
-  return { visitDeps, launchDeps };
 }
 
 function compile(
