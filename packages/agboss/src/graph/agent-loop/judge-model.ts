@@ -42,7 +42,10 @@ function decideOf(binding: JudgeBinding, spent: UsageRecord[]): JudgeModel["deci
 }
 
 /** A judge's model: each call through the gateway, its spend added to `spent`. */
-export function meteredModel(judge: AgentJudge, spent: UsageRecord[]): JudgeModel {
+export function meteredModel(
+  judge: Pick<AgentJudge, "name" | "binding">,
+  spent: UsageRecord[],
+): JudgeModel {
   return {
     model: judge.binding.model,
     invoke: invokeOf(judge.name, judge.binding, spent),

@@ -83,7 +83,7 @@ export const memoryFor = (
 export const judgesFor = (
   bundle: AssembledWorkflow,
   services: WorkflowServices,
-): { readonly judges?: ReadonlyMap<string, JudgeHandler> } => {
+): { readonly judges?: ReadonlyMap<string, JudgeHandler<unknown>> } => {
   const judges = bundle.judges?.(services);
   return judges === undefined ? {} : { judges };
 };

@@ -72,7 +72,7 @@ export interface AssembledWorkflow<TName extends string = string> {
     services: WorkflowServices,
   ) => ReadonlyMap<string, BaseMemoryStrategy>;
   /** The agents' `@Judge`s by judge name, created by the workflow's container. */
-  readonly judges?: (services: WorkflowServices) => ReadonlyMap<string, JudgeHandler>;
+  readonly judges?: (services: WorkflowServices) => ReadonlyMap<string, JudgeHandler<unknown>>;
   /** Context-mode knowledge bases per agent (retrieved before the agent runs). */
   readonly knowledge?: (
     services: WorkflowServices,

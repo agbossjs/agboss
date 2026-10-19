@@ -618,17 +618,25 @@ export class AuditStoreService {
 
 ## Quality gates (judges)
 
-`@Agent({ judges: [AnswerGrounded], maxRetries: 1 })` runs every judge on the agent's reply. A judge
-is a `@Judge({ name, model, deps })` class implementing `JudgeHandler`; the container creates it with
-its `deps`, and its **own** model is called through the model gateway, so its spend is in the run's
-cost report (`judge:<name>`, category `review`). A rejected reply goes back to the agent with the
-feedback; once `maxRetries` retries are spent the run throws `QualityGateError`
-(`code: "step.agent.quality-gate"`, `feedback` per judge). A judge without a model fails at app start
-(`[judge.no-model]`).
+`@Agent({ judges: [AnswerGroundedJudge], maxRetries: 1 })` runs every judge on the agent's reply. A
+judge is a `@Judge({ name, model, reply, deps })` class implementing `JudgeHandler<TReply>`; the
+container creates it with its `deps`, and its **own** model is called through the model gateway, so
+its spend is in the run's cost report (`judge:<name>`, category `review`). A judge sees the agent's
+answer **as its DTO** (#262 S115): `reply` names what it judges, in every shape an agent's `output`
+has — a DTO class, `oneOf(A, B)` (the reply is `A | B`), `listOf(XDto)` (a `readonly XDto[]`) or
+`PlainTextDto` for a text agent (`{ text }`) — and `judge({ reply, task, attempt })` gets the
+validated answer object, never a serialized string. An agent whose `output` its judge does not judge
+fails assembly with `[judge.wrong-reply]`: a text agent with a DTO judge, a DTO agent with another
+class, a `oneOf` variant the judge does not cover, a list agent with a judge of one value or the
+other way round. A verdict is built with `JudgeVerdict.passed({ metrics? })` or
+`JudgeVerdict.failed({ reason, metrics? })` — the only way; a failed verdict's `reason` goes back to
+the agent for its retry, and once `maxRetries` retries are spent the run throws `QualityGateError`
+(`code: "step.agent.quality-gate"`, `rejections: [{ judge, reason }]`). A judge without a model
+fails at app start (`[judge.no-model]`).
 
-A judge gets what it judges as its input (`judge({ reply, task, attempt })`) and its model through
-the constructor (`deps: [JudgeModel]`): a chat model (`judgeModel.invoke(...)`) or a **decision
-model** (`judgeModel.decide({ state, questions })`) — every model of OpenRouter's Decisions API:
+A judge's model comes through the constructor (`deps: [JudgeModel]`): a chat model
+(`judgeModel.invoke(...)`) or a **decision model** (`judgeModel.decide({ state, questions })`) —
+every model of OpenRouter's Decisions API:
 `typesafe/jev-1.13`, `openai/gpt-6-luna-decisions`, `perplexity/pplx-decider-v1(.1)-27b`,
 `cloudflare/clef(-flash|-omni)`, `upstage/solar-decide`, `inception/mercury-decide`
 (`DECISION_MODELS`; `DecisionsModelProvider` serves them, `JevModelProvider` is its deprecated alias).
@@ -642,7 +650,20 @@ most 200 questions per call; an answer that does not fit its question fails with
 
 <!-- snippet-context
 import { InjectionToken } from "agboss";
+import { ListOf, Text } from "agboss/dto";
+export class JobDto {
+  @Text({ prompt: "the job's title" })
+  title!: string;
+
+  @Text({ prompt: "where the job is posted" })
+  url!: string;
+}
+export class JobReportDto {
+  @ListOf(JobDto, { prompt: "the jobs found" })
+  jobs!: JobDto[];
+}
 interface JobSearch {
+  exists(url: string): Promise<boolean>;
   lastResults(): readonly string[];
 }
 const JOB_SEARCH = new InjectionToken<JobSearch>("JOB_SEARCH");
@@ -653,28 +674,33 @@ import {
   Decision,
   Judge,
   JudgeModel,
+  JudgeVerdict,
   type JudgeHandler,
   type JudgeInput,
-  type JudgeVerdict,
 } from "agboss";
 
 @Judge({
-  name: "answer-grounded",
+  name: "answer-grounded-judge",
   model: "openai/gpt-6-luna-decisions",
+  reply: JobReportDto, // what it judges: the agent's output, as its DTO
   deps: [JudgeModel, JOB_SEARCH],
 })
-export class AnswerGrounded implements JudgeHandler {
+export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
   constructor(
     private readonly judgeModel: JudgeModel,
     private readonly jobSearch: JobSearch,
   ) {}
 
-  async judge({ reply, task }: JudgeInput): Promise<JudgeVerdict> {
+  async judge({ reply, task }: JudgeInput<JobReportDto>): Promise<JudgeVerdict> {
+    const [first] = reply.jobs;
+    if (first === undefined || !(await this.jobSearch.exists(first.url))) {
+      return JudgeVerdict.failed({ reason: "the first job does not exist" });
+    }
     const a = await this.judgeModel.decide({
-      state: { task, reply, results: this.jobSearch.lastResults() },
+      state: { task, jobs: reply.jobs.map((job) => job.title), results: this.jobSearch.lastResults() },
       questions: {
-        grounded: Decision.noul("Every fact in the reply appears in the results"),
-        tone: Decision.choice("Tone of the reply", {
+        grounded: Decision.noul("Every job of the report appears in the results"),
+        tone: Decision.choice("Tone of the report", {
           neutral: "Plain, factual",
           pushy: "Sells or pressures",
         }),
@@ -683,15 +709,17 @@ export class AnswerGrounded implements JudgeHandler {
     });
     // a.grounded.noul: number; a.tone.choice: "neutral" | "pushy"; a.quality.score: number
     return a.grounded.noul > 0.7 && a.tone.choice === "neutral"
-      ? { passed: true }
-      : { passed: false, feedback: "Only state facts from the search results, neutrally." };
+      ? JudgeVerdict.passed({ metrics: { quality: a.quality.score } })
+      : JudgeVerdict.failed({ reason: "Only report jobs from the search results, neutrally." });
   }
 }
 ```
 
 In tests, script a chat judge like an agent — `mockLlm(Judge).thenReturn(replyWith("PASS"))` — and a
 decision judge with its answers by question id (an option, P(yes), a level's index or text):
-`mockLlm(AnswerGrounded).thenReturn(decideWith({ grounded: 0.9, tone: "neutral", quality: 2 }, { cost: usd(0.0002) }))`.
+`mockLlm(AnswerGroundedJudge).thenReturn(decideWith({ grounded: 0.9, tone: "neutral", quality: 2 }, { cost: usd(0.0002) }))`;
+on its own, `testJudge(AnswerGroundedJudge, …)({ reply, task, attempt })` takes `reply` as a plain
+object of its DTO, typed by the judge (another shape does not compile).
 
 Routers and guards work on any decision model too (`@Router({ model: "openai/gpt-6-luna-decisions" })`):
 one choice question over the routes, options sorted so declaration order never changes the request.
@@ -785,6 +813,7 @@ its model by script; each call gives `{ output, spend }`.
 
 <!-- snippet-context
 import { Injectable, type JudgeHandler, type JudgeInput, type JudgeVerdict } from "agboss";
+import type { PlainTextDto } from "agboss/dto";
 declare class QuickPanelApplication {}
 declare class PanelWorkflowStart {}
 declare class SkillsAgent {}
@@ -800,8 +829,8 @@ export class FakeJobBoardService extends JobBoardService {}
 declare class SearchJobsTool {
   run(input: { readonly query: string }): Promise<{ readonly jobs: string }>;
 }
-declare class GroundedJudge implements JudgeHandler {
-  judge(input: JudgeInput): Promise<JudgeVerdict>;
+declare class GroundedJudge implements JudgeHandler<PlainTextDto> {
+  judge(input: JudgeInput<PlainTextDto>): Promise<JudgeVerdict>;
 }
 // the start's input, typed by the generated types of a real project
 declare const candidate: never;
@@ -844,7 +873,8 @@ it("searches the board it is given", async () => {
 it("a grounded reply passes", async () => {
   const runJudge = testJudge(GroundedJudge, { model: decideWith({ grounded: 0.9 }) });
 
-  const { output } = await runJudge({ task: "Find TS jobs", reply: "…", attempt: 0 });
+  const reply = { text: "Acme hires TS engineers [acme.example]" }; // a PlainTextDto, as an object
+  const { output } = await runJudge({ task: "Find TS jobs", reply, attempt: 0 });
 
   expect(output.passed).toBe(true);
 });

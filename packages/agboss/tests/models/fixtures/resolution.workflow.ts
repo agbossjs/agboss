@@ -9,10 +9,14 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  JudgeVerdict,
   type JudgeHandler,
-  type JudgeVerdict,
 } from "../../../src/index.js";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import {
+  PlainTextDto,
+  WorkflowFinishTextDto,
+  WorkflowStartTextDto,
+} from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
 import { route, start } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -24,10 +28,10 @@ import { LocalMirrorModelProvider, LocalModelProvider } from "../providers.fixtu
  * every kind of model use (agents, model routers, the default router, guards, compaction, judges).
  */
 
-@Judge({ name: "nowhere-judge", model: "nowhere/judge" })
-export class NowhereJudge implements JudgeHandler {
+@Judge({ name: "nowhere-judge", model: "nowhere/judge", reply: PlainTextDto })
+export class NowhereJudge implements JudgeHandler<PlainTextDto> {
   judge(): Promise<JudgeVerdict> {
-    return Promise.resolve({ passed: true });
+    return Promise.resolve(JudgeVerdict.passed());
   }
 }
 

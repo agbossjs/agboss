@@ -232,12 +232,12 @@ export interface GuardrailRunner extends UnitClock {
 export type InputMatcherOf<TSelf> = IsKnown<TSelf> extends true ? PartialValues<InputOf<TSelf>> : Readonly<Record<string, unknown>>;
 
 // @public
-export interface JudgeRunner extends UnitClock {
+export interface JudgeRunner<TReply> extends UnitClock {
     // Warning: (ae-forgotten-export) The symbol "JudgeInput" needs to be exported by the entry point index.d.ts
     // Warning: (ae-forgotten-export) The symbol "JudgeVerdict" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
-    (input: JudgeInput, options?: UnitCallOptions): Promise<UnitRun<JudgeVerdict>>;
+    (input: JudgeInput<TReply>, options?: UnitCallOptions): Promise<UnitRun<JudgeVerdict>>;
 }
 
 // @public
@@ -549,10 +549,11 @@ export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted"
 // @public
 export function testGuardrail<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(guardrail: Class<Guardrail>, options?: UnitOptions<TExecution, TTenant>): GuardrailRunner;
 
-// Warning: (ae-forgotten-export) The symbol "JudgeHandler" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "JudgeHandlerClass" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "JudgeReplyOf" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function testJudge<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(judge: Class<JudgeHandler>, options?: UnitModelOptions<unknown, TExecution, TTenant>): JudgeRunner;
+export function testJudge<TJudge extends JudgeHandlerClass, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(judge: TJudge, options?: UnitModelOptions<unknown, TExecution, TTenant>): JudgeRunner<JudgeReplyOf<TJudge>>;
 
 // @public
 export function testPii<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(policies: readonly Class[], options?: UnitModelOptions<unknown, TExecution, TTenant>): PiiRunner;
@@ -899,7 +900,7 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/test-guardrail.ts:27:3 - (ae-undocumented) Missing documentation for "afterToolCall".
 // src/testing/units/test-guardrail.ts:31:3 - (ae-undocumented) Missing documentation for "beforeAgentAnswer".
 // src/testing/units/test-guardrail.ts:35:3 - (ae-undocumented) Missing documentation for "onChannelDecision".
-// src/testing/units/test-judge.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-judge.ts:27:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-rag.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-router.ts:22:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-tool.ts:13:3 - (ae-undocumented) Missing documentation for "run".

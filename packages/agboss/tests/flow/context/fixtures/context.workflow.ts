@@ -7,6 +7,7 @@ import {
   Injectable,
   Judge,
   JudgeModel,
+  JudgeVerdict,
   Router,
   Tool,
   Workflow,
@@ -14,7 +15,6 @@ import {
   WorkflowStart,
   type JudgeHandler,
   type JudgeInput,
-  type JudgeVerdict,
   type StepDescriptor,
   type ToolHandler,
   type WorkflowDescriptor,
@@ -92,18 +92,25 @@ export class NoteTool implements ToolHandler<NoteDto, NoteDto> {
 }
 
 /** Rejects the first reply, passes the rest: the agent retries within the same visit. */
-@Judge({ name: "picky", model: "test/picky", deps: [JudgeModel, ExecutionContext] })
-export class PickyJudge implements JudgeHandler {
+@Judge({
+  name: "picky",
+  model: "test/picky",
+  reply: DraftDto,
+  deps: [JudgeModel, ExecutionContext],
+})
+export class PickyJudge implements JudgeHandler<DraftDto> {
   constructor(
     private readonly judgeModel: JudgeModel,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  judge({ attempt }: JudgeInput): Promise<JudgeVerdict> {
+  judge({ attempt }: JudgeInput<DraftDto>): Promise<JudgeVerdict> {
     seen.judged.push(
       `${this.judgeModel.model}:${this.executionContext.step.nodeId}:${String(attempt)}`,
     );
-    return Promise.resolve(attempt === 0 ? { passed: false, feedback: "again" } : { passed: true });
+    return Promise.resolve(
+      attempt === 0 ? JudgeVerdict.failed({ reason: "again" }) : JudgeVerdict.passed(),
+    );
   }
 }
 

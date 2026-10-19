@@ -523,7 +523,7 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   (output DTO, output guards). `app.execute(Start, input)` is typed by the generated tables:
   `input` is the start's input, `result.output` the finishes' outputs.
 - **Assembly rules** fail before any model call with **all** violations at once (`GraphRuleError`,
-  stable codes `flow.*` / `graph.*` / `input.*` / `io.*` / `launch.*` / `router.*` / `arbiter.*`): names end with their kind
+  stable codes `flow.*` / `graph.*` / `input.*` / `io.*` / `launch.*` / `router.*` / `arbiter.*` / `judge.*`): names end with their kind
   (`-agent`, `-router`, `-action`, `-workflow-start`, `-workflow-finish`, `-workflow`) and are unique
   in the application (`[name.kind-suffix]`, `[graph.duplicate-node-name]`); DTO classes on paths
   end with `Dto` (`[dto.name]`); a path ends in a finish; a router's `chooseOne` lists exactly its
@@ -974,7 +974,7 @@ export const quorumPaths = [
   `*.workflow-finish.ts`, `*.arbiter.ts`, `*.tool.ts`, `*.dto.ts`, `*.service.ts`, `*.server.ts` + `*.mcp.ts`,
   `*.rag.ts`, `*.helper.ts`.
 - **Decorator = metadata, constructor = dependencies, methods = a contract:** `implements` for your
-  own (`ToolHandler<In, Out>`, `ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler`,
+  own (`ToolHandler<In, Out>`, `ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler<TReply>`,
   `RagConnector`), `extends` +
   `override` for a standard implementation (`McpServerClient`, `SqliteFtsConnector`). Prompts are
   `prompt` (inline) or `promptUrls` (files next to the component) plus `promptVariables`;
@@ -1246,9 +1246,17 @@ Environments has more.
 
 ### Judges and decision models
 
-`@Agent({ judges: [AnswerGrounded], maxRetries: 1 })` runs each `@Judge({ name, model, deps })`
-(`implements JudgeHandler`) on the agent's reply; a rejection goes back to the agent with the
-feedback, and when retries are spent the run throws `QualityGateError`. A judge's own model is a chat
+`@Agent({ judges: [AnswerGroundedJudge], maxRetries: 1 })` runs each `@Judge({ name, model, reply,
+deps })` (`implements JudgeHandler<TReply>`) on the agent's answer **as its DTO** (#262 S115):
+`judge({ reply, task, attempt }: JudgeInput<TReply>)` gets the validated answer object — `reply` is
+a DTO class, `oneOf(A, B)` (`A | B`), `listOf(XDto)` (`readonly XDto[]`) or `PlainTextDto` for a
+text agent (`{ text }`) — the shapes of `output`; an agent whose `output` its judge does not judge (a
+text agent with a DTO judge, a `oneOf` variant it does not cover, a list agent with a judge of one
+value or the other way round) fails assembly with `[judge.wrong-reply]`. Verdicts are built only with
+`JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed({ reason, metrics? })`; a failed one's
+`reason` goes back to the agent for its retry, and when retries are spent the run throws
+`QualityGateError` (`rejections: [{ judge, reason }]`). `testJudge(Judge, …)({ reply, task,
+attempt })` takes `reply` as a plain object, typed by the judge. A judge's own model is a chat
 model (`judgeModel.invoke`, `deps: [JudgeModel]`) or a **decision model**
 (`judgeModel.decide({ state, questions })` with
 `Decision.noul` / `Decision.choice` / `Decision.score`, answers typed by the questions; `DECISION_MODELS`
@@ -1450,7 +1458,7 @@ timeout: seconds(1) })` → `{ output, spend }` (a tool call's frame: `execution
   with the timeout, `SpendRecorder` into `spend`; input and output validated); the same shape for
   `testAction`, `testRouter` (a code router's `route()`, or a model router with `model: routeTo(X)`
   / `decideWith(…)`), `testArbiter(A)(Agent, answer)`, `testRag(R)(query, { topK })`,
-  `testJudge(J, { model: decideWith(…) | replyWith(…) })`, `testGuardrail(G).beforeToolCall(…)`
+  `testJudge(J, { model: decideWith(…) | replyWith(…) })` (its `reply` a plain object of the judge's DTO), `testGuardrail(G).beforeToolCall(…)`
   and `testPii([Policies])` → `mask(text)` / `reveal(text)` (rules checked first: `-pii-policy`);
   `run.clock` is the runner's `VirtualClock`; the calls run for `{ tenantContext, tenant,
 executionContext, execution }` as `testExecutionContext` takes them (checked by the classes'

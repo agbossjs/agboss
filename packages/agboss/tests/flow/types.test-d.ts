@@ -541,7 +541,9 @@ describe("#280 AC6, AC9: the execution context through the constructor, no ctx a
     expectTypeOf<Parameters<ToolHandler<NoteQueryDto, NoteQueryDto>["run"]>>().toEqualTypeOf<
       [NoteQueryDto]
     >();
-    expectTypeOf<Parameters<JudgeHandler["judge"]>>().toEqualTypeOf<[JudgeInput]>();
+    expectTypeOf<Parameters<JudgeHandler<NoteQueryDto>["judge"]>>().toEqualTypeOf<
+      [JudgeInput<NoteQueryDto>]
+    >();
     const twoParameters: ToolHandler<NoteQueryDto, NoteQueryDto> = {
       // @ts-expect-error — a tool's run has no second parameter
       run: (input: NoteQueryDto, _ctx: string) => Promise.resolve(input),

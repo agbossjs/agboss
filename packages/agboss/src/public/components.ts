@@ -39,12 +39,21 @@ export {
   type ReplaceWithTokenAction,
 } from "../pii/index.js";
 export {
+  type FailedJudgeVerdict,
+  type FailedJudgeVerdictOptions,
   Judge,
   type JudgeHandler,
+  type JudgeHandlerClass,
   type JudgeInput,
   type JudgeMeta,
+  type JudgeMetrics,
   JudgeModel,
-  type JudgeVerdict,
+  type JudgeOptions,
+  type JudgeReplyOf,
+  type JudgeReplyShape,
+  JudgeVerdict,
+  type PassedJudgeVerdict,
+  type PassedJudgeVerdictOptions,
 } from "../components/judge-decorators.js";
 export {
   Decision,

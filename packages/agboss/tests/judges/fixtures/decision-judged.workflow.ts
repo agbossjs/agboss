@@ -1,11 +1,11 @@
 import { Agent, Decision, Judge, Workflow } from "../../../src/index.js";
 import {
   JudgeModel,
+  JudgeVerdict,
   type JudgeHandler,
   type JudgeInput,
-  type JudgeVerdict,
 } from "../../../src/index.js";
-import { WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { PlainTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { ImageDetail } from "../../../src/index.js";
 import { start } from "../../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
@@ -21,13 +21,13 @@ export const PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 /** Judges with three typed questions on a decision model: grounded (P(yes)), tone (choice), quality (score). */
-@Judge({ name: "answer-grounded", model: LUNA, deps: [JudgeModel] })
-export class AnswerGrounded implements JudgeHandler {
+@Judge({ name: "answer-grounded", model: LUNA, reply: PlainTextDto, deps: [JudgeModel] })
+export class AnswerGrounded implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply, task }: JudgeInput): Promise<JudgeVerdict> {
+  async judge({ reply, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const a = await this.judgeModel.decide({
-      state: { task, reply },
+      state: { task, reply: reply.text },
       questions: {
         grounded: Decision.noul("Every fact in the reply appears in the task"),
         tone: Decision.choice("Tone of the reply", {
@@ -42,24 +42,24 @@ export class AnswerGrounded implements JudgeHandler {
     const quality: number = a.quality.score;
     const grounded: number = a.grounded.noul;
     return grounded > 0.7 && tone === "neutral"
-      ? { passed: true, metrics: { quality, grounded } }
-      : { passed: false, feedback: "Only state facts from the task, neutrally." };
+      ? JudgeVerdict.passed({ metrics: { quality, grounded } })
+      : JudgeVerdict.failed({ reason: "Only state facts from the task, neutrally." });
   }
 }
 
 /** Looks at an image with the reply: the state is text and image parts. */
-@Judge({ name: "looks-right", model: LUNA, deps: [JudgeModel] })
-export class LooksRight implements JudgeHandler {
+@Judge({ name: "looks-right", model: LUNA, reply: PlainTextDto, deps: [JudgeModel] })
+export class LooksRight implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput): Promise<JudgeVerdict> {
+  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const a = await this.judgeModel.decide({
-      state: ["Does the chart match the reply?", Decision.image(PNG, ImageDetail.Low), reply],
+      state: ["Does the chart match the reply?", Decision.image(PNG, ImageDetail.Low), reply.text],
       questions: { matches: Decision.noul("The reply describes the chart") },
     });
     return a.matches.noul >= 0.5
-      ? { passed: true }
-      : { passed: false, feedback: "Describe the chart." };
+      ? JudgeVerdict.passed()
+      : JudgeVerdict.failed({ reason: "Describe the chart." });
   }
 }
 

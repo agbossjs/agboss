@@ -26,7 +26,7 @@ export {
   PaidStepError,
   QualityGateError,
   StepFailedError,
-  type JudgeFeedback,
+  type JudgeRejection,
   type StepCoordinates,
 } from "./graph/errors.js";
 export {

@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/application/create-app.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
+import { JudgeVerdict } from "../../src/components/judge-decorators.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { toolResultsOf } from "../testing/fixtures/requests.js";
@@ -71,9 +72,9 @@ describe("#183 AC1: every decorator kind with deps gets them injected at run tim
   it("@Judge and @A2AAgent: the container creates them with their deps", async () => {
     const { app } = await runVault();
     const judge = app.resolve(StrictJudge);
-    await expect(judge.judge({ reply: "leaks s3cret", task: "", attempt: 0 })).resolves.toEqual({
-      passed: false,
-    });
+    await expect(
+      judge.judge({ reply: { text: "leaks s3cret" }, task: "", attempt: 0 }),
+    ).resolves.toEqual(JudgeVerdict.failed({ reason: "leaks the secret" }));
     expect(app.resolve(RemoteAgent).vault).toBe(app.resolve(Vault));
     expect(app.resolve(Vault).secret).toBe("s3cret");
     await app.close();

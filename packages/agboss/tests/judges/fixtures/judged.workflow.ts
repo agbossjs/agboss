@@ -10,11 +10,15 @@ import {
 } from "../../../src/index.js";
 import {
   JudgeModel,
+  JudgeVerdict,
   type JudgeHandler,
   type JudgeInput,
-  type JudgeVerdict,
 } from "../../../src/index.js";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import {
+  PlainTextDto,
+  WorkflowFinishTextDto,
+  WorkflowStartTextDto,
+} from "../../../src/dto/index.js";
 import { DecisionsModelProvider } from "../../../src/models/index.js";
 import { LocalModelProvider } from "../../models/providers.fixture.js";
 import { start } from "../../helpers/flow.js";
@@ -26,20 +30,25 @@ import { EmptyEnvironment } from "../../../src/index.js";
 export const RUBRIC = new InjectionToken<string>("RUBRIC");
 
 /** Asks its own model whether the reply is grounded: `PASS`, or `FAIL: <why>`. */
-@Judge({ name: "grounded", model: "local/judge", deps: [RUBRIC, JudgeModel] })
-export class Grounded implements JudgeHandler {
+@Judge({
+  name: "grounded",
+  model: "local/judge",
+  reply: PlainTextDto,
+  deps: [RUBRIC, JudgeModel],
+})
+export class Grounded implements JudgeHandler<PlainTextDto> {
   constructor(
     private readonly rubric: string,
     private readonly judgeModel: JudgeModel,
   ) {}
 
-  async judge({ reply, task }: JudgeInput): Promise<JudgeVerdict> {
+  async judge({ reply, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const verdict = await this.judgeModel.invoke(
-      `${this.rubric}\n\nTask: ${task}\nReply: ${reply}`,
+      `${this.rubric}\n\nTask: ${task}\nReply: ${reply.text}`,
     );
     return verdict.startsWith("PASS")
-      ? { passed: true }
-      : { passed: false, feedback: verdict.replace(/^FAIL:\s*/u, "") };
+      ? JudgeVerdict.passed()
+      : JudgeVerdict.failed({ reason: verdict.replace(/^FAIL:\s*/u, "") });
   }
 }
 
@@ -98,10 +107,10 @@ export class JudgedDesk {}
 export class JudgedDeskApplication {}
 
 /** A judge with no model: assembly must refuse it. */
-@Judge({ name: "modelless", model: "" })
-export class Modelless implements JudgeHandler {
+@Judge({ name: "modelless", model: "", reply: PlainTextDto })
+export class Modelless implements JudgeHandler<PlainTextDto> {
   judge(): Promise<JudgeVerdict> {
-    return Promise.resolve({ passed: true });
+    return Promise.resolve(JudgeVerdict.passed());
   }
 }
 

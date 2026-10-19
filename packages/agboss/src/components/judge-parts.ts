@@ -69,7 +69,7 @@ export function judgePartsOf(
     judges: (services: WorkflowServices) => {
       const container = containerFor(bundle, services);
       return new Map(
-        [...judges].map(([name, { cls }]) => [name, container.get(cls) as JudgeHandler]),
+        [...judges].map(([name, { cls }]) => [name, container.get(cls) as JudgeHandler<unknown>]),
       );
     },
   };

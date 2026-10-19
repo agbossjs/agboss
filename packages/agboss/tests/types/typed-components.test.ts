@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { Agent, Guardrail, Injectable, Judge, Tool, type ToolHandler } from "../../src/index.js";
-import type { JudgeInput, JudgeVerdict } from "../../src/index.js";
-import { Text } from "../../src/dto/index.js";
+import {
+  Agent,
+  Guardrail,
+  Injectable,
+  Judge,
+  JudgeVerdict,
+  Tool,
+  type ToolHandler,
+} from "../../src/index.js";
+import type { JudgeInput } from "../../src/index.js";
+import { PlainTextDto, Text } from "../../src/dto/index.js";
 
 /**
  * #200 D4: compile-time checks of an agent's slots. Each `@ts-expect-error` below is a negative type
@@ -27,10 +35,10 @@ class Search implements ToolHandler<Query, Query> {
   }
 }
 
-@Judge({ name: "fair", model: "test/judge" })
+@Judge({ name: "fair", model: "test/judge", reply: PlainTextDto })
 class Fair {
-  judge(_input: JudgeInput): Promise<JudgeVerdict> {
-    return Promise.resolve({ passed: true });
+  judge(_input: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    return Promise.resolve(JudgeVerdict.passed());
   }
 }
 
@@ -69,5 +77,31 @@ describe("#200 AC2: slots are typed by component kind", () => {
     class Wrong {}
 
     expect([Typed.name, Wrong.name]).toEqual(["Typed", "Wrong"]);
+  });
+});
+
+describe("#262 S115: a judge judges the reply it declares, with a built verdict", () => {
+  it("its handler's reply is its @Judge reply; a plain-object verdict does not compile", () => {
+    // @ts-expect-error -- it declares reply: Query but judges a PlainTextDto
+    @Judge({ name: "mismatched-judge", model: "test/judge", reply: Query })
+    class Mismatched {
+      judge(input: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+        return Promise.resolve(
+          input.reply.text === ""
+            ? JudgeVerdict.failed({ reason: "empty" })
+            : JudgeVerdict.passed(),
+        );
+      }
+    }
+
+    @Judge({ name: "plain-verdict-judge", model: "test/judge", reply: PlainTextDto })
+    class PlainVerdict {
+      judge(): Promise<JudgeVerdict> {
+        // @ts-expect-error -- a verdict is built with JudgeVerdict.passed / JudgeVerdict.failed only
+        return Promise.resolve({ passed: true });
+      }
+    }
+
+    expect([Mismatched.name, PlainVerdict.name]).toEqual(["Mismatched", "PlainVerdict"]);
   });
 });
