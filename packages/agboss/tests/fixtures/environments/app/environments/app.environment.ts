@@ -7,6 +7,8 @@ export class SettingsEnvironment {
   currency!: string;
   timeoutSeconds!: number;
   debug!: boolean;
+  /** Optional: `env.optional("FIXTURE_PROXY_URL")` in dev — unset is undefined (#266 S90). */
+  proxyUrl?: string;
 }
 
 // What `agboss check` writes into `.agboss/types.d.ts` for `@Application({ environment })`
@@ -19,5 +21,6 @@ declare module "../../../../../src/flow/generated-types.js" {
     readonly currency: string;
     readonly timeoutSeconds: number;
     readonly debug: boolean;
+    readonly proxyUrl?: string;
   }
 }

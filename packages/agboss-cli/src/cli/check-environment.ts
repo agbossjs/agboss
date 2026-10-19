@@ -39,9 +39,15 @@ const problemOf = (file: string, error: unknown): CheckProblem[] => {
   throw error;
 };
 
+/** How a variable is needed: required, with a default, or optional (`env.optional`, #266 S90). */
+const presenceLabel = (found: ProcessVariable): string => {
+  if (found.optional) return " (optional)";
+  return found.required ? "" : " (has a default)";
+};
+
 /** `  OPENROUTER_API_KEY  secret → openRouterApiKey`: one process variable of `--env <name>` (#261 AC9). */
 const variableLine = (found: ProcessVariable): string =>
-  `  ${found.variable}  ${found.use}${found.required ? "" : " (has a default)"} → ${found.field}`;
+  `  ${found.variable}  ${found.use}${presenceLabel(found)} → ${found.field}`;
 
 /**
  * `agboss check` without running anything: the selected environment is found, every variable it

@@ -353,6 +353,7 @@ export const problemLine: (problem: ModelProblem) => string;
 export interface ProcessVariable {
     // (undocumented)
     readonly field: string;
+    readonly optional: boolean;
     readonly required: boolean;
     // Warning: (ae-forgotten-export) The symbol "VariableUse" needs to be exported by the entry point internal.d.ts
     //
@@ -509,8 +510,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/environments/resolve.ts:41:3 - (ae-undocumented) Missing documentation for "variable".
 // src/environments/resolve.ts:42:3 - (ae-undocumented) Missing documentation for "field".
 // src/environments/resolve.ts:43:3 - (ae-undocumented) Missing documentation for "use".
-// src/environments/resolve.ts:173:3 - (ae-undocumented) Missing documentation for "name".
-// src/environments/resolve.ts:174:3 - (ae-undocumented) Missing documentation for "values".
+// src/environments/resolve.ts:181:3 - (ae-undocumented) Missing documentation for "name".
+// src/environments/resolve.ts:182:3 - (ae-undocumented) Missing documentation for "values".
 // src/eval/golden.ts:22:14 - (ae-undocumented) Missing documentation for "goldenFile".
 // src/eval/golden.ts:25:1 - (ae-undocumented) Missing documentation for "loadGolden".
 // src/eval/golden.ts:36:1 - (ae-undocumented) Missing documentation for "saveGolden".

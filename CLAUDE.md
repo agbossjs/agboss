@@ -18,7 +18,7 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
   The built-ins are OpenRouter: their key is the `Secret` field `openRouterApiKey` of the
   application's environment (`secret("OPENROUTER_API_KEY")`; a provider's `apiKey` names its field),
   the base URL optionally its text field `openRouterBaseUrl` (`baseUrlField`;
-  `env("OPENROUTER_BASE_URL", { default })`). Provider names end with `-model-provider` (`[name.kind-suffix]`).
+  `env.optional("OPENROUTER_BASE_URL")` — unset → the decorator's `baseUrl`, no repeated default). Provider names end with `-model-provider` (`[name.kind-suffix]`).
   Policies per provider, app-wide (#266 PR 2): `retryPolicy` retries one call (the only backoff);
   `rateLimitPolicy: RateLimitPolicy.of({ maxConcurrentCalls, perMinute: { calls, tokens },
 balancing })` — one limit for every execution, tenant and instance (`RateLimitRepository`), a
@@ -1138,7 +1138,7 @@ export class AppEnvironment {
 
 Each environment is a plain object typed by it (a missing field does not compile), in
 `<name>.environment.ts` — the file name is the environment's: `env("X")` (`env.integer`, `env.flag`,
-`{ default }`) reads a process variable at start, `secret("X")` a `Secret` (no default, a literal
+`{ default }`; `env.optional("X")` — unset is `undefined`, for an optional field) reads a process variable at start, `secret("X")` a `Secret` (no default, a literal
 does not compile). Tests run on `test` — no `test.environment.ts` fails the test, so it never reaches
 dev's addresses:
 
@@ -1183,7 +1183,8 @@ variables it needs, marked value / secret. Dev / prod parity: the same `provider
 environment, only values differ. Model provider keys are `Secret` fields of it too (#266): a
 `@ModelProvider`'s `apiKey` names the field (`"openRouterApiKey"`), a test environment may leave it
 out (models are scripted); `agboss check` reads only the contract's shape (its secrets with
-`--models`), so `npm run types` needs no key. A base URL is a text field the same way (`baseUrlField`). README →
+`--models`), so `npm run types` needs no key. A base URL is a text field the same way (`baseUrlField`;
+`env.optional("OPENROUTER_BASE_URL")`, no default: unset → the provider's `baseUrl`). README →
 Environments has more.
 
 ### Judges and decision models

@@ -83,13 +83,26 @@ describe("#261 AC9: *** everywhere, reveal()", () => {
   it("agboss check --env lists the process variables, marked value / secret", () => {
     const loaded = { name: "staging", contract: "SettingsEnvironment", values: staging };
     expect(environmentVariablesOf(loaded)).toEqual([
-      { variable: "FIXTURE_API_TOKEN", field: "apiToken", use: VariableUse.Secret, required: true },
-      { variable: "FIXTURE_CURRENCY", field: "currency", use: VariableUse.Value, required: true },
+      {
+        variable: "FIXTURE_API_TOKEN",
+        field: "apiToken",
+        use: VariableUse.Secret,
+        required: true,
+        optional: false,
+      },
+      {
+        variable: "FIXTURE_CURRENCY",
+        field: "currency",
+        use: VariableUse.Value,
+        required: true,
+        optional: false,
+      },
       {
         variable: "FIXTURE_TIMEOUT",
         field: "timeoutSeconds",
         use: VariableUse.Value,
         required: true,
+        optional: false,
       },
     ]);
   });

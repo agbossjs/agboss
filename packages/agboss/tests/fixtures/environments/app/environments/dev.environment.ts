@@ -7,4 +7,5 @@ export const environment: SettingsEnvironment = {
   currency: env("FIXTURE_CURRENCY", { default: "USD" }),
   timeoutSeconds: env.integer("FIXTURE_TIMEOUT", { default: 30 }),
   debug: env.flag("FIXTURE_DEBUG", { default: false }),
+  proxyUrl: env.optional("FIXTURE_PROXY_URL"),
 };

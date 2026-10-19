@@ -98,6 +98,7 @@ describe("#182: agboss check validates the selected environment without running 
         "  FIXTURE_CURRENCY  value (has a default) → currency",
         "  FIXTURE_TIMEOUT  value (has a default) → timeoutSeconds",
         "  FIXTURE_DEBUG  value (has a default) → debug",
+        "  FIXTURE_PROXY_URL  value (optional) → proxyUrl",
       ].join("\n"),
     );
     expect(call.stdout).not.toContain("t0ken");
@@ -133,6 +134,7 @@ describe("#182: agboss describe shows the environment with secrets masked", () =
         '  currency = "USD"',
         "  timeoutSeconds = 30",
         "  debug = false",
+        "  proxyUrl = <unset FIXTURE_PROXY_URL, optional>",
       ].join("\n"),
     );
     expect(call.stdout).not.toContain("t0ken");

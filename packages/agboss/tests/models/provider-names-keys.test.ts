@@ -146,6 +146,20 @@ describe("#266: a provider's base URL comes from the application's environment t
     ).toBe("http://stub.test/v1");
   });
 
+  it("S87: env.optional, no default — unset → the decorator's baseUrl; set → that value", () => {
+    const declared = { openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL") };
+
+    expect(of(declared)).toBe("https://openrouter.ai/api/v1");
+    expect(of(declared, { OPENROUTER_BASE_URL: "" })).toBe("https://openrouter.ai/api/v1");
+    expect(of(declared, { OPENROUTER_BASE_URL: "http://proxy.test/v1" })).toBe(
+      "http://proxy.test/v1",
+    );
+    const written = { ...NO_ENVIRONMENT_VALUES, ...declared };
+    expect(providerBaseUrlOf(openRouter, { environment: written, env: {} })).toBe(
+      "https://openrouter.ai/api/v1",
+    );
+  });
+
   it("an environment as written: an env(…) reference takes its variable, else its default", () => {
     const written = {
       ...NO_ENVIRONMENT_VALUES,

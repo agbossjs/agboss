@@ -112,5 +112,6 @@ export {
   EnvironmentErrorCode,
   type Environment,
   type EnvironmentValueOptions,
+  type EnvironmentValueReader,
   type EnvironmentVariableReader,
 } from "../environments/index.js";

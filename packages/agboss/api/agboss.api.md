@@ -1124,13 +1124,15 @@ export interface EnvironmentValueOptions<TValue> {
 }
 
 // @public
-export interface EnvironmentVariableReader {
-    // (undocumented)
-    (variable: string, options?: EnvironmentValueOptions<string>): string;
-    // (undocumented)
-    flag(variable: string, options?: EnvironmentValueOptions<boolean>): boolean;
-    // (undocumented)
-    integer(variable: string, options?: EnvironmentValueOptions<number>): number;
+export interface EnvironmentValueReader<TValue> {
+    (variable: string, options?: EnvironmentValueOptions<TValue>): TValue;
+    optional(variable: string): TValue | undefined;
+}
+
+// @public
+export interface EnvironmentVariableReader extends EnvironmentValueReader<string> {
+    readonly flag: EnvironmentValueReader<boolean>;
+    readonly integer: EnvironmentValueReader<number>;
 }
 
 // @public
@@ -4292,10 +4294,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/environments/secret.ts:49:3 - (ae-undocumented) Missing documentation for "toString".
 // src/environments/secret.ts:53:3 - (ae-undocumented) Missing documentation for "toJSON".
 // src/environments/secret.ts:57:3 - (ae-undocumented) Missing documentation for "[inspect.custom]".
-// src/environments/variables.ts:26:3 - (ae-undocumented) Missing documentation for "default".
-// src/environments/variables.ts:31:3 - (ae-undocumented) Missing documentation for "__call".
-// src/environments/variables.ts:32:3 - (ae-undocumented) Missing documentation for "integer".
-// src/environments/variables.ts:33:3 - (ae-undocumented) Missing documentation for "flag".
+// src/environments/variables.ts:35:3 - (ae-undocumented) Missing documentation for "default".
 // src/eval/compare-profiles.ts:16:3 - (ae-undocumented) Missing documentation for "tasks".
 // src/eval/compare-profiles.ts:17:3 - (ae-undocumented) Missing documentation for "profiles".
 // src/eval/compare-profiles.ts:26:3 - (ae-undocumented) Missing documentation for "tasks".

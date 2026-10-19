@@ -4,6 +4,6 @@ import type { AppEnvironment } from "./app.environment.js";
 /** `--env staging`: values from the deployment's variables. */
 export const environment: AppEnvironment = {
   openRouterApiKey: secret("OPENROUTER_API_KEY"),
-  openRouterBaseUrl: env("OPENROUTER_BASE_URL", { default: "https://openrouter.ai/api/v1" }),
+  openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL"), // unset → the provider's baseUrl
   apiUrl: env("API_URL", { default: "https://staging-api.example.com" }),
 };
