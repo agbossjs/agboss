@@ -1,4 +1,4 @@
-import { toolOf } from "agboss/testing";
+import { testTool } from "agboss/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 {{imports}}
 
@@ -16,9 +16,9 @@ describe("{{snake}}", () => {
     });
     const input: {{inputType}} = {{input}};
 
-    const result = await toolOf(new {{pascal}}Tool(new {{api}}())).invoke(input);
+    // the tool on its own container (its API service created there), in a tool call's frame
+    await testTool({{pascal}}Tool)(input);
 
-    expect(result.kind).toBe("ok");
     expect(calls).toHaveLength(1);
 {{urlCheck}}
     expect(calls[0]?.init.method).toBe("{{method}}");

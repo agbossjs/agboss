@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect } from "vitest";
 import { BranchStatus, BranchVerdict, QuorumNotReachedError } from "../../../src/index.js";
-import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
+import { callTool, replyWith, testWith, TestConcurrency } from "../../../src/testing/index.js";
 import { seconds, usd } from "../../../src/units/index.js";
 import { execute } from "../../helpers/flow.js";
 import { ScoreDto, ScoreReviewDto } from "../fixtures/quorum-dtos.js";
@@ -30,9 +30,11 @@ import {
  * answers reach the next step, in the order they were counted.
  */
 
-const quick = testWith(QuickPanelApplication);
-const checked = testWith(CheckedPanelApplication);
-const strict = testWith(StrictPanelApplication);
+/** These tests are about the runtime's own concurrency (#262: tests default to one branch at a time). */
+const REAL = { concurrency: TestConcurrency.Real };
+const quick = testWith(QuickPanelApplication, REAL);
+const checked = testWith(CheckedPanelApplication, REAL);
+const strict = testWith(StrictPanelApplication, REAL);
 
 const score = (value: number) => replyWith(ScoreDto, { score: value });
 const slow = (value: number, wait = 60) => [callTool(WaitTool, { seconds: wait }), score(value)];

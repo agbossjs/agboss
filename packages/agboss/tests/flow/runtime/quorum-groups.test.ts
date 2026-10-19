@@ -6,6 +6,7 @@ import {
   ModelFailure,
   replyWith,
   testWith,
+  TestConcurrency,
 } from "../../../src/testing/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -42,7 +43,9 @@ import { DealPanelApplication } from "../fixtures/quorum-runtime.fixture.js";
  * continues its own path.
  */
 
-const deal = testWith(DealPanelApplication);
+/** These tests are about the runtime's own concurrency (#262: tests default to one branch at a time). */
+const REAL = { concurrency: TestConcurrency.Real };
+const deal = testWith(DealPanelApplication, REAL);
 
 const legal = replyWith(LegalReviewDto, { risks: "none found" });
 const critique = replyWith(DealCritiqueDto, { objection: "the price" });

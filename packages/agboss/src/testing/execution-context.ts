@@ -65,7 +65,8 @@ function nameOf(cls: Class, fallback: string): string {
   return cls === TestStep || cls === TestWorkflow ? fallback : cls.name;
 }
 
-function workflowOf(type: WorkflowClass): WorkflowDescriptor {
+/** The workflow of a unit test's execution: its decorator's name and version (`test-workflow`). */
+export function testWorkflowOf(type: WorkflowClass = TestWorkflow): WorkflowDescriptor {
   const options = declarationOf(type)?.options;
   const version = options !== undefined && "version" in options ? options.version : "0.0.0";
   return Object.freeze({
@@ -76,7 +77,8 @@ function workflowOf(type: WorkflowClass): WorkflowDescriptor {
   });
 }
 
-function stepOf(executionId: string, options: TestStepOptions): StepDescriptor {
+/** The step of a unit test's execution: the component's name, its first visit by default. */
+export function testStepOf(executionId: string, options: TestStepOptions): StepDescriptor {
   const type = options.component ?? TestStep;
   const name = nameOf(type, "test-step");
   const visitNumber = options.visitNumber ?? 1;
@@ -136,8 +138,8 @@ function executionDataOf(options: TestExecutionContextOptions): Readonly<Record<
     threadId: options.threadId ?? executionId,
     ownerId: options.ownerId,
     signal: options.signal ?? new AbortController().signal,
-    workflow: workflowOf(options.workflow ?? TestWorkflow),
-    step: stepOf(executionId, options.step ?? {}),
+    workflow: testWorkflowOf(options.workflow),
+    step: testStepOf(executionId, options.step ?? {}),
     itemIndex: undefined,
     depth: 1,
     parent: undefined,

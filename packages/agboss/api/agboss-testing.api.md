@@ -13,6 +13,22 @@ import type { ToolDefinition } from '@langchain/core/language_models/base';
 import { z } from 'zod';
 
 // @public
+export type ActionInputOf<TAction> = TAction extends {
+    execute(input: infer TInput): unknown;
+} ? TInput : never;
+
+// @public
+export type ActionOutputOf<TAction> = TAction extends {
+    execute(input: never): infer TResult;
+} ? Awaited<TResult> : never;
+
+// @public
+export interface ActionRunner<TInput, TOutput> extends UnitClock {
+    // (undocumented)
+    (input: TInput, options?: UnitCallOptions): Promise<UnitRun<TOutput>>;
+}
+
+// @public
 export interface ActionScript<TSelf = unknown> {
     readonly inputs: readonly RecordedInputOf<TSelf>[];
     readonly label: string;
@@ -55,6 +71,15 @@ export interface AnswerTurn<TValue = unknown, TIsList extends boolean = boolean>
 }
 
 // @public
+export interface ArbiterRunner extends UnitClock {
+    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "ArbiterAnswerOf" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    <TAgent extends Class>(agent: TAgent, answer: ArbiterAnswerOf<TAgent>, options?: UnitCallOptions): Promise<UnitRun<boolean>>;
+}
+
+// @public
 export type CallAssertion<TReceived, TSelf> = Omit<Assertion<TReceived>, keyof CallMatchers<TSelf> | "not"> & CallMatchers<TSelf> & {
     readonly not: Omit<Assertion<TReceived>, keyof CallMatchers<TSelf>> & CallMatchers<TSelf>;
 };
@@ -86,7 +111,6 @@ export interface ChatLine {
 
 // @public
 export interface ChildMatchers<R = unknown> {
-    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
     toHaveChildExecutions(workflow: Class, expected: readonly ExpectedChildExecution[]): R;
     // Warning: (ae-forgotten-export) The symbol "ErrorClass" needs to be exported by the entry point index.d.ts
     toHaveHandledError(error: ErrorClass, handling?: ExpectedHandling): R;
@@ -179,11 +203,42 @@ export interface FailureTurn {
 // @public
 export const failWith: (failure: ModelFailure) => FailureTurn;
 
+// Warning: (ae-forgotten-export) The symbol "Guardrail" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type GuardrailDecision = Parameters<NonNullable<Guardrail["onChannelDecision"]>>[0];
+
+// @public
+export type GuardrailHookResult<THook extends keyof Guardrail> = Awaited<ReturnType<NonNullable<Guardrail[THook]>>>;
+
+// @public
+export interface GuardrailRunner extends UnitClock {
+    // (undocumented)
+    afterToolCall(context: GuardrailContext, options?: UnitCallOptions): Promise<UnitRun<GuardrailHookResult<"afterToolCall">>>;
+    // (undocumented)
+    beforeAgentAnswer(context: GuardrailContext, options?: UnitCallOptions): Promise<UnitRun<GuardrailHookResult<"beforeAgentAnswer">>>;
+    // Warning: (ae-forgotten-export) The symbol "GuardrailContext" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    beforeToolCall(context: GuardrailContext, options?: UnitCallOptions): Promise<UnitRun<GuardrailHookResult<"beforeToolCall">>>;
+    // (undocumented)
+    onChannelDecision(decision: GuardrailDecision, context: GuardrailContext, options?: UnitCallOptions): Promise<UnitRun<GuardrailHookResult<"onChannelDecision">>>;
+}
+
 // Warning: (ae-forgotten-export) The symbol "IsKnown" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "InputOf" needs to be exported by the entry point index.d.ts
 //
 // @public
 export type InputMatcherOf<TSelf> = IsKnown<TSelf> extends true ? PartialValues<InputOf<TSelf>> : Readonly<Record<string, unknown>>;
+
+// @public
+export interface JudgeRunner extends UnitClock {
+    // Warning: (ae-forgotten-export) The symbol "JudgeInput" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "JudgeVerdict" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    (input: JudgeInput, options?: UnitCallOptions): Promise<UnitRun<JudgeVerdict>>;
+}
 
 // @public
 export class LiveCallBlockedError extends TestFailure {
@@ -269,6 +324,33 @@ export interface ModelScript<TSelf = unknown> {
     when(partial: InputMatcherOf<TSelf>): WhenScript<TSelf>;
 }
 
+// @public
+export interface OrderedStep {
+    // Warning: (ae-forgotten-export) The symbol "RecordedInput" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly input?: RecordedInput;
+    // (undocumented)
+    readonly node: Class;
+}
+
+// @public
+export interface Override {
+    // (undocumented)
+    readonly replacement: Class;
+    // (undocumented)
+    readonly token: Class;
+}
+
+// Warning: (ae-forgotten-export) The symbol "ChannelOf" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "ChannelHandler" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function override<TRole extends ChannelOf<TRole>>(role: Class<TRole>, replacement: Class<ChannelHandler<TRole>>): Override;
+
+// @public
+export function override<T>(token: Class<T>, replacement: Class<T>): Override;
+
 // Warning: (ae-forgotten-export) The symbol "GeneratedTypeError" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "FieldPartial" needs to be exported by the entry point index.d.ts
 //
@@ -276,6 +358,25 @@ export interface ModelScript<TSelf = unknown> {
 export type PartialValues<TInput> = TInput extends GeneratedTypeError ? never : TInput extends unknown ? {
     readonly [TKey in keyof TInput]?: FieldPartial<TInput[TKey]>;
 } : never;
+
+// @public
+export interface PiiRunner extends UnitClock {
+    mask(text: string): Promise<UnitRun<string>>;
+    reveal(text: string): string;
+}
+
+// @public
+export interface RagCallOptions extends UnitCallOptions {
+    readonly topK?: number;
+}
+
+// @public
+export interface RagRunner extends UnitClock {
+    // Warning: (ae-forgotten-export) The symbol "RagSearchResultDto" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    (query: string, options?: RagCallOptions): Promise<UnitRun<readonly RagSearchResultDto[]>>;
+}
 
 // @public
 export type RecordedInputOf<TSelf> = IsKnown<TSelf> extends true ? InputOf<TSelf> : Readonly<Record<string, unknown>>;
@@ -308,6 +409,12 @@ export type ReturnedCheckOf<TSelf, TDto extends DtoClass> = IsKnown<TSelf> exten
 };
 
 // @public
+export interface RouterRunner<TInput, TOutput> extends UnitClock {
+    // (undocumented)
+    (input: TInput, options?: UnitCallOptions): Promise<UnitRun<TOutput>>;
+}
+
+// @public
 export interface RouterSlice {
     // (undocumented)
     routeTo(input: string): Promise<Class>;
@@ -336,6 +443,16 @@ export type ScriptedAnswer = number | string;
 
 // @public
 export type ScriptedTurn = ReplyTurn | AnswerTurn | ToolCallTurn | RouteTurn | DecideTurn | FailureTurn | WaitTurn;
+
+// @public
+export function step<TNode extends Class>(node: TNode, input?: InputMatcherOf<InstanceType<TNode>>): OrderedStep;
+
+// Warning: (ae-forgotten-export) The symbol "ExecuteMethod" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "ExecutionContext" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "TenantContext" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function testAction<TAction extends Class<ExecuteMethod>, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(action: TAction, options?: UnitOptions<TExecution, TTenant>): ActionRunner<ActionInputOf<InstanceType<TAction>>, ActionOutputOf<InstanceType<TAction>>>;
 
 // Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point index.d.ts
 //
@@ -366,9 +483,22 @@ export interface TestApplicationOptions {
     readonly version?: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "ExecutionContext" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "TenantContext" needs to be exported by the entry point index.d.ts
-//
+// @public
+export function testArbiter<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(arbiter: Class, options?: UnitModelOptions<unknown, TExecution, TTenant>): ArbiterRunner;
+
+// @public
+export class TestConcurrency {
+    static inOrder(steps: readonly OrderedStep[]): TestConcurrency;
+    // Warning: (ae-forgotten-export) The symbol "ConcurrencyMode" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly mode: ConcurrencyMode;
+    static readonly Real: TestConcurrency;
+    static readonly Sequential: TestConcurrency;
+    // (undocumented)
+    readonly steps: readonly OrderedStep[];
+}
+
 // @public
 export interface TestContextOptions<TExecution extends ExecutionContext, TTenant extends TenantContext> {
     // (undocumented)
@@ -414,7 +544,28 @@ export class TestFailure extends Error {
 }
 
 // @public
-export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.cassette-missing" | "test.no-matching-script" | "test.unused-script";
+export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.cassette-missing" | "test.no-matching-script" | "test.unused-script" | "test.unreachable-step";
+
+// @public
+export function testGuardrail<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(guardrail: Class<Guardrail>, options?: UnitOptions<TExecution, TTenant>): GuardrailRunner;
+
+// Warning: (ae-forgotten-export) The symbol "JudgeHandler" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function testJudge<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(judge: Class<JudgeHandler>, options?: UnitModelOptions<unknown, TExecution, TTenant>): JudgeRunner;
+
+// @public
+export function testPii<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(policies: readonly Class[], options?: UnitModelOptions<unknown, TExecution, TTenant>): PiiRunner;
+
+// Warning: (ae-forgotten-export) The symbol "RagConnector" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function testRag<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(rag: Class<RagConnector>, options?: UnitOptions<TExecution, TTenant>): RagRunner;
+
+// Warning: (ae-forgotten-export) The symbol "RouterAnswerOf" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function testRouter<TRouter extends Class, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(router: TRouter, options?: UnitModelOptions<InstanceType<TRouter>, TExecution, TTenant>): RouterRunner<RecordedInputOf<InstanceType<TRouter>>, RouterAnswerOf<InstanceType<TRouter>>>;
 
 // @public
 export class TestSetupError extends Error {
@@ -435,6 +586,9 @@ export interface TestStepOptions {
     readonly visitNumber?: number;
 }
 
+// @public
+export function testTool<TTool extends Class<ToolInstance>, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(tool: TTool, options?: UnitOptions<TExecution, TTenant>): ToolRunner<ToolInputOf<InstanceType<TTool>>, ToolOutputOf<InstanceType<TTool>>>;
+
 // Warning: (ae-forgotten-export) The symbol "ApplicationClass" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -445,7 +599,9 @@ export function testWith<TApplication extends Class>(application: ApplicationCla
 // @public
 export interface TestWithOptions extends EnvironmentSelection {
     readonly allowNetwork?: readonly string[];
+    readonly concurrency?: TestConcurrency;
     readonly instances?: number;
+    readonly overrides?: readonly Override[];
     readonly real?: readonly Class[];
     readonly vcr?: VcrConfig;
 }
@@ -475,12 +631,34 @@ export enum ToolFailure {
     Timeout = "timeout"
 }
 
+// @public
+export type ToolInputOf<TTool> = TTool extends {
+    run(input: infer TInput): Promise<unknown>;
+} ? TInput : never;
+
+// @public
+export interface ToolInstance {
+    // (undocumented)
+    run(input: never): Promise<unknown>;
+}
+
 // Warning: (ae-forgotten-export) The symbol "Tool" needs to be exported by the entry point index.d.ts
 //
 // @public
 export function toolOf<TInput, TOutput>(instance: {
     run: (input: TInput) => Promise<TOutput>;
 }): Tool<string, TInput, TOutput>;
+
+// @public
+export type ToolOutputOf<TTool> = TTool extends {
+    run(input: never): Promise<infer TOutput>;
+} ? TOutput : never;
+
+// @public
+export interface ToolRunner<TInput, TOutput> extends UnitClock {
+    // (undocumented)
+    (input: TInput, options?: UnitCallOptions): Promise<UnitRun<TOutput>>;
+}
 
 // @public
 export interface ToolScript {
@@ -502,6 +680,39 @@ export interface ToolSlice<TInput, TOutput> {
 //
 // @public
 export type TurnFor<TSelf> = IsKnown<TSelf> extends false ? ScriptedTurn : KindOf<TSelf> extends NodeKind.Agent ? AgentTurnFor<TSelf> : KindOf<TSelf> extends NodeKind.Router ? RouterTurnFor<TSelf> : ScriptedTurn;
+
+// @public
+export interface UnitCallOptions {
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
+    readonly timeout?: Milliseconds;
+}
+
+// @public
+export interface UnitClock {
+    readonly clock: VirtualClock;
+}
+
+// @public
+export interface UnitModelOptions<TSelf = unknown, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext> extends UnitOptions<TExecution, TTenant> {
+    readonly model?: UnitModelScript<TSelf>;
+}
+
+// @public
+export type UnitModelScript<TSelf = unknown> = TurnFor<TSelf> | readonly TurnFor<TSelf>[];
+
+// @public
+export interface UnitOptions<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext> extends Omit<TestContextOptions<TExecution, TTenant>, "application"> {
+    readonly environment?: Environment;
+    readonly overrides?: readonly Override[];
+}
+
+// @public
+export interface UnitRun<TOutput> {
+    // (undocumented)
+    readonly output: TOutput;
+    // Warning: (ae-forgotten-export) The symbol "CostReport" needs to be exported by the entry point index.d.ts
+    readonly spend: CostReport;
+}
 
 // @public
 export const UNSCRIPTED_SUMMARY = "(summary of the earlier turns)";
@@ -528,7 +739,6 @@ export class VirtualClock extends Clock {
     constructor(start?: Date);
     advance(duration: ClockDuration | Milliseconds): Promise<void>;
     now(): Date;
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     sleep(delay: Milliseconds, signal?: AbortSignal): Promise<void>;
 }
 
@@ -604,11 +814,15 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/models/model-failure.ts:6:3 - (ae-undocumented) Missing documentation for "NetworkError".
 // src/testing/child-matchers.ts:112:27 - (ae-forgotten-export) The symbol "MatcherContext" needs to be exported by the entry point index.d.ts
 // src/testing/child-matchers.ts:112:27 - (ae-forgotten-export) The symbol "Verdict" needs to be exported by the entry point index.d.ts
-// src/testing/errors.ts:14:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:15:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/errors.ts:25:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:37:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:46:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/concurrency/test-concurrency.ts:26:3 - (ae-undocumented) Missing documentation for "node".
+// src/testing/concurrency/test-concurrency.ts:27:3 - (ae-undocumented) Missing documentation for "input".
+// src/testing/concurrency/test-concurrency.ts:47:5 - (ae-undocumented) Missing documentation for "mode".
+// src/testing/concurrency/test-concurrency.ts:48:5 - (ae-undocumented) Missing documentation for "steps".
+// src/testing/errors.ts:15:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:16:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:26:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:38:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:47:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/execution-context.ts:32:3 - (ae-undocumented) Missing documentation for "visitNumber".
 // src/testing/execution-context.ts:33:3 - (ae-undocumented) Missing documentation for "callId".
 // src/testing/execution-context.ts:34:3 - (ae-undocumented) Missing documentation for "itemIndex".
@@ -618,11 +832,11 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/execution-context.ts:42:3 - (ae-undocumented) Missing documentation for "ownerId".
 // src/testing/execution-context.ts:43:3 - (ae-undocumented) Missing documentation for "signal".
 // src/testing/execution-context.ts:46:3 - (ae-undocumented) Missing documentation for "step".
-// src/testing/execution-context.ts:97:3 - (ae-undocumented) Missing documentation for "name".
-// src/testing/execution-context.ts:98:3 - (ae-undocumented) Missing documentation for "version".
-// src/testing/execution-context.ts:99:3 - (ae-undocumented) Missing documentation for "instanceId".
-// src/testing/execution-context.ts:100:3 - (ae-undocumented) Missing documentation for "environmentName".
-// src/testing/execution-context.ts:118:3 - (ae-undocumented) Missing documentation for "application".
+// src/testing/execution-context.ts:99:3 - (ae-undocumented) Missing documentation for "name".
+// src/testing/execution-context.ts:100:3 - (ae-undocumented) Missing documentation for "version".
+// src/testing/execution-context.ts:101:3 - (ae-undocumented) Missing documentation for "instanceId".
+// src/testing/execution-context.ts:102:3 - (ae-undocumented) Missing documentation for "environmentName".
+// src/testing/execution-context.ts:120:3 - (ae-undocumented) Missing documentation for "application".
 // src/testing/matchers.ts:11:3 - (ae-undocumented) Missing documentation for "kind".
 // src/testing/matchers.ts:12:3 - (ae-undocumented) Missing documentation for "system".
 // src/testing/matchers.ts:13:3 - (ae-undocumented) Missing documentation for "input".
@@ -677,6 +891,20 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/turns.ts:91:3 - (ae-undocumented) Missing documentation for "failure".
 // src/testing/turns.ts:100:3 - (ae-undocumented) Missing documentation for "kind".
 // src/testing/turns.ts:101:3 - (ae-undocumented) Missing documentation for "delay".
+// src/testing/units/override.ts:10:3 - (ae-undocumented) Missing documentation for "token".
+// src/testing/units/override.ts:11:3 - (ae-undocumented) Missing documentation for "replacement".
+// src/testing/units/test-action.ts:24:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-arbiter.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-guardrail.ts:23:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
+// src/testing/units/test-guardrail.ts:27:3 - (ae-undocumented) Missing documentation for "afterToolCall".
+// src/testing/units/test-guardrail.ts:31:3 - (ae-undocumented) Missing documentation for "beforeAgentAnswer".
+// src/testing/units/test-guardrail.ts:35:3 - (ae-undocumented) Missing documentation for "onChannelDecision".
+// src/testing/units/test-judge.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-rag.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-router.ts:22:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-tool.ts:13:3 - (ae-undocumented) Missing documentation for "run".
+// src/testing/units/test-tool.ts:31:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/unit-types.ts:56:3 - (ae-undocumented) Missing documentation for "output".
 // src/testing/vcr.ts:22:1 - (ae-undocumented) Missing documentation for "VCRMode".
 // src/testing/vcr.ts:33:3 - (ae-undocumented) Missing documentation for "cassetteName".
 

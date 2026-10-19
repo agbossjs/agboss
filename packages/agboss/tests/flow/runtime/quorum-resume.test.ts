@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../../src/app/types.js";
 import { ApplicationStoppingError, BranchStatus, BranchVerdict } from "../../../src/index.js";
-import { callTool, replyWith, testWith, type VirtualClock } from "../../../src/testing/index.js";
+import {
+  callTool,
+  replyWith,
+  testWith,
+  type VirtualClock,
+  TestConcurrency,
+} from "../../../src/testing/index.js";
 import type { TestApp } from "../../../src/testing/test-app.js";
 import { ends, resetRecovery } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { seconds } from "../../../src/units/index.js";
@@ -33,7 +39,9 @@ import {
  * ticket, so once it has passed the paused branch is cancelled without running.
  */
 
-const checked = testWith(CheckedPanelApplication);
+/** These tests are about the runtime's own concurrency (#262: tests default to one branch at a time). */
+const REAL = { concurrency: TestConcurrency.Real };
+const checked = testWith(CheckedPanelApplication, REAL);
 
 const score = (value: number) => replyWith(ScoreDto, { score: value });
 const summary = replyWith(ScoreReviewDto, { text: "summed up" });
@@ -70,7 +78,7 @@ describe("S26: a pause and a resume inside a quorum", () => {
   );
 });
 
-const instances = testWith(RecoveryPanelApplication, { instances: 2 });
+const instances = testWith(RecoveryPanelApplication, { ...REAL, instances: 2 });
 
 const instance = (apps: readonly TestApp[], index: number): TestApp => {
   const found = apps[index];

@@ -5,7 +5,12 @@ import {
   ExecutionCancelledError,
   StepsLimitExceededError,
 } from "../../src/index.js";
-import { replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
+import {
+  replyWith,
+  TestConcurrency,
+  testWith,
+  type ModelRequest,
+} from "../../src/testing/index.js";
 import { childMatchers } from "../../src/testing/child-matchers.js";
 import { usd } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -37,6 +42,8 @@ import {
 /** #263 AC15 — `toHaveChildExecutions` and `toHaveHandledError` pass and fail as described. */
 
 const test = testWith(ChildrenApplication);
+/** A FailFast race between children needs them running at once (#262: one at a time by default). */
+const real = testWith(ChildrenApplication, { concurrency: TestConcurrency.Real });
 const who = { tenant: { tenantId: "acme", plan: "pro" }, execution: { userId: "u1" } };
 const item = (name: string, delay = 0, outcome: ItemDto["outcome"] = "ok"): ItemDto => ({
   name,
@@ -47,7 +54,7 @@ const item = (name: string, delay = 0, outcome: ItemDto["outcome"] = "ok"): Item
 beforeEach(resetChildLog);
 
 describe("toHaveChildExecutions", () => {
-  test("passes: each child's item and how it ended, in item order", async ({ app }) => {
+  real("passes: each child's item and how it ended, in item order", async ({ app }) => {
     const items = [item("slow", 200), item("bad", 5, "fail"), item("later")];
 
     const result = await execute(app, CheckItemsWorkflowStart, items, who);

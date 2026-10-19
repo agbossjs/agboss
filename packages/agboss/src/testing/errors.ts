@@ -7,7 +7,8 @@ export type TestFailureCode =
   | "test.app-closed"
   | "test.cassette-missing"
   | "test.no-matching-script"
-  | "test.unused-script";
+  | "test.unused-script"
+  | "test.unreachable-step";
 
 /** A failure the toolkit raises for a test: it carries a stable code. */
 export class TestFailure extends Error {

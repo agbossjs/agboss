@@ -1,4 +1,5 @@
 import { BranchErrors } from "../flow/runtime/launch/launch-registry.js";
+import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
 import type { BaseMemoryStrategy } from "../memory/types.js";
 import type { JudgeHandler } from "../components/judge-decorators.js";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
@@ -138,6 +139,7 @@ export const flowFor = (
   bundle: AssembledWorkflow,
   config: AgentsConfigOf<string>,
   gateway: ModelGateway,
+  branchScheduler?: BranchScheduler,
 ): Pick<
   RunDeps<string>,
   | "graph"
@@ -147,6 +149,7 @@ export const flowFor = (
   | "launchDecisionFor"
   | "arbiterModelFor"
   | "branchErrors"
+  | "branchScheduler"
 > => {
   const routerDeps = {
     gateway,
@@ -162,5 +165,7 @@ export const flowFor = (
     arbiterModelFor: flowArbiterModelFactory(routerDeps),
     // a launch's branch errors, kept across passes (a withdrawal's join rethrows the original)
     branchErrors: new BranchErrors(),
+    // a test's schedule of the branches (#262 S33); none in production
+    ...(branchScheduler === undefined ? {} : { branchScheduler }),
   };
 };

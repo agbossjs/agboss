@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect } from "vitest";
 import { DepthLimitExceededError, LimitExceededError, ThisWorkflow } from "../../../src/index.js";
 import { ChildExecutionStatus } from "../../../src/flow/runtime/child-records.js";
-import { testWith } from "../../../src/testing/index.js";
+import { TestConcurrency, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
   CountDoneWorkflowFinish,
@@ -23,6 +23,8 @@ import {
  */
 
 const test = testWith(RecursionApplication);
+/** Per-item children all launched at once, as the runtime does (#262: one at a time by default). */
+const real = testWith(RecursionApplication, { concurrency: TestConcurrency.Real });
 
 beforeEach(() => {
   resetRecursionLog();
@@ -79,27 +81,27 @@ describe("AC6: .toWorkflow(ThisWorkflow) by code past maxDepth", () => {
 });
 
 describe("AC6: .toParallelWorkflows(ThisWorkflow) by code past maxDepth", () => {
-  test("each level-2 child's launch is refused; its .onJoinError finishes it", async ({
-    app,
-    mockAction,
-  }) => {
-    const result = await execute(app, SplitWorkflowStart, { left: 5 });
+  real(
+    "each level-2 child's launch is refused; its .onJoinError finishes it",
+    async ({ app, mockAction }) => {
+      const result = await execute(app, SplitWorkflowStart, { left: 5 });
 
-    expect(result).toFinishWith(CountDoneWorkflowFinish, { depth: 1 });
-    // both items of each level-2 child are refused before they start; its join error finishes it
-    const levels = result.children.map((child) => ({
-      input: child.input,
-      finish: child.finish?.name,
-      refused: child.children.map((refused) => [refused.depth, refused.error?.code]),
-    }));
-    const refused = [
-      [3, "limit.depth"],
-      [3, "limit.depth"],
-    ];
-    expect(levels).toEqual([
-      { input: { left: 4 }, finish: "count-stopped-workflow-finish", refused },
-      { input: { left: 4 }, finish: "count-stopped-workflow-finish", refused },
-    ]);
-    expect(mockAction(SplitStoppedAction)).toHaveBeenCalledTimes(2);
-  });
+      expect(result).toFinishWith(CountDoneWorkflowFinish, { depth: 1 });
+      // both items of each level-2 child are refused before they start; its join error finishes it
+      const levels = result.children.map((child) => ({
+        input: child.input,
+        finish: child.finish?.name,
+        refused: child.children.map((refused) => [refused.depth, refused.error?.code]),
+      }));
+      const refused = [
+        [3, "limit.depth"],
+        [3, "limit.depth"],
+      ];
+      expect(levels).toEqual([
+        { input: { left: 4 }, finish: "count-stopped-workflow-finish", refused },
+        { input: { left: 4 }, finish: "count-stopped-workflow-finish", refused },
+      ]);
+      expect(mockAction(SplitStoppedAction)).toHaveBeenCalledTimes(2);
+    },
+  );
 });

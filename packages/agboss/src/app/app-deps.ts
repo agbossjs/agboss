@@ -26,6 +26,7 @@ import { componentsAtStart } from "./start-components.js";
 import { piiFor } from "./pii-parts.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { Clock } from "../infrastructure/clock.js";
+import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
 import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
 import type { BudgetHandler } from "../budgets/budget.js";
 import type { Class } from "../components/injection.js";
@@ -82,6 +83,8 @@ export interface AppDepsOptions {
   readonly newThreadId?: NewThreadId;
   readonly newRunId?: () => string;
   readonly container?: ContainerOptions;
+  /** How launch branches are scheduled: a test's `TestConcurrency` (#262 S33); default the real way. */
+  readonly branchScheduler?: BranchScheduler;
 }
 
 /** Stores the config snapshot of this version; warns when the version already had other content. */
@@ -199,7 +202,7 @@ export async function createWorkflowDeps(
   const deps = {
     config,
     registry: createModelRegistry(config, gateway),
-    ...flowFor(bundle, config, gateway),
+    ...flowFor(bundle, config, gateway, options.branchScheduler),
     prompts: bundle.prompts,
     guards: guardsFor(config, gateway),
     tools: toolLookup(tools),

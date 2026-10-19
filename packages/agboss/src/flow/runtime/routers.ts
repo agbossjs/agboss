@@ -2,7 +2,7 @@ import type { PromptLoader } from "../../components/prompt-render.js";
 import { NodeKind } from "../ast.js";
 import { declarationOf, type Declared } from "../decorators/declaration.js";
 import { isCodeRouter, type ModelRouterOptions } from "../decorators/router.js";
-import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
+import type { RuntimeGraph } from "./graph-model.js";
 
 /**
  * The model routers of a workflow with their texts loaded (#272): how to choose (`prompt` /
@@ -11,7 +11,7 @@ import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
  * After `.chooseOne(…)` every route is a choice; hiding a launch's `Always` routes is #273's.
  */
 
-type ModelRouterDeclaration = Declared<NodeKind.Router, ModelRouterOptions>;
+export type ModelRouterDeclaration = Declared<NodeKind.Router, ModelRouterOptions>;
 
 /** One route as the router's model sees it: the target's node id and what choosing it means. */
 export interface LoadedRoute {
@@ -32,8 +32,9 @@ export interface LoadedRouter {
 const byOption = (left: LoadedRoute, right: LoadedRoute): number =>
   left.option < right.option ? -1 : left.option > right.option ? 1 : 0;
 
-async function loadRouter(
-  node: RuntimeNode,
+/** One model router with its texts loaded, named `name` (its node id). */
+export async function loadRouter(
+  name: string,
   declaration: ModelRouterDeclaration,
   loader: PromptLoader,
   defaultModel: string | undefined,
@@ -49,7 +50,7 @@ async function loadRouter(
     }),
   );
   return {
-    name: node.id,
+    name,
     description: options.description,
     model: options.model ?? defaultModel ?? "",
     ...(options.maxVisits === undefined ? {} : { maxVisits: options.maxVisits }),
@@ -71,6 +72,6 @@ export async function loadRouters(
     return isCodeRouter(options) ? [] : [{ node, declaration: { ...declaration, options } }];
   });
   return Promise.all(
-    routers.map(({ node, declaration }) => loadRouter(node, declaration, loader, defaultModel)),
+    routers.map(({ node, declaration }) => loadRouter(node.id, declaration, loader, defaultModel)),
   );
 }

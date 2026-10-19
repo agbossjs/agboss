@@ -43,7 +43,7 @@ function variantOf(
 }
 
 /** An action's result checked against its `output`, as the value its edge writes. */
-function checkedValue(node: string, output: OutputShape, result: unknown): NodeValue {
+export function checkedActionValue(node: string, output: OutputShape, result: unknown): NodeValue {
   if (typeof output === "function") return { value: validate(output, result) };
   if (output.kind === Wrapper.OneOf) {
     const { dto, value } = variantOf(node, output, result);
@@ -86,6 +86,6 @@ export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
     });
     await reportNodeEvent((base) => deps.observer?.onActionEnd({ ...base, name, update: result }));
     if (output === undefined) return { read: input.read };
-    return { value: checkedValue(node.id, output, result), read: input.read };
+    return { value: checkedActionValue(node.id, output, result), read: input.read };
   };
 }

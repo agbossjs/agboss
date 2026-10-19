@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect } from "vitest";
 import { BranchStatus } from "../../../src/index.js";
-import { replyWith, testWith } from "../../../src/testing/index.js";
+import { replyWith, testWith, TestConcurrency } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
   CompanyAuditAgent,
@@ -24,8 +24,10 @@ import {
 
 /** #273 AC2, AC10, AC12: one run per item of a list, in the list's order, at most `maxItems`. */
 
-const screening = testWith(ScreeningApplication);
-const items = testWith(FanOutApplication);
+/** These tests are about the runtime's own concurrency (#262: tests default to one branch at a time). */
+const REAL = { concurrency: TestConcurrency.Real };
+const screening = testWith(ScreeningApplication, REAL);
+const items = testWith(FanOutApplication, REAL);
 
 const item = (name: string, delay = 0): ItemDto => ({ name, delay, outcome: "ok" });
 const companies = (...names: readonly string[]) =>

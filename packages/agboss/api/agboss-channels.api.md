@@ -8,10 +8,11 @@
 export class AutoApproveChannel {
     // (undocumented)
     readonly [agbossComponent]?: "auto-approve-channel";
-    // Warning: (ae-forgotten-export) The symbol "ChannelOutcome" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "DecidedOutcome" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "AutoDecision" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
-    send(): Promise<ChannelOutcome<AutoApproveChannel>>;
+    send(): Promise<DecidedOutcome<AutoDecision>>;
 }
 
 // @public
@@ -19,7 +20,7 @@ export class AutoRejectChannel {
     // (undocumented)
     readonly [agbossComponent]?: "auto-reject-channel";
     // (undocumented)
-    send(): Promise<ChannelOutcome<AutoRejectChannel>>;
+    send(): Promise<DecidedOutcome<AutoDecision>>;
 }
 
 // @public
@@ -27,6 +28,7 @@ export class TerminalUserChannel {
     // (undocumented)
     readonly [agbossComponent]?: "terminal-user-channel";
     // Warning: (ae-forgotten-export) The symbol "ChannelAsk" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "ChannelOutcome" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
     send(ask: ChannelAsk<TerminalUserChannel>): Promise<ChannelOutcome<TerminalUserChannel>>;
@@ -36,10 +38,10 @@ export class TerminalUserChannel {
 //
 // src/channels/terminal-channel.ts:13:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/terminal-channel.ts:15:3 - (ae-undocumented) Missing documentation for "send".
-// src/channels/test-channels.ts:15:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/channels/test-channels.ts:17:3 - (ae-undocumented) Missing documentation for "send".
-// src/channels/test-channels.ts:28:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/channels/test-channels.ts:30:3 - (ae-undocumented) Missing documentation for "send".
+// src/channels/test-channels.ts:22:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/test-channels.ts:24:3 - (ae-undocumented) Missing documentation for "send".
+// src/channels/test-channels.ts:35:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/test-channels.ts:37:3 - (ae-undocumented) Missing documentation for "send".
 
 // (No @packageDocumentation comment for this package)
 

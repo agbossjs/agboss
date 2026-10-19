@@ -12,6 +12,7 @@ import type { LoadedRouter } from "../flow/runtime/routers.js";
 import type { LaunchDecider } from "../flow/runtime/launch/launch-decider.js";
 import type { ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
 import type { BranchErrors } from "../flow/runtime/launch/launch-registry.js";
+import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
 import type { ArbiterClass } from "../flow/ast.js";
 import type { Guardrail } from "../components/decorators.js";
 import type { PauseChannel } from "../flow/runtime/pause.js";
@@ -40,6 +41,8 @@ export interface GraphDeps<TName extends string> {
   readonly pause?: PauseSeam | undefined;
   /** The errors of failed launch branches across this process's passes (#267 AC10). */
   readonly branchErrors?: BranchErrors;
+  /** A test's schedule of launch branches (#262 S33, `TestConcurrency`); absent in production. */
+  readonly branchScheduler?: BranchScheduler;
   /** The channel a tool names, by its name (#267): created with the app. */
   readonly channelOf?: (channelName: string) => PauseChannel;
   /** The PII policies at each agent's and router's model (#120); absent = none. */

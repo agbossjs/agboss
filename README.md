@@ -758,6 +758,82 @@ are caused the real way — `failWith(ModelFailure.…)`, a rejecting `mockOf(�
 matched with `rejects.toFailWith(ErrorClass, { …fields, cause: CauseClass })` through the cause
 chain; the testing API has no way to create a framework error.
 
+Parallel branches run one at a time in a test, in listed / item order (`TestConcurrency.Sequential`,
+the default); `TestConcurrency.Real` runs them as production does, and
+`TestConcurrency.inOrder([step(A), step(B)])` makes them complete in that order — a race, a
+`FailFast` or a quorum gives the same result on every run. One component is tested on its own with
+a unit runner: `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`,
+`testGuardrail`, `testPii` — its own container (`overrides` replace classes by classes), the
+`environment`, the frame of its step (`executionContext.signal` with a `timeout`, `SpendRecorder`),
+its model by script; each call gives `{ output, spend }`.
+
+<!-- snippet-context
+import { Injectable, type JudgeHandler, type JudgeInput, type JudgeVerdict } from "agboss";
+declare class QuickPanelApplication {}
+declare class PanelWorkflowStart {}
+declare class SkillsAgent {}
+declare class RisksAgent {}
+@Injectable()
+export class JobBoardService {
+  search(query: string): Promise<readonly string[]> {
+    return Promise.resolve([query]);
+  }
+}
+@Injectable()
+export class FakeJobBoardService extends JobBoardService {}
+declare class SearchJobsTool {
+  run(input: { readonly query: string }): Promise<{ readonly jobs: string }>;
+}
+declare class GroundedJudge implements JudgeHandler {
+  judge(input: JudgeInput): Promise<JudgeVerdict>;
+}
+// the start's input, typed by the generated types of a real project
+declare const candidate: never;
+-->
+
+```ts
+import { expect, it } from "vitest";
+import {
+  decideWith,
+  override,
+  step,
+  TestConcurrency,
+  testJudge,
+  testTool,
+  testWith,
+} from "agboss/testing";
+import { seconds } from "agboss/units";
+
+// the risks agent answers first, then the skills agent: the quorum counts them in that order
+const test = testWith(QuickPanelApplication, {
+  concurrency: TestConcurrency.inOrder([step(RisksAgent), step(SkillsAgent)]),
+});
+
+test("the first two answers are counted", async ({ app }) => {
+  const result = await app.execute(PanelWorkflowStart, candidate);
+  expect(result.launches[0]?.isQuorumReached).toBe(true);
+});
+
+it("searches the board it is given", async () => {
+  const runSearch = testTool(SearchJobsTool, {
+    overrides: [override(JobBoardService, FakeJobBoardService)],
+  });
+
+  const { output, spend } = await runSearch({ query: "TS" }, { timeout: seconds(1) });
+
+  expect(output.jobs).toContain("TS");
+  expect(spend.totalUsd).toBe(0);
+});
+
+it("a grounded reply passes", async () => {
+  const runJudge = testJudge(GroundedJudge, { model: decideWith({ grounded: 0.9 }) });
+
+  const { output } = await runJudge({ task: "Find TS jobs", reply: "…", attempt: 0 });
+
+  expect(output.passed).toBe(true);
+});
+```
+
 ## Execution Context & Observers
 
 Every component reads the execution it runs in through its constructor (#280):

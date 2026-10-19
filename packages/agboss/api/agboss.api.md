@@ -312,6 +312,8 @@ export interface AppDeps extends RunDeps<string> {
 
 // @public
 export interface AppDepsOptions {
+    // Warning: (ae-forgotten-export) The symbol "BranchScheduler" needs to be exported by the entry point index.d.ts
+    readonly branchScheduler?: BranchScheduler;
     readonly connectMcp?: McpConnect;
     // Warning: (ae-forgotten-export) The symbol "ContainerOptions" needs to be exported by the entry point index.d.ts
     //
@@ -487,8 +489,10 @@ export interface AssembledWorkflow<TName extends string = string> {
 export class AutoApproveChannel {
     // (undocumented)
     readonly [agbossComponent]?: "auto-approve-channel";
+    // Warning: (ae-forgotten-export) The symbol "AutoDecision" needs to be exported by the entry point index.d.ts
+    //
     // (undocumented)
-    send(): Promise<ChannelOutcome<AutoApproveChannel>>;
+    send(): Promise<DecidedOutcome<AutoDecision>>;
 }
 
 // @public
@@ -496,7 +500,7 @@ export class AutoRejectChannel {
     // (undocumented)
     readonly [agbossComponent]?: "auto-reject-channel";
     // (undocumented)
-    send(): Promise<ChannelOutcome<AutoRejectChannel>>;
+    send(): Promise<DecidedOutcome<AutoDecision>>;
 }
 
 // @public
@@ -1640,6 +1644,7 @@ export interface GraphDeps<TName extends string> {
     readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
     // Warning: (ae-forgotten-export) The symbol "BranchErrors" needs to be exported by the entry point index.d.ts
     readonly branchErrors?: BranchErrors;
+    readonly branchScheduler?: BranchScheduler;
     readonly channelOf?: (channelName: string) => PauseChannel;
     readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
     // (undocumented)
@@ -1767,8 +1772,6 @@ export interface Guardrail {
     afterToolCall?: (ctx: GuardrailContext) => Promise<void>;
     // (undocumented)
     beforeAgentAnswer?: (ctx: GuardrailContext) => Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "GuardrailContext" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     beforeToolCall?: (ctx: GuardrailContext) => Promise<void | {
         overrideArguments?: any;
@@ -1789,6 +1792,14 @@ export class GuardrailBlockedError extends PaidStepError {
     // (undocumented)
     name: string;
     readonly refusal: string;
+}
+
+// @public
+export interface GuardrailContext {
+    agent: string;
+    call?: any;
+    replyWith?: string;
+    runId?: string;
 }
 
 // @public
@@ -4277,10 +4288,10 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 
 // Warnings were encountered during analysis:
 //
-// src/app/app-deps.ts:41:3 - (ae-undocumented) Missing documentation for "evaluation".
-// src/app/app-deps.ts:82:3 - (ae-undocumented) Missing documentation for "newThreadId".
-// src/app/app-deps.ts:83:3 - (ae-undocumented) Missing documentation for "newRunId".
-// src/app/app-deps.ts:84:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/app-deps.ts:42:3 - (ae-undocumented) Missing documentation for "evaluation".
+// src/app/app-deps.ts:83:3 - (ae-undocumented) Missing documentation for "newThreadId".
+// src/app/app-deps.ts:84:3 - (ae-undocumented) Missing documentation for "newRunId".
+// src/app/app-deps.ts:85:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/create-app.ts:60:3 - (ae-undocumented) Missing documentation for "profileRoot".
@@ -4331,10 +4342,10 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/channels/channel-role.decorator.ts:66:1 - (ae-undocumented) Missing documentation for "ChannelRole".
 // src/channels/terminal-channel.ts:13:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/terminal-channel.ts:15:3 - (ae-undocumented) Missing documentation for "send".
-// src/channels/test-channels.ts:15:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/channels/test-channels.ts:17:3 - (ae-undocumented) Missing documentation for "send".
-// src/channels/test-channels.ts:28:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/channels/test-channels.ts:30:3 - (ae-undocumented) Missing documentation for "send".
+// src/channels/test-channels.ts:22:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/test-channels.ts:24:3 - (ae-undocumented) Missing documentation for "send".
+// src/channels/test-channels.ts:35:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/test-channels.ts:37:3 - (ae-undocumented) Missing documentation for "send".
 // src/components/bind-tool.ts:22:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/bind-tool.ts:24:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/decorators.ts:16:3 - (ae-undocumented) Missing documentation for "run".
@@ -4364,12 +4375,12 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/components/metadata.ts:88:1 - (ae-undocumented) Missing documentation for "ComponentError".
 // src/components/metadata.ts:89:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/name-of.ts:32:1 - (ae-undocumented) Missing documentation for "nameOf".
-// src/components/policy-decorators.ts:20:1 - (ae-undocumented) Missing documentation for "Guardrail".
-// src/components/policy-decorators.ts:22:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
-// src/components/policy-decorators.ts:23:3 - (ae-undocumented) Missing documentation for "afterToolCall".
-// src/components/policy-decorators.ts:24:3 - (ae-undocumented) Missing documentation for "onChannelDecision".
-// src/components/policy-decorators.ts:30:3 - (ae-undocumented) Missing documentation for "beforeAgentAnswer".
-// src/components/policy-decorators.ts:33:1 - (ae-undocumented) Missing documentation for "Guardrail".
+// src/components/policy-decorators.ts:24:1 - (ae-undocumented) Missing documentation for "Guardrail".
+// src/components/policy-decorators.ts:26:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
+// src/components/policy-decorators.ts:27:3 - (ae-undocumented) Missing documentation for "afterToolCall".
+// src/components/policy-decorators.ts:28:3 - (ae-undocumented) Missing documentation for "onChannelDecision".
+// src/components/policy-decorators.ts:34:3 - (ae-undocumented) Missing documentation for "beforeAgentAnswer".
+// src/components/policy-decorators.ts:37:1 - (ae-undocumented) Missing documentation for "Guardrail".
 // src/components/prompt-problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts:14:3 - (ae-undocumented) Missing documentation for "message".
 // src/components/prompt-problems.ts:23:12 - (ae-undocumented) Missing documentation for "name".
@@ -4809,13 +4820,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/start-input.ts:67:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/start-input.ts:68:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/this-workflow.ts:17:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/graph/deps.ts:26:3 - (ae-undocumented) Missing documentation for "config".
-// src/graph/deps.ts:27:3 - (ae-undocumented) Missing documentation for "registry".
-// src/graph/deps.ts:32:3 - (ae-undocumented) Missing documentation for "guards".
-// src/graph/deps.ts:47:3 - (ae-undocumented) Missing documentation for "toolGuardrails".
-// src/graph/deps.ts:48:3 - (ae-undocumented) Missing documentation for "workflowGuardrails".
-// src/graph/deps.ts:49:3 - (ae-undocumented) Missing documentation for "guardrails".
-// src/graph/deps.ts:62:3 - (ae-undocumented) Missing documentation for "observer".
+// src/graph/deps.ts:27:3 - (ae-undocumented) Missing documentation for "config".
+// src/graph/deps.ts:28:3 - (ae-undocumented) Missing documentation for "registry".
+// src/graph/deps.ts:33:3 - (ae-undocumented) Missing documentation for "guards".
+// src/graph/deps.ts:50:3 - (ae-undocumented) Missing documentation for "toolGuardrails".
+// src/graph/deps.ts:51:3 - (ae-undocumented) Missing documentation for "workflowGuardrails".
+// src/graph/deps.ts:52:3 - (ae-undocumented) Missing documentation for "guardrails".
+// src/graph/deps.ts:65:3 - (ae-undocumented) Missing documentation for "observer".
 // src/graph/errors.ts:11:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/errors.ts:12:12 - (ae-undocumented) Missing documentation for "name".
 // src/graph/errors.ts:13:3 - (ae-undocumented) Missing documentation for "usage".

@@ -6,7 +6,7 @@ import {
   ExecutionCancelledError,
   StepFailedError,
 } from "../../../src/index.js";
-import { testWith } from "../../../src/testing/index.js";
+import { TestConcurrency, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import { ItemFailedError, type ItemDto } from "./fixtures/fan-out.workflow.js";
 import {
@@ -27,7 +27,8 @@ import {
 
 /** #263 PR 2 — a child's failure: AC8, AC9, AC13, S25, S85 (a child as an error handler). */
 
-const test = testWith(ChildrenApplication);
+/** These tests are about the runtime's own concurrency (#262: tests default to one branch at a time). */
+const test = testWith(ChildrenApplication, { concurrency: TestConcurrency.Real });
 const who = { tenant: { tenantId: "acme", plan: "pro" }, execution: { userId: "u1" } };
 
 const item = (name: string, delay = 0, outcome: ItemDto["outcome"] = "ok"): ItemDto => ({

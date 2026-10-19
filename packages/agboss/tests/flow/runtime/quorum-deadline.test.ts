@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../../src/app/types.js";
 import { BranchStatus, BranchVerdict } from "../../../src/index.js";
-import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
+import { callTool, replyWith, testWith, TestConcurrency } from "../../../src/testing/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { execute, answerOf } from "../../helpers/flow.js";
 import { ScoreDto, ScoreReviewDto } from "../fixtures/quorum-dtos.js";
@@ -28,7 +28,9 @@ import { CheckedPanelApplication } from "../fixtures/quorum-runtime.fixture.js";
  * being checked does not count; a pause counts as elapsed time.
  */
 
-const checked = testWith(CheckedPanelApplication);
+/** These tests are about the runtime's own concurrency (#262: tests default to one branch at a time). */
+const REAL = { concurrency: TestConcurrency.Real };
+const checked = testWith(CheckedPanelApplication, REAL);
 
 const score = (value: number) => replyWith(ScoreDto, { score: value });
 const slow = (value: number, wait: number) => [callTool(WaitTool, { seconds: wait }), score(value)];

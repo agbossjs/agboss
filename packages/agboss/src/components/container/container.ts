@@ -56,6 +56,11 @@ export interface ApplicationContainer {
 /** How one app's container differs: values that replace registrations (test mocks), a creation hook. */
 export interface ContainerOptions {
   readonly overrides?: ReadonlyMap<Token, unknown>;
+  /**
+   * Classes created instead of others (a test's `override(Class, Replacement)`, #262): wherever a
+   * token is asked for, the container gives its instance of the replacement — over any listed class.
+   */
+  readonly replacements?: ReadonlyMap<Class, Class>;
   /** Called with every instance the container creates (not with values or overrides). */
   readonly onCreate?: (instance: unknown) => void;
   /** The application this container belongs to: its providers, defaults and instances, shared. */
@@ -126,6 +131,7 @@ export function createContainer(
 ): Container {
   const registrations = registrationsOf(sources, options.application);
   registrations.override(options.overrides ?? new Map());
+  registrations.replace(options.replacements ?? new Map());
   const instances = options.application?.instances ?? new Map<Token, unknown>();
   const created: string[] = [];
   const instanceOf = (cls: Class): unknown => {

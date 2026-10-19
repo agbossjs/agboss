@@ -2,8 +2,11 @@
  * `agboss/testing` — test a workflow without models and without the network: `testWith`
  * (Vitest fixtures `app`, `mockLlm`, `mockAction`, `mockTool`, `mockOf`, `mcpOf`, `recoverApp`,
  * `clock`), scripted model turns (`replyWith`, `callTool`, `routeTo`, `decideWith`, `failWith`,
- * `waitFor`, bound to inputs with `when(…)`) and the matchers (register them with
- * `setupFiles: ["agboss/testing/setup"]`). Vitest is an optional peer dependency.
+ * `waitFor`, bound to inputs with `when(…)`), the schedule of parallel branches
+ * (`TestConcurrency`), the unit runners of single components (`testTool`, `testAction`,
+ * `testJudge`, `testPii`, `testRouter`, `testArbiter`, `testRag`, `testGuardrail`) and the matchers
+ * (register them with `setupFiles: ["agboss/testing/setup"]`). Vitest is an optional peer
+ * dependency.
  * Wiki → Testing.
  */
 import "../polyfills/symbol-metadata.js";
@@ -54,6 +57,40 @@ export type { CallAssertion, CallMatchers } from "./vitest-types.js";
 export type { ExpectedErrorFields } from "./error-matcher.js";
 export type { McpStub, McpStubCall } from "./mcp-stubs.js";
 export { VirtualClock, type ClockDuration } from "./clock.js";
+export { TestConcurrency, step, type OrderedStep } from "./concurrency/test-concurrency.js";
+export { override, type Override } from "./units/override.js";
+export type {
+  UnitCallOptions,
+  UnitClock,
+  UnitModelOptions,
+  UnitModelScript,
+  UnitOptions,
+  UnitRun,
+} from "./units/unit-types.js";
+export {
+  testTool,
+  type ToolInputOf,
+  type ToolInstance,
+  type ToolOutputOf,
+  type ToolRunner,
+} from "./units/test-tool.js";
+export {
+  testAction,
+  type ActionInputOf,
+  type ActionOutputOf,
+  type ActionRunner,
+} from "./units/test-action.js";
+export { testJudge, type JudgeRunner } from "./units/test-judge.js";
+export { testPii, type PiiRunner } from "./units/test-pii.js";
+export { testRouter, type RouterRunner } from "./units/test-router.js";
+export { testArbiter, type ArbiterRunner } from "./units/test-arbiter.js";
+export { testRag, type RagCallOptions, type RagRunner } from "./units/test-rag.js";
+export {
+  testGuardrail,
+  type GuardrailDecision,
+  type GuardrailHookResult,
+  type GuardrailRunner,
+} from "./units/test-guardrail.js";
 export {
   CassetteMissingError,
   LiveCallBlockedError,

@@ -33,6 +33,7 @@ import type { CritiqueAction, CritiqueRouter, PolishAgent, PolishWorkflow, Polis
 import type { BatchRankAgent, CompanyBatchWorkflowStart, CompanyCheckAgent, CompanyCheckWorkflow, CompanyCheckWorkflowStart, CompanyScoreWorkflowFinish } from "../tests/flow/fixtures/starts.fixture.js";
 import type { AnswerRouter, ExpertAnswerAgent, FastAnswerAgent, LoyaltyAgent, OrderAgent, SupportWorkflow, SupportWorkflowFinish, SupportWorkflowStart } from "../tests/flow/fixtures/support.fixture.js";
 import type { DeliveryTopicAgent, OrderTopicAgent, RefundTopicAgent, TopicsRouter, TopicsWorkflow, TopicsWorkflowFinish, TopicsWorkflowStart } from "../tests/flow/fixtures/topics.fixture.js";
+import type { ManualQuoteWorkflowFinish, PriceQuoteAction, QuoteDto, QuoteRefusedDto, QuoteRefusedWorkflowFinish, QuoteRequestDto, QuoteSizeRouter, QuoteWorkflow, QuoteWorkflowFinish, QuoteWorkflowStart } from "../tests/flow/fixtures/units.fixture.js";
 
 declare module "../src/flow/generated-types.js" {
   interface ProducerOutputs {
@@ -132,9 +133,11 @@ declare module "../src/flow/generated-types.js" {
     "plan-researcher-agent": ResearchDto;
     "planner-agent": PlanDto;
     "polish-agent": DraftDto;
+    "price-quote-action": QuoteDto | QuoteRefusedDto;
     "profiler-agent": ProfileDto | ResumeMissingDto;
     "publisher-agent": ArticleDto;
     "quick-grade-workflow-start": CompanyDto;
+    "quote-workflow-start": QuoteRequestDto;
     "ranker-agent": RankingDto;
     "refund-card-action": NoOutput;
     "refund-clerk-agent": RefundCardOutputDto;
@@ -300,6 +303,7 @@ declare module "../src/flow/generated-types.js" {
     "loyalty-agent": { order: Produced<OrderStatusDto, typeof OrderAgent> };
     "loyalty-offer-agent": { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart | typeof OffersWorkflowStart> };
     "main-router": { message: Produced<WorkflowStartTextDto, typeof IntakeWorkflowStart> };
+    "manual-quote-workflow-finish": NoInput;
     "mark-review-failed-action": { promising: Produced<PromisingCompanyDto, typeof CompanyReviewerAgent> };
     "no-offer-failed-workflow-finish": NoInput;
     "no-offer-rejected-workflow-finish": NoInput;
@@ -346,11 +350,16 @@ declare module "../src/flow/generated-types.js" {
       | { request: Produced<ArticleRequestDto, typeof StoryWorkflowStart>; critiques: readonly Produced<CritiqueDto, typeof CritiqueAction>[] }
       | { request: Produced<ArticleRequestDto, typeof StoryWorkflowStart>; critiques?: undefined };
     "polished-workflow-finish": NoInput;
+    "price-quote-action": { request: Produced<QuoteRequestDto, typeof QuoteWorkflowStart> };
     "profiler-agent": { message: Produced<WorkflowStartTextDto, typeof IntakeWorkflowStart> };
     "publisher-agent": { draft: Produced<DraftDto, typeof StoryWriterAgent>; approval: Produced<ApprovalDto, typeof StoryReviewerAgent> };
     "quick-grade-workflow-start": CompanyDto;
     "quick-reject-panel-workflow-finish": NoInput;
     "quick-reject-workflow-finish": NoInput;
+    "quote-refused-workflow-finish": NoInput;
+    "quote-size-router": { request: Produced<QuoteRequestDto, typeof QuoteWorkflowStart> };
+    "quote-workflow-finish": NoInput;
+    "quote-workflow-start": QuoteRequestDto;
     "ranker-agent": { checks: readonly Produced<CompanyCheckDto, typeof CompanyAuditAgent | typeof ItemBlindAgent>[] };
     "ranking-workflow-finish": NoInput;
     "refund-card-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
@@ -443,6 +452,7 @@ declare module "../src/flow/generated-types.js" {
     "graded-shortlist-workflow-finish": GradedShortlistDto;
     "help-desk-workflow-finish": CustomerReplyDto;
     "job-offer-workflow-finish": JobOfferDto;
+    "manual-quote-workflow-finish": QuoteRequestDto;
     "mark-review-failed-action": CompanyReviewFailedDto;
     "no-offer-failed-workflow-finish": CompanyReviewFailedDto;
     "no-offer-rejected-workflow-finish": CompanyRejectedDto;
@@ -466,8 +476,11 @@ declare module "../src/flow/generated-types.js" {
     "panel-unjudged-workflow-finish": CandidateDto;
     "payment-workflow-finish": PaymentDto;
     "polished-workflow-finish": DraftDto;
+    "price-quote-action": QuoteDto | QuoteRefusedDto;
     "quick-reject-panel-workflow-finish": FastScreenDto;
     "quick-reject-workflow-finish": FastScreenDto;
+    "quote-refused-workflow-finish": QuoteRefusedDto;
+    "quote-workflow-finish": QuoteDto;
     "ranking-workflow-finish": RankingDto;
     "refund-card-action": NoOutput;
     "refund-workflow-finish": RefundCardOutputDto;
@@ -525,6 +538,7 @@ declare module "../src/flow/generated-types.js" {
     "panel-workflow-start": { input: CandidateDto; output: CandidateDto | ScoreReviewDto };
     "picked-offer-workflow-start": { input: WorkflowStartTextDto; output: CompanyRejectedDto | CompanyReviewFailedDto | JobOfferDto | WorkflowStartTextDto };
     "quick-grade-workflow-start": { input: CompanyDto; output: CompanyGradeDto };
+    "quote-workflow-start": { input: QuoteRequestDto; output: QuoteDto | QuoteRefusedDto | QuoteRequestDto };
     "refund-workflow-start": { input: WorkflowStartTextDto; output: RefundCardOutputDto };
     "research-workflow-start": { input: WorkflowStartTextDto; output: ArticleDraftDto };
     "screening-workflow-start": { input: WorkflowStartTextDto; output: RankingDto | ScreeningFailedDto };
@@ -543,6 +557,7 @@ declare module "../src/flow/generated-types.js" {
     "main-router": typeof NoReplyWorkflowFinish | typeof ProfilerAgent | typeof ScoutAgent;
     "offers-router": typeof LoyaltyOfferAgent;
     "outline-depth-router": typeof OutlineAgent | typeof ThisWorkflow;
+    "quote-size-router": typeof ManualQuoteWorkflowFinish | typeof PriceQuoteAction;
     "second-opinion-router": typeof FullReviewAgent | typeof NotifyReviewerAction;
     "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;
   }
@@ -556,6 +571,7 @@ declare module "../src/flow/generated-types.js" {
     "main-router": typeof NoReplyWorkflowFinish | typeof ProfilerAgent | typeof ScoutAgent;
     "offers-router": readonly typeof LoyaltyOfferAgent[];
     "outline-depth-router": typeof OutlineAgent | typeof ThisWorkflow;
+    "quote-size-router": typeof ManualQuoteWorkflowFinish | typeof PriceQuoteAction;
     "second-opinion-router": typeof FullReviewAgent | typeof NotifyReviewerAction;
     "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;
   }
@@ -636,6 +652,9 @@ declare module "../src/flow/generated-types.js" {
     "PlanDto": PlanDto;
     "ProfileDto": ProfileDto;
     "PromisingCompanyDto": PromisingCompanyDto;
+    "QuoteDto": QuoteDto;
+    "QuoteRefusedDto": QuoteRefusedDto;
+    "QuoteRequestDto": QuoteRequestDto;
     "RankingDto": RankingDto;
     "RefundCardInputDto": RefundCardInputDto;
     "RefundCardOutputDto": RefundCardOutputDto;
@@ -1723,6 +1742,39 @@ declare module "../tests/flow/fixtures/topics.fixture.js" {
   }
   interface TopicsWorkflowStart {
     readonly [agbossComponent]?: "topics-workflow-start";
+  }
+}
+
+declare module "../tests/flow/fixtures/units.fixture.js" {
+  interface ManualQuoteWorkflowFinish {
+    readonly [agbossComponent]?: "manual-quote-workflow-finish";
+  }
+  interface PriceQuoteAction {
+    readonly [agbossComponent]?: "price-quote-action";
+  }
+  interface QuoteDto {
+    readonly [agbossDto]?: "QuoteDto";
+  }
+  interface QuoteRefusedDto {
+    readonly [agbossDto]?: "QuoteRefusedDto";
+  }
+  interface QuoteRefusedWorkflowFinish {
+    readonly [agbossComponent]?: "quote-refused-workflow-finish";
+  }
+  interface QuoteRequestDto {
+    readonly [agbossDto]?: "QuoteRequestDto";
+  }
+  interface QuoteSizeRouter {
+    readonly [agbossComponent]?: "quote-size-router";
+  }
+  interface QuoteWorkflow {
+    readonly [agbossComponent]?: "quote-workflow";
+  }
+  interface QuoteWorkflowFinish {
+    readonly [agbossComponent]?: "quote-workflow-finish";
+  }
+  interface QuoteWorkflowStart {
+    readonly [agbossComponent]?: "quote-workflow-start";
   }
 }
 
