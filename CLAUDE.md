@@ -1249,9 +1249,10 @@ Environments has more.
 `@Agent({ judges: [AnswerGroundedJudge], maxRetries: 1 })` runs each `@Judge({ name, model, reply,
 deps })` (`implements JudgeHandler<TReply>`) on the agent's answer **as its DTO** (#262 S115):
 `judge({ reply, task, attempt }: JudgeInput<TReply>)` gets the validated answer object — `reply` is
-a DTO class, `oneOf(A, B)` (`A | B`) or `PlainTextDto` for a text agent (`{ text }`); an agent whose
-`output` its judge does not judge (a text agent with a DTO judge, a `oneOf` variant it does not
-cover, a list output) fails assembly with `[judge.wrong-reply]`. Verdicts are built only with
+a DTO class, `oneOf(A, B)` (`A | B`), `listOf(XDto)` (`readonly XDto[]`) or `PlainTextDto` for a
+text agent (`{ text }`) — the shapes of `output`; an agent whose `output` its judge does not judge (a
+text agent with a DTO judge, a `oneOf` variant it does not cover, a list agent with a judge of one
+value or the other way round) fails assembly with `[judge.wrong-reply]`. Verdicts are built only with
 `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed({ reason, metrics? })`; a failed one's
 `reason` goes back to the agent for its retry, and when retries are spent the run throws
 `QualityGateError` (`rejections: [{ judge, reason }]`). `testJudge(Judge, …)({ reply, task,

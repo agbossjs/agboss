@@ -320,3 +320,143 @@ export class WrongListReplyWorkflow {}
   budgets: TEST_BUDGETS,
 })
 export class WrongReplyApplication {}
+
+/** Judges a list of jobs: the reply is `readonly JobDto[]`. */
+@Judge({ name: "jobs-judge", model: "local/judge", reply: listOf(JobDto), deps: [JobSearch] })
+export class JobsJudge implements JudgeHandler<readonly JobDto[]> {
+  constructor(private readonly jobSearch: JobSearch) {}
+
+  async judge({ reply }: JudgeInput<readonly JobDto[]>): Promise<JudgeVerdict> {
+    const found: readonly boolean[] = await Promise.all(
+      reply.map((job) => this.jobSearch.exists(job.url)),
+    );
+    return found.length > 0 && found.every(Boolean)
+      ? JudgeVerdict.passed({ metrics: { jobs: reply.length } })
+      : JudgeVerdict.failed({ reason: "every job must still be posted" });
+  }
+}
+
+@Agent({
+  name: "jobs-scout-agent",
+  prompt: "Find jobs.",
+  description: "Finds a list of jobs",
+  model: "local/llama",
+  output: listOf(JobDto),
+  judges: [JobsJudge],
+  maxRetries: 1,
+})
+export class JobsScoutAgent {}
+
+@Workflow({
+  name: "list-judge-workflow",
+  version: "1.0.0",
+  flow: [
+    start(TaskStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(JobsScoutAgent)
+      .returns(listOf(JobDto))
+      .toAgent(JobsSummaryAgent)
+      .toFinish(Reply),
+  ],
+  defaults: DEFAULTS,
+  providers: [JobSearch],
+})
+export class ListJudgeWorkflow {}
+
+@Application({
+  name: "list-judge-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [ListJudgeWorkflow],
+  providers: MODEL_PROVIDERS,
+  budgets: TEST_BUDGETS,
+})
+export class ListJudgeApplication {}
+
+/** Judges a list of decisions, each an offer or a refusal. */
+@Judge({
+  name: "decisions-judge",
+  model: "local/judge",
+  reply: listOf(oneOf(OfferDto, RefusalDto)),
+})
+export class DecisionsJudge implements JudgeHandler<readonly (OfferDto | RefusalDto)[]> {
+  judge({ reply }: JudgeInput<readonly (OfferDto | RefusalDto)[]>): Promise<JudgeVerdict> {
+    const offers: number = reply.filter((decision) => "salary" in decision).length;
+    return Promise.resolve(
+      offers <= 1
+        ? JudgeVerdict.passed({ metrics: { offers } })
+        : JudgeVerdict.failed({ reason: "make at most one offer" }),
+    );
+  }
+}
+
+@Agent({
+  name: "panel-screener-agent",
+  prompt: "Decide on each candidate.",
+  description: "Offers or refuses, per candidate",
+  model: "local/llama",
+  output: listOf(oneOf(OfferDto, RefusalDto)),
+  judges: [DecisionsJudge],
+  maxRetries: 1,
+})
+export class PanelScreenerAgent {}
+
+@Agent({
+  name: "decisions-summary-agent",
+  prompt: "Summarize.",
+  description: "Summarizes the decisions",
+  model: "local/llama",
+  input: { decisions: listOf(oneOf(OfferDto, RefusalDto)) },
+})
+export class DecisionsSummaryAgent {}
+
+@Workflow({
+  name: "variant-list-judge-workflow",
+  version: "1.0.0",
+  flow: [
+    start(TaskStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(PanelScreenerAgent)
+      .returns(listOf(oneOf(OfferDto, RefusalDto)))
+      .toAgent(DecisionsSummaryAgent)
+      .toFinish(Reply),
+  ],
+  defaults: DEFAULTS,
+})
+export class VariantListJudgeWorkflow {}
+
+@Application({
+  name: "variant-list-judge-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [VariantListJudgeWorkflow],
+  providers: MODEL_PROVIDERS,
+  budgets: TEST_BUDGETS,
+})
+export class VariantListJudgeApplication {}
+
+@Agent({
+  name: "list-judged-reporter-agent",
+  prompt: "Find jobs.",
+  description: "Answers one report, judged as a list",
+  model: "local/llama",
+  output: JobReportDto,
+  judges: [JobsJudge],
+})
+export class ListJudgedReporterAgent {}
+
+/** One value judged as a list. */
+@Workflow({
+  name: "wrong-value-reply-workflow",
+  version: "1.0.0",
+  flow: [
+    start(TaskStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(ListJudgedReporterAgent)
+      .returns(JobReportDto)
+      .toFinish(ReportWorkflowFinish),
+  ],
+  defaults: DEFAULTS,
+  providers: [JobSearch],
+})
+export class WrongValueReplyWorkflow {}

@@ -13,8 +13,19 @@ import { offline } from "../components/fixture/deps-contract.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { TaskStart } from "./fixtures/judged.workflow.js";
 import {
+  DecisionsJudge,
+  DecisionsSummaryAgent,
   FairDecisionJudge,
+  JobDto,
   JobReportDto,
+  JobsScoutAgent,
+  JobsSummaryAgent,
+  ListJudgeApplication,
+  ListJudgeWorkflow,
+  PanelScreenerAgent,
+  VariantListJudgeApplication,
+  VariantListJudgeWorkflow,
+  WrongValueReplyWorkflow,
   JobSearch,
   OfferDto,
   RefusalDto,
@@ -39,9 +50,9 @@ const textsOf = (request: ModelRequest | undefined): string[] =>
       )
     : [];
 
-const REPORT: JobReportDto = {
-  jobs: [{ title: "TS engineer", url: "https://jobs.example/acme/1" }],
-};
+const JOB: JobDto = { title: "TS engineer", url: "https://jobs.example/acme/1" };
+
+const REPORT: JobReportDto = { jobs: [JOB] };
 
 describe("a DTO judge", () => {
   const test = testWith(TypedJudgeApplication);
@@ -117,6 +128,54 @@ describe("a oneOf judge", () => {
   });
 });
 
+describe("a list judge", () => {
+  const test = testWith(ListJudgeApplication);
+
+  test("reads the list of DTOs; its reason reaches the retry", async ({ app, mockLlm, mockOf }) => {
+    mockOf(JobSearch).exists.mockImplementation((url: string) =>
+      Promise.resolve(url !== "https://gone"),
+    );
+    mockLlm(JobsScoutAgent)
+      .thenReturn(replyWith(JobDto, [JOB, { title: "Gone", url: "https://gone" }]))
+      .thenReturn(replyWith(JobDto, [JOB]));
+    mockLlm(JobsSummaryAgent).thenReturn(replyWith("One TS job."));
+
+    const result = await execute(app, TaskStart, { text: "find TS jobs" });
+
+    expect(result.output).toEqual({ text: "One TS job." });
+    expect(mockOf(JobSearch).exists.mock.calls).toEqual([[JOB.url], ["https://gone"], [JOB.url]]);
+    const [, retry] = mockLlm(JobsScoutAgent).requests;
+    expect(textsOf(retry).at(-1)).toContain("[jobs-judge] every job must still be posted");
+  });
+});
+
+describe("a list-of-oneOf judge", () => {
+  const test = testWith(VariantListJudgeApplication);
+
+  test("reads each variant's value, not its class tag", async ({ app, mockLlm }) => {
+    mockLlm(PanelScreenerAgent)
+      .thenReturn(replyWith(OfferDto, [{ salary: 1 }, { salary: 2 }]))
+      .thenReturn(replyWith(RefusalDto, [{ why: "no TypeScript" }]));
+    mockLlm(DecisionsSummaryAgent).thenReturn(replyWith("One refusal."));
+
+    const result = await execute(app, TaskStart, { text: "screen the panel" });
+
+    expect(result.output).toEqual({ text: "One refusal." });
+    const [, retry] = mockLlm(PanelScreenerAgent).requests;
+    expect(textsOf(retry).at(-1)).toContain("[decisions-judge] make at most one offer");
+  });
+
+  it("on its own: testJudge takes the list as plain objects", async () => {
+    const { output } = await testJudge(DecisionsJudge)({
+      reply: [{ salary: 1 }, { why: "no TypeScript" }],
+      task: "screen the panel",
+      attempt: 0,
+    });
+
+    expect(output).toEqual(JudgeVerdict.passed({ metrics: { offers: 1 } }));
+  });
+});
+
 describe("[judge.wrong-reply]", () => {
   const wrongReplies = (workflow: Class): readonly string[] =>
     checkWorkflow(workflow)
@@ -142,12 +201,25 @@ describe("[judge.wrong-reply]", () => {
     ]);
   });
 
-  it("a list output: a judge sees one answer", () => {
+  it("a list output with a judge of one value", () => {
     expect(wrongReplies(WrongListReplyWorkflow)).toEqual([
       expect.stringMatching(
-        /list-judged-scout-agent answers listOf\(JobDto\), but its judge AnswerGroundedJudge judges JobReportDto — a judge sees one answer/u,
+        /list-judged-scout-agent answers listOf\(JobDto\), but its judge AnswerGroundedJudge judges JobReportDto — the agent answers a list: set @Judge\(\{ reply: listOf\(…\) \}\)/u,
       ),
     ]);
+  });
+
+  it("one value with a list judge", () => {
+    expect(wrongReplies(WrongValueReplyWorkflow)).toEqual([
+      expect.stringMatching(
+        /list-judged-reporter-agent answers JobReportDto, but its judge JobsJudge judges listOf\(JobDto\) — the judge judges a list, but the agent answers one value/u,
+      ),
+    ]);
+  });
+
+  it("a list judge of the agent's list fits", () => {
+    expect(wrongReplies(ListJudgeWorkflow)).toEqual([]);
+    expect(wrongReplies(VariantListJudgeWorkflow)).toEqual([]);
   });
 
   it("fails the application's assembly before any model call", async () => {

@@ -448,7 +448,7 @@ export interface AssembledWorkflow<TName extends string = string> {
     //
     // (undocumented)
     readonly guardrails?: (services: WorkflowServices) => ReadonlyMap<string, ResolvedPolicies<Guardrail>>;
-    readonly judges?: (services: WorkflowServices) => ReadonlyMap<string, JudgeHandler>;
+    readonly judges?: (services: WorkflowServices) => ReadonlyMap<string, JudgeHandler<unknown>>;
     // Warning: (ae-forgotten-export) The symbol "KnowledgeSource" needs to be exported by the entry point index.d.ts
     readonly knowledge?: (services: WorkflowServices) => ReadonlyMap<string, readonly KnowledgeSource[]>;
     readonly knowledgeBases?: (services: WorkflowServices) => readonly {
@@ -1599,6 +1599,22 @@ export type ExecutionTreeValue = string | number | boolean | null | readonly Exe
     readonly [field: string]: ExecutionTreeValue;
 };
 
+// Warning: (ae-forgotten-export) The symbol "BuiltVerdict" needs to be exported by the entry point index.d.ts
+//
+// @public
+export interface FailedJudgeVerdict extends BuiltVerdict {
+    readonly metrics?: JudgeMetrics;
+    // (undocumented)
+    readonly passed: false;
+    readonly reason: string;
+}
+
+// @public
+export interface FailedJudgeVerdictOptions {
+    readonly metrics?: JudgeMetrics;
+    readonly reason: string;
+}
+
 // @public
 export enum FailurePolicy {
     FailFast = "fail-fast",
@@ -1666,7 +1682,7 @@ export interface GraphDeps<TName extends string> {
     //
     // (undocumented)
     readonly guards: GuardSet;
-    readonly judges?: ReadonlyMap<string, JudgeHandler>;
+    readonly judges?: ReadonlyMap<string, JudgeHandler<unknown>>;
     readonly knowledge?: (agent: string) => readonly KnowledgeSource[];
     // Warning: (ae-forgotten-export) The symbol "LaunchDecider" needs to be exported by the entry point index.d.ts
     readonly launchDecisionFor?: (router: LoadedRouter) => LaunchDecider;
@@ -2023,9 +2039,7 @@ export interface JoinValues<TKey extends string> extends ValuesSource {
 }
 
 // @public
-export function Judge<const D extends readonly Token[] = []>(options: JudgeMeta & {
-    readonly deps?: D;
-}): <C extends new (...args: ResolvedAll<D>) => JudgeHandler>(value: C) => C;
+export function Judge<const TReply extends JudgeReplyShape, const D extends readonly Token[] = []>(options: JudgeOptions<TReply, D>): <C extends new (...args: ResolvedAll<D>) => JudgeHandler<ValueOf<TReply>>>(value: C) => C;
 
 // @public
 export interface JudgeEndEvent extends NodeEvent {
@@ -2038,33 +2052,31 @@ export interface JudgeEndEvent extends NodeEvent {
 }
 
 // @public
-export interface JudgeFeedback {
-    // (undocumented)
-    readonly feedback: string;
-    // (undocumented)
-    readonly judge: string;
+export interface JudgeHandler<TReply> {
+    judge: (input: JudgeInput<TReply>) => Promise<JudgeVerdict>;
 }
 
 // @public
-export interface JudgeHandler {
-    // (undocumented)
-    judge(input: JudgeInput): Promise<JudgeVerdict>;
-}
+export type JudgeHandlerClass = Class<JudgeHandler<never>>;
 
 // @public
-export interface JudgeInput {
+export interface JudgeInput<TReply> {
     readonly attempt: number;
-    readonly reply: string;
+    readonly reply: TReply;
     readonly task: string;
 }
 
 // @public
-export interface JudgeMeta {
+export interface JudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
     // (undocumented)
     readonly description?: string;
     readonly model: string;
     readonly name: string;
+    readonly reply: TReply;
 }
+
+// @public
+export type JudgeMetrics = Readonly<Record<string, number | string | boolean>>;
 
 // @public
 export abstract class JudgeModel {
@@ -2072,6 +2084,25 @@ export abstract class JudgeModel {
     abstract invoke(input: string | readonly BaseMessageLike[]): Promise<string>;
     abstract readonly model: string;
 }
+
+// @public
+export interface JudgeOptions<TReply extends JudgeReplyShape, D extends readonly Token[]> extends JudgeMeta<TReply> {
+    readonly deps?: D;
+}
+
+// @public
+export interface JudgeRejection {
+    // (undocumented)
+    readonly judge: string;
+    // (undocumented)
+    readonly reason: string;
+}
+
+// @public
+export type JudgeReplyOf<TJudge extends JudgeHandlerClass> = InstanceType<TJudge> extends JudgeHandler<infer TReply> ? TReply : never;
+
+// @public
+export type JudgeReplyShape = DtoClass | OneOfWrapper | ListWrapper;
 
 // @public
 export interface JudgeStartEvent extends NodeEvent {
@@ -2084,14 +2115,13 @@ export interface JudgeStartEvent extends NodeEvent {
 }
 
 // @public
-export interface JudgeVerdict {
-    // (undocumented)
-    readonly feedback?: string;
-    // (undocumented)
-    readonly metrics?: Readonly<Record<string, number | string | boolean>>;
-    // (undocumented)
-    readonly passed: boolean;
-}
+export type JudgeVerdict = PassedJudgeVerdict | FailedJudgeVerdict;
+
+// @public
+export const JudgeVerdict: {
+    readonly passed: (options?: PassedJudgeVerdictOptions) => PassedJudgeVerdict;
+    readonly failed: (options: FailedJudgeVerdictOptions) => FailedJudgeVerdict;
+};
 
 // @public
 export interface Launched<TKey extends string, THead extends PathHead> {
@@ -2741,6 +2771,18 @@ export interface PairwiseResult {
     readonly wins: number;
 }
 
+// @public
+export interface PassedJudgeVerdict extends BuiltVerdict {
+    readonly metrics?: JudgeMetrics;
+    // (undocumented)
+    readonly passed: true;
+}
+
+// @public
+export interface PassedJudgeVerdictOptions {
+    readonly metrics?: JudgeMetrics;
+}
+
 // @public (undocumented)
 export type PathHead = SourceHead<unknown> | RouteHead<unknown> | CaseHead<unknown, unknown> | SideHead<unknown> | GroupHead<string, readonly unknown[], unknown>;
 
@@ -3117,12 +3159,12 @@ export type Provider = Class | ValueProvider;
 
 // @public
 export class QualityGateError extends AgentFailedError {
-    constructor(agent: string, usage: readonly UsageRecord[], feedback: readonly JudgeFeedback[], retries: number);
+    constructor(agent: string, usage: readonly UsageRecord[], rejections: readonly JudgeRejection[], retries: number);
     // (undocumented)
     static readonly code: string;
-    readonly feedback: readonly JudgeFeedback[];
     // (undocumented)
     name: string;
+    readonly rejections: readonly JudgeRejection[];
     // (undocumented)
     readonly retries: number;
 }
@@ -3482,7 +3524,7 @@ export interface Routes {
 }
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "model.unserved" | "model.ambiguous-provider" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model";
+export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "model.unserved" | "model.ambiguous-provider" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply";
 
 // @public
 export interface RuleViolation {
@@ -4387,11 +4429,9 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/components/injection.ts:31:3 - (ae-undocumented) Missing documentation for "provide".
 // src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "useValue".
 // src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
-// src/components/judge-decorators.ts:15:3 - (ae-undocumented) Missing documentation for "description".
-// src/components/judge-decorators.ts:52:3 - (ae-undocumented) Missing documentation for "passed".
-// src/components/judge-decorators.ts:53:3 - (ae-undocumented) Missing documentation for "feedback".
-// src/components/judge-decorators.ts:54:3 - (ae-undocumented) Missing documentation for "metrics".
-// src/components/judge-decorators.ts:59:3 - (ae-undocumented) Missing documentation for "judge".
+// src/components/judge-decorators.ts:27:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/judge-decorators.ts:74:3 - (ae-undocumented) Missing documentation for "passed".
+// src/components/judge-decorators.ts:81:3 - (ae-undocumented) Missing documentation for "passed".
 // src/components/metadata.ts:88:1 - (ae-undocumented) Missing documentation for "ComponentError".
 // src/components/metadata.ts:89:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/name-of.ts:32:1 - (ae-undocumented) Missing documentation for "nameOf".
@@ -4856,7 +4896,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/errors.ts:100:12 - (ae-undocumented) Missing documentation for "name".
 // src/graph/errors.ts:101:3 - (ae-undocumented) Missing documentation for "agent".
 // src/graph/errors.ts:117:3 - (ae-undocumented) Missing documentation for "judge".
-// src/graph/errors.ts:118:3 - (ae-undocumented) Missing documentation for "feedback".
+// src/graph/errors.ts:118:3 - (ae-undocumented) Missing documentation for "reason".
 // src/graph/errors.ts:123:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/errors.ts:124:12 - (ae-undocumented) Missing documentation for "name".
 // src/graph/errors.ts:127:3 - (ae-undocumented) Missing documentation for "retries".
@@ -4878,11 +4918,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/limits.ts:143:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/graph/limits.ts:144:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/graph/limits.ts:145:3 - (ae-undocumented) Missing documentation for "steps".
-// src/graph/rule-error.ts:129:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:130:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:131:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:142:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:143:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:131:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:132:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:133:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:144:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:145:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:10:3 - (ae-undocumented) Missing documentation for "build".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".

@@ -9,16 +9,29 @@ import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import { meteredModel } from "./judge-model.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 
+/** A `listOf(oneOf(…))` answer's item `{ variant, value }` as the judge reads it: its value. */
+const itemValueOf = (item: unknown): unknown =>
+  typeof item === "object" && item !== null && "value" in item ? item.value : item;
+
 /**
  * What a judge reads as `reply` (#262 S115): the validated answer — a value of the agent's `output`
- * class (a `oneOf` variant's own value) — or, for a text agent, its text as a `PlainTextDto`.
+ * class (a `oneOf` variant's own value), a list's items (each variant's value for a list of
+ * `oneOf`) — or, for a text agent, its text as a `PlainTextDto`. The agent's answer tools say which.
  */
-const judgedReplyOf = (state: AgentLoopStateType, text: string): unknown =>
-  state.answer === null ? { text } : state.answer.value;
+function judgedReplyOf(state: AgentLoopStateType, deps: AgentLoopDeps, text: string): unknown {
+  if (state.answer === null) return { text };
+  const { value } = state.answer;
+  const { isList, hasVariants } = deps.agent.answerTools;
+  return isList && hasVariants && Array.isArray(value) ? value.map(itemValueOf) : value;
+}
 
 /** One judge's input: its own copy of the reply, so no judge changes the answer the step gives. */
-const judgeInputOf = (state: AgentLoopStateType, text: string): JudgeInput<unknown> => ({
-  reply: structuredClone(judgedReplyOf(state, text)),
+const judgeInputOf = (
+  state: AgentLoopStateType,
+  deps: AgentLoopDeps,
+  text: string,
+): JudgeInput<unknown> => ({
+  reply: structuredClone(judgedReplyOf(state, deps, text)),
   task: state.inputMessage,
   attempt: state.retries,
 });
@@ -33,7 +46,7 @@ async function rejectionsOf(
   const agent = deps.agent.name;
   const rejected: JudgeRejection[] = [];
   for (const judge of deps.agent.judges ?? []) {
-    const input = judgeInputOf(state, text);
+    const input = judgeInputOf(state, deps, text);
     const event = { name: judge.name, agentName: agent };
     await reportNodeEvent((base) =>
       deps.observer?.onJudgeStart({ ...base, ...event, input: text }),

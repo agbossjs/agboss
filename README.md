@@ -622,12 +622,13 @@ export class AuditStoreService {
 judge is a `@Judge({ name, model, reply, deps })` class implementing `JudgeHandler<TReply>`; the
 container creates it with its `deps`, and its **own** model is called through the model gateway, so
 its spend is in the run's cost report (`judge:<name>`, category `review`). A judge sees the agent's
-answer **as its DTO** (#262 S115): `reply` names what it judges — a DTO class, `oneOf(A, B)` (the
-reply is `A | B`) or `PlainTextDto` for a text agent (`{ text }`) — and `judge({ reply, task,
-attempt })` gets the validated answer object, never a serialized string. An agent whose `output`
-its judge does not judge fails assembly with `[judge.wrong-reply]`: a text agent with a DTO judge, a
-DTO agent with another class, a `oneOf` variant the judge does not cover, a list output (a judge
-sees one answer). A verdict is built with `JudgeVerdict.passed({ metrics? })` or
+answer **as its DTO** (#262 S115): `reply` names what it judges, in every shape an agent's `output`
+has — a DTO class, `oneOf(A, B)` (the reply is `A | B`), `listOf(XDto)` (a `readonly XDto[]`) or
+`PlainTextDto` for a text agent (`{ text }`) — and `judge({ reply, task, attempt })` gets the
+validated answer object, never a serialized string. An agent whose `output` its judge does not judge
+fails assembly with `[judge.wrong-reply]`: a text agent with a DTO judge, a DTO agent with another
+class, a `oneOf` variant the judge does not cover, a list agent with a judge of one value or the
+other way round. A verdict is built with `JudgeVerdict.passed({ metrics? })` or
 `JudgeVerdict.failed({ reason, metrics? })` — the only way; a failed verdict's `reason` goes back to
 the agent for its retry, and once `maxRetries` retries are spent the run throws `QualityGateError`
 (`code: "step.agent.quality-gate"`, `rejections: [{ judge, reason }]`). A judge without a model

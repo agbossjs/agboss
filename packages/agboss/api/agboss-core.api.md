@@ -746,9 +746,9 @@ export class WorkflowSettings {
 // src/components/injection.ts:31:3 - (ae-undocumented) Missing documentation for "provide".
 // src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "useValue".
 // src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
-// src/components/judge-decorators.ts:26:3 - (ae-undocumented) Missing documentation for "description".
-// src/components/judge-decorators.ts:110:3 - (ae-forgotten-export) The symbol "PassedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
-// src/components/judge-decorators.ts:115:3 - (ae-forgotten-export) The symbol "FailedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
+// src/components/judge-decorators.ts:27:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/judge-decorators.ts:111:3 - (ae-forgotten-export) The symbol "PassedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
+// src/components/judge-decorators.ts:116:3 - (ae-forgotten-export) The symbol "FailedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
 // src/components/metadata.ts:88:1 - (ae-undocumented) Missing documentation for "ComponentError".
 // src/components/metadata.ts:89:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/policy-decorators.ts:24:1 - (ae-undocumented) Missing documentation for "Guardrail".

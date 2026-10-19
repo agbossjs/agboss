@@ -1,16 +1,17 @@
 import type { BaseMessageLike } from "@langchain/core/messages";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../llm/decisions.js";
 import type { DtoClass } from "../dto/types.js";
-import type { OneOfWrapper, ValueOf } from "../flow/dto-wrappers.js";
+import type { ListWrapper, OneOfWrapper, ValueOf } from "../flow/dto-wrappers.js";
 import { recordComponent } from "./metadata.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 
 /**
- * What a judge judges (#262 S115): one DTO class, `oneOf(A, B)` (the reply is `A | B`) or
- * `PlainTextDto` for a text agent's reply (`{ text }`). Every class an agent may answer with is one of
- * them, else `[judge.wrong-reply]`.
+ * What a judge judges (#262 S115) — every shape an agent's `output` can have: one DTO class,
+ * `oneOf(A, B)` (the reply is `A | B`), `listOf(XDto)` / `listOf(oneOf(A, B))` (a `readonly` list)
+ * or `PlainTextDto` for a text agent's reply (`{ text }`). The agent's output has the same shape and
+ * every class it may answer with is one of the judge's, else `[judge.wrong-reply]`.
  */
-export type JudgeReplyShape = DtoClass | OneOfWrapper;
+export type JudgeReplyShape = DtoClass | OneOfWrapper | ListWrapper;
 
 /** `@Judge` — a quality gate of an agent's reply, with the model it judges with. */
 export interface JudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
