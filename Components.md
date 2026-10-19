@@ -572,7 +572,7 @@ export class SeenJobsRepository {
 
 The lint rule `agboss/no-component-state` flags an assignment to `this.x` (`=`, `+=`, `++`) outside
 the constructor of any component (`@Injectable`, `@Tool`, `@McpTool`, `@Rag`, `@Action`, a code
-`@Router`, `@Judge`, `@Guardrail`, `@PiiPolicy`, `@Channel`, `@A2AAgent`).
+`@Router`, `@Judge`, `@InputGuardrail` / `@OutputGuardrail`, `@PiiPolicy`, `@Channel`, `@A2AAgent`).
 - `agboss describe` shows each tool's dependencies.
 
 ## Add…

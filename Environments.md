@@ -220,8 +220,15 @@ The application's PII key (#120) is a `Secret` field of the environment, named b
 - **At start:**
   - A policy that needs the key when it is not set fails the start, naming the field and the
     policies.
-  - When nothing needs the key and it is not set, `sensitive` fields use a key of the instance.
-  - `testWith` uses a fixed test key when the variable is unset.
+  - When nothing needs the key and it is not set, `sensitive` fields and the policies without
+    their own key use a key **of the instance** (S94): the start goes on, with the warning
+    `[application.pii-instance-key]` in `app.warnings` and the start log — an error under
+    `agboss check --strict`, silent in tests. Reveal still works (the token map is the execution's
+    `piiTokens`, in the checkpoint); only one value gets another token on each instance, so logs
+    and traces of several instances compare only with the application's key.
+  - `testWith` uses a fixed test key when the variable is unset (no warning).
+- **Tests and the optional field:** declare it optional (`piiPseudonymKey?: Secret`) and leave it out
+  of `test.environment.ts`, as a model provider's key; `flow-patterns` does so.
 
 See [Guards → PII policies](Guards#pii-policies).
 

@@ -3,6 +3,50 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — guardrails: @InputGuardrail / @OutputGuardrail, refusals, levels (#120, PR 2)
+
+- **New — `@InputGuardrail` / `@OutputGuardrail({ name, description, prompt | promptUrls, model?,
+  threshold, refusal?, deps? })`** ([Guards → Guardrails](Guards#guardrails)): a yes / no question on
+  a decision model (`Decision.noul`) or a chat model (the answer tool `answer-guardrail`); `model`
+  else `defaults.guardrail.model` (never the router's, `[guardrail.no-model]`). An input guardrail
+  reads what an agent's or a model router's model reads — its input message, **masked** by that
+  element's PII policies (S84 i) — before the call; an output guardrail reads an agent's answer. At
+  P(yes) ≥ `threshold` the execution fails with `GuardrailBlockedError` (`guardrail.blocked`;
+  `refusal`, `key: guardrails.<name>.threshold`, `probability`, `threshold`); a model that does not
+  answer fails closed (`GuardFailedError`, `step.guard`).
+- **New — the refusal:** a text in the decorator, or `refusal(): string | Promise<string>` of a class
+  that `implements GuardrailRefusal` (its services and the execution through `deps`); neither does
+  not compile (the decorator's overloads); at assembly `[guardrail.missing-refusal]`,
+  `[guardrail.refusal-twice]`.
+- **New — levels:** `guardrails` on `@Application`, `@Workflow`, `@Agent`, `@Router` add up,
+  `excludeGuardrails` on an agent or a router removes an inherited one; a model router takes the
+  input guardrails, a code router none. New rules: `[guardrail.not-a-guardrail]`,
+  `[guardrail.exclude-not-inherited]`, `[guardrail.output-on-router]`, `[guardrail.no-model-call]`,
+  `[guardrail.no-prompt]`, `[guardrail.threshold-invalid]`; names end with `-guardrail`.
+- **New — `[application.pii-instance-key]`** (S94, [Environments → The PII key](Environments#the-pii-key)):
+  no `@Application({ pseudonymKey })` and no policy that needs it → sensitive fields and keyless
+  policies use a key of the instance; the start goes on with this warning in `app.warnings` and the
+  start log (an error under `agboss check --strict`, silent in tests).
+- **Breaking — `@Workflow({ guards })` is removed** with the framework's guard texts
+  (`prompt_injection`, `pii`), `GuardOptions`, `GuardsOptions`. Migrating: one `@InputGuardrail` /
+  `@OutputGuardrail` class per guard (`guardrails/*.guardrail.ts`), listed in `guardrails`. The guard
+  that ran on the execution's input now runs on what each model reads (the router's first); the one
+  on the output on each agent's answer.
+- **Breaking — the `@Guardrail` hook classes are removed** (`beforeToolCall`, `afterToolCall`,
+  `onChannelDecision`, `beforeAgentAnswer`, `GuardrailContext`, `overrideGuardrails`,
+  `disableGuardrails`, `guardrails` on `@Tool`); checks of tool calls come back as tool-point judges
+  (#123). `testGuardrail(G, options)(text, { element })` now checks a text and gives `{ isBlocked,
+  probability, refusal? }` (`GuardrailCheck`); `GuardrailDecision` / `GuardrailHookResult` are
+  removed.
+- **Changed — observer events:** `GuardrailStartEvent.input` is `{ side: GuardrailSide, element,
+  text }` (the masked text), `GuardrailEndEvent.update` is `GuardrailOutcome { isBlocked, probability
+  }`. Spend: `guardrail:<name>` (category `guards`; was `router:guard:<name>`); tests script it with
+  `mockLlm(G).thenReturn(decideWith({ blocks: 0.9 }))` — an unscripted guardrail passes. A VCR
+  cassette records it as `decide guardrail:<name>`.
+- `agboss describe` prints each guardrail (side, threshold, model and where it came from, refusal —
+  the text or `Class.refusal()` —, the elements it guards); `agboss create` writes
+  `guardrails/prompt-injection.guardrail.ts`.
+
 ## Unreleased — reply interpreters, pause answer records and retention (#267, PR 3)
 
 - **Free-text replies** ([Pauses → free text](Pauses#answering-with-free-text-appresume-pauseid-reply--options)):

@@ -10,26 +10,27 @@ node ids the components' names, the path's scope a channel of its own. job-scout
 
 ```mermaid
 flowchart LR
-  S([START]) --> CE[chat · workflow start<br/>input guards]
-  CE -- tripped --> E([END])
-  CE --> R{main router}
-  R -- profiler / scout / shortlist --> A[agent loop<br/>agent ⇄ approval]
-  A --> C[chat · workflow finish<br/>the agent's answer + output guards] --> E
+  S([START]) --> CE[chat · workflow start]
+  CE --> R{main router<br/>input guardrails}
+  R -- blocked --> E([END])
+  R -- profiler / scout / shortlist --> A[agent loop<br/>input guardrails · agent ⇄ approval<br/>output guardrails]
+  A --> C[chat · workflow finish<br/>the agent's answer] --> E
 ```
 
-- **workflow start** — where a run starts (`@WorkflowStart`); runs the input guards — a trip ends the run before any
-  working node spends money. See [Guards](Guards).
+- **workflow start** — where a run starts (`@WorkflowStart`); its validated input is its value.
+- **guardrails** — at the model boundary of each agent and model router (#120): input guardrails on
+  what its model reads (masked), before the call; output guardrails on an agent's answer. A block
+  fails the run with `GuardrailBlockedError` and its refusal. See [Guards](Guards#guardrails).
 - **router** — a `@Router` node: asks its own model (Jev or a chat model, see [Routers](Routers)) to
   pick one of its routes from its input; a failed call or an unknown option **fails** the run
   (unless an `.onError` takes it).
 - **agent** — the agent's own loop as a compiled subgraph (#150): model turns, the move boundary
-  (guardrails, approval — one call per pause; judges on the reply), tool calls as parallel tasks stored by `callId`;
+  (approval — one call per pause; judges on the reply), tool calls as parallel tasks stored by `callId`;
   usage recorded per call, the run budget checked before each call, `modelCalls` / `toolCalls`
   limits fail the run. See [Agents](Agents), [Tools](Tools), [Pause seam](Pause-seam).
 - **action** — an `@Action`: code without a model, its fields from the path's scope.
 - **workflow finish** — where a run finishes (`@WorkflowFinish`): its output — the latest value of its output type
-  on the path, or what its `finish(input)` builds — then the output guards (a trip fails the run with
-  `GuardrailBlockedError`).
+  on the path, or what its `finish(input)` builds.
 - **limits** — steps (`maxSteps`), visits (`maxVisits`), spend per run and per day, checked before each working node;
   hitting one **fails** the run (`LimitExceededError`) unless an `.onError` takes it. See [Workflow](Workflow), [FinOps](FinOps).
 - **application** (`@Application`, `createApp(App)` → `execute` / `resume` / `cancel` / `close` over every workflow of it, [App](App)) over the run layer
@@ -47,9 +48,9 @@ flowchart LR
 | `src/routers`        | routing strategies (Jev, LLM)                              | config, finops, llm — **only**                   |
 | `src/tools`          | typed tools, registry, MCP facades, LangChain adapter      | config, finops, llm — **only**                   |
 | `src/terns`          | run records, threads, scores (SQLite)                      | nothing in `src` — **isolated**                  |
-| `src/guards`         | input / output guards                                      | config, routers, finops                          |
+| `src/guardrails`     | `@InputGuardrail` / `@OutputGuardrail`: levels, rules, run | components, flow, llm, finops                    |
 | `src/pause`          | pause seam types and policy                                | tools (types)                                    |
-| `src/prompts`        | agent, agent-loop, routing, guard texts                    | config, guards (types)                           |
+| `src/prompts`        | agent, agent-loop, routing, guardrail texts                | config                                           |
 | `src/tracing`        | optional run tracing (Langfuse)                            | —                                                |
 | `src/graph`          | flow DSL, rules, decorators, engine, nodes, limits         | everything above; routers via `routers/index.ts` |
 | `src/run`            | runAgent / resumeAgent: threads, Terns                     | graph, finops, terns, prompts, routers, tracing  |

@@ -97,7 +97,7 @@ restart when both are durable: a class that `extends PausedExecutionRepository` 
 
 ```mermaid
 flowchart LR
-  B[boundary: guardrails] --> R[pause record by step key]
+  B[move boundary] --> R[pause record by step key]
   R -- new or not sent --> S[channel.send once] --> I[interrupt pauseId]
   R -- sent --> I
   R -- resolved --> T[tool runs once]
@@ -106,7 +106,7 @@ flowchart LR
 ```
 
 1. Inside the agent's loop ([Agents](Agents)) a call whose tool needs approval is **not executed**:
-   after the `beforeToolCall` guardrails the loop's `approval` node runs the **pause step** (#267
+   after the move boundary the loop's `approval` node runs the **pause step** (#267
    S35) in the call's frame. It records the pause by the step's idempotency key
    (`step.idempotencyKey`, the call's id in it) — `findOrCreateByStepKey`: a new record gets a
    random 128-bit `pauseId`, `Pending`, not sent.
@@ -141,7 +141,7 @@ flowchart LR
 | 1   | Spend before the pause is already in the ledger; on resume nothing is recorded twice      |
 | 2   | The run budget left at the pause is checkpointed and carried over                         |
 | 3   | The Tern is written with status `paused` and completed (same id) on resume                |
-| 4   | Guards, limits, agent limits, history apply to the paused-and-resumed run as one run      |
+| 4   | Guardrails, limits, agent limits, history apply to the paused-and-resumed run as one run  |
 | 5   | A rejection reaches the model as a tool error                                             |
 
 After the decision and the agent's answer the router sends the turn to its workflow finish without a

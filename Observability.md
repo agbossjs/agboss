@@ -47,7 +47,7 @@ Each hook is its own interface with a typed payload (root entry `agboss`):
 | `OnModelStart` / `OnModelEnd`             | `ModelStartEvent` / `ModelEndEvent` (model, usage, cost)                                  |
 | `OnRagStart` / `OnRagEnd`                 | `RagStartEvent` / `RagEndEvent`                                                           |
 | `OnActionStart` / `OnActionEnd`           | `ActionStartEvent` / `ActionEndEvent`                                                     |
-| `OnGuardrailStart` / `OnGuardrailEnd`     | `GuardrailStartEvent` / `GuardrailEndEvent`                                               |
+| `OnGuardrailStart` / `OnGuardrailEnd`     | `GuardrailStartEvent` (`input`: `side`, `element`, the masked `text`) / `GuardrailEndEvent` (`update`: `isBlocked`, `probability`) |
 | `OnChannelStart` / `OnChannelEnd`         | `ChannelStartEvent` / `ChannelEndEvent`                                                   |
 | `OnJudgeStart` / `OnJudgeEnd`             | `JudgeStartEvent` / `JudgeEndEvent`                                                       |
 | `OnValuesOutdated`                        | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values))               |

@@ -161,7 +161,8 @@ the next.
 ### Everything external is replaced
 
 - **Models** → scripted (the model gateway is replaced). An agent or router without a script is a
-  blocked live call. Guards nobody scripted **pass**; conversation compaction nobody scripted writes a
+  blocked live call. Guardrails nobody scripted **pass** (`mockLlm(G).thenReturn(decideWith({ blocks:
+  0.9 }))` blocks); conversation compaction nobody scripted writes a
   fixed summary.
 - **MCP servers** → stubs: `mcpOf(Server).thenReturn({ <server tool>: handler })`; `.calls` lists what
   the server got. A server tool without a handler fails the test with the server's and the tool's
@@ -750,7 +751,7 @@ failure rejects as the component threw it.
 | `testArbiter(Arbiter, options)`         | `run(Agent, answer, { timeout })`                          | whether the answer counts                   |
 | `testRag(Rag, options)`                 | `run(query, { topK, timeout })`                            | its search results (`costUsd` → `spend`)    |
 | `testJudge(Judge, options)`             | `run({ reply, task, attempt }, { timeout })` — `reply` typed by the judge | its `JudgeVerdict`              |
-| `testGuardrail(Guardrail, options)`     | `.beforeToolCall(context)`, `.afterToolCall`, `.beforeAgentAnswer`, `.onChannelDecision(decision, context)` | what the hook returned |
+| `testGuardrail(Guardrail, options)`     | `run(text, { element, timeout })`                          | `{ isBlocked, probability, refusal? }`      |
 | `testPii([Policies], options)`          | `.mask(text)`, `.reveal(text)`                             | the masked text; the revealed one           |
 
 <!-- snippet-context
@@ -804,7 +805,14 @@ it("looks the order up in the book it is given", async () => {
   answering from `model` — `decideWith(…)` on a decision model, `replyWith(…)` on a chat model; the
   wrong call for its kind is `ModelKindError`, as at run time. The output is the verdict,
   `JudgeVerdict.passed(…)` / `JudgeVerdict.failed({ reason })`.
-- **`testGuardrail`** runs one hook per call; a hook the class does not have is a setup error.
+- **`testGuardrail`** (#120 PR 2) checks the guardrail's own rules first (`-guardrail`, one refusal, a
+  question, a threshold — a `GraphRuleError`), then asks its model on the text under its heading
+  (`element` names the agent or router, default `test-agent`): `model: decideWith({ blocks: 0.9 })`
+  (`{ cost }` for its spend, `guardrail:<name>`), unscripted it passes; a model that does not answer
+  rejects with `GuardFailedError`. A block is the output `{ isBlocked: true, probability, refusal }`
+  — the decorator's text or the class's `refusal()`, computed in the step's frame (`executionContext`
+  / `execution` as given) — never a thrown `GuardrailBlockedError`. A guardrail without its own
+  `model` decides on a decision model, as `defaults.guardrail.model` does.
 - **`testPii`** checks the policies' own rules first (`[name.kind-suffix]` — a name ends with
   `-pii-policy` —, `[pii.conflicting-rules]`, …: one `GraphRuleError` with all of them), then
   `mask(text)` gives what a model would read — tokens made with a fixed test key and kept across
@@ -968,7 +976,7 @@ test("the scout answers a first message", async ({ app }) => {
 ```
 
 1. **Recording** (first run, with a model key): every model call — agents, judges, compaction,
-   routers, guards, decision judges — goes to the real model and is written to
+   routers, guardrails, decision judges — goes to the real model and is written to
    `<dir>/<cassetteName>.cassette.json` (`dir` defaults to `__snapshots__` under the working
    directory). Commit the cassette.
 2. **Replay** (CI and later runs): answers come from the cassette. A call is matched by the model,

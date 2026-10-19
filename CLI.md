@@ -11,7 +11,8 @@ cd support-desk && cp .env.example .env && npm run chat
 
 The questionnaire asks only for the structure: the agents (name + role), each agent's tools, an MCP
 server (none / filesystem / own command), a knowledge base (none / notes in a folder). Models (Kimi),
-the Jev main router, the 8 192-token ceiling, limits and guards get defaults written into the code. Every
+the Jev main router, the 8 192-token ceiling, limits and a prompt-injection guardrail
+(`guardrails/prompt-injection.guardrail.ts`) get defaults written into the code. Every
 answer has a flag, for scripts and CI:
 
 ```bash

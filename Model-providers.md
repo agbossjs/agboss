@@ -1,6 +1,6 @@
 # Model providers
 
-Every model a workflow uses — an agent's, compaction's, a router's, a guard's, a judge's — comes
+Every model a workflow uses — an agent's, compaction's, a router's, a guardrail's, a judge's — comes
 from a **model provider**: an `@ModelProvider` class from `agboss/models`. The provider says which
 models it serves, how it is reached (base URL, key, timeout), what a call costs, how its models
 reason and cache by default, how many calls it takes (rate limit) and what happens when a call
@@ -152,17 +152,17 @@ job-scout: `src/model-providers/openrouter.model-provider.ts`, listed in `job-sc
 | `OpenAiCompatibleProvider<Fields>`  | any OpenAI-compatible server; `requestFields` is a typed member (`override readonly requestFields: Fields = { … }`) — a typo is a compile error. OpenAI's dialect: `reasoning_effort`, `prompt_cache_key`, `prompt_cache_retention`. |
 | `OpenRouterProvider<Fields>`        | OpenRouter's dialect: `reasoning: { effort \| max_tokens, exclude }`, `usage: { include: true }` (the cost in every answer), `cache_control` markers for Anthropic and Google models, a model list that says what each model supports. `OpenRouterFields`: `provider` routing, `transforms`. |
 | `OpenRouterModelProvider`           | the default chat provider (above, without request fields)                                                                                                                            |
-| `DecisionsModelProvider`            | OpenRouter's Decisions API: serves the decision models (`DECISION_MODELS`: `typesafe/jev-*`, `openai/gpt-6-luna-decisions`, pplx-decider, Clef, …) for **decisions only** (routers, guards, decision judges); `JevModelProvider` is its deprecated alias |
+| `DecisionsModelProvider`            | OpenRouter's Decisions API: serves the decision models (`DECISION_MODELS`: `typesafe/jev-*`, `openai/gpt-6-luna-decisions`, pplx-decider, Clef, …) for **decisions only** (routers, guardrails, decision judges); `JevModelProvider` is its deprecated alias |
 | own provider                        | implement `ModelProviderHandler`: `chat?(request)` → a LangChain chat model, `routeTo?(request)`, `capabilities(model, connection)` (`undefined` = not served)                         |
 
 ## Which provider serves a model
 
 - Exactly **one** listed provider must match the model name **for its purpose** — a chat model
   (agents, compaction, LLM routers, chat judges) needs a provider with `chat`, a decision (Jev and
-  the other decision models: routers, guards, decision judges) one with decisions. So OpenRouter on
+  the other decision models: routers, guardrails, decision judges) one with decisions. So OpenRouter on
   `/.*/` and the decision models never clash.
 - Checked for **every** model of the application at assembly — agents, model routers, the default
-  router (`defaults.router.model`), guards, compaction and judges (arbiters and reply interpreters
+  router (`defaults.router.model`), guardrails, compaction and judges (arbiters and reply interpreters
   join when they exist, #267) — all at once, before any model call (`createApp`, `testWith`,
   `agboss check`):
   - none → `[model.unserved] job-scout-workflow agents.scout-agent = local/llama: no listed provider

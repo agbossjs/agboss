@@ -82,10 +82,12 @@ fails assembly (`[prompt.input-in-instructions]`) — it would change the static
 
 ## The move boundary — in this order
 
-the tool's guardrails `beforeToolCall` → the agent's guardrails `beforeToolCall` → **approval** → run →
-`afterToolCall` guardrails (tool, then agent); `beforeAgentAnswer` before the answer leaves the loop,
-then the agent's judges ([Judges and quality gates](Judges-And-Quality-Gates)). A person is never asked
-about a move a guardrail then rejects ([Guards](Guards)).
+the agent's input guardrails in the loop's input node, before the first model call (#120 — on the
+masked input message; a resume never checks again) → the move boundary → **approval** → run → the
+answer → the agent's judges ([Judges and quality gates](Judges-And-Quality-Gates)) → its output
+guardrails as the answer leaves the loop ([Guards](Guards#guardrails)). The `@Guardrail` hooks of tool
+calls (`beforeToolCall`, `afterToolCall`, `onChannelDecision`, `beforeAgentAnswer`) are removed
+(#120 PR 2); checks of tool calls return as tool-point judges (#123).
 
 ## Stored calls, crash and resume
 

@@ -349,7 +349,7 @@ decides what to show:
 | `byModel`, `byCaller`                  | the same money by model and by caller                                                           |
 | `trace`                                | every call in order: caller, category, model, cost, how it was priced, tokens                   |
 
-Categories come from the caller: `tool:*` → tools, `compaction` → compaction, `rag:*` → retrieval, `router:guard:*` → guards, `router:quality:*` →
+Categories come from the caller: `tool:*` → tools, `compaction` → compaction, `rag:*` → retrieval, `guardrail:*` → guards, `router:quality:*` →
 review, other `router:*` → routing, an agent name → agents. A resumed (paused) run reports the whole
 run.
 
@@ -359,7 +359,7 @@ The CLI and the chat print it every turn:
 thread 6cc2173e-… · http://localhost:3000/project/…/sessions/6cc2173e-…
 researcher · stop: jev confidence 0.96
 agents $0.002332 · routing $0.000038 · guards $0.000033 · tools $0.001000
-   1. router:guard:prompt_injection  typesafe/jev-1.13  $0.000014  api-priced
+   1. guardrail:prompt-injection-guardrail  typesafe/jev-1.13  $0.000014  api-priced
    2. router:main                    typesafe/jev-1.13  $0.000016  api-priced
    3. researcher                     kimi-k2.6          $0.000426  306 in / 116 out
    5. tool:exchange_rate             exchange_rate      $0.001000  tool-reported

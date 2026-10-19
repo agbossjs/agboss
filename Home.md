@@ -37,10 +37,10 @@ components ([Components](Components)).
 flowchart LR
   T([message]) --> B{daily limit left?}
   B -- no --> X([LimitExceededError, no calls])
-  B -- yes --> E[workflow start · input guards]
-  E --> R{router · Jev}
-  R -- profiler / scout / … --> A[agent · Kimi]
-  A --> C[workflow finish · output guards]
+  B -- yes --> E[workflow start]
+  E --> R{router · Jev<br/>input guardrails}
+  R -- profiler / scout / … --> A[agent · Kimi<br/>input + output guardrails]
+  A --> C[workflow finish]
   C --> O([answer + path + cost report])
 ```
 
