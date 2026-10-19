@@ -65,10 +65,11 @@ In `examples/job-scout/` (each is `agboss <command> --workflow src/job-scout.wor
 takes `--profile <name>` (`profiles/<workflow>/<name>.yaml`) and `--thread <id>`.
 
 In `examples/flow-patterns/` (#295; scripted tests only, no model key): `npm run check` (`agboss
-check` on its four workflows) · `npm run describe -- --workflow src/offer/offer.workflow.ts` (the
+check` on its five workflows) · `npm run describe -- --workflow src/offer/offer.workflow.ts` (the
 review loop), `src/credit/credit.workflow.ts` (a code router) or `src/review/review.workflow.ts`
 (parallel launches in waves, #273), `src/panel/panel.workflow.ts` (a quorum with a code and a model
-arbiter, #279) · `npm test`.
+arbiter, #279), `src/vendor/vendor-screening.workflow.ts` (a child workflow per vendor, #263) ·
+`npm test`.
 
 ## Architecture
 
@@ -378,7 +379,7 @@ one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
   it, `[input.missing-on-path]` when no path brings one) — one value per `.returns`, several as a
   chain `.returns(A).returns(optional(B))` (#299); `.chooseOne(route(X)…)` — the router's
   choice, one `route(…)` per `@Router` route; `.returns(oneOf(A, B)).switch(caseOf(A)…)` — a branch
-  per variant of a `oneOf(…)` output; `.onError(ErrorClass, toAction(…)… | toAgent(…)… | toFinish(…))` — the side
+  per variant of a `oneOf(…)` output; `.onError(ErrorClass, toAction(…)… | toAgent(…)… | toWorkflow(…)… | toFinish(…))` — the side
   path when the step before throws that class (its subclasses, or an error caused by it), written
   before the step's `.returns(…)`.
 - **Parallel launches (#273):** `.toParallelAgents(A, B, B, { maxConcurrency })` /
@@ -426,9 +427,25 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   the join (the other does not compile). A per-item child with no finish reachable from one of its
   `.onError` side paths warns `[graph.child-without-failure-finish]` (an error under `--strict`).
   Any side path that can catch a `LimitExceededError` (the class, a subclass, a parent such as
-  `AGBossError`) leads only to actions and finishes — `[graph.limit-handler-uses-model]`. Until
-  #263 PR 2 a workflow with a child is checked (`agboss check`) but does not assemble
-  (`flow.child-not-runnable`).
+  `AGBossError`) leads only to actions and finishes — `[graph.limit-handler-uses-model]`. A child
+  may handle a failure too: `.onError(E, toWorkflow(W)…)` (S85), one more side-path starter. A
+  child need not be listed in `@Application({ workflows })` — it belongs to its parent's
+  application and runs alone through its own starts. At run time (#263 PR 2, S24 / S37) the child
+  is a node of its parent whose subgraph is the child's compiled graph (Studio draws it inside),
+  run on the parent's checkpoint thread under its task's `checkpoint_ns`: its own `executionId`
+  (kept in its state — a pause, a restart or a crash continues it with the same id, no second
+  `onExecutionStart`), its own path, steps and `maxSteps`, no thread history; it inherits the
+  thread, `ownerId`, tenant and the execution's own fields, and spends from the root's budgets (a
+  child's own execution budget applies only when it runs as the root). An uncaught error of its
+  own — a step's failure, its `maxSteps`, a node's `maxVisits` — fails the parent's step with
+  `ChildExecutionFailedError` (`step.child`, a `StepFailedError`: `cause`, `childExecutionId`,
+  `itemIndex`, `workflow`), so its handler may be an agent; an exhausted budget or a cancel stops
+  the whole execution as it is (S25). A paused child does not stop its siblings; its pause is the
+  root's — in `result.pending` with its `childExecutionId` (and `itemIndex` per item), answered by
+  `app.resume({ pauseId, decision })` like any other. `result.children`
+  (and `result.record.children`) are the nested records — `ChildExecutionStatus`, start and input,
+  finish and output or error, path, own spend, own children; `result.handledErrors` the failures
+  a side path took; observer events carry `parentExecutionId` / `rootExecutionId`.
 - **Quorums (#279):** after `.toParallelAgents(…)` a join may count answers instead of waiting for
   all — `.joinQuorum({ min, max, deadline })` (options always an object; `max` defaults to `min`,
   `deadline` in units: `seconds()`, `minutes()`, `hours()`) or `.joinQuorumGroups(group(A, B)
@@ -1300,8 +1317,8 @@ export class PlanService {
   `executionId`, `threadId`, `ownerId`, `tenant`, `signal`, `workflow` (`type`, `name`, `version`,
   `startedVersion`), `step` (`component`, `nodeId`, `visitNumber`, `idempotencyKey` =
   `${executionId}:${nodeId}:${visitNumber}[:${itemIndex}][:${callId}]`, `callId` during a tool
-  call, `itemIndex`, `copyNumber`), the tree (`parent`, `root`, `depth`, `executionOf(W)`; one level
-  until #263). Every read gives the current step (an `AsyncLocalStorage` frame per node visit and per
+  call, `itemIndex`, `copyNumber`), the tree (#263: `parent`, `root`, `depth`, `itemIndex` — a
+  per-item child's index —, `executionOf(W)`, the nearest execution of `W` from this one up). Every read gives the current step (an `AsyncLocalStorage` frame per node visit and per
   tool call, closed when it ends); outside an execution or after its step ended a read throws
   `ExecutionContextUnavailableError` (`context.unavailable`). No input, no metadata in it: domain
   data come through `input`. Units: `new X(testExecutionContext(), fakes)` — with
@@ -1335,7 +1352,8 @@ today; tenant-daily-budget allows $40`).
   `limit.steps`, `limit.visits`, `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
   `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`ActionFailedError`, the
   action's error as `cause`) / `step.guard` / `step.router` ⊃ `step.router.invalid-decision` /
-  `step.arbiter` (`ArbiterError`) / `step.quorum` (`QuorumNotReachedError`, #279),
+  `step.arbiter` (`ArbiterError`) / `step.quorum` (`QuorumNotReachedError`, #279) /
+  `step.child` (`ChildExecutionFailedError`, #263),
   `execution.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
   `app.close()`, an `onExecutionRejected`, …); a new error
   class gets a `static code`. `.onError` matches by class, so a subclass is caught by its parent's
@@ -1366,7 +1384,9 @@ today; tenant-daily-budget allows $40`).
   (`test.no-matching-script`). A script is an expectation: an unused `thenReturn` turn or `when(…)`
   fails a passing test at its end (`test.unused-script`; never `thenReturnAlways`) — a test that
   failed reports its own failure. Matchers by class: `toFollowPath`, `toFinishWith`,
-  `rejects.toFailWith(ErrorClass, { …fields, cause })` (through the cause chain), and the call
+  `rejects.toFailWith(ErrorClass, { …fields, cause })` (through the cause chain), for child workflows
+  (#263) `toHaveChildExecutions(W, [{ item, finish | failedWith | cancelled }, …])` and
+  `toHaveHandledError(E, { at, by })`, and the call
   matchers on `mockLlm(X)` / `mockAction(A)` (the action runs): `.inputs`,
   `toHaveBeenCalledWith(partial)`, `toHaveBeenCalledTimes(n)`, `toHaveReturned(XDto, fields?)` —
   Vitest's own on anything else (`setupFiles: ["agboss/testing/setup"]`). Errors only the real way:
@@ -1398,7 +1418,7 @@ entries. A public surface change updates the api-extractor reports (`npm run api
 (`.suppressions.json`), the generated `.agboss/types.d.ts` of the framework's test fixtures
 (`npm run check:types`, #272 — before lint and `tsc`), build, the API reports, **compiled docs**,
 prettier, ESLint, `tsc` (tests included; the examples' types written first), tests with coverage,
-`agboss check --strict` on flow-patterns' four workflows (warnings are errors) and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
+`agboss check --strict` on flow-patterns' five workflows (warnings are errors) and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
 every ` ```ts ` block of README, CLAUDE, QUALITY and WORKFLOW (and `docs/`) against the built
 package — a doc whose snippets declare a `@Workflow` gets its `.agboss/types.d.ts` written first —
 and check that every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention — and every
@@ -1541,7 +1561,8 @@ examples/job-scout/          the example (package job-scout-example; depends on 
   tests/  profiles/  golden/
 examples/flow-patterns/      the flow's patterns (package flow-patterns-example, #295): src/offer/ (a review loop),
                     src/credit/ (a code router beside a model router), src/review/ (parallel launches
-                    in waves, #273), src/panel/ (a quorum, #279), one *.workflow.ts each; tests/
+                    in waves, #273), src/panel/ (a quorum, #279), src/vendor/ (a child workflow per
+                    item, #263), one *.workflow.ts each; tests/
 scripts/        the gate's checks (check-root, check-suppressions, check-docs + docs/, api-report,
                 public-entries, eslint-agboss-plugin: eslint-component-state + eslint-direct-time),
                 bootstrap-repo, bootstrap-labels, ticket, wiki,
