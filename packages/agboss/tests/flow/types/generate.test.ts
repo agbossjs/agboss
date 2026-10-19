@@ -119,7 +119,7 @@ describe("#270 AC13: agboss check generates .agboss/types.d.ts for the fixtures"
       "router.policy-with-choose-one",
     ]); // the broken workflows are broken on purpose; topics-workflow keeps policies on .chooseOne(…)
     await expect(generated.text).toMatchFileSnapshot("./__snapshots__/fixtures.types.d.ts.snap");
-  });
+  }, 60_000); // loads every fixture module, as the check:types step below does
 
   it("regenerating gives the same file: sorted keys, whatever the order of workflows and modules", async () => {
     const request = await requestFor(FIXTURE_WORKFLOWS);
