@@ -33,6 +33,8 @@ const run = (parts: Partial<ExecutionOutput>): ExecutionOutput => ({
   path: PATH,
   spend: buildCostReport([]),
   launches: [],
+  children: [],
+  handledErrors: [],
   finish: { name: "reply-workflow-finish" },
   output: { text: "Hi." },
   pending: [],

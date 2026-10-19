@@ -61,5 +61,10 @@ export const toFinish = (target: Class): PathBuilder =>
   side()
     .toFinish(target);
 
+/** The side path `.onError(E, toWorkflow(W)…)` (#263 S85). */
+export const toWorkflow = (target: Class): PathBuilder =>
+  side()
+    .toWorkflow(target);
+
 /** `group(A, B, …)` of `.joinQuorumGroups(…)` (#279). */
 export const group = (...agents: readonly Class[]): PathBuilder => groupFrom(agents);

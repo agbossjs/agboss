@@ -30,6 +30,9 @@ export const router = (source: Class): PathBuilder<PathSource> =>
 export const action = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Action, source);
 
+export const workflow = (source: Class): PathBuilder<PathSource> =>
+  fromComponent(NodeKind.Workflow, source);
+
 export const route = (target: Class): PathBuilder<undefined> =>
   subPathFrom({ kind: "route", target });
 
@@ -52,6 +55,9 @@ export const toRouter = (target: Class): PathBuilder<undefined> =>
 export const toFinish = (target: Class): PathBuilder<undefined> =>
   side()
     .toFinish(target);
+export const toWorkflow = (target: Class): PathBuilder<undefined> =>
+  side()
+    .toWorkflow(target);
 
 /** `app.execute` on a start whose types are not generated: the input is checked at run time only. */
 export const execute = (
