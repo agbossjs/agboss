@@ -45,6 +45,7 @@ export {
 export {
   ExecutionRecordRepository,
   ExecutionRecordStatus,
+  type NewThread,
 } from "../infrastructure/execution-record.repository.js";
 export {
   PausedExecutionRepository,

@@ -64,7 +64,7 @@ describe("#265 PR 3: records persist across processes on the SQLite file", () =>
       ...(environment === undefined ? {} : { environment }),
       gateway: createScriptedGateway(new ScriptBook()),
     });
-    const records = await standalone.terns.lastTerns(first.threadId, 10);
+    const records = await standalone.terns.lastTerns(first.tenantId, first.threadId, 10);
     await standalone.close();
 
     expect(second.threadId).toBe(first.threadId);

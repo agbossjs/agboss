@@ -4,6 +4,7 @@ import {
   type ConfigSnapshot,
   type NewSummary,
   type NewTern,
+  type NewThread,
   type Summary,
   type Tern,
   type TernOutcome,
@@ -12,6 +13,8 @@ import {
 } from "../terns/index.js";
 import { Clock } from "./clock.js";
 import { NEW_THREAD_ID } from "./instance-tokens.js";
+
+export type { NewThread } from "../terns/index.js";
 
 /**
  * Where an execution's record is (#265 S30): `Running` while its tree moves — what recovery looks
@@ -39,19 +42,12 @@ export enum ExecutionRecordStatus {
  */
 export abstract class ExecutionRecordRepository {
   /**
-   * A new thread of the workflow in a tenant (#261: tenant + thread is its key; an id it makes is
-   * unique in the repository); with an `owner`, only that owner may continue it; with a `threadId`,
-   * under the caller's own id (#262 Q4) — the same id in two tenants is two threads, and one that
-   * exists already is kept as it is. The reads by thread (`lastTerns`, `uncovered`, `before`,
-   * `turnNumber`, `latestSummaries`, `summaryCount`) and a summary's `threadId` take the thread's
-   * key in the repository (tenant + thread, made by the framework): an opaque string.
+   * A new thread (#261 S72: its key is `tenantId` + `threadId` — the same id in two tenants is two
+   * threads); with an `ownerId`, only that owner may continue it; with a `threadId`, the caller's
+   * own id (#262 Q4) — one the tenant has already is kept as it is — else one is made. Its id.
+   * Every read by thread below names the thread by both, `(tenantId, threadId, …)`.
    */
-  abstract createThread(
-    workflow: string,
-    tenantId: string,
-    owner?: string,
-    threadId?: string,
-  ): Promise<string>;
+  abstract createThread(thread: NewThread): Promise<string>;
   /** Whether the tenant has the thread: another tenant's thread does not exist for it. */
   abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
   /** The thread's owner (`owner: undefined` = created without one); `undefined` = no such thread. */
@@ -74,7 +70,7 @@ export abstract class ExecutionRecordRepository {
     outcome: TernOutcome,
   ): Promise<boolean>;
   /** The last `limit` records of a thread, oldest first. */
-  abstract lastTerns(threadId: string, limit: number): Promise<Tern[]>;
+  abstract lastTerns(tenantId: string, threadId: string, limit: number): Promise<Tern[]>;
   abstract byIds(ids: readonly string[]): Promise<Tern[]>;
   /**
    * A page of the records with `status`, oldest first: up to `limit`, after the record `after`
@@ -108,15 +104,21 @@ export abstract class ExecutionRecordRepository {
   /** The latest `limit` original answered records of a workflow, oldest first. */
   abstract recentOriginals(workflow: string, limit: number): Promise<Tern[]>;
   /** Records of the thread after its last summary, oldest first. */
-  abstract uncovered(threadId: string): Promise<Tern[]>;
+  abstract uncovered(tenantId: string, threadId: string): Promise<Tern[]>;
   /** Up to `limit` records right before `ternId`, oldest first. */
-  abstract before(threadId: string, ternId: string, limit: number): Promise<Tern[]>;
+  abstract before(
+    tenantId: string,
+    threadId: string,
+    ternId: string,
+    limit: number,
+  ): Promise<Tern[]>;
   /** 1-based position of a record in its thread. */
-  abstract turnNumber(threadId: string, ternId: string): Promise<number>;
+  abstract turnNumber(tenantId: string, threadId: string, ternId: string): Promise<number>;
+  /** A summary of a thread: it carries the thread's `tenantId` and `threadId`. */
   abstract addSummary(summary: NewSummary): Promise<Summary>;
   /** The latest `limit` summaries of the thread, oldest first. */
-  abstract latestSummaries(threadId: string, limit: number): Promise<Summary[]>;
-  abstract summaryCount(threadId: string): Promise<number>;
+  abstract latestSummaries(tenantId: string, threadId: string, limit: number): Promise<Summary[]>;
+  abstract summaryCount(tenantId: string, threadId: string): Promise<number>;
 }
 
 /** The records in a Tern store (internal): what the built-in default and the SQLite ones build on. */
@@ -128,13 +130,8 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
     this.#store = store;
   }
 
-  createThread(
-    workflow: string,
-    tenantId: string,
-    owner?: string,
-    threadId?: string,
-  ): Promise<string> {
-    return this.#store.createThread(workflow, tenantId, owner, threadId);
+  createThread(thread: NewThread): Promise<string> {
+    return this.#store.createThread(thread);
   }
   hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean> {
     return this.#store.hasThread(workflow, tenantId, threadId);
@@ -159,8 +156,8 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
   ): Promise<boolean> {
     return this.#store.completeIfStatus(ternId, expected, outcome);
   }
-  lastTerns(threadId: string, limit: number): Promise<Tern[]> {
-    return this.#store.lastTerns(threadId, limit);
+  lastTerns(tenantId: string, threadId: string, limit: number): Promise<Tern[]> {
+    return this.#store.lastTerns(tenantId, threadId, limit);
   }
   byIds(ids: readonly string[]): Promise<Tern[]> {
     return this.#store.byIds(ids);
@@ -197,23 +194,23 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
   recentOriginals(workflow: string, limit: number): Promise<Tern[]> {
     return this.#store.recentOriginals(workflow, limit);
   }
-  uncovered(threadId: string): Promise<Tern[]> {
-    return this.#store.uncovered(threadId);
+  uncovered(tenantId: string, threadId: string): Promise<Tern[]> {
+    return this.#store.uncovered(tenantId, threadId);
   }
-  before(threadId: string, ternId: string, limit: number): Promise<Tern[]> {
-    return this.#store.before(threadId, ternId, limit);
+  before(tenantId: string, threadId: string, ternId: string, limit: number): Promise<Tern[]> {
+    return this.#store.before(tenantId, threadId, ternId, limit);
   }
-  turnNumber(threadId: string, ternId: string): Promise<number> {
-    return this.#store.turnNumber(threadId, ternId);
+  turnNumber(tenantId: string, threadId: string, ternId: string): Promise<number> {
+    return this.#store.turnNumber(tenantId, threadId, ternId);
   }
   addSummary(summary: NewSummary): Promise<Summary> {
     return this.#store.addSummary(summary);
   }
-  latestSummaries(threadId: string, limit: number): Promise<Summary[]> {
-    return this.#store.latestSummaries(threadId, limit);
+  latestSummaries(tenantId: string, threadId: string, limit: number): Promise<Summary[]> {
+    return this.#store.latestSummaries(tenantId, threadId, limit);
   }
-  summaryCount(threadId: string): Promise<number> {
-    return this.#store.summaryCount(threadId);
+  summaryCount(tenantId: string, threadId: string): Promise<number> {
+    return this.#store.summaryCount(tenantId, threadId);
   }
 }
 

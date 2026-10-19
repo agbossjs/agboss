@@ -101,7 +101,7 @@ export async function buildApp(
   /** A new thread — the caller's own id, or one made now; two creating one id: the first owns it. */
   const newThread = async (access: NewThreadAccess): Promise<string> => {
     const { tenantId, threadId, ownerId } = access;
-    const id = await deps.terns.createThread(deps.config.name, tenantId, ownerId, threadId);
+    const id = await deps.terns.createThread({ workflow: deps.config.name, ...access });
     if (threadId !== undefined) await owned({ tenantId, threadId: id, ownerId });
     return id;
   };

@@ -2,7 +2,6 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { threadIdOf } from "./thread-key.js";
 import { TERN_STATUSES, type Tern, type VersionScore } from "./types.js";
 
 /** Ordered schema migrations; `PRAGMA user_version` = how many are applied. */
@@ -45,6 +44,52 @@ const MIGRATIONS: readonly string[] = [
   // 10 — a thread belongs to its tenant (#261): its key is tenant + thread; older rows are "default"
   `ALTER TABLE threads ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default';
    ALTER TABLE terns ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default';`,
+  // 11 — a caller may pick its own thread id (#262 Q4): a thread is unique by (tenant_id, id), and
+  // every table of a thread names both. The tables are rebuilt (SQLite cannot change a key in
+  // place); every row keeps its id, its tenant and its rowid (summaries count turns by rowid).
+  `CREATE TABLE threads_v11 (id TEXT NOT NULL, bundle TEXT NOT NULL, created_at TEXT NOT NULL,
+     tenant_id TEXT NOT NULL DEFAULT 'default', PRIMARY KEY (tenant_id, id));
+   INSERT INTO threads_v11 (id, bundle, created_at, tenant_id)
+     SELECT id, bundle, created_at, tenant_id FROM threads;
+   CREATE TABLE thread_owners_v11 (tenant_id TEXT NOT NULL, thread_id TEXT NOT NULL,
+     owner TEXT NOT NULL, PRIMARY KEY (tenant_id, thread_id),
+     FOREIGN KEY (tenant_id, thread_id) REFERENCES threads(tenant_id, id));
+   INSERT INTO thread_owners_v11 (tenant_id, thread_id, owner)
+     SELECT t.tenant_id, o.thread_id, o.owner FROM thread_owners o JOIN threads t ON t.id = o.thread_id;
+   CREATE TABLE terns_v11 (
+     id TEXT PRIMARY KEY, thread_id TEXT NOT NULL, bundle TEXT NOT NULL,
+     created_at TEXT NOT NULL, task TEXT NOT NULL, replyWith TEXT NOT NULL, status TEXT NOT NULL,
+     stop_reason TEXT NOT NULL, route TEXT NOT NULL, steps TEXT NOT NULL, cost_usd REAL NOT NULL,
+     prompt_version TEXT NOT NULL, model_version TEXT NOT NULL, replay_of TEXT,
+     config_version TEXT, config_hash TEXT, run_id TEXT, tenant_id TEXT NOT NULL DEFAULT 'default',
+     FOREIGN KEY (tenant_id, thread_id) REFERENCES threads(tenant_id, id));
+   INSERT INTO terns_v11 (rowid, id, thread_id, bundle, created_at, task, replyWith, status,
+       stop_reason, route, steps, cost_usd, prompt_version, model_version, replay_of,
+       config_version, config_hash, run_id, tenant_id)
+     SELECT rowid, id, thread_id, bundle, created_at, task, replyWith, status, stop_reason, route,
+       steps, cost_usd, prompt_version, model_version, replay_of, config_version, config_hash,
+       run_id, tenant_id FROM terns;
+   CREATE TABLE summaries_v11 (
+     id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL DEFAULT 'default', thread_id TEXT NOT NULL,
+     bundle TEXT NOT NULL, from_tern TEXT NOT NULL, to_tern TEXT NOT NULL,
+     from_seq INTEGER NOT NULL, to_seq INTEGER NOT NULL, turns INTEGER NOT NULL, text TEXT NOT NULL,
+     cost_usd REAL NOT NULL, created_at TEXT NOT NULL,
+     FOREIGN KEY (tenant_id, thread_id) REFERENCES threads(tenant_id, id));
+   INSERT INTO summaries_v11 SELECT s.id, t.tenant_id, s.thread_id, s.bundle, s.from_tern,
+       s.to_tern, s.from_seq, s.to_seq, s.turns, s.text, s.cost_usd, s.created_at
+     FROM summaries s JOIN threads t ON t.id = s.thread_id;
+   DROP TABLE thread_owners;
+   DROP TABLE summaries;
+   DROP TABLE terns;
+   DROP TABLE threads;
+   ALTER TABLE threads_v11 RENAME TO threads;
+   ALTER TABLE thread_owners_v11 RENAME TO thread_owners;
+   ALTER TABLE terns_v11 RENAME TO terns;
+   ALTER TABLE summaries_v11 RENAME TO summaries;
+   CREATE INDEX terns_thread ON terns(tenant_id, thread_id);
+   CREATE INDEX terns_version ON terns(bundle, prompt_version);
+   CREATE INDEX terns_status ON terns(status);
+   CREATE INDEX summaries_thread ON summaries(tenant_id, thread_id, to_seq);`,
 ];
 
 const TernRow = z.object({
@@ -85,7 +130,7 @@ export function toTern(row: unknown): Tern {
   return {
     id: r.id,
     runId: r.run_id,
-    threadId: threadIdOf(r.tenant_id, r.thread_id),
+    threadId: r.thread_id,
     tenantId: r.tenant_id,
     bundle: r.bundle,
     createdAt: r.created_at,
@@ -115,8 +160,29 @@ export function toVersionScore(row: unknown): VersionScore {
   };
 }
 
-/** The migrations not yet applied, in one `BEGIN IMMEDIATE` transaction (two connections may open one file). */
+/** Whether the connection checks foreign keys (`PRAGMA foreign_keys`). */
+const checksForeignKeys = (db: DatabaseSync): boolean =>
+  z.object({ foreign_keys: z.number() }).parse(db.prepare("PRAGMA foreign_keys").get())
+    .foreign_keys === 1;
+
+/**
+ * The migrations not yet applied, in one `BEGIN IMMEDIATE` transaction (two connections may open
+ * one file). Foreign keys are off while a migration rebuilds tables (SQLite's own procedure; the
+ * pragma does nothing inside a transaction) and checked before they are on again.
+ */
 function migrate(db: DatabaseSync): void {
+  const restore = checksForeignKeys(db);
+  db.exec("PRAGMA foreign_keys = OFF");
+  try {
+    migrateInTransaction(db);
+    const broken = db.prepare("PRAGMA foreign_key_check").all();
+    if (broken.length > 0) throw new Error(`migration left ${String(broken.length)} broken references`);
+  } finally {
+    if (restore) db.exec("PRAGMA foreign_keys = ON");
+  }
+}
+
+function migrateInTransaction(db: DatabaseSync): void {
   db.exec("BEGIN IMMEDIATE");
   try {
     const { user_version: applied } = z

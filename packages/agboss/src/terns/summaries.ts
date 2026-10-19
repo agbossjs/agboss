@@ -6,6 +6,7 @@ import type { MemoryStore, Summary, Tern } from "./types.js";
 
 const SummaryRow = z.object({
   id: z.string(),
+  tenant_id: z.string(),
   thread_id: z.string(),
   bundle: z.string(),
   from_tern: z.string(),
@@ -20,6 +21,7 @@ const toSummary = (row: unknown): Summary => {
   const r = SummaryRow.parse(row);
   return {
     id: r.id,
+    tenantId: r.tenant_id,
     threadId: r.thread_id,
     bundle: r.bundle,
     fromTernId: r.from_tern,
@@ -37,11 +39,14 @@ const Seq = z.object({ seq: z.number() });
 const seqOf = (db: DatabaseSync, ternId: string): number =>
   Seq.parse(db.prepare("SELECT rowid AS seq FROM terns WHERE id = ?").get(ternId)).seq;
 
-const lastCovered = (db: DatabaseSync, threadId: string): number =>
+/** A thread as the queries name it: its tenant and its id (#261 S72). */
+const OF_THREAD = "tenant_id = ? AND thread_id = ?";
+
+const lastCovered = (db: DatabaseSync, tenantId: string, threadId: string): number =>
   Count.parse(
     db
-      .prepare("SELECT COALESCE(MAX(to_seq), 0) AS n FROM summaries WHERE thread_id = ?")
-      .get(threadId),
+      .prepare(`SELECT COALESCE(MAX(to_seq), 0) AS n FROM summaries WHERE ${OF_THREAD}`)
+      .get(tenantId, threadId),
   ).n;
 
 function turnReads(db: DatabaseSync): Pick<MemoryStore, "uncovered" | "before" | "turnNumber"> {
@@ -51,30 +56,32 @@ function turnReads(db: DatabaseSync): Pick<MemoryStore, "uncovered" | "before" |
       .all(...params)
       .map(toTern);
   return {
-    uncovered: (threadId) =>
+    uncovered: (tenantId, threadId) =>
       Promise.resolve(
         terns(
-          "SELECT * FROM terns WHERE thread_id = ? AND rowid > ? ORDER BY rowid",
+          `SELECT * FROM terns WHERE ${OF_THREAD} AND rowid > ? ORDER BY rowid`,
+          tenantId,
           threadId,
-          lastCovered(db, threadId),
+          lastCovered(db, tenantId, threadId),
         ),
       ),
-    before: (threadId, ternId, limit) =>
+    before: (tenantId, threadId, ternId, limit) =>
       Promise.resolve(
         terns(
-          `SELECT * FROM (SELECT rowid AS seq, * FROM terns WHERE thread_id = ? AND rowid < ?
+          `SELECT * FROM (SELECT rowid AS seq, * FROM terns WHERE ${OF_THREAD} AND rowid < ?
            ORDER BY rowid DESC LIMIT ?) ORDER BY seq`,
+          tenantId,
           threadId,
           seqOf(db, ternId),
           limit,
         ),
       ),
-    turnNumber: (threadId, ternId) =>
+    turnNumber: (tenantId, threadId, ternId) =>
       Promise.resolve(
         Count.parse(
           db
-            .prepare("SELECT COUNT(*) AS n FROM terns WHERE thread_id = ? AND rowid <= ?")
-            .get(threadId, seqOf(db, ternId)),
+            .prepare(`SELECT COUNT(*) AS n FROM terns WHERE ${OF_THREAD} AND rowid <= ?`)
+            .get(tenantId, threadId, seqOf(db, ternId)),
         ).n,
       ),
   };
@@ -87,8 +94,9 @@ function summaryMethods(
   return {
     addSummary: (summary) => {
       const stored: Summary = { ...summary, id: randomUUID(), createdAt: now().toISOString() };
-      db.prepare("INSERT INTO summaries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      db.prepare("INSERT INTO summaries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
         stored.id,
+        stored.tenantId,
         stored.threadId,
         stored.bundle,
         stored.fromTernId,
@@ -102,20 +110,22 @@ function summaryMethods(
       );
       return Promise.resolve(stored);
     },
-    latestSummaries: (threadId, limit) =>
+    latestSummaries: (tenantId, threadId, limit) =>
       Promise.resolve(
         db
           .prepare(
-            `SELECT * FROM (SELECT * FROM summaries WHERE thread_id = ? ORDER BY to_seq DESC LIMIT ?)
-             ORDER BY to_seq`,
+            `SELECT * FROM (SELECT * FROM summaries WHERE ${OF_THREAD}
+             ORDER BY to_seq DESC LIMIT ?) ORDER BY to_seq`,
           )
-          .all(threadId, limit)
+          .all(tenantId, threadId, limit)
           .map(toSummary),
       ),
-    summaryCount: (threadId) =>
+    summaryCount: (tenantId, threadId) =>
       Promise.resolve(
         Count.parse(
-          db.prepare("SELECT COUNT(*) AS n FROM summaries WHERE thread_id = ?").get(threadId),
+          db
+            .prepare(`SELECT COUNT(*) AS n FROM summaries WHERE ${OF_THREAD}`)
+            .get(tenantId, threadId),
         ).n,
       ),
   };

@@ -1421,15 +1421,13 @@ export interface ExecutionRecord {
 export abstract class ExecutionRecordRepository {
     // Warning: (ae-forgotten-export) The symbol "NewSummary" needs to be exported by the entry point index.d.ts
     // Warning: (ae-forgotten-export) The symbol "Summary" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
     abstract addSummary(summary: NewSummary): Promise<Summary>;
     // Warning: (ae-forgotten-export) The symbol "NewTern" needs to be exported by the entry point index.d.ts
     // Warning: (ae-forgotten-export) The symbol "Tern" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
     abstract append(tern: NewTern): Promise<Tern>;
-    abstract before(threadId: string, ternId: string, limit: number): Promise<Tern[]>;
+    abstract before(tenantId: string, threadId: string, ternId: string, limit: number): Promise<Tern[]>;
     // (undocumented)
     abstract byIds(ids: readonly string[]): Promise<Tern[]>;
     abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Tern[]>;
@@ -1440,11 +1438,11 @@ export abstract class ExecutionRecordRepository {
     //
     // (undocumented)
     abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
-    abstract createThread(workflow: string, tenantId: string, owner?: string, threadId?: string): Promise<string>;
+    abstract createThread(thread: NewThread): Promise<string>;
     abstract findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Tern[]>;
     abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
-    abstract lastTerns(threadId: string, limit: number): Promise<Tern[]>;
-    abstract latestSummaries(threadId: string, limit: number): Promise<Summary[]>;
+    abstract lastTerns(tenantId: string, threadId: string, limit: number): Promise<Tern[]>;
+    abstract latestSummaries(tenantId: string, threadId: string, limit: number): Promise<Summary[]>;
     // (undocumented)
     abstract meanScore(ternIds: readonly string[]): Promise<number | null>;
     abstract recentOriginals(workflow: string, limit: number): Promise<Tern[]>;
@@ -1456,12 +1454,12 @@ export abstract class ExecutionRecordRepository {
     // Warning: (ae-forgotten-export) The symbol "VersionScore" needs to be exported by the entry point index.d.ts
     abstract summary(workflow: string): Promise<VersionScore[]>;
     // (undocumented)
-    abstract summaryCount(threadId: string): Promise<number>;
+    abstract summaryCount(tenantId: string, threadId: string): Promise<number>;
     abstract threadOwner(workflow: string, tenantId: string, threadId: string): Promise<{
         readonly owner: string | undefined;
     } | undefined>;
-    abstract turnNumber(threadId: string, ternId: string): Promise<number>;
-    abstract uncovered(threadId: string): Promise<Tern[]>;
+    abstract turnNumber(tenantId: string, threadId: string, ternId: string): Promise<number>;
+    abstract uncovered(tenantId: string, threadId: string): Promise<Tern[]>;
     abstract unscored(workflow: string, promptVersion: string | undefined, limit: number): Promise<Tern[]>;
 }
 
@@ -2259,6 +2257,14 @@ export interface ModelUsage {
 
 // @public (undocumented)
 export function nameOf<TComponent extends Class>(component: TComponent): ComponentName<TComponent>;
+
+// @public
+export interface NewThread {
+    readonly ownerId?: string | undefined;
+    readonly tenantId: string;
+    readonly threadId?: string | undefined;
+    readonly workflow: string;
+}
 
 // @public
 export interface NodeEvent extends ExecutionEvent {
@@ -4653,13 +4659,12 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
 // src/graph/settings.ts:36:3 - (ae-undocumented) Missing documentation for "settings".
 // src/infrastructure/cost-ledger.repository.ts:31:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
-// src/infrastructure/execution-record.repository.ts:63:3 - (ae-undocumented) Missing documentation for "append".
-// src/infrastructure/execution-record.repository.ts:78:3 - (ae-undocumented) Missing documentation for "byIds".
-// src/infrastructure/execution-record.repository.ts:96:3 - (ae-undocumented) Missing documentation for "saveScore".
-// src/infrastructure/execution-record.repository.ts:97:3 - (ae-undocumented) Missing documentation for "meanScore".
-// src/infrastructure/execution-record.repository.ts:107:3 - (ae-undocumented) Missing documentation for "configSnapshots".
-// src/infrastructure/execution-record.repository.ts:116:3 - (ae-undocumented) Missing documentation for "addSummary".
-// src/infrastructure/execution-record.repository.ts:119:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record.repository.ts:59:3 - (ae-undocumented) Missing documentation for "append".
+// src/infrastructure/execution-record.repository.ts:74:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record.repository.ts:92:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record.repository.ts:93:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record.repository.ts:103:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record.repository.ts:121:3 - (ae-undocumented) Missing documentation for "summaryCount".
 // src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:41:9 - (ae-undocumented) Missing documentation for "getTuple".
@@ -4813,13 +4818,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/resume-guard.ts:40:3 - (ae-undocumented) Missing documentation for "runId".
 // src/run/resume-guard.ts:41:3 - (ae-undocumented) Missing documentation for "paused".
 // src/run/resume-guard.ts:42:3 - (ae-undocumented) Missing documentation for "current".
-// src/run/thread.ts:7:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
-// src/run/thread.ts:8:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:9:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/thread.ts:14:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:15:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/thread.ts:20:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:21:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:21:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
+// src/run/thread.ts:22:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:23:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:28:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:29:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:34:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:35:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/types.ts:22:3 - (ae-undocumented) Missing documentation for "terns".
 // src/run/types.ts:38:1 - (ae-undocumented) Missing documentation for "RunOptions".
 // src/run/types.ts:70:3 - (ae-undocumented) Missing documentation for "status".

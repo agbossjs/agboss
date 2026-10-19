@@ -4,7 +4,6 @@ import type { HistoryTurn } from "../flow/runtime/history.js";
 import { SlidingWindowStrategy } from "../memory/sliding-window.js";
 import type { BaseMemoryStrategy, MemoryTurn, MemoryUpdate } from "../memory/types.js";
 import { compactIfDue, type Compacted } from "./compaction.js";
-import { threadKeyOf } from "../terns/index.js";
 import type { FinishContext } from "./execute.js";
 import type { RunDeps } from "./types.js";
 
@@ -29,6 +28,7 @@ export class CompactionStrategy<TName extends string> extends SlidingWindowStrat
 
   override updateMemory(turn: MemoryTurn): Promise<MemoryAfterTurn> {
     return compactIfDue(this.deps, {
+      tenantId: turn.tenantId,
       threadId: turn.threadId,
       budgetLeftUsd: turn.budgetLeftUsd,
       callbacks: this.callbacks,
@@ -51,6 +51,7 @@ export async function updateMemoryAfter<TName extends string>(
   history: HistoryTurn,
 ): Promise<MemoryAfterTurn> {
   const turn: MemoryTurn = {
+    tenantId: ctx.base.tenantId,
     threadId: ctx.base.threadId,
     runId: ctx.runId,
     turn: history,
@@ -59,11 +60,7 @@ export async function updateMemoryAfter<TName extends string>(
   const builtIn =
     ctx.deps.config.compaction === undefined
       ? { usage: [] }
-      : // the records read a thread by its key: tenant + thread (#262 Q4)
-        await new CompactionStrategy(ctx.deps, ctx.callbacks).updateMemory({
-          ...turn,
-          threadId: threadKeyOf(ctx.base.tenantId, ctx.base.threadId),
-        });
+      : await new CompactionStrategy(ctx.deps, ctx.callbacks).updateMemory(turn);
   const usage = [...builtIn.usage];
   for (const strategy of agentStrategiesOf(ctx.deps)) {
     const left = turn.budgetLeftUsd - totalCost(usage);

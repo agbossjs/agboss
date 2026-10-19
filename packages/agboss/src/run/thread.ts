@@ -1,8 +1,22 @@
 import { AGBossError } from "../core/errors.js";
 import type { HistoryTurn } from "../flow/runtime/history.js";
 import type { Tern, TernStore } from "../terns/index.js";
-import { isThreadId, MAX_THREAD_ID_LENGTH, threadKeyOf } from "../terns/index.js";
 import type { RunDeps } from "./types.js";
+
+/** At most this long: a thread id is a key, not data. */
+const MAX_THREAD_ID_LENGTH = 200;
+
+/** A control character (U+0000–U+001F, U+007F): never in a thread id. */
+const isControl = (code: number): boolean => code < 0x20 || code === 0x7f;
+
+/** A thread id a caller may pick (#262 Q4): 1 to 200 characters, no control characters. */
+function isThreadId(threadId: string): boolean {
+  if (threadId.length === 0 || threadId.length > MAX_THREAD_ID_LENGTH) return false;
+  for (let index = 0; index < threadId.length; index += 1) {
+    if (isControl(threadId.charCodeAt(index))) return false;
+  }
+  return true;
+}
 
 export class UnknownThreadError extends AGBossError {
   static override readonly code: string = "run.unknown-thread";
@@ -122,15 +136,15 @@ async function memoryOf<TName extends string>(
   deps: RunDeps<TName>,
   thread: Pick<ThreadAccess, "tenantId" | "threadId">,
 ): Promise<{ readonly history: HistoryTurn[]; readonly summaries: string[] }> {
-  const threadId = threadKeyOf(thread.tenantId, thread.threadId);
+  const { tenantId, threadId } = thread;
   if (deps.config.compaction === undefined) {
     return {
-      history: toTurns(await deps.terns.lastTerns(threadId, historyDepth(deps))),
+      history: toTurns(await deps.terns.lastTerns(tenantId, threadId, historyDepth(deps))),
       summaries: [],
     };
   }
-  const raw = await deps.terns.uncovered(threadId);
-  const summaries = await deps.terns.latestSummaries(threadId, summariesDepth(deps));
+  const raw = await deps.terns.uncovered(tenantId, threadId);
+  const summaries = await deps.terns.latestSummaries(tenantId, threadId, summariesDepth(deps));
   return {
     history: toTurns(raw.slice(-historyDepth(deps))),
     summaries: summaries.map((summary) => summary.text),
@@ -149,7 +163,7 @@ export async function openThread<TName extends string>(
 }> {
   const bundle = deps.config.name;
   if (requested === undefined) {
-    const threadId = await deps.terns.createThread(bundle, tenantId);
+    const threadId = await deps.terns.createThread({ workflow: bundle, tenantId });
     return { threadId, history: [], summaries: [] };
   }
   if (!(await deps.terns.hasThread(bundle, tenantId, requested))) {
