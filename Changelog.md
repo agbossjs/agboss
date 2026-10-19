@@ -3,6 +3,24 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — recursion and the soft stop (#264, PR 1)
+
+- **`ThisWorkflow`** ([Workflow as a step → Recursion](Workflow-as-a-step#recursion-264)): a workflow
+  launches itself — `.toWorkflow(ThisWorkflow)`, `route(ThisWorkflow)`, `.toParallelWorkflows(ThisWorkflow,
+  …)`; the node `this-workflow`, run from the registry (Studio: `recursive: maxDepth N`).
+- **`@Workflow({ maxDepth })`** required on a recursive workflow (`[graph.recursion-without-depth]`);
+  the root is depth 1, `ChildExecutionRecord.depth` and each child's trace metadata carry it.
+- **The soft stop** on the last level: an agent's recursive variants leave its schema, a model
+  router's recursive routes are hidden, a code router returning one is `RouterDecisionError`; every
+  such branch keeps an exit (`[graph.recursion-without-exit]`).
+- **`DepthLimitExceededError`** (`limit.depth`; `workflow`, `maxDepth`, `depth`): a launch by code
+  past `maxDepth` does not start; the level above gets it as the `cause` of `ChildExecutionFailedError`.
+- **`[graph.mutual-recursion]`**: mutual recursion, a flow naming its own class, a class undefined
+  while the flow is built. **`[types.this-workflow-outputs]`**: recursive workflows of one project
+  with different finish classes.
+- `agboss describe`: the `recursive:` line, per-item child results counted (`this-workflow ×0–5`);
+  the worst case counts the levels down to `maxDepth`.
+
 ## Unreleased — child workflows at run time (#263, PR 2)
 
 - **Children run** ([Workflow as a step](Workflow-as-a-step#at-run-time)): `flow.child-not-runnable`

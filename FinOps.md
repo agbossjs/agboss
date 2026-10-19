@@ -291,9 +291,11 @@ Counts protect the graph, not money ([Workflow](Workflow)):
 | --- | --- | --- |
 | `@Workflow({ maxSteps })` | `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`: `support-workflow took 41 steps; its maxSteps is 40`) | agent and router visits per execution (default (agents + routers) × 3) |
 | `maxVisits` on `@Router` / `@Agent` | `VisitsLimitExceededError` (`component`, `nodeId`, `maxVisits`, `visits`) | visits of one node per execution |
+| `@Workflow({ maxDepth })` (#264) | `DepthLimitExceededError` (`workflow`, `maxDepth`, `depth`: `topic-research-workflow went 5 levels deep; its maxDepth is 4`), in the `cause` of `ChildExecutionFailedError` | the levels a recursive workflow's executions run at, the root at 1 — a launch by code past it does not start ([Workflow as a step → Recursion](Workflow-as-a-step#recursion-264)) |
 
 One class per limit, all subclasses of `LimitExceededError` (`.onError(LimitExceededError, …)` takes
-any; codes `limit.steps`, `limit.visits`, `limit.budget`). `maxSteps` is checked at assembly:
+any; codes `limit.steps`, `limit.visits`, `limit.budget`, `limit.depth`). A recursive tree's
+executions each count their own `maxSteps`; its money is the root's budgets, every level included. `maxSteps` is checked at assembly:
 `[limits.max-steps-too-low]` — no finish fits in a hand-set `maxSteps`, or the default cannot hold the
 worst case of a per-item launch (`maxItems` runs: set `@Workflow({ maxSteps })`, the default never
 grows silently) —, `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`.

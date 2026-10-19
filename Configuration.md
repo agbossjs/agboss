@@ -168,7 +168,8 @@ workflow (its own `workflow: X`, or the default), tenant and application budgets
 `BudgetPeriod` — listed in `@Application({ budgets })`; `settings()` has no `limits` any more.
 Hitting a limit **fails the execution** — unless an `.onError(…)` takes it — one class per limit,
 all `LimitExceededError`s: `StepsLimitExceededError`, `VisitsLimitExceededError`,
-`BudgetExceededError`; an exhausted budget also rejects an execution before its first step.
+`BudgetExceededError`, `DepthLimitExceededError` (a recursion past `@Workflow({ maxDepth })`, #264 —
+required on a workflow that launches `ThisWorkflow`); an exhausted budget also rejects an execution before its first step.
 Details: [FinOps](FinOps).
 
 ## `mcp` — `@McpServer` classes

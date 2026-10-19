@@ -10,8 +10,9 @@ where a per-item launch of one agent (`.toParallelAgents(A)`) runs exactly one s
 > **Status.** #263 PR 1 — the grammar, the analyser and the generated types; PR 2 — children at run
 > time: a subgraph node of the parent, their own executions, `ChildExecutionFailedError`, nested
 > records (`result.children`), `toHaveChildExecutions` / `toHaveHandledError`, and a child as an
-> error handler (`toWorkflow(W)` side paths). Recursion (`ThisWorkflow`, `maxDepth`) is #264. A
-> runnable example: `examples/flow-patterns/src/vendor/`.
+> error handler (`toWorkflow(W)` side paths). Recursion — `ThisWorkflow`, `maxDepth`, the soft stop
+> — is #264 PR 1 ([below](#recursion-264)); the tree's `maxConcurrentExecutions` comes with #264 PR 2.
+> Runnable examples: `examples/flow-patterns/src/vendor/`, `examples/flow-patterns/src/topic/`.
 
 ## Writing it
 
@@ -374,7 +375,8 @@ A child is a **node of its parent whose subgraph is the child's compiled graph**
 LangGraph Studio draws it inside the parent (`getGraphAsync({ xray: true })`), and it runs on the
 parent's checkpoint thread under the launching task's `checkpoint_ns` — the node and the task's id,
 so a second pass of a loop or a neighbouring item never reads an earlier child's checkpoint. One
-class is one node; only `ThisWorkflow` (#264) will be run from the registry.
+class is one node; only `ThisWorkflow` (#264) is run from the registry — the workflow's own
+compiled graph, never its own subgraph ([Recursion](#recursion-264)).
 
 | | |
 | --- | --- |
@@ -409,6 +411,171 @@ execution budget of its own.
 execution itself plus each child edge's worst case, `maxItems` times per item (at most
 `maxConcurrency` at once) — `Worst case of one vendor-screening-workflow-start call: 51 workflow
 executions, 4 at the same time, …`.
+
+## Recursion (#264)
+
+A workflow launches **itself** with the marker `ThisWorkflow` — a decorator's arguments are
+evaluated before its class exists, so the class cannot name itself: `.toWorkflow(ThisWorkflow)`,
+`route(ThisWorkflow)`, `.toParallelWorkflows(ThisWorkflow, { maxConcurrency, maxItems })`.
+Everything else is a child's: its start chosen by class, its scope its start input only, its result
+one of its finishes' outputs, its errors and limits. `ThisWorkflow` is one node, `this-workflow`
+(from two places: its own path `workflow(ThisWorkflow)…`). A topic too broad for one report is split
+and each subtopic researched the same way:
+
+<!-- snippet-context
+import { Action, Agent, StepFailedError, ThisWorkflow, Workflow, WorkflowFinish, WorkflowStart, action, caseOf, start, toAction, type ActionHandler, type InputOf, type OutputOf } from "agboss";
+import { Integer, ListOf, Text, listOf, oneOf } from "agboss/dto";
+
+export class TopicDto {
+  @Text({ prompt: "the topic" })
+  title!: string;
+  @Integer({ prompt: "how deep the topic is: 0 for the first one" })
+  level!: number;
+}
+export class TopicReportDto {
+  @Text({ prompt: "the report" })
+  text!: string;
+}
+export class TopicTooBroadDto {
+  @ListOf(Text, { prompt: "the subtopics" })
+  subtopics!: string[];
+}
+export class TopicFailedDto {
+  @Text({ prompt: "the topic" })
+  title!: string;
+}
+@WorkflowStart({ name: "topic-research-workflow-start", description: "A topic", input: TopicDto })
+export class TopicResearchWorkflowStart {}
+@Agent({
+  name: "researcher-agent",
+  description: "Researches a topic, or lists its subtopics",
+  prompt: "Research the topic, or say it is too broad and list its subtopics.",
+  model: "moonshotai/kimi-k2.6",
+  input: { topic: TopicDto },
+  output: oneOf(TopicReportDto, TopicTooBroadDto),
+})
+export class ResearcherAgent {}
+@Agent({
+  name: "merge-agent",
+  description: "Merges the subtopics' results",
+  prompt: "Merge the reports into one report on the topic.",
+  model: "moonshotai/kimi-k2.6",
+  input: { topic: TopicDto, results: listOf(oneOf(TopicReportDto, TopicFailedDto)) },
+  output: TopicReportDto,
+})
+export class MergeAgent {}
+@Action({
+  name: "subtopics-action",
+  description: "Splits a topic into subtopics",
+  input: { topic: TopicDto, tooBroad: TopicTooBroadDto },
+  output: listOf(TopicDto),
+})
+export class SubtopicsAction implements ActionHandler<SubtopicsAction> {
+  execute(input: InputOf<SubtopicsAction>): Promise<OutputOf<SubtopicsAction>> {
+    const { level } = input.topic.value;
+    return Promise.resolve(input.tooBroad.value.subtopics.map((title) => ({ title, level: level + 1 })));
+  }
+}
+@Action({
+  name: "mark-topic-failed-action",
+  description: "Records a topic that could not be researched",
+  input: { topic: TopicDto },
+  output: TopicFailedDto,
+})
+export class MarkTopicFailedAction implements ActionHandler<MarkTopicFailedAction> {
+  execute(input: InputOf<MarkTopicFailedAction>): Promise<OutputOf<MarkTopicFailedAction>> {
+    return Promise.resolve({ title: input.topic.value.title });
+  }
+}
+@WorkflowFinish({ name: "topic-report-workflow-finish", description: "The report", output: TopicReportDto })
+export class TopicReportWorkflowFinish {}
+@WorkflowFinish({ name: "topic-failed-workflow-finish", description: "No report", output: TopicFailedDto })
+export class TopicFailedWorkflowFinish {}
+-->
+
+```ts
+@Workflow({
+  name: "topic-research-workflow",
+  version: "1.0.0",
+  flow: [
+    start(TopicResearchWorkflowStart)
+      .returns(TopicDto)
+      .toAgent(ResearcherAgent)
+      .onError(StepFailedError, toAction(MarkTopicFailedAction)) // a failed topic is skipped softly
+      .returns(oneOf(TopicReportDto, TopicTooBroadDto))
+      .switch(
+        caseOf(TopicReportDto)
+          .toFinish(TopicReportWorkflowFinish),
+        caseOf(TopicTooBroadDto) // left out of the researcher's schema on the last level
+          .toAction(SubtopicsAction)
+          .returns(listOf(TopicDto))
+          .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 3, maxItems: 5 })
+          .join()
+          .returns(listOf(oneOf(TopicReportDto, TopicFailedDto)))
+          .toAgent(MergeAgent)
+          .onError(StepFailedError, toAction(MarkTopicFailedAction))
+          .returns(TopicReportDto)
+          .toFinish(TopicReportWorkflowFinish),
+      ),
+
+    action(MarkTopicFailedAction) // two ways in: its own path
+      .returns(TopicFailedDto)
+      .toFinish(TopicFailedWorkflowFinish),
+  ],
+  maxDepth: 3,
+})
+export class TopicResearchWorkflow {}
+```
+
+**The depth.** `@Workflow({ maxDepth })` is required on a workflow that can reach `ThisWorkflow`
+(`[graph.recursion-without-depth]`, a whole number from 1). `executionContext.depth` is 1 at the
+root, 2 for its children and so on — the same in every child record (`result.children[…].depth`) and
+in each child's trace metadata — so `maxDepth: 3` allows levels 1–3 and the last level is
+`depth === maxDepth`. No model sees the depth (Q52): instructions are static and context values
+never enter a prompt; a level the domain cares about is data in `input` — `TopicDto.level`, set by the
+action that splits a topic. The two differ anyway: a recursive workflow started as someone's child
+starts deeper than 1 while its first topic's `level` is 0.
+
+**The soft stop.** On the last level the framework, not the prompt, stops the recursion. Of every
+branch — a `.switch(caseOf(…))`, a `.chooseOne(route(…))` — the options whose path launches
+`ThisWorkflow` before the next branch are not offered:
+
+| Who decides | On the last level |
+| --- | --- |
+| an agent's `oneOf` answer | the recursive variants' answer tools are not bound and the answer is checked against the narrowed schema — a second static request prefix, so a second cache prefix for that level ([Agents](Agents)) |
+| a model router | its model does not see the recursive routes (one route left: chosen without a model call) |
+| a code router | `route()` returning one fails with `RouterDecisionError` — "not ready on the last level" |
+| code or data (an action's or a child's `oneOf`, a launch with no branch) | the launch past `maxDepth` does not start: the hard stop below |
+
+So every branch with a recursive option keeps one that is not (`[graph.recursion-without-exit]`); a
+path with no branch at all — an action whose list of subtopics comes back empty — ends by its data.
+
+**The hard stop.** A launch decided by code past `maxDepth` does not start — no execution, no
+`onExecutionStart` — and fails the launching step with `ChildExecutionFailedError` caused by
+`DepthLimitExceededError` (`limit.depth`; `workflow`, `maxDepth`, `depth`: `topic-research-workflow
+went 5 levels deep; its maxDepth is 4`). It is a child's own limit (S25): `.onError(LimitExceededError,
+…)` right after `.toWorkflow(ThisWorkflow)`, or `.onJoinError(LimitExceededError, …)` after a per-item
+launch's join, takes it — leading only to actions and finishes (`[graph.limit-handler-uses-model]`).
+The refused launch is a failed child record with an empty path.
+
+**The tree.** Each execution has its own `maxSteps`; the root's execution budget is the whole pass,
+every level included, and the tenant and application budgets count it too. Only direct recursion:
+a workflow launching one that launches it again — or naming its own class — is
+`[graph.mutual-recursion]` (as is a class `undefined` while the flow is built, the trace of a
+circular import). At run time `ThisWorkflow` is the workflow's own compiled graph, taken from the
+registry when its step runs (a graph cannot contain itself): one checkpoint thread, its children
+under their tasks' `checkpoint_ns`, pauses inside any level resumed like any child's; Studio draws it
+as a node marked `recursive: maxDepth 3`.
+
+**Seen in.** `agboss describe`: `recursive: ThisWorkflow, maxDepth 3, on the last level:
+researcher-agent → TopicReportDto only`, and each input with its producers — `merge-agent ← topic:
+topic-research-workflow-start, results: this-workflow ×0–5`: the execution's own topic from its start,
+never a subtopic (a `listOf(TopicDto)` never fills one `TopicDto` field). The worst case counts the
+levels down to `maxDepth`.
+
+**Typed once.** `ThisWorkflow` is one class, so one entry of a project's `.agboss/types.d.ts`: two
+recursive workflows of one project whose finishes give different classes fail type generation
+(`[types.this-workflow-outputs]`).
 
 ## Testing
 

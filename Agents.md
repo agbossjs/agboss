@@ -43,7 +43,11 @@ with `promptVariables` only), its tools and answer tools sorted by name, JSON ke
 thread's **memory** (finished turns as `start <name>: <input>` / `finish <name>: <output>`, plus
 compaction summaries), then the **input message**, then the loop's own turns. The static part is the
 same for every run of the agent, so a provider that caches reads it from the cache (Wiki →
-[Model providers](Model-providers)). The input message has one block per `input` field in
+[Model providers](Model-providers)). An agent of a recursive workflow whose `oneOf` variant leads to
+`ThisWorkflow` has **two** static parts (#264): on the last level (`depth === maxDepth`) that
+variant's answer tool is left out ([Workflow as a step → Recursion](Workflow-as-a-step#recursion-264)),
+so levels `1 … maxDepth - 1` share one warmed prefix and `maxDepth` has its own — expected, not a
+cache miss to chase. The input message has one block per `input` field in
 declaration order:
 
 ```text
