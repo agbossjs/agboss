@@ -5,6 +5,7 @@ import type { Guardrail } from "../../components/policy-decorators.js";
 import type { Price } from "../../config/types.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import { NodeKind, type FlowPath } from "../ast.js";
+import type { ThisWorkflowCheck } from "../this-workflow-types.js";
 import { declarationOf, declared, recordDeclaration } from "./declaration.js";
 
 /** Defaults of every chat model (agents, model routers): no `thinking` strings (#269). */
@@ -89,11 +90,15 @@ export interface GuardsOptions {
  * MCP servers, channels, policies and memory; observers are the application's (`@Application({
  * observers })`, #261).
  */
-export interface WorkflowOptions {
-  /** Ends with `-workflow` (`offer-workflow`). */
-  readonly name: string;
+export interface WorkflowOptions<
+  TName extends string = string,
+  TFlow extends readonly FlowPath[] = readonly FlowPath[],
+> {
+  /** Ends with `-workflow` (`offer-workflow`); keys its `ThisWorkflowOutputs` entry (#264). */
+  readonly name: TName;
   readonly version: string;
-  readonly flow: readonly FlowPath[];
+  /** The paths; what they claim of `ThisWorkflow` is checked against this workflow's own entry. */
+  readonly flow: TFlow;
   /** Steps (agent and router visits) per execution; default (agents + routers) × 3 (#261). */
   readonly maxSteps?: number;
   /** Nesting of child workflows (#263, #264). */
@@ -122,7 +127,9 @@ export interface WorkflowOptions {
 /** The flow is recorded as plain data: each path's source and steps, never the builder objects. */
 const plainPath = (path: FlowPath): FlowPath => ({ source: path.source, steps: path.steps });
 
-export function Workflow(options: WorkflowOptions) {
+export function Workflow<const TName extends string, const TFlow extends readonly FlowPath[]>(
+  options: WorkflowOptions<TName, TFlow> & ThisWorkflowCheck<TName, TFlow>,
+): <TClass extends Class>(value: TClass) => TClass {
   const source = callerFile();
   const recorded: WorkflowOptions = { ...options, flow: options.flow.map(plainPath) };
   return <TClass extends Class>(value: TClass): TClass => {

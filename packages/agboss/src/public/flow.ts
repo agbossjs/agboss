@@ -21,7 +21,7 @@ export {
   toWorkflow,
   workflow,
 } from "../flow/builder.js";
-export { ThisWorkflow } from "../flow/this-workflow.js";
+export { ThisWorkflow, type ThisWorkflowOutputs } from "../flow/this-workflow.js";
 export type {
   AfterStep,
   AfterValue,

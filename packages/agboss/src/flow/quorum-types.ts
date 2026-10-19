@@ -2,6 +2,7 @@ import type { Milliseconds } from "../units/index.js";
 import type { ErrorClass } from "./ast.js";
 import type {
   BuiltPath,
+  ClaimsOf,
   GroupHead,
   GroupOfPath,
   PathHead,
@@ -9,6 +10,7 @@ import type {
   SidePath,
   Transitions,
 } from "./builder-types.js";
+import type { WithClaims } from "./this-workflow-types.js";
 import type { ValueOf, ValueShape } from "./dto-wrappers.js";
 import type { GeneratedTypeError, JoinOutputOf, NoOutput } from "./generated-types.js";
 import type { ArbiterChoice } from "./quorum-step.js";
@@ -85,12 +87,18 @@ type QuorumContinuation<TOutput, TKey extends string, THead extends PathHead> = 
 
 /** After `.joinQuorum(…)`: its `.onJoinError(…)`, then its counted answers named with `.returns(…)`. */
 export type QuorumJoined<TKey extends string, THead extends PathHead, TWhole extends boolean> = {
-  onJoinError(error: ErrorClass, path: SidePath): QuorumJoined<TKey, THead, TWhole>;
+  onJoinError<const TPath extends SidePath>(
+    error: ErrorClass,
+    path: TPath,
+  ): QuorumJoined<TKey, WithClaims<THead, ClaimsOf<TPath>>, TWhole>;
 } & QuorumContinuation<QuorumOutput<JoinOutputOf<TKey>, TWhole>, TKey, THead>;
 
 /** After `.joinQuorumGroups(…)`: only `.onJoinError(…)` — each group continued its own path. */
 export type GroupsJoined<THead extends PathHead> = BuiltPath<THead> & {
-  onJoinError(error: ErrorClass, path: SidePath): GroupsJoined<THead>;
+  onJoinError<const TPath extends SidePath>(
+    error: ErrorClass,
+    path: TPath,
+  ): GroupsJoined<WithClaims<THead, ClaimsOf<TPath>>>;
 };
 
 /** A group's `.returns(…)` chain; after the first value the group may go on with `.to…(…)`. */
@@ -108,7 +116,7 @@ export interface GroupStart<TNames extends string> extends GroupValues<TNames, [
 }
 
 /** A group continued to its own path: what `.joinQuorumGroups(…)` takes. */
-export type GroupPath = BuiltPath<GroupHead<string, readonly unknown[]>>;
+export type GroupPath = BuiltPath<GroupHead<string, readonly unknown[], unknown>>;
 
 /** `.joinQuorumGroups(…)`'s arguments: one or more groups, then its options. */
 export type GroupArguments =
@@ -155,5 +163,5 @@ export interface Quorums<TKey extends string, THead extends PathHead, TCount ext
   ): QuorumJoined<TKey, THead, IsWholeQuorum<TOptions["min"], TCount>>;
   joinQuorumGroups<const TArgs extends GroupArguments>(
     ...groups: TArgs & GroupsCheck<TKey, TArgs>
-  ): GroupsJoined<THead>;
+  ): GroupsJoined<WithClaims<THead, ClaimsOf<TArgs[number]>>>;
 }

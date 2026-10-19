@@ -1,10 +1,14 @@
 import type { Class } from "../../components/injection.js";
 import type { RuleViolation } from "../../graph/rule-error.js";
+import { inputShapesOf } from "../analyse/analyse.js";
 import type { ResolvedField } from "../analyse/fields.js";
+import { joinValueWrites } from "../analyse/launches.js";
+import { slotOfWrite } from "../analyse/scope.js";
 import type { InputShape, ProjectedField } from "../analyse/projection.js";
 import type { ComponentName } from "../registry.js";
 import { TablesImport, type ImportTable } from "./imports.js";
 import { producedText, propertyName } from "./shapes.js";
+import type { AnalysedWorkflow } from "./tables.js";
 
 /**
  * A node's `InputOf<X>` (#272 S4, #270): one member per input shape — every reachable abstract scope
@@ -148,3 +152,38 @@ export const childInputEntry = (input: NodeInput, names: ImportTable): InputEntr
   input.problems.length > 0
     ? { type: errorType(input.problems.join("; ")) }
     : { type: names.use(TablesImport.NoInput) };
+
+/** What the generator knows of one node's input over the given workflows (`input.*` problems too). */
+export function nodeInput(workflows: readonly AnalysedWorkflow[], name: ComponentName): NodeInput {
+  const shapes = new Map<string, InputShape>();
+  const problems = new Set<string>();
+  const versionProducers = new Map<string, ComponentName[]>();
+  let fields: NodeInput["fields"] = [];
+  for (const { analysis, errors } of workflows) {
+    if (!analysis.graph.nodes.has(name)) continue;
+    fields = (analysis.fields.get(name) ?? []).filter((field) => !field.isPassThrough);
+    for (const field of fields.filter((candidate) => candidate.history !== undefined)) {
+      const { edges } = analysis.graph;
+      const writers = [
+        ...edges
+          .filter((edge) => edge.writes.some((write) => slotOfWrite(write) === field.slot))
+          .map((edge) => edge.from),
+        ...joinValueWrites(edges)
+          .filter(({ write }) => slotOfWrite(write) === field.slot)
+          .flatMap(({ producers }) => producers),
+      ];
+      versionProducers.set(field.name, [...(versionProducers.get(field.name) ?? []), ...writers]);
+    }
+    for (const shape of inputShapesOf(analysis, name)) shapes.set(JSON.stringify(shape), shape);
+    for (const found of errors)
+      if (isInputProblem(found) && found.nodes.includes(name))
+        problems.add(`[${found.code}] ${found.message}`);
+  }
+  return {
+    name,
+    fields,
+    shapes: [...shapes.values()],
+    versionProducers,
+    problems: [...problems].sort(),
+  };
+}

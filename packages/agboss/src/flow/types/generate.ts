@@ -17,7 +17,6 @@ import { printTypes } from "./print.js";
 import { tablesOf, type AnalysedWorkflow } from "./tables.js";
 import { contextTypesOf } from "./contexts.js";
 import { channelRoleTable } from "./channel-roles.js";
-import { thisWorkflowClashes } from "./this-workflow.js";
 
 /**
  * Type generation (#272 PR 3, S2): a pure function of the loaded application — its v2 workflows and
@@ -175,7 +174,6 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   const failures = [
     ...names.unexported.map((component) => unexportedClass(component, projectOf(request.outFile))),
     ...nameClashes(workflows, names),
-    ...thisWorkflowClashes(workflows, names),
   ];
   const result = { errors: [...errors, ...failures], warnings, notes: tables.notes };
   return failures.length === 0 ? { ...result, text } : result;

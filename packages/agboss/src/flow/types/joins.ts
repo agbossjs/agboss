@@ -4,6 +4,7 @@ import { groupKeyOf } from "../analyse/quorum-joins.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
 import { TablesImport, type ImportTable } from "./imports.js";
 import { valueText } from "./shapes.js";
+import { THIS_WORKFLOW_NAME } from "../this-workflow.js";
 
 /**
  * The `JoinOutputs` table (#273): what the join of each launch gives, keyed as the typed builder
@@ -21,7 +22,7 @@ interface Analysed {
 
 const errorType = (message: string): string => `{ readonly __error: ${JSON.stringify(message)} }`;
 
-function joinText(analysis: FlowAnalysis, launch: FlowLaunch, names: ImportTable): string {
+export function joinText(analysis: FlowAnalysis, launch: FlowLaunch, names: ImportTable): string {
   return valuesText(
     joinGroupsOf(launch, (name) => analysis.graph.nodes.get(name)),
     names,
@@ -39,7 +40,14 @@ function valuesText(groups: readonly JoinGroup[], names: ImportTable): string {
   return values.length === 1 ? one : `readonly [${values.join(", ")}]`;
 }
 
-/** Every launch of every workflow, by key; the first workflow's entry for a key wins. */
+/** Whether a launch runs `ThisWorkflow` — typed per workflow, in `ThisWorkflowOutputs` (#264). */
+export const launchesThisWorkflow = (launch: FlowLaunch): boolean =>
+  launch.listed.includes(THIS_WORKFLOW_NAME);
+
+/**
+ * Every launch of every workflow, by key; the first workflow's entry for a key wins. A launch of
+ * `ThisWorkflow` has none: its join is its workflow's own (`ThisWorkflowOutputs`, #264 S112).
+ */
 export function joinEntries(
   workflows: readonly Analysed[],
   names: ImportTable,
@@ -48,7 +56,7 @@ export function joinEntries(
   for (const { analysis } of workflows) {
     for (const edge of analysis.graph.edges) {
       const { launch, join } = edge;
-      if (launch === undefined) continue;
+      if (launch === undefined || launchesThisWorkflow(launch)) continue;
       const key = launchKeyOf(launch);
       if (!entries.has(key)) entries.set(key, joinText(analysis, launch, names));
       const group = join?.group;

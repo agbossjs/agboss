@@ -1,15 +1,14 @@
 import type { RuleViolation } from "../../graph/rule-error.js";
-import { inputShapesOf, type FlowAnalysis } from "../analyse/analyse.js";
+import type { FlowAnalysis } from "../analyse/analyse.js";
 import { EdgeKind, outputOf, reachableFrom, type FlowNode } from "../analyse/flow-graph.js";
-import { joinValueWrites } from "../analyse/launches.js";
-import { slotOfWrite } from "../analyse/scope.js";
-import type { InputShape } from "../analyse/projection.js";
 import { NodeKind, type ComponentClass } from "../ast.js";
 import { onDemandRoutesOf, routesOf, type RouterOptions } from "../decorators/router.js";
 import type { ComponentName } from "../registry.js";
 import type { ImportTable } from "./imports.js";
-import { childInputEntry, inputEntry, isInputProblem, type NodeInput } from "./inputs.js";
+import { childInputEntry, inputEntry, nodeInput } from "./inputs.js";
 import { joinEntries } from "./joins.js";
+import { isThisWorkflow } from "../this-workflow.js";
+import { thisWorkflowEntries } from "./this-workflow.js";
 import { outputText, startInputText, startOutputText, valueText } from "./shapes.js";
 
 /**
@@ -64,6 +63,8 @@ export interface TypeTables {
   readonly routes: TypeTable;
   readonly routerAnswers: TypeTable;
   readonly joinOutputs: TypeTable;
+  /** `ThisWorkflow` per recursive workflow, by the workflow's name (#264 S112). */
+  readonly thisWorkflowOutputs: TypeTable;
   /** S4 lines for `agboss check`: the nodes whose `InputOf` is flat. */
   readonly notes: readonly string[];
 }
@@ -86,40 +87,6 @@ const launchingRouters = (workflows: readonly AnalysedWorkflow[]): ReadonlySet<s
         .map((edge) => edge.from),
     ),
   );
-
-function nodeInput(workflows: readonly AnalysedWorkflow[], name: ComponentName): NodeInput {
-  const shapes = new Map<string, InputShape>();
-  const problems = new Set<string>();
-  const versionProducers = new Map<string, ComponentName[]>();
-  let fields: NodeInput["fields"] = [];
-  for (const { analysis, errors } of workflows) {
-    if (!analysis.graph.nodes.has(name)) continue;
-    fields = (analysis.fields.get(name) ?? []).filter((field) => !field.isPassThrough);
-    for (const field of fields.filter((candidate) => candidate.history !== undefined)) {
-      const { edges } = analysis.graph;
-      const writers = [
-        ...edges
-          .filter((edge) => edge.writes.some((write) => slotOfWrite(write) === field.slot))
-          .map((edge) => edge.from),
-        ...joinValueWrites(edges)
-          .filter(({ write }) => slotOfWrite(write) === field.slot)
-          .flatMap(({ producers }) => producers),
-      ];
-      versionProducers.set(field.name, [...(versionProducers.get(field.name) ?? []), ...writers]);
-    }
-    for (const shape of inputShapesOf(analysis, name)) shapes.set(JSON.stringify(shape), shape);
-    for (const found of errors)
-      if (isInputProblem(found) && found.nodes.includes(name))
-        problems.add(`[${found.code}] ${found.message}`);
-  }
-  return {
-    name,
-    fields,
-    shapes: [...shapes.values()],
-    versionProducers,
-    problems: [...problems].sort(),
-  };
-}
 
 /** The outputs of the finishes a start reaches, in every workflow it is in. */
 function startOutputs(
@@ -218,6 +185,8 @@ export function tablesOf(workflows: readonly AnalysedWorkflow[], names: ImportTa
   };
   for (const node of nodes.values()) {
     names.ref(node.component);
+    // `ThisWorkflow` is a different workflow in each recursive one: its own table (#264 S112)
+    if (isThisWorkflow(node.component)) continue;
     writeNode(node, workflows, names, tables);
     if (node.kind === NodeKind.Start) continue;
     const input = nodeInput(workflows, node.name);
@@ -226,5 +195,9 @@ export function tablesOf(workflows: readonly AnalysedWorkflow[], names: ImportTa
     tables.inputs.set(node.name, entry.type);
     if (entry.note !== undefined) tables.notes.push(entry.note);
   }
-  return { ...tables, joinOutputs: joinEntries(workflows, names) };
+  return {
+    ...tables,
+    joinOutputs: joinEntries(workflows, names),
+    thisWorkflowOutputs: thisWorkflowEntries(workflows, names),
+  };
 }

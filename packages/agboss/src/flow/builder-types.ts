@@ -12,6 +12,7 @@ import type {
 import type { DtoClass } from "../dto/types.js";
 import type { Launches, RouterLaunches } from "./launch-types.js";
 import type { Returning, StepValues, ValuesLeft } from "./returns-types.js";
+import type { ThisWorkflowName, ThisWorkflowReturning, WithClaims } from "./this-workflow-types.js";
 
 /**
  * The types of the path builder (#272 S3). A builder carries, in its type, how its path starts
@@ -23,37 +24,69 @@ import type { Returning, StepValues, ValuesLeft } from "./returns-types.js";
 declare const pathHead: unique symbol;
 declare const pathValue: unique symbol;
 
-export interface SourceHead {
+/**
+ * Every head carries `claims`: what the path promised of `ThisWorkflow` so far (#264 S112, S114) —
+ * a `ThisWorkflowStepClaim` per `.returns(…)` after a `ThisWorkflow` step, a `ThisWorkflowJoinClaim`
+ * per `.returns(…)` after its per-item join, those of its sub-paths added by `.switch(…)`,
+ * `.chooseOne(…)`, `.onError(…)`, `.onJoinError(…)` and `.joinQuorumGroups(…)`. `never` for none;
+ * `@Workflow({ name, flow })` checks them against its own `ThisWorkflowOutputs` entry.
+ */
+export interface SourceHead<TClaims = never> {
   readonly source: true;
+  readonly claims: TClaims;
 }
-export interface RouteHead {
+export interface RouteHead<TClaims = never> {
   readonly route: true;
+  readonly claims: TClaims;
 }
-export interface CaseHead<TValue> {
+export interface CaseHead<TValue, TClaims = never> {
   readonly case: TValue;
+  readonly claims: TClaims;
 }
-export interface SideHead {
+export interface SideHead<TClaims = never> {
   readonly side: true;
+  readonly claims: TClaims;
 }
 /**
  * A `group(…)` of `.joinQuorumGroups(…)` (#279): the agents' names as listed and the values its
  * `.returns(…)` chain named, checked by `.joinQuorumGroups(…)` against its `JoinOutputs` entry.
  */
-export interface GroupHead<TNames extends string, TGiven extends readonly unknown[]> {
+export interface GroupHead<
+  TNames extends string,
+  TGiven extends readonly unknown[],
+  TClaims = never,
+> {
   readonly group: TNames;
   readonly given: TGiven;
+  readonly claims: TClaims;
 }
 export type PathHead =
-  SourceHead | RouteHead | CaseHead<unknown> | SideHead | GroupHead<string, readonly unknown[]>;
+  | SourceHead<unknown>
+  | RouteHead<unknown>
+  | CaseHead<unknown, unknown>
+  | SideHead<unknown>
+  | GroupHead<string, readonly unknown[], unknown>;
 
 /** A path as built so far: a `FlowPath` from a source, a `SubPath` otherwise, its head in its type. */
-export type BuiltPath<THead extends PathHead> = (THead extends SourceHead ? FlowPath : SubPath) & {
+export type BuiltPath<THead extends PathHead> = (THead extends SourceHead<unknown>
+  ? FlowPath
+  : SubPath) & {
   readonly [pathHead]?: THead;
 };
 
-export type RoutePath = BuiltPath<RouteHead>;
-export type CasePath = BuiltPath<CaseHead<unknown>>;
-export type SidePath = BuiltPath<SideHead>;
+/** Any route of `.chooseOne(…)`, whatever it claims of `ThisWorkflow`. */
+export type RoutePath = BuiltPath<RouteHead<unknown>>;
+/** Any case of `.switch(…)`. */
+export type CasePath = BuiltPath<CaseHead<unknown, unknown>>;
+/** Any side path of `.onError(…)` / `.onJoinError(…)`. */
+export type SidePath = BuiltPath<SideHead<unknown>>;
+
+/** The `ThisWorkflow` claims a path carries (`never` for a path built without the typed builder). */
+export type ClaimsOf<TPath> = TPath extends { readonly [pathHead]?: infer THead }
+  ? THead extends { readonly claims: infer TClaims }
+    ? TClaims
+    : never
+  : never;
 
 /**
  * `.returns(CritiqueDto, { about: PlanDto })`, `caseOf(ChangesRequestedDto, { about: OfferDraftDto })`
@@ -98,10 +131,16 @@ export type KindCheck<TClass extends Class, TKind extends NodeKind, TLabel exten
       ? unknown
       : WrongKind<NameOf<InstanceType<TClass>>, TLabel>;
 
-/** The generated input of a target, when it reports a problem (`[input.missing-on-path]`, …). */
-type InputCheck<TInstance> = [InputOf<TInstance>] extends [GeneratedTypeError]
-  ? InputOf<TInstance>
-  : unknown;
+/**
+ * The generated input of a target, when it reports a problem (`[input.missing-on-path]`, …);
+ * `ThisWorkflow`'s is its workflow's own, checked by `@Workflow({ name, flow })` (#264 S112).
+ */
+type InputCheck<TInstance> =
+  ThisWorkflowName extends NameOf<TInstance>
+    ? unknown
+    : [InputOf<TInstance>] extends [GeneratedTypeError]
+      ? InputOf<TInstance>
+      : unknown;
 
 /** A transition's target: the right kind, and an input the paths into it can fill. */
 export type TargetCheck<TClass extends Class, TKind extends NodeKind, TLabel extends string> =
@@ -112,13 +151,13 @@ export type TargetCheck<TClass extends Class, TKind extends NodeKind, TLabel ext
     : never;
 
 /** The values of the cases of a `.switch(…)`. */
-type CaseValueOf<TPath> = TPath extends { readonly [pathHead]?: CaseHead<infer TValue> }
+type CaseValueOf<TPath> = TPath extends { readonly [pathHead]?: CaseHead<infer TValue, unknown> }
   ? TValue
   : never;
 
 /** The group a path was built from (`group(…)…`, #279); `never` for any other path. */
 export type GroupOfPath<TPath> = TPath extends {
-  readonly [pathHead]?: GroupHead<infer TNames, infer TGiven>;
+  readonly [pathHead]?: GroupHead<infer TNames, infer TGiven, unknown>;
 }
   ? GroupHead<TNames, TGiven>
   : never;
@@ -153,8 +192,10 @@ type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInstance>] e
     ? RouterStep<THead, TInstance>
     : [KindOf<TInstance>] extends [NodeKind.Start]
       ? Returning<StepValues<TInstance>, ValuesLeft<ProducerOutputOf<TInstance>>, THead>
-      : ErrorHandling<TInstance, THead> &
-          OutputContinuation<TInstance, ProducerOutputOf<TInstance>, THead>;
+      : ThisWorkflowName extends NameOf<TInstance>
+        ? ErrorHandling<TInstance, THead> & ThisWorkflowReturning<THead>
+        : ErrorHandling<TInstance, THead> &
+            OutputContinuation<TInstance, ProducerOutputOf<TInstance>, THead>;
 
 /**
  * A step with `output` names it with `.returns(…)` — a `oneOf` too, before its `.switch(…)`; one
@@ -194,12 +235,15 @@ export interface Transitions<THead extends PathHead> {
 export interface Switching<TOutput, THead extends PathHead> {
   switch<const TCases extends readonly [CasePath, ...CasePath[]]>(
     ...cases: TCases & SwitchCheck<TCases, TOutput>
-  ): BuiltPath<THead>;
+  ): BuiltPath<WithClaims<THead, ClaimsOf<TCases[number]>>>;
 }
 
 /** `.onError(E, toAction(X)…)` right after the step that throws; the main path goes on. */
 export interface ErrorHandling<TInstance, THead extends PathHead> {
-  onError(error: ErrorClass, path: SidePath): AfterStep<TInstance, THead>;
+  onError<const TPath extends SidePath>(
+    error: ErrorClass,
+    path: TPath,
+  ): AfterStep<TInstance, WithClaims<THead, ClaimsOf<TPath>>>;
 }
 
 /** After a router: its `.onError(…)`, then its choice — `.chooseOne(…)` or a launch (#273). */
@@ -207,11 +251,17 @@ export interface RouterStep<THead extends PathHead, TInstance = unknown> extends
   NameOf<TInstance>,
   THead
 > {
-  onError(error: ErrorClass, path: SidePath): BuiltPath<THead> & RouterStep<THead, TInstance>;
-  chooseOne(...routes: readonly [RoutePath, ...RoutePath[]]): BuiltPath<THead>;
+  onError<const TPath extends SidePath>(
+    error: ErrorClass,
+    path: TPath,
+  ): BuiltPath<WithClaims<THead, ClaimsOf<TPath>>> &
+    RouterStep<WithClaims<THead, ClaimsOf<TPath>>, TInstance>;
+  chooseOne<const TRoutes extends readonly [RoutePath, ...RoutePath[]]>(
+    ...routes: TRoutes
+  ): BuiltPath<WithClaims<THead, ClaimsOf<TRoutes[number]>>>;
 }
 
 /** What `route(X)` continues with: nothing after a finish, else the target's step. */
 export type RouteContinuation<TInstance> = [KindOf<TInstance>] extends [NodeKind.Finish]
-  ? RoutePath
+  ? BuiltPath<RouteHead>
   : AfterStep<TInstance, RouteHead>;

@@ -4,6 +4,9 @@ import { declared, recordDeclaration } from "./decorators/declaration.js";
 import { agbossComponent } from "./generated-types.js";
 import type { ComponentName } from "./registry.js";
 
+/** `ThisWorkflow`'s generated table (#264 S112), exported with the marker from the public flow entry. */
+export type { ThisWorkflowOutputs } from "./generated-types.js";
+
 /**
  * `ThisWorkflow` (#264): the workflow a flow belongs to, launched as its own child — a recursion of
  * unknown depth, bounded by `@Workflow({ maxDepth })`. It is a marker, written where a child workflow

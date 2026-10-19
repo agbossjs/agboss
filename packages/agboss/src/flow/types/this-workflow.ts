@@ -1,32 +1,35 @@
-import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { outputOf } from "../analyse/flow-graph.js";
 import { THIS_WORKFLOW_NAME } from "../this-workflow.js";
 import type { ImportTable } from "./imports.js";
+import { childInputEntry, nodeInput } from "./inputs.js";
+import { joinText, launchesThisWorkflow } from "./joins.js";
 import { outputText } from "./shapes.js";
-import type { AnalysedWorkflow } from "./tables.js";
+import type { AnalysedWorkflow, TypeTable } from "./tables.js";
 
 /**
- * `ThisWorkflow` in the generated types (#264): one class, so one entry of the project's tables —
- * `ProducerOutputs["this-workflow"]`, its join's `JoinOutputs` — typed as the recursive workflow's
- * own finishes. Two recursive workflows whose finishes give different classes cannot share it:
- * generation fails with `[types.this-workflow-outputs]`, naming both, rather than type one of them
- * wrong.
+ * `ThisWorkflowOutputs` (#264 S112): `ThisWorkflow` is a different workflow in each recursive one,
+ * so each gets its own entry, keyed by its name — the problems of launching it (`input`, from that
+ * workflow's paths only), what one child gives (`output`) and, with a per-item launch, its join.
  */
-export function thisWorkflowClashes(
+export function thisWorkflowEntries(
   workflows: readonly AnalysedWorkflow[],
   names: ImportTable,
-): readonly RuleViolation[] {
-  const byOutput = new Map<string, string[]>();
-  for (const { analysis } of workflows) {
+): TypeTable {
+  const entries = new Map<string, string>();
+  for (const workflow of workflows) {
+    const { analysis } = workflow;
     const node = analysis.graph.nodes.get(THIS_WORKFLOW_NAME);
     if (node === undefined) continue;
-    const output = outputText(outputOf(node), names);
-    byOutput.set(output, [...(byOutput.get(output) ?? []), analysis.workflow]);
+    const input = childInputEntry(nodeInput([workflow], THIS_WORKFLOW_NAME), names).type;
+    const members = [
+      `readonly input: ${input}`,
+      `readonly output: ${outputText(outputOf(node), names)}`,
+    ];
+    const launch = analysis.graph.edges.find(
+      (edge) => edge.launch !== undefined && launchesThisWorkflow(edge.launch),
+    )?.launch;
+    if (launch !== undefined) members.push(`readonly join: ${joinText(analysis, launch, names)}`);
+    entries.set(analysis.workflow, `{ ${members.join("; ")} }`);
   }
-  if (byOutput.size < 2) return [];
-  const each = [...byOutput].map(([output, owners]) => `${owners.join(", ")} give ${output}`);
-  const message =
-    `ThisWorkflow is typed once per project, and the recursive workflows differ: ${each.join("; ")} — ` +
-    "give their finishes the same output classes, or keep them in separate projects";
-  return [violation("types.this-workflow-outputs", message, [THIS_WORKFLOW_NAME])];
+  return entries;
 }
