@@ -3,7 +3,8 @@ import type { Secret } from "agboss";
 /**
  * The application's environment contract: the fields every `<name>.environment.ts` next to it
  * defines — declared fields only, no values (a default is `env("X", { default })` in an
- * environment; a secret is a `Secret` field set with `secret("X")`). Declared once:
+ * environment, an optional value `env.optional("X")`; a secret is a `Secret` field set with
+ * `secret("X")`). Declared once:
  * `@Application({ environment: AppEnvironment })`. Read it as `applicationContext.environment`
  * (`@Injectable({ deps: [ApplicationContext] })`), as `../services/api.service.ts` does.
  */

@@ -1,7 +1,7 @@
 import type { Environment } from "../flow/generated-types.js";
 import { EnvironmentError, EnvironmentErrorCode } from "./errors.js";
 import { resolvedSecret, SECRET_MASK, Secret, variableOfSecret } from "./secret.js";
-import { VariableKind, VariableReference } from "./variables.js";
+import { VariableKind, VariablePresence, VariableReference } from "./variables.js";
 import { isProcessValue, leavesOf, mapLeaves, type ProcessValue } from "./walk.js";
 
 /**
@@ -41,9 +41,15 @@ export interface ProcessVariable {
   readonly variable: string;
   readonly field: string;
   readonly use: VariableUse;
-  /** Whether it is required (no default); a secret always is. */
+  /** Whether it is required (no default, not optional); a secret always is. */
   readonly required: boolean;
+  /** Whether unset is no value (`env.optional("X")`): neither required nor defaulted (#266 S90). */
+  readonly optional: boolean;
 }
+
+/** Whether a reference is `env.optional(…)`: unset is `undefined`, not a missing variable. */
+const isOptional = (value: ProcessValue): boolean =>
+  value instanceof VariableReference && value.presence === VariablePresence.Optional;
 
 const variableOf = (value: ProcessValue): string =>
   value instanceof Secret ? variableOfSecret(value) : value.variable;
@@ -105,7 +111,7 @@ function resolvedValue(
     return undefined;
   }
   if (raw === undefined) {
-    if (value.fallback === undefined)
+    if (value.fallback === undefined && value.presence === VariablePresence.Required)
       problems.missing.push(`${variable} is not set (${problems.where(path)})`);
     return value.fallback;
   }
@@ -158,12 +164,14 @@ export const environmentVariablesOf = (loaded: LoadedEnvironment): readonly Proc
   leavesOf(loaded.values).flatMap(([field, value]): ProcessVariable[] => {
     if (!isProcessValue(value)) return [];
     const isSecret = value instanceof Secret;
+    const optional = isOptional(value);
     return [
       {
         variable: variableOf(value),
         field,
         use: isSecret ? VariableUse.Secret : VariableUse.Value,
-        required: isSecret || value.fallback === undefined,
+        required: isSecret || (value.fallback === undefined && !optional),
+        optional,
       },
     ];
   });
@@ -176,7 +184,10 @@ export interface DescribedEnvironment {
   readonly fields: Readonly<Record<string, string>>;
 }
 
-/** How one field prints in `agboss describe`: a literal, a variable's value, `***`, or what is missing. */
+/**
+ * How one field prints in `agboss describe`: a literal, a variable's value, `***`, what is missing,
+ * or an optional variable that is unset (`<unset OPENROUTER_BASE_URL, optional>`).
+ */
 function fieldLabel(value: unknown, processEnv: NodeJS.ProcessEnv): string {
   if (value instanceof Secret) {
     const variable = variableOfSecret(value);
@@ -186,10 +197,12 @@ function fieldLabel(value: unknown, processEnv: NodeJS.ProcessEnv): string {
   }
   if (!(value instanceof VariableReference)) return JSON.stringify(value);
   const raw = processValueOf(processEnv, value.variable);
-  if (raw === undefined)
+  if (raw === undefined) {
+    if (value.presence === VariablePresence.Optional) return `<unset ${value.variable}, optional>`;
     return value.fallback === undefined
       ? `<missing ${value.variable}>`
       : JSON.stringify(value.fallback);
+  }
   return JSON.stringify(parsed(value, raw) ?? raw);
 }
 

@@ -24,9 +24,8 @@ export interface ModelProviderOptions {
   readonly baseUrl: string;
   /**
    * A text field of the application's environment that sets the base URL when it holds one —
-   * `baseUrlField: "openRouterBaseUrl"` with `openRouterBaseUrl: env("OPENROUTER_BASE_URL", {
-   * default: "https://openrouter.ai/api/v1" })` (a proxy, a local stub). Unset or undeclared →
-   * `baseUrl`.
+   * `baseUrlField: "openRouterBaseUrl"` with `openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")`
+   * (a proxy, a local stub) — no `{ default }`: unset, empty or undeclared → `baseUrl` (#266 S87).
    */
   readonly baseUrlField?: string;
   /**

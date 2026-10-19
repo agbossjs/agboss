@@ -7,7 +7,8 @@ import type { ModelProviderOptions } from "./model-provider.decorator.js";
 /**
  * What a provider reads from the application's typed environment (#266 S73 c): its key — `apiKey`
  * names a `Secret` field (`openRouterApiKey: secret("OPENROUTER_API_KEY")`) — and, when
- * `baseUrlField` names one, its base URL (`openRouterBaseUrl: env("OPENROUTER_BASE_URL", { default })`).
+ * `baseUrlField` names one, its base URL (`openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")`;
+ * unset → the decorator's `baseUrl`, so the field repeats no default — #266 S87).
  * Both are read from `applicationContext.environment` at start; a value of an environment passed
  * as written (not resolved yet) takes its own variable from the process — the only place a process
  * variable is read. A provider never reads `process.env` itself.
@@ -55,7 +56,7 @@ export function providerKeyOf(
   return required ? missingKey(options, field, value) : undefined;
 }
 
-/** A text field's value: a string, else an `env(…)` reference as written (its variable, its default). */
+/** A text field's value: a string, else an `env(…)` reference as written (its variable, its default if any). */
 function textValueOf(value: unknown, env: NodeJS.ProcessEnv): string | undefined {
   if (typeof value === "string") return value === "" ? undefined : value;
   if (!(value instanceof VariableReference)) return undefined;

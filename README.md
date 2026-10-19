@@ -197,7 +197,7 @@ import type { Secret } from "agboss";
 
 export class AppEnvironment {
   openRouterApiKey?: Secret; // dev, prod: openRouterApiKey: secret("OPENROUTER_API_KEY")
-  openRouterBaseUrl?: string; // env("OPENROUTER_BASE_URL", { default: OPENROUTER_BASE_URL })
+  openRouterBaseUrl?: string; // env.optional("OPENROUTER_BASE_URL"): unset → the provider's baseUrl
 }
 ```
 
@@ -575,8 +575,11 @@ export class AuditStoreService {
   environment may leave it out (tests script or replay models). A missing key fails the start of an
   app that calls the provider; `agboss check` (without `--models`) reads the contract's shape and
   writes the types without one. A base URL is read the same way: `baseUrlField:
-"openRouterBaseUrl"` with `openRouterBaseUrl: env("OPENROUTER_BASE_URL", { default: … })` — one
-  way to read a process variable.
+"openRouterBaseUrl"` with `openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")` — no `{ default }`:
+  unset, it is `undefined` and the provider uses its decorator's `baseUrl` (#266 S87).
+- `env.optional("X")` (`env.integer.optional`, `env.flag.optional`) reads a variable that may be
+  unset — `undefined` then, for an optional field of the contract (`x?: string`); a set value is
+  still checked, and `agboss check --env` marks it `(optional)` (#266 S90).
 
 ## Quality gates (judges)
 
