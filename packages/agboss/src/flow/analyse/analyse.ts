@@ -32,7 +32,7 @@ import { outdatedRules } from "./rules/outdated.js";
 import { placementRules } from "./rules/placement.js";
 import { quorumRules } from "./rules/quorum.js";
 import { returnsRules } from "./rules/returns.js";
-import { recursionRules } from "./rules/recursion.js";
+import { concurrencyErrors, concurrencyWarnings, recursionRules } from "./rules/recursion.js";
 import { routerRules } from "./rules/routers.js";
 import { switchRules } from "./rules/switch.js";
 import { textAgentRules } from "./rules/text-agents.js";
@@ -137,8 +137,13 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
     ...walked.violations,
     ...RULES.flatMap((rule) => rule(context)),
     ...recursionRules(context, workflow, recursion),
+    ...concurrencyErrors(context),
   ].map(named);
-  const warnings = [...depthRules(context), ...childFailureWarnings(context)].map(named);
+  const warnings = [
+    ...depthRules(context),
+    ...childFailureWarnings(context),
+    ...concurrencyWarnings(context),
+  ].map(named);
   const analysis: FlowAnalysis = {
     workflow: declaration.options.name,
     graph: walked.graph,

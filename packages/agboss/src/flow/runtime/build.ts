@@ -31,6 +31,7 @@ import { childRunner, type ChildGraph } from "./child.js";
 import { nodeDepsOf } from "./node-deps.js";
 import { isThisWorkflow } from "../this-workflow.js";
 import { nodeOptionsOf, recursiveChildOf, type OwnGraph } from "./recursive-child.js";
+import { TreeSlotRegistry } from "./launch/launch-registry.js";
 
 /**
  * One LangGraph `StateGraph` per workflow (#272 → Runtime): a node per component, its id the
@@ -44,6 +45,11 @@ import { nodeOptionsOf, recursiveChildOf, type OwnGraph } from "./recursive-chil
 /** What one pass of an execution is held to besides its workflow's steps: its budgets (#261). */
 export interface RunLimits {
   readonly budgets: BudgetMeter;
+}
+
+/** A pass's limits with its trees' concurrency caps (#264), made once per pass. */
+interface PassLimits extends RunLimits {
+  readonly slots: TreeSlotRegistry;
 }
 
 const RECURSION_SAFETY_FACTOR = 10;
@@ -144,7 +150,7 @@ class ChildWorkflowUnavailableError extends Error {
  */
 function childGraphsOf(
   deps: GraphDeps<string>,
-  run: RunLimits,
+  run: PassLimits,
   checkpointer: BaseCheckpointSaver | undefined,
   chain: readonly Class[],
   self: OwnGraph,
@@ -184,7 +190,7 @@ function nextOf(state: ExecutionStateType): string | Send[] {
 
 function compile(
   deps: GraphDeps<string>,
-  run: RunLimits,
+  run: PassLimits,
   checkpointer?: BaseCheckpointSaver,
   chain: readonly Class[] = [],
 ) {
@@ -226,7 +232,7 @@ function compile(
 /** The compiled execution graph of a workflow. */
 export type ExecutionGraph = ReturnType<typeof compile>;
 
-/** Builds the workflow's graph for one pass of an execution (its budgets). */
+/** Builds the workflow's graph for one pass of an execution (its budgets, its tree's slots). */
 export function executionGraphOf(deps: GraphDeps<string>, run: RunLimits): ExecutionGraph {
-  return compile(deps, run, deps.pause?.checkpointer);
+  return compile(deps, { ...run, slots: new TreeSlotRegistry() }, deps.pause?.checkpointer);
 }

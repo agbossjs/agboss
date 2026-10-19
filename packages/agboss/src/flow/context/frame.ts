@@ -44,6 +44,14 @@ export function rootFactsOf(execution: ExecutionFacts): ExecutionFacts {
   return current;
 }
 
+/** The executions from the root of its tree down to `execution`. */
+export function executionsFromRootOf(execution: ExecutionFacts): readonly ExecutionFacts[] {
+  const line: ExecutionFacts[] = [execution];
+  for (let parent = execution.parent; parent !== undefined; parent = parent.execution.parent)
+    line.unshift(parent.execution);
+  return line;
+}
+
 /** The level of an execution in its tree, from 1 at the root. */
 export function depthOf(execution: ExecutionFacts): number {
   let depth = 1;

@@ -1,5 +1,8 @@
 import type { UsageRecord } from "../../../finops/usage.js";
 import type { QuorumState } from "./quorum.js";
+import type { QueueTime } from "./deadline.js";
+import type { Clock } from "../../../infrastructure/clock.js";
+import { TreeSlots } from "../tree-slots.js";
 
 /**
  * What the process keeps of a launch while it runs (#273 S20), per launch id: the semaphore of
@@ -9,7 +12,8 @@ import type { QuorumState } from "./quorum.js";
  * themselves (thrown as they are when no `.onJoinError(…)` takes them), and — for a quorum (#279
  * S26) — its state, rebuilt from the finished branches' records when the entry is made anew. In-process
  * is enough: only the tree's lease holder moves a tree (Q58); after a crash or a resume the entry is
- * made anew.
+ * made anew. Next to the launches, the trees' concurrency caps of the pass (#264 S27,
+ * `TreeSlotRegistry`): the same in-process reasoning holds for them.
  */
 
 /** A counting semaphore whose waiters leave when the launch is aborted. */
@@ -56,6 +60,8 @@ export interface LiveQuorum {
   /** Resolves when the state holds the records of the branches that finished before (a resume). */
   readonly ready: Promise<void>;
   readonly stop: AbortController;
+  /** The time its branches waited in the tree's queue: its deadline excludes it (#264). */
+  readonly queued: QueueTime;
 }
 
 /** One launch in this process. */
@@ -136,5 +142,21 @@ export class BranchErrors {
     for (const key of this.#errors.keys()) {
       if (key.startsWith(`${executionId}:`)) this.#errors.delete(key);
     }
+  }
+}
+
+/**
+ * The trees of one pass by `rootExecutionId` (#264 S27, next to the launch registry of #273 S20):
+ * made on a tree's first step, gone with the pass — the next pass rebuilds them from the tasks
+ * that are still unfinished.
+ */
+export class TreeSlotRegistry {
+  readonly #trees = new Map<string, TreeSlots>();
+
+  /** The tree's slots, made on its first claim with the root's cap. */
+  slotsOf(rootExecutionId: string, maxConcurrentExecutions: number, clock: Clock): TreeSlots {
+    const tree = this.#trees.get(rootExecutionId) ?? new TreeSlots(maxConcurrentExecutions, clock);
+    this.#trees.set(rootExecutionId, tree);
+    return tree;
   }
 }

@@ -1,15 +1,13 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
-import { extractRunContext } from "../../../core/run-context.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { runInFrame } from "../../context/frame.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import { checkVisit, isWorkingNode } from "../limits.js";
 import { recordsOf, type GraphNode, type NodeOutcome, type NodeRunner } from "../node-runner.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
-import { readInput } from "../scope.js";
-import { startedVersionOf, stepFrameAt } from "../step-frame.js";
+import { startedVersionOf } from "../step-frame.js";
 import { unrecordedSpendOf, type VisitDeps } from "../visit.js";
 import {
   branchRecordOf,
@@ -18,7 +16,6 @@ import {
   passThroughStops,
 } from "./branch-end.js";
 import {
-  branchConfigOf,
   branchLaunchOf,
   branchStateOf,
   branchTicketOf,
@@ -32,6 +29,8 @@ import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./q
 import { BranchStatus, type BranchTicket } from "./records.js";
 import { withdrawSiblingPauses } from "./withdrawn-pauses.js";
 import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
+import { inTreeSlot } from "../tree-slots.js";
+import { branchFrameOf } from "./branch-view.js";
 import type { PausedExecutionRepository } from "../../../infrastructure/paused-execution.repository.js";
 import type { ChildExecutionRecord } from "../child-records.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
@@ -94,31 +93,6 @@ const visited = (run: BranchRun): ExecutionStateUpdate => ({
   piiTokens: run.piiTokens,
 });
 
-/** The branch's config (its signal: the execution's and the launch's) and its step frame. */
-function branchFrameOf(run: BranchRun, view: ExecutionStateType) {
-  const { node, ticket, deps, live } = run;
-  const { run: execution } = extractRunContext(run.config, run.state.runId);
-  const signal = AbortSignal.any([execution.signal, live.controller.signal]);
-  const config = branchConfigOf(run.config, signal, run.state.runId);
-  const { visitNumber, nodeId, copyNumber, itemIndex } = ticket;
-  const at = { node, visitNumber, nodeId, copyNumber };
-  const site = itemIndex === undefined ? at : { ...at, itemIndex };
-  const reportUsage = (record: UsageRecord): void => {
-    run.services.push({ ...record, caller: `${node.kind}:${node.id}` });
-  };
-  const recordChild = (record: ChildExecutionRecord): void => {
-    run.children.push(record);
-  };
-  const keepPiiTokens = (tokens: PiiTokenMap): void =>
-    void (run.piiTokens = { ...run.piiTokens, ...tokens });
-  const input = () => readInput(deps.graph, node, view).fields;
-  const frame = {
-    ...stepFrameAt(site, view, config, deps.workflow, deps.contexts),
-    services: { reportUsage, recordChild, keepPiiTokens, input },
-  };
-  return { config, frame, signal };
-}
-
 /** How a branch whose node answered ended: finished with its verdict, or cancelled by its quorum. */
 function answeredEnd(
   run: BranchRun,
@@ -144,20 +118,30 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   const { node, ticket, deps, live } = run;
   const { nodeId } = ticket;
   const view = branchStateOf(run.state, run.owner.launch, ticket, live.spent);
-  if (isWorkingNode(node)) {
-    // the view's spend: the execution's at the launch plus the siblings that already ended (#273 S71)
-    await checkVisit(view, node, deps.limits, deps.workflow);
-    run.ranAsStep = true;
-  }
   const { config, frame, signal } = branchFrameOf(run, view);
   const arbiterDeps = arbiterDepsFor({ ...deps, live, view, services: run.services, nodeId });
   const arbiters = { launch: run.owner.launch, deps: arbiterDeps };
   const gate = { scheduler: deps.scheduler, branch: run.scheduled, signal };
-  const { outcome, marked } = await runInFrame(frame, async () => {
-    // a test's completion gate (#262 S33): none in production
-    const answered = await gated(gate, () => runner(view, config));
-    return { outcome: answered, marked: await markAnswer(live, ticket, answered.value, arbiters) };
-  });
+  // a slot of the tree (#264) after the launch's; a quorum's deadline excludes the wait (#279)
+  const slot = { slots: deps.slots, graph: deps.graph, node, state: view, config, ...frame };
+  const { outcome, marked } = await inTreeSlot(
+    { ...slot, watch: live.quorum?.queued },
+    async () => {
+      if (isWorkingNode(node)) {
+        // the view's spend: the execution's at the launch plus the siblings that ended (#273 S71)
+        await checkVisit(view, node, deps.limits, deps.workflow);
+        run.ranAsStep = true;
+      }
+      return runInFrame(frame, async () => {
+        // a test's completion gate (#262 S33): none in production
+        const answered = await gated(gate, () => runner(view, config));
+        return {
+          outcome: answered,
+          marked: await markAnswer(live, ticket, answered.value, arbiters),
+        };
+      });
+    },
+  );
   return answeredEnd(run, outcome, marked);
 }
 

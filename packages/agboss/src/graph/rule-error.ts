@@ -75,6 +75,9 @@ export type RuleCode =
   | "graph.recursion-without-depth"
   | "graph.recursion-without-exit"
   | "graph.mutual-recursion"
+  // the tree's concurrency cap (#264 PR 2), reported by `src/flow/analyse`
+  | "limits.max-concurrent-executions-invalid"
+  | "limits.child-concurrency-above-parent"
   | "name.kind-suffix"
   | "dto.name"
   | "dto.duplicate-name"
