@@ -177,12 +177,15 @@ One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — the exe
   That is not a failure of the execution: it reaches neither `.onError`, `onExecutionError` nor the execution
   record — the new holder owns the execution and continues it.
 
-**Two resumes at once.** A resume has two phases: it first records its decision (the pause goes
-`Pending → Resolved` atomically — a second resume of the same pause, a double click, gets
-`NotPausedError`), then takes the tree's lease. While another call or instance holds it, the
-resume waits; the holder, before it lets the tree rest paused, takes the decisions resolved
-meanwhile, so the waiting call then returns the tree's current `ExecutionOutput`, its decision
-taken. If the holder's lease expires while a call waits, the waiting call takes it and goes on.
+**Two resumes at once.** A resume has two phases: it first records its decision on its pause (the
+pause goes `Pending → Resolved` atomically — a second resume of the same pause, a double click,
+gets `NotPausedError`), then takes the tree's lease. While another call or instance holds it, the
+resume waits; the holder continues with one `Command({ resume })` that maps LangGraph's interrupt
+id of every answered pause of the tree, and before it lets the tree rest paused takes the decisions
+resolved meanwhile (the drain), so the waiting call then returns the tree's current
+`ExecutionOutput`, its decision taken. Two pauses of parallel branches answered at once on two
+instances are both taken, each step once ([Pauses](Pauses#concurrent-answers)). If the holder's
+lease expires while a call waits, the waiting call takes it and goes on.
 
 **Documented limit.** The renewal before a checkpoint write and the write are two round trips to the
 stores, not one atomic operation (`BaseCheckpointSaver` is taken as is, so ecosystem savers plug
@@ -342,7 +345,8 @@ test("a pause made on one instance is resumed on the other", async ({ app, apps,
   mockLlm(ClerkAgent).thenReturn(callTool(ChargeTool, { amount: "10" }), replyWith("Charged."));
   const paused = await app.execute(OrderWorkflowStart, { text: "charge" });
 
-  const resumed = await apps[1].resume(paused.threadId, { approved: true, by: "dana" });
+  const pauseId = paused.pending[0]?.pauseId ?? ""; // a ThreadOwner pause lists its id
+  const resumed = await apps[1].resume({ pauseId, decision: { approved: true } });
 
   expect(resumed.output).toEqual({ text: "Charged." });
 });

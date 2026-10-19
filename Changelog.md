@@ -3,6 +3,50 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — pauses and resume (#267, PR 2)
+
+- **Several pauses at once** ([Pauses](Pauses)): a paused branch of a parallel launch does not stop
+  its siblings; the execution rests when nothing else can move. **Breaking:**
+  `ExecutionOutput.pause` → **`pending: readonly PendingPause[]`** (`pauseId?`, `answeredBy`,
+  `agent`, `channel`, `itemIndex`, `childExecutionId`, `ask` — the `ToolCallApprovalAskDto`),
+  empty unless paused; `ExecutionPauseEvent.pause` → `pending`, fired only when the execution
+  rests (again after a partial resume).
+- **Breaking — resume by pause id:** `app.resume(threadId, decision, { tenantId, ownerId })` →
+  **`app.resume({ pauseId, decision }, { tenantId, ownerId | answeredBy })`** (`ResumeRequest`,
+  `ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions`). The pause is found by
+  `(tenantId, pauseId)` anywhere in the tree; unknown or another tenant's → **`UnknownPauseError`**
+  (`pause.unknown`); with others left the execution pauses again with the rest. A
+  `PauseAnswerer.ThreadOwner` pause lists its id and takes `ownerId`; a `PauseAnswerer.Channel` pause
+  takes a non-empty `answeredBy` (recorded on the pause and in `onExecutionResume`, new field
+  `answeredBy`) and its id is only in the channel's `ask.pauseId`; the other credential →
+  **`PauseAnswererError`** (`pause.wrong-answerer`). A concrete `@Channel` named as is answers as the
+  thread's owner. The CLI, the MCP `resume_workflow` tool (`{ pauseId, decision }`) and the A2A
+  adapter (`resume({ pauseId, decision })`, `POST /resume { pauseId, decision }`, the response's
+  `pauseIds`) follow.
+- **Breaking — `ToolCallApprovalDecisionDto`** is `{ approved, reason?, overrideArguments? }`: `by`
+  is gone (who answered comes from the resume), `feedback` → `reason`; `overrideArguments` only
+  with `approved: true` and a valid input of the tool — on `resume` (the pause keeps waiting) and on
+  `ChannelOutcome.decided(…)` (the step fails).
+- **Breaking for your own `PausedExecutionRepository`** (#267 S35): `PausedRun` keeps the run and
+  its versions only; each pause is a `PauseRecord` of its own, keyed by its step's idempotency key —
+  `findOrCreateByStepKey`, `findByTenantIdAndPauseId`, `findAllByTenantIdAndRootExecutionId`,
+  `markSentByTenantIdAndPauseId`, `resolveByTenantIdAndPauseId` (atomic `Pending → Resolved`),
+  `cancelByTenantIdAndPauseId`, `markTakenByTenantIdAndPauseId`, `deleteByTenantIdAndPauseId`;
+  `resolveByTenantIdAndThreadId` is removed. `PauseStatus` gains `Taken` and `Cancelled`.
+  `SqlitePausedExecutionRepository` adds a `pauses` table and drops the old `status` / `decision`
+  columns of `paused_executions` (a pause written before cannot be answered by id).
+- **Concurrent answers** (Q58): one `Command({ resume })` per pass maps every answered pause;
+  the holder drains decisions recorded meanwhile; a double click → `NotPausedError`; a reply that
+  lands while `send` is returning is taken at once. **`FailFast` withdraws paused siblings'
+  pauses** (`Cancelled`; a late answer → `NotPausedError`); so does `app.cancel` and the end of a
+  tree. The join after a withdrawal gets the branch's own error object (`.onJoinError(E, …)` by
+  class and cause chain); a channel's `send` that throws fails the agent's step (`AgentFailedError`,
+  the channel's error as `cause`).
+- **Spend while several loops are paused**: the execution's spend and the ledger hold every
+  paused loop's spend, summed, each once; a resume records nothing twice.
+- `resumeAgent(paused, resume, deps)` (internal wiring) takes the tree's answers (`TreeResume`)
+  instead of one decision.
+
 ## Unreleased — scripts and matchers (#262, PR 2)
 
 - **`when(…)`** on `mockLlm(X)` ([Testing](Testing#binding-turns-to-the-input--when)): turns bound to

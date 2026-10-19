@@ -83,8 +83,9 @@ import { ExecutionStatus, createApp } from "agboss";
 const app = await createApp(JobScoutApplication);
 
 const first = await app.execute(ChatWorkflowStart, { text: "save the first job" });
-if (first.status === ExecutionStatus.Paused) {
-  await app.resume(first.threadId, { approved: true, by: "dana" });
+const [waiting] = first.pending; // a ThreadOwner pause lists its id (Pauses)
+if (first.status === ExecutionStatus.Paused && waiting?.pauseId !== undefined) {
+  await app.resume({ pauseId: waiting.pauseId, decision: { approved: true } });
 }
 const next = await app.execute(
   ChatWorkflowStart,
@@ -196,7 +197,7 @@ observers and the assembly warnings; then its count limits (`maxSteps` set or de
 | `finish`                                                              | the `@WorkflowFinish` the run reached, as `{ name }` (absent when paused)          |
 | `output`                                                              | the finish's DTO — the business result only (`WorkflowFinishTextDto`: `{ text }`), typed by the finishes of the start's paths |
 | `record`                                                              | with `execute(…, { record: true })`: the execution record (path scope, last error) |
-| `pause`                                                               | what the run waits for — the tool call waiting for approval (`agent`, `tool`, `args`) |
+| `pending`                                                             | every pause the run waits for — `PendingPause[]` ([Pauses](Pauses)), empty unless paused|
 | `path`                                                                | the flow nodes it visited, in order, by name                                       |
 | `spend`                                                               | the `CostReport` of this run ([FinOps](FinOps))                                    |
 | `runId`, `compacted`, `traceUrl`                                      | the run's id, what memory compacted, the trace                                     |
@@ -204,27 +205,37 @@ observers and the assembly warnings; then its count limits (`maxSteps` set or de
 A run that fails (a limit, a router, an agent) and that no `.onError` takes throws an `AGBossError`
 with a stable `code`; the Tern and the spend are recorded first.
 
-## `app.resume(threadId, decision, { tenantId, ownerId })`
+## `app.resume({ pauseId, decision }, { tenantId, ownerId | answeredBy })`
 
-A resume finds what exists, so it takes keys and access only: the tenant by its id (omitted →
-`"default"`) and the thread's `ownerId`; the execution runs on the context values it started with
-([Context and Authorization](Context-And-Authorization#the-values-per-execution)).
-Continues, in the workflow the thread belongs to, the paused run of the thread with a `ToolCallApprovalDecisionDto` (`approved`, `by`,
-`reason?` — [Pause seam](Pause-seam)); same result shape. A thread without a paused run →
-`NotPausedError`. A run paused under another workflow version or config is checked by the
-workflow's `onIncompatibleResume` policy (`IncompatibleResumeError`).
+Answers **one pause, by its id** (#267) — never by thread: the pause is found by `(tenantId,
+pauseId)` anywhere in its execution tree (a parallel branch, later a child); an unknown id, or
+another tenant's, is the same `UnknownPauseError` (`pause.unknown`). A resume takes keys and
+credentials only — the tenant by its id (omitted → `"default"`) and who answers, as the pause's
+channel role says (`answeredBy` on `@ChannelRole`): `ownerId` for a `PauseAnswerer.ThreadOwner`
+pause (another → `ThreadOwnerError`), a non-empty `answeredBy` for a `PauseAnswerer.Channel` one;
+the other credential → `PauseAnswererError`. The decision is a `ToolCallApprovalDecisionDto`
+(`approved`, `reason?`, `overrideArguments?` only with `approved: true`), validated before it is
+recorded (`DtoValidationError`; the pause keeps waiting). The execution runs on the context values
+it started with ([Context and Authorization](Context-And-Authorization#the-values-per-execution)),
+as the thread's owner; the result has the same shape — `threadId` and `runId` included — and, when
+other pauses remain, `status: Paused` with the rest in `pending`. A pause no longer waiting (taken,
+withdrawn) → `NotPausedError`. A run paused under another workflow version or config is checked by
+the workflow's `onIncompatibleResume` policy (`IncompatibleResumeError`). The whole model:
+[Pauses](Pauses).
 
 A resume has two phases (#265, Q58): it records the decision — the pause goes `Pending → Resolved`
 atomically, so a second resume of the same pause gets `NotPausedError` — then takes the tree's lease
-and continues. While another call or instance moves the tree it waits, and returns the tree's
-current output once the holder took its decision ([Several instances](Several-instances#the-execution-lease)).
-Observers get `onExecutionResume` with `reason: ResumeReason.Answered` (`ResumeReason.Recovered`
-when [recovery](Several-instances#recovery) continues a tree).
+and continues with every answer recorded for the tree. While another call or instance moves the
+tree it waits, and returns the tree's current output once the holder took its decision
+([Several instances](Several-instances#the-execution-lease)). Observers get `onExecutionResume` —
+one per decision taken, with `answeredBy` — and `reason: ResumeReason.Answered`
+(`ResumeReason.Recovered` when [recovery](Several-instances#recovery) continues a tree).
 
 ## `app.cancel(threadId, { tenantId, ownerId })`
 
 Aborts a running run — it stops before its next model or tool call and `execute` rejects with
-`ExecutionCancelledError` — or drops a paused one, whose `resume` then throws `NotPausedError`;
+`ExecutionCancelledError` — or drops a paused one, whose pauses are withdrawn (their `resume` then
+throws `NotPausedError`);
 `{ cancelled }` is `false` when the thread had neither ([Cancellation and idempotency](Saga-And-Cancellation)).
 A thread the tenant does not have is `UnknownThreadError` (#261: a thread's key is `tenantId` +
 `threadId`).

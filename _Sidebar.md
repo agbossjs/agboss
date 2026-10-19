@@ -31,6 +31,7 @@
 - [Observability](Observability)
 - [Terns and evaluation](Terns-and-evaluation)
 - [Profiles and comparisons](Profiles-and-comparisons)
+- [Pauses — pending, resume by id](Pauses)
 - [Pause seam](Pause-seam)
 - [Decisions (ADR)](ADR)
 

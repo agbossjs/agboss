@@ -125,7 +125,8 @@ test("saving waits for approval; after it the agent's answer ends the turn", asy
   });
 
   const paused = await app.execute(ChatWorkflowStart, { text: "save the first job" });
-  const done = await app.resume(paused.threadId, { approved: true, by: "dana" });
+  const pauseId = paused.pending[0]?.pauseId ?? ""; // a ThreadOwner pause lists its id (Pauses)
+  const done = await app.resume({ pauseId, decision: { approved: true } });
 
   expect(paused).toHavePausedAt(Shortlist);
   expect(done).toFinishWith(ChatWorkflowFinish, { text: "Saved 1 job." });
@@ -323,6 +324,15 @@ expect(mockOf(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
 
 Call it before the first `app.execute` (after it is a clear error). A class the workflow does not use
 (not a provider, a tool or a knowledge base of it) is an error too. Mocks have no lifecycle hooks.
+
+**Channels** (#267): a tool that names `AutoApproveChannel` / `AutoRejectChannel` decides at once —
+no pause, no pause record. A role's implementation listed in the application is scripted like any
+class: `mockOf(SlackRefundApprovalChannel).send.mockResolvedValue(ChannelOutcome.decided({ approved:
+true }))` goes on at once; left as written, it pauses and the test answers like a webhook —
+`app.resume({ pauseId, decision }, { answeredBy })` with the `pauseId` the channel was sent (a
+`ThreadOwner` pause: `result.pending[0].pauseId`, with the thread's `ownerId`). Two pauses of one
+tree answered at once from `apps[0]` and `apps[1]` (`instances: 2`) test the concurrent answers
+([Pauses](Pauses#concurrent-answers)).
 
 ## `mockAction(A)` and `mockTool(T)`
 

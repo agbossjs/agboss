@@ -124,10 +124,11 @@ next model call with `BudgetExceededError` ([FinOps](FinOps#at-run-time)).
 
 A tool declared with a `channel` (`@Tool({ channel: TerminalUserChannel })` or a channel role, found
 through the tool — [Tools → Approval channels](Tools#approval-channels)) waits for a decision before
-it runs: its channel's `send` decides at once (`ChannelOutcome.decided`), or the run pauses
-(`status: "paused"`, `ExecutionOutput.pause`) and `app.resume(thread, decision)` continues it with a
-`ToolCallApprovalDecisionDto` ([Pause seam](Pause-seam)). Approved → the call runs; rejected → the
-model reads `Tool error: the call was rejected by <by>[: reason]`.
+it runs: its channel's `send` decides at once (`ChannelOutcome.decided`), or the call pauses
+(`ExecutionOutput.pending`, one entry per waiting call — parallel branches each wait on their own)
+and `app.resume({ pauseId, decision })` answers it with a `ToolCallApprovalDecisionDto`
+([Pauses](Pauses), [Pause seam](Pause-seam)). Approved → the call runs; rejected → the model reads
+`Tool error: the call was rejected by <who answered>[: reason]`.
 
 ## Testing
 

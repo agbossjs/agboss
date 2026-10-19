@@ -275,12 +275,18 @@ export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCar
 - **`send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>`** is the one method: `ask` is
   `{ pauseId, value }` (the value typed by the generated `ChannelRoles` table — `agboss check`;
   `ChannelQuestionOf<Role>` is the question, `ChannelAnswerOf<Role>` the answer `decided` takes;
-  the execution through `deps`). `ChannelOutcome.awaitReply()` — the execution pauses and is saved
-  until the reply ([Pause seam](Pause-seam)); `ChannelOutcome.decided(decision)` — the answer now
+  the execution through `deps`). `ChannelOutcome.awaitReply()` — the call pauses and is saved
+  until the reply ([Pauses](Pauses), [Pause seam](Pause-seam)); `ChannelOutcome.decided(decision)` — the answer now
   (a rule such as "up to $50 at once", `AutoApproveChannel`): no pause, the decision validated like
   a reply. A `send` that returns anything else fails the step.
-- Not yet (#267 PR 2 / PR 3): resuming by `pauseId`, `answeredBy` checked on `resume`, several
-  pauses at once, free-text replies through `@ReplyInterpreter`. Choosing an implementation per
+- **Who answers** (#267 PR 2): the role's `answeredBy`. A `PauseAnswerer.ThreadOwner` pause is
+  answered with the thread's `ownerId` and its `pauseId` is listed in `result.pending`; a
+  `PauseAnswerer.Channel` pause — the reply comes through the channel's own system — is answered
+  with `app.resume({ pauseId: ask.pauseId, decision }, { answeredBy: "manager-17" })`, its id never
+  listed (it is the right to answer). The `pauseId` is made once per pause, before the first `send`:
+  a retried `send` gets the same one — use it as the idempotency key of the post. Several pauses
+  at once, concurrent answers, validation: [Pauses](Pauses).
+- Not yet (#267 PR 3): free-text replies through `@ReplyInterpreter`. Choosing an implementation per
   environment (a terminal in dev, Slack in prod) is a documented limit: one implementation per
   application.
 

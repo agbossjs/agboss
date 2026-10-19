@@ -177,10 +177,10 @@ come from is the project's choice; the framework loads nothing.
 - Validated by the field decorators before the first step: invalid → the execution is rejected
   with `dto.invalid` and `onExecutionRejected`; the message names the field, never the value
   (`invalid ClinicTenantContext: units[0].unitId: …`).
-- Frozen for the whole execution, kept in its checkpoint: a resume — `app.resume(threadId,
-decision, { tenantId, ownerId })` — runs on the values it started with, and takes only the
-  tenant's id (a plan changed meanwhile applies from the next execution). Child executions (#263)
-  inherit them.
+- Frozen for the whole execution, kept in its checkpoint: a resume — `app.resume({ pauseId,
+  decision }, { tenantId, ownerId | answeredBy })` ([Pauses](Pauses)) — runs on the values it
+  started with, and takes only the tenant's id (a plan changed meanwhile applies from the next
+  execution). Child executions (#263) inherit them.
 
 ### A thread belongs to its tenant
 
@@ -305,7 +305,7 @@ is made inside the paused step). An MCP session takes the values from its authen
 `agboss/mcp`) — and so does an A2A call — `adapter.execute(Start, request, onEvent, { tenant,
 execution, ownerId })` (`A2ACallOptions`); a resume through either takes the tenant's id.
 
-Tool arguments a channel shows (and `ExecutionOutput.pause.args`) have the input DTO's `sensitive`
+Tool arguments a channel shows (and `ExecutionOutput.pending[i].ask.arguments`) have the input DTO's `sensitive`
 fields through their action — `replacePart(…)` as written, a token or a kind as `<field-name>`
 (#120); the tool itself still gets them whole.
 

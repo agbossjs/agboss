@@ -38,7 +38,7 @@ Each hook is its own interface with a typed payload (root entry `agboss`):
 | ----------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `OnExecutionStart`                        | `ExecutionStartEvent` (the common fields)                                                 |
 | `OnExecutionEnd`                          | `ExecutionEndEvent` (`finish`: a `ComponentRecord`, `spend`)                              |
-| `OnExecutionPause` / `OnExecutionResume`  | `ExecutionPauseEvent` (`pause`) / `ExecutionResumeEvent` (`reason`, `decision`)           |
+| `OnExecutionPause` / `OnExecutionResume`  | `ExecutionPauseEvent` (`pending`) / `ExecutionResumeEvent` (`reason`, `decision`, `answeredBy`)|
 | `OnExecutionError`                        | `ExecutionErrorEvent` (`error`)                                                           |
 | `OnExecutionRejected`                     | `ExecutionRejectedEvent` (`operation`, `threadId?`, `tenantId`, `code`, `message`)        |
 | `OnAgentStart` / `OnAgentEnd`             | `AgentStartEvent` / `AgentEndEvent`                                                       |
@@ -56,7 +56,7 @@ Each hook is its own interface with a typed payload (root entry `agboss`):
 
 `onExecutionStart` fires once per execution, at `execute` — a resume does not start it again, so
 the count of starts is the count of executions. One that pauses (an approval on a channel) emits
-`onExecutionPause` (`event.pause`: what it waits for); `app.resume` emits `onExecutionResume`
+`onExecutionPause` (`event.pending`: every pause it waits for, when nothing else can move — [Pauses](Pauses)); `app.resume` emits `onExecutionResume`
 (`event.decision`, `event.reason`: `ResumeReason.Answered`, or `ResumeReason.Recovered` when
 [recovery](Several-instances#recovery) continues an interrupted one). `onExecutionEnd` fires once,
 when the execution ends at a finish — also after a resume; it has no status: a pause is
