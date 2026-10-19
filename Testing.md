@@ -136,7 +136,7 @@ test("saving waits for approval; after it the agent's answer ends the turn", asy
 
 Components are referenced **by class** everywhere; strings only for data.
 
-## `testWith(Application, { real?, allowNetwork?, instances?, concurrency? })`
+## `testWith(Application, { real?, allowNetwork?, instances?, concurrency?, overrides? })`
 
 A Vitest `test` whose fixtures are:
 
@@ -411,6 +411,27 @@ true }))` goes on at once; left as written, it pauses and the test answers like 
 `ThreadOwner` pause: `result.pending[0].pauseId`, with the thread's `ownerId`). Two pauses of one
 tree answered at once from `apps[0]` and `apps[1]` (`instances: 2`) test the concurrent answers
 ([Pauses](Pauses#concurrent-answers)).
+
+### `overrides` — a class replaced by a class
+
+`testWith(App, { overrides: [override(Class, Replacement)] })` (#267 S104): wherever the application
+asks for `Class`, its container creates `Replacement` instead — over any class the application lists,
+with the replacement's own `deps`. It is the `override(…)` of the [unit runners](#unit-runners--one-component-on-its-own).
+A channel role is answered in a test without its transport this way: the replacement need not
+`extend` the role, but its `send` must take the role's `ChannelAsk` and give its `ChannelOutcome` —
+a channel of another answer does not compile. There is no `channels` option; `mockOf(Implementation).send`
+scripts the role's own implementation instead.
+
+
+```ts no-check: the role's ChannelAsk / ChannelOutcome come from the generated types of a project
+import { AutoApproveChannel } from "agboss";
+import { override, testWith } from "agboss/testing";
+
+// every refund the agent asks for is approved at once: no pause, no Slack
+const test = testWith(RefundApplication, {
+  overrides: [override(RefundApprovalChannel, AutoApproveChannel)],
+});
+```
 
 ## `mockAction(A)` and `mockTool(T)`
 

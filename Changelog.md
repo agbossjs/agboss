@@ -27,6 +27,11 @@ Breaking changes and notable additions, newest first. The API reports
 - **`testWith(App, { instances: 2 })`** is the documented way to test across instances: one store
   set, one clock, a container each — a lease, a pause resumed on the other instance, a rate-limit
   slot ([Several instances](Several-instances#testing-several-instances)).
+- **`testWith(App, { overrides: [override(Class, Replacement)] })`** (#267 S104): a class replaced
+  by a class in the application's container, over any listed one — a channel role answered by
+  `override(RefundApprovalRole, AutoApproveChannel)` (the replacement's `send` must fit the role).
+  `AutoApproveChannel` / `AutoRejectChannel`'s `send` now gives `DecidedOutcome<AutoDecision>`
+  (`approved`, `reason`), so they fit any role that approves a tool.
 - `GuardrailContext` is exported from `agboss` (the context `testGuardrail`'s hooks take).
 - New page [The test split](Test-split): unit tests with scripts → evaluation and golden sets →
   `make smoke`; no test calls a real model.
