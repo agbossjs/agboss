@@ -9,7 +9,8 @@ import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { stepFrameAt } from "../step-frame.js";
 import type { VisitDeps } from "../visit.js";
 import { finishedOf, joinValuesOf } from "./join-values.js";
-import type { BranchErrors, LaunchRegistry } from "./launch-registry.js";
+import type { LaunchRegistry, LiveLaunch } from "./launch-registry.js";
+import type { BranchErrors } from "./branch-end.js";
 import {
   BranchStatus,
   type BranchOutcomeRecord,
@@ -109,6 +110,8 @@ interface JoinContext {
   readonly state: ExecutionStateType;
   readonly config?: RunnableConfig;
   readonly deps: JoinDeps;
+  /** A quorum's time in the tree's queue so far (#264): its deadline moved by it, in ms. */
+  readonly queuedFor?: number;
 }
 
 /** The branches' values into the scope on `edge`, their cascade reported under the launching step. */
@@ -138,6 +141,12 @@ async function joinedValues(
     next: edge.to,
   };
 }
+
+/** The join's context with its quorum's time in the tree's queue (#264), read in this process. */
+const queuedOf = (context: JoinContext, live: LiveLaunch | undefined): JoinContext => ({
+  ...context,
+  queuedFor: live?.quorum?.queued.excluded() ?? 0,
+});
 
 /** A quorum join: decided from the records, reported, then on with the counted answers or failed. */
 async function quorumJoined(
@@ -184,7 +193,7 @@ export function joinNode(launch: RuntimeLaunch, deps: JoinDeps): GraphNode {
     }
     const context = config === undefined ? { state, deps } : { state, config, deps };
     if (launch.quorum !== undefined)
-      return { ...done, ...(await quorumJoined(launch, ticket, records, context)) };
+      return { ...done, ...(await quorumJoined(launch, ticket, records, queuedOf(context, live))) };
     const finished = finishedOf(records);
     return { ...done, ...(await joinedValues(launch, launch.join, ticket, finished, context)) };
   };

@@ -4,6 +4,12 @@ import type { UsageRecord } from "../../../finops/usage.js";
 import { slotOfDto, slotOfValue } from "../../analyse/scope.js";
 import type { ScopeRecords } from "../records.js";
 import type { ExecutionStateType } from "../state.js";
+import type { FrameSpec } from "../../context/frame.js";
+import type { PiiTokenMap } from "../../../pii/tokens.js";
+import type { ChildExecutionRecord } from "../child-records.js";
+import { stepFrameAt } from "../step-frame.js";
+import type { VisitDeps } from "../visit.js";
+import type { LiveLaunch } from "./launch-registry.js";
 import type { BranchTicket, LaunchTicket } from "./records.js";
 import type { RuntimeLaunch } from "./runtime-launch.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
@@ -124,4 +130,55 @@ export function scheduledOf(site: ScheduledSite): ScheduledBranch {
       return readInput(site.graph, node, view).fields;
     },
   };
+}
+
+/**
+ * The frame one branch of a launch runs in (#273, #280): its config — the signal of the execution
+ * and of the launch — and its step: copy id, copy number, item, and the services its code reports
+ * to (spend, ended children, a failed child's PII tokens) and reads its input from.
+ */
+
+/** A branch's config, the frame of its step and its signal. */
+export interface BranchFrame {
+  readonly config: RunnableConfig;
+  readonly frame: FrameSpec;
+  readonly signal: AbortSignal;
+}
+
+/** What a branch's frame is made from: its run so far. */
+export interface BranchFrameRun {
+  readonly node: RuntimeNode;
+  readonly state: ExecutionStateType;
+  readonly config: RunnableConfig | undefined;
+  readonly ticket: BranchTicket;
+  readonly live: LiveLaunch;
+  readonly deps: VisitDeps;
+  readonly services: UsageRecord[];
+  readonly children: ChildExecutionRecord[];
+  piiTokens: PiiTokenMap;
+}
+
+/** The branch's config (its signal: the execution's and the launch's) and its step frame. */
+export function branchFrameOf(run: BranchFrameRun, view: ExecutionStateType): BranchFrame {
+  const { node, ticket, deps, live } = run;
+  const { run: execution } = extractRunContext(run.config, run.state.runId);
+  const signal = AbortSignal.any([execution.signal, live.controller.signal]);
+  const config = branchConfigOf(run.config, signal, run.state.runId);
+  const { visitNumber, nodeId, copyNumber, itemIndex } = ticket;
+  const at = { node, visitNumber, nodeId, copyNumber };
+  const site = itemIndex === undefined ? at : { ...at, itemIndex };
+  const reportUsage = (record: UsageRecord): void => {
+    run.services.push({ ...record, caller: `${node.kind}:${node.id}` });
+  };
+  const recordChild = (record: ChildExecutionRecord): void => {
+    run.children.push(record);
+  };
+  const keepPiiTokens = (tokens: PiiTokenMap): void =>
+    void (run.piiTokens = { ...run.piiTokens, ...tokens });
+  const input = () => readInput(deps.graph, node, view).fields;
+  const frame = {
+    ...stepFrameAt(site, view, config, deps.workflow, deps.contexts),
+    services: { reportUsage, recordChild, keepPiiTokens, input },
+  };
+  return { config, frame, signal };
 }

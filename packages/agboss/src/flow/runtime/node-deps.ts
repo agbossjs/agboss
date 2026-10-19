@@ -7,6 +7,7 @@ import type { BranchDeps } from "./launch/branch-runner.js";
 import type { JoinDeps } from "./launch/join-node.js";
 import { LaunchRegistry } from "./launch/launch-registry.js";
 import type { VisitDeps } from "./visit.js";
+import type { TreeSlotRegistry } from "./launch/launch-registry.js";
 
 /** What a launch's branches and join share in one pass: its registry, arbiters and stores. */
 function launchDepsOf(
@@ -38,7 +39,7 @@ export interface NodeDeps {
 /** What every visit and every launch of the graph runs with. */
 export function nodeDepsOf(
   deps: GraphDeps<string>,
-  run: { readonly budgets: BudgetMeter },
+  run: { readonly budgets: BudgetMeter; readonly slots: TreeSlotRegistry },
   checkpointer: BaseCheckpointSaver | undefined,
 ): NodeDeps {
   const workflow = { type: deps.graph.type, name: deps.config.name, version: deps.config.version };
@@ -49,6 +50,8 @@ export function nodeDepsOf(
     provenance: deps.graph.provenance,
     graph: deps.graph,
     observer: deps.observer,
+    // the trees' slots of the pass (#264): shared by the graph, its children and its recursion
+    slots: run.slots,
   };
   const launchDeps = launchDepsOf(deps, visitDeps, checkpointer);
   return { visitDeps, launchDeps };

@@ -2,6 +2,10 @@ import type { Class } from "../../../components/injection.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import { NodeKind } from "../../ast.js";
 import { declarationOf } from "../../decorators/declaration.js";
+import {
+  declaredMaxConcurrentExecutionsOf,
+  DEFAULT_MAX_CONCURRENT_EXECUTIONS,
+} from "../../decorators/workflow.js";
 import { childClassesOf } from "../child-workflow.js";
 import { classLabel } from "../labels.js";
 import {
@@ -13,7 +17,7 @@ import {
 import type { AnalysisContext } from "./context.js";
 
 /**
- * The recursion rules (#264): a workflow that can reach `ThisWorkflow` sets `@Workflow({ maxDepth })`,
+ * The recursion rules (#264 PR 1) and the tree's cap (#264 PR 2, below): a workflow that can reach `ThisWorkflow` sets `@Workflow({ maxDepth })`,
  * a positive whole number (`[graph.recursion-without-depth]`); every branch with a recursive option
  * keeps one that is not, so the last level can still end (`[graph.recursion-without-exit]`); and a
  * workflow never launches a child that launches it again, nor names its own class
@@ -94,4 +98,36 @@ export function recursionRules(
       ? []
       : [...depthViolations(context, recursion), ...exitViolations(recursion)];
   return [...own, ...mutualViolations(context, self)];
+}
+
+/**
+ * The tree's concurrency cap (#264): `@Workflow({ maxConcurrentExecutions })` is a whole number of
+ * executions from 1 (`[limits.max-concurrent-executions-invalid]`, an error: 0 would stop the tree);
+ * a child workflow's own value limits its subtree and cannot exceed its parent's — a larger one is
+ * never reached, so it is a warning (`[limits.child-concurrency-above-parent]`, an error under
+ * `--strict`).
+ */
+
+/** The error of a workflow whose `maxConcurrentExecutions` is not a whole number from 1. */
+export function concurrencyErrors(context: AnalysisContext): readonly RuleViolation[] {
+  const value = context.workflow.maxConcurrentExecutions;
+  if (value === undefined || isPositiveWhole(value)) return [];
+  const message =
+    `its maxConcurrentExecutions is ${String(value)}, not a whole number of executions from 1 — ` +
+    "@Workflow({ maxConcurrentExecutions: 6 }) lets six executions of the tree work at once";
+  return [violation("limits.max-concurrent-executions-invalid", message, [context.workflow.name])];
+}
+
+/** The warnings of the workflow's children whose own cap is above the workflow's. */
+export function concurrencyWarnings(context: AnalysisContext): readonly RuleViolation[] {
+  const own = context.workflow.maxConcurrentExecutions ?? DEFAULT_MAX_CONCURRENT_EXECUTIONS;
+  return childClassesOf(context.workflow.flow).flatMap((child) => {
+    const childCap = declaredMaxConcurrentExecutionsOf(child);
+    if (childCap === undefined || childCap <= own) return [];
+    const message =
+      `${nameOf(child)} sets maxConcurrentExecutions ${String(childCap)}, above its parent's ` +
+      `${String(own)} — a child's cap limits its subtree inside its parent's tree, so it never ` +
+      `goes above ${String(own)}; lower it, or raise the parent's`;
+    return [violation("limits.child-concurrency-above-parent", message, [context.workflow.name])];
+  });
 }

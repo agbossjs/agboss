@@ -185,7 +185,10 @@ export function describedEnvironmentFor(owner: EnvironmentOwner, env: string | u
 
 // @public
 export interface DescribedLimits {
+    // (undocumented)
+    readonly isMaxConcurrentExecutionsSet: boolean;
     readonly isMaxStepsSet: boolean;
+    readonly maxConcurrentExecutions: number;
     // (undocumented)
     readonly maxSteps: number;
     readonly maxVisits: Readonly<Record<string, number>>;
@@ -501,10 +504,11 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/application.ts:45:3 - (ae-undocumented) Missing documentation for "executionBudget".
 // src/describe/application.ts:46:3 - (ae-undocumented) Missing documentation for "observers".
 // src/describe/application.ts:47:3 - (ae-undocumented) Missing documentation for "warnings".
-// src/describe/limits.ts:15:3 - (ae-undocumented) Missing documentation for "maxSteps".
-// src/describe/limits.ts:18:3 - (ae-undocumented) Missing documentation for "steps".
-// src/describe/limits.ts:21:3 - (ae-undocumented) Missing documentation for "worstCases".
-// src/describe/limits.ts:24:1 - (ae-undocumented) Missing documentation for "describedLimitsOf".
+// src/describe/limits.ts:21:3 - (ae-undocumented) Missing documentation for "maxSteps".
+// src/describe/limits.ts:24:3 - (ae-undocumented) Missing documentation for "steps".
+// src/describe/limits.ts:27:3 - (ae-undocumented) Missing documentation for "worstCases".
+// src/describe/limits.ts:30:3 - (ae-undocumented) Missing documentation for "isMaxConcurrentExecutionsSet".
+// src/describe/limits.ts:33:1 - (ae-undocumented) Missing documentation for "describedLimitsOf".
 // src/environments/resolve.ts:29:3 - (ae-undocumented) Missing documentation for "Required".
 // src/environments/resolve.ts:30:3 - (ae-undocumented) Missing documentation for "Deferred".
 // src/environments/resolve.ts:41:3 - (ae-undocumented) Missing documentation for "variable".

@@ -5,7 +5,7 @@ import type { Guardrail } from "../../components/policy-decorators.js";
 import type { Price } from "../../config/types.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import { NodeKind, type FlowPath } from "../ast.js";
-import { declared, recordDeclaration } from "./declaration.js";
+import { declarationOf, declared, recordDeclaration } from "./declaration.js";
 
 /** Defaults of every chat model (agents, model routers): no `thinking` strings (#269). */
 export interface ModelDefaults {
@@ -98,6 +98,11 @@ export interface WorkflowOptions {
   readonly maxSteps?: number;
   /** Nesting of child workflows (#263, #264). */
   readonly maxDepth?: number;
+  /**
+   * How many executions of the tree — the root and all its descendants — work on a step at once
+   * (#264); default 10. The rest wait in a queue (a throttle, never an error); one waiting at a
+   * join or paused holds no slot. A child's own smaller value limits its subtree.
+   */
   readonly maxConcurrentExecutions?: number;
   readonly defaults?: WorkflowDefaults;
   /** The workflow's own services for DI: classes, or values bound with `provide(TOKEN, value)`. */
@@ -125,3 +130,24 @@ export function Workflow(options: WorkflowOptions) {
     return value;
   };
 }
+
+/**
+ * `@Workflow({ maxConcurrentExecutions })` (#264): how many executions of a tree work at once — the
+ * root's value caps the whole tree, a child's own smaller value its subtree. Read from the
+ * declaration by the rules, `describe` and the runtime alike.
+ */
+
+/** `maxConcurrentExecutions` of a workflow that sets none. */
+export const DEFAULT_MAX_CONCURRENT_EXECUTIONS = 10;
+
+/** `@Workflow({ maxConcurrentExecutions })` as the workflow declares it; `undefined` when unset. */
+export function declaredMaxConcurrentExecutionsOf(workflow: Class): number | undefined {
+  const declaration = declarationOf(workflow);
+  return declaration?.kind === NodeKind.Workflow
+    ? declaration.options.maxConcurrentExecutions
+    : undefined;
+}
+
+/** A workflow's cap: its own, else the default 10. */
+export const maxConcurrentExecutionsOf = (workflow: Class): number =>
+  declaredMaxConcurrentExecutionsOf(workflow) ?? DEFAULT_MAX_CONCURRENT_EXECUTIONS;

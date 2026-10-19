@@ -19,6 +19,7 @@ import {
   stepFrameOf,
   visitNumberOf,
   type WorkflowIdentity,
+  inTreeSlot,
 } from "./step-frame.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import { visitWrite, type VisitWrite } from "./visit-write.js";
@@ -32,6 +33,7 @@ import type { RuntimeContexts } from "../context/runtime-contexts.js";
 import { readInput } from "./scope.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { ChildExecutionRecord } from "./child-records.js";
+import type { TreeSlotRegistry } from "./launch/launch-registry.js";
 
 /**
  * A node's visit (#272 → Runtime): limits checked before an agent or a router runs, the node run,
@@ -53,6 +55,8 @@ export interface VisitDeps {
   /** The graph: what a launch dispatches (#273). */
   readonly graph: RuntimeGraph;
   readonly observer?: ExecutionObserverManager;
+  /** The trees' concurrency caps of this pass (#264): every step takes a slot of its tree. */
+  readonly slots?: TreeSlotRegistry;
 }
 
 /** The edge a visit leaves by; `undefined` at a finish (the execution ends). */
@@ -202,15 +206,19 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       },
     };
     try {
-      if (isWorkingNode(node)) {
-        await checkVisit(state, node, deps.limits, deps.workflow);
-        ranAsStep = true;
-      }
       const frame = {
         ...stepFrameOf(node, state, config, deps.workflow, deps.contexts),
         services: { ...services, input: () => readInput(deps.graph, node, state).fields },
       };
-      const outcome = await runInFrame(frame, () => runner(state, config));
+      const slot = { slots: deps.slots, graph: deps.graph, node, state, config, ...frame };
+      // a slot of the tree first (#264), then the limits: the counters as they are when it works
+      const outcome = await inTreeSlot(slot, async () => {
+        if (isWorkingNode(node)) {
+          await checkVisit(state, node, deps.limits, deps.workflow);
+          ranAsStep = true;
+        }
+        return runInFrame(frame, () => runner(state, config));
+      });
       const spent = { ...outcome, usage: [...(outcome.usage ?? []), ...reported.usage] };
       const at = {
         executionId: frame.execution.executionId,

@@ -467,6 +467,19 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
 3, on the last level: researcher-agent → TopicReportDto only`, a list's producers `this-workflow ×0–5`.
   `ThisWorkflow` is typed once per project: recursive workflows with different finish classes fail type
   generation (`[types.this-workflow-outputs]`).
+- **The tree's concurrency cap (#264 PR 2, S27):** `@Workflow({ maxConcurrentExecutions })` of the
+  root (default 10, a whole number from 1 — `[limits.max-concurrent-executions-invalid]`) — how many
+  executions of the tree work at once. An execution holds a slot while one of its working steps
+  (agent, router, action — a branch too; starts and finishes take none) runs; its parallel branches
+  share it; at a join, while its child runs or paused it holds none. A step without a slot waits in the
+  queue (no error): a parent closing its branch (its step right after its child or its children's
+  join) first, then the deepest, `seconds(10)` of waiting = one level deeper (`AGING_STEP`, the
+  `Clock`). Both a launch's `maxConcurrency` and the cap hold; a child's own smaller cap limits its
+  subtree (a larger one → `[limits.child-concurrency-above-parent]`, a warning). A quorum's deadline
+  excludes the time its branches wait for a slot (`QueueTime`). In-process (`TreeSlots` per `rootExecutionId`
+  in `runtime/launch/launch-registry.ts`, made per pass; the claim `inTreeSlot` in `runtime/step-frame.ts`): a resume or a recovery rebuilds the queue from the
+  unfinished tasks; a waiter whose signal aborts (`FailFast`, a cancel) leaves it. `agboss describe`
+  prints `maxConcurrentExecutions 6 (set)` for a workflow that launches children.
 - **Quorums (#279):** after `.toParallelAgents(…)` a join may count answers instead of waiting for
   all — `.joinQuorum({ min, max, deadline })` (options always an object; `max` defaults to `min`,
   `deadline` in units: `seconds()`, `minutes()`, `hours()`) or `.joinQuorumGroups(group(A, B)

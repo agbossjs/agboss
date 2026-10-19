@@ -1,10 +1,27 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
+import { ExecutionCancelledError } from "../../core/errors.js";
 import { extractRunContext } from "../../core/run-context.js";
+import { NodeKind } from "../ast.js";
+import {
+  declaredMaxConcurrentExecutionsOf,
+  maxConcurrentExecutionsOf,
+} from "../decorators/workflow.js";
+import type {
+  QueueWatch,
+  SlotClaim,
+  SubtreeCap,
+  TreeSlotRegistry,
+} from "./launch/launch-registry.js";
 import type { WorkflowDescriptor } from "../context/execution-context.js";
-import { currentFrame, type FrameSpec } from "../context/frame.js";
+import {
+  currentFrame,
+  executionsFromRootOf,
+  type ExecutionFacts,
+  type FrameSpec,
+} from "../context/frame.js";
 import { tenantOfExecution, type RuntimeContexts } from "../context/runtime-contexts.js";
 import { idempotencyKeyOf } from "../context/idempotency.js";
-import type { RuntimeNode } from "./graph-model.js";
+import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 import type { ExecutionStateType } from "./state.js";
 
 /** The workflow an execution runs, as the runtime knows it before the execution starts. */
@@ -87,3 +104,92 @@ export const stepNodeIdOf = (node: RuntimeNode): string => {
   const frame = currentFrame();
   return frame === undefined || frame.isClosed() ? node.id : frame.step.nodeId;
 };
+
+/**
+ * A step's claim on its tree's slots (#264 S27): a step that works — an agent, a router, an action,
+ * a branch of a launch too — of any execution of the tree takes one; a start and a finish only mark
+ * where an execution begins and ends, and a child workflow's node waits for its child (the child's
+ * own steps take theirs). The claim names the execution, its depth, whether it closes a branch (its
+ * step comes right after its child, or its children's join) and the subtrees whose own, smaller cap
+ * it counts in.
+ */
+
+/** Whether a visit of the node works in a slot of its tree. */
+const takesSlot = (node: RuntimeNode): boolean =>
+  node.kind === NodeKind.Agent || node.kind === NodeKind.Router || node.kind === NodeKind.Action;
+
+/** The subtrees below the root whose own cap is smaller than every cap around them. */
+function subtreesOf(line: readonly ExecutionFacts[], treeCap: number): readonly SubtreeCap[] {
+  const subtrees: SubtreeCap[] = [];
+  let enclosing = treeCap;
+  for (const member of line.slice(1)) {
+    const own = declaredMaxConcurrentExecutionsOf(member.workflow.type);
+    if (own === undefined || own >= enclosing) continue;
+    subtrees.push({ executionId: member.executionId, maxConcurrentExecutions: own });
+    enclosing = own;
+  }
+  return subtrees;
+}
+
+/** Whether the step comes right after its execution's child, or its children's join. */
+function closesBranch(graph: RuntimeGraph, state: ExecutionStateType): boolean {
+  const previous = state.path.at(-1);
+  return previous !== undefined && graph.nodes.get(previous)?.kind === NodeKind.Workflow;
+}
+
+/** Where a step takes its tree slot. */
+export interface TreeSlotSite {
+  readonly slots: TreeSlotRegistry | undefined;
+  readonly graph: RuntimeGraph;
+  readonly node: RuntimeNode;
+  readonly state: ExecutionStateType;
+  readonly config: RunnableConfig | undefined;
+  /** The step's execution: its frame's. */
+  readonly execution: ExecutionFacts;
+  /** A quorum's deadline, told when the step waits (#279). */
+  readonly watch?: QueueWatch;
+}
+
+/** A step's claim, the root of its tree and the tree's cap. */
+interface TreeClaim {
+  readonly root: ExecutionFacts;
+  readonly cap: number;
+  readonly claim: SlotClaim;
+}
+
+/** The step's claim and the tree it is on. */
+function claimAt(site: TreeSlotSite): TreeClaim {
+  const line = executionsFromRootOf(site.execution);
+  const root = line[0] ?? site.execution;
+  const cap = maxConcurrentExecutionsOf(root.workflow.type);
+  const claim: SlotClaim = {
+    executionId: site.execution.executionId,
+    depth: line.length,
+    closesBranch: closesBranch(site.graph, site.state),
+    subtrees: subtreesOf(line, cap),
+  };
+  return { root, cap, claim };
+}
+
+/**
+ * Runs one step's `work` in a slot of its tree: waits in the queue while the tree is at its cap,
+ * releases the slot when the work ends, fails or pauses. A wait the execution's signal ends (a
+ * cancel, its launch's `FailFast` abort) throws `ExecutionCancelledError`, the work never run.
+ */
+export async function inTreeSlot<TResult>(
+  site: TreeSlotSite,
+  work: () => Promise<TResult>,
+): Promise<TResult> {
+  if (site.slots === undefined || !takesSlot(site.node)) return work();
+  const { root, cap, claim } = claimAt(site);
+  const { clock } = extractRunContext(site.config, site.state.runId);
+  const tree = site.slots.slotsOf(root.executionId, cap, clock);
+  const hold = await tree.take(claim, site.execution.signal, site.watch);
+  if (hold === undefined)
+    throw new ExecutionCancelledError("the execution was cancelled waiting for a tree slot");
+  try {
+    return await work();
+  } finally {
+    hold.release();
+  }
+}

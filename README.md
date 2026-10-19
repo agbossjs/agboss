@@ -364,6 +364,19 @@ launches it is `[graph.mutual-recursion]`. The root's execution budget counts ev
 level has its own `maxSteps`; `agboss describe` prints `recursive: ThisWorkflow, maxDepth 3, on the
 last level: researcher-agent → TopicReportDto only`.
 
+The whole tree shares one **concurrency cap** (#264): `@Workflow({ maxConcurrentExecutions: 6 })` of
+the root (default 10) — how many executions of the tree, the root and all its descendants, work on a
+step at once. A step without a free slot waits in a queue — a throttle, never an error; an execution
+waiting at a join, for its child or paused holds no slot (an execution's parallel branches share its
+one). The queue serves a parent whose children have all finished first, then the deepest execution,
+every 10 s of waiting counting as one level deeper (the application's `Clock`). A launch's
+`maxConcurrency` and the cap both hold — the stricter wins; a child workflow's own smaller
+`maxConcurrentExecutions` limits its subtree (a larger one is `[limits.child-concurrency-above-parent]`,
+a warning). Time in the queue does not count toward a quorum's `deadline`. The slots are in-process
+under the tree's lease: after a pause or a crash the next pass rebuilds the queue from the unfinished
+tasks, and a `FailFast` failure empties it. A slot is an execution, not model load — provider
+throughput is `rateLimitPolicy` ([Wiki → FinOps → Concurrency of a tree](https://github.com/agbossjs/agboss/wiki/FinOps#concurrency-of-a-tree-264)).
+
 `npx agboss check --workflow src/job-scout.workflow.ts` writes `.agboss/types.d.ts` — what types
 the paths, each node's input and `app.execute`; a generated project runs it on install
 (`npm run types`).

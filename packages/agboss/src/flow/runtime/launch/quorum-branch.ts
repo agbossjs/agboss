@@ -5,6 +5,7 @@ import { judgeAnswer, type ArbiterDeps } from "./arbiters.js";
 import { hasExpired, watchDeadline } from "./deadline.js";
 import type { LiveLaunch, LiveQuorum, QuorumMaker } from "./launch-registry.js";
 import { QuorumState, quorumRuleOf } from "./quorum.js";
+import { QueueTime } from "./deadline.js";
 import {
   BranchVerdict,
   type BranchOutcomeRecord,
@@ -34,15 +35,15 @@ export interface QuorumSite {
 /** Restores the finished branches, closes or watches the deadline, aborts a decided launch. */
 async function readied(
   site: QuorumSite,
-  state: QuorumState,
+  live: Omit<LiveQuorum, "ready">,
   controller: AbortController,
-  stop: AbortSignal,
 ): Promise<void> {
+  const { state, stop, queued } = live;
   for (const record of await site.pending()) state.restore(record);
   const { deadlineAt } = site.ticket;
   if (deadlineAt !== undefined && hasExpired(site.clock, deadlineAt)) state.close();
   else if (deadlineAt !== undefined)
-    watchDeadline(site.clock, deadlineAt, stop, () => {
+    watchDeadline(site.clock, deadlineAt, stop.signal, queued, () => {
       state.close();
       controller.abort();
     });
@@ -56,11 +57,11 @@ export function quorumMakerOf(site: QuorumSite): QuorumMaker | undefined {
   return (controller): LiveQuorum => {
     const nodes = site.ticket.branches.map((branch) => branch.node);
     const state = new QuorumState(quorumRuleOf(quorum, groups), nodes);
-    const stop = new AbortController();
-    const ready = readied(site, state, controller, stop.signal);
+    const made = { state, stop: new AbortController(), queued: new QueueTime(site.clock) };
+    const ready = readied(site, made, controller);
     // a branch awaits `ready`; a failure to read the checkpoint fails it there, never unhandled
     ready.catch(() => undefined);
-    return { state, ready, stop };
+    return { ...made, ready };
   };
 }
 
