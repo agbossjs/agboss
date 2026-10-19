@@ -141,8 +141,7 @@ export async function buildApplication(
   const log = frameworkLogOf(infrastructure.logger, clock, (message) => mask.text(message));
   const workflows: BuiltApp[] = [];
   try {
-    const observing = { ...container, onCreate };
-    const observer = observerManagerOf(assembled, shared, observing, log, seams.observers);
+    const observer = observerManagerOf(assembled, shared, { ...container, onCreate }, log, seams);
     const budgets = { budgets: assembled.budgets, applicationName: assembled.name };
     const parts = { infrastructure, created, contexts, budgets, observer, piiFieldKey };
     for (const bundle of assembled.workflows) {
