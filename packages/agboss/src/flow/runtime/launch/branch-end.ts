@@ -6,7 +6,10 @@ import { StepFailedError } from "../../../graph/errors.js";
 import { FailurePolicy } from "../../decorators/router.js";
 import type { LiveLaunch } from "./launch-registry.js";
 import { ArbiterError } from "./quorum-errors.js";
-import { BranchStatus, type BranchTicket } from "./records.js";
+import { BranchStatus, type BranchOutcomeRecord, type BranchTicket } from "./records.js";
+import type { ErrorRecord } from "../../../core/error-record.js";
+import type { NodeValue } from "../scope.js";
+import type { QuorumMark } from "./quorum-branch.js";
 import { isWithdrawn } from "./withdrawn-pauses.js";
 
 /**
@@ -47,3 +50,27 @@ export function passThroughStops(config: RunnableConfig | undefined, runId: stri
   if (executionSignalOf(config, runId).aborted || config?.signal?.aborted === true)
     throw new ExecutionCancelledError("the execution was cancelled during a parallel launch");
 }
+
+/** How a branch ended, as its record keeps it. */
+export interface EndedBranch {
+  readonly status: BranchStatus;
+  readonly value?: NodeValue;
+  readonly read: readonly string[];
+  readonly error?: ErrorRecord;
+  readonly mark?: QuorumMark;
+}
+
+/** The branch's outcome record: what the join reads. */
+export const branchRecordOf = (
+  launchId: string,
+  index: number,
+  end: EndedBranch,
+): BranchOutcomeRecord => ({
+  launchId,
+  index,
+  status: end.status,
+  ...(end.value === undefined ? {} : { value: end.value }),
+  read: end.read,
+  ...(end.error === undefined ? {} : { error: end.error }),
+  ...end.mark,
+});

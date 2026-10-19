@@ -68,3 +68,17 @@ export async function gated<TResult>(
   if (!completion.isDone) throw completion.error;
   return completion.result;
 }
+
+/** Runs a branch's task between its scheduler's `entered` and `ended` (none in production). */
+export async function inSchedule<TResult>(
+  scheduler: BranchScheduler | undefined,
+  branch: ScheduledBranch,
+  work: () => Promise<TResult>,
+): Promise<TResult> {
+  scheduler?.entered(branch);
+  try {
+    return await work();
+  } finally {
+    scheduler?.ended(branch);
+  }
+}

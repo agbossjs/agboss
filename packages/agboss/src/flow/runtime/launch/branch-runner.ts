@@ -11,7 +11,12 @@ import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { readInput } from "../scope.js";
 import { startedVersionOf, stepFrameAt } from "../step-frame.js";
 import { unrecordedSpendOf, type VisitDeps } from "../visit.js";
-import { executionSignalOf, failedStatusOf, passThroughStops } from "./branch-end.js";
+import {
+  branchRecordOf,
+  executionSignalOf,
+  failedStatusOf,
+  passThroughStops,
+} from "./branch-end.js";
 import {
   branchConfigOf,
   branchLaunchOf,
@@ -24,9 +29,9 @@ import type { BranchErrors, LiveLaunch } from "./launch-registry.js";
 import { reportBranch } from "./launch-report.js";
 import { arbiterDepsFor, liveLaunchOf, type BranchQuorumDeps } from "./branch-quorum.js";
 import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
-import { BranchStatus, type BranchOutcomeRecord, type BranchTicket } from "./records.js";
+import { BranchStatus, type BranchTicket } from "./records.js";
 import { withdrawSiblingPauses } from "./withdrawn-pauses.js";
-import { gated, type ScheduledBranch } from "./branch-schedule.js";
+import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
 import type { PausedExecutionRepository } from "../../../infrastructure/paused-execution.repository.js";
 import type { ChildExecutionRecord } from "../child-records.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
@@ -186,16 +191,6 @@ async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
 }
 
 async function runBranch(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
-  const { scheduler } = run.deps;
-  scheduler?.entered(run.scheduled);
-  try {
-    return await scheduledRun(run, runner);
-  } finally {
-    scheduler?.ended(run.scheduled);
-  }
-}
-
-async function scheduledRun(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   const { live } = run;
   await live.quorum?.ready;
   const stop = AbortSignal.any([
@@ -218,16 +213,6 @@ async function scheduledRun(run: BranchRun, runner: NodeRunner): Promise<BranchE
   }
 }
 
-const recordOf = (launchId: string, index: number, end: BranchEnd): BranchOutcomeRecord => ({
-  launchId,
-  index,
-  status: end.status,
-  ...(end.value === undefined ? {} : { value: end.value }),
-  read: end.read,
-  ...(end.error === undefined ? {} : { error: end.error }),
-  ...end.mark,
-});
-
 /** The LangGraph node of a branch node: it runs only as a launch's `Send`. */
 export function branchNode(node: RuntimeNode, runner: NodeRunner, deps: BranchDeps): GraphNode {
   return async (state, config) => {
@@ -242,11 +227,11 @@ export function branchNode(node: RuntimeNode, runner: NodeRunner, deps: BranchDe
       piiTokens: {},
       ranAsStep: false,
     };
-    const end = await runBranch(run, runner);
+    const end = await inSchedule(deps.scheduler, scheduled, () => runBranch(run, runner));
     await reportBranch(config, owner.ticket.launchId, ticket, end);
     return {
       ...end.update,
-      branchRecords: { add: [recordOf(owner.ticket.launchId, ticket.index, end)] },
+      branchRecords: { add: [branchRecordOf(owner.ticket.launchId, ticket.index, end)] },
       next: owner.launch.joinNodeId,
       startedVersion: startedVersionOf(state, deps.workflow),
     };
