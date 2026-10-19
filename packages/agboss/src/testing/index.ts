@@ -62,6 +62,12 @@ export {
   type TestFailureCode,
 } from "./errors.js";
 export { workflowMatchers, type ExpectedRequest, type WorkflowMatchers } from "./matchers.js";
+export {
+  childMatchers,
+  type ChildMatchers,
+  type ExpectedChildExecution,
+  type ExpectedHandling,
+} from "./child-matchers.js";
 export { UNSCRIPTED_SUMMARY } from "./scripted-gateway.js";
 export { workflowOf } from "./workflow-of.js";
 export { toolOf } from "../components/runtime.js";

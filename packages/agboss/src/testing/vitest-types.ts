@@ -4,6 +4,7 @@ import type { ActionScript } from "./action-script.js";
 import type { WorkflowMatchers } from "./matchers.js";
 import type { ModelScript } from "./model-script.js";
 import type { DeepPartial, InputMatcherOf, ReturnedCheckOf } from "./script-types.js";
+import type { ChildMatchers } from "./child-matchers.js";
 
 /**
  * The call matchers of `mockLlm(X)` and `mockAction(A)` (#262 AC9), typed by the component's
@@ -39,6 +40,8 @@ declare module "vitest" {
     toFailWith: WorkflowMatchers<T>["toFailWith"];
     toHaveCalledTools: WorkflowMatchers<T>["toHaveCalledTools"];
     toHaveBeenAskedWith: WorkflowMatchers<T>["toHaveBeenAskedWith"];
+    toHaveChildExecutions: ChildMatchers<T>["toHaveChildExecutions"];
+    toHaveHandledError: ChildMatchers<T>["toHaveHandledError"];
   }
 
   interface ExpectStatic {

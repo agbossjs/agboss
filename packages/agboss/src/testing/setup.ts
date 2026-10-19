@@ -7,7 +7,9 @@
 import { expect } from "vitest";
 import { installCallMatchers } from "./call-matchers.js";
 import { workflowMatchers } from "./matchers.js";
+import { childMatchers } from "./child-matchers.js";
 import "./vitest-types.js";
 
 expect.extend(workflowMatchers);
 installCallMatchers();
+expect.extend(childMatchers);
