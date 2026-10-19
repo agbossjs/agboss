@@ -90,6 +90,11 @@ const MIGRATIONS: readonly string[] = [
    CREATE INDEX terns_version ON terns(bundle, prompt_version);
    CREATE INDEX terns_status ON terns(status);
    CREATE INDEX summaries_thread ON summaries(tenant_id, thread_id, to_seq);`,
+  // 12 — who answered each pause of a tree, the permanent log behind record.pauses (#267 S107)
+  `CREATE TABLE pause_answers (tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL,
+     step_key TEXT NOT NULL, asked_at TEXT NOT NULL, record TEXT NOT NULL,
+     PRIMARY KEY (tenant_id, step_key));
+   CREATE INDEX pause_answers_by_root ON pause_answers(tenant_id, root_execution_id);`,
 ];
 
 const TernRow = z.object({

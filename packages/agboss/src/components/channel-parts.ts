@@ -14,7 +14,7 @@ import {
   codeInterpreterClassesOf,
   replyInterpretersOf,
   type AssembledReplyInterpreter,
-} from "../channels/reply-interpreters.js";
+} from "../channels/discovery.js";
 import type { PromptLoader } from "./prompt-render.js";
 import { codeClassesOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
 

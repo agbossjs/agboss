@@ -9,6 +9,7 @@ import {
   type PauseCancellation,
   type PauseRecord,
 } from "../paused-execution.repository.js";
+import { cancelledPause, decidedPause, resolvedPause } from "../pause-record.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 import { PAUSE_ANSWERS_MIGRATION, PAUSES_SCHEMA, SqlitePauseRows } from "./sqlite-pause-rows.js";
 
@@ -175,7 +176,7 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     at: Date,
   ): Promise<PauseRecord | undefined> {
     const resolved = this.connection.transaction(() =>
-      this.#pauses.resolve(tenantId, pauseId, answer, at),
+      this.#pauses.close(tenantId, pauseId, (pending) => resolvedPause(pending, answer, at)),
     );
     return Promise.resolve(resolved);
   }
@@ -187,9 +188,9 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     at: Date,
   ): Promise<boolean> {
     const decided = this.connection.transaction(() =>
-      this.#pauses.decide(tenantId, pauseId, answer, at),
+      this.#pauses.close(tenantId, pauseId, (pending) => decidedPause(pending, answer, at)),
     );
-    return Promise.resolve(decided);
+    return Promise.resolve(decided !== undefined);
   }
 
   cancelByTenantIdAndPauseId(
@@ -199,9 +200,9 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     at: Date,
   ): Promise<boolean> {
     const cancelled = this.connection.transaction(() =>
-      this.#pauses.cancel(tenantId, pauseId, resolution, at),
+      this.#pauses.close(tenantId, pauseId, (pending) => cancelledPause(pending, resolution, at)),
     );
-    return Promise.resolve(cancelled);
+    return Promise.resolve(cancelled !== undefined);
   }
 
   markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void> {

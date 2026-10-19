@@ -5,7 +5,7 @@ import { moduleOf } from "../components/module.js";
 import { NodeKind } from "../flow/ast.js";
 import { codeClassesOf, isCodeNode } from "../flow/runtime/graph-model.js";
 import type { AssembledWorkflow } from "../workflow.js";
-import { codeInterpreterClassesOf } from "../channels/reply-interpreters.js";
+import { codeInterpreterClassesOf } from "../channels/discovery.js";
 
 /** The MCP server classes of every workflow of the application, and their names. */
 export function mcpServersOf(assembled: AssembledApplication): ReadonlyMap<Class, string> {

@@ -1094,7 +1094,11 @@ export class SeenJobsRepository {
   ledger at once and in the execution's spend when its step takes the answer, traced as
   `reply-interpreter:<name>`) or `DecidedBy.Code` (`implements ReplyInterpreterHandler<Self>` —
   `interpret(input: InputOf<Self>): Promise<OutputOf<Self>>`, `deps`, created by the container; it
-  declines by throwing). Unreadable → `UninterpretableReplyError` (`pause.uninterpretable-reply`), the
+  declines by throwing). Either kind reads in the pause's execution frame (its `ExecutionContext`:
+  tenant, owner, the waiting step — the rate limits see the tenant); a model one reads the question
+  and the reply through the application's and the workflow's PII policies, its answer revealed before
+  validation (an unknown token is a decline, a block rule `PiiRefusedError`). Unreadable →
+  `UninterpretableReplyError` (`pause.uninterpretable-reply`), the
   pause stays pending; a role without one → `ReplyInterpreterMissingError`
   (`pause.no-reply-interpreter`); `[reply-interpreter.not-an-interpreter]`,
   `[reply-interpreter.no-interpret-method]` at assembly.
@@ -1300,7 +1304,10 @@ tenant, execution, onStream })` runs the workflow of that start (any workflow of
   `result.record.pauses` (`{ record: true }`, #267 S107): every resolved pause of the tree in the order
   asked — `PauseAnswerRecord { pauseId (none for a Channel pause), step, role, answeredBy, responder,
 resolution: PauseResolution.Decided | Replied | Withdrawn | Cancelled, askedAt, resolvedAt,
-decision }`, the decision PII-masked, none when withdrawn or cancelled. A resolved record (`Taken`,
+decision }`, the decision PII-masked, none when withdrawn or cancelled — written when the pause is
+  resolved into the execution records (`ExecutionRecordRepository.savePauseAnswer` /
+  `findPauseAnswersByTenantIdAndRootExecutionId`), the permanent history; the pause records are
+  operational state, never read for it. A resolved pause record (`Taken`,
   `Cancelled`) is kept `@Application({ pauseRecordRetention })` (default `hours(24)`), then removed by
   the recovery sweep (`PausedExecutionRepository.deleteResolvedBefore(cutoff)`, on the `Clock`): a
   late answer is `NotPausedError` within it, `UnknownPauseError` after; `Pending` is never removed. `app.cancel(threadId, { tenantId, ownerId })` aborts a

@@ -137,6 +137,20 @@ export interface VersionScore {
   readonly costUsd: number;
 }
 
+/**
+ * One resolved pause of an execution tree as the records keep it (#267 S107): the permanent log
+ * behind `ExecutionRecord.pauses`. Terns know nothing of its shape: `record` is its JSON.
+ */
+export interface PauseAnswerEntry {
+  readonly tenantId: string;
+  readonly rootExecutionId: string;
+  /** The waiting step's idempotency key: one entry per pause. */
+  readonly stepKey: string;
+  /** When the pause was asked (ISO 8601): the log's order. */
+  readonly askedAt: string;
+  readonly record: string;
+}
+
 /** Durable memory of runs: threads, Terns, their quality scores and conversation summaries. */
 export interface TernStore extends MemoryStore, ConfigStore {
   /** A new thread (`NewThread`); its id. */
@@ -173,8 +187,18 @@ export interface TernStore extends MemoryStore, ConfigStore {
   readonly saveScore: (ternId: string, judge: string, score: number) => Promise<void>;
   readonly meanScore: (ternIds: readonly string[]) => Promise<number | null>;
   readonly summary: (bundle: string) => Promise<VersionScore[]>;
+  /** Keeps a resolved pause's entry once: a second one for its tenant and step key is ignored. */
+  readonly appendPauseAnswer: (entry: PauseAnswerEntry) => Promise<void>;
+  /** The `record`s of a tree's entries, in the order asked (ties in the order kept). */
+  readonly pauseAnswersOf: (tenantId: string, rootExecutionId: string) => Promise<string[]>;
   readonly close: () => void;
 }
 
-/** What a run reads and writes of its records (the store without its own `close`, nor recovery's look-up). */
-export type TernRecords = Omit<TernStore, "close" | "byStatus">;
+/**
+ * What a run reads and writes of its records: the store without its own `close`, recovery's look-up
+ * and the pause answer log (`ExecutionRecordRepository` types it).
+ */
+export type TernRecords = Omit<
+  TernStore,
+  "close" | "byStatus" | "appendPauseAnswer" | "pauseAnswersOf"
+>;

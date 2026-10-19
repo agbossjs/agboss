@@ -1,7 +1,10 @@
 import { randomBytes } from "node:crypto";
-import type { PauseAnswerer } from "../channels/channel-role.decorator.js";
+import { z } from "zod";
+import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 import type { UsageRecord } from "../finops/usage.js";
+import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
+import type { ExecutionRecordRepository } from "./execution-record.repository.js";
 
 /**
  * One pause of an execution tree as the application records it (#267 S35): made once per waiting
@@ -138,3 +141,83 @@ export const isExpiredPause = (pause: PauseRecord, cutoff: Date): boolean =>
   (pause.status === PauseStatus.Taken || pause.status === PauseStatus.Cancelled) &&
   pause.resolvedAt !== undefined &&
   pause.resolvedAt < cutoff.toISOString();
+
+/**
+ * Where a resolved pause is written (#267 S107): the execution records — the permanent history
+ * behind `ExecutionRecord.pauses` — never the pause records, which the retention removes.
+ */
+export type PauseAnswerLog = Pick<
+  ExecutionRecordRepository,
+  "savePauseAnswer" | "findPauseAnswersByTenantIdAndRootExecutionId"
+>;
+
+/** Whether a pause was closed without an answer. */
+const isWithoutAnswer = (resolution: PauseResolution): boolean =>
+  resolution === PauseResolution.Withdrawn || resolution === PauseResolution.Cancelled;
+
+/** A resolved pause as the execution record lists it (unmasked: the record is masked when read). */
+export function answerRecordOf(pause: PauseRecord, resolution: PauseResolution): PauseAnswerRecord {
+  const hasAnswer = !isWithoutAnswer(resolution);
+  return {
+    pauseId: pause.answeredBy === PauseAnswerer.Channel ? undefined : pause.pauseId,
+    step: {
+      component: { name: pause.agent },
+      nodeId: pause.nodeId,
+      visitNumber: pause.visitNumber,
+      idempotencyKey: pause.stepKey,
+      callId: pause.ask.callId,
+      itemIndex: pause.itemIndex,
+      copyNumber: pause.copyNumber,
+    },
+    role: pause.channel,
+    answeredBy: pause.answeredBy,
+    responder: hasAnswer ? pause.answer?.answerer : undefined,
+    resolution,
+    askedAt: pause.askedAt,
+    resolvedAt: pause.resolvedAt,
+    decision: hasAnswer ? pause.answer?.decision : undefined,
+  };
+}
+
+/** Writes how a pause was resolved into its tree's execution records. */
+export const logPauseAnswer = (
+  log: PauseAnswerLog,
+  pause: PauseRecord,
+  resolution: PauseResolution,
+): Promise<void> =>
+  log.savePauseAnswer(pause.tenantId, pause.rootExecutionId, answerRecordOf(pause, resolution));
+
+const optionalText = z.string().optional();
+const StoredPauseAnswer = z.object({
+  pauseId: optionalText,
+  step: z.object({
+    component: z.object({ name: z.string() }),
+    nodeId: z.string(),
+    visitNumber: z.number(),
+    idempotencyKey: z.string(),
+    callId: optionalText,
+    itemIndex: z.number().optional(),
+    copyNumber: z.number(),
+  }),
+  role: z.string(),
+  answeredBy: z.enum(PauseAnswerer),
+  responder: optionalText,
+  resolution: z.enum(PauseResolution),
+  askedAt: z.string(),
+  resolvedAt: optionalText,
+  decision: z.unknown().optional(),
+});
+
+/** A pause answer record as JSON stored it (`undefined` fields are left out by JSON: restored). */
+export function pauseAnswerRecordOfJson(text: string): PauseAnswerRecord {
+  const stored = StoredPauseAnswer.parse(JSON.parse(text));
+  const { step } = stored;
+  return {
+    ...stored,
+    pauseId: stored.pauseId,
+    step: { ...step, callId: step.callId, itemIndex: step.itemIndex },
+    responder: stored.responder,
+    resolvedAt: stored.resolvedAt,
+    decision: stored.decision,
+  };
+}

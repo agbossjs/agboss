@@ -8,6 +8,7 @@
  * `tests/channels/concurrent-resume.test.ts`.
  */
 import { describe, expect, it } from "vitest";
+import type { PauseAnswerRecord } from "../../src/flow/runtime/execution-record.js";
 import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import type { ChannelSenderAsk } from "../../src/channels/channel-sender.js";
@@ -46,8 +47,16 @@ function channelOf(...outcomes: readonly (() => Promise<unknown>)[]) {
 
 const clock = new VirtualClock();
 
+/** The pause answer log: nothing to check here (the records are tested through the app). */
+const answers = {
+  savePauseAnswer: (): Promise<void> => Promise.resolve(),
+  findPauseAnswersByTenantIdAndRootExecutionId: (): Promise<PauseAnswerRecord[]> =>
+    Promise.resolve([]),
+};
+
 const siteOf = (pauses: InMemoryPausedExecutionRepository, channel: PauseChannel) => ({
   pauses,
+  answers,
   channel,
   frame: testFrame(),
   signal: undefined,

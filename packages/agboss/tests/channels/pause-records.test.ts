@@ -261,6 +261,34 @@ describe("#267 S107: resolved pause records are kept pauseRecordRetention, then 
     },
   );
 
+  testWith(BriefTreasuryApplication)(
+    "the record keeps a pause whose record the retention removed: record.pauses is the permanent log",
+    async ({ app, clock, mockLlm }) => {
+      mockLlm(TreasurerAgent).thenReturn(
+        callTool(PayOutTool, { payee: "ann", amountCents: 1 }),
+        callTool(BookExpenseTool, { purpose: "lunch" }),
+        replyWith("Paid and booked."),
+      );
+      await execute(app, TreasuryWorkflowStart, { text: "pay ann, book lunch" });
+      const payout = { pauseId: payoutPauseId(), decision: { approved: true } };
+      const waiting = await app.resume(payout, manager);
+      await clock.advance(minutes(6));
+      await expect(app.resume(payout, manager)).rejects.toBeInstanceOf(UnknownPauseError);
+
+      const expense = { pauseId: waiting.pending[0]?.pauseId ?? "", decision: { approved: true } };
+      const done = await app.resume(expense, { record: true });
+
+      expect(done.record?.pauses.map((pause) => [pause.role, pause.resolution])).toEqual([
+        ["payout-approval-channel", PauseResolution.Replied],
+        ["expense-approval-channel", PauseResolution.Replied],
+      ]);
+      expect(done.record?.pauses[0]).toMatchObject({
+        responder: "manager-17",
+        askedAt: TEST_START,
+      });
+    },
+  );
+
   it("the default retention is hours(24)", async () => {
     const assembled = await applicationOf(TreasuryApplication);
 

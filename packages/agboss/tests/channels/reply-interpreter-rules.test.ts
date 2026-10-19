@@ -13,10 +13,11 @@ import { resolvedModelUsesOf } from "../../src/models/resolution.js";
 import { TreasuryApplication } from "../flow/fixtures/replies.fixture.js";
 import { ChannelOf } from "../../src/channels/channel-handler.js";
 import { ChannelRole, PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
-import { ReplyInterpreter } from "../../src/channels/reply-interpreter.js";
+import { ReplyInterpreter } from "../../src/channels/channel-role.decorator.js";
 import { Injectable } from "../../src/components/decorators.js";
-import { replyInterpreterViolations } from "../../src/channels/reply-interpreters.js";
+import { replyInterpreterViolations } from "../../src/channels/discovery.js";
 import { readByModel } from "../../src/channels/reply-reader.js";
+import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { Text } from "../../src/dto/index.js";
 import { ToolCallApprovalDecisionDto } from "../../src/dto/standard/framework.js";
 import { DecidedBy } from "../../src/flow/decorators/router.js";
@@ -127,7 +128,12 @@ describe("#267 AC8: a model interpreter's call is traced", () => {
     const reading = await readByModel(
       interpreter,
       { ask: { tool: "wire" }, reply: "yes" },
-      { gateway: createScriptedGateway(book), settings, callbacks: [trace] },
+      {
+        gateway: createScriptedGateway(book),
+        settings,
+        callbacks: [trace],
+        pii: { policies: new PiiPolicySet([], ""), known: {} },
+      },
     );
 
     expect(reading).toMatchObject({

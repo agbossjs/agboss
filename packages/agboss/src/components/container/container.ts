@@ -1,7 +1,7 @@
 import { InjectionToken, tokenName, type Class, type Token } from "../injection.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import { arbiterOf } from "../../flow/decorators/arbiter.js";
-import { replyInterpreterOf } from "../../channels/reply-interpreter.js";
+import { replyInterpreterOf } from "../../channels/channel-role.decorator.js";
 import { ComponentError, componentOf } from "../metadata.js";
 import { Registrations, type ProviderModule, type Registration } from "./registrations.js";
 

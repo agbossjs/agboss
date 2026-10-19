@@ -5,8 +5,9 @@ import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.d
 import {
   ReplyInterpreter,
   type ReplyInterpreterHandler,
-} from "../../../src/channels/reply-interpreter.js";
+} from "../../../src/channels/channel-role.decorator.js";
 import { Integer, Text, WorkflowFinishTextDto } from "../../../src/dto/index.js";
+import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -61,7 +62,17 @@ export const replyDesk = {
   transfers: [] as ChannelAsk<TransferApprovalChannel>[],
   payouts: [] as PayoutRequestDto[],
   expenses: [] as string[],
+  /** What the expense interpreter's `ExecutionContext` read: the pause's execution and step. */
+  readings: [] as ExpenseReading[],
 };
+
+/** One reading of an expense reply as its interpreter's execution context saw it. */
+export interface ExpenseReading {
+  readonly tenantId: string;
+  readonly ownerId: string | undefined;
+  readonly nodeId: string;
+  readonly callId: string | undefined;
+}
 
 /** The application's stores, seen by the tests (an instance shares them with the others). */
 export const replyStores = {
@@ -132,12 +143,18 @@ export class ExpenseButtonCodes {
   name: "expense-reply-interpreter",
   description: "Turns an expense button's value into a decision",
   decidedBy: DecidedBy.Code,
-  deps: [ExpenseButtonCodes],
+  deps: [ExecutionContext, ExpenseButtonCodes],
 })
 export class ExpenseReplyInterpreter implements ReplyInterpreterHandler<ExpenseReplyInterpreter> {
-  constructor(private readonly expenseButtonCodes: ExpenseButtonCodes) {}
+  constructor(
+    private readonly executionContext: ExecutionContext,
+    private readonly expenseButtonCodes: ExpenseButtonCodes,
+  ) {}
 
   interpret(input: InputOf<ExpenseReplyInterpreter>): Promise<OutputOf<ExpenseReplyInterpreter>> {
+    const { tenant, ownerId, step } = this.executionContext;
+    const { nodeId, callId } = step;
+    replyDesk.readings.push({ tenantId: tenant.tenantId, ownerId, nodeId, callId });
     return Promise.resolve(this.expenseButtonCodes.decisionOf(input.reply));
   }
 }
@@ -274,8 +291,11 @@ export class TreasuryWorkflow {}
 /** The decisions' e-mail addresses are hidden from logs, traces and records. */
 @PiiPolicy({
   name: "treasury-pii-policy",
-  description: "Hides e-mail addresses",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  description: "Hides e-mail addresses, and phone numbers behind tokens",
+  rules: [
+    pii(PiiKind.Email, PiiAction.replaceWithKind()),
+    pii(PiiKind.Phone, PiiAction.replaceWithToken()),
+  ],
 })
 export class TreasuryPiiPolicy {}
 

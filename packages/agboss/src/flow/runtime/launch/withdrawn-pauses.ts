@@ -1,9 +1,11 @@
-import type { PausedExecutionRepository } from "../../../infrastructure/paused-execution.repository.js";
 import {
+  cancelledPause,
+  logPauseAnswer,
   PauseResolution,
   PauseStatus,
   type PauseRecord,
 } from "../../../infrastructure/pause-record.js";
+import type { PauseSeam } from "../../../pause/index.js";
 import { PauseWithdrawnError } from "../pause.js";
 import type { BranchTicket, LaunchTicket } from "./records.js";
 
@@ -37,19 +39,20 @@ const isSiblingOf = (site: WithdrawalSite, pause: PauseRecord): boolean =>
 
 /** Withdraws every pending pause of the failed branch's siblings. */
 export async function withdrawSiblingPauses(
-  pauses: PausedExecutionRepository,
+  stores: Pick<PauseSeam, "pauses" | "answers">,
   site: WithdrawalSite,
 ): Promise<void> {
-  const { tenantId, rootExecutionId } = site;
+  const { tenantId, rootExecutionId, at } = site;
+  const { pauses, answers } = stores;
   const records = await pauses.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId);
+  const withdrawn = PauseResolution.Withdrawn;
   for (const pause of records) {
-    if (pause.status === PauseStatus.Pending && isSiblingOf(site, pause))
-      await pauses.cancelByTenantIdAndPauseId(
-        tenantId,
-        pause.pauseId,
-        PauseResolution.Withdrawn,
-        site.at,
-      );
+    if (
+      pause.status === PauseStatus.Pending &&
+      isSiblingOf(site, pause) &&
+      (await pauses.cancelByTenantIdAndPauseId(tenantId, pause.pauseId, withdrawn, at))
+    )
+      await logPauseAnswer(answers, cancelledPause(pause, withdrawn, at), withdrawn);
   }
 }
 

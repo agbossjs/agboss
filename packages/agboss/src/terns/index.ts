@@ -19,6 +19,7 @@ export {
   type Summary,
   type TernOutcome,
   type TernStore,
+  type PauseAnswerEntry,
   type TernRecords,
   type VersionScore,
 } from "./types.js";

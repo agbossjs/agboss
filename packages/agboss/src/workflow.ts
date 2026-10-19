@@ -15,7 +15,7 @@ import type { ModelProviderType } from "./models/model-provider.decorator.js";
 import type { ContainerOptions } from "./components/container/container.js";
 import type { RuntimeContexts } from "./flow/context/runtime-contexts.js";
 import type { IncompatibleResumePolicy } from "./run/resume-guard.js";
-import type { AssembledReplyInterpreter } from "./channels/reply-interpreters.js";
+import type { AssembledReplyInterpreter } from "./channels/discovery.js";
 
 /** What the core offers the tools of a workflow. */
 export interface WorkflowServices {

@@ -40,7 +40,7 @@ import type { BudgetHandler } from "../budgets/budget.js";
 import type { Class } from "../components/injection.js";
 import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { GraphDeps } from "../graph/deps.js";
-import type { ReplyReader } from "../channels/reply-reader.js";
+import type { ReplyReaderParts } from "../channels/reply-reader.js";
 
 /** Run dependencies, eval dependencies, and resources to release after the run. */
 export interface AppDeps extends RunDeps<string> {
@@ -54,7 +54,7 @@ export interface AppDeps extends RunDeps<string> {
   /** One line per model use: its provider, reasoning and caching (the startup log). */
   readonly models: readonly string[];
   /** The reply interpreters of its tree's channel roles (#267 PR 3): `app.resume({ reply })`. */
-  readonly replies: ReplyReader;
+  readonly replies: ReplyReaderParts;
   /**
    * Runs `onStop` of the components, waits for `executionsDone` (the running executions), runs
    * `onDestroy`, then closes MCP connections, tracing and the stores it opened.
@@ -216,7 +216,7 @@ export async function createWorkflowDeps(
     prompts: bundle.prompts,
     guards: guardsFor(config, gateway),
     tools: toolLookup(tools),
-    pause: pauseFor(checkpointer, parts.infrastructure.pausedExecutions),
+    pause: pauseFor(checkpointer, parts.infrastructure.pausedExecutions, terns),
     compactionPrompt: bundle.compactionPrompt,
     ...components,
     pii,

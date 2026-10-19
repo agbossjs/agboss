@@ -8,9 +8,12 @@ import type { PausedExecutionRepository } from "../../infrastructure/paused-exec
 import type { Clock } from "../../infrastructure/clock.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import {
+  decidedPause,
+  logPauseAnswer,
   newPauseId,
   PauseResolution,
   PauseStatus,
+  type PauseAnswerLog,
   type PauseRecord,
 } from "../../infrastructure/pause-record.js";
 import { rootFactsOf, type FrameSpec } from "../context/frame.js";
@@ -152,6 +155,8 @@ function settledAnswer(pause: PauseRecord, channel: string): StepAnswer {
 /** Where a pause step goes: the store, the channel, the step's frame and its signal. */
 export interface PauseStepSite {
   readonly pauses: PausedExecutionRepository;
+  /** The execution records: a pause its channel decided at once is logged there (#267 S107). */
+  readonly answers: PauseAnswerLog;
   readonly channel: PauseChannel;
   readonly frame: FrameSpec;
   readonly signal: AbortSignal | undefined;
@@ -177,7 +182,13 @@ export async function pauseStep(site: PauseStepSite, question: PauseQuestion): P
     if (decided !== undefined) {
       const decision = site.validate(decided.decision);
       const answer = { decision, answerer: undefined };
-      await pauses.decideByTenantIdAndPauseId(tenantId, pause.pauseId, answer, site.clock.now());
+      const at = site.clock.now();
+      if (await pauses.decideByTenantIdAndPauseId(tenantId, pause.pauseId, answer, at))
+        await logPauseAnswer(
+          site.answers,
+          decidedPause(pause, answer, at),
+          PauseResolution.Decided,
+        );
       return { decision, by: channel.name, usage: [] };
     }
     if (!(await pauses.markSentByTenantIdAndPauseId(tenantId, pause.pauseId))) {

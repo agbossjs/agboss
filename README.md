@@ -1016,7 +1016,11 @@ resolved by `serves`, is checked against the tree's budgets first, counted in th
 and in the execution's spend when the step takes the answer, and traced (`reply-interpreter:<name>`).
 `DecidedBy.Code` — the class's `interpret(input: InputOf<Self>): Promise<OutputOf<Self>>`
 (`implements ReplyInterpreterHandler<Self>`, `deps` like any component), created by the container;
-it declines a reply it cannot read by throwing. A reply nobody can read — declined, or an answer the
+it declines a reply it cannot read by throwing. Either kind reads in the pause's execution frame — its
+`ExecutionContext` has the tenant, the owner and the waiting step, and the rate limits see the
+tenant. A model interpreter reads the question and the reply through the application's and the
+workflow's PII policies, like an agent: its answer is revealed before it is validated, a token no
+map knows is a decline, a block rule throws `PiiRefusedError`. A reply nobody can read — declined, or an answer the
 role rejects — throws `UninterpretableReplyError` (`pause.uninterpretable-reply`, the reason as
 `cause`) and the pause stays pending, so the webhook can ask again or answer with a `decision`; a
 `reply` for a role without an interpreter is `ReplyInterpreterMissingError`
@@ -1061,7 +1065,10 @@ await app.resume({ pauseId: replyKey, reply: "ok, refund it" }, { answeredBy: "m
 answeredBy, responder, resolution, askedAt, resolvedAt, decision }`, `PauseResolution.Decided`
 (`ChannelOutcome.decided`, no pause), `Replied` (`awaitReply()` + `app.resume`), `Withdrawn` (a
 `FailFast` sibling failed) or `Cancelled` (`app.cancel`, or the tree ended); the decision masked by
-the PII policies like the rest of the record, none when withdrawn or cancelled. A resolved pause
+the PII policies like the rest of the record, none when withdrawn or cancelled. It is written when
+the pause is resolved into the execution records — `ExecutionRecordRepository.savePauseAnswer`, read
+back with `findPauseAnswersByTenantIdAndRootExecutionId` — the permanent history, so the retention
+below never changes it; the pause records are operational state. A resolved pause
 record (`Taken`, `Cancelled`) is kept `@Application({ pauseRecordRetention })` — default
 `hours(24)` — after it was resolved, then removed by the recovery sweep
 (`PausedExecutionRepository.deleteResolvedBefore(cutoff)`, on the `Clock`): within it a late answer

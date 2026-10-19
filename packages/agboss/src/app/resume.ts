@@ -19,7 +19,13 @@ import type { AnyTool } from "../tools/index.js";
 import type { PausedRunBook } from "./paused-runs.js";
 import type { App, ResumeOptions, ResumeRequest } from "./types.js";
 import type { Clock } from "../infrastructure/clock.js";
+import {
+  logPauseAnswer,
+  PauseResolution,
+  type PauseAnswerLog,
+} from "../infrastructure/pause-record.js";
 import type { ReplyAnswering, ReadReply } from "./reply-answer.js";
+import type { AppDeps } from "./app-deps.js";
 import { DtoValidationError } from "../dto/errors.js";
 import { ExecutionOperation } from "../core/observability.js";
 import type { ExecutionRequest } from "./run-events.js";
@@ -72,6 +78,18 @@ function reject(path: string, reason: string): never {
   throw new DtoValidationError("ResumeRequest", [{ path, reason }]);
 }
 
+/**
+ * Reading free-text replies, loaded with the first one (#205: the root import stays lean, like
+ * tracing and MCP): the reader is built once, on the app's run deps.
+ */
+export function lazyReplyAnswering(deps: AppDeps): ReplyAnswering {
+  let loaded: Promise<ReplyAnswering> | undefined;
+  return async (...call) => {
+    loaded ??= import("./reply-answer.js").then((module) => module.replyAnsweringFor(deps));
+    return (await loaded)(...call);
+  };
+}
+
 /** What recording an answer needs from the workflow's app. */
 export interface AnswerParts {
   readonly pauses: PausedExecutionRepository;
@@ -86,6 +104,8 @@ export interface AnswerParts {
   readonly replies: ReplyAnswering;
   /** The application's clock: when the pause was resolved. */
   readonly clock: Clock;
+  /** The execution records: who answered is written there (#267 S107). */
+  readonly answers: PauseAnswerLog;
 }
 
 /** A recorded answer: the pause now `Resolved`, and its tree's run as it rests (if it rests). */
@@ -200,6 +220,7 @@ export async function recordAnswer(
     at,
   );
   if (resolved === undefined) throw notPaused(pause.pauseId);
+  await logPauseAnswer(parts.answers, resolved, PauseResolution.Replied);
   return { pause: resolved, run };
 }
 

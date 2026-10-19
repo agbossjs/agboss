@@ -3,6 +3,7 @@ import { redactedArguments } from "../../dto/redact.js";
 import type { ToolCallApprovalAskDto } from "../../dto/standard/framework.js";
 import type { AnyTool } from "../../tools/index.js";
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
+import type { PauseAnswerLog } from "../../infrastructure/pause-record.js";
 import { ChannelOutcomeKind, isChannelOutcome } from "../../channels/channel-outcome.js";
 import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import { currentFrame } from "../../flow/context/frame.js";
@@ -40,6 +41,8 @@ export interface ApprovalChannels {
   readonly channelOf?: (channelName: string) => PauseChannel;
   /** The application's pauses; absent for an agent loop run on its own (no records, no ids). */
   readonly pauses?: PausedExecutionRepository;
+  /** Where a pause its channel decided at once is logged (with `pauses`). */
+  readonly answers?: PauseAnswerLog;
   readonly observer?: ExecutionObserverManager;
   /** The application's clock: when each pause was asked and decided (default: the system's). */
   readonly clock?: Clock;
@@ -84,7 +87,7 @@ export function pauseSeamApproval(channels: ApprovalChannels = {}): ToolCallAppr
     requestApproval: async (ask, agent, tool, signal) => {
       const channel = tool.channel ?? "";
       const shown = shownAsk(ask, tool);
-      const { observer, pauses, channelOf } = channels;
+      const { observer, pauses, answers, channelOf } = channels;
       const clock = channels.clock ?? systemClock;
       const validate = (decision: unknown): unknown => validDecisionOf(decision, tool);
       const frame = currentFrame();
@@ -93,10 +96,22 @@ export function pauseSeamApproval(channels: ApprovalChannels = {}): ToolCallAppr
           observer?.onChannelStart({ ...base, name: channel, input: shown.arguments }),
         );
       const answer =
-        pauses === undefined || frame === undefined || channelOf === undefined
+        pauses === undefined ||
+        answers === undefined ||
+        frame === undefined ||
+        channelOf === undefined
           ? await interruptedAnswer(channels, shown, channel, signal)
           : await pauseStep(
-              { pauses, channel: channelOf(channel), frame, signal, clock, validate, onSend },
+              {
+                pauses,
+                answers,
+                channel: channelOf(channel),
+                frame,
+                signal,
+                clock,
+                validate,
+                onSend,
+              },
               { agent, ask: shown },
             );
       await reportNodeEvent((base) =>

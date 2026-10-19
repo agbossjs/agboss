@@ -1,7 +1,7 @@
 import type { Class } from "../../components/injection.js";
 import { componentOf } from "../../components/metadata.js";
 import { channelRoleOf } from "../../channels/channel-role.decorator.js";
-import { replyInterpreterOf } from "../../channels/reply-interpreter.js";
+import { replyInterpreterOf } from "../../channels/channel-role.decorator.js";
 import { channelUsesOf, type ChannelUse } from "../../channels/discovery.js";
 import type { DtoClass } from "../../dto/types.js";
 import {

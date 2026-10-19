@@ -2,7 +2,7 @@ import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
 import { channelRoleOf } from "./channel-role.decorator.js";
-import { replyInterpreterViolations } from "./reply-interpreters.js";
+import { replyInterpreterViolations } from "./discovery.js";
 import {
   channelNameOf,
   channelUsesOf,

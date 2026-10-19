@@ -1,5 +1,5 @@
 import type { AssembledApplication } from "../application/assemble.js";
-import type { AssembledReplyInterpreter } from "../channels/reply-interpreters.js";
+import type { AssembledReplyInterpreter } from "../channels/discovery.js";
 import type { Class } from "../components/injection.js";
 import { NodeKind } from "../flow/ast.js";
 import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";

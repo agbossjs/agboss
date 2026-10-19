@@ -249,8 +249,7 @@ class TreeMover implements TreeMoves {
     await this.parts.trees.deleteAllInTree(treeOf(state));
     this.parts.deps.branchErrors?.forgetExecution(state.runId);
     const { pause } = this.parts.deps;
-    if (pause !== undefined)
-      await withdrawPauses(pause.pauses, treeOf(state), this.parts.clock.now());
+    if (pause !== undefined) await withdrawPauses(pause, treeOf(state), this.parts.clock.now());
   }
 }
 

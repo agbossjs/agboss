@@ -118,7 +118,7 @@ export {
   type ReplyInterpreterDecorator,
   type ReplyInterpreterHandler,
   type ReplyInterpreterOptions,
-} from "../channels/reply-interpreter.js";
+} from "../channels/channel-role.decorator.js";
 export { TerminalUserChannel } from "../channels/terminal-channel.js";
 export { AutoApproveChannel, AutoRejectChannel } from "../channels/test-channels.js";
 export {

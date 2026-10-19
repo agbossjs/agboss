@@ -9,7 +9,7 @@ import {
   toVersionScore,
 } from "./schema.js";
 import { configMethods } from "./configs.js";
-import { ternWrites } from "./writes.js";
+import { pauseAnswerWrites, ternWrites } from "./writes.js";
 import { memoryMethods } from "./summaries.js";
 import { threadMethods, type NewThreadId } from "./threads.js";
 import type { Tern, TernStore } from "./types.js";
@@ -141,6 +141,7 @@ function ternStoreOn(db: DatabaseSync, now: Now, newThreadId: NewThreadId): Tern
   return {
     ...threadMethods(db, now, newThreadId),
     ...ternWrites(db, now),
+    ...pauseAnswerWrites(db),
     ...ternReads(rows),
     ...statusReads(rows),
     ...scoreMethods(db, now),

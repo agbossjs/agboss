@@ -24,7 +24,7 @@ function launchDepsOf(
       ...(deps.arbiterModelFor === undefined ? {} : { modelOf: deps.arbiterModelFor }),
     },
     ...(checkpointer === undefined ? {} : { checkpointer }),
-    ...(deps.pause === undefined ? {} : { pauses: deps.pause.pauses }),
+    ...(deps.pause === undefined ? {} : { pauses: deps.pause }),
     ...(deps.branchErrors === undefined ? {} : { branchErrors: deps.branchErrors }),
     ...(deps.branchScheduler === undefined ? {} : { scheduler: deps.branchScheduler }),
   };

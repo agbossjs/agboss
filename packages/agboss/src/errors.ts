@@ -61,7 +61,7 @@ export { PauseAnswererError, UnknownPauseError } from "./app/resume.js";
 export {
   ReplyInterpreterMissingError,
   UninterpretableReplyError,
-} from "./channels/reply-interpreter.js";
+} from "./channels/channel-role.decorator.js";
 export { InvalidThreadIdError, ThreadOwnerError, UnknownThreadError } from "./run/thread.js";
 export {
   DecisionError,

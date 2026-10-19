@@ -6,9 +6,11 @@ import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { describe, expect, it } from "vitest";
 import { replyAnsweringOf, type ReplyAnsweringParts } from "../../src/app/reply-answer.js";
 import type { ReplyCall, ReplyReading } from "../../src/channels/reply-reader.js";
-import { UninterpretableReplyError } from "../../src/channels/reply-interpreter.js";
+import { UninterpretableReplyError } from "../../src/channels/channel-role.decorator.js";
 import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { PauseStatus, type PauseRecord } from "../../src/infrastructure/pause-record.js";
+import { PiiPolicySet } from "../../src/pii/policy-set.js";
+import { testFrame } from "../helpers/frame.js";
 
 class TraceHandler extends BaseCallbackHandler {
   name = "trace-handler";
@@ -40,7 +42,9 @@ const handler = new TraceHandler();
 const traced = new Array<unknown>();
 const parts: ReplyAnsweringParts = {
   workflow: "desk-workflow",
-  treeBudgetsOf: () => Promise.resolve([]),
+  treeStateOf: () => Promise.resolve({}),
+  frameOf: () => Promise.resolve(testFrame()),
+  piiOf: () => ({ policies: new PiiPolicySet([], ""), known: {} }),
   tracing: {
     callbacks: (context: unknown) => {
       traced.push(context);

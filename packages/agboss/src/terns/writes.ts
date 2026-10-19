@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
+import { z } from "zod";
 import type { Tern, TernOutcome, TernStore } from "./types.js";
 
 /** The current time (the application's clock, given by the caller). */
@@ -16,6 +17,32 @@ const outcomeParams = (o: TernOutcome): SQLInputValue[] => [
   JSON.stringify(o.steps),
   o.costUsd,
 ];
+
+const PauseAnswerRow = z.object({ record: z.string() });
+
+/** The pause answer log (#267 S107): an entry kept once per pause, read per tree in the order asked. */
+export function pauseAnswerWrites(
+  db: DatabaseSync,
+): Pick<TernStore, "appendPauseAnswer" | "pauseAnswersOf"> {
+  return {
+    appendPauseAnswer: (entry) => {
+      db.prepare(
+        `INSERT OR IGNORE INTO pause_answers (tenant_id, root_execution_id, step_key, asked_at, record)
+         VALUES (?, ?, ?, ?, ?)`,
+      ).run(entry.tenantId, entry.rootExecutionId, entry.stepKey, entry.askedAt, entry.record);
+      return Promise.resolve();
+    },
+    pauseAnswersOf: (tenantId, rootExecutionId) => {
+      const rows = db
+        .prepare(
+          `SELECT record FROM pause_answers WHERE tenant_id = ? AND root_execution_id = ?
+           ORDER BY asked_at, rowid`,
+        )
+        .all(tenantId, rootExecutionId);
+      return Promise.resolve(rows.map((row) => PauseAnswerRow.parse(row).record));
+    },
+  };
+}
 
 /** Appending a Tern and completing it — unconditionally, or only from an expected status (#265 S66 h). */
 export function ternWrites(

@@ -36,6 +36,7 @@ import {
   treasuryPauses,
 } from "../flow/fixtures/replies.fixture.js";
 import { execute } from "../helpers/flow.js";
+import { requestText } from "../pii/boundary.helpers.js";
 
 const test = testWith(TreasuryApplication);
 
@@ -86,6 +87,53 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
       input: expect.stringMatching(/"amountCents": 1000[\s\S]*### reply\n"ok, but only half"/),
       system: expect.stringContaining("Decide approve / refuse and any changed amount."),
     });
+  });
+
+  test("its model reads the reply through the PII policies; its answer is revealed before validation", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
+    const interpreter = mockLlm(PayoutReplyInterpreter);
+    interpreter.thenAnswer((request) => {
+      // the model sees the phone number as a token only, and answers with that token
+      const [token = ""] = /<phone:[0-9a-f]+>/.exec(requestText(request)) ?? [];
+      return replyWith(ToolCallApprovalDecisionDto, {
+        approved: true,
+        overrideArguments: { payee: token, amountCents: 1000 },
+      });
+    });
+    await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
+
+    await app.resume(
+      { pauseId: payoutPauseId(), reply: "yes, but pay +1 555 123 4567 instead" },
+      manager,
+    );
+
+    const seen = requestText(interpreter.onlyRequest);
+    expect(seen).toMatch(/pay <phone:[0-9a-f]+> instead/);
+    expect(seen).not.toContain("555 123");
+    expect(replyDesk.payouts).toEqual([{ payee: "+1 555 123 4567", amountCents: 1000 }]);
+  });
+
+  test("an answer with a token no map knows is unreadable: the pause stays pending", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
+    mockLlm(PayoutReplyInterpreter).thenReturn(
+      replyWith(ToolCallApprovalDecisionDto, {
+        approved: true,
+        overrideArguments: { payee: "<phone:0123456789ab>", amountCents: 1000 },
+      }),
+    );
+    await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
+
+    const resumed = app.resume({ pauseId: payoutPauseId(), reply: "pay the other one" }, manager);
+
+    await expect(resumed).rejects.toBeInstanceOf(UninterpretableReplyError);
+    const stored = await treasuryPauses().findByTenantIdAndPauseId("default", payoutPauseId());
+    expect(stored?.status).toBe(PauseStatus.Pending);
   });
 
   test("its call is in the execution's spend and the tenant's ledger, each once", async ({
@@ -225,6 +273,32 @@ describe("#267 AC8: a code interpreter reads a reply", () => {
 
     expect(done).toFinishWith(TreasuryWorkflowFinish, { text: "Booked." });
     expect(replyDesk.expenses).toEqual(["lunch"]);
+  });
+
+  test("it reads in the pause's execution frame: its tenant, owner and waiting step", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(TreasurerAgent).thenReturn(
+      callTool(BookExpenseTool, { purpose: "lunch" }),
+      replyWith("Booked."),
+    );
+    const owner = { ownerId: "alice", tenantId: "acme" };
+    const paused = await execute(
+      app,
+      TreasuryWorkflowStart,
+      { text: "book lunch" },
+      { ownerId: "alice", tenant: { tenantId: "acme" } },
+    );
+
+    await app.resume(
+      { pauseId: paused.pending[0]?.pauseId ?? "", reply: '{"approved":true}' },
+      owner,
+    );
+
+    expect(replyDesk.readings).toEqual([
+      { tenantId: "acme", ownerId: "alice", nodeId: "treasurer-agent", callId: "call-1" },
+    ]);
   });
 
   test("a reply it declines (it throws): UninterpretableReplyError, the pause stays pending", async ({

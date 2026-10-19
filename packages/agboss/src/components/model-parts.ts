@@ -4,7 +4,7 @@ import { resolvedModelProvidersOf, type WorkflowModels } from "../models/resolut
 import type { AssembledPii } from "../pii/assembly.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import type { Provider } from "./injection.js";
-import type { AssembledReplyInterpreter } from "../channels/reply-interpreters.js";
+import type { AssembledReplyInterpreter } from "../channels/discovery.js";
 
 /**
  * The workflow's model arbiters (#279), its reply interpreters (#267) and its model providers,
