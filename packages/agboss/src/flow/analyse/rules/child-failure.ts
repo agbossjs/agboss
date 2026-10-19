@@ -2,7 +2,7 @@ import type { Class } from "../../../components/injection.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import { NodeKind } from "../../ast.js";
 import { declarationOf } from "../../decorators/declaration.js";
-import { EdgeKind, reachableFrom, type FlowLaunch } from "../flow-graph.js";
+import { childClassOf, EdgeKind, reachableFrom, type FlowLaunch } from "../flow-graph.js";
 import { launchLabel } from "../join-groups.js";
 import { walkFlow } from "../walk.js";
 import type { AnalysisContext } from "./context.js";
@@ -18,7 +18,7 @@ import type { AnalysisContext } from "./context.js";
 function hasFailureFinish(workflow: Class): boolean {
   const declaration = declarationOf(workflow);
   if (declaration?.kind !== NodeKind.Workflow) return true;
-  const { graph } = walkFlow(declaration.options.flow);
+  const { graph } = walkFlow(declaration.options.flow, workflow);
   const caught = graph.edges
     .filter((edge) => edge.kind === EdgeKind.Error || edge.kind === EdgeKind.JoinError)
     .map((edge) => edge.to);
@@ -31,7 +31,7 @@ function launchWarnings(context: AnalysisContext, launch: FlowLaunch): readonly 
   if (launch.targetKind !== NodeKind.Workflow) return [];
   return launch.branches.flatMap((branch) => {
     const child = context.graph.nodes.get(branch.node);
-    if (child === undefined || hasFailureFinish(child.component)) return [];
+    if (child === undefined || hasFailureFinish(childClassOf(child))) return [];
     const message =
       `${launchLabel(launch)}: ${child.name} has no finish reachable from an .onError side path — ` +
       "one failed item will cancel all the others (FailFast); to skip failed items, catch errors " +

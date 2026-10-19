@@ -65,11 +65,11 @@ In `examples/job-scout/` (each is `agboss <command> --workflow src/job-scout.wor
 takes `--profile <name>` (`profiles/<workflow>/<name>.yaml`) and `--thread <id>`.
 
 In `examples/flow-patterns/` (#295; scripted tests only, no model key): `npm run check` (`agboss
-check` on its five workflows) · `npm run describe -- --workflow src/offer/offer.workflow.ts` (the
+check` on its six workflows) · `npm run describe -- --workflow src/offer/offer.workflow.ts` (the
 review loop), `src/credit/credit.workflow.ts` (a code router) or `src/review/review.workflow.ts`
 (parallel launches in waves, #273), `src/panel/panel.workflow.ts` (a quorum with a code and a model
-arbiter, #279), `src/vendor/vendor-screening.workflow.ts` (a child workflow per vendor, #263) ·
-`npm test`.
+arbiter, #279), `src/vendor/vendor-screening.workflow.ts` (a child workflow per vendor, #263),
+`src/topic/topic-research.workflow.ts` (a workflow launching itself, #264) · `npm test`.
 
 ## Architecture
 
@@ -446,6 +446,27 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   (and `result.record.children`) are the nested records — `ChildExecutionStatus`, start and input,
   finish and output or error, path, own spend, own children; `result.handledErrors` the failures
   a side path took; observer events carry `parentExecutionId` / `rootExecutionId`.
+- **Recursion (#264):** `ThisWorkflow` — a marker for the enclosing workflow (a decorator's
+  arguments are evaluated before its class exists) — is a child like any other: `.toWorkflow(ThisWorkflow)`,
+  `route(ThisWorkflow)`, `.toParallelWorkflows(ThisWorkflow, { maxItems })`, the node `this-workflow`
+  (one class = one node; its own path `workflow(ThisWorkflow)…` from two places). It is the workflow's
+  own compiled graph, run from the registry — never its own subgraph (Studio: a node marked
+  `recursive: maxDepth N`). `@Workflow({ maxDepth })` is required (`[graph.recursion-without-depth]`);
+  `executionContext.depth` is 1 at the root, each child record has its `depth`, the last level is
+  `depth === maxDepth` — no model sees the depth, a domain level is an `input` field (`TopicDto.level`).
+  The **soft stop** on the last level: of a branch (`.switch` / `.chooseOne`) the options whose path
+  launches `ThisWorkflow` before the next branch are not offered — an agent's variants leave its
+  response schema (a second cache prefix for that level), a model router's routes are hidden, a code
+  router returning one is `RouterDecisionError`; each such branch keeps one that does not recurse
+  (`[graph.recursion-without-exit]`). A launch decided by code or data past `maxDepth` does not start:
+  `ChildExecutionFailedError` caused by `DepthLimitExceededError` (`limit.depth`: `workflow`,
+  `maxDepth`, `depth`; a refused child record with an empty path) — `.onError(LimitExceededError, …)`
+  right after the launch, `.onJoinError(…)` after a per-item join. Only direct recursion
+  (`[graph.mutual-recursion]`, also for a class undefined by a circular import). Each level has its own
+  `maxSteps`; the root's budgets count the tree. `agboss describe`: `recursive: ThisWorkflow, maxDepth
+3, on the last level: researcher-agent → TopicReportDto only`, a list's producers `this-workflow ×0–5`.
+  `ThisWorkflow` is typed once per project: recursive workflows with different finish classes fail type
+  generation (`[types.this-workflow-outputs]`).
 - **Quorums (#279):** after `.toParallelAgents(…)` a join may count answers instead of waiting for
   all — `.joinQuorum({ min, max, deadline })` (options always an object; `max` defaults to `min`,
   `deadline` in units: `seconds()`, `minutes()`, `hours()`) or `.joinQuorumGroups(group(A, B)
@@ -1353,7 +1374,7 @@ today; tenant-daily-budget allows $40`).
   `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`ActionFailedError`, the
   action's error as `cause`) / `step.guard` / `step.router` ⊃ `step.router.invalid-decision` /
   `step.arbiter` (`ArbiterError`) / `step.quorum` (`QuorumNotReachedError`, #279) /
-  `step.child` (`ChildExecutionFailedError`, #263),
+  `step.child` (`ChildExecutionFailedError`, #263), `limit.depth` (`DepthLimitExceededError`, #264),
   `execution.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
   `app.close()`, an `onExecutionRejected`, …); a new error
   class gets a `static code`. `.onError` matches by class, so a subclass is caught by its parent's
@@ -1418,7 +1439,7 @@ entries. A public surface change updates the api-extractor reports (`npm run api
 (`.suppressions.json`), the generated `.agboss/types.d.ts` of the framework's test fixtures
 (`npm run check:types`, #272 — before lint and `tsc`), build, the API reports, **compiled docs**,
 prettier, ESLint, `tsc` (tests included; the examples' types written first), tests with coverage,
-`agboss check --strict` on flow-patterns' five workflows (warnings are errors) and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
+`agboss check --strict` on flow-patterns' six workflows (warnings are errors) and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
 every ` ```ts ` block of README, CLAUDE, QUALITY and WORKFLOW (and `docs/`) against the built
 package — a doc whose snippets declare a `@Workflow` gets its `.agboss/types.d.ts` written first —
 and check that every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention — and every
@@ -1562,7 +1583,7 @@ examples/job-scout/          the example (package job-scout-example; depends on 
 examples/flow-patterns/      the flow's patterns (package flow-patterns-example, #295): src/offer/ (a review loop),
                     src/credit/ (a code router beside a model router), src/review/ (parallel launches
                     in waves, #273), src/panel/ (a quorum, #279), src/vendor/ (a child workflow per
-                    item, #263), one *.workflow.ts each; tests/
+                    item, #263), src/topic/ (recursion, #264), one *.workflow.ts each; tests/
 scripts/        the gate's checks (check-root, check-suppressions, check-docs + docs/, api-report,
                 public-entries, eslint-agboss-plugin: eslint-component-state + eslint-direct-time),
                 bootstrap-repo, bootstrap-labels, ticket, wiki,

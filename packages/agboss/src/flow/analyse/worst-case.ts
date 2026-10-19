@@ -72,6 +72,19 @@ interface ChildrenCase {
   readonly parts: readonly string[];
 }
 
+/** Where an execution stands in its tree: the workflows above it, its own, its depth from 1. */
+interface Place {
+  readonly above: readonly Class[];
+  readonly self?: Class;
+  readonly depth: number;
+}
+
+/** The count limits of a workflow (`@Workflow({ maxSteps, maxDepth })`). */
+export interface Limits {
+  readonly maxSteps?: number;
+  readonly maxDepth?: number;
+}
+
 const NO_CHILDREN: ChildrenCase = { executions: 0, concurrentExecutions: 0, depth: 0, parts: [] };
 
 /** How many children an edge into a child starts, and how many of them at once. */
@@ -83,28 +96,43 @@ function widthOf(edge: FlowEdge): { readonly count: number; readonly atOnce: num
 }
 
 /** The worst case of one execution of a child workflow: its worst start's. */
-function childCaseOf(workflow: Class, above: readonly Class[]): WorstCase | undefined {
+function childCaseOf(workflow: Class, at: Place): WorstCase | undefined {
   const declaration = declarationOf(workflow);
-  if (declaration?.kind !== NodeKind.Workflow || above.includes(workflow)) return undefined;
-  const { graph } = walkFlow(declaration.options.flow);
-  const cases = worstCasesBelow(graph, declaration.options.maxSteps, [...above, workflow]);
+  if (declaration?.kind !== NodeKind.Workflow || at.above.includes(workflow)) return undefined;
+  const { graph } = walkFlow(declaration.options.flow, workflow);
+  const below = { above: [...at.above, workflow], self: workflow, depth: at.depth + 1 };
+  const cases = worstCasesBelow(graph, declaration.options, below);
   return cases.reduce<WorstCase | undefined>(
     (worst, next) => (worst === undefined || next.executions > worst.executions ? next : worst),
     undefined,
   );
 }
 
-/** Every child execution one call of `start` can launch (#263). */
+/**
+ * The worst case of `ThisWorkflow` (#264): the workflow again, one level deeper — none from its
+ * last level (`maxDepth`), where a recursive launch is never offered or fails before it starts.
+ */
+function recursiveCaseOf(at: Place, maxDepth: number | undefined): WorstCase | undefined {
+  const { self } = at;
+  if (self === undefined || maxDepth === undefined || at.depth >= maxDepth) return undefined;
+  return childCaseOf(self, { ...at, above: at.above.filter((above) => above !== self) });
+}
+
+/** Every child execution one call of `start` can launch (#263), itself included (#264). */
 function childrenFrom(
   graph: FlowGraph,
   start: ComponentName,
-  above: readonly Class[],
+  at: Place,
+  limits: Limits,
 ): ChildrenCase {
   const reached = reachableFrom([start], graph.edges);
   return graph.edges.reduce<ChildrenCase>((total, edge) => {
     const node = graph.nodes.get(edge.to);
     if (!reached.has(edge.from) || node?.kind !== NodeKind.Workflow) return total;
-    const child = childCaseOf(node.component, above);
+    const child =
+      node.recursionOf === undefined
+        ? childCaseOf(node.component, at)
+        : recursiveCaseOf(at, limits.maxDepth);
     if (child === undefined) return total;
     const { count, atOnce } = widthOf(edge);
     return {
@@ -123,12 +151,13 @@ function childrenFrom(
 function worstCaseFrom(
   graph: FlowGraph,
   start: ComponentName,
-  maxSteps: number,
-  above: readonly Class[],
+  at: Place,
+  limits: Limits,
 ): WorstCase {
+  const maxSteps = maxStepsOf(graph, limits.maxSteps);
   const most = mostStepsFrom(graph, start);
   const isCapped = most === undefined || most > maxSteps;
-  const children = childrenFrom(graph, start, above);
+  const children = childrenFrom(graph, start, at, limits);
   const parts = [
     ...launchesFrom(graph, start).flatMap(launchParts),
     ...children.parts,
@@ -144,19 +173,18 @@ function worstCaseFrom(
   };
 }
 
-/** The worst cases of a workflow below the workflows `above` it. */
-function worstCasesBelow(
-  graph: FlowGraph,
-  maxSteps: number | undefined,
-  above: readonly Class[],
-): readonly WorstCase[] {
-  const limit = maxStepsOf(graph, maxSteps);
-  return graph.starts.map((start) => worstCaseFrom(graph, start, limit, above));
+/** The worst cases of a workflow at a place in the tree. */
+function worstCasesBelow(graph: FlowGraph, limits: Limits, at: Place): readonly WorstCase[] {
+  return graph.starts.map((start) => worstCaseFrom(graph, start, at, limits));
 }
 
-/** The worst case of one call of each start of a workflow. */
-export function worstCasesOf(graph: FlowGraph, maxSteps: number | undefined): readonly WorstCase[] {
-  return worstCasesBelow(graph, maxSteps, []);
+/** The worst case of one call of each start of a workflow (`self`, at the root: depth 1). */
+export function worstCasesOf(graph: FlowGraph, limits: Limits, self?: Class): readonly WorstCase[] {
+  return worstCasesBelow(graph, limits, {
+    above: [],
+    ...(self === undefined ? {} : { self }),
+    depth: 1,
+  });
 }
 
 /** The start log's line (#261): `Worst case of one x-workflow-start call: 1 workflow execution, …`. */

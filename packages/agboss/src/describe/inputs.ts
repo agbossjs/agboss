@@ -4,6 +4,7 @@ import { entryLabel, startLabel } from "../flow/analyse/rules/children.js";
 import { NodeKind } from "../flow/ast.js";
 import type { ResolvedField } from "../flow/analyse/fields.js";
 import { aboutLabel, shapeLabel } from "../flow/analyse/labels.js";
+import { launchCounts } from "./launch-counts.js";
 import { quorumCounts } from "./quorum-counts.js";
 
 /**
@@ -49,7 +50,11 @@ export function inputLines(analysis: FlowAnalysis): readonly string[] {
       const producers = new Set(
         shapes.flatMap((shape) => shape.find((item) => item.name === field.name)?.producers ?? []),
       );
-      return fieldText(field, [...producers].sort(), quorumCounts(analysis, node, field));
+      const counts = new Map([
+        ...quorumCounts(analysis, node, field),
+        ...launchCounts(analysis, node, field),
+      ]);
+      return fieldText(field, [...producers].sort(), counts);
     });
     return [`${node} ← ${texts.join(", ")}`];
   });

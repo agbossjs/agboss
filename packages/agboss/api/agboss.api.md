@@ -792,6 +792,7 @@ export class ChildExecutionFailedError extends StepFailedError {
 // @public
 export interface ChildExecutionRecord {
     readonly children: readonly ChildExecutionRecord[];
+    readonly depth: number;
     readonly error?: ErrorRecord;
     readonly executionId: string;
     readonly finish?: ComponentRecord;
@@ -1114,6 +1115,18 @@ export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readon
     readonly pseudonymKey?: Secret;
     // (undocumented)
     readonly rules: readonly [PiiRule, ...PiiRule[]];
+}
+
+// @public
+export class DepthLimitExceededError extends LimitExceededError {
+    constructor(workflow: WorkflowRecord, maxDepth: number, path: readonly string[]);
+    // (undocumented)
+    static readonly code: string;
+    readonly depth: number;
+    readonly maxDepth: number;
+    // (undocumented)
+    name: string;
+    readonly workflow: WorkflowRecord;
 }
 
 // Warning: (ae-forgotten-export) The symbol "DescribedEnvironment" needs to be exported by the entry point index.d.ts
@@ -3448,7 +3461,7 @@ export interface Routes {
 }
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "model.unserved" | "model.ambiguous-provider" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model";
+export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "types.this-workflow-outputs" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "model.unserved" | "model.ambiguous-provider" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model";
 
 // @public
 export interface RuleViolation {
@@ -3871,6 +3884,12 @@ export class TerminalUserChannel {
     readonly [agbossComponent]?: "terminal-user-channel";
     // (undocumented)
     send(ask: ChannelAsk<TerminalUserChannel>): Promise<ChannelOutcome<TerminalUserChannel>>;
+}
+
+// @public
+export class ThisWorkflow {
+    // (undocumented)
+    readonly [agbossComponent]?: "this-workflow";
 }
 
 // @public
@@ -4749,6 +4768,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/returns-types.ts:145:3 - (ae-undocumented) Missing documentation for "returns".
 // src/flow/runtime/child-errors.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/child-errors.ts:14:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/depth-limit.ts:12:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/depth-limit.ts:13:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/errors.ts:20:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/errors.ts:21:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/errors.ts:24:3 - (ae-undocumented) Missing documentation for "nodeId".
@@ -4787,6 +4808,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/router-error.ts:45:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/start-input.ts:67:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/start-input.ts:68:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/this-workflow.ts:17:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/graph/deps.ts:26:3 - (ae-undocumented) Missing documentation for "config".
 // src/graph/deps.ts:27:3 - (ae-undocumented) Missing documentation for "registry".
 // src/graph/deps.ts:32:3 - (ae-undocumented) Missing documentation for "guards".
@@ -4825,11 +4847,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/limits.ts:143:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/graph/limits.ts:144:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/graph/limits.ts:145:3 - (ae-undocumented) Missing documentation for "steps".
-// src/graph/rule-error.ts:122:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:123:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:124:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:135:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:136:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:127:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:128:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:129:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:140:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:141:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:10:3 - (ae-undocumented) Missing documentation for "build".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".

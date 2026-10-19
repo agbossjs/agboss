@@ -11,6 +11,8 @@ import { readInput } from "../scope.js";
 import { visitNumberOf } from "../step-frame.js";
 import { codeRouterLaunch } from "../launch/router-decision.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
+import { unreadyRoutesOf } from "../soft-stop.js";
+import { RecursionDecider } from "../../analyse/recursion.js";
 
 /** What a code router's class is: `route(input)` (`implements RouterHandler<Self>`). */
 interface CodeRouterInstance {
@@ -37,9 +39,19 @@ function answerLabel(answer: unknown): string {
  * The node id of the one target `route()` chose after `.chooseOne(…)`; anything else — a list, a
  * class outside its routes (a cast) — is `RouterDecisionError`.
  */
-function chosenRoute(node: RuntimeNode, step: RouterVisit, answer: unknown): string {
+function chosenRoute(
+  node: RuntimeNode,
+  step: RouterVisit,
+  answer: unknown,
+  unready: readonly string[],
+): string {
   const routes = [...node.exits.routes.keys()];
   const name = isClass(answer) ? declarationOf(answer)?.options.name : undefined;
+  if (name !== undefined && unready.includes(name))
+    throw new RouterDecisionError(
+      step,
+      `route() returned ${name}: on the last level (depth = maxDepth) a route that launches ThisWorkflow is not ready`,
+    );
   if (name !== undefined && node.exits.routes.has(name)) return name;
   const why = Array.isArray(answer)
     ? "after .chooseOne(…) it returns one target, not a list"
@@ -81,7 +93,12 @@ export function codeRouterRunner(node: RuntimeNode, deps: GraphDeps<string>): No
       await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
       return { launch, read: input.read };
     }
-    const route = chosenRoute(node, step, answer);
+    const route = chosenRoute(
+      node,
+      step,
+      answer,
+      unreadyRoutesOf(deps.graph, node.id, RecursionDecider.CodeRouter),
+    );
     const update = { route, reason: "decided by code" };
     await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
     return { route, read: input.read };

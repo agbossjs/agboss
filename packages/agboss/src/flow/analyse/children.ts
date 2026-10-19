@@ -5,7 +5,7 @@ import type { ComponentName } from "../registry.js";
 import { childWorkflowOf, type ChildStart, type ChildWorkflow } from "./child-workflow.js";
 import { statesOf, type Dataflow, type ScopeState } from "./dataflow.js";
 import type { ResolvedField } from "./fields.js";
-import { EdgeKind, type FlowEdge, type FlowGraph } from "./flow-graph.js";
+import { childClassOf, EdgeKind, type FlowEdge, type FlowGraph } from "./flow-graph.js";
 import { shapeLabel } from "./labels.js";
 import { stepOf } from "./launches.js";
 import {
@@ -87,7 +87,7 @@ export function childEntriesOf(graph: FlowGraph): readonly ChildEntry[] {
   return graph.edges.flatMap((edge): readonly ChildEntry[] => {
     const node = graph.nodes.get(edge.to);
     if (node?.kind !== NodeKind.Workflow) return [];
-    const child = childWorkflowOf(node.component);
+    const child = childWorkflowOf(childClassOf(node));
     if (child === undefined) return [];
     const value = valueOf(edge);
     const isPerItem = edge.kind === EdgeKind.Launch && edge.launch?.items !== undefined;

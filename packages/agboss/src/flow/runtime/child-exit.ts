@@ -27,6 +27,8 @@ import { unrecordedSpendOf } from "./visit.js";
 /** A child execution as its record and its events name it. */
 export interface EndedChild {
   readonly identity: ChildIdentityRecord;
+  /** Its level in the tree, from 1 at the root (#264). */
+  readonly depth: number;
   readonly workflow: WorkflowRecord;
   readonly launchedBy: ChildLaunchRecord;
   readonly start: string;
@@ -57,6 +59,7 @@ export function childRecordOf(
     rootExecutionId: identity.rootExecutionId,
     workflow: child.workflow,
     ...(identity.itemIndex === undefined ? {} : { itemIndex: identity.itemIndex }),
+    depth: child.depth,
     launchedBy: child.launchedBy,
     start: { name: child.start },
     input: child.input,

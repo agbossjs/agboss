@@ -8,6 +8,7 @@ import { walkFlow } from "../flow/analyse/walk.js";
 import type { LoadedModule } from "../flow/analyse/rules/context.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
+import { isThisWorkflow } from "../flow/this-workflow.js";
 import { WorkflowLoadError } from "./load-errors.js";
 import { importedModules, registerTypeScript } from "./typescript.js";
 
@@ -32,7 +33,9 @@ export interface FlowLoadOptions {
 }
 
 const isFlowWorkflow = (value: unknown): value is Class =>
-  typeof value === "function" && declarationOf(value as Class)?.kind === NodeKind.Workflow;
+  typeof value === "function" &&
+  declarationOf(value as Class)?.kind === NodeKind.Workflow &&
+  !isThisWorkflow(value as Class);
 
 const isApplication = (value: unknown): value is Class =>
   typeof value === "function" && applicationDeclarationOf(value as Class) !== undefined;
@@ -45,7 +48,7 @@ function componentFiles(workflows: readonly Class[]): readonly string[] {
   return withChildWorkflows(workflows).flatMap((workflow) => {
     const declaration = declarationOf(workflow);
     if (declaration?.kind !== NodeKind.Workflow) return [];
-    const { nodes } = walkFlow(declaration.options.flow).graph;
+    const { nodes } = walkFlow(declaration.options.flow, workflow).graph;
     return [...nodes.values()].flatMap((node) =>
       node.declaration.source === undefined ? [] : [node.declaration.source],
     );

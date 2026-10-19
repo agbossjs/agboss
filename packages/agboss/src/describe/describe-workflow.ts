@@ -7,6 +7,7 @@ import { isDecisionModel } from "../graph/router-model.js";
 import { NodeKind } from "../flow/ast.js";
 import { isCodeRouterNode } from "../flow/runtime/graph-model.js";
 import { aboutLines, childLines, inputLines } from "./inputs.js";
+import { recursionLines } from "./recursion.js";
 import { agentDefaultsLine, routerModelSource } from "./defaults.js";
 import { configSnapshot } from "../run/versions.js";
 import { shortVersion, versionOf } from "../terns/index.js";
@@ -93,6 +94,7 @@ function flowSection(bundle: AssembledWorkflow): string[] {
     "inputs",
     ...inputLines(bundle.graph.analysis).map((line) => `  ${line}`),
     ...childSection(bundle),
+    ...recursionLines(bundle.graph.analysis),
     ...aboutSection(bundle),
     "routers",
     ...routerLines(bundle),

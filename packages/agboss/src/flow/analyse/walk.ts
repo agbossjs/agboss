@@ -1,3 +1,4 @@
+import type { Class } from "../../components/injection.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import {
   NodeKind,
@@ -45,7 +46,6 @@ import { isGroupsJoin } from "./walk-quorum.js";
  */
 
 class FlowWalker implements LaunchRecorder {
-  readonly table = new NodeTable();
   readonly edges: FlowEdge[] = [];
   readonly starts: ComponentName[] = [];
   readonly mentions: Mention[] = [];
@@ -57,6 +57,8 @@ class FlowWalker implements LaunchRecorder {
   readonly joinErrorHandlers: JoinErrorSite[] = [];
   readonly quorumJoins: QuorumSite[] = [];
   readonly violations: RuleViolation[] = [];
+
+  constructor(readonly table: NodeTable) {}
 
   walkPath(path: FlowPath): void {
     const source = this.table.resolve(path.source.node, path.source.kind);
@@ -199,9 +201,9 @@ class FlowWalker implements LaunchRecorder {
 const kindOfTarget = (target: ToStep["target"]): NodeKind =>
   declarationOf(target)?.kind ?? NodeKind.Agent;
 
-/** Walks every path of a flow. */
-export function walkFlow(flow: readonly FlowPath[]): WalkedFlow {
-  const walker = new FlowWalker();
+/** Walks every path of a flow; `self` is the workflow it belongs to (`ThisWorkflow`, #264). */
+export function walkFlow(flow: readonly FlowPath[], self?: Class): WalkedFlow {
+  const walker = new FlowWalker(new NodeTable(self));
   for (const path of flow) walker.walkPath(path);
   const edges = [...walker.edges].sort((first, second) =>
     edgeKey(first).localeCompare(edgeKey(second)),

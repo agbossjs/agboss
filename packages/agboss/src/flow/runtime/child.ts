@@ -3,7 +3,7 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { GraphDeps } from "../../graph/deps.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { childWorkflowOf } from "../analyse/child-workflow.js";
-import { currentFrame, type Frame } from "../context/frame.js";
+import { currentFrame, depthOf, type Frame } from "../context/frame.js";
 import { NodeKind } from "../ast.js";
 import type { ExecutionEvent } from "../observers/execution-event.js";
 import { childEntryOf, type ChildEntry } from "./child-entry.js";
@@ -16,6 +16,7 @@ import { validStartInput } from "./start-input.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import type { WorkflowIdentity } from "./step-frame.js";
 import type { ExecutionGraph } from "./build.js";
+import { refuseBeyondMaxDepth } from "./recursion-launch.js";
 
 /**
  * A child workflow as a step of its parent (#263, S24, S37): the parent's node of `W` runs the
@@ -36,6 +37,11 @@ export interface ChildGraph {
   readonly workflow: WorkflowIdentity;
   /** The child's compiled graph, streamed inside the parent's step. */
   readonly graph: ExecutionGraph;
+  /**
+   * `ThisWorkflow` (#264): the workflow's own graph, taken from the registry when the step runs —
+   * never the node's subgraph (a graph cannot contain itself) — and held to `maxDepth`.
+   */
+  readonly isRecursive: boolean;
 }
 
 /** The parent's frame: a child runs only inside a step of its parent. */
@@ -165,11 +171,14 @@ export function childRunner(
     const workflow = { name: child.workflow.name, version: child.workflow.version };
     const ended: EndedChild = {
       identity: entered.identity,
+      depth: depthOf(frame.execution) + 1,
       workflow: { ...workflow, startedVersion: child.workflow.version },
       launchedBy: { nodeId: frame.step.nodeId, visitNumber: frame.step.visitNumber },
       start: entry.start.name,
       input,
     };
+    // a recursion launched by code past maxDepth does not start (#264): the hard stop
+    if (child.isRecursive) refuseBeyondMaxDepth(deps.graph, frame, ended, state.path);
     if (entered.isNew) await deps.observer?.onExecutionStart(eventOf(frame, ended));
     const childConfig = childConfigOf(config, run, ended);
     const initial = initialOf(state, entry, input, entered);
@@ -199,6 +208,7 @@ function childConfigOf(
       rootExecutionId: identity.rootExecutionId,
       workflowName: workflow.name,
       workflowVersion: workflow.version,
+      depth: child.depth,
       ...(identity.itemIndex === undefined ? {} : { itemIndex: identity.itemIndex }),
     },
   };
