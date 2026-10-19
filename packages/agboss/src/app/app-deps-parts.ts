@@ -8,6 +8,7 @@ import { frameworkLogOf, type FrameworkLog, type Logger } from "../infrastructur
 import type { McpConnections } from "../tools/index.js";
 import type { RunTracing } from "../tracing/index.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
+import type { GraphDeps } from "../graph/deps.js";
 import type { AssembledWorkflow, ResolvedPolicies, WorkflowServices } from "../workflow.js";
 
 /**
@@ -102,3 +103,12 @@ export const closeOf =
       await releaseOf(mcp, tracing)();
     }
   };
+
+/** What a workflow's deps take only when given: its run ids, its children's deps (#263). */
+export const optionalDepsOf = (
+  newRunId: (() => string) | undefined,
+  childDepsOf: ((workflow: Class) => GraphDeps<string> | undefined) | undefined,
+): Pick<GraphDeps<string>, "childDepsOf"> & { readonly newRunId?: () => string } => ({
+  ...(newRunId === undefined ? {} : { newRunId }),
+  ...(childDepsOf === undefined ? {} : { childDepsOf }),
+});

@@ -139,5 +139,6 @@ export function quorumNotReached(
   const record = errorRecordOf(error);
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
   if (handler === undefined) throw error;
-  return { lastError: record, next: handler.to };
+  const handled = { error: record, at: { name: ticket.launcher }, by: { name: handler.to } };
+  return { lastError: record, next: handler.to, handledErrors: [handled] };
 }

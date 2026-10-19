@@ -102,13 +102,10 @@ describe("#263: a child workflow in the AST", () => {
   });
 });
 
-describe("#263: until PR 2 a workflow with a child does not assemble", () => {
-  it("flow.child-not-runnable names the child", async () => {
-    await expect(workflowOf(JobOfferWorkflow)).rejects.toMatchObject({
-      code: "flow.child-not-runnable",
-      message:
-        "job-offer-workflow: company-review-workflow — child workflows are checked (agboss check) but run only from #263 PR 2; this version cannot execute the workflow",
-    });
+describe("#263: a workflow with a child assembles", () => {
+  it("the parent assembles with its child as a node (no flow.child-not-runnable since PR 2)", async () => {
+    const bundle = await workflowOf(JobOfferWorkflow);
+    expect(bundle.graph.nodes.get("company-review-workflow")?.kind).toBe(NodeKind.Workflow);
   });
 
   it("the child alone assembles: it is an ordinary workflow", async () => {

@@ -1,7 +1,6 @@
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
 import { codeOfErrorClass, errorMatchOf, type ErrorRecord } from "../../core/error-record.js";
-import { AGBossError } from "../../core/errors.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
 import type { ResolvedField } from "../analyse/fields.js";
 import { EdgeKind, type FlowEdge } from "../analyse/flow-graph.js";
@@ -124,32 +123,12 @@ const maxVisitsOf = (declaration: ComponentDeclaration): number | undefined =>
     ? declaration.options.maxVisits
     : undefined;
 
-/**
- * A workflow with a child workflow (#263): the analyser and `agboss check` accept it, but this
- * version's runtime runs no child yet (#263 PR 2), so assembly stops here instead of running a
- * graph without its children.
- */
-export class ChildWorkflowNotRunnableError extends AGBossError {
-  static override readonly code: string = "flow.child-not-runnable";
-}
-
-function rejectChildren(analysis: FlowAnalysis): void {
-  const [child] = [...analysis.graph.nodes.values()].filter(
-    (node) => node.kind === NodeKind.Workflow,
-  );
-  if (child === undefined) return;
-  throw new ChildWorkflowNotRunnableError(
-    `${analysis.workflow}: ${child.name} — child workflows are checked (agboss check) but run only from #263 PR 2; this version cannot execute the workflow`,
-  );
-}
-
 /** The runtime's view of an analysed workflow. */
 export function runtimeGraphOf(
   analysis: FlowAnalysis,
   flow: readonly FlowPath[],
   type: Class,
 ): RuntimeGraph {
-  rejectChildren(analysis);
   const nodes = new Map<string, RuntimeNode>();
   for (const node of analysis.graph.nodes.values()) {
     const maxVisits = maxVisitsOf(node.declaration);

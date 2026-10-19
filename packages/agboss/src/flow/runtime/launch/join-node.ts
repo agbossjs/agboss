@@ -86,12 +86,20 @@ const visitsOf = (ticket: LaunchTicket): Record<string, number> =>
 /** A failed launch: its `.onJoinError(…)` side path, else the branch's error. */
 function failedJoin(
   launch: RuntimeLaunch,
-  failed: BranchOutcomeRecord,
+  failed: { readonly record: BranchOutcomeRecord; readonly node: string },
   thrown: unknown,
 ): ExecutionStateUpdate {
-  const record = failed.error ?? { name: "Error", code: "Error", lineage: [], message: "failed" };
+  const record = failed.record.error ?? {
+    name: "Error",
+    code: "Error",
+    lineage: [],
+    message: "failed",
+  };
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
-  if (handler !== undefined) return { lastError: record, next: handler.to };
+  if (handler !== undefined) {
+    const handled = { error: record, at: { name: failed.node }, by: { name: handler.to } };
+    return { lastError: record, next: handler.to, handledErrors: [handled] };
+  }
   // the branch's error as it was thrown; read back from its record when another process ran it
   throw thrown instanceof Error ? thrown : new RecordedBranchError(record);
 }
@@ -170,7 +178,10 @@ export function joinNode(launch: RuntimeLaunch, deps: JoinDeps): GraphNode {
     const failed = records.find((record) => record.status === BranchStatus.Failed);
     const thrown = failed === undefined ? undefined : thrownOf(failed.index);
     deps.branchErrors?.forgetLaunch(ticket.launchId);
-    if (failed !== undefined) return { ...done, ...failedJoin(launch, failed, thrown) };
+    if (failed !== undefined) {
+      const node = ticket.branches[failed.index]?.node ?? ticket.launcher;
+      return { ...done, ...failedJoin(launch, { record: failed, node }, thrown) };
+    }
     const context = config === undefined ? { state, deps } : { state, config, deps };
     if (launch.quorum !== undefined)
       return { ...done, ...(await quorumJoined(launch, ticket, records, context)) };

@@ -9,6 +9,7 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { listOf, oneOf } from "../../../src/flow/dto-wrappers.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
+import { LimitExceededError } from "../../../src/graph/limits.js";
 import { childLines } from "../../../src/describe/inputs.js";
 import {
   CompanyGradeDto,
@@ -43,7 +44,7 @@ import {
   CompanyCheckWorkflow,
   CompanyScoreWorkflowFinish,
 } from "../fixtures/starts.fixture.js";
-import { agent, caseOf, route, start, toFinish } from "../fixtures/paths.js";
+import { agent, caseOf, route, start, toFinish, toWorkflow } from "../fixtures/paths.js";
 
 /** #263 PR 1 — child workflows in the analyser: the start per edge, outputs, scope, warnings. */
 
@@ -578,5 +579,58 @@ describe("#263: the child's node in the graph", () => {
     expect(analysis === undefined ? [] : childLines(analysis)).toEqual([
       "review-desk-router → solo-grade-workflow: solo-grade-workflow-start (CompanyDto)",
     ]);
+  });
+});
+
+describe("#273 S68 / S74 f: the worst case counts the child executions", () => {
+  it("per item: maxItems children, maxConcurrency of them at once, one level deeper", () => {
+    const [screening] = checkWorkflow(CompanyScreeningWorkflow).analysis?.worstCases ?? [];
+    expect(screening).toMatchObject({
+      executions: 51,
+      concurrentExecutions: 4,
+      depth: 1,
+      parts: expect.arrayContaining(["50 × company-review-workflow"]) as unknown,
+    });
+  });
+
+  it("one child: one more execution; the child alone counts only itself", () => {
+    const [offer] = checkWorkflow(JobOfferWorkflow).analysis?.worstCases ?? [];
+    const alone = checkWorkflow(CompanyReviewWorkflow).analysis?.worstCases ?? [];
+    expect(offer).toMatchObject({ executions: 2, concurrentExecutions: 2, depth: 1 });
+    expect(alone.map((worst) => worst.executions)).toEqual([1, 1]);
+  });
+
+  it("two paths into one child: each edge counts once", () => {
+    const worst = checkWorkflow(LinkOfferWorkflow).analysis?.worstCases ?? [];
+    expect(worst.map((each) => [each.start, each.executions, each.depth])).toEqual([
+      ["link-offer-workflow-start", 2, 1],
+      ["picked-offer-workflow-start", 2, 1],
+    ]);
+  });
+});
+
+describe("S85: toWorkflow(W) starts a side path", () => {
+  const handled = (error: typeof StepFailedError | typeof LimitExceededError) =>
+    picked()
+      .toAgent(SoloGraderAgent)
+      .onError(
+        error,
+        toWorkflow(SoloGradeWorkflow)
+          .returns(CompanyGradeDto)
+          .toFinish(CompanyGradedWorkflowFinish),
+      )
+      .returns(CompanyGradeDto)
+      .toFinish(CompanyGradedWorkflowFinish);
+
+  it("a step failure handled by a child: its start chosen, its result continued", () => {
+    const { analysis, errors } = checked([handled(StepFailedError)]);
+    expect(errors).toEqual([]);
+    expect(analysis === undefined ? [] : childLines(analysis)).toEqual([
+      "solo-grader-agent → solo-grade-workflow: solo-grade-workflow-start (CompanyDto)",
+    ]);
+  });
+
+  it("a side path that can catch a limit does not start a child", () => {
+    expect(codesOf([handled(LimitExceededError)])).toEqual(["graph.limit-handler-uses-model"]);
   });
 });

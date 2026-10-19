@@ -16,18 +16,18 @@ export interface ExpectedRequest {
 }
 
 /** The part of Vitest's matcher context these matchers use. */
-interface MatcherContext {
+export interface MatcherContext {
   readonly isNot: boolean;
   readonly equals: (a: unknown, b: unknown) => boolean;
 }
 
 /** A matcher's verdict; `message` reads right for both `expect(…)` and `expect(…).not`. */
-interface Verdict {
+export interface Verdict {
   readonly pass: boolean;
   readonly message: () => string;
 }
 
-const verdict = (
+export const verdict = (
   context: MatcherContext,
   pass: boolean,
   expected: string,
@@ -37,17 +37,17 @@ const verdict = (
   message: () => `expected ${context.isNot ? "not " : ""}${expected}, ${got}`,
 });
 
-const isExecutionOutput = (value: unknown): value is ExecutionOutput =>
+export const isExecutionOutput = (value: unknown): value is ExecutionOutput =>
   typeof value === "object" && value !== null && "path" in value && "threadId" in value;
 
-const wrongReceived = (matcher: string, wanted: string): Verdict => ({
+export const wrongReceived = (matcher: string, wanted: string): Verdict => ({
   pass: false,
   message: () => `${matcher}: expected ${wanted}`,
 });
 /** `critic-agent#2` → `critic-agent`: the node of a copy (#273). */
 const withoutCopyNumber = (nodeId: string): string => nodeId.replace(/#\d+$/, "");
 
-const RUN = "a run result (app.execute / app.resume)";
+export const RUN = "a run result (app.execute / app.resume)";
 const SCRIPT = "mockLlm(…) of an agent or a router";
 
 const pathText = (path: readonly string[]): string => path.join(" → ") || "(none)";

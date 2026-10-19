@@ -1,5 +1,5 @@
 import { Injectable } from "../components/decorators.js";
-import { currentFrame } from "../flow/context/frame.js";
+import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
@@ -30,9 +30,9 @@ function currentTree(field: string): ExecutionTree {
       field: "executionContext.root",
     });
   }
-  // one level until #263: the execution is its own root
-  const { tenant, executionId } = frame.execution;
-  return { tenantId: tenant.tenantId, rootExecutionId: executionId };
+  // a child's tree is its root's (#263): every execution of the request shares the keys
+  const { tenant } = frame.execution;
+  return { tenantId: tenant.tenantId, rootExecutionId: rootFactsOf(frame.execution).executionId };
 }
 
 /**

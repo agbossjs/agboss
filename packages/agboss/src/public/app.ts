@@ -145,3 +145,9 @@ export {
   type LaunchRecord,
   type QuorumGroupRecord,
 } from "../flow/runtime/launch/records.js";
+export {
+  ChildExecutionStatus,
+  type ChildExecutionRecord,
+  type ChildLaunchRecord,
+  type HandledErrorRecord,
+} from "../flow/runtime/child-records.js";

@@ -16,6 +16,7 @@ const recordOf = (run: AgentExecutionOutput): ExecutionRecord => ({
   outdatedValues: run.data.outdatedValues,
   ...(run.data.lastError === null ? {} : { lastError: run.data.lastError }),
   spend: run.cost,
+  children: run.data.children ?? [],
 });
 
 /** An execution of the core, as the app reports it. */
@@ -28,6 +29,8 @@ export function runResultOf(run: AgentExecutionOutput, withRecord: boolean): Exe
     path: run.path,
     spend: run.cost,
     launches: run.data.launches ?? [],
+    children: run.data.children ?? [],
+    handledErrors: run.data.handledErrors ?? [],
     ...(run.finish === undefined ? {} : { finish: { name: run.finish }, output: run.output }),
     pending: run.pending.map(visiblePauseOf),
     ...(run.compacted === undefined ? {} : { compacted: run.compacted }),

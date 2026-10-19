@@ -17,6 +17,7 @@ export {
   toAgent,
   toFinish,
   toRouter,
+  toWorkflow,
   workflow,
 } from "../flow/builder.js";
 export type {

@@ -14,6 +14,11 @@ import {
 import { DEFAULT_CONTEXT_VALUES, type ExecutionContextValues } from "../context/context-values.js";
 import type { OutdatedValueRecord, ScopeRecords } from "./records.js";
 import { mergeTokens, type PiiTokenMap } from "../../pii/tokens.js";
+import type {
+  ChildExecutionRecord,
+  ChildIdentityRecord,
+  HandledErrorRecord,
+} from "./child-records.js";
 
 /**
  * The state of one v2 execution (#272 → Runtime): the path scope (one record per slot; current values
@@ -21,7 +26,8 @@ import { mergeTokens, type PiiTokenMap } from "../../pii/tokens.js";
  * outdating step moves values to, the path of node ids, visits per
  * node, steps, the error an `.onError` routes on, the node chosen next, the finish and its output,
  * the launch in flight with its branches' outcome records and the launches so far (#273), plus the
- * usage, budget, memory and approval channels. Nodes return only the keys they own.
+ * usage, budget, memory and approval channels, a child's identity, the ended child executions and
+ * the handled failures (#263). Nodes return only the keys they own.
  */
 
 const replace = <TValue>(_previous: TValue, next: TValue): TValue => next;
@@ -101,6 +107,15 @@ export const ExecutionState = Annotation.Root({
    * made — tokens are deterministic, so branches merge by key; kept by a pause, a resume and recovery.
    */
   piiTokens: Annotation<PiiTokenMap>({ reducer: mergeTokens, default: () => ({}) }),
+  /**
+   * A child execution's own identity (#263 S24): made on its first entry, kept in its subgraph's
+   * state, so a re-entry after a pause or a crash reads the same id; `null` at the root.
+   */
+  child: Annotation<ChildIdentityRecord | null>({ reducer: replace, default: () => null }),
+  /** Every child execution that ended, as a nested record (`result.children`). */
+  children: Annotation<ChildExecutionRecord[]>({ reducer: append, default: () => [] }),
+  /** Every failure an `.onError` / `.onJoinError` side path took (`toHaveHandledError`). */
+  handledErrors: Annotation<HandledErrorRecord[]>({ reducer: append, default: () => [] }),
 });
 
 export type ExecutionStateType = typeof ExecutionState.State;

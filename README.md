@@ -344,7 +344,9 @@ branched by class — `.returns(oneOf(CompanyScoreDto, CompanyRejectedDto)).swit
 case per finish output class. `.toParallelWorkflows(CompanyCheckWorkflow, { maxConcurrency: 3,
 maxItems: 50 })` runs one child per item, joined as `.join().returns(listOf(oneOf(…)))`; a child
 reached from two places has its own path `workflow(W).onError(…).returns(oneOf(…)).switch(…)`.
-`agboss check` checks and types it today; it runs from #263 PR 2
+At run time each child is an execution of its own — its id, steps and `maxSteps`, no history —
+inside its parent's checkpoint and budgets; an uncaught failure of its own fails the parent's step
+with `ChildExecutionFailedError`, and `result.children` holds the nested records
 ([Wiki → Workflow-as-a-step](https://github.com/agbossjs/agboss/wiki/Workflow-as-a-step)).
 
 `npx agboss check --workflow src/job-scout.workflow.ts` writes `.agboss/types.d.ts` — what types

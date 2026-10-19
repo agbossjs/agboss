@@ -106,6 +106,7 @@ describe("AC12: the app's parts", () => {
       scope: [],
       outdatedValues: [],
       spend: run.cost,
+      children: [],
     });
   });
 

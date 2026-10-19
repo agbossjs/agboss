@@ -6,7 +6,7 @@ import { ChannelOutcomeKind, isChannelOutcome } from "../../channels/channel-out
 import type { ToolCallApprovalAskDto } from "../../dto/standard/framework.js";
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import { newPauseId, PauseStatus, type PauseRecord } from "../../infrastructure/pause-record.js";
-import type { FrameSpec } from "../context/frame.js";
+import { rootFactsOf, type FrameSpec } from "../context/frame.js";
 
 /**
  * The pause step (#267 S35): a waiting tool call is recorded by its step's idempotency key before
@@ -91,13 +91,15 @@ function newRecordOf(
     pauseId: newPauseId(),
     tenantId: execution.tenant.tenantId,
     threadId: execution.threadId,
-    rootExecutionId: execution.executionId,
+    // inside a child workflow (#263) the record belongs to the tree: its root, the child's own id
+    rootExecutionId: rootFactsOf(execution).executionId,
     executionId: execution.executionId,
     workflow: execution.workflow.name,
     stepKey: step.idempotencyKey,
     nodeId: step.nodeId,
     visitNumber: step.visitNumber,
-    itemIndex: step.itemIndex,
+    // a per-item child's own index when its step has none (#263)
+    itemIndex: step.itemIndex ?? execution.itemIndex,
     agent: question.agent,
     channel: channel.name,
     answeredBy: channel.answeredBy,

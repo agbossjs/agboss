@@ -2,6 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { ExecutionCancelledError } from "./errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { Clock, systemClock } from "../infrastructure/clock.js";
+import type { ParentExecution } from "../flow/context/frame.js";
 
 /** The id of one run (one `execute`, kept by its resumes) — not the conversation thread. */
 export type RunId = string & { readonly __brand: "RunId" };
@@ -26,6 +27,14 @@ export interface RunContext {
   readonly tenantId: string;
   /** The validated input of the workflow start the run began at (`{}` when unknown); kept by its resumes. */
   readonly input: Readonly<Record<string, unknown>>;
+  /** A child execution's place in its tree (#263): its parent and its item; absent at the root. */
+  readonly tree?: ExecutionTreePlace;
+}
+
+/** Where a child execution stands (#263): the execution and step that launched it, its item. */
+export interface ExecutionTreePlace {
+  readonly parent: ParentExecution;
+  readonly itemIndex?: number | undefined;
 }
 
 /** A run context with defaults: its own thread, the default tenant, a signal nobody aborts, no input. */

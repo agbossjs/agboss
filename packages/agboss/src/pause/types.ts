@@ -29,7 +29,7 @@ export interface PendingPause {
   readonly agent: string;
   /** The channel asked (a role's name, or a concrete `@Channel`'s). */
   readonly channel: string;
-  /** The child execution it waits in; `undefined` in the root (child executions come with #263). */
+  /** The child execution it waits in (#263); `undefined` in the root. */
   readonly childExecutionId: string | undefined;
   /** The item of a per-item launch it waits in (no copy of the item: its index is enough). */
   readonly itemIndex: number | undefined;

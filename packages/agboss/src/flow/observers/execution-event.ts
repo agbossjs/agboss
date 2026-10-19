@@ -1,5 +1,10 @@
 import type { StepDescriptor, StepRecord, WorkflowRecord } from "../context/execution-context.js";
-import { currentFrame, type ExecutionFacts, type FrameSpec } from "../context/frame.js";
+import {
+  currentFrame,
+  rootFactsOf,
+  type ExecutionFacts,
+  type FrameSpec,
+} from "../context/frame.js";
 
 /**
  * What every observer event carries (#261): one event object per hook, plain data — never the
@@ -11,7 +16,7 @@ import { currentFrame, type ExecutionFacts, type FrameSpec } from "../context/fr
 export interface ExecutionEvent {
   /** Unique per execution; the same after a resume (`result.runId`). */
   readonly executionId: string;
-  /** The parent execution; `undefined` at the root (child executions come with #263). */
+  /** The parent execution (#263); `undefined` at the root. */
   readonly parentExecutionId: string | undefined;
   /** The root execution's id; the execution's own at the root. */
   readonly rootExecutionId: string;
@@ -39,14 +44,14 @@ export const stepRecordOf = (step: StepDescriptor): StepRecord => ({
   callId: step.callId,
 });
 
-/** The execution's part of an event (one level until #263: the execution is its own root). */
+/** The execution's part of an event: a child's names its parent and its root (#263). */
 export function executionEventOf(execution: ExecutionFacts): ExecutionEvent {
   const { executionId, threadId, workflow } = execution;
   const { name, version, startedVersion } = workflow;
   return {
     executionId,
-    parentExecutionId: undefined,
-    rootExecutionId: executionId,
+    parentExecutionId: execution.parent?.execution.executionId,
+    rootExecutionId: rootFactsOf(execution).executionId,
     threadId,
     tenantId: execution.tenant.tenantId,
     workflow: { name, version, startedVersion },

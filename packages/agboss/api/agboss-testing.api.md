@@ -85,6 +85,20 @@ export interface ChatLine {
 }
 
 // @public
+export interface ChildMatchers<R = unknown> {
+    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
+    toHaveChildExecutions(workflow: Class, expected: readonly ExpectedChildExecution[]): R;
+    // Warning: (ae-forgotten-export) The symbol "ErrorClass" needs to be exported by the entry point index.d.ts
+    toHaveHandledError(error: ErrorClass, handling?: ExpectedHandling): R;
+}
+
+// @public
+export const childMatchers: {
+    toHaveChildExecutions(this: MatcherContext, received: unknown, workflow: Class, expected: readonly ExpectedChildExecution[]): Verdict;
+    toHaveHandledError(this: MatcherContext, received: unknown, error: ErrorClass, handling?: ExpectedHandling): Verdict;
+};
+
+// @public
 export type ClockDuration = `${number}${"ms" | "s" | "m" | "h" | "d"}`;
 
 // @public
@@ -119,12 +133,26 @@ export type DeepPartial<TValue> = TValue extends readonly (infer TElement)[] ? r
     readonly [TKey in keyof TValue]?: DeepPartial<TValue[TKey]>;
 } : TValue;
 
+// @public
+export interface ExpectedChildExecution {
+    readonly cancelled?: boolean;
+    readonly failedWith?: ErrorClass;
+    readonly finish?: Class;
+    readonly item?: unknown;
+}
+
 // Warning: (ae-forgotten-export) The symbol "ExpectedCause" needs to be exported by the entry point index.d.ts
 //
 // @public
 export type ExpectedErrorFields<TError extends Error> = Error extends TError ? Readonly<Record<string, unknown>> & ExpectedCause : {
     readonly [TKey in Exclude<keyof TError, "cause" | "stack">]?: DeepPartial<TError[TKey]>;
 } & ExpectedCause;
+
+// @public
+export interface ExpectedHandling {
+    readonly at?: Class;
+    readonly by?: Class;
+}
 
 // @public
 export interface ExpectedRequest {
@@ -281,8 +309,6 @@ export type ReturnedCheckOf<TSelf, TDto extends DtoClass> = IsKnown<TSelf> exten
 
 // @public
 export interface RouterSlice {
-    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     routeTo(input: string): Promise<Class>;
 }
@@ -541,7 +567,6 @@ export interface WorkflowFixtures {
 
 // @public
 export interface WorkflowMatchers<R = unknown> {
-    // Warning: (ae-forgotten-export) The symbol "ErrorClass" needs to be exported by the entry point index.d.ts
     toFailWith<TError extends Error>(error: ErrorClass<TError>, fields?: ExpectedErrorFields<TError>): R;
     // (undocumented)
     toFinishWith(finish: Class, output?: unknown): R;
@@ -577,6 +602,8 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/models/model-failure.ts:4:3 - (ae-undocumented) Missing documentation for "RateLimited".
 // src/models/model-failure.ts:5:3 - (ae-undocumented) Missing documentation for "ServerError".
 // src/models/model-failure.ts:6:3 - (ae-undocumented) Missing documentation for "NetworkError".
+// src/testing/child-matchers.ts:112:27 - (ae-forgotten-export) The symbol "MatcherContext" needs to be exported by the entry point index.d.ts
+// src/testing/child-matchers.ts:112:27 - (ae-forgotten-export) The symbol "Verdict" needs to be exported by the entry point index.d.ts
 // src/testing/errors.ts:14:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/errors.ts:15:3 - (ae-undocumented) Missing documentation for "code".
 // src/testing/errors.ts:25:12 - (ae-undocumented) Missing documentation for "name".
@@ -601,8 +628,6 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/matchers.ts:13:3 - (ae-undocumented) Missing documentation for "input".
 // src/testing/matchers.ts:14:3 - (ae-undocumented) Missing documentation for "instructions".
 // src/testing/matchers.ts:15:3 - (ae-undocumented) Missing documentation for "options".
-// src/testing/matchers.ts:79:3 - (ae-forgotten-export) The symbol "MatcherContext" needs to be exported by the entry point index.d.ts
-// src/testing/matchers.ts:79:3 - (ae-forgotten-export) The symbol "Verdict" needs to be exported by the entry point index.d.ts
 // src/testing/matchers.ts:137:3 - (ae-undocumented) Missing documentation for "toFollowPath".
 // src/testing/matchers.ts:138:3 - (ae-undocumented) Missing documentation for "toFinishWith".
 // src/testing/matchers.ts:139:3 - (ae-undocumented) Missing documentation for "toHavePausedAt".

@@ -18,6 +18,7 @@ import { TenantContext } from "../flow/context/tenant-context.js";
 import { contextTokensOf } from "../components/context-tokens.js";
 import { checkContextFields } from "../flow/context/context-rules.js";
 import { checkObservers } from "../components/observer-checks.js";
+import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 
 /**
  * The assembly of an `@Application` (#261): its own rules (names, its workflows, budgets, where the
@@ -43,7 +44,7 @@ export interface AssembledApplication {
   readonly budgets: readonly Class[];
   /** `@Application({ observers })`: every execution's observers, in the order listed. */
   readonly observers: readonly Class[];
-  /** The top-level workflows, in the order listed. */
+  /** The workflows in the order listed, then the child workflows they launch that are not listed. */
   readonly workflows: readonly AssembledWorkflow[];
   /** How long a stop waits for the running executions (`@Application({ shutdownTimeout })`). */
   readonly shutdownTimeout: Milliseconds;
@@ -154,10 +155,10 @@ export async function applicationOf(
   checkContextFields(options);
   checkObservers(options.observers ?? []);
   const own = applicationRuleViolations(application, options);
-  const modules = [applicationModule(options), ...workflowModules(options.workflows)];
-  const workflows = options.workflows.filter(
-    (workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow,
-  );
+  // a child workflow is a workflow of the application, listed or not (#263 S74 c)
+  const all = withChildWorkflows(options.workflows);
+  const modules = [applicationModule(options), ...workflowModules(all)];
+  const workflows = all.filter((workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow);
   const { assembled, errors } = await assembleWorkflows(workflows, modules, assembly, options);
   throwIfAny([...own, ...crossWorkflowViolations(assembled)], errors);
   return {

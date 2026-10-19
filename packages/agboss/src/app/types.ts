@@ -1,4 +1,5 @@
 import type { LaunchRecord } from "../flow/runtime/launch/records.js";
+import type { ChildExecutionRecord, HandledErrorRecord } from "../flow/runtime/child-records.js";
 import type { Class } from "../components/injection.js";
 import type { CostReport } from "../finops/usage.js";
 import type {
@@ -157,6 +158,14 @@ export interface ExecutionOutput<TOutput = unknown> {
    * and how each branch ended.
    */
   readonly launches: readonly LaunchRecord[];
+  /**
+   * Its child executions that ended (#263), in the order they ended: each one's id, workflow, item,
+   * start, how it ended (`ChildExecutionStatus`), its finish or error, its own spend and its own
+   * children — nested records, never in the thread's conversation history.
+   */
+  readonly children: readonly ChildExecutionRecord[];
+  /** The failures an `.onError` / `.onJoinError` side path took, in order (`toHaveHandledError`). */
+  readonly handledErrors: readonly HandledErrorRecord[];
   /** Conversation memory: what this turn compacted, when it did. */
   readonly compacted?: Compacted;
   /** The conversation in the tracing UI (session = thread), when tracing is on. */

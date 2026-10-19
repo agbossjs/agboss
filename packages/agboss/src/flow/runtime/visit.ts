@@ -30,6 +30,8 @@ import type { LaunchTicket } from "./launch/records.js";
 import type { RuntimeLaunch } from "./launch/runtime-launch.js";
 import type { RuntimeContexts } from "../context/runtime-contexts.js";
 import { readInput } from "./scope.js";
+import type { PiiTokenMap } from "../../pii/tokens.js";
+import type { ChildExecutionRecord } from "./child-records.js";
 
 /**
  * A node's visit (#272 → Runtime): limits checked before an agent or a router runs, the node run,
@@ -143,12 +145,20 @@ function succeeded(
   return { update, write, ...(launched === undefined ? {} : { launched }) };
 }
 
+/** What a visit's code reported besides its outcome: services' spend, ended child executions. */
+interface Reported {
+  readonly usage: UsageRecord[];
+  readonly children: ChildExecutionRecord[];
+  /** A failed child's PII tokens (#120): kept with its error. */
+  piiTokens: PiiTokenMap;
+}
+
 /** A failure the node's `.onError` takes: kept as a record, the side path next; else rethrown. */
 function caught(
   node: RuntimeNode,
   error: unknown,
   ranAsStep: boolean,
-  services: readonly UsageRecord[],
+  reported: Reported,
   signal: AbortSignal | undefined,
 ): ExecutionStateUpdate {
   if (isGraphInterrupt(error)) throw error;
@@ -158,11 +168,15 @@ function caught(
   const record = errorRecordOf(error);
   const handler = errorHandlerOf(node.exits, record);
   if (handler === undefined) throw error;
+  const handled = { error: record, at: { name: node.id }, by: { name: handler.to } };
   return {
     ...visited(node, ranAsStep),
     lastError: record,
     next: handler.to,
-    usage: [...unrecordedSpendOf(error), ...services],
+    usage: [...unrecordedSpendOf(error), ...reported.usage],
+    children: [...reported.children],
+    piiTokens: reported.piiTokens,
+    handledErrors: [handled],
   };
 }
 
@@ -174,10 +188,18 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
   return async (state, config) => {
     let ranAsStep = false;
     const kept = { startedVersion: startedVersionOf(state, deps.workflow) };
-    // what the step's code paid services through `SpendRecorder` (#280 S43)
-    const services: UsageRecord[] = [];
-    const reportUsage = (record: UsageRecord): void => {
-      services.push({ ...record, caller: `${node.kind}:${node.id}` });
+    // what the step's code paid services through `SpendRecorder` (#280 S43), its children (#263)
+    const reported: Reported = { usage: [], children: [], piiTokens: {} };
+    const services = {
+      reportUsage: (record: UsageRecord): void => {
+        reported.usage.push({ ...record, caller: `${node.kind}:${node.id}` });
+      },
+      recordChild: (record: ChildExecutionRecord): void => {
+        reported.children.push(record);
+      },
+      keepPiiTokens: (tokens: PiiTokenMap): void => {
+        reported.piiTokens = { ...reported.piiTokens, ...tokens };
+      },
     };
     try {
       if (isWorkingNode(node)) {
@@ -186,10 +208,10 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       }
       const frame = {
         ...stepFrameOf(node, state, config, deps.workflow, deps.contexts),
-        services: { reportUsage, input: () => readInput(deps.graph, node, state).fields },
+        services: { ...services, input: () => readInput(deps.graph, node, state).fields },
       };
       const outcome = await runInFrame(frame, () => runner(state, config));
-      const spent = { ...outcome, usage: [...(outcome.usage ?? []), ...services] };
+      const spent = { ...outcome, usage: [...(outcome.usage ?? []), ...reported.usage] };
       const at = {
         executionId: frame.execution.executionId,
         now: extractRunContext(config, state.runId).clock.now(),
@@ -202,9 +224,9 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
         const reportSite = { observer: deps.observer, config, frame };
         await reportTruncation(reportSite, launched.ticket, launched.launch.launch.maxItems);
       }
-      return { ...update, ...kept };
+      return { ...update, children: [...reported.children], ...kept };
     } catch (error) {
-      return { ...caught(node, error, ranAsStep, services, config?.signal), ...kept };
+      return { ...caught(node, error, ranAsStep, reported, config?.signal), ...kept };
     }
   };
 }

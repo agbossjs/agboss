@@ -118,6 +118,9 @@ const freshState = (runId: string): ExecutionStateType => ({
   branchRecords: [],
   launches: [],
   piiTokens: {},
+  child: null,
+  children: [],
+  handledErrors: [],
 });
 
 export function agentSlice(built: BuiltApp, target: Class): AgentSlice {

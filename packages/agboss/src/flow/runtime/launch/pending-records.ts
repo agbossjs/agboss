@@ -7,7 +7,8 @@ import { BranchStatus, type BranchOutcomeRecord } from "./records.js";
  * keeps each finished task's writes as the checkpoint's pending writes, so after a crash or a
  * `resume` — when only the unfinished branches run again — a quorum's state is rebuilt from them:
  * its counts, `max(acceptedSequence)`, its verdicts. Read from the checkpoint the superstep started
- * on (the execution's thread, the root namespace); values are checked, not cast (LangGraph boundary).
+ * on (the execution's thread, the namespace of its graph — a child's own inside a child workflow);
+ * values are checked, not cast (LangGraph boundary).
  */
 
 /** The channel the branches write their records to (`ExecutionState.branchRecords`). */
@@ -39,6 +40,15 @@ const threadOf = (config: RunnableConfig | undefined): string | undefined => {
   return typeof threadId === "string" ? threadId : undefined;
 };
 
+/**
+ * The namespace of the graph a node runs in: its task's without the task's own part — `""` at the
+ * root, a child workflow's own inside it (#263).
+ */
+const graphNamespaceOf = (config: RunnableConfig | undefined): string => {
+  const namespace: unknown = config?.configurable?.checkpoint_ns;
+  return typeof namespace === "string" ? namespace.split("|").slice(0, -1).join("|") : "";
+};
+
 /** The pending records of `launchId` in the execution's latest checkpoint; none without one. */
 export async function pendingRecordsOf(
   checkpointer: BaseCheckpointSaver | undefined,
@@ -48,7 +58,7 @@ export async function pendingRecordsOf(
   const threadId = threadOf(config);
   if (checkpointer === undefined || threadId === undefined) return [];
   const tuple = await checkpointer.getTuple({
-    configurable: { thread_id: threadId, checkpoint_ns: "" },
+    configurable: { thread_id: threadId, checkpoint_ns: graphNamespaceOf(config) },
   });
   return (tuple?.pendingWrites ?? []).flatMap(([, channel, value]) =>
     channel === CHANNEL ? addedBy(value).filter((record) => record.launchId === launchId) : [],
