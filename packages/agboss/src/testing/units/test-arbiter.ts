@@ -1,3 +1,5 @@
+import type { ExecutionContext } from "../../flow/context/execution-context.js";
+import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
 import { arbiterOf, isCodeArbiter, type ArbiterAnswerOf } from "../../flow/decorators/arbiter.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
@@ -31,7 +33,10 @@ const nameOfAgent = (agent: Class): string => declarationOf(agent)?.options.name
  * throws, returns no boolean or whose model does not answer rejects with `ArbiterError` (the
  * original as its cause) — never a rejection, as in a quorum.
  */
-export function testArbiter(arbiter: Class, options: UnitModelOptions = {}): ArbiterRunner {
+export function testArbiter<
+  TExecution extends ExecutionContext = ExecutionContext,
+  TTenant extends TenantContext = TenantContext,
+>(arbiter: Class, options: UnitModelOptions<unknown, TExecution, TTenant> = {}): ArbiterRunner {
   const declaration = arbiterOf(arbiter);
   if (declaration === undefined)
     throw new TestSetupError(`testArbiter(${arbiter.name}): not an @Arbiter`);

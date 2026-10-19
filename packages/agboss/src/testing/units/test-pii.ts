@@ -1,3 +1,5 @@
+import type { ExecutionContext } from "../../flow/context/execution-context.js";
+import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
 import { throwIfViolated } from "../../graph/rule-error.js";
 import { TEST_PSEUDONYM_KEY } from "../../pii/application-key.js";
@@ -57,7 +59,13 @@ function runtimePoliciesOf(site: UnitSite, policies: readonly Class[]): RuntimeP
  * `deps`, `overrides`, the `environment`), tokens made with the fixed test key; a `detectWithModel`
  * policy's model answers from `model` (`replyWith('{"found":[…]}')`, one turn per detection).
  */
-export function testPii(policies: readonly Class[], options: UnitModelOptions = {}): PiiRunner {
+export function testPii<
+  TExecution extends ExecutionContext = ExecutionContext,
+  TTenant extends TenantContext = TenantContext,
+>(
+  policies: readonly Class[],
+  options: UnitModelOptions<unknown, TExecution, TTenant> = {},
+): PiiRunner {
   const [first] = policies;
   if (first === undefined) throw new TestSetupError("testPii([]): name the policies to apply");
   throwIfViolated([...policyViolations(policies), ...conflictViolations("testPii", policies)]);

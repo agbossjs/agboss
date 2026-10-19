@@ -1,3 +1,5 @@
+import type { ExecutionContext } from "../../flow/context/execution-context.js";
+import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Guardrail, GuardrailContext } from "../../components/policy-decorators.js";
 import type { Class } from "../../components/injection.js";
 import { requireComponent } from "../../components/metadata.js";
@@ -44,10 +46,10 @@ export interface GuardrailRunner extends UnitClock {
  * as `output`. What it throws (a block) rejects as it was thrown; a hook the class does not have
  * is a setup error.
  */
-export function testGuardrail(
-  guardrail: Class<Guardrail>,
-  options: UnitOptions = {},
-): GuardrailRunner {
+export function testGuardrail<
+  TExecution extends ExecutionContext = ExecutionContext,
+  TTenant extends TenantContext = TenantContext,
+>(guardrail: Class<Guardrail>, options: UnitOptions<TExecution, TTenant> = {}): GuardrailRunner {
   const { meta } = requireComponent(guardrail, "guardrail", "testGuardrail");
   const site = new UnitSite(options);
   const caller = `guardrail:${meta.name}`;

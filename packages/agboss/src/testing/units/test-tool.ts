@@ -1,3 +1,5 @@
+import type { ExecutionContext } from "../../flow/context/execution-context.js";
+import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
 import { componentOf, requireComponent, type ToolMeta } from "../../components/metadata.js";
 import { validate } from "../../dto/schema.js";
@@ -48,9 +50,13 @@ const toolMetaOf = (tool: Class): ToolMeta =>
  * thrown: the tool's own error, `ToolTimeoutError`, or `DtoValidationError` for an input or output
  * that does not fit.
  */
-export function testTool<TTool extends Class<ToolInstance>>(
+export function testTool<
+  TTool extends Class<ToolInstance>,
+  TExecution extends ExecutionContext = ExecutionContext,
+  TTenant extends TenantContext = TenantContext,
+>(
   tool: TTool,
-  options: UnitOptions = {},
+  options: UnitOptions<TExecution, TTenant> = {},
 ): ToolRunner<ToolInputOf<InstanceType<TTool>>, ToolOutputOf<InstanceType<TTool>>> {
   const meta = toolMetaOf(tool);
   const site = new UnitSite(options);

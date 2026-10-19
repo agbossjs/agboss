@@ -15,6 +15,7 @@ import {
   PiiKind,
   PiiPolicy,
   SpendRecorder,
+  TenantContext,
   Tool,
   pii,
   type GuardrailContext,
@@ -26,7 +27,7 @@ import {
   type ToolHandler,
 } from "../../../src/index.js";
 import { Rag } from "../../../src/components/decorators.js";
-import { Text } from "../../../src/dto/index.js";
+import { OneOf, Text } from "../../../src/dto/index.js";
 import type { RagConnector, RagRetrieval } from "../../../src/rag/types.js";
 import { usd } from "../../../src/units/index.js";
 
@@ -230,3 +231,41 @@ export class StaffIdPiiPolicy implements PiiPolicyHandler {
   rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
 })
 export class MisnamedPolicy {}
+
+// ── the project's context levels ──
+
+export class ShopTenantContext extends TenantContext {
+  @OneOf({ values: ["free", "pro"] })
+  plan!: "free" | "pro";
+}
+
+export class ShopExecutionContext extends ExecutionContext {
+  @Text()
+  userId!: string;
+}
+
+export class PlanReport {
+  @Text({ prompt: "who asked, on which plan" })
+  summary!: string;
+}
+
+/** Reads the tenant's plan and the execution's user through the project's own classes. */
+@Tool({
+  name: "plan_report",
+  description: "Says the caller's plan",
+  input: JobSearch,
+  output: PlanReport,
+  deps: [ShopTenantContext, ShopExecutionContext],
+})
+export class PlanReportTool implements ToolHandler<JobSearch, PlanReport> {
+  constructor(
+    private readonly shopTenantContext: ShopTenantContext,
+    private readonly shopExecutionContext: ShopExecutionContext,
+  ) {}
+
+  run(): Promise<PlanReport> {
+    const { tenantId, plan } = this.shopTenantContext;
+    const { userId } = this.shopExecutionContext;
+    return Promise.resolve({ summary: `${userId}@${tenantId}: ${plan}` });
+  }
+}

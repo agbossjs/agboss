@@ -12,7 +12,10 @@ import {
   BrokenJobsTool,
   FakeJobBoardService,
   JobBoardService,
+  PlanReportTool,
   SearchJobsTool,
+  ShopExecutionContext,
+  ShopTenantContext,
   SlowJobBoardService,
 } from "../fixtures/units.js";
 
@@ -79,5 +82,40 @@ describe("testTool", () => {
   it("a class that is no tool is a setup error", () => {
     // @ts-expect-error — a class without run(input) is no tool
     expect(() => testTool(JobBoardService)).toThrow("is not a @Tool component");
+  });
+
+  it("the tenant level: the project's TenantContext subclass with its values", async () => {
+    const runReport = testTool(PlanReportTool, {
+      tenantContext: ShopTenantContext,
+      tenant: { tenantId: "acme", plan: "pro" },
+      executionContext: ShopExecutionContext,
+      execution: { userId: "u-1" },
+    });
+
+    const { output } = await runReport({ query: "plan" });
+
+    expect(output).toEqual({ summary: "u-1@acme: pro" });
+  });
+
+  it("the execution level: its values are checked by the class's decorators", () => {
+    expect(() =>
+      testTool(PlanReportTool, {
+        tenantContext: ShopTenantContext,
+        tenant: { tenantId: "acme", plan: "pro" },
+        executionContext: ShopExecutionContext,
+        // @ts-expect-error — userId is a string in ShopExecutionContext
+        execution: { userId: 7 },
+      }),
+    ).toThrow(DtoValidationError);
+  });
+
+  it("a tenant value outside its OneOf is refused, as app.execute refuses it", () => {
+    expect(() =>
+      testTool(PlanReportTool, {
+        tenantContext: ShopTenantContext,
+        // @ts-expect-error — the plan is free or pro
+        tenant: { tenantId: "acme", plan: "gold" },
+      }),
+    ).toThrow(DtoValidationError);
   });
 });

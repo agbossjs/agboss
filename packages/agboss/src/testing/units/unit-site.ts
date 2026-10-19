@@ -15,7 +15,13 @@ import { buildCostReport, type UsageRecord } from "../../finops/usage.js";
 import { applicationContextOf } from "../../flow/context/application-context.js";
 import { ExecutionContext } from "../../flow/context/execution-context.js";
 import { runInFrame, type FrameSpec } from "../../flow/context/frame.js";
-import { defaultTenantOf, type RuntimeContexts } from "../../flow/context/runtime-contexts.js";
+import { tenantOfExecution, type RuntimeContexts } from "../../flow/context/runtime-contexts.js";
+import {
+  executionFieldsOf,
+  tenantFieldsOf,
+  type ContextFields,
+  type TenantFields,
+} from "../../flow/context/context-values.js";
 import { TenantContext } from "../../flow/context/tenant-context.js";
 import { Clock } from "../../infrastructure/clock.js";
 import { timeoutError, timeoutOn } from "../../infrastructure/clock-timeout.js";
@@ -74,7 +80,11 @@ function unitContexts(clock: Clock, options: UnitOptions): RuntimeContexts {
     environmentName: "test",
     environment: options.environment ?? NO_ENVIRONMENT_VALUES,
   });
-  return { application, tenantContext: TenantContext, executionContext: ExecutionContext };
+  return {
+    application,
+    tenantContext: options.tenantContext ?? TenantContext,
+    executionContext: options.executionContext ?? ExecutionContext,
+  };
 }
 
 const noRouterFactory = new UnavailableValue(
@@ -118,11 +128,16 @@ export class UnitSite {
   readonly book = new ScriptBook();
   readonly contexts: RuntimeContexts;
   readonly container: Container;
+  /** The tenant's and the execution's values, validated once, as `app.execute` validates them. */
+  readonly #tenant: TenantFields;
+  readonly #execution: ContextFields;
   #gateway: ModelGateway | undefined;
 
   constructor(options: UnitOptions) {
     this.contexts = unitContexts(this.clock, options);
     this.container = unitContainer(this.clock, this.contexts, options);
+    this.#tenant = tenantFieldsOf(this.contexts.tenantContext, options.tenant);
+    this.#execution = executionFieldsOf(this.contexts.executionContext, options.execution);
   }
 
   /** The component's instance (its `deps` resolved, `overrides` applied). */
@@ -175,8 +190,8 @@ export class UnitSite {
         ownerId: undefined,
         signal,
         workflow,
-        tenant: defaultTenantOf(this.contexts),
-        values: Object.freeze({}),
+        tenant: tenantOfExecution(this.contexts, this.#tenant),
+        values: this.#execution,
       }),
       step: testStepOf(UNIT_EXECUTION, {
         component: frame.component,

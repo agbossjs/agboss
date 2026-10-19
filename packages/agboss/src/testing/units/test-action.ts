@@ -1,3 +1,5 @@
+import type { ExecutionContext } from "../../flow/context/execution-context.js";
+import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
 import { NodeKind } from "../../flow/ast.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
@@ -43,9 +45,13 @@ function actionOptionsOf(action: Class) {
  * fields as plain objects. A failure rejects as it was thrown (`OutputInvalidError` /
  * `DtoValidationError` for a result that does not fit).
  */
-export function testAction<TAction extends Class<ExecuteMethod>>(
+export function testAction<
+  TAction extends Class<ExecuteMethod>,
+  TExecution extends ExecutionContext = ExecutionContext,
+  TTenant extends TenantContext = TenantContext,
+>(
   action: TAction,
-  options: UnitOptions = {},
+  options: UnitOptions<TExecution, TTenant> = {},
 ): ActionRunner<ActionInputOf<InstanceType<TAction>>, ActionOutputOf<InstanceType<TAction>>> {
   const { name, output } = actionOptionsOf(action);
   const site = new UnitSite(options);

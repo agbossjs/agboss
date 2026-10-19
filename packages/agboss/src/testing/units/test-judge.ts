@@ -1,3 +1,5 @@
+import type { ExecutionContext } from "../../flow/context/execution-context.js";
+import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
 import { runJudgeCall } from "../../components/judge-call.js";
 import type { JudgeHandler, JudgeInput, JudgeVerdict } from "../../components/judge-decorators.js";
@@ -42,7 +44,13 @@ function bindingOf(site: UnitSite, name: string, model: string): JudgeBinding {
  * for the wrong call, as at run time). Each call runs `judge(input)` in a step's frame; the
  * verdict is `output`, the model calls `spend` (`judge:<name>`).
  */
-export function testJudge(judge: Class<JudgeHandler>, options: UnitModelOptions = {}): JudgeRunner {
+export function testJudge<
+  TExecution extends ExecutionContext = ExecutionContext,
+  TTenant extends TenantContext = TenantContext,
+>(
+  judge: Class<JudgeHandler>,
+  options: UnitModelOptions<unknown, TExecution, TTenant> = {},
+): JudgeRunner {
   const { meta } = requireComponent(judge, "judge", "testJudge");
   const site = new UnitSite(options);
   site.scriptModel(judgeKeyOf(meta.name), judge.name, options.model);

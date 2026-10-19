@@ -1,3 +1,5 @@
+import type { ExecutionContext } from "../../flow/context/execution-context.js";
+import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
 import { NodeKind } from "../../flow/ast.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
@@ -47,9 +49,13 @@ function routerOf(router: Class): UnitRouter {
  * `model` — `routeTo(X)` after `.chooseOne(…)`, `decideWith(…)` / `routeTo(…)` for the `OnDemand`
  * routes of a launch — its spend as `router:<name>`.
  */
-export function testRouter<TRouter extends Class>(
+export function testRouter<
+  TRouter extends Class,
+  TExecution extends ExecutionContext = ExecutionContext,
+  TTenant extends TenantContext = TenantContext,
+>(
   router: TRouter,
-  options: UnitModelOptions<InstanceType<TRouter>> = {},
+  options: UnitModelOptions<InstanceType<TRouter>, TExecution, TTenant> = {},
 ): RouterRunner<RecordedInputOf<InstanceType<TRouter>>, RouterAnswerOf<InstanceType<TRouter>>> {
   const unit = routerOf(router);
   const declared = unit.options;

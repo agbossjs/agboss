@@ -3,6 +3,8 @@ import { requireComponent } from "../../components/metadata.js";
 import type { RagSearchResultDto } from "../../dto/standard/framework.js";
 import { recordReportedCost } from "../../finops/usage.js";
 import type { RagConnector } from "../../rag/types.js";
+import type { ExecutionContext } from "../../flow/context/execution-context.js";
+import type { TenantContext } from "../../flow/context/tenant-context.js";
 import { callTimeoutOf, UnitSite } from "./unit-site.js";
 import type { UnitCallOptions, UnitClock, UnitOptions, UnitRun } from "./unit-types.js";
 
@@ -23,7 +25,10 @@ export interface RagRunner extends UnitClock {
  * step's frame — the signal aborts after `timeout` on the runner's clock — and gives its results as
  * `output`, its reported `costUsd` as `spend` (`rag:<name>`, as an agent's search is billed).
  */
-export function testRag(rag: Class<RagConnector>, options: UnitOptions = {}): RagRunner {
+export function testRag<
+  TExecution extends ExecutionContext = ExecutionContext,
+  TTenant extends TenantContext = TenantContext,
+>(rag: Class<RagConnector>, options: UnitOptions<TExecution, TTenant> = {}): RagRunner {
   const { meta } = requireComponent(rag, "rag", "testRag");
   const site = new UnitSite(options);
   const caller = `rag:${meta.name}`;
