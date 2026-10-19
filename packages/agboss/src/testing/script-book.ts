@@ -10,9 +10,14 @@ export interface ScriptedExpectation {
   leftovers(): readonly string[];
 }
 
-/** Script keys whose calls carry their step's input: agents and model routers (not guards). */
+/**
+ * Script keys whose calls carry an input: agents and model routers (not guards), and reply
+ * interpreters (`{ ask, reply }`, #267 PR 3).
+ */
 const bindsInput = (key: string): boolean =>
-  key.startsWith("agent:") || (key.startsWith("router:") && !key.startsWith("router:guard:"));
+  key.startsWith("agent:") ||
+  key.startsWith("reply-interpreter:") ||
+  (key.startsWith("router:") && !key.startsWith("router:guard:"));
 
 /**
  * Every component's script in one test, shared by every app the test opens — so a run resumed in a

@@ -152,7 +152,8 @@ async function abortLaunch(run: BranchRun): Promise<void> {
   live.controller.abort();
   if (deps.pauses === undefined) return;
   const tenantId = state.contexts.tenant.tenantId;
-  const site = { tenantId, rootExecutionId: state.runId, launch: owner.ticket, failed: ticket };
+  const at = extractRunContext(run.config, state.runId).clock.now();
+  const site = { tenantId, rootExecutionId: state.runId, launch: owner.ticket, failed: ticket, at };
   await withdrawSiblingPauses(deps.pauses, site);
 }
 

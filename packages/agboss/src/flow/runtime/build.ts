@@ -70,6 +70,7 @@ function agentLoops(deps: GraphDeps<string>, run: RunLimits): ReadonlyMap<string
           channelOf: deps.channelOf,
           pauses: deps.pause.pauses,
           observer: deps.observer,
+          ...(deps.clock === undefined ? {} : { clock: deps.clock }),
         });
   const loopOf = (name: string, agent: AgentDefinition): AgentLoopGraph =>
     agentLoopGraph(

@@ -24,6 +24,8 @@ import type { PauseSeam } from "../pause/index.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
+import { replyReaderOf, type ReplyReader } from "../channels/reply-reader.js";
+import type { Class } from "../components/injection.js";
 
 export class UnknownToolError extends Error {
   override name = "UnknownToolError";
@@ -169,3 +171,18 @@ export const flowFor = (
     ...(branchScheduler === undefined ? {} : { branchScheduler }),
   };
 };
+
+/** The reply interpreters of the workflow's tree (#267 PR 3): code ones from its container. */
+export const repliesFor = (
+  bundle: AssembledWorkflow,
+  config: AgentsConfigOf<string>,
+  gateway: ModelGateway,
+  container: { readonly get: <T>(token: Class<T>) => T },
+): ReplyReader =>
+  replyReaderOf({
+    interpreters: bundle.replyInterpreters ?? [],
+    gateway,
+    chatDefaults: config.defaults.models,
+    chatModelSettings: chatModelSettingsOf(config),
+    instanceOf: (interpreter) => container.get(interpreter),
+  });

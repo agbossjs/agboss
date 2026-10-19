@@ -12,19 +12,26 @@ import type { ScriptedCall } from "./turns.js";
  * clock — an abort while waiting cancels the call.
  */
 
-/** The input of the step that makes the call, when its script binds to inputs. */
-const stepInputOf = (script: ComponentScript): RecordedInput | undefined =>
-  script.bindsInput ? currentFrame()?.services.input?.() : undefined;
+/** The input of the step that makes the call (else `given`), when its script binds to inputs. */
+const stepInputOf = (
+  script: ComponentScript,
+  given: RecordedInput | undefined,
+): RecordedInput | undefined =>
+  script.bindsInput ? (currentFrame()?.services.input?.() ?? given) : undefined;
 
-/** The call's turn: recorded, chosen; throws what the script says (no script, exhausted, …). */
+/**
+ * The call's turn: recorded, chosen; throws what the script says (no script, exhausted, …).
+ * `input`: what a call outside a step reads (a reply interpreter's `{ ask, reply }`).
+ */
 export function scriptedCall(
   script: ComponentScript,
   request: ModelRequest,
   checkRequest?: () => void,
+  input?: RecordedInput,
 ): ScriptedCall {
   script.requests.push(request);
   checkRequest?.();
-  return script.next(request, stepInputOf(script));
+  return script.next(request, stepInputOf(script, input));
 }
 
 /** Waits the call's `waitFor(…)` on the clock; a cancelled call stops at once. */

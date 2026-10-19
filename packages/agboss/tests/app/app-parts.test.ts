@@ -107,6 +107,8 @@ describe("AC12: the app's parts", () => {
       outdatedValues: [],
       spend: run.cost,
       children: [],
+      // read from the tree's pause records once the pass ended (#267 S107)
+      pauses: [],
     });
   });
 

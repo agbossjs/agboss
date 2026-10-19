@@ -20,7 +20,15 @@ import {
   type McpConnections,
   type TransportFactory,
 } from "../tools/index.js";
-import { evaluationFor, flowFor, guardsFor, pauseFor, servicesFor, toolLookup } from "./parts.js";
+import {
+  evaluationFor,
+  flowFor,
+  guardsFor,
+  pauseFor,
+  repliesFor,
+  servicesFor,
+  toolLookup,
+} from "./parts.js";
 import { closeOf, observedBy, optionalDepsOf, releaseOf } from "./app-deps-parts.js";
 import { componentsAtStart } from "./start-components.js";
 import { piiFor } from "./pii-parts.js";
@@ -32,6 +40,7 @@ import type { BudgetHandler } from "../budgets/budget.js";
 import type { Class } from "../components/injection.js";
 import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { GraphDeps } from "../graph/deps.js";
+import type { ReplyReader } from "../channels/reply-reader.js";
 
 /** Run dependencies, eval dependencies, and resources to release after the run. */
 export interface AppDeps extends RunDeps<string> {
@@ -44,6 +53,8 @@ export interface AppDeps extends RunDeps<string> {
   readonly warnings: readonly string[];
   /** One line per model use: its provider, reasoning and caching (the startup log). */
   readonly models: readonly string[];
+  /** The reply interpreters of its tree's channel roles (#267 PR 3): `app.resume({ reply })`. */
+  readonly replies: ReplyReader;
   /**
    * Runs `onStop` of the components, waits for `executionsDone` (the running executions), runs
    * `onDestroy`, then closes MCP connections, tracing and the stores it opened.
@@ -187,8 +198,7 @@ export async function createWorkflowDeps(
   const { clock, records: terns, checkpointer } = parts.infrastructure;
   const contexts = parts.contexts ?? standaloneContexts(bundle.config, options.environment, clock);
   const clients = providerClientsOf(options, contexts.application, parts.infrastructure);
-  const models = await modelsFor(bundle, options.gateway, clients);
-  const gateway = models.gateway;
+  const { gateway, ...models } = await modelsFor(bundle, options.gateway, clients);
   const lifecycle = lifecycleOf(options.container, parts.created);
   const services = servicesFor(bundle, gateway, contexts, lifecycle.options);
   const tools: readonly AnyTool[] = resolveTools(bundle, services);
@@ -216,6 +226,7 @@ export async function createWorkflowDeps(
     tracing,
     contexts,
     clock,
+    replies: repliesFor(bundle, config, gateway, components.container),
     ...observedBy(parts.observer, parts.infrastructure.logger, clock, pii.observability),
     ...optionalDepsOf(options.newRunId, parts.childDepsOf),
     close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),

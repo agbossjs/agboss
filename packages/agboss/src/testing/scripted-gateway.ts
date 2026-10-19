@@ -12,6 +12,7 @@ import type { ComponentScript, ScriptBook, ModelRequest } from "./script-book.js
 import { scriptedCall, waitBeforeAnswer } from "./scripted-call.js";
 import { ScriptedChatModel } from "./scripted-chat-model.js";
 import { scriptedDecide } from "./scripted-decisions.js";
+import { replyInterpreterCaller } from "../channels/reply-reader.js";
 import type { DecisionDetails, ScriptedTurn } from "./turns.js";
 
 /** The script key of a chat model's user and of a router. */
@@ -29,8 +30,13 @@ export function chatKeyOf(user: ChatModelUser): string {
       return arbiterKeyOf(user.arbiter);
     case "pii-policy":
       return piiPolicyKeyOf(user.policy);
+    case "reply-interpreter":
+      return replyInterpreterKeyOf(user.interpreter);
   }
 }
+/** The script key of a model reply interpreter (#267 PR 3): its cost caller. */
+export const replyInterpreterKeyOf = (interpreter: string): string =>
+  replyInterpreterCaller(interpreter);
 /** The script key of a `@PiiPolicy`'s model detection (#120): its cost caller. */
 export const piiPolicyKeyOf = (policy: string): string => `pii:${policy}`;
 export const judgeKeyOf = (judge: string): string => `judge:${judge}`;
@@ -139,7 +145,16 @@ export function createScriptedGateway(
   if (!compaction.isScripted) compaction.thenReturnAlways(replyWith(UNSCRIPTED_SUMMARY));
   return {
     chatModel: ({ user, settings }) =>
-      new ScriptedChatModel({ book, clock, key: chatKeyOf(user) }, settings),
+      new ScriptedChatModel(
+        {
+          book,
+          clock,
+          key: chatKeyOf(user),
+          // what a reply interpreter reads: its `when({ reply })` matches it (no step frame)
+          ...(user.kind === "reply-interpreter" ? { input: { ...user.input } } : {}),
+        },
+        settings,
+      ),
     routeTo: async (spec) => {
       const script = book.scriptOf(routerKeyOf(spec.router));
       const request = decisionRequestOf(spec);

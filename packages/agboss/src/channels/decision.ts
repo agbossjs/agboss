@@ -1,6 +1,7 @@
 import { DtoValidationError, pathOf } from "../dto/errors.js";
 import { validate } from "../dto/schema.js";
 import { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
+import type { UsageRecord } from "../finops/usage.js";
 import type { AnyTool } from "../tools/index.js";
 
 /**
@@ -16,14 +17,22 @@ export interface ApprovalDecision {
   readonly overrideArguments?: Readonly<Record<string, unknown>>;
   /** Who answered: the resume's `answeredBy`, the thread's owner, or the channel that decided. */
   readonly by: string;
+  /** What reading the reply cost (its interpreter's model calls, #267 PR 3): the step's spend. */
+  readonly usage: readonly UsageRecord[];
 }
 
-/** The decision, validated, with who gave it. */
-export function approvalDecisionOf(decision: unknown, tool: AnyTool, by: string): ApprovalDecision {
+/** The decision, validated, with who gave it and what reading it cost. */
+export function approvalDecisionOf(
+  decision: unknown,
+  tool: AnyTool,
+  by: string,
+  usage: readonly UsageRecord[],
+): ApprovalDecision {
   const { approved, reason, overrideArguments } = validDecisionOf(decision, tool);
   return {
     approved,
     by,
+    usage,
     ...(reason === undefined ? {} : { reason }),
     ...(overrideArguments === undefined ? {} : { overrideArguments }),
   };

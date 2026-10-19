@@ -72,7 +72,7 @@ export class ComponentScript implements ModelScript {
   when(partial: RecordedInput): WhenScript {
     if (!this.bindsInput) {
       throw new TestSetupError(
-        `mockLlm(${this.label}).when(…): only agents and model routers are called with an input`,
+        `mockLlm(${this.label}).when(…): only agents, model routers and reply interpreters are called with an input`,
       );
     }
     const entry = new WhenEntry(partial);

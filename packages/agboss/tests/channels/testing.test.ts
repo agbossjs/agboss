@@ -6,7 +6,7 @@
  * Scripted reply interpreters come with #267 PR 3.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { AutoApproveChannel } from "../../src/index.js";
+import { AutoApproveChannel, PauseResolution, PauseStatus } from "../../src/index.js";
 import {
   RefundApprovalChannel,
   RefundCardOutputDto,
@@ -34,7 +34,10 @@ const test = testWith(PausesApplication);
 beforeEach(resetPauses);
 
 describe("#267 AC11: AutoApproveChannel decides at once", () => {
-  test("the tool runs with no pause and no pause record", async ({ app, mockLlm }) => {
+  test("the tool runs with no pause: its record is closed as Decided at once", async ({
+    app,
+    mockLlm,
+  }) => {
     mockLlm(DeskClerkAgent).thenReturn(
       callTool(AutoRefundTool, { orderId: "7" }),
       replyWith("Refunded."),
@@ -46,9 +49,10 @@ describe("#267 AC11: AutoApproveChannel decides at once", () => {
     expect(done.pending).toEqual([]);
     expect(seen.refunds).toEqual(["7"]);
     expect(seen.pauses).toEqual([]);
-    expect(await pauseStore().findAllByTenantIdAndRootExecutionId("default", done.runId)).toEqual(
-      [],
-    );
+    const records = await pauseStore().findAllByTenantIdAndRootExecutionId("default", done.runId);
+    expect(records).toMatchObject([
+      { status: PauseStatus.Taken, resolution: PauseResolution.Decided },
+    ]);
   });
 });
 

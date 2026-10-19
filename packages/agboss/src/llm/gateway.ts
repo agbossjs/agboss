@@ -13,6 +13,7 @@ import type { JevClient } from "./jev-client.js";
 import type { ModelFactory } from "./registry.js";
 import { providerClients, type ProviderClientOptions } from "./provider-clients.js";
 import type { ModelProviderDirectory } from "../models/resolve.js";
+import type { ReplyInterpreterInput } from "../channels/reply-reader.js";
 
 /** Who a chat model is for: what a substitute gateway (scripted, replayed) keys its answers on. */
 export type ChatModelUser =
@@ -22,7 +23,13 @@ export type ChatModelUser =
   | { readonly kind: "router"; readonly router: string }
   | { readonly kind: "arbiter"; readonly arbiter: string }
   /** A `@PiiPolicy`'s model detection (`detectWithModel`, #120). */
-  | { readonly kind: "pii-policy"; readonly policy: string };
+  | { readonly kind: "pii-policy"; readonly policy: string }
+  /** A model reply interpreter (#267 PR 3), with what it reads (a test's `when(…)` matches it). */
+  | {
+      readonly kind: "reply-interpreter";
+      readonly interpreter: string;
+      readonly input: ReplyInterpreterInput;
+    };
 
 /** A chat model request: its user and complete settings (agents, compaction, judges, LLM routers). */
 export interface ChatModelSpec {

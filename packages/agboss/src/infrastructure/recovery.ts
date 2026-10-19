@@ -9,6 +9,7 @@ import {
 } from "./execution-record.repository.js";
 import type { Clock } from "./clock.js";
 import type { FrameworkLog } from "./logger.js";
+import type { PausedExecutionRepository } from "./paused-execution.repository.js";
 
 /**
  * Automatic recovery (#265 S30): every application instance looks for the roots left `running` —
@@ -16,6 +17,7 @@ import type { FrameworkLog } from "./logger.js";
  * holder died, or stopped and released it) from its last checkpoint. A root this instance is not
  * compatible with is left to another one and logged once. With the in-memory defaults nothing
  * survives a restart, so there is nothing to recover; recovery works with persistent stores.
+ * Each look also removes the resolved pause records older than `pauseRecordRetention` (#267 S107).
  */
 
 /** How often an instance looks: the lease length, so an expired lease is found within one more. */
@@ -39,6 +41,10 @@ export interface RecoverySources {
   readonly log: FrameworkLog;
   /** Stops the recoveries in flight like the app's other executions (the shutdown timeout). */
   readonly signal: AbortSignal;
+  /** The application's pause records: the resolved ones are removed after their retention. */
+  readonly pauses: PausedExecutionRepository;
+  /** `@Application({ pauseRecordRetention })`: how long a resolved pause record is kept. */
+  readonly pauseRecordRetention: Milliseconds;
 }
 
 /** A recovery problem, for the log: at risk (left to another instance) or broken. */
@@ -97,7 +103,23 @@ class Sweeper implements RecoverySweep {
           isBroken: true,
         });
       }
+      await this.#forgetResolvedPauses();
       await this.sources.clock.sleep(SWEEP_EVERY, this.#stopped.signal);
+    }
+  }
+
+  /** The resolved pause records whose retention is over, removed (#267 S107). */
+  async #forgetResolvedPauses(): Promise<void> {
+    const { clock, pauses, pauseRecordRetention } = this.sources;
+    const cutoff = new Date(clock.now().getTime() - pauseRecordRetention);
+    try {
+      await pauses.deleteResolvedBefore(cutoff);
+    } catch (error) {
+      this.#log({
+        code: "recovery.failed",
+        text: `the resolved pause records could not be removed: ${String(error)}`,
+        isBroken: true,
+      });
     }
   }
 

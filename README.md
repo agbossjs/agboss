@@ -737,7 +737,10 @@ field's `value` (the producer is not compared), `undefined` for an absent field,
 length and position, a `oneOf` element as `variant(XDto, { … })`; a call no script matches fails the
 test, naming its input. A script is an expectation: a `thenReturn` turn no call took, or a `when(…)`
 nothing matched, fails a test whose body passed (`thenReturnAlways` never does).
-`waitFor(seconds(31))` before a turn makes the call take that long on the test's clock.
+`waitFor(seconds(31))` before a turn makes the call take that long on the test's clock. A model
+reply interpreter (#267) is scripted the same way, its input the pause's `{ ask, reply }` —
+`mockLlm(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`;
+a code one is created by the container and replaced with `mockOf(Interpreter).interpret`.
 
 <!-- snippet-context
 import { ExecutionCancelledError } from "agboss";
@@ -1000,6 +1003,69 @@ const result = await app.resume(
   { tenantId: "acme", answeredBy: "manager-17" },
 );
 ```
+
+**Free-text replies (#267 PR 3).** A webhook that only has the person's words passes them as
+they are — `app.resume({ pauseId, reply }, options)`, exactly one of `decision` or a non-empty
+`reply` — and the pause's role reads them with its `@ReplyInterpreter` (`replyInterpreter` on the
+`@ChannelRole`, one interpreter per role: `[channel.shared-interpreter]`). The interpreter gets the
+pause's original question and the reply (`{ ask, reply }`); what it gives is validated like a
+decision. `DecidedBy.Model` — a chat model answers through one answer tool (a decision model cannot
+give a typed answer: `[reply-interpreter.decision-model]`), its static `prompt` / `promptUrls` its
+instructions, the question and the reply in the input message; its call goes through the provider
+resolved by `serves`, is checked against the tree's budgets first, counted in their ledger at once
+and in the execution's spend when the step takes the answer, and traced (`reply-interpreter:<name>`).
+`DecidedBy.Code` — the class's `interpret(input: InputOf<Self>): Promise<OutputOf<Self>>`
+(`implements ReplyInterpreterHandler<Self>`, `deps` like any component), created by the container;
+it declines a reply it cannot read by throwing. A reply nobody can read — declined, or an answer the
+role rejects — throws `UninterpretableReplyError` (`pause.uninterpretable-reply`, the reason as
+`cause`) and the pause stays pending, so the webhook can ask again or answer with a `decision`; a
+`reply` for a role without an interpreter is `ReplyInterpreterMissingError`
+(`pause.no-reply-interpreter`), the pause untouched.
+
+<!-- snippet-context
+import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpreter, type App } from "agboss";
+import { Text } from "agboss/dto";
+declare const app: App;
+declare const replyKey: string;
+export class RefundCardInputDto {
+  @Text() orderId!: string;
+}
+-->
+
+```ts
+@ReplyInterpreter({
+  name: "refund-reply-interpreter",
+  description: "Turns a manager's free-text reply into a refund decision",
+  decidedBy: DecidedBy.Model,
+  model: "moonshotai/kimi-k2.6",
+  prompt: "The manager answered a refund approval in free text. Decide approve / reject.",
+})
+export class RefundReplyInterpreter {}
+
+@ChannelRole({
+  name: "refund-approval-channel",
+  description: "Approves card refunds",
+  approves: RefundCardInputDto,
+  answeredBy: PauseAnswerer.Channel,
+  replyInterpreter: RefundReplyInterpreter,
+})
+export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
+
+// a webhook passes the text as it came
+await app.resume({ pauseId: replyKey, reply: "ok, refund it" }, { answeredBy: "manager-17" });
+```
+
+**Who answered each pause (#267 S107).** `app.resume(…, { record: true })` (or `execute`) returns
+`result.record.pauses`: every resolved pause of the tree in the order asked —
+`PauseAnswerRecord { pauseId (undefined for a PauseAnswerer.Channel pause), step, role,
+answeredBy, responder, resolution, askedAt, resolvedAt, decision }`, `PauseResolution.Decided`
+(`ChannelOutcome.decided`, no pause), `Replied` (`awaitReply()` + `app.resume`), `Withdrawn` (a
+`FailFast` sibling failed) or `Cancelled` (`app.cancel`, or the tree ended); the decision masked by
+the PII policies like the rest of the record, none when withdrawn or cancelled. A resolved pause
+record (`Taken`, `Cancelled`) is kept `@Application({ pauseRecordRetention })` — default
+`hours(24)` — after it was resolved, then removed by the recovery sweep
+(`PausedExecutionRepository.deleteResolvedBefore(cutoff)`, on the `Clock`): within it a late answer
+is `NotPausedError`, after it `UnknownPauseError`; a pending pause is never removed.
 
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
 the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an

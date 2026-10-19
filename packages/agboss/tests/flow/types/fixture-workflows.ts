@@ -22,6 +22,7 @@ export const FIXTURE_WORKFLOWS: readonly string[] = [
   "quorum-runtime.fixture.ts",
   "recursion.fixture.ts",
   "refunds.fixture.ts",
+  "replies.fixture.ts",
   "review.fixture.ts",
   "starts.fixture.ts",
   "support.fixture.ts",

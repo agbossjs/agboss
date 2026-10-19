@@ -5,11 +5,12 @@ import type { AgentExecutionOutput } from "../../run/types.js";
 import { Clock } from "../clock.js";
 import {
   PausedExecutionRepository,
+  type PauseAnswer,
+  type PauseCancellation,
   type PauseRecord,
-  type PauseResolution,
 } from "../paused-execution.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
-import { PAUSES_SCHEMA, SqlitePauseRows } from "./sqlite-pause-rows.js";
+import { PAUSE_ANSWERS_MIGRATION, PAUSES_SCHEMA, SqlitePauseRows } from "./sqlite-pause-rows.js";
 
 /** One row per thread of a tenant (#261: the key is tenant + thread). */
 const SCHEMA = `CREATE TABLE IF NOT EXISTS paused_executions (
@@ -103,6 +104,9 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
       if (columns.length > 0 && !columns.includes("tenant_id"))
         connection.database.exec(TENANT_MIGRATION);
       else if (columns.includes("status")) connection.database.exec(PAUSE_RECORDS_MIGRATION);
+      const pauseColumns = connection.columnsOf("pauses");
+      if (pauseColumns.length > 0 && !pauseColumns.includes("resolved_at"))
+        connection.database.exec(PAUSE_ANSWERS_MIGRATION);
     });
     connection.ensureSchema("paused_executions", SCHEMA);
     connection.ensureSchema("pauses", PAUSES_SCHEMA);
@@ -167,16 +171,37 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
   resolveByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    resolution: PauseResolution,
+    answer: PauseAnswer,
+    at: Date,
   ): Promise<PauseRecord | undefined> {
     const resolved = this.connection.transaction(() =>
-      this.#pauses.resolve(tenantId, pauseId, resolution),
+      this.#pauses.resolve(tenantId, pauseId, answer, at),
     );
     return Promise.resolve(resolved);
   }
 
-  cancelByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean> {
-    return Promise.resolve(this.#pauses.cancel(tenantId, pauseId));
+  decideByTenantIdAndPauseId(
+    tenantId: string,
+    pauseId: string,
+    answer: PauseAnswer,
+    at: Date,
+  ): Promise<boolean> {
+    const decided = this.connection.transaction(() =>
+      this.#pauses.decide(tenantId, pauseId, answer, at),
+    );
+    return Promise.resolve(decided);
+  }
+
+  cancelByTenantIdAndPauseId(
+    tenantId: string,
+    pauseId: string,
+    resolution: PauseCancellation,
+    at: Date,
+  ): Promise<boolean> {
+    const cancelled = this.connection.transaction(() =>
+      this.#pauses.cancel(tenantId, pauseId, resolution, at),
+    );
+    return Promise.resolve(cancelled);
   }
 
   markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void> {
@@ -184,8 +209,8 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     return Promise.resolve();
   }
 
-  deleteByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void> {
-    this.#pauses.delete(tenantId, pauseId);
+  deleteResolvedBefore(cutoff: Date): Promise<void> {
+    this.#pauses.deleteResolvedBefore(cutoff);
     return Promise.resolve();
   }
 }

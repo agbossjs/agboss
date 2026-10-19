@@ -40,16 +40,35 @@ const guardUses = (config: AgentsConfigOf<string>): ModelUse[] =>
     ),
   );
 
+/** A reply interpreter (#267 PR 3): its model, or none for a code one. */
+export interface ModelNamingInterpreter {
+  readonly name: string;
+  readonly model: string | undefined;
+}
+
+/** The components besides routers that name their own model. */
+export interface ModelNamingComponents {
+  /** Model arbiters (#279). */
+  readonly arbiters: readonly ModelNamingRouter[];
+  /** The PII policies' model detections (#120). */
+  readonly piiDetectors: readonly ModelNamingRouter[];
+  /** Reply interpreters (#267 PR 3): a model one's chat model. */
+  readonly interpreters: readonly ModelNamingInterpreter[];
+}
+
+const NO_COMPONENTS: ModelNamingComponents = { arbiters: [], piiDetectors: [], interpreters: [] };
+
 /**
  * Every model use of a workflow: agents, compaction, judges, the default router, guards, flow routers,
- * model arbiters (#279) and the PII policies' model detections (#120, `pii.<policy>`).
+ * model arbiters (#279), the PII policies' model detections (#120, `pii.<policy>`) and model reply
+ * interpreters (#267, `replyInterpreters.<name>`).
  */
 export function modelUsesOf(
   config: AgentsConfigOf<string>,
   routers: readonly ModelNamingRouter[],
-  arbiters: readonly ModelNamingRouter[] = [],
-  piiDetectors: readonly ModelNamingRouter[] = [],
+  components: ModelNamingComponents = NO_COMPONENTS,
 ): readonly ModelUse[] {
+  const { arbiters, piiDetectors, interpreters } = components;
   const chat = (key: string, settings: Parameters<typeof resolveSettings>[0]): ModelUse => ({
     key,
     model: settings.model,
@@ -79,5 +98,8 @@ export function modelUsesOf(
       purpose: purposeOf(arbiter.model),
     })),
     ...piiDetectors.map((detector) => chat(`pii.${detector.name}`, { model: detector.model })),
+    ...interpreters.flatMap(({ name, model }) =>
+      model === undefined ? [] : [chat(`replyInterpreters.${name}`, { model })],
+    ),
   ];
 }

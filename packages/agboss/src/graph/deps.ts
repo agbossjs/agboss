@@ -21,6 +21,7 @@ import type { Class } from "../components/injection.js";
 import type { ResolvedPolicies } from "../workflow.js";
 import type { JudgeHandler } from "../components/judge-decorators.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
+import type { Clock } from "../infrastructure/clock.js";
 
 /** What the workflow's graph is built from: its analysed paths, its agents and their parts. */
 export interface GraphDeps<TName extends string> {
@@ -73,6 +74,11 @@ export interface GraphDeps<TName extends string> {
    * application, children included, is built once; `undefined` for a workflow run on its own.
    */
   readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
+  /**
+   * The application's clock (#262): tool timeouts run on it, pauses are asked and decided on it;
+   * default the system's.
+   */
+  readonly clock?: Clock | undefined;
   /** A component instance from the app's container: actions and finishes with a handler. */
   readonly container: { readonly get: <T>(token: Class<T>) => T };
 }

@@ -13,27 +13,19 @@ import {
 } from "../environments/load.js";
 import type { Class } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
-import { NodeKind } from "../flow/ast.js";
-import { isCodeRouterNode, type RuntimeNode } from "../flow/runtime/graph-model.js";
+import type { RuntimeNode } from "../flow/runtime/graph-model.js";
 import { VirtualClock } from "./clock.js";
 import { TestSetupError } from "./errors.js";
 import { McpStubs, stubbedMcpConnect, type McpStub } from "./mcp-stubs.js";
 import { ScriptBook, type ModelScript } from "./script-book.js";
-import {
-  arbiterKeyOf,
-  createScriptedGateway,
-  judgeScriptKeyOf,
-  routerKeyOf,
-  type ModelTarget,
-} from "./scripted-gateway.js";
-import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
-import { arbiterClassesOf } from "../flow/runtime/launch/runtime-launch.js";
+import { createScriptedGateway, type ModelTarget } from "./scripted-gateway.js";
+import { ModelTargets, scriptKeyOf } from "./model-targets.js";
 import { mcpServersOf, usedComponentsOf } from "./workflow-parts.js";
 import { TestMocks } from "./test-mocks.js";
 import { reusableInfrastructure } from "../infrastructure/contracts.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { createVcrGateway, type VcrConfig } from "./vcr.js";
-import { piiScriptKeyOf, testPseudonymKeys } from "./pii-parts.js";
+import { testPseudonymKeys } from "./pii-parts.js";
 import { schedulerOf } from "./concurrency/schedulers.js";
 import { replacementsOf, type Override } from "./units/override.js";
 import type { TestConcurrency } from "./concurrency/test-concurrency.js";
@@ -83,13 +75,6 @@ export interface TestWithOptions extends EnvironmentSelection {
 const testEnv = (): NodeJS.ProcessEnv =>
   Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("LANGFUSE_")));
 
-/** The script key of a node that calls a model (an agent or a model router; a code router calls none). */
-function scriptKeyOf(node: RuntimeNode): string | undefined {
-  if (node.kind === NodeKind.Agent) return `agent:${node.id}`;
-  if (node.kind === NodeKind.Router && !isCodeRouterNode(node)) return routerKeyOf(node.id);
-  return undefined;
-}
-
 /** The names of the MCP servers kept real; anything else in `real` is a setup error. */
 function realServers(servers: ReadonlyMap<Class, string>, real: readonly Class[]): Set<string> {
   return new Set(
@@ -120,9 +105,7 @@ export class TestEnvironment {
   readonly #apps: BuiltApplication[] = [];
   readonly #nodes: readonly RuntimeNode[];
   readonly #used: ReadonlySet<Class>;
-  readonly #judges: ReadonlySet<string>;
-  /** The arbiters of the application's quorums (#279). */
-  readonly #arbiters: ReadonlySet<Class>;
+  readonly #targets: ModelTargets;
   readonly #servers: ReadonlyMap<Class, string>;
   readonly #options: AppDepsOptions;
   #reused: ReadonlyMap<Class, unknown> = new Map();
@@ -139,12 +122,7 @@ export class TestEnvironment {
     const { workflows } = assembled;
     this.#nodes = workflows.flatMap((workflow) => [...workflow.graph.nodes.values()]);
     this.#used = usedComponentsOf(assembled);
-    this.#judges = new Set(
-      workflows.flatMap((workflow) => Object.keys(workflow.config.judges ?? {})),
-    );
-    this.#arbiters = new Set(
-      workflows.flatMap((workflow) => arbiterClassesOf(workflow.graph.launches)),
-    );
+    this.#targets = new ModelTargets(assembled, this.#nodes);
     this.mocks = new TestMocks(this.book, this.#nodes, this.#used);
     for (const node of this.#nodes) {
       const key = scriptKeyOf(node);
@@ -219,34 +197,16 @@ export class TestEnvironment {
 
   mockLlm(target: ModelTarget): ModelScript {
     const label = target.name;
-    const judge = judgeScriptKeyOf(target, this.#judges) ?? this.#modelComponentKeyOf(target);
-    if (judge !== undefined) {
-      this.book.name(judge, label);
-      return this.book.scriptOf(judge);
+    const component = this.#targets.componentKeyOf(target);
+    if (component !== undefined) {
+      this.book.name(component, label);
+      return this.book.scriptOf(component);
     }
     const node = this.#nodes.find((item) => item.component === target);
     const key = node === undefined ? undefined : scriptKeyOf(node);
-    if (key === undefined) {
-      const why =
-        node !== undefined && isCodeRouterNode(node)
-          ? "a code router calls no model — mockOf() the services its route() uses"
-          : this.#arbiters.has(target)
-            ? "a code arbiter calls no model — mockOf() it, or the services its methods use"
-            : "not an agent, router, judge or model arbiter of this application";
-      throw new TestSetupError(`mockLlm(${label}): ${why}`);
-    }
+    if (key === undefined)
+      throw new TestSetupError(`mockLlm(${label}): ${this.#targets.whyNoScript(target)}`);
     return this.book.scriptOf(key);
-  }
-
-  /**
-   * The script key of a model arbiter (#279) or a PII policy's model detection (#120) of the
-   * application; none for anything else.
-   */
-  #modelComponentKeyOf(target: ModelTarget): string | undefined {
-    const options = this.#arbiters.has(target) ? arbiterOf(target)?.options : undefined;
-    return options === undefined || isCodeArbiter(options)
-      ? piiScriptKeyOf(target, this.assembled)
-      : arbiterKeyOf(options.name);
   }
 
   mcpOf<TServer extends McpServerClient<ServerTools>>(server: new () => TServer): McpStub<TServer> {

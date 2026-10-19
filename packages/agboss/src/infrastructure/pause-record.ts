@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
+import type { UsageRecord } from "../finops/usage.js";
 
 /**
  * One pause of an execution tree as the application records it (#267 S35): made once per waiting
@@ -14,20 +15,44 @@ export enum PauseStatus {
   Pending = "pending",
   /** A resume recorded its decision; the tree's lease holder continues it. */
   Resolved = "resolved",
-  /** Its step took the decision and went on: kept, so a late second answer gets `NotPausedError`. */
+  /**
+   * Its step took the decision and went on (or its channel decided at once): kept for
+   * `pauseRecordRetention`, so a late second answer gets `NotPausedError`.
+   */
   Taken = "taken",
-  /** Dropped: its branch was cancelled (a sibling failed under `FailFast`); it takes no answer. */
+  /** Dropped: withdrawn (a `FailFast` sibling failed) or cancelled; it takes no answer. */
   Cancelled = "cancelled",
 }
 
-/** What a resume recorded on a pause: the validated decision and who gave it. */
-export interface PauseResolution {
+/** How a pause was resolved (#267 S107): the audit trail of `ExecutionRecord.pauses`. */
+export enum PauseResolution {
+  /** Its channel decided at once (`ChannelOutcome.decided`): the step never paused. */
+  Decided = "decided",
+  /** Its channel awaited a reply (`awaitReply()`) and `app.resume` answered it. */
+  Replied = "replied",
+  /** A `FailFast` sibling failed: its branch was cancelled before an answer. */
+  Withdrawn = "withdrawn",
+  /** `app.cancel`, or its tree ended, before an answer. */
+  Cancelled = "cancelled",
+}
+
+/** The two ways a pause closes without an answer. */
+export type PauseCancellation = PauseResolution.Withdrawn | PauseResolution.Cancelled;
+
+/** What answered a pause: the validated decision, who gave it, and what reading a reply cost. */
+export interface PauseAnswer {
   readonly decision: unknown;
   /**
    * Who answered: the `answeredBy` of a `PauseAnswerer.Channel` pause's resume, the `ownerId` of a
-   * `PauseAnswerer.ThreadOwner` one (`undefined` for a thread without an owner).
+   * `PauseAnswerer.ThreadOwner` one (`undefined` for a thread without an owner, or a channel that
+   * decided at once).
    */
   readonly answerer: string | undefined;
+  /**
+   * The model calls of its reply interpreter (`app.resume({ pauseId, reply })`): already in the
+   * ledger, added to the execution's spend when its step takes the answer.
+   */
+  readonly usage?: readonly UsageRecord[];
 }
 
 /** Where in the tree a pause waits: its execution, its step and the tree it belongs to. */
@@ -46,6 +71,8 @@ export interface PauseSite {
   readonly nodeId: string;
   readonly visitNumber: number;
   readonly itemIndex: number | undefined;
+  /** Which copy of a repeated agent waits (#273), from 1. */
+  readonly copyNumber: number;
 }
 
 /** A pause: its id, where it waits, what it asks and where it is. */
@@ -63,16 +90,51 @@ export interface PauseRecord extends PauseSite {
   readonly status: PauseStatus;
   /** Whether its channel's `send` returned (`awaitReply`): a re-entry does not ask again. */
   readonly isSent: boolean;
-  /** The decision, once `Resolved`. */
+  /** When it was made, before its channel was asked (ISO 8601, the application's `Clock`). */
+  readonly askedAt: string;
+  /** The answer, once `Resolved` (or decided at once). */
+  readonly answer?: PauseAnswer;
+  /** How it was resolved; `undefined` while `Pending`. */
   readonly resolution?: PauseResolution;
+  /** When it was resolved (ISO 8601); a resolved record is kept `pauseRecordRetention` after it. */
+  readonly resolvedAt?: string;
 }
 
 /** A pause's id: a cryptographically random 128-bit token, made once per pause (AC3). */
 export const newPauseId = (): string => randomBytes(16).toString("hex");
 
-/** The pause answered: `Resolved` with its decision. */
-export const resolvedPause = (pause: PauseRecord, resolution: PauseResolution): PauseRecord => ({
+/** The pause answered by `app.resume`: `Resolved` with its answer, `Replied`. */
+export const resolvedPause = (pause: PauseRecord, answer: PauseAnswer, at: Date): PauseRecord => ({
   ...pause,
   status: PauseStatus.Resolved,
-  resolution,
+  answer,
+  resolution: PauseResolution.Replied,
+  resolvedAt: at.toISOString(),
 });
+
+/** The pause its channel decided at once: `Taken` with the channel's decision, `Decided`. */
+export const decidedPause = (pause: PauseRecord, answer: PauseAnswer, at: Date): PauseRecord => ({
+  ...pause,
+  status: PauseStatus.Taken,
+  answer,
+  resolution: PauseResolution.Decided,
+  resolvedAt: at.toISOString(),
+});
+
+/** The pause closed without an answer: `Cancelled`, withdrawn or cancelled. */
+export const cancelledPause = (
+  pause: PauseRecord,
+  resolution: PauseCancellation,
+  at: Date,
+): PauseRecord => ({
+  ...pause,
+  status: PauseStatus.Cancelled,
+  resolution,
+  resolvedAt: at.toISOString(),
+});
+
+/** Whether a resolved record's retention is over: `Taken` or `Cancelled`, resolved before `cutoff`. */
+export const isExpiredPause = (pause: PauseRecord, cutoff: Date): boolean =>
+  (pause.status === PauseStatus.Taken || pause.status === PauseStatus.Cancelled) &&
+  pause.resolvedAt !== undefined &&
+  pause.resolvedAt < cutoff.toISOString();

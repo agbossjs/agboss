@@ -11,7 +11,6 @@ import type { WaitingPause } from "../pause/index.js";
 import type { TernRecords } from "../terns/index.js";
 import type { RunTracing } from "../tracing/index.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
-import type { Clock } from "../infrastructure/clock.js";
 
 /** Graph dependencies plus the application's budgets and the Tern store. */
 export interface RunDeps<TName extends string> extends GraphDeps<TName> {
@@ -27,8 +26,6 @@ export interface RunDeps<TName extends string> extends GraphDeps<TName> {
   readonly tracing?: RunTracing | undefined;
   /** A new run id; random by default, deterministic in tests. */
   readonly newRunId?: () => string;
-  /** The application's clock (#262): tool timeouts run on it; default the system's. */
-  readonly clock?: Clock | undefined;
 }
 
 /** A stream event for real-time UI/CLI updates. */

@@ -46,6 +46,12 @@ export interface ApplicationOptions {
    */
   readonly shutdownTimeout?: Milliseconds;
   /**
+   * How long a resolved pause record (`Taken`, `Cancelled`) is kept after it was resolved (#267
+   * S107): within it a late answer gets `NotPausedError`, after it `UnknownPauseError`; the
+   * recovery sweep removes it on the `Clock`. A pending pause is never removed. Default `hours(24)`.
+   */
+  readonly pauseRecordRetention?: Milliseconds;
+  /**
    * The environment contract, required — a class with declared fields only
    * (`environments/app.environment.ts`); each `environments/<name>.environment.ts` next to the
    * application file exports `const environment: AppEnvironment = { … }`. An application with no
