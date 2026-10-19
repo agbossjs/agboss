@@ -5,7 +5,8 @@ import {
   type TenantContextClass,
 } from "./context-values.js";
 import { ExecutionContext, type WorkflowClass } from "./execution-context.js";
-import { currentFrame, type ExecutionFacts, type Frame } from "./frame.js";
+import { currentFrame, depthOf, type ExecutionFacts, type Frame } from "./frame.js";
+import { ancestorContextOf, parentContextOf } from "./ancestor-context.js";
 import { TenantContext } from "./tenant-context.js";
 
 /**
@@ -14,7 +15,8 @@ import { TenantContext } from "./tenant-context.js";
  * parallel branches. No frame → `ExecutionContextUnavailableError` (outside an execution); a closed
  * frame → the same error naming the ended step (S18). An instance of the declared class (the
  * project's subclass, its own fields read from the execution's values), frozen: nothing is set
- * through it. One level until #263.
+ * through it. The tree (#263): `parent`, `root` and `executionOf(W)` give the contexts of the
+ * executions above a child (`ancestor-context.ts`).
  */
 
 /** The current frame for a read of `field` by `consumer`; none or closed → the error. */
@@ -89,11 +91,18 @@ const executionReads = (type: ExecutionContextClass): ReadonlyMap<string, Read> 
     ["signal", (frame) => frame.execution.signal],
     ["workflow", (frame) => frame.execution.workflow],
     ["step", (frame) => frame.step],
-    ["itemIndex", () => undefined],
-    ["parent", () => undefined],
-    ["depth", () => 1],
+    ["itemIndex", (frame) => frame.execution.itemIndex],
+    ["parent", (frame) => parentContextOf(type, frame.execution)],
+    ["depth", (frame) => depthOf(frame.execution)],
     ...ownFields(type, (execution) => execution.values),
   ]);
+
+/** The root of the current execution's tree: `live` itself at the root. */
+function rootOf(type: ExecutionContextClass, live: object, frame: Frame): unknown {
+  const { parent } = frame.execution;
+  if (parent === undefined) return live;
+  return ancestorContextOf(type, parent.execution, parent.step).root;
+}
 
 /** The injected `ExecutionContext` (or the project's subclass) of `consumer`. */
 export function liveExecutionContextOf(
@@ -101,16 +110,17 @@ export function liveExecutionContextOf(
   consumer = "the app",
 ): ExecutionContext {
   const live = liveObject(type, "executionContext", consumer, executionReads(type));
-  // one level until #263: the execution is its own root, and the only one in its chain
+  // the root: this execution at the root, else the context of the execution at the top (#263)
   Object.defineProperty(live, "root", {
     enumerable: true,
-    get: () => (frameFor(consumer, "executionContext.root"), live),
+    get: () => rootOf(type, live, frameFor(consumer, "executionContext.root")),
   });
   Object.defineProperty(live, "executionOf", {
-    value: (workflow: WorkflowClass) =>
-      frameFor(consumer, "executionContext.executionOf").execution.workflow.type === workflow
-        ? live
-        : undefined,
+    value: (workflow: WorkflowClass) => {
+      const frame = frameFor(consumer, "executionContext.executionOf");
+      if (frame.execution.workflow.type === workflow) return live;
+      return parentContextOf(type, frame.execution)?.executionOf(workflow);
+    },
   });
   // an instance of the declared class whose every field is a getter over the current frame
   return Object.freeze(live) as ExecutionContext;

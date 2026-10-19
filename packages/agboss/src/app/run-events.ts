@@ -25,7 +25,7 @@ export interface ObservedExecution {
   readonly startedVersion: string;
 }
 
-/** The common part of an execution's events (one level until #263: it is its own root). */
+/** The common part of a root execution's events: it is its own root (a child's are `child.ts`'s). */
 export const executionEventAt = (
   execution: ObservedExecution,
   workflow: RunningWorkflow,

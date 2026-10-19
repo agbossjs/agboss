@@ -1,5 +1,5 @@
 import type { ExecutionObserver } from "../core/observer-hooks.js";
-import type { AppDepsOptions } from "../app/app-deps.js";
+import type { AppDepsOptions, WorkflowDepsParts } from "../app/app-deps.js";
 import { buildApp, type AppOptions, type BuiltApp } from "../app/create-app.js";
 import type { App } from "../app/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
@@ -29,6 +29,7 @@ import { assemblyWarningsOf, logStart, warningText } from "./start-log.js";
 import type { ApplicationClass } from "./types.js";
 import { applicationPiiKeyOf, applicationPiiMaskOf } from "./application-pii.js";
 import { TEST_PSEUDONYM_KEY } from "../pii/application-key.js";
+import type { GraphDeps } from "../graph/deps.js";
 
 /** An application instance with the parts it was built from (the testing toolkit reads them). */
 export interface BuiltApplication {
@@ -97,6 +98,25 @@ function createListed(assembled: AssembledApplication, workflows: readonly Built
   }
 }
 
+/**
+ * Builds every workflow of the application into `built`, in order; a parent compiles its children's
+ * graphs from their deps, looked up by class when it runs (#263).
+ */
+async function buildWorkflows(
+  assembled: AssembledApplication,
+  options: AppDepsOptions,
+  parts: Omit<WorkflowDepsParts, "childDepsOf">,
+  built: BuiltApp[],
+): Promise<void> {
+  const byClass = new Map<Class, GraphDeps<string>>();
+  const childDepsOf = (workflow: Class): GraphDeps<string> | undefined => byClass.get(workflow);
+  for (const bundle of assembled.workflows) {
+    const workflow = await buildApp(bundle, options, { ...parts, childDepsOf });
+    byClass.set(bundle.graph.type, workflow.deps);
+    built.push(workflow);
+  }
+}
+
 /** Closes what the workflows already built opened (a later workflow or a start hook failed). */
 async function releaseAll(built: readonly BuiltApp[]): Promise<void> {
   for (const workflow of built) await workflow.app.close();
@@ -144,9 +164,7 @@ export async function buildApplication(
     const observer = observerManagerOf(assembled, shared, { ...container, onCreate }, log, seams);
     const budgets = { budgets: assembled.budgets, applicationName: assembled.name };
     const parts = { infrastructure, created, contexts, budgets, observer, piiFieldKey };
-    for (const bundle of assembled.workflows) {
-      workflows.push(await buildApp(bundle, { ...options, container }, parts));
-    }
+    await buildWorkflows(assembled, { ...options, container }, parts, workflows);
     createListed(assembled, workflows);
     await startComponents(created);
   } catch (error) {

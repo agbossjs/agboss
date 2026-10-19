@@ -4,7 +4,7 @@ import type { ContainerOptions } from "../components/container/container.js";
 import type { Environment } from "../flow/generated-types.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
-import { startComponents, stopComponents } from "../components/container/lifecycle.js";
+import { startComponents } from "../components/container/lifecycle.js";
 import type { EvalDeps } from "../eval/eval.js";
 import type { RunDeps } from "../run/types.js";
 import { configSnapshot, runVersions } from "../run/versions.js";
@@ -21,19 +21,16 @@ import {
   type TransportFactory,
 } from "../tools/index.js";
 import { evaluationFor, flowFor, guardsFor, pauseFor, servicesFor, toolLookup } from "./parts.js";
-import { closeOf, observedBy, releaseOf } from "./app-deps-parts.js";
+import { closeOf, observedBy, optionalDepsOf, releaseOf } from "./app-deps-parts.js";
 import { componentsAtStart } from "./start-components.js";
 import { piiFor } from "./pii-parts.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { Clock } from "../infrastructure/clock.js";
-import {
-  standaloneBudgetsOf,
-  standaloneInfrastructure,
-} from "../application/application-container.js";
 import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
 import type { BudgetHandler } from "../budgets/budget.js";
 import type { Class } from "../components/injection.js";
 import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
+import type { GraphDeps } from "../graph/deps.js";
 
 /** Run dependencies, eval dependencies, and resources to release after the run. */
 export interface AppDeps extends RunDeps<string> {
@@ -131,6 +128,8 @@ export interface WorkflowDepsParts {
   readonly observer?: ExecutionObserverManager;
   /** The key of the tokens of `sensitive` fields (#120), one per instance; absent = a new one. */
   readonly piiFieldKey?: string;
+  /** The run dependencies of the application's other workflows, its children's (#263). */
+  readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
 }
 
 /** The budgets an application lists, and its name (the key of its application budgets). */
@@ -215,7 +214,7 @@ export async function createWorkflowDeps(
     contexts,
     clock,
     ...observedBy(parts.observer, parts.infrastructure.logger, clock, pii.observability),
-    ...(options.newRunId === undefined ? {} : { newRunId: options.newRunId }),
+    ...optionalDepsOf(options.newRunId, parts.childDepsOf),
     close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),
   };
   if (parts.created === undefined) {
@@ -227,35 +226,4 @@ export async function createWorkflowDeps(
   return { ...deps, models: models.summary, warnings: await versionWarnings(deps) };
 }
 
-/**
- * The run dependencies of one workflow on its own (eval, replay, golden, compare): on the
- * infrastructure of the application that lists it (its `providers` — e.g. the SQLite
- * implementations, so records persist across processes), else the built-in in-memory one, and
- * its own lifecycle hooks; `close()` also closes what the infrastructure opened.
- */
-export async function createAppDeps(
-  bundle: AssembledWorkflow,
-  options: AppDepsOptions = {},
-): Promise<AppDeps> {
-  const opened: unknown[] = [];
-  const infrastructure = standaloneInfrastructure(bundle, options, (instance) => {
-    opened.push(instance);
-  });
-  await startComponents(opened);
-  const budgets = standaloneBudgetsOf(bundle);
-  const parts = { infrastructure, ...(budgets === undefined ? {} : { budgets }) };
-  const deps = await createWorkflowDeps(bundle, options, parts).catch(async (error: unknown) => {
-    await stopComponents(opened);
-    throw error;
-  });
-  return {
-    ...deps,
-    close: async (executionsDone) => {
-      try {
-        await deps.close(executionsDone);
-      } finally {
-        await stopComponents(opened);
-      }
-    },
-  };
-}
+export { createAppDeps } from "./standalone-deps.js";

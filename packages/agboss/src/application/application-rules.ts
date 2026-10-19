@@ -14,6 +14,7 @@ import { contextRuleViolations } from "../flow/context/context-rules.js";
 import { componentOf } from "../components/metadata.js";
 import { channelUsesOf } from "../channels/discovery.js";
 import { sharedInterpreterViolations } from "../channels/channel-rules.js";
+import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 
 /**
  * The rules of an `@Application` itself (#261), read from its declaration: its `name` and class end
@@ -106,7 +107,8 @@ function infrastructureKindOf(cls: Class): string | undefined {
 
 /** Infrastructure in a workflow's `providers`: a contract's implementation or a model provider. */
 function infrastructureViolations(options: ApplicationOptions): RuleViolation[] {
-  return options.workflows.flatMap((workflow) => {
+  // every workflow of the application: the listed ones and, transitively, their children (#263)
+  return withChildWorkflows(options.workflows).flatMap((workflow) => {
     if (declarationOf(workflow)?.kind !== NodeKind.Workflow) return [];
     const module = moduleOf(workflow);
     return (module.providers ?? []).filter(isClass).flatMap((cls) => {

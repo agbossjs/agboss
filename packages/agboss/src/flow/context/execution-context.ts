@@ -76,7 +76,7 @@ export abstract class ExecutionContext {
   declare readonly step: StepDescriptor;
   /** The index of a child launched per item (#263); `undefined` for a root or a single child. */
   declare readonly itemIndex: number | undefined;
-  /** The parent execution, `undefined` at the root (one level until #263). */
+  /** The parent execution (#263): the one that launched this child; `undefined` at the root. */
   declare readonly parent: this | undefined;
   /** The root execution; `root === this` at the root. */
   declare readonly root: this;

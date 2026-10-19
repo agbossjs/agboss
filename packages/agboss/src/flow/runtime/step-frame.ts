@@ -75,6 +75,8 @@ export function stepFrameAt(
       workflow: Object.freeze({ ...workflow, startedVersion: startedVersionOf(state, workflow) }),
       tenant: tenantOfExecution(contexts, state.contexts.tenant),
       values: state.contexts.execution,
+      // a child execution (#263): its parent's execution and launching step, its item
+      ...(run.tree === undefined ? {} : { parent: run.tree.parent, itemIndex: run.tree.itemIndex }),
     }),
     step: Object.freeze(step),
   };

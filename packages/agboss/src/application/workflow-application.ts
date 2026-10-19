@@ -12,6 +12,7 @@ import { contextTokensOf } from "../components/context-tokens.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { NodeKind } from "../flow/ast.js";
 import { applicationsNear } from "../loader/application-files.js";
+import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 
 /**
  * One workflow in its application (#261), for what works on a single workflow — `loadWorkflow`, the
@@ -37,7 +38,10 @@ export async function workflowInApplication(workflow: Class): Promise<AssembledW
   const declaration = applicationOfWorkflow(workflow);
   if (declaration === undefined) return workflowOf(workflow);
   const { options } = declaration;
-  const modules = [applicationModule(options), ...workflowModules(options.workflows)];
+  const modules = [
+    applicationModule(options),
+    ...workflowModules(withChildWorkflows(options.workflows)),
+  ];
   return workflowOf(workflow, modules, options, contextTokensOf(declaredContextsOf(options)));
 }
 
@@ -50,7 +54,7 @@ export async function workflowsOfApplication(
   bundle: AssembledWorkflow,
 ): Promise<readonly AssembledWorkflow[]> {
   const declaration = applicationOfWorkflow(bundle.graph.type);
-  const others = (declaration?.options.workflows ?? []).filter(
+  const others = withChildWorkflows(declaration?.options.workflows ?? []).filter(
     (workflow) =>
       workflow !== bundle.graph.type && declarationOf(workflow)?.kind === NodeKind.Workflow,
   );

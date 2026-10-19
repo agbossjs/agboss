@@ -6,6 +6,7 @@ import { NodeKind } from "../flow/ast.js";
 import type { Milliseconds } from "../units/index.js";
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
+import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import type { ObserverClass } from "../core/observer-hooks.js";
 
 /**
@@ -100,7 +101,8 @@ export function Application(options: ApplicationOptions) {
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
     applications.set(value, source === undefined ? { options } : { options, source });
-    for (const workflow of options.workflows)
+    // a child workflow belongs to its parents' application, listed or not (#263)
+    for (const workflow of withChildWorkflows(options.workflows))
       listedIn.set(workflow, [...(listedIn.get(workflow) ?? []), value]);
     return value;
   };

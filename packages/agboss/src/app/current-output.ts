@@ -24,6 +24,13 @@ async function stillPending(
   return { ...run, pending: run.pending.filter((pause) => pending.has(pause.pauseId)) };
 }
 
+/** What a finished execution's state lists: its launches, children and handled failures. */
+const recordsOf = (state: Partial<ExecutionStateType>) => ({
+  launches: state.launches ?? [],
+  children: state.children ?? [],
+  handledErrors: state.handledErrors ?? [],
+});
+
 /**
  * Where a tree is now, for a resume whose decision another holder took (#267, Q58): paused again
  * (the stored run, with the pauses still pending), or finished (its last checkpoint) — read from the
@@ -51,7 +58,7 @@ export async function currentOutputOf(
     runId: tree.runId,
     path: state.path ?? [],
     spend: buildCostReport(state.usage ?? []),
-    launches: state.launches ?? [],
+    ...recordsOf(state),
     pending: [],
     finish: { name: state.finish },
     output: state.output,

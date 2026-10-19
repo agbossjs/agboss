@@ -21,6 +21,7 @@ import { LaunchRegistry } from "./launch/launch-registry.js";
 import { ExecutionState, type ExecutionStateType, type ExecutionStateUpdate } from "./state.js";
 import { visitNode, type VisitDeps } from "./visit.js";
 import { standaloneContexts } from "../context/runtime-contexts.js";
+import { childRunner, type ChildGraph } from "./child.js";
 
 /**
  * One LangGraph `StateGraph` per workflow (#272 → Runtime): a node per component, its id the
@@ -76,7 +77,14 @@ function agentLoops(deps: GraphDeps<string>, run: RunLimits) {
 
 type Loops = ReturnType<typeof agentLoops>;
 
-function runnerOf(node: RuntimeNode, deps: GraphDeps<string>, loops: Loops): NodeRunner {
+/** What a node's runner is made of: the agents' loops and the child workflows' graphs (#263). */
+interface Parts {
+  readonly loops: Loops;
+  readonly children: ReadonlyMap<string, ChildGraph>;
+  readonly checkpointer?: BaseCheckpointSaver | undefined;
+}
+
+function runnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Parts): NodeRunner {
   switch (node.kind) {
     case NodeKind.Start:
       return startRunner(deps);
@@ -90,14 +98,57 @@ function runnerOf(node: RuntimeNode, deps: GraphDeps<string>, loops: Loops): Nod
       if (router === undefined) throw new UnknownAgentError(`No router texts for ${node.id}`);
       return routerRunner(node, router, deps.routerFor(router), deps);
     }
-    case NodeKind.Agent: {
-      const loop = loops.get(node.id);
-      if (loop === undefined) throw new UnknownAgentError(`Unknown agent: ${node.id}`);
-      return agentRunner(node, loop, deps);
-    }
+    case NodeKind.Agent:
     case NodeKind.Workflow:
-      throw new TypeError(`${node.id}: child workflows come with #263`);
+      return subgraphRunnerOf(node, deps, parts);
   }
+}
+
+/** The runner of a node that runs a graph of its own: an agent's loop, a child workflow (#263). */
+function subgraphRunnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Parts): NodeRunner {
+  if (node.kind === NodeKind.Agent) {
+    const loop = parts.loops.get(node.id);
+    if (loop === undefined) throw new UnknownAgentError(`Unknown agent: ${node.id}`);
+    return agentRunner(node, loop, deps);
+  }
+  const child = parts.children.get(node.id);
+  if (child === undefined) throw new UnknownAgentError(`Unknown child workflow: ${node.id}`);
+  return childRunner(node, deps, child, parts.checkpointer);
+}
+
+/** A child workflow cannot be built: it runs only in its application, or it launches an ancestor. */
+class ChildWorkflowUnavailableError extends Error {
+  override name = "ChildWorkflowUnavailableError";
+}
+
+/**
+ * The compiled graph of every child workflow of the graph for this pass (#263 S37): each with its
+ * own deps, on the parent's budgets and checkpointer; `chain` — the workflows above — stops a
+ * workflow from containing an ancestor (a recursion is `ThisWorkflow`, #264).
+ */
+function childGraphsOf(
+  deps: GraphDeps<string>,
+  run: RunLimits,
+  checkpointer: BaseCheckpointSaver | undefined,
+  chain: readonly Class[],
+): ReadonlyMap<string, ChildGraph> {
+  const children = new Map<string, ChildGraph>();
+  for (const node of deps.graph.nodes.values()) {
+    if (node.kind !== NodeKind.Workflow) continue;
+    const childDeps = deps.childDepsOf?.(node.component);
+    if (childDeps === undefined || chain.includes(node.component))
+      throw new ChildWorkflowUnavailableError(
+        `${deps.config.name}: ${node.id} runs only inside its application (createApp / testWith), and never inside itself`,
+      );
+    const graph = compile(childDeps, run, checkpointer, [...chain, deps.graph.type]);
+    const { name, version } = childDeps.config;
+    children.set(node.id, {
+      deps: childDeps,
+      graph,
+      workflow: { type: node.component, name, version },
+    });
+  }
+  return children;
 }
 
 /** Where a node's visit goes: the node it chose, the end, or one `Send` per branch of its launch. */
@@ -129,8 +180,12 @@ function launchDepsOf(
   };
 }
 
-function compile(deps: GraphDeps<string>, run: RunLimits, checkpointer?: BaseCheckpointSaver) {
-  const loops = agentLoops(deps, run);
+/** What every visit and every launch of the graph runs with. */
+function nodeDepsOf(
+  deps: GraphDeps<string>,
+  run: RunLimits,
+  checkpointer: BaseCheckpointSaver | undefined,
+) {
   const workflow = { type: deps.graph.type, name: deps.config.name, version: deps.config.version };
   const visitDeps = {
     limits: { maxSteps: deps.maxSteps, budgets: run.budgets },
@@ -141,6 +196,21 @@ function compile(deps: GraphDeps<string>, run: RunLimits, checkpointer?: BaseChe
     observer: deps.observer,
   };
   const launchDeps = launchDepsOf(deps, visitDeps, checkpointer);
+  return { visitDeps, launchDeps };
+}
+
+function compile(
+  deps: GraphDeps<string>,
+  run: RunLimits,
+  checkpointer?: BaseCheckpointSaver,
+  chain: readonly Class[] = [],
+) {
+  const parts: Parts = {
+    loops: agentLoops(deps, run),
+    children: childGraphsOf(deps, run, checkpointer, chain),
+    checkpointer,
+  };
+  const { visitDeps, launchDeps } = nodeDepsOf(deps, run, checkpointer);
   const nodes = [...deps.graph.nodes.values()];
   // node ids are the components' names, known only at run time: `string`, not literal types
   const graph = new StateGraph<
@@ -150,12 +220,14 @@ function compile(deps: GraphDeps<string>, run: RunLimits, checkpointer?: BaseChe
     string
   >(ExecutionState);
   for (const node of nodes) {
-    const runner = runnerOf(node, deps, loops);
+    const runner = runnerOf(node, deps, parts);
     const isBranch = deps.graph.branchNodes.has(node.id);
-    graph.addNode(
-      node.id,
-      isBranch ? branchNode(node, runner, launchDeps) : visitNode(node, runner, visitDeps),
-    );
+    const action = isBranch
+      ? branchNode(node, runner, launchDeps)
+      : visitNode(node, runner, visitDeps);
+    // a child workflow's graph is the node's subgraph: Studio draws it inside the parent (S37)
+    const child = parts.children.get(node.id);
+    graph.addNode(node.id, action, child === undefined ? {} : { subgraphs: [child.graph] });
   }
   for (const launch of deps.graph.launches)
     graph.addNode(launch.joinNodeId, joinNode(launch, launchDeps));

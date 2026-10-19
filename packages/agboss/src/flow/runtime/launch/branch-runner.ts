@@ -26,6 +26,8 @@ import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./q
 import { BranchStatus, type BranchOutcomeRecord, type BranchTicket } from "./records.js";
 import { withdrawSiblingPauses } from "./withdrawn-pauses.js";
 import type { PausedExecutionRepository } from "../../../infrastructure/paused-execution.repository.js";
+import type { ChildExecutionRecord } from "../child-records.js";
+import type { PiiTokenMap } from "../../../pii/tokens.js";
 
 /**
  * One branch of a launch (#273 S20, S21): one `Send` task. It takes a slot of the launch's
@@ -57,6 +59,10 @@ interface BranchRun {
   readonly deps: BranchDeps;
   /** What its code paid services (`SpendRecorder`). */
   readonly services: UsageRecord[];
+  /** The child executions it ran that ended (a per-item child workflow, #263). */
+  readonly children: ChildExecutionRecord[];
+  /** A failed per-item child's PII tokens (#120): kept with its error. */
+  piiTokens: PiiTokenMap;
   /** Whether it passed its limits and ran as a step (agents only). */
   ranAsStep: boolean;
 }
@@ -71,10 +77,12 @@ interface BranchEnd {
   readonly mark?: QuorumMark;
 }
 
-/** A run's bookkeeping: its path entry and step; the node's visit is counted once, by the join. */
+/** A run's bookkeeping: its path entry, step and children; the node's visit is counted by the join. */
 const visited = (run: BranchRun): ExecutionStateUpdate => ({
   path: [run.ticket.nodeId],
   steps: run.ranAsStep ? 1 : 0,
+  children: [...run.children],
+  piiTokens: run.piiTokens,
 });
 
 /** The branch's config (its signal: the execution's and the launch's) and its step frame. */
@@ -89,9 +97,20 @@ function branchFrameOf(run: BranchRun, view: ExecutionStateType) {
   const reportUsage = (record: UsageRecord): void => {
     run.services.push({ ...record, caller: `${node.kind}:${node.id}` });
   };
+  const recordChild = (record: ChildExecutionRecord): void => {
+    run.children.push(record);
+  };
+  const keepPiiTokens = (tokens: PiiTokenMap): void => {
+    run.piiTokens = { ...run.piiTokens, ...tokens };
+  };
   const frame = {
     ...stepFrameAt(site, view, config, deps.workflow, deps.contexts),
-    services: { reportUsage, input: () => readInput(deps.graph, node, view).fields },
+    services: {
+      reportUsage,
+      recordChild,
+      keepPiiTokens,
+      input: () => readInput(deps.graph, node, view).fields,
+    },
   };
   return { config, frame };
 }
@@ -206,6 +225,8 @@ export function branchNode(node: RuntimeNode, runner: NodeRunner, deps: BranchDe
     const run: BranchRun = {
       ...{ node, state, config, ticket, owner, live, deps },
       services: [],
+      children: [],
+      piiTokens: {},
       ranAsStep: false,
     };
     const end = await runBranch(run, runner);

@@ -63,9 +63,12 @@ export function composeApp(
     }
     return first;
   };
-  /** The workflow a tenant's pause waits in; an unknown pause goes to the first, which rejects it. */
+  /** The workflow a tenant's pause waits in (a child's: its root's); an unknown one goes to the first. */
   const ofPause = async (pauseId: string, tenantId = DEFAULT_TENANT_ID): Promise<BuiltApp> => {
     const pause = await first.deps.pause?.pauses.findByTenantIdAndPauseId(tenantId, pauseId);
+    // a pause inside a child workflow (#263) is resumed by its root's workflow: the thread's
+    if (pause !== undefined && pause.executionId !== pause.rootExecutionId)
+      return ofThread(pause.threadId, tenantId);
     const named = workflows.find((workflow) => workflow.deps.config.name === pause?.workflow);
     return named ?? first;
   };

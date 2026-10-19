@@ -4,6 +4,8 @@ import { idempotencyKeyOf } from "./idempotency.js";
 import type { StepDescriptor, WorkflowDescriptor } from "./execution-context.js";
 import type { ContextFields } from "./context-values.js";
 import type { TenantContext } from "./tenant-context.js";
+import type { PiiTokenMap } from "../../pii/tokens.js";
+import type { ChildExecutionRecord } from "../runtime/child-records.js";
 
 /**
  * The frame of a step (#280 S18): what the injected `ExecutionContext` reads. The node runner
@@ -23,6 +25,31 @@ export interface ExecutionFacts {
   readonly tenant: TenantContext;
   /** The project's own fields of the execution (`execute(…, { execution })`), frozen. */
   readonly values: ContextFields;
+  /** The index of a child launched per item (#263); `undefined` for a root or a single child. */
+  readonly itemIndex?: number | undefined;
+  /** The execution that launched this one and its launching step (#263); `undefined` at the root. */
+  readonly parent?: ParentExecution | undefined;
+}
+
+/** A child's parent (#263): its execution and the step that launched the child. */
+export interface ParentExecution {
+  readonly execution: ExecutionFacts;
+  readonly step: StepDescriptor;
+}
+
+/** The root of an execution's tree: the execution itself when it has no parent. */
+export function rootFactsOf(execution: ExecutionFacts): ExecutionFacts {
+  let current = execution;
+  while (current.parent !== undefined) current = current.parent.execution;
+  return current;
+}
+
+/** The level of an execution in its tree, from 1 at the root. */
+export function depthOf(execution: ExecutionFacts): number {
+  let depth = 1;
+  for (let current = execution.parent; current !== undefined; current = current.execution.parent)
+    depth += 1;
+  return depth;
 }
 
 /**
@@ -36,6 +63,13 @@ export interface FrameServices {
    * `when(…)` script binds a model call to (#262). Absent in a tool call's frame.
    */
   readonly input?: () => Readonly<Record<string, unknown>>;
+  /** Where a child execution the step launched is recorded when it ends (#263). */
+  readonly recordChild?: (record: ChildExecutionRecord) => void;
+  /**
+   * Where a failed child's PII tokens go (#263, #120): into the parent's state with the error, so
+   * the side path that takes it reveals what the child masked — never on the error itself.
+   */
+  readonly keepPiiTokens?: (tokens: PiiTokenMap) => void;
 }
 
 /** What a frame is opened with. */

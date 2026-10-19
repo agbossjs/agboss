@@ -31,7 +31,7 @@ import type { GroupStart } from "./quorum-types.js";
 /**
  * The path builder (#272): `start(S)…`, `agent(X)…`, `router(R)…`, `action(X)…`, `workflow(W)…`
  * (#263) begin a flow path; `route(X)…`, `caseOf(D)…` and the side-path starters `toAction(X)…`, `toAgent(A)…`,
- * `toRouter(R)…`, `toFinish(F)` of `.onError(E, …)` and `group(A, …)…` of `.joinQuorumGroups(…)`
+ * `toRouter(R)…`, `toWorkflow(W)…` (#263 S85), `toFinish(F)` of `.onError(E, …)` and `group(A, …)…` of `.joinQuorumGroups(…)`
  * (#279) begin a sub-path and return the same builder; `anyOf(A, B)` goes inside `.acceptedBy(…)`.
  */
 
@@ -127,6 +127,19 @@ export function toRouter<const TClass extends Class>(
 ): AfterStep<InstanceType<TClass>, SideHead>;
 export function toRouter(target: Class): PathBuilder<undefined> {
   return sidePath().toRouter(target);
+}
+
+/**
+ * The side path `.onError(E, toWorkflow(W)…)` (#263 S85): a child workflow handles the failure —
+ * entered through its one start (or the start the path's value fits), its result continued like
+ * after `.toWorkflow(W)`. A side path that can catch a limit leads only to actions and finishes
+ * (`[graph.limit-handler-uses-model]`).
+ */
+export function toWorkflow<const TClass extends Class>(
+  target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
+): AfterStep<InstanceType<TClass>, SideHead>;
+export function toWorkflow(target: Class): PathBuilder<undefined> {
+  return sidePath().toWorkflow(target);
 }
 
 /** The side path `.onError(E, toFinish(F))`: the failure ends the execution at a finish. */

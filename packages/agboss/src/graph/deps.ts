@@ -65,6 +65,11 @@ export interface GraphDeps<TName extends string> {
    * `agboss/internal`); absent = a workflow run on its own (eval, replay).
    */
   readonly contexts?: RuntimeContexts;
+  /**
+   * The run dependencies of a child workflow of the graph (#263): every workflow of the
+   * application, children included, is built once; `undefined` for a workflow run on its own.
+   */
+  readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
   /** A component instance from the app's container: actions and finishes with a handler. */
   readonly container: { readonly get: <T>(token: Class<T>) => T };
 }

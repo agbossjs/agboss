@@ -97,6 +97,8 @@ export async function finishRun<TName extends string>(
       outdatedValues: state.outdatedValues,
       lastError: state.lastError,
       launches: state.launches,
+      children: state.children,
+      handledErrors: state.handledErrors,
     },
     ...(paused || state.finish === "" ? {} : { finish: state.finish, output: state.output }),
     pending,
