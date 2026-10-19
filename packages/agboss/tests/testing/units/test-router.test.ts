@@ -42,6 +42,11 @@ import {
 } from "../../flow/fixtures/units.fixture.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { FakePriceListService, OffRouteRouter, produced } from "./fakes.js";
+import {
+  CritiqueAction,
+  CritiqueRouter,
+  PolishedWorkflowFinish,
+} from "../../flow/fixtures/review.fixture.js";
 
 @Injectable()
 class GenerousCreditService extends CreditService {
@@ -152,6 +157,19 @@ describe("testRouter: a model router", () => {
     });
 
     expect(output).toEqual([RefundPolicyAgent]);
+  });
+
+  it("a list input is shown as its producers' values; the scripted route is taken", async () => {
+    const runRouter = testRouter(CritiqueRouter, { model: routeTo(PolishedWorkflowFinish) });
+
+    const { output } = await runRouter({
+      critiques: [
+        produced(CritiqueAction, { remark: "fine" }),
+        produced(CritiqueAction, { remark: "ok" }),
+      ],
+    });
+
+    expect(output).toBe(PolishedWorkflowFinish);
   });
 
   it("a router without a script has no live model to call", async () => {

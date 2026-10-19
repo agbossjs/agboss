@@ -177,7 +177,9 @@ describe("#280 AC11: generated code follows the conventions", () => {
       "run({ query }: SearchOrdersQuery): Promise<SearchOrdersResult> {",
     );
     expect(tool?.content).not.toMatch(/\bctx\b/u);
-    expect(test?.content).toContain("new SearchOrdersTool(testExecutionContext())");
+    // its test runs it on its own container (#262): no `new`
+    expect(test?.content).toContain("testTool(SearchOrdersTool)");
+    expect(test?.content).not.toMatch(/\bnew SearchOrdersTool\b/u);
     expect(apiTool?.content).toContain("deps: [ExecutionContext, ApiService],");
     expect(apiTool?.content).toContain("private readonly apiService: ApiService,");
   });

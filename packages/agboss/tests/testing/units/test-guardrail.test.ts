@@ -31,4 +31,13 @@ describe("testGuardrail", () => {
       "it has no beforeAgentAnswer()",
     );
   });
+
+  it("each hook the class lacks is named: after a call, on a channel's decision", async () => {
+    const guard = testGuardrail(RefundLimitGuardrail);
+
+    await expect(guard.afterToolCall(refund(1))).rejects.toThrow("it has no afterToolCall()");
+    await expect(guard.onChannelDecision({ approved: true }, refund(1))).rejects.toThrow(
+      "it has no onChannelDecision()",
+    );
+  });
 });
