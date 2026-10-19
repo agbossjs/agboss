@@ -3,6 +3,23 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the tree's concurrency cap (#264, PR 2)
+
+- **`@Workflow({ maxConcurrentExecutions })`** works ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)):
+  the root's value (default 10) caps how many executions of its tree work at once; a step without a
+  slot waits in the tree's queue — no error. A slot is held only while an agent, a router or an
+  action runs (an execution's parallel branches share one); at a join, while its child runs or paused
+  an execution holds none.
+- **The queue's order**: a parent closing its branch, then the deepest; `seconds(10)` of waiting
+  counts as one level deeper (the `Clock`). A child's own smaller cap limits its subtree.
+- **A quorum's `deadline`** excludes the time its branches wait in the tree's queue; a
+  `QuorumNotReachedError` past it names the effective deadline (`the deadline passed
+  (2026-01-05T09:01:10.000Z: the ticket's deadline plus 40 s in the tree's queue)`).
+- **New rules**: `[limits.max-concurrent-executions-invalid]` (not a whole number from 1, an error),
+  `[limits.child-concurrency-above-parent]` (a child's cap above its parent's, a warning).
+- `agboss describe` prints `maxConcurrentExecutions N (set | default)` for a workflow that launches
+  children; `describe --json` limits carry `maxConcurrentExecutions` and `isMaxConcurrentExecutionsSet`.
+
 ## Unreleased — concurrency, instances and unit runners (#262, PR 3)
 
 - **Parallel branches in tests** ([Testing → Parallel branches](Testing#parallel-branches--testconcurrency)):

@@ -11,7 +11,8 @@ where a per-item launch of one agent (`.toParallelAgents(A)`) runs exactly one s
 > time: a subgraph node of the parent, their own executions, `ChildExecutionFailedError`, nested
 > records (`result.children`), `toHaveChildExecutions` / `toHaveHandledError`, and a child as an
 > error handler (`toWorkflow(W)` side paths). Recursion — `ThisWorkflow`, `maxDepth`, the soft stop
-> — is #264 PR 1 ([below](#recursion-264)); the tree's `maxConcurrentExecutions` comes with #264 PR 2.
+> — is #264 PR 1 ([below](#recursion-264)); the tree's `maxConcurrentExecutions` is #264 PR 2
+> ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)).
 > Runnable examples: `examples/flow-patterns/src/vendor/`, `examples/flow-patterns/src/topic/`.
 
 ## Writing it
@@ -566,6 +567,12 @@ circular import). At run time `ThisWorkflow` is the workflow's own compiled grap
 registry when its step runs (a graph cannot contain itself): one checkpoint thread, its children
 under their tasks' `checkpoint_ns`, pauses inside any level resumed like any child's; Studio draws it
 as a node marked `recursive: maxDepth 3`.
+
+**The tree's cap.** `maxDepth` bounds how deep the tree goes, the launches' `maxConcurrency` how
+wide one launch goes, and the root's `@Workflow({ maxConcurrentExecutions: 6 })` (default 10) how many
+of the tree's executions work at once — the stricter wins. A level whose children run holds no slot,
+so a cap of 1 still finishes; the queue serves a level closing its branch first, then the deepest
+([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)).
 
 **Seen in.** `agboss describe`: `recursive: ThisWorkflow, maxDepth 3, on the last level:
 researcher-agent → TopicReportDto only`, and each input with its producers — `merge-agent ← topic:

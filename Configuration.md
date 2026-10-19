@@ -158,7 +158,7 @@ model, and the framework has no built-in guardrail model. A guard's own `model` 
 model anywhere fails assembly: `[guardrail.no-model] prompt_injection has no model — set model or
 defaults.guardrail.model` (#261; #120 turns guards into guardrails).
 
-## Limits — `maxSteps`, `maxVisits`, `@Budget`
+## Limits — `maxSteps`, `maxVisits`, `@Budget`, `maxConcurrentExecutions`
 
 `@Workflow({ maxSteps })` — visits of agents and routers in one execution (default (agents +
 routers) × 3, checked at assembly: `[limits.max-steps-too-low]`, `[limits.branch-exceeds-max-steps]`,
@@ -170,6 +170,9 @@ Hitting a limit **fails the execution** — unless an `.onError(…)` takes it �
 all `LimitExceededError`s: `StepsLimitExceededError`, `VisitsLimitExceededError`,
 `BudgetExceededError`, `DepthLimitExceededError` (a recursion past `@Workflow({ maxDepth })`, #264 —
 required on a workflow that launches `ThisWorkflow`); an exhausted budget also rejects an execution before its first step.
+`@Workflow({ maxConcurrentExecutions })` (#264, default 10) is a throttle, not a failure: how many
+executions of a tree — the root and its child workflows — work at once; the rest wait in a queue
+([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)).
 Details: [FinOps](FinOps).
 
 ## `mcp` — `@McpServer` classes

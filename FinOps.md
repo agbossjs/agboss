@@ -303,6 +303,31 @@ grows silently) —, `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unu
 execution by the app, so Studio's own runs are not capped by them. Optional extra backstop outside
 the app: a spending limit on the OpenRouter key itself.
 
+## Concurrency of a tree (#264)
+
+A tree of executions — a root and the child workflows it launches, a recursion of unknown depth
+([Workflow as a step](Workflow-as-a-step)) — shares one cap: `@Workflow({ maxConcurrentExecutions: 6 })`
+of the root, default 10, a whole number from 1 (`[limits.max-concurrent-executions-invalid]`). It is
+how many executions of the tree work on a step at once — a throttle, never an error:
+
+| What | How |
+| --- | --- |
+| a slot | an execution holds one while one of its working steps runs — an agent, a router, an action, a branch of a launch; its parallel branches share it; starts and finishes take none |
+| no slot held | an execution waiting at a join, while its child runs, or paused — so the tree never deadlocks |
+| a step without a free slot | waits in the tree's queue |
+| the queue's order | a parent whose children have all finished (its step right after its child, or its children's join: it closes a branch), then the deepest execution; every `seconds(10)` of waiting counts as one level deeper, read from the application's `Clock` |
+| a launch's `maxConcurrency` | holds too: the stricter of the launch's width and the tree's cap wins |
+| a child's own `maxConcurrentExecutions` | a smaller one limits its subtree inside the tree's; a larger one is never reached — `[limits.child-concurrency-above-parent]`, a warning (an error under `--strict`) |
+| a quorum's `deadline` | the time its branches wait for a slot does not count ([Parallel → The deadline](Parallel#the-deadline)) |
+| a `FailFast` failure, a cancel | the waiting steps of the aborted launch leave the queue unstarted |
+| a pause, a crash | the slots live in the process that holds the tree's lease ([Several instances](Several-instances)), never in a store: the next pass — a resume, or a recovery on another instance — rebuilds the queue from the unfinished tasks |
+
+What it is not: a slot is an execution, not model load — one execution may fan out into several
+model calls (provider throughput is `rateLimitPolicy`, below); the cap is per tree, not per
+application; the queue lives in one process. `agboss describe` prints it for a workflow that
+launches children: `maxConcurrentExecutions 6 (set) · executions of the tree at work at once`
+(`10 (default)` when unset).
+
 ## Capacity is not money: rate limits
 
 Budgets and steps protect money and the graph; a provider's **capacity** is its own policy
