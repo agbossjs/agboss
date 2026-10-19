@@ -10,7 +10,7 @@ import type { StepDescriptor, WorkflowDescriptor } from "../flow/context/executi
 import type { FrameSpec } from "../flow/context/frame.js";
 import { idempotencyKeyOf } from "../flow/context/idempotency.js";
 import { standaloneContexts, tenantOfExecution } from "../flow/context/runtime-contexts.js";
-import { DEFAULT_TENANT } from "../flow/context/context-values.js";
+import { DEFAULT_TENANT, type ExecutionContextValues } from "../flow/context/context-values.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { NodeKind } from "../flow/ast.js";
 import type { GraphDeps } from "../graph/deps.js";
@@ -70,6 +70,10 @@ const treeMeterOf = (
 ): BudgetMeter | undefined =>
   parts.budgets === undefined ? undefined : meterOf(parts.budgets, state.budgets ?? [], spent);
 
+/** The execution's contexts as its state keeps them (the tenant alone before its first step). */
+const contextsOf = (state: TreeState, tenantId: string): ExecutionContextValues =>
+  state.contexts ?? { tenant: { ...DEFAULT_TENANT, tenantId }, execution: {} };
+
 /** The graph deps of a workflow of the tree, by name: the root's, or a child's (#263). */
 function graphDepsNamed(deps: GraphDeps<string>, name: string): GraphDeps<string> | undefined {
   if (deps.config.name === name) return deps;
@@ -120,7 +124,7 @@ async function pauseFrameOf(
   const { own, workflow } = pauseWorkflowOf(deps, pause, state);
   const contexts = deps.contexts ?? standaloneContexts(workflow);
   const owner = await deps.terns.threadOwner(deps.config.name, pause.tenantId, pause.threadId);
-  const tenant = state.contexts?.tenant ?? { ...DEFAULT_TENANT, tenantId: pause.tenantId };
+  const { tenant, execution } = contextsOf(state, pause.tenantId);
   return {
     execution: Object.freeze({
       executionId: pause.executionId,
@@ -129,7 +133,7 @@ async function pauseFrameOf(
       signal: new AbortController().signal,
       workflow,
       tenant: tenantOfExecution(contexts, tenant),
-      values: state.contexts?.execution ?? {},
+      values: execution,
       itemIndex: pause.itemIndex,
     }),
     step: pauseStepOf(pause, own),
@@ -151,7 +155,7 @@ export const replyAnsweringPartsOf = (deps: AppDeps): ReplyAnsweringParts => ({
     const known = state.piiTokens ?? {};
     const { pii } = deps;
     if (pii === undefined) return { policies: new PiiPolicySet([], ""), known };
-    const sensitive = state.contexts === undefined ? [] : pii.contextValuesOf(state.contexts);
+    const sensitive = pii.contextValuesOf(contextsOf(state, DEFAULT_TENANT.tenantId));
     return { policies: pii.interpreterPolicies.withValues(sensitive), known };
   },
 });
