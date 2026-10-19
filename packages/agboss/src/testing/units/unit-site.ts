@@ -28,6 +28,7 @@ import { ScriptBook, type ModelScript } from "../script-book.js";
 import type { TurnFor } from "../script-types.js";
 import { createScriptedGateway } from "../scripted-gateway.js";
 import type { UnitModelScript, UnitOptions, UnitRun } from "./unit-types.js";
+import { replacementsOf } from "./override.js";
 
 /**
  * What a unit runner runs a component on (#262 S55, S62): its own container (the component's
@@ -89,10 +90,10 @@ function unitContainer(clock: Clock, contexts: RuntimeContexts, options: UnitOpt
     [SpendRecorder, new DependantValue((dependant) => new LiveSpendRecorder(dependant))],
     [Clock, clock],
   ]);
-  const replaced = new Map<Class, Class>(
-    (options.overrides ?? []).map(({ token, replacement }) => [token, replacement]),
+  return createContainer(
+    { modules: [], core },
+    { replacements: replacementsOf(options.overrides) },
   );
-  return createContainer({ modules: [], core, defaults: replaced });
 }
 
 /** One turn or a list of them, as the list. */

@@ -1,6 +1,13 @@
 import { Channel } from "../components/decorators.js";
 import { agbossComponent } from "../flow/generated-types.js";
-import { ChannelOutcome } from "./channel-outcome.js";
+import { ChannelOutcome, type DecidedOutcome } from "./channel-outcome.js";
+import type { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
+
+/**
+ * What a built-in test channel decides: an approval or a refusal, never corrected arguments — so it
+ * fits any role that approves a tool (`override(RefundApprovalRole, AutoApproveChannel)`, #267 S104).
+ */
+export type AutoDecision = Pick<ToolCallApprovalDecisionDto, "approved" | "reason">;
 
 /**
  * Approves every call at once (`ChannelOutcome.decided`): no pause, no pause record — for tests and
@@ -14,7 +21,7 @@ import { ChannelOutcome } from "./channel-outcome.js";
 export class AutoApproveChannel {
   declare readonly [agbossComponent]?: "auto-approve-channel";
 
-  send(): Promise<ChannelOutcome<AutoApproveChannel>> {
+  send(): Promise<DecidedOutcome<AutoDecision>> {
     return Promise.resolve(ChannelOutcome.decided({ approved: true }));
   }
 }
@@ -27,7 +34,7 @@ export class AutoApproveChannel {
 export class AutoRejectChannel {
   declare readonly [agbossComponent]?: "auto-reject-channel";
 
-  send(): Promise<ChannelOutcome<AutoRejectChannel>> {
+  send(): Promise<DecidedOutcome<AutoDecision>> {
     return Promise.resolve(
       ChannelOutcome.decided({ approved: false, reason: "rejected automatically" }),
     );

@@ -1416,6 +1416,11 @@ today; tenant-daily-budget allows $40`).
   reach a limit (a budget: `mockOf(Budget).maxSpend` + a scripted cost), `app.cancel` / `signal`.
 - A recorded run instead of scripts: `testWith(App, { vcr: { cassetteName, dir, mode: VCRMode.REPLAY } })`
   — an unrecorded call throws `CassetteMissingError` (REPLAY by default under `CI`).
+- Replacing a class in the application (#267 S104): `testWith(App, { overrides:
+[override(RefundApprovalRole, AutoApproveChannel)] })` — the same `override(Class, Replacement)`
+  as the unit runners, a class created instead of another over any listed one; a channel role's
+  replacement need not extend it, but its `send` must fit the role's `ChannelAsk` →
+  `ChannelOutcome` (else it does not compile). There is no `channels` option.
 - Parallel branches (#262 S33): `testWith(App, { concurrency })` — `TestConcurrency.Sequential`
   (the default: one branch at a time, in listed / item order), `TestConcurrency.Real` (as in
   production, within `maxConcurrency`) or `TestConcurrency.inOrder([step(SkillsAgent),

@@ -49,6 +49,7 @@ export class Registrations {
   readonly #values = new Map<Token, unknown>();
   readonly #valueOwners = new Map<Token, string>();
   readonly #classes = new Map<Class, string>();
+  readonly #replacements = new Map<Class, Class>();
 
   constructor(
     modules: readonly ProviderModule[],
@@ -80,6 +81,11 @@ export class Registrations {
     for (const [token, value] of values) this.#values.set(token, value);
   }
 
+  /** Classes created instead of others (test overrides): over every listed class, under values. */
+  replace(replacements: ReadonlyMap<Class, Class>): void {
+    for (const [token, replacement] of replacements) this.#replacements.set(token, replacement);
+  }
+
   /** The listed classes, in the order they were listed (each once). */
   get classes(): readonly Class[] {
     return [...this.#classes.keys()];
@@ -93,6 +99,8 @@ export class Registrations {
   find(token: Token, dependant: string): Registration | undefined {
     if (this.#values.has(token)) return { kind: "value", value: this.#values.get(token) };
     if (token instanceof InjectionToken) return undefined;
+    const replacement = this.#replacements.get(token);
+    if (replacement !== undefined) return { kind: "class", cls: replacement };
     const found = this.classes.filter((cls) => implementsContract(cls, token));
     if (found.length > 1) throw this.#ambiguous(token, found, dependant);
     const cls = found[0] ?? this.defaults.get(token);
