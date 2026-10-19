@@ -53,7 +53,9 @@ async function pausedRun<TName extends string>(
   const snapshot = await graph.getState(runConfig(paused.runId));
   // LangGraph boundary: a checkpoint's values are the flow's own state
   const { budgets, usage } = snapshot.values as Partial<ExecutionStateType>;
-  return { spent: pausedUsageOf(usage ?? [], loops), budgets };
+  // reading a free-text reply (#267 PR 3) is in the ledger already: its step adds it to the spend
+  const replies = resume.taken.flatMap((pause) => pause.answer?.usage ?? []);
+  return { spent: [...pausedUsageOf(usage ?? [], loops), ...replies], budgets };
 }
 
 /**

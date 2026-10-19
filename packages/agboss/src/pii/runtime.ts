@@ -21,6 +21,11 @@ export interface PiiRuntime {
   readonly policiesOf: (element: string) => PiiPolicySet;
   /** Logs, traces, events and the record: the application's and the workflow's lists. */
   readonly observability: ObservabilityMask;
+  /**
+   * What a reply interpreter's model reads through (#267 PR 3): the application's and the
+   * workflow's lists — an interpreter belongs to a channel role, not to an agent or a router.
+   */
+  readonly interpreterPolicies: PiiPolicySet;
   /** The values of an execution's contexts marked `sensitive` (#120 AC13). */
   readonly contextValuesOf: (contexts: ExecutionContextValues) => readonly SensitiveValue[];
   /** The key of the tokens of `sensitive` fields. */
@@ -86,9 +91,11 @@ export function piiRuntimeOf(pii: AssembledPii | undefined, parts: PiiRuntimePar
     [...(pii?.byElement ?? [])].map(([name, classes]) => [name, setOf(classes)]),
   );
   const none = setOf([]);
+  const applicationWide = setOf(pii?.observability ?? []);
   return {
     policiesOf: (element) => sets.get(element) ?? none,
-    observability: observabilityMaskOf(setOf(pii?.observability ?? []), parts.contexts),
+    observability: observabilityMaskOf(applicationWide, parts.contexts),
+    interpreterPolicies: applicationWide,
     fieldKey: parts.fieldKey,
     contextValuesOf: (contexts) =>
       sensitiveValuesOf([

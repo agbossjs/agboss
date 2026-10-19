@@ -2,7 +2,12 @@ import type { AgentsConfigOf } from "../config/types.js";
 import type { Provider } from "../components/injection.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
 import { isModelProviderClass, type ModelProviderType } from "./model-provider.decorator.js";
-import { modelUsesOf, type ModelNamingRouter, type ModelUse } from "./uses.js";
+import {
+  modelUsesOf,
+  type ModelNamingInterpreter,
+  type ModelNamingRouter,
+  type ModelUse,
+} from "./uses.js";
 import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "./workflow-models.js";
 
 /**
@@ -31,12 +36,18 @@ export interface WorkflowModels {
   readonly arbiters?: readonly ModelNamingRouter[];
   /** Its PII policies' model detections (#120), by policy `name` and `model`. */
   readonly pii?: { readonly detectors: readonly ModelNamingRouter[] };
+  /** Its reply interpreters (#267 PR 3), by `name` and `model` (none for a code one). */
+  readonly replyInterpreters?: readonly ModelNamingInterpreter[];
   readonly modelProviders: readonly ModelProviderType[];
 }
 
 /** Every model use of a workflow's models. */
 const usesOf = (workflow: Omit<WorkflowModels, "modelProviders">): readonly ModelUse[] =>
-  modelUsesOf(workflow.config, workflow.routers, workflow.arbiters, workflow.pii?.detectors);
+  modelUsesOf(workflow.config, workflow.routers, {
+    arbiters: workflow.arbiters,
+    piiDetectors: workflow.pii?.detectors,
+    interpreters: workflow.replyInterpreters,
+  });
 
 /** `[model.unserved]` / `[model.ambiguous-provider]` for every model use no single provider serves. */
 function modelResolutionViolations(workflow: WorkflowModels): RuleViolation[] {

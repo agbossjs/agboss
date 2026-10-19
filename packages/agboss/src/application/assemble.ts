@@ -7,7 +7,7 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { GraphRuleError, type RuleViolation } from "../graph/rule-error.js";
 import { containerProvidersOf } from "../models/resolution.js";
 import { withProfile } from "../profile-workflow.js";
-import { seconds, type Milliseconds } from "../units/index.js";
+import { hours, seconds, type Milliseconds } from "../units/index.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { requireApplication, type ApplicationOptions } from "./application.js";
 import { applicationRuleViolations } from "./application-rules.js";
@@ -48,6 +48,8 @@ export interface AssembledApplication {
   readonly workflows: readonly AssembledWorkflow[];
   /** How long a stop waits for the running executions (`@Application({ shutdownTimeout })`). */
   readonly shutdownTimeout: Milliseconds;
+  /** How long a resolved pause record is kept (`@Application({ pauseRecordRetention })`, #267 S107). */
+  readonly pauseRecordRetention: Milliseconds;
   /** The context classes it declares (#261), else the built-in ones. */
   readonly tenantContext: TenantContextClass;
   readonly executionContext: ExecutionContextClass;
@@ -56,6 +58,9 @@ export interface AssembledApplication {
   /** `@Application({ pseudonymKey })` (#120): the environment field of its PII key. */
   readonly pseudonymKey?: string;
 }
+
+/** How long a resolved pause record is kept by default (#267 S107): a late answer is told apart a day. */
+const PAUSE_RECORD_RETENTION: Milliseconds = hours(24);
 
 /** The default shutdown timeout (#265 S51): under the usual 30 s grace period and the 30 s lease. */
 const SHUTDOWN_TIMEOUT: Milliseconds = seconds(25);
@@ -174,6 +179,7 @@ export async function applicationOf(
     observers: options.observers ?? [],
     workflows: assembled,
     shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
+    pauseRecordRetention: options.pauseRecordRetention ?? PAUSE_RECORD_RETENTION,
     ...declaredContextsOf(options),
     ...piiOptionsOf(options),
   };

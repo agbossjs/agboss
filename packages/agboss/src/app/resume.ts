@@ -18,15 +18,25 @@ import type { AgentExecutionOutput } from "../run/types.js";
 import type { AnyTool } from "../tools/index.js";
 import type { PausedRunBook } from "./paused-runs.js";
 import type { App, ResumeOptions, ResumeRequest } from "./types.js";
+import type { Clock } from "../infrastructure/clock.js";
+import {
+  logPauseAnswer,
+  PauseResolution,
+  type PauseAnswerLog,
+} from "../infrastructure/pause-record.js";
+import type { ReplyAnswering, ReadReply } from "./reply-answer.js";
+import type { AppDeps } from "./app-deps.js";
+import { DtoValidationError } from "../dto/errors.js";
 import { ExecutionOperation } from "../core/observability.js";
 import type { ExecutionRequest } from "./run-events.js";
 import type { TreeMoves } from "./tree-moves.js";
 
 /**
  * The first phase of `app.resume` (#267, Q58): the pause found by `(tenantId, pauseId)` anywhere in
- * its tree, who answers checked against its role's `answeredBy`, the decision validated, the
- * versions checked — then `Pending → Resolved` with its decision, atomically. Nothing moves the
- * tree here; a refused resume leaves the pause as it was.
+ * its tree, who answers checked against its role's `answeredBy`, the decision validated (or a
+ * free-text reply read by its role's interpreter, #267 PR 3), the versions checked — then
+ * `Pending → Resolved` with its decision, atomically. Nothing moves the tree here; a refused
+ * resume leaves the pause as it was.
  */
 
 /** A pause id the tenant does not have — unknown, or another tenant's: the same error, no hint. */
@@ -44,6 +54,42 @@ export class PauseAnswererError extends AGBossError {
   override name = "PauseAnswererError";
 }
 
+/**
+ * What a resume answers with (#267 PR 3): exactly one of a typed `decision` or a non-empty free-text
+ * `reply` — by types, and checked here for an untyped (JS) caller, before the pause is looked up.
+ */
+type GivenAnswer =
+  | { readonly kind: "decision"; readonly decision: unknown }
+  | { readonly kind: "reply"; readonly reply: string };
+
+/** The request's answer; a request with both, or an empty reply, is refused (`DtoValidationError`). */
+function answerGivenBy(request: ResumeRequest): GivenAnswer {
+  // read as an untyped caller may pass it: the types rule both forms together out already
+  const reply: unknown = Reflect.get(request, "reply");
+  const decision: unknown = Reflect.get(request, "decision");
+  if (reply === undefined) return { kind: "decision", decision };
+  if (decision !== undefined) return reject("(root)", "give a decision or a reply, not both");
+  if (typeof reply !== "string" || reply.trim() === "")
+    return reject(".reply", "a reply is a non-empty text");
+  return { kind: "reply", reply };
+}
+
+function reject(path: string, reason: string): never {
+  throw new DtoValidationError("ResumeRequest", [{ path, reason }]);
+}
+
+/**
+ * Reading free-text replies, loaded with the first one (#205: the root import stays lean, like
+ * tracing and MCP): the reader is built once, on the app's run deps.
+ */
+export function lazyReplyAnswering(deps: AppDeps): ReplyAnswering {
+  let loaded: Promise<ReplyAnswering> | undefined;
+  return async (...call) => {
+    loaded ??= import("./reply-answer.js").then((module) => module.replyAnsweringFor(deps));
+    return (await loaded)(...call);
+  };
+}
+
 /** What recording an answer needs from the workflow's app. */
 export interface AnswerParts {
   readonly pauses: PausedExecutionRepository;
@@ -54,6 +100,12 @@ export interface AnswerParts {
   readonly tools: (name: string) => AnyTool;
   readonly current: ResumeVersions;
   readonly policy: IncompatibleResumePolicy | undefined;
+  /** Reads a free-text reply through the pause's role's interpreter (#267 PR 3). */
+  readonly replies: ReplyAnswering;
+  /** The application's clock: when the pause was resolved. */
+  readonly clock: Clock;
+  /** The execution records: who answered is written there (#267 S107). */
+  readonly answers: PauseAnswerLog;
 }
 
 /** A recorded answer: the pause now `Resolved`, and its tree's run as it rests (if it rests). */
@@ -108,6 +160,42 @@ export async function pauseOf(
   return pause;
 }
 
+/** The tree's run as it rests, its versions checked against the app's; `undefined` while it moves. */
+async function restingRunOf(
+  parts: AnswerParts,
+  pause: PauseRecord,
+): Promise<AgentExecutionOutput | undefined> {
+  const stored = await parts.paused.find({ tenantId: pause.tenantId, threadId: pause.threadId });
+  const run = stored?.run.runId === pause.rootExecutionId ? stored.run : undefined;
+  if (stored !== undefined && run !== undefined) {
+    const { workflowVersion, configHash } = stored;
+    const paused = { workflowVersion, configHash };
+    const check = { thread: pause.threadId, runId: run.runId, paused, current: parts.current };
+    checkResume(check, parts.policy);
+  }
+  return run;
+}
+
+/**
+ * The decision the answer gives, validated: a typed decision as it is (validated before the
+ * versions, as always); a reply read once the versions passed — no model is called for a resume
+ * that is refused anyway.
+ */
+async function decisionOf(
+  parts: AnswerParts,
+  pause: PauseRecord,
+  given: GivenAnswer,
+): Promise<{ readonly read: ReadReply; readonly run: AgentExecutionOutput | undefined }> {
+  const tool = parts.tools(pause.ask.tool);
+  const validate = (decision: unknown): unknown => validDecisionOf(decision, tool);
+  if (given.kind === "decision") {
+    const decision = validate(given.decision);
+    return { read: { decision, usage: [] }, run: await restingRunOf(parts, pause) };
+  }
+  const run = await restingRunOf(parts, pause);
+  return { read: await parts.replies(pause, given.reply, run, validate), run };
+}
+
 /** The first phase of a resume: the answer recorded on its pause; the tree is not moved yet. */
 export async function recordAnswer(
   parts: AnswerParts,
@@ -118,22 +206,21 @@ export async function recordAnswer(
   const { tenantId } = pause;
   const answerer = await answererOf(parts, pause, call);
   if (pause.status !== PauseStatus.Pending) throw notPaused(pause.pauseId);
-  const decision = validDecisionOf(request.decision, parts.tools(pause.ask.tool));
-  const stored = await parts.paused.find({ tenantId, threadId: pause.threadId });
-  const run = stored?.run.runId === pause.rootExecutionId ? stored.run : undefined;
-  if (stored !== undefined && run !== undefined) {
-    const { workflowVersion, configHash } = stored;
-    const paused = { workflowVersion, configHash };
-    const check = { thread: pause.threadId, runId: run.runId, paused, current: parts.current };
-    checkResume(check, parts.policy);
-  }
-  const resolution = { decision, answerer };
+  const { read, run } = await decisionOf(parts, pause, answerGivenBy(request));
+  const answer = {
+    decision: read.decision,
+    answerer,
+    ...(read.usage.length === 0 ? {} : { usage: read.usage }),
+  };
+  const at = parts.clock.now();
   const resolved = await parts.pauses.resolveByTenantIdAndPauseId(
     tenantId,
     pause.pauseId,
-    resolution,
+    answer,
+    at,
   );
   if (resolved === undefined) throw notPaused(pause.pauseId);
+  await logPauseAnswer(parts.answers, resolved, PauseResolution.Replied);
   return { pause: resolved, run };
 }
 
@@ -160,6 +247,7 @@ export const resumeOf =
     const requested = { operation: ExecutionOperation.Resume, tenantId };
     const pause = await parts.admit(requested, () => {
       parts.accepting();
+      answerGivenBy(request);
       return pauseOf(parts.pauses, request, tenantId);
     });
     const answer = await parts.admit({ ...requested, threadId: pause.threadId }, () =>

@@ -6,7 +6,8 @@ import {
   InMemoryPausedExecutionRepository,
   PausedExecutionRepository,
   type PauseRecord,
-  type PauseResolution,
+  type PauseAnswer,
+  type PauseCancellation,
 } from "../../src/infrastructure/paused-execution.repository.js";
 import { createSqliteTernStore, type TernStore } from "../../src/terns/index.js";
 
@@ -97,21 +98,36 @@ export class SharedPausedExecutionRepository extends PausedExecutionRepository {
   resolveByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    resolution: PauseResolution,
+    answer: PauseAnswer,
+    at: Date,
   ): Promise<PauseRecord | undefined> {
-    return database.pauses.resolveByTenantIdAndPauseId(tenantId, pauseId, resolution);
+    return database.pauses.resolveByTenantIdAndPauseId(tenantId, pauseId, answer, at);
   }
 
-  cancelByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean> {
-    return database.pauses.cancelByTenantIdAndPauseId(tenantId, pauseId);
+  decideByTenantIdAndPauseId(
+    tenantId: string,
+    pauseId: string,
+    answer: PauseAnswer,
+    at: Date,
+  ): Promise<boolean> {
+    return database.pauses.decideByTenantIdAndPauseId(tenantId, pauseId, answer, at);
+  }
+
+  cancelByTenantIdAndPauseId(
+    tenantId: string,
+    pauseId: string,
+    resolution: PauseCancellation,
+    at: Date,
+  ): Promise<boolean> {
+    return database.pauses.cancelByTenantIdAndPauseId(tenantId, pauseId, resolution, at);
   }
 
   markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void> {
     return database.pauses.markTakenByTenantIdAndPauseId(tenantId, pauseId);
   }
 
-  deleteByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void> {
-    return database.pauses.deleteByTenantIdAndPauseId(tenantId, pauseId);
+  deleteResolvedBefore(cutoff: Date): Promise<void> {
+    return database.pauses.deleteResolvedBefore(cutoff);
   }
 }
 

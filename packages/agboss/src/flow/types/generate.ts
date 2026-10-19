@@ -16,7 +16,7 @@ import { ClassLocator } from "./locate.js";
 import { printTypes } from "./print.js";
 import { tablesOf, type AnalysedWorkflow } from "./tables.js";
 import { contextTypesOf } from "./contexts.js";
-import { channelRoleTable } from "./channel-roles.js";
+import { channelTablesOf } from "./channel-roles.js";
 
 /**
  * Type generation (#272 PR 3, S2): a pure function of the loaded application — its v2 workflows and
@@ -147,7 +147,8 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   );
   const names = new ImportTable(new ClassLocator(request.modules), request.outFile);
   const tables = tablesOf(workflows, names);
-  const channelRoles = channelRoleTable(all, names);
+  // a reply interpreter (#267 PR 3) is typed like a handler: `InputOf` / `OutputOf` by its name
+  const channels = channelTablesOf(all, names, tables);
   // each exported workflow class is branded too, so `createApp(W)` / `testWith(W)` do not compile
   all.forEach((workflow, index) => {
     if (checks[index]?.analysis !== undefined) names.refIfExported(workflow);
@@ -166,7 +167,7 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   );
   const tablesModule = names.specifier(request.tablesModule ?? "agboss");
   const text = printTypes(
-    { ...tables, workflowStarts: contexts.workflowStarts, environments: contracts, channelRoles },
+    { ...tables, ...channels, workflowStarts: contexts.workflowStarts, environments: contracts },
     names,
     tablesModule,
     contexts.augmentations,

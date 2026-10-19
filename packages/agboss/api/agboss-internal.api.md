@@ -342,9 +342,10 @@ export interface ModelUse {
 
 // Warning: (ae-forgotten-export) The symbol "AgentsConfigOf" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ModelNamingRouter" needs to be exported by the entry point internal.d.ts
+// Warning: (ae-forgotten-export) The symbol "ModelNamingComponents" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export function modelUsesOf(config: AgentsConfigOf<string>, routers: readonly ModelNamingRouter[], arbiters?: readonly ModelNamingRouter[], piiDetectors?: readonly ModelNamingRouter[]): readonly ModelUse[];
+export function modelUsesOf(config: AgentsConfigOf<string>, routers: readonly ModelNamingRouter[], components?: ModelNamingComponents): readonly ModelUse[];
 
 // @public
 export function pathLines(path: FlowPath, label?: ComponentLabel): readonly string[];

@@ -103,6 +103,7 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
       recorded,
       deps.observer,
     );
-    return { decisions: { [call.callId]: recorded } };
+    // a free-text reply's interpreter calls are the loop's spend from now on (#267 PR 3)
+    return { decisions: { [call.callId]: recorded }, usage: [...decision.usage] };
   };
 }

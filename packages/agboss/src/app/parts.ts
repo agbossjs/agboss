@@ -22,8 +22,11 @@ import { ComponentError } from "../components/metadata.js";
 import type { AnyTool } from "../tools/index.js";
 import type { PauseSeam } from "../pause/index.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
+import type { PauseAnswerLog } from "../infrastructure/pause-record.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
+import type { ReplyReaderParts } from "../channels/reply-reader.js";
+import type { Class } from "../components/injection.js";
 
 export class UnknownToolError extends Error {
   override name = "UnknownToolError";
@@ -92,7 +95,8 @@ export const judgesFor = (
 export const pauseFor = (
   checkpointer: BaseCheckpointSaver,
   pauses: PausedExecutionRepository,
-): PauseSeam => ({ checkpointer, pauses });
+  answers: PauseAnswerLog,
+): PauseSeam => ({ checkpointer, pauses, answers });
 
 /**
  * Guards from config + their texts; each guard is a router on its own model or
@@ -169,3 +173,17 @@ export const flowFor = (
     ...(branchScheduler === undefined ? {} : { branchScheduler }),
   };
 };
+
+/** The reply interpreters of the workflow's tree (#267 PR 3): code ones from its container. */
+export const repliesFor = (
+  bundle: AssembledWorkflow,
+  config: AgentsConfigOf<string>,
+  gateway: ModelGateway,
+  container: { readonly get: <T>(token: Class<T>) => T },
+): ReplyReaderParts => ({
+  interpreters: bundle.replyInterpreters ?? [],
+  gateway,
+  chatDefaults: config.defaults.models,
+  chatModelSettings: chatModelSettingsOf(config),
+  instanceOf: (interpreter) => container.get(interpreter),
+});

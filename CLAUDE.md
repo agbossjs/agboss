@@ -1083,9 +1083,25 @@ export class SeenJobsRepository {
   one method, `send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>` (`ask = { pauseId, value }`,
   typed by the generated `ChannelRoles`): `ChannelOutcome.awaitReply()` pauses the execution until
   `app.resume({ pauseId, decision })`, `ChannelOutcome.decided(decision)` goes on at once (validated
-  like a reply, no pause record left). The `pauseId` is made once per pause, before the first
-  `send` — a retried `send` gets the same one (the channel's idempotency key); a concrete
-  `@Channel` named as is (`TerminalUserChannel`) is answered by the thread's owner.
+  like a reply, its record closed at once: `Taken`, `PauseResolution.Decided`). The `pauseId` is made
+  once per pause, before the first `send` — a retried `send` gets the same one (the channel's
+  idempotency key); a concrete `@Channel` named as is (`TerminalUserChannel`) is answered by the
+  thread's owner. **Free-text replies (#267 PR 3):** a role's `replyInterpreter` is a
+  `@ReplyInterpreter` (`-reply-interpreter`, one per role) that reads `app.resume({ pauseId, reply })`
+  with the pause's question — `{ ask, reply }` — into the role's answer, validated like a decision:
+  `DecidedBy.Model` (a chat model, one answer tool, static `prompt` / `promptUrls`; a decision model is
+  `[reply-interpreter.decision-model]`; the call checked against the tree's budgets, counted in their
+  ledger at once and in the execution's spend when its step takes the answer, traced as
+  `reply-interpreter:<name>`) or `DecidedBy.Code` (`implements ReplyInterpreterHandler<Self>` —
+  `interpret(input: InputOf<Self>): Promise<OutputOf<Self>>`, `deps`, created by the container; it
+  declines by throwing). Either kind reads in the pause's execution frame (its `ExecutionContext`:
+  tenant, owner, the waiting step — the rate limits see the tenant); a model one reads the question
+  and the reply through the application's and the workflow's PII policies, its answer revealed before
+  validation (an unknown token is a decline, a block rule `PiiRefusedError`). Unreadable →
+  `UninterpretableReplyError` (`pause.uninterpretable-reply`), the
+  pause stays pending; a role without one → `ReplyInterpreterMissingError`
+  (`pause.no-reply-interpreter`); `[reply-interpreter.not-an-interpreter]`,
+  `[reply-interpreter.no-interpret-method]` at assembly.
 - **Observers are registered only in `@Application({ observers: [...] })`** (#261), not discovered
   and never in `@Workflow`: typed hooks (`implements OnToolEnd, …`), one instance each, called for
   every execution of the application (filter by `event.workflow.name === nameOf(W)` — `nameOf(C)`
@@ -1282,7 +1298,19 @@ tenant, execution, onStream })` runs the workflow of that start (any workflow of
   Each pause is a record (`PausedExecutionRepository`, S35) made by its step's idempotency key
   before `send`: `Pending` → `Resolved` (an answer) → `Taken` (its step went on), or `Cancelled`
   (withdrawn: a `FailFast` sibling failed, the thread was cancelled, the tree ended) — an answer to
-  any but `Pending` → `NotPausedError`. `app.cancel(threadId, { tenantId, ownerId })` aborts a
+  any but `Pending` → `NotPausedError`. `app.resume({ pauseId, reply }, …)` answers with free text
+  instead (exactly one of `decision` / a non-empty `reply`, else `DtoValidationError`), read by the
+  role's `@ReplyInterpreter` (Components above). Who answered each pause is in
+  `result.record.pauses` (`{ record: true }`, #267 S107): every resolved pause of the tree in the order
+  asked — `PauseAnswerRecord { pauseId (none for a Channel pause), step, role, answeredBy, responder,
+resolution: PauseResolution.Decided | Replied | Withdrawn | Cancelled, askedAt, resolvedAt,
+decision }`, the decision PII-masked, none when withdrawn or cancelled — written when the pause is
+  resolved into the execution records (`ExecutionRecordRepository.savePauseAnswer` /
+  `findPauseAnswersByTenantIdAndRootExecutionId`), the permanent history; the pause records are
+  operational state, never read for it. A resolved pause record (`Taken`,
+  `Cancelled`) is kept `@Application({ pauseRecordRetention })` (default `hours(24)`), then removed by
+  the recovery sweep (`PausedExecutionRepository.deleteResolvedBefore(cutoff)`, on the `Clock`): a
+  late answer is `NotPausedError` within it, `UnknownPauseError` after; `Pending` is never removed. `app.cancel(threadId, { tenantId, ownerId })` aborts a
   running execution (`ExecutionCancelledError`) or drops a paused one (its pauses withdrawn). The options are named like the
   `ExecutionContext` fields they fill — `threadId`, never `thread`. A thread with an `ownerId`
   rejects another owner (`ThreadOwnerError`).
@@ -1399,6 +1427,7 @@ today; tenant-daily-budget allows $40`).
   action's error as `cause`) / `step.guard` / `step.router` ⊃ `step.router.invalid-decision` /
   `step.arbiter` (`ArbiterError`) / `step.quorum` (`QuorumNotReachedError`, #279) /
   `step.child` (`ChildExecutionFailedError`, #263), `limit.depth` (`DepthLimitExceededError`, #264),
+  `pause.unknown`, `pause.wrong-answerer`, `pause.uninterpretable-reply`, `pause.no-reply-interpreter`,
   `execution.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
   `app.close()`, an `onExecutionRejected`, …); a new error
   class gets a `static code`. `.onError` matches by class, so a subclass is caught by its parent's
@@ -1424,7 +1453,8 @@ today; tenant-daily-budget allows $40`).
   launch, `routeTo()` only with an `Always` route), `decideWith(answers)` (a decision judge),
   `failWith(ModelFailure.Timeout)`, `waitFor(seconds(31))` (the next turn after that long on the
   clock); the network is blocked. `mockLlm(X).when(PartialValues<InputOf<X>>)` binds turns to the
-  input values (agents and model routers; `undefined` = absent, lists by length and position,
+  input values (agents, model routers and model reply interpreters — `{ ask, reply }`, #267;
+  `undefined` = absent, lists by length and position,
   `variant(XDto, { … })` for a `oneOf` element); a call no script matches fails naming its input
   (`test.no-matching-script`). A script is an expectation: an unused `thenReturn` turn or `when(…)`
   fails a passing test at its end (`test.unused-script`; never `thenReturnAlways`) — a test that

@@ -208,6 +208,8 @@ function stopOf(
     clock,
     log: parts.log,
     signal: interruption.signal,
+    pauses: parts.infrastructure.pausedExecutions,
+    pauseRecordRetention: assembled.pauseRecordRetention,
   });
   const { shutdownTimeout } = assembled;
   return gracefulStopOf({

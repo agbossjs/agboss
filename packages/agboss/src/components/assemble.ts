@@ -3,7 +3,7 @@ import { validateAgentsConfig } from "../config/types.js";
 import { analyseWorkflow, type FlowAnalysis } from "../flow/analyse/analyse.js";
 import { maxStepsOf as stepsLimitOf } from "../flow/analyse/worst-case.js";
 import { agentMetasOf } from "../flow/runtime/agents.js";
-import { codeClassesOf, runtimeGraphOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
+import { runtimeGraphOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { loadRouters } from "../flow/runtime/routers.js";
 import { DEFAULT_WORKFLOW_SETTINGS, type WorkflowSettings } from "../graph/settings.js";
 import type { AssembledWorkflow } from "../workflow.js";
@@ -29,7 +29,7 @@ import {
 } from "./assemble-checks.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { channelPartsOf } from "./channel-parts.js";
-import { checkChannels } from "../channels/channel-rules.js";
+import { checkedChannelsOf, createdClassesOf } from "./channel-parts.js";
 import { PromptLoader } from "./prompt-render.js";
 import { checkMemoryStrategies, memoryPartsOf } from "./memory-parts.js";
 import { configDefaultsOf, guardsOf, moduleOf, workflowDeclarationOf } from "./module.js";
@@ -184,8 +184,8 @@ export async function workflowOf(
   const judges = judgeClassesOf(agents);
   const pii = piiPartsOf(bundle, owner, agents, graph);
   const modules = [...providerModulesOf(bundle), ...application];
-  checkChannels(workflow, modules, owner === undefined);
-  const created = [...codeClassesOf(graph), ...pii.classes];
+  const replyInterpreters = await checkedChannelsOf(workflow, modules, owner === undefined, loader);
+  const created = createdClassesOf(graph, pii.classes, replyInterpreters);
   const components = componentClassesOf(bundle, agents, tools, rags, created, modules);
   checkGraph(components, modules, coreTokensOf(mcp, contexts));
   rememberServers(bundle, mcp.instances);
@@ -193,7 +193,7 @@ export async function workflowOf(
   const prompts = await promptsOf(agents, loader);
   const config = configOf(bundle, agents, names, mcp, judges);
   validateAgentsConfig(config, [...names.values()]);
-  const models = modelPartsOf(owner, { config, routers }, graph, pii.detectors);
+  const models = modelPartsOf(owner, { config, routers }, graph, pii.detectors, replyInterpreters);
   rememberDefaultsLevels(graph, levelsOf(workflow, owner));
   return {
     config,

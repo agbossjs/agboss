@@ -111,6 +111,14 @@ export {
   type AwaitReplyOutcome,
   type DecidedOutcome,
 } from "../channels/channel-outcome.js";
+export {
+  ReplyInterpreter,
+  type CodeReplyInterpreterOptions,
+  type ModelReplyInterpreterOptions,
+  type ReplyInterpreterDecorator,
+  type ReplyInterpreterHandler,
+  type ReplyInterpreterOptions,
+} from "../channels/channel-role.decorator.js";
 export { TerminalUserChannel } from "../channels/terminal-channel.js";
 export { AutoApproveChannel, AutoRejectChannel } from "../channels/test-channels.js";
 export {

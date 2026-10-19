@@ -71,11 +71,29 @@ export interface ExecutionOptions extends CallOptions {
  * and the decision for it, validated against its channel role's answer DTO (a tool approval: a
  * `ToolCallApprovalDecisionDto`).
  */
-export interface ResumeRequest {
+/**
+ * What `app.resume` answers a pause with (#267): its id and exactly one of a typed `decision` or a
+ * free-text `reply` — read by the pause's role's `@ReplyInterpreter`, the pause staying pending when
+ * it cannot be read (`UninterpretableReplyError`).
+ */
+export type ResumeRequest = DecisionResumeRequest | ReplyResumeRequest;
+
+/** A pause answered with its decision. */
+export interface DecisionResumeRequest {
   /** The pause's id: `result.pending[i].pauseId`, or the `ask.pauseId` its channel was sent. */
   readonly pauseId: string;
   /** The answer, checked against the pause's role (a tool approval: a `ToolCallApprovalDecisionDto`). */
   readonly decision: unknown;
+  readonly reply?: never;
+}
+
+/** A pause answered with a free-text reply, as a webhook got it (`"ok, but only half"`). */
+export interface ReplyResumeRequest {
+  /** The pause's id: `result.pending[i].pauseId`, or the `ask.pauseId` its channel was sent. */
+  readonly pauseId: string;
+  /** The reply as it came, non-empty: its role's interpreter reads it with the pause's question. */
+  readonly reply: string;
+  readonly decision?: never;
 }
 
 /**

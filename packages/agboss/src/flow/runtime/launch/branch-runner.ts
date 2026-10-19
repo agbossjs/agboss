@@ -1,6 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
+import { extractRunContext } from "../../../core/run-context.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { runInFrame } from "../../context/frame.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
@@ -32,7 +33,7 @@ import { withdrawSiblingPauses } from "./withdrawn-pauses.js";
 import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
 import { inTreeSlot } from "../step-frame.js";
 import { branchFrameOf } from "./branch-view.js";
-import type { PausedExecutionRepository } from "../../../infrastructure/paused-execution.repository.js";
+import type { PauseSeam } from "../../../pause/index.js";
 import type { ChildExecutionRecord } from "../child-records.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
 
@@ -50,7 +51,7 @@ import type { PiiTokenMap } from "../../../pii/tokens.js";
 export interface BranchDeps extends VisitDeps, BranchQuorumDeps {
   readonly graph: RuntimeGraph;
   /** The application's pauses: a `FailFast` failure withdraws its paused siblings' (#267 AC10). */
-  readonly pauses?: PausedExecutionRepository;
+  readonly pauses?: Pick<PauseSeam, "pauses" | "answers">;
   /** Where a failed branch's error waits for a join in a later pass of this process. */
   readonly branchErrors?: BranchErrors;
 }
@@ -152,7 +153,8 @@ async function abortLaunch(run: BranchRun): Promise<void> {
   live.controller.abort();
   if (deps.pauses === undefined) return;
   const tenantId = state.contexts.tenant.tenantId;
-  const site = { tenantId, rootExecutionId: state.runId, launch: owner.ticket, failed: ticket };
+  const at = extractRunContext(run.config, state.runId).clock.now();
+  const site = { tenantId, rootExecutionId: state.runId, launch: owner.ticket, failed: ticket, at };
   await withdrawSiblingPauses(deps.pauses, site);
 }
 

@@ -1,11 +1,17 @@
-import type { PausedExecutionRepository } from "../../../infrastructure/paused-execution.repository.js";
-import { PauseStatus, type PauseRecord } from "../../../infrastructure/pause-record.js";
+import {
+  cancelledPause,
+  logPauseAnswer,
+  PauseResolution,
+  PauseStatus,
+  type PauseRecord,
+} from "../../../infrastructure/pause-record.js";
+import type { PauseSeam } from "../../../pause/index.js";
 import { PauseWithdrawnError } from "../pause.js";
 import type { BranchTicket, LaunchTicket } from "./records.js";
 
 /**
  * A `FailFast` failure cancels its launch (#273 S21) — paused siblings too (#267 AC10): their
- * pending pauses are withdrawn (`Cancelled`), so the tree goes on to the join instead of waiting
+ * pending pauses are withdrawn (`Cancelled`, `PauseResolution.Withdrawn`), so the tree goes on to the join instead of waiting
  * for answers nobody needs, and a late answer gets `NotPausedError`. A withdrawn branch ends
  * `Cancelled` when it runs again.
  */
@@ -17,6 +23,8 @@ export interface WithdrawalSite {
   readonly launch: LaunchTicket;
   /** The branch that failed: its own pauses are not its siblings'. */
   readonly failed: BranchTicket;
+  /** When (the application's clock): the pauses' `resolvedAt`. */
+  readonly at: Date;
 }
 
 /** Whether a pause waits in one of the launch's other branches. */
@@ -31,14 +39,20 @@ const isSiblingOf = (site: WithdrawalSite, pause: PauseRecord): boolean =>
 
 /** Withdraws every pending pause of the failed branch's siblings. */
 export async function withdrawSiblingPauses(
-  pauses: PausedExecutionRepository,
+  stores: Pick<PauseSeam, "pauses" | "answers">,
   site: WithdrawalSite,
 ): Promise<void> {
-  const { tenantId, rootExecutionId } = site;
+  const { tenantId, rootExecutionId, at } = site;
+  const { pauses, answers } = stores;
   const records = await pauses.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId);
+  const withdrawn = PauseResolution.Withdrawn;
   for (const pause of records) {
-    if (pause.status === PauseStatus.Pending && isSiblingOf(site, pause))
-      await pauses.cancelByTenantIdAndPauseId(tenantId, pause.pauseId);
+    if (
+      pause.status === PauseStatus.Pending &&
+      isSiblingOf(site, pause) &&
+      (await pauses.cancelByTenantIdAndPauseId(tenantId, pause.pauseId, withdrawn, at))
+    )
+      await logPauseAnswer(answers, cancelledPause(pause, withdrawn, at), withdrawn);
   }
 }
 

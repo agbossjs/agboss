@@ -11,6 +11,7 @@ import { extractText } from "../graph/multimodal.js";
 import { scriptedCall, waitBeforeAnswer } from "./scripted-call.js";
 import { replyOf } from "./scripted-replies.js";
 import type { ScriptedCall } from "./turns.js";
+import type { RecordedInput } from "./input-match.js";
 
 const lineOf = (message: BaseMessage): ChatLine => ({
   role: message.type,
@@ -45,6 +46,8 @@ export interface ScriptedChatSite {
   readonly book: ScriptBook;
   readonly clock: Clock;
   readonly key: string;
+  /** What the call reads when it is not a step's (a reply interpreter's `{ ask, reply }`). */
+  readonly input?: RecordedInput;
 }
 
 /**
@@ -88,7 +91,9 @@ export class ScriptedChatModel extends BaseChatModel {
       }
     };
     const request = { ...chatRequestOf(messages), tools: this.tools };
-    const call: ScriptedCall = reported(() => scriptedCall(script, request));
+    const call: ScriptedCall = reported(() =>
+      scriptedCall(script, request, undefined, this.site.input),
+    );
     await waitBeforeAnswer(clock, call, options.signal);
     const site = { book, script, settings: this.settings, tools: this.tools };
     const message: AIMessage = reported(() => replyOf(site, call));

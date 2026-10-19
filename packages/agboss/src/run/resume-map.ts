@@ -48,7 +48,7 @@ export function treeResumeOf(
     ),
     pauseIds: answered.map(({ pause }) => pause.pauseId),
     taken,
-    decisions: taken.map((pause) => pause.resolution?.decision),
-    answerers: taken.map((pause) => pause.resolution?.answerer),
+    decisions: taken.map((pause) => pause.answer?.decision),
+    answerers: taken.map((pause) => pause.answer?.answerer),
   };
 }

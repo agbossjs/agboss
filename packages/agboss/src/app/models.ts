@@ -45,7 +45,10 @@ export async function modelsFor(
   clients: ProviderClientOptions,
 ): Promise<AppModels> {
   const directory = directoryOf(bundle.modelProviders);
-  const uses = modelUsesOf(bundle.config, bundle.routers, [], bundle.pii?.detectors);
+  const uses = modelUsesOf(bundle.config, bundle.routers, {
+    piiDetectors: bundle.pii?.detectors,
+    interpreters: bundle.replyInterpreters,
+  });
   const unresolved = resolutionProblems(uses, directory);
   if (unresolved.length > 0) throw new ConfigurationError(unresolved);
   // the production gateway reads every provider's key: a missing one fails before the model check

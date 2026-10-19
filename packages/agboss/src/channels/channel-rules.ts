@@ -2,6 +2,7 @@ import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
 import { channelRoleOf } from "./channel-role.decorator.js";
+import { replyInterpreterViolations } from "./discovery.js";
 import {
   channelNameOf,
   channelUsesOf,
@@ -13,8 +14,9 @@ import {
 /**
  * The assembly rules of channels (#267): a tool's input is the `approves` of its role
  * (`[channel.wrong-tool]`), a role has one implementation among the providers
- * (`[di.missing-implementation]`, `[di.ambiguous-implementation]`), and a reply interpreter belongs
- * to one role (`[channel.shared-interpreter]`). All violations at once.
+ * (`[di.missing-implementation]`, `[di.ambiguous-implementation]`), a reply interpreter belongs
+ * to one role (`[channel.shared-interpreter]`) and is a valid `@ReplyInterpreter` (#267 PR 3). All
+ * violations at once.
  */
 
 const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
@@ -105,7 +107,11 @@ export function channelRuleViolations(
   uses: readonly ChannelUse[],
   modules: readonly ProviderModule[],
 ): RuleViolation[] {
-  return [...wrongToolViolations(uses), ...implementationViolations(uses, modules)];
+  return [
+    ...wrongToolViolations(uses),
+    ...implementationViolations(uses, modules),
+    ...replyInterpreterViolations(uses),
+  ];
 }
 
 /**

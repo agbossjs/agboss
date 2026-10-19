@@ -15,6 +15,7 @@ import type { ModelProviderType } from "./models/model-provider.decorator.js";
 import type { ContainerOptions } from "./components/container/container.js";
 import type { RuntimeContexts } from "./flow/context/runtime-contexts.js";
 import type { IncompatibleResumePolicy } from "./run/resume-guard.js";
+import type { AssembledReplyInterpreter } from "./channels/discovery.js";
 
 /** What the core offers the tools of a workflow. */
 export interface WorkflowServices {
@@ -62,6 +63,8 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly routers: readonly LoadedRouter[];
   /** Its model arbiters (#279), by `name` and `model`: model uses like the routers'. */
   readonly arbiters?: readonly ModelArbiterUse[];
+  /** The reply interpreters of its tree's channel roles (#267 PR 3). */
+  readonly replyInterpreters?: readonly AssembledReplyInterpreter[];
   readonly prompts: AgentPrompts<TName>;
   readonly tools: WorkflowTools;
   readonly mcpServers: readonly McpServerHandle<string>[];

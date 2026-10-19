@@ -49,9 +49,11 @@ export {
 } from "../infrastructure/execution-record.repository.js";
 export {
   PausedExecutionRepository,
+  PauseResolution,
   PauseStatus,
+  type PauseAnswer,
+  type PauseCancellation,
   type PauseRecord,
-  type PauseResolution,
 } from "../infrastructure/paused-execution.repository.js";
 export type { PauseSite } from "../infrastructure/pause-record.js";
 export type { PendingPause } from "../pause/index.js";
@@ -93,6 +95,8 @@ export {
   type ExecutionOptions,
   type ExecutionOutput,
   type ChannelResumeOptions,
+  type DecisionResumeRequest,
+  type ReplyResumeRequest,
   type ResumeOptions,
   type ResumeRequest,
   type ThreadOwnerResumeOptions,

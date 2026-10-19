@@ -275,4 +275,44 @@ describe("SQLite Tern store", () => {
     expect(await store.hasThread("b", "default", "t-acme")).toBe(true);
     store.close();
   });
+
+  it("#267 S107: the pause answer log keeps one entry per pause, a tree's in the order asked", async () => {
+    const store = createSqliteTernStore(":memory:", () => new Date());
+    const entry = { tenantId: "acme", rootExecutionId: "root-1" };
+    await store.appendPauseAnswer({
+      ...entry,
+      stepKey: "b",
+      askedAt: "2026-01-05T09:02",
+      record: "b",
+    });
+    await store.appendPauseAnswer({
+      ...entry,
+      stepKey: "a",
+      askedAt: "2026-01-05T09:01",
+      record: "a",
+    });
+    await store.appendPauseAnswer({
+      ...entry,
+      stepKey: "a",
+      askedAt: "2026-01-05T09:01",
+      record: "again",
+    });
+    await store.appendPauseAnswer({
+      ...entry,
+      stepKey: "c",
+      askedAt: "2026-01-05T09:01",
+      record: "c",
+    });
+    await store.appendPauseAnswer({
+      ...entry,
+      tenantId: "other",
+      stepKey: "d",
+      askedAt: "",
+      record: "d",
+    });
+
+    expect(await store.pauseAnswersOf("acme", "root-1")).toEqual(["a", "c", "b"]);
+    expect(await store.pauseAnswersOf("acme", "root-2")).toEqual([]);
+    store.close();
+  });
 });

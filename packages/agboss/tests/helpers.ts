@@ -232,11 +232,12 @@ export async function resumeWith(
 ): Promise<AgentExecutionOutput> {
   const [pending] = paused.pending;
   if (pending !== undefined) {
-    const resolution = { decision, answerer };
+    const answer = { decision, answerer };
     await deps.pause?.pauses.resolveByTenantIdAndPauseId(
       paused.tenantId,
       pending.pauseId,
-      resolution,
+      answer,
+      (deps.clock ?? systemClock).now(),
     );
   }
   const none = { values: {}, pauseIds: [], taken: [], decisions: [], answerers: [] };

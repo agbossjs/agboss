@@ -9,6 +9,14 @@ import { containerFor } from "./runtime.js";
 import type { ToolClasses } from "./assemble-checks.js";
 import type { WorkflowMeta } from "./meta-types.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
+import { checkChannels } from "../channels/channel-rules.js";
+import {
+  codeInterpreterClassesOf,
+  replyInterpretersOf,
+  type AssembledReplyInterpreter,
+} from "../channels/discovery.js";
+import type { PromptLoader } from "./prompt-render.js";
+import { codeClassesOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
 
 /**
  * The channels of a workflow (#267): the classes its tools name, found from the graph — no
@@ -68,3 +76,24 @@ export function channelPartsOf(
       ),
   };
 }
+
+/**
+ * The channels of a workflow checked (its children's too) and its tree's reply interpreters
+ * (#267 PR 3), a model one's instructions loaded by `loader` (its problems reported with the rest).
+ */
+export async function checkedChannelsOf(
+  workflow: Class,
+  modules: readonly ProviderModule[],
+  isStandalone: boolean,
+  loader: PromptLoader,
+): Promise<readonly AssembledReplyInterpreter[]> {
+  checkChannels(workflow, modules, isStandalone);
+  return replyInterpretersOf(workflow, loader);
+}
+
+/** The classes the container creates for a workflow's code: its nodes', PII detectors', interpreters'. */
+export const createdClassesOf = (
+  graph: Pick<RuntimeGraph, "nodes" | "launches">,
+  piiClasses: readonly Class[],
+  interpreters: readonly AssembledReplyInterpreter[],
+): Class[] => [...codeClassesOf(graph), ...piiClasses, ...codeInterpreterClassesOf(interpreters)];

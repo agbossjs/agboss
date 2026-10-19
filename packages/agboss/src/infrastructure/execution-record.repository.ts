@@ -11,8 +11,10 @@ import {
   type TernStore,
   type VersionScore,
 } from "../terns/index.js";
+import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import { Clock } from "./clock.js";
 import { NEW_THREAD_ID } from "./instance-tokens.js";
+import { pauseAnswerRecordOfJson } from "./pause-record.js";
 
 export type { NewThread } from "../terns/index.js";
 
@@ -119,6 +121,21 @@ export abstract class ExecutionRecordRepository {
   /** The latest `limit` summaries of the thread, oldest first. */
   abstract latestSummaries(tenantId: string, threadId: string, limit: number): Promise<Summary[]>;
   abstract summaryCount(tenantId: string, threadId: string): Promise<number>;
+  /**
+   * Keeps how a pause of a tree was resolved (#267 S107), once per pause (by its tenant and
+   * `step.idempotencyKey`: a second save is ignored) — the permanent log `ExecutionRecord.pauses`
+   * reads, whatever the pause records' retention removed since.
+   */
+  abstract savePauseAnswer(
+    tenantId: string,
+    rootExecutionId: string,
+    answer: PauseAnswerRecord,
+  ): Promise<void>;
+  /** The resolved pauses of a tree, in the order they were asked (ties in the order saved). */
+  abstract findPauseAnswersByTenantIdAndRootExecutionId(
+    tenantId: string,
+    rootExecutionId: string,
+  ): Promise<PauseAnswerRecord[]>;
 }
 
 /** The records in a Tern store (internal): what the built-in default and the SQLite ones build on. */
@@ -211,6 +228,23 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
   }
   summaryCount(tenantId: string, threadId: string): Promise<number> {
     return this.#store.summaryCount(tenantId, threadId);
+  }
+  savePauseAnswer(
+    tenantId: string,
+    rootExecutionId: string,
+    answer: PauseAnswerRecord,
+  ): Promise<void> {
+    const { idempotencyKey: stepKey } = answer.step;
+    const { askedAt } = answer;
+    const record = JSON.stringify(answer);
+    return this.#store.appendPauseAnswer({ tenantId, rootExecutionId, stepKey, askedAt, record });
+  }
+  async findPauseAnswersByTenantIdAndRootExecutionId(
+    tenantId: string,
+    rootExecutionId: string,
+  ): Promise<PauseAnswerRecord[]> {
+    const records = await this.#store.pauseAnswersOf(tenantId, rootExecutionId);
+    return records.map(pauseAnswerRecordOfJson);
   }
 }
 

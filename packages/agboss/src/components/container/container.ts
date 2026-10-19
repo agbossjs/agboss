@@ -1,6 +1,7 @@
 import { InjectionToken, tokenName, type Class, type Token } from "../injection.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import { arbiterOf } from "../../flow/decorators/arbiter.js";
+import { replyInterpreterOf } from "../../channels/channel-role.decorator.js";
 import { ComponentError, componentOf } from "../metadata.js";
 import { Registrations, type ProviderModule, type Registration } from "./registrations.js";
 
@@ -11,11 +12,15 @@ import { Registrations, type ProviderModule, type Registration } from "./registr
  * `ExecutionContext`.
  */
 
+/** The options a flow node's, an arbiter's or a reply interpreter's decorator recorded. */
+const declaredOptionsOf = (cls: Class) =>
+  declarationOf(cls)?.options ?? arbiterOf(cls)?.options ?? replyInterpreterOf(cls)?.options;
+
 /** A component's constructor dependencies: every decorator kind that takes `deps` records them. */
 export const depsOf = (cls: Class): readonly Token[] => {
   const meta = componentOf(cls)?.meta;
   if (meta !== undefined && "deps" in meta) return meta.deps;
-  const options = declarationOf(cls)?.options ?? arbiterOf(cls)?.options;
+  const options = declaredOptionsOf(cls);
   return options !== undefined && "deps" in options ? (options.deps ?? []) : [];
 };
 
@@ -23,7 +28,8 @@ export const depsOf = (cls: Class): readonly Token[] => {
 export const isDecorated = (cls: Class): boolean =>
   componentOf(cls) !== undefined ||
   declarationOf(cls) !== undefined ||
-  arbiterOf(cls) !== undefined;
+  arbiterOf(cls) !== undefined ||
+  replyInterpreterOf(cls) !== undefined;
 
 /**
  * A core value the app does not have (e.g. no environment): registered so the graph checks pass,

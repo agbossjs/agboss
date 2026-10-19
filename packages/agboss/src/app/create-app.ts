@@ -40,7 +40,7 @@ import { ExecutionOperation } from "../core/observability.js";
 import { ApplicationStoppingError } from "./application-stopping.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf } from "./child-deps.js";
-import { resumeOf } from "./resume.js";
+import { lazyReplyAnswering, resumeOf } from "./resume.js";
 
 export { NotAWorkflowStartError } from "./starts.js";
 
@@ -93,16 +93,18 @@ export async function buildApp(
   };
   const policy = bundle.onIncompatibleResume;
   const pauses = parts.infrastructure.pausedExecutions;
-  const paused = pausedRunBook(pauses, current);
+  const log = parts.infrastructure.records;
+  const paused = pausedRunBook({ pauses, answers: log }, current, parts.infrastructure.clock);
   const live = new LiveRuns();
-  const { executionLeases, executionTrees: trees } = parts.infrastructure;
-  const leases = executionLeasesOf(executionLeases, parts.infrastructure.clock);
-  const moves = treeMovesOf({ deps, live, paused, leases, trees });
+  const { executionLeases, executionTrees: trees, clock } = parts.infrastructure;
+  const leases = executionLeasesOf(executionLeases, clock);
+  const moves = treeMovesOf({ deps, live, paused, leases, trees, clock });
   const owned = (access: ThreadAccess) => checkThreadOwner(deps.terns, deps.config.name, access);
   const known = (access: ThreadAccess) => checkThreadAccess(deps.terns, deps.config.name, access);
   const fresh = (access: ThreadAccess) => isNewThread(deps.terns, deps.config.name, access);
   // a pause inside a child (#263) is validated against the child's tool
   const answers = { pauses, paused, owned, tools: treeToolsOf(deps), current, policy };
+  const replies = { replies: lazyReplyAnswering(deps), clock, answers: log };
   const ownerOf = async (tenantId: string, threadId: string): Promise<string | undefined> =>
     (await deps.terns.threadOwner(deps.config.name, tenantId, threadId))?.owner;
   /** A new thread — the caller's own id, or one made now; two creating one id: the first owns it. */
@@ -198,7 +200,7 @@ export async function buildApp(
       }
       return { cancelled: running || waiting !== undefined };
     },
-    resume: resumeOf({ ...answers, admit, accepting, moves, ownerOf }),
+    resume: resumeOf({ ...answers, ...replies, admit, accepting, moves, ownerOf }),
     close: async () => {
       closed = true;
       if (released) return;

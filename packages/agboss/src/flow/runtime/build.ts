@@ -69,7 +69,9 @@ function agentLoops(deps: GraphDeps<string>, run: RunLimits): ReadonlyMap<string
       : pauseSeamApproval({
           channelOf: deps.channelOf,
           pauses: deps.pause.pauses,
+          answers: deps.pause.answers,
           observer: deps.observer,
+          ...(deps.clock === undefined ? {} : { clock: deps.clock }),
         });
   const loopOf = (name: string, agent: AgentDefinition): AgentLoopGraph =>
     agentLoopGraph(

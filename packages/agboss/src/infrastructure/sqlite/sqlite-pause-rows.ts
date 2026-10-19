@@ -1,12 +1,12 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import {
-  PauseStatus,
-  resolvedPause,
-  type PauseRecord,
-  type PauseResolution,
-} from "../pause-record.js";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
+import {
+  PauseResolution,
+  PauseStatus,
+  type PauseAnswer,
+  type PauseRecord,
+} from "../pause-record.js";
 
 /**
  * The pauses of `SqlitePausedExecutionRepository` (#267 S35): one row per pause, unique per step
@@ -17,9 +17,25 @@ import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 export const PAUSES_SCHEMA = `CREATE TABLE IF NOT EXISTS pauses (
   tenant_id TEXT NOT NULL, pause_id TEXT NOT NULL, step_key TEXT NOT NULL,
   root_execution_id TEXT NOT NULL, status TEXT NOT NULL, is_sent INTEGER NOT NULL,
-  pause TEXT NOT NULL, resolution TEXT,
+  pause TEXT NOT NULL, answer TEXT, resolution TEXT, resolved_at TEXT,
   PRIMARY KEY (tenant_id, pause_id), UNIQUE (tenant_id, step_key));
-CREATE INDEX IF NOT EXISTS pauses_by_root ON pauses (tenant_id, root_execution_id);`;
+CREATE INDEX IF NOT EXISTS pauses_by_root ON pauses (tenant_id, root_execution_id);
+CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at);`;
+
+/**
+ * The migration of a file written before the pause answer records (#267 S107): the answer column
+ * was named `resolution`; how and when a pause was resolved get columns of their own.
+ */
+export const PAUSE_ANSWERS_MIGRATION = `ALTER TABLE pauses RENAME COLUMN resolution TO answer;
+ALTER TABLE pauses ADD COLUMN resolution TEXT;
+ALTER TABLE pauses ADD COLUMN resolved_at TEXT;
+CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at);`;
+
+/**
+ * A pause row of `SqlitePausedExecutionRepository` read and written (#267 S35, S107): its columns
+ * and the JSON it keeps, each validated on the way out; a row stored by an earlier version reads
+ * with defaults (no copy number: the first copy; no resolution column: its status says).
+ */
 
 /** What a pause row keeps as JSON: everything but its id, status, flag and resolution. */
 const StoredPause = z.object({
@@ -29,6 +45,9 @@ const StoredPause = z.object({
   nodeId: z.string(),
   visitNumber: z.number(),
   itemIndex: z.number().optional(),
+  // a pause stored before #267 S107 kept neither: the first copy, asked at an unknown time
+  copyNumber: z.number().default(1),
+  askedAt: z.string().default(""),
   agent: z.string(),
   channel: z.string(),
   answeredBy: z.enum(PauseAnswerer),
@@ -48,11 +67,42 @@ const PauseRow = z.object({
   status: z.enum(PauseStatus),
   is_sent: z.number(),
   pause: z.string(),
-  resolution: z.string().nullable(),
+  answer: z.string().nullable(),
+  resolution: z.enum(PauseResolution).nullable(),
+  resolved_at: z.string().nullable(),
 });
 
-const StoredResolution = z.object({ decision: z.unknown(), answerer: z.string().optional() });
+const StoredUsage = z.object({
+  caller: z.string(),
+  model: z.string(),
+  inputTokens: z.number(),
+  outputTokens: z.number(),
+  cacheReadTokens: z.number(),
+  cacheWriteTokens: z.number(),
+  costUsd: z.number(),
+  costSource: z.enum(["api", "price-table", "tool"]),
+});
 
+const StoredAnswer = z.object({
+  decision: z.unknown(),
+  answerer: z.string().optional(),
+  usage: z.array(StoredUsage).optional(),
+});
+
+/** How a row was resolved: its column, else (a row stored before #267 S107) its status says. */
+function resolutionOf(r: z.infer<typeof PauseRow>): PauseResolution | undefined {
+  if (r.resolution !== null) return r.resolution;
+  if (r.status === PauseStatus.Cancelled) return PauseResolution.Cancelled;
+  return r.answer === null ? undefined : PauseResolution.Replied;
+}
+
+/** The answer a row keeps, as JSON. */
+function answerOf(text: string): PauseAnswer {
+  const { decision, answerer, usage } = StoredAnswer.parse(JSON.parse(text));
+  return { decision, answerer, ...(usage === undefined ? {} : { usage }) };
+}
+
+/** A row as the record it keeps. */
 function toPauseRecord(row: unknown): PauseRecord {
   const r = PauseRow.parse(row);
   const { itemIndex, ...stored } = StoredPause.parse(JSON.parse(r.pause));
@@ -66,11 +116,16 @@ function toPauseRecord(row: unknown): PauseRecord {
     status: r.status,
     isSent: r.is_sent === 1,
   };
-  if (r.resolution === null) return pause;
-  const { decision, answerer } = StoredResolution.parse(JSON.parse(r.resolution));
-  return { ...pause, resolution: { decision, answerer } };
+  const resolution = resolutionOf(r);
+  return {
+    ...pause,
+    ...(r.answer === null ? {} : { answer: answerOf(r.answer) }),
+    ...(resolution === undefined ? {} : { resolution }),
+    ...(r.resolved_at === null ? {} : { resolvedAt: r.resolved_at }),
+  };
 }
 
+/** What a row keeps of a record as JSON. */
 const storedOf = (pause: PauseRecord): string =>
   JSON.stringify({
     threadId: pause.threadId,
@@ -79,6 +134,8 @@ const storedOf = (pause: PauseRecord): string =>
     nodeId: pause.nodeId,
     visitNumber: pause.visitNumber,
     itemIndex: pause.itemIndex,
+    copyNumber: pause.copyNumber,
+    askedAt: pause.askedAt,
     agent: pause.agent,
     channel: pause.channel,
     answeredBy: pause.answeredBy,
@@ -98,7 +155,9 @@ export class SqlitePauseRows {
 
   insert(pause: PauseRecord): void {
     this.database
-      .prepare("INSERT INTO pauses VALUES (?, ?, ?, ?, ?, ?, ?, NULL)")
+      .prepare(
+        "INSERT INTO pauses (tenant_id, pause_id, step_key, root_execution_id, status, is_sent, pause) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
       .run(
         pause.tenantId,
         pause.pauseId,
@@ -119,7 +178,7 @@ export class SqlitePauseRows {
 
   findAllByRoot(tenantId: string, rootExecutionId: string): readonly PauseRecord[] {
     return this.database
-      .prepare("SELECT * FROM pauses WHERE tenant_id = ? AND root_execution_id = ?")
+      .prepare("SELECT * FROM pauses WHERE tenant_id = ? AND root_execution_id = ? ORDER BY rowid")
       .all(tenantId, rootExecutionId)
       .map(toPauseRecord);
   }
@@ -134,24 +193,28 @@ export class SqlitePauseRows {
     return changed.changes > 0;
   }
 
-  resolve(tenantId: string, pauseId: string, resolution: PauseResolution): PauseRecord | undefined {
+  /** The pending pause closed as `closed` makes it (call inside a transaction); `undefined` when not pending. */
+  close(
+    tenantId: string,
+    pauseId: string,
+    closed: (pending: PauseRecord) => PauseRecord,
+  ): PauseRecord | undefined {
     const pending = this.findById(tenantId, pauseId);
     if (pending?.status !== PauseStatus.Pending) return undefined;
+    const changed = closed(pending);
     this.database
       .prepare(
-        "UPDATE pauses SET status = ?, resolution = ? WHERE tenant_id = ? AND pause_id = ? AND status = 'pending'",
+        "UPDATE pauses SET status = ?, answer = ?, resolution = ?, resolved_at = ? WHERE tenant_id = ? AND pause_id = ? AND status = 'pending'",
       )
-      .run(PauseStatus.Resolved, JSON.stringify(resolution), tenantId, pauseId);
-    return resolvedPause(pending, resolution);
-  }
-
-  cancel(tenantId: string, pauseId: string): boolean {
-    const changed = this.database
-      .prepare(
-        "UPDATE pauses SET status = ? WHERE tenant_id = ? AND pause_id = ? AND status = 'pending'",
-      )
-      .run(PauseStatus.Cancelled, tenantId, pauseId);
-    return changed.changes > 0;
+      .run(
+        changed.status,
+        changed.answer === undefined ? null : JSON.stringify(changed.answer),
+        changed.resolution ?? null,
+        changed.resolvedAt ?? null,
+        tenantId,
+        pauseId,
+      );
+    return changed;
   }
 
   markTaken(tenantId: string, pauseId: string): void {
@@ -162,9 +225,11 @@ export class SqlitePauseRows {
       .run(PauseStatus.Taken, tenantId, pauseId);
   }
 
-  delete(tenantId: string, pauseId: string): void {
+  deleteResolvedBefore(cutoff: Date): void {
     this.database
-      .prepare("DELETE FROM pauses WHERE tenant_id = ? AND pause_id = ?")
-      .run(tenantId, pauseId);
+      .prepare(
+        "DELETE FROM pauses WHERE status IN (?, ?) AND resolved_at IS NOT NULL AND resolved_at < ?",
+      )
+      .run(PauseStatus.Taken, PauseStatus.Cancelled, cutoff.toISOString());
   }
 }

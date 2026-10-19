@@ -58,6 +58,10 @@ export { ToolTimeoutError } from "./tools/index.js";
 export { DtoValidationError } from "./dto/errors.js";
 export { NotPausedError } from "./run/resume-agent.js";
 export { PauseAnswererError, UnknownPauseError } from "./app/resume.js";
+export {
+  ReplyInterpreterMissingError,
+  UninterpretableReplyError,
+} from "./channels/channel-role.decorator.js";
 export { InvalidThreadIdError, ThreadOwnerError, UnknownThreadError } from "./run/thread.js";
 export {
   DecisionError,

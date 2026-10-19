@@ -9,7 +9,12 @@ import type { Class } from "../../src/components/injection.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { EmptyEnvironment, PausedExecutionRepository } from "../../src/index.js";
+import {
+  EmptyEnvironment,
+  PausedExecutionRepository,
+  PauseResolution,
+  PauseStatus,
+} from "../../src/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -136,13 +141,16 @@ describe("#267 AC5: awaitReply pauses, decided goes on and leaves no pending rec
     await app.close();
   });
 
-  it("#267 S35: decided(…) forgets the pause it reserved — nothing is left waiting", async () => {
+  it("#267 S35 / S107: decided(…) closes the pause it reserved at once — nothing is left waiting", async () => {
     const app = await createApp(RuleRefundsApplication, offline(refundScript(1200)));
 
     const done = await execute(app, RefundWorkflowStart, { text: "refund A-1" });
 
     const pauses = app.resolve(PausedExecutionRepository);
-    expect(await pauses.findAllByTenantIdAndRootExecutionId("default", done.runId)).toEqual([]);
+    const records = await pauses.findAllByTenantIdAndRootExecutionId("default", done.runId);
+    expect(records.map(({ status, resolution }) => ({ status, resolution }))).toEqual([
+      { status: PauseStatus.Taken, resolution: PauseResolution.Decided },
+    ]);
     await app.close();
   });
 

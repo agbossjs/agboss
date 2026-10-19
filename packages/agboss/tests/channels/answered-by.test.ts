@@ -107,7 +107,7 @@ describe("#267 AC3 / AC4: a Channel pause is answered through its channel", () =
     const stored = await pauseStore().findByTenantIdAndPauseId("default", askFor("7").pauseId);
     expect(stored).toMatchObject({
       status: PauseStatus.Taken,
-      resolution: { answerer: "manager-17", decision: { approved: false, reason: "too late" } },
+      answer: { answerer: "manager-17", decision: { approved: false, reason: "too late" } },
     });
     expect(seen.resumes).toMatchObject([{ answeredBy: "manager-17" }]);
     expect(JSON.stringify(mockLlm(DeskClerkAgent).requests[1])).toContain(

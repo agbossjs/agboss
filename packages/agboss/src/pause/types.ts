@@ -2,6 +2,7 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
+import type { PauseAnswerLog } from "../infrastructure/pause-record.js";
 
 /**
  * The pause seam: what an execution pauses on (#267 S35) — the checkpointer LangGraph's
@@ -11,6 +12,8 @@ import type { PausedExecutionRepository } from "../infrastructure/paused-executi
 export interface PauseSeam {
   readonly checkpointer: BaseCheckpointSaver;
   readonly pauses: PausedExecutionRepository;
+  /** The execution records: how each pause was resolved is written there (#267 S107). */
+  readonly answers: PauseAnswerLog;
 }
 
 /**

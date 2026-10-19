@@ -15,9 +15,10 @@ import type { LiveRuns, TreeCall } from "./live-runs.js";
 import { withdrawPauses, type PausedRunBook } from "./paused-runs.js";
 import type { RecordedAnswer } from "./resume.js";
 import { announceResume, markTaken, treeResumeNow } from "./tree-resume.js";
-import { maskedRecordOf, runResultOf } from "./result.js";
+import { maskedRecordOf, runResultOf, withPauseAnswers } from "./result.js";
 import { executionEventAt, observeLeg, type ObservedExecution } from "./run-events.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
+import type { Clock } from "../infrastructure/clock.js";
 
 /**
  * Moving an execution tree under its lease (#265, Q58; the concurrent resumes of #267): one pass
@@ -41,6 +42,8 @@ export interface TreeMoveParts {
   readonly paused: PausedRunBook;
   readonly leases: ExecutionLeases;
   readonly trees: ExecutionTreeRepository;
+  /** The application's clock: when a tree's pauses were cancelled. */
+  readonly clock: Clock;
 }
 
 export type { TreeCall } from "./live-runs.js";
@@ -186,7 +189,8 @@ class TreeMover implements TreeMoves {
 
   /**
    * Passes until the tree finishes or rests paused with no recorded answer left (the drain, Q58);
-   * the pauses each pass took are marked `Taken` once it returned; the lease released at the end.
+   * the pauses each pass took are marked `Taken` once it returned; the lease released at the end;
+   * the record's pause answers read last.
    */
   private async drained(
     state: TreeState,
@@ -211,7 +215,8 @@ class TreeMover implements TreeMoves {
           await this.announce(ResumeReason.Answered, planned.resume, state);
       } while (planned !== undefined);
       if (result.status === ExecutionStatus.Finished) await this.forget(state);
-      return result;
+      // who answered each pause (#267 S107): read once the pauses were taken and withdrawn
+      return await withPauseAnswers(result, deps);
     } catch (error) {
       if (!isHandedOver(error)) await this.forget(state);
       throw error;
@@ -243,8 +248,8 @@ class TreeMover implements TreeMoves {
   private async forget(state: TreeState): Promise<void> {
     await this.parts.trees.deleteAllInTree(treeOf(state));
     this.parts.deps.branchErrors?.forgetExecution(state.runId);
-    if (this.parts.deps.pause !== undefined)
-      await withdrawPauses(this.parts.deps.pause.pauses, treeOf(state));
+    const { pause } = this.parts.deps;
+    if (pause !== undefined) await withdrawPauses(pause, treeOf(state), this.parts.clock.now());
   }
 }
 
