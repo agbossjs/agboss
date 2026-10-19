@@ -3,6 +3,29 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — judges see the answer as its DTO (#262, PR 4)
+
+- **Breaking — `@Judge({ name, model, reply, deps })` + `JudgeHandler<TReply>`**
+  ([Judges and Quality Gates](Judges-And-Quality-Gates)): a judge declares what it judges — `reply`
+  is any shape of an agent's `output` — a DTO class, `oneOf(A, B)` (typed `A | B`), `listOf(XDto)`
+  (`readonly XDto[]`, `listOf(oneOf(…))` the items' values) or `PlainTextDto` for a text agent — and
+  `judge(input: JudgeInput<TReply>)` gets the agent's validated answer object (`{ text }` for a text
+  agent), never a serialized string. `JudgeHandler` and `JudgeInput` take the reply's type.
+- **Breaking — `JudgeVerdict.feedback` is `reason`**, and verdicts are built only with
+  `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed({ reason, metrics? })` — a plain
+  `{ passed, feedback }` object no longer compiles. The `reason` goes back to the agent for its
+  retry. `QualityGateError.feedback` is `rejections: [{ judge, reason }]` (`JudgeFeedback` →
+  `JudgeRejection`).
+- **New rule `[judge.wrong-reply]`**: an agent whose `output` does not fit a listed judge's `reply`
+  fails assembly (also `agboss check`) — a text agent with a DTO judge, a DTO agent with another
+  class, a `oneOf` variant the judge does not cover, a list agent with a judge of one value or the
+  other way round.
+- **`testJudge(Judge, …)({ reply, task, attempt })`** is typed by the judge: `reply` is a plain
+  object of its DTO; another shape does not compile.
+- Migrating: add `reply` to every `@Judge`, write `implements JudgeHandler<XDto>` and
+  `JudgeInput<XDto>`, read `reply.text` in a text agent's judge, and return
+  `JudgeVerdict.passed()` / `JudgeVerdict.failed({ reason })`.
+
 ## Unreleased — `ThisWorkflow` typed per path (#264, PR 3)
 
 - **`ThisWorkflow` is typed per workflow** ([Workflow as a step → Recursion](Workflow-as-a-step#recursion-264)):

@@ -719,7 +719,7 @@ failure rejects as the component threw it.
 | `testRouter(Router, options)`           | `run(input, { timeout })`                                  | the target(s) it chose (`Route<R>`)         |
 | `testArbiter(Arbiter, options)`         | `run(Agent, answer, { timeout })`                          | whether the answer counts                   |
 | `testRag(Rag, options)`                 | `run(query, { topK, timeout })`                            | its search results (`costUsd` → `spend`)    |
-| `testJudge(Judge, options)`             | `run({ task, reply, attempt }, { timeout })`               | its `JudgeVerdict`                          |
+| `testJudge(Judge, options)`             | `run({ reply, task, attempt }, { timeout })` — `reply` typed by the judge | its `JudgeVerdict`              |
 | `testGuardrail(Guardrail, options)`     | `.beforeToolCall(context)`, `.afterToolCall`, `.beforeAgentAnswer`, `.onChannelDecision(decision, context)` | what the hook returned |
 | `testPii([Policies], options)`          | `.mask(text)`, `.reveal(text)`                             | the masked text; the revealed one           |
 
@@ -768,9 +768,12 @@ it("looks the order up in the book it is given", async () => {
   `ArbiterError`, never a rejection.
 - **`testRag`** calls `retrieve(query, { topK, signal })` (`topK` default the `@Rag`'s); its reported
   `costUsd` is the spend, as `rag:<name>`.
-- **`testJudge`**: the injected `JudgeModel` is the judge's own model answering from `model` —
-  `decideWith(…)` on a decision model, `replyWith(…)` on a chat model; the wrong call for its kind is
-  `ModelKindError`, as at run time.
+- **`testJudge`**: `reply` is a plain object of the judge's `reply` (`JudgeHandler<TReply>`: a
+  `JobReportDto`, `OfferDto | RefusalDto`, `{ text }` for `PlainTextDto`), passed to it as given —
+  another shape does not compile (#262 S115); the injected `JudgeModel` is the judge's own model
+  answering from `model` — `decideWith(…)` on a decision model, `replyWith(…)` on a chat model; the
+  wrong call for its kind is `ModelKindError`, as at run time. The output is the verdict,
+  `JudgeVerdict.passed(…)` / `JudgeVerdict.failed({ reason })`.
 - **`testGuardrail`** runs one hook per call; a hook the class does not have is a setup error.
 - **`testPii`** checks the policies' own rules first (`[name.kind-suffix]` — a name ends with
   `-pii-policy` —, `[pii.conflicting-rules]`, …: one `GraphRuleError` with all of them), then
@@ -780,16 +783,19 @@ it("looks the order up in the book it is given", async () => {
   (`replyWith('{"found":[{"kind":"person-name","text":"Anna Smith"}]}')`).
 
 <!-- snippet-context
-import { Decision, Injectable, Judge, JudgeModel, PiiAction, PiiKind, PiiPolicy, pii, type JudgeHandler, type JudgeInput, type JudgeVerdict } from "agboss";
-@Judge({ name: "grounded-judge", model: "typesafe/jev-1.13", deps: [JudgeModel] })
-export class GroundedJudge implements JudgeHandler {
+import { Decision, Injectable, Judge, JudgeModel, JudgeVerdict, PiiAction, PiiKind, PiiPolicy, pii, type JudgeHandler, type JudgeInput } from "agboss";
+import { PlainTextDto } from "agboss/dto";
+@Judge({ name: "grounded-judge", model: "typesafe/jev-1.13", reply: PlainTextDto, deps: [JudgeModel] })
+export class GroundedJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
-  async judge({ reply, task }: JudgeInput): Promise<JudgeVerdict> {
+  async judge({ reply, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const answers = await this.judgeModel.decide({
-      state: { task, reply },
+      state: { task, reply: reply.text },
       questions: { grounded: Decision.noul("Is the reply grounded in the task?") },
     });
-    return { passed: answers.grounded.noul > 0.5 };
+    return answers.grounded.noul > 0.5
+      ? JudgeVerdict.passed()
+      : JudgeVerdict.failed({ reason: "ground every claim in the task" });
   }
 }
 @PiiPolicy({
@@ -810,7 +816,8 @@ it("a grounded reply passes, at the decision's cost", async () => {
     model: decideWith({ grounded: 0.9 }, { cost: usd(0.003) }),
   });
 
-  const { output, spend } = await runJudge({ task: "Find TS jobs", reply: "…", attempt: 0 });
+  const reply = { text: "Acme hires TS engineers [acme.example]" }; // a PlainTextDto, as an object
+  const { output, spend } = await runJudge({ reply, task: "Find TS jobs", attempt: 0 });
 
   expect(output.passed).toBe(true);
   expect(spend.totalUsd).toBeCloseTo(0.003);

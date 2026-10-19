@@ -31,7 +31,7 @@ Every component reads the same way, top to bottom:
    - your own implementation → `implements` the contract (`ToolHandler<In, Out>` for `@Tool` /
      `@McpTool`, `ActionHandler<Self>` for `@Action`, `RouterHandler<Self>` for a code `@Router`
      (`decidedBy: DecidedBy.Code`, [Routers](Routers#routers-decided-by-code)), `FinishHandler<Self>`
-     for a `@WorkflowFinish` with `input`, `RagConnector` for `@Rag`, `JudgeHandler` for `@Judge`);
+     for a `@WorkflowFinish` with `input`, `RagConnector` for `@Rag`, `JudgeHandler<TReply>` for `@Judge`);
    - extending a standard implementation → `extends` it (`SqliteFtsConnector`, `McpServerClient`) and
      mark overridden methods `override` (`noImplicitOverride` is on).
 4. **Data is a DTO**: a class with one field decorator per field (`agboss/dto`), so the class is
@@ -352,7 +352,7 @@ What `agboss generate`, the examples and these pages follow — a style guide, n
 
 - an explicit return type on every method;
 - `implements …Handler` where the kind has one (`ToolHandler<In, Out>`, `ActionHandler<Self>`,
-  `RouterHandler<Self>`, `FinishHandler<Self>`, `JudgeHandler`, `ChannelHandler`);
+  `RouterHandler<Self>`, `FinishHandler<Self>`, `JudgeHandler<TReply>`, `ChannelHandler`);
 - `@Injectable` classes named by role: `…Repository` (database access), `…Service` (calls to an
   external service), `…Provider` (system things the app runs on);
 - injected fields named after their type (`ordersService: OrdersService`); the execution context's
