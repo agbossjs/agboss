@@ -1438,7 +1438,7 @@ timeout: seconds(1) })` → `{ output, spend }` (a tool call's frame: `execution
   `testJudge(J, { model: decideWith(…) | replyWith(…) })`, `testGuardrail(G).beforeToolCall(…)`
   and `testPii([Policies])` → `mask(text)` / `reveal(text)` (rules checked first: `-pii-policy`);
   `run.clock` is the runner's `VirtualClock`; the calls run for `{ tenantContext, tenant,
-  executionContext, execution }` as `testExecutionContext` takes them (checked by the classes'
+executionContext, execution }` as `testExecutionContext` takes them (checked by the classes'
   decorators), else the default tenant. `testExecutionContext({ … })` stays for a class created
   by hand (a budget's `maxSpend()`), fakes from `@langchain/core/utils/testing`. Tests never call a
   real model; real-model checks are `make smoke`.

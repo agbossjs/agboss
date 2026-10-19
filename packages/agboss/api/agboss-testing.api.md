@@ -448,9 +448,11 @@ export type ScriptedTurn = ReplyTurn | AnswerTurn | ToolCallTurn | RouteTurn | D
 export function step<TNode extends Class>(node: TNode, input?: InputMatcherOf<InstanceType<TNode>>): OrderedStep;
 
 // Warning: (ae-forgotten-export) The symbol "ExecuteMethod" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "ExecutionContext" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "TenantContext" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function testAction<TAction extends Class<ExecuteMethod>>(action: TAction, options?: UnitOptions): ActionRunner<ActionInputOf<InstanceType<TAction>>, ActionOutputOf<InstanceType<TAction>>>;
+export function testAction<TAction extends Class<ExecuteMethod>, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(action: TAction, options?: UnitOptions<TExecution, TTenant>): ActionRunner<ActionInputOf<InstanceType<TAction>>, ActionOutputOf<InstanceType<TAction>>>;
 
 // Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point index.d.ts
 //
@@ -482,7 +484,7 @@ export interface TestApplicationOptions {
 }
 
 // @public
-export function testArbiter(arbiter: Class, options?: UnitModelOptions): ArbiterRunner;
+export function testArbiter<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(arbiter: Class, options?: UnitModelOptions<unknown, TExecution, TTenant>): ArbiterRunner;
 
 // @public
 export class TestConcurrency {
@@ -497,9 +499,6 @@ export class TestConcurrency {
     readonly steps: readonly OrderedStep[];
 }
 
-// Warning: (ae-forgotten-export) The symbol "ExecutionContext" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "TenantContext" needs to be exported by the entry point index.d.ts
-//
 // @public
 export interface TestContextOptions<TExecution extends ExecutionContext, TTenant extends TenantContext> {
     // (undocumented)
@@ -548,25 +547,25 @@ export class TestFailure extends Error {
 export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.cassette-missing" | "test.no-matching-script" | "test.unused-script" | "test.unreachable-step";
 
 // @public
-export function testGuardrail(guardrail: Class<Guardrail>, options?: UnitOptions): GuardrailRunner;
+export function testGuardrail<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(guardrail: Class<Guardrail>, options?: UnitOptions<TExecution, TTenant>): GuardrailRunner;
 
 // Warning: (ae-forgotten-export) The symbol "JudgeHandler" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function testJudge(judge: Class<JudgeHandler>, options?: UnitModelOptions): JudgeRunner;
+export function testJudge<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(judge: Class<JudgeHandler>, options?: UnitModelOptions<unknown, TExecution, TTenant>): JudgeRunner;
 
 // @public
-export function testPii(policies: readonly Class[], options?: UnitModelOptions): PiiRunner;
+export function testPii<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(policies: readonly Class[], options?: UnitModelOptions<unknown, TExecution, TTenant>): PiiRunner;
 
 // Warning: (ae-forgotten-export) The symbol "RagConnector" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function testRag(rag: Class<RagConnector>, options?: UnitOptions): RagRunner;
+export function testRag<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(rag: Class<RagConnector>, options?: UnitOptions<TExecution, TTenant>): RagRunner;
 
 // Warning: (ae-forgotten-export) The symbol "RouterAnswerOf" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function testRouter<TRouter extends Class>(router: TRouter, options?: UnitModelOptions<InstanceType<TRouter>>): RouterRunner<RecordedInputOf<InstanceType<TRouter>>, RouterAnswerOf<InstanceType<TRouter>>>;
+export function testRouter<TRouter extends Class, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(router: TRouter, options?: UnitModelOptions<InstanceType<TRouter>, TExecution, TTenant>): RouterRunner<RecordedInputOf<InstanceType<TRouter>>, RouterAnswerOf<InstanceType<TRouter>>>;
 
 // @public
 export class TestSetupError extends Error {
@@ -588,7 +587,7 @@ export interface TestStepOptions {
 }
 
 // @public
-export function testTool<TTool extends Class<ToolInstance>>(tool: TTool, options?: UnitOptions): ToolRunner<ToolInputOf<InstanceType<TTool>>, ToolOutputOf<InstanceType<TTool>>>;
+export function testTool<TTool extends Class<ToolInstance>, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(tool: TTool, options?: UnitOptions<TExecution, TTenant>): ToolRunner<ToolInputOf<InstanceType<TTool>>, ToolOutputOf<InstanceType<TTool>>>;
 
 // Warning: (ae-forgotten-export) The symbol "ApplicationClass" needs to be exported by the entry point index.d.ts
 //
@@ -694,7 +693,7 @@ export interface UnitClock {
 }
 
 // @public
-export interface UnitModelOptions<TSelf = unknown> extends UnitOptions {
+export interface UnitModelOptions<TSelf = unknown, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext> extends UnitOptions<TExecution, TTenant> {
     readonly model?: UnitModelScript<TSelf>;
 }
 
@@ -702,7 +701,7 @@ export interface UnitModelOptions<TSelf = unknown> extends UnitOptions {
 export type UnitModelScript<TSelf = unknown> = TurnFor<TSelf> | readonly TurnFor<TSelf>[];
 
 // @public
-export interface UnitOptions {
+export interface UnitOptions<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext> extends Omit<TestContextOptions<TExecution, TTenant>, "application"> {
     readonly environment?: Environment;
     readonly overrides?: readonly Override[];
 }
@@ -894,18 +893,18 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/turns.ts:101:3 - (ae-undocumented) Missing documentation for "delay".
 // src/testing/units/override.ts:10:3 - (ae-undocumented) Missing documentation for "token".
 // src/testing/units/override.ts:11:3 - (ae-undocumented) Missing documentation for "replacement".
-// src/testing/units/test-action.ts:22:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/test-arbiter.ts:17:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/test-guardrail.ts:21:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
-// src/testing/units/test-guardrail.ts:25:3 - (ae-undocumented) Missing documentation for "afterToolCall".
-// src/testing/units/test-guardrail.ts:29:3 - (ae-undocumented) Missing documentation for "beforeAgentAnswer".
-// src/testing/units/test-guardrail.ts:33:3 - (ae-undocumented) Missing documentation for "onChannelDecision".
-// src/testing/units/test-judge.ts:17:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/test-rag.ts:17:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/test-router.ts:20:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/test-tool.ts:11:3 - (ae-undocumented) Missing documentation for "run".
-// src/testing/units/test-tool.ts:29:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/unit-types.ts:43:3 - (ae-undocumented) Missing documentation for "output".
+// src/testing/units/test-action.ts:24:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-arbiter.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-guardrail.ts:23:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
+// src/testing/units/test-guardrail.ts:27:3 - (ae-undocumented) Missing documentation for "afterToolCall".
+// src/testing/units/test-guardrail.ts:31:3 - (ae-undocumented) Missing documentation for "beforeAgentAnswer".
+// src/testing/units/test-guardrail.ts:35:3 - (ae-undocumented) Missing documentation for "onChannelDecision".
+// src/testing/units/test-judge.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-rag.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-router.ts:22:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-tool.ts:13:3 - (ae-undocumented) Missing documentation for "run".
+// src/testing/units/test-tool.ts:31:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/unit-types.ts:56:3 - (ae-undocumented) Missing documentation for "output".
 // src/testing/vcr.ts:22:1 - (ae-undocumented) Missing documentation for "VCRMode".
 // src/testing/vcr.ts:33:3 - (ae-undocumented) Missing documentation for "cassetteName".
 
