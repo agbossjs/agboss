@@ -34,6 +34,17 @@ import { reusableInfrastructure } from "../infrastructure/contracts.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { createVcrGateway, type VcrConfig } from "./vcr.js";
 import { piiScriptKeyOf, testPseudonymKeys } from "./pii-parts.js";
+import { schedulerOf } from "./concurrency/schedulers.js";
+import type { TestConcurrency } from "./concurrency/test-concurrency.js";
+
+/** The app option of a test's branch schedule: none for `TestConcurrency.Real`. */
+function branchSchedulerOf(
+  concurrency: TestConcurrency | undefined,
+  book: ScriptBook,
+): Pick<AppDepsOptions, "branchScheduler"> {
+  const branchScheduler = schedulerOf(concurrency, book);
+  return branchScheduler === undefined ? {} : { branchScheduler };
+}
 
 /**
  * What `testWith` takes besides the application. `env` names the environment (default `test`: a
@@ -55,6 +66,11 @@ export interface TestWithOptions extends EnvironmentSelection {
    * lease, a pause resumed on the other instance or a rate-limit slot is tested across instances.
    */
   readonly instances?: number;
+  /**
+   * How parallel branches run (#262 S33): `TestConcurrency.Sequential` (default — one at a time,
+   * in listed / item order), `TestConcurrency.Real`, or `TestConcurrency.inOrder([step(A), …])`.
+   */
+  readonly concurrency?: TestConcurrency;
 }
 
 /** The process env without tracing keys: tests never export traces. */
@@ -151,6 +167,7 @@ export class TestEnvironment {
         return `run-${String(this.#runs)}`;
       },
       container: this.mocks.container,
+      ...branchSchedulerOf(options.concurrency, this.book),
     };
   }
 

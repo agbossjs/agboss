@@ -9,6 +9,7 @@ export {
   BindTool,
   Guardrail,
   Channel,
+  type GuardrailContext,
   type ToolHandler,
   type ToolOptions,
 } from "../components/decorators.js";

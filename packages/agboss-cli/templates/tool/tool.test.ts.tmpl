@@ -1,14 +1,14 @@
-import { testExecutionContext, toolOf } from "agboss/testing";
+import { testTool } from "agboss/testing";
 import { describe, expect, it } from "vitest";
 import { {{pascal}}Tool } from "./{{kebab}}.tool.js";
 
 describe("{{snake}}", () => {
   it("answers a query", async () => {
-    // no container: the execution context of a unit test, frozen
-    const tool = toolOf(new {{pascal}}Tool(testExecutionContext()));
+    // the tool on its own container, in the frame of a tool call: no `new`, no workflow
+    const run{{pascal}} = testTool({{pascal}}Tool);
 
-    const result = await tool.invoke({ query: "example" });
+    const { output } = await run{{pascal}}({ query: "example" });
 
-    expect(result.kind).toBe("ok");
+    expect(output.result).toContain("example");
   });
 });

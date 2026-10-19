@@ -6,6 +6,9 @@ import type { ScopeRecords } from "../records.js";
 import type { ExecutionStateType } from "../state.js";
 import type { BranchTicket, LaunchTicket } from "./records.js";
 import type { RuntimeLaunch } from "./runtime-launch.js";
+import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
+import { readInput } from "../scope.js";
+import type { ScheduledBranch } from "./branch-schedule.js";
 
 /**
  * What one branch of a launch sees (#273): the scope at the launch — plus, in a per-item run, its
@@ -96,4 +99,29 @@ export function branchLaunchOf(
   if (ticket === null || launch === undefined)
     throw new TypeError("a launch branch ran without the launch in flight");
   return { ticket, launch };
+}
+
+/** Where a branch runs, as its scheduler is told about it. */
+export interface ScheduledSite {
+  readonly node: RuntimeNode;
+  readonly state: ExecutionStateType;
+  readonly ticket: BranchTicket;
+  readonly owner: BranchLaunch;
+  readonly live: { readonly spent: readonly UsageRecord[] };
+  readonly graph: RuntimeGraph;
+}
+
+/** The branch as a test's scheduler sees it (#262 S33): what it runs and, when asked, what it reads. */
+export function scheduledOf(site: ScheduledSite): ScheduledBranch {
+  const { node, ticket, owner } = site;
+  return {
+    launchId: owner.ticket.launchId,
+    index: ticket.index,
+    nodeId: ticket.nodeId,
+    component: node.component,
+    input: () => {
+      const view = branchStateOf(site.state, owner.launch, ticket, site.live.spent);
+      return readInput(site.graph, node, view).fields;
+    },
+  };
 }

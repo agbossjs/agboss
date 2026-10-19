@@ -57,7 +57,7 @@ function operationFiles(
       ? []
       : [{ path: `${base}.dto.ts`, content: dtoSource(op.classes) }]),
     { path: `${base}.tool.ts`, content: toolSource(op, api) },
-    { path: `${base}.tool.test.ts`, content: testSource(op, api, baseUrl) },
+    { path: `${base}.tool.test.ts`, content: testSource(op, baseUrl) },
   ];
 }
 

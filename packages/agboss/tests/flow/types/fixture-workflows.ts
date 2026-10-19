@@ -25,4 +25,5 @@ export const FIXTURE_WORKFLOWS: readonly string[] = [
   "starts.fixture.ts",
   "support.fixture.ts",
   "topics.fixture.ts",
+  "units.fixture.ts",
 ].map((file) => new URL(`../fixtures/${file}`, import.meta.url).pathname);

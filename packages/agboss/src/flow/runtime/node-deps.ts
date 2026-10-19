@@ -25,6 +25,7 @@ function launchDepsOf(
     ...(checkpointer === undefined ? {} : { checkpointer }),
     ...(deps.pause === undefined ? {} : { pauses: deps.pause.pauses }),
     ...(deps.branchErrors === undefined ? {} : { branchErrors: deps.branchErrors }),
+    ...(deps.branchScheduler === undefined ? {} : { scheduler: deps.branchScheduler }),
   };
 }
 

@@ -78,7 +78,9 @@ describe("agboss generate on job-scout's layout", () => {
     expect(text("tests/refund.tool.test.ts")).toContain(
       'import { RefundTool } from "../src/tools/refund.tool.js";',
     );
-    expect(text("tests/get-pet.tool.test.ts")).toContain("../src/services/pets-api.service.js");
+    expect(text("tests/get-pet.tool.test.ts")).toContain(
+      'import { GetPetTool } from "../src/tools/get-pet.tool.js";',
+    );
 
     expectStaticChecks(project, ["src", "tests"]);
     const pins = SHAPE_PINS.join("|");

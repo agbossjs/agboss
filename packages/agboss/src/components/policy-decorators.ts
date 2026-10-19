@@ -10,10 +10,14 @@ import { recordComponent } from "./metadata.js";
  * — its tenant, its project fields — comes through the constructor (`deps: [ExecutionContext]`).
  */
 export interface GuardrailContext {
+  /** The agent whose loop it is. */
   agent: string;
+  /** The tool call (`{ name, args }`); none before the agent's answer. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   call?: any;
+  /** The agent's answer, at `beforeAgentAnswer`. */
   replyWith?: string;
+  /** The execution's id. */
   runId?: string;
 }
 

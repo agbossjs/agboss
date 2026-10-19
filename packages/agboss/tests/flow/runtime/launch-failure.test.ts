@@ -5,7 +5,7 @@ import {
   StepFailedError,
   ExecutionCancelledError,
 } from "../../../src/index.js";
-import { testWith } from "../../../src/testing/index.js";
+import { testWith, TestConcurrency } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
   FanOutApplication,
@@ -20,8 +20,10 @@ import {
 
 /** #273 AC7, S20, S22: a failed branch cancels its siblings; the join takes it, or the execution fails. */
 
-const items = testWith(FanOutApplication);
-const unbounded = testWith(FanOutUnboundedApplication);
+/** These tests are about the runtime's own concurrency (#262: tests default to one branch at a time). */
+const REAL = { concurrency: TestConcurrency.Real };
+const items = testWith(FanOutApplication, REAL);
+const unbounded = testWith(FanOutUnboundedApplication, REAL);
 
 const ok = (name: string, delay = 0): ItemDto => ({ name, delay, outcome: "ok" });
 const bad = (name: string, delay = 0): ItemDto => ({ name, delay, outcome: "fail" });

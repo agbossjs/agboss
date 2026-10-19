@@ -1,7 +1,7 @@
 import { sampleOf } from "./openapi-dto.js";
 import { access, importLine, literal, type Sample } from "./openapi-format.js";
 import type { OperationModel } from "./openapi-spec.js";
-import { inputTypeOf, type ApiNames } from "./openapi-tool.js";
+import { inputTypeOf } from "./openapi-tool.js";
 import { render } from "./plan.js";
 
 const WIDTH = 100;
@@ -41,7 +41,7 @@ const typeImportOf = (op: OperationModel): string =>
     : importLine([op.input.name], `./${op.names.kebab}.dto.js`, true);
 
 /** The tool's test: the API stubbed, the sample input sent, the request checked. */
-export function testSource(op: OperationModel, api: ApiNames, baseUrl: string): string {
+export function testSource(op: OperationModel, baseUrl: string): string {
   const input = op.input === undefined ? {} : sampleOf(op.input);
   const url = JSON.stringify(expectedUrl(op, baseUrl, input));
   const urlCheck = `    expect(calls[0]?.url).toBe(${url});`;
@@ -49,7 +49,6 @@ export function testSource(op: OperationModel, api: ApiNames, baseUrl: string): 
   return render("openapi/tool.test.ts.tmpl", {
     imports: [
       typeImportOf(op),
-      importLine([api.className], `../services/${api.module}.service.js`),
       importLine([`${op.names.pascal}Tool`], `./${op.names.kebab}.tool.js`),
     ].join("\n"),
     snake: op.names.snake,
@@ -58,7 +57,6 @@ export function testSource(op: OperationModel, api: ApiNames, baseUrl: string): 
     inputType: inputTypeOf(op),
     input: literal(input, 4),
     pascal: op.names.pascal,
-    api: api.className,
     urlCheck:
       urlCheck.length <= WIDTH
         ? urlCheck

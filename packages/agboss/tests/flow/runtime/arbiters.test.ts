@@ -7,6 +7,7 @@ import {
   replyWith,
   testWith,
   type ModelRequest,
+  TestConcurrency,
 } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import { ScoreDto, ScoreReviewDto } from "../fixtures/quorum-dtos.js";
@@ -45,14 +46,16 @@ import {
  * that fails is `ArbiterError`, never a rejection.
  */
 
-const model = testWith(ModelPanelApplication);
-const checked = testWith(CheckedPanelApplication);
-const chain = testWith(ChainPanelApplication);
-const anyOf = testWith(AnyOfPanelApplication);
-const items = testWith(ItemPanelApplication);
-const copies = testWith(CopiesPanelApplication);
-const strict = testWith(StrictPanelApplication);
-const chat = testWith(ChatPanelApplication);
+/** These tests are about the runtime's own concurrency (#262: tests default to one branch at a time). */
+const REAL = { concurrency: TestConcurrency.Real };
+const model = testWith(ModelPanelApplication, REAL);
+const checked = testWith(CheckedPanelApplication, REAL);
+const chain = testWith(ChainPanelApplication, REAL);
+const anyOf = testWith(AnyOfPanelApplication, REAL);
+const items = testWith(ItemPanelApplication, REAL);
+const copies = testWith(CopiesPanelApplication, REAL);
+const strict = testWith(StrictPanelApplication, REAL);
+const chat = testWith(ChatPanelApplication, REAL);
 
 const score = (value: number) => replyWith(ScoreDto, { score: value });
 const summary = replyWith(ScoreReviewDto, { text: "summed up" });

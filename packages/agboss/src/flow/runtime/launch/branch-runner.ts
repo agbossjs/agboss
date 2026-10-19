@@ -17,6 +17,7 @@ import {
   branchLaunchOf,
   branchStateOf,
   branchTicketOf,
+  scheduledOf,
   type BranchLaunch,
 } from "./branch-view.js";
 import type { BranchErrors, LiveLaunch } from "./launch-registry.js";
@@ -25,6 +26,7 @@ import { arbiterDepsFor, liveLaunchOf, type BranchQuorumDeps } from "./branch-qu
 import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
 import { BranchStatus, type BranchOutcomeRecord, type BranchTicket } from "./records.js";
 import { withdrawSiblingPauses } from "./withdrawn-pauses.js";
+import { gated, type ScheduledBranch } from "./branch-schedule.js";
 import type { PausedExecutionRepository } from "../../../infrastructure/paused-execution.repository.js";
 import type { ChildExecutionRecord } from "../child-records.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
@@ -63,6 +65,8 @@ interface BranchRun {
   readonly children: ChildExecutionRecord[];
   /** A failed per-item child's PII tokens (#120): kept with its error. */
   piiTokens: PiiTokenMap;
+  /** The branch as a test's scheduler sees it (#262 S33). */
+  readonly scheduled: ScheduledBranch;
   /** Whether it passed its limits and ran as a step (agents only). */
   ranAsStep: boolean;
 }
@@ -107,7 +111,7 @@ function branchFrameOf(run: BranchRun, view: ExecutionStateType) {
     ...stepFrameAt(site, view, config, deps.workflow, deps.contexts),
     services: { reportUsage, recordChild, keepPiiTokens, input },
   };
-  return { config, frame };
+  return { config, frame, signal };
 }
 
 /** How a branch whose node answered ended: finished with its verdict, or cancelled by its quorum. */
@@ -140,11 +144,13 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
     await checkVisit(view, node, deps.limits, deps.workflow);
     run.ranAsStep = true;
   }
-  const { config, frame } = branchFrameOf(run, view);
+  const { config, frame, signal } = branchFrameOf(run, view);
   const arbiterDeps = arbiterDepsFor({ ...deps, live, view, services: run.services, nodeId });
   const arbiters = { launch: run.owner.launch, deps: arbiterDeps };
+  const gate = { scheduler: deps.scheduler, branch: run.scheduled, signal };
   const { outcome, marked } = await runInFrame(frame, async () => {
-    const answered = await runner(view, config);
+    // a test's completion gate (#262 S33): none in production
+    const answered = await gated(gate, () => runner(view, config));
     return { outcome: answered, marked: await markAnswer(live, ticket, answered.value, arbiters) };
   });
   return answeredEnd(run, outcome, marked);
@@ -180,6 +186,16 @@ async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
 }
 
 async function runBranch(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
+  const { scheduler } = run.deps;
+  scheduler?.entered(run.scheduled);
+  try {
+    return await scheduledRun(run, runner);
+  } finally {
+    scheduler?.ended(run.scheduled);
+  }
+}
+
+async function scheduledRun(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   const { live } = run;
   await live.quorum?.ready;
   const stop = AbortSignal.any([
@@ -192,6 +208,7 @@ async function runBranch(run: BranchRun, runner: NodeRunner): Promise<BranchEnd>
     leaveQuorum(live, run.ticket);
     return { status: BranchStatus.Cancelled, read: [], update: {} };
   }
+  run.deps.scheduler?.started(run.scheduled);
   try {
     return await ran(run, runner);
   } catch (error) {
@@ -217,8 +234,9 @@ export function branchNode(node: RuntimeNode, runner: NodeRunner, deps: BranchDe
     const ticket = branchTicketOf(state);
     const owner = branchLaunchOf(state, deps.graph.launches);
     const live = liveLaunchOf(owner, state, config, deps);
+    const scheduled = scheduledOf({ node, state, ticket, owner, live, graph: deps.graph });
     const run: BranchRun = {
-      ...{ node, state, config, ticket, owner, live, deps },
+      ...{ node, state, config, ticket, owner, live, deps, scheduled },
       services: [],
       children: [],
       piiTokens: {},

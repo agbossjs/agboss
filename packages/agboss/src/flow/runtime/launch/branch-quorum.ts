@@ -12,6 +12,7 @@ import type { BranchLaunch } from "./branch-view.js";
 import type { LaunchRegistry, LiveLaunch } from "./launch-registry.js";
 import { pendingRecordsOf } from "./pending-records.js";
 import { quorumMakerOf } from "./quorum-branch.js";
+import type { BranchScheduler } from "./branch-schedule.js";
 
 /**
  * What a branch of a quorum launch runs on (#279): its launch's entry in this process — a quorum's
@@ -29,6 +30,8 @@ export interface BranchArbiters {
 /** A branch's part of the launch deps: the registry, the arbiters, the checkpointer. */
 export interface BranchQuorumDeps {
   readonly registry: LaunchRegistry;
+  /** A test's schedule of the branches (#262 S33): it sets the launch's slots; none in production. */
+  readonly scheduler?: BranchScheduler;
   readonly arbiters?: BranchArbiters;
   /** Where a quorum's finished branches are read back from after a resume or a crash. */
   readonly checkpointer?: BaseCheckpointSaver;
@@ -71,6 +74,7 @@ export function liveLaunchOf(
   const { clock } = extractRunContext(config, state.runId);
   const pending = () => pendingRecordsOf(deps.checkpointer, config, launchId);
   const makeQuorum = quorumMakerOf({ launch: owner.launch, ticket: owner.ticket, clock, pending });
-  const size = maxConcurrency ?? Math.max(branches.length, 1);
+  const declared = maxConcurrency ?? Math.max(branches.length, 1);
+  const size = deps.scheduler?.slotsOf(declared) ?? declared;
   return deps.registry.liveOf(launchId, size, makeQuorum);
 }

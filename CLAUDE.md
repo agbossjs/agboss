@@ -1342,9 +1342,10 @@ export class PlanService {
   per-item child's index —, `executionOf(W)`, the nearest execution of `W` from this one up). Every read gives the current step (an `AsyncLocalStorage` frame per node visit and per
   tool call, closed when it ends); outside an execution or after its step ended a read throws
   `ExecutionContextUnavailableError` (`context.unavailable`). No input, no metadata in it: domain
-  data come through `input`. Units: `new X(testExecutionContext(), fakes)` — with
-  `{ tenantContext, tenant, executionContext, execution, application: { environment } }` for the
-  levels. Framework code reads the
+  data come through `input`. Units: a unit runner (`testTool`, `testAction`, …, Testing below)
+  runs the component in its step's frame; a class created by hand takes `testExecutionContext()` —
+  with `{ tenantContext, tenant, executionContext, execution, application: { environment } }` for
+  the levels. Framework code reads the
   run with the internal `extractRunContext` — never by parsing `configurable`.
 - **Spend of services that are not models** (#280 S43): `deps: [SpendRecorder]` in a `@Tool` /
   `@Action`, `this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) })` — into the
@@ -1393,7 +1394,7 @@ today; tenant-daily-budget allows $40`).
   `await clock.advance(seconds(31))` (or `"25h"`), which wakes every due wait in time order, each
   one's work before the next, without real waiting — and, with
   `testWith(App, { instances: 2 })`, `apps` (each instance its own container, one set of stores and
-  one clock); models answer by script — `replyWith(text)` or
+  one clock: a lease, a pause resumed on the other instance, a rate-limit slot); models answer by script — `replyWith(text)` or
   `replyWith(Dto, value, { cost })` (a structured answer, a class of the agent's output: checked by
   the generated types, #262), `callTool(Tool, args)` (args typed by the tool's input DTO),
   `routeTo(...targets)` (`Route<R>`: one target after `.chooseOne(…)`, the `OnDemand` ones before a
@@ -1415,10 +1416,25 @@ today; tenant-daily-budget allows $40`).
   reach a limit (a budget: `mockOf(Budget).maxSpend` + a scripted cost), `app.cancel` / `signal`.
 - A recorded run instead of scripts: `testWith(App, { vcr: { cassetteName, dir, mode: VCRMode.REPLAY } })`
   — an unrecorded call throws `CassetteMissingError` (REPLAY by default under `CI`).
-- Units: `toolOf(new Tool(testExecutionContext(), fakes)).invoke(input)` for a tool,
-  `testExecutionContext({ … })` for any component's `ExecutionContext`, `new VirtualClock()` for
-  one that injects `Clock`, fakes from
-  `@langchain/core/utils/testing`. Tests never call a real model; real-model checks are `make smoke`.
+- Parallel branches (#262 S33): `testWith(App, { concurrency })` — `TestConcurrency.Sequential`
+  (the default: one branch at a time, in listed / item order), `TestConcurrency.Real` (as in
+  production, within `maxConcurrency`) or `TestConcurrency.inOrder([step(SkillsAgent),
+step(CheckAgent, { company: { name: "Acme" } })])` — completions in that order through gates
+  (`step(Node, partial)` is the matcher of `when`): a `FailFast`, a quorum or a cancel reproduced
+  on every run; a step waiting at its gate is cancelled at once by a `FailFast`, a decided quorum or
+  `app.cancel`; no branch can move and the next step is not waiting → `test.unreachable-step` at
+  once; a step never reached fails the test at its end.
+- Units — one component on its own container (#262 S55, S62, S89), no `new`: `testTool(Tool, {
+overrides: [override(SearchClient, FakeSearchClient)], environment })` → `await run(input, {
+timeout: seconds(1) })` → `{ output, spend }` (a tool call's frame: `executionContext.signal`
+  with the timeout, `SpendRecorder` into `spend`; input and output validated); the same shape for
+  `testAction`, `testRouter` (a code router's `route()`, or a model router with `model: routeTo(X)`
+  / `decideWith(…)`), `testArbiter(A)(Agent, answer)`, `testRag(R)(query, { topK })`,
+  `testJudge(J, { model: decideWith(…) | replyWith(…) })`, `testGuardrail(G).beforeToolCall(…)`
+  and `testPii([Policies])` → `mask(text)` / `reveal(text)` (rules checked first: `-pii-policy`);
+  `run.clock` is the runner's `VirtualClock`. `testExecutionContext({ … })` stays for a class created
+  by hand (a budget's `maxSpend()`), fakes from `@langchain/core/utils/testing`. Tests never call a
+  real model; real-model checks are `make smoke`.
 
 ### Imports
 

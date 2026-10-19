@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect } from "vitest";
 import { BranchStatus } from "../../../src/index.js";
-import { replyWith, testWith } from "../../../src/testing/index.js";
+import { replyWith, testWith, TestConcurrency } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
   CheckoutWorkflowStart,
@@ -42,7 +42,9 @@ import {
   type ItemDto,
 } from "./fixtures/fan-out.workflow.js";
 
-const research = testWith(ResearchApplication);
+/** These tests are about the runtime's own concurrency (#262: tests default to one branch at a time). */
+const REAL = { concurrency: TestConcurrency.Real };
+const research = testWith(ResearchApplication, REAL);
 
 describe("AC1: different agents, a repeated one", () => {
   research("repeated agent — two copies, listOf after join, copy ids", async ({ app, mockLlm }) => {
@@ -70,10 +72,10 @@ describe("AC1: different agents, a repeated one", () => {
   });
 });
 
-const items = testWith(FanOutApplication);
-const unbounded = testWith(FanOutUnboundedApplication);
-const copies = testWith(CopiesApplication);
-const checkout = testWith(CheckoutApplication);
+const items = testWith(FanOutApplication, REAL);
+const unbounded = testWith(FanOutUnboundedApplication, REAL);
+const copies = testWith(CopiesApplication, REAL);
+const checkout = testWith(CheckoutApplication, REAL);
 
 const item = (name: string, delay = 0): ItemDto => ({ name, delay, outcome: "ok" });
 const SAME_ITEMS = [item("a", 10), item("b", 0), item("c", 5)];
@@ -157,8 +159,8 @@ describe("AC9: parallel actions", () => {
   );
 });
 
-const loop = testWith(PlanLoopApplication);
-const tired = testWith(TiredApplication);
+const loop = testWith(PlanLoopApplication, REAL);
+const tired = testWith(TiredApplication, REAL);
 
 describe("a launch over time", () => {
   loop(
