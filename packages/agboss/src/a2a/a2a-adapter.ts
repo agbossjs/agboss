@@ -1,5 +1,10 @@
 import { executeUnchecked } from "../app/execute-unchecked.js";
-import type { App, ExecutionOptions, ExecutionOutput, ResumeOptions } from "../app/types.js";
+import type {
+  App,
+  ExecutionOptions,
+  ExecutionOutput,
+  ThreadOwnerResumeOptions,
+} from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import { eventOf, failureResponseOf, responseOf } from "./a2a-mapping.js";
 import type {
@@ -17,7 +22,7 @@ import type {
 export type A2ACallOptions = Pick<ExecutionOptions, "signal" | "ownerId" | "tenant" | "execution">;
 
 /** What a resume takes of the call's options: the keys only — its values come from the checkpoint. */
-const resumeOptionsOf = (options: A2ACallOptions): ResumeOptions => ({
+const resumeOptionsOf = (options: A2ACallOptions): ThreadOwnerResumeOptions => ({
   signal: options.signal,
   ownerId: options.ownerId,
   tenantId: options.tenant?.tenantId,
@@ -35,8 +40,8 @@ export interface IA2AAdapter {
     options?: A2ACallOptions,
   ): Promise<A2AExecutionResponse>;
 
+  /** `app.resume({ pauseId, decision })`: answers one pause, as the call's owner. */
   resume(
-    thread: string,
     req: A2AResumeRequest,
     onEvent?: (event: A2AEvent) => void,
     options?: A2ACallOptions,
@@ -70,13 +75,13 @@ export class A2AAdapter implements IA2AAdapter {
   }
 
   public resume(
-    thread: string,
     req: A2AResumeRequest,
     onEvent?: (event: A2AEvent) => void,
     options: A2ACallOptions = {},
   ): Promise<A2AExecutionResponse> {
-    return this.run(thread, options, (call) =>
-      this.app.resume(thread, req.decision, { ...resumeOptionsOf(call), ...streamTo(onEvent) }),
+    const request = { pauseId: req.pauseId, decision: req.decision };
+    return this.run(undefined, options, (call) =>
+      this.app.resume(request, { ...resumeOptionsOf(call), ...streamTo(onEvent) }),
     );
   }
 

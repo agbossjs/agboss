@@ -13,7 +13,7 @@ import {
   write,
 } from "./fixtures.js";
 
-const approve = decision({ approved: true, by: "lead" });
+const approve = decision({ approved: true });
 
 describe("AC6: approval at the move boundary — one call per pause", () => {
   it("pauses before a write with the pending call; a fresh graph resumes it, the tool runs once, the turn is not asked again", async () => {
@@ -28,11 +28,10 @@ describe("AC6: approval at the move boundary — one call per pause", () => {
     expect(paused).toEqual({
       kind: "paused",
       pending: {
-        agent: "coder",
         callId: "w1",
-        kind: "approval",
         tool: "write_file",
-        args: { path: "a.ts", content: "x" },
+        arguments: { path: "a.ts", content: "x" },
+        summary: 'call write_file with {"path":"a.ts","content":"x"}',
       },
     });
     expect(before.effects).toEqual([]);
@@ -61,16 +60,12 @@ describe("AC6: approval at the move boundary — one call per pause", () => {
     const h = harness({ moves: [callTools(write("w1", "a.ts")), replyWith("not written")] });
     await runLoop(h.graph, startInput(), "t");
 
-    const done = await runLoop(
-      h.graph,
-      decision({ approved: false, by: "lead", feedback: "not now" }),
-      "t",
-    );
+    const done = await runLoop(h.graph, decision({ approved: false, reason: "not now" }), "t");
 
     expect(done).toEqual({ kind: "answered", reply: "not written" });
     expect(h.effects).toEqual([]);
     expect(toolMessagesOf(h.model.sent[1])).toEqual([
-      ["w1", "Tool error: the call was rejected by lead: not now"],
+      ["w1", "Tool error: the call was rejected by the thread's owner: not now"],
     ]);
     expect((await stateOf(h.graph, "t")).approvals).toEqual([
       {
@@ -78,8 +73,8 @@ describe("AC6: approval at the move boundary — one call per pause", () => {
         tool: "write_file",
         args: { path: "a.ts", content: "x" },
         approved: false,
-        by: "lead",
-        result: "Tool error: the call was rejected by lead: not now",
+        by: "the thread's owner",
+        result: "Tool error: the call was rejected by the thread's owner: not now",
       },
     ]);
   });
@@ -89,18 +84,18 @@ describe("AC6: approval at the move boundary — one call per pause", () => {
       moves: [callTools(write("w1", "a.ts"), write("w2", "b.ts")), replyWith("one of two")],
     });
     await runLoop(h.graph, startInput(), "t");
-    await runLoop(h.graph, decision({ approved: false, by: "lead" }), "t");
+    await runLoop(h.graph, decision({ approved: false }), "t");
 
     const done = await runLoop(h.graph, approve, "t");
 
     expect(done).toEqual({ kind: "answered", reply: "one of two" });
     expect(h.effects).toEqual(["write b.ts=x"]);
     expect(toolMessagesOf(h.model.sent[1])).toEqual([
-      ["w1", "Tool error: the call was rejected by lead"],
+      ["w1", "Tool error: the call was rejected by the thread's owner"],
       ["w2", "wrote b.ts"],
     ]);
     expect((await stateOf(h.graph, "t")).approvals.map((record) => record.result)).toEqual([
-      "Tool error: the call was rejected by lead",
+      "Tool error: the call was rejected by the thread's owner",
       "wrote b.ts",
     ]);
   });

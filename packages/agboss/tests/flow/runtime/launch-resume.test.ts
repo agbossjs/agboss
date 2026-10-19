@@ -3,7 +3,7 @@ import { ApplicationStoppingError } from "../../../src/index.js";
 import { callTool, replyWith, testWith, type ModelRequest } from "../../../src/testing/index.js";
 import type { TestApp } from "../../../src/testing/test-app.js";
 import { seconds } from "../../../src/units/index.js";
-import { execute } from "../../helpers/flow.js";
+import { execute, answerOf } from "../../helpers/flow.js";
 import { ends, resetRecovery } from "../../infrastructure/fixtures/recovery.workflow.js";
 import {
   ItemResultDto,
@@ -29,7 +29,7 @@ import {
 
 const clerks = testWith(ClerkApplication);
 const instances = testWith(LaunchRecoveryApplication, { instances: 2 });
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 
 const item = (name: string): ItemDto => ({ name, delay: 0, outcome: "ok" });
 
@@ -65,7 +65,7 @@ describe("S20: after a restart only the unfinished branches run again", () => {
       const before = mockLlm(ItemClerkAgent).requests.length;
 
       const restarted = await recoverApp();
-      const done = await restarted.resume(paused.threadId, approve);
+      const done = await restarted.resume(answerOf(paused, approve));
 
       expect(done).toFinishWith(SummaryWorkflowFinish, { text: "a, b, c" });
       expect(mockLlm(ItemClerkAgent).requests.slice(before).map(nameIn)).toEqual(["b"]);

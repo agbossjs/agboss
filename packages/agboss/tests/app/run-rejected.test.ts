@@ -5,6 +5,7 @@ import {
   InvalidThreadIdError,
   NotPausedError,
   ThreadOwnerError,
+  UnknownPauseError,
   UnknownThreadError,
 } from "../../src/errors.js";
 import {
@@ -31,10 +32,10 @@ import {
   VouchersTenantDailyBudget,
 } from "./fixtures/run-rejected.workflow.js";
 import type { TestApp } from "../../src/testing/test-app.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 const alice = { ownerId: "alice" };
 const mallory = { ownerId: "mallory" };
 const test = testWith(ApplicationsApplication);
@@ -86,7 +87,7 @@ describe("#246 AC1: a thread of another owner → onExecutionRejected run.thread
     const paused = await execute(app, Ask, { text: "apply" }, alice);
     resetEvents();
 
-    await expect(app.resume(paused.threadId, approve, mallory)).rejects.toThrow(ThreadOwnerError);
+    await expect(app.resume(answerOf(paused, approve), mallory)).rejects.toThrow(ThreadOwnerError);
     expectRejected(
       { operation: ExecutionOperation.Resume, threadId: paused.threadId, code: "run.thread-owner" },
       [paused.runId, "dana"],
@@ -99,32 +100,37 @@ describe("#246 AC1: a thread of another owner → onExecutionRejected run.thread
     );
     expect(workflowEvents()).toEqual([]);
 
-    const done = await app.resume(paused.threadId, approve, alice);
+    const done = await app.resume(answerOf(paused, approve), alice);
     expect(done).toMatchObject({ status: ExecutionStatus.Finished, runId: paused.runId });
   });
 });
 
 describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → onExecutionRejected", () => {
-  test("resume of a run that already finished: run.not-paused", async ({ app, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(replyWith(AnswerDto, { text: "Done." }));
-    const done = await execute(app, Ask, { text: "look" });
+  test("#267: a second answer to a pause its run already took: run.not-paused", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(Clerk).thenReturn(
+      callTool(Apply, { text: "job 1" }),
+      replyWith(AnswerDto, { text: "Applied." }),
+    );
+    const paused = await execute(app, Ask, { text: "apply" });
+    const done = await app.resume(answerOf(paused, approve));
     resetEvents();
 
-    await expect(app.resume(done.threadId, approve)).rejects.toBeInstanceOf(NotPausedError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(NotPausedError);
     expectRejected(
       { operation: ExecutionOperation.Resume, threadId: done.threadId, code: "run.not-paused" },
-      [done.runId, "dana"],
+      [done.runId],
     );
     expect(workflowEvents()).toEqual([]);
   });
 
-  test("resume of a thread nobody started: run.not-paused", async ({ app }) => {
-    await expect(app.resume("no-such-thread", approve)).rejects.toBeInstanceOf(NotPausedError);
-    expectRejected({
-      operation: ExecutionOperation.Resume,
-      threadId: "no-such-thread",
-      code: "run.not-paused",
-    });
+  test("#267 AC2: a pause nobody made: pause.unknown, no thread named", async ({ app }) => {
+    const unknown = app.resume({ pauseId: "no-such-pause", decision: approve });
+
+    await expect(unknown).rejects.toBeInstanceOf(UnknownPauseError);
+    expectRejected({ operation: ExecutionOperation.Resume, code: "pause.unknown" });
   });
 
   test("execute with an id that cannot be a thread: run.invalid-thread-id, before onWorkflowStart", async ({

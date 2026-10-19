@@ -3,9 +3,10 @@ import type { PausedRun } from "../../src/app/paused-runs.js";
 import { Injectable } from "../../src/components/decorators.js";
 import { TernStoreRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import {
+  InMemoryPausedExecutionRepository,
   PausedExecutionRepository,
-  PauseStatus,
-  resolvedPause,
+  type PauseRecord,
+  type PauseResolution,
 } from "../../src/infrastructure/paused-execution.repository.js";
 import { createSqliteTernStore, type TernStore } from "../../src/terns/index.js";
 
@@ -18,12 +19,15 @@ import { createSqliteTernStore, type TernStore } from "../../src/terns/index.js"
 interface SharedDatabase {
   readonly checkpoints: MemorySaver;
   readonly paused: Map<string, PausedRun>;
+  /** The pauses of every paused run: one store every instance reads. */
+  pauses: InMemoryPausedExecutionRepository;
   records: TernStore;
 }
 
 const database: SharedDatabase = {
   checkpoints: new MemorySaver(),
   paused: new Map(),
+  pauses: new InMemoryPausedExecutionRepository(),
   records: createSqliteTernStore(":memory:", () => new Date()),
 };
 
@@ -32,6 +36,7 @@ export function resetSharedDatabase(): void {
   database.checkpoints.storage = {};
   database.checkpoints.writes = {};
   database.paused.clear();
+  database.pauses = new InMemoryPausedExecutionRepository();
   database.records.close();
   database.records = createSqliteTernStore(":memory:", () => new Date());
 }
@@ -65,21 +70,48 @@ export class SharedPausedExecutionRepository extends PausedExecutionRepository {
     return Promise.resolve();
   }
 
-  resolveByTenantIdAndThreadId(
-    tenantId: string,
-    threadId: string,
-    decision: unknown,
-  ): Promise<PausedRun | undefined> {
-    const stored = database.paused.get(keyOf(tenantId, threadId));
-    if (stored?.status !== PauseStatus.Pending) return Promise.resolve(undefined);
-    const resolved = resolvedPause(stored, decision);
-    database.paused.set(keyOf(tenantId, threadId), resolved);
-    return Promise.resolve(resolved);
-  }
-
   deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void> {
     database.paused.delete(keyOf(tenantId, threadId));
     return Promise.resolve();
+  }
+
+  findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord> {
+    return database.pauses.findOrCreateByStepKey(pause);
+  }
+
+  findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined> {
+    return database.pauses.findByTenantIdAndPauseId(tenantId, pauseId);
+  }
+
+  findAllByTenantIdAndRootExecutionId(
+    tenantId: string,
+    rootExecutionId: string,
+  ): Promise<readonly PauseRecord[]> {
+    return database.pauses.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId);
+  }
+
+  markSentByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean> {
+    return database.pauses.markSentByTenantIdAndPauseId(tenantId, pauseId);
+  }
+
+  resolveByTenantIdAndPauseId(
+    tenantId: string,
+    pauseId: string,
+    resolution: PauseResolution,
+  ): Promise<PauseRecord | undefined> {
+    return database.pauses.resolveByTenantIdAndPauseId(tenantId, pauseId, resolution);
+  }
+
+  cancelByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean> {
+    return database.pauses.cancelByTenantIdAndPauseId(tenantId, pauseId);
+  }
+
+  markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void> {
+    return database.pauses.markTakenByTenantIdAndPauseId(tenantId, pauseId);
+  }
+
+  deleteByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void> {
+    return database.pauses.deleteByTenantIdAndPauseId(tenantId, pauseId);
   }
 }
 

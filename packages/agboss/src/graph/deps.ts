@@ -13,7 +13,7 @@ import type { LaunchDecider } from "../flow/runtime/launch/launch-decider.js";
 import type { ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
 import type { ArbiterClass } from "../flow/ast.js";
 import type { Guardrail } from "../components/decorators.js";
-import type { ChannelSender } from "../channels/channel-sender.js";
+import type { PauseChannel } from "../flow/runtime/pause.js";
 import type { PiiRuntime } from "../pii/runtime.js";
 import type { Class } from "../components/injection.js";
 import type { ResolvedPolicies } from "../workflow.js";
@@ -38,7 +38,7 @@ export interface GraphDeps<TName extends string> {
   /** Optional pause seam (approval of tool calls). Off by default. */
   readonly pause?: PauseSeam | undefined;
   /** The channel a tool names, by its name (#267): created with the app. */
-  readonly channelOf?: (channelName: string) => ChannelSender;
+  readonly channelOf?: (channelName: string) => PauseChannel;
   /** The PII policies at each agent's and router's model (#120); absent = none. */
   readonly pii?: PiiRuntime;
   readonly toolGuardrails?: (tool: string) => ResolvedPolicies<Guardrail>;

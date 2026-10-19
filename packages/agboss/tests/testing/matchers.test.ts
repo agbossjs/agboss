@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ExecutionStatus, type ExecutionOutput } from "../../src/app/types.js";
 import { buildCostReport } from "../../src/finops/usage.js";
+import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
 import {
   GraphRuleError,
@@ -34,6 +35,7 @@ const run = (parts: Partial<ExecutionOutput>): ExecutionOutput => ({
   launches: [],
   finish: { name: "reply-workflow-finish" },
   output: { text: "Hi." },
+  pending: [],
   ...parts,
 });
 
@@ -42,13 +44,17 @@ const paused = run({
   path: ["chat-workflow-start", "main-router", "support-agent"],
   finish: undefined,
   output: undefined,
-  pause: {
-    kind: "approval",
-    agent: "support-agent",
-    callId: "call-1",
-    tool: "save_note",
-    args: {},
-  },
+  pending: [
+    {
+      pauseId: "pause-1",
+      answeredBy: PauseAnswerer.ThreadOwner,
+      agent: "support-agent",
+      channel: "terminal-user-channel",
+      childExecutionId: undefined,
+      itemIndex: undefined,
+      ask: { callId: "call-1", tool: "save_note", arguments: {}, summary: "save a note" },
+    },
+  ],
 });
 
 describe("AC12: matchers by class — a passing and a failing case, readable failures", () => {

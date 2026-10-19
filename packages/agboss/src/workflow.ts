@@ -3,7 +3,7 @@ import type { BaseMemoryStrategy } from "./memory/types.js";
 import type { AgentPrompts, AgentsConfigOf } from "./config/types.js";
 import type { KnowledgeSource, RagConnector } from "./rag/types.js";
 import type { Guardrail } from "./components/decorators.js";
-import type { ChannelSender } from "./channels/channel-sender.js";
+import type { PauseChannel } from "./flow/runtime/pause.js";
 import type { AssembledPii } from "./pii/assembly.js";
 import type { Class } from "./components/injection.js";
 import type { AnyTool, McpFacade, McpServerHandle } from "./tools/index.js";
@@ -86,7 +86,7 @@ export interface AssembledWorkflow<TName extends string = string> {
   /** Compaction prompt override (workflows with `compaction`). */
   readonly compactionPrompt?: string;
   /** The channels its tools name (#267), by name, created by the application's container. */
-  readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, ChannelSender>;
+  readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, PauseChannel>;
   /** A component by its class, from the workflow's container (created with its `deps` on first use). */
   readonly resolve: (services: WorkflowServices) => (token: Class) => unknown;
   /** Its PII policies (#120): per agent and router, for observability, and their model detections. */

@@ -2,6 +2,12 @@ import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import type { ExecutionOutput } from "./types.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
+import { PauseAnswerer } from "../channels/channel-role.decorator.js";
+import { pendingPauseOf, type PendingPause, type WaitingPause } from "../pause/index.js";
+
+/** A pause as callers see it: a `Channel` pause's id stays with its channel (#267 AC3). */
+const visiblePauseOf = (pause: WaitingPause): PendingPause =>
+  pendingPauseOf(pause, pause.answeredBy === PauseAnswerer.ThreadOwner);
 
 /** The full record of an execution (`{ record: true }`, #270 AC16). */
 const recordOf = (run: AgentExecutionOutput): ExecutionRecord => ({
@@ -23,7 +29,7 @@ export function runResultOf(run: AgentExecutionOutput, withRecord: boolean): Exe
     spend: run.cost,
     launches: run.data.launches ?? [],
     ...(run.finish === undefined ? {} : { finish: { name: run.finish }, output: run.output }),
-    ...(run.pending === undefined ? {} : { pause: run.pending }),
+    pending: run.pending.map(visiblePauseOf),
     ...(run.compacted === undefined ? {} : { compacted: run.compacted }),
     ...(run.traceUrl === undefined ? {} : { traceUrl: run.traceUrl }),
     ...(withRecord ? { record: recordOf(run) } : {}),

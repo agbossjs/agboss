@@ -3,7 +3,7 @@ import { ExecutionStatus } from "../../src/app/types.js";
 import { workflowOf } from "../../src/components/assemble.js";
 import { PromptError } from "../../src/components/prompt-problems.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 import {
   Apply,
   JobSearch,
@@ -17,7 +17,7 @@ import {
   JobSearchApplication,
 } from "./fixtures/run-input.workflow.js";
 
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 const test = testWith(JobSearchApplication);
 
 beforeEach(resetSeen);
@@ -57,7 +57,7 @@ describe("#236: the whole validated start input stays on the run", () => {
     );
 
     const paused = await execute(app, SearchStart, { text: "apply", limit: 7 });
-    const done = await app.resume(paused.threadId, approve);
+    const done = await app.resume(answerOf(paused, approve));
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(done.status).toBe(ExecutionStatus.Finished);
@@ -81,7 +81,7 @@ describe("#236: the whole validated start input stays on the run", () => {
 
     const paused = await execute(app, SearchStart, { text: "apply", limit: 2 });
     const restarted = await recoverApp();
-    await restarted.resume(paused.threadId, approve);
+    await restarted.resume(answerOf(paused, approve));
 
     expect(seen.tools).toHaveLength(1);
     expect(seen.actions).toEqual([{ text: "apply", limit: 2 }]);

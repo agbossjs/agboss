@@ -6,8 +6,9 @@ import type { UsageRecord } from "../finops/usage.js";
 import type { TernOutcome } from "../terns/index.js";
 import { updateMemoryAfter } from "./memory.js";
 import type { FinishContext } from "./execute.js";
-import type { PendingPause } from "../pause/index.js";
+import type { WaitingPause } from "../pause/index.js";
 import { isWaiting, pausedLoopOf } from "./paused.js";
+import { waitingPausesOf } from "./waiting-pauses.js";
 import type { AgentExecutionOutput, RunDeps } from "./types.js";
 
 /** The Tern of an execution: a finished one's finish line (S8), a paused one waits. */
@@ -28,8 +29,10 @@ function outcomeOf(
 }
 
 /** The visited nodes; a paused execution waits in an agent whose visit has not finished yet. */
-const pathOf = (state: ExecutionStateType, pending: PendingPause | undefined): readonly string[] =>
-  pending === undefined ? state.path : [...state.path, pending.agent];
+const pathOf = (state: ExecutionStateType, pending: readonly WaitingPause[]): readonly string[] => {
+  const [first] = pending;
+  return first === undefined ? state.path : [...state.path, first.agent];
+};
 
 const traceUrlOf = <TName extends string>(
   deps: RunDeps<TName>,
@@ -46,17 +49,19 @@ async function stoppedState<TName extends string>(
 ): Promise<{
   readonly usage: readonly UsageRecord[];
   readonly paused: boolean;
-  readonly pending?: PendingPause;
+  readonly pending: readonly WaitingPause[];
 }> {
   const pause = ctx.deps.pause;
   if (pause === undefined || !(await isWaiting(ctx.graph, ctx.runId))) {
-    return { usage: state.usage, paused: false };
+    return { usage: state.usage, paused: false, pending: [] };
   }
+  const tree = { tenantId: ctx.base.tenantId, runId: ctx.runId };
+  const pending = await waitingPausesOf(ctx.graph, pause.pauses, tree);
   const loop = await pausedLoopOf(ctx.graph, pause.checkpointer, ctx.runId);
-  if (loop === undefined) return { usage: state.usage, paused: true };
+  if (loop === undefined) return { usage: state.usage, paused: true, pending };
   // the paused loop's spend goes to the ledger now, not on resume
   await ctx.record(loop.state.usage.slice(Math.max(ctx.recorded, state.usage.length)));
-  return { usage: loop.state.usage, paused: true, pending: loop.pending };
+  return { usage: loop.state.usage, paused: true, pending };
 }
 
 /** Writes (or completes) the Tern and shapes the result: finished or paused. */
@@ -92,7 +97,7 @@ export async function finishRun<TName extends string>(
       launches: state.launches,
     },
     ...(paused || state.finish === "" ? {} : { finish: state.finish, output: state.output }),
-    ...(pending === undefined ? {} : { pending }),
+    pending,
     ...traceUrlOf(ctx.deps, ctx.base.threadId),
     ...(memory.compacted === undefined ? {} : { compacted: memory.compacted }),
   };

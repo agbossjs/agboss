@@ -601,13 +601,13 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/matchers.ts:13:3 - (ae-undocumented) Missing documentation for "input".
 // src/testing/matchers.ts:14:3 - (ae-undocumented) Missing documentation for "instructions".
 // src/testing/matchers.ts:15:3 - (ae-undocumented) Missing documentation for "options".
-// src/testing/matchers.ts:78:3 - (ae-forgotten-export) The symbol "MatcherContext" needs to be exported by the entry point index.d.ts
-// src/testing/matchers.ts:78:3 - (ae-forgotten-export) The symbol "Verdict" needs to be exported by the entry point index.d.ts
-// src/testing/matchers.ts:136:3 - (ae-undocumented) Missing documentation for "toFollowPath".
-// src/testing/matchers.ts:137:3 - (ae-undocumented) Missing documentation for "toFinishWith".
-// src/testing/matchers.ts:138:3 - (ae-undocumented) Missing documentation for "toHavePausedAt".
-// src/testing/matchers.ts:144:3 - (ae-undocumented) Missing documentation for "toHaveCalledTools".
-// src/testing/matchers.ts:145:3 - (ae-undocumented) Missing documentation for "toHaveBeenAskedWith".
+// src/testing/matchers.ts:79:3 - (ae-forgotten-export) The symbol "MatcherContext" needs to be exported by the entry point index.d.ts
+// src/testing/matchers.ts:79:3 - (ae-forgotten-export) The symbol "Verdict" needs to be exported by the entry point index.d.ts
+// src/testing/matchers.ts:137:3 - (ae-undocumented) Missing documentation for "toFollowPath".
+// src/testing/matchers.ts:138:3 - (ae-undocumented) Missing documentation for "toFinishWith".
+// src/testing/matchers.ts:139:3 - (ae-undocumented) Missing documentation for "toHavePausedAt".
+// src/testing/matchers.ts:145:3 - (ae-undocumented) Missing documentation for "toHaveCalledTools".
+// src/testing/matchers.ts:146:3 - (ae-undocumented) Missing documentation for "toHaveBeenAskedWith".
 // src/testing/mcp-stubs.ts:14:3 - (ae-undocumented) Missing documentation for "tool".
 // src/testing/mcp-stubs.ts:15:3 - (ae-undocumented) Missing documentation for "args".
 // src/testing/model-script.ts:9:3 - (ae-undocumented) Missing documentation for "role".

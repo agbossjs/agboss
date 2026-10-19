@@ -11,10 +11,10 @@ import {
   ShortlistDto,
   JobSearchApplication,
 } from "./fixtures/run-input.workflow.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 const test = testWith(JobSearchApplication);
 
 beforeEach(resetSeen);
@@ -60,7 +60,7 @@ describe("#238: one run id per run", () => {
 
     const paused = await execute(app, SearchStart, { text: "apply", limit: 1 });
     const beforeResume = seen.events.length;
-    const done = await app.resume(paused.threadId, approve);
+    const done = await app.resume(answerOf(paused, approve));
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(done.runId).toBe(paused.runId);

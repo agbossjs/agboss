@@ -15,7 +15,7 @@ import {
 import { SqliteExecutionTreeRepository } from "../../src/infrastructure/sqlite/sqlite-execution-tree.repository.js";
 import { storeKinds } from "./contracts/store-kinds.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 import {
   Charge,
   Claim,
@@ -125,7 +125,7 @@ describe("#265 AC2: the keys of a request through the application", () => {
     );
     const paused = await execute(app, OrderWorkflowStart, { text: "claim, charge, claim" });
 
-    await apps[1]?.resume(paused.threadId, { approved: true, by: "dana" });
+    await apps[1]?.resume(answerOf(paused, { approved: true }));
 
     expect(seen.claims).toEqual([true, false]);
     expect(seen.recalls).toEqual([true]);

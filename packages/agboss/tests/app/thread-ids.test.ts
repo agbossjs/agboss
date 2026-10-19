@@ -8,7 +8,6 @@ import { describe, expect } from "vitest";
 import {
   BudgetExceededError,
   InvalidThreadIdError,
-  NotPausedError,
   ThreadOwnerError,
   UnknownThreadError,
 } from "../../src/errors.js";
@@ -104,9 +103,5 @@ describe("#262 Q4: a caller's own thread id", () => {
 
     await expect(refused).rejects.toBeInstanceOf(BudgetExceededError);
     await expect(app.cancel("order-8")).rejects.toBeInstanceOf(UnknownThreadError);
-    // nothing paused under it either: resume says so, as for any thread with no pause
-    await expect(app.resume("order-8", { approved: true, by: "dana" })).rejects.toBeInstanceOf(
-      NotPausedError,
-    );
   });
 });

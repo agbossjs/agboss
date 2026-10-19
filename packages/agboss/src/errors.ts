@@ -54,6 +54,7 @@ export { ModelCallError, type ModelCallErrorCode } from "./models/circuit-breake
 export { ToolTimeoutError } from "./tools/index.js";
 export { DtoValidationError } from "./dto/errors.js";
 export { NotPausedError } from "./run/resume-agent.js";
+export { PauseAnswererError, UnknownPauseError } from "./app/resume.js";
 export { InvalidThreadIdError, ThreadOwnerError, UnknownThreadError } from "./run/thread.js";
 export {
   DecisionError,

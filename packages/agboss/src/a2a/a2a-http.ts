@@ -4,7 +4,7 @@ import type { Class } from "../components/injection.js";
 import type { IA2AAdapter } from "./a2a-adapter.js";
 import { A2ARequestSchema, type A2AEvent, type A2AExecutionResponse } from "./types.js";
 
-const ResumeSchema = z.object({ thread: z.string(), decision: z.unknown() });
+const ResumeSchema = z.object({ pauseId: z.string(), decision: z.unknown() });
 
 const HTTP_OK = 200;
 const HTTP_BAD_REQUEST = 400;
@@ -51,7 +51,7 @@ async function answer(req: IncomingMessage, res: ServerResponse, exchange: Excha
 
 /**
  * The adapter over HTTP, for `http.createServer(a2aHttpListener(adapter, Start))`:
- * `POST <base>/execute` `{ input, thread? }` and `POST <base>/resume` `{ thread, decision }`.
+ * `POST <base>/execute` `{ input, thread? }` and `POST <base>/resume` `{ pauseId, decision }`.
  * The reply is the `A2AExecutionResponse` as JSON, or — with `Accept: text/event-stream` — progress
  * events followed by one `finish` event carrying it. A caller that disconnects cancels its run.
  */
@@ -67,9 +67,7 @@ export function a2aHttpListener(
     },
     [`${base}/resume`]: (body, onEvent, signal) => {
       const parsed = ResumeSchema.safeParse(body);
-      return parsed.success
-        ? adapter.resume(parsed.data.thread, parsed.data, onEvent, { signal })
-        : undefined;
+      return parsed.success ? adapter.resume(parsed.data, onEvent, { signal }) : undefined;
     },
   };
   return (req, res) => {

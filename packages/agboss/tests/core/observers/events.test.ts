@@ -13,7 +13,7 @@ import {
   Workflow,
 } from "../../../src/index.js";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
-import { execute } from "../../helpers/flow.js";
+import { execute, answerOf } from "../../helpers/flow.js";
 import {
   AnswerDto,
   Apply,
@@ -30,7 +30,7 @@ import {
 } from "../../app/fixtures/run-events.workflow.js";
 
 const test = testWith(ApplicationsApplication);
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 
 beforeEach(resetEvents);
 
@@ -45,7 +45,7 @@ describe("#261 AC7, AC15: every event carries the execution's common fields", ()
     );
 
     const paused = await execute(app, Ask, { text: "apply" }, { tenant: { tenantId: "acme" } });
-    await app.resume(paused.threadId, approve, { tenantId: "acme" });
+    await app.resume(answerOf(paused, approve), { tenantId: "acme" });
 
     expect(executionEvents).toHaveLength(4);
     for (const event of executionEvents) {
@@ -143,7 +143,7 @@ describe("#269: onExecutionRejected names the refused operation (ExecutionOperat
     await expect(app.cancel("no-such-thread", { tenantId: "acme" })).rejects.toBeInstanceOf(
       UnknownThreadError,
     );
-    await expect(app.resume("no-such-thread", approve)).rejects.toThrow();
+    await expect(app.resume({ pauseId: "no-such-pause", decision: approve })).rejects.toThrow();
     // an unknown id is the caller's own new thread (#262 Q4): an invalid one is refused
     await expect(
       execute(app, Ask, { text: "x" }, { threadId: "no\nthread" }),

@@ -16,7 +16,7 @@ import type { Milliseconds } from "../units/index.js";
 
 /**
  * How an execution ended for its caller (#269, Q56): at a finish (`result.output`, `result.finish`)
- * or paused (`result.pause`). A failure is never a status — the call rejects.
+ * or paused (`result.pending`). A failure is never a status — the call rejects.
  */
 export enum ExecutionStatus {
   Finished = "finished",
@@ -66,13 +66,41 @@ export interface ExecutionOptions extends CallOptions {
 }
 
 /**
- * `app.resume(threadId, decision, options)`: a resume finds what exists, so it takes keys and
- * access only — the tenant by its id (omitted → `"default"`) and the thread's owner. It runs on
- * the context values the execution started with (its checkpoint).
+ * What `app.resume` answers (#267): one pause, by its id — found anywhere in its execution tree —
+ * and the decision for it, validated against its channel role's answer DTO (a tool approval: a
+ * `ToolCallApprovalDecisionDto`).
  */
-export interface ResumeOptions extends CallOptions {
+export interface ResumeRequest {
+  /** The pause's id: `result.pending[i].pauseId`, or the `ask.pauseId` its channel was sent. */
+  readonly pauseId: string;
+  /** The answer, checked against the pause's role (a tool approval: a `ToolCallApprovalDecisionDto`). */
+  readonly decision: unknown;
+}
+
+/**
+ * `app.resume(request, options)`: a resume finds what exists, so it takes keys and credentials only
+ * — the tenant by its id (omitted → `"default"`) and who answers, as the pause's role says
+ * (`answeredBy` on `@ChannelRole`). It runs on the context values the execution started with.
+ */
+export type ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions;
+
+/** The answer of a `PauseAnswerer.ThreadOwner` pause: checked against the thread's `ownerId`. */
+export interface ThreadOwnerResumeOptions extends CallOptions {
   readonly tenantId?: string | undefined;
+  /** The thread's owner (omitted for a thread without one; another → `ThreadOwnerError`). */
   readonly ownerId?: string | undefined;
+  readonly answeredBy?: never;
+}
+
+/**
+ * The answer of a `PauseAnswerer.Channel` pause: the channel's side authenticated who answers; the
+ * framework records it (the pause's record, `onExecutionResume`) and checks only that it is given.
+ */
+export interface ChannelResumeOptions extends CallOptions {
+  readonly tenantId?: string | undefined;
+  /** Who answered, as the channel's side knows them (`"manager-17"`): non-empty. */
+  readonly answeredBy: string;
+  readonly ownerId?: never;
 }
 
 /** `app.cancel(threadId, { tenantId, ownerId })`: the thread's tenant and the caller's owner. */
@@ -97,7 +125,7 @@ export interface CancelOutput {
 
 /**
  * What one execution (or resume) of the app ended with: `output` and `finish` when it reached a
- * workflow finish, `pause` when it waits for an approval; `path` = the node ids it visited, `spend`
+ * workflow finish, `pending` when it waits for answers; `path` = the node ids it visited, `spend`
  * = its cost; `record` only with `{ record: true }`.
  */
 export interface ExecutionOutput<TOutput = unknown> {
@@ -115,8 +143,11 @@ export interface ExecutionOutput<TOutput = unknown> {
   readonly finish?: ComponentRecord;
   /** The finish's output DTO — the business result only. */
   readonly output?: TOutput;
-  /** What the run waits for (until #267: the tool call waiting for approval). */
-  readonly pause?: PendingPause;
+  /**
+   * Every pause the execution waits for (#267 AC1) — several when parallel branches each wait;
+   * empty unless `status` is `Paused`. A `PauseAnswerer.Channel` pause comes without its `pauseId`.
+   */
+  readonly pending: readonly PendingPause[];
   /** Node ids (component names) in the order the execution visited them. */
   readonly path: readonly string[];
   readonly spend: CostReport;
@@ -157,8 +188,14 @@ export interface App {
     input: ExecutionInputOf<InstanceType<TStart>>,
     ...options: ExecutionOptionsArgs<InstanceType<TStart>>
   ): Promise<ExecutionOutput<ExecutionOutputOf<InstanceType<TStart>>>>;
-  /** Continues the thread's paused run (in `options.tenantId`) with `decision`. */
-  resume(threadId: string, decision: unknown, options?: ResumeOptions): Promise<ExecutionOutput>;
+  /**
+   * Answers one pause (#267): found by `(options.tenantId, request.pauseId)` anywhere in its
+   * execution tree (unknown, or another tenant's → `UnknownPauseError`), checked against who may
+   * answer it, its decision validated, then recorded (`Pending → Resolved`, atomic; a second
+   * answer → `NotPausedError`) and the tree moved under its lease. With other pauses left the
+   * execution pauses again with the rest. The result carries `threadId` and `runId`.
+   */
+  resume(request: ResumeRequest, options?: ResumeOptions): Promise<ExecutionOutput>;
   /**
    * Cancels the thread's run: a running one is aborted (`executionContext.signal`; its `execute` rejects
    * with `ExecutionCancelledError`), a paused one is dropped (its `resume` throws `NotPausedError`).

@@ -5,16 +5,17 @@ import type { AgentExecutionOutput } from "../../run/types.js";
 import { Clock } from "../clock.js";
 import {
   PausedExecutionRepository,
-  PauseStatus,
-  resolvedPause,
+  type PauseRecord,
+  type PauseResolution,
 } from "../paused-execution.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import { PAUSES_SCHEMA, SqlitePauseRows } from "./sqlite-pause-rows.js";
 
 /** One row per thread of a tenant (#261: the key is tenant + thread). */
 const SCHEMA = `CREATE TABLE IF NOT EXISTS paused_executions (
   tenant_id TEXT NOT NULL, thread_id TEXT NOT NULL, run_id TEXT NOT NULL, run TEXT NOT NULL,
-  workflow_version TEXT NOT NULL, config_hash TEXT NOT NULL, status TEXT NOT NULL,
-  decision TEXT, paused_at TEXT NOT NULL, PRIMARY KEY (tenant_id, thread_id));`;
+  workflow_version TEXT NOT NULL, config_hash TEXT NOT NULL, paused_at TEXT NOT NULL,
+  PRIMARY KEY (tenant_id, thread_id));`;
 
 /**
  * The migration of a file written before tenants (#261, #265 S69 e): the table keyed by the thread
@@ -23,15 +24,20 @@ const SCHEMA = `CREATE TABLE IF NOT EXISTS paused_executions (
 const TENANT_MIGRATION = `ALTER TABLE paused_executions RENAME TO paused_executions_before_tenants;
 ${SCHEMA}
 INSERT INTO paused_executions SELECT 'default', thread_id, run_id, run, workflow_version,
-  config_hash, status, decision, paused_at FROM paused_executions_before_tenants;
+  config_hash, paused_at FROM paused_executions_before_tenants;
 DROP TABLE paused_executions_before_tenants;`;
+
+/**
+ * The migration of a file written before pauses had records of their own (#267 S35): a thread's
+ * pause kept its status and decision in its row; they now live in `pauses`, one row per pause.
+ */
+const PAUSE_RECORDS_MIGRATION = `ALTER TABLE paused_executions DROP COLUMN status;
+ALTER TABLE paused_executions DROP COLUMN decision;`;
 
 const PausedRow = z.object({
   run: z.string(),
   workflow_version: z.string(),
   config_hash: z.string(),
-  status: z.enum(PauseStatus),
-  decision: z.string().nullable(),
 });
 
 /** The fields a resume relies on; the rest of the stored run is passed through as written. */
@@ -60,10 +66,6 @@ const decode = (text: string): unknown =>
     return tagged.success ? Number(tagged.data.$number) : item;
   });
 
-/** A decision as stored: JSON, or `NULL` for none. */
-const encodedDecision = (decision: unknown): string | null =>
-  decision === undefined ? null : encode(decision);
-
 /** Whether a decoded run is what `save` wrote: an `AgentExecutionOutput` of a paused run. */
 const isStoredRun = (value: unknown): value is AgentExecutionOutput =>
   StoredRun.safeParse(value).success;
@@ -73,25 +75,24 @@ function toPausedRun(row: unknown): PausedRun {
   const run = decode(r.run);
   if (!isStoredRun(run)) throw new Error(`a stored paused run is not readable: ${r.run}`);
   const tenantId: unknown = Reflect.get(run, "tenantId");
-  const paused: PausedRun = {
+  return {
     run: typeof tenantId === "string" ? run : { ...run, tenantId: "default" },
     workflowVersion: r.workflow_version,
     configHash: r.config_hash,
-    status: r.status,
   };
-  return r.decision === null ? paused : { ...paused, decision: decode(r.decision) };
 }
 
 /**
- * `PausedExecutionRepository` on the application's SQLite file (#265, S32): one row per thread of a
- * tenant (#261) —
- * the paused run, the versions it paused under, its status and decision. `resolveByTenantIdAndThreadId` turns
- * `Pending` into `Resolved` in one `BEGIN IMMEDIATE` transaction, so of two resumes on two
- * instances exactly one records its decision. With `SqliteCheckpointSaver` a pause survives a
- * restart. Listed in `@Application({ providers })`; needs `sqlitePath`.
+ * `PausedExecutionRepository` on the application's SQLite file (#265 S32, #267 S35): one row per
+ * thread of a tenant (#261) — the paused run and the versions it paused under — and one row per
+ * pause (`pauses`). Every change of a pause is one `BEGIN IMMEDIATE` transaction, so of two resumes
+ * on two instances exactly one records its decision. With `SqliteCheckpointSaver` a pause survives
+ * a restart. Listed in `@Application({ providers })`; needs `sqlitePath`.
  */
 @Injectable({ deps: [SqliteConnection, Clock] })
 export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
+  readonly #pauses: SqlitePauseRows;
+
   constructor(
     private readonly connection: SqliteConnection,
     private readonly clock: Clock,
@@ -101,8 +102,11 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
       const columns = connection.columnsOf("paused_executions");
       if (columns.length > 0 && !columns.includes("tenant_id"))
         connection.database.exec(TENANT_MIGRATION);
+      else if (columns.includes("status")) connection.database.exec(PAUSE_RECORDS_MIGRATION);
     });
     connection.ensureSchema("paused_executions", SCHEMA);
+    connection.ensureSchema("pauses", PAUSES_SCHEMA);
+    this.#pauses = new SqlitePauseRows(connection.database);
   }
 
   findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedRun | undefined> {
@@ -115,7 +119,7 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
   save(paused: PausedRun): Promise<void> {
     const { run } = paused;
     this.connection.database
-      .prepare("INSERT OR REPLACE INTO paused_executions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .prepare("INSERT OR REPLACE INTO paused_executions VALUES (?, ?, ?, ?, ?, ?, ?)")
       .run(
         run.tenantId,
         run.threadId,
@@ -123,40 +127,65 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
         encode(run),
         paused.workflowVersion,
         paused.configHash,
-        paused.status,
-        encodedDecision(paused.decision),
         this.clock.now().toISOString(),
       );
     return Promise.resolve();
-  }
-
-  resolveByTenantIdAndThreadId(
-    tenantId: string,
-    threadId: string,
-    decision: unknown,
-  ): Promise<PausedRun | undefined> {
-    const { database } = this.connection;
-    const resolved = this.connection.transaction((): PausedRun | undefined => {
-      const row = database
-        .prepare(
-          "SELECT * FROM paused_executions WHERE tenant_id = ? AND thread_id = ? AND status = ?",
-        )
-        .get(tenantId, threadId, PauseStatus.Pending);
-      if (row === undefined) return undefined;
-      database
-        .prepare(
-          "UPDATE paused_executions SET status = ?, decision = ? WHERE tenant_id = ? AND thread_id = ?",
-        )
-        .run(PauseStatus.Resolved, encodedDecision(decision), tenantId, threadId);
-      return resolvedPause(toPausedRun(row), decision);
-    });
-    return Promise.resolve(resolved);
   }
 
   deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void> {
     this.connection.database
       .prepare("DELETE FROM paused_executions WHERE tenant_id = ? AND thread_id = ?")
       .run(tenantId, threadId);
+    return Promise.resolve();
+  }
+
+  findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord> {
+    const found = this.connection.transaction((): PauseRecord => {
+      const stored = this.#pauses.findByStepKey(pause.tenantId, pause.stepKey);
+      if (stored !== undefined) return stored;
+      this.#pauses.insert(pause);
+      return pause;
+    });
+    return Promise.resolve(found);
+  }
+
+  findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined> {
+    return Promise.resolve(this.#pauses.findById(tenantId, pauseId));
+  }
+
+  findAllByTenantIdAndRootExecutionId(
+    tenantId: string,
+    rootExecutionId: string,
+  ): Promise<readonly PauseRecord[]> {
+    return Promise.resolve(this.#pauses.findAllByRoot(tenantId, rootExecutionId));
+  }
+
+  markSentByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean> {
+    return Promise.resolve(this.#pauses.markSent(tenantId, pauseId));
+  }
+
+  resolveByTenantIdAndPauseId(
+    tenantId: string,
+    pauseId: string,
+    resolution: PauseResolution,
+  ): Promise<PauseRecord | undefined> {
+    const resolved = this.connection.transaction(() =>
+      this.#pauses.resolve(tenantId, pauseId, resolution),
+    );
+    return Promise.resolve(resolved);
+  }
+
+  cancelByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean> {
+    return Promise.resolve(this.#pauses.cancel(tenantId, pauseId));
+  }
+
+  markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void> {
+    this.#pauses.markTaken(tenantId, pauseId);
+    return Promise.resolve();
+  }
+
+  deleteByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void> {
+    this.#pauses.delete(tenantId, pauseId);
     return Promise.resolve();
   }
 }

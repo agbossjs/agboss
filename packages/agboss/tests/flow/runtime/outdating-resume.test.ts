@@ -2,7 +2,7 @@ import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../../src/app/types.js";
 import { OutdatedReason } from "../../../src/index.js";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
-import { execute } from "../../helpers/flow.js";
+import { execute, answerOf } from "../../helpers/flow.js";
 import { DraftChangesDto } from "../fixtures/data-dtos.js";
 import { ArticleDto } from "../fixtures/dtos.js";
 import { ApprovalDto, DraftDto, ResearchDto } from "../fixtures/review-dtos.js";
@@ -26,7 +26,7 @@ import {
  */
 
 const loop = testWith(LoopApplication);
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 
 beforeEach(resetOutdatingLog);
 
@@ -51,7 +51,7 @@ describe("#271 AC11: outdating across a pause", () => {
       const paused = await execute(app, LoopWorkflowStart, { topic: "t" });
       const eventsBeforePause = outdatingEvents.length;
       const restarted = await recoverApp();
-      const done = await restarted.resume(paused.threadId, approve, { record: true });
+      const done = await restarted.resume(answerOf(paused, approve), { record: true });
 
       expect(paused.status).toBe(ExecutionStatus.Paused);
       expect(eventsBeforePause).toBe(1);

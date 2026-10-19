@@ -36,6 +36,13 @@ import {
 import { start } from "../helpers/flow.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { ExecutionStatus } from "../../src/app/types.js";
+
+/** A paused workflow as the MCP tool reports it. */
+interface PausedReply {
+  readonly status: string;
+  readonly threadId: string;
+  readonly pending: readonly { readonly pauseId?: string }[];
+}
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
@@ -235,18 +242,18 @@ describe("McpService over an in-memory MCP transport", () => {
       name: "chat-workflow-start",
       arguments: { text: "save a note" },
     });
-    const paused = JSON.parse(textOf(started)) as { status: string; threadId: string };
+    const paused = JSON.parse(textOf(started)) as PausedReply;
     const resumed = await client.callTool({
       name: "resume_workflow",
       arguments: {
-        threadId: paused.threadId,
-        decision: JSON.stringify({ approved: true, by: "dana" }),
+        pauseId: paused.pending[0]?.pauseId,
+        decision: JSON.stringify({ approved: true }),
       },
     });
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pauseDetails: { agent: "clerk-agent", tool: "save_note" },
+      pending: [{ agent: "clerk-agent", ask: { tool: "save_note" } }],
     });
     expect(resumed.isError).toBeFalsy();
     expect(JSON.parse(textOf(resumed))).toEqual({ text: "Saved." });
@@ -266,12 +273,12 @@ describe("McpService over an in-memory MCP transport", () => {
       name: "chat-workflow-start",
       arguments: { text: "save a note" },
     });
-    const paused = JSON.parse(textOf(started)) as { threadId: string };
+    const paused = JSON.parse(textOf(started)) as PausedReply;
     const resumed = await client.callTool({
       name: "resume_workflow",
       arguments: {
-        threadId: paused.threadId,
-        decision: JSON.stringify({ approved: true, by: "dana" }),
+        pauseId: paused.pending[0]?.pauseId,
+        decision: JSON.stringify({ approved: true }),
       },
     });
 
@@ -281,7 +288,7 @@ describe("McpService over an in-memory MCP transport", () => {
     await expect(app?.cancel(paused.threadId)).rejects.toThrow(/thread/i);
   });
 
-  it("an invalid workflow input or an unknown thread is an MCP error result", async () => {
+  it("an invalid workflow input or an unknown pause is an MCP error result", async () => {
     const client = await connected();
 
     const badStart = await client.callTool({
@@ -290,7 +297,7 @@ describe("McpService over an in-memory MCP transport", () => {
     });
     const badResume = await client.callTool({
       name: "resume_workflow",
-      arguments: { threadId: "missing", decision: "{}" },
+      arguments: { pauseId: "missing", decision: "{}" },
     });
 
     expect(badStart).toMatchObject({ isError: true });

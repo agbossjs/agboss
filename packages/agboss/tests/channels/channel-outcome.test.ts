@@ -9,7 +9,7 @@ import type { Class } from "../../src/components/injection.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { EmptyEnvironment } from "../../src/index.js";
+import { EmptyEnvironment, PausedExecutionRepository } from "../../src/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -51,11 +51,12 @@ class SilentChannel {
   }
 }
 
-/** A channel that decides with a decision its role's DTO rejects (no `by`). */
+/** A channel that decides with a decision its role's DTO rejects (a refusal that overrides). */
 @Channel({ name: "careless-channel" })
 class CarelessChannel {
   send(): Promise<unknown> {
-    return Promise.resolve(ChannelOutcome.decided({ approved: true }));
+    const overrideArguments = { orderId: "A-2", amountCents: 1 };
+    return Promise.resolve(ChannelOutcome.decided({ approved: false, overrideArguments }));
   }
 }
 
@@ -128,10 +129,20 @@ describe("#267 AC5: awaitReply pauses, decided goes on and leaves no pending rec
 
     expect(result).toMatchObject({
       status: ExecutionStatus.Paused,
-      pause: { tool: "refund_card" },
+      pending: [{ ask: { tool: "refund_card" } }],
     });
     expect(desk.posted).toHaveLength(1);
     expect(desk.refunded).toEqual([]);
+    await app.close();
+  });
+
+  it("#267 S35: decided(…) forgets the pause it reserved — nothing is left waiting", async () => {
+    const app = await createApp(RuleRefundsApplication, offline(refundScript(1200)));
+
+    const done = await execute(app, RefundWorkflowStart, { text: "refund A-1" });
+
+    const pauses = app.resolve(PausedExecutionRepository);
+    expect(await pauses.findAllByTenantIdAndRootExecutionId("default", done.runId)).toEqual([]);
     await app.close();
   });
 
@@ -139,7 +150,7 @@ describe("#267 AC5: awaitReply pauses, decided goes on and leaves no pending rec
     const { app, result, desk } = await refundOn(RuleRefundsApplication, 1200);
 
     expect(result).toMatchObject({ status: ExecutionStatus.Finished, output: { status: "done" } });
-    expect(result).not.toHaveProperty("pause");
+    expect(result).toMatchObject({ pending: [] });
     expect(desk.refunded).toEqual(["A-1"]);
     await app.close();
   });
@@ -148,7 +159,7 @@ describe("#267 AC5: awaitReply pauses, decided goes on and leaves no pending rec
     const { app, book, result, desk } = await refundOn(RuleRefundsApplication, 9000);
 
     expect(result).toMatchObject({ status: ExecutionStatus.Finished });
-    expect(result).not.toHaveProperty("pause");
+    expect(result).toMatchObject({ pending: [] });
     expect(desk.refunded).toEqual([]);
     expect(JSON.stringify(book.scriptOf("agent:refund-clerk-agent").requests.at(-1))).toContain(
       "over $50",
@@ -159,9 +170,9 @@ describe("#267 AC5: awaitReply pauses, decided goes on and leaves no pending rec
 
   it("the outcomes: awaitReply and decided(decision)", () => {
     expect(ChannelOutcome.awaitReply()).toEqual({ kind: ChannelOutcomeKind.AwaitReply });
-    expect(ChannelOutcome.decided({ approved: true, by: "rule" })).toEqual({
+    expect(ChannelOutcome.decided({ approved: true })).toEqual({
       kind: ChannelOutcomeKind.Decided,
-      decision: { approved: true, by: "rule" },
+      decision: { approved: true },
     });
   });
 
@@ -180,7 +191,7 @@ describe("#267 AC7 (PR 1 part): a decided decision is validated on the way in", 
   it("a decision its DTO rejects fails the step; the tool does not run", async () => {
     const { app, result, desk } = await refundOn(applicationWith("careless", CarelessChannel), 100);
 
-    expect(String(result)).toContain("by");
+    expect(String(result)).toContain("overrideArguments only with approved: true");
     expect(result).toBeInstanceOf(Error);
     expect(desk.refunded).toEqual([]);
     await app.close();
@@ -195,7 +206,7 @@ describe("#267 AC11 (PR 1 part): the built-in test channels decide at once", () 
     );
 
     expect(result).toMatchObject({ status: ExecutionStatus.Finished });
-    expect(result).not.toHaveProperty("pause");
+    expect(result).toMatchObject({ pending: [] });
     expect(desk.refunded).toEqual(["A-1"]);
     await app.close();
   });
@@ -207,7 +218,7 @@ describe("#267 AC11 (PR 1 part): the built-in test channels decide at once", () 
     );
 
     expect(result).toMatchObject({ status: ExecutionStatus.Finished });
-    expect(result).not.toHaveProperty("pause");
+    expect(result).toMatchObject({ pending: [] });
     expect(desk.refunded).toEqual([]);
     await app.close();
   });

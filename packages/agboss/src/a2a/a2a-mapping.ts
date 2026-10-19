@@ -30,11 +30,20 @@ export function failureStatusOf(error: unknown, signal: AbortSignal | undefined)
 }
 
 /** The response for a run the app returned: its thread, status and finish output. */
+/** The pauses a caller may answer (a `Channel` pause's id stays with its channel). */
+function pauseIdsOf(output: ExecutionOutput): { readonly pauseIds?: readonly string[] } {
+  const pauseIds = output.pending.flatMap((pause) =>
+    pause.pauseId === undefined ? [] : [pause.pauseId],
+  );
+  return pauseIds.length === 0 ? {} : { pauseIds };
+}
+
 export function responseOf(output: ExecutionOutput): A2AExecutionResponse {
   return {
     thread: output.threadId,
     status: statusOf(output.status),
     ...(output.finish === undefined ? {} : { finish: output.finish.name, output: output.output }),
+    ...pauseIdsOf(output),
   };
 }
 

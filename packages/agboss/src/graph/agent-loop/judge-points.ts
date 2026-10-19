@@ -26,7 +26,7 @@ export interface JudgeVisit {
   readonly decision?: {
     approved: boolean;
     by?: string;
-    feedback?: string;
+    reason?: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     overrideArguments?: any;
   };

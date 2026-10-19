@@ -19,7 +19,7 @@ export class A2AAdapter implements IA2AAdapter {
     // (undocumented)
     execute(start: Class, req: A2AExecutionRequest, onEvent?: (event: A2AEvent) => void, options?: A2ACallOptions): Promise<A2AExecutionResponse>;
     // (undocumented)
-    resume(thread: string, req: A2AResumeRequest, onEvent?: (event: A2AEvent) => void, options?: A2ACallOptions): Promise<A2AExecutionResponse>;
+    resume(req: A2AResumeRequest, onEvent?: (event: A2AEvent) => void, options?: A2ACallOptions): Promise<A2AExecutionResponse>;
 }
 
 // Warning: (ae-forgotten-export) The symbol "Token" needs to be exported by the entry point index.d.ts
@@ -103,6 +103,7 @@ export const A2AEventSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
             finish: z.ZodOptional<z.ZodString>;
             output: z.ZodOptional<z.ZodUnknown>;
             error: z.ZodOptional<z.ZodString>;
+            pauseIds: z.ZodOptional<z.ZodArray<z.ZodString>>;
         }, z.core.$strip>;
     }, z.core.$strip>;
 }, z.core.$strip>], "type">;
@@ -122,6 +123,7 @@ export interface A2AExecutionResponse {
     readonly finish?: string;
     // (undocumented)
     readonly output?: unknown;
+    readonly pauseIds?: readonly string[];
     // (undocumented)
     readonly status: A2AStatus;
     // (undocumented)
@@ -153,12 +155,15 @@ export const A2AResponseSchema: z.ZodObject<{
     finish: z.ZodOptional<z.ZodString>;
     output: z.ZodOptional<z.ZodUnknown>;
     error: z.ZodOptional<z.ZodString>;
+    pauseIds: z.ZodOptional<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 
 // @public
 export interface A2AResumeRequest<TDecision = unknown> {
     // (undocumented)
     readonly decision: TDecision;
+    // (undocumented)
+    readonly pauseId: string;
 }
 
 // @public
@@ -180,17 +185,15 @@ export interface IA2AAdapter {
     cancel(thread: string): Promise<void>;
     // (undocumented)
     execute(start: Class, req: A2AExecutionRequest, onEvent?: (event: A2AEvent) => void, options?: A2ACallOptions): Promise<A2AExecutionResponse>;
-    // (undocumented)
-    resume(thread: string, req: A2AResumeRequest, onEvent?: (event: A2AEvent) => void, options?: A2ACallOptions): Promise<A2AExecutionResponse>;
+    resume(req: A2AResumeRequest, onEvent?: (event: A2AEvent) => void, options?: A2ACallOptions): Promise<A2AExecutionResponse>;
 }
 
 // Warnings were encountered during analysis:
 //
-// src/a2a/a2a-adapter.ts:31:3 - (ae-undocumented) Missing documentation for "execute".
-// src/a2a/a2a-adapter.ts:38:3 - (ae-undocumented) Missing documentation for "resume".
-// src/a2a/a2a-adapter.ts:56:10 - (ae-undocumented) Missing documentation for "execute".
-// src/a2a/a2a-adapter.ts:72:10 - (ae-undocumented) Missing documentation for "resume".
-// src/a2a/a2a-adapter.ts:83:16 - (ae-undocumented) Missing documentation for "cancel".
+// src/a2a/a2a-adapter.ts:36:3 - (ae-undocumented) Missing documentation for "execute".
+// src/a2a/a2a-adapter.ts:61:10 - (ae-undocumented) Missing documentation for "execute".
+// src/a2a/a2a-adapter.ts:77:10 - (ae-undocumented) Missing documentation for "resume".
+// src/a2a/a2a-adapter.ts:88:16 - (ae-undocumented) Missing documentation for "cancel".
 // src/a2a/a2a-client.ts:13:1 - (ae-undocumented) Missing documentation for "A2AClientOptions".
 // src/a2a/a2a-client.ts:16:3 - (ae-undocumented) Missing documentation for "headers".
 // src/a2a/a2a-client.ts:23:3 - (ae-undocumented) Missing documentation for "onEvent".
@@ -212,7 +215,8 @@ export interface IA2AAdapter {
 // src/a2a/types.ts:28:3 - (ae-undocumented) Missing documentation for "status".
 // src/a2a/types.ts:29:3 - (ae-undocumented) Missing documentation for "finish".
 // src/a2a/types.ts:30:3 - (ae-undocumented) Missing documentation for "output".
-// src/a2a/types.ts:37:3 - (ae-undocumented) Missing documentation for "decision".
+// src/a2a/types.ts:39:3 - (ae-undocumented) Missing documentation for "pauseId".
+// src/a2a/types.ts:40:3 - (ae-undocumented) Missing documentation for "decision".
 
 // (No @packageDocumentation comment for this package)
 

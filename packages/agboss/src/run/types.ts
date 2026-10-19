@@ -6,7 +6,7 @@ import type { CostReport } from "../finops/usage.js";
 import type { OutdatedValueRecord, ScopeRecords } from "../flow/runtime/records.js";
 import type { GraphDeps } from "../graph/deps.js";
 import type { Compacted } from "./compaction.js";
-import type { PendingPause } from "../pause/index.js";
+import type { WaitingPause } from "../pause/index.js";
 import type { TernRecords } from "../terns/index.js";
 import type { RunTracing } from "../tracing/index.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
@@ -89,8 +89,8 @@ export interface AgentExecutionOutput {
   readonly traceUrl?: string;
   /** The run's id (observer events, `executionContext.executionId`, its Tern, its checkpoint — a resume keeps it). */
   readonly runId: string;
-  /** Present only when paused: the tool call waiting for an approval. */
-  readonly pending?: PendingPause;
+  /** What a paused execution waits for: every pending pause of its tree (#267 AC1); empty otherwise. */
+  readonly pending: readonly WaitingPause[];
   /** The workflow version it started on (`workflow.startedVersion`); absent in a run stored before it. */
   readonly startedVersion?: string;
 }

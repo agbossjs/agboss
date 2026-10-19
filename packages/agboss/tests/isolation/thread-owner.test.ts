@@ -14,7 +14,7 @@ import {
   PaymentLog,
   PaymentsApplication,
 } from "./isolation.workflow.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
 const offline = (book: ScriptBook): AppOptions => ({
@@ -22,7 +22,7 @@ const offline = (book: ScriptBook): AppOptions => ({
   gateway: createScriptedGateway(book),
 });
 
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 const card = { orderId: "A-1", cardNumber: "4111 1111 1111 1111" };
 
 describe("#202 AC1: threads are bound to their owner", () => {
@@ -68,18 +68,21 @@ describe("#202 AC1: threads are bound to their owner", () => {
     const app = await createApp(PaymentsApplication, offline(book));
     const log = app.resolve(PaymentLog);
     const paused = await execute(app, ChatStart, { text: "pay A-1" }, { ownerId: "alice" });
-    expect(paused).toMatchObject({ status: ExecutionStatus.Paused, pause: { tool: "pay" } });
+    expect(paused).toMatchObject({
+      status: ExecutionStatus.Paused,
+      pending: [{ ask: { tool: "pay" } }],
+    });
 
-    await expect(app.resume(paused.threadId, approve, { ownerId: "bob" })).rejects.toBeInstanceOf(
+    await expect(app.resume(answerOf(paused, approve), { ownerId: "bob" })).rejects.toBeInstanceOf(
       ThreadOwnerError,
     );
     await expect(app.cancel(paused.threadId, { ownerId: "bob" })).rejects.toBeInstanceOf(
       ThreadOwnerError,
     );
-    await expect(app.resume(paused.threadId, approve)).rejects.toBeInstanceOf(ThreadOwnerError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(ThreadOwnerError);
     expect(log.owners).toEqual([]);
 
-    const done = await app.resume(paused.threadId, approve, { ownerId: "alice" });
+    const done = await app.resume(answerOf(paused, approve), { ownerId: "alice" });
     expect(done).toMatchObject({ status: ExecutionStatus.Finished, output: { text: "Paid." } });
     expect(log.owners).toEqual(["alice"]);
     await app.close();

@@ -14,7 +14,7 @@ import {
 import { ExecutionStatus } from "../../src/app/types.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 import {
   Charge,
   Clerk,
@@ -28,7 +28,7 @@ import {
 } from "./fixtures/lease.workflow.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 const test = testWith(LeaseApplication, { instances: 2 });
 
 beforeEach(resetLease);
@@ -48,14 +48,15 @@ const second = (apps: readonly TestApp[]): TestApp => {
 function answerNextPauseFrom(other: TestApp): { call: Promise<ExecutionOutput> | undefined } {
   const answered: { call: Promise<ExecutionOutput> | undefined } = { call: undefined };
   hooks.afterSave = async (paused, repository) => {
-    if (answered.call !== undefined) return;
-    const call = other.resume(paused.run.threadId, approve);
+    const [pending] = paused.run.pending;
+    if (answered.call !== undefined || pending === undefined) return;
+    const call = other.resume({ pauseId: pending.pauseId, decision: approve });
     call.catch(() => undefined);
     answered.call = call;
     for (let tick = 0; tick < 1000; tick += 1) {
-      const stored = await repository.findByTenantIdAndThreadId(
+      const stored = await repository.findByTenantIdAndPauseId(
         paused.run.tenantId,
-        paused.run.threadId,
+        pending.pauseId,
       );
       if (stored?.status === PauseStatus.Resolved) return;
       await new Promise((resolve) => setImmediate(resolve));
@@ -73,7 +74,7 @@ describe("#265 AC11 / #267 AC12: a tree is moved by one lease holder at a time",
     );
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
 
-    const resumed = await second(apps).resume(paused.threadId, approve);
+    const resumed = await second(apps).resume(answerOf(paused, approve));
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(resumed.output).toEqual({ text: "Charged." });
@@ -92,8 +93,8 @@ describe("#265 AC11 / #267 AC12: a tree is moved by one lease holder at a time",
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
 
     const [first, double] = await Promise.allSettled([
-      app.resume(paused.threadId, approve),
-      second(apps).resume(paused.threadId, approve),
+      app.resume(answerOf(paused, approve)),
+      second(apps).resume(answerOf(paused, approve)),
     ]);
 
     expect(first.status).toBe("fulfilled");
@@ -118,7 +119,7 @@ describe("#267 AC12 (Q58): a resume while the tree moves waits; the holder takes
     const paused = await execute(app, OrderWorkflowStart, { text: "charge twice" });
     const answered = answerNextPauseFrom(second(apps));
 
-    const moved = await app.resume(paused.threadId, approve);
+    const moved = await app.resume(answerOf(paused, approve));
     const waited = await answered.call;
 
     expect(moved.output).toEqual({ text: "Charged twice." });
@@ -148,7 +149,7 @@ describe("#265 AC11 (Q58): a holder frozen past the lease loses it, the waiting 
     const holding = new Promise<void>((resolve) => {
       hooks.holdStarted = resolve;
     });
-    const frozen = app.resume(paused.threadId, approve);
+    const frozen = app.resume(answerOf(paused, approve));
     frozen.catch(() => undefined);
     await holding;
 
@@ -187,7 +188,7 @@ describe("#265 S66 h: a resume's late `running` write never lands over the holde
       }
     };
 
-    const moved = await app.resume(paused.threadId, approve);
+    const moved = await app.resume(answerOf(paused, approve));
     const waited = await answered.call;
     await clock.advance(seconds(31));
 

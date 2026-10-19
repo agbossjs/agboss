@@ -19,9 +19,9 @@ import {
   ShopCatchingLimitsApplication,
   ShopUncaughtApplication,
 } from "./fixtures.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 const shop = testWith(ShopApplication);
 const parentCatch = testWith(ShopCatchingLimitsApplication);
 const uncaught = testWith(ShopUncaughtApplication);
@@ -48,7 +48,7 @@ describe("#194 AC1: catchError(BudgetExceededError) when the run budget runs out
 
       const paused = await execute(app, Order, { text: "buy a lamp" });
       const restarted = await recoverApp();
-      const done = await restarted.resume(paused.threadId, approve);
+      const done = await restarted.resume(answerOf(paused, approve));
 
       expect(paused).toHavePausedAt(Buyer);
       expect(done).toFinishWith(OverBudget);

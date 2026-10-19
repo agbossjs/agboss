@@ -117,9 +117,9 @@ describe("#261 AC3: after app.close() no new execution is accepted", () => {
     const app = await observedApp();
     await app.close();
 
-    await expect(app.resume("thread-1", { approved: true })).rejects.toBeInstanceOf(
-      ApplicationStoppingError,
-    );
+    await expect(
+      app.resume({ pauseId: "pause-1", decision: { approved: true } }),
+    ).rejects.toBeInstanceOf(ApplicationStoppingError);
   });
 
   it("the observer gets onRunRejected with app.stopping, its operation, no input values", async () => {
@@ -127,13 +127,13 @@ describe("#261 AC3: after app.close() no new execution is accepted", () => {
     await app.close();
 
     await execute(app, Ask, { text: "secret question" }).catch(() => undefined);
-    await app.resume("thread-1", { approved: true }).catch(() => undefined);
+    await app.resume({ pauseId: "pause-1", decision: { approved: true } }).catch(() => undefined);
 
     expect(rejections.map(({ operation, code }) => ({ operation, code }))).toEqual([
       { operation: "execute", code: "app.stopping" },
       { operation: "resume", code: "app.stopping" },
     ]);
-    expect(rejections[1]?.threadId).toBe("thread-1");
+    expect(rejections[1]?.threadId).toBeUndefined();
     expect(JSON.stringify(rejections)).not.toContain("secret question");
   });
 

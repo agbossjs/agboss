@@ -121,7 +121,7 @@ describe("AC8: the judge points are called in the documented order", () => {
 
     const paused = await runLoop(h.graph, startInput(), "t");
     const atPause = [...visits];
-    await runLoop(h.graph, decision({ approved: true, by: "lead" }), "t");
+    await runLoop(h.graph, decision({ approved: true }), "t");
 
     expect(paused.kind).toBe(ExecutionStatus.Paused);
     expect(atPause).toEqual(["beforeToolCall:r1", "beforeToolCall:w1"]);

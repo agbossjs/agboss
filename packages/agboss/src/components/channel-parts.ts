@@ -1,6 +1,7 @@
 import { channelNameOf, isChannelRole } from "../channels/discovery.js";
 import { implementationsOf } from "../channels/channel-rules.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
+import { channelRoleOf, PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ProviderModule } from "./container/registrations.js";
 import type { Class } from "./injection.js";
 import { componentOf } from "./metadata.js";
@@ -42,6 +43,13 @@ export const channelComponentClassesOf = (
     isChannelRole(cls) ? implementationsOf(cls, modules).slice(0, 1) : [cls],
   );
 
+/**
+ * Who may answer a channel's pauses: its role's `answeredBy`; a concrete `@Channel` named as is
+ * (`TerminalUserChannel`) asks whoever runs the thread — its owner.
+ */
+const answeredByOf = (cls: Class): PauseAnswerer =>
+  channelRoleOf(cls)?.options.answeredBy ?? PauseAnswerer.ThreadOwner;
+
 /** The workflow's channels by name (a role's name for a role), created by its container. */
 export function channelPartsOf(
   bundle: WorkflowMeta,
@@ -51,11 +59,12 @@ export function channelPartsOf(
   return {
     channels: (services: WorkflowServices) =>
       new Map(
-        channels.map((cls) => [
-          channelNameOf(cls),
+        channels.map((cls) => {
+          const name = channelNameOf(cls);
           // the container gives a role's implementation (by inheritance): a channel, checked at assembly
-          containerFor(bundle, services).get(cls) as ChannelSender,
-        ]),
+          const sender = containerFor(bundle, services).get(cls) as ChannelSender;
+          return [name, { name, sender, answeredBy: answeredByOf(cls) }];
+        }),
       ),
   };
 }

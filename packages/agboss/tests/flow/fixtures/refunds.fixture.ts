@@ -77,8 +77,8 @@ export class RuleRefundApprovalChannel extends RefundApprovalChannel {
     const isSmall = ask.value.arguments.amountCents <= 5000;
     return Promise.resolve(
       isSmall
-        ? ChannelOutcome.decided({ approved: true, by: "refund-rule" })
-        : ChannelOutcome.decided({ approved: false, by: "refund-rule", feedback: "over $50" }),
+        ? ChannelOutcome.decided({ approved: true })
+        : ChannelOutcome.decided({ approved: false, reason: "over $50" }),
     );
   }
 }

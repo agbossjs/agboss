@@ -34,11 +34,11 @@ import {
   CodeReviewApplication,
 } from "./fixtures/code-review.workflow.js";
 import { toolResultsOf } from "./fixtures/requests.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 
 const test = testWith(DeskApplication);
 const review = testWith(CodeReviewApplication);
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 
 describe("AC12: scripted models — answers, tool calls, decisions by script", () => {
   test("an agent answers and calls a tool by script; the router decides by script", async ({
@@ -169,7 +169,7 @@ describe("AC12: scripts are picked by position, so a resumed run continues the s
 
     const paused = await execute(app, ChatStart, { text: "note: call back" });
     const restarted = await recoverApp();
-    const done = await restarted.resume(paused.threadId, approve);
+    const done = await restarted.resume(answerOf(paused, approve));
 
     expect(paused).toHavePausedAt(Support);
     expect(done).toFinishWith(Reply, { text: "Saved." });

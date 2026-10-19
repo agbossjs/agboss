@@ -8,6 +8,7 @@ import { continueRun, type ContinueOptions } from "./continue-run.js";
 import { drainRun } from "./execute.js";
 import { isWaiting, pausedLoopOf, runConfig } from "./paused.js";
 import { readingGraphOf } from "./run-budgets.js";
+import type { TreeResume } from "./resume-map.js";
 import type { AgentExecutionOutput, RunDeps } from "./types.js";
 
 /** `resume` of a run that is not waiting for a decision. */
@@ -45,32 +46,21 @@ async function pausedRun<TName extends string>(
 }
 
 /**
- * Continues a paused run with the approver's decision — same run id, same Tern, same budget. Spend
- * recorded before the pause is not recorded again.
+ * Continues a paused run with the answers its pauses have (`TreeResume`, #267 S35) — same run id,
+ * same Tern, same budget. Spend recorded before the pause is not recorded again.
  */
-export function resumeAgent<TName extends string>(
+export async function resumeAgent<TName extends string>(
   paused: AgentExecutionOutput,
-  decision: unknown,
+  resume: TreeResume,
   deps: RunDeps<TName>,
-  options: ResumeOptions = {},
-): Promise<AgentExecutionOutput> {
-  return resumeOnce(paused, decision, deps, options);
-}
-
-type ResumeOptions = ContinueOptions;
-
-async function resumeOnce<TName extends string>(
-  paused: AgentExecutionOutput,
-  decision: unknown,
-  deps: RunDeps<TName>,
-  options: ResumeOptions,
+  options: ContinueOptions = {},
 ): Promise<AgentExecutionOutput> {
   const { before, budgets } = await pausedRun(paused, deps);
   // the same budgets — the amounts read at its start — their counters read anew
   const run = { ...paused, budgets, spent: before.usage };
   return continueRun(run, deps, options, async (moving, streaming, record) =>
     drainRun(
-      await moving.stream(new Command({ resume: decision }), streaming),
+      await moving.stream(new Command({ resume: resume.values }), streaming),
       record,
       before.usage.length,
     ),

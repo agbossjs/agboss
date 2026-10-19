@@ -1,3 +1,4 @@
+import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import "../../src/testing/setup.js";
 import { writeFile } from "node:fs/promises";
 import http, { createServer, type Server } from "node:http";
@@ -127,12 +128,21 @@ describe("AC12: everything external is replaced; a live call fails the test befo
     const result = await execute(app, ChatStart, { text: "save" });
 
     expect(result).toHavePausedAt(Support);
-    expect(result.pause).toEqual({
-      agent: "support-agent",
-      callId: "call-1",
-      kind: "approval",
-      tool: "save_note",
-      args: { title: "n2", text: "x" },
-    });
+    expect(result.pending).toEqual([
+      {
+        pauseId: expect.stringMatching(/^[0-9a-f]{32}$/),
+        answeredBy: PauseAnswerer.ThreadOwner,
+        agent: "support-agent",
+        channel: "terminal-user-channel",
+        childExecutionId: undefined,
+        itemIndex: undefined,
+        ask: {
+          callId: "call-1",
+          tool: "save_note",
+          arguments: { title: "n2", text: "x" },
+          summary: expect.any(String),
+        },
+      },
+    ]);
   });
 });

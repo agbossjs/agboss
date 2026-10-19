@@ -5,7 +5,7 @@ import { DtoValidationError } from "../dto/errors.js";
 import type { ExecutionEvent } from "../flow/observers/execution-event.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { IncompatibleResumeError } from "../run/resume-guard.js";
-import type { ExecutionOutput } from "./types.js";
+import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { isHandedOver } from "./handed-over.js";
 
 const asError = (error: unknown): Error =>
@@ -56,8 +56,9 @@ export async function observeLeg(
     if (!isHandedOver(error)) await observer.onExecutionError({ ...event, error: asError(error) });
     throw error;
   }
-  if (result.pause !== undefined)
-    await observer.onExecutionPause({ ...event, pause: result.pause });
+  // a pass that rests with answers already recorded is not a stop: the holder goes on (Q58)
+  if (result.status === ExecutionStatus.Paused && result.pending.length > 0)
+    await observer.onExecutionPause({ ...event, pending: result.pending });
   else if (result.finish !== undefined)
     await observer.onExecutionEnd({ ...event, finish: result.finish, spend: result.spend });
   return result;

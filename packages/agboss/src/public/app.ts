@@ -50,7 +50,11 @@ export {
 export {
   PausedExecutionRepository,
   PauseStatus,
+  type PauseRecord,
+  type PauseResolution,
 } from "../infrastructure/paused-execution.repository.js";
+export type { PauseSite } from "../infrastructure/pause-record.js";
+export type { PendingPause } from "../pause/index.js";
 export {
   ExecutionLeaseRepository,
   type ExecutionLease,
@@ -88,7 +92,10 @@ export {
   type CloseOptions,
   type ExecutionOptions,
   type ExecutionOutput,
+  type ChannelResumeOptions,
   type ResumeOptions,
+  type ResumeRequest,
+  type ThreadOwnerResumeOptions,
 } from "../app/types.js";
 export type { RunId } from "../core/run-context.js";
 export {

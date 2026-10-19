@@ -1,5 +1,6 @@
 import { Decimal, Flag, ListOf, Nested, Text } from "../decorators.js";
 import { markOpen } from "../metadata.js";
+import { crossFieldRule } from "../schema.js";
 import { PiiAction } from "../../pii/actions.js";
 
 /** The text a workflow run starts with (the input of a text `@WorkflowStart`). */
@@ -61,20 +62,29 @@ export class ToolCallApprovalAskDto {
   summary!: string;
 }
 
-/** The decision on one tool call waiting for approval. */
+/**
+ * The decision on one tool call waiting for approval (#267): who answered is not part of it — the
+ * resume's `answeredBy` or the thread's owner, checked by the framework.
+ */
 export class ToolCallApprovalDecisionDto {
   @Flag({ prompt: "true to run the call, false to refuse it" })
   approved!: boolean;
 
-  @Text({ prompt: "who or what decided" })
-  by!: string;
+  @Text({ prompt: "why: the reason for a rejection, or a note on an approval", optional: true })
+  reason?: string;
 
-  @Text({ prompt: "feedback or reason for rejection", optional: true })
-  feedback?: string;
-
-  @Nested(ToolArguments, { prompt: "arguments to override the call with", optional: true })
+  @Nested(ToolArguments, {
+    prompt: "the arguments to run the call with instead (only with approved: true)",
+    optional: true,
+  })
   overrideArguments?: ToolArguments;
 }
+
+crossFieldRule(ToolCallApprovalDecisionDto, ({ approved, overrideArguments }) =>
+  overrideArguments !== undefined && !approved
+    ? { field: "overrideArguments", reason: "overrideArguments only with approved: true" }
+    : undefined,
+);
 
 /**
  * The input of a tool that takes nothing (`{}`). `extends Object` only because an empty class body is a

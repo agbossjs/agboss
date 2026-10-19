@@ -19,6 +19,7 @@ import { createRouter, type RouterEngine } from "../routers/index.js";
 import { ComponentError } from "../components/metadata.js";
 import type { AnyTool } from "../tools/index.js";
 import type { PauseSeam } from "../pause/index.js";
+import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 
@@ -85,13 +86,11 @@ export const judgesFor = (
   return judges === undefined ? {} : { judges };
 };
 
-/** The pause seam, when the workflow has tools that wait for an approval; on the app's checkpointer. */
+/** The pause seam (#267 S35): the app's checkpointer and its record of every pause. */
 export const pauseFor = (
-  bundle: AssembledWorkflow,
   checkpointer: BaseCheckpointSaver,
-): PauseSeam | undefined => ({
-  checkpointer,
-});
+  pauses: PausedExecutionRepository,
+): PauseSeam => ({ checkpointer, pauses });
 
 /**
  * Guards from config + their texts; each guard is a router on its own model or

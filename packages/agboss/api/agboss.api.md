@@ -153,8 +153,8 @@ export interface AgentExecutionOutput {
     // (undocumented)
     readonly output?: unknown;
     readonly path: readonly string[];
-    // Warning: (ae-forgotten-export) The symbol "PendingPause" needs to be exported by the entry point index.d.ts
-    readonly pending?: PendingPause;
+    // Warning: (ae-forgotten-export) The symbol "WaitingPause" needs to be exported by the entry point index.d.ts
+    readonly pending: readonly WaitingPause[];
     readonly runId: string;
     readonly start: string;
     readonly startedVersion?: string;
@@ -289,7 +289,7 @@ export interface App {
     // (undocumented)
     readonly name: string;
     resolve<T>(token: Class<T>): T;
-    resume(threadId: string, decision: unknown, options?: ResumeOptions): Promise<ExecutionOutput>;
+    resume(request: ResumeRequest, options?: ResumeOptions): Promise<ExecutionOutput>;
     readonly textStart: Class | undefined;
     // (undocumented)
     readonly version: string;
@@ -435,8 +435,8 @@ export type ArbiterOptions = ModelArbiterOptions | CodeArbiterOptions;
 export interface AssembledWorkflow<TName extends string = string> {
     // Warning: (ae-forgotten-export) The symbol "ModelArbiterUse" needs to be exported by the entry point index.d.ts
     readonly arbiters?: readonly ModelArbiterUse[];
-    // Warning: (ae-forgotten-export) The symbol "ChannelSender" needs to be exported by the entry point index.d.ts
-    readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, ChannelSender>;
+    // Warning: (ae-forgotten-export) The symbol "PauseChannel" needs to be exported by the entry point index.d.ts
+    readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, PauseChannel>;
     readonly compactionPrompt?: string;
     // (undocumented)
     readonly config: AgentsConfigOf<TName>;
@@ -725,6 +725,15 @@ export interface ChannelQuestionRoleOptions extends ChannelRoleBaseOptions {
     readonly approves?: never;
     // (undocumented)
     readonly ask: DtoClass;
+}
+
+// @public
+export interface ChannelResumeOptions extends CallOptions {
+    readonly answeredBy: string;
+    // (undocumented)
+    readonly ownerId?: never;
+    // (undocumented)
+    readonly tenantId?: string | undefined;
 }
 
 // @public (undocumented)
@@ -1380,7 +1389,7 @@ export interface ExecutionOutput<TOutput = unknown> {
     readonly launches: readonly LaunchRecord[];
     readonly output?: TOutput;
     readonly path: readonly string[];
-    readonly pause?: PendingPause;
+    readonly pending: readonly PendingPause[];
     readonly record?: ExecutionRecord;
     readonly runId: string;
     // (undocumented)
@@ -1400,7 +1409,7 @@ export type ExecutionOutputOf<TInstance> = WorkflowStartEntry<TInstance> extends
 // @public
 export interface ExecutionPauseEvent extends ExecutionEvent {
     // (undocumented)
-    readonly pause: PendingPause;
+    readonly pending: readonly PendingPause[];
 }
 
 // @public
@@ -1483,6 +1492,7 @@ export interface ExecutionRejectedEvent {
 
 // @public
 export interface ExecutionResumeEvent extends ExecutionEvent {
+    readonly answeredBy: string | undefined;
     readonly decision: unknown;
     readonly reason: ResumeReason;
 }
@@ -1566,7 +1576,7 @@ export interface GeneratedTypeError {
 export interface GraphDeps<TName extends string> {
     // Warning: (ae-forgotten-export) The symbol "ArbiterModel" needs to be exported by the entry point index.d.ts
     readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
-    readonly channelOf?: (channelName: string) => ChannelSender;
+    readonly channelOf?: (channelName: string) => PauseChannel;
     // (undocumented)
     readonly config: AgentsConfigOf<TName>;
     readonly container: {
@@ -2656,25 +2666,88 @@ export enum PauseAnswerer {
 }
 
 // @public
+export class PauseAnswererError extends AGBossError {
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    name: string;
+}
+
+// @public
 export abstract class PausedExecutionRepository {
+    abstract cancelByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean>;
+    abstract deleteByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
     abstract deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void>;
+    abstract findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly PauseRecord[]>;
+    abstract findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined>;
     abstract findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedRun | undefined>;
-    abstract resolveByTenantIdAndThreadId(tenantId: string, threadId: string, decision: unknown): Promise<PausedRun | undefined>;
+    abstract findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
+    abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean>;
+    abstract markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
+    abstract resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseResolution): Promise<PauseRecord | undefined>;
     abstract save(paused: PausedRun): Promise<void>;
 }
 
 // @public
 export interface PausedRun extends ResumeVersions {
-    readonly decision?: unknown;
     // (undocumented)
     readonly run: AgentExecutionOutput;
+}
+
+// @public
+export interface PauseRecord extends PauseSite {
+    readonly agent: string;
+    readonly answeredBy: PauseAnswerer;
+    readonly ask: ToolCallApprovalAskDto;
+    readonly channel: string;
+    readonly isSent: boolean;
+    readonly pauseId: string;
+    readonly resolution?: PauseResolution;
+    // (undocumented)
     readonly status: PauseStatus;
 }
 
 // @public
+export interface PauseResolution {
+    readonly answerer: string | undefined;
+    // (undocumented)
+    readonly decision: unknown;
+}
+
+// @public
+export interface PauseSite {
+    readonly executionId: string;
+    // (undocumented)
+    readonly itemIndex: number | undefined;
+    readonly nodeId: string;
+    readonly rootExecutionId: string;
+    readonly stepKey: string;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly threadId: string;
+    // (undocumented)
+    readonly visitNumber: number;
+    readonly workflow: string;
+}
+
+// @public
 export enum PauseStatus {
+    Cancelled = "cancelled",
     Pending = "pending",
-    Resolved = "resolved"
+    Resolved = "resolved",
+    Taken = "taken"
+}
+
+// @public
+export interface PendingPause {
+    readonly agent: string;
+    readonly answeredBy: PauseAnswerer;
+    readonly ask: ToolCallApprovalAskDto;
+    readonly channel: string;
+    readonly childExecutionId: string | undefined;
+    readonly itemIndex: number | undefined;
+    readonly pauseId?: string;
 }
 
 // @public
@@ -3107,26 +3180,28 @@ export interface ReplaceWithTokenAction {
 // @public (undocumented)
 export const resolveTools: (bundle: AssembledWorkflow, services: WorkflowServices) => readonly AnyTool[];
 
-// Warning: (ae-forgotten-export) The symbol "ResumeOptions_2" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "TreeResume" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "ContinueOptions" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function resumeAgent<TName extends string>(paused: AgentExecutionOutput, decision: unknown, deps: RunDeps<TName>, options?: ResumeOptions_2): Promise<AgentExecutionOutput>;
+export function resumeAgent<TName extends string>(paused: AgentExecutionOutput, resume: TreeResume, deps: RunDeps<TName>, options?: ContinueOptions): Promise<AgentExecutionOutput>;
 
 // @public
 export type ResumeDecision = "resume" | "reject";
 
 // @public
-export interface ResumeOptions extends CallOptions {
-    // (undocumented)
-    readonly ownerId?: string | undefined;
-    // (undocumented)
-    readonly tenantId?: string | undefined;
-}
+export type ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions;
 
 // @public
 export enum ResumeReason {
     Answered = "answered",
     Recovered = "recovered"
+}
+
+// @public
+export interface ResumeRequest {
+    readonly decision: unknown;
+    readonly pauseId: string;
 }
 
 // @public
@@ -3549,11 +3624,25 @@ export class SqliteExecutionTreeRepository extends ExecutionTreeRepository {
 export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     constructor(connection: SqliteConnection, clock: Clock);
     // (undocumented)
+    cancelByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean>;
+    // (undocumented)
+    deleteByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
+    // (undocumented)
     deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void>;
+    // (undocumented)
+    findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly PauseRecord[]>;
+    // (undocumented)
+    findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined>;
     // (undocumented)
     findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedRun | undefined>;
     // (undocumented)
-    resolveByTenantIdAndThreadId(tenantId: string, threadId: string, decision: unknown): Promise<PausedRun | undefined>;
+    findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
+    // (undocumented)
+    markSentByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean>;
+    // (undocumented)
+    markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
+    // (undocumented)
+    resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseResolution): Promise<PauseRecord | undefined>;
     // (undocumented)
     save(paused: PausedRun): Promise<void>;
 }
@@ -3734,6 +3823,15 @@ export class ThreadOwnerError extends AGBossError {
 }
 
 // @public
+export interface ThreadOwnerResumeOptions extends CallOptions {
+    // (undocumented)
+    readonly answeredBy?: never;
+    readonly ownerId?: string | undefined;
+    // (undocumented)
+    readonly tenantId?: string | undefined;
+}
+
+// @public
 export function toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SideHead>;
 
 // @public
@@ -3840,6 +3938,14 @@ export interface Transitions<THead extends PathHead> {
     // (undocumented)
     toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, THead>;
     toWorkflow<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<TClass>, THead>;
+}
+
+// @public
+export class UnknownPauseError extends AGBossError {
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    name: string;
 }
 
 // @public (undocumented)
@@ -4096,21 +4202,27 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/app-deps.ts:87:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/create-app.ts:58:3 - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/create-app.ts:59:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:10:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:11:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/paused-runs.ts:20:3 - (ae-undocumented) Missing documentation for "run".
+// src/app/paused-runs.ts:16:3 - (ae-undocumented) Missing documentation for "run".
+// src/app/resume.ts:34:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/resume.ts:35:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/resume.ts:43:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/resume.ts:44:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/types.ts:22:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts:23:3 - (ae-undocumented) Missing documentation for "Paused".
-// src/app/types.ts:74:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:75:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/app/types.ts:80:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:81:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/app/types.ts:95:3 - (ae-undocumented) Missing documentation for "cancelled".
-// src/app/types.ts:104:3 - (ae-undocumented) Missing documentation for "status".
-// src/app/types.ts:122:3 - (ae-undocumented) Missing documentation for "spend".
-// src/app/types.ts:143:3 - (ae-undocumented) Missing documentation for "name".
-// src/app/types.ts:144:3 - (ae-undocumented) Missing documentation for "version".
+// src/app/types.ts:89:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:92:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/app/types.ts:100:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:103:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/app/types.ts:108:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:109:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/app/types.ts:123:3 - (ae-undocumented) Missing documentation for "cancelled".
+// src/app/types.ts:132:3 - (ae-undocumented) Missing documentation for "status".
+// src/app/types.ts:153:3 - (ae-undocumented) Missing documentation for "spend".
+// src/app/types.ts:174:3 - (ae-undocumented) Missing documentation for "name".
+// src/app/types.ts:175:3 - (ae-undocumented) Missing documentation for "version".
 // src/application/application.ts:99:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
@@ -4138,10 +4250,10 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/channels/channel-role.decorator.ts:66:1 - (ae-undocumented) Missing documentation for "ChannelRole".
 // src/channels/terminal-channel.ts:13:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/terminal-channel.ts:15:3 - (ae-undocumented) Missing documentation for "send".
-// src/channels/test-channels.ts:11:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/channels/test-channels.ts:13:3 - (ae-undocumented) Missing documentation for "send".
-// src/channels/test-channels.ts:24:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/channels/test-channels.ts:26:3 - (ae-undocumented) Missing documentation for "send".
+// src/channels/test-channels.ts:15:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/test-channels.ts:17:3 - (ae-undocumented) Missing documentation for "send".
+// src/channels/test-channels.ts:28:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/test-channels.ts:30:3 - (ae-undocumented) Missing documentation for "send".
 // src/components/bind-tool.ts:22:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/bind-tool.ts:24:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/decorators.ts:16:3 - (ae-undocumented) Missing documentation for "run".
@@ -4229,11 +4341,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/core/observability.ts:118:3 - (ae-undocumented) Missing documentation for "name".
 // src/core/observability.ts:119:3 - (ae-undocumented) Missing documentation for "agentName".
 // src/core/observability.ts:120:3 - (ae-undocumented) Missing documentation for "update".
-// src/core/observability.ts:139:3 - (ae-undocumented) Missing documentation for "pause".
-// src/core/observability.ts:171:3 - (ae-undocumented) Missing documentation for "error".
-// src/core/observability.ts:176:3 - (ae-undocumented) Missing documentation for "Execute".
-// src/core/observability.ts:177:3 - (ae-undocumented) Missing documentation for "Resume".
-// src/core/observability.ts:178:3 - (ae-undocumented) Missing documentation for "Cancel".
+// src/core/observability.ts:143:3 - (ae-undocumented) Missing documentation for "pending".
+// src/core/observability.ts:180:3 - (ae-undocumented) Missing documentation for "error".
+// src/core/observability.ts:185:3 - (ae-undocumented) Missing documentation for "Execute".
+// src/core/observability.ts:186:3 - (ae-undocumented) Missing documentation for "Resume".
+// src/core/observability.ts:187:3 - (ae-undocumented) Missing documentation for "Cancel".
 // src/core/observer-hooks.ts:42:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
 // src/core/observer-hooks.ts:46:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
 // src/core/observer-hooks.ts:50:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
@@ -4667,6 +4779,12 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/execution-record.repository.ts:121:3 - (ae-undocumented) Missing documentation for "summaryCount".
 // src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
+// src/infrastructure/pause-record.ts:25:3 - (ae-undocumented) Missing documentation for "decision".
+// src/infrastructure/pause-record.ts:35:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/pause-record.ts:36:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/infrastructure/pause-record.ts:47:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/pause-record.ts:48:3 - (ae-undocumented) Missing documentation for "itemIndex".
+// src/infrastructure/pause-record.ts:63:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:41:9 - (ae-undocumented) Missing documentation for "getTuple".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:54:10 - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:69:9 - (ae-undocumented) Missing documentation for "put".
@@ -4682,10 +4800,17 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:41:3 - (ae-undocumented) Missing documentation for "saveIfAbsentInTree".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:56:3 - (ae-undocumented) Missing documentation for "findByIdInTree".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:67:3 - (ae-undocumented) Missing documentation for "deleteAllInTree".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:108:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:115:3 - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:133:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:156:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:112:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:119:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:135:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:142:3 - (ae-undocumented) Missing documentation for "findOrCreateByStepKey".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:152:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:156:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:163:3 - (ae-undocumented) Missing documentation for "markSentByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:167:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:178:3 - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:182:3 - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:187:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndPauseId".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:49:3 - (ae-undocumented) Missing documentation for "acquire".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:76:3 - (ae-undocumented) Missing documentation for "renew".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:84:3 - (ae-undocumented) Missing documentation for "release".
@@ -4806,8 +4931,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/pii/pii-policy.decorator.ts:72:3 - (ae-undocumented) Missing documentation for "rules".
 // src/routers/types.ts:43:3 - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts:44:3 - (ae-undocumented) Missing documentation for "route".
-// src/run/resume-agent.ts:15:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/resume-agent.ts:16:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/resume-agent.ts:16:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/resume-agent.ts:17:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/resume-guard.ts:10:3 - (ae-undocumented) Missing documentation for "workflowVersion".
 // src/run/resume-guard.ts:11:3 - (ae-undocumented) Missing documentation for "configHash".
 // src/run/resume-guard.ts:16:3 - (ae-undocumented) Missing documentation for "thread".

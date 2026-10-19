@@ -14,10 +14,10 @@ import {
   AnswerDto,
   ApplicationsApplication,
 } from "./fixtures/run-events.workflow.js";
-import { execute } from "../helpers/flow.js";
+import { execute, answerOf } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 const test = testWith(ApplicationsApplication);
 
 beforeEach(resetEvents);
@@ -47,7 +47,7 @@ describe("#244 AC1: workflow events across a pause and its resume", () => {
     );
 
     const paused = await execute(app, Ask, { text: "apply" });
-    const done = await app.resume(paused.threadId, approve);
+    const done = await app.resume(answerOf(paused, approve));
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(done.status).not.toBe(ExecutionStatus.Paused);
@@ -58,7 +58,7 @@ describe("#244 AC1: workflow events across a pause and its resume", () => {
       "execution-end",
     ]);
     const [, pause, resume, end] = workflowEvents();
-    expect(pause?.detail).toMatchObject({ kind: "approval", tool: "apply", agent: "clerk-agent" });
+    expect(pause?.detail).toMatchObject([{ ask: { tool: "apply" }, agent: "clerk-agent" }]);
     expect(resume?.detail).toEqual(approve);
     expect(end?.detail).toEqual(done.finish);
     expect(done.runId).toBe(paused.runId);
@@ -76,8 +76,8 @@ describe("#244 AC1: workflow events across a pause and its resume", () => {
     );
 
     const first = await execute(app, Ask, { text: "apply twice" });
-    const second = await app.resume(first.threadId, approve);
-    const done = await app.resume(first.threadId, approve);
+    const second = await app.resume(answerOf(first, approve));
+    const done = await app.resume(answerOf(second, approve));
 
     expect([first.status, second.status]).toEqual(["paused", "paused"]);
     expect(hooks()).toEqual([
@@ -115,7 +115,7 @@ describe("#244 AC2: a run that fails after a resume, or is cancelled while pause
     );
 
     const paused = await execute(app, Ask, { text: "apply" });
-    const resumed = app.resume(paused.threadId, approve);
+    const resumed = app.resume(answerOf(paused, approve));
 
     await expect(resumed).rejects.toBeInstanceOf(AgentFailedError);
     expect(hooks()).toEqual([
@@ -159,7 +159,7 @@ describe("#244 AC3: node-level events carry the real threadId, not the run id", 
     );
 
     const paused = await execute(app, Ask, { text: "apply" });
-    const done = await app.resume(paused.threadId, approve);
+    const done = await app.resume(answerOf(paused, approve));
 
     const nodeEvents = events.filter((event) => !workflowEvents().includes(event));
     expect(new Set(nodeEvents.map((event) => event.hook))).toEqual(

@@ -47,7 +47,11 @@ function agentLoops(deps: GraphDeps<string>, run: RunLimits) {
   const approval =
     deps.pause === undefined
       ? undefined
-      : pauseSeamApproval({ channelOf: deps.channelOf, observer: deps.observer });
+      : pauseSeamApproval({
+          channelOf: deps.channelOf,
+          pauses: deps.pause.pauses,
+          observer: deps.observer,
+        });
   return new Map(
     [...agentDefinitions(deps)].map(([name, agent]) => [
       name,
@@ -125,6 +129,7 @@ function compile(deps: GraphDeps<string>, run: RunLimits, checkpointer?: BaseChe
       ...(deps.arbiterModelFor === undefined ? {} : { modelOf: deps.arbiterModelFor }),
     },
     ...(checkpointer === undefined ? {} : { checkpointer }),
+    ...(deps.pause === undefined ? {} : { pauses: deps.pause.pauses }),
   };
   const nodes = [...deps.graph.nodes.values()];
   // node ids are the components' names, known only at run time: `string`, not literal types

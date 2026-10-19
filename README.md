@@ -817,18 +817,49 @@ tenant's thread does not exist for the caller. `execute` with a `threadId` the t
 yet creates that thread — the caller's own, idempotent id (an order number, a ticket), bound to its
 `ownerId`; the same id in another tenant is another thread (#262 Q4). An id that cannot be one
 (empty, over 200 characters, a control character) is `InvalidThreadIdError`
-(`run.invalid-thread-id`); `cancel` of a thread the tenant does not have is `UnknownThreadError`,
-`resume` of one `NotPausedError`. `resume` and `cancel` take
-the tenant by its id, `{ tenantId, ownerId }` (omitted → `"default"`), and a resumed execution runs
-on the context values it started with. With nothing declared `tenant: { tenantId?, weight? }` is
+(`run.invalid-thread-id`); `cancel` of a thread the tenant does not have is `UnknownThreadError`.
+`resume` and `cancel` take the tenant by its id (omitted → `"default"`), and a resumed execution
+runs on the context values it started with. With nothing declared `tenant: { tenantId?, weight? }` is
 all there is (`weight`, a positive integer, default 1, is the tenant's share for #266's
 `TenantWeighted`); an application that declares
 `@Application({ tenantContext: ShopTenantContext, executionContext: ShopExecutionContext })` — its
 own subclasses with DTO field decorators, identity only, never secrets — gets their values typed
 per start (`tenant: ContextValues<ShopTenantContext>`, `execution: …`), checked before the first
-step (invalid → `dto.invalid`, an `onExecutionRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pause.args`) have the input DTO's
+step (invalid → `dto.invalid`, an `onExecutionRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pending[i].ask.arguments`) have the input DTO's
 `sensitive` fields through their action (`replacePart` as written, a token or a kind as `<field>`,
 #120); the tool itself still gets them whole.
+
+**Pauses (#267).** An execution may wait for several answers at once — one per tool call whose
+channel replied `ChannelOutcome.awaitReply()`, in parallel branches too: a paused branch does not
+stop its siblings, the execution pauses only when nothing else can move, and `result.pending`
+lists every waiting pause (`PendingPause`: `answeredBy`, `agent`, `channel`, `itemIndex`,
+`childExecutionId`, the question `ask`). A pause is answered by its id, never by its thread —
+`app.resume({ pauseId, decision }, options)` — found by `(tenantId, pauseId)` anywhere in the tree
+(unknown, or another tenant's → `UnknownPauseError`, `pause.unknown`); with other pauses left the
+execution pauses again with the rest; the result carries `threadId` and `runId`. Who may answer is
+the pause's channel role's `answeredBy`: a `PauseAnswerer.ThreadOwner` pause lists its `pauseId` in
+`result.pending` and is resumed with the thread's `ownerId` (another → `ThreadOwnerError`); a
+`PauseAnswerer.Channel` pause's id is the right to answer it — only its channel got it
+(`ask.pauseId`), `result.pending` leaves it out — and it is resumed with `{ answeredBy:
+"manager-17" }`, recorded on the pause and in `onExecutionResume`; the other credential (or an empty
+`answeredBy`) is `PauseAnswererError` (`pause.wrong-answerer`). The decision is validated before
+it is recorded — a `ToolCallApprovalDecisionDto` (`approved`, `reason?`, `overrideArguments?`
+only with `approved: true`, checked by the tool's input), else `DtoValidationError` and the pause
+keeps waiting:
+
+<!-- snippet-context
+import type { App } from "agboss";
+declare const app: App;
+declare const replyKey: string;
+-->
+
+```ts
+// a webhook: the finance manager pressed "Approve" on the message whose reply key is the pauseId
+const result = await app.resume(
+  { pauseId: replyKey, decision: { approved: true } },
+  { tenantId: "acme", answeredBy: "manager-17" },
+);
+```
 
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
 the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an
@@ -843,15 +874,20 @@ channel, a guardrail or any component reads them through its injected `Execution
 (`adapter.execute(Start, request, onEvent, { tenant, execution, ownerId })`) passes them from its
 authenticated caller. `app.cancel(threadId)` aborts a running
 run — it stops before its next model or tool call and `execute` rejects with
-`ExecutionCancelledError` — or drops a paused one, whose `resume` then throws `NotPausedError`;
+`ExecutionCancelledError` — or drops a paused one, whose pauses are withdrawn: their `resume` then
+throws `NotPausedError`;
 `cancelled` is `false` when the thread had neither (a thread the tenant does not have is
 `UnknownThreadError`). From `app.close()` on, `execute` and `resume`
 are refused with `ApplicationStoppingError` (`app.stopping`, an `onExecutionRejected`); running executions
 go on and `cancel` still works. An execution tree is moved by one holder at a time (#265, Q58):
 `execute` and `resume` hold its lease (`seconds(30)`, renewed every 10 s and before every checkpoint
-write, released when the pass ends). A `resume` first records its decision — of two resumes of one
-pause the second gets `NotPausedError` — then waits while another call or instance holds the lease,
-and returns the tree's current output once the holder took its decision. An instance that lost the
+write, released when the pass ends). A `resume` first records its decision on its pause (`Pending →
+Resolved`, atomic) — of two resumes of one pause the second gets `NotPausedError`, as does an
+answer to a pause its step already took (`Taken`) or one withdrawn (`Cancelled`: the thread was
+cancelled, or a sibling branch failed under `FailFast`) — then waits while another call or instance
+holds the lease; the holder continues with every recorded answer of the tree in one pass and, before
+the tree rests, takes the answers recorded meanwhile, so the waiting call returns the tree's current
+output with its decision taken. An instance that lost the
 lease (frozen past it) stops and its call rejects with `ExecutionLeaseLostError`
 (`execution.lease-lost`) — no `onExecutionError`, no failed record: the new holder continues (Wiki →
 Several-instances).
@@ -899,12 +935,14 @@ class; a node event (agent, router, tool, model, knowledge base, guardrail, acti
 channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`) adds `step`, a `StepRecord`
 (`component: { name }`, `nodeId`, `visitNumber`, `copyNumber`, `itemIndex`, `idempotencyKey`,
 `callId`) — the serialized `executionContext.step`. `onExecutionStart` fires once per execution (at
-`execute`); one that pauses emits `onExecutionPause` (`event.pause`: what it waits for), `app.resume`
-and recovery emit `onExecutionResume` (`event.reason`, `event.decision`), `onExecutionEnd` fires once
+`execute`); one that pauses because nothing else can move emits `onExecutionPause` (`event.pending`:
+every pause it waits for — again after a partial resume), `app.resume` and recovery emit
+`onExecutionResume` (`event.reason`, `event.decision`, `event.answeredBy`), `onExecutionEnd` fires once
 when it ends at a finish (`event.finish`: a `ComponentRecord`, `event.spend`) and
 `onExecutionError` when it fails (`event.error`) — also after a resume; cancelling a paused
 execution is an `onExecutionError` with `ExecutionCancelledError`. A request refused before an
-execution starts or is located — another owner's thread, a `resume` with nothing paused, an
+execution starts or is located — another owner's thread, a `resume` of an unknown pause or one no
+longer waiting, an
 `execute` on an unknown thread or with an invalid input, an exhausted budget, a request after
 `app.close()` — emits `onExecutionRejected` (`operation`: `ExecutionOperation.Execute | Resume |
 Cancel`, `threadId` when given, `tenantId`, the error's stable `code`, a `message` without the input

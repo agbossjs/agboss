@@ -1,7 +1,7 @@
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../../src/app/types.js";
 import { callTool, replyWith, testWith, type ModelRequest } from "../../../src/testing/index.js";
-import { execute } from "../../helpers/flow.js";
+import { execute, answerOf } from "../../helpers/flow.js";
 import {
   ClerkApplication,
   ConfirmItemTool,
@@ -20,7 +20,7 @@ import {
  */
 
 const clerks = testWith(ClerkApplication);
-const approve = { approved: true, by: "dana" };
+const approve = { approved: true };
 
 const item = (name: string): ItemDto => ({ name, delay: 0, outcome: "ok" });
 const SIX = ["a", "b", "c", "d", "e", "f"].map(item);
@@ -50,7 +50,9 @@ describe("S20: a pause inside a branch", () => {
       const paused = await execute(app, ItemsWorkflowStart, SIX);
 
       expect(paused.status).toBe(ExecutionStatus.Paused);
-      expect(paused.pause).toMatchObject({ agent: "item-clerk-agent", tool: "confirm_item" });
+      expect(paused.pending).toMatchObject([
+        { agent: "item-clerk-agent", itemIndex: 1, ask: { tool: "confirm_item" } },
+      ]);
       const asked = mockLlm(ItemClerkAgent).requests.map(itemOf);
       expect([...asked].sort()).toEqual(["a", "b", "c", "d", "e", "f"]);
     },
@@ -63,7 +65,7 @@ describe("S20: a pause inside a branch", () => {
       const paused = await execute(app, ItemsWorkflowStart, SIX);
       const before = mockLlm(ItemClerkAgent).requests.length;
 
-      const done = await app.resume(paused.threadId, approve);
+      const done = await app.resume(answerOf(paused, approve));
 
       expect(done).toFinishWith(SummaryWorkflowFinish, { text: "a, b, c, d, e, f" });
       expect(mockLlm(ItemClerkAgent).requests.slice(before).map(itemOf)).toEqual(["b"]);

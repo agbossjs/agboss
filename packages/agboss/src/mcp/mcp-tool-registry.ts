@@ -149,10 +149,11 @@ function addResumeTool(registry: ToolRegistry, app: App, session: McpSessionOpti
   registry.handlers.set(RESUME_TOOL.name, (call) =>
     guarded(async () => {
       const input = isRecord(call.args) ? call.args : {};
-      if (typeof input.threadId !== "string") throw new Error("threadId must be a string");
+      if (typeof input.pauseId !== "string") throw new Error("pauseId must be a string");
       const { ownerId, tenant } = session;
       const options = { ownerId, tenantId: tenant?.tenantId, signal: call.signal };
-      const result = await app.resume(input.threadId, parseDecision(input.decision), options);
+      const request = { pauseId: input.pauseId, decision: parseDecision(input.decision) };
+      const result = await app.resume(request, options);
       return formatWorkflowOutput(result);
     }),
   );
@@ -164,7 +165,7 @@ function formatWorkflowOutput(result: ExecutionOutput): unknown {
       status: "paused",
       threadId: result.threadId,
       message: "Workflow paused, requires resume.",
-      pauseDetails: result.pause,
+      pending: result.pending,
     };
   }
   return result.output ?? result;

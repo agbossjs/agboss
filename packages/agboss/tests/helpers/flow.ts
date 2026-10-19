@@ -1,4 +1,4 @@
-import type { App, ExecutionOptions, ExecutionOutput } from "../../src/app/types.js";
+import type { App, ExecutionOptions, ExecutionOutput, ResumeRequest } from "../../src/app/types.js";
 import type { Class } from "../../src/components/injection.js";
 import type { DtoClass } from "../../src/dto/types.js";
 import { NodeKind, type PathSource } from "../../src/flow/ast.js";
@@ -60,3 +60,13 @@ export const execute = (
   input: unknown,
   options?: ExecutionOptions,
 ): Promise<ExecutionOutput> => app.execute(start, input as never, ...([options] as [never]));
+
+/**
+ * The answer to a paused run's pause (#267): `app.resume(answerOf(paused, decision))` — its
+ * `index`-th pending pause, by its id (a `PauseAnswerer.ThreadOwner` pause: the id is listed).
+ */
+export function answerOf(paused: ExecutionOutput, decision: unknown, index = 0): ResumeRequest {
+  const pauseId = paused.pending[index]?.pauseId;
+  if (pauseId === undefined) throw new Error(`the run has no listed pause ${String(index)}`);
+  return { pauseId, decision };
+}

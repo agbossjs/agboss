@@ -80,8 +80,8 @@ export function createTestApp(environment: TestEnvironment): TestApp {
     clock: environment.clock,
     execute: (start, input, ...options) =>
       checked(environment, async () => (await built()).app.execute(start, input, ...options)),
-    resume: (thread, decision, options): Promise<ExecutionOutput> =>
-      checked(environment, async () => (await built()).app.resume(thread, decision, options)),
+    resume: (request, options): Promise<ExecutionOutput> =>
+      checked(environment, async () => (await built()).app.resume(request, options)),
     cancel: (thread, options) =>
       checked(environment, async () => (await built()).app.cancel(thread, options)),
     ready: () =>

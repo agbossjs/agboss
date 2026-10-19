@@ -30,7 +30,7 @@ export interface StoredToolCall {
 export interface CallDecision {
   readonly approved: boolean;
   readonly by: string;
-  readonly feedback?: string;
+  readonly reason?: string;
   readonly overrideArguments?: Record<string, unknown>;
 }
 

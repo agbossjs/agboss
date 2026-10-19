@@ -55,17 +55,17 @@ export const callIdOf = (meta: unknown): string | undefined =>
 
 export const RESUME_TOOL: Tool = {
   name: "resume_workflow",
-  description: "Resume a paused workflow by providing the thread ID and decision data.",
+  description: "Answer one pause of a paused workflow by its pause ID with the decision data.",
   inputSchema: {
     type: "object",
     properties: {
-      threadId: { type: "string", description: "The ID of the paused thread." },
+      pauseId: { type: "string", description: "The ID of the pause (pending[].pauseId)." },
       decision: {
         type: "string",
         description: "The decision/data as a JSON string to pass back to the workflow.",
       },
     },
-    required: ["threadId", "decision"],
+    required: ["pauseId", "decision"],
   },
 };
 

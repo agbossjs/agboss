@@ -2,7 +2,7 @@ import type { AsyncNode } from "../types.js";
 import { awaitingApproval } from "./boundary.js";
 import { toolNamed } from "./deps.js";
 import type { AgentLoopDeps } from "./deps.js";
-import type { AgentLoopStateType, AgentLoopUpdate } from "./state.js";
+import type { AgentLoopStateType, AgentLoopUpdate, CallDecision } from "./state.js";
 import { JudgePoint, visitToolThenAgent, mergePolicies } from "./judge-points.js";
 import { extractRunContext } from "../../core/run-context.js";
 import { redactedArguments } from "../../dto/redact.js";
@@ -50,21 +50,17 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
       },
       deps.agent.name,
       tool,
+      config?.signal,
     );
-    // what the approver decided goes on as it is: the model boundary masks the feedback (#120)
-    const recorded =
-      decision.feedback === undefined
-        ? {
-            approved: decision.approved,
-            by: decision.by,
-            overrideArguments: decision.overrideArguments,
-          }
-        : {
-            approved: decision.approved,
-            by: decision.by,
-            feedback: decision.feedback,
-            overrideArguments: decision.overrideArguments,
-          };
+    // what the approver decided goes on as it is: the model boundary masks the reason (#120)
+    const recorded: CallDecision = {
+      approved: decision.approved,
+      by: decision.by,
+      ...(decision.reason === undefined ? {} : { reason: decision.reason }),
+      ...(decision.overrideArguments === undefined
+        ? {}
+        : { overrideArguments: decision.overrideArguments }),
+    };
     const combinedGuardrails = mergePolicies(
       deps.workflowGuardrails,
       deps.guardrails,

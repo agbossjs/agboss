@@ -1029,7 +1029,10 @@ export class SeenJobsRepository {
   provider; none → `[di.missing-implementation]`, two → `[di.ambiguous-implementation]`. A channel has
   one method, `send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>` (`ask = { pauseId, value }`,
   typed by the generated `ChannelRoles`): `ChannelOutcome.awaitReply()` pauses the execution until
-  `app.resume`, `ChannelOutcome.decided(decision)` goes on at once (validated like a reply).
+  `app.resume({ pauseId, decision })`, `ChannelOutcome.decided(decision)` goes on at once (validated
+  like a reply, no pause record left). The `pauseId` is made once per pause, before the first
+  `send` — a retried `send` gets the same one (the channel's idempotency key); a concrete
+  `@Channel` named as is (`TerminalUserChannel`) is answered by the thread's owner.
 - **Observers are registered only in `@Application({ observers: [...] })`** (#261), not discovered
   and never in `@Workflow`: typed hooks (`implements OnToolEnd, …`), one instance each, called for
   every execution of the application (filter by `event.workflow.name === nameOf(W)` — `nameOf(C)`
@@ -1043,11 +1046,12 @@ export class SeenJobsRepository {
   `onQuorumDecided`) add `step`
   (`StepRecord`: `component: { name }`, `nodeId`, `visitNumber`, `copyNumber`, `itemIndex`,
   `idempotencyKey`, `callId`). Execution hooks: `onExecutionStart` once per execution,
-  `onExecutionPause` / `onExecutionResume` (`reason: ResumeReason`) around a pause,
+  `onExecutionPause` (`pending`, when nothing else can move — again after a partial resume) /
+  `onExecutionResume` (`reason: ResumeReason`, `decision`, `answeredBy`) around a pause,
   `onExecutionEnd` once when it ends at a finish (`finish`, `spend`), `onExecutionError` when it
   fails — also after a resume (a cancelled paused one: `ExecutionCancelledError`). A request refused
-  before an execution starts or is located (another owner's thread, nothing paused, an unknown
-  thread, invalid input, an exhausted budget) → `onExecutionRejected` (`operation:
+  before an execution starts or is located (another owner's thread, an unknown or answered pause,
+  an unknown thread, invalid input, an exhausted budget) → `onExecutionRejected` (`operation:
 ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input values, no
   `executionId`), still thrown; `IncompatibleResumeError` → `onExecutionError` on the paused
   execution, which stays paused. `onValuesOutdated` (`trigger`, `outdated` — no DTO values) once
@@ -1205,9 +1209,20 @@ Routers and guards use decision models too. README → Quality gates has a full 
 tenant, execution, onStream })` runs the workflow of that start (any workflow of the
   application; one start in two workflows → `[application.ambiguous-start]`) → `ExecutionOutput`
   (`output` is the finish's DTO, `finish`, `path`, `spend`, `threadId`, `tenantId`, `runId`);
-  `app.resume(threadId, decision, { tenantId, ownerId })` continues a paused run;
-  `app.cancel(threadId, { tenantId, ownerId })` aborts a running one (`ExecutionCancelledError`) or
-  drops a paused one (`resume` → `NotPausedError`). The options are named like the
+  `app.resume({ pauseId, decision }, { tenantId, ownerId | answeredBy })` answers one pause (#267) —
+  by its id, never by thread, found by `(tenantId, pauseId)` anywhere in the tree (unknown or another
+  tenant's → `UnknownPauseError`); `result.pending: PendingPause[]` lists every waiting pause
+  (parallel branches each pause on their own; the execution rests when nothing else can move) and
+  an execution with others left pauses again with the rest. Who answers is the role's `answeredBy`:
+  `ThreadOwner` — `ownerId`, the id listed in `result.pending`; `Channel` — `answeredBy` (non-empty,
+  recorded on the pause and in `onExecutionResume`), the id only in the channel's `ask.pauseId`; the
+  other credential → `PauseAnswererError`. The decision (`ToolCallApprovalDecisionDto`: `approved`,
+  `reason?`, `overrideArguments?` only with `approved: true`) is validated before it is recorded.
+  Each pause is a record (`PausedExecutionRepository`, S35) made by its step's idempotency key
+  before `send`: `Pending` → `Resolved` (an answer) → `Taken` (its step went on), or `Cancelled`
+  (withdrawn: a `FailFast` sibling failed, the thread was cancelled, the tree ended) — an answer to
+  any but `Pending` → `NotPausedError`. `app.cancel(threadId, { tenantId, ownerId })` aborts a
+  running execution (`ExecutionCancelledError`) or drops a paused one (its pauses withdrawn). The options are named like the
   `ExecutionContext` fields they fill — `threadId`, never `thread`. A thread with an `ownerId`
   rejects another owner (`ThreadOwnerError`).
 - **Context levels (#261 PR 3):** `ApplicationContext` (`name`, `version`, `instanceId`,
@@ -1224,8 +1239,7 @@ tenant, execution, onStream })` runs the workflow of that start (any workflow of
   thread's key is `tenantId` + `threadId`: another tenant's thread does not exist for the caller —
   `execute` with an id the tenant does not have yet creates the caller's own thread (#262 Q4: an
   idempotent id; bound to `ownerId`; only once the budgets pass; 1–200 characters, no control
-  characters, else `InvalidThreadIdError`), `resume` / `cancel` of it are `NotPausedError` /
-  `UnknownThreadError`; every
+  characters, else `InvalidThreadIdError`), `cancel` of it is `UnknownThreadError`; every
   record, lease and tree key carries `tenantId`, traces too (LangGraph `metadata` / `tags`,
   Langfuse `tenant:<id>`). Identity only — never secrets (a service gets a secret from the
   identity). Injecting a subclass the application does not declare → `[context.not-declared]`.
@@ -1264,8 +1278,9 @@ export class PlanService {
   (keyed by `tenantId` and `rootExecutionId`, `seconds(30)`, renewed every 10 s and before
   every checkpoint write, released when the pass ends). A `resume` records its decision first —
   the pause goes `Pending → Resolved` atomically, a second resume of one pause gets
-  `NotPausedError` — then waits for the lease; the holder takes decisions resolved meanwhile and the
-  waiting call returns the tree's current output. A holder that lost the lease stops: its call
+  `NotPausedError` — then waits for the lease; the holder continues with one `Command({ resume })`
+  mapping LangGraph's interrupt id of every answered pause, takes the decisions resolved meanwhile
+  before the tree rests (the drain), and the waiting call returns the tree's current output. A holder that lost the lease stops: its call
   rejects with `ExecutionLeaseLostError` (`execution.lease-lost`) — no `.onError`, no `onExecutionError`, no
   failed record. Wiki → Several-instances.
 - **Recovery and the graceful stop (#265 S30 / S51):** a root's record is
