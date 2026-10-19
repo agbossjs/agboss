@@ -19,7 +19,7 @@ import {
   branchTicketOf,
   type BranchLaunch,
 } from "./branch-view.js";
-import type { LiveLaunch } from "./launch-registry.js";
+import type { BranchErrors, LiveLaunch } from "./launch-registry.js";
 import { reportBranch } from "./launch-report.js";
 import { arbiterDepsFor, liveLaunchOf, type BranchQuorumDeps } from "./branch-quorum.js";
 import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
@@ -42,6 +42,8 @@ export interface BranchDeps extends VisitDeps, BranchQuorumDeps {
   readonly graph: RuntimeGraph;
   /** The application's pauses: a `FailFast` failure withdraws its paused siblings' (#267 AC10). */
   readonly pauses?: PausedExecutionRepository;
+  /** Where a failed branch's error waits for a join in a later pass of this process. */
+  readonly branchErrors?: BranchErrors;
 }
 
 /** One branch's run: where it stands, and what it gave or spent so far. */
@@ -155,6 +157,7 @@ async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
   const status = failedStatusOf({ live, ticket, isQuorum }, error);
   if (status === BranchStatus.Failed) {
     live.errors.set(ticket.index, error);
+    run.deps.branchErrors?.keep(run.owner.ticket.launchId, ticket.index, error);
     await abortLaunch(run);
   }
   leaveQuorum(live, ticket);

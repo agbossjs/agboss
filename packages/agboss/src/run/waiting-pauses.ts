@@ -63,3 +63,38 @@ export async function waitingPausesOf(
     return pause?.status === PauseStatus.Pending ? [waitingPauseOf(pause)] : [];
   });
 }
+
+/** Which pauses a pass has handled: those it took, those it is about to answer or withdraw. */
+export interface PassPauses {
+  /** The resolved pauses the pass took: their loops went on. */
+  readonly taken?: ReadonlySet<string>;
+  /** The pauses the pass is about to answer or withdraw: their loops still wait at them. */
+  readonly answering?: ReadonlySet<string>;
+}
+
+/** A pause its loop still waits in: no decision yet, one recorded that no pass took, or answered now. */
+const isOpenPause = (record: PauseRecord, pass: PassPauses): boolean =>
+  record.status === PauseStatus.Pending ||
+  (record.status === PauseStatus.Resolved && pass.taken?.has(record.pauseId) !== true) ||
+  pass.answering?.has(record.pauseId) === true;
+
+/**
+ * Whether an interrupt's value is a pause its loop still waits in. LangGraph lists a task's
+ * interrupts until its superstep ends, so a branch that took its decision in this pass (`taken`:
+ * `Taken` only once the pass returned) still shows its old interrupt — its loop went on, and what
+ * it spent is the flow's or its new pause's.
+ */
+export async function openPausesOf(
+  pauses: PausedExecutionRepository,
+  tree: { readonly tenantId: string; readonly runId: string },
+  pass: PassPauses = {},
+): Promise<(interruptValue: unknown) => boolean> {
+  const records = await pauses.findAllByTenantIdAndRootExecutionId(tree.tenantId, tree.runId);
+  const open = new Set(
+    records.filter((record) => isOpenPause(record, pass)).map((record) => record.pauseId),
+  );
+  return (interruptValue) => {
+    const carried = PauseInterrupt.safeParse(interruptValue);
+    return carried.success && open.has(carried.data.pauseId);
+  };
+}

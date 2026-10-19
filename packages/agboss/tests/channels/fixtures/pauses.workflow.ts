@@ -59,11 +59,16 @@ export const seen = {
 };
 
 /** What the test does inside a `send` before it returns (a fast reply, a crash). */
-export const hooks: { beforeSendReturns?: (ask: SentAsk) => Promise<void> } = {};
+export const hooks: {
+  beforeSendReturns?: (ask: SentAsk) => Promise<void>;
+  /** The orders the desk refuses before it asks anyone (its `send` throws the error). */
+  refusals?: ReadonlyMap<string, Error>;
+} = {};
 
 export function resetPauses(): void {
   for (const list of Object.values(seen)) list.length = 0;
   delete hooks.beforeSendReturns;
+  delete hooks.refusals;
 }
 
 export class RefundRequestDto {
@@ -113,6 +118,8 @@ export class FinanceDeskRefundApprovalChannel extends RefundApprovalChannel {
   ): Promise<ChannelOutcome<RefundApprovalChannel>> {
     this.executionContext.signal.throwIfAborted();
     const sent = { pauseId: ask.pauseId, orderId: orderIdIn(ask.value) };
+    const refusal = hooks.refusals?.get(sent.orderId);
+    if (refusal !== undefined) throw refusal;
     seen.asks.push(sent);
     await hooks.beforeSendReturns?.(sent);
     return ChannelOutcome.awaitReply();

@@ -242,6 +242,7 @@ class TreeMover implements TreeMoves {
   /** The tree ended: its keys removed, its waiting pauses withdrawn (#267 AC10). */
   private async forget(state: TreeState): Promise<void> {
     await this.parts.trees.deleteAllInTree(treeOf(state));
+    this.parts.deps.branchErrors?.forgetExecution(state.runId);
     if (this.parts.deps.pause !== undefined)
       await withdrawPauses(this.parts.deps.pause.pauses, treeOf(state));
   }

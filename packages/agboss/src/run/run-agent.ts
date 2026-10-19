@@ -91,8 +91,7 @@ async function runOnce<TName extends string>(
     const kept = { budgetUsd, budgets: budgets.records, history, summaries, runId };
     const initial = { start, startInput: input, contexts, ...kept };
     const state = await drainRun(await graph.stream(initial, config), record);
-    const recorded = state.usage.length;
-    const context = { deps, graph, base, runId, budgetUsd, record, recorded };
+    const context = { deps, graph, base, runId, budgetUsd, record, recorded: spent };
     return await finishRun({ ...context, callbacks: config.callbacks }, state, ternId);
   } catch (error) {
     const cause = outcomeError(error, options.signal);

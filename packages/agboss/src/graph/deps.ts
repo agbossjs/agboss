@@ -11,6 +11,7 @@ import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
 import type { LaunchDecider } from "../flow/runtime/launch/launch-decider.js";
 import type { ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
+import type { BranchErrors } from "../flow/runtime/launch/launch-registry.js";
 import type { ArbiterClass } from "../flow/ast.js";
 import type { Guardrail } from "../components/decorators.js";
 import type { PauseChannel } from "../flow/runtime/pause.js";
@@ -37,6 +38,8 @@ export interface GraphDeps<TName extends string> {
   readonly knowledge?: (agent: string) => readonly KnowledgeSource[];
   /** Optional pause seam (approval of tool calls). Off by default. */
   readonly pause?: PauseSeam | undefined;
+  /** The errors of failed launch branches across this process's passes (#267 AC10). */
+  readonly branchErrors?: BranchErrors;
   /** The channel a tool names, by its name (#267): created with the app. */
   readonly channelOf?: (channelName: string) => PauseChannel;
   /** The PII policies at each agent's and router's model (#120); absent = none. */

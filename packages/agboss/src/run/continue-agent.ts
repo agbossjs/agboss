@@ -58,6 +58,6 @@ export async function continueAgent<TName extends string>(
   return continueRun(run, deps, options, async (moving, streaming, record) =>
     snapshot.next.length === 0
       ? (before as ExecutionStateType)
-      : drainRun(await moving.stream(null, streaming), record, spent.length),
+      : drainRun(await moving.stream(null, streaming), record, spent),
   );
 }

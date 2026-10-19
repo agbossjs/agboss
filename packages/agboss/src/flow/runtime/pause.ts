@@ -50,6 +50,33 @@ export class PauseWithdrawnError extends AGBossError {
   override name = "PauseWithdrawnError";
 }
 
+/**
+ * A channel's `send` threw (not cancelled): the failure of the step that asked, never a tool error
+ * the model reads. Internal — the agent loop rethrows it as its `AgentFailedError`, the channel's
+ * error as `cause`, so `.onError` / `.onJoinError` match it by class and cause chain (#273 S21).
+ */
+export class ChannelSendError extends Error {
+  override name = "ChannelSendError";
+
+  constructor(channel: string, cause: unknown) {
+    super(`channel ${channel}: send() failed`, { cause });
+  }
+}
+
+/** The channel asked once: its outcome, a failure (not a cancellation) as `ChannelSendError`. */
+export async function sentBy(
+  channel: Pick<PauseChannel, "name" | "sender">,
+  ask: { readonly pauseId: string; readonly value: ToolCallApprovalAskDto },
+  signal: AbortSignal | undefined,
+): Promise<unknown> {
+  try {
+    return await channel.sender.send(ask);
+  } catch (error) {
+    if (signal?.aborted === true) throw error;
+    throw new ChannelSendError(channel.name, error);
+  }
+}
+
 /** Who answered a thread owner's pause on an unowned thread (or a loop run on its own). */
 export const THREAD_OWNER = "the thread's owner";
 
@@ -84,8 +111,9 @@ function newRecordOf(
 async function sendOnce(
   channel: PauseChannel,
   pause: PauseRecord,
+  signal: AbortSignal | undefined,
 ): Promise<{ decision: unknown } | undefined> {
-  const outcome: unknown = await channel.sender.send({ pauseId: pause.pauseId, value: pause.ask });
+  const outcome = await sentBy(channel, { pauseId: pause.pauseId, value: pause.ask }, signal);
   if (!isChannelOutcome(outcome)) {
     throw new TypeError(
       `channel ${channel.name}: send() must return ChannelOutcome.awaitReply() or ChannelOutcome.decided(…)`,
@@ -124,7 +152,7 @@ export async function pauseStep(
   site.signal?.throwIfAborted();
   if (!pause.isSent) {
     await site.onSend();
-    const decided = await sendOnce(channel, pause);
+    const decided = await sendOnce(channel, pause, site.signal);
     if (decided !== undefined) {
       await pauses.deleteByTenantIdAndPauseId(tenantId, pause.pauseId);
       return { decision: decided.decision, by: channel.name };

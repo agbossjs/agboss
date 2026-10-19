@@ -13,13 +13,13 @@ import { finishRunner } from "./runners/finish.js";
 import { codeRouterRunner } from "./runners/code-router.js";
 import { routerRunner } from "./runners/router.js";
 import { startRunner } from "./runners/start.js";
-import { branchNode } from "./launch/branch-runner.js";
+import { branchNode, type BranchDeps } from "./launch/branch-runner.js";
 import { branchInputOf } from "./launch/branch-view.js";
-import { joinNode } from "./launch/join-node.js";
+import { joinNode, type JoinDeps } from "./launch/join-node.js";
 import { LAUNCH_NEXT } from "./launch/launch-exit.js";
 import { LaunchRegistry } from "./launch/launch-registry.js";
 import { ExecutionState, type ExecutionStateType, type ExecutionStateUpdate } from "./state.js";
-import { visitNode } from "./visit.js";
+import { visitNode, type VisitDeps } from "./visit.js";
 import { standaloneContexts } from "../context/runtime-contexts.js";
 
 /**
@@ -109,6 +109,26 @@ function nextOf(state: ExecutionStateType): string | Send[] {
   return state.next === "" ? END : state.next;
 }
 
+/** What a launch's branches and join share in one pass: its registry, arbiters and stores. */
+function launchDepsOf(
+  deps: GraphDeps<string>,
+  visitDeps: VisitDeps,
+  checkpointer: BaseCheckpointSaver | undefined,
+): BranchDeps & JoinDeps {
+  return {
+    ...visitDeps,
+    registry: new LaunchRegistry(),
+    // a quorum's arbiters (#279): code ones from the container, model ones on their model
+    arbiters: {
+      instanceOf: (arbiter: Class): unknown => deps.container.get(arbiter),
+      ...(deps.arbiterModelFor === undefined ? {} : { modelOf: deps.arbiterModelFor }),
+    },
+    ...(checkpointer === undefined ? {} : { checkpointer }),
+    ...(deps.pause === undefined ? {} : { pauses: deps.pause.pauses }),
+    ...(deps.branchErrors === undefined ? {} : { branchErrors: deps.branchErrors }),
+  };
+}
+
 function compile(deps: GraphDeps<string>, run: RunLimits, checkpointer?: BaseCheckpointSaver) {
   const loops = agentLoops(deps, run);
   const workflow = { type: deps.graph.type, name: deps.config.name, version: deps.config.version };
@@ -120,17 +140,7 @@ function compile(deps: GraphDeps<string>, run: RunLimits, checkpointer?: BaseChe
     graph: deps.graph,
     observer: deps.observer,
   };
-  const launchDeps = {
-    ...visitDeps,
-    registry: new LaunchRegistry(),
-    // a quorum's arbiters (#279): code ones from the container, model ones on their model
-    arbiters: {
-      instanceOf: (arbiter: Class): unknown => deps.container.get(arbiter),
-      ...(deps.arbiterModelFor === undefined ? {} : { modelOf: deps.arbiterModelFor }),
-    },
-    ...(checkpointer === undefined ? {} : { checkpointer }),
-    ...(deps.pause === undefined ? {} : { pauses: deps.pause.pauses }),
-  };
+  const launchDeps = launchDepsOf(deps, visitDeps, checkpointer);
   const nodes = [...deps.graph.nodes.values()];
   // node ids are the components' names, known only at run time: `string`, not literal types
   const graph = new StateGraph<

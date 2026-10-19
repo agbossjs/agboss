@@ -105,3 +105,36 @@ export class LaunchRegistry {
     this.live.delete(launchId);
   }
 }
+
+/**
+ * The errors of failed branches across the passes of one process (#267 AC10): a `FailFast`
+ * failure withdraws its paused siblings, and the join runs in the next pass — a new graph, a new
+ * registry — so the error the branch threw is kept here, as it was thrown, for the join to route
+ * (`.onJoinError`) and rethrow. One per workflow of an application instance; a launch's entries go
+ * with its join, an execution's with its tree. Another instance has the branch's record only.
+ */
+export class BranchErrors {
+  readonly #errors = new Map<string, unknown>();
+
+  keep(launchId: string, index: number, error: unknown): void {
+    this.#errors.set(`${launchId}#${String(index)}`, error);
+  }
+
+  /** The error the branch threw, when this process ran it. */
+  find(launchId: string, index: number): unknown {
+    return this.#errors.get(`${launchId}#${String(index)}`);
+  }
+
+  /** Forgets a launch's errors (its join read them). */
+  forgetLaunch(launchId: string): void {
+    for (const key of this.#errors.keys())
+      if (key.startsWith(`${launchId}#`)) this.#errors.delete(key);
+  }
+
+  /** Forgets an execution's errors (its tree ended); a launch id starts with the execution's id. */
+  forgetExecution(executionId: string): void {
+    for (const key of this.#errors.keys()) {
+      if (key.startsWith(`${executionId}:`)) this.#errors.delete(key);
+    }
+  }
+}

@@ -7,8 +7,9 @@ import type { TernOutcome } from "../terns/index.js";
 import { updateMemoryAfter } from "./memory.js";
 import type { FinishContext } from "./execute.js";
 import type { WaitingPause } from "../pause/index.js";
-import { isWaiting, pausedLoopOf } from "./paused.js";
-import { waitingPausesOf } from "./waiting-pauses.js";
+import { isWaiting, pausedLoopsOf, pausedUsageOf } from "./paused.js";
+import { unrecordedOf } from "../finops/record-stream.js";
+import { openPausesOf, waitingPausesOf } from "./waiting-pauses.js";
 import type { AgentExecutionOutput, RunDeps } from "./types.js";
 
 /** The Tern of an execution: a finished one's finish line (S8), a paused one waits. */
@@ -57,11 +58,12 @@ async function stoppedState<TName extends string>(
   }
   const tree = { tenantId: ctx.base.tenantId, runId: ctx.runId };
   const pending = await waitingPausesOf(ctx.graph, pause.pauses, tree);
-  const loop = await pausedLoopOf(ctx.graph, pause.checkpointer, ctx.runId);
-  if (loop === undefined) return { usage: state.usage, paused: true, pending };
-  // the paused loop's spend goes to the ledger now, not on resume
-  await ctx.record(loop.state.usage.slice(Math.max(ctx.recorded, state.usage.length)));
-  return { usage: loop.state.usage, paused: true, pending };
+  const isOpen = await openPausesOf(pause.pauses, tree, { taken: ctx.takenPauseIds });
+  const loops = await pausedLoopsOf(ctx.graph, pause.checkpointer, ctx.runId, isOpen);
+  const usage = pausedUsageOf(state.usage, loops);
+  // the paused loops' spend goes to the ledger now, not on resume — every loop's, once
+  await ctx.record(unrecordedOf(usage, ctx.recorded));
+  return { usage, paused: true, pending };
 }
 
 /** Writes (or completes) the Tern and shapes the result: finished or paused. */

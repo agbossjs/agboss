@@ -1,3 +1,4 @@
+import { BranchErrors } from "../flow/runtime/launch/launch-registry.js";
 import type { BaseMemoryStrategy } from "../memory/types.js";
 import type { JudgeHandler } from "../components/judge-decorators.js";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
@@ -139,7 +140,13 @@ export const flowFor = (
   gateway: ModelGateway,
 ): Pick<
   RunDeps<string>,
-  "graph" | "maxSteps" | "routers" | "routerFor" | "launchDecisionFor" | "arbiterModelFor"
+  | "graph"
+  | "maxSteps"
+  | "routers"
+  | "routerFor"
+  | "launchDecisionFor"
+  | "arbiterModelFor"
+  | "branchErrors"
 > => {
   const routerDeps = {
     gateway,
@@ -153,5 +160,7 @@ export const flowFor = (
     routerFor: flowRouterFactory(routerDeps),
     launchDecisionFor: flowLaunchDeciderFactory(routerDeps),
     arbiterModelFor: flowArbiterModelFactory(routerDeps),
+    // a launch's branch errors, kept across passes (a withdrawal's join rethrows the original)
+    branchErrors: new BranchErrors(),
   };
 };

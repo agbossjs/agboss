@@ -9,6 +9,7 @@ import { currentFrame } from "../../flow/context/frame.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import {
   pauseStep,
+  sentBy,
   THREAD_OWNER,
   type PauseAnswer,
   type PauseChannel,
@@ -53,14 +54,17 @@ async function interruptedAnswer(
   channels: ApprovalChannels,
   shown: ToolCallApprovalAskDto,
   channel: string,
+  signal: AbortSignal | undefined,
 ): Promise<PauseAnswer> {
   try {
     return { decision: interrupt<ToolCallApprovalAskDto, unknown>(shown), by: THREAD_OWNER };
   } catch (error) {
     if (!isGraphInterrupt(error) || channels.channelOf === undefined) throw error;
-    const outcome: unknown = await channels
-      .channelOf(channel)
-      .sender.send({ pauseId: "", value: shown });
+    const outcome = await sentBy(
+      channels.channelOf(channel),
+      { pauseId: "", value: shown },
+      signal,
+    );
     if (!isChannelOutcome(outcome) || outcome.kind !== ChannelOutcomeKind.Decided) throw error;
     return { decision: outcome.decision, by: channel };
   }
@@ -80,7 +84,7 @@ export function pauseSeamApproval(channels: ApprovalChannels = {}): ToolCallAppr
         );
       const answer =
         pauses === undefined || frame === undefined || channelOf === undefined
-          ? await interruptedAnswer(channels, shown, channel)
+          ? await interruptedAnswer(channels, shown, channel, signal)
           : await pauseStep(
               { pauses, channel: channelOf(channel), frame, signal, onSend },
               { agent, ask: shown },

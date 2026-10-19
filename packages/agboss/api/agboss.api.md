@@ -1576,6 +1576,8 @@ export interface GeneratedTypeError {
 export interface GraphDeps<TName extends string> {
     // Warning: (ae-forgotten-export) The symbol "ArbiterModel" needs to be exported by the entry point index.d.ts
     readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
+    // Warning: (ae-forgotten-export) The symbol "BranchErrors" needs to be exported by the entry point index.d.ts
+    readonly branchErrors?: BranchErrors;
     readonly channelOf?: (channelName: string) => PauseChannel;
     // (undocumented)
     readonly config: AgentsConfigOf<TName>;
@@ -4723,13 +4725,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/router-error.ts:45:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/start-input.ts:67:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/start-input.ts:68:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/deps.ts:25:3 - (ae-undocumented) Missing documentation for "config".
-// src/graph/deps.ts:26:3 - (ae-undocumented) Missing documentation for "registry".
-// src/graph/deps.ts:31:3 - (ae-undocumented) Missing documentation for "guards".
-// src/graph/deps.ts:44:3 - (ae-undocumented) Missing documentation for "toolGuardrails".
-// src/graph/deps.ts:45:3 - (ae-undocumented) Missing documentation for "workflowGuardrails".
-// src/graph/deps.ts:46:3 - (ae-undocumented) Missing documentation for "guardrails".
-// src/graph/deps.ts:59:3 - (ae-undocumented) Missing documentation for "observer".
+// src/graph/deps.ts:26:3 - (ae-undocumented) Missing documentation for "config".
+// src/graph/deps.ts:27:3 - (ae-undocumented) Missing documentation for "registry".
+// src/graph/deps.ts:32:3 - (ae-undocumented) Missing documentation for "guards".
+// src/graph/deps.ts:47:3 - (ae-undocumented) Missing documentation for "toolGuardrails".
+// src/graph/deps.ts:48:3 - (ae-undocumented) Missing documentation for "workflowGuardrails".
+// src/graph/deps.ts:49:3 - (ae-undocumented) Missing documentation for "guardrails".
+// src/graph/deps.ts:62:3 - (ae-undocumented) Missing documentation for "observer".
 // src/graph/errors.ts:11:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/errors.ts:12:12 - (ae-undocumented) Missing documentation for "name".
 // src/graph/errors.ts:13:3 - (ae-undocumented) Missing documentation for "usage".
@@ -4931,8 +4933,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/pii/pii-policy.decorator.ts:72:3 - (ae-undocumented) Missing documentation for "rules".
 // src/routers/types.ts:43:3 - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts:44:3 - (ae-undocumented) Missing documentation for "route".
-// src/run/resume-agent.ts:16:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/resume-agent.ts:17:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/resume-agent.ts:17:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/resume-agent.ts:18:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/resume-guard.ts:10:3 - (ae-undocumented) Missing documentation for "workflowVersion".
 // src/run/resume-guard.ts:11:3 - (ae-undocumented) Missing documentation for "configHash".
 // src/run/resume-guard.ts:16:3 - (ae-undocumented) Missing documentation for "thread".

@@ -12,7 +12,12 @@ import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import type { ChannelSenderAsk } from "../../src/channels/channel-sender.js";
 import { PauseStatus } from "../../src/infrastructure/pause-record.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
-import { pauseStep, PauseWithdrawnError, type PauseChannel } from "../../src/flow/runtime/pause.js";
+import {
+  ChannelSendError,
+  pauseStep,
+  PauseWithdrawnError,
+  type PauseChannel,
+} from "../../src/flow/runtime/pause.js";
 import { testFrame } from "../helpers/frame.js";
 
 const question = {
@@ -48,13 +53,17 @@ const siteOf = (pauses: InMemoryPausedExecutionRepository, channel: PauseChannel
 describe("#267 S35: the pause step", () => {
   it("a crash between the record and send: the next try asks again with the same pauseId", async () => {
     const pauses = new InMemoryPausedExecutionRepository();
+    const died = new Error("the process died");
     const { channel, sent } = channelOf(
-      () => Promise.reject(new Error("the process died")),
+      () => Promise.reject(died),
       () => Promise.resolve(ChannelOutcome.decided({ approved: true })),
     );
     const site = siteOf(pauses, channel);
 
-    await expect(pauseStep(site, question)).rejects.toThrow("the process died");
+    // the channel's failure is the asking step's, its error kept as the cause
+    const failed: unknown = await pauseStep(site, question).catch((error: unknown) => error);
+    expect(failed).toBeInstanceOf(ChannelSendError);
+    expect(failed).toHaveProperty("cause", died);
     const answer = await pauseStep(site, question);
 
     expect(sent).toHaveLength(2);

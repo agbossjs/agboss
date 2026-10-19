@@ -40,11 +40,9 @@ describe("#267 AC10: FailFast drops the paused siblings' pauses", () => {
 
     await clock.advance(seconds(5));
 
-    // the join runs in the pass that took the withdrawal: the sibling's error is read from its record
-    await expect(run).rejects.toMatchObject({
-      name: AgentFailedError.name,
-      message: expect.stringContaining("audit-check-agent"),
-    });
+    // the join runs in the pass that took the withdrawal: the sibling's own error object, kept
+    await expect(run).rejects.toBeInstanceOf(AgentFailedError);
+    await expect(run).rejects.toMatchObject({ agent: "audit-check-agent" });
     const stored = await pauseStore().findByTenantIdAndPauseId("default", askFor("7").pauseId);
     expect(stored?.status).toBe(PauseStatus.Cancelled);
     expect(seen.pauses).toEqual([]);
