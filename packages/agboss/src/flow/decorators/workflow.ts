@@ -1,7 +1,6 @@
 import { callerFile } from "../../components/call-site.js";
 import type { Class, Provider } from "../../components/injection.js";
 import type { AgentMeta } from "../../components/meta-types.js";
-import type { Guardrail } from "../../components/policy-decorators.js";
 import type { Price } from "../../config/types.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import { NodeKind, type FlowPath } from "../ast.js";
@@ -70,24 +69,9 @@ export interface CompactionOptions {
   readonly model: ModelOptions;
 }
 
-/** A guard: a flag / pass decision on the execution's input or output, tripping at `threshold`. */
-export interface GuardOptions {
-  readonly threshold: number;
-  /** What `GuardrailBlockedError.refusal` carries when the guard trips. */
-  readonly refusal: string;
-  /** A decision model; `defaults.guardrail.model` when absent (#261). */
-  readonly model?: string;
-}
-
-/** The workflow's guards by name, on its input and on its output (#120 replaces them). */
-export interface GuardsOptions {
-  readonly input?: Readonly<Record<string, GuardOptions>>;
-  readonly output?: Readonly<Record<string, GuardOptions>>;
-}
-
 /**
  * `@Workflow` — the graph as paths (`flow`), the workflow's count limits and its module: services,
- * MCP servers, channels, policies and memory; observers are the application's (`@Application({
+ * MCP servers, channels, PII policies, guardrails and memory; observers are the application's (`@Application({
  * observers })`, #261).
  */
 export interface WorkflowOptions<
@@ -114,10 +98,13 @@ export interface WorkflowOptions<
   readonly providers?: readonly Provider[];
   /** `@McpServer` classes its `@McpTool`s call. */
   readonly mcp?: readonly Class[];
-  readonly guards?: GuardsOptions;
   /** `@PiiPolicy` classes of every agent and router, over the application's (#120: lists add up). */
   readonly piiPolicies?: readonly Class[];
-  readonly guardrails?: readonly Class<Guardrail>[];
+  /**
+   * `@InputGuardrail` / `@OutputGuardrail` classes of every agent and model router, over the
+   * application's (#120: lists add up; `excludeGuardrails` on an agent or a router removes one).
+   */
+  readonly guardrails?: readonly Class[];
   readonly compaction?: CompactionOptions;
   readonly compactionPrompt?: string;
   /** Static `{{key}}` values of every prompt of the workflow. */

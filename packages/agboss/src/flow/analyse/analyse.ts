@@ -22,7 +22,6 @@ import { dataOutputRules } from "./rules/data-outputs.js";
 import { depthRules } from "./rules/depth.js";
 import { errorRules } from "./rules/errors.js";
 import { graphRules } from "./rules/graph.js";
-import { guardrailRules } from "./rules/guardrails.js";
 import { launchRules } from "./rules/launches.js";
 import { limitHandlerRules } from "./rules/limit-handlers.js";
 import { modelRules } from "./rules/models.js";
@@ -80,7 +79,6 @@ const RULES: readonly FlowRule[] = [
   errorRules,
   returnsRules,
   routerRules,
-  guardrailRules,
   modelRules,
   optionsRules,
   dataInputRules,

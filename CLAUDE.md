@@ -28,8 +28,8 @@ balancing })` — one limit for every execution, tenant and instance (`RateLimit
   `rateLimitPolicy` → no limit.
   - Routers: each `@Router` names its own `model` — a **decision model** (`DECISION_MODELS`: Jev,
     `openai/gpt-6-luna-decisions`, pplx-decider, Clef, …; OpenRouter Decisions API via
-    `DecisionsModelProvider` — probabilities, exact cost) or any chat model. Guards use
-    `defaults.guardrail` (Jev), never `defaults.router`. Judges on a decision model call `judgeModel.decide` with
+    `DecisionsModelProvider` — probabilities, exact cost) or any chat model. Guardrails use
+    `defaults.guardrail.model` (Jev), never `defaults.router`. Judges on a decision model call `judgeModel.decide` with
     `Decision.noul` / `Decision.choice` / `Decision.score` / `Decision.image` (typed answers);
     `invoke` or `decide` on the wrong kind of model → `ModelKindError`.
   - Agents: cheap chat models (default `moonshotai/kimi-k2.6`) via `@langchain/openai`, each with
@@ -517,10 +517,10 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   `result.launches` (`isQuorumReached`, `group`, each branch's verdict) and
   `onQuorumDecided` (`QuorumDecidedEvent`) show it. `agboss generate arbiter <name> --workflow …
 [--agent …]` writes a code arbiter for a launch.
-- **Node kinds:** `@WorkflowStart` (input: a DTO, a list or a map of fields; input guards),
+- **Node kinds:** `@WorkflowStart` (input: a DTO, a list or a map of fields),
   `@Router`, `@Agent` (`input` fields, `output` — answered through answer tools, or text without
   them), `@Action` (code, no model: `execute(input)`; its execution through `deps: [ExecutionContext]`), `@WorkflowFinish`
-  (output DTO, output guards). `app.execute(Start, input)` is typed by the generated tables:
+  (output DTO). `app.execute(Start, input)` is typed by the generated tables:
   `input` is the start's input, `result.output` the finishes' outputs.
 - **Assembly rules** fail before any model call with **all** violations at once (`GraphRuleError`,
   stable codes `flow.*` / `graph.*` / `input.*` / `io.*` / `launch.*` / `router.*` / `arbiter.*` / `judge.*`): names end with their kind
@@ -969,10 +969,10 @@ export const quorumPaths = [
 ### Components and dependency injection
 
 - **One class per file, folders by kind:** `workflow-starts/`, `routers/`, `agents/`, `actions/`,
-  `workflow-finishes/`, `arbiters/`, `tools/`, `services/`, `mcp/`, `rag/`, `environments/`; files
-  `*.workflow-start.ts`, `*.router.ts`, `*.agent.ts` (+ `*.prompt.md`), `*.action.ts`,
-  `*.workflow-finish.ts`, `*.arbiter.ts`, `*.tool.ts`, `*.dto.ts`, `*.service.ts`, `*.server.ts` + `*.mcp.ts`,
-  `*.rag.ts`, `*.helper.ts`.
+  `workflow-finishes/`, `arbiters/`, `guardrails/`, `tools/`, `services/`, `mcp/`, `rag/`,
+  `environments/`; files `*.workflow-start.ts`, `*.router.ts`, `*.agent.ts` (+ `*.prompt.md`),
+  `*.action.ts`, `*.workflow-finish.ts`, `*.arbiter.ts`, `*.guardrail.ts`, `*.tool.ts`, `*.dto.ts`,
+  `*.service.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`, `*.helper.ts`.
 - **Decorator = metadata, constructor = dependencies, methods = a contract:** `implements` for your
   own (`ToolHandler<In, Out>`, `ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler<TReply>`,
   `RagConnector`), `extends` +
@@ -982,7 +982,7 @@ export const quorumPaths = [
   its input message (`### field (from producer)`), never as `{{input.…}}` in instructions
   (`[prompt.input-in-instructions]`).
 - **`deps`, one contract for every kind** (`@Injectable`, `@Tool`, `@McpTool`, `@Rag`, `@Judge`,
-  `@Action`, a code `@Router`, `@Guardrail`, `@PiiPolicy`, `@Channel`): `deps` are checked
+  `@Action`, a code `@Router`, `@InputGuardrail` / `@OutputGuardrail`, `@PiiPolicy`, `@Channel`): `deps` are checked
   against the constructor by the compiler and injected by the container. A token is a class or an
   `InjectionToken<T>`; values go in with `provide(TOKEN, value)` (a raw `{ provide, useValue }`
   does not compile). A dependency without a provider fails at assembly (`Consumer: "TOKEN" is not
@@ -1031,8 +1031,8 @@ ApplicationContext] })` (#265 S70).
 - **Defaults cascade (#261):** `@Application({ defaults })` → `@Workflow({ defaults })` → the
   component's own field, merged field by field — the most specific level that sets a field wins,
   nothing set → the built-in. `defaults.router.model` is the model of `DecidedBy.Model` routers
-  without their own (`[router.no-model]`), `defaults.guardrail.model` the guards' — separate, a
-  guard never takes the router's (`[guardrail.no-model]`); `agboss describe` shows each router's
+  without their own (`[router.no-model]`), `defaults.guardrail.model` the guardrails' — separate, a
+  guardrail never takes the router's (`[guardrail.no-model]`); `agboss describe` shows each router's
   and agent's value and where it came from (`(own)`, `(desk-application)`, `(built-in)`).
 - **Components keep no state:** another instance may continue an execution after a pause, so a
   component reads the execution from `ExecutionContext`, data that outlive a step live in the graph
@@ -1134,8 +1134,9 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
   while running only problems (`LogLevel.Warn` / `Error`, a stable `code`, `executionId` /
   `tenantId`). Assembly warnings — tenant or application budgets on the built-in in-memory ledger
   (`[application.in-memory-cost-ledger]`), possible pauses on in-memory paused executions or
-  checkpoints (`[application.in-memory-pauses]`) — are in `app.warnings` and the start log, errors
-  under `agboss check --strict`, silent in tests.
+  checkpoints (`[application.in-memory-pauses]`), PII tokens on a key of the instance — no
+  `@Application({ pseudonymKey })` (`[application.pii-instance-key]`, #120 S94) — are in
+  `app.warnings` and the start log, errors under `agboss check --strict`, silent in tests.
 - **Memory** (`agboss/memory`): agents see the thread's last `defaults.history.limit` turns
   (`start <name>: <input>` / `finish <name>: <output>`, + `compaction` summaries) as a message of
   their own; `@Agent({ memoryStrategy })` replaces that for one agent (`extends BaseMemoryStrategy`).
@@ -1164,7 +1165,9 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
   `@Application({ pseudonymKey: "piiPseudonymKey" })` names a `Secret` field of the environment:
   the HMAC key of sensitive fields, project detectors and policies without their own key — one
   token per value on every instance (a policy's own key wins); a policy that needs it when it is
-  not set fails the start, naming the field (`testWith`: a fixed test key).
+  not set fails the start, naming the field (`testWith`: a fixed test key). Not set and not
+  needed → a key of each instance (reveal still works — the map is in the checkpoint — but one value
+  gets another token on each instance) and the warning `[application.pii-instance-key]` (S94).
 
 <!-- snippet-context
 import { Agent, PiiAction, PiiKind, PiiPolicy, pii, secret } from "agboss";
@@ -1191,6 +1194,78 @@ export class ContactPiiPolicy {}
   excludePiiPolicies: [ContactPiiPolicy], // its model sees contacts; logs and traces stay masked
 })
 export class OrderAgent {}
+```
+
+- **Guardrails (#120 PR 2)** block (safety); judges correct (quality). `@InputGuardrail` /
+  `@OutputGuardrail({ name, description, prompt | promptUrls, model?, threshold, refusal?, deps? })`
+  (`guardrails/*.guardrail.ts`, `-guardrail`): a yes / no question on a decision model (one
+  `Decision.noul`) or a chat model (one answer tool), `model` else `defaults.guardrail.model`
+  (`[guardrail.no-model]`), never the router's; P(yes) ≥ `threshold` fails the execution with
+  `GuardrailBlockedError` (`guardrail.blocked`; `guard`, `refusal` — the text to send instead —,
+  `key: guardrails.<name>.threshold`, `probability`, `threshold`). An input guardrail reads what an
+  agent's or a model router's model reads of the visit — its input message, **masked** by that
+  element's PII policies (S84 i) — before the model is called (an agent's in its loop's input node:
+  a resume never checks again); an output guardrail reads an agent's answer (its text or its
+  answer's JSON, masked) as it leaves the loop. A model that does not answer fails closed
+  (`GuardFailedError`). The refusal is the decorator's text or the class's `refusal()` (`implements
+GuardrailRefusal`, its services and the execution through `deps`) — never both
+  (`[guardrail.refusal-twice]`), never neither (a compile error through the decorator's overloads,
+  `[guardrail.missing-refusal]` at assembly); also `[guardrail.no-prompt]`,
+  `[guardrail.threshold-invalid]`. Listed in `guardrails` of `@Application` → `@Workflow` →
+  `@Agent` / `@Router` — lists add up, `excludeGuardrails` removes one for that element
+  (`[guardrail.exclude-not-inherited]`, `[guardrail.not-a-guardrail]`); a model router takes the
+  input ones (an `@OutputGuardrail` on a router is `[guardrail.output-on-router]`), a code router
+  none (its own list: `[guardrail.no-model-call]`); a child workflow gets its own workflow's lists
+  over the application's. Spend `guardrail:<name>` (category `guards`); events `onGuardrailStart`
+  (`side`, `element`, `text`) / `onGuardrailEnd` (`isBlocked`, `probability`). Tests:
+  `mockLlm(G).thenReturn(decideWith({ blocks: 0.9 }))` — unscripted, a guardrail passes.
+
+<!-- snippet-context
+import { ExecutionContext, InputGuardrail, Injectable, OutputGuardrail, type GuardrailRefusal } from "agboss";
+import { OneOf } from "agboss/dto";
+export class ClinicExecutionContext extends ExecutionContext {
+  @OneOf({ values: ["en", "he"] })
+  locale!: "en" | "he";
+}
+@Injectable()
+export class RefusalTextService {
+  legalAdvice(locale: "en" | "he"): Promise<string> {
+    return Promise.resolve(locale === "he" ? "אין ייעוץ משפטי." : "No legal advice.");
+  }
+}
+-->
+
+```ts
+@InputGuardrail({
+  name: "legal-advice-guardrail",
+  description: "Blocks requests for legal advice",
+  prompt: "Does the message ask for legal advice?",
+  model: "typesafe/jev-1.13",
+  threshold: 0.8,
+  deps: [ClinicExecutionContext, RefusalTextService], // the refusal in the sender's language
+})
+export class LegalAdviceGuardrail implements GuardrailRefusal {
+  constructor(
+    private readonly clinicExecutionContext: ClinicExecutionContext,
+    private readonly refusalTextService: RefusalTextService,
+  ) {}
+
+  refusal(): Promise<string> {
+    return this.refusalTextService.legalAdvice(this.clinicExecutionContext.locale);
+  }
+}
+
+@OutputGuardrail({
+  name: "no-legal-advice-guardrail",
+  description: "Blocks answers that give legal advice",
+  prompt: "Does the answer give legal advice?",
+  threshold: 0.8, // no model: defaults.guardrail.model
+  refusal: "I can't give legal advice. Please contact a lawyer.",
+})
+export class NoLegalAdviceGuardrail {}
+
+// @Application({ …, guardrails: [NoLegalAdviceGuardrail] }) — every agent of every workflow;
+// @Agent({ …, guardrails: [LegalAdviceGuardrail] }) — this agent's model only
 ```
 
 ### Environments
@@ -1277,7 +1352,7 @@ model (`judgeModel.invoke`, `deps: [JudgeModel]`) or a **decision model**
 (`judgeModel.decide({ state, questions })` with
 `Decision.noul` / `Decision.choice` / `Decision.score`, answers typed by the questions; `DECISION_MODELS`
 served by `DecisionsModelProvider`). The wrong call for the model's kind throws `ModelKindError`.
-Routers and guards use decision models too. README → Quality gates has a full judge.
+Routers and guardrails use decision models too. README → Quality gates has a full judge.
 
 ### Runs: context, limits, errors
 
@@ -1424,7 +1499,8 @@ today; tenant-daily-budget allows $40`).
 - **Errors** (root entry) are `AGBossError`s with stable `code`s (`limit` ⊃ `limit.budget`,
   `limit.steps`, `limit.visits`, `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
   `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`ActionFailedError`, the
-  action's error as `cause`) / `step.guard` / `step.router` ⊃ `step.router.invalid-decision` /
+  action's error as `cause`) / `step.guard` (`GuardFailedError`: a guardrail's model did not answer —
+  fails closed) / `step.router` ⊃ `step.router.invalid-decision` /
   `step.arbiter` (`ArbiterError`) / `step.quorum` (`QuorumNotReachedError`, #279) /
   `step.child` (`ChildExecutionFailedError`, #263), `limit.depth` (`DepthLimitExceededError`, #264),
   `pause.unknown`, `pause.wrong-answerer`, `pause.uninterpretable-reply`, `pause.no-reply-interpreter`,
@@ -1488,7 +1564,8 @@ timeout: seconds(1) })` → `{ output, spend }` (a tool call's frame: `execution
   with the timeout, `SpendRecorder` into `spend`; input and output validated); the same shape for
   `testAction`, `testRouter` (a code router's `route()`, or a model router with `model: routeTo(X)`
   / `decideWith(…)`), `testArbiter(A)(Agent, answer)`, `testRag(R)(query, { topK })`,
-  `testJudge(J, { model: decideWith(…) | replyWith(…) })` (its `reply` a plain object of the judge's DTO), `testGuardrail(G).beforeToolCall(…)`
+  `testJudge(J, { model: decideWith(…) | replyWith(…) })` (its `reply` a plain object of the judge's DTO), `testGuardrail(G, { model: decideWith({ blocks: 0.9 }) })(text, { element })` → `{ isBlocked,
+probability, refusal? }`
   and `testPii([Policies])` → `mask(text)` / `reveal(text)` (rules checked first: `-pii-policy`);
   `run.clock` is the runner's `VirtualClock`; the calls run for `{ tenantContext, tenant,
 executionContext, execution }` as `testExecutionContext` takes them (checked by the classes'
@@ -1635,7 +1712,7 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
                     limits, onError, input messages, records)
     graph/          the agent loop (agent-loop/: its subgraph, tools, approval, judges), knowledge,
                     rule-error.ts, limits.ts, settings.ts, studio-graph.ts
-    llm/  routers/  tools/  guards/  terns/  run/  pause/  finops/  eval/  tracing/  prompts/  types/
+    llm/  routers/  tools/  guardrails/  terns/  run/  pause/  finops/  eval/  tracing/  prompts/  types/
     loader/, describe/   loadWorkflow (tsx) and describeWorkflow; studio.ts (LangGraph Studio)
     internal.ts     `agboss/internal`: what the CLI is built on — not public, not for projects
   tests/            unit tests (helpers.ts = fakes; fixtures/ = test workflows); routers/ alone; smoke/ = real

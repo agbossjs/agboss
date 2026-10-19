@@ -112,7 +112,7 @@ describe("turn financials", () => {
 
   it("categorises callers", () => {
     expect(costCategoryOf("tool:exchange_rate")).toBe("tools");
-    expect(costCategoryOf("router:guard:pii")).toBe("guards");
+    expect(costCategoryOf("guardrail:personal-data-guardrail")).toBe("guards");
     expect(costCategoryOf("router:quality:coder")).toBe("review");
     expect(costCategoryOf("compaction")).toBe("compaction");
     expect(costCategoryOf("router:main")).toBe("routing");
@@ -121,7 +121,7 @@ describe("turn financials", () => {
 
   it("reports categories, models and the call trace in order", () => {
     const report = buildCostReport([
-      record("router:guard:prompt_injection", "jev", 0.00001),
+      record("guardrail:prompt-injection-guardrail", "jev", 0.00001),
       record("router:main", "jev", 0.00002),
       record("researcher", "kimi", 0.003),
       record("tool:exchange_rate", "exchange_rate", 0.001),
@@ -138,7 +138,7 @@ describe("turn financials", () => {
     });
     expect(report.byModel.jev).toBeCloseTo(0.00003);
     expect(report.trace.map((line) => [line.caller, line.category])).toEqual([
-      ["router:guard:prompt_injection", "guards"],
+      ["guardrail:prompt-injection-guardrail", "guards"],
       ["router:main", "routing"],
       ["researcher", "agents"],
       ["tool:exchange_rate", "tools"],

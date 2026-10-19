@@ -9,14 +9,14 @@ import type { AgentsConfigOf } from "../config/types.js";
 import {
   chatModelSettingsOf,
   flowArbiterModelFactory,
+  flowGuardrailRuntime,
   flowLaunchDeciderFactory,
   flowRouterFactory,
 } from "../graph/router-model.js";
+import type { GuardrailRuntime } from "../guardrails/runtime.js";
 import type { EvalDeps } from "../eval/eval.js";
 import type { RunDeps } from "../run/types.js";
 import type { ModelGateway } from "../llm/gateway.js";
-import { buildGuards, type GuardSet } from "../guards/index.js";
-import { guardPrompts } from "../prompts/guards.js";
 import { createRouter, type RouterEngine } from "../routers/index.js";
 import { ComponentError } from "../components/metadata.js";
 import type { AnyTool } from "../tools/index.js";
@@ -99,16 +99,19 @@ export const pauseFor = (
 ): PauseSeam => ({ checkpointer, pauses, answers });
 
 /**
- * Guards from config + their texts; each guard is a router on its own model or
- * `defaults.guardrail.model` (#261, resolved at assembly — `[guardrail.no-model]` otherwise).
+ * The workflow's guardrails (#120): each on its own model or `defaults.guardrail.model` (resolved at
+ * assembly — `[guardrail.no-model]` otherwise), its refusal class from the workflow's container.
  */
-export const guardsFor = (config: AgentsConfigOf<string>, gateway: ModelGateway): GuardSet =>
-  buildGuards(config.guards, guardPrompts, (name, model) => {
-    if (model === undefined)
-      throw new ComponentError(
-        `[guardrail.no-model] ${name} has no model — set model or defaults.guardrail.model`,
-      );
-    return createRouter(`guard:${name}`, model, config.defaults.models, gateway);
+export const guardrailsFor = (
+  bundle: AssembledWorkflow,
+  services: WorkflowServices,
+  config: AgentsConfigOf<string>,
+  gateway: ModelGateway,
+): GuardrailRuntime =>
+  flowGuardrailRuntime(bundle.guardrails, bundle.resolve(services), {
+    gateway,
+    chatDefaults: config.defaults.models,
+    chatModelSettings: chatModelSettingsOf(config),
   });
 
 /** A model is needed for it, and `defaults.router.model` is not set. */

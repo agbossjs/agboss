@@ -13,29 +13,74 @@ import { modelRouterLaunch } from "../launch/router-decision.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
 import { maskedModelText, type MaskedModelText } from "../../../pii/model-boundary.js";
 import { boundaryInputOf } from "./boundary-input.js";
+import { GuardrailSide } from "../../../components/policy-decorators.js";
+import { runGuardrails } from "../../../guardrails/runtime.js";
+import type { UsageRecord } from "../../../finops/usage.js";
+import type { PiiPolicySet } from "../../../pii/policy-set.js";
+import type { PiiTokenMap } from "../../../pii/tokens.js";
 import { RecursionDecider } from "../../analyse/recursion.js";
 import { unreadyRoutesOf } from "../soft-stop.js";
+
+/** What the router's model reads, masked — and of it the input message (what its guardrails check). */
+interface MaskedRouterInput extends MaskedModelText {
+  readonly input: string;
+}
+
+/** Texts through the router's PII policies, one after another: new tokens known to the next. */
+async function maskedTexts(
+  set: PiiPolicySet,
+  texts: readonly string[],
+  known: PiiTokenMap,
+): Promise<{ readonly texts: readonly string[]; readonly masked: MaskedModelText }> {
+  const tokens: Record<string, string> = {};
+  const usage: UsageRecord[] = [];
+  const masked: string[] = [];
+  for (const text of texts) {
+    const one = await maskedModelText(set, text, { ...known, ...tokens });
+    Object.assign(tokens, one.tokens);
+    usage.push(...one.usage);
+    masked.push(one.text);
+  }
+  return { texts: masked, masked: { text: masked.join("\n\n"), tokens, usage } };
+}
 
 /**
  * What the router's model reads besides its static texts: the thread's memory, then its input
  * message (#270 Q51) — through its PII policies (#120: `sensitive` fields, the rules, the
- * execution's sensitive context values; a block rule refuses).
+ * execution's sensitive context values; a block rule refuses). With input guardrails the memory and
+ * the input message are masked apart, so the guardrails read the input message as the model does.
  */
 async function maskedInputOf(
   node: RuntimeNode,
   state: ExecutionStateType,
   deps: GraphDeps<string>,
-): Promise<MaskedModelText> {
+  isGuarded: boolean,
+): Promise<MaskedRouterInput> {
   const memory = formatMemory(state, {
     summaries: defaultSummaries(deps.config),
     turns: deps.config.defaults.history.limit,
   });
   const boundary = boundaryInputOf(node, state, deps.pii);
-  const input = memory === "" ? boundary.input : `${memory}\n\n${boundary.input}`;
-  if (deps.pii === undefined) return { text: input, tokens: {}, usage: [] };
+  const parts = memory === "" ? [boundary.input] : [memory, boundary.input];
+  if (deps.pii === undefined)
+    return { text: parts.join("\n\n"), input: boundary.input, tokens: {}, usage: [] };
   const set = deps.pii.policiesOf(node.id).withValues(boundary.pii.values);
-  const masked = await maskedModelText(set, input, { ...state.piiTokens, ...boundary.pii.tokens });
-  return { ...masked, tokens: { ...boundary.pii.tokens, ...masked.tokens } };
+  const known = { ...state.piiTokens, ...boundary.pii.tokens };
+  const { texts, masked } = await maskedTexts(set, isGuarded ? parts : [parts.join("\n\n")], known);
+  const input = isGuarded ? (texts[texts.length - 1] ?? "") : masked.text;
+  return { ...masked, input, tokens: { ...boundary.pii.tokens, ...masked.tokens } };
+}
+
+/** The router's input guardrails (#120) on its masked input message: their spend. */
+function guardedInput(
+  node: RuntimeNode,
+  masked: MaskedRouterInput,
+  deps: GraphDeps<string>,
+): Promise<readonly UsageRecord[]> {
+  const guardrails = deps.guardrails?.inputOf(node.id) ?? [];
+  if (guardrails.length === 0) return Promise.resolve([]);
+  const checked = { text: masked.input, element: node.id, side: GuardrailSide.Input };
+  return runGuardrails(guardrails, checked, deps.observer);
 }
 
 /** The router's request: its options and instructions over its masked input. */
@@ -71,7 +116,9 @@ export function routerRunner(
 ): NodeRunner {
   return async (state, config) => {
     const name = node.id;
-    const masked = await maskedInputOf(node, state, deps);
+    const isGuarded = (deps.guardrails?.inputOf(node.id) ?? []).length > 0;
+    const masked = await maskedInputOf(node, state, deps, isGuarded);
+    const guarded = await guardedInput(node, masked, deps);
     const request = requestOf(router, masked.text);
     const input = masked.text;
     const piiTokens = masked.tokens;
@@ -83,14 +130,20 @@ export function routerRunner(
       const launch = await modelRouterLaunch({ node, router, step, input, decider, ...{ config } });
       const update = { route: launch.launch.join(", "), reason: launch.reason };
       await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
-      return { launch: launch.launch, read, usage: [...masked.usage, ...launch.usage], piiTokens };
+      const usage = [...masked.usage, ...guarded, ...launch.usage];
+      return { launch: launch.launch, read, usage, piiTokens };
     }
     const outcome = await engine.route(shownRequest(node, request, deps));
-    if (outcome.kind === "failed") throw routerFailureOf(step, outcome, masked.usage);
+    if (outcome.kind === "failed")
+      throw routerFailureOf(step, outcome, [...masked.usage, ...guarded]);
     const { next, reason } = outcome.decision;
     const update = { route: next, reason };
     await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
-    const usage = [...masked.usage, ...(outcome.usage === undefined ? [] : [outcome.usage])];
+    const usage = [
+      ...masked.usage,
+      ...guarded,
+      ...(outcome.usage === undefined ? [] : [outcome.usage]),
+    ];
     return { route: next, read, usage, piiTokens };
   };
 }

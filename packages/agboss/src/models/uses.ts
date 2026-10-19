@@ -5,7 +5,7 @@ import { ModelPurpose } from "./resolve.js";
 
 /** One place a model is used, with the settings it is used with. */
 export interface ModelUse {
-  /** Where it is set: `agents.scout`, `routers.main`, `defaults.router`, `compaction`, `guards.input.pii`. */
+  /** Where it is set: `agents.scout`, `routers.main`, `defaults.router`, `compaction`, `guardrails.legal-advice-guardrail`. */
   readonly key: string;
   readonly model: string;
   readonly purpose: ModelPurpose;
@@ -33,13 +33,6 @@ const routerUse = (key: string, model: RouterModel, config: AgentsConfigOf<strin
         settings: resolveSettings(model, config.defaults.models),
       };
 
-const guardUses = (config: AgentsConfigOf<string>): ModelUse[] =>
-  (["input", "output"] as const).flatMap((side) =>
-    Object.entries(config.guards?.[side] ?? {}).flatMap(([name, guard]) =>
-      guard.model === undefined ? [] : [routerUse(`guards.${side}.${name}`, guard.model, config)],
-    ),
-  );
-
 /** A reply interpreter (#267 PR 3): its model, or none for a code one. */
 export interface ModelNamingInterpreter {
   readonly name: string;
@@ -54,19 +47,21 @@ export interface ModelNamingComponents {
   readonly piiDetectors?: readonly ModelNamingRouter[] | undefined;
   /** Reply interpreters (#267 PR 3): a model one's chat model. */
   readonly interpreters?: readonly ModelNamingInterpreter[] | undefined;
+  /** Guardrails (#120 PR 2). */
+  readonly guardrails?: readonly ModelNamingRouter[] | undefined;
 }
 
 /**
- * Every model use of a workflow: agents, compaction, judges, the default router, guards, flow routers,
- * model arbiters (#279), the PII policies' model detections (#120, `pii.<policy>`) and model reply
- * interpreters (#267, `replyInterpreters.<name>`).
+ * Every model use of a workflow: agents, compaction, judges, the default router, flow routers,
+ * model arbiters (#279), the PII policies' model detections (#120, `pii.<policy>`), model reply
+ * interpreters (#267, `replyInterpreters.<name>`) and the guardrails (#120, `guardrails.<name>`).
  */
 export function modelUsesOf(
   config: AgentsConfigOf<string>,
   routers: readonly ModelNamingRouter[],
   components: ModelNamingComponents = {},
 ): readonly ModelUse[] {
-  const { arbiters = [], piiDetectors = [], interpreters = [] } = components;
+  const { arbiters = [], piiDetectors = [], interpreters = [], guardrails = [] } = components;
   const chat = (key: string, settings: Parameters<typeof resolveSettings>[0]): ModelUse => ({
     key,
     model: settings.model,
@@ -84,7 +79,6 @@ export function modelUsesOf(
     ...(config.defaults.router === undefined
       ? []
       : [routerUse("defaults.router", config.defaults.router, config)]),
-    ...guardUses(config),
     ...routers.map((router): ModelUse => ({
       key: `routers.${router.name}`,
       model: router.model,
@@ -99,5 +93,10 @@ export function modelUsesOf(
     ...interpreters.flatMap(({ name, model }) =>
       model === undefined ? [] : [chat(`replyInterpreters.${name}`, { model })],
     ),
+    ...guardrails.map((guardrail): ModelUse => ({
+      key: `guardrails.${guardrail.name}`,
+      model: guardrail.model,
+      purpose: purposeOf(guardrail.model),
+    })),
   ];
 }

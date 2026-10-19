@@ -53,8 +53,6 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   file,
   /** @deprecated Import from "agboss" (#195). */
-  Guardrail,
-  /** @deprecated Import from "agboss" (#195). */
   type GuardrailEndEvent,
   /** @deprecated Import from "agboss" (#195). */
   type GuardrailInput,

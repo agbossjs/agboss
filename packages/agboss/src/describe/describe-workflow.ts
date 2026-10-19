@@ -55,20 +55,37 @@ function toolLine(tool: AnyTool, bundle: AssembledWorkflow): string {
   return `${tool.name} (${tool.channel ? `channel:${tool.channel}, ` : ""}${kind}${waits})${deps === undefined ? "" : ` ← ${deps}`} — ${tool.description}`;
 }
 
+/**
+ * Each guardrail (#120): its side and threshold, its model and where it came from, its refusal —
+ * the text, or `Class.refusal()` when the class computes it — and the agents and routers it guards.
+ */
+function guardrailLines(bundle: AssembledWorkflow): string[] {
+  const assembled = bundle.guardrails;
+  if (assembled === undefined || assembled.guardrails.length === 0) return ["guardrails none"];
+  const users = (type: unknown): string =>
+    [...assembled.byElement]
+      .filter(([, sides]) => [...sides.input, ...sides.output].some((g) => g.type === type))
+      .map(([name]) => name)
+      .join(", ") || "none";
+  return [
+    "guardrails",
+    ...assembled.guardrails.map((g) => {
+      const model = `${g.model} (${g.isOwnModel ? "own" : "defaults.guardrail"})`;
+      const refusal =
+        g.refusal === undefined ? `${g.type.name}.refusal()` : JSON.stringify(g.refusal);
+      return `  ${g.name} — ${g.side} ≥${String(g.threshold)} · ${model} · refusal: ${refusal} · on ${users(g.type)}`;
+    }),
+  ];
+}
+
 function bundleLines(bundle: AssembledWorkflow): string[] {
   const c = bundle.config;
-  const inputGuards = Object.entries(c.guards?.input ?? {}).map(
-    ([n, g]) => `${n} ≥${String(g.threshold)}`,
-  );
-  const outputGuards = Object.entries(c.guards?.output ?? {}).map(
-    ([n, g]) => `${n} ≥${String(g.threshold)}`,
-  );
   const memory =
     c.compaction === undefined
       ? "raw turns only"
       : `compaction every ${String(c.compaction.every)} turns, keep ${String(c.compaction.keep)} summaries · ${c.compaction.model.model}`;
   return [
-    `guards    input: ${inputGuards.join(", ") || "none"} · output: ${outputGuards.join(", ") || "none"}`,
+    ...guardrailLines(bundle),
     `memory    ${memory}`,
     `pause     on — tools with channel wait for external signal`,
   ];

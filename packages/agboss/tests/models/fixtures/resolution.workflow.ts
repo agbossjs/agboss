@@ -12,6 +12,7 @@ import {
   JudgeVerdict,
   type JudgeHandler,
 } from "../../../src/index.js";
+import { PromptInjectionGuardrail } from "../../fixtures/guardrails.js";
 import {
   PlainTextDto,
   WorkflowFinishTextDto,
@@ -96,7 +97,7 @@ export class NowhereRouter {}
     guardrail: { model: "nowhere/guardrail" },
     history: { limit: 1 },
   },
-  guards: { input: { prompt_injection: { threshold: 0.7, refusal: "No." } } },
+  guardrails: [PromptInjectionGuardrail],
   compaction: { every: 2, keep: 1, model: { model: "nowhere/compaction" } },
 })
 export class EveryKindWorkflow {}

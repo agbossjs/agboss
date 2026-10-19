@@ -4,11 +4,6 @@ import { describe, it, expect, vi } from "vitest";
 import { NO_BUDGET_CHECK } from "../../../src/budgets/execution-budgets.js";
 import { makeReplyNode } from "../../../src/graph/agent-loop/reply-node.js";
 import { NO_ANSWER_TOOLS } from "../../../src/flow/runtime/answer-tools.js";
-import {
-  mergePolicies,
-  visitToolThenAgent,
-  visitAgentAnswer,
-} from "../../../src/graph/agent-loop/judge-points.js";
 import { makeToolNode } from "../../../src/graph/agent-loop/tools-node.js";
 import { makeModelNode } from "../../../src/graph/agent-loop/model-node.js";
 import { makeJudgeNode } from "../../../src/graph/agent-loop/judge-node.js";
@@ -24,8 +19,6 @@ describe("agent-loop coverage", () => {
   it("reply-node with non-string move content", async () => {
     const node = makeReplyNode({
       agent: { name: "Agent1", answerTools: NO_ANSWER_TOOLS },
-      workflowGuardrails: [],
-      guardrails: () => [],
     });
 
     const result = await node(
@@ -38,8 +31,6 @@ describe("agent-loop coverage", () => {
   it("reply-node with string move content", async () => {
     const node = makeReplyNode({
       agent: { name: "Agent1", answerTools: NO_ANSWER_TOOLS },
-      workflowGuardrails: [],
-      guardrails: () => [],
     });
     const result = await node({ move: { content: "hello", text: "hello" }, runId: "run1" }, {});
     expect(result.reply).toBe("hello");
@@ -48,55 +39,9 @@ describe("agent-loop coverage", () => {
   it("reply-node with no move content", async () => {
     const node = makeReplyNode({
       agent: { name: "Agent1", answerTools: NO_ANSWER_TOOLS },
-      workflowGuardrails: [],
-      guardrails: () => [],
     });
     const result = await node({ move: { content: [], text: "hello" }, runId: "run1" }, {});
     expect(result.reply).toBe("hello");
-  });
-
-  it("mergePolicies tPolicies override and disable", () => {
-    class Guard1 {
-      public x = 1;
-    }
-    class Guard2 {
-      public x = 2;
-    }
-
-    const policies1 = mergePolicies([], undefined, {
-      override: true,
-      instances: [new Guard1()],
-      disable: [],
-    });
-    expect(policies1.length).toBe(1);
-
-    const policies2 = mergePolicies([new Guard1(), new Guard2()], undefined, {
-      override: false,
-      instances: [],
-      disable: [Guard1],
-    });
-    expect(policies2.length).toBe(1);
-  });
-
-  it("visitToolThenAgent override arguments", async () => {
-    const observer = { onGuardrailStart: vi.fn(), onGuardrailEnd: vi.fn() };
-    const guardrail = {
-      beforeToolCall: async () => ({ overrideArguments: { a: 1 } }),
-    };
-    const ctx = { call: { args: null } };
-    await inTestFrame(() =>
-      visitToolThenAgent([guardrail], "beforeToolCall", ctx, undefined, observer),
-    );
-    expect(ctx.call.args).toEqual({ a: 1 });
-    expect(observer.onGuardrailStart).toHaveBeenCalled();
-    expect(observer.onGuardrailEnd).toHaveBeenCalled();
-  });
-
-  it("visitAgentAnswer calls observer", async () => {
-    const observer = { onGuardrailStart: vi.fn(), onGuardrailEnd: vi.fn() };
-    const guardrail = { beforeAgentAnswer: async () => ({}) };
-    await inTestFrame(() => visitAgentAnswer([guardrail], {}, observer));
-    expect(observer.onGuardrailStart).toHaveBeenCalled();
   });
 
   it("tools-node tool undefined", async () => {
@@ -185,8 +130,8 @@ describe("agent-loop coverage", () => {
       connectMcp: async () => ({ close: async () => undefined }),
     });
     const deps = built;
-    expect(deps.toolGuardrails("t1")).toEqual({ override: false, instances: [], disable: [] });
-    expect(deps.guardrails("a1")).toEqual({ override: false, instances: [], disable: [] });
+    expect(deps.guardrails?.inputOf("a1")).toEqual([]);
+    expect(deps.guardrails?.outputOf("a1")).toEqual([]);
     await deps.close();
   });
 
@@ -202,8 +147,6 @@ describe("agent-loop missing branches coverage", () => {
   it("reply-node with move null", async () => {
     const node = makeReplyNode({
       agent: { name: "Agent1", answerTools: NO_ANSWER_TOOLS },
-      workflowGuardrails: [],
-      guardrails: () => [],
     });
     const result = await node({ move: null, runId: "run1" }, {});
     expect(result.reply).toBe("");

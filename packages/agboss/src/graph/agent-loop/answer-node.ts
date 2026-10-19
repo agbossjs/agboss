@@ -4,9 +4,7 @@ import { AgentAnswerInvalidError } from "../../flow/runtime/errors.js";
 import { sortedJson } from "../../flow/runtime/json.js";
 import type { AsyncNode } from "../types.js";
 import { callsOf, isAnswerCall, type AgentLoopDeps, type ToolCallRequest } from "./deps.js";
-import { visitAgentAnswer, mergePolicies } from "./judge-points.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
-import { extractRunContext } from "../../core/run-context.js";
 
 /** Invalid answers an agent may give before its step fails (S9: 2 retries, 3 attempts). */
 export const MAX_ANSWER_ATTEMPTS = 3;
@@ -55,34 +53,26 @@ function answerCallsOf(
 export function makeAnswerNode(
   deps: AgentLoopDeps,
 ): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
-  const agent = deps.agent.name;
-  return async (state, config) => {
-    const calls = callsOf(state.move);
-    const move = state.move === null ? [] : [state.move];
-    const answers = answerCallsOf(deps, calls);
-    if (answers === undefined) {
-      return invalidAnswer(state, deps, ONE_ANSWER_MESSAGE, [
-        ...move,
-        ...toolMessages(calls, `Tool error: ${ONE_ANSWER_MESSAGE}`),
-      ]);
-    }
-    const reading = readAnswer(deps.agent.answerTools, answers);
-    if (reading.kind === "invalid") {
-      const content = `Tool error: the answer is invalid — ${reading.problem}`;
-      return invalidAnswer(state, deps, reading.problem, [
-        ...move,
-        ...toolMessages(calls, content),
-      ]);
-    }
-    const reply = sortedJson(reading.answer.value);
-    const runCtx = extractRunContext(config, state.runId);
-    const ctx = { agent, replyWith: reply, runId: runCtx.runId };
-    await visitAgentAnswer(
-      mergePolicies(deps.workflowGuardrails, deps.guardrails),
-      ctx,
-      deps.observer,
-    );
-    const received = toolMessages(calls, "Answer received.");
-    return { messages: [...move, ...received], move: null, reply, answer: reading.answer };
-  };
+  return (state) => Promise.resolve(answered(state, deps));
+}
+
+/** The answer node's update for the move. */
+function answered(state: AgentLoopStateType, deps: AgentLoopDeps): AgentLoopUpdate {
+  const calls = callsOf(state.move);
+  const move = state.move === null ? [] : [state.move];
+  const answers = answerCallsOf(deps, calls);
+  if (answers === undefined) {
+    return invalidAnswer(state, deps, ONE_ANSWER_MESSAGE, [
+      ...move,
+      ...toolMessages(calls, `Tool error: ${ONE_ANSWER_MESSAGE}`),
+    ]);
+  }
+  const reading = readAnswer(deps.agent.answerTools, answers);
+  if (reading.kind === "invalid") {
+    const content = `Tool error: the answer is invalid — ${reading.problem}`;
+    return invalidAnswer(state, deps, reading.problem, [...move, ...toolMessages(calls, content)]);
+  }
+  const reply = sortedJson(reading.answer.value);
+  const received = toolMessages(calls, "Answer received.");
+  return { messages: [...move, ...received], move: null, reply, answer: reading.answer };
 }

@@ -13,6 +13,7 @@ const KEPT = [
   "mcp",
   "judges",
   "guardrails",
+  "excludeGuardrails",
   "piiPolicies",
   "excludePiiPolicies",
   "routes",

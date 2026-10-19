@@ -82,9 +82,7 @@ function agentLoops(deps: GraphDeps<string>, run: RunLimits): ReadonlyMap<string
         approval,
         judges: noJudges,
         ...(deps.pii === undefined ? {} : { pii: deps.pii.policiesOf(name) }),
-        guardrails: deps.guardrails?.(name),
-        workflowGuardrails: deps.workflowGuardrails,
-        toolGuardrails: deps.toolGuardrails,
+        guardrails: deps.guardrails?.inputOf(name) ?? [],
         observer: deps.observer,
       },
       deps.pause?.checkpointer,
@@ -111,7 +109,7 @@ interface Parts {
 function runnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Parts): NodeRunner {
   switch (node.kind) {
     case NodeKind.Start:
-      return startRunner(deps);
+      return startRunner();
     case NodeKind.Finish:
       return finishRunner(node, deps);
     case NodeKind.Action:

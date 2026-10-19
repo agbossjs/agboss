@@ -105,7 +105,16 @@ export type RuleCode =
   // environments and defaults (#261 PR 4), reported at the application's assembly
   | "environment.contract-value"
   | "environment.missing-field"
+  // guardrails (#120 PR 2), reported at each workflow's assembly
   | "guardrail.no-model"
+  | "guardrail.not-a-guardrail"
+  | "guardrail.exclude-not-inherited"
+  | "guardrail.missing-refusal"
+  | "guardrail.refusal-twice"
+  | "guardrail.no-prompt"
+  | "guardrail.threshold-invalid"
+  | "guardrail.output-on-router"
+  | "guardrail.no-model-call"
   // model providers (#266 PR 1): every model of the application resolves to one provider
   | "model.unserved"
   | "model.ambiguous-provider"

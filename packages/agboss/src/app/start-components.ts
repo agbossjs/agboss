@@ -1,31 +1,25 @@
 import { resolveTools, type AssembledWorkflow, type WorkflowServices } from "../workflow.js";
-import {
-  channelLookup,
-  containerDepsOf,
-  policyDepsOf,
-  type ContainerDeps,
-  type PolicyDeps,
-} from "./app-deps-parts.js";
+import { channelLookup, containerDepsOf, type ContainerDeps } from "./app-deps-parts.js";
 import { codeClassesOf } from "../flow/runtime/graph-model.js";
 import { judgesFor, knowledgeFor, memoryFor } from "./parts.js";
 
 /** What the container creates at start, as the app's run dependencies. */
 type StartComponents = {
   readonly channelOf: ReturnType<typeof channelLookup>;
-} & PolicyDeps &
-  ReturnType<typeof knowledgeFor> &
+} & ReturnType<typeof knowledgeFor> &
   ReturnType<typeof memoryFor> &
   ReturnType<typeof judgesFor> &
   ContainerDeps;
 
 /**
- * The graph's code — actions, finishes with a handler, code routers, code arbiters (#279) — and
- * its PII policies (#120), created now, so a missing dependency fails at start.
+ * The graph's code — actions, finishes with a handler, code routers, code arbiters (#279) — its PII
+ * policies and its guardrails (#120), created now, so a missing dependency fails at start.
  */
 function createCodeNodes(bundle: AssembledWorkflow, services: WorkflowServices): void {
   const resolve = bundle.resolve(services);
   for (const component of codeClassesOf(bundle.graph)) resolve(component);
   for (const policy of bundle.pii?.classes ?? []) resolve(policy);
+  for (const guardrail of bundle.guardrails?.guardrails ?? []) resolve(guardrail.type);
 }
 
 /**
@@ -41,7 +35,6 @@ export const componentsAtStart = (
   createCodeNodes(bundle, services);
   return {
     channelOf: channelLookup(bundle, services),
-    ...policyDepsOf(bundle, services),
     ...knowledgeFor(bundle, services),
     ...memoryFor(bundle, services),
     ...judgesFor(bundle, services),

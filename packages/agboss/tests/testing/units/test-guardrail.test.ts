@@ -1,43 +1,60 @@
-/** #262 PR 3 (S89): `testGuardrail` — a guardrail's hooks on their own, in a step's frame. */
+/** #120 PR 2: `testGuardrail` — one guardrail on one text, its model scripted, in a step's frame. */
 import { describe, expect, it } from "vitest";
-import { testGuardrail } from "../../../src/testing/index.js";
-import { RefundLimitGuardrail } from "../fixtures/units.js";
-
-const refund = (amount: number) => ({
-  agent: "refund-agent",
-  call: { name: "refund", args: { amount } },
-});
+import { GuardFailedError, GraphRuleError, InputGuardrail } from "../../../src/index.js";
+import { decideWith, failWith, ModelFailure, testGuardrail } from "../../../src/testing/index.js";
+import { usd } from "../../../src/units/index.js";
+import { LegalAdviceGuardrail } from "../fixtures/units.js";
 
 describe("testGuardrail", () => {
-  it("beforeToolCall lets a small refund through with corrected arguments", async () => {
-    const guard = testGuardrail(RefundLimitGuardrail);
+  it("P(yes) at the threshold blocks: the class's refusal, computed in the step's frame", async () => {
+    const check = testGuardrail(LegalAdviceGuardrail, {
+      model: decideWith({ blocks: 0.8 }, { cost: usd(0.0001) }),
+    });
 
-    const { output, spend } = await guard.beforeToolCall(refund(40));
+    const { output, spend } = await check("Can I sue my landlord?");
 
-    expect(output).toEqual({ overrideArguments: { note: "test:refund-limit-guardrail" } });
-    expect(spend.totalUsd).toBe(0);
+    expect(output).toEqual({
+      isBlocked: true,
+      probability: 0.8,
+      refusal: "No legal advice (test, legal-advice-guardrail).",
+    });
+    expect(spend.totalUsd).toBeCloseTo(0.0001, 9);
+    expect(spend.trace.map((line) => line.caller)).toEqual(["guardrail:legal-advice-guardrail"]);
   });
 
-  it("what a hook throws rejects as it was thrown: a block", async () => {
-    const guard = testGuardrail(RefundLimitGuardrail);
+  it("below the threshold it passes, with no refusal", async () => {
+    const check = testGuardrail(LegalAdviceGuardrail, { model: decideWith({ blocks: 0.79 }) });
 
-    await expect(guard.beforeToolCall(refund(500))).rejects.toThrow("500 is over the limit");
+    const { output } = await check("Where is my order?");
+
+    expect(output).toEqual({ isBlocked: false, probability: 0.79 });
   });
 
-  it("a hook the class does not have is a setup error", async () => {
-    const guard = testGuardrail(RefundLimitGuardrail);
+  it("unscripted, a guardrail passes: content checks are not what most tests are about", async () => {
+    const check = testGuardrail(LegalAdviceGuardrail);
 
-    await expect(guard.beforeAgentAnswer({ agent: "refund-agent" })).rejects.toThrow(
-      "it has no beforeAgentAnswer()",
-    );
+    expect((await check("anything")).output).toEqual({ isBlocked: false, probability: 0 });
   });
 
-  it("each hook the class lacks is named: after a call, on a channel's decision", async () => {
-    const guard = testGuardrail(RefundLimitGuardrail);
+  it("a model that does not answer fails closed: GuardFailedError", async () => {
+    const check = testGuardrail(LegalAdviceGuardrail, {
+      model: failWith(ModelFailure.Timeout),
+    });
 
-    await expect(guard.afterToolCall(refund(1))).rejects.toThrow("it has no afterToolCall()");
-    await expect(guard.onChannelDecision({ approved: true }, refund(1))).rejects.toThrow(
-      "it has no onChannelDecision()",
-    );
+    await expect(check("Can I sue?")).rejects.toBeInstanceOf(GuardFailedError);
+  });
+
+  it("its rules are checked first: a name without -guardrail is a GraphRuleError", () => {
+    @InputGuardrail({
+      name: "legal",
+      description: "Misnamed",
+      prompt: "Legal?",
+      threshold: 0.5,
+      refusal: "No.",
+    })
+    class Misnamed {}
+
+    expect(() => testGuardrail(Misnamed)).toThrow(GraphRuleError);
+    expect(() => testGuardrail(Misnamed)).toThrow("[name.kind-suffix]");
   });
 });

@@ -2,11 +2,11 @@ import type { McpServerConfig } from "../config/types.js";
 import type { DtoClass } from "../dto/types.js";
 import type { ServerTools } from "./mcp-client.js";
 import type { Class, Token } from "./injection.js";
-import type { ChannelMeta, PolicyFields } from "./meta-types.js";
+import type { ChannelMeta } from "./meta-types.js";
 import type { McpExposeOptions } from "../mcp/mcp-expose.decorator.js";
 
-/** `@Tool` — its options as recorded, including the policy settings (`piiPolicies`, `guardrails`, …). */
-export interface ToolMeta extends PolicyFields {
+/** `@Tool` — its options as recorded. */
+export interface ToolMeta {
   readonly name: string;
   readonly description: string;
   readonly prompt?: string;
@@ -55,9 +55,10 @@ export type ComponentMeta =
       readonly kind: "pii-policy";
       readonly meta: import("../pii/pii-policy.decorator.js").PiiPolicyMeta;
     }
+  /** `@InputGuardrail` / `@OutputGuardrail` (#120). */
   | {
       readonly kind: "guardrail";
-      readonly meta: { readonly name: string; readonly deps: readonly Token[] };
+      readonly meta: import("./policy-decorators.js").GuardrailMeta;
     }
   | {
       readonly kind: "judge";
@@ -105,7 +106,7 @@ export function requireComponent<K extends ComponentMeta["kind"]>(
 
 const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   "pii-policy": "@PiiPolicy",
-  guardrail: "@Guardrail",
+  guardrail: "@InputGuardrail / @OutputGuardrail",
   tool: "Tool",
   "mcp-server": "McpServer",
   "mcp-tool": "McpTool",

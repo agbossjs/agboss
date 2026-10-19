@@ -155,7 +155,8 @@ export async function buildApplication(
   const environment = options.environment ?? NO_ENVIRONMENT_VALUES;
   // a test's instances share a fixed PII key when the application sets none (#120)
   const fallback = seams.quiet === true ? TEST_PSEUDONYM_KEY : undefined;
-  const piiFieldKey = applicationPiiKeyOf(assembled, { environment, env: processEnv, fallback });
+  const piiKey = applicationPiiKeyOf(assembled, { environment, env: processEnv, fallback });
+  const piiFieldKey = piiKey.key;
   const piiParts = { processEnv, fieldKey: piiFieldKey, contexts };
   const mask = applicationPiiMaskOf(assembled, shared, { ...container, onCreate }, piiParts);
   const log = frameworkLogOf(infrastructure.logger, clock, (message) => mask.text(message));
@@ -172,18 +173,23 @@ export async function buildApplication(
     throw error;
   }
   const stop = stopOf(assembled, workflows, { created, infrastructure, log });
-  const warnings = startupWarningsOf(assembled, workflows);
+  const warnings = startupWarningsOf(assembled, workflows, piiKey.isInstanceKey);
   if (seams.quiet !== true) logStart(log, contexts.application, assembled.workflows, warnings);
   const app = composeApp(assembled, workflows, { stop, warnings });
   return { app, assembled, workflows, infrastructure, closed: stop.closed, log };
 }
 
-/** The assembly warnings, then each workflow's own (a config changed without a version bump). */
+/**
+ * The assembly warnings (a PII key of the instance only when it made one, S94 — never under
+ * `testWith`, which has a fixed key), then each workflow's own (a config changed without a version
+ * bump).
+ */
 const startupWarningsOf = (
   assembled: AssembledApplication,
   workflows: readonly BuiltApp[],
+  isInstanceKey: boolean,
 ): readonly string[] => [
-  ...assemblyWarningsOf(assembled).map(warningText),
+  ...assemblyWarningsOf({ ...assembled, isPiiKeyOfInstance: isInstanceKey }).map(warningText),
   ...workflows.flatMap((workflow) => workflow.app.warnings),
 ];
 

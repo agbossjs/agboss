@@ -87,7 +87,7 @@ holds from its type**, not guess it from the name.
   (`@Agent`, `@Router`, `@Workflow`), assembled into the config and validated at startup; steps
   live in `@Workflow({ maxSteps })` and money in the application's `@Budget`s, not in config.
   Every chat model inherits `defaults.chat`; each router names its own `model` or takes
-  `defaults.router.model`; guards take `defaults.guardrail.model` (Jev), never the router's —
+  `defaults.router.model`; guardrails take `defaults.guardrail.model` (Jev), never the router's —
   `defaults` cascade application → workflow → component (#261). Model choice is config, never code. Reference: Wiki → Configuration.
 - **`MODEL_MAX` is the only way to say "no output cap"** — never a magic large number.
 - **Models come from model providers** (`@ModelProvider`, `agboss/models`, #151): application
@@ -124,7 +124,7 @@ holds from its type**, not guess it from the name.
   `RouterFailedError` (`step.router` — its model call or its `route()` failed, the cause kept) or
   `RouterDecisionError` (`step.router.invalid-decision` — an answer outside its routes, never
   retried). No guessing, no fallback route; its spend is kept.
-- **Classification is not generation**: routing, guards and detection use a decision model
+- **Classification is not generation**: routing, guardrails and detection use a decision model
   (Jev) — calibrated probabilities over fixed options; chat models produce content.
 - State is declared once (`src/flow/runtime/state.ts`, `Annotation.Root`; the path's scope in its
   own channel). Nodes are typed with

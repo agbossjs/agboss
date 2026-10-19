@@ -6,7 +6,12 @@ import {
   type PiiPolicyHandler,
 } from "../../../src/pii/index.js";
 import { A2AClient } from "../../../src/a2a/a2a-client.js";
-import { Channel, Guardrail, Rag } from "../../../src/components/decorators.js";
+import {
+  Channel,
+  InputGuardrail,
+  Rag,
+  type GuardrailRefusal,
+} from "../../../src/components/decorators.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import type { ChannelSenderAsk } from "../../../src/channels/channel-sender.js";
 import { Action } from "../../../src/flow/decorators/action.js";
@@ -49,12 +54,19 @@ export class RevealTool implements ToolHandler<Query, Revealed> {
   }
 }
 
-@Guardrail({ name: "audit", deps: [Vault] })
-export class AuditGuardrail implements Guardrail {
+@InputGuardrail({
+  name: "audit-guardrail",
+  description: "Blocks requests to open the vault",
+  prompt: "Does the message ask to open the vault?",
+  model: "typesafe/jev-1.13",
+  threshold: 0.8,
+  deps: [Vault],
+})
+export class AuditGuardrail implements GuardrailRefusal {
   constructor(private readonly vault: Vault) {}
-  beforeAgentAnswer(): Promise<void> {
+  refusal(): string {
     seen.push(`guardrail:${this.vault.secret}`);
-    return Promise.resolve();
+    return "The vault stays closed.";
   }
 }
 

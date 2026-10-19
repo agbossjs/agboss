@@ -1,17 +1,27 @@
 {
   "interactions": [
     {
-      "key": "router:guard:prompt_injection",
-      "kind": "decision",
+      "key": "guardrail:prompt-injection-guardrail",
+      "kind": "decide",
       "outcome": {
-        "decision": {
-          "confidence": 1,
-          "next": "pass",
-          "reason": "unscripted guard"
+        "answers": {
+          "blocks": {
+            "noul": 0.01,
+            "type": "noul"
+          }
         },
-        "kind": "decided"
+        "usage": {
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "caller": "guardrail:prompt-injection-guardrail",
+          "costSource": "api",
+          "costUsd": 0.000004,
+          "inputTokens": 0,
+          "model": "typesafe/jev-1.13",
+          "outputTokens": 0
+        }
       },
-      "request": "6b2396fdccc918ab331a7bd27d23fce2c209521df3883ff6e4181109b41eb7fd"
+      "request": "0ebdf6d363e1b23d2553a9eae2b237d20c27dd8e281a8692dd202d1b51ece3f9"
     },
     {
       "key": "router:main-router",
@@ -25,6 +35,29 @@
         "kind": "decided"
       },
       "request": "b9221c8eda340351472d765aedf0d3a68186431146a3161c02133c58b79bf369"
+    },
+    {
+      "key": "guardrail:prompt-injection-guardrail",
+      "kind": "decide",
+      "outcome": {
+        "answers": {
+          "blocks": {
+            "noul": 0.01,
+            "type": "noul"
+          }
+        },
+        "usage": {
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "caller": "guardrail:prompt-injection-guardrail",
+          "costSource": "api",
+          "costUsd": 0.000004,
+          "inputTokens": 0,
+          "model": "typesafe/jev-1.13",
+          "outputTokens": 0
+        }
+      },
+      "request": "1bad44b81732d91a175107a41cb59eb11f808fa233a66b95670019e219065f77"
     },
     {
       "key": "agent:profiler-agent",
@@ -46,17 +79,27 @@
       "request": "8063127472a45c8603faef43f2411a0daeb91caf7494bd131730b843c30d9c44"
     },
     {
-      "key": "router:guard:pii",
-      "kind": "decision",
+      "key": "guardrail:personal-data-guardrail",
+      "kind": "decide",
       "outcome": {
-        "decision": {
-          "confidence": 1,
-          "next": "pass",
-          "reason": "unscripted guard"
+        "answers": {
+          "blocks": {
+            "noul": 0.01,
+            "type": "noul"
+          }
         },
-        "kind": "decided"
+        "usage": {
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "caller": "guardrail:personal-data-guardrail",
+          "costSource": "api",
+          "costUsd": 0.000004,
+          "inputTokens": 0,
+          "model": "typesafe/jev-1.13",
+          "outputTokens": 0
+        }
       },
-      "request": "fdd28d7a4a8e6596f6e6e2d3620165e069a7d117b0919aa8a0df1857c865aaa7"
+      "request": "d135b14de7e07083334045a2c3c7afec79041f54bdab072d4ed18ba94d21ee15"
     }
   ],
   "version": 1

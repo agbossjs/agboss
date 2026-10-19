@@ -152,9 +152,15 @@ export async function scriptedDecide(
   const input = typeof state === "string" ? state : JSON.stringify(state);
   try {
     const request = { kind: "decide", input, state, questions } as const;
-    const call = scriptedCall(script, request, () => {
-      checkDecisionRequest(spec.request);
-    });
+    const call = scriptedCall(
+      script,
+      request,
+      () => {
+        checkDecisionRequest(spec.request);
+      },
+      undefined,
+      spec.caller,
+    );
     await waitBeforeAnswer(clock, call);
     return outcomeOf(call.turn, spec, script.label);
   } catch (error) {

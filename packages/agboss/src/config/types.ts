@@ -148,15 +148,6 @@ export const McpServerConfigSchema = z.discriminatedUnion("transport", [
   }),
 ]);
 
-/** A guard: a two-option decision (flag / pass) with a threshold on P(flag). Texts: src/prompts/guards.ts. */
-export const GuardSettingsSchema = z.object({
-  threshold: z.number().min(0).max(1),
-  /** Returned as the replyWith when the guard trips. */
-  refusal: z.string().min(1),
-  /** Its own model or defaults.guardrail.model (#261), resolved at assembly. */
-  model: RouterModelSchema.optional(),
-});
-
 export const AgentsConfigSchema = z.object({
   /** Agent workflow id: key of the daily spend ledger. */
   name: z.string().regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase letters, digits and dashes"),
@@ -164,7 +155,7 @@ export const AgentsConfigSchema = z.object({
   version: z.string().min(1),
   defaults: z.object({
     models: ChatDefaultsSchema,
-    /** The model of guards, of `ROUTER_FACTORY` routers and of eval; none = they need their own. */
+    /** The model of `ROUTER_FACTORY` routers and of eval; none = they need their own. */
     router: RouterModelSchema.optional(),
     /** Tool calls per call of an agent (`agents.<name>.limits.toolCalls`); default 20. */
     tools: z.object({ maxToolCalls: z.number().int().nonnegative().optional() }).optional(),
@@ -177,13 +168,6 @@ export const AgentsConfigSchema = z.object({
   mcpServers: z.record(z.string(), McpServerConfigSchema).optional(),
   /** Conversation memory (off when absent). */
   compaction: CompactionSettingsSchema.optional(),
-  /** Run in order; the first guard that trips stops the run. */
-  guards: z
-    .object({
-      input: z.record(z.string(), GuardSettingsSchema).optional(),
-      output: z.record(z.string(), GuardSettingsSchema).optional(),
-    })
-    .optional(),
   /** `@Judge` models by judge name. */
   judges: z.record(z.string(), ModelSettingsSchema).optional(),
   agents: z.record(z.string(), AgentSettingsSchema),
@@ -198,7 +182,6 @@ export type ModelSettings = z.infer<typeof ModelSettingsSchema>;
 export type AgentSettings = z.infer<typeof AgentSettingsSchema>;
 export type RouterModel = z.infer<typeof RouterModelSchema>;
 export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
-export type GuardSettings = z.infer<typeof GuardSettingsSchema>;
 export type CompactionSettings = z.infer<typeof CompactionSettingsSchema>;
 export type AgentsConfig = z.infer<typeof AgentsConfigSchema>;
 

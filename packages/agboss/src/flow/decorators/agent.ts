@@ -1,6 +1,6 @@
 import { callerFile } from "../../components/call-site.js";
 import type { Class } from "../../components/injection.js";
-import type { AgentMeta, PiiPolicyFields, PolicyFields } from "../../components/meta-types.js";
+import type { AgentMeta, GuardrailFields, PiiPolicyFields } from "../../components/meta-types.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import { RagMode } from "../../rag/types.js";
 import { NodeKind } from "../ast.js";
@@ -21,7 +21,7 @@ export interface AgentRag {
  * `compensate`. An interface, not a union, so `satisfies Omit<AgentOptions, "name" | "description">`
  * keeps every field for a shared `*.options.ts` const (#272, 2026-10-16).
  */
-export interface AgentOptions extends PolicyFields, PiiPolicyFields {
+export interface AgentOptions extends GuardrailFields, PiiPolicyFields {
   /** Ends with `-agent` (`draft-reviewer-agent`); explicit, it keys records and checkpoints. */
   readonly name: string;
   readonly description: string;

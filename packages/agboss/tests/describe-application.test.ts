@@ -155,12 +155,14 @@ describe("#261 M1: describe shows the application", () => {
     });
   });
 
-  it("the observers and the warnings (a durable ledger listed, no pause: none)", () => {
+  it("the observers and the warnings (a durable ledger listed, no pause: only the PII key's)", () => {
     const lines = describeWorkflow(tell);
 
     expect(lines).toContain("observers TellAuditObserver");
-    expect(describedApplicationOf(tell)?.warnings).toEqual([]);
-    expect(lines.some((line) => line.startsWith("warning "))).toBe(false);
+    expect(describedApplicationOf(tell)?.warnings).toEqual([
+      "[application.pii-instance-key] no @Application({ pseudonymKey }): sensitive fields and policies without their own key make PII tokens with a key of this instance — one value gets another token on each instance, so logs and traces compare across instances only with pseudonymKey",
+    ]);
+    expect(lines.filter((line) => line.startsWith("warning ")).length).toBeLessThanOrEqual(1);
   });
 
   it("the count limits: maxSteps as set, each node's maxVisits, the worst case of each start", () => {

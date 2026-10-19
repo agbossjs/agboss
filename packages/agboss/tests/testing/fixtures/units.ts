@@ -7,8 +7,8 @@ import {
   ApplicationContext,
   Decision,
   ExecutionContext,
-  Guardrail,
   Injectable,
+  InputGuardrail,
   Judge,
   JudgeModel,
   JudgeVerdict,
@@ -19,7 +19,7 @@ import {
   TenantContext,
   Tool,
   pii,
-  type GuardrailContext,
+  type GuardrailRefusal,
   type JudgeHandler,
   type JudgeInput,
   type PiiMatch,
@@ -169,20 +169,27 @@ export class HandbookRag implements RagConnector {
 
 // ── a guardrail ──
 
-/** Refunds over the environment's limit are blocked; others go through with a note. */
-@Guardrail({ name: "refund-limit-guardrail", deps: [ApplicationContext, ExecutionContext] })
-export class RefundLimitGuardrail implements Guardrail {
+/**
+ * Blocks requests for legal advice; its refusal names the environment and the step it ran in — read
+ * from the contexts it injects, as an application's step would give them.
+ */
+@InputGuardrail({
+  name: "legal-advice-guardrail",
+  description: "Blocks requests for legal advice",
+  prompt: "Does the message ask for legal advice?",
+  model: "typesafe/jev-1.13",
+  threshold: 0.8,
+  deps: [ApplicationContext, ExecutionContext],
+})
+export class LegalAdviceGuardrail implements GuardrailRefusal {
   constructor(
     private readonly applicationContext: ApplicationContext,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  beforeToolCall(context: GuardrailContext): Promise<{ overrideArguments: { note: string } }> {
-    const { amount } = (context.call as { args: { amount: number } }).args;
+  refusal(): string {
     const { environmentName } = this.applicationContext;
-    if (amount > 100) return Promise.reject(new Error(`${String(amount)} is over the limit`));
-    const note = `${environmentName}:${this.executionContext.step.nodeId}`;
-    return Promise.resolve({ overrideArguments: { note } });
+    return `No legal advice (${environmentName}, ${this.executionContext.step.nodeId}).`;
   }
 }
 

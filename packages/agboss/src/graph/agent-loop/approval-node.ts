@@ -11,8 +11,6 @@ import {
 import { AgentFailedError } from "../errors.js";
 import { ChannelSendError } from "../../flow/runtime/pause.js";
 import type { ApprovalDecision } from "../../channels/decision.js";
-import { JudgePoint, visitToolThenAgent, mergePolicies } from "./judge-points.js";
-import { extractRunContext } from "../../core/run-context.js";
 import { redactedArguments } from "../../dto/redact.js";
 import { inToolCallFrame } from "../../flow/context/frame.js";
 import type { AnyTool } from "../../tools/index.js";
@@ -24,7 +22,7 @@ const summaryOf = (tool: AnyTool, args: Record<string, unknown>): string =>
 /**
  * Asks about ONE call — the first that waits — and records the decision by its call id. Nothing
  * happens before the ask, so running this node again on resume repeats nothing; the next waiting
- * call gets its own pause. The ask and the guardrails on the decision run in the call's frame
+ * call gets its own pause. The ask runs in the call's frame
  * (`executionContext.step.callId`, #280).
  */
 export function makeApprovalNode(
@@ -54,7 +52,6 @@ async function askedOrFailed(
 
 function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
   return async (state, config) => {
-    const runCtx = extractRunContext(config, state.runId);
     const [call] = awaitingApproval(state, deps);
     const { approval } = deps;
     if (call === undefined || approval === undefined) return {};
@@ -86,23 +83,6 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
         ? {}
         : { overrideArguments: decision.overrideArguments }),
     };
-    const combinedGuardrails = mergePolicies(
-      deps.workflowGuardrails,
-      deps.guardrails,
-      deps.toolGuardrails?.(call.tool),
-    );
-    const ctx = {
-      agent: deps.agent.name,
-      call,
-      runId: runCtx.runId,
-    };
-    await visitToolThenAgent(
-      combinedGuardrails,
-      JudgePoint.OnChannelDecision,
-      ctx,
-      recorded,
-      deps.observer,
-    );
     // a free-text reply's interpreter calls are the loop's spend from now on (#267 PR 3)
     return { decisions: { [call.callId]: recorded }, usage: [...decision.usage] };
   };

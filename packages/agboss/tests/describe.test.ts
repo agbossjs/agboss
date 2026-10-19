@@ -58,7 +58,12 @@ describe("describe a workflow", () => {
     const lines = describeWorkflow(test);
 
     expect(lines[0]).toMatch(/^test-workflow 1\.0\.0 · config [0-9a-f]{8}$/);
-    expect(lines).toContain("guards    input: prompt_injection ≥0.7 · output: pii ≥0.7");
+    expect(lines).toContain(
+      '  prompt-injection-guardrail — input ≥0.7 · typesafe/jev-1.13 (defaults.guardrail) · refusal: "I can\'t help with that request." · on coder-agent, researcher-agent, main-router',
+    );
+    expect(lines).toContain(
+      '  personal-data-guardrail — output ≥0.7 · typesafe/jev-1.13 (defaults.guardrail) · refusal: "Withheld." · on coder-agent, researcher-agent',
+    );
     expect(lines).toContain("memory    raw turns only");
     expect(
       lines.some((l) =>

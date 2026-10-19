@@ -169,6 +169,19 @@ function moduleImports(
   ].join("\n");
 }
 
+/** The files every new workflow has as they are: its models, its model provider, its guardrail. */
+const fixedFiles = (dir: string): FileToWrite[] => [
+  { path: `${dir}/models.ts`, content: render("workflow/models.ts.tmpl", {}) },
+  {
+    path: `${dir}/guardrails/prompt-injection.guardrail.ts`,
+    content: render("workflow/prompt-injection.guardrail.ts.tmpl", {}),
+  },
+  {
+    path: `${dir}/model-providers/openrouter.model-provider.ts`,
+    content: render("workflow/openrouter.model-provider.ts.tmpl", {}),
+  },
+];
+
 /**
  * Every file of one new workflow (agents, tools with tests, MCP, knowledge base, the module); `api`:
  * its tools inject the project's `ApiService` (`agboss create`, #239).
@@ -206,11 +219,7 @@ export function planWorkflow(spec: WorkflowSpec, api = false): FileToWrite[] {
     `${workflow.kebab}-main`,
   );
   return [
-    { path: `${dir}/models.ts`, content: render("workflow/models.ts.tmpl", {}) },
-    {
-      path: `${dir}/model-providers/openrouter.model-provider.ts`,
-      content: render("workflow/openrouter.model-provider.ts.tmpl", {}),
-    },
+    ...fixedFiles(dir),
     ...endpointFiles(dir, workflow),
     router,
     ...agents.flatMap((a) =>
