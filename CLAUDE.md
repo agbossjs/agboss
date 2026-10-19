@@ -1299,8 +1299,8 @@ tenant, execution, onStream })` runs the workflow of that start (any workflow of
   role's `@ReplyInterpreter` (Components above). Who answered each pause is in
   `result.record.pauses` (`{ record: true }`, #267 S107): every resolved pause of the tree in the order
   asked — `PauseAnswerRecord { pauseId (none for a Channel pause), step, role, answeredBy, responder,
-  resolution: PauseResolution.Decided | Replied | Withdrawn | Cancelled, askedAt, resolvedAt,
-  decision }`, the decision PII-masked, none when withdrawn or cancelled. A resolved record (`Taken`,
+resolution: PauseResolution.Decided | Replied | Withdrawn | Cancelled, askedAt, resolvedAt,
+decision }`, the decision PII-masked, none when withdrawn or cancelled. A resolved record (`Taken`,
   `Cancelled`) is kept `@Application({ pauseRecordRetention })` (default `hours(24)`), then removed by
   the recovery sweep (`PausedExecutionRepository.deleteResolvedBefore(cutoff)`, on the `Clock`): a
   late answer is `NotPausedError` within it, `UnknownPauseError` after; `Pending` is never removed. `app.cancel(threadId, { tenantId, ownerId })` aborts a

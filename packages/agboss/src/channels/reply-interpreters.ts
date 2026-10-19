@@ -64,7 +64,8 @@ function interpretedRolesOf(uses: readonly ChannelUse[]): readonly InterpretedRo
 function declarationViolations({ interpreter, declaration }: InterpretedRole): RuleViolation[] {
   const { options } = declaration;
   const suffix = kindSuffixProblem(options.name, NameKind.ReplyInterpreter);
-  const found = suffix === undefined ? [] : [violation(suffix.code, suffix.message, [options.name])];
+  const found =
+    suffix === undefined ? [] : [violation(suffix.code, suffix.message, [options.name])];
   if (isCodeReplyInterpreter(options)) {
     const interpret: unknown = Reflect.get(interpreter.prototype as object, "interpret");
     if (typeof interpret === "function") return found;

@@ -85,7 +85,8 @@ interface InterpreterTables {
 /** A reply interpreter's entries, keyed by its `name` (its class branded with it). */
 function interpreterEntries(role: RoleTypes, names: ImportTable, tables: InterpreterTables): void {
   const { interpreter } = role;
-  const name = interpreter === undefined ? undefined : replyInterpreterOf(interpreter)?.options.name;
+  const name =
+    interpreter === undefined ? undefined : replyInterpreterOf(interpreter)?.options.name;
   if (interpreter === undefined || name === undefined) return;
   names.ref(interpreter);
   const { ask, answer } = role.types;

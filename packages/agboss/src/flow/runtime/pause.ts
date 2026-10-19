@@ -164,10 +164,7 @@ export interface PauseStepSite {
 }
 
 /** Asks the step's question through its pause: the answer, or the step stops at `interrupt()`. */
-export async function pauseStep(
-  site: PauseStepSite,
-  question: PauseQuestion,
-): Promise<StepAnswer> {
+export async function pauseStep(site: PauseStepSite, question: PauseQuestion): Promise<StepAnswer> {
   const { pauses, channel, frame } = site;
   const { tenantId } = frame.execution.tenant;
   const made = newRecordOf(frame, channel, question, site.clock);

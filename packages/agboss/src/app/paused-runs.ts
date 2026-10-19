@@ -69,11 +69,6 @@ export async function withdrawPauses(
   const pauses = await repository.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId);
   for (const { pauseId, status } of pauses) {
     if (status === PauseStatus.Pending)
-      await repository.cancelByTenantIdAndPauseId(
-        tenantId,
-        pauseId,
-        PauseResolution.Cancelled,
-        at,
-      );
+      await repository.cancelByTenantIdAndPauseId(tenantId, pauseId, PauseResolution.Cancelled, at);
   }
 }
