@@ -33,7 +33,7 @@ export interface PiiMatch {
 
 /** A project's own detector (S61): the ranges of `text` its `action` applies to. */
 export interface PiiPolicyHandler {
-  findMatches(text: string): readonly PiiMatch[] | Promise<readonly PiiMatch[]>;
+  readonly findMatches: (text: string) => readonly PiiMatch[] | Promise<readonly PiiMatch[]>;
 }
 
 /**
@@ -41,8 +41,16 @@ export interface PiiPolicyHandler {
  * sender's language, a CMS), the execution through `deps: [ExecutionContext]`.
  */
 export interface PiiRefusal {
-  refusal(kind: PiiKind): string | Promise<string>;
+  readonly refusal: (kind: PiiKind) => string | Promise<string>;
 }
+
+/**
+ * A declarative policy's class: when it has `refusal`, it is `PiiRefusal`'s — checked on the
+ * decorator line (#120 PR 4), whatever the class `implements`.
+ */
+export type PiiRefusalShape<TInstance> = TInstance extends { readonly refusal: unknown }
+  ? new (...args: never[]) => PiiRefusal
+  : unknown;
 
 /** The declarative form's options. */
 export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readonly Token[]> {
@@ -86,7 +94,9 @@ export type PiiPolicyMeta = DeclarativePiiPolicyMeta | CustomPiiPolicyMeta;
 /** A declarative policy: its class may implement `PiiRefusal`. */
 export function PiiPolicy<const D extends readonly Token[] = []>(
   options: DeclarativePiiPolicyOptions<D>,
-): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+): <C extends new (...args: ResolvedAll<D>) => object>(
+  value: C & PiiRefusalShape<InstanceType<C>>,
+) => C;
 /** A project's own detector: its class implements `PiiPolicyHandler`. */
 export function PiiPolicy<const D extends readonly Token[] = []>(
   options: CustomPiiPolicyOptions<D>,

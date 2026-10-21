@@ -49,12 +49,12 @@ export function Rag<const D extends readonly Token[] = []>(options: {
 
 // @public
 export interface RagConnector {
-    index?(): Promise<IndexReport>;
+    readonly index?: () => Promise<IndexReport>;
     // (undocumented)
-    retrieve(query: string, options: {
+    readonly retrieve: (query: string, options: {
         readonly topK: number;
         readonly signal: AbortSignal;
-    }): Promise<RagRetrieval>;
+    }) => Promise<RagRetrieval>;
 }
 
 // @public

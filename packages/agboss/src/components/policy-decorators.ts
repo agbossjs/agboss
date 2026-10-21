@@ -22,7 +22,7 @@ export enum GuardrailSide {
  * language, wording kept in a CMS) — the execution through `deps: [ExecutionContext]`.
  */
 export interface GuardrailRefusal {
-  refusal(): string | Promise<string>;
+  readonly refusal: () => string | Promise<string>;
 }
 
 /** What both forms of a guardrail declare. */

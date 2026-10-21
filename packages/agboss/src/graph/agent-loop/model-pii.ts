@@ -12,7 +12,7 @@ import { DetectionMode } from "../../pii/runtime-policy.js";
 import { mappedStringsAsync } from "../../pii/strings.js";
 import type { PiiPolicySet } from "../../pii/policy-set.js";
 import { unknownTokenMessage } from "../../prompts/pii.js";
-import { normalisePromptText } from "../text.js";
+import { normalisePromptText } from "../../components/prompt-render.js";
 import { invalidAnswer } from "./answer-node.js";
 import { callsOf, isAnswerCall, type AgentLoopDeps } from "./deps.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";

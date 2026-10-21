@@ -1012,8 +1012,13 @@ export const quorumPaths = [
 - **Decorator = metadata, constructor = dependencies, methods = a contract:** `implements` for your
   own (`ToolHandler<In, Out>`, `ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler<TReply>`,
   `RagConnector`), `extends` +
-  `override` for a standard implementation (`McpServerClient`, `SqliteFtsConnector`). Prompts are
-  `prompt` (inline) or `promptUrls` (files next to the component) plus `promptVariables`;
+  `override` for a standard implementation (`McpServerClient`, `SqliteFtsConnector`). The check is
+  on the decorator line, `implements` is documentation (#120 PR 4): every contract is a
+  function-typed property (strict variance), so a method with a narrower parameter fails on
+  `@Tool`, `@Rag`, `@Judge`, `@PiiPolicy`, `@ModelProvider`, … Prompts are
+  `prompt` (inline) or `promptUrls` (files next to the component) plus `promptVariables`, normalised
+  at load — no BOM, `\n` line breaks, no blank lines at the edges, NFC; parts joined with one blank
+  line — and sent and fingerprinted as normalised;
   `{{variables}}` are checked at assembly (`[prompt.unknown-variable]`). What a node reads comes in
   its input message (`### field (from producer)`), never as `{{input.…}}` in instructions
   (`[prompt.input-in-instructions]`).

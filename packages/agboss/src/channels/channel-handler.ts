@@ -20,7 +20,7 @@ export interface ChannelAsk<TRole> {
 
 /** Every channel: a role's implementation, or a concrete `@Channel` a tool names as is. */
 export interface ChannelHandler<TRole> {
-  send(ask: ChannelAsk<TRole>): Promise<ChannelOutcome<TRole>>;
+  readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
 }
 
 /**

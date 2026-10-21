@@ -34,11 +34,11 @@ export interface DecideRequest {
  * what each model supports. `OpenAiCompatibleProvider` and `DecisionsModelProvider` implement it.
  */
 export interface ModelProviderHandler {
-  chat?(request: ChatRequest): BaseChatModel;
-  routeTo?(request: DecideRequest): Promise<unknown>;
+  readonly chat?: (request: ChatRequest) => BaseChatModel;
+  readonly routeTo?: (request: DecideRequest) => Promise<unknown>;
   /** `undefined` = the provider does not serve this model (`model.unknown-model`). */
-  capabilities(
+  readonly capabilities: (
     model: string,
     connection: ProviderConnection,
-  ): Promise<ModelCapabilities | undefined>;
+  ) => Promise<ModelCapabilities | undefined>;
 }

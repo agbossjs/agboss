@@ -12,6 +12,30 @@ import {
   type PromptProblem,
 } from "./prompt-problems.js";
 
+const BOM = /^\uFEFF/;
+const LINE_BREAK = /\r\n?/g;
+const BLANK_LINE = /^[ \t]*$/;
+
+/**
+ * A prompt as it is sent and fingerprinted (#120): BOM removed, line breaks as `\n`, Unicode NFC,
+ * blank lines at the edges removed. Kept as written: indentation, spaces inside a line, tabs, blank
+ * lines between paragraphs.
+ */
+export function normalisePromptText(text: string): string {
+  const lines = text.replace(BOM, "").replace(LINE_BREAK, "\n").normalize("NFC").split("\n");
+  const first = lines.findIndex((line) => !BLANK_LINE.test(line));
+  if (first === -1) return "";
+  const last = lines.findLastIndex((line) => !BLANK_LINE.test(line));
+  return lines.slice(first, last + 1).join("\n");
+}
+
+/** Parts of one prompt (inline `prompt` first, then files in order), joined with one blank line. */
+const joinPromptParts = (parts: readonly string[]): string =>
+  parts
+    .map(normalisePromptText)
+    .filter((part) => part !== "")
+    .join("\n\n");
+
 /** The text of a prompt input (an assembled prompt, a profile's override), if it is one. */
 export const promptTextOf = (input: unknown): string | undefined =>
   typeof input === "string" ? input : undefined;
@@ -56,11 +80,11 @@ export class PromptLoader {
       this.#problems.push(...inputInInstructions(segment.where, segment.text));
       this.#problems.push(...unknownVariables(segment.where, segment.text, known));
     });
-    const template = segments.map((segment) => segment.text).join("\n\n");
+    const template = joinPromptParts(segments.map((segment) => segment.text));
     if (this.#problems.length > before) return template;
     const unknown = (key: string) =>
       new ComponentError(`${owner.label}: unknown prompt variable {{${key}}}`);
-    return renderTemplate(template, variables, unknown);
+    return normalisePromptText(renderTemplate(template, variables, unknown));
   }
 
   /** Throws `PromptError` with every problem found so far. */

@@ -275,11 +275,11 @@ export class ModelProviderError extends Error {
 
 // @public
 export interface ModelProviderHandler {
-    capabilities(model: string, connection: ProviderConnection): Promise<ModelCapabilities | undefined>;
+    readonly capabilities: (model: string, connection: ProviderConnection) => Promise<ModelCapabilities | undefined>;
     // (undocumented)
-    chat?(request: ChatRequest): BaseChatModel;
+    readonly chat?: (request: ChatRequest) => BaseChatModel;
     // (undocumented)
-    routeTo?(request: DecideRequest): Promise<unknown>;
+    readonly routeTo?: (request: DecideRequest) => Promise<unknown>;
 }
 
 // @public

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { file } from "../../src/components/file.js";
-import { normalisePromptText } from "../../src/graph/text.js";
 
 import { tool } from "@langchain/core/tools";
 import type { BaseLanguageModelInput } from "@langchain/core/language_models/base";
@@ -189,6 +188,6 @@ describe("AC6: prompts are normalised at load and sent normalised", () => {
 
     const text = (await workflowOf(Normalised)).prompts["writer-agent"] ?? "";
 
-    expect(normalisePromptText(text)).toBe("  Caf\u00e9 rules\n\n\tstep");
+    expect(text).toBe("  Caf\u00e9 rules\n\n\tstep");
   });
 });
