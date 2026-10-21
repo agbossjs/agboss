@@ -83,7 +83,7 @@ export interface AgentExecutionOutput {
   readonly tenantId: string;
   readonly ternId: string;
   readonly data: ExecutionData;
-  /** What the compactions did after this turn (#120 PR 3), when one compacted. */
+  /** What the compactions did before this execution read its thread (#120 S132), when one did. */
   readonly compacted?: readonly Compacted[];
   /** The conversation in the tracing UI (session = thread), when tracing is on. */
   readonly traceUrl?: string;

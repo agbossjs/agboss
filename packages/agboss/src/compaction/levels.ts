@@ -1,6 +1,7 @@
 import type { Class } from "../components/injection.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
-import { compactionMetaOf, TurnLimit, type UncompactedTurns } from "./compaction.decorator.js";
+import { TurnLimit } from "../config/types.js";
+import { compactionMetaOf, type UncompactedTurns } from "./compaction.decorator.js";
 
 /**
  * The compaction and the window of each reader of the thread (#120 PR 3) — every agent and model

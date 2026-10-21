@@ -33,7 +33,7 @@ balancing })` — one limit for every execution, tenant and instance (`RateLimit
     `Decision.noul` / `Decision.choice` / `Decision.score` / `Decision.image` (typed answers);
     `invoke` or `decide` on the wrong kind of model → `ModelKindError`.
   - Agents: cheap chat models (default `moonshotai/kimi-k2.6`) via `@langchain/openai`, each with
-    `maxTokens` (`MODEL_MAX` = model's maximum), `thinking`, `cache`.
+    `maxTokens` (`TokenLimit.MODEL_MAX` = model's maximum), `thinking`, `cache`.
   - Everything is set in the workflow's components (`@Workflow` with its `flow` of paths,
     `@Router`, `@Agent`) and its application (`@Application`, its `@Budget`s) — reference: Architecture below (compiled by `make check`), then Wiki →
     Workflow, Routers, Components, Configuration (compiled by CI, see Quality gates).
@@ -1167,14 +1167,16 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
   **smallest** window among the agents and routers that use it, so no one loses a turn: a reader
   sees in full its window and every turn its compaction has not summarised yet, and only the
   summaries its turns do not cover. `summaryMaxTokens` is the summary call's `max_tokens` (counted
-  by the model's server, `MODEL_MAX` allowed, thinking off): cut there → one "shorter" retry, then
+  by the model's server, `TokenLimit.MODEL_MAX` allowed, thinking off): cut there → one "shorter" retry, then
   `CompactionError` (`compaction`: `compaction`, `summaryMaxTokens`; a failed call is one too, as its
-  `cause`) — never a cut summary: the execution that finished the turn fails, so the turn is not
-  kept and the next one compacts. The compaction's model reads the turns through the application's
+  `cause`) — never a cut summary. A compaction runs lazily, before a new execution's first read of
+  its thread (#120 S132), never after a turn: a finished turn's answer is always kept, a thread that
+  ends pays for none, and a `CompactionError` fails the new execution before any of its work (no
+  model call, no step, no turn kept). The compaction's model reads the turns through the application's
   and the workflow's PII policies (masked, S84 i); the summary is revealed before it is stored
   (`ExecutionRecordRepository`, by `(tenantId, threadId, compaction)`), and each reader's own
   policies mask it at its boundary. Spend `compaction:<name>` (category `compaction`);
-  `result.compacted` lists what each compaction did after the turn; `[compaction.not-a-compaction]`,
+  `result.compacted` lists what each compaction did before the execution; `[compaction.not-a-compaction]`,
   `[compaction.invalid-setting]`, `[compaction.decision-model]`,
   `[compaction.uncompacted-turns-invalid]` at assembly. Tests: `mockLlm(ConversationCompaction)
 .thenReturn(replyWith("…"))` (`{ truncated: true }` = cut at the limit) — unscripted, a fixed

@@ -1,6 +1,6 @@
 import { file } from "../../../src/components/file.js";
 
-import { Agent, Workflow, MODEL_MAX, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
+import { Agent, Workflow, TokenLimit, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { DecisionsModelProvider, Reasoning } from "../../../src/models/index.js";
 import { start } from "../../helpers/flow.js";
@@ -62,7 +62,7 @@ export class Answer {}
       .toFinish(Answer),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 2 },
   },

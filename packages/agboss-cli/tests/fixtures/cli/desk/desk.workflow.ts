@@ -7,7 +7,10 @@ import {
   WorkflowFinish,
   WorkflowStart,
 } from "../../../../../agboss/src/index.js";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../../agboss/src/dto/index.js";
+import {
+  WorkflowFinishTextDto,
+  WorkflowStartTextDto,
+} from "../../../../../agboss/src/dto/index.js";
 import { listOf, optional } from "../../../../../agboss/src/flow/dto-wrappers.js";
 import {
   CompanyDto,
@@ -103,10 +106,18 @@ export class CriteriaAction {
   }
 }
 
-@WorkflowFinish({ name: "echo-workflow-finish", description: "The echo", output: WorkflowFinishTextDto })
+@WorkflowFinish({
+  name: "echo-workflow-finish",
+  description: "The echo",
+  output: WorkflowFinishTextDto,
+})
 export class EchoWorkflowFinish {}
 
-@WorkflowFinish({ name: "score-workflow-finish", description: "The score", output: CompanyScoreDto })
+@WorkflowFinish({
+  name: "score-workflow-finish",
+  description: "The score",
+  output: CompanyScoreDto,
+})
 export class ScoreWorkflowFinish {}
 
 @Workflow({

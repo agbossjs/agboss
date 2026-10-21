@@ -109,17 +109,17 @@ describe("compaction is the built-in strategy's memory update", () => {
     mockLlm(Recaller).thenReturnAlways(replyWith(RecallDto, { text: "ok" }, { cost: usd(0.001) }));
     mockLlm(DeskCompaction).thenReturn(replyWith("t1 and t2 were asked", { cost: usd(0.004) }));
 
-    // window 1, 2 turns between compactions: after turn 3, t1 and t2 are older than the window
-    const third = await converse(app, 3);
+    // window 1, 2 turns between compactions: before turn 4 reads the thread, t1 and t2 are older
+    const fourth = await converse(app, 4);
 
-    expect(third.compacted).toMatchObject([
+    expect(fourth.compacted).toMatchObject([
       { compaction: "desk-compaction", fromTurn: 1, toTurn: 2, summaries: 1 },
     ]);
-    expect(third.spend.byCategory.compaction).toBeCloseTo(0.004, 6);
-    expect(third.spend.totalUsd).toBeCloseTo(0.005, 6);
-    expect(third.spend.trace.map((line) => line.caller)).toEqual([
-      "recaller-agent",
+    expect(fourth.spend.byCategory.compaction).toBeCloseTo(0.004, 6);
+    expect(fourth.spend.totalUsd).toBeCloseTo(0.005, 6);
+    expect(fourth.spend.trace.map((line) => line.caller)).toEqual([
       "compaction:desk-compaction",
+      "recaller-agent",
     ]);
   });
 

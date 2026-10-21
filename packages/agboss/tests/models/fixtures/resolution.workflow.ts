@@ -6,7 +6,7 @@ import {
   EmptyEnvironment,
   Injectable,
   Judge,
-  MODEL_MAX,
+  TokenLimit,
   Router,
   Workflow,
   WorkflowFinish,
@@ -106,7 +106,7 @@ export class NowhereCompaction {}
       ),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
     router: { model: "nowhere/default-router" },
     guardrail: { model: "nowhere/guardrail" },
   },
@@ -145,7 +145,7 @@ export class LocalStart {}
       .toFinish(ResolutionFinish),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
     router: { model: "typesafe/jev-1.13" },
   },
   uncompactedTurns: 1,
@@ -198,7 +198,7 @@ export class NotInfrastructure {}
       .toFinish(ResolutionFinish),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
     router: { model: "typesafe/jev-1.13" },
   },
   uncompactedTurns: 1,

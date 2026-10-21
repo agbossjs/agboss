@@ -9,7 +9,7 @@ import {
   Compaction,
   CompactionStrategy,
   DecidedBy,
-  MODEL_MAX,
+  TokenLimit,
   PiiAction,
   PiiKind,
   PiiPolicy,
@@ -55,7 +55,7 @@ export class QueueCompaction {}
   model: "test/compactor",
   strategy: CompactionStrategy.SingleSummary,
   turnsBetweenCompactions: 1,
-  summaryMaxTokens: MODEL_MAX,
+  summaryMaxTokens: TokenLimit.MODEL_MAX,
 })
 export class NoteCompaction {}
 
@@ -220,3 +220,41 @@ export class WindowDeskWorkflow {}
   budgets: TEST_BUDGETS,
 })
 export class WindowDeskApplication {}
+
+/** Every turn older than a window of none: compacted before the next turn reads the thread. */
+@Compaction({
+  name: "eager-compaction",
+  description: "Summarises every turn before the next one",
+  model: "test/compactor",
+  strategy: CompactionStrategy.SummaryQueue,
+  turnsBetweenCompactions: 1,
+  summaryQueueLength: 1,
+  summaryMaxTokens: 100,
+})
+export class EagerCompaction {}
+
+@Agent({
+  name: "eager-agent",
+  description: "Answers from the summary only",
+  prompt: "Answer the message.",
+  model: "test/eager",
+})
+export class EagerAgent {}
+
+@Workflow({
+  name: "eager-desk-workflow",
+  version: "1.0.0",
+  flow: [start(DeskStart).returns(WorkflowStartTextDto).toAgent(EagerAgent).toFinish(DeskAnswer)],
+  compaction: EagerCompaction,
+  uncompactedTurns: 0,
+})
+export class EagerDeskWorkflow {}
+
+@Application({
+  name: "eager-desk-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [EagerDeskWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class EagerDeskApplication {}

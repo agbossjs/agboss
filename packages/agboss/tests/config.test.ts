@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { TestWorkflow } from "./fixtures/test-workflow/test.workflow.js";
 import { workflowOf } from "../src/testing/index.js";
 import {
-  MODEL_MAX,
   UnknownAgentToolError,
   validateAgentsConfig,
   type AgentsConfig,
   type AgentsConfigOf,
 } from "../src/config/types.js";
+import { TokenLimit } from "../src/config/types.js";
 import { testConfig } from "./helpers.js";
 
 describe("validateAgentsConfig", () => {
@@ -15,7 +15,7 @@ describe("validateAgentsConfig", () => {
     const config = validateAgentsConfig((await workflowOf(TestWorkflow)).config);
 
     expect(config.defaults.router?.kind).toBe("jev");
-    expect(config.defaults.models.maxTokens).toBe(MODEL_MAX);
+    expect(config.defaults.models.maxTokens).toBe(TokenLimit.MODEL_MAX);
   });
 
   it("accepts a router override", () => {

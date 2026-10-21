@@ -96,7 +96,7 @@ holds from its type**, not guess it from the name.
   Every chat model inherits `defaults.chat`; each router names its own `model` or takes
   `defaults.router.model`; guardrails take `defaults.guardrail.model` (Jev), never the router's —
   `defaults` cascade application → workflow → component (#261). Model choice is config, never code. Reference: Wiki → Configuration.
-- **`MODEL_MAX` is the only way to say "no output cap"** — never a magic large number.
+- **`TokenLimit.MODEL_MAX` is the only way to say "no output cap"** — never a magic large number.
 - **Models come from model providers** (`@ModelProvider`, `agboss/models`, #151): application
   infrastructure, listed only in `@Application({ providers })` (#266; none → the built-in OpenRouter
   - Decisions providers, one listed → the list is complete); each model of the application is
@@ -183,7 +183,7 @@ $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLi
     (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`, `BudgetExceededError`.
   - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
     parallel executions of one tenant may overrun it a little, and a budget may be exceeded by the
-    cost of one call (a call in flight cannot be stopped; with `MODEL_MAX` one call is bounded only
+    cost of one call (a call in flight cannot be stopped; with `TokenLimit.MODEL_MAX` one call is bounded only
     by the model). A branch of a parallel launch counts the spend at the launch plus its siblings that
     already ended (#273).
   - `maxSteps` is checked at assembly: `[limits.max-steps-too-low]` (no finish fits in a hand-set

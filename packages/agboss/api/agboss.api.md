@@ -2335,9 +2335,6 @@ export interface MissingGeneratedTypes {
 }
 
 // @public
-export const MODEL_MAX = "max";
-
-// @public
 export interface ModelArbiterOptions {
     readonly criteria: readonly [ArbiterCriterion, ...ArbiterCriterion[]];
     // (undocumented)
@@ -4107,7 +4104,7 @@ export interface SubPath {
 }
 
 // @public
-export type SummaryMaxTokens = number | typeof MODEL_MAX;
+export type SummaryMaxTokens = number | TokenLimit.MODEL_MAX;
 
 // @public
 export interface SummaryQueueCompactionOptions extends SummarisingOptions {
@@ -4205,6 +4202,12 @@ export function toFinish<const TClass extends Class>(target: TClass & TargetChec
 
 // @public (undocumented)
 export type Token = Class | InjectionToken<unknown>;
+
+// @public
+export enum TokenLimit {
+    // (undocumented)
+    MODEL_MAX = "max"
+}
 
 // @public
 export function Tool<In extends DtoClass, Out extends DtoClass, const D extends readonly Token[] = []>(options: ToolOptions<In, Out, D>): <C extends new (...args: ResolvedAll<D>) => ToolHandler<InstanceType<In>, InstanceType<Out>>>(value: C) => C;
@@ -4669,21 +4672,20 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/channels/test-channels.ts:24:3 - (ae-undocumented) Missing documentation for "send".
 // src/channels/test-channels.ts:35:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/test-channels.ts:37:3 - (ae-undocumented) Missing documentation for "send".
-// src/compaction/compaction.decorator.ts:27:3 - (ae-undocumented) Missing documentation for "ALL".
-// src/compaction/compaction.decorator.ts:60:3 - (ae-undocumented) Missing documentation for "strategy".
-// src/compaction/compaction.decorator.ts:67:3 - (ae-undocumented) Missing documentation for "strategy".
-// src/compaction/compaction.decorator.ts:68:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
-// src/compaction/compaction.decorator.ts:73:3 - (ae-undocumented) Missing documentation for "name".
-// src/compaction/compaction.decorator.ts:74:3 - (ae-undocumented) Missing documentation for "description".
-// src/compaction/compaction.decorator.ts:75:3 - (ae-undocumented) Missing documentation for "strategy".
-// src/compaction/compaction.decorator.ts:76:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/compaction/compaction.decorator.ts:77:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/compaction/compaction.decorator.ts:78:3 - (ae-undocumented) Missing documentation for "model".
-// src/compaction/compaction.decorator.ts:79:3 - (ae-undocumented) Missing documentation for "turnsBetweenCompactions".
-// src/compaction/compaction.decorator.ts:80:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
-// src/compaction/compaction.decorator.ts:81:3 - (ae-undocumented) Missing documentation for "summaryMaxTokens".
-// src/compaction/errors.ts:11:3 - (ae-undocumented) Missing documentation for "code".
-// src/compaction/errors.ts:12:12 - (ae-undocumented) Missing documentation for "name".
+// src/compaction/compaction.decorator.ts:55:3 - (ae-undocumented) Missing documentation for "strategy".
+// src/compaction/compaction.decorator.ts:62:3 - (ae-undocumented) Missing documentation for "strategy".
+// src/compaction/compaction.decorator.ts:63:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
+// src/compaction/compaction.decorator.ts:68:3 - (ae-undocumented) Missing documentation for "name".
+// src/compaction/compaction.decorator.ts:69:3 - (ae-undocumented) Missing documentation for "description".
+// src/compaction/compaction.decorator.ts:70:3 - (ae-undocumented) Missing documentation for "strategy".
+// src/compaction/compaction.decorator.ts:71:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/compaction/compaction.decorator.ts:72:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/compaction/compaction.decorator.ts:73:3 - (ae-undocumented) Missing documentation for "model".
+// src/compaction/compaction.decorator.ts:74:3 - (ae-undocumented) Missing documentation for "turnsBetweenCompactions".
+// src/compaction/compaction.decorator.ts:75:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
+// src/compaction/compaction.decorator.ts:76:3 - (ae-undocumented) Missing documentation for "summaryMaxTokens".
+// src/compaction/errors.ts:12:3 - (ae-undocumented) Missing documentation for "code".
+// src/compaction/errors.ts:13:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/bind-tool.ts:22:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/bind-tool.ts:24:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/decorators.ts:15:3 - (ae-undocumented) Missing documentation for "run".
@@ -4720,9 +4722,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/components/spend-recorder.ts:20:3 - (ae-undocumented) Missing documentation for "record".
 // src/components/spend-recorder.ts:25:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/spend-recorder.ts:26:12 - (ae-undocumented) Missing documentation for "name".
-// src/config/types.ts:189:1 - (ae-undocumented) Missing documentation for "CompactionSettings".
-// src/config/types.ts:190:1 - (ae-undocumented) Missing documentation for "AgentsConfig".
-// src/config/types.ts:202:3 - (ae-forgotten-export) The symbol "AgentSettingsOf" needs to be exported by the entry point index.d.ts
+// src/config/types.ts:13:3 - (ae-undocumented) Missing documentation for "MODEL_MAX".
+// src/config/types.ts:18:3 - (ae-undocumented) Missing documentation for "ALL".
+// src/config/types.ts:201:1 - (ae-undocumented) Missing documentation for "CompactionSettings".
+// src/config/types.ts:202:1 - (ae-undocumented) Missing documentation for "AgentsConfig".
+// src/config/types.ts:214:3 - (ae-forgotten-export) The symbol "AgentSettingsOf" needs to be exported by the entry point index.d.ts
 // src/core/error-record.ts:11:3 - (ae-undocumented) Missing documentation for "name".
 // src/core/error-record.ts:12:3 - (ae-undocumented) Missing documentation for "code".
 // src/core/error-record.ts:15:3 - (ae-undocumented) Missing documentation for "message".
@@ -5357,13 +5361,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/resume-guard.ts:40:3 - (ae-undocumented) Missing documentation for "runId".
 // src/run/resume-guard.ts:41:3 - (ae-undocumented) Missing documentation for "paused".
 // src/run/resume-guard.ts:42:3 - (ae-undocumented) Missing documentation for "current".
-// src/run/thread.ts:24:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
-// src/run/thread.ts:25:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:26:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/thread.ts:31:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:32:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/thread.ts:37:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:38:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:25:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
+// src/run/thread.ts:26:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:27:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:32:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:33:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:38:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:39:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/types.ts:22:3 - (ae-undocumented) Missing documentation for "terns".
 // src/run/types.ts:34:1 - (ae-undocumented) Missing documentation for "RunOptions".
 // src/run/types.ts:70:3 - (ae-undocumented) Missing documentation for "status".

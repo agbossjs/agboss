@@ -5,7 +5,7 @@ import {
   BudgetScope,
   EmptyEnvironment,
   ExecutionContext,
-  MODEL_MAX,
+  TokenLimit,
   TenantContext,
   Workflow,
   WorkflowFinish,
@@ -71,7 +71,7 @@ export class DraftDto {
 }
 
 const defaults = {
-  models: { temperature: 0, maxTokens: MODEL_MAX, cache: true },
+  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
   tools: { maxToolCalls: 2 },
 } as const;
 const price = { inputPerMTok: 1, outputPerMTok: 10 };

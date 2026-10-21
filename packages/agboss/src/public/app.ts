@@ -137,7 +137,6 @@ export type { AgentExecutionOutput, RunDeps, RunOptions } from "../run/types.js"
 export { runVersions } from "../run/versions.js";
 export type { UsageRecord } from "../finops/usage.js";
 export {
-  MODEL_MAX,
   type AgentsConfig,
   type AgentsConfigOf,
   type CompactionSettings,

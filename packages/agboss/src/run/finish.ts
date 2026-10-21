@@ -78,13 +78,8 @@ export async function finishRun<TName extends string>(
   if (ternId === undefined) ternId = (await ctx.deps.terns.append({ ...ctx.base, ...outcome })).id;
   else await ctx.deps.terns.complete(ternId, outcome);
   const memory = paused
-    ? { usage: [], compacted: [] }
-    : await updateMemoryAfter(
-        ctx,
-        usage,
-        { start: ctx.base.task, finish: outcome.replyWith },
-        state.piiTokens,
-      );
+    ? { usage: [] }
+    : await updateMemoryAfter(ctx, usage, { start: ctx.base.task, finish: outcome.replyWith });
   return {
     status: paused ? ExecutionStatus.Paused : ExecutionStatus.Finished,
     start: state.start,
@@ -108,6 +103,6 @@ export async function finishRun<TName extends string>(
     ...(paused || state.finish === "" ? {} : { finish: state.finish, output: state.output }),
     pending,
     ...traceUrlOf(ctx.deps, ctx.base.threadId),
-    ...(memory.compacted.length === 0 ? {} : { compacted: memory.compacted }),
+    ...((ctx.compacted ?? []).length === 0 ? {} : { compacted: ctx.compacted }),
   };
 }

@@ -1,4 +1,4 @@
-import { MODEL_MAX } from "../config/types.js";
+import { TokenLimit } from "../config/types.js";
 import type { ModelCapabilities, ReasoningSupport } from "./capabilities.js";
 import type { ModelProblem } from "./problems.js";
 import type { PromptCaching } from "./prompt-caching.js";
@@ -87,7 +87,7 @@ function parameterProblems(
             `parameters ${list(parameters)}`,
           ),
         ]),
-    ...(settings.maxTokens === MODEL_MAX || takes("max_tokens", "max_completion_tokens")
+    ...(settings.maxTokens === TokenLimit.MODEL_MAX || takes("max_tokens", "max_completion_tokens")
       ? []
       : [
           unsupported(

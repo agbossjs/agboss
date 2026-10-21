@@ -46,6 +46,9 @@ import {
   ContactAgent,
   DeskAnswer,
   DeskStart,
+  EagerAgent,
+  EagerCompaction,
+  EagerDeskApplication,
   HelpDeskApplication,
   HelpRouter,
   NoSummariesCompaction,
@@ -229,7 +232,8 @@ describe("#120 AC10: @Compaction at assembly", () => {
         }),
         expect.objectContaining({
           code: "compaction.invalid-setting",
-          message: "misnamed: summaryMaxTokens 1.5 — a whole number from 1, or MODEL_MAX",
+          message:
+            "misnamed: summaryMaxTokens 1.5 — a whole number from 1, or TokenLimit.MODEL_MAX",
         }),
         expect.objectContaining({
           code: "compaction.invalid-setting",
@@ -305,18 +309,21 @@ describe("#120 AC4: one setting on every level — the lowest set value wins", (
 describe("#120 AC10: a queue summarises what is older than the smallest window", () => {
   const test = testWith(HelpDeskApplication);
 
-  test("after turn 3 the two turns older than the router's window become one summary", async ({
+  test("before turn 4 the two turns older than the router's window become one summary", async ({
     app,
     mockLlm,
   }) => {
     answerOk(mockLlm);
     mockLlm(QueueCompaction).thenReturn(replyWith("t1 and t2 were asked", { cost: usd(0.002) }));
 
-    const [first, second, third] = await conversation(app, 3);
+    const [first, second, third, fourth] = await conversation(app, 4);
 
     expect(first?.compacted).toBeUndefined();
     expect(second?.compacted).toBeUndefined();
-    expect(third?.compacted).toEqual([
+    // S132: not after turn 3 — before turn 4 first reads its thread
+    expect(third?.compacted).toBeUndefined();
+    expect(third?.spend.byCategory.compaction).toBe(0);
+    expect(fourth?.compacted).toEqual([
       {
         compaction: "queue-compaction",
         fromTurn: 1,
@@ -325,8 +332,9 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
         summaryQueueLength: 2,
       },
     ]);
-    expect(third?.spend.byCaller["compaction:queue-compaction"]).toBeCloseTo(0.002, 6);
-    expect(third?.spend.byCategory.compaction).toBeCloseTo(0.002, 6);
+    expect(fourth?.spend.byCaller["compaction:queue-compaction"]).toBeCloseTo(0.002, 6);
+    expect(fourth?.spend.byCategory.compaction).toBeCloseTo(0.002, 6);
+    expect(fourth?.spend.trace.map((line) => line.caller)[0]).toBe("compaction:queue-compaction");
     expect(textOf(mockLlm(QueueCompaction).onlyRequest)).toContain("Turns to compact:\nstart");
   });
 
@@ -374,8 +382,7 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
       replyWith("short"),
     );
 
-    const third = await converse(app, 3);
-    await execute(app, DeskStart, { text: "t4" }, { threadId: third.threadId });
+    await converse(app, 4);
 
     const [first, shorter] = mockLlm(QueueCompaction).requests;
     expect(textOf(first ?? mockLlm(QueueCompaction).lastRequest)).not.toContain(
@@ -397,31 +404,32 @@ describe("#120 AC10: a queue summarises what is older than the smallest window",
       replyWith("cut again", { truncated: true }),
       replyWith("t1 and t2 were asked"),
     );
-    const second = await converse(app, 2);
+    const third = await converse(app, 3);
 
-    const third = execute(app, DeskStart, { text: "t3" }, { threadId: second.threadId });
+    const fourth = execute(app, DeskStart, { text: "t4" }, { threadId: third.threadId });
 
-    await expect(third).rejects.toFailWith(CompactionError, {
+    await expect(fourth).rejects.toFailWith(CompactionError, {
       code: "compaction",
       compaction: "queue-compaction",
       summaryMaxTokens: 200,
     });
     // the failed execution is no turn: the next one compacts t1 and t2 (the failed record read as none)
-    const retried = await execute(app, DeskStart, { text: "t3" }, { threadId: second.threadId });
+    const retried = await execute(app, DeskStart, { text: "t4" }, { threadId: third.threadId });
     expect(retried.compacted).toMatchObject([{ compaction: "queue-compaction", fromTurn: 1 }]);
     expect(turnsSeen(mockLlm(QueueCompaction).lastRequest)).toEqual(["t1", "t2"]);
   });
 
+  // replaces #77 AC5 (a compaction failure swallowed, the next turn retrying): S132
   test("a failed model call is a CompactionError with the failure as its cause", async ({
     app,
     mockLlm,
   }) => {
     answerOk(mockLlm);
     mockLlm(QueueCompaction).thenReturn(failWith(ModelFailure.ServerError));
-    const second = await converse(app, 2);
+    const third = await converse(app, 3);
 
     await expect(
-      execute(app, DeskStart, { text: "t3" }, { threadId: second.threadId }),
+      execute(app, DeskStart, { text: "t4" }, { threadId: third.threadId }),
     ).rejects.toFailWith(CompactionError, { compaction: "queue-compaction" });
   });
 });
@@ -469,28 +477,24 @@ describe("#120 AC10: a single summary is rewritten from the previous one and the
 
   test("the note covers the thread; its reader sees only the latest", async ({ app, mockLlm }) => {
     mockLlm(NoteAgent).thenReturnAlways(replyWith("ok"));
-    mockLlm(NoteCompaction).thenReturn(
-      replyWith("note 1"),
-      replyWith("note 2"),
-      replyWith("note 3"),
-    );
+    mockLlm(NoteCompaction).thenReturn(replyWith("note 1"), replyWith("note 2"));
 
-    const third = await converse(app, 3);
-    await execute(app, DeskStart, { text: "t4" }, { threadId: third.threadId });
+    const [, , third] = await conversation(app, 4);
 
+    // before turns 3 and 4 — none after the last turn
     const [first, second] = mockLlm(NoteCompaction).requests;
-    expect(mockLlm(NoteCompaction).requests).toHaveLength(3);
+    expect(mockLlm(NoteCompaction).requests).toHaveLength(2);
     expect(textOf(first ?? mockLlm(NoteCompaction).lastRequest)).toContain(
       "Current summary:\n(none yet)",
     );
     expect(textOf(second ?? mockLlm(NoteCompaction).lastRequest)).toContain(
       "Current summary:\nnote 1\n\nTurns to add:",
     );
-    expect(third.compacted).toMatchObject([
+    expect(third?.compacted).toMatchObject([
       {
         compaction: "note-compaction",
-        fromTurn: 2,
-        toTurn: 2,
+        fromTurn: 1,
+        toTurn: 1,
         summaries: 1,
         summaryQueueLength: 1,
       },
@@ -499,6 +503,47 @@ describe("#120 AC10: a single summary is rewritten from the previous one and the
     expect(agent).toContain("[1] note 2");
     expect(agent).not.toContain("note 1");
     expect(turnsSeen(mockLlm(NoteAgent).lastRequest)).toEqual(["t3"]);
+  });
+});
+
+describe("#120 S132: compaction runs before the next turn reads its thread, never after a turn", () => {
+  const test = testWith(EagerDeskApplication);
+
+  test("a failing compaction on turn 2 keeps turn 1 and fails turn 2 before its agent runs", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(EagerAgent).thenReturn(replyWith("answer 1"), replyWith("answer 2"));
+    mockLlm(EagerCompaction).thenReturn(
+      replyWith("cut", { truncated: true }),
+      replyWith("cut again", { truncated: true }),
+      replyWith("t1 was asked"),
+    );
+    const first = await execute(app, DeskStart, { text: "t1" });
+
+    const second = execute(app, DeskStart, { text: "t2" }, { threadId: first.threadId });
+
+    await expect(second).rejects.toFailWith(CompactionError, { compaction: "eager-compaction" });
+    expect(first.output).toEqual({ text: "answer 1" }); // a finished turn's answer is kept
+    expect(mockLlm(EagerAgent).requests).toHaveLength(1); // no model call, no step of turn 2
+    // turn 1 is still the thread's only turn: the retry compacts it, then answers
+    const retried = await execute(app, DeskStart, { text: "t2" }, { threadId: first.threadId });
+    expect(retried.output).toEqual({ text: "answer 2" });
+    expect(turnsSeen(mockLlm(EagerCompaction).lastRequest)).toEqual(["t1"]);
+    expect(textOf(mockLlm(EagerAgent).lastRequest)).toContain("[1] t1 was asked");
+  });
+
+  test("a thread that ends never pays for a compaction after its last turn", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(EagerAgent).thenReturn(replyWith("answer 1"));
+
+    const only = await execute(app, DeskStart, { text: "t1" });
+
+    expect(only.compacted).toBeUndefined();
+    expect(only.spend.byCategory.compaction).toBe(0);
+    expect(mockLlm(EagerCompaction).requests).toEqual([]);
   });
 });
 

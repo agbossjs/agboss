@@ -1,5 +1,5 @@
 import type { Class } from "../components/injection.js";
-import { MODEL_MAX } from "../config/types.js";
+import { TokenLimit } from "../config/types.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { isDecisionModel } from "../models/decision-models.js";
 import { compactionMetaOf, isSummarising, type CompactionMeta } from "./compaction.decorator.js";
@@ -8,7 +8,7 @@ import { compactionMetaOf, isSummarising, type CompactionMeta } from "./compacti
  * The assembly checks of a `@Compaction` class (#120 AC10): its name ends with `-compaction`; a
  * compaction that writes summaries names a chat model (a decision model gives no text) and whole
  * numbers from 1 for `turnsBetweenCompactions`, `summaryQueueLength` (a queue) and
- * `summaryMaxTokens` (or `MODEL_MAX`). That `SummaryQueue` and `SingleSummary` need a `model` and
+ * `summaryMaxTokens` (or `TokenLimit.MODEL_MAX`). That `SummaryQueue` and `SingleSummary` need a `model` and
  * `None` takes nothing is the decorator's type; these are what a type cannot say.
  */
 
@@ -28,9 +28,13 @@ function settingViolations(cls: Class, meta: CompactionMeta): RuleViolation[] {
     found.push(
       bad("turnsBetweenCompactions", meta.turnsBetweenCompactions, "a whole number from 1"),
     );
-  if (meta.summaryMaxTokens !== MODEL_MAX && !isCount(meta.summaryMaxTokens))
+  if (meta.summaryMaxTokens !== TokenLimit.MODEL_MAX && !isCount(meta.summaryMaxTokens))
     found.push(
-      bad("summaryMaxTokens", meta.summaryMaxTokens, "a whole number from 1, or MODEL_MAX"),
+      bad(
+        "summaryMaxTokens",
+        meta.summaryMaxTokens,
+        "a whole number from 1, or TokenLimit.MODEL_MAX",
+      ),
     );
   if (meta.summaryQueueLength !== undefined && !isCount(meta.summaryQueueLength))
     found.push(bad("summaryQueueLength", meta.summaryQueueLength, "a whole number from 1"));

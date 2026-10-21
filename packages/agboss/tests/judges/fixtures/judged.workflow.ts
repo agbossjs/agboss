@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  MODEL_MAX,
+  TokenLimit,
 } from "../../../src/index.js";
 import {
   JudgeModel,
@@ -73,7 +73,7 @@ export class TaskStart {}
 export class Reply {}
 
 export const DEFAULTS = {
-  models: { temperature: 0, maxTokens: MODEL_MAX },
+  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
   router: { model: "typesafe/jev-1.13" },
 } as const;
 

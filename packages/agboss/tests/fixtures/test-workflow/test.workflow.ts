@@ -1,7 +1,7 @@
 import {
   Agent,
   DecidedBy,
-  MODEL_MAX,
+  TokenLimit,
   Router,
   Tool,
   Workflow,
@@ -94,7 +94,7 @@ export class MainRouter {}
   defaults: {
     models: {
       temperature: 0,
-      maxTokens: MODEL_MAX,
+      maxTokens: TokenLimit.MODEL_MAX,
       reasoning: Reasoning.modelDecides(),
       cache: true,
     },

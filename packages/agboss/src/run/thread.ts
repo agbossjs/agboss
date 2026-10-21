@@ -1,7 +1,8 @@
 import { AGBossError } from "../core/errors.js";
 import type { HistoryTurn, ReaderMemory } from "../flow/runtime/history.js";
 import type { Summary, Tern, TernRecords, TernStore } from "../terns/index.js";
-import { TurnLimit, type UncompactedTurns } from "../compaction/compaction.decorator.js";
+import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
+import { TurnLimit } from "../config/types.js";
 import { memoryPlanOf, readerOf, type MemoryPlan, type MemoryReader } from "../compaction/plan.js";
 import { NodeKind } from "../flow/ast.js";
 import type { RunDeps } from "./types.js";
@@ -111,17 +112,18 @@ export async function checkThreadAccess(
   if (thread.owner !== access.ownerId) throw notTheOwner(access.threadId);
 }
 
+/** Whether a record is a turn of its thread (S8): a finished execution, not a failed or paused one. */
+export const isTurn = (tern: Tern): boolean => tern.status === "answered" && tern.replyWith !== "";
+
 /** The thread's turns (S8): only finished executions, each as its start and finish line. */
 export const toTurns = (terns: readonly Tern[]): HistoryTurn[] =>
-  terns
-    .filter((tern) => tern.status === "answered" && tern.replyWith !== "")
-    .map(({ task, replyWith }) => ({ start: task, finish: replyWith }));
+  terns.filter(isTurn).map(({ task, replyWith }) => ({ start: task, finish: replyWith }));
 
-/** A window as a count of records: `TurnLimit.ALL` is every one. */
+/** A window as a count of turns: `TurnLimit.ALL` is every one. */
 const depthOf = (window: UncompactedTurns): number =>
   window === TurnLimit.ALL ? Number.MAX_SAFE_INTEGER : window;
 
-/** What one compaction holds of the thread: its records not yet summarised, its latest summaries. */
+/** What one compaction holds of the thread: its turns not yet summarised, its latest summaries. */
 interface CompactionState {
   readonly uncovered: readonly Tern[];
   readonly summaries: readonly Summary[];
@@ -137,7 +139,7 @@ async function compactionStatesOf(
     plan.compactions.map(async (compaction): Promise<[string, CompactionState]> => [
       compaction.name,
       {
-        uncovered: await terns.uncovered(tenantId, threadId, compaction.name),
+        uncovered: (await terns.uncovered(tenantId, threadId, compaction.name)).filter(isTurn),
         summaries: await terns.latestSummaries(
           tenantId,
           threadId,
@@ -151,25 +153,43 @@ async function compactionStatesOf(
 }
 
 /**
- * How many of the thread's last records a reader sees in full: its window — and, with a compaction
- * that writes summaries, at least every record that compaction has not summarised yet, so no turn
+ * How many of the thread's last turns a reader sees in full: its window — and, with a compaction
+ * that writes summaries, at least every turn that compaction has not summarised yet, so no turn
  * is lost between two compactions.
  */
 const rawDepthOf = (reader: MemoryReader, state: CompactionState | undefined): number =>
   Math.max(depthOf(reader.window), state?.uncovered.length ?? 0);
 
-/** One reader's memory over the loaded records: its turns, and the summaries they do not cover. */
+/** One reader's memory over the loaded turns: how many it sees, and the summaries they do not cover. */
 function readerMemory(
-  records: readonly Tern[],
+  turns: readonly Tern[],
   depth: number,
   state: CompactionState | undefined,
 ): ReaderMemory {
-  const raw = depth === 0 ? [] : records.slice(-depth);
+  const raw = depth === 0 ? [] : turns.slice(-depth);
   const seen = new Set(raw.map((tern) => tern.id));
   const summaries = (state?.summaries ?? [])
     .filter((summary) => !seen.has(summary.fromTernId))
     .map((summary) => summary.text);
-  return { turns: toTurns(raw).length, summaries };
+  return { turns: raw.length, summaries };
+}
+
+/**
+ * The thread's last `count` turns, oldest first: records are read in growing pages until enough of
+ * them are turns (a failed or paused record is not one) or the thread has no more.
+ */
+async function lastTurnsOf(
+  terns: TernRecords,
+  thread: Pick<ThreadAccess, "tenantId" | "threadId">,
+  count: number,
+): Promise<readonly Tern[]> {
+  if (count === 0) return [];
+  for (let page = count; ; page = Math.min(page * 2, Number.MAX_SAFE_INTEGER)) {
+    const records = await terns.lastTerns(thread.tenantId, thread.threadId, page);
+    const turns = records.filter(isTurn);
+    const isAll = records.length < page || page === Number.MAX_SAFE_INTEGER;
+    if (turns.length >= count || isAll) return turns.slice(-count);
+  }
 }
 
 /** Every reader of the graph: the plan's, and any router it does not list (the workflow's window). */
@@ -188,7 +208,7 @@ function readersOf<TName extends string>(
  * needs, and what each agent and model router remembers of them — its window over the turns and
  * its compaction's latest summaries (`summaryQueueLength`, one for a single summary).
  */
-async function memoryOf<TName extends string>(
+export async function threadMemoryOf<TName extends string>(
   deps: RunDeps<TName>,
   thread: Pick<ThreadAccess, "tenantId" | "threadId">,
 ): Promise<ThreadMemory> {
@@ -202,15 +222,14 @@ async function memoryOf<TName extends string>(
     ]),
   );
   const deepest = Math.max(0, depthOf(plan.fallback.window), ...depths.values());
-  const records =
-    deepest === 0 ? [] : await deps.terns.lastTerns(thread.tenantId, thread.threadId, deepest);
+  const turns = await lastTurnsOf(deps.terns, thread, deepest);
   const memory = Object.fromEntries(
     readers.map(([name, reader]) => [
       name,
-      readerMemory(records, depths.get(name) ?? 0, states.get(reader.compaction?.name ?? "")),
+      readerMemory(turns, depths.get(name) ?? 0, states.get(reader.compaction?.name ?? "")),
     ]),
   );
-  return { history: toTurns(records), memory };
+  return { history: toTurns(turns), memory };
 }
 
 /** What an execution loads of its thread: the turns and each reader's memory of them. */
@@ -219,19 +238,24 @@ export interface ThreadMemory {
   readonly memory: Record<string, ReaderMemory>;
 }
 
-/** First contact → a new thread; a given id must exist in the tenant for this workflow (no calls). */
+/** A new thread remembers nothing. */
+export const NO_THREAD_MEMORY: ThreadMemory = { history: [], memory: {} };
+
+/**
+ * First contact → a new thread; a given id must exist in the tenant for this workflow (no calls).
+ * Its memory is read later, once its compactions due have run (#120 S132).
+ */
 export async function openThread<TName extends string>(
   deps: RunDeps<TName>,
   tenantId: string,
   requested: string | undefined,
-): Promise<{ readonly threadId: string } & ThreadMemory> {
+): Promise<{ readonly threadId: string }> {
   const bundle = deps.config.name;
   if (requested === undefined) {
-    const threadId = await deps.terns.createThread({ workflow: bundle, tenantId });
-    return { threadId, history: [], memory: {} };
+    return { threadId: await deps.terns.createThread({ workflow: bundle, tenantId }) };
   }
   if (!(await deps.terns.hasThread(bundle, tenantId, requested))) {
     throw unknownThread(bundle, requested);
   }
-  return { threadId: requested, ...(await memoryOf(deps, { tenantId, threadId: requested })) };
+  return { threadId: requested };
 }

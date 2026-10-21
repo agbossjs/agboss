@@ -1,7 +1,8 @@
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { HumanMessage, SystemMessage, type AIMessage } from "@langchain/core/messages";
 import { CompactionError } from "../compaction/errors.js";
-import { CompactionStrategy, TurnLimit } from "../compaction/compaction.decorator.js";
+import { CompactionStrategy } from "../compaction/compaction.decorator.js";
+import { TurnLimit } from "../config/types.js";
 import type { CompactionInUse, MemoryPlan } from "../compaction/plan.js";
 import { recordUsage, totalCost, type UsageRecord } from "../finops/usage.js";
 import type { ModelBinding } from "../llm/registry.js";
@@ -16,21 +17,22 @@ import {
   TURNS_TO_COMPACT_HEADING,
 } from "../prompts/compaction.js";
 import type { Summary, Tern } from "../terns/index.js";
-import { toTurns } from "./thread.js";
+import { isTurn, toTurns } from "./thread.js";
 import type { RunDeps } from "./types.js";
 
 /**
  * Compaction at run time (#120 PR 3), loaded on first use — only a workflow whose readers use a
- * compaction that writes summaries reaches it. After a finished turn each such compaction summarises
- * the records of the thread older than its window (the smallest `uncompactedTurns` among its
- * readers) once `turnsBetweenCompactions` of them have gathered. Its model reads the turns through
+ * compaction that writes summaries reaches it. Lazily, before a new execution's first read of its
+ * thread (S132), each such compaction summarises the records of the thread older than its window
+ * (the smallest `uncompactedTurns` among its readers) once `turnsBetweenCompactions` of them have
+ * gathered — so a finished turn's answer is always kept and a thread that ends pays for none. Its model reads the turns through
  * the application's and the workflow's PII policies (S84 i: masked like any model input); the
  * summary is revealed before it is stored, so the store and the readers hold real values and each
  * reader's own policies mask it at its boundary. A summary cut at `summaryMaxTokens` is asked once
  * more, shorter; cut again — or a failed call — is `CompactionError`.
  */
 
-/** What one compaction did after the turn: the turns it summarised and its summaries in use now. */
+/** What one compaction did before the execution: the turns it summarised and its summaries now. */
 export interface Compacted {
   /** The `@Compaction`'s name. */
   readonly compaction: string;
@@ -53,7 +55,7 @@ export interface CompactionRun {
   readonly record: (records: readonly UsageRecord[]) => Promise<void>;
 }
 
-/** What compacting after a turn spent (already recorded) and did. */
+/** What compacting before an execution spent (already recorded) and did. */
 export interface CompactionOutcome {
   readonly usage: readonly UsageRecord[];
   readonly compacted: readonly Compacted[];
@@ -66,9 +68,13 @@ const asTurns = (terns: readonly Tern[]): string =>
 
 const callerOf = (compaction: CompactionInUse): string => `compaction:${compaction.name}`;
 
-/** The records due: those older than the window, once `turnsBetweenCompactions` have gathered. */
-function dueOf(compaction: CompactionInUse, uncovered: readonly Tern[]): readonly Tern[] {
+/**
+ * The turns due: those older than the window, once `turnsBetweenCompactions` have gathered —
+ * counted in turns (a failed or paused record is none, S8), as a reader's window is.
+ */
+function dueOf(compaction: CompactionInUse, records: readonly Tern[]): readonly Tern[] {
   if (compaction.window === TurnLimit.ALL) return [];
+  const uncovered = records.filter(isTurn);
   const due = uncovered.slice(0, Math.max(0, uncovered.length - compaction.window));
   return due.length < compaction.turnsBetweenCompactions ? [] : due;
 }
@@ -165,7 +171,7 @@ async function summaryOf(
   return { text: shorter.answer.text, usage: [first.usage, shorter.usage] };
 }
 
-/** One compaction after the turn: nothing when nothing is due. */
+/** One compaction before the execution: nothing when nothing is due. */
 async function compactOne<TName extends string>(
   deps: RunDeps<TName>,
   compaction: CompactionInUse,
@@ -211,8 +217,8 @@ async function compactOne<TName extends string>(
 }
 
 /**
- * After a finished turn: every compaction of the plan that writes summaries, in order, while the
- * execution's budget lasts (one with nothing left is skipped — the next turn compacts).
+ * Before a new execution reads its thread: every compaction of the plan that writes summaries, in
+ * order, while the execution's budget lasts (one with nothing left is skipped — the next compacts).
  */
 export async function compactDue<TName extends string>(
   deps: RunDeps<TName>,

@@ -1,7 +1,7 @@
 import {
   Agent,
   Workflow,
-  MODEL_MAX,
+  TokenLimit,
   Tool,
   type ToolHandler,
   WorkflowFinish,
@@ -50,7 +50,7 @@ export class Pay implements ToolHandler<Payment, Receipt> {
 
 const price = { inputPerMTok: 1, outputPerMTok: 10 };
 const defaults = {
-  models: { temperature: 0, maxTokens: MODEL_MAX, cache: true },
+  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 4 },
 } as const;

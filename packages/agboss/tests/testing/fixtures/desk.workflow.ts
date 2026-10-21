@@ -9,7 +9,7 @@ import {
   Workflow,
   type OnStart,
   type OnStop,
-  MODEL_MAX,
+  TokenLimit,
   Tool,
   type ToolHandler,
   DecidedBy,
@@ -249,7 +249,7 @@ export class MainRouter {}
   defaults: {
     models: {
       temperature: 0,
-      maxTokens: MODEL_MAX,
+      maxTokens: TokenLimit.MODEL_MAX,
       reasoning: Reasoning.modelDecides(),
       cache: true,
     },

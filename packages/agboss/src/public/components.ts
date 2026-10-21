@@ -17,10 +17,10 @@ export {
   type ToolHandler,
   type ToolOptions,
 } from "../components/decorators.js";
+export { TokenLimit, TurnLimit } from "../config/types.js";
 export {
   Compaction,
   CompactionStrategy,
-  TurnLimit,
   type CompactionOptions,
   type NoSummaryCompactionOptions,
   type SingleSummaryCompactionOptions,

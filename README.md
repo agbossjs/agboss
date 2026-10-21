@@ -1617,7 +1617,7 @@ Each agent and model router sees the last `uncompactedTurns` of them in full —
 `compaction` on the same levels (again the lowest wins; none anywhere → the window only):
 
 <!-- snippet-context
-import { Compaction, CompactionStrategy, MODEL_MAX } from "agboss";
+import { Compaction, CompactionStrategy, TokenLimit } from "agboss";
 -->
 
 ```ts
@@ -1641,7 +1641,7 @@ export class ConversationCompaction {}
   model: "moonshotai/kimi-k2.6",
   strategy: CompactionStrategy.SingleSummary,
   turnsBetweenCompactions: 3,
-  summaryMaxTokens: MODEL_MAX,
+  summaryMaxTokens: TokenLimit.MODEL_MAX,
 })
 export class CodeContextCompaction {}
 
@@ -1660,10 +1660,12 @@ share one compaction that summarises what is older than 1 — the agent sees its
 not the summary they already cover. `summaryMaxTokens` is the summary call's `max_tokens` (the
 model's server counts it; thinking is off on that call): a summary cut there is asked once more,
 shorter, and cut again fails the execution with `CompactionError` (`compaction`) — never a cut
-summary; that turn is not kept and the next one compacts. The compaction's model reads the turns
+summary. A compaction runs lazily, before a new execution first reads its thread — never after a
+turn: a finished answer is always kept, a thread that ends pays for none, and a `CompactionError`
+fails the new execution before any of its work (no model call, no step, no turn kept). The compaction's model reads the turns
 through the application's and the workflow's PII policies, its summary is revealed before it is
 stored, and each reader's own policies mask it on the way into its model. Spend is
-`compaction:<name>`; `result.compacted` says what each compaction did after the turn. In tests,
+`compaction:<name>`; `result.compacted` says what each compaction did before the execution. In tests,
 `mockLlm(ConversationCompaction).thenReturn(replyWith("…"))` scripts it (`replyWith("…", {
 truncated: true })` is a summary cut at the limit); unscripted, it writes a fixed summary.
 

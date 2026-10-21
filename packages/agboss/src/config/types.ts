@@ -4,10 +4,19 @@ import { z } from "zod";
 import { ReasoningEffort, type Reasoning } from "../models/reasoning.js";
 import { RagMode } from "../rag/types.js";
 import { CachedPart, CacheRetention, type PromptCaching } from "../models/prompt-caching.js";
-import { CompactionStrategy, TurnLimit } from "../compaction/compaction.decorator.js";
+import { CompactionStrategy } from "../compaction/compaction.decorator.js";
 
-/** Sentinel for maxTokens: do not cap output — the model may use its own maximum. */
-export const MODEL_MAX = "max";
+/** Limits without a number (#120 S132): enums, next to each other — one spelling per value. */
+
+/** A token limit: `TokenLimit.MODEL_MAX` — no ceiling of our own, what the model allows. */
+export enum TokenLimit {
+  MODEL_MAX = "max",
+}
+
+/** A window without a limit: `uncompactedTurns: TurnLimit.ALL` — every turn of the thread in full. */
+export enum TurnLimit {
+  ALL = "all",
+}
 
 /** OpenRouter `reasoning.effort` levels. "none" disables thinking (not accepted by every model). */
 export const THINKING_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh"] as const;
@@ -20,7 +29,10 @@ export const PriceSchema = z.object({
   cacheWritePerMTok: z.number().nonnegative().optional(),
 });
 
-export const MaxTokensSchema = z.union([z.number().int().positive(), z.literal(MODEL_MAX)]);
+export const MaxTokensSchema = z.union([
+  z.number().int().positive(),
+  z.literal(TokenLimit.MODEL_MAX),
+]);
 
 /** A `Reasoning` value (`agboss/models`): `Reasoning.on({ effort, budget })`, `off()`, `modelDecides()`. */
 export const ReasoningValueSchema = z.discriminatedUnion("kind", [
@@ -58,7 +70,7 @@ export const PromptCachingValueSchema = z.discriminatedUnion("kind", [
 /** A component's prompt caching until #152: true = the provider's, false = off, or a `PromptCaching`. */
 export const CacheSettingSchema = z.union([z.boolean(), PromptCachingValueSchema]);
 
-/** Output ceiling when a workflow sets none — a model stuck in a loop stops here. `MODEL_MAX` = no ceiling. */
+/** Output ceiling when a workflow sets none — a model stuck in a loop stops here. `TokenLimit.MODEL_MAX` = no ceiling. */
 export const DEFAULT_MAX_TOKENS = 8192;
 
 /**
@@ -67,7 +79,7 @@ export const DEFAULT_MAX_TOKENS = 8192;
  */
 export const ChatDefaultsSchema = z.object({
   temperature: z.number().min(0).max(2),
-  /** Default 8 192 (`DEFAULT_MAX_TOKENS`); `MODEL_MAX` for no ceiling. */
+  /** Default 8 192 (`DEFAULT_MAX_TOKENS`); `TokenLimit.MODEL_MAX` for no ceiling. */
   maxTokens: MaxTokensSchema.optional(),
   thinking: ThinkingSchema.optional(),
   cache: CacheSettingSchema.optional(),

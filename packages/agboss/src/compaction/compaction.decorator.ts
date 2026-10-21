@@ -1,7 +1,7 @@
 import { callerFile } from "../components/call-site.js";
 import type { Class } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
-import type { MODEL_MAX } from "../config/types.js";
+import type { TokenLimit, TurnLimit } from "../config/types.js";
 
 /**
  * Compaction (#120 PR 3): how the turns of a thread older than its readers' window are summarised.
@@ -22,19 +22,14 @@ export enum CompactionStrategy {
   None = "none",
 }
 
-/** A window without a limit: `uncompactedTurns: TurnLimit.ALL` — every turn of the thread in full. */
-export enum TurnLimit {
-  ALL = "all",
-}
-
 /** Recent turns a reader sees in full when no level sets `uncompactedTurns`. */
 export const DEFAULT_UNCOMPACTED_TURNS = 5;
 
 /** How many recent turns a reader sees in full: a whole number from 0, or `TurnLimit.ALL`. */
 export type UncompactedTurns = number | TurnLimit;
 
-/** The token limit of one summary: the call's `max_tokens`, or `MODEL_MAX` — what the model allows. */
-export type SummaryMaxTokens = number | typeof MODEL_MAX;
+/** The token limit of one summary: the call's `max_tokens`, or `TokenLimit.MODEL_MAX` — what the model allows. */
+export type SummaryMaxTokens = number | TokenLimit.MODEL_MAX;
 
 /** What a compaction that writes summaries declares. */
 interface SummarisingOptions {
@@ -49,7 +44,7 @@ interface SummarisingOptions {
   /** How many turns older than the window gather before they are summarised (from 1). */
   readonly turnsBetweenCompactions: number;
   /**
-   * The summarising call's `max_tokens`, counted by the model's server; `MODEL_MAX` = what the
+   * The summarising call's `max_tokens`, counted by the model's server; `TokenLimit.MODEL_MAX` = what the
    * model allows. A summary cut at the limit is asked once more, shorter, then `CompactionError`.
    */
   readonly summaryMaxTokens: SummaryMaxTokens;

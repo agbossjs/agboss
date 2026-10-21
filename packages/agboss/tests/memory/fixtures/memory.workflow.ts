@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  MODEL_MAX,
+  TokenLimit,
 } from "../../../src/index.js";
 import { InjectionToken, provide } from "../../../src/components/injection.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -110,7 +110,7 @@ export class Answer {}
 export class Recalled {}
 
 const DEFAULTS = {
-  models: { temperature: 0, maxTokens: MODEL_MAX },
+  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 2 },
 } as const;

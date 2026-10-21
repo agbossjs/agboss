@@ -1,9 +1,9 @@
 import type { AgentsConfigOf } from "../config/types.js";
-import { MODEL_MAX } from "../config/types.js";
+import { TurnLimit } from "../config/types.js";
+import { TokenLimit } from "../config/types.js";
 import type { AssembledCompactions } from "./assembly.js";
 import {
   CompactionStrategy,
-  TurnLimit,
   type SummaryMaxTokens,
   type UncompactedTurns,
 } from "./compaction.decorator.js";
@@ -93,7 +93,7 @@ function compactionInUse(
       window: windowOfCompaction(windows),
       turnsBetweenCompactions: settings.turnsBetweenCompactions ?? 1,
       summaryQueueLength: queue ? (settings.summaryQueueLength ?? 1) : 1,
-      summaryMaxTokens: settings.model.maxTokens ?? MODEL_MAX,
+      summaryMaxTokens: settings.model.maxTokens ?? TokenLimit.MODEL_MAX,
     },
   ];
 }

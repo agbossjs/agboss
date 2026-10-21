@@ -3,7 +3,8 @@ import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { createAppDeps, type AppDeps } from "../src/app/app-deps.js";
 import { workflowOf } from "../src/components/assemble.js";
 import type { Class } from "../src/components/injection.js";
-import { MODEL_MAX, type AgentsConfigOf } from "../src/config/types.js";
+import { type AgentsConfigOf } from "../src/config/types.js";
+import { TokenLimit } from "../src/config/types.js";
 import type { UsageRecord } from "../src/finops/usage.js";
 import {
   CostLedgerRepository,
@@ -37,7 +38,7 @@ export const testConfig: AgentsConfigOf<TestAgent> = {
   name: "test-bundle",
   version: "1.0.0",
   defaults: {
-    models: { temperature: 0, maxTokens: MODEL_MAX, thinking: "default", cache: true },
+    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, thinking: "default", cache: true },
     router: testRouter,
     tools: { maxToolCalls: 3 },
     uncompactedTurns: 2,
@@ -60,7 +61,7 @@ export const testConfig: AgentsConfigOf<TestAgent> = {
 export { StarWorkflow };
 
 export const testDefaults: WorkflowDefaults = {
-  models: { temperature: 0, maxTokens: MODEL_MAX, cache: true },
+  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
   router: { model: "typesafe/jev-test" },
   tools: { maxToolCalls: 3 },
 };

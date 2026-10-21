@@ -4,8 +4,9 @@ import type { SummaryMaxTokens } from "./compaction.decorator.js";
 /**
  * A compaction could not write its summary (#120 AC10): the summary was cut at `summaryMaxTokens`
  * twice — the first answer, then the one asked to be shorter — or its model call failed (the
- * failure as `cause`). Never a cut summary: the execution that finished the turn fails, its turn is
- * not kept, and the turns stay unsummarised for the next one.
+ * failure as `cause`). Never a cut summary: the compaction runs before a new execution reads its
+ * thread (#120 S132), so that execution fails before any of its work — no model call of its own, no
+ * step, no turn kept — and the earlier turns stay unsummarised for the next one.
  */
 export class CompactionError extends AGBossError {
   static override readonly code: string = "compaction";
