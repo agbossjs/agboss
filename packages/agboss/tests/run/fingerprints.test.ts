@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { buildApplication, type BuiltApplication } from "../../src/application/create-app.js";
 import type { Class } from "../../src/components/injection.js";
-import { configSnapshot, runVersions } from "../../src/run/versions.js";
+import { configSnapshot, executionVersions } from "../../src/run/versions.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { deskApplicationOf, type DeskVariant } from "./fingerprints.fixture.js";
@@ -32,7 +32,7 @@ async function deskDepsOf(application: Class) {
 }
 
 const configHashOf = async (variant: DeskVariant = {}): Promise<string> =>
-  runVersions(await deskDepsOf(deskApplicationOf(variant))).configHash;
+  executionVersions(await deskDepsOf(deskApplicationOf(variant))).configHash;
 
 /** The fingerprint's sub-tree of one element. */
 async function elementOf(variant: DeskVariant, element: string): Promise<unknown> {
