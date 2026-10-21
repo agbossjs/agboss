@@ -31,7 +31,7 @@ flowchart LR
 | `model` | one model turn through `ModelGateway.chatModel(…)` with the agent's tools bound; checks the run budget and `modelCalls` before, records usage and checks `toolCalls` after |
 | `boundary` | the move joins the conversation; for each call, in order: tool judges → agent judges `beforeToolCall`; a call to a tool the agent does not have is answered `Tool error: there is no tool "…"` |
 | `approval` | asks about **one** call that waits (pause seam) and records the decision by `callId` |
-| `tool` | one task (`Send`) per allowed call: runs the tool with the run's signal + its `timeoutMs`; stores the result (or `Tool error: …`) under its `callId`; reported costs join the loop's usage |
+| `tool` | one task (`Send`) per allowed call: runs the tool with the run's signal + its `timeout`; stores the result (or `Tool error: …`) under its `callId`; reported costs join the loop's usage |
 | `collect` | tool messages in the **call order**, `afterToolCall` (tool, then agent) for calls that ran, decisions recorded; back to `model` |
 | `agent-reply` | a text agent's answer: `beforeAgentAnswer`, then the text leaves the loop |
 | `agent-answer` | a structured answer through an answer tool: validated by the DTO, `beforeAgentAnswer`, then it leaves the loop as the step's value (`.returns(…)`) |
@@ -148,7 +148,7 @@ import { Agent, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolH
 import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
 class RefundRequest { @Integer({ prompt: "the amount, USD" }) amount!: number; }
 class RefundDone { @Text() status!: string; }
-@Tool({ name: "refund", description: "Refunds an amount", input: RefundRequest, output: RefundDone })
+@Tool({ name: "refund-tool", description: "Refunds an amount", input: RefundRequest, output: RefundDone })
 export class RefundTool implements ToolHandler<RefundRequest, RefundDone> { run(): Promise<RefundDone> { return Promise.resolve({ status: "refunded" }); } }
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatStart {}

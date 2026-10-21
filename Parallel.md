@@ -329,8 +329,8 @@ entry carries the same; the join adds a trace entry "quorum decided" and the obs
 
 ### `agboss generate arbiter`
 
-`agboss generate arbiter in-range --workflow src/panel/panel.workflow.ts` writes
+`agboss generate arbiter in-range-arbiter --workflow panel-workflow` writes
 `arbiters/in-range.arbiter.ts`: a code arbiter with one `@OnAnswer(Agent) from<Agent>(answer:
 ArbiterAnswerOf<typeof Agent>): boolean` method per distinct agent of the flow's launch (`--agent
-<name>` picks the launch when there are several). It is not put into the flow — attach it with
+<name>-agent` picks the launch when there are several). It is not put into the flow — attach it with
 `.acceptedBy(InRangeArbiter)` where it belongs.

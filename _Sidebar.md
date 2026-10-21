@@ -22,6 +22,7 @@
 - [The test split](Test-split)
 - [Suites and Comparisons](Testing-Suites-And-Comparisons)
 - [Components](Components)
+- [Naming](Naming)
 - [Standard DTOs](Standard-DTOs)
 - [Examples: job-scout, flow-patterns](Example)
 - [Agents — the loop](Agents)

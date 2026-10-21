@@ -331,7 +331,7 @@ export class SubtopicClaimDto {
 import { ExecutionTreeRepository, Tool, type ToolHandler } from "agboss";
 
 @Tool({
-  name: "claim_subtopic",
+  name: "claim-subtopic-tool",
   description: "Claims a subtopic once per request",
   input: SubtopicDto,
   output: SubtopicClaimDto,

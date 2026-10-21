@@ -1,4 +1,4 @@
-# CLI — `agboss` / `agboss`
+# CLI — `agboss`
 
 `agboss help` lists every command; `agboss help <command>` shows its options.
 
@@ -9,42 +9,86 @@ npx agboss create support-desk          # alias: agboss c — asks for the struc
 cd support-desk && cp .env.example .env && npm run chat
 ```
 
-The questionnaire asks only for the structure: the agents (name + role), each agent's tools, an MCP
-server (none / filesystem / own command), a knowledge base (none / notes in a folder). Models (Kimi),
-the Jev main router, the 8 192-token ceiling, limits and a prompt-injection guardrail
-(`guardrails/prompt-injection.guardrail.ts`) get defaults written into the code. Every
-answer has a flag, for scripts and CI:
+`agboss create <project>` writes **an application and its first workflow** (#268 AC8): the
+application `src/support-desk.application.ts` (`support-desk-application`; its path is
+`"agboss": { "application" }` in the project's `package.json`), beside it what every workflow shares —
+`environments/` (the contract, `dev`, `staging`, `test`), `config/budget.config.ts`,
+`model-providers/openrouter.model-provider.ts`, `guardrails/prompt-injection.guardrail.ts` (listed in
+`@Application({ guardrails })`, its model `defaults.guardrail.model`) and `services/api.service.ts` —
+and the first workflow `support-desk-workflow` in `src/support-desk/`.
+
+The questionnaire asks only for the structure: the agents (full name + role), each agent's tools (full
+names), an MCP server (none / filesystem / own command), a knowledge base (none / notes in a folder).
+Models (Kimi), the Jev main router, limits and the guardrail get defaults written into the code. Every
+answer has a flag, for scripts and CI — **full names only**:
 
 ```bash
-agboss c support-desk --yes --agents "triage:Sorts requests,answerer:Answers questions" \
-  --tools "answerer:search_orders" --mcp filesystem:/path/to/docs --rag notes --skip-install
+agboss c support-desk --yes --agents "triage-agent:Sorts requests,answerer-agent:Answers questions" \
+  --tools "answerer-agent:search-orders-tool" --mcp filesystem:/path/to/docs --rag notes --skip-install
 ```
 
 The skeleton runs at once: tools return a marked placeholder (`TODO`), prompts are drafted from the roles,
 every tool has a test (`testTool(XTool)`) and the workflow has one on `testWith`
-(`src/<workflow>/<workflow>.workflow.test.ts`: the main router and the first agent by script — it runs
-offline, [Testing](Testing)). Files follow the [conventions](Components#file-conventions): `*.agent.ts` + `*.prompt.md`, `*.tool.ts` + `*.tool.test.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`, and the flow's `workflow-starts/text.workflow-start.ts` (`TextWorkflowStart`, named `<workflow>-text-workflow-start`), `routers/main.router.ts` (`<workflow>-main-router`), `workflow-finishes/text.workflow-finish.ts` (`TextWorkflowFinish`, `<workflow>-text-workflow-finish`) — names carry the workflow, so a second workflow in the project never clashes; a text-only MCP server tool replies with `PlainTextDto`. The workflow is one path ([Workflow](Workflow)): `start(TextWorkflowStart).returns(WorkflowStartTextDto).toRouter(MainRouter).chooseOne(route(TriageAgent).toFinish(TextWorkflowFinish), …)` — the main router chooses the agent that answers, each agent's text finishes the run — with limits in `settings()`. The environments go to `environments/` (`environment.ts`, `dev` and `staging`). `npm run types` (`agboss check`) writes `.agboss/types.d.ts` — run on install (`postinstall`) and by `npm run check` (= types + tsc + `npm test`). `vitest.config.ts` has three projects by file name — `unit`
+(`src/<project>/<project>.workflow.test.ts`: the main router and the first agent by script, in the
+application — it runs offline, [Testing](Testing)). Files follow the
+[conventions](Components#file-conventions): `*.agent.ts` + `*.prompt.md`, `*.tool.ts` +
+`*.tool.test.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`, and the flow's
+`workflow-starts/text.workflow-start.ts` (`TextWorkflowStart`, named
+`<workflow>-text-workflow-start`), `routers/main.router.ts` (`<workflow>-main-router`),
+`workflow-finishes/text.workflow-finish.ts` (`TextWorkflowFinish`, `<workflow>-text-workflow-finish`)
+— names carry the workflow, so a second workflow never clashes; a text-only MCP server tool replies
+with `PlainTextDto`. The workflow is one path ([Workflow](Workflow)):
+`start(TextWorkflowStart).returns(WorkflowStartTextDto).toRouter(MainRouter).chooseOne(route(TriageAgent).toFinish(TextWorkflowFinish), …)`
+— the main router chooses the agent that answers, each agent's text finishes the run. The scripts run
+a workflow by its start's full name (`"chat": "agboss chat --start support-desk-text-workflow-start"`,
+`run` the same), so they keep working when the application gets more workflows; `npm run types`
+(`agboss check`) writes `.agboss/types.d.ts` — run on install (`postinstall`) and by `npm run check`
+(= types + tsc + `npm test`). `vitest.config.ts` has three projects by file name — `unit`
 (`*.test.ts`), `integration` (`*.integration.test.ts`), `suites` (`*.suite.test.ts`, real models); empty
 ones pass. `npm test` runs unit + integration, the `test:suites` script the suites.
 
+Generated code follows the [conventions](Components#conventions): explicit return types,
+`implements …Handler` (`ToolHandler<In, Out>`, `BudgetHandler`), `@Injectable`s named by their role
+(`ApiService`, the OpenAPI client `PetsApiService`) and fields named after their type
+(`private readonly apiService: ApiService`), the execution through the constructor
+(`deps: [ExecutionContext]`, `private readonly executionContext: ExecutionContext`) and code outside
+an execution through `deps: [ApplicationContext]` (`private readonly applicationContext:
+ApplicationContext`).
+
 ```bash
-agboss g agent billing   --workflow src/support-desk/support-desk.workflow.ts --description "Handles invoices"
-agboss g router escalation --workflow src/support-desk/support-desk.workflow.ts                # routers/escalation.router.ts
-agboss g tool refund     --workflow src/support-desk/support-desk.workflow.ts --agent billing
-agboss g mcp tickets     --workflow … --command tickets-mcp --tool search --agent billing   # or --dir <folder>
-agboss g rag policies    --workflow … --folder policies --agent billing
-agboss g workflow onboarding                                        # a second workflow + npm scripts chat:onboarding, …
+agboss g agent billing-agent --workflow support-desk-workflow --description "Handles invoices"
+agboss g router escalation-router --workflow support-desk-workflow           # routers/escalation.router.ts
+agboss g tool refund-tool --workflow support-desk-workflow --agent billing-agent
+agboss g mcp tickets --workflow support-desk-workflow --command tickets-mcp --tool search --agent billing-agent   # or --dir <folder>
+agboss g rag policies-rag --workflow support-desk-workflow --folder policies --agent billing-agent
+agboss g arbiter valid-score-arbiter --workflow support-desk-workflow --agent billing-agent
+agboss g workflow onboarding-workflow      # a second workflow of the application + chat:onboarding, run:onboarding
 ```
 
-Each part is **wired** (the TypeScript Compiler API edits the `@Agent` / `@Workflow` / `@Router` arrays,
-the flow and imports): a new agent joins the main router's choice — a route `{ prompt: "Handles invoices", target: BillingAgent }` in
-`routers/main.router.ts`'s `routes`, and `route(BillingAgent).toFinish(TextWorkflowFinish)` after the
-last `route(…)` of `.toRouter(MainRouter).chooseOne(…)`. A new router gets the answer route only and is
-**not** put into the flow — where it sits is your choice. At its end `agboss generate` regenerates
-`.agboss/types.d.ts`.
-Nothing existing is overwritten — a clash or an unexpected file shape is an error, and nothing is
-written; `--force` regenerates the files and keeps the existing wiring. `agboss g openapi <name> --url <spec>`
-writes one tool per OpenAPI 3 operation (DTOs, a client in `services/`, tests), wired into `--agent`.
+**Names are full names** (#268 AC8) — the same string as in `name`, traces, records and
+`agboss describe`, so `grep "billing-agent"` finds every use: the positional name ends with its kind
+(`-agent`, `-router`, `-arbiter`, `-tool`, `-rag`, `-workflow`; an MCP server is named as its
+server, `tickets`), `--workflow` is a workflow's full name and `--agent` an agent's. The CLI never
+adds a suffix: `agboss g agent ranker` is exit 2 — `"ranker" is not a full agent name: kebab-case,
+ending with -agent. Did you mean "ranker-agent"?` — and an unknown workflow or agent is exit 2 with
+`Workflow "desk" not found in src/desk.application.ts. Did you mean "desk-workflow"? Workflows: …`;
+nothing is written. The workflow is found in the application — `"agboss": { "application" }` of
+`package.json`, or `--application <path>` —, its children included, read from the source (nothing is
+run).
+
+Each part is **wired** (the TypeScript Compiler API edits the `@Agent` / `@Workflow` / `@Router` /
+`@Application` arrays, the flow and imports): a new agent joins the main router's choice — a route
+`{ prompt: "Handles invoices", target: BillingAgent }` in `routers/main.router.ts`'s `routes`, and
+`route(BillingAgent).toFinish(TextWorkflowFinish)` after the last `route(…)` of
+`.toRouter(MainRouter).chooseOne(…)`. A new router gets the answer route only and is **not** put into
+the flow — where it sits is your choice. `generate workflow` writes the workflow in a folder beside
+the application file (`src/onboarding/`, its test there too) and lists its class in
+`@Application({ workflows })` — a name the application already has is a conflict (exit 4). At its
+end `agboss generate` regenerates `.agboss/types.d.ts`. Nothing existing is overwritten — a clash or
+an unexpected file shape is an error, and nothing is written; `--force` regenerates the files and
+keeps the existing wiring. `agboss g openapi <name> --url <spec>` writes one tool per OpenAPI 3
+operation (DTOs, a client `services/<name>-api.service.ts`, tests; each tool `<operation>-tool`), wired
+into `--agent`.
 
 ## The application and its starts (#268)
 
@@ -60,7 +104,8 @@ directory up); `--application <path>` (relative to the working directory) wins o
 exit 3, `No application: set "agboss": { "application": "src/<name>.application.ts" } in package.json,
 or pass --application <path>`; the module must export exactly one `@Application` class
 (`application.load`, exit 3); a missing `--application` file is a usage error (exit 2). There is no
-`--workflow <path>` on these commands (the generators keep theirs until #268 PR 4 — see below).
+`--workflow <path>` on any command; `agboss generate` takes `--workflow <full name>`
+([above](#create-and-generate-angular-like)).
 
 The commands that **run one workflow** — `chat`, `run`, `eval`, `replay`, `golden add`, `compare` —
 choose it by its start, **by the start's full name**, the same string as in `name`, traces, records
@@ -126,12 +171,11 @@ and close the app (components' `onStop`, MCP servers) at the end. `eval`, `repla
 `compare` assemble the application and work on the start's workflow — a `--profile` is that
 workflow's own (`profiles/<workflow>/<name>.yaml`).
 
-The generators (`agboss generate <kind> <name> --workflow src/x/x.workflow.ts`) still take the
-workflow's module path; #268 PR 4 turns it into the workflow's full name (`--workflow
-job-scout-workflow`). A project made by `agboss create` gets `"agboss": { "application" }` in its
-`package.json` and scripts without a path (`"chat": "agboss chat"`,
-`"rag:index": "agboss rag index"`, `"types": "agboss check"`); a workflow added by `generate workflow` has its own application
-until then, and its scripts name it (`agboss chat --application src/onboarding/onboarding.application.ts`).
+A project made by `agboss create` gets `"agboss": { "application" }` in its `package.json` and
+scripts without a path — `"chat": "agboss chat --start <project>-text-workflow-start"`,
+`"describe": "agboss describe"`, `"rag:index": "agboss rag index"`, `"types": "agboss check"`; a
+workflow added by `generate workflow` joins the same application and gets `chat:<name>` /
+`run:<name>` by its own start.
 
 ## Watch mode and Studio (#268)
 

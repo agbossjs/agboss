@@ -234,7 +234,7 @@ worst case of each start with how each number is made up — the [check report](
 | `pending`                                                             | every pause the run waits for — `PendingPause[]` ([Pauses](Pauses)), empty unless paused|
 | `path`                                                                | the flow nodes it visited, in order, by name                                       |
 | `spend`                                                               | the `CostReport` of this run ([FinOps](FinOps))                                    |
-| `runId`, `compacted`, `traceUrl`                                      | the run's id, what memory compacted, the trace                                     |
+| `executionId`, `compacted`, `traceUrl`                                | the execution's id, what memory compacted, the trace                               |
 
 A run that fails (a limit, a router, an agent) and that no `.onError` takes throws an `AGBossError`
 with a stable `code`; the Tern and the spend are recorded first.
@@ -251,7 +251,7 @@ the other credential → `PauseAnswererError`. The decision is a `ToolCallApprov
 (`approved`, `reason?`, `overrideArguments?` only with `approved: true`), validated before it is
 recorded (`DtoValidationError`; the pause keeps waiting). The execution runs on the context values
 it started with ([Context and Authorization](Context-And-Authorization#the-values-per-execution)),
-as the thread's owner; the result has the same shape — `threadId` and `runId` included — and, when
+as the thread's owner; the result has the same shape — `threadId` and `executionId` included — and, when
 other pauses remain, `status: Paused` with the rest in `pending`. A pause no longer waiting (taken,
 withdrawn) → `NotPausedError`. A run paused under another workflow version or config is checked by
 the workflow's `onIncompatibleResume` policy (`IncompatibleResumeError`). The whole model:

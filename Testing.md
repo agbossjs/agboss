@@ -31,7 +31,7 @@ export class ChosenJobs { @ListOf(ChosenJob) jobs!: ChosenJob[]; }
 export class SavedJobs { @ListOf(Text) added!: string[]; }
 @McpTool({
   server: ShortlistServer,
-  name: "save_shortlist",
+  name: "save-shortlist-tool",
   description: "Saves jobs",
   channel: TerminalUserChannel,
   input: ChosenJobs,
@@ -54,14 +54,14 @@ export class SaveShortlist implements ToolHandler<ChosenJobs, SavedJobs> {
 export class OrderBook { statusOf(orderId: string): Promise<string> { return Promise.resolve(`order ${orderId} shipped`); } }
 export class OrderQuery { @Text() orderId!: string; }
 export class OrderInfo { @Text() status!: string; }
-@Tool({ name: "order_status", description: "An order's status", input: OrderQuery, output: OrderInfo, deps: [OrderBook] })
+@Tool({ name: "order-status-tool", description: "An order's status", input: OrderQuery, output: OrderInfo, deps: [OrderBook] })
 export class OrderStatus implements ToolHandler<OrderQuery, OrderInfo> {
   constructor(private readonly book: OrderBook) {}
   async run({ orderId }: OrderQuery): Promise<OrderInfo> { return { status: await this.book.statusOf(orderId) }; }
 }
 export class JobQuery { @Text() query!: string; }
 export class JobList { @ListOf(Text) jobs!: string[]; }
-@Tool({ name: "greenhouse_jobs", description: "Finds jobs", input: JobQuery, output: JobList })
+@Tool({ name: "greenhouse-jobs-tool", description: "Finds jobs", input: JobQuery, output: JobList })
 export class GreenhouseJobs implements ToolHandler<JobQuery, JobList> { run(): Promise<JobList> { return Promise.resolve({ jobs: [] }); } }
 @Agent({ name: "scout-agent", description: "Finds jobs", prompt: "Find jobs.", model, tools: [GreenhouseJobs, OrderStatus] }) export class Scout {}
 @Agent({ name: "shortlist-agent", description: "Saves jobs", prompt: "Save jobs.", model, tools: [SaveShortlist] }) export class Shortlist {}
@@ -650,7 +650,7 @@ time — the `clock` fixture, `app.clock`, and what a component that injects `Cl
   frozen for that long.
 - What it moves, without real waiting: `applicationContext.startedAt`, the ledger's UTC day, the
   records' times, every lease's `expiresAt` and its renewals, a resume waiting for a tree's lease,
-  the recovery sweep, the shutdown timeout, a tool's `timeoutMs`, a model call's timeout, the waits
+  the recovery sweep, the shutdown timeout, a tool's `timeout`, a model call's timeout, the waits
   between retries and a `429`'s `Retry-After` pause (the circuit breakers are shared by the whole
   process and keep the system's time).
 - A unit test of a component that needs the time passes one itself: `new VirtualClock()` (or
@@ -707,7 +707,7 @@ declare const paused: ExecutionOutput;
 
 ```ts
 expect(paused.threadId).toBe("thread-1");
-expect(paused.runId).toBe("execution-1");
+expect(paused.executionId).toBe("execution-1");
 expect(paused.pending[0]?.childExecutionId).toBe("execution-2");
 expect(paused.pending[0]?.pauseId).toMatch(/^[0-9a-f]{32}$/);
 ```
@@ -774,7 +774,7 @@ failure rejects as the component threw it.
 
 | Runner                                  | A call                                                     | `output`                                    |
 | --------------------------------------- | ---------------------------------------------------------- | ------------------------------------------- |
-| `testTool(Tool, options)`               | `run(input, { timeout })` — default the tool's `timeoutMs` | the output DTO (input and output validated) |
+| `testTool(Tool, options)`               | `run(input, { timeout })` — default the tool's `timeout`   | the output DTO (input and output validated) |
 | `testAction(Action, options)`           | `run(input, { timeout })`                                  | what `execute` returned, checked against `output` |
 | `testRouter(Router, options)`           | `run(input, { timeout })`                                  | the target(s) it chose (`Route<R>`)         |
 | `testArbiter(Arbiter, options)`         | `run(Agent, answer, { timeout })`                          | whether the answer counts                   |

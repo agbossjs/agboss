@@ -16,7 +16,7 @@ import { Tool, WorkflowStart, type ToolHandler } from "agboss";
 import { Text, WorkflowStartTextDto } from "agboss/dto";
 class IssueQuery { @Text() query!: string; }
 class Issues { @Text() text!: string; }
-@Tool({ name: "search_issues", description: "Searches the tracker", input: IssueQuery, output: Issues })
+@Tool({ name: "search-issues-tool", description: "Searches the tracker", input: IssueQuery, output: Issues })
 class SearchIssues implements ToolHandler<IssueQuery, Issues> { run(): Promise<Issues> { return Promise.resolve({ text: "" }); } }
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 class ChatWorkflowStart {}

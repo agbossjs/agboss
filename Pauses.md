@@ -49,7 +49,7 @@ const result = await app.resume(
   { pauseId: replyKey, decision: { approved: true } },
   { tenantId: "acme", answeredBy: "manager-17" },
 );
-console.log(result.threadId, result.runId, result.pending.length);
+console.log(result.threadId, result.executionId, result.pending.length);
 ```
 
 - **By its id, always** — one way, also when there is only one pause, and without a `threadId`: the
@@ -58,7 +58,7 @@ console.log(result.threadId, result.runId, result.pending.length);
   is the same `UnknownPauseError` (`pause.unknown`), with no hint that the id exists elsewhere.
 - **The rest keep waiting**: with other pauses left the execution pauses again with them
   (`status: Paused`, the rest in `pending`); the last answer lets it go on to its finish. The result
-  carries `threadId` and `runId`, so a webhook that needs them gets them back.
+  carries `threadId` and `executionId`, so a webhook that needs them gets them back.
 - **The decision is validated before it is recorded**: a `ToolCallApprovalDecisionDto` —
   `approved`, `reason?`, `overrideArguments?` (only with `approved: true`, and a valid input of the
   tool) — else `DtoValidationError` and the pause keeps waiting. The same check applies to a
@@ -235,7 +235,7 @@ export class ButtonExpenseApprovalChannel extends ExpenseApprovalChannel {
 }
 
 @Tool({
-  name: "return_deposit",
+  name: "return-deposit-tool",
   description: "Returns a deposit",
   input: DepositReturnDto,
   output: DeskDoneDto,
@@ -248,7 +248,7 @@ export class ReturnDepositTool implements ToolHandler<DepositReturnDto, DeskDone
 }
 
 @Tool({
-  name: "book_expense",
+  name: "book-expense-tool",
   description: "Books an expense",
   input: ExpenseDto,
   output: DeskDoneDto,

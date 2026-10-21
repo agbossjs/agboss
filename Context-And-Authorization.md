@@ -46,11 +46,11 @@ actions and judges get only their input.
 
 | Field                     | What                                                                                     |
 | ------------------------- | ---------------------------------------------------------------------------------------- |
-| `executionId`             | unique per execution, the same after a resume (`ExecutionOutput.runId`)                  |
+| `executionId`             | unique per execution, the same after a resume (`ExecutionOutput.executionId`)                  |
 | `threadId`                | the conversation (`ExecutionOutput.threadId`)                                            |
 | `ownerId`                 | from `execute(…, { ownerId })`: who the thread belongs to; `undefined` for an open thread |
 | `tenant`                  | the execution's `TenantContext` (the declared subclass); `tenant.application` above it    |
-| `signal`                  | aborted by `app.cancel(threadId)` or the caller's `signal`; in a tool call also at the tool's `timeoutMs` |
+| `signal`                  | aborted by `app.cancel(threadId)` or the caller's `signal`; in a tool call also at the tool's `timeout` |
 | `workflow`                | `{ type, name, version, startedVersion }` — the `@Workflow` class, its name, versions    |
 | `step`                    | the step running now (below) — different in each parallel branch and each tool call      |
 | `parent`, `root`, `depth` | the execution tree: one level until #263 (`parent` `undefined`, `root === this`, `1`)    |
@@ -68,7 +68,7 @@ ${executionId}:${nodeId}:${visitNumber}[:${itemIndex}][:${callId}]
 ```
 
 In a step `signal` is the execution's; in a tool call's frame it is the call's own —
-`AbortSignal.any` of the execution's signal and a timer of the tool's `timeoutMs`, cleared when the
+`AbortSignal.any` of the execution's signal and a timer of the tool's `timeout`, cleared when the
 call ends (S45) — so a request passed that signal stops on a cancel and on the call's timeout.
 
 One key per operation: every pass of a cycle, every item and every tool call has its own; a retry,
@@ -226,7 +226,7 @@ export class SecureData {
 }
 
 @Tool({
-  name: "secure_data",
+  name: "secure-data-tool",
   description: "Retrieves sensitive data; admins only",
   input: SecureQuery,
   output: SecureData,

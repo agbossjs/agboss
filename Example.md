@@ -33,11 +33,11 @@ flow: [
 ],
 ```
 
-1. **profiler-agent** reads the resume (`read_resume`: PDF, Markdown, text) and proposes a search brief — where,
+1. **profiler-agent** reads the resume (`read-resume-tool`: PDF, Markdown, text) and proposes a search brief — where,
    roles, deal-breakers, count, boards. Reply `ok` or say what to change.
-2. **scout-agent** calls `greenhouse_jobs` once per brief: public Greenhouse boards, hard filters, then Jev rates
+2. **scout-agent** calls `greenhouse-jobs-tool` once per brief: public Greenhouse boards, hard filters, then Jev rates
    every remaining job (`JobFitJudge`); the answer is always a numbered list with links, then "why the top
-   matches" from the user's **company notes** (`search_company_notes`, cited as `[file]`). Ask "why is
+   matches" from the user's **company notes** (`search-company-notes-rag-tool`, cited as `[file]`). Ask "why is
    Fireblocks a fit?" — the answer cites `[fireblocks.md]`.
 3. **shortlist-agent** saves the jobs the user names ("save 1 and 2") to `~/job-scout/shortlist.md` through the
    official filesystem MCP server — the write **waits for the user's approval** (`approve? [y/N]`); rejected →
@@ -59,7 +59,7 @@ src/mcp/shortlist.server.ts         @McpServer (filesystem, only ~/job-scout/; r
 src/mcp/save-shortlist.mcp.ts       @McpTool — adds the chosen jobs, skips links already there (channel: TerminalUserChannel)
 src/mcp/read-shortlist.mcp.ts       @McpTool — the shortlist as saved
 src/services/                       greenhouse-boards (HTTP), resume-reader (files, PDF), job-fit (Jev) — @Injectable
-src/rag/company-notes.rag.ts        @Rag company_notes (SQLite FTS5, topK 3, RagMode.Tool) over notes/companies/
+src/rag/company-notes.rag.ts        @Rag company-notes-rag (SQLite FTS5, topK 3, RagMode.Tool) over notes/companies/
 src/model-providers/                @ModelProvider openrouter (retries, circuit breaker, costs from the response)
 src/environments/                   app.environment.ts (the contract) + dev / staging / test
 src/config/                         search.config.ts (boards, places), settings, paths, prompt variables
@@ -117,7 +117,7 @@ npm test
   service (the `RouterFailedError`'s cause) is taken by `.onError(…, toFinish(OrderHeldWorkflowFinish))`;
   any other error fails the run with `RouterFailedError`.
 - **`src/approvals/`** — two approvals at once ([Pauses](Pauses), #267): `offsite-booking-workflow`
-  launches venue-buyer-agent and flight-buyer-agent side by side; each calls `place_purchase`,
+  launches venue-buyer-agent and flight-buyer-agent side by side; each calls `place-purchase-tool`,
   whose `@Tool({ channel: PurchaseApprovalChannel })` names a role
   (`answeredBy: PauseAnswerer.ThreadOwner`) implemented by `TerminalPurchaseApprovalChannel`, listed
   in `@Application({ providers })`: it prints each question once, with its pause's id, and waits

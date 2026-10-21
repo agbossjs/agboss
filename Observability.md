@@ -16,7 +16,7 @@ an execution is `result.record`). Every execution event extends `ExecutionEvent`
 
 | Field               | What                                                                          |
 | ------------------- | ----------------------------------------------------------------------------- |
-| `executionId`       | unique per execution, the same after a resume (`result.runId`)                |
+| `executionId`       | unique per execution, the same after a resume (`result.executionId`)                |
 | `parentExecutionId` | the execution that launched this child (#263); `undefined` at the root        |
 | `rootExecutionId`   | the root's id; the execution's own at the root                                |
 | `threadId`          | the conversation                                                              |

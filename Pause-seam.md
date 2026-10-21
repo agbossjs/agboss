@@ -28,7 +28,7 @@ export class Done {}
 
 ```ts file=errands.workflow.ts
 @Tool({
-  name: "send_email",
+  name: "send-email-tool",
   description: "Sends an email",
   input: EmailDraft,
   output: EmailSent,

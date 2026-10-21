@@ -12,6 +12,7 @@ const ISSUES_API = new InjectionToken<IssuesApi>("ISSUES_API");
 ```ts
 import { ExecutionContext, Tool, type ToolHandler } from "agboss";
 import { ListOf, Text } from "agboss/dto";
+import { seconds } from "agboss/units";
 
 export class Issue {
   @Text() title!: string;
@@ -29,11 +30,11 @@ export class IssueList {
 }
 
 @Tool({
-  name: "search_issues",
+  name: "search-issues-tool",
   description: "Search the team's issues",
   input: IssueQuery,
   output: IssueList,
-  timeoutMs: 10_000,
+  timeout: seconds(10), // with units — there is no timeoutMs
   deps: [ExecutionContext, ISSUES_API],
 })
 export class SearchIssues implements ToolHandler<IssueQuery, IssueList> {
@@ -57,7 +58,7 @@ JSON Schema, with each field's `prompt` as its description.
 | ---------------------------------------------------- | ----------------------------------------------------------------- |
 | input validated against the input DTO             | `error: invalid input: <path>: <issue>` (`jobs[2].url`) — `run` is not called |
 | run is not started if the run is already cancelled | `error: <abort reason>`                                       |
-| `run` under a timeout and the run's `AbortSignal`  | `error: timed out after N ms` / `error: <message>`            |
+| `run` under its `timeout` and the run's `AbortSignal` | `error: timed out after 10 s` / `error: <message>`          |
 | output validated against the output DTO           | `error: invalid output: …` — a contract bug of the tool       |
 
 Results are values — `ToolResult = { kind: "ok", value } | { kind: "error", message }` — never
@@ -70,6 +71,25 @@ the constructor: `deps: [ExecutionContext]` gives `executionId`, `threadId`, `ow
 `ROUTER_FACTORY` is recorded as the tool's; what it pays a service that is not a model it records
 with `deps: [SpendRecorder]` — `this.spendRecorder.record({ service, cost: usd(…) })`, counted in
 the money limits ([FinOps](FinOps)).
+
+## Names
+
+A tool's `name` is named like every component (#268 AC9): kebab-case ending with `-tool` —
+`search-issues-tool`, `@McpTool` too (`[name.kind-suffix]` at assembly, with the name to use:
+`"search_issues" on @Tool — name it "search-issues-tool"`). A knowledge base's tool is
+`search-<rag name>-tool` (`search-jobs-rag-tool` for `jobs-rag`, [Knowledge bases](Knowledge-bases)).
+The tools an MCP server offers keep the server's own names (`read_text_file`, declared in
+`@McpServer({ tools })`) — a model never sees them, only the `@McpTool` calling them. Every name a
+model sees — the framework's answer tools (`answer-<dto>`) too — fits what the providers accept
+(OpenAI, Anthropic, Gemini): `[a-zA-Z0-9_-]`, at most 64 characters (`[tool.name-too-long]`,
+`[tool.name-invalid]`), and is unique over the agent's tools (`[tool.duplicate-name]`). All found at
+assembly, at once, before any model call.
+
+## Timeouts
+
+A call runs under its tool's `timeout` — a value with units, `timeout: seconds(10)` (`agboss/units`;
+default 30 s); a bare number does not compile and there is no `timeoutMs` (#268 AC11). The timer runs
+on the application's `Clock`, so a test's `clock.advance(…)` moves it.
 
 ## Library and workflow tools
 
@@ -111,9 +131,9 @@ export class Scout {}
   the run** with `LimitExceededError`; the loop's spend still reaches the budgets' counters.
 - Each call runs as its own task with its own signal; parallel calls of one turn run concurrently.
   In the call, `executionContext.signal` is the call's (#280 S45): the execution's signal (cancel
-  included) combined with a timer of the tool's `timeoutMs`, cleared when the call ends — so
+  included) combined with a timer of the tool's `timeout` (default 30 s), cleared when the call ends — so
   `fetch(url, { signal: this.executionContext.signal })` stops on a cancel and on the call's own
-  timeout, while the execution goes on (the model reads `Tool error: timed out after N ms`).
+  timeout, while the execution goes on (the model reads `Tool error: timed out after 10 s`).
 - `executionContext.step.callId` is the call's id — the same when a call interrupted by a crash
   runs again — and `executionContext.step.idempotencyKey`
   (`${executionId}:${nodeId}:${visitNumber}[:${itemIndex}]:${callId}`) the key a tool with side
@@ -251,7 +271,7 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
 
 // tools/refund-card.tool.ts — the tool names the role
 @Tool({
-  name: "refund_card",
+  name: "refund-card-tool",
   description: "Refunds a card payment",
   input: RefundCardInputDto,
   output: RefundCardOutputDto,
@@ -306,7 +326,7 @@ export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCar
 A tool is tested on its own with `testTool` (`agboss/testing`, #262): its own container — its
 `deps` resolved, `overrides` replacing classes by classes — and every call in the frame of a tool
 call, as the agent loop runs it: the input and output validated against the DTOs, the call's
-`executionContext.signal` aborting after `timeout` (default its `timeoutMs`) on the runner's clock,
+`executionContext.signal` aborting after `timeout` (default the tool's own `timeout`) on the runner's clock,
 `SpendRecorder` into the call's `spend`. A failure rejects as the tool threw it
 ([Testing → Unit runners](Testing#unit-runners--one-component-on-its-own)):
 
@@ -321,7 +341,7 @@ export class IssuesApi {
 }
 class IssueQuery { @Text() query!: string; }
 class IssueCount { @Text() summary!: string; }
-@Tool({ name: "count_issues", description: "Counts issues", input: IssueQuery, output: IssueCount, deps: [ExecutionContext, IssuesApi] })
+@Tool({ name: "count-issues-tool", description: "Counts issues", input: IssueQuery, output: IssueCount, deps: [ExecutionContext, IssuesApi] })
 class CountIssues implements ToolHandler<IssueQuery, IssueCount> {
   constructor(private readonly executionContext: ExecutionContext, private readonly issuesApi: IssuesApi) {}
   async run({ query }: IssueQuery): Promise<IssueCount> {

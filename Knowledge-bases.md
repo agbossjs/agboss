@@ -75,7 +75,7 @@ import { CompanyDocs } from "./rag/company-docs.rag.js";
   description: "Answers questions about the company",
   prompt: "Answer from the company docs; cite them as [source].",
   model: "moonshotai/kimi-k2.6",
-  rag: [{ use: CompanyDocs, mode: RagMode.Tool }], // the agent calls search_company_docs(query)
+  rag: [{ use: CompanyDocs, mode: RagMode.Tool }], // the agent calls search-company-docs-tool(query)
   // rag: [{ use: CompanyDocs, mode: RagMode.Context }] — the core puts the top results in its input message
 })
 export class OnboardingAgent {}
@@ -83,7 +83,7 @@ export class OnboardingAgent {}
 
 | Mode      | What happens                                                                                     | On error                         |
 | --------- | -------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `RagMode.Tool`    | a read tool `search_<name>` returning `{ results }`; the agent decides when and what to search  | returned to the model (any tool) |
+| `RagMode.Tool`    | a read tool `search-<name>-tool` returning `{ results }`; the agent decides when and what to search  | returned to the model (any tool) |
 | `RagMode.Context` | before the agent's loop the core retrieves `topK` results for its input message, appended to it as `Knowledge (<name>):` | the turn goes on without them    |
 
 Both modes ask the model to cite `[source]`. Omitting `topK`, `mode` or `retrieve` is a compile error.

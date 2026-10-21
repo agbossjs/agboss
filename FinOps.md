@@ -40,7 +40,7 @@ import { SpendRecorder, Tool, type ToolHandler } from "agboss";
 import { usd } from "agboss/units";
 
 @Tool({
-  name: "web_search",
+  name: "web-search-tool",
   description: "Searches the web (a paid API)",
   input: WebQueryDto,
   output: WebResultsDto,
@@ -50,7 +50,7 @@ export class WebSearchTool implements ToolHandler<WebQueryDto, WebResultsDto> {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
   run({ query }: WebQueryDto): Promise<WebResultsDto> {
-    this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) }); // tool:web_search
+    this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) }); // tool:web-search-tool
     return Promise.resolve({ text: `results for ${query}` });
   }
 }
@@ -72,7 +72,7 @@ export class Rate {
 import { ROUTER_FACTORY, Tool, type RouterEngine, type ToolHandler } from "agboss";
 
 @Tool({
-  name: "exchange_rate",
+  name: "exchange-rate-tool",
   description: "Today's rate, checked by a cheap decision model",
   input: RateQuery,
   output: Rate,
@@ -86,7 +86,7 @@ export class ExchangeRate implements ToolHandler<RateQuery, Rate> {
   }
 
   async run({ pair }: RateQuery): Promise<Rate> {
-    // the decision's spend is recorded as tool:exchange_rate
+    // the decision's spend is recorded as tool:exchange-rate-tool
     await this.checker.route({
       input: `${pair} 3.71`,
       options: [
@@ -395,7 +395,7 @@ agents $0.002332 · routing $0.000038 · guards $0.000033 · tools $0.001000
    1. guardrail:prompt-injection-guardrail  typesafe/jev-1.13  $0.000014  api-priced
    2. router:main                    typesafe/jev-1.13  $0.000016  api-priced
    3. researcher                     kimi-k2.6          $0.000426  306 in / 116 out
-   5. tool:exchange_rate             exchange_rate      $0.001000  tool-reported
+   5. tool:exchange-rate-tool             exchange-rate-tool      $0.001000  tool-reported
    …
 total $0.003403 (8 calls)
 ```

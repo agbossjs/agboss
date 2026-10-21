@@ -3,6 +3,50 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — generators and naming: full names, tool names, timeouts with units, Execution… (#268, PR 4)
+
+- **Breaking — `agboss generate` takes full names** ([CLI](CLI#create-and-generate-angular-like)):
+  the positional name ends with its kind (`billing-agent`, `escalation-router`, `refund-tool`,
+  `policies-rag`, `valid-score-arbiter`, `onboarding-workflow`), `--workflow` is a workflow's full
+  name (`desk-workflow`, found in the application of `package.json` or `--application`, its children
+  included) — no more `--workflow src/x/x.workflow.ts` — and `--agent` an agent's (`billing-agent`).
+  Nothing is completed: a short name is exit 2 with `Did you mean "billing-agent"?`, an unknown
+  workflow or agent too, and nothing is written. `generate` takes `--application <path>`.
+- **Breaking — `agboss generate workflow <name>-workflow`** writes the workflow beside the
+  application file (`src/onboarding/`, with its test) and lists it in `@Application({ workflows })`
+  — it no longer makes an application of its own; its scripts are `chat:<name>` / `run:<name>` by
+  its start's full name. A name the application already has is a conflict (exit 4).
+- **Breaking — `agboss create <project>`** writes the application at `src/<project>.application.ts`
+  (its path in `package.json`) with, beside it, `environments/`, `config/budget.config.ts`,
+  `model-providers/`, `guardrails/prompt-injection.guardrail.ts` (now the application's,
+  `@Application({ guardrails, defaults: { guardrail } })`) and `services/api.service.ts`; the first
+  workflow `<project>-workflow` in `src/<project>/`. `--agents` / `--tools` and the questionnaire take
+  full names (`"triage-agent:Sorts requests"`, `"answerer-agent:search-orders-tool"`); the default
+  agent is `<project>-assistant-agent`, the knowledge base `<project>-notes-rag`. The scripts run
+  a start by its full name (`"chat": "agboss chat --start <project>-text-workflow-start"`).
+- **Changed — generated code**: tools `name: "<name>-tool"`, knowledge bases `name: "<name>-rag"`
+  (class `<Name>Rag`, the index in the project's git-ignored `.agboss/rag/`, not the home folder), MCP
+  tools `<server>-<tool>-tool` with the server injected as `<server>Server`, MCP servers kebab-case,
+  the OpenAPI client `<Name>ApiService` injected as `<name>ApiService`, OpenAPI tools
+  `<operation>-tool`; no `models.ts`.
+- **Breaking — tool names** ([Tools](Tools#names), [Naming](Naming)): a `@Tool` / `@McpTool` name is
+  kebab-case ending with `-tool` (`[name.kind-suffix]` at assembly, with the name to use); every name
+  a model sees fits `[a-zA-Z0-9_-]`, at most 64 characters (`[tool.name-too-long]`, new
+  `[tool.name-invalid]`). A knowledge base's tool is `search-<rag name>-tool` (was `search_<name>`).
+  Every tool of job-scout, flow-patterns and the docs is renamed (`order_status` →
+  `order-status-tool`, `greenhouse_jobs` → `greenhouse-jobs-tool`, …); job-scout's knowledge base is
+  `company-notes-rag`.
+- **Breaking — timeouts have units**: `@Tool({ timeoutMs: 5000 })` / `@McpTool({ timeoutMs })` →
+  `timeout: seconds(5)` (a `Milliseconds` value; default 30 s); a tool's timeout error reads
+  `timed out after 5 s`. Internal: `DEFAULT_TOOL_TIMEOUT`, `JEV_TIMEOUT`.
+- **Breaking — `Execution…`, not `run…`** ([Naming](Naming)): `ExecutionOutput.runId` →
+  `executionId`; `IncompatibleResume` / `IncompatibleResumeError` `{ thread, runId }` →
+  `{ threadId, executionId }`; `MemoryTurn.runId` → `executionId`; `RunId` → `ExecutionId`,
+  `PausedRun` → `PausedExecution` (`PausedExecutionRepository`), `runAgent` → `executeAgent`,
+  `RunDeps` → `AgentExecutionDeps`, `RunOptions` → `AgentExecutionOptions`, `runVersions` →
+  `executionVersions`, `RunStreamEvent` → `ExecutionStreamEvent`, `RunTracing` → `ExecutionTracing`.
+- **New — the [Naming](Naming) page**: kind suffixes, tool names, `Workflow…` vs `Execution…`, units,
+  full names in the CLI.
 ## Unreleased — a budget breach in a parallel launch stops its siblings at once (#338)
 
 - **Fixed — parallel branches overspending a `@Budget`** ([FinOps → At run time](FinOps#at-run-time)):

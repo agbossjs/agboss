@@ -1,0 +1,62 @@
+# Naming
+
+One name lets you guess the others (#127, #268): the same patterns everywhere — in decorators, the
+CLI, traces, records, `agboss describe` and errors. What [Components](Components) and the
+[CLI](CLI) apply, in one place.
+
+## A name ends with its kind
+
+Every component's `name` is kebab-case, its qualifier in front and its kind last, and unique in the
+application (`[name.kind-suffix]`, `[graph.duplicate-node-name]`); its class is the same in
+PascalCase:
+
+| Kind | `name` | Class |
+| --- | --- | --- |
+| `@Application` | `job-scout-application` | `JobScoutApplication` |
+| `@Workflow` | `screening-workflow` | `ScreeningWorkflow` |
+| `@WorkflowStart` / `@WorkflowFinish` | `chat-workflow-start` / `chat-workflow-finish` | `ChatWorkflowStart` / `ChatWorkflowFinish` |
+| `@Agent`, `@Router`, `@Action`, `@Arbiter` | `ranker-agent`, `main-router`, `enrich-company-action`, `in-range-arbiter` | `RankerAgent`, `MainRouter`, … |
+| `@Tool`, `@McpTool` | `save-shortlist-tool` | `SaveShortlistTool` |
+| `@Rag` | `jobs-rag` (its tool: `search-jobs-rag-tool`) | `JobsRag` |
+| `@Budget`, `@ModelProvider`, `@HealthCheck`, … | `tenant-daily-budget`, `openrouter-model-provider`, `crm-health-check` | … |
+
+DTO classes end with `Dto` (`ScoreDto`, `[dto.name]`); an `@Injectable` is named by its role —
+`…Service`, `…Repository`, `…Provider` (#280) — and a field holding it after its type
+(`private readonly ordersService: OrdersService`).
+
+## Tool names
+
+A project's tool follows the kind-suffix rule like every other component: `name:
+"save-shortlist-tool"`, kebab-case, checked at assembly with the name to use
+(`"save_shortlist" on @Tool — name it "save-shortlist-tool"`). A knowledge base's automatic tool is
+`search-<rag name>-tool`; the framework's answer tools are `answer-<dto>`. Tools of an external MCP
+server keep the names the server gives (`read_text_file`, in `@McpServer({ tools })`) — the model sees
+the `@McpTool` that calls them. Every name a model sees fits the providers' limit (OpenAI, Anthropic,
+Gemini): `[a-zA-Z0-9_-]`, at most 64 characters (`[tool.name-too-long]`, `[tool.name-invalid]`).
+[Tools](Tools#names).
+
+## `Workflow…` is the definition, `Execution…` one execution
+
+| The definition | One execution |
+| --- | --- |
+| `@Workflow`, `@WorkflowStart`, `@WorkflowFinish`, `WorkflowRecord` (`name`, `version`), `WorkflowPauseQuestionDto` | `app.execute`, `ExecutionOutput` (`executionId`), `ExecutionContext`, `ExecutionId`, `ExecutionStatus`, `PausedExecution`, `ExecutionRecord` |
+| | the hooks `onExecutionStart`, `onExecutionPause`, `onExecutionResume`, `onExecutionEnd`, `onExecutionError`, `onExecutionRejected`; `ExecutionCancelledError` |
+
+Nothing execution-time is named `run…`: `result.executionId` (not `runId`), `IncompatibleResume`
+`{ threadId, executionId }`, `executeAgent` / `AgentExecutionDeps` / `AgentExecutionOptions` /
+`executionVersions` for the lower-level loop.
+
+## Values with units
+
+A limit reads as what it is — `usd(0.5)`, `seconds(30)`, `minutes(2)` (`agboss/units`), never a bare
+number, no `Ms` / `Usd` in names. Every timeout is one: `@Tool({ timeout: seconds(5) })`,
+`@ModelProvider({ timeout: minutes(2) })`, `@HealthCheck({ timeout: seconds(2) })`; a join's waiting
+limit is a different thing, its `deadline` (`.joinQuorum({ min, deadline: seconds(30) })`).
+
+## The CLI takes full names
+
+The command is `agboss`. Every name it takes is the full, kind-suffixed `name` — `--start
+screening-workflow-start`, `--workflow job-scout-workflow`, `agboss generate agent ranker-agent`,
+`--rag jobs-rag` — so `grep "screening-workflow-start"` finds every use, CI scripts included. Nothing
+is completed or guessed: a name not found is exit 2 with `Did you mean "…"?` and the list, and
+nothing runs or is written. [CLI](CLI).

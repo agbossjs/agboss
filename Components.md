@@ -127,7 +127,7 @@ import { OrdersService } from "../services/orders.service.js";
 import { OrderQuery, OrderStatus } from "./search-orders.dto.js";
 
 @Tool({
-  name: "search_orders",
+  name: "search-orders-tool",
   description: "Find an order's status by its id",
   input: OrderQuery,
   output: OrderStatus,
@@ -147,7 +147,7 @@ export class SearchOrders implements ToolHandler<OrderQuery, OrderStatus> {
 ```
 
 - `run` is checked against the decorator's DTOs (a mismatch is a compile error); the core validates
-  input and output, applies `timeoutMs` and returns errors to the model (`invalid input: …`).
+  input and output, applies `timeout` and returns errors to the model (`invalid input: …`).
 - `deps` lists the constructor's dependencies **in order** — a missing, extra or reordered entry is a
   compile error (standard decorators have no parameter-type metadata, so they are listed once).
 - `run` gets only its input — there is no `ctx` parameter (#280); the execution, its step and the
@@ -440,7 +440,7 @@ export const SHORTLIST = new InjectionToken<string>("SHORTLIST");
 
 @McpTool({
   server: ShortlistServer,
-  name: "save_shortlist",
+  name: "save-shortlist-tool",
   description: "Save the jobs the user chose to their shortlist",
   channel: TerminalUserChannel, // a write the user approves first
   input: ChosenJobs,
@@ -608,5 +608,6 @@ the constructor of any component (`@Injectable`, `@Tool`, `@McpTool`, `@Rag`, `@
 - **an action** — `actions/<name>.action.ts`, a step of a path (`.toAction(NewAction)`).
 - **an MCP server** — `@McpServer` + `@McpTool` classes in `mcp/`, the server in `@Workflow({ mcp })`.
 
-`agboss generate <kind> <name> --workflow <path>` (alias `agb g`) writes and wires each of them,
+`agboss generate <kind> <full name> --workflow <workflow's full name>` (alias `agb g`; `agboss g
+agent billing-agent --workflow desk-workflow`) writes and wires each of them,
 then regenerates `.agboss/types.d.ts` ([CLI](CLI)).
