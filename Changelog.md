@@ -3,6 +3,21 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — lease fencing at expiry, unique tool-call ids (#335)
+
+- **Fixed — a lease store down past the lease** ([Several instances → The execution lease](Several-instances#the-execution-lease)):
+  the holder trusts its lease until the `Clock` read before its last confirmed renewal plus
+  30 seconds; a store error before then lets the checkpoint write go on, at that moment the
+  execution's signal aborts with `ExecutionLeaseLostError` — the agent's tool loop starts no further
+  model or tool call, no `.onError`, the record stays `running` and another instance recovers the
+  tree. Before, the background renewal retried forever and the holder kept calling tools after its
+  lease had expired in the store. The error's message names the case (expired without takeover);
+  no new field.
+- **Fixed — a provider repeating a tool-call id within one move**
+  ([Tools → Agents with tools](Tools#agents-with-tools)): each repeated id gets its position (`${id}:${index}`), so two calls
+  no longer share a result slot and an idempotency key. The key format is unchanged; ids the provider
+  gives once are kept as they are.
+
 ## Unreleased — describe and the check report: the worst case per start, check --env (#268, PR 2)
 
 - **New — `agboss describe` describes the application** ([CLI](CLI#describe-268)): first its tree —

@@ -117,7 +117,14 @@ export class Scout {}
 - `executionContext.step.callId` is the call's id — the same when a call interrupted by a crash
   runs again — and `executionContext.step.idempotencyKey`
   (`${executionId}:${nodeId}:${visitNumber}[:${itemIndex}]:${callId}`) the key a tool with side
-  effects **must** pass to the external service.
+  effects **must** pass to the external service. The key is unique per call (#335): a call the model
+  gave no id gets one from its run, visit, turn and position, and an id the provider repeats within
+  one move gets its position (`call_0:0`, `call_0:1`) — so two calls of one tool never share a key,
+  and a recovered step replays the same ids.
+- An instance that loses the tree's lease mid-loop — taken by another instance, or its lease store
+  silent until the lease ran out — aborts `executionContext.signal` with `ExecutionLeaseLostError`
+  and starts no further model or tool call
+  ([Several instances → The execution lease](Several-instances#the-execution-lease)).
 - Tool errors do not fail the run: the model reads `Tool error: …` and continues.
 
 ## For the model

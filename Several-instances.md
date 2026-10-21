@@ -218,7 +218,17 @@ One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — the exe
   than 30 seconds — and another instance took it, `leaseEpoch + 1`), stops: its work is aborted
   through its signal and its call rejects with `ExecutionLeaseLostError` (`execution.lease-lost`).
   That is not a failure of the execution: it reaches neither `.onError`, `onExecutionError` nor the execution
-  record — the new holder owns the execution and continues it.
+  record — the new holder owns the execution and continues it;
+- fences itself locally (#335): it trusts the lease until `confirmedUntil` — the `Clock` read
+  before its last acquire or renewal the store confirmed, plus 30 seconds (the store counts from a
+  later moment, so its lease never ends earlier). A lease store that errors **before** then is
+  tried again at the next renewal, and a checkpoint write goes on. When `confirmedUntil` comes with
+  no confirmed renewal — the store unreachable for the whole lease — the holder stops at that
+  moment, whether or not another instance took the lease yet: its signal aborts with
+  `ExecutionLeaseLostError` (the message says the lease expired before its store confirmed a
+  renewal; the class, `code` and fields are the same), an agent's tool loop starts no further model
+  or tool call, a checkpoint write at or past it throws it, and the record stays `running` for
+  [recovery](#recovery).
 
 **Two resumes at once.** A resume has two phases: it first records its decision on its pause (the
 pause goes `Pending → Resolved` atomically — a second resume of the same pause, a double click,
