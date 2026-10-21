@@ -58,18 +58,27 @@ balancing })` — one limit for every execution, tenant and instance (`RateLimit
 | `npm run studio`                       | LangGraph Studio (graphs from `langgraph.json`)                                          |
 | `scripts/langfuse.sh up\|down\|status` | local Langfuse for tracing; writes keys to `.env`                                        |
 
-In `examples/job-scout/` (each is `agboss <command> --workflow src/job-scout.workflow.ts`):
-`npm run chat` · `npm run run -- "task"` · `npm run describe` · `npm run eval` / `replay` ·
-`npm run golden -- add --name <n>` · `npm run compare -- --profiles base,<p> --golden <n>` ·
-`npm run rag:index` · `npm run probe -- --place <p> <token…>` (Greenhouse boards). Any run command
-takes `--profile <name>` (`profiles/<workflow>/<name>.yaml`) and `--thread <id>`.
+The CLI works on one application (#268): its path is set once in the project's `package.json` —
+`"agboss": { "application": "src/job-scout.application.ts" }` — or given with `--application <path>`
+(neither → exit 3 saying where to set it; there is no `--workflow <path>`). `chat`, `run`, `eval`,
+`replay`, `golden add` and `compare` run one workflow, chosen by its start's full name —
+`--start chat-workflow-start` (optional with one start; with several and none given, or an unknown
+name, exit 2 with the starts listed and a `Did you mean "…"?`, nothing runs); `run` takes a text
+(`"<task>"`, a start taking `WorkflowStartTextDto`), `--input '<json>'` or `--input-file <file>`,
+checked against the start's `InputOf` field by field before anything starts; `describe`, `check`
+and `rag index [--rag <name>]` cover every workflow of the application.
+
+In `examples/job-scout/` (`agboss <command>`, its one start): `npm run chat` · `npm run run -- "task"` ·
+`npm run describe` · `npm run eval` / `replay` · `npm run golden -- add --name <n>` ·
+`npm run compare -- --profiles base,<p> --golden <n>` · `npm run rag:index` (`agboss rag index`) ·
+`npm run probe -- --place <p> <token…>` (Greenhouse boards). Any run command takes
+`--profile <name>` (`profiles/<workflow>/<name>.yaml`) and `--thread <id>`.
 
 In `examples/flow-patterns/` (#295; scripted tests only, no model key): `npm run check` (`agboss
-check` on its six workflows) · `npm run describe -- --workflow src/offer/offer.workflow.ts` (the
-review loop), `src/credit/credit.workflow.ts` (a code router) or `src/review/review.workflow.ts`
-(parallel launches in waves, #273), `src/panel/panel.workflow.ts` (a quorum with a code and a model
-arbiter, #279), `src/vendor/vendor-screening.workflow.ts` (a child workflow per vendor, #263),
-`src/topic/topic-research.workflow.ts` (a workflow launching itself, #264) · `npm test`.
+check --strict` on its application's six workflows) · `npm run describe` (each of them:
+`src/offer/` the review loop, `src/credit/` a code router, `src/review/` parallel launches in waves,
+#273, `src/panel/` a quorum with a code and a model arbiter, #279, `src/vendor/` a child workflow per
+vendor, #263, `src/topic/` a workflow launching itself, #264) · `npm test`.
 
 ## Architecture
 
@@ -83,9 +92,9 @@ and the worked example is assembled and run by script in the framework's tests
 A workflow is a folder of components, one class per file, wired by a `*.workflow.ts` module whose
 `flow` is a list of **paths** (#272, Wiki → ADR-0019-Flow-as-paths-with-path-scope); an
 **`@Application`** (`*.application.ts`, #261) lists its workflows, its infrastructure and its
-budgets, and is what `createApp` and `testWith` take. Commands find it by the workflow's path
-(`agboss chat --workflow src/desk/desk.workflow.ts` runs the application that lists it, until #268);
-`agboss check` writes `.agboss/types.d.ts`, which types the paths, every node's input and
+budgets, and is what `createApp` and `testWith` take, and what the CLI works on — its path set once
+in `package.json` (`"agboss": { "application": "src/desk/desk.application.ts" }`), a workflow chosen
+by its start (`agboss chat --start chat-workflow-start`, #268); `agboss check` writes `.agboss/types.d.ts`, which types the paths, every node's input and
 `app.execute`. The shape every workflow follows — a support desk with one tool, one injected
 service, one agent and a router:
 

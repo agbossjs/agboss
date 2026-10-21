@@ -28,6 +28,7 @@ describe("the command ships apart from the framework (#101, #205)", () => {
 
   it("AC5 (#101): the command help says workflow, not bundle", () => {
     expect(usage()).not.toMatch(/bundle/i);
-    expect(usage()).toContain("--workflow");
+    expect(usage()).toContain("--start <full name>");
+    expect(usage()).not.toContain("--workflow");
   });
 });

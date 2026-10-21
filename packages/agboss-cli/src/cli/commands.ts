@@ -3,61 +3,48 @@
  * machine description (`agboss help <command> --json`) are all built from it.
  */
 import {
+  APPLICATION,
   DRY_RUN,
   ENV,
   flag,
   PROFILE,
+  START,
   text,
   THREAD,
-  WORKFLOW,
   type CommandSpec,
 } from "./options.js";
 
 export { COMMON_OPTIONS, optionsOf, type CommandSpec, type OptionSpec } from "./options.js";
 
-const WORKFLOW_COMMANDS: Readonly<Record<string, CommandSpec>> = {
+/** Commands that run one workflow of the application: chosen by its start (#268). */
+const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   chat: {
-    summary: "interactive chat with the workflow",
-    usage: "agboss chat --workflow <path> [--thread <id>] [--profile <name>] [--env <name>]",
-    options: [WORKFLOW, THREAD, PROFILE, ENV],
+    summary: "interactive chat with a workflow of the application",
+    usage:
+      "agboss chat [--start <name>] [--thread <id>] [--profile <name>] [--env <name>] [--application <path>]",
+    options: [START, APPLICATION, THREAD, PROFILE, ENV],
   },
   run: {
-    summary: "one task, the reply to stdout",
+    summary: "one execution of a start, the reply to stdout",
     usage:
-      'agboss run --workflow <path> [--thread <id>] [--profile <name>] [--env <name>] "<task>"',
-    positionals: "<task…> (or the old form: <workflow.ts> <task…>)",
+      'agboss run [--start <name>] ("<task>" | --input <json> | --input-file <file>) [--thread <id>] [--profile <name>] [--env <name>]',
+    positionals: "<task…> (a start taking WorkflowStartTextDto)",
     options: [
-      WORKFLOW,
-      text("input", "<text>", "the task (instead of the positional words)"),
+      START,
+      text("input", "<json>", "the start's input as JSON, checked against it field by field"),
+      text("input-file", "<file>", "the start's input from a JSON file"),
+      APPLICATION,
       THREAD,
       PROFILE,
       ENV,
     ],
   },
-  describe: {
-    summary: "agents, their tools, knowledge bases and settings (no API key needed)",
-    usage: "agboss describe --workflow <path> [--profile <name>] [--env <name>] [--json]",
-    options: [WORKFLOW, PROFILE, ENV],
-  },
-  check: {
-    summary:
-      "every validation that needs no API key: assembly, graph rules, environment, prompts (+ models)",
-    usage:
-      "agboss check --workflow <path> [--models] [--strict] [--profile <name>] [--env <name>] [--json]",
-    options: [
-      WORKFLOW,
-      flag("models", "also check models against their providers (lists them over the network)"),
-      flag("strict", "the analyser's warnings are errors ([flow.path-too-deep], …)"),
-      flag("prompts", "prompts: files exist, every {{variable}} is known — always checked"),
-      PROFILE,
-      ENV,
-    ],
-  },
   eval: {
-    summary: "score recent runs with Jev",
-    usage: "agboss eval --workflow <path> [--version <v>] [--limit N] [--profile <name>]",
+    summary: "score recent runs of a start's workflow with Jev",
+    usage: "agboss eval [--start <name>] [--version <v>] [--limit N] [--profile <name>]",
     options: [
-      WORKFLOW,
+      START,
+      APPLICATION,
       text("version", "<v>", "only runs of this prompt version"),
       text("limit", "N", "how many runs", { default: "100" }),
       PROFILE,
@@ -65,10 +52,11 @@ const WORKFLOW_COMMANDS: Readonly<Record<string, CommandSpec>> = {
     ],
   },
   replay: {
-    summary: "re-run a prompt version on recent tasks",
-    usage: "agboss replay --workflow <path> --version <v> [--limit N] [--profile <name>]",
+    summary: "re-run a prompt version on recent tasks of a start's workflow",
+    usage: "agboss replay [--start <name>] --version <v> [--limit N] [--profile <name>]",
     options: [
-      WORKFLOW,
+      START,
+      APPLICATION,
       text("version", "<v>", "the prompt version to replay", { required: true }),
       text("limit", "N", "how many tasks", { default: "100" }),
       PROFILE,
@@ -76,21 +64,23 @@ const WORKFLOW_COMMANDS: Readonly<Record<string, CommandSpec>> = {
     ],
   },
   golden: {
-    summary: "save recent real tasks as a golden set",
-    usage: "agboss golden add --workflow <path> --name <name> [--from-last N]",
+    summary: "save recent real tasks of a start's workflow as a golden set",
+    usage: "agboss golden add [--start <name>] --name <name> [--from-last N]",
     positionals: "add",
     options: [
-      WORKFLOW,
+      START,
+      APPLICATION,
       text("name", "<name>", "the set: golden/<workflow>/<name>.yaml", { required: true }),
       text("from-last", "N", "how many recent tasks", { default: "20" }),
       ENV,
     ],
   },
   compare: {
-    summary: "profiles side by side on the same tasks",
-    usage: "agboss compare --workflow <path> --profiles base,<p>… [--golden <name> | --last N]",
+    summary: "profiles side by side on the same tasks of a start's workflow",
+    usage: "agboss compare [--start <name>] --profiles base,<p>… [--golden <name> | --last N]",
     options: [
-      WORKFLOW,
+      START,
+      APPLICATION,
       text("profiles", "<list>", "comma-separated; the first is the baseline (base = no profile)", {
         required: true,
       }),
@@ -99,10 +89,35 @@ const WORKFLOW_COMMANDS: Readonly<Record<string, CommandSpec>> = {
       ENV,
     ],
   },
-  "rag:index": {
-    summary: "build / update the workflow's knowledge bases",
-    usage: "agboss rag:index --workflow <path> [--kb <name>] [--env <name>]",
-    options: [WORKFLOW, text("kb", "<name>", "only this knowledge base"), ENV],
+};
+
+/** Commands over the whole application. */
+const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
+  describe: {
+    summary:
+      "every workflow: agents, their tools, knowledge bases and settings (no API key needed)",
+    usage: "agboss describe [--profile <name>] [--env <name>] [--application <path>] [--json]",
+    options: [APPLICATION, PROFILE, ENV],
+  },
+  check: {
+    summary:
+      "every validation that needs no API key: assembly, graph rules, environment, prompts (+ models)",
+    usage:
+      "agboss check [--models] [--strict] [--profile <name>] [--env <name>] [--application <path>] [--json]",
+    options: [
+      APPLICATION,
+      flag("models", "also check models against their providers (lists them over the network)"),
+      flag("strict", "the analyser's warnings are errors ([flow.path-too-deep], …)"),
+      flag("prompts", "prompts: files exist, every {{variable}} is known — always checked"),
+      PROFILE,
+      ENV,
+    ],
+  },
+  rag: {
+    summary: "build / update the application's knowledge bases",
+    usage: "agboss rag index [--rag <name>] [--env <name>] [--application <path>]",
+    positionals: "index",
+    options: [APPLICATION, text("rag", "<name>", "only this knowledge base (its full name)"), ENV],
   },
 };
 
@@ -169,7 +184,8 @@ const SCAFFOLD_COMMANDS: Readonly<Record<string, CommandSpec>> = {
 };
 
 export const COMMANDS: Readonly<Record<string, CommandSpec>> = {
-  ...WORKFLOW_COMMANDS,
+  ...START_COMMANDS,
+  ...APPLICATION_COMMANDS,
   ...SCAFFOLD_COMMANDS,
 };
 

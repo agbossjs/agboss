@@ -13,9 +13,11 @@ describe("agboss help (#104)", () => {
   it("AC2: one command's usage and all its options; unknown → undefined", () => {
     const compare = helpFor("compare") ?? "";
 
-    expect(compare).toContain("agboss compare — profiles side by side on the same tasks");
     expect(compare).toContain(
-      "Usage: agboss compare --workflow <path> --profiles base,<p>… [--golden <name> | --last N]",
+      "agboss compare — profiles side by side on the same tasks of a start's workflow",
+    );
+    expect(compare).toContain(
+      "Usage: agboss compare [--start <name>] --profiles base,<p>… [--golden <name> | --last N]",
     );
     expect(compare).toMatch(/--profiles <list>\s+comma-separated/);
     expect(helpFor("help")).toContain("Usage: agboss help [<command>]");

@@ -45,8 +45,6 @@ export { describedLimitsOf, type DescribedLimits } from "./describe/limits.js";
 export { stepsRangeOf, type StepsRange } from "./flow/analyse/steps.js";
 export { executeUnchecked } from "./app/execute-unchecked.js";
 export { standaloneContexts, type RuntimeContexts } from "./flow/context/runtime-contexts.js";
-export { textStartOfWorkflow } from "./application/compose-app.js";
-export { workflowsOfApplication } from "./application/workflow-application.js";
 export {
   defaultSourceOf,
   defaultsLevelsOf,
@@ -54,7 +52,7 @@ export {
   type DefaultSource,
   type DefaultsLevels,
 } from "./config/defaults.js";
-export { environmentOwnerOfFile, loadApplicationClass } from "./loader/load-application.js";
+export { loadApplicationClass } from "./loader/load-application.js";
 export { requestOfTask, textRequestOf, type StartRequest } from "./flow/runtime/start-input.js";
 export { GENERATED_TYPES_FILE } from "./flow/types/generate.js";
 export {
@@ -74,3 +72,8 @@ export { type RunStreamEvent } from "./run/types.js";
 export { configSnapshot } from "./run/versions.js";
 export { shortVersion, versionOf } from "./terns/index.js";
 export { isMcpFacade } from "./tools/index.js";
+export { applicationOf, type AssembledApplication } from "./application/assemble.js";
+export { environmentOwnerOf } from "./application/create-app.js";
+export { startsOfApplication, type ApplicationStart } from "./application/application-starts.js";
+export { startInputIssuesOf } from "./flow/runtime/start-input-issues.js";
+export { ApplicationLoadError } from "./loader/load-errors.js";

@@ -2,12 +2,13 @@ import { readdirSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { WorkflowLoadError } from "agboss";
 import { FlowTypesStatus, writeFlowTypes, type FlowTypesResult } from "agboss/internal";
+import type { ApplicationPath } from "./application-path.js";
 import { problemText, type CheckProblem } from "./check-problems.js";
 import { loadOptions, type CommandContext } from "./context.js";
 
 /**
- * Type generation in the CLI (#272 S2, S7): `agboss check` on a module with v2 workflows analyses
- * them and writes `.agboss/types.d.ts` before it reports; `agboss generate` regenerates the file at
+ * Type generation in the CLI (#272 S2, S7): `agboss check` on the application's module analyses its
+ * workflows and writes `.agboss/types.d.ts` before it reports; `agboss generate` regenerates the file at
  * its end. A module without a workflow goes the old way, untouched.
  */
 
@@ -87,10 +88,11 @@ export interface TypesOutcome {
  */
 export async function writeCheckedTypes(
   context: CommandContext,
-  file: string,
+  application: ApplicationPath,
   strict = false,
 ): Promise<TypesOutcome> {
-  const result = await generate(context, file, strict);
+  const file = application.shown;
+  const result = await generate(context, application.file, strict);
   if (result === undefined) return { problems: [], warnings: [] };
   // a rule violation is the assembly's to report; generation's own codes are `types.*` — and,
   // under --strict, the warnings the assembly does not see as errors
@@ -120,9 +122,7 @@ export async function regenerateFlowTypes(
   const result = await generate(context, workflow).catch((error: unknown) => {
     // generate never validated the workflow: a module that does not load is reported, not fatal
     const reason = error instanceof Error ? error.message.split("\n")[0] : String(error);
-    context.warn(
-      `types not regenerated: ${reason ?? ""} — run agboss check --workflow ${workflow}`,
-    );
+    context.warn(`types not regenerated: ${reason ?? ""} — run agboss check`);
     return undefined;
   });
   if (result === undefined) return;

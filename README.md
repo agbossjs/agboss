@@ -380,19 +380,27 @@ under the tree's lease: after a pause or a crash the next pass rebuilds the queu
 tasks, and a `FailFast` failure empties it. A slot is an execution, not model load — provider
 throughput is `rateLimitPolicy` ([Wiki → FinOps → Concurrency of a tree](https://github.com/agbossjs/agboss/wiki/FinOps#concurrency-of-a-tree-264)).
 
-`npx agboss check --workflow src/job-scout.workflow.ts` writes `.agboss/types.d.ts` — what types
-the paths, each node's input and `app.execute`; a generated project runs it on install
-(`npm run types`).
+The CLI works on the application whose path the project's `package.json` sets once —
+`"agboss": { "application": "src/job-scout.application.ts" }` (or `--application <path>`). `npx agboss
+check` writes `.agboss/types.d.ts` — what types the paths, each node's input and `app.execute`; a
+generated project runs it on install (`npm run types`).
 
 The whole shape — DTOs, a service, a tool, an agent, a router, the workflow, its application and
 its test — is the
 worked example in [`CLAUDE.md`](CLAUDE.md) → Architecture (compiled and run by `make check`).
 
 ```bash
-npx agboss chat --workflow src/job-scout.workflow.ts
-npx agboss describe --workflow src/job-scout.workflow.ts   # agents, tools, dependencies — no API key
-npx agboss --help                                          # run, eval, replay, golden, compare, rag:index
+npx agboss chat                                 # the application's one start; with several: --start <name>
+npx agboss run --start chat-workflow-start "my resume src/data/sample-resume.md"
+npx agboss run --start <name> --input '<json>'  # a start taking a DTO: checked field by field first
+npx agboss describe                             # every workflow: agents, tools, dependencies — no API key
+npx agboss --help                               # run, eval, replay, golden, compare, rag index
 ```
+
+A command that runs one workflow (`chat`, `run`, `eval`, `replay`, `golden add`, `compare`) takes
+it by its start's full name, `--start chat-workflow-start` — optional when the application has one
+start; with several and none given, or a name no start has, it stops with the list of starts (and a
+`Did you mean "…"?`), running nothing.
 
 Needs `OPENROUTER_API_KEY` in `.env` (dev's `openRouterApiKey: secret("OPENROUTER_API_KEY")`). Docs: [Wiki → Components](https://github.com/agbossjs/agboss/wiki/Components) ·
 [Configuration](https://github.com/agbossjs/agboss/wiki/Configuration) · [Knowledge bases](https://github.com/agbossjs/agboss/wiki/Knowledge-bases) ·
@@ -417,7 +425,7 @@ parallel launches in waves (a reviewer per section, then a critic beside two fac
 Point the CLI at it:
 
 ```bash
-cd examples/flow-patterns && npx agboss describe --workflow src/offer/offer.workflow.ts
+cd examples/flow-patterns && npx agboss describe   # every workflow of its application
 ```
 
 More: [Wiki → Example](https://github.com/agbossjs/agboss/wiki/Example).
@@ -589,8 +597,8 @@ export class AuditStoreService {
   error messages; only `.reveal()` gives the value. Secrets are process variables and only that: in
   Cloud Run a Secret Manager secret is bound to the variable at deploy
   (`--set-secrets=DATABASE_URL=database-url:3`); the framework calls no cloud SDK.
-- `agboss chat --workflow src/app.workflow.ts` (the application that lists it) loads `dev`;
-  `--env staging` loads `staging.environment.ts` (every workflow command takes `--env`). An unknown
+- `agboss chat` (the application of `package.json`) loads `dev`;
+  `--env staging` loads `staging.environment.ts` (every command that loads the application takes `--env`). An unknown
   name fails at once (exit 3) listing the available ones; a variable without a value or default fails
   the start naming it, the field and the environment, never the value:
   `DATABASE_URL is not set (AppEnvironment.databaseUrl, prod)`. `agboss check` validates the selected

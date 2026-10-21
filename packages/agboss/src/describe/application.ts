@@ -1,5 +1,6 @@
 import { applicationOfWorkflow } from "../application/workflow-application.js";
 import type { ApplicationOptions } from "../application/application.js";
+import type { AssembledApplication } from "../application/assemble.js";
 import {
   implementationLine,
   implementationsOf,
@@ -77,21 +78,26 @@ function executionBudgetOf(
 }
 
 /**
- * The assembly warnings of the workflow in its application (`agboss check`, errors under
- * `--strict`): its budgets on an in-memory ledger, its pauses in memory, PII tokens on a key of the
- * instance (no `pseudonymKey`, #120 S94). None on its own.
+ * The assembly warnings of an application (`agboss check`, errors under `--strict`): its budgets on
+ * an in-memory ledger, its pauses in memory, PII tokens on a key of the instance (no
+ * `pseudonymKey`, #120 S94).
  */
-export function applicationWarningsOf(bundle: AssembledWorkflow): readonly AssemblyWarning[] {
-  const declaration = applicationOfWorkflow(bundle.graph.type);
-  if (declaration === undefined) return [];
-  const { options } = declaration;
-  return assemblyWarningsOf({
+export const applicationWarningsOf = (
+  assembled: AssembledApplication,
+): readonly AssemblyWarning[] =>
+  assemblyWarningsOf({ ...assembled, isPiiKeyOfInstance: assembled.pseudonymKey === undefined });
+
+/** The warnings of the workflow's application for this workflow alone (`agboss describe`). */
+const workflowWarningsOf = (
+  options: ApplicationOptions,
+  bundle: AssembledWorkflow,
+): readonly AssemblyWarning[] =>
+  assemblyWarningsOf({
     providers: options.providers ?? [],
     budgets: options.budgets ?? [],
     workflows: [bundle],
     isPiiKeyOfInstance: options.pseudonymKey === undefined,
   });
-}
 
 /** The application that lists the workflow, described; `undefined` for a workflow on its own. */
 export function describedApplicationOf(
@@ -112,7 +118,7 @@ export function describedApplicationOf(
     budgets: budgets.map(describedBudget),
     executionBudget: executionBudgetOf(budgets, bundle.graph.type),
     observers: (options.observers ?? []).map(tokenName),
-    warnings: applicationWarningsOf(bundle).map(warningText),
+    warnings: workflowWarningsOf(options, bundle).map(warningText),
   };
 }
 

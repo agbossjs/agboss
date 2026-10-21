@@ -86,7 +86,7 @@ describe("agboss generate openapi", () => {
       repo,
     );
     expect(prettier.ok, prettier.out).toBe(true);
-    const described = run(agboss, ["describe", "--workflow", workflow]);
+    const described = run(agboss, ["describe", "--application", "src/zoo/zoo.application.ts"]);
     expect(described.ok, described.out).toBe(true);
     for (const tool of ["get_pet", "delete_pet", "list_pets", "create_pet"])
       expect(described.out).toContain(`· ${tool} (local)`);

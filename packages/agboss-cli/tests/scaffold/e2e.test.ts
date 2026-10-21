@@ -12,7 +12,7 @@ import { planGenerate } from "../../src/scaffold/generate.js";
 import type { WorkflowSpec } from "../../src/scaffold/plan.js";
 import { planProject } from "../../src/scaffold/project.js";
 import { applyChanges } from "../../src/scaffold/write.js";
-import { expectStaticChecks, agbossIn, vitestOf } from "./project-checks.js";
+import { applicationOf, expectStaticChecks, agbossIn, vitestOf } from "./project-checks.js";
 
 const tmp = new URL("../../.scaffold-tmp", import.meta.url).pathname;
 const project = join(tmp, `desk-${String(process.pid)}`);
@@ -20,12 +20,12 @@ const project = join(tmp, `desk-${String(process.pid)}`);
 /** tsc, the framework's ESLint rules, prettier, the project's own tests, `agboss describe` on its workflow. */
 function check(workflow: string): string {
   // `agboss check` writes the generated types the project compiles against (#272 S7)
-  const checked = agbossIn(project, ["check", "--workflow", workflow]);
+  const checked = agbossIn(project, ["check", "--application", applicationOf(workflow)]);
   expect(checked.ok, checked.out).toBe(true);
   expectStaticChecks(project, ["src"]);
   const tests = vitestOf(project);
   expect(tests.ok, tests.out).toBe(true);
-  const describeOut = agbossIn(project, ["describe", "--workflow", workflow]);
+  const describeOut = agbossIn(project, ["describe", "--application", applicationOf(workflow)]);
   expect(describeOut.ok, describeOut.out).toBe(true);
   return describeOut.out;
 }
@@ -105,7 +105,12 @@ describe("agboss create / agboss generate end to end", () => {
     expect(readFileSync(join(project, "src/desk/agents/answerer.agent.ts"), "utf8")).not.toContain(
       "prompt:",
     );
-    expect(scripts().chat).toBe("agboss chat --workflow src/desk/desk.workflow.ts");
+    // #268 AC1: the application's path is set once in package.json; the scripts name no path
+    expect(JSON.parse(readFileSync(join(project, "package.json"), "utf8"))).toMatchObject({
+      agboss: { application: "src/desk/desk.application.ts" },
+    });
+    expect(scripts().chat).toBe("agboss chat");
+    expect(scripts()["rag:index"]).toBe("agboss rag index");
     // #135 AC12: the workflow test on testWith runs offline in the unit project; empty projects pass
     const unit = vitestOf(project, ["--project", "unit"]);
     expect(unit.ok, unit.out).toBe(true);

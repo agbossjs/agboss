@@ -12,16 +12,74 @@ import type { MessageContent } from '@langchain/core/messages';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
+// @public
+export class ApplicationLoadError extends Error {
+    // (undocumented)
+    name: string;
+}
+
 // Warning: (ae-forgotten-export) The symbol "WorkflowModels" needs to be exported by the entry point internal.d.ts
 //
 // @public
 export function applicationModelUsesOf(workflows: readonly WorkflowModels[]): readonly ModelUse[];
 
-// Warning: (ae-forgotten-export) The symbol "AssembledWorkflow" needs to be exported by the entry point internal.d.ts
+// Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point internal.d.ts
+// Warning: (ae-forgotten-export) The symbol "ApplicationAssembly" needs to be exported by the entry point internal.d.ts
+//
+// @public (undocumented)
+export function applicationOf(application: Class, assembly?: ApplicationAssembly, where?: string): Promise<AssembledApplication>;
+
+// @public
+export interface ApplicationStart {
+    // (undocumented)
+    readonly component: Class;
+    // (undocumented)
+    readonly description: string;
+    // Warning: (ae-forgotten-export) The symbol "WorkflowStartInput" needs to be exported by the entry point internal.d.ts
+    readonly input: WorkflowStartInput;
+    // Warning: (ae-forgotten-export) The symbol "ComponentName" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly name: ComponentName;
+    readonly workflow: string;
+}
+
 // Warning: (ae-forgotten-export) The symbol "AssemblyWarning" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export function applicationWarningsOf(bundle: AssembledWorkflow): readonly AssemblyWarning[];
+export const applicationWarningsOf: (assembled: AssembledApplication) => readonly AssemblyWarning[];
+
+// @public
+export interface AssembledApplication {
+    // (undocumented)
+    readonly application: Class;
+    // (undocumented)
+    readonly budgets: readonly Class[];
+    readonly environment?: Class;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionContextClass" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly executionContext: ExecutionContextClass;
+    // Warning: (ae-forgotten-export) The symbol "ProviderModule" needs to be exported by the entry point internal.d.ts
+    readonly modules: readonly ProviderModule[];
+    // (undocumented)
+    readonly name: string;
+    readonly observers: readonly Class[];
+    readonly pauseRecordRetention: Milliseconds;
+    readonly piiPolicies: readonly Class[];
+    // Warning: (ae-forgotten-export) The symbol "Provider" needs to be exported by the entry point internal.d.ts
+    readonly providers: readonly Provider[];
+    readonly pseudonymKey?: string;
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point internal.d.ts
+    readonly shutdownTimeout: Milliseconds;
+    readonly source?: string;
+    // Warning: (ae-forgotten-export) The symbol "TenantContextClass" needs to be exported by the entry point internal.d.ts
+    readonly tenantContext: TenantContextClass;
+    // (undocumented)
+    readonly version: string;
+    // Warning: (ae-forgotten-export) The symbol "AssembledWorkflow" needs to be exported by the entry point internal.d.ts
+    readonly workflows: readonly AssembledWorkflow[];
+}
 
 // Warning: (ae-forgotten-export) The symbol "ComponentLabel" needs to be exported by the entry point internal.d.ts
 //
@@ -229,15 +287,12 @@ export function environmentFor(owner: EnvironmentOwner, selection: EnvironmentSe
 // @public
 export interface EnvironmentOwner {
     readonly application: string;
-    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point internal.d.ts
     readonly contract?: Class | undefined;
     readonly source?: string | undefined;
 }
 
 // @public
-export function environmentOwnerOfFile(workflowPath: string, options?: {
-    readonly typescript?: boolean;
-}): Promise<EnvironmentOwner>;
+export const environmentOwnerOf: (assembled: AssembledApplication) => EnvironmentOwner;
 
 // Warning: (ae-forgotten-export) The symbol "LoadedEnvironment" needs to be exported by the entry point internal.d.ts
 //
@@ -321,7 +376,7 @@ export function inputLines(analysis: FlowAnalysis): readonly string[];
 export const isMcpFacade: (tool: Tool) => tool is McpFacade;
 
 // @public
-export function loadApplicationClass(workflowPath: string, options?: {
+export function loadApplicationClass(path: string, options?: {
     readonly typescript?: boolean;
 }): Promise<Class>;
 
@@ -420,12 +475,8 @@ export interface RuntimeContexts {
     //
     // (undocumented)
     readonly application: ApplicationContext;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionContextClass" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly executionContext: ExecutionContextClass;
-    // Warning: (ae-forgotten-export) The symbol "TenantContextClass" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly tenantContext: TenantContextClass;
 }
@@ -455,6 +506,11 @@ export function standaloneContexts(workflow: {
     readonly version: string;
 }, environment?: Environment, clock?: Clock): RuntimeContexts;
 
+// Warning: (ae-forgotten-export) The symbol "DtoIssue" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function startInputIssuesOf(start: Class, payload: unknown): readonly DtoIssue[];
+
 // @public
 export interface StartRequest {
     // (undocumented)
@@ -462,6 +518,9 @@ export interface StartRequest {
     // (undocumented)
     readonly start: string;
 }
+
+// @public
+export function startsOfApplication(application: Class, where?: string): readonly ApplicationStart[];
 
 // @public
 export interface StepsRange {
@@ -480,19 +539,22 @@ export function stepsRangeOf(graph: FlowGraph): StepsRange;
 export function textRequestOf(graph: RuntimeGraph, text: string): StartRequest;
 
 // @public
-export const textStartOfWorkflow: (app: App, workflow: Class) => Class | undefined;
-
-// @public
 export const versionOf: (value: unknown) => string;
-
-// @public
-export function workflowsOfApplication(bundle: AssembledWorkflow): Promise<readonly AssembledWorkflow[]>;
 
 // @public
 export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult>;
 
 // Warnings were encountered during analysis:
 //
+// src/application/application-starts.ts:18:3 - (ae-undocumented) Missing documentation for "name".
+// src/application/application-starts.ts:19:3 - (ae-undocumented) Missing documentation for "description".
+// src/application/application-starts.ts:22:3 - (ae-undocumented) Missing documentation for "component".
+// src/application/assemble.ts:33:3 - (ae-undocumented) Missing documentation for "application".
+// src/application/assemble.ts:34:3 - (ae-undocumented) Missing documentation for "name".
+// src/application/assemble.ts:35:3 - (ae-undocumented) Missing documentation for "version".
+// src/application/assemble.ts:44:3 - (ae-undocumented) Missing documentation for "budgets".
+// src/application/assemble.ts:55:3 - (ae-undocumented) Missing documentation for "executionContext".
+// src/application/assemble.ts:154:1 - (ae-undocumented) Missing documentation for "applicationOf".
 // src/config/defaults.ts:13:3 - (ae-undocumented) Missing documentation for "Application".
 // src/config/defaults.ts:14:3 - (ae-undocumented) Missing documentation for "Workflow".
 // src/config/defaults.ts:19:51 - (ae-forgotten-export) The symbol "WorkflowDefaults" needs to be exported by the entry point internal.d.ts
@@ -501,14 +563,14 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/config/defaults.ts:25:3 - (ae-undocumented) Missing documentation for "level".
 // src/config/defaults.ts:26:3 - (ae-undocumented) Missing documentation for "name".
 // src/config/profiles.ts:9:12 - (ae-undocumented) Missing documentation for "name".
-// src/describe/application.ts:40:3 - (ae-undocumented) Missing documentation for "name".
-// src/describe/application.ts:41:3 - (ae-undocumented) Missing documentation for "version".
-// src/describe/application.ts:42:3 - (ae-undocumented) Missing documentation for "workflows".
-// src/describe/application.ts:43:3 - (ae-undocumented) Missing documentation for "implementations".
-// src/describe/application.ts:44:3 - (ae-undocumented) Missing documentation for "budgets".
-// src/describe/application.ts:45:3 - (ae-undocumented) Missing documentation for "executionBudget".
-// src/describe/application.ts:46:3 - (ae-undocumented) Missing documentation for "observers".
-// src/describe/application.ts:47:3 - (ae-undocumented) Missing documentation for "warnings".
+// src/describe/application.ts:41:3 - (ae-undocumented) Missing documentation for "name".
+// src/describe/application.ts:42:3 - (ae-undocumented) Missing documentation for "version".
+// src/describe/application.ts:43:3 - (ae-undocumented) Missing documentation for "workflows".
+// src/describe/application.ts:44:3 - (ae-undocumented) Missing documentation for "implementations".
+// src/describe/application.ts:45:3 - (ae-undocumented) Missing documentation for "budgets".
+// src/describe/application.ts:46:3 - (ae-undocumented) Missing documentation for "executionBudget".
+// src/describe/application.ts:47:3 - (ae-undocumented) Missing documentation for "observers".
+// src/describe/application.ts:48:3 - (ae-undocumented) Missing documentation for "warnings".
 // src/describe/limits.ts:21:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/describe/limits.ts:24:3 - (ae-undocumented) Missing documentation for "steps".
 // src/describe/limits.ts:27:3 - (ae-undocumented) Missing documentation for "worstCases".
@@ -541,6 +603,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/flow/context/runtime-contexts.ts:27:3 - (ae-undocumented) Missing documentation for "executionContext".
 // src/flow/runtime/start-input.ts:82:3 - (ae-undocumented) Missing documentation for "start".
 // src/flow/runtime/start-input.ts:83:3 - (ae-undocumented) Missing documentation for "input".
+// src/loader/load-errors.ts:8:12 - (ae-undocumented) Missing documentation for "name".
 // src/models/problems.ts:20:14 - (ae-undocumented) Missing documentation for "problemLine".
 // src/models/uses.ts:10:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/uses.ts:11:3 - (ae-undocumented) Missing documentation for "purpose".

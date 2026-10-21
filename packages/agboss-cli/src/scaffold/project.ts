@@ -22,19 +22,33 @@ export const FILESYSTEM_SERVER_PACKAGE = "@modelcontextprotocol/server-filesyste
 export const filesystemServerVersion = (): string =>
   cli.devDependencies?.[FILESYSTEM_SERVER_PACKAGE] ?? "latest";
 
-/** The npm scripts of one workflow; a suffix (`:name`) for every workflow after the first. */
+/** Where a workflow's application is: `src/<name>/<name>.application.ts` (#261, until #268 PR 4). */
+export const applicationPathOf = (workflow: Names): string =>
+  `${workflowDir(workflow)}/${workflow.kebab}.application.ts`;
+
+/**
+ * The npm scripts of one application (#268): the project's first needs no path — its application is
+ * `"agboss": { "application" }` of package.json — every later one (a suffix `:name`) names its own
+ * with `--application` until `generate workflow` wires workflows into one application (#268 PR 4).
+ */
 export function workflowScripts(workflow: Names, suffix = ""): Record<string, string> {
-  const path = `${workflowDir(workflow)}/${workflow.kebab}.workflow.ts`;
+  const application = suffix === "" ? "" : ` --application ${applicationPathOf(workflow)}`;
+  const commands: Readonly<Record<string, string>> = {
+    chat: "chat",
+    run: "run",
+    describe: "describe",
+    "rag:index": "rag index",
+  };
   return {
     ...Object.fromEntries(
-      ["chat", "run", "describe", "rag:index"].map((command) => [
-        `${command}${suffix}`,
-        `agboss ${command} --workflow ${path}`,
+      Object.entries(commands).map(([script, command]) => [
+        `${script}${suffix}`,
+        `agboss ${command}${application}`,
       ]),
     ),
     // writes .agboss/types.d.ts: the generated types the flow compiles against (#272) — no model
     // key needed: without --models the check reads the environment's shape, not its secrets (#266)
-    [`types${suffix}`]: `agboss check --workflow ${path}`,
+    [`types${suffix}`]: `agboss check${application}`,
   };
 }
 
@@ -93,6 +107,7 @@ export function planProject(spec: WorkflowSpec): FileToWrite[] {
   const variables = {
     kebab: project.kebab,
     title: project.title,
+    application: applicationPathOf(project),
     scripts,
     dependencies: Object.entries(dependencies)
       .map(([k, v]) => `    "${k}": "${v}"`)

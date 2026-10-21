@@ -1,15 +1,16 @@
-import { type App, type Class } from "agboss";
+import { WorkflowStartTextDto } from "agboss/dto";
+import type { ApplicationStart } from "agboss/internal";
 
 export class NoTextStartError extends Error {
   override name = "NoTextStartError";
 }
 
-/** The workflow start the terminal's text goes to; a workflow without one cannot chat. */
-export function textStartOrFail(app: Pick<App, "name" | "textStart">): Class {
-  if (app.textStart === undefined) {
+/** `agboss chat` sends what is typed as a text: the chosen start must take `WorkflowStartTextDto`. */
+export function textStartOrFail(start: ApplicationStart): ApplicationStart {
+  if (start.input !== WorkflowStartTextDto) {
     throw new NoTextStartError(
-      `Workflow "${app.name}" has no @WorkflowStart with input WorkflowStartTextDto for a text`,
+      `Start "${start.name}" (${start.workflow}) does not take WorkflowStartTextDto: agboss chat sends a text — choose a start that takes one with --start <name>`,
     );
   }
-  return app.textStart;
+  return start;
 }

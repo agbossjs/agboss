@@ -1,6 +1,6 @@
 /** The options commands are built from (#198); `commands.ts` lists the commands. */
 export interface OptionSpec {
-  /** The long flag without dashes: `workflow` → `--workflow`. */
+  /** The long flag without dashes: `start` → `--start`. */
   readonly name: string;
   readonly type: "string" | "boolean";
   /** How the value reads in help: `<path>`, `N`. */
@@ -19,14 +19,17 @@ export interface CommandSpec {
   readonly options: readonly OptionSpec[];
 }
 
-const DEFAULT_WORKFLOW = "./src/workflow.ts";
-
-export const WORKFLOW: OptionSpec = {
-  name: "workflow",
+export const APPLICATION: OptionSpec = {
+  name: "application",
   type: "string",
   value: "<path>",
-  help: "a module exporting one @Workflow class",
-  default: DEFAULT_WORKFLOW,
+  help: 'the module exporting the @Application (default: "agboss": { "application" } in package.json)',
+};
+export const START: OptionSpec = {
+  name: "start",
+  type: "string",
+  value: "<name>",
+  help: "the workflow start, by its full name (screening-workflow-start); optional with one start",
 };
 export const PROFILE: OptionSpec = {
   name: "profile",
@@ -44,7 +47,7 @@ export const ENV: OptionSpec = {
   name: "env",
   type: "string",
   value: "<name>",
-  help: "the environment: environments/<name>.environment.ts next to the workflow (default dev)",
+  help: "the environment: environments/<name>.environment.ts next to the application (default dev)",
 };
 export const DRY_RUN: OptionSpec = {
   name: "dry-run",

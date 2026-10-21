@@ -27,8 +27,8 @@
         "src/{dto,units,models,testing,mcp,rag,a2a,memory}/index.ts",
         "src/{core,graph,router,tool,channels}/index.ts",
         "src/studio.ts",
-        // loaded by path: `--workflow <file>` and the environment of `--env <name>`
-        "tests/fixtures/loader/**/*.workflow.ts",
+        // loaded by path: `--application <file>` (#268) and the environment of `--env <name>`
+        "tests/fixtures/loader/**/*.{workflow,application}.ts",
         "tests/**/fixtures/**/*.environment.ts",
         // loaded by path: the workflows `check:types` generates types for (#272)
         "tests/flow/fixtures/*.fixture.ts",
@@ -44,15 +44,22 @@
       ],
     },
     "packages/agboss-cli": {
-      "entry": ["src/cli/main.ts", "tests/fixtures/**/*.workflow.ts"],
+      // the fixtures are loaded by path (`--application <file>`, #268), with their environments
+      "entry": [
+        "src/cli/main.ts",
+        "tests/fixtures/**/*.workflow.ts",
+        "tests/fixtures/**/*.environment.ts",
+      ],
       "project": ["src/**/*.ts", "tests/**/*.ts"],
       // the version a generated project depends on (src/scaffold/project.ts), run by the e2e tests
       "ignoreDependencies": ["@modelcontextprotocol/server-filesystem"],
     },
     "examples/job-scout": {
-      // the workflow, the Studio graph (langgraph.json), scripts, the environments of `--env` and
+      // the application (package.json → "agboss": { "application" }), the workflow, the Studio graph
+      // (langgraph.json), scripts, the environments of `--env` and
       // environment.ts, their contract (a `declare module "agboss"` augmentation)
       "entry": [
+        "src/job-scout.application.ts",
         "src/job-scout.workflow.ts",
         "src/studio.ts",
         "src/scripts/*.ts",
@@ -63,8 +70,13 @@
       "ignoreDependencies": ["@modelcontextprotocol/server-filesystem"],
     },
     "examples/flow-patterns": {
-      // the workflows, loaded by path (`agboss check --workflow …`), and the environments of `--env`
-      "entry": ["src/**/*.workflow.ts", "src/environments/*.environment.ts"],
+      // the application, loaded by path (package.json → "agboss": { "application" }, #268), its
+      // workflows and the environments of `--env`
+      "entry": [
+        "src/flow-patterns.application.ts",
+        "src/**/*.workflow.ts",
+        "src/environments/*.environment.ts",
+      ],
       "project": ["src/**/*.ts", "tests/**/*.ts"],
     },
   },
