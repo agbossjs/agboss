@@ -628,7 +628,7 @@ that never started (the launch was aborted first) has no execution: it is a `Can
 - Real components get `onInit` → `onStart` when the app is built and `onStop` → `onDestroy` after the
   test — also when the test failed ([App → Lifecycle hooks](App#lifecycle-hooks)).
 - Per test: its own checkpoints, spend ledger, Terns and paused runs (in memory), deterministic ids
-  (`thread-1`, `run-1`, …) and a clock fixed at the start. Two tests — even in parallel, with the same
+  (`thread-1`, `execution-1`, …, [Ids](#ids)) and a clock fixed at the start. Two tests — even in parallel, with the same
   thread id — never see each other.
 - `await app.clock.advance("25h")` moves the time (units `ms`, `s`, `m`, `h`, `d`, or a value with
   its unit, `seconds(31)`): a daily budget (`BudgetPeriod.Day`) starts a new UTC day, its counter from zero. The work
@@ -686,6 +686,31 @@ The framework reads no time any other way: `Date.now()`, `new Date()` and `Date(
 arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout` and the
 `node:timers` modules in its sources fail lint (`agboss/no-direct-time`, in `make check`) — the one
 real implementation, `SystemClock`, excepted.
+
+## Ids
+
+Every thread id and execution id the framework mints comes from the application's `IdGenerator`
+(#313, [App → Infrastructure](App#infrastructure)). Under `testWith` it is a
+**`SequentialIdGenerator`** (`agboss/testing`) unless the application lists its own: `thread-1`,
+`thread-2`, … for new threads and `execution-1`, `execution-2`, … for executions — a root before its
+children, in the order they are made — counted from 1 in every test and shared by its instances
+(`instances: 2`, `recoverApp()`), so a test names them. A caller's own `threadId` is used as given.
+An application that lists an `IdGenerator` keeps it in its tests too. A `pauseId` never comes from
+it: it stays a random 128-bit token (32 hex characters) — read it from `result.pending`.
+
+<!-- snippet-context
+import { expect } from "vitest";
+import type { ExecutionOutput } from "agboss";
+declare const paused: ExecutionOutput;
+// @snippet
+-->
+
+```ts
+expect(paused.threadId).toBe("thread-1");
+expect(paused.runId).toBe("execution-1");
+expect(paused.pending[0]?.childExecutionId).toBe("execution-2");
+expect(paused.pending[0]?.pauseId).toMatch(/^[0-9a-f]{32}$/);
+```
 
 ## Three kinds of tests
 

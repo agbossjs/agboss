@@ -517,7 +517,9 @@ export class Shop {} // money: the application's @Budgets (FinOps → Budgets)
   two workflows is one instance), every listed class created at start. There is no `scope` option
   and no per-execution container.
 - **Infrastructure** — `CostLedgerRepository`, `ExecutionRecordRepository`,
-  `PausedExecutionRepository`, `BaseCheckpointSaver` — is listed **only** in
+  `PausedExecutionRepository`, `BaseCheckpointSaver`, the `Clock`, the `IdGenerator` (#313: every
+  thread and execution id the framework mints) and the rest of
+  [App → Infrastructure](App#infrastructure) — is listed **only** in
   `@Application({ providers })`; a class that extends one in a workflow's `providers` fails with
   `[di.infrastructure-in-workflow]` ([App → Infrastructure](App#infrastructure)).
 - **Implementation by inheritance**: a dependency on a contract (an abstract class) gets the one listed

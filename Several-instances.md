@@ -105,14 +105,16 @@ export const sqliteStores = [
 A SQLite implementation is a class like any other: a project `extends` it, `override`s what it
 changes and lists the subclass **instead of** it (both listed → `[di.ambiguous-implementation]`).
 The subclass takes the base class's dependencies first — every one a public token (#265 S70):
-`SqliteConnection`, the application's `Clock` and, for the leases and the rate-limit slots, the
-`ApplicationContext` (its `instanceId` is the holder of what this instance takes):
+`SqliteConnection`, the application's `Clock`, for the leases, the rate-limit slots and the records
+the `ApplicationContext` (its `instanceId` is the holder of what this instance takes), and for the
+records the application's `IdGenerator` (#313: a new thread's id):
 
 | Implementation | Its `deps` |
 | --- | --- |
 | `SqliteCheckpointSaver`, `SqliteExecutionTreeRepository`, `SqliteCostLedgerRepository` (#261 PR 5: each counter's period is named by the runtime from the `Clock`) | `[SqliteConnection]` |
 | `SqlitePausedExecutionRepository` | `[SqliteConnection, Clock]` |
 | `SqliteExecutionLeaseRepository`, `SqliteRateLimitRepository` | `[SqliteConnection, Clock, ApplicationContext]` |
+| `SqliteExecutionRecordRepository` | `[SqliteConnection, Clock, ApplicationContext, IdGenerator]` |
 
 <!-- snippet-context
 import type { ExecutionLease } from "agboss";
@@ -157,8 +159,49 @@ export class AuditedSqliteExecutionLeaseRepository extends SqliteExecutionLeaseR
 ```
 
 The subclass still needs `sqlitePath` (`[environment.missing-field]` names it) and shares the
-instance's one connection. `SqliteExecutionRecordRepository` also takes the framework's internal
-thread-id source, so it is not subclassed by projects yet.
+instance's one connection. The records the same way (#313) — a new thread's id comes from the
+`IdGenerator` it passes on ([App → Infrastructure](App#infrastructure)):
+
+<!-- snippet-context
+@Injectable()
+export class ThreadAuditService {
+  created(_threadId: string): void {}
+}
+-->
+
+```ts
+import {
+  ApplicationContext,
+  Clock,
+  IdGenerator,
+  Injectable,
+  SqliteConnection,
+  SqliteExecutionRecordRepository,
+  type NewThread,
+} from "agboss";
+
+/** The SQLite records, each new thread written to the audit log as well. */
+@Injectable({
+  deps: [SqliteConnection, Clock, ApplicationContext, IdGenerator, ThreadAuditService],
+})
+export class AuditedSqliteExecutionRecordRepository extends SqliteExecutionRecordRepository {
+  constructor(
+    connection: SqliteConnection,
+    clock: Clock,
+    applicationContext: ApplicationContext,
+    idGenerator: IdGenerator,
+    private readonly threadAuditService: ThreadAuditService,
+  ) {
+    super(connection, clock, applicationContext, idGenerator);
+  }
+
+  override async createThread(thread: NewThread): Promise<string> {
+    const threadId = await super.createThread(thread);
+    this.threadAuditService.created(threadId);
+    return threadId;
+  }
+}
+```
 
 ## The execution lease
 

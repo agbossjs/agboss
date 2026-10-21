@@ -3,6 +3,27 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the `IdGenerator` contract (#313)
+
+- **New — `IdGenerator`** (root export, [App → Infrastructure](App#infrastructure)): an
+  infrastructure contract like the `Clock` — `newThreadId()`, `newExecutionId()`; every thread id the
+  framework mints and every execution id (roots, children, recursion levels) comes from it. The
+  built-in `RandomIdGenerator` (root export) keeps the formats (random UUIDs); a class in
+  `@Application({ providers })` that `extends IdGenerator` replaces it. A `pauseId` stays a random
+  128-bit token outside it.
+- **New — `SequentialIdGenerator`** (`agboss/testing`): `testWith` runs on it unless the
+  application lists its own generator — `thread-1`, … and `execution-1`, … per test
+  ([Testing → Ids](Testing#ids)).
+- **Breaking — the records repositories' `deps`:** `SqliteExecutionRecordRepository` takes
+  `[SqliteConnection, Clock, ApplicationContext, IdGenerator]` (was `[SqliteConnection, Clock,
+  NEW_THREAD_ID]`, an internal token), the built-in in-memory one `[Clock, IdGenerator]`;
+  `NEW_THREAD_ID` is removed. A project now subclasses `SqliteExecutionRecordRepository` through
+  public tokens only ([Several instances → Extending a SQLite
+  implementation](Several-instances#extending-a-sqlite-implementation)).
+- **Breaking — `createApp` / `createAppDeps` options:** the undocumented `newThreadId` and
+  `newRunId` options are removed — list an `IdGenerator` instead.
+- **Changed — execution ids under `testWith`:** `execution-1`, `execution-2`, … (were `run-1`, …).
+
 ## Unreleased — `agboss dev` and `agboss studio`: no `studio.ts`, children as subgraphs (#268, PR 3)
 
 - **New — `agboss dev [--strict] [--env <name>]`** ([CLI](CLI#watch-mode-and-studio-268)): watch

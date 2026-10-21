@@ -132,6 +132,34 @@ two → `[di.ambiguous-implementation]`. A service that needs one injects the co
 | `ExecutionTreeRepository`   | the shared state of one request (`saveIfAbsent`, `findById` inside an execution; removed when the tree ends) | in memory |
 | `RateLimitRepository`       | concurrency slots as leases (`acquire(key, maxSlots, lease)`, `renew`, `release`) — the model providers' limits (#266) | in memory |
 
+**Ids** (#313) are infrastructure too, like the `Clock`: the `IdGenerator` contract —
+`newThreadId()` and `newExecutionId()` — gives every thread id the framework mints (`app.execute`
+without a `threadId`) and every execution id (roots, children, recursion levels); a caller's own
+`threadId` is used as given and a recovered execution keeps its id. The built-in
+`RandomIdGenerator` gives random UUIDs (the formats before #313); a class in
+`@Application({ providers })` that `extends IdGenerator` replaces it (two →
+`[di.ambiguous-implementation]`). It is created before the stores that inject it (`deps:
+[IdGenerator]`), so it may not depend on the contexts. Never a `pauseId` — an answer credential, a
+random 128-bit token — nor a model call's id. Under `testWith` the ids are `thread-1`,
+`execution-1`, … ([Testing → Ids](Testing#ids)).
+
+```ts
+import { randomUUID } from "node:crypto";
+import { IdGenerator, Injectable } from "agboss";
+
+// @Application({ …, providers: [PrefixedIdGenerator] })
+@Injectable()
+export class PrefixedIdGenerator extends IdGenerator {
+  override newThreadId(): string {
+    return `thr_${randomUUID()}`;
+  }
+
+  override newExecutionId(): string {
+    return `exe_${randomUUID()}`;
+  }
+}
+```
+
 **Model providers** (#266) are infrastructure too: `@ModelProvider` classes in the same
 `providers` list — none listed → the built-in `OpenRouterModelProvider` + `DecisionsModelProvider`,
 one listed → the list is complete. They are not created by the container and not injected; the
@@ -161,8 +189,8 @@ logs none of it. Observers are listed in `@Application({ observers })` only
 
 `agboss describe` (the application of `package.json`, or `--application <path>`, #268) shows each workflow's application: each infrastructure contract
 with its implementation and why (`CostLedgerRepository → SqliteCostLedgerRepository (listed in
-@Application providers)` / `(built-in default: none listed)`, the `Logger` and the `Clock`
-included), the budgets by scope with their periods, the execution budget that caps the workflow (its
+@Application providers)` / `(built-in default: none listed)`, the `Logger`, the `Clock` and the
+`IdGenerator` included), the budgets by scope with their periods, the execution budget that caps the workflow (its
 own or the default — when it is the root of `app.execute`; nested, it spends from its root's), the
 observers and the assembly warnings; then its count limits (`maxSteps` set or default, each node's
 `maxVisits`, the worst case of each start). `--json` gives the same as `application` and `limits`.
