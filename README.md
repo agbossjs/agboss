@@ -424,7 +424,7 @@ worked example in [`CLAUDE.md`](CLAUDE.md) → Architecture (compiled and run by
 npx agboss chat                                 # the application's one start; with several: --start <name>
 npx agboss run --start chat-workflow-start "my resume src/data/sample-resume.md"
 npx agboss run --start <name> --input '<json>'  # a start taking a DTO: checked field by field first
-npx agboss describe                             # the application: workflows, starts, children, implementations — no API key
+npx agboss describe [--json]                    # the application: workflows, starts, children, implementations — no API key
 npx agboss check --env prod                     # types, assembly, the worst case per start, prod's process variables
 npx agboss dev                                  # watch mode: types regenerated, problems printed on change
 npx agboss studio                               # LangGraph Studio on every workflow — no studio.ts, no langgraph.json

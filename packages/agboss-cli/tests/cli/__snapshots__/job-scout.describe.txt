@@ -4,6 +4,7 @@ workflows
     start chat-workflow-start (WorkflowStartTextDto)
 implementations
   Clock → SystemClock (built-in default: none listed)
+  IdGenerator → RandomIdGenerator (built-in default: none listed)
   Logger → ConsoleLogger (built-in default: none listed)
   BaseCheckpointSaver → SqliteCheckpointSaver (listed in @Application providers)
   ExecutionRecordRepository → SqliteExecutionRecordRepository (listed in @Application providers)

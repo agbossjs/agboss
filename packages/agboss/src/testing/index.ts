@@ -108,8 +108,6 @@ export {
 } from "./child-matchers.js";
 export { UNSCRIPTED_SUMMARY } from "./scripted-gateway.js";
 export { workflowOf } from "./workflow-of.js";
-// a workflow's `agboss describe` lines, for a test of what it says (#268: off the root import)
-export { describeWorkflow } from "../describe/describe-workflow.js";
 export { toolOf } from "../components/runtime.js";
 export {
   testExecutionContext,

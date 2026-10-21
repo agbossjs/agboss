@@ -1896,7 +1896,7 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
     prompts/  types/
     loader/, describe/   loadWorkflow (tsx); describeApplication (`agboss describe`, through agboss/internal)
                     and its parts — the tree, channels, PII policies, the worst-case report;
-                    describeWorkflow (agboss/testing); studio.ts (studioOf: the graphs of agboss studio)
+                    describeWorkflow (internal: one workflow's part); studio.ts (studioOf: the graphs of agboss studio)
     internal.ts     `agboss/internal`: what the CLI is built on — not public, not for projects
   tests/            unit tests (helpers.ts = fakes; fixtures/ = test workflows); routers/ alone; smoke/ = real
   schema/           profile.schema.json (YAML autocomplete)

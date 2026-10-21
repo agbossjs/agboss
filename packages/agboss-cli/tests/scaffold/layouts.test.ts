@@ -32,10 +32,7 @@ const KINDS: readonly (readonly [string, string, GenerateOptions])[] = [
 /** The example's own tests that pin its shape (exact agents, routes, tools): adding parts changes it. */
 const SHAPE_PINS = [
   "assembles from its components",
-  "every kind of component",
-  "one path a turn",
-  // the steps a run takes at most count the agents
-  "2 steps a run, at most 12",
+  "three agents, each answering on its own path",
   "the main router is Jev",
   // the recorded run replays the main router's request by hash: a new agent changes the router's
   // routes, so the request no longer matches the cassette — by design (#204), re-recorded per change

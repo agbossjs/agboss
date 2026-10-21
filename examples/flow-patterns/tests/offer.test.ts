@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeWorkflow, replyWith, testWith, workflowOf } from "agboss/testing";
+import { replyWith, testWith } from "agboss/testing";
 import { NotifyRecruiterAction } from "../src/offer/actions/notify-recruiter.action.js";
 import { SendOfferAction } from "../src/offer/actions/send-offer.action.js";
 import { DraftAgent } from "../src/offer/agents/draft.agent.js";
@@ -97,22 +97,7 @@ describe("the editor's maxVisits spent", () => {
   });
 });
 
-describe("describe", () => {
-  it("prints both paths and the reviewer's inputs by their producers' names", async () => {
-    const lines = describeWorkflow(await workflowOf(OfferWorkflow));
-
-    expect(lines).toEqual(
-      expect.arrayContaining([
-        "  start(OfferWorkflowStart)",
-        "  agent(ReviewerAgent)",
-        "  reviewer-agent ← draft: draft-agent | editor-agent (latest)",
-        "    .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))",
-        "      caseOf(ChangesRequestedDto, { about: OfferDraftDto })",
-        "  reviewer-agent → ChangesRequestedDto { about: OfferDraftDto }",
-      ]),
-    );
-  });
-
+describe("the services", () => {
   it("the services are real when not mocked", async () => {
     await expect(new RecruiterInbox().notify("a note")).resolves.toBe(true);
     await expect(new OfferMailer().send("")).resolves.toBe(false);

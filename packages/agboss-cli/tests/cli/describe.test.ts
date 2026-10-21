@@ -12,6 +12,9 @@ import { describe, expect, it } from "vitest";
 import { agboss, envelope } from "./agboss.js";
 
 const JOB_SCOUT = fileURLToPath(new URL("../../../../examples/job-scout/", import.meta.url));
+const FLOW_PATTERNS = fileURLToPath(
+  new URL("../../../../examples/flow-patterns/", import.meta.url),
+);
 
 describe("#268 AC4: agboss describe on job-scout", () => {
   it("the whole application, as printed (snapshot)", async () => {
@@ -58,5 +61,26 @@ describe("#268 AC4: agboss describe on job-scout", () => {
         workflows: [{ name: "job-scout-workflow", piiPolicies: [] }],
       },
     });
+  });
+});
+
+describe("#268 AC4: agboss describe on flow-patterns — what the public surface says of a workflow", () => {
+  it("the review loop's paths and inputs by producer; a model router by its model, a code router as code", async () => {
+    const call = await agboss(["describe"], FLOW_PATTERNS);
+    const lines = call.stdout.split("\n");
+
+    expect(call.code).toBe(0);
+    expect(lines).toEqual(
+      expect.arrayContaining([
+        "  start(OfferWorkflowStart)",
+        "  agent(ReviewerAgent)",
+        "  reviewer-agent ← draft: draft-agent | editor-agent (latest)",
+        "    .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))",
+        "      caseOf(ChangesRequestedDto, { about: OfferDraftDto })",
+        "  reviewer-agent → ChangesRequestedDto { about: OfferDraftDto }",
+        "  desk-router  decisions typesafe/jev-1.13 (own) · maxVisits 1 — Sends an order to the intake, ends on anything else",
+        "  credit-limit-router  code — Sends large orders for approval, charges the rest",
+      ]),
+    );
   });
 });
