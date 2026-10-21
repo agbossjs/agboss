@@ -248,7 +248,7 @@ export class FinalReviewerAgent {}
 ```
 
 The options must be a static object (a call or a conditional spread → `[agent.dynamic-options]`).
-The other options — `temperature`, `cache`, `maxToolCalls`, `historyLimit`, `historySummaries`,
+The other options — `temperature`, `cache`, `maxToolCalls`, `uncompactedTurns`, `compaction`,
 `judges` + `maxRetries`, `rag` (`RagMode.Tool` / `RagMode.Context`), `memoryStrategy`, guardrails
 and PII policies — are on [Configuration](Configuration) and the pages of each feature. How the
 agent runs: [Agents](Agents).
@@ -494,8 +494,8 @@ import { OrdersService } from "./services/orders.service.js";
     models: { temperature: 0 },
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 8 },
-    history: { limit: 5 },
   },
+  uncompactedTurns: 5,
   maxSteps: 6,
   mcp: [ShortlistServer],
   providers: [OrdersService, provide(SHORTLIST, "./shortlist/shortlist.md")],

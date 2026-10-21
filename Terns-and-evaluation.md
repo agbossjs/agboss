@@ -7,8 +7,9 @@
 - `app.execute(Start, input)` without `thread` = **first contact**: a new thread is created, its id
   comes back in the result (`thread`). The client sends it with every next question.
 - `app.execute(Start, input, { threadId })` with an id the tenant does not have → `UnknownThreadError` before any call.
-- The router and every agent see the last **`historyLimit`** Terns of the thread (question → answer),
-  oldest first, before the task. Failed or guarded turns are shown with their status.
+- Each model router and agent sees the last **`uncompactedTurns`** turns of the thread in full
+  (finished executions only, oldest first), before its input message — see
+  [Memory Management](Memory-Management).
 - CLI: `agboss run --start <name> --thread <id> "…"`; every run prints `thread: <id>`.
 
 ```
@@ -22,16 +23,15 @@ What is my name?
 
 ## Conversation memory (compaction)
 
-Optional, per workflow (`compaction` in the config): every `every` turns (e.g. 5), right after the
-answer, a model compacts them into one **self-contained** summary — full names, no pronouns pointing
-outside it. It reads its own turns plus the **raw** turns of the previous window as context; a
-summary never reads another summary, so nothing is re-compacted or blurred over time. Summaries are a
-FIFO queue: readers see the latest `keep` (e.g. 10) plus the raw turns since the last compaction —
-up to ~50 turns of memory at the price of ~10 notes. Older summaries leave the context but stay in
-the database (`summaries` table).
-
-Under the answer: `memory: turns 1–5 → summary 1/10`. A compaction error never fails the turn; the
-next turn retries. Decision: [ADR-0007](ADR-0007-Conversation-memory-as-a-FIFO-queue-of-summaries).
+A `@Compaction` (#120 PR 3) summarises the turns older than the smallest window among the agents
+and routers that use it — `CompactionStrategy.SummaryQueue` (self-contained summaries in a FIFO
+queue of `summaryQueueLength`, each reading its turns plus the raw turns just before them as
+context: nothing is re-compacted or blurred), `SingleSummary` (one summary rewritten every time) or
+`None`. Older summaries leave the context but stay in the database (`summaries` table, by
+compaction). Under the answer: `memory: conversation-compaction turns 1–5 → summary 1/10`. A summary
+that does not fit `summaryMaxTokens` after one "shorter" retry fails the execution with
+`CompactionError`. Details: [Memory Management](Memory-Management); the queue's origin:
+[ADR-0007](ADR-0007-Conversation-memory-as-a-FIFO-queue-of-summaries).
 
 ## What a Tern stores
 

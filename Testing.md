@@ -94,8 +94,8 @@ export class MainRouter {}
   defaults: {
     models: { temperature: 0 },
     router: { model: "typesafe/jev-1.13" },
-    history: { limit: 5 },
   },
+  uncompactedTurns: 5,
   mcp: [ShortlistServer],
   providers: [OrderBook],
 })
@@ -162,8 +162,8 @@ the next.
 
 - **Models** → scripted (the model gateway is replaced). An agent or router without a script is a
   blocked live call. Guardrails nobody scripted **pass** (`mockLlm(G).thenReturn(decideWith({ blocks:
-  0.9 }))` blocks); conversation compaction nobody scripted writes a
-  fixed summary.
+  0.9 }))` blocks); a `@Compaction` nobody scripted writes a fixed summary
+  (`mockLlm(ConversationCompaction).thenReturn(replyWith("…"))` scripts it, #120 PR 3).
 - **MCP servers** → stubs: `mcpOf(Server).thenReturn({ <server tool>: handler })`; `.calls` lists what
   the server got. A server tool without a handler fails the test with the server's and the tool's
   name. `real: [Server]` connects that server for real (an integration test).

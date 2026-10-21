@@ -3,6 +3,59 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — compaction: `@Compaction`, strategies, `uncompactedTurns` (#120, PR 3)
+
+- **New — `@Compaction({ name, description, prompt?, promptUrls?, model, strategy,
+  turnsBetweenCompactions, summaryQueueLength?, summaryMaxTokens })`** ([Memory
+  Management](Memory-Management)): `compactions/*.compaction.ts`, a `-compaction` name;
+  `CompactionStrategy.SummaryQueue` (a queue of self-contained summaries, the latest
+  `summaryQueueLength` kept), `SingleSummary` (one summary, rewritten), `None` (no model, no prompt,
+  no parameters — the window only). A strategy that writes summaries without a `model`, or `None`
+  with one, does not compile. Root exports: `Compaction`, `CompactionStrategy`, `TurnLimit`,
+  `CompactionError`, the option types, `UncompactedTurns`, `SummaryMaxTokens`, `TokenLimit`.
+- **New — `compaction` and `uncompactedTurns`: one setting each on `@Application`, `@Workflow`,
+  `@Agent` and `@Router`** — the lowest level that sets one wins (AC4); `uncompactedTurns` defaults
+  to 5, `TurnLimit.ALL` is every turn; on a code router neither compiles. A compaction summarises
+  everything older than the **smallest** `uncompactedTurns` among the agents and routers that use
+  it; a reader sees its window, every turn its compaction has not summarised yet, and only the
+  summaries its turns do not cover.
+- **New — `summaryMaxTokens`** is the summarising call's `max_tokens` (`TokenLimit.MODEL_MAX` allowed,
+  thinking off): cut at it → one "shorter" retry, then **`CompactionError`** (code `compaction`;
+  `compaction`, `summaryMaxTokens`; a failed model call is one too, as its `cause`) — never a cut
+  summary.
+- **Changed — compaction runs lazily, before a new execution's first read of its thread** (S132),
+  never after a turn: a finished turn's answer is always kept, a thread that ends pays for none, and
+  a `CompactionError` fails the new execution before any of its work (no model call, no step, no
+  turn kept). Its spend is the new execution's; `result.compacted` says what ran before it.
+- **Breaking — `TokenLimit.MODEL_MAX` replaces the `MODEL_MAX` constant** (S132), an enum next to
+  `TurnLimit.ALL` (both from the root). Migrating: `maxTokens: MODEL_MAX` → `maxTokens:
+  TokenLimit.MODEL_MAX`, `import { MODEL_MAX }` → `import { TokenLimit }`; the value is still
+  `"max"`.
+- **New — compaction behind the PII boundary** (S84 i): its model reads the turns through the
+  application's and the workflow's PII policies; the summary is revealed before it is stored, and
+  each reader's own policies mask it at its boundary.
+- **New — assembly rules** `[compaction.not-a-compaction]`, `[compaction.invalid-setting]`,
+  `[compaction.decision-model]`, `[compaction.uncompacted-turns-invalid]`; compaction models are
+  checked against `serves` as `compactions.<name>`.
+- **Breaking — removed: `defaults.history` (`limit`, `summaries`), `@Agent({ historyLimit,
+  historySummaries })`, `@Workflow({ compaction: { every, keep, model }, compactionPrompt })`,
+  the `mockCompaction` fixture and the types `HistoryDefaults`, `CompactionOptions` (the old one),
+  `ModelOptions`.** Migrating: `defaults: { history: { limit: 8 } }` → `uncompactedTurns: 8` on the
+  same decorator (outside `defaults`); `historyLimit: 3` → `uncompactedTurns: 3`; `compaction: {
+  every: 5, keep: 10, model: { model } }` → a `@Compaction` class with `strategy:
+  CompactionStrategy.SummaryQueue, turnsBetweenCompactions: 5, summaryQueueLength: 10, model,
+  summaryMaxTokens` named by `compaction: ConversationCompaction`; `mockCompaction()` →
+  `mockLlm(ConversationCompaction)`. A profile's `compaction:` is `compactions: { <name>: … }`,
+  `defaults.history.limit` is `defaults.uncompactedTurns`.
+- **Breaking — summaries are kept per compaction**: `ExecutionRecordRepository.uncovered`,
+  `latestSummaries` and `summaryCount` take the compaction's name after `(tenantId, threadId)`, a
+  `Summary` has `compaction` (SQLite migration 13; a summary written before it belongs to no
+  compaction and is not shown again). `result.compacted` is a list (`{ compaction, fromTurn, toTurn,
+  summaries, summaryQueueLength }`, one per compaction that ran); spend is `compaction:<name>`
+  (category `compaction`).
+- **Changed —** a compaction's model failure used to be swallowed (the next turn retried); it is now
+  a `CompactionError` like a summary that does not fit (#77 AC5 replaced, ADR-0007 amended).
+
 ## Unreleased — the application path and starts: --start, --input, rag index (#268, PR 1)
 
 - **Breaking — the CLI works on one application, set once** ([CLI](CLI#the-application-and-its-starts-268)):

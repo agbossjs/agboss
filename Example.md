@@ -50,7 +50,7 @@ A search turn costs about $0.02; the others well under a cent.
 ```
 src/job-scout.application.ts        @Application job-scout-application — its workflow, budgets, defaults (DEFAULTS) and environment contract; no infrastructure listed → in memory (#261)
 src/config/budget.config.ts         @Budget application-daily-budget | tenant-daily-budget | execution-budget
-src/job-scout.workflow.ts           @Workflow job-scout-workflow — the paths, its own defaults (history), guardrails, compaction, MCP, providers, channels; limits and model providers in settings()
+src/job-scout.workflow.ts           @Workflow job-scout-workflow — the paths, its window (uncompactedTurns), guardrails, compaction (compactions/conversation.compaction.ts), MCP, providers, channels; limits and model providers in settings()
 src/workflow-starts/, routers/, workflow-finishes/   @WorkflowStart chat-workflow-start → @Router main-router → @WorkflowFinish chat-workflow-finish
 src/agents/*.agent.ts + *.prompt.md @Agent profiler-agent | scout-agent | shortlist-agent (text agents, promptUrls)
 src/tools/read-resume.tool.ts       @Tool ← ResumeReader

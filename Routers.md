@@ -393,8 +393,8 @@ export class JobFitJudge {
 - Inside the framework, `src/routers` imports only `config`, `finops`, `llm`; the rest of `src`
   imports routers only via `src/routers/index.ts` (ESLint-enforced). The engines' own tests are in
   `packages/agboss/tests/routers/` — plain `RouteRequest` fixtures, no graph, no agents.
-- The flow renders the router's input fields and the thread's memory (`defaults.history`) into the
-  engine's `input`.
+- The flow renders the router's input fields and the thread's memory (its `uncompactedTurns` and
+  its compaction's summaries, [Memory Management](Memory-Management)) into the engine's `input`.
 
 ## Testing
 

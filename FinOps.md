@@ -246,7 +246,7 @@ on its cost, its tenant's and the application's. All violations at once, before 
 - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
   parallel executions of one tenant may overrun it a little (each sees the others' calls once they
   are recorded), and a budget may be exceeded by the cost of one call (its cost is known after it;
-  a call is not pre-checked by its `maxTokens`; `MODEL_MAX` makes one call bounded only by the model).
+  a call is not pre-checked by its `maxTokens`; `TokenLimit.MODEL_MAX` makes one call bounded only by the model).
 
 ```text
 BudgetExceededError {
@@ -349,7 +349,7 @@ decides what to show:
 | `byModel`, `byCaller`                  | the same money by model and by caller                                                           |
 | `trace`                                | every call in order: caller, category, model, cost, how it was priced, tokens                   |
 
-Categories come from the caller: `tool:*` → tools, `compaction` → compaction, `rag:*` → retrieval, `guardrail:*` → guards, `router:quality:*` →
+Categories come from the caller: `tool:*` → tools, `compaction:*` → compaction, `rag:*` → retrieval, `guardrail:*` → guards, `router:quality:*` →
 review, other `router:*` → routing, an agent name → agents. A resumed (paused) run reports the whole
 run.
 

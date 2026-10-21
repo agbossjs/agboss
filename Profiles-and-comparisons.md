@@ -28,7 +28,8 @@ prompts:
   scout: { file: scout-strict.md } # or inline text; replaces the agent's prompt
 ```
 
-- Overridable: `defaults`, `compaction`, `agents.*` (any field, any depth), `prompts`. The flow,
+- Overridable: `defaults` (`uncompactedTurns` among them), `compactions.<name>` (its model,
+  `turnsBetweenCompactions`, `summaryQueueLength`), `agents.*` (any field, any depth), `prompts`. The flow,
   its routers and the limits are code (`@Workflow({ flow, maxSteps })`, the application's
   `@Budget`s) — not profile keys (#116).
 - Objects merge key by key; arrays and scalars replace. The merged config is validated again.

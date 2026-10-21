@@ -1,6 +1,10 @@
 # ADR-0007 — Conversation memory as a FIFO queue of summaries
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by #120 PR 3 — the queue is now `CompactionStrategy.SummaryQueue`
+  of a `@Compaction` (next to `SingleSummary` and `None`), it summarises what is older than the
+  smallest `uncompactedTurns` among its readers, and a summary that does not fit
+  `summaryMaxTokens` fails the execution with `CompactionError`; it runs before the next turn reads
+  its thread, never after a turn (S132, [Memory Management](Memory-Management))
 - **Issue:** #77
 
 ## Context
