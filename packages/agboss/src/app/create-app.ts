@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomIdGenerator } from "../infrastructure/clock.js";
 import { rememberAppWorkflow } from "./app-workflow.js";
 import {
   checkThreadAccess,
@@ -151,7 +151,7 @@ export async function buildApp(
       });
       const { tenantId } = checked.contexts.tenant;
       // one id for the whole run: its observer events, `executionContext.executionId`, its Tern and its result
-      const runId = deps.newRunId?.() ?? randomUUID();
+      const runId = (deps.idGenerator ?? randomIdGenerator).newExecutionId();
       const { contexts: values } = checked;
       // before the first step (#261): each budget's `maxSpend()` once; one exhausted rejects it —
       // before anything is written: no thread, no record, no checkpoint

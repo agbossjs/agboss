@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomIdGenerator } from "../infrastructure/clock.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { executionGraphOf } from "../flow/runtime/build.js";
 import { startLine } from "../flow/runtime/history.js";
@@ -67,7 +67,7 @@ async function runOnce<TName extends string>(
   const input = validStartInput(startNamed(deps.graph, start), payload);
   const contexts = options.contexts ?? DEFAULT_CONTEXT_VALUES;
   const { tenantId } = contexts.tenant;
-  const runId = options.runId ?? deps.newRunId?.() ?? randomUUID();
+  const runId = options.runId ?? (deps.idGenerator ?? randomIdGenerator).newExecutionId();
   // a thread it continues must exist; a new one is created only once the budgets pass
   const known = requested === undefined ? undefined : await openThread(deps, tenantId, requested);
   // before the first step: an exhausted budget rejects the execution — no thread, record or call

@@ -12,8 +12,7 @@ import {
   type VersionScore,
 } from "../terns/index.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
-import { Clock } from "./clock.js";
-import { NEW_THREAD_ID } from "./instance-tokens.js";
+import { Clock, IdGenerator } from "./clock.js";
 import { pauseAnswerRecordOfJson } from "./pause-record.js";
 
 export type { NewThread } from "../terns/index.js";
@@ -250,11 +249,11 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
 
 /**
  * The built-in default: the records in an in-memory database of this application instance — lost
- * on restart, never written to disk.
+ * on restart, never written to disk; a new thread's id from the application's `IdGenerator`.
  */
-@Injectable({ deps: [Clock, NEW_THREAD_ID] })
+@Injectable({ deps: [Clock, IdGenerator] })
 export class InMemoryExecutionRecordRepository extends TernStoreRecordRepository {
-  constructor(clock: Clock, newThreadId: (() => string) | undefined) {
-    super(createSqliteTernStore(":memory:", () => clock.now(), newThreadId));
+  constructor(clock: Clock, idGenerator: IdGenerator) {
+    super(createSqliteTernStore(":memory:", () => clock.now(), idGenerator));
   }
 }

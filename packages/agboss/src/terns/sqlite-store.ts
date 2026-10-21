@@ -11,12 +11,15 @@ import {
 import { configMethods } from "./configs.js";
 import { pauseAnswerWrites, ternWrites } from "./writes.js";
 import { memoryMethods } from "./summaries.js";
-import { threadMethods, type NewThreadId } from "./threads.js";
+import { threadMethods, type ThreadIds } from "./threads.js";
 import type { Tern, TernStore } from "./types.js";
 
 /** The current time (the application's clock, given by the caller). */
 type Now = () => Date;
-export type { NewThreadId } from "./threads.js";
+export type { ThreadIds } from "./threads.js";
+
+/** Random thread ids: a store made without an application. */
+const RANDOM_THREAD_IDS: ThreadIds = { newThreadId: randomUUID };
 type Rows = (sql: string, ...params: SQLInputValue[]) => Tern[];
 
 function ternReads(rows: Rows): Pick<TernStore, "lastTerns" | "byIds" | "byVersion" | "unscored"> {
@@ -114,9 +117,9 @@ function scoreMethods(
 export function createSqliteTernStore(
   path: string,
   now: Now,
-  newThreadId: NewThreadId = randomUUID,
+  threadIds: ThreadIds = RANDOM_THREAD_IDS,
 ): TernStore {
-  return ternStoreOn(openTernDatabase(path), now, newThreadId);
+  return ternStoreOn(openTernDatabase(path), now, threadIds);
 }
 
 /**
@@ -126,20 +129,20 @@ export function createSqliteTernStore(
 export function sharedTernStore(
   db: DatabaseSync,
   now: Now,
-  newThreadId: NewThreadId = randomUUID,
+  threadIds: ThreadIds = RANDOM_THREAD_IDS,
 ): TernStore {
   migrateTernDatabase(db);
-  return ternStoreOn(db, now, newThreadId);
+  return ternStoreOn(db, now, threadIds);
 }
 
-function ternStoreOn(db: DatabaseSync, now: Now, newThreadId: NewThreadId): TernStore {
+function ternStoreOn(db: DatabaseSync, now: Now, threadIds: ThreadIds): TernStore {
   const rows: Rows = (sql, ...params) =>
     db
       .prepare(sql)
       .all(...params)
       .map(toTern);
   return {
-    ...threadMethods(db, now, newThreadId),
+    ...threadMethods(db, now, threadIds),
     ...ternWrites(db, now),
     ...pauseAnswerWrites(db),
     ...ternReads(rows),

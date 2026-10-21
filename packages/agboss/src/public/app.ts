@@ -29,7 +29,7 @@ export {
   type PeriodBudgetOptions,
 } from "../budgets/budget.js";
 export type { PausedRun } from "../app/paused-runs.js";
-export { Clock } from "../infrastructure/clock.js";
+export { Clock, IdGenerator, RandomIdGenerator } from "../infrastructure/clock.js";
 export {
   ConsoleLogger,
   formatLogEntry,

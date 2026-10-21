@@ -15,6 +15,7 @@ import type { Class } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
 import { VirtualClock } from "./clock.js";
+import { SequentialIdGenerator } from "./id-generator.js";
 import { TestSetupError } from "./errors.js";
 import { McpStubs, stubbedMcpConnect, type McpStub } from "./mcp-stubs.js";
 import { ScriptBook, type ModelScript } from "./script-book.js";
@@ -97,6 +98,8 @@ function realServers(servers: ReadonlyMap<Class, string>, real: readonly Class[]
 export class TestEnvironment {
   readonly book = new ScriptBook();
   readonly clock = new VirtualClock();
+  /** The test's ids (#313): `thread-1`, `execution-1`, … unless the application lists its own. */
+  readonly idGenerator = new SequentialIdGenerator();
   readonly mcp = new McpStubs(this.book);
   /** The rows of the in-memory defaults, shared by every app instance of the test. */
   readonly database = new InMemoryDatabase();
@@ -111,8 +114,6 @@ export class TestEnvironment {
   #reused: ReadonlyMap<Class, unknown> = new Map();
   /** The app being built: instances are built one after the other, the first one's stores kept. */
   #building: Promise<unknown> = Promise.resolve();
-  #threads = 0;
-  #runs = 0;
 
   private constructor(
     readonly assembled: AssembledApplication,
@@ -142,14 +143,6 @@ export class TestEnvironment {
             )
           : createScriptedGateway(this.book, this.clock),
       connectMcp: stubbedMcpConnect(this.mcp, labels, real),
-      newThreadId: () => {
-        this.#threads += 1;
-        return `thread-${String(this.#threads)}`;
-      },
-      newRunId: () => {
-        this.#runs += 1;
-        return `run-${String(this.#runs)}`;
-      },
       container: { ...this.mocks.container, replacements: replacementsOf(options.overrides) },
       ...branchSchedulerOf(options.concurrency, this.book),
     };
@@ -183,6 +176,7 @@ export class TestEnvironment {
         instanceId: `instance-${String(this.#apps.length + 1)}`,
         database: this.database,
         clock: this.clock,
+        idGenerator: this.idGenerator,
         quiet: true,
         observers: [this.mocks.actions],
       };

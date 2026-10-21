@@ -2,6 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { GraphDeps } from "../../graph/deps.js";
 import type { UsageRecord } from "../../finops/usage.js";
+import { randomIdGenerator } from "../../infrastructure/clock.js";
 import { childWorkflowOf } from "../analyse/child-workflow.js";
 import { currentFrame, depthOf, type Frame } from "../context/frame.js";
 import { NodeKind } from "../ast.js";
@@ -165,6 +166,7 @@ export function childRunner(
       parent: frame,
       itemIndex,
       inheritedUsage: state.usage.length,
+      idGenerator: deps.idGenerator ?? randomIdGenerator,
     };
     const entered = await childEnteredAt(spot);
     const run = childRunOf(config, frame, entered.identity, input);

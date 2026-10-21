@@ -1,7 +1,7 @@
 import { BaseCheckpointSaver, MemorySaver } from "@langchain/langgraph";
 import { Injectable } from "../components/decorators.js";
 import type { Class } from "../components/injection.js";
-import { Clock, SystemClock } from "./clock.js";
+import { Clock, IdGenerator, RandomIdGenerator, SystemClock } from "./clock.js";
 import { ConsoleLogger, Logger, SilentLogger } from "./logger.js";
 import { CostLedgerRepository, InMemoryCostLedgerRepository } from "./cost-ledger.repository.js";
 import {
@@ -36,6 +36,7 @@ export class InMemoryCheckpointSaver extends MemorySaver {}
 /** Each contract with its built-in default (in memory: nothing is written to disk). */
 export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class, Class>([
   [Clock, SystemClock],
+  [IdGenerator, RandomIdGenerator],
   [Logger, ConsoleLogger],
   [BaseCheckpointSaver, InMemoryCheckpointSaver],
   [ExecutionRecordRepository, InMemoryExecutionRecordRepository],
@@ -67,6 +68,8 @@ export const infrastructureContractOf = (cls: Class): Class | undefined =>
 export interface Infrastructure {
   /** The instance's time (#262): the listed `Clock`, else the system's; a test's `VirtualClock`. */
   readonly clock: Clock;
+  /** The ids it mints (#313): the listed `IdGenerator`, else random; a test's sequential one. */
+  readonly idGenerator: IdGenerator;
   /** Where the framework's log goes: the listed `Logger`, else `ConsoleLogger` (standard error). */
   readonly logger: Logger;
   readonly checkpointer: BaseCheckpointSaver;
@@ -81,6 +84,7 @@ export interface Infrastructure {
 /** The infrastructure from the application's container (a listed class, else the default). */
 export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrastructure => ({
   clock: resolve(Clock) as Clock,
+  idGenerator: resolve(IdGenerator) as IdGenerator,
   logger: resolve(Logger) as Logger,
   // each contract resolves to an instance of a class that extends it (registrations by inheritance)
   checkpointer: resolve(BaseCheckpointSaver) as BaseCheckpointSaver,

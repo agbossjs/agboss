@@ -20,7 +20,7 @@ import type { AssembledCompactions } from "../compaction/assembly.js";
 import type { Class } from "../components/injection.js";
 import type { JudgeInstance } from "../components/judge-decorators.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
-import type { Clock } from "../infrastructure/clock.js";
+import type { Clock, IdGenerator } from "../infrastructure/clock.js";
 
 /** What the workflow's graph is built from: its analysed paths, its agents and their parts. */
 export interface GraphDeps<TName extends string> {
@@ -78,6 +78,11 @@ export interface GraphDeps<TName extends string> {
    * default the system's.
    */
   readonly clock?: Clock | undefined;
+  /**
+   * The application's id generator (#313): every execution id it mints — roots, children, recursion
+   * levels; default random.
+   */
+  readonly idGenerator?: IdGenerator | undefined;
   /** A component instance from the app's container: actions and finishes with a handler. */
   readonly container: { readonly get: <T>(token: Class<T>) => T };
 }

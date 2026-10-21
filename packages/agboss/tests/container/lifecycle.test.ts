@@ -88,10 +88,7 @@ const scriptedApp = async (): Promise<App> => {
   book
     .scriptOf("agent:scout-agent")
     .thenReturn(callTool(SearchJobsTool, { text: "TS" }), replyWith("found"));
-  return createApp(LifecycleApplication, {
-    gateway: createScriptedGateway(book),
-    newThreadId: () => "t-1",
-  });
+  return createApp(LifecycleApplication, { gateway: createScriptedGateway(book) });
 };
 
 /** An app whose observer records the refused requests. */
@@ -139,7 +136,7 @@ describe("#261 AC3: after app.close() no new execution is accepted", () => {
 
   it("cancel still works while the app stops: the running execution is aborted", async () => {
     const app = await scriptedApp();
-    const running = execute(app, SearchWorkflowStart, { text: "find jobs" });
+    const running = execute(app, SearchWorkflowStart, { text: "find jobs" }, { threadId: "t-1" });
     await gate.entered;
 
     const closing = app.close();

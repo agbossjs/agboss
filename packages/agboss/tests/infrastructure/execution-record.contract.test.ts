@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { ExecutionRecordStatus, type ExecutionRecordRepository } from "../../src/index.js";
+import { randomIdGenerator } from "../../src/infrastructure/clock.js";
 import { InMemoryExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import { SqliteExecutionRecordRepository } from "../../src/infrastructure/sqlite/sqlite-execution-record.repository.js";
 import type { NewTern, TernOutcome } from "../../src/terns/index.js";
@@ -17,10 +18,10 @@ const kinds = storeKinds<ExecutionRecordRepository>({
     sharedInMemory(
       seam,
       "records",
-      () => new InMemoryExecutionRecordRepository(seam.clock, undefined),
+      () => new InMemoryExecutionRecordRepository(seam.clock, randomIdGenerator),
     ),
-  sqlite: ({ clock, connection }) =>
-    new SqliteExecutionRecordRepository(connection(), clock, undefined),
+  sqlite: ({ clock, connection, application }) =>
+    new SqliteExecutionRecordRepository(connection(), clock, application, randomIdGenerator),
 });
 
 /** An outcome with `status`. */
