@@ -3,6 +3,29 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — health checks: `@HealthCheck`, `app.checkLiveness()`, `app.checkReadiness()` (#300, PR 1)
+
+- **New — the instance's probes** ([Health checks](Health-checks)): `app.checkLiveness()` (no I/O:
+  the application — `Unhealthy`, `stopping`, from `app.close()` on — and the recovery loop —
+  `Unhealthy` when its last sweep ended more than three sweep intervals ago) and
+  `app.checkReadiness()` (liveness's components, every store's `ping()`, every model provider's
+  circuit breaker — open → `Degraded`, never a model call — and the project's checks), each →
+  `HealthReport { status, components }` with `HealthStatus` and `HealthComponentKind`. Checks run
+  at once, each under its timeout on the `Clock`; one that throws or times out is that component's
+  `Unhealthy` with its `reason` — neither call rejects. `testWith`'s `app` has both, also during and
+  after `close()`. No HTTP server: the project's exposes them.
+- **New — `@HealthCheck({ name, timeout, deps? })`** + `implements HealthCheckHandler`
+  (`check(): Promise<HealthCheckResult>`, built only with `HealthCheckResult.healthy()` /
+  `.degraded({ reason })` / `.unhealthy({ reason })`), listed in `@Application({ healthChecks })`;
+  rules `[health.not-a-health-check]`, `[health.duplicate-name]`, `[name.kind-suffix]`
+  (`-health-check`).
+- **Breaking — every #265 store contract has `abstract ping(): Promise<void>`**
+  (`CostLedgerRepository`, `ExecutionRecordRepository`, `PausedExecutionRepository`,
+  `ExecutionLeaseRepository`, `ExecutionTreeRepository`, `RateLimitRepository`): the in-memory
+  defaults resolve, the SQLite ones run `SELECT 1`. Migrating: a project's own implementation adds
+  `ping()` — one fast round trip that rejects when the store is unreachable
+  ([Several instances → Your own implementation](Several-instances#your-own-implementation)). A
+  subclass of a framework implementation inherits it.
 ## Unreleased — the `IdGenerator` contract (#313)
 
 - **New — `IdGenerator`** (root export, [App → Infrastructure](App#infrastructure)): an

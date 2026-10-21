@@ -174,7 +174,9 @@ only by listing it (`SqliteExecutionRecordRepository`, `SqliteCostLedgerReposito
 your own `extends` the contract and goes in `@Application({ providers })`. A workflow run on its
 own (`agboss eval` / `replay` / `golden`, `createAppDeps`) uses the infrastructure of the one
 application that lists it.
-Running more than one instance: [Several instances](Several-instances).
+Running more than one instance: [Several instances](Several-instances). Every store contract has a
+fast `ping()` (#300) — `app.checkReadiness()` calls it; a project's own implementation adds it
+([Health checks](Health-checks)).
 
 ## At start: the log, the warnings, `describe`
 
@@ -304,6 +306,14 @@ await app.close({ timeout: seconds(10) }); // what still runs after 10 s moves t
 instance, Ctrl+C); a second signal while it stops interrupts at once. The listeners are removed when
 `close()` finishes, however it was called; when nothing else listens for the signal received, it is
 then raised again, so the process ends as it would have without the app. `testWith` never listens.
+
+## `app.checkLiveness()` / `app.checkReadiness()`
+
+The instance's probes (#300) → `HealthReport { status, components }`, never a rejection.
+Liveness reads only the instance itself: `Unhealthy` (`stopping`) from `app.close()` on, and when
+its recovery loop is stuck. Readiness adds every store's `ping()`, the model providers' circuit
+breakers (open → `Degraded`) and the project's `@HealthCheck`s of `@Application({ healthChecks })`.
+The project's server exposes them ([Health checks](Health-checks)).
 
 ## Lifecycle hooks
 

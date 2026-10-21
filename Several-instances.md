@@ -359,6 +359,9 @@ export class LeaseTableService {
   deleteIfHeld(_executionLease: ExecutionLease): Promise<void> {
     return Promise.resolve();
   }
+  selectOne(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 -->
 
@@ -387,8 +390,16 @@ export class TableExecutionLeaseRepository extends ExecutionLeaseRepository {
   override release(executionLease: ExecutionLease): Promise<void> {
     return this.leaseTableService.deleteIfHeld(executionLease);
   }
+
+  override ping(): Promise<void> {
+    return this.leaseTableService.selectOne(); // one round trip: what readiness calls (#300)
+  }
 }
 ```
+
+Every store contract has `ping()` (#300): one fast round trip that resolves when the store answers
+and rejects with why when it does not — `app.checkReadiness()` calls it under a `seconds(2)`
+timeout, and a rejection or a timeout is that store's `Unhealthy` ([Health checks](Health-checks)).
 
 ## Testing several instances
 
@@ -430,6 +441,18 @@ already started reach its next wait, moves the time, then wakes every wait that 
 order (lease renewals, a resume waiting for a lease, the recovery sweep) — a jump longer than the
 lease is a holder frozen for that long.
 
+## Probes of an instance (#300)
+
+Each instance answers its orchestrator's probes through `app.checkLiveness()` and
+`app.checkReadiness()` — the project's server maps them to its endpoints ([Health checks](Health-checks)).
+Liveness does no I/O: an instance that is stopping (`app.close()`, SIGTERM) is `Unhealthy`
+(`stopping`) so the orchestrator stops sending it traffic while it drains, and a recovery loop whose
+last sweep ended more than three sweep intervals (90 s) ago is `Unhealthy` (`stuck: …`) — a store it
+waits on that never answers. Readiness adds every store's `ping()` and the circuit breakers of the
+model providers as `RateLimitRepository` keeps them for every instance: an open breaker makes every
+instance `Degraded` at once (it still serves; calls go to the fallback or fail fast), never
+`Unhealthy`.
+
 ## Limits
 
 - With the in-memory defaults nothing is shared between instances and nothing survives a restart:
@@ -464,6 +487,6 @@ lease is a holder frozen for that long.
 
 `SqliteRateLimitRepository` keeps them in `rate_limit_slots`, `rate_limit_window_entries` and
 `rate_limit_pauses`; a file an older version wrote gets the two new tables when it is opened. Your
-own implementation (Redis, …) `extends RateLimitRepository` and implements all seven methods; the
+own implementation (Redis, …) `extends RateLimitRepository` and implements all eight methods (`ping()` included, #300); the
 shared contract suite of the framework (`tests/infrastructure/rate-limit.contract.test.ts`) is the
 behaviour to match.

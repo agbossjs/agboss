@@ -16,6 +16,7 @@
 - [CLI — agboss](CLI)
 - [App — @Application and createApp](App)
 - [Several instances](Several-instances)
+- [Health checks](Health-checks)
 - [Context and Authorization](Context-And-Authorization)
 - [Testing](Testing)
 - [The test split](Test-split)

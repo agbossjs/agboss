@@ -205,6 +205,14 @@ A `@Compaction` class (`compactions/*.compaction.ts`): its `strategy` (`SummaryQ
 `summaryQueueLength` (a queue) and `summaryMaxTokens` — see
 [Memory Management](Memory-Management#compaction-compaction-120-pr-3).
 
+## `healthChecks` — the project's readiness checks (#300)
+
+`@Application({ healthChecks: [CrmHealthCheck] })` lists the `@HealthCheck` classes
+`app.checkReadiness()` runs besides the framework's own (the stores, the model providers' breakers,
+the recovery loop) — the only place they are listed; each has its own `timeout`
+([Health checks](Health-checks)). `[health.not-a-health-check]`, `[health.duplicate-name]` and
+`[name.kind-suffix]` (`-health-check`) at assembly.
+
 ## Environments
 
 The app's own settings: one set per application, in `environments/` next to the application file —
