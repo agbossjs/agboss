@@ -33,7 +33,7 @@ balancing })` — one limit for every execution, tenant and instance (`RateLimit
     `Decision.noul` / `Decision.choice` / `Decision.score` / `Decision.image` (typed answers);
     `invoke` or `decide` on the wrong kind of model → `ModelKindError`.
   - Agents: cheap chat models (default `moonshotai/kimi-k2.6`) via `@langchain/openai`, each with
-    `maxTokens` (`MODEL_MAX` = model's maximum), `thinking`, `cache`.
+    `maxTokens` (`TokenLimit.MODEL_MAX` = model's maximum), `thinking`, `cache`.
   - Everything is set in the workflow's components (`@Workflow` with its `flow` of paths,
     `@Router`, `@Agent`) and its application (`@Application`, its `@Budget`s) — reference: Architecture below (compiled by `make check`), then Wiki →
     Workflow, Routers, Components, Configuration (compiled by CI, see Quality gates).
@@ -238,7 +238,7 @@ export class MainRouter {}
 ```
 
 ```ts file=src/desk/desk.workflow.ts
-// desk.workflow.ts — the module: the paths (`flow`), defaults, providers; money: the application's budgets
+// desk.workflow.ts — the module: the paths (`flow`), defaults, memory, providers; money: the application's budgets
 import { Workflow, route, start } from "agboss";
 import { WorkflowStartTextDto } from "agboss/dto";
 import { SupportAgent } from "./agents/support.agent.js";
@@ -262,7 +262,8 @@ import { ChatWorkflowStart } from "./workflow-starts/chat.workflow-start.js";
         route(HandOverWorkflowFinish),
       ),
   ],
-  defaults: { tools: { maxToolCalls: 4 }, history: { limit: 5 } }, // over the application's
+  defaults: { tools: { maxToolCalls: 4 } }, // over the application's
+  uncompactedTurns: 5, // the last 5 turns of the thread in full, for its agent and its router
   maxSteps: 4,
   providers: [OrderBook],
 })
@@ -979,10 +980,11 @@ export const quorumPaths = [
 ### Components and dependency injection
 
 - **One class per file, folders by kind:** `workflow-starts/`, `routers/`, `agents/`, `actions/`,
-  `workflow-finishes/`, `arbiters/`, `guardrails/`, `tools/`, `services/`, `mcp/`, `rag/`,
-  `environments/`; files `*.workflow-start.ts`, `*.router.ts`, `*.agent.ts` (+ `*.prompt.md`),
-  `*.action.ts`, `*.workflow-finish.ts`, `*.arbiter.ts`, `*.guardrail.ts`, `*.tool.ts`, `*.dto.ts`,
-  `*.service.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`, `*.helper.ts`.
+  `workflow-finishes/`, `arbiters/`, `guardrails/`, `compactions/`, `tools/`, `services/`, `mcp/`,
+  `rag/`, `environments/`; files `*.workflow-start.ts`, `*.router.ts`, `*.agent.ts` (+ `*.prompt.md`),
+  `*.action.ts`, `*.workflow-finish.ts`, `*.arbiter.ts`, `*.guardrail.ts`, `*.compaction.ts` (+
+  `*.prompt.md`), `*.tool.ts`, `*.dto.ts`, `*.service.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`,
+  `*.helper.ts`.
 - **Decorator = metadata, constructor = dependencies, methods = a contract:** `implements` for your
   own (`ToolHandler<In, Out>`, `ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler<TReply>`,
   `RagConnector`), `extends` +
@@ -1151,9 +1153,72 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
   checkpoints (`[application.in-memory-pauses]`), PII tokens on a key of the instance — no
   `@Application({ pseudonymKey })` (`[application.pii-instance-key]`, #120 S94) — are in
   `app.warnings` and the start log, errors under `agboss check --strict`, silent in tests.
-- **Memory** (`agboss/memory`): agents see the thread's last `defaults.history.limit` turns
-  (`start <name>: <input>` / `finish <name>: <output>`, + `compaction` summaries) as a message of
-  their own; `@Agent({ memoryStrategy })` replaces that for one agent (`extends BaseMemoryStrategy`).
+- **Memory and compaction (#120 PR 3):** a turn of a thread is a finished root execution
+  (`start <name>: <input>` / `finish <name>: <output>`); each agent and model router sees its last
+  `uncompactedTurns` in full, as a message of its own — one setting on `@Application` →
+  `@Workflow` → `@Agent` / `@Router` (the lowest set value wins; default 5, `TurnLimit.ALL` = every
+  turn; on a code router it does not compile, `compaction` neither). What is older is a
+  `@Compaction`'s (`compactions/*.compaction.ts`, `-compaction`), named by `compaction: X` on the
+  same levels (the lowest set wins; none anywhere → the window only): `CompactionStrategy.SummaryQueue`
+  — every `turnsBetweenCompactions` turns older than the window become one self-contained summary,
+  the latest `summaryQueueLength` kept; `SingleSummary` — one summary, rewritten from the previous
+  one and the new turns; `None` — no model, no prompt, no parameters (a type error otherwise, as a
+  missing `model` is for the other two). A compaction summarises everything older than the
+  **smallest** window among the agents and routers that use it, so no one loses a turn: a reader
+  sees in full its window and every turn its compaction has not summarised yet, and only the
+  summaries its turns do not cover. `summaryMaxTokens` is the summary call's `max_tokens` (counted
+  by the model's server, `TokenLimit.MODEL_MAX` allowed, thinking off): cut there → one "shorter" retry, then
+  `CompactionError` (`compaction`: `compaction`, `summaryMaxTokens`; a failed call is one too, as its
+  `cause`) — never a cut summary. A compaction runs lazily, before a new execution's first read of
+  its thread (#120 S132), never after a turn: a finished turn's answer is always kept, a thread that
+  ends pays for none, and a `CompactionError` fails the new execution before any of its work (no
+  model call, no step, no turn kept). The compaction's model reads the turns through the application's
+  and the workflow's PII policies (masked, S84 i); the summary is revealed before it is stored
+  (`ExecutionRecordRepository`, by `(tenantId, threadId, compaction)`), and each reader's own
+  policies mask it at its boundary. Spend `compaction:<name>` (category `compaction`);
+  `result.compacted` lists what each compaction did before the execution; `[compaction.not-a-compaction]`,
+  `[compaction.invalid-setting]`, `[compaction.decision-model]`,
+  `[compaction.uncompacted-turns-invalid]` at assembly. Tests: `mockLlm(ConversationCompaction)
+.thenReturn(replyWith("…"))` (`{ truncated: true }` = cut at the limit) — unscripted, a fixed
+  summary. `@Agent({ memoryStrategy })` (`agboss/memory`, `extends BaseMemoryStrategy`) replaces
+  what one agent sees of that memory.
+
+<!-- snippet-context
+import { Agent, Compaction, CompactionStrategy, TurnLimit } from "agboss";
+-->
+
+```ts
+@Compaction({
+  name: "conversation-compaction",
+  description: "Summarises old turns of the conversation",
+  prompt: "Summarise the turns under `Turns to compact`: what was asked, decided and is still open.",
+  model: "moonshotai/kimi-k2.6",
+  strategy: CompactionStrategy.SummaryQueue,
+  turnsBetweenCompactions: 5,
+  summaryQueueLength: 10,
+  summaryMaxTokens: 400,
+})
+export class ConversationCompaction {}
+
+@Compaction({
+  name: "no-summaries-compaction",
+  description: "No summaries: only the window of recent turns",
+  strategy: CompactionStrategy.None,
+})
+export class NoSummariesCompaction {}
+
+// @Workflow({ …, uncompactedTurns: 8, compaction: ConversationCompaction }) — its agents and routers
+@Agent({
+  name: "archive-agent",
+  description: "Answers from the whole thread",
+  prompt: "Answer from the thread.",
+  model: "moonshotai/kimi-k2.6",
+  uncompactedTurns: TurnLimit.ALL, // every turn in full: no summaries needed
+  compaction: NoSummariesCompaction,
+})
+export class ArchiveAgent {}
+```
+
 - **Knowledge bases:** a `@Rag` class implementing `RagConnector`, bound per agent with
   `rag: [{ use, mode: RagMode.Tool | RagMode.Context }]`. **MCP:** `@McpServer`
   (`extends McpServerClient`) in `mcp: [...]`, its tools as `@McpTool` classes.
@@ -1524,6 +1589,7 @@ today; tenant-daily-budget allows $40`).
   fails closed) / `step.router` ⊃ `step.router.invalid-decision` /
   `step.arbiter` (`ArbiterError`) / `step.quorum` (`QuorumNotReachedError`, #279) /
   `step.child` (`ChildExecutionFailedError`, #263), `limit.depth` (`DepthLimitExceededError`, #264),
+  `compaction` (`CompactionError`, #120 PR 3),
   `pause.unknown`, `pause.wrong-answerer`, `pause.uninterpretable-reply`, `pause.no-reply-interpreter`,
   `execution.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
   `app.close()`, an `onExecutionRejected`, …); a new error
@@ -1735,7 +1801,8 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
                     limits, onError, input messages, records)
     graph/          the agent loop (agent-loop/: its subgraph, tools, approval, judges), knowledge,
                     rule-error.ts, limits.ts, settings.ts, studio-graph.ts
-    llm/  routers/  tools/  guardrails/  terns/  run/  pause/  finops/  eval/  tracing/  prompts/  types/
+    llm/  routers/  tools/  guardrails/  compaction/  terns/  run/  pause/  finops/  eval/  tracing/
+    prompts/  types/
     loader/, describe/   loadWorkflow (tsx) and describeWorkflow; studio.ts (LangGraph Studio)
     internal.ts     `agboss/internal`: what the CLI is built on — not public, not for projects
   tests/            unit tests (helpers.ts = fakes; fixtures/ = test workflows); routers/ alone; smoke/ = real
@@ -1754,7 +1821,8 @@ examples/job-scout/          the example (package job-scout-example; depends on 
                     (*.router.ts), agents/ (*.agent.ts + *.prompt.md), workflow-finishes/
                     (*.workflow-finish.ts), tools/ (*.tool.ts +
                     *.dto.ts), services/ (*.service.ts), mcp/ (*.server.ts, *.mcp.ts, *.dto.ts),
-                    rag/ (*.rag.ts), helpers/ (*.helper.ts), config/ (budget.config.ts, …), scripts/, data/
+                    rag/ (*.rag.ts), compactions/ (*.compaction.ts + *.prompt.md), helpers/ (*.helper.ts),
+                    config/ (budget.config.ts, …), scripts/, data/
   tests/  profiles/  golden/
 examples/flow-patterns/      the flow's patterns (package flow-patterns-example, #295): src/offer/ (a review loop),
                     src/credit/ (a code router beside a model router), src/review/ (parallel launches

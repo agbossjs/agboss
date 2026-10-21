@@ -15,6 +15,6 @@ export async function memoryViewOf(
     task: state.inputMessage,
     history: state.history,
     summaries: state.summaries,
-    limits: { turns: agent.historyLimit, summaries: agent.summariesLimit },
+    limits: { turns: state.history.length, summaries: state.summaries.length },
   });
 }

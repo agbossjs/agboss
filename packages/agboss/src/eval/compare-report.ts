@@ -46,7 +46,8 @@ export function configDiff(base: RunDeps<string>, other: RunDeps<string>): strin
     const before = a.get(key);
     const after = b.get(key);
     if (before === after) return [];
-    if (key.startsWith("prompts.") || key === "compactionPrompt") return [`${key}: changed`];
+    if (key.startsWith("prompts.") || (key.startsWith("compactions.") && key.endsWith(".prompt")))
+      return [`${key}: changed`];
     return [`${key.replace(/^config\./, "")}: ${before ?? "—"} → ${after ?? "—"}`];
   });
 }

@@ -1,5 +1,6 @@
 import { resolveTools, type AssembledWorkflow, type WorkflowServices } from "../workflow.js";
 import { DEFAULT_MAX_TOKENS, type Thinking } from "../config/types.js";
+import { memoryPlanOf, readerOf } from "../compaction/plan.js";
 import { resolveAgentLimits, type AgentLimit } from "../graph/agent-loop/index.js";
 import { reasoningLabel, reasoningOfThinking } from "../models/reasoning.js";
 import { flowLines } from "../flow/print.js";
@@ -8,7 +9,7 @@ import { NodeKind } from "../flow/ast.js";
 import { isCodeRouterNode } from "../flow/runtime/graph-model.js";
 import { aboutLines, childLines, inputLines } from "./inputs.js";
 import { recursionLines } from "./recursion.js";
-import { agentDefaultsLine, routerModelSource } from "./defaults.js";
+import { agentDefaultsLine, memoryLines, routerModelSource } from "./defaults.js";
 import { configSnapshot } from "../run/versions.js";
 import { shortVersion, versionOf } from "../terns/index.js";
 import { isMcpFacade, type AnyTool } from "../tools/index.js";
@@ -79,14 +80,9 @@ function guardrailLines(bundle: AssembledWorkflow): string[] {
 }
 
 function bundleLines(bundle: AssembledWorkflow): string[] {
-  const c = bundle.config;
-  const memory =
-    c.compaction === undefined
-      ? "raw turns only"
-      : `compaction every ${String(c.compaction.every)} turns, keep ${String(c.compaction.keep)} summaries · ${c.compaction.model.model}`;
   return [
     ...guardrailLines(bundle),
-    `memory    ${memory}`,
+    ...memoryLines(bundle),
     `pause     on — tools with channel wait for external signal`,
   ];
 }
@@ -169,10 +165,12 @@ function settingsLines(
 
 function agentLines(bundle: AssembledWorkflow, tools: ReadonlyMap<string, AnyTool>): string[] {
   const c = bundle.config;
-  const defaultSummaries = c.defaults.history.summaries ?? c.compaction?.keep ?? 0;
+  const plan = memoryPlanOf(c, bundle.compactions);
   return Object.entries(c.agents).flatMap(([name, agent]) => {
-    const summaries = c.compaction === undefined ? 0 : (agent.historySummaries ?? defaultSummaries);
-    const history = `history ${String(agent.historyLimit ?? c.defaults.history.limit)} turns${summaries > 0 ? ` + ${String(summaries)} summaries` : ""}`;
+    const reader = readerOf(plan, name);
+    const compaction =
+      reader.compaction === undefined ? "" : ` · compaction ${reader.compaction.name}`;
+    const history = `uncompactedTurns ${String(reader.window)}${compaction}`;
     const own = (agent.tools ?? []).map((t) => tools.get(t));
     return [
       `  ${name}  ${agent.model} · reasoning ${thinkingLabel(agent.thinking ?? c.defaults.models.thinking)} · ${ceilingLabel(agent.maxTokens ?? c.defaults.models.maxTokens)} · ${history}`,

@@ -56,7 +56,7 @@ describe("AC6: the default gateway resolves each model's provider", () => {
 
     expect(() =>
       gateway.chatModel({
-        user: { kind: "compaction" },
+        user: { kind: "compaction", compaction: "conversation-compaction" },
         settings: { model: "x/y", temperature: 0, maxTokens: 1 },
       }),
     ).toThrow(ConfigurationError);

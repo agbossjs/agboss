@@ -767,7 +767,6 @@ export interface WorkflowFixtures {
     readonly clock: VirtualClock;
     readonly mcpOf: <TServer extends McpServerClient<ServerTools>>(server: new () => TServer) => McpStub<TServer>;
     readonly mockAction: <TAction extends Class>(action: TAction) => ActionScript<InstanceType<TAction>>;
-    readonly mockCompaction: () => ModelScript;
     // Warning: (ae-forgotten-export) The symbol "ModelTarget" needs to be exported by the entry point index.d.ts
     readonly mockLlm: <TComponent extends ModelTarget>(component: TComponent) => ModelScript<InstanceType<TComponent>>;
     readonly mockOf: <T>(component: Class<T>) => Mocked<T>;

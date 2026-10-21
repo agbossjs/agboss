@@ -53,8 +53,8 @@ class TicketWriter {}
     models: { temperature: 0, cache: true },
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 1 },
-    history: { limit: 1 },
   },
+  uncompactedTurns: 1,
   providers: [OrderBook],
 })
 class Tickets implements WorkflowDefinition {
@@ -90,7 +90,15 @@ describe("AC12: the app's parts", () => {
       ternId: "tern",
       runId: "r",
       data: { scope: {}, outdatedValues: [], lastError: null },
-      compacted: { fromTurn: 1, toTurn: 5, summaries: 1, keep: 10 },
+      compacted: [
+        {
+          compaction: "conversation-compaction",
+          fromTurn: 1,
+          toTurn: 5,
+          summaries: 1,
+          summaryQueueLength: 10,
+        },
+      ],
       traceUrl: "http://traces/t",
       pending: [],
     };
@@ -98,7 +106,7 @@ describe("AC12: the app's parts", () => {
     expect(runResultOf(run, false)).toMatchObject({
       path: ["task-workflow-start", "coder-agent"],
       traceUrl: "http://traces/t",
-      compacted: { keep: 10 },
+      compacted: [{ summaryQueueLength: 10 }],
     });
     expect(runResultOf(run, false).record).toBeUndefined();
     expect(runResultOf(run, true).record).toEqual({

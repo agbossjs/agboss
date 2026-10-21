@@ -20,7 +20,11 @@ describe("job-scout workflow", () => {
       read_shortlist: "ShortlistServer, SHORTLIST",
       save_shortlist: "ShortlistServer, SHORTLIST",
     });
-    expect(workflow.config.compaction).toMatchObject({ every: 5, keep: 10 });
+    expect(workflow.config.compactions?.["conversation-compaction"]).toMatchObject({
+      turnsBetweenCompactions: 5,
+      summaryQueueLength: 10,
+      model: { maxTokens: 400 },
+    });
   });
 
   it("the scout-low-thinking profile changes only the scout's thinking", async () => {
@@ -58,10 +62,10 @@ describe("job-scout workflow", () => {
       ),
     ).toBe(true);
     expect(has("rag: company_notes (tool, k 3)")).toBe(true);
-    // #261: the application's defaults under the workflow's own (history), each with its source
+    // #261: the application's defaults under the workflow's own (its window), each with its source
     expect(
       has(
-        "defaults: temperature 0 (job-scout-application) · maxTokens 4000 (own) · history 8 (job-scout-workflow)",
+        "defaults: temperature 0 (job-scout-application) · maxTokens 4000 (own) · uncompactedTurns 8 (job-scout-workflow)",
       ),
     ).toBe(true);
     expect(has("· search_company_notes (local)")).toBe(true);

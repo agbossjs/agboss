@@ -1,4 +1,4 @@
-import { Agent, EmptyEnvironment, MODEL_MAX, Workflow } from "../../../src/index.js";
+import { Agent, EmptyEnvironment, TokenLimit, Workflow } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
@@ -68,10 +68,10 @@ export class LimitedAgent {}
       .toFinish(Reply),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
     tools: { maxToolCalls: 1 },
-    history: { limit: 1 },
   },
+  uncompactedTurns: 1,
 })
 export class LimitedWorkflow {}
 

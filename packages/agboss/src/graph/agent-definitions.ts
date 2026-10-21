@@ -13,18 +13,12 @@ export class MissingJudgeError extends Error {
   override name = "MissingJudgeError";
 }
 
-/** Summaries a reader sees by default: defaults.history.summaries, else compaction.keep, else none. */
-export const defaultSummaries = <TName extends string>(config: AgentsConfigOf<TName>): number =>
-  config.defaults.history.summaries ?? config.compaction?.keep ?? 0;
-
-/** An agent's limits and memory with defaults applied. */
+/** An agent's limits with defaults applied. */
 const limitsOf = <TName extends string>(
   agent: AgentSettingsOf<string> | undefined,
   config: AgentsConfigOf<TName>,
-): Pick<AgentDefinition, "limits" | "historyLimit" | "summariesLimit"> => ({
+): Pick<AgentDefinition, "limits"> => ({
   limits: resolveAgentLimits(agent?.maxToolCalls, config.defaults.tools?.maxToolCalls).limits,
-  historyLimit: agent?.historyLimit ?? config.defaults.history.limit,
-  summariesLimit: agent?.historySummaries ?? defaultSummaries(config),
 });
 
 /** An agent's judges (`agents.<name>.judges`): each one's instance and its own model. */

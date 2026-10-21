@@ -95,6 +95,9 @@ const MIGRATIONS: readonly string[] = [
      step_key TEXT NOT NULL, asked_at TEXT NOT NULL, record TEXT NOT NULL,
      PRIMARY KEY (tenant_id, step_key));
    CREATE INDEX pause_answers_by_root ON pause_answers(tenant_id, root_execution_id);`,
+  // 13 — a thread has the summaries of each of its compactions (#120 PR 3); older rows have none
+  `ALTER TABLE summaries ADD COLUMN compaction TEXT NOT NULL DEFAULT '';
+   CREATE INDEX summaries_compaction ON summaries(tenant_id, thread_id, compaction, to_seq);`,
 ];
 
 const TernRow = z.object({

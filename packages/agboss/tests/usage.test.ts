@@ -114,7 +114,7 @@ describe("turn financials", () => {
     expect(costCategoryOf("tool:exchange_rate")).toBe("tools");
     expect(costCategoryOf("guardrail:personal-data-guardrail")).toBe("guards");
     expect(costCategoryOf("router:quality:coder")).toBe("review");
-    expect(costCategoryOf("compaction")).toBe("compaction");
+    expect(costCategoryOf("compaction:conversation-compaction")).toBe("compaction");
     expect(costCategoryOf("router:main")).toBe("routing");
     expect(costCategoryOf("researcher")).toBe("agents");
   });

@@ -14,6 +14,7 @@ import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { KEYS } from "../models/gateway.js";
 import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "../../src/models/workflow-models.js";
 import { createModelRegistry } from "../../src/llm/registry.js";
+import { CompactionStrategy } from "../../src/compaction/compaction.decorator.js";
 import { createRouter, type RouteOutcome } from "../../src/routers/index.js";
 import { routeTo, fakeChatFactory, testConfig, testRouter, unusedJevClient } from "../helpers.js";
 import { jevAnswer, request } from "../routers/fixtures.js";
@@ -40,7 +41,10 @@ describe("AC12: the default model gateway", () => {
     const gateway = createModelGateway({ chatModel: factory, jevClient: unusedJevClient });
 
     const first = gateway.chatModel({ user: { kind: "agent", agent: "alpha" }, settings });
-    const second = gateway.chatModel({ user: { kind: "compaction" }, settings });
+    const second = gateway.chatModel({
+      user: { kind: "compaction", compaction: "conversation-compaction" },
+      settings,
+    });
 
     expect(first).toBe(second);
     expect(factory).toHaveBeenCalledOnce();
@@ -101,10 +105,15 @@ describe("AC12: model clients are asked for through the gateway", () => {
     const { gateway, chatModel, model } = recordingGateway();
     const config = {
       ...testConfig,
-      compaction: {
-        every: 4,
-        keep: 2,
-        model: { model: "test/compact", price: { inputPerMTok: 1, outputPerMTok: 1 } },
+      compactions: {
+        "conversation-compaction": {
+          strategy: CompactionStrategy.SummaryQueue,
+          model: { model: "test/compact", price: { inputPerMTok: 1, outputPerMTok: 1 } },
+          turnsBetweenCompactions: 4,
+          summaryQueueLength: 2,
+        },
+        // a compaction without summaries has no model to ask for
+        "no-summaries-compaction": { strategy: CompactionStrategy.None },
       },
     };
 
@@ -114,7 +123,7 @@ describe("AC12: model clients are asked for through the gateway", () => {
     expect(chatModel.mock.calls.map(([spec]) => [spec.user, spec.settings.model])).toEqual([
       [{ kind: "agent", agent: "alpha" }, "test/alpha"],
       [{ kind: "agent", agent: "beta" }, "test/beta"],
-      [{ kind: "compaction" }, "test/compact"],
+      [{ kind: "compaction", compaction: "conversation-compaction" }, "test/compact"],
     ]);
   });
 

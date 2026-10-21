@@ -46,11 +46,18 @@ export function threadLine(result: Pick<ExecutionOutput, "threadId" | "traceUrl"
     : `thread ${result.threadId} · ${result.traceUrl}`;
 }
 
-/** `memory: turns 1–5 → summary 1/10` when this turn compacted the conversation. */
+/**
+ * `memory: conversation-compaction turns 1–5 → summary 1/10` when this turn compacted the
+ * conversation — one part per compaction that did (#120 PR 3).
+ */
 export function memoryLine(result: Pick<ExecutionOutput, "compacted">): string | undefined {
-  const c = result.compacted;
-  if (c === undefined) return undefined;
-  return `memory: turns ${String(c.fromTurn)}–${String(c.toTurn)} → summary ${String(c.summaries)}/${String(c.keep)}`;
+  const compacted = result.compacted ?? [];
+  if (compacted.length === 0) return undefined;
+  const parts = compacted.map(
+    (c) =>
+      `${c.compaction} turns ${String(c.fromTurn)}–${String(c.toTurn)} → summary ${String(c.summaries)}/${String(c.summaryQueueLength)}`,
+  );
+  return `memory: ${parts.join(" · ")}`;
 }
 
 /** One line under an answer: the path and where the execution finished (or that it waits). */

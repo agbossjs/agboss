@@ -35,6 +35,7 @@ import { OpenRouterModelProvider } from "./model-providers/openrouter.model-prov
   version: "1.0.0",
   environment: AppEnvironment,
   defaults: DEFAULTS,
+  uncompactedTurns: 5, // every workflow's window, under its own
   workflows: [JobScout],
   providers: [
     OpenRouterModelProvider,

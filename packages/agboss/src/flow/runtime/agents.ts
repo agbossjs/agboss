@@ -25,8 +25,6 @@ function agentMetaOf(declaration: AgentDeclaration): AgentMeta {
     maxTokens: options.maxTokens,
     promptVariables: options.promptVariables,
     cache: options.cache,
-    historyLimit: options.historyLimit,
-    historySummaries: options.historySummaries,
     maxToolCalls: options.maxToolCalls,
     tools: options.tools,
     judges: options.judges,
@@ -37,6 +35,8 @@ function agentMetaOf(declaration: AgentDeclaration): AgentMeta {
     excludePiiPolicies: options.excludePiiPolicies,
     guardrails: options.guardrails,
     excludeGuardrails: options.excludeGuardrails,
+    compaction: options.compaction,
+    uncompactedTurns: options.uncompactedTurns,
   });
 }
 

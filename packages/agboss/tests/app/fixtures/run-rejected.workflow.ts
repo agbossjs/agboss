@@ -54,9 +54,9 @@ export class VoucherClerk {}
   maxSteps: 12,
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
-    history: { limit: 1 },
     tools: { maxToolCalls: 3 },
   },
+  uncompactedTurns: 1,
   flow: [
     start(Redeem)
       .returns(VoucherDto)

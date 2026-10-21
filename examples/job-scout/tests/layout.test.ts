@@ -18,6 +18,7 @@ const SUFFIXES: Readonly<Record<string, RegExp>> = {
   helpers: /\.helper\.ts$/,
   "model-providers": /\.model-provider\.ts$/,
   guardrails: /\.guardrail\.ts$/,
+  compactions: /\.(compaction\.ts|prompt\.md)$/,
 };
 
 describe("job-scout follows the file conventions (#107)", () => {
@@ -33,6 +34,7 @@ describe("job-scout follows the file conventions (#107)", () => {
     ).toEqual(
       [
         "agents",
+        "compactions",
         "workflow-finishes",
         "config",
         "data",

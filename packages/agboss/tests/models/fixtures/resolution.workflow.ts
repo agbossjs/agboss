@@ -1,10 +1,12 @@
 import {
   Agent,
+  Compaction,
+  CompactionStrategy,
   DecidedBy,
   EmptyEnvironment,
   Injectable,
   Judge,
-  MODEL_MAX,
+  TokenLimit,
   Router,
   Workflow,
   WorkflowFinish,
@@ -78,6 +80,18 @@ export class ResolutionFinish {}
 })
 export class NowhereRouter {}
 
+/** A compaction on a model no listed provider serves (#120 PR 3). */
+@Compaction({
+  name: "nowhere-compaction",
+  description: "Summarises on a model nobody serves",
+  model: "nowhere/compaction",
+  strategy: CompactionStrategy.SummaryQueue,
+  turnsBetweenCompactions: 2,
+  summaryQueueLength: 1,
+  summaryMaxTokens: 200,
+})
+export class NowhereCompaction {}
+
 /** Every kind of model use, none served by the local providers. */
 @Workflow({
   name: "every-kind-workflow",
@@ -92,13 +106,13 @@ export class NowhereRouter {}
       ),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
     router: { model: "nowhere/default-router" },
     guardrail: { model: "nowhere/guardrail" },
-    history: { limit: 1 },
   },
+  uncompactedTurns: 1,
   guardrails: [PromptInjectionGuardrail],
-  compaction: { every: 2, keep: 1, model: { model: "nowhere/compaction" } },
+  compaction: NowhereCompaction,
 })
 export class EveryKindWorkflow {}
 
@@ -131,10 +145,10 @@ export class LocalStart {}
       .toFinish(ResolutionFinish),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
     router: { model: "typesafe/jev-1.13" },
-    history: { limit: 1 },
   },
+  uncompactedTurns: 1,
 })
 export class LocalWorkflow {}
 
@@ -184,10 +198,10 @@ export class NotInfrastructure {}
       .toFinish(ResolutionFinish),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
     router: { model: "typesafe/jev-1.13" },
-    history: { limit: 1 },
   },
+  uncompactedTurns: 1,
   providers: [NotInfrastructure, LocalModelProvider],
 })
 export class MisplacedProviderWorkflow {}

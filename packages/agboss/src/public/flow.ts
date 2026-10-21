@@ -122,12 +122,9 @@ export { WorkflowStart, type WorkflowStartOptions } from "../flow/decorators/wor
 export { WorkflowFinish, type WorkflowFinishOptions } from "../flow/decorators/workflow-finish.js";
 export {
   Workflow,
-  type CompactionOptions,
   type FlowDefaults,
   type GuardrailDefaults,
-  type HistoryDefaults,
   type ModelDefaults,
-  type ModelOptions,
   type RouterDefaults,
   type ToolDefaults,
   type WorkflowDefaults,

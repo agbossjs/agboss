@@ -48,6 +48,7 @@ export {
 } from "./flow/runtime/launch/quorum-errors.js";
 export { NotAWorkflowStartError } from "./flow/runtime/start-input.js";
 export { PiiRefusedError } from "./pii/errors.js";
+export { CompactionError } from "./compaction/errors.js";
 export { PiiDetectionFailedError } from "./pii/detectors/model.js";
 export { ChildExecutionFailedError } from "./flow/runtime/child-errors.js";
 export { DepthLimitExceededError } from "./flow/runtime/depth-limit.js";

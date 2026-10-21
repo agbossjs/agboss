@@ -48,6 +48,8 @@ export interface Summary {
   readonly tenantId: string;
   readonly threadId: string;
   readonly bundle: string;
+  /** The `@Compaction` that wrote it (#120 PR 3): each keeps its own summaries of the thread. */
+  readonly compaction: string;
   readonly fromTernId: string;
   readonly toTernId: string;
   readonly turns: number;
@@ -85,8 +87,8 @@ export interface ConfigStore {
  * its key, its tenant and its id (#261 S72): the same id in two tenants is two threads.
  */
 export interface MemoryStore {
-  /** Turns of the thread after the last summary, oldest first. */
-  readonly uncovered: (tenantId: string, threadId: string) => Promise<Tern[]>;
+  /** Turns of the thread after the compaction's last summary, oldest first. */
+  readonly uncovered: (tenantId: string, threadId: string, compaction: string) => Promise<Tern[]>;
   /** Up to `limit` turns right before `ternId`, oldest first. */
   readonly before: (
     tenantId: string,
@@ -97,13 +99,18 @@ export interface MemoryStore {
   /** 1-based position of a turn in its thread. */
   readonly turnNumber: (tenantId: string, threadId: string, ternId: string) => Promise<number>;
   readonly addSummary: (summary: NewSummary) => Promise<Summary>;
-  /** The latest `limit` summaries of the thread, oldest first. */
+  /** The compaction's latest `limit` summaries of the thread, oldest first. */
   readonly latestSummaries: (
     tenantId: string,
     threadId: string,
+    compaction: string,
     limit: number,
   ) => Promise<Summary[]>;
-  readonly summaryCount: (tenantId: string, threadId: string) => Promise<number>;
+  readonly summaryCount: (
+    tenantId: string,
+    threadId: string,
+    compaction: string,
+  ) => Promise<number>;
 }
 
 /**

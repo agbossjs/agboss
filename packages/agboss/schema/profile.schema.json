@@ -360,210 +360,217 @@
           },
           "additionalProperties": false
         },
-        "history": {
-          "type": "object",
-          "properties": {
-            "limit": {
+        "uncompactedTurns": {
+          "anyOf": [
+            {
               "type": "integer",
               "minimum": 0,
               "maximum": 9007199254740991
             },
-            "summaries": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+            {
+              "type": "string",
+              "const": "all"
             }
-          },
-          "additionalProperties": false
+          ]
         }
       },
       "additionalProperties": false
     },
-    "compaction": {
+    "compactions": {
       "type": "object",
-      "properties": {
-        "every": {
-          "type": "integer",
-          "minimum": 2,
-          "maximum": 9007199254740991
-        },
-        "keep": {
-          "type": "integer",
-          "exclusiveMinimum": 0,
-          "maximum": 9007199254740991
-        },
-        "model": {
-          "type": "object",
-          "properties": {
-            "model": {
-              "type": "string",
-              "minLength": 1
-            },
-            "temperature": {
-              "type": "number",
-              "minimum": 0,
-              "maximum": 2
-            },
-            "maxTokens": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991
-                },
-                {
-                  "type": "string",
-                  "const": "max"
-                }
-              ]
-            },
-            "thinking": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "const": "default"
-                },
-                {
-                  "type": "string",
-                  "enum": ["none", "minimal", "low", "medium", "high", "xhigh"]
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "budgetTokens": {
-                      "type": "integer",
-                      "exclusiveMinimum": 0,
-                      "maximum": 9007199254740991
-                    }
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "strategy": {
+            "type": "string",
+            "enum": ["summary-queue", "single-summary", "none"]
+          },
+          "model": {
+            "type": "object",
+            "properties": {
+              "model": {
+                "type": "string",
+                "minLength": 1
+              },
+              "temperature": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 2
+              },
+              "maxTokens": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
                   },
-                  "required": ["budgetTokens"]
-                },
-                {
-                  "oneOf": [
-                    {
-                      "type": "object",
-                      "properties": {
-                        "kind": {
-                          "type": "string",
-                          "const": "model-decides"
-                        }
-                      },
-                      "required": ["kind"]
+                  {
+                    "type": "string",
+                    "const": "max"
+                  }
+                ]
+              },
+              "thinking": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "default"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["none", "minimal", "low", "medium", "high", "xhigh"]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "budgetTokens": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      }
                     },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "kind": {
-                          "type": "string",
-                          "const": "on"
-                        },
-                        "effort": {
-                          "type": "string",
-                          "enum": ["minimal", "low", "medium", "high", "xhigh"]
-                        },
-                        "budget": {
-                          "type": "object",
-                          "properties": {
-                            "tokens": {
-                              "type": "integer",
-                              "exclusiveMinimum": 0,
-                              "maximum": 9007199254740991
-                            }
-                          },
-                          "required": ["tokens"]
-                        }
-                      },
-                      "required": ["kind"]
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "kind": {
-                          "type": "string",
-                          "const": "off"
-                        }
-                      },
-                      "required": ["kind"]
-                    }
-                  ]
-                }
-              ]
-            },
-            "cache": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "oneOf": [
-                    {
-                      "type": "object",
-                      "properties": {
-                        "kind": {
-                          "type": "string",
-                          "const": "where-supported"
-                        },
-                        "retention": {
-                          "type": "string",
-                          "enum": ["5m", "1h", "24h"]
-                        },
-                        "cachedParts": {
-                          "readOnly": true,
-                          "minItems": 1,
-                          "type": "array",
-                          "items": {
+                    "required": ["budgetTokens"]
+                  },
+                  {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
                             "type": "string",
-                            "enum": ["system-prompt", "tools", "history"]
+                            "const": "model-decides"
                           }
                         },
-                        "key": {
-                          "type": "string",
-                          "minLength": 1
-                        }
+                        "required": ["kind"]
                       },
-                      "required": ["kind", "retention", "cachedParts"]
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "kind": {
-                          "type": "string",
-                          "const": "off"
-                        }
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "on"
+                          },
+                          "effort": {
+                            "type": "string",
+                            "enum": ["minimal", "low", "medium", "high", "xhigh"]
+                          },
+                          "budget": {
+                            "type": "object",
+                            "properties": {
+                              "tokens": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": ["tokens"]
+                          }
+                        },
+                        "required": ["kind"]
                       },
-                      "required": ["kind"]
-                    }
-                  ]
-                }
-              ]
-            },
-            "price": {
-              "type": "object",
-              "properties": {
-                "inputPerMTok": {
-                  "type": "number",
-                  "minimum": 0
-                },
-                "outputPerMTok": {
-                  "type": "number",
-                  "minimum": 0
-                },
-                "cacheReadPerMTok": {
-                  "type": "number",
-                  "minimum": 0
-                },
-                "cacheWritePerMTok": {
-                  "type": "number",
-                  "minimum": 0
-                }
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "off"
+                          }
+                        },
+                        "required": ["kind"]
+                      }
+                    ]
+                  }
+                ]
               },
-              "additionalProperties": false
-            }
+              "cache": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "where-supported"
+                          },
+                          "retention": {
+                            "type": "string",
+                            "enum": ["5m", "1h", "24h"]
+                          },
+                          "cachedParts": {
+                            "readOnly": true,
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": ["system-prompt", "tools", "history"]
+                            }
+                          },
+                          "key": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": ["kind", "retention", "cachedParts"]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "off"
+                          }
+                        },
+                        "required": ["kind"]
+                      }
+                    ]
+                  }
+                ]
+              },
+              "price": {
+                "type": "object",
+                "properties": {
+                  "inputPerMTok": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "outputPerMTok": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "cacheReadPerMTok": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "cacheWritePerMTok": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
           },
-          "additionalProperties": false
-        }
-      },
-      "additionalProperties": false
+          "turnsBetweenCompactions": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "summaryQueueLength": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "additionalProperties": false
+      }
     },
     "agents": {
       "type": "object",
@@ -747,15 +754,18 @@
               "type": "string"
             }
           },
-          "historyLimit": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991
-          },
-          "historySummaries": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991
+          "uncompactedTurns": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string",
+                "const": "all"
+              }
+            ]
           },
           "maxToolCalls": {
             "type": "integer",

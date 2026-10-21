@@ -31,7 +31,8 @@ export const ProfileSchema = z.strictObject({
   /** Must differ from the base version, e.g. 1.3.0-low-thinking. */
   version: z.string().min(1),
   defaults: deepPartial(defaultsShape),
-  compaction: deepPartial(CompactionSettingsSchema),
+  /** A compaction's settings by its name (#120 PR 3): its model, turns between compactions, queue. */
+  compactions: z.record(z.string(), deepPartial(CompactionSettingsSchema)).optional(),
   agents: z.record(z.string(), deepPartial(AgentSettingsSchema)).optional(),
   /** Replaces an agent's system instructions: inline text or a file relative to the profile. */
   prompts: z.record(z.string(), PromptOverride).optional(),

@@ -1,10 +1,12 @@
 import {
   Agent,
+  Compaction,
+  CompactionStrategy,
   Injectable,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  MODEL_MAX,
+  TokenLimit,
 } from "../../../src/index.js";
 import { InjectionToken, provide } from "../../../src/components/injection.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -108,10 +110,9 @@ export class Answer {}
 export class Recalled {}
 
 const DEFAULTS = {
-  models: { temperature: 0, maxTokens: MODEL_MAX },
+  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 2 },
-  history: { limit: 4 },
 } as const;
 
 /** The model providers of both applications (#266): Jev's decisions, the local chat models. */
@@ -132,6 +133,7 @@ const MODEL_PROVIDERS = [DecisionsModelProvider, LocalModelProvider];
       .toFinish(Answer),
   ],
   defaults: DEFAULTS,
+  uncompactedTurns: 4,
   providers: [provide(NOTES, NOTED)],
 })
 export class MemoryDesk {}
@@ -146,7 +148,19 @@ export class MemoryDesk {}
 })
 export class MemoryDeskApplication {}
 
-/** One agent; every 2 turns are compacted by a priced model. */
+/** Every 2 turns older than the window become one summary; the latest 3 are kept. */
+@Compaction({
+  name: "desk-compaction",
+  description: "Summarises the desk's old turns",
+  model: "local/llama",
+  strategy: CompactionStrategy.SummaryQueue,
+  turnsBetweenCompactions: 2,
+  summaryQueueLength: 3,
+  summaryMaxTokens: 200,
+})
+export class DeskCompaction {}
+
+/** One agent with a window of 1 turn; older turns are compacted by a priced model. */
 @Workflow({
   name: "compacting-desk-workflow",
   version: "1.0.0",
@@ -158,7 +172,8 @@ export class MemoryDeskApplication {}
       .toFinish(Recalled),
   ],
   defaults: DEFAULTS,
-  compaction: { every: 2, keep: 3, model: { model: "local/llama" } },
+  uncompactedTurns: 1,
+  compaction: DeskCompaction,
 })
 export class CompactingDesk {}
 

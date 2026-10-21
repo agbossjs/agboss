@@ -103,6 +103,6 @@ export async function finishRun<TName extends string>(
     ...(paused || state.finish === "" ? {} : { finish: state.finish, output: state.output }),
     pending,
     ...traceUrlOf(ctx.deps, ctx.base.threadId),
-    ...(memory.compacted === undefined ? {} : { compacted: memory.compacted }),
+    ...((ctx.compacted ?? []).length === 0 ? {} : { compacted: ctx.compacted }),
   };
 }

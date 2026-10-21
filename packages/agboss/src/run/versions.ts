@@ -1,5 +1,6 @@
 import { agentLoopPromptTexts } from "../prompts/agents.js";
-import { DEFAULT_COMPACTION_PROMPT } from "../prompts/compaction.js";
+import { compactionPromptTexts } from "../prompts/compaction.js";
+import type { AssembledCompactions } from "../compaction/assembly.js";
 import { ragPromptTexts } from "../prompts/rag.js";
 import { routerLaunchPromptTexts } from "../prompts/router-launch.js";
 import { arbiterPromptTexts } from "../prompts/arbiter.js";
@@ -50,7 +51,7 @@ function arbiterTexts(graph: RuntimeGraph) {
 export const configSnapshot = <TName extends string>(
   deps: Pick<
     RunDeps<TName>,
-    "config" | "prompts" | "compactionPrompt" | "graph" | "maxSteps" | "routers"
+    "config" | "prompts" | "graph" | "maxSteps" | "routers" | "compactions"
   > & {
     readonly guardrails?: { readonly guardrails: readonly LoadedGuardrail[] } | undefined;
   },
@@ -61,10 +62,23 @@ export const configSnapshot = <TName extends string>(
   maxSteps: deps.maxSteps,
   routers: routerTexts(deps.routers),
   prompts: agentTexts(deps.prompts),
-  compactionPrompt: deps.compactionPrompt ?? null,
+  // the compactions (#120 PR 3): only a workflow that has one, so the others keep their hash
+  ...compactionSnapshot(deps.compactions),
   // the guardrails (#120): only a workflow that has one, so the others keep their hash
   ...guardrailSnapshot(deps.guardrails?.guardrails ?? []),
 });
+
+/** What a workflow's compactions summarise with: their strategy and prompt, by name. */
+const compactionSnapshot = (compactions: AssembledCompactions | undefined): object =>
+  compactions === undefined || compactions.compactions.length === 0
+    ? {}
+    : {
+        compactions: compactions.compactions.map(({ name, strategy, prompt }) => ({
+          name,
+          strategy,
+          prompt,
+        })),
+      };
 
 /** What a workflow's guardrails decide with: their side, question, threshold, model and refusal. */
 const guardrailSnapshot = (guardrails: readonly LoadedGuardrail[]): object =>
@@ -94,6 +108,17 @@ const guardrailPrompts = (guardrails: readonly LoadedGuardrail[]): object => ({
   })),
   ...(guardrails.length === 0 ? {} : { guardrailFrame: guardrailPromptTexts }),
 });
+
+/** The compactions' prompts (#120 PR 3) in the prompt version, only where one writes summaries. */
+function compactionPrompts(compactions: AssembledCompactions | undefined): object {
+  const summarising = (compactions?.compactions ?? []).filter((c) => c.prompt !== "");
+  return summarising.length === 0
+    ? {}
+    : {
+        compactions: summarising.map(({ name, prompt }) => ({ name, prompt })),
+        compactionFrame: compactionPromptTexts,
+      };
+}
 
 /** The guardrails' models in the model version, only where there is one. */
 const guardrailModels = (guardrails: readonly LoadedGuardrail[]): object =>
@@ -126,9 +151,7 @@ export function runVersions<TName extends string>(
       ...(deps.graph.launches.some((launch) => launch.launch.isRouterLaunch)
         ? { routerLaunch: routerLaunchPromptTexts }
         : {}),
-      ...(deps.config.compaction === undefined
-        ? {}
-        : { compaction: deps.compactionPrompt ?? DEFAULT_COMPACTION_PROMPT }),
+      ...compactionPrompts(deps.compactions),
       // model arbiters (#279): only a workflow that has one
       ...(arbiterTexts(deps.graph).length === 0
         ? {}

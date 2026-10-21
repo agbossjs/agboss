@@ -4,7 +4,7 @@ import { withoutUndefined } from "../types/defined.js";
 /**
  * The `defaults` cascade (#261): application → workflow → component. `@Application({ defaults })`
  * and `@Workflow({ defaults })` are merged field by field — a workflow that sets only
- * `history.limit` takes the rest from the application; the component's own field wins over both
+ * `tools.maxToolCalls` takes the rest from the application; the component's own field wins over both
  * (applied where each setting is resolved); nothing set → the framework's built-in.
  */
 
@@ -16,8 +16,15 @@ export enum DefaultsLevel {
 
 /** The levels a workflow's defaults are merged from, each with its `defaults` and its `name`. */
 export interface DefaultsLevels {
-  readonly application?: { readonly name: string; readonly defaults?: WorkflowDefaults };
-  readonly workflow: { readonly name: string; readonly defaults?: WorkflowDefaults };
+  readonly application?: DefaultsLevel_;
+  readonly workflow: DefaultsLevel_;
+}
+
+/** One level: its name, its `defaults` and its window (`uncompactedTurns`, #120 PR 3). */
+interface DefaultsLevel_ {
+  readonly name: string;
+  readonly defaults?: WorkflowDefaults;
+  readonly uncompactedTurns?: unknown;
 }
 
 /** Where a default came from: the level and the name of its application or workflow. */
@@ -50,7 +57,6 @@ export function cascadeDefaults(
     router: merged(application.router, workflow.router),
     guardrail: merged(application.guardrail, workflow.guardrail),
     tools: merged(application.tools, workflow.tools),
-    history: merged(application.history, workflow.history),
     flow: merged(application.flow, workflow.flow),
   });
 }
@@ -66,6 +72,15 @@ export const rememberDefaultsLevels = (graph: object, levels: DefaultsLevels): v
 /** The levels an assembled workflow's defaults came from; undefined when not recorded. */
 export const defaultsLevelsOf = (graph: object): DefaultsLevels | undefined =>
   levelsByGraph.get(graph);
+
+/** Where the window (`uncompactedTurns`) came from; undefined when no level sets it (the built-in). */
+export function uncompactedTurnsSourceOf(levels: DefaultsLevels): DefaultSource | undefined {
+  if (levels.workflow.uncompactedTurns !== undefined)
+    return { level: DefaultsLevel.Workflow, name: levels.workflow.name };
+  if (levels.application?.uncompactedTurns !== undefined)
+    return { level: DefaultsLevel.Application, name: levels.application.name };
+  return undefined;
+}
 
 /** Where `defaults.<section>.<field>` came from; undefined when no level sets it (the built-in). */
 export function defaultSourceOf(

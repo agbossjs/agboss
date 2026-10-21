@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MODEL_MAX, type AgentsConfigOf } from "../../src/config/types.js";
+import { type AgentsConfigOf } from "../../src/config/types.js";
+import { TokenLimit } from "../../src/config/types.js";
 import { checkModelUses, resolutionProblems } from "../../src/models/check.js";
 import {
   CachedPart,
@@ -26,7 +27,7 @@ const config = (agents: AgentsConfigOf<string>["agents"]): AgentsConfigOf<string
     models: { temperature: 0, maxTokens: 1000 },
     router: { kind: "jev", model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 1 },
-    history: { limit: 1 },
+    uncompactedTurns: 1,
   },
   agents,
 });
@@ -50,7 +51,7 @@ describe("AC6: fail fast — settings must fit their models, all problems at onc
           description: "w",
           thinking: { budgetTokens: 2000 },
         },
-        local: { model: "local/llama", description: "l", maxTokens: MODEL_MAX },
+        local: { model: "local/llama", description: "l", maxTokens: TokenLimit.MODEL_MAX },
       }),
     ).toEqual([]);
   });

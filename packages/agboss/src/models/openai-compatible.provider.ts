@@ -1,6 +1,6 @@
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { ChatOpenAI } from "@langchain/openai";
-import { MODEL_MAX } from "../config/types.js";
+import { TokenLimit } from "../config/types.js";
 import type { ModelCapabilities } from "./capabilities.js";
 import type { ChatRequest, ModelProviderHandler, ProviderConnection } from "./handler.js";
 import { ModelListCache, type ModelEntry } from "./model-list.js";
@@ -37,7 +37,7 @@ export abstract class OpenAiCompatibleProvider<
       apiKey: connection.apiKey ?? "none",
       model: settings.model,
       temperature: settings.temperature,
-      ...(settings.maxTokens === MODEL_MAX ? {} : { maxTokens: settings.maxTokens }),
+      ...(settings.maxTokens === TokenLimit.MODEL_MAX ? {} : { maxTokens: settings.maxTokens }),
       // the provider's client owns timeouts and retries (its retry policy and circuit breaker)
       maxRetries: 0,
       configuration: {

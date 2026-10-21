@@ -17,8 +17,8 @@ import {
     models: { temperature: 0, cache: true },
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 2 },
-    history: { limit: 2 },
   },
+  uncompactedTurns: 2,
   flow: [
     start(TestChat)
       .returns(WorkflowStartTextDto)

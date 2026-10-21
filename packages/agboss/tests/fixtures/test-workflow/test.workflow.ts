@@ -1,7 +1,7 @@
 import {
   Agent,
   DecidedBy,
-  MODEL_MAX,
+  TokenLimit,
   Router,
   Tool,
   Workflow,
@@ -94,15 +94,15 @@ export class MainRouter {}
   defaults: {
     models: {
       temperature: 0,
-      maxTokens: MODEL_MAX,
+      maxTokens: TokenLimit.MODEL_MAX,
       reasoning: Reasoning.modelDecides(),
       cache: true,
     },
     router: { model: "typesafe/jev-1.13" },
     guardrail: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 8 },
-    history: { limit: 5 },
   },
+  uncompactedTurns: 5,
   guardrails: [PromptInjectionGuardrail, PersonalDataGuardrail],
   flow: [
     start(TestChat)

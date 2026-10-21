@@ -115,6 +115,11 @@ export type RuleCode =
   | "guardrail.threshold-invalid"
   | "guardrail.output-on-router"
   | "guardrail.no-model-call"
+  // compaction (#120 PR 3), reported at each workflow's assembly
+  | "compaction.not-a-compaction"
+  | "compaction.invalid-setting"
+  | "compaction.decision-model"
+  | "compaction.uncompacted-turns-invalid"
   // model providers (#266 PR 1): every model of the application resolves to one provider
   | "model.unserved"
   | "model.ambiguous-provider"

@@ -7,21 +7,15 @@ import { runtimeGraphOf, type RuntimeGraph } from "../flow/runtime/graph-model.j
 import { loadRouters } from "../flow/runtime/routers.js";
 import { DEFAULT_WORKFLOW_SETTINGS, type WorkflowSettings } from "../graph/settings.js";
 import type { AssembledWorkflow } from "../workflow.js";
-import { checkGraph, dependencyTree } from "./container/graph-check.js";
-import {
-  CORE_TOKENS,
-  providerModulesOf,
-  ragParts,
-  rememberServers,
-  toolBuilder,
-} from "./runtime.js";
+import { dependencyTree } from "./container/graph-check.js";
+import { providerModulesOf, ragParts, toolBuilder } from "./runtime.js";
 import { mcpOf, toolsOf, type Mcp } from "./assemble-tools.js";
 import { ragClassesOf } from "./rag.js";
 import type { Class, Provider, Token } from "./injection.js";
 import type { ProviderModule } from "./container/registrations.js";
-import { INFRASTRUCTURE_TOKENS } from "../infrastructure/instance-tokens.js";
 import { containerPartsOf } from "./assemble-parts.js";
 import {
+  checkComponents,
   checkProviderClasses,
   componentClassesOf,
   promptsOf,
@@ -38,11 +32,13 @@ import {
   rememberDefaultsLevels,
   type DefaultsLevels,
 } from "../config/defaults.js";
-import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import { judgeClassesOf, judgePartsOf, judgeSettingsOf, type JudgeClass } from "./judge-parts.js";
 import { agentSettings } from "./agent-settings.js";
-import { policyPartsOf } from "./policy-parts.js";
+import { compactionsFor, policyPartsOf, type CompactionConfigPart } from "./policy-parts.js";
 import { modelPartsOf } from "./model-parts.js";
+import type { AssembledCompactions } from "../compaction/assembly.js";
+
+import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
 
 /** The application a workflow is assembled in: its name, `defaults` and providers (its model providers). */
 type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
@@ -51,6 +47,9 @@ type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
   readonly piiPolicies?: readonly Class[];
   /** `@Application({ guardrails })`: every agent's and model router's (#120). */
   readonly guardrails?: readonly Class[];
+  /** `@Application({ compaction, uncompactedTurns })`: every reader's, under its own (#120 PR 3). */
+  readonly compaction?: Class;
+  readonly uncompactedTurns?: UncompactedTurns;
 };
 
 function configOf(
@@ -59,12 +58,13 @@ function configOf(
   names: ReadonlyMap<Class, string>,
   mcp: Mcp,
   judges: ReadonlyMap<string, JudgeClass>,
+  compactions: AssembledCompactions & CompactionConfigPart,
 ): AgentsConfigOf<string> {
   return {
     name: bundle.name,
     version: bundle.version,
     defaults: bundle.defaults,
-    ...(bundle.compaction === undefined ? {} : { compaction: bundle.compaction }),
+    ...(compactions.compactions.length === 0 ? {} : { compactions: compactions.settings }),
     ...(mcp.servers.length === 0
       ? {}
       : { mcpServers: Object.fromEntries(mcp.servers.map((s) => [s.name, s.config])) }),
@@ -92,17 +92,6 @@ const toolDependenciesOf = (
     }),
   );
 
-/**
- * What every container of the workflow has besides its providers: core values, the application's
- * context classes (#261), MCP servers.
- */
-const coreTokensOf = (mcp: Mcp, contexts: readonly Token[]): readonly Token[] => [
-  ...CORE_TOKENS,
-  ...contexts,
-  ...INFRASTRUCTURE_TOKENS,
-  ...mcp.instances.keys(),
-];
-
 /** Steps per execution: `maxSteps`, else (agents + routers) × 3. */
 const maxStepsOf = (workflow: Class, graph: RuntimeGraph): number =>
   stepsLimitOf(graph.analysis.graph, workflowDeclarationOf(workflow).options.maxSteps);
@@ -120,25 +109,30 @@ function settingsOf(workflow: Class): WorkflowSettings {
   return isDefinition(instance) ? instance.settings() : DEFAULT_WORKFLOW_SETTINGS;
 }
 
-/** The workflow's module with its defaults merged over its application's (#261 cascade). */
+/**
+ * The workflow's module with its defaults merged over its application's (#261 cascade) — its
+ * window too: its own `uncompactedTurns` over the application's (#120 PR 3).
+ */
 function withApplicationDefaults(
   bundle: WorkflowMeta,
   workflow: Class,
-  applicationDefaults: WorkflowDefaults | undefined,
+  owner: WorkflowOwner | undefined,
 ): WorkflowMeta {
-  if (applicationDefaults === undefined) return bundle;
+  if (owner === undefined) return bundle;
   const { options } = workflowDeclarationOf(workflow);
-  const defaults = cascadeDefaults(applicationDefaults, options.defaults);
-  return { ...bundle, defaults: configDefaultsOf(defaults) };
+  const defaults = cascadeDefaults(owner.defaults, options.defaults);
+  const window = options.uncompactedTurns ?? owner.uncompactedTurns;
+  return { ...bundle, defaults: configDefaultsOf(defaults, window) };
 }
 
 /** The workflow's module over its application's defaults, and its paths analysed with them. */
 function analysedModule(
   workflow: Class,
-  applicationDefaults: WorkflowDefaults | undefined,
+  owner: WorkflowOwner | undefined,
 ): { readonly bundle: WorkflowMeta; readonly analysis: FlowAnalysis } {
+  const applicationDefaults = owner?.defaults;
   return {
-    bundle: withApplicationDefaults(moduleOf(workflow), workflow, applicationDefaults),
+    bundle: withApplicationDefaults(moduleOf(workflow), workflow, owner),
     analysis: analyseWorkflow(
       workflow,
       applicationDefaults === undefined ? {} : { applicationDefaults },
@@ -151,7 +145,11 @@ const levelsOf = (workflow: Class, owner: WorkflowOwner | undefined): DefaultsLe
   const { options } = workflowDeclarationOf(workflow);
   return {
     ...(owner === undefined ? {} : { application: owner }),
-    workflow: { name: options.name, defaults: options.defaults },
+    workflow: {
+      name: options.name,
+      defaults: options.defaults,
+      uncompactedTurns: options.uncompactedTurns,
+    },
   };
 };
 
@@ -175,7 +173,7 @@ export async function workflowOf(
   owner?: WorkflowOwner,
   contexts: readonly Token[] = [],
 ): Promise<AssembledWorkflow> {
-  const { bundle, analysis } = analysedModule(workflow, owner?.defaults);
+  const { bundle, analysis } = analysedModule(workflow, owner);
   const graph = runtimeGraphOf(analysis, workflowDeclarationOf(workflow).options.flow, workflow);
   const agents = agentMetasOf(graph);
   const loader = new PromptLoader(bundle.promptVariables ?? {});
@@ -186,15 +184,15 @@ export async function workflowOf(
   checkClasses(bundle, agents);
   const judges = judgeClassesOf(agents);
   const policies = await policyPartsOf({ workflow, bundle, owner, agents, graph, loader });
+  const compactions = await compactionsFor({ bundle, owner, agents, graph, loader });
   const modules = [...providerModulesOf(bundle), ...application];
   const replyInterpreters = await checkedChannelsOf(workflow, modules, owner === undefined, loader);
   const created = createdClassesOf(graph, policies.classes, replyInterpreters);
   const components = componentClassesOf(bundle, agents, tools, rags, created, modules);
-  checkGraph(components, modules, coreTokensOf(mcp, contexts));
-  rememberServers(bundle, mcp.instances);
+  checkComponents(bundle, { components, modules, mcp, contexts });
   const names = toolNames(tools, rags);
   const prompts = await promptsOf(agents, loader);
-  const config = configOf(bundle, agents, names, mcp, judges);
+  const config = configOf(bundle, agents, names, mcp, judges, compactions);
   validateAgentsConfig(config, [...names.values()]);
   const modelUsers = { ...policies.models, replyInterpreters };
   const models = modelPartsOf(owner, { config, routers }, graph, modelUsers);
@@ -216,6 +214,6 @@ export async function workflowOf(
     ...judgePartsOf(bundle, judges),
     ...mcpPartsOf(mcp),
     toolDependencies: toolDependenciesOf(bundle, [...tools.local, ...tools.mcp], names),
-    ...(bundle.compactionPrompt === undefined ? {} : { compactionPrompt: bundle.compactionPrompt }),
+    compactions,
   };
 }

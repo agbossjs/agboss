@@ -11,9 +11,9 @@ export interface MemoryView {
 
 /**
  * What an agent's strategy builds its context from, once per visit of the agent, before its model
- * calls: the thread memory loaded for the run (turns not yet compacted, the latest summaries) and
- * how much of it the agent is configured to see (`historyLimit` / `historySummaries`, else the
- * workflow's `defaults.history`).
+ * calls: what the agent remembers of the thread (#120 PR 3) — its last turns in full (its
+ * `uncompactedTurns`, and every turn its compaction has not summarised yet) and its compaction's
+ * latest summaries — and how many of each that is (`limits`).
  */
 export interface MemoryContext extends MemoryView {
   readonly agent: string;
@@ -42,7 +42,7 @@ export interface MemoryUpdate {
  * How an agent remembers the thread: `buildContext` chooses what of the thread memory the agent's
  * model calls see; `updateMemory` runs after every finished turn. Set per agent with
  * `@Agent({ memoryStrategy })` (resolved by the workflow's container — `@Injectable({ deps })` for
- * dependencies); other agents use the workflow's built-in strategy (`defaults.history`, `compaction`).
+ * dependencies); other agents use the built-in strategy: their `uncompactedTurns` and `compaction`.
  */
 export abstract class BaseMemoryStrategy {
   abstract buildContext(context: MemoryContext): MemoryView | Promise<MemoryView>;

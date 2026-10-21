@@ -178,8 +178,8 @@ describe("AC6: prompts are normalised at load and sent normalised", () => {
       defaults: {
         models: { temperature: 0 },
         router: { model: "typesafe/jev-1.13" },
-        history: { limit: 1 },
       },
+      uncompactedTurns: 1,
     })
     class Normalised implements WorkflowDefinition {
       settings(): WorkflowSettings {

@@ -13,6 +13,31 @@ export interface HistoryTurn {
   readonly finish: string;
 }
 
+/**
+ * What one reader (an agent or a model router) remembers of the thread (#120 PR 3), loaded once per
+ * execution: how many of the thread's last turns it sees in full and the summaries of its
+ * compaction — those not covered by the turns it sees.
+ */
+export interface ReaderMemory {
+  readonly turns: number;
+  readonly summaries: readonly string[];
+}
+
+/** A reader's memory over the execution's loaded turns; a reader not loaded remembers nothing. */
+export function readerMemoryOf(
+  state: {
+    readonly history: readonly HistoryTurn[];
+    readonly memory: Readonly<Record<string, ReaderMemory>>;
+  },
+  reader: string,
+): { readonly summaries: readonly string[]; readonly history: readonly HistoryTurn[] } {
+  const memory = state.memory[reader];
+  if (memory === undefined || memory.turns === 0) {
+    return { summaries: memory?.summaries ?? [], history: [] };
+  }
+  return { summaries: memory.summaries, history: state.history.slice(-memory.turns) };
+}
+
 /** The start line of a turn. */
 export const startLine = (start: string, input: unknown): string =>
   `start ${start}: ${sortedJson(input)}`;

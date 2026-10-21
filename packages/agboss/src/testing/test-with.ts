@@ -11,7 +11,7 @@ import type { ToolScript } from "./tool-script.js";
 import { createTestApp, type TestApp } from "./test-app.js";
 import type { VirtualClock } from "./clock.js";
 import { TestSetupError } from "./errors.js";
-import { chatKeyOf, type ModelTarget } from "./scripted-gateway.js";
+import type { ModelTarget } from "./scripted-gateway.js";
 import "./vitest-types.js";
 
 /** What every test of `testWith(Application)` gets as its fixtures. */
@@ -53,11 +53,6 @@ export interface WorkflowFixtures {
    * the next call fails as a real timeout would; the calls after the failures run the tool.
    */
   readonly mockTool: (tool: Class) => ToolScript;
-  /**
-   * The script of the workflow's compaction model (`@Workflow({ compaction })`); unscripted, it
-   * writes a fixed summary at no cost.
-   */
-  readonly mockCompaction: () => ModelScript;
   /** A typed mock injected instead of a component; the same instance the app uses. */
   readonly mockOf: <T>(component: Class<T>) => Mocked<T>;
   /** The stub of an MCP server: `mcpOf(ShortlistServer).thenReturn({ write_file: … })`. */
@@ -65,8 +60,6 @@ export interface WorkflowFixtures {
     server: new () => TServer,
   ) => McpStub<TServer>;
 }
-
-const COMPACTION_KEY = chatKeyOf({ kind: "compaction" });
 
 /** How many app instances the test runs: a whole number ≥ 1 (default 1). */
 function instancesOf(options: TestWithOptions): number {
@@ -154,9 +147,6 @@ export function testWith<TApplication extends Class>(
     },
     mockTool: async ({ environment }, use) => {
       await use((tool) => environment.mocks.mockTool(tool));
-    },
-    mockCompaction: async ({ environment }, use) => {
-      await use(() => environment.book.scriptOf(COMPACTION_KEY));
     },
     mockOf: async ({ environment }, use) => {
       await use((component) => environment.mocks.mockOf(component));

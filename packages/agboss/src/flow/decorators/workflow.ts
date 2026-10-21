@@ -1,7 +1,7 @@
 import { callerFile } from "../../components/call-site.js";
 import type { Class, Provider } from "../../components/injection.js";
 import type { AgentMeta } from "../../components/meta-types.js";
-import type { Price } from "../../config/types.js";
+import type { UncompactedTurns } from "../../compaction/compaction.decorator.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import { NodeKind, type FlowPath } from "../ast.js";
 import type { ThisWorkflowCheck } from "../this-workflow-types.js";
@@ -32,11 +32,6 @@ export interface ToolDefaults {
   readonly maxToolCalls?: number;
 }
 
-export interface HistoryDefaults {
-  readonly limit: number;
-  readonly summaries?: number;
-}
-
 /** Flow checks: a path nesting more levels warns `[flow.path-too-deep]` (default 4). */
 export interface FlowDefaults {
   readonly maxPathDepth?: number;
@@ -51,22 +46,7 @@ export interface WorkflowDefaults {
   readonly router?: RouterDefaults;
   readonly guardrail?: GuardrailDefaults;
   readonly tools?: ToolDefaults;
-  readonly history?: HistoryDefaults;
   readonly flow?: FlowDefaults;
-}
-
-/** One chat model's settings (the compaction model). */
-export interface ModelOptions extends ModelDefaults {
-  readonly model: string;
-  /** Overrides the provider's price table; the provider's own reported cost comes first. */
-  readonly price?: Price;
-}
-
-/** Conversation memory: every `every` turns become one summary; readers see the latest `keep`. */
-export interface CompactionOptions {
-  readonly every: number;
-  readonly keep: number;
-  readonly model: ModelOptions;
 }
 
 /**
@@ -105,8 +85,16 @@ export interface WorkflowOptions<
    * application's (#120: lists add up; `excludeGuardrails` on an agent or a router removes one).
    */
   readonly guardrails?: readonly Class[];
-  readonly compaction?: CompactionOptions;
-  readonly compactionPrompt?: string;
+  /**
+   * The `@Compaction` of every agent and model router, over the application's (#120: one setting,
+   * the lowest level that sets it wins; none anywhere → no summaries, the window only).
+   */
+  readonly compaction?: Class;
+  /**
+   * How many recent turns of the thread its agents and model routers see in full, over the
+   * application's (#120; default 5, `TurnLimit.ALL` = every turn); an agent's or a router's own wins.
+   */
+  readonly uncompactedTurns?: UncompactedTurns;
   /** Static `{{key}}` values of every prompt of the workflow. */
   readonly promptVariables?: Readonly<Record<string, string>>;
 }

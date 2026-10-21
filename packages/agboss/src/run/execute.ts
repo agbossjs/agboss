@@ -9,6 +9,7 @@ import { LimitExceededError } from "../graph/limits.js";
 import type { NewTern, TernOutcome } from "../terns/index.js";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { RunDeps } from "./types.js";
+import type { Compacted } from "./compaction.js";
 
 export type TernBase = Pick<
   NewTern,
@@ -38,6 +39,8 @@ export interface FinishContext<TName extends string> {
   /** The resolved pauses this pass answered: their loops went on, they no longer wait. */
   readonly takenPauseIds?: ReadonlySet<string> | undefined;
   readonly callbacks: BaseCallbackHandler[];
+  /** What the compactions did before this execution read its thread (#120 S132). */
+  readonly compacted?: readonly Compacted[] | undefined;
 }
 
 const errorMessage = (error: unknown): string =>

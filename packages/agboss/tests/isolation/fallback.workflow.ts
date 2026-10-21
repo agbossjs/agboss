@@ -1,4 +1,4 @@
-import { Agent, Workflow, MODEL_MAX } from "../../src/index.js";
+import { Agent, Workflow, TokenLimit } from "../../src/index.js";
 import {
   DecisionsModelProvider,
   ModelCost,
@@ -86,10 +86,9 @@ export class Unmapped202 extends OpenAiCompatibleProvider {
 export class Answerer {}
 
 const defaults = {
-  models: { temperature: 0, maxTokens: MODEL_MAX },
+  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 1 },
-  history: { limit: 1 },
 } as const;
 
 @Workflow({
@@ -102,6 +101,7 @@ const defaults = {
       .toFinish(Reply),
   ],
   defaults,
+  uncompactedTurns: 1,
 })
 export class WithFallback {}
 
@@ -125,6 +125,7 @@ export class WithFallbackApplication {}
       .toFinish(Reply),
   ],
   defaults,
+  uncompactedTurns: 1,
 })
 export class UnmappedFallback {}
 

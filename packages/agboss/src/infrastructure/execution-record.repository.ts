@@ -105,8 +105,8 @@ export abstract class ExecutionRecordRepository {
   abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
   /** The latest `limit` original answered records of a workflow, oldest first. */
   abstract recentOriginals(workflow: string, limit: number): Promise<Tern[]>;
-  /** Records of the thread after its last summary, oldest first. */
-  abstract uncovered(tenantId: string, threadId: string): Promise<Tern[]>;
+  /** Records of the thread after the compaction's last summary, oldest first (#120 PR 3). */
+  abstract uncovered(tenantId: string, threadId: string, compaction: string): Promise<Tern[]>;
   /** Up to `limit` records right before `ternId`, oldest first. */
   abstract before(
     tenantId: string,
@@ -118,9 +118,14 @@ export abstract class ExecutionRecordRepository {
   abstract turnNumber(tenantId: string, threadId: string, ternId: string): Promise<number>;
   /** A summary of a thread: it carries the thread's `tenantId` and `threadId`. */
   abstract addSummary(summary: NewSummary): Promise<Summary>;
-  /** The latest `limit` summaries of the thread, oldest first. */
-  abstract latestSummaries(tenantId: string, threadId: string, limit: number): Promise<Summary[]>;
-  abstract summaryCount(tenantId: string, threadId: string): Promise<number>;
+  /** The compaction's latest `limit` summaries of the thread, oldest first. */
+  abstract latestSummaries(
+    tenantId: string,
+    threadId: string,
+    compaction: string,
+    limit: number,
+  ): Promise<Summary[]>;
+  abstract summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number>;
   /**
    * Keeps how a pause of a tree was resolved (#267 S107), once per pause (by its tenant and
    * `step.idempotencyKey`: a second save is ignored) — the permanent log `ExecutionRecord.pauses`
@@ -197,13 +202,8 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
   summary(workflow: string): Promise<VersionScore[]> {
     return this.#store.summary(workflow);
   }
-  rememberConfig(
-    workflow: string,
-    version: string,
-    hash: string,
-    snapshot: string,
-  ): Promise<{ readonly drift: boolean }> {
-    return this.#store.rememberConfig(workflow, version, hash, snapshot);
+  rememberConfig(...args: Parameters<TernStore["rememberConfig"]>): Promise<{ drift: boolean }> {
+    return this.#store.rememberConfig(...args);
   }
   configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]> {
     return this.#store.configSnapshots(workflow, version);
@@ -211,8 +211,8 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
   recentOriginals(workflow: string, limit: number): Promise<Tern[]> {
     return this.#store.recentOriginals(workflow, limit);
   }
-  uncovered(tenantId: string, threadId: string): Promise<Tern[]> {
-    return this.#store.uncovered(tenantId, threadId);
+  uncovered(tenantId: string, threadId: string, compaction: string): Promise<Tern[]> {
+    return this.#store.uncovered(tenantId, threadId, compaction);
   }
   before(tenantId: string, threadId: string, ternId: string, limit: number): Promise<Tern[]> {
     return this.#store.before(tenantId, threadId, ternId, limit);
@@ -223,11 +223,11 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
   addSummary(summary: NewSummary): Promise<Summary> {
     return this.#store.addSummary(summary);
   }
-  latestSummaries(tenantId: string, threadId: string, limit: number): Promise<Summary[]> {
-    return this.#store.latestSummaries(tenantId, threadId, limit);
+  latestSummaries(...args: Parameters<TernStore["latestSummaries"]>): Promise<Summary[]> {
+    return this.#store.latestSummaries(...args);
   }
-  summaryCount(tenantId: string, threadId: string): Promise<number> {
-    return this.#store.summaryCount(tenantId, threadId);
+  summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number> {
+    return this.#store.summaryCount(tenantId, threadId, compaction);
   }
   savePauseAnswer(
     tenantId: string,

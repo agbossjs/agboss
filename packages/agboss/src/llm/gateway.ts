@@ -18,7 +18,8 @@ import type { ReplyInterpreterInput } from "../channels/reply-reader.js";
 /** Who a chat model is for: what a substitute gateway (scripted, replayed) keys its answers on. */
 export type ChatModelUser =
   | { readonly kind: "agent"; readonly agent: string }
-  | { readonly kind: "compaction" }
+  /** A `@Compaction`'s summaries (#120 PR 3). */
+  | { readonly kind: "compaction"; readonly compaction: string }
   | { readonly kind: "judge"; readonly judge: string }
   | { readonly kind: "router"; readonly router: string }
   | { readonly kind: "arbiter"; readonly arbiter: string }

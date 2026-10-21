@@ -5,7 +5,7 @@ import { NodeKind } from "../flow/ast.js";
 import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
 import { isCodeRouterNode, type RuntimeNode } from "../flow/runtime/graph-model.js";
 import { arbiterClassesOf } from "../flow/runtime/launch/runtime-launch.js";
-import { guardrailScriptKeyOf, piiScriptKeyOf } from "./pii-parts.js";
+import { compactionScriptKeyOf, guardrailScriptKeyOf, piiScriptKeyOf } from "./pii-parts.js";
 import {
   arbiterKeyOf,
   judgeScriptKeyOf,
@@ -17,7 +17,7 @@ import {
 /**
  * What `mockLlm(X)` scripts in one application (#262): an agent or a model router (a node), a
  * `@Judge`, a model arbiter (#279), a PII policy's model detection or a guardrail (#120) or a
- * model reply interpreter (#267) — each by its script key; a component that calls no model is named with why.
+ * model reply interpreter (#267) or a compaction that writes summaries (#120 PR 3) — each by its script key; a component that calls no model is named with why.
  */
 
 /** The script key of a node that calls a model (an agent or a model router; a code router calls none). */
@@ -62,7 +62,11 @@ export class ModelTargets {
       return interpreter.model === undefined ? undefined : replyInterpreterKeyOf(interpreter.name);
     const options = this.#arbiters.has(target) ? arbiterOf(target)?.options : undefined;
     if (options !== undefined && !isCodeArbiter(options)) return arbiterKeyOf(options.name);
-    return piiScriptKeyOf(target, this.assembled) ?? guardrailScriptKeyOf(target, this.assembled);
+    return (
+      piiScriptKeyOf(target, this.assembled) ??
+      guardrailScriptKeyOf(target, this.assembled) ??
+      compactionScriptKeyOf(target, this.assembled)
+    );
   }
 
   /** Why a class has no script: it calls no model, or it is not of this application. */
@@ -74,6 +78,6 @@ export class ModelTargets {
       return "a code arbiter calls no model — mockOf() it, or the services its methods use";
     if (this.#interpreters.has(target))
       return "a code reply interpreter calls no model — mockOf() it, or the services its interpret() uses";
-    return "not an agent, router, judge, model arbiter, model reply interpreter, PII detection or guardrail of this application";
+    return "not an agent, router, judge, model arbiter, model reply interpreter, PII detection, guardrail or compaction that writes summaries of this application";
   }
 }

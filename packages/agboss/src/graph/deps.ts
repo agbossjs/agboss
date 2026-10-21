@@ -16,6 +16,7 @@ import type { ArbiterClass } from "../flow/ast.js";
 import type { PauseChannel } from "../flow/runtime/pause.js";
 import type { PiiRuntime } from "../pii/runtime.js";
 import type { GuardrailRuntime } from "../guardrails/runtime.js";
+import type { AssembledCompactions } from "../compaction/assembly.js";
 import type { Class } from "../components/injection.js";
 import type { JudgeInstance } from "../components/judge-decorators.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
@@ -47,6 +48,8 @@ export interface GraphDeps<TName extends string> {
   readonly pii?: PiiRuntime;
   /** The guardrails of each agent and model router (#120); absent = none. */
   readonly guardrails?: GuardrailRuntime;
+  /** Its compactions and each reader's (#120 PR 3); absent = every reader on the workflow's window. */
+  readonly compactions?: AssembledCompactions;
   /** The workflow's graph: its paths, analysed (`@Workflow({ flow })`). */
   readonly graph: RuntimeGraph;
   /** Steps per execution (`@Workflow({ maxSteps })`, default (agents + routers) × 3). */

@@ -729,8 +729,8 @@ export class WorkflowSettings {
 // src/components/judge-decorators.ts:28:3 - (ae-undocumented) Missing documentation for "description".
 // src/components/judge-decorators.ts:130:3 - (ae-forgotten-export) The symbol "PassedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
 // src/components/judge-decorators.ts:135:3 - (ae-forgotten-export) The symbol "FailedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
-// src/components/metadata.ts:89:1 - (ae-undocumented) Missing documentation for "ComponentError".
-// src/components/metadata.ts:90:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/metadata.ts:94:1 - (ae-undocumented) Missing documentation for "ComponentError".
+// src/components/metadata.ts:95:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/prompt-problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts:14:3 - (ae-undocumented) Missing documentation for "message".
 // src/components/prompt-problems.ts:23:12 - (ae-undocumented) Missing documentation for "name".
@@ -825,7 +825,7 @@ export class WorkflowSettings {
 // src/core/observer-manager.ts:149:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
 // src/core/observer-manager.ts:152:3 - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
 // src/core/observer-manager.ts:155:3 - (ae-undocumented) Missing documentation for "onQuorumDecided".
-// src/flow/decorators/workflow.ts:117:1 - (ae-undocumented) Missing documentation for "Workflow".
+// src/flow/decorators/workflow.ts:105:1 - (ae-undocumented) Missing documentation for "Workflow".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
 // src/graph/settings.ts:36:3 - (ae-undocumented) Missing documentation for "settings".

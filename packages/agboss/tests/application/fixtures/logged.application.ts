@@ -128,7 +128,8 @@ export class SentWorkflowFinish {}
 @Workflow({
   name: "note-workflow",
   version: "1.0.0",
-  defaults: { models: { temperature: 0 }, history: { limit: 1 } },
+  defaults: { models: { temperature: 0 } },
+  uncompactedTurns: 1,
   flow: [
     start(NoteWorkflowStart)
       .returns(WorkflowStartTextDto)
@@ -142,7 +143,8 @@ export class NoteWorkflow {}
 @Workflow({
   name: "send-workflow",
   version: "1.0.0",
-  defaults: { models: { temperature: 0 }, history: { limit: 1 }, tools: { maxToolCalls: 2 } },
+  defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
+  uncompactedTurns: 1,
   flow: [
     start(SendWorkflowStart)
       .returns(WorkflowStartTextDto)

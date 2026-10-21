@@ -71,7 +71,11 @@ describe("job-scout on the path grammar (#272)", () => {
       input: [{ name: "prompt-injection-guardrail" }],
       output: [{ name: "personal-data-guardrail" }],
     });
-    expect(workflow.config.compaction).toMatchObject({ every: 5, keep: 10 });
+    expect(workflow.config.compactions?.["conversation-compaction"]).toMatchObject({
+      turnsBetweenCompactions: 5,
+      summaryQueueLength: 10,
+      model: { maxTokens: 400 },
+    });
   });
 });
 

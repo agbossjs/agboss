@@ -4,6 +4,7 @@ import { ComponentError } from "../components/metadata.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { NodeKind } from "../flow/ast.js";
 import type { Milliseconds } from "../units/index.js";
+import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
@@ -83,6 +84,16 @@ export interface ApplicationOptions {
    * `excludeGuardrails` removes one for an agent or a router.
    */
   readonly guardrails?: readonly Class[];
+  /**
+   * The `@Compaction` of every agent and model router of every workflow (#120 PR 3): one setting —
+   * a workflow's, an agent's or a router's own wins. None anywhere → no summaries.
+   */
+  readonly compaction?: Class;
+  /**
+   * How many recent turns every agent and model router sees in full (#120 PR 3; default 5,
+   * `TurnLimit.ALL` = every turn) — a workflow's, an agent's or a router's own wins.
+   */
+  readonly uncompactedTurns?: UncompactedTurns;
   /**
    * The application's PII key (#120): names a `Secret` field of the environment
    * (`pseudonymKey: "piiPseudonymKey"` with `piiPseudonymKey: secret("PII_PSEUDONYM_KEY")`). Tokens of

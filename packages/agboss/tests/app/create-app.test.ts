@@ -75,7 +75,6 @@ const defaults = {
   models: { temperature: 0, cache: true },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 2 },
-  history: { limit: 2 },
 };
 
 @Workflow({
@@ -86,6 +85,7 @@ const defaults = {
     start(ChatStart).returns(WorkflowStartTextDto).toAgent(Writer).toFinish(Reply),
   ],
   defaults,
+  uncompactedTurns: 2,
   mcp: [NotesServer],
   providers: [OrderBook],
 })
@@ -108,6 +108,7 @@ export class TwoStartsApplication {}
     agent(Support).toFinish(Reply),
   ],
   defaults,
+  uncompactedTurns: 2,
 })
 class Broken {}
 

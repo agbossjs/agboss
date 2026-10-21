@@ -5,7 +5,7 @@ import { ModelPurpose } from "./resolve.js";
 
 /** One place a model is used, with the settings it is used with. */
 export interface ModelUse {
-  /** Where it is set: `agents.scout`, `routers.main`, `defaults.router`, `compaction`, `guardrails.legal-advice-guardrail`. */
+  /** Where it is set: `agents.scout`, `routers.main`, `defaults.router`, `compactions.conversation-compaction`, `guardrails.legal-advice-guardrail`. */
   readonly key: string;
   readonly model: string;
   readonly purpose: ModelPurpose;
@@ -52,7 +52,7 @@ export interface ModelNamingComponents {
 }
 
 /**
- * Every model use of a workflow: agents, compaction, judges, the default router, flow routers,
+ * Every model use of a workflow: agents, compactions, judges, the default router, flow routers,
  * model arbiters (#279), the PII policies' model detections (#120, `pii.<policy>`), model reply
  * interpreters (#267, `replyInterpreters.<name>`) and the guardrails (#120, `guardrails.<name>`).
  */
@@ -70,7 +70,9 @@ export function modelUsesOf(
   });
   return [
     ...Object.entries(config.agents).map(([name, agent]) => chat(`agents.${name}`, agent)),
-    ...(config.compaction === undefined ? [] : [chat("compaction", config.compaction.model)]),
+    ...Object.entries(config.compactions ?? {}).flatMap(([name, compaction]) =>
+      compaction.model === undefined ? [] : [chat(`compactions.${name}`, compaction.model)],
+    ),
     ...Object.entries(config.judges ?? {}).map(([name, judge]) =>
       purposeOf(judge.model) === ModelPurpose.Decision
         ? { key: `judges.${name}`, model: judge.model, purpose: ModelPurpose.Decision }

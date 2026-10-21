@@ -26,8 +26,9 @@ import { PromptInjectionGuardrail } from "./guardrails/prompt-injection.guardrai
     router: { model: "typesafe/jev-1.13" },
     guardrail: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 8 },
-    history: { limit: 8 },
   },
+  // how many recent turns its agents and routers see in full (older ones: a @Compaction's summaries)
+  uncompactedTurns: 8,
   // checked before every model of the workflow reads its input (lists add up with the application's)
   guardrails: [PromptInjectionGuardrail],
   mcp: [{{servers}}],

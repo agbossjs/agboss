@@ -3,7 +3,7 @@ import type { ExecutionBudgetRecord } from "../../budgets/execution-budgets.js";
 import type { ErrorRecord } from "../../core/error-record.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import type { ApprovalRecord } from "../../pause/index.js";
-import type { HistoryTurn } from "./history.js";
+import type { HistoryTurn, ReaderMemory } from "./history.js";
 import {
   mergeBranchRecords,
   type BranchOutcomeRecord,
@@ -84,9 +84,10 @@ export const ExecutionState = Annotation.Root({
    * whole execution — a resume and a recovery count against the same amounts.
    */
   budgets: Annotation<readonly ExecutionBudgetRecord[]>({ reducer: replace, default: () => [] }),
-  /** The thread's finished executions (S8) and its compaction summaries, loaded once. */
+  /** The thread's finished executions (S8), as deep as its deepest reader needs, loaded once. */
   history: Annotation<HistoryTurn[]>({ reducer: replace, default: () => [] }),
-  summaries: Annotation<string[]>({ reducer: replace, default: () => [] }),
+  /** What each reader remembers of them, with its compaction's summaries (#120 PR 3). */
+  memory: Annotation<Record<string, ReaderMemory>>({ reducer: replace, default: () => ({}) }),
   /** The parallel launch in flight (#273 S20): written by its launching step, cleared by its join. */
   launch: Annotation<LaunchTicket | null>({ reducer: replace, default: () => null }),
   /** One outcome record per ended branch; a join reads and drops only its own launch's. */

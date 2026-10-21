@@ -17,6 +17,7 @@ import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import { streamConfig } from "./stream-config.js";
 import { finishRun } from "./finish.js";
 import { openThread } from "./thread.js";
+import { memoryBeforeRun } from "./memory.js";
 import type { AgentExecutionOutput, RunDeps, RunOptions } from "./types.js";
 import { runVersions } from "./versions.js";
 
@@ -72,7 +73,7 @@ async function runOnce<TName extends string>(
   // before the first step: an exhausted budget rejects the execution — no thread, record or call
   const site = { executionId: runId, threadId: requested, start, contexts };
   const budgets = opened ?? (await openExecutionBudgets(deps, { ...options, ...site }));
-  const { threadId, history, summaries } = known ?? (await openThread(deps, tenantId, undefined));
+  const { threadId } = known ?? (await openThread(deps, tenantId, undefined));
   const spent: UsageRecord[] = [];
   const base = ternBaseOf(
     deps,
@@ -81,18 +82,23 @@ async function runOnce<TName extends string>(
   );
   let ternId: string | undefined;
   try {
+    const config = streamConfig(deps, { threadId, tenantId, runId, input }, options);
+    const record = recorder(budgets.meter, spent);
+    const budgetUsd = budgets.meter.budgetUsd();
+    const thread = { tenantId, threadId, isNewThread: known === undefined, record };
+    const before = { ...thread, budgetLeftUsd: budgetUsd, callbacks: config.callbacks };
+    // the compactions due run before the thread is read: a CompactionError fails it here (S132)
+    const read = await memoryBeforeRun(deps, before);
     // the record is `running` while the tree moves: what recovery continues (#265 S30)
     ternId = (await deps.terns.append({ ...base, ...runningOutcome([], 0) })).id;
     const graph = executionGraphOf(deps, { budgets: budgets.meter });
-    const identity = { threadId, tenantId, runId, input };
-    const config = streamConfig(deps, identity, options);
-    const record = recorder(budgets.meter, spent);
-    const budgetUsd = budgets.meter.budgetUsd();
-    const kept = { budgetUsd, budgets: budgets.records, history, summaries, runId };
+    const memory = { history: read.history, memory: read.memory, usage: [...read.usage] };
+    const kept = { budgetUsd, budgets: budgets.records, ...memory, runId };
     const initial = { start, startInput: input, contexts, ...kept };
-    const state = await drainRun(await graph.stream(initial, config), record);
+    const state = await drainRun(await graph.stream(initial, config), record, read.usage);
     const context = { deps, graph, base, runId, budgetUsd, record, recorded: spent };
-    return await finishRun({ ...context, callbacks: config.callbacks }, state, ternId);
+    const finish = { ...context, callbacks: config.callbacks, compacted: read.compacted };
+    return await finishRun(finish, state, ternId);
   } catch (error) {
     const cause = outcomeError(error, options.signal);
     const failed = failedOutcome(cause, spent);

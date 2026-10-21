@@ -17,6 +17,17 @@ export {
   type ToolHandler,
   type ToolOptions,
 } from "../components/decorators.js";
+export { TokenLimit, TurnLimit } from "../config/types.js";
+export {
+  Compaction,
+  CompactionStrategy,
+  type CompactionOptions,
+  type NoSummaryCompactionOptions,
+  type SingleSummaryCompactionOptions,
+  type SummaryMaxTokens,
+  type SummaryQueueCompactionOptions,
+  type UncompactedTurns,
+} from "../compaction/compaction.decorator.js";
 export {
   PiiAction,
   PiiActionKind,

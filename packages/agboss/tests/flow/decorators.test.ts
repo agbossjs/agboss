@@ -114,9 +114,9 @@ describe("@Workflow records the flow as plain paths", () => {
       defaults: {
         models: { temperature: 0, reasoning: Reasoning.off() },
         router: { model: "typesafe/jev-1.13" },
-        history: { limit: 5 },
         flow: { maxPathDepth: 4 },
       },
+      uncompactedTurns: 5,
     })
     class LimitedWorkflow {}
 

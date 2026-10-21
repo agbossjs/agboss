@@ -3,7 +3,7 @@ import {
   Injectable,
   Workflow,
   ApplicationContext,
-  MODEL_MAX,
+  TokenLimit,
   Tool,
   type ToolHandler,
   WorkflowFinish,
@@ -76,10 +76,9 @@ export class ChatStart {}
 export class Reply {}
 
 export const settingsDefaults = {
-  models: { temperature: 0, maxTokens: MODEL_MAX, cache: true },
+  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 4 },
-  history: { limit: 4 },
 } as const;
 
 /** A workflow whose application has `environments/` next to it: dev, staging and test. */
@@ -93,6 +92,7 @@ export const settingsDefaults = {
       .toFinish(Reply),
   ],
   defaults: settingsDefaults,
+  uncompactedTurns: 4,
   providers: [ApiClient],
 })
 export class SettingsApp {}

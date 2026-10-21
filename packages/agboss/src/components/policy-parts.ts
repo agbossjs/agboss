@@ -10,6 +10,9 @@ import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import type { PolicyModels } from "./model-parts.js";
 import type { PromptLoader } from "./prompt-render.js";
 import { workflowDeclarationOf } from "./module.js";
+import type { AssembledCompactions, CompactionOwners } from "../compaction/assembly.js";
+import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
+import type { AgentsConfigOf } from "../config/types.js";
 
 /**
  * The workflow's policies over its application's (#120): its PII policies and its guardrails —
@@ -77,4 +80,52 @@ export async function policyPartsOf(sources: PolicySources): Promise<PolicyParts
     classes: [...pii.classes, ...guardrailClasses],
     models: { pii: pii.detectors, guardrails: guardrails.guardrails },
   };
+}
+
+/**
+ * A workflow's compactions over its application's (#120 PR 3), for `workflowOf`: their assembly
+ * loads on first use (QUALITY.md — it is not needed at import time) and gives the config's
+ * `compactions`, the settings a profile may change.
+ */
+
+/** The config's `compactions` of the workflow's compactions in use. */
+export interface CompactionConfigPart {
+  readonly settings: NonNullable<AgentsConfigOf<string>["compactions"]>;
+}
+
+/** What the application gives its workflows' memory: its compaction and its window. */
+interface CompactionOwner {
+  readonly compaction?: Class;
+  readonly uncompactedTurns?: UncompactedTurns;
+}
+
+/** What one workflow's compactions are assembled from. */
+export interface CompactionSources {
+  readonly bundle: WorkflowMeta;
+  readonly owner: CompactionOwner | undefined;
+  readonly agents: readonly AgentMeta[];
+  readonly graph: RuntimeGraph;
+  readonly loader: PromptLoader;
+}
+
+/** The compaction settings of the workflow and of its application. */
+const ownersOf = (bundle: WorkflowMeta, owner: CompactionOwner | undefined): CompactionOwners => ({
+  ...(owner === undefined
+    ? {}
+    : { application: { compaction: owner.compaction, uncompactedTurns: owner.uncompactedTurns } }),
+  workflow: {
+    name: bundle.name,
+    compaction: bundle.compaction,
+    uncompactedTurns: bundle.uncompactedTurns,
+  },
+});
+
+/** The workflow's compactions and their config settings; a broken rule fails the assembly. */
+export async function compactionsFor(
+  sources: CompactionSources,
+): Promise<AssembledCompactions & CompactionConfigPart> {
+  const { compactionPartsOf, compactionSettingsOf } = await import("../compaction/assembly.js");
+  const { bundle, owner, agents, graph, loader } = sources;
+  const compactions = await compactionPartsOf(ownersOf(bundle, owner), agents, graph, loader);
+  return { ...compactions, settings: compactionSettingsOf(compactions) };
 }

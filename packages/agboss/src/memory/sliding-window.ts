@@ -11,9 +11,9 @@ const lastOf = <T>(items: readonly T[], limit: number): readonly T[] =>
 
 /**
  * The built-in strategy: the agent sees the last `turns` earlier turns and the last `summaries`
- * summaries. By default the window is the agent's `historyLimit` / `historySummaries` (else the
- * workflow's `defaults.history`); a subclass may fix it: `super({ turns: 3 })`. The thread store
- * loads at most the deepest configured limit, so a wider window sees no more than that.
+ * summaries. By default that is all the agent remembers — its `uncompactedTurns` (and the turns
+ * its compaction has not summarised yet) and its compaction's summaries; a subclass may narrow it:
+ * `super({ turns: 3 })`. A wider window sees no more than what the agent remembers.
  */
 export class SlidingWindowStrategy extends BaseMemoryStrategy {
   constructor(private readonly window: MemoryWindow = {}) {

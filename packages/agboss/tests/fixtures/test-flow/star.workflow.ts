@@ -1,4 +1,4 @@
-import { MODEL_MAX } from "../../../src/config/types.js";
+import { TokenLimit } from "../../../src/config/types.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import type { Class } from "../../../src/components/injection.js";
 import type { ToolHandlerClass } from "../../../src/components/decorators.js";
@@ -19,10 +19,10 @@ import { EmptyEnvironment } from "../../../src/index.js";
   version: "1.0.0",
   flow: testPaths,
   defaults: {
-    models: { temperature: 0, maxTokens: MODEL_MAX, cache: true },
+    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
     tools: { maxToolCalls: 3 },
-    history: { limit: 2 },
   },
+  uncompactedTurns: 2,
 })
 export class StarWorkflow {}
 
@@ -68,9 +68,9 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
     ],
     defaults: {
       tools: { maxToolCalls: 3 },
-      history: { limit: 2 },
       router: { model: "typesafe/jev-test" },
     },
+    uncompactedTurns: 2,
   })
   class ToolWorkflow {}
   return ToolWorkflow;

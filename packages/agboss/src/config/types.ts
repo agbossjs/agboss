@@ -4,9 +4,19 @@ import { z } from "zod";
 import { ReasoningEffort, type Reasoning } from "../models/reasoning.js";
 import { RagMode } from "../rag/types.js";
 import { CachedPart, CacheRetention, type PromptCaching } from "../models/prompt-caching.js";
+import { CompactionStrategy } from "../compaction/compaction.decorator.js";
 
-/** Sentinel for maxTokens: do not cap output — the model may use its own maximum. */
-export const MODEL_MAX = "max";
+/** Limits without a number (#120 S132): enums, next to each other — one spelling per value. */
+
+/** A token limit: `TokenLimit.MODEL_MAX` — no ceiling of our own, what the model allows. */
+export enum TokenLimit {
+  MODEL_MAX = "max",
+}
+
+/** A window without a limit: `uncompactedTurns: TurnLimit.ALL` — every turn of the thread in full. */
+export enum TurnLimit {
+  ALL = "all",
+}
 
 /** OpenRouter `reasoning.effort` levels. "none" disables thinking (not accepted by every model). */
 export const THINKING_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh"] as const;
@@ -19,7 +29,10 @@ export const PriceSchema = z.object({
   cacheWritePerMTok: z.number().nonnegative().optional(),
 });
 
-export const MaxTokensSchema = z.union([z.number().int().positive(), z.literal(MODEL_MAX)]);
+export const MaxTokensSchema = z.union([
+  z.number().int().positive(),
+  z.literal(TokenLimit.MODEL_MAX),
+]);
 
 /** A `Reasoning` value (`agboss/models`): `Reasoning.on({ effort, budget })`, `off()`, `modelDecides()`. */
 export const ReasoningValueSchema = z.discriminatedUnion("kind", [
@@ -57,7 +70,7 @@ export const PromptCachingValueSchema = z.discriminatedUnion("kind", [
 /** A component's prompt caching until #152: true = the provider's, false = off, or a `PromptCaching`. */
 export const CacheSettingSchema = z.union([z.boolean(), PromptCachingValueSchema]);
 
-/** Output ceiling when a workflow sets none — a model stuck in a loop stops here. `MODEL_MAX` = no ceiling. */
+/** Output ceiling when a workflow sets none — a model stuck in a loop stops here. `TokenLimit.MODEL_MAX` = no ceiling. */
 export const DEFAULT_MAX_TOKENS = 8192;
 
 /**
@@ -66,7 +79,7 @@ export const DEFAULT_MAX_TOKENS = 8192;
  */
 export const ChatDefaultsSchema = z.object({
   temperature: z.number().min(0).max(2),
-  /** Default 8 192 (`DEFAULT_MAX_TOKENS`); `MODEL_MAX` for no ceiling. */
+  /** Default 8 192 (`DEFAULT_MAX_TOKENS`); `TokenLimit.MODEL_MAX` for no ceiling. */
   maxTokens: MaxTokensSchema.optional(),
   thinking: ThinkingSchema.optional(),
   cache: CacheSettingSchema.optional(),
@@ -82,24 +95,30 @@ export const ModelSettingsSchema = z.object({
   price: PriceSchema.optional(),
 });
 
+/** How many recent turns a reader sees in full: a whole number from 0, or `TurnLimit.ALL`. */
+export const UncompactedTurnsSchema = z.union([
+  z.number().int().nonnegative(),
+  z.literal(TurnLimit.ALL),
+]);
+
 /**
- * Conversation memory: every `every` turns are compacted into one summary; readers see the latest
- * `keep` summaries plus the raw turns since. Summaries are never re-compacted (FIFO).
+ * A `@Compaction` in use (#120 PR 3), by name: its strategy and — when it writes summaries — its
+ * model (`maxTokens` = its `summaryMaxTokens`), how many turns gather before a compaction, and for
+ * a queue how many summaries are kept. A profile may change any of them.
  */
 export const CompactionSettingsSchema = z.object({
-  every: z.number().int().min(2),
-  keep: z.number().int().positive(),
-  model: ModelSettingsSchema,
+  strategy: z.enum(CompactionStrategy),
+  model: ModelSettingsSchema.optional(),
+  turnsBetweenCompactions: z.number().int().positive().optional(),
+  summaryQueueLength: z.number().int().positive().optional(),
 });
 
 export const AgentSettingsSchema = ModelSettingsSchema.extend({
   description: z.string().min(1),
   /** Tool names from the registry (src/tools/catalog.ts). */
   tools: z.array(z.string()).optional(),
-  /** How many previous Terns of the thread the agent sees. Default: defaults.history.limit. */
-  historyLimit: z.number().int().nonnegative().optional(),
-  /** How many latest summaries the agent sees (compaction). Default: defaults.history.summaries. */
-  historySummaries: z.number().int().nonnegative().optional(),
+  /** How many recent turns of the thread the agent sees in full; default `defaults.uncompactedTurns`. */
+  uncompactedTurns: UncompactedTurnsSchema.optional(),
   /** Tool calls per call of the agent; crossing it fails the run. Default: defaults.tools.maxToolCalls, else 20. */
   maxToolCalls: z.number().int().nonnegative().optional(),
   /** Judges of the agent's reply (names in `judges`), and how often a rejected reply is retried (default 0). */
@@ -159,15 +178,12 @@ export const AgentsConfigSchema = z.object({
     router: RouterModelSchema.optional(),
     /** Tool calls per call of an agent (`agents.<name>.limits.toolCalls`); default 20. */
     tools: z.object({ maxToolCalls: z.number().int().nonnegative().optional() }).optional(),
-    history: z.object({
-      limit: z.number().int().nonnegative(),
-      /** How many latest summaries readers see (compaction). Default: compaction.keep. */
-      summaries: z.number().int().nonnegative().optional(),
-    }),
+    /** Recent turns every agent and model router sees in full (workflow over application; 5). */
+    uncompactedTurns: UncompactedTurnsSchema,
   }),
   mcpServers: z.record(z.string(), McpServerConfigSchema).optional(),
-  /** Conversation memory (off when absent). */
-  compaction: CompactionSettingsSchema.optional(),
+  /** The `@Compaction`s its agents and model routers use, by name (#120 PR 3). */
+  compactions: z.record(z.string(), CompactionSettingsSchema).optional(),
   /** `@Judge` models by judge name. */
   judges: z.record(z.string(), ModelSettingsSchema).optional(),
   agents: z.record(z.string(), AgentSettingsSchema),

@@ -78,7 +78,6 @@ const defaults = {
   models: { temperature: 0, cache: true },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 2 },
-  history: { limit: 2 },
 } as const;
 
 /** One agent whose card payment waits for an approval: threads, pauses and channel output. */
@@ -92,6 +91,7 @@ const defaults = {
       .toFinish(Reply),
   ],
   defaults,
+  uncompactedTurns: 2,
   providers: [ApprovalDesk, PaymentLog],
 })
 export class Payments implements WorkflowDefinition {
@@ -161,6 +161,7 @@ export class Editor {}
       .toFinish(Reply),
   ],
   defaults,
+  uncompactedTurns: 2,
 })
 export class Capped {}
 
