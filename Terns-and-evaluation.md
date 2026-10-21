@@ -92,6 +92,26 @@ machine. A value that is not JSON (`NaN`, `Infinity`, `Map`, `Set`, `Date`, clas
 `bigint`, functions, `undefined` inside an array, lone surrogates, cycles) throws `NonJsonValueError`
 naming its path (`$.a[2]`).
 
+### What the config hash covers (#120 PR 4)
+
+`configHash` (the workflow's fingerprint, the one key: #268 S93) hashes the config, the flow, every
+text a model is sent as it is sent (normalised at load, [Components](Components#file-conventions)),
+and two sub-trees for what changes a model's input but lives outside its element's decorator:
+
+- `elements` — per agent and model router: the PII policies in effect at its model (application +
+  workflow + own − excluded, [Guards](Guards#levels-1)) with their rules and actions (a
+  `replacePart({ pattern })` by its text) or a project detector's action; its `uncompactedTurns` and
+  the compaction in effect ([Memory Management](Memory-Management)); an agent's judges (name and
+  model). Excluding a policy on one agent, another compaction or window, or another judge each give
+  another hash.
+- `frame` — the framework's own texts its models read: the routers' instructions, the agent loop's
+  (the answer-tool instructions, the history and decisions framing, a judge's retry message, a
+  rejected call), the knowledge bases' framing; a launch router's, a compaction's, an arbiter's and
+  a guardrail's only in a workflow that has one.
+
+`agboss describe` prints the same hash as a run of that configuration records. Quality metrics stay
+out of it (#123).
+
 The full 64 hex characters are stored; people see the first 8 (`agboss describe`, the drift warning).
 Hashes recorded before #134 have 12 characters and are not comparable with new ones — the length
 marks the boundary; old Terns are not migrated, and a 12-character config hash is not reported as

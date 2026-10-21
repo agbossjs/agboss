@@ -3,6 +3,30 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — checks and fingerprints (#120, PR 4)
+
+- **Changed — contracts are function-typed properties, checked on the decorator line**
+  ([Components → Component rules](Components#component-rules)): `RagConnector`, `PiiPolicyHandler`,
+  `PiiRefusal`, `GuardrailRefusal`, `BudgetHandler`, `HealthCheckHandler`, `ModelProviderHandler`,
+  `ChannelHandler`, `ReplyInterpreterHandler`, `ActionHandler`, `RouterHandler`, `FinishHandler`
+  declare `readonly method: (…) => …` instead of a method signature (`ToolHandler` and
+  `JudgeHandler` already did), so a method that takes a narrower parameter than the contract no
+  longer compiles — on `@Rag`, `@PiiPolicy` (a detector's `findMatches`, a declarative policy's
+  `refusal(kind)`) and `@ModelProvider` whether or not the class `implements` it. Classes keep
+  writing ordinary methods; nothing to migrate unless one relied on a narrower parameter.
+- **Changed — prompts are normalised at load** ([Components → File conventions](Components#file-conventions)):
+  no byte order mark, `\n` line breaks, no blank lines at the edges, Unicode NFC; inside kept as
+  written; `promptUrls` parts joined with one blank line. Covers guardrails, compactions, reply
+  interpreters, an arbiter's prompt and criteria and profile overrides. A prompt file's trailing
+  newline is no longer sent.
+- **Changed — the config hash covers what an element's model reads outside its decorator**
+  ([Terns and evaluation](Terns-and-evaluation#what-the-config-hash-covers-120-pr-4)): per agent and
+  model router the PII policies in effect, `uncompactedTurns` and the compaction, an agent's judges;
+  and the framework's own texts. Every workflow's `configHash` changes once with this release, so a
+  pause taken before it resumes only where `onIncompatibleResume` accepts it.
+- **New — `agboss describe` shows a computed guardrail refusal as `ClassName.refusal()`** (tested;
+  printed since #120 PR 2).
+
 ## Unreleased — lease fencing at expiry, unique tool-call ids (#335)
 
 - **Fixed — a lease store down past the lease** ([Several instances → The execution lease](Several-instances#the-execution-lease)):

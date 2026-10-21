@@ -34,6 +34,22 @@ Every component reads the same way, top to bottom:
      for a `@WorkflowFinish` with `input`, `RagConnector` for `@Rag`, `JudgeHandler<TReply>` for `@Judge`);
    - extending a standard implementation → `extends` it (`SqliteFtsConnector`, `McpServerClient`) and
      mark overridden methods `override` (`noImplicitOverride` is on).
+
+   **The check is on the decorator line; `implements` is documentation** (#120 PR 4). Every contract
+   is a function-typed property (`readonly run: (input) => …`), not a method signature, so its
+   parameters are checked with strict variance: a method that takes less than the contract gives it
+   (`retrieve(query: "faq")` on a `@Rag`, `findMatches(text: "x")` on a `@PiiPolicy`,
+   `refusal(kind: PiiKind.Iban)` on a policy with two block rules, `capabilities(model: "x/one")` on
+   a `@ModelProvider`) does not compile on the decorator — with or without `implements`. The
+   decorators whose method's types are known on that line check it there: `@Tool` / `@McpTool`,
+   `@Rag`, `@Judge`, `@PiiPolicy` (its detector's `findMatches`, a declarative policy's
+   `refusal(kind)`), `@InputGuardrail` / `@OutputGuardrail` without `refusal`, `@Budget`,
+   `@HealthCheck`, `@ModelProvider`. The generated ones (`ActionHandler<Self>`, `RouterHandler<Self>`,
+   `FinishHandler<Self>`, `ReplyInterpreterHandler<Self>`, a channel's `send`) are checked by
+   `implements` with the same strict variance. Every relation by class — the kinds in
+   `guardrails` / `piiPolicies` / `exclude…`, a router's `routes` against the flow, `@Tool({ channel })`,
+   `routeTo(X)` and `toFollowPath([…])` in tests — is checked at assembly or in the test, never by the
+   compiler (empty component classes are alike to it).
 4. **Data is a DTO**: a class with one field decorator per field (`agboss/dto`), so the class is
    both the type and the runtime check. See [DTOs](#dtos).
 5. **Input/output lives in services** (`@Injectable`, `*.service.ts`: HTTP, files, model calls);
@@ -64,8 +80,14 @@ One component per file, the kind in the name; `agboss create` / `agboss generate
 
 Prompts are `prompt` (inline) or `promptUrls` (files next to the component, read relative to the
 declaring module), plus `promptVariables`; `{{variables}}` are checked at assembly
-(`[prompt.unknown-variable]`), a missing file fails with `[prompt.missing-file]`. Prompts are
-instructions only: what a node reads comes in its input message ([Path scope](Path-scope)), never
+(`[prompt.unknown-variable]`), a missing file fails with `[prompt.missing-file]`. **Prompts are
+normalised at load** and the normalised text is what is sent and fingerprinted (#120 PR 4): the
+byte order mark, `\r\n` line breaks and blank lines at the edges are removed, the text is Unicode
+NFC; indentation, spaces and tabs inside a line and blank lines between paragraphs are kept as
+written. The inline `prompt` and each `promptUrls` file are normalised on their own and joined with
+one blank line (a blank file adds none) — for agents, routers and their routes, guardrails,
+compactions, reply interpreters, an arbiter's `prompt` and criteria, and a profile's prompt
+override alike. Prompts are instructions only: what a node reads comes in its input message ([Path scope](Path-scope)), never
 as `{{input.…}}` (`[prompt.input-in-instructions]`).
 
 ## A tool

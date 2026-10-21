@@ -112,6 +112,10 @@ A router that sees 1 turn and an agent that sees 3 share one queue: after turn 3
 and t2; on turn 4 the router reads the summary and t3, the agent t1–t3 in full and not the summary.
 When every reader sees `TurnLimit.ALL`, nothing is ever summarised.
 
+Each reader's window and the compaction in effect, and each compaction's settings and prompt, are
+part of the workflow's config hash (#120 PR 4, [Terns and evaluation](Terns-and-evaluation#what-the-config-hash-covers-120-pr-4)):
+another window on one router, or a longer queue, is another configuration.
+
 ### Before the next turn: when and how (#120 S132)
 
 A compaction runs **lazily, before a new execution's first read of its thread** — never after a

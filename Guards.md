@@ -302,7 +302,12 @@ that call (the model reads `Tool error: the call was refused: …`).
 policies with different actions for one kind are `[pii.conflicting-rules]`, naming the kind, the
 actions and the policies — no "strictest wins". A child workflow gets its own workflow's lists over
 the application's, never its parent's. Logs, traces, events and `result.record` are always masked
-by the application's and the workflow's lists ([Observability](Observability)).
+by the application's and the workflow's lists ([Observability](Observability)). The policies in
+effect at each agent's and router's model — their rules and actions — are part of the workflow's
+config hash ([Terns and evaluation](Terns-and-evaluation#what-the-config-hash-covers-120-pr-4)): an
+`excludePiiPolicies` on one agent changes it. A declarative policy's `refusal(kind)` is checked on
+the decorator line: it takes any `PiiKind` of its block rules (`refusal(kind: PiiKind.Iban)` does not
+compile), and a detector's `findMatches(text: string)` any text ([Components](Components#component-rules)).
 
 ### The model boundary (S38)
 
