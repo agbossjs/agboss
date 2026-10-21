@@ -110,6 +110,8 @@ and `; `.) `agboss chat` sends what is typed as a text, so its start takes `Work
 | `agboss eval` / `agboss replay` `[--start <name>]` | score recent runs of the start's workflow with Jev / re-run a prompt version |
 | `agboss golden add [--start <name>] --name <n>` | recent real tasks of the start's workflow as a golden set |
 | `agboss compare [--start <name>] --profiles base,<p>` | profiles side by side on the start's workflow ([Profiles and comparisons](Profiles-and-comparisons)) |
+| `agboss dev [--strict]` | watch mode: `agboss check` rerun in a short-lived process on every change of the application's `src/` — the types regenerated, the problems printed ([below](#watch-mode-and-studio-268)) |
+| `agboss studio [--port N]` | LangGraph Studio on every workflow of the application, a child drawn inside its parent — no `studio.ts` / `langgraph.json` in the project ([below](#watch-mode-and-studio-268)) |
 | `agboss rag index [--rag <name>]` | build / update every knowledge base of the application, each once (one bound by two agents too); `--rag` one by its full name — an unknown one is exit 2 with a `Did you mean "…"?` and the list ([Knowledge bases](Knowledge-bases)) |
 
 Every command that loads the application takes `--env <name>` and `--application <path>`; exit codes
@@ -130,6 +132,41 @@ job-scout-workflow`). A project made by `agboss create` gets `"agboss": { "appli
 `package.json` and scripts without a path (`"chat": "agboss chat"`,
 `"rag:index": "agboss rag index"`, `"types": "agboss check"`); a workflow added by `generate workflow` has its own application
 until then, and its scripts name it (`agboss chat --application src/onboarding/onboarding.application.ts`).
+
+## Watch mode and Studio (#268)
+
+```bash
+agboss dev                 # Ctrl+C to stop
+agboss studio              # http://localhost:2024, Studio opens in the browser
+agboss studio --env prod --port 2077
+```
+
+**`agboss dev [--strict] [--env <name>]`** watches the application's `src/` (the nearest folder of
+that name above the application module, else the module's folder) and, on every change of a source,
+prompt, profile or JSON file — `node_modules/`, `dist/` and `.agboss/` aside — runs `agboss check` on
+the application in a **short-lived child process**: the ESM / tsx module cache cannot reload a graph
+in a long-lived one. So `.agboss/types.d.ts` follows the code and the assembly problems are printed as
+they appear. The changes of 200 ms are one pass; a change during a pass makes one more after it; two
+passes never run at once. It runs one pass at start, prints `dev: watching src — Ctrl+C to stop`, then
+`dev: changed <files>` before each pass; Ctrl+C (or SIGTERM) waits for the pass that runs and exits 0.
+
+**`agboss studio [--port N] [--env <name>]`** needs no `studio.ts` and no `langgraph.json` in the
+project. It builds every workflow of the application — the listed ones and the child workflows they
+launch, on the chosen environment — as the server will, so an assembly problem or a missing variable
+stops it with exit 3 before any server starts; then it writes the git-ignored `.agboss/studio.ts` (one
+export per workflow, built by `studioOf` from `agboss/internal`) and `.agboss/langgraph.json` (one graph
+per workflow, named by the workflow's full name; the project's `.env` when it has one) and runs
+LangGraph's dev server on them (`langgraphjs dev --config .agboss/langgraph.json --port N`, from
+`@langchain/langgraph-cli`, a dependency of `agboss-cli`). Both files are rewritten on every run.
+
+What Studio shows (S37): a child workflow is a **subgraph inside its parent** — entered by an edge
+(`.toWorkflow(W)`, `route(W)`) or one per item (`.toParallelWorkflows(W, …)`), its steps drawn as
+`vendor-check-workflow:vendor-checker-agent` in the parent's graph — and also a graph of its own
+(it runs alone through its own starts). `ThisWorkflow` is the node `this-workflow`, never its own
+subgraph; `getGraphAsync({ xray: true })` marks it `recursive: maxDepth N` in the node's metadata,
+which Studio's graph endpoint does not pass on (its JSON keeps a node's id, type and name only) — so
+Studio shows a plain node there (an open question of #268 PR 3). Studio's own runs are limited by
+steps and visits; budgets are opened per execution by the app ([FinOps](FinOps)).
 
 `agboss migrate imports [<path>…]` rewrites imports of the deprecated entries to the current ones (the list:
 `agboss help migrate`).

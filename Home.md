@@ -72,7 +72,8 @@ cd examples/job-scout && npm run chat # "my resume src/data/sample-resume.md"
 npm run describe                      # agents, tools, dependencies — no API key
 ```
 
-More: [Example](Example). `npm run studio` (repo root) opens the graph in LangGraph Studio.
+More: [Example](Example). `npm run studio` (repo root) opens job-scout in LangGraph Studio —
+`agboss studio` in any project, no `studio.ts` or `langgraph.json` of its own ([CLI](CLI#watch-mode-and-studio-268)).
 
 ### Public entries
 

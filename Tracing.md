@@ -29,7 +29,7 @@ Open <http://localhost:3000>; login and password are in `~/langfuse/.env`
 | Where                                                   | Trace                                                        | Session                 |
 | ---------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------- |
 | `agboss run`, `agboss chat`, `app.execute` / `app.resume`       | one trace per turn, named after the workflow, tagged with it | the conversation thread |
-| LangGraph Studio (`npm run studio`)                     | one trace per Studio run                                     | `studio`                |
+| LangGraph Studio (`agboss studio`)                      | one trace per Studio run                                     | `studio`                |
 
 Inside a trace: one span per flow node, named `<kind>.<name>` — `workflow-start.chat` (input guards),
 `router.main`, `agent.scout` (its loop: model requests, tool calls, the approval),

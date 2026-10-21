@@ -299,7 +299,7 @@ executions each count their own `maxSteps`; its money is the root's budgets, eve
 `[limits.max-steps-too-low]` — no finish fits in a hand-set `maxSteps`, or the default cannot hold the
 worst case of a per-item launch (`maxItems` runs: set `@Workflow({ maxSteps })`, the default never
 grows silently) —, `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`.
-`npm run studio` runs the flow graph with its steps and visits limited; budgets are opened per
+`agboss studio` runs the flow graphs with their steps and visits limited; budgets are opened per
 execution by the app, so Studio's own runs are not capped by them. Optional extra backstop outside
 the app: a spending limit on the OpenRouter key itself.
 

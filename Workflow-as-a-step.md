@@ -566,7 +566,8 @@ a workflow launching one that launches it again — or naming its own class — 
 circular import). At run time `ThisWorkflow` is the workflow's own compiled graph, taken from the
 registry when its step runs (a graph cannot contain itself): one checkpoint thread, its children
 under their tasks' `checkpoint_ns`, pauses inside any level resumed like any child's; Studio draws it
-as a node marked `recursive: maxDepth 3`.
+as the node `this-workflow`, which `getGraphAsync({ xray: true })` marks `recursive: maxDepth 3` in its
+metadata ([CLI → Watch mode and Studio](CLI#watch-mode-and-studio-268)).
 
 **The tree's cap.** `maxDepth` bounds how deep the tree goes, the launches' `maxConcurrency` how
 wide one launch goes, and the root's `@Workflow({ maxConcurrentExecutions: 6 })` (default 10) how many

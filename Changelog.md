@@ -3,6 +3,24 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `agboss dev` and `agboss studio`: no `studio.ts`, children as subgraphs (#268, PR 3)
+
+- **New — `agboss dev [--strict] [--env <name>]`** ([CLI](CLI#watch-mode-and-studio-268)): watch
+  mode over the application's `src/` — every change runs `agboss check` in a short-lived child
+  process (debounced, 200 ms; never two at once), so `.agboss/types.d.ts` is regenerated and the
+  assembly problems are printed as they appear.
+- **New — `agboss studio [--port N] [--env <name>]`**: every workflow of the application (the
+  children too) in LangGraph Studio; the CLI writes `.agboss/studio.ts` and `.agboss/langgraph.json`
+  (git-ignored, rewritten on every run) and starts `langgraphjs dev` on them. A child is a subgraph
+  inside its parent, `.toParallelWorkflows(…)` included; an assembly problem or a missing variable
+  stops it before the server starts (exit 3).
+- **Breaking — `studioGraphOf` is removed from `agboss` (and from the deprecated `agboss/core`)**, and
+  the examples' `src/studio.ts` and the root `langgraph.json` are gone. Migrating: delete the
+  project's `studio.ts` and `langgraph.json`, run `agboss studio` (job-scout: `npm run studio`).
+  The graphs come from `studioOf(Application, { env })` in `agboss/internal`, the CLI's.
+- **Changed — `@langchain/langgraph-cli` is a dependency of `agboss-cli`** (it was the monorepo
+  root's dev dependency), so `agboss studio` works in any project.
+
 ## Unreleased — flow-patterns runs with a real model, and an approvals pattern (#346)
 
 - **New — `examples/flow-patterns/src/approvals/`** ([Example](Example#flow-patterns-a-review-loop-and-a-code-router)):
