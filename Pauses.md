@@ -6,6 +6,9 @@ An execution may wait for **several answers at once** — parallel branches each
 and each pause is answered **by its id** (#267). How a pause maps onto LangGraph and the agent's
 loop: [Pause seam](Pause-seam).
 
+> A runnable example: `examples/flow-patterns/src/approvals/` — two approvals at once, answered in
+> the terminal ([Example](Example#flow-patterns-a-review-loop-and-a-code-router), #346).
+
 ## A pause stops only those who cannot go on without it
 
 A paused branch of a [parallel launch](Parallel) does not stop its siblings: they run to their end

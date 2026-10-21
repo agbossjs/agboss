@@ -83,11 +83,15 @@ npm run compare -- --profiles base,scout-low-thinking --golden core
 
 ## flow-patterns: a review loop and a code router
 
-`examples/flow-patterns/` (package `flow-patterns-example`, #295) — two workflows, one per
+`examples/flow-patterns/` (package `flow-patterns-example`, #295) — seven workflows, one per
 `*.workflow.ts`, in one application (`src/flow-patterns.application.ts`: `app.execute` runs each by
 its start, #261), on the public entries only, tested by script (no model key, no cassette). They are
-what the manual checks of the flow point the CLI at; `make check` runs `agboss check` on both, their
-lint (flow style) and their tests with coverage.
+what the manual checks of the flow point the CLI at; `make check` runs `agboss check --strict` on the
+application (then `agboss check --models --env test`, which needs no key), their lint (flow style)
+and their tests with coverage. Besides the two below: `src/review/` (parallel launches in waves,
+#273), `src/panel/` (a quorum, [Parallel](Parallel)), `src/vendor/` and `src/topic/` (a child workflow
+per item and recursion, [Workflow as a step](Workflow-as-a-step)), `src/approvals/` (two approvals at
+once, below).
 
 ```bash
 npm install && npm run build          # repo root
@@ -112,4 +116,35 @@ npm test
   charge-card-action, a $500 one to approval-agent. `CreditServiceUnavailableError` from the
   service (the `RouterFailedError`'s cause) is taken by `.onError(…, toFinish(OrderHeldWorkflowFinish))`;
   any other error fails the run with `RouterFailedError`.
+- **`src/approvals/`** — two approvals at once ([Pauses](Pauses), #267): `offsite-booking-workflow`
+  launches venue-buyer-agent and flight-buyer-agent side by side; each calls `place_purchase`,
+  whose `@Tool({ channel: PurchaseApprovalChannel })` names a role
+  (`answeredBy: PauseAnswerer.ThreadOwner`) implemented by `TerminalPurchaseApprovalChannel`, listed
+  in `@Application({ providers })`: it prints each question once, with its pause's id, and waits
+  (`ChannelOutcome.awaitReply()`). The execution rests with two pauses in `result.pending`; every
+  store of the application is SQLite, so they wait across processes. `npm run answer -- <pauseId…>
+  [--decline]` answers waiting pauses from another process — two at once, or a second press that
+  gets `NotPausedError`.
 
+### Real runs of flow-patterns (#346)
+
+The `dev` environment calls real models: `openRouterApiKey: secret("OPENROUTER_API_KEY")` and
+`openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")` for the built-in OpenRouter providers,
+`PII_PSEUDONYM_KEY` for the application's PII key, and the SQLite stores in
+`.agboss/flow-patterns.sqlite`; `test` has neither key — the tests script every model. Langfuse traces
+a run when its `LANGFUSE_*` keys are set (`scripts/langfuse.sh up` writes them to the repo's `.env`),
+and only then. The example's `README.md` walks through the manual checks it serves — #263 M1 (the
+vendor screening's children in Langfuse), #264 M1 (the topic research, `maxDepth: 3`,
+`maxConcurrentExecutions: 4`) and #267 M1 (two approvals at once):
+
+```bash
+cd examples/flow-patterns
+set -a && . ../../.env && set +a      # OPENROUTER_API_KEY, PII_PSEUDONYM_KEY, LANGFUSE_*
+npx agboss run --start vendor-screening-workflow-start \
+  --input '{"text":"check these vendors: Acme, Globex, a vendor that does not exist"}'
+npx agboss run --start topic-research-workflow-start \
+  --input '{"title":"the history of computing","level":0}'
+npx agboss run --start offsite-booking-workflow-start \
+  --input '{"text":"Offsite: Lakeside Lodge for $1800, flights TLV to LIS for $2400"}'
+npm run answer -- <first pause id> <second pause id>   # from a second terminal
+```

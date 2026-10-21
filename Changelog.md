@@ -3,6 +3,21 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — flow-patterns runs with a real model, and an approvals pattern (#346)
+
+- **New — `examples/flow-patterns/src/approvals/`** ([Example](Example#flow-patterns-a-review-loop-and-a-code-router)):
+  `offsite-booking-workflow` — two buyers in one `.toParallelAgents(…)` launch, each `place_purchase`
+  call waiting for the thread's owner through the `PurchaseApprovalChannel` role, answered in the
+  terminal (`TerminalPurchaseApprovalChannel`); scripted tests: both pauses pending, both answers
+  taken, a second answer `NotPausedError`, each question asked once.
+- **Changed — flow-patterns runs with a real model:** its `dev` environment reads
+  `OPENROUTER_API_KEY` (`openRouterApiKey`, a `Secret`) and, optionally, `OPENROUTER_BASE_URL`
+  (`openRouterBaseUrl`) for the built-in providers; `test` is unchanged. Every store of its
+  application is SQLite now (records, pauses, checkpoints, leases, tree keys, besides the ledger).
+  `npm run check` also runs `agboss check --models --env test` (no key); `npm run answer` answers
+  waiting pauses from another process. Its `README.md` says how to run the manual checks #263 M1,
+  #264 M1 and #267 M1.
+
 ## Unreleased — compaction: `@Compaction`, strategies, `uncompactedTurns` (#120, PR 3)
 
 - **New — `@Compaction({ name, description, prompt?, promptUrls?, model, strategy,
