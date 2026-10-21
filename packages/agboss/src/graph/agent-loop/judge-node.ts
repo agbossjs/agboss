@@ -139,6 +139,7 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     if (judges.length === 0 || state.reply === null) return {};
     const spent: UsageRecord[] = [];
     const rejected = await rejectionsOf(state, deps, state.reply, spent);
+    deps.budgets.tally(spent, state.flowPath); // counted at once (#338)
     if (rejected.length === 0) return { usage: spent };
     if (state.retries >= maxRetries) {
       throw new QualityGateError(agent, [...loopUsage(state), ...spent], rejected, state.retries);

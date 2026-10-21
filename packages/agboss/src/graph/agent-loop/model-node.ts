@@ -31,6 +31,10 @@ export function toolDefinitionsOf(agent: AgentDefinition): readonly ToolDefiniti
   );
 }
 
+/** The call's signal with the budgets' `exhausted` one. */
+const withExhausted = (signal: AbortSignal | undefined, deps: AgentLoopDeps): AbortSignal =>
+  signal === undefined ? deps.budgets.exhausted : AbortSignal.any([signal, deps.budgets.exhausted]);
+
 /** One model turn: the agent's instructions and conversation (masked, #120), its tools bound. */
 async function callModel(
   messages: readonly BaseMessage[],
@@ -38,13 +42,15 @@ async function callModel(
   config: RunnableConfig | undefined,
 ): Promise<AIMessageChunk> {
   const { binding, name } = deps.agent;
+  // an exhausted budget (#338) aborts the call in flight: its partial cost is unknown, unrecorded
+  const call = { ...config, signal: withExhausted(config?.signal, deps) };
   // cache markers, where the model needs them, are placed by its provider on the wire (#151)
   const tools = toolDefinitionsOf(deps.agent);
-  if (tools.length === 0) return binding.model.invoke([...messages], config);
+  if (tools.length === 0) return binding.model.invoke([...messages], call);
   if (binding.model.bindTools === undefined) {
     throw new ToolCallingUnsupportedError(`The model of agent "${name}" cannot call tools`);
   }
-  return binding.model.bindTools([...tools]).invoke([...messages], config);
+  return binding.model.bindTools([...tools]).invoke([...messages], call);
 }
 
 /** What `withCallIds` reads of the loop's state: the run, the visit and the turn. */
@@ -78,6 +84,16 @@ export function withCallIds(response: AIMessageChunk, state: CallIdSource): AIMe
  */
 function checkBudget(state: AgentLoopStateType, deps: AgentLoopDeps): void {
   deps.budgets.check(totalCost(state.usage), state.flowPath, loopUsage(state));
+}
+
+/** The budgets right after a call, with what it cost: the error carries the loop's spend. */
+function checkSpent(
+  state: AgentLoopStateType,
+  deps: AgentLoopDeps,
+  spent: readonly UsageRecord[],
+): void {
+  const usage = [...loopUsage(state), ...spent];
+  deps.budgets.check(totalCost(state.usage) + totalCost(spent), state.flowPath, usage);
 }
 
 /** The model call between its observer events; a failed call fails the agent with the loop's spend. */
@@ -121,6 +137,8 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
   const { name, limits } = deps.agent;
   return async (state, config) => {
     const runCtx = extractRunContext(config, state.runId);
+    // stopped by an exhausted budget (#338): its error, with the loop's spend so far
+    if (deps.budgets.exhausted.aborted) checkBudget(state, deps);
     throwIfCancelled(runCtx.run);
     checkBudget(state, deps);
     const turn = state.modelCalls + 1;
@@ -136,7 +154,10 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     const request = await maskedRequest(state, deps);
     const { response, usageRecord } = await observedCall(state, deps, request, config);
     const spent = [...request.usage, usageRecord];
+    // counted at once (#338): the branches running beside this one see it at their next check
+    deps.budgets.tally(spent, state.flowPath);
     const outgoing = await outgoingMove(withCallIds(response, state), request, state, deps, spent);
+    deps.budgets.tally(outgoing.kind === "invalid" ? [] : outgoing.usage, state.flowPath);
     const pii = { piiTokens: request.tokens, piiMasked: request.cache };
     if (outgoing.kind === "invalid") return { ...outgoing.update, modelCalls: 1, ...pii };
     const move = outgoing.move;
@@ -152,6 +173,8 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       } as const;
       throw agentLimitError(state, { ...breach, spent: [...spent, ...outgoing.usage] });
     }
+    // the call exhausted a budget: no tool runs on it (an answer is kept — the next step stops)
+    if (calls > 0) checkSpent(state, deps, [...spent, ...outgoing.usage]);
     return {
       move,
       usage: [...spent, ...outgoing.usage],

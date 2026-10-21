@@ -182,10 +182,16 @@ period?, workflow?, deps? })` + `implements BudgetHandler` (`maxSpend(): Usd | P
 $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLimitExceededError`
     (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`, `BudgetExceededError`.
   - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
-    parallel executions of one tenant may overrun it a little, and a budget may be exceeded by the
-    cost of one call (a call in flight cannot be stopped; with `TokenLimit.MODEL_MAX` one call is bounded only
-    by the model). A branch of a parallel launch counts the spend at the launch plus its siblings that
-    already ended (#273).
+    parallel executions of one tenant may overrun it a little, and a budget is exceeded by at most
+    the calls in flight when it was exhausted (their cost is known only after them; with
+    `TokenLimit.MODEL_MAX` one call is bounded only by the model). Within one tree (#338) every call
+    is counted the moment it is made — a live tally of the pass (`BudgetMeter.tally`), the ledger
+    still written once per superstep, nothing twice — so a branch of a parallel launch sees its
+    siblings' spend while they run; a tally that exhausts a budget aborts the in-flight model and
+    tool calls of every branch through `executionContext.signal` (an aborted call's partial cost is
+    unknown and not recorded), the branches fail with that `BudgetExceededError` and the launch
+    with it, into a code-only `.onJoinError(BudgetExceededError, …)`. Other instances see the spend
+    through the ledger only. A call that exhausts a budget runs none of the tools its move asks for.
   - `maxSteps` is checked at assembly: `[limits.max-steps-too-low]` (no finish fits in a hand-set
     `maxSteps`, or the default (agents + routers) × 3 cannot hold the worst case of a per-item
     launch — set `maxSteps`), `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`.

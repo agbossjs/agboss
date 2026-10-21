@@ -76,4 +76,19 @@ describe("AC7: limits per call of the agent — modelCalls and toolCalls", () =>
     });
     expect(h.modelCalls).toEqual([]);
   });
+
+  it("a call that exhausts the budget runs none of its tools (#338): the error carries its cost", async () => {
+    // one call costs $0.00042 (100 input tokens at $3/M, 20 output at $6/M)
+    const h = harness({
+      moves: [callTools(read("a", "a.ts")), replyWith("never")],
+      executionBudget: 0.0004,
+    });
+
+    const failure = await runLoop(h.graph, startInput(), "t").catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(BudgetExceededError);
+    expect((failure as BudgetExceededError).usage).toHaveLength(1);
+    expect(h.effects).toEqual([]);
+    expect(h.modelCalls).toEqual([0]);
+  });
 });

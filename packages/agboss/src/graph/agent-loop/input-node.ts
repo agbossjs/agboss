@@ -103,6 +103,8 @@ export function makeInputNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       new HumanMessage({ content }),
     ];
     const { piiTokens, piiMasked } = guarded;
-    return { messages, usage: [...knowledge.records, ...guarded.usage], piiTokens, piiMasked };
+    const usage = [...knowledge.records, ...guarded.usage];
+    deps.budgets.tally(usage, state.flowPath); // counted at once (#338)
+    return { messages, usage, piiTokens, piiMasked };
   };
 }

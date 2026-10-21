@@ -1671,8 +1671,11 @@ const readiness: HealthReport = await app.checkReadiness();
   (`[budget.*-required]`, `[budget.duplicate-…]`). `maxSpend()` is read once per execution, at its
   start (its `ExecutionContext` readable), and kept for the whole execution; an exhausted budget
   rejects the execution before the first step (`onExecutionRejected`), and every model call's cost is
-  counted in all of them — the first exhausted stops it before the next step or call. Nothing is
-  reserved (a small overrun on a race, or by one call, is accepted). Hitting a limit **fails the
+  counted in all of them the moment it is made (#338: a live tally of the tree's pass, the ledger
+  still written once per superstep) — the first exhausted stops it before the next step or call and
+  aborts the calls in flight of its parallel branches (`executionContext.signal`; the launch fails
+  with `BudgetExceededError`). Nothing is reserved: a small overrun on a race between executions is
+  accepted, and a budget is exceeded by at most the calls in flight when it was exhausted. Hitting a limit **fails the
   execution** — unless an `.onError(…)` takes it — one class per limit, all `LimitExceededError`s:
   `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`,
   `BudgetExceededError` (`budget`, `scope`, `key`, `maxSpend`, `spent`: `tenant acme spent $40.05
@@ -1882,8 +1885,9 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
                     MCP, tracing) on the application's infrastructure
     infrastructure/ the contracts + in-memory defaults (ledger, records, paused executions, leases,
                     tree keys, rate-limit slots); sqlite/ — the connection and every Sqlite* one
-    budgets/        @Budget, BudgetScope, BudgetPeriod, BudgetHandler; the rules; at run time: maxSpend()
-                    once per execution, the checks and the counting (execution-budgets.ts)
+    budgets/        @Budget, BudgetScope, BudgetPeriod, BudgetHandler; the rules; at run time: the checks,
+                    the counting and the live tally (execution-budgets.ts; maxSpend() once per
+                    execution in run/run-budgets.ts)
     health/         @HealthCheck, HealthCheckResult, HealthReport + the rules (health-check.ts, in the
                     root import); the probes, loaded on first use (application-health.ts, #300)
     testing/        `agboss/testing`: testWith(App) (Vitest fixtures), scripted gateway, matchers, setup.ts
