@@ -78,7 +78,8 @@ function executionBudgetOf(
 
 /**
  * The assembly warnings of the workflow in its application (`agboss check`, errors under
- * `--strict`): its budgets on an in-memory ledger, its pauses in memory. None on its own.
+ * `--strict`): its budgets on an in-memory ledger, its pauses in memory, PII tokens on a key of the
+ * instance (no `pseudonymKey`, #120 S94). None on its own.
  */
 export function applicationWarningsOf(bundle: AssembledWorkflow): readonly AssemblyWarning[] {
   const declaration = applicationOfWorkflow(bundle.graph.type);
@@ -88,6 +89,7 @@ export function applicationWarningsOf(bundle: AssembledWorkflow): readonly Assem
     providers: options.providers ?? [],
     budgets: options.budgets ?? [],
     workflows: [bundle],
+    isPiiKeyOfInstance: options.pseudonymKey === undefined,
   });
 }
 

@@ -75,21 +75,44 @@ export const passesThrough = (error: unknown): boolean =>
   error instanceof LimitExceededError ||
   error instanceof ExecutionCancelledError;
 
-/** A guard tripped on the execution's input or output (#120 `GuardrailBlockedError`). */
+/** How sure a guardrail's model was, against its threshold. */
+export interface GuardrailHit {
+  /** P(yes) of its model: the text is what its question asks about. */
+  readonly probability: number;
+  readonly threshold: number;
+}
+
+/**
+ * A guardrail blocked (#120): its model was at least `threshold` sure (`key` names that setting,
+ * `guardrails.<name>.threshold`). The execution fails; `refusal` is the text to send instead.
+ */
 export class GuardrailBlockedError extends PaidStepError {
   static override readonly code: string = "guardrail.blocked";
   override name = "GuardrailBlockedError";
+  /** The guardrail's `name`. */
   readonly guard: string;
-  /** What the guard's `refusal` says — the text to send instead. */
+  /** What the guardrail's refusal says — the text to send instead. */
   readonly refusal: string;
+  /** The setting that decided: `guardrails.<name>.threshold`. */
+  readonly key: string;
+  readonly probability: number;
+  readonly threshold: number;
 
-  constructor(guard: string, refusal: string, usage: readonly UsageRecord[]) {
-    super(`Guard "${guard}" blocked the execution: ${refusal}`, usage, undefined, {
+  constructor(guard: string, refusal: string, usage: readonly UsageRecord[], hit: GuardrailHit) {
+    const key = `guardrails.${guard}.threshold`;
+    const { probability, threshold } = hit;
+    super(`Guardrail "${guard}" blocked the execution: ${refusal}`, usage, undefined, {
       guard,
       refusal,
+      key,
+      probability,
+      threshold,
     });
     this.guard = guard;
     this.refusal = refusal;
+    this.key = key;
+    this.probability = probability;
+    this.threshold = threshold;
   }
 }
 

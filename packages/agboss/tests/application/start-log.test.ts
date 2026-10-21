@@ -47,7 +47,7 @@ describe("#261 AC13: the start log", () => {
     ]);
     expect(
       logged.filter((entry) => entry.level === LogLevel.Warn).map((entry) => entry.code),
-    ).toEqual(["app.warning", "app.warning"]);
+    ).toEqual(["app.warning", "app.warning", "app.warning"]);
   });
 
   it("calls no maxSpend() and logs nothing per tenant", async () => {

@@ -87,8 +87,8 @@ export { testArbiter, type ArbiterRunner } from "./units/test-arbiter.js";
 export { testRag, type RagCallOptions, type RagRunner } from "./units/test-rag.js";
 export {
   testGuardrail,
-  type GuardrailDecision,
-  type GuardrailHookResult,
+  type GuardrailCallOptions,
+  type GuardrailCheck,
   type GuardrailRunner,
 } from "./units/test-guardrail.js";
 export {

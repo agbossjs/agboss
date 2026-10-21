@@ -28,6 +28,11 @@ export interface WarningSources {
   readonly providers: readonly Provider[];
   readonly budgets: readonly Provider[];
   readonly workflows: readonly AssembledWorkflow[];
+  /**
+   * Whether PII tokens are made with a key of the instance (#120 S94): an instance knows it from its
+   * start; `agboss check` from `@Application({ pseudonymKey })` not being set.
+   */
+  readonly isPiiKeyOfInstance?: boolean;
 }
 
 const IN_MEMORY_LEDGER: AssemblyWarning = {
@@ -40,6 +45,12 @@ const IN_MEMORY_PAUSES: AssemblyWarning = {
   code: "application.in-memory-pauses",
   message:
     "in-memory pauses: another application instance cannot resume them and they are lost on restart",
+};
+
+const PII_INSTANCE_KEY: AssemblyWarning = {
+  code: "application.pii-instance-key",
+  message:
+    "no @Application({ pseudonymKey }): sensitive fields and policies without their own key make PII tokens with a key of this instance — one value gets another token on each instance, so logs and traces compare across instances only with pseudonymKey",
 };
 
 /** Whether a tenant or an application budget is listed (counted across executions). */
@@ -55,7 +66,7 @@ const canPause = (workflows: readonly AssembledWorkflow[]): boolean =>
 
 /**
  * The assembly warnings (#261): tenant or application budgets on an in-memory ledger; possible
- * pauses with in-memory paused executions or checkpoints.
+ * pauses with in-memory paused executions or checkpoints; PII tokens on a key of the instance (#120).
  */
 export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWarning[] {
   const choices = implementationsOf(sources.providers);
@@ -68,6 +79,7 @@ export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWa
     (inMemory(PausedExecutionRepository) || inMemory(BaseCheckpointSaver))
       ? [IN_MEMORY_PAUSES]
       : []),
+    ...(sources.isPiiKeyOfInstance === true ? [PII_INSTANCE_KEY] : []),
   ];
 }
 

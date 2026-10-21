@@ -8,14 +8,22 @@ import { applicationPseudonymKeyOf, type ApplicationKeySource } from "../pii/app
 import { newPiiFieldKey } from "../app/pii-parts.js";
 import type { AssembledApplication } from "./assemble.js";
 
+/** The key an instance makes PII tokens with, and whether it is its own (S94). */
+export interface ApplicationPiiKey {
+  readonly key: string;
+  /** No `pseudonymKey` set and none needed: a key of this instance — `[application.pii-instance-key]`. */
+  readonly isInstanceKey: boolean;
+}
+
 /**
  * The application's PII key (#120): its `pseudonymKey` field, the test's key under `testWith`, else
- * a key of the instance — unless a policy needs the application's, which fails the start.
+ * a key of the instance (S94: the start goes on, with a warning) — unless a policy needs the
+ * application's, which fails the start.
  */
 export function applicationPiiKeyOf(
   assembled: AssembledApplication,
   source: Pick<ApplicationKeySource, "environment" | "env" | "fallback">,
-): string {
+): ApplicationPiiKey {
   const policies = [...new Set(assembled.workflows.flatMap((w) => w.pii?.classes ?? []))];
   const key = applicationPseudonymKeyOf({
     ...source,
@@ -23,7 +31,9 @@ export function applicationPiiKeyOf(
     field: assembled.pseudonymKey,
     policies,
   });
-  return key ?? newPiiFieldKey();
+  return key === undefined
+    ? { key: newPiiFieldKey(), isInstanceKey: true }
+    : { key, isInstanceKey: false };
 }
 
 /** The application's own log never calls a model: a model detection is not built for it. */

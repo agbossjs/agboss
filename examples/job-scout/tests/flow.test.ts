@@ -62,9 +62,15 @@ describe("job-scout on the path grammar (#272)", () => {
     );
   });
 
-  it("guards, the approval pause and compaction stay on", () => {
-    expect(workflow.config.guards?.input).toHaveProperty("prompt_injection");
-    expect(workflow.config.guards?.output).toHaveProperty("pii");
+  it("guardrails, the approval pause and compaction stay on", () => {
+    expect(workflow.guardrails?.byElement.get("main-router")).toMatchObject({
+      input: [{ name: "prompt-injection-guardrail" }],
+      output: [],
+    });
+    expect(workflow.guardrails?.byElement.get("scout-agent")).toMatchObject({
+      input: [{ name: "prompt-injection-guardrail" }],
+      output: [{ name: "personal-data-guardrail" }],
+    });
     expect(workflow.config.compaction).toMatchObject({ every: 5, keep: 10 });
   });
 });

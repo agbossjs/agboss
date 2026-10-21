@@ -55,7 +55,11 @@ export function compareBundleProfiles(bundle: AssembledWorkflow, names: readonly
 // Warning: (ae-forgotten-export) The symbol "RunDeps" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export const configSnapshot: <TName extends string>(deps: Pick<RunDeps<TName>, "config" | "prompts" | "compactionPrompt" | "graph" | "maxSteps" | "routers">) => unknown;
+export const configSnapshot: <TName extends string>(deps: Pick<RunDeps<TName>, "config" | "prompts" | "compactionPrompt" | "graph" | "maxSteps" | "routers"> & {
+    readonly guardrails?: {
+        readonly guardrails: readonly LoadedGuardrail[];
+    } | undefined;
+}) => unknown;
 
 // @public
 export const COST_CATEGORIES: readonly ["agents", "routing", "guards", "review", "tools", "compaction", "retrieval"];
@@ -540,6 +544,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/models/problems.ts:20:14 - (ae-undocumented) Missing documentation for "problemLine".
 // src/models/uses.ts:10:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/uses.ts:11:3 - (ae-undocumented) Missing documentation for "purpose".
+// src/run/versions.ts:55:29 - (ae-forgotten-export) The symbol "LoadedGuardrail" needs to be exported by the entry point internal.d.ts
 // src/tools/mcp/facade.ts:106:14 - (ae-undocumented) Missing documentation for "isMcpFacade".
 
 // (No @packageDocumentation comment for this package)

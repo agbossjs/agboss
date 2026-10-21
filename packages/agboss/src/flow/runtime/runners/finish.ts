@@ -2,7 +2,6 @@ import { validate } from "../../../dto/schema.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import { NodeKind } from "../../ast.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
-import { runGuards } from "../guards.js";
 import type { NodeRunner } from "../node-runner.js";
 import { OutputInvalidError } from "../errors.js";
 import { readInput, type ScopeView } from "../scope.js";
@@ -44,7 +43,7 @@ async function handled(
 
 /**
  * A workflow finish: its handler (`finish(input)`) or the pass-through, the result checked against
- * its `output` DTO, then the output guards. The output is the execution's `result.output`.
+ * its `output` DTO. The output is the execution's `result.output`.
  */
 export function finishRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRunner {
   const { declaration } = node;
@@ -56,7 +55,6 @@ export function finishRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
         ? passedThrough(node, state.scope)
         : await handled(deps.graph, node, deps, state);
     const checked = validate(output, built.value);
-    const usage = await runGuards(deps.guards.output, checked);
-    return { finish: { output: checked }, read: built.read, usage };
+    return { finish: { output: checked }, read: built.read };
   };
 }

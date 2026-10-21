@@ -48,6 +48,7 @@ export async function modelsFor(
   const uses = modelUsesOf(bundle.config, bundle.routers, {
     piiDetectors: bundle.pii?.detectors,
     interpreters: bundle.replyInterpreters,
+    guardrails: bundle.guardrails?.guardrails,
   });
   const unresolved = resolutionProblems(uses, directory);
   if (unresolved.length > 0) throw new ConfigurationError(unresolved);

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   Agent,
-  Guardrail,
+  InputGuardrail,
   Injectable,
+  OutputGuardrail,
   Tool,
   Workflow,
   Action,
@@ -108,15 +109,25 @@ class TailsObserver
   }
 }
 
-@Guardrail({ name: "SafeGuard" })
-class SafeGuard {
-  async beforeToolCall() {
-    /* noop */
-  }
-  async afterToolCall() {
-    /* noop */
-  }
-}
+@InputGuardrail({
+  name: "safe-input-guardrail",
+  description: "Checks what the agent reads",
+  prompt: "Is the message unsafe?",
+  model: "typesafe/jev-1.13",
+  threshold: 0.9,
+  refusal: "No.",
+})
+class SafeInputGuardrail {}
+
+@OutputGuardrail({
+  name: "safe-output-guardrail",
+  description: "Checks what the agent answers",
+  prompt: "Is the answer unsafe?",
+  model: "typesafe/jev-1.13",
+  threshold: 0.9,
+  refusal: "No.",
+})
+class SafeOutputGuardrail {}
 
 @Tool({
   name: "SafeTool",
@@ -135,8 +146,7 @@ class SafeTool {
   description: "test agent",
   model: "test",
   tools: [SafeTool],
-
-  guardrails: [SafeGuard],
+  guardrails: [SafeInputGuardrail, SafeOutputGuardrail],
 })
 class SafeAgent {}
 
@@ -192,28 +202,24 @@ describe("Observability Tails Hooks", () => {
 
     await execute(app, StartNode, { text: "hi" });
 
-    // Assert the exact flow
-    // Workflow -> Action -> Agent -> Guardrail -> Tool -> Guardrail -> Agent -> WorkflowEnd
+    // Workflow -> Action -> Agent -> input guardrail -> Tool -> output guardrail -> Agent end
 
     // Check Action
     expect(hookEvents).toContain("ActionStart:format-action");
     expect(hookEvents).toContain("ActionEnd:format-action");
 
     // Order assertions
-    const agentStart = hookEvents.indexOf("AgentStart:safe-agent");
-    const guardrailStart = hookEvents.indexOf("GuardrailStart:SafeGuard");
-    const toolStart = hookEvents.indexOf("ToolStart:SafeTool");
-    const toolEnd = hookEvents.indexOf("ToolEnd:SafeTool");
-    const guardrailEnd = hookEvents.indexOf("GuardrailEnd:SafeGuard");
-
-    const agentEnd = hookEvents.indexOf("AgentEnd:safe-agent");
-    expect(agentStart).toBeLessThan(guardrailStart);
-
-    expect(guardrailStart).toBeLessThan(toolStart);
-    expect(toolStart).toBeLessThan(toolEnd);
-    const guardrailEnd2 = hookEvents.lastIndexOf("GuardrailEnd:SafeGuard");
-    expect(toolEnd).toBeLessThan(guardrailEnd2);
-    expect(guardrailEnd2).toBeLessThan(agentEnd);
+    const agentEvents = hookEvents.filter((event) => /^(Agent|Guardrail|Tool)/.test(event));
+    expect(agentEvents).toEqual([
+      "AgentStart:safe-agent",
+      "GuardrailStart:safe-input-guardrail",
+      "GuardrailEnd:safe-input-guardrail",
+      "ToolStart:SafeTool",
+      "ToolEnd:SafeTool",
+      "GuardrailStart:safe-output-guardrail",
+      "GuardrailEnd:safe-output-guardrail",
+      "AgentEnd:safe-agent",
+    ]);
 
     await app.close();
   });

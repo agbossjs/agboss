@@ -32,6 +32,7 @@ import {
 } from "../../../src/budgets/budget.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { PromptInjectionGuardrail } from "../../fixtures/guardrails.js";
 
 /** What the lifecycle hooks of real components did, in order (the lifecycle tests read it). */
 export const lifecycle: string[] = [];
@@ -257,9 +258,7 @@ export class MainRouter {}
     tools: { maxToolCalls: 4 },
     history: { limit: 4 },
   },
-  guards: {
-    input: { prompt_injection: { threshold: 0.7, refusal: "I can't help with that." } },
-  },
+  guardrails: [PromptInjectionGuardrail],
   mcp: [NotesServer],
   providers: [OrderBook],
 })

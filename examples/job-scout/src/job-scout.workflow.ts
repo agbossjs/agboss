@@ -1,8 +1,10 @@
 import { Workflow, provide, route, start } from "agboss";
 import { WorkflowStartTextDto } from "agboss/dto";
 import { Reasoning } from "agboss/models";
-import { GUARDS, KIMI } from "./config/settings.js";
+import { KIMI } from "./config/settings.js";
 import { ProfilerAgent } from "./agents/profiler.agent.js";
+import { PersonalDataGuardrail } from "./guardrails/personal-data.guardrail.js";
+import { PromptInjectionGuardrail } from "./guardrails/prompt-injection.guardrail.js";
 import { ScoutAgent } from "./agents/scout.agent.js";
 import { ShortlistAgent } from "./agents/shortlist.agent.js";
 import { ChatWorkflowStart } from "./workflow-starts/chat.workflow-start.js";
@@ -40,7 +42,7 @@ import { JOB_SEARCH, jobSearchConfig } from "./config/search.config.js";
       ),
   ],
   defaults: { history: { limit: 8 } }, // the rest from the application's DEFAULTS (#261 cascade)
-  guards: GUARDS,
+  guardrails: [PromptInjectionGuardrail, PersonalDataGuardrail], // every agent's; the router: input only
   compaction: { every: 5, keep: 10, model: { model: KIMI, reasoning: Reasoning.off() } },
   mcp: [ShortlistServer],
   providers: [

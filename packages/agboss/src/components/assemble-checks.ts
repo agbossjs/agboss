@@ -2,7 +2,7 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { ComponentError, componentOf, requireComponent } from "./metadata.js";
 import { tokenName, type Class } from "./injection.js";
 import { isModelProviderClass } from "../models/model-provider.decorator.js";
-import type { AgentMeta, PolicyFields, WorkflowMeta } from "./meta-types.js";
+import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { ragMeta, searchToolName } from "./rag.js";
 import type { PromptLoader } from "./prompt-render.js";
 import { channelComponentClassesOf } from "./channel-parts.js";
@@ -50,15 +50,9 @@ export const toolNames = (tools: ToolClasses, rags: readonly Class[]): Map<Class
 const providerClassesOf = (bundle: WorkflowMeta): readonly Class[] =>
   (bundle.providers ?? []).flatMap((p) => ("provide" in p ? [] : [p]));
 
-/** The guardrail classes an agent or a tool declares. */
-const policyClassesOf = (fields: PolicyFields): readonly Class[] => [
-  ...(fields.guardrails ?? []),
-  ...(fields.overrideGuardrails ?? []),
-];
-
 /**
  * Every class the container creates for the workflow, for the dependency graph check; `created` =
- * its code nodes and its PII policies (#120).
+ * its code nodes, its PII policies and its guardrails (#120).
  */
 export const componentClassesOf = (
   bundle: WorkflowMeta,
@@ -70,14 +64,9 @@ export const componentClassesOf = (
 ): Class[] => [
   ...tools.local,
   ...tools.mcp,
-  ...tools.local.flatMap((cls) =>
-    policyClassesOf(requireComponent(cls, "tool", "workflowOf").meta),
-  ),
   ...rags,
   ...created,
-  ...(bundle.guardrails ?? []),
   ...channelComponentClassesOf(tools, modules),
-  ...agents.flatMap(policyClassesOf),
   ...agents.flatMap((a) => a.judges ?? []),
   ...providerClassesOf(bundle),
   ...agents.flatMap((a) => a.memoryStrategy ?? []),

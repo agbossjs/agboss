@@ -1,3 +1,4 @@
+import type { GuardrailSide } from "../components/policy-decorators.js";
 import type { BaseMessage, MessageContent } from "@langchain/core/messages";
 import type { JudgeVerdict } from "../components/judge-decorators.js";
 import type { CostReport } from "../finops/usage.js";
@@ -63,15 +64,24 @@ export interface ToolEndEvent extends NodeEvent {
   readonly update: string;
 }
 
-/** What a guardrail is shown: the judge point, its context and (on a channel) the decision. */
+/**
+ * What a guardrail checks (#120): its side, the agent or router whose model it guards, and the text
+ * — as that model reads it (masked by the element's PII policies), or the agent's answer.
+ */
 export interface GuardrailInput {
-  readonly point: string;
-  readonly ctx: unknown;
-  readonly decision?: unknown;
+  readonly side: GuardrailSide;
+  readonly element: string;
+  readonly text: string;
 }
 export type GuardrailStartEvent = StartEvent<GuardrailInput>;
-/** A guardrail ran: `update` is what it returned (a verdict, overrides, or nothing). */
-export type GuardrailEndEvent = EndEvent<unknown>;
+
+/** What a guardrail's model decided: P(yes) of its question, and whether that blocks. */
+export interface GuardrailOutcome {
+  readonly isBlocked: boolean;
+  readonly probability: number;
+}
+/** A guardrail decided: `update` is its outcome (a blocked one then fails the execution). */
+export type GuardrailEndEvent = EndEvent<GuardrailOutcome>;
 
 /** An `@Action` starts with its input fields (`Produced` values). */
 export type ActionStartEvent = StartEvent<Readonly<Record<string, unknown>>>;

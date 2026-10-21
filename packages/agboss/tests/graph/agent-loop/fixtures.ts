@@ -35,12 +35,15 @@ import { ConversationModel, repoTools, type ScriptedMove } from "./scripted.js";
 export * from "./scripted.js";
 import type { ToolCallApprovalDecisionDto } from "../../../src/dto/standard/framework.js";
 
+import type { RuntimeGuardrail } from "../../../src/guardrails/runtime.js";
+
 export interface HarnessOptions {
   readonly moves: readonly ScriptedMove[];
   /** The pause seam's approval (default on: write tools wait for a decision). */
   readonly approval?: boolean;
   readonly limits?: Partial<AgentLoopLimits>;
-  readonly guardrails?: any[];
+  /** Input guardrails on what the model reads (#120). */
+  readonly guardrails?: readonly RuntimeGuardrail[];
   readonly tools?: (log: (effect: string) => void) => AnyTool[];
   /** The execution budget of the loop's execution, USD (default: none). */
   readonly executionBudget?: number;
@@ -104,11 +107,7 @@ export function harness(
           : executionBudgetCheck(options.executionBudget),
       approval: options.approval === false ? undefined : pauseSeamApproval(),
       judges: noJudges,
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      guardrails: options.guardrails
-        ? { override: false, instances: options.guardrails }
-        : undefined,
+      ...(options.guardrails === undefined ? {} : { guardrails: options.guardrails }),
     },
     checkpointer,
   );

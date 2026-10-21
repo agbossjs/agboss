@@ -5,7 +5,12 @@
  */
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/application/create-app.js";
-import { Channel, Guardrail, Rag } from "../../src/components/decorators.js";
+import {
+  Channel,
+  InputGuardrail,
+  Rag,
+  type GuardrailRefusal,
+} from "../../src/components/decorators.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { PiiAction, PiiPolicy, type PiiMatch, type PiiPolicyHandler } from "../../src/pii/index.js";
 import { Judge, JudgeVerdict, type JudgeHandler } from "../../src/components/judge-decorators.js";
@@ -35,11 +40,18 @@ const MISSING = new InjectionToken<string>("MISSING");
 const notRegistered = (consumer: string): string =>
   `${consumer}: "MISSING" is not registered in @Workflow({ providers })`;
 
-@Guardrail({ name: "needs", deps: [MISSING] })
-class NeedsGuardrail implements Guardrail {
+@InputGuardrail({
+  name: "needs-guardrail",
+  description: "Needs a missing value",
+  prompt: "Is it bad?",
+  model: "typesafe/jev-1.13",
+  threshold: 0.9,
+  deps: [MISSING],
+})
+class NeedsGuardrail implements GuardrailRefusal {
   constructor(readonly value: string) {}
-  beforeAgentAnswer(): Promise<void> {
-    return Promise.resolve();
+  refusal(): string {
+    return this.value;
   }
 }
 

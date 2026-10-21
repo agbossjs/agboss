@@ -8,6 +8,9 @@ import { createLaunchDecider, type LaunchDecider } from "../flow/runtime/launch/
 import { createArbiterModel, type ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
 import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
 import type { ArbiterClass } from "../flow/ast.js";
+import type { Class } from "../components/injection.js";
+import type { AssembledGuardrails } from "../guardrails/assembly.js";
+import { guardrailRuntimeOf, type GuardrailRuntime } from "../guardrails/runtime.js";
 
 export { isDecisionModel };
 
@@ -61,6 +64,19 @@ export function flowArbiterModelFactory(
     made.set(arbiter, model);
     return model;
   };
+}
+
+/** A workflow's guardrails (#120), each on its own model; `resolve` gives a class's instance. */
+export function flowGuardrailRuntime(
+  assembled: AssembledGuardrails | undefined,
+  resolve: (cls: Class) => unknown,
+  deps: FlowRouterFactoryDeps,
+): GuardrailRuntime {
+  return guardrailRuntimeOf(assembled, {
+    resolve,
+    modelOf: (model) => routerModelOf(model, deps),
+    deciderDeps: { gateway: deps.gateway, chatDefaults: deps.chatDefaults },
+  });
 }
 
 /**

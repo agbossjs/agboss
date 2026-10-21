@@ -1,6 +1,5 @@
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { AgentPrompts, AgentsConfigOf } from "../config/types.js";
-import type { GuardSet } from "../guards/index.js";
 import type { ModelRegistry } from "../llm/registry.js";
 import type { BaseMemoryStrategy } from "../memory/types.js";
 import type { PauseSeam } from "../pause/index.js";
@@ -14,11 +13,10 @@ import type { ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
 import type { BranchErrors } from "../flow/runtime/launch/branch-end.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
 import type { ArbiterClass } from "../flow/ast.js";
-import type { Guardrail } from "../components/decorators.js";
 import type { PauseChannel } from "../flow/runtime/pause.js";
 import type { PiiRuntime } from "../pii/runtime.js";
+import type { GuardrailRuntime } from "../guardrails/runtime.js";
 import type { Class } from "../components/injection.js";
-import type { ResolvedPolicies } from "../workflow.js";
 import type { JudgeHandler } from "../components/judge-decorators.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { Clock } from "../infrastructure/clock.js";
@@ -31,7 +29,6 @@ export interface GraphDeps<TName extends string> {
   readonly prompts: AgentPrompts<TName>;
   /** Resolves a tool name from an agent's config to the tool. */
   readonly tools: (name: string) => AnyTool;
-  readonly guards: GuardSet;
   /** Agents' own memory strategies (`@Agent({ memoryStrategy })`); the rest use the built-in one. */
   readonly memory?: ReadonlyMap<string, BaseMemoryStrategy>;
   /** The agents' `@Judge`s by judge name, created by the container (models in `registry.judges`). */
@@ -48,9 +45,8 @@ export interface GraphDeps<TName extends string> {
   readonly channelOf?: (channelName: string) => PauseChannel;
   /** The PII policies at each agent's and router's model (#120); absent = none. */
   readonly pii?: PiiRuntime;
-  readonly toolGuardrails?: (tool: string) => ResolvedPolicies<Guardrail>;
-  readonly workflowGuardrails?: readonly Guardrail[];
-  readonly guardrails?: (agent: string) => ResolvedPolicies<Guardrail>;
+  /** The guardrails of each agent and model router (#120); absent = none. */
+  readonly guardrails?: GuardrailRuntime;
   /** The workflow's graph: its paths, analysed (`@Workflow({ flow })`). */
   readonly graph: RuntimeGraph;
   /** Steps per execution (`@Workflow({ maxSteps })`, default (agents + routers) × 3). */

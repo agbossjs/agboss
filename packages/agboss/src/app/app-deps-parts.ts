@@ -1,4 +1,3 @@
-import type { Guardrail } from "../components/decorators.js";
 import type { PauseChannel } from "../flow/runtime/pause.js";
 import type { Class } from "../components/injection.js";
 import { stopComponents } from "../components/container/lifecycle.js";
@@ -9,7 +8,7 @@ import type { McpConnections } from "../tools/index.js";
 import type { RunTracing } from "../tracing/index.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { GraphDeps } from "../graph/deps.js";
-import type { AssembledWorkflow, ResolvedPolicies, WorkflowServices } from "../workflow.js";
+import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 
 /**
  * The workflow's channel of a name (#267). The channels are created here, with the app (so their
@@ -26,25 +25,6 @@ export const channelLookup = (
     return channel;
   };
 };
-
-/** No policies of its own: the workflow's apply. */
-const noPolicies = (): ResolvedPolicies<never> => ({ override: false, instances: [], disable: [] });
-
-/** Per agent and per tool: its guardrails; the workflow's own. */
-export interface PolicyDeps {
-  readonly toolGuardrails: (tool: string) => ResolvedPolicies<Guardrail>;
-  readonly workflowGuardrails: readonly Guardrail[];
-  readonly guardrails: (agent: string) => ResolvedPolicies<Guardrail>;
-}
-
-export const policyDepsOf = (
-  bundle: AssembledWorkflow,
-  services: WorkflowServices,
-): PolicyDeps => ({
-  toolGuardrails: (tool: string) => bundle.toolGuardrails?.(services).get(tool) ?? noPolicies(),
-  workflowGuardrails: bundle.workflowGuardrails?.(services) ?? [],
-  guardrails: (agent: string) => bundle.guardrails?.(services).get(agent) ?? noPolicies(),
-});
 
 /** The container's instances: lookup by class. */
 export interface ContainerDeps {

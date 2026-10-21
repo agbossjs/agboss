@@ -92,7 +92,7 @@ export class ScriptedChatModel extends BaseChatModel {
     };
     const request = { ...chatRequestOf(messages), tools: this.tools };
     const call: ScriptedCall = reported(() =>
-      scriptedCall(script, request, undefined, this.site.input),
+      scriptedCall(script, request, undefined, this.site.input, key),
     );
     await waitBeforeAnswer(clock, call, options.signal);
     const site = { book, script, settings: this.settings, tools: this.tools };

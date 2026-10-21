@@ -1,6 +1,5 @@
 import type { AgentsConfig } from "../config/types.js";
 import type { RagMode } from "../rag/types.js";
-import type { Guardrail } from "./policy-decorators.js";
 import type { JudgeHandlerClass } from "./judge-decorators.js";
 import type { ToolHandlerClass } from "./decorators.js";
 import type { BaseMemoryStrategy } from "../memory/types.js";
@@ -14,11 +13,14 @@ export interface RagBinding {
   readonly mode: RagMode;
 }
 
-/** The guardrail settings an agent or a tool may declare (`@Agent`, `@Tool`). */
-export interface PolicyFields {
-  readonly guardrails?: readonly Class<Guardrail>[];
-  readonly overrideGuardrails?: readonly Class<Guardrail>[];
-  readonly disableGuardrails?: readonly Class<Guardrail>[];
+/**
+ * The guardrails an agent or a router adds to what it inherits (`@Application` → `@Workflow`), and
+ * the inherited ones it removes for its own model (#120): `@InputGuardrail` / `@OutputGuardrail`
+ * classes.
+ */
+export interface GuardrailFields {
+  readonly guardrails?: readonly Class[];
+  readonly excludeGuardrails?: readonly Class[];
 }
 
 /**
@@ -34,7 +36,7 @@ export interface PiiPolicyFields {
  * One agent's settings as assembly reads them (from its `@Agent` options, #272): its model, prompt,
  * tools (class references), knowledge bases, judges and memory.
  */
-export interface AgentMeta extends PolicyFields, PiiPolicyFields {
+export interface AgentMeta extends GuardrailFields, PiiPolicyFields {
   readonly name: string;
   readonly description: string;
   readonly prompt?: string;
@@ -79,9 +81,9 @@ export interface WorkflowMeta {
   /** The file the workflow is declared in. */
   readonly source?: string;
   readonly defaults: AgentsConfig["defaults"];
-  readonly guards?: AgentsConfig["guards"];
   readonly piiPolicies?: readonly Class[];
-  readonly guardrails?: readonly Class<Guardrail>[];
+  /** `@InputGuardrail` / `@OutputGuardrail` classes of every agent and router, over the application's. */
+  readonly guardrails?: readonly Class[];
   /**
    * Conversation compaction: the built-in memory strategy summarises every `every` turns with
    * `model` and agents see the latest `keep` summaries (off when absent: a sliding window only).

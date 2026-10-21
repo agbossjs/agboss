@@ -52,14 +52,15 @@ afterEach(() => {
 });
 
 describe("AC1 (#204): VCR — record once, replay in CI without a model", () => {
-  it("the cassette holds every model call: Jev decisions, guards and agent turns, by key", () => {
+  it("the cassette holds every model call: Jev decisions, guardrails and agent turns, by key", () => {
     const { interactions } = JSON.parse(readFileSync(file, "utf8")) as {
       interactions: { kind: string; key: string }[];
     };
 
     expect(interactions.map(({ kind, key }) => `${kind} ${key}`)).toEqual([
-      "decision router:guard:prompt_injection",
+      "decide guardrail:prompt-injection-guardrail",
       "decision router:main-router",
+      "decide guardrail:prompt-injection-guardrail",
       "chat agent:support-agent",
       "chat agent:support-agent",
     ]);
@@ -86,7 +87,7 @@ describe("AC1 (#204): VCR — record once, replay in CI without a model", () => 
     await expect(run).rejects.toMatchObject({
       code: "test.cassette-missing",
       message: expect.stringContaining(
-        "has no recording of this router:guard:prompt_injection request",
+        "has no recording of this guardrail:prompt-injection-guardrail request",
       ),
     });
   });

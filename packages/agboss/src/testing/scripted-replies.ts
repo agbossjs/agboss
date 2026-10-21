@@ -3,6 +3,7 @@ import { AIMessage } from "@langchain/core/messages";
 import type { ResolvedModelSettings } from "../config/types.js";
 import { answerToolName } from "../flow/analyse/rules/models.js";
 import { ARBITER_ANSWER_TOOL } from "../prompts/arbiter.js";
+import { GUARDRAIL_ANSWER_TOOL } from "../prompts/guardrail.js";
 import { LAUNCH_ANSWER_TOOL } from "../prompts/router-launch.js";
 import { TestFailure } from "./errors.js";
 import { nodeNameOf } from "./failure-facts.js";
@@ -12,7 +13,11 @@ import type { ScriptBook } from "./script-book.js";
 import type { ScriptedCall, TurnOf } from "./turns.js";
 
 /** The yes/no answer tools a chat model answers like a decision model (`decideWith`). */
-const YES_NO_TOOLS: ReadonlySet<string> = new Set([LAUNCH_ANSWER_TOOL, ARBITER_ANSWER_TOOL]);
+const YES_NO_TOOLS: ReadonlySet<string> = new Set([
+  LAUNCH_ANSWER_TOOL,
+  ARBITER_ANSWER_TOOL,
+  GUARDRAIL_ANSWER_TOOL,
+]);
 
 /** Output tokens that cost `usd` at the model's output price (no price or a free model → none). */
 const tokensFor = (usd: number, settings: ResolvedModelSettings): number =>
@@ -86,9 +91,10 @@ const yesNoToolOf = (site: ReplySite): ToolDefinition | undefined =>
   site.tools.find((candidate) => YES_NO_TOOLS.has(candidate.function.name));
 
 /**
- * A chat-model router before a launch (#273 S23) and a chat-model arbiter (#279) are scripted like a
- * decision model — `decideWith({ "refund-policy-agent": 1 })`, `decideWith({ counts: 0.9 })` — and
- * answer through their answer tool: P(yes) > 0.5 is `true`.
+ * A chat-model router before a launch (#273 S23), a chat-model arbiter (#279) and a chat-model
+ * guardrail (#120) are scripted like a decision model — `decideWith({ "refund-policy-agent": 1 })`,
+ * `decideWith({ counts: 0.9 })`, `decideWith({ blocks: 0.9 })` — and answer through their answer
+ * tool: P(yes) > 0.5 is `true`.
  */
 function decideReply(site: ReplySite, turn: TurnOf<"decide">): AIMessage {
   const tool = yesNoToolOf(site);

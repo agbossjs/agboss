@@ -243,41 +243,21 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
 // @public
 export function file(filePath: string): string;
 
-// @public (undocumented)
-export function Guardrail<const D extends readonly Token[] = []>(options: {
-    name: string;
-    deps?: D;
-}): <C extends new (...args: ResolvedAll<D>) => Guardrail>(value: C) => C;
-
-// @public (undocumented)
-export interface Guardrail {
-    // (undocumented)
-    afterToolCall?: (ctx: GuardrailContext) => Promise<void>;
-    // (undocumented)
-    beforeAgentAnswer?: (ctx: GuardrailContext) => Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "GuardrailContext" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    beforeToolCall?: (ctx: GuardrailContext) => Promise<void | {
-        overrideArguments?: any;
-    }>;
-    // (undocumented)
-    onChannelDecision?: (decision: any, ctx: GuardrailContext) => Promise<void | {
-        overrideArguments?: any;
-    }>;
-}
-
+// Warning: (ae-forgotten-export) The symbol "GuardrailOutcome" needs to be exported by the entry point index.d.ts
+//
 // @public
-export type GuardrailEndEvent = EndEvent<unknown>;
+export type GuardrailEndEvent = EndEvent<GuardrailOutcome>;
 
 // @public
 export interface GuardrailInput {
     // (undocumented)
-    readonly ctx: unknown;
+    readonly element: string;
+    // Warning: (ae-forgotten-export) The symbol "GuardrailSide" needs to be exported by the entry point index.d.ts
+    //
     // (undocumented)
-    readonly decision?: unknown;
+    readonly side: GuardrailSide;
     // (undocumented)
-    readonly point: string;
+    readonly text: string;
 }
 
 // @public (undocumented)
@@ -749,42 +729,36 @@ export class WorkflowSettings {
 // src/components/judge-decorators.ts:27:3 - (ae-undocumented) Missing documentation for "description".
 // src/components/judge-decorators.ts:111:3 - (ae-forgotten-export) The symbol "PassedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
 // src/components/judge-decorators.ts:116:3 - (ae-forgotten-export) The symbol "FailedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
-// src/components/metadata.ts:88:1 - (ae-undocumented) Missing documentation for "ComponentError".
-// src/components/metadata.ts:89:12 - (ae-undocumented) Missing documentation for "name".
-// src/components/policy-decorators.ts:24:1 - (ae-undocumented) Missing documentation for "Guardrail".
-// src/components/policy-decorators.ts:26:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
-// src/components/policy-decorators.ts:27:3 - (ae-undocumented) Missing documentation for "afterToolCall".
-// src/components/policy-decorators.ts:28:3 - (ae-undocumented) Missing documentation for "onChannelDecision".
-// src/components/policy-decorators.ts:34:3 - (ae-undocumented) Missing documentation for "beforeAgentAnswer".
-// src/components/policy-decorators.ts:37:1 - (ae-undocumented) Missing documentation for "Guardrail".
+// src/components/metadata.ts:89:1 - (ae-undocumented) Missing documentation for "ComponentError".
+// src/components/metadata.ts:90:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/prompt-problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts:14:3 - (ae-undocumented) Missing documentation for "message".
 // src/components/prompt-problems.ts:23:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/prompt-problems.ts:24:3 - (ae-undocumented) Missing documentation for "problems".
-// src/core/observability.ts:54:3 - (ae-undocumented) Missing documentation for "toolName".
-// src/core/observability.ts:55:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:56:3 - (ae-undocumented) Missing documentation for "arguments".
-// src/core/observability.ts:61:3 - (ae-undocumented) Missing documentation for "toolName".
-// src/core/observability.ts:62:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:63:3 - (ae-undocumented) Missing documentation for "update".
-// src/core/observability.ts:68:3 - (ae-undocumented) Missing documentation for "point".
-// src/core/observability.ts:69:3 - (ae-undocumented) Missing documentation for "ctx".
-// src/core/observability.ts:70:3 - (ae-undocumented) Missing documentation for "decision".
-// src/core/observability.ts:72:1 - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
-// src/core/observability.ts:88:3 - (ae-undocumented) Missing documentation for "modelName".
-// src/core/observability.ts:89:3 - (ae-undocumented) Missing documentation for "callerName".
-// src/core/observability.ts:90:3 - (ae-undocumented) Missing documentation for "rawPayload".
-// src/core/observability.ts:102:3 - (ae-undocumented) Missing documentation for "model".
-// src/core/observability.ts:103:3 - (ae-undocumented) Missing documentation for "callerName".
-// src/core/observability.ts:104:3 - (ae-undocumented) Missing documentation for "rawContent".
-// src/core/observability.ts:105:3 - (ae-undocumented) Missing documentation for "usage".
-// src/core/observability.ts:106:3 - (ae-undocumented) Missing documentation for "calculatedCost".
-// src/core/observability.ts:111:3 - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts:112:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:113:3 - (ae-undocumented) Missing documentation for "input".
-// src/core/observability.ts:118:3 - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts:119:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:120:3 - (ae-undocumented) Missing documentation for "update".
+// src/core/observability.ts:55:3 - (ae-undocumented) Missing documentation for "toolName".
+// src/core/observability.ts:56:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:57:3 - (ae-undocumented) Missing documentation for "arguments".
+// src/core/observability.ts:62:3 - (ae-undocumented) Missing documentation for "toolName".
+// src/core/observability.ts:63:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:64:3 - (ae-undocumented) Missing documentation for "update".
+// src/core/observability.ts:72:3 - (ae-undocumented) Missing documentation for "side".
+// src/core/observability.ts:73:3 - (ae-undocumented) Missing documentation for "element".
+// src/core/observability.ts:74:3 - (ae-undocumented) Missing documentation for "text".
+// src/core/observability.ts:76:1 - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
+// src/core/observability.ts:98:3 - (ae-undocumented) Missing documentation for "modelName".
+// src/core/observability.ts:99:3 - (ae-undocumented) Missing documentation for "callerName".
+// src/core/observability.ts:100:3 - (ae-undocumented) Missing documentation for "rawPayload".
+// src/core/observability.ts:112:3 - (ae-undocumented) Missing documentation for "model".
+// src/core/observability.ts:113:3 - (ae-undocumented) Missing documentation for "callerName".
+// src/core/observability.ts:114:3 - (ae-undocumented) Missing documentation for "rawContent".
+// src/core/observability.ts:115:3 - (ae-undocumented) Missing documentation for "usage".
+// src/core/observability.ts:116:3 - (ae-undocumented) Missing documentation for "calculatedCost".
+// src/core/observability.ts:121:3 - (ae-undocumented) Missing documentation for "name".
+// src/core/observability.ts:122:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:123:3 - (ae-undocumented) Missing documentation for "input".
+// src/core/observability.ts:128:3 - (ae-undocumented) Missing documentation for "name".
+// src/core/observability.ts:129:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:130:3 - (ae-undocumented) Missing documentation for "update".
 // src/core/observer-hooks.ts:42:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
 // src/core/observer-hooks.ts:62:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
 // src/core/observer-hooks.ts:70:3 - (ae-undocumented) Missing documentation for "onExecutionError".
@@ -851,7 +825,7 @@ export class WorkflowSettings {
 // src/core/observer-manager.ts:149:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
 // src/core/observer-manager.ts:152:3 - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
 // src/core/observer-manager.ts:155:3 - (ae-undocumented) Missing documentation for "onQuorumDecided".
-// src/flow/decorators/workflow.ts:130:1 - (ae-undocumented) Missing documentation for "Workflow".
+// src/flow/decorators/workflow.ts:117:1 - (ae-undocumented) Missing documentation for "Workflow".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
 // src/graph/settings.ts:36:3 - (ae-undocumented) Missing documentation for "settings".

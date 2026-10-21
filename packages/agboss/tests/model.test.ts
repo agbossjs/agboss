@@ -31,16 +31,32 @@ describe("createAppDeps", () => {
   });
 });
 
-/** Decides by router: guards pass, "main-router" sends the message to the researcher. */
+/** "main-router" sends the message to the researcher. */
 function scriptedDecisions(): ModelGateway["routeTo"] {
-  return ({ router }) => {
-    const next = router.startsWith("guard:") ? "pass" : "researcher-agent";
-    return Promise.resolve({
+  return () =>
+    Promise.resolve({
       kind: "decided",
-      decision: { next, reason: "scripted", confidence: 1 },
+      decision: { next: "researcher-agent", reason: "scripted", confidence: 1 },
     });
-  };
 }
+
+/** Every guardrail's decision (#120): no, it does not block. */
+const guardrailsPass: NonNullable<ModelGateway["decide"]> = (spec) =>
+  Promise.resolve({
+    answers: Object.fromEntries(
+      Object.keys(spec.request.questions).map((id) => [id, { type: "noul", noul: 0 }] as const),
+    ),
+    usage: {
+      caller: spec.caller,
+      model: spec.model,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      costUsd: 0,
+      costSource: "api",
+    },
+  });
 
 describe("AC12: createAppDeps on an injected model gateway", () => {
   it("AC12: needs no OpenRouter credentials, and every model call of a run goes through the gateway", async () => {
@@ -48,23 +64,26 @@ describe("AC12: createAppDeps on an injected model gateway", () => {
       () => new FakeListChatModel({ responses: ["Found it."] }),
     );
     const routeTo = vi.fn(scriptedDecisions());
+    const decide = vi.fn(guardrailsPass);
     const env = {
       TERN_DB: ":memory:",
       SPEND_LEDGER_DIR: mkdtempSync(join(tmpdir(), "agboss-135-")),
     };
     const app = await createApp(TestApplication, {
       processEnv: env,
-      gateway: { chatModel, routeTo },
+      gateway: { chatModel, routeTo, decide },
     });
 
     const result = await execute(app, TestChat, { text: "What time is it?" });
     await app.close();
 
     expect(result.status).toBe(ExecutionStatus.Finished);
-    expect(routeTo.mock.calls.map(([spec]) => spec.router)).toEqual([
-      "guard:prompt_injection",
-      "main-router",
-      "guard:pii",
+    expect(routeTo.mock.calls.map(([spec]) => spec.router)).toEqual(["main-router"]);
+    // the input guardrail before each model (the router's, the agent's), the output one after it
+    expect(decide.mock.calls.map(([spec]) => spec.caller)).toEqual([
+      "guardrail:prompt-injection-guardrail",
+      "guardrail:prompt-injection-guardrail",
+      "guardrail:personal-data-guardrail",
     ]);
     expect(chatModel).toHaveBeenCalledWith(
       expect.objectContaining({ user: { kind: "agent", agent: "researcher-agent" } }),

@@ -5,6 +5,7 @@ import type { ComponentScript } from "./component-script.js";
 import type { RecordedInput } from "./input-match.js";
 import type { ModelRequest } from "./model-script.js";
 import type { ScriptedCall } from "./turns.js";
+import { GUARDRAIL_QUESTION } from "../prompts/guardrail.js";
 
 /**
  * One scripted model call (#262): the request recorded, the turn chosen by the step's input (an
@@ -19,18 +20,27 @@ const stepInputOf = (
 ): RecordedInput | undefined =>
   script.bindsInput ? (currentFrame()?.services.input?.() ?? given) : undefined;
 
+/** A guardrail nobody scripted (#120) answers no: content checks are not what most tests are about. */
+const GUARDRAIL_PASSES: ScriptedCall = {
+  turn: { kind: "decide", answers: { [GUARDRAIL_QUESTION]: 0 }, details: {} },
+  delay: 0,
+};
+
 /**
  * The call's turn: recorded, chosen; throws what the script says (no script, exhausted, …).
- * `input`: what a call outside a step reads (a reply interpreter's `{ ask, reply }`).
+ * `input`: what a call outside a step reads (a reply interpreter's `{ ask, reply }`). An
+ * unscripted guardrail (`guardrail:<name>`) passes.
  */
 export function scriptedCall(
   script: ComponentScript,
   request: ModelRequest,
   checkRequest?: () => void,
   input?: RecordedInput,
+  key?: string,
 ): ScriptedCall {
   script.requests.push(request);
   checkRequest?.();
+  if (!script.isScripted && key?.startsWith("guardrail:") === true) return GUARDRAIL_PASSES;
   return script.next(request, stepInputOf(script, input));
 }
 

@@ -2,8 +2,6 @@ import { Send } from "@langchain/langgraph";
 import { unknownToolMessage } from "../../prompts/agents.js";
 import type { AsyncNode } from "../types.js";
 import { callsOf, toolNamed, type AgentLoopDeps, type ToolCallRequest } from "./deps.js";
-import { JudgePoint, visitToolThenAgent, mergePolicies } from "./judge-points.js";
-import { extractRunContext } from "../../core/run-context.js";
 import {
   LOOP_NODE,
   type AgentLoopStateType,
@@ -62,43 +60,19 @@ export function routeToActions(
 }
 
 /**
- * The move boundary: the move joins the conversation; for each call, in order, the tool's judges
- * and the agent's judges look at it (`beforeToolCall`). A call to a tool the agent does not have
- * is answered right here, as a finished call with a tool error.
+ * The move boundary: the move joins the conversation. A call to a tool the agent does not have is
+ * answered right here, as a finished call with a tool error.
  */
 export function makeBoundaryNode(
   deps: AgentLoopDeps,
 ): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
-  return async (state, config) => {
+  return (state) => {
     const results: Record<string, StoredToolCall> = {};
     for (const call of callsOf(state.move)) {
-      if (toolNamed(deps.agent, call.tool) === undefined) {
-        const content = unknownToolMessage(call.tool);
-        results[call.callId] = { callId: call.callId, tool: call.tool, content };
-        continue;
-      }
-
-      const runCtx = extractRunContext(config, state.runId);
-      const ctx = {
-        agent: deps.agent.name,
-        call,
-        runId: runCtx.runId,
-      };
-
-      const combinedGuardrails = mergePolicies(
-        deps.workflowGuardrails,
-        deps.guardrails,
-        deps.toolGuardrails?.(call.tool),
-      );
-
-      await visitToolThenAgent(
-        combinedGuardrails,
-        JudgePoint.BeforeToolCall,
-        ctx,
-        undefined,
-        deps.observer,
-      );
+      if (toolNamed(deps.agent, call.tool) !== undefined) continue;
+      const content = unknownToolMessage(call.tool);
+      results[call.callId] = { callId: call.callId, tool: call.tool, content };
     }
-    return { messages: state.move === null ? [] : [state.move], results };
+    return Promise.resolve({ messages: state.move === null ? [] : [state.move], results });
   };
 }

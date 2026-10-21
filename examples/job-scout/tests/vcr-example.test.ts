@@ -7,8 +7,8 @@ import { ChatWorkflowStart } from "../src/workflow-starts/chat.workflow-start.js
 import { ChatWorkflowFinish } from "../src/workflow-finishes/chat.workflow-finish.js";
 
 /**
- * Replays tests/cassettes/job-scout-brief.cassette.json: every model call of the run (guards, the
- * Jev main router, the profiler) answers from the cassette — no script, no key, no network.
+ * Replays tests/cassettes/job-scout-brief.cassette.json: every model call of the run (the guardrails,
+ * the Jev main router, the profiler) answers from the cassette — no script, no key, no network.
  * Re-record after a prompt, tool or flow change: `mode: VCRMode.RECORD` with a model key.
  */
 const test = testWith(JobScoutApplication, {

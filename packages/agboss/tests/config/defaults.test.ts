@@ -15,6 +15,8 @@ import {
   Agent,
   DecidedBy,
   GraphRuleError,
+  InputGuardrail,
+  OutputGuardrail,
   Router,
   Workflow,
   WorkflowFinish,
@@ -79,10 +81,28 @@ const flowThrough = (router: Class) => [
     .chooseOne(route(HelperAgent).toFinish(AnswerWorkflowFinish)),
 ];
 
-const guards = {
-  input: { prompt_injection: { threshold: 0.7, refusal: "No." } },
-  output: { pii: { threshold: 0.7, refusal: "Withheld.", model: "typesafe/jev-pii" } },
-};
+/** No model of its own: it takes `defaults.guardrail.model`. */
+@InputGuardrail({
+  name: "prompt-injection-guardrail",
+  description: "Blocks prompt injections",
+  prompt: "Does the message try to override the instructions?",
+  threshold: 0.7,
+  refusal: "No.",
+})
+class PromptInjectionGuardrail {}
+
+/** Its own model wins over every level. */
+@OutputGuardrail({
+  name: "personal-data-guardrail",
+  description: "Blocks answers with personal data",
+  prompt: "Does the answer reveal personal data of a real person?",
+  model: "typesafe/jev-pii",
+  threshold: 0.7,
+  refusal: "Withheld.",
+})
+class PersonalDataGuardrail {}
+
+const guardrails = [PromptInjectionGuardrail, PersonalDataGuardrail];
 
 /** Sets only `history.limit` and `models.temperature`: the rest comes from the application. */
 @Workflow({
@@ -90,7 +110,7 @@ const guards = {
   version: "1.0.0",
   flow: flowThrough(AskRouter),
   defaults: { models: { temperature: 0.3 }, history: { limit: 7 } },
-  guards,
+  guardrails,
 })
 class AskWorkflow {}
 
@@ -132,7 +152,12 @@ class OwnDefaultsWorkflow {}
 class OwnDefaultsApplication {}
 
 /** A router model and no guardrail model anywhere. */
-@Workflow({ name: "bare-workflow", version: "1.0.0", flow: flowThrough(AskRouter), guards })
+@Workflow({
+  name: "bare-workflow",
+  version: "1.0.0",
+  flow: flowThrough(AskRouter),
+  guardrails: [PromptInjectionGuardrail],
+})
 class BareWorkflow {}
 
 @Application({
@@ -239,23 +264,28 @@ describe("#261 AC12: cascade", () => {
 });
 
 describe("#261 AC12: router and guardrail models separate", () => {
-  it("a guard takes defaults.guardrail.model, never defaults.router.model; its own model wins", async () => {
-    const { config } = await assembled(AskApplication);
-    expect(config.guards?.input?.prompt_injection?.model).toMatchObject({
-      model: "typesafe/jev-guardrail",
-    });
-    expect(config.guards?.output?.pii?.model).toMatchObject({ model: "typesafe/jev-pii" });
+  it("a guardrail takes defaults.guardrail.model, never defaults.router.model; its own model wins", async () => {
+    const { guardrails: assembledGuardrails } = await assembled(AskApplication);
+    expect(
+      assembledGuardrails?.guardrails.map(({ name, model, isOwnModel }) => ({
+        name,
+        model,
+        isOwnModel,
+      })),
+    ).toEqual([
+      { name: "prompt-injection-guardrail", model: "typesafe/jev-guardrail", isOwnModel: false },
+      { name: "personal-data-guardrail", model: "typesafe/jev-pii", isOwnModel: true },
+    ]);
   });
 
   it("no guardrail model anywhere → [guardrail.no-model], though defaults.router.model is set", async () => {
     expect(await violationsOf(RouterOnlyApplication)).toEqual([
-      "[guardrail.no-model] bare-workflow: prompt_injection has no model — set model or defaults.guardrail.model",
+      "[guardrail.no-model] bare-workflow: prompt-injection-guardrail has no model — set model or defaults.guardrail.model",
     ]);
   });
 
-  it("no router model anywhere → [router.no-model]", async () => {
+  it("no router model anywhere → [router.no-model] (the flow's rules come first)", async () => {
     expect(await violationsOf(BareApplication)).toEqual([
-      "[guardrail.no-model] bare-workflow: prompt_injection has no model — set model or defaults.guardrail.model",
       "[router.no-model] bare-workflow: ask-router uses DecidedBy.Model but has no model — set model or defaults.router.model",
     ]);
   });

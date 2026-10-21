@@ -8,7 +8,6 @@ import {
   ROUTER_FACTORY,
   provide,
   ComponentError,
-  Guardrail,
   Tool,
 } from "../../src/index.js";
 import { workflowOf, toolOf } from "../../src/testing/index.js";
@@ -82,115 +81,7 @@ describe("components — assembly", () => {
   });
 });
 
-import { Person, Greeting } from "./fixture/components.js";
 import { Reasoning, ReasoningEffort } from "../../src/models/index.js";
-
-describe("components — policy overrides and disables", () => {
-  // eslint-disable-next-line @typescript-eslint/no-extraneous-class
-  class WGuard {}
-  // eslint-disable-next-line @typescript-eslint/no-extraneous-class
-  class AGuard {}
-  // eslint-disable-next-line @typescript-eslint/no-extraneous-class
-  class TGuard {}
-  // eslint-disable-next-line @typescript-eslint/no-extraneous-class
-  class WDisable {}
-
-  // eslint-disable-next-line complexity
-  it("Agent inherits workflow guardrails by default, or overrides them", async () => {
-    @Agent({
-      name: "override-agent",
-      description: "d",
-      model: "test/alpha",
-      price: testConfig.agents.alpha.price,
-      tools: [],
-      prompt: "hi",
-      overrideGuardrails: [AGuard],
-      disableGuardrails: [WDisable],
-    })
-    class OverrideAgent {}
-
-    @Agent({
-      name: "normal-agent",
-      description: "d",
-      model: "test/alpha",
-      price: testConfig.agents.alpha.price,
-      tools: [],
-      prompt: "hi",
-      guardrails: [AGuard],
-    })
-    class NormalAgent {}
-
-    @Workflow({
-      ...baseBundle,
-      name: "w-workflow",
-      flow: starOf(OverrideAgent, NormalAgent),
-      guardrails: [WGuard, WDisable],
-    })
-    class W {}
-
-    const bundle = await workflowOf(W);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    const mockServices = { resolve: (cls: any) => new cls(), router: () => ({}) as any };
-    const agentMap = bundle.guardrails?.(mockServices);
-
-    const over = agentMap?.get("override-agent");
-    expect(over?.override).toBe(true);
-    expect(over?.instances.length).toBe(1);
-    expect(over?.instances[0]).toBeInstanceOf(AGuard);
-    expect(over?.disable).toEqual([WDisable]);
-
-    const norm = agentMap?.get("normal-agent");
-    expect(norm?.override).toBe(false);
-    expect(norm?.instances.length).toBe(1);
-    expect(norm?.instances[0]).toBeInstanceOf(AGuard);
-    expect(norm?.disable).toEqual([]);
-  });
-
-  it("Tool inherits workflow and agent guardrails by default, or overrides them", async () => {
-    @Tool({
-      name: "t1",
-      description: "d",
-      input: Person,
-      output: Greeting,
-      overrideGuardrails: [TGuard],
-      disableGuardrails: [WDisable],
-    })
-    class T1 {
-      async run(input: any): Promise<any> {
-        return { kind: "ok", value: {} as any };
-      }
-    }
-
-    @Agent({
-      name: "a1-agent",
-      description: "d",
-      model: "test/alpha",
-      price: testConfig.agents.alpha.price,
-      tools: [T1],
-      prompt: "hi",
-    })
-    class A1 {}
-
-    @Workflow({
-      ...baseBundle,
-      name: "w2-workflow",
-      flow: starOf(A1),
-      guardrails: [WGuard, WDisable],
-    })
-    class W2 {}
-
-    const bundle = await workflowOf(W2);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    const mockServices = { resolve: (cls: any) => new cls(), router: () => ({}) as any };
-    const toolMap = bundle.toolGuardrails?.(mockServices);
-
-    const tGuard = toolMap?.get("t1");
-    expect(tGuard?.override).toBe(true);
-    expect(tGuard?.instances.length).toBe(1);
-    expect(tGuard?.instances[0]).toBeInstanceOf(TGuard);
-    expect(tGuard?.disable).toEqual([WDisable]);
-  });
-});
 
 describe("components — errors at assembly", () => {
   it("AC3: unknown prompt variables fail at assembly", async () => {

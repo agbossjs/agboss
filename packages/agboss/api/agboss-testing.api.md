@@ -203,26 +203,23 @@ export interface FailureTurn {
 // @public
 export const failWith: (failure: ModelFailure) => FailureTurn;
 
-// Warning: (ae-forgotten-export) The symbol "Guardrail" needs to be exported by the entry point index.d.ts
-//
 // @public
-export type GuardrailDecision = Parameters<NonNullable<Guardrail["onChannelDecision"]>>[0];
+export interface GuardrailCallOptions extends UnitCallOptions {
+    readonly element?: string;
+}
 
 // @public
-export type GuardrailHookResult<THook extends keyof Guardrail> = Awaited<ReturnType<NonNullable<Guardrail[THook]>>>;
+export interface GuardrailCheck {
+    // (undocumented)
+    readonly isBlocked: boolean;
+    readonly probability: number;
+    readonly refusal?: string;
+}
 
 // @public
 export interface GuardrailRunner extends UnitClock {
     // (undocumented)
-    afterToolCall(context: GuardrailContext, options?: UnitCallOptions): Promise<UnitRun<GuardrailHookResult<"afterToolCall">>>;
-    // (undocumented)
-    beforeAgentAnswer(context: GuardrailContext, options?: UnitCallOptions): Promise<UnitRun<GuardrailHookResult<"beforeAgentAnswer">>>;
-    // Warning: (ae-forgotten-export) The symbol "GuardrailContext" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    beforeToolCall(context: GuardrailContext, options?: UnitCallOptions): Promise<UnitRun<GuardrailHookResult<"beforeToolCall">>>;
-    // (undocumented)
-    onChannelDecision(decision: GuardrailDecision, context: GuardrailContext, options?: UnitCallOptions): Promise<UnitRun<GuardrailHookResult<"onChannelDecision">>>;
+    (text: string, options?: GuardrailCallOptions): Promise<UnitRun<GuardrailCheck>>;
 }
 
 // Warning: (ae-forgotten-export) The symbol "IsKnown" needs to be exported by the entry point index.d.ts
@@ -547,7 +544,7 @@ export class TestFailure extends Error {
 export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.cassette-missing" | "test.no-matching-script" | "test.unused-script" | "test.unreachable-step";
 
 // @public
-export function testGuardrail<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(guardrail: Class<Guardrail>, options?: UnitOptions<TExecution, TTenant>): GuardrailRunner;
+export function testGuardrail<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(guardrail: Class, options?: UnitModelOptions<unknown, TExecution, TTenant>): GuardrailRunner;
 
 // Warning: (ae-forgotten-export) The symbol "JudgeHandlerClass" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "JudgeReplyOf" needs to be exported by the entry point index.d.ts
@@ -896,10 +893,8 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/override.ts:11:3 - (ae-undocumented) Missing documentation for "replacement".
 // src/testing/units/test-action.ts:24:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-arbiter.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/test-guardrail.ts:23:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
-// src/testing/units/test-guardrail.ts:27:3 - (ae-undocumented) Missing documentation for "afterToolCall".
-// src/testing/units/test-guardrail.ts:31:3 - (ae-undocumented) Missing documentation for "beforeAgentAnswer".
-// src/testing/units/test-guardrail.ts:35:3 - (ae-undocumented) Missing documentation for "onChannelDecision".
+// src/testing/units/test-guardrail.ts:20:3 - (ae-undocumented) Missing documentation for "isBlocked".
+// src/testing/units/test-guardrail.ts:35:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-judge.ts:27:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-rag.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-router.ts:22:3 - (ae-undocumented) Missing documentation for "__call".

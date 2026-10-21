@@ -3,7 +3,6 @@ import type {
   AgentsConfig,
   ChatDefaults,
   CompactionSettings,
-  GuardSettings,
   ModelSettings,
   RouterModel,
 } from "../config/types.js";
@@ -11,8 +10,6 @@ import { NodeKind } from "../flow/ast.js";
 import { declarationOf, type WorkflowDeclaration } from "../flow/decorators/declaration.js";
 import type {
   CompactionOptions,
-  GuardOptions,
-  GuardsOptions,
   ModelDefaults,
   ModelOptions,
   WorkflowDefaults,
@@ -62,39 +59,6 @@ const compactionOf = (options: CompactionOptions): CompactionSettings => ({
   model: modelSettingsOf(options.model),
 });
 
-/** A guard's settings: its own model, else `defaults.guardrail.model` (#261 — never the router's). */
-const guardOf = (options: GuardOptions, guardrailModel: string | undefined): GuardSettings => {
-  const model = options.model ?? guardrailModel;
-  return withoutUndefined({
-    threshold: options.threshold,
-    refusal: options.refusal,
-    model: model === undefined ? undefined : routerModelOfId(model),
-  });
-};
-
-const guardSideOf = (
-  side: Readonly<Record<string, GuardOptions>> | undefined,
-  guardrailModel: string | undefined,
-): Record<string, GuardSettings> | undefined =>
-  side === undefined
-    ? undefined
-    : Object.fromEntries(
-        Object.entries(side).map(([name, guard]) => [name, guardOf(guard, guardrailModel)]),
-      );
-
-/** The workflow's guards with the guardrail model of these defaults. */
-export function guardsOf(
-  guards: GuardsOptions | undefined,
-  defaults: WorkflowDefaults | undefined,
-): WorkflowMeta["guards"] {
-  if (guards === undefined) return undefined;
-  const model = defaults?.guardrail?.model;
-  return withoutUndefined({
-    input: guardSideOf(guards.input, model),
-    output: guardSideOf(guards.output, model),
-  });
-}
-
 export function configDefaultsOf(defaults: WorkflowDefaults | undefined): AgentsConfig["defaults"] {
   return withoutUndefined({
     models: chatDefaultsOf(defaults?.models),
@@ -127,7 +91,6 @@ export function moduleOf(workflow: Class): WorkflowMeta {
     version: options.version,
     source,
     defaults: configDefaultsOf(options.defaults),
-    guards: guardsOf(options.guards, options.defaults),
     piiPolicies: options.piiPolicies,
     guardrails: options.guardrails,
     compaction: options.compaction === undefined ? undefined : compactionOf(options.compaction),

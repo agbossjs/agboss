@@ -4,6 +4,11 @@ import { gatherKnowledge } from "../nodes/knowledge.js";
 import type { ApprovalRecord } from "../../pause/index.js";
 import type { AsyncNode } from "../types.js";
 import type { AgentLoopDeps } from "./deps.js";
+import { GuardrailSide } from "../../components/policy-decorators.js";
+import { runGuardrails } from "../../guardrails/runtime.js";
+import { maskCacheKey, maskedModelText } from "../../pii/model-boundary.js";
+import type { PiiTokenMap } from "../../pii/tokens.js";
+import type { UsageRecord } from "../../finops/usage.js";
 import { memoryViewOf } from "./memory-view.js";
 import type { AgentLoopStateType, AgentLoopUpdate } from "./state.js";
 
@@ -32,10 +37,45 @@ export function formatDecisionsForAgent(
 const joined = (parts: readonly string[]): string => parts.filter((p) => p !== "").join("\n\n");
 
 /**
+ * The agent's input guardrails (#120) on the input message as its model reads it — masked by its PII
+ * policies (a block rule refuses here, as the model call would) — the masked form kept in the
+ * loop's `piiMasked`, so the model's request is not searched twice.
+ */
+/** What the input guardrails add to the input node's update. */
+interface GuardedInput {
+  readonly usage: readonly UsageRecord[];
+  readonly piiTokens: PiiTokenMap;
+  readonly piiMasked: Readonly<Record<string, string>>;
+}
+
+const NOTHING_GUARDED: GuardedInput = { usage: [], piiTokens: {}, piiMasked: {} };
+
+async function guardedInput(
+  deps: AgentLoopDeps,
+  state: AgentLoopStateType,
+  input: string,
+): Promise<GuardedInput> {
+  const guardrails = deps.guardrails ?? [];
+  if (guardrails.length === 0) return NOTHING_GUARDED;
+  const set = deps.pii?.withValues(state.piiValues);
+  const masked =
+    set === undefined
+      ? { text: input, tokens: {}, usage: [] }
+      : await maskedModelText(set, input, state.piiTokens);
+  const checked = { text: masked.text, element: deps.agent.name, side: GuardrailSide.Input };
+  const usage = await runGuardrails(guardrails, checked, deps.observer);
+  return {
+    usage: [...masked.usage, ...usage],
+    piiTokens: masked.tokens,
+    piiMasked: set === undefined ? {} : { [maskCacheKey(input, true)]: masked.text },
+  };
+}
+
+/**
  * The agent's request after its static part (#270 Q51), once per call of the agent (a node of its
- * own, so a resume never retrieves or pays for it again): the thread's memory as one message (it
- * changes rarely — a cache marker can follow it), then the input message with context-mode
- * knowledge and the decisions on its own calls in this execution.
+ * own, so a resume never retrieves, checks or pays for it again): the thread's memory as one message
+ * (it changes rarely — a cache marker can follow it), then the input message with context-mode
+ * knowledge and the decisions on its own calls in this execution — its input guardrails first.
  */
 export function makeInputNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
   const { agent } = deps;
@@ -56,10 +96,13 @@ export function makeInputNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       knowledge.block.trim(),
       formatDecisionsForAgent(state.approvals, agent.name),
     ]);
+    const content = input === "" ? "(no input)" : input;
+    const guarded = await guardedInput(deps, state, content);
     const messages = [
       ...(memory === "" ? [] : [new HumanMessage({ content: memory })]),
-      new HumanMessage({ content: input === "" ? "(no input)" : input }),
+      new HumanMessage({ content }),
     ];
-    return { messages, usage: knowledge.records };
+    const { piiTokens, piiMasked } = guarded;
+    return { messages, usage: [...knowledge.records, ...guarded.usage], piiTokens, piiMasked };
   };
 }

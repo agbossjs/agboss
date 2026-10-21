@@ -125,7 +125,7 @@ Model providers are infrastructure too (#266): `@ModelProvider` classes listed i
 `@Application({ providers })` — none listed → the built-in `OpenRouterModelProvider` (chat) and
 `DecisionsModelProvider` (Jev and the other decision models); one listed → the list is complete,
 the built-ins are not added next to it. A workflow and its components only name models; every model
-of the application (agents, model routers, the default router, guards, compaction, judges) resolves
+of the application (agents, model routers, the default router, guardrails, compaction, judges) resolves
 to exactly one listed provider by `serves` at assembly — none → `[model.unserved]`, two →
 `[model.ambiguous-provider]` (one model through two providers = two model strings, each in one
 `serves`). `agboss describe` prints `model: … → <provider>` for each, `agboss check --models` checks
@@ -427,7 +427,8 @@ More: [Wiki → Example](https://github.com/agbossjs/agboss/wiki/Example).
 One package; the root `agboss` is the authoring API, the rest are focused entries:
 
 - `agboss` — `@Workflow`, `@Agent`, `@Router`, `@Tool`, `@Injectable`, `@Action`,
-  `@WorkflowStart` / `@WorkflowFinish`, `@Judge`, `@Guardrail`, `@PiiPolicy`, `@Channel`,
+  `@WorkflowStart` / `@WorkflowFinish`, `@Judge`, `@InputGuardrail` / `@OutputGuardrail`,
+  `@PiiPolicy`, `@Channel`,
   `InjectionToken`, `provide`, `env`, `secret`, `Secret`, the context levels (`ApplicationContext`,
   `TenantContext`, `ExecutionContext`, `ContextValues`), the path builder (`start`,
   `agent`, `router`, `action`, `route`, `caseOf`, `toAgent`, `toAction`, `toFinish`, …),
@@ -721,7 +722,7 @@ decision judge with its answers by question id (an option, P(yes), a level's ind
 on its own, `testJudge(AnswerGroundedJudge, …)({ reply, task, attempt })` takes `reply` as a plain
 object of its DTO, typed by the judge (another shape does not compile).
 
-Routers and guards work on any decision model too (`@Router({ model: "openai/gpt-6-luna-decisions" })`):
+Routers and guardrails work on any decision model too (`@Router({ model: "openai/gpt-6-luna-decisions" })`):
 one choice question over the routes, options sorted so declaration order never changes the request.
 
 ## Testing
@@ -1224,7 +1225,9 @@ details are its trace, a tenant's spend is the cost ledger, a rejected execution
 event. The startup warnings (`app.warnings`) include the **assembly warnings**: tenant or
 application budgets on the built-in in-memory cost ledger (`[application.in-memory-cost-ledger]`:
 each instance counts on its own, the counters reset on restart) and pauses possible with the
-built-in in-memory paused executions or checkpoints (`[application.in-memory-pauses]`) — errors
+built-in in-memory paused executions or checkpoints (`[application.in-memory-pauses]`), and PII
+tokens made with a key of the instance because `@Application({ pseudonymKey })` is not set
+(`[application.pii-instance-key]`: one value gets another token on each instance) — errors
 under `agboss check --strict`, silent in tests (`testWith` logs no start and no warning; an unlisted
 logger is silent there).
 
@@ -1431,8 +1434,82 @@ start). The application's own key, `@Application({ pseudonymKey: "piiPseudonymKe
 provider's `apiKey`): the key of sensitive fields, of project detectors and of every policy without
 its own — so one value is one token on every instance, and logs and traces from several machines
 agree; a policy's own key wins, and a policy that needs the application's when it is not set fails
-the start, naming the field. Under `testWith` an unset key gets a fixed test key, and `mockLlm(CustomerPiiPolicy)`
+the start, naming the field. Not set and not needed, each instance makes a key of its own: the
+start goes on with the warning `[application.pii-instance-key]` (reveal still works — the token map
+is in the checkpoint — only logs and traces of two instances show one value as two tokens). Under
+`testWith` an unset key gets a fixed test key, and `mockLlm(CustomerPiiPolicy)`
 scripts its model detection (`pii:<policy>` in the spend). Wiki → Guards (PII).
+
+## Guardrails
+
+Guardrails block (safety); judges correct (quality). An `@InputGuardrail` checks what an agent's or
+a model router's model reads — its input message, masked by that element's PII policies, before the
+model is called; an `@OutputGuardrail` checks what an agent answers. Each asks its model one yes / no
+question — its `prompt` — a decision model through one `Decision.noul`, a chat model through one
+answer tool; its `model` or `defaults.guardrail.model` (never `defaults.router`; none →
+`[guardrail.no-model]`). At P(yes) ≥ `threshold` the execution fails with `GuardrailBlockedError`
+(`guardrail.blocked`): `refusal` is the text to send instead, `key` the setting that decided
+(`guardrails.<name>.threshold`). A model that does not answer fails closed (`GuardFailedError`).
+
+<!-- snippet-context
+import { ExecutionContext, InputGuardrail, Injectable, OutputGuardrail, type GuardrailRefusal } from "agboss";
+import { OneOf } from "agboss/dto";
+export class ClinicExecutionContext extends ExecutionContext {
+  @OneOf({ values: ["en", "he"] })
+  locale!: "en" | "he";
+}
+@Injectable()
+export class RefusalTextService {
+  legalAdvice(locale: "en" | "he"): Promise<string> {
+    return Promise.resolve(locale === "he" ? "אין ייעוץ משפטי." : "No legal advice.");
+  }
+}
+-->
+
+```ts
+// a computed refusal: the class implements GuardrailRefusal, the execution through deps
+@InputGuardrail({
+  name: "legal-advice-guardrail",
+  description: "Blocks requests for legal advice",
+  prompt: "Does the message ask for legal advice?",
+  model: "typesafe/jev-1.13",
+  threshold: 0.8,
+  deps: [ClinicExecutionContext, RefusalTextService],
+})
+export class LegalAdviceGuardrail implements GuardrailRefusal {
+  constructor(
+    private readonly clinicExecutionContext: ClinicExecutionContext,
+    private readonly refusalTextService: RefusalTextService,
+  ) {}
+
+  refusal(): Promise<string> {
+    return this.refusalTextService.legalAdvice(this.clinicExecutionContext.locale);
+  }
+}
+
+// a fixed refusal, the model from defaults.guardrail.model
+@OutputGuardrail({
+  name: "no-legal-advice-guardrail",
+  description: "Blocks answers that give legal advice",
+  prompt: "Does the answer give legal advice?",
+  threshold: 0.8,
+  refusal: "I can't give legal advice. Please contact a lawyer.",
+})
+export class NoLegalAdviceGuardrail {}
+```
+
+They are listed in `guardrails` of `@Application`, `@Workflow`, `@Agent` and `@Router`: the lists
+add up, `excludeGuardrails` removes an inherited one for an agent or a router. A model router takes
+the input guardrails; a code router calls no model and takes none. Assembly checks them all at once:
+`-guardrail` names, one refusal (both → `[guardrail.refusal-twice]`; neither does not compile, and
+is `[guardrail.missing-refusal]` at assembly), a question (`[guardrail.no-prompt]`), a threshold in
+(0, 1] (`[guardrail.threshold-invalid]`), `[guardrail.exclude-not-inherited]`,
+`[guardrail.not-a-guardrail]`, `[guardrail.output-on-router]`, `[guardrail.no-model-call]`.
+`agboss describe` prints each one's side, threshold, model, refusal and the elements it guards. In
+tests, `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))` blocks (an
+unscripted guardrail passes), and `testGuardrail(LegalAdviceGuardrail, { model: decideWith({ blocks:
+0.9 }), executionContext: ClinicExecutionContext, execution: { locale: "he" } })("Can I sue?")`
+gives `{ isBlocked, probability, refusal }`.
 
 ## Tracing (local, optional)
 

@@ -1,83 +1,117 @@
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
-import type { Guardrail, GuardrailContext } from "../../components/policy-decorators.js";
 import type { Class } from "../../components/injection.js";
-import { requireComponent } from "../../components/metadata.js";
+import { guardrailMetaOf, type GuardrailMeta } from "../../components/policy-decorators.js";
+import { PromptLoader } from "../../components/prompt-render.js";
+import { routerModelOf } from "../../graph/router-model.js";
+import { throwIfViolated } from "../../graph/rule-error.js";
+import type { LoadedGuardrail } from "../../guardrails/assembly.js";
+import { guardrailViolations } from "../../guardrails/checks.js";
+import { checkGuardrail, runtimeGuardrailOf } from "../../guardrails/runtime.js";
+import type { UsageRecord } from "../../finops/usage.js";
 import { TestSetupError } from "../errors.js";
+import { guardrailKeyOf } from "../scripted-gateway.js";
 import { callTimeoutOf, UnitSite } from "./unit-site.js";
-import type { UnitCallOptions, UnitClock, UnitOptions, UnitRun } from "./unit-types.js";
+import { UNIT_DECISION_MODEL, unitRouterDeps } from "./unit-models.js";
+import type { UnitCallOptions, UnitClock, UnitModelOptions, UnitRun } from "./unit-types.js";
 
-/** What a guardrail's hook resolves to (`beforeToolCall`: `{ overrideArguments }` or nothing). */
-export type GuardrailHookResult<THook extends keyof Guardrail> = Awaited<
-  ReturnType<NonNullable<Guardrail[THook]>>
->;
+/** What a guardrail decided on a text: whether it blocks, how sure its model was, the refusal. */
+export interface GuardrailCheck {
+  readonly isBlocked: boolean;
+  /** P(yes) of its question. */
+  readonly probability: number;
+  /** The text sent instead — only when it blocks: the decorator's, or the class's `refusal()`. */
+  readonly refusal?: string;
+}
 
-/** The decision `onChannelDecision` is shown: the channel's answer to the tool call. */
-export type GuardrailDecision = Parameters<NonNullable<Guardrail["onChannelDecision"]>>[0];
+/** What one check takes besides the text: the agent or router whose model it guards. */
+export interface GuardrailCallOptions extends UnitCallOptions {
+  /** The element's name in its heading (`### message (to support-agent)`); default `test-agent`. */
+  readonly element?: string;
+}
 
-/**
- * One guardrail's hooks, each run as its point of an agent's loop runs it:
- * `await guard.beforeToolCall({ agent: "refund-agent", call })` → `{ output, spend }`.
- */
+/** One guardrail on one text: `await check("Can I sue my landlord?")` → `{ output, spend }`. */
 export interface GuardrailRunner extends UnitClock {
-  beforeToolCall(
-    context: GuardrailContext,
-    options?: UnitCallOptions,
-  ): Promise<UnitRun<GuardrailHookResult<"beforeToolCall">>>;
-  afterToolCall(
-    context: GuardrailContext,
-    options?: UnitCallOptions,
-  ): Promise<UnitRun<GuardrailHookResult<"afterToolCall">>>;
-  beforeAgentAnswer(
-    context: GuardrailContext,
-    options?: UnitCallOptions,
-  ): Promise<UnitRun<GuardrailHookResult<"beforeAgentAnswer">>>;
-  onChannelDecision(
-    decision: GuardrailDecision,
-    context: GuardrailContext,
-    options?: UnitCallOptions,
-  ): Promise<UnitRun<GuardrailHookResult<"onChannelDecision">>>;
+  (text: string, options?: GuardrailCallOptions): Promise<UnitRun<GuardrailCheck>>;
+}
+
+/** The guardrail's record, its rules checked (`-guardrail`, one refusal, a question, a threshold). */
+function checkedMetaOf(guardrail: Class): GuardrailMeta {
+  const meta = guardrailMetaOf(guardrail);
+  if (meta === undefined)
+    throw new TestSetupError(
+      `testGuardrail(${guardrail.name}): not an @InputGuardrail / @OutputGuardrail`,
+    );
+  throwIfViolated(guardrailViolations([guardrail], UNIT_DECISION_MODEL));
+  return meta;
+}
+
+/** The guardrail as an element that lists it runs it: its question read, its model resolved. */
+async function loadedOf(guardrail: Class, meta: GuardrailMeta): Promise<LoadedGuardrail> {
+  // a guardrail without its own model decides on a decision model, as defaults.guardrail.model does
+  const model = meta.model ?? UNIT_DECISION_MODEL;
+  const loader = new PromptLoader();
+  const prompt = await loader.load({ label: meta.name, options: meta, source: meta.source });
+  loader.throwIfAny();
+  return {
+    type: guardrail,
+    name: meta.name,
+    description: meta.description,
+    side: meta.side,
+    prompt,
+    threshold: meta.threshold,
+    model,
+    isOwnModel: meta.model !== undefined,
+    ...(meta.refusal === undefined ? {} : { refusal: meta.refusal }),
+  };
 }
 
 /**
- * A `@Guardrail` on its own (#262 S89): created by its own container (its `deps`, `overrides`, the
- * `environment`); each hook runs in the frame of a step — `executionContext.signal` aborts after
- * `timeout` on the runner's clock — and gives what it returned (an `overrideArguments`, nothing)
- * as `output`. What it throws (a block) rejects as it was thrown; a hook the class does not have
- * is a setup error.
+ * A guardrail on its own (#262 S89, #120): its rules checked first (`-guardrail`, one refusal, a
+ * question, a threshold), created by its own container (its `deps`, `overrides`, the `environment`),
+ * its model answering from `model` — `decideWith({ blocks: 0.9 })` (`{ cost }` for its spend,
+ * `guardrail:<name>`); unscripted, it passes. Each check runs in the frame of a step, so a
+ * computed `refusal()` reads the execution (`execution`, `tenant`) as in an application; it gives
+ * the verdict — a block is `isBlocked` with its refusal, never a thrown `GuardrailBlockedError`.
+ * A model that does not answer rejects with `GuardFailedError`.
  */
 export function testGuardrail<
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
->(guardrail: Class<Guardrail>, options: UnitOptions<TExecution, TTenant> = {}): GuardrailRunner {
-  const { meta } = requireComponent(guardrail, "guardrail", "testGuardrail");
+>(guardrail: Class, options: UnitModelOptions<unknown, TExecution, TTenant> = {}): GuardrailRunner {
+  const meta = checkedMetaOf(guardrail);
+  const { name } = meta;
   const site = new UnitSite(options);
-  const caller = `guardrail:${meta.name}`;
-  const hook = <TResult>(
-    name: keyof Guardrail,
-    call: UnitCallOptions | undefined,
-    invoke: (instance: Guardrail) => Promise<TResult> | undefined,
-  ): Promise<UnitRun<TResult>> => {
-    const frame = { component: guardrail, caller, ...callTimeoutOf(call?.timeout) };
-    return site.run(frame, async () => {
-      // the container creates the class itself: an instance of the guardrail
-      const ran = invoke(site.instanceOf(guardrail) as Guardrail);
-      if (ran === undefined)
-        throw new TestSetupError(`testGuardrail(${guardrail.name}): it has no ${name}()`);
-      return ran;
+  site.scriptModel(guardrailKeyOf(name), guardrail.name, options.model);
+  const run = async (
+    text: string,
+    call: GuardrailCallOptions = {},
+  ): Promise<UnitRun<GuardrailCheck>> => {
+    const loaded = await loadedOf(guardrail, meta);
+    const deps = unitRouterDeps(site.gateway);
+    const runtime = runtimeGuardrailOf(loaded, {
+      resolve: (cls) => site.instanceOf(cls),
+      modelOf: (model) => routerModelOf(model, deps),
+      deciderDeps: { gateway: deps.gateway, chatDefaults: deps.chatDefaults },
+    });
+    const frame = {
+      component: guardrail,
+      caller: guardrailKeyOf(name),
+      ...callTimeoutOf(call.timeout),
+    };
+    return site.run(frame, async ({ spent }) => {
+      const element = call.element ?? "test-agent";
+      const checked = { text, element, side: loaded.side };
+      const used: UsageRecord[] = [];
+      const outcome = await checkGuardrail(runtime, checked, used, undefined);
+      spent.push(...used);
+      if (!outcome.isBlocked) return { isBlocked: false, probability: outcome.probability };
+      return {
+        isBlocked: true,
+        probability: outcome.probability,
+        refusal: await runtime.refusal(),
+      };
     });
   };
-  return {
-    clock: site.clock,
-    beforeToolCall: (context, call) =>
-      hook("beforeToolCall", call, (instance) => instance.beforeToolCall?.(context)),
-    afterToolCall: (context, call) =>
-      hook("afterToolCall", call, (instance) => instance.afterToolCall?.(context)),
-    beforeAgentAnswer: (context, call) =>
-      hook("beforeAgentAnswer", call, (instance) => instance.beforeAgentAnswer?.(context)),
-    onChannelDecision: (decision, context, call) =>
-      hook("onChannelDecision", call, (instance) =>
-        instance.onChannelDecision?.(decision, context),
-      ),
-  };
+  return Object.assign(run, { clock: site.clock });
 }

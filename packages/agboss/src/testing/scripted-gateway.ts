@@ -32,6 +32,8 @@ export function chatKeyOf(user: ChatModelUser): string {
       return piiPolicyKeyOf(user.policy);
     case "reply-interpreter":
       return replyInterpreterKeyOf(user.interpreter);
+    case "guardrail":
+      return guardrailKeyOf(user.guardrail);
   }
 }
 /** The script key of a model reply interpreter (#267 PR 3): its cost caller. */
@@ -42,6 +44,8 @@ export const piiPolicyKeyOf = (policy: string): string => `pii:${policy}`;
 export const judgeKeyOf = (judge: string): string => `judge:${judge}`;
 /** The script key of a model arbiter (#279): its cost caller. */
 export const arbiterKeyOf = (arbiter: string): string => `arbiter:${arbiter}`;
+/** The script key of a guardrail (#120): its cost caller. */
+export const guardrailKeyOf = (guardrail: string): string => `guardrail:${guardrail}`;
 
 /** What `mockLlm` scripts: an agent or a router (by class), or a `@Judge`. */
 export type ModelTarget = Class;
@@ -62,12 +66,6 @@ export const routerKeyOf = (router: string): string => `router:${router}`;
 export const optionOf = (target: Class): string => nodeNameOf(target);
 
 const failed = (reason: string): RouteOutcome => ({ kind: "failed", reason });
-
-/** Guards nobody scripted pass: content checks are not what most tests are about. */
-const GUARD_PASSES: RouteOutcome = {
-  kind: "decided",
-  decision: { next: "pass", reason: "unscripted guard", confidence: 1 },
-};
 
 /** Conversation compaction nobody scripted writes this summary. */
 export const UNSCRIPTED_SUMMARY = "(summary of the earlier turns)";
@@ -158,10 +156,6 @@ export function createScriptedGateway(
     routeTo: async (spec) => {
       const script = book.scriptOf(routerKeyOf(spec.router));
       const request = decisionRequestOf(spec);
-      if (!script.isScripted && spec.router.startsWith("guard:")) {
-        script.requests.push(request);
-        return GUARD_PASSES;
-      }
       try {
         const call = scriptedCall(script, request);
         await waitBeforeAnswer(clock, call);

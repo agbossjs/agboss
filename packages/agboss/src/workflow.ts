@@ -2,9 +2,9 @@ import type { JudgeHandler } from "./components/judge-decorators.js";
 import type { BaseMemoryStrategy } from "./memory/types.js";
 import type { AgentPrompts, AgentsConfigOf } from "./config/types.js";
 import type { KnowledgeSource, RagConnector } from "./rag/types.js";
-import type { Guardrail } from "./components/decorators.js";
 import type { PauseChannel } from "./flow/runtime/pause.js";
 import type { AssembledPii } from "./pii/assembly.js";
+import type { AssembledGuardrails } from "./guardrails/assembly.js";
 import type { Class } from "./components/injection.js";
 import type { AnyTool, McpFacade, McpServerHandle } from "./tools/index.js";
 import type { RouterEngine } from "./routers/index.js";
@@ -32,13 +32,6 @@ export interface WorkflowServices {
 }
 
 /** Tools as a list, or a factory when they need core services. */
-/** Per agent or tool: its guardrail instances, and whether they replace the workflow's own. */
-export interface ResolvedPolicies<TPolicy> {
-  override: boolean;
-  instances: readonly TPolicy[];
-  disable: readonly Class[];
-}
-
 export type WorkflowTools =
   readonly AnyTool[] | ((services: WorkflowServices) => readonly AnyTool[]);
 
@@ -94,13 +87,8 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly resolve: (services: WorkflowServices) => (token: Class) => unknown;
   /** Its PII policies (#120): per agent and router, for observability, and their model detections. */
   readonly pii?: AssembledPii;
-  readonly guardrails?: (
-    services: WorkflowServices,
-  ) => ReadonlyMap<string, ResolvedPolicies<Guardrail>>;
-  readonly toolGuardrails?: (
-    services: WorkflowServices,
-  ) => ReadonlyMap<string, ResolvedPolicies<Guardrail>>;
-  readonly workflowGuardrails?: (services: WorkflowServices) => readonly Guardrail[];
+  /** Its guardrails (#120): per agent and model router by side, their texts and models resolved. */
+  readonly guardrails?: AssembledGuardrails;
 }
 
 export const resolveTools = (

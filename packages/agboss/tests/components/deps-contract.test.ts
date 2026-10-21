@@ -10,6 +10,7 @@ import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { toolResultsOf } from "../testing/fixtures/requests.js";
 import {
+  AuditGuardrail,
   MaskSecret,
   RemoteAgent,
   RevealTool,
@@ -45,10 +46,16 @@ describe("#183 AC1: every decorator kind with deps gets them injected at run tim
     await app.close();
   });
 
-  it("@Guardrail, @Rag, @WorkflowAction: each ran with its dependency during the run", async () => {
+  it("@InputGuardrail: created with its dependency, its refusal() reads it", async () => {
+    const { app } = await runVault();
+    expect(app.resolve(AuditGuardrail).refusal()).toBe("The vault stays closed.");
+    expect(seen).toContain("guardrail:s3cret");
+    await app.close();
+  });
+
+  it("@Rag, @WorkflowAction: each ran with its dependency during the run", async () => {
     const { app, result } = await runVault();
     expect(result.finish).toEqual({ name: "kept-workflow-finish" });
-    expect(seen).toContain("guardrail:s3cret");
     expect(seen).toContain("rag:s3cret");
     expect(seen).toContain("action:s3cret");
     await app.close();

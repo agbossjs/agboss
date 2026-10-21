@@ -20,7 +20,7 @@ import { ragClassesOf } from "./rag.js";
 import type { Class, Provider, Token } from "./injection.js";
 import type { ProviderModule } from "./container/registrations.js";
 import { INFRASTRUCTURE_TOKENS } from "../infrastructure/instance-tokens.js";
-import { containerPartsOf, policyMapsOf } from "./assemble-parts.js";
+import { containerPartsOf } from "./assemble-parts.js";
 import {
   checkProviderClasses,
   componentClassesOf,
@@ -32,7 +32,7 @@ import { channelPartsOf } from "./channel-parts.js";
 import { checkedChannelsOf, createdClassesOf } from "./channel-parts.js";
 import { PromptLoader } from "./prompt-render.js";
 import { checkMemoryStrategies, memoryPartsOf } from "./memory-parts.js";
-import { configDefaultsOf, guardsOf, moduleOf, workflowDeclarationOf } from "./module.js";
+import { configDefaultsOf, moduleOf, workflowDeclarationOf } from "./module.js";
 import {
   cascadeDefaults,
   rememberDefaultsLevels,
@@ -41,7 +41,7 @@ import {
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import { judgeClassesOf, judgePartsOf, judgeSettingsOf, type JudgeClass } from "./judge-parts.js";
 import { agentSettings } from "./agent-settings.js";
-import { piiPartsOf } from "./pii-parts.js";
+import { policyPartsOf } from "./policy-parts.js";
 import { modelPartsOf } from "./model-parts.js";
 
 /** The application a workflow is assembled in: its name, `defaults` and providers (its model providers). */
@@ -49,6 +49,8 @@ type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
   readonly providers?: readonly Provider[];
   /** `@Application({ piiPolicies })`: every agent's and router's, before the workflow's own (#120). */
   readonly piiPolicies?: readonly Class[];
+  /** `@Application({ guardrails })`: every agent's and model router's (#120). */
+  readonly guardrails?: readonly Class[];
 };
 
 function configOf(
@@ -62,7 +64,6 @@ function configOf(
     name: bundle.name,
     version: bundle.version,
     defaults: bundle.defaults,
-    ...(bundle.guards === undefined ? {} : { guards: bundle.guards }),
     ...(bundle.compaction === undefined ? {} : { compaction: bundle.compaction }),
     ...(mcp.servers.length === 0
       ? {}
@@ -71,6 +72,12 @@ function configOf(
     agents: Object.fromEntries(agents.map((agent) => [agent.name, agentSettings(agent, names)])),
   };
 }
+
+/** The workflow's MCP servers and the server tools declared on them. */
+const mcpPartsOf = (mcp: Mcp): Pick<AssembledWorkflow, "mcpServers" | "serverTools"> => ({
+  mcpServers: mcp.handles,
+  serverTools: mcp.serverTools,
+});
 
 /** Each tool's dependency tree by tool name (tools without dependencies are left out). */
 const toolDependenciesOf = (
@@ -122,11 +129,7 @@ function withApplicationDefaults(
   if (applicationDefaults === undefined) return bundle;
   const { options } = workflowDeclarationOf(workflow);
   const defaults = cascadeDefaults(applicationDefaults, options.defaults);
-  return {
-    ...bundle,
-    defaults: configDefaultsOf(defaults),
-    guards: guardsOf(options.guards, defaults),
-  };
+  return { ...bundle, defaults: configDefaultsOf(defaults) };
 }
 
 /** The workflow's module over its application's defaults, and its paths analysed with them. */
@@ -182,10 +185,10 @@ export async function workflowOf(
   const rags = ragClassesOf(bundle, agents);
   checkClasses(bundle, agents);
   const judges = judgeClassesOf(agents);
-  const pii = piiPartsOf(bundle, owner, agents, graph);
+  const policies = await policyPartsOf({ workflow, bundle, owner, agents, graph, loader });
   const modules = [...providerModulesOf(bundle), ...application];
   const replyInterpreters = await checkedChannelsOf(workflow, modules, owner === undefined, loader);
-  const created = createdClassesOf(graph, pii.classes, replyInterpreters);
+  const created = createdClassesOf(graph, policies.classes, replyInterpreters);
   const components = componentClassesOf(bundle, agents, tools, rags, created, modules);
   checkGraph(components, modules, coreTokensOf(mcp, contexts));
   rememberServers(bundle, mcp.instances);
@@ -193,14 +196,15 @@ export async function workflowOf(
   const prompts = await promptsOf(agents, loader);
   const config = configOf(bundle, agents, names, mcp, judges);
   validateAgentsConfig(config, [...names.values()]);
-  const models = modelPartsOf(owner, { config, routers }, graph, pii.detectors, replyInterpreters);
+  const modelUsers = { ...policies.models, replyInterpreters };
+  const models = modelPartsOf(owner, { config, routers }, graph, modelUsers);
   rememberDefaultsLevels(graph, levelsOf(workflow, owner));
   return {
     config,
     graph,
     maxSteps: maxStepsOf(workflow, graph),
-    ...containerPartsOf(bundle, policyMapsOf(agents, tools.local, names)),
-    pii,
+    ...containerPartsOf(bundle),
+    ...policies.assembled,
     ...channelPartsOf(bundle, tools),
     ...models,
     onIncompatibleResume: settingsOf(workflow).onIncompatibleResume,
@@ -210,8 +214,7 @@ export async function workflowOf(
     ...(rags.length === 0 ? {} : ragParts(bundle, agents, rags)),
     ...memoryPartsOf(bundle, agents),
     ...judgePartsOf(bundle, judges),
-    mcpServers: mcp.handles,
-    serverTools: mcp.serverTools,
+    ...mcpPartsOf(mcp),
     toolDependencies: toolDependenciesOf(bundle, [...tools.local, ...tools.mcp], names),
     ...(bundle.compactionPrompt === undefined ? {} : { compactionPrompt: bundle.compactionPrompt }),
   };

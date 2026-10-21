@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { CommandContext } from "../../src/cli/context.js";
 import { regenerateFlowTypes } from "../../src/cli/flow-types.js";
-import { CHECKS_RUN, envelope, fixture, agboss, ledgerWarning } from "./agboss.js";
+import { CHECKS_RUN, envelope, fixture, agboss, ledgerWarning, piiKeyWarning } from "./agboss.js";
 
 /** `agboss check` / `agboss generate` write `.agboss/types.d.ts` for v2 workflows (#270 AC13, #272 S2, S7). */
 
@@ -73,7 +73,7 @@ describe("#270 AC13: agboss check writes .agboss/types.d.ts", () => {
     const call = await agboss(["check", "--workflow", STAR], cwd);
 
     expect(call.stdout).toBe(
-      `types: .agboss/types.d.ts\n${ledgerWarning(STAR)}ok: ${STAR} — ${CHECKS_RUN}\n`,
+      `types: .agboss/types.d.ts\n${ledgerWarning(STAR)}${piiKeyWarning(STAR)}ok: ${STAR} — ${CHECKS_RUN}\n`,
     );
     expect(existsSync(typesOf(cwd))).toBe(true);
   });

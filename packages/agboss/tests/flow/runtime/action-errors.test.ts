@@ -96,7 +96,7 @@ describe("S22: the StepFailedError family", () => {
       new RouterDecisionError(step, "no route"),
       new ActionFailedError("charge-action", "boom"),
       new GuardFailedError("pii", [], "no answer"),
-      new GuardrailBlockedError("pii", "no", []), // a PaidStepError, not a StepFailedError
+      new GuardrailBlockedError("pii-guardrail", "no", [], { probability: 1, threshold: 0.5 }), // a PaidStepError
       new PaidStepError("paid", [], undefined),
       new LimitExceededError({ key: "maxSteps", limit: 1, actual: 2 }, [], 0),
       new ExecutionCancelledError(),

@@ -14,6 +14,7 @@ import { NoAnswer, TestAnswer, TestChat } from "../test-flow/test.flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { PersonalDataGuardrail, PromptInjectionGuardrail } from "../guardrails.js";
 
 const price = { inputPerMTok: 0.5, outputPerMTok: 3, cacheReadPerMTok: 0.1 };
 class ClockQuery {
@@ -102,10 +103,7 @@ export class MainRouter {}
     tools: { maxToolCalls: 8 },
     history: { limit: 5 },
   },
-  guards: {
-    input: { prompt_injection: { threshold: 0.7, refusal: "I can't help with that request." } },
-    output: { pii: { threshold: 0.7, refusal: "Withheld." } },
-  },
+  guardrails: [PromptInjectionGuardrail, PersonalDataGuardrail],
   flow: [
     start(TestChat)
       .returns(WorkflowStartTextDto)

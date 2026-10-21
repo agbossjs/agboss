@@ -23,12 +23,14 @@ import { AppEnvironment } from "./environments/app.environment.js";
  * each workflow by its start. The child `VendorCheckWorkflow` is not listed: a child workflow belongs to the
  * application of its parent, and `app.execute(VendorCheckWorkflowStart, …)` runs it alone. Its tenant and application budgets are
  * counted in a SQLite ledger (#261: the built-in in-memory one is an assembly warning, an error
- * under `agboss check --strict`); nothing pauses, so the paused executions stay in memory.
+ * under `agboss check --strict`); nothing pauses, so the paused executions stay in memory. Its PII
+ * key is an environment secret (#120 S94: without one, a key of each instance — a warning).
  */
 @Application({
   name: "flow-patterns-application",
   version: "1.0.0",
   environment: AppEnvironment,
+  pseudonymKey: "piiPseudonymKey", // one PII token per value on every instance (#120)
   workflows: [
     OfferWorkflow,
     CreditWorkflow,

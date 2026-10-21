@@ -10,14 +10,7 @@ export const DEFAULTS = {
   // no maxTokens: AGBoss's default ceiling (8192) applies; reasoning and caching: the provider's
   models: { temperature: 0 },
   router: { model: "typesafe/jev-1.13" },
-  guardrail: { model: "typesafe/jev-1.13" }, // the guards' model — never defaults.router's
+  guardrail: { model: "typesafe/jev-1.13" }, // the guardrails' model — never defaults.router's
   tools: { maxToolCalls: 8 },
   history: { limit: 5 },
 } as const;
-
-export const GUARDS = {
-  input: { prompt_injection: { threshold: 0.7, refusal: "I can't help with that request." } },
-  output: {
-    pii: { threshold: 0.7, refusal: "The answer contained personal data and was withheld." },
-  },
-};

@@ -6,9 +6,8 @@ import type { BaseMemoryStrategy } from "../../memory/types.js";
 import type { KnowledgeSource } from "../../rag/types.js";
 import type { AnyTool } from "../../tools/index.js";
 import type { AnswerTools } from "../../flow/runtime/answer-tools.js";
-import type { Guardrail } from "../../components/policy-decorators.js";
 import type { PiiPolicySet } from "../../pii/policy-set.js";
-import type { ResolvedPolicies } from "../../workflow.js";
+import type { RuntimeGuardrail } from "../../guardrails/runtime.js";
 import type { ToolCallApproval } from "./approval.js";
 import type { JudgePoints } from "./judge-points.js";
 import type { AgentLoopLimits } from "./limits.js";
@@ -54,9 +53,8 @@ export interface AgentLoopDeps {
   readonly judges: JudgePoints;
   /** The PII policies at the agent's model (#120): masked into it, revealed out of it. */
   readonly pii?: PiiPolicySet;
-  readonly guardrails?: ResolvedPolicies<Guardrail>;
-  readonly workflowGuardrails?: readonly Guardrail[];
-  readonly toolGuardrails?: (tool: string) => ResolvedPolicies<Guardrail>;
+  /** Its input guardrails (#120): on what its model reads of the visit, masked, before the first call. */
+  readonly guardrails?: readonly RuntimeGuardrail[];
   readonly observer?: ExecutionObserverManager;
 }
 

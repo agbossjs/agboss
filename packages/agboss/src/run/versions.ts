@@ -3,6 +3,7 @@ import { DEFAULT_COMPACTION_PROMPT } from "../prompts/compaction.js";
 import { ragPromptTexts } from "../prompts/rag.js";
 import { routerLaunchPromptTexts } from "../prompts/router-launch.js";
 import { arbiterPromptTexts } from "../prompts/arbiter.js";
+import { guardrailPromptTexts } from "../prompts/guardrail.js";
 import { arbiterClassesOf, modelArbitersOf } from "../flow/runtime/launch/runtime-launch.js";
 import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
@@ -15,6 +16,7 @@ import type { RunDeps } from "./types.js";
 import { stripFunctions } from "./strip-functions.js";
 import { promptTextOf } from "../components/prompt-render.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
+import type { LoadedGuardrail } from "../guardrails/assembly.js";
 
 /** A prompt as hashed: its rendered text (never the files' paths). */
 const hashedText = (input: unknown): string => promptTextOf(input) ?? "";
@@ -49,7 +51,9 @@ export const configSnapshot = <TName extends string>(
   deps: Pick<
     RunDeps<TName>,
     "config" | "prompts" | "compactionPrompt" | "graph" | "maxSteps" | "routers"
-  >,
+  > & {
+    readonly guardrails?: { readonly guardrails: readonly LoadedGuardrail[] } | undefined;
+  },
 ): unknown => ({
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   config: stripFunctions(deps.config),
@@ -58,7 +62,44 @@ export const configSnapshot = <TName extends string>(
   routers: routerTexts(deps.routers),
   prompts: agentTexts(deps.prompts),
   compactionPrompt: deps.compactionPrompt ?? null,
+  // the guardrails (#120): only a workflow that has one, so the others keep their hash
+  ...guardrailSnapshot(deps.guardrails?.guardrails ?? []),
 });
+
+/** What a workflow's guardrails decide with: their side, question, threshold, model and refusal. */
+const guardrailSnapshot = (guardrails: readonly LoadedGuardrail[]): object =>
+  guardrails.length === 0
+    ? {}
+    : {
+        guardrails: guardrails.map(({ name, side, prompt, threshold, model, refusal }) => ({
+          name,
+          side,
+          prompt,
+          threshold,
+          model,
+          refusal: refusal ?? null,
+        })),
+      };
+
+/**
+ * The guardrails' questions (#120) in the prompt version; the key `guards` keeps the versions of
+ * workflows without them, the frame's texts only where there is one.
+ */
+const guardrailPrompts = (guardrails: readonly LoadedGuardrail[]): object => ({
+  guards: guardrails.map(({ name, side, prompt, threshold }) => ({
+    name,
+    side,
+    prompt,
+    threshold,
+  })),
+  ...(guardrails.length === 0 ? {} : { guardrailFrame: guardrailPromptTexts }),
+});
+
+/** The guardrails' models in the model version, only where there is one. */
+const guardrailModels = (guardrails: readonly LoadedGuardrail[]): object =>
+  guardrails.length === 0
+    ? {}
+    : { guardrails: guardrails.map(({ name, model }) => ({ name, model })) };
 
 /** Prompt and model versions of the current configuration — stored with every Tern. */
 export function runVersions<TName extends string>(
@@ -69,14 +110,7 @@ export function runVersions<TName extends string>(
   readonly configVersion: string;
   readonly configHash: string;
 } {
-  const guards = [...deps.guards.input, ...deps.guards.output].map(
-    ({ name, question, flag, pass }) => ({
-      name,
-      question,
-      flag,
-      pass,
-    }),
-  );
+  const guardrails = deps.guardrails?.guardrails ?? [];
   return {
     promptVersion: versionOf({
       agents: agentTexts(deps.prompts),
@@ -99,7 +133,7 @@ export function runVersions<TName extends string>(
       ...(arbiterTexts(deps.graph).length === 0
         ? {}
         : { arbiters: arbiterTexts(deps.graph), arbiterFrame: arbiterPromptTexts }),
-      guards,
+      ...guardrailPrompts(guardrails),
     }),
     modelVersion: versionOf({
       defaults: deps.config.defaults,
@@ -108,6 +142,7 @@ export function runVersions<TName extends string>(
         ? {}
         : { arbiters: modelArbitersOf(deps.graph.launches) }),
       agents: deps.config.agents,
+      ...guardrailModels(guardrails),
     }),
     configVersion: deps.config.version,
     configHash: versionOf(configSnapshot(deps)),

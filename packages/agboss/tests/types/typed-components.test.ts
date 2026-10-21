@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   Agent,
-  Guardrail,
+  InputGuardrail,
   Injectable,
   Judge,
   JudgeVerdict,
@@ -42,15 +42,17 @@ class Fair {
   }
 }
 
-@Guardrail({ name: "polite" })
-class Polite {
-  beforeAgentAnswer(): Promise<void> {
-    return Promise.resolve();
-  }
-}
+@InputGuardrail({
+  name: "polite-guardrail",
+  description: "Blocks rude messages",
+  prompt: "Is the message rude?",
+  threshold: 0.8,
+  refusal: "Please be polite.",
+})
+class Polite {}
 
 describe("#200 AC2: slots are typed by component kind", () => {
-  it("tools, judges and guardrails take their kind only", () => {
+  it("tools and judges take their kind only (guardrails are checked at assembly, #120)", () => {
     @Agent({
       name: "typed-agent",
       description: "Typed slots",
@@ -71,8 +73,6 @@ describe("#200 AC2: slots are typed by component kind", () => {
       tools: [JobFitJudge],
       // @ts-expect-error -- JobFitJudge is not a @Judge (no `judge`)
       judges: [JobFitJudge],
-      // @ts-expect-error -- JobFitJudge is not a @Guardrail (no guardrail hook)
-      guardrails: [JobFitJudge],
     })
     class Wrong {}
 
