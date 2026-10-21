@@ -14,6 +14,7 @@ import type { BranchTicket, LaunchTicket } from "./records.js";
 import type { RuntimeLaunch } from "./runtime-launch.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import { readInput } from "../scope.js";
+import { countedServiceSpend } from "../limits.js";
 import type { ScheduledBranch } from "./branch-schedule.js";
 
 /**
@@ -135,14 +136,37 @@ export function scheduledOf(site: ScheduledSite): ScheduledBranch {
 /**
  * The frame one branch of a launch runs in (#273, #280): its config — the signal of the execution
  * and of the launch — and its step: copy id, copy number, item, and the services its code reports
- * to (spend, ended children, a failed child's PII tokens) and reads its input from.
+ * to (spend, ended children, a failed child's PII tokens) and reads its input from. An exhausted
+ * budget (#338) is not on the config — LangGraph would drop the branch's state, its spend with it —
+ * but on its step's `executionContext.signal` and on every model and tool call (the agent loop's
+ * own `budgets.exhausted`): its calls stop, its loop fails at its next check with the spend so far.
  */
 
-/** A branch's config, the frame of its step and its signal. */
+/** A branch's config, the frame of its step and the signals it watches. */
 export interface BranchFrame {
   readonly config: RunnableConfig;
   readonly frame: FrameSpec;
+  /** The execution's and the launch's stops: what its config and a test's completion gate carry. */
   readonly signal: AbortSignal;
+  /**
+   * The pass's budgets' `exhausted` signal, when the branch started before a tally exhausted one
+   * (#338): its abort stops the branch's in-flight calls, and the branch fails with its reason.
+   */
+  readonly budgetStop?: AbortSignal;
+}
+
+/** The pass's `exhausted` signal, unless a budget was exhausted before the branch started. */
+function budgetStopOf(deps: VisitDeps): AbortSignal | undefined {
+  const { exhausted } = deps.limits.budgets;
+  // exhausted before: its working steps stop at their own check, a side path's actions still run
+  return exhausted.aborted ? undefined : exhausted;
+}
+
+/** The step's frame with the budget's stop on its `executionContext.signal`. */
+function withBudgetStop(frame: FrameSpec, budgetStop: AbortSignal | undefined): FrameSpec {
+  if (budgetStop === undefined) return frame;
+  const signal = AbortSignal.any([frame.execution.signal, budgetStop]);
+  return { ...frame, execution: Object.freeze({ ...frame.execution, signal }) };
 }
 
 /** What a branch's frame is made from: its run so far. */
@@ -162,13 +186,14 @@ export interface BranchFrameRun {
 export function branchFrameOf(run: BranchFrameRun, view: ExecutionStateType): BranchFrame {
   const { node, ticket, deps, live } = run;
   const { run: execution } = extractRunContext(run.config, run.state.runId);
+  const budgetStop = budgetStopOf(deps);
   const signal = AbortSignal.any([execution.signal, live.controller.signal]);
   const config = branchConfigOf(run.config, signal, run.state.runId);
   const { visitNumber, nodeId, copyNumber, itemIndex } = ticket;
   const at = { node, visitNumber, nodeId, copyNumber };
   const site = itemIndex === undefined ? at : { ...at, itemIndex };
   const reportUsage = (record: UsageRecord): void => {
-    run.services.push({ ...record, caller: `${node.kind}:${node.id}` });
+    run.services.push(countedServiceSpend(deps.limits, node, view.path, record));
   };
   const recordChild = (record: EndedChildRecord): void => {
     run.children.push(record);
@@ -177,8 +202,8 @@ export function branchFrameOf(run: BranchFrameRun, view: ExecutionStateType): Br
     void (run.piiTokens = { ...run.piiTokens, ...tokens });
   const input = () => readInput(deps.graph, node, view).fields;
   const frame = {
-    ...stepFrameAt(site, view, config, deps.workflow, deps.contexts),
+    ...withBudgetStop(stepFrameAt(site, view, config, deps.workflow, deps.contexts), budgetStop),
     services: { reportUsage, recordChild, keepPiiTokens, input },
   };
-  return { config, frame, signal };
+  return { config, frame, signal, ...(budgetStop === undefined ? {} : { budgetStop }) };
 }

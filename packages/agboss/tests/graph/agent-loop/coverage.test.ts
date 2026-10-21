@@ -59,7 +59,12 @@ describe("agent-loop coverage", () => {
         throw new Error("some error");
       },
     };
-    const deps = { bundle: {}, agent: { name: "a1", tools: [tool] }, resolveTool: () => tool };
+    const deps = {
+      bundle: {},
+      agent: { name: "a1", tools: [tool] },
+      resolveTool: () => tool,
+      budgets: NO_BUDGET_CHECK,
+    };
     const node = makeToolNode(deps);
     const result = await node({ callId: "c1", tool: "t1", arguments: "{}" }, {});
     expect(result.results.c1.content).toContain("some error");
@@ -75,7 +80,12 @@ describe("agent-loop coverage", () => {
         throw "some string error";
       },
     };
-    const deps = { bundle: {}, agent: { name: "a1", tools: [tool] }, resolveTool: () => tool };
+    const deps = {
+      bundle: {},
+      agent: { name: "a1", tools: [tool] },
+      resolveTool: () => tool,
+      budgets: NO_BUDGET_CHECK,
+    };
     const node = makeToolNode(deps);
     const result = await node({ callId: "c1", tool: "t1", arguments: "{}" }, {});
     expect(result.results.c1.content).toContain("some string error");
@@ -116,7 +126,7 @@ describe("agent-loop coverage", () => {
     const handler = { judge: () => Promise.resolve(JudgeVerdict.passed()) };
     const judges = [{ name: "j1", handler, binding: { settings: { model: "m" } } }];
     const observer = { onJudgeStart: vi.fn(), onJudgeEnd: vi.fn() };
-    const deps = { agent: { name: "a1", judges, binding: {} }, observer };
+    const deps = { agent: { name: "a1", judges, binding: {} }, observer, budgets: NO_BUDGET_CHECK };
     const node = makeJudgeNode(deps);
     await inTestFrame(() => node({ reply: "test", answer: null, runId: "1", messages: [] }, {}));
     expect(observer.onJudgeStart).toHaveBeenCalled();

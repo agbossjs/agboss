@@ -1,9 +1,17 @@
 import {
+  accountOf,
+  budgetExceededErrorOf,
+  budgetKeyOf,
+  budgetsOfExecution,
+  counterOf,
   meterOf,
-  openBudgets,
+  type ApplicationBudgets,
   type BudgetMeter,
   type ExecutionBudgetRecord,
+  type ExecutionKeys,
 } from "../budgets/execution-budgets.js";
+import type { Class } from "../components/injection.js";
+import { usd } from "../units/index.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import { runInFrame, type ExecutionFacts, type FrameSpec } from "../flow/context/frame.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
@@ -83,6 +91,41 @@ function startFrameOf<TName extends string>(
       copyNumber: 1,
     }),
   };
+}
+
+/**
+ * Opens the budgets of a new execution: `maxSpend()` of each read once (in `inFrame`, where the
+ * execution's `ExecutionContext` can be read) and kept in the ledger as the last known limit, then
+ * every counter read — one exhausted rejects the execution before its first step.
+ */
+async function openBudgets(
+  application: ApplicationBudgets,
+  workflow: Class,
+  keys: ExecutionKeys,
+  inFrame: <T>(work: () => Promise<T>) => Promise<T>,
+): Promise<readonly ExecutionBudgetRecord[]> {
+  const records: ExecutionBudgetRecord[] = [];
+  for (const { type, meta } of budgetsOfExecution(application.budgets, workflow)) {
+    const handler = application.resolve(type);
+    const maxSpend = await inFrame(() => Promise.resolve(handler.maxSpend()));
+    const record: ExecutionBudgetRecord = {
+      budget: { name: meta.name },
+      scope: meta.scope,
+      ...(meta.period === undefined ? {} : { period: meta.period }),
+      key: budgetKeyOf(meta.scope, keys),
+      maxSpend,
+    };
+    records.push(record);
+  }
+  const now = application.clock.now();
+  for (const record of records) {
+    const spent = await application.ledger.findSpentByCounter(counterOf(record, now));
+    if (spent >= record.maxSpend) throw budgetExceededErrorOf(record, spent, [], 0, []);
+  }
+  // kept only once the execution is admitted: a refused request leaves no trace
+  for (const record of records)
+    await application.ledger.saveMaxSpend(accountOf(record), usd(record.maxSpend));
+  return records;
 }
 
 /** The budgets of a pass: what it is checked against, and their records (kept in its state). */

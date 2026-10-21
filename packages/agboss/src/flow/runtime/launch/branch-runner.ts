@@ -5,6 +5,7 @@ import { extractRunContext } from "../../../core/run-context.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { runInFrame } from "../../context/frame.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
+import { LimitExceededError } from "../../../graph/limits.js";
 import { checkVisit, isWorkingNode } from "../limits.js";
 import { recordsOf, type GraphNode, type NodeOutcome, type NodeRunner } from "../node-runner.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
@@ -75,6 +76,8 @@ interface BranchRun {
   readonly scheduled: ScheduledBranch;
   /** Whether it passed its limits and ran as a step (agents only). */
   ranAsStep: boolean;
+  /** The pass's budgets' `exhausted` signal it watches (#338), once its frame is made. */
+  budgetStop?: AbortSignal;
 }
 
 /** How a branch ended: its record and the keys it writes. */
@@ -101,7 +104,10 @@ function answeredEnd(
   outcome: NodeOutcome,
   marked: MarkedAnswer | undefined,
 ): BranchEnd {
-  const usage = [...(outcome.usage ?? []), ...(marked?.usage ?? []), ...run.services];
+  const arbiters = marked?.usage ?? [];
+  const usage = [...(outcome.usage ?? []), ...arbiters, ...run.services];
+  // its arbiters' decisions counted as they end (#338); its node counted its own calls
+  run.deps.limits.budgets.tally(arbiters);
   run.live.spent.push(...usage);
   const update = { ...visited(run), ...recordsOf(outcome), usage };
   // a quorum decided while its arbiters checked the answer: cancelled, its spend kept (#279 AC12)
@@ -120,7 +126,8 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   const { node, ticket, deps, live } = run;
   const { nodeId } = ticket;
   const view = branchStateOf(run.state, run.owner.launch, ticket, live.spent);
-  const { config, frame, signal } = branchFrameOf(run, view);
+  const { config, frame, signal, budgetStop } = branchFrameOf(run, view);
+  if (budgetStop !== undefined) run.budgetStop = budgetStop;
   const arbiterDeps = arbiterDepsFor({ ...deps, live, view, services: run.services, nodeId });
   const arbiters = { launch: run.owner.launch, deps: arbiterDeps };
   const gate = { scheduler: deps.scheduler, branch: run.scheduled, signal };
@@ -158,23 +165,34 @@ async function abortLaunch(run: BranchRun): Promise<void> {
   await withdrawSiblingPauses(deps.pauses, site);
 }
 
+/**
+ * What a branch failed with (#338): stopped by an exhausted budget, the `BudgetExceededError` that
+ * aborted its calls — whatever error the abort surfaced as —; else (its own limit too) its error.
+ */
+const failureOf = (run: BranchRun, error: unknown): unknown =>
+  run.budgetStop?.aborted === true && !(error instanceof LimitExceededError)
+    ? (run.budgetStop.reason as unknown)
+    : error;
+
 /** A branch that threw: skipped, failed (aborting its siblings) or cancelled by a sibling. */
 async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
   if (isGraphInterrupt(error)) throw error;
   passThroughStops(run.config, run.state.runId);
   const { live, ticket } = run;
+  // the spend the error carries is the original one's (an aborted loop's calls so far)
   const usage = [...unrecordedSpendOf(error), ...run.services];
   live.spent.push(...usage);
+  const failure = failureOf(run, error);
   const isQuorum = live.quorum !== undefined;
-  const status = failedStatusOf({ live, ticket, isQuorum }, error);
+  const status = failedStatusOf({ live, ticket, isQuorum }, failure);
   if (status === BranchStatus.Failed) {
-    live.errors.set(ticket.index, error);
-    run.deps.branchErrors?.keep(run.owner.ticket.launchId, ticket.index, error);
+    live.errors.set(ticket.index, failure);
+    run.deps.branchErrors?.keep(run.owner.ticket.launchId, ticket.index, failure);
     await abortLaunch(run);
   }
   leaveQuorum(live, ticket);
   const update = { ...visited(run), usage };
-  return { status, read: [], error: errorRecordOf(error), update };
+  return { status, read: [], error: errorRecordOf(failure), update };
 }
 
 async function runBranch(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {

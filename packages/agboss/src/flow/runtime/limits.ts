@@ -1,5 +1,5 @@
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
-import { totalCost } from "../../finops/usage.js";
+import { totalCost, type UsageRecord } from "../../finops/usage.js";
 import { StepsLimitExceededError } from "../../graph/limits.js";
 import { NodeKind } from "../ast.js";
 import { VisitsLimitExceededError } from "./errors.js";
@@ -43,4 +43,19 @@ export async function checkVisit(
   }
   await limits.budgets.refresh();
   limits.budgets.check(spent, path);
+}
+
+/**
+ * A step's service spend (`SpendRecorder`, #280 S43) under the step's name, counted in its budgets
+ * the moment it is reported (#338): the branches running beside it see it at their next check.
+ */
+export function countedServiceSpend(
+  limits: ExecutionLimits,
+  node: RuntimeNode,
+  path: readonly string[],
+  record: UsageRecord,
+): UsageRecord {
+  const named = { ...record, caller: `${node.kind}:${node.id}` };
+  limits.budgets.tally([named], [...path, node.id]);
+  return named;
 }
