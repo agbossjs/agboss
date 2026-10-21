@@ -1,3 +1,5 @@
+import { Application, EmptyEnvironment } from "../../../../agboss/src/index.js";
+import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { Workflow } from "agboss";
 import { WorkflowStartTextDto } from "agboss/dto";
 import { TestAnswer, TestChat } from "../../../../agboss/tests/fixtures/test-flow/test.flow.js";
@@ -26,3 +28,13 @@ import {
   ],
 })
 export class BrokenWorkflow {}
+
+/** The application `agboss --application` loads (#268): this workflow alone. */
+@Application({
+  name: "broken-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [BrokenWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class BrokenApplication {}

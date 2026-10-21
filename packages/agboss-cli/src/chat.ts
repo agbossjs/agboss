@@ -1,5 +1,5 @@
-import { createApp, loadWorkflowClass, type App, type ExecutionOutput } from "agboss";
-import { executeUnchecked, loadApplicationClass, textStartOfWorkflow } from "agboss/internal";
+import { createApp, type App, type Class, type ExecutionOutput } from "agboss";
+import { executeUnchecked, type ApplicationStart } from "agboss/internal";
 import "dotenv/config";
 import { stdin } from "node:process";
 import { createInterface } from "node:readline";
@@ -13,13 +13,8 @@ import {
   type Ask,
 } from "./cli/approve.js";
 import { askWith } from "./cli/ask.js";
-import {
-  loadOptions,
-  textOption,
-  workflowPath,
-  type CommandContext,
-  type CommandHandler,
-} from "./cli/context.js";
+import { loadChosenStart } from "./cli/cli-application.js";
+import { textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
 import { costSummary, costTotal, costTrace } from "./cli/finops.js";
 import { onInterruptKey } from "./cli/keys.js";
 import { envOption } from "./cli/environment.js";
@@ -30,7 +25,7 @@ import { textStartOrFail } from "./cli/text-start.js";
 /** One chat session: the app, how it asks, and the conversation it continues. */
 interface Session {
   readonly app: App;
-  readonly start: ReturnType<typeof textStartOrFail>;
+  readonly start: ApplicationStart;
   readonly ask: Ask;
   readonly say: (text: string) => void;
   readonly out: SpinnerOutput;
@@ -76,7 +71,7 @@ async function turn(session: Session, line: string): Promise<void> {
     const thread = session.thread === undefined ? {} : { threadId: session.thread };
     session.interrupted = false;
     const first = await busy((signal) =>
-      executeUnchecked(session.app, session.start, { text: line }, { ...thread, signal }),
+      executeUnchecked(session.app, session.start.component, { text: line }, { ...thread, signal }),
     );
     const result = await untilDone(first, session.app, session.ask, busy);
     session.thread = result.threadId;
@@ -106,9 +101,9 @@ async function converse(session: Session): Promise<void> {
   }
 }
 
-/** Until #268: the application that lists the --workflow (its module, or *.application.ts beside it). */
-async function appOf(context: CommandContext, file: string): Promise<App> {
-  return createApp(await loadApplicationClass(file, loadOptions(context)), {
+/** The app of the application (its instance for this session). */
+async function appOf(context: CommandContext, application: Class): Promise<App> {
+  return createApp(application, {
     profile: textOption(context.values, "profile"),
     profileRoot: context.io.cwd,
     env: envOption(context),
@@ -116,11 +111,11 @@ async function appOf(context: CommandContext, file: string): Promise<App> {
   });
 }
 
-/** `agboss chat --workflow <path> [--thread <id>] [--profile <p>] [--env <id>]`. */
+/** `agboss chat [--start <name>] [--thread <id>] [--profile <p>] [--env <id>]`. */
 export const handle: CommandHandler = async (context) => {
-  const file = workflowPath(context);
-  const app = await appOf(context, file);
-  const workflow = await loadWorkflowClass(file, loadOptions(context));
+  const chosen = await loadChosenStart(context);
+  const start = textStartOrFail(chosen.start);
+  const app = await appOf(context, chosen.application);
   const out = context.json ? process.stderr : process.stdout;
   const rl = createInterface({ input: stdin, terminal: false });
   const say = (text: string): void => {
@@ -128,7 +123,7 @@ export const handle: CommandHandler = async (context) => {
   };
   const session: Session = {
     app,
-    start: textStartOrFail({ name: app.name, textStart: textStartOfWorkflow(app, workflow) }),
+    start,
     ask: askWith(rl, (text) => out.write(text)),
     say,
     out,
@@ -142,7 +137,7 @@ export const handle: CommandHandler = async (context) => {
   say(
     styleText(
       "dim",
-      `Chat with "${app.name}"${profile === undefined ? "" : ` (profile ${profile})`} ${app.version}. /new — new conversation, /exit — quit, \\ + Enter — new line, Esc — interrupt.`,
+      `Chat with "${start.workflow}" of "${app.name}" through ${start.name}${profile === undefined ? "" : ` (profile ${profile})`} ${app.version}. /new — new conversation, /exit — quit, \\ + Enter — new line, Esc — interrupt.`,
     ),
   );
   try {

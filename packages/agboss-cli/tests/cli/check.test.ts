@@ -22,7 +22,7 @@ interface CheckResult {
 
 describe("#198 AC3: agboss check runs every key-free validation", () => {
   it("a graph rule violation: file code message lines, exit 3, no API key", async () => {
-    const call = await agboss(["check", "--workflow", BROKEN], CWD);
+    const call = await agboss(["check", "--application", BROKEN], CWD);
 
     expect(call.code).toBe(3);
     const lines = call.stdout.trimEnd().split("\n");
@@ -36,7 +36,7 @@ describe("#198 AC3: agboss check runs every key-free validation", () => {
   });
 
   it("--json: one envelope with every problem; ok false, exit 3", async () => {
-    const call = await agboss(["check", "--workflow", BROKEN, "--json"], CWD);
+    const call = await agboss(["check", "--application", BROKEN, "--json"], CWD);
 
     expect(call.code).toBe(3);
     const parsed = envelope(call);
@@ -55,7 +55,7 @@ describe("#198 AC3: agboss check runs every key-free validation", () => {
   });
 
   it("a sound workflow passes: ok line, exit 0", async () => {
-    const call = await agboss(["check", "--workflow", WORKFLOW], CWD);
+    const call = await agboss(["check", "--application", WORKFLOW], CWD);
 
     expect(call).toMatchObject({ code: 0, stderr: "" });
     expect(call.stdout).toBe(
@@ -75,7 +75,7 @@ describe("#198 AC3: agboss check runs every key-free validation", () => {
 
 describe("#199 + #198: the prompts check runs on every agboss check", () => {
   it("every prompt problem is one file[:line] code message line, exit 3, no API key", async () => {
-    const call = await agboss(["check", "--workflow", BAD_PROMPTS], CWD);
+    const call = await agboss(["check", "--application", BAD_PROMPTS], CWD);
 
     expect(call.code).toBe(3);
     expect(call.stdout.trimEnd().split("\n")).toEqual([
@@ -87,7 +87,7 @@ describe("#199 + #198: the prompts check runs on every agboss check", () => {
   });
 
   it("--prompts is still accepted (prompts are always checked); --json carries the line", async () => {
-    const call = await agboss(["check", "--prompts", "--workflow", BAD_PROMPTS, "--json"], CWD);
+    const call = await agboss(["check", "--prompts", "--application", BAD_PROMPTS, "--json"], CWD);
 
     expect(call.code).toBe(3);
     const result = envelope(call).result as CheckResult & {
@@ -103,7 +103,7 @@ describe("#199 + #198: the prompts check runs on every agboss check", () => {
   });
 
   it("a workflow whose prompts render passes with --prompts: exit 0", async () => {
-    const call = await agboss(["check", "--prompts", "--workflow", WORKFLOW], CWD);
+    const call = await agboss(["check", "--prompts", "--application", WORKFLOW], CWD);
 
     expect(call).toMatchObject({
       code: 0,
@@ -114,8 +114,8 @@ describe("#199 + #198: the prompts check runs on every agboss check", () => {
 
 describe("#261 AC14: the application's assembly warnings in agboss check", () => {
   it("printed without --strict (exit 0); errors under --strict (exit 3)", async () => {
-    const warned = await agboss(["check", "--workflow", WORKFLOW], CWD);
-    const strict = await agboss(["check", "--strict", "--workflow", WORKFLOW, "--json"], CWD);
+    const warned = await agboss(["check", "--application", WORKFLOW], CWD);
+    const strict = await agboss(["check", "--strict", "--application", WORKFLOW, "--json"], CWD);
 
     expect(warned.code).toBe(0);
     expect(warned.stdout).toContain(ledgerWarning(WORKFLOW));
@@ -129,8 +129,8 @@ describe("#261 AC14: the application's assembly warnings in agboss check", () =>
   });
 
   it("#120 S94: no pseudonymKey — [application.pii-instance-key] printed, an error under --strict", async () => {
-    const warned = await agboss(["check", "--workflow", WORKFLOW], CWD);
-    const strict = await agboss(["check", "--strict", "--workflow", WORKFLOW, "--json"], CWD);
+    const warned = await agboss(["check", "--application", WORKFLOW], CWD);
+    const strict = await agboss(["check", "--strict", "--application", WORKFLOW, "--json"], CWD);
 
     expect(warned.stdout).toContain(piiKeyWarning(WORKFLOW));
     expect(strict.code).toBe(3);

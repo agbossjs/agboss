@@ -1,6 +1,6 @@
 import { ComponentError, EnvironmentError, GraphRuleError, WorkflowLoadError } from "agboss";
 import { ConfigurationError } from "agboss/models";
-import { ProfileError } from "agboss/internal";
+import { ApplicationLoadError, ProfileError } from "agboss/internal";
 import { ScaffoldConflictError, ScaffoldError, ScaffoldUsageError } from "../scaffold/errors.js";
 import { NoTextStartError } from "./text-start.js";
 
@@ -32,8 +32,9 @@ export class CliError extends Error {
 export const usageError = (command: string, code: string, message: string): CliError =>
   new CliError("usage", code, `${message} — see agboss help ${command}`);
 
-/** Errors of an invalid project: the workflow or its parts, fixed by editing the project. */
+/** Errors of an invalid project: the application, its workflows or their parts, fixed by editing the project. */
 const PROJECT_ERRORS: readonly (readonly [new (...args: never[]) => Error, string])[] = [
+  [ApplicationLoadError, "application.load"],
   [WorkflowLoadError, "workflow.load"],
   [GraphRuleError, "graph.rules"],
   [ComponentError, "workflow.assembly"],

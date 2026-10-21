@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { planGenerate, type GenerateOptions } from "../../src/scaffold/generate.js";
 import { applyChanges } from "../../src/scaffold/write.js";
 import { JOB_SCOUT_CHECK } from "../fixtures/job-scout-check.js";
-import { expectStaticChecks, agbossIn, repo, vitestOf } from "./project-checks.js";
+import { applicationOf, expectStaticChecks, agbossIn, repo, vitestOf } from "./project-checks.js";
 
 const example = join(repo, "examples/job-scout");
 const project = join(repo, "examples", `.scaffold-tmp-job-scout-${String(process.pid)}`);
@@ -89,7 +89,7 @@ describe("agboss generate on job-scout's layout", () => {
     expect(tests.out).toContain("billing-check.test.ts");
     expect(tests.out).toContain("refund.tool.test.ts");
     expect(tests.out).toContain("get-pet.tool.test.ts");
-    const described = agbossIn(project, ["describe", "--workflow", workflow]);
+    const described = agbossIn(project, ["describe", "--application", applicationOf(workflow)]);
     expect(described.ok, described.out).toBe(true);
     expect(described.out).toContain(
       "      route(ShortlistAgent)\n        .toFinish(ChatWorkflowFinish),\n      route(BillingAgent)\n        .toFinish(ChatWorkflowFinish)\n    )",
@@ -98,8 +98,8 @@ describe("agboss generate on job-scout's layout", () => {
     expect(described.out).toContain("rag: policies (tool, k 3)");
     const onboarding = agbossIn(project, [
       "describe",
-      "--workflow",
-      "src/onboarding/onboarding.workflow.ts",
+      "--application",
+      "src/onboarding/onboarding.application.ts",
     ]);
     expect(onboarding.ok, onboarding.out).toBe(true);
   }, 300_000);
@@ -150,7 +150,7 @@ describe("agboss generate on job-scout's layout", () => {
     }
     expect(text("src/agents/billing.agent.ts").match(/RefundTool/g)).toHaveLength(2);
     expect(text(workflow).match(/TicketsServer/g)).toHaveLength(2);
-    const tsc = agbossIn(project, ["describe", "--workflow", workflow]);
+    const tsc = agbossIn(project, ["describe", "--application", applicationOf(workflow)]);
     expect(tsc.ok, tsc.out).toBe(true);
   }, 120_000);
 });

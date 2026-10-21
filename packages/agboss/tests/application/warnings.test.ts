@@ -81,9 +81,7 @@ describe("#120 S94: no application key → a key of the instance, and a warning"
   });
 
   it("agboss check reads it from the declaration — an error under --strict (the CLI's tests)", async () => {
-    // a workflow listed by one application only: `agboss check` finds its application by it
-    const [unkeyed] = (await applicationOf(ClinicApplication)).workflows;
-    if (unkeyed === undefined) throw new Error("a workflow");
+    const unkeyed = await applicationOf(ClinicApplication);
 
     expect(applicationWarningsOf(unkeyed).map((warning) => warning.code)).toContain(
       "application.pii-instance-key",

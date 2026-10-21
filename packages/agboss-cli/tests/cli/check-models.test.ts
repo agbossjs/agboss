@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { checkWorkflowModels } from "../../src/cli/check-models.js";
-import { workflowOf } from "agboss/testing";
+import { applicationOf } from "agboss/internal";
+import { checkApplicationModels } from "../../src/cli/check-models.js";
 import { COMMANDS } from "../../src/cli/usage.js";
-import { Priced } from "../../../agboss/tests/models/fixtures/priced.workflow.js";
+import { PricedApplication } from "../../../agboss/tests/models/fixtures/priced.workflow.js";
 import { KIMI_ENTRY, providerStub } from "../../../agboss/tests/models/stub.js";
-import { DraftingWorkflow } from "../../../agboss/tests/models/fixtures/two-workflows.workflow.js";
+import { NotesApplication } from "../../../agboss/tests/models/fixtures/two-workflows.workflow.js";
 
 describe("AC6: agboss check --models", () => {
   it("AC6: settings that fit print each model's provider and ok, exit code 0 — no API key needed", async () => {
-    const report = await checkWorkflowModels(
-      await workflowOf(Priced),
+    const report = await checkApplicationModels(
+      await applicationOf(PricedApplication),
       {},
       providerStub([], [KIMI_ENTRY, { id: "local/llama" }]).fetch,
     );
@@ -20,8 +20,8 @@ describe("AC6: agboss check --models", () => {
   });
 
   it("AC6: every problem at once, with key, value, model and what it supports — exit code 1", async () => {
-    const report = await checkWorkflowModels(
-      await workflowOf(Priced),
+    const report = await checkApplicationModels(
+      await applicationOf(PricedApplication),
       {},
       providerStub([], []).fetch,
     );
@@ -36,9 +36,9 @@ describe("AC6: agboss check --models", () => {
     });
   });
 
-  it("#266 AC8: one workflow's check covers every model of every workflow of its application", async () => {
-    const report = await checkWorkflowModels(
-      await workflowOf(DraftingWorkflow),
+  it("#266 AC8: the check covers every model of every workflow of the application", async () => {
+    const report = await checkApplicationModels(
+      await applicationOf(NotesApplication),
       {},
       providerStub([], [{ id: "local/llama" }]).fetch,
     );
@@ -53,8 +53,8 @@ describe("AC6: agboss check --models", () => {
   });
 
   it("#266 AC8: each model is checked against its resolved provider, every workflow named", async () => {
-    const report = await checkWorkflowModels(
-      await workflowOf(DraftingWorkflow),
+    const report = await checkApplicationModels(
+      await applicationOf(NotesApplication),
       {},
       providerStub([], [KIMI_ENTRY, { id: "local/llama" }]).fetch,
     );
@@ -71,7 +71,7 @@ describe("AC6: agboss check --models", () => {
 
   it("AC6: agboss help lists the check command", () => {
     expect(COMMANDS.check?.usage).toBe(
-      "agboss check --workflow <path> [--models] [--strict] [--profile <name>] [--env <name>] [--json]",
+      "agboss check [--models] [--strict] [--profile <name>] [--env <name>] [--application <path>] [--json]",
     );
   });
 });

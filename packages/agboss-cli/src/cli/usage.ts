@@ -15,7 +15,9 @@ Usage: agboss <command> [options]      (short: agb)
 
 ${lines.join("\n")}
 
-Every workflow command takes --workflow <path>: a module exporting one @Workflow class.
+The application is set once in package.json — "agboss": { "application": "src/<name>.application.ts" } —
+or given with --application <path>. chat, run, eval, replay, golden and compare run one workflow,
+chosen by its start: --start <full name> (optional when the application has one start).
 Every command takes --json (one JSON envelope on stdout), --debug (stack traces) and --help.
 agboss help <command> — its options; agboss help <command> --json — the same, for a machine.
 
@@ -27,7 +29,7 @@ Environment:
 `;
 }
 
-/** `--workflow <path>`, `--yes, -y`. */
+/** `--start <name>`, `--yes, -y`. */
 const flagLabel = (option: OptionSpec): string =>
   `--${option.name}${option.value === undefined ? "" : ` ${option.value}`}${option.short === undefined ? "" : `, -${option.short}`}`;
 

@@ -79,13 +79,19 @@ export const vitestOf = (project: string, args: readonly string[] = []): Ran =>
   run(bin("vitest/vitest.mjs"), ["run", "--root", project, ...args], project);
 
 /**
- * `.agboss/types.d.ts` as the project's `npm run types` writes it (#272): `agboss check` on a workflow
- * of `src/` types every workflow there. Its verdict is the tests' to check, not this helper's.
+ * `.agboss/types.d.ts` as the project's `npm run types` writes it (#272): `agboss check` on an
+ * application of `src/` types every workflow there. Its verdict is the tests' to check, not this helper's.
  */
 export function writeTypes(project: string): void {
-  const workflow = sourceFiles(project, ["src"]).find((file) => file.endsWith(".workflow.ts"));
-  if (workflow !== undefined) agbossIn(project, ["check", "--workflow", workflow]);
+  const application = sourceFiles(project, ["src"]).find((file) =>
+    file.endsWith(".application.ts"),
+  );
+  if (application !== undefined) agbossIn(project, ["check", "--application", application]);
 }
+
+/** The application next to a generated workflow (`src/x/x.workflow.ts` → `src/x/x.application.ts`). */
+export const applicationOf = (workflow: string): string =>
+  workflow.replace(/\.workflow\.ts$/, ".application.ts");
 
 /**
  * #289: the project's workflow modules pass `@stylistic/newline-per-chained-call` — the repo's rule

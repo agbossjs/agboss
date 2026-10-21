@@ -1,11 +1,10 @@
-import { type AssembledWorkflow } from "agboss";
 import {
   applicationModelUsesOf,
   checkModelUses,
   directoryOf,
   modelSummaryOf,
   problemLine,
-  workflowsOfApplication,
+  type AssembledApplication,
   type ModelUse,
   type ProviderFetch,
 } from "agboss/internal";
@@ -23,23 +22,25 @@ interface ApplicationModels {
   readonly directory: ModelProviderDirectory;
 }
 
-/** The model uses of every workflow of the workflow's application, and who serves them (#266). */
-async function applicationModelsOf(bundle: AssembledWorkflow): Promise<ApplicationModels> {
-  const workflows = await workflowsOfApplication(bundle);
+/** The model uses of every workflow of the application, and who serves them (#266). */
+function applicationModelsOf({ workflows }: AssembledApplication): ApplicationModels {
   // one application, one list of model providers: every workflow of it has the same
-  return { uses: applicationModelUsesOf(workflows), directory: directoryOf(bundle.modelProviders) };
+  const [first] = workflows;
+  return {
+    uses: applicationModelUsesOf(workflows),
+    directory: directoryOf(first?.modelProviders ?? []),
+  };
 }
 
 /**
- * Every model setting of the application the workflow is in (every workflow it lists) that does not
- * fit its model, as its resolved provider lists it (no API key).
+ * Every model setting of the application (every workflow it runs) that does not fit its model, as its resolved provider lists it (no API key).
  */
-export async function modelProblemsOf(
-  bundle: AssembledWorkflow,
+export function modelProblemsOf(
+  assembled: AssembledApplication,
   env: NodeJS.ProcessEnv,
   send?: ProviderFetch,
 ): Promise<readonly ModelProblem[]> {
-  return problemsOf(await applicationModelsOf(bundle), env, send);
+  return problemsOf(applicationModelsOf(assembled), env, send);
 }
 
 const problemsOf = (
@@ -53,12 +54,12 @@ const problemsOf = (
  * `agboss check --models`: every model setting of the application against what its provider says the
  * model supports — all problems at once, exit code 1 when there is any. Needs no API key.
  */
-export async function checkWorkflowModels(
-  bundle: AssembledWorkflow,
+export async function checkApplicationModels(
+  assembled: AssembledApplication,
   env: NodeJS.ProcessEnv,
   send?: ProviderFetch,
 ): Promise<ModelCheckReport> {
-  const models = await applicationModelsOf(bundle);
+  const models = applicationModelsOf(assembled);
   const { uses, directory } = models;
   const problems = await problemsOf(models, env, send);
   if (problems.length === 0) {

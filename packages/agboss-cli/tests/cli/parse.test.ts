@@ -3,11 +3,8 @@ import { COMMANDS } from "../../src/cli/commands.js";
 import type { CliIo, CommandContext } from "../../src/cli/context.js";
 import { CliError } from "../../src/cli/errors.js";
 import { parseCommand } from "../../src/cli/parse.js";
-import { runTargetOf } from "../../src/cli/run-target.js";
-import { fixture } from "./agboss.js";
 
 const RUN = COMMANDS.run ?? { summary: "", usage: "", options: [] };
-const WORKFLOW = fixture("test-workflow/test.workflow.ts");
 const io: CliIo = { stdout: process.stdout, stderr: process.stderr, env: {}, cwd: process.cwd() };
 
 const runContext = (argv: readonly string[]): CommandContext => ({
@@ -19,28 +16,32 @@ const runContext = (argv: readonly string[]): CommandContext => ({
   warn: () => undefined,
 });
 
-describe('#198: agboss run --workflow <path> "task"', () => {
-  it("parses the documented form, --input, and the older positional path", () => {
-    expect(runTargetOf(runContext(["--workflow", "src/a.workflow.ts", "find", "jobs"]))).toEqual({
-      file: "src/a.workflow.ts",
-      task: "find jobs",
-    });
-    expect(runTargetOf(runContext(["--input", "find jobs"]))).toEqual({
-      file: "./src/workflow.ts",
-      task: "find jobs",
-    });
-    expect(runTargetOf(runContext([WORKFLOW, "find", "jobs"]))).toEqual({
-      file: WORKFLOW,
-      task: "find jobs",
-    });
+describe('#268: agboss run --start <name> "task" | --input <json>', () => {
+  it("parses the start, the input and the task's words", () => {
+    const context = runContext(["--start", "chat-workflow-start", "find", "jobs"]);
+
+    expect(context.values.start).toBe("chat-workflow-start");
+    expect(context.positionals).toEqual(["find", "jobs"]);
+    expect(runContext(["--input", '{"text":"hi"}']).values.input).toBe('{"text":"hi"}');
+    expect(runContext(["--input-file", "input.json"]).values["input-file"]).toBe("input.json");
   });
 
   it("an option missing its value is a usage error naming it", () => {
-    expect(() => parseCommand("run", RUN, ["--workflow"])).toThrow(
+    expect(() => parseCommand("run", RUN, ["--start"])).toThrow(
       new CliError(
         "usage",
         "usage.option-value",
-        "option --workflow needs a value — see agboss help run",
+        "option --start needs a value — see agboss help run",
+      ),
+    );
+  });
+
+  it("AC1: --workflow is gone — an unknown option", () => {
+    expect(() => parseCommand("run", RUN, ["--workflow", "src/a.workflow.ts"])).toThrow(
+      new CliError(
+        "usage",
+        "usage.unknown-option",
+        "unknown option --workflow — see agboss help run",
       ),
     );
   });

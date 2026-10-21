@@ -3,7 +3,7 @@ import { ChatWorkflow } from "../../../flow/fixtures/chat.fixture.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
 
-/** The application of `solo/solo.workflow.ts`, one folder above it. */
+/** An application module: `agboss --application <path>` loads its one exported @Application (#268). */
 @Application({
   name: "solo-application",
   version: "1.0.0",

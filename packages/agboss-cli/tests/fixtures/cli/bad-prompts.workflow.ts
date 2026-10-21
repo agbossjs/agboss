@@ -1,4 +1,12 @@
-import { Agent, DecidedBy, Router, Workflow } from "../../../../agboss/src/index.js";
+import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
+import {
+  Agent,
+  Application,
+  DecidedBy,
+  EmptyEnvironment,
+  Router,
+  Workflow,
+} from "../../../../agboss/src/index.js";
 import { WorkflowStartTextDto } from "../../../../agboss/src/dto/index.js";
 import { testDefaults } from "../../../../agboss/tests/helpers.js";
 import { route, start } from "../../../../agboss/tests/helpers/flow.js";
@@ -51,3 +59,13 @@ export class Main {}
   promptVariables: { boards: "LinkedIn, AllJobs" },
 })
 export class BadPrompts {}
+
+/** The application `agboss --application` loads (#268): this workflow alone. */
+@Application({
+  name: "prompts-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [BadPrompts],
+  budgets: TEST_BUDGETS,
+})
+export class PromptsApplication {}

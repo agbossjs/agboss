@@ -93,7 +93,7 @@ describe("#196 AC1: docs that compile", { timeout: 60_000 }, () => {
       fence(
         "bash",
         "npx agboss g widget refund --workflow src/w.ts",
-        "npx agboss chat --workflow x.ts",
+        "npx agboss chat --start chat-workflow-start",
       ),
       "Existing ones pass: `scripts/check-root.mjs`, `npm run check:docs`, `agboss check --models`, `make check`.",
       "",

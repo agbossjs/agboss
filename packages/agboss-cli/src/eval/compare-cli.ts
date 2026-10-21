@@ -1,15 +1,13 @@
-import { loadWorkflow, type AppDeps } from "agboss";
+import type { AppDeps } from "agboss";
 import { compareBundleProfiles, formatComparison, goldenFile, loadGolden } from "agboss/internal";
 import {
-  loadOptions,
   requiredText,
   textOption,
-  workflowPath,
   type CommandContext,
   type CommandHandler,
 } from "../cli/context.js";
-import { cliEnvironment } from "../cli/environment.js";
 import { usageError } from "../cli/errors.js";
+import { startWorkflowOf } from "./cli-deps.js";
 
 async function tasksOf(context: CommandContext, base: AppDeps): Promise<string[]> {
   const golden = textOption(context.values, "golden");
@@ -21,7 +19,7 @@ async function tasksOf(context: CommandContext, base: AppDeps): Promise<string[]
   return set.tasks.map((t) => t.task);
 }
 
-/** `agboss compare --workflow <path> --profiles base,<p>… [--golden <name> | --last N]` (`compareProfiles`). */
+/** `agboss compare [--start <name>] --profiles base,<p>… [--golden <name> | --last N]` (`compareProfiles`). */
 export const compareProfiles: CommandHandler = async (context) => {
   const names = requiredText(context.values, "profiles")
     .split(",")
@@ -33,9 +31,8 @@ export const compareProfiles: CommandHandler = async (context) => {
       "usage.option-value",
       "--profiles needs at least two, e.g. base,<profile>",
     );
-  const file = workflowPath(context);
-  const bundle = await loadWorkflow(file, loadOptions(context));
-  const environment = await cliEnvironment(context, file);
+  // the profiles go on the workflow as assembled without one
+  const { bundle, environment } = await startWorkflowOf(context, undefined);
   const comparison = await compareBundleProfiles(
     bundle,
     names,

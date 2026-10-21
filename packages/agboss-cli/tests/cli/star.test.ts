@@ -91,7 +91,7 @@ describe("the star line (#129)", () => {
   });
 
   it("AC2: agboss describe (not a terminal) — no star line on stdout or stderr", () => {
-    const result = agboss(["describe", "--workflow", workflow]);
+    const result = agboss(["describe", "--application", workflow]);
 
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain("researcher");

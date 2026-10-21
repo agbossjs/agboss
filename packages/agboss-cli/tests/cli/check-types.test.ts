@@ -30,10 +30,12 @@ describe("#270 AC13: agboss check writes .agboss/types.d.ts", () => {
   it("a v2 workflow: the types are written, the S4 note printed, exit 0", async () => {
     const cwd = project();
 
-    const call = await agboss(["check", "--workflow", PARTS], cwd);
+    const call = await agboss(["check", "--application", PARTS], cwd);
 
     expect(call).toMatchObject({ code: 0, stderr: "" });
-    expect(call.stdout).toBe(`${NOTE}\ntypes: .agboss/types.d.ts\nok: ${PARTS} — ${CHECKS_RUN}\n`);
+    expect(call.stdout).toBe(
+      `${NOTE}\ntypes: .agboss/types.d.ts\n${ledgerWarning(PARTS)}${piiKeyWarning(PARTS)}ok: ${PARTS} — ${CHECKS_RUN}\n`,
+    );
     expect(readFileSync(typesOf(cwd), "utf8")).toContain('"six-parts-agent": SummaryDto;');
   });
 
@@ -42,7 +44,7 @@ describe("#270 AC13: agboss check writes .agboss/types.d.ts", () => {
     mkdirSync(join(cwd, ".agboss"));
     writeFileSync(typesOf(cwd), "export {}; // stale\n");
 
-    const call = await agboss(["check", "--workflow", PARTS, "--json"], cwd);
+    const call = await agboss(["check", "--application", PARTS, "--json"], cwd);
 
     expect(envelope(call)).toMatchObject({
       ok: true,
@@ -59,7 +61,7 @@ describe("#270 AC13: agboss check writes .agboss/types.d.ts", () => {
   it("[types.unexported-class]: a problem line, exit 3, nothing written", async () => {
     const cwd = project();
 
-    const call = await agboss(["check", "--workflow", HIDDEN], cwd);
+    const call = await agboss(["check", "--application", HIDDEN], cwd);
 
     expect(call.code).toBe(3);
     expect(call.stdout).toContain(`${HIDDEN} types.unexported-class HiddenAgent (`);
@@ -67,10 +69,10 @@ describe("#270 AC13: agboss check writes .agboss/types.d.ts", () => {
     expect(existsSync(typesOf(cwd))).toBe(false);
   });
 
-  it("every check runs on a workflow, the types written first", async () => {
+  it("every check runs on the application, the types written first", async () => {
     const cwd = project();
 
-    const call = await agboss(["check", "--workflow", STAR], cwd);
+    const call = await agboss(["check", "--application", STAR], cwd);
 
     expect(call.stdout).toBe(
       `types: .agboss/types.d.ts\n${ledgerWarning(STAR)}${piiKeyWarning(STAR)}ok: ${STAR} — ${CHECKS_RUN}\n`,
@@ -117,7 +119,7 @@ describe("S7: agboss generate regenerates the types at its end", () => {
     expect(lines).toEqual([
       expect.stringMatching(/^warn \S+hidden\.workflow\.ts types\.unexported-class HiddenAgent /),
       expect.stringMatching(/^warn \S+hidden\.workflow\.ts types\.unexported-class HiddenDto /),
-      `warn types not regenerated: the module fails while it loads — run agboss check --workflow ${THROWS}`,
+      "warn types not regenerated: the module fails while it loads — run agboss check",
     ]);
   });
 });
@@ -126,8 +128,8 @@ describe("#263 AC11: agboss check --strict — the analyser's warnings are error
   const DEEP = fixture("cli/deep.workflow.ts");
 
   it("without --strict a warning is printed and the check passes; with it the check fails", async () => {
-    const warned = await agboss(["check", "--workflow", DEEP], project());
-    const strict = await agboss(["check", "--strict", "--workflow", DEEP], project());
+    const warned = await agboss(["check", "--application", DEEP], project());
+    const strict = await agboss(["check", "--strict", "--application", DEEP], project());
 
     expect(warned.code).toBe(0);
     expect(warned.stdout).toContain(`${DEEP} flow.path-too-deep deep-workflow: the path`);

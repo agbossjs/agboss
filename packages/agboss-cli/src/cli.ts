@@ -1,25 +1,15 @@
-import { createApp, loadWorkflowClass, type App, type Class, type ExecutionOutput } from "agboss";
-import {
-  executeUnchecked,
-  loadApplicationClass,
-  textStartOfWorkflow,
-  type RunStreamEvent,
-} from "agboss/internal";
+import { createApp, type App, type ExecutionOutput } from "agboss";
+import { executeUnchecked, type ApplicationStart, type RunStreamEvent } from "agboss/internal";
 import "dotenv/config";
 import { createInterface } from "node:readline";
 import { styleText } from "node:util";
 import { askWith } from "./cli/ask.js";
 import { memoryLine, outputText, summaryLine, threadLine, untilDone } from "./cli/approve.js";
-import {
-  loadOptions,
-  textOption,
-  type CommandContext,
-  type CommandHandler,
-} from "./cli/context.js";
+import { loadChosenStart } from "./cli/cli-application.js";
+import { textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
 import { costSummary, costTotal, costTrace } from "./cli/finops.js";
 import { envOption } from "./cli/environment.js";
-import { runTargetOf } from "./cli/run-target.js";
-import { textStartOrFail } from "./cli/text-start.js";
+import { runInputOf } from "./cli/run-input.js";
 
 /** The reply streams to stdout (stderr under --json); tool use and the summary go to stderr. */
 function streamTo(context: CommandContext): (event: RunStreamEvent) => void {
@@ -33,18 +23,16 @@ function streamTo(context: CommandContext): (event: RunStreamEvent) => void {
 async function execute(
   context: CommandContext,
   app: App,
-  start: Class,
-  task: string,
+  start: ApplicationStart,
+  input: unknown,
 ): Promise<ExecutionOutput> {
   const thread = textOption(context.values, "thread");
   const rl = createInterface({ input: process.stdin, terminal: false });
   try {
-    const first = await executeUnchecked(
-      app,
-      start,
-      { text: task },
-      { ...(thread === undefined ? {} : { threadId: thread }), onStream: streamTo(context) },
-    );
+    const first = await executeUnchecked(app, start.component, input, {
+      ...(thread === undefined ? {} : { threadId: thread }),
+      onStream: streamTo(context),
+    });
     return await untilDone(
       first,
       app,
@@ -68,11 +56,14 @@ function report(context: CommandContext, app: App, result: ExecutionOutput): voi
   context.warn(costTotal(result.spend));
 }
 
-/** `agboss run --workflow <path> [--thread <id>] [--profile <p>] [--env <id>] "<task>"`. */
+/**
+ * `agboss run [--start <name>] ("<task>" | --input <json> | --input-file <file>) [--thread <id>]
+ * [--profile <p>] [--env <id>]` — the input is checked against the start before the app starts.
+ */
 export const handle: CommandHandler = async (context) => {
-  const { file, task } = runTargetOf(context);
-  // until #268: the application that lists the --workflow (its module, or *.application.ts beside it)
-  const app = await createApp(await loadApplicationClass(file, loadOptions(context)), {
+  const { application, start } = await loadChosenStart(context);
+  const input = runInputOf(context, start);
+  const app = await createApp(application, {
     profile: textOption(context.values, "profile"),
     profileRoot: context.io.cwd,
     env: envOption(context),
@@ -80,15 +71,11 @@ export const handle: CommandHandler = async (context) => {
   });
   // the startup warnings are in the app's start log (its Logger); --json returns them too
   try {
-    const workflow = await loadWorkflowClass(file, loadOptions(context));
-    const start = textStartOrFail({
-      name: app.name,
-      textStart: textStartOfWorkflow(app, workflow),
-    });
-    const result = await execute(context, app, start, task);
+    const result = await execute(context, app, start, input);
     report(context, app, result);
     const { threadId: thread, status, finish, output: answer } = result;
     const output = {
+      start: start.name,
       thread,
       status,
       text: outputText(result),

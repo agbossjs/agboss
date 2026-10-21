@@ -1,13 +1,6 @@
-import {
-  ComponentError,
-  GraphRuleError,
-  WorkflowLoadError,
-  loadWorkflow,
-  type AssembledWorkflow,
-  withProfile,
-} from "agboss";
+import { ComponentError, GraphRuleError } from "agboss";
 import { ConfigurationError, type ModelProblem } from "agboss/models";
-import { ProfileError } from "agboss/internal";
+import { ProfileError, type AssembledApplication } from "agboss/internal";
 import { promptProblemsOf } from "./check-prompts.js";
 
 /** One problem `agboss check` found: `file:line code message`. */
@@ -36,7 +29,6 @@ function problemsOfError(file: string, error: unknown): readonly CheckProblem[] 
   if (error instanceof ConfigurationError)
     return error.problems.map((problem) => modelProblem(file, problem));
   const codes: readonly (readonly [new (...args: never[]) => Error, string])[] = [
-    [WorkflowLoadError, "workflow.load"],
     [ComponentError, "workflow.assembly"],
     [ProfileError, "profile.invalid"],
   ];
@@ -46,18 +38,16 @@ function problemsOfError(file: string, error: unknown): readonly CheckProblem[] 
 }
 
 export type Assembly =
-  | { readonly kind: "ok"; readonly bundle: AssembledWorkflow }
+  | { readonly kind: "ok"; readonly assembled: AssembledApplication }
   | { readonly kind: "failed"; readonly problems: readonly CheckProblem[] };
 
-/** Loads and assembles the workflow (graph rules, DI, config, settings) with its profile. */
+/** The application assembled (graph rules, DI, config, settings of every workflow), or its problems. */
 export async function assemble(
   file: string,
-  profile: string | undefined,
-  options: { readonly typescript?: boolean; readonly cwd: string },
+  build: () => Promise<AssembledApplication>,
 ): Promise<Assembly> {
   try {
-    const bundle = await withProfile(await loadWorkflow(file, options), profile, options.cwd);
-    return { kind: "ok", bundle };
+    return { kind: "ok", assembled: await build() };
   } catch (error) {
     const problems = problemsOfError(file, error);
     if (problems === undefined) throw error;

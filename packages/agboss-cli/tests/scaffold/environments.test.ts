@@ -15,7 +15,8 @@ import { CHECKS_RUN, ledgerWarning, piiKeyWarning } from "../cli/agboss.js";
 
 const tmp = new URL("../../.scaffold-tmp", import.meta.url).pathname;
 const project = join(tmp, `shop-${String(process.pid)}`);
-const workflow = "src/shop/shop.workflow.ts";
+/** The project's application: `"agboss": { "application" }` of its package.json (#268). */
+const application = "src/shop/shop.application.ts";
 const environments = join(project, "src/shop/environments");
 const read = (path: string): string => readFileSync(join(project, path), "utf8");
 const MISSING =
@@ -55,11 +56,11 @@ describe("#239: environments next to the workflow file, read through Application
     expect(tests.ok, tests.out).toBe(true);
     expect(tests.out).toContain("api.service.test.ts");
     expect(tests.out).toContain("shop.workflow.test.ts");
-    const check = agbossIn(project, ["check", "--workflow", workflow]);
+    const check = agbossIn(project, ["check"]);
     expect(check.out).toBe(
-      `types: .agboss/types.d.ts\n${ledgerWarning(workflow)}${piiKeyWarning(workflow)}ok: ${workflow} — ${CHECKS_RUN}\n`,
+      `types: .agboss/types.d.ts\n${ledgerWarning(application)}${piiKeyWarning(application)}ok: ${application} — ${CHECKS_RUN}\n`,
     );
-    const described = agbossIn(project, ["describe", "--workflow", workflow]);
+    const described = agbossIn(project, ["describe"]);
     expect(described.out).toContain("environment dev");
     expect(described.out).toContain('apiUrl = "https://api.example.com"');
     expect(described.out).toContain(
@@ -73,7 +74,7 @@ describe("#239: environments next to the workflow file, read through Application
     );
     for (const file of files) renameSync(file, `${file}.moved`);
     try {
-      const check = agbossIn(project, ["check", "--workflow", workflow, "--json"]);
+      const check = agbossIn(project, ["check", "--json"]);
       expect(check.status, check.out).toBe(3);
       const { result } = JSON.parse(check.stdout) as {
         result: { problems: { code: string; message: string }[] };
@@ -88,6 +89,6 @@ describe("#239: environments next to the workflow file, read through Application
     } finally {
       for (const file of files) renameSync(`${file}.moved`, file);
     }
-    expect(agbossIn(project, ["check", "--workflow", workflow]).ok).toBe(true);
+    expect(agbossIn(project, ["check"]).ok).toBe(true);
   }, 120_000);
 });

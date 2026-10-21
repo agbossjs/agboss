@@ -1,23 +1,37 @@
-import { describeWorkflow, loadWorkflow, withProfile } from "agboss";
-import { describedEnvironmentFor } from "agboss/internal";
+import { describeWorkflow } from "agboss";
+import { describedEnvironmentFor, environmentOwnerOf } from "agboss/internal";
+import { assembleApplication, loadCliApplication } from "./cli/cli-application.js";
+import { textOption, type CommandHandler } from "./cli/context.js";
 import { describeData } from "./cli/describe-data.js";
-import { envOption, environmentOwner } from "./cli/environment.js";
-import { loadOptions, textOption, workflowPath, type CommandHandler } from "./cli/context.js";
+import { envOption } from "./cli/environment.js";
 
-/** `agboss describe --workflow <path> [--profile <p>] [--env <name>] [--json]` — no API key or network needed. */
+/**
+ * `agboss describe [--profile <p>] [--env <name>] [--json]` — every workflow of the application, in
+ * the order it runs them (the listed ones, then their child workflows); no API key or network needed.
+ */
 export const handle: CommandHandler = async (context) => {
   const profile = textOption(context.values, "profile");
-  const file = workflowPath(context);
-  const workflow = await loadWorkflow(file, loadOptions(context));
-  const bundle = await withProfile(workflow, profile, context.io.cwd);
+  const loaded = await loadCliApplication(context);
+  const assembled = await assembleApplication(context, loaded, profile);
   const environment = await describedEnvironmentFor(
-    await environmentOwner(context, file),
+    environmentOwnerOf(assembled),
     envOption(context),
     context.io.env,
   );
   if (!context.json) {
-    describeWorkflow(bundle, profile ?? "base", environment).forEach(context.say);
+    context.say(`${assembled.name} ${assembled.version} (${loaded.path.shown})`);
+    for (const workflow of assembled.workflows) {
+      context.say("");
+      describeWorkflow(workflow, profile ?? "base", environment).forEach(context.say);
+    }
     return {};
   }
-  return { result: describeData(bundle, profile ?? "base", environment) };
+  return {
+    result: {
+      application: { name: assembled.name, version: assembled.version },
+      workflows: assembled.workflows.map((workflow) =>
+        describeData(workflow, profile ?? "base", environment),
+      ),
+    },
+  };
 };

@@ -73,8 +73,9 @@ describe("#237: --force keeps the wiring", () => {
     expectStaticChecks(project, ["src"]);
     const tests = vitestOf(project);
     expect(tests.ok, tests.out).toBe(true);
-    expect(agboss("check", "--workflow", workflow).out).toContain("ok: src/desk/desk.workflow.ts");
-    const described = agboss("describe", "--workflow", workflow);
+    // the application of package.json (#268 AC1)
+    expect(agboss("check").out).toContain("ok: src/desk/desk.application.ts");
+    const described = agboss("describe");
     expect(described.out).toMatch(
       /billing-agent .*\n\s+Bills customers\n\s+limits: .*\n\s+rag: policies/,
     );

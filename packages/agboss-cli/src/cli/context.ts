@@ -51,10 +51,6 @@ export const requiredText = (values: OptionValues, name: string): string =>
 
 export const flagOption = (values: OptionValues, name: string): boolean => values[name] === true;
 
-/** `--workflow <path>` (every workflow command has it, with a default). */
-export const workflowPath = (context: CommandContext): string =>
-  requiredText(context.values, "workflow");
-
-/** Load options for `loadWorkflowClass`. */
+/** Load options for `loadApplicationClass`. */
 export const loadOptions = (context: CommandContext): { readonly typescript?: boolean } =>
   context.io.registerTypeScript === false ? { typescript: false } : {};

@@ -39,40 +39,49 @@ describe("#198 AC1: every command has --help and a --json description", () => {
     },
   );
 
-  it("every workflow command takes --workflow; agboss help --json lists every command", async () => {
+  it("#268 AC1, AC2: every command but the generators takes --application; the run commands --start", async () => {
     const all = envelope(await agboss(["help", "--json"])).result as Described[];
+    const taking = (flag: string): string[] =>
+      all.filter((c) => c.options.some((o) => o.flag === flag)).map((c) => c.name);
 
     expect(all.map((c) => c.name)).toEqual(Object.keys(COMMANDS));
-    const withoutWorkflow = all
-      .filter((c) => !c.options.some((o) => o.flag === "--workflow"))
-      .map((c) => c.name);
-    expect(withoutWorkflow).toEqual(["create", "migrate", "help"]);
+    expect(taking("--start")).toEqual(["chat", "run", "eval", "replay", "golden", "compare"]);
+    expect(
+      all.map((c) => c.name).filter((name) => !taking("--application").includes(name)),
+    ).toEqual(["create", "generate", "migrate", "help"]);
+    // generate's --workflow is PR 4's (#268 AC8: a workflow's full name)
+    expect(taking("--workflow")).toEqual(["generate"]);
   });
 
-  it("agboss describe --json: the workflow as data, only the envelope on stdout", async () => {
-    const call = await agboss(["describe", "--workflow", WORKFLOW, "--json"]);
+  it("agboss describe --json: every workflow of the application as data, only the envelope on stdout", async () => {
+    const call = await agboss(["describe", "--application", WORKFLOW, "--json"]);
 
     expect(call.code).toBe(0);
-    const result = envelope(call).result as {
-      name: string;
-      agents: { name: string; tools: string[] }[];
-      routers: { name: string }[];
+    const { application, workflows } = envelope(call).result as {
+      application: { name: string };
+      workflows: {
+        name: string;
+        agents: { name: string; tools: string[] }[];
+        routers: { name: string }[];
+      }[];
     };
-    expect(result.name).toBe("test-workflow");
-    expect(result.agents).toEqual([
+    expect(application.name).toBe("test-application");
+    const [result] = workflows;
+    expect(result?.name).toBe("test-workflow");
+    expect(result?.agents).toEqual([
       expect.objectContaining({ name: "coder-agent", tools: [] }),
       expect.objectContaining({ name: "researcher-agent", tools: ["current_time"] }),
     ]);
-    expect(result.routers.map((r) => r.name)).toEqual(["main-router"]);
+    expect(result?.routers.map((r) => r.name)).toEqual(["main-router"]);
   });
 
   it("#266 AC2: agboss describe --json gives each model with the provider it resolves to", async () => {
-    const call = await agboss(["describe", "--workflow", WORKFLOW, "--json"]);
+    const call = await agboss(["describe", "--application", WORKFLOW, "--json"]);
 
-    const result = envelope(call).result as {
-      models: { key: string; model: string; provider: string }[];
+    const { workflows } = envelope(call).result as {
+      workflows: { models: { key: string; model: string; provider: string }[] }[];
     };
-    expect(result.models).toContainEqual({
+    expect(workflows[0]?.models).toContainEqual({
       key: "routers.main-router",
       model: "typesafe/jev-1.13",
       provider: "decisions-model-provider",
@@ -80,7 +89,7 @@ describe("#198 AC1: every command has --help and a --json description", () => {
   });
 
   it("agboss describe without --json still prints the text", async () => {
-    const call = await agboss(["describe", "--workflow", WORKFLOW]);
+    const call = await agboss(["describe", "--application", WORKFLOW]);
 
     expect(call.code).toBe(0);
     expect(call.stdout).toContain("test-workflow 1.0.0");

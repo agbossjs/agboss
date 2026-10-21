@@ -1,6 +1,8 @@
 // `agboss check --strict` fixture (#263): a path nested past four levels — a warning, an error
 // under --strict ([flow.path-too-deep])
 // the untyped builder: this package has no generated types for the framework's fixtures
+import { Application, EmptyEnvironment } from "../../../../agboss/src/index.js";
+import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { start, toAction } from "../../../../agboss/tests/flow/fixtures/paths.js";
 import { Action } from "../../../../agboss/src/flow/decorators/action.js";
 import { Workflow } from "../../../../agboss/src/flow/decorators/workflow.js";
@@ -88,3 +90,13 @@ export class DeepFifthAction {
   ],
 })
 export class DeepWorkflow {}
+
+/** The application `agboss --application` loads (#268): this workflow alone. */
+@Application({
+  name: "deep-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [DeepWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class DeepApplication {}
