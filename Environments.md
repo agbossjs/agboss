@@ -220,12 +220,15 @@ The application's PII key (#120) is a `Secret` field of the environment, named b
 - **At start:**
   - A policy that needs the key when it is not set fails the start, naming the field and the
     policies.
-  - When nothing needs the key and it is not set, `sensitive` fields and the policies without
-    their own key use a key **of the instance** (S94): the start goes on, with the warning
-    `[application.pii-instance-key]` in `app.warnings` and the start log — an error under
-    `agboss check --strict`, silent in tests. Reveal still works (the token map is the execution's
-    `piiTokens`, in the checkpoint); only one value gets another token on each instance, so logs
-    and traces of several instances compare only with the application's key.
+  - When nothing needs the key and it is not set, `sensitive` fields use a key **of each root
+    execution** (S94, #334): made once when the execution starts, kept in its checkpoint next to
+    its token map (`piiTokens`) and handed to its child workflows — so a pause resumed, a failover
+    or a recovery on another instance gives one value the same token within the execution
+    ([Several instances → PII tokens](Several-instances#pii-tokens-across-instances)). The start goes
+    on, with the warning `[application.pii-instance-key]` in `app.warnings` and the start log — an
+    error under `agboss check --strict`, silent in tests. Only one value gets another token in each
+    execution, and logs and traces mask with a key of the instance, so tokens compare across
+    executions (and the logs of several instances) only with the application's key.
   - `testWith` uses a fixed test key when the variable is unset (no warning).
 - **Tests and the optional field:** declare it optional (`piiPseudonymKey?: Secret`) and leave it out
   of `test.environment.ts`, as a model provider's key; `flow-patterns` does so.

@@ -3,6 +3,22 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — a PII key per root execution when the application sets none (#334)
+
+- **Fixed — one value, one token across instances** ([Several instances → PII
+  tokens](Several-instances#pii-tokens-across-instances)): without `@Application({ pseudonymKey })`
+  the tokens of `sensitive` fields were made with a key of each instance, so after a pause resumed,
+  a failover or a recovery on another instance one value got a second token in the same
+  conversation. Now each root execution makes a key of its own at its start, keeps it in its
+  checkpoint next to `piiTokens` and hands it to its child workflows; every instance that continues
+  it gives one value the same token. With `pseudonymKey` (or under `testWith`, its fixed test key)
+  nothing changes and no key is checkpointed; a checkpoint from before keeps the instance's key.
+  No API change.
+- **Changed — `[application.pii-instance-key]`**'s text: `no @Application({ pseudonymKey }):
+  sensitive fields make PII tokens with a key of each execution — one value gets another token in
+  each execution (in logs and traces: on each instance), so tokens compare across executions only
+  with pseudonymKey` ([Environments → The PII key](Environments#the-pii-key)).
+
 ## Unreleased — generators and naming: full names, tool names, timeouts with units, Execution… (#268, PR 4)
 
 - **Breaking — `agboss generate` takes full names** ([CLI](CLI#create-and-generate-angular-like)):

@@ -350,6 +350,20 @@ export class ClaimSubtopicTool implements ToolHandler<SubtopicDto, SubtopicClaim
 }
 ```
 
+## PII tokens across instances
+
+A `replaceWithToken()` token is an HMAC of the value, so one value is one token only under one key
+([Guards → PII policies](Guards#pii-policies)). With `@Application({ pseudonymKey })` every instance
+has the same key: one value is one token everywhere. Without it (S94, #334) the key is the
+**execution's**: each root execution makes a random one when it starts and keeps it in its
+checkpoint (the state's `piiKey`, next to its token map `piiTokens`); its child workflows get it
+with the tokens. Whichever instance continues it — `app.resume` on another instance, a recovery
+after its holder died — reads the key from the checkpoint, so a value the model saw as
+`<author:3f9a1c>` before the pause is `<author:3f9a1c>` after it, in the parent and in its children
+alike. Another execution gives the same value another token. The key never leaves the checkpoint:
+traces show it as `***`, and logs and traces mask with a key of the instance. A checkpoint written
+before #334 has no key: its execution goes on with the key of the instance that continues it.
+
 ## Your own implementation
 
 A project's implementation `extends` the contract and is listed in `@Application({ providers })`

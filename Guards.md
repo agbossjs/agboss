@@ -286,8 +286,9 @@ places:
 - the application's key, `@Application({ pseudonymKey: "piiPseudonymKey" })` — a `Secret` field of
   the environment ([Environments → The PII key](Environments#the-pii-key)). It is shared by every
   instance, so tokens match across machines. Sensitive fields and project detectors always use it.
-  Not set and not needed, each instance makes a key of its own and warns
-  `[application.pii-instance-key]` (S94). `blockWithRefusal()` without
+  Not set and not needed, each root execution makes a key of its own — kept in its checkpoint,
+  handed to its children, the same on whichever instance continues it (#334) — and the application
+  warns `[application.pii-instance-key]` (S94). `blockWithRefusal()` without
 a text takes `refusal(kind)` of the class (`implements PiiRefusal`, its services through `deps`);
 none → `[pii.missing-refusal]`, a method no rule uses → `[pii.unused-refusal]`. A block rule in an
 incoming message or in an answer fails the execution with `PiiRefusedError` (`pii.refused`,
