@@ -3,7 +3,8 @@
  * contract's implementation and why, the model providers, the channel the shortlist tool names, the
  * budgets by scope, the environment with its secret masked, then the workflow — its guardrails and
  * PII policies, flow, inputs with their producers, limits with the worst case, `model → provider`.
- * No API key, no network. A change to job-scout or to describe updates the snapshot
+ * No API key, no network (the config hash, which depends on the checkout, is masked). A change to
+ * job-scout or to describe updates the snapshot
  * (`npx vitest run -u`), reviewed like code.
  */
 import { fileURLToPath } from "node:url";
@@ -17,7 +18,10 @@ describe("#268 AC4: agboss describe on job-scout", () => {
     const call = await agboss(["describe"], JOB_SCOUT);
 
     expect(call).toMatchObject({ code: 0, stderr: "" });
-    await expect(call.stdout).toMatchFileSnapshot("./__snapshots__/job-scout.describe.txt");
+    // the config hash depends on where the project is checked out: its format is checked, not its value
+    expect(call.stdout).toMatch(/^job-scout-workflow 3\.0\.0 · config [0-9a-f]{8}$/m);
+    const printed = call.stdout.replace(/ · config [0-9a-f]{8}$/gm, " · config <hash>");
+    await expect(printed).toMatchFileSnapshot("./__snapshots__/job-scout.describe.txt");
   });
 
   it("--json: the application's tree, implementations, model providers, channels and budgets", async () => {
