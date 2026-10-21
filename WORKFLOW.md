@@ -19,8 +19,8 @@ How work moves from a requirement to accepted code.
 - Publishing without direct Wiki access (#341): a PR's Wiki commit, based on `docs/wiki-pending`,
   is pushed to the branch `docs/wiki/<PR head branch>` of this repository — CI's Wiki step checks
   that branch for the PR. Right before the PR is merged the same commit is pushed to
-  `docs/wiki-pending` (a fast-forward), which `main`'s CI checks and `.github/workflows/sync-wiki.yml`
-  publishes to the Wiki's `master` (fast-forward only; a page edited in the Wiki's web UI and
+  `docs/wiki-pending` (a fast-forward), which `main`'s CI checks; when that CI passes,
+  `.github/workflows/sync-wiki.yml` publishes it to the Wiki's `master` (fast-forward only; a page edited in the Wiki's web UI and
   missing from the branch stops the sync instead of being lost). With neither branch, CI checks the
   published Wiki.
 - Stages are managed by `scripts/ticket.sh` (`setup`, `status`, `list`, `sub`), with repository REST

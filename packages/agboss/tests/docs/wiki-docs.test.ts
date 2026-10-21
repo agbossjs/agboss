@@ -101,7 +101,10 @@ describe("#240: the wiki is checked like the repo's docs", { timeout: 60_000 }, 
   it("docs/wiki-pending is published to the wiki, a fast-forward only (#341)", () => {
     const sync = readFileSync(join(repo, ".github/workflows/sync-wiki.yml"), "utf8");
 
-    expect(sync).toMatch(/push:\s+branches: \[docs\/wiki-pending\]/);
+    expect(sync).toMatch(
+      /workflow_run:\s+workflows: \[CI\]\s+types: \[completed\]\s+branches: \[main\]/,
+    );
+    expect(sync).toContain("github.event.workflow_run.conclusion == 'success'");
     expect(sync).toContain("workflow_dispatch:");
     expect(sync).toMatch(/permissions:\s+contents: write/);
     expect(sync).toContain('git push "$wiki" HEAD:master');
