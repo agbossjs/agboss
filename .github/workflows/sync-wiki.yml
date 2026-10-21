@@ -1,0 +1,32 @@
+name: Sync Wiki
+
+# The Wiki's pages are written in PRs and parked in the `docs/wiki-pending` branch of this
+# repository (#341); this publishes that branch to the Wiki's `master`. Fast-forward only: a page
+# edited in the Wiki's web UI and missing from the branch stops the sync instead of being lost.
+
+on:
+  push:
+    branches: [docs/wiki-pending]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-wiki
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: docs/wiki-pending
+          fetch-depth: 0
+      - name: Push docs/wiki-pending to the Wiki's master
+        env:
+          WIKI_TOKEN: ${{ secrets.WIKI_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          wiki="https://x-access-token:${WIKI_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git"
+          git push "$wiki" HEAD:master

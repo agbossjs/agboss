@@ -1,7 +1,8 @@
 /**
  * #240: the GitHub Wiki is checked like the repo's docs — `check-docs.mjs --wiki <checkout>` fails on
- * a page whose ts block does not compile or that links to a page that does not exist, and CI clones
- * the wiki and runs it.
+ * a page whose ts block does not compile or that links to a page that does not exist, and CI runs it
+ * on the wiki that goes with the code (#341: a PR's own wiki branch, else docs/wiki-pending, which
+ * sync-wiki.yml publishes).
  */
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
@@ -83,13 +84,27 @@ describe("#240: the wiki is checked like the repo's docs", { timeout: 60_000 }, 
     ]);
   });
 
-  it("CI clones the wiki and runs the check on it after the gate", () => {
+  it("CI checks the wiki that goes with the code, after the gate (#341)", () => {
     const ci = readFileSync(join(repo, ".github/workflows/ci.yml"), "utf8");
 
+    // a PR's own wiki branch, else docs/wiki-pending, else the published wiki
+    expect(ci).toContain('has "docs/wiki/$HEAD_REF"');
+    expect(ci).toContain("elif has docs/wiki-pending");
+    expect(ci).toContain('echo "repository=${GITHUB_REPOSITORY}.wiki"');
     expect(ci).toMatch(
-      /uses: actions\/checkout@v\d+\s+with:\s+repository: agbossjs\/agboss\.wiki\s+path: wiki/,
+      /uses: actions\/checkout@v\d+\s+with:\s+repository: \$\{\{ steps\.wiki\.outputs\.repository \}\}\s+ref: \$\{\{ steps\.wiki\.outputs\.ref \}\}\s+path: wiki/,
     );
     expect(ci).toContain("run: node scripts/check-docs.mjs --wiki wiki");
     expect(ci.indexOf("--wiki wiki")).toBeGreaterThan(ci.indexOf("run: make check"));
+  });
+
+  it("docs/wiki-pending is published to the wiki, a fast-forward only (#341)", () => {
+    const sync = readFileSync(join(repo, ".github/workflows/sync-wiki.yml"), "utf8");
+
+    expect(sync).toMatch(/push:\s+branches: \[docs\/wiki-pending\]/);
+    expect(sync).toContain("workflow_dispatch:");
+    expect(sync).toMatch(/permissions:\s+contents: write/);
+    expect(sync).toContain('git push "$wiki" HEAD:master');
+    expect(sync).not.toMatch(/--force|\s-f\s|\+HEAD/);
   });
 });

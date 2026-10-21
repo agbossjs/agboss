@@ -20,12 +20,33 @@ jobs:
           cache: npm
       - run: npm ci
       - run: make check
-      # the GitHub Wiki is docs too (#240): its ts blocks compile, its commands and links exist
+      # the GitHub Wiki is docs too (#240): its ts blocks compile, its commands and links exist.
+      # It is checked as it goes with this code (#341): a PR's own Wiki branch `docs/wiki/<head
+      # branch>` when it exists, else `docs/wiki-pending` (what sync-wiki.yml publishes), else the
+      # published Wiki.
+      - name: Choose the Wiki to check
+        id: wiki
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          has() { git ls-remote --exit-code --heads origin "$1" > /dev/null 2>&1; }
+          if [ -n "$HEAD_REF" ] && has "docs/wiki/$HEAD_REF"; then
+            echo "repository=${GITHUB_REPOSITORY}" >> "$GITHUB_OUTPUT"
+            echo "ref=docs/wiki/$HEAD_REF" >> "$GITHUB_OUTPUT"
+          elif has docs/wiki-pending; then
+            echo "repository=${GITHUB_REPOSITORY}" >> "$GITHUB_OUTPUT"
+            echo "ref=docs/wiki-pending" >> "$GITHUB_OUTPUT"
+          else
+            echo "repository=${GITHUB_REPOSITORY}.wiki" >> "$GITHUB_OUTPUT"
+            echo "ref=" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v5
         with:
-          repository: agbossjs/agboss.wiki
+          repository: ${{ steps.wiki.outputs.repository }}
+          ref: ${{ steps.wiki.outputs.ref }}
           path: wiki
-      - run: node scripts/check-docs.mjs --wiki wiki
+      - name: Check the Wiki (${{ steps.wiki.outputs.ref || 'published' }})
+        run: node scripts/check-docs.mjs --wiki wiki
       - name: Publish coverage badge
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:

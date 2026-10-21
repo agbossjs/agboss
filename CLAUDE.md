@@ -1596,8 +1596,9 @@ prettier, ESLint, `tsc` (tests included; the examples' types written first), tes
 every ` ```ts ` block of README, CLAUDE, QUALITY and WORKFLOW (and `docs/`) against the built
 package — a doc whose snippets declare a `@Workflow` gets its `.agboss/types.d.ts` written first —
 and check that every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention — and every
-`agboss …` the CLI prints — exists. CI also clones the GitHub Wiki and runs
-`node scripts/check-docs.mjs --wiki wiki`: the same checks for every Wiki page, plus every link
+`agboss …` the CLI prints — exists. CI also runs `node scripts/check-docs.mjs --wiki wiki` on the
+Wiki that goes with the code (#341: a PR's `docs/wiki/<head branch>`, else `docs/wiki-pending`, which
+`sync-wiki.yml` publishes; WORKFLOW.md): the same checks for every Wiki page, plus every link
 between pages names an existing page. The Wiki changes outside PRs, so check it before publishing:
 `node scripts/check-docs.mjs --wiki ../<repo>.wiki`. Snippet conventions (README, CLAUDE, Wiki alike):
 
