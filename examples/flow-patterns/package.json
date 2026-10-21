@@ -4,14 +4,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "AGBoss example: flow patterns — a review loop, a code router, parallel launches, a quorum, child workflows and recursion, scripted tests only",
+  "description": "AGBoss example: flow patterns — a review loop, a code router, parallel launches, a quorum, child workflows, recursion and two approvals at once; scripted tests, real runs with OPENROUTER_API_KEY",
   "agboss": {
     "application": "src/flow-patterns.application.ts"
   },
   "scripts": {
     "describe": "agboss describe",
     "types": "agboss check",
-    "check": "agboss check --strict",
+    "answer": "tsx src/scripts/answer-pauses.ts",
+    "check": "agboss check --strict && agboss check --models --env test",
     "typecheck": "npm run types && tsc --noEmit -p .",
     "test": "vitest run",
     "coverage": "vitest run --coverage"

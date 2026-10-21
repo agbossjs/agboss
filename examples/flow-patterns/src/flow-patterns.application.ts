@@ -1,4 +1,14 @@
-import { Application, SqliteCostLedgerRepository } from "agboss";
+import {
+  Application,
+  SqliteCheckpointSaver,
+  SqliteCostLedgerRepository,
+  SqliteExecutionLeaseRepository,
+  SqliteExecutionRecordRepository,
+  SqliteExecutionTreeRepository,
+  SqlitePausedExecutionRepository,
+} from "agboss";
+import { OffsiteBookingWorkflow } from "./approvals/offsite-booking.workflow.js";
+import { TerminalPurchaseApprovalChannel } from "./approvals/channels/terminal-purchase-approval.channel.js";
 import {
   ApplicationDailyBudget,
   CreditExecutionBudget,
@@ -19,12 +29,20 @@ import { AppEnvironment } from "./environments/app.environment.js";
  * loop, `app.execute(CreditWorkflowStart, …)` the credit desk, `app.execute(ReviewWorkflowStart, …)`
  * the parallel review (#273), `app.execute(PanelWorkflowStart, …)` the panel's quorum (#279),
  * `app.execute(VendorScreeningWorkflowStart, …)` a child workflow per vendor (#263),
- * `app.execute(TopicResearchWorkflowStart, …)` a workflow researching its subtopics itself (#264) —
- * each workflow by its start. The child `VendorCheckWorkflow` is not listed: a child workflow belongs to the
- * application of its parent, and `app.execute(VendorCheckWorkflowStart, …)` runs it alone. Its tenant and application budgets are
- * counted in a SQLite ledger (#261: the built-in in-memory one is an assembly warning, an error
- * under `agboss check --strict`); nothing pauses, so the paused executions stay in memory. Its PII
- * key is an environment secret (#120 S94: without one, a key of each instance — a warning).
+ * `app.execute(TopicResearchWorkflowStart, …)` a workflow researching its subtopics itself (#264),
+ * `app.execute(OffsiteBookingWorkflowStart, …)` two approvals at once (#267) — each workflow by its
+ * start. The child `VendorCheckWorkflow` is not listed: a child workflow belongs to the application
+ * of its parent, and `app.execute(VendorCheckWorkflowStart, …)` runs it alone.
+ *
+ * Its infrastructure is SQLite (#265) on the environment's `sqlitePath`: the ledger of its tenant
+ * and application budgets, the records, the pauses, the checkpoints, the leases and the tree keys —
+ * so two pauses wait at once and survive a restart, and another instance on the file continues
+ * them (#261: an in-memory ledger or pause store is an assembly warning, an error under
+ * `agboss check --strict`). No model provider is listed: the built-in OpenRouter and Decisions
+ * providers read `openRouterApiKey` (and `openRouterBaseUrl`) of the environment (#266). The
+ * purchase approvals are asked in the terminal (`TerminalPurchaseApprovalChannel`, the one
+ * implementation of their role). Its PII key is an environment secret (#120 S94: without one, a
+ * key of each instance — a warning).
  */
 @Application({
   name: "flow-patterns-application",
@@ -38,8 +56,17 @@ import { AppEnvironment } from "./environments/app.environment.js";
     PanelWorkflow,
     VendorScreeningWorkflow,
     TopicResearchWorkflow,
+    OffsiteBookingWorkflow,
   ],
-  providers: [SqliteCostLedgerRepository],
+  providers: [
+    TerminalPurchaseApprovalChannel,
+    SqliteCostLedgerRepository,
+    SqliteExecutionRecordRepository,
+    SqlitePausedExecutionRepository,
+    SqliteCheckpointSaver,
+    SqliteExecutionLeaseRepository,
+    SqliteExecutionTreeRepository,
+  ],
   budgets: [
     ApplicationDailyBudget,
     TenantDailyBudget,
