@@ -64,6 +64,7 @@ export interface AssembledApplication {
     //
     // (undocumented)
     readonly executionContext: ExecutionContextClass;
+    readonly healthChecks: readonly Class[];
     // Warning: (ae-forgotten-export) The symbol "ProviderModule" needs to be exported by the entry point internal.d.ts
     readonly modules: readonly ProviderModule[];
     // (undocumented)
@@ -567,12 +568,12 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/application/application-starts.ts:18:3 - (ae-undocumented) Missing documentation for "name".
 // src/application/application-starts.ts:19:3 - (ae-undocumented) Missing documentation for "description".
 // src/application/application-starts.ts:22:3 - (ae-undocumented) Missing documentation for "component".
-// src/application/assemble.ts:33:3 - (ae-undocumented) Missing documentation for "application".
-// src/application/assemble.ts:34:3 - (ae-undocumented) Missing documentation for "name".
-// src/application/assemble.ts:35:3 - (ae-undocumented) Missing documentation for "version".
-// src/application/assemble.ts:44:3 - (ae-undocumented) Missing documentation for "budgets".
-// src/application/assemble.ts:55:3 - (ae-undocumented) Missing documentation for "executionContext".
-// src/application/assemble.ts:154:1 - (ae-undocumented) Missing documentation for "applicationOf".
+// src/application/assemble.ts:34:3 - (ae-undocumented) Missing documentation for "application".
+// src/application/assemble.ts:35:3 - (ae-undocumented) Missing documentation for "name".
+// src/application/assemble.ts:36:3 - (ae-undocumented) Missing documentation for "version".
+// src/application/assemble.ts:45:3 - (ae-undocumented) Missing documentation for "budgets".
+// src/application/assemble.ts:58:3 - (ae-undocumented) Missing documentation for "executionContext".
+// src/application/assemble.ts:169:1 - (ae-undocumented) Missing documentation for "applicationOf".
 // src/config/defaults.ts:13:3 - (ae-undocumented) Missing documentation for "Application".
 // src/config/defaults.ts:14:3 - (ae-undocumented) Missing documentation for "Workflow".
 // src/config/defaults.ts:19:3 - (ae-undocumented) Missing documentation for "application".

@@ -46,6 +46,10 @@ export class SqliteRateLimitRepository extends RateLimitRepository {
     connection.ensureSchema("rate_limit_windows", WINDOWS_SCHEMA);
   }
 
+  ping(): Promise<void> {
+    return this.connection.ping();
+  }
+
   acquire(key: string, maxSlots: number, lease: Milliseconds): Promise<RateLimitLease | undefined> {
     const now = this.clock.now().getTime();
     const { database } = this.connection;

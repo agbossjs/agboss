@@ -1041,7 +1041,9 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   one through public tokens only, with `extends` + `override` and the class's own `deps` — `@Injectable({
 deps: [SqliteConnection, Clock, ApplicationContext] })` (#265 S70); `SqliteExecutionRecordRepository`
   adds `IdGenerator` (`[SqliteConnection, Clock, ApplicationContext, IdGenerator]`, the in-memory one
-  `[Clock, IdGenerator]`, #313).
+  `[Clock, IdGenerator]`, #313). Every #265 store contract has `abstract ping(): Promise<void>`
+  (#300: one fast round trip — the in-memory ones resolve, the SQLite ones `SELECT 1`; a project's
+  own implementation adds it), what `app.checkReadiness()` calls.
 - **Time is the application's `Clock` (#262):** infrastructure too — `now()` and
   `sleep(delay, signal?)`; the system's unless `@Application({ providers })` lists a class that
   `extends Clock` (created first: it may not depend on the contexts, whose `startedAt` it gives).
@@ -1565,6 +1567,55 @@ export class PlanService {
   interrupts what is left: its call rejects with `ApplicationStoppingError`, no `onExecutionError`, the lease
   released at once, the record stays `running`. `createApp` closes on SIGTERM / SIGINT (listeners
   removed when `close()` finishes); `testWith` never listens.
+- **Health checks (#300):** `app.checkLiveness()` / `app.checkReadiness()` → `HealthReport { status,
+components }` (the worst component's `HealthStatus.Healthy | Degraded | Unhealthy`; each
+  `HealthComponentReport { name, kind: HealthComponentKind.Application | RecoveryLoop | Store |
+ModelProvider | Project, status, reason?, duration }`) — the project's server exposes them, no
+  endpoint of the framework. Liveness: no I/O — the application (`Unhealthy`, `stopping`, from
+  `app.close()` on) and the recovery loop (`Unhealthy` when its last sweep ended more than three
+  sweep intervals ago on the `Clock`). Readiness: liveness's components, every store's `ping()`
+  (the #265 contracts, the checkpoint saver — one without `ping()` is read for a thread that does not
+  exist), every model provider's circuit breaker from `RateLimitRepository` (open → `Degraded`, never
+  a model call) and every `@HealthCheck` of `@Application({ healthChecks })` — at once, each under
+  its timeout (stores and providers `seconds(2)`) on the `Clock`. A check that throws or times out
+  is that component's `Unhealthy` (`reason`: the error's message, `timed out after 2 s`); neither
+  call rejects. `@HealthCheck({ name, timeout, deps? })` (`-health-check`, `[name.kind-suffix]`;
+  `[health.not-a-health-check]`, `[health.duplicate-name]`) + `implements HealthCheckHandler`,
+  created by the container; `check()` returns `HealthCheckResult.healthy()` / `.degraded({ reason
+})` / `.unhealthy({ reason })` (branded: a plain object does not compile). The probes load on first
+  use (`src/health/application-health.ts`); `testWith`'s `app` has both, also during and after
+  `close()`.
+
+<!-- snippet-context
+import { HealthCheck, HealthCheckResult, Injectable, type App, type HealthCheckHandler, type HealthReport } from "agboss";
+import { seconds } from "agboss/units";
+@Injectable()
+export class CrmClient {
+  ping(): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+}
+declare const app: App;
+-->
+
+```ts
+@HealthCheck({ name: "crm-health-check", timeout: seconds(2), deps: [CrmClient] })
+export class CrmHealthCheck implements HealthCheckHandler {
+  constructor(private readonly crmClient: CrmClient) {}
+
+  async check(): Promise<HealthCheckResult> {
+    const isReachable: boolean = await this.crmClient.ping();
+    return isReachable
+      ? HealthCheckResult.healthy()
+      : HealthCheckResult.unhealthy({ reason: "CRM is unreachable" });
+  }
+}
+
+// listed in the application: healthChecks: [CrmHealthCheck]
+const liveness: HealthReport = await app.checkLiveness();
+const readiness: HealthReport = await app.checkReadiness();
+```
+
 - **`ExecutionContext` (#280)** is the one context of an execution, injected through the
   constructor (`deps: [ExecutionContext]`, a parameter named `executionContext`) into any component;
   there is no `ctx` parameter (tools, actions, judges get only their input). Read-only data:
@@ -1801,7 +1852,8 @@ Quizzes: `.claude/skills/QUIZ.md`. Stages: `scripts/ticket.sh status <N> <Status
 packages/agboss/        the framework (npm package `agboss`; builds to dist/; no command — see -cli)
   src/
     index.ts        the root entry `agboss` (public/: components, flow, observers, app) + errors.ts
-    application/    @Application, createApp(App) → app.execute / resume / cancel / close over every workflow,
+    application/    @Application, createApp(App) → app.execute / resume / cancel / close / checkLiveness /
+                    checkReadiness over every workflow,
                     the application's assembly rules, its one container
     app/            one workflow of an application at run time; app-deps.ts — its wiring (model gateway,
                     MCP, tracing) on the application's infrastructure
@@ -1809,6 +1861,8 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
                     tree keys, rate-limit slots); sqlite/ — the connection and every Sqlite* one
     budgets/        @Budget, BudgetScope, BudgetPeriod, BudgetHandler; the rules; at run time: maxSpend()
                     once per execution, the checks and the counting (execution-budgets.ts)
+    health/         @HealthCheck, HealthCheckResult, HealthReport + the rules (health-check.ts, in the
+                    root import); the probes, loaded on first use (application-health.ts, #300)
     testing/        `agboss/testing`: testWith(App) (Vitest fixtures), scripted gateway, matchers, setup.ts
     components/     @Tool @Agent @McpServer @McpTool @Rag @Injectable @Workflow, DI container, workflowOf
     dto/            `agboss/dto`: field decorators, DTO schemas and validation, standard/ DTOs

@@ -41,6 +41,13 @@ export interface ApplicationOptions {
    */
   readonly observers?: readonly ObserverClass[];
   /**
+   * The project's readiness checks (#300): `@HealthCheck` classes (`implements HealthCheckHandler`),
+   * the only place they are listed — created by the container, run by `app.checkReadiness()` each
+   * under its own `timeout`, besides the framework's own (the stores, the model providers' circuit
+   * breakers, the recovery loop).
+   */
+  readonly healthChecks?: readonly Class[];
+  /**
    * How long `app.close()` (and SIGTERM / SIGINT) waits for the running executions before it
    * interrupts them (#265 S51): each releases its lease at once and stays `running`, so another
    * instance continues it. Default `seconds(25)` — under the usual 30 s grace period and the lease.

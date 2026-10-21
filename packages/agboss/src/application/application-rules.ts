@@ -15,6 +15,7 @@ import { componentOf } from "../components/metadata.js";
 import { channelUsesOf } from "../channels/discovery.js";
 import { sharedInterpreterViolations } from "../channels/channel-rules.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
+import { healthCheckRuleViolations } from "../health/health-check.js";
 
 /**
  * The rules of an `@Application` itself (#261), read from its declaration: its `name` and class end
@@ -158,6 +159,7 @@ export function applicationRuleViolations(
       (options.providers ?? []).filter(isClass),
     ),
     ...pseudonymKeyFieldViolations(options),
+    ...healthCheckRuleViolations(options),
     ...contextRuleViolations(options.name, options),
     ...sharedInterpreterViolations(channelUsesOf(options.workflows)),
   ];

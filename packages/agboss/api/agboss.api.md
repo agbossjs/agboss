@@ -275,6 +275,8 @@ export type AnyPiiAction = MaskingPiiAction | BlockWithRefusalAction;
 // @public
 export interface App {
     cancel(threadId: string, options?: CancelOptions): Promise<CancelOutput>;
+    checkLiveness(): Promise<HealthReport>;
+    checkReadiness(): Promise<HealthReport>;
     close(options?: CloseOptions): Promise<void>;
     execute<TStart extends Class>(start: TStart, input: ExecutionInputOf<InstanceType<TStart>>, ...options: ExecutionOptionsArgs<InstanceType<TStart>>): Promise<ExecutionOutput<ExecutionOutputOf<InstanceType<TStart>>>>;
     hasTool(name: string): boolean;
@@ -353,6 +355,7 @@ export interface ApplicationOptions {
     readonly environment: Class;
     readonly executionContext?: ExecutionContextClass;
     readonly guardrails?: readonly Class[];
+    readonly healthChecks?: readonly Class[];
     readonly name: string;
     readonly observers?: readonly ObserverClass[];
     readonly pauseRecordRetention?: Milliseconds;
@@ -1012,6 +1015,7 @@ export interface CostCounter extends BudgetAccount {
 export abstract class CostLedgerRepository {
     abstract findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined>;
     abstract findSpentByCounter(counter: CostCounter): Promise<Usd>;
+    abstract ping(): Promise<void>;
     abstract saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void>;
     abstract saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void>;
 }
@@ -1387,6 +1391,7 @@ export class ExecutionLeaseLostError extends AGBossError {
 // @public
 export abstract class ExecutionLeaseRepository {
     abstract acquire(tenantId: string, rootExecutionId: string, lease: Milliseconds): Promise<ExecutionLease | undefined>;
+    abstract ping(): Promise<void>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
     abstract renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean>;
 }
@@ -1564,6 +1569,7 @@ export abstract class ExecutionRecordRepository {
     abstract latestSummaries(tenantId: string, threadId: string, compaction: string, limit: number): Promise<Summary[]>;
     // (undocumented)
     abstract meanScore(ternIds: readonly string[]): Promise<number | null>;
+    abstract ping(): Promise<void>;
     abstract recentOriginals(workflow: string, limit: number): Promise<Tern[]>;
     abstract rememberConfig(workflow: string, version: string, hash: string, snapshot: string): Promise<{
         readonly drift: boolean;
@@ -1630,6 +1636,7 @@ export abstract class ExecutionTreeRepository {
     abstract deleteAllInTree(tree: ExecutionTree): Promise<void>;
     findById(key: string): Promise<ExecutionTreeValue | undefined>;
     abstract findByIdInTree(tree: ExecutionTree, key: string): Promise<ExecutionTreeValue | undefined>;
+    abstract ping(): Promise<void>;
     saveIfAbsent(key: string, value: ExecutionTreeValue): Promise<boolean>;
     abstract saveIfAbsentInTree(tree: ExecutionTree, key: string, value: ExecutionTreeValue): Promise<boolean>;
 }
@@ -1638,6 +1645,16 @@ export abstract class ExecutionTreeRepository {
 export type ExecutionTreeValue = string | number | boolean | null | readonly ExecutionTreeValue[] | {
     readonly [field: string]: ExecutionTreeValue;
 };
+
+// Warning: (ae-forgotten-export) The symbol "BuiltHealthCheckResult" needs to be exported by the entry point index.d.ts
+//
+// @public
+export interface FailedHealthCheckResult extends BuiltHealthCheckResult {
+    // (undocumented)
+    readonly reason: string;
+    // (undocumented)
+    readonly status: HealthStatus.Degraded | HealthStatus.Unhealthy;
+}
 
 // Warning: (ae-forgotten-export) The symbol "BuiltVerdict" needs to be exported by the entry point index.d.ts
 //
@@ -1889,6 +1906,78 @@ export interface HandledErrorRecord {
     readonly at: ComponentRecord;
     readonly by: ComponentRecord;
     readonly error: ErrorRecord;
+}
+
+// @public
+export function HealthCheck<const TDeps extends readonly Token[] = []>(options: HealthCheckOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => HealthCheckHandler>(value: TClass) => TClass;
+
+// @public
+export interface HealthCheckHandler {
+    check(): Promise<HealthCheckResult>;
+}
+
+// @public
+export interface HealthCheckOptions<TDeps extends readonly Token[] = readonly Token[]> {
+    readonly deps?: TDeps;
+    readonly name: string;
+    readonly timeout: Milliseconds;
+}
+
+// @public
+export type HealthCheckResult = HealthyCheckResult | FailedHealthCheckResult;
+
+// @public
+export const HealthCheckResult: {
+    readonly healthy: () => HealthyCheckResult;
+    readonly degraded: (options: HealthCheckResultOptions) => FailedHealthCheckResult;
+    readonly unhealthy: (options: HealthCheckResultOptions) => FailedHealthCheckResult;
+};
+
+// @public
+export interface HealthCheckResultOptions {
+    // (undocumented)
+    readonly reason: string;
+}
+
+// @public
+export enum HealthComponentKind {
+    Application = "application",
+    ModelProvider = "model-provider",
+    Project = "project",
+    RecoveryLoop = "recovery-loop",
+    Store = "store"
+}
+
+// @public
+export interface HealthComponentReport {
+    readonly duration: Milliseconds;
+    // (undocumented)
+    readonly kind: HealthComponentKind;
+    readonly name: string;
+    readonly reason?: string;
+    // (undocumented)
+    readonly status: HealthStatus;
+}
+
+// @public
+export interface HealthReport {
+    // (undocumented)
+    readonly components: readonly HealthComponentReport[];
+    // (undocumented)
+    readonly status: HealthStatus;
+}
+
+// @public
+export enum HealthStatus {
+    Degraded = "degraded",
+    Healthy = "healthy",
+    Unhealthy = "unhealthy"
+}
+
+// @public
+export interface HealthyCheckResult extends BuiltHealthCheckResult {
+    // (undocumented)
+    readonly status: HealthStatus.Healthy;
 }
 
 // @public
@@ -2952,6 +3041,7 @@ export abstract class PausedExecutionRepository {
     abstract findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
     abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean>;
     abstract markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
+    abstract ping(): Promise<void>;
     abstract resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date): Promise<PauseRecord | undefined>;
     abstract save(paused: PausedRun): Promise<void>;
 }
@@ -3432,6 +3522,7 @@ export abstract class RateLimitRepository {
     abstract clearWindow(key: string): Promise<void>;
     abstract pausedUntil(key: string): Promise<Date | undefined>;
     abstract pauseUntil(key: string, until: Date): Promise<void>;
+    abstract ping(): Promise<void>;
     abstract release(rateLimitLease: RateLimitLease): Promise<void>;
     abstract renew(rateLimitLease: RateLimitLease, lease: Milliseconds): Promise<boolean>;
 }
@@ -3716,7 +3807,7 @@ export interface Routes {
 }
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "model.unserved" | "model.ambiguous-provider" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply";
+export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "model.unserved" | "model.ambiguous-provider" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply";
 
 // @public
 export interface RuleViolation {
@@ -3893,6 +3984,7 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
     //
     // (undocumented)
     list(config: RunnableConfig, options?: ListOptions): AsyncGenerator<CheckpointTuple>;
+    ping(): Promise<void>;
     // Warning: (ae-forgotten-export) The symbol "Checkpoint" needs to be exported by the entry point index.d.ts
     // Warning: (ae-forgotten-export) The symbol "CheckpointMetadata" needs to be exported by the entry point index.d.ts
     //
@@ -3913,6 +4005,7 @@ export class SqliteConnection implements OnDestroy {
     ensureSchema(name: string, ddl: string): void;
     onDestroy(): void;
     readonly path: string;
+    ping(): Promise<void>;
     transaction<TResult>(work: () => TResult): TResult;
 }
 
@@ -3923,6 +4016,8 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
     findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined>;
     // (undocumented)
     findSpentByCounter(counter: CostCounter): Promise<Usd>;
+    // (undocumented)
+    ping(): Promise<void>;
     // (undocumented)
     saveAll(counters: readonly CostCounter[], records: readonly UsageRecord[]): Promise<void>;
     // (undocumented)
@@ -3935,6 +4030,8 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     // (undocumented)
     acquire(tenantId: string, rootExecutionId: string, lease: Milliseconds): Promise<ExecutionLease | undefined>;
     // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
     release(executionLease: ExecutionLease): Promise<void>;
     // (undocumented)
     renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean>;
@@ -3945,6 +4042,8 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
 // @public
 export class SqliteExecutionRecordRepository extends TernStoreRecordRepository {
     constructor(connection: SqliteConnection, clock: Clock, applicationContext: ApplicationContext, idGenerator: IdGenerator);
+    // (undocumented)
+    ping(): Promise<void>;
 }
 
 // @public
@@ -3954,6 +4053,8 @@ export class SqliteExecutionTreeRepository extends ExecutionTreeRepository {
     deleteAllInTree(tree: ExecutionTree): Promise<void>;
     // (undocumented)
     findByIdInTree(tree: ExecutionTree, key: string): Promise<ExecutionTreeValue | undefined>;
+    // (undocumented)
+    ping(): Promise<void>;
     // (undocumented)
     saveIfAbsentInTree(tree: ExecutionTree, key: string, value: ExecutionTreeValue): Promise<boolean>;
 }
@@ -3982,6 +4083,8 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     // (undocumented)
     markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
     // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
     resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date): Promise<PauseRecord | undefined>;
     // (undocumented)
     save(paused: PausedRun): Promise<void>;
@@ -4000,6 +4103,8 @@ export class SqliteRateLimitRepository extends RateLimitRepository {
     pausedUntil(key: string): Promise<Date | undefined>;
     // (undocumented)
     pauseUntil(key: string, until: Date): Promise<void>;
+    // (undocumented)
+    ping(): Promise<void>;
     // (undocumented)
     release(rateLimitLease: RateLimitLease): Promise<void>;
     // (undocumented)
@@ -4602,22 +4707,22 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/resume.ts:45:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/resume.ts:53:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/resume.ts:54:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/types.ts:23:3 - (ae-undocumented) Missing documentation for "Finished".
-// src/app/types.ts:24:3 - (ae-undocumented) Missing documentation for "Paused".
-// src/app/types.ts:87:3 - (ae-undocumented) Missing documentation for "reply".
-// src/app/types.ts:96:3 - (ae-undocumented) Missing documentation for "decision".
-// src/app/types.ts:108:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:111:3 - (ae-undocumented) Missing documentation for "answeredBy".
-// src/app/types.ts:119:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:122:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/app/types.ts:127:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:128:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/app/types.ts:142:3 - (ae-undocumented) Missing documentation for "cancelled".
-// src/app/types.ts:151:3 - (ae-undocumented) Missing documentation for "status".
-// src/app/types.ts:172:3 - (ae-undocumented) Missing documentation for "spend".
-// src/app/types.ts:201:3 - (ae-undocumented) Missing documentation for "name".
-// src/app/types.ts:202:3 - (ae-undocumented) Missing documentation for "version".
-// src/application/application.ts:124:1 - (ae-undocumented) Missing documentation for "Application".
+// src/app/types.ts:24:3 - (ae-undocumented) Missing documentation for "Finished".
+// src/app/types.ts:25:3 - (ae-undocumented) Missing documentation for "Paused".
+// src/app/types.ts:88:3 - (ae-undocumented) Missing documentation for "reply".
+// src/app/types.ts:97:3 - (ae-undocumented) Missing documentation for "decision".
+// src/app/types.ts:109:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:112:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/app/types.ts:120:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:123:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/app/types.ts:128:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:129:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/app/types.ts:143:3 - (ae-undocumented) Missing documentation for "cancelled".
+// src/app/types.ts:152:3 - (ae-undocumented) Missing documentation for "status".
+// src/app/types.ts:173:3 - (ae-undocumented) Missing documentation for "spend".
+// src/app/types.ts:202:3 - (ae-undocumented) Missing documentation for "name".
+// src/app/types.ts:203:3 - (ae-undocumented) Missing documentation for "version".
+// src/application/application.ts:131:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
 // src/budgets/budget.ts:25:3 - (ae-undocumented) Missing documentation for "Week".
@@ -4702,8 +4807,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/components/judge-decorators.ts:28:3 - (ae-undocumented) Missing documentation for "description".
 // src/components/judge-decorators.ts:93:3 - (ae-undocumented) Missing documentation for "passed".
 // src/components/judge-decorators.ts:100:3 - (ae-undocumented) Missing documentation for "passed".
-// src/components/metadata.ts:94:1 - (ae-undocumented) Missing documentation for "ComponentError".
-// src/components/metadata.ts:95:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/metadata.ts:99:1 - (ae-undocumented) Missing documentation for "ComponentError".
+// src/components/metadata.ts:100:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/name-of.ts:32:1 - (ae-undocumented) Missing documentation for "nameOf".
 // src/components/policy-decorators.ts:16:3 - (ae-undocumented) Missing documentation for "Input".
 // src/components/policy-decorators.ts:17:3 - (ae-undocumented) Missing documentation for "Output".
@@ -5173,22 +5278,30 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/limits.ts:143:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/graph/limits.ts:144:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/graph/limits.ts:145:3 - (ae-undocumented) Missing documentation for "steps".
-// src/graph/rule-error.ts:149:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:150:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:151:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:162:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:163:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:152:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:153:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:154:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:165:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:166:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:10:3 - (ae-undocumented) Missing documentation for "build".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
 // src/graph/settings.ts:36:3 - (ae-undocumented) Missing documentation for "settings".
+// src/health/health-check.ts:47:3 - (ae-undocumented) Missing documentation for "kind".
+// src/health/health-check.ts:48:3 - (ae-undocumented) Missing documentation for "status".
+// src/health/health-check.ts:57:3 - (ae-undocumented) Missing documentation for "status".
+// src/health/health-check.ts:58:3 - (ae-undocumented) Missing documentation for "components".
+// src/health/health-check.ts:74:3 - (ae-undocumented) Missing documentation for "status".
+// src/health/health-check.ts:79:3 - (ae-undocumented) Missing documentation for "status".
+// src/health/health-check.ts:80:3 - (ae-undocumented) Missing documentation for "reason".
+// src/health/health-check.ts:88:3 - (ae-undocumented) Missing documentation for "reason".
 // src/infrastructure/cost-ledger.repository.ts:31:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
-// src/infrastructure/execution-record.repository.ts:60:3 - (ae-undocumented) Missing documentation for "append".
-// src/infrastructure/execution-record.repository.ts:75:3 - (ae-undocumented) Missing documentation for "byIds".
-// src/infrastructure/execution-record.repository.ts:93:3 - (ae-undocumented) Missing documentation for "saveScore".
-// src/infrastructure/execution-record.repository.ts:94:3 - (ae-undocumented) Missing documentation for "meanScore".
-// src/infrastructure/execution-record.repository.ts:104:3 - (ae-undocumented) Missing documentation for "configSnapshots".
-// src/infrastructure/execution-record.repository.ts:127:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record.repository.ts:66:3 - (ae-undocumented) Missing documentation for "append".
+// src/infrastructure/execution-record.repository.ts:81:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record.repository.ts:99:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record.repository.ts:100:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record.repository.ts:110:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record.repository.ts:133:3 - (ae-undocumented) Missing documentation for "summaryCount".
 // src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/pause-record.ts:47:3 - (ae-undocumented) Missing documentation for "decision".
@@ -5197,40 +5310,46 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/pause-record.ts:75:3 - (ae-undocumented) Missing documentation for "visitNumber".
 // src/infrastructure/pause-record.ts:76:3 - (ae-undocumented) Missing documentation for "itemIndex".
 // src/infrastructure/pause-record.ts:93:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:41:9 - (ae-undocumented) Missing documentation for "getTuple".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:54:10 - (ae-undocumented) Missing documentation for "list".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:69:9 - (ae-undocumented) Missing documentation for "put".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:97:9 - (ae-undocumented) Missing documentation for "putWrites".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:136:3 - (ae-undocumented) Missing documentation for "deleteThread".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:52:3 - (ae-undocumented) Missing documentation for "findSpentByCounter".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:62:3 - (ae-undocumented) Missing documentation for "saveAll".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:77:3 - (ae-undocumented) Missing documentation for "findMaxSpendByAccount".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:89:3 - (ae-undocumented) Missing documentation for "saveMaxSpend".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:39:3 - (ae-undocumented) Missing documentation for "acquire".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:73:3 - (ae-undocumented) Missing documentation for "renew".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:90:3 - (ae-undocumented) Missing documentation for "release".
-// src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:41:3 - (ae-undocumented) Missing documentation for "saveIfAbsentInTree".
-// src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:56:3 - (ae-undocumented) Missing documentation for "findByIdInTree".
-// src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:67:3 - (ae-undocumented) Missing documentation for "deleteAllInTree".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:117:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:124:3 - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:140:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:147:3 - (ae-undocumented) Missing documentation for "findOrCreateByStepKey".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:157:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:161:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:168:3 - (ae-undocumented) Missing documentation for "markSentByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:172:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:184:3 - (ae-undocumented) Missing documentation for "decideByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:196:3 - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:208:3 - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:213:3 - (ae-undocumented) Missing documentation for "deleteResolvedBefore".
-// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:49:3 - (ae-undocumented) Missing documentation for "acquire".
-// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:76:3 - (ae-undocumented) Missing documentation for "renew".
-// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:84:3 - (ae-undocumented) Missing documentation for "release".
-// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:91:3 - (ae-undocumented) Missing documentation for "addToWindow".
-// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:122:3 - (ae-undocumented) Missing documentation for "clearWindow".
-// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:129:3 - (ae-undocumented) Missing documentation for "pauseUntil".
-// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:139:3 - (ae-undocumented) Missing documentation for "pausedUntil".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:46:9 - (ae-undocumented) Missing documentation for "getTuple".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:59:10 - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:74:9 - (ae-undocumented) Missing documentation for "put".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:102:9 - (ae-undocumented) Missing documentation for "putWrites".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:141:3 - (ae-undocumented) Missing documentation for "deleteThread".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:52:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:56:3 - (ae-undocumented) Missing documentation for "findSpentByCounter".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:66:3 - (ae-undocumented) Missing documentation for "saveAll".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:81:3 - (ae-undocumented) Missing documentation for "findMaxSpendByAccount".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:93:3 - (ae-undocumented) Missing documentation for "saveMaxSpend".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:39:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:43:3 - (ae-undocumented) Missing documentation for "acquire".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:77:3 - (ae-undocumented) Missing documentation for "renew".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:94:3 - (ae-undocumented) Missing documentation for "release".
+// src/infrastructure/sqlite/sqlite-execution-record.repository.ts:29:12 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:41:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:45:3 - (ae-undocumented) Missing documentation for "saveIfAbsentInTree".
+// src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:60:3 - (ae-undocumented) Missing documentation for "findByIdInTree".
+// src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:71:3 - (ae-undocumented) Missing documentation for "deleteAllInTree".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:117:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:121:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:128:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:144:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:151:3 - (ae-undocumented) Missing documentation for "findOrCreateByStepKey".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:161:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:165:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:172:3 - (ae-undocumented) Missing documentation for "markSentByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:176:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:188:3 - (ae-undocumented) Missing documentation for "decideByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:200:3 - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:212:3 - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:217:3 - (ae-undocumented) Missing documentation for "deleteResolvedBefore".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:49:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:53:3 - (ae-undocumented) Missing documentation for "acquire".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:80:3 - (ae-undocumented) Missing documentation for "renew".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:88:3 - (ae-undocumented) Missing documentation for "release".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:95:3 - (ae-undocumented) Missing documentation for "addToWindow".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:126:3 - (ae-undocumented) Missing documentation for "clearWindow".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:133:3 - (ae-undocumented) Missing documentation for "pauseUntil".
+// src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:143:3 - (ae-undocumented) Missing documentation for "pausedUntil".
 // src/llm/decision-errors.ts:5:3 - (ae-undocumented) Missing documentation for "code".
 // src/llm/decision-errors.ts:6:12 - (ae-undocumented) Missing documentation for "name".
 // src/llm/decision-errors.ts:11:3 - (ae-undocumented) Missing documentation for "code".

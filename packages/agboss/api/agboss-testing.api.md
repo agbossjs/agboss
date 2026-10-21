@@ -462,7 +462,7 @@ export function testAction<TAction extends Class<ExecuteMethod>, TExecution exte
 // Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point index.d.ts
 //
 // @public
-export interface TestApp extends Pick<App, "execute" | "resume" | "close" | "cancel"> {
+export interface TestApp extends Pick<App, "execute" | "resume" | "close" | "cancel" | "checkLiveness" | "checkReadiness"> {
     // (undocumented)
     agent(agent: Class): AgentSlice;
     // (undocumented)
@@ -869,10 +869,10 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/slices.ts:19:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:24:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:32:3 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/test-app.ts:26:3 - (ae-undocumented) Missing documentation for "clock".
-// src/testing/test-app.ts:32:3 - (ae-undocumented) Missing documentation for "agent".
-// src/testing/test-app.ts:33:3 - (ae-undocumented) Missing documentation for "router".
-// src/testing/test-app.ts:34:3 - (ae-undocumented) Missing documentation for "tool".
+// src/testing/test-app.ts:29:3 - (ae-undocumented) Missing documentation for "clock".
+// src/testing/test-app.ts:35:3 - (ae-undocumented) Missing documentation for "agent".
+// src/testing/test-app.ts:36:3 - (ae-undocumented) Missing documentation for "router".
+// src/testing/test-app.ts:37:3 - (ae-undocumented) Missing documentation for "tool".
 // src/testing/turns.ts:23:3 - (ae-undocumented) Missing documentation for "reason".
 // src/testing/turns.ts:26:3 - (ae-undocumented) Missing documentation for "cost".
 // src/testing/turns.ts:45:3 - (ae-undocumented) Missing documentation for "value".

@@ -27,6 +27,12 @@ export interface RateLimitLease {
  * own `extends RateLimitRepository`; time values come from the framework's clock.
  */
 export abstract class RateLimitRepository {
+  /**
+   * Whether the store answers (#300): resolves when it is reachable, rejects with why not. One fast
+   * round trip (`SELECT 1`, a `PING`), never a scan — `app.checkReadiness()` calls it under a
+   * timeout of its own.
+   */
+  abstract ping(): Promise<void>;
   /** A slot under `key` for `lease` from now; `undefined` while `maxSlots` valid leases hold it. */
   abstract acquire(
     key: string,
@@ -88,6 +94,10 @@ export class InMemoryRateLimitRepository extends RateLimitRepository {
     private readonly database: InMemoryDatabase,
   ) {
     super();
+  }
+
+  ping(): Promise<void> {
+    return Promise.resolve();
   }
 
   /** The key's slots whose lease has not expired. */

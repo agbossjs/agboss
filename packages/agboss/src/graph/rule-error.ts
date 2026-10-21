@@ -95,6 +95,9 @@ export type RuleCode =
   | "application.duplicate-workflow"
   | "application.ambiguous-start"
   | "budget.not-a-budget"
+  // health checks (#300): every listed class a @HealthCheck, one name each
+  | "health.not-a-health-check"
+  | "health.duplicate-name"
   // budgets at run time (#261 PR 5): every workflow, every tenant and the application capped
   | "budget.execution-budget-required"
   | "budget.duplicate-execution-budget"

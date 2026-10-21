@@ -38,6 +38,11 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
       connection.addColumn(table, "tenant_id", "TEXT NOT NULL DEFAULT 'default'");
   }
 
+  /** One `SELECT 1` on the file (#300): what `app.checkReadiness()` asks of the checkpoint saver. */
+  ping(): Promise<void> {
+    return this.connection.ping();
+  }
+
   async getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
     const { threadId, namespace, checkpointId } = keyOf(config, "getTuple");
     const row = this.connection.database

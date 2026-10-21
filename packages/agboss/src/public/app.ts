@@ -1,6 +1,6 @@
 /**
  * Running an application (part of the root entry, #195, #261): `@Application`, `createApp`, the
- * budgets, the infrastructure contracts, the workflow's dependencies,
+ * budgets, the health checks (#300), the infrastructure contracts, the workflow's dependencies,
  * resuming, profiles, comparisons and the public configuration and run types.
  */
 export {
@@ -28,6 +28,19 @@ export {
   type ExecutionBudgetOptions,
   type PeriodBudgetOptions,
 } from "../budgets/budget.js";
+export {
+  HealthCheck,
+  HealthCheckResult,
+  HealthComponentKind,
+  HealthStatus,
+  type FailedHealthCheckResult,
+  type HealthCheckHandler,
+  type HealthCheckOptions,
+  type HealthCheckResultOptions,
+  type HealthComponentReport,
+  type HealthReport,
+  type HealthyCheckResult,
+} from "../health/health-check.js";
 export type { PausedRun } from "../app/paused-runs.js";
 export { Clock, IdGenerator, RandomIdGenerator } from "../infrastructure/clock.js";
 export {

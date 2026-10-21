@@ -73,6 +73,11 @@ export type ComponentMeta =
     }
   /** `@Budget` (#261): a money limit, listed in `@Application({ budgets })`. */
   | { readonly kind: "budget"; readonly meta: import("../budgets/budget.js").BudgetMeta }
+  /** `@HealthCheck` (#300): a readiness check, listed in `@Application({ healthChecks })`. */
+  | {
+      readonly kind: "health-check";
+      readonly meta: import("../health/health-check.js").HealthCheckMeta;
+    }
   | {
       readonly kind: "a2a-agent";
       readonly meta: {
@@ -123,4 +128,5 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   judge: "Judge",
   channel: "Channel",
   budget: "Budget",
+  "health-check": "HealthCheck",
 };
