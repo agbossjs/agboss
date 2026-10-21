@@ -32,6 +32,10 @@ export interface AnswerTools {
 
 export const NO_ANSWER_TOOLS: AnswerTools = { tools: [], isList: false, hasVariants: false };
 
+/** What an answer tool says it is for — framework text the model reads (fingerprinted, #120). */
+export const answerToolDescription = (dtoName: string, isList: boolean): string =>
+  `Finish with your answer as ${dtoName}${isList ? " items" : ""}`;
+
 const answerDefinition = (name: string, dto: DtoClass, isList: boolean): ToolDefinition => {
   const schema = jsonSchemaOf(dto);
   const parameters = isList
@@ -45,7 +49,7 @@ const answerDefinition = (name: string, dto: DtoClass, isList: boolean): ToolDef
     type: "function",
     function: {
       name,
-      description: `Finish with your answer as ${dto.name}${isList ? " items" : ""}`,
+      description: answerToolDescription(dto.name, isList),
       parameters: withSortedKeys(parameters),
     },
   };

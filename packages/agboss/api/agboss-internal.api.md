@@ -10,6 +10,7 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { BaseMessage } from '@langchain/core/messages';
 import { CompiledStateGraph } from '@langchain/langgraph';
+import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
 import { OverwriteValue } from '@langchain/langgraph';
 import { StateDefinition } from '@langchain/langgraph';
@@ -135,6 +136,7 @@ export const configSnapshot: <TName extends string>(deps: Pick<RunDeps<TName>, "
     readonly guardrails?: {
         readonly guardrails: readonly LoadedGuardrail[];
     } | undefined;
+    readonly pii?: FingerprintDeps["pii"];
 }) => unknown;
 
 // @public
@@ -776,7 +778,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/config/defaults.ts:20:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/config/defaults.ts:32:3 - (ae-undocumented) Missing documentation for "level".
 // src/config/defaults.ts:33:3 - (ae-undocumented) Missing documentation for "name".
-// src/config/profiles.ts:9:12 - (ae-undocumented) Missing documentation for "name".
+// src/config/profiles.ts:10:12 - (ae-undocumented) Missing documentation for "name".
 // src/describe/application.ts:25:3 - (ae-undocumented) Missing documentation for "name".
 // src/describe/application.ts:26:3 - (ae-undocumented) Missing documentation for "scope".
 // src/describe/application.ts:27:3 - (ae-undocumented) Missing documentation for "period".
@@ -852,7 +854,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/models/problems.ts:20:14 - (ae-undocumented) Missing documentation for "problemLine".
 // src/models/uses.ts:10:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/uses.ts:11:3 - (ae-undocumented) Missing documentation for "purpose".
-// src/run/versions.ts:56:29 - (ae-forgotten-export) The symbol "LoadedGuardrail" needs to be exported by the entry point internal.d.ts
+// src/run/versions.ts:64:29 - (ae-forgotten-export) The symbol "LoadedGuardrail" needs to be exported by the entry point internal.d.ts
+// src/run/versions.ts:65:5 - (ae-forgotten-export) The symbol "FingerprintDeps" needs to be exported by the entry point internal.d.ts
 // src/tools/mcp/facade.ts:106:14 - (ae-undocumented) Missing documentation for "isMcpFacade".
 
 // (No @packageDocumentation comment for this package)

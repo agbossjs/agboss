@@ -68,7 +68,7 @@ export interface ChannelHandler<TRole> {
     // Warning: (ae-forgotten-export) The symbol "ChannelOutcome" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
-    send(ask: ChannelAsk<TRole>): Promise<ChannelOutcome<TRole>>;
+    readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
 }
 
 // @public
@@ -548,9 +548,10 @@ export interface OnToolStart {
 }
 
 // Warning: (ae-forgotten-export) The symbol "DeclarativePiiPolicyOptions" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "PiiRefusalShape" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function PiiPolicy<const D extends readonly Token[] = []>(options: DeclarativePiiPolicyOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+export function PiiPolicy<const D extends readonly Token[] = []>(options: DeclarativePiiPolicyOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C & PiiRefusalShape<InstanceType<C>>) => C;
 
 // Warning: (ae-forgotten-export) The symbol "CustomPiiPolicyOptions" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "PiiPolicyHandler" needs to be exported by the entry point index.d.ts

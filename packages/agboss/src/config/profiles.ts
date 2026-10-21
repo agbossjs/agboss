@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import { AgentsConfigSchema, AgentSettingsSchema, CompactionSettingsSchema } from "./types.js";
+import { normalisePromptText } from "../components/prompt-render.js";
 
 /** A profile names a variant of a workflow and lists only what differs (Spring-Boot-like). */
 export class ProfileError extends Error {
@@ -77,9 +78,12 @@ export async function profilePrompts(
   const entries = await Promise.all(
     Object.entries(profile.prompts ?? {}).map(async ([agent, prompt]) => [
       agent,
-      typeof prompt === "string"
-        ? prompt
-        : await readFile(resolve(dirname(file), prompt.file), "utf8"),
+      // sent and fingerprinted as an assembled prompt is (#120): normalised
+      normalisePromptText(
+        typeof prompt === "string"
+          ? prompt
+          : await readFile(resolve(dirname(file), prompt.file), "utf8"),
+      ),
     ]),
   );
   return Object.fromEntries(entries) as Record<string, string>;

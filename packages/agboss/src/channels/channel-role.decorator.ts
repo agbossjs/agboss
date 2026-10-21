@@ -210,9 +210,9 @@ export const ReplyInterpretation = {
  * unexpected crash only (the same error, its `cause` the thrown one).
  */
 export interface ReplyInterpreterHandler<TSelf> {
-  interpret(
+  readonly interpret: (
     input: InputOf<TSelf>,
-  ): ReplyInterpretation<OutputOf<TSelf>> | Promise<ReplyInterpretation<OutputOf<TSelf>>>;
+  ) => ReplyInterpretation<OutputOf<TSelf>> | Promise<ReplyInterpretation<OutputOf<TSelf>>>;
 }
 
 const interpreters = new WeakMap<Class, ReplyInterpreterDeclaration>();

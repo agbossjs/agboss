@@ -4,6 +4,8 @@ import type { InputOf, NoOutput, OutputOf, RouterAnswerOf } from "./generated-ty
  * The handler contracts of the v2 nodes (#270 → one handler contract): `implements <Kind>Handler<Self>`
  * and the method takes `InputOf<Self>` — generated, never written by hand, so it cannot disagree
  * with the decorator or the graph. Before generation `InputOf<Self>` is `MissingGeneratedTypes`.
+ * Each method is a function-typed property (#120 PR 4): checked with strict variance on the
+ * decorator line, against the class's own generated types — `implements` is documentation.
  */
 
 /** What an action's `execute` resolves to: its output, nothing without `output`. */
@@ -14,12 +16,12 @@ export type ActionResult<TOutput> = [TOutput] extends [NoOutput] ? Promise<void>
  * context (#272 S16): project code gets the run through #280's `ExecutionContext`.
  */
 export interface ActionHandler<TSelf> {
-  execute(input: InputOf<TSelf>): ActionResult<OutputOf<TSelf>>;
+  readonly execute: (input: InputOf<TSelf>) => ActionResult<OutputOf<TSelf>>;
 }
 
 /** `@WorkflowFinish` with `input`: builds the execution's output. */
 export interface FinishHandler<TSelf> {
-  finish(input: InputOf<TSelf>): OutputOf<TSelf> | Promise<OutputOf<TSelf>>;
+  readonly finish: (input: InputOf<TSelf>) => OutputOf<TSelf> | Promise<OutputOf<TSelf>>;
 }
 
 /**
@@ -28,10 +30,10 @@ export interface FinishHandler<TSelf> {
  * comes through `deps: [ExecutionContext]`.
  */
 export interface RouterHandler<TSelf> {
-  route(input: InputOf<TSelf>): RouterAnswerOf<TSelf> | Promise<RouterAnswerOf<TSelf>>;
+  readonly route: (input: InputOf<TSelf>) => RouterAnswerOf<TSelf> | Promise<RouterAnswerOf<TSelf>>;
 }
 
 /** A tool: its input is the plain DTO of the model's call, not `Produced` (#270, Q53). */
 export interface ToolHandler<TSelf> {
-  run(input: InputOf<TSelf>): Promise<OutputOf<TSelf>>;
+  readonly run: (input: InputOf<TSelf>) => Promise<OutputOf<TSelf>>;
 }

@@ -20,12 +20,12 @@ export interface IndexReport {
  * wiring (tool or context), cost reporting and tracing.
  */
 export interface RagConnector {
-  retrieve(
+  readonly retrieve: (
     query: string,
     options: { readonly topK: number; readonly signal: AbortSignal },
-  ): Promise<RagRetrieval>;
+  ) => Promise<RagRetrieval>;
   /** Optional: build or update the index (`npm run rag:index`). */
-  index?(): Promise<IndexReport>;
+  readonly index?: () => Promise<IndexReport>;
 }
 
 /** A knowledge base as the core runs it in context mode (retrieved before the agent's loop). */

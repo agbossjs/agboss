@@ -49,6 +49,8 @@ export interface PolicySearch {
 
 export interface RuntimePiiPolicy {
   readonly name: string;
+  /** What `@PiiPolicy` declared (its rules or its action): what the fingerprint hashes (#120). */
+  readonly meta: PiiPolicyMeta;
   /** Its action per kind (a declarative policy); empty for a project's detector. */
   readonly actions: ReadonlyMap<PiiKind, AnyPiiAction>;
   find(text: string, mode: DetectionMode): Promise<PolicySearch>;
@@ -92,6 +94,7 @@ function customPolicy(parts: RuntimePolicyParts, action: AnyPiiAction): RuntimeP
   });
   return {
     name: meta.name,
+    meta,
     actions: new Map(),
     find: async (text) => ({
       findings: (await handler.findMatches(text)).map(findingOf),
@@ -125,6 +128,7 @@ function declarativePolicy(
     findFormatRanges(text, formatKinds).flatMap(findingOf);
   return {
     name: meta.name,
+    meta,
     actions,
     findNow,
     find: async (text, mode) => {

@@ -113,7 +113,7 @@ export const HealthCheckResult = {
 /** What a `@HealthCheck` class implements. */
 export interface HealthCheckHandler {
   /** Checks one dependency: `HealthCheckResult.healthy()`, `.degraded({ reason })`, `.unhealthy({ reason })`. */
-  check(): Promise<HealthCheckResult>;
+  readonly check: () => Promise<HealthCheckResult>;
 }
 
 /** `@HealthCheck` options. */

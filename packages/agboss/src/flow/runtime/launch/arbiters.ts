@@ -1,4 +1,5 @@
 import type { Class } from "../../../components/injection.js";
+import { normalisePromptText } from "../../../components/prompt-render.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import type { AcceptedBy, ArbiterClass } from "../../ast.js";
 import {
@@ -100,8 +101,13 @@ async function byModel(
   if (criterion === undefined) throw new TypeError(`no criterion for ${site.node}`);
   if (model === undefined) throw new TypeError(`no model for ${options.name}`);
   await deps.beforeModelCall(spent);
-  const question = { agent: site.node, answer: site.answer, criterion: criterion.prompt };
-  const verdict = await model.judge({ ...question, instructions: options.prompt });
+  // inline texts, sent normalised like every loaded prompt (#120)
+  const criterionText = normalisePromptText(criterion.prompt);
+  const question = { agent: site.node, answer: site.answer, criterion: criterionText };
+  const verdict = await model.judge({
+    ...question,
+    instructions: normalisePromptText(options.prompt),
+  });
   if (verdict.kind === "failed")
     throw new ArbiterError(options.name, verdict.cause ?? verdict.reason, [
       ...spent,

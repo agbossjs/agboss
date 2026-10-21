@@ -52,7 +52,7 @@ export class ActionFailedError extends StepFailedError {
 // @public
 export interface ActionHandler<TSelf> {
     // (undocumented)
-    execute(input: InputOf<TSelf>): ActionResult<OutputOf<TSelf>>;
+    readonly execute: (input: InputOf<TSelf>) => ActionResult<OutputOf<TSelf>>;
 }
 
 // @public
@@ -584,7 +584,7 @@ export class BudgetExceededError extends LimitExceededError {
 // @public
 export interface BudgetHandler {
     // (undocumented)
-    maxSpend(): Usd | Promise<Usd>;
+    readonly maxSpend: () => Usd | Promise<Usd>;
 }
 
 // @public
@@ -688,7 +688,7 @@ export type ChannelEndEvent = EndEvent<unknown>;
 // @public
 export interface ChannelHandler<TRole> {
     // (undocumented)
-    send(ask: ChannelAsk<TRole>): Promise<ChannelOutcome<TRole>>;
+    readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
 }
 
 // @public
@@ -1679,7 +1679,7 @@ export function file(filePath: string): string;
 // @public
 export interface FinishHandler<TSelf> {
     // (undocumented)
-    finish(input: InputOf<TSelf>): OutputOf<TSelf> | Promise<OutputOf<TSelf>>;
+    readonly finish: (input: InputOf<TSelf>) => OutputOf<TSelf> | Promise<OutputOf<TSelf>>;
 }
 
 // @public
@@ -1877,7 +1877,7 @@ export interface GuardrailOutcome {
 // @public
 export interface GuardrailRefusal {
     // (undocumented)
-    refusal(): string | Promise<string>;
+    readonly refusal: () => string | Promise<string>;
 }
 
 // @public
@@ -1908,7 +1908,7 @@ export function HealthCheck<const TDeps extends readonly Token[] = []>(options: 
 
 // @public
 export interface HealthCheckHandler {
-    check(): Promise<HealthCheckResult>;
+    readonly check: () => Promise<HealthCheckResult>;
 }
 
 // @public
@@ -3241,8 +3241,10 @@ export interface PiiMatch {
 // @public
 export type PiiPartOptions = PiiKeptPart | PiiReplacedPart;
 
+// Warning: (ae-forgotten-export) The symbol "PiiRefusalShape" needs to be exported by the entry point index.d.ts
+//
 // @public
-export function PiiPolicy<const D extends readonly Token[] = []>(options: DeclarativePiiPolicyOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+export function PiiPolicy<const D extends readonly Token[] = []>(options: DeclarativePiiPolicyOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C & PiiRefusalShape<InstanceType<C>>) => C;
 
 // @public
 export function PiiPolicy<const D extends readonly Token[] = []>(options: CustomPiiPolicyOptions<D>): <C extends new (...args: ResolvedAll<D>) => PiiPolicyHandler>(value: C) => C;
@@ -3250,13 +3252,13 @@ export function PiiPolicy<const D extends readonly Token[] = []>(options: Custom
 // @public
 export interface PiiPolicyHandler {
     // (undocumented)
-    findMatches(text: string): readonly PiiMatch[] | Promise<readonly PiiMatch[]>;
+    readonly findMatches: (text: string) => readonly PiiMatch[] | Promise<readonly PiiMatch[]>;
 }
 
 // @public
 export interface PiiRefusal {
     // (undocumented)
-    refusal(kind: PiiKind): string | Promise<string>;
+    readonly refusal: (kind: PiiKind) => string | Promise<string>;
 }
 
 // @public
@@ -3569,7 +3571,7 @@ export type ReplyInterpreterDecorator<TDeps extends readonly Token[]> = <TClass 
 // @public
 export interface ReplyInterpreterHandler<TSelf> {
     // (undocumented)
-    interpret(input: InputOf<TSelf>): ReplyInterpretation<OutputOf<TSelf>> | Promise<ReplyInterpretation<OutputOf<TSelf>>>;
+    readonly interpret: (input: InputOf<TSelf>) => ReplyInterpretation<OutputOf<TSelf>> | Promise<ReplyInterpretation<OutputOf<TSelf>>>;
 }
 
 // @public
@@ -3760,7 +3762,7 @@ export class RouterFailedError extends StepFailedError {
 // @public
 export interface RouterHandler<TSelf> {
     // (undocumented)
-    route(input: InputOf<TSelf>): RouterAnswerOf<TSelf> | Promise<RouterAnswerOf<TSelf>>;
+    readonly route: (input: InputOf<TSelf>) => RouterAnswerOf<TSelf> | Promise<RouterAnswerOf<TSelf>>;
 }
 
 // @public
@@ -5165,9 +5167,9 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/generated-types.ts:133:3 - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
 // src/flow/generated-types.ts:137:3 - (ae-undocumented) Missing documentation for ""auto-reject-channel"".
 // src/flow/generated-types.ts:169:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
-// src/flow/handlers.ts:17:3 - (ae-undocumented) Missing documentation for "execute".
-// src/flow/handlers.ts:22:3 - (ae-undocumented) Missing documentation for "finish".
-// src/flow/handlers.ts:31:3 - (ae-undocumented) Missing documentation for "route".
+// src/flow/handlers.ts:19:3 - (ae-undocumented) Missing documentation for "execute".
+// src/flow/handlers.ts:24:3 - (ae-undocumented) Missing documentation for "finish".
+// src/flow/handlers.ts:33:3 - (ae-undocumented) Missing documentation for "route".
 // src/flow/launch-step.ts:23:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/launch-types.ts:34:3 - (ae-undocumented) Missing documentation for "maxItems".
 // src/flow/launch-types.ts:97:3 - (ae-undocumented) Missing documentation for "join".
@@ -5451,11 +5453,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/pii/pii-policy.decorator.ts:31:3 - (ae-undocumented) Missing documentation for "end".
 // src/pii/pii-policy.decorator.ts:36:3 - (ae-undocumented) Missing documentation for "findMatches".
 // src/pii/pii-policy.decorator.ts:44:3 - (ae-undocumented) Missing documentation for "refusal".
-// src/pii/pii-policy.decorator.ts:51:3 - (ae-undocumented) Missing documentation for "description".
-// src/pii/pii-policy.decorator.ts:52:3 - (ae-undocumented) Missing documentation for "rules".
-// src/pii/pii-policy.decorator.ts:62:3 - (ae-undocumented) Missing documentation for "action".
-// src/pii/pii-policy.decorator.ts:71:3 - (ae-undocumented) Missing documentation for "deps".
-// src/pii/pii-policy.decorator.ts:72:3 - (ae-undocumented) Missing documentation for "rules".
+// src/pii/pii-policy.decorator.ts:59:3 - (ae-undocumented) Missing documentation for "description".
+// src/pii/pii-policy.decorator.ts:60:3 - (ae-undocumented) Missing documentation for "rules".
+// src/pii/pii-policy.decorator.ts:70:3 - (ae-undocumented) Missing documentation for "action".
+// src/pii/pii-policy.decorator.ts:79:3 - (ae-undocumented) Missing documentation for "deps".
+// src/pii/pii-policy.decorator.ts:80:3 - (ae-undocumented) Missing documentation for "rules".
 // src/routers/types.ts:43:3 - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts:44:3 - (ae-undocumented) Missing documentation for "route".
 // src/run/resume-agent.ts:17:3 - (ae-undocumented) Missing documentation for "code".

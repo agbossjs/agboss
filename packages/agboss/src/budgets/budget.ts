@@ -28,7 +28,7 @@ export enum BudgetPeriod {
 
 /** A budget's amount: read once per execution, at its start, from a trusted source. */
 export interface BudgetHandler {
-  maxSpend(): Usd | Promise<Usd>;
+  readonly maxSpend: () => Usd | Promise<Usd>;
 }
 
 interface BudgetCommonOptions<TDeps extends readonly Token[]> {
