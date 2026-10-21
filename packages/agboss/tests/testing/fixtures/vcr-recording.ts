@@ -2,6 +2,7 @@ import { applicationOf } from "../../../src/application/assemble.js";
 import { buildApplication } from "../../../src/application/create-app.js";
 import type { ExecutionOutput } from "../../../src/app/types.js";
 import type { Class } from "../../../src/components/injection.js";
+import { SequentialIdGenerator } from "../../../src/testing/id-generator.js";
 import { McpStubs, stubbedMcpConnect } from "../../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
@@ -31,12 +32,15 @@ export async function recordRun(
 ): Promise<ExecutionOutput> {
   const book = new ScriptBook();
   script(book);
-  const { app } = await buildApplication(await applicationOf(application), {
-    processEnv: {},
-    gateway: vcrGateway(Cassette.recording(file), () => createScriptedGateway(book)),
-    connectMcp: stubbedMcpConnect(new McpStubs(book), new Map(), new Set()),
-    newRunId: () => "run-1",
-  });
+  const { app } = await buildApplication(
+    await applicationOf(application),
+    {
+      processEnv: {},
+      gateway: vcrGateway(Cassette.recording(file), () => createScriptedGateway(book)),
+      connectMcp: stubbedMcpConnect(new McpStubs(book), new Map(), new Set()),
+    },
+    { idGenerator: new SequentialIdGenerator() },
+  );
   try {
     return await execute(app, start, { text });
   } finally {

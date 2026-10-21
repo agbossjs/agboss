@@ -15,7 +15,7 @@ import { randomUUID } from "node:crypto";
 import { applicationContextOf } from "../flow/context/application-context.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
-import type { Clock } from "../infrastructure/clock.js";
+import type { Clock, IdGenerator } from "../infrastructure/clock.js";
 import type { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { applicationContainerOf, clockOf, resolveInfrastructure } from "./application-container.js";
 import { composeApp } from "./compose-app.js";
@@ -44,17 +44,18 @@ export interface BuiltApplication {
 }
 
 /**
- * What a test gives an application instance beyond `createApp`'s options (never given in
- * production): the instances an earlier app of the same test created (its stores, so a paused
- * execution survives `recoverApp()`), this instance's id, the in-memory rows the instances of
- * the test share, and the test's `VirtualClock` — always, whatever `Clock` the application lists:
- * tests never run on real time. In production the clock is the listed `Clock`, else the system's.
+ * What a test gives an application instance beyond `createApp`'s options (never in production):
+ * the instances an earlier app of the test created (its stores: a paused execution survives
+ * `recoverApp()`), this instance's id, the in-memory rows its instances share, its ids (#313: unless
+ * the application lists an `IdGenerator`) and its `VirtualClock` — always, whatever `Clock` the
+ * application lists: tests never run on real time. In production the listed ones, else built-in.
  */
 export interface InstanceSeams {
   readonly reused?: ReadonlyMap<Class, unknown>;
   readonly instanceId?: string;
   readonly database?: InMemoryDatabase;
   readonly clock?: Clock;
+  readonly idGenerator?: IdGenerator;
   /** A test's instance: an unlisted `Logger` is silent, and the start is not logged. */
   readonly quiet?: boolean;
   /** Observers of the instance besides the application's (a test's call recorder, #262). */
@@ -140,15 +141,12 @@ export async function buildApplication(
   // the clock first: the contexts read their start from it
   const clock = seams.clock ?? clockOf(assembled.modules, { ...options.container, onCreate });
   const contexts = contextsOf(assembled, options, seams, clock);
-  const shared = applicationContainerOf({
-    modules: assembled.modules,
-    clock,
-    newThreadId: options.newThreadId,
-    contexts,
-    database: seams.database,
-    instances: seams.reused,
-    quiet: seams.quiet,
-  });
+  const sources = { modules: assembled.modules, clock, contexts, idGenerator: seams.idGenerator };
+  const { database, reused: instances, quiet } = seams;
+  const shared = applicationContainerOf(
+    { ...sources, database, instances, quiet },
+    { ...options.container, onCreate },
+  );
   const container: ContainerOptions = { ...options.container, application: shared };
   const infrastructure = resolveInfrastructure(shared, { ...container, onCreate });
   const processEnv = options.processEnv ?? process.env;

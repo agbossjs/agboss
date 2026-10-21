@@ -135,7 +135,6 @@ export interface FakeDepsOptions {
   readonly executionBudget?: number;
   readonly terns?: TernStore;
   readonly workflow?: Class;
-  readonly newRunId?: () => string;
   /** Chat models instead of the script's (e.g. a `ScriptedChatModel` with tool calls). */
   readonly chatModel?: ModelFactory;
   /** Jev's answers (the default router, `ROUTER_FACTORY`); default: Jev is not used. */
@@ -153,7 +152,6 @@ export async function fakeDeps(
   const deps = await createAppDeps(await workflowOf(options.workflow ?? StarWorkflow), {
     gateway: fakeGateway(options.chatModel ?? fakeChatFactory(script), options.jevClient),
     processEnv: {},
-    ...(options.newRunId === undefined ? {} : { newRunId: options.newRunId }),
   });
   // the unit tests read and share these stores themselves: the budgets' ledger and the records
   const budgets: ApplicationBudgets = {

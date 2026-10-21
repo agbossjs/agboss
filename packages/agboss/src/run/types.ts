@@ -22,8 +22,6 @@ export interface RunDeps<TName extends string> extends GraphDeps<TName> {
   readonly terns: TernRecords;
   /** Optional tracing (e.g. local Langfuse); runs are identical without it. */
   readonly tracing?: RunTracing | undefined;
-  /** A new run id; random by default, deterministic in tests. */
-  readonly newRunId?: () => string;
 }
 
 /** A stream event for real-time UI/CLI updates. */

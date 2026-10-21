@@ -1038,8 +1038,10 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   one `node:sqlite` connection per instance on the environment's `sqlitePath` (required only then,
   `[environment.missing-field]`; `:memory:` in tests), WAL + `busy_timeout`, atomic operations in
   `BEGIN IMMEDIATE`, time from the framework's clock; job-scout lists them all. A project subclasses
-  one with `extends` + `override` and `@Injectable({ deps: [SqliteConnection, Clock,
-ApplicationContext] })` (#265 S70).
+  one through public tokens only, with `extends` + `override` and the class's own `deps` — `@Injectable({
+deps: [SqliteConnection, Clock, ApplicationContext] })` (#265 S70); `SqliteExecutionRecordRepository`
+  adds `IdGenerator` (`[SqliteConnection, Clock, ApplicationContext, IdGenerator]`, the in-memory one
+  `[Clock, IdGenerator]`, #313).
 - **Time is the application's `Clock` (#262):** infrastructure too — `now()` and
   `sleep(delay, signal?)`; the system's unless `@Application({ providers })` lists a class that
   `extends Clock` (created first: it may not depend on the contexts, whose `startedAt` it gives).
@@ -1050,6 +1052,15 @@ ApplicationContext] })` (#265 S70).
   without arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout` and
   `node:timers` in `packages/agboss/src` (the real implementation, `src/infrastructure/clock.ts`,
   excepted).
+- **Ids are the application's `IdGenerator` (#313):** infrastructure like the `Clock` (and in its
+  module) — `newThreadId()` and `newExecutionId()`; every thread id the framework mints
+  (`app.execute` without a `threadId`) and every execution id (roots, children, recursion levels)
+  comes from it; a caller's own `threadId` is used as given, a recovered execution keeps its id. The
+  built-in `RandomIdGenerator` (random UUIDs, the formats before #313) unless
+  `@Application({ providers })` lists a class that `extends IdGenerator` (two →
+  `[di.ambiguous-implementation]`, in a workflow's `providers` → `[di.infrastructure-in-workflow]`);
+  created before the stores that inject it, so it may not depend on the contexts. Never a `pauseId`
+  (an answer credential: a random 128-bit token) and never a model call's id (the provider's).
 - **Defaults cascade (#261):** `@Application({ defaults })` → `@Workflow({ defaults })` → the
   component's own field, merged field by field — the most specific level that sets a field wins,
   nothing set → the built-in. `defaults.router.model` is the model of `DecidedBy.Model` routers
@@ -1617,7 +1628,9 @@ today; tenant-daily-budget allows $40`).
   `recoverApp`, `clock` — the test's `VirtualClock` (`agboss/testing`), the application's `Clock`
   in every test whatever it lists: fixed at `2026-01-05T09:00:00Z`, moved only by
   `await clock.advance(seconds(31))` (or `"25h"`), which wakes every due wait in time order, each
-  one's work before the next, without real waiting — and, with
+  one's work before the next, without real waiting; deterministic ids — `thread-1`, `thread-2`, …,
+  `execution-1`, … in the order made, per test and shared by its instances (`SequentialIdGenerator`,
+  `agboss/testing`, #313), unless the application lists its own `IdGenerator` — and, with
   `testWith(App, { instances: 2 })`, `apps` (each instance its own container, one set of stores and
   one clock: a lease, a pause resumed on the other instance, a rate-limit slot); models answer by script — `replyWith(text)` or
   `replyWith(Dto, value, { cost })` (a structured answer, a class of the agent's output: checked by

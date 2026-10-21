@@ -10,8 +10,8 @@ import type { Environment } from "../flow/generated-types.js";
 import { CONTEXT_TOKENS, contextValuesOf } from "../components/context-tokens.js";
 import { ComponentError } from "../components/metadata.js";
 import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
-import { Clock } from "../infrastructure/clock.js";
-import { IN_MEMORY_DATABASE, NEW_THREAD_ID } from "../infrastructure/instance-tokens.js";
+import { Clock, IdGenerator } from "../infrastructure/clock.js";
+import { IN_MEMORY_DATABASE } from "../infrastructure/instance-tokens.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import {
   INFRASTRUCTURE_DEFAULTS,
@@ -19,7 +19,6 @@ import {
   infrastructureOf,
   type Infrastructure,
 } from "../infrastructure/contracts.js";
-import type { NewThreadId } from "../terns/index.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { containerProvidersOf } from "../models/resolution.js";
 import { applicationDeclarationOf, applicationsListing } from "./application.js";
@@ -29,7 +28,11 @@ export interface ApplicationContainerSources {
   readonly modules: readonly ProviderModule[];
   /** The instance's clock, created first (`clockOf`): every part of the instance reads it. */
   readonly clock: Clock;
-  readonly newThreadId?: NewThreadId | undefined;
+  /**
+   * The ids of a test's instance (#313, shared by its instances): used unless the application
+   * lists an `IdGenerator`. Resolved before the stores, which inject it (`idGeneratorOf`).
+   */
+  readonly idGenerator?: IdGenerator | undefined;
   /**
    * The instance's context levels (#261): its `ApplicationContext` — whose `instanceId` is the
    * holder of its leases (#265 S63) — and the declared context classes.
@@ -47,30 +50,37 @@ export interface ApplicationContainerSources {
 }
 
 /** The parts every container of one application instance shares (one instance per class). */
-export function applicationContainerOf(sources: ApplicationContainerSources): ApplicationContainer {
+export function applicationContainerOf(
+  sources: ApplicationContainerSources,
+  options: ContainerOptions = {},
+): ApplicationContainer {
   const { clock } = sources;
+  const idGenerator = idGeneratorOf(sources.modules, options, sources.idGenerator);
   return {
     modules: sources.modules,
     core: new Map<Token, unknown>([
       [Clock, clock],
-      [NEW_THREAD_ID, sources.newThreadId],
+      [IdGenerator, idGenerator],
       [IN_MEMORY_DATABASE, sources.database ?? new InMemoryDatabase()],
       ...contextValuesOf(sources.contexts),
     ]),
     defaults: sources.quiet === true ? TEST_INFRASTRUCTURE_DEFAULTS : INFRASTRUCTURE_DEFAULTS,
-    // a listed clock asked for by its own class is the same instance
-    instances: new Map([...(sources.instances ?? []), [clock.constructor as Class, clock]]),
+    // a listed clock or id generator asked for by its own class is the same instance
+    instances: new Map([
+      ...(sources.instances ?? []),
+      [clock.constructor as Class, clock],
+      [idGenerator.constructor as Class, idGenerator],
+    ]),
   };
 }
 
 /** The contexts while the clock is created: they read their `startedAt` from it. */
-const contextsNotYet = (): ReadonlyMap<Token, unknown> =>
+const contextsNotYet = (why: string): ReadonlyMap<Token, unknown> =>
   new Map(
     CONTEXT_TOKENS.map((token) => [
       token,
       new UnavailableValue(
-        (dependant) =>
-          `${dependant} cannot depend on the application's contexts: the Clock is created before them (their startedAt is read from it)`,
+        (dependant) => `${dependant} cannot depend on the application's contexts: ${why}`,
       ),
     ]),
   );
@@ -81,10 +91,37 @@ const contextsNotYet = (): ReadonlyMap<Token, unknown> =>
  * lifecycle hooks run with the others').
  */
 export function clockOf(modules: readonly ProviderModule[], options: ContainerOptions = {}): Clock {
-  const sources = { modules, core: contextsNotYet(), defaults: INFRASTRUCTURE_DEFAULTS };
+  const core = contextsNotYet("the Clock is created before them (their startedAt is read from it)");
+  const sources = { modules, core, defaults: INFRASTRUCTURE_DEFAULTS };
   const clock = createContainer(sources, options).get(Clock);
   if (!(clock instanceof Clock)) throw new ComponentError("the application's Clock is not a Clock");
   return clock;
+}
+
+/**
+ * The instance's id generator (#313), created before the stores that inject it: the one class in
+ * `@Application({ providers })` that `extends IdGenerator`, else `fallback` (a test's sequential
+ * one, shared by its instances), else `RandomIdGenerator`. It may not depend on the contexts.
+ */
+export function idGeneratorOf(
+  modules: readonly ProviderModule[],
+  options: ContainerOptions = {},
+  fallback?: IdGenerator,
+): IdGenerator {
+  const core = contextsNotYet("the IdGenerator is created before the stores that inject it");
+  const own = fallback?.constructor as Class | undefined;
+  const defaults = new Map<Class, Class>([
+    ...INFRASTRUCTURE_DEFAULTS,
+    ...(own === undefined ? [] : [[IdGenerator, own] as const]),
+  ]);
+  const instances = new Map<Token, unknown>(own === undefined ? [] : [[own, fallback]]);
+  const application = { modules: [], core: new Map<Token, unknown>(), defaults, instances };
+  const container = createContainer({ modules, core, defaults }, { ...options, application });
+  const generator = container.get(IdGenerator);
+  if (!(generator instanceof IdGenerator)) {
+    throw new ComponentError("the application's IdGenerator is not an IdGenerator");
+  }
+  return generator;
 }
 
 /**
@@ -151,7 +188,7 @@ function applicationProvidersOf(bundle: AssembledWorkflow): ProviderModule {
  */
 export function standaloneInfrastructure(
   bundle: AssembledWorkflow,
-  options: Pick<ApplicationContainerSources, "newThreadId"> & {
+  options: {
     readonly environment?: Environment | undefined;
   },
   onCreate?: (instance: unknown) => void,
@@ -160,12 +197,10 @@ export function standaloneInfrastructure(
   const container = onCreate === undefined ? {} : { onCreate };
   const clock = clockOf(modules, container);
   return resolveInfrastructure(
-    applicationContainerOf({
-      modules,
-      clock,
-      newThreadId: options.newThreadId,
-      contexts: standaloneContexts(bundle.config, options.environment, clock),
-    }),
+    applicationContainerOf(
+      { modules, clock, contexts: standaloneContexts(bundle.config, options.environment, clock) },
+      container,
+    ),
     container,
   );
 }

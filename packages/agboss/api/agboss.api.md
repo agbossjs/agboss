@@ -318,12 +318,6 @@ export interface AppDepsOptions {
     readonly environmentName?: string;
     // Warning: (ae-forgotten-export) The symbol "ModelGateway" needs to be exported by the entry point index.d.ts
     readonly gateway?: ModelGateway;
-    // (undocumented)
-    readonly newRunId?: () => string;
-    // Warning: (ae-forgotten-export) The symbol "NewThreadId" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly newThreadId?: NewThreadId;
     readonly processEnv?: NodeJS.ProcessEnv;
     // Warning: (ae-forgotten-export) The symbol "ProviderFetch" needs to be exported by the entry point index.d.ts
     readonly providerFetch?: ProviderFetch;
@@ -1726,6 +1720,7 @@ export interface GraphDeps<TName extends string> {
     readonly graph: RuntimeGraph;
     // Warning: (ae-forgotten-export) The symbol "GuardrailRuntime" needs to be exported by the entry point index.d.ts
     readonly guardrails?: GuardrailRuntime;
+    readonly idGenerator?: IdGenerator | undefined;
     readonly judges?: ReadonlyMap<string, JudgeInstance>;
     readonly knowledge?: (agent: string) => readonly KnowledgeSource[];
     // Warning: (ae-forgotten-export) The symbol "LaunchDecider" needs to be exported by the entry point index.d.ts
@@ -1932,6 +1927,12 @@ export interface HostContext {
     readonly pid: number;
     readonly platform: string;
     readonly runtimeVersion: string;
+}
+
+// @public
+export abstract class IdGenerator {
+    abstract newExecutionId(): string;
+    abstract newThreadId(): string;
 }
 
 // @public
@@ -3411,6 +3412,12 @@ export enum RagMode {
 export type RagStartEvent = StartEvent<string>;
 
 // @public
+export class RandomIdGenerator extends IdGenerator {
+    newExecutionId(): string;
+    newThreadId(): string;
+}
+
+// @public
 export interface RateLimitLease {
     readonly expiresAt: Date;
     readonly holderInstanceId: string;
@@ -3728,7 +3735,6 @@ export function runAgent<TName extends string>(input: unknown, deps: RunDeps<TNa
 export interface RunDeps<TName extends string> extends GraphDeps<TName> {
     // Warning: (ae-forgotten-export) The symbol "ApplicationBudgets" needs to be exported by the entry point index.d.ts
     readonly budgets?: ApplicationBudgets | undefined;
-    readonly newRunId?: () => string;
     // Warning: (ae-forgotten-export) The symbol "TernRecords" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -3938,7 +3944,7 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
 //
 // @public
 export class SqliteExecutionRecordRepository extends TernStoreRecordRepository {
-    constructor(connection: SqliteConnection, clock: Clock, newThreadId: NewThreadId | undefined);
+    constructor(connection: SqliteConnection, clock: Clock, applicationContext: ApplicationContext, idGenerator: IdGenerator);
 }
 
 // @public
@@ -4585,9 +4591,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // Warnings were encountered during analysis:
 //
 // src/app/app-deps.ts:51:3 - (ae-undocumented) Missing documentation for "evaluation".
-// src/app/app-deps.ts:94:3 - (ae-undocumented) Missing documentation for "newThreadId".
-// src/app/app-deps.ts:95:3 - (ae-undocumented) Missing documentation for "newRunId".
-// src/app/app-deps.ts:96:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/app-deps.ts:94:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/create-app.ts:60:3 - (ae-undocumented) Missing documentation for "profileRoot".
@@ -5179,12 +5183,12 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
 // src/graph/settings.ts:36:3 - (ae-undocumented) Missing documentation for "settings".
 // src/infrastructure/cost-ledger.repository.ts:31:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
-// src/infrastructure/execution-record.repository.ts:61:3 - (ae-undocumented) Missing documentation for "append".
-// src/infrastructure/execution-record.repository.ts:76:3 - (ae-undocumented) Missing documentation for "byIds".
-// src/infrastructure/execution-record.repository.ts:94:3 - (ae-undocumented) Missing documentation for "saveScore".
-// src/infrastructure/execution-record.repository.ts:95:3 - (ae-undocumented) Missing documentation for "meanScore".
-// src/infrastructure/execution-record.repository.ts:105:3 - (ae-undocumented) Missing documentation for "configSnapshots".
-// src/infrastructure/execution-record.repository.ts:128:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record.repository.ts:60:3 - (ae-undocumented) Missing documentation for "append".
+// src/infrastructure/execution-record.repository.ts:75:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record.repository.ts:93:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record.repository.ts:94:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record.repository.ts:104:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record.repository.ts:127:3 - (ae-undocumented) Missing documentation for "summaryCount".
 // src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/pause-record.ts:47:3 - (ae-undocumented) Missing documentation for "decision".
@@ -5360,15 +5364,15 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/thread.ts:38:3 - (ae-undocumented) Missing documentation for "code".
 // src/run/thread.ts:39:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/types.ts:22:3 - (ae-undocumented) Missing documentation for "terns".
-// src/run/types.ts:34:1 - (ae-undocumented) Missing documentation for "RunOptions".
-// src/run/types.ts:70:3 - (ae-undocumented) Missing documentation for "status".
-// src/run/types.ts:73:3 - (ae-undocumented) Missing documentation for "startInput".
-// src/run/types.ts:78:3 - (ae-undocumented) Missing documentation for "output".
-// src/run/types.ts:79:3 - (ae-undocumented) Missing documentation for "budgetUsd".
-// src/run/types.ts:80:3 - (ae-undocumented) Missing documentation for "cost".
-// src/run/types.ts:81:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/run/types.ts:84:3 - (ae-undocumented) Missing documentation for "ternId".
-// src/run/types.ts:85:3 - (ae-undocumented) Missing documentation for "data".
+// src/run/types.ts:32:1 - (ae-undocumented) Missing documentation for "RunOptions".
+// src/run/types.ts:68:3 - (ae-undocumented) Missing documentation for "status".
+// src/run/types.ts:71:3 - (ae-undocumented) Missing documentation for "startInput".
+// src/run/types.ts:76:3 - (ae-undocumented) Missing documentation for "output".
+// src/run/types.ts:77:3 - (ae-undocumented) Missing documentation for "budgetUsd".
+// src/run/types.ts:78:3 - (ae-undocumented) Missing documentation for "cost".
+// src/run/types.ts:79:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/run/types.ts:82:3 - (ae-undocumented) Missing documentation for "ternId".
+// src/run/types.ts:83:3 - (ae-undocumented) Missing documentation for "data".
 // src/tools/define-tool.ts:20:3 - (ae-undocumented) Missing documentation for "code".
 // src/tools/define-tool.ts:21:12 - (ae-undocumented) Missing documentation for "name".
 // src/workflow.ts:44:3 - (ae-undocumented) Missing documentation for "config".

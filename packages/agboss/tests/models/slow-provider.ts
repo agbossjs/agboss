@@ -4,6 +4,7 @@ import type { Class } from "../../src/components/injection.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import type { ProviderFetch } from "../../src/models/resilient-fetch.js";
 import { VirtualClock } from "../../src/testing/clock.js";
+import { SequentialIdGenerator } from "../../src/testing/id-generator.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";
 import { completion, type StubReply } from "./stub.js";
 
@@ -95,15 +96,14 @@ export async function instancesOf(
   const assembled = await applicationOf(application, {});
   const database = new InMemoryDatabase();
   const built: BuiltApplication[] = [];
-  let threads = 0;
-  // thread ids in the order executions start, as in testWith: `thread-1`, `thread-2`, …
-  const newThreadId = (): string => `thread-${String((threads += 1))}`;
+  // ids in the order executions start, as in testWith: `thread-1`, `thread-2`, … (#313)
+  const idGenerator = new SequentialIdGenerator();
   for (let instance = 1; instance <= count; instance++) {
     built.push(
       await buildApplication(
         assembled,
-        { processEnv: {}, providerFetch, newThreadId },
-        { instanceId: `instance-${String(instance)}`, database, clock },
+        { processEnv: {}, providerFetch },
+        { instanceId: `instance-${String(instance)}`, database, clock, idGenerator },
       ),
     );
   }

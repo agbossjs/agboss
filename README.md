@@ -252,8 +252,10 @@ environment contract, required only when one is listed (else `[environment.missi
 names it); WAL, `busy_timeout`, every atomic operation in `BEGIN IMMEDIATE`, time from the
 framework's clock. With them `--thread`, `agboss eval` / `replay` / `golden` see what earlier
 processes wrote, a pause survives a restart, and another instance on the file recovers a run
-whose process died; tests run on `sqlitePath: ":memory:"`. One file serves one machine (Wiki →
-Several-instances):
+whose process died; tests run on `sqlitePath: ":memory:"`. A project subclasses one through public
+tokens only (`extends` + `override`, `@Injectable({ deps })` as the class's own —
+`SqliteExecutionRecordRepository` takes `[SqliteConnection, Clock, ApplicationContext, IdGenerator]`,
+#313) and lists the subclass instead. One file serves one machine (Wiki → Several-instances):
 
 <!-- snippet-context
 import { SqliteCheckpointSaver, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqlitePausedExecutionRepository, env } from "agboss";
@@ -300,6 +302,33 @@ export class ReminderService {
   async remindLater(): Promise<Date> {
     await this.clock.sleep(seconds(30)); // in a test: await clock.advance(seconds(30))
     return this.clock.now();
+  }
+}
+```
+
+**Ids are the application's `IdGenerator`** (#313, infrastructure like the `Clock`): every thread id
+the framework mints (`app.execute` without a `threadId`) and every execution id — roots, children,
+recursion levels — comes from it; a caller's own `threadId` is used as given, a recovered execution
+keeps its id. The built-in `RandomIdGenerator` gives random UUIDs (the formats before #313) unless
+`@Application({ providers })` lists a class that `extends IdGenerator`; it is created before the
+stores that inject it (`deps: [IdGenerator]`), so it may not depend on the contexts. `testWith`
+makes them deterministic — `thread-1`, `thread-2`, …, `execution-1`, … per test
+(`SequentialIdGenerator`, `agboss/testing`) — unless the application lists its own. A `pauseId` never
+comes from it: it is an answer credential, a random 128-bit token.
+
+```ts
+// config/prefixed-id.generator.ts — listed in @Application({ providers: [PrefixedIdGenerator] })
+import { randomUUID } from "node:crypto";
+import { IdGenerator, Injectable } from "agboss";
+
+@Injectable()
+export class PrefixedIdGenerator extends IdGenerator {
+  override newThreadId(): string {
+    return `thr_${randomUUID()}`;
+  }
+
+  override newExecutionId(): string {
+    return `exe_${randomUUID()}`;
   }
 }
 ```
@@ -452,14 +481,14 @@ One package; the root `agboss` is the authoring API, the rest are focused entrie
   `TenantContext`, `ExecutionContext`, `ContextValues`), the path builder (`start`,
   `agent`, `router`, `action`, `route`, `caseOf`, `toAgent`, `toAction`, `toFinish`, …),
   `WorkflowSettings`, `@Application`, `createApp`, `@Budget`, the infrastructure contracts (`Clock`
-  among them),
+  and `IdGenerator` among them),
   `Decision`, observers, errors and types
 - `agboss/dto` — field decorators (`@Text`, `@ListOf`, …), the DTO wrappers (`listOf`, `oneOf`,
   `optional`, `variant`) and the standard DTOs
 - `agboss/units` — `usd()`, `seconds()`, `minutes()`
 - `agboss/models` — model providers (`@ModelProvider`, listed in `@Application({ providers })`)
 - `agboss/testing` — `testWith`, the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
-  `mcpOf`, `VirtualClock`, VCR (+ `agboss/testing/setup`: the matchers)
+  `mcpOf`, `VirtualClock`, `SequentialIdGenerator`, VCR (+ `agboss/testing/setup`: the matchers)
 - `agboss/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`, `@McpTool`,
   `@McpExpose`, `@Rag`, A2A, memory)
 
@@ -792,7 +821,8 @@ one choice question over the routes, options sorted so declaration order never c
 
 `testWith(Application)` (`agboss/testing`) runs the whole application in each test — its real
 container and infrastructure, models by script, MCP servers stubbed, the network blocked, a
-`VirtualClock`. Scripts are typed by the generated `.agboss/types.d.ts` (`agboss check`, #262):
+`VirtualClock` and deterministic ids (`thread-1`, `execution-1`, … per test, #313; an application
+that lists its own `IdGenerator` keeps it). Scripts are typed by the generated `.agboss/types.d.ts` (`agboss check`, #262):
 `replyWith(XDto, fields)` must be a class of the agent's output (a class outside its `oneOf` does
 not compile), `routeTo(…)` a target of the router's routes — exactly one after `.chooseOne(…)`, the
 `OnDemand` targets it launches before `.toParallelAgents(…)` (`routeTo()` only with an `Always`

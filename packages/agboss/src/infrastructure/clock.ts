@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Injectable } from "../components/decorators.js";
 import type { Milliseconds } from "../units/index.js";
 
@@ -53,3 +54,39 @@ export class SystemClock extends Clock {
  * on its own, `agboss compare`): what an application would use without a clock of its own.
  */
 export const systemClock: Clock = new SystemClock();
+
+/**
+ * The ids the framework mints (#313), infrastructure like `Clock` (and in its module: one contract
+ * of the instance's identity, no root module of its own): every new thread id (`app.execute`
+ * without a `threadId`) and every execution id — roots, children, recursion levels — comes from the
+ * application's one `IdGenerator`. A caller's own `threadId` is used as given, a recovered execution
+ * keeps its id. The built-in `RandomIdGenerator` unless `@Application({ providers })` lists a class
+ * that `extends IdGenerator`; created before the stores that inject it (`deps: [IdGenerator]`), so it
+ * may not depend on the contexts. `testWith` runs on `SequentialIdGenerator` (`agboss/testing`:
+ * `thread-1`, `execution-1`, …) unless the application lists its own. Never a `pauseId`: that is an
+ * answer credential, a random 128-bit token outside it.
+ */
+export abstract class IdGenerator {
+  /** The id of a new thread. */
+  abstract newThreadId(): string;
+
+  /** The id of a new execution: a root, a child or a recursion level. */
+  abstract newExecutionId(): string;
+}
+
+/** The built-in default: a random UUID for each id (the formats before #313, unchanged). */
+@Injectable()
+export class RandomIdGenerator extends IdGenerator {
+  /** A random UUID. */
+  newThreadId(): string {
+    return randomUUID();
+  }
+
+  /** A random UUID. */
+  newExecutionId(): string {
+    return randomUUID();
+  }
+}
+
+/** The ids of framework code that runs outside an application (a graph run on its own). */
+export const randomIdGenerator: IdGenerator = new RandomIdGenerator();

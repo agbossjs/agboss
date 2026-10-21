@@ -441,6 +441,14 @@ export type ScriptedAnswer = number | string;
 // @public
 export type ScriptedTurn = ReplyTurn | AnswerTurn | ToolCallTurn | RouteTurn | DecideTurn | FailureTurn | WaitTurn;
 
+// Warning: (ae-forgotten-export) The symbol "IdGenerator" needs to be exported by the entry point index.d.ts
+//
+// @public
+export class SequentialIdGenerator extends IdGenerator {
+    newExecutionId(): string;
+    newThreadId(): string;
+}
+
 // @public
 export function step<TNode extends Class>(node: TNode, input?: InputMatcherOf<InstanceType<TNode>>): OrderedStep;
 

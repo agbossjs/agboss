@@ -2,7 +2,7 @@ import type { PauseChannel } from "../flow/runtime/pause.js";
 import type { Class } from "../components/injection.js";
 import { stopComponents } from "../components/container/lifecycle.js";
 import { ExecutionObserverManager } from "../core/observer-manager.js";
-import type { Clock } from "../infrastructure/clock.js";
+import type { Clock, IdGenerator } from "../infrastructure/clock.js";
 import { frameworkLogOf, type FrameworkLog, type Logger } from "../infrastructure/logger.js";
 import type { McpConnections } from "../tools/index.js";
 import type { RunTracing } from "../tracing/index.js";
@@ -84,11 +84,11 @@ export const closeOf =
     }
   };
 
-/** What a workflow's deps take only when given: its run ids, its children's deps (#263). */
-export const optionalDepsOf = (
-  newRunId: (() => string) | undefined,
+/** What a workflow's deps make its tree with: its ids (#313), its children's deps when given (#263). */
+export const treeDepsOf = (
+  idGenerator: IdGenerator,
   childDepsOf: ((workflow: Class) => GraphDeps<string> | undefined) | undefined,
-): Pick<GraphDeps<string>, "childDepsOf"> & { readonly newRunId?: () => string } => ({
-  ...(newRunId === undefined ? {} : { newRunId }),
+): Pick<GraphDeps<string>, "childDepsOf" | "idGenerator"> => ({
+  idGenerator,
   ...(childDepsOf === undefined ? {} : { childDepsOf }),
 });

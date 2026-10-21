@@ -8,7 +8,7 @@ import { startComponents } from "../components/container/lifecycle.js";
 import type { EvalDeps } from "../eval/eval.js";
 import type { RunDeps } from "../run/types.js";
 import { configSnapshot, runVersions } from "../run/versions.js";
-import { shortVersion, stableJson, type NewThreadId } from "../terns/index.js";
+import { shortVersion, stableJson } from "../terns/index.js";
 import { tracingOf } from "../tracing/index.js";
 import type { ModelGateway } from "../llm/gateway.js";
 import { createModelRegistry } from "../llm/registry.js";
@@ -29,7 +29,7 @@ import {
   servicesFor,
   toolLookup,
 } from "./parts.js";
-import { closeOf, observedBy, optionalDepsOf, releaseOf } from "./app-deps-parts.js";
+import { closeOf, observedBy, treeDepsOf, releaseOf } from "./app-deps-parts.js";
 import { componentsAtStart } from "./start-components.js";
 import { piiFor } from "./pii-parts.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
@@ -91,8 +91,6 @@ export interface AppDepsOptions {
   readonly transport?: TransportFactory;
   /** Replaces how MCP servers are connected (test stubs). */
   readonly connectMcp?: McpConnect;
-  readonly newThreadId?: NewThreadId;
-  readonly newRunId?: () => string;
   readonly container?: ContainerOptions;
   /** How launch branches are scheduled: a test's `TestConcurrency` (#262 S33); default the real way. */
   readonly branchScheduler?: BranchScheduler;
@@ -228,7 +226,7 @@ export async function createWorkflowDeps(
     clock,
     replies: repliesFor(bundle, config, gateway, components.container),
     ...observedBy(parts.observer, parts.infrastructure.logger, clock, pii.observability),
-    ...optionalDepsOf(options.newRunId, parts.childDepsOf),
+    ...treeDepsOf(parts.infrastructure.idGenerator, parts.childDepsOf),
     close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),
   };
   if (parts.created === undefined) {

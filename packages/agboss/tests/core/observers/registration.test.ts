@@ -53,9 +53,7 @@ class RunRecorder
     OnExecutionError
 {
   onExecutionStart(event: ExecutionStartEvent): void {
-    events.push(
-      `execution-start:${event.executionId.startsWith("run-") ? "run" : event.executionId}`,
-    );
+    events.push(`execution-start:${event.executionId}`);
   }
   onExecutionEnd(event: ExecutionEndEvent): void {
     events.push("execution-end");
@@ -92,7 +90,7 @@ describe("a registered observer", () => {
       const result = await execute(app, Start, { text: "hello" });
 
       expect(events).toEqual([
-        "execution-start:run",
+        "execution-start:execution-1",
         "agent-start:worker-agent",
         "tool-start:echo",
         'tool-end:echo:{"text":"echo hi"}',

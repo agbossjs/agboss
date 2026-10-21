@@ -2,8 +2,10 @@ import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import type { TernStore } from "./types.js";
 
-/** A new thread id; random by default, deterministic in tests. */
-export type NewThreadId = () => string;
+/** Where new thread ids come from: the application's `IdGenerator` (#313); random by default. */
+export interface ThreadIds {
+  newThreadId(): string;
+}
 
 /** The current time (the application's clock, given by the caller). */
 type Now = () => Date;
@@ -14,12 +16,12 @@ const OwnerRow = z.object({ owner: z.string().nullable() });
 export function threadMethods(
   db: DatabaseSync,
   now: Now,
-  newThreadId: NewThreadId,
+  threadIds: ThreadIds,
 ): Pick<TernStore, "createThread" | "hasThread" | "threadOwner"> {
   return {
     // a caller's own id (#262 Q4) may be created twice at once: the first one keeps it
     createThread: ({ workflow, tenantId, ownerId, threadId }) => {
-      const id = threadId ?? newThreadId();
+      const id = threadId ?? threadIds.newThreadId();
       const { changes } = db
         .prepare(
           `INSERT INTO threads (id, bundle, created_at, tenant_id) VALUES (?, ?, ?, ?)

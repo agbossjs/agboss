@@ -1,7 +1,7 @@
-import { randomUUID } from "node:crypto";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import { extractRunContext, runIdOf, type RunContext } from "../../core/run-context.js";
+import type { IdGenerator } from "../../infrastructure/clock.js";
 import { rootFactsOf, type Frame } from "../context/frame.js";
 import type { ChildIdentityRecord } from "./child-records.js";
 
@@ -65,6 +65,8 @@ export interface ChildEntrySpot {
   readonly parent: Frame;
   readonly itemIndex: number | undefined;
   readonly inheritedUsage: number;
+  /** The application's id generator (#313): the child's execution id. */
+  readonly idGenerator: IdGenerator;
 }
 
 /** The child's identity: read back from its checkpoint, or made now on its first entry. */
@@ -73,7 +75,7 @@ export async function childEnteredAt(spot: ChildEntrySpot): Promise<ChildEntered
   if (stored !== undefined) return { identity: stored, isNew: false };
   const { execution } = spot.parent;
   const identity: ChildIdentityRecord = {
-    executionId: randomUUID(),
+    executionId: spot.idGenerator.newExecutionId(),
     parentExecutionId: execution.executionId,
     rootExecutionId: rootFactsOf(execution).executionId,
     ...(spot.itemIndex === undefined ? {} : { itemIndex: spot.itemIndex }),
