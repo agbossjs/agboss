@@ -5,15 +5,16 @@ import {
   maxConcurrentExecutionsOf,
 } from "../flow/decorators/workflow.js";
 import { stepsRangeOf } from "../flow/analyse/steps.js";
-import { worstCaseLine, type WorstCase } from "../flow/analyse/worst-case.js";
+import type { WorstCase } from "../flow/analyse/worst-case.js";
 import type { AssembledWorkflow } from "../workflow.js";
+import { worstCaseReportLines, type WorstCaseLimits } from "./worst-case-report.js";
 
 /**
  * The count limits `agboss describe` shows (#261): `maxSteps` (set, or the default (agents +
- * routers) × 3) with the range of steps an execution takes, each node's `maxVisits`, and the worst
- * case of one call of each start with what it is made of (`maxItems`, `maxConcurrency`,
- * `maxSteps`) — the start log's numbers — and, for a workflow that launches children, its tree's
- * `maxConcurrentExecutions` (#264). Money is the application's budgets.
+ * routers) × 3) with the range of steps an execution takes, each node's `maxVisits`, a recursive
+ * workflow's `maxDepth`, for a workflow that launches children its tree's `maxConcurrentExecutions`
+ * (#264), and the worst case of one call of each start with how each number is made up (#268, the
+ * report of `agboss check`). Money is the application's budgets.
  */
 
 /** The workflow's count limits as data (`describe --json`). */
@@ -28,6 +29,8 @@ export interface DescribedLimits {
   /** How many executions of its tree work at once (#264): set, or the default 10. */
   readonly maxConcurrentExecutions: number;
   readonly isMaxConcurrentExecutionsSet: boolean;
+  /** `@Workflow({ maxDepth })` of a workflow that launches itself (#264); absent for any other. */
+  readonly maxDepth?: number;
 }
 
 export function describedLimitsOf(bundle: AssembledWorkflow): DescribedLimits {
@@ -35,6 +38,7 @@ export function describedLimitsOf(bundle: AssembledWorkflow): DescribedLimits {
   const visits = [...bundle.graph.nodes.values()].flatMap((node) =>
     node.maxVisits === undefined ? [] : [[node.id, node.maxVisits] as const],
   );
+  const maxDepth = bundle.graph.analysis.recursion?.maxDepth;
   return {
     maxSteps: bundle.maxSteps,
     isMaxStepsSet: workflowDeclarationOf(bundle.graph.type).options.maxSteps !== undefined,
@@ -44,8 +48,15 @@ export function describedLimitsOf(bundle: AssembledWorkflow): DescribedLimits {
     maxConcurrentExecutions: maxConcurrentExecutionsOf(bundle.graph.type),
     isMaxConcurrentExecutionsSet:
       declaredMaxConcurrentExecutionsOf(bundle.graph.type) !== undefined,
+    ...(maxDepth === undefined ? {} : { maxDepth }),
   };
 }
+
+/** What the worst-case report of a workflow's starts reads of its limits. */
+export const worstCaseLimitsOf = (limits: DescribedLimits): WorstCaseLimits => ({
+  maxConcurrentExecutions: limits.maxConcurrentExecutions,
+  ...(limits.maxDepth === undefined ? {} : { maxDepth: limits.maxDepth }),
+});
 
 /** `maxConcurrentExecutions 6 (set)` — for a workflow that launches children: it has a tree. */
 function concurrencyLines(bundle: AssembledWorkflow, limits: DescribedLimits): string[] {
@@ -58,9 +69,11 @@ function concurrencyLines(bundle: AssembledWorkflow, limits: DescribedLimits): s
   return [`  maxConcurrentExecutions ${cap} (${source}) · executions of the tree at work at once`];
 }
 
-/** `Worst case of one x-workflow-start call: … (maxItems 50 on …, maxSteps 12)`. */
-const worstLine = (worst: WorstCase): string =>
-  `${worstCaseLine(worst)}${worst.parts.length === 0 ? "" : ` (${worst.parts.join(", ")})`}`;
+/** `maxDepth 3 (set)` — for a workflow that launches itself (#264). */
+const depthLines = (limits: DescribedLimits): string[] =>
+  limits.maxDepth === undefined
+    ? []
+    : [`  maxDepth ${String(limits.maxDepth)} · levels of the workflow launching itself`];
 
 /** The limits section of `describe`'s text. */
 export function limitLines(bundle: AssembledWorkflow): string[] {
@@ -73,7 +86,10 @@ export function limitLines(bundle: AssembledWorkflow): string[] {
     "limits",
     `  maxSteps ${String(limits.maxSteps)} (${source}) · steps ${steps}`,
     ...(visits.length === 0 ? [] : [`  maxVisits ${visits.join(", ")}`]),
+    ...depthLines(limits),
     ...concurrencyLines(bundle, limits),
-    ...limits.worstCases.map((worst) => `  ${worstLine(worst)}`),
+    ...limits.worstCases.flatMap((worst) =>
+      worstCaseReportLines(worst, worstCaseLimitsOf(limits)).map((line) => `  ${line}`),
+    ),
   ];
 }

@@ -5,7 +5,7 @@ import type { Class } from "../components/injection.js";
 import type { AssembledWorkflow } from "../workflow.js";
 
 /**
- * A workflow assembled for a unit test (its prompts, its `describeWorkflow` lines): in its
+ * A workflow assembled for a unit test (its config, prompts and graph): in its
  * application — the one `*.application.ts` next to it or above that lists it, with its providers
  * and `defaults` (#261) — or on the providers given.
  */

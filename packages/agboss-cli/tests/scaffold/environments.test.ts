@@ -57,9 +57,15 @@ describe("#239: environments next to the workflow file, read through Application
     expect(tests.out).toContain("api.service.test.ts");
     expect(tests.out).toContain("shop.workflow.test.ts");
     const check = agbossIn(project, ["check"]);
-    expect(check.out).toBe(
-      `types: .agboss/types.d.ts\n${ledgerWarning(application)}${piiKeyWarning(application)}ok: ${application} — ${CHECKS_RUN}\n`,
+    // the report (#268 AC5) between the types and the warnings: the application, each start's worst case
+    expect(check.out).toMatch(
+      /^types: \.agboss\/types\.d\.ts\nshop-application 0\.1\.0, environment dev\n\nWorst case of one [a-z-]+-workflow-start call\n/,
     );
+    expect(
+      check.out.endsWith(
+        `\n\n${ledgerWarning(application)}${piiKeyWarning(application)}ok: ${application} — ${CHECKS_RUN}\n`,
+      ),
+    ).toBe(true);
     const described = agbossIn(project, ["describe"]);
     expect(described.out).toContain("environment dev");
     expect(described.out).toContain('apiUrl = "https://api.example.com"');

@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { workflowOf } from "agboss/testing";
-import { describeWorkflow } from "agboss";
-import { replyWith, callTool, routeTo, testWith } from "agboss/testing";
+import { callTool, replyWith, routeTo, testWith, workflowOf } from "agboss/testing";
 import { JobScout } from "../src/job-scout.workflow.js";
 import { JobScoutApplication } from "../src/job-scout.application.js";
 import { MainRouter } from "../src/routers/main.router.js";
@@ -15,25 +13,7 @@ import { ChatWorkflowFinish } from "../src/workflow-finishes/chat.workflow-finis
 const workflow = await workflowOf(JobScout);
 
 describe("job-scout on the path grammar (#272)", () => {
-  it("one path a turn: start → main router → the agent that answers → the finish", () => {
-    const lines = describeWorkflow(workflow);
-
-    expect(lines).toEqual(
-      expect.arrayContaining([
-        "flow",
-        "  start(ChatWorkflowStart)",
-        "    .returns(WorkflowStartTextDto)",
-        "    .toRouter(MainRouter)",
-        "    .chooseOne(",
-        "      route(ProfilerAgent)",
-        "        .toFinish(ChatWorkflowFinish),",
-        "      route(ScoutAgent)",
-        "        .toFinish(ChatWorkflowFinish),",
-        "      route(ShortlistAgent)",
-        "        .toFinish(ChatWorkflowFinish)",
-        "    )",
-      ]),
-    );
+  it("three agents, each answering on its own path to the finish", () => {
     expect(Object.keys(workflow.config.agents)).toEqual([
       "profiler-agent",
       "scout-agent",
@@ -51,15 +31,6 @@ describe("job-scout on the path grammar (#272)", () => {
       "scout-agent",
       "shortlist-agent",
     ]);
-    expect(describeWorkflow(workflow)).toContain(
-      "  main-router  decisions typesafe/jev-1.13 (own) · maxVisits 1 — Sends the job seeker's message to the agent that answers it",
-    );
-  });
-
-  it("2 steps a run, at most 12; money is the application's budgets", () => {
-    expect(describeWorkflow(workflow)).toContain(
-      "  maxSteps 12 (default: (agents + routers) × 3) · steps 2–2",
-    );
   });
 
   it("guardrails, the approval pause and compaction stay on", () => {

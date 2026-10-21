@@ -17,6 +17,13 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
 // @public
+export interface ApplicationDescription {
+    readonly environment?: DescribedEnvironment;
+    readonly profile?: string;
+    readonly source?: string;
+}
+
+// @public
 export class ApplicationLoadError extends Error {
     // (undocumented)
     name: string;
@@ -93,6 +100,12 @@ export const byClassName: ComponentLabel;
 
 // @public
 export const byComponentName: ComponentLabel;
+
+// @public
+export enum ChannelImplementationReason {
+    Listed = "listed",
+    NamedByTool = "named-by-tool"
+}
 
 // Warning: (ae-forgotten-export) The symbol "ModelProviderDirectory" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ModelCheckOptions" needs to be exported by the entry point internal.d.ts
@@ -204,19 +217,20 @@ export interface DefaultSource {
 export function defaultSourceOf(levels: DefaultsLevels, section: Section, field: string): DefaultSource | undefined;
 
 // @public
+export function describeApplication(assembled: AssembledApplication, description?: ApplicationDescription): string[];
+
+// @public
 export interface DescribedApplication {
-    // Warning: (ae-forgotten-export) The symbol "DescribedBudget" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly budgets: readonly DescribedBudget[];
-    // Warning: (ae-forgotten-export) The symbol "DescribedExecutionBudget" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
-    readonly executionBudget: DescribedExecutionBudget | undefined;
+    readonly executionBudgets: readonly DescribedExecutionBudget[];
     // Warning: (ae-forgotten-export) The symbol "ImplementationChoice" needs to be exported by the entry point internal.d.ts
     //
     // (undocumented)
     readonly implementations: readonly ImplementationChoice[];
+    // (undocumented)
+    readonly modelProviders: readonly DescribedModelProvider[];
     // (undocumented)
     readonly name: string;
     // (undocumented)
@@ -225,12 +239,56 @@ export interface DescribedApplication {
     readonly version: string;
     // (undocumented)
     readonly warnings: readonly string[];
-    // (undocumented)
     readonly workflows: readonly string[];
 }
 
 // @public
-export function describedApplicationOf(bundle: AssembledWorkflow): DescribedApplication | undefined;
+export function describedApplicationOf(assembled: AssembledApplication): DescribedApplication;
+
+// @public
+export interface DescribedBudget {
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly period?: string;
+    // Warning: (ae-forgotten-export) The symbol "BudgetScope" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly scope: BudgetScope;
+    readonly workflow?: string;
+}
+
+// @public
+export interface DescribedChannel {
+    readonly answer: string;
+    // Warning: (ae-forgotten-export) The symbol "PauseAnswerer" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly answeredBy: PauseAnswerer;
+    readonly className: string;
+    readonly implementation?: string;
+    // (undocumented)
+    readonly isRole: boolean;
+    readonly name: string;
+    readonly question: string;
+    // (undocumented)
+    readonly reason?: ChannelImplementationReason;
+    readonly replyInterpreter?: string;
+    readonly tools: readonly string[];
+}
+
+// @public
+export function describedChannelsOf(assembled: AssembledApplication): readonly DescribedChannel[];
+
+// @public
+export interface DescribedChild {
+    readonly isRecursive: boolean;
+    // (undocumented)
+    readonly launch: DescribedLaunch;
+    // (undocumented)
+    readonly maxDepth?: number;
+    readonly workflow: DescribedWorkflowNode;
+}
 
 // @public
 export interface DescribedEnvironment {
@@ -247,11 +305,31 @@ export interface DescribedEnvironment {
 export function describedEnvironmentFor(owner: EnvironmentOwner, env: string | undefined, processEnv: NodeJS.ProcessEnv): Promise<DescribedEnvironment | undefined>;
 
 // @public
+export interface DescribedExecutionBudget {
+    // (undocumented)
+    readonly isOwn: boolean;
+    readonly name?: string;
+    readonly workflow: string;
+}
+
+// @public
+export interface DescribedLaunch {
+    readonly from: readonly string[];
+    // (undocumented)
+    readonly isPerItem: boolean;
+    // (undocumented)
+    readonly maxConcurrency?: number;
+    // (undocumented)
+    readonly maxItems?: number;
+}
+
+// @public
 export interface DescribedLimits {
     // (undocumented)
     readonly isMaxConcurrentExecutionsSet: boolean;
     readonly isMaxStepsSet: boolean;
     readonly maxConcurrentExecutions: number;
+    readonly maxDepth?: number;
     // (undocumented)
     readonly maxSteps: number;
     readonly maxVisits: Readonly<Record<string, number>>;
@@ -260,14 +338,67 @@ export interface DescribedLimits {
         readonly least: number;
         readonly most: number | undefined;
     };
-    // Warning: (ae-forgotten-export) The symbol "WorstCase" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly worstCases: readonly WorstCase[];
 }
 
 // @public (undocumented)
 export function describedLimitsOf(bundle: AssembledWorkflow): DescribedLimits;
+
+// @public
+export interface DescribedModelProvider {
+    // (undocumented)
+    readonly className: string;
+    // (undocumented)
+    readonly name: string;
+    // Warning: (ae-forgotten-export) The symbol "ImplementationReason" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly reason: ImplementationReason;
+    readonly serves: readonly string[];
+}
+
+// @public
+export function describedPiiPoliciesOf(bundle: AssembledWorkflow): readonly DescribedPiiPolicy[];
+
+// @public
+export interface DescribedPiiPolicy {
+    readonly className: string;
+    readonly detectWithModel?: string;
+    readonly elements: readonly string[];
+    readonly masksObservability: boolean;
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly rules: readonly DescribedPiiRule[];
+}
+
+// @public
+export interface DescribedPiiRule {
+    readonly action: string;
+    readonly refusal?: string;
+    readonly target: string;
+}
+
+// @public
+export interface DescribedTree {
+    // (undocumented)
+    readonly workflows: readonly DescribedWorkflowNode[];
+}
+
+// @public
+export function describedTreeOf(assembled: AssembledApplication): DescribedTree;
+
+// @public
+export interface DescribedWorkflowNode {
+    // (undocumented)
+    readonly children: readonly DescribedChild[];
+    // (undocumented)
+    readonly name: string;
+    readonly starts: readonly string[];
+    // (undocumented)
+    readonly version: string;
+}
 
 // @public
 export const describeServices: WorkflowServices;
@@ -561,6 +692,71 @@ export function textRequestOf(graph: RuntimeGraph, text: string): StartRequest;
 export const versionOf: (value: unknown) => string;
 
 // @public
+export interface WorstCase {
+    readonly children: readonly WorstCaseChild[];
+    // (undocumented)
+    readonly concurrentExecutions: number;
+    readonly depth: number;
+    // (undocumented)
+    readonly executions: number;
+    readonly isStepsCapped: boolean;
+    readonly parts: readonly string[];
+    // (undocumented)
+    readonly start: ComponentName;
+    readonly steps: number;
+    readonly treeSteps: number;
+    readonly workflow: string;
+}
+
+// @public
+export interface WorstCaseChild {
+    readonly atOnce: number;
+    readonly count: number;
+    readonly from: ComponentName;
+    readonly isRecursive: boolean;
+    readonly maxConcurrency?: number;
+    readonly maxItems?: number;
+    readonly worst: WorstCase;
+}
+
+// @public
+export interface WorstCaseLimits {
+    readonly maxConcurrentExecutions: number;
+    readonly maxDepth?: number;
+}
+
+// @public
+export const worstCaseLimitsOf: (limits: DescribedLimits) => WorstCaseLimits;
+
+// @public
+export enum WorstCaseMeasure {
+    // (undocumented)
+    ConcurrentExecutions = "at the same time",
+    // (undocumented)
+    Depth = "nesting depth",
+    // (undocumented)
+    Executions = "workflow executions",
+    // (undocumented)
+    Steps = "agent and router steps"
+}
+
+// @public
+export function worstCaseReportLines(worst: WorstCase, limits: WorstCaseLimits): readonly string[];
+
+// @public
+export interface WorstCaseRow {
+    // (undocumented)
+    readonly madeUp: string;
+    // (undocumented)
+    readonly measure: WorstCaseMeasure;
+    // (undocumented)
+    readonly total: number;
+}
+
+// @public
+export function worstCaseRowsOf(worst: WorstCase, limits: WorstCaseLimits): readonly WorstCaseRow[];
+
+// @public
 export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult>;
 
 // Warnings were encountered during analysis:
@@ -581,19 +777,47 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/config/defaults.ts:32:3 - (ae-undocumented) Missing documentation for "level".
 // src/config/defaults.ts:33:3 - (ae-undocumented) Missing documentation for "name".
 // src/config/profiles.ts:9:12 - (ae-undocumented) Missing documentation for "name".
-// src/describe/application.ts:41:3 - (ae-undocumented) Missing documentation for "name".
-// src/describe/application.ts:42:3 - (ae-undocumented) Missing documentation for "version".
-// src/describe/application.ts:43:3 - (ae-undocumented) Missing documentation for "workflows".
-// src/describe/application.ts:44:3 - (ae-undocumented) Missing documentation for "implementations".
-// src/describe/application.ts:45:3 - (ae-undocumented) Missing documentation for "budgets".
-// src/describe/application.ts:46:3 - (ae-undocumented) Missing documentation for "executionBudget".
-// src/describe/application.ts:47:3 - (ae-undocumented) Missing documentation for "observers".
-// src/describe/application.ts:48:3 - (ae-undocumented) Missing documentation for "warnings".
-// src/describe/limits.ts:21:3 - (ae-undocumented) Missing documentation for "maxSteps".
-// src/describe/limits.ts:24:3 - (ae-undocumented) Missing documentation for "steps".
-// src/describe/limits.ts:27:3 - (ae-undocumented) Missing documentation for "worstCases".
-// src/describe/limits.ts:30:3 - (ae-undocumented) Missing documentation for "isMaxConcurrentExecutionsSet".
-// src/describe/limits.ts:33:1 - (ae-undocumented) Missing documentation for "describedLimitsOf".
+// src/describe/application.ts:25:3 - (ae-undocumented) Missing documentation for "name".
+// src/describe/application.ts:26:3 - (ae-undocumented) Missing documentation for "scope".
+// src/describe/application.ts:27:3 - (ae-undocumented) Missing documentation for "period".
+// src/describe/application.ts:38:3 - (ae-undocumented) Missing documentation for "isOwn".
+// src/describe/application.ts:43:3 - (ae-undocumented) Missing documentation for "name".
+// src/describe/application.ts:44:3 - (ae-undocumented) Missing documentation for "className".
+// src/describe/application.ts:45:3 - (ae-undocumented) Missing documentation for "reason".
+// src/describe/application.ts:52:3 - (ae-undocumented) Missing documentation for "name".
+// src/describe/application.ts:53:3 - (ae-undocumented) Missing documentation for "version".
+// src/describe/application.ts:56:3 - (ae-undocumented) Missing documentation for "implementations".
+// src/describe/application.ts:57:3 - (ae-undocumented) Missing documentation for "modelProviders".
+// src/describe/application.ts:58:3 - (ae-undocumented) Missing documentation for "budgets".
+// src/describe/application.ts:59:3 - (ae-undocumented) Missing documentation for "executionBudgets".
+// src/describe/application.ts:60:3 - (ae-undocumented) Missing documentation for "observers".
+// src/describe/application.ts:61:3 - (ae-undocumented) Missing documentation for "warnings".
+// src/describe/channels.ts:39:3 - (ae-undocumented) Missing documentation for "isRole".
+// src/describe/channels.ts:44:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/describe/channels.ts:49:3 - (ae-undocumented) Missing documentation for "reason".
+// src/describe/limits.ts:22:3 - (ae-undocumented) Missing documentation for "maxSteps".
+// src/describe/limits.ts:25:3 - (ae-undocumented) Missing documentation for "steps".
+// src/describe/limits.ts:28:3 - (ae-undocumented) Missing documentation for "worstCases".
+// src/describe/limits.ts:31:3 - (ae-undocumented) Missing documentation for "isMaxConcurrentExecutionsSet".
+// src/describe/limits.ts:36:1 - (ae-undocumented) Missing documentation for "describedLimitsOf".
+// src/describe/pii-policies.ts:26:3 - (ae-undocumented) Missing documentation for "name".
+// src/describe/pii-policies.ts:29:3 - (ae-undocumented) Missing documentation for "rules".
+// src/describe/tree.ts:22:3 - (ae-undocumented) Missing documentation for "isPerItem".
+// src/describe/tree.ts:23:3 - (ae-undocumented) Missing documentation for "maxItems".
+// src/describe/tree.ts:24:3 - (ae-undocumented) Missing documentation for "maxConcurrency".
+// src/describe/tree.ts:29:3 - (ae-undocumented) Missing documentation for "name".
+// src/describe/tree.ts:30:3 - (ae-undocumented) Missing documentation for "version".
+// src/describe/tree.ts:33:3 - (ae-undocumented) Missing documentation for "children".
+// src/describe/tree.ts:38:3 - (ae-undocumented) Missing documentation for "launch".
+// src/describe/tree.ts:41:3 - (ae-undocumented) Missing documentation for "maxDepth".
+// src/describe/tree.ts:48:3 - (ae-undocumented) Missing documentation for "workflows".
+// src/describe/worst-case-report.ts:18:3 - (ae-undocumented) Missing documentation for "Executions".
+// src/describe/worst-case-report.ts:19:3 - (ae-undocumented) Missing documentation for "ConcurrentExecutions".
+// src/describe/worst-case-report.ts:20:3 - (ae-undocumented) Missing documentation for "Steps".
+// src/describe/worst-case-report.ts:21:3 - (ae-undocumented) Missing documentation for "Depth".
+// src/describe/worst-case-report.ts:26:3 - (ae-undocumented) Missing documentation for "measure".
+// src/describe/worst-case-report.ts:27:3 - (ae-undocumented) Missing documentation for "total".
+// src/describe/worst-case-report.ts:28:3 - (ae-undocumented) Missing documentation for "madeUp".
 // src/environments/resolve.ts:29:3 - (ae-undocumented) Missing documentation for "Required".
 // src/environments/resolve.ts:30:3 - (ae-undocumented) Missing documentation for "Deferred".
 // src/environments/resolve.ts:41:3 - (ae-undocumented) Missing documentation for "variable".
@@ -616,6 +840,9 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/finops/usage.ts:84:3 - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/analyse/steps.ts:164:3 - (ae-undocumented) Missing documentation for "least".
 // src/flow/analyse/steps.ts:165:3 - (ae-undocumented) Missing documentation for "most".
+// src/flow/analyse/worst-case.ts:28:3 - (ae-undocumented) Missing documentation for "start".
+// src/flow/analyse/worst-case.ts:31:3 - (ae-undocumented) Missing documentation for "executions".
+// src/flow/analyse/worst-case.ts:32:3 - (ae-undocumented) Missing documentation for "concurrentExecutions".
 // src/flow/context/runtime-contexts.ts:25:3 - (ae-undocumented) Missing documentation for "application".
 // src/flow/context/runtime-contexts.ts:26:3 - (ae-undocumented) Missing documentation for "tenantContext".
 // src/flow/context/runtime-contexts.ts:27:3 - (ae-undocumented) Missing documentation for "executionContext".

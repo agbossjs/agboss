@@ -5,6 +5,7 @@ import { environmentProblems } from "./cli/check-environment.js";
 import { modelProblemsOf } from "./cli/check-models.js";
 import { envOption } from "./cli/environment.js";
 import { assemble, modelProblem, problemText, type CheckProblem } from "./cli/check-problems.js";
+import { checkReportOf, type CheckReport } from "./cli/check-report.js";
 import { CliError } from "./cli/errors.js";
 import { writeCheckedTypes } from "./cli/flow-types.js";
 
@@ -73,9 +74,44 @@ async function problemsAfterAssembly(
   return problems;
 }
 
+/** The report as `--json` carries it: everything but the printed lines. */
+const reportData = ({ title, starts, environment }: CheckReport): Record<string, unknown> => ({
+  title,
+  starts,
+  ...(environment === undefined ? {} : { environment }),
+});
+
+/** What an assembled application gives: its report, then its checks' problems. */
+interface CheckedApplication {
+  readonly report: CheckReport;
+  readonly problems: readonly CheckProblem[];
+}
+
+/** The report printed first (#268 AC5), then every selected check run in order. */
+async function reportAndCheck(
+  target: Pick<CheckTarget, "context" | "file" | "assembled">,
+  selected: readonly ApplicationCheck[],
+): Promise<CheckedApplication> {
+  const { context } = target;
+  const envName = envOption(context);
+  const report = await checkReportOf(target.assembled, envName);
+  [...report.lines, ""].forEach(context.say);
+  const problems = await problemsAfterAssembly(
+    {
+      ...target,
+      env: context.io.env,
+      envName,
+      needsSecrets: flagOption(context.values, "models"),
+    },
+    selected,
+  );
+  return { report, problems };
+}
+
 /**
  * `agboss check [--models] [--strict] [--profile <p>] [--env <name>] [--json]` — every workflow of
- * the application; no API key needed.
+ * the application; no API key needed. After the assembly it prints the report (#268 AC5): the
+ * worst case of one call of each start and, with `--env`, the process variables it needs.
  */
 export const handle: CommandHandler = async (context) => {
   const loaded = await loadCliApplication(context);
@@ -89,21 +125,12 @@ export const handle: CommandHandler = async (context) => {
   const profile = textOption(context.values, "profile");
   const assembly = await assemble(file, () => assembleApplication(context, loaded, profile));
   const problems: CheckProblem[] = [...typed.problems];
-  if (assembly.kind === "failed") problems.push(...assembly.problems);
-  else
-    problems.push(
-      ...(await problemsAfterAssembly(
-        {
-          context,
-          file,
-          assembled: assembly.assembled,
-          env: context.io.env,
-          envName: envOption(context),
-          needsSecrets: flagOption(context.values, "models"),
-        },
-        selected,
-      )),
-    );
+  const checked =
+    assembly.kind === "failed"
+      ? { problems: assembly.problems, report: undefined }
+      : await reportAndCheck({ context, file, assembled: assembly.assembled }, selected);
+  problems.push(...checked.problems);
+  const { report } = checked;
   const checks = [
     "assembly",
     ...selected.map((check) => check.name),
@@ -118,6 +145,7 @@ export const handle: CommandHandler = async (context) => {
     checks,
     problems,
     ...(typed.types === undefined ? {} : { types: typed.types }),
+    ...(report === undefined ? {} : { report: reportData(report) }),
   };
   if (problems.length === 0) return { result, warnings: typed.warnings };
   const failure = new CliError(

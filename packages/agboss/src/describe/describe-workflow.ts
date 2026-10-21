@@ -9,15 +9,20 @@ import { NodeKind } from "../flow/ast.js";
 import { isCodeRouterNode } from "../flow/runtime/graph-model.js";
 import { aboutLines, childLines, inputLines } from "./inputs.js";
 import { recursionLines } from "./recursion.js";
-import { agentDefaultsLine, memoryLines, routerModelSource } from "./defaults.js";
+import {
+  agentDefaultsLine,
+  compactionSourceOf,
+  memoryLines,
+  routerModelSource,
+} from "./defaults.js";
 import { configSnapshot } from "../run/versions.js";
 import { shortVersion, versionOf } from "../terns/index.js";
 import { isMcpFacade, type AnyTool } from "../tools/index.js";
 import { NO_ENVIRONMENT_VALUES, type DescribedEnvironment } from "../environments/resolve.js";
 import { modelProviderLine, resolvedModelUsesOf } from "../models/resolution.js";
 import { applicationContextOf } from "../flow/context/application-context.js";
-import { applicationLines } from "./application.js";
 import { limitLines } from "./limits.js";
+import { piiPolicyLines } from "./pii-policies.js";
 import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
 
 /** The application context `describe` builds tools with: an empty environment unless one is given. */
@@ -82,6 +87,7 @@ function guardrailLines(bundle: AssembledWorkflow): string[] {
 function bundleLines(bundle: AssembledWorkflow): string[] {
   return [
     ...guardrailLines(bundle),
+    ...piiPolicyLines(bundle),
     ...memoryLines(bundle),
     `pause     on — tools with channel wait for external signal`,
   ];
@@ -169,7 +175,9 @@ function agentLines(bundle: AssembledWorkflow, tools: ReadonlyMap<string, AnyToo
   return Object.entries(c.agents).flatMap(([name, agent]) => {
     const reader = readerOf(plan, name);
     const compaction =
-      reader.compaction === undefined ? "" : ` · compaction ${reader.compaction.name}`;
+      reader.compaction === undefined
+        ? ""
+        : ` · compaction ${reader.compaction.name} ${compactionSourceOf(bundle, name)}`;
     const history = `uncompactedTurns ${String(reader.window)}${compaction}`;
     const own = (agent.tools ?? []).map((t) => tools.get(t));
     return [
@@ -195,17 +203,11 @@ export const describeServicesWith = (
     ? describeServices
     : { ...describeServices, contexts: describedApplication(environment) };
 
-const environmentLines = (environment: DescribedEnvironment | undefined): string[] =>
-  environment === undefined
-    ? []
-    : [
-        `environment ${environment.name}`,
-        ...Object.entries(environment.fields).map(([key, value]) => `  ${key} = ${value}`),
-      ];
-
 /**
- * The workflow at a glance: settings, its application (implementations and why, budgets by scope,
- * observers), the flow as transitions, its count limits, and which agent can use which tool.
+ * The workflow at a glance: its guardrails and PII policies, settings, the flow as transitions, each
+ * node's inputs, its count limits with the worst case of each start, the provider of each model,
+ * and which agent can use which tool. Its application — implementations, budgets, the environment —
+ * is `describeApplication`'s (#268).
  */
 export function describeWorkflow(
   bundle: AssembledWorkflow,
@@ -223,8 +225,6 @@ export function describeWorkflow(
   return [
     `${c.name} ${c.version}${profile === "base" ? "" : ` (profile ${profile})`} · config ${shortVersion(versionOf(configSnapshot(bundle)))}`,
     ...bundleLines(bundle),
-    ...applicationLines(bundle),
-    ...environmentLines(environment),
     ...flowSection(bundle),
     ...limitLines(bundle),
     // the provider each model resolves to by `serves` (#266), though no component names one

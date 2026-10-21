@@ -1,14 +1,15 @@
 /**
- * #261 PR 6 — `agboss describe` on a workflow of an application: each contract's implementation and
- * why, the budgets by scope with their periods, the execution budget that caps the workflow (its
- * own or the default), the observers, the assembly warnings and the count limits.
+ * #261 PR 6, #268 PR 2 — `agboss describe` of an application: each contract's implementation and
+ * why, the budgets by scope with their periods, the execution budget that caps each workflow (its
+ * own or the default), the observers, the assembly warnings and each workflow's count limits.
  */
 import { describe, expect, it } from "vitest";
 import { Application } from "../src/application/application.js";
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../src/budgets/budget.js";
 import { describedApplicationOf } from "../src/describe/application.js";
 import { describedLimitsOf } from "../src/describe/limits.js";
-import { describeWorkflow } from "../src/describe/describe-workflow.js";
+import { describeApplication } from "../src/describe/describe-application.js";
+import { applicationOf } from "../src/application/assemble.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../src/dto/index.js";
 import {
   Agent,
@@ -115,13 +116,14 @@ class TellAuditObserver implements OnExecutionEnd {
 export class TellApplication {}
 
 const tell = await workflowOf(TellWorkflow);
+const tellApplication = await applicationOf(TellApplication);
 
 describe("#261 M1: describe shows the application", () => {
   it("each contract's implementation and why: listed, else the built-in default", () => {
-    const described = describedApplicationOf(tell);
+    const described = describedApplicationOf(tellApplication);
 
     expect(
-      described?.implementations.map((choice) => [
+      described.implementations.map((choice) => [
         choice.contract.name,
         choice.implementation.name,
         choice.reason,
@@ -131,16 +133,16 @@ describe("#261 M1: describe shows the application", () => {
       "RecordingCostLedgerRepository",
       ImplementationReason.Listed,
     ]);
-    expect(describeWorkflow(tell)).toContain(
+    expect(describeApplication(tellApplication)).toContain(
       "  CostLedgerRepository → RecordingCostLedgerRepository (listed in @Application providers)",
     );
-    expect(describeWorkflow(tell)).toContain(
+    expect(describeApplication(tellApplication)).toContain(
       "  Logger → ConsoleLogger (built-in default: none listed)",
     );
   });
 
   it("the budgets by scope with their periods, and the workflow's own execution budget", () => {
-    const lines = describeWorkflow(tell);
+    const lines = describeApplication(tellApplication);
     const at = lines.indexOf("budgets");
 
     expect(lines.slice(at, at + 5)).toEqual([
@@ -150,17 +152,16 @@ describe("#261 M1: describe shows the application", () => {
       "  execution: tell-default-execution-budget (default), tell-execution-budget (tell-workflow)",
       "  tell-workflow: tell-execution-budget (its own) — applies when it is the root of app.execute; nested, it spends from its root's",
     ]);
-    expect(describedApplicationOf(tell)?.executionBudget).toEqual({
-      name: "tell-execution-budget",
-      isOwn: true,
-    });
+    expect(describedApplicationOf(tellApplication).executionBudgets).toEqual([
+      { workflow: "tell-workflow", name: "tell-execution-budget", isOwn: true },
+    ]);
   });
 
   it("the observers and the warnings (a durable ledger listed, no pause: only the PII key's)", () => {
-    const lines = describeWorkflow(tell);
+    const lines = describeApplication(tellApplication);
 
     expect(lines).toContain("observers TellAuditObserver");
-    expect(describedApplicationOf(tell)?.warnings).toEqual([
+    expect(describedApplicationOf(tellApplication).warnings).toEqual([
       "[application.pii-instance-key] no @Application({ pseudonymKey }): sensitive fields and policies without their own key make PII tokens with a key of this instance — one value gets another token on each instance, so logs and traces compare across instances only with pseudonymKey",
     ]);
     expect(lines.filter((line) => line.startsWith("warning ")).length).toBeLessThanOrEqual(1);
@@ -172,13 +173,17 @@ describe("#261 M1: describe shows the application", () => {
       isMaxStepsSet: true,
       maxVisits: { "teller-agent": 2 },
     });
-    const lines = describeWorkflow(tell);
+    const lines = describeApplication(tellApplication);
     const at = lines.indexOf("limits");
-    expect(lines.slice(at, at + 4)).toEqual([
+    expect(lines.slice(at, at + 8)).toEqual([
       "limits",
       "  maxSteps 2 (set) · steps 1–1",
       "  maxVisits teller-agent 2",
-      "  Worst case of one tell-workflow-start call: 1 workflow execution, 1 at the same time, 1 agent and router steps",
+      "  Worst case of one tell-workflow-start call",
+      "    workflow executions     1  1 tell-workflow",
+      "    at the same time        1  1 tell-workflow",
+      "    agent and router steps  1  1 in tell-workflow (longest path)",
+      "    nesting depth           1  tell-workflow",
     ]);
   });
 });

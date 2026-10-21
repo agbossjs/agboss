@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { describeWorkflow, nameOf, RouterFailedError } from "../../../src/index.js";
+import { describeWorkflow } from "../../../src/describe/describe-workflow.js";
+import { nameOf, RouterFailedError } from "../../../src/index.js";
 import { replyWith, routeTo, testWith, workflowOf } from "../../../src/testing/index.js";
 import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "../fixtures/credit-dtos.js";
 import {

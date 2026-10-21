@@ -88,7 +88,7 @@ describe("#182: agboss check validates the selected environment without running 
     }
   });
 
-  it("#261 AC9: --env lists the process variables it needs, marked value / secret", async () => {
+  it("#261 AC9, #268 AC5: --env lists the process variables it needs — names, value / secret, optional, never a value", async () => {
     const call = await agboss(
       ["check", "--application", APP, "--env", "dev"],
       process.cwd(),
@@ -97,15 +97,16 @@ describe("#182: agboss check validates the selected environment without running 
     expect(call.code).toBe(0);
     expect(call.stdout).toContain(
       [
-        "environment dev: process variables",
-        "  FIXTURE_API_TOKEN  secret → apiToken",
-        "  FIXTURE_CURRENCY  value (has a default) → currency",
-        "  FIXTURE_TIMEOUT  value (has a default) → timeoutSeconds",
-        "  FIXTURE_DEBUG  value (has a default) → debug",
-        "  FIXTURE_PROXY_URL  value (optional) → proxyUrl",
+        "dev environment needs 5 process variables:",
+        "  FIXTURE_API_TOKEN  secret",
+        "  FIXTURE_CURRENCY   value, has a default",
+        "  FIXTURE_TIMEOUT    value, has a default",
+        "  FIXTURE_DEBUG      value, has a default",
+        "  FIXTURE_PROXY_URL  value, optional",
       ].join("\n"),
     );
     expect(call.stdout).not.toContain("t0ken");
+    expect(call.stdout).not.toContain("USD");
   });
 
   it("#261 PR 3: a service reading the environment of an application without one checks fine", async () => {
@@ -148,17 +149,15 @@ describe("#182: agboss describe shows the environment with secrets masked", () =
     const call = await agboss(["describe", "--application", APP, "--env", "staging", "--json"]);
     expect(call.code).toBe(0);
     expect(envelope(call).result).toMatchObject({
-      workflows: [
-        {
-          environment: {
-            name: "staging",
-            fields: {
-              apiToken: "<missing FIXTURE_API_TOKEN>",
-              currency: "<missing FIXTURE_CURRENCY>",
-            },
+      application: {
+        environment: {
+          name: "staging",
+          fields: {
+            apiToken: "<missing FIXTURE_API_TOKEN>",
+            currency: "<missing FIXTURE_CURRENCY>",
           },
         },
-      ],
+      },
     });
   });
 });

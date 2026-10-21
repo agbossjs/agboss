@@ -526,12 +526,15 @@ describe("#273: steps and the worst case count the launch", () => {
     const [wide] =
       checkWorkflow(workflowWith(flowOf(ScreeningWorkflow), { maxSteps: 100 })).analysis
         ?.worstCases ?? [];
-    expect(wide).toEqual({
+    expect(wide).toMatchObject({
       start: "screening-workflow-start",
       executions: 1,
       concurrentExecutions: 1,
       steps: 52,
+      isStepsCapped: false,
+      treeSteps: 52,
       depth: 0,
+      children: [],
       parts: [
         "maxItems 50 on screening-agent → toParallelAgents(company-audit-agent)",
         "maxConcurrency 3 on screening-agent → toParallelAgents(company-audit-agent)",

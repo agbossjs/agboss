@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { BudgetExceededError, describeWorkflow } from "agboss";
+import { BudgetExceededError } from "agboss";
 import { usd } from "agboss/units";
 import { CreditExecutionBudget, TenantDailyBudget } from "../src/config/budget.config.js";
-import { replyWith, routeTo, testWith, workflowOf } from "agboss/testing";
+import { replyWith, routeTo, testWith } from "agboss/testing";
 import { ChargeCardAction } from "../src/credit/actions/charge-card.action.js";
 import { ApprovalAgent } from "../src/credit/agents/approval.agent.js";
 import { OrderIntakeAgent } from "../src/credit/agents/order-intake.agent.js";
@@ -122,18 +122,7 @@ describe("a failing route()", () => {
   });
 });
 
-describe("describe", () => {
-  it("a model router by its model, the code router as code", async () => {
-    const lines = describeWorkflow(await workflowOf(CreditWorkflow));
-
-    expect(lines).toEqual(
-      expect.arrayContaining([
-        "  desk-router  decisions typesafe/jev-1.13 (own) · maxVisits 1 — Sends an order to the intake, ends on anything else",
-        "  credit-limit-router  code — Sends large orders for approval, charges the rest",
-      ]),
-    );
-  });
-
+describe("the credit service", () => {
   it("the credit service gives big spenders a higher limit", async () => {
     const service = new CreditService();
 

@@ -26,14 +26,40 @@ import { mostStepsFrom } from "./steps.js";
 
 export interface WorstCase {
   readonly start: ComponentName;
+  /** The `name` of the workflow the start opens. */
+  readonly workflow: string;
   readonly executions: number;
   readonly concurrentExecutions: number;
-  /** Agent and router steps at most. */
+  /** Agent and router steps of the execution itself at most (a child counts its own). */
   readonly steps: number;
+  /** Whether `steps` is the workflow's `maxSteps`: its longest path is longer, or it loops. */
+  readonly isStepsCapped: boolean;
+  /** Agent and router steps of the whole tree at most: its own and every child's (#268). */
+  readonly treeSteps: number;
   /** Nesting depth of child workflows below the execution: 0 without children. */
   readonly depth: number;
   /** What the numbers are made of: `maxItems 50 on screening-agent → …`, `maxSteps 12`. */
   readonly parts: readonly string[];
+  /** Each edge into a child workflow one call can reach, with the child's own worst case (#268). */
+  readonly children: readonly WorstCaseChild[];
+}
+
+/** An edge into a child workflow in a worst case: how many it starts, how many at once, and why. */
+export interface WorstCaseChild {
+  /** The step the edge leaves. */
+  readonly from: ComponentName;
+  /** How many children the edge starts: `maxItems` of a per-item launch, else 1. */
+  readonly count: number;
+  /** How many of them at once: `maxConcurrency` (at most `count`), else `count`. */
+  readonly atOnce: number;
+  /** A per-item launch's `maxItems`; absent for one child. */
+  readonly maxItems?: number;
+  /** A per-item launch's `maxConcurrency`; absent when unset or for one child. */
+  readonly maxConcurrency?: number;
+  /** `ThisWorkflow` (#264): the workflow again, one level deeper (bounded by `maxDepth`). */
+  readonly isRecursive: boolean;
+  /** The child's worst start. */
+  readonly worst: WorstCase;
 }
 
 /** `maxSteps`, else its default: (agents + routers) × 3. */
@@ -68,14 +94,16 @@ function launchParts(launch: FlowLaunch): readonly string[] {
 interface ChildrenCase {
   readonly executions: number;
   readonly concurrentExecutions: number;
+  readonly treeSteps: number;
   readonly depth: number;
   readonly parts: readonly string[];
+  readonly children: readonly WorstCaseChild[];
 }
 
 /** Where an execution stands in its tree: the workflows above it, its own, its depth from 1. */
 interface Place {
   readonly above: readonly Class[];
-  readonly self?: Class;
+  readonly self: Class;
   readonly depth: number;
 }
 
@@ -85,14 +113,33 @@ export interface Limits {
   readonly maxDepth?: number;
 }
 
-const NO_CHILDREN: ChildrenCase = { executions: 0, concurrentExecutions: 0, depth: 0, parts: [] };
+const NO_CHILDREN: ChildrenCase = {
+  executions: 0,
+  concurrentExecutions: 0,
+  treeSteps: 0,
+  depth: 0,
+  parts: [],
+  children: [],
+};
 
-/** How many children an edge into a child starts, and how many of them at once. */
-function widthOf(edge: FlowEdge): { readonly count: number; readonly atOnce: number } {
+/** How many children an edge into a child starts, how many of them at once, and the limits saying so. */
+interface Width {
+  readonly count: number;
+  readonly atOnce: number;
+  readonly maxItems?: number;
+  readonly maxConcurrency?: number;
+}
+
+function widthOf(edge: FlowEdge): Width {
   const launch = edge.kind === EdgeKind.Launch ? edge.launch : undefined;
   if (launch?.items === undefined) return { count: 1, atOnce: 1 };
   const count = launch.maxItems ?? 1;
-  return { count, atOnce: Math.min(launch.maxConcurrency ?? count, count) };
+  return {
+    count,
+    atOnce: Math.min(launch.maxConcurrency ?? count, count),
+    ...(launch.maxItems === undefined ? {} : { maxItems: launch.maxItems }),
+    ...(launch.maxConcurrency === undefined ? {} : { maxConcurrency: launch.maxConcurrency }),
+  };
 }
 
 /** The worst case of one execution of a child workflow: its worst start's. */
@@ -114,7 +161,7 @@ function childCaseOf(workflow: Class, at: Place): WorstCase | undefined {
  */
 function recursiveCaseOf(at: Place, maxDepth: number | undefined): WorstCase | undefined {
   const { self } = at;
-  if (self === undefined || maxDepth === undefined || at.depth >= maxDepth) return undefined;
+  if (maxDepth === undefined || at.depth >= maxDepth) return undefined;
   return childCaseOf(self, { ...at, above: at.above.filter((above) => above !== self) });
 }
 
@@ -134,15 +181,21 @@ function childrenFrom(
         ? childCaseOf(node.component, at)
         : recursiveCaseOf(at, limits.maxDepth);
     if (child === undefined) return total;
-    const { count, atOnce } = widthOf(edge);
+    const width = widthOf(edge);
+    const { count, atOnce } = width;
     return {
       executions: total.executions + count * child.executions,
       concurrentExecutions: Math.max(
         total.concurrentExecutions,
         atOnce * child.concurrentExecutions,
       ),
+      treeSteps: total.treeSteps + count * child.treeSteps,
       depth: Math.max(total.depth, 1 + child.depth),
       parts: [...total.parts, `${String(count)} × ${node.name}`],
+      children: [
+        ...total.children,
+        { from: edge.from, ...width, isRecursive: node.recursionOf !== undefined, worst: child },
+      ],
     };
   }, NO_CHILDREN);
 }
@@ -163,14 +216,25 @@ function worstCaseFrom(
     ...children.parts,
     ...(isCapped ? [`maxSteps ${String(maxSteps)}`] : []),
   ];
+  const steps = isCapped ? maxSteps : most;
   return {
     start,
+    workflow: workflowNameOf(at.self),
     executions: 1 + children.executions,
     concurrentExecutions: 1 + children.concurrentExecutions,
-    steps: isCapped ? maxSteps : most,
+    steps,
+    isStepsCapped: isCapped,
+    treeSteps: steps + children.treeSteps,
     depth: children.depth,
     parts,
+    children: children.children,
   };
+}
+
+/** A workflow class's `name`. */
+function workflowNameOf(workflow: Class): string {
+  const declaration = declarationOf(workflow);
+  return declaration?.kind === NodeKind.Workflow ? declaration.options.name : workflow.name;
 }
 
 /** The worst cases of a workflow at a place in the tree. */
@@ -179,12 +243,8 @@ function worstCasesBelow(graph: FlowGraph, limits: Limits, at: Place): readonly 
 }
 
 /** The worst case of one call of each start of a workflow (`self`, at the root: depth 1). */
-export function worstCasesOf(graph: FlowGraph, limits: Limits, self?: Class): readonly WorstCase[] {
-  return worstCasesBelow(graph, limits, {
-    above: [],
-    ...(self === undefined ? {} : { self }),
-    depth: 1,
-  });
+export function worstCasesOf(graph: FlowGraph, limits: Limits, self: Class): readonly WorstCase[] {
+  return worstCasesBelow(graph, limits, { above: [], self, depth: 1 });
 }
 
 /** The start log's line (#261): `Worst case of one x-workflow-start call: 1 workflow execution, …`. */

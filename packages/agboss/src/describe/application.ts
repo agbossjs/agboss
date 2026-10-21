@@ -1,24 +1,23 @@
-import { applicationOfWorkflow } from "../application/workflow-application.js";
-import type { ApplicationOptions } from "../application/application.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import {
   implementationLine,
   implementationsOf,
+  ImplementationReason,
   type ImplementationChoice,
 } from "../application/implementations.js";
 import { assemblyWarningsOf, warningText, type AssemblyWarning } from "../application/start-log.js";
 import { budgetOf, BudgetScope, type BudgetMeta } from "../budgets/budget.js";
 import type { Class } from "../components/injection.js";
 import { tokenName } from "../components/injection.js";
-import { declarationOf } from "../flow/decorators/declaration.js";
-import { NodeKind } from "../flow/ast.js";
-import type { AssembledWorkflow } from "../workflow.js";
+import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
+import { modelProvidersOf } from "../models/resolution.js";
 
 /**
- * What `agboss describe` says about a workflow's application (#261): its infrastructure — each
- * contract's implementation and why — its budgets by scope (with their periods), the execution
- * budget that covers this workflow, its observers and its assembly warnings. Read from the
- * decorators only: no budget amount (`maxSpend()` runs only inside an execution).
+ * What `agboss describe` says about an application as a whole (#261, #268 AC4): its infrastructure —
+ * each contract's implementation and why — its model providers and why, its budgets by scope (with
+ * their periods) and the execution budget that covers each workflow, its observers and its assembly
+ * warnings. Read from the decorators only: no budget amount (`maxSpend()` runs only inside an
+ * execution).
  */
 
 /** One listed budget: its name, scope, period, and the workflow of an execution budget. */
@@ -32,49 +31,75 @@ export interface DescribedBudget {
 
 /** The execution budget that caps one workflow, and whether it is the workflow's own. */
 export interface DescribedExecutionBudget {
-  readonly name: string;
+  /** The workflow it caps. */
+  readonly workflow: string;
+  /** The budget's name; absent when no execution budget covers it (assembly rejects that). */
+  readonly name?: string;
   readonly isOwn: boolean;
 }
 
-/** A workflow's application, as `describe` shows it. */
+/** One model provider of the application and why it is used. */
+export interface DescribedModelProvider {
+  readonly name: string;
+  readonly className: string;
+  readonly reason: ImplementationReason;
+  /** `serves`, each pattern as written. */
+  readonly serves: readonly string[];
+}
+
+/** An application, as `describe` shows it. */
 export interface DescribedApplication {
   readonly name: string;
   readonly version: string;
+  /** Every workflow it runs: the listed ones, then the children they launch. */
   readonly workflows: readonly string[];
   readonly implementations: readonly ImplementationChoice[];
+  readonly modelProviders: readonly DescribedModelProvider[];
   readonly budgets: readonly DescribedBudget[];
-  readonly executionBudget: DescribedExecutionBudget | undefined;
+  readonly executionBudgets: readonly DescribedExecutionBudget[];
   readonly observers: readonly string[];
   readonly warnings: readonly string[];
 }
 
-const nameOfWorkflow = (workflow: Class): string => {
-  const options: unknown = declarationOf(workflow)?.options;
-  return typeof options === "object" && options !== null && "name" in options
-    ? String(options.name)
-    : workflow.name;
-};
-
-const describedBudget = (meta: BudgetMeta): DescribedBudget => ({
+const describedBudget = (
+  meta: BudgetMeta,
+  nameOf: (workflow: Class) => string,
+): DescribedBudget => ({
   name: meta.name,
   scope: meta.scope,
   ...(meta.period === undefined ? {} : { period: meta.period }),
-  ...(meta.workflow === undefined ? {} : { workflow: nameOfWorkflow(meta.workflow) }),
+  ...(meta.workflow === undefined ? {} : { workflow: nameOf(meta.workflow) }),
 });
-
-const budgetsOf = (options: ApplicationOptions): readonly BudgetMeta[] =>
-  (options.budgets ?? []).flatMap((budget) => budgetOf(budget) ?? []);
 
 /** The workflow's own execution budget, else the default (no `workflow`). */
 function executionBudgetOf(
   budgets: readonly BudgetMeta[],
   workflow: Class,
-): DescribedExecutionBudget | undefined {
+  name: string,
+): DescribedExecutionBudget {
   const execution = budgets.filter((budget) => budget.scope === BudgetScope.Execution);
   const own = execution.find((budget) => budget.workflow === workflow);
-  if (own !== undefined) return { name: own.name, isOwn: true };
+  if (own !== undefined) return { workflow: name, name: own.name, isOwn: true };
   const fallback = execution.find((budget) => budget.workflow === undefined);
-  return fallback === undefined ? undefined : { name: fallback.name, isOwn: false };
+  return fallback === undefined
+    ? { workflow: name, isOwn: false }
+    : { workflow: name, name: fallback.name, isOwn: false };
+}
+
+/** The application's model providers: the listed ones, else the built-ins (#266). */
+function modelProvidersOfApplication(
+  assembled: AssembledApplication,
+): readonly DescribedModelProvider[] {
+  const isListed = assembled.providers.some(isModelProviderClass);
+  return modelProvidersOf(assembled.providers).map((provider) => {
+    const options = modelProviderOf(provider);
+    return {
+      name: options.name,
+      className: provider.name,
+      reason: isListed ? ImplementationReason.Listed : ImplementationReason.Default,
+      serves: options.serves.map(String),
+    };
+  });
 }
 
 /**
@@ -87,38 +112,25 @@ export const applicationWarningsOf = (
 ): readonly AssemblyWarning[] =>
   assemblyWarningsOf({ ...assembled, isPiiKeyOfInstance: assembled.pseudonymKey === undefined });
 
-/** The warnings of the workflow's application for this workflow alone (`agboss describe`). */
-const workflowWarningsOf = (
-  options: ApplicationOptions,
-  bundle: AssembledWorkflow,
-): readonly AssemblyWarning[] =>
-  assemblyWarningsOf({
-    providers: options.providers ?? [],
-    budgets: options.budgets ?? [],
-    workflows: [bundle],
-    isPiiKeyOfInstance: options.pseudonymKey === undefined,
-  });
-
-/** The application that lists the workflow, described; `undefined` for a workflow on its own. */
-export function describedApplicationOf(
-  bundle: AssembledWorkflow,
-): DescribedApplication | undefined {
-  const declaration = applicationOfWorkflow(bundle.graph.type);
-  if (declaration === undefined) return undefined;
-  const { options } = declaration;
-  const budgets = budgetsOf(options);
-  const workflows = options.workflows.filter(
-    (workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow,
+/** The application, described from its assembly. */
+export function describedApplicationOf(assembled: AssembledApplication): DescribedApplication {
+  const names = new Map<Class, string>(
+    assembled.workflows.map((workflow) => [workflow.graph.type, workflow.config.name]),
   );
+  const nameOf = (workflow: Class): string => names.get(workflow) ?? workflow.name;
+  const budgets = assembled.budgets.flatMap((budget) => budgetOf(budget) ?? []);
   return {
-    name: options.name,
-    version: options.version,
-    workflows: workflows.map(nameOfWorkflow),
-    implementations: implementationsOf(options.providers ?? []),
-    budgets: budgets.map(describedBudget),
-    executionBudget: executionBudgetOf(budgets, bundle.graph.type),
-    observers: (options.observers ?? []).map(tokenName),
-    warnings: workflowWarningsOf(options, bundle).map(warningText),
+    name: assembled.name,
+    version: assembled.version,
+    workflows: assembled.workflows.map((workflow) => workflow.config.name),
+    implementations: implementationsOf(assembled.providers),
+    modelProviders: modelProvidersOfApplication(assembled),
+    budgets: budgets.map((meta) => describedBudget(meta, nameOf)),
+    executionBudgets: assembled.workflows.map((workflow) =>
+      executionBudgetOf(budgets, workflow.graph.type, workflow.config.name),
+    ),
+    observers: assembled.observers.map(tokenName),
+    warnings: applicationWarningsOf(assembled).map(warningText),
   };
 }
 
@@ -132,29 +144,38 @@ const SCOPES: readonly BudgetScope[] = [
 const budgetLabel = (budget: DescribedBudget): string =>
   `${budget.name} (${budget.period ?? budget.workflow ?? "default"})`;
 
-/** The budgets by scope, then the one that caps this workflow. */
-function budgetLines(described: DescribedApplication, workflow: string): string[] {
+/** `screening-workflow: x (its own) — applies when it is the root of app.execute; …`. */
+function executionBudgetLine(budget: DescribedExecutionBudget): string {
+  if (budget.name === undefined) return `  ${budget.workflow}: no execution budget`;
+  const whose = budget.isOwn ? "its own" : "the default";
+  return `  ${budget.workflow}: ${budget.name} (${whose}) — applies when it is the root of app.execute; nested, it spends from its root's`;
+}
+
+/** The budgets by scope, then the one that caps each workflow. */
+function budgetLines(described: DescribedApplication): string[] {
   const byScope = SCOPES.flatMap((scope) => {
     const listed = described.budgets.filter((budget) => budget.scope === scope);
     return listed.length === 0 ? [] : [`  ${scope}: ${listed.map(budgetLabel).join(", ")}`];
   });
-  const capped = described.executionBudget;
-  const cap =
-    capped === undefined
-      ? `  ${workflow}: no execution budget`
-      : `  ${workflow}: ${capped.name} (${capped.isOwn ? "its own" : "the default"}) — applies when it is the root of app.execute; nested, it spends from its root's`;
-  return ["budgets", ...byScope, cap];
+  return ["budgets", ...byScope, ...described.executionBudgets.map(executionBudgetLine)];
 }
 
-/** The application section of `describe`'s text; empty for a workflow on its own. */
-export function applicationLines(bundle: AssembledWorkflow): string[] {
-  const described = describedApplicationOf(bundle);
-  if (described === undefined) return [];
+/** `openrouter-model-provider → OpenRouterModelProvider (listed in @Application providers) · serves …`. */
+const modelProviderLine = (provider: DescribedModelProvider): string =>
+  `  ${provider.name} → ${provider.className} (${
+    provider.reason === ImplementationReason.Listed
+      ? "listed in @Application providers"
+      : "built-in default: none listed"
+  }) · serves ${provider.serves.join(", ")}`;
+
+/** The application's implementations, model providers, budgets, observers and warnings. */
+export function applicationLines(described: DescribedApplication): string[] {
   return [
-    `application ${described.name} ${described.version} · workflows ${described.workflows.join(", ")}`,
     "implementations",
     ...described.implementations.map((choice) => `  ${implementationLine(choice)}`),
-    ...budgetLines(described, bundle.config.name),
+    "model providers",
+    ...described.modelProviders.map(modelProviderLine),
+    ...budgetLines(described),
     `observers ${described.observers.join(", ") || "none"}`,
     ...described.warnings.map((warning) => `warning ${warning}`),
   ];

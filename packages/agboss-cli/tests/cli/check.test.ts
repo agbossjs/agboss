@@ -3,7 +3,15 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CHECKS } from "../../src/check.js";
-import { CHECKS_RUN, envelope, fixture, agboss, ledgerWarning, piiKeyWarning } from "./agboss.js";
+import {
+  CHECKS_RUN,
+  envelope,
+  fixture,
+  agboss,
+  ledgerWarning,
+  piiKeyWarning,
+  TEST_APPLICATION_REPORT,
+} from "./agboss.js";
 
 const BROKEN = fixture("cli/broken.workflow.ts");
 const BAD_PROMPTS = fixture("cli/bad-prompts.workflow.ts");
@@ -59,7 +67,7 @@ describe("#198 AC3: agboss check runs every key-free validation", () => {
 
     expect(call).toMatchObject({ code: 0, stderr: "" });
     expect(call.stdout).toBe(
-      `types: .agboss/types.d.ts\n${ledgerWarning(WORKFLOW)}${piiKeyWarning(WORKFLOW)}ok: ${WORKFLOW} — ${CHECKS_RUN}\n`,
+      `types: .agboss/types.d.ts\n${TEST_APPLICATION_REPORT}${ledgerWarning(WORKFLOW)}${piiKeyWarning(WORKFLOW)}ok: ${WORKFLOW} — ${CHECKS_RUN}\n`,
     );
   });
 
@@ -107,7 +115,7 @@ describe("#199 + #198: the prompts check runs on every agboss check", () => {
 
     expect(call).toMatchObject({
       code: 0,
-      stdout: `types: .agboss/types.d.ts\n${ledgerWarning(WORKFLOW)}${piiKeyWarning(WORKFLOW)}ok: ${WORKFLOW} — ${CHECKS_RUN}\n`,
+      stdout: `types: .agboss/types.d.ts\n${TEST_APPLICATION_REPORT}${ledgerWarning(WORKFLOW)}${piiKeyWarning(WORKFLOW)}ok: ${WORKFLOW} — ${CHECKS_RUN}\n`,
     });
   });
 });
