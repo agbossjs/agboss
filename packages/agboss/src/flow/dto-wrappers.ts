@@ -211,12 +211,32 @@ function variantOf(item: ProducedValue<unknown, unknown>): unknown {
   return typeof value === "object" && value !== null ? Reflect.get(value, variantClass) : undefined;
 }
 
+/**
+ * One item of a `listOf(oneOf(A, B))` answer as a judge reads it (#262 S125): the class it validated
+ * as (from the answer tool the agent used) and its value — `{ variant: typeof A; value: A } | …`.
+ */
+export type VariantOf<TValue> = TValue extends unknown
+  ? { readonly variant: DtoClass<TValue>; readonly value: TValue }
+  : never;
+
 /** Narrows a `Produced` value (or a list element) of a `oneOf` to one of its classes. */
 export function isVariant<TItem extends ProducedValue<unknown, unknown>, TDto extends DtoClass>(
   item: TItem,
   dto: TDto,
-): item is Extract<TItem, ProducedValue<InstanceType<TDto>, unknown>> {
-  return variantOf(item) === dto;
+): item is Extract<TItem, ProducedValue<InstanceType<TDto>, unknown>>;
+/**
+ * Narrows what carries its class as `variant` (#262 S125) — a judge's input (`reply`) or a
+ * `VariantOf` item (`value`) — to one class: `variant === dto`, the class's identity.
+ */
+export function isVariant<TItem extends { readonly variant: DtoClass }, TDto extends DtoClass>(
+  item: TItem,
+  dto: TDto,
+): item is Extract<TItem, { readonly variant: DtoClass<InstanceType<TDto>> }>;
+export function isVariant(
+  item: ProducedValue<unknown, unknown> | { readonly variant: DtoClass },
+  dto: DtoClass,
+): boolean {
+  return "variant" in item ? item.variant === dto : variantOf(item) === dto;
 }
 
 /** Marks a `Produced` record with its value's class (the runtime does it for a `oneOf` value). */

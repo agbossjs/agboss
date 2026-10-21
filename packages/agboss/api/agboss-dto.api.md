@@ -183,6 +183,13 @@ export const Integer: FieldFactory<number, NumberLimits>;
 export function isVariant<TItem extends ProducedValue<unknown, unknown>, TDto extends DtoClass>(item: TItem, dto: TDto): item is Extract<TItem, ProducedValue<InstanceType<TDto>, unknown>>;
 
 // @public
+export function isVariant<TItem extends {
+    readonly variant: DtoClass;
+}, TDto extends DtoClass>(item: TItem, dto: TDto): item is Extract<TItem, {
+    readonly variant: DtoClass<InstanceType<TDto>>;
+}>;
+
+// @public
 export type ListItem<T> = DtoClass<T> | ((options: never) => FieldDecorator<T>);
 
 // Warning: (ae-forgotten-export) The symbol "ListOfFactory" needs to be exported by the entry point index.d.ts
@@ -386,6 +393,12 @@ export function variant<TDto extends DtoClass>(dto: TDto, value: InstanceType<TD
 //
 // @public
 export function variant<TDto extends DtoClass>(dto: TDto, value: Partial<InstanceType<TDto>>): PartialVariant<TDto>;
+
+// @public
+export type VariantOf<TValue> = TValue extends unknown ? {
+    readonly variant: DtoClass<TValue>;
+    readonly value: TValue;
+} : never;
 
 // @public
 export class WorkflowFinishTextDto {

@@ -38,6 +38,7 @@ export function loopInputOf(
     toolCalls: 0,
     reply: null,
     answer: null,
+    answeredWith: [],
     retries: 0,
     invalidAnswers: 0,
     piiTokens: { ...state.piiTokens, ...pii.tokens },

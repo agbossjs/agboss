@@ -74,5 +74,12 @@ function answered(state: AgentLoopStateType, deps: AgentLoopDeps): AgentLoopUpda
   }
   const reply = sortedJson(reading.answer.value);
   const received = toolMessages(calls, "Answer received.");
-  return { messages: [...move, ...received], move: null, reply, answer: reading.answer };
+  const { answer, answeredWith } = reading;
+  return {
+    messages: [...move, ...received],
+    move: null,
+    reply,
+    answer,
+    answeredWith: [...answeredWith],
+  };
 }

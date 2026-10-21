@@ -159,6 +159,7 @@ export {
   type ValueOf,
   type ValueShape,
   type Variant,
+  type VariantOf,
 } from "../flow/dto-wrappers.js";
 export {
   agbossComponent,

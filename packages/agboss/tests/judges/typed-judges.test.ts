@@ -2,12 +2,15 @@
  * #262 PR 4 (S113, S115): a judge sees the agent's answer as its DTO — `@Judge({ reply })` +
  * `JudgeHandler<TReply>`; `reply` a DTO class, `oneOf(A, B)` or `PlainTextDto`; an agent whose
  * output its judge does not judge fails assembly with `[judge.wrong-reply]`; a failed verdict's
- * `reason` goes back to the agent for its retry.
+ * `reason` goes back to the agent for its retry. PR 5 (S125): `input.variant` is the class the answer
+ * validated as — from the answer tool the agent used — and `JudgeInput<A | B>` a discriminated union
+ * on it; a `listOf(oneOf(A, B))` judge reads each item as `VariantOf<A | B>`.
  */
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/application/create-app.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
-import { JudgeVerdict, QualityGateError } from "../../src/index.js";
+import { JudgeVerdict, QualityGateError, type JudgeInput } from "../../src/index.js";
+import { isVariant, PlainTextDto, type VariantOf } from "../../src/dto/index.js";
 import { replyWith, testJudge, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { offline } from "../components/fixture/deps-contract.workflow.js";
 import { execute } from "../helpers/flow.js";
@@ -28,6 +31,7 @@ import {
   WrongValueReplyWorkflow,
   JobSearch,
   OfferDto,
+  OfferWorkflowFinish,
   RefusalDto,
   RefusalWorkflowFinish,
   ReportWorkflowFinish,
@@ -35,6 +39,9 @@ import {
   ScreenerAgent,
   TypedJudgeApplication,
   VariantJudgeApplication,
+  VariantLog,
+  JobsJudge,
+  TextJudge,
   WrongListReplyWorkflow,
   WrongReplyApplication,
   WrongReplyWorkflow,
@@ -54,6 +61,17 @@ const JOB: JobDto = { title: "TS engineer", url: "https://jobs.example/acme/1" }
 
 const REPORT: JobReportDto = { jobs: [JOB] };
 
+/** The classes `VariantLog.seen` was called with, in order — compared by identity below. */
+const seenOf = (calls: readonly (readonly unknown[])[]): readonly unknown[] =>
+  calls.map(([variant]) => variant);
+
+/** S125: `isVariant` narrows a oneOf judge's input; reading `reply` before it does not compile. */
+const salaryOf = (input: JudgeInput<OfferDto | RefusalDto>): number | undefined => {
+  // @ts-expect-error -- not narrowed yet: the reply may be a RefusalDto
+  const unnarrowed: number = input.reply.salary;
+  return isVariant(input, OfferDto) ? input.reply.salary : unnarrowed;
+};
+
 describe("a DTO judge", () => {
   const test = testWith(TypedJudgeApplication);
 
@@ -65,6 +83,16 @@ describe("a DTO judge", () => {
 
     expect(result).toFinishWith(ReportWorkflowFinish, REPORT);
     expect(mockOf(JobSearch).exists.mock.calls).toEqual([["https://jobs.example/acme/1"]]);
+  });
+
+  test("its variant is its one class, the class itself", async ({ app, mockLlm, mockOf }) => {
+    const log = mockOf(VariantLog);
+    mockOf(JobSearch).exists.mockResolvedValue(true);
+    mockLlm(ScoutAgent).thenReturn(replyWith(JobReportDto, REPORT));
+
+    await execute(app, TaskStart, { text: "find a TS job" });
+
+    expect(seenOf(log.seen.mock.calls)).toEqual([JobReportDto]);
   });
 
   test("a failed verdict's reason reaches the agent's retry", async ({ app, mockLlm, mockOf }) => {
@@ -117,14 +145,71 @@ describe("a oneOf judge", () => {
     expect(textsOf(retry).at(-1)).toContain("[fair-decision-judge] an offer pays something");
   });
 
-  it("on its own: either variant as a plain object, its verdict built by JudgeVerdict", async () => {
+  test("reads variant: the class of the answer tool the agent used", async ({
+    app,
+    mockLlm,
+    mockOf,
+  }) => {
+    const log = mockOf(VariantLog);
+    mockLlm(ScreenerAgent)
+      .thenReturn(replyWith(OfferDto, { salary: 0 }))
+      .thenReturn(replyWith(RefusalDto, { why: "no TypeScript" }));
+
+    await execute(app, TaskStart, { text: "screen Ann" });
+
+    const variants = seenOf(log.seen.mock.calls);
+    expect(variants).toHaveLength(2);
+    expect(variants[0]).toBe(OfferDto);
+    expect(variants[1]).toBe(RefusalDto);
+  });
+
+  test("a refusal that says nothing goes back to the agent", async ({ app, mockLlm, mockOf }) => {
+    const log = mockOf(VariantLog);
+    mockLlm(ScreenerAgent)
+      .thenReturn(replyWith(RefusalDto, { why: " " }))
+      .thenReturn(replyWith(OfferDto, { salary: 5 }));
+
+    const result = await execute(app, TaskStart, { text: "screen Ann" });
+
+    expect(result).toFinishWith(OfferWorkflowFinish, { salary: 5 });
+    expect(seenOf(log.seen.mock.calls)).toEqual([RefusalDto, OfferDto]);
+    const [, retry] = mockLlm(ScreenerAgent).requests;
+    expect(textsOf(retry).at(-1)).toContain("[fair-decision-judge] a refusal says why");
+  });
+
+  it("on its own: each variant with its class, narrowed by isVariant", async () => {
     const runJudge = testJudge(FairDecisionJudge);
 
-    const offer = await runJudge({ reply: { salary: 10 }, task: "screen Ann", attempt: 0 });
-    const refusal = await runJudge({ reply: { why: " " }, task: "screen Ann", attempt: 0 });
+    const offer = await runJudge({
+      variant: OfferDto,
+      reply: { salary: 10 },
+      task: "screen Ann",
+      attempt: 0,
+    });
+    const refusal = await runJudge({
+      variant: RefusalDto,
+      reply: { why: " " },
+      task: "screen Ann",
+      attempt: 0,
+    });
 
     expect(offer.output).toEqual(JudgeVerdict.passed({ metrics: { salary: 10 } }));
     expect(refusal.output).toEqual(JudgeVerdict.failed({ reason: "a refusal says why" }));
+    const task = { task: "t", attempt: 0 } as const;
+    expect(salaryOf({ variant: OfferDto, reply: { salary: 3 }, ...task })).toBe(3);
+  });
+
+  it("a variant with another class's value does not compile", async () => {
+    const runJudge = testJudge(FairDecisionJudge);
+
+    // @ts-expect-error -- variant OfferDto with a RefusalDto value
+    const wrong = runJudge({ variant: OfferDto, reply: { why: "x" }, task: "t", attempt: 0 });
+    // @ts-expect-error -- a oneOf judge's input names its variant
+    const missing = runJudge({ reply: { salary: 1 }, task: "t", attempt: 0 });
+
+    // given as is: the judge reads the variant it was told
+    await expect(wrong).resolves.toMatchObject({ output: { passed: false } });
+    await expect(missing).rejects.toThrow(TypeError);
   });
 });
 
@@ -132,6 +217,7 @@ describe("a list judge", () => {
   const test = testWith(ListJudgeApplication);
 
   test("reads the list of DTOs; its reason reaches the retry", async ({ app, mockLlm, mockOf }) => {
+    const log = mockOf(VariantLog);
     mockOf(JobSearch).exists.mockImplementation((url: string) =>
       Promise.resolve(url !== "https://gone"),
     );
@@ -146,13 +232,26 @@ describe("a list judge", () => {
     expect(mockOf(JobSearch).exists.mock.calls).toEqual([[JOB.url], ["https://gone"], [JOB.url]]);
     const [, retry] = mockLlm(JobsScoutAgent).requests;
     expect(textsOf(retry).at(-1)).toContain("[jobs-judge] every job must still be posted");
+    expect(seenOf(log.seen.mock.calls)).toEqual([JobDto, JobDto]);
+  });
+
+  it("on its own: variant is the list's one class; another class does not compile", async () => {
+    const runJudge = testJudge(JobsJudge);
+
+    const { output } = await runJudge({ variant: JobDto, reply: [JOB], task: "t", attempt: 0 });
+    // @ts-expect-error -- a list of JobDto has variant JobDto, not JobReportDto
+    const wrong = runJudge({ variant: JobReportDto, reply: [JOB], task: "t", attempt: 0 });
+
+    expect(output).toEqual(JudgeVerdict.passed({ metrics: { jobs: 1 } }));
+    await expect(wrong).resolves.toMatchObject({ output: { passed: true } });
   });
 });
 
 describe("a list-of-oneOf judge", () => {
   const test = testWith(VariantListJudgeApplication);
 
-  test("reads each variant's value, not its class tag", async ({ app, mockLlm }) => {
+  test("reads each item's variant and value", async ({ app, mockLlm, mockOf }) => {
+    const log = mockOf(VariantLog);
     mockLlm(PanelScreenerAgent)
       .thenReturn(replyWith(OfferDto, [{ salary: 1 }, { salary: 2 }]))
       .thenReturn(replyWith(RefusalDto, [{ why: "no TypeScript" }]));
@@ -163,16 +262,48 @@ describe("a list-of-oneOf judge", () => {
     expect(result.output).toEqual({ text: "One refusal." });
     const [, retry] = mockLlm(PanelScreenerAgent).requests;
     expect(textsOf(retry).at(-1)).toContain("[decisions-judge] make at most one offer");
+    const variants = seenOf(log.seen.mock.calls);
+    expect(variants).toEqual([OfferDto, OfferDto, RefusalDto]);
+    expect(variants[2]).toBe(RefusalDto);
   });
 
-  it("on its own: testJudge takes the list as plain objects", async () => {
-    const { output } = await testJudge(DecisionsJudge)({
-      reply: [{ salary: 1 }, { why: "no TypeScript" }],
-      task: "screen the panel",
+  it("on its own: testJudge takes each item as { variant, value }", async () => {
+    const reply: readonly VariantOf<OfferDto | RefusalDto>[] = [
+      { variant: OfferDto, value: { salary: 1 } },
+      { variant: RefusalDto, value: { why: "no TypeScript" } },
+    ];
+
+    const { output } = await testJudge(DecisionsJudge)({ reply, task: "the panel", attempt: 0 });
+
+    expect(output).toEqual(JudgeVerdict.passed({ metrics: { offers: 1 } }));
+  });
+
+  it("an item of a wrong pair, or a plain value, does not compile", async () => {
+    const runJudge = testJudge(DecisionsJudge);
+    const task = { task: "t", attempt: 0 } as const;
+
+    // @ts-expect-error -- variant RefusalDto with an OfferDto value
+    const wrong = runJudge({ reply: [{ variant: RefusalDto, value: { salary: 1 } }], ...task });
+    // @ts-expect-error -- each item names its class: { variant, value }, never the value alone
+    const plain = runJudge({ reply: [{ salary: 1 }], ...task });
+
+    await expect(wrong).resolves.toMatchObject({ output: { passed: true } });
+    await expect(plain).resolves.toMatchObject({ output: { passed: true } });
+  });
+});
+
+describe("a text judge", () => {
+  it("has variant PlainTextDto, the class of its { text } reply", async () => {
+    const runJudge = testJudge(TextJudge);
+
+    const { output } = await runJudge({
+      variant: PlainTextDto,
+      reply: { text: "ok" },
+      task: "t",
       attempt: 0,
     });
 
-    expect(output).toEqual(JudgeVerdict.passed({ metrics: { offers: 1 } }));
+    expect(output).toEqual(JudgeVerdict.passed());
   });
 });
 

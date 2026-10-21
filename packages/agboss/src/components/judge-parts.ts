@@ -1,6 +1,6 @@
 import type { ModelSettings } from "../config/types.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
-import type { JudgeHandler, JudgeMeta } from "./judge-decorators.js";
+import type { JudgeInstance, JudgeMeta, RunnableJudge } from "./judge-decorators.js";
 import { tokenName, type Class } from "./injection.js";
 import { ComponentError, componentOf } from "./metadata.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
@@ -69,7 +69,10 @@ export function judgePartsOf(
     judges: (services: WorkflowServices) => {
       const container = containerFor(bundle, services);
       return new Map(
-        [...judges].map(([name, { cls }]) => [name, container.get(cls) as JudgeHandler<unknown>]),
+        [...judges].map(([name, { cls, meta }]): [string, JudgeInstance] => [
+          name,
+          { handler: container.get(cls) as RunnableJudge, reply: meta.reply },
+        ]),
       );
     },
   };

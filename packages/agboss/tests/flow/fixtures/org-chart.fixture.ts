@@ -1,11 +1,4 @@
-import {
-  caseOf,
-  route,
-  start,
-  toAction,
-  toWorkflow,
-  workflow,
-} from "../../../src/flow/builder.js";
+import { caseOf, route, start, toAction, toWorkflow, workflow } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";

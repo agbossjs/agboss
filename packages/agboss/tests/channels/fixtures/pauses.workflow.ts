@@ -211,10 +211,18 @@ export class PauseLog implements OnExecutionPause, OnExecutionResume {
 
 // ── one agent, one tool call ──
 
-@WorkflowStart({ name: "desk-workflow-start", description: "A request", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "desk-workflow-start",
+  description: "A request",
+  input: WorkflowStartTextDto,
+})
 export class DeskWorkflowStart {}
 
-@WorkflowFinish({ name: "desk-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
+@WorkflowFinish({
+  name: "desk-workflow-finish",
+  description: "The answer",
+  output: WorkflowFinishTextDto,
+})
 export class DeskWorkflowFinish {}
 
 @Agent({
@@ -274,8 +282,11 @@ export class BatchWorkflowFinish {
   finish(input: {
     readonly refunds: readonly Produced<RefundDoneDto, unknown>[];
   }): BatchSummaryDto {
-    return { text: input.refunds.map((refund) => refund.value.orderId)
-      .join(", ") };
+    return {
+      text: input.refunds
+        .map((refund) => refund.value.orderId)
+        .join(", "),
+    };
   }
 }
 

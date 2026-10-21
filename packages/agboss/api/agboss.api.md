@@ -450,7 +450,8 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly graph: RuntimeGraph;
     // Warning: (ae-forgotten-export) The symbol "AssembledGuardrails" needs to be exported by the entry point index.d.ts
     readonly guardrails?: AssembledGuardrails;
-    readonly judges?: (services: WorkflowServices) => ReadonlyMap<string, JudgeHandler<unknown>>;
+    // Warning: (ae-forgotten-export) The symbol "JudgeInstance" needs to be exported by the entry point index.d.ts
+    readonly judges?: (services: WorkflowServices) => ReadonlyMap<string, JudgeInstance>;
     // Warning: (ae-forgotten-export) The symbol "KnowledgeSource" needs to be exported by the entry point index.d.ts
     readonly knowledge?: (services: WorkflowServices) => ReadonlyMap<string, readonly KnowledgeSource[]>;
     readonly knowledgeBases?: (services: WorkflowServices) => readonly {
@@ -1711,7 +1712,7 @@ export interface GraphDeps<TName extends string> {
     readonly graph: RuntimeGraph;
     // Warning: (ae-forgotten-export) The symbol "GuardrailRuntime" needs to be exported by the entry point index.d.ts
     readonly guardrails?: GuardrailRuntime;
-    readonly judges?: ReadonlyMap<string, JudgeHandler<unknown>>;
+    readonly judges?: ReadonlyMap<string, JudgeInstance>;
     readonly knowledge?: (agent: string) => readonly KnowledgeSource[];
     // Warning: (ae-forgotten-export) The symbol "LaunchDecider" needs to be exported by the entry point index.d.ts
     readonly launchDecisionFor?: (router: LoadedRouter) => LaunchDecider;
@@ -2017,6 +2018,13 @@ export class InvalidThreadIdError extends AGBossError {
 // @public
 export function isVariant<TItem extends ProducedValue<unknown, unknown>, TDto extends DtoClass>(item: TItem, dto: TDto): item is Extract<TItem, ProducedValue<InstanceType<TDto>, unknown>>;
 
+// @public
+export function isVariant<TItem extends {
+    readonly variant: DtoClass;
+}, TDto extends DtoClass>(item: TItem, dto: TDto): item is Extract<TItem, {
+    readonly variant: DtoClass<InstanceType<TDto>>;
+}>;
+
 // Warning: (ae-forgotten-export) The symbol "JoinContinuation" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -2068,7 +2076,10 @@ export interface JoinValues<TKey extends string> extends ValuesSource {
 }
 
 // @public
-export function Judge<const TReply extends JudgeReplyShape, const D extends readonly Token[] = []>(options: JudgeOptions<TReply, D>): <C extends new (...args: ResolvedAll<D>) => JudgeHandler<ValueOf<TReply>>>(value: C) => C;
+export function Judge<const TReply extends JudgeReplyShape, const D extends readonly Token[] = []>(options: JudgeOptions<TReply, D>): <C extends new (...args: ResolvedAll<D>) => JudgeHandler<JudgedValueOf<TReply>>>(value: C) => C;
+
+// @public
+export type JudgedValueOf<TShape extends JudgeReplyShape> = TShape extends ListWrapper<OneOfWrapper<infer TVariants>> ? readonly VariantOf<InstanceType<TVariants[number]>>[] : ValueOf<TShape>;
 
 // @public
 export interface JudgeEndEvent extends NodeEvent {
@@ -2089,11 +2100,24 @@ export interface JudgeHandler<TReply> {
 export type JudgeHandlerClass = Class<JudgeHandler<never>>;
 
 // @public
-export interface JudgeInput<TReply> {
-    readonly attempt: number;
+export type JudgeInput<TReply> = TReply extends readonly VariantOf<unknown>[] ? {
     readonly reply: TReply;
     readonly task: string;
-}
+    readonly attempt: number;
+} : TReply extends readonly (infer TItem)[] ? {
+    readonly variant: DtoClass<TItem>;
+    readonly reply: TReply;
+    readonly task: string;
+    readonly attempt: number;
+} : TReply extends unknown ? {
+    readonly variant: DtoClass<TReply>;
+    readonly reply: TReply;
+    readonly task: string;
+    readonly attempt: number;
+} : never;
+
+// @public
+export type JudgeInputOf<TJudge extends JudgeHandlerClass> = Parameters<InstanceType<TJudge>["judge"]>[0];
 
 // @public
 export interface JudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
@@ -2128,7 +2152,9 @@ export interface JudgeRejection {
 }
 
 // @public
-export type JudgeReplyOf<TJudge extends JudgeHandlerClass> = InstanceType<TJudge> extends JudgeHandler<infer TReply> ? TReply : never;
+export type JudgeReplyOf<TJudge extends JudgeHandlerClass> = JudgeInputOf<TJudge> extends {
+    readonly reply: infer TReply;
+} ? TReply : never;
 
 // @public
 export type JudgeReplyShape = DtoClass | OneOfWrapper | ListWrapper;
@@ -4333,6 +4359,12 @@ export function variant<TDto extends DtoClass>(dto: TDto, value: InstanceType<TD
 export function variant<TDto extends DtoClass>(dto: TDto, value: Partial<InstanceType<TDto>>): PartialVariant<TDto>;
 
 // @public
+export type VariantOf<TValue> = TValue extends unknown ? {
+    readonly variant: DtoClass<TValue>;
+    readonly value: TValue;
+} : never;
+
+// @public
 export class VisitsLimitExceededError extends LimitExceededError {
     constructor(nodeId: string, maxVisits: number, path: readonly string[], spentUsd: number);
     // (undocumented)
@@ -4607,9 +4639,9 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/components/injection.ts:31:3 - (ae-undocumented) Missing documentation for "provide".
 // src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "useValue".
 // src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
-// src/components/judge-decorators.ts:27:3 - (ae-undocumented) Missing documentation for "description".
-// src/components/judge-decorators.ts:74:3 - (ae-undocumented) Missing documentation for "passed".
-// src/components/judge-decorators.ts:81:3 - (ae-undocumented) Missing documentation for "passed".
+// src/components/judge-decorators.ts:28:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/judge-decorators.ts:93:3 - (ae-undocumented) Missing documentation for "passed".
+// src/components/judge-decorators.ts:100:3 - (ae-undocumented) Missing documentation for "passed".
 // src/components/metadata.ts:89:1 - (ae-undocumented) Missing documentation for "ComponentError".
 // src/components/metadata.ts:90:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/name-of.ts:32:1 - (ae-undocumented) Missing documentation for "nameOf".

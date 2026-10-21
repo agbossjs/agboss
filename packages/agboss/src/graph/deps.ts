@@ -17,7 +17,7 @@ import type { PauseChannel } from "../flow/runtime/pause.js";
 import type { PiiRuntime } from "../pii/runtime.js";
 import type { GuardrailRuntime } from "../guardrails/runtime.js";
 import type { Class } from "../components/injection.js";
-import type { JudgeHandler } from "../components/judge-decorators.js";
+import type { JudgeInstance } from "../components/judge-decorators.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { Clock } from "../infrastructure/clock.js";
 
@@ -32,7 +32,7 @@ export interface GraphDeps<TName extends string> {
   /** Agents' own memory strategies (`@Agent({ memoryStrategy })`); the rest use the built-in one. */
   readonly memory?: ReadonlyMap<string, BaseMemoryStrategy>;
   /** The agents' `@Judge`s by judge name, created by the container (models in `registry.judges`). */
-  readonly judges?: ReadonlyMap<string, JudgeHandler<unknown>>;
+  readonly judges?: ReadonlyMap<string, JudgeInstance>;
   /** Context-mode knowledge bases per agent (knowledge bases, #88). */
   readonly knowledge?: (agent: string) => readonly KnowledgeSource[];
   /** Optional pause seam (approval of tool calls). Off by default. */
