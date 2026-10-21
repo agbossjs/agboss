@@ -1,4 +1,5 @@
 import type { StepDescriptor, StepRecord, WorkflowRecord } from "../context/execution-context.js";
+import { plainRecordOf } from "../runtime/records.js";
 import {
   currentFrame,
   rootFactsOf,
@@ -33,28 +34,37 @@ export interface NodeEvent extends ExecutionEvent {
   readonly step: StepRecord;
 }
 
-/** The step as plain data: its component by name only. */
+/** The step as plain data: its component's record without its class, its join keys (#268 S93). */
 export const stepRecordOf = (step: StepDescriptor): StepRecord => ({
-  component: { name: step.component.name },
+  component: plainRecordOf(step.component),
   nodeId: step.nodeId,
   visitNumber: step.visitNumber,
   copyNumber: step.copyNumber,
   itemIndex: step.itemIndex,
   idempotencyKey: step.idempotencyKey,
   callId: step.callId,
+  toolLoopIteration: step.toolLoopIteration,
+  validationAttempts: step.validationAttempts,
 });
+
+/** The workflow as plain data: no class. */
+export const workflowRecordOf = ({
+  name,
+  version,
+  startedVersion,
+  configHash,
+}: WorkflowRecord): WorkflowRecord => ({ name, version, startedVersion, configHash });
 
 /** The execution's part of an event: a child's names its parent and its root (#263). */
 export function executionEventOf(execution: ExecutionFacts): ExecutionEvent {
   const { executionId, threadId, workflow } = execution;
-  const { name, version, startedVersion } = workflow;
   return {
     executionId,
     parentExecutionId: execution.parent?.execution.executionId,
     rootExecutionId: rootFactsOf(execution).executionId,
     threadId,
     tenantId: execution.tenant.tenantId,
-    workflow: { name, version, startedVersion },
+    workflow: workflowRecordOf(workflow),
   };
 }
 

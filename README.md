@@ -1027,7 +1027,7 @@ run(query: OrderQuery): Promise<OrderQuery> {
   executionContext.tenant.tenantId; // the organization, "default" when none is passed
   executionContext.tenant.application.environmentName; // the application level, through the tenant
   executionContext.signal; // aborted by app.cancel(threadId) or the caller's signal
-  executionContext.workflow; // { type, name, version, startedVersion }
+  executionContext.workflow; // { type, name, version, startedVersion, configHash }
   executionContext.step.idempotencyKey; // `${executionId}:${nodeId}:${visitNumber}[:${itemIndex}][:${callId}]`
   executionContext.step.callId; // the tool call's id (undefined outside a tool call)
   return Promise.resolve(query);
@@ -1332,11 +1332,12 @@ application (filter by `event.workflow.name === nameOf(SupportWorkflow)` — `na
 `name` of any AGBoss-decorated class); none listed → none is
 called. Each hook gets one event object, plain data, never the framework's internal state. Every
 execution event (`ExecutionEvent`) carries `executionId`, `parentExecutionId`, `rootExecutionId`,
-`threadId`, `tenantId` and `workflow` — a `WorkflowRecord` `{ name, version, startedVersion }`, no
-class; a node event (agent, router, tool, model, knowledge base, guardrail, action,
+`threadId`, `tenantId` and `workflow` — a `WorkflowRecord` `{ name, version, startedVersion,
+configHash }`, no class; a node event (agent, router, tool, model, knowledge base, guardrail, action,
 channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`) adds `step`, a `StepRecord`
-(`component: { name }`, `nodeId`, `visitNumber`, `copyNumber`, `itemIndex`, `idempotencyKey`,
-`callId`) — the serialized `executionContext.step`. `onExecutionStart` fires once per execution (at
+(`component` — `{ name, kind, promptHash, schemaHash }`, the join keys of `agboss describe --json`
+—, `nodeId`, `visitNumber`, `copyNumber`, `itemIndex`, `idempotencyKey`, `callId`,
+`toolLoopIteration`, `validationAttempts`) — the serialized `executionContext.step`. `onExecutionStart` fires once per execution (at
 `execute`); one that pauses because nothing else can move emits `onExecutionPause` (`event.pending`:
 every pause it waits for — again after a partial resume), `app.resume` and recovery emit
 `onExecutionResume` (`event.reason`, `event.decision`, `event.answeredBy`), `onExecutionEnd` fires once

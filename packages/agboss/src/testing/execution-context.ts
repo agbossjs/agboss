@@ -24,6 +24,9 @@ import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
 import type { Environment } from "../flow/generated-types.js";
 import { idempotencyKeyOf } from "../flow/context/idempotency.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
+import { arbiterOf } from "../flow/decorators/arbiter.js";
+import { componentKindOf } from "../flow/runtime/join-keys.js";
+import { bareRecordOf, ComponentKind } from "../flow/runtime/records.js";
 
 /** The step of a `testExecutionContext`: what is not given takes its default. */
 export interface TestStepOptions {
@@ -65,6 +68,25 @@ function nameOf(cls: Class, fallback: string): string {
   return cls === TestStep || cls === TestWorkflow ? fallback : cls.name;
 }
 
+/** The kinds of the classes a unit runner runs, by their decorator's kind. */
+const KIND_OF_COMPONENT: Readonly<Partial<Record<string, ComponentKind>>> = {
+  tool: ComponentKind.Tool,
+  "mcp-tool": ComponentKind.Tool,
+  guardrail: ComponentKind.Guardrail,
+  judge: ComponentKind.Judge,
+  rag: ComponentKind.Rag,
+  budget: ComponentKind.Budget,
+};
+
+/** The kind of a unit test's component: its decorator's; a plain class is a code step (an action). */
+function kindOfClass(type: Class): ComponentKind {
+  const declared = declarationOf(type)?.kind;
+  if (declared !== undefined) return componentKindOf(declared);
+  if (arbiterOf(type) !== undefined) return ComponentKind.Arbiter;
+  const kind = componentOf(type)?.kind;
+  return (kind === undefined ? undefined : KIND_OF_COMPONENT[kind]) ?? ComponentKind.Action;
+}
+
 /** The workflow of a unit test's execution: its decorator's name and version (`test-workflow`). */
 export function testWorkflowOf(type: WorkflowClass = TestWorkflow): WorkflowDescriptor {
   const options = declarationOf(type)?.options;
@@ -74,6 +96,8 @@ export function testWorkflowOf(type: WorkflowClass = TestWorkflow): WorkflowDesc
     name: nameOf(type, "test-workflow"),
     version,
     startedVersion: version,
+    // a unit test's own workflow has no config to fingerprint
+    configHash: "",
   });
 }
 
@@ -84,13 +108,15 @@ export function testStepOf(executionId: string, options: TestStepOptions): StepD
   const visitNumber = options.visitNumber ?? 1;
   const { callId, itemIndex } = options;
   return Object.freeze({
-    component: Object.freeze({ type, name }),
+    component: Object.freeze({ type, ...bareRecordOf(name, kindOfClass(type)) }),
     nodeId: name,
     visitNumber,
     idempotencyKey: idempotencyKeyOf({ executionId, nodeId: name, visitNumber, itemIndex, callId }),
     callId,
     itemIndex,
     copyNumber: options.copyNumber ?? 1,
+    toolLoopIteration: undefined,
+    validationAttempts: 0,
   });
 }
 

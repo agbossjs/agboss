@@ -23,6 +23,11 @@ export interface WorkflowRecord {
   readonly version: string;
   /** The version the execution started on (differs from `version` after a deploy and a resume). */
   readonly startedVersion: string;
+  /**
+   * The fingerprint of what the workflow runs now (#268 S93: the one join key) — its config, flow,
+   * every text a model reads; the `configHash` of `agboss describe --json` and of its records.
+   */
+  readonly configHash: string;
 }
 
 /** The workflow an execution runs: its class, `name`, the version now and the one it started on. */
@@ -45,6 +50,17 @@ export interface StepRecord {
   readonly itemIndex: number | undefined;
   /** Which copy of a repeated agent this is (#273), from 1; `1` when the agent is not repeated. */
   readonly copyNumber: number;
+  /**
+   * The agent's tool-loop iteration (#268 S93): its model call in this visit, from 1 — during the
+   * call and the tool calls its move asks for; `undefined` outside an agent's model and tool calls.
+   * Not part of `idempotencyKey` (#335).
+   */
+  readonly toolLoopIteration: number | undefined;
+  /**
+   * How many of the step's answers and tool arguments failed validation so far (#268 S93), each
+   * sent back to its model for another try; `0` outside an agent's loop.
+   */
+  readonly validationAttempts: number;
 }
 
 /** One visit of a node: different in each parallel branch and in each tool call. */

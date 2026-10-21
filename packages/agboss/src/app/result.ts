@@ -3,6 +3,7 @@ import type { ExecutionRecord, PauseAnswerRecord } from "../flow/runtime/executi
 import type { AgentExecutionDeps } from "../run/types.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import type { ExecutionOutput } from "./types.js";
+import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { pendingPauseOf, type PendingPause, type WaitingPause } from "../pause/index.js";
@@ -29,7 +30,11 @@ const recordOf = (run: AgentExecutionOutput): ExecutionRecord => ({
  * An execution of the core, as the app reports it — one pass's: its children's pauses are filled
  * once the tree rests (`withPauseAnswers`).
  */
-export function runResultOf(run: AgentExecutionOutput, withRecord: boolean): ExecutionOutput {
+export function runResultOf(
+  run: AgentExecutionOutput,
+  withRecord: boolean,
+  finishOf: (name: string) => ComponentRecord,
+): ExecutionOutput {
   return {
     status: run.status,
     threadId: run.threadId,
@@ -40,7 +45,7 @@ export function runResultOf(run: AgentExecutionOutput, withRecord: boolean): Exe
     launches: run.data.launches ?? [],
     children: withChildPauses(run.data.children ?? [], []),
     handledErrors: run.data.handledErrors ?? [],
-    ...(run.finish === undefined ? {} : { finish: { name: run.finish }, output: run.output }),
+    ...(run.finish === undefined ? {} : { finish: finishOf(run.finish), output: run.output }),
     pending: run.pending.map(visiblePauseOf),
     ...(run.compacted === undefined ? {} : { compacted: run.compacted }),
     ...(run.traceUrl === undefined ? {} : { traceUrl: run.traceUrl }),

@@ -18,7 +18,7 @@ import {
   startedVersionOf,
   stepFrameOf,
   visitNumberOf,
-  type WorkflowIdentity,
+  type StepFrameDeps,
   inTreeSlot,
 } from "./step-frame.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
@@ -29,8 +29,8 @@ import { launchEdgeOf, launchFor, launchTicketOf, nextOfLaunch } from "./launch/
 import { reportTruncation } from "./launch/launch-report.js";
 import type { LaunchTicket } from "./launch/records.js";
 import type { RuntimeLaunch } from "./launch/runtime-launch.js";
-import type { RuntimeContexts } from "../context/runtime-contexts.js";
 import { readInput } from "./scope.js";
+import { handledErrorOf, recordOfNode } from "./workflow-keys.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { EndedChildRecord } from "./child-records.js";
 import type { TreeSlotRegistry } from "./launch/launch-registry.js";
@@ -44,12 +44,8 @@ import type { TreeSlotRegistry } from "./launch/launch-registry.js";
  * without one the execution fails with the error as it is.
  */
 
-export interface VisitDeps {
+export interface VisitDeps extends StepFrameDeps {
   readonly limits: ExecutionLimits;
-  /** The workflow, for the step's `ExecutionContext` (#280). */
-  readonly workflow: WorkflowIdentity;
-  /** The application's context levels (#261), for the step's tenant. */
-  readonly contexts: RuntimeContexts;
   /** What values are built from (#271). */
   readonly provenance: RuntimeProvenance;
   /** The graph: what a launch dispatches (#273). */
@@ -64,12 +60,14 @@ function exitOf(
   node: RuntimeNode,
   state: ExecutionStateType,
   outcome: NodeOutcome,
+  deps: VisitDeps,
 ): FlowEdge | undefined {
   const { exits } = node;
   if (outcome.route !== undefined) {
     const route = exits.routes.get(outcome.route);
     if (route !== undefined) return route;
-    const step = { nodeId: node.id, visitNumber: visitNumberOf(node, state) };
+    const visit = { nodeId: node.id, visitNumber: visitNumberOf(node, state) };
+    const step = { ...visit, component: recordOfNode(deps, node.id) };
     const reason = `"${outcome.route}" is not one of its routes`;
     throw new RouterDecisionError(step, reason, outcome.usage ?? []);
   }
@@ -133,7 +131,7 @@ function succeeded(
   at: { readonly executionId: string; readonly now: Date },
 ): Succeeded {
   const launch = launchFor(node, outcome);
-  const exit = launch === undefined ? exitOf(node, state, outcome) : launchEdgeOf(launch);
+  const exit = launch === undefined ? exitOf(node, state, outcome, deps) : launchEdgeOf(launch);
   const write = visitWrite(node, state, exit, outcome, deps.provenance);
   const launched = launchedBy(launch, node, outcome, { state, deps, ...at }, write);
   const next =
@@ -159,6 +157,7 @@ interface Reported {
 
 /** A failure the node's `.onError` takes: kept as a record, the side path next; else rethrown. */
 function caught(
+  deps: VisitDeps,
   node: RuntimeNode,
   error: unknown,
   ranAsStep: boolean,
@@ -172,7 +171,6 @@ function caught(
   const record = errorRecordOf(error);
   const handler = errorHandlerOf(node.exits, record);
   if (handler === undefined) throw error;
-  const handled = { error: record, at: { name: node.id }, by: { name: handler.to } };
   return {
     ...visited(node, ranAsStep),
     lastError: record,
@@ -180,7 +178,7 @@ function caught(
     usage: [...unrecordedSpendOf(error), ...reported.usage],
     children: [...reported.children],
     piiTokens: reported.piiTokens,
-    handledErrors: [handled],
+    handledErrors: [handledErrorOf(deps, record, node.id, handler.to)],
   };
 }
 
@@ -207,14 +205,14 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
     };
     try {
       const frame = {
-        ...stepFrameOf(node, state, config, deps.workflow, deps.contexts),
+        ...stepFrameOf(node, state, config, deps),
         services: { ...services, input: () => readInput(deps.graph, node, state).fields },
       };
       const slot = { slots: deps.slots, graph: deps.graph, node, state, config, ...frame };
       // a slot of the tree first (#264), then the limits: the counters as they are when it works
       const outcome = await inTreeSlot(slot, async () => {
         if (isWorkingNode(node)) {
-          await checkVisit(state, node, deps.limits, deps.workflow);
+          await checkVisit(state, node, deps.limits, deps.workflow, frame.step.component);
           ranAsStep = true;
         }
         return runInFrame(frame, () => runner(state, config));
@@ -234,7 +232,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       }
       return { ...update, children: [...reported.children], ...kept };
     } catch (error) {
-      return { ...caught(node, error, ranAsStep, reported, config?.signal), ...kept };
+      return { ...caught(deps, node, error, ranAsStep, reported, config?.signal), ...kept };
     }
   };
 }

@@ -583,7 +583,7 @@ export interface BudgetAccount {
 
 // @public
 export interface BudgetBreach {
-    readonly budget: ComponentRecord;
+    readonly budget: Pick<ComponentRecord, "name">;
     readonly key: string;
     // Warning: (ae-forgotten-export) The symbol "Usd" needs to be exported by the entry point index.d.ts
     readonly maxSpend: Usd;
@@ -1009,14 +1009,32 @@ export class ComponentError extends Error {
 }
 
 // @public
+export enum ComponentKind {
+    Action = "action",
+    Agent = "agent",
+    Arbiter = "arbiter",
+    Budget = "budget",
+    Guardrail = "guardrail",
+    Judge = "judge",
+    Rag = "rag",
+    Router = "router",
+    Tool = "tool",
+    Workflow = "workflow",
+    WorkflowFinish = "workflow-finish",
+    WorkflowStart = "workflow-start"
+}
+
+// @public
 export type ComponentName<TComponent extends Class> = [NameOf<InstanceType<TComponent>>] extends [
 never
 ] ? string : NameOf<InstanceType<TComponent>>;
 
 // @public
 export interface ComponentRecord {
-    // (undocumented)
+    readonly kind: ComponentKind;
     readonly name: string;
+    readonly promptHash: string | undefined;
+    readonly schemaHash: string | undefined;
 }
 
 // @public
@@ -3113,6 +3131,7 @@ export enum PauseResolution {
 
 // @public
 export interface PauseSite {
+    readonly component?: ComponentRecord;
     readonly copyNumber: number;
     readonly executionId: string;
     // (undocumented)
@@ -3124,6 +3143,8 @@ export interface PauseSite {
     readonly tenantId: string;
     // (undocumented)
     readonly threadId: string;
+    readonly toolLoopIteration?: number;
+    readonly validationAttempts?: number;
     // (undocumented)
     readonly visitNumber: number;
     readonly workflow: string;
@@ -3833,6 +3854,7 @@ export interface RouterStep<THead extends PathHead, TInstance = unknown> extends
 
 // @public
 export interface RouterVisit {
+    readonly component?: ComponentRecord;
     readonly nodeId: string;
     readonly visitNumber: number;
 }
@@ -4166,6 +4188,8 @@ export interface StepRecord {
     readonly idempotencyKey: string;
     readonly itemIndex: number | undefined;
     readonly nodeId: string;
+    readonly toolLoopIteration: number | undefined;
+    readonly validationAttempts: number;
     readonly visitNumber: number;
 }
 
@@ -4519,7 +4543,7 @@ export type VariantOf<TValue> = TValue extends unknown ? {
 
 // @public
 export class VisitsLimitExceededError extends LimitExceededError {
-    constructor(nodeId: string, maxVisits: number, path: readonly string[], spentUsd: number);
+    constructor(component: ComponentRecord, maxVisits: number, path: readonly string[], spentUsd: number);
     // (undocumented)
     static readonly code: string;
     readonly component: ComponentRecord;
@@ -4637,6 +4661,7 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
 
 // @public
 export interface WorkflowRecord {
+    readonly configHash: string;
     // (undocumented)
     readonly name: string;
     readonly startedVersion: string;
@@ -4695,7 +4720,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/app-deps.ts:95:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/create-app.ts:60:3 - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/create-app.ts:61:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:10:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:11:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/paused-runs.ts:16:3 - (ae-undocumented) Missing documentation for "run".
@@ -5056,11 +5081,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/context/execution-context.ts:17:3 - (ae-undocumented) Missing documentation for "type".
 // src/flow/context/execution-context.ts:22:3 - (ae-undocumented) Missing documentation for "name".
 // src/flow/context/execution-context.ts:23:3 - (ae-undocumented) Missing documentation for "version".
-// src/flow/context/execution-context.ts:30:3 - (ae-undocumented) Missing documentation for "type".
-// src/flow/context/execution-context.ts:35:3 - (ae-undocumented) Missing documentation for "component".
-// src/flow/context/execution-context.ts:52:3 - (ae-undocumented) Missing documentation for "component".
-// src/flow/context/execution-context.ts:75:3 - (ae-undocumented) Missing documentation for "workflow".
-// src/flow/context/execution-context.ts:76:3 - (ae-undocumented) Missing documentation for "step".
+// src/flow/context/execution-context.ts:35:3 - (ae-undocumented) Missing documentation for "type".
+// src/flow/context/execution-context.ts:40:3 - (ae-undocumented) Missing documentation for "component".
+// src/flow/context/execution-context.ts:68:3 - (ae-undocumented) Missing documentation for "component".
+// src/flow/context/execution-context.ts:91:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/flow/context/execution-context.ts:92:3 - (ae-undocumented) Missing documentation for "step".
 // src/flow/decorators/action.ts:15:3 - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/action.ts:16:3 - (ae-undocumented) Missing documentation for "input".
 // src/flow/decorators/action.ts:31:1 - (ae-undocumented) Missing documentation for "Action".
@@ -5175,7 +5200,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/launch-types.ts:156:3 - (ae-undocumented) Missing documentation for "toParallelAgents".
 // src/flow/launch-types.ts:163:3 - (ae-undocumented) Missing documentation for "toParallelActions".
 // src/flow/launch-types.ts:178:3 - (ae-undocumented) Missing documentation for "toParallelAgents".
-// src/flow/observers/execution-event.ts:23:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/flow/observers/execution-event.ts:24:3 - (ae-undocumented) Missing documentation for "threadId".
 // src/flow/quorum-step.ts:29:3 - (ae-undocumented) Missing documentation for "[anyOfArbiters]".
 // src/flow/quorum-step.ts:30:3 - (ae-undocumented) Missing documentation for "arbiters".
 // src/flow/quorum-types.ts:48:3 - (ae-undocumented) Missing documentation for "deadline".
@@ -5193,8 +5218,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/returns-types.ts:92:3 - (ae-undocumented) Missing documentation for "takesAbout".
 // src/flow/returns-types.ts:93:3 - (ae-undocumented) Missing documentation for "canLaunch".
 // src/flow/returns-types.ts:145:3 - (ae-undocumented) Missing documentation for "returns".
-// src/flow/runtime/child-errors.ts:13:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/child-errors.ts:14:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/child-errors.ts:14:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/child-errors.ts:15:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/depth-limit.ts:12:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/depth-limit.ts:13:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/errors.ts:20:3 - (ae-undocumented) Missing documentation for "code".
@@ -5202,17 +5227,17 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/errors.ts:24:3 - (ae-undocumented) Missing documentation for "nodeId".
 // src/flow/runtime/errors.ts:25:3 - (ae-undocumented) Missing documentation for "maxVisits".
 // src/flow/runtime/errors.ts:26:3 - (ae-undocumented) Missing documentation for "visits".
-// src/flow/runtime/errors.ts:43:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/errors.ts:44:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/errors.ts:45:3 - (ae-undocumented) Missing documentation for "attempts".
-// src/flow/runtime/errors.ts:60:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/errors.ts:61:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/errors.ts:90:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/errors.ts:91:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/errors.ts:98:3 - (ae-undocumented) Missing documentation for "probability".
-// src/flow/runtime/errors.ts:99:3 - (ae-undocumented) Missing documentation for "threshold".
-// src/flow/runtime/errors.ts:121:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/errors.ts:122:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/errors.ts:49:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:50:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/errors.ts:51:3 - (ae-undocumented) Missing documentation for "attempts".
+// src/flow/runtime/errors.ts:66:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:67:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/errors.ts:101:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:102:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/errors.ts:109:3 - (ae-undocumented) Missing documentation for "probability".
+// src/flow/runtime/errors.ts:110:3 - (ae-undocumented) Missing documentation for "threshold".
+// src/flow/runtime/errors.ts:132:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:133:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/execution-record.ts:18:3 - (ae-undocumented) Missing documentation for "path".
 // src/flow/runtime/execution-record.ts:19:3 - (ae-undocumented) Missing documentation for "scope".
 // src/flow/runtime/execution-record.ts:20:3 - (ae-undocumented) Missing documentation for "outdatedValues".
@@ -5220,44 +5245,43 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/execution-record.ts:22:3 - (ae-undocumented) Missing documentation for "spend".
 // src/flow/runtime/execution-record.ts:49:3 - (ae-undocumented) Missing documentation for "resolution".
 // src/flow/runtime/execution-record.ts:52:3 - (ae-undocumented) Missing documentation for "resolvedAt".
-// src/flow/runtime/launch/quorum-errors.ts:20:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/launch/quorum-errors.ts:21:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/launch/quorum-errors.ts:49:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/launch/quorum-errors.ts:50:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/records.ts:10:3 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/records.ts:23:3 - (ae-undocumented) Missing documentation for "slot".
-// src/flow/runtime/records.ts:63:3 - (ae-undocumented) Missing documentation for "reason".
-// src/flow/runtime/records.ts:68:3 - (ae-undocumented) Missing documentation for "outdated".
-// src/flow/runtime/records.ts:73:3 - (ae-undocumented) Missing documentation for "valueId".
-// src/flow/runtime/records.ts:74:3 - (ae-undocumented) Missing documentation for "slot".
-// src/flow/runtime/records.ts:75:3 - (ae-undocumented) Missing documentation for "producer".
-// src/flow/runtime/records.ts:80:3 - (ae-undocumented) Missing documentation for "reason".
-// src/flow/runtime/router-error.ts:25:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/router-error.ts:26:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/router-error.ts:44:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/router-error.ts:45:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/launch/quorum-errors.ts:21:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/launch/quorum-errors.ts:22:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/launch/quorum-errors.ts:50:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/launch/quorum-errors.ts:51:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/records.ts:80:3 - (ae-undocumented) Missing documentation for "slot".
+// src/flow/runtime/records.ts:120:3 - (ae-undocumented) Missing documentation for "reason".
+// src/flow/runtime/records.ts:125:3 - (ae-undocumented) Missing documentation for "outdated".
+// src/flow/runtime/records.ts:130:3 - (ae-undocumented) Missing documentation for "valueId".
+// src/flow/runtime/records.ts:131:3 - (ae-undocumented) Missing documentation for "slot".
+// src/flow/runtime/records.ts:132:3 - (ae-undocumented) Missing documentation for "producer".
+// src/flow/runtime/records.ts:137:3 - (ae-undocumented) Missing documentation for "reason".
+// src/flow/runtime/router-error.ts:39:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/router-error.ts:40:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/router-error.ts:62:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/router-error.ts:63:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/start-input.ts:67:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/start-input.ts:68:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/this-workflow.ts:20:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/graph/deps.ts:27:3 - (ae-undocumented) Missing documentation for "config".
 // src/graph/deps.ts:28:3 - (ae-undocumented) Missing documentation for "registry".
 // src/graph/deps.ts:65:3 - (ae-undocumented) Missing documentation for "observer".
-// src/graph/errors.ts:11:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/errors.ts:12:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/errors.ts:13:3 - (ae-undocumented) Missing documentation for "usage".
-// src/graph/errors.ts:71:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/errors.ts:72:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/errors.ts:99:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/errors.ts:100:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/errors.ts:101:3 - (ae-undocumented) Missing documentation for "agent".
-// src/graph/errors.ts:117:3 - (ae-undocumented) Missing documentation for "judge".
-// src/graph/errors.ts:118:3 - (ae-undocumented) Missing documentation for "reason".
-// src/graph/errors.ts:123:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/errors.ts:124:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/errors.ts:127:3 - (ae-undocumented) Missing documentation for "retries".
-// src/graph/errors.ts:145:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/errors.ts:146:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/errors.ts:147:3 - (ae-undocumented) Missing documentation for "guard".
+// src/graph/errors.ts:12:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/errors.ts:13:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/errors.ts:14:3 - (ae-undocumented) Missing documentation for "usage".
+// src/graph/errors.ts:72:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/errors.ts:73:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/errors.ts:100:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/errors.ts:101:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/errors.ts:102:3 - (ae-undocumented) Missing documentation for "agent".
+// src/graph/errors.ts:121:3 - (ae-undocumented) Missing documentation for "judge".
+// src/graph/errors.ts:122:3 - (ae-undocumented) Missing documentation for "reason".
+// src/graph/errors.ts:127:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/errors.ts:128:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/errors.ts:131:3 - (ae-undocumented) Missing documentation for "retries".
+// src/graph/errors.ts:149:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/errors.ts:150:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/errors.ts:151:3 - (ae-undocumented) Missing documentation for "guard".
 // src/graph/limits.ts:34:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/limits.ts:35:12 - (ae-undocumented) Missing documentation for "name".
 // src/graph/limits.ts:36:3 - (ae-undocumented) Missing documentation for "key".
@@ -5268,11 +5292,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/limits.ts:41:3 - (ae-undocumented) Missing documentation for "usage".
 // src/graph/limits.ts:107:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/limits.ts:108:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/limits.ts:141:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/limits.ts:142:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/limits.ts:143:3 - (ae-undocumented) Missing documentation for "workflow".
-// src/graph/limits.ts:144:3 - (ae-undocumented) Missing documentation for "maxSteps".
-// src/graph/limits.ts:145:3 - (ae-undocumented) Missing documentation for "steps".
+// src/graph/limits.ts:147:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/limits.ts:148:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/limits.ts:149:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/graph/limits.ts:150:3 - (ae-undocumented) Missing documentation for "maxSteps".
+// src/graph/limits.ts:151:3 - (ae-undocumented) Missing documentation for "steps".
 // src/graph/rule-error.ts:153:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/rule-error.ts:154:3 - (ae-undocumented) Missing documentation for "message".
 // src/graph/rule-error.ts:155:3 - (ae-undocumented) Missing documentation for "nodes".
@@ -5299,12 +5323,12 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/execution-record.repository.ts:133:3 - (ae-undocumented) Missing documentation for "summaryCount".
 // src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
-// src/infrastructure/pause-record.ts:47:3 - (ae-undocumented) Missing documentation for "decision".
-// src/infrastructure/pause-record.ts:63:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/pause-record.ts:64:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/infrastructure/pause-record.ts:75:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/pause-record.ts:76:3 - (ae-undocumented) Missing documentation for "itemIndex".
-// src/infrastructure/pause-record.ts:93:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/pause-record.ts:49:3 - (ae-undocumented) Missing documentation for "decision".
+// src/infrastructure/pause-record.ts:65:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/pause-record.ts:66:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/infrastructure/pause-record.ts:77:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/pause-record.ts:78:3 - (ae-undocumented) Missing documentation for "itemIndex".
+// src/infrastructure/pause-record.ts:101:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:46:9 - (ae-undocumented) Missing documentation for "getTuple".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:59:10 - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:74:9 - (ae-undocumented) Missing documentation for "put".

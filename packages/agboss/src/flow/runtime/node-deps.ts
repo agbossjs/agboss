@@ -7,6 +7,7 @@ import type { BranchDeps } from "./launch/branch-runner.js";
 import type { JoinDeps } from "./launch/join-node.js";
 import { LaunchRegistry } from "./launch/launch-registry.js";
 import type { VisitDeps } from "./visit.js";
+import { joinKeysOf, workflowIdentityOf } from "./workflow-keys.js";
 import type { TreeSlotRegistry } from "./launch/launch-registry.js";
 
 /** What a launch's branches and join share in one pass: its registry, arbiters and stores. */
@@ -42,10 +43,12 @@ export function nodeDepsOf(
   run: { readonly budgets: BudgetMeter; readonly slots: TreeSlotRegistry },
   checkpointer: BaseCheckpointSaver | undefined,
 ): NodeDeps {
-  const workflow = { type: deps.graph.type, name: deps.config.name, version: deps.config.version };
+  const keys = joinKeysOf(deps);
+  const workflow = workflowIdentityOf(deps);
   const visitDeps = {
     limits: { maxSteps: deps.maxSteps, budgets: run.budgets },
     workflow,
+    components: keys.components,
     contexts: deps.contexts ?? standaloneContexts(workflow),
     provenance: deps.graph.provenance,
     graph: deps.graph,

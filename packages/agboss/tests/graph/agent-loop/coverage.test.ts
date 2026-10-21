@@ -15,6 +15,7 @@ import { workflowOf } from "../../../src/components/assemble.js";
 import { CodeReview } from "../../testing/fixtures/code-review.workflow.js";
 import { inTestFrame } from "../../helpers/frame.js";
 import { seconds } from "../../../src/units/index.js";
+import { z } from "zod";
 
 describe("agent-loop coverage", () => {
   it("reply-node with non-string move content", async () => {
@@ -56,6 +57,7 @@ describe("agent-loop coverage", () => {
       name: "t1",
       channel: "c1",
       timeout: seconds(1),
+      input: z.unknown(),
       invoke: async () => {
         throw new Error("some error");
       },
@@ -76,6 +78,7 @@ describe("agent-loop coverage", () => {
       name: "t1",
       channel: "c1",
       timeout: seconds(1),
+      input: z.unknown(),
       invoke: async () => {
         // eslint-disable-next-line @typescript-eslint/only-throw-error
         throw "some string error";

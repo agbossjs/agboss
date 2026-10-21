@@ -202,7 +202,7 @@ export function branchFrameOf(run: BranchFrameRun, view: ExecutionStateType): Br
     void (run.piiTokens = { ...run.piiTokens, ...tokens });
   const input = () => readInput(deps.graph, node, view).fields;
   const frame = {
-    ...withBudgetStop(stepFrameAt(site, view, config, deps.workflow, deps.contexts), budgetStop),
+    ...withBudgetStop(stepFrameAt(site, view, config, deps), budgetStop),
     services: { reportUsage, recordChild, keepPiiTokens, input },
   };
   return { config, frame, signal, ...(budgetStop === undefined ? {} : { budgetStop }) };

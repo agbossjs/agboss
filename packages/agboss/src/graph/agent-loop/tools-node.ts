@@ -9,7 +9,7 @@ import {
 import { argumentsRefusal, closedResult, type ClosedResult } from "./tool-pii.js";
 import { toolNamed, type AgentLoopDeps } from "./deps.js";
 import type { AgentLoopUpdate, ToolTask } from "./state.js";
-import { inToolCallFrame } from "../../flow/context/frame.js";
+import { inLoopFrame, inToolCallFrame } from "../../flow/context/frame.js";
 import {
   extractRunContext,
   throwIfCancelled,
@@ -87,6 +87,17 @@ async function guardedCall(
 export function makeToolNode(
   deps: AgentLoopDeps,
 ): (task: ToolTask, config?: RunnableConfig) => Promise<AgentLoopUpdate> {
+  const run = runTask(deps);
+  return (task, config) =>
+    task.progress === undefined
+      ? run(task, config)
+      : inLoopFrame(task.progress, () => run(task, config));
+}
+
+/** One tool call's task, in the frame it is given. */
+function runTask(
+  deps: AgentLoopDeps,
+): (task: ToolTask, config?: RunnableConfig) => Promise<AgentLoopUpdate> {
   return async (task, config) => {
     const tool = toolNamed(deps.agent, task.tool);
     const runCtx = extractRunContext(config, task.runId);
@@ -126,6 +137,8 @@ export function makeToolNode(
       deps.observer?.onToolEnd({ ...base, ...event, update: content }),
     );
     const results = { [task.callId]: { callId: task.callId, tool: task.tool, content } };
-    return { results, usage: [...usage, ...closed.usage], piiTokens, piiMasked };
+    // arguments its tool's input check refused: one more validation attempt of the step (#268 S93)
+    const invalidArguments = tool.input.safeParse(task.args).success ? 0 : 1;
+    return { results, usage: [...usage, ...closed.usage], piiTokens, piiMasked, invalidArguments };
   };
 }

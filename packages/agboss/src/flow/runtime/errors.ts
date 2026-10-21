@@ -8,7 +8,7 @@ import {
   stepCoordinatesOf,
 } from "../../graph/errors.js";
 import { LimitExceededError } from "../../graph/limits.js";
-import type { ComponentRecord } from "./records.js";
+import { ComponentKind, type ComponentRecord } from "./records.js";
 
 /**
  * The errors of the v2 runtime (#272, #261 Q42, S9, S22): each a plain record in state when an
@@ -25,13 +25,19 @@ export class VisitsLimitExceededError extends LimitExceededError {
   readonly maxVisits: number;
   readonly visits: number;
 
-  constructor(nodeId: string, maxVisits: number, path: readonly string[], spentUsd: number) {
+  constructor(
+    component: ComponentRecord,
+    maxVisits: number,
+    path: readonly string[],
+    spentUsd: number,
+  ) {
+    const nodeId = component.name;
     const visits = maxVisits + 1;
     super({ key: `${nodeId}.maxVisits`, limit: maxVisits, actual: visits }, path, spentUsd, [], {
       message: `${nodeId} was visited ${String(visits)} times; its maxVisits is ${String(maxVisits)}`,
-      details: { component: { name: nodeId }, nodeId, maxVisits, visits },
+      details: { component, nodeId, maxVisits, visits },
     });
-    this.component = { name: nodeId };
+    this.component = component;
     this.nodeId = nodeId;
     this.maxVisits = maxVisits;
     this.visits = visits;
@@ -62,7 +68,12 @@ export class ActionFailedError extends StepFailedError {
 
   constructor(action: string, cause: unknown) {
     const reason = cause instanceof Error ? cause.message : String(cause);
-    super(`Action "${action}" failed: ${reason}`, [], cause, stepCoordinatesOf(action));
+    super(
+      `Action "${action}" failed: ${reason}`,
+      [],
+      cause,
+      stepCoordinatesOf(action, ComponentKind.Action),
+    );
   }
 }
 

@@ -17,6 +17,7 @@ import {
   type AssembledApplication,
   type DescribedEnvironment,
   versionOf,
+  workflowSnapshotOf,
 } from "agboss/internal";
 
 /**
@@ -44,14 +45,19 @@ export function applicationData(
   };
 }
 
-/** `agboss describe --json`: one workflow at a glance, as data (the same facts as the text). */
+/**
+ * `agboss describe --json`: one workflow at a glance, as data (the same facts as the text), and its
+ * declarative snapshot (#268 S93): `configHash`, starts, finishes, nodes, edges, `onError`,
+ * launches and schemas — the keys its records and events join on.
+ */
 export function describeData(
   bundle: AssembledWorkflow,
   profile = "base",
   environment?: DescribedEnvironment,
 ): Record<string, unknown> {
   const c = bundle.config;
-  const tools = resolveTools(bundle, describeServicesWith(environment)).map((tool) => ({
+  const services = describeServicesWith(environment);
+  const tools = resolveTools(bundle, services).map((tool) => ({
     name: tool.name,
     description: tool.description,
     kind: isMcpFacade(tool) ? "mcp" : "local",
@@ -89,5 +95,6 @@ export function describeData(
     unassignedTools: tools.map((tool) => tool.name).filter((name) => !assigned.has(name)),
     limits: describedLimitsOf(bundle),
     steps: stepsRangeOf(bundle.graph.analysis.graph),
+    ...workflowSnapshotOf(bundle, services),
   };
 }

@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
+import { componentOfStored, StoredLoopProgress } from "../stored-step.js";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 import {
   PauseResolution,
@@ -49,6 +50,7 @@ const StoredPause = z.object({
   copyNumber: z.number().default(1),
   askedAt: z.string().default(""),
   agent: z.string(),
+  ...StoredLoopProgress,
   channel: z.string(),
   answeredBy: z.enum(PauseAnswerer),
   ask: z.object({
@@ -105,9 +107,10 @@ function answerOf(text: string): PauseAnswer {
 /** A row as the record it keeps. */
 function toPauseRecord(row: unknown): PauseRecord {
   const r = PauseRow.parse(row);
-  const { itemIndex, ...stored } = StoredPause.parse(JSON.parse(r.pause));
+  const { itemIndex, component, ...stored } = StoredPause.parse(JSON.parse(r.pause));
   const pause: PauseRecord = {
     ...stored,
+    ...(component === undefined ? {} : { component: componentOfStored(component) }),
     itemIndex,
     tenantId: r.tenant_id,
     pauseId: r.pause_id,
@@ -137,6 +140,9 @@ const storedOf = (pause: PauseRecord): string =>
     copyNumber: pause.copyNumber,
     askedAt: pause.askedAt,
     agent: pause.agent,
+    component: pause.component,
+    toolLoopIteration: pause.toolLoopIteration,
+    validationAttempts: pause.validationAttempts,
     channel: pause.channel,
     answeredBy: pause.answeredBy,
     ask: pause.ask,

@@ -1,4 +1,5 @@
 import { buildCostReport } from "../finops/usage.js";
+import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
 import { withChildPauses } from "../flow/runtime/child-records.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { PauseStatus } from "../infrastructure/paused-execution.repository.js";
@@ -45,7 +46,10 @@ export async function currentOutputOf(
 ): Promise<ExecutionOutput> {
   const stored = await paused.find(tree);
   if (stored?.run.runId === tree.runId)
-    return withPauseAnswers(runResultOf(await stillPending(deps, stored.run), false), deps);
+    return withPauseAnswers(
+      runResultOf(await stillPending(deps, stored.run), false, (name) => nodeRecordIn(deps, name)),
+      deps,
+    );
   const snapshot = await readingGraphOf(deps).getState(runConfig(tree.runId));
   // LangGraph boundary: a checkpoint's values are the flow's own state
   const state = snapshot.values as Partial<ExecutionStateType>;
@@ -62,7 +66,7 @@ export async function currentOutputOf(
       spend: buildCostReport(state.usage ?? []),
       ...recordsOf(state),
       pending: [],
-      finish: { name: state.finish },
+      finish: nodeRecordIn(deps, state.finish),
       output: state.output,
     },
     deps,

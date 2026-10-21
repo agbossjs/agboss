@@ -6,6 +6,7 @@
 import { beforeEach, describe, expect } from "vitest";
 import {
   ComponentError,
+  ComponentKind,
   ExecutionOperation,
   InvalidThreadIdError,
   nameOf,
@@ -116,13 +117,20 @@ describe("#261 AC15: node events carry their step (StepRecord)", () => {
 
     const [agentStart] = nodeEvents;
     expect(agentStart?.step).toEqual({
-      component: { name: "clerk-agent" },
+      component: {
+        name: "clerk-agent",
+        kind: ComponentKind.Agent,
+        promptHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+        schemaHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      },
       nodeId: "clerk-agent",
       visitNumber: 1,
       copyNumber: 1,
       itemIndex: undefined,
       idempotencyKey: `${done.executionId}:clerk-agent:1`,
       callId: undefined,
+      toolLoopIteration: undefined,
+      validationAttempts: 0,
     });
     const action = nodeEvents.at(-1);
     expect(action?.step).toMatchObject({

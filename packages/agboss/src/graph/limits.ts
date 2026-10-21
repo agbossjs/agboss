@@ -3,7 +3,7 @@ import { periodWords } from "../budgets/budget-period.js";
 import { AGBossError, type ErrorDetails } from "../core/errors.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { WorkflowRecord } from "../flow/context/execution-context.js";
-import type { ComponentRecord } from "../flow/runtime/records.js";
+import { bareRecordOf, ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
 import type { Usd } from "../units/index.js";
 
 /**
@@ -69,8 +69,8 @@ export const dollars = (amount: number): string => `$${amount.toFixed(4).replace
 
 /** What exhausted a budget: the budget, whose spend it counts, its limit and the spend reached. */
 export interface BudgetBreach {
-  /** The budget (no class: the error is kept on a plain record). */
-  readonly budget: ComponentRecord;
+  /** The budget, by its `name` (no class: the error is kept on a plain record). */
+  readonly budget: Pick<ComponentRecord, "name">;
   /** What the budget limits: an execution, a tenant or the application. */
   readonly scope: BudgetScope;
   /** The tenant and application budgets' period; none for an execution budget. */
@@ -126,9 +126,15 @@ export class BudgetExceededError extends LimitExceededError {
     const { budget, scope, key, maxSpend, spent } = breach;
     super({ key, limit: maxSpend, actual: spent }, path, spentUsd, usage, {
       message: budgetSentence(breach),
-      details: { budget: { name: budget.name }, scope, key, maxSpend, spent },
+      details: {
+        budget: bareRecordOf(budget.name, ComponentKind.Budget),
+        scope,
+        key,
+        maxSpend,
+        spent,
+      },
     });
-    this.budget = { name: budget.name };
+    this.budget = bareRecordOf(budget.name, ComponentKind.Budget);
     this.scope = scope;
     this.key = key;
     this.maxSpend = maxSpend;
@@ -155,6 +161,7 @@ export class StepsLimitExceededError extends LimitExceededError {
       name: workflow.name,
       version: workflow.version,
       startedVersion: workflow.startedVersion,
+      configHash: workflow.configHash,
     };
     super({ key: "maxSteps", limit: maxSteps, actual: steps }, path, spentUsd, [], {
       message: `${workflow.name} took ${String(steps)} steps; its maxSteps is ${String(maxSteps)}`,

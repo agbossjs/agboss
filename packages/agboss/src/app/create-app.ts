@@ -1,5 +1,6 @@
 import { randomIdGenerator } from "../infrastructure/clock.js";
 import { rememberAppWorkflow } from "./app-workflow.js";
+import { workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
 import {
   checkThreadAccess,
   checkThreadOwner,
@@ -118,7 +119,7 @@ export async function buildApp(
   let closed = false;
   let released = false;
   const admit = <T>(request: ExecutionRequest, checks: () => Promise<T>) =>
-    admitRequest(deps.observer, deps.config, request, checks);
+    admitRequest(deps.observer, deps, request, checks);
   /** From `app.close()` on (`onStop`), no new execution is accepted; running ones go on (#261). */
   const accepting = (): void => {
     if (closed) throw new ApplicationStoppingError(STOPPING);
@@ -170,7 +171,7 @@ export async function buildApp(
         ? await newThread({ tenantId, threadId: call.threadId, ownerId: call.ownerId })
         : (call.threadId ?? "");
       const tree = { runId, threadId, tenantId, startedVersion: deps.config.version };
-      await deps.observer.onExecutionStart(executionEventAt(tree, deps.config));
+      await deps.observer.onExecutionStart(executionEventAt(tree, deps));
       const begun = { start: checked.name, input: checked.input, threadId };
       const result = await moves.first(tree, call, (moving, signal) =>
         runOpenedAgent(
@@ -196,7 +197,7 @@ export async function buildApp(
         await deps.terns.complete(waiting.ternId, cancelledOutcome(waiting));
         const startedVersion = waiting.startedVersion ?? deps.config.version;
         const cancelled = { ...thread, runId: waiting.runId, startedVersion };
-        await observeCancelledPause(deps.observer, executionEventAt(cancelled, deps.config));
+        await observeCancelledPause(deps.observer, executionEventAt(cancelled, deps));
       }
       return { cancelled: running || waiting !== undefined };
     },
@@ -218,8 +219,7 @@ export async function buildApp(
       }
     },
   };
-  const { type } = bundle.graph;
-  const workflow = { type, name: deps.config.name, version: deps.config.version };
+  const workflow = workflowIdentityOf(deps);
   rememberAppWorkflow(app, { workflow, tenant: defaultTenantOf(contexts) });
   return {
     app,

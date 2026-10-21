@@ -54,6 +54,7 @@ export function loopInputOf(
     answeredWith: [],
     retries: 0,
     invalidAnswers: 0,
+    invalidArguments: 0,
     piiTokens: { ...state.piiTokens, ...pii.tokens },
     piiMasked: {},
     piiValues: pii.values,

@@ -9,6 +9,7 @@ import { nodeEventOf } from "../../observers/execution-event.js";
 import { errorHandlerOf } from "../graph-model.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { stepFrameAt } from "../step-frame.js";
+import { handledErrorOf, recordOfNode } from "../workflow-keys.js";
 import type { JoinDeps } from "./join-node.js";
 import { hasExpired } from "./deadline.js";
 import { quorumOutcomeOf, quorumRuleOf, type QuorumOutcome } from "./quorum.js";
@@ -99,7 +100,7 @@ export async function reportQuorum(
   const node = deps.graph.nodes.get(ticket.launcher);
   if (node === undefined || deps.observer === undefined) return;
   const at = { node, visitNumber: ticket.visitNumber };
-  const frame = stepFrameAt(at, state, config, deps.workflow, deps.contexts);
+  const frame = stepFrameAt(at, state, config, deps);
   const event: QuorumDecidedEvent = {
     ...nodeEventOf(frame),
     launch: ticket.launchId,
@@ -136,7 +137,7 @@ export function quorumNotReached(
 ): ExecutionStateUpdate {
   const { ticket, launch } = site;
   const step = {
-    component: { name: ticket.launcher },
+    component: recordOfNode(site.deps, ticket.launcher),
     nodeId: ticket.launcher,
     visitNumber: ticket.visitNumber,
   };
@@ -150,6 +151,6 @@ export function quorumNotReached(
   const record = errorRecordOf(error);
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
   if (handler === undefined) throw error;
-  const handled = { error: record, at: { name: ticket.launcher }, by: { name: handler.to } };
+  const handled = handledErrorOf(site.deps, record, ticket.launcher, handler.to);
   return { lastError: record, next: handler.to, handledErrors: [handled] };
 }

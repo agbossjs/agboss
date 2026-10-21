@@ -1,3 +1,4 @@
+import { nodeRecordIn, workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
 import {
   accountOf,
   budgetExceededErrorOf,
@@ -59,12 +60,8 @@ function startFrameOf<TName extends string>(
 ): FrameSpec {
   const node = deps.graph.nodes.get(start.start);
   const { executionId } = start;
-  const workflow = {
-    type: deps.graph.type,
-    name: deps.config.name,
-    version: deps.config.version,
-    startedVersion: deps.config.version,
-  };
+  const identity = workflowIdentityOf(deps);
+  const workflow = { ...identity, startedVersion: identity.version };
   const contexts = deps.contexts ?? standaloneContexts(workflow);
   return {
     execution: Object.freeze(
@@ -82,13 +79,18 @@ function startFrameOf<TName extends string>(
       ) as ExecutionFacts,
     ),
     step: Object.freeze({
-      component: Object.freeze({ type: node?.component ?? deps.graph.type, name: start.start }),
+      component: Object.freeze({
+        type: node?.component ?? deps.graph.type,
+        ...nodeRecordIn(deps, start.start),
+      }),
       nodeId: start.start,
       visitNumber: 1,
       idempotencyKey: idempotencyKeyOf({ executionId, nodeId: start.start, visitNumber: 1 }),
       callId: undefined,
       itemIndex: undefined,
       copyNumber: 1,
+      toolLoopIteration: undefined,
+      validationAttempts: 0,
     }),
   };
 }

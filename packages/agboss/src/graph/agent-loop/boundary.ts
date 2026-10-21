@@ -4,6 +4,7 @@ import type { AsyncNode } from "../types.js";
 import { callsOf, toolNamed, type AgentLoopDeps, type ToolCallRequest } from "./deps.js";
 import {
   LOOP_NODE,
+  loopProgressOf,
   type AgentLoopStateType,
   type AgentLoopUpdate,
   type StoredToolCall,
@@ -55,6 +56,7 @@ export function routeToActions(
           args: state.decisions[call.callId]?.overrideArguments ?? call.args,
           runId: state.runId,
           piiKey: state.piiKey,
+          progress: loopProgressOf(state),
         } satisfies ToolTask),
     );
   };

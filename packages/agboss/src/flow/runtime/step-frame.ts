@@ -23,6 +23,9 @@ import { tenantOfExecution, type RuntimeContexts } from "../context/runtime-cont
 import { idempotencyKeyOf } from "../context/idempotency.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 import type { ExecutionStateType } from "./state.js";
+import type { ComponentRecord } from "./records.js";
+import { componentKindOf } from "./join-keys.js";
+import { recordOfComponent } from "./workflow-keys.js";
 
 /** The workflow an execution runs, as the runtime knows it before the execution starts. */
 export type WorkflowIdentity = Omit<WorkflowDescriptor, "startedVersion">;
@@ -45,6 +48,16 @@ export interface StepSite {
   readonly itemIndex?: number;
 }
 
+/** What a step's frame is made with: its workflow, the context levels, its components' records. */
+export interface StepFrameDeps {
+  /** The workflow, for the step's `ExecutionContext` (#280). */
+  readonly workflow: WorkflowIdentity;
+  /** The application's context levels (#261), for the step's tenant. */
+  readonly contexts: RuntimeContexts;
+  /** Every component's record with its join keys (#268 S93), by `name`. */
+  readonly components: ReadonlyMap<string, ComponentRecord>;
+}
+
 /**
  * The frame of one visit of `node` (#280): the execution's flat fields from its run, its tenant and
  * its own fields from the state (#261: the values it started with, also after a resume), the step —
@@ -55,11 +68,10 @@ export function stepFrameOf(
   node: RuntimeNode,
   state: ExecutionStateType,
   config: RunnableConfig | undefined,
-  workflow: WorkflowIdentity,
-  contexts: RuntimeContexts,
+  deps: StepFrameDeps,
 ): FrameSpec {
   const site = { node, visitNumber: visitNumberOf(node, state) };
-  return stepFrameAt(site, state, config, workflow, contexts);
+  return stepFrameAt(site, state, config, deps);
 }
 
 /** The frame of a visit at `site`: a branch's has its copy id, copy number and item (#273). */
@@ -67,21 +79,23 @@ export function stepFrameAt(
   site: StepSite,
   state: ExecutionStateType,
   config: RunnableConfig | undefined,
-  workflow: WorkflowIdentity,
-  contexts: RuntimeContexts,
+  { workflow, contexts, components }: StepFrameDeps,
 ): FrameSpec {
   const { run } = extractRunContext(config, state.runId);
   const executionId: string = run.runId;
   const { node, visitNumber, itemIndex } = site;
   const nodeId = site.nodeId ?? node.id;
+  const record = recordOfComponent(components, node.id, componentKindOf(node.kind));
   const step = {
-    component: Object.freeze({ type: node.component, name: node.id }),
+    component: Object.freeze({ type: node.component, ...record }),
     nodeId,
     visitNumber,
     idempotencyKey: idempotencyKeyOf({ executionId, nodeId, visitNumber, itemIndex }),
     callId: undefined,
     itemIndex,
     copyNumber: site.copyNumber ?? 1,
+    toolLoopIteration: undefined,
+    validationAttempts: 0,
   };
   return {
     execution: Object.freeze({

@@ -1,7 +1,8 @@
 import { AGBossError, type ErrorDetails } from "../core/errors.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { currentFrame } from "../flow/context/frame.js";
-import type { ComponentRecord } from "../flow/runtime/records.js";
+import { ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
+import { bareRecordOf, plainRecordOf } from "../flow/runtime/records.js";
 
 const describe = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause);
@@ -37,15 +38,15 @@ export interface StepCoordinates {
 
 /**
  * The coordinates of the step running now (its frame, #280); outside any step — a unit run on its
- * own — those of `name` at visit 0.
+ * own — those of `name` (a `kind`) at visit 0.
  */
-export function stepCoordinatesOf(name: string): StepCoordinates {
+export function stepCoordinatesOf(name: string, kind: ComponentKind): StepCoordinates {
   const frame = currentFrame();
   if (frame === undefined || frame.isClosed())
-    return { component: { name }, nodeId: name, visitNumber: 0 };
+    return { component: bareRecordOf(name, kind), nodeId: name, visitNumber: 0 };
   const { step } = frame;
   return {
-    component: { name: step.component.name },
+    component: plainRecordOf(step.component),
     nodeId: step.nodeId,
     visitNumber: step.visitNumber,
     ...(step.itemIndex === undefined ? {} : { itemIndex: step.itemIndex }),
@@ -53,7 +54,7 @@ export function stepCoordinatesOf(name: string): StepCoordinates {
 }
 
 const detailsOfStep = (step: StepCoordinates): ErrorDetails => ({
-  component: { name: step.component.name },
+  component: plainRecordOf(step.component),
   nodeId: step.nodeId,
   visitNumber: step.visitNumber,
   ...(step.itemIndex === undefined ? {} : { itemIndex: step.itemIndex }),
@@ -87,7 +88,7 @@ export class StepFailedError extends PaidStepError {
     details: ErrorDetails = {},
   ) {
     super(message, usage, cause, { ...details, ...detailsOfStep(step) });
-    this.component = { name: step.component.name };
+    this.component = plainRecordOf(step.component);
     this.nodeId = step.nodeId;
     this.visitNumber = step.visitNumber;
     this.itemIndex = step.itemIndex;
@@ -107,7 +108,10 @@ export class AgentFailedError extends StepFailedError {
     details: ErrorDetails = {},
   ) {
     const message = `Agent "${agent}" failed: ${describe(cause)}`;
-    super(message, usage, cause, stepCoordinatesOf(agent), { agent, ...details });
+    super(message, usage, cause, stepCoordinatesOf(agent, ComponentKind.Agent), {
+      agent,
+      ...details,
+    });
     this.agent = agent;
   }
 }
@@ -147,7 +151,15 @@ export class GuardFailedError extends StepFailedError {
   readonly guard: string;
 
   constructor(guard: string, usage: readonly UsageRecord[], reason: string) {
-    super(`Guard "${guard}" failed: ${reason}`, usage, reason, stepCoordinatesOf(guard), { guard });
+    super(
+      `Guard "${guard}" failed: ${reason}`,
+      usage,
+      reason,
+      stepCoordinatesOf(guard, ComponentKind.Guardrail),
+      {
+        guard,
+      },
+    );
     this.guard = guard;
   }
 }

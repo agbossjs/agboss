@@ -1,3 +1,4 @@
+import { joinKeysOf, recordOfNode } from "./workflow-keys.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { GraphDeps } from "../../graph/deps.js";
@@ -137,7 +138,10 @@ async function runChild(
   const usage = ownUsageOf(last, ended.identity);
   const record = childRecordOf(ended, last, { status: ChildExecutionStatus.Finished, usage });
   parent.frame.services.recordChild?.(record);
-  const event = { ...eventOf(parent.frame, ended), finish: { name: last.finish } };
+  const event = {
+    ...eventOf(parent.frame, ended),
+    finish: recordOfNode(ended.records, last.finish),
+  };
   await parent.deps.observer?.onExecutionEnd({ ...event, spend: record.spend });
   return { state: last, usage };
 }
@@ -172,14 +176,15 @@ export function childRunner(
     };
     const entered = await childEnteredAt(spot);
     const run = childRunOf(config, frame, entered.identity, input);
-    const workflow = { name: child.workflow.name, version: child.workflow.version };
+    const { name, version, configHash } = child.workflow;
     const ended: EndedChild = {
       identity: entered.identity,
       depth: depthOf(frame.execution) + 1,
-      workflow: { ...workflow, startedVersion: child.workflow.version },
+      workflow: { name, version, startedVersion: version, configHash },
       launchedBy: { nodeId: frame.step.nodeId, visitNumber: frame.step.visitNumber },
       start: entry.start.name,
       input,
+      records: { components: joinKeysOf(child.deps).components, graph: child.deps.graph },
     };
     // a recursion launched by code past maxDepth does not start (#264): the hard stop
     if (child.isRecursive) refuseBeyondMaxDepth(deps.graph, frame, ended, state.path);

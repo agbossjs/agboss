@@ -84,3 +84,98 @@ describe("#268 AC4: agboss describe on flow-patterns — what the public surface
     );
   });
 });
+
+const HASH = expect.stringMatching(/^[0-9a-f]{64}$/);
+
+describe("#268 S93: agboss describe --json is the declarative snapshot the records join", () => {
+  it("each workflow: its configHash, starts, finishes, nodes with their hashes, edges, onError, launches", async () => {
+    const call = await agboss(["describe", "--json"], FLOW_PATTERNS);
+
+    expect(envelope(call)).toMatchObject({
+      ok: true,
+      result: {
+        workflows: expect.arrayContaining([
+          expect.objectContaining({
+            name: "offer-workflow",
+            configHash: HASH,
+            starts: ["offer-workflow-start"],
+            finishes: ["offer-failed-workflow-finish", "offer-sent-workflow-finish"],
+            nodes: expect.arrayContaining([
+              expect.objectContaining({
+                name: "draft-agent",
+                kind: "agent",
+                promptHash: HASH,
+                schemaHash: HASH,
+                input: { fields: { shortlist: { dto: "ShortlistDto", schemaHash: HASH } } },
+                output: { dto: "OfferDraftDto", schemaHash: HASH },
+                agent: expect.objectContaining({
+                  model: "moonshotai/kimi-k2.6",
+                  provider: "openrouter-model-provider",
+                  maxToolCalls: 20,
+                  guardrails: { input: [], output: [] },
+                  instructions: expect.stringContaining("job offer"),
+                }),
+              }),
+            ]),
+            edges: expect.arrayContaining([
+              {
+                from: "draft-agent",
+                to: "reviewer-agent",
+                kind: "next",
+                writes: [{ value: "OfferDraftDto" }],
+              },
+            ]),
+            onError: [
+              {
+                at: "editor-agent",
+                error: "VisitsLimitExceededError",
+                by: "notify-recruiter-action",
+                kind: "error",
+              },
+            ],
+          }),
+          expect.objectContaining({
+            name: "panel-workflow",
+            launches: [
+              expect.objectContaining({
+                launcher: "panel-workflow-start",
+                quorum: { kind: "count", min: 2, max: 3, deadline: 30_000 },
+                acceptedBy: [
+                  [{ name: "in-range-arbiter", kind: "arbiter", decidedBy: "code" }],
+                  [expect.objectContaining({ decidedBy: "model", promptHash: HASH })],
+                ],
+              }),
+            ],
+          }),
+        ]),
+      },
+    });
+  });
+
+  it("schemas: every DTO by class and every tool by name, each with its hash and JSON Schema", async () => {
+    const call = await agboss(["describe", "--json"], FLOW_PATTERNS);
+    const offsite = expect.objectContaining({
+      name: "offsite-booking-workflow",
+      schemas: {
+        dtos: expect.objectContaining({
+          WorkflowStartTextDto: {
+            schemaHash: HASH,
+            jsonSchema: expect.objectContaining({ type: "object" }),
+          },
+        }),
+        tools: {
+          "place-purchase-tool": {
+            promptHash: HASH,
+            schemaHash: HASH,
+            input: expect.objectContaining({ required: ["item", "amountUsd"] }),
+            output: expect.objectContaining({ type: "object" }),
+          },
+        },
+      },
+    });
+
+    expect(envelope(call)).toMatchObject({
+      result: { workflows: expect.arrayContaining([offsite]) },
+    });
+  });
+});

@@ -24,6 +24,7 @@ export class DepthLimitExceededError extends LimitExceededError {
       name: workflow.name,
       version: workflow.version,
       startedVersion: workflow.startedVersion,
+      configHash: workflow.configHash,
     };
     super({ key: "maxDepth", limit: maxDepth, actual: depth }, path, 0, [], {
       message: `${workflow.name} went ${String(depth)} levels deep; its maxDepth is ${String(maxDepth)}`,

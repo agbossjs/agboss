@@ -148,6 +148,6 @@ describe("AC5 / AC6: one child per item", () => {
     const result = await app.execute(CompanyScreeningWorkflowStart, { text: "tea makers" });
 
     expect(result).toFinishWith(GradedShortlistWorkflowFinish, { order: "Acme" });
-    expect(result.children[0]?.finish).toEqual({ name: "company-graded-workflow-finish" });
+    expect(result.children[0]?.finish).toMatchObject({ name: "company-graded-workflow-finish" });
   });
 });

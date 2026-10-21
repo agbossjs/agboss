@@ -10,6 +10,7 @@ export { createStartComponents } from "./app/start-components.js";
 export { renderTemplate } from "./components/render-template.js";
 export { ProfileError } from "./config/profiles.js";
 export { describeServices, describeServicesWith } from "./describe/describe-workflow.js";
+export { workflowSnapshotOf, type WorkflowSnapshot } from "./describe/snapshot.js";
 export {
   describeApplication,
   type ApplicationDescription,

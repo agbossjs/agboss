@@ -138,7 +138,7 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
     async () => {
       if (isWorkingNode(node)) {
         // the view's spend: the execution's at the launch plus the siblings that ended (#273 S71)
-        await checkVisit(view, node, deps.limits, deps.workflow);
+        await checkVisit(view, node, deps.limits, deps.workflow, frame.step.component);
         run.ranAsStep = true;
       }
       return runInFrame(frame, async () => {

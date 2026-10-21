@@ -3,6 +3,9 @@ import { createAppDeps } from "../../src/app/app-deps.js";
 import { createApp } from "../../src/application/create-app.js";
 import { toolLookup, UnknownToolError } from "../../src/app/parts.js";
 import { runResultOf } from "../../src/app/result.js";
+import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
+
+const finishRecordOf = (name: string) => bareRecordOf(name, ComponentKind.WorkflowFinish);
 import { workflowOf } from "../../src/testing/index.js";
 import {
   Agent,
@@ -103,13 +106,13 @@ describe("AC12: the app's parts", () => {
       pending: [],
     };
 
-    expect(runResultOf(run, false)).toMatchObject({
+    expect(runResultOf(run, false, finishRecordOf)).toMatchObject({
       path: ["task-workflow-start", "coder-agent"],
       traceUrl: "http://traces/t",
       compacted: [{ summaryQueueLength: 10 }],
     });
-    expect(runResultOf(run, false).record).toBeUndefined();
-    expect(runResultOf(run, true).record).toEqual({
+    expect(runResultOf(run, false, finishRecordOf).record).toBeUndefined();
+    expect(runResultOf(run, true, finishRecordOf).record).toEqual({
       path: run.path,
       scope: [],
       outdatedValues: [],

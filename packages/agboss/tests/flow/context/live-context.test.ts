@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { createApp } from "../../../src/application/create-app.js";
 import type { App } from "../../../src/app/types.js";
 import { ExecutionContext, ExecutionContextUnavailableError } from "../../../src/index.js";
@@ -73,13 +74,21 @@ describe("#280 AC6, AC12: the injected ExecutionContext gives the current execut
     });
     expect(tool?.callId).toEqual(expect.any(String));
     expect(action).toEqual({
-      component: { type: PublishAction, name: "publish-action" },
+      component: {
+        type: PublishAction,
+        name: "publish-action",
+        kind: ComponentKind.Action,
+        promptHash: undefined,
+        schemaHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      },
       nodeId: "publish-action",
       visitNumber: 1,
       idempotencyKey: `${done.executionId}:publish-action:1`,
       callId: undefined,
       itemIndex: undefined,
       copyNumber: 1,
+      toolLoopIteration: undefined,
+      validationAttempts: 0,
     });
   });
 
@@ -109,6 +118,7 @@ describe("#280 AC6, AC12: the injected ExecutionContext gives the current execut
         name: "context-workflow",
         version: "2.1.0",
         startedVersion: "2.1.0",
+        configHash: expect.stringMatching(/^[0-9a-f]{64}$/),
       },
     ]);
   });
@@ -121,13 +131,21 @@ describe("#280: a tool called on its own runs in an execution of its own", () =>
     expect(result).toEqual({ kind: "ok", value: { text: "alone" } });
     expect(seen.toolSteps).toEqual([
       {
-        component: { type: NoteTool, name: "note-tool" },
+        component: {
+          type: NoteTool,
+          name: "note-tool",
+          kind: ComponentKind.Tool,
+          promptHash: undefined,
+          schemaHash: undefined,
+        },
         nodeId: "note-tool",
         visitNumber: 1,
         idempotencyKey: "tool-slice:note-tool:1:tool-slice",
         callId: "tool-slice",
         itemIndex: undefined,
         copyNumber: 1,
+        toolLoopIteration: undefined,
+        validationAttempts: 0,
       },
     ]);
   });

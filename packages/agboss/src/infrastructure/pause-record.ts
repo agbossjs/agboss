@@ -5,6 +5,8 @@ import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import type { ExecutionRecordRepository } from "./execution-record.repository.js";
+import { bareRecordOf, ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
+import { componentOfStored, StoredComponent } from "./stored-step.js";
 
 /**
  * One pause of an execution tree as the application records it (#267 S35): made once per waiting
@@ -76,6 +78,12 @@ export interface PauseSite {
   readonly itemIndex: number | undefined;
   /** Which copy of a repeated agent waits (#273), from 1. */
   readonly copyNumber: number;
+  /** The waiting agent with its join keys (#268 S93); absent on a pause stored before them. */
+  readonly component?: ComponentRecord;
+  /** The tool-loop iteration whose move asked (#268 S93); absent before it. */
+  readonly toolLoopIteration?: number;
+  /** The step's validation attempts when it asked (#268 S93); absent before it. */
+  readonly validationAttempts?: number;
 }
 
 /** A pause: its id, where it waits, what it asks and where it is. */
@@ -162,13 +170,15 @@ export function answerRecordOf(pause: PauseRecord, resolution: PauseResolution):
     pauseId: pause.answeredBy === PauseAnswerer.Channel ? undefined : pause.pauseId,
     executionId: pause.executionId,
     step: {
-      component: { name: pause.agent },
+      component: pause.component ?? bareRecordOf(pause.agent, ComponentKind.Agent),
       nodeId: pause.nodeId,
       visitNumber: pause.visitNumber,
       idempotencyKey: pause.stepKey,
       callId: pause.ask.callId,
       itemIndex: pause.itemIndex,
       copyNumber: pause.copyNumber,
+      toolLoopIteration: pause.toolLoopIteration,
+      validationAttempts: pause.validationAttempts ?? 0,
     },
     role: pause.channel,
     answeredBy: pause.answeredBy,
@@ -193,13 +203,15 @@ const StoredPauseAnswer = z.object({
   pauseId: optionalText,
   executionId: z.string(),
   step: z.object({
-    component: z.object({ name: z.string() }),
+    component: StoredComponent,
     nodeId: z.string(),
     visitNumber: z.number(),
     idempotencyKey: z.string(),
     callId: optionalText,
     itemIndex: z.number().optional(),
     copyNumber: z.number(),
+    toolLoopIteration: z.number().optional(),
+    validationAttempts: z.number().default(0),
   }),
   role: z.string(),
   answeredBy: z.enum(PauseAnswerer),
@@ -217,7 +229,13 @@ export function pauseAnswerRecordOfJson(text: string): PauseAnswerRecord {
   return {
     ...stored,
     pauseId: stored.pauseId,
-    step: { ...step, callId: step.callId, itemIndex: step.itemIndex },
+    step: {
+      ...step,
+      component: componentOfStored(step.component),
+      callId: step.callId,
+      itemIndex: step.itemIndex,
+      toolLoopIteration: step.toolLoopIteration,
+    },
     responder: stored.responder,
     resolvedAt: stored.resolvedAt,
     decision: stored.decision,

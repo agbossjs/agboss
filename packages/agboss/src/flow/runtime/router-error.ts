@@ -1,3 +1,5 @@
+import { currentFrame } from "../context/frame.js";
+import { bareRecordOf, ComponentKind, plainRecordOf, type ComponentRecord } from "./records.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import type { RouteOutcome } from "../../routers/index.js";
 import { StepFailedError } from "../../graph/errors.js";
@@ -15,6 +17,18 @@ export interface RouterVisit {
   readonly nodeId: string;
   /** The pass through the router in the execution, from 1. */
   readonly visitNumber: number;
+  /** The router's record (#268 S93); absent = its step's, read from the frame it fails in. */
+  readonly component?: ComponentRecord;
+}
+
+/** The router's record: given, else its step's when it fails in its frame, else without hashes. */
+function routerRecordOf(step: RouterVisit): ComponentRecord {
+  if (step.component !== undefined) return step.component;
+  const frame = currentFrame();
+  const isOwn = frame !== undefined && !frame.isClosed() && frame.step.nodeId === step.nodeId;
+  return isOwn
+    ? plainRecordOf(frame.step.component)
+    : bareRecordOf(step.nodeId, ComponentKind.Router);
 }
 
 const describe = (cause: unknown): string =>
@@ -31,7 +45,11 @@ export class RouterFailedError extends StepFailedError {
     usage: readonly UsageRecord[] = [],
     message = `Router "${step.nodeId}" failed: ${describe(cause)}`,
   ) {
-    const coordinates = { component: { name: step.nodeId }, ...step };
+    const coordinates = {
+      component: routerRecordOf(step),
+      nodeId: step.nodeId,
+      visitNumber: step.visitNumber,
+    };
     super(message, usage, cause, coordinates);
   }
 }

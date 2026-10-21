@@ -1,3 +1,4 @@
+import { recordOfNode, type ComponentRecords } from "./workflow-keys.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { handedOverReason } from "../../app/handed-over.js";
 import { errorRecordOf } from "../../core/error-record.js";
@@ -33,6 +34,8 @@ export interface EndedChild {
   readonly launchedBy: ChildLaunchRecord;
   readonly start: string;
   readonly input: unknown;
+  /** The child workflow's component records (#268 S93): its start's and finishes'. */
+  readonly records: ComponentRecords;
 }
 
 /** The child's own spend: what its state holds past what it inherited. */
@@ -61,10 +64,12 @@ export function childRecordOf(
     ...(identity.itemIndex === undefined ? {} : { itemIndex: identity.itemIndex }),
     depth: child.depth,
     launchedBy: child.launchedBy,
-    start: { name: child.start },
+    start: recordOfNode(child.records, child.start),
     input: child.input,
     status: end.status,
-    ...(isFinished ? { finish: { name: state.finish }, output: state.output } : {}),
+    ...(isFinished
+      ? { finish: recordOfNode(child.records, state.finish), output: state.output }
+      : {}),
     ...(end.error === undefined ? {} : { error: errorRecordOf(end.error) }),
     path: state?.path ?? [],
     spend: buildCostReport(end.usage),

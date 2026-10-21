@@ -156,3 +156,24 @@ export function inToolCallFrame<TResult>(
     ? work()
     : runInFrame(toolCallFrameOf(step, callId, services, signal), work);
 }
+
+/** Where an agent's loop is (#268 S93): its model call in the visit, the failed validations so far. */
+export interface LoopProgress {
+  readonly toolLoopIteration: number;
+  readonly validationAttempts: number;
+}
+
+/**
+ * Runs a part of an agent's loop — a model call, a tool call, an approval — in a frame of the
+ * current step with the loop's progress on `step` (#268 S93), closed when the work ends; outside
+ * any step the work runs as it is.
+ */
+export function inLoopFrame<TResult>(
+  progress: LoopProgress,
+  work: () => Promise<TResult>,
+): Promise<TResult> {
+  const frame = currentFrame();
+  if (frame === undefined || frame.isClosed()) return work();
+  const step = Object.freeze({ ...frame.step, ...progress });
+  return runInFrame({ execution: frame.execution, step, services: frame.services }, work);
+}

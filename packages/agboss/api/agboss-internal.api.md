@@ -694,6 +694,39 @@ export function textRequestOf(graph: RuntimeGraph, text: string): StartRequest;
 export const versionOf: (value: unknown) => string;
 
 // @public
+export interface WorkflowSnapshot {
+    // (undocumented)
+    readonly configHash: string;
+    // Warning: (ae-forgotten-export) The symbol "EdgeSnapshot" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly edges: readonly EdgeSnapshot[];
+    // (undocumented)
+    readonly finishes: readonly string[];
+    // Warning: (ae-forgotten-export) The symbol "LaunchSnapshot" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly launches: readonly LaunchSnapshot[];
+    // Warning: (ae-forgotten-export) The symbol "NodeSnapshot" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly nodes: readonly NodeSnapshot[];
+    // Warning: (ae-forgotten-export) The symbol "ErrorHandlerSnapshot" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly onError: readonly ErrorHandlerSnapshot[];
+    // Warning: (ae-forgotten-export) The symbol "SchemasSnapshot" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly schemas: SchemasSnapshot;
+    // (undocumented)
+    readonly starts: readonly string[];
+}
+
+// @public
+export function workflowSnapshotOf(bundle: AssembledWorkflow, services: WorkflowServices): WorkflowSnapshot;
+
+// @public
 export interface WorstCase {
     readonly children: readonly WorstCaseChild[];
     // (undocumented)
@@ -804,6 +837,14 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/limits.ts:36:1 - (ae-undocumented) Missing documentation for "describedLimitsOf".
 // src/describe/pii-policies.ts:26:3 - (ae-undocumented) Missing documentation for "name".
 // src/describe/pii-policies.ts:29:3 - (ae-undocumented) Missing documentation for "rules".
+// src/describe/snapshot.ts:49:3 - (ae-undocumented) Missing documentation for "configHash".
+// src/describe/snapshot.ts:50:3 - (ae-undocumented) Missing documentation for "starts".
+// src/describe/snapshot.ts:51:3 - (ae-undocumented) Missing documentation for "finishes".
+// src/describe/snapshot.ts:52:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/describe/snapshot.ts:53:3 - (ae-undocumented) Missing documentation for "edges".
+// src/describe/snapshot.ts:54:3 - (ae-undocumented) Missing documentation for "onError".
+// src/describe/snapshot.ts:55:3 - (ae-undocumented) Missing documentation for "launches".
+// src/describe/snapshot.ts:56:3 - (ae-undocumented) Missing documentation for "schemas".
 // src/describe/tree.ts:22:3 - (ae-undocumented) Missing documentation for "isPerItem".
 // src/describe/tree.ts:23:3 - (ae-undocumented) Missing documentation for "maxItems".
 // src/describe/tree.ts:24:3 - (ae-undocumented) Missing documentation for "maxConcurrency".

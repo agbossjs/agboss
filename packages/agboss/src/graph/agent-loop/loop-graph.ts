@@ -8,7 +8,17 @@ import { callsOf, isAnswerCall, type AgentLoopDeps } from "./deps.js";
 import { makeInputNode } from "./input-node.js";
 import { makeModelNode } from "./model-node.js";
 import { makeReplyNode } from "./reply-node.js";
-import { AgentLoopState, LOOP_NODE, type AgentLoopStateType, type ToolTask } from "./state.js";
+import {
+  AgentLoopState,
+  LOOP_NODE,
+  loopProgressOf,
+  type AgentLoopStateType,
+  type AgentLoopUpdate,
+  type ToolTask,
+} from "./state.js";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import { inLoopFrame } from "../../flow/context/frame.js";
+import type { AsyncNode } from "../types.js";
 import { makeToolNode } from "./tools-node.js";
 
 /**
@@ -32,12 +42,21 @@ const afterAnswer = (state: AgentLoopStateType): string =>
 
 const ACTIONS = [LOOP_NODE.approval, LOOP_NODE.tool, LOOP_NODE.collect];
 
+/**
+ * A loop node run in a frame with the loop's progress (#268 S93): the model call it makes (`next`
+ * 1) or the move it works on (`next` 0) — what its events and its `ExecutionContext` read.
+ */
+const inLoopFrameOf =
+  (node: AsyncNode<AgentLoopStateType, AgentLoopUpdate>, next: number) =>
+  (state: AgentLoopStateType, config?: RunnableConfig): Promise<AgentLoopUpdate> =>
+    inLoopFrame(loopProgressOf(state, next), () => node(state, config));
+
 function createLoopGraph(deps: AgentLoopDeps, checkpointer: BaseCheckpointSaver | undefined) {
   return new StateGraph(AgentLoopState)
     .addNode(LOOP_NODE.input, makeInputNode(deps))
-    .addNode(LOOP_NODE.model, makeModelNode(deps))
+    .addNode(LOOP_NODE.model, inLoopFrameOf(makeModelNode(deps), 1))
     .addNode(LOOP_NODE.boundary, makeBoundaryNode(deps))
-    .addNode(LOOP_NODE.approval, makeApprovalNode(deps))
+    .addNode(LOOP_NODE.approval, inLoopFrameOf(makeApprovalNode(deps), 0))
     .addNode<typeof LOOP_NODE.tool, ToolTask>(LOOP_NODE.tool, makeToolNode(deps))
     .addNode(LOOP_NODE.collect, makeCollectNode(deps))
     .addNode(LOOP_NODE.reply, makeReplyNode(deps))
