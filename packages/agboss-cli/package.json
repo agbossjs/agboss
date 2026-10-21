@@ -1,9 +1,35 @@
 {
   "name": "agboss-cli",
   "version": "0.1.0",
-  "description": "The agboss command for AGBoss: create, generate, chat, run, describe, check, eval, migrate",
+  "description": "Official CLI for the AGBoss TypeScript AI agent framework — project scaffolding (agboss create), code generators, static graph & saga verification (agboss check), describe --json, chat, and eval.",
   "type": "module",
   "license": "Apache-2.0",
+  "author": "Pavel Ravvich <hello@agboss.dev> (https://github.com/pavelravvich)",
+  "homepage": "https://agboss.dev/cli/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agbossjs/agboss.git",
+    "directory": "packages/agboss-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/agbossjs/agboss/issues"
+  },
+  "keywords": [
+    "agboss",
+    "agboss-cli",
+    "cli",
+    "langgraph",
+    "ai-agents",
+    "agent-framework",
+    "multi-agent",
+    "typescript",
+    "scaffolding",
+    "codegen",
+    "mcp",
+    "rag",
+    "openapi",
+    "llm-evaluation"
+  ],
   "engines": {
     "node": ">=22.13"
   },
@@ -14,7 +40,10 @@
   "files": [
     "bin",
     "dist",
-    "templates"
+    "templates",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

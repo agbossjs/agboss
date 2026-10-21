@@ -1,13 +1,14 @@
-# AGBoss
+# AGBoss — Spring-style TypeScript Framework for LangGraph AI Agents
 
+[![Docs](https://img.shields.io/badge/docs-agboss.dev-258ceb)](https://agboss.dev)
+[![npm](https://img.shields.io/npm/v/agboss?color=258ceb)](https://www.npmjs.com/package/agboss)
+[![License](https://img.shields.io/badge/License-Apache_2.0-258ceb.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![CI](https://github.com/agbossjs/agboss/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/agbossjs/agboss/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/agbossjs/agboss/badges/coverage.json)](https://github.com/agbossjs/agboss/actions/workflows/ci.yml)
 
-Typed agent workflows on LangGraph, in TypeScript. Agents, tools, MCP servers and knowledge bases
-are **Angular-style components** — annotated classes, wired by a `@Workflow` module, dependencies
-through the constructor, every link checked by the compiler. Routing and judging by decision models
-(Jev, GPT-6 Luna Decisions, … — calibrated, exact cost),
-FinOps on every call, Terns and evaluation, profiles and comparisons, tracing.
+**AGBoss** ([agboss.dev](https://agboss.dev)) is an open-source, Spring-style TypeScript framework for **mission-critical multi-agent workflows** on top of [LangGraph](https://www.langchain.com/langgraph). Agents, actions, routers, arbiters, tools, MCP servers, and knowledge bases are strictly typed decorator components — assembled in an `@Application` container with constructor dependency injection, compile-time Path Scope verification (`agboss check`), transactional LIFO sagas (`compensateWith` / `committedBy`), two-phase human-in-the-loop pauses (`@ChannelRole`), pre-call FinOps budgets (`@Budget`), boundary PII token masking (`@PiiPolicy`), multi-instance SQLite WAL leases, and deterministic offline testing (`testWith` + 8 unit runners).
+
+**Documentation:** [https://agboss.dev](https://agboss.dev) · **Quick Start:** [https://agboss.dev/getting-started/quick-start/](https://agboss.dev/getting-started/quick-start/) · **CLI Reference:** [https://agboss.dev/cli/](https://agboss.dev/cli/)
 
 ## Use it
 
@@ -1675,7 +1676,7 @@ truncated: true })` is a summary cut at the limit); unscripted, it writes a fixe
 scripts/langfuse.sh up   # self-hosted Langfuse in Docker, keys written to .env
 ```
 
-Then every run is traced at http://localhost:3000. Details: [Wiki → Tracing](https://github.com/agbossjs/agboss/wiki/Tracing).
+Then every run is traced at http://localhost:3000. Details: [Observability & Tracing Guide](https://agboss.dev/guides/observability-and-tracing/) · [Wiki → Tracing](https://github.com/agbossjs/agboss/wiki/Tracing).
 
 ## The conveyor
 
@@ -1688,9 +1689,8 @@ Tickets move across the GitHub Project board of the repo:
 | In progress → Test | `implement`    | independent issues in parallel; branch + PR per issue, merged to `main`; manual-test handoff          |
 | Done               | a human        | after manual acceptance                                                                               |
 
-Rules and the delivery pipeline: [`WORKFLOW.md`](WORKFLOW.md) · [`QUALITY.md`](QUALITY.md) ·
-[`CLAUDE.md`](CLAUDE.md). Specs and plans live in GitHub Issues, docs in the GitHub Wiki.
+Rules and the delivery pipeline: [`WORKFLOW.md`](https://github.com/agbossjs/agboss/blob/main/WORKFLOW.md) · [`QUALITY.md`](https://github.com/agbossjs/agboss/blob/main/QUALITY.md) · [`CLAUDE.md`](https://github.com/agbossjs/agboss/blob/main/CLAUDE.md). Full documentation lives at [https://agboss.dev](https://agboss.dev) and in the [GitHub Wiki](https://github.com/agbossjs/agboss/wiki).
 
 ## License
 
-Apache License 2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+Apache License 2.0 — see [`LICENSE`](https://github.com/agbossjs/agboss/blob/main/LICENSE) and [`NOTICE`](https://github.com/agbossjs/agboss/blob/main/NOTICE).

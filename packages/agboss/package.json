@@ -1,9 +1,41 @@
 {
   "name": "agboss",
   "version": "0.1.0",
-  "description": "Typed agent workflows on LangGraph — Angular-style components, Jev routing, FinOps, evaluation",
+  "description": "Spring-style TypeScript framework for mission-critical LangGraph AI agents — @Application DI, Path Scope Flow DSL, transactional sagas, FinOps budgets, MCP/RAG/A2A, and deterministic unit testing.",
   "type": "module",
   "license": "Apache-2.0",
+  "author": "Pavel Ravvich <hello@agboss.dev> (https://github.com/pavelravvich)",
+  "homepage": "https://agboss.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agbossjs/agboss.git",
+    "directory": "packages/agboss"
+  },
+  "bugs": {
+    "url": "https://github.com/agbossjs/agboss/issues"
+  },
+  "keywords": [
+    "agboss",
+    "langgraph",
+    "langchain",
+    "ai-agents",
+    "agent-framework",
+    "multi-agent",
+    "typescript",
+    "dependency-injection",
+    "workflow",
+    "saga",
+    "mcp",
+    "model-context-protocol",
+    "rag",
+    "a2a",
+    "finops",
+    "llm",
+    "llm-evaluation",
+    "guardrails",
+    "pii",
+    "nodejs"
+  ],
   "engines": {
     "node": ">=22.13"
   },
@@ -88,7 +120,9 @@
   "files": [
     "dist",
     "schema",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
