@@ -55,7 +55,7 @@ balancing })` — one limit for every execution, tenant and instance (`RateLimit
 | `npm run check:docs`                   | typecheck the docs' ts blocks, check the commands they mention                           |
 | `make smoke`                           | real-model smoke tests of the framework (needs `.env`), never in CI                      |
 | `make fmt`                             | auto-format                                                                              |
-| `npm run studio`                       | LangGraph Studio (graphs from `langgraph.json`)                                          |
+| `npm run studio`                       | LangGraph Studio on job-scout (`agboss studio`: no `studio.ts` / `langgraph.json`)       |
 | `scripts/langfuse.sh up\|down\|status` | local Langfuse for tracing; writes keys to `.env`                                        |
 
 The CLI works on one application (#268): its path is set once in the project's `package.json` —
@@ -66,10 +66,15 @@ The CLI works on one application (#268): its path is set once in the project's `
 name, exit 2 with the starts listed and a `Did you mean "…"?`, nothing runs); `run` takes a text
 (`"<task>"`, a start taking `WorkflowStartTextDto`), `--input '<json>'` or `--input-file <file>`,
 checked against the start's `InputOf` field by field before anything starts; `describe`, `check`
-and `rag index [--rag <name>]` cover every workflow of the application.
+and `rag index [--rag <name>]` cover every workflow of the application. `agboss dev` reruns `agboss
+check` in a short-lived child on every change of the application's `src/` (debounced);
+`agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
+(`agboss/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs
+dev` on them — a child is a subgraph inside its parent (S37); a project has no `studio.ts` /
+`langgraph.json` of its own.
 
 In `examples/job-scout/` (`agboss <command>`, its one start): `npm run chat` · `npm run run -- "task"` ·
-`npm run describe` · `npm run eval` / `replay` · `npm run golden -- add --name <n>` ·
+`npm run describe` · `npm run dev` · `npm run studio` · `npm run eval` / `replay` · `npm run golden -- add --name <n>` ·
 `npm run compare -- --profiles base,<p> --golden <n>` · `npm run rag:index` (`agboss rag index`) ·
 `npm run probe -- --place <p> <token…>` (Greenhouse boards). Any run command takes
 `--profile <name>` (`profiles/<workflow>/<name>.yaml`) and `--thread <id>`.
@@ -466,8 +471,8 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   arguments are evaluated before its class exists) — is a child like any other: `.toWorkflow(ThisWorkflow)`,
   `route(ThisWorkflow)`, `.toParallelWorkflows(ThisWorkflow, { maxItems })`, the node `this-workflow`
   (one class = one node; its own path `workflow(ThisWorkflow)…` from two places). It is the workflow's
-  own compiled graph, run from the registry — never its own subgraph (Studio: a node marked
-  `recursive: maxDepth N`). `@Workflow({ maxDepth })` is required (`[graph.recursion-without-depth]`);
+  own compiled graph, run from the registry — never its own subgraph (Studio: the node
+  `this-workflow`, marked `recursive: maxDepth N` in its `getGraphAsync` metadata). `@Workflow({ maxDepth })` is required (`[graph.recursion-without-depth]`);
   `executionContext.depth` is 1 at the root, each child record has its `depth`, the last level is
   `depth === maxDepth` — no model sees the depth, a domain level is an `input` field (`TopicDto.level`).
   The **soft stop** on the last level: of a branch (`.switch` / `.chooseOne`) the options whose path
@@ -1808,7 +1813,7 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
                     rule-error.ts, limits.ts, settings.ts, studio-graph.ts
     llm/  routers/  tools/  guardrails/  compaction/  terns/  run/  pause/  finops/  eval/  tracing/
     prompts/  types/
-    loader/, describe/   loadWorkflow (tsx) and describeWorkflow; studio.ts (LangGraph Studio)
+    loader/, describe/   loadWorkflow (tsx) and describeWorkflow; studio.ts (studioOf: the graphs of agboss studio)
     internal.ts     `agboss/internal`: what the CLI is built on — not public, not for projects
   tests/            unit tests (helpers.ts = fakes; fixtures/ = test workflows); routers/ alone; smoke/ = real
   schema/           profile.schema.json (YAML autocomplete)
@@ -1818,11 +1823,11 @@ packages/agboss-cli/    the `agboss` / `agboss` command (#205; depends on agboss
                     envelope), commands.ts (one option schema per command: parser + help), terminal helpers
     scaffold/       `agboss create` / `agboss generate` (templates/ next to src/)
     migrate/        `agboss migrate imports` (#195): rewrites the old entries' imports to the new ones
-    chat.ts, cli.ts, check.ts, describe.ts, rag-index.ts, eval/   command handlers
+    chat.ts, cli.ts, check.ts, describe.ts, dev.ts, studio.ts, rag-index.ts, eval/   command handlers
   tests/            CLI tests; workflows come from the framework's tests/fixtures
   bin/              the CLI launcher (bin names `agboss` and `agboss`)
 examples/job-scout/          the example (package job-scout-example; depends on agboss)
-  src/              job-scout.application.ts, job-scout.workflow.ts (one path a turn), studio.ts; workflow-starts/ (*.workflow-start.ts), routers/
+  src/              job-scout.application.ts, job-scout.workflow.ts (one path a turn); workflow-starts/ (*.workflow-start.ts), routers/
                     (*.router.ts), agents/ (*.agent.ts + *.prompt.md), workflow-finishes/
                     (*.workflow-finish.ts), tools/ (*.tool.ts +
                     *.dto.ts), services/ (*.service.ts), mcp/ (*.server.ts, *.mcp.ts, *.dto.ts),

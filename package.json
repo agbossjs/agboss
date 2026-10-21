@@ -21,7 +21,7 @@
     "coverage": "npm run coverage --workspaces",
     "check": "npm run check:root && npm run check:suppressions && npm run check:types && npm run build && npm run types -w job-scout-example && npm run check -w flow-patterns-example && npm run check:api && npm run check:docs && npm run format:check && npm run lint && npm run check:knip && npm run typecheck && npm run coverage && npm run check:models",
     "smoke": "npm run smoke -w agboss",
-    "studio": "npm run build && langgraphjs dev",
+    "studio": "npm run build && npm run studio -w job-scout-example",
     "check:models": "npm run check:models -w job-scout-example",
     "check:suppressions": "node scripts/check-suppressions.mjs",
     "check:knip": "knip",
@@ -33,7 +33,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
-    "@langchain/langgraph-cli": "^1.0.0",
     "@microsoft/api-extractor": "^7.59.4",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "^22.0.0",
@@ -45,8 +44,5 @@
     "typescript": "^5.6.0",
     "typescript-eslint": "^8.0.0",
     "vitest": "^3.0.0"
-  },
-  "dependencies": {
-    "@langchain/langgraph": "^1.4.21"
   }
 }

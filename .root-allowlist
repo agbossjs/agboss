@@ -21,7 +21,6 @@ eslint.config.js
 eslint.tests.js
 examples
 knip.jsonc
-langgraph.json
 package-lock.json
 package.json
 packages

@@ -113,6 +113,24 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
       ENV,
     ],
   },
+  dev: {
+    summary: "watch mode: the types regenerated and the problems printed on every change",
+    usage: "agboss dev [--strict] [--env <name>] [--application <path>]",
+    options: [
+      APPLICATION,
+      flag("strict", "the analyser's warnings are errors, as in agboss check --strict"),
+      ENV,
+    ],
+  },
+  studio: {
+    summary: "LangGraph Studio on every workflow of the application, children inside their parent",
+    usage: "agboss studio [--port N] [--env <name>] [--application <path>]",
+    options: [
+      APPLICATION,
+      text("port", "N", "the port of the local Studio server", { default: "2024" }),
+      ENV,
+    ],
+  },
   rag: {
     summary: "build / update the application's knowledge bases",
     usage: "agboss rag index [--rag <name>] [--env <name>] [--application <path>]",

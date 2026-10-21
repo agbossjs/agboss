@@ -16,17 +16,14 @@
   "workspaces": {
     ".": {
       "entry": ["scripts/*.{mjs,cjs}", "eslint.tests.js"],
-      // the LangGraph CLI (`npm run studio`) looks for @langchain/langgraph in the root package.json
-      "ignoreDependencies": ["@langchain/langgraph"],
     },
     "packages/agboss": {
-      // the entries of package.json#exports (as sources) and the `studio` / `schema` scripts
+      // the entries of package.json#exports (as sources) and the `schema` script
       "entry": [
         "src/index.ts",
         "src/internal.ts",
         "src/{dto,units,models,testing,mcp,rag,a2a,memory}/index.ts",
         "src/{core,graph,router,tool,channels}/index.ts",
-        "src/studio.ts",
         // loaded by path: `--application <file>` (#268) and the environment of `--env <name>`
         "tests/fixtures/loader/**/*.{workflow,application}.ts",
         "tests/**/fixtures/**/*.environment.ts",
@@ -55,13 +52,12 @@
       "ignoreDependencies": ["@modelcontextprotocol/server-filesystem"],
     },
     "examples/job-scout": {
-      // the application (package.json → "agboss": { "application" }), the workflow, the Studio graph
-      // (langgraph.json), scripts, the environments of `--env` and
-      // environment.ts, their contract (a `declare module "agboss"` augmentation)
+      // the application (package.json → "agboss": { "application" }), the workflow, scripts, the
+      // environments of `--env` and environment.ts, their contract (a `declare module "agboss"`
+      // augmentation)
       "entry": [
         "src/job-scout.application.ts",
         "src/job-scout.workflow.ts",
-        "src/studio.ts",
         "src/scripts/*.ts",
         "src/environments/{environment,*.environment}.ts",
       ],

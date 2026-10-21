@@ -10,6 +10,8 @@
   },
   "scripts": {
     "describe": "agboss describe",
+    "dev": "agboss dev",
+    "studio": "agboss studio",
     "types": "agboss check",
     "answer": "tsx src/scripts/answer-pauses.ts",
     "check": "agboss check --strict && agboss check --models --env test",

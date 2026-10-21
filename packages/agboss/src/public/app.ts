@@ -132,7 +132,6 @@ export { describeWorkflow } from "../describe/describe-workflow.js";
 export type { GraphDeps } from "../graph/deps.js";
 export { resumeAgent } from "../run/resume-agent.js";
 export { runAgent } from "../run/run-agent.js";
-export { studioGraphOf } from "../studio.js";
 export type { AgentExecutionOutput, RunDeps, RunOptions } from "../run/types.js";
 export { runVersions } from "../run/versions.js";
 export type { UsageRecord } from "../finops/usage.js";

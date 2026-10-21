@@ -12,6 +12,8 @@
     "chat": "agboss chat",
     "run": "agboss run",
     "describe": "agboss describe",
+    "dev": "agboss dev",
+    "studio": "agboss studio",
     "check:models": "agboss check --models --env test",
     "eval": "agboss eval",
     "replay": "agboss replay",
@@ -28,7 +30,6 @@
     "agboss": "0.1.0",
     "unpdf": "^1.8.1",
     "zod": "^4.6.5",
-    "dotenv": "^18.0.3",
     "@modelcontextprotocol/server-filesystem": "^2026.8.31"
   },
   "devDependencies": {

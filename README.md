@@ -395,8 +395,18 @@ npx agboss chat                                 # the application's one start; w
 npx agboss run --start chat-workflow-start "my resume src/data/sample-resume.md"
 npx agboss run --start <name> --input '<json>'  # a start taking a DTO: checked field by field first
 npx agboss describe                             # every workflow: agents, tools, dependencies — no API key
+npx agboss dev                                  # watch mode: types regenerated, problems printed on change
+npx agboss studio                               # LangGraph Studio on every workflow — no studio.ts, no langgraph.json
 npx agboss --help                               # run, eval, replay, golden, compare, rag index
 ```
+
+`agboss dev` reruns `agboss check` in a short-lived process on every change of the application's
+`src/` (debounced): `.agboss/types.d.ts` stays current and assembly problems show as you type.
+`agboss studio [--env <name>] [--port N]` builds every workflow of the application — the children
+too — writes the Studio config into the git-ignored `.agboss/` (`studio.ts`, `langgraph.json`) and
+starts LangGraph's dev server on it; a child workflow is drawn inside its parent (a subgraph,
+`toParallelWorkflows` included), and a problem — assembly, a missing variable — stops it before the
+server starts.
 
 A command that runs one workflow (`chat`, `run`, `eval`, `replay`, `golden add`, `compare`) takes
 it by its start's full name, `--start chat-workflow-start` — optional when the application has one

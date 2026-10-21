@@ -35,6 +35,9 @@ export default defineConfig({
         "src/check.ts",
         "src/rag-index.ts",
         "src/chat.ts",
+        // they wait for a server or a watcher until Ctrl+C: dev's runs by its e2e test's `agboss dev`
+        "src/dev.ts",
+        "src/studio.ts",
         "src/cli/ask.ts",
         "src/eval/cli.ts",
         "src/eval/cli-deps.ts",

@@ -14,8 +14,8 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
-      // entry points: the boards probe script and the Studio graph
-      exclude: ["src/scripts/**", "src/studio.ts"],
+      // an entry point: the boards probe script
+      exclude: ["src/scripts/**"],
       reporter: ["text", "json-summary"],
       thresholds: { lines: 80, branches: 80, functions: 80, statements: 80 },
     },
