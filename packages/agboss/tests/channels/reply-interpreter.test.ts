@@ -16,6 +16,7 @@ import {
   ReplyInterpreterMissingError,
   UninterpretableReplyError,
 } from "../../src/index.js";
+import { ReplyInterpretation } from "../../src/channels/channel-role.decorator.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { TestSetupError } from "../../src/testing/errors.js";
 import { usd } from "../../src/units/index.js";
@@ -329,7 +330,7 @@ describe("#267 AC8: a code interpreter reads a reply", () => {
     ]);
   });
 
-  test("a reply it declines (it throws): UninterpretableReplyError, the pause stays pending", async ({
+  test("a reply it crashes on (it throws): UninterpretableReplyError, the pause stays pending", async ({
     app,
     mockLlm,
   }) => {
@@ -354,10 +355,9 @@ describe("#267 AC11: tests replace a code interpreter with mockOf", () => {
     mockLlm,
     mockOf,
   }) => {
-    mockOf(ExpenseReplyInterpreter).interpret.mockResolvedValue({
-      approved: false,
-      reason: "not this month",
-    });
+    mockOf(ExpenseReplyInterpreter).interpret.mockReturnValue(
+      ReplyInterpretation.understood({ approved: false, reason: "not this month" }),
+    );
     mockLlm(TreasurerAgent).thenReturn(
       callTool(BookExpenseTool, { purpose: "lunch" }),
       replyWith("Not booked."),

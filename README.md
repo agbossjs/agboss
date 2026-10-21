@@ -740,8 +740,10 @@ test, naming its input. A script is an expectation: a `thenReturn` turn no call 
 nothing matched, fails a test whose body passed (`thenReturnAlways` never does).
 `waitFor(seconds(31))` before a turn makes the call take that long on the test's clock. A model
 reply interpreter (#267) is scripted the same way, its input the pause's `{ ask, reply }` —
-`mockLlm(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`;
-a code one is created by the container and replaced with `mockOf(Interpreter).interpret`.
+`mockLlm(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`,
+one on a decision model with `decideWith({ approved: 0.9 })` (#267 S124);
+a code one is created by the container and replaced with `mockOf(Interpreter).interpret`
+(`mockReturnValue(ReplyInterpretation.understood({ approved: true }))`).
 
 <!-- snippet-context
 import { ExecutionCancelledError } from "agboss";
@@ -1010,20 +1012,26 @@ they are — `app.resume({ pauseId, reply }, options)`, exactly one of `decision
 `reply` — and the pause's role reads them with its `@ReplyInterpreter` (`replyInterpreter` on the
 `@ChannelRole`, one interpreter per role: `[channel.shared-interpreter]`). The interpreter gets the
 pause's original question and the reply (`{ ask, reply }`); what it gives is validated like a
-decision. `DecidedBy.Model` — a chat model answers through one answer tool (a decision model cannot
-give a typed answer: `[reply-interpreter.decision-model]`), its static `prompt` / `promptUrls` its
-instructions, the question and the reply in the input message; its call goes through the provider
+decision. `DecidedBy.Model` — a chat model answers through one answer tool, its static `prompt` /
+`promptUrls` its instructions, the question and the reply in the input message. For an approval role
+(`approves`) the model may be a decision model (Jev, #267 S124): it reads approve / refuse only — one
+`Decision.noul("approved")`, approved when P(yes) > 0.5, the answer `{ approved }` with no `reason`
+and no `overrideArguments`; a question role, whose answer needs more than a yes / no, cannot name
+one (`[reply-interpreter.decision-model]`). Either model's call goes through the provider
 resolved by `serves`, is checked against the tree's budgets first, counted in their ledger at once
 and in the execution's spend when the step takes the answer, and traced (`reply-interpreter:<name>`).
-`DecidedBy.Code` — the class's `interpret(input: InputOf<Self>): Promise<OutputOf<Self>>`
-(`implements ReplyInterpreterHandler<Self>`, `deps` like any component), created by the container;
-it declines a reply it cannot read by throwing. Either kind reads in the pause's execution frame — its
+`DecidedBy.Code` — the class's `interpret(input: InputOf<Self>)` (`implements
+ReplyInterpreterHandler<Self>`, `deps` like any component), created by the container, returns its
+outcome (#267 S124): `ReplyInterpretation.understood(decision)` — validated like any decision — or
+`ReplyInterpretation.notUnderstood({ reason })` for a reply it cannot read (a plain object does not
+compile); a `throw` is for an unexpected crash only. Either kind reads in the pause's execution frame — its
 `ExecutionContext` has the tenant, the owner and the waiting step, and the rate limits see the
 tenant. A model interpreter reads the question and the reply through the application's and the
 workflow's PII policies, like an agent: its answer is revealed before it is validated, a token no
-map knows is a decline, a block rule throws `PiiRefusedError`. A reply nobody can read — declined, or an answer the
-role rejects — throws `UninterpretableReplyError` (`pause.uninterpretable-reply`, the reason as
-`cause`) and the pause stays pending, so the webhook can ask again or answer with a `decision`; a
+map knows is a decline, a block rule throws `PiiRefusedError`. A reply nobody can read — not
+understood, a model that gives no answer, an answer the role rejects, a crash — throws
+`UninterpretableReplyError` (`pause.uninterpretable-reply`; `reason` says why, `cause` is the error
+behind it, if any) and the pause stays pending, so the webhook can ask again or answer with a `decision`; a
 `reply` for a role without an interpreter is `ReplyInterpreterMissingError`
 (`pause.no-reply-interpreter`), the pause untouched.
 
@@ -1060,13 +1068,50 @@ export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChan
 await app.resume({ pauseId: replyKey, reply: "ok, refund it" }, { answeredBy: "manager-17" });
 ```
 
+<!-- snippet-context
+import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpreter } from "agboss";
+import { Text } from "agboss/dto";
+export class DepositReturnDto {
+  @Text() leaseId!: string;
+}
+-->
+
+```ts
+// approve / refuse on a decision model: one Decision.noul("approved") — no reason, no overrideArguments
+@ReplyInterpreter({
+  name: "deposit-reply-interpreter",
+  description: "Reads whether a clerk's reply approves a deposit return",
+  decidedBy: DecidedBy.Model,
+  model: "typesafe/jev-1.13",
+  prompt: "The clerk answered a deposit return.",
+})
+export class DepositReplyInterpreter {}
+
+@ChannelRole({
+  name: "deposit-approval-channel",
+  description: "A clerk approves deposit returns",
+  approves: DepositReturnDto, // an approval role: a decision model may read its replies
+  answeredBy: PauseAnswerer.Channel,
+  replyInterpreter: DepositReplyInterpreter,
+})
+export abstract class DepositApprovalChannel extends ChannelOf<DepositApprovalChannel> {}
+```
+
+A code interpreter returns its outcome: `ReplyInterpretation.understood({ approved: true })` for a
+button value it knows, `ReplyInterpretation.notUnderstood({ reason: "not a button value" })` for
+anything else (Wiki → Pauses has the whole class).
+
 **Who answered each pause (#267 S107).** `app.resume(…, { record: true })` (or `execute`) returns
 `result.record.pauses`: every resolved pause of the tree in the order asked —
-`PauseAnswerRecord { pauseId (undefined for a PauseAnswerer.Channel pause), step, role,
-answeredBy, responder, resolution, askedAt, resolvedAt, decision }`, `PauseResolution.Decided`
+`PauseAnswerRecord { pauseId (undefined for a PauseAnswerer.Channel pause), executionId (the
+execution it waited in: the root's or a child's), step, role, answeredBy, responder, resolution,
+askedAt, resolvedAt, decision }`, `PauseResolution.Decided`
 (`ChannelOutcome.decided`, no pause), `Replied` (`awaitReply()` + `app.resume`), `Withdrawn` (a
 `FailFast` sibling failed) or `Cancelled` (`app.cancel`, or the tree ended); the decision masked by
-the PII policies like the rest of the record, none when withdrawn or cancelled. It is written when
+the PII policies like the rest of the record, none when withdrawn or cancelled. Each child's record —
+`result.children` and `result.record.children` — lists the pauses its own steps asked as
+`ChildExecutionRecord.pauses` (#267 S124), a grandchild's in its own record; the root's
+`record.pauses` keeps the whole tree's. It is written when
 the pause is resolved into the execution records — `ExecutionRecordRepository.savePauseAnswer`, read
 back with `findPauseAnswersByTenantIdAndRootExecutionId` — the permanent history, so the retention
 below never changes it; the pause records are operational state. A resolved pause

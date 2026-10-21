@@ -34,7 +34,7 @@ import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
 import { inTreeSlot } from "../step-frame.js";
 import { branchFrameOf } from "./branch-view.js";
 import type { PauseSeam } from "../../../pause/index.js";
-import type { ChildExecutionRecord } from "../child-records.js";
+import type { EndedChildRecord } from "../child-records.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
 
 /**
@@ -68,7 +68,7 @@ interface BranchRun {
   /** What its code paid services (`SpendRecorder`). */
   readonly services: UsageRecord[];
   /** The child executions it ran that ended (a per-item child workflow, #263). */
-  readonly children: ChildExecutionRecord[];
+  readonly children: EndedChildRecord[];
   /** A failed per-item child's PII tokens (#120): kept with its error. */
   piiTokens: PiiTokenMap;
   /** The branch as a test's scheduler sees it (#262 S33). */

@@ -103,10 +103,11 @@ export function channelRoleOf(cls: Class): FoundChannelRole | undefined {
  * `@ReplyInterpreter` (#267 PR 3): who turns a free-text reply to a pause into its role's typed
  * answer — named on the role (`@ChannelRole({ replyInterpreter })`), one interpreter per role. It gets
  * the pause's original question and the reply (`{ ask, reply }`); what it returns is validated like
- * any decision. `DecidedBy.Model` — its chat model answers through one answer tool (static `prompt` /
- * `promptUrls`; `ask` and `reply` come in the input message); `DecidedBy.Code` — the class's
- * `interpret(input)` (`implements ReplyInterpreterHandler<Self>`). Code downstream decides by types,
- * never by text.
+ * any decision. `DecidedBy.Model` — its chat model answers through one answer tool, a decision model
+ * (an approval role's only) through one `Decision.noul("approved")` (static `prompt` / `promptUrls`;
+ * `ask` and `reply` come in the input message); `DecidedBy.Code` — the class's `interpret(input)`
+ * (`implements ReplyInterpreterHandler<Self>`), returning a `ReplyInterpretation`. Code downstream
+ * decides by types, never by text.
  */
 
 /** What every reply interpreter declares. */
@@ -119,7 +120,11 @@ interface ReplyInterpreterBaseOptions {
 /** `@ReplyInterpreter({ decidedBy: DecidedBy.Model })`: one answer tool on a chat model. */
 export interface ModelReplyInterpreterOptions extends ReplyInterpreterBaseOptions {
   readonly decidedBy: DecidedBy.Model;
-  /** A chat model (a decision model cannot give a typed answer: `[reply-interpreter.decision-model]`). */
+  /**
+   * A chat model (one answer tool), or — for an approval role only — a decision model (one
+   * `Decision.noul("approved")`: approve / refuse, no `reason`, no `overrideArguments`, #267 S124 a);
+   * a decision model for a question role is `[reply-interpreter.decision-model]`.
+   */
   readonly model: string;
   /** How to read a reply; static — the question and the reply come in the input message. */
   readonly prompt?: string;
@@ -148,13 +153,66 @@ export interface ReplyInterpreterDeclaration {
   readonly source?: string;
 }
 
+/** The two outcomes of a code interpreter's `interpret` (#267 S124 b). */
+export enum ReplyInterpretationKind {
+  /** The reply was read: its decision is validated like any other. */
+  Understood = "understood",
+  /** The reply says nothing the interpreter can read: the pause stays pending. */
+  NotUnderstood = "not-understood",
+}
+
+declare const replyInterpretation: unique symbol;
+
+/** Only `ReplyInterpretation.understood(…)` / `.notUnderstood(…)` build one (a plain object does not compile). */
+interface BuiltReplyInterpretation {
+  readonly [replyInterpretation]: true;
+}
+
+/** The reply was read as `decision`. */
+export interface UnderstoodReply<TDecision> extends BuiltReplyInterpretation {
+  readonly kind: ReplyInterpretationKind.Understood;
+  readonly decision: TDecision;
+}
+
+/** The reply was not understood: `reason` is the `UninterpretableReplyError`'s. */
+export interface NotUnderstoodReply extends BuiltReplyInterpretation {
+  readonly kind: ReplyInterpretationKind.NotUnderstood;
+  readonly reason: string;
+}
+
+/** What `interpret` returns: `ReplyInterpretation.understood(…)` or `.notUnderstood({ reason })`. */
+export type ReplyInterpretation<TDecision> = UnderstoodReply<TDecision> | NotUnderstoodReply;
+
+/** `ReplyInterpretation.notUnderstood({ reason })` — why the reply could not be read. */
+export interface NotUnderstoodReplyOptions {
+  readonly reason: string;
+}
+
+/** The only way to build an interpretation (#267 S124 b, like `JudgeVerdict` and `ChannelOutcome`). */
+export const ReplyInterpretation = {
+  /** The reply was read as `decision`: validated like a decision given to `app.resume`. */
+  understood<TDecision>(decision: TDecision): UnderstoodReply<TDecision> {
+    const built = { kind: ReplyInterpretationKind.Understood, decision } as const;
+    return Object.freeze(built) as UnderstoodReply<TDecision>;
+  },
+  /** The reply was not understood: `app.resume` throws `UninterpretableReplyError` with `reason`. */
+  notUnderstood(options: NotUnderstoodReplyOptions): NotUnderstoodReply {
+    const built = { kind: ReplyInterpretationKind.NotUnderstood, reason: options.reason } as const;
+    return Object.freeze(built) as NotUnderstoodReply;
+  },
+} as const;
+
 /**
- * A code interpreter's contract: `interpret({ ask, reply })` returns the role's answer —
- * `InputOf<Self>` / `OutputOf<Self>` from the generated types. It declines a reply it cannot read
- * by throwing: `app.resume` then throws `UninterpretableReplyError` and the pause stays pending.
+ * A code interpreter's contract: `interpret({ ask, reply })` gives the role's answer —
+ * `InputOf<Self>` / `OutputOf<Self>` from the generated types — as `ReplyInterpretation.understood(…)`,
+ * or `ReplyInterpretation.notUnderstood({ reason })` for a reply it cannot read: `app.resume` then
+ * throws `UninterpretableReplyError` with that reason and the pause stays pending. A `throw` is an
+ * unexpected crash only (the same error, its `cause` the thrown one).
  */
 export interface ReplyInterpreterHandler<TSelf> {
-  interpret(input: InputOf<TSelf>): Promise<OutputOf<TSelf>>;
+  interpret(
+    input: InputOf<TSelf>,
+  ): ReplyInterpretation<OutputOf<TSelf>> | Promise<ReplyInterpretation<OutputOf<TSelf>>>;
 }
 
 const interpreters = new WeakMap<Class, ReplyInterpreterDeclaration>();
@@ -198,13 +256,27 @@ export const isCodeReplyInterpreter = (
  * webhook may ask for a clearer answer, or answer with a typed `decision`.
  */
 
+/** `new UninterpretableReplyError(message, { reason, cause? })`. */
+export interface UninterpretableReplyErrorOptions {
+  readonly reason: string;
+  readonly cause?: unknown;
+}
+
 /**
- * The role's reply interpreter could not read the reply as a valid answer: it declined (a code
- * interpreter threw, a model gave no answer) or its answer is not valid for the role (`cause`).
+ * The role's reply interpreter could not read the reply as a valid answer: a code interpreter's
+ * `ReplyInterpretation.notUnderstood({ reason })`, a model that gave no answer, an answer not valid
+ * for the role (`cause`) or an interpreter that crashed (`cause`, #267 S124 b). `reason` says why.
  */
 export class UninterpretableReplyError extends AGBossError {
   static override readonly code: string = "pause.uninterpretable-reply";
   override name = "UninterpretableReplyError";
+  /** Why the reply was not read: the interpreter's own reason, or its error's message. */
+  readonly reason: string;
+
+  constructor(message: string, options: UninterpretableReplyErrorOptions) {
+    super(message, options.cause === undefined ? {} : { cause: options.cause });
+    this.reason = options.reason;
+  }
 }
 
 /** A `reply` for a pause whose role declares no `replyInterpreter`: answer it with a `decision`. */

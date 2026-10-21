@@ -14,11 +14,7 @@ import {
 import { DEFAULT_CONTEXT_VALUES, type ExecutionContextValues } from "../context/context-values.js";
 import type { OutdatedValueRecord, ScopeRecords } from "./records.js";
 import { mergeTokens, type PiiTokenMap } from "../../pii/tokens.js";
-import type {
-  ChildExecutionRecord,
-  ChildIdentityRecord,
-  HandledErrorRecord,
-} from "./child-records.js";
+import type { EndedChildRecord, ChildIdentityRecord, HandledErrorRecord } from "./child-records.js";
 
 /**
  * The state of one v2 execution (#272 → Runtime): the path scope (one record per slot; current values
@@ -113,7 +109,7 @@ export const ExecutionState = Annotation.Root({
    */
   child: Annotation<ChildIdentityRecord | null>({ reducer: replace, default: () => null }),
   /** Every child execution that ended, as a nested record (`result.children`). */
-  children: Annotation<ChildExecutionRecord[]>({ reducer: append, default: () => [] }),
+  children: Annotation<EndedChildRecord[]>({ reducer: append, default: () => [] }),
   /** Every failure an `.onError` / `.onJoinError` side path took (`toHaveHandledError`). */
   handledErrors: Annotation<HandledErrorRecord[]>({ reducer: append, default: () => [] }),
 });

@@ -116,7 +116,12 @@ export {
   type DecidedOutcome,
 } from "../channels/channel-outcome.js";
 export {
+  ReplyInterpretation,
+  ReplyInterpretationKind,
   ReplyInterpreter,
+  type NotUnderstoodReply,
+  type NotUnderstoodReplyOptions,
+  type UnderstoodReply,
   type CodeReplyInterpreterOptions,
   type ModelReplyInterpreterOptions,
   type ReplyInterpreterDecorator,

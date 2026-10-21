@@ -1,5 +1,5 @@
 import type { LaunchRecord } from "../flow/runtime/launch/records.js";
-import type { ChildExecutionRecord, HandledErrorRecord } from "../flow/runtime/child-records.js";
+import type { EndedChildRecord, HandledErrorRecord } from "../flow/runtime/child-records.js";
 import type { ExecutionStatus } from "../app/types.js";
 import type { ErrorRecord } from "../core/error-record.js";
 import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
@@ -62,7 +62,7 @@ export interface ExecutionData {
   /** The execution's parallel launches (#273); absent in a run stored before them. */
   readonly launches?: readonly LaunchRecord[];
   /** Its child executions that ended (#263); absent in a run stored before them. */
-  readonly children?: readonly ChildExecutionRecord[];
+  readonly children?: readonly EndedChildRecord[];
   /** The failures its side paths took (#263); absent in a run stored before them. */
   readonly handledErrors?: readonly HandledErrorRecord[];
 }

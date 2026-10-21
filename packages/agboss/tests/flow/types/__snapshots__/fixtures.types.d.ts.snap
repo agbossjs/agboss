@@ -29,7 +29,7 @@ import type { AnyOfPanelWorkflow, ChainPanelWorkflow, ChatPanelWorkflow, Checked
 import type { CandidateReviewWorkflow, CompanySearchWorkflow, DueDiligenceWorkflow, FitReviewWorkflow } from "../tests/flow/fixtures/quorum.fixture.js";
 import type { DeepResearchWorkflow, DeepResearchWorkflowStart, FailTopicAction, OutlineAgent, OutlineDepthRouter, OutlineWorkflow, OutlineWorkflowStart, ReportMergerAgent, ResearchFailedDto, ResearchFailedWorkflowFinish, ResearchReportDto, ResearchReportWorkflowFinish, ResearchTooBroadDto, ResearchTopicDto, SplitTopicAction, TopicResearcherAgent } from "../tests/flow/fixtures/recursion.fixture.js";
 import type { CardRefundsWorkflow, RefundApprovalChannel, RefundCardInputDto, RefundCardOutputDto, RefundClerkAgent, RefundWorkflowFinish, RefundWorkflowStart } from "../tests/flow/fixtures/refunds.fixture.js";
-import type { ExpenseApprovalChannel, ExpenseReplyInterpreter, ExpenseRequestDto, PayoutApprovalChannel, PayoutReplyInterpreter, PayoutRequestDto, TransferApprovalChannel, TransferRequestDto, TreasurerAgent, TreasuryDeskWorkflow, TreasuryDeskWorkflowFinish, TreasuryDeskWorkflowStart, TreasuryWorkflow, TreasuryWorkflowFinish, TreasuryWorkflowStart } from "../tests/flow/fixtures/replies.fixture.js";
+import type { BatchSummaryAgent, DepositApprovalChannel, DepositReplyInterpreter, DepositReturnDto, ExpenseApprovalChannel, ExpenseReplyInterpreter, ExpenseRequestDto, PayoutApprovalChannel, PayoutReplyInterpreter, PayoutRequestDto, SplitRequestsAction, TransferApprovalChannel, TransferRequestDto, TreasurerAgent, TreasuryBatchWorkflow, TreasuryBatchWorkflowFinish, TreasuryBatchWorkflowStart, TreasuryDeskWorkflow, TreasuryDeskWorkflowFinish, TreasuryDeskWorkflowStart, TreasuryWorkflow, TreasuryWorkflowFinish, TreasuryWorkflowStart } from "../tests/flow/fixtures/replies.fixture.js";
 import type { ApprovalDto, CritiqueDto, DraftDto, PlanDto, ResearchDto } from "../tests/flow/fixtures/review-dtos.js";
 import type { CritiqueAction, CritiqueRouter, PolishAgent, PolishWorkflow, PolishedWorkflowFinish, PublisherAgent, ResearcherAgent, StoryReviewerAgent, StoryWorkflow, StoryWorkflowFinish, StoryWorkflowStart, StoryWriterAgent } from "../tests/flow/fixtures/review.fixture.js";
 import type { BatchRankAgent, CompanyBatchWorkflowStart, CompanyCheckAgent, CompanyCheckWorkflow, CompanyCheckWorkflowStart, CompanyScoreWorkflowFinish } from "../tests/flow/fixtures/starts.fixture.js";
@@ -47,6 +47,7 @@ declare module "../src/flow/generated-types.js" {
     "audit-bed-action": NoOutput;
     "auditor-agent": AuditDto;
     "batch-rank-agent": CompanyScoreDto;
+    "batch-summary-agent": NoOutput;
     "bed-agent": BedsDto;
     "bed-request-workflow-start": WorkflowStartTextDto;
     "board-search-agent": readonly CompanyDto[];
@@ -175,6 +176,7 @@ declare module "../src/flow/generated-types.js" {
     "ship-order-action": OrderShippedDto;
     "skills-panel-agent": ScoreDto;
     "skills-score-agent": SkillsScoreDto;
+    "split-requests-action": readonly WorkflowStartTextDto[];
     "split-topic-action": readonly ResearchTopicDto[];
     "split-unit-action": readonly OrgUnitDto[];
     "story-reviewer-agent": ApprovalDto | DraftChangesDto;
@@ -184,6 +186,7 @@ declare module "../src/flow/generated-types.js" {
     "topic-researcher-agent": ResearchReportDto | ResearchTooBroadDto;
     "topics-workflow-start": SupportIntentDto;
     "treasurer-agent": NoOutput;
+    "treasury-batch-workflow-start": WorkflowStartTextDto;
     "treasury-desk-workflow-start": WorkflowStartTextDto;
     "treasury-workflow": WorkflowFinishTextDto;
     "treasury-workflow-start": WorkflowStartTextDto;
@@ -213,6 +216,7 @@ declare module "../src/flow/generated-types.js" {
     "audit-bed-action": NoInput;
     "auditor-agent": { deal: Produced<DealDto, typeof DealWorkflowStart> };
     "batch-rank-agent": { companies: readonly Produced<CompanyDto, typeof CompanyBatchWorkflowStart>[] };
+    "batch-summary-agent": { answers: readonly Produced<WorkflowFinishTextDto, typeof TreasuryWorkflow>[] };
     "bed-agent": { message: Produced<WorkflowStartTextDto, typeof BedRequestWorkflowStart> };
     "bed-request-workflow-start": WorkflowStartTextDto;
     "beds-workflow-finish": NoInput;
@@ -269,6 +273,7 @@ declare module "../src/flow/generated-types.js" {
     "deep-dive-agent": { promising: Produced<PromisingCompanyDto, typeof CompanyReviewerAgent> };
     "deep-research-workflow-start": ResearchTopicDto;
     "delivery-topic-agent": { intent: Produced<SupportIntentDto, typeof TopicsWorkflowStart> };
+    "deposit-reply-interpreter": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: DepositReturnDto }; readonly reply: string };
     "desk-router": { message: Produced<WorkflowStartTextDto, typeof CreditWorkflowStart> };
     "draft-agent": { shortlist: Produced<ShortlistDto, typeof OfferWorkflowStart> };
     "draft-editor-agent": { draft: Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>; changes: Produced<ChangesRequestedDto, typeof ReviewDraftAction> };
@@ -428,6 +433,7 @@ declare module "../src/flow/generated-types.js" {
     "ship-order-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
     "skills-panel-agent": { candidate: Produced<CandidateDto, typeof PanelItemsWorkflowStart | typeof PanelWorkflowStart> };
     "skills-score-agent": { candidate: Produced<CandidateDto, typeof FitReviewWorkflowStart> };
+    "split-requests-action": { message: Produced<WorkflowStartTextDto, typeof TreasuryBatchWorkflowStart> };
     "split-topic-action": { topic: Produced<ResearchTopicDto, typeof DeepResearchWorkflowStart>; tooBroad: Produced<ResearchTooBroadDto, typeof TopicResearcherAgent> };
     "split-unit-action": { unit: Produced<OrgUnitDto, typeof OrgChartWorkflowStart>; split: Produced<OrgSplitDto, typeof OrgMapperAgent> };
     "story-reviewer-agent": { draft: Produced<DraftDto, typeof StoryWriterAgent> };
@@ -446,6 +452,8 @@ declare module "../src/flow/generated-types.js" {
     "topics-workflow-finish": NoInput;
     "topics-workflow-start": SupportIntentDto;
     "treasurer-agent": { message: Produced<WorkflowStartTextDto, typeof TreasuryWorkflowStart> };
+    "treasury-batch-workflow-finish": NoInput;
+    "treasury-batch-workflow-start": WorkflowStartTextDto;
     "treasury-desk-workflow-finish": NoInput;
     "treasury-desk-workflow-start": WorkflowStartTextDto;
     "treasury-workflow": NoInput;
@@ -478,6 +486,7 @@ declare module "../src/flow/generated-types.js" {
     "critique-action": readonly CritiqueDto[];
     "deal-report-panel-workflow-finish": DueDiligenceReportDto;
     "deal-room-opened-workflow-finish": AuditDto;
+    "deposit-reply-interpreter": Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: DepositReturnDto };
     "draft-history-workflow-finish": DraftChangesDto;
     "due-diligence-report-workflow-finish": DueDiligenceReportDto;
     "expense-reply-interpreter": Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: ExpenseRequestDto };
@@ -538,12 +547,14 @@ declare module "../src/flow/generated-types.js" {
     "send-offer-action": OfferSentDto;
     "send-receipt-action": NoOutput;
     "ship-order-action": OrderShippedDto;
+    "split-requests-action": readonly WorkflowStartTextDto[];
     "split-topic-action": readonly ResearchTopicDto[];
     "split-unit-action": readonly OrgUnitDto[];
     "story-workflow-finish": ArticleDto;
     "support-workflow-finish": CustomerReplyDto;
     "team-chart-workflow-finish": TeamChartDto;
     "topics-workflow-finish": TopicAnswerDto;
+    "treasury-batch-workflow-finish": WorkflowFinishTextDto;
     "treasury-desk-workflow-finish": WorkflowFinishTextDto;
     "treasury-workflow-finish": WorkflowFinishTextDto;
     "update-crm-action": NoOutput;
@@ -589,6 +600,7 @@ declare module "../src/flow/generated-types.js" {
     "story-workflow-start": { input: ArticleRequestDto; output: ArticleDto | DraftDto };
     "support-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
     "topics-workflow-start": { input: SupportIntentDto; output: TopicAnswerDto };
+    "treasury-batch-workflow-start": { input: WorkflowStartTextDto; output: WorkflowFinishTextDto };
     "treasury-desk-workflow-start": { input: WorkflowStartTextDto; output: WorkflowFinishTextDto };
     "treasury-workflow-start": { input: WorkflowStartTextDto; output: WorkflowFinishTextDto };
     "verdict-workflow-start": { input: ShortlistDto; output: ApprovedVerdictDto | RejectedVerdictDto };
@@ -646,6 +658,7 @@ declare module "../src/flow/generated-types.js" {
     "toParallelAgents(skills-panel-agent) per item": readonly ScoreDto[];
     "toParallelAgents(skills-score-agent, culture-score-agent, salary-fit-agent)": readonly [CultureScoreDto, SalaryFitDto, SkillsScoreDto];
     "toParallelWorkflows(company-review-workflow) per item": readonly (CompanyGradeDto | CompanyRejectedDto | CompanyReviewFailedDto)[];
+    "toParallelWorkflows(treasury-workflow) per item": readonly WorkflowFinishTextDto[];
   }
   interface ThisWorkflowOutputs {
     "deep-research-workflow": { readonly input: NoInput; readonly output: ResearchFailedDto | ResearchReportDto; readonly join: readonly (ResearchFailedDto | ResearchReportDto)[] };
@@ -655,6 +668,7 @@ declare module "../src/flow/generated-types.js" {
     "outline-workflow": { readonly input: NoInput; readonly output: ResearchFailedDto | ResearchReportDto };
   }
   interface ChannelRoles {
+    "deposit-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: DepositReturnDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: DepositReturnDto } };
     "expense-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: ExpenseRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: ExpenseRequestDto } };
     "payout-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: PayoutRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: PayoutRequestDto } };
     "refund-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: RefundCardInputDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: RefundCardInputDto } };
@@ -687,6 +701,7 @@ declare module "../src/flow/generated-types.js" {
     "DealCritiqueDto": DealCritiqueDto;
     "DealDto": DealDto;
     "DeepDiveDto": DeepDiveDto;
+    "DepositReturnDto": DepositReturnDto;
     "DraftApprovedDto": DraftApprovedDto;
     "DraftChangesDto": DraftChangesDto;
     "DraftDto": DraftDto;
@@ -1745,6 +1760,18 @@ declare module "../tests/flow/fixtures/refunds.fixture.js" {
 }
 
 declare module "../tests/flow/fixtures/replies.fixture.js" {
+  interface BatchSummaryAgent {
+    readonly [agbossComponent]?: "batch-summary-agent";
+  }
+  interface DepositApprovalChannel {
+    readonly [agbossComponent]?: "deposit-approval-channel";
+  }
+  interface DepositReplyInterpreter {
+    readonly [agbossComponent]?: "deposit-reply-interpreter";
+  }
+  interface DepositReturnDto {
+    readonly [agbossDto]?: "DepositReturnDto";
+  }
   interface ExpenseApprovalChannel {
     readonly [agbossComponent]?: "expense-approval-channel";
   }
@@ -1763,6 +1790,9 @@ declare module "../tests/flow/fixtures/replies.fixture.js" {
   interface PayoutRequestDto {
     readonly [agbossDto]?: "PayoutRequestDto";
   }
+  interface SplitRequestsAction {
+    readonly [agbossComponent]?: "split-requests-action";
+  }
   interface TransferApprovalChannel {
     readonly [agbossComponent]?: "transfer-approval-channel";
   }
@@ -1771,6 +1801,15 @@ declare module "../tests/flow/fixtures/replies.fixture.js" {
   }
   interface TreasurerAgent {
     readonly [agbossComponent]?: "treasurer-agent";
+  }
+  interface TreasuryBatchWorkflow {
+    readonly [agbossComponent]?: "treasury-batch-workflow";
+  }
+  interface TreasuryBatchWorkflowFinish {
+    readonly [agbossComponent]?: "treasury-batch-workflow-finish";
+  }
+  interface TreasuryBatchWorkflowStart {
+    readonly [agbossComponent]?: "treasury-batch-workflow-start";
   }
   interface TreasuryDeskWorkflow {
     readonly [agbossComponent]?: "treasury-desk-workflow";

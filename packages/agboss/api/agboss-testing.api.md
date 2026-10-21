@@ -671,13 +671,15 @@ export interface ToolSlice<TInput, TOutput> {
     invoke(input: TInput): Promise<ToolOutput<TOutput>>;
 }
 
+// Warning: (ae-forgotten-export) The symbol "NameOf" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "ReplyInterpreterTurnFor" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "KindOf" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "NodeKind" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "AgentTurnFor" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "RouterTurnFor" needs to be exported by the entry point index.d.ts
 //
 // @public
-export type TurnFor<TSelf> = IsKnown<TSelf> extends false ? ScriptedTurn : KindOf<TSelf> extends NodeKind.Agent ? AgentTurnFor<TSelf> : KindOf<TSelf> extends NodeKind.Router ? RouterTurnFor<TSelf> : ScriptedTurn;
+export type TurnFor<TSelf> = IsKnown<TSelf> extends false ? ScriptedTurn : NameOf<TSelf> extends `${string}-reply-interpreter` ? ReplyInterpreterTurnFor<TSelf> : KindOf<TSelf> extends NodeKind.Agent ? AgentTurnFor<TSelf> : KindOf<TSelf> extends NodeKind.Router ? RouterTurnFor<TSelf> : ScriptedTurn;
 
 // @public
 export interface UnitCallOptions {

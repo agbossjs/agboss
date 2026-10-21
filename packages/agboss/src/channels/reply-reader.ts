@@ -12,18 +12,23 @@ import { maskForModel, revealFromModel } from "../pii/model-boundary.js";
 import type { PiiPolicySet } from "../pii/policy-set.js";
 import type { PiiTokenMap } from "../pii/tokens.js";
 import { REPLY_INTERPRETER_SYSTEM, replyInputMessage } from "../prompts/reply-interpreter.js";
+import { isDecisionModel } from "../models/decision-models.js";
 import {
   ReplyInterpreterMissingError,
   UninterpretableReplyError,
 } from "./channel-role.decorator.js";
 import type { AssembledReplyInterpreter } from "./discovery.js";
+import { crashed, readByCode, type Declined, type Interpreted } from "./reply-code.js";
+import { readByDecision } from "./reply-decision.js";
 
 /**
  * Reading a free-text reply to a pause (#267 PR 3): the pause's role's interpreter gets the pause's
  * original question and the reply, and what it gives is validated like a decision. A reply nobody
- * can read — the interpreter declines, or its answer is not valid — is `unreadable`: the caller
- * throws `UninterpretableReplyError` and the pause stays pending. What a model interpreter spent is
- * reported either way. A model interpreter makes one chat call under the cost caller
+ * can read — a code interpreter's `ReplyInterpretation.notUnderstood({ reason })` (S124 b) or its
+ * crash (a throw), a model that gives no answer, an answer that is not valid — is `unreadable`: the
+ * caller throws `UninterpretableReplyError` and the pause stays pending. What a model interpreter
+ * spent is reported either way. A decision-model interpreter makes one `Decision.noul` (S124 a,
+ * `reply-decision.ts`); a chat-model interpreter makes one chat call under the cost caller
  * `reply-interpreter:<name>` — its instructions after the framework's system text, the question and
  * the reply in the input message, one answer tool of the role's answer DTO; no answer is a decline.
  * Its model reads them through the application's PII policies and its answer is revealed before
@@ -145,32 +150,6 @@ export interface ReplyReaderParts {
 /** Reads one reply. */
 export type ReplyReader = (call: ReplyCall) => Promise<ReplyReading>;
 
-/** What the interpreter itself answered, before validation. */
-type Interpreted =
-  | { readonly kind: "answered"; readonly answer: unknown; readonly usage: readonly UsageRecord[] }
-  | { readonly kind: "declined"; readonly cause: unknown; readonly usage: readonly UsageRecord[] };
-
-async function byCode(
-  interpreter: AssembledReplyInterpreter,
-  input: ReplyInterpreterInput,
-  parts: ReplyReaderParts,
-): Promise<Interpreted> {
-  const instance = parts.instanceOf(interpreter.interpreter);
-  const interpret: unknown =
-    typeof instance === "object" && instance !== null
-      ? Reflect.get(instance, "interpret")
-      : undefined;
-  if (typeof interpret !== "function")
-    throw new TypeError(`${interpreter.name}: interpret is not a method`);
-  try {
-    const answer: unknown = await Reflect.apply(interpret, instance, [input]);
-    return { kind: "answered", answer, usage: [] };
-  } catch (cause) {
-    // a code interpreter declines a reply it cannot read by throwing
-    return { kind: "declined", cause, usage: [] };
-  }
-}
-
 async function byModel(
   interpreter: AssembledReplyInterpreter,
   model: string,
@@ -179,15 +158,17 @@ async function byModel(
   parts: ReplyReaderParts,
 ): Promise<Interpreted> {
   await call.beforeModelCall();
+  if (isDecisionModel(model)) {
+    const caller = replyInterpreterCaller(interpreter.name);
+    const site = { gateway: parts.gateway, model, caller, pii: call.pii };
+    return readByDecision(interpreter, input, site);
+  }
   const settings = resolveSettings(
     { ...parts.chatModelSettings(model), model },
     parts.chatDefaults,
   );
   const site = { gateway: parts.gateway, settings, callbacks: call.callbacks, pii: call.pii };
-  const reading = await readByModel(interpreter, input, site);
-  return reading.kind === "answered"
-    ? reading
-    : { kind: "declined", cause: new Error(reading.reason), usage: reading.usage };
+  return readByModel(interpreter, input, site);
 }
 
 /** The reader of a workflow's tree. */
@@ -204,16 +185,16 @@ export function replyReaderOf(parts: ReplyReaderParts): ReplyReader {
     const { model } = interpreter;
     const interpreted = await runInFrame(call.frame, () =>
       model === undefined
-        ? byCode(interpreter, input, parts)
+        ? readByCode(interpreter, input, parts.instanceOf(interpreter.interpreter))
         : byModel(interpreter, model, input, call, parts),
     );
-    const unreadable = (cause: unknown): ReplyReading => {
-      const reason = cause instanceof Error ? cause.message : String(cause);
-      const message = `pause ${pause.pauseId}: ${interpreter.name} could not read the reply — ${reason}`;
-      const error = new UninterpretableReplyError(message, { cause });
+    const unreadable = (declined: Declined): ReplyReading => {
+      const message = `pause ${pause.pauseId}: ${interpreter.name} could not read the reply — ${declined.reason}`;
+      const { reason, cause } = declined;
+      const error = new UninterpretableReplyError(message, { reason, cause });
       return { kind: "unreadable", error, usage: interpreted.usage };
     };
-    if (interpreted.kind === "declined") return unreadable(interpreted.cause);
+    if (interpreted.kind === "declined") return unreadable(interpreted);
     try {
       return {
         kind: "read",
@@ -221,7 +202,7 @@ export function replyReaderOf(parts: ReplyReaderParts): ReplyReader {
         usage: interpreted.usage,
       };
     } catch (invalid) {
-      return unreadable(invalid);
+      return unreadable(crashed(invalid, interpreted.usage));
     }
   };
 }

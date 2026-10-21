@@ -32,7 +32,7 @@ import type { RuntimeLaunch } from "./launch/runtime-launch.js";
 import type { RuntimeContexts } from "../context/runtime-contexts.js";
 import { readInput } from "./scope.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
-import type { ChildExecutionRecord } from "./child-records.js";
+import type { EndedChildRecord } from "./child-records.js";
 import type { TreeSlotRegistry } from "./launch/launch-registry.js";
 
 /**
@@ -152,7 +152,7 @@ function succeeded(
 /** What a visit's code reported besides its outcome: services' spend, ended child executions. */
 interface Reported {
   readonly usage: UsageRecord[];
-  readonly children: ChildExecutionRecord[];
+  readonly children: EndedChildRecord[];
   /** A failed child's PII tokens (#120): kept with its error. */
   piiTokens: PiiTokenMap;
 }
@@ -198,7 +198,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       reportUsage: (record: UsageRecord): void => {
         reported.usage.push({ ...record, caller: `${node.kind}:${node.id}` });
       },
-      recordChild: (record: ChildExecutionRecord): void => {
+      recordChild: (record: EndedChildRecord): void => {
         reported.children.push(record);
       },
       keepPiiTokens: (tokens: PiiTokenMap): void => {

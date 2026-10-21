@@ -98,7 +98,8 @@ export function rolesOf(uses: readonly ChannelUse[]): readonly FoundChannelRole[
 /**
  * The reply interpreters of a workflow's tree (#267 PR 3): the `replyInterpreter` of every channel
  * role its tools — its children's too — name, checked at assembly (`[name.kind-suffix]`,
- * `[reply-interpreter.not-an-interpreter]`, `[reply-interpreter.decision-model]`,
+ * `[reply-interpreter.not-an-interpreter]`, `[reply-interpreter.decision-model]` — a decision model
+ * for a question role, whose answer needs more than `approved`,
  * `[reply-interpreter.no-interpret-method]`) and kept with what they answer and, for a model
  * interpreter, its instructions loaded.
  */
@@ -112,7 +113,7 @@ export interface AssembledReplyInterpreter {
   readonly name: string;
   /** What its answer is validated as: `ToolCallApprovalDecisionDto`, or the role's `answer`. */
   readonly answer: DtoClass;
-  /** A model interpreter's chat model; `undefined` for a code one. */
+  /** A model interpreter's model (a chat model, or a decision model for an approval); `undefined` for a code one. */
   readonly model: string | undefined;
   /** A model interpreter's instructions (`prompt` / `promptUrls`, static); `""` for a code one. */
   readonly instructions: string;
@@ -143,7 +144,11 @@ function interpretedRolesOf(uses: readonly ChannelUse[]): readonly InterpretedRo
 }
 
 /** What is wrong with one interpreter's declaration. */
-function declarationViolations({ interpreter, declaration }: InterpretedRole): RuleViolation[] {
+function declarationViolations({
+  role,
+  interpreter,
+  declaration,
+}: InterpretedRole): RuleViolation[] {
   const { options } = declaration;
   const suffix = kindSuffixProblem(options.name, NameKind.ReplyInterpreter);
   const found =
@@ -154,8 +159,10 @@ function declarationViolations({ interpreter, declaration }: InterpretedRole): R
     const message = `${nameOf(interpreter)} (${options.name}) is decided by code but has no interpret(input) method — implements ReplyInterpreterHandler<${nameOf(interpreter)}>`;
     return [...found, violation("reply-interpreter.no-interpret-method", message, [options.name])];
   }
-  if (!isDecisionModel(options.model)) return found;
-  const message = `${options.name}: ${options.model} is a decision model — it cannot give a typed answer; name a chat model, or decide by code (DecidedBy.Code)`;
+  // a decision model answers yes / no: an approval's `approved` only (#267 S124 a)
+  if (!isDecisionModel(options.model) || role.options.approves !== undefined) return found;
+  const answer = nameOf(answerOf(role));
+  const message = `${options.name}: ${options.model} is a decision model — it answers only yes / no (approved), but channel role ${role.options.name} asks for ${answer}, whose fields a yes / no cannot give; name a chat model, or decide by code (DecidedBy.Code)`;
   return [...found, violation("reply-interpreter.decision-model", message, [options.name])];
 }
 

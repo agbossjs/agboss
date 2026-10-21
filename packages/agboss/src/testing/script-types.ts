@@ -101,15 +101,23 @@ type RouteFor<TAnswer, TRoute> = [TAnswer] extends [GeneratedTypeError]
 type RouterTurnFor<TSelf> =
   FailureTurn | WaitTurn | DecideTurn | RouteFor<RouterAnswerOf<TSelf>, Route<TSelf>>;
 
+/**
+ * A model reply interpreter's turns (#267): an agent's (a chat model's answer) or `decideWith(…)`
+ * (a decision model's yes / no, S124 a) — its decorator's model, not its generated types, says which.
+ */
+type ReplyInterpreterTurnFor<TSelf> = AgentTurnFor<TSelf> | DecideTurn;
+
 /** The turns `mockLlm(X).thenReturn(…)` accepts for a component. */
 export type TurnFor<TSelf> =
   IsKnown<TSelf> extends false
     ? ScriptedTurn
-    : KindOf<TSelf> extends NodeKind.Agent
-      ? AgentTurnFor<TSelf>
-      : KindOf<TSelf> extends NodeKind.Router
-        ? RouterTurnFor<TSelf>
-        : ScriptedTurn;
+    : NameOf<TSelf> extends `${string}-reply-interpreter`
+      ? ReplyInterpreterTurnFor<TSelf>
+      : KindOf<TSelf> extends NodeKind.Agent
+        ? AgentTurnFor<TSelf>
+        : KindOf<TSelf> extends NodeKind.Router
+          ? RouterTurnFor<TSelf>
+          : ScriptedTurn;
 
 /** What a node returns, as `toHaveReturned` names it: an agent's answer, an action's result. */
 type ReturnedOf<TSelf> =

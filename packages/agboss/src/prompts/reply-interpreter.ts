@@ -16,3 +16,11 @@ export const REPLY_INTERPRETER_SYSTEM = [
 /** The input message: the pause's question and the reply, each under its field's heading. */
 export const replyInputMessage = (ask: unknown, reply: string): string =>
   `### ask\n${prettyJson(ask)}\n\n### reply\n${prettyJson(reply)}`;
+
+/**
+ * The yes / no question of a decision-model interpreter (#267 S124 a): approve or refuse only; the
+ * interpreter's own prompt follows.
+ */
+export const REPLY_DECISION_QUESTION =
+  "Someone answered an approval request in free text. Does their reply approve the request? " +
+  "Answer yes only when the reply clearly approves it.";

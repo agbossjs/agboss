@@ -153,5 +153,6 @@ export {
   ChildExecutionStatus,
   type ChildExecutionRecord,
   type ChildLaunchRecord,
+  type EndedChildRecord,
   type HandledErrorRecord,
 } from "../flow/runtime/child-records.js";

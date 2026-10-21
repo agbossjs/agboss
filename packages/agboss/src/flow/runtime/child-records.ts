@@ -1,13 +1,15 @@
 import type { ErrorRecord } from "../../core/error-record.js";
 import type { CostReport } from "../../finops/usage.js";
 import type { WorkflowRecord } from "../context/execution-context.js";
+import type { PauseAnswerRecord } from "./execution-record.js";
 import type { ComponentRecord } from "./records.js";
 
 /**
  * What an execution keeps of its child executions (#263), as plain JSON: a child's own identity in
  * its subgraph's state (made on first entry, read back after a pause or a crash, S24), and one
- * nested record per child execution that ended — in the parent's state, `result.children` and
- * `result.record.children`; never in the conversation history of the parent's thread.
+ * nested record per child execution that ended — in the parent's state (`EndedChildRecord`), and in
+ * `result.children` and `result.record.children` with the pauses each child asked (#267 S124 c,
+ * `ChildExecutionRecord`); never in the conversation history of the parent's thread.
  */
 
 /** How a child execution ended. */
@@ -39,8 +41,11 @@ export interface ChildLaunchRecord {
   readonly visitNumber: number;
 }
 
-/** One child execution that ended: its identity, where it came from, how it ended, what it cost. */
-export interface ChildExecutionRecord {
+/**
+ * One child execution that ended, as its parent's state keeps it: its identity, where it came from,
+ * how it ended, what it cost. Its pauses are added when a result reports it (`ChildExecutionRecord`).
+ */
+export interface EndedChildRecord {
   /** The child's own execution id (`executionContext.executionId` inside it). */
   readonly executionId: string;
   /** The execution that launched it. */
@@ -72,7 +77,30 @@ export interface ChildExecutionRecord {
   /** Its own spend (the parent's `result.spend` holds it too). */
   readonly spend: CostReport;
   /** Its own child executions, nested the same way. */
+  readonly children: readonly EndedChildRecord[];
+}
+
+/** One child execution that ended, as a result reports it: with the pauses it asked (#267 S124 c). */
+export interface ChildExecutionRecord extends Omit<EndedChildRecord, "children"> {
+  /**
+   * The resolved pauses its own steps asked, in the order asked — its children's are in their own
+   * records; the root's `record.pauses` lists the whole tree's. Masked like the execution record.
+   */
+  readonly pauses: readonly PauseAnswerRecord[];
+  /** Its own child executions, nested the same way. */
   readonly children: readonly ChildExecutionRecord[];
+}
+
+/** The children's records with the pauses each asked, from the tree's answers (nested). */
+export function withChildPauses(
+  children: readonly EndedChildRecord[],
+  answers: readonly PauseAnswerRecord[],
+): ChildExecutionRecord[] {
+  return children.map((child) => ({
+    ...child,
+    pauses: answers.filter((answer) => answer.executionId === child.executionId),
+    children: withChildPauses(child.children, answers),
+  }));
 }
 
 /** A failure an `.onError` / `.onJoinError` side path took (#263 `toHaveHandledError`). */

@@ -1,4 +1,5 @@
-import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
+import { withChildPauses } from "../flow/runtime/child-records.js";
+import type { ExecutionRecord, PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import type { RunDeps } from "../run/types.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import type { ExecutionOutput } from "./types.js";
@@ -11,8 +12,8 @@ const visiblePauseOf = (pause: WaitingPause): PendingPause =>
   pendingPauseOf(pause, pause.answeredBy === PauseAnswerer.ThreadOwner);
 
 /**
- * The full record of an execution (`{ record: true }`, #270 AC16); its `pauses` are read once the
- * pass ended (`withPauseAnswers`, #267 S107).
+ * The full record of an execution (`{ record: true }`, #270 AC16); its `pauses`, and its children's,
+ * are read once the tree rests (`withPauseAnswers`, #267 S107 / S124 c).
  */
 const recordOf = (run: AgentExecutionOutput): ExecutionRecord => ({
   path: run.path,
@@ -20,11 +21,14 @@ const recordOf = (run: AgentExecutionOutput): ExecutionRecord => ({
   outdatedValues: run.data.outdatedValues,
   ...(run.data.lastError === null ? {} : { lastError: run.data.lastError }),
   spend: run.cost,
-  children: run.data.children ?? [],
+  children: withChildPauses(run.data.children ?? [], []),
   pauses: [],
 });
 
-/** An execution of the core, as the app reports it. */
+/**
+ * An execution of the core, as the app reports it — one pass's: its children's pauses are filled
+ * once the tree rests (`withPauseAnswers`).
+ */
 export function runResultOf(run: AgentExecutionOutput, withRecord: boolean): ExecutionOutput {
   return {
     status: run.status,
@@ -34,7 +38,7 @@ export function runResultOf(run: AgentExecutionOutput, withRecord: boolean): Exe
     path: run.path,
     spend: run.cost,
     launches: run.data.launches ?? [],
-    children: run.data.children ?? [],
+    children: withChildPauses(run.data.children ?? [], []),
     handledErrors: run.data.handledErrors ?? [],
     ...(run.finish === undefined ? {} : { finish: { name: run.finish }, output: run.output }),
     pending: run.pending.map(visiblePauseOf),
@@ -55,9 +59,11 @@ export async function maskedRecordOf(
 }
 
 /**
- * A result with its record's `pauses` (#267 S107): how each pause of its tree was resolved, from the
- * execution records — the permanent log, whatever the pause records' retention removed — in the
- * order they were asked, masked by the application's PII policies like the rest of the record.
+ * A result with its record's `pauses` (#267 S107) and each child's (S124 c): how each pause of its
+ * tree was resolved, from the execution records — the permanent log, whatever the pause records'
+ * retention removed — in the order they were asked, masked by the application's PII policies like
+ * the rest of the record. A child's are the pauses its own steps asked, in `result.children` and
+ * `result.record.children` alike; the log is read only when one of them is reported.
  */
 export async function withPauseAnswers(
   result: ExecutionOutput,
@@ -65,7 +71,7 @@ export async function withPauseAnswers(
 ): Promise<ExecutionOutput> {
   const { record } = result;
   const log = deps.pause?.answers;
-  if (record === undefined || log === undefined) return result;
+  if ((record === undefined && result.children.length === 0) || log === undefined) return result;
   const mask = deps.pii?.observability;
   const answers = await log.findPauseAnswersByTenantIdAndRootExecutionId(
     result.tenantId,
@@ -73,5 +79,21 @@ export async function withPauseAnswers(
   );
   // the mask keeps the shape: every string masked, nothing else changed
   const masked = mask === undefined ? answers : ((await mask.value(answers)) as typeof answers);
-  return { ...result, record: { ...record, pauses: masked } };
+  return withAnswers(result, masked);
+}
+
+/** The result with the tree's answers: the root's record's, and each child's own. */
+function withAnswers(
+  result: ExecutionOutput,
+  answers: readonly PauseAnswerRecord[],
+): ExecutionOutput {
+  const { record } = result;
+  const children = withChildPauses(result.children, answers);
+  if (record === undefined) return { ...result, children };
+  const recorded = {
+    ...record,
+    pauses: answers,
+    children: withChildPauses(record.children, answers),
+  };
+  return { ...result, children, record: recorded };
 }

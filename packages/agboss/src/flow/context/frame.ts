@@ -5,7 +5,7 @@ import type { StepDescriptor, WorkflowDescriptor } from "./execution-context.js"
 import type { ContextFields } from "./context-values.js";
 import type { TenantContext } from "./tenant-context.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
-import type { ChildExecutionRecord } from "../runtime/child-records.js";
+import type { EndedChildRecord } from "../runtime/child-records.js";
 
 /**
  * The frame of a step (#280 S18): what the injected `ExecutionContext` reads. The node runner
@@ -72,7 +72,7 @@ export interface FrameServices {
    */
   readonly input?: () => Readonly<Record<string, unknown>>;
   /** Where a child execution the step launched is recorded when it ends (#263). */
-  readonly recordChild?: (record: ChildExecutionRecord) => void;
+  readonly recordChild?: (record: EndedChildRecord) => void;
   /**
    * Where a failed child's PII tokens go (#263, #120): into the parent's state with the error, so
    * the side path that takes it reveals what the child masked — never on the error itself.
