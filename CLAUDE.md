@@ -1299,8 +1299,10 @@ export class ArchiveAgent {}
   the HMAC key of sensitive fields, project detectors and policies without their own key — one
   token per value on every instance (a policy's own key wins); a policy that needs it when it is
   not set fails the start, naming the field (`testWith`: a fixed test key). Not set and not
-  needed → a key of each instance (reveal still works — the map is in the checkpoint — but one value
-  gets another token on each instance) and the warning `[application.pii-instance-key]` (S94).
+  needed → a key of each root execution (#334: made at its start, kept in its checkpoint next to
+  `piiTokens` and handed to its children — a resume, a failover or a recovery on another instance
+  gives one value the same token; another execution gives it another) and the warning
+  `[application.pii-instance-key]` (S94); logs and traces mask with a key of the instance.
 
 <!-- snippet-context
 import { Agent, PiiAction, PiiKind, PiiPolicy, pii, secret } from "agboss";

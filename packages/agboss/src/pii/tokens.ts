@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 /**
  * The tokens of `replaceWithToken()` (#120 S38): `<email:7f3a91>` — the first hex digits of the
@@ -6,6 +6,12 @@ import { createHmac } from "node:crypto";
  * everywhere. The token → value map is the execution's `piiTokens` channel (in its checkpoint);
  * only these tokens are revealed, `replaceWithKind()` / `replacePart()` are one-way.
  */
+
+/**
+ * A new random key for field tokens: an instance's when the application sets no `pseudonymKey`
+ * (#120 S94), and each root execution's then (#334).
+ */
+export const newPiiKey = (): string => randomBytes(32).toString("hex");
 
 /** Token → the value it stands for (the `piiTokens` channel). */
 export type PiiTokenMap = Readonly<Record<string, string>>;

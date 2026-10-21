@@ -5,6 +5,7 @@ import { applicationOf } from "../../src/application/assemble.js";
 import { tokenOf } from "../../src/pii/tokens.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
+import { withInstancePiiKeys } from "../../src/testing/pii-parts.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { execute } from "../helpers/flow.js";
@@ -31,6 +32,7 @@ afterAll(() => {
 });
 
 const instances = testWith(KeyedApplication, { instances: 2 });
+const ownKeys = testWith(KeyedApplication, withInstancePiiKeys({ instances: 2 }));
 
 describe("#120: the application's pseudonymKey", () => {
   instances(
@@ -51,6 +53,24 @@ describe("#120: the application's pseudonymKey", () => {
       expect(one).toContain(author);
       expect(two).toContain(author);
       expect(one).toContain(tokenOf("phone", "+1 555 123 4567", APP_KEY, {}));
+    },
+  );
+
+  ownKeys(
+    "instances that would make keys of their own still use the application's: no execution key (#334)",
+    async ({ apps, mockLlm }) => {
+      const agent = mockLlm(KeyedAgent).thenReturnAlways(replyWith("ok"));
+      const [first, second] = apps;
+      if (first === undefined || second === undefined) throw new Error("two instances");
+
+      await execute(first, KeyedStart, MESSAGE);
+      await execute(second, KeyedStart, MESSAGE);
+
+      const author = tokenOf("author", "zoe-7", APP_KEY, {});
+      expect(agent.requests.map((request) => requestText(request).includes(author))).toEqual([
+        true,
+        true,
+      ]);
     },
   );
 

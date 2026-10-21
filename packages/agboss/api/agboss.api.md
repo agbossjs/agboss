@@ -4691,8 +4691,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 
 // Warnings were encountered during analysis:
 //
-// src/app/app-deps.ts:51:3 - (ae-undocumented) Missing documentation for "evaluation".
-// src/app/app-deps.ts:94:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/app-deps.ts:52:3 - (ae-undocumented) Missing documentation for "evaluation".
+// src/app/app-deps.ts:95:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/create-app.ts:60:3 - (ae-undocumented) Missing documentation for "profileRoot".
@@ -4718,7 +4718,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/types.ts:173:3 - (ae-undocumented) Missing documentation for "spend".
 // src/app/types.ts:202:3 - (ae-undocumented) Missing documentation for "name".
 // src/app/types.ts:203:3 - (ae-undocumented) Missing documentation for "version".
-// src/application/application.ts:131:1 - (ae-undocumented) Missing documentation for "Application".
+// src/application/application.ts:132:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
 // src/budgets/budget.ts:25:3 - (ae-undocumented) Missing documentation for "Week".

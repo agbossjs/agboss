@@ -69,10 +69,11 @@ async function guardedCall(
   task: ToolTask,
   run: () => Promise<ToolOutput<unknown>>,
 ): Promise<ClosedResult> {
-  const refusal = await argumentsRefusal(deps.pii, task.args);
+  const set = deps.pii?.withFieldKey(task.piiKey);
+  const refusal = await argumentsRefusal(set, task.args);
   if (refusal.content !== undefined)
     return { content: refusal.content, piiTokens: {}, piiMasked: {}, usage: refusal.usage };
-  const closed = await closedResult(deps.pii, tool, await run());
+  const closed = await closedResult(set, tool, await run());
   return { ...closed, usage: [...refusal.usage, ...closed.usage] };
 }
 

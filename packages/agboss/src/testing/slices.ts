@@ -118,6 +118,7 @@ const freshState = (runId: string): ExecutionStateType => ({
   branchRecords: [],
   launches: [],
   piiTokens: {},
+  piiKey: null,
   child: null,
   children: [],
   handledErrors: [],

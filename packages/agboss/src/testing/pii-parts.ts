@@ -14,6 +14,24 @@ import { compactionKeyOf, guardrailKeyOf, piiPolicyKeyOf } from "./scripted-gate
  */
 
 import { TEST_PSEUDONYM_KEY } from "../pii/application-key.js";
+import type { TestWithOptions } from "./environment.js";
+
+/** The options of tests whose instances make PII tokens on keys of their own (#334). */
+const INSTANCE_KEYED = new WeakSet<TestWithOptions>();
+
+/**
+ * Internal (#334, not in `agboss/testing`): `testWith(App, withInstancePiiKeys({ instances: 2 }))` —
+ * an application without `pseudonymKey` runs on a key of each instance, as in production, instead
+ * of the test's fixed key: the framework's own tests of keys per execution across instances.
+ */
+export function withInstancePiiKeys(options: TestWithOptions): TestWithOptions {
+  INSTANCE_KEYED.add(options);
+  return options;
+}
+
+/** The PII key of a test's instances when the application sets none: the fixed test key. */
+export const testPiiKeyOf = (options: TestWithOptions): string | undefined =>
+  INSTANCE_KEYED.has(options) ? undefined : TEST_PSEUDONYM_KEY;
 
 const policyClassesOf = (assembled: AssembledApplication): readonly Class[] => [
   ...new Set(assembled.workflows.flatMap((workflow) => workflow.pii?.classes ?? [])),

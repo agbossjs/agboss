@@ -31,6 +31,11 @@ export interface PiiRuntime {
   readonly contextValuesOf: (contexts: ExecutionContextValues) => readonly SensitiveValue[];
   /** The key of the tokens of `sensitive` fields. */
   readonly fieldKey: string;
+  /**
+   * Whether `fieldKey` is the instance's own (no `pseudonymKey`, S94): each root execution then
+   * makes its field tokens with a key of its own, kept in its state (#334).
+   */
+  readonly isInstanceKey: boolean;
 }
 
 /** What the runtime is built from: the container, the process, models and the contexts. */
@@ -45,6 +50,8 @@ export interface PiiRuntimeParts {
    * sensitive fields, a project's detectors, a policy without its own key.
    */
   readonly fieldKey: string;
+  /** The key is the instance's own (S94); absent = the application's (or a test's). */
+  readonly isInstanceKey?: boolean;
 }
 
 function keyOf(meta: PiiPolicyMeta, parts: PiiRuntimeParts): string {
@@ -98,6 +105,7 @@ export function piiRuntimeOf(pii: AssembledPii | undefined, parts: PiiRuntimePar
     observability: observabilityMaskOf(applicationWide, parts.contexts),
     workflowPolicies: applicationWide,
     fieldKey: parts.fieldKey,
+    isInstanceKey: parts.isInstanceKey === true,
     contextValuesOf: (contexts) =>
       sensitiveValuesOf([
         { type: parts.contexts.tenantContext, values: contexts.tenant },

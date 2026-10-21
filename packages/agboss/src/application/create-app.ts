@@ -27,7 +27,6 @@ import { observerManagerOf } from "./observers.js";
 import { assemblyWarningsOf, logStart, warningText } from "./start-log.js";
 import type { ApplicationClass } from "./types.js";
 import { applicationPiiKeyOf, applicationPiiMaskOf } from "./application-pii.js";
-import { TEST_PSEUDONYM_KEY } from "../pii/application-key.js";
 import type { GraphDeps } from "../graph/deps.js";
 
 /** An application instance with the parts it was built from (the testing toolkit reads them). */
@@ -57,6 +56,11 @@ export interface InstanceSeams {
   readonly idGenerator?: IdGenerator;
   /** A test's instance: an unlisted `Logger` is silent, and the start is not logged. */
   readonly quiet?: boolean;
+  /**
+   * The PII key when the application sets none (`testWith`: a fixed one shared by its instances,
+   * #334); absent = a key of the instance, one per root execution — what production does.
+   */
+  readonly piiTestKey?: string;
   /** Observers of the instance besides the application's (a test's call recorder, #262). */
   readonly observers?: readonly ExecutionObserver[];
 }
@@ -150,18 +154,17 @@ export async function buildApplication(
   const infrastructure = resolveInfrastructure(shared, { ...container, onCreate });
   const processEnv = options.processEnv ?? process.env;
   const environment = options.environment ?? NO_ENVIRONMENT_VALUES;
-  // a test's instances share a fixed PII key when the application sets none (#120)
-  const fallback = seams.quiet === true ? TEST_PSEUDONYM_KEY : undefined;
+  // a test's instances share a fixed PII key when the application sets none (#120, #334)
+  const fallback = seams.piiTestKey;
   const piiKey = applicationPiiKeyOf(assembled, { environment, env: processEnv, fallback });
-  const piiFieldKey = piiKey.key;
-  const piiParts = { processEnv, fieldKey: piiFieldKey, contexts };
+  const piiParts = { processEnv, fieldKey: piiKey.key, contexts };
   const mask = applicationPiiMaskOf(assembled, shared, { ...container, onCreate }, piiParts);
   const log = frameworkLogOf(infrastructure.logger, clock, (message) => mask.text(message));
   const workflows: BuiltApp[] = [];
   try {
     const observer = observerManagerOf(assembled, shared, { ...container, onCreate }, log, seams);
     const budgets = { budgets: assembled.budgets, applicationName: assembled.name };
-    const parts = { infrastructure, created, contexts, budgets, observer, piiFieldKey };
+    const parts = { infrastructure, created, contexts, budgets, observer, piiKey };
     await buildWorkflows(assembled, { ...options, container }, parts, workflows);
     createListed(assembled, workflows);
     await startComponents(created);

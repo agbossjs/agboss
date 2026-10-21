@@ -24,9 +24,14 @@ import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./stat
  * rules (`PiiRefusedError`).
  */
 
-/** The policies at the agent's model with the execution's sensitive values; none = no masking. */
-const policiesOf = (state: AgentLoopStateType, deps: AgentLoopDeps): PiiPolicySet | undefined =>
-  deps.pii?.withValues(state.piiValues);
+/**
+ * The policies at the agent's model with the execution's sensitive values and key (#334); none = no
+ * masking.
+ */
+export const loopPoliciesOf = (
+  state: AgentLoopStateType,
+  deps: AgentLoopDeps,
+): PiiPolicySet | undefined => deps.pii?.withValues(state.piiValues).withFieldKey(state.piiKey);
 
 /** The request as the model reads it: instructions, then the conversation, masked. */
 export async function maskedRequest(
@@ -37,7 +42,7 @@ export async function maskedRequest(
     new SystemMessage(normalisePromptText(deps.agent.instructions)),
     ...state.messages,
   ];
-  const set = policiesOf(state, deps);
+  const set = loopPoliciesOf(state, deps);
   if (set === undefined) return { messages, tokens: {}, cache: {}, blocked: [], usage: [] };
   const request = await maskForModel(set, messages, state.piiTokens, state.piiMasked);
   const refused = await set.refusalError(request.blocked, [...loopUsage(state), ...request.usage]);
@@ -96,7 +101,7 @@ export async function outgoingMove(
   deps: AgentLoopDeps,
   spent: readonly UsageRecord[],
 ): Promise<OutgoingMove> {
-  const set = policiesOf(state, deps);
+  const set = loopPoliciesOf(state, deps);
   if (set === undefined) return { kind: "move", move, usage: [] };
   const usage = isFinal(move, deps) ? await checkAnswer(move, set, state, spent) : [];
   const revealed = revealFromModel(move, { ...state.piiTokens, ...request.tokens });

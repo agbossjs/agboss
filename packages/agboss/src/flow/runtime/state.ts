@@ -105,6 +105,13 @@ export const ExecutionState = Annotation.Root({
    */
   piiTokens: Annotation<PiiTokenMap>({ reducer: mergeTokens, default: () => ({}) }),
   /**
+   * The key of the execution's field tokens (#334) when the application sets no `pseudonymKey`:
+   * made once per root execution, handed to its children — after a pause, a failover or a crash
+   * another instance gives one value the same token. `null`: the application's key (or an old
+   * checkpoint: the instance's).
+   */
+  piiKey: Annotation<string | null>({ reducer: replace, default: () => null }),
+  /**
    * A child execution's own identity (#263 S24): made on its first entry, kept in its subgraph's
    * state, so a re-entry after a pause or a crash reads the same id; `null` at the root.
    */

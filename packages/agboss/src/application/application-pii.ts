@@ -5,13 +5,16 @@ import { piiRuntimeOf } from "../pii/runtime.js";
 import type { ModelDetection } from "../pii/runtime-policy.js";
 import { resolveListed } from "./application-container.js";
 import { applicationPseudonymKeyOf, type ApplicationKeySource } from "../pii/application-key.js";
-import { newPiiFieldKey } from "../app/pii-parts.js";
+import { newPiiKey } from "../pii/tokens.js";
 import type { AssembledApplication } from "./assemble.js";
 
 /** The key an instance makes PII tokens with, and whether it is its own (S94). */
 export interface ApplicationPiiKey {
   readonly key: string;
-  /** No `pseudonymKey` set and none needed: a key of this instance — `[application.pii-instance-key]`. */
+  /**
+   * No `pseudonymKey` set and none needed: a key of this instance (its logs and traces), each root
+   * execution's tokens on a key of its own (#334) — `[application.pii-instance-key]`.
+   */
   readonly isInstanceKey: boolean;
 }
 
@@ -32,7 +35,7 @@ export function applicationPiiKeyOf(
     policies,
   });
   return key === undefined
-    ? { key: newPiiFieldKey(), isInstanceKey: true }
+    ? { key: newPiiKey(), isInstanceKey: true }
     : { key, isInstanceKey: false };
 }
 

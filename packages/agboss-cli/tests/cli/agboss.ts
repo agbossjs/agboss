@@ -42,7 +42,7 @@ export const CHECKS_RUN = "assembly, environment, application, prompts, types";
 
 /** The assembly warning of an application without `pseudonymKey` (#120 S94), as printed. */
 export const piiKeyWarning = (file: string): string =>
-  `warning: ${file} application.pii-instance-key no @Application({ pseudonymKey }): sensitive fields and policies without their own key make PII tokens with a key of this instance — one value gets another token on each instance, so logs and traces compare across instances only with pseudonymKey\n`;
+  `warning: ${file} application.pii-instance-key no @Application({ pseudonymKey }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with pseudonymKey\n`;
 
 /** The assembly warning of an application on the built-in in-memory cost ledger (#261), as printed. */
 export const ledgerWarning = (file: string): string =>

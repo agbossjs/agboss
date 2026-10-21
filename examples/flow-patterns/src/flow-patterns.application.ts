@@ -42,7 +42,7 @@ import { AppEnvironment } from "./environments/app.environment.js";
  * providers read `openRouterApiKey` (and `openRouterBaseUrl`) of the environment (#266). The
  * purchase approvals are asked in the terminal (`TerminalPurchaseApprovalChannel`, the one
  * implementation of their role). Its PII key is an environment secret (#120 S94: without one, a
- * key of each instance — a warning).
+ * key of each execution — a warning).
  */
 @Application({
   name: "flow-patterns-application",

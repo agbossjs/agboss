@@ -87,6 +87,8 @@ export const AgentLoopState = Annotation.Root({
   piiMasked: Annotation<Readonly<Record<string, string>>>({ reducer: merge, default: () => ({}) }),
   /** The execution's sensitive context values (#120 AC13), masked wherever they appear. */
   piiValues: Annotation<readonly SensitiveValue[]>({ reducer: replace, default: () => [] }),
+  /** The execution's key of field tokens (#334); null = the policies' own (the application's). */
+  piiKey: Annotation<string | null>({ reducer: replace, default: () => null }),
 });
 
 export type AgentLoopStateType = typeof AgentLoopState.State;
@@ -102,6 +104,8 @@ export interface ToolTask {
   readonly tool: string;
   readonly args: Record<string, unknown>;
   readonly runId: string;
+  /** The execution's key of field tokens (#334); absent (a task of an old checkpoint) or null = the policies'. */
+  readonly piiKey?: string | null;
 }
 
 export const LOOP_NODE = {

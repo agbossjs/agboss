@@ -156,7 +156,9 @@ export const replyAnsweringPartsOf = (deps: AppDeps): ReplyAnsweringParts => ({
     const { pii } = deps;
     if (pii === undefined) return { policies: new PiiPolicySet([], ""), known };
     const sensitive = pii.contextValuesOf(contextsOf(state, DEFAULT_TENANT.tenantId));
-    return { policies: pii.workflowPolicies.withValues(sensitive), known };
+    // the tree's key (#334): the root's and its children's, one value one token
+    const policies = pii.workflowPolicies.withValues(sensitive).withFieldKey(state.piiKey);
+    return { policies, known };
   },
 });
 

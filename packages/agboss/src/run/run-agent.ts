@@ -20,6 +20,7 @@ import { openThread } from "./thread.js";
 import { memoryBeforeRun } from "./memory.js";
 import type { AgentExecutionOutput, AgentExecutionDeps, AgentExecutionOptions } from "./types.js";
 import { executionVersions } from "./versions.js";
+import { newPiiKey } from "../pii/tokens.js";
 
 /**
  * Public entry point: validates the input, opens or continues a thread, opens the execution's
@@ -94,7 +95,9 @@ async function runOnce<TName extends string>(
     const graph = executionGraphOf(deps, { budgets: budgets.meter });
     const memory = { history: read.history, memory: read.memory, usage: [...read.usage] };
     const kept = { budgetUsd, budgets: budgets.records, ...memory, runId };
-    const initial = { start, startInput: input, contexts, ...kept };
+    // no application key: the execution's own, kept in its checkpoint for every instance (#334)
+    const piiKey = deps.pii?.isInstanceKey === true ? newPiiKey() : null;
+    const initial = { start, startInput: input, contexts, piiKey, ...kept };
     const state = await drainRun(await graph.stream(initial, config), record, read.usage);
     const context = { deps, graph, base, runId, budgetUsd, record, recorded: spent };
     const finish = { ...context, callbacks: config.callbacks, compacted: read.compacted };

@@ -78,6 +78,8 @@ const initialOf = (
   budgetUsd: state.budgetUsd,
   // the parent's PII tokens (#120): the child's boundary reveals and masks with them too
   piiTokens: state.piiTokens,
+  // and its key (#334): parent and child give one value one token
+  piiKey: state.piiKey,
   child: entered.identity,
 });
 
