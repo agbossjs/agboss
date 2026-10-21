@@ -54,8 +54,9 @@
   "dependencies": {
     "@apidevtools/swagger-parser": "^13.1.0",
     "@inquirer/prompts": "^8.7.2",
-    "dotenv": "^18.0.3",
+    "@langchain/langgraph-cli": "^1.0.0",
     "agboss": "0.1.0",
+    "dotenv": "^18.0.3",
     "typescript": "^5.9.3",
     "zod": "^4.6.5"
   },

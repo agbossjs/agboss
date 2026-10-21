@@ -1,7 +1,0 @@
-{
-  "node_version": "22",
-  "graphs": {
-    "job-scout": "./examples/job-scout/src/studio.ts:graph"
-  },
-  "env": ".env"
-}

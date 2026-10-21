@@ -13,6 +13,8 @@ const HANDLERS: Readonly<Record<string, () => Promise<CommandHandler>>> = {
   describe: async () => (await import("../describe.js")).handle,
   check: async () => (await import("../check.js")).handle,
   rag: async () => (await import("../rag-index.js")).handle,
+  dev: async () => (await import("../dev.js")).handle,
+  studio: async () => (await import("../studio.js")).handle,
   eval: async () => (await import("../eval/cli.js")).handle,
   replay: async () => (await import("../eval/cli.js")).handle,
   golden: async () => (await import("../eval/cli.js")).handle,

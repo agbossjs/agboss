@@ -22,7 +22,7 @@ const SUFFIXES: Readonly<Record<string, RegExp>> = {
 };
 
 describe("job-scout follows the file conventions (#107)", () => {
-  it("AC3: at the top of src/ only the application, the workflow, the Studio entry and folders by theme", () => {
+  it("AC3: at the top of src/ only the application, the workflow and folders by theme (no Studio entry, #268)", () => {
     // a further workflow (`agboss g workflow <name>`) keeps all its files in src/<name>/ (#197)
     const ownWorkflow = (entry: string): boolean =>
       existsSync(join(src, entry, `${entry}.workflow.ts`));
@@ -50,7 +50,6 @@ describe("job-scout follows the file conventions (#107)", () => {
         "routers",
         "scripts",
         "services",
-        "studio.ts",
         "tools",
       ].sort(),
     );

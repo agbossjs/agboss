@@ -5,10 +5,14 @@
 ```ts
 
 import type { BaseCallbackHandler } from '@langchain/core/callbacks/base';
+import { BaseChannel } from '@langchain/langgraph';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import type { BaseCheckpointSaver } from '@langchain/langgraph';
+import { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { BaseMessage } from '@langchain/core/messages';
+import { CompiledStateGraph } from '@langchain/langgraph';
 import type { MessageContent } from '@langchain/core/messages';
+import { OverwriteValue } from '@langchain/langgraph';
+import { StateDefinition } from '@langchain/langgraph';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
@@ -530,6 +534,24 @@ export interface StepsRange {
 //
 // @public
 export function stepsRangeOf(graph: FlowGraph): StepsRange;
+
+// @public
+export interface StudioGraphs {
+    readonly application: string;
+    readonly close: () => Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionGraph" needs to be exported by the entry point internal.d.ts
+    readonly graph: (name: string) => ExecutionGraph;
+    readonly names: readonly string[];
+}
+
+// @public
+export function studioOf(application: Class, options?: StudioOptions): Promise<StudioGraphs>;
+
+// @public
+export interface StudioOptions extends Pick<AppDepsOptions, "gateway"> {
+    readonly env?: string | undefined;
+    readonly processEnv?: NodeJS.ProcessEnv;
+}
 
 // @public
 export function textRequestOf(graph: RuntimeGraph, text: string): StartRequest;

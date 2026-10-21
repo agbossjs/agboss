@@ -177,8 +177,6 @@ export {
   /** @deprecated Import from "agboss" (#195). */
   type ScoreQuestion,
   /** @deprecated Import from "agboss" (#195). */
-  studioGraphOf,
-  /** @deprecated Import from "agboss" (#195). */
   type Token,
   /** @deprecated Import from "agboss" (#195). */
   Tool,

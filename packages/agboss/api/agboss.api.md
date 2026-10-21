@@ -5,19 +5,15 @@
 ```ts
 
 import type { BaseCallbackHandler } from '@langchain/core/callbacks/base';
-import { BaseChannel } from '@langchain/langgraph';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { BaseMessage } from '@langchain/core/messages';
 import type { BaseMessageLike } from '@langchain/core/messages';
 import { CheckpointTuple } from '@langchain/langgraph';
-import { CompiledStateGraph } from '@langchain/langgraph';
 import type { DatabaseSync } from 'node:sqlite';
 import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
-import { OverwriteValue } from '@langchain/langgraph';
 import type { RunnableConfig } from '@langchain/core/runnables';
-import { StateDefinition } from '@langchain/langgraph';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
@@ -4091,11 +4087,6 @@ export interface StepValues<TInstance> extends ValuesSource {
     // (undocumented)
     readonly takesAbout: [KindOf<TInstance>] extends [NodeKind.Start] ? false : true;
 }
-
-// Warning: (ae-forgotten-export) The symbol "studioGraph" needs to be exported by the entry point index.d.ts
-//
-// @public
-export function studioGraphOf(workflow: Class): Promise<ReturnType<typeof studioGraph>>;
 
 // @public
 export interface SubPath {
