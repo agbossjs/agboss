@@ -90,7 +90,7 @@ export class DeskRefundApprovalChannel extends RefundApprovalChannel {
 }
 
 @Tool({
-  name: "refund",
+  name: "refund-tool",
   description: "Refunds an order",
   input: RefundRequest,
   output: RefundDone,

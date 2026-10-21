@@ -50,9 +50,9 @@ describe("#261 AC7, AC15: every event carries the execution's common fields", ()
     expect(executionEvents).toHaveLength(4);
     for (const event of executionEvents) {
       expect(event).toMatchObject({
-        executionId: paused.runId,
+        executionId: paused.executionId,
         parentExecutionId: undefined,
-        rootExecutionId: paused.runId,
+        rootExecutionId: paused.executionId,
         threadId: paused.threadId,
         tenantId: "acme",
         workflow: { name: "applications-workflow", version: "1.0.0", startedVersion: "1.0.0" },
@@ -121,7 +121,7 @@ describe("#261 AC15: node events carry their step (StepRecord)", () => {
       visitNumber: 1,
       copyNumber: 1,
       itemIndex: undefined,
-      idempotencyKey: `${done.runId}:clerk-agent:1`,
+      idempotencyKey: `${done.executionId}:clerk-agent:1`,
       callId: undefined,
     });
     const action = nodeEvents.at(-1);
@@ -131,7 +131,7 @@ describe("#261 AC15: node events carry their step (StepRecord)", () => {
     });
     for (const event of nodeEvents) {
       expect(event.step.component).not.toHaveProperty("type");
-      expect(event).toMatchObject({ executionId: done.runId, tenantId: "default" });
+      expect(event).toMatchObject({ executionId: done.executionId, tenantId: "default" });
     }
   });
 });
@@ -186,7 +186,7 @@ describe("#261 AC7: nameOf(C) — the name of any AGBoss-decorated class", () =>
     expect([nameOf(Ask), nameOf(ApplicationsApplication), nameOf(Lookup)]).toEqual([
       "ask-workflow-start",
       "applications-application",
-      "lookup",
+      "lookup-tool",
     ]);
   });
 

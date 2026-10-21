@@ -23,7 +23,7 @@ class EmailSent {
 
 /** A write tool: the run pauses for an approval before it. */
 @Tool({
-  name: "send_email",
+  name: "send-email-tool",
   description: "Send an email",
   channel: TerminalUserChannel,
   input: Email,
@@ -36,7 +36,7 @@ class SendEmail implements ToolHandler<Email, EmailSent> {
   }
 }
 
-const callSend: Reply = [{ tool: "send_email", args: { to: "boss@example.com" } }];
+const callSend: Reply = [{ tool: "send-email-tool", args: { to: "boss@example.com" } }];
 
 const workflow = toolWorkflowOf({ tools: [SendEmail] });
 
@@ -79,7 +79,7 @@ describe("pause seam", () => {
       pending: [
         {
           agent: "alpha-agent",
-          ask: { tool: "send_email", arguments: { to: "boss@example.com" } },
+          ask: { tool: "send-email-tool", arguments: { to: "boss@example.com" } },
         },
       ],
     });

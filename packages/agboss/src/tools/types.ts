@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { Clock } from "../infrastructure/clock.js";
+import type { Milliseconds } from "../units/index.js";
 
 /**
  * What the framework hands its own tool wrapper per call (internal, #280): the call's signal (the
@@ -9,7 +10,7 @@ import type { Clock } from "../infrastructure/clock.js";
  */
 export interface ToolCallContext {
   readonly signal: AbortSignal;
-  /** The application's clock: the tool's `timeoutMs` runs on it (default: the system's, #262). */
+  /** The application's clock: the tool's `timeout` runs on it (default: the system's, #262). */
   readonly clock?: Clock;
   /** USD of this call; it counts against the budgets as the tool's spend. */
   readonly reportCost: (usd: number) => void;
@@ -25,7 +26,8 @@ export interface Tool<TName extends string = string, TInput = unknown, TOutput =
   readonly name: TName;
   readonly description: string;
   readonly channel?: string;
-  readonly timeoutMs: number;
+  /** How long one call may run. */
+  readonly timeout: Milliseconds;
   readonly input: z.ZodType<TInput>;
   readonly output: z.ZodType<TOutput>;
   readonly invoke: (raw: unknown, ctx?: ToolCallContext) => Promise<ToolOutput<TOutput>>;

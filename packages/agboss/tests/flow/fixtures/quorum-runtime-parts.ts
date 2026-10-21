@@ -16,7 +16,7 @@ import {
   type QuorumDecidedEvent,
   type ToolHandler,
 } from "../../../src/index.js";
-import { seconds } from "../../../src/units/index.js";
+import { hours, seconds } from "../../../src/units/index.js";
 import {
   CandidateDto,
   DealCritiqueDto,
@@ -30,8 +30,8 @@ import {
 
 /**
  * #279 PR 2 — the components of the runtime's quorums (`quorum-runtime.fixture.ts` wires them): three
- * panel agents that may wait on the test's clock (`wait_tool`) or for an approval
- * (`confirm_score`), arbiters by code and by model, the deal's reviewers for the groups, and a log
+ * panel agents that may wait on the test's clock (`wait-tool`) or for an approval
+ * (`confirm-score-tool`), arbiters by code and by model, the deal's reviewers for the groups, and a log
  * of `onQuorumDecided`. `panel` is the test's view of what happened.
  */
 
@@ -93,9 +93,9 @@ export class WaitDto {
 
 /** Waits on the application's clock — until the time passes or the execution stops. */
 @Tool({
-  name: "wait_tool",
+  name: "wait-tool",
   description: "Waits",
-  timeoutMs: 3_600_000, // an hour: longer than any wait of the tests
+  timeout: hours(1), // an hour: longer than any wait of the tests
   input: WaitDto,
   output: WaitDto,
   deps: [Clock, ExecutionContext],
@@ -117,7 +117,7 @@ export class WaitTool implements ToolHandler<WaitDto, WaitDto> {
 
 /** Every call waits for an approval. */
 @Tool({
-  name: "confirm_score",
+  name: "confirm-score-tool",
   description: "Confirms a score",
   channel: TerminalUserChannel,
   input: ScoreDto,

@@ -18,19 +18,19 @@ npm i -D agboss-cli
 
 ## Core Commands
 
-| Command                            | Description                                                                                                                  |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `agboss create <name>` (`agb c`)   | Scaffold a new AGBoss project with `@Application`, workflow, environments, `.agboss/types.d.ts`, and Vitest tests            |
-| `agboss generate <kind>` (`agb g`) | Generate and wire an `agent`, `router`, `arbiter`, `tool`, `mcp`, `rag`, `workflow`, or `openapi` client                     |
-| `agboss check`                     | Generate `.agboss/types.d.ts` and statically verify all Flow DSL paths, DTO slots, and assembly rules without calling models |
-| `agboss check --strict`            | Treat analyser and assembly warnings as errors in CI                                                                         |
-| `agboss check --models`            | Verify all configured model settings against their resolved `@ModelProvider`                                                 |
-| `agboss describe`                  | Print workflow paths, node inputs by producer, `about` / `historyOf` links, model resolution, budgets, and limits            |
-| `agboss describe --json`           | Export the machine-readable declarative revision snapshot (`configHash`, `promptHash`, `schemaHash`)                         |
-| `agboss chat` / `agboss run`       | Run interactive multi-turn terminal chat or a single workflow execution                                                      |
-| `agboss eval` / `agboss compare`   | Evaluate runs against golden sets and compare YAML configuration profiles side by side                                       |
-| `agboss rag index`                 | Build or update `@Rag` knowledge-base indexes                                                                                |
-| `agboss migrate imports`           | Rewrite deprecated sub-entry imports to current `agboss` entries                                                             |
+| Command                                   | Description                                                                                                                                                                      |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agboss create <name>` (`agb c`)          | Scaffold a new AGBoss project with `@Application`, workflow, environments, `.agboss/types.d.ts`, and Vitest tests                                                                |
+| `agboss generate <kind> <name>` (`agb g`) | Generate and wire an `agent`, `router`, `arbiter`, `tool`, `mcp`, `rag`, `workflow`, or `openapi` client, by full names: `agboss g agent billing-agent --workflow desk-workflow` |
+| `agboss check`                            | Generate `.agboss/types.d.ts` and statically verify all Flow DSL paths, DTO slots, and assembly rules without calling models                                                     |
+| `agboss check --strict`                   | Treat analyser and assembly warnings as errors in CI                                                                                                                             |
+| `agboss check --models`                   | Verify all configured model settings against their resolved `@ModelProvider`                                                                                                     |
+| `agboss describe`                         | Print workflow paths, node inputs by producer, `about` / `historyOf` links, model resolution, budgets, and limits                                                                |
+| `agboss describe --json`                  | Export the machine-readable declarative revision snapshot (`configHash`, `promptHash`, `schemaHash`)                                                                             |
+| `agboss chat` / `agboss run`              | Run interactive multi-turn terminal chat or a single workflow execution                                                                                                          |
+| `agboss eval` / `agboss compare`          | Evaluate runs against golden sets and compare YAML configuration profiles side by side                                                                                           |
+| `agboss rag index`                        | Build or update `@Rag` knowledge-base indexes                                                                                                                                    |
+| `agboss migrate imports`                  | Rewrite deprecated sub-entry imports to current `agboss` entries                                                                                                                 |
 
 ## Documentation & Links
 

@@ -20,7 +20,7 @@ export class TaskConfirmationDto {
 }
 
 @Tool({
-  name: "confirm_task",
+  name: "confirm-task-tool",
   description: "Confirms a task",
   channel: TerminalUserChannel,
   input: TaskConfirmationDto,

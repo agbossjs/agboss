@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { planGenerate } from "../../src/scaffold/generate.js";
+import { workflowDeclaration, writeApplication } from "./application-fixture.js";
 
 /** #279 S77 i: `agboss generate arbiter` writes a code arbiter for the agents of a launch. */
 
@@ -27,17 +28,26 @@ function projectWith(launches: readonly (readonly string[])[]): string {
   const paths = launches
     .map((launch) => `start(S).toParallelAgents(${launch.join(", ")}).joinQuorum({ min: 1 })`)
     .join(",\n");
-  writeFileSync(join(root, "src/review/review.workflow.ts"), `${imports}\nflow: [\n${paths}\n]\n`);
+  const review = {
+    module: "src/review/review.workflow.ts",
+    className: "Review",
+    name: "review-workflow",
+  };
+  writeApplication(root, review);
+  writeFileSync(
+    join(root, review.module),
+    `${imports}\nflow: [\n${paths}\n]\n${workflowDeclaration(review)}`,
+  );
   return root;
 }
 
-const options = { workflow: "src/review/review.workflow.ts" };
+const options = { workflow: "review-workflow" };
 
 describe("#279: agboss generate arbiter", () => {
   it("one @OnAnswer method per distinct agent of the launch, named from<Agent>", async () => {
     const root = projectWith([["ScoreAAgent", "CriticAgent", "CriticAgent"]]);
 
-    const { create, modify } = await planGenerate("arbiter", "valid-score", options, root);
+    const { create, modify } = await planGenerate("arbiter", "valid-score-arbiter", options, root);
 
     expect(modify).toEqual([]);
     const [file] = create;
@@ -55,10 +65,15 @@ describe("#279: agboss generate arbiter", () => {
   it("several launches: --agent names the one to judge", async () => {
     const root = projectWith([["ScoreAAgent"], ["CriticAgent", "AuditAgent"]]);
 
-    await expect(planGenerate("arbiter", "pick", options, root)).rejects.toThrow(
-      "has 2 agents' launches — name one of its agents with --agent <name>",
+    await expect(planGenerate("arbiter", "pick-arbiter", options, root)).rejects.toThrow(
+      "has 2 agents' launches — name one of its agents with --agent <full name>",
     );
-    const { create } = await planGenerate("arbiter", "pick", { ...options, agent: "audit" }, root);
+    const { create } = await planGenerate(
+      "arbiter",
+      "pick-arbiter",
+      { ...options, agent: "audit-agent" },
+      root,
+    );
     expect(create[0]?.content).toContain("fromCritic(");
     expect(create[0]?.content).toContain("fromAudit(");
     expect(create[0]?.content).not.toContain("fromScoreA(");
@@ -67,8 +82,18 @@ describe("#279: agboss generate arbiter", () => {
   it("a workflow without an agents' launch has nothing to judge", async () => {
     const root = projectWith([]);
 
-    await expect(planGenerate("arbiter", "pick", options, root)).rejects.toThrow(
+    await expect(planGenerate("arbiter", "pick-arbiter", options, root)).rejects.toThrow(
       "has no .toParallelAgents(…) launch to judge",
+    );
+  });
+
+  it("#268 AC8: --agent takes the full name; a short one is not guessed", async () => {
+    const root = projectWith([["ScoreAAgent"], ["CriticAgent", "AuditAgent"]]);
+
+    await expect(
+      planGenerate("arbiter", "pick-arbiter", { ...options, agent: "audit" }, root),
+    ).rejects.toThrow(
+      'Agent "audit" not found in src/review/review.workflow.ts. Did you mean "audit-agent"?',
     );
   });
 });

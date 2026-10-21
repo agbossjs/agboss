@@ -80,7 +80,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
     expect(replyDesk.payouts).toEqual([{ payee: "ann", amountCents: 500 }]);
     expect(mockLlm(PayoutReplyInterpreter).inputs).toEqual([
       {
-        ask: expect.objectContaining({ tool: "pay_out", arguments: payout }),
+        ask: expect.objectContaining({ tool: "pay-out-tool", arguments: payout }),
         reply: "ok, but only half",
       },
     ]);
@@ -368,7 +368,7 @@ describe("#267 AC11: tests replace a code interpreter with mockOf", () => {
 
     expect(replyDesk.expenses).toEqual([]);
     expect(mockOf(ExpenseReplyInterpreter).interpret.mock.calls).toEqual([
-      [{ ask: expect.objectContaining({ tool: "book_expense" }), reply: "anything" }],
+      [{ ask: expect.objectContaining({ tool: "book-expense-tool" }), reply: "anything" }],
     ]);
     expect(JSON.stringify(mockLlm(TreasurerAgent).lastRequest)).toContain("not this month");
   });

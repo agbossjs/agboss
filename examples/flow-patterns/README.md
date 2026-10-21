@@ -101,7 +101,7 @@ question **once**, with its pause's id —
 [APPROVAL REQUIRED] flights TLV → LIS for $2400 (pause 7b76c926…)
 ```
 
-— then `agboss run` asks about the first: `venue-buyer-agent wants to call place_purchase … —
+— then `agboss run` asks about the first: `venue-buyer-agent wants to call place-purchase-tool … —
 approve? [y/N]`. Leave that question open, and in a **second terminal** (same `cd` and `set -a`
 line) answer both pauses at once:
 
@@ -114,7 +114,7 @@ Lodge: booked; flights TLV → LIS: booked"}`: both answers taken, the run went 
 printed again. Now press the same answer again — in the first terminal answer `y`
 (`agboss run: pause … is not waiting for an answer`), or `npm run answer -- <first pause id>` in
 the second (`NotPausedError — pause … is not waiting for an answer`). In Langfuse each buyer's
-`place_purchase` ran once.
+`place-purchase-tool` ran once.
 
 Answering in the first terminal only (`y`, then `y`) takes the two answers one after the other.
 The pauses also outlive the process: stop the first terminal with Ctrl+C while it asks, then

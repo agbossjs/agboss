@@ -8,7 +8,7 @@ import { PurchaseOrder, PurchasePlaced } from "./place-purchase.dto.js";
  * service would get, so a repeated call is one purchase.
  */
 @Tool({
-  name: "place_purchase",
+  name: "place-purchase-tool",
   description: "Places a purchase once the thread's owner approves it",
   input: PurchaseOrder,
   output: PurchasePlaced,

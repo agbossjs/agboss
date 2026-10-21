@@ -36,7 +36,7 @@ export const recoverRootOf =
       workflowVersion: record.configVersion ?? "",
       configHash: record.configHash ?? "",
     };
-    checkResume({ thread: threadId, runId, paused: started, current }, policy);
+    checkResume({ threadId, executionId: runId, paused: started, current }, policy);
     const thread = await deps.terns.threadOwner(deps.config.name, tenantId, threadId);
     const ownerId = thread?.owner;
     const startedVersion = record.configVersion ?? deps.config.version;

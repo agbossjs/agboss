@@ -1,5 +1,5 @@
 import { MemorySaver } from "@langchain/langgraph";
-import type { PausedRun } from "../../src/app/paused-runs.js";
+import type { PausedExecution } from "../../src/app/paused-runs.js";
 import { Injectable } from "../../src/components/decorators.js";
 import { TernStoreRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import {
@@ -19,7 +19,7 @@ import { createSqliteTernStore, type TernStore } from "../../src/terns/index.js"
  */
 interface SharedDatabase {
   readonly checkpoints: MemorySaver;
-  readonly paused: Map<string, PausedRun>;
+  readonly paused: Map<string, PausedExecution>;
   /** The pauses of every paused run: one store every instance reads. */
   pauses: InMemoryPausedExecutionRepository;
   records: TernStore;
@@ -47,8 +47,10 @@ export function resetSharedDatabase(): void {
 const keyOf = (tenantId: string, threadId: string): string => `${tenantId}/${threadId}`;
 
 /** The paused run the shared database keeps for a thread (of the tenant `"default"`). */
-export const sharedPausedRun = (threadId: string, tenantId = "default"): PausedRun | undefined =>
-  database.paused.get(keyOf(tenantId, threadId));
+export const sharedPausedRun = (
+  threadId: string,
+  tenantId = "default",
+): PausedExecution | undefined => database.paused.get(keyOf(tenantId, threadId));
 
 /** Checkpoints in the shared database: every instance reads the same storage. */
 @Injectable()
@@ -66,11 +68,14 @@ export class SharedPausedExecutionRepository extends PausedExecutionRepository {
     return Promise.resolve();
   }
 
-  findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedRun | undefined> {
+  findByTenantIdAndThreadId(
+    tenantId: string,
+    threadId: string,
+  ): Promise<PausedExecution | undefined> {
     return Promise.resolve(database.paused.get(keyOf(tenantId, threadId)));
   }
 
-  save(paused: PausedRun): Promise<void> {
+  save(paused: PausedExecution): Promise<void> {
     database.paused.set(keyOf(paused.run.tenantId, paused.run.threadId), paused);
     return Promise.resolve();
   }

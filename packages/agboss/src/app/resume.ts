@@ -170,7 +170,12 @@ async function restingRunOf(
   if (stored !== undefined && run !== undefined) {
     const { workflowVersion, configHash } = stored;
     const paused = { workflowVersion, configHash };
-    const check = { thread: pause.threadId, runId: run.runId, paused, current: parts.current };
+    const check = {
+      threadId: pause.threadId,
+      executionId: run.runId,
+      paused,
+      current: parts.current,
+    };
     checkResume(check, parts.policy);
   }
   return run;

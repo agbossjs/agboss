@@ -3,8 +3,7 @@ import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
 import { componentOf, requireComponent, type ToolMeta } from "../../components/metadata.js";
 import { validate } from "../../dto/schema.js";
-import { waitOf } from "../../infrastructure/clock-timeout.js";
-import { DEFAULT_TOOL_TIMEOUT_MS, ToolTimeoutError } from "../../tools/index.js";
+import { DEFAULT_TOOL_TIMEOUT, ToolTimeoutError } from "../../tools/index.js";
 import { UnitSite } from "./unit-site.js";
 import type { UnitCallOptions, UnitClock, UnitOptions, UnitRun } from "./unit-types.js";
 
@@ -45,7 +44,7 @@ const toolMetaOf = (tool: Class): ToolMeta =>
  * A `@Tool` (or `@McpTool`) on its own (#262 S55, S62): created by its own container (its `deps`,
  * `overrides` replacing classes, the `environment`); each call validates the input against its
  * input DTO, runs `run` in the frame of a tool call — `executionContext.signal` aborts after
- * `timeout` (default the tool's `timeoutMs`) on the runner's clock, `SpendRecorder` records into
+ * `timeout` (default the tool's `timeout`) on the runner's clock, `SpendRecorder` records into
  * the call's `spend` as `tool:<name>` — and validates the output. A failure rejects as it was
  * thrown: the tool's own error, `ToolTimeoutError`, or `DtoValidationError` for an input or output
  * that does not fit.
@@ -65,7 +64,7 @@ export function testTool<
     call: UnitCallOptions = {},
   ): Promise<UnitRun<ToolOutputOf<InstanceType<TTool>>>> => {
     const valid = validate(meta.input, input);
-    const delay = call.timeout ?? waitOf(meta.timeoutMs ?? DEFAULT_TOOL_TIMEOUT_MS);
+    const delay = call.timeout ?? meta.timeout ?? DEFAULT_TOOL_TIMEOUT;
     const timeout = { delay, reason: (): Error => new ToolTimeoutError(delay) };
     const frame = { component: tool, caller: `tool:${meta.name}`, callId: "test-call", timeout };
     // the container creates the class itself: an instance of the tool, `run` included

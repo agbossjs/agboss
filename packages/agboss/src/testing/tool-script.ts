@@ -1,11 +1,12 @@
 import type { Class } from "../components/injection.js";
 import { requireComponent } from "../components/metadata.js";
-import { DEFAULT_TOOL_TIMEOUT_MS, ToolTimeoutError } from "../tools/index.js";
+import { DEFAULT_TOOL_TIMEOUT, ToolTimeoutError } from "../tools/index.js";
 import type { ScriptedExpectation } from "./script-book.js";
+import type { Milliseconds } from "../units/index.js";
 
 /** How a scripted tool call fails (#262): as the real failure would reach the agent. */
 export enum ToolFailure {
-  /** The call ran past the tool's `timeoutMs`: the agent's model reads the timeout as a tool error. */
+  /** The call ran past the tool's `timeout`: the agent's model reads the timeout as a tool error. */
   Timeout = "timeout",
 }
 
@@ -19,8 +20,8 @@ export interface ToolScript {
 }
 
 /** The error each failure is, as the tool's own code would throw it: what the agent then reads. */
-const FAILURES: Readonly<Record<ToolFailure, (timeoutMs: number) => Error>> = {
-  [ToolFailure.Timeout]: (timeoutMs) => new ToolTimeoutError(timeoutMs),
+const FAILURES: Readonly<Record<ToolFailure, (timeout: Milliseconds) => Error>> = {
+  [ToolFailure.Timeout]: (timeout) => new ToolTimeoutError(timeout),
 };
 
 /** A tool instance: what the agent's loop calls. */
@@ -38,7 +39,7 @@ class ToolFailures implements ToolScript, ScriptedExpectation {
 
   constructor(
     readonly tool: Class,
-    private readonly timeoutMs: number,
+    private readonly timeout: Milliseconds,
   ) {}
 
   thenFail(...failures: readonly ToolFailure[]): this {
@@ -51,7 +52,7 @@ class ToolFailures implements ToolScript, ScriptedExpectation {
     const failure = this.#failures[this.#position];
     if (failure === undefined) return undefined;
     this.#position += 1;
-    return FAILURES[failure](this.timeoutMs);
+    return FAILURES[failure](this.timeout);
   }
 
   leftovers(): readonly string[] {
@@ -74,7 +75,7 @@ export class ToolScripts {
     const existing = this.#scripts.get(tool);
     if (existing !== undefined) return existing;
     const kind = requireComponent(tool, "tool", "mockTool");
-    const created = new ToolFailures(tool, kind.meta.timeoutMs ?? DEFAULT_TOOL_TIMEOUT_MS);
+    const created = new ToolFailures(tool, kind.meta.timeout ?? DEFAULT_TOOL_TIMEOUT);
     this.#scripts.set(tool, created);
     this.onScripted(created);
     return created;

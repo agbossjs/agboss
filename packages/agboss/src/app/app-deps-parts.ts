@@ -5,7 +5,7 @@ import { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { Clock, IdGenerator } from "../infrastructure/clock.js";
 import { frameworkLogOf, type FrameworkLog, type Logger } from "../infrastructure/logger.js";
 import type { McpConnections } from "../tools/index.js";
-import type { RunTracing } from "../tracing/index.js";
+import type { ExecutionTracing } from "../tracing/index.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { GraphDeps } from "../graph/deps.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
@@ -60,7 +60,7 @@ export const observedBy = (
 
 /** Closes what the app opened besides its components: MCP connections, tracing. */
 export const releaseOf =
-  (mcp: McpConnections, tracing: RunTracing | undefined) => async (): Promise<void> => {
+  (mcp: McpConnections, tracing: ExecutionTracing | undefined) => async (): Promise<void> => {
     try {
       await mcp.close();
     } finally {
@@ -74,7 +74,7 @@ export const releaseOf =
  * the executions awaited only. Then MCP and tracing — also when a hook failed.
  */
 export const closeOf =
-  (created: unknown[] | undefined, mcp: McpConnections, tracing: RunTracing | undefined) =>
+  (created: unknown[] | undefined, mcp: McpConnections, tracing: ExecutionTracing | undefined) =>
   async (executionsDone?: () => Promise<void>): Promise<void> => {
     try {
       if (created === undefined) await executionsDone?.();

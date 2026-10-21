@@ -3,7 +3,7 @@ import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it, vi } from "vitest";
 import { costCategoryOf, recordReportedCost } from "../../src/finops/usage.js";
 import { gatherKnowledge } from "../../src/graph/nodes/knowledge.js";
-import type { RunDeps } from "../../src/index.js";
+import type { AgentExecutionDeps } from "../../src/index.js";
 import { createModelRegistry, type ModelFactory } from "../../src/llm/registry.js";
 import { CITE_INSTRUCTION } from "../../src/prompts/rag.js";
 import type { KnowledgeSource } from "../../src/rag/index.js";
@@ -28,7 +28,7 @@ async function setup(source: KnowledgeSource) {
     s.model === "test/alpha" ? alpha : new FakeListChatModel({ responses: ["x"] }),
   );
   const base = await fakeDeps({ "test/router": [routeTo("alpha-agent")] });
-  const deps: RunDeps<string> = {
+  const deps: AgentExecutionDeps<string> = {
     ...base,
     registry: createModelRegistry(base.config, fakeGateway(factory)),
     knowledge: (agent) => (agent === "alpha-agent" ? [source] : []),
@@ -90,7 +90,7 @@ describe("knowledge bases — context mode", () => {
 
   it("AC3: tool-mode costs are billed to rag:<name> — category retrieval", () => {
     const record = recordReportedCost(
-      { name: "search_handbook", costCaller: "rag:handbook" },
+      { name: "search-handbook-tool", costCaller: "rag:handbook" },
       0.001,
     );
 

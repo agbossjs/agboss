@@ -907,8 +907,8 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/test-judge.ts:27:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-rag.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-router.ts:22:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/test-tool.ts:13:3 - (ae-undocumented) Missing documentation for "run".
-// src/testing/units/test-tool.ts:31:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-tool.ts:12:3 - (ae-undocumented) Missing documentation for "run".
+// src/testing/units/test-tool.ts:30:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/unit-types.ts:56:3 - (ae-undocumented) Missing documentation for "output".
 // src/testing/vcr.ts:22:1 - (ae-undocumented) Missing documentation for "VCRMode".
 // src/testing/vcr.ts:33:3 - (ae-undocumented) Missing documentation for "cassetteName".

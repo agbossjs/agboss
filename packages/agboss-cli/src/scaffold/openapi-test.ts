@@ -51,7 +51,7 @@ export function testSource(op: OperationModel, baseUrl: string): string {
       typeImportOf(op),
       importLine([`${op.names.pascal}Tool`], `./${op.names.kebab}.tool.js`),
     ].join("\n"),
-    snake: op.names.snake,
+    snake: `${op.names.kebab}-tool`,
     method: op.method,
     answer: answerOf(op),
     inputType: inputTypeOf(op),

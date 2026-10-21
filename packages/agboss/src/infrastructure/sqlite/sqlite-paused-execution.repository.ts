@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PausedRun } from "../../app/paused-runs.js";
+import type { PausedExecution } from "../../app/paused-runs.js";
 import { Injectable } from "../../components/decorators.js";
 import type { AgentExecutionOutput } from "../../run/types.js";
 import { Clock } from "../clock.js";
@@ -72,7 +72,7 @@ const decode = (text: string): unknown =>
 const isStoredRun = (value: unknown): value is AgentExecutionOutput =>
   StoredRun.safeParse(value).success;
 
-function toPausedRun(row: unknown): PausedRun {
+function toPausedExecution(row: unknown): PausedExecution {
   const r = PausedRow.parse(row);
   const run = decode(r.run);
   if (!isStoredRun(run)) throw new Error(`a stored paused run is not readable: ${r.run}`);
@@ -118,14 +118,17 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     return this.connection.ping();
   }
 
-  findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedRun | undefined> {
+  findByTenantIdAndThreadId(
+    tenantId: string,
+    threadId: string,
+  ): Promise<PausedExecution | undefined> {
     const row = this.connection.database
       .prepare("SELECT * FROM paused_executions WHERE tenant_id = ? AND thread_id = ?")
       .get(tenantId, threadId);
-    return Promise.resolve(row === undefined ? undefined : toPausedRun(row));
+    return Promise.resolve(row === undefined ? undefined : toPausedExecution(row));
   }
 
-  save(paused: PausedRun): Promise<void> {
+  save(paused: PausedExecution): Promise<void> {
     const { run } = paused;
     this.connection.database
       .prepare("INSERT OR REPLACE INTO paused_executions VALUES (?, ?, ?, ?, ?, ?, ?)")

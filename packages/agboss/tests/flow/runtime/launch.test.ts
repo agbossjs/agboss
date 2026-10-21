@@ -181,8 +181,8 @@ describe("a launch over time", () => {
 
       expect(result).toFinishWith(CritiquesWorkflowFinish, { text: "fine, good" });
       expect(result.launches.map((launch) => launch.launch)).toEqual([
-        `${result.runId}:loop-planner-agent:1`,
-        `${result.runId}:loop-planner-agent:2`,
+        `${result.executionId}:loop-planner-agent:1`,
+        `${result.executionId}:loop-planner-agent:2`,
       ]);
       expect(result.path.filter((node) => node.startsWith("loop-critic-agent"))).toEqual([
         "loop-critic-agent#1",

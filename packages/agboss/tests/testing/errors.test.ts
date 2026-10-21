@@ -80,7 +80,7 @@ describe("AC10: only real causes", () => {
       await execute(app, ChatStart, { text: "where is 7?" });
 
       expect(toolResultsOf(mockLlm(Support).lastRequest)).toEqual([
-        expect.stringContaining("timed out after 30000 ms"),
+        expect.stringContaining("timed out after 30 s"),
         '{"status":"order 7 shipped"}',
       ]);
     },

@@ -21,7 +21,7 @@ import type { UsageRecord } from "../finops/usage.js";
 import { executionGraphOf, type ExecutionGraph } from "../flow/runtime/build.js";
 import { InMemoryCostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
 import { systemClock } from "../infrastructure/clock.js";
-import type { RunDeps } from "./types.js";
+import type { AgentExecutionDeps } from "./types.js";
 
 /**
  * An execution's budgets in the run layer (#261 PR 5): opened once for a new execution — every
@@ -54,7 +54,7 @@ function threadIdOf(start: ExecutionStart): string {
 
 /** The frame of an execution's start: what an injected `ExecutionContext` reads in `maxSpend()`. */
 function startFrameOf<TName extends string>(
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   start: ExecutionStart,
 ): FrameSpec {
   const node = deps.graph.nodes.get(start.start);
@@ -145,7 +145,7 @@ const unbudgeted = (): PassBudgets => ({
  * read — one exhausted throws `BudgetExceededError` (the execution is rejected).
  */
 export async function openExecutionBudgets<TName extends string>(
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   start: ExecutionStart,
 ): Promise<PassBudgets> {
   const application = deps.budgets;
@@ -169,7 +169,7 @@ export async function openExecutionBudgets<TName extends string>(
  * state (the amounts read at its start), `spentBefore` — what it spent before, already counted.
  */
 export async function continuedExecutionBudgets<TName extends string>(
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   records: readonly ExecutionBudgetRecord[] | undefined,
   spentBefore: number,
 ): Promise<PassBudgets> {
@@ -193,5 +193,6 @@ export function recorder(
 }
 
 /** The workflow's graph to read an execution's checkpoint with (no pass moves on it). */
-export const readingGraphOf = <TName extends string>(deps: RunDeps<TName>): ExecutionGraph =>
-  executionGraphOf(deps, { budgets: unbudgeted().meter });
+export const readingGraphOf = <TName extends string>(
+  deps: AgentExecutionDeps<TName>,
+): ExecutionGraph => executionGraphOf(deps, { budgets: unbudgeted().meter });

@@ -83,8 +83,12 @@ describe("#280 AC7: the key differs on every pass of a cycle and every tool call
 
       const [first, second] = seen.toolSteps;
       expect(seen.toolSteps.map((step) => step.visitNumber)).toEqual([1, 2]);
-      expect(first?.idempotencyKey).toBe(`${done.runId}:writer-agent:1:${String(first?.callId)}`);
-      expect(second?.idempotencyKey).toBe(`${done.runId}:writer-agent:2:${String(second?.callId)}`);
+      expect(first?.idempotencyKey).toBe(
+        `${done.executionId}:writer-agent:1:${String(first?.callId)}`,
+      );
+      expect(second?.idempotencyKey).toBe(
+        `${done.executionId}:writer-agent:2:${String(second?.callId)}`,
+      );
       expect(first?.idempotencyKey).not.toBe(second?.idempotencyKey);
     },
   );

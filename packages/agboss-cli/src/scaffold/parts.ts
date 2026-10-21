@@ -1,4 +1,4 @@
-import { namesOf, type Names } from "./names.js";
+import { camelOf, namesOf, type Names } from "./names.js";
 import { render, vars, type McpSpec } from "./plan.js";
 import type { FileToWrite } from "./write.js";
 
@@ -37,6 +37,7 @@ export function mcpFiles(dir: string, mcp: Exclude<McpSpec, { kind: "none" }>): 
     ...vars(tool),
     ...types,
     serverPascal: n.pascal,
+    serverCamel: camelOf(n),
     serverKebab: n.kebab,
     serverTool,
     description,
@@ -53,18 +54,18 @@ export function mcpFiles(dir: string, mcp: Exclude<McpSpec, { kind: "none" }>): 
   };
 }
 
+/** A knowledge base and the folder it indexes: `<name>-rag`, class `<Name>Rag`, `rag/<name>.rag.ts`. */
 export function ragFiles(
   dir: string,
-  workflow: Names,
-  rag: { name: string; folder: string },
+  rag: { readonly name: Names; readonly folder: string },
 ): { files: FileToWrite[]; knowledge: string } {
-  const n = namesOf(rag.name);
-  const variables = { ...vars(n), folder: rag.folder, workflow: workflow.kebab };
+  const n = rag.name;
+  const variables = { ...vars(n), folder: rag.folder };
   return {
     files: [
       { path: `${dir}/rag/${n.kebab}.rag.ts`, content: render("rag/knowledge.ts.tmpl", variables) },
       { path: `${rag.folder}/README.md`, content: render("rag/note.md.tmpl", variables) },
     ],
-    knowledge: `${n.pascal}Knowledge`,
+    knowledge: `${n.pascal}Rag`,
   };
 }

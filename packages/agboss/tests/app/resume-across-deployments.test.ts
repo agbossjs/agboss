@@ -62,7 +62,7 @@ describe("#201 AC1: a run paused under another workflow version is not resumed b
     await expect(resumed).rejects.toBeInstanceOf(IncompatibleResumeError);
     await expect(resumed).rejects.toMatchObject({
       code: "resume.incompatible",
-      thread: paused.threadId,
+      threadId: paused.threadId,
       paused: { workflowVersion: "1.0.0" },
       current: { workflowVersion: "2.0.0" },
     });
@@ -93,7 +93,7 @@ describe("#201 AC1: a run paused under another workflow version is not resumed b
     expect(sent).toEqual(["boss@example.com"]);
     expect(asked).toHaveLength(1);
     expect(asked[0]).toMatchObject({
-      thread: paused.threadId,
+      threadId: paused.threadId,
       paused: { workflowVersion: "1.0.0" },
       current: { workflowVersion: "2.0.0" },
     });
@@ -157,7 +157,7 @@ describe("#246 AC3: an incompatible resume is the paused run's onError; the run 
     expect(observed).toEqual([
       {
         hook: "error",
-        state: { runId: paused.runId, threadId: paused.threadId },
+        state: { runId: paused.executionId, threadId: paused.threadId },
         detail: await refused.catch((error: unknown) => error),
       },
     ]);
@@ -168,7 +168,7 @@ describe("#246 AC3: an incompatible resume is the paused run's onError; the run 
 
     expect(done).toMatchObject({
       status: ExecutionStatus.Finished,
-      runId: paused.runId,
+      executionId: paused.executionId,
       threadId: paused.threadId,
     });
     expect(sent).toEqual(["boss@example.com"]);

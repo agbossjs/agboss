@@ -66,7 +66,7 @@ async function pausedAndResumed(
   expect(done).toFinishWith(SingleChildWorkflowFinish, { orderId: "A" });
   const ids = {
     threadId: paused.threadId,
-    rootExecutionId: paused.runId,
+    rootExecutionId: paused.executionId,
     childExecutionId: pause?.childExecutionId,
     pauseId: pause?.pauseId,
   };
@@ -120,7 +120,7 @@ describe("#313 AC2: under testWith the ids are deterministic", () => {
       "thread-2",
       "order-a",
     ]);
-    expect([first.ids.rootExecutionId, second.ids.rootExecutionId, own.runId]).toEqual([
+    expect([first.ids.rootExecutionId, second.ids.rootExecutionId, own.executionId]).toEqual([
       "execution-1",
       "execution-3",
       "execution-5",

@@ -29,7 +29,7 @@ const tools = {
 
 /** Files in {{dir}}, through the filesystem MCP server. */
 @McpServer({
-  name: "{{snake}}",
+  name: "{{kebab}}",
   transport: "stdio",
   command: process.execPath,
   args: [FILESYSTEM_SERVER, "{{dir}}"],

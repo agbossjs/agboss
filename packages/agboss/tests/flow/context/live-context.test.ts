@@ -76,7 +76,7 @@ describe("#280 AC6, AC12: the injected ExecutionContext gives the current execut
       component: { type: PublishAction, name: "publish-action" },
       nodeId: "publish-action",
       visitNumber: 1,
-      idempotencyKey: `${done.runId}:publish-action:1`,
+      idempotencyKey: `${done.executionId}:publish-action:1`,
       callId: undefined,
       itemIndex: undefined,
       copyNumber: 1,
@@ -92,7 +92,7 @@ describe("#280 AC6, AC12: the injected ExecutionContext gives the current execut
     const done = await execute(app, ContextStart, { text: "a post" });
 
     expect(seen.tree).toEqual([{ parent: undefined, rootIsSelf: true, depth: 1 }]);
-    expect(seen.executionOf).toEqual([done.runId, undefined]);
+    expect(seen.executionOf).toEqual([done.executionId, undefined]);
   });
 
   test("the workflow descriptor names the class, its name and both versions", async ({
@@ -121,10 +121,10 @@ describe("#280: a tool called on its own runs in an execution of its own", () =>
     expect(result).toEqual({ kind: "ok", value: { text: "alone" } });
     expect(seen.toolSteps).toEqual([
       {
-        component: { type: NoteTool, name: "note" },
-        nodeId: "note",
+        component: { type: NoteTool, name: "note-tool" },
+        nodeId: "note-tool",
         visitNumber: 1,
-        idempotencyKey: "tool-slice:note:1:tool-slice",
+        idempotencyKey: "tool-slice:note-tool:1:tool-slice",
         callId: "tool-slice",
         itemIndex: undefined,
         copyNumber: 1,
@@ -187,7 +187,7 @@ describe("#280 AC8 (S18): data only, read-only, closed with its step", () => {
 
     expect(stray).toBeInstanceOf(ExecutionContextUnavailableError);
     expect((stray as Error).message).toContain(
-      `the execution context was read after its step ended (writer-agent:1 tool call ${String(seen.toolSteps[0]?.callId)} in execution ${done.runId})`,
+      `the execution context was read after its step ended (writer-agent:1 tool call ${String(seen.toolSteps[0]?.callId)} in execution ${done.executionId})`,
     );
   });
 

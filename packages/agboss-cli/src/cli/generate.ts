@@ -6,6 +6,7 @@ import { dryRun, write } from "./scaffold-outcome.js";
 
 const GENERATE_OPTIONS = [
   "workflow",
+  "application",
   "agent",
   "description",
   "dir",

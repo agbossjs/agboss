@@ -38,7 +38,7 @@ describe("MCP tools: a tool with its server's client injected (#109)", () => {
       {},
       () => transport,
     );
-    const read = resolveTools(workflow, services).find((tool) => tool.name === "read_file");
+    const read = resolveTools(workflow, services).find((tool) => tool.name === "read-file-tool");
 
     expect(workflow.serverTools?.map((tool) => tool.name)).toEqual(["files__read"]);
     expect(await read?.invoke({ path: "notes.md" }, ctx)).toEqual({

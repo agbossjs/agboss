@@ -108,7 +108,7 @@ export class Query {
 }
 
 /** A step: counted, so a test sees whether it ran again. */
-@Tool({ name: "step", description: "Takes a step", input: Query, output: Query })
+@Tool({ name: "step-tool", description: "Takes a step", input: Query, output: Query })
 export class Step implements ToolHandler<Query, Query> {
   run(input: Query): Promise<Query> {
     seen.steps.push(input.text);
@@ -117,7 +117,13 @@ export class Step implements ToolHandler<Query, Query> {
 }
 
 /** The first call waits until its execution is stopped or the test lets it go; later ones return. */
-@Tool({ name: "hold", description: "Waits", input: Query, output: Query, deps: [ExecutionContext] })
+@Tool({
+  name: "hold-tool",
+  description: "Waits",
+  input: Query,
+  output: Query,
+  deps: [ExecutionContext],
+})
 export class Hold implements ToolHandler<Query, Query> {
   constructor(private readonly executionContext: ExecutionContext) {}
 
@@ -140,7 +146,7 @@ export class Hold implements ToolHandler<Query, Query> {
 
 /** A write: each call waits for an approval. */
 @Tool({
-  name: "charge",
+  name: "charge-tool",
   description: "Charges the card",
   channel: TerminalUserChannel,
   input: Query,

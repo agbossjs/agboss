@@ -10,6 +10,7 @@ import {
   type UsageRecord,
 } from "../src/finops/usage.js";
 import { usageRecord as record } from "./helpers.js";
+import { seconds } from "../src/units/index.js";
 
 const price = { inputPerMTok: 2, outputPerMTok: 10 };
 const settings = {
@@ -18,7 +19,7 @@ const settings = {
   maxTokens: 100,
   thinking: "default" as const,
   cache: true,
-  timeoutMs: 1000,
+  timeout: seconds(1),
   maxRetries: 0,
   price,
 };
@@ -151,15 +152,15 @@ describe("turn financials", () => {
 
 describe("a built-in tool's reported cost (a knowledge-base search)", () => {
   it("is recorded under its cost caller; an invalid cost is rejected", () => {
-    expect(recordReportedCost({ name: "search_docs", costCaller: "rag:docs" }, 0.01)).toMatchObject(
-      {
-        caller: "rag:docs",
-        costUsd: 0.01,
-        costSource: "tool",
-      },
-    );
-    expect(() => recordReportedCost({ name: "search_docs" }, -1)).toThrow(
-      'Tool "search_docs" reported an invalid cost: -1',
+    expect(
+      recordReportedCost({ name: "search-docs-tool", costCaller: "rag:docs" }, 0.01),
+    ).toMatchObject({
+      caller: "rag:docs",
+      costUsd: 0.01,
+      costSource: "tool",
+    });
+    expect(() => recordReportedCost({ name: "search-docs-tool" }, -1)).toThrow(
+      'Tool "search-docs-tool" reported an invalid cost: -1',
     );
   });
 });

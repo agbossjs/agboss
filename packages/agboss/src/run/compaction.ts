@@ -18,7 +18,7 @@ import {
 } from "../prompts/compaction.js";
 import type { Summary, Tern } from "../terns/index.js";
 import { isTurn, toTurns } from "./thread.js";
-import type { RunDeps } from "./types.js";
+import type { AgentExecutionDeps } from "./types.js";
 
 /**
  * Compaction at run time (#120 PR 3), loaded on first use — only a workflow whose readers use a
@@ -81,7 +81,7 @@ function dueOf(compaction: CompactionInUse, records: readonly Tern[]): readonly 
 
 /** What the compaction's model reads, in full (before masking). */
 async function inputOf<TName extends string>(
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   compaction: CompactionInUse,
   run: CompactionRun,
   due: readonly Tern[],
@@ -108,7 +108,7 @@ async function inputOf<TName extends string>(
 
 /** The input through the application's and the workflow's PII policies, with its new tokens. */
 async function maskedInputOf<TName extends string>(
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   text: string,
   run: CompactionRun,
 ): Promise<{
@@ -173,7 +173,7 @@ async function summaryOf(
 
 /** One compaction before the execution: nothing when nothing is due. */
 async function compactOne<TName extends string>(
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   compaction: CompactionInUse,
   run: CompactionRun,
 ): Promise<{ readonly usage: readonly UsageRecord[]; readonly compacted?: Compacted }> {
@@ -221,7 +221,7 @@ async function compactOne<TName extends string>(
  * order, while the execution's budget lasts (one with nothing left is skipped — the next compacts).
  */
 export async function compactDue<TName extends string>(
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   plan: MemoryPlan,
   run: CompactionRun,
 ): Promise<CompactionOutcome> {

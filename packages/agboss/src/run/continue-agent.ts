@@ -4,7 +4,7 @@ import { continueRun, type ContinueOptions } from "./continue-run.js";
 import { drainRun, failedOutcome } from "./execute.js";
 import { readingGraphOf } from "./run-budgets.js";
 import { runConfig } from "./paused.js";
-import type { AgentExecutionOutput, RunDeps } from "./types.js";
+import type { AgentExecutionOutput, AgentExecutionDeps } from "./types.js";
 
 /** The record of an interrupted execution recovery continues: its run, thread, tenant and record id. */
 export interface InterruptedRun {
@@ -33,7 +33,7 @@ export class NothingToRecoverError extends AGBossError {
  */
 export async function continueAgent<TName extends string>(
   interrupted: InterruptedRun,
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   options: ContinueOptions = {},
 ): Promise<AgentExecutionOutput> {
   const snapshot = await readingGraphOf(deps).getState(runConfig(interrupted.runId));

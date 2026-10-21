@@ -1,11 +1,7 @@
 import { renderTemplate } from "agboss/internal";
 import { readFileSync } from "node:fs";
-import { ScaffoldError, ScaffoldUsageError } from "./errors.js";
-import { namesOf, type Names } from "./names.js";
-import { applicationFiles } from "./application-files.js";
-import { mcpFiles, ragFiles } from "./parts.js";
-import { agentRoute, endpointFiles, MAIN_ROUTER, routerFile } from "./flow-files.js";
-import { addImport, wire } from "./wire.js";
+import { ScaffoldError } from "./errors.js";
+import type { Names } from "./names.js";
 import type { FileToWrite } from "./write.js";
 
 const TEMPLATES = new URL("../../templates/", import.meta.url);
@@ -25,6 +21,7 @@ export const vars = (n: Names): Record<string, string> => ({
   title: n.title,
 });
 
+/** An agent of a new workflow: its full name (`triage-agent`), its role, its tools' full names. */
 export interface AgentSpec {
   readonly name: string;
   readonly description: string;
@@ -39,22 +36,30 @@ export type McpSpec =
       readonly command: string;
       readonly tool: string;
     };
+/** A new workflow: its full name (`desk-workflow`), its agents, its MCP server, its knowledge base. */
 export interface WorkflowSpec {
   readonly name: string;
   readonly agents: readonly AgentSpec[];
   readonly mcp: McpSpec;
+  /** The knowledge base: its full name (`desk-notes-rag`) and the folder it indexes. */
   readonly rag?: { readonly name: string; readonly folder: string } | undefined;
 }
 
-/** Where a workflow's files live: `src/<workflow>/`. */
-export const workflowDir = (workflow: Names): string => `src/${workflow.kebab}`;
+/** What a tool of `agboss create` reaches (#239): the project's `ApiService` and its application. */
+export interface ToolApi {
+  /** The service's module, as the tool imports it: `../../services/api.service.js`. */
+  readonly service: string;
+  /** The application the tool's test runs it in, and its module as the test imports it. */
+  readonly application: string;
+  readonly applicationFrom: string;
+}
 
 /**
- * What the tools of `agboss create` add (#239): they inject the project's `ApiService` after the
- * execution context (#280), each field named after its type.
+ * What a tool that reaches the project's API adds (#239): it injects the project's `ApiService`
+ * after the execution context (#280), each field named after its type.
  */
-const apiVariables = (tool: Names): Record<string, string> => ({
-  serviceImport: 'import { ApiService } from "../services/api.service.js";',
+const apiVariables = (tool: Names, api: ToolApi): Record<string, string> => ({
+  serviceImport: `import { ApiService } from "${api.service}";`,
   deps: "  deps: [ExecutionContext, ApiService],\n",
   constructor:
     "  constructor(\n    private readonly executionContext: ExecutionContext,\n    private readonly apiService: ApiService,\n  ) {}\n\n",
@@ -70,18 +75,19 @@ const NO_API = {
 };
 
 /**
- * A tool and its test in `folder` (`<workflow>/tools`). With `workflow` (`agboss create`, #239) the tool
- * injects the project's `ApiService` and its test runs it in the workflow's app, on its environment.
+ * A tool (`<name>-tool`, class `<Name>Tool`) and its test in `folder`. With `api` (`agboss create`,
+ * #239) the tool injects the project's `ApiService` and its test runs it in the application, on its
+ * environment.
  */
-export function toolFiles(folder: string, tool: Names, workflow?: Names): FileToWrite[] {
-  const variables = { ...vars(tool), ...(workflow === undefined ? NO_API : apiVariables(tool)) };
+export function toolFiles(folder: string, tool: Names, api?: ToolApi): FileToWrite[] {
+  const variables = { ...vars(tool), ...(api === undefined ? NO_API : apiVariables(tool, api)) };
   const test =
-    workflow === undefined
+    api === undefined
       ? render("tool/tool.test.ts.tmpl", variables)
       : render("tool/tool-api.test.ts.tmpl", {
           ...variables,
-          workflowPascal: workflow.pascal,
-          workflowKebab: workflow.kebab,
+          application: api.application,
+          applicationFrom: api.applicationFrom,
         });
   return [
     { path: `${folder}/${tool.kebab}.tool.ts`, content: render("tool/tool.ts.tmpl", variables) },
@@ -89,7 +95,7 @@ export function toolFiles(folder: string, tool: Names, workflow?: Names): FileTo
   ];
 }
 
-/** An agent and its prompt in `folder` (`<workflow>/agents`), its tools in `../tools`. */
+/** An agent (`<name>-agent`) and its prompt in `folder` (`<workflow>/agents`), its tools in `../tools`. */
 export function agentFiles(
   folder: string,
   agent: Names,
@@ -114,121 +120,5 @@ export function agentFiles(
       path: `${folder}/${agent.kebab}.prompt.md`,
       content: render("agent/agent.prompt.md.tmpl", variables),
     },
-  ];
-}
-
-/** MCP server and knowledge base of a new workflow — both wired into its first agent. */
-function extras(
-  spec: WorkflowSpec,
-  dir: string,
-  firstAgent: FileToWrite,
-): { files: FileToWrite[]; agent: FileToWrite; server: string } {
-  const workflow = namesOf(spec.name);
-  const files: FileToWrite[] = [];
-  let agent = firstAgent;
-  let server = "";
-  if (spec.mcp.kind !== "none") {
-    const mcp = mcpFiles(dir, spec.mcp);
-    files.push(...mcp.files);
-    server = mcp.server;
-    agent = wire(agent, "Agent", "tools", mcp.tool, mcp.tool, `../${mcp.toolModule}.js`);
-  }
-
-  if (spec.rag !== undefined) {
-    const rag = ragFiles(dir, workflow, spec.rag);
-    files.push(...rag.files);
-    agent = wire(
-      agent,
-      "Agent",
-      "rag",
-      `{ use: ${rag.knowledge}, mode: RagMode.Tool }`,
-      rag.knowledge,
-      `../rag/${namesOf(spec.rag.name).kebab}.rag.js`,
-    );
-    // the mode is an enum (#269): its import goes with the knowledge base's
-    agent = { ...agent, content: addImport(agent.content, agent.path, "RagMode", "agboss") };
-  }
-  return { files, agent, server };
-}
-
-/** The workflow module's imports: its agents, its MCP server, the project's `ApiService`. */
-function moduleImports(
-  spec: WorkflowSpec,
-  agents: readonly { readonly names: Names }[],
-  server: string,
-  api: boolean,
-): string {
-  return [
-    ...agents.map(
-      (a) => `import { ${a.names.pascal}Agent } from "./agents/${a.names.kebab}.agent.js";`,
-    ),
-    ...(spec.mcp.kind === "none"
-      ? []
-      : [`import { ${server} } from "./mcp/${namesOf(spec.mcp.name).kebab}.server.js";`]),
-    ...(api ? ['import { ApiService } from "./services/api.service.js";'] : []),
-  ].join("\n");
-}
-
-/** The files every new workflow has as they are: its models, its model provider, its guardrail. */
-const fixedFiles = (dir: string): FileToWrite[] => [
-  { path: `${dir}/models.ts`, content: render("workflow/models.ts.tmpl", {}) },
-  {
-    path: `${dir}/guardrails/prompt-injection.guardrail.ts`,
-    content: render("workflow/prompt-injection.guardrail.ts.tmpl", {}),
-  },
-  {
-    path: `${dir}/model-providers/openrouter.model-provider.ts`,
-    content: render("workflow/openrouter.model-provider.ts.tmpl", {}),
-  },
-];
-
-/**
- * Every file of one new workflow (agents, tools with tests, MCP, knowledge base, the module); `api`:
- * its tools inject the project's `ApiService` (`agboss create`, #239).
- */
-export function planWorkflow(spec: WorkflowSpec, api = false): FileToWrite[] {
-  const workflow = namesOf(spec.name);
-  const dir = workflowDir(workflow);
-  const agents = spec.agents.map((a) => ({
-    spec: a,
-    names: namesOf(a.name),
-    tools: a.tools.map(namesOf),
-  }));
-  const [firstAgent, ...otherAgentFiles] = agents.flatMap((a) =>
-    agentFiles(`${dir}/agents`, a.names, a.spec.description, a.tools),
-  );
-  if (firstAgent === undefined) throw new ScaffoldUsageError("A workflow needs at least one agent");
-  const more = extras(spec, dir, firstAgent);
-  const module = render("workflow/workflow.ts.tmpl", {
-    ...vars(workflow),
-    imports: moduleImports(spec, agents, more.server, api),
-    // one call per line (#289): `route(X)` / `.toFinish(…)`
-    routes: agents
-      .map((a) => `        route(${a.names.pascal}Agent)\n          .toFinish(TextWorkflowFinish),`)
-      .join("\n"),
-    servers: more.server,
-    // the service the tools inject (`deps: [ExecutionContext, ApiService]`) — the container creates registered ones
-    providers: api ? "  providers: [ApiService],\n" : "",
-  });
-  // a text agent answers straight to the finish: the router chooses among the agents (#272)
-  const router = routerFile(
-    `${dir}/routers`,
-    namesOf("main"),
-    MAIN_ROUTER,
-    agents.map((a) => agentRoute(a.names, a.spec.description)),
-    `${workflow.kebab}-main`,
-  );
-  return [
-    ...fixedFiles(dir),
-    ...endpointFiles(dir, workflow),
-    router,
-    ...agents.flatMap((a) =>
-      a.tools.flatMap((t) => toolFiles(`${dir}/tools`, t, api ? workflow : undefined)),
-    ),
-    ...more.files,
-    more.agent,
-    ...otherAgentFiles,
-    { path: `${dir}/${workflow.kebab}.workflow.ts`, content: module },
-    ...applicationFiles(dir, workflow, api),
   ];
 }

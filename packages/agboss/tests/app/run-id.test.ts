@@ -46,7 +46,7 @@ describe("#238: one run id per run", () => {
     ]);
     expect(seen.tools).toHaveLength(1);
     expect(seen.actions).toHaveLength(1);
-    expect(idsSeen()).toEqual([done.runId]);
+    expect(idsSeen()).toEqual([done.executionId]);
   });
 
   test("AC1: across a pause and its resume — the same id before and after", async ({
@@ -63,11 +63,11 @@ describe("#238: one run id per run", () => {
     const done = await app.resume(answerOf(paused, approve));
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
-    expect(done.runId).toBe(paused.runId);
+    expect(done.executionId).toBe(paused.executionId);
     expect(seen.events.length).toBeGreaterThan(beforeResume);
     expect(seen.tools).toHaveLength(1);
     expect(seen.actions).toHaveLength(1);
-    expect(idsSeen()).toEqual([paused.runId]);
+    expect(idsSeen()).toEqual([paused.executionId]);
   });
 
   test("two runs get two ids", async ({ app, mockLlm }) => {
@@ -84,7 +84,7 @@ describe("#238: one run id per run", () => {
       { threadId: first.threadId },
     );
 
-    expect(first.runId).not.toBe(second.runId);
+    expect(first.executionId).not.toBe(second.executionId);
   });
 });
 
@@ -92,7 +92,7 @@ describe("#238: the Tern names the run that wrote it", () => {
   it("the Tern of a run carries the run's id, the one its result has", async () => {
     const deps = await fakeDeps({ "test/router": [routeTo("alpha-agent")], "test/alpha": ["42"] });
 
-    const result = await runText("Answer", deps, { runId: "run-given" });
+    const result = await runText("Answer", deps, { executionId: "run-given" });
 
     expect(result.runId).toBe("run-given");
     const [tern] = await deps.terns.lastTerns(result.tenantId, result.threadId, 1);

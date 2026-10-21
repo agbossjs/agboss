@@ -42,15 +42,17 @@ describe("validateAgentsConfig", () => {
   it("rejects an agent tool the registry does not know", () => {
     const config: AgentsConfigOf<string> = {
       ...testConfig,
-      agents: { alpha: { ...testConfig.agents.alpha, tools: ["current_time", "ghost"] } },
+      agents: { alpha: { ...testConfig.agents.alpha, tools: ["current-time-tool", "ghost"] } },
     };
 
-    expect(() => validateAgentsConfig(config, ["current_time"])).toThrow(UnknownAgentToolError);
-    expect(() => validateAgentsConfig(config, ["current_time"])).toThrow("alpha → ghost");
+    expect(() => validateAgentsConfig(config, ["current-time-tool"])).toThrow(
+      UnknownAgentToolError,
+    );
+    expect(() => validateAgentsConfig(config, ["current-time-tool"])).toThrow("alpha → ghost");
   });
 
   it("does not compile a tool name outside the union", () => {
-    const agent: AgentsConfigOf<"a", "current_time">["agents"]["a"] = {
+    const agent: AgentsConfigOf<"a", "current-time-tool">["agents"]["a"] = {
       model: "m",
       description: "d",
       price: { inputPerMTok: 0, outputPerMTok: 0 },

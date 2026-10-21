@@ -2,7 +2,7 @@ import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { CallbackHandler } from "@langfuse/langchain";
 import { describe, expect, it } from "vitest";
 import { langfuseTracing } from "../src/tracing/langfuse.js";
-import { tracingOf, type RunTracing, type TraceContext } from "../src/tracing/index.js";
+import { tracingOf, type ExecutionTracing, type TraceContext } from "../src/tracing/index.js";
 import { routeTo, fakeDeps, runText } from "./helpers.js";
 
 /** Records which graph nodes started — proves callbacks reach the graph. */
@@ -60,7 +60,7 @@ describe("tracing", () => {
   it("passes the callbacks to the graph run with the thread and run ids", async () => {
     const recorder = new NodeRecorder();
     const seen: TraceContext[] = [];
-    const tracing: RunTracing = {
+    const tracing: ExecutionTracing = {
       callbacks: (context) => {
         seen.push(context);
         return [recorder];

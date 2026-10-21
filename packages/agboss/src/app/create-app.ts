@@ -9,7 +9,7 @@ import {
 } from "../run/thread.js";
 import { runOpenedAgent } from "../run/run-agent.js";
 import { openExecutionBudgets } from "../run/run-budgets.js";
-import { runVersions } from "../run/versions.js";
+import { executionVersions } from "../run/versions.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import {
   createWorkflowDeps,
@@ -89,7 +89,7 @@ export async function buildApp(
   const deps = await createWorkflowDeps(bundle, options, parts);
   const current = {
     workflowVersion: deps.config.version,
-    configHash: runVersions(deps).configHash,
+    configHash: executionVersions(deps).configHash,
   };
   const policy = bundle.onIncompatibleResume;
   const pauses = parts.infrastructure.pausedExecutions;
@@ -176,7 +176,7 @@ export async function buildApp(
         runOpenedAgent(
           begun,
           moving,
-          { ...runOptionsOf(call, signal), runId, contexts: values },
+          { ...runOptionsOf(call, signal), executionId: runId, contexts: values },
           budgets,
         ),
       );

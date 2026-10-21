@@ -9,24 +9,25 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { planGenerate, type GenerateOptions } from "../../src/scaffold/generate.js";
 import { applyChanges } from "../../src/scaffold/write.js";
 import { JOB_SCOUT_CHECK } from "../fixtures/job-scout-check.js";
-import { applicationOf, expectStaticChecks, agbossIn, repo, vitestOf } from "./project-checks.js";
+import { expectStaticChecks, agbossIn, repo, vitestOf } from "./project-checks.js";
 
 const example = join(repo, "examples/job-scout");
 const project = join(repo, "examples", `.scaffold-tmp-job-scout-${String(process.pid)}`);
-const workflow = "src/job-scout.workflow.ts";
+const workflow = "job-scout-workflow";
+const module = "src/job-scout.workflow.ts";
 const pets = new URL("../fixtures/openapi/pets.yaml", import.meta.url).pathname;
 const text = (path: string): string => readFileSync(join(project, path), "utf8");
 
-/** Each kind, as `agboss generate <kind> <name> [options]` would plan it. */
+/** Each kind, as `agboss generate <kind> <full name> [options]` would plan it (#268 AC8). */
 const KINDS: readonly (readonly [string, string, GenerateOptions])[] = [
-  ["agent", "billing", { workflow, description: "Handles invoices and refunds" }],
-  ["tool", "refund", { workflow, agent: "billing" }],
+  ["agent", "billing-agent", { workflow, description: "Handles invoices and refunds" }],
+  ["tool", "refund-tool", { workflow, agent: "billing-agent" }],
   // a server the example's own tests really start: the filesystem server over its notes
-  ["mcp", "tickets", { workflow, dir: join(project, "notes"), agent: "billing" }],
-  ["rag", "policies", { workflow, folder: "policies", agent: "billing" }],
-  ["router", "escalation", { workflow }],
-  ["openapi", "pets", { workflow, agent: "billing", url: pets, operations: "getPet" }],
-  ["workflow", "onboarding", {}],
+  ["mcp", "tickets", { workflow, dir: join(project, "notes"), agent: "billing-agent" }],
+  ["rag", "policies-rag", { workflow, folder: "policies", agent: "billing-agent" }],
+  ["router", "escalation-router", { workflow }],
+  ["openapi", "pets", { workflow, agent: "billing-agent", url: pets, operations: "getPet" }],
+  ["workflow", "onboarding-workflow", {}],
 ];
 
 /** The example's own tests that pin its shape (exact agents, routes, tools): adding parts changes it. */
@@ -60,7 +61,7 @@ describe("agboss generate on job-scout's layout", () => {
     // targets resolved from the workflow module: its agents folder, its router, its finish
     expect(existsSync(join(project, "src/agents/billing.agent.ts"))).toBe(true);
     // #272: the router's choice in the flow gets the agent's path, its routes the agent
-    expect(text(workflow)).toMatch(
+    expect(text(module)).toMatch(
       /route\(ShortlistAgent\)\n {10}\.toFinish\(ChatWorkflowFinish\),\n {8}route\(BillingAgent\)\n {10}\.toFinish\(ChatWorkflowFinish\),\n/,
     );
     // the new route goes after the last one, one per line
@@ -86,26 +87,26 @@ describe("agboss generate on job-scout's layout", () => {
     expect(tests.out).toContain("billing-check.test.ts");
     expect(tests.out).toContain("refund.tool.test.ts");
     expect(tests.out).toContain("get-pet.tool.test.ts");
-    const described = agbossIn(project, ["describe", "--application", applicationOf(workflow)]);
+    // the application's path is the example's package.json's (#268 AC1): no --application
+    const described = agbossIn(project, ["describe"]);
     expect(described.ok, described.out).toBe(true);
     expect(described.out).toContain(
       "      route(ShortlistAgent)\n        .toFinish(ChatWorkflowFinish),\n      route(BillingAgent)\n        .toFinish(ChatWorkflowFinish)\n    )",
     );
-    expect(described.out).toContain("· read_tickets (MCP tickets)");
-    expect(described.out).toContain("rag: policies (tool, k 3)");
-    const onboarding = agbossIn(project, [
-      "describe",
-      "--application",
-      "src/onboarding/onboarding.application.ts",
-    ]);
-    expect(onboarding.ok, onboarding.out).toBe(true);
+    expect(described.out).toContain("· read-tickets-tool (MCP tickets)");
+    expect(described.out).toContain("rag: policies-rag (tool, k 3)");
+    // #268 AC8: the new workflow is one more of the application, listed in @Application({ workflows })
+    expect(described.out).toContain("onboarding-workflow 0.1.0");
+    expect(text("src/job-scout.application.ts")).toMatch(
+      /workflows: \[JobScout, OnboardingWorkflow\]/,
+    );
   }, 300_000);
 
   it("AC2: a rerun refuses; with --force it regenerates the files and doubles no wiring", async () => {
-    const before = { workflow: text(workflow), router: text("src/routers/main.router.ts") };
+    const before = { workflow: text(module), router: text("src/routers/main.router.ts") };
     const again = await planGenerate(
       "agent",
-      "billing",
+      "billing-agent",
       { workflow, description: "Bills" },
       project,
     );
@@ -117,7 +118,7 @@ describe("agboss generate on job-scout's layout", () => {
     const forced = agbossIn(project, [
       "generate",
       "agent",
-      "billing",
+      "billing-agent",
       "--workflow",
       workflow,
       "--description",
@@ -138,7 +139,7 @@ describe("agboss generate on job-scout's layout", () => {
     ).toBe(true);
     expect(text("src/agents/billing.agent.ts")).toContain("RefundTool");
     expect(envelope.modified).toEqual([]);
-    expect(text(workflow)).toBe(before.workflow);
+    expect(text(module)).toBe(before.workflow);
     expect(text("src/routers/main.router.ts")).toBe(before.router);
     expect(text("src/agents/billing.agent.ts")).toContain('description: "Bills"');
     for (const [kind, name, options] of KINDS.slice(1, 4)) {
@@ -146,8 +147,8 @@ describe("agboss generate on job-scout's layout", () => {
       await applyChanges(project, plan, { force: true });
     }
     expect(text("src/agents/billing.agent.ts").match(/RefundTool/g)).toHaveLength(2);
-    expect(text(workflow).match(/TicketsServer/g)).toHaveLength(2);
-    const tsc = agbossIn(project, ["describe", "--application", applicationOf(workflow)]);
+    expect(text(module).match(/TicketsServer/g)).toHaveLength(2);
+    const tsc = agbossIn(project, ["describe"]);
     expect(tsc.ok, tsc.out).toBe(true);
   }, 120_000);
 });

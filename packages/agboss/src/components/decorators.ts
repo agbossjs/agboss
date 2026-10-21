@@ -1,6 +1,7 @@
 import type { McpServerConfig } from "../config/types.js";
 import type { RagConnector } from "../rag/types.js";
 import type { DtoClass } from "../dto/types.js";
+import type { Milliseconds } from "../units/index.js";
 import type { ChannelMeta } from "./meta-types.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 import type { McpServerClient, ServerTools } from "./mcp-client.js";
@@ -34,7 +35,8 @@ export interface ToolOptions<
   readonly prompt?: string;
   readonly promptUrls?: readonly string[];
   readonly channel?: Class;
-  readonly timeoutMs?: number;
+  /** How long one call may run, with units: `timeout: seconds(5)` (default 30 s). */
+  readonly timeout?: Milliseconds;
   readonly input: In;
   readonly output: Out;
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */

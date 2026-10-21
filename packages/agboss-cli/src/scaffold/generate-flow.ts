@@ -1,7 +1,7 @@
 import { ScaffoldError } from "./errors.js";
 import { finishRoute, routeLine, routerFile, type RouterFileSpec } from "./flow-files.js";
 import type { GenerateOptions } from "./generate.js";
-import { namesOf } from "./names.js";
+import { fullNameOf } from "./names.js";
 import { agentFiles } from "./plan.js";
 import { read } from "./project-files.js";
 import { wireInto } from "./wire.js";
@@ -36,15 +36,15 @@ function starRouterOf(graph: WorkflowGraph): Component {
 }
 
 /**
- * `agboss g agent <name> --workflow …`: the agent and its prompt next to the workflow's agents; the
+ * `agboss g agent <name>-agent --workflow <name>-workflow`: the agent and its prompt next to the workflow's agents; the
  * agent joins the router's choice — a route in `@Router({ routes })` (before a finish route) and
  * `route(Agent).toFinish(Finish)` in the flow's `chooseOne(…)`, the two lists the same (#272 AC6).
  * Resolved from the workflow module, whatever the layout.
  */
 export function planAgent(root: string, name: string, o: GenerateOptions): Changes {
-  const graph = workflowGraph(root, o.workflow, "agent");
+  const n = fullNameOf(name, "agent");
+  const graph = workflowGraph(root, o);
   const router = starRouterOf(graph);
-  const n = namesOf(name);
   const description = o.description ?? `${n.title} (TODO: describe the role)`;
   const folder = folderOf(graph, "Agent", "agents");
   const path = `${folder}/${n.kebab}.agent.ts`;
@@ -71,13 +71,13 @@ export function planAgent(root: string, name: string, o: GenerateOptions): Chang
 }
 
 /**
- * `agboss g router <name> --workflow …`: a router with the route to the workflow's finish, next to its
+ * `agboss g router <name>-router --workflow <name>-workflow`: a router with the route to the workflow's finish, next to its
  * routers, ready for routes of its own. It is not put into the flow — where it sits is a choice.
  */
 export function planRouter(root: string, name: string, o: GenerateOptions): Changes {
-  const graph = workflowGraph(root, o.workflow, "router");
+  const n = fullNameOf(name, "router");
+  const graph = workflowGraph(root, o);
   const finish = finishOf(graph);
-  const n = namesOf(name);
   const folder = folderOf(graph, "Router", "routers");
   const text: RouterFileSpec = {
     description: o.description ?? `${n.title} (TODO: say what it decides)`,

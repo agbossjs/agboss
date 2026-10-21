@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect } from "vitest";
-import type { RunStreamEvent } from "../../src/run/types.js";
+import type { ExecutionStreamEvent } from "../../src/run/types.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
   Charge,
@@ -41,19 +41,19 @@ describe("#280: a tool and an action read their execution through ExecutionConte
       const [probe] = seen.probes;
       const [payment] = seen.payments;
       expect(probe).toMatchObject({
-        executionId: done.runId,
+        executionId: done.executionId,
         threadId: done.threadId,
         ownerId: "dana",
       });
       expect(probe?.step).toMatchObject({ nodeId: "clerk-agent", visitNumber: 1, copyNumber: 1 });
       expect(probe?.step.callId).toEqual(expect.any(String));
       expect(probe?.step.idempotencyKey).toBe(
-        `${done.runId}:clerk-agent:1:${String(probe?.step.callId)}`,
+        `${done.executionId}:clerk-agent:1:${String(probe?.step.callId)}`,
       );
       expect(payment?.step).toMatchObject({
         nodeId: "pay-action",
         callId: undefined,
-        idempotencyKey: `${done.runId}:pay-action:1`,
+        idempotencyKey: `${done.executionId}:pay-action:1`,
       });
       expect(probe?.signal.aborted).toBe(false);
     },
@@ -78,7 +78,7 @@ describe("#280: a tool and an action read their execution through ExecutionConte
       expect(charge?.executionId).toBe(probe?.executionId);
       expect(charge?.step.visitNumber).toBe(1);
       expect(charge?.step.idempotencyKey).toBe(
-        `${done.runId}:clerk-agent:1:${String(charge?.step.callId)}`,
+        `${done.executionId}:clerk-agent:1:${String(charge?.step.callId)}`,
       );
       // the action after the pause runs once
       expect(seen.payments).toHaveLength(1);
@@ -93,7 +93,7 @@ describe("#181: execute and resume forward onStream", () => {
     "AC2: a caller passing onStream to app.execute receives stream events",
     async ({ app, mockLlm }) => {
       mockLlm(Mailer).thenReturn(replyWith("Hello there."));
-      const events: RunStreamEvent[] = [];
+      const events: ExecutionStreamEvent[] = [];
 
       await execute(app, MailStart, { text: "hi" }, { onStream: (event) => events.push(event) });
 
@@ -104,7 +104,7 @@ describe("#181: execute and resume forward onStream", () => {
   mail("resume forwards onStream too", async ({ app, mockLlm }) => {
     sent.length = 0;
     mockLlm(Mailer).thenReturn(callTool(SendEmail, { to: "dana" }), replyWith("Sent."));
-    const events: RunStreamEvent[] = [];
+    const events: ExecutionStreamEvent[] = [];
 
     const paused = await execute(
       app,

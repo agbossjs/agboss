@@ -1,6 +1,6 @@
 import { withChildPauses } from "../flow/runtime/child-records.js";
 import type { ExecutionRecord, PauseAnswerRecord } from "../flow/runtime/execution-record.js";
-import type { RunDeps } from "../run/types.js";
+import type { AgentExecutionDeps } from "../run/types.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import type { ExecutionOutput } from "./types.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
@@ -34,7 +34,7 @@ export function runResultOf(run: AgentExecutionOutput, withRecord: boolean): Exe
     status: run.status,
     threadId: run.threadId,
     tenantId: run.tenantId,
-    runId: run.runId,
+    executionId: run.runId,
     path: run.path,
     spend: run.cost,
     launches: run.data.launches ?? [],
@@ -67,7 +67,7 @@ export async function maskedRecordOf(
  */
 export async function withPauseAnswers(
   result: ExecutionOutput,
-  deps: Pick<RunDeps<string>, "pause" | "pii">,
+  deps: Pick<AgentExecutionDeps<string>, "pause" | "pii">,
 ): Promise<ExecutionOutput> {
   const { record } = result;
   const log = deps.pause?.answers;
@@ -75,7 +75,7 @@ export async function withPauseAnswers(
   const mask = deps.pii?.observability;
   const answers = await log.findPauseAnswersByTenantIdAndRootExecutionId(
     result.tenantId,
-    result.runId,
+    result.executionId,
   );
   // the mask keeps the shape: every string masked, nothing else changed
   const masked = mask === undefined ? answers : ((await mask.value(answers)) as typeof answers);

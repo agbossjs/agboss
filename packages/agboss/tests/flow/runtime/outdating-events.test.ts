@@ -89,9 +89,9 @@ describe("#271 AC10: onValuesOutdated", () => {
 
     const [event] = outdatingEvents;
     expect(event).toMatchObject({
-      executionId: result.runId,
+      executionId: result.executionId,
       parentExecutionId: undefined,
-      rootExecutionId: result.runId,
+      rootExecutionId: result.executionId,
       threadId: result.threadId,
       workflow: { name: "loop-workflow", version: "1.0.0", startedVersion: "1.0.0" },
       step: {
@@ -101,7 +101,7 @@ describe("#271 AC10: onValuesOutdated", () => {
         copyNumber: 1,
         itemIndex: undefined,
         callId: undefined,
-        idempotencyKey: `${result.runId}:loop-writer-agent:2`,
+        idempotencyKey: `${result.executionId}:loop-writer-agent:2`,
       },
     });
     expect(Object.keys(event?.step.component ?? {})).toEqual(["name"]);

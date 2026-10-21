@@ -8,7 +8,7 @@ import { ShortlistServer } from "./shortlist.server.js";
 /** Adds the chosen jobs to the shortlist file; a job already there is skipped. Waits for approval. */
 @McpTool({
   server: ShortlistServer,
-  name: "save_shortlist",
+  name: "save-shortlist-tool",
   description: "Save the jobs the user chose to their shortlist (jobs already there are skipped).",
   channel: TerminalUserChannel,
   input: ChosenJobs,

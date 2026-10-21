@@ -58,7 +58,7 @@ export class EditorQuestion {
 
 /** The reviewer may ask the editor first: the execution pauses for an approval. */
 @Tool({
-  name: "ask_editor",
+  name: "ask-editor-tool",
   description: "Asks the editor about the draft",
   channel: TerminalUserChannel,
   input: EditorQuestion,

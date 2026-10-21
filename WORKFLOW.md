@@ -223,7 +223,7 @@ export class AdminApplication {}
 
 ```typescript file=tools.ts
 @Tool({
-  name: "delete_user",
+  name: "delete-user-tool",
   description: "Deletes a user account.",
   input: DeleteUserInputDto,
   output: UserDeletedDto,

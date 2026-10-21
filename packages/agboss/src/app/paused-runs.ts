@@ -12,7 +12,7 @@ import type { ThreadKey } from "./live-runs.js";
  * A paused run and the workflow version / config hash it paused under (checked on resume). Its
  * pauses — each with its id, status and decision — are records of their own (#267 S35).
  */
-export interface PausedRun extends ResumeVersions {
+export interface PausedExecution extends ResumeVersions {
   readonly run: AgentExecutionOutput;
 }
 
@@ -26,7 +26,7 @@ export interface PausedRunBook {
    */
   readonly drop: (thread: ThreadKey) => Promise<AgentExecutionOutput | undefined>;
   /** The thread's paused run as stored now (`undefined` when none). */
-  readonly find: (thread: ThreadKey) => Promise<PausedRun | undefined>;
+  readonly find: (thread: ThreadKey) => Promise<PausedExecution | undefined>;
 }
 
 /** The pause records and the log of how each was resolved (#267 S107). */
@@ -38,7 +38,7 @@ export function pausedRunBook(
   clock: Clock,
 ): PausedRunBook {
   const repository = stores.pauses;
-  const find = ({ tenantId, threadId }: ThreadKey): Promise<PausedRun | undefined> =>
+  const find = ({ tenantId, threadId }: ThreadKey): Promise<PausedExecution | undefined> =>
     repository.findByTenantIdAndThreadId(tenantId, threadId);
   return {
     settle: (run) =>

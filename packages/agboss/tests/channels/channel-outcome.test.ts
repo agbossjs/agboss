@@ -68,7 +68,7 @@ class CarelessChannel {
 /** An application whose refund tool names `channel` as is. */
 function applicationWith(name: string, channel: Class): Class {
   @Tool({
-    name: "refund_card",
+    name: "refund-card-tool",
     description: "Refunds",
     input: RefundCardInputDto,
     output: RefundCardOutputDto,
@@ -134,7 +134,7 @@ describe("#267 AC5: awaitReply pauses, decided goes on and leaves no pending rec
 
     expect(result).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ ask: { tool: "refund_card" } }],
+      pending: [{ ask: { tool: "refund-card-tool" } }],
     });
     expect(desk.posted).toHaveLength(1);
     expect(desk.refunded).toEqual([]);
@@ -147,7 +147,7 @@ describe("#267 AC5: awaitReply pauses, decided goes on and leaves no pending rec
     const done = await execute(app, RefundWorkflowStart, { text: "refund A-1" });
 
     const pauses = app.resolve(PausedExecutionRepository);
-    const records = await pauses.findAllByTenantIdAndRootExecutionId("default", done.runId);
+    const records = await pauses.findAllByTenantIdAndRootExecutionId("default", done.executionId);
     expect(records.map(({ status, resolution }) => ({ status, resolution }))).toEqual([
       { status: PauseStatus.Taken, resolution: PauseResolution.Decided },
     ]);

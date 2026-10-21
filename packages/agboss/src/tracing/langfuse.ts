@@ -3,7 +3,7 @@ import { LangfuseSpanProcessor } from "@langfuse/otel";
 import { setLangfuseTracerProvider } from "@langfuse/tracing";
 import { BasicTracerProvider } from "@opentelemetry/sdk-trace-base";
 import { langfuseSettings } from "./settings.js";
-import type { RunTracing, TraceMask } from "./types.js";
+import type { ExecutionTracing, TraceMask } from "./types.js";
 
 /**
  * Tracing into a (self-hosted) Langfuse when LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY and
@@ -11,7 +11,10 @@ import type { RunTracing, TraceMask } from "./types.js";
  * not register global OpenTelemetry. Session = conversation thread, tags = workflow and tenant.
  * With a mask, what a span shows is masked before it leaves the process (#120 AC7).
  */
-export function langfuseTracing(env: NodeJS.ProcessEnv, mask?: TraceMask): RunTracing | undefined {
+export function langfuseTracing(
+  env: NodeJS.ProcessEnv,
+  mask?: TraceMask,
+): ExecutionTracing | undefined {
   const settings = langfuseSettings(env);
   if (settings === undefined) return undefined;
   const { publicKey, secretKey, baseUrl } = settings;

@@ -22,7 +22,7 @@ const bin = (path: string): string => join(repo, "node_modules", path);
 const tmp = new URL("../../.scaffold-tmp", import.meta.url).pathname;
 const project = join(tmp, `zoo-${String(process.pid)}`);
 const spec = new URL("../fixtures/openapi/pets.yaml", import.meta.url).pathname;
-const workflow = "src/zoo/zoo.workflow.ts";
+const workflow = "zoo-workflow";
 const agboss = join(repo, "packages/agboss-cli/bin/agboss.js");
 
 const run = (command: string, args: readonly string[], cwd = project) => {
@@ -44,7 +44,7 @@ beforeAll(async () => {
   mkdirSync(tmp, { recursive: true });
   const workflowSpec = specFromFlags("zoo", {
     yes: true,
-    agents: "keeper:Looks after pets,vet:Treats pets",
+    agents: "keeper-agent:Looks after pets,vet-agent:Treats pets",
     mcp: "none",
     rag: "none",
   }) as WorkflowSpec;
@@ -60,7 +60,7 @@ describe("agboss generate openapi", () => {
     const plan = await planGenerate(
       "openapi",
       "pets",
-      { workflow, agent: "keeper", url: spec },
+      { workflow, agent: "keeper-agent", url: spec },
       project,
     );
     const written = await applyChanges(project, plan);
@@ -86,9 +86,9 @@ describe("agboss generate openapi", () => {
       repo,
     );
     expect(prettier.ok, prettier.out).toBe(true);
-    const described = run(agboss, ["describe", "--application", "src/zoo/zoo.application.ts"]);
+    const described = run(agboss, ["describe"]);
     expect(described.ok, described.out).toBe(true);
-    for (const tool of ["get_pet", "delete_pet", "list_pets", "create_pet"])
+    for (const tool of ["get-pet-tool", "delete-pet-tool", "list-pets-tool", "create-pet-tool"])
       expect(described.out).toContain(`· ${tool} (local)`);
 
     // layout: tools/<operation>.{tool,tool.test,dto}.ts and services/<name>-api.service.ts, nothing at the root
@@ -116,7 +116,12 @@ describe("agboss generate openapi", () => {
     expect(file("agents/keeper.agent.ts")).toContain(
       "tools: [GetPetTool, DeletePetTool, ListPetsTool, CreatePetTool]",
     );
-    expect(file("zoo.workflow.ts")).toContain("providers: [ApiService, PetsApi]");
+    expect(file("zoo.workflow.ts")).toContain("providers: [ApiService, PetsApiService]");
+    // #280: an @Injectable named by its role, injected as the field named after it
+    expect(file("tools/get-pet.tool.ts")).toContain(
+      "constructor(private readonly petsApiService: PetsApiService) {}",
+    );
+    expect(file("tools/get-pet.tool.ts")).toContain('name: "get-pet-tool",');
     // typed DTOs, no `any`; path parameters filled in
     expect(file("tools/get-pet.tool.ts")).toContain(
       "implements ToolHandler<GetPetInput, GetPetOutput>",
@@ -137,7 +142,7 @@ describe("agboss generate openapi", () => {
     const plan = await planGenerate(
       "openapi",
       "more pets",
-      { workflow, agent: "vet", url: spec, operations: "listPets" },
+      { workflow, agent: "vet-agent", url: spec, operations: "listPets" },
       project,
     );
     expect(plan.create.map((f) => f.path)).toEqual([
@@ -147,7 +152,7 @@ describe("agboss generate openapi", () => {
       "src/zoo/tools/list-pets.tool.test.ts",
     ]);
     await expect(
-      planGenerate("openapi", "pets", { workflow, agent: "vet" }, project),
+      planGenerate("openapi", "pets", { workflow, agent: "vet-agent" }, project),
     ).rejects.toThrow(
       new ScaffoldUsageError(
         "agboss generate openapi needs --url <OpenAPI document: a file or a URL>",
@@ -157,11 +162,11 @@ describe("agboss generate openapi", () => {
       planGenerate(
         "openapi",
         "pets",
-        { workflow, agent: "vet", url: spec, operations: "feed" },
+        { workflow, agent: "vet-agent", url: spec, operations: "feed" },
         project,
       ),
     ).rejects.toThrow(
-      /No operation "feed" in the document — one of: get_pet, delete_pet, list_pets, create_pet/,
+      /No operation "feed" in the document — one of: get-pet-tool, delete-pet-tool, list-pets-tool, create-pet-tool/,
     );
     const swagger = join(project, "swagger.json");
     writeFileSync(
@@ -169,12 +174,12 @@ describe("agboss generate openapi", () => {
       JSON.stringify({ swagger: "2.0", info: { title: "x", version: "1" }, paths: {} }),
     );
     await expect(
-      planGenerate("openapi", "pets", { workflow, agent: "vet", url: swagger }, project),
+      planGenerate("openapi", "pets", { workflow, agent: "vet-agent", url: swagger }, project),
     ).rejects.toThrow(/only OpenAPI 3.x documents are supported/);
   });
 
   it("the CLI: --dry-run --json writes nothing; exit 2 for usage, 4 when it exists; help lists the flags", () => {
-    const args = ["generate", "openapi", "shop", "--workflow", workflow, "--agent", "vet"];
+    const args = ["generate", "openapi", "shop", "--workflow", workflow, "--agent", "vet-agent"];
     const dry = run(agboss, [...args, "--url", spec, "--dry-run", "--json"]);
     expect(dry.ok, dry.out).toBe(true);
     const envelope = JSON.parse(dry.stdout) as {
@@ -199,7 +204,7 @@ describe("agboss generate openapi", () => {
       "--workflow",
       workflow,
       "--agent",
-      "keeper",
+      "keeper-agent",
       "--url",
       spec,
     ]);

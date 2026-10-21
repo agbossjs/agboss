@@ -51,7 +51,7 @@ describe("#268 AC4: agboss describe on job-scout", () => {
               name: "terminal-user-channel",
               question: "ChosenJobs",
               answer: "ToolCallApprovalDecisionDto",
-              tools: ["save_shortlist (job-scout-workflow)"],
+              tools: ["save-shortlist-tool (job-scout-workflow)"],
             },
           ],
           executionBudgets: [

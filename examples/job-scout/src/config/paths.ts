@@ -25,7 +25,7 @@ export const FILESYSTEM_SERVER = join(
   "index.js",
 );
 
-/** The user's notes about companies (the company_notes knowledge base). */
+/** The user's notes about companies (the company-notes-rag knowledge base). */
 export const NOTES_DIR = join(HERE, "..", "..", "notes", "companies");
 export const NOTES_DB = join(
   homedir(),

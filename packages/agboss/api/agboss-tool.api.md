@@ -36,22 +36,21 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
     readonly prompt?: string;
     // (undocumented)
     readonly promptUrls?: readonly string[];
-    // (undocumented)
-    readonly timeoutMs?: number;
+    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
+    readonly timeout?: Milliseconds;
 }
 
 // Warnings were encountered during analysis:
 //
-// src/components/decorators.ts:15:3 - (ae-undocumented) Missing documentation for "run".
-// src/components/decorators.ts:27:1 - (ae-undocumented) Missing documentation for "ToolOptions".
-// src/components/decorators.ts:32:3 - (ae-undocumented) Missing documentation for "name".
-// src/components/decorators.ts:33:3 - (ae-undocumented) Missing documentation for "description".
-// src/components/decorators.ts:34:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/components/decorators.ts:35:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/components/decorators.ts:36:3 - (ae-undocumented) Missing documentation for "channel".
-// src/components/decorators.ts:37:3 - (ae-undocumented) Missing documentation for "timeoutMs".
-// src/components/decorators.ts:38:3 - (ae-undocumented) Missing documentation for "input".
-// src/components/decorators.ts:39:3 - (ae-undocumented) Missing documentation for "output".
+// src/components/decorators.ts:16:3 - (ae-undocumented) Missing documentation for "run".
+// src/components/decorators.ts:28:1 - (ae-undocumented) Missing documentation for "ToolOptions".
+// src/components/decorators.ts:33:3 - (ae-undocumented) Missing documentation for "name".
+// src/components/decorators.ts:34:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/decorators.ts:35:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/components/decorators.ts:36:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/components/decorators.ts:37:3 - (ae-undocumented) Missing documentation for "channel".
+// src/components/decorators.ts:40:3 - (ae-undocumented) Missing documentation for "input".
+// src/components/decorators.ts:41:3 - (ae-undocumented) Missing documentation for "output".
 
 // (No @packageDocumentation comment for this package)
 

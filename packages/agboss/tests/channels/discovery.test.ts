@@ -58,7 +58,7 @@ describe("#267 AC9: roles from the graph", () => {
   it("a tool's channel is found through the tool, children included", () => {
     expect(channelUsesOf([FrontDeskWorkflow])).toEqual([
       {
-        tool: "refund_card",
+        tool: "refund-card-tool",
         toolInput: RefundCardInputDto,
         channel: RefundApprovalChannel,
         workflow: "card-refunds-workflow",
@@ -210,7 +210,7 @@ abstract class RefundReplyChannel extends ChannelOf<RefundReplyChannel> {}
 abstract class LimitReplyChannel extends ChannelOf<LimitReplyChannel> {}
 
 @Tool({
-  name: "reply_refund",
+  name: "reply-refund-tool",
   description: "d",
   input: RefundCardInputDto,
   output: RefundCardOutputDto,
@@ -223,7 +223,7 @@ class ReplyRefundTool implements ToolHandler<RefundCardInputDto, RefundCardOutpu
 }
 
 @Tool({
-  name: "raise_limit",
+  name: "raise-limit-tool",
   description: "d",
   input: LimitInputDto,
   output: RefundCardOutputDto,

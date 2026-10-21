@@ -104,7 +104,7 @@ export class EmailSent {
 }
 
 @Tool({
-  name: "send_email",
+  name: "send-email-tool",
   description: "Sends an email",
   input: EmailSend,
   output: EmailSent,

@@ -26,9 +26,9 @@ describe("describe a workflow", () => {
     const lines = after(describeWorkflow(greetings), "  greeter-agent  ");
 
     expect(
-      lines.some((l) => l.includes("· greet (local) ← Greeter (GREETING, ROUTER_FACTORY)")),
+      lines.some((l) => l.includes("· greet-tool (local) ← Greeter (GREETING, ROUTER_FACTORY)")),
     ).toBe(true);
-    expect(lines.some((l) => l.includes("· read_file (MCP files)"))).toBe(true);
+    expect(lines.some((l) => l.includes("· read-file-tool (MCP files)"))).toBe(true);
     expect(after(describeWorkflow(test), "  coder-agent  ")).toContain("    tools: none");
   });
 
@@ -46,7 +46,7 @@ describe("describe a workflow", () => {
 
     expect(
       describeWorkflow(paused).some((l) =>
-        l.includes("· greet (channel:terminal-user-channel, local, uses channel)"),
+        l.includes("· greet-tool (channel:terminal-user-channel, local, uses channel)"),
       ),
     ).toBe(true);
     expect(describeWorkflow(paused)).toContain(

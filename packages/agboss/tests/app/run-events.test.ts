@@ -25,12 +25,12 @@ beforeEach(resetEvents);
 const hooks = (seen = workflowEvents()): string[] => seen.map((event) => event.hook);
 
 /** Every event carries the run's id and its thread. */
-function expectOneRun(run: Pick<ExecutionOutput, "runId" | "threadId">): void {
+function expectOneRun(run: Pick<ExecutionOutput, "executionId" | "threadId">): void {
   expect(events.length).toBeGreaterThan(0);
   for (const event of events) {
     expect({ hook: event.hook, runId: event.runId, threadId: event.threadId }).toEqual({
       hook: event.hook,
-      runId: run.runId,
+      runId: run.executionId,
       threadId: run.threadId,
     });
   }
@@ -58,10 +58,10 @@ describe("#244 AC1: workflow events across a pause and its resume", () => {
       "execution-end",
     ]);
     const [, pause, resume, end] = workflowEvents();
-    expect(pause?.detail).toMatchObject([{ ask: { tool: "apply" }, agent: "clerk-agent" }]);
+    expect(pause?.detail).toMatchObject([{ ask: { tool: "apply-tool" }, agent: "clerk-agent" }]);
     expect(resume?.detail).toEqual(approve);
     expect(end?.detail).toEqual(done.finish);
-    expect(done.runId).toBe(paused.runId);
+    expect(done.executionId).toBe(paused.executionId);
     expectOneRun(done);
   });
 
@@ -172,7 +172,7 @@ describe("#244 AC3: node-level events carry the real threadId, not the run id", 
         "action-start",
       ]),
     );
-    expect(done.threadId).not.toBe(done.runId);
+    expect(done.threadId).not.toBe(done.executionId);
     expect(new Set(nodeEvents.map((event) => event.threadId))).toEqual(new Set([done.threadId]));
     expectOneRun(done);
   });
@@ -191,7 +191,7 @@ describe("#244 AC3: node-level events carry the real threadId, not the run id", 
     const second = await execute(app, Ask, { text: "two" }, { threadId: first.threadId });
 
     expect(second.threadId).toBe(first.threadId);
-    expect(second.runId).not.toBe(first.runId);
+    expect(second.executionId).not.toBe(first.executionId);
     expectOneRun(second);
   });
 });

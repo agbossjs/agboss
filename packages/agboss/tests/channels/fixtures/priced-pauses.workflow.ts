@@ -36,7 +36,7 @@ export const LOOKUP_COST = 0.01;
 
 /** Prices an order: a paid service, counted in the call's spend. */
 @Tool({
-  name: "price_order",
+  name: "price-order-tool",
   description: "Prices an order",
   input: RefundRequestDto,
   output: RefundRequestDto,

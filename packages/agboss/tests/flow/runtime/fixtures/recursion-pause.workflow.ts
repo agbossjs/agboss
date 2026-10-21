@@ -42,7 +42,7 @@ export class DigConfirmationDto {
 }
 
 @Tool({
-  name: "confirm_dig",
+  name: "confirm-dig-tool",
   description: "Confirms digging one level deeper",
   channel: TerminalUserChannel,
   input: DigConfirmationDto,
@@ -54,7 +54,7 @@ export class ConfirmDigTool implements ToolHandler<DigConfirmationDto, DigConfir
 
   run(input: DigConfirmationDto): Promise<DigConfirmationDto> {
     const depth = this.executionContext.depth;
-    recursionLog.readings.push({ at: "confirm_dig", title: "", depth, level: input.left });
+    recursionLog.readings.push({ at: "confirm-dig-tool", title: "", depth, level: input.left });
     return Promise.resolve(input);
   }
 }

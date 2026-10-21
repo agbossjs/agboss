@@ -50,10 +50,10 @@ describe("#267 × #263: a single child pauses", () => {
         channel: "order-confirmation-channel",
         childExecutionId: expect.any(String),
         itemIndex: undefined,
-        ask: expect.objectContaining({ tool: "confirm_order", arguments: { orderId: "A" } }),
+        ask: expect.objectContaining({ tool: "confirm-order-tool", arguments: { orderId: "A" } }),
       },
     ]);
-    expect(paused.pending[0]?.childExecutionId).not.toBe(paused.runId);
+    expect(paused.pending[0]?.childExecutionId).not.toBe(paused.executionId);
     const [pause] = paused.pending;
 
     const done = await app.resume({ pauseId: pause?.pauseId ?? "", decision: approve });
@@ -64,7 +64,7 @@ describe("#267 × #263: a single child pauses", () => {
     expect(done).toHaveChildExecutions(RefundOneWorkflow, [{ finish: RefundOneWorkflowFinish }]);
     // the child resumed with the id it paused with
     expect(done.children.map((child) => child.executionId)).toEqual([pause?.childExecutionId]);
-    expect(seen.pauses.map((event) => event.executionId)).toEqual([paused.runId]);
+    expect(seen.pauses.map((event) => event.executionId)).toEqual([paused.executionId]);
   });
 });
 
@@ -86,7 +86,7 @@ describe("#267 × #263: per-item children pause at once", () => {
         channel: "refund-approval-channel",
         childExecutionId: expect.any(String),
         itemIndex: index + 1,
-        ask: expect.objectContaining({ tool: "refund", arguments: { orderId } }),
+        ask: expect.objectContaining({ tool: "refund-tool", arguments: { orderId } }),
       })),
     );
     expect(new Set(byItem.map((pause) => pause.childExecutionId)).size).toBe(2);
@@ -106,7 +106,10 @@ describe("#267 × #263: per-item children pause at once", () => {
 
     const again = await app.resume(answerFor("C"), manager);
 
-    expect(again).toMatchObject({ status: ExecutionStatus.Paused, runId: paused.runId });
+    expect(again).toMatchObject({
+      status: ExecutionStatus.Paused,
+      executionId: paused.executionId,
+    });
     expect(again.pending.map((pause) => pause.itemIndex)).toEqual([1]);
     expect(again.pending[0]?.childExecutionId).toBe(waiting.get(1)?.childExecutionId);
     expect(seen.refunds).toEqual(["C"]);

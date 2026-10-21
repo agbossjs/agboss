@@ -14,7 +14,7 @@ import { expectStaticChecks, agbossIn, tscOf, vitestOf, type Ran } from "./proje
 
 const tmp = new URL("../../.scaffold-tmp", import.meta.url).pathname;
 const project = join(tmp, `forced-${String(process.pid)}`);
-const workflow = "src/desk/desk.workflow.ts";
+const workflow = "desk-workflow";
 const agent = "src/desk/agents/billing.agent.ts";
 const read = (path: string): string => readFileSync(join(project, path), "utf8");
 const agboss = (...args: string[]): Ran => agbossIn(project, args);
@@ -29,14 +29,14 @@ describe("#237: --force keeps the wiring", () => {
     mkdirSync(tmp, { recursive: true });
     const spec = specFromFlags("desk", {
       yes: true,
-      agents: "answerer:Answers questions",
-      tools: "answerer:search_orders",
+      agents: "answerer-agent:Answers questions",
+      tools: "answerer-agent:search-orders-tool",
     }) as WorkflowSpec;
     await applyChanges(project, { create: planProject(spec), modify: [] });
     for (const step of [
-      generate("agent", "billing", "--description", "Handles invoices"),
-      generate("tool", "quote", "--agent", "billing"),
-      generate("rag", "policies", "--folder", "policies", "--agent", "billing"),
+      generate("agent", "billing-agent", "--description", "Handles invoices"),
+      generate("tool", "quote-tool", "--agent", "billing-agent"),
+      generate("rag", "policies-rag", "--folder", "policies", "--agent", "billing-agent"),
       generate(
         "mcp",
         "tickets",
@@ -45,7 +45,7 @@ describe("#237: --force keeps the wiring", () => {
         "--tool",
         "search",
         "--agent",
-        "billing",
+        "billing-agent",
       ),
     ])
       expect(step.ok, step.out).toBe(true);
@@ -53,7 +53,7 @@ describe("#237: --force keeps the wiring", () => {
 
     const forced = generate(
       "agent",
-      "billing",
+      "billing-agent",
       "--description",
       "Bills customers",
       "--force",
@@ -63,28 +63,28 @@ describe("#237: --force keeps the wiring", () => {
     expect(forced.ok, forced.out).toBe(true);
     const { warnings } = JSON.parse(forced.stdout) as { warnings: string[] };
     expect(warnings).toContain(`kept: ${agent}: tools [QuoteTool, TicketsSearchTool]`);
-    expect(warnings).toContain(`kept: ${agent}: rag [PoliciesKnowledge]`);
+    expect(warnings).toContain(`kept: ${agent}: rag [PoliciesRag]`);
     const regenerated = read(agent);
     expect(regenerated).toContain('description: "Bills customers"');
     expect(regenerated).not.toBe(wired);
     expect(regenerated).toContain("tools: [QuoteTool, TicketsSearchTool]");
-    expect(regenerated).toContain("rag: [{ use: PoliciesKnowledge, mode: RagMode.Tool }]");
+    expect(regenerated).toContain("rag: [{ use: PoliciesRag, mode: RagMode.Tool }]");
     expect(regenerated).toContain('import { QuoteTool } from "../tools/quote.tool.js";');
     expectStaticChecks(project, ["src"]);
     const tests = vitestOf(project);
     expect(tests.ok, tests.out).toBe(true);
     // the application of package.json (#268 AC1)
-    expect(agboss("check").out).toContain("ok: src/desk/desk.application.ts");
+    expect(agboss("check").out).toContain("ok: src/desk.application.ts");
     const described = agboss("describe");
     expect(described.out).toMatch(
-      /billing-agent .*\n\s+Bills customers\n\s+limits: .*\n\s+rag: policies/,
+      /billing-agent .*\n\s+Bills customers\n\s+limits: .*\n\s+rag: policies-rag/,
     );
-    expect(described.out).toContain("· quote (local)");
-    expect(described.out).toContain("· tickets_search (MCP tickets)");
+    expect(described.out).toContain("· quote-tool (local)");
+    expect(described.out).toContain("· tickets-search-tool (MCP tickets)");
   }, 240_000);
 
   it("AC2: the conflict suggests --force, which keeps the wiring; wiring --force cannot keep is refused, --force --reset drops it", () => {
-    const again = generate("agent", "billing");
+    const again = generate("agent", "billing-agent");
     expect(again.status, again.out).toBe(4);
     expect(again.out).toContain(
       "Nothing was written — rerun with --force to regenerate the files and keep the existing wiring",
@@ -94,14 +94,21 @@ describe("#237: --force keeps the wiring", () => {
     // `agboss create`'s tool injects ApiService through its constructor, which the template rewrites
     const tool = "src/desk/tools/search-orders.tool.ts";
     const before = read(tool);
-    const refused = generate("tool", "search_orders", "--agent", "answerer", "--force");
+    const refused = generate("tool", "search-orders-tool", "--agent", "answerer-agent", "--force");
     expect(refused.status, refused.out).toBe(4);
     expect(refused.out).toContain(
       `${tool}: deps [ApiService] cannot be kept: the regenerated file rewrites the constructor they go with. Nothing was written`,
     );
     expect(read(tool)).toBe(before);
 
-    const reset = generate("tool", "search_orders", "--agent", "answerer", "--force", "--reset");
+    const reset = generate(
+      "tool",
+      "search-orders-tool",
+      "--agent",
+      "answerer-agent",
+      "--force",
+      "--reset",
+    );
     expect(reset.ok, reset.out).toBe(true);
     expect(read(tool)).not.toContain("ApiService");
     expect(read("src/desk/agents/answerer.agent.ts")).toContain("tools: [SearchOrdersTool]");

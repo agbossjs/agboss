@@ -129,7 +129,7 @@ export class ItemConfirmation {
 
 /** Every call waits for an approval. */
 @Tool({
-  name: "confirm_item",
+  name: "confirm-item-tool",
   description: "Confirms an item",
   channel: TerminalUserChannel,
   input: ItemConfirmation,

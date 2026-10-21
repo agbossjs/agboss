@@ -94,7 +94,7 @@ describe("#280 AC7: parallel branches each see their own step", () => {
     ]);
 
     expect(seen.actionSteps.map((step) => step.idempotencyKey).sort()).toEqual(
-      [`${first.runId}:publish-action:1`, `${second.runId}:publish-action:1`].sort(),
+      [`${first.executionId}:publish-action:1`, `${second.executionId}:publish-action:1`].sort(),
     );
   });
 });

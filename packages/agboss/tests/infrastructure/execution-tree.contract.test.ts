@@ -130,7 +130,7 @@ describe("#265 AC2: the keys of a request through the application", () => {
     expect(seen.claims).toEqual([true, false]);
     expect(seen.recalls).toEqual([true]);
     const rows = seen.trees[0];
-    const root = { tenantId: "default", rootExecutionId: paused.runId };
+    const root = { tenantId: "default", rootExecutionId: paused.executionId };
     expect(await rows?.findByIdInTree(root, "claim:x")).toBeUndefined();
   });
 
@@ -154,7 +154,7 @@ describe("#265 AC2: the keys of a request through the application", () => {
 
     await app.cancel(paused.threadId);
 
-    const root = { tenantId: "default", rootExecutionId: paused.runId };
+    const root = { tenantId: "default", rootExecutionId: paused.executionId };
     expect(await seen.trees[0]?.findByIdInTree(root, "claim:x")).toBeUndefined();
   });
 });

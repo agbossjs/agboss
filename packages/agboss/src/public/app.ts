@@ -41,7 +41,7 @@ export {
   type HealthReport,
   type HealthyCheckResult,
 } from "../health/health-check.js";
-export type { PausedRun } from "../app/paused-runs.js";
+export type { PausedExecution } from "../app/paused-runs.js";
 export { Clock, IdGenerator, RandomIdGenerator } from "../infrastructure/clock.js";
 export {
   ConsoleLogger,
@@ -114,7 +114,7 @@ export {
   type ResumeRequest,
   type ThreadOwnerResumeOptions,
 } from "../app/types.js";
-export type { RunId } from "../core/run-context.js";
+export type { ExecutionId } from "../core/run-context.js";
 export {
   ExecutionContext,
   type ComponentDescriptor,
@@ -143,9 +143,13 @@ export type { ProfileReport } from "../eval/compare-report.js";
 export type { PairwiseResult } from "../eval/compare.js";
 export type { GraphDeps } from "../graph/deps.js";
 export { resumeAgent } from "../run/resume-agent.js";
-export { runAgent } from "../run/run-agent.js";
-export type { AgentExecutionOutput, RunDeps, RunOptions } from "../run/types.js";
-export { runVersions } from "../run/versions.js";
+export { executeAgent } from "../run/run-agent.js";
+export type {
+  AgentExecutionOutput,
+  AgentExecutionDeps,
+  AgentExecutionOptions,
+} from "../run/types.js";
+export { executionVersions } from "../run/versions.js";
 export type { UsageRecord } from "../finops/usage.js";
 export {
   type AgentsConfig,

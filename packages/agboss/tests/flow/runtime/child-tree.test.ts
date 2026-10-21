@@ -56,8 +56,8 @@ describe("AC20: itemIndex per item, undefined for single and root", () => {
         depth: 1,
         parentExecutionId: undefined,
         parentStep: undefined,
-        executionId: result.runId,
-        rootExecutionId: result.runId,
+        executionId: result.executionId,
+        rootExecutionId: result.executionId,
         checksItemIndex: undefined,
       },
     ]);
@@ -80,15 +80,15 @@ describe("AC20: itemIndex per item, undefined for single and root", () => {
       { item: "b", itemIndex: undefined, deepItemIndex: 1, depth: 3 },
     ]);
     for (const reading of childLog.readings) {
-      expect(reading.rootExecutionId).toBe(result.runId);
+      expect(reading.rootExecutionId).toBe(result.executionId);
       expect(reading.rootWorkflow).toBe("deep-check-items-workflow");
-      expect(reading.parentExecutionId).not.toBe(result.runId);
+      expect(reading.parentExecutionId).not.toBe(result.executionId);
     }
     expect(result.children.map((child) => child.children.length)).toEqual([1, 1]);
     expect(result.children[0]?.children[0]).toMatchObject({
       workflow: { name: "item-check-workflow" },
       parentExecutionId: result.children[0]?.executionId,
-      rootExecutionId: result.runId,
+      rootExecutionId: result.executionId,
     });
   });
 });
@@ -99,14 +99,14 @@ describe("AC14: identity and inheritance", () => {
 
     const [reading] = childLog.readings;
     expect(reading).toMatchObject({
-      parentExecutionId: result.runId,
-      rootExecutionId: result.runId,
+      parentExecutionId: result.executionId,
+      rootExecutionId: result.executionId,
       tenantId: "acme",
       plan: "pro",
       userId: "u1",
       threadId: result.threadId,
     });
-    expect(reading?.executionId).not.toBe(result.runId);
+    expect(reading?.executionId).not.toBe(result.executionId);
     expect(reading?.key).toBe(`${reading?.executionId ?? ""}:check-item-action:1`);
   });
 
@@ -120,8 +120,8 @@ describe("AC14: identity and inheritance", () => {
     ]);
     expect(childLog.starts[1]).toMatchObject({
       executionId: child?.executionId,
-      parentExecutionId: result.runId,
-      rootExecutionId: result.runId,
+      parentExecutionId: result.executionId,
+      rootExecutionId: result.executionId,
       threadId: result.threadId,
       tenantId: "acme",
     });

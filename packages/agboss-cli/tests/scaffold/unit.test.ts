@@ -8,7 +8,7 @@ import { ScaffoldError } from "../../src/scaffold/errors.js";
 import { agentsFrom, mcpFrom, specFromFlags } from "../../src/scaffold/flags.js";
 import { planGenerate } from "../../src/scaffold/generate.js";
 import { toolFiles } from "../../src/scaffold/plan.js";
-import { namesOf } from "../../src/scaffold/names.js";
+import { fullNameOf, namesOf } from "../../src/scaffold/names.js";
 import { planProject } from "../../src/scaffold/project.js";
 import { addImport, addToArray } from "../../src/scaffold/wire.js";
 import { applyChanges } from "../../src/scaffold/write.js";
@@ -34,6 +34,21 @@ describe("names", () => {
     });
     expect(namesOf("searchOrders").kebab).toBe("search-orders");
     expect(() => namesOf("9lives")).toThrow(ScaffoldError);
+  });
+
+  it("#268 AC8: a full name ends with its kind; the CLI never adds the suffix", () => {
+    expect(fullNameOf("search-orders-tool", "tool")).toEqual({
+      full: "search-orders-tool",
+      kebab: "search-orders",
+      snake: "search_orders",
+      pascal: "SearchOrders",
+      title: "Search orders",
+    });
+    expect(() => fullNameOf("ranker", "agent")).toThrow(
+      '"ranker" is not a full agent name: kebab-case, ending with -agent. Did you mean "ranker-agent"?',
+    );
+    expect(() => fullNameOf("search_orders", "tool")).toThrow('Did you mean "search-orders-tool"?');
+    expect(() => fullNameOf("-agent", "agent")).toThrow(ScaffoldError);
   });
 });
 
@@ -98,8 +113,8 @@ describe("writing", () => {
       create: planProject(
         specFromFlags("desk", {
           yes: true,
-          agents: "answerer:Answers",
-          tools: "answerer:search_orders",
+          agents: "answerer-agent:Answers",
+          tools: "answerer-agent:search-orders-tool",
         }) as never,
       ),
       modify: [],
@@ -108,26 +123,34 @@ describe("writing", () => {
     // the clash is caught before anything is written: the files and the wiring are both there
     const again = await planGenerate(
       "tool",
-      "search orders",
-      { workflow: "src/desk/desk.workflow.ts", agent: "answerer" },
+      "search-orders-tool",
+      { workflow: "desk-workflow", agent: "answerer-agent" },
       root,
     );
     await expect(applyChanges(root, again)).rejects.toThrow(
       "Already exists: src/desk/tools/search-orders.tool.ts, src/desk/tools/search-orders.tool.test.ts. Already wired: src/desk/agents/answerer.agent.ts: SearchOrdersTool already in tools. Nothing was written — rerun with --force",
     );
     await expect(
-      planGenerate("tool", "x", { workflow: "src/desk/desk.workflow.ts" }, root),
-    ).rejects.toThrow("agboss generate tool needs --agent <name>");
+      planGenerate("tool", "x-tool", { workflow: "desk-workflow" }, root),
+    ).rejects.toThrow("agboss generate tool needs --agent <full name>");
     await expect(planGenerate("widget", "x", {}, root)).rejects.toThrow("Unknown kind");
   });
 });
 
 describe("flags (no questions)", () => {
   it("AC4: agents, tools, MCP and knowledge base from flags; --yes fills the rest", () => {
-    expect(agentsFrom("triage:Sorts requests,answerer:Answers", "answerer:search_orders")).toEqual([
-      { name: "triage", description: "Sorts requests", tools: [] },
-      { name: "answerer", description: "Answers", tools: ["search_orders"] },
+    expect(
+      agentsFrom(
+        "triage-agent:Sorts requests,answerer-agent:Answers",
+        "answerer-agent:search-orders-tool",
+      ),
+    ).toEqual([
+      { name: "triage-agent", description: "Sorts requests", tools: [] },
+      { name: "answerer-agent", description: "Answers", tools: ["search-orders-tool"] },
     ]);
+    // #268 AC8: full names only — a short one is rejected with the full name as a hint
+    expect(() => agentsFrom("triage:Sorts requests")).toThrow('Did you mean "triage-agent"?');
+    expect(() => agentsFrom("a-agent:x", "a-agent:search")).toThrow('Did you mean "search-tool"?');
     expect(mcpFrom("filesystem:/tmp/docs", "desk")).toEqual({
       kind: "filesystem",
       name: "desk files",
@@ -139,13 +162,14 @@ describe("flags (no questions)", () => {
       tool: "search",
     });
     expect(() => mcpFrom("ftp", "desk")).toThrow(ScaffoldError);
-    expect(() => agentsFrom("a:x", "ghost:t")).toThrow(ScaffoldError);
+    expect(() => agentsFrom("a-agent:x", "ghost-agent:t-tool")).toThrow(ScaffoldError);
     expect(specFromFlags("desk", { yes: true })).toMatchObject({
-      agents: [{ name: "assistant" }],
+      name: "desk-workflow",
+      agents: [{ name: "desk-assistant-agent" }],
       mcp: { kind: "none" },
     });
     expect(specFromFlags("desk", { rag: "notes" }).rag).toEqual({
-      name: "desk notes",
+      name: "desk-notes-rag",
       folder: "notes",
     });
   });
@@ -158,13 +182,13 @@ describe("help (#93)", () => {
       /generate\s+add a workflow, agent, router, arbiter, tool, MCP server, knowledge base or OpenAPI tools, wired \(alias g\)/,
     );
     expect(helpFor("generate")).toContain("--agent <name>");
+    expect(helpFor("generate")).toContain("--workflow <name>");
   });
 });
 
 describe("#280 AC11: generated code follows the conventions", () => {
   it("conventions: a tool takes the execution context through its constructor, typed and named", () => {
-    const [tool, test] = toolFiles("src/desk/tools", namesOf("search orders"));
-    const [apiTool] = toolFiles("src/desk/tools", namesOf("search orders"), namesOf("desk"));
+    const [tool] = toolFiles("src/desk/tools", namesOf("search orders"));
 
     expect(tool?.content).toContain(
       "implements ToolHandler<SearchOrdersQuery, SearchOrdersResult>",
@@ -177,6 +201,18 @@ describe("#280 AC11: generated code follows the conventions", () => {
       "run({ query }: SearchOrdersQuery): Promise<SearchOrdersResult> {",
     );
     expect(tool?.content).not.toMatch(/\bctx\b/u);
+    // #268 AC9: its name is kebab-case and ends with -tool
+    expect(tool?.content).toContain('name: "search-orders-tool",');
+  });
+
+  it("conventions: its test runs it on its own container; the API service through its constructor", () => {
+    const [, test] = toolFiles("src/desk/tools", namesOf("search orders"));
+    const [apiTool] = toolFiles("src/desk/tools", namesOf("search orders"), {
+      service: "../../services/api.service.js",
+      application: "DeskApplication",
+      applicationFrom: "../../desk.application.js",
+    });
+
     // its test runs it on its own container (#262): no `new`
     expect(test?.content).toContain("testTool(SearchOrdersTool)");
     expect(test?.content).not.toMatch(/\bnew SearchOrdersTool\b/u);

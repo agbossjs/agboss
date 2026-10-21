@@ -253,7 +253,7 @@ export class DeskTransferApprovalChannel extends TransferApprovalChannel {
 }
 
 @Tool({
-  name: "pay_out",
+  name: "pay-out-tool",
   description: "Pays a payee",
   input: PayoutRequestDto,
   output: ReplyDeskDoneDto,
@@ -267,7 +267,7 @@ export class PayOutTool implements ToolHandler<PayoutRequestDto, ReplyDeskDoneDt
 }
 
 @Tool({
-  name: "book_expense",
+  name: "book-expense-tool",
   description: "Books an expense",
   input: ExpenseRequestDto,
   output: ReplyDeskDoneDto,
@@ -281,7 +281,7 @@ export class BookExpenseTool implements ToolHandler<ExpenseRequestDto, ReplyDesk
 }
 
 @Tool({
-  name: "return_deposit",
+  name: "return-deposit-tool",
   description: "Returns a deposit",
   input: DepositReturnDto,
   output: ReplyDeskDoneDto,
@@ -295,7 +295,7 @@ export class ReturnDepositTool implements ToolHandler<DepositReturnDto, ReplyDes
 }
 
 @Tool({
-  name: "transfer",
+  name: "transfer-tool",
   description: "Transfers money",
   input: TransferRequestDto,
   output: ReplyDeskDoneDto,

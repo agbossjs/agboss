@@ -46,7 +46,8 @@ describe("#237: keepWiring", () => {
   });
 
   it("deps it cannot keep (the constructor is rewritten) → a conflict naming them", () => {
-    const tool = (deps: string): string => `@Tool({\n  name: "t",${deps}\n})\nexport class T {}\n`;
+    const tool = (deps: string): string =>
+      `@Tool({\n  name: "t-tool",${deps}\n})\nexport class T {}\n`;
     expect(() =>
       keepWiring(tool("\n  deps: [ApiService],"), { path: "t.tool.ts", content: tool("") }),
     ).toThrow("t.tool.ts: deps [ApiService] cannot be kept");

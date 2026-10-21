@@ -58,7 +58,7 @@ async function executionCounter(result: ExecutionOutput): Promise<number> {
   const record = {
     budget: { name: "tight-execution-budget" },
     scope: BudgetScope.Execution,
-    key: result.runId,
+    key: result.executionId,
     maxSpend: 0.05,
   };
   return ledger.findSpentByCounter(counterOf(record, new Date(0)));

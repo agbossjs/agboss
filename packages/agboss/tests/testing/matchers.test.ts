@@ -28,7 +28,7 @@ const PATH = ["chat-workflow-start", "main-router", "writer-agent", "reply-workf
 const run = (parts: Partial<ExecutionOutput>): ExecutionOutput => ({
   threadId: "thread-1",
   tenantId: "default",
-  runId: "run-1",
+  executionId: "run-1",
   status: ExecutionStatus.Finished,
   path: PATH,
   spend: buildCostReport([]),
@@ -54,7 +54,7 @@ const paused = run({
       channel: "terminal-user-channel",
       childExecutionId: undefined,
       itemIndex: undefined,
-      ask: { callId: "call-1", tool: "save_note", arguments: {}, summary: "save a note" },
+      ask: { callId: "call-1", tool: "save-note-tool", arguments: {}, summary: "save a note" },
     },
   ],
 });
@@ -166,7 +166,7 @@ describe("AC12: matchers on mockLlm(…)", () => {
     expect(mockLlm(Writer)).toHaveCalledTools([]);
     expect(() => {
       expect(mockLlm(Support)).toHaveCalledTools([ReadNote]);
-    }).toThrow("expected Support to call read_note, it called order_status");
+    }).toThrow("expected Support to call read-note-tool, it called order-status-tool");
     expect(mockLlm(Support)).toHaveBeenAskedWith({ kind: "chat", input: "where is 5?" });
     expect(mockLlm(Support)).not.toHaveBeenAskedWith({ input: "where is 6?" });
     expect(() => {

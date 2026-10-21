@@ -1,6 +1,6 @@
 import { addImport } from "./wire.js";
 import type { GenerateOptions } from "./generate.js";
-import { namesOf } from "./names.js";
+import { fullNameOf } from "./names.js";
 import { mcpFiles, ragFiles } from "./parts.js";
 import { toolFiles } from "./plan.js";
 import { need, read } from "./project-files.js";
@@ -44,11 +44,11 @@ export function withScripts(
 const agentFileOf = (root: string, graph: WorkflowGraph, name: string): FileToWrite =>
   read(root, agentOf(graph, name).path);
 
-/** `agboss g tool <name> --workflow … --agent …`: the tool and its test, wired into the agent. */
+/** `agboss g tool <name>-tool --workflow <name>-workflow --agent <name>-agent`: the tool and its test, wired into the agent. */
 export function planTool(root: string, name: string, o: GenerateOptions): Changes {
-  const graph = workflowGraph(root, o.workflow, "tool");
-  const agent = agentFileOf(root, graph, need(o.agent, "--agent <name>", "tool"));
-  const n = namesOf(name);
+  const n = fullNameOf(name, "tool");
+  const graph = workflowGraph(root, o);
+  const agent = agentFileOf(root, graph, need(o.agent, "--agent <full name>", "tool"));
   const files = toolFiles(`${graph.dir}/tools`, n);
   const tool = `${n.pascal}Tool`;
   const from = importPath(agent.path, `${graph.dir}/tools/${n.kebab}.tool.ts`);
@@ -67,7 +67,7 @@ const mcpSpecOf = (name: string, o: GenerateOptions) =>
 
 /** `agboss g mcp <name> --workflow … [--agent …]`: the server in the workflow's `mcp`, its tool in the agent. */
 export function planMcp(root: string, name: string, o: GenerateOptions): Changes {
-  const graph = workflowGraph(root, o.workflow, "mcp");
+  const graph = workflowGraph(root, o);
   const spec = mcpSpecOf(name, o);
   const mcp = mcpFiles(graph.dir, spec);
   const serverPath = `${graph.dir}/${mcp.serverModule}.ts`;
@@ -93,15 +93,12 @@ export function planMcp(root: string, name: string, o: GenerateOptions): Changes
 
 /** `agboss g rag <name> --workflow … --folder … [--agent …]`: the knowledge base, a tool of the agent. */
 export function planRag(root: string, name: string, o: GenerateOptions): Changes {
-  const graph = workflowGraph(root, o.workflow, "rag");
-  const workflow = namesOf(graph.module.path.replace(/^.*\//, "").replace(/\.workflow\.ts$/, ""));
-  const rag = ragFiles(graph.dir, workflow, {
-    name,
-    folder: need(o.folder, "--folder <dir>", "rag"),
-  });
+  const n = fullNameOf(name, "rag");
+  const graph = workflowGraph(root, o);
+  const rag = ragFiles(graph.dir, { name: n, folder: need(o.folder, "--folder <dir>", "rag") });
   if (o.agent === undefined) return { create: rag.files, modify: [] };
   const agent = agentFileOf(root, graph, o.agent);
-  const from = importPath(agent.path, `${graph.dir}/rag/${namesOf(name).kebab}.rag.ts`);
+  const from = importPath(agent.path, `${graph.dir}/rag/${n.kebab}.rag.ts`);
   const element = `{ use: ${rag.knowledge}, mode: RagMode.Tool }`;
   const wired = wire(agent, "Agent", "rag", element, rag.knowledge, from);
   // the mode is an enum (#269): its import goes with the knowledge base's

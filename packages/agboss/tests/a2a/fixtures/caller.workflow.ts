@@ -68,7 +68,7 @@ export function callerOf(url: string): CallerParts {
   }
 
   @Tool({
-    name: "ask_desk",
+    name: "ask-desk-tool",
     description: "Asks the remote order desk",
     input: Question,
     output: DeskReply,
@@ -83,7 +83,7 @@ export function callerOf(url: string): CallerParts {
   }
 
   @Tool({
-    name: "ask_desk_ticket",
+    name: "ask-desk-ticket-tool",
     description: "Asks the remote order desk for a ticket",
     input: Question,
     output: TicketedReply,

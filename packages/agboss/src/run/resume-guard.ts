@@ -5,7 +5,7 @@
  * means the resume is rejected with `IncompatibleResumeError`.
  */
 
-/** The workflow version (`@Workflow({ version })`) and config hash (`runVersions`) of an app. */
+/** The workflow version (`@Workflow({ version })`) and config hash (`executionVersions`) of an app. */
 export interface ResumeVersions {
   readonly workflowVersion: string;
   readonly configHash: string;
@@ -13,8 +13,8 @@ export interface ResumeVersions {
 
 /** A resume of a run paused under other versions than the app that resumes it. */
 export interface IncompatibleResume {
-  readonly thread: string;
-  readonly runId: string;
+  readonly threadId: string;
+  readonly executionId: string;
   /** What the run paused under. */
   readonly paused: ResumeVersions;
   /** What the resuming app runs. */
@@ -36,19 +36,19 @@ const label = ({ workflowVersion, configHash }: ResumeVersions): string =>
 export class IncompatibleResumeError extends Error {
   override name = "IncompatibleResumeError";
   readonly code = "resume.incompatible";
-  readonly thread: string;
-  readonly runId: string;
+  readonly threadId: string;
+  readonly executionId: string;
   readonly paused: ResumeVersions;
   readonly current: ResumeVersions;
 
   constructor(resume: IncompatibleResume) {
     super(
-      `[resume.incompatible] thread "${resume.thread}" paused under ${label(resume.paused)}, ` +
+      `[resume.incompatible] thread "${resume.threadId}" paused under ${label(resume.paused)}, ` +
         `this app runs ${label(resume.current)} — register ` +
         `WorkflowSettings.builder().onIncompatibleResume(…) to resume it anyway`,
     );
-    this.thread = resume.thread;
-    this.runId = resume.runId;
+    this.threadId = resume.threadId;
+    this.executionId = resume.executionId;
     this.paused = resume.paused;
     this.current = resume.current;
   }

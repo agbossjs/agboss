@@ -1,7 +1,7 @@
 import { ExecutionStatus, type ExecutionOutput } from "../app/types.js";
 import { ExecutionCancelledError } from "../core/errors.js";
 import { LimitExceededError } from "../graph/limits.js";
-import type { RunStreamEvent } from "../run/types.js";
+import type { ExecutionStreamEvent } from "../run/types.js";
 import { A2AStatus, type A2AEvent, type A2AExecutionResponse } from "./types.js";
 
 const unreachable = (value: never): never => {
@@ -61,7 +61,7 @@ export function failureResponseOf(
 }
 
 /** A stream event of the run as an A2A progress event. */
-export function eventOf(event: RunStreamEvent): A2AEvent {
+export function eventOf(event: ExecutionStreamEvent): A2AEvent {
   switch (event.kind) {
     case "textDelta":
       return { type: "progress", payload: { step: "text", content: event.delta } };

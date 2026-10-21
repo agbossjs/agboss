@@ -5,7 +5,7 @@
 import type { connectMcpServers as connectNow } from "./mcp/connect.js";
 
 export {
-  DEFAULT_TOOL_TIMEOUT_MS,
+  DEFAULT_TOOL_TIMEOUT,
   defineTool,
   InvalidToolNameError,
   ToolTimeoutError,

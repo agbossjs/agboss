@@ -84,7 +84,7 @@ export class RuleRefundApprovalChannel extends RefundApprovalChannel {
 }
 
 @Tool({
-  name: "refund_card",
+  name: "refund-card-tool",
   description: "Refunds a card payment",
   input: RefundCardInputDto,
   output: RefundCardOutputDto,

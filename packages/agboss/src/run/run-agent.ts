@@ -18,8 +18,8 @@ import { streamConfig } from "./stream-config.js";
 import { finishRun } from "./finish.js";
 import { openThread } from "./thread.js";
 import { memoryBeforeRun } from "./memory.js";
-import type { AgentExecutionOutput, RunDeps, RunOptions } from "./types.js";
-import { runVersions } from "./versions.js";
+import type { AgentExecutionOutput, AgentExecutionDeps, AgentExecutionOptions } from "./types.js";
+import { executionVersions } from "./versions.js";
 
 /**
  * Public entry point: validates the input, opens or continues a thread, opens the execution's
@@ -27,19 +27,19 @@ import { runVersions } from "./versions.js";
  * call), runs the graph within its limits from the given start, records spend into the budgets as
  * it happens and writes a Tern for every outcome — finished, paused or failed.
  */
-export function runAgent<TName extends string>(
+export function executeAgent<TName extends string>(
   input: unknown,
-  deps: RunDeps<TName>,
-  options: RunOptions = {},
+  deps: AgentExecutionDeps<TName>,
+  options: AgentExecutionOptions = {},
 ): Promise<AgentExecutionOutput> {
   return runOnce(input, deps, options);
 }
 
-/** `runAgent` with the budgets the app already opened (and checked) before the execution's start. */
+/** `executeAgent` with the budgets the app already opened (and checked) before the execution's start. */
 export function runOpenedAgent<TName extends string>(
   input: unknown,
-  deps: RunDeps<TName>,
-  options: RunOptions,
+  deps: AgentExecutionDeps<TName>,
+  options: AgentExecutionOptions,
   opened: PassBudgets,
 ): Promise<AgentExecutionOutput> {
   return runOnce(input, deps, options, opened);
@@ -47,27 +47,27 @@ export function runOpenedAgent<TName extends string>(
 
 /** What every Tern of the run has: its run, thread, start line, replay and versions. */
 const ternBaseOf = <TName extends string>(
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   run: Pick<TernBase, "runId" | "threadId" | "tenantId" | "task">,
-  options: RunOptions,
+  options: AgentExecutionOptions,
 ): TernBase => ({
   ...run,
   bundle: deps.config.name,
   replayOf: options.replayOf ?? null,
-  ...runVersions(deps),
+  ...executionVersions(deps),
 });
 
 async function runOnce<TName extends string>(
   given: unknown,
-  deps: RunDeps<TName>,
-  options: RunOptions,
+  deps: AgentExecutionDeps<TName>,
+  options: AgentExecutionOptions,
   opened?: PassBudgets,
 ): Promise<AgentExecutionOutput> {
   const { start, input: payload, threadId: requested } = RunInputSchema.parse(given);
   const input = validStartInput(startNamed(deps.graph, start), payload);
   const contexts = options.contexts ?? DEFAULT_CONTEXT_VALUES;
   const { tenantId } = contexts.tenant;
-  const runId = options.runId ?? (deps.idGenerator ?? randomIdGenerator).newExecutionId();
+  const runId = options.executionId ?? (deps.idGenerator ?? randomIdGenerator).newExecutionId();
   // a thread it continues must exist; a new one is created only once the budgets pass
   const known = requested === undefined ? undefined : await openThread(deps, tenantId, requested);
   // before the first step: an exhausted budget rejects the execution — no thread, record or call

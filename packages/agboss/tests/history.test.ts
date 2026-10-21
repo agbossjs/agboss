@@ -1,7 +1,7 @@
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it } from "vitest";
 import { formatHistory } from "../src/flow/runtime/history.js";
-import { UnknownThreadError, type RunDeps } from "../src/index.js";
+import { UnknownThreadError, type AgentExecutionDeps } from "../src/index.js";
 import { createModelRegistry } from "../src/llm/registry.js";
 import { ScriptedChatModel } from "./fakes/scripted-model.js";
 import { routeTo, fakeDeps, recordingRouters, runText, fakeGateway } from "./helpers.js";
@@ -27,7 +27,7 @@ async function setup(
       },
     },
   };
-  const { deps, requests: routed } = recordingRouters<RunDeps<string>>({
+  const { deps, requests: routed } = recordingRouters<AgentExecutionDeps<string>>({
     ...base,
     config,
     registry: createModelRegistry(

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DtoValidationError } from "../src/dto/errors.js";
 import { ExecutionStatus } from "../src/app/types.js";
-import { runAgent } from "../src/index.js";
+import { executeAgent } from "../src/index.js";
 import { routeTo, fakeDeps, runText } from "./helpers.js";
 
 const deps = () =>
@@ -10,7 +10,7 @@ const deps = () =>
     "test/alpha": ["42"],
   });
 
-describe("runAgent", () => {
+describe("executeAgent", () => {
   it("returns the finish's output, the path and the cost report", async () => {
     const result = await runText("Answer", await deps());
 
@@ -26,7 +26,7 @@ describe("runAgent", () => {
 
   it("rejects an invalid start input before the first step", async () => {
     await expect(
-      runAgent({ start: "chat-workflow-start", input: { text: 3 } }, await deps()),
+      executeAgent({ start: "chat-workflow-start", input: { text: 3 } }, await deps()),
     ).rejects.toBeInstanceOf(DtoValidationError);
   });
 });

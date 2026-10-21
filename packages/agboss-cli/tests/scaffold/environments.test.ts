@@ -16,8 +16,8 @@ import { CHECKS_RUN, ledgerWarning, piiKeyWarning } from "../cli/agboss.js";
 const tmp = new URL("../../.scaffold-tmp", import.meta.url).pathname;
 const project = join(tmp, `shop-${String(process.pid)}`);
 /** The project's application: `"agboss": { "application" }` of its package.json (#268). */
-const application = "src/shop/shop.application.ts";
-const environments = join(project, "src/shop/environments");
+const application = "src/shop.application.ts";
+const environments = join(project, "src/environments");
 const read = (path: string): string => readFileSync(join(project, path), "utf8");
 const MISSING =
   /^Environment "dev" not found: .*environments\/dev\.environment\.ts\. Available: none/;
@@ -31,8 +31,8 @@ describe("#239: environments next to the workflow file, read through Application
     mkdirSync(tmp, { recursive: true });
     const spec = specFromFlags("shop", {
       yes: true,
-      agents: "clerk:Answers about orders",
-      tools: "clerk:find_order",
+      agents: "clerk-agent:Answers about orders",
+      tools: "clerk-agent:find-order-tool",
     }) as WorkflowSpec;
     await applyChanges(project, { create: planProject(spec), modify: [] });
 
@@ -43,11 +43,11 @@ describe("#239: environments next to the workflow file, read through Application
       "test.environment.ts",
     ])
       expect(existsSync(join(environments, file)), file).toBe(true);
-    expect(existsSync(join(project, "src/environments"))).toBe(false);
-    expect(read("src/shop/services/api.service.ts")).toContain(
+    expect(existsSync(join(project, "src/shop/environments"))).toBe(false);
+    expect(read("src/services/api.service.ts")).toContain(
       "@Injectable({ deps: [ApplicationContext] })",
     );
-    expect(read("src/shop/shop.application.ts")).toContain("  environment: AppEnvironment,\n");
+    expect(read("src/shop.application.ts")).toContain("  environment: AppEnvironment,\n");
     expect(read("src/shop/tools/find-order.tool.ts")).toContain(
       "deps: [ExecutionContext, ApiService]",
     );
@@ -70,7 +70,7 @@ describe("#239: environments next to the workflow file, read through Application
     expect(described.out).toContain("environment dev");
     expect(described.out).toContain('apiUrl = "https://api.example.com"');
     expect(described.out).toContain(
-      "· find_order (local) ← ExecutionContext, ApiService (ApplicationContext)",
+      "· find-order-tool (local) ← ExecutionContext, ApiService (ApplicationContext)",
     );
   }, 240_000);
 

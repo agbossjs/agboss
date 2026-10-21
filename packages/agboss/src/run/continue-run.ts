@@ -7,8 +7,8 @@ import { failedOutcome, outcomeError, recordFailure, type TernBase } from "./exe
 import { continuedExecutionBudgets, recorder } from "./run-budgets.js";
 import { finishRun } from "./finish.js";
 import { streamConfig } from "./stream-config.js";
-import type { AgentExecutionOutput, RunDeps, RunOptions } from "./types.js";
-import { runVersions } from "./versions.js";
+import type { AgentExecutionOutput, AgentExecutionDeps, AgentExecutionOptions } from "./types.js";
+import { executionVersions } from "./versions.js";
 
 /** What continuing an execution needs to know of it: its ids, record, start, budget and spend so far. */
 export interface ContinuedRun {
@@ -36,7 +36,7 @@ export type ContinuedPass = (
   record: (records: readonly UsageRecord[]) => Promise<void>,
 ) => Promise<ExecutionStateType>;
 
-export type ContinueOptions = Omit<RunOptions, "replayOf" | "runId" | "contexts">;
+export type ContinueOptions = Omit<AgentExecutionOptions, "replayOf" | "runId" | "contexts">;
 
 /**
  * One more pass of an execution that already ran (a resume with its decision, or recovery from
@@ -46,7 +46,7 @@ export type ContinueOptions = Omit<RunOptions, "replayOf" | "runId" | "contexts"
  */
 export async function continueRun<TName extends string>(
   run: ContinuedRun,
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   options: ContinueOptions,
   pass: ContinuedPass,
 ): Promise<AgentExecutionOutput> {
@@ -61,7 +61,7 @@ export async function continueRun<TName extends string>(
     bundle: deps.config.name,
     task: startLine(run.start, run.startInput),
     replayOf: null,
-    ...runVersions(deps),
+    ...executionVersions(deps),
   };
   try {
     const { threadId, tenantId, runId } = run;

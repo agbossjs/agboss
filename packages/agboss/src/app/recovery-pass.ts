@@ -1,4 +1,4 @@
-import type { PausedRun } from "./paused-runs.js";
+import type { PausedExecution } from "./paused-runs.js";
 import { continueAgent, type InterruptedRun } from "../run/continue-agent.js";
 import { resumeAgent } from "../run/resume-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
@@ -37,7 +37,7 @@ export async function recoveryPassOf(
 
 /** The pass that continues a paused tree with the answers of its pauses. */
 export const resumePassOf =
-  (stored: PausedRun, resume: TreeResume, call: TreeCall): TreePass =>
+  (stored: PausedExecution, resume: TreeResume, call: TreeCall): TreePass =>
   (moving, signal) =>
     resumeAgent(stored.run, resume, moving, runOptionsOf(call, signal));
 

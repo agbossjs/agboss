@@ -64,7 +64,7 @@ export class OrderInfo {
 }
 
 @Tool({
-  name: "order_status",
+  name: "order-status-tool",
   description: "The status of an order",
   input: OrderQuery,
   output: OrderInfo,
@@ -139,7 +139,7 @@ const notePath = (title: string): string => join(NOTES_DIR, `${title}.md`);
 
 @McpTool({
   server: NotesServer,
-  name: "save_note",
+  name: "save-note-tool",
   description: "Saves a note",
   channel: TerminalUserChannel,
   input: Note,
@@ -157,7 +157,7 @@ export class SaveNote implements ToolHandler<Note, NoteRef> {
 
 @McpTool({
   server: NotesServer,
-  name: "read_note",
+  name: "read-note-tool",
   description: "Reads a note",
   input: NoteRef,
   output: NoteText,

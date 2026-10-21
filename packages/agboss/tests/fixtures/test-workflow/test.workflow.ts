@@ -32,7 +32,7 @@ class ClockTime {
 
 /** A test tool: the time, from an injected clock. */
 @Tool({
-  name: "current_time",
+  name: "current-time-tool",
   description: "Current date and time in an IANA time zone (default UTC).",
   input: ClockQuery,
   output: ClockTime,

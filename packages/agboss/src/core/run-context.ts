@@ -5,10 +5,10 @@ import { Clock, systemClock } from "../infrastructure/clock.js";
 import type { ParentExecution } from "../flow/context/frame.js";
 
 /** The id of one run (one `execute`, kept by its resumes) — not the conversation thread. */
-export type RunId = string & { readonly __brand: "RunId" };
+export type ExecutionId = string & { readonly __brand: "ExecutionId" };
 
 /** Marks a string as a run id (the framework's own ids; tests building a context). */
-export const runIdOf = (id: string): RunId => id as RunId;
+export const runIdOf = (id: string): ExecutionId => id as ExecutionId;
 
 /**
  * The run as the framework's own code knows it (internal; projects read `ExecutionContext`, #280):
@@ -16,7 +16,7 @@ export const runIdOf = (id: string): RunId => id as RunId;
  */
 export interface RunContext {
   /** Unique per run; the same after a resume. */
-  readonly runId: RunId;
+  readonly runId: ExecutionId;
   /** The conversation the run belongs to (`ExecutionOutput.thread`). */
   readonly threadId: string;
   /** Aborted by `app.cancel(thread)` or by the caller's own `signal`. */
@@ -66,7 +66,7 @@ export interface RunServices {
 /** What a node reads of its run (internal): the run context plus the services nodes need. */
 export interface NodeRunContext {
   readonly run: RunContext;
-  readonly runId: RunId;
+  readonly runId: ExecutionId;
   readonly threadId: string;
   /** The application's clock; the system's for a graph run without one (a slice, a bare graph). */
   readonly clock: Clock;

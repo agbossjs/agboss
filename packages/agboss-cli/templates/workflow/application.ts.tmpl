@@ -1,21 +1,27 @@
-import { {{agbossImports}} } from "agboss";
+import { Application } from "agboss";
 import { DecisionsModelProvider } from "agboss/models";
 import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./config/budget.config.js";
-{{environmentImport}}import { {{pascal}}Workflow } from "./{{kebab}}.workflow.js";
+import { AppEnvironment } from "./environments/app.environment.js";
+import { PromptInjectionGuardrail } from "./guardrails/prompt-injection.guardrail.js";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
+import { {{pascal}}Workflow } from "./{{kebab}}/{{kebab}}.workflow.js";
 
 /**
- * The application — what `createApp` and `testWith` take: its workflows, its infrastructure
- * (`providers`: its model providers — every model of every workflow resolves to one of them by
- * `serves`; no repository listed → the built-in in-memory defaults), every budget and its
- * environment contract (required; `environments/` next to this file).
+ * The application — what `createApp`, `testWith` and every `agboss` command take (its path is
+ * `"agboss": { "application" }` in package.json): its workflows (`agboss generate workflow
+ * <name>-workflow` adds one here), its infrastructure (`providers`: its model providers — every
+ * model of every workflow resolves to one of them by `serves`; no repository listed → the built-in
+ * in-memory defaults), every budget and its environment contract (`environments/` next to this file).
  */
 @Application({
   name: "{{kebab}}-application",
   version: "0.1.0",
-  environment: {{environment}},
+  environment: AppEnvironment,
   workflows: [{{pascal}}Workflow],
   providers: [OpenRouterModelProvider, DecisionsModelProvider],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
+  // checked before every model of every workflow reads its input (a workflow's own add up with it)
+  guardrails: [PromptInjectionGuardrail],
+  defaults: { guardrail: { model: "typesafe/jev-1.13" } },
 })
 export class {{pascal}}Application {}

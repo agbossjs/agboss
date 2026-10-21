@@ -3,7 +3,7 @@ import {
   type ApplicationBudgets,
   type BudgetMeter,
 } from "../budgets/execution-budgets.js";
-import type { RunTracing } from "../tracing/index.js";
+import type { ExecutionTracing } from "../tracing/index.js";
 import { replyReaderOf, type ReplyPii, type ReplyReader } from "../channels/reply-reader.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { StepDescriptor, WorkflowDescriptor } from "../flow/context/execution-context.js";
@@ -53,7 +53,7 @@ export type TreeState = Partial<ExecutionStateType>;
 export interface ReplyAnsweringParts {
   readonly workflow: string;
   readonly budgets?: ApplicationBudgets | undefined;
-  readonly tracing?: RunTracing | undefined;
+  readonly tracing?: ExecutionTracing | undefined;
   /** The tree's state by its root's id: its budgets, contexts and PII tokens. */
   readonly treeStateOf: (rootExecutionId: string) => Promise<TreeState>;
   /** The frame of the pause's execution and waiting step. */

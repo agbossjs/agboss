@@ -11,7 +11,7 @@ import { isCustomPolicy, type PiiPolicyMeta } from "../pii/pii-policy.decorator.
 import { piiPolicyMetaOf } from "../pii/policy-checks.js";
 import type { PiiRuntime } from "../pii/runtime.js";
 import { agentLoopPromptTexts } from "../prompts/agents.js";
-import type { RunDeps } from "./types.js";
+import type { AgentExecutionDeps } from "./types.js";
 
 /**
  * What an agent's or a model router's model reads that its own decorator does not say (#120 PR 4),
@@ -58,9 +58,9 @@ export interface ElementFingerprint {
  * dependencies — the same fingerprint from both (its PII policies assembled, or at run time).
  */
 export interface FingerprintDeps {
-  readonly config: RunDeps<string>["config"];
-  readonly routers: RunDeps<string>["routers"];
-  readonly compactions?: RunDeps<string>["compactions"];
+  readonly config: AgentExecutionDeps<string>["config"];
+  readonly routers: AgentExecutionDeps<string>["routers"];
+  readonly compactions?: AgentExecutionDeps<string>["compactions"];
   readonly pii?: PiiRuntime | AssembledPii | undefined;
 }
 

@@ -43,9 +43,9 @@ describe("components — assembly", () => {
   it("AC1: a tool is one annotated class referenced by an agent; the container injects its dependencies", async () => {
     const bundle = await workflowOf(Greetings);
     const tools = typeof bundle.tools === "function" ? bundle.tools(services) : bundle.tools;
-    const greet = tools.find((tool) => tool.name === "greet");
+    const greet = tools.find((tool) => tool.name === "greet-tool");
 
-    expect(bundle.config.agents["greeter-agent"]?.tools).toEqual(["greet", "read_file"]);
+    expect(bundle.config.agents["greeter-agent"]?.tools).toEqual(["greet-tool", "read-file-tool"]);
     expect(await greet?.invoke({ name: "Pavel" }, ctx)).toEqual({
       kind: "ok",
       value: { text: "Shalom, Pavel" },

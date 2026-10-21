@@ -5,7 +5,7 @@ import { recoveryPassOf, resumePassOf, RootCalls } from "./recovery-pass.js";
 import { runningOutcome } from "../run/execute.js";
 import type { InterruptedRun } from "../run/continue-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
-import type { AgentExecutionOutput, RunDeps } from "../run/types.js";
+import type { AgentExecutionOutput, AgentExecutionDeps } from "../run/types.js";
 import type { AppDeps } from "./app-deps.js";
 import { currentOutputOf } from "./current-output.js";
 import type { ExecutionLeases, HeldExecutionLease } from "./execution-leases.js";
@@ -31,7 +31,7 @@ import type { Clock } from "../infrastructure/clock.js";
 
 /** One pass of the tree: the run deps it moves with (its leased checkpointer) and its signal. */
 export type TreePass = (
-  deps: RunDeps<string>,
+  deps: AgentExecutionDeps<string>,
   signal: AbortSignal,
 ) => Promise<AgentExecutionOutput>;
 

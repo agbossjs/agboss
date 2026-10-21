@@ -60,7 +60,7 @@ describe("#313 AC1: a project's SqliteExecutionRecordRepository, public tokens o
       "thread-2",
       "thread-1",
     ]);
-    expect([first.runId, second.runId, continued.runId]).toEqual([
+    expect([first.executionId, second.executionId, continued.executionId]).toEqual([
       "execution-1",
       "execution-2",
       "execution-3",
@@ -79,7 +79,7 @@ describe("#313 AC1: a project's SqliteExecutionRecordRepository, public tokens o
 
       expect(audited.threads).toEqual([result.threadId]);
       expect(result.threadId).toMatch(UUID);
-      expect(result.runId).toMatch(UUID);
+      expect(result.executionId).toMatch(UUID);
     } finally {
       await app.close();
     }

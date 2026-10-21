@@ -33,7 +33,7 @@ export interface MemoryContext extends MemoryView {
 export interface MemoryTurn {
     readonly budgetLeftUsd: number;
     // (undocumented)
-    readonly runId: string;
+    readonly executionId: string;
     readonly tenantId: string;
     // (undocumented)
     readonly threadId: string;
@@ -82,7 +82,7 @@ export class SlidingWindowStrategy extends BaseMemoryStrategy {
 // src/memory/types.ts:19:3 - (ae-undocumented) Missing documentation for "agent".
 // src/memory/types.ts:22:3 - (ae-undocumented) Missing documentation for "limits".
 // src/memory/types.ts:29:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/memory/types.ts:30:3 - (ae-undocumented) Missing documentation for "runId".
+// src/memory/types.ts:30:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/memory/types.ts:31:3 - (ae-undocumented) Missing documentation for "turn".
 // src/memory/types.ts:38:3 - (ae-undocumented) Missing documentation for "usage".
 // src/memory/types.ts:48:3 - (ae-undocumented) Missing documentation for "buildContext".

@@ -14,7 +14,7 @@ import {
   type ExecutionTreeValue,
   type OnExecutionError,
   type OnExecutionResume,
-  type PausedRun,
+  type PausedExecution,
   type ToolHandler,
   type ExecutionResumeEvent,
 } from "../../../src/index.js";
@@ -57,7 +57,10 @@ export const seen = {
 
 /** The test's hooks: run after a pause is saved; resolves when the first hold starts. */
 export const hooks: {
-  afterSave?: (paused: PausedRun, repository: HookedPausedExecutionRepository) => Promise<void>;
+  afterSave?: (
+    paused: PausedExecution,
+    repository: HookedPausedExecutionRepository,
+  ) => Promise<void>;
   holdStarted?: () => void;
   /** Runs before a compare-and-set record write (a resume's `running`). */
   beforeGuardedWrite?: () => Promise<void>;
@@ -82,7 +85,7 @@ export class Query {
 
 /** A write: each call waits for an approval. */
 @Tool({
-  name: "charge",
+  name: "charge-tool",
   description: "Charges the card",
   channel: TerminalUserChannel,
   input: Query,
@@ -97,7 +100,7 @@ export class Charge implements ToolHandler<Query, Query> {
 
 /** The first call waits until its execution is stopped (a holder frozen in a long call); later ones return. */
 @Tool({
-  name: "hold",
+  name: "hold-tool",
   description: "Waits",
   input: Query,
   output: Query,
@@ -121,7 +124,7 @@ export class Hold implements ToolHandler<Query, Query> {
 
 /** Claims `claim:<text>` once per request (`saveIfAbsent`). */
 @Tool({
-  name: "claim",
+  name: "claim-tool",
   description: "Claims a key",
   input: Query,
   output: Query,
@@ -139,7 +142,7 @@ export class Claim implements ToolHandler<Query, Query> {
 
 /** Reads `claim:<text>` of the request. */
 @Tool({
-  name: "recall",
+  name: "recall-tool",
   description: "Reads a key",
   input: Query,
   output: Query,
@@ -180,7 +183,7 @@ export class LeaseLog implements OnExecutionError, OnExecutionResume {
 /** The application's paused executions: in memory, with the test's hook after each save. */
 @Injectable()
 export class HookedPausedExecutionRepository extends InMemoryPausedExecutionRepository {
-  override async save(paused: PausedRun): Promise<void> {
+  override async save(paused: PausedExecution): Promise<void> {
     await super.save(paused);
     await hooks.afterSave?.(paused, this);
   }

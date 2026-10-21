@@ -2,13 +2,13 @@ import { ExecutionContext, Tool, type ToolHandler } from "agboss";
 import { Text } from "agboss/dto";
 {{serviceImport}}
 
-/** What the model asks {{snake}} for. */
+/** What the model asks {{kebab}}-tool for. */
 export class {{pascal}}Query {
   @Text({ prompt: "what to look up" })
   query!: string;
 }
 
-/** What {{snake}} answers. */
+/** What {{kebab}}-tool answers. */
 export class {{pascal}}Result {
   @Text({ prompt: "the answer" })
   result!: string;
@@ -16,7 +16,7 @@ export class {{pascal}}Result {
 
 /** {{title}}. TODO: implement — it returns a placeholder so the workflow runs end to end. */
 @Tool({
-  name: "{{snake}}",
+  name: "{{kebab}}-tool",
   description: "{{title}} (TODO: say what it does)",
   input: {{pascal}}Query,
   output: {{pascal}}Result,
@@ -25,6 +25,6 @@ export class {{pascal}}Tool implements ToolHandler<{{pascal}}Query, {{pascal}}Re
 {{constructor}}  run({ query }: {{pascal}}Query): Promise<{{pascal}}Result> {
     // TODO: the real work — dependencies come through the constructor (and `deps`)
     this.executionContext.signal.throwIfAborted(); // the execution: its signal, step.idempotencyKey, …
-    return Promise.resolve({ result: `TODO: {{snake}} is not implemented yet (query: ${query}{{serviceUse}})` });
+    return Promise.resolve({ result: `TODO: {{kebab}}-tool is not implemented yet (query: ${query}{{serviceUse}})` });
   }
 }

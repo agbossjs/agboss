@@ -71,7 +71,7 @@ describe("Jev calls: the standard fetch abort signal (#95)", () => {
     const jev = createJevClient(
       { apiKey: "k", baseUrl: "https://example.test/api/v1" },
       neverAnswers,
-      50,
+      milliseconds(50),
     );
     const started = Date.now();
 

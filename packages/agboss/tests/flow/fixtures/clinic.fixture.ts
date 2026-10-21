@@ -105,7 +105,7 @@ export class BedsDto {
 
 /** Reads the clinician's unit and the tenant (#261: one object of its level, the rest through it). */
 @Tool({
-  name: "free_beds",
+  name: "free-beds-tool",
   description: "Free beds in the clinician's unit",
   input: BedQueryDto,
   output: BedsDto,
@@ -133,7 +133,7 @@ export class FreeBedsTool implements ToolHandler<BedQueryDto, BedsDto> {
 
 /** A write tool: it waits for an approval, so the execution pauses before it. */
 @Tool({
-  name: "book_bed",
+  name: "book-bed-tool",
   description: "Books a bed",
   channel: TerminalUserChannel,
   input: BedQueryDto,

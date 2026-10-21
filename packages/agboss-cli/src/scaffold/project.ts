@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
-import { ScaffoldUsageError } from "./errors.js";
-import { namesOf, type Names } from "./names.js";
-import { planWorkflow, render, vars, workflowDir, type WorkflowSpec } from "./plan.js";
+import { applicationFiles, applicationPathOf } from "./application-files.js";
+import { fullNameOf, namesOf, type Names } from "./names.js";
+import { render, type WorkflowSpec } from "./plan.js";
+import { planWorkflow } from "./workflow-files.js";
 import type { FileToWrite } from "./write.js";
 
 interface PackageJson {
@@ -22,63 +23,36 @@ export const FILESYSTEM_SERVER_PACKAGE = "@modelcontextprotocol/server-filesyste
 export const filesystemServerVersion = (): string =>
   cli.devDependencies?.[FILESYSTEM_SERVER_PACKAGE] ?? "latest";
 
-/** Where a workflow's application is: `src/<name>/<name>.application.ts` (#261, until #268 PR 4). */
-export const applicationPathOf = (workflow: Names): string =>
-  `${workflowDir(workflow)}/${workflow.kebab}.application.ts`;
+/** The text start of a workflow, by its full name: `desk-text-workflow-start` (#268 AC2). */
+export const textStartOf = (workflow: Names): string => `${workflow.kebab}-text-workflow-start`;
 
 /**
- * The npm scripts of one application (#268): the project's first needs no path — its application is
- * `"agboss": { "application" }` of package.json — every later one (a suffix `:name`) names its own
- * with `--application` until `generate workflow` wires workflows into one application (#268 PR 4).
+ * The scripts that run one workflow of the application (#268 AC2): by its start's full name, so
+ * they keep working when the application gets more workflows — `chat` / `run` for the project's
+ * first, `chat:<name>` / `run:<name>` for each one `generate workflow` adds.
  */
 export function workflowScripts(workflow: Names, suffix = ""): Record<string, string> {
-  const application = suffix === "" ? "" : ` --application ${applicationPathOf(workflow)}`;
-  const commands: Readonly<Record<string, string>> = {
-    chat: "chat",
-    run: "run",
-    describe: "describe",
-    "rag:index": "rag index",
-  };
-  return {
-    ...Object.fromEntries(
-      Object.entries(commands).map(([script, command]) => [
-        `${script}${suffix}`,
-        `agboss ${command}${application}`,
-      ]),
-    ),
-    // writes .agboss/types.d.ts: the generated types the flow compiles against (#272) — no model
-    // key needed: without --models the check reads the environment's shape, not its secrets (#266)
-    [`types${suffix}`]: `agboss check${application}`,
-  };
+  const start = `--start ${textStartOf(workflow)}`;
+  return { [`chat${suffix}`]: `agboss chat ${start}`, [`run${suffix}`]: `agboss run ${start}` };
 }
 
-/** The first workflow's test on `agboss/testing`: its first agent, by script. */
-function workflowTest(spec: WorkflowSpec): FileToWrite {
-  const workflow = namesOf(spec.name);
-  const [first] = spec.agents;
-  if (first === undefined) throw new ScaffoldUsageError("A workflow needs at least one agent");
-  const agent = namesOf(first.name);
-  return {
-    path: `${workflowDir(workflow)}/${workflow.kebab}.workflow.test.ts`,
-    content: render("project/workflow.test.ts.tmpl", {
-      ...vars(workflow),
-      agent: agent.pascal,
-      agentKebab: agent.kebab,
-    }),
-  };
-}
+/** The scripts of the whole application: its application path comes from package.json (#268 AC1). */
+const APPLICATION_SCRIPTS: Readonly<Record<string, string>> = {
+  describe: "agboss describe",
+  "rag:index": "agboss rag index",
+  // writes .agboss/types.d.ts: the generated types the flow compiles against (#272) — no model
+  // key needed: without --models the check reads the environment's shape, not its secrets (#266)
+  types: "agboss check",
+};
 
 /**
  * The environments next to the application file, where the app looks for them (#239, #261): the
  * contract, dev, staging and test (tests run on it); and the service that reads it through
- * `ApplicationContext` — the
- * project's tools use it — with its test.
+ * `ApplicationContext` — the project's tools use it — with its test.
  */
-function environmentFiles(spec: WorkflowSpec): FileToWrite[] {
-  const workflow = namesOf(spec.name);
-  const dir = workflowDir(workflow);
+function environmentFiles(): FileToWrite[] {
   const file = (path: string, template: string): FileToWrite => ({
-    path: `${dir}/${path}`,
+    path: `src/${path}`,
     content: render(`project/${template}.tmpl`, {}),
   });
   return [
@@ -91,12 +65,12 @@ function environmentFiles(spec: WorkflowSpec): FileToWrite[] {
   ];
 }
 
-/** `agboss create`: a standalone project with its first workflow and its test. */
-export function planProject(spec: WorkflowSpec): FileToWrite[] {
-  const project = namesOf(spec.name);
-  const scripts = Object.entries(workflowScripts(project))
-    .map(([k, v]) => `    "${k}": "${v}",`)
-    .join("\n");
+const jsonLines = (entries: Readonly<Record<string, string>>, indent: string): string[] =>
+  Object.entries(entries).map(([k, v]) => `${indent}"${k}": "${v}"`);
+
+/** The project's package.json: its application's path, its scripts, its dependencies. */
+function packageJsonOf(spec: WorkflowSpec, project: Names, workflow: Names): FileToWrite {
+  const scripts = { ...workflowScripts(workflow), ...APPLICATION_SCRIPTS };
   const dependencies = {
     agboss: `^${cli.dependencies.agboss ?? cli.version}`,
     zod: cli.dependencies.zod ?? "latest",
@@ -106,24 +80,38 @@ export function planProject(spec: WorkflowSpec): FileToWrite[] {
   };
   const variables = {
     kebab: project.kebab,
-    title: project.title,
     application: applicationPathOf(project),
-    scripts,
-    dependencies: Object.entries(dependencies)
-      .map(([k, v]) => `    "${k}": "${v}"`)
-      .join(",\n"),
+    scripts: jsonLines(scripts, "    ").join(",\n") + ",",
+    dependencies: jsonLines(dependencies, "    ").join(",\n"),
     cliVersion: `^${cli.version}`,
     typescriptVersion: cli.dependencies.typescript ?? "latest",
   };
+  return { path: "package.json", content: render("project/package.json.tmpl", variables) };
+}
+
+/**
+ * `agboss create <project>` (#268 AC8): a standalone project — its application
+ * (`src/<project>.application.ts`, its path in package.json), the application's environments,
+ * budgets, model provider and guardrail, and its first workflow `<project>-workflow` in
+ * `src/<project>/`, with its tests.
+ */
+export function planProject(spec: WorkflowSpec): FileToWrite[] {
+  const workflow = fullNameOf(spec.name, "workflow");
+  const project = namesOf(workflow.kebab);
+  const variables = { kebab: project.kebab, title: project.title };
   return [
-    { path: "package.json", content: render("project/package.json.tmpl", variables) },
+    packageJsonOf(spec, project, workflow),
     { path: "tsconfig.json", content: render("project/tsconfig.json.tmpl", {}) },
     { path: "vitest.config.ts", content: render("project/vitest.config.ts.tmpl", {}) },
     { path: ".env.example", content: render("project/env.example.tmpl", {}) },
     { path: ".gitignore", content: render("project/gitignore.tmpl", {}) },
     { path: "README.md", content: render("project/README.md.tmpl", variables) },
-    ...environmentFiles(spec),
-    ...planWorkflow(spec, true),
-    workflowTest(spec),
+    ...environmentFiles(),
+    ...applicationFiles(project),
+    ...planWorkflow(spec, {
+      dir: `src/${project.kebab}`,
+      application: { className: `${project.pascal}Application`, path: applicationPathOf(project) },
+      service: "src/services/api.service.ts",
+    }),
   ];
 }

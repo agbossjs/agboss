@@ -1,5 +1,5 @@
 import { configSnapshot } from "../run/versions.js";
-import type { RunDeps } from "../index.js";
+import type { AgentExecutionDeps } from "../index.js";
 import type { PairwiseResult, ProfileOutcome } from "./compare.js";
 
 /** One row of the comparison: a profile vs the baseline (the first profile). */
@@ -36,7 +36,10 @@ function flatten(value: unknown, path = "", out = new Map<string, string>()): Ma
 }
 
 /** What differs between two runs' configs and prompts: `agents.scout.thinking: "none" → "low"`. */
-export function configDiff(base: RunDeps<string>, other: RunDeps<string>): string[] {
+export function configDiff(
+  base: AgentExecutionDeps<string>,
+  other: AgentExecutionDeps<string>,
+): string[] {
   const a = flatten(configSnapshot(base));
   const b = flatten(configSnapshot(other));
   const keys = [...new Set([...a.keys(), ...b.keys()])]

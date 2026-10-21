@@ -84,7 +84,7 @@ export class JobQueryDto {
 }
 
 @Tool({
-  name: "search_jobs",
+  name: "search-jobs-tool",
   description: "Searches jobs",
   input: JobQueryDto,
   output: JobQueryDto,
@@ -155,7 +155,7 @@ export class BrokenPoolProvider implements OnInit {
 }
 
 @Tool({
-  name: "broken_search_jobs",
+  name: "broken-search-jobs-tool",
   description: "Searches jobs",
   input: JobQueryDto,
   output: JobQueryDto,

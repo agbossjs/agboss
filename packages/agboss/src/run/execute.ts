@@ -8,7 +8,7 @@ import { PaidStepError } from "../graph/errors.js";
 import { LimitExceededError } from "../graph/limits.js";
 import type { NewTern, TernOutcome } from "../terns/index.js";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
-import type { RunDeps } from "./types.js";
+import type { AgentExecutionDeps } from "./types.js";
 import type { Compacted } from "./compaction.js";
 
 export type TernBase = Pick<
@@ -27,7 +27,7 @@ export type TernBase = Pick<
 
 /** What finishing a run needs: its deps, graph, Tern base, id, budget and spend so far. */
 export interface FinishContext<TName extends string> {
-  readonly deps: RunDeps<TName>;
+  readonly deps: AgentExecutionDeps<TName>;
   readonly graph: ExecutionGraph;
   readonly base: TernBase;
   readonly runId: string;

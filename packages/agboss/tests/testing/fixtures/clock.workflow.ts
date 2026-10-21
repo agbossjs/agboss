@@ -14,13 +14,13 @@ import {
   type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import type { Milliseconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";
+import { seconds, type Milliseconds } from "../../../src/units/index.js";
 
 /**
  * #262 PR 1 — a clerk whose tools read the time through an injected `Clock` and wait past their
- * own `timeoutMs`; an application that lists its own clock, and two that list one where it may not
+ * own `timeout`; an application that lists its own clock, and two that list one where it may not
  * go.
  */
 
@@ -98,7 +98,13 @@ export class Query {
   text!: string;
 }
 
-@Tool({ name: "stamp", description: "The time", input: Query, output: Query, deps: [StampService] })
+@Tool({
+  name: "stamp-tool",
+  description: "The time",
+  input: Query,
+  output: Query,
+  deps: [StampService],
+})
 export class Stamp implements ToolHandler<Query, Query> {
   constructor(private readonly stampService: StampService) {}
 
@@ -111,11 +117,11 @@ export class Stamp implements ToolHandler<Query, Query> {
 
 /** Never answers: it ends only when its call's signal aborts (its 5-second timeout). */
 @Tool({
-  name: "slow_lookup",
+  name: "slow-lookup-tool",
   description: "Looks something up, slowly",
   input: Query,
   output: Query,
-  timeoutMs: 5000,
+  timeout: seconds(5),
   deps: [ExecutionContext],
 })
 export class SlowLookup implements ToolHandler<Query, Query> {

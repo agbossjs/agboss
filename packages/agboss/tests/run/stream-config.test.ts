@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { extractRunContext } from "../../src/core/run-context.js";
-import type { RunDeps } from "../../src/run/types.js";
+import type { AgentExecutionDeps } from "../../src/run/types.js";
 import { streamConfig } from "../../src/run/stream-config.js";
 
-const deps = { config: { name: "w" } } as RunDeps<string>;
+const deps = { config: { name: "w" } } as AgentExecutionDeps<string>;
 const identity = { threadId: "t-1", tenantId: "default", runId: "run-1", input: { text: "hi" } };
 
 describe("#181: the run's config is built once, with its RunContext", () => {

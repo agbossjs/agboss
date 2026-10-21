@@ -89,10 +89,6 @@ export function writeTypes(project: string): void {
   if (application !== undefined) agbossIn(project, ["check", "--application", application]);
 }
 
-/** The application next to a generated workflow (`src/x/x.workflow.ts` → `src/x/x.application.ts`). */
-export const applicationOf = (workflow: string): string =>
-  workflow.replace(/\.workflow\.ts$/, ".application.ts");
-
 /**
  * #289: the project's workflow modules pass `@stylistic/newline-per-chained-call` — the repo's rule
  * is on for each of them (`ignoreChainWithDepth: 1`) and ESLint finds nothing.

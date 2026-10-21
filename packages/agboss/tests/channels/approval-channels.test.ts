@@ -68,12 +68,12 @@ describe("#188: approval through a @Channel", () => {
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ agent: "clerk-agent", ask: { tool: "refund" } }],
+      pending: [{ agent: "clerk-agent", ask: { tool: "refund-tool" } }],
     });
     expect(desk.posted).toEqual([
       {
         pauseId: expect.stringMatching(/^[0-9a-f]{32}$/),
-        value: expect.objectContaining({ tool: "refund", arguments: { orderId: "A-1" } }),
+        value: expect.objectContaining({ tool: "refund-tool", arguments: { orderId: "A-1" } }),
       },
     ]);
     expect(desk.refunded).toEqual([]);

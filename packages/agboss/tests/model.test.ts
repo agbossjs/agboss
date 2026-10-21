@@ -26,7 +26,7 @@ describe("createAppDeps", () => {
     expect(deps.routers.map((router) => [router.name, router.model])).toEqual([
       ["main-router", "typesafe/jev-1.13"],
     ]);
-    expect(deps.tools("current_time").name).toBe("current_time");
+    expect(deps.tools("current-time-tool").name).toBe("current-time-tool");
     await deps.close();
   });
 });

@@ -68,7 +68,7 @@ export class RefundQuery {
 
 /** A write tool: the run pauses for an approval before it. */
 @Tool({
-  name: "refund",
+  name: "refund-tool",
   description: "Refunds an order",
   channel: TerminalUserChannel,
   input: RefundQuery,

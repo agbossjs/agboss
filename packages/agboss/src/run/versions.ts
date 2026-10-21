@@ -11,7 +11,7 @@ import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { routerPromptTexts } from "../routers/index.js";
 import { versionOf } from "../terns/index.js";
 import { byComponentName, flowLines } from "../flow/print.js";
-import type { RunDeps } from "./types.js";
+import type { AgentExecutionDeps } from "./types.js";
 
 import { stripFunctions } from "./strip-functions.js";
 import {
@@ -58,7 +58,7 @@ function arbiterTexts(graph: RuntimeGraph) {
  */
 export const configSnapshot = <TName extends string>(
   deps: Pick<
-    RunDeps<TName>,
+    AgentExecutionDeps<TName>,
     "config" | "prompts" | "graph" | "maxSteps" | "routers" | "compactions"
   > & {
     readonly guardrails?: { readonly guardrails: readonly LoadedGuardrail[] } | undefined;
@@ -157,8 +157,8 @@ const guardrailModels = (guardrails: readonly LoadedGuardrail[]): object =>
     : { guardrails: guardrails.map(({ name, model }) => ({ name, model })) };
 
 /** Prompt and model versions of the current configuration — stored with every Tern. */
-export function runVersions<TName extends string>(
-  deps: RunDeps<TName>,
+export function executionVersions<TName extends string>(
+  deps: AgentExecutionDeps<TName>,
 ): {
   readonly promptVersion: string;
   readonly modelVersion: string;

@@ -64,7 +64,7 @@ export class DraftDto {
 
 /** A tool reading its step; it leaves a read behind that runs after it returned. */
 @Tool({
-  name: "note",
+  name: "note-tool",
   description: "Takes a note",
   input: NoteDto,
   output: NoteDto,

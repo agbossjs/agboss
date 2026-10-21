@@ -155,7 +155,7 @@ function outputOf(
   const model = dtos.object(
     `${pascal}Output`,
     list ? listed(schema, response?.description) : schema,
-    `What ${snake} answers.`,
+    `What ${snake}-tool answers.`,
   );
   if (model === undefined) return { kind: "text", classes: [] };
   return { kind: list ? "list" : "object", model, classes: dtos.classes };
@@ -177,8 +177,8 @@ function operationOf(
   const input =
     fields.length === 0
       ? undefined
-      : dtos.add(`${names.pascal}Input`, `What the model sends to ${names.snake}.`, fields);
-  const { classes: outputClasses, ...output } = outputOf(op, names.pascal, names.snake);
+      : dtos.add(`${names.pascal}Input`, `What the model sends to ${names.kebab}-tool.`, fields);
+  const { classes: outputClasses, ...output } = outputOf(op, names.pascal, names.kebab);
   return {
     names,
     method: method.toUpperCase(),

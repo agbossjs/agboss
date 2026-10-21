@@ -1,5 +1,6 @@
 import { systemClock, type Clock } from "../infrastructure/clock.js";
-import { timeoutError, timeoutOn, waitOf } from "../infrastructure/clock-timeout.js";
+import { timeoutError, timeoutOn } from "../infrastructure/clock-timeout.js";
+import { seconds, type Milliseconds } from "../units/index.js";
 import type { DecisionQuestions, DecisionState } from "./decisions.js";
 
 /** Where the Decisions API is: OpenRouter's base URL and key. */
@@ -28,21 +29,21 @@ export function jevDecisionsUrl(baseUrl: string): string {
 }
 
 /** A decision that gets no answer in time fails (a router falls back as usual). */
-export const JEV_TIMEOUT_MS = 30_000;
+export const JEV_TIMEOUT: Milliseconds = seconds(30);
 
 /**
  * OpenRouter Decisions API (alpha): POST {base}/alpha/decisions, for every decision model. The
- * whole call is bounded by `timeoutMs` on `clock` (the provider's fetch also has its own timeout).
+ * whole call is bounded by `timeout` on `clock` (the provider's fetch also has its own timeout).
  */
 export function createJevClient(
   connection: JevConnection,
   fetchImpl: typeof fetch = fetch,
-  timeoutMs: number = JEV_TIMEOUT_MS,
+  timeout: Milliseconds = JEV_TIMEOUT,
   clock: Clock = systemClock,
 ): JevClient {
   const url = jevDecisionsUrl(connection.baseUrl);
   return async (request) => {
-    const timeout = timeoutOn(clock, waitOf(timeoutMs), timeoutError);
+    const timer = timeoutOn(clock, timeout, timeoutError);
     try {
       const response = await fetchImpl(url, {
         method: "POST",
@@ -51,7 +52,7 @@ export function createJevClient(
           "Content-Type": "application/json",
         },
         body: JSON.stringify(request),
-        signal: timeout.signal,
+        signal: timer.signal,
       });
       if (!response.ok) {
         throw new JevApiError(`Decisions API ${String(response.status)}: ${await response.text()}`);
@@ -59,7 +60,7 @@ export function createJevClient(
       const body: unknown = await response.json();
       return body;
     } finally {
-      timeout.release();
+      timer.release();
     }
   };
 }

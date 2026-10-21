@@ -15,7 +15,7 @@ describe("LangChain adapter", () => {
     const definition = toolDefinitionOf(tool);
 
     expect(definition.type).toBe("function");
-    expect(definition.function.name).toBe("current_time");
+    expect(definition.function.name).toBe("current-time-tool");
     expect(definition.function.description).toContain("IANA");
     expect(definition.function.parameters).toMatchObject({ type: "object" });
     expect(definition.function.parameters).not.toHaveProperty("$schema");

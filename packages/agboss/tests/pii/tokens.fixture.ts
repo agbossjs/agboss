@@ -21,7 +21,7 @@ import { ContactPiiPolicy, EmailSend, EmailSent, Outbox } from "./pii.fixture.js
 export const approvedRecipients: string[] = [];
 
 @Tool({
-  name: "send_approved_email",
+  name: "send-approved-email-tool",
   description: "Sends an email once approved",
   input: EmailSend,
   output: EmailSent,

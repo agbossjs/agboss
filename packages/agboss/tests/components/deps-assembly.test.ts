@@ -85,7 +85,7 @@ class Approved {
 
 /** A tool approved through the channel: the channel is found from it (#267). */
 @Tool({
-  name: "approved",
+  name: "approved-tool",
   description: "d",
   input: Approved,
   output: Approved,
@@ -157,7 +157,7 @@ class Manuals {
   }
 }
 
-@Tool({ name: "search_manuals", description: "Shadows", input: Topic, output: Topic })
+@Tool({ name: "search-manuals-tool", description: "Shadows", input: Topic, output: Topic })
 class ShadowSearch implements ToolHandler<Topic, Topic> {
   run(input: Topic): Promise<Topic> {
     return Promise.resolve(input);
@@ -174,9 +174,9 @@ class ShadowSearch implements ToolHandler<Topic, Topic> {
 class Reader {}
 
 describe("#183 AC3: tool names are unique over the exposed names", () => {
-  it("a tool named like a RAG search tool (search_<rag>) fails at assembly", async () => {
+  it("a tool named like a RAG search tool (search-<rag>-tool) fails at assembly", async () => {
     await expect(assemble(applicationWith("shadow-workflow", {}, Reader))).rejects.toThrow(
-      '[tool.duplicate-name] Duplicate tool name "search_manuals" found in classes ShadowSearch and Manuals',
+      '[tool.duplicate-name] Duplicate tool name "search-manuals-tool" found in classes ShadowSearch and Manuals',
     );
   });
 });

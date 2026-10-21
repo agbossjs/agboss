@@ -118,7 +118,7 @@ class GlobalObserver
 }
 
 @Tool({
-  name: "ObsTool",
+  name: "obs-tool",
   description: "Does things",
   input: ToolInput,
   output: ToolInput,
@@ -229,8 +229,8 @@ describe("Global Observability Hooks", () => {
     expect(hookEvents).toContain("RouterEnd:obs-router");
     expect(hookEvents).toContain("AgentStart:obs-agent");
     expect(hookEvents).toContain("AgentEnd:obs-agent");
-    expect(hookEvents).toContain("ToolStart:ObsTool");
-    expect(hookEvents).toContain("ToolEnd:ObsTool");
+    expect(hookEvents).toContain("ToolStart:obs-tool");
+    expect(hookEvents).toContain("ToolEnd:obs-tool");
     expect(hookEvents).toContain("ModelStart:obs-agent");
     expect(hookEvents).toContain("ModelEnd:obs-agent");
     expect(hookEvents).toContain("RagStart:ObsRag");
@@ -238,7 +238,7 @@ describe("Global Observability Hooks", () => {
 
     expect(capturedState).not.toBeNull();
     // #238: the run's own id, the one its result carries
-    expect((capturedState as ExecutionStartEvent | null)?.executionId).toBe(result.runId);
+    expect((capturedState as ExecutionStartEvent | null)?.executionId).toBe(result.executionId);
 
     await app.close();
   });

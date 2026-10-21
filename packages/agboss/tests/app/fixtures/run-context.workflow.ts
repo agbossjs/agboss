@@ -62,7 +62,7 @@ export class Query {
 
 /** A read tool: records the execution it was called in. */
 @Tool({
-  name: "probe",
+  name: "probe-tool",
   description: "Looks something up",
   input: Query,
   output: Query,
@@ -79,7 +79,7 @@ export class Probe implements ToolHandler<Query, Query> {
 
 /** A write tool: it waits for an approval, so a run pauses before it. */
 @Tool({
-  name: "charge",
+  name: "charge-tool",
   description: "Charges the card",
   channel: TerminalUserChannel,
   input: Query,
@@ -97,7 +97,7 @@ export class Charge implements ToolHandler<Query, Query> {
 
 /** A long call: it waits until its execution is cancelled. */
 @Tool({
-  name: "wait",
+  name: "wait-tool",
   description: "Waits for a long time",
   input: Query,
   output: Query,
@@ -119,7 +119,7 @@ export class Wait implements ToolHandler<Query, Query> {
 }
 
 /** A slow read: the other branch answers meanwhile. */
-@Tool({ name: "slow", description: "Looks something up slowly", input: Query, output: Query })
+@Tool({ name: "slow-tool", description: "Looks something up slowly", input: Query, output: Query })
 export class Slow implements ToolHandler<Query, Query> {
   run(input: Query): Promise<Query> {
     return new Promise((resolve) =>

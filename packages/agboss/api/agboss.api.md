@@ -132,6 +132,31 @@ export class AgentAnswerInvalidError extends AgentFailedError {
 export type AgentEndEvent = EndEvent<NodeValue>;
 
 // @public
+export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TName> {
+    // Warning: (ae-forgotten-export) The symbol "ApplicationBudgets" needs to be exported by the entry point index.d.ts
+    readonly budgets?: ApplicationBudgets | undefined;
+    // Warning: (ae-forgotten-export) The symbol "TernRecords" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly terns: TernRecords;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionTracing" needs to be exported by the entry point index.d.ts
+    readonly tracing?: ExecutionTracing | undefined;
+}
+
+// @public (undocumented)
+export interface AgentExecutionOptions {
+    readonly configurable?: Readonly<Record<string, unknown>> | undefined;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionContextValues" needs to be exported by the entry point index.d.ts
+    readonly contexts?: ExecutionContextValues | undefined;
+    readonly executionId?: string;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionStreamEvent" needs to be exported by the entry point index.d.ts
+    readonly onStream?: (event: ExecutionStreamEvent) => void;
+    readonly ownerId?: string | undefined;
+    readonly replayOf?: string;
+    readonly signal?: AbortSignal | undefined;
+}
+
+// @public
 export interface AgentExecutionOutput {
     // (undocumented)
     readonly budgetUsd: number;
@@ -292,7 +317,7 @@ export interface App {
 }
 
 // @public
-export interface AppDeps extends RunDeps<string> {
+export interface AppDeps extends AgentExecutionDeps<string> {
     readonly close: (executionsDone?: () => Promise<void>) => Promise<void>;
     // Warning: (ae-forgotten-export) The symbol "EvalDeps" needs to be exported by the entry point index.d.ts
     //
@@ -615,8 +640,7 @@ export type BuiltPath<THead extends PathHead> = (THead extends SourceHead<unknow
 // @public
 export interface CallOptions {
     readonly configurable?: Readonly<Record<string, unknown>>;
-    // Warning: (ae-forgotten-export) The symbol "RunStreamEvent" needs to be exported by the entry point index.d.ts
-    readonly onStream?: (event: RunStreamEvent) => void;
+    readonly onStream?: (event: ExecutionStreamEvent) => void;
     readonly record?: boolean;
     readonly signal?: AbortSignal | undefined;
 }
@@ -1281,6 +1305,9 @@ export function errorRecordOf(thrown: unknown): ErrorRecord;
 // @public
 export type EventMask = (event: unknown) => Promise<unknown>;
 
+// @public
+export function executeAgent<TName extends string>(input: unknown, deps: AgentExecutionDeps<TName>, options?: AgentExecutionOptions): Promise<AgentExecutionOutput>;
+
 // Warning: (ae-forgotten-export) The symbol "BudgetCommonOptions" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -1356,6 +1383,11 @@ export interface ExecutionEvent {
     readonly threadId: string;
     readonly workflow: WorkflowRecord;
 }
+
+// @public
+export type ExecutionId = string & {
+    readonly __brand: "ExecutionId";
+};
 
 // Warning: (ae-forgotten-export) The symbol "WorkflowStartEntry" needs to be exported by the entry point index.d.ts
 //
@@ -1491,6 +1523,7 @@ export type ExecutionOptionsOf<TInstance> = Omit<ExecutionOptions, "tenant" | "e
 export interface ExecutionOutput<TOutput = unknown> {
     readonly children: readonly ChildExecutionRecord[];
     readonly compacted?: readonly Compacted[];
+    readonly executionId: string;
     readonly finish?: ComponentRecord;
     readonly handledErrors: readonly HandledErrorRecord[];
     readonly launches: readonly LaunchRecord[];
@@ -1498,7 +1531,6 @@ export interface ExecutionOutput<TOutput = unknown> {
     readonly path: readonly string[];
     readonly pending: readonly PendingPause[];
     readonly record?: ExecutionRecord;
-    readonly runId: string;
     // (undocumented)
     readonly spend: CostReport;
     // (undocumented)
@@ -1639,6 +1671,14 @@ export abstract class ExecutionTreeRepository {
 // @public
 export type ExecutionTreeValue = string | number | boolean | null | readonly ExecutionTreeValue[] | {
     readonly [field: string]: ExecutionTreeValue;
+};
+
+// @public
+export function executionVersions<TName extends string>(deps: AgentExecutionDeps<TName>): {
+    readonly promptVersion: string;
+    readonly modelVersion: string;
+    readonly configVersion: string;
+    readonly configHash: string;
 };
 
 // Warning: (ae-forgotten-export) The symbol "BuiltHealthCheckResult" needs to be exported by the entry point index.d.ts
@@ -2032,11 +2072,11 @@ export enum ImageDetail {
 // @public
 export interface IncompatibleResume {
     readonly current: ResumeVersions;
+    // (undocumented)
+    readonly executionId: string;
     readonly paused: ResumeVersions;
     // (undocumented)
-    readonly runId: string;
-    // (undocumented)
-    readonly thread: string;
+    readonly threadId: string;
 }
 
 // @public
@@ -2047,13 +2087,13 @@ export class IncompatibleResumeError extends Error {
     // (undocumented)
     readonly current: ResumeVersions;
     // (undocumented)
+    readonly executionId: string;
+    // (undocumented)
     name: string;
     // (undocumented)
     readonly paused: ResumeVersions;
     // (undocumented)
-    readonly runId: string;
-    // (undocumented)
-    readonly thread: string;
+    readonly threadId: string;
 }
 
 // @public
@@ -3025,6 +3065,12 @@ export interface PauseAnswerRecord {
 export type PauseCancellation = PauseResolution.Withdrawn | PauseResolution.Cancelled;
 
 // @public
+export interface PausedExecution extends ResumeVersions {
+    // (undocumented)
+    readonly run: AgentExecutionOutput;
+}
+
+// @public
 export abstract class PausedExecutionRepository {
     abstract cancelByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseCancellation, at: Date): Promise<boolean>;
     abstract decideByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date): Promise<boolean>;
@@ -3032,19 +3078,13 @@ export abstract class PausedExecutionRepository {
     abstract deleteResolvedBefore(cutoff: Date): Promise<void>;
     abstract findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly PauseRecord[]>;
     abstract findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined>;
-    abstract findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedRun | undefined>;
+    abstract findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedExecution | undefined>;
     abstract findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
     abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean>;
     abstract markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
     abstract ping(): Promise<void>;
     abstract resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date): Promise<PauseRecord | undefined>;
-    abstract save(paused: PausedRun): Promise<void>;
-}
-
-// @public
-export interface PausedRun extends ResumeVersions {
-    // (undocumented)
-    readonly run: AgentExecutionOutput;
+    abstract save(paused: PausedExecution): Promise<void>;
 }
 
 // @public
@@ -3600,7 +3640,7 @@ export const resolveTools: (bundle: AssembledWorkflow, services: WorkflowService
 // Warning: (ae-forgotten-export) The symbol "ContinueOptions" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function resumeAgent<TName extends string>(paused: AgentExecutionOutput, resume: TreeResume, deps: RunDeps<TName>, options?: ContinueOptions): Promise<AgentExecutionOutput>;
+export function resumeAgent<TName extends string>(paused: AgentExecutionOutput, resume: TreeResume, deps: AgentExecutionDeps<TName>, options?: ContinueOptions): Promise<AgentExecutionOutput>;
 
 // @public
 export type ResumeDecision = "resume" | "reject";
@@ -3804,7 +3844,7 @@ export interface Routes {
 }
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "model.unserved" | "model.ambiguous-provider" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply";
+export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "model.unserved" | "model.ambiguous-provider" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply";
 
 // @public
 export interface RuleViolation {
@@ -3815,46 +3855,6 @@ export interface RuleViolation {
     // (undocumented)
     readonly nodes: readonly string[];
 }
-
-// @public
-export function runAgent<TName extends string>(input: unknown, deps: RunDeps<TName>, options?: RunOptions): Promise<AgentExecutionOutput>;
-
-// @public
-export interface RunDeps<TName extends string> extends GraphDeps<TName> {
-    // Warning: (ae-forgotten-export) The symbol "ApplicationBudgets" needs to be exported by the entry point index.d.ts
-    readonly budgets?: ApplicationBudgets | undefined;
-    // Warning: (ae-forgotten-export) The symbol "TernRecords" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly terns: TernRecords;
-    // Warning: (ae-forgotten-export) The symbol "RunTracing" needs to be exported by the entry point index.d.ts
-    readonly tracing?: RunTracing | undefined;
-}
-
-// @public
-export type RunId = string & {
-    readonly __brand: "RunId";
-};
-
-// @public (undocumented)
-export interface RunOptions {
-    readonly configurable?: Readonly<Record<string, unknown>> | undefined;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionContextValues" needs to be exported by the entry point index.d.ts
-    readonly contexts?: ExecutionContextValues | undefined;
-    readonly onStream?: (event: RunStreamEvent) => void;
-    readonly ownerId?: string | undefined;
-    readonly replayOf?: string;
-    readonly runId?: string;
-    readonly signal?: AbortSignal | undefined;
-}
-
-// @public
-export function runVersions<TName extends string>(deps: RunDeps<TName>): {
-    readonly promptVersion: string;
-    readonly modelVersion: string;
-    readonly configVersion: string;
-    readonly configHash: string;
-};
 
 // @public
 export interface ScopeValueRecord {
@@ -4072,7 +4072,7 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     // (undocumented)
     findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined>;
     // (undocumented)
-    findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedRun | undefined>;
+    findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedExecution | undefined>;
     // (undocumented)
     findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
     // (undocumented)
@@ -4084,7 +4084,7 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     // (undocumented)
     resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date): Promise<PauseRecord | undefined>;
     // (undocumented)
-    save(paused: PausedRun): Promise<void>;
+    save(paused: PausedExecution): Promise<void>;
 }
 
 // @public
@@ -4350,8 +4350,7 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
     readonly prompt?: string;
     // (undocumented)
     readonly promptUrls?: readonly string[];
-    // (undocumented)
-    readonly timeoutMs?: number;
+    readonly timeout?: Milliseconds;
 }
 
 // @public
@@ -4366,7 +4365,7 @@ export interface ToolStartEvent extends NodeEvent {
 
 // @public
 export class ToolTimeoutError extends AGBossError {
-    constructor(timeoutMs: number);
+    constructor(timeout: Milliseconds);
     // (undocumented)
     static readonly code: string;
     // (undocumented)
@@ -4785,16 +4784,15 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/compaction/errors.ts:13:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/bind-tool.ts:22:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/bind-tool.ts:24:1 - (ae-undocumented) Missing documentation for "BindTool".
-// src/components/decorators.ts:15:3 - (ae-undocumented) Missing documentation for "run".
-// src/components/decorators.ts:27:1 - (ae-undocumented) Missing documentation for "ToolOptions".
-// src/components/decorators.ts:32:3 - (ae-undocumented) Missing documentation for "name".
-// src/components/decorators.ts:33:3 - (ae-undocumented) Missing documentation for "description".
-// src/components/decorators.ts:34:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/components/decorators.ts:35:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/components/decorators.ts:36:3 - (ae-undocumented) Missing documentation for "channel".
-// src/components/decorators.ts:37:3 - (ae-undocumented) Missing documentation for "timeoutMs".
-// src/components/decorators.ts:38:3 - (ae-undocumented) Missing documentation for "input".
-// src/components/decorators.ts:39:3 - (ae-undocumented) Missing documentation for "output".
+// src/components/decorators.ts:16:3 - (ae-undocumented) Missing documentation for "run".
+// src/components/decorators.ts:28:1 - (ae-undocumented) Missing documentation for "ToolOptions".
+// src/components/decorators.ts:33:3 - (ae-undocumented) Missing documentation for "name".
+// src/components/decorators.ts:34:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/decorators.ts:35:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/components/decorators.ts:36:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/components/decorators.ts:37:3 - (ae-undocumented) Missing documentation for "channel".
+// src/components/decorators.ts:40:3 - (ae-undocumented) Missing documentation for "input".
+// src/components/decorators.ts:41:3 - (ae-undocumented) Missing documentation for "output".
 // src/components/injection.ts:3:3 - (ae-undocumented) Missing documentation for "__type".
 // src/components/injection.ts:4:15 - (ae-undocumented) Missing documentation for "description".
 // src/components/injection.ts:10:1 - (ae-undocumented) Missing documentation for "Token".
@@ -4804,8 +4802,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/components/judge-decorators.ts:28:3 - (ae-undocumented) Missing documentation for "description".
 // src/components/judge-decorators.ts:93:3 - (ae-undocumented) Missing documentation for "passed".
 // src/components/judge-decorators.ts:100:3 - (ae-undocumented) Missing documentation for "passed".
-// src/components/metadata.ts:99:1 - (ae-undocumented) Missing documentation for "ComponentError".
-// src/components/metadata.ts:100:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/metadata.ts:101:1 - (ae-undocumented) Missing documentation for "ComponentError".
+// src/components/metadata.ts:102:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/name-of.ts:32:1 - (ae-undocumented) Missing documentation for "nameOf".
 // src/components/policy-decorators.ts:16:3 - (ae-undocumented) Missing documentation for "Input".
 // src/components/policy-decorators.ts:17:3 - (ae-undocumented) Missing documentation for "Output".
@@ -5275,11 +5273,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/limits.ts:143:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/graph/limits.ts:144:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/graph/limits.ts:145:3 - (ae-undocumented) Missing documentation for "steps".
-// src/graph/rule-error.ts:152:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:153:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:154:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:165:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:166:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:153:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:154:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:155:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:166:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:167:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:10:3 - (ae-undocumented) Missing documentation for "build".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
@@ -5328,17 +5326,17 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:71:3 - (ae-undocumented) Missing documentation for "deleteAllInTree".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:117:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:121:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:128:3 - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:144:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:151:3 - (ae-undocumented) Missing documentation for "findOrCreateByStepKey".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:161:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:165:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:172:3 - (ae-undocumented) Missing documentation for "markSentByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:176:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:188:3 - (ae-undocumented) Missing documentation for "decideByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:200:3 - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:212:3 - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:217:3 - (ae-undocumented) Missing documentation for "deleteResolvedBefore".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:131:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:147:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:154:3 - (ae-undocumented) Missing documentation for "findOrCreateByStepKey".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:164:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:168:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:175:3 - (ae-undocumented) Missing documentation for "markSentByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:179:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:191:3 - (ae-undocumented) Missing documentation for "decideByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:203:3 - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:215:3 - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:220:3 - (ae-undocumented) Missing documentation for "deleteResolvedBefore".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:49:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:53:3 - (ae-undocumented) Missing documentation for "acquire".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:80:3 - (ae-undocumented) Missing documentation for "renew".
@@ -5464,12 +5462,12 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/resume-agent.ts:18:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/resume-guard.ts:10:3 - (ae-undocumented) Missing documentation for "workflowVersion".
 // src/run/resume-guard.ts:11:3 - (ae-undocumented) Missing documentation for "configHash".
-// src/run/resume-guard.ts:16:3 - (ae-undocumented) Missing documentation for "thread".
-// src/run/resume-guard.ts:17:3 - (ae-undocumented) Missing documentation for "runId".
+// src/run/resume-guard.ts:16:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/run/resume-guard.ts:17:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/run/resume-guard.ts:37:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/resume-guard.ts:38:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/resume-guard.ts:39:3 - (ae-undocumented) Missing documentation for "thread".
-// src/run/resume-guard.ts:40:3 - (ae-undocumented) Missing documentation for "runId".
+// src/run/resume-guard.ts:39:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/run/resume-guard.ts:40:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/run/resume-guard.ts:41:3 - (ae-undocumented) Missing documentation for "paused".
 // src/run/resume-guard.ts:42:3 - (ae-undocumented) Missing documentation for "current".
 // src/run/thread.ts:25:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
@@ -5480,7 +5478,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/thread.ts:38:3 - (ae-undocumented) Missing documentation for "code".
 // src/run/thread.ts:39:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/types.ts:22:3 - (ae-undocumented) Missing documentation for "terns".
-// src/run/types.ts:32:1 - (ae-undocumented) Missing documentation for "RunOptions".
+// src/run/types.ts:32:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
 // src/run/types.ts:68:3 - (ae-undocumented) Missing documentation for "status".
 // src/run/types.ts:71:3 - (ae-undocumented) Missing documentation for "startInput".
 // src/run/types.ts:76:3 - (ae-undocumented) Missing documentation for "output".
@@ -5489,8 +5487,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/types.ts:79:3 - (ae-undocumented) Missing documentation for "threadId".
 // src/run/types.ts:82:3 - (ae-undocumented) Missing documentation for "ternId".
 // src/run/types.ts:83:3 - (ae-undocumented) Missing documentation for "data".
-// src/tools/define-tool.ts:20:3 - (ae-undocumented) Missing documentation for "code".
-// src/tools/define-tool.ts:21:12 - (ae-undocumented) Missing documentation for "name".
+// src/tools/define-tool.ts:22:3 - (ae-undocumented) Missing documentation for "code".
+// src/tools/define-tool.ts:23:12 - (ae-undocumented) Missing documentation for "name".
 // src/workflow.ts:44:3 - (ae-undocumented) Missing documentation for "config".
 // src/workflow.ts:62:3 - (ae-undocumented) Missing documentation for "prompts".
 // src/workflow.ts:63:3 - (ae-undocumented) Missing documentation for "tools".

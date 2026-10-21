@@ -4,7 +4,7 @@ import { ResumeRequest, ResumeText } from "./read-resume.dto.js";
 
 /** Reads the user's resume (PDF, Markdown, text). */
 @Tool({
-  name: "read_resume",
+  name: "read-resume-tool",
   description:
     "Read the user's resume from a local file (.pdf, .md or .txt). Pass the path exactly as the user gave it.",
   input: ResumeRequest,

@@ -44,7 +44,7 @@ const paidDecision = () =>
 
 /** A paid tool: one `ROUTER_FACTORY` decision per call — its spend is the tool's (#280). */
 @Tool({
-  name: "paid_search",
+  name: "paid-search-tool",
   description: "Paid search",
   input: SearchQuery,
   output: SearchResults,
@@ -95,7 +95,7 @@ async function setup({ alpha, maxToolCalls = 3, runCost = 1, toolCostUsd = 0.01 
   return { deps, model, ledger };
 }
 
-const toTokyo: Reply = [{ tool: "current_time", args: { timeZone: "Asia/Tokyo" } }];
+const toTokyo: Reply = [{ tool: "current-time-tool", args: { timeZone: "Asia/Tokyo" } }];
 
 describe("agents with tools", () => {
   it("runs the model ↔ tool loop and answers", async () => {
@@ -110,7 +110,7 @@ describe("agents with tools", () => {
   it("lets the model see tool errors", async () => {
     const { deps, model } = await setup({
       alpha: [
-        [{ tool: "current_time", args: { timeZone: "Mars/Olympus" } }],
+        [{ tool: "current-time-tool", args: { timeZone: "Mars/Olympus" } }],
         "Unknown zone, sorry.",
       ],
     });
@@ -130,8 +130,8 @@ describe("agents with tools", () => {
 
   it("handles two tool calls in one model reply", async () => {
     const both: Reply = [
-      { tool: "current_time", args: { timeZone: "Asia/Tokyo" } },
-      { tool: "current_time", args: { timeZone: "Europe/London" } },
+      { tool: "current-time-tool", args: { timeZone: "Asia/Tokyo" } },
+      { tool: "current-time-tool", args: { timeZone: "Europe/London" } },
     ];
     const { deps, model } = await setup({ alpha: [both, "Both zones."] });
 
@@ -172,7 +172,7 @@ describe("agents with tools", () => {
   });
 });
 
-const search: Reply = [{ tool: "paid_search", args: {} }];
+const search: Reply = [{ tool: "paid-search-tool", args: {} }];
 
 describe("tool costs in FinOps", () => {
   it("reports tool costs separately", async () => {
@@ -180,7 +180,7 @@ describe("tool costs in FinOps", () => {
 
     const result = await runText("Search", deps);
 
-    expect(result.cost.byCaller["tool:paid_search"]).toBeCloseTo(0.01);
+    expect(result.cost.byCaller["tool:paid-search-tool"]).toBeCloseTo(0.01);
   });
 
   it("stops after a paid tool spends the execution budget", async () => {
@@ -194,6 +194,6 @@ describe("tool costs in FinOps", () => {
     const { deps, ledger } = await setup({ alpha: [search, search, "never"], maxToolCalls: 1 });
 
     await expect(runText("Loop", deps)).rejects.toBeInstanceOf(LimitExceededError);
-    expect(ledger.recorded.some((record) => record.caller === "tool:paid_search")).toBe(true);
+    expect(ledger.recorded.some((record) => record.caller === "tool:paid-search-tool")).toBe(true);
   });
 });

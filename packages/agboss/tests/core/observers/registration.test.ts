@@ -92,8 +92,8 @@ describe("a registered observer", () => {
       expect(events).toEqual([
         "execution-start:execution-1",
         "agent-start:worker-agent",
-        "tool-start:echo",
-        'tool-end:echo:{"text":"echo hi"}',
+        "tool-start:echo-tool",
+        'tool-end:echo-tool:{"text":"echo hi"}',
         "agent-end:worker-agent",
         "execution-end",
       ]);
@@ -101,7 +101,7 @@ describe("a registered observer", () => {
       expect(agentStarts[0]).toMatchObject({ name: "worker-agent" });
       expect(results).toEqual([
         expect.objectContaining({
-          executionId: result.runId,
+          executionId: result.executionId,
           finish: result.finish,
           spend: result.spend,
         }),
