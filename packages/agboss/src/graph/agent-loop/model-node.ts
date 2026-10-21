@@ -47,19 +47,28 @@ async function callModel(
   return binding.model.bindTools([...tools]).invoke([...messages], config);
 }
 
+/** What `withCallIds` reads of the loop's state: the run, the visit and the turn. */
+export type CallIdSource = Pick<AgentLoopStateType, "runId" | "flowPath" | "modelCalls">;
+
 /**
- * The move with an id on every tool call: results are stored by it and it is the tool's idempotency
- * key, so a call the model gave no id gets one unique within the run (run, visit, turn, position).
+ * The move with a unique id on every tool call: results are stored by it and it is the tool's
+ * idempotency key, so a call the model gave no id gets one unique within the run (run, visit, turn,
+ * position), and an id the provider repeats within the move gets its position (`${id}:${index}`,
+ * #335) — the same ids when a recovered step replays the move.
  */
-function withCallIds(response: AIMessageChunk, state: AgentLoopStateType): AIMessage {
+export function withCallIds(response: AIMessageChunk, state: CallIdSource): AIMessage {
   const turn = state.modelCalls + 1;
-  const toolCalls = (response.tool_calls ?? []).map((call, index) => ({
-    ...call,
-    id:
-      call.id === undefined || call.id === ""
-        ? `${state.runId}:${String(state.flowPath.length)}:${String(turn)}:${String(index)}`
-        : call.id,
-  }));
+  const calls = response.tool_calls ?? [];
+  const given = calls.map((call) => call.id ?? "");
+  const isRepeated = (id: string): boolean => given.indexOf(id) !== given.lastIndexOf(id);
+  const toolCalls = calls.map((call, index) => {
+    const id = given[index] ?? "";
+    if (id === "") {
+      const position = `${String(state.flowPath.length)}:${String(turn)}:${String(index)}`;
+      return { ...call, id: `${state.runId}:${position}` };
+    }
+    return { ...call, id: isRepeated(id) ? `${id}:${String(index)}` : id };
+  });
   return new AIMessage({ content: response.content, tool_calls: toolCalls });
 }
 

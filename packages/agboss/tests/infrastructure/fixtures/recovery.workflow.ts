@@ -50,6 +50,8 @@ export interface EndSeen {
 export const seen = {
   steps: [] as string[],
   holds: [] as AbortSignal[],
+  /** Each hold's idempotency key (#335 AC2). */
+  holdKeys: [] as string[],
   charges: [] as string[],
   resumes: [] as Pick<ExecutionResumeEvent, "reason" | "decision">[],
   ends: [] as EndSeen[],
@@ -57,13 +59,17 @@ export const seen = {
   leases: [] as ExecutionLease[],
 };
 
-/** The test's levers: the dead instances, a hold to let go, a config to stamp the records with. */
+/**
+ * The test's levers: the dead instances, the instances whose lease store does not answer (#335),
+ * a hold to let go, a config to stamp the records with.
+ */
 export const levers: {
   readonly dead: Set<string>;
+  readonly storeDown: Set<string>;
   holdStarted?: () => void;
   letGo?: () => void;
   stampedHash?: string;
-} = { dead: new Set() };
+} = { dead: new Set(), storeDown: new Set() };
 
 /** The records the test's first instance created (the instances of a test share them). */
 export const stores: { records?: StampedExecutionRecordRepository } = {};
@@ -72,6 +78,7 @@ export function resetRecovery(): void {
   delete stores.records;
   for (const list of Object.values(seen)) list.length = 0;
   levers.dead.clear();
+  levers.storeDown.clear();
   delete levers.holdStarted;
   delete levers.letGo;
   delete levers.stampedHash;
@@ -115,8 +122,9 @@ export class Hold implements ToolHandler<Query, Query> {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   run(input: Query): Promise<Query> {
-    const { signal } = this.executionContext;
+    const { signal, step } = this.executionContext;
     seen.holds.push(signal);
+    seen.holdKeys.push(step.idempotencyKey);
     if (seen.holds.length > 1) return Promise.resolve(input);
     return new Promise((resolve) => {
       levers.letGo = () => {
@@ -183,7 +191,10 @@ export class RecoveryLog implements OnExecutionResume, OnExecutionEnd, OnExecuti
   }
 }
 
-/** The leases in the test's memory; a dead instance takes none and renews none. */
+/**
+ * The leases in the test's memory; a dead instance takes none and renews none; an instance whose
+ * store is down (`levers.storeDown`) gets an error from every renewal.
+ */
 @Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
 export class MortalExecutionLeaseRepository extends InMemoryExecutionLeaseRepository {
   readonly #instanceId: string;
@@ -205,6 +216,9 @@ export class MortalExecutionLeaseRepository extends InMemoryExecutionLeaseReposi
   }
 
   override renew(executionLease: ExecutionLease, lease: Milliseconds): Promise<boolean> {
+    if (levers.storeDown.has(this.#instanceId)) {
+      return Promise.reject(new Error("the lease store does not answer"));
+    }
     if (levers.dead.has(this.#instanceId)) return Promise.resolve(false);
     return super.renew(executionLease, lease);
   }

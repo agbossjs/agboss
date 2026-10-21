@@ -1569,7 +1569,11 @@ export class PlanService {
   mapping LangGraph's interrupt id of every answered pause, takes the decisions resolved meanwhile
   before the tree rests (the drain), and the waiting call returns the tree's current output. A holder that lost the lease stops: its call
   rejects with `ExecutionLeaseLostError` (`execution.lease-lost`) — no `.onError`, no `onExecutionError`, no
-  failed record. Wiki → Several-instances.
+  failed record. Fencing is local too (#335): the holder trusts its lease until the `Clock` read
+  before its last confirmed renewal plus `seconds(30)` — a lease store error before then lets a
+  checkpoint write go on, at that moment the execution's `signal` aborts with
+  `ExecutionLeaseLostError`, so an agent's tool loop starts no further model or tool call.
+  Wiki → Several-instances.
 - **Recovery and the graceful stop (#265 S30 / S51):** a root's record is
   `ExecutionRecordStatus.Running` while its tree moves. Every instance looks for `running` roots at
   start and every 30 s (`ExecutionRecordRepository.findByStatus`), takes the lease of one whose
