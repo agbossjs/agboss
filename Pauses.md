@@ -114,8 +114,13 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy
   the tool's input). Code downstream decides by types, never by the text.
 - **`DecidedBy.Model`** — a chat model answers through one answer tool of the role's answer DTO; its
   static `prompt` / `promptUrls` are its instructions, the question and the reply come in the input
-  message (`### ask` / `### reply`, #270 Q51). A decision model cannot give a typed answer —
-  `[reply-interpreter.decision-model]` at assembly. The call goes through the provider its model
+  message (`### ask` / `### reply`, #270 Q51). **For an approval role the model may be a decision
+  model** (Jev, #267 S124 a): it reads approve / refuse only — one `Decision.noul("approved")` about
+  the question and the reply (the same input message, as the decision's state), the interpreter's
+  `prompt` after the framework's question as its instructions; approved when P(yes) > 0.5, the
+  answer `{ approved }` — never a `reason` or `overrideArguments`. A question role (`ask` + `answer`)
+  on a decision model is `[reply-interpreter.decision-model]` at assembly: its answer needs more than
+  a yes / no can give (the message names the answer DTO). Either model's call goes through the provider its model
   resolves to by `serves` (`[model.unserved]` like any model), is checked against the tree's budgets
   before it is made (an exhausted one → `BudgetExceededError`, the pause untouched), is counted in
   their ledger at once and in the execution's `spend` when the step takes the answer — once — and is
@@ -125,21 +130,160 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy
   validated (the tool gets the real value), a token no map knows is a decline (the pause stays
   `Pending`), a `blockWithRefusal` value in them throws `PiiRefusedError`.
 - **`DecidedBy.Code`** — `implements ReplyInterpreterHandler<Self>`: `interpret(input:
-  InputOf<Self>): Promise<OutputOf<Self>>`, typed by the generated `.agboss/types.d.ts`; `deps` like
-  any component, created by the application's container. It declines a reply it cannot read by
-  throwing.
+  InputOf<Self>)` returns its outcome (#267 S124 b), sync or as a promise —
+  `ReplyInterpretation.understood(decision)` (`OutputOf<Self>`, validated like any decision) or
+  `ReplyInterpretation.notUnderstood({ reason })` for a reply it cannot read; a plain object does not
+  compile (the pattern of `ChannelOutcome` and `JudgeVerdict`). Typed by the generated
+  `.agboss/types.d.ts`; `deps` like any component, created by the application's container. A `throw`
+  is for an unexpected crash only: it is unreadable too, the thrown error its `cause`.
 - **Either kind reads in the pause's execution frame**: an injected `ExecutionContext` reads the
   pause's execution — its `tenant`, `ownerId`, the execution's own fields — and the waiting step
   (`step.nodeId`, `step.callId`, its idempotency key), so the provider's rate limits see the tenant.
 - **The pause survives a bad reply**: interpretation runs before the pause is closed. A reply that
-  cannot be read as a valid answer — the interpreter declined (a code one threw, a model gave no
-  answer) or its answer is invalid for the role — throws `UninterpretableReplyError`
-  (`pause.uninterpretable-reply`, the reason as its `cause`), and the pause stays `Pending`: ask for a
-  clearer answer, or answer with a `decision`. A `reply` for a role without `replyInterpreter` is
+  cannot be read as a valid answer — a code interpreter's `notUnderstood`, a model that gave no
+  answer, an answer invalid for the role, an interpreter that crashed — throws
+  `UninterpretableReplyError` (`pause.uninterpretable-reply`; `reason` — the interpreter's own, or
+  the error's message — and `cause` when an error is behind it), and the pause stays `Pending`: ask
+  for a clearer answer, or answer with a `decision`. A `reply` for a role without `replyInterpreter` is
   `ReplyInterpreterMissingError` (`pause.no-reply-interpreter`), the pause untouched.
 - Assembly checks, all at once with the channel rules: `[name.kind-suffix]` (`-reply-interpreter`),
   `[reply-interpreter.not-an-interpreter]` (a `replyInterpreter` class without `@ReplyInterpreter`),
   `[reply-interpreter.no-interpret-method]`, `[channel.shared-interpreter]` (one class in two roles).
+
+Both new forms side by side — a decision model for a deposit return, and an owner's buttons read by
+code:
+
+<!-- snippet-context
+import { Agent, Channel, ChannelOf, ChannelOutcome, ChannelRole, DecidedBy, Injectable, PauseAnswerer, ReplyInterpretation, ReplyInterpreter, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ChannelAsk, type InputOf, type OutputOf, type ReplyInterpreterHandler, type ToolHandler } from "agboss";
+import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+
+export class DepositReturnDto {
+  @Text({ prompt: "the lease whose deposit is returned" })
+  leaseId!: string;
+}
+export class ExpenseDto {
+  @Text({ prompt: "what the expense is for" })
+  purpose!: string;
+}
+export class DeskDoneDto {
+  @Text()
+  status!: string;
+}
+-->
+
+```ts
+// approve / refuse on a decision model: one Decision.noul("approved"), no reason, no overrideArguments
+@ReplyInterpreter({
+  name: "deposit-reply-interpreter",
+  description: "Reads whether a clerk's reply approves a deposit return",
+  decidedBy: DecidedBy.Model,
+  model: "typesafe/jev-1.13",
+  prompt: "The clerk answered a deposit return.",
+})
+export class DepositReplyInterpreter {}
+
+@ChannelRole({
+  name: "deposit-approval-channel",
+  description: "A clerk approves deposit returns",
+  approves: DepositReturnDto, // an approval role: a decision model may read its replies
+  answeredBy: PauseAnswerer.Channel,
+  replyInterpreter: DepositReplyInterpreter,
+})
+export abstract class DepositApprovalChannel extends ChannelOf<DepositApprovalChannel> {}
+
+// by code: the chat app sends a button's value back — {"approved":true}; anything else is not understood
+@ReplyInterpreter({
+  name: "expense-reply-interpreter",
+  description: "Reads an expense button's value",
+  decidedBy: DecidedBy.Code,
+})
+export class ExpenseReplyInterpreter implements ReplyInterpreterHandler<ExpenseReplyInterpreter> {
+  interpret(
+    input: InputOf<ExpenseReplyInterpreter>,
+  ): ReplyInterpretation<OutputOf<ExpenseReplyInterpreter>> {
+    const value: unknown = JSON.parse(input.reply); // a text that is no JSON: a crash
+    if (typeof value !== "object" || value === null || !("approved" in value))
+      return ReplyInterpretation.notUnderstood({ reason: `not an expense button: ${input.reply}` });
+    return ReplyInterpretation.understood({ approved: value.approved === true });
+  }
+}
+
+@ChannelRole({
+  name: "expense-approval-channel",
+  description: "The thread's owner confirms an expense with two buttons",
+  approves: ExpenseDto,
+  answeredBy: PauseAnswerer.ThreadOwner,
+  replyInterpreter: ExpenseReplyInterpreter,
+})
+export abstract class ExpenseApprovalChannel extends ChannelOf<ExpenseApprovalChannel> {}
+
+@Channel({ name: "desk-deposit-approval-channel", description: "Asks the clerk on duty" })
+export class DeskDepositApprovalChannel extends DepositApprovalChannel {
+  send(_ask: ChannelAsk<DepositApprovalChannel>): Promise<ChannelOutcome<DepositApprovalChannel>> {
+    return Promise.resolve(ChannelOutcome.awaitReply()); // posts the question, keyed by pauseId
+  }
+}
+
+@Channel({ name: "button-expense-approval-channel", description: "Shows the owner two buttons" })
+export class ButtonExpenseApprovalChannel extends ExpenseApprovalChannel {
+  send(_ask: ChannelAsk<ExpenseApprovalChannel>): Promise<ChannelOutcome<ExpenseApprovalChannel>> {
+    return Promise.resolve(ChannelOutcome.awaitReply());
+  }
+}
+
+@Tool({
+  name: "return_deposit",
+  description: "Returns a deposit",
+  input: DepositReturnDto,
+  output: DeskDoneDto,
+  channel: DepositApprovalChannel,
+})
+export class ReturnDepositTool implements ToolHandler<DepositReturnDto, DeskDoneDto> {
+  run({ leaseId }: DepositReturnDto): Promise<DeskDoneDto> {
+    return Promise.resolve({ status: `returned the deposit of ${leaseId}` });
+  }
+}
+
+@Tool({
+  name: "book_expense",
+  description: "Books an expense",
+  input: ExpenseDto,
+  output: DeskDoneDto,
+  channel: ExpenseApprovalChannel,
+})
+export class BookExpenseTool implements ToolHandler<ExpenseDto, DeskDoneDto> {
+  run({ purpose }: ExpenseDto): Promise<DeskDoneDto> {
+    return Promise.resolve({ status: `booked ${purpose}` });
+  }
+}
+
+@Agent({
+  name: "office-agent",
+  description: "Returns deposits and books expenses",
+  prompt: "Do what is asked.",
+  model: "moonshotai/kimi-k2.6",
+  tools: [ReturnDepositTool, BookExpenseTool],
+})
+export class OfficeAgent {}
+
+@WorkflowStart({ name: "office-workflow-start", description: "A request", input: WorkflowStartTextDto })
+export class OfficeWorkflowStart {}
+
+@WorkflowFinish({ name: "office-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
+export class OfficeWorkflowFinish {}
+
+@Workflow({
+  name: "office-workflow",
+  version: "1.0.0",
+  flow: [
+    start(OfficeWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(OfficeAgent)
+      .toFinish(OfficeWorkflowFinish),
+  ],
+})
+export class OfficeWorkflow {}
+```
 
 ## Who may answer
 
@@ -205,6 +349,7 @@ resolved pause of the tree, in the order they were asked:
 | Field                    | What it is                                                                     |
 | ------------------------ | ------------------------------------------------------------------------------ |
 | `pauseId`                | its id — `undefined` for a `PauseAnswerer.Channel` pause (only its channel has it) |
+| `executionId`            | the execution it waited in: the root's, or a child's (#267 S124)               |
 | `step`                   | the waiting step: agent, node, visit, copy, item, tool call (`StepRecord`)     |
 | `role`, `answeredBy`     | the channel asked and who may answer                                           |
 | `responder`              | the `ownerId` / `answeredBy` of `app.resume`; `undefined` when decided at once, withdrawn or cancelled |
@@ -218,6 +363,13 @@ decided at once, withdrawn or cancelled — into the execution records
 read back with `findPauseAnswersByTenantIdAndRootExecutionId`. The pause records are operational
 state and are never read for it: the retention above removes a pause record, never its entry, so an
 execution paused for days still lists every pause it was asked.
+
+**Each child's own pauses** (#267 S124 c): a child execution's record — in `result.children` and
+`result.record.children` alike ([Workflow as a step](Workflow-as-a-step)) — lists the pauses its own
+steps asked as `ChildExecutionRecord.pauses` (the entries whose `executionId` is the child's, a
+grandchild's in its own record), masked like the execution record; the root's `record.pauses` keeps
+the whole tree's. A per-item launch whose children each pause gives each child's record its own
+entry (its `step.itemIndex` the child's item).
 
 **`FailFast` drops paused siblings** (#273 S21): a branch that fails cancels its launch, and its paused
 siblings' pauses are withdrawn — the tree goes on to the join (its `.onJoinError(…)`, else the
@@ -256,9 +408,11 @@ was sent. `AutoApproveChannel` / `AutoRejectChannel` named on a tool decide at o
 `mockOf(Implementation).send.mockResolvedValue(ChannelOutcome.decided({ approved: true }))` scripts a
 role's implementation ([Testing](Testing)). `testWith(App, { instances: 2 })` answers two pauses of
 one tree from two instances at once. A model reply interpreter is scripted by what it reads —
-`mockLlm(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`
-— and a code one replaced with `mockOf(Interpreter).interpret` (`mockLlm` of a code interpreter is a
-setup error: it calls no model). Retention is tested with `clock.advance(…)`: the sweep runs on the
+`mockLlm(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`,
+one on a decision model by its yes / no — `mockLlm(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }))`
+(#267 S124) — and a code one replaced with
+`mockOf(Interpreter).interpret.mockReturnValue(ReplyInterpretation.understood({ approved: true }))`
+(`mockLlm` of a code interpreter is a setup error: it calls no model). Retention is tested with `clock.advance(…)`: the sweep runs on the
 test's clock.
 
 ## Not yet

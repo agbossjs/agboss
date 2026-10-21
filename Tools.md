@@ -266,7 +266,8 @@ export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCar
   assembly with `[channel.wrong-tool]`; one `replyInterpreter` class in two roles with
   `[channel.shared-interpreter]`. `replyInterpreter` is a `@ReplyInterpreter` class (#267 PR 3) that
   reads a free-text `app.resume({ pauseId, reply })` with the pause's question into the role's
-  answer — by its chat model or by its code ([Pauses → free text](Pauses#answering-with-free-text-appresume-pauseid-reply--options)).
+  answer — by its chat model, for an approval role a decision model (approve / refuse only, #267
+  S124), or by its code, which returns a `ReplyInterpretation` ([Pauses → free text](Pauses#answering-with-free-text-appresume-pauseid-reply--options)).
 - **The implementation** is a `@Channel` that `extends` the role, listed in
   `@Application({ providers })` — found by inheritance, like any contract: none →
   `[di.missing-implementation]`, two → `[di.ambiguous-implementation]`; a `@Channel` in a workflow's

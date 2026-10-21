@@ -389,7 +389,7 @@ compiled graph, never its own subgraph ([Recursion](#recursion-264)).
 | PII tokens | it starts with the parent's token map (#120), so it reveals what the parent masked; its own come back with its value — or, when it fails, with its error into the parent's state (never on the error itself), so the side path that takes it reveals what the child masked in its finished steps; a per-item child's too |
 | Steps | each workflow counts its own: a child's steps never spend the parent's `maxSteps` |
 | Concurrency | `maxConcurrency` of a per-item launch: a sliding window, a child frees its slot when it ends, fails or pauses |
-| Pauses | a paused child does not stop its siblings — the execution pauses only when nothing else can move; its pause is the root's, in `result.pending` with its `childExecutionId` (and `itemIndex` per item), and `app.resume({ pauseId, decision })` continues it where it waits ([Pauses](Pauses)) |
+| Pauses | a paused child does not stop its siblings — the execution pauses only when nothing else can move; its pause is the root's, in `result.pending` with its `childExecutionId` (and `itemIndex` per item), and `app.resume({ pauseId, decision })` continues it where it waits; once resolved, it is in the child's record as `pauses` (#267 S124) ([Pauses](Pauses)) |
 | Traces | a nested run named after the child workflow under the parent's step, its metadata `executionId`, `parentExecutionId`, `rootExecutionId`, `itemIndex` |
 
 **Records.** Every child execution that ended is a nested record in `result.children` (and

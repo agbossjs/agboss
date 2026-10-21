@@ -3,6 +3,35 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — interpreter outcomes, a decision-model interpreter, child pause records (#267, PR 4)
+
+- **New — a decision model may read an approval's reply** (S124 a, [Pauses](Pauses)):
+  `@ReplyInterpreter({ decidedBy: DecidedBy.Model, model: "typesafe/jev-1.13" })` on an approval role
+  (`approves`) makes one `Decision.noul("approved")` about the question and the reply — approved when
+  P(yes) > 0.5, the answer `{ approved }`, never a `reason` or `overrideArguments`; counted under
+  `reply-interpreter:<name>`, a model use of purpose decision (`decisions-model-provider`). A
+  question role on a decision model stays `[reply-interpreter.decision-model]`, its message saying
+  why (the answer DTO needs more than a yes / no). Tests: `mockLlm(X).thenReturn(decideWith({ approved: 0.9 }))`.
+- **Breaking — a code interpreter returns its outcome** (S124 b): `ReplyInterpreterHandler<Self>.interpret`
+  returns `ReplyInterpretation.understood(decision)` or `ReplyInterpretation.notUnderstood({ reason })`
+  (sync or a promise; `ReplyInterpretationKind`, `UnderstoodReply`, `NotUnderstoodReply`); a plain
+  object does not compile. `notUnderstood` → `UninterpretableReplyError` with that `reason`, the
+  pause pending; a `throw` is a crash only (unreadable too, its error the `cause`). Migrating: wrap
+  each returned decision in `ReplyInterpretation.understood(…)`, and replace a `throw` that declines
+  with `return ReplyInterpretation.notUnderstood({ reason })`; a test's
+  `mockOf(I).interpret.mockResolvedValue(decision)` becomes `mockReturnValue(ReplyInterpretation.understood(decision))`.
+- **New — `UninterpretableReplyError.reason`** (every unreadable reply: the interpreter's reason, or
+  its error's message); its constructor takes `{ reason, cause? }` (`UninterpretableReplyErrorOptions`).
+- **New — `ChildExecutionRecord.pauses`** (S124 c, [Pauses → Who answered](Pauses)): each child's
+  record in `result.children` and `result.record.children` lists the resolved pauses its own steps
+  asked; the root's `record.pauses` keeps the whole tree's. `PauseAnswerRecord.executionId` names
+  the execution a pause waited in (stored with each answer: a `pause_answers` row written before
+  this change has none and fails to parse). The state's records are the internal `EndedChildRecord`
+  (exported as a type; it is `ChildExecutionRecord` without `pauses`).
+- **Rule — new runtime subsystems load lazily** (S124 d, #120 S123 c, `QUALITY.md` → Design): the
+  decision-model and code reading are behind the lazily loaded reply reader; the root import stays
+  under its 1,400-module budget (1,397).
+
 ## Unreleased — guardrails: @InputGuardrail / @OutputGuardrail, refusals, levels (#120, PR 2)
 
 - **New — `@InputGuardrail` / `@OutputGuardrail({ name, description, prompt | promptUrls, model?,

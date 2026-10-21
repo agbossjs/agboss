@@ -325,9 +325,13 @@ mockLlm(RefundReplyInterpreter)
 A text reply (`replyWith("I cannot tell")`) is the model declining: `app.resume` throws
 `UninterpretableReplyError` and the pause stays pending. `.inputs` lists what it read; its request
 is a chat request (`system`: the framework's text and its `prompt`; `input`: `### ask` and
-`### reply`). A code interpreter calls no model (`mockLlm` of it is a setup error) — the container
-creates it as written, and `mockOf(Interpreter).interpret.mockResolvedValue({ approved: false })`
-replaces it.
+`### reply`). An interpreter on a decision model (an approval role's, #267 S124) answers its one
+yes / no question — `mockLlm(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }))`
+approves (P(yes) > 0.5), `decideWith({ approved: 0.2 })` refuses, `{ cost: usd(…) }` its spend; its
+request is `{ kind: "decide", state, questions: { approved: { type: "noul", … } } }`, the state the
+masked `### ask` / `### reply`. A code interpreter calls no model (`mockLlm` of it is a setup error) —
+the container creates it as written, and `mockOf(Interpreter).interpret.mockReturnValue(ReplyInterpretation.understood({ approved: false }))`
+(or `ReplyInterpretation.notUnderstood({ reason })`) replaces it; a plain object does not compile.
 
 ### What a component sent its model
 
