@@ -3,7 +3,6 @@
  * as a `sensitive` field (one approved, one that holds until its execution stops), a child
  * workflow that reads the author again, and a checkpointer that keeps every `piiKey` it saved.
  */
-import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import {
@@ -40,8 +39,8 @@ export function resetSavedKeys(): void {
 @Injectable()
 export class PeekCheckpointSaver extends InMemoryCheckpointSaver {
   override put(
-    ...args: Parameters<BaseCheckpointSaver["put"]>
-  ): ReturnType<BaseCheckpointSaver["put"]> {
+    ...args: Parameters<InMemoryCheckpointSaver["put"]>
+  ): ReturnType<InMemoryCheckpointSaver["put"]> {
     const [, checkpoint] = args;
     const key: unknown = checkpoint.channel_values.piiKey;
     if (key === null || typeof key === "string") savedKeys.push(key);
