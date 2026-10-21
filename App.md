@@ -189,13 +189,17 @@ process) and the worst case of one call of each start in counts — then the sta
 logs none of it. Observers are listed in `@Application({ observers })` only
 ([Observability](Observability)).
 
-`agboss describe` (the application of `package.json`, or `--application <path>`, #268) shows each workflow's application: each infrastructure contract
-with its implementation and why (`CostLedgerRepository → SqliteCostLedgerRepository (listed in
-@Application providers)` / `(built-in default: none listed)`, the `Logger`, the `Clock` and the
-`IdGenerator` included), the budgets by scope with their periods, the execution budget that caps the workflow (its
-own or the default — when it is the root of `app.execute`; nested, it spends from its root's), the
-observers and the assembly warnings; then its count limits (`maxSteps` set or default, each node's
-`maxVisits`, the worst case of each start). `--json` gives the same as `application` and `limits`.
+`agboss describe` (the application of `package.json`, or `--application <path>`, #268) shows the
+application once: its tree of workflows, starts and children, each infrastructure contract with its
+implementation and why (`CostLedgerRepository → SqliteCostLedgerRepository (listed in @Application
+providers)` / `(built-in default: none listed)`, the `Logger`, the `Clock` and the
+`IdGenerator` included), the model
+providers, the channels, the budgets by scope with their periods, the execution budget that caps
+each workflow (its own or the default — when it is the root of `app.execute`; nested, it spends from
+its root's), the observers and the assembly warnings; then each workflow with its count limits
+(`maxSteps` set or default, each node's `maxVisits`, `maxDepth`, `maxConcurrentExecutions`, the
+worst case of each start with how each number is made up — the [check report](CLI#the-check-report-268)).
+`--json` gives the same as `application` and each workflow's `limits`.
 
 ## `app.execute(Start, input, options?)`
 

@@ -3,6 +3,38 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — describe and the check report: the worst case per start, check --env (#268, PR 2)
+
+- **New — `agboss describe` describes the application** ([CLI](CLI#describe-268)): first its tree —
+  the listed workflows with their starts and the child workflows they launch (by which step, one or
+  per item with `maxItems` / `maxConcurrency`; `ThisWorkflow` marked with `maxDepth`) —, each
+  contract's implementation and why, the model providers and why, each channel (a role's question →
+  answer, who answers, its reply interpreter, its implementation and why), the budgets by scope and
+  each workflow's execution budget, the observers, the warnings and the environment once; then each
+  workflow, now with its PII policies and their refusals (`refusal: "…"` or `CardPiiPolicy.refusal()`)
+  and `maxDepth` among its limits, and each agent's compaction with where it came from
+  (`compaction conversation-compaction (job-scout-workflow)`: `(own)`, the workflow or the application). `describe --json`'s `application` carries the same as data
+  (`tree`, `implementations`, `modelProviders`, `channels`, `budgets`, `executionBudgets`, …); a
+  workflow's data no longer repeats the application, and gains `piiPolicies`.
+- **New — the check report** ([CLI](CLI#the-check-report-268)): `agboss check` prints, per start,
+  the worst case of one call — workflow executions, at the same time, agent and router steps of the
+  whole tree, nesting depth — each with how it is made up, from the decorators only; `--json`:
+  `result.report`. `describe` prints the same report under each workflow's limits (it was one line).
+- **Changed — `agboss check --env <name>`** lists the variables as `prod environment needs 3 process
+  variables:` with aligned `NAME  value | secret[, optional | , has a default]` lines — the field
+  name is no longer printed, never a value ([Environments](Environments#the-cli)).
+- **Breaking — `describeWorkflow` is removed from the public API** (it was a root export): describing
+  is the CLI's — use `agboss describe [--json]`. It stays internal (the CLI and the framework's
+  tests); the examples' tests that printed it now rely on the CLI's job-scout and flow-patterns
+  describe tests. The root import loads no `describe/` module any more.
+- **Internal (`agboss/internal`)**: `describeApplication(assembled, { source, profile, environment })`,
+  `describedApplicationOf(assembled)` (takes the assembled application; `executionBudgets` per
+  workflow, `modelProviders`), `describedTreeOf`, `describedChannelsOf`, `describedPiiPoliciesOf`,
+  `worstCaseReportLines` / `worstCaseRowsOf` (`WorstCaseMeasure`), `worstCaseLimitsOf`; a
+  `WorstCase` carries its `workflow`, `isStepsCapped`, `treeSteps` and `children` (each edge into a
+  child: `count`, `atOnce`, `maxItems`, `maxConcurrency`, `isRecursive`, the child's worst case).
+- **job-scout**: a `prod` environment (`agboss check --env prod`).
+
 ## Unreleased — health checks: `@HealthCheck`, `app.checkLiveness()`, `app.checkReadiness()` (#300, PR 1)
 
 - **New — the instance's probes** ([Health checks](Health-checks)): `app.checkLiveness()` (no I/O:

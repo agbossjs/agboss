@@ -137,7 +137,7 @@ export const environment: AppEnvironment = {
   `env.flag.optional("X")` are typed `string | undefined`, `number | undefined`,
   `boolean | undefined`, for an optional field of the contract. An unset (or empty) variable is
   `undefined` — not a missing variable, the start goes on — and a set one is still checked
-  (`PORT=soon` fails as above). `agboss check --env <name>` marks it `value (optional)`,
+  (`PORT=soon` fails as above). `agboss check --env <name>` marks it `value, optional`,
   `agboss describe` shows an unset one as `<unset X, optional>`. Use it where the reader has its own
   default, such as a provider's base URL (below), so the default is not repeated.
 
@@ -239,16 +239,20 @@ Each loads the application of `package.json` (`"agboss": { "application" }`, or 
 | Command                           | What it does with the environment                                                                |
 | --------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `agboss check`                    | resolves the selected environment (default `dev`) and creates what every workflow's start creates |
-| `agboss check --env prod`         | also lists the process variables `prod` needs, each marked `value` / `secret`                    |
+| `agboss check --env prod`         | also lists the process variables `prod` needs: names only, `value` / `secret`, never a value     |
 | `agboss describe [--env <n>]`     | shows the fields: literals, values, `*** (DATABASE_URL)`, `<missing AUDIT_URL>` — no keys        |
 
 ```
-environment prod: process variables
-  AUDIT_URL  value → auditUrl
-  DATABASE_URL  secret → databaseUrl
-  PORT  value (has a default) → port
-  DEBUG  value (has a default) → debug
+prod environment needs 4 process variables:
+  AUDIT_URL     value
+  DATABASE_URL  secret
+  PORT          value, has a default
+  DEBUG         value, optional
 ```
+
+It is the list for `--set-env-vars` / `--set-secrets` at deploy (#268): `has a default` and
+`optional` may stay unset; the names in a secret manager are not known to the framework and are not
+printed. The list is part of the [check report](CLI#the-check-report-268).
 
 Related: [Configuration](Configuration) (the `defaults` cascade), [App](App) (`createApp` options),
 [Testing](Testing).

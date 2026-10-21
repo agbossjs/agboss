@@ -103,8 +103,8 @@ and `; `.) `agboss chat` sends what is typed as a text, so its start takes `Work
 | --- | --- |
 | `agboss chat [--start <name>]` | interactive chat (`--thread`, `--profile`, `--env`), on [`app`](App) |
 | `agboss run [--start <name>] "task"` | one execution, the answer to stdout (`--input <json>` / `--input-file <file>` for a start taking a DTO), on [`app`](App) |
-| `agboss check` | writes `.agboss/types.d.ts`, then assembles the whole application (every flow rule of every workflow at once), checks the environment (its secrets' values only with `--models`) — the components every workflow's start creates — and the prompts — exit 3 on any problem; no key ([Workflow](Workflow#generated-types)) |
-| `agboss describe` | every workflow of the application in turn (the listed ones, then their child workflows): the paths as written, each node's inputs with their producers, each value written `{ about }` (`reviewer-agent → DraftChangesDto { about: DraftDto }`, [Path scope](Path-scope#outdating-current-values-only)), `historyOf` fields with their limit, each model with the provider it resolves to (`model: … → openrouter-model-provider`, #266), agents, tools, dependencies, knowledge bases, settings, config hash; the application (#261): each infrastructure contract's implementation and why (listed / built-in default), the budgets by scope with their periods and the execution budget that caps each workflow (own or default), the observers, the assembly warnings; the limits (`maxSteps` set or default, each node's `maxVisits`, the worst case of each start) — no key. `--json`: `{ application: { name, version }, workflows: [ … ] }` |
+| `agboss check [--env <name>]` | writes `.agboss/types.d.ts`, then assembles the whole application (every flow rule of every workflow at once), prints [the report](#the-check-report-268) — the worst case of one call of each start, with `--env` the process variables that environment needs — checks the environment (its secrets' values only with `--models`) — the components every workflow's start creates — and the prompts — exit 3 on any problem; no key ([Workflow](Workflow#generated-types)) |
+| `agboss describe` | [the whole application](#describe-268): its tree of workflows, starts and children, each contract's implementation and why, the model providers, the channels, the budgets, the environment; then every workflow (the listed ones, then their child workflows) — no key. `--json`: `{ application: { name, version, tree, implementations, modelProviders, channels, budgets, executionBudgets, … }, workflows: [ … ] }` |
 | `agboss check --strict` | the same, the analyser's warnings (`[flow.path-too-deep]`, `[graph.child-without-failure-finish]`) and the application's assembly warnings (`[application.in-memory-cost-ledger]`, `[application.in-memory-pauses]`, #261) errors — exit 3; without `--strict` they are printed as `warning: …` lines ([Workflow as a step](Workflow-as-a-step#errors)) |
 | `agboss check --models` | every model setting of every workflow of the application against what its resolved provider says the model supports — all problems at once, exit 1 on any; no model call, but it connects, so the chosen environment's secrets must be set — a missing one names its variable ([Model providers](Model-providers#fail-fast-settings-must-fit-their-models)) |
 | `agboss eval` / `agboss replay` `[--start <name>]` | score recent runs of the start's workflow with Jev / re-run a prompt version |
@@ -167,6 +167,73 @@ subgraph; `getGraphAsync({ xray: true })` marks it `recursive: maxDepth N` in th
 which Studio's graph endpoint does not pass on (its JSON keeps a node's id, type and name only) — so
 Studio shows a plain node there (an open question of #268 PR 3). Studio's own runs are limited by
 steps and visits; budgets are opened per execution by the app ([FinOps](FinOps)).
+
+## describe (#268)
+
+`agboss describe` prints the application first, then each workflow — from the decorators, with no
+key, no network and no project code run (no `maxSpend()`):
+
+- **The tree** — the workflows `@Application({ workflows })` lists, each with its starts (and their
+  input) and, below it, the child workflows it launches, by which step, one or one per item, down to
+  their own children; `ThisWorkflow` is the workflow again, marked with its `maxDepth`.
+- **Implementations** — each infrastructure contract's class and why (listed in `@Application
+  providers` / built-in default); **model providers** — the listed ones, else the built-ins, each
+  with what it `serves` ([Model providers](Model-providers)).
+- **Channels** — each one a tool names: a role's question → answer (an approval role's question is
+  the tool input it approves; the answer `ToolCallApprovalDecisionDto`), who answers, its reply
+  interpreter and its one implementation with why; a concrete `@Channel` named by the tool is used
+  as is ([Pauses](Pauses)).
+- **Budgets** by scope with their periods, and the execution budget of each workflow — its own or
+  the default — which applies when it is the root of `app.execute`; nested, it spends from its
+  root's. Then the observers, the assembly warnings and the environment (secrets masked).
+- **Each workflow** — its guardrails and PII policies with their refusals (the text, or
+  `ClassName.refusal()` when the class computes it), the paths as written, each node's inputs with
+  their producers (`prepare-offer-action ← draft: editor-agent | draft-agent (latest), …`), each
+  value written `{ about }`, the start each edge into a child enters through, its limits —
+  `maxSteps` (set or default), each node's `maxVisits`, `maxDepth`, `maxConcurrentExecutions` and
+  the worst case of each start ([below](#the-check-report-268)) — `model → provider`, its agents,
+  tools, dependencies, knowledge bases and settings; each agent's compaction and `uncompactedTurns`
+  with where they came from (`(own)`, the workflow's or the application's name, `(built-in)`,
+  [Memory Management](Memory-Management)).
+
+```
+vendor-screening-workflow 1.0.0
+  start vendor-screening-workflow-start (WorkflowStartTextDto)
+  child vendor-check-workflow 1.0.0 per item from vendor-finder-agent (maxItems 20, maxConcurrency 3)
+    start vendor-check-workflow-start (VendorDto)
+topic-research-workflow 1.0.0
+  start topic-research-workflow-start (TopicDto)
+  child topic-research-workflow (ThisWorkflow, recursive, maxDepth 3) per item from subtopics-action (maxItems 5, maxConcurrency 3)
+```
+
+## The check report (#268)
+
+`agboss check` prints, after the assembly, what one call of each start may cost in counts — the same
+rule as the [start log](App#at-start-the-log-the-warnings-describe): only what the decorators say. Each number says how it is made up:
+`maxItems` and `maxConcurrency` of the launches on the way (multiplied out level by level), each
+workflow's `maxSteps` or its longest path, `maxDepth` of a workflow launching itself, and the tree's
+`maxConcurrentExecutions` when it is lower than the executions alive at once:
+
+```
+flow-patterns-application 1.0.0, environment prod
+
+Worst case of one vendor-screening-workflow-start call
+  workflow executions     21  1 vendor-screening-workflow + 20 vendor-check-workflow (maxItems 20)
+  at the same time        4   1 vendor-screening-workflow + 3 vendor-check-workflow (maxConcurrency 3)
+  agent and router steps  22  2 in vendor-screening-workflow (longest path) + 20 × 1 in vendor-check-workflow (longest path)
+  nesting depth           2   vendor-screening-workflow → vendor-check-workflow
+
+prod environment needs 3 process variables:
+  OPENROUTER_API_KEY   secret
+  OPENROUTER_BASE_URL  value, optional
+  AGBOSS_SQLITE_PATH   value, has a default
+```
+
+With `--env <name>` it lists the process variables that environment needs — names only, each
+`value` or `secret`, `optional` / `has a default` when it may stay unset, never a value
+([Environments](Environments#the-cli)). `--json` carries the report as `result.report`: `title`,
+`starts` (`start`, `workflow`, `rows` of `measure`, `total`, `madeUp`) and `environment`
+(`name`, `variables`).
 
 `agboss migrate imports [<path>…]` rewrites imports of the deprecated entries to the current ones (the list:
 `agboss help migrate`).
