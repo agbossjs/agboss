@@ -74,11 +74,16 @@ In `examples/job-scout/` (`agboss <command>`, its one start): `npm run chat` · 
 `npm run probe -- --place <p> <token…>` (Greenhouse boards). Any run command takes
 `--profile <name>` (`profiles/<workflow>/<name>.yaml`) and `--thread <id>`.
 
-In `examples/flow-patterns/` (#295; scripted tests only, no model key): `npm run check` (`agboss
-check --strict` on its application's six workflows) · `npm run describe` (each of them:
-`src/offer/` the review loop, `src/credit/` a code router, `src/review/` parallel launches in waves,
-#273, `src/panel/` a quorum with a code and a model arbiter, #279, `src/vendor/` a child workflow per
-vendor, #263, `src/topic/` a workflow launching itself, #264) · `npm test`.
+In `examples/flow-patterns/` (#295; scripted tests, no model key): `npm run check` (`agboss
+check --strict` on its application's seven workflows, then `--models` on `test`) · `npm run describe`
+(each of them: `src/offer/` the review loop, `src/credit/` a code router, `src/review/` parallel
+launches in waves, #273, `src/panel/` a quorum with a code and a model arbiter, #279, `src/vendor/` a
+child workflow per vendor, #263, `src/topic/` a workflow launching itself, #264, `src/approvals/` two
+approvals at once through a `ThreadOwner` channel role answered in the terminal, #267) · `npm test`.
+Real runs (#346, its README: the manual checks #263 M1, #264 M1, #267 M1): `dev` reads
+`OPENROUTER_API_KEY` (`openRouterBaseUrl` optional) and `PII_PSEUDONYM_KEY`, every store is SQLite,
+Langfuse traces when its keys are set — `npx agboss run --start <name> --input '<json>'`, and
+`npm run answer -- <pauseId…> [--decline]` answers waiting pauses from another process.
 
 ## Architecture
 
@@ -1680,7 +1685,7 @@ entries. A public surface change updates the api-extractor reports (`npm run api
 (`.suppressions.json`), the generated `.agboss/types.d.ts` of the framework's test fixtures
 (`npm run check:types`, #272 — before lint and `tsc`), build, the API reports, **compiled docs**,
 prettier, ESLint, `tsc` (tests included; the examples' types written first), tests with coverage,
-`agboss check --strict` on flow-patterns' six workflows (warnings are errors) and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
+`agboss check --strict` on flow-patterns' seven workflows (warnings are errors) and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
 every ` ```ts ` block of README, CLAUDE, QUALITY and WORKFLOW (and `docs/`) against the built
 package — a doc whose snippets declare a `@Workflow` gets its `.agboss/types.d.ts` written first —
 and check that every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention — and every
@@ -1827,7 +1832,9 @@ examples/job-scout/          the example (package job-scout-example; depends on 
 examples/flow-patterns/      the flow's patterns (package flow-patterns-example, #295): src/offer/ (a review loop),
                     src/credit/ (a code router beside a model router), src/review/ (parallel launches
                     in waves, #273), src/panel/ (a quorum, #279), src/vendor/ (a child workflow per
-                    item, #263), src/topic/ (recursion, #264), one *.workflow.ts each; tests/
+                    item, #263), src/topic/ (recursion, #264), src/approvals/ (two approvals at once,
+                    #267), one *.workflow.ts each; scripts/ (npm run answer); README.md (real runs,
+                    #346); tests/
 scripts/        the gate's checks (check-root, check-suppressions, check-docs + docs/, api-report,
                 public-entries, eslint-agboss-plugin: eslint-component-state + eslint-direct-time),
                 bootstrap-repo, bootstrap-labels, ticket, wiki,
