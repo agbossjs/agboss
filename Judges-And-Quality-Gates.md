@@ -15,16 +15,16 @@ is in the run's cost report (`judge:<name>`). A judge without a model fails at a
 A judge sees the agent's answer **as its DTO** (#262 S115). `reply` declares what it judges, in
 every shape an agent's `output` has:
 
-| `reply`              | The agent it judges                   | `input.reply` is                      |
-| -------------------- | ------------------------------------- | ------------------------------------- |
-| `JobReportDto`       | `output: JobReportDto`                | the validated `JobReportDto`          |
-| `oneOf(A, B)`        | `output: oneOf(A, B)` (or `A`, or `B`) | the variant's value, typed `A \| B`   |
-| `listOf(JobDto)`     | `output: listOf(JobDto)`              | the items, `readonly JobDto[]`        |
-| `listOf(oneOf(A, B))` | `output: listOf(oneOf(A, B))`        | each item's value, `readonly (A \| B)[]` |
-| `PlainTextDto`       | a text agent (no `output`)            | `{ text }` — its reply                |
+| `reply`               | The agent it judges                    | `input.reply` is                                    | `input.variant` is                    |
+| --------------------- | -------------------------------------- | --------------------------------------------------- | ------------------------------------- |
+| `JobReportDto`        | `output: JobReportDto`                 | the validated `JobReportDto`                        | `JobReportDto`                        |
+| `oneOf(A, B)`         | `output: oneOf(A, B)` (or `A`, or `B`) | the variant's value, `A` or `B`                     | `A` or `B` — the class it answered as |
+| `listOf(JobDto)`      | `output: listOf(JobDto)`               | the items, `readonly JobDto[]`                      | `JobDto`                              |
+| `listOf(oneOf(A, B))` | `output: listOf(oneOf(A, B))`          | each item `{ variant, value }`, `readonly VariantOf<A \| B>[]` | — (each item has its own)  |
+| `PlainTextDto`        | a text agent (no `output`)             | `{ text }` — its reply                              | `PlainTextDto`                        |
 
-`judge(input)` gets what it judges as data (`JudgeInput<TReply>`: `reply`, `task` — the agent's
-input message, `attempt` — retries so far) and nothing else (#280: no `JudgeContext`); each judge
+`judge(input)` gets what it judges as data (`JudgeInput<TReply>`: `variant`, `reply`, `task` — the
+agent's input message, `attempt` — retries so far) and nothing else (#280: no `JudgeContext`); each judge
 gets its own copy of the answer, so none changes what the step gives. Its model comes through the
 constructor — `deps: [JudgeModel]`, each call going to the model of the judge whose `judge()` runs
 (used anywhere else it throws `[judge.model-outside-judge]`); the execution, like in any component,
@@ -163,8 +163,97 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
 }
 ```
 
-A `oneOf(OfferDto, RefusalDto)` judge gets `OfferDto | RefusalDto` and tells them apart by their
-fields (`"salary" in reply`). A list agent's judge declares the list and gets its items:
+### The variant of a `oneOf` reply
+
+`input.variant` is the class the answer validated as (#262 S125): the class of the answer tool the
+agent used — never guessed from the answer's shape, never compared by name. For a
+`oneOf(OfferDto, RefusalDto)` judge `JudgeInput<OfferDto | RefusalDto>` is a discriminated union —
+`{ variant: typeof OfferDto; reply: OfferDto; … } | { variant: typeof RefusalDto; reply: RefusalDto; … }` —
+and `isVariant(input, OfferDto)` narrows `reply` to `OfferDto` (the other branch to `RefusalDto`).
+`input.variant === OfferDto` is true at run time too, but TypeScript narrows an object only on a
+literal discriminant, never on a class, so `isVariant` is the way to narrow:
+
+<!-- snippet-context
+import { Integer, Text } from "agboss/dto";
+export class OfferDto {
+  @Integer({ prompt: "the salary offered" })
+  salary!: number;
+}
+export class RefusalDto {
+  @Text({ prompt: "why the candidate is refused" })
+  why!: string;
+}
+-->
+
+```ts
+import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "agboss";
+import { isVariant, oneOf } from "agboss/dto";
+
+@Judge({ name: "fair-decision-judge", model: "typesafe/jev-1.13", reply: oneOf(OfferDto, RefusalDto) })
+export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
+  judge(input: JudgeInput<OfferDto | RefusalDto>): Promise<JudgeVerdict> {
+    if (isVariant(input, OfferDto)) {
+      // the agent answered through answer-offer-dto: input.reply is an OfferDto
+      return Promise.resolve(
+        input.reply.salary > 0
+          ? JudgeVerdict.passed({ metrics: { salary: input.reply.salary } })
+          : JudgeVerdict.failed({ reason: "an offer pays something" }),
+      );
+    }
+    // input.variant is RefusalDto, input.reply a RefusalDto
+    return Promise.resolve(
+      input.reply.why.trim() === ""
+        ? JudgeVerdict.failed({ reason: "a refusal says why" })
+        : JudgeVerdict.passed(),
+    );
+  }
+}
+```
+
+A judge of one class has `variant` as that class (a subclass the agent answered with, when its
+`output` extends the judge's `reply`), a text judge `PlainTextDto`, a `listOf(XDto)` judge the
+list's one class. A `listOf(oneOf(A, B))` judge has no `variant` of its own: its `reply` is
+`readonly VariantOf<A | B>[]` — each item `{ variant, value }` (`VariantOf` from `agboss/dto`), as
+the answer's items are kept — narrowed by `isVariant(item, A)`:
+
+<!-- snippet-context
+import { Integer, Text } from "agboss/dto";
+export class OfferDto {
+  @Integer({ prompt: "the salary offered" })
+  salary!: number;
+}
+export class RefusalDto {
+  @Text({ prompt: "why the candidate is refused" })
+  why!: string;
+}
+-->
+
+```ts
+import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "agboss";
+import { isVariant, listOf, oneOf, type VariantOf } from "agboss/dto";
+
+type Decisions = readonly VariantOf<OfferDto | RefusalDto>[];
+
+@Judge({
+  name: "decisions-judge",
+  model: "typesafe/jev-1.13",
+  reply: listOf(oneOf(OfferDto, RefusalDto)),
+})
+export class DecisionsJudge implements JudgeHandler<Decisions> {
+  judge({ reply }: JudgeInput<Decisions>): Promise<JudgeVerdict> {
+    const salaries: readonly number[] = reply.flatMap((decision) =>
+      isVariant(decision, OfferDto) ? [decision.value.salary] : [],
+    );
+    return Promise.resolve(
+      salaries.length <= 1
+        ? JudgeVerdict.passed({ metrics: { offers: salaries.length } })
+        : JudgeVerdict.failed({ reason: "make at most one offer" }),
+    );
+  }
+}
+```
+
+A list agent's judge declares the list and gets its items (`variant` is `JobDto`):
 
 ```ts
 import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "agboss";
@@ -231,5 +320,6 @@ The judges are registered by the agent; list a judge's own dependencies in the w
 In tests, script a chat judge like an agent — `mockLlm(CorrectnessJudge).thenReturn(replyWith("PASS"))`
 — and a decision judge with its answers by question id:
 `mockLlm(GroundedJudge).thenReturn(decideWith({ grounded: 0.9, quality: 2 }))`. On its own,
-`testJudge(AnswerGroundedJudge, …)({ reply, task, attempt })` takes `reply` as a plain object of the
-judge's DTO, typed by the judge ([Testing](Testing#unit-runners--one-component-on-its-own)).
+`testJudge(AnswerGroundedJudge, …)({ variant: JobReportDto, reply, task, attempt })` takes `reply` as
+a plain object of the judge's DTO, typed by the judge — a `variant` with another class's value
+(`{ variant: OfferDto, reply: { why } }`) does not compile ([Testing](Testing#unit-runners--one-component-on-its-own)).

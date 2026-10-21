@@ -3,6 +3,27 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the variant of a `oneOf` reply (#262, PR 5)
+
+- **Breaking — `JudgeInput<TReply>` carries `variant`** (S125,
+  [Judges → The variant of a `oneOf` reply](Judges-And-Quality-Gates#the-variant-of-a-oneof-reply)):
+  the class the answer validated as, from the answer tool the agent used — never guessed from the
+  answer's shape, never compared by name. For a `oneOf(A, B)` judge `JudgeInput<A | B>` is a
+  discriminated union (`{ variant: typeof A; reply: A; task; attempt } | { variant: typeof B; … }`),
+  narrowed by `isVariant(input, A)`; a single DTO, `listOf(XDto)` or `PlainTextDto` judge has
+  `variant` as that one class. Migrating: a judge that told variants apart by their fields
+  (`"salary" in reply`) uses `isVariant(input, OfferDto)`.
+- **Breaking — a `listOf(oneOf(A, B))` judge reads `reply: readonly VariantOf<A | B>[]`**: each item
+  `{ variant, value }`, as the answer's items are kept, narrowed by `isVariant(item, A)`; it has no
+  `variant` of its own. Migrating: `implements JudgeHandler<readonly (A | B)[]>` becomes
+  `JudgeHandler<readonly VariantOf<A | B>[]>` (the old form does not compile), each item read as
+  `item.value`.
+- **New — `VariantOf<T>`** (`agboss/dto`, the root), **`JudgedValueOf<TShape>`** (what a judge of a
+  `reply` shape reads) and **`JudgeInputOf<TJudge>`**; `isVariant(x, XDto)` also narrows anything
+  that carries `variant` (a judge's input, a `VariantOf` item).
+- **Breaking — `testJudge(J, …)({ variant, reply, task, attempt })`** takes `variant` too, typed the
+  same way: a `variant` with another class's value does not compile.
+
 ## Unreleased — interpreter outcomes, a decision-model interpreter, child pause records (#267, PR 4)
 
 - **New — a decision model may read an approval's reply** (S124 a, [Pauses](Pauses)):

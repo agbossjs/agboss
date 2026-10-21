@@ -754,7 +754,7 @@ failure rejects as the component threw it.
 | `testRouter(Router, options)`           | `run(input, { timeout })`                                  | the target(s) it chose (`Route<R>`)         |
 | `testArbiter(Arbiter, options)`         | `run(Agent, answer, { timeout })`                          | whether the answer counts                   |
 | `testRag(Rag, options)`                 | `run(query, { topK, timeout })`                            | its search results (`costUsd` → `spend`)    |
-| `testJudge(Judge, options)`             | `run({ reply, task, attempt }, { timeout })` — `reply` typed by the judge | its `JudgeVerdict`              |
+| `testJudge(Judge, options)`             | `run({ variant, reply, task, attempt }, { timeout })` — typed by the judge | its `JudgeVerdict`              |
 | `testGuardrail(Guardrail, options)`     | `run(text, { element, timeout })`                          | `{ isBlocked, probability, refusal? }`      |
 | `testPii([Policies], options)`          | `.mask(text)`, `.reveal(text)`                             | the masked text; the revealed one           |
 
@@ -804,8 +804,11 @@ it("looks the order up in the book it is given", async () => {
 - **`testRag`** calls `retrieve(query, { topK, signal })` (`topK` default the `@Rag`'s); its reported
   `costUsd` is the spend, as `rag:<name>`.
 - **`testJudge`**: `reply` is a plain object of the judge's `reply` (`JudgeHandler<TReply>`: a
-  `JobReportDto`, `OfferDto | RefusalDto`, `{ text }` for `PlainTextDto`), passed to it as given —
-  another shape does not compile (#262 S115); the injected `JudgeModel` is the judge's own model
+  `JobReportDto`, `OfferDto | RefusalDto`, `{ text }` for `PlainTextDto`), and `variant` the class it
+  stands for (#262 S125: `JobReportDto`, `OfferDto` or `RefusalDto`, `PlainTextDto`; for a
+  `listOf(oneOf(A, B))` judge no `variant`, each item `{ variant, value }`), passed to it as given —
+  another shape, or a `variant` with another class's value (`{ variant: OfferDto, reply: { why } }`),
+  does not compile (#262 S115, S125); the injected `JudgeModel` is the judge's own model
   answering from `model` — `decideWith(…)` on a decision model, `replyWith(…)` on a chat model; the
   wrong call for its kind is `ModelKindError`, as at run time. The output is the verdict,
   `JudgeVerdict.passed(…)` / `JudgeVerdict.failed({ reason })`.
@@ -859,7 +862,12 @@ it("a grounded reply passes, at the decision's cost", async () => {
   });
 
   const reply = { text: "Acme hires TS engineers [acme.example]" }; // a PlainTextDto, as an object
-  const { output, spend } = await runJudge({ reply, task: "Find TS jobs", attempt: 0 });
+  const { output, spend } = await runJudge({
+    variant: PlainTextDto, // the class of a text agent's reply
+    reply,
+    task: "Find TS jobs",
+    attempt: 0,
+  });
 
   expect(output.passed).toBe(true);
   expect(spend.totalUsd).toBeCloseTo(0.003);

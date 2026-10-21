@@ -20,7 +20,8 @@ On paths and in `input` / `output` a DTO is wrapped by what it means (`agboss/dt
 | `optional(XDto)` / `optional(listOf(XDto))` | input only | may be absent |
 | `historyOf(XDto, { limit })` | input only | `HistoryOf<Produced<XDto, P>>`: `{ current, previous }`, the earlier versions oldest first (at most `limit`) |
 | `variant(XDto, value)` | an action's result | names the class of a `oneOf` it returns — never guessed by shape |
-| `isVariant(value, XDto)` | code | narrows a `oneOf` value |
+| `isVariant(value, XDto)` | code | narrows a `oneOf` value — also a judge's input or a `VariantOf` item, by its `variant` class (#262 S125) |
+| `VariantOf<A \| B>` | a `listOf(oneOf(…))` judge's `reply` items | `{ variant, value }`: the class an item validated as (from its answer tool) and its value |
 
 ## Names: the hierarchy rule (#141)
 
