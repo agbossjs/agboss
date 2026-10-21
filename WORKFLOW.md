@@ -16,6 +16,13 @@ How work moves from a requirement to accepted code.
 - The Wiki is a separate git repo; its working copy is `../<repo>.wiki`, managed by
   `scripts/wiki.sh` (`pull`, `publish`, `seed`). Its ts blocks compile and its commands and links
   exist — `node scripts/check-docs.mjs --wiki ../<repo>.wiki` before publishing; CI runs it too.
+- Publishing without direct Wiki access (#341): a PR's Wiki commit, based on `docs/wiki-pending`,
+  is pushed to the branch `docs/wiki/<PR head branch>` of this repository — CI's Wiki step checks
+  that branch for the PR. Right before the PR is merged the same commit is pushed to
+  `docs/wiki-pending` (a fast-forward), which `main`'s CI checks and `.github/workflows/sync-wiki.yml`
+  publishes to the Wiki's `master` (fast-forward only; a page edited in the Wiki's web UI and
+  missing from the branch stops the sync instead of being lost). With neither branch, CI checks the
+  published Wiki.
 - Stages are managed by `scripts/ticket.sh` (`setup`, `status`, `list`, `sub`), with repository REST
   endpoints only — cloud sessions cannot reach GraphQL or the Projects board (#283).
 
