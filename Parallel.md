@@ -280,8 +280,11 @@ every branch and deciding at the join:
 | its own step failed (`StepFailedError`) | `Skipped` — under a quorum it only leaves its place empty |
 | an arbiter threw, returned no boolean, or its model did not answer | `Failed` with `ArbiterError` (`step.arbiter`): the launch fails, `.onJoinError(ArbiterError, …)` takes it |
 | a limit, `app.cancel` | as for every launch (#273 S21): the launch fails / the execution is cancelled |
+| a budget exhausted by any branch's call (#338) | its calls in flight aborted at once, `Failed` with `BudgetExceededError`: the launch fails before the quorum is decided, `.onJoinError(BudgetExceededError, …)` takes it ([FinOps → At run time](FinOps#at-run-time)) |
 
-Every branch's spend counts — a cancelled or surplus branch's too.
+Every branch's spend counts — a cancelled or surplus branch's too. Each branch's calls are counted
+the moment they are made (#338), so an arbiter's check before its model call sees the siblings'
+spend while they run.
 
 ### The deadline
 

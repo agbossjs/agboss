@@ -3,6 +3,22 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — a budget breach in a parallel launch stops its siblings at once (#338)
+
+- **Fixed — parallel branches overspending a `@Budget`** ([FinOps → At run time](FinOps#at-run-time)):
+  every call of a tree is now counted the moment it is made — a live tally of the pass on this
+  instance; the ledger is still written once per superstep and nothing is counted twice — so a
+  branch of `.toParallelAgents`, `.toParallelActions`, `.toParallelWorkflows` or a quorum sees its
+  siblings' spend while they run. The call that exhausts an execution, tenant or application budget
+  aborts the in-flight model and tool calls of the other branches through `executionContext.signal`;
+  they fail with that `BudgetExceededError` (their spend so far kept), and the launch fails with it
+  into `.onJoinError(BudgetExceededError, toAction(…)… | toFinish(…))`, else the execution fails.
+  Before, every branch checked only its own view (the spend at the launch plus the siblings that had
+  ended), so N branches could each spend the whole remainder. The promise is now "a budget is
+  exceeded by at most the calls in flight when it was exhausted"; an aborted call's partial cost is
+  unknown and not recorded. A call that exhausts a budget also runs none of the tools its move asks
+  for (an answer it gave is kept). Other instances still see the spend through the ledger only. No
+  public API change.
 ## Unreleased — checks and fingerprints (#120, PR 4)
 
 - **Changed — contracts are function-typed properties, checked on the decorator line**

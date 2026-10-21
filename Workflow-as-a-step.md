@@ -289,7 +289,11 @@ leads only to actions and finishes.
 
 **Tree-wide limits are never wrapped**: an exhausted budget (`BudgetExceededError`) and a
 cancellation (`ExecutionCancelledError`) stop the whole execution as they are — `.onError(StepFailedError, …)`
-never takes them. Per item, FailFast holds: the running children are cancelled (their spend stays
+never takes them. Every call of the tree is counted the moment it is made (#338): when one child's
+call exhausts a budget, the model and tool calls in flight of its sibling children (and of every
+other branch of the tree) are aborted at once, those children fail with that `BudgetExceededError`
+and their spend so far, and the join takes `.onJoinError(BudgetExceededError, …)`
+([FinOps → At run time](FinOps#at-run-time)). Per item, FailFast holds: the running children are cancelled (their spend stays
 counted, their observers get `onExecutionError` with `ExecutionCancelledError`), no new one starts,
 and the join takes `.onJoinError(…)` against the parent's scope **as it was before the launch** —
 the children that finished first are in `result.children` / `result.record.children` and the
@@ -385,7 +389,7 @@ compiled graph, never its own subgraph ([Recursion](#recursion-264)).
 | What it sees | its start's input only: no thread history, nothing of the parent's scope or its siblings; its own path, steps and `maxSteps` |
 | Inherited | the thread, `ownerId`, the tenant (`executionContext.tenant`, the same `TenantContext` and `ApplicationContext`) and the execution's own fields of the declared `ExecutionContext` — through its state, so a resume keeps them |
 | The tree | `executionContext.parent`, `.root`, `.depth`, `.itemIndex` (a per-item child's index from 0; `undefined` for a single child and a root), `.executionOf(W)` — the nearest execution of `W` from this one up, at any depth; `ExecutionTreeRepository` keys are the root's |
-| Money | a child spends from the **root's** budgets — the root's execution budget is the cost of one full pass, children included; its own spend is counted in the tenant and application budgets too; a child workflow's own execution budget applies only when it runs as the root (`app.execute`) |
+| Money | a child spends from the **root's** budgets — the root's execution budget is the cost of one full pass, children included; its own spend is counted in the tenant and application budgets too, the moment each call is made (#338: its siblings see it while they run); a child workflow's own execution budget applies only when it runs as the root (`app.execute`) |
 | PII tokens | it starts with the parent's token map (#120), so it reveals what the parent masked; its own come back with its value — or, when it fails, with its error into the parent's state (never on the error itself), so the side path that takes it reveals what the child masked in its finished steps; a per-item child's too |
 | Steps | each workflow counts its own: a child's steps never spend the parent's `maxSteps` |
 | Concurrency | `maxConcurrency` of a per-item launch: a sliding window, a child frees its slot when it ends, fails or pauses |

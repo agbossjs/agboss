@@ -235,18 +235,51 @@ on its cost, its tenant's and the application's. All violations at once, before 
   once the budgets pass; `executionContext.threadId` read in `maxSpend()` of an execution on a new
   thread throws `ExecutionContextUnavailableError`), no record, no checkpoint, no model call, and
   the amounts it read are not kept as the last known limit.
-- **During the execution** every model call's (and paid service's) real cost is added to all of
-  its counters as the execution streams. Before every agent and router step the counters are read
+- **During the execution** every model call's (and paid service's) real cost is counted the moment
+  it is made — a live tally of the tree's pass on this instance (#338) — and added to all of its
+  counters as the execution streams (the ledger is written once per superstep; what it records
+  leaves the tally, so nothing is counted twice). Before every agent and router step the counters are read
   again — the tenant's other executions count — and every budget is checked; before every model
   call of an agent's loop too. The first exhausted **stops** the execution with
   `BudgetExceededError` (into the step's `.onError(BudgetExceededError, …)` if it has one, else the
   execution fails; the spend so far is in the ledger and the failed record).
-- **A parallel launch** (#273): a branch is checked against the spend at the launch plus its
-  siblings that already ended.
+- **A call that exhausts a budget** runs none of the tools its move asks for: the agent fails with
+  `BudgetExceededError`, the call's cost in its spend. An answer it gave is kept — the next step or
+  call stops.
+- **A parallel launch** (#273, #338): a branch is checked against the larger of what its state holds
+  (the spend at the launch plus its siblings that already ended) and the live tally — so it sees
+  its siblings' calls while they run. The call whose tally exhausts a budget **aborts the calls in
+  flight** of every branch of the tree's launches through `executionContext.signal`: a sibling's
+  model call is cancelled (its partial cost is unknown and not recorded), a tool waiting on the
+  signal stops, and the sibling's loop fails at its next check with `BudgetExceededError` and its
+  spend so far. The branches fail with that error and the launch with it — the same for
+  `.toParallelAgents`, `.toParallelActions` (the action's `executionContext.signal`),
+  `.toParallelWorkflows` (the children's model and tool calls) and quorums — into
+  `.onJoinError(BudgetExceededError, toAction(…)… | toFinish(…))`, a side path without a model
+  (`[graph.limit-handler-uses-model]`), else the execution fails. A branch that started after the
+  budget was exhausted is not aborted: its working step stops at its own check.
+
+```ts no-check: a fragment of a flow
+start(ReviewWorkflowStart)
+  .returns(DraftDto)
+  .toParallelAgents(StyleAgent, FactsAgent, LegalAgent)
+  .join()
+  .onJoinError(
+    BudgetExceededError, // a branch's call exhausted a budget: the others were stopped at once
+    toAction(NotifyEditorAction)
+      .toFinish(ReviewStoppedWorkflowFinish),
+  )
+  .returns(listOf(ReviewNoteDto))
+  .toAgent(SummaryAgent)
+  .returns(ReviewDto)
+  .toFinish(ReviewWorkflowFinish)
+```
+
 - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
   parallel executions of one tenant may overrun it a little (each sees the others' calls once they
-  are recorded), and a budget may be exceeded by the cost of one call (its cost is known after it;
-  a call is not pre-checked by its `maxTokens`; `TokenLimit.MODEL_MAX` makes one call bounded only by the model).
+  are recorded — the live tally is one instance's, one tree's), and a budget is exceeded by **at
+  most the calls in flight when it was exhausted** (a cost is known after its call; a call is not
+  pre-checked by its `maxTokens`; `TokenLimit.MODEL_MAX` makes one call bounded only by the model).
 
 ```text
 BudgetExceededError {
