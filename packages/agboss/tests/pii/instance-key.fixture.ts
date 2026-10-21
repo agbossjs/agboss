@@ -66,7 +66,7 @@ const lookedUp = (input: LookupDto): LookedUpDto => ({ status: "found", author: 
 
 /** A lookup that waits for an approval: the execution pauses on the instance that asked. */
 @Tool({
-  name: "lookup",
+  name: "lookup-tool",
   description: "Looks the author up",
   channel: TerminalUserChannel,
   input: LookupDto,
@@ -80,7 +80,7 @@ export class LookupTool implements ToolHandler<LookupDto, LookedUpDto> {
 
 /** The first call holds until its execution stops (its instance died); later ones return. */
 @Tool({
-  name: "slow_lookup",
+  name: "slow-lookup-tool",
   description: "Looks the author up, slowly",
   input: LookupDto,
   output: LookedUpDto,
