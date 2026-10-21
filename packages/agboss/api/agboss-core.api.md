@@ -289,10 +289,10 @@ export class InjectionToken<T> {
 
 // Warning: (ae-forgotten-export) The symbol "JudgeReplyShape" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "JudgeOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ValueOf" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "JudgedValueOf" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function Judge<const TReply extends JudgeReplyShape, const D extends readonly Token[] = []>(options: JudgeOptions<TReply, D>): <C extends new (...args: ResolvedAll<D>) => JudgeHandler<ValueOf<TReply>>>(value: C) => C;
+export function Judge<const TReply extends JudgeReplyShape, const D extends readonly Token[] = []>(options: JudgeOptions<TReply, D>): <C extends new (...args: ResolvedAll<D>) => JudgeHandler<JudgedValueOf<TReply>>>(value: C) => C;
 
 // Warning: (ae-forgotten-export) The symbol "NodeEvent" needs to be exported by the entry point index.d.ts
 //
@@ -726,9 +726,9 @@ export class WorkflowSettings {
 // src/components/injection.ts:31:3 - (ae-undocumented) Missing documentation for "provide".
 // src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "useValue".
 // src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
-// src/components/judge-decorators.ts:27:3 - (ae-undocumented) Missing documentation for "description".
-// src/components/judge-decorators.ts:111:3 - (ae-forgotten-export) The symbol "PassedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
-// src/components/judge-decorators.ts:116:3 - (ae-forgotten-export) The symbol "FailedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
+// src/components/judge-decorators.ts:28:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/judge-decorators.ts:130:3 - (ae-forgotten-export) The symbol "PassedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
+// src/components/judge-decorators.ts:135:3 - (ae-forgotten-export) The symbol "FailedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
 // src/components/metadata.ts:89:1 - (ae-undocumented) Missing documentation for "ComponentError".
 // src/components/metadata.ts:90:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/prompt-problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".

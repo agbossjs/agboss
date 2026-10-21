@@ -16,8 +16,11 @@ import {
   PlainTextDto,
   Text,
   WorkflowStartTextDto,
+  isVariant,
   listOf,
   oneOf,
+  type DtoClass,
+  type VariantOf,
 } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
 import { caseOf, start } from "../../helpers/flow.js";
@@ -47,20 +50,30 @@ export class JobSearch {
   }
 }
 
+/** The classes judges were given as `variant` (S125) — replaced by `mockOf` in tests. */
+@Injectable()
+export class VariantLog {
+  seen(variant: DtoClass): DtoClass {
+    return variant;
+  }
+}
+
 /** S115's judge: it reads the report as its DTO, not as text. */
 @Judge({
   name: "answer-grounded-judge",
   model: "local/judge",
   reply: JobReportDto,
-  deps: [JudgeModel, JobSearch],
+  deps: [JudgeModel, JobSearch, VariantLog],
 })
 export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
   constructor(
     private readonly judgeModel: JudgeModel,
     private readonly jobSearch: JobSearch,
+    private readonly variantLog: VariantLog,
   ) {}
 
-  async judge({ reply }: JudgeInput<JobReportDto>): Promise<JudgeVerdict> {
+  async judge({ variant, reply }: JudgeInput<JobReportDto>): Promise<JudgeVerdict> {
+    this.variantLog.seen(variant);
     const [first] = reply.jobs;
     if (first === undefined) return JudgeVerdict.failed({ reason: "the report has no jobs" });
     const found: boolean = await this.jobSearch.exists(first.url);
@@ -99,7 +112,7 @@ export class ReportWorkflowFinish {}
       .toFinish(ReportWorkflowFinish),
   ],
   defaults: DEFAULTS,
-  providers: [JobSearch],
+  providers: [JobSearch, VariantLog],
 })
 export class TypedJudgeWorkflow {}
 
@@ -125,19 +138,31 @@ export class RefusalDto {
   why!: string;
 }
 
-/** Judges both variants: the reply is `OfferDto | RefusalDto`, told apart by its fields. */
-@Judge({ name: "fair-decision-judge", model: "local/judge", reply: oneOf(OfferDto, RefusalDto) })
+/**
+ * Judges both variants (S125): `variant` is the class the answer validated as; `isVariant(input,
+ * OfferDto)` narrows `reply` to `OfferDto`, the other branch to `RefusalDto`.
+ */
+@Judge({
+  name: "fair-decision-judge",
+  model: "local/judge",
+  reply: oneOf(OfferDto, RefusalDto),
+  deps: [VariantLog],
+})
 export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
-  judge({ reply }: JudgeInput<OfferDto | RefusalDto>): Promise<JudgeVerdict> {
-    if ("salary" in reply) {
+  constructor(private readonly variantLog: VariantLog) {}
+
+  judge(input: JudgeInput<OfferDto | RefusalDto>): Promise<JudgeVerdict> {
+    this.variantLog.seen(input.variant);
+    if (isVariant(input, OfferDto)) {
+      const { salary } = input.reply;
       return Promise.resolve(
-        reply.salary > 0
-          ? JudgeVerdict.passed({ metrics: { salary: reply.salary } })
+        salary > 0
+          ? JudgeVerdict.passed({ metrics: { salary } })
           : JudgeVerdict.failed({ reason: "an offer pays something" }),
       );
     }
     return Promise.resolve(
-      reply.why.trim().length > 0
+      input.reply.why.trim().length > 0
         ? JudgeVerdict.passed()
         : JudgeVerdict.failed({ reason: "a refusal says why" }),
     );
@@ -177,6 +202,7 @@ export class RefusalWorkflowFinish {}
       ),
   ],
   defaults: DEFAULTS,
+  providers: [VariantLog],
 })
 export class VariantJudgeWorkflow {}
 
@@ -265,7 +291,7 @@ export class ListJudgedScoutAgent {}
       ),
   ],
   defaults: DEFAULTS,
-  providers: [JobSearch],
+  providers: [JobSearch, VariantLog],
 })
 export class WrongReplyWorkflow {}
 
@@ -307,7 +333,7 @@ export class JobsSummaryAgent {}
       .toFinish(Reply),
   ],
   defaults: DEFAULTS,
-  providers: [JobSearch],
+  providers: [JobSearch, VariantLog],
 })
 export class WrongListReplyWorkflow {}
 
@@ -321,12 +347,21 @@ export class WrongListReplyWorkflow {}
 })
 export class WrongReplyApplication {}
 
-/** Judges a list of jobs: the reply is `readonly JobDto[]`. */
-@Judge({ name: "jobs-judge", model: "local/judge", reply: listOf(JobDto), deps: [JobSearch] })
+/** Judges a list of jobs: the reply is `readonly JobDto[]`, its `variant` the list's one class. */
+@Judge({
+  name: "jobs-judge",
+  model: "local/judge",
+  reply: listOf(JobDto),
+  deps: [JobSearch, VariantLog],
+})
 export class JobsJudge implements JudgeHandler<readonly JobDto[]> {
-  constructor(private readonly jobSearch: JobSearch) {}
+  constructor(
+    private readonly jobSearch: JobSearch,
+    private readonly variantLog: VariantLog,
+  ) {}
 
-  async judge({ reply }: JudgeInput<readonly JobDto[]>): Promise<JudgeVerdict> {
+  async judge({ variant, reply }: JudgeInput<readonly JobDto[]>): Promise<JudgeVerdict> {
+    this.variantLog.seen(variant);
     const found: readonly boolean[] = await Promise.all(
       reply.map((job) => this.jobSearch.exists(job.url)),
     );
@@ -359,7 +394,7 @@ export class JobsScoutAgent {}
       .toFinish(Reply),
   ],
   defaults: DEFAULTS,
-  providers: [JobSearch],
+  providers: [JobSearch, VariantLog],
 })
 export class ListJudgeWorkflow {}
 
@@ -373,18 +408,27 @@ export class ListJudgeWorkflow {}
 })
 export class ListJudgeApplication {}
 
-/** Judges a list of decisions, each an offer or a refusal. */
+/** The reply of a list of decisions: each item its class and its value (S125). */
+type Decisions = readonly VariantOf<OfferDto | RefusalDto>[];
+
+/** Judges a list of decisions, each an offer or a refusal: each item carries its `variant`. */
 @Judge({
   name: "decisions-judge",
   model: "local/judge",
   reply: listOf(oneOf(OfferDto, RefusalDto)),
+  deps: [VariantLog],
 })
-export class DecisionsJudge implements JudgeHandler<readonly (OfferDto | RefusalDto)[]> {
-  judge({ reply }: JudgeInput<readonly (OfferDto | RefusalDto)[]>): Promise<JudgeVerdict> {
-    const offers: number = reply.filter((decision) => "salary" in decision).length;
+export class DecisionsJudge implements JudgeHandler<Decisions> {
+  constructor(private readonly variantLog: VariantLog) {}
+
+  judge({ reply }: JudgeInput<Decisions>): Promise<JudgeVerdict> {
+    for (const decision of reply) this.variantLog.seen(decision.variant);
+    const salaries: readonly number[] = reply.flatMap((decision) =>
+      isVariant(decision, OfferDto) ? [decision.value.salary] : [],
+    );
     return Promise.resolve(
-      offers <= 1
-        ? JudgeVerdict.passed({ metrics: { offers } })
+      salaries.length <= 1
+        ? JudgeVerdict.passed({ metrics: { offers: salaries.length } })
         : JudgeVerdict.failed({ reason: "make at most one offer" }),
     );
   }
@@ -422,6 +466,7 @@ export class DecisionsSummaryAgent {}
       .toFinish(Reply),
   ],
   defaults: DEFAULTS,
+  providers: [VariantLog],
 })
 export class VariantListJudgeWorkflow {}
 
@@ -457,6 +502,6 @@ export class ListJudgedReporterAgent {}
       .toFinish(ReportWorkflowFinish),
   ],
   defaults: DEFAULTS,
-  providers: [JobSearch],
+  providers: [JobSearch, VariantLog],
 })
 export class WrongValueReplyWorkflow {}

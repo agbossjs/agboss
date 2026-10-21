@@ -9,7 +9,15 @@ import {
   type ToolHandler,
 } from "../../src/index.js";
 import type { JudgeInput } from "../../src/index.js";
-import { PlainTextDto, Text } from "../../src/dto/index.js";
+import {
+  Integer,
+  PlainTextDto,
+  Text,
+  isVariant,
+  listOf,
+  oneOf,
+  type VariantOf,
+} from "../../src/dto/index.js";
 
 /**
  * #200 D4: compile-time checks of an agent's slots. Each `@ts-expect-error` below is a negative type
@@ -103,5 +111,43 @@ describe("#262 S115: a judge judges the reply it declares, with a built verdict"
     }
 
     expect([Mismatched.name, PlainVerdict.name]).toEqual(["Mismatched", "PlainVerdict"]);
+  });
+});
+
+class SalaryDto {
+  @Integer() salary!: number;
+}
+
+class ReasonDto {
+  @Text() why!: string;
+}
+
+describe("#262 S125: a oneOf judge reads its variant", () => {
+  it("a listOf(oneOf(…)) judge reads VariantOf items, never bare values", () => {
+    @Judge({ name: "items-judge", model: "test/judge", reply: listOf(oneOf(SalaryDto, ReasonDto)) })
+    class Items {
+      judge({
+        reply,
+      }: JudgeInput<readonly VariantOf<SalaryDto | ReasonDto>[]>): Promise<JudgeVerdict> {
+        const paid = reply.some((item) => isVariant(item, SalaryDto) && item.value.salary > 0);
+        return Promise.resolve(
+          paid ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "unpaid" }),
+        );
+      }
+    }
+
+    // @ts-expect-error -- the items of a listOf(oneOf(…)) reply are { variant, value }
+    @Judge({
+      name: "bare-items-judge",
+      model: "test/judge",
+      reply: listOf(oneOf(SalaryDto, ReasonDto)),
+    })
+    class BareItems {
+      judge(_input: JudgeInput<readonly (SalaryDto | ReasonDto)[]>): Promise<JudgeVerdict> {
+        return Promise.resolve(JudgeVerdict.passed());
+      }
+    }
+
+    expect([Items.name, BareItems.name]).toEqual(["Items", "BareItems"]);
   });
 });

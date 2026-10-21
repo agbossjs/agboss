@@ -84,12 +84,25 @@ export interface AgentAnswer {
   readonly variant?: string;
 }
 
+/**
+ * A valid reading: the answer, and the position in the agent's answer tools of the tool each value
+ * was answered with — one for a single answer, one per item of a list (#262 S125: a judge's
+ * `variant` is that tool's class, never guessed from the value's shape).
+ */
+export interface ValidAnswerReading {
+  readonly kind: "valid";
+  readonly answer: AgentAnswer;
+  readonly answeredWith: readonly number[];
+}
+
 export type AnswerReading =
-  | { readonly kind: "valid"; readonly answer: AgentAnswer }
-  | { readonly kind: "invalid"; readonly problem: string };
+  ValidAnswerReading | { readonly kind: "invalid"; readonly problem: string };
 
 const problemOf = (error: unknown): string =>
   error instanceof DtoValidationError ? error.message : String(error);
+
+/** The position of a call's answer tool among the agent's answer tools. */
+const positionOf = (tools: AnswerTools, call: AnswerCall): number => tools.tools.indexOf(call.tool);
 
 /** Checks one or more answer calls of a message against the agent's output. */
 export function readAnswer(tools: AnswerTools, calls: readonly AnswerCall[]): AnswerReading {
@@ -101,6 +114,7 @@ export function readAnswer(tools: AnswerTools, calls: readonly AnswerCall[]): An
       return {
         kind: "valid",
         answer: tools.hasVariants ? { value, variant: only.tool.dto.name } : { value },
+        answeredWith: [positionOf(tools, only)],
       };
     }
     const items = calls.flatMap((call) => itemsOf(call).map((item) => ({ call, item })));
@@ -108,7 +122,8 @@ export function readAnswer(tools: AnswerTools, calls: readonly AnswerCall[]): An
       const checked = validate(call.tool.dto, item);
       return tools.hasVariants ? { variant: call.tool.dto.name, value: checked } : checked;
     });
-    return { kind: "valid", answer: { value } };
+    const answeredWith = items.map(({ call }) => positionOf(tools, call));
+    return { kind: "valid", answer: { value }, answeredWith };
   } catch (error) {
     return { kind: "invalid", problem: problemOf(error) };
   }

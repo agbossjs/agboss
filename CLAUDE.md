@@ -1344,15 +1344,21 @@ Environments has more.
 
 `@Agent({ judges: [AnswerGroundedJudge], maxRetries: 1 })` runs each `@Judge({ name, model, reply,
 deps })` (`implements JudgeHandler<TReply>`) on the agent's answer **as its DTO** (#262 S115):
-`judge({ reply, task, attempt }: JudgeInput<TReply>)` gets the validated answer object — `reply` is
-a DTO class, `oneOf(A, B)` (`A | B`), `listOf(XDto)` (`readonly XDto[]`) or `PlainTextDto` for a
-text agent (`{ text }`) — the shapes of `output`; an agent whose `output` its judge does not judge (a
+`judge({ variant, reply, task, attempt }: JudgeInput<TReply>)` gets the validated answer object —
+`reply` is a DTO class, `oneOf(A, B)` (`A | B`), `listOf(XDto)` (`readonly XDto[]`),
+`listOf(oneOf(A, B))` (`readonly VariantOf<A | B>[]`, each item `{ variant, value }`) or
+`PlainTextDto` for a text agent (`{ text }`) — the shapes of `output`. `variant` (#262 S125) is the
+class the answer validated as, from the answer tool the agent used (never guessed from its shape):
+`JudgeInput<A | B>` is a discriminated union on it, narrowed by `isVariant(input, A)` (an item by
+`isVariant(item, A)`); a single DTO, `listOf(XDto)` or `PlainTextDto` judge has that one class; a
+`listOf(oneOf(…))` judge has none of its own, only its items'. an agent whose `output` its judge does not judge (a
 text agent with a DTO judge, a `oneOf` variant it does not cover, a list agent with a judge of one
 value or the other way round) fails assembly with `[judge.wrong-reply]`. Verdicts are built only with
 `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed({ reason, metrics? })`; a failed one's
 `reason` goes back to the agent for its retry, and when retries are spent the run throws
-`QualityGateError` (`rejections: [{ judge, reason }]`). `testJudge(Judge, …)({ reply, task,
-attempt })` takes `reply` as a plain object, typed by the judge. A judge's own model is a chat
+`QualityGateError` (`rejections: [{ judge, reason }]`). `testJudge(Judge, …)({ variant, reply,
+task, attempt })` takes `reply` as a plain object, typed by the judge (a `variant` with another
+class's value does not compile). A judge's own model is a chat
 model (`judgeModel.invoke`, `deps: [JudgeModel]`) or a **decision model**
 (`judgeModel.decide({ state, questions })` with
 `Decision.noul` / `Decision.choice` / `Decision.score`, answers typed by the questions; `DECISION_MODELS`
@@ -1571,7 +1577,7 @@ timeout: seconds(1) })` → `{ output, spend }` (a tool call's frame: `execution
   with the timeout, `SpendRecorder` into `spend`; input and output validated); the same shape for
   `testAction`, `testRouter` (a code router's `route()`, or a model router with `model: routeTo(X)`
   / `decideWith(…)`), `testArbiter(A)(Agent, answer)`, `testRag(R)(query, { topK })`,
-  `testJudge(J, { model: decideWith(…) | replyWith(…) })` (its `reply` a plain object of the judge's DTO), `testGuardrail(G, { model: decideWith({ blocks: 0.9 }) })(text, { element })` → `{ isBlocked,
+  `testJudge(J, { model: decideWith(…) | replyWith(…) })` (`{ variant, reply, task, attempt }`, its `reply` a plain object of the judge's DTO), `testGuardrail(G, { model: decideWith({ blocks: 0.9 }) })(text, { element })` → `{ isBlocked,
 probability, refusal? }`
   and `testPii([Policies])` → `mask(text)` / `reveal(text)` (rules checked first: `-pii-policy`);
   `run.clock` is the runner's `VirtualClock`; the calls run for `{ tenantContext, tenant,

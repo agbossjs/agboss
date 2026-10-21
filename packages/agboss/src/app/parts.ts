@@ -1,7 +1,7 @@
 import { BranchErrors } from "../flow/runtime/launch/branch-end.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
 import type { BaseMemoryStrategy } from "../memory/types.js";
-import type { JudgeHandler } from "../components/judge-decorators.js";
+import type { JudgeInstance } from "../components/judge-decorators.js";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 import type { KnowledgeSource } from "../rag/types.js";
@@ -86,7 +86,7 @@ export const memoryFor = (
 export const judgesFor = (
   bundle: AssembledWorkflow,
   services: WorkflowServices,
-): { readonly judges?: ReadonlyMap<string, JudgeHandler<unknown>> } => {
+): { readonly judges?: ReadonlyMap<string, JudgeInstance> } => {
   const judges = bundle.judges?.(services);
   return judges === undefined ? {} : { judges };
 };

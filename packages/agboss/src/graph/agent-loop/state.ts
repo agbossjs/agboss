@@ -72,6 +72,11 @@ export const AgentLoopState = Annotation.Root({
   reply: Annotation<string | null>({ reducer: replace, default: () => null }),
   /** A structured answer through an answer tool (S6); null for a text agent or while working. */
   answer: Annotation<AgentAnswer | null>({ reducer: replace, default: () => null }),
+  /**
+   * The answer's classes (#262 S125): the position in the agent's answer tools of the tool each
+   * value was answered with — one for a single answer, one per item of a list; empty without one.
+   */
+  answeredWith: Annotation<number[]>({ reducer: replace, default: () => [] }),
   /** Judge rejections retried so far. */
   retries: Annotation<number>({ reducer: add, default: () => 0 }),
   /** Invalid answers so far (S9: 2 retries, then `AgentAnswerInvalidError`). */

@@ -11,7 +11,7 @@ import type { RuntimeGuardrail } from "../../guardrails/runtime.js";
 import type { ToolCallApproval } from "./approval.js";
 import type { JudgePoints } from "./judge-points.js";
 import type { AgentLoopLimits } from "./limits.js";
-import type { JudgeHandler } from "../../components/judge-decorators.js";
+import type { JudgeReplyShape, RunnableJudge } from "../../components/judge-decorators.js";
 
 /** Everything needed to run one configured agent. */
 export interface AgentDefinition {
@@ -38,7 +38,9 @@ export interface AgentDefinition {
 /** One `@Judge` of an agent: its name, its instance (from the container) and its model (chat or decisions). */
 export interface AgentJudge {
   readonly name: string;
-  readonly handler: JudgeHandler<unknown>;
+  readonly handler: RunnableJudge;
+  /** What it judges (`@Judge({ reply })`): the shape of its input. */
+  readonly reply: JudgeReplyShape;
   readonly binding: JudgeBinding;
 }
 

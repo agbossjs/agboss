@@ -33,12 +33,12 @@ function judgesOf<TName extends string>(
   deps: GraphDeps<TName>,
 ): Pick<AgentDefinition, "judges" | "maxRetries"> {
   const judges = (agent?.judges ?? []).map((name): AgentJudge => {
-    const handler = deps.judges?.get(name);
+    const judge = deps.judges?.get(name);
     const binding = deps.registry.judges.get(name);
-    if (handler === undefined || binding === undefined) {
+    if (judge === undefined || binding === undefined) {
       throw new MissingJudgeError(`Judge "${name}" has no instance or no model`);
     }
-    return { name, handler, binding };
+    return { name, handler: judge.handler, reply: judge.reply, binding };
   });
   return { judges, maxRetries: agent?.maxRetries ?? 0 };
 }

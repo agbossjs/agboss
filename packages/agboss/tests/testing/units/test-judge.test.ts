@@ -13,11 +13,17 @@ import {
   replyWith,
   testJudge,
 } from "../../../src/testing/index.js";
+import { PlainTextDto } from "../../../src/dto/index.js";
 import { usd } from "../../../src/units/index.js";
-import { AnswerGroundedJudge, JobSearch } from "../../judges/fixtures/typed-judges.workflow.js";
+import {
+  AnswerGroundedJudge,
+  JobReportDto,
+  JobSearch,
+} from "../../judges/fixtures/typed-judges.workflow.js";
 import { GroundedJudge, ToneJudge } from "../fixtures/units.js";
 
 const input = {
+  variant: PlainTextDto,
   task: "Find TS jobs",
   reply: { text: "Acme hires TS engineers [acme.example]" },
   attempt: 0,
@@ -86,7 +92,12 @@ describe("testJudge", () => {
     });
     const reply = { jobs: [{ title: "TS engineer", url: "https://jobs.example/1" }] };
 
-    const { output } = await runJudge({ reply, task: "Find TS jobs", attempt: 1 });
+    const { output } = await runJudge({
+      variant: JobReportDto,
+      reply,
+      task: "Find TS jobs",
+      attempt: 1,
+    });
 
     expect(output).toEqual(JudgeVerdict.failed({ reason: "the first job does not exist" }));
   });
@@ -95,10 +106,11 @@ describe("testJudge", () => {
     const runReport = testJudge(AnswerGroundedJudge);
     const runText = testJudge(ToneJudge, { model: replyWith("PASS") });
 
+    const task = { variant: JobReportDto, task: "t", attempt: 0 } as const;
     // @ts-expect-error -- AnswerGroundedJudge judges a JobReportDto, not text
-    const wrong = runReport({ reply: { text: "jobs" }, task: "t", attempt: 0 });
+    const wrong = runReport({ reply: { text: "jobs" }, ...task });
     // @ts-expect-error -- ToneJudge judges a PlainTextDto: its reply is { text }, never a string
-    const text = runText({ reply: "PASS", task: "t", attempt: 0 });
+    const text = runText({ variant: PlainTextDto, reply: "PASS", task: "t", attempt: 0 });
 
     await expect(wrong).rejects.toThrow(TypeError);
     await expect(text).resolves.toMatchObject({ output: { passed: true } });
