@@ -7,6 +7,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { buildApplication, type BuiltApplication } from "../../src/application/create-app.js";
+import { TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
 import type { Class } from "../../src/components/injection.js";
 import { configSnapshot, executionVersions } from "../../src/run/versions.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -22,9 +23,9 @@ afterEach(async () => {
 /** The desk workflow's run dependencies in an application instance built for the variant. */
 async function deskDepsOf(application: Class) {
   const offline = { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) };
-  const instance = await buildApplication(await applicationOf(application), offline, {
-    quiet: true,
-  });
+  // a test's instance: its fixed PII key (#334)
+  const seams = { quiet: true, piiTestKey: TEST_PSEUDONYM_KEY };
+  const instance = await buildApplication(await applicationOf(application), offline, seams);
   built.push(instance);
   const [desk] = instance.workflows;
   if (desk === undefined) throw new Error("the desk workflow is missing");
