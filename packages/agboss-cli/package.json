@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "The agboss command for AGBoss: create, generate, chat, run, describe, check, eval, migrate",
   "type": "module",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=22.13"
   },
