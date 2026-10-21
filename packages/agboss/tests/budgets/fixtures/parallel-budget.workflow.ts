@@ -31,7 +31,7 @@ import { start, toAction, toFinish } from "../../helpers/flow.js";
 
 /**
  * #338 — a budget crossed inside a parallel launch. Two branches: the spender waits until the
- * waiter's tool runs (`hold_for_waiter`), then answers with a costly call; the waiter's tool pays a
+ * waiter's tool runs (`hold-for-waiter-tool`), then answers with a costly call; the waiter's tool pays a
  * service and waits on its call's `executionContext.signal` until it is aborted. The same pair as
  * agents (`toParallelAgents`, with and without `.onJoinError`, and under a quorum) and as per-item
  * child workflows (`toParallelWorkflows`); one application per budget that is tight.
@@ -85,7 +85,7 @@ export class TaskDto {
 
 /** Waits until the waiter's tool runs: the spender's costly call comes while the waiter waits. */
 @Tool({
-  name: "hold_for_waiter",
+  name: "hold-for-waiter-tool",
   description: "Waits for the other branch",
   input: HoldDto,
   output: HoldDto,
@@ -100,7 +100,7 @@ export class HoldForWaiterTool implements ToolHandler<HoldDto, HoldDto> {
 
 /** Pays a service 0.03 USD, then waits on its call's signal like a slow fetch, until aborted. */
 @Tool({
-  name: "wait_for_abort",
+  name: "wait-for-abort-tool",
   description: "Waits until stopped",
   input: HoldDto,
   output: HoldDto,
