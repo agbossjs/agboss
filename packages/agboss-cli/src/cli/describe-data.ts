@@ -3,7 +3,10 @@ import {
   childLines,
   configSnapshot,
   describedApplicationOf,
+  describedChannelsOf,
   describedLimitsOf,
+  describedPiiPoliciesOf,
+  describedTreeOf,
   describeServicesWith,
   flowLines,
   inputLines,
@@ -11,23 +14,37 @@ import {
   resolvedModelUsesOf,
   stepsRangeOf,
   shortVersion,
+  type AssembledApplication,
   type DescribedEnvironment,
   versionOf,
 } from "agboss/internal";
 
-/** The workflow's application as data: each contract's implementation by class name and why. */
-function applicationData(bundle: AssembledWorkflow): Record<string, unknown> {
-  const described = describedApplicationOf(bundle);
-  if (described === undefined) return {};
+/**
+ * `agboss describe --json`'s `application` (#268 AC4): its tree, each contract's implementation by
+ * class name and why, its model providers, channels, budgets, observers, warnings and environment.
+ */
+export function applicationData(
+  assembled: AssembledApplication,
+  environment: DescribedEnvironment | undefined,
+): Record<string, unknown> {
+  const described = describedApplicationOf(assembled);
   const implementations = described.implementations.map((choice) => ({
     contract: choice.contract.name,
     implementation: choice.implementation.name,
     reason: choice.reason,
   }));
-  return { application: { ...described, implementations } };
+  return {
+    ...described,
+    implementations,
+    tree: describedTreeOf(assembled).workflows,
+    channels: describedChannelsOf(assembled),
+    ...(environment === undefined
+      ? {}
+      : { environment: { name: environment.name, fields: environment.fields } }),
+  };
 }
 
-/** `agboss describe --json`: the workflow at a glance, as data (the same facts as the text). */
+/** `agboss describe --json`: one workflow at a glance, as data (the same facts as the text). */
 export function describeData(
   bundle: AssembledWorkflow,
   profile = "base",
@@ -46,11 +63,9 @@ export function describeData(
     name: c.name,
     version: c.version,
     profile,
-    ...(environment === undefined
-      ? {}
-      : { environment: { name: environment.name, fields: environment.fields } }),
     config: shortVersion(versionOf(configSnapshot(bundle))),
-    ...applicationData(bundle),
+    // its PII policies with their rules and refusals (#120, #268)
+    piiPolicies: describedPiiPoliciesOf(bundle),
     flow: flowLines(bundle.graph.flow),
     inputs: inputLines(bundle.graph.analysis),
     // the start each edge into a child workflow enters through (#263)

@@ -157,6 +157,12 @@ export type DeepPartial<TValue> = TValue extends readonly (infer TElement)[] ? r
     readonly [TKey in keyof TValue]?: DeepPartial<TValue[TKey]>;
 } : TValue;
 
+// Warning: (ae-forgotten-export) The symbol "AssembledWorkflow" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "DescribedEnvironment" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function describeWorkflow(bundle: AssembledWorkflow, profile?: string, environment?: DescribedEnvironment): string[];
+
 // @public
 export interface ExpectedChildExecution {
     readonly cancelled?: boolean;
@@ -808,7 +814,6 @@ export const workflowMatchers: {
 };
 
 // Warning: (ae-forgotten-export) The symbol "ProviderModule" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "AssembledWorkflow" needs to be exported by the entry point index.d.ts
 //
 // @public
 export const workflowOf: (workflow: Class, application?: readonly ProviderModule[]) => Promise<AssembledWorkflow>;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { listOf } from "../../../src/flow/dto-wrappers.js";
-import { describeWorkflow } from "../../../src/index.js";
+import { describeWorkflow } from "../../../src/describe/describe-workflow.js";
 import { workflowOf } from "../../../src/testing/index.js";
 import { start } from "../../helpers/flow.js";
 import {
@@ -119,7 +119,7 @@ describe("AC11: describe prints the tree's cap of a workflow that launches child
   it("set, the default, and none for a workflow without children", async () => {
     const lines = async (target: Workflowish): Promise<readonly string[]> =>
       describeWorkflow(await workflowOf(target, [])).filter((line) =>
-        line.includes("maxConcurrentExecutions"),
+        line.startsWith("  maxConcurrentExecutions"),
       );
 
     expect(await lines(BatchWorkflow)).toEqual([

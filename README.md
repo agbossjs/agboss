@@ -424,7 +424,8 @@ worked example in [`CLAUDE.md`](CLAUDE.md) → Architecture (compiled and run by
 npx agboss chat                                 # the application's one start; with several: --start <name>
 npx agboss run --start chat-workflow-start "my resume src/data/sample-resume.md"
 npx agboss run --start <name> --input '<json>'  # a start taking a DTO: checked field by field first
-npx agboss describe                             # every workflow: agents, tools, dependencies — no API key
+npx agboss describe                             # the application: workflows, starts, children, implementations — no API key
+npx agboss check --env prod                     # types, assembly, the worst case per start, prod's process variables
 npx agboss dev                                  # watch mode: types regenerated, problems printed on change
 npx agboss studio                               # LangGraph Studio on every workflow — no studio.ts, no langgraph.json
 npx agboss --help                               # run, eval, replay, golden, compare, rag index
@@ -644,8 +645,10 @@ export class AuditStoreService {
   the start naming it, the field and the environment, never the value:
   `DATABASE_URL is not set (AppEnvironment.databaseUrl, prod)`. `agboss check` validates the selected
   environment without running anything, creating every component the start creates, so it fails
-  exactly when the start would; `agboss check --env prod` lists the process variables it needs,
-  marked value / secret; `agboss describe` shows the environment with secrets masked.
+  exactly when the start would; `agboss check --env prod` lists the process variables it needs —
+  names only, each `value` or `secret`, `optional` or `has a default` when unset is fine, never a
+  value (the list for `--set-env-vars` / `--set-secrets` at deploy, #268); `agboss describe` shows the
+  environment with secrets masked.
 - From code: `createApp(Application, { env: "staging" })`. Tests run on `test`:
   `testWith(Application)` loads `test.environment.ts` and fails without it (a test never reaches
   dev's addresses by accident); `testWith(Application, { env: "dev" })` names another.
@@ -664,7 +667,7 @@ export class AuditStoreService {
   unset, it is `undefined` and the provider uses its decorator's `baseUrl` (#266 S87).
 - `env.optional("X")` (`env.integer.optional`, `env.flag.optional`) reads a variable that may be
   unset — `undefined` then, for an optional field of the contract (`x?: string`); a set value is
-  still checked, and `agboss check --env` marks it `(optional)` (#266 S90).
+  still checked, and `agboss check --env` marks it `optional` (#266 S90).
 
 ## Quality gates (judges)
 
@@ -1399,6 +1402,18 @@ the startup warnings; no project code is called (no `maxSpend()`), nothing per t
 ```text
 15:02:11 INFO  Started job-scout-application 1.0.0 — environment prod, host scout-7f3a, process 41237
 15:02:11 INFO  Worst case of one chat-workflow-start call: 1 workflow execution, 1 at the same time, 12 agent and router steps
+```
+
+`agboss check` prints the same worst case, from the same decorators, with how each number is made
+up (#268) — `maxItems`, `maxConcurrency`, `maxSteps` or the longest path, `maxDepth`; `agboss
+describe` prints it under each workflow's limits:
+
+```text
+Worst case of one vendor-screening-workflow-start call
+  workflow executions     21  1 vendor-screening-workflow + 20 vendor-check-workflow (maxItems 20)
+  at the same time        4   1 vendor-screening-workflow + 3 vendor-check-workflow (maxConcurrency 3)
+  agent and router steps  22  2 in vendor-screening-workflow (longest path) + 20 × 1 in vendor-check-workflow (longest path)
+  nesting depth           2   vendor-screening-workflow → vendor-check-workflow
 ```
 
 While it runs it logs only problems of the system — `LogLevel.Warn` at risk (a recovery left to a

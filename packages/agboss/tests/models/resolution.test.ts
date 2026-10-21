@@ -5,7 +5,8 @@
  * prints `model → provider` next to each.
  */
 import { describe, expect, it } from "vitest";
-import { createApp, describeWorkflow, GraphRuleError } from "../../src/index.js";
+import { describeWorkflow } from "../../src/describe/describe-workflow.js";
+import { createApp, GraphRuleError } from "../../src/index.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Class } from "../../src/components/injection.js";
 import {

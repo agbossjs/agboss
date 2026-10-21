@@ -72,6 +72,20 @@ check` in a short-lived child on every change of the application's `src/` (debou
 (`agboss/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs
 dev` on them — a child is a subgraph inside its parent (S37); a project has no `studio.ts` /
 `langgraph.json` of its own.
+`agboss describe` (#268 PR 2)
+prints the application's tree — the workflows it lists with their starts and the child workflows
+they launch (`per item from vendor-finder-agent (maxItems 20, maxConcurrency 3)`, `ThisWorkflow,
+recursive, maxDepth 3`) —, each contract's implementation and why, the model providers and why, each
+channel (a role's question → answer, who answers, its reply interpreter and its implementation),
+the budgets by scope and the execution budget of each workflow, then every workflow: its guardrails
+and PII policies with their refusals (the text, or `ClassName.refusal()`), flow, each node's inputs
+with their producers, each `about`, its limits (`maxSteps`, `maxVisits`, `maxDepth`,
+`maxConcurrentExecutions`), `model → provider`, and each agent's compaction and `uncompactedTurns`
+with where they came from (`(own)`, `(<workflow>)`, `(<application>)`, `(built-in)`). `agboss check` prints its report from the
+decorators only (no `maxSpend()`): per start the worst case of one call — executions, at the same
+time, agent and router steps of the tree, nesting depth — each with how it is made up; with `--env
+<name>` the process variables that environment needs, names marked `value` / `secret` (`optional`,
+`has a default`), never a value. `describe --json` / `check --json` carry the same as data.
 
 In `examples/job-scout/` (`agboss <command>`, its one start): `npm run chat` · `npm run run -- "task"` ·
 `npm run describe` · `npm run dev` · `npm run studio` · `npm run eval` / `replay` · `npm run golden -- add --name <n>` ·
@@ -1429,7 +1443,7 @@ export class AuditService {
 `--env <name>` / `createApp(App, { env })` / `testWith(App, { env })` pick one (default `dev`, tests
 `test`); a missing variable fails the start naming it, the field and the environment, never the value
 (`DATABASE_URL is not set (AppEnvironment.databaseUrl, prod)`); `agboss check --env <name>` lists the
-variables it needs, marked value / secret. Dev / prod parity: the same `providers` in every
+variables it needs, by name, marked value / secret, never a value. Dev / prod parity: the same `providers` in every
 environment, only values differ. Model provider keys are `Secret` fields of it too (#266): a
 `@ModelProvider`'s `apiKey` names the field (`"openRouterApiKey"`), a test environment may leave it
 out (models are scripted); `agboss check` reads only the contract's shape (its secrets with
@@ -1880,7 +1894,9 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
                     rule-error.ts, limits.ts, settings.ts, studio-graph.ts
     llm/  routers/  tools/  guardrails/  compaction/  terns/  run/  pause/  finops/  eval/  tracing/
     prompts/  types/
-    loader/, describe/   loadWorkflow (tsx) and describeWorkflow; studio.ts (studioOf: the graphs of agboss studio)
+    loader/, describe/   loadWorkflow (tsx); describeApplication (`agboss describe`, through agboss/internal)
+                    and its parts — the tree, channels, PII policies, the worst-case report;
+                    describeWorkflow (agboss/testing); studio.ts (studioOf: the graphs of agboss studio)
     internal.ts     `agboss/internal`: what the CLI is built on — not public, not for projects
   tests/            unit tests (helpers.ts = fakes; fixtures/ = test workflows); routers/ alone; smoke/ = real
   schema/           profile.schema.json (YAML autocomplete)

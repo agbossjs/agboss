@@ -11,6 +11,35 @@ export { renderTemplate } from "./components/render-template.js";
 export { ProfileError } from "./config/profiles.js";
 export { describeServices, describeServicesWith } from "./describe/describe-workflow.js";
 export {
+  describeApplication,
+  type ApplicationDescription,
+} from "./describe/describe-application.js";
+export {
+  describedTreeOf,
+  type DescribedChild,
+  type DescribedLaunch,
+  type DescribedTree,
+  type DescribedWorkflowNode,
+} from "./describe/tree.js";
+export {
+  ChannelImplementationReason,
+  describedChannelsOf,
+  type DescribedChannel,
+} from "./describe/channels.js";
+export {
+  describedPiiPoliciesOf,
+  type DescribedPiiPolicy,
+  type DescribedPiiRule,
+} from "./describe/pii-policies.js";
+export {
+  WorstCaseMeasure,
+  worstCaseReportLines,
+  worstCaseRowsOf,
+  type WorstCaseLimits,
+  type WorstCaseRow,
+} from "./describe/worst-case-report.js";
+export type { WorstCase, WorstCaseChild } from "./flow/analyse/worst-case.js";
+export {
   describedEnvironmentFor,
   environmentFor,
   selectedEnvironment,
@@ -40,8 +69,11 @@ export {
   applicationWarningsOf,
   describedApplicationOf,
   type DescribedApplication,
+  type DescribedBudget,
+  type DescribedExecutionBudget,
+  type DescribedModelProvider,
 } from "./describe/application.js";
-export { describedLimitsOf, type DescribedLimits } from "./describe/limits.js";
+export { describedLimitsOf, worstCaseLimitsOf, type DescribedLimits } from "./describe/limits.js";
 export { stepsRangeOf, type StepsRange } from "./flow/analyse/steps.js";
 export { executeUnchecked } from "./app/execute-unchecked.js";
 export { standaloneContexts, type RuntimeContexts } from "./flow/context/runtime-contexts.js";

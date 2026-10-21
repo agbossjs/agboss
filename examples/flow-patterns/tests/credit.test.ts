@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { BudgetExceededError, describeWorkflow } from "agboss";
+import { BudgetExceededError } from "agboss";
 import { usd } from "agboss/units";
 import { CreditExecutionBudget, TenantDailyBudget } from "../src/config/budget.config.js";
-import { replyWith, routeTo, testWith, workflowOf } from "agboss/testing";
+import { describeWorkflow, replyWith, routeTo, testWith, workflowOf } from "agboss/testing";
 import { ChargeCardAction } from "../src/credit/actions/charge-card.action.js";
 import { ApprovalAgent } from "../src/credit/agents/approval.agent.js";
 import { OrderIntakeAgent } from "../src/credit/agents/order-intake.agent.js";

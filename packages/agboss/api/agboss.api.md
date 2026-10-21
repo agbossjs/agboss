@@ -1156,11 +1156,6 @@ export class DepthLimitExceededError extends LimitExceededError {
     readonly workflow: WorkflowRecord;
 }
 
-// Warning: (ae-forgotten-export) The symbol "DescribedEnvironment" needs to be exported by the entry point index.d.ts
-//
-// @public
-export function describeWorkflow(bundle: AssembledWorkflow, profile?: string, environment?: DescribedEnvironment): string[];
-
 // @public
 export interface DtoBrands {
     // (undocumented)

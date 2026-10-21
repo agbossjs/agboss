@@ -8,6 +8,7 @@ import { DEFAULT_MAX_TOKENS } from "../config/types.js";
 import { CompactionStrategy } from "../compaction/compaction.decorator.js";
 import { memoryPlanOf, type CompactionInUse } from "../compaction/plan.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
+import { workflowDeclarationOf } from "../components/module.js";
 import type { AssembledWorkflow } from "../workflow.js";
 
 /**
@@ -60,6 +61,26 @@ export function agentDefaultsLine(bundle: AssembledWorkflow, agent: AgentSetting
     `uncompactedTurns ${String(window)} ${sourceLabel(agent.uncompactedTurns !== undefined, windowSourceOf(bundle))}`,
   ];
   return `    defaults: ${parts.join(" · ")}`;
+}
+
+/** The `compaction` an element's own decorator sets; undefined when it sets none. */
+function ownCompactionOf(bundle: AssembledWorkflow, element: string): unknown {
+  const options: unknown = bundle.graph.nodes.get(element)?.declaration.options;
+  return typeof options === "object" && options !== null && "compaction" in options
+    ? options.compaction
+    : undefined;
+}
+
+/**
+ * Where an agent's compaction came from (#120 PR 3, #268): its own `compaction`, else its
+ * workflow's, else its application's — the single setting's levels, the lowest that sets it wins.
+ */
+export function compactionSourceOf(bundle: AssembledWorkflow, element: string): string {
+  if (ownCompactionOf(bundle, element) !== undefined) return "(own)";
+  if (workflowDeclarationOf(bundle.graph.type).options.compaction !== undefined)
+    return `(${bundle.config.name})`;
+  const application = defaultsLevelsOf(bundle.graph)?.application?.name;
+  return application === undefined ? "(application)" : `(${application})`;
 }
 
 /** `agboss describe`'s memory section (#120 PR 3): each compaction in use, or the window only. */

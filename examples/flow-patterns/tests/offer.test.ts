@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeWorkflow } from "agboss";
-import { replyWith, testWith, workflowOf } from "agboss/testing";
+import { describeWorkflow, replyWith, testWith, workflowOf } from "agboss/testing";
 import { NotifyRecruiterAction } from "../src/offer/actions/notify-recruiter.action.js";
 import { SendOfferAction } from "../src/offer/actions/send-offer.action.js";
 import { DraftAgent } from "../src/offer/agents/draft.agent.js";

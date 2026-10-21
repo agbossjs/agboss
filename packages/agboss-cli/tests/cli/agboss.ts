@@ -47,3 +47,30 @@ export const piiKeyWarning = (file: string): string =>
 /** The assembly warning of an application on the built-in in-memory cost ledger (#261), as printed. */
 export const ledgerWarning = (file: string): string =>
   `warning: ${file} application.in-memory-cost-ledger in-memory cost ledger: each application instance counts budgets on its own and the counters reset on restart\n`;
+
+/** One start's worst case in `agboss check`'s report (#268 AC5): one workflow, no children. */
+const singleWorstCase = (start: string, workflow: string, steps: number): string[] => [
+  `Worst case of one ${start} call`,
+  `  workflow executions     1  1 ${workflow}`,
+  `  at the same time        1  1 ${workflow}`,
+  `  agent and router steps  ${String(steps)}  ${String(steps)} in ${workflow} (longest path)`,
+  `  nesting depth           1  ${workflow}`,
+];
+
+/** `agboss check`'s report of the framework's test-workflow fixture (`test-application`), as printed. */
+export const TEST_APPLICATION_REPORT = `${[
+  "test-application 1.0.0, environment dev",
+  "",
+  ...singleWorstCase("chat-workflow-start", "test-workflow", 2),
+  "",
+].join("\n")}\n`;
+
+/** `agboss check`'s report of the CLI's parts fixture (`parts-application`), as printed. */
+export const PARTS_APPLICATION_REPORT = `${[
+  "parts-application 1.0.0, environment dev",
+  "",
+  ...singleWorstCase("five-parts-workflow-start", "parts-workflow", 1),
+  "",
+  ...singleWorstCase("six-parts-workflow-start", "parts-workflow", 1),
+  "",
+].join("\n")}\n`;

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { workflowOf } from "agboss/testing";
-import { describeWorkflow } from "agboss";
-import { replyWith, callTool, routeTo, testWith } from "agboss/testing";
+import {
+  callTool,
+  describeWorkflow,
+  replyWith,
+  routeTo,
+  testWith,
+  workflowOf,
+} from "agboss/testing";
 import { JobScout } from "../src/job-scout.workflow.js";
 import { JobScoutApplication } from "../src/job-scout.application.js";
 import { MainRouter } from "../src/routers/main.router.js";
