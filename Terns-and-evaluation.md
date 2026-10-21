@@ -9,7 +9,7 @@
 - `app.execute(Start, input, { threadId })` with an id the tenant does not have → `UnknownThreadError` before any call.
 - The router and every agent see the last **`historyLimit`** Terns of the thread (question → answer),
   oldest first, before the task. Failed or guarded turns are shown with their status.
-- CLI: `agboss run --workflow <path> --thread <id> "…"`; every run prints `thread: <id>`.
+- CLI: `agboss run --start <name> --thread <id> "…"`; every run prints `thread: <id>`.
 
 ```
 Previous turns:

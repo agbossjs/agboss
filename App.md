@@ -159,7 +159,7 @@ process) and the worst case of one call of each start in counts — then the sta
 logs none of it. Observers are listed in `@Application({ observers })` only
 ([Observability](Observability)).
 
-`agboss describe --workflow <path>` shows the workflow's application: each infrastructure contract
+`agboss describe` (the application of `package.json`, or `--application <path>`, #268) shows each workflow's application: each infrastructure contract
 with its implementation and why (`CostLedgerRepository → SqliteCostLedgerRepository (listed in
 @Application providers)` / `(built-in default: none listed)`, the `Logger` and the `Clock`
 included), the budgets by scope with their periods, the execution budget that caps the workflow (its

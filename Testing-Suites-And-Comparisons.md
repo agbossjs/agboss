@@ -18,9 +18,9 @@ you saved) or from the latest runs.
 ## From the command line
 
 ```bash
-npx agboss golden add --workflow src/job-scout.workflow.ts --name smoke --from-last 20
-npx agboss compare --workflow src/job-scout.workflow.ts --profiles base,scout-low-thinking --golden smoke
-npx agboss compare --workflow src/job-scout.workflow.ts --profiles base,cheap-router --last 10
+npx agboss golden add --start chat-workflow-start --name smoke --from-last 20
+npx agboss compare --start chat-workflow-start --profiles base,scout-low-thinking --golden smoke
+npx agboss compare --profiles base,cheap-router --last 10   # --start may be omitted: job-scout has one start
 ```
 
 In `examples/job-scout`: `npm run golden -- add --name <n>` and

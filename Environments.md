@@ -234,11 +234,13 @@ See [Guards → PII policies](Guards#pii-policies).
 
 ## The CLI
 
-| Command                                         | What it does with the environment                                                         |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `agboss check --workflow <path>`                | resolves the selected environment (default `dev`) and creates what the start creates     |
-| `agboss check --workflow <path> --env prod`     | also lists the process variables `prod` needs, each marked `value` / `secret`             |
-| `agboss describe --workflow <path> [--env <n>]` | shows the fields: literals, values, `*** (DATABASE_URL)`, `<missing AUDIT_URL>` — no keys |
+Each loads the application of `package.json` (`"agboss": { "application" }`, or `--application <path>`, [CLI](CLI#the-application-and-its-starts-268)).
+
+| Command                           | What it does with the environment                                                                |
+| --------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `agboss check`                    | resolves the selected environment (default `dev`) and creates what every workflow's start creates |
+| `agboss check --env prod`         | also lists the process variables `prod` needs, each marked `value` / `secret`                    |
+| `agboss describe [--env <n>]`     | shows the fields: literals, values, `*** (DATABASE_URL)`, `<missing AUDIT_URL>` — no keys        |
 
 ```
 environment prod: process variables

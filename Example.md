@@ -92,9 +92,9 @@ lint (flow style) and their tests with coverage.
 ```bash
 npm install && npm run build          # repo root
 cd examples/flow-patterns
-npx agboss describe --workflow src/offer/offer.workflow.ts    # the two paths, the reviewer's inputs by producer
-npx agboss describe --workflow src/credit/credit.workflow.ts  # credit-limit-router  code — …
-npm run check                         # agboss check on both workflows (writes .agboss/types.d.ts)
+npx agboss describe                   # every workflow of its application: the offer's two paths, the
+                                      # reviewer's inputs by producer, credit-limit-router  code — …
+npm run check                         # agboss check --strict on the application (writes .agboss/types.d.ts)
 npm test
 ```
 

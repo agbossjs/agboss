@@ -409,7 +409,7 @@ is `QuorumNotReachedError` into `.onJoinError(…)` — [Parallel → At run tim
 
 ## Generated types
 
-`agboss check --workflow src/app.workflow.ts` loads the workflows (transpile-only, a stale file
+`agboss check` (on the application of `package.json`, #268) loads the workflows (transpile-only, a stale file
 never blocks it) and writes `.agboss/types.d.ts`: the tables that type `.returns(…)` against each
 component's `output`, `InputOf<X>` / `OutputOf<X>` of every node, and `app.execute(Start, input)` /
 `result.output`. A class the types need must be exported (`[types.unexported-class]`); without the

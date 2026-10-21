@@ -3,6 +3,38 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the application path and starts: --start, --input, rag index (#268, PR 1)
+
+- **Breaking — the CLI works on one application, set once** ([CLI](CLI#the-application-and-its-starts-268)):
+  `"agboss": { "application": "src/job-scout.application.ts" }` in the project's `package.json`
+  (relative to its folder), or `--application <path>`, which wins; neither → exit 3 saying where to set
+  it. **`--workflow <path>` is gone** from `chat`, `run`, `describe`, `check`, `eval`, `replay`,
+  `golden`, `compare` and `rag` (an unknown option, exit 2); the generators keep theirs until PR 4.
+  Migrating: add the `agboss` field to `package.json` and drop `--workflow …` from the scripts
+  (`"chat": "agboss chat"`); `agboss create` writes both.
+- **New — `--start <full name>`** on `chat`, `run`, `eval`, `replay`, `golden add`, `compare`: the
+  workflow is chosen by its start (`--start screening-workflow-start`); optional with one start in the
+  application; with several and none given, exit 2 listing each start's name, description and
+  workflow; an unknown name, exit 2 with `Did you mean "…"?` and the list — the lookup is exact,
+  nothing runs under a guessed name.
+- **Breaking — `agboss run --input` is JSON**: `--input '<json>'` / `--input-file <file>` give the
+  start's input, checked against its `InputOf` (one DTO, a `listOf(…)`, a map of fields) before the
+  app starts — every problem at once by field (`company.name: …; request.criteria: …`), exit 2; the
+  task's words are the text of a start taking `WorkflowStartTextDto` (`--input <text>` was that before).
+  `agboss chat` needs a start taking `WorkflowStartTextDto`.
+- **Breaking — `agboss rag index [--rag <name>]`** (was `rag:index --kb`): every knowledge base of
+  the application, each once; `--rag` takes the full name, an unknown one is exit 2 with a hint.
+- **Changed — `describe` and `check` cover every workflow of the application**: `describe --json` is
+  `{ application: { name, version }, workflows: [ … ] }`; `check` assembles the application as
+  `createApp` does (its rules across workflows too) and its problems name the application's path
+  (`ok: src/job-scout.application.ts — …`); `result.application` replaces `result.workflow`.
+- **Internal (`agboss/internal`)**: `loadApplicationClass(path)` loads the one exported
+  `@Application` of a module (`ApplicationLoadError`, CLI code `application.load`) — the `--workflow`
+  bridges `environmentOwnerOfFile`, `textStartOfWorkflow` and `workflowsOfApplication` are gone;
+  new `startsOfApplication(App)` (`ApplicationStart`: name, description, workflow, class, input — from
+  the decorators), `startInputIssuesOf(Start, payload)`, `applicationOf`, `environmentOwnerOf`;
+  `applicationWarningsOf` takes the assembled application.
+
 ## Unreleased — the variant of a `oneOf` reply (#262, PR 5)
 
 - **Breaking — `JudgeInput<TReply>` carries `variant`** (S125,
