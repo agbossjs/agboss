@@ -444,7 +444,8 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   root's — in `result.pending` with its `childExecutionId` (and `itemIndex` per item), answered by
   `app.resume({ pauseId, decision })` like any other. `result.children`
   (and `result.record.children`) are the nested records — `ChildExecutionStatus`, start and input,
-  finish and output or error, path, own spend, own children; `result.handledErrors` the failures
+  finish and output or error, path, own spend, own `pauses` (the resolved pauses its own steps asked,
+  #267 S124), own children; `result.handledErrors` the failures
   a side path took; observer events carry `parentExecutionId` / `rootExecutionId`.
 - **Recursion (#264):** `ThisWorkflow` — a marker for the enclosing workflow (a decorator's
   arguments are evaluated before its class exists) — is a child like any other: `.toWorkflow(ThisWorkflow)`,
@@ -1089,16 +1090,20 @@ export class SeenJobsRepository {
   thread's owner. **Free-text replies (#267 PR 3):** a role's `replyInterpreter` is a
   `@ReplyInterpreter` (`-reply-interpreter`, one per role) that reads `app.resume({ pauseId, reply })`
   with the pause's question — `{ ask, reply }` — into the role's answer, validated like a decision:
-  `DecidedBy.Model` (a chat model, one answer tool, static `prompt` / `promptUrls`; a decision model is
+  `DecidedBy.Model` (a chat model, one answer tool, static `prompt` / `promptUrls`; for an approval
+  role a decision model too — approve / refuse only, one `Decision.noul("approved")`, P(yes) > 0.5,
+  no `reason` / `overrideArguments` (#267 S124); a question role on a decision model is
   `[reply-interpreter.decision-model]`; the call checked against the tree's budgets, counted in their
   ledger at once and in the execution's spend when its step takes the answer, traced as
   `reply-interpreter:<name>`) or `DecidedBy.Code` (`implements ReplyInterpreterHandler<Self>` —
-  `interpret(input: InputOf<Self>): Promise<OutputOf<Self>>`, `deps`, created by the container; it
-  declines by throwing). Either kind reads in the pause's execution frame (its `ExecutionContext`:
+  `interpret(input: InputOf<Self>)` returns `ReplyInterpretation.understood(decision)` or
+  `ReplyInterpretation.notUnderstood({ reason })` (sync or a promise; a plain object does not
+  compile; a `throw` is a crash only), `deps`, created by the container). Either kind reads in the pause's execution frame (its `ExecutionContext`:
   tenant, owner, the waiting step — the rate limits see the tenant); a model one reads the question
   and the reply through the application's and the workflow's PII policies, its answer revealed before
-  validation (an unknown token is a decline, a block rule `PiiRefusedError`). Unreadable →
-  `UninterpretableReplyError` (`pause.uninterpretable-reply`), the
+  validation (an unknown token is a decline, a block rule `PiiRefusedError`). Unreadable (not
+  understood, no answer, an invalid one, a crash) → `UninterpretableReplyError`
+  (`pause.uninterpretable-reply`, `reason`, `cause` when an error is behind it), the
   pause stays pending; a role without one → `ReplyInterpreterMissingError`
   (`pause.no-reply-interpreter`); `[reply-interpreter.not-an-interpreter]`,
   `[reply-interpreter.no-interpret-method]` at assembly.
@@ -1377,9 +1382,10 @@ tenant, execution, onStream })` runs the workflow of that start (any workflow of
   instead (exactly one of `decision` / a non-empty `reply`, else `DtoValidationError`), read by the
   role's `@ReplyInterpreter` (Components above). Who answered each pause is in
   `result.record.pauses` (`{ record: true }`, #267 S107): every resolved pause of the tree in the order
-  asked — `PauseAnswerRecord { pauseId (none for a Channel pause), step, role, answeredBy, responder,
-resolution: PauseResolution.Decided | Replied | Withdrawn | Cancelled, askedAt, resolvedAt,
-decision }`, the decision PII-masked, none when withdrawn or cancelled — written when the pause is
+  asked — `PauseAnswerRecord { pauseId (none for a Channel pause), executionId, step, role,
+answeredBy, responder, resolution: PauseResolution.Decided | Replied | Withdrawn | Cancelled,
+askedAt, resolvedAt, decision }`, the decision PII-masked, none when withdrawn or cancelled; each
+  child's own in its `ChildExecutionRecord.pauses` (#267 S124) — written when the pause is
   resolved into the execution records (`ExecutionRecordRepository.savePauseAnswer` /
   `findPauseAnswersByTenantIdAndRootExecutionId`), the permanent history; the pause records are
   operational state, never read for it. A resolved pause record (`Taken`,
@@ -1529,7 +1535,8 @@ today; tenant-daily-budget allows $40`).
   launch, `routeTo()` only with an `Always` route), `decideWith(answers)` (a decision judge),
   `failWith(ModelFailure.Timeout)`, `waitFor(seconds(31))` (the next turn after that long on the
   clock); the network is blocked. `mockLlm(X).when(PartialValues<InputOf<X>>)` binds turns to the
-  input values (agents, model routers and model reply interpreters — `{ ask, reply }`, #267;
+  input values (agents, model routers and chat-model reply interpreters — `{ ask, reply }`, #267; a
+  decision-model interpreter answers `decideWith({ approved: 0.9 })`;
   `undefined` = absent, lists by length and position,
   `variant(XDto, { … })` for a `oneOf` element); a call no script matches fails naming its input
   (`test.no-matching-script`). A script is an expectation: an unused `thenReturn` turn or `when(…)`

@@ -796,23 +796,9 @@ export class ChildExecutionFailedError extends StepFailedError {
 }
 
 // @public
-export interface ChildExecutionRecord {
+export interface ChildExecutionRecord extends Omit<EndedChildRecord, "children"> {
     readonly children: readonly ChildExecutionRecord[];
-    readonly depth: number;
-    readonly error?: ErrorRecord;
-    readonly executionId: string;
-    readonly finish?: ComponentRecord;
-    readonly input: unknown;
-    readonly itemIndex?: number;
-    readonly launchedBy: ChildLaunchRecord;
-    readonly output?: unknown;
-    readonly parentExecutionId: string;
-    readonly path: readonly string[];
-    readonly rootExecutionId: string;
-    readonly spend: CostReport;
-    readonly start: ComponentRecord;
-    readonly status: ChildExecutionStatus;
-    readonly workflow: WorkflowRecord;
+    readonly pauses: readonly PauseAnswerRecord[];
 }
 
 // @public
@@ -1186,6 +1172,26 @@ export class DtoValidationError extends AGBossError {
 
 // @public
 export class EmptyEnvironment {
+}
+
+// @public
+export interface EndedChildRecord {
+    readonly children: readonly EndedChildRecord[];
+    readonly depth: number;
+    readonly error?: ErrorRecord;
+    readonly executionId: string;
+    readonly finish?: ComponentRecord;
+    readonly input: unknown;
+    readonly itemIndex?: number;
+    readonly launchedBy: ChildLaunchRecord;
+    readonly output?: unknown;
+    readonly parentExecutionId: string;
+    readonly path: readonly string[];
+    readonly rootExecutionId: string;
+    readonly spend: CostReport;
+    readonly start: ComponentRecord;
+    readonly status: ChildExecutionStatus;
+    readonly workflow: WorkflowRecord;
 }
 
 // @public
@@ -2481,6 +2487,22 @@ export class NotPausedError extends AGBossError {
     name: string;
 }
 
+// Warning: (ae-forgotten-export) The symbol "BuiltReplyInterpretation" needs to be exported by the entry point index.d.ts
+//
+// @public
+export interface NotUnderstoodReply extends BuiltReplyInterpretation {
+    // (undocumented)
+    readonly kind: ReplyInterpretationKind.NotUnderstood;
+    // (undocumented)
+    readonly reason: string;
+}
+
+// @public
+export interface NotUnderstoodReplyOptions {
+    // (undocumented)
+    readonly reason: string;
+}
+
 // @public (undocumented)
 export interface NoulAnswer {
     readonly noul: number;
@@ -2860,6 +2882,7 @@ export interface PauseAnswerRecord {
     readonly answeredBy: PauseAnswerer;
     readonly askedAt: string;
     readonly decision: unknown;
+    readonly executionId: string;
     readonly pauseId: string | undefined;
     // (undocumented)
     readonly resolution: PauseResolution;
@@ -3384,6 +3407,21 @@ export interface ReplaceWithTokenAction {
 }
 
 // @public
+export type ReplyInterpretation<TDecision> = UnderstoodReply<TDecision> | NotUnderstoodReply;
+
+// @public
+export const ReplyInterpretation: {
+    readonly understood: <TDecision>(decision: TDecision) => UnderstoodReply<TDecision>;
+    readonly notUnderstood: (options: NotUnderstoodReplyOptions) => NotUnderstoodReply;
+};
+
+// @public
+export enum ReplyInterpretationKind {
+    NotUnderstood = "not-understood",
+    Understood = "understood"
+}
+
+// @public
 export function ReplyInterpreter(options: ModelReplyInterpreterOptions): ReplyInterpreterDecorator<[]>;
 
 // @public
@@ -3395,7 +3433,7 @@ export type ReplyInterpreterDecorator<TDeps extends readonly Token[]> = <TClass 
 // @public
 export interface ReplyInterpreterHandler<TSelf> {
     // (undocumented)
-    interpret(input: InputOf<TSelf>): Promise<OutputOf<TSelf>>;
+    interpret(input: InputOf<TSelf>): ReplyInterpretation<OutputOf<TSelf>> | Promise<ReplyInterpretation<OutputOf<TSelf>>>;
 }
 
 // @public
@@ -4194,11 +4232,29 @@ export interface Transitions<THead extends PathHead> {
 }
 
 // @public
+export interface UnderstoodReply<TDecision> extends BuiltReplyInterpretation {
+    // (undocumented)
+    readonly decision: TDecision;
+    // (undocumented)
+    readonly kind: ReplyInterpretationKind.Understood;
+}
+
+// @public
 export class UninterpretableReplyError extends AGBossError {
+    constructor(message: string, options: UninterpretableReplyErrorOptions);
     // (undocumented)
     static readonly code: string;
     // (undocumented)
     name: string;
+    readonly reason: string;
+}
+
+// @public
+export interface UninterpretableReplyErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly reason: string;
 }
 
 // @public
@@ -4508,18 +4564,25 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/channels/channel-role.decorator.ts:45:3 - (ae-undocumented) Missing documentation for "answer".
 // src/channels/channel-role.decorator.ts:46:3 - (ae-undocumented) Missing documentation for "approves".
 // src/channels/channel-role.decorator.ts:70:1 - (ae-undocumented) Missing documentation for "ChannelRole".
-// src/channels/channel-role.decorator.ts:121:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/channel-role.decorator.ts:126:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/channels/channel-role.decorator.ts:127:3 - (ae-undocumented) Missing documentation for "deps".
-// src/channels/channel-role.decorator.ts:134:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/channel-role.decorator.ts:137:3 - (ae-undocumented) Missing documentation for "model".
-// src/channels/channel-role.decorator.ts:138:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/channels/channel-role.decorator.ts:139:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/channels/channel-role.decorator.ts:157:3 - (ae-undocumented) Missing documentation for "interpret".
-// src/channels/channel-role.decorator.ts:206:3 - (ae-undocumented) Missing documentation for "code".
-// src/channels/channel-role.decorator.ts:207:12 - (ae-undocumented) Missing documentation for "name".
-// src/channels/channel-role.decorator.ts:212:3 - (ae-undocumented) Missing documentation for "code".
-// src/channels/channel-role.decorator.ts:213:12 - (ae-undocumented) Missing documentation for "name".
+// src/channels/channel-role.decorator.ts:122:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/channels/channel-role.decorator.ts:131:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/channel-role.decorator.ts:132:3 - (ae-undocumented) Missing documentation for "deps".
+// src/channels/channel-role.decorator.ts:139:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/channels/channel-role.decorator.ts:142:3 - (ae-undocumented) Missing documentation for "model".
+// src/channels/channel-role.decorator.ts:143:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/channels/channel-role.decorator.ts:144:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/channel-role.decorator.ts:173:3 - (ae-undocumented) Missing documentation for "kind".
+// src/channels/channel-role.decorator.ts:174:3 - (ae-undocumented) Missing documentation for "decision".
+// src/channels/channel-role.decorator.ts:179:3 - (ae-undocumented) Missing documentation for "kind".
+// src/channels/channel-role.decorator.ts:180:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:188:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:213:3 - (ae-undocumented) Missing documentation for "interpret".
+// src/channels/channel-role.decorator.ts:261:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:262:3 - (ae-undocumented) Missing documentation for "cause".
+// src/channels/channel-role.decorator.ts:271:3 - (ae-undocumented) Missing documentation for "code".
+// src/channels/channel-role.decorator.ts:272:12 - (ae-undocumented) Missing documentation for "name".
+// src/channels/channel-role.decorator.ts:284:3 - (ae-undocumented) Missing documentation for "code".
+// src/channels/channel-role.decorator.ts:285:12 - (ae-undocumented) Missing documentation for "name".
 // src/channels/terminal-channel.ts:13:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/terminal-channel.ts:15:3 - (ae-undocumented) Missing documentation for "send".
 // src/channels/test-channels.ts:22:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
@@ -4967,13 +5030,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/errors.ts:99:3 - (ae-undocumented) Missing documentation for "threshold".
 // src/flow/runtime/errors.ts:121:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/errors.ts:122:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/execution-record.ts:17:3 - (ae-undocumented) Missing documentation for "path".
-// src/flow/runtime/execution-record.ts:18:3 - (ae-undocumented) Missing documentation for "scope".
-// src/flow/runtime/execution-record.ts:19:3 - (ae-undocumented) Missing documentation for "outdatedValues".
-// src/flow/runtime/execution-record.ts:20:3 - (ae-undocumented) Missing documentation for "lastError".
-// src/flow/runtime/execution-record.ts:21:3 - (ae-undocumented) Missing documentation for "spend".
-// src/flow/runtime/execution-record.ts:46:3 - (ae-undocumented) Missing documentation for "resolution".
-// src/flow/runtime/execution-record.ts:49:3 - (ae-undocumented) Missing documentation for "resolvedAt".
+// src/flow/runtime/execution-record.ts:18:3 - (ae-undocumented) Missing documentation for "path".
+// src/flow/runtime/execution-record.ts:19:3 - (ae-undocumented) Missing documentation for "scope".
+// src/flow/runtime/execution-record.ts:20:3 - (ae-undocumented) Missing documentation for "outdatedValues".
+// src/flow/runtime/execution-record.ts:21:3 - (ae-undocumented) Missing documentation for "lastError".
+// src/flow/runtime/execution-record.ts:22:3 - (ae-undocumented) Missing documentation for "spend".
+// src/flow/runtime/execution-record.ts:49:3 - (ae-undocumented) Missing documentation for "resolution".
+// src/flow/runtime/execution-record.ts:52:3 - (ae-undocumented) Missing documentation for "resolvedAt".
 // src/flow/runtime/launch/quorum-errors.ts:20:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/launch/quorum-errors.ts:21:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/launch/quorum-errors.ts:49:3 - (ae-undocumented) Missing documentation for "code".

@@ -83,6 +83,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
       expect(done.record?.pauses).toEqual([
         {
           pauseId: undefined,
+          executionId: done.runId,
           step: {
             component: { name: "treasurer-agent" },
             nodeId: "treasurer-agent",

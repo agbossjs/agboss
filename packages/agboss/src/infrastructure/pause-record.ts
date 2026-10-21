@@ -160,6 +160,7 @@ export function answerRecordOf(pause: PauseRecord, resolution: PauseResolution):
   const hasAnswer = !isWithoutAnswer(resolution);
   return {
     pauseId: pause.answeredBy === PauseAnswerer.Channel ? undefined : pause.pauseId,
+    executionId: pause.executionId,
     step: {
       component: { name: pause.agent },
       nodeId: pause.nodeId,
@@ -190,6 +191,7 @@ export const logPauseAnswer = (
 const optionalText = z.string().optional();
 const StoredPauseAnswer = z.object({
   pauseId: optionalText,
+  executionId: z.string(),
   step: z.object({
     component: z.object({ name: z.string() }),
     nodeId: z.string(),

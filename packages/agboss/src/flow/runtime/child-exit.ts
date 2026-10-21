@@ -8,7 +8,7 @@ import type { WorkflowRecord } from "../context/execution-context.js";
 import { ChildExecutionFailedError } from "./child-errors.js";
 import {
   ChildExecutionStatus,
-  type ChildExecutionRecord,
+  type EndedChildRecord,
   type ChildIdentityRecord,
   type ChildLaunchRecord,
 } from "./child-records.js";
@@ -50,7 +50,7 @@ export function childRecordOf(
     readonly usage: readonly UsageRecord[];
     readonly error?: unknown;
   },
-): ChildExecutionRecord {
+): EndedChildRecord {
   const { identity } = child;
   const isFinished = end.status === ChildExecutionStatus.Finished && state !== undefined;
   return {

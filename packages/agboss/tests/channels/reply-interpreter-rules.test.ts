@@ -2,7 +2,7 @@
  * #267 PR 3: reply interpreters are checked at assembly, all problems at once —
  * `[reply-interpreter.not-an-interpreter]` (a `replyInterpreter` without `@ReplyInterpreter`),
  * `[name.kind-suffix]` (`-reply-interpreter`), `[reply-interpreter.decision-model]` (a decision
- * model cannot give a typed answer), `[reply-interpreter.no-interpret-method]` (a code one without
+ * model for a question role: it answers only yes / no, S124 a), `[reply-interpreter.no-interpret-method]` (a code one without
  * `interpret`). A model interpreter's call is traced under the pause's execution: the trace's
  * callbacks see it.
  */
@@ -43,11 +43,43 @@ class PlainReader {}
 class DecisionModelReader {}
 
 @ReplyInterpreter({
+  name: "wire-jev-reply-interpreter",
+  description: "Reads whether a wire reply approves it",
+  decidedBy: DecidedBy.Model,
+  model: "typesafe/jev-1.13",
+})
+class JevReader {}
+
+@ReplyInterpreter({
   name: "wire-code-reply-interpreter",
   description: "Reads wire replies by code",
   decidedBy: DecidedBy.Code,
 })
 class MethodlessReader {}
+
+class WireQuestionDto {
+  @Text()
+  question!: string;
+}
+
+class WireAnswerDto {
+  @Text()
+  account!: string;
+}
+
+/** A question role naming `replyInterpreter`: its answer needs more than `approved`. */
+function questionUseOf(name: string, replyInterpreter: new () => object) {
+  @ChannelRole({
+    name,
+    description: "Asks which account a wire goes to",
+    ask: WireQuestionDto,
+    answer: WireAnswerDto,
+    answeredBy: PauseAnswerer.ThreadOwner,
+    replyInterpreter,
+  })
+  abstract class WireAccountChannel extends ChannelOf<WireAccountChannel> {}
+  return { tool: "wire", toolInput: WireRequestDto, channel: WireAccountChannel, workflow: "w" };
+}
 
 /** A role naming `replyInterpreter`, its use by one tool. */
 function useOf(name: string, replyInterpreter: new () => object) {
@@ -66,7 +98,7 @@ describe("#267 PR 3: reply interpreters at assembly", () => {
   it("every problem at once, each with its code", () => {
     const uses = [
       useOf("plain-approval-channel", PlainReader),
-      useOf("decision-approval-channel", DecisionModelReader),
+      questionUseOf("decision-account-channel", DecisionModelReader),
       useOf("methodless-approval-channel", MethodlessReader),
     ];
 
@@ -91,6 +123,23 @@ class SeenTrace extends BaseCallbackHandler {
   }
 }
 
+describe("#267 S124 a: a decision model reads an approval's yes / no only", () => {
+  it("an approval role may name a decision-model interpreter", () => {
+    const found = replyInterpreterViolations([useOf("decision-approval-channel", JevReader)]);
+
+    expect(found).toEqual([]);
+  });
+
+  it("a question role may not: its answer needs more than approved, and the message says so", () => {
+    const [found] = replyInterpreterViolations([questionUseOf("jev-account-channel", JevReader)]);
+
+    expect(found?.code).toBe("reply-interpreter.decision-model");
+    expect(found?.message).toContain(
+      "typesafe/jev-1.13 is a decision model — it answers only yes / no (approved), but channel role jev-account-channel asks for WireAnswerDto",
+    );
+  });
+});
+
 describe("#267 AC8: a model interpreter is a model use of its workflow", () => {
   it("its model resolves to a provider (agboss describe, check --models); a code one has none", async () => {
     const assembled = await applicationOf(TreasuryApplication);
@@ -103,6 +152,11 @@ describe("#267 AC8: a model interpreter is a model use of its workflow", () => {
         key: "replyInterpreters.payout-reply-interpreter",
         model: "test/payout-reader",
         provider: "openrouter-model-provider",
+      },
+      {
+        key: "replyInterpreters.deposit-reply-interpreter",
+        model: "typesafe/jev-1.13",
+        provider: "decisions-model-provider",
       },
     ]);
   });

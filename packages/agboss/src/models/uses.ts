@@ -45,7 +45,7 @@ export interface ModelNamingComponents {
   readonly arbiters?: readonly ModelNamingRouter[];
   /** The PII policies' model detections (#120). */
   readonly piiDetectors?: readonly ModelNamingRouter[] | undefined;
-  /** Reply interpreters (#267 PR 3): a model one's chat model. */
+  /** Reply interpreters (#267): a model one's chat or decision model. */
   readonly interpreters?: readonly ModelNamingInterpreter[] | undefined;
   /** Guardrails (#120 PR 2). */
   readonly guardrails?: readonly ModelNamingRouter[] | undefined;
@@ -90,9 +90,14 @@ export function modelUsesOf(
       purpose: purposeOf(arbiter.model),
     })),
     ...piiDetectors.map((detector) => chat(`pii.${detector.name}`, { model: detector.model })),
-    ...interpreters.flatMap(({ name, model }) =>
-      model === undefined ? [] : [chat(`replyInterpreters.${name}`, { model })],
-    ),
+    ...interpreters.flatMap(({ name, model }): readonly ModelUse[] => {
+      if (model === undefined) return [];
+      const key = `replyInterpreters.${name}`;
+      // a decision model reads an approval's yes / no (#267 S124 a)
+      return purposeOf(model) === ModelPurpose.Decision
+        ? [{ key, model, purpose: ModelPurpose.Decision }]
+        : [chat(key, { model })];
+    }),
     ...guardrails.map((guardrail): ModelUse => ({
       key: `guardrails.${guardrail.name}`,
       model: guardrail.model,

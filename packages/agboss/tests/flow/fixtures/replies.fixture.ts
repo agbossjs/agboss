@@ -3,17 +3,21 @@ import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handle
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
 import {
+  ReplyInterpretation,
   ReplyInterpreter,
   type ReplyInterpreterHandler,
 } from "../../../src/channels/channel-role.decorator.js";
 import { Integer, Text, WorkflowFinishTextDto } from "../../../src/dto/index.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
+import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
+import { listOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
+import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { PiiPolicy } from "../../../src/pii/pii-policy.decorator.js";
@@ -30,6 +34,8 @@ import { start } from "./paths.js";
  * words as they are (a model interpreter reads them), an expense confirmed by the thread's owner
  * through buttons whose value is a small JSON (a code interpreter reads it), and a transfer whose
  * role names no interpreter. What the channels were sent and the tools did is in `replyDesk`.
+ * #267 PR 4 (S124): a deposit return approved by a clerk whose words a decision model (Jev) reads — approve /
+ * refuse only — and a batch of requests, one treasury child per line, whose children pause.
  */
 
 export class PayoutRequestDto {
@@ -43,6 +49,11 @@ export class PayoutRequestDto {
 export class ExpenseRequestDto {
   @Text({ prompt: "what the expense is for" })
   purpose!: string;
+}
+
+export class DepositReturnDto {
+  @Text({ prompt: "the lease whose deposit is returned" })
+  leaseId!: string;
 }
 
 export class TransferRequestDto {
@@ -60,6 +71,8 @@ export const replyDesk = {
   asks: [] as ChannelAsk<PayoutApprovalChannel>[],
   confirmations: [] as ChannelAsk<ExpenseApprovalChannel>[],
   transfers: [] as ChannelAsk<TransferApprovalChannel>[],
+  depositAsks: [] as ChannelAsk<DepositApprovalChannel>[],
+  deposits: [] as string[],
   payouts: [] as PayoutRequestDto[],
   expenses: [] as string[],
   /** What the expense interpreter's `ExecutionContext` read: the pause's execution and step. */
@@ -127,18 +140,29 @@ export function treasuryLedger(): InMemoryCostLedgerRepository {
 })
 export class PayoutReplyInterpreter {}
 
+/** Reads a clerk's words on a deposit return on a decision model: approve or refuse, nothing more (S124 a). */
+@ReplyInterpreter({
+  name: "deposit-reply-interpreter",
+  description: "Reads whether a clerk's free-text reply approves a deposit return",
+  decidedBy: DecidedBy.Model,
+  model: "typesafe/jev-1.13",
+  prompt: "The clerk answered a deposit return.",
+})
+export class DepositReplyInterpreter {}
+
 /** The expense buttons' values, as the chat app sends them back: `{"approved":true}`, … */
 @Injectable()
 export class ExpenseButtonCodes {
-  decisionOf(value: string): OutputOf<ExpenseReplyInterpreter> {
+  /** A button's value read; another JSON value is not understood; a text that is no JSON crashes. */
+  interpretationOf(value: string): ReplyInterpretation<OutputOf<ExpenseReplyInterpreter>> {
     const parsed: unknown = JSON.parse(value);
     if (typeof parsed !== "object" || parsed === null || !("approved" in parsed))
-      throw new TypeError(`not an expense button value: ${value}`);
-    return { approved: parsed.approved === true };
+      return ReplyInterpretation.notUnderstood({ reason: `not an expense button: ${value}` });
+    return ReplyInterpretation.understood({ approved: parsed.approved === true });
   }
 }
 
-/** Reads the owner's button value with the expense codes; anything else is declined (it throws). */
+/** Reads the owner's button value with the expense codes (S124 b: an outcome, never a throw). */
 @ReplyInterpreter({
   name: "expense-reply-interpreter",
   description: "Turns an expense button's value into a decision",
@@ -151,11 +175,13 @@ export class ExpenseReplyInterpreter implements ReplyInterpreterHandler<ExpenseR
     private readonly expenseButtonCodes: ExpenseButtonCodes,
   ) {}
 
-  interpret(input: InputOf<ExpenseReplyInterpreter>): Promise<OutputOf<ExpenseReplyInterpreter>> {
+  interpret(
+    input: InputOf<ExpenseReplyInterpreter>,
+  ): ReplyInterpretation<OutputOf<ExpenseReplyInterpreter>> {
     const { tenant, ownerId, step } = this.executionContext;
     const { nodeId, callId } = step;
     replyDesk.readings.push({ tenantId: tenant.tenantId, ownerId, nodeId, callId });
-    return Promise.resolve(this.expenseButtonCodes.decisionOf(input.reply));
+    return this.expenseButtonCodes.interpretationOf(input.reply);
   }
 }
 
@@ -178,6 +204,15 @@ export abstract class PayoutApprovalChannel extends ChannelOf<PayoutApprovalChan
 export abstract class ExpenseApprovalChannel extends ChannelOf<ExpenseApprovalChannel> {}
 
 @ChannelRole({
+  name: "deposit-approval-channel",
+  description: "A clerk approves deposit returns",
+  approves: DepositReturnDto,
+  answeredBy: PauseAnswerer.Channel,
+  replyInterpreter: DepositReplyInterpreter,
+})
+export abstract class DepositApprovalChannel extends ChannelOf<DepositApprovalChannel> {}
+
+@ChannelRole({
   name: "transfer-approval-channel",
   description: "Approves transfers (typed decisions only)",
   approves: TransferRequestDto,
@@ -197,6 +232,14 @@ export class DeskPayoutApprovalChannel extends PayoutApprovalChannel {
 export class ButtonExpenseApprovalChannel extends ExpenseApprovalChannel {
   send(ask: ChannelAsk<ExpenseApprovalChannel>): Promise<ChannelOutcome<ExpenseApprovalChannel>> {
     replyDesk.confirmations.push(ask);
+    return Promise.resolve(ChannelOutcome.awaitReply());
+  }
+}
+
+@Channel({ name: "desk-deposit-approval-channel", description: "Asks the clerk on duty" })
+export class DeskDepositApprovalChannel extends DepositApprovalChannel {
+  send(ask: ChannelAsk<DepositApprovalChannel>): Promise<ChannelOutcome<DepositApprovalChannel>> {
+    replyDesk.depositAsks.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -238,6 +281,20 @@ export class BookExpenseTool implements ToolHandler<ExpenseRequestDto, ReplyDesk
 }
 
 @Tool({
+  name: "return_deposit",
+  description: "Returns a deposit",
+  input: DepositReturnDto,
+  output: ReplyDeskDoneDto,
+  channel: DepositApprovalChannel,
+})
+export class ReturnDepositTool implements ToolHandler<DepositReturnDto, ReplyDeskDoneDto> {
+  run({ leaseId }: DepositReturnDto): Promise<ReplyDeskDoneDto> {
+    replyDesk.deposits.push(leaseId);
+    return Promise.resolve({ status: `returned the deposit of ${leaseId}` });
+  }
+}
+
+@Tool({
   name: "transfer",
   description: "Transfers money",
   input: TransferRequestDto,
@@ -256,7 +313,7 @@ export class TransferTool implements ToolHandler<TransferRequestDto, ReplyDeskDo
   prompt: "Do what is asked.",
   model: "test/treasurer",
   input: { message: WorkflowStartTextDto },
-  tools: [PayOutTool, BookExpenseTool, TransferTool],
+  tools: [PayOutTool, BookExpenseTool, TransferTool, ReturnDepositTool],
 })
 export class TreasurerAgent {}
 
@@ -316,6 +373,63 @@ export class TreasuryDeskWorkflowFinish {}
 })
 export class TreasuryDeskWorkflow {}
 
+@WorkflowStart({
+  name: "treasury-batch-workflow-start",
+  description: "Several requests, one per line",
+  input: WorkflowStartTextDto,
+})
+export class TreasuryBatchWorkflowStart {}
+
+@Action({
+  name: "split-requests-action",
+  description: "One request per line",
+  input: { message: WorkflowStartTextDto },
+  output: listOf(WorkflowStartTextDto),
+})
+export class SplitRequestsAction implements ActionHandler<SplitRequestsAction> {
+  execute(input: InputOf<SplitRequestsAction>): Promise<OutputOf<SplitRequestsAction>> {
+    return Promise.resolve(
+      input.message.value.text
+        .split("\n")
+        .map((text) => ({ text })),
+    );
+  }
+}
+
+@Agent({
+  name: "batch-summary-agent",
+  description: "Sums the treasury's answers up",
+  prompt: "Sum the answers up.",
+  model: "test/batch-summary",
+  input: { answers: listOf(WorkflowFinishTextDto) },
+})
+export class BatchSummaryAgent {}
+
+@WorkflowFinish({
+  name: "treasury-batch-workflow-finish",
+  description: "The batch's answer",
+  output: WorkflowFinishTextDto,
+})
+export class TreasuryBatchWorkflowFinish {}
+
+/** One treasury child per line (#263): each child's pauses are its own record's (#267 S124 c). */
+@Workflow({
+  name: "treasury-batch-workflow",
+  version: "1.0.0",
+  flow: [
+    start(TreasuryBatchWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toAction(SplitRequestsAction)
+      .returns(listOf(WorkflowStartTextDto))
+      .toParallelWorkflows(TreasuryWorkflow, { maxConcurrency: 2, maxItems: 3 })
+      .join()
+      .returns(listOf(WorkflowFinishTextDto))
+      .toAgent(BatchSummaryAgent)
+      .toFinish(TreasuryBatchWorkflowFinish),
+  ],
+})
+export class TreasuryBatchWorkflow {}
+
 /** The decisions' e-mail addresses are hidden from logs, traces and records. */
 @PiiPolicy({
   name: "treasury-pii-policy",
@@ -331,6 +445,7 @@ const treasuryChannels = [
   DeskPayoutApprovalChannel,
   ButtonExpenseApprovalChannel,
   DeskTransferApprovalChannel,
+  DeskDepositApprovalChannel,
   SeenTreasuryPausedExecutionRepository,
   SeenTreasuryCostLedgerRepository,
 ];
@@ -339,7 +454,7 @@ const treasuryChannels = [
   name: "treasury-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [TreasuryWorkflow, TreasuryDeskWorkflow],
+  workflows: [TreasuryWorkflow, TreasuryDeskWorkflow, TreasuryBatchWorkflow],
   budgets: TEST_BUDGETS,
   providers: treasuryChannels,
   piiPolicies: [TreasuryPiiPolicy],

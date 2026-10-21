@@ -20,6 +20,13 @@ self-review before every PR.
   `agboss/no-component-state`) and never a `Map<executionId, …>` in a component.
 - **Pure core, effectful edges.** Business logic is pure; I/O (LLM, network, fs) sits at the
   boundary behind a small interface.
+- **A new runtime subsystem loads lazily (#120 S123 c, #267 S124 d).** What is not needed at import
+  time — a subsystem that runs only once an execution reaches it — is loaded with a dynamic
+  `import()` on first use, the way tracing, MCP, SQLite and reply reading are (`lazyReplyAnswering`
+  in `src/app/resume.ts`); the root import keeps only decorators, types and the small values they
+  build. The root import stays under its module budget (`MODULE_BUDGET` = 1,400 in
+  `tests/public-api/side-effects.test.ts`) — never raise it to make room: move the new code behind a
+  lazy import instead.
 - **Names say intent.** `routeToolCall`, not `handle`. Booleans read as questions: `isFinal`,
   `hasToolCalls`. Full words; kept abbreviations: DTO, PII, MCP, RAG, JSON, CSV, CLI, URL, ID, API
   (and `id`, `url`, `llm` in code).

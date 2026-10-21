@@ -10,7 +10,8 @@ import type { StepRecord } from "../context/execution-context.js";
  * The full record of one execution (#270 AC16), returned only with `app.execute(…, { record: true })`:
  * the path, every value of the path scope (with who gave it and what it was built from), the values
  * moved out of it (#271), the last handled error, the spend, its child executions, each nested
- * the same way (#263), and who answered each pause of its tree and how (#267 S107).
+ * the same way (#263) with the pauses it asked (#267 S124 c), and who answered each pause of its
+ * tree and how (#267 S107).
  * `result.output` stays the business result only.
  */
 export interface ExecutionRecord {
@@ -32,6 +33,8 @@ export interface ExecutionRecord {
 export interface PauseAnswerRecord {
   /** Its id — `undefined` for a `PauseAnswerer.Channel` pause: only its channel has it (S100 b). */
   readonly pauseId: string | undefined;
+  /** The execution it waited in: the root's, or a child's (its `ChildExecutionRecord.pauses`, S124 c). */
+  readonly executionId: string;
   /** The waiting step: its agent, node, visit, copy, item and tool call. */
   readonly step: StepRecord;
   /** The channel asked: a role's name or a concrete `@Channel`'s. */

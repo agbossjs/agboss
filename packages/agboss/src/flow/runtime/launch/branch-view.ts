@@ -6,7 +6,7 @@ import type { ScopeRecords } from "../records.js";
 import type { ExecutionStateType } from "../state.js";
 import type { FrameSpec } from "../../context/frame.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
-import type { ChildExecutionRecord } from "../child-records.js";
+import type { EndedChildRecord } from "../child-records.js";
 import { stepFrameAt } from "../step-frame.js";
 import type { VisitDeps } from "../visit.js";
 import type { LiveLaunch } from "./launch-registry.js";
@@ -154,7 +154,7 @@ export interface BranchFrameRun {
   readonly live: LiveLaunch;
   readonly deps: VisitDeps;
   readonly services: UsageRecord[];
-  readonly children: ChildExecutionRecord[];
+  readonly children: EndedChildRecord[];
   piiTokens: PiiTokenMap;
 }
 
@@ -170,7 +170,7 @@ export function branchFrameOf(run: BranchFrameRun, view: ExecutionStateType): Br
   const reportUsage = (record: UsageRecord): void => {
     run.services.push({ ...record, caller: `${node.kind}:${node.id}` });
   };
-  const recordChild = (record: ChildExecutionRecord): void => {
+  const recordChild = (record: EndedChildRecord): void => {
     run.children.push(record);
   };
   const keepPiiTokens = (tokens: PiiTokenMap): void =>
