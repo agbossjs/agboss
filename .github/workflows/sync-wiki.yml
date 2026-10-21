@@ -1,12 +1,17 @@
 name: Sync Wiki
 
 # The Wiki's pages are written in PRs and parked in the `docs/wiki-pending` branch of this
-# repository (#341); this publishes that branch to the Wiki's `master`. Fast-forward only: a page
-# edited in the Wiki's web UI and missing from the branch stops the sync instead of being lost.
+# repository (#341); this publishes that branch to the Wiki's `master` once `main`'s CI — which
+# checks `docs/wiki-pending` against the code — has passed. (A `push` trigger on that branch never
+# fires: GitHub reads the workflow from the pushed branch, and the Wiki branch has no `.github/`.)
+# Fast-forward only: a page edited in the Wiki's web UI and missing from the branch stops the sync
+# instead of being lost.
 
 on:
-  push:
-    branches: [docs/wiki-pending]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -18,6 +23,7 @@ concurrency:
 
 jobs:
   sync:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
