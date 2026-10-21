@@ -1,11 +1,10 @@
 import { AGBossError } from "../core/errors.js";
 
 /**
- * The instance lost the lease of the tree it was moving (#265, Q58): the lease expired — the
- * holder was frozen or cut off longer than the lease — and another instance took it, or may take
- * it now (#335: the lease store did not answer until the lease ran out); the other instance
- * continues the tree. Not a failure of the execution: it reaches neither `.onError`, `onError` nor
- * the execution record; only the call that was moving the tree rejects with it.
+ * The instance lost the lease of the tree it was moving (#265, Q58): the lease expired — the holder
+ * was frozen or cut off longer than the lease, or its store never confirmed a renewal (#335) — and
+ * another instance took it or may take it now, and continues the tree. Not a failure of the
+ * execution: it reaches neither `.onError`, `onError` nor the record; only the moving call rejects.
  */
 export class ExecutionLeaseLostError extends AGBossError {
   static override readonly code: string = "execution.lease-lost";
