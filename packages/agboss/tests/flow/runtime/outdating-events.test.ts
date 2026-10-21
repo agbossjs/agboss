@@ -1,4 +1,5 @@
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
+import { bareRecordOf, ComponentKind } from "../../../src/flow/runtime/records.js";
 import type { ChainValues } from "@langchain/core/utils/types";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ExecutionObserverManager } from "../../../src/core/observer-manager.js";
@@ -104,7 +105,12 @@ describe("#271 AC10: onValuesOutdated", () => {
         idempotencyKey: `${result.executionId}:loop-writer-agent:2`,
       },
     });
-    expect(Object.keys(event?.step.component ?? {})).toEqual(["name"]);
+    expect(Object.keys(event?.step.component ?? {})).toEqual([
+      "name",
+      "kind",
+      "promptHash",
+      "schemaHash",
+    ]);
   });
 
   loop("a first write fires nothing", async ({ app, mockLlm }) => {
@@ -161,15 +167,24 @@ describe("#271 rule 11: the trace entry of a cascade", () => {
     const observer = new ExecutionObserverManager([
       { onValuesOutdated: (event) => void seen.push(event) },
     ]);
-    const workflow = { type: LoopWorkflow, name: "w", version: "1", startedVersion: "1" };
+    const workflow = {
+      type: LoopWorkflow,
+      name: "w",
+      version: "1",
+      startedVersion: "1",
+      configHash: "hash",
+    };
+    const writer = bareRecordOf("writer-agent", ComponentKind.Agent);
     const step = {
-      component: { type: LoopWriterAgent, name: "writer-agent" },
+      component: { type: LoopWriterAgent, ...writer },
       nodeId: "writer-agent",
       visitNumber: 2,
       idempotencyKey: "e:writer-agent:2",
       callId: undefined,
       itemIndex: undefined,
       copyNumber: 1,
+      toolLoopIteration: undefined,
+      validationAttempts: 0,
     };
     const { tenant } = testExecutionContext();
     const execution = {
@@ -197,6 +212,6 @@ describe("#271 rule 11: the trace entry of a cascade", () => {
       ],
     });
     expect(JSON.stringify(trace.runs)).not.toContain("secret");
-    expect(seen.map((event) => event.step.component)).toEqual([{ name: "writer-agent" }]);
+    expect(seen.map((event) => event.step.component)).toEqual([writer]);
   });
 });

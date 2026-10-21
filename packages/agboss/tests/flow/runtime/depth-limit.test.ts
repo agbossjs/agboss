@@ -58,7 +58,12 @@ describe("AC6: .toWorkflow(ThisWorkflow) by code past maxDepth", () => {
   });
 
   test("the error names the limit as the decorator does and the depth reached", () => {
-    const workflow = { name: "countdown-workflow", version: "1.0.0", startedVersion: "1.0.0" };
+    const workflow = {
+      name: "countdown-workflow",
+      version: "1.0.0",
+      startedVersion: "1.0.0",
+      configHash: "hash",
+    };
     const error = new DepthLimitExceededError(workflow, 3, ["countdown-action"]);
 
     expect(error).toBeInstanceOf(LimitExceededError);

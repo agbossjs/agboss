@@ -1,5 +1,6 @@
 import { END, Send, START, StateGraph, type BaseCheckpointSaver } from "@langchain/langgraph";
 import { agentDefinitions } from "../../graph/agent-definitions.js";
+import { workflowIdentityOf } from "./workflow-keys.js";
 import {
   agentLoopGraph,
   noJudges,
@@ -168,11 +169,10 @@ function childGraphsOf(
         `${deps.config.name}: ${node.id} runs only inside its application (createApp / testWith), and never inside itself`,
       );
     const graph = compile(childDeps, run, checkpointer, [...chain, deps.graph.type]);
-    const { name, version } = childDeps.config;
     children.set(node.id, {
       deps: childDeps,
       graph,
-      workflow: { type: node.component, name, version },
+      workflow: workflowIdentityOf(childDeps, node.component),
       isRecursive: false,
     });
   }

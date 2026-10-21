@@ -1,6 +1,7 @@
 import type { UsageRecord } from "../../finops/usage.js";
 import { StepFailedError, stepCoordinatesOf } from "../../graph/errors.js";
 import type { WorkflowRecord } from "../context/execution-context.js";
+import { ComponentKind } from "./records.js";
 
 /**
  * A child execution failed (#263 S25): an uncaught error of the child — its step's failure or one
@@ -22,7 +23,7 @@ export class ChildExecutionFailedError extends StepFailedError {
     cause: unknown,
     usage: readonly UsageRecord[],
   ) {
-    const step = stepCoordinatesOf(child.workflow.name);
+    const step = stepCoordinatesOf(child.workflow.name, ComponentKind.Workflow);
     const item = step.itemIndex === undefined ? "" : `, item ${String(step.itemIndex)}`;
     const reason = cause instanceof Error ? cause.message : String(cause);
     const message = `Child workflow "${child.workflow.name}" (execution ${child.executionId}${item}) failed: ${reason}`;
@@ -30,6 +31,7 @@ export class ChildExecutionFailedError extends StepFailedError {
       name: child.workflow.name,
       version: child.workflow.version,
       startedVersion: child.workflow.startedVersion,
+      configHash: child.workflow.configHash,
     };
     super(message, usage, cause, step, { childExecutionId: child.executionId, workflow });
     this.childExecutionId = child.executionId;

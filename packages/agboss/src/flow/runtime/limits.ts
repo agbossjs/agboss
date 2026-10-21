@@ -6,6 +6,7 @@ import { VisitsLimitExceededError } from "./errors.js";
 import type { RuntimeNode } from "./graph-model.js";
 import type { ExecutionStateType } from "./state.js";
 import { startedVersionOf, type WorkflowIdentity } from "./step-frame.js";
+import { plainRecordOf, type ComponentRecord } from "./records.js";
 
 /**
  * What is checked before an agent or a router runs (#272 AC14, #261): the node's own `maxVisits`,
@@ -30,12 +31,13 @@ export async function checkVisit(
   node: RuntimeNode,
   limits: ExecutionLimits,
   workflow: WorkflowIdentity,
+  component: ComponentRecord,
 ): Promise<void> {
   const path = [...state.path, node.id];
   const spent = totalCost(state.usage);
   const visits = (state.visits[node.id] ?? 0) + 1;
   if (node.maxVisits !== undefined && visits > node.maxVisits) {
-    throw new VisitsLimitExceededError(node.id, node.maxVisits, path, spent);
+    throw new VisitsLimitExceededError(plainRecordOf(component), node.maxVisits, path, spent);
   }
   if (state.steps + 1 > limits.maxSteps) {
     const record = { ...workflow, startedVersion: startedVersionOf(state, workflow) };

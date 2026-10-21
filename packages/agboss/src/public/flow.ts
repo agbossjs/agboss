@@ -189,6 +189,7 @@ export {
 export type { ComponentRecord } from "../flow/runtime/records.js";
 export type { ExecutionRecord, PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 export {
+  ComponentKind,
   OutdatedReason,
   type OutdatedMark,
   type OutdatedValueRecord,

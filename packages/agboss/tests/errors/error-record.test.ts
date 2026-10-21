@@ -48,7 +48,7 @@ describe("#194: error records", () => {
         key: "run-1",
         limit: 0.01,
         actual: 0.02,
-        budget: { name: "shop-execution-budget" },
+        budget: { name: "shop-execution-budget", kind: "budget" },
         scope: "execution",
         maxSpend: 0.01,
         spent: 0.02,

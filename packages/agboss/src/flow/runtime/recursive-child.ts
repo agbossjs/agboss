@@ -1,6 +1,7 @@
 import type { GraphDeps } from "../../graph/deps.js";
 import type { ExecutionGraph } from "./build.js";
 import type { ChildGraph } from "./child.js";
+import { workflowIdentityOf } from "./workflow-keys.js";
 
 /**
  * `ThisWorkflow` in the compiled graph (#264): the node runs the workflow's own graph, read when its
@@ -15,10 +16,10 @@ export interface OwnGraph {
 
 /** `ThisWorkflow`: the workflow again, on its own deps, its graph read when the step runs. */
 export function recursiveChildOf(deps: GraphDeps<string>, self: OwnGraph): ChildGraph {
-  const { name, version } = deps.config;
+  const { name } = deps.config;
   return {
     deps,
-    workflow: { type: deps.graph.type, name, version },
+    workflow: workflowIdentityOf(deps),
     isRecursive: true,
     get graph(): ExecutionGraph {
       if (self.graph === undefined)

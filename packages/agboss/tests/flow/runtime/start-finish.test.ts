@@ -27,7 +27,7 @@ describe("#270 AC20 / AC21: starts with a map of fields or a list, typed by the 
     });
 
     expect(result.status).toBe(ExecutionStatus.Finished);
-    expect(result.finish).toEqual({ name: "company-score-workflow-finish" });
+    expect(result.finish).toMatchObject({ name: "company-score-workflow-finish" });
     expect(result).toFinishWith(CompanyScoreWorkflowFinish, { score: "strong" });
     expect(result.record).toBeUndefined();
     const { input } = mockLlm(CompanyCheckAgent).onlyRequest;

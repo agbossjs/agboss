@@ -13,6 +13,7 @@ import {
   ExecutionCancelledError,
 } from "../../../src/index.js";
 import { stepCoordinatesOf } from "../../../src/graph/errors.js";
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { codeOfErrorClass, errorMatchOf } from "../../../src/core/error-record.js";
 import { runInFrame } from "../../../src/flow/context/frame.js";
 import { testExecutionContext, testWith } from "../../../src/testing/index.js";
@@ -66,9 +67,9 @@ describe("S22: the StepFailedError family", () => {
     expect(new RouterDecisionError(step, "no route")).toBeInstanceOf(StepFailedError);
     expect(new ActionFailedError("charge-action", "boom")).toBeInstanceOf(StepFailedError);
     expect(new GuardFailedError("pii", [], "no answer")).toBeInstanceOf(StepFailedError);
-    expect(new StepFailedError("x", [], undefined, stepCoordinatesOf("x"))).toBeInstanceOf(
-      PaidStepError,
-    );
+    expect(
+      new StepFailedError("x", [], undefined, stepCoordinatesOf("x", ComponentKind.Action)),
+    ).toBeInstanceOf(PaidStepError);
     const limit = new LimitExceededError({ key: "maxSteps", limit: 1, actual: 2 }, [], 0);
     expect(limit).not.toBeInstanceOf(StepFailedError);
   });

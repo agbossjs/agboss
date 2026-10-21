@@ -7,6 +7,7 @@
  * recovery sweep on the `Clock`: within it a late answer is `NotPausedError`, after it
  * `UnknownPauseError`; a pending pause is never removed.
  */
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import {
@@ -85,13 +86,20 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
           pauseId: undefined,
           executionId: done.executionId,
           step: {
-            component: { name: "treasurer-agent" },
+            component: {
+              name: "treasurer-agent",
+              kind: ComponentKind.Agent,
+              promptHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+              schemaHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+            },
             nodeId: "treasurer-agent",
             visitNumber: 1,
             idempotencyKey: `${done.executionId}:treasurer-agent:1:call-1`,
             callId: "call-1",
             itemIndex: undefined,
             copyNumber: 1,
+            toolLoopIteration: 1,
+            validationAttempts: 0,
           },
           role: "payout-approval-channel",
           answeredBy: PauseAnswerer.Channel,

@@ -10,6 +10,7 @@ import { TestSetupError } from "./errors.js";
 import { nodeNameOf } from "./failure-facts.js";
 import { toolNameOf } from "./script.js";
 import { standaloneCallFrameOf } from "../flow/context/call-frame.js";
+import { workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
 import { runInFrame } from "../flow/context/frame.js";
 import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import { defaultTenantOf, standaloneContexts } from "../flow/context/runtime-contexts.js";
@@ -43,8 +44,7 @@ export function toolSlice<TInput, TOutput>(
 ): ToolSlice<TInput, TOutput> {
   const name = toolNameOf(cls);
   const tool = built.deps.tools(name);
-  const { type } = built.bundle.graph;
-  const workflow = { type, name: built.deps.config.name, version: built.deps.config.version };
+  const workflow = workflowIdentityOf(built.deps);
   const signal = new AbortController().signal;
   const call = {
     workflow,

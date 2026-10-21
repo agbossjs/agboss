@@ -6,6 +6,7 @@ import type { HistoryTurn } from "../../flow/runtime/history.js";
 import type { ApprovalRecord } from "../../pause/index.js";
 import type { SensitiveValue } from "../../pii/policy-set.js";
 import { mergeTokens, type PiiTokenMap } from "../../pii/tokens.js";
+import type { LoopProgress } from "../../flow/context/frame.js";
 
 const append = <TItem>(left: readonly TItem[], right: readonly TItem[]): TItem[] => [
   ...left,
@@ -81,6 +82,8 @@ export const AgentLoopState = Annotation.Root({
   retries: Annotation<number>({ reducer: add, default: () => 0 }),
   /** Invalid answers so far (S9: 2 retries, then `AgentAnswerInvalidError`). */
   invalidAnswers: Annotation<number>({ reducer: add, default: () => 0 }),
+  /** Tool calls whose arguments failed their tool's input check so far (#268 S93). */
+  invalidArguments: Annotation<number>({ reducer: add, default: () => 0 }),
   /** The execution's PII tokens (#120 S38): handed in, every new one added by key. */
   piiTokens: Annotation<PiiTokenMap>({ reducer: mergeTokens, default: () => ({}) }),
   /** Texts this loop already masked for its model, by role and hash (`maskCacheKey`, #120). */
@@ -106,7 +109,19 @@ export interface ToolTask {
   readonly runId: string;
   /** The execution's key of field tokens (#334); absent (a task of an old checkpoint) or null = the policies'. */
   readonly piiKey?: string | null;
+  /** The loop's progress when its move was made (#268 S93); absent in a task from before it. */
+  readonly progress?: LoopProgress;
 }
+
+/**
+ * The loop's progress (#268 S93): its model calls so far — the iteration of the move under way —
+ * plus `next` for the call about to be made, and its answers and tool arguments that failed
+ * validation so far.
+ */
+export const loopProgressOf = (state: AgentLoopStateType, next = 0): LoopProgress => ({
+  toolLoopIteration: state.modelCalls + next,
+  validationAttempts: state.invalidAnswers + state.invalidArguments,
+});
 
 export const LOOP_NODE = {
   input: "input",

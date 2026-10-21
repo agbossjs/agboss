@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
 import { ExecutionStatus, type ExecutionOutput } from "../../src/app/types.js";
 import { buildCostReport } from "../../src/finops/usage.js";
 import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
@@ -35,7 +36,7 @@ const run = (parts: Partial<ExecutionOutput>): ExecutionOutput => ({
   launches: [],
   children: [],
   handledErrors: [],
-  finish: { name: "reply-workflow-finish" },
+  finish: bareRecordOf("reply-workflow-finish", ComponentKind.WorkflowFinish),
   output: { text: "Hi." },
   pending: [],
   ...parts,

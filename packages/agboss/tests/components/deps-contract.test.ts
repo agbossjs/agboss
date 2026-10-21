@@ -55,7 +55,7 @@ describe("#183 AC1: every decorator kind with deps gets them injected at run tim
 
   it("@Rag, @WorkflowAction: each ran with its dependency during the run", async () => {
     const { app, result } = await runVault();
-    expect(result.finish).toEqual({ name: "kept-workflow-finish" });
+    expect(result.finish).toMatchObject({ name: "kept-workflow-finish" });
     expect(seen).toContain("rag:s3cret");
     expect(seen).toContain("action:s3cret");
     await app.close();

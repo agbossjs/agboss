@@ -7,6 +7,7 @@ import { reportOutdating } from "../outdating-report.js";
 import { writeAndOutdate } from "../outdating.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { stepFrameAt } from "../step-frame.js";
+import { handledErrorOf, type ComponentRecords } from "../workflow-keys.js";
 import type { VisitDeps } from "../visit.js";
 import { finishedOf, joinValuesOf } from "./join-values.js";
 import type { LaunchRegistry, LiveLaunch } from "./launch-registry.js";
@@ -86,6 +87,7 @@ const visitsOf = (ticket: LaunchTicket): Record<string, number> =>
 
 /** A failed launch: its `.onJoinError(…)` side path, else the branch's error. */
 function failedJoin(
+  records: ComponentRecords,
   launch: RuntimeLaunch,
   failed: { readonly record: BranchOutcomeRecord; readonly node: string },
   thrown: unknown,
@@ -98,7 +100,7 @@ function failedJoin(
   };
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
   if (handler !== undefined) {
-    const handled = { error: record, at: { name: failed.node }, by: { name: handler.to } };
+    const handled = handledErrorOf(records, record, failed.node, handler.to);
     return { lastError: record, next: handler.to, handledErrors: [handled] };
   }
   // the branch's error as it was thrown; read back from its record when another process ran it
@@ -130,7 +132,7 @@ async function joinedValues(
   const node = deps.graph.nodes.get(ticket.launcher);
   if (node !== undefined && result.cascades.length > 0) {
     const at = { node, visitNumber: ticket.visitNumber };
-    const frame = stepFrameAt(at, state, context.config, deps.workflow, deps.contexts);
+    const frame = stepFrameAt(at, state, context.config, deps);
     const outdatedSoFar = [...state.outdatedValues, ...result.outdated];
     const report = { observer: deps.observer, config: context.config, ...frame, outdatedSoFar };
     await reportOutdating(result.cascades, report);
@@ -189,7 +191,7 @@ export function joinNode(launch: RuntimeLaunch, deps: JoinDeps): GraphNode {
     deps.branchErrors?.forgetLaunch(ticket.launchId);
     if (failed !== undefined) {
       const node = ticket.branches[failed.index]?.node ?? ticket.launcher;
-      return { ...done, ...failedJoin(launch, { record: failed, node }, thrown) };
+      return { ...done, ...failedJoin(deps, launch, { record: failed, node }, thrown) };
     }
     const context = config === undefined ? { state, deps } : { state, config, deps };
     if (launch.quorum !== undefined)

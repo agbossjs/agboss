@@ -7,15 +7,25 @@ import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { IncompatibleResumeError } from "../run/resume-guard.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { isHandedOver } from "./handed-over.js";
+import type { GraphDeps } from "../graph/deps.js";
+import { joinKeysOf } from "../flow/runtime/workflow-keys.js";
 
 const asError = (error: unknown): Error =>
   error instanceof Error ? error : new Error(String(error));
 
-/** The workflow an app runs: its name and the version it runs now. */
+/** The workflow an app runs: its name, the version it runs now and its `configHash` (#268 S93). */
 export interface RunningWorkflow {
   readonly name: string;
   readonly version: string;
+  readonly configHash: string;
 }
+
+/** The workflow its run dependencies run. */
+const runningWorkflowOf = (deps: GraphDeps<string>): RunningWorkflow => ({
+  name: deps.config.name,
+  version: deps.config.version,
+  configHash: joinKeysOf(deps).configHash,
+});
 
 /** An execution as its events name it: its id, thread, tenant and the version it started on. */
 export interface ObservedExecution {
@@ -28,6 +38,11 @@ export interface ObservedExecution {
 /** The common part of a root execution's events: it is its own root (a child's are `child.ts`'s). */
 export const executionEventAt = (
   execution: ObservedExecution,
+  deps: GraphDeps<string>,
+): ExecutionEvent => eventOfWorkflow(execution, runningWorkflowOf(deps));
+
+const eventOfWorkflow = (
+  execution: ObservedExecution,
   workflow: RunningWorkflow,
 ): ExecutionEvent => ({
   executionId: execution.runId,
@@ -35,7 +50,12 @@ export const executionEventAt = (
   rootExecutionId: execution.runId,
   threadId: execution.threadId,
   tenantId: execution.tenantId,
-  workflow: { ...workflow, startedVersion: execution.startedVersion },
+  workflow: {
+    name: workflow.name,
+    version: workflow.version,
+    startedVersion: execution.startedVersion,
+    configHash: workflow.configHash,
+  },
 });
 
 /**
@@ -116,7 +136,7 @@ function rejectionOf(request: ExecutionRequest, error: unknown): ExecutionReject
  */
 export async function admitRequest<T>(
   observer: ExecutionObserverManager,
-  workflow: RunningWorkflow,
+  deps: GraphDeps<string>,
   request: ExecutionRequest,
   checks: () => Promise<T>,
 ): Promise<T> {
@@ -130,7 +150,7 @@ export async function admitRequest<T>(
         tenantId: request.tenantId ?? DEFAULT_TENANT_ID,
         startedVersion: error.paused.workflowVersion,
       };
-      await observer.onExecutionError({ ...executionEventAt(paused, workflow), error });
+      await observer.onExecutionError({ ...executionEventAt(paused, deps), error });
     } else await observer.onExecutionRejected(rejectionOf(request, error));
     throw error;
   }

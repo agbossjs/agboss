@@ -1,5 +1,6 @@
 import type { UsageRecord } from "../../../finops/usage.js";
 import { StepFailedError, stepCoordinatesOf, type StepCoordinates } from "../../../graph/errors.js";
+import { ComponentKind } from "../records.js";
 
 /**
  * The two failures of a quorum (#279): an arbiter could not judge an answer (`ArbiterError`) — not a
@@ -23,7 +24,7 @@ export class ArbiterError extends StepFailedError {
   readonly arbiter: string;
 
   constructor(arbiter: string, cause: unknown, usage: readonly UsageRecord[] = []) {
-    const step = stepCoordinatesOf(arbiter);
+    const step = stepCoordinatesOf(arbiter, ComponentKind.Arbiter);
     const message = `Arbiter "${arbiter}" failed on the answer of ${step.nodeId}: ${describe(cause)}`;
     super(message, usage, cause, step, { arbiter });
     this.arbiter = arbiter;

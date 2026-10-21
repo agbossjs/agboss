@@ -1,3 +1,4 @@
+import { nodeRecordIn, workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
 import {
   meterOf,
   type ApplicationBudgets,
@@ -92,11 +93,11 @@ function pauseWorkflowOf(
   state: TreeState,
 ): { readonly own: GraphDeps<string>; readonly workflow: WorkflowDescriptor } {
   const own = graphDepsNamed(deps, pause.workflow) ?? deps;
-  const { name, version } = own.config;
   // the root's version it started on is in its state; a child's is its own (it started with it)
   const kept = own === deps ? (state.startedVersion ?? "") : "";
-  const startedVersion = kept === "" ? version : kept;
-  return { own, workflow: { type: own.graph.type, name, version, startedVersion } };
+  const identity = workflowIdentityOf(own);
+  const startedVersion = kept === "" ? identity.version : kept;
+  return { own, workflow: { ...identity, startedVersion } };
 }
 
 /** The waiting step of a pause: its agent, node, visit, item, copy and tool call. */
@@ -105,13 +106,15 @@ function pauseStepOf(pause: PauseRecord, own: GraphDeps<string>): StepDescriptor
   const callId = pause.ask.callId;
   const type = own.graph.nodes.get(pause.agent)?.component ?? own.graph.type;
   return Object.freeze({
-    component: { type, name: pause.agent },
+    component: { type, ...nodeRecordIn(own, pause.agent) },
     nodeId,
     visitNumber,
     idempotencyKey: idempotencyKeyOf({ executionId, nodeId, visitNumber, itemIndex, callId }),
     callId,
     itemIndex,
     copyNumber: pause.copyNumber,
+    toolLoopIteration: pause.toolLoopIteration,
+    validationAttempts: pause.validationAttempts ?? 0,
   });
 }
 

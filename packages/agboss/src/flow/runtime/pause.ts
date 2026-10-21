@@ -17,6 +17,7 @@ import {
   type PauseRecord,
 } from "../../infrastructure/pause-record.js";
 import { rootFactsOf, type FrameSpec } from "../context/frame.js";
+import { plainRecordOf } from "./records.js";
 
 /**
  * The pause step (#267 S35): a waiting tool call is recorded by its step's idempotency key before
@@ -114,6 +115,9 @@ function newRecordOf(
     // a per-item child's own index when its step has none (#263)
     itemIndex: step.itemIndex ?? execution.itemIndex,
     copyNumber: step.copyNumber,
+    component: plainRecordOf(step.component),
+    ...(step.toolLoopIteration === undefined ? {} : { toolLoopIteration: step.toolLoopIteration }),
+    validationAttempts: step.validationAttempts,
     agent: question.agent,
     channel: channel.name,
     answeredBy: channel.answeredBy,

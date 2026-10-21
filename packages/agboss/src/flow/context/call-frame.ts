@@ -3,6 +3,7 @@ import type { WorkflowDescriptor } from "./execution-context.js";
 import type { FrameSpec } from "./frame.js";
 import type { TenantContext } from "./tenant-context.js";
 import { idempotencyKeyOf } from "./idempotency.js";
+import { bareRecordOf, ComponentKind } from "../runtime/records.js";
 
 /** A tool called on its own, not by an agent: over MCP, or `app.tool(T).invoke(…)` in a test. */
 export interface StandaloneCall {
@@ -35,13 +36,15 @@ export function standaloneCallFrameOf(call: StandaloneCall): FrameSpec {
       values: Object.freeze({}),
     }),
     step: Object.freeze({
-      component: Object.freeze({ type, name }),
+      component: Object.freeze({ type, ...bareRecordOf(name, ComponentKind.Tool) }),
       nodeId: name,
       visitNumber,
       idempotencyKey: idempotencyKeyOf({ executionId, nodeId: name, visitNumber, callId }),
       callId,
       itemIndex: undefined,
       copyNumber: 1,
+      toolLoopIteration: undefined,
+      validationAttempts: 0,
     }),
   };
 }

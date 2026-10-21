@@ -85,7 +85,14 @@ with where they came from (`(own)`, `(<workflow>)`, `(<application>)`, `(built-i
 decorators only (no `maxSpend()`): per start the worst case of one call — executions, at the same
 time, agent and router steps of the tree, nesting depth — each with how it is made up; with `--env
 <name>` the process variables that environment needs, names marked `value` / `secret` (`optional`,
-`has a default`), never a value. `describe --json` / `check --json` carry the same as data.
+`has a default`), never a value. `describe --json` / `check --json` carry the same as data;
+`describe --json` is also each workflow's declarative snapshot (#268 S93): `configHash` (the one join
+key — the same in `WorkflowRecord`, every execution event and the records), `starts`, `finishes`,
+`nodes` (each with `kind`, `promptHash`, `schemaHash`, its `input` / `output` by DTO hash, an agent's
+model, provider, reasoning, limits, memory, tools, knowledge bases, guardrails and PII policies in
+effect, judges and instructions, a router's `decidedBy` and routes with `spawn` / `failure`), `edges`,
+the `onError` table, `launches` (quorum, arbiters with their hashes) and `schemas` — every DTO by
+class and every tool by name, each with its `schemaHash` and JSON Schema.
 
 In `examples/job-scout/` (`agboss <command>`, its one start): `npm run chat` · `npm run run -- "task"` ·
 `npm run describe` · `npm run dev` · `npm run studio` · `npm run eval` / `replay` · `npm run golden -- add --name <n>` ·
@@ -1180,11 +1187,14 @@ export class SeenJobsRepository {
   is a warning in the log (`observer.failed`). One event object per hook, plain data, never the
   internal state: every execution event (`ExecutionEvent`) has `executionId`, `parentExecutionId`,
   `rootExecutionId`, `threadId`, `tenantId`, `workflow` (`WorkflowRecord`: `name`, `version`,
-  `startedVersion`, no class); node events (agent, router, tool, model, knowledge base, guardrail,
+  `startedVersion`, `configHash`, no class); node events (agent, router, tool, model, knowledge base, guardrail,
   action, channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`,
   `onQuorumDecided`) add `step`
-  (`StepRecord`: `component: { name }`, `nodeId`, `visitNumber`, `copyNumber`, `itemIndex`,
-  `idempotencyKey`, `callId`). Execution hooks: `onExecutionStart` once per execution,
+  (`StepRecord`: `component` — its `ComponentRecord`, `{ name, kind, promptHash, schemaHash }`,
+  the join keys of `describe --json` (#268 S93) —, `nodeId`, `visitNumber`, `copyNumber`,
+  `itemIndex`, `idempotencyKey`, `callId`, `toolLoopIteration` (an agent's model call in the visit,
+  from 1, during it and its move's tool calls), `validationAttempts` (its answers and tool arguments
+  that failed validation so far)). Execution hooks: `onExecutionStart` once per execution,
   `onExecutionPause` (`pending`, when nothing else can move — again after a partial resume) /
   `onExecutionResume` (`reason: ResumeReason`, `decision`, `answeredBy`) around a pause,
   `onExecutionEnd` once when it ends at a finish (`finish`, `spend`), `onExecutionError` when it
@@ -1657,7 +1667,7 @@ const readiness: HealthReport = await app.checkReadiness();
   constructor (`deps: [ExecutionContext]`, a parameter named `executionContext`) into any component;
   there is no `ctx` parameter (tools, actions, judges get only their input). Read-only data:
   `executionId`, `threadId`, `ownerId`, `tenant`, `signal`, `workflow` (`type`, `name`, `version`,
-  `startedVersion`), `step` (`component`, `nodeId`, `visitNumber`, `idempotencyKey` =
+  `startedVersion`, `configHash`), `step` (`component`, `nodeId`, `visitNumber`, `idempotencyKey` =
   `${executionId}:${nodeId}:${visitNumber}[:${itemIndex}][:${callId}]`, `callId` during a tool
   call, `itemIndex`, `copyNumber`), the tree (#263: `parent`, `root`, `depth`, `itemIndex` — a
   per-item child's index —, `executionOf(W)`, the nearest execution of `W` from this one up). Every read gives the current step (an `AsyncLocalStorage` frame per node visit and per

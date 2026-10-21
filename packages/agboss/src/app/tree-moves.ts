@@ -1,3 +1,4 @@
+import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
 import { ResumeReason } from "../core/observability.js";
 import type { ExecutionTreeRepository } from "../infrastructure/execution-tree.repository.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
@@ -183,7 +184,7 @@ class TreeMover implements TreeMoves {
     resume: TreeResume | undefined,
     state: TreeState,
   ): Promise<void> {
-    const event = executionEventAt(state, this.parts.deps.config);
+    const event = executionEventAt(state, this.parts.deps);
     return announceResume(this.parts.deps.observer, event, reason, resume);
   }
 
@@ -235,12 +236,13 @@ class TreeMover implements TreeMoves {
     const { deps, live, paused } = this.parts;
     const caller = call.signal === undefined ? [lease.signal] : [call.signal, lease.signal];
     const moving = leasedDeps(deps, lease);
-    return observeLeg(deps.observer, executionEventAt(state, deps.config), async () => {
+    return observeLeg(deps.observer, executionEventAt(state, deps), async () => {
       const run = await live.track(state, AbortSignal.any(caller), (signal) =>
         pass(moving, signal),
       );
       await paused.settle(run);
-      return maskedRecordOf(runResultOf(run, call.record === true), deps.pii?.observability);
+      const result = runResultOf(run, call.record === true, (name) => nodeRecordIn(deps, name));
+      return maskedRecordOf(result, deps.pii?.observability);
     });
   }
 
