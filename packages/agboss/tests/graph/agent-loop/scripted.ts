@@ -21,7 +21,7 @@ export const replyWith = (text: string): ScriptedMove => ({ kind: "replyWith", t
 export const callTools = (...calls: ScriptedCall[]): ScriptedMove => ({ kind: "calls", calls });
 export const read = (id: string, path: string): ScriptedCall => ({
   id,
-  name: "read_file",
+  name: "read-file-tool",
   args: { path },
 });
 export const write = (id: string, path: string, content = "x"): ScriptedCall => ({
@@ -84,11 +84,11 @@ const sleep = (ms: number, signal: AbortSignal): Promise<void> =>
     });
   });
 
-/** read_file, write_file (a write: needs approval), wait (slow, for order checks), boom (throws). */
+/** read-file-tool, write_file (a write: needs approval), wait (slow, for order checks), boom (throws). */
 export function repoTools(log: (effect: string) => void): AnyTool[] {
   return [
     defineTool({
-      name: "read_file",
+      name: "read-file-tool",
       description: "Read a file",
       input: z.object({ path: z.string() }),
       output: z.string(),

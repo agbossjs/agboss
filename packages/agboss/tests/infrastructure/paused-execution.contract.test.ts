@@ -7,7 +7,7 @@
  * instances on one file).
  */
 import { describe, expect, it } from "vitest";
-import type { PausedRun } from "../../src/app/paused-runs.js";
+import type { PausedExecution } from "../../src/app/paused-runs.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import {
   PauseAnswerer,
@@ -27,7 +27,7 @@ const kinds = storeKinds<PausedExecutionRepository>({
 });
 
 /** A paused run as the app stores it (`budgetUsd: Infinity` — a run without a cost limit). */
-const pausedRunOf = (threadId: string, runId = "run-1"): PausedRun => ({
+const pausedRunOf = (threadId: string, runId = "run-1"): PausedExecution => ({
   run: {
     runId,
     threadId,

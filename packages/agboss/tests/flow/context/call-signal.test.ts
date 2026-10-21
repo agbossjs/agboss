@@ -18,7 +18,7 @@ beforeEach(resetSpendSeen);
 const test = testWith(SpendApplication);
 
 describe("#280 S45: in a tool call, executionContext.signal is the call's", () => {
-  test("a call waiting on its signal is aborted at its own timeoutMs; the execution goes on", async ({
+  test("a call waiting on its signal is aborted at its own timeout; the execution goes on", async ({
     app,
     clock,
     mockLlm,
@@ -33,7 +33,7 @@ describe("#280 S45: in a tool call, executionContext.signal is the call's", () =
 
     const running = execute(app, SpendStart, { text: "fetch" });
     await started;
-    await clock.advance("50ms"); // the tool's timeoutMs, on the test's clock (#262)
+    await clock.advance("50ms"); // the tool's timeout, on the test's clock (#262)
     const done = await running;
 
     expect(spendSeen.aborts).toEqual(["ToolTimeoutError"]);

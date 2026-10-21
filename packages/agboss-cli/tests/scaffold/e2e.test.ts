@@ -12,20 +12,21 @@ import { planGenerate } from "../../src/scaffold/generate.js";
 import type { WorkflowSpec } from "../../src/scaffold/plan.js";
 import { planProject } from "../../src/scaffold/project.js";
 import { applyChanges } from "../../src/scaffold/write.js";
-import { applicationOf, expectStaticChecks, agbossIn, vitestOf } from "./project-checks.js";
+import { expectStaticChecks, agbossIn, vitestOf } from "./project-checks.js";
 
 const tmp = new URL("../../.scaffold-tmp", import.meta.url).pathname;
 const project = join(tmp, `desk-${String(process.pid)}`);
 
-/** tsc, the framework's ESLint rules, prettier, the project's own tests, `agboss describe` on its workflow. */
-function check(workflow: string): string {
-  // `agboss check` writes the generated types the project compiles against (#272 S7)
-  const checked = agbossIn(project, ["check", "--application", applicationOf(workflow)]);
+/** tsc, the framework's ESLint rules, prettier, the project's own tests, `agboss describe` of its application. */
+function check(): string {
+  // `agboss check` writes the generated types the project compiles against (#272 S7); the
+  // application is package.json's (#268 AC1)
+  const checked = agbossIn(project, ["check"]);
   expect(checked.ok, checked.out).toBe(true);
   expectStaticChecks(project, ["src"]);
   const tests = vitestOf(project);
   expect(tests.ok, tests.out).toBe(true);
-  const describeOut = agbossIn(project, ["describe", "--application", applicationOf(workflow)]);
+  const describeOut = agbossIn(project, ["describe"]);
   expect(describeOut.ok, describeOut.out).toBe(true);
   return describeOut.out;
 }
@@ -59,14 +60,14 @@ describe("agboss create / agboss generate end to end", () => {
     mkdirSync(tmp, { recursive: true });
     const spec = specFromFlags("desk", {
       yes: true,
-      agents: "triage:Sorts requests,answerer:Answers questions",
-      tools: "answerer:search_orders",
+      agents: "triage-agent:Sorts requests,answerer-agent:Answers questions",
+      tools: "answerer-agent:search-orders-tool",
       mcp: `filesystem:${tmp}`,
       rag: "notes",
     }) as WorkflowSpec;
     await applyChanges(project, { create: planProject(spec), modify: [] });
 
-    const out = check("src/desk/desk.workflow.ts");
+    const out = check();
 
     expect(out).toContain("desk-workflow 0.1.0");
     // #272: the generated workflow is one path — start → main router → an agent → the finish
@@ -74,10 +75,10 @@ describe("agboss create / agboss generate end to end", () => {
     expect(out).toContain("  maxSteps 9 (default: (agents + routers) × 3) · steps 2–2");
     // create wires the MCP server and the knowledge base into the first agent
     expect(out).toMatch(
-      /triage-agent .*\n\s+Sorts requests\n\s+limits: .*\n\s+rag: desk_notes \(tool, k 3\)/,
+      /triage-agent .*\n\s+Sorts requests\n\s+limits: .*\n\s+rag: desk-notes-rag \(tool, k 3\)/,
     );
-    expect(out).toContain("· search_orders (local)");
-    expect(out).toContain("· read_desk_files (MCP desk_files)");
+    expect(out).toContain("· search-orders-tool (local)");
+    expect(out).toContain("· read-desk-files-tool (MCP desk-files)");
     // #107 AC2: files named by kind, the prompt next to its agent (no prompt parameter)
     for (const file of [
       "agents/answerer.agent.ts",
@@ -107,9 +108,12 @@ describe("agboss create / agboss generate end to end", () => {
     );
     // #268 AC1: the application's path is set once in package.json; the scripts name no path
     expect(JSON.parse(readFileSync(join(project, "package.json"), "utf8"))).toMatchObject({
-      agboss: { application: "src/desk/desk.application.ts" },
+      agboss: { application: "src/desk.application.ts" },
     });
-    expect(scripts().chat).toBe("agboss chat");
+    // #268 AC2: a run script names its start by its full name — it keeps working as workflows are added
+    expect(scripts().chat).toBe("agboss chat --start desk-text-workflow-start");
+    expect(scripts().run).toBe("agboss run --start desk-text-workflow-start");
+    expect(scripts().types).toBe("agboss check");
     expect(scripts()["rag:index"]).toBe("agboss rag index");
     // #135 AC12: the workflow test on testWith runs offline in the unit project; empty projects pass
     const unit = vitestOf(project, ["--project", "unit"]);
@@ -121,34 +125,37 @@ describe("agboss create / agboss generate end to end", () => {
   }, 240_000);
 
   it("AC2: generate agent, router, tool, mcp, rag and workflow — each wired, the project still compiles and passes", async () => {
-    const workflow = "src/desk/desk.workflow.ts";
-    const steps = [
-      planGenerate("agent", "billing", { workflow, description: "Handles invoices" }, project),
-    ];
-    await applyChanges(project, await (steps[0] ?? { create: [], modify: [] }));
+    const workflow = "desk-workflow";
     for (const plan of [
-      () => planGenerate("tool", "refund", { workflow, agent: "billing" }, project),
+      () =>
+        planGenerate(
+          "agent",
+          "billing-agent",
+          { workflow, description: "Handles invoices" },
+          project,
+        ),
+      () => planGenerate("tool", "refund-tool", { workflow, agent: "billing-agent" }, project),
       () =>
         planGenerate(
           "mcp",
           "tickets",
-          { workflow, command: "tickets-mcp", tool: "search", agent: "billing" },
+          { workflow, command: "tickets-mcp", tool: "search", agent: "billing-agent" },
           project,
         ),
       () =>
         planGenerate(
           "rag",
-          "policies",
-          { workflow, folder: "policies", agent: "billing" },
+          "policies-rag",
+          { workflow, folder: "policies", agent: "billing-agent" },
           project,
         ),
-      () => planGenerate("router", "escalation", { workflow }, project),
-      () => planGenerate("workflow", "onboarding", {}, project),
+      () => planGenerate("router", "escalation-router", { workflow }, project),
+      () => planGenerate("workflow", "onboarding-workflow", {}, project),
     ]) {
       await applyChanges(project, await plan());
     }
 
-    const out = check(workflow);
+    const out = check();
 
     expect(out).toMatch(/billing-agent .*\n\s+Handles invoices/);
     // a new agent joins the router's choice — a route in the main router and in its chooseOne
@@ -160,34 +167,40 @@ describe("agboss create / agboss generate end to end", () => {
     expect(readFileSync(join(project, "src/desk/routers/escalation.router.ts"), "utf8")).toContain(
       "maxVisits: 1,",
     );
-    expect(out).toContain("rag: policies (tool, k 3)");
-    expect(out).toContain("· refund (local)");
-    expect(out).toContain("· tickets_search (MCP tickets)");
+    expect(out).toContain("rag: policies-rag (tool, k 3)");
+    expect(out).toContain("· refund-tool (local)");
+    expect(out).toContain("· tickets-search-tool (MCP tickets)");
     // #141 AC3: a text-only MCP server tool replies with PlainTextDto
     expect(readFileSync(join(project, "src/desk/mcp/tickets.server.ts"), "utf8")).toContain(
       "output: PlainTextDto",
     );
-    expect(check("src/onboarding/onboarding.workflow.ts")).toContain("onboarding-workflow 0.1.0");
-    expect(scripts()["chat:onboarding"]).toBeDefined();
+    // #268 AC8: the new workflow is one more of the application, its files next to the first's
+    expect(out).toContain("onboarding-workflow 0.1.0");
+    expect(readFileSync(join(project, "src/desk.application.ts"), "utf8")).toContain(
+      "workflows: [DeskWorkflow, OnboardingWorkflow]",
+    );
+    expect(existsSync(join(project, "src/onboarding/onboarding.workflow.test.ts"))).toBe(true);
+    expect(scripts()["chat:onboarding"]).toBe("agboss chat --start onboarding-text-workflow-start");
   }, 240_000);
 
   it("AC2: rerunning generators with --force regenerates files and doubles no wiring", async () => {
-    const workflow = "src/desk/desk.workflow.ts";
+    const workflow = "desk-workflow";
+    const module = "src/desk/desk.workflow.ts";
     const read = (path: string): string => readFileSync(join(project, path), "utf8");
-    const before = [workflow, "src/desk/routers/main.router.ts"].map(read);
+    const before = [module, "src/desk/routers/main.router.ts"].map(read);
 
     for (const [kind, name, options] of [
-      ["agent", "billing", { workflow, description: "Handles invoices, again" }],
-      ["tool", "refund", { workflow, agent: "billing" }],
-      ["rag", "policies", { workflow, folder: "policies", agent: "billing" }],
+      ["agent", "billing-agent", { workflow, description: "Handles invoices, again" }],
+      ["tool", "refund-tool", { workflow, agent: "billing-agent" }],
+      ["rag", "policies-rag", { workflow, folder: "policies", agent: "billing-agent" }],
     ] as const) {
       const plan = await planGenerate(kind, name, options, project);
       await expect(applyChanges(project, plan)).rejects.toThrow("Nothing was written");
       await applyChanges(project, plan, { force: true });
     }
 
-    expect([workflow, "src/desk/routers/main.router.ts"].map(read)).toEqual(before);
+    expect([module, "src/desk/routers/main.router.ts"].map(read)).toEqual(before);
     expect(read("src/desk/routers/escalation.router.ts")).toContain(FINISH_ROUTE_TEXT);
-    check(workflow);
+    check();
   }, 240_000);
 });

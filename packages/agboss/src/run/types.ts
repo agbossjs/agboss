@@ -9,11 +9,11 @@ import type { GraphDeps } from "../graph/deps.js";
 import type { Compacted } from "./compaction.js";
 import type { WaitingPause } from "../pause/index.js";
 import type { TernRecords } from "../terns/index.js";
-import type { RunTracing } from "../tracing/index.js";
+import type { ExecutionTracing } from "../tracing/index.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 
 /** Graph dependencies plus the application's budgets and the Tern store. */
-export interface RunDeps<TName extends string> extends GraphDeps<TName> {
+export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TName> {
   /**
    * The application's budgets and their ledger (#261): every execution is checked and counted
    * against them; absent = a workflow run without an application (no budgets).
@@ -21,23 +21,23 @@ export interface RunDeps<TName extends string> extends GraphDeps<TName> {
   readonly budgets?: ApplicationBudgets | undefined;
   readonly terns: TernRecords;
   /** Optional tracing (e.g. local Langfuse); runs are identical without it. */
-  readonly tracing?: RunTracing | undefined;
+  readonly tracing?: ExecutionTracing | undefined;
 }
 
 /** A stream event for real-time UI/CLI updates. */
-export type RunStreamEvent =
+export type ExecutionStreamEvent =
   | { readonly kind: "textDelta"; readonly delta: string }
   | { readonly kind: "toolCall"; readonly tool: string; readonly args?: unknown };
 
-export interface RunOptions {
-  /** The run's id, made once by the app (its observer events use it too); default: a new one. */
-  readonly runId?: string;
+export interface AgentExecutionOptions {
+  /** The execution's id, made once by the app (its observer events use it too); default: a new one. */
+  readonly executionId?: string;
   /** Id of the Tern this run replays (eval). */
   readonly replayOf?: string;
   /** Aborts the run (graph and in-flight model calls), e.g. when the user presses Esc. */
   readonly signal?: AbortSignal | undefined;
   /** Callback to receive token streaming and tool calls in real time. */
-  readonly onStream?: (event: RunStreamEvent) => void;
+  readonly onStream?: (event: ExecutionStreamEvent) => void;
   /** The thread's owner, read as `executionContext.ownerId` (checked by the app). */
   readonly ownerId?: string | undefined;
   /**

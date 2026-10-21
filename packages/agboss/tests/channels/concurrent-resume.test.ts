@@ -58,7 +58,10 @@ describe("#267 AC12: concurrent resumes of one tree", () => {
     expect(finished.length).toBeGreaterThanOrEqual(1);
     const last: ExecutionOutput | undefined = finished[0];
     expect(last).toFinishWith(BatchWorkflowFinish, { text: "A, B, C" });
-    expect(results.map((result) => result.runId)).toEqual([paused.runId, paused.runId]);
+    expect(results.map((result) => result.executionId)).toEqual([
+      paused.executionId,
+      paused.executionId,
+    ]);
     expect([...seen.refunds].sort()).toEqual(["B", "C"]);
     expect(seen.asks).toHaveLength(2);
     expect(mockLlm(BatchRefundAgent).requests.map(orderOf).sort()).toEqual([

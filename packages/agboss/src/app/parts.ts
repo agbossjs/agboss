@@ -15,7 +15,7 @@ import {
 } from "../graph/router-model.js";
 import type { GuardrailRuntime } from "../guardrails/runtime.js";
 import type { EvalDeps } from "../eval/eval.js";
-import type { RunDeps } from "../run/types.js";
+import type { AgentExecutionDeps } from "../run/types.js";
 import type { ModelGateway } from "../llm/gateway.js";
 import { createRouter, type RouterEngine } from "../routers/index.js";
 import { ComponentError } from "../components/metadata.js";
@@ -148,7 +148,7 @@ export const flowFor = (
   gateway: ModelGateway,
   branchScheduler?: BranchScheduler,
 ): Pick<
-  RunDeps<string>,
+  AgentExecutionDeps<string>,
   | "graph"
   | "maxSteps"
   | "routers"

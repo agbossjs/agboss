@@ -196,8 +196,8 @@ describe("regression: the join's order and the spend", () => {
 
     expect(panel.decided).toMatchObject([
       {
-        executionId: result.runId,
-        launch: `${result.runId}:panel-workflow-start:1`,
+        executionId: result.executionId,
+        launch: `${result.executionId}:panel-workflow-start:1`,
         isReached: true,
         step: { nodeId: "panel-workflow-start" },
         branches: [

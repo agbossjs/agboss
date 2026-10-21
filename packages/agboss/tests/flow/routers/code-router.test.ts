@@ -88,7 +88,7 @@ describe("AC1: route() decides", () => {
       {
         nodeId: "credit-limit-router",
         visitNumber: 1,
-        key: `${result.runId}:credit-limit-router:1`,
+        key: `${result.executionId}:credit-limit-router:1`,
       },
     ]);
   });

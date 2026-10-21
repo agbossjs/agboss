@@ -86,8 +86,11 @@ export class SummaryAction {
   execute(input: {
     readonly results: readonly { readonly value: StudioResultDto }[];
   }): Promise<StudioSummaryDto> {
-    return Promise.resolve({ text: input.results.map((result) => result.value.name)
-      .join(", ") });
+    return Promise.resolve({
+      text: input.results
+        .map((result) => result.value.name)
+        .join(", "),
+    });
   }
 }
 

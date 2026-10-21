@@ -36,7 +36,7 @@ class Query {
   @Text() q!: string;
 }
 
-@Tool({ name: "search", description: "Searches", input: Query, output: Query })
+@Tool({ name: "search-tool", description: "Searches", input: Query, output: Query })
 class Search implements ToolHandler<Query, Query> {
   run(input: Query): Promise<Query> {
     return Promise.resolve(input);

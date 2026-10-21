@@ -4,7 +4,7 @@ import type { ExecutionEvent } from "../flow/observers/execution-event.js";
 import { readingGraphOf } from "../run/run-budgets.js";
 import { treeResumeOf, type TreeResume } from "../run/resume-map.js";
 import { waitingInterruptsOf } from "../run/waiting-pauses.js";
-import type { RunDeps } from "../run/types.js";
+import type { AgentExecutionDeps } from "../run/types.js";
 
 /**
  * What a tree's lease holder continues it with (#267 S35, Q58): the answers its waiting pauses have
@@ -19,7 +19,7 @@ export interface TreeRun {
 
 /** The tree's resume now; `undefined` when none of its waiting pauses has an answer. */
 export async function treeResumeNow(
-  deps: RunDeps<string>,
+  deps: AgentExecutionDeps<string>,
   tree: TreeRun,
   passed?: ReadonlySet<string>,
 ): Promise<TreeResume | undefined> {
@@ -34,7 +34,10 @@ export async function treeResumeNow(
 }
 
 /** Marks the pauses a pass took `Taken`, once their steps are stored (the pass returned). */
-export async function markTaken(deps: RunDeps<string>, resume: TreeResume): Promise<void> {
+export async function markTaken(
+  deps: AgentExecutionDeps<string>,
+  resume: TreeResume,
+): Promise<void> {
   for (const { tenantId, pauseId } of resume.taken) {
     await deps.pause?.pauses.markTakenByTenantIdAndPauseId(tenantId, pauseId);
   }

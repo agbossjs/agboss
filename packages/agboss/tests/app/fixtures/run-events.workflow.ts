@@ -84,7 +84,7 @@ export class Query {
 }
 
 /** A read tool. */
-@Tool({ name: "lookup", description: "Looks jobs up", input: Query, output: Query })
+@Tool({ name: "lookup-tool", description: "Looks jobs up", input: Query, output: Query })
 export class Lookup implements ToolHandler<Query, Query> {
   run(input: Query): Promise<Query> {
     return Promise.resolve(input);
@@ -93,7 +93,7 @@ export class Lookup implements ToolHandler<Query, Query> {
 
 /** A write tool with an approval channel: a run pauses before it. */
 @Tool({
-  name: "apply",
+  name: "apply-tool",
   description: "Applies for a job",
   channel: TerminalUserChannel,
   input: Query,

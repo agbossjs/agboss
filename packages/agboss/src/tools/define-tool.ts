@@ -4,9 +4,11 @@ import { pathOf } from "../dto/errors.js";
 import type { Tool, ToolCallContext, ToolOutput } from "./types.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { systemClock, type Clock } from "../infrastructure/clock.js";
-import { timeoutOn, waitOf } from "../infrastructure/clock-timeout.js";
+import { timeoutOn } from "../infrastructure/clock-timeout.js";
+import { seconds, type Milliseconds } from "../units/index.js";
 
-export const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
+/** How long a tool call may run when its tool sets no `timeout`. */
+export const DEFAULT_TOOL_TIMEOUT: Milliseconds = seconds(30);
 
 /** Function names accepted by OpenAI-compatible providers. */
 const TOOL_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
@@ -15,12 +17,12 @@ export class InvalidToolNameError extends Error {
   override name = "InvalidToolNameError";
 }
 
-/** A tool ran past its `timeoutMs` (its agent's model reads it as a tool error). */
+/** A tool ran past its `timeout` (its agent's model reads it as a tool error): `timed out after 5 s`. */
 export class ToolTimeoutError extends AGBossError {
   static override readonly code: string = "tool.timeout";
   override name = "ToolTimeoutError";
-  constructor(timeoutMs: number) {
-    super(`timed out after ${String(timeoutMs)} ms`);
+  constructor(timeout: Milliseconds) {
+    super(`timed out after ${String(timeout / 1000)} s`);
   }
 }
 
@@ -31,7 +33,7 @@ export interface ToolDefinition<TName extends string, TInput, TOutput> {
   readonly input: z.ZodType<TInput>;
   readonly output: z.ZodType<TOutput>;
   readonly channel?: string;
-  readonly timeoutMs?: number;
+  readonly timeout?: Milliseconds;
   readonly run: (input: TInput, ctx: ToolCallContext) => Promise<TOutput>;
 }
 
@@ -55,18 +57,18 @@ function untilAborted<TValue>(work: Promise<TValue>, signal: AbortSignal): Promi
 
 /** The tool's timeout on the clock (the application's; none given → the system's). */
 interface ToolTimeout {
-  readonly timeoutMs: number;
+  readonly timeout: Milliseconds;
   readonly clock: Clock | undefined;
 }
 
 async function runWithTimeout<TValue>(
   run: (signal: AbortSignal) => Promise<TValue>,
   outer: AbortSignal,
-  { timeoutMs, clock }: ToolTimeout,
+  { timeout: delay, clock }: ToolTimeout,
 ): Promise<TValue> {
   if (outer.aborted) throw outer.reason as Error; // never start work for a cancelled run
-  const reason = (): Error => new ToolTimeoutError(timeoutMs);
-  const timeout = timeoutOn(clock ?? systemClock, waitOf(timeoutMs), reason);
+  const reason = (): Error => new ToolTimeoutError(delay);
+  const timeout = timeoutOn(clock ?? systemClock, delay, reason);
   const signal = AbortSignal.any([outer, timeout.signal]);
   try {
     return await untilAborted(
@@ -93,7 +95,7 @@ export function defineTool<TName extends string, TInput, TOutput>(
       `Tool name "${definition.name}" must match ${String(TOOL_NAME)}`,
     );
   }
-  const timeoutMs = definition.timeoutMs ?? DEFAULT_TOOL_TIMEOUT_MS;
+  const timeout = definition.timeout ?? DEFAULT_TOOL_TIMEOUT;
   const invoke = async (
     raw: unknown,
     ctx: ToolCallContext = standaloneCall(),
@@ -105,7 +107,7 @@ export function defineTool<TName extends string, TInput, TOutput>(
       produced = await runWithTimeout(
         (signal) => definition.run(input.data, { ...ctx, signal }),
         ctx.signal,
-        { timeoutMs, clock: ctx.clock },
+        { timeout, clock: ctx.clock },
       );
     } catch (error) {
       if (
@@ -124,7 +126,7 @@ export function defineTool<TName extends string, TInput, TOutput>(
     name: definition.name,
     description: definition.description,
     ...(definition.channel === undefined ? {} : { channel: definition.channel }),
-    timeoutMs,
+    timeout,
     input: definition.input,
     output: definition.output,
     invoke,

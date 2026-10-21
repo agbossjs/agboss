@@ -38,7 +38,7 @@ export const slowLookups = { started: (): void => undefined };
 
 /** A lookup that runs until its run is aborted. */
 @Tool({
-  name: "slow_lookup",
+  name: "slow-lookup-tool",
   description: "Looks up an order slowly",
   input: LookupQuery,
   output: LookupResult,
@@ -60,7 +60,7 @@ export class SlowLookup implements ToolHandler<LookupQuery, LookupResult> {
 
 /** A lookup that answers at once. */
 @Tool({
-  name: "quick_lookup",
+  name: "quick-lookup-tool",
   description: "Looks up an order",
   input: LookupQuery,
   output: LookupResult,

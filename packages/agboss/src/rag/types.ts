@@ -37,7 +37,7 @@ export interface KnowledgeSource {
 
 /** How an agent gets a knowledge base's results (#269): it searches itself, or they come first. */
 export enum RagMode {
-  /** The agent calls `search_<name>` itself. */
+  /** The agent calls `search-<name>-tool` itself. */
   Tool = "tool",
   /** The results come with the agent's input message, before its first model call. */
   Context = "context",

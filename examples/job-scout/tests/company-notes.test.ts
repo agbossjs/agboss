@@ -34,9 +34,9 @@ describe("company notes (knowledge base)", () => {
     }).index();
 
     expect(workflow.config.agents["scout-agent"]?.rag).toEqual([
-      { name: "company_notes", mode: RagMode.Tool, topK: 3 },
+      { name: "company-notes-rag", mode: RagMode.Tool, topK: 3 },
     ]);
-    expect(workflow.config.agents["scout-agent"]?.tools).toContain("search_company_notes");
+    expect(workflow.config.agents["scout-agent"]?.tools).toContain("search-company-notes-rag-tool");
     expect(index.documents).toBe(5);
   });
 });

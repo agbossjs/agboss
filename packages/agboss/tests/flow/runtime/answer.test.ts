@@ -88,7 +88,7 @@ describe("#270 Q51 / #272 AC9: the static part of a request comes first, in a ca
         throw new Error("chat requests expected");
       const names = first.tools.map((tool) => tool.function.name);
       expect(names).toEqual([...names].sort());
-      expect(names).toEqual(["order_status", "read_note", "save_note"]);
+      expect(names).toEqual(["order-status-tool", "read-note-tool", "save-note-tool"]);
       expect(second.system).toBe(first.system);
       expect(second.tools).toEqual(first.tools);
     },

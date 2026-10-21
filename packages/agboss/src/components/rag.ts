@@ -25,7 +25,8 @@ export function ragClassesOf(bundle: WorkflowMeta, agents: readonly AgentMeta[])
 
 export const ragMeta = (cls: Class): RagMeta => requireComponent(cls, "rag", "workflowOf").meta;
 
-export const searchToolName = (meta: RagMeta): string => `search_${meta.name}`;
+/** A knowledge base's search tool: `search-jobs-rag-tool` for `jobs-rag` (#268 AC9). */
+export const searchToolName = (meta: RagMeta): string => `search-${meta.name}-tool`;
 
 /** An agent's knowledge bases as config entries (for describe and profiles). */
 export const ragSettings = (agent: AgentMeta): { name: string; mode: RagMode; topK: number }[] =>
@@ -40,7 +41,7 @@ const Output = z.object({
   ),
 });
 
-/** Tool mode: `search_<name>(query)`; its cost is billed to `rag:<name>` (category retrieval). */
+/** Tool mode: `search-<name>-tool(query)`; its cost is billed to `rag:<name>` (category retrieval). */
 export function searchTool(meta: RagMeta, connector: RagConnector): AnyTool {
   const tool = defineTool({
     name: searchToolName(meta),

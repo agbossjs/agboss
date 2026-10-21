@@ -82,6 +82,7 @@ export type RuleCode =
   | "dto.name"
   | "dto.duplicate-name"
   | "tool.name-too-long"
+  | "tool.name-invalid"
   | "limits.max-steps-too-low"
   | "limits.branch-exceeds-max-steps"
   | "limits.max-steps-unused"

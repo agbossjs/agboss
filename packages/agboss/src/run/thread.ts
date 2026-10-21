@@ -5,7 +5,7 @@ import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
 import { TurnLimit } from "../config/types.js";
 import { memoryPlanOf, readerOf, type MemoryPlan, type MemoryReader } from "../compaction/plan.js";
 import { NodeKind } from "../flow/ast.js";
-import type { RunDeps } from "./types.js";
+import type { AgentExecutionDeps } from "./types.js";
 
 /** At most this long: a thread id is a key, not data. */
 const MAX_THREAD_ID_LENGTH = 200;
@@ -194,7 +194,7 @@ async function lastTurnsOf(
 
 /** Every reader of the graph: the plan's, and any router it does not list (the workflow's window). */
 function readersOf<TName extends string>(
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   plan: MemoryPlan,
 ): readonly (readonly [string, MemoryReader])[] {
   const routers = [...deps.graph.nodes.values()].flatMap((node) =>
@@ -209,7 +209,7 @@ function readersOf<TName extends string>(
  * its compaction's latest summaries (`summaryQueueLength`, one for a single summary).
  */
 export async function threadMemoryOf<TName extends string>(
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   thread: Pick<ThreadAccess, "tenantId" | "threadId">,
 ): Promise<ThreadMemory> {
   const plan = memoryPlanOf(deps.config, deps.compactions);
@@ -246,7 +246,7 @@ export const NO_THREAD_MEMORY: ThreadMemory = { history: [], memory: {} };
  * Its memory is read later, once its compactions due have run (#120 S132).
  */
 export async function openThread<TName extends string>(
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   tenantId: string,
   requested: string | undefined,
 ): Promise<{ readonly threadId: string }> {

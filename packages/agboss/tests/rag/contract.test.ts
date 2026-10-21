@@ -21,10 +21,12 @@ const ctx: ToolCallContext = {
 describe("knowledge bases — contract", () => {
   it("AC1, AC5, #141 AC4: any class implementing the contract (RagRetrieval { results }), annotated @Rag and bound by an agent, is a knowledge base", async () => {
     const bundle = await workflowOf(bundleWith(Handbook, RagMode.Tool));
-    const search = resolveTools(bundle, services).find((tool) => tool.name === "search_handbook");
+    const search = resolveTools(bundle, services).find(
+      (tool) => tool.name === "search-handbook-tool",
+    );
 
     expect(bundle.config.agents["helper-agent"]).toMatchObject({
-      tools: ["search_handbook"],
+      tools: ["search-handbook-tool"],
       rag: [{ name: "handbook", mode: "tool", topK: 2 }],
     });
     expect(search?.costCaller).toBe("rag:handbook");
@@ -43,7 +45,9 @@ describe("knowledge bases — contract", () => {
 
   it("#148 AC3: the search tool's description speaks of search results, not passages", async () => {
     const bundle = await workflowOf(bundleWith(Handbook, RagMode.Tool));
-    const search = resolveTools(bundle, services).find((tool) => tool.name === "search_handbook");
+    const search = resolveTools(bundle, services).find(
+      (tool) => tool.name === "search-handbook-tool",
+    );
 
     expect(search?.description).toContain(
       "Returns the most relevant search results with their source; cite them as [source].",
@@ -64,7 +68,7 @@ describe("knowledge bases — contract", () => {
   it("AC4: swapping the implementation changes nothing outside the knowledge base", async () => {
     const a = await workflowOf(bundleWith(Handbook, RagMode.Tool));
     const b = await workflowOf(bundleWith(HandbookFromApi, RagMode.Tool));
-    const searchB = resolveTools(b, services).find((tool) => tool.name === "search_handbook");
+    const searchB = resolveTools(b, services).find((tool) => tool.name === "search-handbook-tool");
 
     expect(b.config.agents).toEqual(a.config.agents);
     expect(await searchB?.invoke({ query: "on-call" }, ctx)).toEqual({

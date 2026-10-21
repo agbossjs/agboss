@@ -36,7 +36,7 @@ export class PurchaseDto {
 
 /** A tool that needs a person's approval: the run pauses before it runs. */
 @Tool({
-  name: "pay",
+  name: "pay-tool",
   description: "Pays for an item",
   input: Payment,
   output: Receipt,

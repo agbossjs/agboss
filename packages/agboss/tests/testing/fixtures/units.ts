@@ -29,7 +29,7 @@ import {
 import { Rag } from "../../../src/components/decorators.js";
 import { OneOf, PlainTextDto, Text } from "../../../src/dto/index.js";
 import type { RagConnector, RagRetrieval } from "../../../src/rag/types.js";
-import { usd } from "../../../src/units/index.js";
+import { seconds, usd } from "../../../src/units/index.js";
 
 // ── services the tests replace ──
 
@@ -79,11 +79,11 @@ export class JobList {
 }
 
 @Tool({
-  name: "search_jobs",
+  name: "search-jobs-tool",
   description: "Searches the job board",
   input: JobSearch,
   output: JobList,
-  timeoutMs: 5_000,
+  timeout: seconds(5),
   deps: [ExecutionContext, SpendRecorder, JobBoardService],
 })
 export class SearchJobsTool implements ToolHandler<JobSearch, JobList> {
@@ -102,7 +102,12 @@ export class SearchJobsTool implements ToolHandler<JobSearch, JobList> {
 }
 
 /** A tool whose result does not fit its output DTO. */
-@Tool({ name: "broken_jobs", description: "Answers garbage", input: JobSearch, output: JobList })
+@Tool({
+  name: "broken-jobs-tool",
+  description: "Answers garbage",
+  input: JobSearch,
+  output: JobList,
+})
 export class BrokenJobsTool implements ToolHandler<JobSearch, JobList> {
   run(): Promise<JobList> {
     return Promise.resolve({ jobs: "x" } as JobList);
@@ -271,7 +276,7 @@ export class PlanReport {
 
 /** Reads the tenant's plan and the execution's user through the project's own classes. */
 @Tool({
-  name: "plan_report",
+  name: "plan-report-tool",
   description: "Says the caller's plan",
   input: JobSearch,
   output: PlanReport,

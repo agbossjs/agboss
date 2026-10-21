@@ -80,8 +80,8 @@ describe("AC14: a nested record", () => {
 
     expect(result.children).toMatchObject([
       {
-        parentExecutionId: result.runId,
-        rootExecutionId: result.runId,
+        parentExecutionId: result.executionId,
+        rootExecutionId: result.executionId,
         workflow: { name: "company-review-workflow", version: "1.0.0" },
         launchedBy: { nodeId: "company-review-workflow", visitNumber: 1 },
         start: { name: "company-review-workflow-start" },
@@ -98,7 +98,7 @@ describe("AC14: a nested record", () => {
       },
     ]);
     const [child] = result.children;
-    expect(child?.executionId).not.toBe(result.runId);
+    expect(child?.executionId).not.toBe(result.executionId);
     expect(child?.itemIndex).toBeUndefined();
   });
 });

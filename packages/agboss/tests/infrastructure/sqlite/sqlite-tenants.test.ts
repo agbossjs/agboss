@@ -6,7 +6,7 @@
 import { emptyCheckpoint } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
 import { ExecutionStatus } from "../../../src/app/types.js";
-import type { PausedRun } from "../../../src/app/paused-runs.js";
+import type { PausedExecution } from "../../../src/app/paused-runs.js";
 import { SqliteCheckpointSaver } from "../../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import type { AgentExecutionOutput } from "../../../src/run/types.js";
@@ -16,7 +16,7 @@ import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
 const clock = new VirtualClock(new Date(0));
 
 /** A paused run of a tenant's thread, as the app stores it. */
-const pausedOf = (tenantId: string, threadId: string): PausedRun => ({
+const pausedOf = (tenantId: string, threadId: string): PausedExecution => ({
   // only the fields the store reads matter here
   run: {
     runId: `run-${tenantId}`,

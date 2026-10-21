@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { defineTool } from "../define-tool.js";
 import type { Tool } from "../types.js";
+import type { Milliseconds } from "../../units/index.js";
 import { McpUnavailableError } from "./errors.js";
 
 /** Calls a tool on a connected server and returns the raw MCP result. */
@@ -36,7 +37,7 @@ export interface McpFacadeDefinition<
   readonly input: z.ZodType<TInput>;
   /** Required. `z.string()` or an object of one field `text` for text only the model reads. */
   readonly output: z.ZodType<TOutput>;
-  readonly timeoutMs?: number;
+  readonly timeout?: Milliseconds;
 }
 
 /** A declared MCP server: produces facades, gets its caller bound at startup. */
@@ -90,7 +91,7 @@ export function mcpServer<TServer extends string>(name: TServer): McpServerHandl
         description: definition.description,
         input: definition.input,
         output: definition.output,
-        timeoutMs: definition.timeoutMs,
+        timeout: definition.timeout,
         run: async (input, ctx) => {
           if (caller === undefined)
             throw new McpUnavailableError(`MCP server "${name}" is not connected`);

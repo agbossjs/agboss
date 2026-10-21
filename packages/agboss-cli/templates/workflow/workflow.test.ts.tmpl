@@ -4,12 +4,12 @@ import { {{agent}}Agent } from "./agents/{{agentKebab}}.agent.js";
 import { MainRouter } from "./routers/main.router.js";
 import { TextWorkflowFinish } from "./workflow-finishes/text.workflow-finish.js";
 import { TextWorkflowStart } from "./workflow-starts/text.workflow-start.js";
-import { {{pascal}}Application } from "./{{kebab}}.application.js";
+import { {{application}} } from "{{applicationFrom}}";
 
 // models answer by script, MCP servers are stubs, the network is blocked: this test runs offline
-const test = testWith({{pascal}}Application);
+const test = testWith({{application}});
 
-test("the main router sends the text to {{agentKebab}}, whose answer finishes the run", async ({
+test("the main router sends the text to {{agentName}}, whose answer finishes the run", async ({
   app,
   mockLlm,
 }) => {

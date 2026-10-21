@@ -71,7 +71,7 @@ export class NoteDto {
 
 /** A tool with an approval channel: its workflow can pause. */
 @Tool({
-  name: "send_note",
+  name: "send-note-tool",
   description: "Sends a note",
   channel: TerminalUserChannel,
   input: NoteDto,

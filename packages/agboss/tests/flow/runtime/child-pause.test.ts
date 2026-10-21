@@ -66,7 +66,7 @@ describe("AC16: a paused child does not stop its siblings", () => {
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(paused.pending).toMatchObject([
-      { agent: "item-reviewer-agent", itemIndex: 1, ask: { tool: "confirm_review" } },
+      { agent: "item-reviewer-agent", itemIndex: 1, ask: { tool: "confirm-review-tool" } },
     ]);
     const asked = mockLlm(ItemReviewerAgent).requests.map(nameIn);
     expect([...new Set(asked)].sort()).toEqual(TEN);

@@ -10,7 +10,7 @@ import type { WaitingPause } from "../pause/index.js";
 import { isWaiting, pausedLoopsOf, pausedUsageOf } from "./paused.js";
 import { unrecordedOf } from "../finops/record-stream.js";
 import { openPausesOf, waitingPausesOf } from "./waiting-pauses.js";
-import type { AgentExecutionOutput, RunDeps } from "./types.js";
+import type { AgentExecutionOutput, AgentExecutionDeps } from "./types.js";
 
 /** The Tern of an execution: a finished one's finish line (S8), a paused one waits. */
 function outcomeOf(
@@ -36,7 +36,7 @@ const pathOf = (state: ExecutionStateType, pending: readonly WaitingPause[]): re
 };
 
 const traceUrlOf = <TName extends string>(
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   threadId: string,
 ): { traceUrl?: string } => {
   const traceUrl = deps.tracing?.sessionUrl(threadId);

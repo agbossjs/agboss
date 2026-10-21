@@ -51,7 +51,7 @@ describe("#280: testExecutionContext — a frozen ExecutionContext for unit test
       readonly plain = true;
     }
 
-    expect(testExecutionContext({ step: { component: NoteTool } }).step.nodeId).toBe("note");
+    expect(testExecutionContext({ step: { component: NoteTool } }).step.nodeId).toBe("note-tool");
     expect(testExecutionContext({ step: { component: PlainStep } }).step.nodeId).toBe("PlainStep");
   });
 });

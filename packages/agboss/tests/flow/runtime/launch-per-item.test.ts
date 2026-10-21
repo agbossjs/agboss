@@ -85,9 +85,9 @@ describe("AC12: an action per item", () => {
     expect(result).toFinishWith(SummaryWorkflowFinish, { text: "a, b, c" });
     const keys = [...fanOut.keys].sort();
     expect(keys).toEqual([
-      `${result.runId}:process-item-action:1:0`,
-      `${result.runId}:process-item-action:1:1`,
-      `${result.runId}:process-item-action:1:2`,
+      `${result.executionId}:process-item-action:1:0`,
+      `${result.executionId}:process-item-action:1:1`,
+      `${result.executionId}:process-item-action:1:2`,
     ]);
     expect([...fanOut.items].sort()).toEqual([0, 1, 2]);
   });
@@ -108,7 +108,7 @@ describe("AC12: an action per item", () => {
     expect(result).toFinishWith(SummaryWorkflowFinish, { text: "" });
     expect(fanOut.events).toEqual([]);
     expect(result.launches).toEqual([
-      { launch: `${result.runId}:items-workflow-start:1`, items: 0, taken: 0, branches: [] },
+      { launch: `${result.executionId}:items-workflow-start:1`, items: 0, taken: 0, branches: [] },
     ]);
   });
 });
@@ -123,8 +123,8 @@ describe("AC10: maxItems truncates, never fails", () => {
     expect(result.launches).toMatchObject([{ items: 6, taken: 4 }]);
     expect(fanOut.truncated).toMatchObject([
       {
-        executionId: result.runId,
-        launch: `${result.runId}:items-workflow-start:1`,
+        executionId: result.executionId,
+        launch: `${result.executionId}:items-workflow-start:1`,
         items: 6,
         maxItems: 4,
         step: { nodeId: "items-workflow-start" },

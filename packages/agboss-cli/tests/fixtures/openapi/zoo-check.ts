@@ -10,7 +10,7 @@ import { CreatePetTool } from "./tools/create-pet.tool.js";
 import { GetPetTool } from "./tools/get-pet.tool.js";
 import { TextWorkflowFinish } from "./workflow-finishes/text.workflow-finish.js";
 import { TextWorkflowStart } from "./workflow-starts/text.workflow-start.js";
-import { ZooApplication } from "./zoo.application.js";
+import { ZooApplication } from "../zoo.application.js";
 
 const test = testWith(ZooApplication);
 

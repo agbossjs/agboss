@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { defineTool, InvalidToolNameError, type ToolCallContext } from "../../src/tools/index.js";
+import { seconds } from "../../src/units/index.js";
 
 const ctx = (signal: AbortSignal = new AbortController().signal): ToolCallContext => ({
   signal,
@@ -15,7 +16,7 @@ const echo = (run: Run = (input) => Promise.resolve({ length: input.text.length 
     description: "Length of a text",
     input: z.object({ text: z.string().min(1) }),
     output: z.object({ length: z.number().int() }),
-    timeoutMs: 20,
+    timeout: seconds(0.02),
     run,
   });
 
@@ -66,7 +67,7 @@ describe("defineTool", () => {
 
     expect(await tool.invoke({ text: "a" }, ctx())).toEqual({
       kind: "error",
-      message: "timed out after 20 ms",
+      message: "timed out after 0.02 s",
     });
   });
 
@@ -99,7 +100,7 @@ describe("defineTool", () => {
     });
 
     expect(await tool.invoke({}, ctx())).toEqual({ kind: "ok", value: true });
-    expect(tool.timeoutMs).toBe(30_000);
+    expect(tool.timeout).toBe(seconds(30));
   });
 
   it("rejects names providers cannot accept", () => {

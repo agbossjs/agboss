@@ -10,10 +10,14 @@ import {
 import type { OperationModel } from "./openapi-spec.js";
 import { render } from "./plan.js";
 
-/** The API's injectable client: `services/<name>-api.service.ts`, class `<Name>Api`. */
+/**
+ * The API's injectable client: `services/<name>-api.service.ts`, class `<Name>ApiService` (an
+ * `@Injectable` named by its role, #280), injected as the field named after it.
+ */
 export interface ApiNames {
   readonly title: string;
   readonly className: string;
+  readonly field: string;
   readonly module: string;
 }
 
@@ -96,12 +100,13 @@ export function toolSource(op: OperationModel, api: ApiNames): string {
     method: op.method,
     path: comment(op.path),
     options: [
-      entry(2, "name", JSON.stringify(op.names.snake)),
+      entry(2, "name", JSON.stringify(`${op.names.kebab}-tool`)),
       entry(2, "description", text(op.summary)),
       entry(2, "input", input),
       entry(2, "output", output),
     ].join("\n"),
     api: api.className,
+    apiField: api.field,
     header: classHeader(`${op.names.pascal}Tool`, input, output),
     parameters: op.input === undefined ? "" : `input: ${input}`,
     output,

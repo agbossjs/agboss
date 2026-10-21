@@ -6,7 +6,7 @@ import type { BaseMemoryStrategy, MemoryTurn, MemoryUpdate } from "../memory/typ
 import type { Compacted, CompactionOutcome } from "./compaction.js";
 import type { FinishContext } from "./execute.js";
 import { NO_THREAD_MEMORY, threadMemoryOf, type ThreadMemory } from "./thread.js";
-import type { RunDeps } from "./types.js";
+import type { AgentExecutionDeps } from "./types.js";
 
 /** What updating memory after a turn did: its spend, already recorded. */
 export interface MemoryAfterTurn extends MemoryUpdate {
@@ -14,9 +14,9 @@ export interface MemoryAfterTurn extends MemoryUpdate {
 }
 
 /** The agents' own strategies (`@Agent({ memoryStrategy })`), each instance once. */
-const agentStrategiesOf = <TName extends string>(deps: RunDeps<TName>): BaseMemoryStrategy[] => [
-  ...new Set(deps.memory?.values() ?? []),
-];
+const agentStrategiesOf = <TName extends string>(
+  deps: AgentExecutionDeps<TName>,
+): BaseMemoryStrategy[] => [...new Set(deps.memory?.values() ?? [])];
 
 const NOTHING_COMPACTED: CompactionOutcome = { usage: [], compacted: [] };
 
@@ -45,7 +45,7 @@ export interface MemoryOfRun extends ThreadMemory {
  * loads on first use (QUALITY.md: a runtime subsystem loads lazily).
  */
 export async function memoryBeforeRun<TName extends string>(
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   run: MemoryBeforeRun,
 ): Promise<MemoryOfRun> {
   if (run.isNewThread) return { ...NO_THREAD_MEMORY, ...NOTHING_COMPACTED };
@@ -70,7 +70,7 @@ export async function updateMemoryAfter<TName extends string>(
   const turn: MemoryTurn = {
     tenantId: ctx.base.tenantId,
     threadId: ctx.base.threadId,
-    runId: ctx.runId,
+    executionId: ctx.runId,
     turn: history,
     budgetLeftUsd: ctx.budgetUsd - totalCost(usageSoFar),
   };

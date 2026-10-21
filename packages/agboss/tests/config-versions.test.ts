@@ -8,7 +8,7 @@ import { providerStub } from "./models/stub.js";
 import { TestWorkflow } from "./fixtures/test-workflow/test.workflow.js";
 import { workflowOf } from "../src/testing/index.js";
 import { createSqliteTernStore } from "../src/terns/index.js";
-import { runVersions } from "../src/run/versions.js";
+import { executionVersions } from "../src/run/versions.js";
 import { routeTo, fakeDeps, runText } from "./helpers.js";
 
 describe("config versions", () => {
@@ -16,9 +16,9 @@ describe("config versions", () => {
     const deps = await fakeDeps({});
     const [main] = deps.routers;
     if (main === undefined) throw new Error("test router missing");
-    const base = runVersions(deps);
+    const base = executionVersions(deps);
 
-    const reworded = runVersions({
+    const reworded = executionVersions({
       ...deps,
       routers: [
         {
@@ -27,8 +27,11 @@ describe("config versions", () => {
         },
       ],
     });
-    const otherModel = runVersions({ ...deps, routers: [{ ...main, model: "typesafe/jev-2" }] });
-    const limited = runVersions({ ...deps, maxSteps: 3 });
+    const otherModel = executionVersions({
+      ...deps,
+      routers: [{ ...main, model: "typesafe/jev-2" }],
+    });
+    const limited = executionVersions({ ...deps, maxSteps: 3 });
 
     expect(reworded.promptVersion).not.toBe(base.promptVersion);
     expect(otherModel.modelVersion).not.toBe(base.modelVersion);

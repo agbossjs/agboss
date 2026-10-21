@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BUDGET_EXHAUSTED, type EvalDeps } from "../../src/eval/eval.js";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import { replay } from "../../src/eval/replay.js";
-import { runVersions } from "../../src/index.js";
+import { executionVersions } from "../../src/index.js";
 import type { RouterEngine } from "../../src/routers/index.js";
 import { routeTo, fakeDeps, memoryLedger, runText } from "../helpers.js";
 import { usd } from "../../src/units/index.js";
@@ -26,7 +26,7 @@ describe("replay", () => {
     };
     const deps = await fakeDeps(script);
     await runText("Explain X", deps);
-    const oldVersion = runVersions(deps).promptVersion;
+    const oldVersion = executionVersions(deps).promptVersion;
     const changed = {
       ...deps,
       prompts: { ...deps.prompts, "alpha-agent": "You are alpha, now precise." },
@@ -44,7 +44,9 @@ describe("replay", () => {
 
     expect(report).toMatchObject({ tasks: 1, replayed: 1, before: 0.6, after: 0.9 });
     const rows = await deps.terns.summary("test-bundle-workflow");
-    expect(rows.map((row) => row.promptVersion)).toContain(runVersions(changed).promptVersion);
+    expect(rows.map((row) => row.promptVersion)).toContain(
+      executionVersions(changed).promptVersion,
+    );
   });
 
   it("stops replaying when the application's budget is spent (its last known limit)", async () => {
@@ -63,7 +65,7 @@ describe("replay", () => {
     const evaluation: EvalDeps = { terns: deps.terns, budgets: deps.budgets, judge: judgeWith() };
 
     const report = await replay(deps, evaluation, {
-      promptVersion: runVersions(deps).promptVersion,
+      promptVersion: executionVersions(deps).promptVersion,
       limit: 10,
     });
 

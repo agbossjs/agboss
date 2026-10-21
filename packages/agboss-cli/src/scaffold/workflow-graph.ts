@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path/posix";
 import ts from "typescript";
-import { ScaffoldError } from "./errors.js";
-import { namesOf } from "./names.js";
-import { targetWorkflow } from "./project-files.js";
+import { closestName } from "../cli/did-you-mean.js";
+import { ScaffoldError, ScaffoldUsageError } from "./errors.js";
+import { applicationGraph, workflowNamed } from "./application-graph.js";
+import { read } from "./project-files.js";
 import { flowCalls, type FlowCall } from "./wire-flow.js";
 import type { FileToWrite } from "./write.js";
 
@@ -107,9 +108,17 @@ function withRouterTargets(root: string, own: readonly Component[]): Component[]
   return found;
 }
 
-/** `--workflow <path>` read and resolved. */
-export function workflowGraph(root: string, path: string | undefined, kind: string): WorkflowGraph {
-  const { dir, module } = targetWorkflow(root, path ?? "", kind);
+/** Where a generator looks for the workflow: `--workflow <full name>` in the application. */
+export interface WorkflowTarget {
+  readonly workflow?: string | undefined;
+  readonly application?: string | undefined;
+}
+
+/** `--workflow <full name>` found in the application, its module read and resolved. */
+export function workflowGraph(root: string, target: WorkflowTarget): WorkflowGraph {
+  const { path } = workflowNamed(applicationGraph(root, target.application), target.workflow);
+  const module = read(root, path);
+  const dir = dirname(path);
   const source = parse(module);
   return {
     module,
@@ -137,20 +146,17 @@ export function finishOf(graph: WorkflowGraph): Component {
   return finish;
 }
 
-/** An agent of the workflow by its name, its class name or its file name. */
+/** An agent of the workflow by its full name (`--agent billing-agent`); unknown → a hint and the list. */
 export function agentOf(graph: WorkflowGraph, name: string): Component {
-  const n = namesOf(name);
-  const matches = (c: Component): boolean =>
-    c.id === `${n.kebab}-agent` ||
-    c.id === n.snake ||
-    [n.pascal, `${n.pascal}Agent`].includes(c.className) ||
-    c.path.endsWith(`/${n.kebab}.agent.ts`);
-  const agent = ofKind(graph, "Agent").find(matches);
+  const agents = ofKind(graph, "Agent");
+  const agent = agents.find((c) => c.id === name);
   if (agent === undefined) {
-    const known = ofKind(graph, "Agent")
-      .map((c) => c.id ?? c.className)
-      .join(", ");
-    throw new ScaffoldError(`${graph.module.path}: no agent "${name}" — one of: ${known}`);
+    const known = agents.flatMap((c) => (c.id === undefined ? [] : [c.id]));
+    const closest = closestName(name, known);
+    const hint = closest === undefined ? "" : ` Did you mean "${closest}"?`;
+    throw new ScaffoldUsageError(
+      `Agent "${name}" not found in ${graph.module.path}.${hint} Agents: ${known.join(", ")}`,
+    );
   }
   return agent;
 }

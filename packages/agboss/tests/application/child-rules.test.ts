@@ -230,7 +230,7 @@ describe("#263: an unlisted child goes through the application's rules", () => {
       text!: string;
     }
     @Tool({
-      name: "rules_lookup",
+      name: "rules-lookup-tool",
       description: "Looks up",
       input: LookupDto,
       output: LookupDto,

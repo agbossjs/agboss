@@ -12,7 +12,7 @@ export interface TraceContext {
  * Optional tracing of runs (LangChain callbacks). Off unless configured — the core runs the same
  * either way; spend and Terns never depend on it.
  */
-export interface RunTracing {
+export interface ExecutionTracing {
   readonly callbacks: (context: TraceContext) => BaseCallbackHandler[];
   /** Link to the conversation in the tracing UI, when the backend knows how to build one. */
   readonly sessionUrl: (threadId: string) => string | undefined;

@@ -10,7 +10,7 @@ import { openPausesOf } from "./waiting-pauses.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { readingGraphOf } from "./run-budgets.js";
 import type { TreeResume } from "./resume-map.js";
-import type { AgentExecutionOutput, RunDeps } from "./types.js";
+import type { AgentExecutionOutput, AgentExecutionDeps } from "./types.js";
 
 /** `resume` of a run that is not waiting for a decision. */
 export class NotPausedError extends AGBossError {
@@ -28,7 +28,7 @@ interface PausedRunState {
 async function pausedRun<TName extends string>(
   paused: AgentExecutionOutput,
   resume: TreeResume,
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
 ): Promise<PausedRunState> {
   const pause = deps.pause;
   if (paused.status !== ExecutionStatus.Paused || pause === undefined) {
@@ -65,7 +65,7 @@ async function pausedRun<TName extends string>(
 export async function resumeAgent<TName extends string>(
   paused: AgentExecutionOutput,
   resume: TreeResume,
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   options: ContinueOptions = {},
 ): Promise<AgentExecutionOutput> {
   const { spent, budgets } = await pausedRun(paused, resume, deps);

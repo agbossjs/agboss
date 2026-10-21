@@ -51,7 +51,7 @@ describe("S20: a pause inside a branch", () => {
 
       expect(paused.status).toBe(ExecutionStatus.Paused);
       expect(paused.pending).toMatchObject([
-        { agent: "item-clerk-agent", itemIndex: 1, ask: { tool: "confirm_item" } },
+        { agent: "item-clerk-agent", itemIndex: 1, ask: { tool: "confirm-item-tool" } },
       ]);
       const asked = mockLlm(ItemClerkAgent).requests.map(itemOf);
       expect([...asked].sort()).toEqual(["a", "b", "c", "d", "e", "f"]);

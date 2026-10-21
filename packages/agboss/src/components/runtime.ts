@@ -61,7 +61,7 @@ export const adapt = (handler: ToolHandler<any, any>, meta: ToolMeta): AnyTool =
     input: schemaOf(meta.input),
     output: schemaOf(meta.output),
     ...(meta.channel === undefined ? {} : { channel: channelNameOf(meta.channel) }),
-    ...(meta.timeoutMs === undefined ? {} : { timeoutMs: meta.timeoutMs }),
+    ...(meta.timeout === undefined ? {} : { timeout: meta.timeout }),
     run: (input) => handler.run(input),
   });
 

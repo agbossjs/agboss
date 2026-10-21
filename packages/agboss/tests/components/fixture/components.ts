@@ -41,7 +41,7 @@ export class Greeting {
 }
 
 @Tool({
-  name: "greet",
+  name: "greet-tool",
   description: "Greets a person.",
   input: Person,
   output: Greeting,
@@ -76,7 +76,7 @@ export class FilesServer extends McpServerClient<typeof filesTools> {}
 
 @McpTool({
   server: FilesServer,
-  name: "read_file",
+  name: "read-file-tool",
   description: "Read a file.",
   input: FileRead,
   output: FileContent,

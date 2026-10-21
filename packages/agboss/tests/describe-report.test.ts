@@ -182,10 +182,10 @@ describe("#268 AC4: model providers and channels with their implementations", ()
       replyInterpreter: "payout-reply-interpreter",
       implementation: "DeskPayoutApprovalChannel",
       reason: ChannelImplementationReason.Listed,
-      tools: ["pay_out (treasury-workflow)"],
+      tools: ["pay-out-tool (treasury-workflow)"],
     });
     expect(describeApplication(treasury)).toContain(
-      "  expense-approval-channel (ExpenseApprovalChannel): ExpenseRequestDto → ToolCallApprovalDecisionDto · answered by the thread's owner · reply interpreter expense-reply-interpreter · ButtonExpenseApprovalChannel (listed in @Application providers) · tools book_expense (treasury-workflow)",
+      "  expense-approval-channel (ExpenseApprovalChannel): ExpenseRequestDto → ToolCallApprovalDecisionDto · answered by the thread's owner · reply interpreter expense-reply-interpreter · ButtonExpenseApprovalChannel (listed in @Application providers) · tools book-expense-tool (treasury-workflow)",
     );
   });
 

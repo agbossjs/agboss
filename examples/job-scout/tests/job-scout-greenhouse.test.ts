@@ -80,7 +80,7 @@ const search = {
   boards: ["fireblocks", "similarweb", "jfrog", "ghost"],
 };
 
-describe("greenhouse_jobs", () => {
+describe("greenhouse-jobs-tool", () => {
   it("filters hard, lets the judge rank the rest and returns the best with links", async () => {
     const tool = greenhouse({ judge, fetchJson, search: testSearch });
 

@@ -49,7 +49,7 @@ const pricedRefunder = (request: ModelRequest): ScriptedTurn => {
 /** What the ledger counted for the paid lookups. */
 const lookupsIn = (ledger: SeenCostLedgerRepository): number =>
   ledger.recorded
-    .filter((record) => record.caller === "tool:price_order")
+    .filter((record) => record.caller === "tool:price-order-tool")
     .reduce((total, record) => total + record.costUsd, 0);
 
 describe("#267: spend with several paused agent loops", () => {
@@ -64,7 +64,7 @@ describe("#267: spend with several paused agent loops", () => {
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(paused.pending).toHaveLength(2);
     expect(paused.spend.totalUsd).toBeCloseTo(2 * LOOKUP_COST);
-    expect(paused.spend.byCaller["tool:price_order"]).toBeCloseTo(2 * LOOKUP_COST);
+    expect(paused.spend.byCaller["tool:price-order-tool"]).toBeCloseTo(2 * LOOKUP_COST);
     const ledger = costLedger();
     expect(lookupsIn(ledger)).toBeCloseTo(2 * LOOKUP_COST);
     const modelCallsAtPause = ledger.recorded.filter(
@@ -76,13 +76,13 @@ describe("#267: spend with several paused agent loops", () => {
 
     // A finished, B still waits: B's loop is counted once, A's spend is the flow's now
     expect(again.status).toBe(ExecutionStatus.Paused);
-    expect(again.spend.byCaller["tool:price_order"]).toBeCloseTo(2 * LOOKUP_COST);
+    expect(again.spend.byCaller["tool:price-order-tool"]).toBeCloseTo(2 * LOOKUP_COST);
     expect(lookupsIn(ledger)).toBeCloseTo(2 * LOOKUP_COST);
 
     const done = await app.resume(answerFor("B"), manager);
 
     expect(done.status).toBe(ExecutionStatus.Finished);
-    expect(done.spend.byCaller["tool:price_order"]).toBeCloseTo(2 * LOOKUP_COST);
+    expect(done.spend.byCaller["tool:price-order-tool"]).toBeCloseTo(2 * LOOKUP_COST);
     expect(lookupsIn(ledger)).toBeCloseTo(2 * LOOKUP_COST); // a resume counts nothing twice
     expect(
       ledger.recorded.filter((record) => record.caller === "priced-refund-agent"),

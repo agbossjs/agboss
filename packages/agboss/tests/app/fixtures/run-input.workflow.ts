@@ -58,7 +58,7 @@ export class Query {
 
 /** A read tool: records its run. */
 @Tool({
-  name: "lookup",
+  name: "lookup-tool",
   description: "Looks jobs up",
   input: Query,
   output: Query,
@@ -75,7 +75,7 @@ export class Lookup implements ToolHandler<Query, Query> {
 
 /** A write tool: it waits for an approval, so a run pauses before it. */
 @Tool({
-  name: "apply",
+  name: "apply-tool",
   description: "Applies for a job",
   channel: TerminalUserChannel,
   input: Query,

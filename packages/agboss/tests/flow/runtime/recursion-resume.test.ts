@@ -76,7 +76,7 @@ describe("AC3: depth across a pause", () => {
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(done).toFinishWith(CountDoneWorkflowFinish, { depth: 0 });
-    expect(depthsAt("confirm_dig")).toEqual([2]);
+    expect(depthsAt("confirm-dig-tool")).toEqual([2]);
     expect(done.children.map((child) => child.depth)).toEqual([2]);
     expect(done.children[0]?.children.map((child) => child.depth)).toEqual([3]);
   });
@@ -95,7 +95,7 @@ describe("AC3: depth across a pause", () => {
     });
 
     expect(done).toFinishWith(CountDoneWorkflowFinish, { depth: 0 });
-    expect(depthsAt("confirm_dig")).toEqual([2]);
+    expect(depthsAt("confirm-dig-tool")).toEqual([2]);
     expect(done.children[0]?.children[0]?.depth).toBe(3);
   });
 });

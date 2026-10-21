@@ -125,8 +125,8 @@ export async function admitRequest<T>(
   } catch (error) {
     if (error instanceof IncompatibleResumeError) {
       const paused = {
-        runId: error.runId,
-        threadId: error.thread,
+        runId: error.executionId,
+        threadId: error.threadId,
         tenantId: request.tenantId ?? DEFAULT_TENANT_ID,
         startedVersion: error.paused.workflowVersion,
       };

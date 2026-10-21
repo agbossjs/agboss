@@ -1,14 +1,14 @@
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { Rag, SqliteFtsConnector } from "agboss/rag";
 
 /** Full-text search (SQLite FTS5, BM25) over {{folder}}/ — swap for your own RagConnector any time. */
-@Rag({ name: "{{snake}}", description: "{{title}} — the notes in {{folder}}/", topK: 3 })
-export class {{pascal}}Knowledge extends SqliteFtsConnector {
+@Rag({ name: "{{kebab}}-rag", description: "{{title}} — the notes in {{folder}}/", topK: 3 })
+export class {{pascal}}Rag extends SqliteFtsConnector {
   constructor() {
     super({
       folder: join(process.cwd(), "{{folder}}"),
-      dbFile: join(homedir(), ".langgraph-agents", "rag", "{{workflow}}-{{kebab}}.sqlite"),
+      // the index lives in the project's git-ignored .agboss/ (`npx agboss rag index` builds it)
+      dbFile: join(process.cwd(), ".agboss", "rag", "{{kebab}}-rag.sqlite"),
     });
   }
 }

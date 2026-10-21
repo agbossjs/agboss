@@ -143,11 +143,11 @@ const SCAFFOLD_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   create: {
     summary: "a new project from a short questionnaire (alias c)",
     usage:
-      'agboss create <name> [--agents "a:role,…"] [--tools "a:tool,…"] [--mcp …] [--rag …] [--yes] [--skip-install]',
-    positionals: "<name>",
+      'agboss create <name> [--agents "<name>-agent:role,…"] [--tools "<name>-agent:<name>-tool,…"] [--mcp …] [--rag …] [--yes] [--skip-install]',
+    positionals: "<name> (the project: <name>-application, its first workflow <name>-workflow)",
     options: [
-      text("agents", "<list>", 'agents and roles: "triage:Sorts requests,answerer:Answers"'),
-      text("tools", "<list>", 'tools per agent: "answerer:search_orders,answerer:refund"'),
+      text("agents", "<list>", 'full names and roles: "triage-agent:Sorts requests,…"'),
+      text("tools", "<list>", 'tools per agent, full names: "answerer-agent:refund-tool,…"'),
       text("mcp", "<spec>", "none | filesystem:<dir> | command:<cmd>:<tool>"),
       text("rag", "<folder>", "none | a folder of notes to search"),
       flag("yes", "no questions: defaults for anything not given", { short: "y" }),
@@ -159,14 +159,14 @@ const SCAFFOLD_COMMANDS: Readonly<Record<string, CommandSpec>> = {
     summary:
       "add a workflow, agent, router, arbiter, tool, MCP server, knowledge base or OpenAPI tools, wired (alias g)",
     usage:
-      "agboss generate <workflow|agent|router|arbiter|tool|mcp|rag|openapi> <name> [--workflow <path>] [options]",
-    positionals: "<kind> <name>",
+      "agboss generate <workflow|agent|router|arbiter|tool|mcp|rag|openapi> <name> [--workflow <name>] [options]",
+    positionals: "<kind> <name> (the full name: billing-agent, refund-tool, policies-rag, …)",
     options: [
-      text("workflow", "<path>", "the workflow to add to (src/<name>/<name>.workflow.ts)"),
+      text("workflow", "<name>", "the workflow to add to, by its full name (desk-workflow)"),
       text(
         "agent",
         "<name>",
-        "the agent that uses the tool / MCP tool / knowledge base; arbiter: an agent of the launch it judges",
+        "the agent, by its full name, that uses the tool / MCP tool / knowledge base; arbiter: an agent of the launch it judges",
       ),
       text("description", "<text>", "an agent's role, or what a router decides"),
       text("dir", "<folder>", "mcp: a filesystem server over this folder"),
@@ -179,6 +179,7 @@ const SCAFFOLD_COMMANDS: Readonly<Record<string, CommandSpec>> = {
         "openapi: the OpenAPI 3 document — one tool per operation (with --agent)",
       ),
       text("operations", "<ids>", "openapi: only these operations (operationIds, comma-separated)"),
+      APPLICATION,
       flag(
         "force",
         "regenerate files that exist; the wiring in them (tools, rag, routes, …) is kept and reported, never doubled",

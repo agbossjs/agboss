@@ -29,7 +29,7 @@ class JobKept {
   kept!: string[];
 }
 
-@Tool({ name: "keep_jobs", description: "Keeps the jobs.", input: JobPick, output: JobKept })
+@Tool({ name: "keep-jobs-tool", description: "Keeps the jobs.", input: JobPick, output: JobKept })
 class KeepJobs implements ToolHandler<JobPick, JobKept> {
   readonly seen: JobPick[] = [];
   run(pick: JobPick): Promise<JobKept> {
@@ -77,7 +77,7 @@ describe("tools on DTOs (#118)", () => {
       @Text() query!: string;
       extra!: string;
     }
-    @Tool({ name: "loose", description: "d", input: Loose, output: JobKept })
+    @Tool({ name: "loose-tool", description: "d", input: Loose, output: JobKept })
     class LooseTool implements ToolHandler<Loose, JobKept> {
       run(): Promise<JobKept> {
         return Promise.resolve({ kept: [] });

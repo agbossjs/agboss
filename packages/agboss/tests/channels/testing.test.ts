@@ -49,7 +49,10 @@ describe("#267 AC11: AutoApproveChannel decides at once", () => {
     expect(done.pending).toEqual([]);
     expect(seen.refunds).toEqual(["7"]);
     expect(seen.pauses).toEqual([]);
-    const records = await pauseStore().findAllByTenantIdAndRootExecutionId("default", done.runId);
+    const records = await pauseStore().findAllByTenantIdAndRootExecutionId(
+      "default",
+      done.executionId,
+    );
     expect(records).toMatchObject([
       { status: PauseStatus.Taken, resolution: PauseResolution.Decided },
     ]);

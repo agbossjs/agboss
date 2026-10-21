@@ -12,6 +12,9 @@ import type { Mcp } from "./assemble-tools.js";
 import { checkGraph } from "./container/graph-check.js";
 import type { Token } from "./injection.js";
 import { CORE_TOKENS, rememberServers } from "./runtime.js";
+import { throwIfViolated, violation, type RuleViolation } from "../graph/rule-error.js";
+import { kindSuffixProblem, NameKind } from "../flow/names.js";
+import { MAX_TOOL_NAME_LENGTH } from "../flow/analyse/rules/models.js";
 
 /** A workflow's tool classes: local `@Tool`s and `@McpTool`s. */
 export interface ToolClasses {
@@ -20,10 +23,12 @@ export interface ToolClasses {
 }
 
 /**
- * Tool classes → the tool names they expose to a model (a `@Rag` → `search_<name>`); a name exposed
- * twice (local, MCP or knowledge-base search) fails assembly.
+ * Tool classes → the tool names they expose to a model (a `@Rag` → `search-<name>-tool`); a name
+ * that breaks the name rules (`toolNameViolations`) or is exposed twice (local, MCP or
+ * knowledge-base search) fails assembly.
  */
 export const toolNames = (tools: ToolClasses, rags: readonly Class[]): Map<Class, string> => {
+  throwIfViolated(toolNameViolations(tools, rags));
   const map = new Map<Class, string>();
   const byName = new Map<string, Class>();
 
@@ -50,6 +55,53 @@ export const toolNames = (tools: ToolClasses, rags: readonly Class[]): Map<Class
 
   return map;
 };
+
+/** What every provider accepts as the name of a tool a model sees (OpenAI, Anthropic, Gemini). */
+const MODEL_TOOL_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
+
+/** `[tool.name-too-long]` / `[tool.name-invalid]` for a name a model would see, or nothing. */
+function modelNameViolations(name: string, owner: string): RuleViolation[] {
+  if (MODEL_TOOL_NAME.test(name)) return [];
+  if (name.length > MAX_TOOL_NAME_LENGTH)
+    return [
+      violation(
+        "tool.name-too-long",
+        `${owner}: the tool name ${name} has ${String(name.length)} characters (at most ${String(MAX_TOOL_NAME_LENGTH)}) — give it a shorter name`,
+        [owner],
+      ),
+    ];
+  const message = `${owner}: the tool name "${name}" has characters a model API refuses — letters, digits, "_" and "-" only`;
+  return [violation("tool.name-invalid", message, [owner])];
+}
+
+/**
+ * The names of a workflow's tools (#268 AC9): a project's `@Tool` / `@McpTool` is kebab-case and ends
+ * with `-tool` (`[name.kind-suffix]`); every name a model sees — a knowledge base's
+ * `search-<name>-tool` too — fits the providers' `[a-zA-Z0-9_-]`, at most 64 characters. All at once.
+ */
+export function toolNameViolations(tools: ToolClasses, rags: readonly Class[]): RuleViolation[] {
+  const named = [
+    ...tools.local.map((cls) => ({
+      cls,
+      name: requireComponent(cls, "tool", "workflowOf").meta.name,
+    })),
+    ...tools.mcp.map((cls) => ({
+      cls,
+      name: requireComponent(cls, "mcp-tool", "workflowOf").meta.name,
+    })),
+  ];
+  const own = named.flatMap(({ cls, name }) => {
+    const problem = kindSuffixProblem(name, NameKind.Tool);
+    const owner = tokenName(cls);
+    return problem === undefined
+      ? modelNameViolations(name, owner)
+      : [violation(problem.code, `${owner}: ${problem.message}`, [owner])];
+  });
+  const searches = rags.flatMap((cls) =>
+    modelNameViolations(searchToolName(ragMeta(cls)), tokenName(cls)),
+  );
+  return [...own, ...searches];
+}
 
 /** The classes among a workflow's `providers` (values excluded). */
 const providerClassesOf = (bundle: WorkflowMeta): readonly Class[] =>

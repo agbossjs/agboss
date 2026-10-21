@@ -83,12 +83,12 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
       expect(done.record?.pauses).toEqual([
         {
           pauseId: undefined,
-          executionId: done.runId,
+          executionId: done.executionId,
           step: {
             component: { name: "treasurer-agent" },
             nodeId: "treasurer-agent",
             visitNumber: 1,
-            idempotencyKey: `${done.runId}:treasurer-agent:1:call-1`,
+            idempotencyKey: `${done.executionId}:treasurer-agent:1:call-1`,
             callId: "call-1",
             itemIndex: undefined,
             copyNumber: 1,

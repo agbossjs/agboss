@@ -47,7 +47,7 @@ export interface DescribedChannel {
   /** The class that sends; absent for a role with none listed (assembly rejects it). */
   readonly implementation?: string;
   readonly reason?: ChannelImplementationReason;
-  /** The tools that name it: `pay_out (treasury-workflow)`. */
+  /** The tools that name it: `pay-out-tool (treasury-workflow)`. */
   readonly tools: readonly string[];
 }
 

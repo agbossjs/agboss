@@ -10,7 +10,7 @@ import {
   WorkflowStart,
   type ToolHandler,
 } from "../../../../src/index.js";
-import { usd, type Usd } from "../../../../src/units/index.js";
+import { seconds, usd, type Usd } from "../../../../src/units/index.js";
 import { start } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import {
@@ -50,7 +50,7 @@ export class ResultDto {
 
 /** A paid search API (not a model): each call records its price. */
 @Tool({
-  name: "serp_search",
+  name: "serp-search-tool",
   description: "Searches the web (paid)",
   input: SearchDto,
   output: SearchDto,
@@ -67,11 +67,11 @@ export class SerpSearchTool implements ToolHandler<SearchDto, SearchDto> {
 
 /** Waits on its call's signal like a fetch would; records why it was aborted. */
 @Tool({
-  name: "slow_fetch",
+  name: "slow-fetch-tool",
   description: "Fetches slowly",
   input: SearchDto,
   output: SearchDto,
-  timeoutMs: 50,
+  timeout: seconds(0.05),
   deps: [ExecutionContext],
 })
 export class SlowFetchTool implements ToolHandler<SearchDto, SearchDto> {

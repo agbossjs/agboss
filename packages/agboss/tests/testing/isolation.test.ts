@@ -138,7 +138,7 @@ describe("AC12: everything external is replaced; a live call fails the test befo
         itemIndex: undefined,
         ask: {
           callId: "call-1",
-          tool: "save_note",
+          tool: "save-note-tool",
           arguments: { title: "n2", text: "x" },
           summary: expect.any(String),
         },

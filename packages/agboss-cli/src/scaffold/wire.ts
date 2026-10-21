@@ -2,7 +2,7 @@ import ts from "typescript";
 import { ScaffoldConflictError, ScaffoldError } from "./errors.js";
 import type { FileToWrite } from "./write.js";
 
-type Decorator = "Agent" | "Workflow" | "Router";
+type Decorator = "Agent" | "Workflow" | "Router" | "Application";
 
 const decoratorCall = (
   source: ts.SourceFile,

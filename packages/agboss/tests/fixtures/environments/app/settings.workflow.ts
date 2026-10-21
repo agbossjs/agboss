@@ -36,7 +36,7 @@ export class SettingsInfo {
 }
 
 @Tool({
-  name: "api_settings",
+  name: "api-settings-tool",
   description: "The API settings of this app",
   input: SettingsQuery,
   output: SettingsInfo,

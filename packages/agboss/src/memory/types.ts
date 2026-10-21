@@ -27,7 +27,7 @@ export interface MemoryTurn {
   /** The thread: its tenant and its id (#261 S72: the thread's key). */
   readonly tenantId: string;
   readonly threadId: string;
-  readonly runId: string;
+  readonly executionId: string;
   readonly turn: HistoryTurn;
   /** What is left of the run's budget; a strategy that calls a model does nothing at 0. */
   readonly budgetLeftUsd: number;

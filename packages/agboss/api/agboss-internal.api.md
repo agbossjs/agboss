@@ -10,7 +10,6 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { BaseMessage } from '@langchain/core/messages';
 import { CompiledStateGraph } from '@langchain/langgraph';
-import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
 import { OverwriteValue } from '@langchain/langgraph';
 import { StateDefinition } from '@langchain/langgraph';
@@ -129,14 +128,13 @@ export function compareBundleProfiles(bundle: AssembledWorkflow, names: readonly
     readonly profileRoot?: string;
 }, tasksOf: (base: AppDeps) => Promise<readonly string[]>): Promise<ProfileComparison>;
 
-// Warning: (ae-forgotten-export) The symbol "RunDeps" needs to be exported by the entry point internal.d.ts
+// Warning: (ae-forgotten-export) The symbol "AgentExecutionDeps" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export const configSnapshot: <TName extends string>(deps: Pick<RunDeps<TName>, "config" | "prompts" | "graph" | "maxSteps" | "routers" | "compactions"> & {
+export const configSnapshot: <TName extends string>(deps: Pick<AgentExecutionDeps<TName>, "config" | "prompts" | "graph" | "maxSteps" | "routers" | "compactions"> & {
     readonly guardrails?: {
         readonly guardrails: readonly LoadedGuardrail[];
     } | undefined;
-    readonly pii?: FingerprintDeps["pii"];
 }) => unknown;
 
 // @public
@@ -449,6 +447,16 @@ export function evaluate(deps: EvalDeps, bundle: string, options: {
 // @public
 export const executeUnchecked: (app: Pick<App, "execute">, start: Class, input: unknown, options?: ExecutionOptions) => Promise<ExecutionOutput>;
 
+// @public
+export type ExecutionStreamEvent = {
+    readonly kind: "textDelta";
+    readonly delta: string;
+} | {
+    readonly kind: "toolCall";
+    readonly tool: string;
+    readonly args?: unknown;
+};
+
 // Warning: (ae-forgotten-export) The symbol "FlowPath" needs to be exported by the entry point internal.d.ts
 //
 // @public
@@ -575,7 +583,7 @@ export function renderTemplate(text: string, variables: Readonly<Record<string, 
 // Warning: (ae-forgotten-export) The symbol "ReplayReport" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export function replay<TName extends string>(run: RunDeps<TName>, evaluation: EvalDeps, options: {
+export function replay<TName extends string>(run: AgentExecutionDeps<TName>, evaluation: EvalDeps, options: {
     readonly promptVersion: string;
     readonly limit: number;
 }): Promise<ReplayReport>;
@@ -592,16 +600,6 @@ export function resolvedModelUsesOf(workflow: WorkflowModels): readonly Resolved
 
 // @public
 export function resolveEnvironment(loaded: LoadedEnvironment, processEnv: NodeJS.ProcessEnv, secrets?: SecretResolution): Environment;
-
-// @public
-export type RunStreamEvent = {
-    readonly kind: "textDelta";
-    readonly delta: string;
-} | {
-    readonly kind: "toolCall";
-    readonly tool: string;
-    readonly args?: unknown;
-};
 
 // @public
 export interface RuntimeContexts {
@@ -778,7 +776,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/config/defaults.ts:20:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/config/defaults.ts:32:3 - (ae-undocumented) Missing documentation for "level".
 // src/config/defaults.ts:33:3 - (ae-undocumented) Missing documentation for "name".
-// src/config/profiles.ts:10:12 - (ae-undocumented) Missing documentation for "name".
+// src/config/profiles.ts:9:12 - (ae-undocumented) Missing documentation for "name".
 // src/describe/application.ts:25:3 - (ae-undocumented) Missing documentation for "name".
 // src/describe/application.ts:26:3 - (ae-undocumented) Missing documentation for "scope".
 // src/describe/application.ts:27:3 - (ae-undocumented) Missing documentation for "period".
@@ -854,9 +852,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/models/problems.ts:20:14 - (ae-undocumented) Missing documentation for "problemLine".
 // src/models/uses.ts:10:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/uses.ts:11:3 - (ae-undocumented) Missing documentation for "purpose".
-// src/run/versions.ts:64:29 - (ae-forgotten-export) The symbol "LoadedGuardrail" needs to be exported by the entry point internal.d.ts
-// src/run/versions.ts:65:5 - (ae-forgotten-export) The symbol "FingerprintDeps" needs to be exported by the entry point internal.d.ts
-// src/tools/mcp/facade.ts:106:14 - (ae-undocumented) Missing documentation for "isMcpFacade".
+// src/run/versions.ts:56:29 - (ae-forgotten-export) The symbol "LoadedGuardrail" needs to be exported by the entry point internal.d.ts
+// src/tools/mcp/facade.ts:107:14 - (ae-undocumented) Missing documentation for "isMcpFacade".
 
 // (No @packageDocumentation comment for this package)
 

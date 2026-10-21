@@ -46,7 +46,13 @@ export class Revealed {
   text!: string;
 }
 
-@Tool({ name: "reveal", description: "Reveals", input: Query, output: Revealed, deps: [Vault] })
+@Tool({
+  name: "reveal-tool",
+  description: "Reveals",
+  input: Query,
+  output: Revealed,
+  deps: [Vault],
+})
 export class RevealTool implements ToolHandler<Query, Revealed> {
   constructor(private readonly vault: Vault) {}
   run(): Promise<Revealed> {

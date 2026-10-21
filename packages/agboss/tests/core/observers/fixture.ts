@@ -40,7 +40,7 @@ export class AuditService {
 }
 
 @Tool({
-  name: "echo",
+  name: "echo-tool",
   description: "Echoes the text",
   input: EchoInput,
   output: EchoInput,

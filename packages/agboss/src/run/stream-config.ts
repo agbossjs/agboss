@@ -2,11 +2,11 @@ import type { Serialized } from "@langchain/core/load/serializable";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { newRunContext, type RunContext } from "../core/run-context.js";
 import { runConfig } from "./paused.js";
-import type { RunDeps, RunOptions, RunStreamEvent } from "./types.js";
+import type { AgentExecutionDeps, AgentExecutionOptions, ExecutionStreamEvent } from "./types.js";
 
 class StreamingCallbackHandler extends BaseCallbackHandler {
   name = "StreamingCallbackHandler";
-  constructor(private readonly onStream: (event: RunStreamEvent) => void) {
+  constructor(private readonly onStream: (event: ExecutionStreamEvent) => void) {
     super();
   }
   override handleLLMNewToken(token: string) {
@@ -28,7 +28,7 @@ export interface RunIdentity {
 }
 
 /** The run's `RunContext`: built once here, read by every node through `configurable.run`. */
-const runContextOf = (identity: RunIdentity, options: RunOptions): RunContext =>
+const runContextOf = (identity: RunIdentity, options: AgentExecutionOptions): RunContext =>
   newRunContext({
     runId: identity.runId,
     threadId: identity.threadId,
@@ -51,9 +51,9 @@ function objectInput(input: unknown): Readonly<Record<string, unknown>> | undefi
  * continues from); tracing callbacks when on, token streaming when `onStream` is given.
  */
 export function streamConfig<TName extends string>(
-  deps: RunDeps<TName>,
+  deps: AgentExecutionDeps<TName>,
   identity: RunIdentity,
-  options: RunOptions = {},
+  options: AgentExecutionOptions = {},
 ): ReturnType<typeof runConfig> & {
   streamMode: "values";
   durability: "sync";

@@ -61,7 +61,7 @@ class CallEcho {
 
 /** Returns its step's call id: proves an MCP call runs in a frame of its own (#280). */
 @Tool({
-  name: "echo_call",
+  name: "echo-call-tool",
   description: "Echoes the call id",
   input: OrderQuery,
   output: CallEcho,
@@ -81,7 +81,7 @@ class Code {
 }
 
 /** Breaks its own output DTO: the adapter must reject the result. */
-@Tool({ name: "broken", description: "Wrong output", input: OrderQuery, output: Code })
+@Tool({ name: "broken-tool", description: "Wrong output", input: OrderQuery, output: Code })
 class Broken implements ToolHandler<OrderQuery, Code> {
   run(): Promise<Code> {
     return Promise.resolve({ code: "x" });
@@ -167,13 +167,13 @@ describe("McpService over an in-memory MCP transport", () => {
     const { tools } = await client.listTools();
 
     expect(tools.map((tool) => tool.name)).toEqual([
-      "order_status",
-      "echo_call",
-      "broken",
+      "order-status-tool",
+      "echo-call-tool",
+      "broken-tool",
       "chat-workflow-start",
       "resume_workflow",
     ]);
-    const orderStatus = tools.find((tool) => tool.name === "order_status");
+    const orderStatus = tools.find((tool) => tool.name === "order-status-tool");
     expect(orderStatus).toMatchObject({
       description: "The status of an order",
       inputSchema: { ...jsonSchemaOf(OrderQuery), type: "object" },
@@ -185,7 +185,10 @@ describe("McpService over an in-memory MCP transport", () => {
   it("calls a tool through the tool adapter and returns the validated result", async () => {
     const client = await connected();
 
-    const result = await client.callTool({ name: "order_status", arguments: { orderId: "42" } });
+    const result = await client.callTool({
+      name: "order-status-tool",
+      arguments: { orderId: "42" },
+    });
 
     expect(result.isError).toBeFalsy();
     expect(result.structuredContent).toEqual({ status: "order 42 shipped" });
@@ -195,8 +198,11 @@ describe("McpService over an in-memory MCP transport", () => {
   it("invalid input and invalid output come back as MCP error results", async () => {
     const client = await connected();
 
-    const badInput = await client.callTool({ name: "order_status", arguments: { orderId: 7 } });
-    const badOutput = await client.callTool({ name: "broken", arguments: { orderId: "1" } });
+    const badInput = await client.callTool({
+      name: "order-status-tool",
+      arguments: { orderId: 7 },
+    });
+    const badOutput = await client.callTool({ name: "broken-tool", arguments: { orderId: "1" } });
 
     expect(badInput.isError).toBe(true);
     expect(textOf(badInput)).toMatch(/^Tool error: invalid input: orderId/);
@@ -208,7 +214,7 @@ describe("McpService over an in-memory MCP transport", () => {
     const client = await connected();
     const call = (meta?: Record<string, unknown>) =>
       client.callTool({
-        name: "echo_call",
+        name: "echo-call-tool",
         arguments: { orderId: "1" },
         ...(meta ? { _meta: meta } : {}),
       });
@@ -253,7 +259,7 @@ describe("McpService over an in-memory MCP transport", () => {
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ agent: "clerk-agent", ask: { tool: "save_note" } }],
+      pending: [{ agent: "clerk-agent", ask: { tool: "save-note-tool" } }],
     });
     expect(resumed.isError).toBeFalsy();
     expect(JSON.parse(textOf(resumed))).toEqual({ text: "Saved." });

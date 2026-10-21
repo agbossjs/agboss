@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { routeTo, fakeDeps, runText } from "../helpers.js";
 
-describe("runAgent writes Terns", () => {
+describe("executeAgent writes Terns", () => {
   it("records a finished run: its start line, its finish line, the path and the versions", async () => {
     const deps = await fakeDeps({ "test/router": [routeTo("alpha-agent")], "test/alpha": ["42"] });
 

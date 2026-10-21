@@ -130,7 +130,7 @@ class SafeInputGuardrail {}
 class SafeOutputGuardrail {}
 
 @Tool({
-  name: "SafeTool",
+  name: "safe-tool",
   description: "Does things",
   input: ToolInput,
   output: ToolInput,
@@ -214,8 +214,8 @@ describe("Observability Tails Hooks", () => {
       "AgentStart:safe-agent",
       "GuardrailStart:safe-input-guardrail",
       "GuardrailEnd:safe-input-guardrail",
-      "ToolStart:SafeTool",
-      "ToolEnd:SafeTool",
+      "ToolStart:safe-tool",
+      "ToolEnd:safe-tool",
       "GuardrailStart:safe-output-guardrail",
       "GuardrailEnd:safe-output-guardrail",
       "AgentEnd:safe-agent",

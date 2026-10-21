@@ -67,7 +67,7 @@ describe("route() decides by the credit limit ($100 for c-1)", () => {
 
     expect(result.path).not.toContain("approval-agent");
     expect(mockOf(CreditService).limitOf.mock.calls).toEqual([
-      [{ customerId: "c-1", requestKey: `${result.runId}:credit-limit-router:1` }],
+      [{ customerId: "c-1", requestKey: `${result.executionId}:credit-limit-router:1` }],
     ]);
   });
 

@@ -6,8 +6,8 @@ import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import { startComponents } from "../components/container/lifecycle.js";
 import type { EvalDeps } from "../eval/eval.js";
-import type { RunDeps } from "../run/types.js";
-import { configSnapshot, runVersions } from "../run/versions.js";
+import type { AgentExecutionDeps } from "../run/types.js";
+import { configSnapshot, executionVersions } from "../run/versions.js";
 import { shortVersion, stableJson } from "../terns/index.js";
 import { tracingOf } from "../tracing/index.js";
 import type { ModelGateway } from "../llm/gateway.js";
@@ -43,7 +43,7 @@ import type { GraphDeps } from "../graph/deps.js";
 import type { ReplyReaderParts } from "../channels/reply-reader.js";
 
 /** Run dependencies, eval dependencies, and resources to release after the run. */
-export interface AppDeps extends RunDeps<string> {
+export interface AppDeps extends AgentExecutionDeps<string> {
   /** The application's observers (`@Application({ observers })`); none for a workflow on its own. */
   readonly observer: ExecutionObserverManager;
   /** The application's log (its `Logger`, stamped by its clock). */
@@ -97,8 +97,8 @@ export interface AppDepsOptions {
 }
 
 /** Stores the config snapshot of this version; warns when the version already had other content. */
-async function versionWarnings(deps: RunDeps<string>): Promise<string[]> {
-  const { configVersion, configHash } = runVersions(deps);
+async function versionWarnings(deps: AgentExecutionDeps<string>): Promise<string[]> {
+  const { configVersion, configHash } = executionVersions(deps);
   const { drift } = await deps.terns.rememberConfig(
     deps.config.name,
     configVersion,

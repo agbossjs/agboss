@@ -12,7 +12,7 @@ import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { PendingPause } from "../pause/index.js";
 import type { Compacted } from "../run/compaction.js";
-import type { RunStreamEvent } from "../run/types.js";
+import type { ExecutionStreamEvent } from "../run/types.js";
 import type { Milliseconds } from "../units/index.js";
 import type { HealthReport } from "../health/health-check.js";
 
@@ -30,7 +30,7 @@ export interface CallOptions {
   /** Stops the run, like `app.cancel(threadId)`. */
   readonly signal?: AbortSignal | undefined;
   /** Token and tool-call events while the run works. */
-  readonly onStream?: (event: RunStreamEvent) => void;
+  readonly onStream?: (event: ExecutionStreamEvent) => void;
   /** Extra LangGraph `configurable` keys for the run's nodes (the framework's own keys win). */
   readonly configurable?: Readonly<Record<string, unknown>>;
   /** Also return the full execution record (`result.record`, #270 AC16). */
@@ -155,10 +155,10 @@ export interface ExecutionOutput<TOutput = unknown> {
   /** The tenant of the thread (#261): `"default"` when the execution named none. */
   readonly tenantId: string;
   /**
-   * The run's id: the same in its observer events, `executionContext.executionId`, its Tern and its trace, and
-   * kept by its resumes.
+   * The execution's id: the same in its observer events, `executionContext.executionId`, its
+   * record and its trace, and kept by its resumes.
    */
-  readonly runId: string;
+  readonly executionId: string;
   /** The workflow finish the execution reached. */
   readonly finish?: ComponentRecord;
   /** The finish's output DTO — the business result only. */
@@ -221,7 +221,7 @@ export interface App {
    * execution tree (unknown, or another tenant's → `UnknownPauseError`), checked against who may
    * answer it, its decision validated, then recorded (`Pending → Resolved`, atomic; a second
    * answer → `NotPausedError`) and the tree moved under its lease. With other pauses left the
-   * execution pauses again with the rest. The result carries `threadId` and `runId`.
+   * execution pauses again with the rest. The result carries `threadId` and `executionId`.
    */
   resume(request: ResumeRequest, options?: ResumeOptions): Promise<ExecutionOutput>;
   /**

@@ -14,11 +14,11 @@ describe("job-scout workflow", () => {
       "shortlist-agent",
     ]);
     expect(workflow.toolDependencies).toEqual({
-      read_resume: "ResumeReader",
-      greenhouse_jobs:
+      "read-resume-tool": "ResumeReader",
+      "greenhouse-jobs-tool":
         "JobFitJudge (ROUTER_FACTORY), JOB_SEARCH, GreenhouseBoards (JOB_SEARCH, ApplicationContext), ExecutionContext",
-      read_shortlist: "ShortlistServer, SHORTLIST",
-      save_shortlist: "ShortlistServer, SHORTLIST",
+      "read-shortlist-tool": "ShortlistServer, SHORTLIST",
+      "save-shortlist-tool": "ShortlistServer, SHORTLIST",
     });
     expect(workflow.config.compactions?.["conversation-compaction"]).toMatchObject({
       turnsBetweenCompactions: 5,

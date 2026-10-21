@@ -1,5 +1,9 @@
 import { createApp, type App, type ExecutionOutput } from "agboss";
-import { executeUnchecked, type ApplicationStart, type RunStreamEvent } from "agboss/internal";
+import {
+  executeUnchecked,
+  type ApplicationStart,
+  type ExecutionStreamEvent,
+} from "agboss/internal";
 import "dotenv/config";
 import { createInterface } from "node:readline";
 import { styleText } from "node:util";
@@ -12,7 +16,7 @@ import { envOption } from "./cli/environment.js";
 import { runInputOf } from "./cli/run-input.js";
 
 /** The reply streams to stdout (stderr under --json); tool use and the summary go to stderr. */
-function streamTo(context: CommandContext): (event: RunStreamEvent) => void {
+function streamTo(context: CommandContext): (event: ExecutionStreamEvent) => void {
   const reply = context.json ? context.io.stderr : context.io.stdout;
   return (event) => {
     if (event.kind === "textDelta") reply.write(event.delta);

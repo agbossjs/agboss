@@ -5,6 +5,7 @@ import { fitScorer, matchScore, MAX_JUDGED, passesFilters } from "../helpers/gre
 import { JOB_SEARCH, type JobSearch } from "../config/search.config.js";
 import { JobFitJudge, type FitRater } from "../services/job-fit.service.js";
 import { JobMatches, JobQuery } from "./greenhouse-jobs.dto.js";
+import { minutes } from "agboss/units";
 
 /**
  * Public Greenhouse boards (no key): hard filters (location, excluded titles), then a cheap judge
@@ -14,12 +15,12 @@ import { JobMatches, JobQuery } from "./greenhouse-jobs.dto.js";
  * search before the judge is asked.
  */
 @Tool({
-  name: "greenhouse_jobs",
+  name: "greenhouse-jobs-tool",
   description:
     "Find jobs on Greenhouse boards that fit what the user wants; returns the best with links.",
   input: JobQuery,
   output: JobMatches,
-  timeoutMs: 240_000,
+  timeout: minutes(4),
   deps: [JobFitJudge, JOB_SEARCH, GreenhouseBoards, ExecutionContext],
 })
 export class GreenhouseJobs implements ToolHandler<JobQuery, JobMatches> {

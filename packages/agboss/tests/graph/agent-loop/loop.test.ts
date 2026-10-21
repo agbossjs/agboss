@@ -30,8 +30,8 @@ describe("AC1: a model turn runs its tool calls, stores each result by callId, t
     expect(end).toEqual({ kind: "answered", reply: "done" });
     expect([...h.effects].sort()).toEqual(["read a.ts", "read b.ts"]);
     expect((await stateOf(h.graph, "t")).results).toEqual({
-      c1: { callId: "c1", tool: "read_file", content: "contents of a.ts" },
-      c2: { callId: "c2", tool: "read_file", content: "contents of b.ts" },
+      c1: { callId: "c1", tool: "read-file-tool", content: "contents of a.ts" },
+      c2: { callId: "c2", tool: "read-file-tool", content: "contents of b.ts" },
     });
     expect(toolMessagesOf(h.model.sent[1])).toEqual([
       ["c1", "contents of a.ts"],
@@ -54,8 +54,8 @@ describe("AC1: a model turn runs its tool calls, stores each result by callId, t
   it("assigns a callId when the model gives none — unique within the run", async () => {
     const h = harness({
       moves: [
-        callTools({ name: "read_file", args: { path: "a.ts" } }),
-        callTools({ name: "read_file", args: { path: "b.ts" } }),
+        callTools({ name: "read-file-tool", args: { path: "a.ts" } }),
+        callTools({ name: "read-file-tool", args: { path: "b.ts" } }),
         replyWith("ok"),
       ],
     });
@@ -85,7 +85,7 @@ describe("AC2: tool errors are recoverable — the model reads them and the loop
     const h = harness({
       moves: [
         callTools(
-          { id: "c1", name: "read_file", args: { file: "a.ts" } },
+          { id: "c1", name: "read-file-tool", args: { file: "a.ts" } },
           { id: "c2", name: "delete_repo", args: {} },
         ),
         replyWith("ok"),

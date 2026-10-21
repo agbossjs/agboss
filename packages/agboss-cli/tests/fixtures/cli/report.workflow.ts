@@ -38,7 +38,11 @@ export class BatchReportDto {
   summary!: string;
 }
 
-@WorkflowStart({ name: "item-report-workflow-start", description: "One item", input: ReportItemDto })
+@WorkflowStart({
+  name: "item-report-workflow-start",
+  description: "One item",
+  input: ReportItemDto,
+})
 export class ItemReportWorkflowStart {}
 
 @Agent({

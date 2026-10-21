@@ -24,6 +24,7 @@ import {
   write,
   type ScriptedMove,
 } from "./fixtures.js";
+import { minutes } from "../../../src/units/index.js";
 
 const Args = z.tuple([
   z.string(),
@@ -45,7 +46,7 @@ const slowStep = defineTool({
   description: "A slow step",
   input: z.object({}),
   output: z.string(),
-  timeoutMs: 120_000,
+  timeout: minutes(2),
   run: async () => {
     const { callId } = executionContext.step; // the tool call's frame: the same id after a crash
     log(`slow started ${String(callId)}`);

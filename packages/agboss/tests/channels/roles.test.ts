@@ -48,7 +48,7 @@ abstract class ClarificationChannel extends ChannelOf<ClarificationChannel> {}
 
 /** A charge tool that names the refund role: its input is not what the role approves. */
 @Tool({
-  name: "charge",
+  name: "charge-tool",
   description: "Charges",
   input: ChargeInputDto,
   output: RefundCardOutputDto,
@@ -62,7 +62,7 @@ class ChargeTool implements ToolHandler<ChargeInputDto, RefundCardOutputDto> {
 
 /** A refund tool that names a question role: a question approves no tool. */
 @Tool({
-  name: "ask_refund",
+  name: "ask-refund-tool",
   description: "Refunds",
   input: RefundCardInputDto,
   output: RefundCardOutputDto,
@@ -127,7 +127,7 @@ describe("#267 AC6: a tool's input is its role's approves", () => {
       violations: [
         {
           code: "channel.wrong-tool",
-          nodes: ["charge", "refund-approval-channel"],
+          nodes: ["charge-tool", "refund-approval-channel"],
           message: expect.stringContaining("refund-approval-channel approves RefundCardInputDto"),
         },
       ],

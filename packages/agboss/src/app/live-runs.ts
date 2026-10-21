@@ -1,5 +1,5 @@
 import { ExecutionCancelledError } from "../core/errors.js";
-import type { RunOptions, AgentExecutionOutput } from "../run/types.js";
+import type { AgentExecutionOptions, AgentExecutionOutput } from "../run/types.js";
 import type { TernOutcome } from "../terns/index.js";
 import type { CallOptions } from "./types.js";
 import { threadMapKeyOf, type ThreadOfTenant } from "../infrastructure/thread-map-key.js";
@@ -74,7 +74,7 @@ export interface TreeCall extends CallOptions {
 }
 
 /** What `execute` / `resume` hand the run: the call's options with the tracked signal. */
-export const runOptionsOf = (call: TreeCall, signal: AbortSignal): RunOptions => ({
+export const runOptionsOf = (call: TreeCall, signal: AbortSignal): AgentExecutionOptions => ({
   signal,
   ownerId: call.ownerId,
   configurable: call.configurable,

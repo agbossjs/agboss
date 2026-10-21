@@ -71,7 +71,7 @@ describe("#246 AC1: a thread of another owner → onExecutionRejected run.thread
     await expect(again).rejects.toBeInstanceOf(ThreadOwnerError);
     expectRejected(
       { operation: ExecutionOperation.Execute, threadId: first.threadId, code: "run.thread-owner" },
-      [first.runId, "alice", "mallory", "two"],
+      [first.executionId, "alice", "mallory", "two"],
     );
     expect(workflowEvents()).toEqual([]);
   });
@@ -90,18 +90,21 @@ describe("#246 AC1: a thread of another owner → onExecutionRejected run.thread
     await expect(app.resume(answerOf(paused, approve), mallory)).rejects.toThrow(ThreadOwnerError);
     expectRejected(
       { operation: ExecutionOperation.Resume, threadId: paused.threadId, code: "run.thread-owner" },
-      [paused.runId, "dana"],
+      [paused.executionId, "dana"],
     );
     resetEvents();
     await expect(app.cancel(paused.threadId, mallory)).rejects.toThrow(ThreadOwnerError);
     expectRejected(
       { operation: ExecutionOperation.Cancel, threadId: paused.threadId, code: "run.thread-owner" },
-      [paused.runId],
+      [paused.executionId],
     );
     expect(workflowEvents()).toEqual([]);
 
     const done = await app.resume(answerOf(paused, approve), alice);
-    expect(done).toMatchObject({ status: ExecutionStatus.Finished, runId: paused.runId });
+    expect(done).toMatchObject({
+      status: ExecutionStatus.Finished,
+      executionId: paused.executionId,
+    });
   });
 });
 
@@ -121,7 +124,7 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
     await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(NotPausedError);
     expectRejected(
       { operation: ExecutionOperation.Resume, threadId: done.threadId, code: "run.not-paused" },
-      [done.runId],
+      [done.executionId],
     );
     expect(workflowEvents()).toEqual([]);
   });

@@ -27,9 +27,9 @@ describe("testTool", () => {
 
     const { output, spend } = await runSearch({ query: "TS" });
 
-    expect(output).toEqual({ jobs: "TS engineer\nTS lead", step: "search_jobs:test-call" });
+    expect(output).toEqual({ jobs: "TS engineer\nTS lead", step: "search-jobs-tool:test-call" });
     expect(spend.totalUsd).toBeCloseTo(0.002);
-    expect(spend.byCaller).toEqual({ "tool:search_jobs": 0.002 });
+    expect(spend.byCaller).toEqual({ "tool:search-jobs-tool": 0.002 });
   });
 
   it("the real service runs when nothing replaces it: its error rejects as thrown", async () => {
@@ -52,13 +52,13 @@ describe("testTool", () => {
     await failed;
   });
 
-  it("without a timeout the tool's own timeoutMs applies", async () => {
+  it("without a timeout the tool's own timeout applies", async () => {
     const runSearch = testTool(SearchJobsTool, {
       overrides: [override(JobBoardService, SlowJobBoardService)],
     });
 
     const call = runSearch({ query: "TS" });
-    const failed = expect(call).rejects.toThrow("timed out after 5000 ms");
+    const failed = expect(call).rejects.toThrow("timed out after 5 s");
     await runSearch.clock.advance(seconds(5));
 
     await failed;

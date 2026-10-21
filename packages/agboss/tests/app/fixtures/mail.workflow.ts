@@ -73,7 +73,7 @@ export class Sent {
 
 /** A write tool: it waits for an approval, so a run pauses before it. */
 @Tool({
-  name: "send_email",
+  name: "send-email-tool",
   description: "Sends an email",
   channel: TerminalUserChannel,
   input: Email,

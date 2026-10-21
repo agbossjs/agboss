@@ -445,7 +445,7 @@ export class ItemConfirmationDto {
 }
 
 @Tool({
-  name: "confirm_review",
+  name: "confirm-review-tool",
   description: "Confirms an item's review",
   channel: TerminalUserChannel,
   input: ItemConfirmationDto,

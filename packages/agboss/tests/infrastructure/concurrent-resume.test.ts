@@ -125,7 +125,7 @@ describe("#267 AC12 (Q58): a resume while the tree moves waits; the holder takes
     expect(moved.output).toEqual({ text: "Charged twice." });
     expect(waited?.status).toBe(ExecutionStatus.Finished);
     expect(waited?.output).toEqual({ text: "Charged twice." });
-    expect(waited?.runId).toBe(paused.runId);
+    expect(waited?.executionId).toBe(paused.executionId);
     expect(seen.charges).toEqual(["first", "second"]);
     expect(seen.resumes).toEqual([approve, approve]);
   });

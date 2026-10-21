@@ -19,7 +19,7 @@ async function findings(code: string): Promise<string[]> {
 const tool = (body: string, constructorBody = ""): string => `
 import { Tool } from "../decorators.js";
 class Query {}
-@Tool({ name: "jobs", description: "d", input: Query, output: Query })
+@Tool({ name: "jobs-tool", description: "d", input: Query, output: Query })
 export class Jobs {
   private seen: string[] = [];
   private calls = 0;

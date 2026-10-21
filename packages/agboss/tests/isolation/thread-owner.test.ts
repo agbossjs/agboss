@@ -70,7 +70,7 @@ describe("#202 AC1: threads are bound to their owner", () => {
     const paused = await execute(app, ChatStart, { text: "pay A-1" }, { ownerId: "alice" });
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ ask: { tool: "pay" } }],
+      pending: [{ ask: { tool: "pay-tool" } }],
     });
 
     await expect(app.resume(answerOf(paused, approve), { ownerId: "bob" })).rejects.toBeInstanceOf(

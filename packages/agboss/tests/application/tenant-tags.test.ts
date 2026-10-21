@@ -12,7 +12,7 @@ import {
 } from "../../src/infrastructure/execution-record.repository.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { streamConfig } from "../../src/run/stream-config.js";
-import type { RunDeps } from "../../src/run/types.js";
+import type { AgentExecutionDeps } from "../../src/run/types.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -63,7 +63,9 @@ describe("#261 AC6: every stored record carries tenantId", () => {
 
 describe("#261 AC6: the standard fields of LangGraph and of the trace exporter carry the tenant", () => {
   it("a run's metadata and tags: tenantId, executionId, rootExecutionId and the workflow", () => {
-    const deps = { config: { name: "bed-request-workflow", version: "1.0.0" } } as RunDeps<string>;
+    const deps = {
+      config: { name: "bed-request-workflow", version: "1.0.0" },
+    } as AgentExecutionDeps<string>;
 
     const config = streamConfig(deps, { threadId: "t-1", tenantId: "acme", runId: "run-1" });
 

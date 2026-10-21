@@ -215,7 +215,7 @@ describe("#261 AC10: every model call is counted in all of the execution's budge
       ),
     ).toBeCloseTo(0.03);
     expect(
-      await spent("brief-execution-budget", BudgetScope.Execution, result.runId, ""),
+      await spent("brief-execution-budget", BudgetScope.Execution, result.executionId, ""),
     ).toBeCloseTo(0.03);
   });
 

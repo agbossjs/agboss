@@ -141,7 +141,7 @@ export class CustomerOrderConfirmationChannel extends OrderConfirmationChannel {
 }
 
 @Tool({
-  name: "refund",
+  name: "refund-tool",
   description: "Refunds an order",
   channel: RefundApprovalChannel,
   input: RefundRequestDto,
@@ -155,7 +155,7 @@ export class RefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> 
 }
 
 @Tool({
-  name: "confirm_order",
+  name: "confirm-order-tool",
   description: "Confirms an order",
   channel: OrderConfirmationChannel,
   input: OrderConfirmationDto,
@@ -170,7 +170,7 @@ export class ConfirmOrderTool implements ToolHandler<OrderConfirmationDto, Order
 
 /** Refunds at once: its channel decides (`AutoApproveChannel`), nothing pauses. */
 @Tool({
-  name: "auto_refund",
+  name: "auto-refund-tool",
   description: "Refunds a small order",
   channel: AutoApproveChannel,
   input: RefundRequestDto,

@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { runVersions } from "../../src/index.js";
+import { executionVersions } from "../../src/index.js";
 import { NonJsonValueError, shortVersion, stableJson, versionOf } from "../../src/terns/index.js";
 import { fakeDeps } from "../helpers.js";
 
@@ -139,9 +139,11 @@ describe("versions", () => {
       prompts: { ...deps.prompts, "alpha-agent": "You are alpha, now terse." },
     };
 
-    expect(runVersions(deps)).toEqual(runVersions(await fakeDeps({})));
-    expect(runVersions(changed).promptVersion).not.toBe(runVersions(deps).promptVersion);
-    expect(runVersions(changed).modelVersion).toBe(runVersions(deps).modelVersion);
-    expect(runVersions(deps).configHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(executionVersions(deps)).toEqual(executionVersions(await fakeDeps({})));
+    expect(executionVersions(changed).promptVersion).not.toBe(
+      executionVersions(deps).promptVersion,
+    );
+    expect(executionVersions(changed).modelVersion).toBe(executionVersions(deps).modelVersion);
+    expect(executionVersions(deps).configHash).toMatch(/^[0-9a-f]{64}$/);
   });
 });

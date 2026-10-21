@@ -24,7 +24,7 @@ class Answer {
 const In = Query;
 const Out = Answer;
 
-@Tool({ name: "ok", description: "d", input: In, output: Out, deps: [Judge, SEARCH] })
+@Tool({ name: "ok-tool", description: "d", input: In, output: Out, deps: [Judge, SEARCH] })
 class Ok implements ToolHandler<Query, Answer> {
   constructor(
     readonly judge: Judge,
@@ -36,7 +36,7 @@ class Ok implements ToolHandler<Query, Answer> {
 }
 
 // @ts-expect-error — deps in the wrong order
-@Tool({ name: "swapped", description: "d", input: In, output: Out, deps: [SEARCH, Judge] })
+@Tool({ name: "swapped-tool", description: "d", input: In, output: Out, deps: [SEARCH, Judge] })
 class Swapped implements ToolHandler<Query, Answer> {
   constructor(
     readonly judge: Judge,
@@ -48,7 +48,7 @@ class Swapped implements ToolHandler<Query, Answer> {
 }
 
 // @ts-expect-error — a dependency missing from deps
-@Tool({ name: "missing", description: "d", input: In, output: Out, deps: [Judge] })
+@Tool({ name: "missing-tool", description: "d", input: In, output: Out, deps: [Judge] })
 class Missing implements ToolHandler<Query, Answer> {
   constructor(
     readonly judge: Judge,
@@ -60,7 +60,7 @@ class Missing implements ToolHandler<Query, Answer> {
 }
 
 // @ts-expect-error — run returns what the output DTO does not allow
-@Tool({ name: "wrong-output", description: "d", input: In, output: Out })
+@Tool({ name: "wrong-output-tool", description: "d", input: In, output: Out })
 class WrongOutput {
   run(): Promise<number> {
     return Promise.resolve(1);

@@ -39,7 +39,7 @@ describe("#198 AC1: every command has --help and a --json description", () => {
     },
   );
 
-  it("#268 AC1, AC2: every command but the generators takes --application; the run commands --start", async () => {
+  it("#268 AC1, AC2, AC8: every command but create, migrate and help takes --application; the run commands --start", async () => {
     const all = envelope(await agboss(["help", "--json"])).result as Described[];
     const taking = (flag: string): string[] =>
       all.filter((c) => c.options.some((o) => o.flag === flag)).map((c) => c.name);
@@ -48,8 +48,8 @@ describe("#198 AC1: every command has --help and a --json description", () => {
     expect(taking("--start")).toEqual(["chat", "run", "eval", "replay", "golden", "compare"]);
     expect(
       all.map((c) => c.name).filter((name) => !taking("--application").includes(name)),
-    ).toEqual(["create", "generate", "migrate", "help"]);
-    // generate's --workflow is PR 4's (#268 AC8: a workflow's full name)
+    ).toEqual(["create", "migrate", "help"]);
+    // generate's --workflow is a workflow's full name, found in the application (#268 AC8)
     expect(taking("--workflow")).toEqual(["generate"]);
   });
 
@@ -70,7 +70,7 @@ describe("#198 AC1: every command has --help and a --json description", () => {
     expect(result?.name).toBe("test-workflow");
     expect(result?.agents).toEqual([
       expect.objectContaining({ name: "coder-agent", tools: [] }),
-      expect.objectContaining({ name: "researcher-agent", tools: ["current_time"] }),
+      expect.objectContaining({ name: "researcher-agent", tools: ["current-time-tool"] }),
     ]);
     expect(result?.routers.map((r) => r.name)).toEqual(["main-router"]);
   });

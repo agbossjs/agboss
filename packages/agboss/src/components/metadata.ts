@@ -1,5 +1,6 @@
 import type { McpServerConfig } from "../config/types.js";
 import type { DtoClass } from "../dto/types.js";
+import type { Milliseconds } from "../units/index.js";
 import type { ServerTools } from "./mcp-client.js";
 import type { Class, Token } from "./injection.js";
 import type { ChannelMeta } from "./meta-types.js";
@@ -12,7 +13,8 @@ export interface ToolMeta {
   readonly prompt?: string;
   readonly promptUrls?: readonly string[];
   readonly channel?: Class;
-  readonly timeoutMs?: number;
+  /** How long one call may run (`seconds(5)`); default 30 s. */
+  readonly timeout?: Milliseconds;
   readonly input: DtoClass;
   readonly output: DtoClass;
   readonly deps: readonly Token[];

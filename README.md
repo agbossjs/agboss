@@ -15,9 +15,11 @@
 ```bash
 npx -p agboss-cli agboss create my-agents   # alias agboss c — a project from a short questionnaire
 cd my-agents && cp .env.example .env && npm run chat
-npx agboss g tool refund --workflow src/my-agents/my-agents.workflow.ts --agent assistant
+# every name is the full one, as in `name` (#268): the CLI never adds a suffix for you
+npx agboss g tool refund-tool --workflow my-agents-workflow --agent my-agents-assistant-agent
 # one tool per OpenAPI 3 operation (DTOs, a client in services/, tests), wired into the agent
-npx agboss g openapi pets --url ./pets.yaml --workflow src/my-agents/my-agents.workflow.ts --agent assistant
+npx agboss g openapi pets --url ./pets.yaml --workflow my-agents-workflow --agent my-agents-assistant-agent
+npx agboss g workflow onboarding-workflow   # a second workflow, listed in the @Application
 # any layout: targets come from the workflow module, tests go where vitest looks, files are
 # prettier-formatted; a rerun refuses — --force regenerates the files and keeps the wiring in them
 # (tools, rag, MCP, judges, routes, …); --force --reset starts them over without it
@@ -37,7 +39,7 @@ export class JobQuery {
   @Text({ prompt: "what to look for" })
   query!: string;
 }
-@Tool({ name: "greenhouse_jobs", description: "Finds jobs", input: JobQuery, output: JobQuery })
+@Tool({ name: "greenhouse-jobs-tool", description: "Finds jobs", input: JobQuery, output: JobQuery })
 export class GreenhouseJobs implements ToolHandler<JobQuery, JobQuery> {
   run(input: JobQuery): Promise<JobQuery> {
     return Promise.resolve(input);
@@ -284,7 +286,7 @@ export const durableStores = [
 
 **Time is the application's `Clock`** (#262, infrastructure like the stores): every time the
 framework reads (the ledger's day, records, leases) and every wait it makes (lease renewals,
-recovery, the shutdown timeout, a tool's `timeoutMs`, model call timeouts, retry backoff,
+recovery, the shutdown timeout, a tool's `timeout`, model call timeouts, retry backoff,
 `Retry-After` pauses) goes through it — the system's clock unless `@Application({ providers })`
 lists a class that `extends Clock`. A component that needs the time injects it; `testWith` runs
 every test on a `VirtualClock` (`agboss/testing`), moved by `await clock.advance(seconds(30))`
@@ -990,8 +992,8 @@ Every component reads the execution it runs in through its constructor (#280):
 services alike; there is no `ctx` parameter. It is data only and read-only, and every read gives the
 current execution and step (one frame per node visit and per tool call), so it is safe in an
 component (one instance for the app) and in parallel branches. One execution has one id: its observer events
-(`event.executionId`), `executionContext.executionId`, its Tern (`Tern.runId`), its trace and its result
-(`ExecutionOutput.runId`) carry the same one, also after a resume. What a node reads comes in its
+(`event.executionId`), `executionContext.executionId`, its record, its trace and its result
+(`ExecutionOutput.executionId`) carry the same one, also after a resume. What a node reads comes in its
 input — for a model, its input message (each `input` field as `### field (from producer)`), never
 through `{{input.…}}` in its instructions (`[prompt.input-in-instructions]`); the context carries no
 input and no metadata.
@@ -1004,7 +1006,7 @@ export class OrderQuery {
   orderId!: string;
 }
 @Tool({
-  name: "pay_order",
+  name: "pay-order-tool",
   description: "Pays the order",
   input: OrderQuery,
   output: OrderQuery,
@@ -1019,7 +1021,7 @@ export class PayOrder implements ToolHandler<OrderQuery, OrderQuery> {
 ```ts
 run(query: OrderQuery): Promise<OrderQuery> {
   const { executionContext } = this;
-  executionContext.executionId; // unique per execution, the same after a resume (= ExecutionOutput.runId)
+  executionContext.executionId; // unique per execution, the same after a resume (= ExecutionOutput.executionId)
   executionContext.threadId; // the conversation (ExecutionOutput.threadId)
   executionContext.ownerId; // from execute(…, { ownerId }): who the thread belongs to
   executionContext.tenant.tenantId; // the organization, "default" when none is passed
@@ -1079,7 +1081,7 @@ lists every waiting pause (`PendingPause`: `answeredBy`, `agent`, `channel`, `it
 `childExecutionId`, the question `ask`). A pause is answered by its id, never by its thread —
 `app.resume({ pauseId, decision }, options)` — found by `(tenantId, pauseId)` anywhere in the tree
 (unknown, or another tenant's → `UnknownPauseError`, `pause.unknown`); with other pauses left the
-execution pauses again with the rest; the result carries `threadId` and `runId`. Who may answer is
+execution pauses again with the rest; the result carries `threadId` and `executionId`. Who may answer is
 the pause's channel role's `answeredBy`: a `PauseAnswerer.ThreadOwner` pause lists its `pauseId` in
 `result.pending` and is resumed with the thread's `ownerId` (another → `ThreadOwnerError`); a
 `PauseAnswerer.Channel` pause's id is the right to answer it — only its channel got it
@@ -1532,7 +1534,7 @@ import { SpendRecorder, Tool, type ToolHandler } from "agboss";
 import { usd } from "agboss/units";
 
 @Tool({
-  name: "web_search",
+  name: "web-search-tool",
   description: "Searches the web (a paid API)",
   input: SearchQueryDto,
   output: SearchResultsDto,
@@ -1542,7 +1544,7 @@ export class WebSearchTool implements ToolHandler<SearchQueryDto, SearchResultsD
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
   run({ query }: SearchQueryDto): Promise<SearchResultsDto> {
-    this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) }); // → tool:web_search
+    this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) }); // → tool:web-search-tool
     return Promise.resolve({ text: `results for ${query}` });
   }
 }

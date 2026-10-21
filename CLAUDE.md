@@ -156,7 +156,7 @@ import { OrderBook } from "../services/order-book.service.js";
 import { OrderInfo, OrderQuery } from "./order-status.dto.js";
 
 @Tool({
-  name: "order_status",
+  name: "order-status-tool",
   description: "The status of an order",
   input: OrderQuery,
   output: OrderInfo,
@@ -192,7 +192,7 @@ export class SupportAgent {}
 ```
 
 ```md file=src/desk/agents/support.prompt.md
-You answer questions about orders. Look every order up with order_status; never guess a status.
+You answer questions about orders. Look every order up with order-status-tool; never guess a status.
 ```
 
 ```ts file=src/desk/workflow-starts/chat.workflow-start.ts
@@ -396,8 +396,14 @@ export default defineConfig({
 **Adding an agent** = its `agents/<name>.agent.ts` (+ `<name>.prompt.md`), one route in its
 router's `routes`, and its path in the router's `chooseOne(…)` (`route(NewAgent).toFinish(…)`).
 **Adding a tool** = `tools/<name>.dto.ts` + `tools/<name>.tool.ts`, listed in an agent's `tools`; a
-service it needs goes in `providers`. `agboss generate <kind> <name> --workflow <path>` writes and
-wires both, then regenerates the types. A project's `npm run types` (`agboss check`) writes
+service it needs goes in `providers`. `agboss generate <kind> <full name> --workflow <workflow's
+full name>` writes and wires both, then regenerates the types (#268 AC8: `agboss generate agent
+billing-agent --workflow desk-workflow`, `--agent billing-agent`; a name without its kind suffix is
+rejected with a `Did you mean "…"?`, never completed; the workflow is found in the application of
+`package.json`, or `--application`); `agboss generate workflow onboarding-workflow` writes a new
+workflow beside the application file and lists it in `@Application({ workflows })`; `agboss create
+<project>` writes the application (`src/<project>.application.ts`, its environments, budgets, model
+provider and guardrail) and its first workflow `<project>-workflow` in `src/<project>/`. A project's `npm run types` (`agboss check`) writes
 `.agboss/types.d.ts` (git-ignored, regenerated on install); its `tsconfig.json` includes it.
 
 ### The flow: paths
@@ -550,8 +556,8 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   arbiter makes one decision per answer under `arbiter:<name>` (tests: `mockLlm(Arbiter)
 .thenReturn(decideWith({ counts: 0.9 }))`; a code arbiter is created by the container).
   `result.launches` (`isQuorumReached`, `group`, each branch's verdict) and
-  `onQuorumDecided` (`QuorumDecidedEvent`) show it. `agboss generate arbiter <name> --workflow …
-[--agent …]` writes a code arbiter for a launch.
+  `onQuorumDecided` (`QuorumDecidedEvent`) show it. `agboss generate arbiter <name>-arbiter
+--workflow <name>-workflow [--agent <name>-agent]` writes a code arbiter for a launch.
 - **Node kinds:** `@WorkflowStart` (input: a DTO, a list or a map of fields),
   `@Router`, `@Agent` (`input` fields, `output` — answered through answer tools, or text without
   them), `@Action` (code, no model: `execute(input)`; its execution through `deps: [ExecutionContext]`), `@WorkflowFinish`
@@ -1067,7 +1073,7 @@ deps: [SqliteConnection, Clock, ApplicationContext] })` (#265 S70); `SqliteExecu
   `sleep(delay, signal?)`; the system's unless `@Application({ providers })` lists a class that
   `extends Clock` (created first: it may not depend on the contexts, whose `startedAt` it gives).
   Every time read and wait of the framework goes through it — the ledger's day, records, leases and
-  their renewals, the recovery sweep, the shutdown timeout, a tool's `timeoutMs`, a model call's
+  their renewals, the recovery sweep, the shutdown timeout, a tool's `timeout`, a model call's
   timeout, retry backoff and `Retry-After` pauses; a component that needs the time injects it
   (`deps: [Clock]`). Lint `agboss/no-direct-time` fails `Date.now()`, `new Date()` / `Date()`
   without arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout` and
@@ -1123,8 +1129,14 @@ export class SeenJobsRepository {
   earlier versions), `variant(Dto, value)`. Standard ones: `WorkflowStartTextDto`,
   `WorkflowFinishTextDto`, `ToolCallApprovalDecisionDto`, `RagSearchResultDto`, `PlainTextDto`
   (Wiki → Standard-DTOs). zod stays inside the framework.
-- **Tool names** are unique over what a model sees — local, MCP, `search_<rag>` and an agent's answer
-  tools (`answer-<dto>`) — else `[tool.duplicate-name]`.
+- **Tool names** (#268 AC9): a project's `@Tool` / `@McpTool` is named like every component —
+  kebab-case ending with `-tool` (`order-status-tool`, `[name.kind-suffix]`); a knowledge base's
+  tool is `search-<rag name>-tool` (`search-jobs-rag-tool` for `jobs-rag`); an MCP server's own
+  tools keep the server's names (`read_text_file`, in `@McpServer({ tools })`). Every name a model
+  sees fits `[a-zA-Z0-9_-]`, at most 64 characters (`[tool.name-too-long]`, `[tool.name-invalid]`),
+  and is unique over local, MCP, knowledge-base and answer tools (`answer-<dto>`) — else
+  `[tool.duplicate-name]`. A tool's `timeout` has units: `@Tool({ timeout: seconds(5) })` (default
+  30 s; there is no `timeoutMs`).
 - **Channels (#267)** are found through the tools that name them (`@Tool({ channel })`), like
   services through `deps` — there is no `channelClasses`. A tool names a concrete `@Channel` (used as
   is: `TerminalUserChannel`, `AutoApproveChannel`, …) or a **role**: a project's abstract class
@@ -1487,7 +1499,7 @@ Routers and guardrails use decision models too. README → Quality gates has a f
   `createApp(Workflow)` does not compile). `app.execute(Start, input, { threadId, ownerId, signal,
 tenant, execution, onStream })` runs the workflow of that start (any workflow of the
   application; one start in two workflows → `[application.ambiguous-start]`) → `ExecutionOutput`
-  (`output` is the finish's DTO, `finish`, `path`, `spend`, `threadId`, `tenantId`, `runId`);
+  (`output` is the finish's DTO, `finish`, `path`, `spend`, `threadId`, `tenantId`, `executionId`);
   `app.resume({ pauseId, decision }, { tenantId, ownerId | answeredBy })` answers one pause (#267) —
   by its id, never by thread, found by `(tenantId, pauseId)` anywhere in the tree (unknown or another
   tenant's → `UnknownPauseError`); `result.pending: PendingPause[]` lists every waiting pause
@@ -1658,7 +1670,7 @@ const readiness: HealthReport = await app.checkReadiness();
   `@Action`, `this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) })` — into the
   current tool call's or step's spend (`tool:<name>` / `action:<name>`), counted in the
   execution's budgets; outside a frame `[spend.outside-step]`. In a tool call `executionContext.signal` is the
-  call's: the execution's signal and the tool's `timeoutMs` timer (S45).
+  call's: the execution's signal and the tool's `timeout` timer (S45).
 - **Limits:** `@Workflow({ maxSteps })` — visits of agents and routers in one execution (default:
   (agents + routers) × 3), checked at assembly: `[limits.max-steps-too-low]` (no finish fits in a
   hand-set `maxSteps`, or the default cannot hold the worst case of a per-item launch — set
@@ -1828,7 +1840,14 @@ Components):
 - Getting something for a component is `…Of` (`schemaOf`, `modelOf`); attaching is
   `<verb>(what).on(target)`; storage contracts are `…Repository` with Spring Data method names.
 - **Values with units** — `usd(0.5)`, `seconds(30)`, `minutes(5)` (`agboss/units`), no `Ms` /
-  `Usd` in names. Inheritance (#120): lists add up, `exclude…` removes explicitly, a single setting
+  `Usd` in names; every timeout is one (`timeout: seconds(5)`), a join's waiting limit is its
+  `deadline`.
+- **`Workflow…` is the definition, `Execution…` one execution** (#268 AC10): `@Workflow`,
+  `@WorkflowStart`, `WorkflowRecord` vs `app.execute`, `ExecutionOutput` (`executionId`),
+  `ExecutionContext`, `ExecutionId`, `PausedExecution`, `ExecutionStatus`, the `onExecution…` hooks,
+  `ExecutionCancelledError`; nothing execution-time is named `run…`.
+- **The CLI takes full names** (#268): `--start chat-workflow-start`, `--workflow desk-workflow`,
+  `agboss generate agent billing-agent` — the same string as `name`, traces and records. Inheritance (#120): lists add up, `exclude…` removes explicitly, a single setting
   has the same name on every level — no `override…` settings (`overrideArguments` is a corrected
   tool call, not inheritance).
 

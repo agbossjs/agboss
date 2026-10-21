@@ -46,7 +46,7 @@ export interface UnitModelOptions<
 export interface UnitCallOptions {
   /**
    * The call's `executionContext.signal` aborts after this long on the runner's clock (a tool:
-   * its own `timeoutMs` when not given); the call then rejects with the timeout.
+   * its own `timeout` when not given); the call then rejects with the timeout.
    */
   readonly timeout?: Milliseconds;
 }

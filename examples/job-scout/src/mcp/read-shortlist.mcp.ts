@@ -9,7 +9,7 @@ import { ShortlistServer } from "./shortlist.server.js";
 /** The user's shortlist, as saved. */
 @McpTool({
   server: ShortlistServer,
-  name: "read_shortlist",
+  name: "read-shortlist-tool",
   description: "Read the user's shortlist (empty when nothing is saved yet).",
   input: NoInputDto,
   output: ShortlistContent,

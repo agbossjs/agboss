@@ -1,5 +1,5 @@
 import { ScaffoldError, ScaffoldUsageError } from "./errors.js";
-import { namesOf } from "./names.js";
+import { camelOf, namesOf } from "./names.js";
 import { dtoSource } from "./openapi-dto.js";
 import { baseUrlOf, loadDocument, operationsOf, type OperationModel } from "./openapi-spec.js";
 import { testSource } from "./openapi-test.js";
@@ -13,15 +13,22 @@ export interface OpenApiOptions {
   readonly url?: string | undefined;
   readonly workflow?: string | undefined;
   readonly agent?: string | undefined;
-  /** Comma-separated operationIds (or tool names); every operation when missing. */
+  readonly application?: string | undefined;
+  /** Comma-separated operationIds (or full tool names); every operation when missing. */
   readonly operations?: string | undefined;
 }
 
-/** `pets` → `PetsApi` in `services/pets-api.service.ts` (a name already ending in "api" keeps it). */
+/** `pets` → `PetsApiService` in `services/pets-api.service.ts` (a name already ending in "api" keeps it). */
 function apiNamesOf(name: string): ApiNames {
   const base = namesOf(name);
   const api = /(^|_)api$/.test(base.snake) ? base : namesOf(`${name} api`);
-  return { title: base.title, className: api.pascal, module: api.kebab };
+  const service = namesOf(`${api.kebab} service`);
+  return {
+    title: base.title,
+    className: service.pascal,
+    field: camelOf(service),
+    module: api.kebab,
+  };
 }
 
 /** The operations `--operations` names (by operationId or tool name), in its order. */
@@ -35,9 +42,11 @@ function selected(
     .map((name) => name.trim())
     .filter((name) => name !== "")
     .map((name) => {
-      const found = all.find((op) => op.names.snake === namesOf(name).snake);
+      const found = all.find(
+        (op) => op.names.snake === namesOf(name).snake || `${op.names.kebab}-tool` === name,
+      );
       if (found === undefined) {
-        const known = all.map((op) => op.names.snake).join(", ");
+        const known = all.map((op) => `${op.names.kebab}-tool`).join(", ");
         throw new ScaffoldUsageError(`No operation "${name}" in the document — one of: ${known}`);
       }
       return found;
@@ -62,7 +71,7 @@ function operationFiles(
 }
 
 /**
- * `agboss generate openapi <name> --url <document> --workflow <path> --agent <name>`: one tool per
+ * `agboss generate openapi <name> --url <document> --workflow <name>-workflow --agent <name>-agent`: one tool per
  * operation (input and output DTOs, the request built from them, a test against a stubbed API),
  * one injectable client for the API registered in the workflow's providers, the tools wired into
  * the agent.
@@ -73,9 +82,12 @@ export async function planOpenApi(
   options: OpenApiOptions,
 ): Promise<Changes> {
   const url = need(options.url, "--url <OpenAPI document: a file or a URL>", "openapi");
-  const graph = workflowGraph(root, options.workflow, "openapi");
+  const graph = workflowGraph(root, options);
   const { dir, module } = graph;
-  const agent = read(root, agentOf(graph, need(options.agent, "--agent <name>", "openapi")).path);
+  const agent = read(
+    root,
+    agentOf(graph, need(options.agent, "--agent <full name>", "openapi")).path,
+  );
   const api = apiNamesOf(name);
   const document = await loadDocument(root, url);
   const operations = selected(operationsOf(document), options.operations);

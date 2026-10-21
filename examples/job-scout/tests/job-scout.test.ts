@@ -15,7 +15,7 @@ async function fileWith(name: string, content: string | Uint8Array): Promise<str
   return path;
 }
 
-describe("read_resume", () => {
+describe("read-resume-tool", () => {
   it("reads Markdown and text", async () => {
     const tool = toolOf(new ReadResume(new ResumeReader()));
 
@@ -70,7 +70,7 @@ describe("greenhouse helpers", () => {
   });
 });
 
-describe("read_resume near-miss paths", () => {
+describe("read-resume-tool near-miss paths", () => {
   it("reads the one loosely matching file when the model mangled the name", async () => {
     const real = await fileWith("Pavel__Ravvich_CV.md", "# CV\nJava");
     const mangled = real.replace("Pavel__Ravvich_CV.md", "pavel__ravvich__cv.md");

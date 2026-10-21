@@ -15,7 +15,7 @@ import {
   throwIfCancelled,
   type NodeRunContext,
 } from "../../core/run-context.js";
-import { timeoutOn, waitOf } from "../../infrastructure/clock-timeout.js";
+import { timeoutOn } from "../../infrastructure/clock-timeout.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -28,7 +28,7 @@ interface CallSignal {
 
 /**
  * The call's signal (#280 S45): the execution's (cancel included) combined with a timer of the
- * tool's own `timeoutMs` on the application's clock (#262) and the budgets' `exhausted` (#338) —
+ * tool's own `timeout` on the application's clock (#262) and the budgets' `exhausted` (#338) —
  * what `executionContext.signal` reads in the call's frame.
  */
 function callSignalOf(
@@ -37,11 +37,7 @@ function callSignalOf(
   { run, clock }: NodeRunContext,
   exhausted: AbortSignal,
 ): CallSignal {
-  const timeout = timeoutOn(
-    clock,
-    waitOf(tool.timeoutMs),
-    () => new ToolTimeoutError(tool.timeoutMs),
-  );
+  const timeout = timeoutOn(clock, tool.timeout, () => new ToolTimeoutError(tool.timeout));
   // an exhausted budget (#338) stops the call too: a sibling branch crossed it
   const signals = [run.signal, timeout.signal, exhausted];
   const signal = AbortSignal.any(

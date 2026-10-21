@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createApp, PromptError } from "../../src/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { replyWith, routeTo, testWith, workflowOf } from "../../src/testing/index.js";
-import { runVersions } from "../../src/run/versions.js";
+import { executionVersions } from "../../src/run/versions.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { fakeDeps } from "../helpers.js";
 import { TestChat } from "../fixtures/test-flow/test.flow.js";
@@ -113,8 +113,11 @@ describe("#199: router and route prompts are templated", () => {
 /** The prompt version of the test workflow with these prompts. */
 async function promptVersionWith(prompts: FlowPrompts): Promise<string> {
   const bundle = await workflowOf(workflowWith(prompts).workflow);
-  return runVersions({ ...(await fakeDeps({})), prompts: bundle.prompts, routers: bundle.routers })
-    .promptVersion;
+  return executionVersions({
+    ...(await fakeDeps({})),
+    prompts: bundle.prompts,
+    routers: bundle.routers,
+  }).promptVersion;
 }
 
 describe("#199 AC2: the prompt version hashes the prompts' rendered text", () => {

@@ -6,7 +6,7 @@ import type { AgentExecutionOutput } from "../run/types.js";
 import { NotPausedError } from "../run/resume-agent.js";
 import { runConfig } from "../run/paused.js";
 import { readingGraphOf } from "../run/run-budgets.js";
-import type { RunDeps } from "../run/types.js";
+import type { AgentExecutionDeps } from "../run/types.js";
 import type { PausedRunBook } from "./paused-runs.js";
 import type { ThreadKey } from "./live-runs.js";
 import { runResultOf, withPauseAnswers } from "./result.js";
@@ -14,7 +14,7 @@ import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 
 /** The stored run with only the pauses still pending now (another call may have answered some). */
 async function stillPending(
-  deps: RunDeps<string>,
+  deps: AgentExecutionDeps<string>,
   run: AgentExecutionOutput,
 ): Promise<AgentExecutionOutput> {
   const records =
@@ -39,7 +39,7 @@ const recordsOf = (state: Partial<ExecutionStateType>) => ({
  * meanwhile → `NotPausedError`.
  */
 export async function currentOutputOf(
-  deps: RunDeps<string>,
+  deps: AgentExecutionDeps<string>,
   paused: PausedRunBook,
   tree: ThreadKey & { readonly runId: string },
 ): Promise<ExecutionOutput> {
@@ -57,7 +57,7 @@ export async function currentOutputOf(
       status: ExecutionStatus.Finished,
       threadId: tree.threadId,
       tenantId: tree.tenantId,
-      runId: tree.runId,
+      executionId: tree.runId,
       path: state.path ?? [],
       spend: buildCostReport(state.usage ?? []),
       ...recordsOf(state),

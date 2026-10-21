@@ -6,6 +6,7 @@ import { ScaffoldError } from "../../src/scaffold/errors.js";
 import { FINISH_ROUTE_TEXT, MAIN_ROUTER } from "../../src/scaffold/flow-files.js";
 import { planGenerate } from "../../src/scaffold/generate.js";
 import { addAgentToFlow } from "../../src/scaffold/wire-flow.js";
+import { workflowDeclaration, writeApplication } from "./application-fixture.js";
 
 const workflow = (flow: string) => ({ path: "src/desk/desk.workflow.ts", content: flow });
 
@@ -62,21 +63,23 @@ describe("#116: agboss g agent joins the router's choice; agboss g router", () =
   it("agboss g router routes to the finish the workflow imports, whatever its file is called", async () => {
     const root = mkdtempSync(join(tmpdir(), "agboss-router-"));
     mkdirSync(join(root, "src/desk/ends"), { recursive: true });
-    writeFileSync(join(root, "src/desk/desk.workflow.ts"), "");
-    const options = { workflow: "src/desk/desk.workflow.ts" };
+    const desk = { module: "src/desk/desk.workflow.ts", className: "Desk", name: "desk-workflow" };
+    writeApplication(root, desk);
+    writeFileSync(join(root, desk.module), workflowDeclaration(desk));
+    const options = { workflow: "desk-workflow" };
 
-    await expect(planGenerate("router", "escalation", options, root)).rejects.toThrow(
+    await expect(planGenerate("router", "escalation-router", options, root)).rejects.toThrow(
       "src/desk/desk.workflow.ts: imports no @WorkflowFinish class",
     );
     writeFileSync(
-      join(root, "src/desk/desk.workflow.ts"),
-      'import { DoneFinish } from "./ends/done.ts";\n',
+      join(root, desk.module),
+      `import { DoneFinish } from "./ends/done.ts";\n${workflowDeclaration(desk)}`,
     );
     writeFileSync(
       join(root, "src/desk/ends/done.ts"),
       '@WorkflowFinish({ name: "done", output: X })\nexport class DoneFinish {}\n',
     );
-    const [router] = (await planGenerate("router", "escalation", options, root)).create;
+    const [router] = (await planGenerate("router", "escalation-router", options, root)).create;
     expect(router?.path).toBe("src/desk/routers/escalation.router.ts");
     expect(router?.content).toContain("export class EscalationRouter {}");
     expect(router?.content).toContain('import { DoneFinish } from "../ends/done.js";');

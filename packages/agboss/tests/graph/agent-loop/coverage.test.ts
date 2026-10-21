@@ -14,6 +14,7 @@ import { createAppDeps } from "../../../src/app/app-deps.js";
 import { workflowOf } from "../../../src/components/assemble.js";
 import { CodeReview } from "../../testing/fixtures/code-review.workflow.js";
 import { inTestFrame } from "../../helpers/frame.js";
+import { seconds } from "../../../src/units/index.js";
 
 describe("agent-loop coverage", () => {
   it("reply-node with non-string move content", async () => {
@@ -54,7 +55,7 @@ describe("agent-loop coverage", () => {
     const tool = {
       name: "t1",
       channel: "c1",
-      timeoutMs: 1000,
+      timeout: seconds(1),
       invoke: async () => {
         throw new Error("some error");
       },
@@ -74,7 +75,7 @@ describe("agent-loop coverage", () => {
     const tool = {
       name: "t1",
       channel: "c1",
-      timeoutMs: 1000,
+      timeout: seconds(1),
       invoke: async () => {
         // eslint-disable-next-line @typescript-eslint/only-throw-error
         throw "some string error";

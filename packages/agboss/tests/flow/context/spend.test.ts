@@ -32,13 +32,13 @@ describe("#280 S43: SpendRecorder — what a tool or an action paid a service", 
 
     const done = await execute(app, SpendStart, { text: "find jobs" });
 
-    expect(done.spend.byCaller["tool:serp_search"]).toBeCloseTo(0.002);
+    expect(done.spend.byCaller["tool:serp-search-tool"]).toBeCloseTo(0.002);
     expect(done.spend.byCaller["action:ship-action"]).toBeCloseTo(0.003);
     expect(done.spend.byCategory.tools).toBeCloseTo(0.005);
     expect(done.spend.trace).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          caller: "tool:serp_search",
+          caller: "tool:serp-search-tool",
           model: "serp-api",
           costSource: "tool",
         }),

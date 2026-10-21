@@ -21,10 +21,14 @@ import type { JevClient } from "../src/llm/jev-client.js";
 import type { ModelFactory } from "../src/llm/registry.js";
 import { createModelGateway, type ModelGateway } from "../src/llm/gateway.js";
 import type { RouteRequest } from "../src/routers/index.js";
-import { runAgent } from "../src/run/run-agent.js";
+import { executeAgent } from "../src/run/run-agent.js";
 import { resumeAgent } from "../src/run/resume-agent.js";
 import { treeResumeNow } from "../src/app/tree-resume.js";
-import type { AgentExecutionOutput, RunDeps, RunOptions } from "../src/run/types.js";
+import type {
+  AgentExecutionOutput,
+  AgentExecutionDeps,
+  AgentExecutionOptions,
+} from "../src/run/types.js";
 import { createSqliteTernStore, type TernStore } from "../src/terns/index.js";
 import { StarWorkflow } from "./fixtures/test-flow/star.workflow.js";
 
@@ -172,10 +176,10 @@ export async function fakeDeps(
 /** Runs the star's chat start with a text (on the thread given, else a new one). */
 export const runText = (
   text: string,
-  deps: RunDeps<string>,
-  options: RunOptions & { readonly threadId?: string } = {},
+  deps: AgentExecutionDeps<string>,
+  options: AgentExecutionOptions & { readonly threadId?: string } = {},
 ): Promise<AgentExecutionOutput> =>
-  runAgent(
+  executeAgent(
     {
       start: "chat-workflow-start",
       input: { text },
@@ -200,7 +204,7 @@ export const usageRecord = (caller: string, costUsd: number): UsageRecord => ({
 });
 
 /** The deps with every router request recorded (what the routers saw, in order). */
-export function recordingRouters<TDeps extends RunDeps<string>>(
+export function recordingRouters<TDeps extends AgentExecutionDeps<string>>(
   deps: TDeps,
 ): { readonly deps: TDeps; readonly requests: RouteRequest[] } {
   const requests: RouteRequest[] = [];
@@ -225,7 +229,7 @@ export function recordingRouters<TDeps extends RunDeps<string>>(
 export async function resumeWith(
   paused: AgentExecutionOutput,
   decision: unknown,
-  deps: RunDeps<string>,
+  deps: AgentExecutionDeps<string>,
   answerer = "tester",
 ): Promise<AgentExecutionOutput> {
   const [pending] = paused.pending;

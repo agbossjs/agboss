@@ -2,7 +2,7 @@ import { ChannelOf, ChannelRole, PauseAnswerer } from "agboss";
 import { PurchaseOrder } from "../tools/place-purchase.dto.js";
 
 /**
- * The role a purchase is approved through (#267): it approves `place_purchase` calls and the
+ * The role a purchase is approved through (#267): it approves `place-purchase-tool` calls and the
  * thread's owner answers them — the person who asked for the offsite. Its one implementation is
  * listed in `@Application({ providers })`: `TerminalPurchaseApprovalChannel`.
  */

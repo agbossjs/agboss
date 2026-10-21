@@ -5,16 +5,16 @@ import { {{input}}, {{output}}, {{serverPascal}}Server } from "./{{serverKebab}}
 /** {{title}} — calls the server's "{{serverTool}}"; shape the input and the result here. */
 @McpTool({
   server: {{serverPascal}}Server,
-  name: "{{snake}}",
+  name: "{{kebab}}-tool",
   description: "{{description}}",
   input: {{input}},
   output: {{output}},
   deps: [{{serverPascal}}Server],
 })
 export class {{pascal}}Tool implements ToolHandler<{{input}}, {{output}}> {
-  constructor(private readonly server: {{serverPascal}}Server) {}
+  constructor(private readonly {{serverCamel}}Server: {{serverPascal}}Server) {}
 
   run(input: {{input}}): Promise<{{output}}> {
-    return this.server.call("{{serverTool}}", input);
+    return this.{{serverCamel}}Server.call("{{serverTool}}", input);
   }
 }

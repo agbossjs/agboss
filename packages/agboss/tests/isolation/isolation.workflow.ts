@@ -42,7 +42,7 @@ class PayDone {
 
 /** Charges a card — waits for an approval through the chat-app channel first. */
 @Tool({
-  name: "pay",
+  name: "pay-tool",
   description: "Charges a card for an order",
   input: PayRequest,
   output: PayDone,

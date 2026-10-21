@@ -42,7 +42,7 @@ describe("#267 AC1: a paused branch does not stop its siblings", () => {
         channel: "refund-approval-channel",
         childExecutionId: undefined,
         itemIndex: index + 1,
-        ask: expect.objectContaining({ tool: "refund", arguments: { orderId } }),
+        ask: expect.objectContaining({ tool: "refund-tool", arguments: { orderId } }),
       })),
     );
     expect(mockLlm(BatchRefundAgent).requests.map(orderOf).sort()).toEqual(["A", "B", "C"]);
@@ -65,7 +65,7 @@ describe("#267 AC2: a pause is resumed by its id; the rest keep waiting", () => 
     expect(again).toMatchObject({
       status: ExecutionStatus.Paused,
       threadId: paused.threadId,
-      runId: paused.runId,
+      executionId: paused.executionId,
     });
     expect(again.pending.map((pause) => pause.itemIndex)).toEqual([2]);
     expect(seen.refunds).toEqual(["B"]);

@@ -31,7 +31,7 @@ const examples: readonly (readonly [DtoClass, object])[] = [
     ToolCallApprovalAskDto,
     {
       callId: "call_1",
-      tool: "save_shortlist",
+      tool: "save-shortlist-tool",
       arguments: { jobs: [{ title: "Engineer" }] },
       summary: "Adds one job to the shortlist",
     },

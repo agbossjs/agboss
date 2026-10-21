@@ -7,10 +7,10 @@ import { Tool, type ToolHandler } from "agboss";
   deps: [{{api}}],
 })
 {{header}}
-  constructor(private readonly api: {{api}}) {}
+  constructor(private readonly {{apiField}}: {{api}}) {}
 
   async run({{parameters}}): Promise<{{output}}> {
-    const data = await this.api.request({
+    const data = await this.{{apiField}}.request({
       method: "{{method}}",
       path: {{pathExpression}},
 {{request}}    });

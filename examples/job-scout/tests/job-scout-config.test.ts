@@ -58,7 +58,7 @@ describe("job-scout search config", () => {
     // the list comes first and is never dropped for the notes-based explanation (found in #92 M1)
     const scout = s ?? "";
     expect(scout.indexOf("numbered list")).toBeLessThan(
-      (scout as any).indexOf("search_company_notes"),
+      (scout as any).indexOf("search-company-notes-rag-tool"),
     );
     expect(s).toContain("Never drop this list");
     expect(s).not.toMatch(/e\.g\. (Lead|Senior)/);

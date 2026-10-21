@@ -1,6 +1,6 @@
 import { Injectable } from "../components/decorators.js";
 import { threadMapKeyOf } from "./thread-map-key.js";
-import type { PausedRun } from "../app/paused-runs.js";
+import type { PausedExecution } from "../app/paused-runs.js";
 import {
   cancelledPause,
   decidedPause,
@@ -47,10 +47,10 @@ export abstract class PausedExecutionRepository {
   abstract findByTenantIdAndThreadId(
     tenantId: string,
     threadId: string,
-  ): Promise<PausedRun | undefined>;
+  ): Promise<PausedExecution | undefined>;
 
   /** Keeps a paused execution (one per thread of its `run.tenantId`: a later pause replaces it). */
-  abstract save(paused: PausedRun): Promise<void>;
+  abstract save(paused: PausedExecution): Promise<void>;
 
   /** Forgets the thread's paused execution (it was resumed to its end, or cancelled). */
   abstract deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void>;
@@ -132,18 +132,21 @@ const pauseKeyOf = (tenantId: string, pauseId: string): string =>
  */
 @Injectable()
 export class InMemoryPausedExecutionRepository extends PausedExecutionRepository {
-  readonly #paused = new Map<string, PausedRun>();
+  readonly #paused = new Map<string, PausedExecution>();
   readonly #pauses = new Map<string, PauseRecord>();
 
   ping(): Promise<void> {
     return Promise.resolve();
   }
 
-  findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedRun | undefined> {
+  findByTenantIdAndThreadId(
+    tenantId: string,
+    threadId: string,
+  ): Promise<PausedExecution | undefined> {
     return Promise.resolve(this.#paused.get(threadMapKeyOf({ tenantId, threadId })));
   }
 
-  save(paused: PausedRun): Promise<void> {
+  save(paused: PausedExecution): Promise<void> {
     this.#paused.set(threadMapKeyOf(paused.run), paused);
     return Promise.resolve();
   }

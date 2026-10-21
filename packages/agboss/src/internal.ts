@@ -100,7 +100,7 @@ export { modelUsesOf, type ModelUse } from "./models/uses.js";
 export { directoryOf, modelSummaryOf } from "./models/workflow-models.js";
 export { applicationModelUsesOf, resolvedModelUsesOf } from "./models/resolution.js";
 export { frameworkPackageJson } from "./package-json.js";
-export { type RunStreamEvent } from "./run/types.js";
+export { type ExecutionStreamEvent } from "./run/types.js";
 export { configSnapshot } from "./run/versions.js";
 export { shortVersion, versionOf } from "./terns/index.js";
 export { isMcpFacade } from "./tools/index.js";

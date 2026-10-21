@@ -46,7 +46,7 @@ describe("terminal approval (agboss run and agboss chat)", () => {
     const done = await untilDone(paused, app, ask);
 
     expect(ask).toHaveBeenCalledWith(
-      'support-agent wants to call save_note {"title":"n1","text":"call back"} — approve? [y/N] ',
+      'support-agent wants to call save-note-tool {"title":"n1","text":"call back"} — approve? [y/N] ',
     );
     expect(done).toFinishWith(Reply, { text: "Saved." });
     expect(notes.calls.map((call) => call.tool)).toEqual(["write_file"]);

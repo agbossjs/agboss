@@ -1,11 +1,9 @@
-import { namesOf } from "./names.js";
-import { planWorkflow } from "./plan.js";
 import { planAgent, planRouter } from "./generate-flow.js";
 import { planArbiter } from "./generate-arbiter.js";
 import { ScaffoldUsageError } from "./errors.js";
-import { planMcp, planRag, planTool, withScripts } from "./generate-parts.js";
+import { planMcp, planRag, planTool } from "./generate-parts.js";
 import { planOpenApi } from "./openapi.js";
-import { workflowScripts } from "./project.js";
+import { planNewWorkflow } from "./generate-workflow.js";
 import { placeTests } from "./test-location.js";
 import type { Changes } from "./write.js";
 
@@ -22,7 +20,10 @@ export const KINDS = [
 export type Kind = (typeof KINDS)[number];
 
 export interface GenerateOptions {
+  /** The workflow a part goes into, by its full name (`desk-workflow`). */
   readonly workflow?: string | undefined;
+  /** The application module; default `"agboss": { "application" }` of package.json. */
+  readonly application?: string | undefined;
   readonly agent?: string | undefined;
   readonly description?: string | undefined;
   readonly dir?: string | undefined;
@@ -36,18 +37,7 @@ export interface GenerateOptions {
 const PLANS: Readonly<
   Record<Kind, (root: string, name: string, o: GenerateOptions) => Changes | Promise<Changes>>
 > = {
-  workflow: (root, name) => {
-    const n = namesOf(name);
-    const spec = {
-      name,
-      agents: [{ name: "assistant", description: `Helps with ${n.title}`, tools: [] }],
-      mcp: { kind: "none" } as const,
-    };
-    return {
-      create: planWorkflow(spec),
-      modify: [withScripts(root, workflowScripts(n, `:${n.kebab}`))],
-    };
-  },
+  workflow: planNewWorkflow,
   agent: planAgent,
   router: planRouter,
   arbiter: planArbiter,
@@ -58,8 +48,9 @@ const PLANS: Readonly<
 };
 
 /**
- * `agboss generate <kind> <name>`: what to create and which existing files to rewire — targets resolved
- * from the workflow module, tests placed where the project's vitest config looks (#197).
+ * `agboss generate <kind> <name>`: what to create and which existing files to rewire — `<name>` is
+ * the full name (`billing-agent`, #268 AC8), the workflow named by `--workflow <full name>` found in
+ * the application, tests placed where the project's vitest config looks (#197).
  */
 export async function planGenerate(
   kind: string,

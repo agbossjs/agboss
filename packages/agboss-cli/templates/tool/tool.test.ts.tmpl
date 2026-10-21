@@ -2,7 +2,7 @@ import { testTool } from "agboss/testing";
 import { describe, expect, it } from "vitest";
 import { {{pascal}}Tool } from "./{{kebab}}.tool.js";
 
-describe("{{snake}}", () => {
+describe("{{kebab}}-tool", () => {
   it("answers a query", async () => {
     // the tool on its own container, in the frame of a tool call: no `new`, no workflow
     const run{{pascal}} = testTool({{pascal}}Tool);

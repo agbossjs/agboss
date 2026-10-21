@@ -49,7 +49,7 @@ export class NotifyDone {
 }
 
 @Tool({
-  name: "notify",
+  name: "notify-tool",
   description: "Notifies someone",
   input: NotifyRequest,
   output: NotifyDone,
