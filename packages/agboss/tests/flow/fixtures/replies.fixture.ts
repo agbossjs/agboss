@@ -340,7 +340,8 @@ export class TreasuryWorkflowFinish {}
       .toAgent(TreasurerAgent)
       .toFinish(TreasuryWorkflowFinish),
   ],
-  defaults: { tools: { maxToolCalls: 3 }, history: { limit: 2 } },
+  defaults: { tools: { maxToolCalls: 3 } },
+  uncompactedTurns: 2,
   providers: [ExpenseButtonCodes],
 })
 export class TreasuryWorkflow {}

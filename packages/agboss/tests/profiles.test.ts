@@ -47,7 +47,7 @@ describe("profiles — merge rules", () => {
       base,
       profile({
         agents: { "coder-agent": { thinking: "high" } },
-        defaults: { history: { limit: 2 } },
+        defaults: { uncompactedTurns: 2 },
       }),
       { "coder-agent": "You are a terse coder." },
       "p.yaml",
@@ -58,7 +58,7 @@ describe("profiles — merge rules", () => {
     expect(applied.config.agents["coder-agent"]?.model).toBe(
       base.config.agents["coder-agent"]?.model,
     );
-    expect(applied.config.defaults.history.limit).toBe(2);
+    expect(applied.config.defaults.uncompactedTurns).toBe(2);
     expect(applied.prompts["coder-agent"]).toBe("You are a terse coder.");
     expect(applied.prompts["researcher-agent"]).toBe(base.prompts["researcher-agent"]);
   });
@@ -94,8 +94,16 @@ describe("profiles — validation", () => {
       applyProfile(base, profile({ version: base.config.version }), {}, "p.yaml"),
     ).toThrow(ProfileError);
     expect(() =>
-      applyProfile(base, profile({ defaults: { history: { limit: -1 } } }), {}, "p.yaml"),
-    ).toThrow(/p\.yaml: defaults\.history\.limit/);
+      applyProfile(base, profile({ defaults: { uncompactedTurns: -1 } }), {}, "p.yaml"),
+    ).toThrow(/p\.yaml: defaults\.uncompactedTurns/);
+    expect(() =>
+      applyProfile(
+        base,
+        profile({ compactions: { "ghost-compaction": { turnsBetweenCompactions: 2 } } }),
+        {},
+        "p.yaml",
+      ),
+    ).toThrow(/compactions\.ghost-compaction/);
   });
 
   it("#116: routers and budget are no longer profile keys (the flow and settings() own them)", async () => {

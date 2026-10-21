@@ -75,7 +75,6 @@ export class Reply {}
 export const DEFAULTS = {
   models: { temperature: 0, maxTokens: MODEL_MAX },
   router: { model: "typesafe/jev-1.13" },
-  history: { limit: 4 },
 } as const;
 
 /** The judged applications' model providers (#266): Jev's decisions, the local chat models. */
@@ -92,6 +91,7 @@ export const MODEL_PROVIDERS = [DecisionsModelProvider, LocalModelProvider];
       .toFinish(Reply),
   ],
   defaults: DEFAULTS,
+  uncompactedTurns: 4,
   providers: [provide(RUBRIC, "Is the reply grounded in the task? Answer PASS or FAIL: <why>.")],
 })
 export class JudgedDesk {}
@@ -133,6 +133,7 @@ export class Careless {}
       .toFinish(Reply),
   ],
   defaults: DEFAULTS,
+  uncompactedTurns: 4,
 })
 export class ModellessDesk {}
 

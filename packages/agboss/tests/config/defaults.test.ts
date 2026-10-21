@@ -7,7 +7,12 @@
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { cascadeDefaults, defaultSourceOf, DefaultsLevel } from "../../src/config/defaults.js";
+import {
+  cascadeDefaults,
+  defaultSourceOf,
+  DefaultsLevel,
+  uncompactedTurnsSourceOf,
+} from "../../src/config/defaults.js";
 import type { Class } from "../../src/components/injection.js";
 import { describeWorkflow } from "../../src/describe/describe-workflow.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -104,12 +109,13 @@ class PersonalDataGuardrail {}
 
 const guardrails = [PromptInjectionGuardrail, PersonalDataGuardrail];
 
-/** Sets only `history.limit` and `models.temperature`: the rest comes from the application. */
+/** Sets only `models.temperature` and its window: the rest comes from the application. */
 @Workflow({
   name: "ask-workflow",
   version: "1.0.0",
   flow: flowThrough(AskRouter),
-  defaults: { models: { temperature: 0.3 }, history: { limit: 7 } },
+  defaults: { models: { temperature: 0.3 } },
+  uncompactedTurns: 7,
   guardrails,
 })
 class AskWorkflow {}
@@ -119,7 +125,6 @@ const applicationDefaults: WorkflowDefaults = {
   router: { model: "typesafe/jev-application" },
   guardrail: { model: "typesafe/jev-guardrail" },
   tools: { maxToolCalls: 5 },
-  history: { limit: 3, summaries: 2 },
 };
 
 @Application({
@@ -128,6 +133,7 @@ const applicationDefaults: WorkflowDefaults = {
   environment: EmptyEnvironment,
   workflows: [AskWorkflow],
   defaults: applicationDefaults,
+  uncompactedTurns: 3,
   budgets: TEST_BUDGETS,
 })
 class AskApplication {}
@@ -137,7 +143,8 @@ class AskApplication {}
   name: "own-defaults-workflow",
   version: "1.0.0",
   flow: flowThrough(OwnRouter),
-  defaults: { router: { model: "typesafe/jev-workflow" }, history: { limit: 1 } },
+  defaults: { router: { model: "typesafe/jev-workflow" } },
+  uncompactedTurns: 1,
 })
 class OwnDefaultsWorkflow {}
 
@@ -199,7 +206,7 @@ describe("#261 AC12: cascade", () => {
   it("merged field by field: the workflow's fields over the application's, the rest from it", async () => {
     const { config } = await assembled(AskApplication);
     expect(config.defaults.models).toMatchObject({ temperature: 0.3, maxTokens: 2048 });
-    expect(config.defaults.history).toEqual({ limit: 7, summaries: 2 });
+    expect(config.defaults.uncompactedTurns).toBe(7); // #120 PR 3: the workflow's window over 3
     expect(config.defaults.tools).toEqual({ maxToolCalls: 5 });
   });
 
@@ -222,8 +229,8 @@ describe("#261 AC12: cascade", () => {
 
   it("nothing set → the framework's built-in", () => {
     expect(cascadeDefaults(undefined, undefined)).toBeUndefined();
-    expect(cascadeDefaults({ history: { limit: 2 } }, undefined)).toEqual({
-      history: { limit: 2 },
+    expect(cascadeDefaults({ tools: { maxToolCalls: 2 } }, undefined)).toEqual({
+      tools: { maxToolCalls: 2 },
     });
     expect(cascadeDefaults(undefined, { tools: { maxToolCalls: 1 } })).toEqual({
       tools: { maxToolCalls: 1 },
@@ -233,16 +240,25 @@ describe("#261 AC12: cascade", () => {
   it("where a default came from: the most specific level that sets it, else none (built-in)", () => {
     const levels = {
       application: { name: "ask-application", defaults: applicationDefaults },
-      workflow: { name: "ask-workflow", defaults: { history: { limit: 7 } } },
+      workflow: {
+        name: "ask-workflow",
+        defaults: { models: { temperature: 0.3 } },
+        uncompactedTurns: 7,
+      },
     };
-    expect(defaultSourceOf(levels, "history", "limit")).toEqual({
+    expect(defaultSourceOf(levels, "models", "temperature")).toEqual({
       level: DefaultsLevel.Workflow,
       name: "ask-workflow",
     });
-    expect(defaultSourceOf(levels, "history", "summaries")).toEqual({
+    expect(defaultSourceOf(levels, "tools", "maxToolCalls")).toEqual({
       level: DefaultsLevel.Application,
       name: "ask-application",
     });
+    expect(uncompactedTurnsSourceOf(levels)).toEqual({
+      level: DefaultsLevel.Workflow,
+      name: "ask-workflow",
+    });
+    expect(uncompactedTurnsSourceOf({ workflow: { name: "bare-workflow" } })).toBeUndefined();
     expect(defaultSourceOf(levels, "flow", "maxPathDepth")).toBeUndefined();
   });
 
@@ -258,7 +274,7 @@ describe("#261 AC12: cascade", () => {
   it("agboss describe shows each agent's model settings and where they came from", async () => {
     const lines = describeWorkflow(await assembled(AskApplication));
     expect(lines).toContain(
-      "    defaults: temperature 0.3 (ask-workflow) · maxTokens 512 (own) · history 7 (ask-workflow)",
+      "    defaults: temperature 0.3 (ask-workflow) · maxTokens 512 (own) · uncompactedTurns 7 (ask-workflow)",
     );
   });
 });

@@ -88,7 +88,9 @@ export function chatModelSettingsOf(
 ): (model: string) => ModelSettings {
   const known: readonly ModelSettings[] = [
     ...Object.values(config.agents),
-    ...(config.compaction === undefined ? [] : [config.compaction.model]),
+    ...Object.values(config.compactions ?? {}).flatMap((compaction) =>
+      compaction.model === undefined ? [] : [compaction.model],
+    ),
   ];
   return (model) => {
     const price = known.find((candidate) => candidate.model === model)?.price;

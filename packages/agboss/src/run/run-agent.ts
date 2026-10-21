@@ -72,7 +72,7 @@ async function runOnce<TName extends string>(
   // before the first step: an exhausted budget rejects the execution — no thread, record or call
   const site = { executionId: runId, threadId: requested, start, contexts };
   const budgets = opened ?? (await openExecutionBudgets(deps, { ...options, ...site }));
-  const { threadId, history, summaries } = known ?? (await openThread(deps, tenantId, undefined));
+  const { threadId, history, memory } = known ?? (await openThread(deps, tenantId, undefined));
   const spent: UsageRecord[] = [];
   const base = ternBaseOf(
     deps,
@@ -88,7 +88,7 @@ async function runOnce<TName extends string>(
     const config = streamConfig(deps, identity, options);
     const record = recorder(budgets.meter, spent);
     const budgetUsd = budgets.meter.budgetUsd();
-    const kept = { budgetUsd, budgets: budgets.records, history, summaries, runId };
+    const kept = { budgetUsd, budgets: budgets.records, history, memory, runId };
     const initial = { start, startInput: input, contexts, ...kept };
     const state = await drainRun(await graph.stream(initial, config), record);
     const context = { deps, graph, base, runId, budgetUsd, record, recorded: spent };

@@ -60,6 +60,11 @@ export type ComponentMeta =
       readonly kind: "guardrail";
       readonly meta: import("./policy-decorators.js").GuardrailMeta;
     }
+  /** `@Compaction` (#120 PR 3): how turns older than the readers' window are summarised. */
+  | {
+      readonly kind: "compaction";
+      readonly meta: import("../compaction/compaction.decorator.js").CompactionMeta;
+    }
   | {
       readonly kind: "judge";
       readonly meta: import("./judge-decorators.js").JudgeMeta & {
@@ -107,6 +112,7 @@ export function requireComponent<K extends ComponentMeta["kind"]>(
 const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   "pii-policy": "@PiiPolicy",
   guardrail: "@InputGuardrail / @OutputGuardrail",
+  compaction: "@Compaction",
   tool: "Tool",
   "mcp-server": "McpServer",
   "mcp-tool": "McpTool",

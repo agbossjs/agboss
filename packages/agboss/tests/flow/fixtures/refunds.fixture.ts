@@ -136,7 +136,8 @@ export class RefundWorkflowFinish {}
       .returns(RefundCardOutputDto)
       .toFinish(RefundWorkflowFinish),
   ],
-  defaults: { router: { model: "typesafe/jev-test" }, history: { limit: 2 } },
+  defaults: { router: { model: "typesafe/jev-test" } },
+  uncompactedTurns: 2,
   providers: [RefundDesk],
 })
 export class CardRefundsWorkflow {}

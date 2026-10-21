@@ -48,7 +48,8 @@ class ToldWorkflowFinish {}
   name: "tell-workflow",
   version: "1.0.0",
   maxSteps: 2,
-  defaults: { models: { temperature: 0 }, history: { limit: 1 } },
+  defaults: { models: { temperature: 0 } },
+  uncompactedTurns: 1,
   flow: [
     start(TellWorkflowStart)
       .returns(WorkflowStartTextDto)

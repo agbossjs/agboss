@@ -20,8 +20,6 @@ export interface RunDeps<TName extends string> extends GraphDeps<TName> {
    */
   readonly budgets?: ApplicationBudgets | undefined;
   readonly terns: TernRecords;
-  /** Compaction prompt (workflow override); default in src/prompts/compaction.ts. */
-  readonly compactionPrompt?: string | undefined;
   /** Optional tracing (e.g. local Langfuse); runs are identical without it. */
   readonly tracing?: RunTracing | undefined;
   /** A new run id; random by default, deterministic in tests. */
@@ -85,8 +83,8 @@ export interface AgentExecutionOutput {
   readonly tenantId: string;
   readonly ternId: string;
   readonly data: ExecutionData;
-  /** Conversation memory: what this turn compacted, when it did. */
-  readonly compacted?: Compacted;
+  /** What the compactions did after this turn (#120 PR 3), when one compacted. */
+  readonly compacted?: readonly Compacted[];
   /** The conversation in the tracing UI (session = thread), when tracing is on. */
   readonly traceUrl?: string;
   /** The run's id (observer events, `executionContext.executionId`, its Tern, its checkpoint — a resume keeps it). */

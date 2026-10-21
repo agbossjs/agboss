@@ -73,7 +73,6 @@ export class DraftDto {
 const defaults = {
   models: { temperature: 0, maxTokens: MODEL_MAX, cache: true },
   tools: { maxToolCalls: 2 },
-  history: { limit: 2 },
 } as const;
 const price = { inputPerMTok: 1, outputPerMTok: 10 };
 
@@ -109,6 +108,7 @@ export class ReviewerAgent {}
       .toFinish(BriefFinish),
   ],
   defaults,
+  uncompactedTurns: 2,
 })
 export class BriefWorkflow {}
 

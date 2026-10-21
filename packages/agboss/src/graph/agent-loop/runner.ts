@@ -1,4 +1,5 @@
 import type { ExecutionStateType } from "../../flow/runtime/state.js";
+import { readerMemoryOf } from "../../flow/runtime/history.js";
 import type { AgentAnswer } from "../../flow/runtime/answer-tools.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import type { ApprovalRecord } from "../../pause/index.js";
@@ -14,6 +15,15 @@ export interface LoopPii {
 
 const NO_PII: LoopPii = { tokens: {}, values: [] };
 
+/** What the agent remembers of the thread: its turns and its compaction's summaries (#120 PR 3). */
+function memoryOf(
+  state: ExecutionStateType,
+  agent: string,
+): Pick<AgentLoopStateType, "history" | "summaries"> {
+  const memory = readerMemoryOf(state, agent);
+  return { history: [...memory.history], summaries: [...memory.summaries] };
+}
+
 /** What the execution hands an agent's loop: its run, spend, memory and input message. */
 export function loopInputOf(
   state: ExecutionStateType,
@@ -25,8 +35,7 @@ export function loopInputOf(
     runId: state.runId,
     usage: state.usage,
     approvals: state.approvals,
-    history: state.history,
-    summaries: state.summaries,
+    ...memoryOf(state, agent),
     inputMessage: input,
     flowPath: [...state.path, agent],
     from: { usage: state.usage.length, approvals: state.approvals.length },

@@ -114,9 +114,9 @@ export class SqliteRecoveryApplication {}
   version: "1.0.0",
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
-    history: { limit: 1 },
     tools: { maxToolCalls: 8 },
   },
+  uncompactedTurns: 1,
   flow: [
     start(OrderWorkflowStart)
       .returns(WorkflowStartTextDto)

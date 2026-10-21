@@ -200,7 +200,7 @@ describe("the eval judge (compareProfiles) is defaults.router: any decision mode
     defaults: {
       models: { temperature: 0, maxTokens: 100 },
       router: { ...router, model: LUNA },
-      history: { limit: 1 },
+      uncompactedTurns: 1,
     },
     agents: { a: { model: "x/y", description: "a" } },
   });

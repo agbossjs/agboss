@@ -153,9 +153,9 @@ export class Done {}
   version: "1.0.0",
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
-    history: { limit: 1 },
     tools: { maxToolCalls: 3 },
   },
+  uncompactedTurns: 1,
   providers: [Shortlist],
   flow: [
     start(SearchStart)
@@ -192,7 +192,8 @@ export class Typo {}
 @Workflow({
   name: "typo-search-workflow",
   version: "1.0.0",
-  defaults: { models: { maxTokens: 100, temperature: 0 }, history: { limit: 1 } },
+  defaults: { models: { maxTokens: 100, temperature: 0 } },
+  uncompactedTurns: 1,
   flow: [
     start(SearchStart)
       .returns(SearchInDto)

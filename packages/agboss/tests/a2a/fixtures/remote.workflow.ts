@@ -98,7 +98,6 @@ const defaults = {
   models: { temperature: 0, cache: true },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 2 },
-  history: { limit: 2 },
 } as const;
 
 /** The workflow another workflow calls over A2A: start → desk → answer (at most 2 tool calls). */
@@ -112,6 +111,7 @@ const defaults = {
       .toFinish(DeskAnswer),
   ],
   defaults,
+  uncompactedTurns: 2,
 })
 export class RemoteDesk implements WorkflowDefinition {
   settings(): WorkflowSettings {

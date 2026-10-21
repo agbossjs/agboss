@@ -38,8 +38,8 @@ export type RegistryGateway = Pick<ModelGateway, "chatModel" | "decide">;
 /** Chat models of the agents. The router is built separately (see src/routing). */
 export interface ModelRegistry {
   readonly agents: ReadonlyMap<string, ModelBinding>;
-  /** The conversation-compaction model, when the workflow compacts. */
-  readonly compaction?: ModelBinding | undefined;
+  /** Each `@Compaction` that writes summaries: its chat model, by compaction name (#120 PR 3). */
+  readonly compactions: ReadonlyMap<string, ModelBinding>;
   /** Each `@Judge`'s own model, by judge name. */
   readonly judges: ReadonlyMap<string, JudgeBinding>;
 }
@@ -95,10 +95,13 @@ export function createModelRegistry(
       ([name, settings]) => [name, bindFor({ kind: "agent", agent: name })(settings)] as const,
     ),
   );
-  const compaction =
-    config.compaction === undefined
-      ? undefined
-      : bindFor({ kind: "compaction" })(config.compaction.model);
+  const compactions = new Map(
+    Object.entries(config.compactions ?? {}).flatMap(([compaction, settings]) =>
+      settings.model === undefined
+        ? []
+        : [[compaction, bindFor({ kind: "compaction", compaction })(settings.model)] as const],
+    ),
+  );
   const judges = new Map(
     Object.entries(config.judges ?? {}).map(([judge, settings]): [string, JudgeBinding] => [
       judge,
@@ -111,5 +114,5 @@ export function createModelRegistry(
           },
     ]),
   );
-  return { agents, compaction, judges };
+  return { agents, compactions, judges };
 }

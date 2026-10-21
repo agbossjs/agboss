@@ -64,11 +64,11 @@ describe("describe a workflow", () => {
     expect(lines).toContain(
       '  personal-data-guardrail — output ≥0.7 · typesafe/jev-1.13 (defaults.guardrail) · refusal: "Withheld." · on coder-agent, researcher-agent',
     );
-    expect(lines).toContain("memory    raw turns only");
+    expect(lines).toContain("memory    window only (no summaries)");
     expect(
       lines.some((l) =>
         l.startsWith(
-          "  researcher-agent  test/researcher · reasoning model decides · no output ceiling · history 5 turns",
+          "  researcher-agent  test/researcher · reasoning model decides · no output ceiling · uncompactedTurns 5",
         ),
       ),
     ).toBe(true);

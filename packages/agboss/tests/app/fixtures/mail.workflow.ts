@@ -113,9 +113,9 @@ const workflow = {
   name: "mail-workflow",
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
-    history: { limit: 1 },
     tools: { maxToolCalls: 2 },
   },
+  uncompactedTurns: 1,
   flow: [
     start(Start)
       .returns(WorkflowStartTextDto)

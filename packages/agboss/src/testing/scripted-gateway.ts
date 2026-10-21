@@ -19,7 +19,7 @@ import type { DecisionDetails, ScriptedTurn } from "./turns.js";
 export function chatKeyOf(user: ChatModelUser): string {
   switch (user.kind) {
     case "compaction":
-      return "compaction";
+      return compactionKeyOf(user.compaction);
     case "agent":
       return `agent:${user.agent}`;
     case "judge":
@@ -44,6 +44,8 @@ export const piiPolicyKeyOf = (policy: string): string => `pii:${policy}`;
 export const judgeKeyOf = (judge: string): string => `judge:${judge}`;
 /** The script key of a model arbiter (#279): its cost caller. */
 export const arbiterKeyOf = (arbiter: string): string => `arbiter:${arbiter}`;
+/** The script key of a compaction (#120 PR 3): its cost caller. */
+export const compactionKeyOf = (compaction: string): string => `compaction:${compaction}`;
 /** The script key of a guardrail (#120): its cost caller. */
 export const guardrailKeyOf = (guardrail: string): string => `guardrail:${guardrail}`;
 
@@ -67,7 +69,7 @@ export const optionOf = (target: Class): string => nodeNameOf(target);
 
 const failed = (reason: string): RouteOutcome => ({ kind: "failed", reason });
 
-/** Conversation compaction nobody scripted writes this summary. */
+/** A compaction nobody scripted writes this summary (`mockLlm(XCompaction)` scripts it). */
 export const UNSCRIPTED_SUMMARY = "(summary of the earlier turns)";
 
 function usageOf(spec: DecisionSpec, details: DecisionDetails): UsageRecord | undefined {
@@ -130,6 +132,11 @@ const decisionRequestOf = (spec: DecisionSpec): ModelRequest => ({
   instructions: spec.request.instructions ?? "",
 });
 
+/** A compaction's script without turns writes the fixed summary, at no cost. */
+function unscriptedSummary(script: ComponentScript): void {
+  if (!script.isScripted) script.thenReturnAlways(replyWith(UNSCRIPTED_SUMMARY));
+}
+
 /**
  * The model gateway of a test: every chat model and every decision answers by script. A failure
  * that must fail the test (no script, script exhausted, not a route) is reported to the book and
@@ -139,11 +146,10 @@ export function createScriptedGateway(
   book: ScriptBook,
   clock: Clock = new VirtualClock(),
 ): ModelGateway {
-  const compaction = book.scriptOf("compaction");
-  if (!compaction.isScripted) compaction.thenReturnAlways(replyWith(UNSCRIPTED_SUMMARY));
   return {
-    chatModel: ({ user, settings }) =>
-      new ScriptedChatModel(
+    chatModel: ({ user, settings }) => {
+      if (user.kind === "compaction") unscriptedSummary(book.scriptOf(chatKeyOf(user)));
+      return new ScriptedChatModel(
         {
           book,
           clock,
@@ -152,7 +158,8 @@ export function createScriptedGateway(
           ...(user.kind === "reply-interpreter" ? { input: { ...user.input } } : {}),
         },
         settings,
-      ),
+      );
+    },
     routeTo: async (spec) => {
       const script = book.scriptOf(routerKeyOf(spec.router));
       const request = decisionRequestOf(spec);

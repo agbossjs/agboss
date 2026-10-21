@@ -18,12 +18,12 @@ async function setup(
   if (alphaSettings === undefined) throw new Error("the star has alpha-agent");
   const config = {
     ...base.config,
-    defaults: { ...base.config.defaults, history: { limit: historyLimits.defaults } },
+    defaults: { ...base.config.defaults, uncompactedTurns: historyLimits.defaults },
     agents: {
       ...base.config.agents,
       "alpha-agent": {
         ...alphaSettings,
-        ...(historyLimits.alpha === undefined ? {} : { historyLimit: historyLimits.alpha }),
+        ...(historyLimits.alpha === undefined ? {} : { uncompactedTurns: historyLimits.alpha }),
       },
     },
   };

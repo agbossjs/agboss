@@ -156,7 +156,7 @@ export const replyAnsweringPartsOf = (deps: AppDeps): ReplyAnsweringParts => ({
     const { pii } = deps;
     if (pii === undefined) return { policies: new PiiPolicySet([], ""), known };
     const sensitive = pii.contextValuesOf(contextsOf(state, DEFAULT_TENANT.tenantId));
-    return { policies: pii.interpreterPolicies.withValues(sensitive), known };
+    return { policies: pii.workflowPolicies.withValues(sensitive), known };
   },
 });
 

@@ -23,8 +23,6 @@ export interface AgentDefinition {
   /** How it answers with its `output` (S6); none for a text agent. */
   readonly answerTools: AnswerTools;
   readonly limits: AgentLoopLimits;
-  readonly historyLimit: number;
-  readonly summariesLimit: number;
   /** What of the thread memory the agent sees; absent = the built-in sliding window. */
   readonly memory?: BaseMemoryStrategy;
   /** Context-mode knowledge bases: retrieved before the first model call. */

@@ -7,6 +7,11 @@ import { ragMeta, searchToolName } from "./rag.js";
 import type { PromptLoader } from "./prompt-render.js";
 import { channelComponentClassesOf } from "./channel-parts.js";
 import type { ProviderModule } from "./container/registrations.js";
+import { INFRASTRUCTURE_TOKENS } from "../infrastructure/instance-tokens.js";
+import type { Mcp } from "./assemble-tools.js";
+import { checkGraph } from "./container/graph-check.js";
+import type { Token } from "./injection.js";
+import { CORE_TOKENS, rememberServers } from "./runtime.js";
 
 /** A workflow's tool classes: local `@Tool`s and `@McpTool`s. */
 export interface ToolClasses {
@@ -112,3 +117,28 @@ export const promptsOf = async (
   loader.throwIfAny();
   return Object.fromEntries(prompts);
 };
+
+/**
+ * What every container of the workflow has besides its providers: core values, the application's
+ * context classes (#261), MCP servers.
+ */
+const coreTokensOf = (mcp: Mcp, contexts: readonly Token[]): readonly Token[] => [
+  ...CORE_TOKENS,
+  ...contexts,
+  ...INFRASTRUCTURE_TOKENS,
+  ...mcp.instances.keys(),
+];
+
+/** Every component's dependencies checked against the providers; the MCP servers kept. */
+export function checkComponents(
+  bundle: WorkflowMeta,
+  parts: {
+    readonly components: Parameters<typeof checkGraph>[0];
+    readonly modules: readonly ProviderModule[];
+    readonly mcp: Mcp;
+    readonly contexts: readonly Token[];
+  },
+): void {
+  checkGraph(parts.components, parts.modules, coreTokensOf(parts.mcp, parts.contexts));
+  rememberServers(bundle, parts.mcp.instances);
+}

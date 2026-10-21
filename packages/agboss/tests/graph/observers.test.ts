@@ -56,8 +56,8 @@ import { EmptyEnvironment } from "../../src/index.js";
     models: { temperature: 0, cache: true },
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 1 },
-    history: { limit: 1 },
   },
+  uncompactedTurns: 1,
   flow: [start(Start).returns(WorkflowStartTextDto).toAgent(WorkerAgent).toFinish(Finish)],
 })
 class ObsWf {}

@@ -1,8 +1,7 @@
-import { defaultSummaries } from "../../../graph/agent-definitions.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import type { RouteRequest, RouterEngine } from "../../../routers/index.js";
 import type { RuntimeNode } from "../graph-model.js";
-import { formatMemory } from "../history.js";
+import { formatMemory, readerMemoryOf } from "../history.js";
 import type { NodeRunner } from "../node-runner.js";
 import { routerFailureOf } from "../router-error.js";
 import type { LoadedRouter } from "../routers.js";
@@ -56,9 +55,10 @@ async function maskedInputOf(
   deps: GraphDeps<string>,
   isGuarded: boolean,
 ): Promise<MaskedRouterInput> {
-  const memory = formatMemory(state, {
-    summaries: defaultSummaries(deps.config),
-    turns: deps.config.defaults.history.limit,
+  const view = readerMemoryOf(state, node.id);
+  const memory = formatMemory(view, {
+    summaries: view.summaries.length,
+    turns: view.history.length,
   });
   const boundary = boundaryInputOf(node, state, deps.pii);
   const parts = memory === "" ? [boundary.input] : [memory, boundary.input];

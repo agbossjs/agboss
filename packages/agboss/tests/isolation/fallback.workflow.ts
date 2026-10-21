@@ -89,7 +89,6 @@ const defaults = {
   models: { temperature: 0, maxTokens: MODEL_MAX },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 1 },
-  history: { limit: 1 },
 } as const;
 
 @Workflow({
@@ -102,6 +101,7 @@ const defaults = {
       .toFinish(Reply),
   ],
   defaults,
+  uncompactedTurns: 1,
 })
 export class WithFallback {}
 
@@ -125,6 +125,7 @@ export class WithFallbackApplication {}
       .toFinish(Reply),
   ],
   defaults,
+  uncompactedTurns: 1,
 })
 export class UnmappedFallback {}
 

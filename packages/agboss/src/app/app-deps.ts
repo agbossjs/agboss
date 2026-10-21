@@ -217,7 +217,7 @@ export async function createWorkflowDeps(
     guardrails: guardrailsFor(bundle, services, config, gateway),
     tools: toolLookup(tools),
     pause: pauseFor(checkpointer, parts.infrastructure.pausedExecutions, terns),
-    compactionPrompt: bundle.compactionPrompt,
+    ...(bundle.compactions === undefined ? {} : { compactions: bundle.compactions }),
     ...components,
     pii,
     budgets,

@@ -41,10 +41,17 @@ export function withProviderPrices(
     agents: Object.fromEntries(
       Object.entries(config.agents).map(([name, agent]) => [name, priced(agent, directory)]),
     ),
-    ...(config.compaction === undefined
+    ...(config.compactions === undefined
       ? {}
       : {
-          compaction: { ...config.compaction, model: priced(config.compaction.model, directory) },
+          compactions: Object.fromEntries(
+            Object.entries(config.compactions).map(([name, compaction]) => [
+              name,
+              compaction.model === undefined
+                ? compaction
+                : { ...compaction, model: priced(compaction.model, directory) },
+            ]),
+          ),
         }),
     ...(config.judges === undefined
       ? {}

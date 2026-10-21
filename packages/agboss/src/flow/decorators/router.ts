@@ -1,6 +1,11 @@
 import { callerFile } from "../../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
-import type { AgentMeta, GuardrailFields, PiiPolicyFields } from "../../components/meta-types.js";
+import type {
+  AgentMeta,
+  CompactionFields,
+  GuardrailFields,
+  PiiPolicyFields,
+} from "../../components/meta-types.js";
 import { NodeKind, type ComponentClass } from "../ast.js";
 import { declared, recordDeclaration, type InputFields } from "./declaration.js";
 
@@ -83,7 +88,7 @@ interface RouterBase extends PiiPolicyFields, GuardrailFields {
  * `@Router({ decidedBy: DecidedBy.Model })` — how its model chooses (`prompt`, the route prompts);
  * the flow lists the targets (`.chooseOne(route(…)…)`) and the two lists match (`[router.routes-mismatch]`).
  */
-export interface ModelRouterOptions extends RouterBase {
+export interface ModelRouterOptions extends RouterBase, CompactionFields {
   readonly decidedBy: DecidedBy.Model;
   readonly routes: readonly [RouterRoute, ...RouterRoute[]];
   /** A decision model (Jev, …) or a chat model; `defaults.router.model` when absent. */
@@ -108,6 +113,9 @@ export interface CodeRouterOptions<
   readonly prompt?: never;
   readonly promptUrls?: never;
   readonly promptVariables?: never;
+  /** A code router reads no thread memory: no compaction, no window. */
+  readonly compaction?: never;
+  readonly uncompactedTurns?: never;
 }
 
 /** `@Router` options: a union discriminated by `decidedBy`. */

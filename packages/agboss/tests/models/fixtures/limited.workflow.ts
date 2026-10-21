@@ -70,8 +70,8 @@ export class LimitedAgent {}
   defaults: {
     models: { temperature: 0, maxTokens: MODEL_MAX },
     tools: { maxToolCalls: 1 },
-    history: { limit: 1 },
   },
+  uncompactedTurns: 1,
 })
 export class LimitedWorkflow {}
 

@@ -16,6 +16,7 @@ import {
   WindowDto,
   Windowed,
   CompactingDeskApplication,
+  DeskCompaction,
   MemoryDeskApplication,
 } from "./fixtures/memory.workflow.js";
 import { execute, start } from "../helpers/flow.js";
@@ -104,29 +105,27 @@ describe("memory strategies on agent model calls", () => {
 describe("compaction is the built-in strategy's memory update", () => {
   const test = testWith(CompactingDeskApplication);
 
-  test("AC2: compaction cost is recorded in the run's cost report", async ({
-    app,
-    mockLlm,
-    mockCompaction,
-  }) => {
+  test("AC2: compaction cost is recorded in the run's cost report", async ({ app, mockLlm }) => {
     mockLlm(Recaller).thenReturnAlways(replyWith(RecallDto, { text: "ok" }, { cost: usd(0.001) }));
-    mockCompaction().thenReturnAlways(replyWith("t1 and t2 were asked", { cost: usd(0.004) }));
+    mockLlm(DeskCompaction).thenReturn(replyWith("t1 and t2 were asked", { cost: usd(0.004) }));
 
-    const second = await converse(app, 2);
+    // window 1, 2 turns between compactions: after turn 3, t1 and t2 are older than the window
+    const third = await converse(app, 3);
 
-    expect(second.compacted).toMatchObject({ fromTurn: 1, toTurn: 2, summaries: 1 });
-    expect(second.spend.byCategory.compaction).toBeCloseTo(0.004, 6);
-    expect(second.spend.totalUsd).toBeCloseTo(0.005, 6);
-    expect(second.spend.trace.map((line) => line.caller)).toEqual(["recaller-agent", "compaction"]);
+    expect(third.compacted).toMatchObject([
+      { compaction: "desk-compaction", fromTurn: 1, toTurn: 2, summaries: 1 },
+    ]);
+    expect(third.spend.byCategory.compaction).toBeCloseTo(0.004, 6);
+    expect(third.spend.totalUsd).toBeCloseTo(0.005, 6);
+    expect(third.spend.trace.map((line) => line.caller)).toEqual([
+      "recaller-agent",
+      "compaction:desk-compaction",
+    ]);
   });
 
-  test("agents then see the summary and the turns not yet compacted", async ({
-    app,
-    mockLlm,
-    mockCompaction,
-  }) => {
+  test("agents then see the summary and the turns not yet compacted", async ({ app, mockLlm }) => {
     mockLlm(Recaller).thenReturnAlways(replyWith(RecallDto, { text: "ok" }));
-    mockCompaction().thenReturnAlways(replyWith("t1 and t2 were asked"));
+    mockLlm(DeskCompaction).thenReturn(replyWith("t1 and t2 were asked"));
 
     await converse(app, 4);
 
@@ -158,8 +157,8 @@ class Odd {}
   defaults: {
     models: { temperature: 0 },
     router: { model: "typesafe/jev-1.13" },
-    history: { limit: 1 },
   },
+  uncompactedTurns: 1,
 })
 class OddDesk {
   settings(): WorkflowSettings {

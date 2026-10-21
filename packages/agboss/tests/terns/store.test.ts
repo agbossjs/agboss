@@ -181,7 +181,7 @@ describe("SQLite Tern store", () => {
       configVersion: null,
       runId: null,
     });
-    expect(await store.summaryCount("default", "t")).toBe(0);
+    expect(await store.summaryCount("default", "t", "conversation-compaction")).toBe(0);
     expect((await store.byIds([fresh.id]))[0]).toMatchObject({ task: "task", runId: "run-1" });
     store.close();
   });
@@ -202,6 +202,7 @@ describe("SQLite Tern store", () => {
       tenantId: "acme",
       threadId: "order-7",
       bundle: "b",
+      compaction: "conversation-compaction",
       fromTernId: first.id,
       toTernId: first.id,
       turns: 1,
@@ -216,15 +217,19 @@ describe("SQLite Tern store", () => {
     expect(turns.map((item) => [item.task, item.tenantId, item.threadId])).toEqual([
       ["globex 1", "globex", "order-7"],
     ]);
-    expect(await store.summaryCount("acme", "order-7")).toBe(1);
-    expect(await store.summaryCount("globex", "order-7")).toBe(0);
-    expect(await store.uncovered("acme", "order-7")).toEqual([]);
-    expect((await store.uncovered("globex", "order-7")).map((item) => item.task)).toEqual([
-      "globex 1",
-    ]);
+    const compaction = "conversation-compaction";
+    expect(await store.summaryCount("acme", "order-7", compaction)).toBe(1);
+    expect(await store.summaryCount("globex", "order-7", compaction)).toBe(0);
+    expect(await store.uncovered("acme", "order-7", compaction)).toEqual([]);
     expect(
-      (await store.latestSummaries("acme", "order-7", 5)).map((item) => item.tenantId),
+      (await store.uncovered("globex", "order-7", compaction)).map((item) => item.task),
+    ).toEqual(["globex 1"]);
+    expect(
+      (await store.latestSummaries("acme", "order-7", compaction, 5)).map((item) => item.tenantId),
     ).toEqual(["acme"]);
+    // #120 PR 3: each compaction keeps its own summaries of the thread
+    expect(await store.summaryCount("acme", "order-7", "code-context-compaction")).toBe(0);
+    expect((await store.uncovered("acme", "order-7", "code-context-compaction")).length).toBe(1);
     store.close();
   });
 
@@ -268,8 +273,10 @@ describe("SQLite Tern store", () => {
       "one",
       "two",
     ]);
-    expect(await store.summaryCount("acme", "t-acme")).toBe(1);
-    expect((await store.uncovered("acme", "t-acme")).map((item) => item.id)).toEqual(["two"]);
+    // a summary written before #120 PR 3 belongs to no compaction: no reader sees it again
+    expect(await store.summaryCount("acme", "t-acme", "")).toBe(1);
+    expect(await store.summaryCount("acme", "t-acme", "conversation-compaction")).toBe(0);
+    expect((await store.uncovered("acme", "t-acme", "")).map((item) => item.id)).toEqual(["two"]);
     expect(await store.turnNumber("acme", "t-acme", "two")).toBe(2);
     await store.createThread({ workflow: "b", tenantId: "default", threadId: "t-acme" });
     expect(await store.hasThread("b", "default", "t-acme")).toBe(true);

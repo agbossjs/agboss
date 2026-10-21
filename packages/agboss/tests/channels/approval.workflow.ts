@@ -134,7 +134,6 @@ const defaults = {
   models: { temperature: 0, cache: true },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 2 },
-  history: { limit: 2 },
 } as const;
 
 class NoLimits implements WorkflowDefinition {
@@ -155,6 +154,7 @@ class NoLimits implements WorkflowDefinition {
       .toFinish(Reply),
   ],
   defaults,
+  uncompactedTurns: 2,
   providers: [ApprovalDesk],
 })
 export class Refunds extends NoLimits {}

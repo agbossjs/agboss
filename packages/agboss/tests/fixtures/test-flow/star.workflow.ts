@@ -21,8 +21,8 @@ import { EmptyEnvironment } from "../../../src/index.js";
   defaults: {
     models: { temperature: 0, maxTokens: MODEL_MAX, cache: true },
     tools: { maxToolCalls: 3 },
-    history: { limit: 2 },
   },
+  uncompactedTurns: 2,
 })
 export class StarWorkflow {}
 
@@ -68,9 +68,9 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
     ],
     defaults: {
       tools: { maxToolCalls: 3 },
-      history: { limit: 2 },
       router: { model: "typesafe/jev-test" },
     },
+    uncompactedTurns: 2,
   })
   class ToolWorkflow {}
   return ToolWorkflow;

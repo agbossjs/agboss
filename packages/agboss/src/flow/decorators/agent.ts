@@ -1,6 +1,11 @@
 import { callerFile } from "../../components/call-site.js";
 import type { Class } from "../../components/injection.js";
-import type { AgentMeta, GuardrailFields, PiiPolicyFields } from "../../components/meta-types.js";
+import type {
+  AgentMeta,
+  CompactionFields,
+  GuardrailFields,
+  PiiPolicyFields,
+} from "../../components/meta-types.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import { RagMode } from "../../rag/types.js";
 import { NodeKind } from "../ast.js";
@@ -21,7 +26,7 @@ export interface AgentRag {
  * `compensate`. An interface, not a union, so `satisfies Omit<AgentOptions, "name" | "description">`
  * keeps every field for a shared `*.options.ts` const (#272, 2026-10-16).
  */
-export interface AgentOptions extends GuardrailFields, PiiPolicyFields {
+export interface AgentOptions extends GuardrailFields, PiiPolicyFields, CompactionFields {
   /** Ends with `-agent` (`draft-reviewer-agent`); explicit, it keys records and checkpoints. */
   readonly name: string;
   readonly description: string;
@@ -44,8 +49,6 @@ export interface AgentOptions extends GuardrailFields, PiiPolicyFields {
   readonly temperature?: number;
   readonly maxTokens?: AgentMeta["maxTokens"];
   readonly cache?: AgentMeta["cache"];
-  readonly historyLimit?: number;
-  readonly historySummaries?: number;
   readonly maxToolCalls?: number;
   readonly judges?: AgentMeta["judges"];
   readonly maxRetries?: number;

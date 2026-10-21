@@ -53,7 +53,6 @@ const defaults = {
   models: { temperature: 0, maxTokens: MODEL_MAX, cache: true },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 4 },
-  history: { limit: 4 },
 } as const;
 
 @Agent({
@@ -122,6 +121,7 @@ const SHOP_BUDGETS = [TestApplicationDailyBudget, TestTenantDailyBudget, ShopExe
       .toFinish(Done),
   ],
   defaults,
+  uncompactedTurns: 4,
 })
 export class Shop {}
 
@@ -148,6 +148,7 @@ export class ShopApplication {}
       .toFinish(Done),
   ],
   defaults,
+  uncompactedTurns: 4,
 })
 export class ShopCatchingLimits {}
 
@@ -173,6 +174,7 @@ export class ShopCatchingLimitsApplication {}
       .toFinish(Done),
   ],
   defaults,
+  uncompactedTurns: 4,
 })
 export class ShopUncaught {}
 

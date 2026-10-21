@@ -5,6 +5,7 @@ import type { KnowledgeSource, RagConnector } from "./rag/types.js";
 import type { PauseChannel } from "./flow/runtime/pause.js";
 import type { AssembledPii } from "./pii/assembly.js";
 import type { AssembledGuardrails } from "./guardrails/assembly.js";
+import type { AssembledCompactions } from "./compaction/assembly.js";
 import type { Class } from "./components/injection.js";
 import type { AnyTool, McpFacade, McpServerHandle } from "./tools/index.js";
 import type { RouterEngine } from "./routers/index.js";
@@ -79,8 +80,8 @@ export interface AssembledWorkflow<TName extends string = string> {
   ) => readonly { readonly name: string; readonly connector: RagConnector }[];
   /** Per tool: its constructor dependencies as a tree, e.g. `JobFitJudge (ROUTER_FACTORY), JOB_SEARCH`. */
   readonly toolDependencies?: Readonly<Record<string, string>>;
-  /** Compaction prompt override (workflows with `compaction`). */
-  readonly compactionPrompt?: string;
+  /** Its compactions (#120 PR 3): every one in use, with its prompt, and each reader's. */
+  readonly compactions?: AssembledCompactions;
   /** The channels its tools name (#267), by name, created by the application's container. */
   readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, PauseChannel>;
   /** A component by its class, from the workflow's container (created with its `deps` on first use). */

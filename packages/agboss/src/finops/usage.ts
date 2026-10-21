@@ -49,11 +49,11 @@ export const COST_CATEGORIES = [
 ] as const;
 export type CostCategory = (typeof COST_CATEGORIES)[number];
 
-/** Category from the caller name: tool:* and action:* (tools), guardrail:* (guards), router:quality:* and judge:* (review), other router:*, agent. */
+/** Category from the caller name: tool:* and action:* (tools), compaction:*, guardrail:* (guards), router:quality:* and judge:* (review), other router:*, agent. */
 export function costCategoryOf(caller: string): CostCategory {
   if (caller.startsWith("judge:")) return "review";
   if (caller.startsWith("tool:") || caller.startsWith("action:")) return "tools";
-  if (caller === "compaction") return "compaction";
+  if (caller.startsWith("compaction:")) return "compaction";
   if (caller.startsWith("rag:")) return "retrieval";
   if (caller.startsWith("guardrail:")) return "guards";
   if (caller.startsWith("router:quality:")) return "review";

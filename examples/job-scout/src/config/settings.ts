@@ -12,5 +12,4 @@ export const DEFAULTS = {
   router: { model: "typesafe/jev-1.13" },
   guardrail: { model: "typesafe/jev-1.13" }, // the guardrails' model — never defaults.router's
   tools: { maxToolCalls: 8 },
-  history: { limit: 5 },
 } as const;

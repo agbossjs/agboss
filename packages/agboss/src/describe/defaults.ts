@@ -1,5 +1,12 @@
-import { defaultSourceOf, defaultsLevelsOf, type DefaultSource } from "../config/defaults.js";
+import {
+  defaultSourceOf,
+  defaultsLevelsOf,
+  uncompactedTurnsSourceOf,
+  type DefaultSource,
+} from "../config/defaults.js";
 import { DEFAULT_MAX_TOKENS } from "../config/types.js";
+import { CompactionStrategy } from "../compaction/compaction.decorator.js";
+import { memoryPlanOf, type CompactionInUse } from "../compaction/plan.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
 import type { AssembledWorkflow } from "../workflow.js";
 
@@ -16,7 +23,7 @@ const sourceLabel = (own: boolean, source: DefaultSource | undefined): string =>
 
 function sourceOf(
   bundle: AssembledWorkflow,
-  section: "models" | "history" | "router",
+  section: "models" | "router",
   field: string,
 ): DefaultSource | undefined {
   const levels = defaultsLevelsOf(bundle.graph);
@@ -35,16 +42,45 @@ export function routerModelSource(bundle: AssembledWorkflow, router: LoadedRoute
     : `(defaults.router.model of ${source.name})`;
 }
 
-/** `defaults: temperature 0 (ask-application) · maxTokens 512 (own) · history 5 (ask-workflow)`. */
+/** Where the window came from: a workflow's or application's `uncompactedTurns`, else the built-in. */
+function windowSourceOf(bundle: AssembledWorkflow): DefaultSource | undefined {
+  const levels = defaultsLevelsOf(bundle.graph);
+  return levels === undefined ? undefined : uncompactedTurnsSourceOf(levels);
+}
+
+/** `defaults: temperature 0 (ask-application) · maxTokens 512 (own) · uncompactedTurns 5 (ask-workflow)`. */
 export function agentDefaultsLine(bundle: AssembledWorkflow, agent: AgentSettings): string {
   const { defaults } = bundle.config;
   const temperature = agent.temperature ?? defaults.models.temperature;
   const maxTokens = agent.maxTokens ?? defaults.models.maxTokens ?? DEFAULT_MAX_TOKENS;
-  const history = agent.historyLimit ?? defaults.history.limit;
+  const window = agent.uncompactedTurns ?? defaults.uncompactedTurns;
   const parts = [
     `temperature ${String(temperature)} ${sourceLabel(agent.temperature !== undefined, sourceOf(bundle, "models", "temperature"))}`,
     `maxTokens ${String(maxTokens)} ${sourceLabel(agent.maxTokens !== undefined, sourceOf(bundle, "models", "maxTokens"))}`,
-    `history ${String(history)} ${sourceLabel(agent.historyLimit !== undefined, sourceOf(bundle, "history", "limit"))}`,
+    `uncompactedTurns ${String(window)} ${sourceLabel(agent.uncompactedTurns !== undefined, windowSourceOf(bundle))}`,
   ];
   return `    defaults: ${parts.join(" · ")}`;
+}
+
+/** `agboss describe`'s memory section (#120 PR 3): each compaction in use, or the window only. */
+
+/** One compaction in use (#120 PR 3): its strategy, settings, model and window. */
+function compactionLine(compaction: CompactionInUse, model: string | undefined): string {
+  const queue =
+    compaction.strategy === CompactionStrategy.SummaryQueue
+      ? `, queue ${String(compaction.summaryQueueLength)}`
+      : "";
+  return `  ${compaction.name} — ${compaction.strategy} every ${String(compaction.turnsBetweenCompactions)} turns${queue} · summaryMaxTokens ${String(compaction.summaryMaxTokens)} · ${model ?? "?"} · older than ${String(compaction.window)} turns`;
+}
+
+/** The compactions that write summaries, or "window only". */
+export function memoryLines(bundle: AssembledWorkflow): string[] {
+  const plan = memoryPlanOf(bundle.config, bundle.compactions);
+  if (plan.compactions.length === 0) return ["memory    window only (no summaries)"];
+  return [
+    "memory",
+    ...plan.compactions.map((compaction) =>
+      compactionLine(compaction, bundle.config.compactions?.[compaction.name]?.model?.model),
+    ),
+  ];
 }

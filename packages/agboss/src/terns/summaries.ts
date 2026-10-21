@@ -15,6 +15,7 @@ const SummaryRow = z.object({
   text: z.string(),
   cost_usd: z.number(),
   created_at: z.string(),
+  compaction: z.string(),
 });
 
 const toSummary = (row: unknown): Summary => {
@@ -24,6 +25,7 @@ const toSummary = (row: unknown): Summary => {
     tenantId: r.tenant_id,
     threadId: r.thread_id,
     bundle: r.bundle,
+    compaction: r.compaction,
     fromTernId: r.from_tern,
     toTernId: r.to_tern,
     turns: r.turns,
@@ -42,11 +44,19 @@ const seqOf = (db: DatabaseSync, ternId: string): number =>
 /** A thread as the queries name it: its tenant and its id (#261 S72). */
 const OF_THREAD = "tenant_id = ? AND thread_id = ?";
 
-const lastCovered = (db: DatabaseSync, tenantId: string, threadId: string): number =>
+/** A compaction's summaries of a thread (#120 PR 3). */
+const OF_COMPACTION = `${OF_THREAD} AND compaction = ?`;
+
+const lastCovered = (
+  db: DatabaseSync,
+  tenantId: string,
+  threadId: string,
+  compaction: string,
+): number =>
   Count.parse(
     db
-      .prepare(`SELECT COALESCE(MAX(to_seq), 0) AS n FROM summaries WHERE ${OF_THREAD}`)
-      .get(tenantId, threadId),
+      .prepare(`SELECT COALESCE(MAX(to_seq), 0) AS n FROM summaries WHERE ${OF_COMPACTION}`)
+      .get(tenantId, threadId, compaction),
   ).n;
 
 function turnReads(db: DatabaseSync): Pick<MemoryStore, "uncovered" | "before" | "turnNumber"> {
@@ -56,13 +66,13 @@ function turnReads(db: DatabaseSync): Pick<MemoryStore, "uncovered" | "before" |
       .all(...params)
       .map(toTern);
   return {
-    uncovered: (tenantId, threadId) =>
+    uncovered: (tenantId, threadId, compaction) =>
       Promise.resolve(
         terns(
           `SELECT * FROM terns WHERE ${OF_THREAD} AND rowid > ? ORDER BY rowid`,
           tenantId,
           threadId,
-          lastCovered(db, tenantId, threadId),
+          lastCovered(db, tenantId, threadId, compaction),
         ),
       ),
     before: (tenantId, threadId, ternId, limit) =>
@@ -94,7 +104,7 @@ function summaryMethods(
   return {
     addSummary: (summary) => {
       const stored: Summary = { ...summary, id: randomUUID(), createdAt: now().toISOString() };
-      db.prepare("INSERT INTO summaries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      db.prepare("INSERT INTO summaries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
         stored.id,
         stored.tenantId,
         stored.threadId,
@@ -107,25 +117,26 @@ function summaryMethods(
         stored.text,
         stored.costUsd,
         stored.createdAt,
+        stored.compaction,
       );
       return Promise.resolve(stored);
     },
-    latestSummaries: (tenantId, threadId, limit) =>
+    latestSummaries: (tenantId, threadId, compaction, limit) =>
       Promise.resolve(
         db
           .prepare(
-            `SELECT * FROM (SELECT * FROM summaries WHERE ${OF_THREAD}
+            `SELECT * FROM (SELECT * FROM summaries WHERE ${OF_COMPACTION}
              ORDER BY to_seq DESC LIMIT ?) ORDER BY to_seq`,
           )
-          .all(tenantId, threadId, limit)
+          .all(tenantId, threadId, compaction, limit)
           .map(toSummary),
       ),
-    summaryCount: (tenantId, threadId) =>
+    summaryCount: (tenantId, threadId, compaction) =>
       Promise.resolve(
         Count.parse(
           db
-            .prepare(`SELECT COUNT(*) AS n FROM summaries WHERE ${OF_THREAD}`)
-            .get(tenantId, threadId),
+            .prepare(`SELECT COUNT(*) AS n FROM summaries WHERE ${OF_COMPACTION}`)
+            .get(tenantId, threadId, compaction),
         ).n,
       ),
   };

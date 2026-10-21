@@ -18,6 +18,17 @@ export {
   type ToolOptions,
 } from "../components/decorators.js";
 export {
+  Compaction,
+  CompactionStrategy,
+  TurnLimit,
+  type CompactionOptions,
+  type NoSummaryCompactionOptions,
+  type SingleSummaryCompactionOptions,
+  type SummaryMaxTokens,
+  type SummaryQueueCompactionOptions,
+  type UncompactedTurns,
+} from "../compaction/compaction.decorator.js";
+export {
   PiiAction,
   PiiActionKind,
   PiiGroup,

@@ -18,7 +18,6 @@ import { LocalModelProvider, TestOpenRouterProvider } from "../providers.fixture
 const defaults = {
   models: { temperature: 0, maxTokens: MODEL_MAX },
   router: { model: "typesafe/jev-1.13" },
-  history: { limit: 1 },
 } as const;
 
 @WorkflowFinish({
@@ -48,6 +47,7 @@ export class DraftingStart {}
       .toFinish(NotesFinish),
   ],
   defaults,
+  uncompactedTurns: 1,
 })
 export class DraftingWorkflow {}
 
@@ -76,6 +76,7 @@ export class PolishingStart {}
       .toFinish(NotesFinish),
   ],
   defaults,
+  uncompactedTurns: 1,
 })
 export class PolishingWorkflow {}
 

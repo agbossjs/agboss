@@ -40,7 +40,7 @@ export const testConfig: AgentsConfigOf<TestAgent> = {
     models: { temperature: 0, maxTokens: MODEL_MAX, thinking: "default", cache: true },
     router: testRouter,
     tools: { maxToolCalls: 3 },
-    history: { limit: 2 },
+    uncompactedTurns: 2,
   },
   agents: {
     alpha: {
@@ -63,7 +63,6 @@ export const testDefaults: WorkflowDefaults = {
   models: { temperature: 0, maxTokens: MODEL_MAX, cache: true },
   router: { model: "typesafe/jev-test" },
   tools: { maxToolCalls: 3 },
-  history: { limit: 2 },
 };
 
 /** Scripted responses per model slug. */

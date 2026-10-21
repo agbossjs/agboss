@@ -3,7 +3,7 @@ import type { Class } from "../components/injection.js";
 import { variableOfSecret } from "../environments/secret.js";
 import { isCustomPolicy } from "../pii/pii-policy.decorator.js";
 import { piiPolicyMetaOf } from "../pii/policy-checks.js";
-import { guardrailKeyOf, piiPolicyKeyOf } from "./scripted-gateway.js";
+import { compactionKeyOf, guardrailKeyOf, piiPolicyKeyOf } from "./scripted-gateway.js";
 
 /**
  * The PII policies and guardrails of an application under `testWith` (#120): a model detection and
@@ -54,4 +54,18 @@ export function guardrailScriptKeyOf(
     .flatMap((workflow) => workflow.guardrails?.guardrails ?? [])
     .find((candidate) => candidate.type === target);
   return guardrail === undefined ? undefined : guardrailKeyOf(guardrail.name);
+}
+
+/**
+ * The script key of a `@Compaction` that writes summaries in the application (`compaction:<name>`,
+ * #120 PR 3); none for a `None` one or anything else. Unscripted, it writes a fixed summary.
+ */
+export function compactionScriptKeyOf(
+  target: Class,
+  assembled: AssembledApplication,
+): string | undefined {
+  const compaction = assembled.workflows
+    .flatMap((workflow) => workflow.compactions?.compactions ?? [])
+    .find((candidate) => candidate.type === target && candidate.prompt !== "");
+  return compaction === undefined ? undefined : compactionKeyOf(compaction.name);
 }

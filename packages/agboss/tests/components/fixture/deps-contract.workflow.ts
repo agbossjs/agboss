@@ -82,8 +82,8 @@ const base = {
     models: { temperature: 0, reasoning: Reasoning.modelDecides(), cache: true },
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 2 },
-    history: { limit: 2 },
   },
+  uncompactedTurns: 2,
 } satisfies Partial<WorkflowOptions>;
 
 /** A workflow `Chat → text agent → Done` with extra settings, for the assembly checks. */

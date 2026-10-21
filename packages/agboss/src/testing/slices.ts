@@ -112,7 +112,7 @@ const freshState = (runId: string): ExecutionStateType => ({
   usage: [],
   budgets: [],
   history: [],
-  summaries: [],
+  memory: {},
   approvals: [],
   launch: null,
   branchRecords: [],

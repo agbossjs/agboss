@@ -205,9 +205,9 @@ export class Done {}
   version: "1.0.0",
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
-    history: { limit: 1 },
     tools: { maxToolCalls: 3 },
   },
+  uncompactedTurns: 1,
   providers: [FileAway],
   flow: [
     start(Ask)

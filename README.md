@@ -107,8 +107,8 @@ import { WorkflowStartTextDto } from "agboss/dto";
     models: { temperature: 0 },
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 8 },
-    history: { limit: 5 },
   },
+  uncompactedTurns: 5, // the last 5 turns of the thread in full (older ones: a @Compaction's summaries)
   providers: [JobFitJudge],
 })
 export class JobScout {}
@@ -125,7 +125,7 @@ Model providers are infrastructure too (#266): `@ModelProvider` classes listed i
 `@Application({ providers })` — none listed → the built-in `OpenRouterModelProvider` (chat) and
 `DecisionsModelProvider` (Jev and the other decision models); one listed → the list is complete,
 the built-ins are not added next to it. A workflow and its components only name models; every model
-of the application (agents, model routers, the default router, guardrails, compaction, judges) resolves
+of the application (agents, model routers, the default router, guardrails, compactions, judges) resolves
 to exactly one listed provider by `serves` at assembly — none → `[model.unserved]`, two →
 `[model.ambiguous-provider]` (one model through two providers = two model strings, each in one
 `serves`). `agboss describe` prints `model: … → <provider>` for each, `agboss check --models` checks
@@ -1607,6 +1607,65 @@ tests, `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))` b
 unscripted guardrail passes), and `testGuardrail(LegalAdviceGuardrail, { model: decideWith({ blocks:
 0.9 }), executionContext: ClinicExecutionContext, execution: { locale: "he" } })("Can I sue?")`
 gives `{ isBlocked, probability, refusal }`.
+
+## Memory and compaction
+
+A thread's turns are its finished executions (`start <name>: <input>` / `finish <name>: <output>`).
+Each agent and model router sees the last `uncompactedTurns` of them in full — set on
+`@Application`, `@Workflow`, `@Agent` or `@Router`, the lowest set value wins (default 5,
+`TurnLimit.ALL` = every turn). What is older is summarised by a `@Compaction`, named by
+`compaction` on the same levels (again the lowest wins; none anywhere → the window only):
+
+<!-- snippet-context
+import { Compaction, CompactionStrategy, MODEL_MAX } from "agboss";
+-->
+
+```ts
+// a queue: every 5 turns older than the window become one summary, the latest 10 are kept
+@Compaction({
+  name: "conversation-compaction",
+  description: "Summarises old turns of the conversation",
+  prompt: "Summarise the turns under `Turns to compact`: what was asked, decided and is still open.",
+  model: "moonshotai/kimi-k2.6",
+  strategy: CompactionStrategy.SummaryQueue,
+  turnsBetweenCompactions: 5,
+  summaryQueueLength: 10,
+  summaryMaxTokens: 400,
+})
+export class ConversationCompaction {}
+
+// one running summary, rewritten from the previous one and the new turns (the built-in prompt)
+@Compaction({
+  name: "code-context-compaction",
+  description: "Keeps one summary of the code touched so far",
+  model: "moonshotai/kimi-k2.6",
+  strategy: CompactionStrategy.SingleSummary,
+  turnsBetweenCompactions: 3,
+  summaryMaxTokens: MODEL_MAX,
+})
+export class CodeContextCompaction {}
+
+// no summaries at all: only the window (no model, no prompt, no parameters)
+@Compaction({
+  name: "no-summaries-compaction",
+  description: "Only the window of recent turns",
+  strategy: CompactionStrategy.None,
+})
+export class NoSummariesCompaction {}
+```
+
+A compaction summarises everything older than the **smallest** `uncompactedTurns` among the agents
+and routers that use it, so no one loses a turn: a router that sees 1 turn and an agent that sees 3
+share one compaction that summarises what is older than 1 — the agent sees its 3 turns in full and
+not the summary they already cover. `summaryMaxTokens` is the summary call's `max_tokens` (the
+model's server counts it; thinking is off on that call): a summary cut there is asked once more,
+shorter, and cut again fails the execution with `CompactionError` (`compaction`) — never a cut
+summary; that turn is not kept and the next one compacts. The compaction's model reads the turns
+through the application's and the workflow's PII policies, its summary is revealed before it is
+stored, and each reader's own policies mask it on the way into its model. Spend is
+`compaction:<name>`; `result.compacted` says what each compaction did after the turn. In tests,
+`mockLlm(ConversationCompaction).thenReturn(replyWith("…"))` scripts it (`replyWith("…", {
+truncated: true })` is a summary cut at the limit); unscripted, it writes a fixed summary.
 
 ## Tracing (local, optional)
 

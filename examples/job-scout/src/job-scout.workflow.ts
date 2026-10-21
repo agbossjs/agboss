@@ -1,7 +1,6 @@
 import { Workflow, provide, route, start } from "agboss";
 import { WorkflowStartTextDto } from "agboss/dto";
-import { Reasoning } from "agboss/models";
-import { KIMI } from "./config/settings.js";
+import { ConversationCompaction } from "./compactions/conversation.compaction.js";
 import { ProfilerAgent } from "./agents/profiler.agent.js";
 import { PersonalDataGuardrail } from "./guardrails/personal-data.guardrail.js";
 import { PromptInjectionGuardrail } from "./guardrails/prompt-injection.guardrail.js";
@@ -41,9 +40,9 @@ import { JOB_SEARCH, jobSearchConfig } from "./config/search.config.js";
           .toFinish(ChatWorkflowFinish),
       ),
   ],
-  defaults: { history: { limit: 8 } }, // the rest from the application's DEFAULTS (#261 cascade)
   guardrails: [PromptInjectionGuardrail, PersonalDataGuardrail], // every agent's; the router: input only
-  compaction: { every: 5, keep: 10, model: { model: KIMI, reasoning: Reasoning.off() } },
+  uncompactedTurns: 8, // over the application's 5: its agents and router see the last 8 turns in full
+  compaction: ConversationCompaction, // older turns: summaries of 5, the latest 10 kept
   mcp: [ShortlistServer],
   providers: [
     JobFitJudge,

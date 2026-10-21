@@ -184,8 +184,8 @@ export interface ExecutionOutput<TOutput = unknown> {
   readonly children: readonly ChildExecutionRecord[];
   /** The failures an `.onError` / `.onJoinError` side path took, in order (`toHaveHandledError`). */
   readonly handledErrors: readonly HandledErrorRecord[];
-  /** Conversation memory: what this turn compacted, when it did. */
-  readonly compacted?: Compacted;
+  /** What the compactions did after this turn (#120 PR 3), when one compacted. */
+  readonly compacted?: readonly Compacted[];
   /** The conversation in the tracing UI (session = thread), when tracing is on. */
   readonly traceUrl?: string;
   /** The full execution record, with `app.execute(…, { record: true })`. */

@@ -113,7 +113,7 @@ export function compareBundleProfiles(bundle: AssembledWorkflow, names: readonly
 // Warning: (ae-forgotten-export) The symbol "RunDeps" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export const configSnapshot: <TName extends string>(deps: Pick<RunDeps<TName>, "config" | "prompts" | "compactionPrompt" | "graph" | "maxSteps" | "routers"> & {
+export const configSnapshot: <TName extends string>(deps: Pick<RunDeps<TName>, "config" | "prompts" | "graph" | "maxSteps" | "routers" | "compactions"> & {
     readonly guardrails?: {
         readonly guardrails: readonly LoadedGuardrail[];
     } | undefined;
@@ -174,16 +174,12 @@ export enum DefaultsLevel {
 
 // @public
 export interface DefaultsLevels {
+    // Warning: (ae-forgotten-export) The symbol "DefaultsLevel_" needs to be exported by the entry point internal.d.ts
+    //
     // (undocumented)
-    readonly application?: {
-        readonly name: string;
-        readonly defaults?: WorkflowDefaults;
-    };
+    readonly application?: DefaultsLevel_;
     // (undocumented)
-    readonly workflow: {
-        readonly name: string;
-        readonly defaults?: WorkflowDefaults;
-    };
+    readonly workflow: DefaultsLevel_;
 }
 
 // @public
@@ -557,11 +553,10 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/application/assemble.ts:154:1 - (ae-undocumented) Missing documentation for "applicationOf".
 // src/config/defaults.ts:13:3 - (ae-undocumented) Missing documentation for "Application".
 // src/config/defaults.ts:14:3 - (ae-undocumented) Missing documentation for "Workflow".
-// src/config/defaults.ts:19:51 - (ae-forgotten-export) The symbol "WorkflowDefaults" needs to be exported by the entry point internal.d.ts
 // src/config/defaults.ts:19:3 - (ae-undocumented) Missing documentation for "application".
 // src/config/defaults.ts:20:3 - (ae-undocumented) Missing documentation for "workflow".
-// src/config/defaults.ts:25:3 - (ae-undocumented) Missing documentation for "level".
-// src/config/defaults.ts:26:3 - (ae-undocumented) Missing documentation for "name".
+// src/config/defaults.ts:32:3 - (ae-undocumented) Missing documentation for "level".
+// src/config/defaults.ts:33:3 - (ae-undocumented) Missing documentation for "name".
 // src/config/profiles.ts:9:12 - (ae-undocumented) Missing documentation for "name".
 // src/describe/application.ts:41:3 - (ae-undocumented) Missing documentation for "name".
 // src/describe/application.ts:42:3 - (ae-undocumented) Missing documentation for "version".
@@ -607,7 +602,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/models/problems.ts:20:14 - (ae-undocumented) Missing documentation for "problemLine".
 // src/models/uses.ts:10:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/uses.ts:11:3 - (ae-undocumented) Missing documentation for "purpose".
-// src/run/versions.ts:55:29 - (ae-forgotten-export) The symbol "LoadedGuardrail" needs to be exported by the entry point internal.d.ts
+// src/run/versions.ts:56:29 - (ae-forgotten-export) The symbol "LoadedGuardrail" needs to be exported by the entry point internal.d.ts
 // src/tools/mcp/facade.ts:106:14 - (ae-undocumented) Missing documentation for "isMcpFacade".
 
 // (No @packageDocumentation comment for this package)

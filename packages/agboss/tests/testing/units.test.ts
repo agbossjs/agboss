@@ -82,7 +82,9 @@ describe("AC12: a component's name in executions", () => {
 describe("AC12: the scripted gateway on its own", () => {
   it("keys chat models by their user", () => {
     expect(chatKeyOf({ kind: "router", router: "r" })).toBe("router:r");
-    expect(chatKeyOf({ kind: "compaction" })).toBe("compaction");
+    expect(chatKeyOf({ kind: "compaction", compaction: "conversation-compaction" })).toBe(
+      "compaction:conversation-compaction",
+    );
   });
 
   it("prices a decision on a chat-model router and reads requests without instructions", async () => {
@@ -126,7 +128,10 @@ describe("AC12: the scripted gateway on its own", () => {
     const gateway = createScriptedGateway(new ScriptBook());
 
     const summary = await gateway
-      .chatModel({ user: { kind: "compaction" }, settings: free })
+      .chatModel({
+        user: { kind: "compaction", compaction: "conversation-compaction" },
+        settings: free,
+      })
       .invoke("summarise");
 
     expect(summary.text).toBe(UNSCRIPTED_SUMMARY);

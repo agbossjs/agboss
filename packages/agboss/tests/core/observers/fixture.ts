@@ -76,8 +76,8 @@ export function workflowWith(name: string, providers: readonly Provider[] = []):
       models: { temperature: 0, cache: true },
       router: { model: "typesafe/jev-1.13" },
       tools: { maxToolCalls: 2 },
-      history: { limit: 1 },
     },
+    uncompactedTurns: 1,
     flow: [
       start(Start)
         .returns(WorkflowStartTextDto)
