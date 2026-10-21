@@ -35,7 +35,7 @@ import {
   type ExecutionRequest,
 } from "./run-events.js";
 import { checkedStart, textStartOf } from "./starts.js";
-import type { App, ExecutionOptions, ExecutionOutput } from "./types.js";
+import type { ExecutionOptions, ExecutionOutput, WorkflowApp } from "./types.js";
 import { ExecutionOperation } from "../core/observability.js";
 import { ApplicationStoppingError } from "./application-stopping.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
@@ -70,7 +70,7 @@ const STOPPING = "the app is stopping: app.close() was called, no new execution 
  * `recover` continues one of its interrupted roots (the recovery sweep, #265 S30).
  */
 export interface BuiltApp {
-  readonly app: App;
+  readonly app: WorkflowApp;
   readonly deps: AppDeps;
   readonly bundle: AssembledWorkflow;
   readonly refuse: () => void;
@@ -123,7 +123,7 @@ export async function buildApp(
   const accepting = (): void => {
     if (closed) throw new ApplicationStoppingError(STOPPING);
   };
-  const app: App = {
+  const app: WorkflowApp = {
     name: deps.config.name,
     version: deps.config.version,
     warnings: deps.warnings,

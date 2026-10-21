@@ -37,6 +37,12 @@ export {
  * (`BaseCheckpointSaver`) are both durable. Your own `extends PausedExecutionRepository`.
  */
 export abstract class PausedExecutionRepository {
+  /**
+   * Whether the store answers (#300): resolves when it is reachable, rejects with why not. One fast
+   * round trip (`SELECT 1`, a `PING`), never a scan — `app.checkReadiness()` calls it under a
+   * timeout of its own.
+   */
+  abstract ping(): Promise<void>;
   /** The execution paused on the tenant's thread; `undefined` when none waits there. */
   abstract findByTenantIdAndThreadId(
     tenantId: string,
@@ -128,6 +134,10 @@ const pauseKeyOf = (tenantId: string, pauseId: string): string =>
 export class InMemoryPausedExecutionRepository extends PausedExecutionRepository {
   readonly #paused = new Map<string, PausedRun>();
   readonly #pauses = new Map<string, PauseRecord>();
+
+  ping(): Promise<void> {
+    return Promise.resolve();
+  }
 
   findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedRun | undefined> {
     return Promise.resolve(this.#paused.get(threadMapKeyOf({ tenantId, threadId })));

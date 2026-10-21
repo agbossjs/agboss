@@ -119,7 +119,8 @@ The application is the one entry (#261): it lists the workflows, the infrastruct
 `extends CostLedgerRepository`, `ExecutionRecordRepository`, `PausedExecutionRepository`,
 LangGraph's `BaseCheckpointSaver` or one of the shared contracts of #265 — `ExecutionLeaseRepository`,
 `ExecutionTreeRepository`, `RateLimitRepository`; none listed → the built-in in-memory ones, nothing
-written to the home folder; the SQLite ones below), its **model providers** and every budget.
+written to the home folder; the SQLite ones below — each with a fast `ping()` readiness calls, #300),
+its **model providers**, every budget and its health checks (`healthChecks`).
 `createApp` and `testWith` take it, never a workflow.
 
 Model providers are infrastructure too (#266): `@ModelProvider` classes listed in
@@ -1269,6 +1270,50 @@ declare const app: App;
 ```ts
 // one instance of a rolling deploy stops: what still runs after 10 s moves to another instance
 await app.close({ timeout: seconds(10) });
+```
+
+**Health checks** (#300): `app.checkLiveness()` and `app.checkReadiness()` are the instance's probes
+for an orchestrator (Kubernetes, Cloud Run) — the project's own server exposes them, the framework
+opens no endpoint. Liveness does no I/O: the instance (`Unhealthy`, `stopping`, from `app.close()`
+on) and its recovery loop (`Unhealthy` when its last sweep ended more than three sweep intervals ago
+on the `Clock`). Readiness adds every store's `ping()` (each #265 contract has one — a project's own
+implementation adds it; the SQLite ones run `SELECT 1`), every model provider's circuit breaker as
+`RateLimitRepository` keeps it (open → `Degraded`; never a model call) and the project's
+`@HealthCheck`s, listed in `@Application({ healthChecks })` — all at once, each under its timeout
+(stores and providers `seconds(2)`). A check that throws or passes its timeout is that component's
+`Unhealthy` with its `reason`; neither call ever rejects. The report's `status` is its worst
+component's (`HealthStatus.Healthy | Degraded | Unhealthy`), each component has its `name`, `kind`
+(`HealthComponentKind`), `status`, `reason` and `duration`
+([Wiki → Health-checks](https://github.com/agbossjs/agboss/wiki/Health-checks)).
+
+<!-- snippet-context
+import { HealthCheck, HealthCheckResult, Injectable, type App, type HealthCheckHandler, type HealthReport } from "agboss";
+import { seconds } from "agboss/units";
+@Injectable()
+export class CrmClient {
+  ping(): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+}
+declare const app: App;
+-->
+
+```ts
+@HealthCheck({ name: "crm-health-check", timeout: seconds(2), deps: [CrmClient] })
+export class CrmHealthCheck implements HealthCheckHandler {
+  constructor(private readonly crmClient: CrmClient) {}
+
+  async check(): Promise<HealthCheckResult> {
+    const isReachable: boolean = await this.crmClient.ping();
+    return isReachable
+      ? HealthCheckResult.healthy()
+      : HealthCheckResult.unhealthy({ reason: "CRM is unreachable" });
+  }
+}
+
+// listed in the application: healthChecks: [CrmHealthCheck]
+const liveness: HealthReport = await app.checkLiveness(); // GET /livez → 503 unless Healthy
+const readiness: HealthReport = await app.checkReadiness(); // GET /readyz → 503 when Unhealthy
 ```
 
 In unit tests, `testExecutionContext({ … })` from

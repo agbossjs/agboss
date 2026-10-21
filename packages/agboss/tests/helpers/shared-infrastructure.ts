@@ -62,6 +62,10 @@ export class SharedCheckpointSaver extends MemorySaver {
 
 @Injectable()
 export class SharedPausedExecutionRepository extends PausedExecutionRepository {
+  ping(): Promise<void> {
+    return Promise.resolve();
+  }
+
   findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedRun | undefined> {
     return Promise.resolve(database.paused.get(keyOf(tenantId, threadId)));
   }

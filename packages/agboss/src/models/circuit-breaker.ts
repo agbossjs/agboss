@@ -45,6 +45,9 @@ export interface CircuitBreakerStore {
   readonly clock: Clock;
 }
 
+/** Where a provider's open breaker is kept in `RateLimitRepository`: a pause under this key. */
+export const circuitOpenKeyOf = (provider: string): string => `${provider}:circuit-open`;
+
 /**
  * One provider's breaker: counts failed calls in a sliding window, opens for `openFor`, closes by
  * itself. Its state — the failures and the open pause — is in the application's
@@ -61,7 +64,7 @@ export class CircuitBreaker {
     private readonly store: CircuitBreakerStore,
   ) {
     this.#failures = `${provider}:circuit-failures`;
-    this.#open = `${provider}:circuit-open`;
+    this.#open = circuitOpenKeyOf(provider);
   }
 
   /** Open: calls must not reach the provider. Closes by itself once `openFor` has passed. */

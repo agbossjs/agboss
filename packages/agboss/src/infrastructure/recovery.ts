@@ -21,7 +21,7 @@ import type { PausedExecutionRepository } from "./paused-execution.repository.js
  */
 
 /** How often an instance looks: the lease length, so an expired lease is found within one more. */
-const SWEEP_EVERY: Milliseconds = seconds(30);
+export const SWEEP_EVERY: Milliseconds = seconds(30);
 
 /** How many `running` records one look-up reads at a time. */
 const PAGE = 50;
@@ -30,6 +30,13 @@ const PAGE = 50;
 export interface RecoverySweep {
   /** Stops looking (the first step of a graceful stop); resolves when its recoveries ended. */
   stop(): Promise<void>;
+  /**
+   * When its last look ended — its start before the first (#300): liveness reads it, a sweep stuck
+   * in a store never ends one.
+   */
+  lastSweptAt(): Date;
+  /** Whether `stop()` was called. */
+  isStopped(): boolean;
 }
 
 /** What the sweep reads and continues: the records, each workflow's recovery by its name, the clock. */
@@ -80,9 +87,19 @@ class Sweeper implements RecoverySweep {
   readonly #inFlight = new Map<string, Promise<void>>();
   readonly #logged = new Set<string>();
   readonly #loop: Promise<void>;
+  #lastSweptAt: Date;
 
   constructor(private readonly sources: RecoverySources) {
+    this.#lastSweptAt = sources.clock.now();
     this.#loop = this.#run();
+  }
+
+  lastSweptAt(): Date {
+    return this.#lastSweptAt;
+  }
+
+  isStopped(): boolean {
+    return this.#stopped.signal.aborted;
   }
 
   async stop(): Promise<void> {
@@ -104,6 +121,7 @@ class Sweeper implements RecoverySweep {
         });
       }
       await this.#forgetResolvedPauses();
+      this.#lastSweptAt = this.sources.clock.now();
       await this.sources.clock.sleep(SWEEP_EVERY, this.#stopped.signal);
     }
   }

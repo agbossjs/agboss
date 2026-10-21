@@ -14,6 +14,7 @@ import type { PendingPause } from "../pause/index.js";
 import type { Compacted } from "../run/compaction.js";
 import type { RunStreamEvent } from "../run/types.js";
 import type { Milliseconds } from "../units/index.js";
+import type { HealthReport } from "../health/health-check.js";
 
 /**
  * How an execution ended for its caller (#269, Q56): at a finish (`result.output`, `result.finish`)
@@ -235,8 +236,24 @@ export interface App {
    * instance continues it — then `onDestroy`. A second call with a shorter `timeout` shortens the wait.
    */
   close(options?: CloseOptions): Promise<void>;
+  /**
+   * The liveness probe (#300): no network, no database — the instance (`Unhealthy`, `stopping`,
+   * from `close()` on) and its recovery loop (`Unhealthy` when its last sweep is older than three
+   * sweep intervals). Never rejects.
+   */
+  checkLiveness(): Promise<HealthReport>;
+  /**
+   * The readiness probe (#300): liveness's components, every store's `ping()`, every model
+   * provider's circuit breaker (open → `Degraded`, never a model call) and every
+   * `@Application({ healthChecks })` check — at once, each under its timeout on the `Clock`. A check
+   * that throws or times out is `Unhealthy` with its reason; the call never rejects.
+   */
+  checkReadiness(): Promise<HealthReport>;
   /** Resolves a service or component from the app's internal container. */
   resolve<T>(token: Class<T>): T;
   /** Whether the workflow uses a tool of this name (local, MCP or knowledge-base search). */
   hasTool(name: string): boolean;
 }
+
+/** One workflow of an application at run time (internal): the app without the instance's probes. */
+export type WorkflowApp = Omit<App, "checkLiveness" | "checkReadiness">;

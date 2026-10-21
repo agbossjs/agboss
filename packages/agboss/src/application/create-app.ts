@@ -18,9 +18,8 @@ import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { Clock, IdGenerator } from "../infrastructure/clock.js";
 import type { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { applicationContainerOf, clockOf, resolveInfrastructure } from "./application-container.js";
-import { composeApp } from "./compose-app.js";
-import { gracefulStopOf, type GracefulStop } from "./graceful-stop.js";
-import { startRecoverySweep } from "../infrastructure/recovery.js";
+import { composeApp, instanceHealthOf } from "./compose-app.js";
+import { stopOf } from "./graceful-stop.js";
 import { closeOnStopSignals } from "./stop-signals.js";
 import { applicationOf, type AssembledApplication } from "./assemble.js";
 import { frameworkLogOf, type FrameworkLog } from "../infrastructure/logger.js";
@@ -170,10 +169,11 @@ export async function buildApplication(
     await releaseAll(workflows);
     throw error;
   }
-  const stop = stopOf(assembled, workflows, { created, infrastructure, log });
+  const { stop, sweep } = stopOf(assembled, workflows, { created, infrastructure, log });
   const warnings = startupWarningsOf(assembled, workflows, piiKey.isInstanceKey);
   if (seams.quiet !== true) logStart(log, contexts.application, assembled.workflows, warnings);
-  const app = composeApp(assembled, workflows, { stop, warnings });
+  const health = instanceHealthOf(assembled, workflows, { stop, sweep, infrastructure });
+  const app = composeApp(assembled, workflows, { stop, warnings, health });
   return { app, assembled, workflows, infrastructure, closed: stop.closed, log };
 }
 
@@ -190,41 +190,6 @@ const startupWarningsOf = (
   ...assemblyWarningsOf({ ...assembled, isPiiKeyOfInstance: isInstanceKey }).map(warningText),
   ...workflows.flatMap((workflow) => workflow.app.warnings),
 ];
-
-/** What the instance's stop and recovery work with besides its workflows. */
-interface InstanceParts {
-  readonly created: readonly unknown[];
-  readonly infrastructure: Infrastructure;
-  readonly log: FrameworkLog;
-}
-
-/** The instance's recovery sweep, started now (`onStart` is done, #265 S30), and its graceful stop. */
-function stopOf(
-  assembled: AssembledApplication,
-  workflows: readonly BuiltApp[],
-  parts: InstanceParts,
-): GracefulStop {
-  const { clock } = parts.infrastructure;
-  const interruption = new AbortController();
-  const sweep = startRecoverySweep({
-    records: parts.infrastructure.records,
-    workflows: new Map(workflows.map((workflow) => [workflow.deps.config.name, workflow.recover])),
-    clock,
-    log: parts.log,
-    signal: interruption.signal,
-    pauses: parts.infrastructure.pausedExecutions,
-    pauseRecordRetention: assembled.pauseRecordRetention,
-  });
-  const { shutdownTimeout } = assembled;
-  return gracefulStopOf({
-    workflows,
-    created: parts.created,
-    sweep,
-    clock,
-    interruption,
-    shutdownTimeout,
-  });
-}
 
 /** Where an assembled application's environments are, and its contract. */
 export const environmentOwnerOf = (assembled: AssembledApplication): EnvironmentOwner => ({

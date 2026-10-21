@@ -18,12 +18,16 @@ import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 @Injectable({ deps: [SqliteConnection, Clock, ApplicationContext, IdGenerator] })
 export class SqliteExecutionRecordRepository extends TernStoreRecordRepository {
   constructor(
-    connection: SqliteConnection,
+    private readonly connection: SqliteConnection,
     clock: Clock,
     applicationContext: ApplicationContext,
     idGenerator: IdGenerator,
   ) {
     super(sharedTernStore(connection.database, () => clock.now(), idGenerator));
+  }
+
+  override ping(): Promise<void> {
+    return this.connection.ping();
   }
 }
 

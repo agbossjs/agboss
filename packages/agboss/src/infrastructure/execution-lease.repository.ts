@@ -31,6 +31,12 @@ export interface ExecutionLease {
  * store.
  */
 export abstract class ExecutionLeaseRepository {
+  /**
+   * Whether the store answers (#300): resolves when it is reachable, rejects with why not. One fast
+   * round trip (`SELECT 1`, a `PING`), never a scan — `app.checkReadiness()` calls it under a
+   * timeout of its own.
+   */
+  abstract ping(): Promise<void>;
   /** The tree's lease for `lease` from now; `undefined` while another holder's lease is valid. */
   abstract acquire(
     tenantId: string,
@@ -64,6 +70,10 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
     private readonly database: InMemoryDatabase,
   ) {
     super();
+  }
+
+  ping(): Promise<void> {
+    return Promise.resolve();
   }
 
   acquire(

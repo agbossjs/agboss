@@ -19,6 +19,7 @@ const COMPONENT_DECORATORS = new Set([
   "PiiPolicy",
   "Judge",
   "A2AAgent",
+  "HealthCheck",
 ]);
 
 const nameOf = (callee) =>

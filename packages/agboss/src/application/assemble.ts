@@ -19,6 +19,7 @@ import { contextTokensOf } from "../components/context-tokens.js";
 import { checkContextFields } from "../flow/context/context-rules.js";
 import { checkObservers } from "../components/observer-checks.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
+import { decoratedHealthChecksOf } from "../health/health-check.js";
 
 /**
  * The assembly of an `@Application` (#261): its own rules (names, its workflows, budgets, where the
@@ -44,6 +45,8 @@ export interface AssembledApplication {
   readonly budgets: readonly Class[];
   /** `@Application({ observers })`: every execution's observers, in the order listed. */
   readonly observers: readonly Class[];
+  /** `@Application({ healthChecks })` (#300): the project's readiness checks, in the order listed. */
+  readonly healthChecks: readonly Class[];
   /** The workflows in the order listed, then the child workflows they launch that are not listed. */
   readonly workflows: readonly AssembledWorkflow[];
   /** How long a stop waits for the running executions (`@Application({ shutdownTimeout })`). */
@@ -72,7 +75,8 @@ export interface ApplicationAssembly {
 }
 
 /**
- * The application's own module: its providers, budgets and observers (the container creates them)
+ * The application's own module: its providers, budgets, observers and health checks (the container
+ * creates them)
  * — not its `@ModelProvider` classes, which its workflows resolve their models to (#266).
  */
 export const applicationModule = (options: ApplicationOptions): ProviderModule => ({
@@ -82,6 +86,7 @@ export const applicationModule = (options: ApplicationOptions): ProviderModule =
     ...containerProvidersOf(options.providers),
     ...(options.budgets ?? []),
     ...(options.observers ?? []),
+    ...decoratedHealthChecksOf(options.healthChecks),
   ],
 });
 
@@ -140,6 +145,16 @@ const piiOptionsOf = (
   ...(options.pseudonymKey === undefined ? {} : { pseudonymKey: options.pseudonymKey }),
 });
 
+/** What the application lists besides its workflows, each list empty when it lists none. */
+const listedOf = (
+  options: ApplicationOptions,
+): Pick<AssembledApplication, "providers" | "budgets" | "observers" | "healthChecks"> => ({
+  providers: options.providers ?? [],
+  budgets: options.budgets ?? [],
+  observers: options.observers ?? [],
+  healthChecks: options.healthChecks ?? [],
+});
+
 /** The context classes an application declares, else the built-in ones (#261). */
 export const declaredContextsOf = (
   options: Pick<ApplicationOptions, "tenantContext" | "executionContext">,
@@ -174,9 +189,7 @@ export async function applicationOf(
     // required by the type; an untyped (JS) caller may leave it out — then the environment is empty
     ...withEnvironment((options as Partial<ApplicationOptions>).environment),
     modules,
-    providers: options.providers ?? [],
-    budgets: options.budgets ?? [],
-    observers: options.observers ?? [],
+    ...listedOf(options),
     workflows: assembled,
     shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
     pauseRecordRetention: options.pauseRecordRetention ?? PAUSE_RECORD_RETENTION,

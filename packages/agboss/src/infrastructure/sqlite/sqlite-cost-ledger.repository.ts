@@ -49,6 +49,10 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
     connection.ensureSchema("cost_ledger", SCHEMA);
   }
 
+  ping(): Promise<void> {
+    return this.connection.ping();
+  }
+
   findSpentByCounter(counter: CostCounter): Promise<Usd> {
     const row = this.connection.database
       .prepare(

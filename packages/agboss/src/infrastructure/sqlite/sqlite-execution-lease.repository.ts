@@ -36,6 +36,10 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     connection.ensureSchema("execution_leases", SCHEMA);
   }
 
+  ping(): Promise<void> {
+    return this.connection.ping();
+  }
+
   acquire(
     tenantId: string,
     rootExecutionId: string,

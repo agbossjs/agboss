@@ -114,6 +114,10 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     this.#pauses = new SqlitePauseRows(connection.database);
   }
 
+  ping(): Promise<void> {
+    return this.connection.ping();
+  }
+
   findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedRun | undefined> {
     const row = this.connection.database
       .prepare("SELECT * FROM paused_executions WHERE tenant_id = ? AND thread_id = ?")

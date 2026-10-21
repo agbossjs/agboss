@@ -38,6 +38,10 @@ export class SqliteExecutionTreeRepository extends ExecutionTreeRepository {
     connection.ensureSchema("execution_tree_keys", SCHEMA);
   }
 
+  ping(): Promise<void> {
+    return this.connection.ping();
+  }
+
   saveIfAbsentInTree(
     tree: ExecutionTree,
     key: string,

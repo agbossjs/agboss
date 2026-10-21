@@ -88,6 +88,17 @@ export class SqliteConnection implements OnDestroy {
     return this.#database;
   }
 
+  /**
+   * One `SELECT 1` on the file (#300): every SQLite store's `ping()`. Rejects when the connection
+   * is closed or the file cannot be read.
+   */
+  ping(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      this.#database.prepare("SELECT 1").get();
+      resolve();
+    });
+  }
+
   /** Runs a store's `CREATE TABLE IF NOT EXISTS …` once per connection (its tables, its indexes). */
   ensureSchema(name: string, ddl: string): void {
     if (this.#prepared.has(name)) return;

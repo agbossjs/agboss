@@ -20,9 +20,12 @@ import { toolNameOf } from "./script.js";
  * The app of a test: the same `run` / `resume` as in production, built on first use (so `mockOf`
  * in the test body still takes effect), plus the test's clock and slices of single components.
  * A blocked live call or a script problem fails the call, even when the run swallowed it; any call
- * after `close()` (or `recoverApp()`) fails with `test.app-closed`.
+ * after `close()` (or `recoverApp()`) but the probes (#300) fails with `test.app-closed`.
  */
-export interface TestApp extends Pick<App, "execute" | "resume" | "close" | "cancel"> {
+export interface TestApp extends Pick<
+  App,
+  "execute" | "resume" | "close" | "cancel" | "checkLiveness" | "checkReadiness"
+> {
   readonly clock: VirtualClock;
   /**
    * Builds the test's application now (assembly, `onInit` → `onStart`), for a test that executes
@@ -66,6 +69,16 @@ function workflowWithTool(built: BuiltApplication, tool: Class): BuiltApp {
   );
 }
 
+/**
+ * The app once the module of its probes is loaded too (#300): in production it loads on the first
+ * probe; in a test `checkReadiness()` followed at once by `clock.advance(…)` must find its timeouts
+ * already waiting on the clock.
+ */
+async function withProbesLoaded(building: Promise<BuiltApplication>): Promise<BuiltApplication> {
+  const [built] = await Promise.all([building, import("../health/application-health.js")]);
+  return built;
+}
+
 export function createTestApp(environment: TestEnvironment): TestApp {
   let building: Promise<BuiltApplication> | undefined;
   let closed = false;
@@ -74,8 +87,9 @@ export function createTestApp(environment: TestEnvironment): TestApp {
       const message = "this app is closed — after recoverApp() use the app it returned";
       return Promise.reject(new TestFailure("test.app-closed", message));
     }
-    return (building ??= environment.newApp());
+    return (building ??= withProbesLoaded(environment.newApp()));
   };
+  const probed = (): Promise<BuiltApplication> => building ?? built();
   return {
     clock: environment.clock,
     execute: (start, input, ...options) =>
@@ -84,6 +98,9 @@ export function createTestApp(environment: TestEnvironment): TestApp {
       checked(environment, async () => (await built()).app.resume(request, options)),
     cancel: (thread, options) =>
       checked(environment, async () => (await built()).app.cancel(thread, options)),
+    // the probes answer during and after close() too: an orchestrator asks while the app stops
+    checkLiveness: () => checked(environment, async () => (await probed()).app.checkLiveness()),
+    checkReadiness: () => checked(environment, async () => (await probed()).app.checkReadiness()),
     ready: () =>
       checked(environment, async () => {
         await built();

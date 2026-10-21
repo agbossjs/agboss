@@ -2,7 +2,10 @@ import { ApplicationStoppingError } from "../app/application-stopping.js";
 import type { BuiltApp } from "../app/create-app.js";
 import type { CloseOptions } from "../app/types.js";
 import { stopComponents } from "../components/container/lifecycle.js";
-import type { RecoverySweep } from "../infrastructure/recovery.js";
+import { startRecoverySweep, type RecoverySweep } from "../infrastructure/recovery.js";
+import type { Infrastructure } from "../infrastructure/contracts.js";
+import type { FrameworkLog } from "../infrastructure/logger.js";
+import type { AssembledApplication } from "./assemble.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { Milliseconds } from "../units/index.js";
 
@@ -29,6 +32,8 @@ export interface GracefulStopParts {
 
 export interface GracefulStop {
   close(options?: CloseOptions): Promise<void>;
+  /** Whether `close()` was called: from then on the instance is stopping (#300 liveness). */
+  isStopping(): boolean;
   /** Resolves when the stop has finished (createApp removes its signal listeners then). */
   readonly closed: Promise<void>;
 }
@@ -65,9 +70,7 @@ export function gracefulStopOf(parts: GracefulStopParts): GracefulStop {
     });
   };
   const stop = async (): Promise<void> => {
-    workflows.forEach((workflow) => {
-      workflow.refuse();
-    });
+    for (const workflow of workflows) workflow.refuse();
     const swept = parts.sweep.stop();
     try {
       await stopComponents(parts.created, async () => {
@@ -82,10 +85,53 @@ export function gracefulStopOf(parts: GracefulStopParts): GracefulStop {
   };
   return {
     closed,
+    isStopping: () => closing !== undefined,
     close: (options = {}) => {
       closing ??= stop();
       arm(options.timeout ?? parts.shutdownTimeout);
       return closing;
     },
   };
+}
+
+/** What the instance's stop and recovery work with besides its workflows. */
+export interface InstanceParts {
+  readonly created: readonly unknown[];
+  readonly infrastructure: Infrastructure;
+  readonly log: FrameworkLog;
+}
+
+/** The instance's recovery sweep and graceful stop. */
+export interface InstanceStop {
+  readonly stop: GracefulStop;
+  readonly sweep: RecoverySweep;
+}
+
+/** The instance's recovery sweep, started now (`onStart` is done, #265 S30), and its graceful stop. */
+export function stopOf(
+  assembled: AssembledApplication,
+  workflows: readonly BuiltApp[],
+  parts: InstanceParts,
+): InstanceStop {
+  const { clock } = parts.infrastructure;
+  const interruption = new AbortController();
+  const sweep = startRecoverySweep({
+    records: parts.infrastructure.records,
+    workflows: new Map(workflows.map((workflow) => [workflow.deps.config.name, workflow.recover])),
+    clock,
+    log: parts.log,
+    signal: interruption.signal,
+    pauses: parts.infrastructure.pausedExecutions,
+    pauseRecordRetention: assembled.pauseRecordRetention,
+  });
+  const { shutdownTimeout } = assembled;
+  const stop = gracefulStopOf({
+    workflows,
+    created: parts.created,
+    sweep,
+    clock,
+    interruption,
+    shutdownTimeout,
+  });
+  return { stop, sweep };
 }

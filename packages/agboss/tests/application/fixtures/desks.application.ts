@@ -42,6 +42,10 @@ export class RecordingCostLedgerRepository extends CostLedgerRepository {
     readonly records: readonly UsageRecord[];
   }[] = [];
 
+  ping(): Promise<void> {
+    return Promise.resolve();
+  }
+
   findSpentByCounter(): Promise<Usd> {
     return Promise.resolve(usd(0));
   }

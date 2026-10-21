@@ -44,6 +44,12 @@ function currentTree(field: string): ExecutionTree {
  * `extends ExecutionTreeRepository` and implements the three tree-scoped methods.
  */
 export abstract class ExecutionTreeRepository {
+  /**
+   * Whether the store answers (#300): resolves when it is reachable, rejects with why not. One fast
+   * round trip (`SELECT 1`, a `PING`), never a scan — `app.checkReadiness()` calls it under a
+   * timeout of its own.
+   */
+  abstract ping(): Promise<void>;
   /** Saves `value` under `key` of the current tree when the key is absent; `true` when this call saved it. */
   saveIfAbsent(key: string, value: ExecutionTreeValue): Promise<boolean> {
     return this.saveIfAbsentInTree(currentTree("saveIfAbsent"), key, value);
@@ -79,6 +85,10 @@ export abstract class ExecutionTreeRepository {
 export class InMemoryExecutionTreeRepository extends ExecutionTreeRepository {
   constructor(private readonly database: InMemoryDatabase) {
     super();
+  }
+
+  ping(): Promise<void> {
+    return Promise.resolve();
   }
 
   saveIfAbsentInTree(

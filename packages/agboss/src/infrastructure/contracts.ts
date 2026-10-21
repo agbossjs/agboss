@@ -31,7 +31,12 @@ import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
 
 /** The default checkpointer: LangGraph's `MemorySaver` — a pause is lost on restart. */
 @Injectable()
-export class InMemoryCheckpointSaver extends MemorySaver {}
+export class InMemoryCheckpointSaver extends MemorySaver {
+  /** In memory, always reachable (#300). */
+  ping(): Promise<void> {
+    return Promise.resolve();
+  }
+}
 
 /** Each contract with its built-in default (in memory: nothing is written to disk). */
 export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class, Class>([

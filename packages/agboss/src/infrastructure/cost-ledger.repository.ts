@@ -29,6 +29,12 @@ export interface CostCounter extends BudgetAccount {
 }
 
 export abstract class CostLedgerRepository {
+  /**
+   * Whether the store answers (#300): resolves when it is reachable, rejects with why not. One fast
+   * round trip (`SELECT 1`, a `PING`), never a scan — `app.checkReadiness()` calls it under a
+   * timeout of its own.
+   */
+  abstract ping(): Promise<void>;
   /** What the counter holds: the spend of its account in its period, `usd(0)` for a new one. */
   abstract findSpentByCounter(counter: CostCounter): Promise<Usd>;
 
@@ -64,6 +70,10 @@ export const counterKeyOf = (counter: CostCounter): string =>
 export class InMemoryCostLedgerRepository extends CostLedgerRepository {
   readonly #spent = new Map<string, number>();
   readonly #maxSpend = new Map<string, Usd>();
+
+  ping(): Promise<void> {
+    return Promise.resolve();
+  }
 
   findSpentByCounter(counter: CostCounter): Promise<Usd> {
     return Promise.resolve(usd(this.#spent.get(counterKeyOf(counter)) ?? 0));

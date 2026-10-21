@@ -43,6 +43,12 @@ export enum ExecutionRecordStatus {
  */
 export abstract class ExecutionRecordRepository {
   /**
+   * Whether the store answers (#300): resolves when it is reachable, rejects with why not. One fast
+   * round trip (`SELECT 1`, a `PING`), never a scan — `app.checkReadiness()` calls it under a
+   * timeout of its own.
+   */
+  abstract ping(): Promise<void>;
+  /**
    * A new thread (#261 S72: its key is `tenantId` + `threadId` — the same id in two tenants is two
    * threads); with an `ownerId`, only that owner may continue it; with a `threadId`, the caller's
    * own id (#262 Q4) — one the tenant has already is kept as it is — else one is made. Its id.
@@ -151,18 +157,18 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
     this.#store = store;
   }
 
+  ping(): Promise<void> {
+    return Promise.resolve();
+  }
+
   createThread(thread: NewThread): Promise<string> {
     return this.#store.createThread(thread);
   }
   hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean> {
     return this.#store.hasThread(workflow, tenantId, threadId);
   }
-  threadOwner(
-    workflow: string,
-    tenantId: string,
-    threadId: string,
-  ): Promise<{ readonly owner: string | undefined } | undefined> {
-    return this.#store.threadOwner(workflow, tenantId, threadId);
+  threadOwner(...args: Parameters<TernStore["threadOwner"]>): ReturnType<TernStore["threadOwner"]> {
+    return this.#store.threadOwner(...args);
   }
   append(tern: NewTern): Promise<Tern> {
     return this.#store.append(tern);
