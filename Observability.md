@@ -21,14 +21,50 @@ an execution is `result.record`). Every execution event extends `ExecutionEvent`
 | `rootExecutionId`   | the root's id; the execution's own at the root                                |
 | `threadId`          | the conversation                                                              |
 | `tenantId`          | the tenant it works for (`"default"` when it names none)                      |
-| `workflow`          | a `WorkflowRecord` `{ name, version, startedVersion }` — no class             |
+| `workflow`          | a `WorkflowRecord` `{ name, version, startedVersion, configHash }` — no class |
 
 A node event (`NodeEvent`) adds `step`, a `StepRecord` — the serialized `executionContext.step`:
-`component` (`{ name }`, no class), `nodeId` (`critic-agent#2` for a copy), `visitNumber`,
-`copyNumber`, `itemIndex`, `idempotencyKey`, `callId` (during a tool call). An observer interested
+`component` (a `ComponentRecord`, no class), `nodeId` (`critic-agent#2` for a copy), `visitNumber`,
+`copyNumber`, `itemIndex`, `idempotencyKey`, `callId` (during a tool call), `toolLoopIteration`,
+`validationAttempts` ([Join keys](#join-keys) below). An observer interested
 in one workflow or component filters by name, taken with `nameOf(C)` (any AGBoss-decorated class;
 an undecorated one throws `ComponentError`): `event.workflow.name === nameOf(SupportWorkflow)`,
 `event.step.component.name === nameOf(CriticAgent)` — never by parsing `nodeId`.
+
+### Join keys
+
+Every event, record and trace joins the declarative snapshot of [`agboss describe
+--json`](CLI#the-declarative-snapshot-268) without generating code back into TypeScript (#268 S92 /
+S93) — for analytics over Langfuse and `ExecutionRecordRepository`, OpenAPI generators, or checking
+a checkpoint against a release:
+
+| Key                       | Where                                                       | What                                                                                                   |
+| ------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `configHash`              | `event.workflow`, `executionContext.workflow`, records      | the one key of the workflow: the fingerprint of its config, flow and every text its models read         |
+| `component.kind`          | `event.step.component`, `finish`, errors, handled errors    | `ComponentKind`: `WorkflowStart`, `Agent`, `Router`, `Action`, `WorkflowFinish`, `Workflow`, `Budget`, … |
+| `component.promptHash`    | the same                                                    | the hash of what its model is told (an agent's instructions, a model router's prompt and routes); `undefined` without a model |
+| `component.schemaHash`    | the same                                                    | the hash of what it reads and writes (`input` fields, `output`), each DTO by its JSON Schema's hash; `undefined` when it declares neither |
+| `step.toolLoopIteration`  | `event.step`, `executionContext.step`, `record.pauses[].step` | an agent's model call in the visit, from 1 — during the call and the tool calls its move asks for; `undefined` elsewhere |
+| `step.validationAttempts` | the same                                                    | the step's answers and tool arguments that failed validation so far, each sent back to the model        |
+| `visitNumber`, `copyNumber`, `itemIndex` | `event.step`                                 | the visit, the copy and the item of a launch (#273)                                                    |
+
+A branch's outcome — `BranchStatus` and, under a quorum, `BranchVerdict` — is in `result.launches`
+and `onQuorumDecided`, joined by `nodeId`, `copyNumber` and `itemIndex`. `toolLoopIteration` is not
+part of `idempotencyKey` (#335): the key's format is unchanged.
+
+```ts
+import { Injectable, type ModelEndEvent, type OnModelEnd } from "agboss";
+
+@Injectable()
+export class JoinKeyLog implements OnModelEnd {
+  onModelEnd(event: ModelEndEvent): void {
+    const { configHash } = event.workflow; // describe --json: workflows[].configHash
+    const { name, promptHash, schemaHash } = event.step.component; // workflows[].nodes[]
+    const iteration = event.step.toolLoopIteration; // 1, 2, … within the agent's visit
+    console.info(configHash, name, promptHash, schemaHash, iteration, event.calculatedCost);
+  }
+}
+```
 
 ## The hooks
 
@@ -115,8 +151,9 @@ are in `result.record.outdatedValues`):
 
 - the execution's common fields ([below](#every-event)): `executionId`, `parentExecutionId`,
   `rootExecutionId`, `threadId`, `tenantId`, `workflow`;
-- `step` — the step that wrote, a `StepRecord`: `component` (`{ name }`), `nodeId`, `visitNumber`,
-  `copyNumber` (from 1), `itemIndex`, `idempotencyKey`, `callId`;
+- `step` — the step that wrote, a `StepRecord`: `component` (`{ name, kind, promptHash,
+  schemaHash }`), `nodeId`, `visitNumber`, `copyNumber` (from 1), `itemIndex`, `idempotencyKey`,
+  `callId`, `toolLoopIteration`, `validationAttempts`;
 - `trigger` — the new value (`valueId`, `slot`, `producer`), the root of the cascade;
 - `outdated` — the replaced value first, then what was built from it, each with its `reason`
   (`OutdatedReason.Replaced`, `AboutReplaced`, `BuiltFromReplaced`): the same set as the cascade

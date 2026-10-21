@@ -353,7 +353,7 @@ resolved pause of the tree, in the order they were asked:
 | ------------------------ | ------------------------------------------------------------------------------ |
 | `pauseId`                | its id — `undefined` for a `PauseAnswerer.Channel` pause (only its channel has it) |
 | `executionId`            | the execution it waited in: the root's, or a child's (#267 S124)               |
-| `step`                   | the waiting step: agent, node, visit, copy, item, tool call (`StepRecord`)     |
+| `step`                   | the waiting step: agent (its `ComponentRecord`), node, visit, copy, item, tool call, the loop's `toolLoopIteration` and `validationAttempts` (`StepRecord`, #268) |
 | `role`, `answeredBy`     | the channel asked and who may answer                                           |
 | `responder`              | the `ownerId` / `answeredBy` of `app.resume`; `undefined` when decided at once, withdrawn or cancelled |
 | `resolution`             | `PauseResolution`                                                              |

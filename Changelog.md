@@ -3,6 +3,40 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the declarative snapshot and join keys (#268, PR 5)
+
+- **Added — `agboss describe --json` is each workflow's declarative snapshot**
+  ([CLI → The declarative snapshot](CLI#the-declarative-snapshot-268)): next to what the text
+  prints, every entry of `workflows[]` has `configHash` (the full hash; `config` stays its first 8
+  characters), `starts`, `finishes`, `nodes` (kind, hashes, `input` / `output` by DTO hash, an
+  agent's model, provider, reasoning, limits, memory, tools, knowledge bases, the guardrails and PII
+  policies in effect, judges and instructions; a router's `decidedBy`, model and routes with
+  `spawn` / `failure`), `edges`, the `onError` table, `launches` (quorum, arbiters with their
+  hashes) and `schemas` — every DTO by class and every tool by name with its `schemaHash` and JSON
+  Schema.
+- **Breaking — `ComponentRecord` is `{ name, kind, promptHash, schemaHash }`**
+  ([Observability → Join keys](Observability#join-keys)): `kind` is the new `ComponentKind` enum
+  (root entry); `promptHash` hashes what the component's model is told, `schemaHash` what it reads
+  and writes (each DTO by its JSON Schema), each `undefined` when it has none — the values
+  `describe --json` gives. It is every record that names a component: `event.step.component`,
+  `executionContext.step.component`, `ExecutionOutput.finish`, `ExecutionEndEvent.finish`, child
+  records' `start` / `finish`, `handledErrors`' `at` / `by`, `StepFailedError.component`,
+  `VisitsLimitExceededError.component` (its constructor takes the record) and
+  `BudgetExceededError.budget` (`kind: ComponentKind.Budget`; `BudgetBreach.budget` names it by
+  `name` only). A test comparing one with `toEqual({ name })` compares with `toMatchObject`.
+- **Breaking — `WorkflowRecord` has `configHash`**: the workflow's fingerprint, the one join key —
+  in every execution event, `executionContext.workflow`, child records and limit errors; there is no
+  `graphHash`.
+- **Breaking — `StepRecord` has `toolLoopIteration` and `validationAttempts`**: an agent's model
+  call in the visit (from 1, during the call and its move's tool calls; `undefined` elsewhere) and
+  its answers and tool arguments that failed validation so far (`0` outside an agent's loop). The
+  idempotency key's format is unchanged (#335). A pause keeps both and its agent's record:
+  `record.pauses[].step` names the iteration that asked (a pause stored before reads as an agent's
+  record without hashes, iteration unknown).
+- **Not built — a branch's `{ verdict, status }` on `StepRecord`** (S93): its status and, under a
+  quorum, its verdict are known only after the step ends; they stay in `result.launches` and
+  `onQuorumDecided`, joined by `nodeId`, `copyNumber` and `itemIndex` (open question on #268).
+
 ## Unreleased — a PII key per root execution when the application sets none (#334)
 
 - **Fixed — one value, one token across instances** ([Several instances → PII

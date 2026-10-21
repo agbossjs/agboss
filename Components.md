@@ -352,8 +352,10 @@ export class AuditService {
 ```
 
 - **Data only, read-only**: `executionId`, `threadId`, `ownerId`, `signal`, `workflow`
-  (`WorkflowDescriptor`: `type`, `name`, `version`, `startedVersion`), `step` (`StepDescriptor`:
-  `component`, `nodeId`, `visitNumber`, `idempotencyKey`, `callId`, `itemIndex`, `copyNumber`) and
+  (`WorkflowDescriptor`: `type`, `name`, `version`, `startedVersion`, `configHash`), `step`
+  (`StepDescriptor`: `component` — its class, `name`, `kind`, `promptHash`, `schemaHash` —,
+  `nodeId`, `visitNumber`, `idempotencyKey`, `callId`, `itemIndex`, `copyNumber`,
+  `toolLoopIteration`, `validationAttempts`) and
   the tree (`parent`, `root`, `depth`, `itemIndex` — a per-item child's, #263 — `executionOf(W)`). No container, no
   I/O, no input, no metadata: domain data come through `input`, anything that calls out is a service.
 - **Live, not a snapshot**: every read gives the current execution and step — one frame per node

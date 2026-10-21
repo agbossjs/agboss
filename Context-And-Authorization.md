@@ -51,17 +51,20 @@ actions and judges get only their input.
 | `ownerId`                 | from `execute(…, { ownerId })`: who the thread belongs to; `undefined` for an open thread |
 | `tenant`                  | the execution's `TenantContext` (the declared subclass); `tenant.application` above it    |
 | `signal`                  | aborted by `app.cancel(threadId)` or the caller's `signal`; in a tool call also at the tool's `timeout` |
-| `workflow`                | `{ type, name, version, startedVersion }` — the `@Workflow` class, its name, versions    |
+| `workflow`                | `{ type, name, version, startedVersion, configHash }` — the `@Workflow` class, its name, versions, its fingerprint (#268 S93) |
 | `step`                    | the step running now (below) — different in each parallel branch and each tool call      |
 | `parent`, `root`, `depth` | the execution tree: one level until #263 (`parent` `undefined`, `root === this`, `1`)    |
 | `executionOf(W)`          | the nearest execution of workflow `W` in the chain (this one included), else `undefined` |
 | `itemIndex`               | the index of a child launched per item (#263); `undefined` otherwise                     |
 
-`step`: `component` (`{ type, name }`), `nodeId` (the node's id in `result.path` and traces —
+`step`: `component` (`{ type, name, kind, promptHash, schemaHash }` — the join keys of
+[Observability](Observability#join-keys)), `nodeId` (the node's id in `result.path` and traces —
 `critic-agent#2` for the second copy of a repeated target of a launch),
 `visitNumber` (the pass through this node, from 1 — the counter `maxVisits` checks), `callId` (the
 model's tool-call id while a tool call runs, else `undefined`), `itemIndex` (per-item launches,
-#273), `copyNumber` (from 1, #273) and `idempotencyKey`:
+#273), `copyNumber` (from 1, #273), `toolLoopIteration` (an agent's model call in the visit, from 1,
+during it and its move's tool calls), `validationAttempts` (the step's answers and tool arguments
+that failed validation so far) and `idempotencyKey`:
 
 ```
 ${executionId}:${nodeId}:${visitNumber}[:${itemIndex}][:${callId}]
