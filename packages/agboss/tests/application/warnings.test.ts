@@ -6,6 +6,7 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApplication, createApp } from "../../src/application/create-app.js";
+import { TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { assemblyWarningsOf } from "../../src/application/start-log.js";
 import { applicationWarningsOf } from "../../src/describe/application.js";
@@ -27,7 +28,7 @@ const LEDGER =
 const PAUSES =
   "[application.in-memory-pauses] in-memory pauses: another application instance cannot resume them and they are lost on restart";
 const PII_KEY =
-  "[application.pii-instance-key] no @Application({ pseudonymKey }): sensitive fields and policies without their own key make PII tokens with a key of this instance — one value gets another token on each instance, so logs and traces compare across instances only with pseudonymKey";
+  "[application.pii-instance-key] no @Application({ pseudonymKey }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with pseudonymKey";
 
 const offline = { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) };
 
@@ -98,9 +99,10 @@ describe("#261 AC14, #120 S94: silent in tests", () => {
     expect(logged).toEqual([]);
   });
 
-  it("an instance built as testWith builds it (quiet) makes tokens with a fixed key: no PII key warning", async () => {
+  it("an instance built as testWith builds it (its test key, #334) makes tokens with a fixed key: no PII key warning", async () => {
     const assembled = await applicationOf(NoteLoggedApplication);
-    const { app } = await buildApplication(assembled, offline, { quiet: true });
+    const seams = { quiet: true, piiTestKey: TEST_PSEUDONYM_KEY };
+    const { app } = await buildApplication(assembled, offline, seams);
     await app.close();
 
     expect(app.warnings).not.toContain(PII_KEY);

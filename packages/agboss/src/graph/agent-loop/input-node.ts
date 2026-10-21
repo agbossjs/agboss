@@ -10,6 +10,7 @@ import { maskCacheKey, maskedModelText } from "../../pii/model-boundary.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { memoryViewOf } from "./memory-view.js";
+import { loopPoliciesOf } from "./model-pii.js";
 import type { AgentLoopStateType, AgentLoopUpdate } from "./state.js";
 
 const clip = (text: string, max: number): string =>
@@ -57,7 +58,7 @@ async function guardedInput(
 ): Promise<GuardedInput> {
   const guardrails = deps.guardrails ?? [];
   if (guardrails.length === 0) return NOTHING_GUARDED;
-  const set = deps.pii?.withValues(state.piiValues);
+  const set = loopPoliciesOf(state, deps);
   const masked =
     set === undefined
       ? { text: input, tokens: {}, usage: [] }

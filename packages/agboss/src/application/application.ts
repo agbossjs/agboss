@@ -107,7 +107,8 @@ export interface ApplicationOptions {
    * `sensitive` fields, of a project's own detectors and of any policy without its own
    * `pseudonymKey` are made with it, so one value is one token on every instance. A policy's own key
    * wins; a policy that needs this one when it is not set fails the start, naming the field. Not set
-   * and not needed → a key made per instance and the warning `[application.pii-instance-key]`.
+   * and not needed → a key made per root execution (kept in its checkpoint, #334) and the warning
+   * `[application.pii-instance-key]`.
    */
   readonly pseudonymKey?: string;
   /**

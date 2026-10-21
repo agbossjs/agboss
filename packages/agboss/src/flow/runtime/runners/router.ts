@@ -64,7 +64,10 @@ async function maskedInputOf(
   const parts = memory === "" ? [boundary.input] : [memory, boundary.input];
   if (deps.pii === undefined)
     return { text: parts.join("\n\n"), input: boundary.input, tokens: {}, usage: [] };
-  const set = deps.pii.policiesOf(node.id).withValues(boundary.pii.values);
+  const set = deps.pii
+    .policiesOf(node.id)
+    .withValues(boundary.pii.values)
+    .withFieldKey(boundary.pii.key);
   const known = { ...state.piiTokens, ...boundary.pii.tokens };
   const { texts, masked } = await maskedTexts(set, isGuarded ? parts : [parts.join("\n\n")], known);
   const input = isGuarded ? (texts[texts.length - 1] ?? "") : masked.text;

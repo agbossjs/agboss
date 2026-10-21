@@ -7,13 +7,17 @@ import type { AgentLoopStateType } from "./state.js";
 import type { SensitiveValue } from "../../pii/policy-set.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 
-/** What of PII an agent's loop is handed: the execution's tokens and its sensitive values (#120). */
+/**
+ * What of PII an agent's loop is handed: the execution's tokens and its sensitive values (#120),
+ * and its own key of field tokens when the application sets none (#334).
+ */
 export interface LoopPii {
   readonly tokens: PiiTokenMap;
   readonly values: readonly SensitiveValue[];
+  readonly key: string | null;
 }
 
-const NO_PII: LoopPii = { tokens: {}, values: [] };
+const NO_PII: LoopPii = { tokens: {}, values: [], key: null };
 
 /** What the agent remembers of the thread: its turns and its compaction's summaries (#120 PR 3). */
 function memoryOf(
@@ -53,6 +57,7 @@ export function loopInputOf(
     piiTokens: { ...state.piiTokens, ...pii.tokens },
     piiMasked: {},
     piiValues: pii.values,
+    piiKey: pii.key,
   };
 }
 

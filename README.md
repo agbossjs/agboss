@@ -1426,8 +1426,8 @@ event. The startup warnings (`app.warnings`) include the **assembly warnings**: 
 application budgets on the built-in in-memory cost ledger (`[application.in-memory-cost-ledger]`:
 each instance counts on its own, the counters reset on restart) and pauses possible with the
 built-in in-memory paused executions or checkpoints (`[application.in-memory-pauses]`), and PII
-tokens made with a key of the instance because `@Application({ pseudonymKey })` is not set
-(`[application.pii-instance-key]`: one value gets another token on each instance) — errors
+tokens made with a key of each execution because `@Application({ pseudonymKey })` is not set
+(`[application.pii-instance-key]`: one value gets another token in each execution) — errors
 under `agboss check --strict`, silent in tests (`testWith` logs no start and no warning; an unlisted
 logger is silent there).
 

@@ -32,6 +32,7 @@ import {
 import { closeOf, observedBy, treeDepsOf, releaseOf } from "./app-deps-parts.js";
 import { componentsAtStart } from "./start-components.js";
 import { piiFor } from "./pii-parts.js";
+import type { ApplicationPiiKey } from "../application/application-pii.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
@@ -138,8 +139,11 @@ export interface WorkflowDepsParts {
   readonly budgets?: BudgetListing;
   /** The application's observers (#261), one manager for all its workflows; absent = none. */
   readonly observer?: ExecutionObserverManager;
-  /** The key of the tokens of `sensitive` fields (#120), one per instance; absent = a new one. */
-  readonly piiFieldKey?: string;
+  /**
+   * The key of the tokens of `sensitive` fields (#120) and whether it is the instance's own (S94,
+   * #334: then one per root execution); absent = a new one.
+   */
+  readonly piiKey?: ApplicationPiiKey;
   /** The run dependencies of the application's other workflows, its children's (#263). */
   readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
 }
@@ -203,7 +207,7 @@ export async function createWorkflowDeps(
   const config = models.priced(validateAgentsConfig(bundle.config, tools.map(nameOfTool)));
   const connect = options.connectMcp ?? connectConfigured(options.transport);
   const mcp = await connect(bundle, config, env);
-  const pii = piiFor(bundle, config, { gateway, services, contexts, env }, parts.piiFieldKey);
+  const pii = piiFor(bundle, config, { gateway, services, contexts, env }, parts.piiKey);
   const tracing = await tracingOf(env, pii.observability);
   const components = componentsAtStart(bundle, services);
   const budgets = budgetsOf(parts.budgets, components.container, parts.infrastructure, clock);

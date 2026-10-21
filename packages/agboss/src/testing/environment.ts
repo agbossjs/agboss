@@ -26,7 +26,7 @@ import { TestMocks } from "./test-mocks.js";
 import { reusableInfrastructure } from "../infrastructure/contracts.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { createVcrGateway, type VcrConfig } from "./vcr.js";
-import { testPseudonymKeys } from "./pii-parts.js";
+import { testPiiKeyOf, testPseudonymKeys } from "./pii-parts.js";
 import { schedulerOf } from "./concurrency/schedulers.js";
 import { replacementsOf, type Override } from "./units/override.js";
 import type { TestConcurrency } from "./concurrency/test-concurrency.js";
@@ -111,6 +111,8 @@ export class TestEnvironment {
   readonly #targets: ModelTargets;
   readonly #servers: ReadonlyMap<Class, string>;
   readonly #options: AppDepsOptions;
+  /** The PII key of its instances when the application sets none (#334). */
+  readonly #piiTestKey: string | undefined;
   #reused: ReadonlyMap<Class, unknown> = new Map();
   /** The app being built: instances are built one after the other, the first one's stores kept. */
   #building: Promise<unknown> = Promise.resolve();
@@ -130,6 +132,7 @@ export class TestEnvironment {
       if (key !== undefined) this.book.name(key, node.component.name);
     }
     this.#servers = mcpServersOf(assembled);
+    this.#piiTestKey = testPiiKeyOf(options);
     const real = realServers(this.#servers, options.real ?? []);
     const labels = new Map([...this.#servers].map(([cls, name]) => [name, cls.name] as const));
     const [first] = workflows;
@@ -178,6 +181,7 @@ export class TestEnvironment {
         clock: this.clock,
         idGenerator: this.idGenerator,
         quiet: true,
+        ...(this.#piiTestKey === undefined ? {} : { piiTestKey: this.#piiTestKey }),
         observers: [this.mocks.actions],
       };
       const built = await buildApplication(this.assembled, this.#options, seams);

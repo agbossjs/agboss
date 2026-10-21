@@ -70,6 +70,16 @@ export class PiiPolicySet {
       : new PiiPolicySet(this.policies, this.fieldKey, [...this.values, ...values]);
   }
 
+  /**
+   * The same policies making their field tokens with an execution's own key (#334): the key of a
+   * root execution when the application sets none; none (an old checkpoint) keeps this set's.
+   */
+  withFieldKey(key: string | null | undefined): PiiPolicySet {
+    return key === null || key === undefined || key === this.fieldKey
+      ? this
+      : new PiiPolicySet(this.policies, key, this.values);
+  }
+
   /** Every policy's findings in `text`, applied; new tokens made against `known`. */
   async mask(text: string, known: PiiTokenMap, mode: DetectionMode): Promise<MaskedSearch> {
     if (this.isEmpty || text === "")

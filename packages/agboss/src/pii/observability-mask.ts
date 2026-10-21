@@ -64,6 +64,9 @@ function hiddenContexts(contexts: unknown, classes: ObservedContexts | undefined
   };
 }
 
+/** An execution's key of field tokens as a trace shows it (#334): never the key. */
+const HIDDEN_KEY = "***";
+
 /** The execution's PII channels of a state hidden, wherever a state shows up in a trace. */
 function withHiddenChannels(value: unknown, classes: ObservedContexts | undefined): unknown {
   if (Array.isArray(value)) return value.map((item: unknown) => withHiddenChannels(item, classes));
@@ -72,6 +75,7 @@ function withHiddenChannels(value: unknown, classes: ObservedContexts | undefine
     Object.entries(value).map(([key, item]) => {
       if (key === "piiTokens") return [key, hiddenTokens(item)];
       if (key === "piiValues") return [key, hiddenValues(item)];
+      if (key === "piiKey") return [key, typeof item === "string" ? HIDDEN_KEY : item];
       if (key === "contexts") return [key, hiddenContexts(item, classes)];
       return [key, withHiddenChannels(item, classes)];
     }),

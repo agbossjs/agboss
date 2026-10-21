@@ -13,7 +13,8 @@ export interface BoundaryInput {
 
 /**
  * The input message of an agent or a model router with its `sensitive` fields through their
- * actions (their tokens made with the field key), and the execution's sensitive context values.
+ * actions (their tokens made with the execution's key, else the field key — #334), and the
+ * execution's sensitive context values and key.
  * Without a PII runtime (a graph on its own) the message is as it is.
  */
 export function boundaryInputOf(
@@ -21,9 +22,11 @@ export function boundaryInputOf(
   state: ExecutionStateType,
   pii: PiiRuntime | undefined,
 ): BoundaryInput {
+  const key = state.piiKey;
   if (pii === undefined)
-    return { input: inputMessageOf(node.fields, state), pii: { tokens: {}, values: [] } };
-  const fields = tokenFieldMask(pii.fieldKey, state.piiTokens);
+    return { input: inputMessageOf(node.fields, state), pii: { tokens: {}, values: [], key } };
+  const fields = tokenFieldMask(key ?? pii.fieldKey, state.piiTokens);
   const input = inputMessageOf(node.fields, state, fields.mask);
-  return { input, pii: { tokens: fields.tokens, values: pii.contextValuesOf(state.contexts) } };
+  const values = pii.contextValuesOf(state.contexts);
+  return { input, pii: { tokens: fields.tokens, values, key } };
 }

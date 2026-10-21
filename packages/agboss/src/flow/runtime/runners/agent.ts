@@ -33,7 +33,7 @@ async function guardedAnswer(
 ): Promise<readonly UsageRecord[]> {
   const guardrails = deps.guardrails?.outputOf(name) ?? [];
   if (guardrails.length === 0) return [];
-  const set = deps.pii?.policiesOf(name).withValues(pii.loop.values);
+  const set = deps.pii?.policiesOf(name).withValues(pii.loop.values).withFieldKey(pii.loop.key);
   const masked =
     set === undefined
       ? { text: result.reply, usage: [] }
