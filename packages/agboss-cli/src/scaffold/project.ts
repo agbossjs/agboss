@@ -104,7 +104,7 @@ export function planProject(spec: WorkflowSpec): FileToWrite[] {
     packageJsonOf(spec, project, workflow),
     { path: "tsconfig.json", content: render("project/tsconfig.json.tmpl", {}) },
     { path: "vitest.config.ts", content: render("project/vitest.config.ts.tmpl", {}) },
-    // `npm run lint` (#388): typescript-eslint and the AGBoss rules, loaded from agboss-cli
+    // `npm run lint` (#388): typescript-eslint and the AGBoss rules (`agboss/eslint`)
     { path: "eslint.config.js", content: render("project/eslint.config.js.tmpl", {}) },
     { path: ".env.example", content: render("project/env.example.tmpl", {}) },
     { path: ".gitignore", content: render("project/gitignore.tmpl", {}) },

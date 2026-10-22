@@ -40,7 +40,6 @@
   "files": [
     "bin",
     "dist",
-    "eslint",
     "templates",
     "README.md",
     "LICENSE",

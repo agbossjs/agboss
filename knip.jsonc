@@ -22,7 +22,7 @@
       "entry": [
         "src/index.ts",
         "src/internal.ts",
-        "src/{dto,units,models,testing,mcp,rag,a2a,memory}/index.ts",
+        "src/{dto,units,models,testing,mcp,rag,a2a,memory,eslint}/index.ts",
         "src/{core,graph,router,tool,channels}/index.ts",
         // loaded by path: `--application <file>` (#268) and the environment of `--env <name>`
         "tests/fixtures/loader/**/*.{workflow,application}.ts",
@@ -36,6 +36,8 @@
       "ignoreDependencies": [
         // an optional peer: only agboss/testing imports it, in a user's own test run
         "vitest",
+        // an optional peer: only agboss/eslint imports it, in a project's ESLint config (#388)
+        "@typescript-eslint/utils",
         // the tests start it as an MCP server process (resolved by path, never imported)
         "@modelcontextprotocol/server-filesystem",
       ],

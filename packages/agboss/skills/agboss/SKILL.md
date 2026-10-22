@@ -94,7 +94,8 @@ suppression budget, and a project made by `npx agboss create` lints with the sam
   field's `orderId!: string` is a definite assignment and is required).
 - Imports only from the public entries: `agboss`, `agboss/dto`, `agboss/units`, `agboss/models`,
   `agboss/testing` (+ `agboss/testing/setup`), `agboss/mcp`, `agboss/rag`, `agboss/a2a`,
-  `agboss/memory` — never `agboss/internal`, `agboss/dist/…` or LangGraph directly.
+  `agboss/memory`, and `agboss/eslint` in `eslint.config.js` — never `agboss/internal`,
+  `agboss/dist/…` or LangGraph directly.
 
 <!-- snippet-context
 import { Injectable } from "agboss";

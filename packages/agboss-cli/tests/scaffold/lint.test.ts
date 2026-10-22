@@ -1,6 +1,6 @@
 /**
  * #388: `agboss create` writes a working ESLint config — typescript-eslint and the AGBoss rules,
- * loaded from the installed agboss-cli. AC1: the new project passes its own `npm run lint`. AC2: a
+ * loaded from `agboss/eslint`. AC1: the new project passes its own `npm run lint`. AC2: a
  * component with `this.x = …` outside its constructor, direct time in it and a flow chain with two
  * calls on one line fail it, each with the rule named. Generated inside the monorepo (its installed
  * dependencies); a real `npm install` is the manual check.
@@ -68,7 +68,7 @@ describe("#388: agboss create ships a working ESLint config", () => {
         "@stylistic/eslint-plugin",
       ]),
     );
-    expect(read("eslint.config.js")).toContain('from "agboss-cli/eslint/index.mjs"');
+    expect(read("eslint.config.js")).toContain('from "agboss/eslint"');
   }, 60_000);
 
   it("AC2: state on a component, direct time and two chained calls on one line fail it, the rules named", () => {
