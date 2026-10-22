@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the agboss skill: references 02, 06, 08, 09, 11, 12 and compensation (#305 PR 3)
+
+- **Added — the rest of the coding-agent skill** in `packages/agboss/skills/agboss/references/`: 02
+  (every flow form, with the rule codes each can hit, compensation on side paths and the automatic
+  undo), 06 (budgets, model providers, retry, rate limits, tenant-fair queues, circuit breakers with
+  a fallback), 08 (results, records, observers, the log, Langfuse), 09 (stores, several instances,
+  health probes, the graceful stop, Kubernetes, deploys by config hash), 11 (every CLI command, its
+  exit codes and JSON envelope, Studio as it is, and the full catalog — every `RuleCode` and the
+  application warnings with a before → after fix; `check:docs` now checks the catalog is complete)
+  and 12 (four multi-file recipes that compile and whose tests pass); compensation added to 03
+  (`compensateWith`, `committedBy`, `compensationTimeout`, the hooks) and 10 (`toHaveCompensated`,
+  `result.compensations`).
+
 ## Unreleased — an interrupted undo is finished by recovery; the record after the undo (#340 PR 4)
 
 - **Added — durable automatic undo**
