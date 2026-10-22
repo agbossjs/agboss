@@ -1,3 +1,4 @@
+import type { CompensationRecord } from "../flow/compensation.js";
 import type { GuardrailSide } from "../components/policy-decorators.js";
 import type { BaseMessage, MessageContent } from "@langchain/core/messages";
 import type { JudgeVerdict } from "../components/judge-decorators.js";
@@ -190,6 +191,11 @@ export interface ExecutionResumeEvent extends ExecutionEvent {
  */
 export interface ExecutionErrorEvent extends ExecutionEvent {
   readonly error: Error;
+  /**
+   * The undo actions that ran for the execution before it ended (#340): its side paths' and its
+   * automatic undo's, each a `CompensationRecord`; `[]` when none ran.
+   */
+  readonly compensations: readonly CompensationRecord[];
 }
 
 /** What a caller asked the app for (#269): `app.execute`, `app.resume` or `app.cancel`. */

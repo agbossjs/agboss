@@ -106,6 +106,8 @@ interface Parts {
   readonly loops: ReadonlyMap<string, AgentLoops>;
   readonly children: ReadonlyMap<string, ChildGraph>;
   readonly checkpointer?: BaseCheckpointSaver | undefined;
+  /** The pass's budgets: a child's automatic undo writes its spend into them (#340). */
+  readonly budgets: BudgetMeter;
 }
 
 function runnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Parts): NodeRunner {
@@ -137,7 +139,7 @@ function subgraphRunnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Par
   }
   const child = parts.children.get(node.id);
   if (child === undefined) throw new UnknownAgentError(`Unknown child workflow: ${node.id}`);
-  return childRunner(node, deps, child, parts.checkpointer);
+  return childRunner(node, deps, child, parts);
 }
 
 /** A child workflow cannot be built: it runs only in its application, or it launches an ancestor. */
@@ -199,7 +201,7 @@ function compile(
   const parts: Parts = {
     loops: agentLoops(deps, run),
     children: childGraphsOf(deps, run, checkpointer, chain, self),
-    checkpointer,
+    ...{ checkpointer, budgets: run.budgets },
   };
   const { visitDeps, launchDeps } = nodeDepsOf(deps, run, checkpointer);
   const nodes = [...deps.graph.nodes.values()];

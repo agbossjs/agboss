@@ -2,14 +2,16 @@ import { joinKeysOf, recordOfNode } from "./workflow-keys.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { GraphDeps } from "../../graph/deps.js";
+import type { BudgetMeter } from "../../budgets/execution-budgets.js";
+import { inStepEntry } from "./step-entries.js";
+import { eventOf, failedChild, type ChildParent } from "./child-failure.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { randomIdGenerator } from "../../infrastructure/clock.js";
 import { childWorkflowOf } from "../analyse/child-workflow.js";
 import { currentFrame, depthOf, type Frame } from "../context/frame.js";
 import { NodeKind } from "../ast.js";
-import type { ExecutionEvent } from "../observers/execution-event.js";
 import { childEntryOf, type ChildEntry } from "./child-entry.js";
-import { childFailureOf, childRecordOf, ownUsageOf, type EndedChild } from "./child-exit.js";
+import { childRecordOf, ownUsageOf, type EndedChild } from "./child-exit.js";
 import { childEnteredAt, childRunOf, type ChildEntered } from "./child-identity.js";
 import { ChildExecutionStatus } from "./child-records.js";
 import type { RuntimeNode } from "./graph-model.js";
@@ -84,41 +86,6 @@ const initialOf = (
   child: entered.identity,
 });
 
-/** The child's events: its own id, its parent and its root. */
-const eventOf = (frame: Frame, child: EndedChild): ExecutionEvent => ({
-  executionId: child.identity.executionId,
-  parentExecutionId: child.identity.parentExecutionId,
-  rootExecutionId: child.identity.rootExecutionId,
-  threadId: frame.execution.threadId,
-  tenantId: frame.execution.tenant.tenantId,
-  workflow: child.workflow,
-});
-
-/** A parent's side of one child execution: its deps and its step's frame. */
-interface ChildParent {
-  readonly deps: GraphDeps<string>;
-  readonly frame: Frame;
-}
-
-/** A child that threw: its record and spend kept, its error event, its failure as the parent sees it. */
-async function failedChild(
-  parent: ChildParent,
-  ended: EndedChild,
-  thrown: { readonly error: unknown; readonly last: ExecutionStateType | undefined },
-  signal: AbortSignal,
-): Promise<never> {
-  const { frame } = parent;
-  const { error, last } = thrown;
-  const failure = childFailureOf(error, ended, ownUsageOf(last, ended.identity), signal);
-  for (const record of failure.reported) frame.services.reportUsage?.(record);
-  frame.services.recordChild?.(childRecordOf(ended, last, { ...failure, error: failure.thrown }));
-  // what the child masked stays revealable by the parent's side path (#120)
-  if (last !== undefined) frame.services.keepPiiTokens?.(last.piiTokens);
-  const asError = failure.thrown instanceof Error ? failure.thrown : new Error(String(error));
-  await parent.deps.observer?.onExecutionError({ ...eventOf(frame, ended), error: asError });
-  throw failure.thrown;
-}
-
 /** One child execution, to its end: its value, or its failure thrown as the parent sees it. */
 async function runChild(
   child: ChildGraph,
@@ -131,8 +98,7 @@ async function runChild(
     const states = await child.graph.stream(run.initial, { ...run.config, streamMode: "values" });
     for await (const state of states) if (Array.isArray(state.usage)) last = state;
   } catch (error) {
-    const signal = run.config.signal ?? new AbortController().signal;
-    return failedChild(parent, ended, { error, last }, signal);
+    return failedChild(parent, ended, { error, last }, run.config);
   }
   if (last === undefined) throw new TypeError(`${ended.workflow.name} ended without a state`);
   const usage = ownUsageOf(last, ended.identity);
@@ -157,8 +123,9 @@ export function childRunner(
   node: RuntimeNode,
   deps: GraphDeps<string>,
   child: ChildGraph,
-  checkpointer?: BaseCheckpointSaver,
+  pass: { readonly checkpointer?: BaseCheckpointSaver | undefined; readonly budgets?: BudgetMeter },
 ): NodeRunner {
+  const { checkpointer } = pass;
   return async (state, config) => {
     const frame = parentFrame(node);
     const entry = childEntryOf(entrySiteOf(node, deps, state));
@@ -191,7 +158,11 @@ export function childRunner(
     if (entered.isNew) await deps.observer?.onExecutionStart(eventOf(frame, ended));
     const childConfig = childConfigOf(config, run, ended);
     const initial = initialOf(state, entry, input, entered);
-    const done = await runChild(child, { deps, frame }, ended, { initial, config: childConfig });
+    const undo = { child, run, checkpointer, budgets: pass.budgets };
+    // the child's body runs as a step body of its parent (#340): an unwind above awaits its undo
+    const done = await inStepEntry(deps.stepEntries, frame, () =>
+      runChild(child, { deps, frame, undo }, ended, { initial, config: childConfig }),
+    );
     // the child's PII tokens go back to the parent with its value (#120 S84 i)
     const { piiTokens } = done.state;
     return { value: valueOf(child, done.state), read: entry.read, usage: done.usage, piiTokens };

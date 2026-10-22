@@ -221,11 +221,10 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
     } catch (error) {
       const handled = caught(deps, node, error, ranAsStep, reported, config?.signal);
       const failed = { ...undoables, ...parts, scope: state.scope, endedAt: clock.now() };
-      return {
-        ...handled,
-        ...(await compensationsOfVisit({ ...failed, failure: error })),
-        ...kept,
-      };
+      const own = await compensationsOfVisit({ ...failed, failure: error });
+      // a failed child's undone entries first (#340): the visit's own close after them
+      const compensations = [...reported.compensations, ...(own.compensations ?? [])];
+      return { ...handled, ...(compensations.length === 0 ? {} : { compensations }), ...kept };
     }
   };
 }

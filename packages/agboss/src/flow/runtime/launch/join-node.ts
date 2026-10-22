@@ -190,7 +190,13 @@ async function failedJoined(
   // the branch's error as it was thrown; read back from its record when another process ran it
   const cause = thrown instanceof Error ? thrown : new RecordedBranchError(failureRecordOf(record));
   const undone = await compensationsOfFailedJoin({ ...site, cause });
-  return { ...undone, ...failedJoin(site.deps, launch, { record, node }, cause) };
+  try {
+    return { ...undone, ...failedJoin(site.deps, launch, { record, node }, cause) };
+  } catch (error) {
+    // no side path: the undo's spend reaches no state — the ledger at once (#340 S4)
+    await site.deps.limits.budgets.record(undone.usage ?? []);
+    throw error;
+  }
 }
 
 /** The LangGraph node joining `launch`. */

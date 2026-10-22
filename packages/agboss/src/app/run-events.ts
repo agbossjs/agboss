@@ -1,4 +1,4 @@
-import { ExecutionCancelledError } from "../core/errors.js";
+import type { CompensationRecord } from "../flow/compensation.js";
 import type { ExecutionOperation, ExecutionRejectedEvent } from "../core/observability.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import { DtoValidationError } from "../dto/errors.js";
@@ -68,12 +68,16 @@ export async function observeLeg(
   observer: ExecutionObserverManager,
   event: ExecutionEvent,
   leg: () => Promise<ExecutionOutput>,
+  compensationsOf: () => readonly CompensationRecord[] = () => [],
 ): Promise<ExecutionOutput> {
   let result: ExecutionOutput;
   try {
     result = await leg();
   } catch (error) {
-    if (!isHandedOver(error)) await observer.onExecutionError({ ...event, error: asError(error) });
+    if (!isHandedOver(error)) {
+      const failed = { ...event, error: asError(error), compensations: compensationsOf() };
+      await observer.onExecutionError(failed);
+    }
     throw error;
   }
   // a pass that rests with answers already recorded is not a stop: the holder goes on (Q58)
@@ -82,17 +86,6 @@ export async function observeLeg(
   else if (result.finish !== undefined)
     await observer.onExecutionEnd({ ...event, finish: result.finish, spend: result.spend });
   return result;
-}
-
-/** A paused execution was cancelled instead of resumed: it ends as failed, `ExecutionCancelledError`. */
-export function observeCancelledPause(
-  observer: ExecutionObserverManager,
-  event: ExecutionEvent,
-): Promise<void> {
-  const error = new ExecutionCancelledError(
-    `thread "${event.threadId}" was cancelled while paused`,
-  );
-  return observer.onExecutionError({ ...event, error });
 }
 
 /** What a caller asked for, before the app found (or started) its execution. */
@@ -150,7 +143,8 @@ export async function admitRequest<T>(
         tenantId: request.tenantId ?? DEFAULT_TENANT_ID,
         startedVersion: error.paused.workflowVersion,
       };
-      await observer.onExecutionError({ ...executionEventAt(paused, deps), error });
+      const event = executionEventAt(paused, deps);
+      await observer.onExecutionError({ ...event, error, compensations: [] });
     } else await observer.onExecutionRejected(rejectionOf(request, error));
     throw error;
   }

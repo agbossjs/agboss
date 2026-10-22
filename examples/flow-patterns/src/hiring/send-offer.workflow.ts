@@ -27,7 +27,8 @@ import { SendOfferWorkflowStart } from "./workflow-starts/send-offer.workflow-st
  * each with `compensateWith` and `committedBy: ConfirmOfferAction`. The letter's side path undoes
  * both, newest first, and `agboss check` proves it: leave an undo out, or swap them, and the check
  * fails (`[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`). A failure the flow
- * does not take (the sender's) is undone automatically — #340.
+ * does not take (the sender's, a budget, a cancel while it waits) is undone automatically, newest
+ * first, before the execution ends (#340).
  */
 @Workflow({
   name: "send-offer-workflow",

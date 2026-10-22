@@ -1,3 +1,4 @@
+import { CompensationFailedError } from "../compensation.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
 import { codeOfErrorClass, errorMatchOf, type ErrorRecord } from "../../core/error-record.js";
@@ -205,12 +206,13 @@ function dtoIndexOf(analysis: FlowAnalysis): ReadonlyMap<string, DtoClass> {
 /**
  * The `.onError` handler of a failure: the one whose class matches most specifically — nearest in
  * the error's class line, then nearest in its cause chain; `.onError(Error, …)` only when nothing
- * else matches. None → the failure is not handled.
+ * else matches. None → the failure is not handled; a failed automatic undo never is (#340 Q4).
  */
 export function errorHandlerOf(
   exits: Pick<NodeExits, "errors">,
   record: ErrorRecord,
 ): FlowEdge | undefined {
+  if (record.code === CompensationFailedError.code) return undefined;
   let best: { readonly edge: FlowEdge; readonly rank: readonly number[] } | undefined;
   for (const edge of exits.errors) {
     if (edge.error === undefined) continue;

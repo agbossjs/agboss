@@ -6,6 +6,7 @@ import type { ContextFields } from "./context-values.js";
 import type { TenantContext } from "./tenant-context.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { EndedChildRecord } from "../runtime/child-records.js";
+import type { CompensationEntry } from "../compensation.js";
 
 /**
  * The frame of a step (#280 S18): what the injected `ExecutionContext` reads. The node runner
@@ -78,6 +79,11 @@ export interface FrameServices {
    * the side path that takes it reveals what the child masked — never on the error itself.
    */
   readonly keepPiiTokens?: (tokens: PiiTokenMap) => void;
+  /**
+   * Where a failed child's undone entries go (#340): into the parent's state with the error, so a
+   * later pass never undoes them again.
+   */
+  readonly keepCompensations?: (entries: readonly CompensationEntry[]) => void;
 }
 
 /** What a frame is opened with. */

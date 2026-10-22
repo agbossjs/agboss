@@ -52,6 +52,7 @@ export async function instancePartsOf(
   const compensation = {
     timeout: assembled.compensationTimeout,
     registry: new CompensationRegistry(),
+    log,
   };
   const stepSlots = await stepSlotsOf(assembled, clock);
   return { stepSlots, stepEntries, compensation, stepsAtStop };
