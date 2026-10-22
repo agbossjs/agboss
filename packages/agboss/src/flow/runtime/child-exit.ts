@@ -7,6 +7,7 @@ import { buildCostReport, type UsageRecord } from "../../finops/usage.js";
 import { BudgetExceededError, LimitExceededError } from "../../graph/limits.js";
 import type { WorkflowRecord } from "../context/execution-context.js";
 import { ChildExecutionFailedError } from "./child-errors.js";
+import { CompensationFailedError } from "../compensation.js";
 import {
   ChildExecutionStatus,
   type EndedChildRecord,
@@ -121,6 +122,9 @@ export function childFailureOf(
       usage,
       reported: [],
     };
+  // a failed automatic undo passes the boundary as it is: no side path takes it (#340 S5)
+  if (error instanceof CompensationFailedError)
+    return { thrown: error, status: ChildExecutionStatus.Failed, usage, reported: [] };
   const identity = { executionId: child.identity.executionId, workflow: child.workflow };
   const thrown = new ChildExecutionFailedError(identity, error, usage);
   return { thrown, status: ChildExecutionStatus.Failed, usage, reported: [] };

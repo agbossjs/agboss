@@ -1,10 +1,8 @@
-import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
 import { ResumeReason } from "../core/observability.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { recoveryPassOf, resumePassOf, RootCalls } from "./recovery-pass.js";
 import type {
   AnsweredPass,
-  HeldPass,
   PlannedPass,
   TreeCall,
   TreeMoveParts,
@@ -19,11 +17,12 @@ import { currentOutputOf } from "./current-output.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import { isHandedOver } from "./handed-over.js";
 import { cancelledErrorOf } from "./live-runs.js";
-import { forgetTree, leasedDeps, passEnded, treeOf } from "./tree-ends.js";
+import { forgetTree, passEnded, treeOf } from "./tree-ends.js";
+import { observedPass } from "./observed-pass.js";
 import type { RecordedAnswer } from "./resume.js";
 import { announceResume, markTaken, treeResumeNow } from "./tree-resume.js";
-import { maskedRecordOf, runResultOf, withPauseAnswers } from "./result.js";
-import { executionEventAt, observeLeg } from "./run-events.js";
+import { withPauseAnswers } from "./result.js";
+import { executionEventAt } from "./run-events.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import type * as CancelRequests from "./cancel-requests.js";
 
@@ -187,12 +186,14 @@ class TreeMover implements TreeMoves {
       let result: ExecutionOutput;
       const passed = new Set<string>();
       do {
-        result = await this.observedPass(state, call, { lease, watch }, planned.pass);
+        result = await observedPass(this.parts, state, call, { lease, watch }, planned.pass);
         if (planned.resume !== undefined) {
           await markTaken(deps, planned.resume);
           for (const pauseId of planned.resume.pauseIds) passed.add(pauseId);
         }
-        await (await cancelRequests()).endIfCancelledAtRest(this.parts, state, result, watch);
+        await (
+          await cancelRequests()
+        ).endIfCancelledAtRest(this.parts, state, { result, watch, lease });
         const isPaused = result.status === ExecutionStatus.Paused;
         planned = isPaused ? await this.nextPass(state, call, passed) : undefined;
         if (planned !== undefined)
@@ -208,27 +209,6 @@ class TreeMover implements TreeMoves {
       await passEnded(live, deps, state);
       await lease.release();
     }
-  }
-
-  /** One pass, observed and settled while the lease is held; a cancel request aborts it. */
-  private observedPass(
-    state: TreeState,
-    call: TreeCall,
-    held: HeldPass,
-    pass: TreePass,
-  ): Promise<ExecutionOutput> {
-    const { deps, live, paused } = this.parts;
-    const stops = [held.lease.signal, held.watch.signal];
-    const caller = call.signal === undefined ? stops : [call.signal, ...stops];
-    const moving = leasedDeps(deps, held.lease);
-    return observeLeg(deps.observer, executionEventAt(state, deps), async () => {
-      const run = await live.track(state, AbortSignal.any(caller), (signal) =>
-        pass(moving, signal),
-      );
-      await paused.settle(run);
-      const result = runResultOf(run, call.record === true, (name) => nodeRecordIn(deps, name));
-      return maskedRecordOf(result, deps.pii?.observability);
-    });
   }
 
   /** The tree ended: its keys removed, its waiting pauses withdrawn (#267 AC10). */

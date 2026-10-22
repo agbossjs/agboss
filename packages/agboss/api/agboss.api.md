@@ -1447,6 +1447,7 @@ export interface ExecutionEndEvent extends ExecutionEvent {
 
 // @public
 export interface ExecutionErrorEvent extends ExecutionEvent {
+    readonly compensations: readonly CompensationRecord[];
     // (undocumented)
     readonly error: Error;
 }
@@ -4948,42 +4949,42 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/core/errors.ts:19:3 - (ae-undocumented) Missing documentation for "details".
 // src/core/errors.ts:31:3 - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts:32:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts:41:3 - (ae-undocumented) Missing documentation for "route".
-// src/core/observability.ts:42:3 - (ae-undocumented) Missing documentation for "reason".
-// src/core/observability.ts:55:3 - (ae-undocumented) Missing documentation for "toolName".
-// src/core/observability.ts:56:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:57:3 - (ae-undocumented) Missing documentation for "arguments".
-// src/core/observability.ts:62:3 - (ae-undocumented) Missing documentation for "toolName".
-// src/core/observability.ts:63:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:64:3 - (ae-undocumented) Missing documentation for "update".
-// src/core/observability.ts:74:3 - (ae-undocumented) Missing documentation for "side".
-// src/core/observability.ts:75:3 - (ae-undocumented) Missing documentation for "element".
-// src/core/observability.ts:76:3 - (ae-undocumented) Missing documentation for "text".
-// src/core/observability.ts:78:1 - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
-// src/core/observability.ts:82:3 - (ae-undocumented) Missing documentation for "isBlocked".
-// src/core/observability.ts:83:3 - (ae-undocumented) Missing documentation for "probability".
-// src/core/observability.ts:100:3 - (ae-undocumented) Missing documentation for "modelName".
-// src/core/observability.ts:101:3 - (ae-undocumented) Missing documentation for "callerName".
-// src/core/observability.ts:102:3 - (ae-undocumented) Missing documentation for "rawPayload".
-// src/core/observability.ts:107:3 - (ae-undocumented) Missing documentation for "promptTokens".
-// src/core/observability.ts:108:3 - (ae-undocumented) Missing documentation for "completionTokens".
-// src/core/observability.ts:109:3 - (ae-undocumented) Missing documentation for "totalTokens".
-// src/core/observability.ts:114:3 - (ae-undocumented) Missing documentation for "model".
-// src/core/observability.ts:115:3 - (ae-undocumented) Missing documentation for "callerName".
-// src/core/observability.ts:116:3 - (ae-undocumented) Missing documentation for "rawContent".
-// src/core/observability.ts:117:3 - (ae-undocumented) Missing documentation for "usage".
-// src/core/observability.ts:118:3 - (ae-undocumented) Missing documentation for "calculatedCost".
-// src/core/observability.ts:123:3 - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts:124:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:125:3 - (ae-undocumented) Missing documentation for "input".
-// src/core/observability.ts:130:3 - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts:131:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:132:3 - (ae-undocumented) Missing documentation for "update".
-// src/core/observability.ts:155:3 - (ae-undocumented) Missing documentation for "pending".
-// src/core/observability.ts:192:3 - (ae-undocumented) Missing documentation for "error".
-// src/core/observability.ts:197:3 - (ae-undocumented) Missing documentation for "Execute".
-// src/core/observability.ts:198:3 - (ae-undocumented) Missing documentation for "Resume".
-// src/core/observability.ts:199:3 - (ae-undocumented) Missing documentation for "Cancel".
+// src/core/observability.ts:42:3 - (ae-undocumented) Missing documentation for "route".
+// src/core/observability.ts:43:3 - (ae-undocumented) Missing documentation for "reason".
+// src/core/observability.ts:56:3 - (ae-undocumented) Missing documentation for "toolName".
+// src/core/observability.ts:57:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:58:3 - (ae-undocumented) Missing documentation for "arguments".
+// src/core/observability.ts:63:3 - (ae-undocumented) Missing documentation for "toolName".
+// src/core/observability.ts:64:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:65:3 - (ae-undocumented) Missing documentation for "update".
+// src/core/observability.ts:75:3 - (ae-undocumented) Missing documentation for "side".
+// src/core/observability.ts:76:3 - (ae-undocumented) Missing documentation for "element".
+// src/core/observability.ts:77:3 - (ae-undocumented) Missing documentation for "text".
+// src/core/observability.ts:79:1 - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
+// src/core/observability.ts:83:3 - (ae-undocumented) Missing documentation for "isBlocked".
+// src/core/observability.ts:84:3 - (ae-undocumented) Missing documentation for "probability".
+// src/core/observability.ts:101:3 - (ae-undocumented) Missing documentation for "modelName".
+// src/core/observability.ts:102:3 - (ae-undocumented) Missing documentation for "callerName".
+// src/core/observability.ts:103:3 - (ae-undocumented) Missing documentation for "rawPayload".
+// src/core/observability.ts:108:3 - (ae-undocumented) Missing documentation for "promptTokens".
+// src/core/observability.ts:109:3 - (ae-undocumented) Missing documentation for "completionTokens".
+// src/core/observability.ts:110:3 - (ae-undocumented) Missing documentation for "totalTokens".
+// src/core/observability.ts:115:3 - (ae-undocumented) Missing documentation for "model".
+// src/core/observability.ts:116:3 - (ae-undocumented) Missing documentation for "callerName".
+// src/core/observability.ts:117:3 - (ae-undocumented) Missing documentation for "rawContent".
+// src/core/observability.ts:118:3 - (ae-undocumented) Missing documentation for "usage".
+// src/core/observability.ts:119:3 - (ae-undocumented) Missing documentation for "calculatedCost".
+// src/core/observability.ts:124:3 - (ae-undocumented) Missing documentation for "name".
+// src/core/observability.ts:125:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:126:3 - (ae-undocumented) Missing documentation for "input".
+// src/core/observability.ts:131:3 - (ae-undocumented) Missing documentation for "name".
+// src/core/observability.ts:132:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:133:3 - (ae-undocumented) Missing documentation for "update".
+// src/core/observability.ts:156:3 - (ae-undocumented) Missing documentation for "pending".
+// src/core/observability.ts:193:3 - (ae-undocumented) Missing documentation for "error".
+// src/core/observability.ts:203:3 - (ae-undocumented) Missing documentation for "Execute".
+// src/core/observability.ts:204:3 - (ae-undocumented) Missing documentation for "Resume".
+// src/core/observability.ts:205:3 - (ae-undocumented) Missing documentation for "Cancel".
 // src/core/observer-hooks.ts:46:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
 // src/core/observer-hooks.ts:50:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
 // src/core/observer-hooks.ts:54:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
@@ -5164,7 +5165,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/builder-types.ts:243:3 - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts:254:3 - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts:259:3 - (ae-undocumented) Missing documentation for "chooseOne".
-// src/flow/compensation.ts:85:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/compensation.ts:86:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/context/application-context.ts:13:3 - (ae-undocumented) Missing documentation for "hostname".
 // src/flow/context/application-context.ts:14:3 - (ae-undocumented) Missing documentation for "pid".
 // src/flow/context/application-context.ts:38:3 - (ae-undocumented) Missing documentation for "host".

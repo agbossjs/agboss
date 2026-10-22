@@ -2,8 +2,9 @@ import { ExecutionOperation } from "../core/observability.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import type { ThreadAccess } from "../run/thread.js";
 import { remoteCancel, type CancelParts } from "./cancel-requests.js";
-import { cancelledOutcome, type LiveRuns } from "./live-runs.js";
-import { executionEventAt, observeCancelledPause, type ExecutionRequest } from "./run-events.js";
+import type { LiveRuns } from "./live-runs.js";
+import { cancelledPaused } from "./cancel-paused.js";
+import type { ExecutionRequest } from "./run-events.js";
 import type { CancelOptions, CancelOutput } from "./types.js";
 
 /** What `app.cancel` needs from its workflow's app (loaded on the first cancel). */
@@ -25,20 +26,17 @@ export async function cancelThread(
   threadId: string,
   options: CancelOptions,
 ): Promise<CancelOutput> {
-  const { deps, live, paused, trees } = parts;
+  const { live, paused } = parts;
   const thread = { tenantId: options.tenantId ?? DEFAULT_TENANT_ID, threadId };
   const request = { operation: ExecutionOperation.Cancel, ...thread };
   await parts.admit(request, () => parts.known({ ...thread, ownerId: options.ownerId }));
   const running = live.abort(thread);
-  const waiting = await paused.drop(thread);
   // a running resume completes its own Tern when the abort stops it
-  if (waiting !== undefined && !running) {
-    await trees.deleteAllInTree({ tenantId: thread.tenantId, rootExecutionId: waiting.runId });
-    await deps.terns.complete(waiting.ternId, cancelledOutcome(waiting));
-    const startedVersion = waiting.startedVersion ?? deps.config.version;
-    const cancelled = { ...thread, runId: waiting.runId, startedVersion };
-    await observeCancelledPause(deps.observer, executionEventAt(cancelled, deps));
+  if (running) {
+    await paused.drop(thread);
+    return { cancelled: true };
   }
-  if (running || waiting !== undefined) return { cancelled: true };
+  // paused (its run in the shared store): withdrawn, undone (#340), cancelled — after the undo
+  if (await cancelledPaused(parts, thread)) return { cancelled: true };
   return { cancelled: await remoteCancel(parts, thread, options.ownerId) };
 }

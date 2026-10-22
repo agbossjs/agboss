@@ -596,8 +596,17 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   `@Application({ compensationTimeout })` (default `seconds(15)`) and a lost lease, no slot, no
   budget check; an undo that fails → the rest still run, then `CompensationFailedError`
   (`compensation.failed`, `failures`, `cause`), never taken by a side path; `result.compensations`,
-  `onCompensationStart` / `onCompensationEnd`, `toHaveCompensated(A, { by, reason?, status? })`;
-  the undo of an execution ending without a finish is #340 PR 3), `@WorkflowFinish`
+  `onCompensationStart` / `onCompensationEnd`, `toHaveCompensated(A, { by, reason?, status? })`.
+  An execution that ends without a finish (#340 PR 3) undoes its open records the same way, newest
+  first, before it ends — `ExecutionFailed` for an uncaught failure or limit, `ExecutionCancelled`
+  for a cancel or a launch's `FailFast`: a child in its parent's node before its error is raised, a
+  root by the lease's holder after its pass rejects (before its keys go and `onExecutionError`,
+  whose `compensations` lists what ran), `app.cancel` of a paused tree after withdrawing its pauses
+  and before it returns, a cancel request (#360) found at lease take first; it awaits the tree's
+  running step bodies up to `compensationTimeout` (one returning later is undone at once, in
+  process), reads the records from the checkpoint and the instance's registry, writes the undo's
+  spend to the ledger at once; `CompensationFailedError` passes a child's boundary as it is — the
+  parent undoes its own), `@WorkflowFinish`
   (output DTO). `app.execute(Start, input)` is typed by the generated tables:
   `input` is the start's input, `result.output` the finishes' outputs.
 - **Assembly rules** fail before any model call with **all** violations at once (`GraphRuleError`,

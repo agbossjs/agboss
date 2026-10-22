@@ -34,9 +34,10 @@ import { BranchStatus, type BranchTicket } from "./records.js";
 import { launchPausesOf, withdrawLaunchPauses } from "./withdrawn-pauses.js";
 import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
 import { inTreeSlot } from "../step-frame.js";
-import { branchFrameOf } from "./branch-view.js";
+import { branchFrameOf, branchVisitOf } from "./branch-view.js";
 import type { EndedChildRecord } from "../child-records.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
+import type { CompensationEntry } from "../../compensation.js";
 
 /**
  * One branch of a launch (#273 S20, S21): one `Send` task. It takes a slot of the launch's
@@ -70,6 +71,8 @@ interface BranchRun {
   readonly children: EndedChildRecord[];
   /** A failed per-item child's PII tokens (#120): kept with its error. */
   piiTokens: PiiTokenMap;
+  /** A failed per-item child's undone entries (#340). */
+  readonly compensations: CompensationEntry[];
   /** The branch as a test's scheduler sees it (#262 S33). */
   readonly scheduled: ScheduledBranch;
   /** Whether it passed its limits and ran as a step (agents only). */
@@ -88,14 +91,6 @@ interface BranchEnd {
   readonly mark?: QuorumMark;
 }
 
-/** A run's bookkeeping: its path entry, step and children; the node's visit is counted by the join. */
-const visited = (run: BranchRun): ExecutionStateUpdate => ({
-  path: [run.ticket.nodeId],
-  steps: run.ranAsStep ? 1 : 0,
-  children: [...run.children],
-  piiTokens: run.piiTokens,
-});
-
 /** How a branch whose node answered ended: finished with its verdict, or cancelled by its quorum. */
 function answeredEnd(
   run: BranchRun,
@@ -108,7 +103,7 @@ function answeredEnd(
   // its arbiters' decisions counted as they end (#338); its node counted its own calls
   run.deps.limits.budgets.tally(arbiters);
   run.live.spent.push(...usage);
-  const update = { ...visited(run), ...recordsOf(outcome), usage, ...compensations };
+  const update = { ...branchVisitOf(run), ...recordsOf(outcome), usage, ...compensations };
   // a quorum decided while its arbiters checked the answer: cancelled, its spend kept (#279 AC12)
   if (marked !== undefined && marked.mark === undefined)
     return { status: BranchStatus.Cancelled, read: outcome.read, update };
@@ -190,7 +185,7 @@ async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
     await abortLaunch(run);
   }
   leaveQuorum(live, ticket);
-  const update = { ...visited(run), usage };
+  const update = { ...branchVisitOf(run), usage };
   return { status, read: [], error: errorRecordOf(failure), update };
 }
 
@@ -229,6 +224,7 @@ export function branchNode(node: RuntimeNode, runner: NodeRunner, deps: BranchDe
       services: [],
       children: [],
       piiTokens: {},
+      compensations: [],
       ranAsStep: false,
     };
     const branch = (): Promise<BranchEnd> =>

@@ -3,8 +3,9 @@ import { extractRunContext } from "../../../core/run-context.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { slotOfDto, slotOfValue } from "../../analyse/scope.js";
 import type { ScopeRecords } from "../records.js";
-import type { ExecutionStateType } from "../state.js";
+import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import type { FrameSpec } from "../../context/frame.js";
+import type { CompensationEntry } from "../../compensation.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
 import type { EndedChildRecord } from "../child-records.js";
 import { stepFrameAt } from "../step-frame.js";
@@ -180,7 +181,20 @@ export interface BranchFrameRun {
   readonly services: UsageRecord[];
   readonly children: EndedChildRecord[];
   piiTokens: PiiTokenMap;
+  /** A failed per-item child's undone entries (#340): kept with its error. */
+  readonly compensations: CompensationEntry[];
 }
+
+/** A run's bookkeeping: its path entry, step, children; the node's visit is counted by the join. */
+export const branchVisitOf = (
+  run: BranchFrameRun & { readonly ranAsStep: boolean },
+): ExecutionStateUpdate => ({
+  path: [run.ticket.nodeId],
+  steps: run.ranAsStep ? 1 : 0,
+  children: [...run.children],
+  piiTokens: run.piiTokens,
+  ...(run.compensations.length === 0 ? {} : { compensations: [...run.compensations] }),
+});
 
 /** The branch's config (its signal: the execution's and the launch's) and its step frame. */
 export function branchFrameOf(run: BranchFrameRun, view: ExecutionStateType): BranchFrame {
@@ -200,10 +214,13 @@ export function branchFrameOf(run: BranchFrameRun, view: ExecutionStateType): Br
   };
   const keepPiiTokens = (tokens: PiiTokenMap): void =>
     void (run.piiTokens = { ...run.piiTokens, ...tokens });
+  const keepCompensations = (entries: readonly CompensationEntry[]): void => {
+    run.compensations.push(...entries);
+  };
   const input = () => readInput(deps.graph, node, view).fields;
   const frame = {
     ...withBudgetStop(stepFrameAt(site, view, config, deps), budgetStop),
-    services: { reportUsage, recordChild, keepPiiTokens, input },
+    services: { reportUsage, recordChild, keepPiiTokens, keepCompensations, input },
   };
   return { config, frame, signal, ...(budgetStop === undefined ? {} : { budgetStop }) };
 }

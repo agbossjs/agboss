@@ -11,7 +11,8 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { extractRunContext } from "../core/run-context.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import type { DtoClass } from "../dto/types.js";
-import type { ExecutionStateType, ExecutionStateUpdate } from "./runtime/state.js";
+import type { ExecutionStateType } from "./runtime/state.js";
+import type { UsageRecord } from "../finops/usage.js";
 import type { JoinUnwindSite } from "./runtime/compensation/join-unwind.js";
 import type { ComponentRecord, ScopeRecords } from "./runtime/records.js";
 
@@ -147,6 +148,15 @@ export const compensationRecordsOf = (
   entries: readonly CompensationEntry[] | undefined,
 ): readonly CompensationRecord[] => (entries ?? []).flatMap((entry) => entry.undo ?? []);
 
+/** Whether a graph has an action that declares its undo: only then can its executions open an entry. */
+export const hasUndoableActions = (graph: {
+  readonly nodes: ReadonlyMap<string, DeclaredNode>;
+}): boolean =>
+  [...graph.nodes.values()].some(
+    ({ declaration }) =>
+      declaration.kind === NodeKind.Action && declaration.options.compensateWith !== undefined,
+  );
+
 /** A node as the check below reads it: its id and its declaration. */
 interface DeclaredNode {
   readonly id: string;
@@ -239,13 +249,17 @@ export function compensationsOfBranch(
   });
 }
 
+/** What a failed join's undo writes when a side path takes the failure: its entries and spend. */
+export interface FailedJoinUndo {
+  readonly compensations?: CompensationEntry[];
+  readonly usage?: UsageRecord[];
+}
+
 /**
  * A failed join undoes its finished undoable branches before `.onJoinError` or the failure (#340
  * Q3): the runtime is loaded only for a launch of an action that declares its undo.
  */
-export async function compensationsOfFailedJoin(
-  site: JoinUnwindSite,
-): Promise<ExecutionStateUpdate> {
+export async function compensationsOfFailedJoin(site: JoinUnwindSite): Promise<FailedJoinUndo> {
   const isUndoable = site.ticket.branches.some((branch) => {
     const declaration = site.deps.graph.nodes.get(branch.node)?.declaration;
     return (

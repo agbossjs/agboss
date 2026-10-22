@@ -8,6 +8,7 @@ import type { RuntimeNode } from "./graph-model.js";
 import { countedServiceSpend, type ExecutionLimits } from "./limits.js";
 import type { ApprovalRecord } from "../../pause/index.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
+import type { CompensationEntry } from "../compensation.js";
 import type { NodeValue } from "./scope.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 
@@ -67,6 +68,8 @@ export interface Reported {
   readonly children: EndedChildRecord[];
   /** A failed child's PII tokens (#120): kept with its error. */
   piiTokens: PiiTokenMap;
+  /** A failed child's entries its automatic undo closed (#340): kept with its error. */
+  readonly compensations: CompensationEntry[];
 }
 
 /** What a visit's code reports through its frame's services, and the services that collect it. */
@@ -75,7 +78,7 @@ export function reportingOf(
   node: RuntimeNode,
   path: readonly string[],
 ): { readonly reported: Reported; readonly services: FrameServices } {
-  const reported: Reported = { usage: [], children: [], piiTokens: {} };
+  const reported: Reported = { usage: [], children: [], piiTokens: {}, compensations: [] };
   const services: FrameServices = {
     reportUsage: (record: UsageRecord): void => {
       reported.usage.push(countedServiceSpend(limits, node, path, record));
@@ -85,6 +88,9 @@ export function reportingOf(
     },
     keepPiiTokens: (tokens: PiiTokenMap): void => {
       reported.piiTokens = { ...reported.piiTokens, ...tokens };
+    },
+    keepCompensations: (entries: readonly CompensationEntry[]): void => {
+      reported.compensations.push(...entries);
     },
   };
   return { reported, services };

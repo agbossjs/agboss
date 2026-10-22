@@ -1,21 +1,20 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { extractRunContext } from "../../../core/run-context.js";
-import { timeoutError, timeoutOn } from "../../../infrastructure/clock-timeout.js";
 import type { ExecutionTree } from "../../../infrastructure/execution-tree.repository.js";
 import {
   COMPENSATION_TIMEOUT,
-  CompensationEntryStatus,
   CompensationFailedError,
   CompensationReason,
-  CompensationStatus,
   type CompensationEntry,
+  type FailedJoinUndo,
 } from "../../compensation.js";
 import { rootFactsOf } from "../../context/frame.js";
 import type { JoinDeps } from "../launch/join-node.js";
 import type { LaunchTicket } from "../launch/records.js";
-import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
+import type { ExecutionStateType } from "../state.js";
 import { stepFrameAt } from "../step-frame.js";
-import { undone, type Undone, type UndoSite } from "./undo.js";
+import type { UndoSite } from "./undo.js";
+import { unwound, type UnwindSite } from "./unwind.js";
 
 /**
  * The automatic undo of a failed join (#340 Q3, `CompensationReason.JoinFailed`): before its
@@ -24,7 +23,7 @@ import { undone, type Undone, type UndoSite } from "./undo.js";
  * bodies still run (#340 Q-A, up to `compensationTimeout`), so one that returns meanwhile is undone
  * too; the entries are the state's and the instance registry's. An undo that fails does not stop
  * the others; then the execution fails with `CompensationFailedError` (its cause the branch's error),
- * which no side path takes.
+ * which no side path takes — the undo's spend written to the ledger first (#340 S4).
  */
 
 /** Where a failed join undoes: its state, config, launch, deps, and the branch's error. */
@@ -35,18 +34,6 @@ export interface JoinUnwindSite {
   readonly deps: JoinDeps;
   /** The error the join fails with: the cause of a `CompensationFailedError`. */
   readonly cause: unknown;
-}
-
-/** The launch's open entries: the state's, then the registry's it does not hold yet. */
-function openOfLaunch(site: JoinUnwindSite, tree: ExecutionTree, executionId: string) {
-  const isOfLaunch = (entry: CompensationEntry): boolean =>
-    entry.launchId === site.ticket.launchId && entry.executionId === executionId;
-  const known = site.state.compensations.filter(isOfLaunch);
-  const keys = new Set(known.map((entry) => entry.key));
-  const mirrored = site.deps.compensation?.registry.entriesOf(tree, isOfLaunch) ?? [];
-  return [...known, ...mirrored.filter((entry) => !keys.has(entry.key))]
-    .filter((entry) => entry.status === CompensationEntryStatus.Open)
-    .sort((first, second) => second.sequence - first.sequence);
 }
 
 /** The undo site of the join: the launching step's execution, the instance's parts. */
@@ -71,41 +58,38 @@ function undoSiteOf(site: JoinUnwindSite): UndoSite & { readonly tree: Execution
   };
 }
 
-/** Awaits the launch's branches still running, up to the bound. */
-async function branchesSettled(
-  site: JoinUnwindSite,
-  undo: UndoSite & { readonly tree: ExecutionTree },
-): Promise<void> {
-  if (undo.stepEntries === undefined) return;
-  const ids = new Set(site.ticket.branches.map((branch) => branch.nodeId));
+/** The join's unwind: its launch's entries and branches, never sealed (the execution goes on). */
+function unwindSiteOf(site: JoinUnwindSite): UnwindSite {
+  const undo = undoSiteOf(site);
   const { executionId } = undo.execution;
-  const bound = timeoutOn(undo.clock, undo.timeout, timeoutError);
-  try {
-    await undo.stepEntries.closedWhere(
-      undo.tree,
-      (entry) => entry.executionId === executionId && ids.has(entry.nodeId),
-      bound.signal,
-    );
-  } finally {
-    bound.release();
-  }
+  const ids = new Set(site.ticket.branches.map((branch) => branch.nodeId));
+  const covers = (entry: CompensationEntry): boolean =>
+    entry.launchId === site.ticket.launchId && entry.executionId === executionId;
+  return {
+    tree: undo.tree,
+    covers,
+    runs: (entry) => entry.executionId === executionId && ids.has(entry.nodeId),
+    known: site.state.compensations.filter(covers),
+    undoSiteOf: () => undo,
+    parts: site.deps.compensation,
+    stepEntries: undo.stepEntries,
+    clock: undo.clock,
+    timeout: undo.timeout,
+    isSealing: false,
+    record: (usage) => site.deps.limits.budgets.record(usage),
+  };
 }
 
 /**
  * Undoes the failed join's finished undoable branches, newest first: the entries closed and their
  * undo's spend for the join's update, or `CompensationFailedError` when one of them failed.
  */
-export async function unwoundJoin(site: JoinUnwindSite): Promise<ExecutionStateUpdate> {
-  const undo = undoSiteOf(site);
-  await branchesSettled(site, undo);
-  const ran: Undone[] = [];
-  for (const entry of openOfLaunch(site, undo.tree, undo.execution.executionId))
-    ran.push(await undone(entry, undo));
-  const closed = ran.map((each) => each.entry);
-  site.deps.compensation?.registry.write(undo.tree, closed);
-  const failures = closed.flatMap((entry) =>
-    entry.undo?.status === CompensationStatus.Failed ? [entry.undo] : [],
-  );
-  if (failures.length > 0) throw new CompensationFailedError(failures, site.cause);
-  return { compensations: closed, usage: ran.flatMap((each) => [...each.usage]) };
+export async function unwoundJoin(site: JoinUnwindSite): Promise<FailedJoinUndo> {
+  const unwind = unwindSiteOf(site);
+  const { closed, usage, failures } = await unwound(unwind);
+  if (failures.length > 0) {
+    await unwind.record(usage);
+    throw new CompensationFailedError(failures, site.cause);
+  }
+  return { compensations: [...closed], usage: [...usage] };
 }
