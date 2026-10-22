@@ -9,29 +9,29 @@ import { noDirectTime, type DirectTimeMessageId } from "./no-direct-time.js";
 export type { ComponentStateMessageId, DirectTimeMessageId };
 
 /**
- * The plugin's rules by name: `agboss/no-component-state`, `agboss/no-direct-time` (a type, not an
- * interface: it fits ESLint's `Plugin["rules"]` record).
+ * The plugin's rules by name: `agboss/no-component-state`, `agboss/no-direct-time` — a record of
+ * rules, as a typed ESLint config (`tseslint.config`) takes a plugin's.
  */
-export type AgbossRules = {
+export interface AgbossRules extends Readonly<Record<string, TSESLint.LooseRuleDefinition>> {
   /** `this.x = …` outside the constructor of a component (#261). */
   readonly "no-component-state": TSESLint.RuleModule<ComponentStateMessageId>;
   /** `Date.now()`, `new Date()`, timers — the application's `Clock` instead (#262). */
   readonly "no-direct-time": TSESLint.RuleModule<DirectTimeMessageId>;
-};
+}
 
 /** The plugin's identity, as ESLint reports it. */
-export type AgbossPluginMeta = {
+export interface AgbossPluginMeta {
   /** `"agboss"`: the prefix of its rules. */
   readonly name: string;
-};
+}
 
 /** The plugin, registered as `agboss` in a config block: `plugins: { agboss: agbossPlugin }`. */
-export type AgbossPlugin = {
+export interface AgbossPlugin {
   /** Its name. */
   readonly meta: AgbossPluginMeta;
   /** Its rules. */
   readonly rules: AgbossRules;
-};
+}
 
 /** The AGBoss rules as one ESLint plugin — one object for every block that uses it. */
 export const agbossPlugin: AgbossPlugin = {
