@@ -1823,6 +1823,8 @@ export interface GraphDeps<TName extends string> {
     readonly registry: ModelRegistry;
     readonly routerFor: (router: LoadedRouter) => RouterEngine;
     readonly routers: readonly LoadedRouter[];
+    // Warning: (ae-forgotten-export) The symbol "StepEntries" needs to be exported by the entry point index.d.ts
+    readonly stepEntries?: StepEntries | undefined;
     // Warning: (ae-forgotten-export) The symbol "StepSlots" needs to be exported by the entry point index.d.ts
     readonly stepSlots?: StepSlots | undefined;
     // Warning: (ae-forgotten-export) The symbol "AnyTool" needs to be exported by the entry point index.d.ts
@@ -4737,8 +4739,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 
 // Warnings were encountered during analysis:
 //
-// src/app/app-deps.ts:53:3 - (ae-undocumented) Missing documentation for "evaluation".
-// src/app/app-deps.ts:96:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/app-deps.ts:54:3 - (ae-undocumented) Missing documentation for "evaluation".
+// src/app/app-deps.ts:97:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/create-app.ts:55:3 - (ae-undocumented) Missing documentation for "profileRoot".
@@ -5284,9 +5286,9 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/start-input.ts:67:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/start-input.ts:68:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/this-workflow.ts:20:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/graph/deps.ts:28:3 - (ae-undocumented) Missing documentation for "config".
-// src/graph/deps.ts:29:3 - (ae-undocumented) Missing documentation for "registry".
-// src/graph/deps.ts:66:3 - (ae-undocumented) Missing documentation for "observer".
+// src/graph/deps.ts:29:3 - (ae-undocumented) Missing documentation for "config".
+// src/graph/deps.ts:30:3 - (ae-undocumented) Missing documentation for "registry".
+// src/graph/deps.ts:67:3 - (ae-undocumented) Missing documentation for "observer".
 // src/graph/errors.ts:12:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/errors.ts:13:12 - (ae-undocumented) Missing documentation for "name".
 // src/graph/errors.ts:14:3 - (ae-undocumented) Missing documentation for "usage".
@@ -5532,8 +5534,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/types.ts:79:3 - (ae-undocumented) Missing documentation for "threadId".
 // src/run/types.ts:82:3 - (ae-undocumented) Missing documentation for "ternId".
 // src/run/types.ts:83:3 - (ae-undocumented) Missing documentation for "data".
-// src/tools/define-tool.ts:32:3 - (ae-undocumented) Missing documentation for "code".
-// src/tools/define-tool.ts:33:12 - (ae-undocumented) Missing documentation for "name".
+// src/tools/define-tool.ts:33:3 - (ae-undocumented) Missing documentation for "code".
+// src/tools/define-tool.ts:34:12 - (ae-undocumented) Missing documentation for "name".
 // src/workflow.ts:44:3 - (ae-undocumented) Missing documentation for "config".
 // src/workflow.ts:62:3 - (ae-undocumented) Missing documentation for "prompts".
 // src/workflow.ts:63:3 - (ae-undocumented) Missing documentation for "tools".

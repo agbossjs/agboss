@@ -3,6 +3,8 @@ import type { AgentExecutionOptions, AgentExecutionOutput } from "../run/types.j
 import type { TernOutcome } from "../terns/index.js";
 import type { CallOptions } from "./types.js";
 import { threadMapKeyOf, type ThreadOfTenant } from "../infrastructure/thread-map-key.js";
+import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
+import type { StepEntries } from "../flow/runtime/step-entries.js";
 
 /** A thread's key in the app (#261): its tenant and its id — the same id in two tenants is two threads. */
 export type ThreadKey = ThreadOfTenant;
@@ -15,6 +17,8 @@ export class LiveRuns {
   readonly #inFlight = new Set<Promise<unknown>>();
   /** Set once the app interrupts what still runs at its stop (#265 S51): later runs stop at once. */
   #interrupted: unknown;
+  /** Set when the instance starts its stop (#367): aborted at the end of its shutdown timeout. */
+  #stopDeadline: AbortSignal | undefined;
 
   /** Runs `work` with a signal that `abort(thread)` or the caller's own signal aborts. */
   async track<T>(
@@ -41,9 +45,44 @@ export class LiveRuns {
     }
   }
 
-  /** Resolves when every run in flight has finished, paused or failed (graceful shutdown, #261). */
+  /**
+   * Tracks a tree's move under its lease as in flight until it ended — its lease released too
+   * (#367): `settled()` waits for the release, not only for the pass.
+   */
+  async moving<T>(move: Promise<T>): Promise<T> {
+    this.#inFlight.add(move);
+    try {
+      return await move;
+    } finally {
+      this.#inFlight.delete(move);
+    }
+  }
+
+  /**
+   * Resolves when every run and move in flight has finished, paused or failed — the ones that began
+   * meanwhile too (graceful shutdown, #261).
+   */
   async settled(): Promise<void> {
-    await Promise.allSettled([...this.#inFlight]);
+    while (this.#inFlight.size > 0) await Promise.allSettled([...this.#inFlight]);
+  }
+
+  /**
+   * The instance stops (#367): from now on a tree's lease is released only once the tree's running
+   * step bodies returned, or `deadline` (the end of the shutdown timeout) aborted.
+   */
+  stopBy(deadline: AbortSignal): void {
+    this.#stopDeadline ??= deadline;
+  }
+
+  /**
+   * Before a tree's lease is released (#367): at once while the instance is not stopping; when it
+   * is, once the tree's running step bodies returned or its shutdown timeout ended — never before,
+   * so no other instance recovers a step whose body still runs here.
+   */
+  async stepsClosed(tree: ExecutionTree, steps: StepEntries | undefined): Promise<void> {
+    const deadline = this.#stopDeadline;
+    if (steps === undefined || deadline === undefined) return;
+    await steps.closedOf(tree, deadline);
   }
 
   /**

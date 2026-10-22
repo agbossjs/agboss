@@ -9,13 +9,17 @@ import type { AssembledApplication } from "./assemble.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { Milliseconds } from "../units/index.js";
 import type { StepCapacity } from "../app/step-slots.js";
+import type { StepsAtStop } from "./instance-steps.js";
 
 /**
  * The graceful stop of an application instance (#261, #265 S30 / S51): no new executions anywhere,
  * its own recovery sweep stopped, `onStop` once, the running executions awaited up to the shutdown
  * timeout — then interrupted: each stops without failing, releases its lease at once in `finally`
  * and stays `running`, so another instance continues it without waiting for the lease to expire —
- * then `onDestroy`. A later `close({ timeout })` with a shorter timeout shortens the wait.
+ * then the step bodies still running (#367: LangGraph's pass rejects before the bodies that ignore
+ * its signal return) awaited until the shutdown timeout's end, and only then `onDestroy`; a tree's
+ * lease waits for its own bodies the same way. A later `close({ timeout })` with a shorter timeout
+ * interrupts sooner; the bodies get until the latest end a `close` set.
  */
 
 /** What the stop of one instance works on. */
@@ -29,6 +33,8 @@ export interface GracefulStopParts {
   readonly interruption: AbortController;
   /** `@Application({ shutdownTimeout })` or the default. */
   readonly shutdownTimeout: Milliseconds;
+  /** The instance's running step bodies at its stop (#367): the stop's end, the wait for them. */
+  readonly steps: StepsAtStop;
 }
 
 export interface GracefulStop {
@@ -44,8 +50,24 @@ const interruptionOf = (timeout: Milliseconds): ApplicationStoppingError =>
     `the app is stopping and its shutdown timeout (${String(timeout)} ms) passed: the execution is interrupted — it stays running and another instance continues it`,
   );
 
+/**
+ * Until the sweep and the executions ended, then the bodies their passes left running (#367) up to
+ * the stop's end — what comes before any `onDestroy`; a body still running then is logged.
+ */
+async function executionsEnded(
+  parts: GracefulStopParts,
+  swept: Promise<void>,
+  ended: AbortController,
+): Promise<void> {
+  await Promise.all([swept, ...parts.workflows.map((workflow) => workflow.settled())]);
+  ended.abort();
+  await parts.steps.settled();
+}
+
 export function gracefulStopOf(parts: GracefulStopParts): GracefulStop {
   const { workflows, clock } = parts;
+  /** Aborted at the end of the shutdown timeout: the running step bodies are awaited until then. */
+  const deadline = parts.steps;
   /** Aborted once the executions ended: the timers waiting to interrupt them are not needed. */
   const ended = new AbortController();
   let closing: Promise<void> | undefined;
@@ -71,15 +93,13 @@ export function gracefulStopOf(parts: GracefulStopParts): GracefulStop {
     });
   };
   const stop = async (): Promise<void> => {
-    for (const workflow of workflows) workflow.refuse();
+    for (const workflow of workflows) workflow.refuse(deadline.signal);
     const swept = parts.sweep.stop();
     try {
-      await stopComponents(parts.created, async () => {
-        await Promise.all([swept, ...workflows.map((workflow) => workflow.settled())]);
-        ended.abort();
-      });
+      await stopComponents(parts.created, () => executionsEnded(parts, swept, ended));
     } finally {
       ended.abort();
+      deadline.release();
       for (const workflow of workflows) await workflow.app.close();
       markClosed();
     }
@@ -88,8 +108,10 @@ export function gracefulStopOf(parts: GracefulStopParts): GracefulStop {
     closed,
     isStopping: () => closing !== undefined,
     close: (options = {}) => {
+      const timeout = options.timeout ?? parts.shutdownTimeout;
+      deadline.extendTo(timeout);
       closing ??= stop();
-      arm(options.timeout ?? parts.shutdownTimeout);
+      arm(timeout);
       return closing;
     },
   };
@@ -102,6 +124,8 @@ export interface InstanceParts {
   readonly log: FrameworkLog;
   /** The instance's step slots (#332): its sweep recovers only into free ones. */
   readonly stepSlots?: StepCapacity | undefined;
+  /** The instance's running step bodies at its stop (#367). */
+  readonly stepsAtStop: StepsAtStop;
 }
 
 /** The instance's recovery sweep and graceful stop. */
@@ -136,6 +160,7 @@ export function stopOf(
     clock,
     interruption,
     shutdownTimeout,
+    steps: parts.stepsAtStop,
   });
   return { stop, sweep };
 }

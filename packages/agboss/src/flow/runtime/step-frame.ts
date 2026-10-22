@@ -22,6 +22,7 @@ import type { ExecutionStateType } from "./state.js";
 import type { ComponentRecord } from "./records.js";
 import { componentKindOf } from "./join-keys.js";
 import { recordOfComponent } from "./workflow-keys.js";
+import { inStepEntry } from "./step-entries.js";
 
 /** The workflow an execution runs, as the runtime knows it before the execution starts. */
 export type WorkflowIdentity = Omit<WorkflowDescriptor, "startedVersion">;
@@ -147,15 +148,13 @@ function closesBranch(graph: RuntimeGraph, state: ExecutionStateType): boolean {
   return previous !== undefined && graph.nodes.get(previous)?.kind === NodeKind.Workflow;
 }
 
-/** Where a step takes its tree slot. */
-export interface TreeSlotSite {
+/** Where a step takes its tree slot: its frame (its running body's entry, #367) and its place. */
+export interface TreeSlotSite extends FrameSpec {
   readonly slots: TreeSlotRegistry | undefined;
   readonly graph: RuntimeGraph;
   readonly node: RuntimeNode;
   readonly state: ExecutionStateType;
   readonly config: RunnableConfig | undefined;
-  /** The step's execution: its frame's. */
-  readonly execution: ExecutionFacts;
   /** A quorum's deadline, told when the step waits (#279). */
   readonly watch?: QueueWatch;
 }
@@ -218,10 +217,13 @@ export async function inTreeSlot<TResult>(
   site: TreeSlotSite,
   work: () => Promise<TResult>,
 ): Promise<TResult> {
-  if (site.slots === undefined || !takesSlot(site.node)) return work();
+  if (!takesSlot(site.node)) return work();
+  // the step's work is an entry of the instance's running steps until its body returned (#367)
+  const body = (): Promise<TResult> => inStepEntry(site.slots?.steps, site, work);
+  if (site.slots === undefined) return body();
   const hold = await takeSlots(site, site.slots);
   try {
-    return await work();
+    return await body();
   } finally {
     hold.release();
   }
