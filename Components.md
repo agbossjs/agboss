@@ -161,7 +161,8 @@ export class SearchOrders implements ToolHandler<OrderQuery, OrderStatus> {
 Data shapes — tool inputs and outputs, server tools, the inputs and outputs of flow nodes — are
 **classes with one field decorator per field**, imported from `agboss/dto`. A DTO on a path (a
 node's `input` / `output`, `.returns(…)`, `caseOf(…)`) ends with `Dto` (`[dto.name]`) and its class
-name is unique in the application (`[dto.duplicate-name]`); on paths they are wrapped as
+name is unique (`[dto.duplicate-name]`: in its workflow at assembly, across the project's workflows
+for the generated types of `agboss check`, #371); on paths they are wrapped as
 `listOf(Dto)`, `oneOf(A, B)`, `optional(Dto)` (input only), `historyOf(Dto, { limit })` (input
 only: the current value and its earlier versions, [Path scope](Path-scope)) and
 `variant(Dto, value)` (an action returning one class of its `oneOf`). zod stays inside the framework.

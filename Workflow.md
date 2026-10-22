@@ -418,7 +418,12 @@ is `QuorumNotReachedError` into `.onJoinError(…)` — [Parallel → At run tim
 `agboss check` (on the application of `package.json`, #268) loads the workflows (transpile-only, a stale file
 never blocks it) and writes `.agboss/types.d.ts`: the tables that type `.returns(…)` against each
 component's `output`, `InputOf<X>` / `OutputOf<X>` of every node, and `app.execute(Start, input)` /
-`result.output`. A class the types need must be exported (`[types.unexported-class]`); without the
+`result.output`. A class the types need must be exported (`[types.unexported-class]`), and a DTO class
+name means one class across the project's workflows — the tables key DTOs by name, so two
+`FlightBookingDto` classes in two workflows are `[dto.duplicate-name]`, naming both files (#371;
+`createApp` checks DTO names per workflow, where they key the checkpoint's slots). When the file is
+not written — either of those, or a write that fails (`[types.not-written]`) — `agboss check` reports
+why and exits 3, never `ok`. Without the
 file, `tsc` names the fix (`Missing generated types — run agboss check`). The file is git-ignored;
 a generated project writes it on install (`npm run types`) and `agboss generate` refreshes it.
 

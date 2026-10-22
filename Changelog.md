@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — a DTO name clash fails agboss check (#371)
+
+- **Fixed — `agboss check` printed `ok` without writing `.agboss/types.d.ts`** ([Workflow](Workflow#generated-types),
+  [CLI](CLI)): two DTO classes of one name in two workflows (seen by no single workflow's rules)
+  failed type generation silently. Now `[dto.duplicate-name]` names both files, in the printed
+  problems and in `--json`, exit 3; any error that kept the file from being written is reported, and
+  a failed write is `[types.not-written]` (a CLI problem, not a `RuleCode`). `createApp` / `testWith`
+  are unchanged: they check DTO names per workflow.
+
 ## Unreleased — the shutdown grace (#367 PR 2)
 
 - **Changed — `app.close()` / SIGTERM** interrupts the running executions a grace before the end
