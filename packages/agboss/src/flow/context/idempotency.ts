@@ -18,3 +18,11 @@ export function idempotencyKeyOf(parts: IdempotencyKeyParts): string {
   const call = callId === undefined ? "" : `:${callId}`;
   return `${executionId}:${nodeId}:${String(visitNumber)}${item}${call}`;
 }
+
+/**
+ * The key of an automatic undo (#340 Q9): the compensated step's key + `:compensation` — a second
+ * run of the same undo (a retry, a recovery) carries the same key, so the external service
+ * recognises it. An undo action on a side path keeps its own visit's key.
+ */
+export const compensationKeyOf = (compensatedKey: string): string =>
+  `${compensatedKey}:compensation`;

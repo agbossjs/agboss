@@ -1,3 +1,4 @@
+import type { CompensationRecord } from "../compensation.js";
 import type { ErrorRecord } from "../../core/error-record.js";
 import type { CostReport } from "../../finops/usage.js";
 import type { OutdatedValueRecord, ScopeValueRecord } from "./records.js";
@@ -27,6 +28,8 @@ export interface ExecutionRecord {
    * trail of who answered what. A pause still pending is in `result.pending` only.
    */
   readonly pauses: readonly PauseAnswerRecord[];
+  /** The undo actions that ran (#340), in the order they ended (`result.compensations`). */
+  readonly compensations: readonly CompensationRecord[];
 }
 
 /** One resolved pause as the execution record keeps it (#267 S107), masked like the rest of it. */

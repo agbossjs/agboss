@@ -19,7 +19,7 @@ import { currentOutputOf } from "./current-output.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import { isHandedOver } from "./handed-over.js";
 import { cancelledErrorOf } from "./live-runs.js";
-import { forgetTree, leasedDeps, treeOf } from "./tree-ends.js";
+import { forgetTree, leasedDeps, passEnded, treeOf } from "./tree-ends.js";
 import type { RecordedAnswer } from "./resume.js";
 import { announceResume, markTaken, treeResumeNow } from "./tree-resume.js";
 import { maskedRecordOf, runResultOf, withPauseAnswers } from "./result.js";
@@ -205,7 +205,7 @@ class TreeMover implements TreeMoves {
       if (!isHandedOver(error)) await this.forget(state);
       throw error;
     } finally {
-      await live.stepsClosed(treeOf(state), deps.stepEntries);
+      await passEnded(live, deps, state);
       await lease.release();
     }
   }

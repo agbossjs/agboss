@@ -1,3 +1,4 @@
+import { compensationRecordsOf } from "../flow/compensation.js";
 import { withChildPauses } from "../flow/runtime/child-records.js";
 import type { ExecutionRecord, PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import type { AgentExecutionDeps } from "../run/types.js";
@@ -24,6 +25,7 @@ const recordOf = (run: AgentExecutionOutput): ExecutionRecord => ({
   spend: run.cost,
   children: withChildPauses(run.data.children ?? [], []),
   pauses: [],
+  compensations: compensationRecordsOf(run.data.compensations),
 });
 
 /**
@@ -45,6 +47,7 @@ export function runResultOf(
     launches: run.data.launches ?? [],
     children: withChildPauses(run.data.children ?? [], []),
     handledErrors: run.data.handledErrors ?? [],
+    compensations: compensationRecordsOf(run.data.compensations),
     ...(run.finish === undefined ? {} : { finish: finishOf(run.finish), output: run.output }),
     pending: run.pending.map(visiblePauseOf),
     ...(run.compacted === undefined ? {} : { compacted: run.compacted }),

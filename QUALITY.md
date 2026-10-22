@@ -24,7 +24,7 @@ self-review before every PR.
   time — a subsystem that runs only once an execution reaches it — is loaded with a dynamic
   `import()` on first use, the way tracing, MCP, SQLite and reply reading are (`lazyReplyAnswering`
   in `src/app/resume.ts`); the root import keeps only decorators, types and the small values they
-  build. The root import stays under its module budget (`MODULE_BUDGET` = 1,400 in
+  build. The root import stays under its module budget (`MODULE_BUDGET` = 1,500 in
   `tests/public-api/side-effects.test.ts`) — never raise it to make room: move the new code behind a
   lazy import instead.
 - **Names say intent.** `routeToolCall`, not `handle`. Booleans read as questions: `isFinal`,

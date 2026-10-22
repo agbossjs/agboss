@@ -3,6 +3,10 @@ import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 import type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
 import type {
+  CompensationEndEvent,
+  CompensationStartEvent,
+} from "../flow/observers/compensation-events.js";
+import type {
   ActionEndEvent,
   ActionStartEvent,
   AgentEndEvent,
@@ -148,6 +152,20 @@ export interface OnQuorumDecided {
   onQuorumDecided(event: QuorumDecidedEvent): HookResult;
 }
 
+/**
+ * An automatic undo action starts (#340): a failed join undoing its finished branches — once per
+ * undo action, newest first, before `.onJoinError`.
+ */
+export interface OnCompensationStart {
+  /** Called before each automatic undo action runs, in its frame. */
+  onCompensationStart(event: CompensationStartEvent): HookResult;
+}
+/** An automatic undo action ended: `status` `Compensated` or `Failed` (with its `error`). */
+export interface OnCompensationEnd {
+  /** Called after each automatic undo action, whether it returned or threw. */
+  onCompensationEnd(event: CompensationEndEvent): HookResult;
+}
+
 /** Every hook, all optional: the type of an observer instance. */
 export type ExecutionObserver = Partial<
   OnExecutionStart &
@@ -176,7 +194,9 @@ export type ExecutionObserver = Partial<
     OnJudgeEnd &
     OnValuesOutdated &
     OnLaunchItemsTruncated &
-    OnQuorumDecided
+    OnQuorumDecided &
+    OnCompensationStart &
+    OnCompensationEnd
 >;
 
 /** The name of a hook, e.g. `"onToolEnd"`. */
@@ -214,6 +234,8 @@ const HOOKS: Readonly<Record<ObserverHook, true>> = {
   onValuesOutdated: true,
   onLaunchItemsTruncated: true,
   onQuorumDecided: true,
+  onCompensationStart: true,
+  onCompensationEnd: true,
 };
 
 export const OBSERVER_HOOKS: readonly ObserverHook[] = Object.keys(HOOKS).filter(

@@ -8,6 +8,7 @@ import { GraphRuleError, type RuleViolation } from "../graph/rule-error.js";
 import { containerProvidersOf } from "../models/resolution.js";
 import { withProfile } from "../profile-workflow.js";
 import { hours, seconds, type Milliseconds } from "../units/index.js";
+import { COMPENSATION_TIMEOUT } from "../flow/compensation.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { requireApplication, type ApplicationOptions } from "./application.js";
 import { applicationRuleViolations } from "./application-rules.js";
@@ -53,6 +54,8 @@ export interface AssembledApplication {
   readonly shutdownTimeout: Milliseconds;
   /** How long a resolved pause record is kept (`@Application({ pauseRecordRetention })`, #267 S107). */
   readonly pauseRecordRetention: Milliseconds;
+  /** Each automatic undo action's bound (`@Application({ compensationTimeout })`, #340). */
+  readonly compensationTimeout: Milliseconds;
   /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
   readonly maxConcurrentSteps?: number;
   /** The context classes it declares (#261), else the built-in ones. */
@@ -195,6 +198,7 @@ export async function applicationOf(
     workflows: assembled,
     shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
     pauseRecordRetention: options.pauseRecordRetention ?? PAUSE_RECORD_RETENTION,
+    compensationTimeout: options.compensationTimeout ?? COMPENSATION_TIMEOUT,
     ...(options.maxConcurrentSteps === undefined
       ? {}
       : { maxConcurrentSteps: options.maxConcurrentSteps }),

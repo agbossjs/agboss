@@ -153,7 +153,11 @@ export const elementProducerOf = (record: ScopeValueRecord, index: number): stri
   record.elementProducers?.[index] ?? record.producer;
 
 /** Reads a node's fields from the scope; an absent `optional` field is `undefined`. */
-export function readInput(graph: RuntimeGraph, node: RuntimeNode, view: ScopeView): ReadInput {
+export function readInput(
+  graph: RuntimeGraph,
+  node: Pick<RuntimeNode, "fields">,
+  view: ScopeView,
+): ReadInput {
   const fields: Record<string, unknown> = {};
   const read: string[] = [];
   for (const field of node.fields) {

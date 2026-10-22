@@ -10,6 +10,7 @@ import { joinEntries } from "./joins.js";
 import { isThisWorkflow } from "../this-workflow.js";
 import { thisWorkflowEntries } from "./this-workflow.js";
 import { outputText, startInputText, startOutputText, valueText } from "./shapes.js";
+import { offPathUndoActions } from "./undo-actions.js";
 
 /**
  * The tables of `.agboss/types.d.ts` (#270 → Generated types), keyed by component `name` (S3):
@@ -194,6 +195,13 @@ export function tablesOf(workflows: readonly AnalysedWorkflow[], names: ImportTa
     const entry = isChild ? childInputEntry(input, names) : inputEntry(input, names, componentOf);
     tables.inputs.set(node.name, entry.type);
     if (entry.note !== undefined) tables.notes.push(entry.note);
+  }
+  // the undo actions only the framework runs (#340): typed from their declared fields
+  const nodeNames = new Set<string>(nodes.keys());
+  for (const undo of offPathUndoActions(workflows, names, (name) => nodeNames.has(name))) {
+    tables.inputs.set(undo.name, undo.input);
+    tables.outputs.set(undo.name, undo.output);
+    tables.producerOutputs.set(undo.name, undo.output);
   }
   return {
     ...tables,

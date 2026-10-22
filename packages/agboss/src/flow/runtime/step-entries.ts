@@ -107,6 +107,20 @@ export class StepEntries {
     return this.#closed(() => [...(this.#trees.get(keyOf(tree)) ?? [])], until);
   }
 
+  /**
+   * `closedOf` for the tree's bodies `matches` keeps: a failed join's unwind awaits only its own
+   * launch's branches (#340 Q-A), never its tree's other work.
+   */
+  closedWhere(
+    tree: ExecutionTree,
+    matches: (entry: StepEntry) => boolean,
+    until: AbortSignal,
+  ): Promise<readonly StepEntry[]> {
+    const openNow = (): readonly OpenEntry[] =>
+      [...(this.#trees.get(keyOf(tree)) ?? [])].filter((open) => matches(open.entry));
+    return this.#closed(openNow, until);
+  }
+
   /** `closedOf` for every tree of the instance (its graceful stop before `onDestroy`). */
   allClosed(until: AbortSignal): Promise<readonly StepEntry[]> {
     return this.#closed(() => [...this.#trees.values()].flatMap((tree) => [...tree]), until);

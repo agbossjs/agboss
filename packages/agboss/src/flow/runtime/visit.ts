@@ -1,14 +1,21 @@
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { errorRecordOf } from "../../core/error-record.js";
 import { extractRunContext } from "../../core/run-context.js";
-import type { UsageRecord } from "../../finops/usage.js";
-import { PaidStepError } from "../../graph/errors.js";
-import { LimitExceededError } from "../../graph/limits.js";
 import type { FlowEdge } from "../analyse/flow-graph.js";
 import { runInFrame } from "../context/frame.js";
 import { errorHandlerOf, type RuntimeNode } from "./graph-model.js";
-import { checkVisit, countedServiceSpend, isWorkingNode, type ExecutionLimits } from "./limits.js";
-import { recordsOf, type GraphNode, type NodeOutcome, type NodeRunner } from "./node-runner.js";
+import { checkVisit, isWorkingNode, type ExecutionLimits } from "./limits.js";
+import {
+  recordsOf,
+  reportingOf,
+  unrecordedSpendOf,
+  type Reported,
+  type GraphNode,
+  type NodeOutcome,
+  type NodeRunner,
+} from "./node-runner.js";
+import { compensationsOfVisit } from "../compensation.js";
+import type { CompensationParts } from "./compensation/registry.js";
 import { OutputInvalidError } from "./errors.js";
 import { RouterDecisionError } from "./router-error.js";
 import { handedOverReason } from "../../app/handed-over.js";
@@ -31,8 +38,6 @@ import type { LaunchTicket } from "./launch/records.js";
 import type { RuntimeLaunch } from "./launch/runtime-launch.js";
 import { readInput } from "./scope.js";
 import { handledErrorOf, recordOfNode } from "./workflow-keys.js";
-import type { PiiTokenMap } from "../../pii/tokens.js";
-import type { EndedChildRecord } from "./child-records.js";
 import type { TreeSlotRegistry } from "./launch/launch-registry.js";
 
 /**
@@ -53,6 +58,8 @@ export interface VisitDeps extends StepFrameDeps {
   readonly observer?: ExecutionObserverManager;
   /** The trees' concurrency caps of this pass (#264): every step takes a slot of its tree. */
   readonly slots?: TreeSlotRegistry;
+  /** The instance's undo bound and registry (#340); absent = the default bound, no registry. */
+  readonly compensation?: CompensationParts | undefined;
 }
 
 /** The edge a visit leaves by; `undefined` at a finish (the execution ends). */
@@ -81,10 +88,6 @@ function exitOf(
   }
   return exits.next;
 }
-
-/** Spend a failure carries that the execution's state does not hold yet. */
-export const unrecordedSpendOf = (error: unknown): readonly UsageRecord[] =>
-  error instanceof PaidStepError || error instanceof LimitExceededError ? error.usage : [];
 
 function visited(node: RuntimeNode, isStep: boolean): ExecutionStateUpdate {
   return { path: [node.id], visits: { [node.id]: 1 }, steps: isStep ? 1 : 0 };
@@ -147,14 +150,6 @@ function succeeded(
   return { update, write, ...(launched === undefined ? {} : { launched }) };
 }
 
-/** What a visit's code reported besides its outcome: services' spend, ended child executions. */
-interface Reported {
-  readonly usage: UsageRecord[];
-  readonly children: EndedChildRecord[];
-  /** A failed child's PII tokens (#120): kept with its error. */
-  piiTokens: PiiTokenMap;
-}
-
 /** A failure the node's `.onError` takes: kept as a record, the side path next; else rethrown. */
 function caught(
   deps: VisitDeps,
@@ -191,23 +186,16 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
     let ranAsStep = false;
     const kept = { startedVersion: startedVersionOf(state, deps.workflow) };
     // what the step's code paid services through `SpendRecorder` (#280 S43), its children (#263)
-    const reported: Reported = { usage: [], children: [], piiTokens: {} };
-    const services = {
-      reportUsage: (record: UsageRecord): void => {
-        reported.usage.push(countedServiceSpend(deps.limits, node, state.path, record));
-      },
-      recordChild: (record: EndedChildRecord): void => {
-        reported.children.push(record);
-      },
-      keepPiiTokens: (tokens: PiiTokenMap): void => {
-        reported.piiTokens = { ...reported.piiTokens, ...tokens };
-      },
+    const { reported, services } = reportingOf(deps.limits, node, state.path);
+    const frame = {
+      ...stepFrameOf(node, state, config, deps),
+      services: { ...services, input: () => readInput(deps.graph, node, state).fields },
     };
+    const { clock } = extractRunContext(config, state.runId);
+    // an undoable action, its committer, its undo or a finish (#340): what it writes of them
+    const undoables = { node, entries: state.compensations, frame, startedAt: clock.now() };
+    const parts = { parts: deps.compensation };
     try {
-      const frame = {
-        ...stepFrameOf(node, state, config, deps),
-        services: { ...services, input: () => readInput(deps.graph, node, state).fields },
-      };
       const slot = { slots: deps.slots, graph: deps.graph, node, state, config, ...frame };
       // a slot of the tree first (#264), then the limits: the counters as they are when it works
       const outcome = await inTreeSlot(slot, async () => {
@@ -218,10 +206,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
         return runInFrame(frame, () => runner(state, config));
       });
       const spent = { ...outcome, usage: [...(outcome.usage ?? []), ...reported.usage] };
-      const at = {
-        executionId: frame.execution.executionId,
-        now: extractRunContext(config, state.runId).clock.now(),
-      };
+      const at = { executionId: frame.execution.executionId, now: clock.now() };
       const { update, write, launched } = succeeded(node, state, spent, deps, at);
       const outdatedSoFar = [...state.outdatedValues, ...write.outdated];
       const site = { observer: deps.observer, config, ...frame, outdatedSoFar };
@@ -230,9 +215,17 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
         const reportSite = { observer: deps.observer, config, frame };
         await reportTruncation(reportSite, launched.ticket, launched.launch.launch.maxItems);
       }
-      return { ...update, children: [...reported.children], ...kept };
+      const after = { ...undoables, ...parts, scope: write.scope ?? state.scope, endedAt: at.now };
+      const compensations = await compensationsOfVisit(after);
+      return { ...update, children: [...reported.children], ...compensations, ...kept };
     } catch (error) {
-      return { ...caught(deps, node, error, ranAsStep, reported, config?.signal), ...kept };
+      const handled = caught(deps, node, error, ranAsStep, reported, config?.signal);
+      const failed = { ...undoables, ...parts, scope: state.scope, endedAt: clock.now() };
+      return {
+        ...handled,
+        ...(await compensationsOfVisit({ ...failed, failure: error })),
+        ...kept,
+      };
     }
   };
 }

@@ -76,3 +76,17 @@ describe("#339 AC4: describe shows declared compensation", () => {
     expect(nodes.find((node) => node.name === "confirm-trip-action")).not.toHaveProperty("action");
   });
 });
+
+describe("#340: a launched action's undo is automatic on a failed join", () => {
+  it("the text says so after its compensateWith", async () => {
+    const { UndoApplication } = await import("../flow/runtime/fixtures/undo.workflow.js");
+    const lines = describeApplication(await applicationOf(UndoApplication));
+
+    expect(lines).toContain(
+      "  reserve-room-action  compensateWith release-room-action  (on a failed join: automatic)",
+    );
+    expect(lines).toContain(
+      "  hold-seat-action  compensateWith release-seat-action · committedBy confirm-seat-action",
+    );
+  });
+});

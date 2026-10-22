@@ -61,6 +61,11 @@ export interface StepRecord {
    * sent back to its model for another try; `0` outside an agent's loop.
    */
   readonly validationAttempts: number;
+  /**
+   * During an automatic undo (#340): the step its undo action undoes — its key is this step's
+   * `idempotencyKey` + `:compensation`; `undefined` everywhere else (an undo on a side path too).
+   */
+  readonly compensates?: StepRecord;
 }
 
 /** One visit of a node: different in each parallel branch and in each tool call. */

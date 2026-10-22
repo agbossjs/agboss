@@ -3,6 +3,7 @@ import { handedOverReason } from "../../../app/handed-over.js";
 import { ExecutionCancelledError } from "../../../core/errors.js";
 import { extractRunContext } from "../../../core/run-context.js";
 import { StepFailedError } from "../../../graph/errors.js";
+import { LimitExceededError } from "../../../graph/limits.js";
 import { FailurePolicy } from "../../decorators/router.js";
 import type { LiveLaunch } from "./launch-registry.js";
 import { ArbiterError } from "./quorum-errors.js";
@@ -107,3 +108,12 @@ export class BranchErrors {
     }
   }
 }
+
+/**
+ * What a branch failed with (#338): stopped by an exhausted budget, the `BudgetExceededError` that
+ * aborted its calls — whatever error the abort surfaced as —; else (its own limit too) its error.
+ */
+export const failureOfBranch = (budgetStop: AbortSignal | undefined, error: unknown): unknown =>
+  budgetStop?.aborted === true && !(error instanceof LimitExceededError)
+    ? (budgetStop.reason as unknown)
+    : error;

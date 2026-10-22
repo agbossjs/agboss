@@ -36,11 +36,19 @@ const compensationLabel = (snapshot: ActionSnapshot): string =>
     ...(snapshot.committedBy === undefined ? [] : [`committedBy ${snapshot.committedBy}`]),
   ].join(" · ");
 
+/** A launched action's undo runs by itself when its join fails (#340): no path can say it. */
+const automaticLabel = (bundle: AssembledWorkflow, node: RuntimeNode, snapshot: ActionSnapshot) =>
+  snapshot.compensateWith !== undefined && bundle.graph.branchNodes.has(node.id)
+    ? "  (on a failed join: automatic)"
+    : "";
+
 /** The `actions` section: every action that declares compensation; none → no section. */
 export function compensationLines(bundle: AssembledWorkflow): string[] {
   const lines = [...bundle.graph.nodes.values()].flatMap((node) => {
     const snapshot = actionSnapshotOf(node);
-    return snapshot === undefined ? [] : [`  ${node.id}  ${compensationLabel(snapshot)}`];
+    if (snapshot === undefined) return [];
+    const automatic = automaticLabel(bundle, node, snapshot);
+    return [`  ${node.id}  ${compensationLabel(snapshot)}${automatic}`];
   });
   return lines.length === 0 ? [] : ["actions", ...lines];
 }

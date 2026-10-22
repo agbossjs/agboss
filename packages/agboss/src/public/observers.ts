@@ -6,3 +6,7 @@ export type { ExecutionEvent, NodeEvent } from "../flow/observers/execution-even
 export type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 export type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 export type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
+export type {
+  CompensationEndEvent,
+  CompensationStartEvent,
+} from "../flow/observers/compensation-events.js";

@@ -2,6 +2,10 @@ import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 import type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
 import type {
+  CompensationEndEvent,
+  CompensationStartEvent,
+} from "../flow/observers/compensation-events.js";
+import type {
   ActionEndEvent,
   ActionStartEvent,
   AgentEndEvent,
@@ -154,5 +158,11 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   }
   onQuorumDecided(event: QuorumDecidedEvent): Promise<void> {
     return this.each("onQuorumDecided", event, (o, e) => o.onQuorumDecided?.(e));
+  }
+  onCompensationStart(event: CompensationStartEvent): Promise<void> {
+    return this.each("onCompensationStart", event, (o, e) => o.onCompensationStart?.(e));
+  }
+  onCompensationEnd(event: CompensationEndEvent): Promise<void> {
+    return this.each("onCompensationEnd", event, (o, e) => o.onCompensationEnd?.(e));
   }
 }

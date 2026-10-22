@@ -99,6 +99,7 @@ export async function finishRun<TName extends string>(
       launches: state.launches,
       children: state.children,
       handledErrors: state.handledErrors,
+      compensations: state.compensations,
     },
     ...(paused || state.finish === "" ? {} : { finish: state.finish, output: state.output }),
     pending,

@@ -52,6 +52,7 @@ export { CompactionError } from "./compaction/errors.js";
 export { PiiDetectionFailedError } from "./pii/detectors/model.js";
 export { ChildExecutionFailedError } from "./flow/runtime/child-errors.js";
 export { DepthLimitExceededError } from "./flow/runtime/depth-limit.js";
+export { CompensationFailedError } from "./flow/compensation.js";
 export { ExecutionContextUnavailableError } from "./flow/context/errors.js";
 export { SpendOutsideStepError } from "./components/spend-recorder.js";
 export { ModelCallError, type ModelCallErrorCode } from "./models/circuit-breaker.js";

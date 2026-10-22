@@ -1,3 +1,4 @@
+import type { CompensationEntry } from "../flow/compensation.js";
 import type { LaunchRecord } from "../flow/runtime/launch/records.js";
 import type { EndedChildRecord, HandledErrorRecord } from "../flow/runtime/child-records.js";
 import type { ExecutionStatus } from "../app/types.js";
@@ -61,6 +62,8 @@ export interface ExecutionData {
   readonly children?: readonly EndedChildRecord[];
   /** The failures its side paths took (#263); absent in a run stored before them. */
   readonly handledErrors?: readonly HandledErrorRecord[];
+  /** Its undoable actions (#340); absent in a run stored before them. */
+  readonly compensations?: readonly CompensationEntry[];
 }
 
 /** How one execution (or its resume) ended for the app. Failures are thrown, not returned. */

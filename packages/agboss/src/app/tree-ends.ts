@@ -1,5 +1,6 @@
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { AppDeps } from "./app-deps.js";
+import type { LiveRuns } from "./live-runs.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import { LeasedCheckpointSaver } from "./leased-checkpointer.js";
 import { withdrawPauses } from "./paused-runs.js";
@@ -35,4 +36,17 @@ export async function forgetTree(parts: TreeEndParts, state: TreeState): Promise
   parts.deps.branchErrors?.forgetExecution(state.runId);
   const { pause } = parts.deps;
   if (pause !== undefined) await withdrawPauses(pause, treeOf(state), parts.clock.now());
+}
+
+/**
+ * A pass of the tree ended (#367, #340): its step bodies still running awaited (while the instance
+ * stops), and its undoable actions' in-process mirror forgotten — they live on in its checkpoint.
+ */
+export async function passEnded(
+  live: Pick<LiveRuns, "stepsClosed">,
+  deps: Pick<AppDeps, "stepEntries" | "compensation">,
+  state: TreeState,
+): Promise<void> {
+  await live.stepsClosed(treeOf(state), deps.stepEntries);
+  deps.compensation?.registry.forget(treeOf(state));
 }

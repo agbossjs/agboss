@@ -170,3 +170,8 @@ export {
   type EndedChildRecord,
   type HandledErrorRecord,
 } from "../flow/runtime/child-records.js";
+export {
+  CompensationReason,
+  CompensationStatus,
+  type CompensationRecord,
+} from "../flow/compensation.js";
