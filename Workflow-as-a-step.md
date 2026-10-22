@@ -404,6 +404,12 @@ compiled graph, never its own subgraph ([Recursion](#recursion-264)).
 `children`. `result.spend` holds the whole tree's. `result.handledErrors` lists the failures a side
 path took (`error`, `at`, `by`).
 
+**A child is the unit of work for its undo (#340 Q2).** A child's undoable actions
+(`@Action({ compensateWith })`) are its own records: its finish commits them — a parent's later
+failure, or its join's, never undoes a finished child. A child that ends without a finish undoes
+its own open actions before its error reaches the parent (#340 PR 3);
+[Rollback](Rollback#records-what-is-open-committed-undone-340).
+
 **The application's rules.** A child need not be listed in `@Application({ workflows })`: the
 workflows are collected transitively, and an unlisted child goes through every rule a listed one
 does — names (`[name.kind-suffix]`, `[graph.duplicate-node-name]`), its models

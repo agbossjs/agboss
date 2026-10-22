@@ -527,10 +527,35 @@ One component of the real app on its own:
 | `toHaveBeenAskedWith({ input?, system?, … })`      | `mockLlm(X)`             | some request has these parts (strings as substrings) |
 | `toHaveChildExecutions(W, [{ item, finish \| failedWith \| cancelled }, …])` | a run result | the executions of child workflow `W` in the result's tree, in item order, are exactly these (#263) |
 | `toHaveHandledError(E, { at?, by? })`             | a run result             | an error of `E` (or caused by one) happened at `at` and the side path starting at `by` took it (#263) |
+| `toHaveCompensated(Action, { by, reason?, status? })` | a run result         | a step of `Action` was undone by the undo action `by` — for `reason` (`CompensationReason.SidePath`, `JoinFailed`), ending `status` (default `CompensationStatus.Compensated`) — read from `result.compensations` (#340) |
 
 Failure messages name the classes: `expected the path ChatStart → MainRouter → Support, it was …`.
 The call matchers keep Vitest's names; on anything that is not a script — a `vi.fn()`, a
 `mockOf(…)` method — they are Vitest's own. `mockLlm(X).inputs` lists X's input of every call.
+
+### Asserting an undo
+
+`result.compensations` lists every undo action that ran, in the order they ended (`[]` when none
+did); `toHaveCompensated` reads it. An automatic undo's key is the undone step's key +
+`:compensation`, so a mocked service sees it ([Rollback](Rollback#a-failed-join-undoes-its-finished-branches));
+its clean-up signal is bounded by `compensationTimeout` on the test's clock —
+`await clock.advance(seconds(15))` aborts one still running.
+
+<!-- snippet-context
+import { expect } from "vitest";
+import { CompensationReason, CompensationStatus, type ExecutionOutput } from "agboss";
+declare class BookFlightAction {}
+declare class CancelFlightAction {}
+declare const result: ExecutionOutput;
+-->
+
+```ts
+expect(result).toHaveCompensated(BookFlightAction, {
+  by: CancelFlightAction,
+  reason: CompensationReason.JoinFailed, // the hotel failed: the finished flight was cancelled
+});
+expect(result.compensations.map((record) => record.status)).toEqual([CompensationStatus.Compensated]);
+```
 
 ### Errors, caused the real way
 

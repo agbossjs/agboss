@@ -11,6 +11,12 @@ count and — with groups — which combination wins and where the execution goe
 > `QuorumNotReachedError`, `ArbiterError`, traces and `onQuorumDecided`, `agboss generate arbiter`).
 > A runnable example: `examples/flow-patterns/src/panel`.
 
+> **A failed join's undo (#340).** When a launch fails, the join first undoes its finished
+> branches that declare `@Action({ compensateWith })`, newest first, before `.onJoinError` runs or
+> the branch's error fails the execution (`CompensationReason.JoinFailed`) — the join's values never
+> reach the side path, so no path could undo them. Quorums launch agents only: nothing of theirs is
+> undone. [Rollback → A failed join undoes its finished branches](Rollback#a-failed-join-undoes-its-finished-branches).
+
 ## Writing it
 
 <!-- snippet-context

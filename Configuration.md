@@ -178,6 +178,8 @@ executions of a tree — the root and its child workflows — work at once; the 
 action steps of one application instance work at once, over every tree and tenant; the rest wait
 in its queue, a full instance is `Degraded` in readiness and leaves orphaned executions to the others
 ([Several instances → An instance's cap on steps](Several-instances#an-instances-cap-on-steps-332)).
+`@Application({ compensationTimeout })` (#340, default `seconds(15)`) bounds each automatic undo
+action: its clean-up signal aborts after it ([Rollback](Rollback#a-failed-join-undoes-its-finished-branches)).
 Details: [FinOps](FinOps).
 
 ## `mcp` — `@McpServer` classes

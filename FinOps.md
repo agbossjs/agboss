@@ -293,6 +293,11 @@ BudgetExceededError {
 }
 ```
 
+- **An automatic undo is never refused** (#340): the undo actions a failed join runs for its
+  finished branches ([Rollback](Rollback#a-failed-join-undoes-its-finished-branches)) take no
+  budget check, so an exhausted budget never leaves a booking in place; what their services cost
+  (`SpendRecorder`) is the execution's spend under `action:<undo name>`, in the join's update.
+
 ### The ledger
 
 The application's `CostLedgerRepository` (#261 S28) keeps one counter per budget, scope key and

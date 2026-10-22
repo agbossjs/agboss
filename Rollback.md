@@ -6,8 +6,8 @@ when a later step fails. The undo is an ordinary `@Action`, and the action that 
 [ADR-0020](ADR-0020-Declared-compensation)). Where a path can say what happens after a failure —
 an `.onError(ErrorClass, <side path>)` right after the step that throws, or a join's
 `.onJoinError(…)` — the side path runs the undo actions itself, newest first, and `agboss check`
-proves it does. Where no path can say it — a cancel, an uncaught failure or limit, a failed join's
-finished branches — the framework will run them (#340).
+proves it does. Where no path can say it, the framework runs them itself: a failed join's finished
+branches (#340 PR 2, below); a cancel, an uncaught failure or limit (#340 PR 3).
 
 <!--
 ```ts file=order.components.ts
@@ -180,6 +180,143 @@ actions
 `examples/flow-patterns/src/hiring/` sends an offer this way: two undoable steps, both
 `committedBy: ConfirmOfferAction`, and a letter whose failure undoes them.
 
+## Records: what is open, committed, undone (#340)
+
+At run time every undoable action that succeeds opens a record in the execution's state (the
+`compensations` channel, checkpointed with it, and mirrored in process at once): its step and key,
+its undo action, its committer, and a snapshot of what its undo reads — the undo's input fields as
+the scope held them right after the action. A parallel branch's record opens when the branch ends.
+A record is closed by
+
+- its **committer** succeeding (`committedBy`): nothing undoes it any more;
+- a **finish**, for a record without `committedBy` (with one, the rules close it first); a child
+  workflow's finish commits the child's own records ([Workflow as a step](Workflow-as-a-step));
+- its **undo action on a side path** — it closes the newest open record of the action it undoes:
+  `CompensationReason.SidePath`, `CompensationStatus.Compensated`, or `Failed` (with its error) when
+  the undo's own `.onError` took its failure. That undo keeps its own visit's key.
+
+`result.compensations` (and `result.record.compensations`) list the undo actions that ran, in the
+order they ended — `CompensationRecord { compensated, compensator, reason, status, error?,
+startedAt, endedAt }`; a run that undid nothing has `[]`. Tests: `toHaveCompensated(Action, { by,
+reason?, status? })` ([Testing](Testing)).
+
+## A failed join undoes its finished branches
+
+A join that fails drops its branches' values: an `.onJoinError` side path cannot undo a finished
+sibling. So before that side path runs — or the branch's error fails the execution — the framework
+undoes the launch's finished undoable branches itself (`CompensationReason.JoinFailed`), newest
+first. It first awaits the launch's branches whose bodies still run, up to `compensationTimeout`;
+one that returns meanwhile is undone too.
+
+<!--
+```ts file=trip.components.ts
+import { Action, WorkflowFinish, WorkflowStart, type ActionHandler, type FinishHandler, type InputOf, type OutputOf } from "agboss";
+import { Text } from "agboss/dto";
+
+export class TripRequestDto {
+  @Text({ prompt: "where the trip goes" })
+  destination!: string;
+}
+export class FlightBookingDto {
+  @Text({ prompt: "the flight booking's id" })
+  bookingId!: string;
+}
+export class HotelBookingDto {
+  @Text({ prompt: "the hotel booking's id" })
+  bookingId!: string;
+}
+export class TripBookedDto {
+  @Text({ prompt: "both ids" })
+  summary!: string;
+}
+export class BookingFailedError extends Error {}
+@WorkflowStart({ name: "trip-workflow-start", description: "A trip to book", input: TripRequestDto })
+export class TripWorkflowStart {}
+@Action({ name: "cancel-flight-action", description: "Cancels the flight", input: { flight: FlightBookingDto } })
+export class CancelFlightAction implements ActionHandler<CancelFlightAction> {
+  async execute(input: InputOf<CancelFlightAction>): Promise<void> {
+    await Promise.resolve(input.flight.value.bookingId);
+  }
+}
+@Action({ name: "cancel-hotel-action", description: "Cancels the hotel", input: { hotel: HotelBookingDto } })
+export class CancelHotelAction implements ActionHandler<CancelHotelAction> {
+  async execute(input: InputOf<CancelHotelAction>): Promise<void> {
+    await Promise.resolve(input.hotel.value.bookingId);
+  }
+}
+@Action({ name: "book-flight-action", description: "Books the flight", input: { request: TripRequestDto }, output: FlightBookingDto, compensateWith: CancelFlightAction })
+export class BookFlightAction implements ActionHandler<BookFlightAction> {
+  execute(input: InputOf<BookFlightAction>): Promise<OutputOf<BookFlightAction>> {
+    return Promise.resolve({ bookingId: `flight-${input.request.value.destination}` });
+  }
+}
+@Action({ name: "book-hotel-action", description: "Books the hotel", input: { request: TripRequestDto }, output: HotelBookingDto, compensateWith: CancelHotelAction })
+export class BookHotelAction implements ActionHandler<BookHotelAction> {
+  execute(input: InputOf<BookHotelAction>): Promise<OutputOf<BookHotelAction>> {
+    return Promise.resolve({ bookingId: `hotel-${input.request.value.destination}` });
+  }
+}
+@WorkflowFinish({ name: "trip-not-booked-workflow-finish", description: "Not booked", output: TripRequestDto })
+export class TripNotBookedWorkflowFinish {}
+@WorkflowFinish({ name: "trip-booked-workflow-finish", description: "Booked", input: { flight: FlightBookingDto, hotel: HotelBookingDto }, output: TripBookedDto })
+export class TripBookedWorkflowFinish implements FinishHandler<TripBookedWorkflowFinish> {
+  finish(input: InputOf<TripBookedWorkflowFinish>): OutputOf<TripBookedWorkflowFinish> {
+    return { summary: `${input.flight.value.bookingId} + ${input.hotel.value.bookingId}` };
+  }
+}
+```
+-->
+
+<!-- snippet-context
+import { Workflow, start, toFinish } from "agboss";
+import { BookFlightAction, BookHotelAction, BookingFailedError, FlightBookingDto, HotelBookingDto, TripBookedWorkflowFinish, TripNotBookedWorkflowFinish, TripRequestDto, TripWorkflowStart } from "./trip.components.js";
+-->
+
+```ts
+// BookFlightAction { compensateWith: CancelFlightAction }, BookHotelAction { compensateWith: CancelHotelAction };
+// neither has committedBy: the finish commits
+@Workflow({
+  name: "trip-workflow",
+  version: "1.0.0",
+  flow: [
+    start(TripWorkflowStart)
+      .returns(TripRequestDto)
+      .toParallelActions(BookFlightAction, BookHotelAction)
+      .join()
+      .onJoinError(
+        BookingFailedError, // the hotel failed: the finished flight is cancelled before this path runs
+        toFinish(TripNotBookedWorkflowFinish),
+      )
+      .returns(FlightBookingDto)
+      .returns(HotelBookingDto)
+      .toFinish(TripBookedWorkflowFinish),
+  ],
+})
+export class TripWorkflow {}
+```
+
+Each automatic undo runs in a frame of its own: its step is the undo action's, its
+`executionContext.step.idempotencyKey` is the undone step's key + `:compensation`
+(`execution-1:book-flight-action:1:compensation` — a second run of the same undo carries the same
+key), `step.compensates` is the step it undoes, and its `executionContext.signal` is a clean-up
+signal — not the execution's: it aborts after `@Application({ compensationTimeout })` (default
+`seconds(15)`, [App](App)), when the instance loses the tree's lease or stops. It takes no tree or
+instance slot and no budget refuses it; what its services cost (`SpendRecorder`) is the execution's
+spend under `action:<undo name>` ([FinOps](FinOps)). `onCompensationStart` / `onCompensationEnd`
+report each one ([Observability](Observability)).
+
+An undo that fails does not stop the others; then the execution fails with
+`CompensationFailedError` (`compensation.failed`): `failures` are the undo actions that threw,
+`cause` the branch's error — `toFailWith(BookingFailedError)` still matches through it. No
+`.onError` / `.onJoinError` takes it. `agboss describe` marks a launched undoable action:
+
+```
+actions
+  book-flight-action  compensateWith cancel-flight-action  (on a failed join: automatic)
+```
+
+`examples/flow-patterns/src/travel/` books a trip this way.
+
 ## Explicit where a path can say it, automatic where none can
 
 A side path is where a failure is handled: writing the undo there keeps it reviewed, typed (the
@@ -189,5 +326,6 @@ uncaught step failure or limit, an aborted child workflow, and the finished bran
 join, whose values never reach the side path. There — and only there — the framework runs the open
 actions' undo actions itself, newest first, each with its own idempotency key and a bounded
 clean-up signal; a failing undo does not stop the others, and the execution fails with
-`CompensationFailedError`. That automatic part comes with #340; until then such a stop leaves the
-actions as they are, as before.
+`CompensationFailedError`. A failed join's undo is there now (#340 PR 2); the undo of an execution
+that ends without a finish — a cancel, an uncaught failure or limit, an aborted child — comes with
+#340 PR 3, and until then such a stop leaves the actions as they are, as before.

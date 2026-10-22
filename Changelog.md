@@ -3,6 +3,28 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — compensation records and the failed-join undo (#340 PR 2)
+
+- **Added — compensation records** ([Rollback](Rollback#records-what-is-open-committed-undone-340)):
+  every `@Action({ compensateWith })` that succeeds opens a record in the execution's state —
+  committed by its `committedBy` action or a finish (a child's by its own finish), closed by its
+  undo on a side path (`CompensationReason.SidePath`). `ExecutionOutput.compensations`,
+  `ExecutionRecord.compensations`: `CompensationRecord { compensated, compensator, reason, status,
+  error?, startedAt, endedAt }`; `CompensationReason`, `CompensationStatus`.
+- **Added — a failed join undoes its finished branches** ([Rollback](Rollback#a-failed-join-undoes-its-finished-branches),
+  [Parallel](Parallel)): before `.onJoinError` or the failure, newest first, after awaiting the
+  launch's running branches — each undo in its own frame (key `<step key>:compensation`,
+  `StepRecord.compensates`, a clean-up signal), no slot, no budget check
+  (`CompensationReason.JoinFailed`). An undo that fails → the others still run, then
+  `CompensationFailedError` (`compensation.failed`, `failures`, `cause`), taken by no side path.
+- **Added — `@Application({ compensationTimeout })`** ([App](App)), default `seconds(15)`.
+- **Added — observer hooks** `onCompensationStart` / `onCompensationEnd`
+  ([Observability](Observability#automatic-undo)); **matcher** `toHaveCompensated(Action, { by,
+  reason?, status? })` ([Testing](Testing#asserting-an-undo)); `agboss describe` marks a launched
+  undoable action `(on a failed join: automatic)`.
+- The undo of an execution that ends without a finish (a cancel, an uncaught failure or limit, an
+  aborted child) is #340 PR 3.
+
 ## Unreleased — app.close() waits for interrupted step bodies (#367)
 
 - **Fixed — `app.close()` / SIGTERM** no longer runs `onDestroy` or releases a tree's lease while a

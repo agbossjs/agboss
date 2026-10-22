@@ -89,6 +89,7 @@ Each hook is its own interface with a typed payload (root entry `agboss`):
 | `OnValuesOutdated`                        | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values))               |
 | `OnLaunchItemsTruncated`                  | `LaunchItemsTruncatedEvent` (step, launch, items, maxItems — [below](#parallel-launches)) |
 | `OnQuorumDecided`                         | `QuorumDecidedEvent` (step, launch, isReached, branches, group — [below](#quorums))       |
+| `OnCompensationStart` / `OnCompensationEnd` | `CompensationStartEvent` (step, compensated, reason) / `CompensationEndEvent` (+ status, error — [below](#automatic-undo)) |
 
 `onExecutionStart` fires once per execution, at `execute` — a resume does not start it again, so
 the count of starts is the count of executions. One that pauses (an approval on a channel) emits
@@ -240,6 +241,29 @@ export class QuorumAudit implements OnQuorumDecided {
   onQuorumDecided(event: QuorumDecidedEvent) {
     const rejected = event.branches.filter((branch) => branch.verdict === BranchVerdict.Rejected);
     console.info(`${event.launch}: reached ${String(event.isReached)}, ${String(rejected.length)} rejected`);
+  }
+}
+```
+
+## Automatic undo
+
+Each undo action the framework runs by itself (#340: a failed join's finished branches,
+[Rollback](Rollback#a-failed-join-undoes-its-finished-branches)) is reported by
+`onCompensationStart` and `onCompensationEnd`, around the undo action's own `onActionStart` /
+`onActionEnd`: `step` is the undo action's step (its key `<undone step's key>:compensation`,
+`step.compensates` the step it undoes), `compensated` the step it undoes, `reason` a
+`CompensationReason` (`JoinFailed`); the end adds `status` (`CompensationStatus.Compensated` /
+`Failed`) and, when it failed, `error`. An undo on a side path is an ordinary action step: its
+`onActionStart` / `onActionEnd` only. Both kinds are in `result.compensations`.
+
+```ts
+import { CompensationStatus, Injectable, type CompensationEndEvent, type OnCompensationEnd } from "agboss";
+
+@Injectable()
+export class CompensationAudit implements OnCompensationEnd {
+  onCompensationEnd(event: CompensationEndEvent) {
+    if (event.status === CompensationStatus.Failed)
+      console.warn(`${event.compensated.component.name} not undone: ${event.error?.message ?? ""}`);
   }
 }
 ```
