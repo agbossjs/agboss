@@ -585,7 +585,8 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   undo reads only what the path holds right after the action, `[action.invalid-compensator-input]`;
   an `.onError` / `.onJoinError` side path after it reaches a finish only through its undo, newest
   first, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`; with `committedBy` every
-  path from it runs the committer or the undo, `[flow.uncommitted-action]`; `agboss describe`
+  path from it runs the committer or the undo, `[flow.uncommitted-action]`; `committedBy` without
+  `compensateWith` has no effect, `[action.committer-without-compensator]`; `agboss describe`
   prints both. At run time (#340) each success opens a record in the execution's `compensations`
   (with a snapshot of what its undo reads) — committed by its committer or a finish (a child's own
   finish commits the child's), closed by its undo on a side path (`CompensationReason.SidePath`);
