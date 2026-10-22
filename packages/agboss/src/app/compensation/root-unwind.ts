@@ -45,14 +45,15 @@ import { undoSiteOf, type TreeUndoSites } from "./tree-undo-sites.js";
  */
 
 /** Why the tree ends, and the lease's signal its undo runs under. */
-export interface TreeUnwindCall {
-  readonly cause: unknown;
+export interface TreeUnwindCall<TCause> {
+  readonly cause: TCause;
   readonly signal: AbortSignal;
 }
 
 /** What the tree's end raises and the undo records its error event carries. */
-export interface TreeUnwound {
-  readonly error: unknown;
+export interface TreeUnwound<TCause> {
+  /** The cause, or `CompensationFailedError` (caused by it) when an undo failed. */
+  readonly error: TCause | CompensationFailedError;
   readonly compensations: readonly CompensationRecord[];
 }
 
@@ -98,18 +99,12 @@ function recordsOf(
   return compensationRecordsOf([...before, ...closed]);
 }
 
-/** The tree's marks, when the application keeps tree keys. */
-const marksOf = (deps: AppDeps, state: TreeState): UnwindMarks | undefined => {
-  const trees = deps.compensation?.trees;
-  return trees === undefined ? undefined : { trees, tree: treeOf(state), key: UNWINDING_KEY };
-};
-
-/** The entries with the undos an earlier holder marked done closed (#340 PR 4). */
-const undoneOf = async (
-  marks: UnwindMarks | undefined,
-  entries: readonly CompensationEntry[],
-): Promise<readonly CompensationEntry[]> =>
-  marks === undefined ? entries : withUndoneMarks(marks, entries);
+/** The tree's marks (none kept when the application has no tree keys). */
+const marksOf = (deps: AppDeps, state: TreeState): UnwindMarks => ({
+  trees: deps.compensation?.trees,
+  tree: treeOf(state),
+  key: UNWINDING_KEY,
+});
 
 /** Whether the tree can have anything to undo (a workflow of it declares an undo). */
 export const canUnwind = (deps: AppDeps): boolean => treeHasUndoableActions(deps);
@@ -120,23 +115,22 @@ export async function markTreeUnwinding(
   state: TreeState,
   cause: unknown,
 ): Promise<void> {
-  const marks = marksOf(deps, state);
-  if (marks !== undefined && canUnwind(deps)) await markUnwinding(marks, unwindingMarkOf(cause));
+  if (canUnwind(deps)) await markUnwinding(marksOf(deps, state), unwindingMarkOf(cause));
 }
 
 /** Undoes the tree's open entries; what its end raises. */
-export async function unwoundTree(
+export async function unwoundTree<TCause>(
   deps: AppDeps,
   state: TreeState,
-  call: TreeUnwindCall,
-): Promise<TreeUnwound> {
+  call: TreeUnwindCall<TCause>,
+): Promise<TreeUnwound<TCause>> {
   if (!canUnwind(deps)) return { error: call.cause, compensations: [] };
   const tree = treeOf(state);
   const marks = marksOf(deps, state);
   await markTreeUnwinding(deps, state, call.cause);
   const checkpoint = await treeStateOf(deps, state.runId);
   const stored = await checkpointOf(deps, state);
-  const known = await undoneOf(marks, stored.entries);
+  const known = await withUndoneMarks(marks, stored.entries);
   const mirrored = deps.compensation?.registry.entriesOf(tree, () => true) ?? [];
   const owner = await deps.terns.threadOwner(deps.config.name, state.tenantId, state.threadId);
   const sites: TreeUndoSites = {
@@ -158,7 +152,7 @@ export async function unwoundTree(
     timeout: deps.compensation?.timeout ?? COMPENSATION_TIMEOUT,
     isSealing: true,
     record,
-    onUndone: marks && ((entry: CompensationEntry): Promise<void> => markUndone(marks, entry)),
+    onUndone: (entry) => markUndone(marks, entry),
   });
   await record(done.usage);
   const compensations = recordsOf(state, mergedEntries(known, mirrored), done.closed);

@@ -83,22 +83,14 @@ async function checkpointed(site: ChildUnwindSite, root: string) {
   return found.flatMap((each) => each.entries);
 }
 
-/** The entries with the undos an earlier pass marked done closed. */
-const undoneOf = (
-  marks: UnwindMarks | undefined,
-  entries: readonly CompensationEntry[],
-): Promise<readonly CompensationEntry[]> | readonly CompensationEntry[] =>
-  marks === undefined ? entries : withUndoneMarks(marks, entries);
-
 /** Undoes the child's open entries; the error its parent gets. */
 export async function unwoundChild(site: ChildUnwindSite, thrown: unknown): Promise<ChildUnwound> {
   const { deps, executionId } = site;
   const rootId = rootFactsOf(site.parent.execution).executionId;
   const where = { tenantId: site.parent.execution.tenant.tenantId, rootExecutionId: rootId };
   const trees = deps.compensation?.trees;
-  const marks: UnwindMarks | undefined =
-    trees === undefined ? undefined : { trees, tree: where, key: childUnwindingKeyOf(executionId) };
-  if (marks !== undefined) await markUnwinding(marks, unwindingMarkOf(site.error));
+  const marks: UnwindMarks = { trees, tree: where, key: childUnwindingKeyOf(executionId) };
+  await markUnwinding(marks, unwindingMarkOf(site.error));
   const undo: UndoSite = {
     ...{ graph: deps.graph, container: deps.container },
     components: joinKeysOf(deps).components,
@@ -117,7 +109,7 @@ export async function unwoundChild(site: ChildUnwindSite, thrown: unknown): Prom
     tree: where,
     covers,
     runs: (entry) => entry.executionId === executionId,
-    known: await undoneOf(
+    known: await withUndoneMarks(
       marks,
       [...(await checkpointed(site, rootId)), ...site.last].filter(covers),
     ),
@@ -127,7 +119,7 @@ export async function unwoundChild(site: ChildUnwindSite, thrown: unknown): Prom
     ...{ clock: undo.clock, timeout: undo.timeout },
     isSealing: true,
     record,
-    onUndone: marks === undefined ? undefined : (entry) => markUndone(marks, entry),
+    onUndone: (entry) => markUndone(marks, entry),
   };
   const { closed, usage, failures } = await unwound(unwind);
   await record(usage);

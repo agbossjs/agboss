@@ -46,9 +46,9 @@ export interface UnwindingMark {
   readonly cause: UnwindingCause;
 }
 
-/** Where one unwind keeps its marks: the tree's store, and its own key. */
+/** Where one unwind keeps its marks: the tree's store (none: no marks are kept), and its own key. */
 export interface UnwindMarks {
-  readonly trees: ExecutionTreeRepository;
+  readonly trees: ExecutionTreeRepository | undefined;
   readonly tree: ExecutionTree;
   /** `UNWINDING_KEY` for a root, `childUnwindingKeyOf(…)` for a child. */
   readonly key: string;
@@ -72,7 +72,7 @@ export async function markUnwinding(marks: UnwindMarks, mark: UnwindingMark): Pr
     reason: mark.reason,
     cause: { name: mark.cause.name, message: mark.cause.message },
   };
-  await marks.trees.saveIfAbsentInTree(marks.tree, marks.key, value);
+  await marks.trees?.saveIfAbsentInTree(marks.tree, marks.key, value);
 }
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -119,7 +119,8 @@ export const causeOfMark = (mark: UnwindingMark): AGBossError =>
 /** Marks an undo that succeeded as done; a failed one is not marked (it runs again). */
 export async function markUndone(marks: UnwindMarks, entry: CompensationEntry): Promise<void> {
   const { undo } = entry;
-  if (undo?.status !== CompensationStatus.Compensated) return;
+  const { trees } = marks;
+  if (trees === undefined || undo?.status !== CompensationStatus.Compensated) return;
   const { name, schemaHash } = undo.compensator;
   const value = {
     compensator: name,
@@ -128,7 +129,7 @@ export async function markUndone(marks: UnwindMarks, entry: CompensationEntry): 
     startedAt: undo.startedAt,
     endedAt: undo.endedAt,
   };
-  await marks.trees.saveIfAbsentInTree(marks.tree, compensatedKeyOf(entry.key), value);
+  await trees.saveIfAbsentInTree(marks.tree, compensatedKeyOf(entry.key), value);
 }
 
 /** The record of a done undo, from its mark; `undefined` when the entry has none. */
@@ -157,9 +158,11 @@ export async function withUndoneMarks(
   marks: UnwindMarks,
   entries: readonly CompensationEntry[],
 ): Promise<readonly CompensationEntry[]> {
+  const { trees } = marks;
+  if (trees === undefined) return entries;
   const read = async (entry: CompensationEntry): Promise<CompensationEntry> => {
     if (entry.status !== CompensationEntryStatus.Open) return entry;
-    const value = await marks.trees.findByIdInTree(marks.tree, compensatedKeyOf(entry.key));
+    const value = await trees.findByIdInTree(marks.tree, compensatedKeyOf(entry.key));
     const undo = recordOf(entry, value);
     return undo === undefined ? entry : { ...entry, status: CompensationEntryStatus.Closed, undo };
   };

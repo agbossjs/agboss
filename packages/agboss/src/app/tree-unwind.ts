@@ -1,6 +1,5 @@
-import type { CompensationRecord } from "../flow/compensation.js";
+import type { CompensationFailedError, CompensationRecord } from "../flow/compensation.js";
 import type { AppDeps } from "./app-deps.js";
-import { isHandedOver } from "./handed-over.js";
 import type { TreeState } from "./tree-move-types.js";
 
 /**
@@ -16,14 +15,17 @@ export interface EndedTreeUndo {
   compensations: readonly CompensationRecord[];
 }
 
-/** The error the tree ends with once its open entries are undone; `undo` gets the records. */
-export async function undoneTreeEnd(
+/**
+ * The error the tree ends with once its open entries are undone — `CompensationFailedError` when
+ * an undo failed, else `failure.error` (never a hand-over: its callers end the tree); `undo` gets
+ * the records.
+ */
+export async function undoneTreeEnd<TError>(
   deps: AppDeps,
   state: TreeState,
-  failure: { readonly error: unknown; readonly signal: AbortSignal },
+  failure: { readonly error: TError; readonly signal: AbortSignal },
   undo: EndedTreeUndo,
-): Promise<unknown> {
-  if (isHandedOver(failure.error)) return failure.error;
+): Promise<TError | CompensationFailedError> {
   const { unwoundTree } = await import("./compensation/root-unwind.js");
   const done = await unwoundTree(deps, state, { cause: failure.error, signal: failure.signal });
   undo.compensations = done.compensations;

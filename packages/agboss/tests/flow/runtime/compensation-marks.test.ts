@@ -31,7 +31,8 @@ import { InMemoryExecutionTreeRepository } from "../../../src/infrastructure/exe
 
 const tree = { tenantId: "default", rootExecutionId: "root-1" };
 
-const marksOf = (): UnwindMarks => ({
+/** Marks on a store of their own: `trees` is the store, always there. */
+const marksOf = (): UnwindMarks & { readonly trees: InMemoryExecutionTreeRepository } => ({
   trees: new InMemoryExecutionTreeRepository(new InMemoryDatabase()),
   tree,
   key: UNWINDING_KEY,
@@ -121,6 +122,16 @@ describe("@agboss/unwinding", () => {
     if (value !== undefined) await marks.trees.saveIfAbsentInTree(tree, UNWINDING_KEY, value);
 
     expect(await unwindingOf(marks.trees, tree, UNWINDING_KEY)).toBeUndefined();
+  });
+});
+
+describe("without tree keys", () => {
+  it("nothing is marked and nothing is read back", async () => {
+    const marks: UnwindMarks = { trees: undefined, tree, key: UNWINDING_KEY };
+    await markUnwinding(marks, unwindingMarkOf(new Error("failed")));
+    await markUndone(marks, undone("k-1", CompensationStatus.Compensated));
+
+    expect(await withUndoneMarks(marks, [entry("k-1")])).toEqual([entry("k-1")]);
   });
 });
 

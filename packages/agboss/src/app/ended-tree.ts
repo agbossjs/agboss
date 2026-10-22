@@ -77,7 +77,7 @@ export async function endedWithoutPass(
   if (stored?.run.runId === state.runId) await paused.drop(state);
   const undo: EndedTreeUndo = { compensations: [] };
   const ended = await undoneTreeEnd(deps, state, { error: end.cause, signal: end.signal }, undo);
-  const error = ended instanceof Error ? ended : end.cause;
+  const error: Error = ended;
   const isEnded = record !== undefined && (await failedRecord(deps, record, error));
   await forgetTree(parts, state);
   if (isEnded) {
