@@ -5,6 +5,7 @@ import {
   type CompensationParts,
 } from "../flow/runtime/compensation/registry.js";
 import type { Clock } from "../infrastructure/clock.js";
+import type { ExecutionTreeRepository } from "../infrastructure/execution-tree.repository.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { Milliseconds } from "../units/index.js";
 import type { AssembledApplication } from "./assemble.js";
@@ -46,6 +47,7 @@ export async function instancePartsOf(
   assembled: AssembledApplication,
   clock: Clock,
   log: FrameworkLog,
+  trees: ExecutionTreeRepository,
 ): Promise<SharedInstanceParts> {
   const stepEntries = new StepEntries();
   const stepsAtStop = stepsAtStopOf(stepEntries, stopDeadlineOf(clock), log);
@@ -53,6 +55,7 @@ export async function instancePartsOf(
     timeout: assembled.compensationTimeout,
     registry: new CompensationRegistry(),
     log,
+    trees,
   };
   const stepSlots = await stepSlotsOf(assembled, clock);
   return { stepSlots, stepEntries, compensation, stepsAtStop };

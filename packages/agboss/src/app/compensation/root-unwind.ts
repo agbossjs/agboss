@@ -1,9 +1,7 @@
 import { meterOf } from "../../budgets/execution-budgets.js";
-import { ExecutionCancelledError } from "../../core/errors.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import {
   CompensationFailedError,
-  CompensationReason,
   compensationRecordsOf,
   hasUndoableActions,
   type CompensationEntry,
@@ -11,6 +9,15 @@ import {
 } from "../../flow/compensation.js";
 import { entriesInCheckpoint } from "../../flow/runtime/compensation/checkpoint-entries.js";
 import { mergedEntries, unwound } from "../../flow/runtime/compensation/unwind.js";
+import {
+  markUndone,
+  markUnwinding,
+  reasonOfCause,
+  unwindingMarkOf,
+  UNWINDING_KEY,
+  withUndoneMarks,
+  type UnwindMarks,
+} from "../../flow/runtime/compensation/unwinding-marks.js";
 import { COMPENSATION_TIMEOUT } from "../../flow/compensation.js";
 import { systemClock } from "../../infrastructure/clock.js";
 import { NodeKind } from "../../flow/ast.js";
@@ -32,17 +39,21 @@ import { undoSiteOf, type TreeUndoSites } from "./tree-undo-sites.js";
  * from its checkpoint (pending writes applied, Q-C) merged with the instance registry (S2); the
  * tree is sealed for a body that returns later (Q-B). The undo's spend is written to the ledger at
  * once. A failing undo makes the tree's error `CompensationFailedError` (its cause the original).
+ * Durable (#340 PR 4): `@agboss/unwinding` is written before the undo starts and
+ * `@agboss/compensated/<key>` after each success — an instance that takes the tree over finishes the
+ * rest, the undos marked done skipped (`withUndoneMarks`).
  */
 
 /** Why the tree ends, and the lease's signal its undo runs under. */
-export interface TreeUnwindCall {
-  readonly cause: unknown;
+export interface TreeUnwindCall<TCause> {
+  readonly cause: TCause;
   readonly signal: AbortSignal;
 }
 
 /** What the tree's end raises and the undo records its error event carries. */
-export interface TreeUnwound {
-  readonly error: unknown;
+export interface TreeUnwound<TCause> {
+  /** The cause, or `CompensationFailedError` (caused by it) when an undo failed. */
+  readonly error: TCause | CompensationFailedError;
   readonly compensations: readonly CompensationRecord[];
 }
 
@@ -88,24 +99,43 @@ function recordsOf(
   return compensationRecordsOf([...before, ...closed]);
 }
 
-/** Undoes the tree's open entries; what its end raises. */
-export async function unwoundTree(
+/** The tree's marks (none kept when the application has no tree keys). */
+const marksOf = (deps: AppDeps, state: TreeState): UnwindMarks => ({
+  trees: deps.compensation?.trees,
+  tree: treeOf(state),
+  key: UNWINDING_KEY,
+});
+
+/** Whether the tree can have anything to undo (a workflow of it declares an undo). */
+export const canUnwind = (deps: AppDeps): boolean => treeHasUndoableActions(deps);
+
+/** Marks the tree's undo under way (before it starts, or before its record leaves `paused`). */
+export async function markTreeUnwinding(
   deps: AppDeps,
   state: TreeState,
-  call: TreeUnwindCall,
-): Promise<TreeUnwound> {
-  if (!treeHasUndoableActions(deps)) return { error: call.cause, compensations: [] };
+  cause: unknown,
+): Promise<void> {
+  if (canUnwind(deps)) await markUnwinding(marksOf(deps, state), unwindingMarkOf(cause));
+}
+
+/** Undoes the tree's open entries; what its end raises. */
+export async function unwoundTree<TCause>(
+  deps: AppDeps,
+  state: TreeState,
+  call: TreeUnwindCall<TCause>,
+): Promise<TreeUnwound<TCause>> {
+  if (!canUnwind(deps)) return { error: call.cause, compensations: [] };
   const tree = treeOf(state);
+  const marks = marksOf(deps, state);
+  await markTreeUnwinding(deps, state, call.cause);
   const checkpoint = await treeStateOf(deps, state.runId);
   const stored = await checkpointOf(deps, state);
+  const known = await withUndoneMarks(marks, stored.entries);
   const mirrored = deps.compensation?.registry.entriesOf(tree, () => true) ?? [];
   const owner = await deps.terns.threadOwner(deps.config.name, state.tenantId, state.threadId);
-  const isCancelled = call.cause instanceof ExecutionCancelledError;
   const sites: TreeUndoSites = {
     ...{ deps, state, checkpoint, ownerId: owner?.owner, signal: call.signal },
-    reason: isCancelled
-      ? CompensationReason.ExecutionCancelled
-      : CompensationReason.ExecutionFailed,
+    reason: reasonOfCause(call.cause),
     namespaces: stored.namespaces,
   };
   const record = (usage: readonly UsageRecord[]): Promise<void> =>
@@ -114,7 +144,7 @@ export async function unwoundTree(
     tree,
     covers: () => true,
     runs: () => true,
-    known: stored.entries,
+    known,
     undoSiteOf: (entry) => undoSiteOf(sites, entry),
     parts: deps.compensation,
     stepEntries: deps.stepEntries,
@@ -122,9 +152,10 @@ export async function unwoundTree(
     timeout: deps.compensation?.timeout ?? COMPENSATION_TIMEOUT,
     isSealing: true,
     record,
+    onUndone: (entry) => markUndone(marks, entry),
   });
   await record(done.usage);
-  const compensations = recordsOf(state, mergedEntries(stored.entries, mirrored), done.closed);
+  const compensations = recordsOf(state, mergedEntries(known, mirrored), done.closed);
   const error =
     done.failures.length === 0
       ? call.cause

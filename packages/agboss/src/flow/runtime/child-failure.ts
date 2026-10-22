@@ -62,7 +62,11 @@ async function undoneChild(
   parent: ChildParent,
   ended: EndedChild,
   thrown: unknown,
-  run: { readonly last: ExecutionStateType | undefined; readonly config: RunnableConfig },
+  run: {
+    readonly last: ExecutionStateType | undefined;
+    readonly config: RunnableConfig;
+    readonly error: unknown;
+  },
 ): Promise<{ readonly thrown: unknown; readonly compensations: readonly CompensationRecord[] }> {
   const { child } = parent.undo;
   const own = (run.last?.compensations ?? []).filter(
@@ -80,6 +84,7 @@ async function undoneChild(
       checkpointer: parent.undo.checkpointer,
       budgets: parent.undo.budgets,
       last: run.last?.compensations ?? [],
+      error: run.error,
     },
     thrown,
   );
@@ -111,7 +116,7 @@ export async function failedChild(
   const { error, last } = thrown;
   const signal = config.signal ?? new AbortController().signal;
   const failure = childFailureOf(error, ended, ownUsageOf(last, ended.identity), signal);
-  const undone = await undoneChild(parent, ended, failure.thrown, { last, config });
+  const undone = await undoneChild(parent, ended, failure.thrown, { last, config, error });
   const raised = undone.thrown;
   await keptForParent(parent, failure, raised);
   frame.services.recordChild?.(childRecordOf(ended, last, { ...failure, error: raised }));

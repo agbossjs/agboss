@@ -103,12 +103,31 @@ async function runOnce<TName extends string>(
     const finish = { ...context, callbacks: config.callbacks, compacted: read.compacted };
     return await finishRun(finish, state, ternId);
   } catch (error) {
-    const cause = outcomeError(error, options.signal);
-    const failed = failedOutcome(cause, spent);
-    throw await recordFailure(cause, () =>
-      ternId === undefined
-        ? deps.terns.append({ ...base, ...failed })
-        : deps.terns.complete(ternId, failed),
-    );
+    throw await failureRecorded(deps, base, outcomeError(error, options.signal), {
+      ternId,
+      spent,
+    });
   }
+}
+
+/**
+ * Records a failed run — appended, or its `running` record completed — and returns the error to
+ * throw; a tree's record is failed once its undo ended (#340 S7 3), none before its record existed.
+ */
+function failureRecorded<TName extends string>(
+  deps: AgentExecutionDeps<TName>,
+  base: TernBase,
+  cause: unknown,
+  run: { readonly ternId: string | undefined; readonly spent: readonly UsageRecord[] },
+): Promise<unknown> {
+  const { ternId, spent } = run;
+  const unwind = ternId === undefined ? undefined : deps.compensation?.rootUnwind;
+  return recordFailure(
+    cause,
+    (ended) =>
+      ternId === undefined
+        ? deps.terns.append({ ...base, ...failedOutcome(ended, spent) })
+        : deps.terns.complete(ternId, failedOutcome(ended, spent)),
+    unwind,
+  );
 }

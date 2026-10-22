@@ -44,6 +44,8 @@ export interface UnwindSite {
   readonly isSealing: boolean;
   /** Where a late undo's spend goes (the ledger, at once). */
   readonly record: (usage: readonly UsageRecord[]) => Promise<void>;
+  /** After each undo ended: its durable mark when it succeeded (a child's, a root's, #340 PR 4). */
+  readonly onUndone?: ((entry: CompensationEntry) => Promise<void>) | undefined;
 }
 
 /** What an unwind did: the entries it closed (in the order they ended), their spend, the failures. */
@@ -139,6 +141,7 @@ export async function unwound(site: UnwindSite): Promise<Unwound> {
       done.add(entry.key);
       const ran = await undone(entry, site.undoSiteOf(entry));
       site.parts?.registry.write(site.tree, [ran.entry]);
+      await site.onUndone?.(ran.entry);
       closed.push(ran.entry);
       usage.push(...ran.usage);
     }

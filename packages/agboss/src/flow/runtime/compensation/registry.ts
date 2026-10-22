@@ -1,4 +1,7 @@
-import type { ExecutionTree } from "../../../infrastructure/execution-tree.repository.js";
+import type {
+  ExecutionTree,
+  ExecutionTreeRepository,
+} from "../../../infrastructure/execution-tree.repository.js";
 import type { FrameworkLog } from "../../../infrastructure/logger.js";
 import type { Milliseconds } from "../../../units/index.js";
 import { CompensationEntryStatus, type CompensationEntry } from "../../compensation.js";
@@ -105,4 +108,18 @@ export interface CompensationParts {
   readonly registry: CompensationRegistry;
   /** Where an unwind reports what it could not do (a body still running, a late undo that failed). */
   readonly log?: FrameworkLog | undefined;
+  /**
+   * The application's tree keys (#340 PR 4): where an automatic undo marks itself under way and
+   * each undo done, so another instance finishes an interrupted one; absent = no marks.
+   */
+  readonly trees?: ExecutionTreeRepository | undefined;
+  /**
+   * The root's automatic undo of one pass (#340 S7 3), set by the pass's holder: a pass that fails
+   * runs it before the root's record is failed; it resolves to the error the record and the call
+   * end with. Absent outside a tree's move.
+   */
+  readonly rootUnwind?: RootUnwind | undefined;
 }
+
+/** Undoes a root whose pass failed with `cause`; the error its execution ends with. */
+export type RootUnwind = (cause: unknown) => Promise<unknown>;

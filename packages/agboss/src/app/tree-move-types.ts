@@ -67,8 +67,9 @@ export interface TreeMoves {
    */
   recovered(interrupted: InterruptedRun, call: TreeCall): Promise<ExecutionOutput | undefined>;
   /**
-   * A root with a cancel request (#360) is ended as cancelled when its lease is free, whatever
-   * config it started on; `true` when it had one (its holder, if any, ends it).
+   * A root with a cancel request (#360) or an automatic undo under way (#340 PR 4) is ended without
+   * a pass when its lease is free, whatever config it started on; `true` when it had either (its
+   * holder, if any, ends it).
    */
-  endIfCancelled(interrupted: InterruptedRun): Promise<boolean>;
+  endIfEnding(interrupted: InterruptedRun): Promise<boolean>;
 }
