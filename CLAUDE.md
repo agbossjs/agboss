@@ -1129,7 +1129,8 @@ deps: [SqliteConnection, Clock, ApplicationContext] })` (#265 S70); `SqliteExecu
   (`deps: [Clock]`). Lint `agboss/no-direct-time` fails `Date.now()`, `new Date()` / `Date()`
   without arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout` and
   `node:timers` in `packages/agboss/src` (the real implementation, `src/infrastructure/clock.ts`,
-  excepted).
+  excepted) and in a project's `src/` outside its tests (the `eslint.config.js` `agboss create`
+  writes, #388).
 - **Ids are the application's `IdGenerator` (#313):** infrastructure like the `Clock` (and in its
   module) — `newThreadId()` and `newExecutionId()`; every thread id the framework mints
   (`app.execute` without a `threadId`) and every execution id (roots, children, recursion levels)
@@ -2019,6 +2020,9 @@ packages/agboss-cli/    the `agboss` / `agboss` command (#205; depends on agboss
     chat.ts, cli.ts, check.ts, describe.ts, dev.ts, studio.ts, rag-index.ts, eval/   command handlers
   tests/            CLI tests; workflows come from the framework's tests/fixtures
   bin/              the CLI launcher (bin names `agboss` and `agboss`)
+  eslint/           the lint rules `agboss/no-component-state` + `agboss/no-direct-time` (index.mjs: the
+                    plugin and FLOW_CHAIN_RULE), shipped for the eslint.config.js `agboss create` writes
+                    (#388) and used by this repo's config
 examples/job-scout/          the example (package job-scout-example; depends on agboss)
   src/              job-scout.application.ts, job-scout.workflow.ts (one path a turn); workflow-starts/ (*.workflow-start.ts), routers/
                     (*.router.ts), agents/ (*.agent.ts + *.prompt.md), workflow-finishes/
@@ -2034,7 +2038,7 @@ examples/flow-patterns/      the flow's patterns (package flow-patterns-example,
                     #267), src/hiring/ (declared compensation, #339), src/travel/ (a failed join's undo, #340), one *.workflow.ts each; scripts/ (npm run answer); README.md (real runs,
                     #346); tests/
 scripts/        the gate's checks (check-root, check-suppressions, check-docs + docs/, api-report,
-                public-entries, eslint-agboss-plugin: eslint-component-state + eslint-direct-time),
+                public-entries, eslint-agboss-plugin: the CLI's eslint/ rules on the repo's files),
                 bootstrap-repo, bootstrap-labels, ticket, wiki,
                 langfuse, coverage-badge
 ../<repo>.wiki  GitHub Wiki working copy (separate git repo, never inside this repo)

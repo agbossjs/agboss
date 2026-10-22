@@ -1,9 +1,9 @@
-// Local lint rule (#261): a component is one instance for the whole application instance, and one
-// execution is not tied to one instance (after a pause another instance may continue it), so a
-// component keeps no state. Flags `this.x = …` (and `this.x++`, `this.x += …`) outside the
-// constructor of a class decorated with a framework component decorator. A component reads the
-// execution from the live `ExecutionContext`; data that outlive a step live in the graph state;
-// caches and deduplication are the project's own service over external storage.
+// Lint rule `agboss/no-component-state` (#261, #388): a component is one instance for the whole
+// application instance, and one execution is not tied to one instance (after a pause another
+// instance may continue it), so a component keeps no state. Flags `this.x = …` (and `this.x++`,
+// `this.x += …`) outside the constructor of a class decorated with a framework component decorator.
+// A component reads the execution from the live `ExecutionContext`; data that outlive a step live
+// in the graph state; caches and deduplication are the project's own service over external storage.
 
 const COMPONENT_DECORATORS = new Set([
   "Injectable",

@@ -182,7 +182,7 @@ export default tseslint.config(
     ...tseslint.configs.disableTypeChecked,
   },
   {
-    files: ["scripts/**/*.mjs"],
+    files: ["scripts/**/*.mjs", "packages/agboss-cli/eslint/*.mjs"],
     languageOptions: { globals: { process: "readonly", console: "readonly", URL: "readonly" } },
     // plain JS (lint rules, checks): no type annotations to give
     rules: { "no-console": "off", "@typescript-eslint/explicit-module-boundary-types": "off" },

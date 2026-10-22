@@ -26,7 +26,7 @@ describe("#262 AC12: no direct time in framework code (agboss/no-direct-time)", 
     const found = await findings(body("  return Date.now();"));
 
     expect(found).toHaveLength(1);
-    expect(found[0]).toContain("`Date.now` in framework code");
+    expect(found[0]).toContain("`Date.now` reads the time directly");
     expect(found[0]).toContain("application's Clock");
   }, 60_000);
 
@@ -47,7 +47,7 @@ describe("#262 AC12: no direct time in framework code (agboss/no-direct-time)", 
       ),
     );
 
-    expect(found.map((message) => message.split(" in framework code")[0])).toEqual([
+    expect(found.map((message) => message.split(" reads the time directly")[0])).toEqual([
       "`new Date()`",
       "`Date()`",
       "`performance.now`",

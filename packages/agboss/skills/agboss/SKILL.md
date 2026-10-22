@@ -77,8 +77,9 @@ npm test                                                           # scripted mo
 ## The gate's rules
 
 AGBoss code follows these everywhere — the framework's own gate enforces them with lint
-(`agboss/no-component-state`, `@stylistic/newline-per-chained-call`) and a suppression budget, and a
-project's CI may too. Never work around them:
+(`agboss/no-component-state`, `agboss/no-direct-time`, `@stylistic/newline-per-chained-call`) and a
+suppression budget, and a project's `npm run lint` runs the same rules (`eslint.config.js`, written
+by `agboss create`). Never work around them:
 
 - No `as any`, `as unknown as`, `@ts-ignore`, `@ts-expect-error` outside compile-time tests,
   `eslint-disable` or `prettier-ignore`. A type error is fixed in the code or the decorator, or by

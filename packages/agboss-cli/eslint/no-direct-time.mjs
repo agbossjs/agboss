@@ -1,14 +1,14 @@
-// Local lint rule (#262 AC12): every time the framework reads and every wait it makes goes through
+// Lint rule `agboss/no-direct-time` (#262 AC12, #388): every time read and every wait goes through
 // the application's one `Clock` (infrastructure, #261), so a test's `VirtualClock` moves deadlines,
 // 429 pauses, aging, leases and backoff with `clock.advance(…)` and nothing waits for real. Flags
-// the direct ways to read the time or start a timer in framework code — `Date.now()`, `new Date()`
-// and `Date()` without arguments, `performance.now()`, `setTimeout`, `setInterval`,
-// `AbortSignal.timeout` and the `node:timers` modules — when they name the global (a local of the
-// same name is not flagged). The real `Clock` implementation (src/infrastructure/clock.ts) is the
-// one file it does not apply to.
+// the direct ways to read the time or start a timer — `Date.now()`, `new Date()` and `Date()`
+// without arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout` and
+// the `node:timers` modules — when they name the global (a local of the same name is not flagged).
+// On for the framework's sources (the real `Clock`, src/infrastructure/clock.ts, excepted) and for
+// a project's `src/` outside its tests (the config `agboss create` writes).
 
 const ADVICE =
-  "read the time and wait through the application's Clock (`clock.now()`, `clock.sleep(…)`, `timeoutOn(clock, …)`), so a test's VirtualClock moves it (#262)";
+  "inject the application's Clock (`deps: [Clock]`) and read the time and wait through it (`clock.now()`, `clock.sleep(…)`), so a test's VirtualClock moves it (#262)";
 
 /** Global members that read the time or start a timer: object → members. */
 const MEMBERS = new Map([
@@ -91,8 +91,8 @@ function globalReferences(scopeManager) {
 export const noDirectTime = {
   meta: {
     type: "problem",
-    docs: { description: "No direct time in framework code: the application's Clock only" },
-    messages: { direct: "`{{what}}` in framework code: {{advice}}." },
+    docs: { description: "No direct time: the application's Clock only" },
+    messages: { direct: "`{{what}}` reads the time directly: {{advice}}." },
     schema: [],
   },
   create(context) {

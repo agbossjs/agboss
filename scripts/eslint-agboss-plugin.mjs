@@ -1,11 +1,6 @@
-// The repo's local lint rules as one plugin, `agboss/…`: one plugin object for every block that
-// uses it (flat config refuses two objects under one plugin name).
-import { noComponentState } from "./eslint-component-state.mjs";
-import { noDirectTime } from "./eslint-direct-time.mjs";
-
-const agbossPlugin = {
-  rules: { "no-component-state": noComponentState, "no-direct-time": noDirectTime },
-};
+// The AGBoss lint rules, `agboss/…`, for this repository: the plugin ships with agboss-cli
+// (packages/agboss-cli/eslint, #388), where a project made by `agboss create` loads it too.
+import { agbossPlugin } from "../packages/agboss-cli/eslint/index.mjs";
 
 /** `agboss/no-component-state` (#261): framework sources and examples. */
 export const componentStateRules = {

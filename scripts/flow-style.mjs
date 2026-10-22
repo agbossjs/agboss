@@ -6,6 +6,11 @@
 // `@stylistic` rules below keep the rest of those files as Prettier would (`.prettierrc`: width
 // 100, double quotes, trailing commas). `make fmt` runs `eslint --fix` on them after Prettier.
 import stylistic from "@stylistic/eslint-plugin";
+import { FLOW_CHAIN_RULE } from "../packages/agboss-cli/eslint/index.mjs";
+
+// the rule itself — a chain of two calls or more has one call per line — is the one a project made
+// by `agboss create` lints its workflow modules with (#388)
+export { FLOW_CHAIN_RULE };
 
 /** The files formatted by ESLint instead of Prettier. Keep in step with `.prettierignore`. */
 export const FLOW_FILES = [
@@ -18,11 +23,6 @@ export const FLOW_FILES = [
   "packages/agboss/tests/errors/fixtures.ts",
   "packages/agboss/tests/flow/types/fixture-workflows.ts",
 ];
-
-/** The rule itself: a chain of two calls or more has one call per line. */
-export const FLOW_CHAIN_RULE = {
-  "@stylistic/newline-per-chained-call": ["error", { ignoreChainWithDepth: 1 }],
-};
 
 /** What Prettier would otherwise have kept in those files (`.prettierrc`). */
 const FORMAT_RULES = {
