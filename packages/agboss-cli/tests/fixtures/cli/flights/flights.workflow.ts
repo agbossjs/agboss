@@ -1,4 +1,4 @@
-// `agboss check` fixture (#371): two workflows of one application, each with its own
+// `agboss check` fixture (#371): an application of two workflows, each with its own
 // FlightBookingDto — the names clash ([dto.duplicate-name])
 import { Application, EmptyEnvironment } from "../../../../../agboss/src/index.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";

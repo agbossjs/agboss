@@ -8,7 +8,7 @@ import { envelope, fixture, agboss } from "./agboss.js";
 
 /** #371: `agboss check` never prints `ok` when it did not write `.agboss/types.d.ts`. */
 
-const FLIGHTS = fixture("cli/flights/flights.application.ts");
+const FLIGHTS = fixture("cli/flights/flights.workflow.ts");
 const PARTS = fixture("cli/parts.workflow.ts");
 const CLASH =
   /^FlightBookingDto is declared in \S*flights\/approvals\.workflow\.ts and \S*flights\/trip\.workflow\.ts — DTO names are unique in the application/;
