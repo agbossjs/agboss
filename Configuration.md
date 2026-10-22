@@ -130,6 +130,7 @@ model at startup and by `agboss check --models`.
 | Field          | Meaning                                                                                                                                                               |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `maxToolCalls` | optional: tool calls per call of an agent (`agents.<name>.limits.toolCalls`, default 20); crossing it fails the run — see [Agents](Agents#limits-per-call-of-the-agent) |
+| `maxResultSize` | optional (#336): what a model reads of one tool result at most, in bytes of UTF-8 — `kilobytes(64)` (`agboss/units`); a tool's own `@Tool({ maxResultSize })` wins; default 128 KB. Longer results are cut with a marker; context-mode knowledge blocks too — see [Tools → Result size](Tools#result-size). A profile sets it in bytes (`defaults.tools.maxResultSize: 65536`) |
 
 ## `uncompactedTurns` and `compaction` — single settings (#120 PR 3)
 

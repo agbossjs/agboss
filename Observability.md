@@ -79,7 +79,7 @@ Each hook is its own interface with a typed payload (root entry `agboss`):
 | `OnExecutionRejected`                     | `ExecutionRejectedEvent` (`operation`, `threadId?`, `tenantId`, `code`, `message`)        |
 | `OnAgentStart` / `OnAgentEnd`             | `AgentStartEvent` / `AgentEndEvent`                                                       |
 | `OnRouterStart` / `OnRouterEnd`           | `RouterStartEvent` / `RouterEndEvent`                                                     |
-| `OnToolStart` / `OnToolEnd`               | `ToolStartEvent` (tool, agent, arguments) / `ToolEndEvent`                                |
+| `OnToolStart` / `OnToolEnd`               | `ToolStartEvent` (tool, agent, arguments) / `ToolEndEvent` (`update`, `isResultTruncated` — #336) |
 | `OnModelStart` / `OnModelEnd`             | `ModelStartEvent` / `ModelEndEvent` (model, usage, cost)                                  |
 | `OnRagStart` / `OnRagEnd`                 | `RagStartEvent` / `RagEndEvent`                                                           |
 | `OnActionStart` / `OnActionEnd`           | `ActionStartEvent` / `ActionEndEvent`                                                     |

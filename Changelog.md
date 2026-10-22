@@ -3,6 +3,24 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — tool results bounded by maxResultSize (#336, PR 2)
+
+- **Added — `maxResultSize`** ([Tools → Result size](Tools#result-size)): what a model reads of one
+  tool result at most, in bytes of UTF-8 — on `@Tool` / `@McpTool` and in `defaults.tools` of
+  `@Application` / `@Workflow` (the most specific wins), default 128 KB. A longer rendered result
+  (an error's too, a knowledge base's search tool too) is cut before PII masking, at the last
+  whitespace within the final 256 bytes, and ends with `\n[result truncated: N bytes, the first M
+  kept]`; a context-mode knowledge block is bounded by the agent's value. `[tools.max-result-size-invalid]`
+  at assembly.
+- **Added — `kilobytes()` and `Bytes` in `agboss/units`** (1 KB = 1,024 bytes).
+- **Breaking — `ToolEndEvent.isResultTruncated: boolean`** is required: an object built as a
+  `ToolEndEvent` (an observer test) sets it.
+- **Changed — every workflow's `configHash`** once: the truncation marker is a framework text of
+  the agent loop; a paused execution resumed on the new version is `IncompatibleResumeError` unless
+  `onIncompatibleResume` accepts it.
+- **Added — `agboss describe`** prints each tool's `maxResultSize` and where it came from;
+  `describe --json` has `schemas.tools[name].maxResultSize` and each agent's `maxResultSize`.
+
 ## Unreleased — a decided quorum withdraws its waiting branches' pauses; channels may withdraw (#337)
 
 - **Added — `withdraw(withdrawal)` on channels** ([Pauses → Taking a question back](Pauses#taking-a-question-back-withdraw-337)):

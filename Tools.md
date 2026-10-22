@@ -91,6 +91,74 @@ A call runs under its tool's `timeout` — a value with units, `timeout: seconds
 default 30 s); a bare number does not compile and there is no `timeoutMs` (#268 AC11). The timer runs
 on the application's `Clock`, so a test's `clock.advance(…)` moves it.
 
+## Result size
+
+What a model reads of one tool result is bounded (#336), so one huge page or JSON cannot overflow the
+model's context on the next turn of the loop: `maxResultSize`, in bytes of the UTF-8 text the model
+reads, given with `kilobytes()` (`agboss/units`, 1 KB = 1,024 bytes). The tool's own wins; else
+`defaults.tools.maxResultSize` of its workflow, else of its application
+([Configuration → `defaults.tools`](Configuration#defaultstools)); nothing set → 128 KB.
+
+<!-- snippet-context
+import { Injectable } from "agboss";
+import { Text } from "agboss/dto";
+@Injectable()
+export class PageReader {
+  textOf(url: string): Promise<string> {
+    return Promise.resolve(url);
+  }
+}
+export class PageQuery {
+  @Text() url!: string;
+}
+export class PageContent {
+  @Text() text!: string;
+}
+-->
+
+```ts
+// tools/fetch-page.tool.ts — a tool whose pages may be long sets its own
+import { Tool, type ToolHandler } from "agboss";
+import { kilobytes, seconds } from "agboss/units";
+
+@Tool({
+  name: "fetch-page-tool",
+  description: "Fetches a web page as text",
+  input: PageQuery,
+  output: PageContent,
+  timeout: seconds(10),
+  maxResultSize: kilobytes(256),
+  deps: [PageReader],
+})
+export class FetchPageTool implements ToolHandler<PageQuery, PageContent> {
+  constructor(private readonly pageReader: PageReader) {}
+
+  async run({ url }: PageQuery): Promise<PageContent> {
+    return { text: await this.pageReader.textOf(url) };
+  }
+}
+```
+
+- The bound applies to the **rendered** result — the JSON of the output DTO, or `Tool error: …` for a
+  failed call — of a `@Tool`, an `@McpTool` and a knowledge base's `search-<rag>-tool` alike. Over
+  it, the text is cut at the last whitespace (space, tab, line break) within the final 256 bytes it
+  keeps, else at the bound, never inside a character, and ends with
+  `\n[result truncated: 1,048,587 bytes, the first 262,144 kept]` — a framework text the model reads,
+  part of every workflow's `configHash`. The result stays useful; it is never turned into an error.
+- It is cut **before** PII masking: the policies read only the kept part, the marker follows it in
+  what the model reads and in the checkpoint.
+- A knowledge base in `RagMode.Context` is bounded the same way: each knowledge base's block in the
+  agent's input message by the agent's `maxResultSize` (its workflow's `defaults.tools`, else 128 KB).
+- `onToolEnd` carries `isResultTruncated` (`update` then ends with the marker,
+  [Observability](Observability)); `agboss describe` prints each tool's bound and where it came from
+  — `maxResultSize 64 KB (desk-application)`, `256 KB (own)`, `128 KB (built-in)` — and
+  `describe --json` has it in bytes: `schemas.tools[name].maxResultSize` and each agent's
+  `maxResultSize` (its context blocks and the tools without their own).
+- A bound that is not a whole number of bytes from 1 (`kilobytes(0)`, `kilobytes(0.1)`) fails
+  assembly with `[tools.max-result-size-invalid]`, naming the tool or the workflow, all at once.
+- `testTool(…).run` returns the tool's full output — the bound is what a model reads, not what a
+  tool returns.
+
 ## Library and workflow tools
 
 A tool lives in its workflow's `tools/` folder (the framework ships none). There is no central
