@@ -3,6 +3,23 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — an instance's cap on steps, its queue and readiness (#332)
+
+- **Added — `@Application({ maxConcurrentSteps })`** ([Several instances → An instance's cap on steps](Several-instances#an-instances-cap-on-steps-332)):
+  how many agent, router and action steps (launch branches too) one application instance runs at
+  once, over every tree and tenant — a whole number from 1 (`[limits.max-concurrent-steps-invalid]`);
+  unset → no cap (no change). A step without a free slot waits in the instance's queue in the
+  tree queue's order (closing a branch first, then the deepest, aged every 10 s on the `Clock`);
+  a step in a provider's rate-limit queue keeps its slot; waiters at `app.close()` are interrupted
+  at the shutdown timeout and recovered elsewhere.
+- **Added — `HealthComponentKind.StepSlots`** ([Health checks](Health-checks#the-report)): the
+  readiness component `step-slots` (only with a cap) — `Degraded` while every slot is busy, `reason`
+  `"32 of 32 step slots busy, 7 steps waiting"`; liveness unchanged.
+- **Changed — the recovery sweep** of a capped instance starts at most its free step slots' worth of
+  recoveries per look (none when full) and goes on where a cut-short look stopped.
+- `agboss describe` prints `maxConcurrentSteps`; `describe --json` has `application.maxConcurrentSteps`
+  (`null` when unset).
+
 ## Unreleased — tool results bounded by maxResultSize (#336, PR 2)
 
 - **Added — `maxResultSize`** ([Tools → Result size](Tools#result-size)): what a model reads of one

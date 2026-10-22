@@ -149,7 +149,7 @@ and `; `.) `agboss chat` sends what is typed as a text, so its start takes `Work
 | `agboss chat [--start <name>]` | interactive chat (`--thread`, `--profile`, `--env`), on [`app`](App) |
 | `agboss run [--start <name>] "task"` | one execution, the answer to stdout (`--input <json>` / `--input-file <file>` for a start taking a DTO), on [`app`](App) |
 | `agboss check [--env <name>]` | writes `.agboss/types.d.ts`, then assembles the whole application (every flow rule of every workflow at once), prints [the report](#the-check-report-268) — the worst case of one call of each start, with `--env` the process variables that environment needs — checks the environment (its secrets' values only with `--models`) — the components every workflow's start creates — and the prompts — exit 3 on any problem; no key ([Workflow](Workflow#generated-types)) |
-| `agboss describe` | [the whole application](#describe-268): its tree of workflows, starts and children, each contract's implementation and why, the model providers, the channels, the budgets, the environment; then every workflow (the listed ones, then their child workflows) — no key. `--json`: `{ application: { name, version, tree, implementations, modelProviders, channels, budgets, executionBudgets, … }, workflows: [ … ] }`, each workflow with its [declarative snapshot](#the-declarative-snapshot-268) |
+| `agboss describe` | [the whole application](#describe-268): its tree of workflows, starts and children, each contract's implementation and why, the model providers, the channels, the budgets, the environment; then every workflow (the listed ones, then their child workflows) — no key. `--json`: `{ application: { name, version, tree, implementations, modelProviders, channels, budgets, executionBudgets, maxConcurrentSteps, … }, workflows: [ … ] }`, each workflow with its [declarative snapshot](#the-declarative-snapshot-268) |
 | `agboss check --strict` | the same, the analyser's warnings (`[flow.path-too-deep]`, `[graph.child-without-failure-finish]`) and the application's assembly warnings (`[application.in-memory-cost-ledger]`, `[application.in-memory-pauses]`, #261) errors — exit 3; without `--strict` they are printed as `warning: …` lines ([Workflow as a step](Workflow-as-a-step#errors)) |
 | `agboss check --models` | every model setting of every workflow of the application against what its resolved provider says the model supports — all problems at once, exit 1 on any; no model call, but it connects, so the chosen environment's secrets must be set — a missing one names its variable ([Model providers](Model-providers#fail-fast-settings-must-fit-their-models)) |
 | `agboss eval` / `agboss replay` `[--start <name>]` | score recent runs of the start's workflow with Jev / re-run a prompt version |
@@ -229,7 +229,8 @@ key, no network and no project code run (no `maxSpend()`):
   as is ([Pauses](Pauses)).
 - **Budgets** by scope with their periods, and the execution budget of each workflow — its own or
   the default — which applies when it is the root of `app.execute`; nested, it spends from its
-  root's. Then the observers, the assembly warnings and the environment (secrets masked).
+  root's. Then the observers, the instance's cap on steps (`maxConcurrentSteps 32 (set)`, or
+  `none (not set)`, #332), the assembly warnings and the environment (secrets masked).
 - **Each workflow** — its guardrails and PII policies with their refusals (the text, or
   `ClassName.refusal()` when the class computes it), the paths as written, each node's inputs with
   their producers (`prepare-offer-action ← draft: editor-agent | draft-agent (latest), …`), each

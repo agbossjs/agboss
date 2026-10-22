@@ -158,7 +158,7 @@ router's model, and the framework has no built-in guardrail model. A guardrail's
 guardrail with no model anywhere fails assembly: `[guardrail.no-model] support-workflow:
 prompt-injection-guardrail has no model — set model or defaults.guardrail.model` (#261, #120).
 
-## Limits — `maxSteps`, `maxVisits`, `@Budget`, `maxConcurrentExecutions`
+## Limits — `maxSteps`, `maxVisits`, `@Budget`, `maxConcurrentExecutions`, `maxConcurrentSteps`
 
 `@Workflow({ maxSteps })` — visits of agents and routers in one execution (default (agents +
 routers) × 3, checked at assembly: `[limits.max-steps-too-low]`, `[limits.branch-exceeds-max-steps]`,
@@ -173,6 +173,11 @@ required on a workflow that launches `ThisWorkflow`); an exhausted budget also r
 `@Workflow({ maxConcurrentExecutions })` (#264, default 10) is a throttle, not a failure: how many
 executions of a tree — the root and its child workflows — work at once; the rest wait in a queue
 ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)).
+`@Application({ maxConcurrentSteps })` (#332, unset → no cap; a whole number from 1,
+`[limits.max-concurrent-steps-invalid]`) is the instance's throttle: how many agent, router and
+action steps of one application instance work at once, over every tree and tenant; the rest wait
+in its queue, a full instance is `Degraded` in readiness and leaves orphaned executions to the others
+([Several instances → An instance's cap on steps](Several-instances#an-instances-cap-on-steps-332)).
 Details: [FinOps](FinOps).
 
 ## `mcp` — `@McpServer` classes

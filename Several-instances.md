@@ -267,6 +267,10 @@ it `running` again once it has recorded its decision). Every instance, at its st
    flow or version — makes the roots running or paused inside it incompatible too, though the
    root's own `@Workflow({ version })` is the same.
 
+An instance that caps its steps (`@Application({ maxConcurrentSteps })`, #332) starts at most as
+many recoveries per look as it has free step slots, and none while it is full
+([An instance's cap on steps](#an-instances-cap-on-steps-332)).
+
 Each recovery is logged (`execution.recovered`, a warning in the application's
 [log](Observability#the-frameworks-log) with its `executionId` and `tenantId`; a root left to a
 compatible instance is `recovery.incompatible`, a failed one `recovery.failed`) and traced, and
@@ -478,7 +482,65 @@ last sweep ended more than three sweep intervals (90 s) ago is `Unhealthy` (`stu
 waits on that never answers. Readiness adds every store's `ping()` and the circuit breakers of the
 model providers as `RateLimitRepository` keeps them for every instance: an open breaker makes every
 instance `Degraded` at once (it still serves; calls go to the fallback or fail fast), never
-`Unhealthy`.
+`Unhealthy`. An instance that caps its steps ([below](#an-instances-cap-on-steps-332)) is `Degraded`
+while every step slot is busy.
+
+## An instance's cap on steps (#332)
+
+One instance has finite memory and CPU: a burst of `app.execute` calls across tenants, or trees that
+fan out into many parallel agents on the same pod, would otherwise all run in it at once.
+`@Application({ maxConcurrentSteps })` caps how many **agent, router and action steps** — each
+branch of a parallel launch is one — this instance runs at once, over every tree and every tenant:
+
+<!-- snippet-context
+import { Application, EmptyEnvironment } from "agboss";
+export class DeskWorkflow {}
+export class ApplicationDailyBudget {}
+export class TenantDailyBudget {}
+export class ExecutionBudget {}
+-->
+
+```ts
+@Application({
+  name: "desk-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [DeskWorkflow],
+  budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
+  maxConcurrentSteps: 32, // this instance's agent, router and action steps at work at once
+})
+export class DeskApplication {}
+```
+
+- A whole number from 1 (`[limits.max-concurrent-steps-invalid]` at assembly: 0, -1 and 2.5 fail);
+  **unset → no cap** — nothing changes for an application that does not set it.
+- A step takes its tree's slot ([`maxConcurrentExecutions`](FinOps#concurrency-of-a-tree-264)), then
+  one of the instance's, with the same claim; both are released when the step ends, fails or
+  pauses. A start, a finish, a join and a child workflow's node take none.
+- A step without a free slot **waits** — never an error — in the same order as the tree's queue: a
+  step that closes a branch (right after its child, or its children's join) first, then the
+  deepest execution, every 10 s of waiting counted as one level deeper (`AGING_STEP`, on the
+  `Clock`); a new root's first step is depth 1, so it comes last. A waiter whose execution is
+  cancelled, or whose launch fails fast, leaves the queue. A quorum's `deadline` excludes the
+  time its branches wait for either slot.
+- A step waiting in a model provider's rate-limit queue (#266) **keeps** its slot.
+- No deadlock: a launch's slot comes before the tree's, the tree's before the instance's, and a
+  step holding an instance slot needs nothing else to end. The one exception is your own: a tool
+  that calls `app.execute` on the same instance while its step holds a slot needs a slot of its own.
+- At `app.close()` the waiting steps wait with the running ones until the shutdown timeout, then are
+  interrupted like them (`ApplicationStoppingError`, the record stays `running`, the lease released
+  at once) and another instance [recovers](#recovery) the tree.
+- **Recovery** on a full instance: its sweep starts at most as many recoveries per look as it has
+  free step slots — none when it is full — so the orphans go to an idle instance. A look cut short
+  that way goes on where it stopped the next time, so every `running` root is reached in turn.
+- **Readiness**: a full instance reports the component `step-slots`
+  ([`HealthComponentKind.StepSlots`](Health-checks#the-report)) as `Degraded` —
+  `"32 of 32 step slots busy, 7 steps waiting"` — and `Healthy` again once a slot frees; liveness is
+  not affected. A load balancer that reads readiness sends new requests to the other instances.
+- `agboss describe` prints `maxConcurrentSteps 32 (set)` (or `none (not set)`); `describe --json` has
+  `application.maxConcurrentSteps` (`null` when unset).
+- The slots are in-process (one `StepSlots` per `createApp`); they are not shared through a store —
+  each instance caps itself.
 
 ## Limits
 

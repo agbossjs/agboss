@@ -33,7 +33,14 @@ message or `timed out after 2 s`. No check calls a model: a provider's breaker i
       "reason": "circuit breaker open until 2026-10-21T09:01:00.000Z",
       "duration": 0
     },
-    { "name": "crm-health-check", "kind": "project", "status": "healthy", "duration": 42 }
+    { "name": "crm-health-check", "kind": "project", "status": "healthy", "duration": 42 },
+    {
+      "name": "step-slots",
+      "kind": "step-slots",
+      "status": "degraded",
+      "reason": "32 of 32 step slots busy, 7 steps waiting",
+      "duration": 0
+    }
   ]
 }
 ```
@@ -43,7 +50,10 @@ message or `timed out after 2 s`. No check calls a model: a provider's breaker i
 - `HealthComponentReport { name, kind, status, reason?, duration }` — `kind` a
   `HealthComponentKind`: `Application` (its `name` the application's), `RecoveryLoop`
   (`recovery-loop`), `Store` (the implementation's class: one per #265 contract and the checkpoint
-  saver), `ModelProvider` (the provider's `name`), `Project` (the check's `name`); `duration` in
+  saver), `ModelProvider` (the provider's `name`), `Project` (the check's `name`), `StepSlots`
+  (`step-slots`, #332: only when `@Application({ maxConcurrentSteps })` is set — readiness only,
+  `Degraded` while every step slot of the instance is busy, its `reason` the busy, the cap and the
+  waiting steps; [Several instances](Several-instances#an-instances-cap-on-steps-332)); `duration` in
   milliseconds on the `Clock`.
 
 ## A project's own check
