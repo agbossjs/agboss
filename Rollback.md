@@ -7,7 +7,8 @@ when a later step fails. The undo is an ordinary `@Action`, and the action that 
 an `.onError(ErrorClass, <side path>)` right after the step that throws, or a join's
 `.onJoinError(…)` — the side path runs the undo actions itself, newest first, and `agboss check`
 proves it does. Where no path can say it, the framework runs them itself: a failed join's finished
-branches (#340 PR 2, below); a cancel, an uncaught failure or limit (#340 PR 3).
+branches (#340 PR 2, below); a cancel, an uncaught failure or limit, an aborted child workflow
+(#340 PR 3, [below](#an-execution-that-ends-without-a-finish)).
 
 <!--
 ```ts file=order.components.ts
@@ -319,6 +320,62 @@ actions
 
 `examples/flow-patterns/src/travel/` books a trip this way.
 
+## An execution that ends without a finish
+
+An execution that stops before a finish — an uncaught step failure, an uncaught limit
+(`BudgetExceededError`, `StepsLimitExceededError`, `VisitsLimitExceededError`), `app.cancel`, a
+sibling's failure under `FailurePolicy.FailFast` — undoes its open undoable actions, newest first,
+before it ends (#340 PR 3): `CompensationReason.ExecutionFailed` for a failure or a limit,
+`ExecutionCancelled` for a cancel or a `FailFast` abort. Each undo runs as a failed join's does
+(above): its own frame and key, the clean-up signal, no slot, no budget check. Where it happens:
+
+- **A child workflow** undoes its own actions in its parent's step, before its error reaches the
+  parent ([Workflow as a step](Workflow-as-a-step)); its finish commits them, so a finished child
+  is never undone by a later failure of its parent.
+- **A root** is undone by the instance that holds its lease, after its pass rejects and before its
+  keys are removed and `onExecutionError` is observed (whose `compensations` lists what ran,
+  [Observability](Observability#automatic-undo)) — the actions of a paused child of it too, read
+  from its checkpoint.
+- **`app.cancel` of a paused tree** takes its lease, withdraws its pauses (their channels are told,
+  #337), undoes, and only then returns `{ cancelled: true }`
+  ([Cancellation](Saga-And-Cancellation#global-cancellation)); a cancel from another instance
+  (#360) of a running tree returns once it is recorded, and the holder undoes it.
+
+LangGraph rejects an aborted pass before the step bodies still running return, and their writes
+never reach the checkpoint, so the undo reads the records from the checkpoint (pending writes
+applied) and from the instance's own registry, which every record reaches the moment its step
+writes it. It first awaits the tree's running step bodies — children still undoing among them —
+up to `compensationTimeout`: an action that returns meanwhile is undone too; one still running then
+is logged (`compensation.step-still-running`) and, if it returns later, undone at once, in process
+(its key `<step key>:compensation` makes a second run safe; a failure then is logged,
+`compensation.late-undo-failed`). The undo's service spend goes to the ledger at once
+([FinOps](FinOps)).
+
+A failing undo does not stop the others; then the execution fails with `CompensationFailedError`,
+its `cause` the original error (`toFailWith(StepFailedError)` still matches through it).
+`CompensationFailedError` passes a child's boundary as it is — never wrapped in
+`ChildExecutionFailedError`, like a cancel or an exhausted budget — so no `.onError` of the parent
+takes it, and the parent, getting it uncaught, undoes its own open actions too. A cancel whose undo
+failed still cancels (`{ cancelled: true }`); its `onExecutionError` carries the
+`CompensationFailedError`. An undo interrupted by a crash or a lost lease is not finished by another
+instance yet (#340 PR 4).
+
+```ts no-check: the send-offer example's test (examples/flow-patterns/tests/hiring.test.ts), shown here as the case it proves
+test("a cancel while paused: the pause is withdrawn, both undone, then cancelled", async ({ app, mockLlm, mockOf }) => {
+  mockOf(AtsClientService).registerOffer.mockResolvedValue("offer-7");
+  mockOf(HrCalendarService).bookSlot.mockResolvedValue("slot-3");
+  mockLlm(OfferLetterAgent).thenReturn(replyWith(OfferLetterDto, { text: "Dear Ada…" }));
+  mockLlm(OfferSenderAgent).thenReturn(callTool(SendOfferLetterTool, { text: "Dear Ada…" }));
+  const paused = await app.execute(SendOfferWorkflowStart, REQUEST, { threadId: "t-1" });
+
+  const cancel = await app.cancel(paused.threadId); // waits for the undo, each bounded by compensationTimeout
+
+  expect(cancel).toEqual({ cancelled: true });
+  expect(mockOf(HrCalendarService).releaseSlot.mock.calls).toHaveLength(1);
+  expect(mockOf(AtsClientService).withdrawOffer.mock.calls).toHaveLength(1);
+});
+```
+
 ## Explicit where a path can say it, automatic where none can
 
 A side path is where a failure is handled: writing the undo there keeps it reviewed, typed (the
@@ -328,6 +385,7 @@ uncaught step failure or limit, an aborted child workflow, and the finished bran
 join, whose values never reach the side path. There — and only there — the framework runs the open
 actions' undo actions itself, newest first, each with its own idempotency key and a bounded
 clean-up signal; a failing undo does not stop the others, and the execution fails with
-`CompensationFailedError`. A failed join's undo is there now (#340 PR 2); the undo of an execution
-that ends without a finish — a cancel, an uncaught failure or limit, an aborted child — comes with
-#340 PR 3, and until then such a stop leaves the actions as they are, as before.
+`CompensationFailedError`. A failed join's undo came with #340 PR 2, the undo of an execution that
+ends without a finish — a cancel, an uncaught failure or limit, an aborted child — with #340 PR 3
+([above](#an-execution-that-ends-without-a-finish)); finishing an undo a crash interrupted is
+#340 PR 4.

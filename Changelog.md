@@ -3,6 +3,30 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the automatic undo when an execution ends without a finish (#340 PR 3)
+
+- **Added — the undo of an execution that ends without a finish**
+  ([Rollback](Rollback#an-execution-that-ends-without-a-finish)): an uncaught failure or limit
+  (`CompensationReason.ExecutionFailed`), a cancel or a launch's `FailFast` abort
+  (`ExecutionCancelled`) undoes the execution's open undoable actions, newest first, before it
+  ends — a child in its parent's step before its error is raised
+  ([Workflow as a step](Workflow-as-a-step)), a root by its lease's holder before its keys are
+  removed and `onExecutionError` is observed, after awaiting the tree's running step bodies up to
+  `compensationTimeout` (one that returns later is undone at once, in process).
+- **Changed — `app.cancel` of a paused tree** takes its lease, withdraws its pauses, undoes, then
+  returns `{ cancelled: true }` ([Cancellation](Saga-And-Cancellation#global-cancellation)); a cancel
+  request (#360) found at lease take undoes first, then ends the tree as before.
+- **Changed — `CompensationFailedError` passes a child's boundary as it is**, never wrapped in
+  `ChildExecutionFailedError`: no `.onError` / `.onJoinError` of the parent takes it, and the
+  parent undoes its own open actions.
+- **Added — `ExecutionErrorEvent.compensations`** ([Observability](Observability#automatic-undo)):
+  the undo actions that ran for the failed execution. **Breaking** for a project that builds
+  `ExecutionErrorEvent` objects itself (a test double of an observer): the field is required.
+- **Changed — the undo's service spend** is written to the ledger at once when no state will hold
+  it: a failed join that fails the execution, an execution ending without a finish
+  ([FinOps](FinOps)).
+- README: "declared action compensation (`compensateWith` / `committedBy`)" is back in the feature
+  line.
 ## Unreleased — a DTO name clash fails agboss check (#371)
 
 - **Fixed — `agboss check` printed `ok` without writing `.agboss/types.d.ts`** ([Workflow](Workflow#generated-types),
@@ -50,7 +74,7 @@ Breaking changes and notable additions, newest first. The API reports
   reason?, status? })` ([Testing](Testing#asserting-an-undo)); `agboss describe` marks a launched
   undoable action `(on a failed join: automatic)`.
 - The undo of an execution that ends without a finish (a cancel, an uncaught failure or limit, an
-  aborted child) is #340 PR 3.
+  aborted child) came with #340 PR 3 (above).
 
 ## Unreleased — app.close() waits for interrupted step bodies (#367)
 

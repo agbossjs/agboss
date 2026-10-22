@@ -294,9 +294,14 @@ BudgetExceededError {
 ```
 
 - **An automatic undo is never refused** (#340): the undo actions a failed join runs for its
-  finished branches ([Rollback](Rollback#a-failed-join-undoes-its-finished-branches)) take no
-  budget check, so an exhausted budget never leaves a booking in place; what their services cost
-  (`SpendRecorder`) is the execution's spend under `action:<undo name>`, in the join's update.
+  finished branches ([Rollback](Rollback#a-failed-join-undoes-its-finished-branches)) and those of
+  an execution that ends without a finish — an exhausted budget among the reasons
+  ([Rollback](Rollback#an-execution-that-ends-without-a-finish)) — take no budget check, so an
+  exhausted budget never leaves a booking in place. What their services cost (`SpendRecorder`) is
+  spend under `action:<undo name>`: in the join's update when its `.onJoinError` takes the failure;
+  otherwise — the join fails the execution, a child or a root ends without a finish, a late undo
+  — written to the ledger's counters at once, since no state of the execution will hold it (#340
+  PR 3). A child's undo spend is then in the ledger only, not in its parent's `result.spend`.
 
 ### The ledger
 

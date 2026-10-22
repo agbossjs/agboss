@@ -248,13 +248,20 @@ export class QuorumAudit implements OnQuorumDecided {
 ## Automatic undo
 
 Each undo action the framework runs by itself (#340: a failed join's finished branches,
-[Rollback](Rollback#a-failed-join-undoes-its-finished-branches)) is reported by
+[Rollback](Rollback#a-failed-join-undoes-its-finished-branches); an execution that ends without a
+finish, [Rollback](Rollback#an-execution-that-ends-without-a-finish)) is reported by
 `onCompensationStart` and `onCompensationEnd`, around the undo action's own `onActionStart` /
 `onActionEnd`: `step` is the undo action's step (its key `<undone step's key>:compensation`,
 `step.compensates` the step it undoes), `compensated` the step it undoes, `reason` a
-`CompensationReason` (`JoinFailed`); the end adds `status` (`CompensationStatus.Compensated` /
+`CompensationReason` (`JoinFailed`, `ExecutionFailed`, `ExecutionCancelled`); the end adds `status` (`CompensationStatus.Compensated` /
 `Failed`) and, when it failed, `error`. An undo on a side path is an ordinary action step: its
 `onActionStart` / `onActionEnd` only. Both kinds are in `result.compensations`.
+
+An execution that fails (`onExecutionError`) carries them too: `ExecutionErrorEvent.compensations`
+— the `CompensationRecord`s of the undo actions that ran for it, its side paths' first, then the
+automatic undo of its end in the order they ran (`[]` when none ran); a failed undo is there with
+`status: CompensationStatus.Failed`, and the event's `error` is then `CompensationFailedError`. A
+child's event lists its own; a root's its own and those its end undid for a paused child.
 
 ```ts
 import { CompensationStatus, Injectable, type CompensationEndEvent, type OnCompensationEnd } from "agboss";

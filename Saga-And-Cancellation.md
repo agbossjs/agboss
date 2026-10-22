@@ -5,7 +5,8 @@ later step fails. There is no saga engine: an action declares its undo action
 (`@Action({ compensateWith, committedBy })`, #339), and a side path after a failure runs it, newest
 first — checked by `agboss check`, see [Rollback](Rollback) and
 [ADR-0020](ADR-0020-Declared-compensation). Where no path can say it (a cancel, an uncaught
-failure, a failed join's finished branches) the framework will undo by itself (#340); the side
+failure or limit, an aborted child, a failed join's finished branches) the framework undoes by
+itself, newest first (#340, [Rollback](Rollback#an-execution-that-ends-without-a-finish)); the side
 effects of an agent's tool calls are not undone. The explicit form:
 
 ```ts no-check: the pattern only — the full, compiled example is on the Rollback page
@@ -25,6 +26,17 @@ start(OrderWorkflowStart)
 and `execute` rejects with `ExecutionCancelledError` (`execution.cancelled`). A paused run is dropped
 instead (its `resume` then throws `NotPausedError`). `{ cancelled }` is `false` when the thread had
 neither.
+
+**The undo on cancel (#340 PR 3).** A cancelled execution's open undoable actions
+(`@Action({ compensateWith })` not yet committed or undone) are undone, newest first, before it
+ends (`CompensationReason.ExecutionCancelled`). A running one rejects with `ExecutionCancelledError`
+once its holder has undone them (`app.cancel` itself returns at once). A paused one is cancelled
+under its lease: its pauses are withdrawn first (their channels told, #337), then the undo runs —
+each undo action bounded by `compensationTimeout` — and `app.cancel` returns `{ cancelled: true }`
+only after it; a paused child's actions are undone with its parent's. An undo that fails does not
+stop the cancel: the others still run, `{ cancelled: true }` is returned, and `onExecutionError`
+gets `CompensationFailedError` (its `cause` the `ExecutionCancelledError`). Committed actions and
+actions a side path already undid are left as they are.
 
 Any instance of the application may take the cancel (#360): one that does not run the execution
 leaves a cancel request in the shared stores, and the instance that runs it stops it within one

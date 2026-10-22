@@ -406,9 +406,16 @@ path took (`error`, `at`, `by`).
 
 **A child is the unit of work for its undo (#340 Q2).** A child's undoable actions
 (`@Action({ compensateWith })`) are its own records: its finish commits them — a parent's later
-failure, or its join's, never undoes a finished child. A child that ends without a finish undoes
-its own open actions before its error reaches the parent (#340 PR 3);
-[Rollback](Rollback#records-what-is-open-committed-undone-340).
+failure, or its join's, never undoes a finished child. A child that ends without a finish — it
+failed, it was cancelled, or its launch's `FailFast` aborted it — undoes its own open actions,
+newest first, in its parent's step before its error reaches the parent (#340 PR 3,
+`ExecutionFailed` / `ExecutionCancelled`): its records come from its checkpoint and the instance's
+registry, never from the last state the parent saw; the undone records go into the parent's state
+with the error, so a later pass never undoes them again; its `onExecutionError` lists them
+(`compensations`). If one of its undo actions fails, its error is `CompensationFailedError`, which
+passes the boundary as it is — never `ChildExecutionFailedError`, like a cancel or an exhausted
+budget — so no `.onError` / `.onJoinError` of the parent takes it; the parent, getting it uncaught,
+undoes its own open actions in turn. [Rollback](Rollback#an-execution-that-ends-without-a-finish).
 
 **The application's rules.** A child need not be listed in `@Application({ workflows })`: the
 workflows are collected transitively, and an unlisted child goes through every rule a listed one
