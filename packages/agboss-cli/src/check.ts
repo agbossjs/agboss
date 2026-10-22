@@ -7,7 +7,8 @@ import { envOption } from "./cli/environment.js";
 import { assemble, modelProblem, problemText, type CheckProblem } from "./cli/check-problems.js";
 import { checkReportOf, type CheckReport } from "./cli/check-report.js";
 import { CliError } from "./cli/errors.js";
-import { typesProblemsBeside, writeCheckedTypes } from "./cli/flow-types.js";
+import { writeCheckedTypes } from "./cli/flow-types.js";
+import { checkProblemsOf } from "./cli/types-problems.js";
 
 /**
  * The application's assembly warnings (#261): its budgets on an in-memory cost ledger, its pauses
@@ -128,11 +129,9 @@ export const handle: CommandHandler = async (context) => {
     assembly.kind === "failed"
       ? { problems: assembly.problems, report: undefined }
       : await reportAndCheck({ context, file, assembled: assembly.assembled }, selected);
-  // a types file not written is never `ok` (#371): generation's errors the assembly did not report
-  const problems: CheckProblem[] = [
-    ...typesProblemsBeside(typed, checked.problems),
-    ...checked.problems,
-  ];
+  // a types file not written is never `ok` (#371, #376): generation's errors the assembly did not
+  // report, and the assembly's own named by generation's files where it knew none
+  const problems: readonly CheckProblem[] = checkProblemsOf(typed, checked.problems);
   const { report } = checked;
   const checks = [
     "assembly",

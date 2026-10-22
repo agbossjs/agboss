@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { CheckProblem } from "../../src/cli/check-problems.js";
-import { typesProblemsBeside } from "../../src/cli/flow-types.js";
+import { typesProblemsBeside } from "../../src/cli/types-problems.js";
 import { envelope, fixture, agboss } from "./agboss.js";
 
 /** #371: `agboss check` never prints `ok` when it did not write `.agboss/types.d.ts`. */
