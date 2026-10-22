@@ -52,6 +52,7 @@ const OLD_DSL = [
   "joinAny",
   "byPriority",
   "catchError",
+  // the old DSL's export; since #339 `compensateWith` is an option of @Action, not a name of any entry
   "compensateWith",
   "onOutput",
   "cameFrom",

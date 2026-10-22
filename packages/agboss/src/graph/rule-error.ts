@@ -78,6 +78,16 @@ export type RuleCode =
   // the tree's concurrency cap (#264 PR 2), reported by `src/flow/analyse`
   | "limits.max-concurrent-executions-invalid"
   | "limits.child-concurrency-above-parent"
+  // declared action compensation (#339 PR 1), reported by `src/flow/analyse`
+  | "action.compensator-not-an-action"
+  | "action.committer-not-an-action"
+  | "action.self-compensation"
+  | "action.compensator-compensates"
+  | "action.invalid-compensator-input"
+  | "flow.uncompensated-action"
+  | "flow.uncommitted-action"
+  | "flow.compensation-out-of-order"
+  | "flow.committer-unreachable"
   // the instance's cap on steps (#332), reported at the application's assembly
   | "limits.max-concurrent-steps-invalid"
   | "name.kind-suffix"
