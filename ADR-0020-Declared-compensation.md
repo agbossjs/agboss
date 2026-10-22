@@ -42,9 +42,13 @@ leaves three gaps:
 
 - Easier: an undo is declared once, next to the action, and every side path is proven to run it;
   `agboss describe` shows `compensateWith … · committedBy …` per action; a cancel or an uncaught
-  failure no longer leaves side effects behind (#340).
+  failure no longer leaves side effects behind (#340); an undo interrupted by a stop, a crash or a
+  lost lease is finished by the instance that takes the tree over, the undos done skipped (#340
+  PR 4: the reserved tree keys `@agboss/unwinding`, `@agboss/compensated/<key>`).
 - Harder: one more contract to keep — an undo must be safe to run twice (it gets an idempotency
-  key) and read only what was on the path right after its action.
+  key; a failed or interrupted undo runs again on the next holder) and read only what was on the
+  path right after its action. A root's record is written only after its undo ended, and a cancel
+  that ran the undo itself rejects with `CompensationFailedError` when an undo failed.
 - Out of scope: the side effects of an agent's tool calls (agents get no `compensateWith`), and
   quorums (they launch agents only).
 - Rejected: metadata only, without an automatic undo (leaves cancels and uncaught failures with side

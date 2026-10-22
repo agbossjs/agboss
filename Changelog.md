@@ -3,6 +3,25 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — an interrupted undo is finished by recovery; the record after the undo (#340 PR 4)
+
+- **Added — durable automatic undo**
+  ([Several instances](Several-instances#an-undo-interrupted-mid-way)): the reserved tree keys
+  `@agboss/unwinding` (`{ reason, cause }`), `@agboss/unwinding:<childExecutionId>` and
+  `@agboss/compensated/<compensationKey>`; an undo interrupted by a stop, a crash or a lost lease is
+  finished by the instance that takes the tree over — recovery before its compatibility check, a
+  resume at its lease take — the undos marked done skipped, then the tree ends failed with the
+  recorded reason, without a pass (`compensation.recovered` in the log); a child re-entered mid-undo
+  finishes its own before any step.
+- **Changed — the root's record is written after its undo**
+  ([Rollback](Rollback#an-execution-that-ends-without-a-finish)): `running` while the undo runs, then
+  failed with the final error — `CompensationFailedError` when an undo failed (before, the record
+  kept the original error).
+- **Changed — `app.cancel` rejects with `CompensationFailedError`** when it ran the undo itself (a
+  paused tree, or a paused tree of another instance's request) and an undo failed — the others ran,
+  the tree is cancelled ([Cancellation](Saga-And-Cancellation#global-cancellation)); before, it
+  returned `{ cancelled: true }`. **Breaking** for a caller that expected the cancel to resolve.
+
 ## Unreleased — project skills for coding agents, shipped with agboss (#305 PR 1)
 
 - **Added — `skills/agboss/` in the `agboss` package** (`SKILL.md` and 12 references; 02, 06,

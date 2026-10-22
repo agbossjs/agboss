@@ -34,9 +34,15 @@ once its holder has undone them (`app.cancel` itself returns at once). A paused 
 under its lease: its pauses are withdrawn first (their channels told, #337), then the undo runs —
 each undo action bounded by `compensationTimeout` — and `app.cancel` returns `{ cancelled: true }`
 only after it; a paused child's actions are undone with its parent's. An undo that fails does not
-stop the cancel: the others still run, `{ cancelled: true }` is returned, and `onExecutionError`
-gets `CompensationFailedError` (its `cause` the `ExecutionCancelledError`). Committed actions and
-actions a side path already undid are left as they are.
+stop the others (#340 S7): when `app.cancel` runs the undo itself — a paused tree, where
+`{ cancelled: true }` means every undo succeeded — it **rejects with `CompensationFailedError`**
+(its `cause` the `ExecutionCancelledError`; the tree is cancelled all the same, its record failed
+with that error and `onExecutionError` given it); when it only aborts or requests the stop of a
+running pass, the holder's `app.execute` / `app.resume` rejects with it. Committed actions and
+actions a side path already undid are left as they are. While the undo runs the execution's record
+stays `running`: an instance that stops or crashes mid-undo leaves the rest to another instance,
+which finishes it — the undos done are not run again
+([Several instances → An undo interrupted mid-way](Several-instances#an-undo-interrupted-mid-way)).
 
 Any instance of the application may take the cancel (#360): one that does not run the execution
 leaves a cancel request in the shared stores, and the instance that runs it stops it within one

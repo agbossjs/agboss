@@ -332,10 +332,12 @@ before it ends (#340 PR 3): `CompensationReason.ExecutionFailed` for a failure o
 - **A child workflow** undoes its own actions in its parent's step, before its error reaches the
   parent ([Workflow as a step](Workflow-as-a-step)); its finish commits them, so a finished child
   is never undone by a later failure of its parent.
-- **A root** is undone by the instance that holds its lease, after its pass rejects and before its
-  keys are removed and `onExecutionError` is observed (whose `compensations` lists what ran,
-  [Observability](Observability#automatic-undo)) — the actions of a paused child of it too, read
-  from its checkpoint.
+- **A root** is undone by the instance that holds its lease, after its pass fails and before its
+  record is failed, its keys are removed and `onExecutionError` is observed (whose `compensations`
+  lists what ran, [Observability](Observability#automatic-undo)) — the actions of a paused child of
+  it too, read from its checkpoint. The record is written **after** the undo (#340 S7): while it
+  runs the root stays `running`, then its status and error are final (`CompensationFailedError`
+  included).
 - **`app.cancel` of a paused tree** takes its lease, withdraws its pauses (their channels are told,
   #337), undoes, and only then returns `{ cancelled: true }`
   ([Cancellation](Saga-And-Cancellation#global-cancellation)); a cancel from another instance
@@ -356,9 +358,20 @@ its `cause` the original error (`toFailWith(StepFailedError)` still matches thro
 `CompensationFailedError` passes a child's boundary as it is — never wrapped in
 `ChildExecutionFailedError`, like a cancel or an exhausted budget — so no `.onError` of the parent
 takes it, and the parent, getting it uncaught, undoes its own open actions too. A cancel whose undo
-failed still cancels (`{ cancelled: true }`); its `onExecutionError` carries the
-`CompensationFailedError`. An undo interrupted by a crash or a lost lease is not finished by another
-instance yet (#340 PR 4).
+failed still cancels the tree, but `app.cancel` of a paused tree **rejects** with the
+`CompensationFailedError` (its `cause` the `ExecutionCancelledError`), and a running tree's holder's
+`execute` / `resume` rejects with it (#340 S7).
+
+**Durable (#340 PR 4).** An undo that an instance's stop, crash or lost lease interrupts is finished
+by the instance that takes the tree over: before a root's undo starts the reserved tree key
+`@agboss/unwinding` (`{ reason, cause }`) is written, and `@agboss/compensated/<compensationKey>`
+after each undo that succeeds (a child's own undo marks `@agboss/unwinding:<childExecutionId>`).
+Recovery finds the root still `running`, runs the remaining undos on its checkpoint state — the ones
+marked done skipped — and ends it failed with the recorded reason, without a pass; a child
+re-entered mid-undo finishes its own before any step and raises its error again
+([Several instances → An undo interrupted mid-way](Several-instances#an-undo-interrupted-mid-way)).
+A failed undo is not marked: the next holder runs it again (its key `<step key>:compensation`
+makes that safe).
 
 ```ts no-check: the send-offer example's test (examples/flow-patterns/tests/hiring.test.ts), shown here as the case it proves
 test("a cancel while paused: the pause is withdrawn, both undone, then cancelled", async ({ app, mockLlm, mockOf }) => {
@@ -387,5 +400,5 @@ actions' undo actions itself, newest first, each with its own idempotency key an
 clean-up signal; a failing undo does not stop the others, and the execution fails with
 `CompensationFailedError`. A failed join's undo came with #340 PR 2, the undo of an execution that
 ends without a finish — a cancel, an uncaught failure or limit, an aborted child — with #340 PR 3
-([above](#an-execution-that-ends-without-a-finish)); finishing an undo a crash interrupted is
-#340 PR 4.
+([above](#an-execution-that-ends-without-a-finish)), and finishing an undo a stop, a crash or a
+lost lease interrupted with #340 PR 4.

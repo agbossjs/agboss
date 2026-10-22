@@ -363,13 +363,44 @@ returns `{ cancelled: false }` (on the instance that started it the cancel still
 **Reserved keys.** Tree keys starting with `@agboss/` belong to the framework — do not write them
 from your own components ([below](#the-shared-state-of-one-request)).
 
+## An undo interrupted mid-way
+
+An execution that ends without a finish undoes its open undoable actions before it ends
+([Rollback](Rollback#an-execution-that-ends-without-a-finish)). The undo is durable (#340 PR 4):
+
+- before a root's undo starts, the holder writes the reserved tree key `@agboss/unwinding`
+  (`{ reason, cause }` — why the tree ends: `CompensationReason.ExecutionFailed` or
+  `ExecutionCancelled`, and the error's name and message; the first one written is kept), and after
+  each undo action that succeeds `@agboss/compensated/<compensationKey>` (the automatic undo's own
+  key, `<step key>:compensation`); a child's own undo writes `@agboss/unwinding:<childExecutionId>`;
+- the root's record stays `running` until the undo ended — only then is it failed with its final
+  error ([Rollback](Rollback#an-execution-that-ends-without-a-finish)) — so a stop (`app.close()`
+  interrupting the undo at its shutdown timeout), a crash or a lost lease mid-undo leaves a
+  `running` root with `@agboss/unwinding` for the recovery sweep;
+- **whoever takes the tree's lease next** reads the key: recovery checks it before the
+  compatibility check (like a cancel request, on an instance of any config version), and a waiting
+  `resume` or a recovery at its lease take too. Found, the remaining undos run on the checkpoint
+  state (pending writes applied, the children's namespaces included), the ones marked done skipped,
+  then the tree ends failed with the recorded reason — its record failed, its pauses withdrawn, its
+  keys removed, `onExecutionError` once (`ExecutionCancelledError` for a cancel, an `AGBossError`
+  with the original message for a failure; `CompensationFailedError` when an undo failed) — and no
+  pass runs; the log says `compensation.recovered`;
+- **a child re-entered mid-undo** — the root's pass continued from its checkpoint, the child's step
+  run again — reads its own key before its next step: found, the child takes no step, finishes its
+  undo the same way and raises its error again, which its parent's side path may take.
+
+An undo that failed is not marked done: the next holder runs it again. Each undo action gets the
+same idempotency key on every instance, so an undo service that honours it sees one undo.
+
 ## The shared state of one request
 
 `ExecutionTreeRepository` keeps keys under the request's root execution: visible to the whole tree
 of executions at any depth and on any instance, invisible to other requests, removed when the tree
 finishes, fails or is cancelled (a pause keeps them). `saveIfAbsent` is atomic — of two branches
 claiming one key exactly one gets `true`. Keys starting with `@agboss/` are reserved for the
-framework (`@agboss/cancel-request`, [above](#cancelling-from-any-instance)). Keys come from
+framework (`@agboss/cancel-request`, [above](#cancelling-from-any-instance); `@agboss/unwinding`,
+`@agboss/unwinding:<childExecutionId>` and `@agboss/compensated/<compensationKey>`,
+[above](#an-undo-interrupted-mid-way)). Keys come from
 identifiers in DTOs, never from text:
 
 <!-- snippet-context
