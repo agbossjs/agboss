@@ -25,11 +25,12 @@ import { executionEventAt } from "./run-events.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import type * as CancelRequests from "./cancel-requests.js";
 import type * as UnwindingTakeover from "./unwinding-takeover.js";
+import { isUnwinding } from "../flow/runtime/compensation/unwinding-marks.js";
 
 /** Cancel requests (#360), loaded with the first pass. */
 const cancelRequests = (): Promise<typeof CancelRequests> => import("./cancel-requests.js");
 
-/** A tree ended at a lease take (#360's request, #340 PR 4's undo under way), loaded with the first take. */
+/** Finishing an undo under way at a lease take (#340 PR 4), loaded only when one is found. */
 const takeover = (): Promise<typeof UnwindingTakeover> => import("./unwinding-takeover.js");
 
 /**
@@ -84,7 +85,7 @@ class TreeMover implements TreeMoves {
       }
       const lease = await leases.hold(treeOf(state), call.signal);
       // ended at the take: the resume rejects with the tree's final error (#340 S7 1)
-      const ended = await (await takeover()).treeEndedAtTake(this.parts, state, lease);
+      const ended = await this.endedAtTake(state, lease);
       if (ended !== undefined) throw ended;
       const next = await this.nextPass(state, call).catch(async (error: unknown) => {
         await lease.release();
@@ -110,8 +111,7 @@ class TreeMover implements TreeMoves {
     const state = { runId, threadId, tenantId, startedVersion };
     const lease = await this.parts.leases.tryHold(treeOf(state));
     if (lease === undefined) return undefined;
-    if ((await (await takeover()).treeEndedAtTake(this.parts, state, lease)) !== undefined)
-      return undefined;
+    if ((await this.endedAtTake(state, lease)) !== undefined) return undefined;
     const recovery = await recoveryPassOf(this.parts, interrupted, call).catch(
       async (error: unknown) => {
         await lease.release();
@@ -131,7 +131,23 @@ class TreeMover implements TreeMoves {
 
   async endIfEnding(interrupted: InterruptedRun): Promise<boolean> {
     if (this.#resuming.has(interrupted.runId)) return false;
-    return (await takeover()).endIfEnding(this.parts, interrupted);
+    if (await (await cancelRequests()).endIfCancelled(this.parts, interrupted)) return true;
+    if (!(await isUnwinding(this.parts.trees, treeOf(interrupted)))) return false;
+    return (await takeover()).endUnwindingIfFree(this.parts, interrupted);
+  }
+
+  /**
+   * A lease just taken: a tree with a cancel request (#360) or an undo under way (#340 PR 4) is
+   * ended without a pass and the lease released — its final error; `undefined` otherwise.
+   */
+  private async endedAtTake(
+    state: TreeState,
+    lease: HeldExecutionLease,
+  ): Promise<Error | undefined> {
+    const cancelled = await (await cancelRequests()).endedAtTake(this.parts, state, lease);
+    if (cancelled !== undefined || !(await isUnwinding(this.parts.trees, treeOf(state))))
+      return cancelled;
+    return (await takeover()).endedUnwindingAtTake(this.parts, state, lease);
   }
 
   /** The pass that takes the tree's recorded answers now; `undefined` when it has none (or rests no more). */

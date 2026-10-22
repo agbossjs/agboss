@@ -99,6 +99,14 @@ export async function unwindingOf(
   return markOf(await trees.findByIdInTree(tree, key));
 }
 
+/** Whether a root's undo is under way in the tree (a store error is thrown: asked again later). */
+export async function isUnwinding(
+  trees: ExecutionTreeRepository,
+  tree: ExecutionTree,
+): Promise<boolean> {
+  return (await unwindingOf(trees, tree, UNWINDING_KEY)) !== undefined;
+}
+
 /**
  * The error the execution ends with, rebuilt from its mark by another instance: a cancel is an
  * `ExecutionCancelledError`, a failure an `AGBossError` with the original's message.
