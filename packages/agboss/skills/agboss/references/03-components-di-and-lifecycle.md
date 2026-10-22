@@ -6,21 +6,21 @@ Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flo
 
 ## The decorators
 
-| Decorator (file)                                         | Its contract                                                | Key options                                                                                                                                                                                                                                                                                                                     |
-| -------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@Application` (`<app>.application.ts`)                  | —                                                           | `name`, `version`, `environment` (required), `workflows`, `budgets`, `providers` (infrastructure), `observers`, `defaults`, `guardrails`, `piiPolicies`, `healthChecks`, `tenantContext`, `executionContext`, `pseudonymKey`, `shutdownTimeout`, `pauseRecordRetention`, `maxConcurrentSteps`, `uncompactedTurns`, `compaction` |
-| `@Workflow` (`<name>.workflow.ts`)                       | —                                                           | `name` (`-workflow`), `version`, `flow`, `providers` (services), `defaults`, `maxSteps`, `maxDepth`, `maxConcurrentExecutions`, `mcp`, `guardrails`, `piiPolicies`, `uncompactedTurns`, `compaction`, `promptVariables`                                                                                                         |
-| `@WorkflowStart` / `@WorkflowFinish`                     | a finish may have `finish(input)` (`FinishHandler<Self>`)   | `name`, `description`, `input` (start) / `output` (finish), `deps`                                                                                                                                                                                                                                                              |
-| `@Agent` (`agents/<name>.agent.ts` + `<name>.prompt.md`) | none: the framework runs its loop                           | `model`, `prompt` / `promptUrls` (+ `promptVariables`), `input`, `output`, `tools`, `maxToolCalls`, `maxVisits`, `maxTokens`, `reasoning`, `temperature`, `cache`, `rag`, `judges` + `maxRetries`, `uncompactedTurns`, `compaction`, `memoryStrategy`, `guardrails`, `piiPolicies`                                              |
-| `@Tool` (`tools/<name>.tool.ts` + `.dto.ts`)             | `ToolHandler<In, Out>`: `run(input)`                        | `input`, `output`, `timeout: seconds(…)` (default 30 s), `maxResultSize: kilobytes(…)`, `channel`, `deps`                                                                                                                                                                                                                       |
-| `@Action` (`actions/<name>.action.ts`)                   | `ActionHandler<Self>`: `execute(input)`                     | `input` (fields from the scope), `output`, `deps`                                                                                                                                                                                                                                                                               |
-| `@Router` (`routers/<name>.router.ts`)                   | code: `RouterHandler<Self>`: `route(input)`                 | `decidedBy`, `input`, `routes`, `maxVisits`; model: `model`, `prompt`; code: `deps`                                                                                                                                                                                                                                             |
-| `@Arbiter` (`arbiters/<name>.arbiter.ts`)                | code: one `@OnAnswer(Agent)` method per agent of the launch | `decidedBy`; model: `model`, `prompt`, `criteria`; code: `deps`                                                                                                                                                                                                                                                                 |
-| `@Judge` (`judges/<name>.judge.ts`)                      | `JudgeHandler<TReply>`: `judge(input)`                      | `name`, `model`, `reply` (the answer's shape), `deps`                                                                                                                                                                                                                                                                           |
-| `@Rag` (`rag/<name>.rag.ts`, `agboss/rag`)               | `RagConnector`: `retrieve(query, { topK, signal })`         | `name` (`-rag`), `description`, `topK`, `deps`                                                                                                                                                                                                                                                                                  |
-| `@Compaction` (`compactions/<name>.compaction.ts`)       | none                                                        | `strategy`, `model`, `prompt`, `turnsBetweenCompactions`, `summaryQueueLength`, `summaryMaxTokens`                                                                                                                                                                                                                              |
-| `@HealthCheck` (`health/<name>.health-check.ts`)         | `HealthCheckHandler`: `check()`                             | `name` (`-health-check`), `timeout`, `deps`                                                                                                                                                                                                                                                                                     |
-| `@Injectable` (`services/<name>.service.ts`)             | your own methods                                            | `deps`                                                                                                                                                                                                                                                                                                                          |
+| Decorator (file)                                         | Its contract                                                | Key options                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@Application` (`<app>.application.ts`)                  | —                                                           | `name`, `version`, `environment` (required), `workflows`, `budgets`, `providers` (infrastructure), `observers`, `defaults`, `guardrails`, `piiPolicies`, `healthChecks`, `tenantContext`, `executionContext`, `pseudonymKey`, `shutdownTimeout`, `pauseRecordRetention`, `compensationTimeout`, `maxConcurrentSteps`, `uncompactedTurns`, `compaction` |
+| `@Workflow` (`<name>.workflow.ts`)                       | —                                                           | `name` (`-workflow`), `version`, `flow`, `providers` (services), `defaults`, `maxSteps`, `maxDepth`, `maxConcurrentExecutions`, `mcp`, `guardrails`, `piiPolicies`, `uncompactedTurns`, `compaction`, `promptVariables`                                                                                                                                |
+| `@WorkflowStart` / `@WorkflowFinish`                     | a finish may have `finish(input)` (`FinishHandler<Self>`)   | `name`, `description`, `input` (start) / `output` (finish), `deps`                                                                                                                                                                                                                                                                                     |
+| `@Agent` (`agents/<name>.agent.ts` + `<name>.prompt.md`) | none: the framework runs its loop                           | `model`, `prompt` / `promptUrls` (+ `promptVariables`), `input`, `output`, `tools`, `maxToolCalls`, `maxVisits`, `maxTokens`, `reasoning`, `temperature`, `cache`, `rag`, `judges` + `maxRetries`, `uncompactedTurns`, `compaction`, `memoryStrategy`, `guardrails`, `piiPolicies`                                                                     |
+| `@Tool` (`tools/<name>.tool.ts` + `.dto.ts`)             | `ToolHandler<In, Out>`: `run(input)`                        | `input`, `output`, `timeout: seconds(…)` (default 30 s), `maxResultSize: kilobytes(…)`, `channel`, `deps`                                                                                                                                                                                                                                              |
+| `@Action` (`actions/<name>.action.ts`)                   | `ActionHandler<Self>`: `execute(input)`                     | `input` (fields from the scope), `output`, `compensateWith`, `committedBy`, `deps`                                                                                                                                                                                                                                                                     |
+| `@Router` (`routers/<name>.router.ts`)                   | code: `RouterHandler<Self>`: `route(input)`                 | `decidedBy`, `input`, `routes`, `maxVisits`; model: `model`, `prompt`; code: `deps`                                                                                                                                                                                                                                                                    |
+| `@Arbiter` (`arbiters/<name>.arbiter.ts`)                | code: one `@OnAnswer(Agent)` method per agent of the launch | `decidedBy`; model: `model`, `prompt`, `criteria`; code: `deps`                                                                                                                                                                                                                                                                                        |
+| `@Judge` (`judges/<name>.judge.ts`)                      | `JudgeHandler<TReply>`: `judge(input)`                      | `name`, `model`, `reply` (the answer's shape), `deps`                                                                                                                                                                                                                                                                                                  |
+| `@Rag` (`rag/<name>.rag.ts`, `agboss/rag`)               | `RagConnector`: `retrieve(query, { topK, signal })`         | `name` (`-rag`), `description`, `topK`, `deps`                                                                                                                                                                                                                                                                                                         |
+| `@Compaction` (`compactions/<name>.compaction.ts`)       | none                                                        | `strategy`, `model`, `prompt`, `turnsBetweenCompactions`, `summaryQueueLength`, `summaryMaxTokens`                                                                                                                                                                                                                                                     |
+| `@HealthCheck` (`health/<name>.health-check.ts`)         | `HealthCheckHandler`: `check()`                             | `name` (`-health-check`), `timeout`, `deps`                                                                                                                                                                                                                                                                                                            |
+| `@Injectable` (`services/<name>.service.ts`)             | your own methods                                            | `deps`                                                                                                                                                                                                                                                                                                                                                 |
 
 `npx agboss generate` writes workflows, agents, routers, arbiters, tools, MCP servers and knowledge
 bases; write the others by hand in the same grammar (`judges/<name>.judge.ts`,
@@ -528,6 +528,130 @@ await app.close(); // onStop → running executions awaited → onDestroy
   `ExecutionCancelledError`, a paused one is dropped) or by the `signal` you passed.
 - After `app.close()` every `execute` / `resume` rejects with `ApplicationStoppingError`.
 
+## Undoable actions: `compensateWith`, `committedBy`
+
+An action with a side effect the flow may have to take back names its undo — another `@Action`, code,
+never a model call — and optionally the action after which nothing undoes it any more. Where the flow
+goes after a failure is reference 02, section 8; the tests reference 10.
+
+<!-- snippet-context
+import { Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
+import { Text } from "agboss/dto";
+export class SeatRequestDto {
+  @Text({ prompt: "the flight and the passenger" })
+  request!: string;
+}
+export class SeatHoldDto {
+  @Text({ prompt: "the hold's id" })
+  holdId!: string;
+}
+export class TicketIssuedDto {
+  @Text({ prompt: "the ticket number" })
+  ticketNumber!: string;
+}
+@WorkflowStart({ name: "seat-workflow-start", description: "A seat to book", input: SeatRequestDto })
+export class SeatWorkflowStart {}
+@WorkflowFinish({ name: "ticket-issued-workflow-finish", description: "The ticket", output: TicketIssuedDto })
+export class TicketIssuedWorkflowFinish {}
+// @snippet
+-->
+
+```ts
+import { Action, ExecutionContext, Injectable, type ActionHandler, type InputOf, type OutputOf } from "agboss";
+
+@Injectable()
+export class AirlineService {
+  hold(request: string, idempotencyKey: string): Promise<string> {
+    return Promise.resolve(`${request}:${idempotencyKey}`);
+  }
+
+  release(holdId: string, idempotencyKey: string): Promise<void> {
+    void holdId;
+    void idempotencyKey; // an undo runs again after a crash: make it safe twice by this key
+    return Promise.resolve();
+  }
+}
+
+// the undo: reads only what the path holds right after the action it undoes
+@Action({
+  name: "release-seat-action",
+  description: "Releases a held seat",
+  input: { hold: SeatHoldDto },
+  deps: [AirlineService, ExecutionContext],
+})
+export class ReleaseSeatAction implements ActionHandler<ReleaseSeatAction> {
+  constructor(
+    private readonly airlineService: AirlineService,
+    private readonly executionContext: ExecutionContext,
+  ) {}
+
+  async execute(input: InputOf<ReleaseSeatAction>): Promise<void> {
+    // on a side path its own step's key; automatic: the undone step's key + ":compensation"
+    await this.airlineService.release(input.hold.value.holdId, this.executionContext.step.idempotencyKey);
+  }
+}
+
+// the commit point: once it succeeds, nothing undoes the hold
+@Action({ name: "issue-ticket-action", description: "Issues the ticket", input: { hold: SeatHoldDto }, output: TicketIssuedDto })
+export class IssueTicketAction implements ActionHandler<IssueTicketAction> {
+  execute(input: InputOf<IssueTicketAction>): Promise<OutputOf<IssueTicketAction>> {
+    return Promise.resolve({ ticketNumber: `T-${input.hold.value.holdId}` });
+  }
+}
+
+@Action({
+  name: "hold-seat-action",
+  description: "Holds a seat",
+  input: { request: SeatRequestDto },
+  output: SeatHoldDto,
+  compensateWith: ReleaseSeatAction, // an @Action: [action.compensator-not-an-action] otherwise
+  committedBy: IssueTicketAction, // without it, a finish commits the hold
+  deps: [AirlineService, ExecutionContext],
+})
+export class HoldSeatAction implements ActionHandler<HoldSeatAction> {
+  constructor(
+    private readonly airlineService: AirlineService,
+    private readonly executionContext: ExecutionContext,
+  ) {}
+
+  async execute(input: InputOf<HoldSeatAction>): Promise<OutputOf<HoldSeatAction>> {
+    const key: string = this.executionContext.step.idempotencyKey;
+    return { holdId: await this.airlineService.hold(input.request.value.request, key) };
+  }
+}
+
+@Workflow({
+  name: "seat-workflow",
+  version: "1.0.0",
+  flow: [
+    start(SeatWorkflowStart)
+      .returns(SeatRequestDto)
+      .toAction(HoldSeatAction)
+      .returns(SeatHoldDto)
+      .toAction(IssueTicketAction) // commits the hold: no side path after it owes the release
+      .returns(TicketIssuedDto)
+      .toFinish(TicketIssuedWorkflowFinish),
+  ],
+  providers: [AirlineService],
+})
+export class SeatWorkflow {}
+```
+
+- **The automatic undo** (a failed join's finished branches; an execution that ends without a
+  finish — an uncaught failure or limit, a cancel) runs each undo in its own frame: its
+  `executionContext.signal` is a clean-up signal, aborted after
+  `@Application({ compensationTimeout })` (default `seconds(15)`), when the lease is lost or the
+  instance stops; no budget refuses it; what its services cost (`SpendRecorder`) is spend under
+  `action:<undo name>`. An undo that fails does not stop the others; then the execution fails with
+  `CompensationFailedError` (`compensation.failed`: `failures`, `cause`).
+- **Observers** see the automatic ones through `OnCompensationStart` / `OnCompensationEnd`
+  (`CompensationStartEvent`: `step`, `compensated`, `reason`; `CompensationEndEvent` adds `status`,
+  `error`), around the undo action's own `onActionStart` / `onActionEnd`; `onExecutionError`'s
+  `compensations` lists what ran (reference 08). Every run's `result.compensations` lists them all.
+- An undo action declares no `compensateWith` of its own (`[action.compensator-compensates]`), never
+  undoes itself (`[action.self-compensation]`), and `committedBy` without `compensateWith` is
+  `[action.committer-without-compensator]`.
+
 ## Rule codes you will meet here
 
 | Code                                     | Cause → fix                                                                                                                         |
@@ -544,6 +668,7 @@ await app.close(); // onStop → running executions awaited → onDestroy
 | `[compaction.uncompacted-turns-invalid]` | `uncompactedTurns: 0` or a fraction → a whole number from 1, or `TurnLimit.ALL`                                                     |
 | `[health.not-a-health-check]`            | a class in `healthChecks` without `@HealthCheck` → decorate it                                                                      |
 | `[context.not-declared]`                 | a `TenantContext` subclass injected but not declared → `@Application({ tenantContext })`                                            |
+| `[action.invalid-compensator-input]`     | the undo reads a field not on the path right after its action → read what the action returned (`SeatHoldDto`)                       |
 
 ## Pitfalls
 
