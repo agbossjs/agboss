@@ -88,7 +88,8 @@ describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
   });
 
   it("an unknown [x.y] code fails; the error catalog is checked once it says it is complete", () => {
-    const stub = "# CLI\n\nGraphRuleError RuleCode `[graph.dead-end]`\n";
+    const names = SKILL_COVERAGE["references/11-cli-studio-and-error-catalog.md"] ?? [];
+    const stub = `# CLI\n\n${names.join(" ")} \`[graph.dead-end]\`\n`;
     const draft = checkSkills({ "references/11-cli-studio-and-error-catalog.md": stub });
     const complete = checkSkills({
       "references/11-cli-studio-and-error-catalog.md": `<!-- agboss-skills-catalog: complete -->\n${stub}[graph.no-such-rule]\n`,

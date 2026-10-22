@@ -429,6 +429,226 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
 - **Health**: `await app.checkReadiness()` / `app.checkLiveness()` → `HealthReport` (a
   `@HealthCheck`'s service mocked with `mockOf`). `testWith` never traps SIGTERM / SIGINT.
 
+## Undo: `toHaveCompensated` and `result.compensations`
+
+An action that declares `compensateWith` (reference 02, section 8) is tested by what its undo did:
+`result.compensations` lists every undo that ran — `CompensationRecord { compensated, compensator,
+reason, status, error?, startedAt, endedAt }` — and `expect(result).toHaveCompensated(Action, { by,
+reason?, status? })` asserts one, with `CompensationReason` (`SidePath`, `JoinFailed`,
+`ExecutionFailed`, `ExecutionCancelled`) and `CompensationStatus` (`Compensated`, `Failed`). An
+execution that fails has no result: assert the undo through the mocked service, and a failed
+automatic undo through `rejects.toFailWith(CompensationFailedError, { cause })`.
+
+```ts file=src/rental/rental.ts
+import { Action, ExecutionContext, Injectable, Workflow, WorkflowFinish, WorkflowStart, start, toAction } from "agboss";
+import type { ActionHandler, InputOf, OutputOf } from "agboss";
+import { Text } from "agboss/dto";
+
+export class RentalRequestDto {
+  @Text({ prompt: "the customer" })
+  customer!: string;
+}
+
+export class CarReservationDto {
+  @Text({ prompt: "the reservation's id" })
+  reservationId!: string;
+}
+
+export class DepositDto {
+  @Text({ prompt: "the deposit's id" })
+  depositId!: string;
+}
+
+export class DepositDeclinedError extends Error {}
+
+@Injectable()
+export class FleetService {
+  reserve(customer: string, idempotencyKey: string): Promise<string> {
+    return Promise.resolve(`${customer}:${idempotencyKey}`);
+  }
+
+  cancel(reservationId: string, idempotencyKey: string): Promise<void> {
+    void reservationId;
+    void idempotencyKey;
+    return Promise.resolve();
+  }
+
+  chargeDeposit(customer: string): Promise<string> {
+    return Promise.resolve(`deposit:${customer}`);
+  }
+}
+
+@WorkflowStart({ name: "rental-workflow-start", description: "A car to rent", input: RentalRequestDto })
+export class RentalWorkflowStart {}
+
+@Action({ name: "cancel-car-action", description: "Cancels the reservation", input: { reservation: CarReservationDto }, deps: [FleetService, ExecutionContext] })
+export class CancelCarAction implements ActionHandler<CancelCarAction> {
+  constructor(
+    private readonly fleetService: FleetService,
+    private readonly executionContext: ExecutionContext,
+  ) {}
+
+  async execute(input: InputOf<CancelCarAction>): Promise<void> {
+    await this.fleetService.cancel(input.reservation.value.reservationId, this.executionContext.step.idempotencyKey);
+  }
+}
+
+@Action({
+  name: "reserve-car-action",
+  description: "Reserves the car",
+  input: { request: RentalRequestDto },
+  output: CarReservationDto,
+  compensateWith: CancelCarAction,
+  deps: [FleetService, ExecutionContext],
+})
+export class ReserveCarAction implements ActionHandler<ReserveCarAction> {
+  constructor(
+    private readonly fleetService: FleetService,
+    private readonly executionContext: ExecutionContext,
+  ) {}
+
+  async execute(input: InputOf<ReserveCarAction>): Promise<OutputOf<ReserveCarAction>> {
+    const key: string = this.executionContext.step.idempotencyKey;
+    return { reservationId: await this.fleetService.reserve(input.request.value.customer, key) };
+  }
+}
+
+@Action({ name: "charge-deposit-action", description: "Charges the deposit", input: { request: RentalRequestDto }, output: DepositDto, deps: [FleetService] })
+export class ChargeDepositAction implements ActionHandler<ChargeDepositAction> {
+  constructor(private readonly fleetService: FleetService) {}
+
+  async execute(input: InputOf<ChargeDepositAction>): Promise<OutputOf<ChargeDepositAction>> {
+    return { depositId: await this.fleetService.chargeDeposit(input.request.value.customer) };
+  }
+}
+
+@WorkflowFinish({ name: "rental-booked-workflow-finish", description: "The deposit", output: DepositDto })
+export class RentalBookedWorkflowFinish {}
+
+@WorkflowFinish({ name: "rental-declined-workflow-finish", description: "Declined", output: RentalRequestDto })
+export class RentalDeclinedWorkflowFinish {}
+
+@Workflow({
+  name: "rental-workflow",
+  version: "1.0.0",
+  flow: [
+    start(RentalWorkflowStart)
+      .returns(RentalRequestDto)
+      .toAction(ReserveCarAction)
+      .returns(CarReservationDto)
+      .toAction(ChargeDepositAction)
+      .onError(
+        DepositDeclinedError, // a declined deposit: cancel the car on the side path (SidePath)
+        toAction(CancelCarAction)
+          .toFinish(RentalDeclinedWorkflowFinish),
+      )
+      .returns(DepositDto)
+      .toFinish(RentalBookedWorkflowFinish),
+  ],
+  providers: [FleetService],
+})
+export class RentalWorkflow {}
+
+```
+
+```ts file=src/rental/rental.application.ts
+import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, type BudgetHandler } from "agboss";
+import { usd, type Usd } from "agboss/units";
+import { RentalWorkflow } from "./rental.js";
+
+@Budget({ name: "rental-application-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
+export class RentalApplicationBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(1);
+  }
+}
+
+@Budget({ name: "rental-tenant-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class RentalTenantBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(1);
+  }
+}
+
+@Budget({ name: "rental-execution-budget", scope: BudgetScope.Execution })
+export class RentalExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.1);
+  }
+}
+
+@Application({
+  name: "rental-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [RentalWorkflow],
+  budgets: [RentalApplicationBudget, RentalTenantBudget, RentalExecutionBudget],
+})
+export class RentalApplication {}
+```
+
+```ts file=tests/rental.test.ts
+import { expect } from "vitest";
+import { CompensationFailedError, CompensationReason, CompensationStatus, StepFailedError } from "agboss";
+import { testWith } from "agboss/testing";
+import { RentalApplication } from "../src/rental/rental.application.js";
+import {
+  CancelCarAction,
+  DepositDeclinedError,
+  FleetService,
+  RentalDeclinedWorkflowFinish,
+  RentalWorkflowStart,
+  ReserveCarAction,
+} from "../src/rental/rental.js";
+
+const test = testWith(RentalApplication);
+
+const REQUEST = { customer: "dana" };
+
+test("a declined deposit: the side path cancels the car", async ({ app, mockOf }) => {
+  const fleet = mockOf(FleetService); // every method of a mocked class is a mock
+  fleet.reserve.mockResolvedValue("car-1");
+  fleet.chargeDeposit.mockRejectedValue(new DepositDeclinedError("declined"));
+
+  const result = await app.execute(RentalWorkflowStart, REQUEST);
+
+  expect(result).toFinishWith(RentalDeclinedWorkflowFinish, REQUEST);
+  expect(result).toHaveCompensated(ReserveCarAction, {
+    by: CancelCarAction,
+    reason: CompensationReason.SidePath,
+    status: CompensationStatus.Compensated,
+  });
+  expect(result.compensations).toHaveLength(1);
+});
+
+test("an uncaught failure: the car is cancelled automatically, then the run fails", async ({ app, mockOf }) => {
+  const fleet = mockOf(FleetService);
+  fleet.reserve.mockResolvedValue("car-1");
+  fleet.chargeDeposit.mockRejectedValue(new Error("payment gateway down")); // no side path takes it
+
+  await expect(app.execute(RentalWorkflowStart, REQUEST)).rejects.toFailWith(StepFailedError);
+
+  // the automatic undo's key is the undone step's key + ":compensation"
+  expect(fleet.cancel.mock.calls[0]?.[1]).toMatch(/:reserve-car-action:1:compensation$/u);
+});
+
+test("an undo that fails: CompensationFailedError, the original error as its cause", async ({ app, mockOf }) => {
+  const fleet = mockOf(FleetService);
+  fleet.reserve.mockResolvedValue("car-1");
+  fleet.chargeDeposit.mockRejectedValue(new Error("payment gateway down"));
+  fleet.cancel.mockRejectedValue(new Error("fleet API down"));
+
+  await expect(app.execute(RentalWorkflowStart, REQUEST)).rejects.toFailWith(CompensationFailedError, {
+    cause: StepFailedError,
+  });
+});
+```
+
+- A failed join's undo is `CompensationReason.JoinFailed`; a cancel's (`app.cancel`, a `FailFast`
+  abort) `ExecutionCancelled`.
+- The automatic undo runs on the test's `clock` like everything else: a slow undo is cut at
+  `compensationTimeout` only when the clock is advanced past it.
+
 ## One component: the unit runners
 
 Each runner builds the component's own container (its `deps`, `overrides`, an `environment`) and
