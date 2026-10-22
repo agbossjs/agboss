@@ -69,6 +69,8 @@ export interface ChannelHandler<TRole> {
     //
     // (undocumented)
     readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
+    // Warning: (ae-forgotten-export) The symbol "ChannelWithdrawal" needs to be exported by the entry point index.d.ts
+    readonly withdraw?: (withdrawal: ChannelWithdrawal<TRole>) => Promise<void>;
 }
 
 // @public
@@ -706,7 +708,7 @@ export class WorkflowSettings {
 
 // Warnings were encountered during analysis:
 //
-// src/channels/channel-handler.ts:23:3 - (ae-undocumented) Missing documentation for "send".
+// src/channels/channel-handler.ts:40:3 - (ae-undocumented) Missing documentation for "send".
 // src/components/bind-tool.ts:22:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/bind-tool.ts:24:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/injection.ts:3:3 - (ae-undocumented) Missing documentation for "__type".

@@ -104,7 +104,10 @@ export class Registrations {
     const found = this.classes.filter((cls) => implementsContract(cls, token));
     if (found.length > 1) throw this.#ambiguous(token, found, dependant);
     const cls = found[0] ?? this.defaults.get(token);
-    return cls === undefined ? undefined : { kind: "class", cls };
+    if (cls === undefined) return undefined;
+    // the contract gets what its implementation resolves to: a test's mock of that class too
+    if (this.#values.has(cls)) return { kind: "value", value: this.#values.get(cls) };
+    return { kind: "class", cls };
   }
 
   #ambiguous(contract: Class, found: readonly Class[], dependant: string): ComponentError {

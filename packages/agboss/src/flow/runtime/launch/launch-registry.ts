@@ -1,7 +1,6 @@
 import type { UsageRecord } from "../../../finops/usage.js";
-import type { QuorumState } from "./quorum.js";
-import type { QueueTime } from "./deadline.js";
 import type { Clock } from "../../../infrastructure/clock.js";
+import type { LiveQuorum } from "./quorum-branch.js";
 import { seconds, type Milliseconds } from "../../../units/index.js";
 
 /**
@@ -52,16 +51,6 @@ export class Semaphore {
     if (next === undefined) this.free += 1;
     else next();
   }
-}
-
-/** A quorum in this process: its state, once rebuilt, and the signal that stops its deadline. */
-export interface LiveQuorum {
-  readonly state: QuorumState;
-  /** Resolves when the state holds the records of the branches that finished before (a resume). */
-  readonly ready: Promise<void>;
-  readonly stop: AbortController;
-  /** The time its branches waited in the tree's queue: its deadline excludes it (#264). */
-  readonly queued: QueueTime;
 }
 
 /** One launch in this process. */

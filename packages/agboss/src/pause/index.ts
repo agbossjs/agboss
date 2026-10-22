@@ -4,5 +4,8 @@ export {
   type ApprovalRecord,
   type PauseSeam,
   type PendingPause,
+  type PauseWithdrawn,
   type WaitingPause,
+  type WithdrawalTree,
+  type WithdrawnPause,
 } from "./types.js";

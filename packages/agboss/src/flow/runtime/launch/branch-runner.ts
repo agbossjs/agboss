@@ -1,7 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
-import { extractRunContext } from "../../../core/run-context.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { runInFrame } from "../../context/frame.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
@@ -30,11 +29,10 @@ import { reportBranch } from "./launch-report.js";
 import { arbiterDepsFor, liveLaunchOf, type BranchQuorumDeps } from "./branch-quorum.js";
 import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
 import { BranchStatus, type BranchTicket } from "./records.js";
-import { withdrawSiblingPauses } from "./withdrawn-pauses.js";
+import { launchPausesOf, withdrawBranchPauses } from "./withdrawn-pauses.js";
 import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
 import { inTreeSlot } from "../step-frame.js";
 import { branchFrameOf } from "./branch-view.js";
-import type { PauseSeam } from "../../../pause/index.js";
 import type { EndedChildRecord } from "../child-records.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
 
@@ -51,8 +49,6 @@ import type { PiiTokenMap } from "../../../pii/tokens.js";
 
 export interface BranchDeps extends VisitDeps, BranchQuorumDeps {
   readonly graph: RuntimeGraph;
-  /** The application's pauses: a `FailFast` failure withdraws its paused siblings' (#267 AC10). */
-  readonly pauses?: Pick<PauseSeam, "pauses" | "answers">;
   /** Where a failed branch's error waits for a join in a later pass of this process. */
   readonly branchErrors?: BranchErrors;
 }
@@ -154,15 +150,23 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   return answeredEnd(run, outcome, marked);
 }
 
+/**
+ * Withdraws the pending pauses under `branches` of the run's launch (#267 AC10, #337): its own when
+ * it ended `Cancelled` (asked after the abort), its siblings' when it failed.
+ */
+async function withdrawUnder(run: BranchRun, branches: readonly BranchTicket[]): Promise<void> {
+  const pauses = launchPausesOf(run.deps.pauses, run.state, run.config);
+  if (pauses !== undefined) await withdrawBranchPauses(pauses, branches);
+}
+
 /** A failed branch aborts its launch: its siblings stop, their pending pauses are withdrawn. */
 async function abortLaunch(run: BranchRun): Promise<void> {
-  const { live, deps, state, owner, ticket } = run;
+  const { live, owner, ticket } = run;
   live.controller.abort();
-  if (deps.pauses === undefined) return;
-  const tenantId = state.contexts.tenant.tenantId;
-  const at = extractRunContext(run.config, state.runId).clock.now();
-  const site = { tenantId, rootExecutionId: state.runId, launch: owner.ticket, failed: ticket, at };
-  await withdrawSiblingPauses(deps.pauses, site);
+  await withdrawUnder(
+    run,
+    owner.ticket.branches.filter((branch) => branch.index !== ticket.index),
+  );
 }
 
 /**
@@ -232,7 +236,11 @@ export function branchNode(node: RuntimeNode, runner: NodeRunner, deps: BranchDe
       piiTokens: {},
       ranAsStep: false,
     };
-    const end = await inSchedule(deps.scheduler, scheduled, () => runBranch(run, runner));
+    const branch = (): Promise<BranchEnd> =>
+      inSchedule(deps.scheduler, scheduled, () => runBranch(run, runner));
+    // a decided quorum's withdrawal (#337): closed before the branch ends, so the drain takes it
+    const end = await (live.quorum?.withdrawal.during(branch) ?? branch());
+    if (end.status === BranchStatus.Cancelled) await withdrawUnder(run, [ticket]);
     await reportBranch(config, owner.ticket.launchId, ticket, end);
     return {
       ...end.update,

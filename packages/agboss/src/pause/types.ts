@@ -2,7 +2,13 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
-import type { PauseAnswerLog } from "../infrastructure/pause-record.js";
+import type {
+  PauseAnswerLog,
+  PauseCancellation,
+  PauseRecord,
+} from "../infrastructure/pause-record.js";
+import type { ExecutionContextValues } from "../flow/context/context-values.js";
+import type { FrameSpec } from "../flow/context/frame.js";
 
 /**
  * The pause seam: what an execution pauses on (#267 S35) — the checkpointer LangGraph's
@@ -14,7 +20,33 @@ export interface PauseSeam {
   readonly pauses: PausedExecutionRepository;
   /** The execution records: how each pause was resolved is written there (#267 S107). */
   readonly answers: PauseAnswerLog;
+  /** Tells a pause's channel it closed without an answer (#337); absent: nobody is told. */
+  readonly withdrawn?: PauseWithdrawn;
 }
+
+/** What the tree of a withdrawn pause is, as the pass that withdrew it knows it (#337). */
+export interface WithdrawalTree {
+  readonly contexts: ExecutionContextValues;
+  readonly ownerId: string | undefined;
+  /** The version the execution that withdrew it started on. */
+  readonly startedVersion: string;
+}
+
+/** A pause closed without an answer (#337): its record after the change, and why. */
+export interface WithdrawnPause {
+  readonly pause: PauseRecord;
+  readonly resolution: PauseCancellation;
+  /** The tree, when a pass withdrew it; read from the tree's checkpoint otherwise. */
+  readonly tree?: WithdrawalTree;
+  /** The pause's own frame, when its own step takes it back (`send` returned after it closed). */
+  readonly frame?: FrameSpec;
+}
+
+/**
+ * Tells the channel of a sent pause that it closed without an answer — once, by whoever closed it
+ * (or by its own step); best-effort: it never throws.
+ */
+export type PauseWithdrawn = (withdrawn: WithdrawnPause) => Promise<void>;
 
 /**
  * One pause an execution waits for (`result.pending`, #267 AC1): where it waits and what it asks.

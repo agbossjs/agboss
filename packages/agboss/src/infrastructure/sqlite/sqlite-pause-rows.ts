@@ -52,6 +52,8 @@ const StoredPause = z.object({
   agent: z.string(),
   ...StoredLoopProgress,
   channel: z.string(),
+  // a pause stored before #337 has none: its own step's key is its only branch key
+  branchKeys: z.array(z.string()).optional(),
   answeredBy: z.enum(PauseAnswerer),
   ask: z.object({
     callId: z.string(),
@@ -107,10 +109,11 @@ function answerOf(text: string): PauseAnswer {
 /** A row as the record it keeps. */
 function toPauseRecord(row: unknown): PauseRecord {
   const r = PauseRow.parse(row);
-  const { itemIndex, component, ...stored } = StoredPause.parse(JSON.parse(r.pause));
+  const { itemIndex, component, branchKeys, ...stored } = StoredPause.parse(JSON.parse(r.pause));
   const pause: PauseRecord = {
     ...stored,
     ...(component === undefined ? {} : { component: componentOfStored(component) }),
+    ...(branchKeys === undefined ? {} : { branchKeys }),
     itemIndex,
     tenantId: r.tenant_id,
     pauseId: r.pause_id,
@@ -144,6 +147,7 @@ const storedOf = (pause: PauseRecord): string =>
     toolLoopIteration: pause.toolLoopIteration,
     validationAttempts: pause.validationAttempts,
     channel: pause.channel,
+    branchKeys: pause.branchKeys,
     answeredBy: pause.answeredBy,
     ask: pause.ask,
   });

@@ -16,6 +16,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type ChannelAsk,
+  type ChannelWithdrawal,
+  type PauseCancellation,
   type ExecutionResumeEvent,
   type ExecutionPauseEvent,
   type OnExecutionPause,
@@ -26,6 +28,7 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/paused-execution.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { RecordingLogger } from "../../helpers/log.js";
 import { start } from "../../helpers/flow.js";
 
 /**
@@ -42,6 +45,15 @@ export interface SentAsk {
   readonly orderId: string;
 }
 
+/** A question a channel took back (#337): the ask, why, and the frame it ran in. */
+export interface SeenWithdrawal extends SentAsk {
+  readonly channel: string;
+  readonly resolution: PauseCancellation;
+  readonly executionId: string;
+  readonly tenantId: string;
+  readonly agent: string;
+}
+
 /** The order an ask's question is about (its tool call's arguments). */
 const orderIdIn = (value: unknown): string =>
   /"orderId":"([^"]+)"/.exec(JSON.stringify(value))?.[1] ?? "?";
@@ -50,6 +62,8 @@ export const seen = {
   /** Every ask the refund desk was sent, in order (across the instances of a test). */
   asks: [] as SentAsk[],
   confirmations: [] as SentAsk[],
+  /** Every question a channel took back (#337), in order. */
+  withdrawals: [] as SeenWithdrawal[],
   refunds: [] as string[],
   confirmed: [] as string[],
   pauses: [] as ExecutionPauseEvent[],
@@ -63,12 +77,41 @@ export const hooks: {
   beforeSendReturns?: (ask: SentAsk) => Promise<void>;
   /** The orders the desk refuses before it asks anyone (its `send` throws the error). */
   refusals?: ReadonlyMap<string, Error>;
+  /** What every channel's `withdraw` throws after it recorded the withdrawal (#337). */
+  withdrawFailure?: Error;
+  /** What every channel's `withdraw` waits for after it recorded the withdrawal (#337). */
+  withdrawWait?: () => Promise<void>;
 } = {};
 
 export function resetPauses(): void {
   for (const list of Object.values(seen)) list.length = 0;
   delete hooks.beforeSendReturns;
   delete hooks.refusals;
+  delete hooks.withdrawFailure;
+  delete hooks.withdrawWait;
+}
+
+/** Records a withdrawal as the channel sees it — in the pause's frame — then throws, if asked. */
+async function recordWithdrawal(
+  channel: string,
+  executionContext: ExecutionContext,
+  withdrawal: {
+    readonly pauseId: string;
+    readonly value: unknown;
+    readonly resolution: PauseCancellation;
+  },
+): Promise<void> {
+  seen.withdrawals.push({
+    channel,
+    pauseId: withdrawal.pauseId,
+    orderId: orderIdIn(withdrawal.value),
+    resolution: withdrawal.resolution,
+    executionId: executionContext.executionId,
+    tenantId: executionContext.tenant.tenantId,
+    agent: executionContext.step.component.name,
+  });
+  await hooks.withdrawWait?.();
+  if (hooks.withdrawFailure !== undefined) throw hooks.withdrawFailure;
 }
 
 export class RefundRequestDto {
@@ -124,14 +167,27 @@ export class FinanceDeskRefundApprovalChannel extends RefundApprovalChannel {
     await hooks.beforeSendReturns?.(sent);
     return ChannelOutcome.awaitReply();
   }
+
+  override withdraw(withdrawal: ChannelWithdrawal<RefundApprovalChannel>): Promise<void> {
+    return recordWithdrawal("finance-desk", this.executionContext, withdrawal);
+  }
 }
 
 /** Asks the customer in their own conversation. */
 @Channel({
   name: "customer-order-confirmation-channel",
   description: "Asks the customer",
+  deps: [ExecutionContext],
 })
 export class CustomerOrderConfirmationChannel extends OrderConfirmationChannel {
+  constructor(private readonly executionContext: ExecutionContext) {
+    super();
+  }
+
+  override withdraw(withdrawal: ChannelWithdrawal<OrderConfirmationChannel>): Promise<void> {
+    return recordWithdrawal("customer", this.executionContext, withdrawal);
+  }
+
   send(
     ask: ChannelAsk<OrderConfirmationChannel>,
   ): Promise<ChannelOutcome<OrderConfirmationChannel>> {
@@ -370,6 +426,7 @@ export class AuditWorkflow {}
     FinanceDeskRefundApprovalChannel,
     CustomerOrderConfirmationChannel,
     SeenPausedExecutionRepository,
+    RecordingLogger,
   ],
   observers: [PauseLog],
   budgets: TEST_BUDGETS,

@@ -16,7 +16,9 @@ import {
   type PauseAnswerLog,
   type PauseRecord,
 } from "../../infrastructure/pause-record.js";
-import { rootFactsOf, type FrameSpec } from "../context/frame.js";
+import { executionsFromRootOf, rootFactsOf, type FrameSpec } from "../context/frame.js";
+import { idempotencyKeyOf } from "../context/idempotency.js";
+import type { PauseWithdrawn } from "../../pause/index.js";
 import { plainRecordOf } from "./records.js";
 
 /**
@@ -93,6 +95,34 @@ export async function sentBy(
 /** Who answered a thread owner's pause on an unowned thread (or a loop run on its own). */
 export const THREAD_OWNER = "the thread's owner";
 
+/** What a branch key is made from: a step of an execution. */
+export interface BranchKeySite {
+  readonly executionId: string;
+  readonly nodeId: string;
+  readonly visitNumber: number;
+  readonly itemIndex?: number | undefined;
+}
+
+/** A step's branch key (#337): `${executionId}:${nodeId}:${visitNumber}[:${itemIndex}]`. */
+export const branchKeyOf = (site: BranchKeySite): string =>
+  idempotencyKeyOf({
+    executionId: site.executionId,
+    nodeId: site.nodeId,
+    visitNumber: site.visitNumber,
+    itemIndex: site.itemIndex,
+  });
+
+/** The keys of a waiting step and of every step that launched one of its executions (#337). */
+function branchKeysAt(frame: FrameSpec): readonly string[] {
+  const { execution, step } = frame;
+  const launchers = executionsFromRootOf(execution).flatMap((each) =>
+    each.parent === undefined
+      ? []
+      : [branchKeyOf({ ...each.parent.step, executionId: each.parent.execution.executionId })],
+  );
+  return [...launchers, branchKeyOf({ ...step, executionId: execution.executionId })];
+}
+
 /** The record a step would make: a new id, `Pending`, not sent. */
 function newRecordOf(
   frame: FrameSpec,
@@ -120,6 +150,7 @@ function newRecordOf(
     validationAttempts: step.validationAttempts,
     agent: question.agent,
     channel: channel.name,
+    branchKeys: branchKeysAt(frame),
     answeredBy: channel.answeredBy,
     ask: question.ask,
     status: PauseStatus.Pending,
@@ -170,6 +201,20 @@ export interface PauseStepSite {
   readonly validate: (decision: unknown) => unknown;
   /** Reported once, before the channel is asked (`onChannelStart`). */
   readonly onSend: () => Promise<void>;
+  /** Tells the channel its pause closed while `send` was returning (#337). */
+  readonly withdrawn?: PauseWithdrawn | undefined;
+}
+
+/**
+ * A pause its channel sent that closed while `send` was still returning (#337): whoever closed it
+ * saw it unsent, so its own step tells the channel, in its own frame.
+ */
+async function sentTooLate(site: PauseStepSite, pause: PauseRecord): Promise<void> {
+  const { resolution } = pause;
+  const isWithdrawn =
+    resolution === PauseResolution.Withdrawn || resolution === PauseResolution.Cancelled;
+  if (pause.status === PauseStatus.Cancelled && isWithdrawn && site.withdrawn !== undefined)
+    await site.withdrawn({ pause, resolution, frame: site.frame });
 }
 
 /** Asks the step's question through its pause: the answer, or the step stops at `interrupt()`. */
@@ -198,6 +243,7 @@ export async function pauseStep(site: PauseStepSite, question: PauseQuestion): P
     if (!(await pauses.markSentByTenantIdAndPauseId(tenantId, pause.pauseId))) {
       // a reply resolved it while `send` was still returning: the step goes on with it
       pause = (await pauses.findByTenantIdAndPauseId(tenantId, pause.pauseId)) ?? pause;
+      await sentTooLate(site, pause);
       return settledAnswer(pause, channel.name);
     }
   }

@@ -22,6 +22,8 @@ import {
   type PauseChannel,
 } from "../../src/flow/runtime/pause.js";
 import { testFrame } from "../helpers/frame.js";
+import { withdrawPauses } from "../../src/app/paused-runs.js";
+import type { WithdrawnPause } from "../../src/pause/index.js";
 
 const question = {
   agent: "desk-clerk-agent",
@@ -176,5 +178,57 @@ describe("#267 S35: the pause step", () => {
       PauseWithdrawnError,
     );
     expect(sent).toEqual([]);
+  });
+});
+
+describe("#337: a channel told about its withdrawn pause", () => {
+  it("not for a pause its channel decided at once: the tree's end withdraws nothing", async () => {
+    const pauses = new InMemoryPausedExecutionRepository();
+    const { channel } = channelOf(() =>
+      Promise.resolve(ChannelOutcome.decided({ approved: true })),
+    );
+    const told: unknown[] = [];
+    const withdrawn = (withdrawal: unknown): Promise<void> => {
+      told.push(withdrawal);
+      return Promise.resolve();
+    };
+    await pauseStep({ ...siteOf(pauses, channel), withdrawn }, question);
+    const { execution } = testFrame();
+    const tree = { tenantId: execution.tenant.tenantId, rootExecutionId: execution.executionId };
+
+    await withdrawPauses({ pauses, answers, withdrawn }, tree, clock.now());
+
+    expect(told).toEqual([]);
+  });
+
+  it("a pause withdrawn while send was returning: the step tells the channel, in its frame", async () => {
+    const pauses = new InMemoryPausedExecutionRepository();
+    const frame = testFrame();
+    const { channel } = channelOf(async () => {
+      const [pause] = await pauses.findAllByTenantIdAndRootExecutionId(
+        frame.execution.tenant.tenantId,
+        frame.execution.executionId,
+      );
+      await pauses.cancelByTenantIdAndPauseId(
+        frame.execution.tenant.tenantId,
+        pause?.pauseId ?? "",
+        PauseResolution.Withdrawn,
+        clock.now(),
+      );
+      return ChannelOutcome.awaitReply();
+    });
+    const told: WithdrawnPause[] = [];
+    const withdrawn = (withdrawal: WithdrawnPause): Promise<void> => {
+      told.push(withdrawal);
+      return Promise.resolve();
+    };
+
+    await expect(
+      pauseStep({ ...siteOf(pauses, channel), frame, withdrawn }, question),
+    ).rejects.toBeInstanceOf(PauseWithdrawnError);
+
+    expect(told).toMatchObject([
+      { resolution: PauseResolution.Withdrawn, frame, pause: { status: PauseStatus.Cancelled } },
+    ]);
   });
 });

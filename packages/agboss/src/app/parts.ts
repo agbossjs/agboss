@@ -20,13 +20,14 @@ import type { ModelGateway } from "../llm/gateway.js";
 import { createRouter, type RouterEngine } from "../routers/index.js";
 import { ComponentError } from "../components/metadata.js";
 import type { AnyTool } from "../tools/index.js";
-import type { PauseSeam } from "../pause/index.js";
+import type { PauseSeam, PauseWithdrawn } from "../pause/index.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import type { PauseAnswerLog } from "../infrastructure/pause-record.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { ReplyReaderParts } from "../channels/reply-reader.js";
 import type { Class } from "../components/injection.js";
+import type { AppDeps } from "./app-deps.js";
 
 export class UnknownToolError extends Error {
   override name = "UnknownToolError";
@@ -97,6 +98,35 @@ export const pauseFor = (
   pauses: PausedExecutionRepository,
   answers: PauseAnswerLog,
 ): PauseSeam => ({ checkpointer, pauses, answers });
+
+/** Telling channels about withdrawn pauses, loaded with the first one (#205: a lean root import). */
+function lazyPauseWithdrawals(depsOf: () => AppDeps): PauseWithdrawn {
+  let loaded: Promise<PauseWithdrawn> | undefined;
+  return async (withdrawn) => {
+    loaded ??= import("./pause-withdrawals.js").then((module) =>
+      module.pauseWithdrawalsFor(depsOf()),
+    );
+    const tell = await loaded;
+    await tell(withdrawn);
+  };
+}
+
+/** A workflow's run deps whose pause seam tells channels, and the hook it tells them with. */
+export interface PauseWithdrawals {
+  readonly deps: AppDeps;
+  readonly withdrawn: PauseWithdrawn;
+}
+
+/**
+ * The app's run deps with a pause seam that tells a channel its pause was withdrawn (#337): the
+ * channels, frames and tools it needs are these deps', made once they are.
+ */
+export function withWithdrawals(made: AppDeps): PauseWithdrawals {
+  const withdrawn = lazyPauseWithdrawals(() => deps);
+  const deps: AppDeps =
+    made.pause === undefined ? made : { ...made, pause: { ...made.pause, withdrawn } };
+  return { deps, withdrawn };
+}
 
 /**
  * The workflow's guardrails (#120): each on its own model or `defaults.guardrail.model` (resolved at

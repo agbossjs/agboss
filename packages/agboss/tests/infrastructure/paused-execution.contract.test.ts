@@ -123,6 +123,18 @@ describe.each(kinds)("#267 S35 / AC3: one pause per step key ($name)", ({ twoIns
     expect(await second.findAllByTenantIdAndRootExecutionId("acme", "run-1")).toEqual([]);
   });
 
+  it("#337: its branch keys are kept as written, on the other instance too", async () => {
+    const { first, second } = twoInstances();
+    const branchKeys = ["run-1:refund-one-workflow:1:0", "child-1:clerk-agent:1"];
+
+    await first.findOrCreateByStepKey({ ...pauseOf("pause-a"), branchKeys });
+
+    expect(await second.findByTenantIdAndPauseId("default", "pause-a")).toEqual({
+      ...pauseOf("pause-a"),
+      branchKeys,
+    });
+  });
+
   it("marking it sent changes a pending pause only", async () => {
     const { first, second } = twoInstances();
     await first.findOrCreateByStepKey(pauseOf("pause-a"));

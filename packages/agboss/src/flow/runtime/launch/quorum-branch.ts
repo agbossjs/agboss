@@ -3,7 +3,7 @@ import type { Clock } from "../../../infrastructure/clock.js";
 import type { NodeValue } from "../scope.js";
 import { judgeAnswer, type ArbiterDeps } from "./arbiters.js";
 import { hasExpired, watchDeadline } from "./deadline.js";
-import type { LiveLaunch, LiveQuorum, QuorumMaker } from "./launch-registry.js";
+import type { LiveLaunch, QuorumMaker } from "./launch-registry.js";
 import { QuorumState, quorumRuleOf } from "./quorum.js";
 import { QueueTime } from "./deadline.js";
 import {
@@ -13,6 +13,7 @@ import {
   type LaunchTicket,
 } from "./records.js";
 import type { RuntimeLaunch } from "./runtime-launch.js";
+import { DecisionWithdrawal } from "./withdrawn-pauses.js";
 
 /**
  * A branch under a quorum (#279 S26): the launch's quorum state is made with its registry entry —
@@ -20,8 +21,21 @@ import type { RuntimeLaunch } from "./runtime-launch.js";
  * once when its `deadlineAt` has passed, else watched on the `Clock` — and after the branch's agent
  * answered, its arbiter chain runs and the answer is recorded synchronously: counted or surplus when
  * accepted, rejected otherwise. Once the quorum is decided the launch is aborted, so the branches
- * still running or waiting end `Cancelled`.
+ * still running or waiting end `Cancelled`, and the pending pauses of its branches are withdrawn
+ * (#337) — a quorum whose deadline passes while the tree rests is decided on its next pass.
  */
+
+/** A quorum in this process: its state, once rebuilt, and the signal that stops its deadline. */
+export interface LiveQuorum {
+  readonly state: QuorumState;
+  /** Resolves when the state holds the records of the branches that finished before (a resume). */
+  readonly ready: Promise<void>;
+  readonly stop: AbortController;
+  /** The time its branches waited in the tree's queue: its deadline excludes it (#264). */
+  readonly queued: QueueTime;
+  /** Its waiting branches' pauses withdrawn once it is decided (#337); every branch end awaits it. */
+  readonly withdrawal: DecisionWithdrawal;
+}
 
 /** What a quorum's entry is made from. */
 export interface QuorumSite {
@@ -30,6 +44,14 @@ export interface QuorumSite {
   readonly clock: Clock;
   /** The records of the launch's branches that finished before this process ran it. */
   readonly pending: () => Promise<readonly BranchOutcomeRecord[]>;
+  /** Withdraws the pending pauses of the launch's branches (#337): once it is decided. */
+  readonly withdraw: () => Promise<void>;
+}
+
+/** The decided quorum's launch: aborted, its waiting branches' pauses withdrawn. */
+function stopDecided(quorum: Pick<LiveQuorum, "withdrawal">, controller: AbortController): void {
+  controller.abort();
+  quorum.withdrawal.start();
 }
 
 /** Restores the finished branches, closes or watches the deadline, aborts a decided launch. */
@@ -46,8 +68,10 @@ async function readied(
     watchDeadline(site.clock, deadlineAt, stop.signal, queued, () => {
       state.close();
       controller.abort();
+      // withdrawn only while the pass runs: a deadline while the tree rests waits for the next pass
+      live.withdrawal.startWhileRunning();
     });
-  if (state.isDecided()) controller.abort();
+  if (state.isDecided()) stopDecided(live, controller);
 }
 
 /** The maker of a launch's quorum entry; none for a launch without a quorum. */
@@ -57,7 +81,9 @@ export function quorumMakerOf(site: QuorumSite): QuorumMaker | undefined {
   return (controller): LiveQuorum => {
     const nodes = site.ticket.branches.map((branch) => branch.node);
     const state = new QuorumState(quorumRuleOf(quorum, groups), nodes);
-    const made = { state, stop: new AbortController(), queued: new QueueTime(site.clock) };
+    const withdrawal = new DecisionWithdrawal(site.withdraw);
+    const queued = new QueueTime(site.clock);
+    const made = { state, stop: new AbortController(), queued, withdrawal };
     const ready = readied(site, made, controller);
     // a branch awaits `ready`; a failure to read the checkpoint fails it there, never unhandled
     ready.catch(() => undefined);
@@ -83,7 +109,7 @@ export interface MarkedAnswer {
 
 /** Aborts the launch once its quorum is decided: the rest is cancelled. */
 export function cancelIfDecided(live: LiveLaunch): void {
-  if (live.quorum?.state.isDecided() === true) live.controller.abort();
+  if (live.quorum?.state.isDecided() === true) stopDecided(live.quorum, live.controller);
 }
 
 /** A branch without an answer for the quorum: it failed on its own step, or was cancelled. */
