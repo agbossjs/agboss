@@ -76,19 +76,21 @@ npm test                                                           # scripted mo
 
 ## The gate's rules
 
-The project's lint and CI fail on these; never work around them:
+AGBoss code follows these everywhere — the framework's own gate enforces them with lint
+(`agboss/no-component-state`, `@stylistic/newline-per-chained-call`) and a suppression budget, and a
+project's CI may too. Never work around them:
 
 - No `as any`, `as unknown as`, `@ts-ignore`, `@ts-expect-error` outside compile-time tests,
   `eslint-disable` or `prettier-ignore`. A type error is fixed in the code or the decorator, or by
   regenerating the types (`npx agboss check`).
-- No mutable state on a component: `this.x = …` outside the constructor fails
-  `agboss/no-component-state`.
+- No mutable state on a component: `this.x = …` outside the constructor (`agboss/no-component-state`).
 - No `Date.now()`, `new Date()`, `setTimeout` in components: inject `Clock` (`clock.now()`,
-  `clock.sleep(delay, signal)`).
+  `clock.sleep(delay, signal)`) — tests run on a virtual clock.
 - `*.workflow.ts` is formatted one call per line (`@stylistic/newline-per-chained-call`) — every
   method chain in it, the flow and any other (`WorkflowSettings.builder()` / `.onIncompatibleResume(…)`
   / `.build()`).
-- Explicit return types on exported functions and methods; no `!` non-null assertions.
+- Explicit return types on exported functions and methods; no `value!` non-null assertions (a DTO
+  field's `orderId!: string` is a definite assignment and is required).
 - Imports only from the public entries: `agboss`, `agboss/dto`, `agboss/units`, `agboss/models`,
   `agboss/testing` (+ `agboss/testing/setup`), `agboss/mcp`, `agboss/rag`, `agboss/a2a`,
   `agboss/memory` — never `agboss/internal`, `agboss/dist/…` or LangGraph directly.

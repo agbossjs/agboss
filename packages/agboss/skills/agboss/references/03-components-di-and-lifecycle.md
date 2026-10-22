@@ -22,6 +22,10 @@ Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flo
 | `@HealthCheck` (`health/<name>.health-check.ts`)         | `HealthCheckHandler`: `check()`                             | `name` (`-health-check`), `timeout`, `deps`                                                                                                                                                                                                                                                                                     |
 | `@Injectable` (`services/<name>.service.ts`)             | your own methods                                            | `deps`                                                                                                                                                                                                                                                                                                                          |
 
+`npx agboss generate` writes workflows, agents, routers, arbiters, tools, MCP servers and knowledge
+bases; write the others by hand in the same grammar (`judges/<name>.judge.ts`,
+`health/<name>.health-check.ts`, `compactions/<name>.compaction.ts`).
+
 Every component: `name` in kebab-case ending with its kind (`[name.kind-suffix]`), unique in the
 application (`[graph.duplicate-node-name]`); `description` where the type asks for it; `deps` that
 match the constructor exactly, in order — a wrong list does not compile. `implements` documents the

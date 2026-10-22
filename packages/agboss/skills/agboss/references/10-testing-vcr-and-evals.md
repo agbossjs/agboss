@@ -14,7 +14,10 @@ unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 | real model answers, replayed in CI                                              | `testWith(App, { vcr: { cassetteName } })`                                                                                 |
 | quality over real traffic                                                       | `npx agboss golden add`, `npx agboss eval`, `npx agboss compare`                                                           |
 
-`vitest.config.ts` registers the matchers: `setupFiles: ["agboss/testing/setup"]`.
+`vitest.config.ts` registers the matchers: `setupFiles: ["agboss/testing/setup"]`. A project made by
+`npx agboss create` has three Vitest projects by file name, next to the sources: `src/**/*.test.ts`
+(unit: scripts and fakes), `*.integration.test.ts` (recorded answers, real MCP servers) and
+`*.suite.test.ts` (real models, budget-capped); `npm test` runs the first two.
 
 ## The application under test
 
@@ -544,7 +547,7 @@ import { HiredWorkflowFinish, ScreeningWorkflowStart } from "./src/screening/fin
 -->
 
 ```ts
-// tests/screening.integration.test.ts — real models once, then replayed with no key or network
+// src/screening/screening.integration.test.ts — real models once, then replayed with no key or network
 import { expect } from "vitest";
 import { VCRMode, testWith } from "agboss/testing";
 
