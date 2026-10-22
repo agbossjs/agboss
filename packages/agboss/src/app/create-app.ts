@@ -20,21 +20,15 @@ import {
 } from "./app-deps.js";
 import { pausedRunBook } from "./paused-runs.js";
 import { UnknownToolError, withWithdrawals } from "./parts.js";
-import { cancelledOutcome, LiveRuns, runOptionsOf } from "./live-runs.js";
+import { LiveRuns, runOptionsOf } from "./live-runs.js";
 import { executionLeasesOf } from "./execution-leases.js";
 import { treeMovesOf } from "./tree-moves.js";
-import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import {
   contextValuesOf,
   defaultTenantOf,
   standaloneContexts,
 } from "../flow/context/runtime-contexts.js";
-import {
-  admitRequest,
-  executionEventAt,
-  observeCancelledPause,
-  type ExecutionRequest,
-} from "./run-events.js";
+import { admitRequest, executionEventAt, type ExecutionRequest } from "./run-events.js";
 import { checkedStart, textStartOf } from "./starts.js";
 import type { ExecutionOptions, ExecutionOutput, WorkflowApp } from "./types.js";
 import { ExecutionOperation } from "../core/observability.js";
@@ -120,6 +114,7 @@ export async function buildApp(
   let released = false;
   const admit = <T>(request: ExecutionRequest, checks: () => Promise<T>) =>
     admitRequest(deps.observer, deps, request, checks);
+  const cancelParts = { deps, live, paused, trees, clock, leases, admit, known };
   /** From `app.close()` on (`onStop`), no new execution is accepted; running ones go on (#261). */
   const accepting = (): void => {
     if (closed) throw new ApplicationStoppingError(STOPPING);
@@ -184,23 +179,9 @@ export async function buildApp(
       // the generated `WorkflowStarts` types the output; at run time it is the finish's validated DTO
       return result as ExecutionOutput<never>;
     },
-    cancel: async (threadId, options = {}) => {
-      const thread = { tenantId: options.tenantId ?? DEFAULT_TENANT_ID, threadId };
-      // another tenant's thread does not exist for the caller (#261): `UnknownThreadError`
-      const request = { operation: ExecutionOperation.Cancel, ...thread };
-      await admit(request, () => known({ ...thread, ownerId: options.ownerId }));
-      const running = live.abort(thread);
-      const waiting = await paused.drop(thread);
-      // a running resume completes its own Tern when the abort stops it
-      if (waiting !== undefined && !running) {
-        await trees.deleteAllInTree({ tenantId: thread.tenantId, rootExecutionId: waiting.runId });
-        await deps.terns.complete(waiting.ternId, cancelledOutcome(waiting));
-        const startedVersion = waiting.startedVersion ?? deps.config.version;
-        const cancelled = { ...thread, runId: waiting.runId, startedVersion };
-        await observeCancelledPause(deps.observer, executionEventAt(cancelled, deps));
-      }
-      return { cancelled: running || waiting !== undefined };
-    },
+    // loaded on the first cancel; one on another instance's execution leaves it a request (#360)
+    cancel: async (threadId, options = {}) =>
+      (await import("./cancel-thread.js")).cancelThread(cancelParts, threadId, options),
     resume: resumeOf({ ...answers, ...replies, admit, accepting, moves, ownerOf }),
     close: async () => {
       closed = true;

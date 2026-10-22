@@ -1,25 +1,34 @@
 import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
 import { ResumeReason } from "../core/observability.js";
-import type { ExecutionTreeRepository } from "../infrastructure/execution-tree.repository.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { recoveryPassOf, resumePassOf, RootCalls } from "./recovery-pass.js";
+import type {
+  AnsweredPass,
+  HeldPass,
+  PlannedPass,
+  TreeCall,
+  TreeMoveParts,
+  TreeMoves,
+  TreePass,
+  TreeState,
+} from "./tree-move-types.js";
 import { runningOutcome } from "../run/execute.js";
 import type { InterruptedRun } from "../run/continue-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
-import type { AgentExecutionOutput, AgentExecutionDeps } from "../run/types.js";
-import type { AppDeps } from "./app-deps.js";
 import { currentOutputOf } from "./current-output.js";
-import type { ExecutionLeases, HeldExecutionLease } from "./execution-leases.js";
-import { LeasedCheckpointSaver } from "./leased-checkpointer.js";
+import type { HeldExecutionLease } from "./execution-leases.js";
 import { isHandedOver } from "./handed-over.js";
-import type { LiveRuns, TreeCall } from "./live-runs.js";
-import { withdrawPauses, type PausedRunBook } from "./paused-runs.js";
+import { cancelledErrorOf } from "./live-runs.js";
+import { forgetTree, leasedDeps, treeOf } from "./tree-ends.js";
 import type { RecordedAnswer } from "./resume.js";
 import { announceResume, markTaken, treeResumeNow } from "./tree-resume.js";
 import { maskedRecordOf, runResultOf, withPauseAnswers } from "./result.js";
-import { executionEventAt, observeLeg, type ObservedExecution } from "./run-events.js";
+import { executionEventAt, observeLeg } from "./run-events.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
-import type { Clock } from "../infrastructure/clock.js";
+import type * as CancelRequests from "./cancel-requests.js";
+
+/** Cancel requests (#360), loaded with the first pass. */
+const cancelRequests = (): Promise<typeof CancelRequests> => import("./cancel-requests.js");
 
 /**
  * Moving an execution tree under its lease (#265, Q58; the concurrent resumes of #267): one pass
@@ -30,68 +39,16 @@ import type { Clock } from "../infrastructure/clock.js";
  * holder — recovery (#265 S30), which continues a `running` tree from its last checkpoint.
  */
 
-/** One pass of the tree: the run deps it moves with (its leased checkpointer) and its signal. */
-export type TreePass = (
-  deps: AgentExecutionDeps<string>,
-  signal: AbortSignal,
-) => Promise<AgentExecutionOutput>;
-
-/** What moving a tree needs from its workflow's app. */
-export interface TreeMoveParts {
-  readonly deps: AppDeps;
-  readonly live: LiveRuns;
-  readonly paused: PausedRunBook;
-  readonly leases: ExecutionLeases;
-  readonly trees: ExecutionTreeRepository;
-  /** The application's clock: when a tree's pauses were cancelled. */
-  readonly clock: Clock;
-}
-
-export type { TreeCall } from "./live-runs.js";
-
-/** A pass and the answers it takes (none for a tree's first pass or a recovery from its checkpoint). */
-interface PlannedPass {
-  readonly pass: TreePass;
-  readonly resume?: TreeResume | undefined;
-}
-
-/** A pass that takes recorded answers. */
-interface AnsweredPass extends PlannedPass {
-  readonly resume: TreeResume;
-}
-
-/** The tree of an execution: its id, thread, tenant and the version it started on (its events). */
-export type TreeState = ObservedExecution;
-
-export interface TreeMoves {
-  /** A new tree's first pass (`app.execute`) under its lease, then the drain. */
-  first(state: TreeState, call: TreeCall, pass: TreePass): Promise<ExecutionOutput>;
-  /**
-   * A resume's second phase: the tree's lease (waiting while another call holds it), then every
-   * decision recorded for its waiting pauses; the tree's current output when a holder took them.
-   */
-  resumed(answer: RecordedAnswer, call: TreeCall): Promise<ExecutionOutput>;
-  /**
-   * Recovery (#265 S30): an interrupted tree's lease when it is free, then its pass from its last
-   * checkpoint (its resolved pause first); `undefined` when another holds it or it ended meanwhile.
-   */
-  recovered(interrupted: InterruptedRun, call: TreeCall): Promise<ExecutionOutput | undefined>;
-}
-
-/** The run deps of one pass: its checkpoint writes renew the tree's lease first. */
-const leasedDeps = (deps: AppDeps, lease: HeldExecutionLease): AppDeps =>
-  deps.pause === undefined
-    ? deps
-    : {
-        ...deps,
-        pause: {
-          ...deps.pause,
-          checkpointer: new LeasedCheckpointSaver(deps.pause.checkpointer, lease),
-        },
-      };
-
-/** The tree's key in the stores: its tenant and its root execution. */
-const treeOf = (state: TreeState) => ({ tenantId: state.tenantId, rootExecutionId: state.runId });
+export type {
+  AnsweredPass,
+  HeldPass,
+  PlannedPass,
+  TreeCall,
+  TreeMoveParts,
+  TreeMoves,
+  TreePass,
+  TreeState,
+} from "./tree-move-types.js";
 
 class TreeMover implements TreeMoves {
   /** The roots a resume of this instance is moving or about to move: its own sweep leaves them. */
@@ -124,6 +81,8 @@ class TreeMover implements TreeMoves {
         );
       }
       const lease = await leases.hold(treeOf(state), call.signal);
+      if (await (await cancelRequests()).endedAtTake(this.parts, state, lease))
+        throw cancelledErrorOf(state.threadId);
       const next = await this.nextPass(state, call).catch(async (error: unknown) => {
         await lease.release();
         throw error;
@@ -147,7 +106,11 @@ class TreeMover implements TreeMoves {
     const { runId, threadId, tenantId, startedVersion } = interrupted;
     const state = { runId, threadId, tenantId, startedVersion };
     const lease = await this.parts.leases.tryHold(treeOf(state));
-    if (lease === undefined) return undefined;
+    if (
+      lease === undefined ||
+      (await (await cancelRequests()).endedAtTake(this.parts, state, lease))
+    )
+      return undefined;
     const recovery = await recoveryPassOf(this.parts, interrupted, call).catch(
       async (error: unknown) => {
         await lease.release();
@@ -163,6 +126,11 @@ class TreeMover implements TreeMoves {
     this.parts.deps.log.warn("execution.recovered", text, subject);
     await this.announce(ResumeReason.Recovered, recovery.resume, state);
     return this.drained(state, call, lease, recovery);
+  }
+
+  async endIfCancelled(interrupted: InterruptedRun): Promise<boolean> {
+    if (this.#resuming.has(interrupted.runId)) return false;
+    return (await cancelRequests()).endIfCancelled(this.parts, interrupted);
   }
 
   /** The pass that takes the tree's recorded answers now; `undefined` when it has none (or rests no more). */
@@ -201,15 +169,19 @@ class TreeMover implements TreeMoves {
   ): Promise<ExecutionOutput> {
     const { deps } = this.parts;
     try {
+      // a cancel requested on another instance stops the passes at a renewal (#360)
+      const watch = (await cancelRequests()).cancelWatchOf(this.parts.trees, state);
+      lease.afterEachRenewal(watch.check);
       let planned: PlannedPass | undefined = first;
       let result: ExecutionOutput;
       const passed = new Set<string>();
       do {
-        result = await this.observedPass(state, call, lease, planned.pass);
+        result = await this.observedPass(state, call, { lease, watch }, planned.pass);
         if (planned.resume !== undefined) {
           await markTaken(deps, planned.resume);
           for (const pauseId of planned.resume.pauseIds) passed.add(pauseId);
         }
+        await (await cancelRequests()).endIfCancelledAtRest(this.parts, state, result, watch);
         const isPaused = result.status === ExecutionStatus.Paused;
         planned = isPaused ? await this.nextPass(state, call, passed) : undefined;
         if (planned !== undefined)
@@ -226,16 +198,17 @@ class TreeMover implements TreeMoves {
     }
   }
 
-  /** One pass, observed and settled while the lease is held. */
+  /** One pass, observed and settled while the lease is held; a cancel request aborts it. */
   private observedPass(
     state: TreeState,
     call: TreeCall,
-    lease: HeldExecutionLease,
+    held: HeldPass,
     pass: TreePass,
   ): Promise<ExecutionOutput> {
     const { deps, live, paused } = this.parts;
-    const caller = call.signal === undefined ? [lease.signal] : [call.signal, lease.signal];
-    const moving = leasedDeps(deps, lease);
+    const stops = [held.lease.signal, held.watch.signal];
+    const caller = call.signal === undefined ? stops : [call.signal, ...stops];
+    const moving = leasedDeps(deps, held.lease);
     return observeLeg(deps.observer, executionEventAt(state, deps), async () => {
       const run = await live.track(state, AbortSignal.any(caller), (signal) =>
         pass(moving, signal),
@@ -247,11 +220,8 @@ class TreeMover implements TreeMoves {
   }
 
   /** The tree ended: its keys removed, its waiting pauses withdrawn (#267 AC10). */
-  private async forget(state: TreeState): Promise<void> {
-    await this.parts.trees.deleteAllInTree(treeOf(state));
-    this.parts.deps.branchErrors?.forgetExecution(state.runId);
-    const { pause } = this.parts.deps;
-    if (pause !== undefined) await withdrawPauses(pause, treeOf(state), this.parts.clock.now());
+  private forget(state: TreeState): Promise<void> {
+    return forgetTree(this.parts, state);
   }
 }
 

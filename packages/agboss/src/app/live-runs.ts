@@ -61,9 +61,7 @@ export class LiveRuns {
   abort(thread: ThreadKey): boolean {
     const runs = this.#runs.get(keyOf(thread));
     if (runs === undefined || runs.size === 0) return false;
-    for (const controller of runs) {
-      controller.abort(new ExecutionCancelledError(`thread "${thread.threadId}" was cancelled`));
-    }
+    for (const controller of runs) controller.abort(cancelledErrorOf(thread.threadId));
     return true;
   }
 }
@@ -81,12 +79,20 @@ export const runOptionsOf = (call: TreeCall, signal: AbortSignal): AgentExecutio
   ...(call.onStream === undefined ? {} : { onStream: call.onStream }),
 });
 
-/** The Tern outcome of a paused run that was cancelled instead of resumed. */
-export const cancelledOutcome = (run: AgentExecutionOutput): TernOutcome => ({
+/** Why a thread's execution stopped when it was cancelled — on its own instance or another (#360). */
+export const cancelledErrorOf = (threadId: string): ExecutionCancelledError =>
+  new ExecutionCancelledError(`thread "${threadId}" was cancelled`);
+
+/** The Tern outcome of a cancelled execution: the path it took and what it cost. */
+export const cancelledRecordOutcome = (route: readonly string[], costUsd: number): TernOutcome => ({
   replyWith: "",
   status: "failed",
   stopReason: "the run was cancelled",
-  route: run.path,
+  route,
   steps: [],
-  costUsd: run.cost.totalUsd,
+  costUsd,
 });
+
+/** The Tern outcome of a paused run that was cancelled instead of resumed. */
+export const cancelledOutcome = (run: AgentExecutionOutput): TernOutcome =>
+  cancelledRecordOutcome(run.path, run.cost.totalUsd);
