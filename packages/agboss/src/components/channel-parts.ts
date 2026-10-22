@@ -17,6 +17,8 @@ import {
 } from "../channels/discovery.js";
 import type { PromptLoader } from "./prompt-render.js";
 import { codeClassesOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
+import type { AssembledCompactions } from "../compaction/assembly.js";
+import { customCompactionClassesOf } from "../compaction/custom-classes.js";
 
 /**
  * The channels of a workflow (#267): the classes its tools name, found from the graph — no
@@ -91,9 +93,18 @@ export async function checkedChannelsOf(
   return replyInterpretersOf(workflow, loader);
 }
 
-/** The classes the container creates for a workflow's code: its nodes', PII detectors', interpreters'. */
+/**
+ * The classes the container creates for a workflow's code: its nodes', PII detectors',
+ * interpreters' and custom compactions' (#382).
+ */
 export const createdClassesOf = (
   graph: Pick<RuntimeGraph, "nodes" | "launches">,
   piiClasses: readonly Class[],
   interpreters: readonly AssembledReplyInterpreter[],
-): Class[] => [...codeClassesOf(graph), ...piiClasses, ...codeInterpreterClassesOf(interpreters)];
+  compactions?: AssembledCompactions,
+): Class[] => [
+  ...codeClassesOf(graph),
+  ...piiClasses,
+  ...codeInterpreterClassesOf(interpreters),
+  ...customCompactionClassesOf(compactions),
+];

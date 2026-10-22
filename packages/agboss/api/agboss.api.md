@@ -981,22 +981,40 @@ export interface CodeRouterRoute {
     readonly target: ComponentClass;
 }
 
+// Warning: (ae-forgotten-export) The symbol "BuiltInCompactionOptions" needs to be exported by the entry point index.d.ts
+//
 // @public
-export function Compaction(options: CompactionOptions): <C extends Class>(value: C) => C;
+export function Compaction(options: BuiltInCompactionOptions): <C extends Class>(value: C) => C;
+
+// Warning: (ae-forgotten-export) The symbol "CustomCompactionOptions" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function Compaction<const TDeps extends readonly Token[] = []>(options: CustomCompactionOptions<TDeps>): <C extends new (...args: ResolvedAll<TDeps>) => CompactionHandler>(value: C) => C;
 
 // @public
 export class CompactionError extends AGBossError {
-    constructor(message: string, compaction: string, summaryMaxTokens: SummaryMaxTokens, cause?: unknown);
+    constructor(message: string, compaction: string, summaryMaxTokens: SummaryMaxTokens | undefined, cause?: unknown);
     // (undocumented)
     static readonly code: string;
     readonly compaction: string;
     // (undocumented)
     name: string;
-    readonly summaryMaxTokens: SummaryMaxTokens;
+    readonly summaryMaxTokens: SummaryMaxTokens | undefined;
 }
 
 // @public
-export type CompactionOptions = SummaryQueueCompactionOptions | SingleSummaryCompactionOptions | NoSummaryCompactionOptions;
+export interface CompactionHandler {
+    compact(input: CompactionInput): Promise<readonly string[]> | readonly string[];
+}
+
+// @public
+export interface CompactionInput {
+    readonly previousSummaries: readonly string[];
+    readonly turnsToCompact: readonly CompactionTurn[];
+}
+
+// @public
+export type CompactionOptions = BuiltInCompactionOptions | CustomCompactionOptions;
 
 // Warning: (ae-forgotten-export) The symbol "CompactionSettingsSchema" needs to be exported by the entry point index.d.ts
 //
@@ -1005,9 +1023,18 @@ export type CompactionSettings = z.infer<typeof CompactionSettingsSchema>;
 
 // @public
 export enum CompactionStrategy {
+    Custom = "custom",
     None = "none",
     SingleSummary = "single-summary",
     SummaryQueue = "summary-queue"
+}
+
+// @public
+export interface CompactionTurn {
+    readonly finishName: string;
+    readonly input: unknown;
+    readonly output: unknown;
+    readonly startName: string;
 }
 
 // @public
@@ -3985,7 +4012,7 @@ export interface Routes {
 }
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "guardrail.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "model.unserved" | "model.ambiguous-provider" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply";
+export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "guardrail.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply";
 
 // @public
 export interface RuleViolation {
@@ -4917,20 +4944,20 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/channels/test-channels.ts:24:3 - (ae-undocumented) Missing documentation for "send".
 // src/channels/test-channels.ts:35:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/test-channels.ts:37:3 - (ae-undocumented) Missing documentation for "send".
-// src/compaction/compaction.decorator.ts:55:3 - (ae-undocumented) Missing documentation for "strategy".
-// src/compaction/compaction.decorator.ts:62:3 - (ae-undocumented) Missing documentation for "strategy".
-// src/compaction/compaction.decorator.ts:63:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
-// src/compaction/compaction.decorator.ts:68:3 - (ae-undocumented) Missing documentation for "name".
-// src/compaction/compaction.decorator.ts:69:3 - (ae-undocumented) Missing documentation for "description".
-// src/compaction/compaction.decorator.ts:70:3 - (ae-undocumented) Missing documentation for "strategy".
-// src/compaction/compaction.decorator.ts:71:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/compaction/compaction.decorator.ts:72:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/compaction/compaction.decorator.ts:73:3 - (ae-undocumented) Missing documentation for "model".
-// src/compaction/compaction.decorator.ts:74:3 - (ae-undocumented) Missing documentation for "turnsBetweenCompactions".
-// src/compaction/compaction.decorator.ts:75:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
-// src/compaction/compaction.decorator.ts:76:3 - (ae-undocumented) Missing documentation for "summaryMaxTokens".
-// src/compaction/errors.ts:12:3 - (ae-undocumented) Missing documentation for "code".
-// src/compaction/errors.ts:13:12 - (ae-undocumented) Missing documentation for "name".
+// src/compaction/compaction.decorator.ts:60:3 - (ae-undocumented) Missing documentation for "strategy".
+// src/compaction/compaction.decorator.ts:67:3 - (ae-undocumented) Missing documentation for "strategy".
+// src/compaction/compaction.decorator.ts:68:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
+// src/compaction/compaction.decorator.ts:73:3 - (ae-undocumented) Missing documentation for "name".
+// src/compaction/compaction.decorator.ts:74:3 - (ae-undocumented) Missing documentation for "description".
+// src/compaction/compaction.decorator.ts:75:3 - (ae-undocumented) Missing documentation for "strategy".
+// src/compaction/compaction.decorator.ts:76:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/compaction/compaction.decorator.ts:77:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/compaction/compaction.decorator.ts:78:3 - (ae-undocumented) Missing documentation for "model".
+// src/compaction/compaction.decorator.ts:79:3 - (ae-undocumented) Missing documentation for "turnsBetweenCompactions".
+// src/compaction/compaction.decorator.ts:80:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
+// src/compaction/compaction.decorator.ts:81:3 - (ae-undocumented) Missing documentation for "summaryMaxTokens".
+// src/compaction/errors.ts:13:3 - (ae-undocumented) Missing documentation for "code".
+// src/compaction/errors.ts:14:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/bind-tool.ts:22:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/bind-tool.ts:24:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/decorators.ts:16:3 - (ae-undocumented) Missing documentation for "run".
@@ -5424,11 +5451,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/limits.ts:149:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/graph/limits.ts:150:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/graph/limits.ts:151:3 - (ae-undocumented) Missing documentation for "steps".
-// src/graph/rule-error.ts:170:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:171:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:172:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:183:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:184:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:172:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:173:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:174:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:185:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:186:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:10:3 - (ae-undocumented) Missing documentation for "build".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
@@ -5621,13 +5648,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/resume-guard.ts:45:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/run/resume-guard.ts:46:3 - (ae-undocumented) Missing documentation for "paused".
 // src/run/resume-guard.ts:47:3 - (ae-undocumented) Missing documentation for "current".
-// src/run/thread.ts:25:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
-// src/run/thread.ts:26:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:27:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/thread.ts:32:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:33:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/thread.ts:38:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:39:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:32:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
+// src/run/thread.ts:33:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:34:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:39:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:40:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:45:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:46:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/types.ts:23:3 - (ae-undocumented) Missing documentation for "terns".
 // src/run/types.ts:33:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
 // src/run/types.ts:71:3 - (ae-undocumented) Missing documentation for "status".

@@ -1,5 +1,6 @@
 import { compactionPromptTexts } from "../prompts/compaction.js";
 import type { AssembledCompactions } from "../compaction/assembly.js";
+import { compactionSnapshot } from "../compaction/snapshot.js";
 import { ragPromptTexts } from "../prompts/rag.js";
 import { routerLaunchPromptTexts } from "../prompts/router-launch.js";
 import { arbiterPromptTexts } from "../prompts/arbiter.js";
@@ -170,18 +171,6 @@ const framePrompts = (
   ...(arbiterTexts(graph).length === 0 ? {} : { arbiterFrame: arbiterPromptTexts }),
   ...(guardrails.length === 0 ? {} : { guardrailFrame: guardrailPromptTexts }),
 });
-
-/** What a workflow's compactions summarise with: their strategy and prompt, by name. */
-const compactionSnapshot = (compactions: AssembledCompactions | undefined): object =>
-  compactions === undefined || compactions.compactions.length === 0
-    ? {}
-    : {
-        compactions: compactions.compactions.map(({ name, strategy, prompt }) => ({
-          name,
-          strategy,
-          prompt,
-        })),
-      };
 
 /** One guardrail as hashed: a model one's question, threshold and model; a code one's `decidedBy`. */
 const guardrailEntryOf = (guardrail: LoadedGuardrail): object => {

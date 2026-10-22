@@ -12,6 +12,7 @@ import { compactionViolations } from "./checks.js";
 import {
   CompactionStrategy,
   compactionMetaOf,
+  isCustomCompaction,
   isSummarising,
   type CompactionMeta,
   type UncompactedTurns,
@@ -31,7 +32,7 @@ export interface LoadedCompaction {
   readonly name: string;
   readonly description: string;
   readonly strategy: CompactionStrategy;
-  /** Its prompt, read and rendered; its strategy's built-in one when it has none ("" for `None`). */
+  /** Its prompt, read and rendered; its strategy's built-in one when it has none ("" for `None`, `Custom`). */
   readonly prompt: string;
   /** Whether `prompt` is the class's own. */
   readonly isOwnPrompt: boolean;
@@ -99,6 +100,9 @@ async function loaded(cls: Class, loader: PromptLoader): Promise<LoadedCompactio
 
 /** A compaction's settings in the config: what a profile may change. */
 function settingsOf(meta: CompactionMeta): CompactionSettings {
+  // a custom one (#382): its class compacts, every `turnsBetweenCompactions` turns
+  if (isCustomCompaction(meta))
+    return { strategy: meta.strategy, turnsBetweenCompactions: meta.turnsBetweenCompactions };
   if (!isSummarising(meta)) return { strategy: meta.strategy };
   return {
     strategy: meta.strategy,

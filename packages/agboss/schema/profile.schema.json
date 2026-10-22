@@ -391,7 +391,7 @@
         "properties": {
           "strategy": {
             "type": "string",
-            "enum": ["summary-queue", "single-summary", "none"]
+            "enum": ["summary-queue", "single-summary", "none", "custom"]
           },
           "model": {
             "type": "object",

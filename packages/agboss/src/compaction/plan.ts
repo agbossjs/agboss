@@ -1,3 +1,4 @@
+import type { Class } from "../components/injection.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import { TurnLimit } from "../config/types.js";
 import { TokenLimit } from "../config/types.js";
@@ -14,18 +15,35 @@ import {
  * config (a profile may change windows and settings) over the assembled readers.
  */
 
-/** A compaction that writes summaries, as it runs. */
-export interface CompactionInUse {
+/** What every compaction that writes summaries has as it runs. */
+interface CompactionInUseBase {
   readonly name: string;
-  readonly strategy: CompactionStrategy.SummaryQueue | CompactionStrategy.SingleSummary;
-  readonly prompt: string;
   /** The smallest window among its readers: it summarises every turn older than this. */
   readonly window: UncompactedTurns;
   readonly turnsBetweenCompactions: number;
-  /** How many of its summaries a reader sees: the queue's length, 1 for a single summary. */
+  /**
+   * How many of its stored summaries a reader sees: the queue's length, 1 for a single summary and
+   * for a custom one (its one record holds the whole list `compact()` gave).
+   */
   readonly summaryQueueLength: number;
+}
+
+/** A compaction whose model writes the summaries. */
+export interface ModelCompactionInUse extends CompactionInUseBase {
+  readonly strategy: CompactionStrategy.SummaryQueue | CompactionStrategy.SingleSummary;
+  readonly prompt: string;
   readonly summaryMaxTokens: SummaryMaxTokens;
 }
+
+/** A custom compaction (#382): its class's `compact()` writes them. */
+export interface CustomCompactionInUse extends CompactionInUseBase {
+  readonly strategy: CompactionStrategy.Custom;
+  /** The `@Compaction` class, created by the container. */
+  readonly type: Class;
+}
+
+/** A compaction that writes summaries, as it runs. */
+export type CompactionInUse = ModelCompactionInUse | CustomCompactionInUse;
 
 /** One reader of the thread: its window and, when it has one that writes summaries, its compaction. */
 export interface MemoryReader {
@@ -77,6 +95,20 @@ function windowsOf(
   );
 }
 
+/** A custom compaction in use (#382): its class, its count; one stored record holds its list. */
+const customInUse = (
+  loaded: AssembledCompactions["compactions"][number],
+  settings: Settings | undefined,
+  windows: readonly UncompactedTurns[],
+): CustomCompactionInUse => ({
+  name: loaded.name,
+  strategy: CompactionStrategy.Custom,
+  type: loaded.type,
+  window: windowOfCompaction(windows),
+  turnsBetweenCompactions: settings?.turnsBetweenCompactions ?? 1,
+  summaryQueueLength: 1,
+});
+
 /** A compaction in use as it runs, from its settings (a profile may change them); none for `None`. */
 function compactionInUse(
   loaded: AssembledCompactions["compactions"][number],
@@ -109,7 +141,9 @@ export function memoryPlanOf(
       assembled?.readers.get(name)?.compaction === compaction ? [window] : [],
     );
   const compactions = (assembled?.compactions ?? []).flatMap((loaded) =>
-    compactionInUse(loaded, config.compactions?.[loaded.name], usersOf(loaded.name)),
+    loaded.strategy === CompactionStrategy.Custom
+      ? [customInUse(loaded, config.compactions?.[loaded.name], usersOf(loaded.name))]
+      : compactionInUse(loaded, config.compactions?.[loaded.name], usersOf(loaded.name)),
   );
   const byName = new Map(compactions.map((compaction) => [compaction.name, compaction]));
   const readers = new Map(

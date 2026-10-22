@@ -96,6 +96,15 @@ function startFrameOf<TName extends string>(
 }
 
 /**
+ * Runs work in the frame of an execution's start (#382): what a custom compaction's `compact()`
+ * reads as its `ExecutionContext` before the execution's first step.
+ */
+export const inStartFrame =
+  <TName extends string>(deps: AgentExecutionDeps<TName>, start: ExecutionStart) =>
+  <T>(work: () => Promise<T>): Promise<T> =>
+    runInFrame(startFrameOf(deps, start), work);
+
+/**
  * Opens the budgets of a new execution: `maxSpend()` of each read once (in `inFrame`, where the
  * execution's `ExecutionContext` can be read) and kept in the ledger as the last known limit, then
  * every counter read — one exhausted rejects the execution before its first step.

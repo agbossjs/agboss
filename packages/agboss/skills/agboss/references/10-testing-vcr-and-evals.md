@@ -405,7 +405,10 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   `waitFor(seconds(31))` (the next turn after that long on the clock).
 - **`when(partial)`** binds turns to the input: `mockLlm(SkillsAgent).when({ candidate: { name: "Dana" } }).thenReturn(…)`.
 - **Unscripted**: a guardrail passes, a compaction writes a fixed summary; an agent, a router or a
-  judge without a script is a blocked live call (`test.live-call-blocked`).
+  judge without a script is a blocked live call (`test.live-call-blocked`). A custom compaction
+  (`CompactionStrategy.Custom`) calls no model: `mockLlm(GraphMemoryCompaction)` is a setup error —
+  `mockOf(KnowledgeGraphService).saveFactsAndSummarize.mockResolvedValue([…])` the services its
+  `compact()` uses.
 - **Replacing a class**: `mockOf(Service).method.mockResolvedValue(…)` (any component or service, a
   budget's `maxSpend` too); `testWith(App, { overrides: [override(Base, Replacement)] })` creates a
   class instead of another — no instances, no `new`.

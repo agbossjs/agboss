@@ -29,6 +29,8 @@ export interface MemoryBeforeRun {
   readonly budgetLeftUsd: number;
   readonly callbacks: BaseCallbackHandler[];
   readonly record: (records: readonly UsageRecord[]) => Promise<void>;
+  /** Runs work in the frame of the execution's start (a custom compaction's `compact()`, #382). */
+  readonly inFrame: <T>(work: () => Promise<T>) => Promise<T>;
 }
 
 /** The thread's memory for the execution, after its compactions, and what they spent and did. */

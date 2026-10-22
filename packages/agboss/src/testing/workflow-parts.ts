@@ -4,6 +4,7 @@ import { requireComponent } from "../components/metadata.js";
 import { moduleOf } from "../components/module.js";
 import { NodeKind } from "../flow/ast.js";
 import { codeClassesOf, isCodeNode } from "../flow/runtime/graph-model.js";
+import { customCompactionClassesOf } from "../compaction/custom-classes.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { codeInterpreterClassesOf } from "../channels/discovery.js";
 
@@ -41,6 +42,7 @@ function workflowComponentsOf(bundle: AssembledWorkflow): Class[] {
     ...codeNodes,
     ...codeClassesOf(bundle.graph),
     ...codeInterpreterClassesOf(bundle.replyInterpreters ?? []),
+    ...customCompactionClassesOf(bundle.compactions),
   ];
 }
 
