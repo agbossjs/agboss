@@ -1,3 +1,4 @@
+import { compensationRecordsOf } from "../flow/compensation.js";
 import { buildCostReport } from "../finops/usage.js";
 import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
 import { withChildPauses } from "../flow/runtime/child-records.js";
@@ -31,6 +32,7 @@ const recordsOf = (state: Partial<ExecutionStateType>) => ({
   launches: state.launches ?? [],
   children: withChildPauses(state.children ?? [], []),
   handledErrors: state.handledErrors ?? [],
+  compensations: compensationRecordsOf(state.compensations),
 });
 
 /**

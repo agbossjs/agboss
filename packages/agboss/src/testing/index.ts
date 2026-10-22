@@ -106,6 +106,11 @@ export {
   type ExpectedChildExecution,
   type ExpectedHandling,
 } from "./child-matchers.js";
+export {
+  compensationMatchers,
+  type CompensationMatchers,
+  type ExpectedCompensation,
+} from "./compensation-matchers.js";
 export { UNSCRIPTED_SUMMARY } from "./scripted-gateway.js";
 export { workflowOf } from "./workflow-of.js";
 export { toolOf } from "../components/runtime.js";

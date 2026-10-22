@@ -101,12 +101,13 @@ In `examples/job-scout/` (`agboss <command>`, its one start): `npm run chat` · 
 `--profile <name>` (`profiles/<workflow>/<name>.yaml`) and `--thread <id>`.
 
 In `examples/flow-patterns/` (#295; scripted tests, no model key): `npm run check` (`agboss
-check --strict` on its application's eight workflows, then `--models` on `test`) · `npm run describe`
+check --strict` on its application's nine workflows, then `--models` on `test`) · `npm run describe`
 (each of them: `src/offer/` the review loop, `src/credit/` a code router, `src/review/` parallel
 launches in waves, #273, `src/panel/` a quorum with a code and a model arbiter, #279, `src/vendor/` a
 child workflow per vendor, #263, `src/topic/` a workflow launching itself, #264, `src/approvals/` two
 approvals at once through a `ThreadOwner` channel role answered in the terminal, #267, `src/hiring/`
-an offer whose steps declare their undo, `compensateWith` / `committedBy`, #339) · `npm test`.
+an offer whose steps declare their undo, `compensateWith` / `committedBy`, #339, `src/travel/` two
+bookings a failed join undoes automatically, #340) · `npm test`.
 Real runs (#346, its README: the manual checks #263 M1, #264 M1, #267 M1): `dev` reads
 `OPENROUTER_API_KEY` (`openRouterBaseUrl` optional) and `PII_PSEUDONYM_KEY`, every store is SQLite,
 Langfuse traces when its keys are set — `npx agboss run --start <name> --input '<json>'`, and
@@ -585,7 +586,17 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   an `.onError` / `.onJoinError` side path after it reaches a finish only through its undo, newest
   first, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`; with `committedBy` every
   path from it runs the committer or the undo, `[flow.uncommitted-action]`; `agboss describe`
-  prints both; the automatic undo where no path can say it is #340), `@WorkflowFinish`
+  prints both. At run time (#340) each success opens a record in the execution's `compensations`
+  (with a snapshot of what its undo reads) — committed by its committer or a finish (a child's own
+  finish commits the child's), closed by its undo on a side path (`CompensationReason.SidePath`);
+  a failed join undoes its finished undoable branches before `.onJoinError` or the failure
+  (`JoinFailed`, newest first, after awaiting the launch's running branches), each in its own frame
+  — key `<step key>:compensation`, `step.compensates`, a clean-up `signal` bounded by
+  `@Application({ compensationTimeout })` (default `seconds(15)`) and a lost lease, no slot, no
+  budget check; an undo that fails → the rest still run, then `CompensationFailedError`
+  (`compensation.failed`, `failures`, `cause`), never taken by a side path; `result.compensations`,
+  `onCompensationStart` / `onCompensationEnd`, `toHaveCompensated(A, { by, reason?, status? })`;
+  the undo of an execution ending without a finish is #340 PR 3), `@WorkflowFinish`
   (output DTO). `app.execute(Start, input)` is typed by the generated tables:
   `input` is the start's input, `result.output` the finishes' outputs.
 - **Assembly rules** fail before any model call with **all** violations at once (`GraphRuleError`,
@@ -1828,7 +1839,7 @@ entries. A public surface change updates the api-extractor reports (`npm run api
 (`.suppressions.json`), the generated `.agboss/types.d.ts` of the framework's test fixtures
 (`npm run check:types`, #272 — before lint and `tsc`), build, the API reports, **compiled docs**,
 prettier, ESLint, `tsc` (tests included; the examples' types written first), tests with coverage,
-`agboss check --strict` on flow-patterns' eight workflows (warnings are errors) and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
+`agboss check --strict` on flow-patterns' nine workflows (warnings are errors) and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
 every ` ```ts ` block of README, CLAUDE, QUALITY and WORKFLOW (and `docs/`) against the built
 package — a doc whose snippets declare a `@Workflow` gets its `.agboss/types.d.ts` written first —
 and check that every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention — and every
@@ -1989,7 +2000,7 @@ examples/flow-patterns/      the flow's patterns (package flow-patterns-example,
                     src/credit/ (a code router beside a model router), src/review/ (parallel launches
                     in waves, #273), src/panel/ (a quorum, #279), src/vendor/ (a child workflow per
                     item, #263), src/topic/ (recursion, #264), src/approvals/ (two approvals at once,
-                    #267), src/hiring/ (declared compensation, #339), one *.workflow.ts each; scripts/ (npm run answer); README.md (real runs,
+                    #267), src/hiring/ (declared compensation, #339), src/travel/ (a failed join's undo, #340), one *.workflow.ts each; scripts/ (npm run answer); README.md (real runs,
                     #346); tests/
 scripts/        the gate's checks (check-root, check-suppressions, check-docs + docs/, api-report,
                 public-entries, eslint-agboss-plugin: eslint-component-state + eslint-direct-time),

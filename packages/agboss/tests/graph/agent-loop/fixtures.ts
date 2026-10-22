@@ -139,6 +139,7 @@ const executionStateOf = (): ExecutionStateType => ({
   child: null,
   children: [],
   handledErrors: [],
+  compensations: [],
   branchRecords: [],
   launches: [],
   piiTokens: {},

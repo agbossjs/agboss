@@ -159,3 +159,11 @@ export class DecisionWithdrawal {
     }
   }
 }
+
+/** `withdrawBranchPauses` where the launch has pause stores; nothing to do without them. */
+export async function withdrawLaunchPauses(
+  site: LaunchPauses | undefined,
+  branches: readonly BranchTicket[],
+): Promise<void> {
+  if (site !== undefined) await withdrawBranchPauses(site, branches);
+}

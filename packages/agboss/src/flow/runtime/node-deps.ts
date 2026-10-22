@@ -19,6 +19,8 @@ function launchDepsOf(
   return {
     ...visitDeps,
     registry: new LaunchRegistry(),
+    container: deps.container,
+    ...(deps.stepEntries === undefined ? {} : { stepEntries: deps.stepEntries }),
     // a quorum's arbiters (#279): code ones from the container, model ones on their model
     arbiters: {
       instanceOf: (arbiter: Class): unknown => deps.container.get(arbiter),
@@ -55,6 +57,7 @@ export function nodeDepsOf(
     observer: deps.observer,
     // the trees' slots of the pass (#264): shared by the graph, its children and its recursion
     slots: run.slots,
+    compensation: deps.compensation,
   };
   const launchDeps = launchDepsOf(deps, visitDeps, checkpointer);
   return { visitDeps, launchDeps };

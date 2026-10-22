@@ -14,7 +14,7 @@ import {
   type ChildLaunchRecord,
 } from "./child-records.js";
 import type { ExecutionStateType } from "./state.js";
-import { unrecordedSpendOf } from "./visit.js";
+import { unrecordedSpendOf } from "./node-runner.js";
 
 /**
  * How a child execution ends for its parent (#263 S25): at a finish, its output is the parent's

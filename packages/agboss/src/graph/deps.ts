@@ -23,6 +23,7 @@ import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { Clock, IdGenerator } from "../infrastructure/clock.js";
 import type { StepSlots } from "../app/step-slots.js";
 import type { StepEntries } from "../flow/runtime/step-entries.js";
+import type { CompensationParts } from "../flow/runtime/compensation/registry.js";
 
 /** What the workflow's graph is built from: its analysed paths, its agents and their parts. */
 export interface GraphDeps<TName extends string> {
@@ -92,6 +93,11 @@ export interface GraphDeps<TName extends string> {
   readonly stepSlots?: StepSlots | undefined;
   /** The instance's running step bodies (#367): what its graceful stop awaits. */
   readonly stepEntries?: StepEntries | undefined;
+  /**
+   * The instance's undo of undoable actions (#340): `@Application({ compensationTimeout })` and the
+   * registry of its trees' entries; absent = `seconds(15)`, no registry (a workflow run on its own).
+   */
+  readonly compensation?: CompensationParts | undefined;
   /** A component instance from the app's container: actions and finishes with a handler. */
   readonly container: { readonly get: <T>(token: Class<T>) => T };
 }

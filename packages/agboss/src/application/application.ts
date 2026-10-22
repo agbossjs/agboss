@@ -69,6 +69,14 @@ export interface ApplicationOptions {
    */
   readonly pauseRecordRetention?: Milliseconds;
   /**
+   * How long each automatic undo action may run (#340): an `@Action({ compensateWith })` undone
+   * because no path could — its finished branches when a join fails — runs with a clean-up
+   * `executionContext.signal` that aborts after this (and on a lost lease or the app's stop), not
+   * the execution's; the wait for the launch's steps still running before the undo has the same
+   * bound. Default `seconds(15)`.
+   */
+  readonly compensationTimeout?: Milliseconds;
+  /**
    * The environment contract, required — a class with declared fields only
    * (`environments/app.environment.ts`); each `environments/<name>.environment.ts` next to the
    * application file exports `const environment: AppEnvironment = { … }`. An application with no

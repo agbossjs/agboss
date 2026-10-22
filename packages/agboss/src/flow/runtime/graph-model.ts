@@ -104,14 +104,23 @@ export const isCodeNode = (node: Pick<RuntimeNode, "declaration">): boolean => {
   );
 };
 
+/** The undo actions the graph's actions declare (#340): run by the runtime even off every path. */
+const compensatorsOf = (nodes: Iterable<RuntimeNode>): readonly Class[] =>
+  [...nodes].flatMap(({ declaration }) =>
+    declaration.kind === NodeKind.Action && declaration.options.compensateWith !== undefined
+      ? [declaration.options.compensateWith]
+      : [],
+  );
+
 /**
  * The classes the container creates for a graph's code: actions, finishes with a handler, code
- * routers and code arbiters (#279).
+ * routers, code arbiters (#279) and the actions' undo actions (#340).
  */
 export const codeClassesOf = (
   graph: Pick<RuntimeGraph, "nodes" | "launches">,
 ): readonly Class[] => [
   ...[...graph.nodes.values()].flatMap((node) => (isCodeNode(node) ? [node.component] : [])),
+  ...compensatorsOf(graph.nodes.values()),
   ...arbiterClassesOf(graph.launches).filter((arbiter) => {
     const options = arbiterOf(arbiter)?.options;
     return options !== undefined && isCodeArbiter(options);

@@ -13,6 +13,7 @@ each, on AGBoss's public entries only:
 | `src/topic/`     | a workflow launching itself, `maxDepth: 3` (#264)       | `topic-research-workflow-start`   |
 | `src/approvals/` | two approvals at once, in the terminal (#267)           | `offsite-booking-workflow-start`  |
 | `src/hiring/`    | undoable steps: `compensateWith` / `committedBy` (#339) | `send-offer-workflow-start`       |
+| `src/travel/`    | a failed join undoes its finished bookings (#340)       | `trip-workflow-start`             |
 
 ```bash
 npm install && npm run build          # repo root

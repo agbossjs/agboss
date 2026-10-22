@@ -70,8 +70,8 @@ const FORBIDDEN =
 
 /** What only the CLI or `loadWorkflow` needs: the compiler, tsx, prompts, the OpenAPI parser. */
 const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\//;
-/** Modules the root import may load (1,149 at #205; the decorators entry loaded 3,769 before). */
-const MODULE_BUDGET = 1_400;
+/** Modules the root import may load (1,149 at #205; the decorators entry loaded 3,769 before; 1,500 at #340 for its public names). */
+const MODULE_BUDGET = 1_500;
 
 function importInFreshProcess(module: string): Probe {
   const probe = join(dir, "probe.mjs");

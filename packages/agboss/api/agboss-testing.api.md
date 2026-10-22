@@ -126,6 +126,16 @@ export const childMatchers: {
 export type ClockDuration = `${number}${"ms" | "s" | "m" | "h" | "d"}`;
 
 // @public
+export interface CompensationMatchers<R = unknown> {
+    toHaveCompensated(action: Class, expected: ExpectedCompensation): R;
+}
+
+// @public
+export const compensationMatchers: {
+    toHaveCompensated(this: MatcherContext, received: unknown, action: Class, expected: ExpectedCompensation): Verdict;
+};
+
+// @public
 export interface DecideDetails {
     readonly cost?: Usd;
 }
@@ -163,6 +173,17 @@ export interface ExpectedChildExecution {
     readonly failedWith?: ErrorClass;
     readonly finish?: Class;
     readonly item?: unknown;
+}
+
+// @public
+export interface ExpectedCompensation {
+    readonly by: Class;
+    // Warning: (ae-forgotten-export) The symbol "CompensationReason" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly reason?: CompensationReason;
+    // Warning: (ae-forgotten-export) The symbol "CompensationStatus" needs to be exported by the entry point index.d.ts
+    readonly status?: CompensationStatus;
 }
 
 // Warning: (ae-forgotten-export) The symbol "ExpectedCause" needs to be exported by the entry point index.d.ts
@@ -821,6 +842,7 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/models/model-failure.ts:6:3 - (ae-undocumented) Missing documentation for "NetworkError".
 // src/testing/child-matchers.ts:112:27 - (ae-forgotten-export) The symbol "MatcherContext" needs to be exported by the entry point index.d.ts
 // src/testing/child-matchers.ts:112:27 - (ae-forgotten-export) The symbol "Verdict" needs to be exported by the entry point index.d.ts
+// src/testing/compensation-matchers.ts:28:3 - (ae-undocumented) Missing documentation for "reason".
 // src/testing/concurrency/test-concurrency.ts:26:3 - (ae-undocumented) Missing documentation for "node".
 // src/testing/concurrency/test-concurrency.ts:27:3 - (ae-undocumented) Missing documentation for "input".
 // src/testing/concurrency/test-concurrency.ts:47:5 - (ae-undocumented) Missing documentation for "mode".

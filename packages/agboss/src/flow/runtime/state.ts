@@ -15,6 +15,7 @@ import { DEFAULT_CONTEXT_VALUES, type ExecutionContextValues } from "../context/
 import type { OutdatedValueRecord, ScopeRecords } from "./records.js";
 import { mergeTokens, type PiiTokenMap } from "../../pii/tokens.js";
 import type { EndedChildRecord, ChildIdentityRecord, HandledErrorRecord } from "./child-records.js";
+import { mergeCompensations, type CompensationEntry } from "../compensation.js";
 
 /**
  * The state of one v2 execution (#272 → Runtime): the path scope (one record per slot; current values
@@ -120,6 +121,15 @@ export const ExecutionState = Annotation.Root({
   children: Annotation<EndedChildRecord[]>({ reducer: append, default: () => [] }),
   /** Every failure an `.onError` / `.onJoinError` side path took (`toHaveHandledError`). */
   handledErrors: Annotation<HandledErrorRecord[]>({ reducer: append, default: () => [] }),
+  /**
+   * The undoable actions that succeeded (#340): one entry per action with `compensateWith` — open
+   * with a snapshot of what its undo reads, then committed or closed by its undo (an entry written
+   * again moves to the end, so the closed ones are in the order their undo ended).
+   */
+  compensations: Annotation<CompensationEntry[]>({
+    reducer: mergeCompensations,
+    default: () => [],
+  }),
 });
 
 export type ExecutionStateType = typeof ExecutionState.State;

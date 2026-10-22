@@ -1,5 +1,9 @@
 import type { StepSlots } from "../app/step-slots.js";
 import { StepEntries, type StepEntry } from "../flow/runtime/step-entries.js";
+import {
+  CompensationRegistry,
+  type CompensationParts,
+} from "../flow/runtime/compensation/registry.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { Milliseconds } from "../units/index.js";
@@ -28,6 +32,8 @@ async function stepSlotsOf(
 export interface SharedInstanceParts {
   readonly stepSlots: StepSlots | undefined;
   readonly stepEntries: StepEntries;
+  /** Its trees' undoable actions and the bound of their automatic undo (#340). */
+  readonly compensation: CompensationParts;
   /** What its graceful stop does with them. */
   readonly stepsAtStop: StepsAtStop;
 }
@@ -43,7 +49,12 @@ export async function instancePartsOf(
 ): Promise<SharedInstanceParts> {
   const stepEntries = new StepEntries();
   const stepsAtStop = stepsAtStopOf(stepEntries, stopDeadlineOf(clock), log);
-  return { stepSlots: await stepSlotsOf(assembled, clock), stepEntries, stepsAtStop };
+  const compensation = {
+    timeout: assembled.compensationTimeout,
+    registry: new CompensationRegistry(),
+  };
+  const stepSlots = await stepSlotsOf(assembled, clock);
+  return { stepSlots, stepEntries, compensation, stepsAtStop };
 }
 
 /** The running step bodies at the instance's graceful stop: its end, and the wait for them. */

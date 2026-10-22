@@ -120,6 +120,7 @@ describe("AC12: the app's parts", () => {
       children: [],
       // read from the tree's pause records once the pass ended (#267 S107)
       pauses: [],
+      compensations: [],
     });
   });
 

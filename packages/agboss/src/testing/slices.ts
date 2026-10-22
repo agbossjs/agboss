@@ -122,6 +122,7 @@ const freshState = (runId: string): ExecutionStateType => ({
   child: null,
   children: [],
   handledErrors: [],
+  compensations: [],
 });
 
 export function agentSlice(built: BuiltApp, target: Class): AgentSlice {

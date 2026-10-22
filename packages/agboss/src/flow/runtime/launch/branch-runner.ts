@@ -3,14 +3,16 @@ import { isGraphInterrupt } from "@langchain/langgraph";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { runInFrame } from "../../context/frame.js";
+import { compensationsOfBranch } from "../../compensation.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
-import { LimitExceededError } from "../../../graph/limits.js";
 import { checkVisit, isWorkingNode } from "../limits.js";
 import { recordsOf, type GraphNode, type NodeOutcome, type NodeRunner } from "../node-runner.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
 import { startedVersionOf } from "../step-frame.js";
-import { unrecordedSpendOf, type VisitDeps } from "../visit.js";
+import type { VisitDeps } from "../visit.js";
+import { unrecordedSpendOf } from "../node-runner.js";
 import {
+  failureOfBranch,
   branchRecordOf,
   executionSignalOf,
   failedStatusOf,
@@ -29,7 +31,7 @@ import { reportBranch } from "./launch-report.js";
 import { arbiterDepsFor, liveLaunchOf, type BranchQuorumDeps } from "./branch-quorum.js";
 import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
 import { BranchStatus, type BranchTicket } from "./records.js";
-import { launchPausesOf, withdrawBranchPauses } from "./withdrawn-pauses.js";
+import { launchPausesOf, withdrawLaunchPauses } from "./withdrawn-pauses.js";
 import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
 import { inTreeSlot } from "../step-frame.js";
 import { branchFrameOf } from "./branch-view.js";
@@ -99,13 +101,14 @@ function answeredEnd(
   run: BranchRun,
   outcome: NodeOutcome,
   marked: MarkedAnswer | undefined,
+  compensations: ExecutionStateUpdate,
 ): BranchEnd {
   const arbiters = marked?.usage ?? [];
   const usage = [...(outcome.usage ?? []), ...arbiters, ...run.services];
   // its arbiters' decisions counted as they end (#338); its node counted its own calls
   run.deps.limits.budgets.tally(arbiters);
   run.live.spent.push(...usage);
-  const update = { ...visited(run), ...recordsOf(outcome), usage };
+  const update = { ...visited(run), ...recordsOf(outcome), usage, ...compensations };
   // a quorum decided while its arbiters checked the answer: cancelled, its spend kept (#279 AC12)
   if (marked !== undefined && marked.mark === undefined)
     return { status: BranchStatus.Cancelled, read: outcome.read, update };
@@ -147,17 +150,18 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
       });
     },
   );
-  return answeredEnd(run, outcome, marked);
+  // an undoable action's branch opens its entry as it ends (#340): a failed join undoes it
+  const branch = { launchId: run.owner.ticket.launchId, value: outcome.value };
+  const opened = await compensationsOfBranch({ node, view, frame, config, branch, deps });
+  return answeredEnd(run, outcome, marked, opened);
 }
 
 /**
  * Withdraws the pending pauses under `branches` of the run's launch (#267 AC10, #337): its own when
  * it ended `Cancelled` (asked after the abort), its siblings' when it failed.
  */
-async function withdrawUnder(run: BranchRun, branches: readonly BranchTicket[]): Promise<void> {
-  const pauses = launchPausesOf(run.deps.pauses, run.state, run.config);
-  if (pauses !== undefined) await withdrawBranchPauses(pauses, branches);
-}
+const withdrawUnder = (run: BranchRun, branches: readonly BranchTicket[]): Promise<void> =>
+  withdrawLaunchPauses(launchPausesOf(run.deps.pauses, run.state, run.config), branches);
 
 /** A failed branch aborts its launch: its siblings stop, their pending pauses are withdrawn. */
 async function abortLaunch(run: BranchRun): Promise<void> {
@@ -169,15 +173,6 @@ async function abortLaunch(run: BranchRun): Promise<void> {
   );
 }
 
-/**
- * What a branch failed with (#338): stopped by an exhausted budget, the `BudgetExceededError` that
- * aborted its calls — whatever error the abort surfaced as —; else (its own limit too) its error.
- */
-const failureOf = (run: BranchRun, error: unknown): unknown =>
-  run.budgetStop?.aborted === true && !(error instanceof LimitExceededError)
-    ? (run.budgetStop.reason as unknown)
-    : error;
-
 /** A branch that threw: skipped, failed (aborting its siblings) or cancelled by a sibling. */
 async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
   if (isGraphInterrupt(error)) throw error;
@@ -186,7 +181,7 @@ async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
   // the spend the error carries is the original one's (an aborted loop's calls so far)
   const usage = [...unrecordedSpendOf(error), ...run.services];
   live.spent.push(...usage);
-  const failure = failureOf(run, error);
+  const failure = failureOfBranch(run.budgetStop, error);
   const isQuorum = live.quorum !== undefined;
   const status = failedStatusOf({ live, ticket, isQuorum }, failure);
   if (status === BranchStatus.Failed) {

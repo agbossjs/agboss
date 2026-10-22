@@ -10,6 +10,7 @@ import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { GraphDeps } from "../graph/deps.js";
 import type { StepSlots } from "./step-slots.js";
 import type { StepEntries } from "../flow/runtime/step-entries.js";
+import type { CompensationParts } from "../flow/runtime/compensation/registry.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 
 /**
@@ -91,6 +92,7 @@ export interface TreeParts {
   readonly childDepsOf?: ((workflow: Class) => GraphDeps<string> | undefined) | undefined;
   readonly stepSlots?: StepSlots | undefined;
   readonly stepEntries?: StepEntries | undefined;
+  readonly compensation?: CompensationParts | undefined;
 }
 
 /**
@@ -99,10 +101,14 @@ export interface TreeParts {
  */
 export const treeDepsOf = (
   idGenerator: IdGenerator,
-  { childDepsOf, stepSlots, stepEntries }: TreeParts,
-): Pick<GraphDeps<string>, "childDepsOf" | "idGenerator" | "stepSlots" | "stepEntries"> => ({
+  { childDepsOf, stepSlots, stepEntries, compensation }: TreeParts,
+): Pick<
+  GraphDeps<string>,
+  "childDepsOf" | "idGenerator" | "stepSlots" | "stepEntries" | "compensation"
+> => ({
   idGenerator,
   ...(childDepsOf === undefined ? {} : { childDepsOf }),
   ...(stepSlots === undefined ? {} : { stepSlots }),
   ...(stepEntries === undefined ? {} : { stepEntries }),
+  ...(compensation === undefined ? {} : { compensation }),
 });

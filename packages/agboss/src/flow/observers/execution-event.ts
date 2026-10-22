@@ -45,6 +45,7 @@ export const stepRecordOf = (step: StepDescriptor): StepRecord => ({
   callId: step.callId,
   toolLoopIteration: step.toolLoopIteration,
   validationAttempts: step.validationAttempts,
+  ...(step.compensates === undefined ? {} : { compensates: step.compensates }),
 });
 
 /** The workflow as plain data: no class. */
