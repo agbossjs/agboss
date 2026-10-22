@@ -1,9 +1,12 @@
 # Cancellation and idempotency
 
 Workflows that call external APIs (payments, bookings) need to **undo** what they already did when a
-later step fails. Since #272 there is no saga engine and no `compensate` metadata: the framework
-cannot know how to undo a tool call, a sent message or an MCP side effect, and an undo can fail
-itself. An undo is written in the path, as explicit error handling — see [Rollback](Rollback):
+later step fails. There is no saga engine: an action declares its undo action
+(`@Action({ compensateWith, committedBy })`, #339), and a side path after a failure runs it, newest
+first — checked by `agboss check`, see [Rollback](Rollback) and
+[ADR-0020](ADR-0020-Declared-compensation). Where no path can say it (a cancel, an uncaught
+failure, a failed join's finished branches) the framework will undo by itself (#340); the side
+effects of an agent's tool calls are not undone. The explicit form:
 
 ```ts no-check: the pattern only — the full, compiled example is on the Rollback page
 start(OrderWorkflowStart)

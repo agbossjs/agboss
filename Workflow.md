@@ -265,6 +265,12 @@ An **action** (`@Action`, code without a model) gets its fields, each as `{ valu
 (`producer`: the class that gave it) — and nothing else; the execution it runs in comes through
 `deps: [ExecutionContext]` ([Components](Components#the-execution-context)).
 
+An action that changes the world may declare its undo (#339): `compensateWith: UndoAction` — an
+ordinary `@Action` reading only what the path holds right after it — and `committedBy:
+CommitAction`, the action after which nothing undoes it (without it, a finish commits it). A side
+path after it then reaches a finish only through the undo, newest first; `agboss check` proves it
+([Rollback](Rollback)).
+
 <!-- snippet-context
 import { Action, Workflow, WorkflowFinish, WorkflowStart, start, type ActionHandler, type InputOf } from "agboss";
 import { OfferDraftDto } from "./offer.components.js";
@@ -427,9 +433,17 @@ rules — a workflow start exists, no unreachable node, no dead end, nothing aft
 has `maxVisits`; a launch is joined (`[launch.join-required]`), a per-item launch has `maxItems`,
 a branch renewing what a sibling read is `[launch.branch-outdates-sibling]`; an edge into a child
 workflow enters through one start (`[graph.no-matching-start]`, `[graph.ambiguous-start]`), a side
-path that can catch a limit reaches no model (`[graph.limit-handler-uses-model]`). A path nested more
+path that can catch a limit reaches no model (`[graph.limit-handler-uses-model]`). Declared
+compensation (#339, [Rollback](Rollback#what-agboss-check-proves)): `compensateWith` / `committedBy`
+name `@Action`s that are not themselves and undo nothing (`[action.compensator-not-an-action]`,
+`[action.committer-not-an-action]`, `[action.self-compensation]`, `[action.compensator-compensates]`),
+the undo reads what is on the path right after its action (`[action.invalid-compensator-input]`), a
+side path runs the open undo actions newest first (`[flow.uncompensated-action]`,
+`[flow.compensation-out-of-order]`) and, with `committedBy`, every path runs the committer or the
+undo (`[flow.uncommitted-action]`). A path nested more
 than 4 levels deep is a warning (`[flow.path-too-deep]`), as is a per-item child that cannot fail
-softly (`[graph.child-without-failure-finish]`) — errors under `--strict`.
+softly (`[graph.child-without-failure-finish]`) and a committer no path from its action reaches
+(`[flow.committer-unreachable]`) — errors under `--strict`.
 
 ## Testing
 

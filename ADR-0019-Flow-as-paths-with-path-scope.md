@@ -33,7 +33,9 @@ classes. Rollback was a saga engine that could not know how to undo a tool call.
 - **Agents read an input message** (`### field (from producer)` + JSON) after static instructions,
   and answer a structured `output` through answer tools (`answer-<dto>`), retried twice when invalid.
 - **Rollback is explicit**: `.onError(Err, toAction(UndoAction)…)` — no automatic compensation
-  ([Rollback](Rollback)). `maxVisits` on routers and agents; a visit past it fails before the model
+  ([Rollback](Rollback)). *Replaced by [ADR-0020](ADR-0020-Declared-compensation) (#339): an
+  action declares its undo (`compensateWith`), side paths are checked to run it, and the framework
+  undoes only where no path can say it.* `maxVisits` on routers and agents; a visit past it fails before the model
   call with `VisitsLimitExceededError`, which `.onError` can take.
 - **One `StateGraph` per workflow**, node ids are the components' names; the scope is its own
   channel, error records are plain data, so `.onError` holds after a resume.

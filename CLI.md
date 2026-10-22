@@ -239,7 +239,9 @@ key, no network and no project code run (no `maxSpend()`):
   the worst case of each start ([below](#the-check-report-268)) — `model → provider`, its agents,
   tools, dependencies, knowledge bases and settings; each agent's compaction and `uncompactedTurns`
   with where they came from (`(own)`, the workflow's or the application's name, `(built-in)`,
-  [Memory Management](Memory-Management)).
+  [Memory Management](Memory-Management)); each action that declares its undo
+  (`register-offer-action  compensateWith withdraw-offer-action · committedBy confirm-offer-action`,
+  #339, [Rollback](Rollback)).
 
 ```
 vendor-screening-workflow 1.0.0
@@ -261,7 +263,7 @@ each entry of `workflows[]` has:
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `configHash` | the workflow's fingerprint — the one join key: the same in `WorkflowRecord`, every execution event, `executionContext.workflow` and the records ([Observability → Join keys](Observability#join-keys)) |
 | `starts`, `finishes` | its starts' and finishes' names                                                                                     |
-| `nodes`    | every node: `name`, `kind` (`ComponentKind`), `description`, `promptHash`, `schemaHash`, `input` / `output` (each DTO as `{ dto, schemaHash }`, wrappers as `listOf` / `oneOf` / `optional` / `historyOf` / `fields`), `maxVisits`; an agent's `agent` — `model`, `provider`, `reasoning`, `maxTokens`, `maxModelCalls`, `maxToolCalls`, `uncompactedTurns`, `compaction`, `tools`, `rag` (`name`, `mode`, `topK`), the `guardrails` and `piiPolicies` in effect after the application → workflow → agent cascade, `judges`, `maxRetries`, `instructions`; a router's `router` — `decidedBy`, `model`, `provider`, `instructions`, its `routes` with `spawn` and `failure` |
+| `nodes`    | every node: `name`, `kind` (`ComponentKind`), `description`, `promptHash`, `schemaHash`, `input` / `output` (each DTO as `{ dto, schemaHash }`, wrappers as `listOf` / `oneOf` / `optional` / `historyOf` / `fields`), `maxVisits`; an agent's `agent` — `model`, `provider`, `reasoning`, `maxTokens`, `maxModelCalls`, `maxToolCalls`, `uncompactedTurns`, `compaction`, `tools`, `rag` (`name`, `mode`, `topK`), the `guardrails` and `piiPolicies` in effect after the application → workflow → agent cascade, `judges`, `maxRetries`, `instructions`; a router's `router` — `decidedBy`, `model`, `provider`, `instructions`, its `routes` with `spawn` and `failure`; an action's `action` — `compensateWith`, `committedBy` (component names, #339), only when it declares one |
 | `edges`    | every edge: `from`, `to`, `kind` (`next`, `case`, `route`, `error`, `launch`, `join`, `join-error`), what it `writes` (`value`, `about`, `isCase`), the `error` class of a side path, a quorum group's agents |
 | `onError`  | the `.onError` / `.onJoinError` table: `at`, `error` (the class), `by` (the side path's first node), `kind`                  |
 | `launches` | every launch: `launcher`, `targets`, `isPerItem`, `maxConcurrency`, `maxItems`, its `quorum` (`{ kind, min, max, deadline }` or its `groups`) and its arbiters — each `.acceptedBy(…)` in path order, an `anyOf` as one list — with `decidedBy`, `model` and `promptHash` |

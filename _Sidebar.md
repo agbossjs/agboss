@@ -10,7 +10,7 @@
 - [Workflow as a step](Workflow-as-a-step)
 - [Parallel — quorums and arbiters](Parallel)
 - [Routing patterns](Advanced-Routing)
-- [Rollback](Rollback)
+- [Rollback — declared compensation](Rollback)
 - [Routers](Routers)
 - [Guards](Guards)
 - [CLI — agboss](CLI)

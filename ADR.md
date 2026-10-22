@@ -23,4 +23,5 @@ One page per significant, hard-to-reverse decision: `ADR-NNNN-Title`, from
 | [0016 — Model providers as components, settings checked against models](ADR-0016-Model-providers)                         | Accepted |
 | [0017 — Fork-Join and Parallel Execution](ADR-0017-Fork-Join-and-Parallel-Execution) | Superseded by 0019 (parallel forms: #273) |
 | [0018 — Rename to AGBoss](ADR-0018-Rename-to-AGBoss) | Accepted |
-| [0019 — The flow as paths, with a path scope and generated types](ADR-0019-Flow-as-paths-with-path-scope) | Accepted |
+| [0019 — The flow as paths, with a path scope and generated types](ADR-0019-Flow-as-paths-with-path-scope) | Accepted (its rollback bullet replaced by 0020) |
+| [0020 — Declared compensation: explicit where a path can say it, automatic where none can](ADR-0020-Declared-compensation) | Accepted |

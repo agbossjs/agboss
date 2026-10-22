@@ -3,6 +3,24 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — declared compensation: compensateWith / committedBy and their checks (#339 PR 1)
+
+- **Added — `@Action({ compensateWith, committedBy })`** ([Rollback](Rollback),
+  [ADR-0020](ADR-0020-Declared-compensation), replacing ADR-0019's "no automatic compensation"):
+  an action names the `@Action` that undoes it and, optionally, the one after which nothing undoes
+  it. Checked at assembly: `[action.compensator-not-an-action]`, `[action.committer-not-an-action]`,
+  `[action.self-compensation]`, `[action.compensator-compensates]`,
+  `[action.invalid-compensator-input]`; an `.onError` / `.onJoinError` side path after an open
+  undoable action reaches a finish only through its undo, newest first
+  (`[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`); with `committedBy` every path
+  runs the committer or the undo (`[flow.uncommitted-action]`); a committer no path reaches is a
+  warning (`[flow.committer-unreachable]`).
+- **Added — `agboss describe`** prints each undoable action (`compensateWith … · committedBy …`),
+  `--json` its node's `action` ([CLI](CLI#the-declarative-snapshot-268)).
+- **Added — `examples/flow-patterns/src/hiring/`**: the send-offer workflow, its eighth workflow.
+- Nothing runs automatically yet: the undo where no path can say it (a cancel, an uncaught failure,
+  a failed join's finished branches) is #340.
+
 ## Unreleased — app.cancel from any instance stops an execution running on another (#360)
 
 - **Fixed — `app.cancel(threadId)` on any instance** cancels the thread's execution running on
