@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the agboss skill: SKILL.md and six references (#305 PR 2)
+
+- **Added — the content of the coding-agent skill** shipped in `packages/agboss/skills/agboss/`:
+  `SKILL.md` (the 10 invariants, the `npx agboss generate → check → describe` / `npm test` loop, the
+  gate's rules, the routing table) and references 01 (composition and DTOs), 03 (components, DI,
+  lifecycle), 04 (MCP and A2A), 05 (channels and pauses), 07 (guardrails and PII), 10 (testing, VCR,
+  evals) — every ts block compiled by `check:docs`, every matrix name checked against the API
+  reports (`tests/skills/coverage.ts`). CLAUDE.md and QUALITY.md say `reasoning`, not `thinking`.
+
 ## Unreleased — the automatic undo when an execution ends without a finish (#340 PR 3)
 
 - **Added — the undo of an execution that ends without a finish**
