@@ -1,5 +1,10 @@
 import type { Class } from "../components/injection.js";
-import { guardrailMetaOf, type GuardrailMeta } from "../components/policy-decorators.js";
+import {
+  guardrailMetaOf,
+  isCodeGuardrail,
+  type GuardrailMeta,
+  type ModelGuardrailMeta,
+} from "../components/policy-decorators.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 
 /**
@@ -7,7 +12,9 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
  * question (`prompt` / `promptUrls`), a threshold in (0, 1], one refusal — the decorator's text or
  * the class's `refusal()` (`implements GuardrailRefusal`), never both and never neither — and a
  * model: its own or `defaults.guardrail.model` of the workflow (or its application). A guardrail
- * never takes `defaults.router.model`, and the framework has no built-in guardrail model.
+ * never takes `defaults.router.model`, and the framework has no built-in guardrail model. A code
+ * guardrail (`DecidedBy.Code`, #383) has no question, threshold or model — its class's `check(text)`
+ * decides (`[guardrail.missing-handler]` without one); its forbidden options do not compile.
  */
 
 const SUFFIX = "-guardrail";
@@ -37,14 +44,26 @@ function refusalViolations(cls: Class, meta: GuardrailMeta): RuleViolation[] {
   return [];
 }
 
-function shapeViolations(cls: Class, meta: GuardrailMeta): RuleViolation[] {
+function nameViolations(cls: Class, meta: GuardrailMeta): RuleViolation[] {
+  return meta.name.endsWith(SUFFIX)
+    ? []
+    : [
+        violation("name.kind-suffix", `${meta.name}: a guardrail's name ends with ${SUFFIX}`, [
+          cls.name,
+        ]),
+      ];
+}
+
+/** A code guardrail's class has its `check(text)` (`implements GuardrailHandler`). */
+function handlerViolations(cls: Class, meta: GuardrailMeta): RuleViolation[] {
+  const check: unknown = Reflect.get(cls.prototype as object, "check");
+  if (typeof check === "function") return [];
+  const message = `${meta.name}: decided by code (DecidedBy.Code) but ${cls.name} has no check(text) method — implements GuardrailHandler`;
+  return [violation("guardrail.missing-handler", message, [cls.name])];
+}
+
+function questionViolations(cls: Class, meta: ModelGuardrailMeta): RuleViolation[] {
   const found: RuleViolation[] = [];
-  if (!meta.name.endsWith(SUFFIX))
-    found.push(
-      violation("name.kind-suffix", `${meta.name}: a guardrail's name ends with ${SUFFIX}`, [
-        cls.name,
-      ]),
-    );
   if ((meta.prompt ?? "") === "" && (meta.promptUrls ?? []).length === 0)
     found.push(
       violation(
@@ -66,9 +85,21 @@ function shapeViolations(cls: Class, meta: GuardrailMeta): RuleViolation[] {
 
 /** The model a guardrail asks: its own, else the workflow's `defaults.guardrail.model`. */
 export const guardrailModelOf = (
-  meta: GuardrailMeta,
+  meta: ModelGuardrailMeta,
   defaultModel: string | undefined,
 ): string | undefined => meta.model ?? defaultModel;
+
+function modelViolations(
+  cls: Class,
+  meta: ModelGuardrailMeta,
+  defaultModel: string | undefined,
+  workflow: string | undefined,
+): RuleViolation[] {
+  if (guardrailModelOf(meta, defaultModel) !== undefined) return [];
+  const where = workflow === undefined ? "" : `${workflow}: `;
+  const message = `${where}${meta.name} has no model — set model or defaults.guardrail.model`;
+  return [violation("guardrail.no-model", message, [cls.name])];
+}
 
 /** Every rule the guardrail classes break, all at once; `workflow` names where a model is missing. */
 export function guardrailViolations(
@@ -79,16 +110,12 @@ export function guardrailViolations(
   return classes.flatMap((cls) => {
     const meta = guardrailMetaOf(cls);
     if (meta === undefined) return [];
-    const model =
-      guardrailModelOf(meta, defaultModel) === undefined
-        ? [
-            violation(
-              "guardrail.no-model",
-              `${workflow === undefined ? "" : `${workflow}: `}${meta.name} has no model — set model or defaults.guardrail.model`,
-              [cls.name],
-            ),
-          ]
-        : [];
-    return [...shapeViolations(cls, meta), ...refusalViolations(cls, meta), ...model];
+    const common = [...nameViolations(cls, meta), ...refusalViolations(cls, meta)];
+    if (isCodeGuardrail(meta)) return [...common, ...handlerViolations(cls, meta)];
+    return [
+      ...common,
+      ...questionViolations(cls, meta),
+      ...modelViolations(cls, meta, defaultModel, workflow),
+    ];
   });
 }

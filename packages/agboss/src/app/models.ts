@@ -7,6 +7,7 @@ import { providerCallsOf } from "../models/calls/provider-calls.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
 import { checkModelUses, resolutionProblems } from "../models/check.js";
 import { ConfigurationError } from "../models/problems.js";
+import { modelGuardrailsOf } from "../guardrails/loaded.js";
 import { modelUsesOf } from "../models/uses.js";
 import { directoryOf, modelSummaryOf, withProviderPrices } from "../models/workflow-models.js";
 import type { AssembledWorkflow } from "../workflow.js";
@@ -48,7 +49,7 @@ export async function modelsFor(
   const uses = modelUsesOf(bundle.config, bundle.routers, {
     piiDetectors: bundle.pii?.detectors,
     interpreters: bundle.replyInterpreters,
-    guardrails: bundle.guardrails?.guardrails,
+    guardrails: modelGuardrailsOf(bundle.guardrails),
   });
   const unresolved = resolutionProblems(uses, directory);
   if (unresolved.length > 0) throw new ConfigurationError(unresolved);

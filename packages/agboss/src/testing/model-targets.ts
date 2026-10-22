@@ -5,7 +5,12 @@ import { NodeKind } from "../flow/ast.js";
 import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
 import { isCodeRouterNode, type RuntimeNode } from "../flow/runtime/graph-model.js";
 import { arbiterClassesOf } from "../flow/runtime/launch/runtime-launch.js";
-import { compactionScriptKeyOf, guardrailScriptKeyOf, piiScriptKeyOf } from "./pii-parts.js";
+import {
+  compactionScriptKeyOf,
+  guardrailScriptKeyOf,
+  isCodeGuardrailOf,
+  piiScriptKeyOf,
+} from "./pii-parts.js";
 import {
   arbiterKeyOf,
   judgeScriptKeyOf,
@@ -78,6 +83,8 @@ export class ModelTargets {
       return "a code arbiter calls no model — mockOf() it, or the services its methods use";
     if (this.#interpreters.has(target))
       return "a code reply interpreter calls no model — mockOf() it, or the services its interpret() uses";
+    if (isCodeGuardrailOf(target, this.assembled))
+      return "a code guardrail calls no model — mockOf() the services its check() uses";
     return "not an agent, router, judge, model arbiter, model reply interpreter, PII detection, guardrail or compaction that writes summaries of this application";
   }
 }

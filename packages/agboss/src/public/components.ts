@@ -11,12 +11,15 @@ export {
   GuardrailSide,
   InputGuardrail,
   OutputGuardrail,
+  type CodeGuardrailComputedOptions,
+  type CodeGuardrailTextOptions,
   type GuardrailComputedOptions,
   type GuardrailRefusal,
   type GuardrailTextOptions,
   type ToolHandler,
   type ToolOptions,
 } from "../components/decorators.js";
+export { GuardrailVerdict, type GuardrailHandler } from "../components/guardrail-handler.js";
 export { TokenLimit, TurnLimit } from "../config/types.js";
 export {
   Compaction,

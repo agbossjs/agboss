@@ -1,6 +1,7 @@
 import type { AssembledApplication } from "../application/assemble.js";
 import type { Class } from "../components/injection.js";
 import { variableOfSecret } from "../environments/secret.js";
+import { isModelGuardrail, type LoadedGuardrail } from "../guardrails/loaded.js";
 import { isCustomPolicy } from "../pii/pii-policy.decorator.js";
 import { piiPolicyMetaOf } from "../pii/policy-checks.js";
 import { compactionKeyOf, guardrailKeyOf, piiPolicyKeyOf } from "./scripted-gateway.js";
@@ -63,16 +64,27 @@ export function testPseudonymKeys(
   );
 }
 
-/** The script key of a guardrail of the application (`guardrail:<name>`); none for anything else. */
+const guardrailOf = (target: Class, assembled: AssembledApplication): LoadedGuardrail | undefined =>
+  assembled.workflows
+    .flatMap((workflow) => workflow.guardrails?.guardrails ?? [])
+    .find((candidate) => candidate.type === target);
+
+/** The script key of a model guardrail of the application (`guardrail:<name>`); none for anything else. */
 export function guardrailScriptKeyOf(
   target: Class,
   assembled: AssembledApplication,
 ): string | undefined {
-  const guardrail = assembled.workflows
-    .flatMap((workflow) => workflow.guardrails?.guardrails ?? [])
-    .find((candidate) => candidate.type === target);
-  return guardrail === undefined ? undefined : guardrailKeyOf(guardrail.name);
+  const guardrail = guardrailOf(target, assembled);
+  return guardrail === undefined || !isModelGuardrail(guardrail)
+    ? undefined
+    : guardrailKeyOf(guardrail.name);
 }
+
+/** Whether a class is a code guardrail of the application (#383): it has no script. */
+export const isCodeGuardrailOf = (target: Class, assembled: AssembledApplication): boolean => {
+  const guardrail = guardrailOf(target, assembled);
+  return guardrail !== undefined && !isModelGuardrail(guardrail);
+};
 
 /**
  * The script key of a `@Compaction` that writes summaries in the application (`compaction:<name>`,

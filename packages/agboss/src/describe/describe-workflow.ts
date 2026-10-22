@@ -23,6 +23,7 @@ import { isMcpFacade, type AnyTool } from "../tools/index.js";
 import { NO_ENVIRONMENT_VALUES, type DescribedEnvironment } from "../environments/resolve.js";
 import { modelProviderLine, resolvedModelUsesOf } from "../models/resolution.js";
 import { applicationContextOf } from "../flow/context/application-context.js";
+import { guardrailLines } from "./guardrails.js";
 import { limitLines } from "./limits.js";
 import { piiPolicyLines } from "./pii-policies.js";
 import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
@@ -61,29 +62,6 @@ function toolLine(tool: AnyTool, bundle: AssembledWorkflow): string {
   const waits = tool.channel ? ", uses channel" : "";
   const deps = bundle.toolDependencies?.[tool.name];
   return `${tool.name} (${tool.channel ? `channel:${tool.channel}, ` : ""}${kind}${waits})${deps === undefined ? "" : ` ← ${deps}`} — ${tool.description} · ${maxResultSizeLabel(bundle, tool)}`;
-}
-
-/**
- * Each guardrail (#120): its side and threshold, its model and where it came from, its refusal —
- * the text, or `Class.refusal()` when the class computes it — and the agents and routers it guards.
- */
-function guardrailLines(bundle: AssembledWorkflow): string[] {
-  const assembled = bundle.guardrails;
-  if (assembled === undefined || assembled.guardrails.length === 0) return ["guardrails none"];
-  const users = (type: unknown): string =>
-    [...assembled.byElement]
-      .filter(([, sides]) => [...sides.input, ...sides.output].some((g) => g.type === type))
-      .map(([name]) => name)
-      .join(", ") || "none";
-  return [
-    "guardrails",
-    ...assembled.guardrails.map((g) => {
-      const model = `${g.model} (${g.isOwnModel ? "own" : "defaults.guardrail"})`;
-      const refusal =
-        g.refusal === undefined ? `${g.type.name}.refusal()` : JSON.stringify(g.refusal);
-      return `  ${g.name} — ${g.side} ≥${String(g.threshold)} · ${model} · refusal: ${refusal} · on ${users(g.type)}`;
-    }),
-  ];
 }
 
 function bundleLines(bundle: AssembledWorkflow): string[] {

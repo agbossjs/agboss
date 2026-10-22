@@ -32,6 +32,7 @@ import type { AssembledWorkflow } from "../../src/workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { route, start } from "../helpers/flow.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { modelGuardrailsOf } from "../../src/guardrails/loaded.js";
 
 @WorkflowStart({
   name: "ask-workflow-start",
@@ -283,7 +284,7 @@ describe("#261 AC12: router and guardrail models separate", () => {
   it("a guardrail takes defaults.guardrail.model, never defaults.router.model; its own model wins", async () => {
     const { guardrails: assembledGuardrails } = await assembled(AskApplication);
     expect(
-      assembledGuardrails?.guardrails.map(({ name, model, isOwnModel }) => ({
+      modelGuardrailsOf(assembledGuardrails).map(({ name, model, isOwnModel }) => ({
         name,
         model,
         isOwnModel,

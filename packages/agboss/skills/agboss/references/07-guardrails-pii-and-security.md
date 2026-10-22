@@ -8,6 +8,7 @@ retry an answer are judges (`03-components-di-and-lifecycle.md`); guardrails onl
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
 | refuse a request before the model reads it                         | `@InputGuardrail` — a yes / no question; P(yes) ≥ `threshold` blocks           |
 | stop an answer before it leaves the agent                          | `@OutputGuardrail`                                                             |
+| block by a rule in code (a deny list, a regex), no model           | `decidedBy: DecidedBy.Code` + `implements GuardrailHandler` (`check(text)`)    |
 | hide contact, government, financial or credential data from models | a declarative `@PiiPolicy({ rules: [pii(PiiKind…, PiiAction…)] })`             |
 | hide your own identifiers (employee ids, case numbers)             | `@PiiPolicy({ action, deps })` + `implements PiiPolicyHandler` (`findMatches`) |
 | mask one DTO or context field wherever it goes                     | `sensitive: PiiAction.replaceWithToken()` on its decorator                     |
@@ -68,23 +69,74 @@ export class LegalAdviceGuardrail implements GuardrailRefusal {
 export class NoDiagnosisGuardrail {}
 ```
 
+A guardrail decided by code (#383) is the same component without a model: `decidedBy:
+DecidedBy.Code` and the class's `check(text)` (`implements GuardrailHandler`) returns
+`GuardrailVerdict.passed()` or `GuardrailVerdict.blocked()` — no `prompt`, `promptUrls`, `model` or
+`threshold` (they do not compile), no model call, cost 0. Its refusal is the decorator's text or the
+class's `refusal()` (`implements GuardrailHandler, GuardrailRefusal`), as for a model guardrail:
+
+```ts file=src/clinic/code-guardrails.ts
+import {
+  DecidedBy,
+  GuardrailVerdict,
+  Injectable,
+  OutputGuardrail,
+  TenantContext,
+  type GuardrailHandler,
+} from "agboss";
+
+@Injectable()
+export class BlocklistService {
+  containsBlockedTerms(tenantId: string, text: string): Promise<boolean> {
+    return Promise.resolve(tenantId === "acme" && text.toLowerCase().includes("competitor"));
+  }
+}
+
+// guardrails/tenant-blocklist.guardrail.ts — decided by code: the tenant's deny list, no model
+@OutputGuardrail({
+  name: "tenant-blocklist-guardrail",
+  description: "Blocks replies containing words forbidden by the tenant",
+  decidedBy: DecidedBy.Code, // absent = DecidedBy.Model
+  refusal: "The response contained restricted terms.",
+  deps: [TenantContext, BlocklistService],
+})
+export class TenantBlocklistGuardrail implements GuardrailHandler {
+  constructor(
+    private readonly tenantContext: TenantContext,
+    private readonly blocklistService: BlocklistService,
+  ) {}
+
+  async check(text: string): Promise<GuardrailVerdict> {
+    const hasForbidden = await this.blocklistService.containsBlockedTerms(
+      this.tenantContext.tenantId,
+      text,
+    );
+    return hasForbidden ? GuardrailVerdict.blocked() : GuardrailVerdict.passed();
+  }
+}
+```
+
 - **What it reads**: an input guardrail reads the visit's input message of an agent or a model
   router — **masked** by that element's PII policies — before the first model call (a resume never
   checks again); an output guardrail reads the agent's answer (its text or its answer's JSON,
-  masked) as it leaves the loop. Deterministic checks (a regex, a deny list) belong in an action or
-  a `@PiiPolicy` detector, not in a guardrail — a guardrail is always one model question.
+  masked) as it leaves the loop. A code guardrail's `check(text)` gets the same masked text — it
+  sees `<email:7f3a91>`, never the address; a rule on raw values belongs in a `@PiiPolicy`
+  detector.
 - **Blocked** → the execution fails with `GuardrailBlockedError` (`guardrail.blocked`: `guard`,
   `refusal` — the text to send instead —, `key: guardrails.<name>.threshold`, `probability`,
-  `threshold`). A model that does not answer **fails closed**: `GuardFailedError` (`step.guard`, a
-  `StepFailedError`).
+  `threshold`; a code guardrail's block is `probability` 1 against `threshold` 1, a pass 0). A model
+  that does not answer, or a `check` that throws (its error the `cause`) or returns no
+  `GuardrailVerdict`, **fails closed**: `GuardFailedError` (`step.guard`, a `StepFailedError`).
 - **Levels add up**: `guardrails` on `@Application` → `@Workflow` → `@Agent` / `@Router`;
   `excludeGuardrails` on an agent or a router removes an inherited one for that element only. A model
   router takes input guardrails only; a code router calls no model and takes none. A child workflow
   gets its own workflow's lists over the application's.
 - **The model**: `model`, else `defaults.guardrail.model` (application or workflow) — never
-  `defaults.router.model`, no built-in (`[guardrail.no-model]`).
-- Spend `guardrail:<name>` (category `guards`), counted in the budgets; events `onGuardrailStart` /
-  `onGuardrailEnd`.
+  `defaults.router.model`, no built-in (`[guardrail.no-model]`); a code guardrail needs none.
+- Spend `guardrail:<name>` (category `guards`), counted in the budgets — none for a code guardrail;
+  events `onGuardrailStart` / `onGuardrailEnd` for both. `agboss describe` prints a code one as
+  `tenant-blocklist-guardrail — output · decidedBy: code · refusal: "…" · on …`; `configHash` covers
+  its `decidedBy`, side and refusal.
 
 The caller sends the refusal instead of an answer:
 
@@ -344,7 +396,13 @@ it("a model reads a token, its answer gets the address back", async () => {
 });
 ```
 
-In `testWith(App)` an unscripted guardrail passes; `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))`
+A code guardrail runs its `check(text)` on its own container — no `model` option (one is a
+`TestSetupError`): `testGuardrail(TenantBlocklistGuardrail, { tenant: { tenantId: "acme" } })("…")`
+→ `{ isBlocked: true, probability: 1, refusal }` or `{ isBlocked: false, probability: 0 }`; in
+`testWith(App)` it is not scripted (`mockLlm` of it names why) — `mockOf()` the services its `check`
+uses.
+
+In `testWith(App)` an unscripted model guardrail passes; `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))`
 blocks, and `rejects.toFailWith(GuardrailBlockedError, { guard: "legal-advice-guardrail" })`
 asserts it. A `pseudonymKey` whose variable is unset gets a fixed test key.
 
@@ -355,6 +413,7 @@ asserts it. A `pseudonymKey` whose variable is unset gets a fixed test key.
 | `[guardrail.no-model]`                                              | no `model` and no `defaults.guardrail.model` → set one (the router's is not used) |
 | `[guardrail.missing-refusal]` / `[guardrail.refusal-twice]`         | neither / both a `refusal` text and a `refusal()` method → exactly one            |
 | `[guardrail.no-prompt]`                                             | no question → `prompt` or `promptUrls`                                            |
+| `[guardrail.missing-handler]`                                       | `DecidedBy.Code` without `check(text)` → `implements GuardrailHandler`            |
 | `[guardrail.threshold-invalid]`                                     | `threshold` outside (0, 1] → e.g. `0.8`                                           |
 | `[guardrail.output-on-router]`                                      | an `@OutputGuardrail` on a router → on the agents                                 |
 | `[guardrail.no-model-call]`                                         | guardrails on a code router → remove them (it calls no model)                     |

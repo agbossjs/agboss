@@ -1412,7 +1412,16 @@ GuardrailRefusal`, its services and the execution through `deps`) — never both
   none (its own list: `[guardrail.no-model-call]`); a child workflow gets its own workflow's lists
   over the application's. Spend `guardrail:<name>` (category `guards`); events `onGuardrailStart`
   (`side`, `element`, `text`) / `onGuardrailEnd` (`isBlocked`, `probability`). Tests:
-  `mockLlm(G).thenReturn(decideWith({ blocks: 0.9 }))` — unscripted, a guardrail passes.
+  `mockLlm(G).thenReturn(decideWith({ blocks: 0.9 }))` — unscripted, a guardrail passes. **Code
+  guardrails (#383):** `decidedBy: DecidedBy.Code` (absent = `DecidedBy.Model`; options
+  discriminated — `prompt` / `promptUrls` / `model` / `threshold` do not compile) decides by the
+  class's `check(text)` (`implements GuardrailHandler`) on the same masked text, returning
+  `GuardrailVerdict.passed()` / `.blocked()` (nominal: a plain object does not compile) — no model
+  call, cost 0, the same refusal (text or `refusal()`), `GuardrailBlockedError` (`probability` 1,
+  `threshold` 1), levels, `excludeGuardrails` and events (a pass `probability` 0); a `check` that
+  throws or returns no verdict fails closed (`GuardFailedError`, its error the `cause`);
+  `[guardrail.missing-handler]` without `check`; `agboss describe` prints `decidedBy: code`;
+  `testGuardrail(G)` takes no `model`.
 
 <!-- snippet-context
 import { ExecutionContext, InputGuardrail, Injectable, OutputGuardrail, type GuardrailRefusal } from "agboss";

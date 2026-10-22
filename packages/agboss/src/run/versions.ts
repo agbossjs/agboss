@@ -23,7 +23,12 @@ import {
 } from "./fingerprints.js";
 import { normalisePromptText, promptTextOf } from "../components/prompt-render.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
-import type { LoadedGuardrail } from "../guardrails/assembly.js";
+import {
+  isModelGuardrail,
+  modelGuardrailsOf,
+  type LoadedGuardrail,
+  type LoadedModelGuardrail,
+} from "../guardrails/loaded.js";
 
 /** A prompt as hashed: its rendered text (never the files' paths). */
 const hashedText = (input: unknown): string => promptTextOf(input) ?? "";
@@ -95,7 +100,7 @@ const ownSnapshot = <TName extends string>(
   routers: routerTexts(deps.routers),
   prompts: agentTexts(deps.prompts),
   elements: elementFingerprintsOf(deps),
-  frame: framePrompts(deps.graph, deps.compactions, deps.guardrails?.guardrails ?? []),
+  frame: framePrompts(deps.graph, deps.compactions, modelGuardrailsOf(deps.guardrails)),
   // the compactions (#120 PR 3): only a workflow that has one, so the others keep their hash
   ...compactionSnapshot(deps.compactions),
   // the guardrails (#120): only a workflow that has one, so the others keep their hash
@@ -152,7 +157,7 @@ export const configSnapshot = <TName extends string>(
 const framePrompts = (
   graph: RuntimeGraph,
   compactions: AssembledCompactions | undefined,
-  guardrails: readonly LoadedGuardrail[],
+  guardrails: readonly LoadedModelGuardrail[],
 ): object => ({
   routers: routerPromptTexts,
   agentLoop: agentFramePromptTexts,
@@ -178,23 +183,22 @@ const compactionSnapshot = (compactions: AssembledCompactions | undefined): obje
         })),
       };
 
+/** One guardrail as hashed: a model one's question, threshold and model; a code one's `decidedBy`. */
+const guardrailEntryOf = (guardrail: LoadedGuardrail): object => {
+  const { name, side, refusal } = guardrail;
+  // a model guardrail keeps its shape before #383, so its workflow keeps its hash
+  if (!isModelGuardrail(guardrail))
+    return { name, side, decidedBy: guardrail.decidedBy, refusal: refusal ?? null };
+  const { prompt, threshold, model } = guardrail;
+  return { name, side, prompt, threshold, model, refusal: refusal ?? null };
+};
+
 /** What a workflow's guardrails decide with: their side, question, threshold, model and refusal. */
 const guardrailSnapshot = (guardrails: readonly LoadedGuardrail[]): object =>
-  guardrails.length === 0
-    ? {}
-    : {
-        guardrails: guardrails.map(({ name, side, prompt, threshold, model, refusal }) => ({
-          name,
-          side,
-          prompt,
-          threshold,
-          model,
-          refusal: refusal ?? null,
-        })),
-      };
+  guardrails.length === 0 ? {} : { guardrails: guardrails.map(guardrailEntryOf) };
 
 /** The guardrails' questions (#120) in the prompt version; the key `guards` keeps the versions of workflows without them. */
-const guardrailPrompts = (guardrails: readonly LoadedGuardrail[]): object => ({
+const guardrailPrompts = (guardrails: readonly LoadedModelGuardrail[]): object => ({
   guards: guardrails.map(({ name, side, prompt, threshold }) => ({
     name,
     side,
@@ -216,7 +220,7 @@ function compactionPrompts(compactions: AssembledCompactions | undefined): objec
 }
 
 /** The guardrails' models in the model version, only where there is one. */
-const guardrailModels = (guardrails: readonly LoadedGuardrail[]): object =>
+const guardrailModels = (guardrails: readonly LoadedModelGuardrail[]): object =>
   guardrails.length === 0
     ? {}
     : { guardrails: guardrails.map(({ name, model }) => ({ name, model })) };
@@ -230,7 +234,7 @@ export function executionVersions<TName extends string>(
   readonly configVersion: string;
   readonly configHash: string;
 } {
-  const guardrails = deps.guardrails?.guardrails ?? [];
+  const guardrails = modelGuardrailsOf(deps.guardrails);
   return {
     promptVersion: versionOf({
       agents: agentTexts(deps.prompts),

@@ -1,5 +1,6 @@
 import type { AgentsConfigOf } from "../config/types.js";
 import type { Provider } from "../components/injection.js";
+import { modelGuardrailsOf, type LoadedGuardrail } from "../guardrails/loaded.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
 import { isModelProviderClass, type ModelProviderType } from "./model-provider.decorator.js";
 import {
@@ -38,8 +39,8 @@ export interface WorkflowModels {
   readonly pii?: { readonly detectors: readonly ModelNamingRouter[] };
   /** Its reply interpreters (#267 PR 3), by `name` and `model` (none for a code one). */
   readonly replyInterpreters?: readonly ModelNamingInterpreter[];
-  /** Its guardrails (#120), by `name` and `model`. */
-  readonly guardrails?: { readonly guardrails: readonly ModelNamingRouter[] };
+  /** Its guardrails (#120): the model ones by `name` and `model`, a code one (#383) names none. */
+  readonly guardrails?: { readonly guardrails: readonly LoadedGuardrail[] };
   readonly modelProviders: readonly ModelProviderType[];
 }
 
@@ -49,7 +50,7 @@ const usesOf = (workflow: Omit<WorkflowModels, "modelProviders">): readonly Mode
     arbiters: workflow.arbiters,
     piiDetectors: workflow.pii?.detectors,
     interpreters: workflow.replyInterpreters,
-    guardrails: workflow.guardrails?.guardrails,
+    guardrails: modelGuardrailsOf(workflow.guardrails),
   });
 
 /** `[model.unserved]` / `[model.ambiguous-provider]` for every model use no single provider serves. */

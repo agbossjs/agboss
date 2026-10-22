@@ -1,11 +1,17 @@
 import type { Class } from "../components/injection.js";
-import { guardrailMetaOf, GuardrailSide } from "../components/policy-decorators.js";
+import {
+  guardrailMetaOf,
+  GuardrailSide,
+  isCodeGuardrail,
+  type GuardrailMeta,
+} from "../components/policy-decorators.js";
 import type { PromptLoader } from "../components/prompt-render.js";
 import type { AgentMeta } from "../components/meta-types.js";
 import { NodeKind } from "../flow/ast.js";
-import { isCodeRouter } from "../flow/decorators/router.js";
+import { DecidedBy, isCodeRouter } from "../flow/decorators/router.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { throwIfViolated } from "../graph/rule-error.js";
+import type { LoadedGuardrail, LoadedGuardrailBase } from "./loaded.js";
 import { guardrailModelOf, guardrailViolations } from "./checks.js";
 import {
   effectiveGuardrails,
@@ -18,25 +24,17 @@ import {
  * A workflow's guardrails as assembled (#120): each listed class checked, its question read
  * (`prompt` / `promptUrls`, like any prompt at assembly) and its model resolved — its own, else
  * the workflow's `defaults.guardrail.model` — and every agent's and model router's guardrails by
- * side. Any rule broken fails the assembly, all at once.
+ * side; a code guardrail (#383) has neither question nor model. Any rule broken fails the
+ * assembly, all at once.
  */
 
-/** One guardrail ready to ask its model. */
-export interface LoadedGuardrail {
-  readonly type: Class;
-  readonly name: string;
-  readonly description: string;
-  readonly side: GuardrailSide;
-  /** Its question, read and rendered: yes blocks. */
-  readonly prompt: string;
-  readonly threshold: number;
-  /** Its own model, else `defaults.guardrail.model`. */
-  readonly model: string;
-  /** Whether `model` is its own (else the default's). */
-  readonly isOwnModel: boolean;
-  /** Its fixed refusal; absent → the class's `refusal()`. */
-  readonly refusal?: string;
-}
+export {
+  isModelGuardrail,
+  modelGuardrailsOf,
+  type LoadedCodeGuardrail,
+  type LoadedGuardrail,
+  type LoadedModelGuardrail,
+} from "./loaded.js";
 
 /** The guardrails of one agent or model router, by side, in list order. */
 export interface ElementGuardrails {
@@ -72,27 +70,36 @@ function elementsOf(agents: readonly AgentMeta[], graph: RuntimeGraph): GuardedE
   return [...agents.map((agent) => ({ ...agent, kind: GuardedElementKind.Agent })), ...routers];
 }
 
-async function loaded(
+/** The parts every guardrail has, from its record. */
+const baseOf = (cls: Class, meta: GuardrailMeta): LoadedGuardrailBase => ({
+  type: cls,
+  name: meta.name,
+  description: meta.description,
+  side: meta.side,
+  ...(meta.refusal === undefined ? {} : { refusal: meta.refusal }),
+});
+
+/** A guardrail as assembled: a code one as is, a model one with its question read and its model. */
+export async function loadedGuardrailOf(
   cls: Class,
   defaultModel: string | undefined,
   loader: PromptLoader,
 ): Promise<LoadedGuardrail[]> {
   const meta = guardrailMetaOf(cls);
-  const model = meta === undefined ? undefined : guardrailModelOf(meta, defaultModel);
-  if (meta === undefined || model === undefined) return [];
+  if (meta === undefined) return [];
+  if (isCodeGuardrail(meta)) return [{ ...baseOf(cls, meta), decidedBy: DecidedBy.Code }];
+  const model = guardrailModelOf(meta, defaultModel);
+  if (model === undefined) return [];
   const label = `@${meta.side === GuardrailSide.Input ? "Input" : "Output"}Guardrail "${meta.name}"`;
   const prompt = await loader.load({ label, options: meta, source: meta.source });
   return [
     {
-      type: cls,
-      name: meta.name,
-      description: meta.description,
-      side: meta.side,
+      ...baseOf(cls, meta),
+      decidedBy: DecidedBy.Model,
       prompt,
       threshold: meta.threshold,
       model,
       isOwnModel: meta.model !== undefined,
-      ...(meta.refusal === undefined ? {} : { refusal: meta.refusal }),
     },
   ];
 }
@@ -124,7 +131,9 @@ export async function guardrailPartsOf(
     ...guardrailViolations(effective.classes, owners.defaultModel, owners.workflowName),
   ]);
   const guardrails = (
-    await Promise.all(effective.classes.map((cls) => loaded(cls, owners.defaultModel, loader)))
+    await Promise.all(
+      effective.classes.map((cls) => loadedGuardrailOf(cls, owners.defaultModel, loader)),
+    )
   ).flat();
   return { byElement: byElementOf(effective.byElement, guardrails), guardrails };
 }
