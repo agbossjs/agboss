@@ -3,6 +3,18 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — app.close() waits for interrupted step bodies (#367)
+
+- **Fixed — `app.close()` / SIGTERM** no longer runs `onDestroy` or releases a tree's lease while a
+  step body its interrupted pass left running still runs ([App → app.close()](App#appcloseoptions),
+  [Several instances](Several-instances#recovery)): LangGraph rejects the pass before a body that
+  ignores its signal returns, so a recovering instance could rerun the step with the same
+  idempotency key at the same time. The instance now keeps the lease until the tree's bodies
+  returned and starts `onDestroy` once every body did, at the latest at the end of the shutdown
+  timeout; a body still running then is logged as `app.step-still-running` (`LogLevel.Warn`). The
+  interrupted call still rejects with `ApplicationStoppingError`, once its lease is released. No
+  public API change.
+
 ## Unreleased — declared compensation: compensateWith / committedBy and their checks (#339 PR 1)
 
 - **Added — `@Action({ compensateWith, committedBy })`** ([Rollback](Rollback),

@@ -290,12 +290,22 @@ an execution starts, so observers get `onExecutionRejected` (`operation: Executi
    `app.close({ timeout })`, default `seconds(25)` (under the usual 30 s grace period of a
    platform and the 30 s lease). When it passes, what still runs is **interrupted**: its call
    rejects with `ApplicationStoppingError`, without `.onError` or `onExecutionError` (it is no failure), the
-   tree's lease is released at once and its record stays `running` — so another instance continues
+   tree's lease is released and its record stays `running` — so another instance continues
    it from its last checkpoint without waiting for the lease to expire;
-4. `onDestroy`, then MCP connections and tracing are closed.
+4. it waits for the **step bodies still running** (#367): an interrupted pass ends before an
+   action's, a router's, an agent's or a tool call's body that ignores its signal has returned, so
+   the instance keeps each tree's lease until that tree's bodies returned — no other instance
+   reruns the step meanwhile — and starts `onDestroy` only once every body returned, both at the
+   latest at the end of the shutdown timeout. A body still running then is logged once, at
+   `LogLevel.Warn` with the code `app.step-still-running` (the execution, its tenant and the step —
+   node id, visit, item, tool call id — never a value), and the stop goes on; the interrupted call
+   rejects once its tree's lease is released;
+5. `onDestroy`, then MCP connections and tracing are closed.
 
 Every hook runs; failures are collected into one `AggregateError`. Calling it again is fine — with
-a shorter `timeout` it shortens the wait (`seconds(0)`: interrupt at once).
+a shorter `timeout` it interrupts sooner (`seconds(0)`: interrupt at once); the step bodies still
+get until the latest end any call set (a second Ctrl+C interrupts at once, the bodies keep the
+first call's timeout).
 
 <!-- snippet-context
 import type { App } from "agboss";

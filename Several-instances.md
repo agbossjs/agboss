@@ -312,8 +312,15 @@ once, whichever instance then moves the tree.
 
 **A graceful stop** (`app.close()`, SIGTERM — [App → app.close()](App#appcloseoptions)) first stops
 the instance's own sweep, waits for its running executions up to the shutdown timeout (default
-`seconds(25)`), then interrupts what is left: each releases its lease at once and stays `running`,
-so another instance takes it at its next sweep, without waiting for the lease to expire.
+`seconds(25)`), then interrupts what is left: each releases its lease and stays `running`, so
+another instance takes it at its next sweep, without waiting for the lease to expire. An
+interrupted pass ends before the step bodies that ignore their signal return (LangGraph's
+`invoke` / `stream` reject first, #340 S2), so the instance tracks every running body — an agent's,
+a router's or an action's visit, a branch, a tool call — per tree, in process (#367): a tree's
+lease is released only once its bodies returned, and `onDestroy` runs only once every body did,
+both at the latest at the end of the shutdown timeout (`app.step-still-running` names a body still
+running then). Another instance therefore never reruns a step — the same action, the same
+idempotency key — while its first run is still going here.
 
 ## Cancelling from any instance
 
