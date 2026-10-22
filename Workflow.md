@@ -440,7 +440,8 @@ name `@Action`s that are not themselves and undo nothing (`[action.compensator-n
 the undo reads what is on the path right after its action (`[action.invalid-compensator-input]`), a
 side path runs the open undo actions newest first (`[flow.uncompensated-action]`,
 `[flow.compensation-out-of-order]`) and, with `committedBy`, every path runs the committer or the
-undo (`[flow.uncommitted-action]`). A path nested more
+undo (`[flow.uncommitted-action]`); `committedBy` without `compensateWith` has no effect
+(`[action.committer-without-compensator]`). A path nested more
 than 4 levels deep is a warning (`[flow.path-too-deep]`), as is a per-item child that cannot fail
 softly (`[graph.child-without-failure-finish]`) and a committer no path from its action reaches
 (`[flow.committer-unreachable]`) — errors under `--strict`.

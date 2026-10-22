@@ -158,7 +158,9 @@ export class OrderWorkflow {}
   path after it owes nothing for it. Every path from the action then runs the committer or the undo
   before a finish (`[flow.uncommitted-action]`, an error — leave `committedBy` out and a finish
   commits it); a committer no path from the action reaches is a warning
-  (`[flow.committer-unreachable]`, an error under `--strict`).
+  (`[flow.committer-unreachable]`, an error under `--strict`). `committedBy` without
+  `compensateWith` has no effect — nothing undoes the action, so nothing commits it — and is an
+  error (`[action.committer-without-compensator]`): add `compensateWith`, or remove `committedBy`.
 
 Without `RefundCardAction` on the side path above, the check names it:
 

@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — committedBy needs compensateWith (#339)
+
+- **Added — `[action.committer-without-compensator]`** ([Rollback](Rollback#what-agboss-check-proves)),
+  an assembly error: an `@Action` with `committedBy` but no `compensateWith` — the option has no
+  effect, since nothing undoes the action. The message names the action and its committer: add
+  `compensateWith`, or remove `committedBy`. `RuleCode` gains the code.
+
 ## Unreleased — compensation records and the failed-join undo (#340 PR 2)
 
 - **Added — compensation records** ([Rollback](Rollback#records-what-is-open-committed-undone-340)):
