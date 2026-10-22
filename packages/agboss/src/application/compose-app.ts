@@ -15,6 +15,7 @@ import { healthCheckOf, type HealthCheckHandler } from "../health/health-check.j
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { RecoverySweep } from "../infrastructure/recovery.js";
 import { modelProvidersOf } from "../models/resolution.js";
+import type { StepCapacity } from "../app/step-slots.js";
 
 /**
  * The app of an application instance (#261): `execute` runs the workflow its start belongs to (a
@@ -125,6 +126,8 @@ export interface InstanceHealthParts {
   readonly stop: GracefulStop;
   readonly sweep: RecoverySweep;
   readonly infrastructure: Infrastructure;
+  /** The instance's step slots (#332): readiness reports them when the application caps them. */
+  readonly stepSlots?: StepCapacity | undefined;
 }
 
 /** The project's checks, each with its instance (created at start: its dependencies fail there). */
@@ -155,5 +158,6 @@ export function instanceHealthOf(
     infrastructure: parts.infrastructure,
     modelProviders: modelProvidersOf(assembled.providers),
     healthChecks: projectChecksOf(assembled.healthChecks, workflows),
+    stepSlots: parts.stepSlots,
   });
 }

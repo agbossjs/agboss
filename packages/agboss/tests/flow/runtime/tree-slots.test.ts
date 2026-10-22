@@ -3,12 +3,11 @@ import { VirtualClock } from "../../../src/testing/clock.js";
 import { seconds } from "../../../src/units/index.js";
 import { QueueTime, watchDeadline } from "../../../src/flow/runtime/launch/deadline.js";
 import {
-  AGING_STEP,
   TreeSlotRegistry,
   TreeSlots,
   type SlotClaim,
-  type SlotHold,
 } from "../../../src/flow/runtime/launch/launch-registry.js";
+import { AGING_STEP, type SlotHold } from "../../../src/flow/runtime/launch/slot-queue.js";
 
 /**
  * #264 PR 2 — `TreeSlots`, the tree's priority semaphore (S27), on a virtual clock: at most

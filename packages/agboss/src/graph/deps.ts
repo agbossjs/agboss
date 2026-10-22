@@ -21,6 +21,7 @@ import type { Class } from "../components/injection.js";
 import type { JudgeInstance } from "../components/judge-decorators.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { Clock, IdGenerator } from "../infrastructure/clock.js";
+import type { StepSlots } from "../app/step-slots.js";
 
 /** What the workflow's graph is built from: its analysed paths, its agents and their parts. */
 export interface GraphDeps<TName extends string> {
@@ -83,6 +84,11 @@ export interface GraphDeps<TName extends string> {
    * levels; default random.
    */
   readonly idGenerator?: IdGenerator | undefined;
+  /**
+   * The application instance's step slots (#332, `@Application({ maxConcurrentSteps })`): one for
+   * every workflow of the instance; absent = no cap.
+   */
+  readonly stepSlots?: StepSlots | undefined;
   /** A component instance from the app's container: actions and finishes with a handler. */
   readonly container: { readonly get: <T>(token: Class<T>) => T };
 }

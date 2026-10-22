@@ -530,6 +530,17 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   in `runtime/launch/launch-registry.ts`, made per pass; the claim `inTreeSlot` in `runtime/step-frame.ts`): a resume or a recovery rebuilds the queue from the
   unfinished tasks; a waiter whose signal aborts (`FailFast`, a cancel) leaves it. `agboss describe`
   prints `maxConcurrentExecutions 6 (set)` for a workflow that launches children.
+- **The instance's cap on steps (#332):** `@Application({ maxConcurrentSteps })` (a whole number from
+  1, `[limits.max-concurrent-steps-invalid]`; unset → no cap) — how many agent, router and action
+  steps (branches too) one application instance runs at once, over every tree and tenant. A step
+  takes its tree's slot, then one of the instance's (`StepSlots`, `src/app/step-slots.ts`, one per
+  `createApp`, loaded lazily) with the same claim and queue order (`runtime/launch/slot-queue.ts`:
+  closing a branch first, then the deepest, aged on the `Clock`); never an error. A step waiting in
+  a provider's rate-limit queue keeps its slot; a waiter at `app.close()` is interrupted at the
+  shutdown timeout and recovered elsewhere. A full instance is `Degraded` in readiness (component
+  `step-slots`, `HealthComponentKind.StepSlots`, `reason: "32 of 32 step slots busy, 7 steps
+waiting"`) and its recovery sweep starts at most its free slots' worth of recoveries per look;
+  `agboss describe` prints `maxConcurrentSteps 32 (set)` (`--json`: `maxConcurrentSteps`).
 - **Quorums (#279):** after `.toParallelAgents(…)` a join may count answers instead of waiting for
   all — `.joinQuorum({ min, max, deadline })` (options always an object; `max` defaults to `min`,
   `deadline` in units: `seconds()`, `minutes()`, `hours()`) or `.joinQuorumGroups(group(A, B)
@@ -1622,13 +1633,14 @@ export class PlanService {
 - **Health checks (#300):** `app.checkLiveness()` / `app.checkReadiness()` → `HealthReport { status,
 components }` (the worst component's `HealthStatus.Healthy | Degraded | Unhealthy`; each
   `HealthComponentReport { name, kind: HealthComponentKind.Application | RecoveryLoop | Store |
-ModelProvider | Project, status, reason?, duration }`) — the project's server exposes them, no
+ModelProvider | Project | StepSlots, status, reason?, duration }`) — the project's server exposes them, no
   endpoint of the framework. Liveness: no I/O — the application (`Unhealthy`, `stopping`, from
   `app.close()` on) and the recovery loop (`Unhealthy` when its last sweep ended more than three
   sweep intervals ago on the `Clock`). Readiness: liveness's components, every store's `ping()`
   (the #265 contracts, the checkpoint saver — one without `ping()` is read for a thread that does not
   exist), every model provider's circuit breaker from `RateLimitRepository` (open → `Degraded`, never
-  a model call) and every `@HealthCheck` of `@Application({ healthChecks })` — at once, each under
+  a model call), the instance's step slots when `maxConcurrentSteps` is set (`Degraded` while none
+  is free, #332) and every `@HealthCheck` of `@Application({ healthChecks })` — at once, each under
   its timeout (stores and providers `seconds(2)`) on the `Clock`. A check that throws or times out
   is that component's `Unhealthy` (`reason`: the error's message, `timed out after 2 s`); neither
   call rejects. `@HealthCheck({ name, timeout, deps? })` (`-health-check`, `[name.kind-suffix]`;

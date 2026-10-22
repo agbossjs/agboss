@@ -28,6 +28,7 @@ import { assemblyWarningsOf, logStart, warningText } from "./start-log.js";
 import type { ApplicationClass } from "./types.js";
 import { applicationPiiKeyOf, applicationPiiMaskOf } from "./application-pii.js";
 import type { GraphDeps } from "../graph/deps.js";
+import type { StepSlots } from "../app/step-slots.js";
 import { childrenFirst } from "../flow/analyse/child-workflow.js";
 
 /** An application instance with the parts it was built from (the testing toolkit reads them). */
@@ -131,6 +132,20 @@ async function buildWorkflows(
   );
 }
 
+/**
+ * The instance's step slots (#332), one for all its workflows — loaded only when the application
+ * caps them (QUALITY.md → Design: the root import keeps only the option's type).
+ */
+async function stepSlotsOf(
+  assembled: AssembledApplication,
+  clock: Clock,
+): Promise<StepSlots | undefined> {
+  const cap = assembled.maxConcurrentSteps;
+  if (cap === undefined) return undefined;
+  const { StepSlots: Slots } = await import("../app/step-slots.js");
+  return new Slots(cap, clock);
+}
+
 /** Closes what the workflows already built opened (a later workflow or a start hook failed). */
 async function releaseAll(built: readonly BuiltApp[]): Promise<void> {
   for (const workflow of built) await workflow.app.close();
@@ -170,11 +185,12 @@ export async function buildApplication(
   const piiParts = { processEnv, fieldKey: piiKey.key, contexts };
   const mask = applicationPiiMaskOf(assembled, shared, { ...container, onCreate }, piiParts);
   const log = frameworkLogOf(infrastructure.logger, clock, (message) => mask.text(message));
+  const stepSlots = await stepSlotsOf(assembled, clock);
   const workflows: BuiltApp[] = [];
   try {
     const observer = observerManagerOf(assembled, shared, { ...container, onCreate }, log, seams);
     const budgets = { budgets: assembled.budgets, applicationName: assembled.name };
-    const parts = { infrastructure, created, contexts, budgets, observer, piiKey };
+    const parts = { infrastructure, created, contexts, budgets, observer, piiKey, stepSlots };
     await buildWorkflows(assembled, { ...options, container }, parts, workflows);
     createListed(assembled, workflows);
     await startComponents(created);
@@ -182,10 +198,10 @@ export async function buildApplication(
     await releaseAll(workflows);
     throw error;
   }
-  const { stop, sweep } = stopOf(assembled, workflows, { created, infrastructure, log });
+  const { stop, sweep } = stopOf(assembled, workflows, { created, infrastructure, log, stepSlots });
   const warnings = startupWarningsOf(assembled, workflows, piiKey.isInstanceKey);
   if (seams.quiet !== true) logStart(log, contexts.application, assembled.workflows, warnings);
-  const health = instanceHealthOf(assembled, workflows, { stop, sweep, infrastructure });
+  const health = instanceHealthOf(assembled, workflows, { stop, sweep, infrastructure, stepSlots });
   const app = composeApp(assembled, workflows, { stop, warnings, health });
   return { app, assembled, workflows, infrastructure, closed: stop.closed, log };
 }

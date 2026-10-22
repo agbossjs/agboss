@@ -78,6 +78,8 @@ export type RuleCode =
   // the tree's concurrency cap (#264 PR 2), reported by `src/flow/analyse`
   | "limits.max-concurrent-executions-invalid"
   | "limits.child-concurrency-above-parent"
+  // the instance's cap on steps (#332), reported at the application's assembly
+  | "limits.max-concurrent-steps-invalid"
   | "name.kind-suffix"
   | "dto.name"
   | "dto.duplicate-name"

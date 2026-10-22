@@ -37,6 +37,8 @@ export function applicationData(
   }));
   return {
     ...described,
+    // the instance's cap on steps (#332): `null` when the application sets none
+    maxConcurrentSteps: described.maxConcurrentSteps ?? null,
     implementations,
     tree: describedTreeOf(assembled).workflows,
     channels: describedChannelsOf(assembled),

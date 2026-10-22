@@ -1,7 +1,14 @@
 import type { UsageRecord } from "../../../finops/usage.js";
 import type { Clock } from "../../../infrastructure/clock.js";
 import type { LiveQuorum } from "./quorum-branch.js";
-import { seconds, type Milliseconds } from "../../../units/index.js";
+import type { StepSlots } from "../../../app/step-slots.js";
+import {
+  holdOnce,
+  SlotQueue,
+  type QueueClaim,
+  type QueueWatch,
+  type SlotHold,
+} from "./slot-queue.js";
 
 /**
  * What the process keeps of a launch while it runs (#273 S20), per launch id: the semaphore of
@@ -115,12 +122,9 @@ export class LaunchRegistry {
  * execution; every `AGING_STEP` of waiting counts as one level deeper, read from the application's
  * `Clock` when a slot frees. A child workflow's own, smaller `maxConcurrentExecutions` caps its
  * subtree inside the tree's. A waiter whose signal aborts (a cancel, a `FailFast` launch) leaves the
- * queue. After a pause or a crash the next pass makes the tree's slots anew: the unfinished tasks
+ * queue (`slot-queue.ts`, shared with the instance's `StepSlots`, #332). After a pause or a crash the next pass makes the tree's slots anew: the unfinished tasks
  * claim them again (a resume elsewhere starts with no slot held).
  */
-
-/** Every 10 s of waiting counts as one level deeper: a framework constant, not a setting. */
-export const AGING_STEP: Milliseconds = seconds(10);
 
 /** An execution of the tree whose workflow caps its subtree below the caps around it. */
 export interface SubtreeCap {
@@ -129,32 +133,10 @@ export interface SubtreeCap {
 }
 
 /** A step's claim on its tree's slots: its execution and that execution's place in the queue. */
-export interface SlotClaim {
+export interface SlotClaim extends QueueClaim {
   readonly executionId: string;
-  /** The execution's depth in its tree, from 1 at the root. */
-  readonly depth: number;
-  /** Its children have all finished: the step closes a branch of the tree. */
-  readonly closesBranch: boolean;
   /** The capped subtrees it is in, outermost first. */
   readonly subtrees: readonly SubtreeCap[];
-}
-
-/** Told when a claim starts and stops waiting: a quorum's deadline excludes that time (#279). */
-export interface QueueWatch {
-  enter(): void;
-  leave(): void;
-}
-
-/** A slot taken for one step: released once, when the step ends. */
-export interface SlotHold {
-  release(): void;
-}
-
-interface Waiter {
-  readonly claim: SlotClaim;
-  readonly enqueuedAt: number;
-  readonly sequence: number;
-  readonly grant: () => void;
 }
 
 /** An execution at work: its running steps and the capped subtrees it counts in. */
@@ -167,38 +149,20 @@ interface Working {
 export class TreeSlots {
   readonly #working = new Map<string, Working>();
   readonly #subtreeWork = new Map<string, number>();
-  readonly #waiting: Waiter[] = [];
-  #sequence = 0;
+  readonly #queue: SlotQueue<SlotClaim>;
 
   constructor(
     readonly maxConcurrentExecutions: number,
-    private readonly clock: Clock,
-  ) {}
+    clock: Clock,
+  ) {
+    this.#queue = new SlotQueue(clock);
+  }
 
   /** Takes a slot for one step of `claim`'s execution; `undefined` when `signal` aborts first. */
   take(claim: SlotClaim, signal: AbortSignal, watch?: QueueWatch): Promise<SlotHold | undefined> {
     if (signal.aborted) return Promise.resolve(undefined);
     if (this.#canWork(claim)) return Promise.resolve(this.#hold(claim));
-    return new Promise<SlotHold | undefined>((resolve) => {
-      const leave = (): void => {
-        this.#waiting.splice(this.#waiting.indexOf(waiter), 1);
-        watch?.leave();
-        resolve(undefined);
-      };
-      const waiter: Waiter = {
-        claim,
-        enqueuedAt: this.clock.now().getTime(),
-        sequence: (this.#sequence += 1),
-        grant: (): void => {
-          signal.removeEventListener("abort", leave);
-          watch?.leave();
-          resolve(this.#hold(claim));
-        },
-      };
-      this.#waiting.push(waiter);
-      watch?.enter();
-      signal.addEventListener("abort", leave, { once: true });
-    });
+    return this.#queue.wait(claim, signal, () => this.#hold(claim), watch);
   }
 
   #canWork(claim: SlotClaim): boolean {
@@ -219,14 +183,9 @@ export class TreeSlots {
       this.#working.set(executionId, { steps: 1, subtrees });
       for (const id of subtrees) this.#subtreeWork.set(id, (this.#subtreeWork.get(id) ?? 0) + 1);
     }
-    let isReleased = false;
-    return {
-      release: (): void => {
-        if (isReleased) return;
-        isReleased = true;
-        this.#release(executionId);
-      },
-    };
+    return holdOnce(() => {
+      this.#release(executionId);
+    });
   }
 
   #release(executionId: string): void {
@@ -237,43 +196,21 @@ export class TreeSlots {
     this.#working.delete(executionId);
     for (const id of working.subtrees)
       this.#subtreeWork.set(id, (this.#subtreeWork.get(id) ?? 1) - 1);
-    this.#grantWaiting();
+    // the waiting claims that may work now, best first (a granted execution's other steps too)
+    this.#queue.grantReady((waiting) => this.#canWork(waiting));
   }
-
-  /** Grants the waiting claims that may work now, best first (a granted execution's other steps too). */
-  #grantWaiting(): void {
-    for (let next = this.#next(); next !== undefined; next = this.#next()) {
-      this.#waiting.splice(this.#waiting.indexOf(next), 1);
-      next.grant();
-    }
-  }
-
-  #next(): Waiter | undefined {
-    const now = this.clock.now().getTime();
-    const ready = this.#waiting.filter((waiter) => this.#canWork(waiter.claim));
-    return ready.sort((first, second) => compareWaiters(first, second, now))[0];
-  }
-}
-
-/** A waiter's level in the queue: its depth, one deeper per `AGING_STEP` waited. */
-const levelOf = (waiter: Waiter, now: number): number =>
-  waiter.claim.depth + Math.floor((now - waiter.enqueuedAt) / AGING_STEP);
-
-/** Queue order: a branch closing first, then the deepest (aged) level, then the first come. */
-function compareWaiters(first: Waiter, second: Waiter, now: number): number {
-  const closing = Number(second.claim.closesBranch) - Number(first.claim.closesBranch);
-  if (closing !== 0) return closing;
-  const level = levelOf(second, now) - levelOf(first, now);
-  return level !== 0 ? level : first.sequence - second.sequence;
 }
 
 /**
  * The trees of one pass by `rootExecutionId` (#264 S27, next to the launch registry of #273 S20):
  * made on a tree's first step, gone with the pass — the next pass rebuilds them from the tasks
- * that are still unfinished.
+ * that are still unfinished. It carries the instance's step slots (#332), which outlive every pass.
  */
 export class TreeSlotRegistry {
   readonly #trees = new Map<string, TreeSlots>();
+
+  /** `instance`: the application instance's step slots (#332), when it caps them. */
+  constructor(readonly instance?: StepSlots) {}
 
   /** The tree's slots, made on its first claim with the root's cap. */
   slotsOf(rootExecutionId: string, maxConcurrentExecutions: number, clock: Clock): TreeSlots {
