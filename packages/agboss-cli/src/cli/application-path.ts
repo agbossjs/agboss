@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { textOption, type CommandContext } from "./context.js";
 import { CliError, usageError } from "./errors.js";
+import type { SkillsProject } from "../skills/sync.js";
 
 /**
  * Where the application is (#268 AC1): set once in the project's `package.json` —
@@ -22,6 +23,8 @@ export interface ApplicationPath {
 /** The `agboss` field of a `package.json`, as far as the CLI reads it. */
 interface AgbossField {
   readonly application?: unknown;
+  /** `false` turns the project skills' sync off (#305). */
+  readonly skills?: unknown;
 }
 
 const SET_IT_HERE =
@@ -85,4 +88,23 @@ export function applicationPathOf(context: CommandContext): ApplicationPath {
   const configured = fromPackageJson(context.io.cwd);
   if (configured !== undefined) return configured;
   throw new CliError("project", "application.path-not-set", `No application: ${SET_IT_HERE}`);
+}
+
+/**
+ * The project whose skills `agboss check` and `agboss generate` sync (#305): the folder of the
+ * nearest package.json with an `"agboss"` field; `"agboss": { "skills": false }` turns it off.
+ * Undefined outside such a project (a package.json without the field is not an AGBoss project's).
+ */
+export function skillsProjectOf(cwd: string): SkillsProject | undefined {
+  const packageJson = packageJsonFrom(cwd);
+  if (packageJson === undefined) return undefined;
+  const field = agbossFieldOf(packageJson);
+  if (field === undefined) return undefined;
+  if (field.skills !== undefined && typeof field.skills !== "boolean")
+    throw new CliError(
+      "project",
+      "skills.setting-invalid",
+      `${packageJson}: "agboss": { "skills" } must be true or false`,
+    );
+  return { root: dirname(packageJson), isEnabled: field.skills !== false };
 }

@@ -120,6 +120,7 @@
   "files": [
     "dist",
     "schema",
+    "skills",
     "README.md",
     "LICENSE",
     "NOTICE"

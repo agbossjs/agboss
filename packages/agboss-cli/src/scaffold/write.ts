@@ -11,6 +11,8 @@ export interface FileToWrite {
   readonly content: string;
   /** wirings left out because they are already there (#197): reported, never doubled */
   readonly skipped?: readonly string[];
+  /** Written as is, never formatted (the project skills, whose hashes `agboss check` compares). */
+  readonly isVerbatim?: boolean;
 }
 
 /** What a command changes: new files (must not exist) and existing files it rewires. */

@@ -8,6 +8,7 @@ import { assemble, modelProblem, problemText, type CheckProblem } from "./cli/ch
 import { checkReportOf, type CheckReport } from "./cli/check-report.js";
 import { CliError } from "./cli/errors.js";
 import { writeCheckedTypes } from "./cli/flow-types.js";
+import { skillsField, syncCommandSkills } from "./cli/skills.js";
 import { checkProblemsOf } from "./cli/types-problems.js";
 
 /**
@@ -115,6 +116,8 @@ async function reportAndCheck(
  * worst case of one call of each start and, with `--env`, the process variables it needs.
  */
 export const handle: CommandHandler = async (context) => {
+  // the project skills (#305) first: an application that does not assemble is when they help most
+  const skills = syncCommandSkills(context);
   const loaded = await loadCliApplication(context);
   const file = loaded.path.shown;
   // the flow's types (#272): .agboss/types.d.ts written before the checks report; --strict makes
@@ -148,12 +151,14 @@ export const handle: CommandHandler = async (context) => {
     problems,
     ...(typed.types === undefined ? {} : { types: typed.types }),
     ...(report === undefined ? {} : { report: reportData(report) }),
+    ...skillsField(skills),
   };
-  if (problems.length === 0) return { result, warnings: typed.warnings };
+  const warnings = [...typed.warnings, ...skills.warnings];
+  if (problems.length === 0) return { result, warnings };
   const failure = new CliError(
     "project",
     "check.failed",
     `${String(problems.length)} problem(s) in ${file}`,
   );
-  return { result, failure, warnings: typed.warnings };
+  return { result, failure, warnings };
 };

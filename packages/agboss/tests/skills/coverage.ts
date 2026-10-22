@@ -2,7 +2,8 @@
  * The skill matrix of #305 (AC1): the public names each skill file covers. Each name appears in
  * its file and is exported by an API report (`packages/agboss/api/*.api.md`) — a renamed or removed
  * export fails the check, so the skill never teaches a name the package lacks. Paths are relative to
- * `packages/agboss/skills/agboss/`.
+ * `packages/agboss/skills/agboss/`. Checked by `scripts/docs/skills.mjs` in `npm run check:docs`,
+ * which loads this file as it is: plain data, no imports.
  */
 export type SkillFile = string;
 
@@ -112,4 +113,24 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["ToolFailure", "VCRMode", "CassetteMissingError", "SequentialIdGenerator", "VirtualClock"],
     ...["QuorumNotReachedError", "ToolTimeoutError", "JudgeVerdict", "HealthReport"],
   ],
+  "references/02-flow-dsl-all-combinations.md": [
+    "Workflow",
+    "start",
+    "WorkflowStart",
+    "WorkflowFinish",
+    "WorkflowStartTextDto",
+  ],
+  "references/06-finops-providers-and-queues.md": [
+    "Budget",
+    "BudgetScope",
+    "BudgetPeriod",
+    "BudgetHandler",
+  ],
+  "references/08-observability-and-tracing.md": ["OnExecutionEnd", "ExecutionEndEvent"],
+  "references/09-persistence-k8s-and-deploy.md": [
+    "SqliteCheckpointSaver",
+    "SqliteExecutionRecordRepository",
+  ],
+  "references/11-cli-studio-and-error-catalog.md": ["GraphRuleError", "RuleCode"],
+  "references/12-end-to-end-recipes.md": ["createApp"],
 };

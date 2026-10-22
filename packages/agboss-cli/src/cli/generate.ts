@@ -3,6 +3,7 @@ import { textOption, flagOption, type CommandHandler } from "./context.js";
 import { usageError } from "./errors.js";
 import { regenerateFlowTypes } from "./flow-types.js";
 import { dryRun, write } from "./scaffold-outcome.js";
+import { skillsField, syncCommandSkills } from "./skills.js";
 
 const GENERATE_OPTIONS = [
   "workflow",
@@ -30,12 +31,14 @@ export const handle: CommandHandler = async (context) => {
   if (flagOption(context.values, "dry-run")) return dryRun(context, plan, `${String(count)} files`);
   const force = flagOption(context.values, "force");
   const reset = flagOption(context.values, "reset");
-  const outcome = await write(context.io.cwd, plan, {}, { force, reset });
-  [...(outcome.created ?? []), ...(outcome.modified ?? []), ...(outcome.warnings ?? [])].forEach(
+  // the project skills (#305) before the files: the agent that asked reads them next
+  const skills = syncCommandSkills(context);
+  const written = await write(context.io.cwd, plan, skillsField(skills), { force, reset });
+  [...(written.created ?? []), ...(written.modified ?? []), ...(written.warnings ?? [])].forEach(
     (line) => {
       context.say(`  ${line}`);
     },
   );
-  await regenerateFlowTypes(context, [...(outcome.created ?? []), ...(outcome.modified ?? [])]);
-  return outcome;
+  await regenerateFlowTypes(context, [...(written.created ?? []), ...(written.modified ?? [])]);
+  return { ...written, warnings: [...(written.warnings ?? []), ...skills.warnings] };
 };

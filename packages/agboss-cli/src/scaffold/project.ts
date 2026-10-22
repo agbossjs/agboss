@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { applicationFiles, applicationPathOf } from "./application-files.js";
 import { fullNameOf, namesOf, type Names } from "./names.js";
 import { render, type WorkflowSpec } from "./plan.js";
+import { codingAgentFiles } from "./skills-files.js";
 import { planWorkflow } from "./workflow-files.js";
 import type { FileToWrite } from "./write.js";
 
@@ -106,6 +107,7 @@ export function planProject(spec: WorkflowSpec): FileToWrite[] {
     { path: ".env.example", content: render("project/env.example.tmpl", {}) },
     { path: ".gitignore", content: render("project/gitignore.tmpl", {}) },
     { path: "README.md", content: render("project/README.md.tmpl", variables) },
+    ...codingAgentFiles(project),
     ...environmentFiles(),
     ...applicationFiles(project),
     ...planWorkflow(spec, {
