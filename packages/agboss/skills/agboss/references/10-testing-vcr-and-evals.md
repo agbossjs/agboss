@@ -1,0 +1,590 @@
+# 10 — Testing, VCR and evals
+
+Read this before writing any test. Tests never call a real model or the network: the whole
+application runs under `testWith(App)` with scripted models, and one component runs alone under its
+unit runner. Real-model checks are recorded cassettes (VCR) and evals.
+
+| You test…                                                                       | Use                                                                                                                        |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| a path through the application                                                  | `testWith(App)` → `app.execute(Start, input)`, `mockLlm(X).thenReturn(…)`, matchers                                        |
+| a race between parallel branches                                                | `testWith(App, { concurrency: TestConcurrency.inOrder([step(A), step(B)]) })`                                              |
+| time: timeouts, retries, retention, leases                                      | the `clock` fixture: `await clock.advance(seconds(31))`                                                                    |
+| a restart, a second instance                                                    | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                 |
+| one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy | its unit runner: `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testPii` |
+| real model answers, replayed in CI                                              | `testWith(App, { vcr: { cassetteName } })`                                                                                 |
+| quality over real traffic                                                       | `npx agboss golden add`, `npx agboss eval`, `npx agboss compare`                                                           |
+
+`vitest.config.ts` registers the matchers: `setupFiles: ["agboss/testing/setup"]`. A project made by
+`npx agboss create` has three Vitest projects by file name, next to the sources: `src/**/*.test.ts`
+(unit: scripts and fakes), `*.integration.test.ts` (recorded answers, real MCP servers) and
+`*.suite.test.ts` (real models, budget-capped); `npm test` runs the first two.
+
+## The application under test
+
+A candidate screening: two agents score in parallel, a code arbiter checks each answer, a verdict
+agent decides (judged, guarded, with a knowledge base in context), a code router saves a hire.
+
+```ts file=src/screening/dtos/screening.dto.ts
+import { Integer, OneOf, Text } from "agboss/dto";
+
+export class CandidateDto {
+  @Text({ prompt: "the candidate's name" })
+  name!: string;
+
+  @Text({ prompt: "the candidate's CV" })
+  cv!: string;
+}
+
+export class SkillsReportDto {
+  @Integer({ prompt: "technical skills, 1 to 10", min: 1, max: 10 })
+  score!: number;
+
+  @Text({ prompt: "what the score rests on" })
+  notes!: string;
+}
+
+export class CultureReportDto {
+  @Integer({ prompt: "team fit, 1 to 10", min: 1, max: 10 })
+  score!: number;
+
+  @Text({ prompt: "what the score rests on" })
+  notes!: string;
+}
+
+export class VerdictDto {
+  @OneOf({ values: ["hire", "reject"], prompt: "the decision" })
+  decision!: "hire" | "reject";
+
+  @Text({ prompt: "why, in one sentence" })
+  reason!: string;
+}
+
+export class HireSavedDto {
+  @Text({ prompt: "the hire's id" })
+  hireId!: string;
+}
+
+export class ArchiveQueryDto {
+  @Text({ prompt: "the candidate's name" })
+  name!: string;
+}
+
+export class ArchiveEntryDto {
+  @Integer({ prompt: "earlier applications", min: 0 })
+  applications!: number;
+}
+```
+
+```ts file=src/screening/components.ts
+// one class per file in a project; together here for brevity
+import { Action, DecidedBy, Decision, ExecutionContext, Injectable, Judge, JudgeModel, JudgeVerdict, OutputGuardrail, PiiAction, PiiKind, PiiPolicy, Router, Tool, pii } from "agboss";
+import type { ActionHandler, InputOf, JudgeHandler, JudgeInput, OutputOf, Route, RouterHandler, ToolHandler } from "agboss";
+import { Rag, type RagConnector, type RagRetrieval } from "agboss/rag";
+import { ArchiveEntryDto, ArchiveQueryDto, HireSavedDto, VerdictDto } from "./dtos/screening.dto.js";
+import { RejectedWorkflowFinish } from "./finishes.js";
+
+@Injectable()
+export class CandidateArchiveService {
+  applicationsOf(name: string): Promise<number> {
+    return Promise.resolve(name.length % 3);
+  }
+}
+
+@Injectable()
+export class HiringStoreService {
+  save(name: string, idempotencyKey: string): Promise<string> {
+    return Promise.resolve(`hire-${name}-${idempotencyKey}`);
+  }
+}
+
+@Tool({
+  name: "candidate-archive-tool",
+  description: "How often the candidate applied before",
+  input: ArchiveQueryDto,
+  output: ArchiveEntryDto,
+  deps: [CandidateArchiveService],
+})
+export class CandidateArchiveTool implements ToolHandler<ArchiveQueryDto, ArchiveEntryDto> {
+  constructor(private readonly candidateArchiveService: CandidateArchiveService) {}
+
+  async run({ name }: ArchiveQueryDto): Promise<ArchiveEntryDto> {
+    return { applications: await this.candidateArchiveService.applicationsOf(name) };
+  }
+}
+
+@Rag({ name: "hiring-policy-rag", description: "The hiring policy", topK: 2 })
+export class HiringPolicyRag implements RagConnector {
+  retrieve(query: string, options: { readonly topK: number }): Promise<RagRetrieval> {
+    const results = [{ text: `Hire at 7 or more (${query.slice(0, 20)}).`, source: "policy.md#bar" }];
+    return Promise.resolve({ results: results.slice(0, options.topK) });
+  }
+}
+
+@Judge({ name: "reasoned-verdict-judge", model: "typesafe/jev-1.13", reply: VerdictDto, deps: [JudgeModel] })
+export class ReasonedVerdictJudge implements JudgeHandler<VerdictDto> {
+  constructor(private readonly judgeModel: JudgeModel) {}
+
+  async judge({ reply }: JudgeInput<VerdictDto>): Promise<JudgeVerdict> {
+    const answers = await this.judgeModel.decide({
+      state: { decision: reply.decision, reason: reply.reason },
+      questions: { reasoned: Decision.noul("Does the reason support the decision?") },
+    });
+    return answers.reasoned.noul >= 0.5
+      ? JudgeVerdict.passed()
+      : JudgeVerdict.failed({ reason: "give a reason that supports the decision" });
+  }
+}
+
+@OutputGuardrail({
+  name: "bias-guardrail",
+  description: "Blocks verdicts that rest on protected traits",
+  prompt: "Does the verdict rest on age, gender, origin or religion?",
+  model: "typesafe/jev-1.13",
+  threshold: 0.7,
+  refusal: "The verdict was withheld for review.",
+})
+export class BiasGuardrail {}
+
+@PiiPolicy({
+  name: "contact-pii-policy",
+  description: "Hides candidates' emails",
+  rules: [pii(PiiKind.Email, PiiAction.replaceWithToken())],
+})
+export class ContactPiiPolicy {}
+
+@Action({
+  name: "save-hire-action",
+  description: "Saves the hire",
+  input: { verdict: VerdictDto },
+  output: HireSavedDto,
+  deps: [ExecutionContext, HiringStoreService],
+})
+export class SaveHireAction implements ActionHandler<SaveHireAction> {
+  constructor(
+    private readonly executionContext: ExecutionContext,
+    private readonly hiringStoreService: HiringStoreService,
+  ) {}
+
+  async execute(input: InputOf<SaveHireAction>): Promise<OutputOf<SaveHireAction>> {
+    const key: string = this.executionContext.step.idempotencyKey;
+    return { hireId: await this.hiringStoreService.save(input.verdict.value.reason, key) };
+  }
+}
+
+@Router({
+  name: "hire-router",
+  description: "Saves a hire, ends on a rejection",
+  decidedBy: DecidedBy.Code,
+  input: { verdict: VerdictDto },
+  routes: [{ target: SaveHireAction }, { target: RejectedWorkflowFinish }],
+})
+export class HireRouter implements RouterHandler<HireRouter> {
+  route(input: InputOf<HireRouter>): Route<HireRouter> {
+    return input.verdict.value.decision === "hire" ? SaveHireAction : RejectedWorkflowFinish;
+  }
+}
+```
+
+```ts file=src/screening/agents.ts
+import { Agent, RagMode } from "agboss";
+import { CandidateDto, CultureReportDto, SkillsReportDto, VerdictDto } from "./dtos/screening.dto.js";
+import { BiasGuardrail, CandidateArchiveTool, HiringPolicyRag, ReasonedVerdictJudge } from "./components.js";
+
+@Agent({
+  name: "skills-agent",
+  description: "Scores technical skills",
+  prompt: "Score the candidate's technical skills.",
+  model: "moonshotai/kimi-k2.6",
+  input: { candidate: CandidateDto },
+  output: SkillsReportDto,
+  tools: [CandidateArchiveTool],
+})
+export class SkillsAgent {}
+
+@Agent({
+  name: "culture-agent",
+  description: "Scores team fit",
+  prompt: "Score the candidate's team fit.",
+  model: "moonshotai/kimi-k2.6",
+  input: { candidate: CandidateDto },
+  output: CultureReportDto,
+})
+export class CultureAgent {}
+
+@Agent({
+  name: "verdict-agent",
+  description: "Decides from both reports and the policy",
+  prompt: "Decide hire or reject from the reports, following the policy.",
+  model: "moonshotai/kimi-k2.6",
+  input: { skills: SkillsReportDto, culture: CultureReportDto },
+  output: VerdictDto,
+  rag: [{ use: HiringPolicyRag, mode: RagMode.Context }],
+  judges: [ReasonedVerdictJudge],
+  maxRetries: 1,
+  guardrails: [BiasGuardrail],
+})
+export class VerdictAgent {}
+```
+
+```ts file=src/screening/arbiters.ts
+// a code arbiter: one @OnAnswer method per agent of the launch, typed by that agent's output
+import { Arbiter, DecidedBy, OnAnswer } from "agboss";
+import { CultureAgent, SkillsAgent } from "./agents.js";
+import { CultureReportDto, SkillsReportDto } from "./dtos/screening.dto.js";
+
+@Arbiter({ name: "has-notes-arbiter", decidedBy: DecidedBy.Code })
+export class HasNotesArbiter {
+  @OnAnswer(SkillsAgent)
+  fromSkills(answer: SkillsReportDto): boolean {
+    return answer.notes.trim() !== "";
+  }
+
+  @OnAnswer(CultureAgent)
+  fromCulture(answer: CultureReportDto): boolean {
+    return answer.notes.trim() !== "";
+  }
+}
+```
+
+```ts file=src/screening/finishes.ts
+import { WorkflowFinish, WorkflowStart } from "agboss";
+import { CandidateDto, HireSavedDto, VerdictDto } from "./dtos/screening.dto.js";
+
+@WorkflowStart({ name: "screening-workflow-start", description: "A candidate", input: CandidateDto })
+export class ScreeningWorkflowStart {}
+
+@WorkflowFinish({ name: "hired-workflow-finish", description: "The saved hire", output: HireSavedDto })
+export class HiredWorkflowFinish {}
+
+@WorkflowFinish({ name: "rejected-workflow-finish", description: "The rejection", output: VerdictDto })
+export class RejectedWorkflowFinish {}
+```
+
+```ts file=src/screening/screening.application.ts
+import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, Workflow, route, start, type BudgetHandler } from "agboss";
+import { usd, type Usd } from "agboss/units";
+import { CultureAgent, SkillsAgent, VerdictAgent } from "./agents.js";
+import { HasNotesArbiter } from "./arbiters.js";
+import { CandidateArchiveService, ContactPiiPolicy, HireRouter, HiringStoreService, SaveHireAction } from "./components.js";
+import { CandidateDto, CultureReportDto, HireSavedDto, SkillsReportDto, VerdictDto } from "./dtos/screening.dto.js";
+import { HiredWorkflowFinish, RejectedWorkflowFinish, ScreeningWorkflowStart } from "./finishes.js";
+
+@Workflow({
+  name: "screening-workflow",
+  version: "1.0.0",
+  flow: [
+    start(ScreeningWorkflowStart)
+      .returns(CandidateDto)
+      .toParallelAgents(SkillsAgent, CultureAgent)
+      .acceptedBy(HasNotesArbiter)
+      .joinQuorum({ min: 2 })
+      .returns(SkillsReportDto)
+      .returns(CultureReportDto)
+      .toAgent(VerdictAgent)
+      .returns(VerdictDto)
+      .toRouter(HireRouter)
+      .chooseOne(
+        route(SaveHireAction)
+          .returns(HireSavedDto)
+          .toFinish(HiredWorkflowFinish),
+        route(RejectedWorkflowFinish),
+      ),
+  ],
+  maxSteps: 4,
+  providers: [CandidateArchiveService, HiringStoreService],
+})
+export class ScreeningWorkflow {}
+
+@Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
+export class ApplicationDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(5);
+  }
+}
+
+@Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class TenantDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(1);
+  }
+}
+
+@Budget({ name: "execution-budget", scope: BudgetScope.Execution })
+export class ExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.1);
+  }
+}
+
+@Application({
+  name: "screening-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [ScreeningWorkflow],
+  budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
+  piiPolicies: [ContactPiiPolicy],
+})
+export class ScreeningApplication {}
+```
+
+## The whole application: `testWith(App)`
+
+<!-- snippet-context
+import { QuorumNotReachedError } from "agboss";
+import { callTool, decideWith, replyWith, step, TestConcurrency, testWith } from "agboss/testing";
+import { expect } from "vitest";
+import { CultureAgent, SkillsAgent, VerdictAgent } from "./src/screening/agents.js";
+import { CandidateArchiveTool, ReasonedVerdictJudge } from "./src/screening/components.js";
+import { SkillsReportDto, CultureReportDto, VerdictDto } from "./src/screening/dtos/screening.dto.js";
+import { HiredWorkflowFinish, RejectedWorkflowFinish, ScreeningWorkflowStart } from "./src/screening/finishes.js";
+import { ScreeningApplication } from "./src/screening/screening.application.js";
+-->
+
+```ts
+const test = testWith(ScreeningApplication); // the only form: testWith(Workflow) does not compile
+const candidate = { name: "Dana", cv: "TypeScript, 6 years; dana@example.com" };
+
+test("two reports, a hire verdict, the hire saved", async ({ app, mockLlm }) => {
+  mockLlm(SkillsAgent).thenReturn(
+    callTool(CandidateArchiveTool, { name: "Dana" }), // a turn that calls a tool, typed by its input
+    replyWith(SkillsReportDto, { score: 8, notes: "strong TypeScript" }), // then the answer
+  );
+  mockLlm(CultureAgent).thenReturn(replyWith(CultureReportDto, { score: 7, notes: "clear writer" }));
+  mockLlm(VerdictAgent).thenReturn(replyWith(VerdictDto, { decision: "hire", reason: "both reports at 7+" }));
+  mockLlm(ReasonedVerdictJudge).thenReturn(decideWith({ reasoned: 0.9 }));
+
+  const result = await app.execute(ScreeningWorkflowStart, candidate);
+
+  expect(result).toFinishWith(HiredWorkflowFinish);
+  expect(result.threadId).toBe("thread-1"); // ids are sequential in tests (SequentialIdGenerator)
+  expect(result.executionId).toBe("execution-1");
+  expect(mockLlm(VerdictAgent)).toHaveBeenCalledWith({ skills: { score: 8 } }); // its input, partly
+  expect(mockLlm(SkillsAgent).lastRequest.input).toContain("<email:"); // the model read a token
+});
+
+test("a verdict that does not reason is retried once", async ({ app, mockLlm }) => {
+  mockLlm(SkillsAgent).thenReturn(replyWith(SkillsReportDto, { score: 3, notes: "junior" }));
+  mockLlm(CultureAgent).thenReturn(replyWith(CultureReportDto, { score: 4, notes: "quiet" }));
+  mockLlm(VerdictAgent).thenReturn(
+    replyWith(VerdictDto, { decision: "reject", reason: "n/a" }),
+    replyWith(VerdictDto, { decision: "reject", reason: "both reports below the bar of 7" }),
+  );
+  mockLlm(ReasonedVerdictJudge).thenReturn(decideWith({ reasoned: 0.1 }), decideWith({ reasoned: 0.9 }));
+
+  const result = await app.execute(ScreeningWorkflowStart, candidate);
+
+  expect(result).toFinishWith(RejectedWorkflowFinish, {
+    decision: "reject",
+    reason: "both reports below the bar of 7", // the whole output: the second, judged answer
+  });
+  expect(mockLlm(VerdictAgent)).toHaveBeenCalledTimes(2);
+});
+
+// a race, the same on every run: the culture answer completes first and is rejected by the
+// arbiter; with min 2 of 2 the quorum can no longer be reached, so the skills branch waiting at its
+// gate is cancelled
+const raceTest = testWith(ScreeningApplication, {
+  concurrency: TestConcurrency.inOrder([step(CultureAgent), step(SkillsAgent)]),
+});
+
+raceTest("an answer without notes leaves the quorum short", async ({ app, mockLlm }) => {
+  mockLlm(CultureAgent).thenReturn(replyWith(CultureReportDto, { score: 6, notes: " " }));
+  mockLlm(SkillsAgent).thenReturn(replyWith(SkillsReportDto, { score: 9, notes: "senior" }));
+
+  await expect(app.execute(ScreeningWorkflowStart, candidate)).rejects.toFailWith(QuorumNotReachedError, {
+    counted: 0,
+  });
+});
+```
+
+- **Scripts are expectations**: every `thenReturn` turn and `when(…)` must be used, else the test
+  fails at its end (`test.unused-script`); a call no script matches fails naming its input
+  (`test.no-matching-script`). Turns: `replyWith(text)`, `replyWith(Dto, value, { cost: usd(…) })`,
+  `callTool(Tool, args)`, `routeTo(Target)` (a model router), `decideWith({ question: p })` (decision
+  models: judges, guardrails `{ blocks }`, model arbiters `{ counts }`), `failWith(ModelFailure.Timeout)`,
+  `waitFor(seconds(31))` (the next turn after that long on the clock).
+- **`when(partial)`** binds turns to the input: `mockLlm(SkillsAgent).when({ candidate: { name: "Dana" } }).thenReturn(…)`.
+- **Unscripted**: a guardrail passes, a compaction writes a fixed summary; an agent, a router or a
+  judge without a script is a blocked live call (`test.live-call-blocked`).
+- **Replacing a class**: `mockOf(Service).method.mockResolvedValue(…)` (any component or service, a
+  budget's `maxSpend` too); `testWith(App, { overrides: [override(Base, Replacement)] })` creates a
+  class instead of another — no instances, no `new`.
+- **MCP**: `mcpOf(Server).thenReturn({ server_tool: (args) => result })`, `.calls`; **network** is
+  blocked except `allowNetwork: ["localhost"]`.
+- **Matchers**: `toFollowPath([Start, …, Finish])`, `toFinishWith(Finish, output?)` (the whole output),
+  `rejects.toFailWith(ErrorClass, { …fields, cause })` (through the cause chain),
+  `toHaveChildExecutions(W, [{ item, finish | failedWith | cancelled }])`,
+  `toHaveHandledError(E, { at, by })`, `toHaveCalledTools([Tool])`, `toHavePausedAt(Agent)`; on
+  `mockLlm(X)` / `mockAction(A)`: `toHaveBeenCalledWith(partial)`, `toHaveBeenCalledTimes(n)`,
+  `toHaveReturned(Dto, fields?)`, `.inputs`, `.lastRequest`.
+- **Errors only the real way**: `failWith(…)`, a rejecting `mockOf`, `mockTool(Tool).thenFail(ToolFailure.Timeout)`,
+  scripts that reach a limit (`mockOf(ExecutionBudget).maxSpend.mockReturnValue(usd(0.001))` + a
+  scripted `cost`), `app.cancel` / an aborted `signal`. Never throw a framework error by hand.
+- **Time**: the `clock` fixture is the application's `Clock` in every test, fixed at
+  `2026-01-05T09:00:00Z`; `await clock.advance(seconds(31))` wakes every due wait (a tool's timeout,
+  retries, `Retry-After`, the recovery sweep, pause retention) without real waiting.
+- **Restarts and instances**: `await recoverApp()` closes the app and returns a new one over the same
+  stores, clock and ids — a paused execution survives it; `testWith(App, { instances: 2 })` gives
+  `apps` (each its own container, one set of stores) for leases and cross-instance resumes.
+- **Health**: `await app.checkReadiness()` / `app.checkLiveness()` → `HealthReport` (a
+  `@HealthCheck`'s service mocked with `mockOf`). `testWith` never traps SIGTERM / SIGINT.
+
+## One component: the unit runners
+
+Each runner builds the component's own container (its `deps`, `overrides`, an `environment`) and
+runs every call in the frame of its step, so `ExecutionContext`, `SpendRecorder` and `JudgeModel`
+work as in a run. Every call returns `{ output, spend }`; `run.clock` is its `VirtualClock`.
+
+<!-- snippet-context
+import { Injectable } from "agboss";
+import { decideWith, override, testAction, testArbiter, testGuardrail, testJudge, testPii, testRag, testRouter, testTool } from "agboss/testing";
+import { seconds } from "agboss/units";
+import { expect, it } from "vitest";
+import { CultureAgent, SkillsAgent, VerdictAgent } from "./src/screening/agents.js";
+import { HasNotesArbiter } from "./src/screening/arbiters.js";
+import { BiasGuardrail, CandidateArchiveService, CandidateArchiveTool, ContactPiiPolicy, HireRouter, HiringPolicyRag, ReasonedVerdictJudge, SaveHireAction } from "./src/screening/components.js";
+import { VerdictDto } from "./src/screening/dtos/screening.dto.js";
+import { RejectedWorkflowFinish } from "./src/screening/finishes.js";
+-->
+
+```ts
+@Injectable()
+export class FirstTimeArchiveService extends CandidateArchiveService {
+  override applicationsOf(): Promise<number> {
+    return Promise.resolve(0);
+  }
+}
+
+it("testTool: input and output validated, a service replaced by a class", async () => {
+  const runTool = testTool(CandidateArchiveTool, {
+    overrides: [override(CandidateArchiveService, FirstTimeArchiveService)],
+  });
+
+  const { output, spend } = await runTool({ name: "Dana" }, { timeout: seconds(1) });
+
+  expect(output).toEqual({ applications: 0 });
+  expect(spend.totalUsd).toBe(0);
+});
+
+it("testAction: input fields are { producer, value } records", async () => {
+  const runAction = testAction(SaveHireAction);
+
+  const { output } = await runAction({
+    verdict: { producer: VerdictAgent, value: { decision: "hire", reason: "strong" } },
+  });
+
+  expect(output.hireId).toMatch(/^hire-strong-/u);
+});
+
+it("testRouter: a code router at no cost", async () => {
+  const runRouter = testRouter(HireRouter);
+
+  const { output } = await runRouter({
+    verdict: { producer: VerdictAgent, value: { decision: "reject", reason: "junior" } },
+  });
+
+  expect(output).toBe(RejectedWorkflowFinish);
+});
+
+it("testArbiter: the agent and its answer", async () => {
+  const runArbiter = testArbiter(HasNotesArbiter);
+
+  expect((await runArbiter(SkillsAgent, { score: 8, notes: "senior" })).output).toBe(true);
+  expect((await runArbiter(CultureAgent, { score: 6, notes: "" })).output).toBe(false);
+});
+
+it("testRag: retrieve with topK", async () => {
+  const runRag = testRag(HiringPolicyRag);
+
+  const { output } = await runRag("the bar", { topK: 1 });
+
+  expect(output[0]?.source).toBe("policy.md#bar");
+});
+
+it("testJudge: the reply as a plain object of its DTO", async () => {
+  const runJudge = testJudge(ReasonedVerdictJudge, { model: decideWith({ reasoned: 0.2 }) });
+
+  const { output } = await runJudge({
+    variant: VerdictDto,
+    reply: { decision: "hire", reason: "n/a" },
+    task: "Decide",
+    attempt: 0,
+  });
+
+  expect(output).toMatchObject({ passed: false, reason: "give a reason that supports the decision" });
+});
+
+it("testGuardrail: a block is an output, not a throw", async () => {
+  const check = testGuardrail(BiasGuardrail, { model: decideWith({ blocks: 0.9 }) });
+
+  const { output } = await check("Reject: too old for the team", { element: "verdict-agent" });
+
+  expect(output).toEqual({ isBlocked: true, probability: 0.9, refusal: "The verdict was withheld for review." });
+});
+
+it("testPii: what a model reads, and what its answer becomes", async () => {
+  const contacts = testPii([ContactPiiPolicy]);
+
+  const { output: masked } = await contacts.mask("Mail dana@example.com");
+
+  expect(contacts.reveal(masked)).toBe("Mail dana@example.com");
+});
+```
+
+- `testRouter` of a model router answers from `model: routeTo(Target)` (or `decideWith(…)` before a
+  launch); `testArbiter` of a model arbiter from `model: decideWith({ counts: 0.9 })`.
+- The context levels: `{ tenantContext, tenant, executionContext, execution }` on any runner (checked
+  by the classes' decorators); a class created by hand (a budget's `maxSpend()`) takes
+  `testExecutionContext({ … })`.
+- A tool's timeout is on `run.clock`: `await runTool.clock.advance(seconds(6))` past it gives
+  `ToolTimeoutError`.
+
+## Recorded runs (VCR)
+
+<!-- snippet-context
+import { ScreeningApplication } from "./src/screening/screening.application.js";
+import { HiredWorkflowFinish, ScreeningWorkflowStart } from "./src/screening/finishes.js";
+-->
+
+```ts
+// src/screening/screening.integration.test.ts — real models once, then replayed with no key or network
+import { expect } from "vitest";
+import { VCRMode, testWith } from "agboss/testing";
+
+const test = testWith(ScreeningApplication, {
+  vcr: { cassetteName: "screening-hire", mode: process.env.CI ? VCRMode.REPLAY : VCRMode.AUTO },
+});
+
+test("a strong candidate is hired", async ({ app }) => {
+  const result = await app.execute(ScreeningWorkflowStart, { name: "Dana", cv: "TypeScript, 6 years" });
+  expect(result).toFinishWith(HiredWorkflowFinish);
+});
+```
+
+`AUTO` records a missing cassette (`__snapshots__/screening-hire.cassette.json`, committed) and
+replays an existing one; `REPLAY` (the default under `CI`) fails a call the cassette does not hold
+with `CassetteMissingError` (`test.cassette-missing`) — a changed prompt or tool means re-record;
+`RECORD` always calls the models.
+
+## Evals on real traffic
+
+```
+npx agboss golden add --start screening-workflow-start --name hires --from-last 20   # save recent tasks
+npx agboss compare --start screening-workflow-start --profiles base,cheaper --golden hires
+npx agboss eval --start screening-workflow-start --limit 50                         # score recent runs
+npx agboss replay --start screening-workflow-start --version <prompt version>        # re-run a version
+```
+
+- A golden set is `golden/<workflow>/<name>.yaml`; a profile (`profiles/<workflow>/<name>.yaml`)
+  overrides models and settings for a comparison; the agent's judges score each answer.
+- Real-model runs cost money and are never part of `npm test`.
+
+## Pitfalls
+
+- `new SkillsAgent()`, `new CandidateArchiveTool(fake)` in a test: use `testWith` or the runner and
+  `overrides` / `mockOf`.
+- A script for a path the test does not take: it fails as unused — script only what runs.
+- `thenReturnAlways` to silence a loop: script the exact turns; a loop is bounded by `maxVisits`.
+- Asserting on `Date.now()` or real timers: advance the `clock` fixture.
+- A test environment that reads a secret: leave secrets out of `test.environment.ts`.
+- Testing the graph by inspecting it: run it and assert the path (`toFollowPath`) and the finish.

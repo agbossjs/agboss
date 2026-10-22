@@ -90,7 +90,7 @@ holds from its type**, not guess it from the name.
   (`agboss check`) types it.
   Assembly rules run at assembly, before any model call, and report **all** violations at once
   (`GraphRuleError` with stable codes). A new rule gets a code and a test.
-- **Config-driven.** Agents, models, thinking and caching live in the workflow's components
+- **Config-driven.** Agents, models, reasoning and caching live in the workflow's components
   (`@Agent`, `@Router`, `@Workflow`), assembled into the config and validated at startup; steps
   live in `@Workflow({ maxSteps })` and money in the application's `@Budget`s, not in config.
   Every chat model inherits `defaults.chat`; each router names its own `model` or takes
@@ -102,7 +102,7 @@ holds from its type**, not guess it from the name.
   - Decisions providers, one listed → the list is complete); each model of the application is
     served by exactly one listed provider (`serves`) — `[model.unserved]` /
     `[model.ambiguous-provider]` at assembly, a workflow never picks one; reasoning and caching are the
-    provider's, a component may override them (`thinking`, `cache` until #152). Cache markers and
+    provider's, a component may override them (`reasoning`, `cache`). Cache markers and
     every other provider-specific request field are set in one place, the provider's wire form
     (`toWireRequest`) — no provider-specific request code outside `src/models` / `src/llm`.
 - **Provider policies are the provider's** (#266): `retryPolicy` is the only place backoff is set
@@ -201,7 +201,7 @@ $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLi
 - **Caching is accounted**: cached input is priced at `cacheReadPerMTok` / `cacheWritePerMTok`
   (fallback: input price); `CostReport.cacheReadTokens` shows how much caching saved.
 - **Right-size models**: the cheapest capable model for routing/classification; expensive
-  models only for agents that need them; thinking only where it pays off.
+  models only for agents that need them; reasoning only where it pays off.
 - **Every run returns a `CostReport`** (total, calls, per caller); the CLI prints it. New
   cost-relevant behaviour gets a test asserting the accounting.
 - **$0 test suite**: unit tests use fake models; real calls only in `make smoke`.

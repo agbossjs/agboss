@@ -1,0 +1,350 @@
+# 04 — MCP and A2A
+
+Read this when an agent uses tools of an MCP server, when a workflow is offered to MCP clients, or
+when one application calls another over A2A (agent-to-agent) or is called that way. Tools in general:
+`03-components-di-and-lifecycle.md`; approvals: `05-channels-and-human-in-the-loop.md`.
+
+| You want to…                                          | Use                                                                                                          |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| give an agent tools of an MCP server                  | `@McpServer` (`extends McpServerClient`) in `@Workflow({ mcp })` + `@McpTool` classes in the agent's `tools` |
+| let Claude Desktop / another agent call your workflow | `@McpExpose` + `createMcpService(app, Expose)` (`agboss/mcp`)                                                |
+| call a workflow of another AGBoss application         | `@A2AAgent` (`extends A2AClient`) in `providers`, injected into a `@Tool` or `@Action` (`agboss/a2a`)        |
+| serve your workflow to A2A callers                    | `new A2AAdapter(app)` + `a2aHttpListener(adapter, Start)`, or `adapter.execute(…)` in your own handler       |
+
+## Using an MCP server
+
+```ts file=src/support/mcp/issues.dto.ts
+// mcp/issues.dto.ts — the server tools' DTOs: input and output of each one you use
+import { ListOf, Text } from "agboss/dto";
+
+export class IssueSearchDto {
+  @Text({ prompt: "words to search the issues for" })
+  query!: string;
+}
+
+export class IssueHitDto {
+  @Text({ prompt: "the issue's title" })
+  title!: string;
+
+  @Text({ prompt: "the issue's link" })
+  url!: string;
+}
+
+export class IssueHitsDto {
+  @ListOf(IssueHitDto, { prompt: "the matching issues" })
+  issues!: IssueHitDto[];
+}
+```
+
+```ts file=src/support/mcp/issues.server.ts
+// mcp/issues.server.ts — the server and the tools of it this workflow uses (checked at start)
+import { McpServer, McpServerClient } from "agboss/mcp";
+import { IssueHitsDto, IssueSearchDto } from "./issues.dto.js";
+
+const tools = {
+  search_issues: { input: IssueSearchDto, output: IssueHitsDto }, // the server's own tool name
+};
+
+@McpServer({
+  name: "issues",
+  transport: "http", // Streamable HTTP; or transport: "stdio" with command, args, env
+  url: "https://mcp.issues.example/mcp",
+  headers: { authorization: "ISSUES_MCP_TOKEN" }, // header → NAME of the env variable, never the value
+  tools,
+})
+export class IssuesServer extends McpServerClient<typeof tools> {}
+```
+
+```ts file=src/support/mcp/search-issues.mcp.ts
+// mcp/search-issues.mcp.ts — the tool the model sees; it calls the server tool, typed by `tools`
+import { ExecutionContext, type ToolHandler } from "agboss";
+import { McpTool } from "agboss/mcp";
+import { kilobytes, seconds } from "agboss/units";
+import { IssueHitsDto, IssueSearchDto } from "./issues.dto.js";
+import { IssuesServer } from "./issues.server.js";
+
+@McpTool({
+  server: IssuesServer,
+  name: "search-issues-tool",
+  description: "Searches the issue tracker",
+  input: IssueSearchDto,
+  output: IssueHitsDto,
+  timeout: seconds(10),
+  maxResultSize: kilobytes(32),
+  deps: [IssuesServer, ExecutionContext],
+})
+export class SearchIssuesTool implements ToolHandler<IssueSearchDto, IssueHitsDto> {
+  constructor(
+    private readonly issuesServer: IssuesServer,
+    private readonly executionContext: ExecutionContext,
+  ) {}
+
+  run({ query }: IssueSearchDto): Promise<IssueHitsDto> {
+    // name and arguments checked by the compiler; the signal aborts it on timeout or cancel
+    return this.issuesServer.call("search_issues", { query }, this.executionContext.signal);
+  }
+}
+```
+
+- **Connections are the framework's**: every `@McpServer` of `@Workflow({ mcp: [...] })` is
+  connected when the application starts and closed by `app.close()` — no lifecycle hook of yours.
+  At start each declared server tool must exist with a compatible input schema, else the start fails
+  naming it. Secrets are never in the decorator: `env: ["GITHUB_TOKEN"]` (stdio) and `headers`
+  (http) name variables.
+- **Names**: the `@McpTool`'s `name` ends with `-tool` (what the model sees); the server's own tool
+  names (`search_issues`) stay as the server has them and only appear in `tools` and `call(…)`.
+- **Everything a tool gets applies**: `timeout`, `maxResultSize`, `channel` (an approval before the
+  call, reference 05), PII masking of arguments and results at the model boundary and block rules
+  that reject the call (reference 07), `SpendRecorder`, `executionContext.step.idempotencyKey`.
+- A server tool that answers plain text declares `output: PlainTextDto` (`{ text }`).
+- Tests never start the server: `mcpOf(IssuesServer).thenReturn({ search_issues: () => (…) })` in
+  `testWith`, `mcpServerStub(IssuesServer, handlers)` for a unit (reference 10).
+
+## Calling another application over A2A
+
+```ts file=src/support/a2a/order-desk.dto.ts
+import { Text } from "agboss/dto";
+
+export class OrderQuestionDto {
+  @Text({ prompt: "the question for the order desk" })
+  question!: string;
+}
+
+export class OrderDeskReplyDto {
+  @Text({ prompt: "the order desk's answer" })
+  text!: string;
+}
+```
+
+```ts file=src/support/a2a/order-desk.a2a.ts
+// a2a/order-desk.a2a.ts — the remote workflow as a provider; per-call headers from the execution
+import { ExecutionContext } from "agboss";
+import { A2AAgent, A2AClient } from "agboss/a2a";
+
+@A2AAgent({
+  name: "order-desk-a2a-agent",
+  url: "https://orders.example/a2a", // POST <url>/execute, <url>/resume
+  deps: [ExecutionContext],
+})
+export class OrderDeskA2aClient extends A2AClient {
+  constructor(private readonly executionContext: ExecutionContext) {
+    super();
+  }
+
+  protected override getHeaders(): Promise<Record<string, string>> {
+    return Promise.resolve({
+      "idempotency-key": this.executionContext.step.idempotencyKey, // the same on a retried call
+      "x-tenant-id": this.executionContext.tenant.tenantId, // the remote side authenticates it
+    });
+  }
+}
+```
+
+```ts file=src/support/tools/ask-order-desk.tool.ts
+// tools/ask-order-desk.tool.ts — an agent delegates to the remote workflow through a tool
+import { ExecutionContext, SpendRecorder, Tool, type ToolHandler } from "agboss";
+import { seconds, usd } from "agboss/units";
+import { OrderDeskReplyDto, OrderQuestionDto } from "../a2a/order-desk.dto.js";
+import { OrderDeskA2aClient } from "../a2a/order-desk.a2a.js";
+
+@Tool({
+  name: "ask-order-desk-tool",
+  description: "Asks the order desk about an order",
+  input: OrderQuestionDto,
+  output: OrderDeskReplyDto,
+  timeout: seconds(60),
+  deps: [OrderDeskA2aClient, ExecutionContext, SpendRecorder],
+})
+export class AskOrderDeskTool implements ToolHandler<OrderQuestionDto, OrderDeskReplyDto> {
+  constructor(
+    private readonly orderDeskA2aClient: OrderDeskA2aClient,
+    private readonly executionContext: ExecutionContext,
+    private readonly spendRecorder: SpendRecorder,
+  ) {}
+
+  async run({ question }: OrderQuestionDto): Promise<OrderDeskReplyDto> {
+    const reply: OrderDeskReplyDto = await this.orderDeskA2aClient.execute(
+      { text: question }, // the remote start's input
+      OrderDeskReplyDto, // the remote finish's output, validated
+      { signal: this.executionContext.signal }, // `thread` continues a remote conversation
+    );
+    this.spendRecorder.record({ service: "order-desk-a2a", cost: usd(0.002) }); // its price per call
+    return reply;
+  }
+}
+```
+
+```ts file=src/support/agents/support.agent.ts
+import { Agent } from "agboss";
+import { SearchIssuesTool } from "../mcp/search-issues.mcp.js";
+import { AskOrderDeskTool } from "../tools/ask-order-desk.tool.js";
+
+@Agent({
+  name: "support-agent",
+  description: "Answers from the issue tracker and the order desk",
+  prompt: "Answer the question. Search issues with search-issues-tool; ask the order desk about orders.",
+  model: "moonshotai/kimi-k2.6",
+  tools: [SearchIssuesTool, AskOrderDeskTool],
+  maxToolCalls: 5,
+})
+export class SupportAgent {}
+```
+
+```ts file=src/support/support.workflow.ts
+import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "agboss";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { usd, type Usd } from "agboss/units";
+import { OrderDeskA2aClient } from "./a2a/order-desk.a2a.js";
+import { SupportAgent } from "./agents/support.agent.js";
+import { IssuesServer } from "./mcp/issues.server.js";
+
+@WorkflowStart({ name: "support-workflow-start", description: "A question", input: WorkflowStartTextDto })
+export class SupportWorkflowStart {}
+
+@WorkflowFinish({ name: "support-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
+export class SupportWorkflowFinish {}
+
+@Workflow({
+  name: "support-workflow",
+  version: "1.0.0",
+  flow: [
+    start(SupportWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(SupportAgent)
+      .toFinish(SupportWorkflowFinish),
+  ],
+  mcp: [IssuesServer], // the servers this workflow connects to
+  providers: [OrderDeskA2aClient], // an A2A client is a provider like a service
+})
+export class SupportWorkflow {}
+
+@Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
+export class ApplicationDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(5);
+  }
+}
+
+@Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class TenantDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(1);
+  }
+}
+
+@Budget({ name: "execution-budget", scope: BudgetScope.Execution })
+export class ExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.1);
+  }
+}
+
+@Application({
+  name: "support-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [SupportWorkflow],
+  budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
+})
+export class SupportApplication {}
+```
+
+- `execute(input, OutputDto, call)` returns the remote output validated by the DTO; any status but
+  `A2AStatus.Finished` throws `A2ARemoteError` (`response.status`: `Paused` with `pauseIds`,
+  `Failed`, `Limited`, `Cancelled`). `send(input, call)` returns the `A2AExecutionResponse` whatever
+  the status — use it when the caller handles a remote pause itself.
+- `call.onEvent` streams the remote run's progress (`{ type: "progress", payload: { step, content } }`).
+- The remote side has no model cost you can see: record its price with `SpendRecorder` so the budgets
+  count it. Pass `executionContext.signal` so a cancel or a timeout aborts the HTTP call.
+
+## Exposing a workflow
+
+Over MCP — the workflow's tools and starts become MCP tools; a start runs `app.execute`, and with any
+start exported `resume_workflow` (`app.resume`) is offered too:
+
+<!-- snippet-context
+import { SearchIssuesTool } from "./src/support/mcp/search-issues.mcp.js";
+import { SupportWorkflowStart } from "./src/support/support.workflow.js";
+-->
+
+```ts
+// mcp/support.expose.ts
+import { McpExpose } from "agboss/mcp";
+
+@McpExpose({
+  name: "support-mcp",
+  version: "1.0.0",
+  exports: [SearchIssuesTool, SupportWorkflowStart], // tools of the workflow, and its starts
+})
+export class SupportMcp {}
+```
+
+<!-- snippet-context
+import { createApp } from "agboss";
+import { McpExpose } from "agboss/mcp";
+import { SupportApplication, SupportWorkflowStart } from "./src/support/support.workflow.js";
+@McpExpose({ name: "support-mcp", version: "1.0.0", exports: [SupportWorkflowStart] })
+export class SupportMcp {}
+-->
+
+```ts
+// server.ts — local clients over stdio; for HTTP: service.handleSse(res, "/mcp/messages", session)
+// and service.handleMessage(req, res, sessionId) in your HTTP framework
+import { createMcpService } from "agboss/mcp";
+
+const app = await createApp(SupportApplication);
+const service = createMcpService(app, SupportMcp);
+await service.connectStdio(); // serves until stdin closes
+```
+
+Over A2A — `POST <base>/execute` `{ input, thread? }` and `POST <base>/resume` `{ pauseId, decision }`,
+JSON or server-sent events (`Accept: text/event-stream`). A run that waits for an approval answers
+`status: A2AStatus.Paused` (`"paused"` on the wire) with its `pauseIds`; the caller resumes it with a decision:
+
+<!-- snippet-context
+import { createApp } from "agboss";
+import { SupportApplication, SupportWorkflowStart } from "./src/support/support.workflow.js";
+-->
+
+```ts
+import { createServer } from "node:http";
+import { A2AAdapter, A2AStatus, a2aHttpListener } from "agboss/a2a";
+
+const app = await createApp(SupportApplication);
+const adapter = new A2AAdapter(app); // an edge object, not a component
+createServer(a2aHttpListener(adapter, SupportWorkflowStart, "/a2a")).listen(8080);
+
+// a multi-tenant server authenticates the caller and passes its context itself:
+const response = await adapter.execute(
+  SupportWorkflowStart,
+  { input: { text: "Where is order 7?" }, thread: "ticket-7" },
+  undefined, // onEvent: progress events
+  { tenant: { tenantId: "acme" }, ownerId: "customer-17" }, // never taken from the request body
+);
+if (response.status === A2AStatus.Paused) console.log(response.pauseIds); // → adapter.resume({ pauseId, decision })
+```
+
+- `a2aHttpListener` runs every request in the default tenant: behind authentication with several
+  tenants, call `adapter.execute` / `adapter.resume` with `A2ACallOptions` (`tenant`, `execution`,
+  `ownerId`, `signal`) yourself. The same holds for MCP sessions (`McpSessionOptions`).
+- A caller that disconnects cancels its run (the listener aborts its `signal`).
+
+## Errors and fixes
+
+| You see                                                        | Fix                                                                                   |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| the start fails: `search_issues: tool not found on the server` | the `tools` key must be the server's exact tool name                                  |
+| the start fails: `… input: …` schema differences               | make the input DTO match the server tool's input schema                               |
+| `MCP server "issues" needs env variable ISSUES_MCP_TOKEN`      | set the variable; the decorator only names it                                         |
+| `[name.kind-suffix]` on an `@McpTool`                          | name it `<what>-tool`                                                                 |
+| `[tool.duplicate-name]`                                        | two tools a model sees share a name (local, MCP, `search-<rag>-tool`, `answer-<dto>`) |
+| `A2ARemoteError: … "paused"`                                   | the remote run waits for an approval: use `send` and resume it, or approve remotely   |
+| `[a2a.no-url]`                                                 | the client class lacks `@A2AAgent({ url })`                                           |
+
+## Pitfalls
+
+- An MCP connection opened by hand in a service's `onStart`: declare the `@McpServer` instead, so the
+  start checks its tools and tests stub it.
+- Secrets in `@McpServer({ headers })` values or `args`: they name variables.
+- A tool that ignores `executionContext.signal` keeps the remote call running after a cancel.
+- Taking the tenant from an MCP or A2A request body: bind it from the authenticated caller.

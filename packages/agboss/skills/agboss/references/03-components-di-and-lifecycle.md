@@ -1,0 +1,556 @@
+# 03 — Components, DI and lifecycle
+
+Read this when you write a component class, a service, a provider or a lifecycle hook, read the
+execution or the environment, or run the application (`createApp`, `app.execute`, `app.cancel`).
+Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flow-dsl-all-combinations.md`.
+
+## The decorators
+
+| Decorator (file)                                         | Its contract                                                | Key options                                                                                                                                                                                                                                                                                                                     |
+| -------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@Application` (`<app>.application.ts`)                  | —                                                           | `name`, `version`, `environment` (required), `workflows`, `budgets`, `providers` (infrastructure), `observers`, `defaults`, `guardrails`, `piiPolicies`, `healthChecks`, `tenantContext`, `executionContext`, `pseudonymKey`, `shutdownTimeout`, `pauseRecordRetention`, `maxConcurrentSteps`, `uncompactedTurns`, `compaction` |
+| `@Workflow` (`<name>.workflow.ts`)                       | —                                                           | `name` (`-workflow`), `version`, `flow`, `providers` (services), `defaults`, `maxSteps`, `maxDepth`, `maxConcurrentExecutions`, `mcp`, `guardrails`, `piiPolicies`, `uncompactedTurns`, `compaction`, `promptVariables`                                                                                                         |
+| `@WorkflowStart` / `@WorkflowFinish`                     | a finish may have `finish(input)` (`FinishHandler<Self>`)   | `name`, `description`, `input` (start) / `output` (finish), `deps`                                                                                                                                                                                                                                                              |
+| `@Agent` (`agents/<name>.agent.ts` + `<name>.prompt.md`) | none: the framework runs its loop                           | `model`, `prompt` / `promptUrls` (+ `promptVariables`), `input`, `output`, `tools`, `maxToolCalls`, `maxVisits`, `maxTokens`, `reasoning`, `temperature`, `cache`, `rag`, `judges` + `maxRetries`, `uncompactedTurns`, `compaction`, `memoryStrategy`, `guardrails`, `piiPolicies`                                              |
+| `@Tool` (`tools/<name>.tool.ts` + `.dto.ts`)             | `ToolHandler<In, Out>`: `run(input)`                        | `input`, `output`, `timeout: seconds(…)` (default 30 s), `maxResultSize: kilobytes(…)`, `channel`, `deps`                                                                                                                                                                                                                       |
+| `@Action` (`actions/<name>.action.ts`)                   | `ActionHandler<Self>`: `execute(input)`                     | `input` (fields from the scope), `output`, `deps`                                                                                                                                                                                                                                                                               |
+| `@Router` (`routers/<name>.router.ts`)                   | code: `RouterHandler<Self>`: `route(input)`                 | `decidedBy`, `input`, `routes`, `maxVisits`; model: `model`, `prompt`; code: `deps`                                                                                                                                                                                                                                             |
+| `@Arbiter` (`arbiters/<name>.arbiter.ts`)                | code: one `@OnAnswer(Agent)` method per agent of the launch | `decidedBy`; model: `model`, `prompt`, `criteria`; code: `deps`                                                                                                                                                                                                                                                                 |
+| `@Judge` (`judges/<name>.judge.ts`)                      | `JudgeHandler<TReply>`: `judge(input)`                      | `name`, `model`, `reply` (the answer's shape), `deps`                                                                                                                                                                                                                                                                           |
+| `@Rag` (`rag/<name>.rag.ts`, `agboss/rag`)               | `RagConnector`: `retrieve(query, { topK, signal })`         | `name` (`-rag`), `description`, `topK`, `deps`                                                                                                                                                                                                                                                                                  |
+| `@Compaction` (`compactions/<name>.compaction.ts`)       | none                                                        | `strategy`, `model`, `prompt`, `turnsBetweenCompactions`, `summaryQueueLength`, `summaryMaxTokens`                                                                                                                                                                                                                              |
+| `@HealthCheck` (`health/<name>.health-check.ts`)         | `HealthCheckHandler`: `check()`                             | `name` (`-health-check`), `timeout`, `deps`                                                                                                                                                                                                                                                                                     |
+| `@Injectable` (`services/<name>.service.ts`)             | your own methods                                            | `deps`                                                                                                                                                                                                                                                                                                                          |
+
+`npx agboss generate` writes workflows, agents, routers, arbiters, tools, MCP servers and knowledge
+bases; write the others by hand in the same grammar (`judges/<name>.judge.ts`,
+`health/<name>.health-check.ts`, `compactions/<name>.compaction.ts`).
+
+Every component: `name` in kebab-case ending with its kind (`[name.kind-suffix]`), unique in the
+application (`[graph.duplicate-node-name]`); `description` where the type asks for it; `deps` that
+match the constructor exactly, in order — a wrong list does not compile. `implements` documents the
+contract; the check is on the decorator line.
+
+## A worked example: a support desk's components
+
+One class per file in a project; here a few small classes share a file for brevity.
+
+```ts file=src/desk/environments/app.environment.ts
+// environments/app.environment.ts — the contract: declared fields only, never a value
+import type { Secret } from "agboss";
+
+export class AppEnvironment {
+  openRouterApiKey?: Secret; // read by the built-in model providers; tests leave it out
+  crmUrl!: string;
+  crmApiKey?: Secret; // prints as ***; only .reveal() gives the value; optional: tests leave it out
+  crmRetries!: number;
+}
+```
+
+```ts file=src/desk/environments/dev.environment.ts
+// environments/dev.environment.ts — one file per environment; `--env dev` (the default) picks it
+import { env, secret } from "agboss";
+import type { AppEnvironment } from "./app.environment.js";
+
+export const environment: AppEnvironment = {
+  openRouterApiKey: secret("OPENROUTER_API_KEY"),
+  crmUrl: env("CRM_URL", { default: "http://localhost:4000" }),
+  crmApiKey: secret("CRM_API_KEY"), // no default: a literal secret does not compile
+  crmRetries: env.integer("CRM_RETRIES", { default: 2 }), // also env.flag, env.optional, env.integer.optional
+};
+```
+
+```ts file=src/desk/environments/test.environment.ts
+// environments/test.environment.ts — what testWith runs on; without it tests fail to start.
+// A secret() whose variable is unset fails the start, so a test environment leaves secrets out.
+import type { AppEnvironment } from "./app.environment.js";
+
+export const environment: AppEnvironment = { crmUrl: "http://crm.test", crmRetries: 0 };
+```
+
+```ts file=src/desk/dtos/desk.dto.ts
+import { Flag, Text } from "agboss/dto";
+
+export class CustomerQueryDto {
+  @Text({ prompt: "the customer's email" })
+  email!: string;
+}
+
+export class CustomerDto {
+  @Text({ prompt: "the customer's plan" })
+  plan!: string;
+
+  @Flag({ prompt: "whether the customer has an open ticket" })
+  hasOpenTicket!: boolean;
+}
+
+export class DeskAnswerDto {
+  @Text({ prompt: "the answer to send, citing [source]s" })
+  text!: string;
+}
+```
+
+```ts file=src/desk/services/crm-client.service.ts
+// services/crm-client.service.ts — a service with lifecycle hooks; config from ApplicationContext
+import { ApplicationContext, Injectable, type OnDestroy, type OnStart } from "agboss";
+
+@Injectable({ deps: [ApplicationContext] })
+export class CrmClientService implements OnStart, OnDestroy {
+  constructor(private readonly applicationContext: ApplicationContext) {}
+
+  async onStart(): Promise<void> {
+    await this.ping(); // a failure stops the start, naming this class and the hook
+  }
+
+  onDestroy(): Promise<void> {
+    return Promise.resolve(); // close pools here: after every execution ended, dependants first
+  }
+
+  ping(): Promise<boolean> {
+    return Promise.resolve(this.applicationContext.environment.crmUrl.length > 0);
+  }
+
+  lookUp(email: string, signal: AbortSignal): Promise<{ plan: string; hasOpenTicket: boolean }> {
+    const { crmUrl, crmApiKey } = this.applicationContext.environment; // typed by AppEnvironment
+    signal.throwIfAborted();
+    const isAuthorised: boolean = crmApiKey !== undefined && crmApiKey.reveal() !== "";
+    return Promise.resolve({ plan: `${crmUrl}/${email}`, hasOpenTicket: !isAuthorised });
+  }
+}
+```
+
+```ts file=src/desk/tools/customer-lookup.tool.ts
+// tools/customer-lookup.tool.ts — the execution and the spend come through the constructor
+import { ExecutionContext, SpendRecorder, Tool, type ToolHandler } from "agboss";
+import { kilobytes, seconds, usd } from "agboss/units";
+import { CustomerDto, CustomerQueryDto } from "../dtos/desk.dto.js";
+import { CrmClientService } from "../services/crm-client.service.js";
+
+@Tool({
+  name: "customer-lookup-tool",
+  description: "Looks a customer up in the CRM by email",
+  input: CustomerQueryDto,
+  output: CustomerDto,
+  timeout: seconds(5), // there is no timeoutMs
+  maxResultSize: kilobytes(16),
+  deps: [ExecutionContext, SpendRecorder, CrmClientService],
+})
+export class CustomerLookupTool implements ToolHandler<CustomerQueryDto, CustomerDto> {
+  constructor(
+    private readonly executionContext: ExecutionContext,
+    private readonly spendRecorder: SpendRecorder,
+    private readonly crmClientService: CrmClientService,
+  ) {}
+
+  async run({ email }: CustomerQueryDto): Promise<CustomerDto> {
+    const customer = await this.crmClientService.lookUp(email, this.executionContext.signal);
+    this.spendRecorder.record({ service: "crm-api", cost: usd(0.001) }); // counted in the budgets
+    return customer;
+  }
+}
+```
+
+```ts file=src/desk/rag/help-center.rag.ts
+// rag/help-center.rag.ts — a knowledge base: any class implementing RagConnector
+import { Rag, type RagConnector, type RagRetrieval } from "agboss/rag";
+
+@Rag({ name: "help-center-rag", description: "Help-center articles", topK: 3 })
+export class HelpCenterRag implements RagConnector {
+  retrieve(query: string, options: { readonly topK: number }): Promise<RagRetrieval> {
+    const results = [{ text: `Refunds take 5 days (${query}).`, source: "help/refunds.md" }];
+    return Promise.resolve({ results: results.slice(0, options.topK) });
+  }
+}
+```
+
+```ts file=src/desk/compactions/conversation.compaction.ts
+// compactions/conversation.compaction.ts — what happens to turns older than the window
+import { Compaction, CompactionStrategy } from "agboss";
+
+@Compaction({
+  name: "conversation-compaction",
+  description: "Summarises old turns of the conversation",
+  prompt: "Summarise the turns under `Turns to compact`: what was asked, decided and is still open.",
+  model: "moonshotai/kimi-k2.6",
+  strategy: CompactionStrategy.SummaryQueue,
+  turnsBetweenCompactions: 5,
+  summaryQueueLength: 10,
+  summaryMaxTokens: 400,
+})
+export class ConversationCompaction {}
+```
+
+```ts file=src/desk/judges/cites-source.judge.ts
+// judges/cites-source.judge.ts — runs on the agent's answer, as its DTO
+import { Decision, Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "agboss";
+import { DeskAnswerDto } from "../dtos/desk.dto.js";
+
+@Judge({
+  name: "cites-source-judge",
+  model: "typesafe/jev-1.13", // a decision model: judgeModel.decide; a chat model: judgeModel.invoke
+  reply: DeskAnswerDto, // the agent's output shape: a DTO, oneOf(A, B), listOf(X) or PlainTextDto
+  deps: [JudgeModel],
+})
+export class CitesSourceJudge implements JudgeHandler<DeskAnswerDto> {
+  constructor(private readonly judgeModel: JudgeModel) {}
+
+  async judge({ reply, task }: JudgeInput<DeskAnswerDto>): Promise<JudgeVerdict> {
+    const answers = await this.judgeModel.decide({
+      state: { task, answer: reply.text },
+      questions: { cites: Decision.noul("Does every claim of the answer cite a [source]?") },
+    });
+    return answers.cites.noul >= 0.5
+      ? JudgeVerdict.passed({ metrics: { cites: answers.cites.noul } })
+      : JudgeVerdict.failed({ reason: "cite a [source] for every claim" }); // read by the retry
+  }
+}
+```
+
+```ts file=src/desk/agents/support.agent.ts
+// agents/support.agent.ts — every model setting in one place; the prompt in a file next to it
+import { Agent, RagMode, TokenLimit } from "agboss";
+import { WorkflowStartTextDto } from "agboss/dto";
+import { Reasoning, ReasoningEffort } from "agboss/models";
+import { ConversationCompaction } from "../compactions/conversation.compaction.js";
+import { DeskAnswerDto } from "../dtos/desk.dto.js";
+import { CitesSourceJudge } from "../judges/cites-source.judge.js";
+import { HelpCenterRag } from "../rag/help-center.rag.js";
+import { CustomerLookupTool } from "../tools/customer-lookup.tool.js";
+
+@Agent({
+  name: "support-agent",
+  description: "Answers a customer from the CRM and the help center",
+  promptUrls: ["./support.prompt.md"],
+  model: "moonshotai/kimi-k2.6",
+  input: { message: WorkflowStartTextDto },
+  output: DeskAnswerDto,
+  tools: [CustomerLookupTool],
+  maxToolCalls: 4, // per visit; over it → the step fails
+  rag: [{ use: HelpCenterRag, mode: RagMode.Tool }], // the tool search-help-center-rag-tool
+  reasoning: Reasoning.on({ effort: ReasoningEffort.Low }), // not `thinking`
+  maxTokens: TokenLimit.MODEL_MAX, // the only way to say "no output cap"
+  judges: [CitesSourceJudge],
+  maxRetries: 1, // a failed verdict's reason goes back to the agent once; then QualityGateError
+  uncompactedTurns: 8, // the last 8 turns in full (TurnLimit.ALL: every turn)
+  compaction: ConversationCompaction, // what is older is summarised
+})
+export class SupportAgent {}
+```
+
+```md file=src/desk/agents/support.prompt.md
+You answer customers. Look the customer up with customer-lookup-tool, search the help center with
+search-help-center-rag-tool, and cite every claim as [source].
+```
+
+```ts file=src/desk/health/crm.health-check.ts
+// health/crm.health-check.ts — a readiness component of the project
+import { HealthCheck, HealthCheckResult, type HealthCheckHandler } from "agboss";
+import { seconds } from "agboss/units";
+import { CrmClientService } from "../services/crm-client.service.js";
+
+@HealthCheck({ name: "crm-health-check", timeout: seconds(2), deps: [CrmClientService] })
+export class CrmHealthCheck implements HealthCheckHandler {
+  constructor(private readonly crmClientService: CrmClientService) {}
+
+  async check(): Promise<HealthCheckResult> {
+    const isReachable: boolean = await this.crmClientService.ping();
+    return isReachable
+      ? HealthCheckResult.healthy()
+      : HealthCheckResult.unhealthy({ reason: "CRM is unreachable" });
+  }
+}
+```
+
+```ts file=src/desk/infrastructure/prefixed-id-generator.ts
+// infrastructure/prefixed-id-generator.ts — replaced by inheritance: list it in the application
+import { IdGenerator, Injectable } from "agboss";
+
+@Injectable()
+export class PrefixedIdGenerator extends IdGenerator {
+  newThreadId(): string {
+    return `thr_${crypto.randomUUID()}`;
+  }
+
+  newExecutionId(): string {
+    return `exe_${crypto.randomUUID()}`;
+  }
+}
+```
+
+```ts file=src/desk/desk.workflow.ts
+import { Workflow, start } from "agboss";
+import { WorkflowFinish, WorkflowStart } from "agboss";
+import { WorkflowStartTextDto } from "agboss/dto";
+import { SupportAgent } from "./agents/support.agent.js";
+import { DeskAnswerDto } from "./dtos/desk.dto.js";
+import { CrmClientService } from "./services/crm-client.service.js";
+
+@WorkflowStart({ name: "desk-workflow-start", description: "A customer's message", input: WorkflowStartTextDto })
+export class DeskWorkflowStart {}
+
+@WorkflowFinish({ name: "desk-workflow-finish", description: "The answer", output: DeskAnswerDto })
+export class DeskWorkflowFinish {}
+
+@Workflow({
+  name: "desk-workflow",
+  version: "1.0.0",
+  flow: [
+    start(DeskWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(SupportAgent)
+      .returns(DeskAnswerDto)
+      .toFinish(DeskWorkflowFinish),
+  ],
+  defaults: { tools: { maxToolCalls: 6 } }, // over the application's, under the agent's own
+  maxSteps: 2,
+  providers: [CrmClientService], // services only — never infrastructure
+})
+export class DeskWorkflow {}
+```
+
+```ts file=src/desk/desk.application.ts
+import { Application, Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
+import { usd, type Usd } from "agboss/units";
+import { DeskWorkflow } from "./desk.workflow.js";
+import { AppEnvironment } from "./environments/app.environment.js";
+import { CrmHealthCheck } from "./health/crm.health-check.js";
+import { PrefixedIdGenerator } from "./infrastructure/prefixed-id-generator.js";
+
+@Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
+export class ApplicationDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(10);
+  }
+}
+
+@Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class TenantDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(2);
+  }
+}
+
+@Budget({ name: "execution-budget", scope: BudgetScope.Execution })
+export class ExecutionBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(0.1);
+  }
+}
+
+@Application({
+  name: "desk-application",
+  version: "1.0.0",
+  environment: AppEnvironment,
+  workflows: [DeskWorkflow],
+  budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
+  providers: [PrefixedIdGenerator], // infrastructure: stores, Clock, IdGenerator, Logger, channels
+  healthChecks: [CrmHealthCheck],
+  defaults: {
+    models: { temperature: 0 },
+    router: { model: "typesafe/jev-1.13" }, // model routers without their own
+    guardrail: { model: "typesafe/jev-1.13" }, // guardrails without their own, never the router's
+  },
+})
+export class DeskApplication {}
+```
+
+## Dependency injection
+
+- **One container per application instance, one instance per class**, created at start. A class
+  listed by two workflows is one instance. There are no request scopes: what differs per execution
+  is read from `ExecutionContext`.
+- **A token** is a class or an `InjectionToken<T>` (a constant made once at module level, the one
+  place a `new` is written); a value goes in with `provide(TOKEN, value)` in `providers`.
+  `provide(SomeClass, instance)` is `[di.instance-provider]` — no instances, the container makes them.
+- **Replacement by inheritance**: a dependency on a contract (`Clock`, `IdGenerator`, `Logger`, a
+  store, a channel role, a base service) gets the one listed class that `extends` it; two →
+  `[di.ambiguous-implementation]`, none for a role → `[di.missing-implementation]`. Infrastructure
+  in a workflow's `providers` → `[di.infrastructure-in-workflow]`; a class in `providers` without a
+  decorator → `[di.undecorated-provider]`.
+- **In tests** a class is replaced by a class, never by an instance:
+  `testWith(App, { overrides: [override(CrmClientService, FakeCrmClientService)] })` or the same
+  option of a unit runner, where `FakeCrmClientService extends CrmClientService` (reference 10).
+- **The four hooks**, each optional, `implements OnInit, OnStart, OnStop, OnDestroy`:
+  `onInit()` (dependencies first) → `onStart()` at start (a failure stops the start, naming the
+  component and the hook); `app.close()` → `onStop()` (no new executions) → the running executions
+  awaited up to `shutdownTimeout` → `onDestroy()` (dependants first; failures collected into one
+  error). Open pools and subscriptions in `onStart`, close them in `onDestroy`.
+- **No component state**: fields are `private readonly` constructor parameters; `this.cache = …`
+  fails lint (`agboss/no-component-state`). A cache or a dedup set is a service over external storage.
+
+## The frame-bound tokens
+
+Injected like any dependency, read only while a step runs (outside → `ExecutionContextUnavailableError`,
+`context.unavailable`):
+
+| Token                                  | Gives                                                                                                                                                                                                                                                                                                                                                       |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ExecutionContext`                     | `executionId`, `threadId`, `ownerId`, `tenant` (`tenantId`, `weight`, `.application`), `signal` (the execution's, and in a tool call the call's timeout too), `workflow` (`name`, `version`, `configHash`), `step` (`nodeId`, `visitNumber`, `itemIndex`, `copyNumber`, `callId`, `idempotencyKey`), the tree (`parent`, `root`, `depth`, `executionOf(W)`) |
+| `SpendRecorder`                        | `record({ service, cost: usd(…) })` — a non-model cost of a tool or action, counted in the budgets (`[spend.outside-step]` outside a step)                                                                                                                                                                                                                  |
+| `JudgeModel`                           | a judge's own model: `invoke(text)` on a chat model, `decide({ state, questions })` on a decision model (else `ModelKindError`)                                                                                                                                                                                                                             |
+| `ApplicationContext` / `TenantContext` | the levels above: `environment`, `environmentName`, `instanceId`, `startedAt`; the tenant's `tenantId`, `weight` and the project's fields                                                                                                                                                                                                                   |
+
+- **`step.idempotencyKey`** = `${executionId}:${nodeId}:${visitNumber}[:${itemIndex}][:${callId}]`
+  — the same when a step runs again after a crash. Pass it to every external side effect.
+- **The tree**: `executionContext.root.executionId` is the root execution's id,
+  `executionContext.parent?.executionId` the parent's (a child workflow), `depth` is 1 at the root.
+- **Your own context fields**: subclass `TenantContext` / `ExecutionContext` with DTO field
+  decorators, declare them once in `@Application({ tenantContext, executionContext })` and inject the
+  subclass; the values come per call (`tenant: { tenantId, plan }`, `execution: { userId }`).
+  Identity only — never a secret.
+
+## Judges in short
+
+- `@Judge({ reply })` must match the agent's `output` (`[judge.wrong-reply]` otherwise): a DTO,
+  `oneOf(A, B)`, `listOf(X)`, `listOf(oneOf(A, B))`, or `PlainTextDto` for a text agent.
+- `JudgeInput<TReply>` is `{ variant, reply, task, attempt }`; for a `oneOf` reply narrow with
+  `isVariant(input, OfferDto)` (`input.variant` is the class the answer validated as); a
+  `listOf(oneOf(…))` reply's items are `VariantOf<A | B>` (`{ variant, value }`, narrowed with
+  `isVariant(item, A)`).
+- Verdicts only through `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed({ reason })`; when
+  `maxRetries` are spent the step fails with `QualityGateError` (`rejections: [{ judge, reason }]`).
+
+<!-- snippet-context
+import { Judge, JudgeVerdict, isVariant, oneOf, type JudgeHandler, type JudgeInput } from "agboss";
+import { Integer, Text } from "agboss/dto";
+export class OfferDto {
+  @Integer({ prompt: "the salary offered" })
+  salary!: number;
+}
+export class RefusalDto {
+  @Text({ prompt: "why no offer is made" })
+  reason!: string;
+}
+-->
+
+```ts
+@Judge({ name: "offer-range-judge", model: "moonshotai/kimi-k2.6", reply: oneOf(OfferDto, RefusalDto) })
+export class OfferRangeJudge implements JudgeHandler<OfferDto | RefusalDto> {
+  judge(input: JudgeInput<OfferDto | RefusalDto>): Promise<JudgeVerdict> {
+    if (!isVariant(input, OfferDto)) return Promise.resolve(JudgeVerdict.passed());
+    return Promise.resolve(
+      input.reply.salary > 0 // narrowed: input.reply is an OfferDto here
+        ? JudgeVerdict.passed()
+        : JudgeVerdict.failed({ reason: "the salary must be positive" }),
+    );
+  }
+}
+```
+
+## Arbiters in short
+
+An arbiter decides whether one branch's answer of a parallel launch counts toward a quorum
+(`.acceptedBy(X)`, reference 02). By code: one `@OnAnswer(Agent)` method per agent of the launch,
+typed by that agent's output (`[arbiter.unhandled-agent]`, `[arbiter.unknown-agent]`,
+`[arbiter.duplicate-agent]`); by model: `model`, `prompt` and one `criteria` entry per agent.
+
+<!-- snippet-context
+import { SupportAgent } from "./src/desk/agents/support.agent.js";
+import { DeskAnswerDto } from "./src/desk/dtos/desk.dto.js";
+-->
+
+```ts
+import { Arbiter, DecidedBy, OnAnswer } from "agboss";
+
+@Arbiter({ name: "has-answer-arbiter", decidedBy: DecidedBy.Code })
+export class HasAnswerArbiter {
+  @OnAnswer(SupportAgent)
+  fromSupport(answer: DeskAnswerDto): boolean {
+    return answer.text.trim().length > 0;
+  }
+}
+```
+
+## Settings and their units
+
+- **Defaults cascade** `@Application({ defaults })` → `@Workflow({ defaults })` → the component's own
+  field, field by field — the most specific set value wins: `defaults.models` (`temperature`,
+  `maxTokens`, `reasoning`, `cache`), `defaults.router.model`, `defaults.guardrail.model`,
+  `defaults.tools` (`maxToolCalls`, `maxResultSize`). `npx agboss describe` prints where each value came from.
+- **Reasoning** is `Reasoning.modelDecides()`, `Reasoning.on({ effort: ReasoningEffort.High })`,
+  `Reasoning.on({ budget: { tokens: 2000 } })` or `Reasoning.off()` (`agboss/models`); there is no
+  `thinking` option.
+- **Units** (`agboss/units`): `seconds()`, `minutes()`, `hours()` for every timeout, deadline and
+  retention; `usd()` for money (`Usd`); `kilobytes()` for sizes. A bare number does not compile.
+- **Prompts**: `prompt` inline or `promptUrls` (files next to the component), `{{variables}}` from
+  `promptVariables` checked at assembly (`[prompt.unknown-variable]`). What a node reads arrives in its
+  input message (`### message (from desk-workflow-start)`) — never write `{{input.…}}` in a prompt
+  (`[prompt.input-in-instructions]`).
+- **Memory**: each agent and model router sees the thread's last `uncompactedTurns` turns in full
+  (default 5, `TurnLimit.ALL` = all); older ones are its `compaction`'s summaries
+  (`CompactionStrategy.SummaryQueue` / `SingleSummary` / `None`). Both cascade application →
+  workflow → component; a code router has neither (it does not compile).
+
+## Running the application
+
+<!-- snippet-context
+import { createApp } from "agboss";
+import { DeskApplication } from "./src/desk/desk.application.js";
+import { DeskWorkflowStart } from "./src/desk/desk.workflow.js";
+-->
+
+```ts
+const app = await createApp(DeskApplication, { env: "prod" }); // closes itself on SIGTERM / SIGINT
+
+const controller = new AbortController(); // a caller's cancel, e.g. the client disconnected
+const first = await app.execute(
+  DeskWorkflowStart,
+  { text: "Where is my refund?" }, // typed by the start's input DTO
+  {
+    tenant: { tenantId: "acme" },
+    threadId: "ticket-4821", // the caller's own id: the next turn of the same conversation
+    ownerId: "customer-17", // another owner on this thread → ThreadOwnerError
+    signal: controller.signal,
+    onStream: (event) => {
+      if (event.kind === "textDelta") process.stdout.write(event.delta); // also "toolCall"
+    },
+  },
+);
+console.log(first.executionId, first.threadId, first.output?.text, first.spend.totalUsd);
+
+// a second turn: same threadId → the agent sees the earlier turns (uncompactedTurns, compaction)
+await app.execute(DeskWorkflowStart, { text: "And the second order?" }, {
+  tenant: { tenantId: "acme" },
+  threadId: first.threadId,
+  ownerId: "customer-17",
+});
+
+await app.cancel("ticket-4821", { tenantId: "acme", ownerId: "customer-17" }); // by thread
+const readiness = await app.checkReadiness(); // HealthReport: stores, providers, crm-health-check
+console.log(readiness.status);
+await app.close(); // onStop → running executions awaited → onDestroy
+```
+
+- **`executionId` vs `threadId`**: an execution is one pass of `app.execute` (or a resume); a thread
+  is the conversation of many executions, keyed by `tenantId` + `threadId`. Without a `threadId` a
+  new thread is made (its id in the result); an id the tenant does not have yet creates it.
+- **Cancel** by `app.cancel(threadId, { tenantId, ownerId })` (a running execution fails with
+  `ExecutionCancelledError`, a paused one is dropped) or by the `signal` you passed.
+- After `app.close()` every `execute` / `resume` rejects with `ApplicationStoppingError`.
+
+## Rule codes you will meet here
+
+| Code                                     | Cause → fix                                                                                                                         |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `[name.kind-suffix]`                     | `name: "support"` → `name: "support-agent"` (tools end with `-tool`, knowledge bases `-rag`, …)                                     |
+| `[di.instance-provider]`                 | `provide(CrmClientService, new CrmClientService(…))` → list the class; values only for tokens                                       |
+| `[di.infrastructure-in-workflow]`        | a store, `Clock`, `IdGenerator`, channel or model provider in `@Workflow({ providers })` → move it to `@Application({ providers })` |
+| `[di.ambiguous-implementation]`          | two listed classes `extends` one contract → keep one                                                                                |
+| `[environment.contract-value]`           | a default value in the contract class → move it to `<name>.environment.ts`                                                          |
+| `[environment.missing-field]`            | a listed implementation reads a field the contract lacks (`sqlitePath`) → declare it                                                |
+| `[prompt.input-in-instructions]`         | `{{input.message}}` in a prompt → delete it: the input message carries the field                                                    |
+| `[prompt.unknown-variable]`              | `{{tone}}` without `promptVariables: { tone }` → add it                                                                             |
+| `[judge.wrong-reply]`                    | the judge's `reply` is not the agent's `output` shape → make them the same                                                          |
+| `[compaction.uncompacted-turns-invalid]` | `uncompactedTurns: 0` or a fraction → a whole number from 1, or `TurnLimit.ALL`                                                     |
+| `[health.not-a-health-check]`            | a class in `healthChecks` without `@HealthCheck` → decorate it                                                                      |
+| `[context.not-declared]`                 | a `TenantContext` subclass injected but not declared → `@Application({ tenantContext })`                                            |
+
+## Pitfalls
+
+- `new SomeService()` / `new SomeTool()` anywhere in project code — list classes, inject them.
+- `process.env.X` in a component — read `applicationContext.environment.x` (typed, per environment).
+- A `ctx` parameter on `run` / `execute` — there is none; inject `ExecutionContext`.
+- `Date.now()` / `setTimeout` — inject `Clock` (`clock.now()`, `clock.sleep(seconds(1), signal)`).
+- Ignoring `executionContext.signal` in a slow call: pass it to `fetch` and SDK clients so a cancel,
+  a timeout or a lost lease stops the call.
+- An `onStart` that waits for a slow service with no timeout blocks the start — bound it.
