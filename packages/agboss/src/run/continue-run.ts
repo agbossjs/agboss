@@ -82,8 +82,10 @@ export async function continueRun<TName extends string>(
     return await finishRun(context, state, run.ternId);
   } catch (error) {
     const cause = outcomeError(error, options.signal);
-    throw await recordFailure(cause, () =>
-      deps.terns.complete(run.ternId, failedOutcome(cause, [...run.spent, ...spent])),
+    throw await recordFailure(
+      cause,
+      (ended) => deps.terns.complete(run.ternId, failedOutcome(ended, [...run.spent, ...spent])),
+      deps.compensation?.rootUnwind,
     );
   }
 }

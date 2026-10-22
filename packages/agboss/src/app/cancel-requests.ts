@@ -5,12 +5,12 @@ import type {
 import type { Tern } from "../terns/index.js";
 import type { AppDeps } from "./app-deps.js";
 import type { HeldExecutionLease, RenewalCheck } from "./execution-leases.js";
-import { cancelledErrorOf, cancelledRecordOutcome, type ThreadKey } from "./live-runs.js";
-import { executionEventAt } from "./run-events.js";
-import { forgetTree, treeOf } from "./tree-ends.js";
+import { CompensationFailedError } from "../flow/compensation.js";
+import { endedWithoutPass } from "./ended-tree.js";
+import { cancelledErrorOf, type ThreadKey } from "./live-runs.js";
+import { treeOf } from "./tree-ends.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
-import type { EndedTreeUndo } from "./tree-unwind.js";
 
 /**
  * Cancelling from any instance (#360): `app.cancel` on an instance that does not move the thread's
@@ -66,47 +66,18 @@ export function cancelWatchOf(trees: ExecutionTreeRepository, state: TreeState):
   };
 }
 
-/** The root's record among its thread's last ones; `undefined` when it is not there. */
-async function rootRecordOf(deps: AppDeps, state: TreeState): Promise<Tern | undefined> {
-  const records = await deps.terns.lastTerns(state.tenantId, state.threadId, RECORDS);
-  return records.find((record) => record.runId === state.runId);
-}
-
-/** Fails a `running` or `paused` record as cancelled; `true` when this call did (it is the one). */
-async function failCancelled(deps: AppDeps, record: Tern): Promise<boolean> {
-  const outcome = cancelledRecordOutcome(record.route, record.costUsd);
-  return (
-    (await deps.terns.completeIfStatus(record.id, "running", outcome)) ||
-    (await deps.terns.completeIfStatus(record.id, "paused", outcome))
-  );
-}
-
 /**
- * Ends a tree whose cancel was requested, under its lease and without a pass: its paused run
- * dropped (its pauses withdrawn, #337), its open undoable actions undone (#340 PR 3, under the
- * lease's `signal`), its record failed as cancelled, its keys and pauses forgotten;
- * `onExecutionError` once — only when this call failed the record (a tree another call ended is
- * not observed twice) — with `CompensationFailedError` when an undo failed.
+ * Ends a tree whose cancel was requested, under its lease and without a pass (`ended-tree.ts`): its
+ * open undoable actions undone (#340 PR 3, under `signal`), its record failed as cancelled after
+ * the undo (S7 3); the tree's final error — `CompensationFailedError` when an undo failed (S7 1).
  */
 export async function endCancelled(
   parts: CancelParts,
   state: TreeState,
   signal: AbortSignal,
-): Promise<void> {
-  const { deps, paused } = parts;
-  const stored = await paused.find(state);
-  if (stored?.run.runId === state.runId) await paused.drop(state);
-  const { undoneTreeEnd } = await import("./tree-unwind.js");
-  const undo: EndedTreeUndo = { compensations: [] };
+): Promise<Error> {
   const cause = cancelledErrorOf(state.threadId);
-  const ended: unknown = await undoneTreeEnd(deps, state, { error: cause, signal }, undo);
-  const record = await rootRecordOf(deps, state);
-  const isEnded = record !== undefined && (await failCancelled(deps, record));
-  await forgetTree(parts, state);
-  if (!isEnded) return;
-  const error = ended instanceof Error ? ended : cause;
-  const event = executionEventAt(state, deps);
-  await deps.observer.onExecutionError({ ...event, error, compensations: undo.compensations });
+  return (await endedWithoutPass(parts, state, { cause, signal })).error;
 }
 
 /** A lease just taken (a resume, a recovery): a tree with a request is ended, the lease released. */
@@ -114,14 +85,13 @@ export async function endedAtTake(
   parts: CancelParts,
   state: TreeState,
   lease: HeldExecutionLease,
-): Promise<boolean> {
-  if (!(await isCancelRequested(parts.trees, treeOf(state)))) return false;
+): Promise<Error | undefined> {
+  if (!(await isCancelRequested(parts.trees, treeOf(state)))) return undefined;
   try {
-    await endCancelled(parts, state, lease.signal);
+    return await endCancelled(parts, state, lease.signal);
   } finally {
     await lease.release();
   }
-  return true;
 }
 
 /** A tree about to rest paused with a request: ended as cancelled, and the moving call rejects. */
@@ -136,21 +106,26 @@ export async function endIfCancelledAtRest(
 ): Promise<void> {
   const { result, watch, lease } = rest;
   if (result.status !== ExecutionStatus.Paused || !(await watch.isRequested())) return;
-  await endCancelled(parts, state, lease.signal);
-  throw cancelledErrorOf(state.threadId);
+  throw await endCancelled(parts, state, lease.signal);
 }
 
-/** Ends a tree as cancelled once its lease is held here (waiting for a holder that rests it). */
-async function endHeld(parts: CancelParts, state: TreeState, isWaiting: boolean): Promise<boolean> {
+/**
+ * Ends a tree as cancelled once its lease is held here (waiting for a holder that rests it): its
+ * final error, or `undefined` when its lease was not free.
+ */
+async function endHeld(
+  parts: CancelParts,
+  state: TreeState,
+  isWaiting: boolean,
+): Promise<Error | undefined> {
   const tree = treeOf(state);
   const lease = isWaiting ? await parts.leases.hold(tree) : await parts.leases.tryHold(tree);
-  if (lease === undefined) return false;
+  if (lease === undefined) return undefined;
   try {
-    await endCancelled(parts, state, lease.signal);
+    return await endCancelled(parts, state, lease.signal);
   } finally {
     await lease.release();
   }
-  return true;
 }
 
 /**
@@ -171,12 +146,19 @@ const stateOf = (deps: AppDeps, record: Tern, runId: string): TreeState => ({
   startedVersion: record.configVersion ?? deps.config.version,
 });
 
-/** What became of a requested tree after the request: `true` when it counts as cancelled. */
+/**
+ * What became of a requested tree after the request: `true` when it counts as cancelled; one this
+ * call ended whose undo failed rejects with `CompensationFailedError` (#340 S7 1).
+ */
 async function settled(parts: CancelParts, record: Tern): Promise<boolean> {
   if (record.runId === null) return false;
   const state = stateOf(parts.deps, record, record.runId);
   if (record.status === "running") return true;
-  if (record.status === "paused") return endHeld(parts, state, true);
+  if (record.status === "paused") {
+    const ended = await endHeld(parts, state, true);
+    if (ended instanceof CompensationFailedError) throw ended;
+    return ended !== undefined;
+  }
   // it ended between the request and now: the request is withdrawn with the tree's keys
   await parts.trees.deleteAllInTree(treeOf(state));
   return false;

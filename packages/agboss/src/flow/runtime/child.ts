@@ -21,6 +21,7 @@ import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import type { WorkflowIdentity } from "./step-frame.js";
 import type { ExecutionGraph } from "./build.js";
 import { refuseBeyondMaxDepth } from "./recursion-launch.js";
+import { interruptedUndoOf } from "./child-reentry.js";
 
 /**
  * A child workflow as a step of its parent (#263, S24, S37): the parent's node of `W` runs the
@@ -91,8 +92,15 @@ async function runChild(
   child: ChildGraph,
   parent: ChildParent,
   ended: EndedChild,
-  run: { readonly initial: ExecutionStateUpdate; readonly config: RunnableConfig },
+  run: {
+    readonly initial: ExecutionStateUpdate;
+    readonly config: RunnableConfig;
+    /** Its interrupted undo's error (#340 PR 4): it takes no step, its undo is finished. */
+    readonly interrupted: unknown;
+  },
 ): Promise<{ readonly state: ExecutionStateType; readonly usage: readonly UsageRecord[] }> {
+  if (run.interrupted !== undefined)
+    return failedChild(parent, ended, { error: run.interrupted, last: undefined }, run.config);
   let last: ExecutionStateType | undefined;
   try {
     const states = await child.graph.stream(run.initial, { ...run.config, streamMode: "values" });
@@ -159,9 +167,10 @@ export function childRunner(
     const childConfig = childConfigOf(config, run, ended);
     const initial = initialOf(state, entry, input, entered);
     const undo = { child, run, checkpointer, budgets: pass.budgets };
+    const interrupted = await interruptedUndoOf(deps, entered, frame.execution.tenant.tenantId);
     // the child's body runs as a step body of its parent (#340): an unwind above awaits its undo
     const done = await inStepEntry(deps.stepEntries, frame, () =>
-      runChild(child, { deps, frame, undo }, ended, { initial, config: childConfig }),
+      runChild(child, { deps, frame, undo }, ended, { initial, config: childConfig, interrupted }),
     );
     // the child's PII tokens go back to the parent with its value (#120 S84 i)
     const { piiTokens } = done.state;

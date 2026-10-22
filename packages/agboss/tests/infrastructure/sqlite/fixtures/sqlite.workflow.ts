@@ -20,7 +20,8 @@ import {
   type ExecutionLease,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
-import type { Milliseconds } from "../../../../src/units/index.js";
+import { seconds, type Milliseconds } from "../../../../src/units/index.js";
+import { UnwindLog, UnwindWorkflow } from "../../../flow/runtime/fixtures/unwind.workflow.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { start } from "../../../helpers/flow.js";
 import {
@@ -137,3 +138,16 @@ export class NoteWorkflow {}
   budgets: TEST_BUDGETS,
 })
 export class SqliteNoteApplication {}
+
+/** #340 PR 4 — the undo of `unwind.workflow.ts` on the file: an interrupted one is finished elsewhere. */
+@Application({
+  name: "sqlite-unwind-application",
+  version: "1.0.0",
+  environment: SqliteTestEnvironment,
+  workflows: [UnwindWorkflow],
+  observers: [UnwindLog],
+  providers: [MortalSqliteExecutionLeaseRepository, ...SQLITE_STORES],
+  budgets: TEST_BUDGETS,
+  compensationTimeout: seconds(60),
+})
+export class SqliteUnwindApplication {}

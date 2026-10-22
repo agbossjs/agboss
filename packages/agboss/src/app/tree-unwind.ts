@@ -4,9 +4,11 @@ import { isHandedOver } from "./handed-over.js";
 import type { TreeState } from "./tree-move-types.js";
 
 /**
- * The automatic undo of a tree whose pass rejected (#340 PR 3): loaded only then
+ * The automatic undo of a tree whose execution ends without a finish (#340 PR 3): loaded only then
  * (`app/compensation/root-unwind.ts`); a lost lease or an interruption undoes nothing — another
- * instance goes on with the tree (#265).
+ * instance goes on with the tree (#265). A pass's failure undoes before the root's record is failed
+ * (#340 S7 3, `unwindingDeps`): while the undo runs the record stays `running`, so an instance that
+ * stops or crashes mid-undo leaves it to the recovery sweep, which finishes it (PR 4).
  */
 
 /** What the tree's error event is told of its undo (`ExecutionErrorEvent.compensations`). */
@@ -28,14 +30,18 @@ export async function undoneTreeEnd(
   return done.error;
 }
 
-/** A tree's pass whose rejection first undoes the tree (`undo` gets the records for its event). */
-export function undoingPass<TRun>(
+/**
+ * The run deps of one pass whose failure undoes the tree before the root's record is failed
+ * (`CompensationParts.rootUnwind`); the undo stops on `at.signal` (a lost lease, the app's stop).
+ */
+export function unwindingDeps(
   deps: AppDeps,
   state: TreeState,
   at: { readonly signal: AbortSignal; readonly undo: EndedTreeUndo },
-  pass: () => Promise<TRun>,
-): Promise<TRun> {
-  return pass().catch(async (error: unknown) => {
-    throw await undoneTreeEnd(deps, state, { error, signal: at.signal }, at.undo);
-  });
+): AppDeps {
+  const { compensation } = deps;
+  if (compensation === undefined) return deps;
+  const rootUnwind = (error: unknown): Promise<unknown> =>
+    undoneTreeEnd(deps, state, { error, signal: at.signal }, at.undo);
+  return { ...deps, compensation: { ...compensation, rootUnwind } };
 }

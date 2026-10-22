@@ -17,6 +17,7 @@ export class LiveRuns {
   readonly #inFlight = new Set<Promise<unknown>>();
   /** Set once the app interrupts what still runs at its stop (#265 S51): later runs stop at once. */
   #interrupted: unknown;
+  readonly #interruption = new AbortController();
   /** Set when the instance starts its stop (#367): aborted at the end of its shutdown timeout. */
   #stopDeadline: AbortSignal | undefined;
 
@@ -91,9 +92,18 @@ export class LiveRuns {
    */
   interrupt(reason: unknown): void {
     this.#interrupted ??= reason;
+    if (!this.#interruption.signal.aborted) this.#interruption.abort(reason);
     for (const runs of this.#runs.values()) {
       for (const controller of runs) controller.abort(reason);
     }
+  }
+
+  /**
+   * Aborted with the stop's reason once the app interrupts what still runs (#265 S51) — never by a
+   * cancel: what an automatic undo stops on besides a lost lease (#340 PR 4).
+   */
+  get interruption(): AbortSignal {
+    return this.#interruption.signal;
   }
 
   /** Aborts the thread's runs in flight; `false` when none is running. */

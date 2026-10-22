@@ -25,8 +25,9 @@ export interface RecoverRootParts {
 /**
  * The compatibility check of `app.resume` applies (#261): a root started under another config is
  * continued only when the workflow's `onIncompatibleResume` says "resume" — otherwise it is left
- * to an instance of a compatible version (a rolling deploy) — unless it has a cancel request, which
- * ends it on any instance (#360). The owner is the thread's.
+ * to an instance of a compatible version (a rolling deploy) — unless it has a cancel request (#360)
+ * or its automatic undo was under way (#340 PR 4), which end it on any instance. The owner is the
+ * thread's.
  */
 export const recoverRootOf =
   ({ deps, moves, current, policy }: RecoverRootParts): RecoverRoot =>
@@ -35,8 +36,9 @@ export const recoverRootOf =
     if (runId === null) return;
     const startedVersion = record.configVersion ?? deps.config.version;
     const interrupted = { runId, threadId, tenantId, ternId: record.id, startedVersion };
-    // a cancel requested while its holder was down: ended at once, whatever config it started on (#360)
-    if (await moves.endIfCancelled(interrupted)) return;
+    // a cancel requested, or an undo begun, while its holder was down: ended at once, whatever
+    // config it started on (#360, #340 PR 4)
+    if (await moves.endIfEnding(interrupted)) return;
     const started = {
       workflowVersion: record.configVersion ?? "",
       configHash: record.configHash ?? "",

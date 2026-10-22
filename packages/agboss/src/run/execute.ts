@@ -10,6 +10,7 @@ import type { NewTern, TernOutcome } from "../terns/index.js";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { AgentExecutionDeps } from "./types.js";
 import type { Compacted } from "./compaction.js";
+import type { RootUnwind } from "../flow/runtime/compensation/registry.js";
 
 export type TernBase = Pick<
   NewTern,
@@ -62,13 +63,19 @@ export const outcomeError = (error: unknown, signal: AbortSignal | undefined): u
 /**
  * Writes the failed record of a run that failed (#265: a lost lease or an interruption writes
  * nothing — the record stays `running`, another instance owns it) and returns the error to throw.
+ * A tree's pass first undoes the root (#340 S7 3, `unwind`): the record stays `running` until the
+ * undo ended, then gets its final error (`CompensationFailedError` when an undo failed); an undo
+ * handed over meanwhile writes nothing.
  */
 export async function recordFailure(
   error: unknown,
-  write: () => Promise<unknown>,
+  write: (ended: unknown) => Promise<unknown>,
+  unwind?: RootUnwind,
 ): Promise<unknown> {
-  if (!isHandedOver(error)) await write();
-  return error;
+  if (isHandedOver(error)) return error;
+  const ended = unwind === undefined ? error : await unwind(error);
+  await write(ended);
+  return ended;
 }
 
 /**
