@@ -3,6 +3,17 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the shutdown grace (#367 PR 2)
+
+- **Changed — `app.close()` / SIGTERM** interrupts the running executions a grace before the end
+  of the shutdown timeout — `min(seconds(5), 20 %)` of it (`seconds(25)` → 5 s, `seconds(10)` →
+  2 s) — and spends the grace on the step bodies they left running, then releases the leases and
+  runs `onDestroy`: one `close()` now waits for those bodies, and the process always ends within
+  `shutdownTimeout` ([App → app.close()](App#appcloseoptions),
+  [Several instances](Several-instances#recovery)). Several calls: the stop ends at the earliest end
+  any call set (before: the latest); `close({ timeout: 0 })` stops waiting for the bodies at once.
+  The grace is not a setting; no public API change.
+
 ## Unreleased — committedBy needs compensateWith (#339)
 
 - **Added — `[action.committer-without-compensator]`** ([Rollback](Rollback#what-agboss-check-proves)),

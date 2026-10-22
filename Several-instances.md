@@ -311,15 +311,17 @@ model call holds no lease, and its spend reaches the tree's budgets through the 
 once, whichever instance then moves the tree.
 
 **A graceful stop** (`app.close()`, SIGTERM — [App → app.close()](App#appcloseoptions)) first stops
-the instance's own sweep, waits for its running executions up to the shutdown timeout (default
-`seconds(25)`), then interrupts what is left: each releases its lease and stays `running`, so
-another instance takes it at its next sweep, without waiting for the lease to expire. An
+the instance's own sweep, waits for its running executions, and interrupts what is left a grace
+before the end of the shutdown timeout (default `seconds(25)`; the grace `min(seconds(5), 20 %)` of
+it, #367 S3): each releases its lease and stays `running`, so another instance takes it at its next
+sweep, without waiting for the lease to expire. An
 interrupted pass ends before the step bodies that ignore their signal return (LangGraph's
 `invoke` / `stream` reject first, #340 S2), so the instance tracks every running body — an agent's,
 a router's or an action's visit, a branch, a tool call — per tree, in process (#367): a tree's
 lease is released only once its bodies returned, and `onDestroy` runs only once every body did,
-both at the latest at the end of the shutdown timeout (`app.step-still-running` names a body still
-running then). Another instance therefore never reruns a step — the same action, the same
+both at the latest at the end of the shutdown timeout — the grace is spent on them, so the instance
+ends within its shutdown timeout (`app.step-still-running` names a body still running then;
+`close({ timeout: 0 })` stops waiting at once). Another instance therefore never reruns a step — the same action, the same
 idempotency key — while its first run is still going here.
 
 ## Cancelling from any instance
@@ -575,8 +577,8 @@ export class DeskApplication {}
 - No deadlock: a launch's slot comes before the tree's, the tree's before the instance's, and a
   step holding an instance slot needs nothing else to end. The one exception is your own: a tool
   that calls `app.execute` on the same instance while its step holds a slot needs a slot of its own.
-- At `app.close()` the waiting steps wait with the running ones until the shutdown timeout, then are
-  interrupted like them (`ApplicationStoppingError`, the record stays `running`, the lease released
+- At `app.close()` the waiting steps wait with the running ones until a grace before the end of the
+  shutdown timeout (#367 S3), then are interrupted like them (`ApplicationStoppingError`, the record stays `running`, the lease released
   at once) and another instance [recovers](#recovery) the tree.
 - **Recovery** on a full instance: its sweep starts at most as many recoveries per look as it has
   free step slots — none when it is full — so the orphans go to an idle instance. A look cut short

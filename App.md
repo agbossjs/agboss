@@ -291,16 +291,18 @@ an execution starts, so observers get `onExecutionRejected` (`operation: Executi
 
 1. the instance stops its own [recovery sweep](Several-instances#recovery);
 2. `onStop` of the components;
-3. it waits for the running executions of every workflow to finish or pause — up to the
-   **shutdown timeout**: `@Application({ shutdownTimeout })`, overridden by
+3. it waits for the running executions of every workflow to finish or pause — the whole stop
+   ends within the **shutdown timeout**: `@Application({ shutdownTimeout })`, overridden by
    `app.close({ timeout })`, default `seconds(25)` (under the usual 30 s grace period of a
-   platform and the 30 s lease). When it passes, what still runs is **interrupted**: its call
-   rejects with `ApplicationStoppingError`, without `.onError` or `onExecutionError` (it is no failure), the
-   tree's lease is released and its record stays `running` — so another instance continues
-   it from its last checkpoint without waiting for the lease to expire;
-4. it waits for the **step bodies still running** (#367): an interrupted pass ends before an
-   action's, a router's, an agent's or a tool call's body that ignores its signal has returned, so
-   the instance keeps each tree's lease until that tree's bodies returned — no other instance
+   platform and the 30 s lease). A **grace** before its end — `min(seconds(5), 20 %)` of it
+   (#367 S3: `seconds(25)` → 5 s, `seconds(10)` → 2 s; not a setting) — what still runs is
+   **interrupted**: its call rejects with `ApplicationStoppingError`, without `.onError` or
+   `onExecutionError` (it is no failure), the tree's lease is released and its record stays
+   `running` — so another instance continues it from its last checkpoint without waiting for the
+   lease to expire;
+4. the grace is spent on the **step bodies still running** (#367): an interrupted pass ends before
+   an action's, a router's, an agent's or a tool call's body that ignores its signal has returned,
+   so the instance keeps each tree's lease until that tree's bodies returned — no other instance
    reruns the step meanwhile — and starts `onDestroy` only once every body returned, both at the
    latest at the end of the shutdown timeout. A body still running then is logged once, at
    `LogLevel.Warn` with the code `app.step-still-running` (the execution, its tenant and the step —
@@ -309,9 +311,9 @@ an execution starts, so observers get `onExecutionRejected` (`operation: Executi
 5. `onDestroy`, then MCP connections and tracing are closed.
 
 Every hook runs; failures are collected into one `AggregateError`. Calling it again is fine — with
-a shorter `timeout` it interrupts sooner (`seconds(0)`: interrupt at once); the step bodies still
-get until the latest end any call set (a second Ctrl+C interrupts at once, the bodies keep the
-first call's timeout).
+a shorter `timeout` it interrupts sooner and ends sooner: the stop ends at the earliest end any call
+set, so it never outlives the timeout it was given. `seconds(0)` interrupts at once and stops
+waiting for the step bodies at once (a second Ctrl+C during the grace: `onDestroy` at once).
 
 <!-- snippet-context
 import type { App } from "agboss";
@@ -321,7 +323,7 @@ declare const app: App;
 ```ts
 import { seconds } from "agboss/units";
 
-await app.close({ timeout: seconds(10) }); // what still runs after 10 s moves to another instance
+await app.close({ timeout: seconds(10) }); // interrupted at 8 s, its bodies awaited until 10 s
 ```
 
 **SIGTERM / SIGINT.** `createApp` listens for both and calls `app.close()` (a platform stopping the
