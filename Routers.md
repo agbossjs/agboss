@@ -86,9 +86,9 @@ export class ReviewWorkflow {}
 ```
 
 - The router's `prompt` (or `promptUrls`) says **how** to choose; each route's `prompt` says **what**
-  that choice means. A router without a prompt fails assembly (`router.no-prompt`), an empty route
-  text too (`router.empty-route-text`); `input` is required (`router.empty-input`) — the router sees
-  its fields in its input message, like an agent.
+  that choice means. A route's `prompt` is required by its type (an `OnDemand` route before a launch
+  without one fails assembly, `router.no-prompt`); `input` is required (`router.empty-input`) — the
+  router sees its fields in its input message, like an agent.
 - The flow's `chooseOne(route(…)…)` lists exactly the router's `routes` — as sets, the order does not
   matter (`[router.routes-mismatch]` names what is missing or extra). A target is an agent, an
   action, another router or a finish.

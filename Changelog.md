@@ -3,6 +3,18 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `RuleCode` holds only the codes a rule reports (#386)
+
+- **Breaking — ten `RuleCode` members are removed**: `graph.two-next-steps`,
+  `graph.router-not-last-in-chain`, `graph.cycle-without-router`, `graph.duplicate-node`,
+  `router.self-without-agent-before`, `router.empty-route-text`, `router.unbounded-cycle` (the
+  transition DSL before #272) and `batch.invalid-batch-size`, `batch.invalid-concurrency-limit`,
+  `batch.strategy-not-decorated` (`batchParallel`, removed). No rule reported them; a project that
+  names one (a `switch` over `RuleCode`, a test expecting it) no longer compiles — the codes that
+  replaced them are `[graph.duplicate-node-name]`, `[router.no-prompt]` and
+  `[graph.cycle-without-max-visits]`. The skill's error catalog (reference 11) drops its "reserved"
+  entries; a test checks every `RuleCode` member is reported by some rule.
+
 ## Unreleased — a custom compaction strategy: `CompactionStrategy.Custom` + `CompactionHandler` (#382)
 
 - **Added — `CompactionStrategy.Custom`**
