@@ -2,7 +2,7 @@ import { resolveTools, type AssembledWorkflow, type WorkflowServices } from "../
 import { inputJsonSchema, type JsonSchema } from "../dto/schema.js";
 import { NodeKind } from "../flow/ast.js";
 import { dtoJsonSchemaOf, dtoSchemaHashOf } from "../flow/runtime/join-keys.js";
-import { configSnapshot } from "../run/versions.js";
+import { configSnapshot, type ChildSnapshotSources } from "../run/versions.js";
 import { versionOf } from "../terns/index.js";
 import type { AnyTool } from "../tools/index.js";
 import {
@@ -81,13 +81,17 @@ function schemasOf(bundle: AssembledWorkflow, tools: readonly AnyTool[]): Schema
 const namesOfKind = (bundle: AssembledWorkflow, kind: NodeKind): readonly string[] =>
   [...bundle.graph.nodes.values()].filter((node) => node.kind === kind).map((node) => node.id);
 
-/** The snapshot of one assembled workflow, its tools built with `services`. */
+/**
+ * The snapshot of one assembled workflow, its tools built with `services`; its `configHash` covers
+ * the children `children` finds (#336: the application's workflows, `childSourcesIn`).
+ */
 export function workflowSnapshotOf(
   bundle: AssembledWorkflow,
   services: WorkflowServices,
+  children?: ChildSnapshotSources,
 ): WorkflowSnapshot {
   return {
-    configHash: versionOf(configSnapshot(bundle)),
+    configHash: versionOf(configSnapshot(bundle, children)),
     starts: namesOfKind(bundle, NodeKind.Start),
     finishes: namesOfKind(bundle, NodeKind.Finish),
     nodes: nodesOf(bundle),

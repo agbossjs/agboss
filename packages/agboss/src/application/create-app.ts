@@ -28,6 +28,7 @@ import { assemblyWarningsOf, logStart, warningText } from "./start-log.js";
 import type { ApplicationClass } from "./types.js";
 import { applicationPiiKeyOf, applicationPiiMaskOf } from "./application-pii.js";
 import type { GraphDeps } from "../graph/deps.js";
+import { childrenFirst } from "../flow/analyse/child-workflow.js";
 
 /** An application instance with the parts it was built from (the testing toolkit reads them). */
 export interface BuiltApplication {
@@ -103,8 +104,10 @@ function createListed(assembled: AssembledApplication, workflows: readonly Built
 }
 
 /**
- * Builds every workflow of the application into `built`, in order; a parent compiles its children's
- * graphs from their deps, looked up by class when it runs (#263).
+ * Builds every workflow of the application into `built`: every child before its parents (#336: a
+ * parent's `configHash` covers its children's deps, read at its build), then `built` in the
+ * application's order; a parent compiles its children's graphs from their deps, looked up by class
+ * when it runs (#263).
  */
 async function buildWorkflows(
   assembled: AssembledApplication,
@@ -114,11 +117,18 @@ async function buildWorkflows(
 ): Promise<void> {
   const byClass = new Map<Class, GraphDeps<string>>();
   const childDepsOf = (workflow: Class): GraphDeps<string> | undefined => byClass.get(workflow);
-  for (const bundle of assembled.workflows) {
+  const bundles = new Map(assembled.workflows.map((bundle) => [bundle.graph.type, bundle]));
+  for (const type of childrenFirst([...bundles.keys()])) {
+    const bundle = bundles.get(type);
+    if (bundle === undefined) continue;
     const workflow = await buildApp(bundle, options, { ...parts, childDepsOf });
-    byClass.set(bundle.graph.type, workflow.deps);
+    byClass.set(type, workflow.deps);
     built.push(workflow);
   }
+  const order = [...bundles.keys()];
+  built.sort(
+    (left, right) => order.indexOf(left.bundle.graph.type) - order.indexOf(right.bundle.graph.type),
+  );
 }
 
 /** Closes what the workflows already built opened (a later workflow or a start hook failed). */

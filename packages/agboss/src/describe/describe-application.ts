@@ -3,6 +3,7 @@ import type { DescribedEnvironment } from "../environments/resolve.js";
 import { applicationLines, describedApplicationOf } from "./application.js";
 import { channelLines } from "./channels.js";
 import { describeWorkflow } from "./describe-workflow.js";
+import { childSourcesIn } from "../run/versions.js";
 import { treeLines } from "./tree.js";
 
 /**
@@ -47,7 +48,12 @@ export function describeApplication(
     ...environmentLines(description.environment),
     ...assembled.workflows.flatMap((workflow) => [
       "",
-      ...describeWorkflow(workflow, description.profile ?? "base", description.environment),
+      ...describeWorkflow(
+        workflow,
+        description.profile ?? "base",
+        description.environment,
+        childSourcesIn(assembled.workflows),
+      ),
     ]),
   ];
 }

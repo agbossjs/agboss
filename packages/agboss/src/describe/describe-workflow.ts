@@ -15,7 +15,7 @@ import {
   memoryLines,
   routerModelSource,
 } from "./defaults.js";
-import { configSnapshot } from "../run/versions.js";
+import { configSnapshot, type ChildSnapshotSources } from "../run/versions.js";
 import { shortVersion, versionOf } from "../terns/index.js";
 import { isMcpFacade, type AnyTool } from "../tools/index.js";
 import { NO_ENVIRONMENT_VALUES, type DescribedEnvironment } from "../environments/resolve.js";
@@ -213,6 +213,7 @@ export function describeWorkflow(
   bundle: AssembledWorkflow,
   profile = "base",
   environment?: DescribedEnvironment,
+  children?: ChildSnapshotSources,
 ): string[] {
   const c = bundle.config;
   const tools = new Map(
@@ -223,7 +224,7 @@ export function describeWorkflow(
   const assigned = new Set(Object.values(c.agents).flatMap((agent) => agent.tools ?? []));
   const unassigned = [...tools.keys()].filter((name) => !assigned.has(name));
   return [
-    `${c.name} ${c.version}${profile === "base" ? "" : ` (profile ${profile})`} · config ${shortVersion(versionOf(configSnapshot(bundle)))}`,
+    `${c.name} ${c.version}${profile === "base" ? "" : ` (profile ${profile})`} · config ${shortVersion(versionOf(configSnapshot(bundle, children)))}`,
     ...bundleLines(bundle),
     ...flowSection(bundle),
     ...limitLines(bundle),

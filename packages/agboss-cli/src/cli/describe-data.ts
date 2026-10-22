@@ -15,6 +15,7 @@ import {
   stepsRangeOf,
   shortVersion,
   type AssembledApplication,
+  type ChildSnapshotSources,
   type DescribedEnvironment,
   versionOf,
   workflowSnapshotOf,
@@ -54,6 +55,7 @@ export function describeData(
   bundle: AssembledWorkflow,
   profile = "base",
   environment?: DescribedEnvironment,
+  children?: ChildSnapshotSources,
 ): Record<string, unknown> {
   const c = bundle.config;
   const services = describeServicesWith(environment);
@@ -69,7 +71,7 @@ export function describeData(
     name: c.name,
     version: c.version,
     profile,
-    config: shortVersion(versionOf(configSnapshot(bundle))),
+    config: shortVersion(versionOf(configSnapshot(bundle, children))),
     // its PII policies with their rules and refusals (#120, #268)
     piiPolicies: describedPiiPoliciesOf(bundle),
     flow: flowLines(bundle.graph.flow),
@@ -95,6 +97,6 @@ export function describeData(
     unassignedTools: tools.map((tool) => tool.name).filter((name) => !assigned.has(name)),
     limits: describedLimitsOf(bundle),
     steps: stepsRangeOf(bundle.graph.analysis.graph),
-    ...workflowSnapshotOf(bundle, services),
+    ...workflowSnapshotOf(bundle, services, children),
   };
 }

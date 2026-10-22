@@ -120,6 +120,14 @@ export function checkModelUses(uses: readonly ModelUse[], directory: ModelProvid
 // @public
 export function childLines(analysis: FlowAnalysis): readonly string[];
 
+// Warning: (ae-forgotten-export) The symbol "SnapshotSource" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export type ChildSnapshotSources = (workflow: Class) => SnapshotSource | undefined;
+
+// @public
+export function childSourcesIn(workflows: readonly SnapshotSource[]): ChildSnapshotSources;
+
 // Warning: (ae-forgotten-export) The symbol "AppDepsOptions" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "AppDeps" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ProfileComparison" needs to be exported by the entry point internal.d.ts
@@ -129,15 +137,10 @@ export function compareBundleProfiles(bundle: AssembledWorkflow, names: readonly
     readonly profileRoot?: string;
 }, tasksOf: (base: AppDeps) => Promise<readonly string[]>): Promise<ProfileComparison>;
 
-// Warning: (ae-forgotten-export) The symbol "AgentExecutionDeps" needs to be exported by the entry point internal.d.ts
+// Warning: (ae-forgotten-export) The symbol "SnapshotDeps" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export const configSnapshot: <TName extends string>(deps: Pick<AgentExecutionDeps<TName>, "config" | "prompts" | "graph" | "maxSteps" | "routers" | "compactions"> & {
-    readonly guardrails?: {
-        readonly guardrails: readonly LoadedGuardrail[];
-    } | undefined;
-    readonly pii?: FingerprintDeps["pii"];
-}) => unknown;
+export const configSnapshot: <TName extends string>(deps: SnapshotDeps<TName>, children?: ChildSnapshotSources | undefined) => unknown;
 
 // @public
 export const COST_CATEGORIES: readonly ["agents", "routing", "guards", "review", "tools", "compaction", "retrieval"];
@@ -582,6 +585,7 @@ export type ProviderFetch = typeof fetch;
 // @public
 export function renderTemplate(text: string, variables: Readonly<Record<string, unknown>>, unknown: (key: string) => Error): string;
 
+// Warning: (ae-forgotten-export) The symbol "AgentExecutionDeps" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ReplayReport" needs to be exported by the entry point internal.d.ts
 //
 // @public
@@ -724,7 +728,7 @@ export interface WorkflowSnapshot {
 }
 
 // @public
-export function workflowSnapshotOf(bundle: AssembledWorkflow, services: WorkflowServices): WorkflowSnapshot;
+export function workflowSnapshotOf(bundle: AssembledWorkflow, services: WorkflowServices, children?: ChildSnapshotSources): WorkflowSnapshot;
 
 // @public
 export interface WorstCase {
@@ -895,8 +899,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/models/problems.ts:20:14 - (ae-undocumented) Missing documentation for "problemLine".
 // src/models/uses.ts:10:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/uses.ts:11:3 - (ae-undocumented) Missing documentation for "purpose".
-// src/run/versions.ts:64:29 - (ae-forgotten-export) The symbol "LoadedGuardrail" needs to be exported by the entry point internal.d.ts
-// src/run/versions.ts:65:5 - (ae-forgotten-export) The symbol "FingerprintDeps" needs to be exported by the entry point internal.d.ts
 // src/tools/mcp/facade.ts:107:14 - (ae-undocumented) Missing documentation for "isMcpFacade".
 
 // (No @packageDocumentation comment for this package)
