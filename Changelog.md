@@ -3,6 +3,28 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — a decided quorum withdraws its waiting branches' pauses; channels may withdraw (#337)
+
+- **Added — `withdraw(withdrawal)` on channels** ([Pauses → Taking a question back](Pauses#taking-a-question-back-withdraw-337)):
+  the pair of `send` — a no-op on `ChannelOf` (a role's implementation writes `override`), optional
+  on `ChannelHandler`; `ChannelWithdrawal<TRole>` (root entry) is `{ pauseId, value, resolution:
+  PauseCancellation }`. Called once when a pause the channel sent closes without an answer —
+  `Withdrawn` or `Cancelled` — in the pause's frame, under its tool's `timeout`; never for a pause
+  decided at once or never sent. A throw or a timeout is the warning `channel.withdraw-failed`.
+- **Fixed — a decided quorum withdraws its waiting branches' pauses**: an execution whose
+  `.joinQuorum(…)` / `.joinQuorumGroups(…)` was decided while a branch waited on a channel rested
+  paused (the join never ran); the pending pauses are now withdrawn (`PauseResolution.Withdrawn`)
+  and the join runs in the same call. A deadline passing while the tree rests is acted on by its
+  next pass ([Parallel](Parallel#pause-resume-recovery)).
+- **Fixed — `FailFast` withdraws a paused sibling child's pause** under `.toParallelWorkflows(…)`
+  (and inside a child's own launch): the execution failed to fail, resting paused. A pause record
+  has `branchKeys` (the launch branches it waits under; `SqlitePausedExecutionRepository` keeps
+  them in its JSON column, a record stored before reads with its own step's key).
+- **Changed — `mockOf(Implementation)`** also replaces what a contract that resolves to that class
+  gets (a channel role, any `extends`): before, only a dependency on the class itself got the mock.
+- `PauseResolution.Withdrawn` reads "a `FailFast` sibling failed, or its launch's quorum was
+  decided".
+
 ## Unreleased — a child workflow's change is part of its root's configHash (#336, PR 1)
 
 - **Fixed — a root's `configHash` covers its child workflows**

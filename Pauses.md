@@ -322,7 +322,7 @@ after a crash — finds the same `pauseId`:
 | `Pending`     | waiting; `isSent` once its channel's `send` returned                                     |
 | `Resolved`    | a resume recorded its decision (atomically, from `Pending` only); the holder takes it    |
 | `Taken`       | its step took the decision and went on — or its channel decided at once                  |
-| `Cancelled`   | withdrawn: a sibling failed under `FailFast`, the thread was cancelled, or the tree ended |
+| `Cancelled`   | withdrawn: a sibling failed under `FailFast`, its launch's quorum was decided, the thread was cancelled, or the tree ended |
 
 An answer to anything but `Pending` → `NotPausedError` (`run.not-paused`): a double click, a late
 answer to a withdrawn question. Each record also says how it was resolved (`PauseResolution`), with
@@ -333,7 +333,7 @@ its answer (`answer: PauseAnswer` — the decision, who answered, what reading a
 | ----------------- | --------------------------------------------------------------------- | ----------- |
 | `Decided`         | its channel answered `ChannelOutcome.decided(…)` — the call never paused | `Taken`  |
 | `Replied`         | `awaitReply()`, then `app.resume` (a `decision` or a `reply`)          | `Resolved` → `Taken` |
-| `Withdrawn`       | a `FailFast` sibling failed before an answer                           | `Cancelled` |
+| `Withdrawn`       | a `FailFast` sibling failed, or its launch's quorum was decided, before an answer | `Cancelled` |
 | `Cancelled`       | `app.cancel`, or its tree ended before an answer                       | `Cancelled` |
 
 **Retention** (#267 S107): a resolved record (`Taken`, `Cancelled`) is kept
@@ -384,6 +384,144 @@ without a handler the execution rejects with that same `AgentFailedError`. A cha
 throws (not cancelled) fails the asking agent's step: `AgentFailedError`, the channel's error as its
 `cause` — never a tool error the model reads. A join's
 `deadline` counts elapsed time on the application's `Clock`, pauses included ([Parallel](Parallel)).
+
+**A pause inside a child is its branch's** (#337): a pause records the launch branches it waits
+under — its own step and every step that launched one of its executions — so a `FailFast` failure
+withdraws a sibling **child's** pause under `.toParallelWorkflows(…)` too, at any depth, and the
+execution fails (or takes its `.onJoinError(…)`) in the same call instead of resting paused.
+
+**A decided quorum drops its waiting branches** (#337, [Parallel → Quorums](Parallel#pause-resume-recovery)):
+once a `.joinQuorum(…)` / `.joinQuorumGroups(…)` is decided — `max` counted, a group won, the
+deadline passed, it can no longer be reached, or it is found decided when a resume or a recovery
+rebuilds it — every pending pause of the launch's unfinished branches is withdrawn
+(`PauseResolution.Withdrawn`): the join runs in the same call, `result.pending` is empty and a late
+answer gets `NotPausedError`. A deadline that passes while the tree rests (every branch waiting,
+nothing running) withdraws nothing until the tree moves again: the next pass — a resume, a recovery
+— finds the quorum decided, cancels the unfinished branches and withdraws their pauses then.
+
+## Taking a question back: `withdraw` (#337)
+
+A channel that posted a question somewhere — buttons in Slack, a link in a mail — is told when its
+pause closes without an answer, so it can take the question back instead of leaving buttons that
+lead to `NotPausedError`. `withdraw(withdrawal)` is the pair of `send`: a no-op on `ChannelOf` (a
+role's implementation writes `override`), optional on a concrete `@Channel` (`ChannelHandler`).
+
+<!-- snippet-context
+import { Injectable } from "agboss";
+import { Text } from "agboss/dto";
+@Injectable()
+export class SlackClient {
+  postApproval(_replyKey: string, _text: string): Promise<void> {
+    return Promise.resolve();
+  }
+  closeApproval(_replyKey: string, _text: string): Promise<void> {
+    return Promise.resolve();
+  }
+}
+export class RefundRequest {
+  @Text() orderId!: string;
+}
+// @snippet
+import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "agboss";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+@Tool({ name: "refund-tool", description: "Refunds an order", input: RefundRequest, output: RefundRequest, channel: RefundApprovalChannel })
+export class RefundTool implements ToolHandler<RefundRequest, RefundRequest> {
+  run(input: RefundRequest): Promise<RefundRequest> {
+    return Promise.resolve(input);
+  }
+}
+@Agent({ name: "refund-agent", description: "Refunds", prompt: "Refund.", model: "moonshotai/kimi-k2.6", tools: [RefundTool] })
+export class RefundAgent {}
+@WorkflowStart({ name: "refund-workflow-start", description: "A request", input: WorkflowStartTextDto })
+export class RefundWorkflowStart {}
+@WorkflowFinish({ name: "refund-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
+export class RefundWorkflowFinish {}
+@Workflow({
+  name: "refund-workflow",
+  version: "1.0.0",
+  flow: [start(RefundWorkflowStart).returns(WorkflowStartTextDto).toAgent(RefundAgent).toFinish(RefundWorkflowFinish)],
+  providers: [SlackClient],
+})
+export class RefundWorkflow {}
+@Application({
+  name: "refund-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [RefundWorkflow],
+  providers: [SlackRefundApprovalChannel],
+})
+export class RefundApplication {}
+-->
+
+```ts
+import {
+  Channel,
+  ChannelOf,
+  ChannelOutcome,
+  ChannelRole,
+  ExecutionContext,
+  PauseAnswerer,
+  PauseResolution,
+  type ChannelAsk,
+  type ChannelWithdrawal,
+} from "agboss";
+
+@ChannelRole({
+  name: "refund-approval-channel",
+  description: "Approves a refund",
+  approves: RefundRequest,
+  answeredBy: PauseAnswerer.Channel,
+})
+export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
+
+@Channel({
+  name: "slack-refund-approval-channel",
+  description: "Asks a manager in Slack",
+  deps: [SlackClient, ExecutionContext],
+})
+export class SlackRefundApprovalChannel extends RefundApprovalChannel {
+  constructor(
+    private readonly slackClient: SlackClient,
+    private readonly executionContext: ExecutionContext,
+  ) {
+    super();
+  }
+
+  async send(
+    ask: ChannelAsk<RefundApprovalChannel>,
+  ): Promise<ChannelOutcome<RefundApprovalChannel>> {
+    const { orderId } = ask.value.arguments;
+    const tenantId = this.executionContext.tenant.tenantId;
+    await this.slackClient.postApproval(ask.pauseId, `Refund order ${orderId} (${tenantId})?`);
+    return ChannelOutcome.awaitReply();
+  }
+
+  // called once when a pause this channel sent is withdrawn or cancelled before an answer
+  override async withdraw(withdrawal: ChannelWithdrawal<RefundApprovalChannel>): Promise<void> {
+    const { orderId } = withdrawal.value.arguments;
+    const why = withdrawal.resolution === PauseResolution.Withdrawn ? "no longer needed" : "cancelled";
+    await this.slackClient.closeApproval(withdrawal.pauseId, `Refund of order ${orderId}: ${why}`);
+  }
+}
+```
+
+- **What it gets** — `ChannelWithdrawal<Role>`: the `pauseId` and `value` it was sent, and
+  `resolution: PauseCancellation` — `PauseResolution.Withdrawn` (a `FailFast` sibling failed, the
+  launch's quorum was decided) or `PauseResolution.Cancelled` (`app.cancel`, the tree ended).
+- **Once, by whoever closed the pause** — the closing is one atomic `Pending → Cancelled` change
+  (`cancelByTenantIdAndPauseId`), so of two instances (or a cancel racing a join) exactly one tells
+  the channel. A pause closed while its `send` was still returning is told by its own step, once
+  `send` returned. Never for a pause its channel decided at once (`ChannelOutcome.decided`) or never
+  sent (its `send` threw).
+- **Where it runs** — in the pause's execution frame (its `ExecutionContext`: tenant, the project's
+  fields, the thread's owner, the waiting step), under its tool's `timeout` on the application's
+  `Clock`: `executionContext.signal` aborts at the timeout and the call is cut off.
+- **Best-effort** — a `withdraw` that throws or runs past its timeout is one warning in the log,
+  `channel.withdraw-failed` (`LogLevel.Warn`, the `executionId` / `tenantId`), and nothing else: the
+  join, `.onError` / `.onJoinError` and `app.cancel` go on as if it had returned.
+- Tests: `mockOf(SlackRefundApprovalChannel).withdraw` records the calls
+  (`toHaveBeenCalledTimes(1)`); a contract that resolves to a mocked implementation (a role, any
+  `extends`) gets the mock too.
 
 ## Concurrent answers
 
