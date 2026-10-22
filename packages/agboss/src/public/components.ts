@@ -121,7 +121,12 @@ export {
   type ChannelQuestionRoleOptions,
   type ChannelRoleOptions,
 } from "../channels/channel-role.decorator.js";
-export { ChannelOf, type ChannelAsk, type ChannelHandler } from "../channels/channel-handler.js";
+export {
+  ChannelOf,
+  type ChannelAsk,
+  type ChannelHandler,
+  type ChannelWithdrawal,
+} from "../channels/channel-handler.js";
 export {
   ChannelOutcome,
   ChannelOutcomeKind,

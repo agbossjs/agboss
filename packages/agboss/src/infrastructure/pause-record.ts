@@ -25,7 +25,7 @@ export enum PauseStatus {
    * `pauseRecordRetention`, so a late second answer gets `NotPausedError`.
    */
   Taken = "taken",
-  /** Dropped: withdrawn (a `FailFast` sibling failed) or cancelled; it takes no answer. */
+  /** Dropped: withdrawn (a `FailFast` sibling failed, a quorum was decided) or cancelled. */
   Cancelled = "cancelled",
 }
 
@@ -35,7 +35,7 @@ export enum PauseResolution {
   Decided = "decided",
   /** Its channel awaited a reply (`awaitReply()`) and `app.resume` answered it. */
   Replied = "replied",
-  /** A `FailFast` sibling failed: its branch was cancelled before an answer. */
+  /** A `FailFast` sibling failed, or its launch's quorum was decided, before an answer. */
   Withdrawn = "withdrawn",
   /** `app.cancel`, or its tree ended, before an answer. */
   Cancelled = "cancelled",
@@ -84,6 +84,12 @@ export interface PauseSite {
   readonly toolLoopIteration?: number;
   /** The step's validation attempts when it asked (#268 S93); absent before it. */
   readonly validationAttempts?: number;
+  /**
+   * The launch branches it waits under (#337): the key of its own step and of every step that
+   * launched one of its executions — `${executionId}:${nodeId}:${visitNumber}[:${itemIndex}]` — so a
+   * decided quorum or a `FailFast` failure finds it inside a child too; absent before #337.
+   */
+  readonly branchKeys?: readonly string[];
 }
 
 /** A pause: its id, where it waits, what it asks and where it is. */

@@ -713,12 +713,14 @@ export type ChannelEndEvent = EndEvent<unknown>;
 export interface ChannelHandler<TRole> {
     // (undocumented)
     readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
+    readonly withdraw?: (withdrawal: ChannelWithdrawal<TRole>) => Promise<void>;
 }
 
 // @public
 export abstract class ChannelOf<TRole> implements ChannelHandler<TRole> {
     // (undocumented)
     abstract send(ask: ChannelAsk<TRole>): Promise<ChannelOutcome<TRole>>;
+    withdraw(withdrawal: ChannelWithdrawal<TRole>): Promise<void>;
 }
 
 // @public
@@ -798,6 +800,13 @@ export interface ChannelRoles {
 
 // @public
 export type ChannelStartEvent = StartEvent<unknown>;
+
+// @public
+export interface ChannelWithdrawal<TRole> {
+    readonly pauseId: string;
+    readonly resolution: PauseCancellation;
+    readonly value: ChannelQuestionOf<TRole>;
+}
 
 // @public
 export class ChildExecutionFailedError extends StepFailedError {
@@ -3131,6 +3140,7 @@ export enum PauseResolution {
 
 // @public
 export interface PauseSite {
+    readonly branchKeys?: readonly string[];
     readonly component?: ComponentRecord;
     readonly copyNumber: number;
     readonly executionId: string;
@@ -4723,7 +4733,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/create-app.ts:61:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:10:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:11:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/paused-runs.ts:16:3 - (ae-undocumented) Missing documentation for "run".
+// src/app/paused-runs.ts:19:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/resume.ts:44:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/resume.ts:45:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/resume.ts:53:3 - (ae-undocumented) Missing documentation for "code".
@@ -4755,8 +4765,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/budgets/budget.ts:56:3 - (ae-undocumented) Missing documentation for "scope".
 // src/budgets/budget.ts:57:3 - (ae-undocumented) Missing documentation for "period".
 // src/budgets/budget.ts:58:3 - (ae-undocumented) Missing documentation for "workflow".
-// src/channels/channel-handler.ts:23:3 - (ae-undocumented) Missing documentation for "send".
-// src/channels/channel-handler.ts:31:3 - (ae-undocumented) Missing documentation for "send".
+// src/channels/channel-handler.ts:40:3 - (ae-undocumented) Missing documentation for "send".
+// src/channels/channel-handler.ts:55:3 - (ae-undocumented) Missing documentation for "send".
 // src/channels/channel-outcome.ts:18:3 - (ae-undocumented) Missing documentation for "kind".
 // src/channels/channel-outcome.ts:23:3 - (ae-undocumented) Missing documentation for "kind".
 // src/channels/channel-outcome.ts:24:3 - (ae-undocumented) Missing documentation for "decision".
@@ -5328,7 +5338,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/pause-record.ts:66:3 - (ae-undocumented) Missing documentation for "threadId".
 // src/infrastructure/pause-record.ts:77:3 - (ae-undocumented) Missing documentation for "visitNumber".
 // src/infrastructure/pause-record.ts:78:3 - (ae-undocumented) Missing documentation for "itemIndex".
-// src/infrastructure/pause-record.ts:101:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/pause-record.ts:107:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:46:9 - (ae-undocumented) Missing documentation for "getTuple".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:59:10 - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:74:9 - (ae-undocumented) Missing documentation for "put".

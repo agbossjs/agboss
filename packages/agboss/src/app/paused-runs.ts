@@ -1,9 +1,12 @@
 import { ExecutionStatus } from "./types.js";
 import type { ResumeVersions } from "../run/resume-guard.js";
 import type { AgentExecutionOutput } from "../run/types.js";
-import { PauseResolution, PauseStatus } from "../infrastructure/paused-execution.repository.js";
-import { cancelledPause, logPauseAnswer } from "../infrastructure/pause-record.js";
-import type { PauseSeam } from "../pause/index.js";
+import {
+  PauseResolution,
+  PauseStatus,
+  type PauseCancellation,
+} from "../infrastructure/paused-execution.repository.js";
+import { withdrawPause, type PauseStores } from "../flow/runtime/launch/withdrawn-pauses.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { ThreadKey } from "./live-runs.js";
@@ -28,9 +31,6 @@ export interface PausedRunBook {
   /** The thread's paused run as stored now (`undefined` when none). */
   readonly find: (thread: ThreadKey) => Promise<PausedExecution | undefined>;
 }
-
-/** The pause records and the log of how each was resolved (#267 S107). */
-export type PauseStores = Pick<PauseSeam, "pauses" | "answers">;
 
 export function pausedRunBook(
   stores: PauseStores,
@@ -60,7 +60,7 @@ export function pausedRunBook(
 /**
  * The pauses of a tree that ended (finished, failed, cancelled): the waiting ones are cancelled —
  * `Cancelled` (`PauseResolution.Cancelled`, `at`), so a late answer gets `NotPausedError`, like an
- * answer to one already taken.
+ * answer to one already taken; the channel of a sent one is told (#337).
  */
 export async function withdrawPauses(
   stores: PauseStores,
@@ -68,14 +68,13 @@ export async function withdrawPauses(
   at: Date,
 ): Promise<void> {
   const { tenantId, rootExecutionId } = tree;
-  const { pauses, answers } = stores;
-  const records = await pauses.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId);
-  const cancelled = PauseResolution.Cancelled;
+  const records = await stores.pauses.findAllByTenantIdAndRootExecutionId(
+    tenantId,
+    rootExecutionId,
+  );
+  const resolution: PauseCancellation = PauseResolution.Cancelled;
+  const closing = { resolution, at };
   for (const pause of records) {
-    if (
-      pause.status === PauseStatus.Pending &&
-      (await pauses.cancelByTenantIdAndPauseId(tenantId, pause.pauseId, cancelled, at))
-    )
-      await logPauseAnswer(answers, cancelledPause(pause, cancelled, at), cancelled);
+    if (pause.status === PauseStatus.Pending) await withdrawPause(stores, pause, closing);
   }
 }

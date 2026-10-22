@@ -19,7 +19,7 @@ import {
   type WorkflowDepsParts,
 } from "./app-deps.js";
 import { pausedRunBook } from "./paused-runs.js";
-import { UnknownToolError } from "./parts.js";
+import { UnknownToolError, withPauseWithdrawals } from "./parts.js";
 import { cancelledOutcome, LiveRuns, runOptionsOf } from "./live-runs.js";
 import { executionLeasesOf } from "./execution-leases.js";
 import { treeMovesOf } from "./tree-moves.js";
@@ -87,7 +87,7 @@ export async function buildApp(
   options: AppDepsOptions,
   parts: WorkflowDepsParts,
 ): Promise<BuiltApp> {
-  const deps = await createWorkflowDeps(bundle, options, parts);
+  const deps = withPauseWithdrawals(await createWorkflowDeps(bundle, options, parts));
   const current = {
     workflowVersion: deps.config.version,
     configHash: executionVersions(deps).configHash,
@@ -95,9 +95,10 @@ export async function buildApp(
   const policy = bundle.onIncompatibleResume;
   const pauses = parts.infrastructure.pausedExecutions;
   const log = parts.infrastructure.records;
-  const paused = pausedRunBook({ pauses, answers: log }, current, parts.infrastructure.clock);
-  const live = new LiveRuns();
   const { executionLeases, executionTrees: trees, clock } = parts.infrastructure;
+  // a cancel tells the channels of its sent pauses (#337)
+  const paused = pausedRunBook(deps.pause ?? { pauses, answers: log }, current, clock);
+  const live = new LiveRuns();
   const leases = executionLeasesOf(executionLeases, clock);
   const moves = treeMovesOf({ deps, live, paused, leases, trees, clock });
   const owned = (access: ThreadAccess) => checkThreadOwner(deps.terns, deps.config.name, access);

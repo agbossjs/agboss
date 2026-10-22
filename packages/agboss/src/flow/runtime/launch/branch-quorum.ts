@@ -13,6 +13,7 @@ import type { LaunchRegistry, LiveLaunch } from "./launch-registry.js";
 import { pendingRecordsOf } from "./pending-records.js";
 import { quorumMakerOf } from "./quorum-branch.js";
 import type { BranchScheduler } from "./branch-schedule.js";
+import { launchPausesOf, withdrawBranchPauses, type PauseStores } from "./withdrawn-pauses.js";
 
 /**
  * What a branch of a quorum launch runs on (#279): its launch's entry in this process — a quorum's
@@ -35,6 +36,8 @@ export interface BranchQuorumDeps {
   readonly arbiters?: BranchArbiters;
   /** Where a quorum's finished branches are read back from after a resume or a crash. */
   readonly checkpointer?: BaseCheckpointSaver;
+  /** The application's pauses: a failure or a decided quorum withdraws them (#267 AC10, #337). */
+  readonly pauses?: PauseStores;
 }
 
 /** Where a branch's arbiters run: its launch, its view of the state, what it spent so far. */
@@ -73,7 +76,11 @@ export function liveLaunchOf(
   const { launchId, maxConcurrency, branches } = owner.ticket;
   const { clock } = extractRunContext(config, state.runId);
   const pending = () => pendingRecordsOf(deps.checkpointer, config, launchId);
-  const makeQuorum = quorumMakerOf({ launch: owner.launch, ticket: owner.ticket, clock, pending });
+  const pauses = launchPausesOf(deps.pauses, state, config);
+  const withdraw = (): Promise<void> =>
+    pauses === undefined ? Promise.resolve() : withdrawBranchPauses(pauses, branches);
+  const { launch, ticket } = owner;
+  const makeQuorum = quorumMakerOf({ launch, ticket, clock, pending, withdraw });
   const declared = maxConcurrency ?? Math.max(branches.length, 1);
   const size = deps.scheduler?.slotsOf(declared) ?? declared;
   return deps.registry.liveOf(launchId, size, makeQuorum);
