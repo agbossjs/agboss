@@ -3,6 +3,18 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — code guardrails: `decidedBy: DecidedBy.Code` + `GuardrailHandler` (#383)
+
+- **Added — guardrails decided by code** ([Guards](Guards#decided-by-code)): `@InputGuardrail` /
+  `@OutputGuardrail({ decidedBy: DecidedBy.Code })` — the class's `check(text)` (`implements
+  GuardrailHandler`) returns `GuardrailVerdict.passed()` / `.blocked()` on the masked text; no
+  model call, cost 0; the same refusal (text or `refusal()`), `GuardrailBlockedError` (`probability`
+  1, `threshold` 1), levels, `excludeGuardrails`, events and `testGuardrail`; a throwing `check`
+  fails closed (`GuardFailedError`, its error as `cause`); `[guardrail.missing-handler]`; `agboss
+  describe` prints `decidedBy: code`. `decidedBy` is optional, `DecidedBy.Model` by default: every
+  existing guardrail compiles and hashes as before. New public types `CodeGuardrailTextOptions`,
+  `CodeGuardrailComputedOptions`; `GuardFailedError` takes an optional `cause`.
+
 ## Unreleased — the agboss skill: references 02, 06, 08, 09, 11, 12 and compensation (#305 PR 3)
 
 - **Added — the rest of the coding-agent skill** in `packages/agboss/skills/agboss/references/`: 02

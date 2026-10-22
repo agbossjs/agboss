@@ -10,7 +10,8 @@ on the same levels — `@Application` → `@Workflow` → `@Agent` / `@Router` �
 
 An `@InputGuardrail` checks what an agent's or a model router's model reads; an `@OutputGuardrail`
 checks what an agent answers. Each asks its model one yes / no question — its `prompt` — and blocks
-when the model is at least `threshold` sure the answer is yes.
+when the model is at least `threshold` sure the answer is yes; or, decided by code (#383), its
+class's `check(text)` says ([below](#decided-by-code)).
 
 <!-- snippet-context
 import { ExecutionContext, InputGuardrail, Injectable, OutputGuardrail, type GuardrailRefusal } from "agboss";
@@ -71,6 +72,64 @@ export class NoLegalAdviceGuardrail {}
 **One refusal.** The decorator's overloads make a class without `refusal` implement
 `GuardrailRefusal` (else it does not compile); at assembly, neither is `[guardrail.missing-refusal]`
 and both (a text and a `refusal()` method) is `[guardrail.refusal-twice]`.
+
+### Decided by code
+
+`decidedBy` names who decides, as on `@Router`, `@Arbiter` and `@ReplyInterpreter` (#383):
+`DecidedBy.Model` — the default when absent, so every guardrail above is one — or `DecidedBy.Code`,
+the class's `check(text)` (`implements GuardrailHandler`), which returns `GuardrailVerdict.passed()`
+or `GuardrailVerdict.blocked()` (the only way to build a verdict: a plain `{ isBlocked }` does not
+compile). The options are discriminated by it: a code guardrail takes no `prompt`, `promptUrls`,
+`model` or `threshold` (they do not compile) and needs no `defaults.guardrail.model`.
+
+<!-- snippet-context
+import { DecidedBy, GuardrailVerdict, Injectable, OutputGuardrail, TenantContext, type GuardrailHandler } from "agboss";
+@Injectable()
+export class BlocklistService {
+  containsBlockedTerms(tenantId: string, text: string): Promise<boolean> {
+    return Promise.resolve(tenantId === "acme" && text.includes("competitor"));
+  }
+}
+-->
+
+```ts
+// guardrails/tenant-blocklist.guardrail.ts — the tenant's deny list: no model, cost 0
+@OutputGuardrail({
+  name: "tenant-blocklist-guardrail",
+  description: "Blocks replies containing words forbidden by the tenant",
+  decidedBy: DecidedBy.Code,
+  refusal: "The response contained restricted terms.",
+  deps: [TenantContext, BlocklistService],
+})
+export class TenantBlocklistGuardrail implements GuardrailHandler {
+  constructor(
+    private readonly tenantContext: TenantContext,
+    private readonly blocklistService: BlocklistService,
+  ) {}
+
+  async check(text: string): Promise<GuardrailVerdict> {
+    const hasForbidden = await this.blocklistService.containsBlockedTerms(
+      this.tenantContext.tenantId,
+      text,
+    );
+    return hasForbidden ? GuardrailVerdict.blocked() : GuardrailVerdict.passed();
+  }
+}
+```
+
+Everything else is a model guardrail's: the refusal is the decorator's text or the class's
+`refusal()` (`implements GuardrailHandler, GuardrailRefusal`; one of them, the same rules); `check`
+reads the same text a model guardrail's model reads — **masked** (`<email:7f3a91>`, never the
+address) —, in the step's frame (its services and the execution through `deps`); the levels and
+`excludeGuardrails` are the same, and so are the placement rules (a model router takes the input
+ones, a code router none). `GuardrailVerdict.blocked()` fails the execution with the same
+`GuardrailBlockedError` and its refusal — `probability` 1, `threshold` 1; a pass is `probability` 0
+in `onGuardrailEnd`. A `check` that throws (its error the `cause`) or returns no `GuardrailVerdict`
+fails closed: `GuardFailedError`. No model call, no spend, no `guardrail:<name>` line. A code
+guardrail whose class has no `check(text)` method is `[guardrail.missing-handler]` at assembly.
+`agboss describe` prints `tenant-blocklist-guardrail — output · decidedBy: code · refusal: "The
+response contained restricted terms." · on support-agent`, and `configHash` covers its name, side,
+`decidedBy` and refusal (a model guardrail's entry is unchanged).
 
 ### Where they run
 
@@ -168,7 +227,10 @@ Under `testWith` an unscripted guardrail passes — content checks are not what 
 guardrail is scripted the same way: P(yes) > 0.5 is `true`), and `mockLlm(G).requests` shows the
 masked text it read. On its own, `testGuardrail(G, options)(text, { element })` checks one text —
 its rules first, its refusal computed in a step's frame — and gives `{ isBlocked, probability,
-refusal? }` ([Testing](Testing)).
+refusal? }` ([Testing](Testing)). A code guardrail is never scripted: `testGuardrail(G)` runs its
+`check(text)` on its own container (a `model` option is a `TestSetupError`), `{ isBlocked: true,
+probability: 1, refusal }` or `{ isBlocked: false, probability: 0 }`; under `testWith`, `mockLlm(G)`
+says it calls no model — `mockOf()` the services its `check` uses.
 
 ### Before #120 PR 2
 
