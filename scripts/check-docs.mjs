@@ -51,7 +51,11 @@ function docsFolder(dir) {
 function docsToCheck() {
   if (values.wiki !== undefined) return wikiPages(resolve(values.wiki));
   if (values.docs !== undefined) return values.docs.split(",").map((doc) => resolve(doc));
-  return [...ROOT_DOCS.map((doc) => join(REPO, doc)), ...docsFolder(join(REPO, "docs"))];
+  return [
+    ...ROOT_DOCS.map((doc) => join(REPO, doc)),
+    ...docsFolder(join(REPO, "docs")),
+    ...docsFolder(join(REPO, "packages/agboss/skills")), // the agboss skill (#305)
+  ];
 }
 
 const docs = docsToCheck();

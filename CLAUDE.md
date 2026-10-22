@@ -33,7 +33,7 @@ balancing })` — one limit for every execution, tenant and instance (`RateLimit
     `Decision.noul` / `Decision.choice` / `Decision.score` / `Decision.image` (typed answers);
     `invoke` or `decide` on the wrong kind of model → `ModelKindError`.
   - Agents: cheap chat models (default `moonshotai/kimi-k2.6`) via `@langchain/openai`, each with
-    `maxTokens` (`TokenLimit.MODEL_MAX` = model's maximum), `thinking`, `cache`.
+    `maxTokens` (`TokenLimit.MODEL_MAX` = model's maximum), `reasoning` (`Reasoning.on({ effort })`, `agboss/models`), `cache`.
   - Everything is set in the workflow's components (`@Workflow` with its `flow` of paths,
     `@Router`, `@Agent`) and its application (`@Application`, its `@Budget`s) — reference: Architecture below (compiled by `make check`), then Wiki →
     Workflow, Routers, Components, Configuration (compiled by CI, see Quality gates).
@@ -1275,7 +1275,7 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
   **smallest** window among the agents and routers that use it, so no one loses a turn: a reader
   sees in full its window and every turn its compaction has not summarised yet, and only the
   summaries its turns do not cover. `summaryMaxTokens` is the summary call's `max_tokens` (counted
-  by the model's server, `TokenLimit.MODEL_MAX` allowed, thinking off): cut there → one "shorter" retry, then
+  by the model's server, `TokenLimit.MODEL_MAX` allowed, reasoning off): cut there → one "shorter" retry, then
   `CompactionError` (`compaction`: `compaction`, `summaryMaxTokens`; a failed call is one too, as its
   `cause`) — never a cut summary. A compaction runs lazily, before a new execution's first read of
   its thread (#120 S132), never after a turn: a finished turn's answer is always kept, a thread that
