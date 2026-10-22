@@ -111,15 +111,21 @@ function lazyPauseWithdrawals(depsOf: () => AppDeps): PauseWithdrawn {
   };
 }
 
+/** A workflow's run deps whose pause seam tells channels, and the hook it tells them with. */
+export interface PauseWithdrawals {
+  readonly deps: AppDeps;
+  readonly withdrawn: PauseWithdrawn;
+}
+
 /**
  * The app's run deps with a pause seam that tells a channel its pause was withdrawn (#337): the
  * channels, frames and tools it needs are these deps', made once they are.
  */
-export function withPauseWithdrawals(deps: AppDeps): AppDeps {
-  if (deps.pause === undefined) return deps;
-  const withdrawn = lazyPauseWithdrawals(() => full);
-  const full: AppDeps = { ...deps, pause: { ...deps.pause, withdrawn } };
-  return full;
+export function withWithdrawals(made: AppDeps): PauseWithdrawals {
+  const withdrawn = lazyPauseWithdrawals(() => deps);
+  const deps: AppDeps =
+    made.pause === undefined ? made : { ...made, pause: { ...made.pause, withdrawn } };
+  return { deps, withdrawn };
 }
 
 /**

@@ -48,10 +48,7 @@ export async function withdrawalTreeOf(
 }
 
 /** The graph deps of a workflow of the tree, by name: the given one's, or a child's (#263). */
-export function graphDepsNamed(
-  deps: GraphDeps<string>,
-  name: string,
-): GraphDeps<string> | undefined {
+function graphDepsNamed(deps: GraphDeps<string>, name: string): GraphDeps<string> | undefined {
   if (deps.config.name === name) return deps;
   for (const node of deps.graph.nodes.values()) {
     const child = node.kind === NodeKind.Workflow ? deps.childDepsOf?.(node.component) : undefined;
@@ -61,13 +58,17 @@ export function graphDepsNamed(
   return undefined;
 }
 
+/** The graph deps of the tree's workflow `name`; the given ones when none is so named. */
+export const ownDepsOf = (deps: GraphDeps<string>, name: string): GraphDeps<string> =>
+  graphDepsNamed(deps, name) ?? deps;
+
 /** The workflow a pause waits in, as its frame names it, and its graph deps. */
 function pauseWorkflowOf(
   deps: GraphDeps<string>,
   pause: PauseRecord,
   tree: WithdrawalTree,
 ): { readonly own: GraphDeps<string>; readonly workflow: WorkflowDescriptor } {
-  const own = graphDepsNamed(deps, pause.workflow) ?? deps;
+  const own = ownDepsOf(deps, pause.workflow);
   // the version it started on is the tree's for the workflow given; a child's is its own
   const kept = own === deps ? tree.startedVersion : "";
   const identity = workflowIdentityOf(own);

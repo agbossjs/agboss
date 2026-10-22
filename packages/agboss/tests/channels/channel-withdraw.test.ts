@@ -28,6 +28,11 @@ import { execute } from "../helpers/flow.js";
 import { logged, resetLogged } from "../helpers/log.js";
 import { askFor, until } from "./fixtures/pause-scripts.js";
 import {
+  ChildPausesApplication,
+  ChildRefundAgent,
+  SingleChildWorkflowStart,
+} from "./fixtures/child-pauses.workflow.js";
+import {
   PaymentDeclinedError,
   PayoutConfirmAgent,
   PayoutDeclinedWorkflowFinish,
@@ -150,6 +155,26 @@ describe("#337 AC2: withdraw is called once when a sent pause closes without an 
           executionId: paused.executionId,
           tenantId: "acme",
           agent: "desk-clerk-agent",
+        },
+      ]);
+    },
+  );
+
+  testWith(ChildPausesApplication)(
+    "app.cancel of a pause inside a child: told in the child's execution",
+    async ({ app, mockLlm }) => {
+      mockLlm(ChildRefundAgent).thenReturn(callTool(RefundTool, { orderId: "A" }));
+      const paused = await execute(app, SingleChildWorkflowStart, { orderId: "A" }, ACME);
+      expect(paused.status).toBe(ExecutionStatus.Paused);
+
+      await app.cancel(paused.threadId, { tenantId: "acme" });
+
+      expect(seen.withdrawals).toMatchObject([
+        {
+          orderId: "A",
+          resolution: PauseResolution.Cancelled,
+          executionId: paused.pending[0]?.childExecutionId,
+          agent: "child-refund-agent",
         },
       ]);
     },
