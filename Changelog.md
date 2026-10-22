@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — a custom compaction strategy: `CompactionStrategy.Custom` + `CompactionHandler` (#382)
+
+- **Added — `CompactionStrategy.Custom`**
+  ([Memory management](Memory-Management#a-custom-compaction-compactionstrategycustom-382)): a
+  `@Compaction` class that `implements CompactionHandler` — `compact({ previousSummaries,
+  turnsToCompact })` (`CompactionInput`, each turn a `CompactionTurn`: `startName`, `input`,
+  `finishName`, `output`) returns the summaries readers see from now on; `deps` injected by the
+  container, run in the frame of the execution's start. Counted, run lazily, PII-masked and stored
+  like the built-in strategies; `[compaction.missing-handler]`; `agboss describe` prints `strategy:
+  custom (X.compact())`, the class is part of `configHash`.
+- **Changed — `CompactionError.summaryMaxTokens`** is `SummaryMaxTokens | undefined`: `undefined`
+  for a custom compaction.
+
 ## Unreleased — code guardrails: `decidedBy: DecidedBy.Code` + `GuardrailHandler` (#383)
 
 - **Added — guardrails decided by code** ([Guards](Guards#decided-by-code)): `@InputGuardrail` /

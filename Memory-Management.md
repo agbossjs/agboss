@@ -27,6 +27,7 @@ on the same four levels, again the lowest wins; none anywhere → the window onl
 | `CompactionStrategy.SummaryQueue`  | every `turnsBetweenCompactions` turns older than the window become one self-contained summary; the latest `summaryQueueLength` are kept, the oldest leaves first |
 | `CompactionStrategy.SingleSummary` | one summary, rewritten from the previous summary and the new turns at every compaction                              |
 | `CompactionStrategy.None`          | no summaries: only the window; no model, no prompt, no parameters                                                    |
+| `CompactionStrategy.Custom`        | your class's `compact(input)` gives the summaries (#382, [below](#a-custom-compaction-compactionstrategycustom-382)); `turnsBetweenCompactions` and `deps` only |
 
 `SummaryQueue` and `SingleSummary` need a `model` (a chat model — a decision model is
 `[compaction.decision-model]`); without one the decorator does not compile, and `None` with any
@@ -95,6 +96,75 @@ export class ArchiveAgent {}
 export class CompactingDesk {}
 ```
 
+### A custom compaction: `CompactionStrategy.Custom` (#382)
+
+A compaction whose class writes the summaries itself — a knowledge graph, a vector store, your own
+summariser — `implements CompactionHandler`: one method, `compact(input)`, and its services through
+`deps` (checked against the constructor by the compiler, created by the container at start; an
+`ExecutionContext` reads the execution that is about to start). It takes `turnsBetweenCompactions`
+and nothing of a model's: `model`, `prompt` / `promptUrls`, `summaryQueueLength` and
+`summaryMaxTokens` do not compile with `CompactionStrategy.Custom`, and `agboss check` reports them
+for a class the compiler did not check (`[compaction.invalid-setting]`); a class without a `compact`
+method does not compile either and is `[compaction.missing-handler]` at assembly.
+
+<!-- snippet-context
+import { Compaction, CompactionStrategy, ExecutionContext, Injectable, type CompactionHandler, type CompactionInput, type CompactionTurn } from "agboss";
+@Injectable()
+export class KnowledgeGraphService {
+  saveFactsAndSummarize(
+    _threadId: string,
+    turns: readonly CompactionTurn[],
+    previous: readonly string[],
+  ): Promise<readonly string[]> {
+    return Promise.resolve([...previous, `${String(turns.length)} turns saved`]);
+  }
+}
+-->
+
+```ts
+// compactions/graph-memory.compaction.ts — the facts to a knowledge graph, its summary to readers
+@Compaction({
+  name: "graph-memory-compaction",
+  description: "Keeps the facts of old turns in a knowledge graph",
+  strategy: CompactionStrategy.Custom,
+  turnsBetweenCompactions: 4,
+  deps: [KnowledgeGraphService, ExecutionContext], // KnowledgeGraphService in the workflow's providers
+})
+export class GraphMemoryCompaction implements CompactionHandler {
+  constructor(
+    private readonly knowledgeGraphService: KnowledgeGraphService,
+    private readonly executionContext: ExecutionContext,
+  ) {}
+
+  async compact(input: CompactionInput): Promise<readonly string[]> {
+    return this.knowledgeGraphService.saveFactsAndSummarize(
+      this.executionContext.threadId,
+      input.turnsToCompact,
+      input.previousSummaries,
+    );
+  }
+}
+```
+
+It runs exactly when a model's would — the same window (the smallest `uncompactedTurns` among its
+readers), the same `turnsBetweenCompactions`, lazily before the next turn's first read of the thread.
+`input.turnsToCompact` are the turns due, oldest first, each a `CompactionTurn` — `startName`,
+`input` (the start's input), `finishName`, `output` (the finish's output); `input.previousSummaries`
+are what the last `compact()` gave (none before the first). Both go through the application's and the
+workflow's PII policies first, as a model's input does: `compact()` reads `<email:7f3a91>`, never
+the address. What it returns — at least one summary, none empty — is what readers see from now on,
+in its order: it replaces the previous list. It is revealed (a token back to its value) and stored
+as one summary record of the compaction, covering the thread from its first compacted turn, so the
+next `compact()` reads it back as `previousSummaries`. A `compact()` that throws (its error as
+`cause`), or returns no summary or an empty one, is `CompactionError` (`summaryMaxTokens`
+`undefined`) — the new execution fails before any of its work, as for a model's. It calls no model:
+no spend of its own (masking with a `detectWithModel` policy is counted), `result.compacted` gives
+`summaries` and `summaryQueueLength` as the list's length.
+
+`agboss describe` prints `graph-memory-compaction — strategy: custom (GraphMemoryCompaction.compact())
+every 4 turns · older than 5 turns`; the class is part of the config hash — another class under the
+same name is another configuration.
+
 ### The smallest window among the readers
 
 A compaction is shared by every agent and model router that uses it, and each may see a different
@@ -149,7 +219,9 @@ the way into its model (an agent that excludes a policy reads it as stored).
 **Assembly rules**, all at once: `[name.kind-suffix]` (`-compaction`),
 `[compaction.not-a-compaction]` (a class in `compaction` that is not a `@Compaction`),
 `[compaction.invalid-setting]` (`turnsBetweenCompactions`, `summaryQueueLength`, `summaryMaxTokens`
-not whole numbers from 1), `[compaction.decision-model]`, `[compaction.uncompacted-turns-invalid]`.
+not whole numbers from 1; a model's settings on a custom one), `[compaction.decision-model]`,
+`[compaction.uncompacted-turns-invalid]`, `[compaction.missing-handler]` (a custom one without
+`compact`).
 Every compaction's `model` resolves to one provider by `serves` like any other
 ([Model providers](Model-providers): key `compactions.<name>`). `agboss describe` prints each
 compaction in use with its window, and each agent's `uncompactedTurns` and compaction.
@@ -232,4 +304,6 @@ Register the strategy's own dependencies in the workflow's `providers`
 compaction's model like any other ([Testing](Testing)); `replyWith("…", { truncated: true })` is a
 summary cut at its limit (twice → `CompactionError`), `failWith(ModelFailure.ServerError)` a failed
 call. Unscripted, a compaction writes a fixed summary at no cost; a `None` compaction calls no model
-and has no script. A strategy is a plain class, so its `buildContext` is tested with plain values.
+and has no script. A custom one calls no model either — `mockLlm(GraphMemoryCompaction)` is a setup
+error; `mockOf(KnowledgeGraphService).saveFactsAndSummarize.mockResolvedValue(["…"])` replaces the
+service its `compact()` uses (its calls are `mockOf(…).saveFactsAndSummarize.mock.calls`). A strategy is a plain class, so its `buildContext` is tested with plain values.
