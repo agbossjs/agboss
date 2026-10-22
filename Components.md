@@ -31,7 +31,8 @@ Every component reads the same way, top to bottom:
    - your own implementation → `implements` the contract (`ToolHandler<In, Out>` for `@Tool` /
      `@McpTool`, `ActionHandler<Self>` for `@Action`, `RouterHandler<Self>` for a code `@Router`
      (`decidedBy: DecidedBy.Code`, [Routers](Routers#routers-decided-by-code)), `FinishHandler<Self>`
-     for a `@WorkflowFinish` with `input`, `RagConnector` for `@Rag`, `JudgeHandler<TReply>` for `@Judge`);
+     for a `@WorkflowFinish` with `input`, `RagConnector` for `@Rag`, `JudgeHandler<TReply>` for `@Judge`,
+     `BeforeToolCall` and / or `AfterToolCall` for a `@ToolInterceptor`, [Tools](Tools#tool-interceptors));
    - extending a standard implementation → `extends` it (`SqliteFtsConnector`, `McpServerClient`) and
      mark overridden methods `override` (`noImplicitOverride` is on).
 
@@ -74,6 +75,7 @@ One component per file, the kind in the name; `agboss create` / `agboss generate
 | `mcp/<name>.server.ts`                         | an `@McpServer` and the server tools it uses (`extends McpServerClient`) |
 | `mcp/<name>.mcp.ts`                            | an `@McpTool` — a tool with its server injected                          |
 | `rag/<name>.rag.ts`                            | a `@Rag` knowledge base                                                  |
+| `tool-interceptors/<name>.tool-interceptor.ts` | a `@ToolInterceptor` — before / after an agent's tool calls ([Tools](Tools#tool-interceptors)) |
 | `services/<name>.service.ts`                   | an `@Injectable` (like an Angular service)                               |
 | `helpers/<name>.helper.ts`                     | plain functions                                                          |
 | `environments/<name>.environment.ts`           | an environment's values ([Environments](Environments))                   |
@@ -600,7 +602,7 @@ export class SeenJobsRepository {
 The lint rule `agboss/no-component-state` flags an assignment to `this.x` (`=`, `+=`, `++`) outside
 the constructor of any component the container creates — `@Injectable`, `@Tool`, `@Action`,
 `@Router`, `@WorkflowFinish`, `@Channel`, `@ReplyInterpreter`, `@InputGuardrail` /
-`@OutputGuardrail`, `@PiiPolicy`, `@Judge`, `@Arbiter`, `@Compaction`, `@Budget`, `@HealthCheck`,
+`@OutputGuardrail`, `@ToolInterceptor` (#384), `@PiiPolicy`, `@Judge`, `@Arbiter`, `@Compaction`, `@Budget`, `@HealthCheck`,
 `@ModelProvider` (`agboss/models`), `@McpServer` / `@McpTool` (`agboss/mcp`), `@Rag`
 (`agboss/rag`), `@A2AAgent` (`agboss/a2a`). The list is one module of the framework
 (`src/components/component-decorators.ts`, #402); a test fails when an exported class decorator

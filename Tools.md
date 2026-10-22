@@ -215,6 +215,169 @@ export class Scout {}
   ([Several instances → The execution lease](Several-instances#the-execution-lease)).
 - Tool errors do not fail the run: the model reads `Tool error: …` and continues.
 
+## Tool interceptors
+
+A `@ToolInterceptor` (#384) wraps an agent's calls to its own `@Tool`s and `@McpTool`s — a check
+of the arguments against the tenant, an audit, a rewrite of a result — without touching the tools.
+Its class implements `BeforeToolCall`, `AfterToolCall` or both: two one-method interfaces, so a
+class never writes an empty second method. A class with neither does not compile (and is
+`[tool-interceptor.missing-handler]` at assembly); its `name` ends with `-tool-interceptor`
+(`[name.kind-suffix]`); its `deps` are injected by the container like any component's.
+
+<!-- snippet-context
+import { TenantContext } from "agboss";
+import { ListOf, Text } from "agboss/dto";
+export class JobScoutTenantContext extends TenantContext {
+  @ListOf(Text)
+  allowedCities!: string[];
+}
+-->
+
+```ts file=src/scout/tenant-scope.tool-interceptor.ts
+import {
+  ToolCallDecision,
+  ToolInterceptor,
+  type AfterToolCall,
+  type BeforeToolCall,
+  type ToolCallContext,
+  type ToolCallResultContext,
+} from "agboss";
+
+@ToolInterceptor({
+  name: "tenant-scope-tool-interceptor",
+  description: "Checks that tool arguments respect the tenant's allowed cities",
+  deps: [JobScoutTenantContext],
+})
+export class TenantScopeToolInterceptor implements BeforeToolCall {
+  constructor(private readonly jobScoutTenantContext: JobScoutTenantContext) {}
+
+  beforeToolCall(call: ToolCallContext): ToolCallDecision {
+    if (
+      typeof call.input === "object" &&
+      call.input !== null &&
+      "city" in call.input &&
+      typeof call.input.city === "string" &&
+      !this.jobScoutTenantContext.allowedCities.includes(call.input.city)
+    ) {
+      return ToolCallDecision.replyToModel({
+        message: `City "${call.input.city}" is not allowed for this tenant.`,
+      });
+    }
+    return ToolCallDecision.allow();
+  }
+}
+
+@ToolInterceptor({ name: "result-stamp-tool-interceptor", description: "Marks results as checked" })
+export class ResultStampToolInterceptor implements AfterToolCall {
+  afterToolCall(call: ToolCallResultContext): unknown {
+    return call.output; // the result the model reads: the tool's, or a replacement of its shape
+  }
+}
+```
+
+**Levels.** `toolInterceptors: [...]` on `@Application` → `@Workflow` → `@Agent` → `@Tool` /
+`@McpTool`: the lists add up, outer first, each class once. `excludeToolInterceptors: [...]` on an
+agent removes one its application or workflow lists; on a tool, one listed above it (by its
+application, its workflow or an agent that calls it) — excluding one nothing above lists is
+`[tool-interceptor.exclude-not-inherited]`, a class in a list that is not a `@ToolInterceptor` is
+`[tool-interceptor.not-an-interceptor]`. A child workflow gets its own workflow's lists over the
+application's.
+
+**`beforeToolCall(call)` decides**, in list order (outer first); the first decision that is not
+`allow()` ends the chain:
+
+| Decision                                   | The tool | The step                                                                                         |
+| ------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------ |
+| `ToolCallDecision.allow()`                 | runs     | goes on (the next interceptor decides first)                                                     |
+| `ToolCallDecision.replyToModel({ message })` | not called | goes on: the model reads `message` as the call's text result in its loop and may try again      |
+| `ToolCallDecision.block({ reason })`       | not called | fails at once: `ToolBlockedError` (`step.tool-blocked`, a `StepFailedError`: `agent`, `tool`, `interceptor`, `reason`) |
+
+A decision is built only by its factories (a plain object does not compile); in tests compare it
+with `toEqual(ToolCallDecision.replyToModel({ message }))`. `.onError(ToolBlockedError, …)` (or
+`StepFailedError`) right after the agent takes a block; the error carries the loop's spend, so the
+record and the ledger keep it.
+
+**`afterToolCall(call)` replaces the result**, in reverse order (inner first), on a successful
+call only — a tool error goes to the model as it is. `call.output` is the tool's result (or what an
+inner interceptor gave); the value returned is validated against the tool's output DTO before the
+next one reads it.
+
+**The order of one call**: the arguments' PII block rules → each `beforeToolCall` — the arguments
+as the tool gets them, PII tokens revealed (`alice@example.com`, never `<email:7f3a91>`), not
+validated yet (`call.input` is `unknown`: narrow it) → the tool → each `afterToolCall` → the
+`maxResultSize` cut ([Result size](#result-size)) → the PII policies' masking. A `replyToModel`
+message is cut and masked the same way.
+
+**In the call's frame**: an injected `ExecutionContext` reads the tool call — `step.callId`,
+`step.idempotencyKey` with the call id, the call's `signal` (the execution's and the tool's
+`timeout`). The interceptors themselves have no timer of their own.
+
+**Failures.** An interceptor that throws, returns no `ToolCallDecision` or an output its tool does
+not give fails the step: `AgentFailedError`, its error as the `cause` (`ScopeServiceDownError`,
+`TypeError`, `DtoValidationError`), so `.onError(DomainError, …)` takes it through the cause; the
+tool does not run after a failed `beforeToolCall`.
+
+**What is intercepted**: an agent's calls to the project's `@Tool` / `@McpTool` classes — never
+its answer tools, a knowledge base's `search-…-tool`, or a tool called on its own (over MCP,
+`createMcpService`).
+
+**Visible**: `agboss describe` prints
+
+```
+tool interceptors
+  audit-tool-interceptor — before, after · on scout-agent: job-search-tool, ping-tool
+  tenant-scope-tool-interceptor — before · on scout-agent: job-search-tool, company-tool, ping-tool
+```
+
+(`tool interceptors none` without one), `describe --json` each agent's `toolInterceptors` by tool
+(only an agent that has one), and `configHash` covers each interceptor's methods and every chain —
+a workflow without one keeps its hash.
+
+**Tests**: on the whole application they run as in production; one on its own with
+`testToolInterceptor` ([Testing](Testing)):
+
+<!-- snippet-context
+import { Tool, ToolCallDecision, type ToolHandler } from "agboss";
+import { Text } from "agboss/dto";
+import { testToolInterceptor } from "agboss/testing";
+import { JobScoutTenantContext, TenantScopeToolInterceptor } from "./src/scout/tenant-scope.tool-interceptor.js";
+import { expect, it } from "vitest";
+export class CityQuery {
+  @Text({ prompt: "the city" })
+  city!: string;
+}
+export class CityJobs {
+  @Text({ prompt: "the jobs" })
+  listing!: string;
+}
+@Tool({ name: "city-jobs-tool", description: "Jobs in a city", input: CityQuery, output: CityJobs })
+export class CityJobsTool implements ToolHandler<CityQuery, CityJobs> {
+  run({ city }: CityQuery): Promise<CityJobs> {
+    return Promise.resolve({ listing: `Engineer in ${city}` });
+  }
+}
+-->
+
+```ts
+it("a city outside the tenant's goes back to the model", async () => {
+  const scope = testToolInterceptor(TenantScopeToolInterceptor, {
+    tenantContext: JobScoutTenantContext,
+    tenant: { tenantId: "acme", allowedCities: ["Haifa"] },
+  });
+
+  const { output } = await scope.beforeToolCall(CityJobsTool, { city: "Eilat" });
+
+  expect(output).toEqual(
+    ToolCallDecision.replyToModel({ message: 'City "Eilat" is not allowed for this tenant.' }),
+  );
+});
+```
+
+`beforeToolCall(Tool, input)` → `{ output: ToolCallDecision, spend }`, `afterToolCall(Tool, input,
+output)` → `{ output, spend }` (validated against the tool's output DTO); each call runs in the frame
+of a call to that tool (`step.callId` `test-call`) for the tenant and execution given; a method the
+class does not have is a `TestSetupError`, a broken rule a `GraphRuleError`.
+
 ## For the model
 
 `toolDefinitionOf(tool)` describes a tool to the agent's chat model (`bindTools`): name, description

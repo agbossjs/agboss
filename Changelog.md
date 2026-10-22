@@ -3,6 +3,26 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — tool interceptors: `@ToolInterceptor` + `BeforeToolCall` / `AfterToolCall` (#384)
+
+- **Added — `@ToolInterceptor`** ([Tools](Tools#tool-interceptors)): a class that implements
+  `BeforeToolCall` (`beforeToolCall(call: ToolCallContext)` → `ToolCallDecision.allow()` /
+  `.replyToModel({ message })` / `.block({ reason })`) and / or `AfterToolCall`
+  (`afterToolCall(call: ToolCallResultContext)` → the result the model reads), listed in
+  `toolInterceptors` of `@Application` → `@Workflow` → `@Agent` → `@Tool` / `@McpTool` (outer first),
+  removed with `excludeToolInterceptors` on an agent or a tool. `replyToModel` answers the model
+  without calling the tool; `block` fails the step with the new `ToolBlockedError`
+  (`step.tool-blocked`, a `StepFailedError`); a throwing interceptor fails it with
+  `AgentFailedError` (its error the `cause`). `beforeToolCall` reads the arguments PII-revealed; the
+  result after `afterToolCall` is validated, cut at `maxResultSize`, then masked. Rule codes
+  `[tool-interceptor.not-an-interceptor]`, `[tool-interceptor.exclude-not-inherited]`,
+  `[tool-interceptor.missing-handler]`; `agboss describe` prints `tool interceptors`, `describe
+  --json` each agent's chains, `configHash` covers them (a workflow without one keeps its hash);
+  `testToolInterceptor` in `agboss/testing`. Replaces the tool hooks removed in #120 S123.
+- **Changed (internal)** — the framework's own per-call tool context is `ToolInvocationContext` now;
+  `ToolCallContext` is the interceptor's (root entry).
+
+
 ## Unreleased — `agboss/eval`: `@EvalSuite` and code judges (#396 PR 1)
 
 - **Added — the entry `agboss/eval`** ([Eval suites](Eval-Suites)): `@EvalSuite({ name, description,
