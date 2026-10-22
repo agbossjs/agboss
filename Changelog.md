@@ -27,6 +27,17 @@ Breaking changes and notable additions, newest first. The API reports
   ([FinOps](FinOps)).
 - README: "declared action compensation (`compensateWith` / `committedBy`)" is back in the feature
   line.
+## Unreleased — agboss check never prints ok without written types (#376)
+
+- **Fixed — `agboss check` printed `ok` when type generation found no workflow** ([CLI](CLI)): an
+  application module outside `src/` that does not export its workflows wrote no
+  `.agboss/types.d.ts`. Now it is `[types.no-flow]` (a CLI problem, not a `RuleCode`), naming the
+  application file and the fix — `export { MyWorkflow }` from it, or keep it in `src/` beside its
+  `*.workflow.ts` files — exit 3, in the printed problems and in `--json`. How workflows are found
+  is unchanged.
+- **Fixed — a DTO name clash inside one workflow names both files**: `[dto.duplicate-name]` said
+  "(unknown file)"; the diagnostic of type generation, which names the files, is kept instead.
+
 ## Unreleased — a DTO name clash fails agboss check (#371)
 
 - **Fixed — `agboss check` printed `ok` without writing `.agboss/types.d.ts`** ([Workflow](Workflow#generated-types),
