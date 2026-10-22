@@ -1,0 +1,28 @@
+# {{title}} — instructions for coding agents
+
+This is an [AGBoss](https://agboss.dev) application (`{{application}}`).
+
+Before writing or changing any AGBoss code, read `.claude/skills/agboss/SKILL.md` — it is the
+framework's own guide for the installed `agboss` version and routes each task to one reference:
+
+| Task                                                        | Read                                                                     |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Designing a workflow, its DTOs                              | `.claude/skills/agboss/references/01-composition-and-architecture.md`    |
+| Writing `*.workflow.ts` paths, `.onError`                   | `.claude/skills/agboss/references/02-flow-dsl-all-combinations.md`       |
+| Components, DI, lifecycle hooks, `app.execute`              | `.claude/skills/agboss/references/03-components-di-and-lifecycle.md`     |
+| MCP servers and tools, A2A agents                           | `.claude/skills/agboss/references/04-mcp-and-a2a.md`                     |
+| Approvals, pauses, channels, `app.resume`                   | `.claude/skills/agboss/references/05-channels-and-human-in-the-loop.md`  |
+| Budgets, model providers, retries, rate limits              | `.claude/skills/agboss/references/06-finops-providers-and-queues.md`     |
+| Guardrails, PII policies                                    | `.claude/skills/agboss/references/07-guardrails-pii-and-security.md`     |
+| Execution records, observers, tracing                       | `.claude/skills/agboss/references/08-observability-and-tracing.md`       |
+| Storage, recovery, shutdown, health checks, deploys         | `.claude/skills/agboss/references/09-persistence-k8s-and-deploy.md`      |
+| Tests: unit runners, `testWith`, VCR, evals                 | `.claude/skills/agboss/references/10-testing-vcr-and-evals.md`           |
+| A `[rule.code]` error, a CLI command                        | `.claude/skills/agboss/references/11-cli-studio-and-error-catalog.md`    |
+| A whole feature or application from scratch                 | `.claude/skills/agboss/references/12-end-to-end-recipes.md`              |
+
+The loop after every change: `npx agboss generate …` → `npx agboss check` → `npx agboss describe` → `npm test`.
+
+`.claude/skills/agboss/` is managed by `agboss check` and replaced on every `agboss` upgrade —
+put this project's own rules below, never there.
+
+## Project rules

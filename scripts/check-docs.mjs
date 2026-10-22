@@ -4,7 +4,9 @@
 //      generated `.agboss/types.d.ts` of the doc's workflows (#272, docs/flow-types.mjs) (conventions — file=, no-check: <reason>, <!-- snippet-context --> — in scripts/docs/snippets.mjs);
 //   2. every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention exists, and so does every
 //      `agboss …` the CLI's own sources print;
-//   3. the ts blocks that build paths have one call per line in their chains (#289, docs/flow-lint.mjs).
+//   3. the ts blocks that build paths have one call per line in their chains (#289, docs/flow-lint.mjs);
+//   4. the project skills (packages/agboss/skills/**, #305): their header, codes and matrix coverage
+//      (docs/skills.mjs).
 // Options: --docs a.md,b.md (default: the root docs and docs/**), --wiki <dir> (instead: every page
 // of a GitHub Wiki checkout, whose links to other pages must name existing pages; CI clones the
 // wiki and runs this — #240), --out <dir> (keep the written snippets there; default a temporary
@@ -28,9 +30,12 @@ import { commandProblems, knownOf, referenceProblems } from "./docs/references.m
 import { wikiLinkProblems, wikiPages } from "./docs/wiki.mjs";
 import { writeDocTypes } from "./docs/flow-types.mjs";
 import { flowLintProblems } from "./docs/flow-lint.mjs";
+import { skillsProblems } from "./docs/skills.mjs";
 
 const REPO = realpathSync(new URL("..", import.meta.url).pathname);
 const ROOT_DOCS = ["README.md", "CLAUDE.md", "QUALITY.md", "WORKFLOW.md"];
+// the project skills shipped with agboss (#305): checked like every doc, plus docs/skills.mjs
+const SKILLS_FOLDER = "packages/agboss/skills";
 
 const { values } = parseArgs({
   options: {
@@ -54,7 +59,7 @@ function docsToCheck() {
   return [
     ...ROOT_DOCS.map((doc) => join(REPO, doc)),
     ...docsFolder(join(REPO, "docs")),
-    ...docsFolder(join(REPO, "packages/agboss/skills")), // the agboss skill (#305)
+    ...docsFolder(join(REPO, SKILLS_FOLDER)),
   ];
 }
 
@@ -66,10 +71,12 @@ prepareRoot(root, REPO);
 const known = knownOf(REPO, cliCommands(REPO));
 
 const problems = [];
+const read = [];
 let compiled = 0;
 for (const path of docs) {
   const doc = relative(process.cwd(), path) || path;
   const markdown = readFileSync(path, "utf8");
+  read.push({ doc, path, markdown });
   const snippets = snippetsOf(markdown, doc);
   problems.push(...conventionProblems(snippets), ...referenceProblems(doc, markdown, known));
   problems.push(...flowLintProblems(snippets));
@@ -79,6 +86,7 @@ for (const path of docs) {
   const typed = await writeDocTypes(folder, doc, files);
   problems.push(...typed.problems, ...typecheck(root, files, typed.types));
 }
+if (values.wiki === undefined) problems.push(...(await skillsProblems(REPO, read)));
 if (!values["no-cli-sources"] && values.wiki === undefined)
   for (const { place, text } of sourceLines(REPO))
     for (const problem of commandProblems(text, known).filter((line) => line.includes("agboss ")))

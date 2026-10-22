@@ -69,6 +69,10 @@ describe("agboss create / agboss generate end to end", () => {
 
     const out = check();
 
+    // #305 AC3: the coding agents' files; the skills create wrote are current for agboss check
+    for (const file of ["AGENTS.md", "CLAUDE.md", ".claude/skills/agboss/SKILL.md"])
+      expect(existsSync(join(project, file)), file).toBe(true);
+    expect(agbossIn(project, ["check"]).out).not.toContain("skills:");
     expect(out).toContain("desk-workflow 0.1.0");
     // #272: the generated workflow is one path — start → main router → an agent → the finish
     expect(out).toContain(FLOW_OF(["TriageAgent", "AnswererAgent"]));

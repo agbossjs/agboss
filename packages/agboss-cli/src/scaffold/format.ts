@@ -54,6 +54,7 @@ export async function formatFiles(
   if (prettier === undefined) return [...files];
   return Promise.all(
     files.map(async (file) => {
+      if (file.isVerbatim === true) return file;
       const filepath = join(root, file.path);
       const { inferredParser } = await prettier.getFileInfo(filepath);
       if (inferredParser === null) return file;
