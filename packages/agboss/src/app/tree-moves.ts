@@ -156,18 +156,29 @@ class TreeMover implements TreeMoves {
     return announceResume(this.parts.deps.observer, event, reason, resume);
   }
 
-  /**
-   * Passes until the tree finishes or rests paused with no recorded answer left (the drain, Q58);
-   * the pauses each pass took are marked `Taken` once it returned; the lease released at the end;
-   * the record's pause answers read last.
-   */
-  private async drained(
+  /** The drain, in flight until its lease is released (what the graceful stop awaits, #367). */
+  private drained(
     state: TreeState,
     call: TreeCall,
     lease: HeldExecutionLease,
     first: PlannedPass,
   ): Promise<ExecutionOutput> {
-    const { deps } = this.parts;
+    return this.parts.live.moving(this.drain(state, call, lease, first));
+  }
+
+  /**
+   * Passes until the tree finishes or rests paused with no recorded answer left (the drain, Q58);
+   * the pauses each pass took are marked `Taken` once it returned; the lease released at the end —
+   * while the instance stops, only after the tree's running step bodies returned (#367); the
+   * record's pause answers read last.
+   */
+  private async drain(
+    state: TreeState,
+    call: TreeCall,
+    lease: HeldExecutionLease,
+    first: PlannedPass,
+  ): Promise<ExecutionOutput> {
+    const { deps, live } = this.parts;
     try {
       // a cancel requested on another instance stops the passes at a renewal (#360)
       const watch = (await cancelRequests()).cancelWatchOf(this.parts.trees, state);
@@ -194,6 +205,7 @@ class TreeMover implements TreeMoves {
       if (!isHandedOver(error)) await this.forget(state);
       throw error;
     } finally {
+      await live.stepsClosed(treeOf(state), deps.stepEntries);
       await lease.release();
     }
   }

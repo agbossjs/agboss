@@ -22,6 +22,7 @@ import type { JudgeInstance } from "../components/judge-decorators.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { Clock, IdGenerator } from "../infrastructure/clock.js";
 import type { StepSlots } from "../app/step-slots.js";
+import type { StepEntries } from "../flow/runtime/step-entries.js";
 
 /** What the workflow's graph is built from: its analysed paths, its agents and their parts. */
 export interface GraphDeps<TName extends string> {
@@ -89,6 +90,8 @@ export interface GraphDeps<TName extends string> {
    * every workflow of the instance; absent = no cap.
    */
   readonly stepSlots?: StepSlots | undefined;
+  /** The instance's running step bodies (#367): what its graceful stop awaits. */
+  readonly stepEntries?: StepEntries | undefined;
   /** A component instance from the app's container: actions and finishes with a handler. */
   readonly container: { readonly get: <T>(token: Class<T>) => T };
 }

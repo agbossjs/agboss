@@ -235,6 +235,6 @@ export type ExecutionGraph = ReturnType<typeof compile>;
 
 /** Builds the workflow's graph for one pass of an execution (its budgets, its tree's slots). */
 export function executionGraphOf(deps: GraphDeps<string>, run: RunLimits): ExecutionGraph {
-  const slots = new TreeSlotRegistry(deps.stepSlots);
+  const slots = new TreeSlotRegistry(deps.stepSlots, deps.stepEntries);
   return compile(deps, { ...run, slots }, deps.pause?.checkpointer);
 }

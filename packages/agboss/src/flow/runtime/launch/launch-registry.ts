@@ -2,6 +2,7 @@ import type { UsageRecord } from "../../../finops/usage.js";
 import type { Clock } from "../../../infrastructure/clock.js";
 import type { LiveQuorum } from "./quorum-branch.js";
 import type { StepSlots } from "../../../app/step-slots.js";
+import type { StepEntries } from "../step-entries.js";
 import {
   holdOnce,
   SlotQueue,
@@ -209,8 +210,14 @@ export class TreeSlots {
 export class TreeSlotRegistry {
   readonly #trees = new Map<string, TreeSlots>();
 
-  /** `instance`: the application instance's step slots (#332), when it caps them. */
-  constructor(readonly instance?: StepSlots) {}
+  /**
+   * `instance`: the application instance's step slots (#332), when it caps them; `steps`: its
+   * running step bodies (#367), when it runs in an application.
+   */
+  constructor(
+    readonly instance?: StepSlots,
+    readonly steps?: StepEntries,
+  ) {}
 
   /** The tree's slots, made on its first claim with the root's cap. */
   slotsOf(rootExecutionId: string, maxConcurrentExecutions: number, clock: Clock): TreeSlots {

@@ -9,6 +9,7 @@ import type { ExecutionTracing } from "../tracing/index.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { GraphDeps } from "../graph/deps.js";
 import type { StepSlots } from "./step-slots.js";
+import type { StepEntries } from "../flow/runtime/step-entries.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 
 /**
@@ -85,16 +86,23 @@ export const closeOf =
     }
   };
 
+/** What the instance gives each workflow's tree (#263, #332, #367). */
+export interface TreeParts {
+  readonly childDepsOf?: ((workflow: Class) => GraphDeps<string> | undefined) | undefined;
+  readonly stepSlots?: StepSlots | undefined;
+  readonly stepEntries?: StepEntries | undefined;
+}
+
 /**
  * What a workflow's deps make its tree with: its ids (#313), its children's deps when given (#263),
- * the instance's step slots when the application caps them (#332).
+ * the instance's step slots when the application caps them (#332), its running step bodies (#367).
  */
 export const treeDepsOf = (
   idGenerator: IdGenerator,
-  childDepsOf: ((workflow: Class) => GraphDeps<string> | undefined) | undefined,
-  stepSlots?: StepSlots,
-): Pick<GraphDeps<string>, "childDepsOf" | "idGenerator" | "stepSlots"> => ({
+  { childDepsOf, stepSlots, stepEntries }: TreeParts,
+): Pick<GraphDeps<string>, "childDepsOf" | "idGenerator" | "stepSlots" | "stepEntries"> => ({
   idGenerator,
   ...(childDepsOf === undefined ? {} : { childDepsOf }),
   ...(stepSlots === undefined ? {} : { stepSlots }),
+  ...(stepEntries === undefined ? {} : { stepEntries }),
 });

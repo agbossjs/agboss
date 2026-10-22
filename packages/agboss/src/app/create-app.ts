@@ -60,7 +60,8 @@ const STOPPING = "the app is stopping: app.close() was called, no new execution 
 
 /**
  * One workflow of an application instance, built, with the parts it was built from (the testing
- * toolkit's slices read them): `refuse()` stops it taking new executions, `settled()` waits for
+ * toolkit's slices read them): `refuse(deadline)` stops it taking new executions — its leases then
+ * wait for their trees' running step bodies until `deadline` (#367) —, `settled()` waits for
  * the running ones, `interrupt(reason)` stops what still runs (the application's graceful stop),
  * `recover` continues one of its interrupted roots (the recovery sweep, #265 S30).
  */
@@ -68,7 +69,7 @@ export interface BuiltApp {
   readonly app: WorkflowApp;
   readonly deps: AppDeps;
   readonly bundle: AssembledWorkflow;
-  readonly refuse: () => void;
+  readonly refuse: (deadline: AbortSignal) => void;
   readonly settled: () => Promise<void>;
   readonly interrupt: (reason: ApplicationStoppingError) => void;
   readonly recover: RecoverRoot;
@@ -206,8 +207,9 @@ export async function buildApp(
     app,
     deps,
     bundle,
-    refuse: () => {
+    refuse: (deadline) => {
       closed = true;
+      live.stopBy(deadline);
     },
     settled: () => live.settled(),
     interrupt: (reason) => {

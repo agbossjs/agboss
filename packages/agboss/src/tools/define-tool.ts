@@ -6,6 +6,7 @@ import { isGraphInterrupt } from "@langchain/langgraph";
 import { systemClock, type Clock } from "../infrastructure/clock.js";
 import { timeoutOn } from "../infrastructure/clock-timeout.js";
 import { kilobytes, seconds, type Bytes, type Milliseconds } from "../units/index.js";
+import { inCurrentStepEntry } from "../flow/runtime/step-entries.js";
 
 /** How long a tool call may run when its tool sets no `timeout`. */
 export const DEFAULT_TOOL_TIMEOUT: Milliseconds = seconds(30);
@@ -83,7 +84,8 @@ async function runWithTimeout<TValue>(
   const signal = AbortSignal.any([outer, timeout.signal]);
   try {
     return await untilAborted(
-      Promise.resolve().then(() => run(signal)),
+      // the body itself is the tool call's running step (#367): it may outlive this race
+      Promise.resolve().then(() => inCurrentStepEntry(() => run(signal))),
       signal,
     );
   } finally {
