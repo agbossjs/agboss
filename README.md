@@ -1818,6 +1818,16 @@ Tickets move across the GitHub Project board of the repo:
 
 Rules and the delivery pipeline: [`WORKFLOW.md`](https://github.com/agbossjs/agboss/blob/main/WORKFLOW.md) · [`QUALITY.md`](https://github.com/agbossjs/agboss/blob/main/QUALITY.md) · [`CLAUDE.md`](https://github.com/agbossjs/agboss/blob/main/CLAUDE.md). Full documentation lives at [https://agboss.dev](https://agboss.dev) and in the [GitHub Wiki](https://github.com/agbossjs/agboss/wiki).
 
+## Contributing, security and changes
+
+- [`CONTRIBUTING.md`](https://github.com/agbossjs/agboss/blob/main/CONTRIBUTING.md) — how a change
+  goes from an issue to a merged pull request.
+- [`SECURITY.md`](https://github.com/agbossjs/agboss/blob/main/SECURITY.md) — report a
+  vulnerability privately to security@agboss.dev; supported versions and what to expect.
+- [`CHANGELOG.md`](https://github.com/agbossjs/agboss/blob/main/CHANGELOG.md) — what each release
+  changes; the per-pull-request log with every breaking change is the
+  [Wiki's Changelog](https://github.com/agbossjs/agboss/wiki/Changelog).
+
 ## License
 
 Apache License 2.0 — see [`LICENSE`](https://github.com/agbossjs/agboss/blob/main/LICENSE) and [`NOTICE`](https://github.com/agbossjs/agboss/blob/main/NOTICE).
