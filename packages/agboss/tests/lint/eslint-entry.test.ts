@@ -4,12 +4,14 @@
  * and `FLOW_CHAIN_RULE` is the framework's one-call-per-line options. Linted here from the source,
  * outside any config of the repository.
  */
-import { Linter } from "eslint";
+import { TSESLint } from "@typescript-eslint/utils";
 import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
 import { FLOW_CHAIN_RULE, agbossPlugin } from "../../src/eslint/index.js";
 
-const linter = new Linter({ configType: "flat" });
+// typescript-eslint's Linter: its config types are the ones a typed `eslint.config.ts` (with
+// `tseslint.config`) gives the plugin
+const linter = new TSESLint.Linter({ configType: "flat" });
 
 /** The rule ids and messages the plugin's two rules report for `code`, as a project file. */
 function findings(code: string): readonly string[] {

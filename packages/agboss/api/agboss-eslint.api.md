@@ -7,24 +7,24 @@
 import type { TSESLint } from '@typescript-eslint/utils';
 
 // @public
-export interface AgbossPlugin {
+export type AgbossPlugin = {
     readonly meta: AgbossPluginMeta;
     readonly rules: AgbossRules;
-}
+};
 
 // @public
 export const agbossPlugin: AgbossPlugin;
 
 // @public
-export interface AgbossPluginMeta {
+export type AgbossPluginMeta = {
     readonly name: string;
-}
+};
 
 // @public
-export interface AgbossRules {
+export type AgbossRules = {
     readonly "no-component-state": TSESLint.RuleModule<ComponentStateMessageId>;
     readonly "no-direct-time": TSESLint.RuleModule<DirectTimeMessageId>;
-}
+};
 
 // @public
 export type ComponentStateMessageId = "state";
