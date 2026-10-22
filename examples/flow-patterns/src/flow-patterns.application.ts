@@ -19,6 +19,8 @@ import {
 import { CreditWorkflow } from "./credit/credit.workflow.js";
 import { OfferWorkflow } from "./offer/offer.workflow.js";
 import { PanelWorkflow } from "./panel/panel.workflow.js";
+import { RecruiterInboxChannel } from "./hiring/channels/recruiter-inbox.channel.js";
+import { SendOfferWorkflow } from "./hiring/send-offer.workflow.js";
 import { ReviewWorkflow } from "./review/review.workflow.js";
 import { TopicResearchWorkflow } from "./topic/topic-research.workflow.js";
 import { VendorScreeningWorkflow } from "./vendor/vendor-screening.workflow.js";
@@ -30,8 +32,9 @@ import { AppEnvironment } from "./environments/app.environment.js";
  * the parallel review (#273), `app.execute(PanelWorkflowStart, …)` the panel's quorum (#279),
  * `app.execute(VendorScreeningWorkflowStart, …)` a child workflow per vendor (#263),
  * `app.execute(TopicResearchWorkflowStart, …)` a workflow researching its subtopics itself (#264),
- * `app.execute(OffsiteBookingWorkflowStart, …)` two approvals at once (#267) — each workflow by its
- * start. The child `VendorCheckWorkflow` is not listed: a child workflow belongs to the application
+ * `app.execute(OffsiteBookingWorkflowStart, …)` two approvals at once (#267),
+ * `app.execute(SendOfferWorkflowStart, …)` an offer whose steps declare their undo (#339) — each
+ * workflow by its start. The child `VendorCheckWorkflow` is not listed: a child workflow belongs to the application
  * of its parent, and `app.execute(VendorCheckWorkflowStart, …)` runs it alone.
  *
  * Its infrastructure is SQLite (#265) on the environment's `sqlitePath`: the ledger of its tenant
@@ -57,9 +60,11 @@ import { AppEnvironment } from "./environments/app.environment.js";
     VendorScreeningWorkflow,
     TopicResearchWorkflow,
     OffsiteBookingWorkflow,
+    SendOfferWorkflow,
   ],
   providers: [
     TerminalPurchaseApprovalChannel,
+    RecruiterInboxChannel,
     SqliteCostLedgerRepository,
     SqliteExecutionRecordRepository,
     SqlitePausedExecutionRepository,

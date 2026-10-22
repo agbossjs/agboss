@@ -28,6 +28,7 @@ import { resolvedModelUsesOf } from "../models/resolution.js";
 import { piiPolicyMetaOf } from "../pii/policy-checks.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { defaultMaxResultSizeOf } from "../tools/index.js";
+import { actionSnapshotOf, type ActionSnapshot } from "./compensation.js";
 
 /** One agent's settings in the assembled config. */
 type AgentSettings = AssembledWorkflow["config"]["agents"][string];
@@ -37,7 +38,8 @@ type AgentSettings = AssembledWorkflow["config"]["agents"][string];
  * keys (`promptHash`, `schemaHash`), what it reads and writes, and — an agent's internals — its
  * model and provider, reasoning, limits, memory, tools, knowledge bases, the guardrails and PII
  * policies in effect after the application → workflow → agent cascade, its judges and its
- * instructions; a router's `decidedBy`, model, instructions and routes with their policies.
+ * instructions; a router's `decidedBy`, model, instructions and routes with their policies; an
+ * action's `compensateWith` / `committedBy` (#339).
  */
 
 /** The guardrails in effect at one agent or model router, by side. */
@@ -107,6 +109,8 @@ export interface NodeSnapshot {
   readonly maxVisits?: number;
   readonly agent?: AgentSnapshot;
   readonly router?: RouterSnapshot;
+  /** An action's `compensateWith` / `committedBy` (#339). */
+  readonly action?: ActionSnapshot;
 }
 
 /** Who serves each model of the workflow, by its use's key (`agents.<name>`, `routers.<name>`). */
@@ -211,6 +215,7 @@ export function nodesOf(bundle: AssembledWorkflow): readonly NodeSnapshot[] {
     const description = descriptionOf(node);
     const agent = node.kind === NodeKind.Agent ? agentOf(bundle, node.id, providers) : undefined;
     const router = routerOf(bundle, node, providers);
+    const action = actionSnapshotOf(node);
     return {
       name: record.name,
       kind: record.kind,
@@ -221,6 +226,7 @@ export function nodesOf(bundle: AssembledWorkflow): readonly NodeSnapshot[] {
       ...(node.maxVisits === undefined ? {} : { maxVisits: node.maxVisits }),
       ...(agent === undefined ? {} : { agent }),
       ...(router === undefined ? {} : { router }),
+      ...(action === undefined ? {} : { action }),
     };
   });
 }

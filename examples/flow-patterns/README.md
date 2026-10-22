@@ -3,15 +3,16 @@
 The flow's patterns as one application (`src/flow-patterns.application.ts`), one `*.workflow.ts`
 each, on AGBoss's public entries only:
 
-| Folder           | Pattern                                           | Start                             |
-| ---------------- | ------------------------------------------------- | --------------------------------- |
-| `src/offer/`     | a review loop                                     | `offer-workflow-start`            |
-| `src/credit/`    | a code router beside a model router               | `credit-workflow-start`           |
-| `src/review/`    | parallel launches in waves (#273)                 | `review-workflow-start`           |
-| `src/panel/`     | a quorum with a code and a model arbiter (#279)   | `panel-workflow-start`            |
-| `src/vendor/`    | a child workflow per vendor (#263)                | `vendor-screening-workflow-start` |
-| `src/topic/`     | a workflow launching itself, `maxDepth: 3` (#264) | `topic-research-workflow-start`   |
-| `src/approvals/` | two approvals at once, in the terminal (#267)     | `offsite-booking-workflow-start`  |
+| Folder           | Pattern                                                 | Start                             |
+| ---------------- | ------------------------------------------------------- | --------------------------------- |
+| `src/offer/`     | a review loop                                           | `offer-workflow-start`            |
+| `src/credit/`    | a code router beside a model router                     | `credit-workflow-start`           |
+| `src/review/`    | parallel launches in waves (#273)                       | `review-workflow-start`           |
+| `src/panel/`     | a quorum with a code and a model arbiter (#279)         | `panel-workflow-start`            |
+| `src/vendor/`    | a child workflow per vendor (#263)                      | `vendor-screening-workflow-start` |
+| `src/topic/`     | a workflow launching itself, `maxDepth: 3` (#264)       | `topic-research-workflow-start`   |
+| `src/approvals/` | two approvals at once, in the terminal (#267)           | `offsite-booking-workflow-start`  |
+| `src/hiring/`    | undoable steps: `compensateWith` / `committedBy` (#339) | `send-offer-workflow-start`       |
 
 ```bash
 npm install && npm run build          # repo root

@@ -9,6 +9,7 @@ import { NodeKind } from "../flow/ast.js";
 import { isCodeRouterNode } from "../flow/runtime/graph-model.js";
 import { aboutLines, childLines, inputLines } from "./inputs.js";
 import { recursionLines } from "./recursion.js";
+import { compensationLines } from "./compensation.js";
 import {
   agentDefaultsLine,
   compactionSourceOf,
@@ -118,6 +119,7 @@ function flowSection(bundle: AssembledWorkflow): string[] {
     ...aboutSection(bundle),
     "routers",
     ...routerLines(bundle),
+    ...compensationLines(bundle),
   ];
 }
 
