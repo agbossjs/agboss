@@ -14,7 +14,8 @@ import { loadOptions, type CommandContext } from "./context.js";
 /**
  * Type generation in the CLI (#272 S2, S7): `agboss check` on the application's module analyses its
  * workflows and writes `.agboss/types.d.ts` before it reports; `agboss generate` regenerates the file at
- * its end. A module without a workflow goes the old way, untouched.
+ * its end. A module without a workflow is a problem for `agboss check` (#376), left alone by
+ * `agboss generate`.
  */
 
 /** The `src/` folder a module lives in (the nearest ancestor of that name), if any. */
@@ -44,7 +45,7 @@ function workflowModulesOf(project: string, file: string): string[] {
   return [given, ...found.filter((path) => path !== given)];
 }
 
-/** The generator's result for one module; undefined when it holds no v2 workflow or is missing. */
+/** The generator's result for one module; undefined when it is missing. */
 async function generate(
   context: CommandContext,
   file: string,
@@ -57,7 +58,7 @@ async function generate(
       ...loadOptions(context),
       ...(strict ? { strict } : {}),
     });
-    return result.status === FlowTypesStatus.NoFlow ? undefined : result;
+    return result;
   } catch (error) {
     // a missing module is reported by the old path as workflow.load, with its own message
     if (error instanceof WorkflowLoadError) return undefined;
@@ -84,7 +85,7 @@ export interface TypesOutcome {
   readonly problems: readonly CheckProblem[];
   /**
    * The file was not written: generation's other errors (`[dto.duplicate-name]` across workflows,
-   * #371) — reported unless the assembly reports their code itself (`typesProblemsBeside`).
+   * #371) — reported unless the assembly reports their code itself (`checkProblemsOf`).
    */
   readonly unwritten: readonly CheckProblem[];
   readonly warnings: readonly string[];
@@ -104,6 +105,19 @@ const notWritten = (file: string, error: Error): CheckProblem => ({
 });
 
 /**
+ * No workflow found to type (#376): the application module exports none and the loader found no
+ * workflow module beside it — never `ok`, the file was not written.
+ */
+const noFlow = (file: string): CheckProblem => ({
+  file,
+  code: "types.no-flow",
+  message:
+    `${GENERATED_TYPES_FILE} was not written: no workflow found to type — export the ` +
+    `application's workflows from ${file} (export { MyWorkflow }), or keep it in the project's ` +
+    "src/ folder beside its *.workflow.ts files",
+});
+
+/**
  * `agboss check` first writes `.agboss/types.d.ts` (#272 S7): the analyser's warnings (`[flow.path-too-deep]`)
  * and notes are reported here, generation's own problems returned; a rule violation is reported by
  * the assembly that follows (once).
@@ -120,6 +134,8 @@ export async function writeCheckedTypes(
   });
   if (result === undefined) return { problems: [], unwritten: [], warnings: [] };
   if (!("status" in result)) return { problems: [result], unwritten: [], warnings: [] };
+  if (result.status === FlowTypesStatus.NoFlow)
+    return { problems: [noFlow(file)], unwritten: [], warnings: [] };
   // a rule violation is the assembly's to report; generation's own codes are `types.*` — and,
   // under --strict, the warnings the assembly does not see as errors
   const found = problemsOf(file, result);
@@ -140,23 +156,6 @@ export async function writeCheckedTypes(
   return { problems, unwritten: [], warnings, types };
 }
 
-/**
- * The types' problems beside the assembly's (#371): generation's own, and — when the file was not
- * written — each of its errors whose code the assembly does not report (a clash across workflows
- * that no single workflow's rules see). Generation fails only with an error, so a file not written
- * always leaves a problem: `agboss check` never prints `ok` without it.
- */
-export const typesProblemsBeside = (
-  outcome: TypesOutcome,
-  assembly: readonly CheckProblem[],
-): readonly CheckProblem[] => {
-  const reported = new Set(assembly.map((problem) => problem.code));
-  return [
-    ...outcome.problems,
-    ...outcome.unwritten.filter((problem) => !reported.has(problem.code)),
-  ];
-};
-
 /** The end of `agboss generate`: regenerates the types of the workflow it changed, if v2. */
 export async function regenerateFlowTypes(
   context: CommandContext,
@@ -170,7 +169,7 @@ export async function regenerateFlowTypes(
     context.warn(`types not regenerated: ${reason ?? ""} — run agboss check`);
     return undefined;
   });
-  if (result === undefined) return;
+  if (result === undefined || result.status === FlowTypesStatus.NoFlow) return;
   if (result.status === FlowTypesStatus.Written)
     context.say(`  types: ${relative(context.io.cwd, result.outFile)}`);
   else
