@@ -12,7 +12,7 @@ import {
   runningOutcome,
   type TernBase,
 } from "./execute.js";
-import { openExecutionBudgets, recorder, type PassBudgets } from "./run-budgets.js";
+import { inStartFrame, openExecutionBudgets, recorder, type PassBudgets } from "./run-budgets.js";
 import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import { streamConfig } from "./stream-config.js";
 import { finishRun } from "./finish.js";
@@ -87,7 +87,8 @@ async function runOnce<TName extends string>(
     const record = recorder(budgets.meter, spent);
     const budgetUsd = budgets.meter.budgetUsd();
     const thread = { tenantId, threadId, isNewThread: known === undefined, record };
-    const before = { ...thread, budgetLeftUsd: budgetUsd, callbacks: config.callbacks };
+    const inFrame = inStartFrame(deps, { ...options, ...site, threadId });
+    const before = { ...thread, budgetLeftUsd: budgetUsd, callbacks: config.callbacks, inFrame };
     // the compactions due run before the thread is read: a CompactionError fails it here (S132)
     const read = await memoryBeforeRun(deps, before);
     // the record is `running` while the tree moves: what recovery continues (#265 S30)

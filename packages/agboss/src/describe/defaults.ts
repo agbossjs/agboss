@@ -107,11 +107,16 @@ export function compactionSourceOf(bundle: AssembledWorkflow, element: string): 
 
 /** One compaction in use (#120 PR 3): its strategy, settings, model and window. */
 function compactionLine(compaction: CompactionInUse, model: string | undefined): string {
+  const every = `every ${String(compaction.turnsBetweenCompactions)} turns`;
+  const window = `older than ${String(compaction.window)} turns`;
+  // a custom one (#382): its class compacts — no model, no limits of a summary
+  if (compaction.strategy === CompactionStrategy.Custom)
+    return `  ${compaction.name} — strategy: custom (${compaction.type.name}.compact()) ${every} · ${window}`;
   const queue =
     compaction.strategy === CompactionStrategy.SummaryQueue
       ? `, queue ${String(compaction.summaryQueueLength)}`
       : "";
-  return `  ${compaction.name} — ${compaction.strategy} every ${String(compaction.turnsBetweenCompactions)} turns${queue} · summaryMaxTokens ${String(compaction.summaryMaxTokens)} · ${model ?? "?"} · older than ${String(compaction.window)} turns`;
+  return `  ${compaction.name} — ${compaction.strategy} ${every}${queue} · summaryMaxTokens ${String(compaction.summaryMaxTokens)} · ${model ?? "?"} · ${window}`;
 }
 
 /** The compactions that write summaries, or "window only". */

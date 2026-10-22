@@ -1,5 +1,5 @@
 import { callerFile } from "../components/call-site.js";
-import type { Class } from "../components/injection.js";
+import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
 import type { TokenLimit, TurnLimit } from "../config/types.js";
 
@@ -20,6 +20,11 @@ export enum CompactionStrategy {
   SingleSummary = "single-summary",
   /** No summaries: only the window of recent turns is shown, older turns are not. */
   None = "none",
+  /**
+   * The class's `compact(input)` (`implements CompactionHandler`, #382) gives the summaries readers
+   * see from the previous ones and the turns due — no model of the framework's, no prompt.
+   */
+  Custom = "custom",
 }
 
 /** Recent turns a reader sees in full when no level sets `uncompactedTurns`. */
@@ -76,20 +81,79 @@ export interface NoSummaryCompactionOptions {
   readonly summaryMaxTokens?: never;
 }
 
-/** The options of `@Compaction`, by strategy. */
-export type CompactionOptions =
+/**
+ * `CompactionStrategy.Custom` (#382): the class's `compact(input)` writes the summaries; its
+ * constructor takes `deps`, created by the container. No model, prompt or summary limits.
+ */
+export interface CustomCompactionOptions<TDeps extends readonly Token[] = readonly Token[]> {
+  readonly name: string;
+  readonly description: string;
+  readonly strategy: CompactionStrategy.Custom;
+  /** How many turns older than the window gather before `compact()` is called (from 1). */
+  readonly turnsBetweenCompactions: number;
+  /** Constructor dependencies, in order; checked against the constructor by the compiler. */
+  readonly deps?: TDeps;
+  readonly prompt?: never;
+  readonly promptUrls?: never;
+  readonly model?: never;
+  readonly summaryQueueLength?: never;
+  readonly summaryMaxTokens?: never;
+}
+
+/** The options of a compaction the framework runs: every strategy but `Custom`. */
+export type BuiltInCompactionOptions =
   SummaryQueueCompactionOptions | SingleSummaryCompactionOptions | NoSummaryCompactionOptions;
 
-/** What `@Compaction` recorded: its options and the file it is declared in. */
-export type CompactionMeta = CompactionOptions & { readonly source?: string };
+/** The options of `@Compaction`, by strategy. */
+export type CompactionOptions = BuiltInCompactionOptions | CustomCompactionOptions;
+
+/** One turn a custom compaction compacts: its start and input, its finish and output (#382). */
+export interface CompactionTurn {
+  /** The `@WorkflowStart` it began at (`chat-workflow-start`). */
+  readonly startName: string;
+  /** The start's input, masked by the PII policies. */
+  readonly input: unknown;
+  /** The `@WorkflowFinish` it ended at. */
+  readonly finishName: string;
+  /** The finish's output, masked by the PII policies. */
+  readonly output: unknown;
+}
+
+/** What `compact()` reads: the summaries readers see now, and the turns due, oldest first. */
+export interface CompactionInput {
+  /** What the last `compact()` gave (none before the first), masked by the PII policies. */
+  readonly previousSummaries: readonly string[];
+  /** The turns due: older than the readers' window, `turnsBetweenCompactions` or more. */
+  readonly turnsToCompact: readonly CompactionTurn[];
+}
+
+/** A custom compaction's class (`CompactionStrategy.Custom`): the summaries readers see from now on. */
+export interface CompactionHandler {
+  /** The summaries readers see from now on (at least one, none empty), replacing the previous ones. */
+  compact(input: CompactionInput): Promise<readonly string[]> | readonly string[];
+}
+
+/** What `@Compaction` recorded: its options, its dependencies and the file it is declared in. */
+export type CompactionMeta = (
+  BuiltInCompactionOptions | (CustomCompactionOptions & { readonly deps: readonly Token[] })
+) & { readonly source?: string };
 
 /** `@Compaction({ name, description, strategy, … })` — an empty class carrying its options. */
+export function Compaction(options: BuiltInCompactionOptions): <C extends Class>(value: C) => C;
+/** `CompactionStrategy.Custom`: the class implements `CompactionHandler`, its constructor takes `deps`. */
+export function Compaction<const TDeps extends readonly Token[] = []>(
+  options: CustomCompactionOptions<TDeps>,
+): <C extends new (...args: ResolvedAll<TDeps>) => CompactionHandler>(value: C) => C;
 export function Compaction(options: CompactionOptions): <C extends Class>(value: C) => C {
   const source = callerFile();
+  const recorded: CompactionMeta =
+    options.strategy === CompactionStrategy.Custom
+      ? { ...options, deps: options.deps ?? [] }
+      : options;
   return <C extends Class>(value: C): C => {
     recordComponent(value, {
       kind: "compaction",
-      meta: source === undefined ? options : { ...options, source },
+      meta: source === undefined ? recorded : { ...recorded, source },
     });
     return value;
   };
@@ -101,9 +165,19 @@ export const compactionMetaOf = (cls: Class): CompactionMeta | undefined => {
   return component?.kind === "compaction" ? component.meta : undefined;
 };
 
-/** Whether a compaction writes summaries (it has a model); `None` does not. */
+/** Whether a compaction writes summaries with a model; `None` and `Custom` do not. */
 export const isSummarising = (
   meta: CompactionMeta,
 ): meta is (SummaryQueueCompactionOptions | SingleSummaryCompactionOptions) & {
   readonly source?: string;
-} => meta.strategy !== CompactionStrategy.None;
+} =>
+  meta.strategy === CompactionStrategy.SummaryQueue ||
+  meta.strategy === CompactionStrategy.SingleSummary;
+
+/** Whether a compaction's class writes the summaries itself (`CompactionStrategy.Custom`, #382). */
+export const isCustomCompaction = (
+  meta: CompactionMeta,
+): meta is CustomCompactionOptions & {
+  readonly deps: readonly Token[];
+  readonly source?: string;
+} => meta.strategy === CompactionStrategy.Custom;

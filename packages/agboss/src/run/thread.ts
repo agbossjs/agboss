@@ -1,9 +1,16 @@
 import { AGBossError } from "../core/errors.js";
 import type { HistoryTurn, ReaderMemory } from "../flow/runtime/history.js";
 import type { Summary, Tern, TernRecords, TernStore } from "../terns/index.js";
-import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
+import { CompactionStrategy, type UncompactedTurns } from "../compaction/compaction.decorator.js";
 import { TurnLimit } from "../config/types.js";
-import { memoryPlanOf, readerOf, type MemoryPlan, type MemoryReader } from "../compaction/plan.js";
+import {
+  memoryPlanOf,
+  readerOf,
+  type CompactionInUse,
+  type MemoryPlan,
+  type MemoryReader,
+} from "../compaction/plan.js";
+import { summaryTextsOf } from "../compaction/stored-summaries.js";
 import { NodeKind } from "../flow/ast.js";
 import type { AgentExecutionDeps } from "./types.js";
 
@@ -129,6 +136,14 @@ interface CompactionState {
   readonly summaries: readonly Summary[];
 }
 
+/** A compaction's stored summaries as readers see them: a custom one's record is its whole list (#382). */
+const readableSummaries = (compaction: CompactionInUse, stored: readonly Summary[]): Summary[] =>
+  compaction.strategy === CompactionStrategy.Custom
+    ? stored.flatMap((summary) =>
+        summaryTextsOf(summary.text).map((text) => ({ ...summary, text })),
+      )
+    : [...stored];
+
 async function compactionStatesOf(
   terns: TernRecords,
   thread: Pick<ThreadAccess, "tenantId" | "threadId">,
@@ -140,11 +155,14 @@ async function compactionStatesOf(
       compaction.name,
       {
         uncovered: (await terns.uncovered(tenantId, threadId, compaction.name)).filter(isTurn),
-        summaries: await terns.latestSummaries(
-          tenantId,
-          threadId,
-          compaction.name,
-          compaction.summaryQueueLength,
+        summaries: readableSummaries(
+          compaction,
+          await terns.latestSummaries(
+            tenantId,
+            threadId,
+            compaction.name,
+            compaction.summaryQueueLength,
+          ),
         ),
       },
     ]),

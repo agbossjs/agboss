@@ -9,6 +9,7 @@ import {
   compactionScriptKeyOf,
   guardrailScriptKeyOf,
   isCodeGuardrailOf,
+  isCustomCompactionIn,
   piiScriptKeyOf,
 } from "./pii-parts.js";
 import {
@@ -85,6 +86,8 @@ export class ModelTargets {
       return "a code reply interpreter calls no model — mockOf() it, or the services its interpret() uses";
     if (isCodeGuardrailOf(target, this.assembled))
       return "a code guardrail calls no model — mockOf() the services its check() uses";
+    if (isCustomCompactionIn(target, this.assembled))
+      return "a custom compaction calls no model — mockOf() it, or the services its compact() uses";
     return "not an agent, router, judge, model arbiter, model reply interpreter, PII detection, guardrail or compaction that writes summaries of this application";
   }
 }

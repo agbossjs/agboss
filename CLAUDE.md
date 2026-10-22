@@ -1276,7 +1276,14 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
   — every `turnsBetweenCompactions` turns older than the window become one self-contained summary,
   the latest `summaryQueueLength` kept; `SingleSummary` — one summary, rewritten from the previous
   one and the new turns; `None` — no model, no prompt, no parameters (a type error otherwise, as a
-  missing `model` is for the other two). A compaction summarises everything older than the
+  missing `model` is for the other two); `Custom` (#382) — the class `implements CompactionHandler`:
+  `compact({ previousSummaries, turnsToCompact })` (each a `CompactionTurn`: `startName`, `input`,
+  `finishName`, `output`, masked like a model's input) returns the summaries readers see from now
+  on, its services through `deps` (created by the container, run in the frame of the execution's
+  start); `turnsBetweenCompactions` only — no `model` / `prompt` / `summaryQueueLength` /
+  `summaryMaxTokens` (the overloads, and `agboss check`), no `compact` →
+  `[compaction.missing-handler]`; a throw or no summary → `CompactionError`; `agboss describe`:
+  `strategy: custom (GraphMemoryCompaction.compact())`, the class in `configHash`. A compaction summarises everything older than the
   **smallest** window among the agents and routers that use it, so no one loses a turn: a reader
   sees in full its window and every turn its compaction has not summarised yet, and only the
   summaries its turns do not cover. `summaryMaxTokens` is the summary call's `max_tokens` (counted

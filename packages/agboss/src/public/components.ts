@@ -24,7 +24,10 @@ export { TokenLimit, TurnLimit } from "../config/types.js";
 export {
   Compaction,
   CompactionStrategy,
+  type CompactionHandler,
+  type CompactionInput,
   type CompactionOptions,
+  type CompactionTurn,
   type NoSummaryCompactionOptions,
   type SingleSummaryCompactionOptions,
   type SummaryMaxTokens,

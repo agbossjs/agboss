@@ -1,6 +1,7 @@
 import { resolveTools, type AssembledWorkflow, type WorkflowServices } from "../workflow.js";
 import { channelLookup, containerDepsOf, type ContainerDeps } from "./app-deps-parts.js";
 import { codeClassesOf } from "../flow/runtime/graph-model.js";
+import { customCompactionClassesOf } from "../compaction/custom-classes.js";
 import { judgesFor, knowledgeFor, memoryFor } from "./parts.js";
 
 /** What the container creates at start, as the app's run dependencies. */
@@ -13,13 +14,14 @@ type StartComponents = {
 
 /**
  * The graph's code — actions, finishes with a handler, code routers, code arbiters (#279) — its PII
- * policies and its guardrails (#120), created now, so a missing dependency fails at start.
+ * policies, its guardrails (#120) and its custom compactions (#382), created now, so a missing dependency fails at start.
  */
 function createCodeNodes(bundle: AssembledWorkflow, services: WorkflowServices): void {
   const resolve = bundle.resolve(services);
   for (const component of codeClassesOf(bundle.graph)) resolve(component);
   for (const policy of bundle.pii?.classes ?? []) resolve(policy);
   for (const guardrail of bundle.guardrails?.guardrails ?? []) resolve(guardrail.type);
+  for (const compaction of customCompactionClassesOf(bundle.compactions)) resolve(compaction);
 }
 
 /**

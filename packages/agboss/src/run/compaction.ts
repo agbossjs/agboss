@@ -3,11 +3,10 @@ import { HumanMessage, SystemMessage, type AIMessage } from "@langchain/core/mes
 import { CompactionError } from "../compaction/errors.js";
 import { CompactionStrategy } from "../compaction/compaction.decorator.js";
 import { TurnLimit } from "../config/types.js";
-import type { CompactionInUse, MemoryPlan } from "../compaction/plan.js";
+import type { CompactionInUse, ModelCompactionInUse, MemoryPlan } from "../compaction/plan.js";
 import { recordUsage, totalCost, type UsageRecord } from "../finops/usage.js";
 import type { ModelBinding } from "../llm/registry.js";
 import { isCutAtLimit } from "../models/finish-reason.js";
-import { DetectionMode } from "../pii/runtime-policy.js";
 import { revealedText, type PiiTokenMap } from "../pii/tokens.js";
 import {
   CURRENT_SUMMARY_HEADING,
@@ -17,6 +16,8 @@ import {
   TURNS_TO_COMPACT_HEADING,
 } from "../prompts/compaction.js";
 import type { Summary, Tern } from "../terns/index.js";
+import { maskedTextOf, storedCompaction } from "./compaction-parts.js";
+import { compactWithHandler } from "./custom-compaction.js";
 import { isTurn, toTurns } from "./thread.js";
 import type { AgentExecutionDeps } from "./types.js";
 
@@ -52,6 +53,8 @@ export interface CompactionRun {
   readonly callbacks: BaseCallbackHandler[];
   /** The execution's PII tokens: a value already tokenised keeps its token. */
   readonly tokens: PiiTokenMap;
+  /** Runs work in the frame of the execution's start: a custom compaction's `ExecutionContext` (#382). */
+  readonly inFrame: <T>(work: () => Promise<T>) => Promise<T>;
   readonly record: (records: readonly UsageRecord[]) => Promise<void>;
 }
 
@@ -66,13 +69,16 @@ const asTurns = (terns: readonly Tern[]): string =>
     .map((turn) => `${turn.start}\n${turn.finish}`)
     .join("\n\n");
 
-const callerOf = (compaction: CompactionInUse): string => `compaction:${compaction.name}`;
+const callerOf = (compaction: ModelCompactionInUse): string => `compaction:${compaction.name}`;
 
 /**
  * The turns due: those older than the window, once `turnsBetweenCompactions` have gathered —
  * counted in turns (a failed or paused record is none, S8), as a reader's window is.
  */
-function dueOf(compaction: CompactionInUse, records: readonly Tern[]): readonly Tern[] {
+function dueOf(
+  compaction: Pick<CompactionInUse, "window" | "turnsBetweenCompactions">,
+  records: readonly Tern[],
+): readonly Tern[] {
   if (compaction.window === TurnLimit.ALL) return [];
   const uncovered = records.filter(isTurn);
   const due = uncovered.slice(0, Math.max(0, uncovered.length - compaction.window));
@@ -82,7 +88,7 @@ function dueOf(compaction: CompactionInUse, records: readonly Tern[]): readonly 
 /** What the compaction's model reads, in full (before masking). */
 async function inputOf<TName extends string>(
   deps: AgentExecutionDeps<TName>,
-  compaction: CompactionInUse,
+  compaction: ModelCompactionInUse,
   run: CompactionRun,
   due: readonly Tern[],
 ): Promise<{ readonly text: string; readonly current?: Summary }> {
@@ -106,28 +112,10 @@ async function inputOf<TName extends string>(
   };
 }
 
-/** The input through the application's and the workflow's PII policies, with its new tokens. */
-async function maskedInputOf<TName extends string>(
-  deps: AgentExecutionDeps<TName>,
-  text: string,
-  run: CompactionRun,
-): Promise<{
-  readonly text: string;
-  readonly tokens: PiiTokenMap;
-  readonly usage: readonly UsageRecord[];
-}> {
-  const policies = deps.pii?.workflowPolicies;
-  if (policies === undefined || policies.isEmpty) return { text, tokens: run.tokens, usage: [] };
-  const { masked, usage } = await policies.mask(text, run.tokens, DetectionMode.WithModel);
-  await run.record(usage);
-  // a blocked value is shown as `<kind>`: the turn itself was already accepted by its readers
-  return { text: masked.text, tokens: { ...run.tokens, ...masked.tokens }, usage };
-}
-
 /** One call of the compaction's model; its spend recorded at once, a failure a `CompactionError`. */
 async function summaryCall(
   binding: ModelBinding,
-  compaction: CompactionInUse,
+  compaction: ModelCompactionInUse,
   input: string,
   run: CompactionRun,
 ): Promise<{ readonly answer: AIMessage; readonly usage: UsageRecord }> {
@@ -149,7 +137,7 @@ async function summaryCall(
 /** The summary: the first answer, or — cut at `summaryMaxTokens` — the one asked to be shorter. */
 async function summaryOf(
   binding: ModelBinding,
-  compaction: CompactionInUse,
+  compaction: ModelCompactionInUse,
   input: string,
   run: CompactionRun,
 ): Promise<{ readonly text: string; readonly usage: readonly UsageRecord[] }> {
@@ -171,49 +159,57 @@ async function summaryOf(
   return { text: shorter.answer.text, usage: [first.usage, shorter.usage] };
 }
 
-/** One compaction before the execution: nothing when nothing is due. */
-async function compactOne<TName extends string>(
+/** A model's compaction of the records due: its summary written, revealed and stored. */
+async function compactWithModel<TName extends string>(
   deps: AgentExecutionDeps<TName>,
-  compaction: CompactionInUse,
+  compaction: ModelCompactionInUse,
   run: CompactionRun,
-): Promise<{ readonly usage: readonly UsageRecord[]; readonly compacted?: Compacted }> {
+  due: readonly Tern[],
+): Promise<CompactedOne> {
   const binding = deps.registry.compactions.get(compaction.name);
-  const { tenantId, threadId } = run;
-  const due = dueOf(compaction, await deps.terns.uncovered(tenantId, threadId, compaction.name));
-  const [first] = due;
-  const last = due.at(-1);
-  if (binding === undefined || first === undefined || last === undefined) return { usage: [] };
+  if (binding === undefined) return { usage: [] };
   const input = await inputOf(deps, compaction, run, due);
-  const masked = await maskedInputOf(deps, input.text, run);
+  const masked = await maskedTextOf(deps, input.text, run, run.tokens);
   const summary = await summaryOf(binding, compaction, masked.text, run);
   const text = revealedText(summary.text.trim(), masked.tokens).text;
   if (text === "") {
     const message = `${compaction.name}: the model wrote an empty summary`;
     throw new CompactionError(message, compaction.name, compaction.summaryMaxTokens);
   }
-  await deps.terns.addSummary({
-    tenantId,
-    threadId,
-    bundle: deps.config.name,
+  const { tenantId, threadId } = run;
+  const count = (await deps.terns.summaryCount(tenantId, threadId, compaction.name)) + 1;
+  const compacted = await storedCompaction(deps, run, {
     compaction: compaction.name,
+    due,
     // a single summary covers the thread from its first summarised record
-    fromTernId: input.current?.fromTernId ?? first.id,
-    toTernId: last.id,
-    turns: (input.current?.turns ?? 0) + due.length,
+    current: input.current,
     text,
     costUsd: totalCost(summary.usage),
+    summaries: Math.min(count, compaction.summaryQueueLength),
+    summaryQueueLength: compaction.summaryQueueLength,
   });
-  const count = await deps.terns.summaryCount(tenantId, threadId, compaction.name);
-  return {
-    usage: [...masked.usage, ...summary.usage],
-    compacted: {
-      compaction: compaction.name,
-      fromTurn: await deps.terns.turnNumber(tenantId, threadId, first.id),
-      toTurn: await deps.terns.turnNumber(tenantId, threadId, last.id),
-      summaries: Math.min(count, compaction.summaryQueueLength),
-      summaryQueueLength: compaction.summaryQueueLength,
-    },
-  };
+  const usage = [...masked.usage, ...summary.usage];
+  return compacted === undefined ? { usage } : { usage, compacted };
+}
+
+/** What one compaction did before the execution: its spend, and what it compacted (none: nothing due). */
+export interface CompactedOne {
+  readonly usage: readonly UsageRecord[];
+  readonly compacted?: Compacted;
+}
+
+/** One compaction before the execution: nothing when nothing is due. */
+async function compactOne<TName extends string>(
+  deps: AgentExecutionDeps<TName>,
+  compaction: CompactionInUse,
+  run: CompactionRun,
+): Promise<CompactedOne> {
+  const { tenantId, threadId } = run;
+  const due = dueOf(compaction, await deps.terns.uncovered(tenantId, threadId, compaction.name));
+  if (due.length === 0) return { usage: [] };
+  return compaction.strategy === CompactionStrategy.Custom
+    ? compactWithHandler(deps, compaction, run, due)
+    : compactWithModel(deps, compaction, run, due);
 }
 
 /**

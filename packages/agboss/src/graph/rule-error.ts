@@ -141,6 +141,8 @@ export type RuleCode =
   | "compaction.invalid-setting"
   | "compaction.decision-model"
   | "compaction.uncompacted-turns-invalid"
+  // a custom compaction (#382) without its compact(input) method
+  | "compaction.missing-handler"
   // model providers (#266 PR 1): every model of the application resolves to one provider
   | "model.unserved"
   | "model.ambiguous-provider"

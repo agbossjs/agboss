@@ -61,6 +61,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["Application", "Workflow", "WorkflowStart", "WorkflowFinish", "Agent", "Tool", "Action"],
     ...["Reasoning", "ReasoningEffort", "RagMode", "TurnLimit", "TokenLimit"],
     ...["Compaction", "CompactionStrategy", "Rag", "RagConnector", "Router", "RouterHandler"],
+    ...["CompactionHandler", "CompactionInput", "CompactionTurn"],
     ...["Arbiter", "OnAnswer", "Judge", "JudgeHandler", "JudgeInput", "JudgeVerdict", "JudgeModel"],
     ...["isVariant", "VariantOf", "QualityGateError", "Decision"],
     ...["HealthCheck", "HealthCheckHandler", "HealthCheckResult", "HealthReport"],

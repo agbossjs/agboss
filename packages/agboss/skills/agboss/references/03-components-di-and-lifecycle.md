@@ -18,7 +18,7 @@ Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flo
 | `@Arbiter` (`arbiters/<name>.arbiter.ts`)                | code: one `@OnAnswer(Agent)` method per agent of the launch | `decidedBy`; model: `model`, `prompt`, `criteria`; code: `deps`                                                                                                                                                                                                                                                                                        |
 | `@Judge` (`judges/<name>.judge.ts`)                      | `JudgeHandler<TReply>`: `judge(input)`                      | `name`, `model`, `reply` (the answer's shape), `deps`                                                                                                                                                                                                                                                                                                  |
 | `@Rag` (`rag/<name>.rag.ts`, `agboss/rag`)               | `RagConnector`: `retrieve(query, { topK, signal })`         | `name` (`-rag`), `description`, `topK`, `deps`                                                                                                                                                                                                                                                                                                         |
-| `@Compaction` (`compactions/<name>.compaction.ts`)       | none                                                        | `strategy`, `model`, `prompt`, `turnsBetweenCompactions`, `summaryQueueLength`, `summaryMaxTokens`                                                                                                                                                                                                                                                     |
+| `@Compaction` (`compactions/<name>.compaction.ts`)       | none; `Custom`: `CompactionHandler`: `compact(input)`       | `strategy`, `model`, `prompt`, `turnsBetweenCompactions`, `summaryQueueLength`, `summaryMaxTokens`; `Custom`: `turnsBetweenCompactions`, `deps`                                                                                                                                                                                                        |
 | `@HealthCheck` (`health/<name>.health-check.ts`)         | `HealthCheckHandler`: `check()`                             | `name` (`-health-check`), `timeout`, `deps`                                                                                                                                                                                                                                                                                                            |
 | `@Injectable` (`services/<name>.service.ts`)             | your own methods                                            | `deps`                                                                                                                                                                                                                                                                                                                                                 |
 
@@ -178,6 +178,63 @@ import { Compaction, CompactionStrategy } from "agboss";
   summaryMaxTokens: 400,
 })
 export class ConversationCompaction {}
+```
+
+A custom compaction (`CompactionStrategy.Custom`) writes the summaries itself: its class implements
+`CompactionHandler` (`compact(input)` — `previousSummaries`, the readers' summaries now, and
+`turnsToCompact`, each a `CompactionTurn`: `startName`, `input`, `finishName`, `output`, masked by
+the PII policies) and returns the summaries readers see from now on; its services come through
+`deps`. No `model`, `prompt`, `summaryQueueLength` or `summaryMaxTokens` (they do not compile;
+`agboss check` reports them too); a class without `compact` is `[compaction.missing-handler]`. It
+runs when a model's would — every `turnsBetweenCompactions` turns older than the window, before the
+next turn reads its thread; a `compact()` that throws or gives no summary is `CompactionError`.
+
+<!-- snippet-context
+import { Injectable, type CompactionTurn } from "agboss";
+@Injectable()
+export class KnowledgeGraphService {
+  saveFactsAndSummarize(
+    _threadId: string,
+    turns: readonly CompactionTurn[],
+    previous: readonly string[],
+  ): Promise<readonly string[]> {
+    return Promise.resolve([...previous, `${String(turns.length)} turns saved`]);
+  }
+}
+// @snippet
+-->
+
+```ts file=src/desk/compactions/graph-memory.compaction.ts
+// compactions/graph-memory.compaction.ts — the facts go to a knowledge graph, its summary to readers
+import {
+  Compaction,
+  CompactionStrategy,
+  ExecutionContext,
+  type CompactionHandler,
+  type CompactionInput,
+} from "agboss";
+
+@Compaction({
+  name: "graph-memory-compaction",
+  description: "Keeps the facts of old turns in a knowledge graph",
+  strategy: CompactionStrategy.Custom,
+  turnsBetweenCompactions: 4,
+  deps: [KnowledgeGraphService, ExecutionContext], // KnowledgeGraphService in the workflow's providers
+})
+export class GraphMemoryCompaction implements CompactionHandler {
+  constructor(
+    private readonly knowledgeGraphService: KnowledgeGraphService,
+    private readonly executionContext: ExecutionContext,
+  ) {}
+
+  async compact(input: CompactionInput): Promise<readonly string[]> {
+    return this.knowledgeGraphService.saveFactsAndSummarize(
+      this.executionContext.threadId,
+      input.turnsToCompact,
+      input.previousSummaries,
+    );
+  }
+}
 ```
 
 ```ts file=src/desk/judges/cites-source.judge.ts
@@ -478,7 +535,8 @@ export class HasAnswerArbiter {
   (`[prompt.input-in-instructions]`).
 - **Memory**: each agent and model router sees the thread's last `uncompactedTurns` turns in full
   (default 5, `TurnLimit.ALL` = all); older ones are its `compaction`'s summaries
-  (`CompactionStrategy.SummaryQueue` / `SingleSummary` / `None`). Both cascade application →
+  (`CompactionStrategy.SummaryQueue` / `SingleSummary` / `None`, or `Custom` — your class's
+  `compact()`; `agboss describe`: `strategy: custom (GraphMemoryCompaction.compact())`). Both cascade application →
   workflow → component; a code router has neither (it does not compile).
 
 ## Running the application
@@ -666,6 +724,7 @@ export class SeatWorkflow {}
 | `[prompt.unknown-variable]`              | `{{tone}}` without `promptVariables: { tone }` → add it                                                                             |
 | `[judge.wrong-reply]`                    | the judge's `reply` is not the agent's `output` shape → make them the same                                                          |
 | `[compaction.uncompacted-turns-invalid]` | `uncompactedTurns: 0` or a fraction → a whole number from 1, or `TurnLimit.ALL`                                                     |
+| `[compaction.missing-handler]`           | a `CompactionStrategy.Custom` class without `compact(input)` → `implements CompactionHandler`                                       |
 | `[health.not-a-health-check]`            | a class in `healthChecks` without `@HealthCheck` → decorate it                                                                      |
 | `[context.not-declared]`                 | a `TenantContext` subclass injected but not declared → `@Application({ tenantContext })`                                            |
 | `[action.invalid-compensator-input]`     | the undo reads a field not on the path right after its action → read what the action returned (`SeatHoldDto`)                       |
