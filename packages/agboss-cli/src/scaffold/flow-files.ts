@@ -55,7 +55,7 @@ export function endpointFiles(dir: string, workflow: Names): FileToWrite[] {
 export interface RouterFileSpec {
   readonly description: string;
   readonly prompt: string;
-  /** Required: a router on a cycle without it breaks `router.unbounded-cycle`. */
+  /** Required: a router on a cycle without it breaks `graph.cycle-without-max-visits`. */
   readonly maxVisits: number;
 }
 
