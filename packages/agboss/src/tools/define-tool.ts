@@ -5,10 +5,20 @@ import type { Tool, ToolCallContext, ToolOutput } from "./types.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { systemClock, type Clock } from "../infrastructure/clock.js";
 import { timeoutOn } from "../infrastructure/clock-timeout.js";
-import { seconds, type Milliseconds } from "../units/index.js";
+import { kilobytes, seconds, type Bytes, type Milliseconds } from "../units/index.js";
 
 /** How long a tool call may run when its tool sets no `timeout`. */
 export const DEFAULT_TOOL_TIMEOUT: Milliseconds = seconds(30);
+
+/** What a model reads of one tool result when neither the tool nor `defaults.tools` bounds it (#336). */
+export const DEFAULT_MAX_RESULT_SIZE: Bytes = kilobytes(128);
+
+/**
+ * The bound of a workflow's tool results (#336): its `defaults.tools.maxResultSize` (the config,
+ * validated: a whole number of bytes from 1), else the built-in.
+ */
+export const defaultMaxResultSizeOf = (configured: number | undefined): Bytes =>
+  configured === undefined ? DEFAULT_MAX_RESULT_SIZE : (configured as Bytes);
 
 /** Function names accepted by OpenAI-compatible providers. */
 const TOOL_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
@@ -34,6 +44,7 @@ export interface ToolDefinition<TName extends string, TInput, TOutput> {
   readonly output: z.ZodType<TOutput>;
   readonly channel?: string;
   readonly timeout?: Milliseconds;
+  readonly maxResultSize?: Bytes;
   readonly run: (input: TInput, ctx: ToolCallContext) => Promise<TOutput>;
 }
 
@@ -127,6 +138,7 @@ export function defineTool<TName extends string, TInput, TOutput>(
     description: definition.description,
     ...(definition.channel === undefined ? {} : { channel: definition.channel }),
     timeout,
+    ...(definition.maxResultSize === undefined ? {} : { maxResultSize: definition.maxResultSize }),
     input: definition.input,
     output: definition.output,
     invoke,

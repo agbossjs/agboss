@@ -86,6 +86,7 @@ export function makeInputNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       state.inputMessage,
       config,
       deps.observer,
+      agent.maxResultSize,
     );
     const view = await memoryViewOf(agent, state);
     const memory = formatMemory(view, {

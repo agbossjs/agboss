@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { Clock } from "../infrastructure/clock.js";
-import type { Milliseconds } from "../units/index.js";
+import type { Bytes, Milliseconds } from "../units/index.js";
 
 /**
  * What the framework hands its own tool wrapper per call (internal, #280): the call's signal (the
@@ -28,6 +28,8 @@ export interface Tool<TName extends string = string, TInput = unknown, TOutput =
   readonly channel?: string;
   /** How long one call may run. */
   readonly timeout: Milliseconds;
+  /** The tool's own bound on its rendered result (#336); none → its workflow's `defaults.tools`. */
+  readonly maxResultSize?: Bytes;
   readonly input: z.ZodType<TInput>;
   readonly output: z.ZodType<TOutput>;
   readonly invoke: (raw: unknown, ctx?: ToolCallContext) => Promise<ToolOutput<TOutput>>;

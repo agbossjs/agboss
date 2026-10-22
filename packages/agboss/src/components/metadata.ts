@@ -1,6 +1,6 @@
 import type { McpServerConfig } from "../config/types.js";
 import type { DtoClass } from "../dto/types.js";
-import type { Milliseconds } from "../units/index.js";
+import type { Bytes, Milliseconds } from "../units/index.js";
 import type { ServerTools } from "./mcp-client.js";
 import type { Class, Token } from "./injection.js";
 import type { ChannelMeta } from "./meta-types.js";
@@ -15,6 +15,8 @@ export interface ToolMeta {
   readonly channel?: Class;
   /** How long one call may run (`seconds(5)`); default 30 s. */
   readonly timeout?: Milliseconds;
+  /** What a model reads of one result at most (`kilobytes(256)`); default `defaults.tools`. */
+  readonly maxResultSize?: Bytes;
   readonly input: DtoClass;
   readonly output: DtoClass;
   readonly deps: readonly Token[];

@@ -4,11 +4,17 @@
 
 ```ts
 
+// Warning: (ae-forgotten-export) The symbol "Brand" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type Bytes = Brand<number, "Bytes">;
+
 // @public
 export const hours: (amount: number) => Milliseconds;
 
-// Warning: (ae-forgotten-export) The symbol "Brand" needs to be exported by the entry point index.d.ts
-//
+// @public
+export const kilobytes: (amount: number) => Bytes;
+
 // @public
 export type Milliseconds = Brand<number, "Milliseconds">;
 
@@ -32,8 +38,8 @@ export const usd: (amount: number) => Usd;
 
 // Warnings were encountered during analysis:
 //
-// src/units/index.ts:13:1 - (ae-undocumented) Missing documentation for "UnitError".
-// src/units/index.ts:14:12 - (ae-undocumented) Missing documentation for "name".
+// src/units/index.ts:16:1 - (ae-undocumented) Missing documentation for "UnitError".
+// src/units/index.ts:17:12 - (ae-undocumented) Missing documentation for "name".
 
 // (No @packageDocumentation comment for this package)
 

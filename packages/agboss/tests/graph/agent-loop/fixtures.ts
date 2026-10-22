@@ -29,7 +29,7 @@ import type { ExecutionStateType } from "../../../src/flow/runtime/state.js";
 import { resolveSettings } from "../../../src/llm/registry.js";
 import { NO_ANSWER_TOOLS } from "../../../src/flow/runtime/answer-tools.js";
 
-import type { AnyTool } from "../../../src/tools/index.js";
+import { DEFAULT_MAX_RESULT_SIZE, type AnyTool } from "../../../src/tools/index.js";
 import { ConversationModel, repoTools, type ScriptedMove } from "./scripted.js";
 
 export * from "./scripted.js";
@@ -97,6 +97,7 @@ export function harness(
         limits: { modelCalls: 12, toolCalls: 20, ...options.limits },
         knowledge: [],
         answerTools: NO_ANSWER_TOOLS,
+        maxResultSize: DEFAULT_MAX_RESULT_SIZE,
       },
       bundle: "test-bundle",
       budgets:

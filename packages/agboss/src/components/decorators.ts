@@ -1,7 +1,7 @@
 import type { McpServerConfig } from "../config/types.js";
 import type { RagConnector } from "../rag/types.js";
 import type { DtoClass } from "../dto/types.js";
-import type { Milliseconds } from "../units/index.js";
+import type { Bytes, Milliseconds } from "../units/index.js";
 import type { ChannelMeta } from "./meta-types.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 import type { McpServerClient, ServerTools } from "./mcp-client.js";
@@ -37,6 +37,11 @@ export interface ToolOptions<
   readonly channel?: Class;
   /** How long one call may run, with units: `timeout: seconds(5)` (default 30 s). */
   readonly timeout?: Milliseconds;
+  /**
+   * What a model reads of one result at most, in bytes of UTF-8: `maxResultSize: kilobytes(256)`
+   * (#336) — longer is cut with a marker; default `defaults.tools.maxResultSize`, else 128 KB.
+   */
+  readonly maxResultSize?: Bytes;
   readonly input: In;
   readonly output: Out;
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */

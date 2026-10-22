@@ -4,6 +4,15 @@ import { CITE_INSTRUCTION, knowledgeBlock } from "../../prompts/rag.js";
 import type { KnowledgeSource } from "../../rag/types.js";
 import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
+import { DEFAULT_MAX_RESULT_SIZE } from "../../tools/index.js";
+import type { Bytes } from "../../units/index.js";
+
+/** A knowledge base's block within the agent's `maxResultSize` (#336), the marker after a cut. */
+async function boundedBlock(block: string, maxResultSize: Bytes): Promise<string> {
+  const { boundedText } = await import("../agent-loop/tool-result-size.js");
+  const { kept, marker } = boundedText(block, maxResultSize);
+  return `${kept}${marker}`;
+}
 
 /**
  * Context mode: before the agent's loop, each knowledge base is asked for the task's top-k
@@ -16,6 +25,7 @@ export async function gatherKnowledge(
   query: string,
   config: RunnableConfig | undefined,
   observer?: ExecutionObserverManager,
+  maxResultSize: Bytes = DEFAULT_MAX_RESULT_SIZE,
 ): Promise<{ readonly block: string; readonly records: UsageRecord[] }> {
   const records: UsageRecord[] = [];
   const blocks: string[] = [];
@@ -34,7 +44,10 @@ export async function gatherKnowledge(
           retrieval.costUsd ?? 0,
         ),
       );
-      if (retrieval.results.length > 0) blocks.push(knowledgeBlock(source.name, retrieval.results));
+      if (retrieval.results.length > 0)
+        blocks.push(
+          await boundedBlock(knowledgeBlock(source.name, retrieval.results), maxResultSize),
+        );
     } catch {
       // fail-open: knowledge is an aid, not a gate
     }

@@ -28,6 +28,8 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
     readonly description: string;
     // (undocumented)
     readonly input: In;
+    // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
+    readonly maxResultSize?: Bytes;
     // (undocumented)
     readonly name: string;
     // (undocumented)
@@ -49,8 +51,8 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
 // src/components/decorators.ts:35:3 - (ae-undocumented) Missing documentation for "prompt".
 // src/components/decorators.ts:36:3 - (ae-undocumented) Missing documentation for "promptUrls".
 // src/components/decorators.ts:37:3 - (ae-undocumented) Missing documentation for "channel".
-// src/components/decorators.ts:40:3 - (ae-undocumented) Missing documentation for "input".
-// src/components/decorators.ts:41:3 - (ae-undocumented) Missing documentation for "output".
+// src/components/decorators.ts:45:3 - (ae-undocumented) Missing documentation for "input".
+// src/components/decorators.ts:46:3 - (ae-undocumented) Missing documentation for "output".
 
 // (No @packageDocumentation comment for this package)
 

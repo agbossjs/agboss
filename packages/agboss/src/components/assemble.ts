@@ -9,7 +9,7 @@ import { DEFAULT_WORKFLOW_SETTINGS, type WorkflowSettings } from "../graph/setti
 import type { AssembledWorkflow } from "../workflow.js";
 import { dependencyTree } from "./container/graph-check.js";
 import { providerModulesOf, ragParts, toolBuilder } from "./runtime.js";
-import { mcpOf, toolsOf, type Mcp } from "./assemble-tools.js";
+import { mcpOf, resultSizeViolations, toolsOf, type Mcp } from "./assemble-tools.js";
 import { ragClassesOf } from "./rag.js";
 import type { Class, Provider, Token } from "./injection.js";
 import type { ProviderModule } from "./container/registrations.js";
@@ -190,7 +190,7 @@ export async function workflowOf(
   const created = createdClassesOf(graph, policies.classes, replyInterpreters);
   const components = componentClassesOf(bundle, agents, tools, rags, created, modules);
   checkComponents(bundle, { components, modules, mcp, contexts });
-  const names = toolNames(tools, rags);
+  const names = toolNames(tools, rags, resultSizeViolations(bundle, tools));
   const prompts = await promptsOf(agents, loader);
   const config = configOf(bundle, agents, names, mcp, judges, compactions);
   validateAgentsConfig(config, [...names.values()]);

@@ -62,6 +62,8 @@ export interface ToolEndEvent extends NodeEvent {
   readonly toolName: string;
   readonly agentName: string;
   readonly update: string;
+  /** Whether the result was cut at its `maxResultSize` (`update` then ends with the marker, #336). */
+  readonly isResultTruncated: boolean;
 }
 
 /**

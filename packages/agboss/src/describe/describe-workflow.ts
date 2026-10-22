@@ -12,6 +12,7 @@ import { recursionLines } from "./recursion.js";
 import {
   agentDefaultsLine,
   compactionSourceOf,
+  maxResultSizeLabel,
   memoryLines,
   routerModelSource,
 } from "./defaults.js";
@@ -58,7 +59,7 @@ function toolLine(tool: AnyTool, bundle: AssembledWorkflow): string {
   const kind = isMcpFacade(tool) ? `MCP ${tool.mcp.server}` : "local";
   const waits = tool.channel ? ", uses channel" : "";
   const deps = bundle.toolDependencies?.[tool.name];
-  return `${tool.name} (${tool.channel ? `channel:${tool.channel}, ` : ""}${kind}${waits})${deps === undefined ? "" : ` ← ${deps}`} — ${tool.description}`;
+  return `${tool.name} (${tool.channel ? `channel:${tool.channel}, ` : ""}${kind}${waits})${deps === undefined ? "" : ` ← ${deps}`} — ${tool.description} · ${maxResultSizeLabel(bundle, tool)}`;
 }
 
 /**

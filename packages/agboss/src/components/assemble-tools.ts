@@ -8,6 +8,7 @@ import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import type { ToolClasses } from "./assemble-checks.js";
 import type { McpServerConfig } from "../config/types.js";
 import type { McpServerHandle } from "../tools/index.js";
+import { violation, type RuleViolation } from "../graph/rule-error.js";
 
 /** One `@McpServer` of the workflow: its class, name, launch config and declared tools. */
 export interface McpServerPart {
@@ -24,6 +25,39 @@ export interface Mcp {
   readonly serverTools: readonly McpFacade[];
   readonly instances: ReadonlyMap<Token, unknown>;
   readonly names: ReadonlyMap<Class, string>;
+}
+
+/** A bound on tool results is a whole number of bytes from 1 (`kilobytes(64)`, #336). */
+const isResultSize = (bytes: number): boolean => Number.isInteger(bytes) && bytes >= 1;
+
+/** `[tools.max-result-size-invalid]` naming where the bound is set and what it is. */
+function resultSizeViolation(owner: string, setting: string, bytes: number): RuleViolation {
+  const message =
+    `${owner}: ${setting} is ${String(bytes)} bytes, not a whole number of bytes from 1 — ` +
+    "maxResultSize: kilobytes(64) lets a model read 64 KB of one tool result";
+  return violation("tools.max-result-size-invalid", message, [owner]);
+}
+
+/**
+ * The bounds on what a model reads of one tool result (#336): the workflow's
+ * `defaults.tools.maxResultSize` (over its application's) and each tool's own, all at once.
+ */
+export function resultSizeViolations(bundle: WorkflowMeta, tools: ToolClasses): RuleViolation[] {
+  const defaults = bundle.defaults.tools?.maxResultSize;
+  const own = [
+    ...tools.local.map((cls) => ({ cls, meta: requireComponent(cls, "tool", "workflowOf").meta })),
+    ...tools.mcp.map((cls) => ({
+      cls,
+      meta: requireComponent(cls, "mcp-tool", "workflowOf").meta,
+    })),
+  ].flatMap(({ cls, meta: { maxResultSize } }) =>
+    maxResultSize === undefined || isResultSize(maxResultSize)
+      ? []
+      : [resultSizeViolation(cls.name, "its maxResultSize", maxResultSize)],
+  );
+  return defaults === undefined || isResultSize(defaults)
+    ? own
+    : [resultSizeViolation(bundle.name, "defaults.tools.maxResultSize", defaults), ...own];
 }
 
 /** The tool classes of the workflow's agents, checked: local `@Tool`s and `@McpTool`s. */

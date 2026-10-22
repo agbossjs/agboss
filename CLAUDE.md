@@ -1143,7 +1143,12 @@ export class SeenJobsRepository {
   sees fits `[a-zA-Z0-9_-]`, at most 64 characters (`[tool.name-too-long]`, `[tool.name-invalid]`),
   and is unique over local, MCP, knowledge-base and answer tools (`answer-<dto>`) — else
   `[tool.duplicate-name]`. A tool's `timeout` has units: `@Tool({ timeout: seconds(5) })` (default
-  30 s; there is no `timeoutMs`).
+  30 s; there is no `timeoutMs`). What a model reads of one result is bounded (#336):
+  `maxResultSize: kilobytes(256)` on `@Tool` / `@McpTool`, else `defaults.tools.maxResultSize`
+  (application → workflow), else 128 KB, in bytes of UTF-8 — a longer rendered result (an error's,
+  a knowledge base's search or context block too) is cut before PII masking with
+  `\n[result truncated: N bytes, the first M kept]` (`onToolEnd`'s `isResultTruncated`;
+  `[tools.max-result-size-invalid]`).
 - **Channels (#267)** are found through the tools that name them (`@Tool({ channel })`), like
   services through `deps` — there is no `channelClasses`. A tool names a concrete `@Channel` (used as
   is: `TerminalUserChannel`, `AutoApproveChannel`, …) or a **role**: a project's abstract class
@@ -1924,7 +1929,7 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
     testing/        `agboss/testing`: testWith(App) (Vitest fixtures), scripted gateway, matchers, setup.ts
     components/     @Tool @Agent @McpServer @McpTool @Rag @Injectable @Workflow, DI container, workflowOf
     dto/            `agboss/dto`: field decorators, DTO schemas and validation, standard/ DTOs
-    units/          `agboss/units`: usd(), seconds(), minutes()
+    units/          `agboss/units`: usd(), seconds(), minutes(), kilobytes()
     workflow.ts     the assembled workflow type
     config/         typed config schema, profiles (YAML overlays), defaults resolution
     rag/            knowledge-base contract (RagConnector) + reference SQLite FTS5 connector
