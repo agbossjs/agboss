@@ -83,6 +83,8 @@ export type RuleCode =
   | "dto.duplicate-name"
   | "tool.name-too-long"
   | "tool.name-invalid"
+  // a bound on tool results (#336), reported at assembly by `src/components/assemble-tools.ts`
+  | "tools.max-result-size-invalid"
   | "limits.max-steps-too-low"
   | "limits.branch-exceeds-max-steps"
   | "limits.max-steps-unused"

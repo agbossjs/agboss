@@ -80,18 +80,18 @@ agents
     Reads the user's resume, interviews them about the jobs they want and agrees a search brief
     limits: modelCalls 12 (default) · toolCalls 8
     defaults: temperature 0 (job-scout-application) · maxTokens 2000 (own) · uncompactedTurns 8 (job-scout-workflow)
-    · read-resume-tool (local) ← ResumeReader — Read the user's resume from a local file (.pdf, .md or .txt). Pass the path exactly as the user gave it.
+    · read-resume-tool (local) ← ResumeReader — Read the user's resume from a local file (.pdf, .md or .txt). Pass the path exactly as the user gave it. · maxResultSize 128 KB (built-in)
   scout-agent  moonshotai/kimi-k2.6 · reasoning off · max 4000 tokens · uncompactedTurns 8 · compaction conversation-compaction (job-scout-workflow)
     Searches Greenhouse with the agreed search brief and returns the best-fitting jobs with links
     limits: modelCalls 12 (default) · toolCalls 8
     rag: company-notes-rag (tool, k 3)
     defaults: temperature 0 (job-scout-application) · maxTokens 4000 (own) · uncompactedTurns 8 (job-scout-workflow)
-    · greenhouse-jobs-tool (local) ← JobFitJudge (ROUTER_FACTORY), JOB_SEARCH, GreenhouseBoards (JOB_SEARCH, ApplicationContext), ExecutionContext — Find jobs on Greenhouse boards that fit what the user wants; returns the best with links.
-    · search-company-notes-rag-tool (local) — The user's notes about companies: stack, culture, what people say. Returns the most relevant search results with their source; cite them as [source].
+    · greenhouse-jobs-tool (local) ← JobFitJudge (ROUTER_FACTORY), JOB_SEARCH, GreenhouseBoards (JOB_SEARCH, ApplicationContext), ExecutionContext — Find jobs on Greenhouse boards that fit what the user wants; returns the best with links. · maxResultSize 128 KB (built-in)
+    · search-company-notes-rag-tool (local) — The user's notes about companies: stack, culture, what people say. Returns the most relevant search results with their source; cite them as [source]. · maxResultSize 128 KB (built-in)
   shortlist-agent  moonshotai/kimi-k2.6 · reasoning on(effort low) · max 1000 tokens · uncompactedTurns 8 · compaction conversation-compaction (job-scout-workflow)
     Saves the jobs the user chooses to their shortlist file and shows what is on it
     limits: modelCalls 12 (default) · toolCalls 8
     defaults: temperature 0 (job-scout-application) · maxTokens 1000 (own) · uncompactedTurns 8 (job-scout-workflow)
-    · read-shortlist-tool (MCP shortlist) ← ShortlistServer, SHORTLIST — Read the user's shortlist (empty when nothing is saved yet).
-    · save-shortlist-tool (channel:terminal-user-channel, MCP shortlist, uses channel) ← ShortlistServer, SHORTLIST — Save the jobs the user chose to their shortlist (jobs already there are skipped).
+    · read-shortlist-tool (MCP shortlist) ← ShortlistServer, SHORTLIST — Read the user's shortlist (empty when nothing is saved yet). · maxResultSize 128 KB (built-in)
+    · save-shortlist-tool (channel:terminal-user-channel, MCP shortlist, uses channel) ← ShortlistServer, SHORTLIST — Save the jobs the user chose to their shortlist (jobs already there are skipped). · maxResultSize 128 KB (built-in)
 unassigned tools: none

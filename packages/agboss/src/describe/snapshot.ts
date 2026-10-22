@@ -4,7 +4,7 @@ import { NodeKind } from "../flow/ast.js";
 import { dtoJsonSchemaOf, dtoSchemaHashOf } from "../flow/runtime/join-keys.js";
 import { configSnapshot, type ChildSnapshotSources } from "../run/versions.js";
 import { versionOf } from "../terns/index.js";
-import type { AnyTool } from "../tools/index.js";
+import { defaultMaxResultSizeOf, type AnyTool } from "../tools/index.js";
 import {
   edgesOf,
   errorHandlersOf,
@@ -34,6 +34,8 @@ export interface DtoSchemaSnapshot {
 export interface ToolSchemaSnapshot {
   readonly promptHash: string;
   readonly schemaHash: string;
+  /** What a model reads of one of its results at most, in bytes: its own, else the workflow's (#336). */
+  readonly maxResultSize: number;
   readonly input: JsonSchema;
   readonly output: JsonSchema;
 }
@@ -56,12 +58,13 @@ export interface WorkflowSnapshot {
   readonly schemas: SchemasSnapshot;
 }
 
-const toolSchemaOf = (tool: AnyTool): ToolSchemaSnapshot => {
+const toolSchemaOf = (tool: AnyTool, maxResultSize: number): ToolSchemaSnapshot => {
   const input = inputJsonSchema(tool.input);
   const output = inputJsonSchema(tool.output);
   return {
     promptHash: versionOf(tool.description),
     schemaHash: versionOf({ input, output }),
+    maxResultSize: tool.maxResultSize ?? maxResultSize,
     input,
     output,
   };
@@ -74,7 +77,11 @@ function schemasOf(bundle: AssembledWorkflow, tools: readonly AnyTool[]): Schema
       name,
       { schemaHash: dtoSchemaHashOf(dto), jsonSchema: dtoJsonSchemaOf(dto) },
     ]);
-  const byTool = tools.map((tool): [string, ToolSchemaSnapshot] => [tool.name, toolSchemaOf(tool)]);
+  const bound = defaultMaxResultSizeOf(bundle.config.defaults.tools?.maxResultSize);
+  const byTool = tools.map((tool): [string, ToolSchemaSnapshot] => [
+    tool.name,
+    toolSchemaOf(tool, bound),
+  ]);
   return { dtos: Object.fromEntries(dtos), tools: Object.fromEntries(byTool) };
 }
 

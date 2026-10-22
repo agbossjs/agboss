@@ -18,6 +18,16 @@ export const rejectionMessage = (by: string, reason: string | undefined): string
 export const unknownToolMessage = (tool: string): string =>
   `Tool error: there is no tool "${tool}"`;
 
+/** How a byte count reads in the truncation marker: `1,048,576`. */
+const byteCount = (bytes: number): string => bytes.toLocaleString("en-US");
+
+/**
+ * What ends a tool result cut at its `maxResultSize` (#336): the size it had and what was kept,
+ * in bytes of UTF-8 — `\n[result truncated: 1,048,576 bytes, the first 262,144 kept]`.
+ */
+export const truncatedResultMarker = (size: number, kept: number): string =>
+  `\n[result truncated: ${byteCount(size)} bytes, the first ${byteCount(kept)} kept]`;
+
 /** Final message of an agent whose loop was stopped by the run budget. */
 export const BUDGET_STOP_MESSAGE = "stopped: run budget exhausted";
 
@@ -25,4 +35,5 @@ export const BUDGET_STOP_MESSAGE = "stopped: run budget exhausted";
 export const agentLoopPromptTexts: readonly string[] = [
   rejectionMessage("", ""),
   unknownToolMessage(""),
+  truncatedResultMarker(0, 0),
 ];

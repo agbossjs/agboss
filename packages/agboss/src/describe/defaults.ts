@@ -10,6 +10,7 @@ import { memoryPlanOf, type CompactionInUse } from "../compaction/plan.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
 import { workflowDeclarationOf } from "../components/module.js";
 import type { AssembledWorkflow } from "../workflow.js";
+import { defaultMaxResultSizeOf, type AnyTool } from "../tools/index.js";
 
 /**
  * Where `agboss describe`'s values came from (#261 AC12): a component's own field, the `defaults`
@@ -24,7 +25,7 @@ const sourceLabel = (own: boolean, source: DefaultSource | undefined): string =>
 
 function sourceOf(
   bundle: AssembledWorkflow,
-  section: "models" | "router",
+  section: "models" | "router" | "tools",
   field: string,
 ): DefaultSource | undefined {
   const levels = defaultsLevelsOf(bundle.graph);
@@ -47,6 +48,25 @@ export function routerModelSource(bundle: AssembledWorkflow, router: LoadedRoute
 function windowSourceOf(bundle: AssembledWorkflow): DefaultSource | undefined {
   const levels = defaultsLevelsOf(bundle.graph);
   return levels === undefined ? undefined : uncompactedTurnsSourceOf(levels);
+}
+
+/** A size as `agboss describe` prints it: `64 KB`, or `1000 bytes` when it is not whole kilobytes. */
+const sizeLabel = (bytes: number): string =>
+  bytes % 1024 === 0 ? `${String(bytes / 1024)} KB` : `${String(bytes)} bytes`;
+
+/**
+ * What a model reads of one result of a tool at most and where it came from (#336): the tool's own
+ * `maxResultSize`, else `defaults.tools.maxResultSize` of its workflow or application, else the
+ * built-in — `maxResultSize 64 KB (desk-application)`.
+ */
+export function maxResultSizeLabel(bundle: AssembledWorkflow, tool: AnyTool): string {
+  const size =
+    tool.maxResultSize ?? defaultMaxResultSizeOf(bundle.config.defaults.tools?.maxResultSize);
+  const source = sourceLabel(
+    tool.maxResultSize !== undefined,
+    sourceOf(bundle, "tools", "maxResultSize"),
+  );
+  return `maxResultSize ${sizeLabel(size)} ${source}`;
 }
 
 /** `defaults: temperature 0 (ask-application) · maxTokens 512 (own) · uncompactedTurns 5 (ask-workflow)`. */

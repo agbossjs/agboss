@@ -5,6 +5,7 @@ import type { JudgeBinding, ModelBinding } from "../../llm/registry.js";
 import type { BaseMemoryStrategy } from "../../memory/types.js";
 import type { KnowledgeSource } from "../../rag/types.js";
 import type { AnyTool } from "../../tools/index.js";
+import type { Bytes } from "../../units/index.js";
 import type { AnswerTools } from "../../flow/runtime/answer-tools.js";
 import type { PiiPolicySet } from "../../pii/policy-set.js";
 import type { RuntimeGuardrail } from "../../guardrails/runtime.js";
@@ -23,6 +24,11 @@ export interface AgentDefinition {
   /** How it answers with its `output` (S6); none for a text agent. */
   readonly answerTools: AnswerTools;
   readonly limits: AgentLoopLimits;
+  /**
+   * What its model reads of one tool result (a tool without its own) and of each context-mode
+   * knowledge block at most (#336): its workflow's `defaults.tools.maxResultSize`, else 128 KB.
+   */
+  readonly maxResultSize: Bytes;
   /** What of the thread memory the agent sees; absent = the built-in sliding window. */
   readonly memory?: BaseMemoryStrategy;
   /** Context-mode knowledge bases: retrieved before the first model call. */

@@ -3876,7 +3876,7 @@ export interface Routes {
 }
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "model.unserved" | "model.ambiguous-provider" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply";
+export type RuleCode = "graph.not-a-node" | "graph.two-next-steps" | "graph.choose-from-non-router" | "graph.router-not-last-in-chain" | "graph.cycle-without-router" | "graph.duplicate-node" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "batch.invalid-batch-size" | "batch.invalid-concurrency-limit" | "batch.strategy-not-decorated" | "router.routes-mismatch" | "router.self-without-agent-before" | "router.no-prompt" | "router.empty-route-text" | "router.unbounded-cycle" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "model.unserved" | "model.ambiguous-provider" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply";
 
 // @public
 export interface RuleViolation {
@@ -4347,6 +4347,8 @@ export function Tool<In extends DtoClass, Out extends DtoClass, const D extends 
 
 // @public (undocumented)
 export interface ToolDefaults {
+    // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
+    readonly maxResultSize?: Bytes;
     // (undocumented)
     readonly maxToolCalls?: number;
 }
@@ -4355,6 +4357,7 @@ export interface ToolDefaults {
 export interface ToolEndEvent extends NodeEvent {
     // (undocumented)
     readonly agentName: string;
+    readonly isResultTruncated: boolean;
     // (undocumented)
     readonly toolName: string;
     // (undocumented)
@@ -4376,6 +4379,7 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
     readonly description: string;
     // (undocumented)
     readonly input: In;
+    readonly maxResultSize?: Bytes;
     // (undocumented)
     readonly name: string;
     // (undocumented)
@@ -4826,8 +4830,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/components/decorators.ts:35:3 - (ae-undocumented) Missing documentation for "prompt".
 // src/components/decorators.ts:36:3 - (ae-undocumented) Missing documentation for "promptUrls".
 // src/components/decorators.ts:37:3 - (ae-undocumented) Missing documentation for "channel".
-// src/components/decorators.ts:40:3 - (ae-undocumented) Missing documentation for "input".
-// src/components/decorators.ts:41:3 - (ae-undocumented) Missing documentation for "output".
+// src/components/decorators.ts:45:3 - (ae-undocumented) Missing documentation for "input".
+// src/components/decorators.ts:46:3 - (ae-undocumented) Missing documentation for "output".
 // src/components/injection.ts:3:3 - (ae-undocumented) Missing documentation for "__type".
 // src/components/injection.ts:4:15 - (ae-undocumented) Missing documentation for "description".
 // src/components/injection.ts:10:1 - (ae-undocumented) Missing documentation for "Token".
@@ -4837,8 +4841,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/components/judge-decorators.ts:28:3 - (ae-undocumented) Missing documentation for "description".
 // src/components/judge-decorators.ts:93:3 - (ae-undocumented) Missing documentation for "passed".
 // src/components/judge-decorators.ts:100:3 - (ae-undocumented) Missing documentation for "passed".
-// src/components/metadata.ts:101:1 - (ae-undocumented) Missing documentation for "ComponentError".
-// src/components/metadata.ts:102:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/metadata.ts:103:1 - (ae-undocumented) Missing documentation for "ComponentError".
+// src/components/metadata.ts:104:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/name-of.ts:32:1 - (ae-undocumented) Missing documentation for "nameOf".
 // src/components/policy-decorators.ts:16:3 - (ae-undocumented) Missing documentation for "Input".
 // src/components/policy-decorators.ts:17:3 - (ae-undocumented) Missing documentation for "Output".
@@ -4854,9 +4858,9 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/components/spend-recorder.ts:26:12 - (ae-undocumented) Missing documentation for "name".
 // src/config/types.ts:13:3 - (ae-undocumented) Missing documentation for "MODEL_MAX".
 // src/config/types.ts:18:3 - (ae-undocumented) Missing documentation for "ALL".
-// src/config/types.ts:201:1 - (ae-undocumented) Missing documentation for "CompactionSettings".
-// src/config/types.ts:202:1 - (ae-undocumented) Missing documentation for "AgentsConfig".
-// src/config/types.ts:214:3 - (ae-forgotten-export) The symbol "AgentSettingsOf" needs to be exported by the entry point index.d.ts
+// src/config/types.ts:209:1 - (ae-undocumented) Missing documentation for "CompactionSettings".
+// src/config/types.ts:210:1 - (ae-undocumented) Missing documentation for "AgentsConfig".
+// src/config/types.ts:222:3 - (ae-forgotten-export) The symbol "AgentSettingsOf" needs to be exported by the entry point index.d.ts
 // src/core/error-record.ts:11:3 - (ae-undocumented) Missing documentation for "name".
 // src/core/error-record.ts:12:3 - (ae-undocumented) Missing documentation for "code".
 // src/core/error-record.ts:15:3 - (ae-undocumented) Missing documentation for "message".
@@ -4877,34 +4881,34 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/core/observability.ts:62:3 - (ae-undocumented) Missing documentation for "toolName".
 // src/core/observability.ts:63:3 - (ae-undocumented) Missing documentation for "agentName".
 // src/core/observability.ts:64:3 - (ae-undocumented) Missing documentation for "update".
-// src/core/observability.ts:72:3 - (ae-undocumented) Missing documentation for "side".
-// src/core/observability.ts:73:3 - (ae-undocumented) Missing documentation for "element".
-// src/core/observability.ts:74:3 - (ae-undocumented) Missing documentation for "text".
-// src/core/observability.ts:76:1 - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
-// src/core/observability.ts:80:3 - (ae-undocumented) Missing documentation for "isBlocked".
-// src/core/observability.ts:81:3 - (ae-undocumented) Missing documentation for "probability".
-// src/core/observability.ts:98:3 - (ae-undocumented) Missing documentation for "modelName".
-// src/core/observability.ts:99:3 - (ae-undocumented) Missing documentation for "callerName".
-// src/core/observability.ts:100:3 - (ae-undocumented) Missing documentation for "rawPayload".
-// src/core/observability.ts:105:3 - (ae-undocumented) Missing documentation for "promptTokens".
-// src/core/observability.ts:106:3 - (ae-undocumented) Missing documentation for "completionTokens".
-// src/core/observability.ts:107:3 - (ae-undocumented) Missing documentation for "totalTokens".
-// src/core/observability.ts:112:3 - (ae-undocumented) Missing documentation for "model".
-// src/core/observability.ts:113:3 - (ae-undocumented) Missing documentation for "callerName".
-// src/core/observability.ts:114:3 - (ae-undocumented) Missing documentation for "rawContent".
-// src/core/observability.ts:115:3 - (ae-undocumented) Missing documentation for "usage".
-// src/core/observability.ts:116:3 - (ae-undocumented) Missing documentation for "calculatedCost".
-// src/core/observability.ts:121:3 - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts:122:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:123:3 - (ae-undocumented) Missing documentation for "input".
-// src/core/observability.ts:128:3 - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts:129:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:130:3 - (ae-undocumented) Missing documentation for "update".
-// src/core/observability.ts:153:3 - (ae-undocumented) Missing documentation for "pending".
-// src/core/observability.ts:190:3 - (ae-undocumented) Missing documentation for "error".
-// src/core/observability.ts:195:3 - (ae-undocumented) Missing documentation for "Execute".
-// src/core/observability.ts:196:3 - (ae-undocumented) Missing documentation for "Resume".
-// src/core/observability.ts:197:3 - (ae-undocumented) Missing documentation for "Cancel".
+// src/core/observability.ts:74:3 - (ae-undocumented) Missing documentation for "side".
+// src/core/observability.ts:75:3 - (ae-undocumented) Missing documentation for "element".
+// src/core/observability.ts:76:3 - (ae-undocumented) Missing documentation for "text".
+// src/core/observability.ts:78:1 - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
+// src/core/observability.ts:82:3 - (ae-undocumented) Missing documentation for "isBlocked".
+// src/core/observability.ts:83:3 - (ae-undocumented) Missing documentation for "probability".
+// src/core/observability.ts:100:3 - (ae-undocumented) Missing documentation for "modelName".
+// src/core/observability.ts:101:3 - (ae-undocumented) Missing documentation for "callerName".
+// src/core/observability.ts:102:3 - (ae-undocumented) Missing documentation for "rawPayload".
+// src/core/observability.ts:107:3 - (ae-undocumented) Missing documentation for "promptTokens".
+// src/core/observability.ts:108:3 - (ae-undocumented) Missing documentation for "completionTokens".
+// src/core/observability.ts:109:3 - (ae-undocumented) Missing documentation for "totalTokens".
+// src/core/observability.ts:114:3 - (ae-undocumented) Missing documentation for "model".
+// src/core/observability.ts:115:3 - (ae-undocumented) Missing documentation for "callerName".
+// src/core/observability.ts:116:3 - (ae-undocumented) Missing documentation for "rawContent".
+// src/core/observability.ts:117:3 - (ae-undocumented) Missing documentation for "usage".
+// src/core/observability.ts:118:3 - (ae-undocumented) Missing documentation for "calculatedCost".
+// src/core/observability.ts:123:3 - (ae-undocumented) Missing documentation for "name".
+// src/core/observability.ts:124:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:125:3 - (ae-undocumented) Missing documentation for "input".
+// src/core/observability.ts:130:3 - (ae-undocumented) Missing documentation for "name".
+// src/core/observability.ts:131:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:132:3 - (ae-undocumented) Missing documentation for "update".
+// src/core/observability.ts:155:3 - (ae-undocumented) Missing documentation for "pending".
+// src/core/observability.ts:192:3 - (ae-undocumented) Missing documentation for "error".
+// src/core/observability.ts:197:3 - (ae-undocumented) Missing documentation for "Execute".
+// src/core/observability.ts:198:3 - (ae-undocumented) Missing documentation for "Resume".
+// src/core/observability.ts:199:3 - (ae-undocumented) Missing documentation for "Cancel".
 // src/core/observer-hooks.ts:42:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
 // src/core/observer-hooks.ts:46:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
 // src/core/observer-hooks.ts:50:3 - (ae-undocumented) Missing documentation for "onExecutionResume".
@@ -5146,23 +5150,23 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/decorators/workflow-finish.ts:47:1 - (ae-undocumented) Missing documentation for "WorkflowFinish".
 // src/flow/decorators/workflow-start.ts:16:3 - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/workflow-start.ts:17:3 - (ae-undocumented) Missing documentation for "input".
-// src/flow/decorators/workflow.ts:12:3 - (ae-undocumented) Missing documentation for "temperature".
-// src/flow/decorators/workflow.ts:13:3 - (ae-undocumented) Missing documentation for "maxTokens".
-// src/flow/decorators/workflow.ts:14:3 - (ae-undocumented) Missing documentation for "reasoning".
-// src/flow/decorators/workflow.ts:15:3 - (ae-undocumented) Missing documentation for "cache".
-// src/flow/decorators/workflow.ts:20:3 - (ae-undocumented) Missing documentation for "model".
-// src/flow/decorators/workflow.ts:28:3 - (ae-undocumented) Missing documentation for "model".
-// src/flow/decorators/workflow.ts:31:1 - (ae-undocumented) Missing documentation for "ToolDefaults".
-// src/flow/decorators/workflow.ts:32:3 - (ae-undocumented) Missing documentation for "maxToolCalls".
-// src/flow/decorators/workflow.ts:37:3 - (ae-undocumented) Missing documentation for "maxPathDepth".
-// src/flow/decorators/workflow.ts:45:3 - (ae-undocumented) Missing documentation for "models".
-// src/flow/decorators/workflow.ts:46:3 - (ae-undocumented) Missing documentation for "router".
-// src/flow/decorators/workflow.ts:47:3 - (ae-undocumented) Missing documentation for "guardrail".
-// src/flow/decorators/workflow.ts:48:3 - (ae-undocumented) Missing documentation for "tools".
-// src/flow/decorators/workflow.ts:49:3 - (ae-undocumented) Missing documentation for "flow".
-// src/flow/decorators/workflow.ts:63:3 - (ae-undocumented) Missing documentation for "version".
-// src/flow/decorators/workflow.ts:76:3 - (ae-undocumented) Missing documentation for "defaults".
-// src/flow/decorators/workflow.ts:105:1 - (ae-undocumented) Missing documentation for "Workflow".
+// src/flow/decorators/workflow.ts:13:3 - (ae-undocumented) Missing documentation for "temperature".
+// src/flow/decorators/workflow.ts:14:3 - (ae-undocumented) Missing documentation for "maxTokens".
+// src/flow/decorators/workflow.ts:15:3 - (ae-undocumented) Missing documentation for "reasoning".
+// src/flow/decorators/workflow.ts:16:3 - (ae-undocumented) Missing documentation for "cache".
+// src/flow/decorators/workflow.ts:21:3 - (ae-undocumented) Missing documentation for "model".
+// src/flow/decorators/workflow.ts:29:3 - (ae-undocumented) Missing documentation for "model".
+// src/flow/decorators/workflow.ts:32:1 - (ae-undocumented) Missing documentation for "ToolDefaults".
+// src/flow/decorators/workflow.ts:33:3 - (ae-undocumented) Missing documentation for "maxToolCalls".
+// src/flow/decorators/workflow.ts:43:3 - (ae-undocumented) Missing documentation for "maxPathDepth".
+// src/flow/decorators/workflow.ts:51:3 - (ae-undocumented) Missing documentation for "models".
+// src/flow/decorators/workflow.ts:52:3 - (ae-undocumented) Missing documentation for "router".
+// src/flow/decorators/workflow.ts:53:3 - (ae-undocumented) Missing documentation for "guardrail".
+// src/flow/decorators/workflow.ts:54:3 - (ae-undocumented) Missing documentation for "tools".
+// src/flow/decorators/workflow.ts:55:3 - (ae-undocumented) Missing documentation for "flow".
+// src/flow/decorators/workflow.ts:69:3 - (ae-undocumented) Missing documentation for "version".
+// src/flow/decorators/workflow.ts:82:3 - (ae-undocumented) Missing documentation for "defaults".
+// src/flow/decorators/workflow.ts:111:1 - (ae-undocumented) Missing documentation for "Workflow".
 // src/flow/dto-wrappers.ts:23:3 - (ae-undocumented) Missing documentation for "kind".
 // src/flow/dto-wrappers.ts:24:3 - (ae-undocumented) Missing documentation for "variants".
 // src/flow/dto-wrappers.ts:32:3 - (ae-undocumented) Missing documentation for "kind".
@@ -5307,11 +5311,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/limits.ts:149:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/graph/limits.ts:150:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/graph/limits.ts:151:3 - (ae-undocumented) Missing documentation for "steps".
-// src/graph/rule-error.ts:153:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:154:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:155:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:166:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:167:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:155:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:156:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:157:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:168:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:169:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:10:3 - (ae-undocumented) Missing documentation for "build".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
@@ -5521,8 +5525,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/types.ts:79:3 - (ae-undocumented) Missing documentation for "threadId".
 // src/run/types.ts:82:3 - (ae-undocumented) Missing documentation for "ternId".
 // src/run/types.ts:83:3 - (ae-undocumented) Missing documentation for "data".
-// src/tools/define-tool.ts:22:3 - (ae-undocumented) Missing documentation for "code".
-// src/tools/define-tool.ts:23:12 - (ae-undocumented) Missing documentation for "name".
+// src/tools/define-tool.ts:32:3 - (ae-undocumented) Missing documentation for "code".
+// src/tools/define-tool.ts:33:12 - (ae-undocumented) Missing documentation for "name".
 // src/workflow.ts:44:3 - (ae-undocumented) Missing documentation for "config".
 // src/workflow.ts:62:3 - (ae-undocumented) Missing documentation for "prompts".
 // src/workflow.ts:63:3 - (ae-undocumented) Missing documentation for "tools".

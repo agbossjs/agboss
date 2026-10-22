@@ -72,8 +72,16 @@ async function guardedCall(
   const set = deps.pii?.withFieldKey(task.piiKey);
   const refusal = await argumentsRefusal(set, task.args);
   if (refusal.content !== undefined)
-    return { content: refusal.content, piiTokens: {}, piiMasked: {}, usage: refusal.usage };
-  const closed = await closedResult(set, tool, await run());
+    return {
+      content: refusal.content,
+      piiTokens: {},
+      piiMasked: {},
+      usage: refusal.usage,
+      isTruncated: false,
+    };
+  // the tool's own bound, else its workflow's `defaults.tools` (#336)
+  const maxResultSize = tool.maxResultSize ?? deps.agent.maxResultSize;
+  const closed = await closedResult(set, tool, await run(), maxResultSize);
   return { ...closed, usage: [...refusal.usage, ...closed.usage] };
 }
 
@@ -132,9 +140,14 @@ function runTask(
       call.signal,
     ).finally(call.release);
     deps.budgets.tally(closed.usage);
-    const { content, piiTokens, piiMasked } = closed;
+    const { content, piiTokens, piiMasked, isTruncated } = closed;
     await reportNodeEvent((base) =>
-      deps.observer?.onToolEnd({ ...base, ...event, update: content }),
+      deps.observer?.onToolEnd({
+        ...base,
+        ...event,
+        update: content,
+        isResultTruncated: isTruncated,
+      }),
     );
     const results = { [task.callId]: { callId: task.callId, tool: task.tool, content } };
     // arguments its tool's input check refused: one more validation attempt of the step (#268 S93)

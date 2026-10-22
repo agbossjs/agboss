@@ -25,10 +25,14 @@ export interface ToolClasses {
 /**
  * Tool classes → the tool names they expose to a model (a `@Rag` → `search-<name>-tool`); a name
  * that breaks the name rules (`toolNameViolations`) or is exposed twice (local, MCP or
- * knowledge-base search) fails assembly.
+ * knowledge-base search) fails assembly — with the `others` found in the tools (their bounds, #336).
  */
-export const toolNames = (tools: ToolClasses, rags: readonly Class[]): Map<Class, string> => {
-  throwIfViolated(toolNameViolations(tools, rags));
+export const toolNames = (
+  tools: ToolClasses,
+  rags: readonly Class[],
+  others: readonly RuleViolation[] = [],
+): Map<Class, string> => {
+  throwIfViolated([...toolNameViolations(tools, rags), ...others]);
   const map = new Map<Class, string>();
   const byName = new Map<string, Class>();
 

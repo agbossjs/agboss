@@ -27,6 +27,7 @@ import { reasoningLabel, reasoningOfThinking } from "../models/reasoning.js";
 import { resolvedModelUsesOf } from "../models/resolution.js";
 import { piiPolicyMetaOf } from "../pii/policy-checks.js";
 import type { AssembledWorkflow } from "../workflow.js";
+import { defaultMaxResultSizeOf } from "../tools/index.js";
 
 /** One agent's settings in the assembled config. */
 type AgentSettings = AssembledWorkflow["config"]["agents"][string];
@@ -61,6 +62,8 @@ export interface AgentSnapshot {
   readonly maxTokens: number | "max";
   readonly maxModelCalls: number;
   readonly maxToolCalls: number;
+  /** What its model reads of one tool result (a tool without its own) and knowledge block, in bytes (#336). */
+  readonly maxResultSize: number;
   readonly uncompactedTurns: UncompactedTurns;
   readonly compaction?: string;
   readonly tools: readonly string[];
@@ -138,6 +141,7 @@ function modelSettingsOf(
     maxTokens: agent.maxTokens ?? defaults.models.maxTokens ?? DEFAULT_MAX_TOKENS,
     maxModelCalls: limits.modelCalls,
     maxToolCalls: limits.toolCalls,
+    maxResultSize: defaultMaxResultSizeOf(defaults.tools?.maxResultSize),
   };
 }
 

@@ -176,8 +176,16 @@ export const AgentsConfigSchema = z.object({
     models: ChatDefaultsSchema,
     /** The model of `ROUTER_FACTORY` routers and of eval; none = they need their own. */
     router: RouterModelSchema.optional(),
-    /** Tool calls per call of an agent (`agents.<name>.limits.toolCalls`); default 20. */
-    tools: z.object({ maxToolCalls: z.number().int().nonnegative().optional() }).optional(),
+    /**
+     * Tool calls per call of an agent (`agents.<name>.limits.toolCalls`); default 20. What a model
+     * reads of one tool result at most, in bytes (#336); default 128 KB.
+     */
+    tools: z
+      .object({
+        maxToolCalls: z.number().int().nonnegative().optional(),
+        maxResultSize: z.number().int().positive().optional(),
+      })
+      .optional(),
     /** Recent turns every agent and model router sees in full (workflow over application; 5). */
     uncompactedTurns: UncompactedTurnsSchema,
   }),

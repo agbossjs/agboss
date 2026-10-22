@@ -655,6 +655,7 @@ export function Tool<In extends DtoClass, Out extends DtoClass, const D extends 
 export interface ToolEndEvent extends NodeEvent {
     // (undocumented)
     readonly agentName: string;
+    readonly isResultTruncated: boolean;
     // (undocumented)
     readonly toolName: string;
     // (undocumented)
@@ -720,8 +721,8 @@ export class WorkflowSettings {
 // src/components/judge-decorators.ts:28:3 - (ae-undocumented) Missing documentation for "description".
 // src/components/judge-decorators.ts:130:3 - (ae-forgotten-export) The symbol "PassedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
 // src/components/judge-decorators.ts:135:3 - (ae-forgotten-export) The symbol "FailedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
-// src/components/metadata.ts:101:1 - (ae-undocumented) Missing documentation for "ComponentError".
-// src/components/metadata.ts:102:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/metadata.ts:103:1 - (ae-undocumented) Missing documentation for "ComponentError".
+// src/components/metadata.ts:104:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/prompt-problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts:14:3 - (ae-undocumented) Missing documentation for "message".
 // src/components/prompt-problems.ts:23:12 - (ae-undocumented) Missing documentation for "name".
@@ -732,24 +733,24 @@ export class WorkflowSettings {
 // src/core/observability.ts:62:3 - (ae-undocumented) Missing documentation for "toolName".
 // src/core/observability.ts:63:3 - (ae-undocumented) Missing documentation for "agentName".
 // src/core/observability.ts:64:3 - (ae-undocumented) Missing documentation for "update".
-// src/core/observability.ts:72:3 - (ae-undocumented) Missing documentation for "side".
-// src/core/observability.ts:73:3 - (ae-undocumented) Missing documentation for "element".
-// src/core/observability.ts:74:3 - (ae-undocumented) Missing documentation for "text".
-// src/core/observability.ts:76:1 - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
-// src/core/observability.ts:98:3 - (ae-undocumented) Missing documentation for "modelName".
-// src/core/observability.ts:99:3 - (ae-undocumented) Missing documentation for "callerName".
-// src/core/observability.ts:100:3 - (ae-undocumented) Missing documentation for "rawPayload".
-// src/core/observability.ts:112:3 - (ae-undocumented) Missing documentation for "model".
-// src/core/observability.ts:113:3 - (ae-undocumented) Missing documentation for "callerName".
-// src/core/observability.ts:114:3 - (ae-undocumented) Missing documentation for "rawContent".
-// src/core/observability.ts:115:3 - (ae-undocumented) Missing documentation for "usage".
-// src/core/observability.ts:116:3 - (ae-undocumented) Missing documentation for "calculatedCost".
-// src/core/observability.ts:121:3 - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts:122:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:123:3 - (ae-undocumented) Missing documentation for "input".
-// src/core/observability.ts:128:3 - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts:129:3 - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts:130:3 - (ae-undocumented) Missing documentation for "update".
+// src/core/observability.ts:74:3 - (ae-undocumented) Missing documentation for "side".
+// src/core/observability.ts:75:3 - (ae-undocumented) Missing documentation for "element".
+// src/core/observability.ts:76:3 - (ae-undocumented) Missing documentation for "text".
+// src/core/observability.ts:78:1 - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
+// src/core/observability.ts:100:3 - (ae-undocumented) Missing documentation for "modelName".
+// src/core/observability.ts:101:3 - (ae-undocumented) Missing documentation for "callerName".
+// src/core/observability.ts:102:3 - (ae-undocumented) Missing documentation for "rawPayload".
+// src/core/observability.ts:114:3 - (ae-undocumented) Missing documentation for "model".
+// src/core/observability.ts:115:3 - (ae-undocumented) Missing documentation for "callerName".
+// src/core/observability.ts:116:3 - (ae-undocumented) Missing documentation for "rawContent".
+// src/core/observability.ts:117:3 - (ae-undocumented) Missing documentation for "usage".
+// src/core/observability.ts:118:3 - (ae-undocumented) Missing documentation for "calculatedCost".
+// src/core/observability.ts:123:3 - (ae-undocumented) Missing documentation for "name".
+// src/core/observability.ts:124:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:125:3 - (ae-undocumented) Missing documentation for "input".
+// src/core/observability.ts:130:3 - (ae-undocumented) Missing documentation for "name".
+// src/core/observability.ts:131:3 - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts:132:3 - (ae-undocumented) Missing documentation for "update".
 // src/core/observer-hooks.ts:42:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
 // src/core/observer-hooks.ts:62:3 - (ae-undocumented) Missing documentation for "onExecutionEnd".
 // src/core/observer-hooks.ts:70:3 - (ae-undocumented) Missing documentation for "onExecutionError".
@@ -816,7 +817,7 @@ export class WorkflowSettings {
 // src/core/observer-manager.ts:149:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
 // src/core/observer-manager.ts:152:3 - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
 // src/core/observer-manager.ts:155:3 - (ae-undocumented) Missing documentation for "onQuorumDecided".
-// src/flow/decorators/workflow.ts:105:1 - (ae-undocumented) Missing documentation for "Workflow".
+// src/flow/decorators/workflow.ts:111:1 - (ae-undocumented) Missing documentation for "Workflow".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
 // src/graph/settings.ts:36:3 - (ae-undocumented) Missing documentation for "settings".

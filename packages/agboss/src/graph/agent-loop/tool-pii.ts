@@ -8,6 +8,8 @@ import { DetectionMode } from "../../pii/runtime-policy.js";
 import { mappedStringsAsync } from "../../pii/strings.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import { renderToolResult, type AnyTool, type ToolOutput } from "../../tools/index.js";
+import type { Bytes } from "../../units/index.js";
+import type { BoundedText } from "./tool-result-size.js";
 
 /**
  * PII in the tool task (#120 AC9): the arguments the model gave were revealed when its move was
@@ -55,29 +57,50 @@ export interface ClosedResult {
   readonly piiTokens: Readonly<Record<string, string>>;
   readonly piiMasked: Readonly<Record<string, string>>;
   readonly usage: readonly UsageRecord[];
+  /** Whether the rendered result was cut at its `maxResultSize` (#336). */
+  readonly isTruncated: boolean;
 }
 
-/** The tool's output closed for the model; a failed call is the error text as it is. */
+/** The rendered result within its bound (#336), cut before any masking reads it. */
+async function bounded(text: string, maxResultSize: Bytes): Promise<BoundedText> {
+  const { boundedText } = await import("./tool-result-size.js");
+  return boundedText(text, maxResultSize);
+}
+
+/**
+ * The tool's output closed for the model; a failed call is the error text as it is. Over
+ * `maxResultSize` the rendered result is cut first (#336): the policies read only the kept part, the
+ * marker follows it in both forms.
+ */
 export async function closedResult(
   set: PiiPolicySet | undefined,
   tool: AnyTool,
   output: ToolOutput<unknown>,
+  maxResultSize: Bytes,
 ): Promise<ClosedResult> {
   const none = { piiTokens: {}, piiMasked: {}, usage: [] };
-  if (set === undefined || output.kind === "error")
-    return { content: renderToolResult(output), ...none };
+  if (set === undefined || output.kind === "error") {
+    const { kept, marker, isTruncated } = await bounded(renderToolResult(output), maxResultSize);
+    return { content: `${kept}${marker}`, ...none, isTruncated };
+  }
   const fields = tokenFieldMask(set.fieldKey, {});
   const dto = dtoOf(tool.output);
   const value = dto === undefined ? output.value : maskedDtoValue(dto, output.value, fields.mask);
-  const content = renderToolResult({ kind: "ok", value });
-  if (set.isEmpty) return { ...none, content, piiTokens: fields.tokens };
-  const { masked, usage } = await set.mask(content, fields.tokens, DetectionMode.WithModel);
+  const { kept, marker, isTruncated } = await bounded(
+    renderToolResult({ kind: "ok", value }),
+    maxResultSize,
+  );
+  const content = `${kept}${marker}`;
+  if (set.isEmpty) return { ...none, content, piiTokens: fields.tokens, isTruncated };
+  const { masked, usage } = await set.mask(kept, fields.tokens, DetectionMode.WithModel);
   const refused = await set.refusalError(masked.blocked, usage);
-  if (refused !== undefined) return { ...none, content: refusedCall(refused.refusal), usage };
+  if (refused !== undefined)
+    return { ...none, content: refusedCall(refused.refusal), usage, isTruncated };
   return {
     content,
     piiTokens: { ...fields.tokens, ...masked.tokens },
-    piiMasked: { [maskCacheKey(content, true)]: masked.text },
+    piiMasked: { [maskCacheKey(content, true)]: `${masked.text}${marker}` },
     usage,
+    isTruncated,
   };
 }

@@ -62,6 +62,7 @@ export const adapt = (handler: ToolHandler<any, any>, meta: ToolMeta): AnyTool =
     output: schemaOf(meta.output),
     ...(meta.channel === undefined ? {} : { channel: channelNameOf(meta.channel) }),
     ...(meta.timeout === undefined ? {} : { timeout: meta.timeout }),
+    ...(meta.maxResultSize === undefined ? {} : { maxResultSize: meta.maxResultSize }),
     run: (input) => handler.run(input),
   });
 

@@ -3,6 +3,7 @@ import type { Class, Provider } from "../../components/injection.js";
 import type { AgentMeta } from "../../components/meta-types.js";
 import type { UncompactedTurns } from "../../compaction/compaction.decorator.js";
 import type { Reasoning } from "../../models/reasoning.js";
+import type { Bytes } from "../../units/index.js";
 import { NodeKind, type FlowPath } from "../ast.js";
 import type { ThisWorkflowCheck } from "../this-workflow-types.js";
 import { declarationOf, declared, recordDeclaration } from "./declaration.js";
@@ -30,6 +31,11 @@ export interface GuardrailDefaults {
 
 export interface ToolDefaults {
   readonly maxToolCalls?: number;
+  /**
+   * What a model reads of one tool result at most, in bytes of UTF-8 (#336): `kilobytes(64)`;
+   * a tool's own `maxResultSize` wins; nothing set → 128 KB.
+   */
+  readonly maxResultSize?: Bytes;
 }
 
 /** Flow checks: a path nesting more levels warns `[flow.path-too-deep]` (default 4). */

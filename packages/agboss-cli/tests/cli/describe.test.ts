@@ -167,6 +167,7 @@ describe("#268 S93: agboss describe --json is the declarative snapshot the recor
           "place-purchase-tool": {
             promptHash: HASH,
             schemaHash: HASH,
+            maxResultSize: 131_072, // #336: the built-in, in bytes
             input: expect.objectContaining({ required: ["item", "amountUsd"] }),
             output: expect.objectContaining({ type: "object" }),
           },

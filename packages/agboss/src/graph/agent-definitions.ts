@@ -3,6 +3,7 @@ import { NodeKind } from "../flow/ast.js";
 import { answerToolsOf, NO_ANSWER_TOOLS, type AnswerTools } from "../flow/runtime/answer-tools.js";
 import { resolveAgentLimits, type AgentDefinition, type AgentJudge } from "./agent-loop/index.js";
 import type { GraphDeps } from "./deps.js";
+import { defaultMaxResultSizeOf } from "../tools/index.js";
 
 export class MissingAgentPromptError extends Error {
   override name = "MissingAgentPromptError";
@@ -17,8 +18,9 @@ export class MissingJudgeError extends Error {
 const limitsOf = <TName extends string>(
   agent: AgentSettingsOf<string> | undefined,
   config: AgentsConfigOf<TName>,
-): Pick<AgentDefinition, "limits"> => ({
+): Pick<AgentDefinition, "limits" | "maxResultSize"> => ({
   limits: resolveAgentLimits(agent?.maxToolCalls, config.defaults.tools?.maxToolCalls).limits,
+  maxResultSize: defaultMaxResultSizeOf(config.defaults.tools?.maxResultSize),
 });
 
 /** An agent's judges (`agents.<name>.judges`): each one's instance and its own model. */
