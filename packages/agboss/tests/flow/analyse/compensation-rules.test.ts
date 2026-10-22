@@ -4,6 +4,7 @@ import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import {
   BookingDto,
+  ConfirmTripAction,
   NotifyAgencyAction,
   RefundAction,
   TripNotBookedWorkflowFinish,
@@ -14,8 +15,8 @@ import { start } from "../fixtures/paths.js";
 
 /**
  * #339 AC1 — `@Action({ compensateWith, committedBy })` name `@Action` classes; an action does not
- * undo itself, an undo action is not undone, and the undo reads only what the path holds right
- * after the action — every violation at once.
+ * undo itself, an undo action is not undone, the undo reads only what the path holds right after
+ * the action, and `committedBy` needs `compensateWith` (S3) — every violation at once.
  */
 
 /** Has `execute`, but no `@Action`: not a component. */
@@ -77,6 +78,14 @@ class MainChainAction extends UndecoratedUndo {}
 })
 class BadInputAction extends UndecoratedUndo {}
 
+@Action({
+  name: "commit-only-action",
+  description: "x",
+  ...READS_REQUEST,
+  committedBy: ConfirmTripAction, // nothing undoes it: committedBy has no effect
+})
+class CommitOnlyAction extends UndecoratedUndo {}
+
 @Workflow({
   name: "broken-undo-workflow",
   version: "1.0.0",
@@ -87,6 +96,7 @@ class BadInputAction extends UndecoratedUndo {}
       .toAction(WrongCommitAction)
       .toAction(SelfUndoAction)
       .toAction(MainChainAction)
+      .toAction(CommitOnlyAction)
       .toAction(BadInputAction)
       .returns(BookingDto)
       .toFinish(TripNotBookedWorkflowFinish),
@@ -110,6 +120,11 @@ describe("#339 AC1: compensateWith and committedBy name well-formed @Action clas
           "wrong-commit-action: committedBy UndecoratedUndo is not an @Action — name the @Action after which nothing undoes it, or leave committedBy out (a finish commits it)",
       },
       {
+        code: "action.committer-without-compensator",
+        message:
+          "commit-only-action: committedBy confirm-trip-action has no effect without compensateWith — nothing undoes commit-only-action, so nothing commits it; add compensateWith (the @Action that undoes it), or remove committedBy",
+      },
+      {
         code: "action.compensator-compensates",
         message:
           "chained-undo-action undoes main-chain-action and declares compensateWith notify-agency-action itself — an undo action is not undone (no chains); remove compensateWith from chained-undo-action",
@@ -122,7 +137,7 @@ describe("#339 AC1: compensateWith and committedBy name well-formed @Action clas
       {
         code: "action.invalid-compensator-input",
         message:
-          "bad-input-action: compensateWith refund-action reads refund-action.payment (PaymentDto), which is not on the path right after bad-input-action (trip-workflow-start → wrong-undo-action → wrong-commit-action → self-undo-action → main-chain-action → bad-input-action) — an undo reads only what reached the action or what it returned",
+          "bad-input-action: compensateWith refund-action reads refund-action.payment (PaymentDto), which is not on the path right after bad-input-action (trip-workflow-start → wrong-undo-action → wrong-commit-action → self-undo-action → main-chain-action → commit-only-action → bad-input-action) — an undo reads only what reached the action or what it returned",
       },
       {
         code: "action.self-compensation",

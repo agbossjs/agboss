@@ -27,7 +27,8 @@ import type { AnalysisContext } from "./context.js";
  * code, never a model call), an action does not undo itself (`[action.self-compensation]`), an undo
  * action is not undone (`[action.compensator-compensates]`, no chains), and the undo reads only what
  * the path holds right after the action (`[action.invalid-compensator-input]`) — what reached the
- * action and what it returned, on every path. The path rules, from the walk of
+ * action and what it returned, on every path; `committedBy` without `compensateWith` has no effect
+ * (`[action.committer-without-compensator]`, #339 S3). The path rules, from the walk of
  * `compensation-walk.ts`: a side path entered after an undoable action reaches a finish without its
  * undo action (`[flow.uncompensated-action]`); with `committedBy`, a path from the action reaches a
  * finish with neither the committer nor the undo (`[flow.uncommitted-action]`, an error: leaving
@@ -69,6 +70,15 @@ function undoShape(node: FlowNode, compensator: Class, undo: ActionDeclaration):
   return [violation("action.compensator-compensates", message, [node.name, undo.options.name])];
 }
 
+/** `[action.committer-without-compensator]`: nothing undoes the action, so nothing commits it. */
+function committerWithoutCompensator(node: FlowNode, committer: Class | undefined): RuleViolation {
+  const message =
+    `${node.name}: committedBy ${componentLabel(committer)} has no effect without compensateWith ` +
+    `— nothing undoes ${node.name}, so nothing commits it; add compensateWith (the @Action that ` +
+    "undoes it), or remove committedBy";
+  return violation("action.committer-without-compensator", message, [node.name]);
+}
+
 function declarationRules(node: FlowNode): readonly RuleViolation[] {
   const declaration = actionDeclarationOf(node.component);
   if (declaration === undefined) return [];
@@ -76,7 +86,11 @@ function declarationRules(node: FlowNode): readonly RuleViolation[] {
   const found: RuleViolation[] = [];
   if ("committedBy" in options)
     found.push(...notAnAction(node, "committedBy", options.committedBy));
-  if (!("compensateWith" in options)) return found;
+  if (!("compensateWith" in options)) {
+    if ("committedBy" in options)
+      found.push(committerWithoutCompensator(node, options.committedBy));
+    return found;
+  }
   const undo = actionDeclarationOf(options.compensateWith);
   if (undo === undefined || options.compensateWith === undefined)
     return [...found, ...notAnAction(node, "compensateWith", options.compensateWith)];

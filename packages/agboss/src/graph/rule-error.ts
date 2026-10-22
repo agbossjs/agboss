@@ -84,6 +84,7 @@ export type RuleCode =
   | "action.self-compensation"
   | "action.compensator-compensates"
   | "action.invalid-compensator-input"
+  | "action.committer-without-compensator"
   | "flow.uncompensated-action"
   | "flow.uncommitted-action"
   | "flow.compensation-out-of-order"
