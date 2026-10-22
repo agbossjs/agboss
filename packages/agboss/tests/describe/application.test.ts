@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { describedApplicationOf } from "../../src/describe/application.js";
 import { describeApplication } from "../../src/describe/describe-application.js";
-import {
-  ItemsWorkflow,
-  StepCapApplication,
-} from "../app/fixtures/step-slots.workflow.js";
+import { ItemsWorkflow, StepCapApplication } from "../app/fixtures/step-slots.workflow.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";

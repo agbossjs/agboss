@@ -539,7 +539,7 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   a provider's rate-limit queue keeps its slot; a waiter at `app.close()` is interrupted at the
   shutdown timeout and recovered elsewhere. A full instance is `Degraded` in readiness (component
   `step-slots`, `HealthComponentKind.StepSlots`, `reason: "32 of 32 step slots busy, 7 steps
-  waiting"`) and its recovery sweep starts at most its free slots' worth of recoveries per look;
+waiting"`) and its recovery sweep starts at most its free slots' worth of recoveries per look;
   `agboss describe` prints `maxConcurrentSteps 32 (set)` (`--json`: `maxConcurrentSteps`).
 - **Quorums (#279):** after `.toParallelAgents(…)` a join may count answers instead of waiting for
   all — `.joinQuorum({ min, max, deadline })` (options always an object; `max` defaults to `min`,
