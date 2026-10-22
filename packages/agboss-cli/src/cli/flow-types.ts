@@ -1,7 +1,12 @@
 import { readdirSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { WorkflowLoadError } from "agboss";
-import { FlowTypesStatus, writeFlowTypes, type FlowTypesResult } from "agboss/internal";
+import {
+  FlowTypesStatus,
+  GENERATED_TYPES_FILE,
+  writeFlowTypes,
+  type FlowTypesResult,
+} from "agboss/internal";
 import type { ApplicationPath } from "./application-path.js";
 import { problemText, type CheckProblem } from "./check-problems.js";
 import { loadOptions, type CommandContext } from "./context.js";
@@ -72,14 +77,31 @@ const problemsOf = (file: string, result: FlowTypesResult): readonly CheckProble
 /** What writing the types gave `agboss check`: its warnings and notes, and the file if written. */
 export interface TypesOutcome {
   /**
-   * Generation's own problems (`[types.unexported-class]`, a name clash): the file was not written;
-   * under `--strict` also the analyser's warnings, which are errors there.
+   * Always reported: generation's own `types.*` problems, a write that failed
+   * (`[types.not-written]`, #371) and, under `--strict`, the analyser's warnings, which are errors
+   * there.
    */
   readonly problems: readonly CheckProblem[];
+  /**
+   * The file was not written: generation's other errors (`[dto.duplicate-name]` across workflows,
+   * #371) — reported unless the assembly reports their code itself (`typesProblemsBeside`).
+   */
+  readonly unwritten: readonly CheckProblem[];
   readonly warnings: readonly string[];
   /** The written file, relative to the project; undefined when not written. */
   readonly types?: string;
 }
+
+/** A file-system error (`EACCES`, `ENOTDIR`, …): the types file could not be written. */
+const isFileSystemError = (error: unknown): error is Error =>
+  error instanceof Error && "syscall" in error && typeof error.syscall === "string";
+
+/** A failed write as a problem (#371 AC2): never `ok` when the file is not there. */
+const notWritten = (file: string, error: Error): CheckProblem => ({
+  file,
+  code: "types.not-written",
+  message: `${GENERATED_TYPES_FILE} was not written: ${error.message}`,
+});
 
 /**
  * `agboss check` first writes `.agboss/types.d.ts` (#272 S7): the analyser's warnings (`[flow.path-too-deep]`)
@@ -92,25 +114,48 @@ export async function writeCheckedTypes(
   strict = false,
 ): Promise<TypesOutcome> {
   const file = application.shown;
-  const result = await generate(context, application.file, strict);
-  if (result === undefined) return { problems: [], warnings: [] };
+  const result = await generate(context, application.file, strict).catch((error: unknown) => {
+    if (isFileSystemError(error)) return notWritten(file, error);
+    throw error;
+  });
+  if (result === undefined) return { problems: [], unwritten: [], warnings: [] };
+  if (!("status" in result)) return { problems: [result], unwritten: [], warnings: [] };
   // a rule violation is the assembly's to report; generation's own codes are `types.*` — and,
   // under --strict, the warnings the assembly does not see as errors
-  const problems = problemsOf(file, result).filter(
-    (found) => found.code.startsWith("types.") || (strict && WARNING_CODES.has(found.code)),
-  );
+  const found = problemsOf(file, result);
+  const isOwn = (problem: CheckProblem): boolean =>
+    problem.code.startsWith("types.") || (strict && WARNING_CODES.has(problem.code));
+  const problems = found.filter(isOwn);
   const warnings = [
-    ...result.warnings.map((found) => problemText({ file, ...found })),
+    ...result.warnings.map((problem) => problemText({ file, ...problem })),
     ...result.notes,
   ];
   warnings.forEach((line) => {
     context.say(line);
   });
-  if (result.status !== FlowTypesStatus.Written) return { problems, warnings };
+  if (result.status !== FlowTypesStatus.Written)
+    return { problems, unwritten: found.filter((problem) => !isOwn(problem)), warnings };
   const types = relative(context.io.cwd, result.outFile);
   context.say(`types: ${types}`);
-  return { problems, warnings, types };
+  return { problems, unwritten: [], warnings, types };
 }
+
+/**
+ * The types' problems beside the assembly's (#371): generation's own, and — when the file was not
+ * written — each of its errors whose code the assembly does not report (a clash across workflows
+ * that no single workflow's rules see). Generation fails only with an error, so a file not written
+ * always leaves a problem: `agboss check` never prints `ok` without it.
+ */
+export const typesProblemsBeside = (
+  outcome: TypesOutcome,
+  assembly: readonly CheckProblem[],
+): readonly CheckProblem[] => {
+  const reported = new Set(assembly.map((problem) => problem.code));
+  return [
+    ...outcome.problems,
+    ...outcome.unwritten.filter((problem) => !reported.has(problem.code)),
+  ];
+};
 
 /** The end of `agboss generate`: regenerates the types of the workflow it changed, if v2. */
 export async function regenerateFlowTypes(
