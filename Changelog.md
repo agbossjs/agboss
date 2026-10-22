@@ -3,6 +3,20 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — project skills for coding agents, shipped with agboss (#305 PR 1)
+
+- **Added — `skills/agboss/` in the `agboss` package** (`SKILL.md` and 12 references; 02, 06,
+  08, 09, 11 and 12 stubs until #305 PR 3) — [CLI → Project skills](CLI#project-skills-for-coding-agents-305),
+  [ADR-0021](ADR-0021-Project-skills-shipped-with-the-framework).
+- **Added — `agboss create` writes `AGENTS.md`, a one-line `CLAUDE.md` and `.claude/skills/agboss/`**
+  (with `.agboss-skills.json`), and `.claude/skills/agboss/` in the generated `.gitignore`.
+- **Added — `agboss check` and `agboss generate` sync the skills folder** with the installed
+  `agboss` (`skills: … installed | updated | repaired`), warnings `[skills.local-edit]`,
+  `[skills.unmanaged-file]`, `[skills.sync-failed]`, `[skills.no-framework]` — never a changed exit
+  code; `--json` has `result.skills`; `"agboss": { "skills": false }` turns it off.
+- **Added — `check:docs` checks the skills**: their snippets compile, their version header, codes and
+  matrix coverage ([Home](Home)).
+
 ## Unreleased — the agboss skill: SKILL.md and six references (#305 PR 2)
 
 - **Added — the content of the coding-agent skill** shipped in `packages/agboss/skills/agboss/`:

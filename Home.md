@@ -17,7 +17,12 @@ The repository holds two things:
    [Delivery Pipeline](Delivery-Pipeline).
 
 Every ` ```ts ` block of this wiki compiles against the current package: CI clones the wiki and runs
-`node scripts/check-docs.mjs --wiki wiki` (the same check as the repo's docs).
+`node scripts/check-docs.mjs --wiki wiki` (the same check as the repo's docs). The project skills
+the package ships (`packages/agboss/skills/**`, #305) are checked the same way by `npm run check:docs`,
+plus: `SKILL.md`'s version header is the package's version, every `[x.y]` code they mention exists,
+the names of their matrix (`packages/agboss/tests/skills/coverage.ts`) are in their files and
+exported by a public entry, and — once reference 11 declares its catalog complete — it lists every
+`RuleCode`.
 
 ---
 
@@ -30,6 +35,12 @@ cd my-agents && cp .env.example .env && npm run chat
 
 Or add it to a project: `npm i agboss` and `npm i -D agboss-cli`, then write the
 components ([Components](Components)).
+
+The project is ready for coding agents (#305): `AGENTS.md` (Cursor, Codex, …) and a one-line
+`CLAUDE.md` (`@AGENTS.md`, for Claude Code) route each task to the framework's skills in
+`.claude/skills/agboss/`, which `agboss check` keeps equal to the installed `agboss`. Put the
+project's own rules under `## Project rules` in `AGENTS.md` — never in the skills folder, which is
+replaced on every upgrade ([CLI → Project skills](CLI#project-skills-for-coding-agents-305)).
 
 ## Agent Core
 

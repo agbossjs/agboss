@@ -25,3 +25,4 @@ One page per significant, hard-to-reverse decision: `ADR-NNNN-Title`, from
 | [0018 — Rename to AGBoss](ADR-0018-Rename-to-AGBoss) | Accepted |
 | [0019 — The flow as paths, with a path scope and generated types](ADR-0019-Flow-as-paths-with-path-scope) | Accepted (its rollback bullet replaced by 0020) |
 | [0020 — Declared compensation: explicit where a path can say it, automatic where none can](ADR-0020-Declared-compensation) | Accepted |
+| [0021 — Project skills shipped with the framework](ADR-0021-Project-skills-shipped-with-the-framework) | Accepted |

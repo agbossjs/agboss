@@ -16,6 +16,8 @@ application `src/support-desk.application.ts` (`support-desk-application`; its p
 `model-providers/openrouter.model-provider.ts`, `guardrails/prompt-injection.guardrail.ts` (listed in
 `@Application({ guardrails })`, its model `defaults.guardrail.model`) and `services/api.service.ts` —
 and the first workflow `support-desk-workflow` in `src/support-desk/`.
+For coding agents (#305) it also writes `AGENTS.md`, a one-line `CLAUDE.md` (`@AGENTS.md`) and the
+framework's skills in `.claude/skills/agboss/` — [Project skills](#project-skills-for-coding-agents-305).
 
 The questionnaire asks only for the structure: the agents (full name + role), each agent's tools (full
 names), an MCP server (none / filesystem / own command), a knowledge base (none / notes in a folder).
@@ -89,6 +91,63 @@ an unexpected file shape is an error, and nothing is written; `--force` regenera
 keeps the existing wiring. `agboss g openapi <name> --url <spec>` writes one tool per OpenAPI 3
 operation (DTOs, a client `services/<name>-api.service.ts`, tests; each tool `<operation>-tool`), wired
 into `--agent`.
+
+## Project skills for coding agents (#305)
+
+The `agboss` package ships a guide for coding agents written for its own version: `skills/agboss/`
+— `SKILL.md` (YAML frontmatter first, then the version header, an HTML comment
+`agboss-skills-version: <version>` that says `agboss check` manages the file) and `references/01-…` to `references/12-…`, from
+composition and the flow DSL to tests and the error catalog. `agboss create` writes:
+
+```text
+support-desk/
+  AGENTS.md                         the project's: created once, never rewritten
+  CLAUDE.md                         one line "@AGENTS.md", created once (Claude Code reads CLAUDE.md)
+  .claude/skills/agboss/
+    SKILL.md
+    .agboss-skills.json             manifest: the version and a sha256 per file
+    references/01-composition-and-architecture.md
+    …
+    references/12-end-to-end-recipes.md
+```
+
+`AGENTS.md` routes each task to one reference and ends with `## Project rules` — the place for the
+project's own rules. `.claude/skills/agboss/` is in the generated `.gitignore`; it appears on
+`npm install` (the `postinstall` runs `agboss check`) or on the first `agboss check`.
+
+**The sync.** `agboss check` (before the assembly — so also every `agboss dev` pass) and
+`agboss generate …` (before writing; `--dry-run` writes nothing) make the folder match the skills of
+the `agboss` the project resolves — the nearest `node_modules/agboss` from the project up, else the
+CLI's own:
+
+```text
+$ npx agboss check                # skills current: nothing extra
+$ npx agboss check                # after an agboss upgrade
+skills: .claude/skills/agboss updated 0.1.0 → 0.2.0 (13 files)
+$ npx agboss check                # the folder missing (a fresh clone)
+skills: .claude/skills/agboss installed for agboss 0.2.0 (13 files)
+$ npx agboss check                # a managed file edited by hand
+warning: [skills.local-edit] .claude/skills/agboss/references/02-flow-dsl-all-combinations.md was edited — replaced by agboss 0.2.0's; put project rules in AGENTS.md
+skills: .claude/skills/agboss repaired (1 file)
+```
+
+- The version is compared as a plain string: any difference, upgrade or downgrade, replaces every
+  file; at the same version a missing file or a sha256 mismatch repairs that file. Files of the old
+  manifest the new version lacks are removed; files no manifest ever listed are the project's,
+  kept with `[skills.unmanaged-file]`.
+- The folder is written to `.claude/skills/.agboss-skills-<random>/` and renamed into place.
+- Never an error: `[skills.sync-failed]` (the folder could not be written) and `[skills.no-framework]`
+  (no `agboss` in `node_modules`, or one that ships no skills) are warnings, the exit code is the
+  check's.
+- `--json`: `result.skills` = `{ status, version, previous, folder, written, removed }`, `status`
+  one of `current`, `installed`, `updated`, `repaired`, `off`, `failed`; the warnings in the
+  envelope's `warnings`.
+- `"agboss": { "application": "src/support-desk.application.ts", "skills": false }` turns the sync
+  off: nothing read, written or printed. The sync runs only in an AGBoss project — the nearest
+  `package.json` has the `"agboss"` field.
+- `AGENTS.md` and `CLAUDE.md` are never created, read or changed by `check`, `dev` or `generate`.
+
+Why: [ADR-0021 — Project skills shipped with the framework](ADR-0021-Project-skills-shipped-with-the-framework).
 
 ## The application and its starts (#268)
 
