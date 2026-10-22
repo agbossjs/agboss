@@ -24,6 +24,44 @@ DTO classes end with `Dto` (`ScoreDto`, `[dto.name]`); an `@Injectable` is named
 `…Service`, `…Repository`, `…Provider` (#280) — and a field holding it after its type
 (`private readonly ordersService: OrdersService`).
 
+### The class name too — `@Application` and `@Budget`
+
+`[name.kind-suffix]` checks the `name` of every component and, for the `@Application` and each
+`@Budget`, the class name as well: it must end with the kind in PascalCase (`…Application`,
+`…Budget`). The classes of other kinds follow the same convention (`RankerAgent`, `MainRouter`)
+without a check. A budget class named by what it limits but not by its kind fails assembly, with the
+name to use:
+
+```ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
+import { usd, type Usd } from "agboss/units";
+
+// [name.kind-suffix] class DailyLimit — name it DailyLimitBudget
+@Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class DailyLimit implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(40);
+  }
+}
+```
+
+The fix is the class name alone — the `name` was already right:
+
+```ts
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
+import { usd, type Usd } from "agboss/units";
+
+@Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
+export class TenantDailyBudget implements BudgetHandler {
+  maxSpend(): Usd {
+    return usd(40);
+  }
+}
+```
+
+The same for the application: `@Application({ name: "desk-application", … }) class Desk` →
+`[name.kind-suffix] class Desk — name it DeskApplication`.
+
 ## Tool names
 
 A project's tool follows the kind-suffix rule like every other component: `name:
