@@ -190,7 +190,7 @@ export class SlowWorkflow {}
 })
 export class ToolWorkflow {}
 
-/** A minute to stop: its bodies are awaited until then. */
+/** A minute to stop: interrupted at 55 s, its bodies awaited in the 5 s grace (#367 S3). */
 @Application({
   name: "close-steps-application",
   version: "1.0.0",

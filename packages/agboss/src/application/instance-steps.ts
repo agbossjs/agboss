@@ -80,29 +80,31 @@ function stepsAtStopOf(
 }
 
 /**
- * The end of an instance's graceful stop (#367): each `close({ timeout })` sets an end — its call
- * on the `Clock` plus its timeout (`@Application({ shutdownTimeout })` when it gives none) — and
- * the stop's end is the latest of them. Until then the step bodies a rejected pass left running
- * are awaited before `onDestroy` and before their tree's lease is released; at it the stop goes on.
+ * The end of an instance's graceful stop (#367 S3): each `close({ timeout })` sets an end — its
+ * call on the `Clock` plus its timeout (`@Application({ shutdownTimeout })` when it gives none) —
+ * and the stop's end is the earliest of them, so the instance always ends within the timeout it
+ * was given. Its executions are interrupted a grace before it (`shutdownGraceOf`); until it the
+ * step bodies a rejected pass left running are awaited before `onDestroy` and before their tree's
+ * lease is released; at it the stop goes on (`close({ timeout: 0 })`: at once).
  */
 export interface StopDeadline {
   /** Aborted at the stop's end. */
   readonly signal: AbortSignal;
-  /** A `close` with `timeout`: the end moves to now + `timeout` when that is later. */
-  extendTo(timeout: Milliseconds): void;
+  /** A `close` with `timeout`: the end moves to now + `timeout` when that is sooner. */
+  endBy(timeout: Milliseconds): void;
   /** The stop has finished: its timer is cleared. */
   release(): void;
 }
 
 function stopDeadlineOf(clock: Clock): StopDeadline {
   const ended = new AbortController();
-  let endsAt = Number.NEGATIVE_INFINITY;
+  let endsAt = Number.POSITIVE_INFINITY;
   let timer: AbortController | undefined;
   return {
     signal: ended.signal,
-    extendTo: (timeout) => {
+    endBy: (timeout) => {
       const at = clock.now().getTime() + timeout;
-      if (ended.signal.aborted || at <= endsAt) return;
+      if (ended.signal.aborted || at >= endsAt) return;
       endsAt = at;
       timer?.abort();
       if (timeout <= 0) {

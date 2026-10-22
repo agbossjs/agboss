@@ -131,11 +131,11 @@ export interface CancelOptions {
 }
 
 /**
- * `app.close({ timeout })`: how long the stop waits for the running executions before it
- * interrupts them (#265 S51) — default `@Application({ shutdownTimeout })`, else `seconds(25)`.
+ * `app.close({ timeout })`: how long the stop takes at most (#265 S51, #367 S3: interrupted a grace
+ * before) — default `@Application({ shutdownTimeout })`, else `seconds(25)`.
  */
 export interface CloseOptions {
-  /** How long to wait before interrupting (`seconds(0)`: at once). */
+  /** How long the stop takes at most (`seconds(0)`: interrupts and stops waiting at once). */
   readonly timeout?: Milliseconds;
 }
 
@@ -238,9 +238,9 @@ export interface App {
    */
   cancel(threadId: string, options?: CancelOptions): Promise<CancelOutput>;
   /**
-   * Stops the app (#261, #265): no new executions, `onStop`, the running ones awaited up to the
-   * shutdown timeout — then interrupted, each releasing its lease and staying `running`, so another
-   * instance continues it — then `onDestroy`. A second call with a shorter `timeout` shortens the wait.
+   * Stops the app within the shutdown timeout (#261, #265, #367): no new executions, `onStop`, the
+   * running ones awaited — interrupted a grace before its end, staying `running` for another instance —
+   * the step bodies they left awaited in the grace, then `onDestroy`. A shorter `timeout` ends sooner.
    */
   close(options?: CloseOptions): Promise<void>;
   /**

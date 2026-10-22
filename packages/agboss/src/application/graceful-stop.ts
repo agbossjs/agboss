@@ -7,20 +7,32 @@ import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { AssembledApplication } from "./assemble.js";
 import type { Clock } from "../infrastructure/clock.js";
-import type { Milliseconds } from "../units/index.js";
+import { waitOf } from "../infrastructure/clock-timeout.js";
+import { seconds, type Milliseconds } from "../units/index.js";
 import type { StepCapacity } from "../app/step-slots.js";
 import type { StepsAtStop } from "./instance-steps.js";
 
 /**
  * The graceful stop of an application instance (#261, #265 S30 / S51): no new executions anywhere,
  * its own recovery sweep stopped, `onStop` once, the running executions awaited up to the shutdown
- * timeout — then interrupted: each stops without failing, releases its lease at once in `finally`
- * and stays `running`, so another instance continues it without waiting for the lease to expire —
- * then the step bodies still running (#367: LangGraph's pass rejects before the bodies that ignore
- * its signal return) awaited until the shutdown timeout's end, and only then `onDestroy`; a tree's
- * lease waits for its own bodies the same way. A later `close({ timeout })` with a shorter timeout
- * interrupts sooner; the bodies get until the latest end a `close` set.
+ * timeout minus its grace (#367 S3, `shutdownGraceOf`) — then interrupted: each stops without
+ * failing and stays `running`, so another instance continues it — then, during the grace, the step
+ * bodies still running (LangGraph's pass rejects before the bodies that ignore its signal return)
+ * awaited, and only then `onDestroy`; a tree's lease waits for its own bodies the same way, so the
+ * instance ends within its shutdown timeout. A later `close({ timeout })` with a shorter timeout
+ * interrupts sooner and ends sooner (`close({ timeout: 0 })`: stops waiting for the bodies at once).
  */
+
+/** The most a stop keeps for the interrupted step bodies (#367 S3). */
+const MAX_SHUTDOWN_GRACE: Milliseconds = seconds(5);
+
+/**
+ * The part of a shutdown timeout kept for the step bodies its interrupted executions left running
+ * (#367 S3): `min(seconds(5), 20 % of timeout)` — `seconds(25)` → `seconds(5)`, `seconds(10)` →
+ * `seconds(2)`; the executions are interrupted at `timeout − grace`.
+ */
+export const shutdownGraceOf = (timeout: Milliseconds): Milliseconds =>
+  waitOf(Math.min(MAX_SHUTDOWN_GRACE, Math.floor(timeout / 5)));
 
 /** What the stop of one instance works on. */
 export interface GracefulStopParts {
@@ -47,7 +59,7 @@ export interface GracefulStop {
 
 const interruptionOf = (timeout: Milliseconds): ApplicationStoppingError =>
   new ApplicationStoppingError(
-    `the app is stopping and its shutdown timeout (${String(timeout)} ms) passed: the execution is interrupted — it stays running and another instance continues it`,
+    `the app is stopping and its shutdown timeout (${String(timeout)} ms) is ending: the execution is interrupted — it stays running and another instance continues it`,
   );
 
 /**
@@ -64,9 +76,37 @@ async function executionsEnded(
   await parts.steps.settled();
 }
 
+/**
+ * Arms the interruption of one `close({ timeout })`: the executions are interrupted a grace before
+ * its end (#367 S3) — unless they ended (`ended`) or an earlier `close` interrupted them already.
+ */
+function interrupterOf(
+  parts: GracefulStopParts,
+  ended: AbortSignal,
+): (timeout: Milliseconds) => void {
+  const interrupt = (timeout: Milliseconds): void => {
+    if (ended.aborted || parts.interruption.signal.aborted) return;
+    const reason = interruptionOf(timeout);
+    parts.interruption.abort(reason);
+    parts.workflows.forEach((workflow) => {
+      workflow.interrupt(reason);
+    });
+  };
+  return (timeout) => {
+    const until = waitOf(timeout - shutdownGraceOf(timeout));
+    if (until <= 0) {
+      interrupt(timeout);
+      return;
+    }
+    void parts.clock.sleep(until, ended).then(() => {
+      interrupt(timeout);
+    });
+  };
+}
+
 export function gracefulStopOf(parts: GracefulStopParts): GracefulStop {
-  const { workflows, clock } = parts;
-  /** Aborted at the end of the shutdown timeout: the running step bodies are awaited until then. */
+  const { workflows } = parts;
+  /** Aborted at the stop's end: the interrupted step bodies are awaited until then. */
   const deadline = parts.steps;
   /** Aborted once the executions ended: the timers waiting to interrupt them are not needed. */
   const ended = new AbortController();
@@ -75,23 +115,7 @@ export function gracefulStopOf(parts: GracefulStopParts): GracefulStop {
   const closed = new Promise<void>((resolve) => {
     markClosed = resolve;
   });
-  const interrupt = (timeout: Milliseconds): void => {
-    if (ended.signal.aborted || parts.interruption.signal.aborted) return;
-    const reason = interruptionOf(timeout);
-    parts.interruption.abort(reason);
-    workflows.forEach((workflow) => {
-      workflow.interrupt(reason);
-    });
-  };
-  const arm = (timeout: Milliseconds): void => {
-    if (timeout <= 0) {
-      interrupt(timeout);
-      return;
-    }
-    void clock.sleep(timeout, ended.signal).then(() => {
-      interrupt(timeout);
-    });
-  };
+  const arm = interrupterOf(parts, ended.signal);
   const stop = async (): Promise<void> => {
     for (const workflow of workflows) workflow.refuse(deadline.signal);
     const swept = parts.sweep.stop();
@@ -109,7 +133,7 @@ export function gracefulStopOf(parts: GracefulStopParts): GracefulStop {
     isStopping: () => closing !== undefined,
     close: (options = {}) => {
       const timeout = options.timeout ?? parts.shutdownTimeout;
-      deadline.extendTo(timeout);
+      deadline.endBy(timeout);
       closing ??= stop();
       arm(timeout);
       return closing;
