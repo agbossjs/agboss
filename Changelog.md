@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — app.cancel from any instance stops an execution running on another (#360)
+
+- **Fixed — `app.cancel(threadId)` on any instance** cancels the thread's execution running on
+  another ([Several instances → Cancelling from any instance](Several-instances#cancelling-from-any-instance)):
+  before, it returned `{ cancelled: false }` unless it reached the instance moving the tree. The
+  cancel leaves a request under the reserved tree key `@agboss/cancel-request`; the holder stops
+  with `ExecutionCancelledError` within one lease renewal (10 s, or its next checkpoint write), and
+  a request made while the holder is down ends the execution at recovery — on an instance of any
+  config version — instead of continuing it. No public API change.
+- **Changed — tree keys starting with `@agboss/` are reserved** for the framework.
+- A cancel from another instance before the execution's `running` record exists (its budgets, its
+  thread's compaction) returns `{ cancelled: false }`.
+
 ## Unreleased — an instance's cap on steps, its queue and readiness (#332)
 
 - **Added — `@Application({ maxConcurrentSteps })`** ([Several instances → An instance's cap on steps](Several-instances#an-instances-cap-on-steps-332)):

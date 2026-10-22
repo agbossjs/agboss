@@ -97,7 +97,10 @@ the count of starts is the count of executions. One that pauses (an approval on 
 [recovery](Several-instances#recovery) continues an interrupted one). `onExecutionEnd` fires once,
 when the execution ends at a finish — also after a resume; it has no status: a pause is
 `onExecutionPause`, a failure `onExecutionError`. Cancelling a paused execution (`app.cancel`) emits
-`onExecutionError` with `ExecutionCancelledError`. One approval: start → pause → resume → end.
+`onExecutionError` with `ExecutionCancelledError`. A running execution cancelled from another
+instance (#360) emits it once, on the instance that moves it when it stops — or, when the request
+ends the tree without a pass (a resume or a recovery found it), on the instance that ended it
+([Several instances → Cancelling from any instance](Several-instances#cancelling-from-any-instance)). One approval: start → pause → resume → end.
 
 ## Refused requests
 

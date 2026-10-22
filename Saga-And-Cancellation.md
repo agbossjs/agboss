@@ -23,6 +23,12 @@ and `execute` rejects with `ExecutionCancelledError` (`execution.cancelled`). A 
 instead (its `resume` then throws `NotPausedError`). `{ cancelled }` is `false` when the thread had
 neither.
 
+Any instance of the application may take the cancel (#360): one that does not run the execution
+leaves a cancel request in the shared stores, and the instance that runs it stops it within one
+lease renewal (10 s, or at its next checkpoint write) the same way; a request made while that
+instance is down ends the execution at recovery instead of continuing it
+([Several instances → Cancelling from any instance](Several-instances#cancelling-from-any-instance)).
+
 <!-- snippet-context
 import type { App } from "agboss";
 declare const app: App;

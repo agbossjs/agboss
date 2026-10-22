@@ -315,12 +315,53 @@ the instance's own sweep, waits for its running executions up to the shutdown ti
 `seconds(25)`), then interrupts what is left: each releases its lease at once and stays `running`,
 so another instance takes it at its next sweep, without waiting for the lease to expire.
 
+## Cancelling from any instance
+
+`app.cancel(threadId, { tenantId, ownerId })` reaches the thread's execution on whichever instance
+moves it (#360) — behind a load balancer a cancel lands on a random instance. Access is checked as
+always (`UnknownThreadError` for another tenant's or an unknown thread, `ThreadOwnerError` for
+another owner, `onExecutionRejected`), then:
+
+1. **this instance runs it** — it is aborted at once, as before; nothing is written;
+2. **it is paused** — it is dropped through the shared `PausedExecutionRepository`, its pauses
+   withdrawn, as before;
+3. **otherwise** every `running` root record of the thread gets a **cancel request**: the reserved
+   tree key `@agboss/cancel-request` of the shared `ExecutionTreeRepository` (`{ requestedAt,
+   ownerId }`, `saveIfAbsentInTree`, so two cancels write it once). The records are then read
+   again: still `running` → `{ cancelled: true }`; paused meanwhile → the cancel waits for the
+   holder's lease and ends the tree as cancelled; ended meanwhile → the request is removed with the
+   tree's keys and `{ cancelled: false }`. A finished execution gets `{ cancelled: false }` and
+   nothing is written.
+
+The holder reads the request **after every lease renewal the store confirms** — the background one
+every 10 seconds and the one before each checkpoint write — and before its tree rests paused. A found
+request aborts the pass with `ExecutionCancelledError` (`thread "…" was cancelled`, the message of
+a local cancel): the tool loop starts no further model or tool call, the record is failed,
+`onExecutionError` fires once (on the holder's instance) and the holder's `execute` / `resume`
+rejects. A store error reading the request is not a failure: it is read again at the next renewal.
+
+**The request is durable.** An instance that takes a tree's lease reads it first: a waiting
+`resume` ends the tree as cancelled and rejects with `ExecutionCancelledError`; recovery ends a
+`running` root with a request instead of continuing it — on an instance of **any** config version,
+since ending runs no graph (a root of another deploy without a request is still left to a compatible
+instance). Ending without a pass fails the record, drops the paused run, withdraws its pauses,
+removes its keys and fires `onExecutionError` once; there is no `onExecutionResume`.
+
+**Known window.** An execution's `running` record is written after its budgets are opened and its
+thread's compactions ran; a cancel from another instance before that moment finds nothing and
+returns `{ cancelled: false }` (on the instance that started it the cancel still stops it).
+
+**Reserved keys.** Tree keys starting with `@agboss/` belong to the framework — do not write them
+from your own components ([below](#the-shared-state-of-one-request)).
+
 ## The shared state of one request
 
 `ExecutionTreeRepository` keeps keys under the request's root execution: visible to the whole tree
 of executions at any depth and on any instance, invisible to other requests, removed when the tree
 finishes, fails or is cancelled (a pause keeps them). `saveIfAbsent` is atomic — of two branches
-claiming one key exactly one gets `true`. Keys come from identifiers in DTOs, never from text:
+claiming one key exactly one gets `true`. Keys starting with `@agboss/` are reserved for the
+framework (`@agboss/cancel-request`, [above](#cancelling-from-any-instance)). Keys come from
+identifiers in DTOs, never from text:
 
 <!-- snippet-context
 import { Text } from "agboss/dto";
@@ -557,6 +598,9 @@ export class DeskApplication {}
   recovery works with persistent stores (records, checkpoints, paused executions, leases).
 - A stop releases its leases at once, but the other instances notice at their next sweep (within
   30 s); a crashed instance's trees wait for their lease to expire first (up to 30 s more).
+- A cancel from another instance reaches a running execution within one lease renewal (10 s, or
+  its next checkpoint write), not at once; one made before the execution's `running` record exists
+  is not seen ([Cancelling from any instance](#cancelling-from-any-instance)).
 - Fairness between tenants waiting for a model provider's slots is per instance (#266): the
   tenant-fair queue is in-process, and between instances a slot goes to whoever takes its lease
   first. So is the AIMD slowdown after a 429 — the pause itself, the hard caps (`maxConcurrentCalls`,
