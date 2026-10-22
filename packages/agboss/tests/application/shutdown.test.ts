@@ -4,11 +4,12 @@
  * `seconds(25)` — then interrupts them: each stops without failing (no `onError`), releases its
  * lease and its record stays `running` for recovery.
  */
-import { beforeEach, describe, expect } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { ApplicationStoppingError, ExecutionRecordStatus } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
-import { seconds } from "../../src/units/index.js";
+import { minutes, seconds } from "../../src/units/index.js";
+import { shutdownGraceOf } from "../../src/application/graceful-stop.js";
 import { execute } from "../helpers/flow.js";
 import {
   Clerk,
@@ -70,7 +71,7 @@ describe("#265 S51: the stop waits for the running executions", () => {
     expect(await runningRecords()).toBe(0);
   });
 
-  test("the default timeout is 25 s: then the execution is interrupted, stays running, no onError", async ({
+  test("the default timeout is 25 s: interrupted its 5 s grace before, stays running, no onError", async ({
     app,
     clock,
     mockLlm,
@@ -79,7 +80,7 @@ describe("#265 S51: the stop waits for the running executions", () => {
     const started = await holding(app);
 
     const closed = app.close();
-    await clock.advance(seconds(24));
+    await clock.advance(seconds(19));
     const before = interrupted();
     await clock.advance(seconds(1));
     await closed;
@@ -104,19 +105,22 @@ describe("#265 S51: the timeout is the application's, or the call's", () => {
     expect(interrupted()).toBe(true);
   });
 
-  quick("app.close({ timeout }) overrides it", async ({ app, clock, mockLlm }) => {
-    mockLlm(Clerk).thenReturn(hold); // interrupted while it holds: no answer
-    await holding(app);
+  quick(
+    "app.close({ timeout }) overrides it: seconds(10), interrupted at 8 s",
+    async ({ app, clock, mockLlm }) => {
+      mockLlm(Clerk).thenReturn(hold); // interrupted while it holds: no answer
+      await holding(app);
 
-    const closed = app.close({ timeout: seconds(10) });
-    await clock.advance(seconds(5));
-    const before = interrupted();
-    await clock.advance(seconds(5));
-    await closed;
+      const closed = app.close({ timeout: seconds(10) });
+      await clock.advance(seconds(7));
+      const before = interrupted();
+      await clock.advance(seconds(1));
+      await closed;
 
-    expect(before).toBe(false);
-    expect(interrupted()).toBe(true);
-  });
+      expect(before).toBe(false);
+      expect(interrupted()).toBe(true);
+    },
+  );
 
   test("a second close with a shorter timeout shortens the wait", async ({ app, mockLlm }) => {
     mockLlm(Clerk).thenReturn(hold); // interrupted while it holds: no answer
@@ -127,5 +131,16 @@ describe("#265 S51: the timeout is the application's, or the call's", () => {
     await Promise.all([first, second]);
 
     expect(interrupted()).toBe(true);
+  });
+});
+
+describe("#367 S3: the grace kept for the step bodies is min(seconds(5), 20 %) of the timeout", () => {
+  it.each([
+    { timeout: seconds(25), grace: seconds(5) },
+    { timeout: seconds(10), grace: seconds(2) },
+    { timeout: minutes(5), grace: seconds(5) },
+    { timeout: seconds(0), grace: seconds(0) },
+  ])("$timeout ms → $grace ms", ({ timeout, grace }) => {
+    expect(shutdownGraceOf(timeout)).toBe(grace);
   });
 });

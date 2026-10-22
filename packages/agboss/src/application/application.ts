@@ -48,9 +48,9 @@ export interface ApplicationOptions {
    */
   readonly healthChecks?: readonly Class[];
   /**
-   * How long `app.close()` (and SIGTERM / SIGINT) waits for the running executions before it
-   * interrupts them (#265 S51): each releases its lease at once and stays `running`, so another
-   * instance continues it. Default `seconds(25)` — under the usual 30 s grace period and the lease.
+   * How long `app.close()` (and SIGTERM / SIGINT) takes at most (#265 S51): the running executions,
+   * interrupted `min(seconds(5), 20 %)` of it before its end (#367 S3: the grace for their step
+   * bodies), stay `running` for another instance. Default `seconds(25)` — under the 30 s lease.
    */
   readonly shutdownTimeout?: Milliseconds;
   /**
