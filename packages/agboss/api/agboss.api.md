@@ -2098,10 +2098,10 @@ export interface IncompatibleResume {
 }
 
 // @public
-export class IncompatibleResumeError extends Error {
+export class IncompatibleResumeError extends AGBossError {
     constructor(resume: IncompatibleResume);
     // (undocumented)
-    readonly code = "resume.incompatible";
+    static readonly code: string;
     // (undocumented)
     readonly current: ResumeVersions;
     // (undocumented)
@@ -5484,16 +5484,16 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/routers/types.ts:44:3 - (ae-undocumented) Missing documentation for "route".
 // src/run/resume-agent.ts:17:3 - (ae-undocumented) Missing documentation for "code".
 // src/run/resume-agent.ts:18:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/resume-guard.ts:10:3 - (ae-undocumented) Missing documentation for "workflowVersion".
-// src/run/resume-guard.ts:11:3 - (ae-undocumented) Missing documentation for "configHash".
-// src/run/resume-guard.ts:16:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/run/resume-guard.ts:17:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/run/resume-guard.ts:37:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/resume-guard.ts:38:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/resume-guard.ts:39:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/run/resume-guard.ts:40:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/run/resume-guard.ts:41:3 - (ae-undocumented) Missing documentation for "paused".
-// src/run/resume-guard.ts:42:3 - (ae-undocumented) Missing documentation for "current".
+// src/run/resume-guard.ts:12:3 - (ae-undocumented) Missing documentation for "workflowVersion".
+// src/run/resume-guard.ts:13:3 - (ae-undocumented) Missing documentation for "configHash".
+// src/run/resume-guard.ts:18:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/run/resume-guard.ts:19:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/run/resume-guard.ts:42:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/resume-guard.ts:43:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/resume-guard.ts:44:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/run/resume-guard.ts:45:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/run/resume-guard.ts:46:3 - (ae-undocumented) Missing documentation for "paused".
+// src/run/resume-guard.ts:47:3 - (ae-undocumented) Missing documentation for "current".
 // src/run/thread.ts:25:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
 // src/run/thread.ts:26:3 - (ae-undocumented) Missing documentation for "code".
 // src/run/thread.ts:27:12 - (ae-undocumented) Missing documentation for "name".

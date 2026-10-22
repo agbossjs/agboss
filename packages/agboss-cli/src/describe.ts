@@ -1,4 +1,9 @@
-import { describeApplication, describedEnvironmentFor, environmentOwnerOf } from "agboss/internal";
+import {
+  childSourcesIn,
+  describeApplication,
+  describedEnvironmentFor,
+  environmentOwnerOf,
+} from "agboss/internal";
 import { assembleApplication, loadCliApplication } from "./cli/cli-application.js";
 import { textOption, type CommandHandler } from "./cli/context.js";
 import { applicationData, describeData } from "./cli/describe-data.js";
@@ -31,7 +36,7 @@ export const handle: CommandHandler = async (context) => {
     result: {
       application: applicationData(assembled, environment),
       workflows: assembled.workflows.map((workflow) =>
-        describeData(workflow, profile ?? "base", environment),
+        describeData(workflow, profile ?? "base", environment, childSourcesIn(assembled.workflows)),
       ),
     },
   };

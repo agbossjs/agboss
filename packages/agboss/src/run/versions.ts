@@ -14,6 +14,8 @@ import { byComponentName, flowLines } from "../flow/print.js";
 import type { AgentExecutionDeps } from "./types.js";
 
 import { stripFunctions } from "./strip-functions.js";
+import type { Class } from "../components/injection.js";
+import { childClassesOf } from "../flow/analyse/child-workflow.js";
 import {
   agentFramePromptTexts,
   elementFingerprintsOf,
@@ -50,22 +52,43 @@ function arbiterTexts(graph: RuntimeGraph) {
   });
 }
 
+/** What one workflow's snapshot is made of: its assembly (`AssembledWorkflow`) or its run deps. */
+export type SnapshotSource<TName extends string = string> = Pick<
+  AgentExecutionDeps<TName>,
+  "config" | "prompts" | "graph" | "maxSteps" | "routers" | "compactions"
+> & {
+  readonly guardrails?: { readonly guardrails: readonly LoadedGuardrail[] } | undefined;
+  readonly pii?: FingerprintDeps["pii"];
+};
+
 /**
- * Everything a run's behaviour depends on in config and prompts — what `configHash` hashes: the
- * config, the flow, the texts each model is sent (normalised, #120) and, per agent and model router,
- * what its model reads that its decorator does not say (`elements`, #120 PR 4), and the framework's
- * own texts (`frame`).
+ * The snapshot sources of the child workflows of an application by class (#336): its run deps'
+ * `childDepsOf`, or its assembled workflows (`childSourcesIn`) where nothing runs (`describe`).
  */
-export const configSnapshot = <TName extends string>(
-  deps: Pick<
-    AgentExecutionDeps<TName>,
-    "config" | "prompts" | "graph" | "maxSteps" | "routers" | "compactions"
-  > & {
-    readonly guardrails?: { readonly guardrails: readonly LoadedGuardrail[] } | undefined;
-    readonly pii?: FingerprintDeps["pii"];
-  },
-): unknown => ({
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+export type ChildSnapshotSources = (workflow: Class) => SnapshotSource | undefined;
+
+/** A workflow's snapshot, and how its children's are found (default: its deps' `childDepsOf`). */
+export type SnapshotDeps<TName extends string> = SnapshotSource<TName> & {
+  readonly childDepsOf?: ChildSnapshotSources | undefined;
+};
+
+/** The children of an application's assembled workflows, by class: every workflow it assembled. */
+export function childSourcesIn(workflows: readonly SnapshotSource[]): ChildSnapshotSources {
+  const byClass = new Map<Class, SnapshotSource>(
+    workflows.map((workflow) => [workflow.graph.type, workflow]),
+  );
+  return (workflow) => byClass.get(workflow);
+}
+
+/**
+ * Everything a run's behaviour depends on in one workflow's own config and prompts: the config, the
+ * flow, the texts each model is sent (normalised, #120) and, per agent and model router, what its
+ * model reads that its decorator does not say (`elements`, #120 PR 4), and the framework's own
+ * texts (`frame`).
+ */
+const ownSnapshot = <TName extends string>(
+  deps: SnapshotSource<TName>,
+): Record<string, unknown> => ({
   config: stripFunctions(deps.config),
   flow: flowLines(deps.graph.flow, byComponentName),
   maxSteps: deps.maxSteps,
@@ -78,6 +101,48 @@ export const configSnapshot = <TName extends string>(
   // the guardrails (#120): only a workflow that has one, so the others keep their hash
   ...guardrailSnapshot(deps.guardrails?.guardrails ?? []),
 });
+
+/**
+ * Every child workflow reachable from a workflow's flow (#336), depth first, each once, by name with
+ * its own snapshot — never `ThisWorkflow` (a recursive workflow is hashed once, as the root), never
+ * the workflow itself; a child `children` does not know is left out.
+ */
+function childSnapshotsOf(
+  root: SnapshotSource,
+  children: ChildSnapshotSources | undefined,
+): readonly (readonly [string, unknown])[] {
+  if (children === undefined) return [];
+  const seen = new Set<Class>([root.graph.type]);
+  const found: (readonly [string, unknown])[] = [];
+  const visit = (source: SnapshotSource): void => {
+    for (const workflow of childClassesOf(source.graph.flow)) {
+      if (seen.has(workflow)) continue;
+      seen.add(workflow);
+      const child = children(workflow);
+      if (child === undefined) continue;
+      found.push([child.config.name, ownSnapshot(child)]);
+      visit(child);
+    }
+  };
+  visit(root);
+  return [...found].sort(([left], [right]) => left.localeCompare(right));
+}
+
+/**
+ * What `configHash` hashes: the workflow's own snapshot and, for a workflow that launches child
+ * workflows, `children` — every child reachable from its flow, recursively, each once by name
+ * (#336: a child's change is a change of its root; a workflow without children keeps its hash).
+ */
+export const configSnapshot = <TName extends string>(
+  deps: SnapshotDeps<TName>,
+  children: ChildSnapshotSources | undefined = deps.childDepsOf,
+): unknown => {
+  const known = childSnapshotsOf(deps, children);
+  return {
+    ...ownSnapshot(deps),
+    ...(known.length === 0 ? {} : { children: Object.fromEntries(known) }),
+  };
+};
 
 /**
  * The framework's texts a workflow's models read (#120: part of the assembled prompt): the routers',

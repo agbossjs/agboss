@@ -166,6 +166,25 @@ export function withChildWorkflows(workflows: readonly Class[]): readonly Class[
   return [...found];
 }
 
+/**
+ * The workflows and every child workflow they launch, each once, every child before the workflows
+ * that launch it (#336: a parent's `configHash` covers its children's, so they are built first).
+ */
+export function childrenFirst(workflows: readonly Class[]): readonly Class[] {
+  const entered = new Set<Class>();
+  const ordered: Class[] = [];
+  const visit = (workflow: Class): void => {
+    if (entered.has(workflow)) return;
+    entered.add(workflow);
+    const declaration = declarationOf(workflow);
+    if (declaration?.kind === NodeKind.Workflow)
+      childClassesOf(declaration.options.flow).forEach(visit);
+    ordered.push(workflow);
+  };
+  workflows.forEach(visit);
+  return ordered;
+}
+
 const summaries = new WeakMap<Class, ChildWorkflow>();
 
 /** The child's starts and output; `undefined` for a class that is not a `@Workflow`. */

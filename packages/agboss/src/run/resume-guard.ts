@@ -1,3 +1,5 @@
+import { AGBossError } from "../core/errors.js";
+
 /**
  * Resume across deployments: a paused run remembers the workflow version and config hash it paused
  * under; `app.resume` compares them with the running app and, when they differ, asks the workflow's
@@ -32,10 +34,13 @@ const shortHash = (hash: string): string => hash.slice(0, 12);
 const label = ({ workflowVersion, configHash }: ResumeVersions): string =>
   `${workflowVersion} (config ${shortHash(configHash)})`;
 
-/** A paused run cannot be resumed by this app: it paused under another workflow version or config. */
-export class IncompatibleResumeError extends Error {
+/**
+ * A paused run cannot be resumed by this app: it paused under another workflow version or config —
+ * its own or a child workflow's (#336: a root's `configHash` covers its children).
+ */
+export class IncompatibleResumeError extends AGBossError {
+  static override readonly code: string = "resume.incompatible";
   override name = "IncompatibleResumeError";
-  readonly code = "resume.incompatible";
   readonly threadId: string;
   readonly executionId: string;
   readonly paused: ResumeVersions;

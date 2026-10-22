@@ -1,6 +1,6 @@
 import { workflowInApplication } from "../application/workflow-application.js";
 import type { Class } from "../components/injection.js";
-import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
+import { childrenFirst } from "../flow/analyse/child-workflow.js";
 import type { GraphDeps } from "../graph/deps.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { NodeKind } from "../flow/ast.js";
@@ -25,7 +25,7 @@ export type ChildDepsFactory = (
   childDepsOf: StandaloneChildren["childDepsOf"],
 ) => Promise<GraphDeps<string> & { readonly close: () => Promise<void> }>;
 
-/** Every child of `bundle`, depth first, built with `make`. */
+/** Every child of `bundle`, each before the workflows that launch it (#336), built with `make`. */
 export async function standaloneChildrenOf(
   bundle: AssembledWorkflow,
   make: ChildDepsFactory,
@@ -36,7 +36,7 @@ export async function standaloneChildrenOf(
     for (const deps of built.values()) await deps.close();
   };
   try {
-    for (const child of withChildWorkflows([bundle.graph.type]).slice(1))
+    for (const child of childrenFirst([bundle.graph.type]).filter((c) => c !== bundle.graph.type))
       built.set(child, await make(await workflowInApplication(child), childDepsOf));
   } catch (error) {
     await close();
