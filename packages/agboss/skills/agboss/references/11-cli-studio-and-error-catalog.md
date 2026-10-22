@@ -117,12 +117,12 @@ own, and there is no `xray` option.
 Every code below is a `RuleCode`, reported by `npx agboss check`, `createApp` and `testWith` before
 any model call. "→" separates the code that fails from the code that passes.
 
-### Nodes, names and the graph
-
 `[name.kind-suffix]` checks every component's `name` (`"support"` on `@Agent` — name it
 `"support-agent"`) and, for the `@Application` and each `@Budget`, its class name as well
 (`class DailyLimit — name it DailyLimitBudget`, `class Desk — name it DeskApplication`); other
 classes follow the same convention (`SupportAgent`) without a check.
+
+### Nodes, names and the graph
 
 | Code                                 | Means                                                                    | Before → after                                                                                                                    |
 | ------------------------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
