@@ -142,6 +142,16 @@ function pseudonymKeyFieldViolations(options: ApplicationOptions): RuleViolation
   ];
 }
 
+/** `maxConcurrentSteps` is a whole number of steps from 1 (#332): 0 would stop the instance. */
+function stepCapViolations(options: ApplicationOptions): RuleViolation[] {
+  const value = options.maxConcurrentSteps;
+  if (value === undefined || (Number.isInteger(value) && value >= 1)) return [];
+  const message =
+    `its maxConcurrentSteps is ${String(value)}, not a whole number of steps from 1 — ` +
+    "@Application({ maxConcurrentSteps: 32 }) lets 32 steps of this instance work at once";
+  return [violation("limits.max-concurrent-steps-invalid", message, [options.name])];
+}
+
 export function applicationRuleViolations(
   application: Class,
   options: ApplicationOptions,
@@ -160,6 +170,7 @@ export function applicationRuleViolations(
     ),
     ...pseudonymKeyFieldViolations(options),
     ...healthCheckRuleViolations(options),
+    ...stepCapViolations(options),
     ...contextRuleViolations(options.name, options),
     ...sharedInterpreterViolations(channelUsesOf(options.workflows)),
   ];

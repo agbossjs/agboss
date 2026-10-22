@@ -35,6 +35,7 @@ describe("#268 AC4: agboss describe on job-scout", () => {
       result: {
         application: {
           name: "job-scout-application",
+          maxConcurrentSteps: null,
           tree: [
             {
               name: "job-scout-workflow",

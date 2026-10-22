@@ -53,6 +53,8 @@ export interface AssembledApplication {
   readonly shutdownTimeout: Milliseconds;
   /** How long a resolved pause record is kept (`@Application({ pauseRecordRetention })`, #267 S107). */
   readonly pauseRecordRetention: Milliseconds;
+  /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
+  readonly maxConcurrentSteps?: number;
   /** The context classes it declares (#261), else the built-in ones. */
   readonly tenantContext: TenantContextClass;
   readonly executionContext: ExecutionContextClass;
@@ -193,6 +195,9 @@ export async function applicationOf(
     workflows: assembled,
     shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
     pauseRecordRetention: options.pauseRecordRetention ?? PAUSE_RECORD_RETENTION,
+    ...(options.maxConcurrentSteps === undefined
+      ? {}
+      : { maxConcurrentSteps: options.maxConcurrentSteps }),
     ...declaredContextsOf(options),
     ...piiOptionsOf(options),
   };

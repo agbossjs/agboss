@@ -10,6 +10,7 @@ import {
 import type { Clock } from "./clock.js";
 import type { FrameworkLog } from "./logger.js";
 import type { PausedExecutionRepository } from "./paused-execution.repository.js";
+import type { StepCapacity } from "../app/step-slots.js";
 
 /**
  * Automatic recovery (#265 S30): every application instance looks for the roots left `running` —
@@ -18,6 +19,10 @@ import type { PausedExecutionRepository } from "./paused-execution.repository.js
  * compatible with is left to another one and logged once. With the in-memory defaults nothing
  * survives a restart, so there is nothing to recover; recovery works with persistent stores.
  * Each look also removes the resolved pause records older than `pauseRecordRetention` (#267 S107).
+ * An instance that caps its steps (#332, `@Application({ maxConcurrentSteps })`) starts at most as
+ * many recoveries per look as it has free step slots, none when it is full — the orphans are left to
+ * an idle instance; a look cut short by that goes on from where it stopped next time, so every
+ * record is reached in turn.
  */
 
 /** How often an instance looks: the lease length, so an expired lease is found within one more. */
@@ -52,6 +57,8 @@ export interface RecoverySources {
   readonly pauses: PausedExecutionRepository;
   /** `@Application({ pauseRecordRetention })`: how long a resolved pause record is kept. */
   readonly pauseRecordRetention: Milliseconds;
+  /** The instance's step slots (#332); absent = no cap, every recoverable root is taken. */
+  readonly capacity?: StepCapacity | undefined;
 }
 
 /** A recovery problem, for the log: at risk (left to another instance) or broken. */
@@ -88,6 +95,8 @@ class Sweeper implements RecoverySweep {
   readonly #logged = new Set<string>();
   readonly #loop: Promise<void>;
   #lastSweptAt: Date;
+  /** Where a look cut short by the free step slots stopped: the next one goes on after it. */
+  #resumeAfter: string | undefined;
 
   constructor(private readonly sources: RecoverySources) {
     this.#lastSweptAt = sources.clock.now();
@@ -141,26 +150,45 @@ class Sweeper implements RecoverySweep {
     }
   }
 
-  /** Every `running` record, page by page; each one's recovery started, not awaited. */
+  /** How many recoveries this look may start: the free step slots (#332), else every one. */
+  #recoveriesAllowed(): number {
+    const { capacity } = this.sources;
+    return capacity === undefined ? Number.POSITIVE_INFINITY : capacity.freeSlots();
+  }
+
+  /**
+   * Every `running` record, page by page; each one's recovery started, not awaited — at most as
+   * many as the free step slots (#332): a look cut short remembers where it stopped.
+   */
   async #sweep(): Promise<void> {
-    let after: string | undefined;
+    let allowed = this.#recoveriesAllowed();
+    if (allowed <= 0) return;
+    let after = this.#resumeAfter;
+    this.#resumeAfter = undefined;
     for (;;) {
       const page = await this.sources.records.findByStatus(
         ExecutionRecordStatus.Running,
         PAGE,
         after,
       );
-      for (const record of page) if (!this.#stopped.signal.aborted) this.#recover(record);
-      const last = page.at(-1);
-      if (page.length < PAGE || last === undefined || this.#stopped.signal.aborted) return;
-      after = last.id;
+      for (const record of page) {
+        if (this.#stopped.signal.aborted) return;
+        if (allowed <= 0) {
+          this.#resumeAfter = after;
+          return;
+        }
+        if (this.#recover(record)) allowed -= 1;
+        after = record.id;
+      }
+      if (page.length < PAGE || this.#stopped.signal.aborted) return;
     }
   }
 
-  #recover(record: Tern): void {
+  /** Starts the record's recovery; `false` when it is not this instance's to start now. */
+  #recover(record: Tern): boolean {
     const recoverRoot = this.sources.workflows.get(record.bundle);
     // another application's record on a shared store, or one already being continued here
-    if (recoverRoot === undefined || this.#inFlight.has(record.id)) return;
+    if (recoverRoot === undefined || this.#inFlight.has(record.id)) return false;
     const recovery = recoverRoot(record, this.sources.signal)
       .catch((error: unknown) => {
         if (isHandedOver(error)) return;
@@ -170,6 +198,7 @@ class Sweeper implements RecoverySweep {
         this.#inFlight.delete(record.id);
       });
     this.#inFlight.set(record.id, recovery);
+    return true;
   }
 
   /** Each problem once per instance (an incompatible root is seen again every sweep). */

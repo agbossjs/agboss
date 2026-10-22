@@ -1,5 +1,6 @@
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { RecoverySweep } from "../infrastructure/recovery.js";
+import type { StepCapacity } from "../app/step-slots.js";
 import type { ModelProviderType } from "../models/model-provider.decorator.js";
 import type { HealthCheckHandler, HealthCheckMeta, HealthReport } from "./health-check.js";
 
@@ -29,4 +30,6 @@ export interface HealthSources {
   /** The application's model providers: its listed ones, else the built-ins. */
   readonly modelProviders: readonly ModelProviderType[];
   readonly healthChecks: readonly ProjectHealthCheck[];
+  /** The instance's step slots (#332); absent = no cap, no `step-slots` component. */
+  readonly stepSlots?: StepCapacity | undefined;
 }

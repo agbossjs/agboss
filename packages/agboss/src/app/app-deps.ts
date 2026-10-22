@@ -1,4 +1,5 @@
 import { resolveTools, type AssembledWorkflow } from "../workflow.js";
+import type { StepSlots } from "./step-slots.js";
 import { validateAgentsConfig, type AgentsConfigOf } from "../config/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import type { Environment } from "../flow/generated-types.js";
@@ -144,6 +145,8 @@ export interface WorkflowDepsParts {
    * #334: then one per root execution); absent = a new one.
    */
   readonly piiKey?: ApplicationPiiKey;
+  /** The instance's step slots (#332, `@Application({ maxConcurrentSteps })`); absent = no cap. */
+  readonly stepSlots?: StepSlots;
   /** The run dependencies of the application's other workflows, its children's (#263). */
   readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
 }
@@ -230,7 +233,7 @@ export async function createWorkflowDeps(
     clock,
     replies: repliesFor(bundle, config, gateway, components.container),
     ...observedBy(parts.observer, parts.infrastructure.logger, clock, pii.observability),
-    ...treeDepsOf(parts.infrastructure.idGenerator, parts.childDepsOf),
+    ...treeDepsOf(parts.infrastructure.idGenerator, parts.childDepsOf, parts.stepSlots),
     close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),
   };
   if (parts.created === undefined) {

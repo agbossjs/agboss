@@ -1,6 +1,6 @@
 import type { Clock } from "../../../infrastructure/clock.js";
 import type { Milliseconds } from "../../../units/index.js";
-import type { QueueWatch } from "./launch-registry.js";
+import type { QueueWatch } from "./slot-queue.js";
 
 /**
  * A quorum's deadline (#279 S26, AC10): `deadlineAt` is computed once, at dispatch, from the

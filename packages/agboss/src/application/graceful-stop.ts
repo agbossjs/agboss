@@ -8,6 +8,7 @@ import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { AssembledApplication } from "./assemble.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { Milliseconds } from "../units/index.js";
+import type { StepCapacity } from "../app/step-slots.js";
 
 /**
  * The graceful stop of an application instance (#261, #265 S30 / S51): no new executions anywhere,
@@ -99,6 +100,8 @@ export interface InstanceParts {
   readonly created: readonly unknown[];
   readonly infrastructure: Infrastructure;
   readonly log: FrameworkLog;
+  /** The instance's step slots (#332): its sweep recovers only into free ones. */
+  readonly stepSlots?: StepCapacity | undefined;
 }
 
 /** The instance's recovery sweep and graceful stop. */
@@ -123,6 +126,7 @@ export function stopOf(
     signal: interruption.signal,
     pauses: parts.infrastructure.pausedExecutions,
     pauseRecordRetention: assembled.pauseRecordRetention,
+    capacity: parts.stepSlots,
   });
   const { shutdownTimeout } = assembled;
   const stop = gracefulStopOf({

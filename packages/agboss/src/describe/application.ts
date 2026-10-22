@@ -59,6 +59,8 @@ export interface DescribedApplication {
   readonly executionBudgets: readonly DescribedExecutionBudget[];
   readonly observers: readonly string[];
   readonly warnings: readonly string[];
+  /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
+  readonly maxConcurrentSteps?: number;
 }
 
 const describedBudget = (
@@ -131,8 +133,17 @@ export function describedApplicationOf(assembled: AssembledApplication): Describ
     ),
     observers: assembled.observers.map(tokenName),
     warnings: applicationWarningsOf(assembled).map(warningText),
+    ...(assembled.maxConcurrentSteps === undefined
+      ? {}
+      : { maxConcurrentSteps: assembled.maxConcurrentSteps }),
   };
 }
+
+/** `maxConcurrentSteps 32 (set) · …`, or that the instance has no cap (#332). */
+const stepCapLine = (described: DescribedApplication): string =>
+  described.maxConcurrentSteps === undefined
+    ? "maxConcurrentSteps none (not set) · no cap on this instance's steps"
+    : `maxConcurrentSteps ${String(described.maxConcurrentSteps)} (set) · agent, router and action steps of this instance at work at once`;
 
 const SCOPES: readonly BudgetScope[] = [
   BudgetScope.Application,
@@ -177,6 +188,7 @@ export function applicationLines(described: DescribedApplication): string[] {
     ...described.modelProviders.map(modelProviderLine),
     ...budgetLines(described),
     `observers ${described.observers.join(", ") || "none"}`,
+    stepCapLine(described),
     ...described.warnings.map((warning) => `warning ${warning}`),
   ];
 }

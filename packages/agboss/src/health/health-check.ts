@@ -35,6 +35,11 @@ export enum HealthComponentKind {
   ModelProvider = "model-provider",
   /** A project's `@HealthCheck`. */
   Project = "project",
+  /**
+   * The instance's step slots (#332, `@Application({ maxConcurrentSteps })`, component
+   * `step-slots`): `Degraded` while every slot is busy; reported only when the cap is set.
+   */
+  StepSlots = "step-slots",
 }
 
 /** One component of a report. */

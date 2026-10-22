@@ -2,7 +2,8 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import { circuitOpenKeyOf } from "../models/circuit-breaker.js";
 import { modelProviderOf } from "../models/model-provider.decorator.js";
 import { seconds, type Milliseconds } from "../units/index.js";
-import { probe, type ProbeOutcome } from "./health-probe.js";
+import { componentReportOf, probe, type ProbeOutcome } from "./health-probe.js";
+import { waitOf } from "../infrastructure/clock-timeout.js";
 import { HealthComponentKind, HealthStatus, type HealthComponentReport } from "./health-check.js";
 import type { HealthSources, ProjectHealthCheck } from "./health-sources.js";
 
@@ -93,8 +94,32 @@ const projectProbe = (
     },
   );
 
+/** `32 of 32 step slots busy, 7 steps waiting`: why a full instance is degraded. */
+const busyReason = (busy: number, max: number, waiting: number): string =>
+  `${String(busy)} of ${String(max)} step slots busy, ${String(waiting)} ${waiting === 1 ? "step" : "steps"} waiting`;
+
+/**
+ * The instance's step slots (#332): `Degraded` while none is free — a load balancer sends new work
+ * elsewhere — `Healthy` again once one frees; no component when the application caps none. In
+ * memory: it takes no time.
+ */
+function stepSlotsReports(sources: HealthSources): Promise<HealthComponentReport>[] {
+  const slots = sources.stepSlots;
+  if (slots === undefined) return [];
+  const component = { name: "step-slots", kind: HealthComponentKind.StepSlots };
+  const outcome: ProbeOutcome =
+    slots.freeSlots() > 0
+      ? HEALTHY
+      : {
+          status: HealthStatus.Degraded,
+          reason: busyReason(slots.busySlots(), slots.maxConcurrentSteps, slots.waitingSteps()),
+        };
+  return [Promise.resolve(componentReportOf(component, outcome, waitOf(0)))];
+}
+
 /** Every readiness-only check, started now. */
 export const readinessProbes = (sources: HealthSources): Promise<HealthComponentReport>[] => [
+  ...stepSlotsReports(sources),
   ...storeProbes(sources),
   ...providerProbes(sources),
   ...sources.healthChecks.map((check) => projectProbe(sources, check)),

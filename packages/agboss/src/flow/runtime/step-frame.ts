@@ -6,12 +6,8 @@ import {
   declaredMaxConcurrentExecutionsOf,
   maxConcurrentExecutionsOf,
 } from "../decorators/workflow.js";
-import type {
-  QueueWatch,
-  SlotClaim,
-  SubtreeCap,
-  TreeSlotRegistry,
-} from "./launch/launch-registry.js";
+import type { SlotClaim, SubtreeCap, TreeSlotRegistry } from "./launch/launch-registry.js";
+import type { QueueWatch, SlotHold } from "./launch/slot-queue.js";
 import type { WorkflowDescriptor } from "../context/execution-context.js";
 import {
   currentFrame,
@@ -185,22 +181,45 @@ function claimAt(site: TreeSlotSite): TreeClaim {
   return { root, cap, claim };
 }
 
+/** A wait the execution's signal ended (a cancel, its launch's `FailFast`, the instance's stop). */
+const cancelledWaiting = (what: string): ExecutionCancelledError =>
+  new ExecutionCancelledError(`the execution was cancelled waiting for ${what}`);
+
 /**
- * Runs one step's `work` in a slot of its tree: waits in the queue while the tree is at its cap,
- * releases the slot when the work ends, fails or pauses. A wait the execution's signal ends (a
- * cancel, its launch's `FailFast` abort) throws `ExecutionCancelledError`, the work never run.
+ * The step's slots: its tree's (#264), then — when the application caps them — one of its
+ * instance's (#332), with the same claim; a quorum's deadline excludes both waits (#279).
+ */
+async function takeSlots(site: TreeSlotSite, slots: TreeSlotRegistry): Promise<SlotHold> {
+  const { root, cap, claim } = claimAt(site);
+  const { clock } = extractRunContext(site.config, site.state.runId);
+  const { signal } = site.execution;
+  const tree = await slots.slotsOf(root.executionId, cap, clock).take(claim, signal, site.watch);
+  if (tree === undefined) throw cancelledWaiting("a tree slot");
+  if (slots.instance === undefined) return tree;
+  const step = await slots.instance.take(claim, signal, site.watch);
+  if (step !== undefined) {
+    return {
+      release: (): void => {
+        step.release();
+        tree.release();
+      },
+    };
+  }
+  tree.release();
+  throw cancelledWaiting("a step slot of the instance");
+}
+
+/**
+ * Runs one step's `work` in a slot of its tree and of its instance: waits in the queue while either
+ * is at its cap, releases both when the work ends, fails or pauses. A wait the execution's signal
+ * ends (a cancel, its launch's `FailFast` abort) throws `ExecutionCancelledError`, the work never run.
  */
 export async function inTreeSlot<TResult>(
   site: TreeSlotSite,
   work: () => Promise<TResult>,
 ): Promise<TResult> {
   if (site.slots === undefined || !takesSlot(site.node)) return work();
-  const { root, cap, claim } = claimAt(site);
-  const { clock } = extractRunContext(site.config, site.state.runId);
-  const tree = site.slots.slotsOf(root.executionId, cap, clock);
-  const hold = await tree.take(claim, site.execution.signal, site.watch);
-  if (hold === undefined)
-    throw new ExecutionCancelledError("the execution was cancelled waiting for a tree slot");
+  const hold = await takeSlots(site, site.slots);
   try {
     return await work();
   } finally {

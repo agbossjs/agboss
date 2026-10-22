@@ -22,6 +22,7 @@ budgets
   execution: execution-budget (default)
   job-scout-workflow: execution-budget (the default) — applies when it is the root of app.execute; nested, it spends from its root's
 observers none
+maxConcurrentSteps none (not set) · no cap on this instance's steps
 warning [application.pii-instance-key] no @Application({ pseudonymKey }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with pseudonymKey
 channels
   terminal-user-channel (TerminalUserChannel): ChosenJobs → ToolCallApprovalDecisionDto · answered by the thread's owner · TerminalUserChannel (a @Channel named by the tool, used as is) · tools save-shortlist-tool (job-scout-workflow)

@@ -54,6 +54,15 @@ export interface ApplicationOptions {
    */
   readonly shutdownTimeout?: Milliseconds;
   /**
+   * How many agent, router and action steps — a launch's branches too — this application instance
+   * runs at once (#332), over every tree and every tenant: a whole number from 1
+   * (`[limits.max-concurrent-steps-invalid]`). A step without a free slot waits in the instance's
+   * queue (a step closing a branch first, then the deepest) — never an error; a full instance is
+   * `Degraded` in `app.checkReadiness()` and its recovery sweep leaves orphaned executions to other
+   * instances. Unset → no cap.
+   */
+  readonly maxConcurrentSteps?: number;
+  /**
    * How long a resolved pause record (`Taken`, `Cancelled`) is kept after it was resolved (#267
    * S107): within it a late answer gets `NotPausedError`, after it `UnknownPauseError`; the
    * recovery sweep removes it on the `Clock`. A pending pause is never removed. Default `hours(24)`.
