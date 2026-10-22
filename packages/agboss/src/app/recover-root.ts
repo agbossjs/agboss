@@ -25,13 +25,18 @@ export interface RecoverRootParts {
 /**
  * The compatibility check of `app.resume` applies (#261): a root started under another config is
  * continued only when the workflow's `onIncompatibleResume` says "resume" — otherwise it is left
- * to an instance of a compatible version (a rolling deploy). The owner is the thread's.
+ * to an instance of a compatible version (a rolling deploy) — unless it has a cancel request, which
+ * ends it on any instance (#360). The owner is the thread's.
  */
 export const recoverRootOf =
   ({ deps, moves, current, policy }: RecoverRootParts): RecoverRoot =>
   async (record, signal) => {
     const { runId, threadId, tenantId } = record;
     if (runId === null) return;
+    const startedVersion = record.configVersion ?? deps.config.version;
+    const interrupted = { runId, threadId, tenantId, ternId: record.id, startedVersion };
+    // a cancel requested while its holder was down: ended at once, whatever config it started on (#360)
+    if (await moves.endIfCancelled(interrupted)) return;
     const started = {
       workflowVersion: record.configVersion ?? "",
       configHash: record.configHash ?? "",
@@ -39,7 +44,5 @@ export const recoverRootOf =
     checkResume({ threadId, executionId: runId, paused: started, current }, policy);
     const thread = await deps.terns.threadOwner(deps.config.name, tenantId, threadId);
     const ownerId = thread?.owner;
-    const startedVersion = record.configVersion ?? deps.config.version;
-    const interrupted = { runId, threadId, tenantId, ternId: record.id, startedVersion };
     await moves.recovered(interrupted, { signal, ownerId });
   };

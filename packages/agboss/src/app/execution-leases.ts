@@ -44,9 +44,17 @@ export interface HeldExecutionLease {
    * error while the lease is still valid here resolves (the next renewal tries again).
    */
   renewNow(): Promise<void>;
+  /**
+   * Runs `check` after every renewal the store confirmed — the background one and the one before a
+   * checkpoint write (#360: the holder looks for a cancel request); `check` never throws.
+   */
+  afterEachRenewal(check: RenewalCheck): void;
   /** Stops renewing and gives the lease up (nothing to give when it was lost). */
   release(): Promise<void>;
 }
+
+/** What the holder does after a confirmed renewal of its lease (#360). */
+export type RenewalCheck = () => Promise<void>;
 
 /** The leases of one application instance's trees. */
 export interface ExecutionLeases {
@@ -97,6 +105,7 @@ async function takeLease(
   const lost = new AbortController();
   const stopped = new AbortController();
   const fence = new LeaseFence(clock, askedAt, lost, rootExecutionId);
+  const checks: RenewalCheck[] = [];
   const renewNow = async (): Promise<void> => {
     lost.signal.throwIfAborted();
     const renewedAt = clock.now().getTime();
@@ -104,6 +113,7 @@ async function takeLease(
       .renew(lease, EXECUTION_LEASE)
       .catch((): undefined => undefined);
     fence.settle(renewedAt, isRenewed);
+    if (isRenewed === true) for (const check of checks) await check();
   };
   const working = AbortSignal.any([stopped.signal, lost.signal]);
   void renewInBackground(clock, working, renewNow);
@@ -112,6 +122,9 @@ async function takeLease(
     rootExecutionId,
     signal: lost.signal,
     renewNow,
+    afterEachRenewal: (check) => {
+      checks.push(check);
+    },
     release: async () => {
       if (stopped.signal.aborted) return;
       stopped.abort();
