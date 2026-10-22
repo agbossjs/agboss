@@ -7,7 +7,7 @@ import { envOption } from "./cli/environment.js";
 import { assemble, modelProblem, problemText, type CheckProblem } from "./cli/check-problems.js";
 import { checkReportOf, type CheckReport } from "./cli/check-report.js";
 import { CliError } from "./cli/errors.js";
-import { writeCheckedTypes } from "./cli/flow-types.js";
+import { typesProblemsBeside, writeCheckedTypes } from "./cli/flow-types.js";
 
 /**
  * The application's assembly warnings (#261): its budgets on an in-memory cost ledger, its pauses
@@ -124,12 +124,15 @@ export const handle: CommandHandler = async (context) => {
   );
   const profile = textOption(context.values, "profile");
   const assembly = await assemble(file, () => assembleApplication(context, loaded, profile));
-  const problems: CheckProblem[] = [...typed.problems];
   const checked =
     assembly.kind === "failed"
       ? { problems: assembly.problems, report: undefined }
       : await reportAndCheck({ context, file, assembled: assembly.assembled }, selected);
-  problems.push(...checked.problems);
+  // a types file not written is never `ok` (#371): generation's errors the assembly did not report
+  const problems: CheckProblem[] = [
+    ...typesProblemsBeside(typed, checked.problems),
+    ...checked.problems,
+  ];
   const { report } = checked;
   const checks = [
     "assembly",
