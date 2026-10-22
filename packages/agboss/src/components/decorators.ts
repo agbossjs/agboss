@@ -147,6 +147,8 @@ export {
   GuardrailSide,
   InputGuardrail,
   OutputGuardrail,
+  type CodeGuardrailComputedOptions,
+  type CodeGuardrailTextOptions,
   type GuardrailComputedOptions,
   type GuardrailRefusal,
   type GuardrailTextOptions,

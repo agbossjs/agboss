@@ -107,6 +107,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["GuardFailedError", "PiiPolicy", "PiiPolicyHandler", "PiiMatch", "PiiRefusal", "PiiAction"],
     ...["PiiKind", "PiiGroup", "pii", "PiiRefusedError", "PiiDetectionFailedError", "secret"],
     ...["testGuardrail", "testPii", "decideWith", "ExecutionContext"],
+    ...["DecidedBy", "GuardrailHandler", "GuardrailVerdict", "TenantContext"],
   ],
   "references/10-testing-vcr-and-evals.md": [
     ...["testWith", "testTool", "testAction", "testRouter", "testArbiter", "testRag", "testJudge"],

@@ -134,6 +134,8 @@ export type RuleCode =
   | "guardrail.threshold-invalid"
   | "guardrail.output-on-router"
   | "guardrail.no-model-call"
+  // code guardrails (#383): a DecidedBy.Code guardrail's class has its check(text)
+  | "guardrail.missing-handler"
   // compaction (#120 PR 3), reported at each workflow's assembly
   | "compaction.not-a-compaction"
   | "compaction.invalid-setting"

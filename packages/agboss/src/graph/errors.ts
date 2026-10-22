@@ -150,11 +150,12 @@ export class GuardFailedError extends StepFailedError {
   override name = "GuardFailedError";
   readonly guard: string;
 
-  constructor(guard: string, usage: readonly UsageRecord[], reason: string) {
+  /** `cause`: what failed — a code guardrail's thrown error (#383); else the reason itself. */
+  constructor(guard: string, usage: readonly UsageRecord[], reason: string, cause?: unknown) {
     super(
       `Guard "${guard}" failed: ${reason}`,
       usage,
-      reason,
+      cause ?? reason,
       stepCoordinatesOf(guard, ComponentKind.Guardrail),
       {
         guard,
