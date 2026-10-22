@@ -3,6 +3,24 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — a child workflow's change is part of its root's configHash (#336, PR 1)
+
+- **Fixed — a root's `configHash` covers its child workflows**
+  ([Terns and evaluation → What the config hash covers](Terns-and-evaluation#what-the-config-hash-covers-120-pr-4)):
+  the snapshot adds `children` — every child reachable from the flow, recursively, each once by
+  name, `ThisWorkflow` excluded. A run paused or running inside a child that a deploy changed is
+  now `IncompatibleResumeError` / `recovery.incompatible`, decided by the root's
+  `onIncompatibleResume`, instead of continuing silently on the changed child
+  ([Several instances → Recovery](Several-instances#recovery)).
+- **Breaking — hashes of workflows with children change once**: every workflow that launches a
+  child gets a new `configHash` (records, events, `describe --json`; on durable records the first
+  start after the upgrade warns once that its version changed without a bump); runs of such a
+  workflow paused or running before the upgrade are incompatible with it unless its
+  `onIncompatibleResume` says `"resume"`. Workflows without children keep their hash.
+- **Breaking — `IncompatibleResumeError` is an `AGBossError`** with `static code =
+  "resume.incompatible"` (the same string; its instance `code` is typed `string`), so
+  `.onError(AGBossError, …)` and `error instanceof AGBossError` include it.
+
 ## Unreleased — the declarative snapshot and join keys (#268, PR 5)
 
 - **Added — `agboss describe --json` is each workflow's declarative snapshot**

@@ -254,7 +254,9 @@ it started with ([Context and Authorization](Context-And-Authorization#the-value
 as the thread's owner; the result has the same shape — `threadId` and `executionId` included — and, when
 other pauses remain, `status: Paused` with the rest in `pending`. A pause no longer waiting (taken,
 withdrawn) → `NotPausedError`. A run paused under another workflow version or config is checked by
-the workflow's `onIncompatibleResume` policy (`IncompatibleResumeError`). The whole model:
+the workflow's `onIncompatibleResume` policy (`IncompatibleResumeError`, `resume.incompatible`, an
+`AGBossError`); the config hash covers the root's child workflows, recursively (#336), so a paused
+run whose child changed is incompatible too, its pause inside the child or not. The whole model:
 [Pauses](Pauses).
 
 A resume has two phases (#265, Q58): it records the decision — the pause goes `Pending → Resolved`

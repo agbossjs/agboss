@@ -262,7 +262,10 @@ it `running` again once it has recorded its decision). Every instance, at its st
    side-effecting tool keeps its effect once through `executionContext.step.idempotencyKey`;
 4. checks compatibility as `app.resume` does: a root started under another config hash is not
    continued unless the workflow's `onIncompatibleResume` says `"resume"` — it is left to an
-   instance of a compatible version (a rolling deploy) and logged once.
+   instance of a compatible version (a rolling deploy) and logged once. The root's hash covers its
+   child workflows, recursively (#336): a deploy that changes only a child — its prompt, model,
+   flow or version — makes the roots running or paused inside it incompatible too, though the
+   root's own `@Workflow({ version })` is the same.
 
 Each recovery is logged (`execution.recovered`, a warning in the application's
 [log](Observability#the-frameworks-log) with its `executionId` and `tenantId`; a root left to a

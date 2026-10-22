@@ -108,6 +108,11 @@ and two sub-trees for what changes a model's input but lives outside its element
   (the answer-tool instructions, the history and decisions framing, a judge's retry message, a
   rejected call), the knowledge bases' framing; a launch router's, a compaction's, an arbiter's and
   a guardrail's only in a workflow that has one.
+- `children` (#336) — only in a workflow that launches child workflows: every child reachable from
+  its flow, recursively, each once by name with its own snapshot (`ThisWorkflow` is never one: a
+  recursive workflow is hashed once). A child's change — a prompt, a model, its flow, its version —
+  is a change of every workflow above it, so a paused or running root whose child changed is
+  incompatible ([Several instances → Recovery](Several-instances#recovery)).
 
 `agboss describe` prints the same hash as a run of that configuration records. Quality metrics stay
 out of it (#123).
