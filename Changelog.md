@@ -3,6 +3,27 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the mesh envelope: call chains, hop limits and loop detection (#398 PR 1)
+
+- **Added — the mesh envelope** ([A2A](A2A#6-the-mesh--call-chains-hops-and-loops-398),
+  [MCP](Mcp#4-calls-between-agboss-applications--_meta-398)): every `A2AClient` call made inside an
+  execution sends `agboss-mesh` (`MeshEnvelope`: `schema`, `issuer`, `origin` — `MeshOrigin`,
+  `MeshOriginStep` —, `callChain` of `MeshHop` / `MeshEntry`; an unsecured JWS, ids only) and a W3C
+  `traceparent`; an `@McpServer` call sends `_meta.callId` (the step's idempotency key — before, the
+  MCP client sent no `_meta` at all), `_meta["agboss.dev/mesh"]` and `_meta.traceparent`. Outside an
+  execution, nothing.
+- **Added — `A2ACallerRequest.envelope?`**: the envelope as the listener read it, a claim (not
+  verified: never the tenant, a budget or a deadline); a malformed one is ignored.
+- **Added — loops and hops refused before they run**: a request whose chain already lists the
+  receiver's `(application, start)` → `409` / an MCP error result `limit.mesh-loop`; one whose chain
+  already lists `@Application({ maxMeshHops })` applications (new, default 8,
+  `[limits.max-mesh-hops-invalid]`) → `limit.hops`. New errors `MeshLoopDetectedError`
+  (`entry`, `chain`) and `HopsLimitExceededError` (`entry`, `chain`, `maxMeshHops`, `hops`), both
+  `LimitExceededError`s (`MeshLimitPlace` for their constructors); thrown by the client, and a tool
+  that meets one fails its step with it — never an error result for the model.
+- **Added — `A2AExecutionResponse.code` / `.details`**: a failed or limited run's error code (every
+  `AGBossError`), and for the two mesh limits their facts, so the caller fails the same way.
+
 ## Unreleased — stale cassettes: cassette v2, `RECORD_STALE`, `check --cassettes` (#395 PR 4)
 
 - **Added — cassette version 2 and `StaleCassetteError`** ([Testing](Testing#stale-cassettes-395)):

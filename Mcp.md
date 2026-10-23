@@ -92,3 +92,23 @@ createServer((req, res) => {
 
 `service.connect(transport, session)` takes any MCP SDK transport instead (e.g. in tests, an
 in-memory pair).
+
+## 4. Calls between AGBoss applications — `_meta` (#398)
+
+An AGBoss application's `@McpServer` calls made inside an execution send `_meta`:
+
+- `callId` — the step's `executionContext.step.idempotencyKey`, so an AGBoss MCP server answers a
+  repeated call as the same one (its call frame's key follows it);
+- `"agboss.dev/mesh"` — the mesh envelope ([A2A → The mesh](A2A#6-the-mesh--call-chains-hops-and-loops-398)),
+  the same unsecured JWS as the `agboss-mesh` header;
+- `traceparent` — the W3C trace context.
+
+Outside an execution nothing is sent. `createMcpService` reads `_meta["agboss.dev/mesh"]` as a claim
+(a malformed one is ignored): a chain that already passed through this application's tool — an
+exported start or an exported `@Tool` / `@McpTool`, each an entry of the chain — or that is as long
+as its `@Application({ maxMeshHops })` is refused before it runs, with an error result whose
+`_meta["agboss.dev/error"]` is `{ code: "limit.mesh-loop" | "limit.hops", error, details }`. An
+admitted start runs with the chain (its own calls carry it on); an execution or a tool that fails
+with one of these limits answers the same way. The AGBoss client throws such a result as
+`MeshLoopDetectedError` / `HopsLimitExceededError` — the calling step fails with it, and
+`McpServerClient.call` passes it on as it is.
