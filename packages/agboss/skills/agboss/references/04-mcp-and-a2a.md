@@ -322,7 +322,11 @@ call)` returns the `A2AExecutionResponse` whatever the status — use it when th
   Pass `executionContext.signal` so a cancel or a timeout aborts the HTTP call.
 - `agboss describe --json` lists every `@A2AAgent` under `application.contracts.imports` (target,
   `usedBy`, input and output with their `schemaHash`, price) and every listed `@A2AExpose` /
-  `@McpExpose` under `exports` — what a federation check of the applications compares.
+  `@McpExpose` under `exports`. Save each neighbour's as a file and run
+  `npx agboss check --federation snapshots/`: no network, every consumed contract whose target is
+  among the snapshots compared field by field — `[federation.missing-target]`,
+  `[federation.incompatible-schema]`, each with the consumer's workflows it affects (an MCP server's
+  `target: { application, expose }` takes part the same way).
 
 ## Exposing a workflow
 

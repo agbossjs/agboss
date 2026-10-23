@@ -1156,7 +1156,14 @@ describe` (the flow as assembled, each node's inputs and producers, models and l
 assembles every `eval-suites/*.eval-suite.ts` of the application (its rules and its cases' values,
 `eval-suites` in its list of checks) — no model is called. No test runs before `check` prints `ok:`.
 With recorded cassettes, `npx agboss check --cassettes` too: a prompt or schema changed since a
-recording is `[vcr.stale-cassette]`.
+recording is `[vcr.stale-cassette]`. An application that calls or serves others over A2A or MCP
+runs `npx agboss check --federation snapshots/` too, with its neighbours' `agboss describe --json`
+outputs saved there (files or folders, read from disk — no network): a consumed contract whose
+target is gone is `[federation.missing-target]`, one whose export no longer accepts what it sends
+or gives what it reads is `[federation.incompatible-schema]` (compared structurally, field by field),
+each naming its blast radius — the consumer's workflows and tools that use it. Its own earlier
+snapshot among them checks that a changed export got a new version
+(`[federation.version-not-bumped]`, an error under `--strict`).
 
 **Loop 1 — the harness, $0, every commit (`npm test`).**
 

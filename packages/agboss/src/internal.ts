@@ -13,6 +13,15 @@ export { describeServices, describeServicesWith } from "./describe/describe-work
 export { workflowSnapshotOf, type WorkflowSnapshot } from "./describe/snapshot.js";
 export { contractsOf, type ContractsSnapshot } from "./describe/contracts.js";
 export {
+  checkFederation,
+  FederationProblemCode,
+  type BlastRadiusEntry,
+  type FederationMember,
+  type FederationProblem,
+  type FederationReport,
+} from "./federation/federation.js";
+export { federationMemberOf, type SnapshotReading } from "./federation/federation-snapshot.js";
+export {
   describeApplication,
   type ApplicationDescription,
 } from "./describe/describe-application.js";

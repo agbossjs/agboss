@@ -195,6 +195,7 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
         server: "kb",
         tool: "search",
         target: { application: "kb-application", expose: "kb-mcp-expose" },
+        usedBy: [{ workflow: "kb-workflow", tool: "search-kb-tool" }],
         input: { dto: "SearchQueryDto", schemaHash: expect.any(String) },
         output: { dto: "SearchHitDto", schemaHash: expect.any(String) },
       },

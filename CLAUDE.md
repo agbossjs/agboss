@@ -1432,7 +1432,13 @@ export class ArchiveAgent {}
   (`[application.expose-unknown-start]`, `[application.not-an-expose]`) and served by
   `a2aHttpListener(app, { expose, callerResolver })` (`[application.expose-unlisted]`; a request names
   its `start`, else `400 a2a.unknown-start` with several); `agboss describe --json` lists both sides
-  under `application.contracts` (`exports`, `imports` with `usedBy`, each DTO's `schemaHash`, `schemas`).
+  under `application.contracts` (`exports`, `imports` with `usedBy`, each DTO's `schemaHash`, `schemas`);
+  `agboss check --federation <snapshot…>` (#398 PR 4; files or folders of neighbours' `describe
+--json`, no network; `checkFederation` in `agboss/internal`) compares every consumed contract whose
+  target is among them, structurally — `[federation.missing-target]`,
+  `[federation.incompatible-schema]` with its blast radius (the consumer's workflows and tools),
+  `[federation.snapshot-schema]`, `[federation.duplicate-application]`, and with the project's own
+  earlier snapshot `[federation.version-not-bumped]` (a warning, an error under `--strict`).
 - **PII policies (#120, S38):** a declarative `@PiiPolicy` — `name` (`-pii-policy`),
   `description`, `rules: [pii(kind or group, action)]`, `detectWithModel?`, `pseudonymKey?` — or a
   project's own detector — `@PiiPolicy({ name, action, deps })` + `implements PiiPolicyHandler`
@@ -2141,6 +2147,8 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
     loader/, describe/   loadWorkflow (tsx); describeApplication (`agboss describe`, through agboss/internal)
                     and its parts — the tree, channels, PII policies, the worst-case report;
                     describeWorkflow (internal: one workflow's part); studio.ts (studioOf: the graphs of agboss studio)
+    federation/     `agboss check --federation` (#398 PR 4): the snapshots read, the contracts compared
+                    (federation.ts) and JSON Schemas compared structurally (schema-compat.ts), through agboss/internal
     eval/           `agboss/eval` (index.ts, #396): suite/ — @EvalSuite, the case and check builders, their
                     assembly (check-suite.ts, through agboss/internal); run/ — `agboss eval run`'s
                     runner (run-suite.ts) and its artifact (report.ts); eval.ts, golden, replay, compare —

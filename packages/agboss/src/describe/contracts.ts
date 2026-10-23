@@ -2,8 +2,8 @@ import type { AssembledApplication } from "../application/assemble.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import type { DtoClass } from "../dto/types.js";
-import { flowClassesOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { NodeKind } from "../flow/ast.js";
+import { mcpUsesOf, usesOf, workflowPartsOf, type WorkflowParts } from "./contracts-parts.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { dtoJsonSchemaOf, dtoSchemaHashOf } from "../flow/runtime/join-keys.js";
 import type {
@@ -11,7 +11,6 @@ import type {
   A2AImportContract,
   ContractDto,
   ContractsSnapshot,
-  ContractUse,
   McpExportContract,
   McpImportContract,
 } from "./contracts-types.js";
@@ -51,26 +50,6 @@ class Dtos {
       ]),
     );
   }
-}
-
-/** A workflow's name, its node classes and the tools of its agents. */
-interface WorkflowParts {
-  readonly name: string;
-  readonly nodes: readonly Class[];
-  readonly tools: readonly Class[];
-}
-
-function workflowPartsOf(workflows: readonly Class[]): readonly WorkflowParts[] {
-  return withChildWorkflows(workflows).flatMap((workflow): WorkflowParts[] => {
-    const declaration = declarationOf(workflow);
-    if (declaration?.kind !== NodeKind.Workflow) return [];
-    const nodes = flowClassesOf(declaration.options.flow);
-    const tools = nodes.flatMap((node) => {
-      const agent = declarationOf(node);
-      return agent?.kind === NodeKind.Agent ? (agent.options.tools ?? []) : [];
-    });
-    return [{ name: declaration.options.name, nodes, tools: [...new Set(tools)] }];
-  });
 }
 
 const kindOf = (node: Class): NodeKind | undefined => declarationOf(node)?.kind;
@@ -123,17 +102,6 @@ function mcpExportsOf(expose: Class, dtos: Dtos): readonly McpExportContract[] {
   });
 }
 
-/** Where the application's tools use `client` (a tool that lists it among its `deps`). */
-function usesOf(client: Class, parts: readonly WorkflowParts[]): readonly ContractUse[] {
-  return parts.flatMap((part) =>
-    part.tools.flatMap((tool) => {
-      const meta = componentOf(tool);
-      if (meta?.kind !== "tool" && meta?.kind !== "mcp-tool") return [];
-      return meta.meta.deps.includes(client) ? [{ workflow: part.name, tool: meta.meta.name }] : [];
-    }),
-  );
-}
-
 function a2aImportsOf(
   assembled: AssembledApplication,
   parts: readonly WorkflowParts[],
@@ -177,6 +145,7 @@ function mcpImportsOf(parts: readonly WorkflowParts[], dtos: Dtos): readonly Mcp
       server: meta.meta.name,
       tool,
       target,
+      usedBy: mcpUsesOf(server, parts),
       input: dtos.of(io.input),
       output: dtos.of(io.output),
     }));
