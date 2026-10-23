@@ -20,6 +20,7 @@ const HopSchema = z.object({ application: ID, start: ID, executionId: ID });
 const EnvelopeSchema = z.object({
   schema: z.literal(1),
   issuer: ID,
+  audience: ID.optional(),
   origin: z.object({
     rootExecutionId: ID,
     executionId: ID,

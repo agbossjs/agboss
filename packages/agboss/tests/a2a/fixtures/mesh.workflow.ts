@@ -1,6 +1,7 @@
 import {
   A2AAgent,
   A2AClient,
+  A2AExpose,
   A2ACallerResolution,
   type A2ACallerRequest,
   type A2ACallerResolver,
@@ -22,6 +23,7 @@ import {
 import { MeshEnvironment } from "./environments/mesh.environment.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { Class } from "../../../src/components/injection.js";
+import type { Usd } from "../../../src/units/index.js";
 import type { ToolClass } from "../../../src/testing/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -48,6 +50,10 @@ export interface MeshAppSpec {
   /** `orders` → `orders-application`, `orders-workflow-start`, `orders-desk-agent`, … */
   readonly name: string;
   readonly peerUrl: string;
+  /** The peer's name (`billing` → `billing-application`, `billing-workflow-start`); default `peer`. */
+  readonly peerName?: string;
+  /** The peer agent's contract price of one call (#398 PR 3). */
+  readonly price?: Usd;
   readonly maxMeshHops?: number;
   /** The agent's path takes a `MeshLoopDetectedError` to `<name>-loop-workflow-finish`. */
   readonly handlesLoop?: boolean;
@@ -64,6 +70,7 @@ export interface MeshAppParts {
   readonly MeshApplication: Class;
   readonly MeshWorkflow: Class;
   readonly MeshStart: Class;
+  readonly MeshA2AExpose: Class;
   readonly MeshDesk: Class;
   readonly CallPeer: ToolClass<PeerQuestion>;
   readonly LoopFinish: Class;
@@ -79,21 +86,29 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   const seen: A2ACallerRequest[] = [];
   const started: ExecutionEvent[] = [];
 
-  @A2AAgent({ name: `${name}-peer-a2a-agent`, url: spec.peerUrl })
-  class PeerAgent extends A2AClient {}
+  const peerName = spec.peerName ?? "peer";
+  @A2AAgent({
+    name: `${name}-peer-a2a-agent`,
+    url: spec.peerUrl,
+    target: { application: `${peerName}-application`, start: `${peerName}-workflow-start` },
+    input: WorkflowStartTextDto,
+    output: PeerReply,
+    ...(spec.price === undefined ? {} : { price: spec.price }),
+  })
+  class PeerA2AAgent extends A2AClient<WorkflowStartTextDto, PeerReply> {}
 
   @Tool({
     name: `${name}-call-peer-tool`,
     description: "Asks the peer application",
     input: PeerQuestion,
     output: PeerReply,
-    deps: [PeerAgent],
+    deps: [PeerA2AAgent],
   })
   class CallPeer implements ToolHandler<PeerQuestion, PeerReply> {
-    constructor(private readonly peerAgent: PeerAgent) {}
+    constructor(private readonly peerA2AAgent: PeerA2AAgent) {}
 
     run({ question }: PeerQuestion): Promise<PeerReply> {
-      return this.peerAgent.execute({ text: question }, PeerReply);
+      return this.peerA2AAgent.execute({ text: question });
     }
   }
 
@@ -154,7 +169,7 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     version: "1.0.0",
     flow: [flow],
     defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
-    providers: [PeerAgent, Resolver, ...(spec.providers ?? [])],
+    providers: [PeerA2AAgent, Resolver, ...(spec.providers ?? [])],
   })
   class MeshWorkflow {}
 
@@ -165,8 +180,12 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     }
   }
 
+  @A2AExpose({ name: `${name}-a2a-expose`, version: "1.0.0", exports: [MeshStart] })
+  class MeshA2AExpose {}
+
   @Application({
     name: `${name}-application`,
+    exposes: [MeshA2AExpose],
     version: "1.0.0",
     environment: spec.mesh === undefined ? EmptyEnvironment : MeshEnvironment,
     workflows: [MeshWorkflow],
@@ -177,6 +196,13 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   })
   class MeshApplication {}
 
-  const workflow = { MeshApplication, MeshWorkflow, MeshStart, MeshDesk, LoopFinish };
+  const workflow = {
+    MeshApplication,
+    MeshWorkflow,
+    MeshStart,
+    MeshA2AExpose,
+    MeshDesk,
+    LoopFinish,
+  };
   return { ...workflow, CallPeer, Resolver, seen, started };
 }

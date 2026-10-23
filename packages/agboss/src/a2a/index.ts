@@ -21,3 +21,5 @@ export {
   type ResolvedA2ACallerResolution,
 } from "./a2a-caller.js";
 export { a2aHttpListener, type A2AHttpListenerOptions } from "./a2a-http.js";
+export { A2AExpose, type A2AExposeOptions } from "./a2a-expose.decorator.js";
+export type { A2AContract } from "./a2a-contract.js";

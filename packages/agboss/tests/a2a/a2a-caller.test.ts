@@ -23,6 +23,8 @@ import {
   ListedDeskApplication,
   resetTenantDeskSeen,
   TenantAskStart,
+  TenantDeskA2AExpose,
+  ListedDeskA2AExpose,
   TenantDeskApplication,
   tenantDeskSeen,
   UnlistedCallerResolver,
@@ -31,7 +33,7 @@ import {
 const test = testWith(TenantDeskApplication);
 const listed = testWith(ListedDeskApplication);
 
-const desk = { start: TenantAskStart, callerResolver: KeyCallerResolver } as const;
+const desk = { expose: TenantDeskA2AExpose, callerResolver: KeyCallerResolver } as const;
 const bearer = (key: string): Record<string, string> => ({ authorization: `Bearer ${key}` });
 const post = (url: string, body: unknown, headers: Record<string, string> = {}) =>
   fetch(url, {
@@ -80,7 +82,10 @@ describe("#387 AC1: one listener, each request for its own tenant", () => {
     "a resolver listed in @Application({ providers }) is the container's",
     async ({ a2aServer, mockLlm }) => {
       mockLlm(Desk).thenReturn(replyWith("Hello acme"));
-      const { url } = await a2aServer({ start: ListedAskStart, callerResolver: KeyCallerResolver });
+      const { url } = await a2aServer({
+        expose: ListedDeskA2AExpose,
+        callerResolver: KeyCallerResolver,
+      });
 
       const response = await new A2AClient({ url, headers: bearer("key-acme") }).send({
         text: "hi",
@@ -99,7 +104,7 @@ describe("#387 AC1: one listener, each request for its own tenant", () => {
     await app.ready();
 
     const listen = () =>
-      a2aHttpListener(app, { start: TenantAskStart, callerResolver: UnlistedCallerResolver });
+      a2aHttpListener(app, { expose: TenantDeskA2AExpose, callerResolver: UnlistedCallerResolver });
 
     expect(listen).toThrow(ComponentError);
     expect(listen).toThrow(/a2a\.caller-resolver-not-listed.*UnlistedCallerResolver/);
@@ -164,7 +169,7 @@ describe("#387 AC2: a caller the host cannot resolve is refused, nothing runs", 
     mockLlm,
   }) => {
     const { url } = await a2aServer({
-      start: TenantAskStart,
+      expose: TenantDeskA2AExpose,
       callerResolver: FailingCallerResolver,
     });
 

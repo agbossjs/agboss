@@ -21,6 +21,7 @@ export function meshSettingsFor(
     keys: meshKeysOf(assembled.mesh, context.environment),
     clock: app.resolve(Clock),
     idempotencyRetention: assembled.mesh?.idempotencyRetention ?? DEFAULT_IDEMPOTENCY_RETENTION,
+    exposes: assembled.exposes,
   };
   rememberContextMeshSettings(context, settings);
   return settings;

@@ -55,9 +55,19 @@ export interface CallerParts {
   readonly RemoteDeskAgent: Class<A2AClient>;
 }
 
+/** The remote desk's export (#398 PR 3: a declared contract). */
+const target = { application: "remote-desk-application", start: "ask-workflow-start" } as const;
+
 export function callerOf(url: string): CallerParts {
-  @A2AAgent({ name: "remote-desk", url, deps: [DeskCredentials] })
-  class RemoteDeskAgent extends A2AClient {
+  @A2AAgent({
+    name: "remote-desk-a2a-agent",
+    url,
+    target,
+    input: WorkflowStartTextDto,
+    output: DeskReply,
+    deps: [DeskCredentials],
+  })
+  class RemoteDeskA2AAgent extends A2AClient<WorkflowStartTextDto, DeskReply> {
     constructor(private readonly credentials: DeskCredentials) {
       super();
     }
@@ -67,18 +77,28 @@ export function callerOf(url: string): CallerParts {
     }
   }
 
+  /** The same export, expecting an output it never gives (validation must reject it). */
+  @A2AAgent({
+    name: "remote-ticket-a2a-agent",
+    url,
+    target,
+    input: WorkflowStartTextDto,
+    output: TicketedReply,
+  })
+  class RemoteTicketA2AAgent extends A2AClient<WorkflowStartTextDto, TicketedReply> {}
+
   @Tool({
     name: "ask-desk-tool",
     description: "Asks the remote order desk",
     input: Question,
     output: DeskReply,
-    deps: [RemoteDeskAgent],
+    deps: [RemoteDeskA2AAgent],
   })
   class AskDesk implements ToolHandler<Question, DeskReply> {
-    constructor(private readonly desk: RemoteDeskAgent) {}
+    constructor(private readonly desk: RemoteDeskA2AAgent) {}
 
     run({ question }: Question): Promise<DeskReply> {
-      return this.desk.execute({ text: question }, DeskReply);
+      return this.desk.execute({ text: question });
     }
   }
 
@@ -87,13 +107,13 @@ export function callerOf(url: string): CallerParts {
     description: "Asks the remote order desk for a ticket",
     input: Question,
     output: TicketedReply,
-    deps: [RemoteDeskAgent],
+    deps: [RemoteTicketA2AAgent],
   })
   class AskTicket implements ToolHandler<Question, TicketedReply> {
-    constructor(private readonly desk: RemoteDeskAgent) {}
+    constructor(private readonly desk: RemoteTicketA2AAgent) {}
 
     run({ question }: Question): Promise<TicketedReply> {
-      return this.desk.execute({ text: question }, TicketedReply);
+      return this.desk.execute({ text: question });
     }
   }
 
@@ -128,7 +148,7 @@ export function callerOf(url: string): CallerParts {
         .toAgent(Planner)
         .toFinish(PlanDone),
     ],
-    providers: [DeskCredentials, RemoteDeskAgent],
+    providers: [DeskCredentials, RemoteDeskA2AAgent, RemoteTicketA2AAgent],
     defaults: {
       models: { temperature: 0, cache: true },
       router: { model: "typesafe/jev-1.13" },
@@ -152,5 +172,5 @@ export function callerOf(url: string): CallerParts {
   })
   class CallerApplication {}
 
-  return { CallerApplication, PlanStart, AskDesk, AskTicket, RemoteDeskAgent };
+  return { CallerApplication, PlanStart, AskDesk, AskTicket, RemoteDeskAgent: RemoteDeskA2AAgent };
 }

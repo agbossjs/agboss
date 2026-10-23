@@ -5,6 +5,7 @@ import { MESH_ERROR_META_KEY, MESH_META_KEY, TRACEPARENT } from "../mesh/mesh-en
 import { readMeshEnvelope, type ReadEnvelope } from "../mesh/mesh-envelope-codec.js";
 import { meshSettingsOf, type MeshSettings } from "../mesh/mesh-settings.js";
 import {
+  audienceRefusalOf,
   MESH_REFUSAL_TEXT,
   MeshRefusalCode,
   signatureRefusalOf,
@@ -63,6 +64,15 @@ function signedRefusalOf(
   return isBody ? undefined : MeshRefusalCode.BodyMismatch;
 }
 
+/** Why an envelope is refused: meant for another application (#398 PR 3), or badly signed. */
+const envelopeRefusalOf = (
+  settings: MeshSettings | undefined,
+  read: ReadEnvelope | undefined,
+  args: unknown,
+): MeshRefusalCode | undefined =>
+  (settings === undefined ? undefined : audienceRefusalOf(read, settings.application)) ??
+  signedRefusalOf(settings, read, args);
+
 /** The chain limit a call meets at `app`; `undefined` when it may run. */
 function limitRefusalOf(
   settings: MeshSettings | undefined,
@@ -93,7 +103,7 @@ export function admitMcpCall(app: object, call: McpMeshCall): McpMeshAdmission {
   const settings = meshSettingsOf(app);
   const limited = limitRefusalOf(settings, call.tool, read);
   if (limited !== undefined) return limited;
-  const refusal = signedRefusalOf(settings, read, call.args);
+  const refusal = envelopeRefusalOf(settings, read, call.args);
   if (refusal !== undefined) return refused(refusal);
   const peer = trustedPeerOf(settings, read, call.peer);
   const inbound = inboundMeshOfRequest(read?.envelope, fields[TRACEPARENT], peer);

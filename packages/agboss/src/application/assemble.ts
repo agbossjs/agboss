@@ -27,8 +27,9 @@ import type { MeshOptions } from "../mesh/mesh-options.js";
 /** `@Application({ maxMeshHops, mesh })` (#398), as assembled. */
 const meshOptionsOf = (
   options: ApplicationOptions,
-): Pick<AssembledApplication, "maxMeshHops" | "mesh"> => ({
+): Pick<AssembledApplication, "maxMeshHops" | "mesh" | "exposes"> => ({
   maxMeshHops: options.maxMeshHops ?? DEFAULT_MAX_MESH_HOPS,
+  exposes: options.exposes ?? [],
   ...(options.mesh === undefined ? {} : { mesh: options.mesh }),
 });
 
@@ -72,6 +73,8 @@ export interface AssembledApplication {
   readonly maxMeshHops: number;
   /** `@Application({ mesh })` (#398 PR 2): its keys' fields and the answers' retention. */
   readonly mesh?: MeshOptions;
+  /** `@Application({ exposes })` (#398 PR 3): its `@A2AExpose` / `@McpExpose` contracts. */
+  readonly exposes: readonly Class[];
   /** The context classes it declares (#261), else the built-in ones. */
   readonly tenantContext: TenantContextClass;
   readonly executionContext: ExecutionContextClass;

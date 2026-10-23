@@ -16,6 +16,11 @@ export interface MeshEnvelope {
   readonly schema: 1;
   /** The calling application, `@Application({ name })` — as claimed. */
   readonly issuer: string;
+  /**
+   * The receiving application it is meant for (#398 PR 3: the client's `target.application`): a
+   * receiver of another name refuses it (`401 mesh.audience-mismatch`) — no forwarding.
+   */
+  readonly audience?: string;
   /** Where in the caller the call was made — as claimed. */
   readonly origin: MeshOrigin;
   /** The applications the request passed through, the first caller first, the caller last. */

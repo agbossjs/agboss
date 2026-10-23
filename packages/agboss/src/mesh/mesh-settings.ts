@@ -1,4 +1,5 @@
 import type { KeyObject } from "node:crypto";
+import type { Class } from "../components/injection.js";
 import type { ApplicationContext } from "../flow/context/application-context.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { MeshKeys } from "./mesh-keys.js";
@@ -16,6 +17,8 @@ export interface MeshSettings {
   readonly keys: MeshKeys;
   readonly clock: Clock;
   readonly idempotencyRetention: number;
+  /** `@Application({ exposes })` (#398 PR 3): the contracts a transport may serve. */
+  readonly exposes: readonly Class[];
 }
 
 const byApp = new WeakMap<object, () => MeshSettings | undefined>();

@@ -194,3 +194,24 @@ describe("#398 PR 2b: a trusted MCP call is deduplicated by _meta.callId", () =>
     expect(book.scriptOf("agent:billing-desk-agent").requests).toHaveLength(4);
   });
 });
+
+describe("#398 PR 3: an MCP call meant for another application", () => {
+  it("is refused before anything runs: mesh.audience-mismatch", async () => {
+    const [ordersKeys, billingKeys] = [meshKeyPair(), meshKeyPair()];
+    const book = new ScriptBook();
+    const { client } = await billing(book, ordersKeys, billingKeys);
+    const misaddressed = encodeMeshEnvelope({
+      ...(readJws(funded(ordersKeys))?.payload as Parameters<typeof encodeMeshEnvelope>[0]),
+      audience: "invoices-application",
+    });
+
+    const result = await client.callTool({
+      name: "billing-workflow-start",
+      arguments: args,
+      _meta: { "agboss.dev/mesh": misaddressed },
+    });
+
+    expect(result._meta?.["agboss.dev/error"]).toMatchObject({ code: "mesh.audience-mismatch" });
+    expect(book.scriptOf("agent:billing-desk-agent").requests).toHaveLength(0);
+  });
+});

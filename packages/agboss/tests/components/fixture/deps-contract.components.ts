@@ -22,7 +22,7 @@ import {
   type JudgeInput,
 } from "../../../src/components/judge-decorators.js";
 import { Injectable, InjectionToken, Tool, type ToolHandler } from "../../../src/index.js";
-import { Text } from "../../../src/dto/index.js";
+import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { RagRetrieval } from "../../../src/rag/types.js";
 
 /** One component of every kind that takes `deps`, each depending on `Vault` (which depends on SECRET). */
@@ -130,8 +130,15 @@ export class VaultDocs {
   }
 }
 
-@A2AAgent({ name: "remote", url: "http://remote.invalid", deps: [Vault] })
-export class RemoteAgent extends A2AClient {
+@A2AAgent({
+  name: "remote-a2a-agent",
+  url: "http://remote.invalid",
+  target: { application: "remote-application", start: "remote-workflow-start" },
+  input: WorkflowStartTextDto,
+  output: WorkflowFinishTextDto,
+  deps: [Vault],
+})
+export class RemoteA2AAgent extends A2AClient<WorkflowStartTextDto, WorkflowFinishTextDto> {
   constructor(readonly vault: Vault) {
     super();
   }

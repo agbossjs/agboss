@@ -31,7 +31,7 @@ function declaredCodes(): readonly string[] {
 function sourceLiterals(): ReadonlySet<string> {
   const files = sourceFiles(SRC).filter((file) => file !== DECLARATION);
   const literals = files.flatMap((file) =>
-    [...readFileSync(file, "utf8").matchAll(/"([a-z-]+(?:\.[a-z-]+)+)"/gu)].map(
+    [...readFileSync(file, "utf8").matchAll(/"([a-z0-9-]+(?:\.[a-z0-9-]+)+)"/gu)].map(
       (match) => match[1] ?? "",
     ),
   );

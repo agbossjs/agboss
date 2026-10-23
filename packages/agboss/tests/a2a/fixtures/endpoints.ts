@@ -83,7 +83,11 @@ export async function meshApp(
   open.apps.push(app);
   const verifier = started.meshVerifier === undefined ? {} : { meshVerifier: started.meshVerifier };
   own.serve(
-    a2aHttpListener(app, { start: parts.MeshStart, callerResolver: parts.Resolver, ...verifier }),
+    a2aHttpListener(app, {
+      expose: parts.MeshA2AExpose,
+      callerResolver: parts.Resolver,
+      ...verifier,
+    }),
   );
   return { app, parts };
 }

@@ -164,6 +164,7 @@ const NOT_COMPONENTS: Readonly<Record<string, string>> = {
   Application: "the application: metadata only, never instantiated",
   ChannelRole: "an abstract role: its @Channel implementation is the component",
   McpExpose: "what createMcpService exposes: an empty configuration class",
+  A2AExpose: "what a2aHttpListener serves (#398 PR 3): an empty configuration class",
   BindTool: "a method decorator",
   OnAnswer: "a method decorator (of a code @Arbiter)",
   EvalSuite: "an eval suite (#396): its cases and checks as metadata, never instantiated",

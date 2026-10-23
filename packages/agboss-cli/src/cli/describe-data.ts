@@ -1,6 +1,7 @@
 import { resolveTools, type AssembledWorkflow } from "agboss";
 import {
   childLines,
+  contractsOf,
   configSnapshot,
   describedApplicationOf,
   describedChannelsOf,
@@ -23,7 +24,8 @@ import {
 
 /**
  * `agboss describe --json`'s `application` (#268 AC4): its tree, each contract's implementation by
- * class name and why, its model providers, channels, budgets, observers, warnings and environment.
+ * class name and why, its model providers, channels, budgets, observers, warnings and environment,
+ * and its declared contracts (#398 PR 3).
  */
 export function applicationData(
   assembled: AssembledApplication,
@@ -42,6 +44,8 @@ export function applicationData(
     implementations,
     tree: describedTreeOf(assembled).workflows,
     channels: describedChannelsOf(assembled),
+    // what it exports and consumes, each DTO with its schemaHash (#398 PR 3: check --federation)
+    contracts: contractsOf(assembled),
     ...(environment === undefined
       ? {}
       : { environment: { name: environment.name, fields: environment.fields } }),

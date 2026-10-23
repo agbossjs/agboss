@@ -45,6 +45,11 @@ export type ComponentMeta =
   | { readonly kind: "mcp-tool"; readonly meta: McpToolMeta }
   /** `@McpExpose` (`agboss/mcp`): what `createMcpService` exposes to MCP clients. */
   | { readonly kind: "mcp-expose"; readonly meta: McpExposeOptions }
+  /** `@A2AExpose` (`agboss/a2a`, #398 PR 3): what `a2aHttpListener` serves to A2A callers. */
+  | {
+      readonly kind: "a2a-expose";
+      readonly meta: import("../a2a/a2a-expose.decorator.js").A2AExposeOptions;
+    }
   | { readonly kind: "channel"; readonly meta: ChannelMeta & { readonly deps: readonly Token[] } }
   | { readonly kind: "injectable"; readonly meta: { readonly deps: readonly Token[] } }
   | {
@@ -91,14 +96,7 @@ export type ComponentMeta =
       readonly kind: "health-check";
       readonly meta: import("../health/health-check.js").HealthCheckMeta;
     }
-  | {
-      readonly kind: "a2a-agent";
-      readonly meta: {
-        readonly name: string;
-        readonly url: string;
-        readonly deps: readonly Token[];
-      };
-    };
+  | { readonly kind: "a2a-agent"; readonly meta: import("../a2a/a2a-decorator.js").A2AAgentMeta };
 
 /** Decorator metadata per class. Symbol.metadata is not available at runtime on Node 26. */
 const components = new WeakMap<object, ComponentMeta>();
@@ -136,6 +134,7 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   "mcp-server": "McpServer",
   "mcp-tool": "McpTool",
   "mcp-expose": "McpExpose",
+  "a2a-expose": "A2AExpose",
   "a2a-agent": "A2AAgent",
   injectable: "Injectable",
   rag: "Rag",

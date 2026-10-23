@@ -788,8 +788,8 @@ export class SearchKbTool implements ToolHandler<KbSearchDto, KbArticleDto> {
 }
 ```
 
-```ts file=src/helpdesk/a2a/billing-desk.a2a.ts
-import { ExecutionContext, SpendRecorder, Tool, type ToolHandler } from "agboss";
+```ts file=src/helpdesk/a2a/billing-desk.a2a-agent.ts
+import { ExecutionContext, Tool, type ToolHandler } from "agboss";
 import { Text } from "agboss/dto";
 import { A2AAgent, A2AClient } from "agboss/a2a";
 import { seconds, usd } from "agboss/units";
@@ -804,17 +804,23 @@ export class BillingAnswerDto {
   text!: string;
 }
 
-@A2AAgent({ name: "billing-desk-a2a-agent", url: "https://billing.example/a2a", deps: [ExecutionContext] })
-export class BillingDeskA2aClient extends A2AClient {
+// the billing desk's export, declared (#398 PR 3): what it takes, gives back and costs a call
+@A2AAgent({
+  name: "billing-desk-a2a-agent",
+  url: "https://billing.example/a2a",
+  target: { application: "billing-application", start: "billing-workflow-start" },
+  input: BillingQuestionDto,
+  output: BillingAnswerDto,
+  price: usd(0.002),
+  deps: [ExecutionContext],
+})
+export class BillingDeskA2AAgent extends A2AClient<BillingQuestionDto, BillingAnswerDto> {
   constructor(private readonly executionContext: ExecutionContext) {
     super();
   }
 
   protected override getHeaders(): Promise<Record<string, string>> {
-    return Promise.resolve({
-      "idempotency-key": this.executionContext.step.idempotencyKey,
-      "x-tenant-id": this.executionContext.tenant.tenantId,
-    });
+    return Promise.resolve({ "x-tenant-id": this.executionContext.tenant.tenantId });
   }
 }
 
@@ -824,21 +830,17 @@ export class BillingDeskA2aClient extends A2AClient {
   input: BillingQuestionDto,
   output: BillingAnswerDto,
   timeout: seconds(60),
-  deps: [BillingDeskA2aClient, ExecutionContext, SpendRecorder],
+  deps: [BillingDeskA2AAgent, ExecutionContext],
 })
 export class AskBillingTool implements ToolHandler<BillingQuestionDto, BillingAnswerDto> {
   constructor(
-    private readonly billingDeskA2aClient: BillingDeskA2aClient,
+    private readonly billingDeskA2AAgent: BillingDeskA2AAgent,
     private readonly executionContext: ExecutionContext,
-    private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  async run({ question }: BillingQuestionDto): Promise<BillingAnswerDto> {
-    const answer: BillingAnswerDto = await this.billingDeskA2aClient.execute({ text: question }, BillingAnswerDto, {
-      signal: this.executionContext.signal,
-    });
-    this.spendRecorder.record({ service: "billing-desk-a2a", cost: usd(0.002) });
-    return answer;
+  run(question: BillingQuestionDto): Promise<BillingAnswerDto> {
+    // typed by the contract; its price recorded in this call's spend
+    return this.billingDeskA2AAgent.execute(question, { signal: this.executionContext.signal });
   }
 }
 ```
@@ -846,7 +848,7 @@ export class AskBillingTool implements ToolHandler<BillingQuestionDto, BillingAn
 ```ts file=src/helpdesk/helpdesk.workflow.ts
 import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
-import { AskBillingTool, BillingDeskA2aClient } from "./a2a/billing-desk.a2a.js";
+import { AskBillingTool, BillingDeskA2AAgent } from "./a2a/billing-desk.a2a-agent.js";
 import { KbServer } from "./mcp/kb.server.js";
 import { SearchKbTool } from "./mcp/search-kb.mcp.js";
 
@@ -876,7 +878,7 @@ export class HelpdeskWorkflowFinish {}
       .toFinish(HelpdeskWorkflowFinish),
   ],
   mcp: [KbServer], // connected at start, closed by app.close()
-  providers: [BillingDeskA2aClient],
+  providers: [BillingDeskA2AAgent],
   maxSteps: 1,
 })
 export class HelpdeskWorkflow {}
@@ -903,9 +905,14 @@ export class HelpdeskA2aCallerResolver implements A2ACallerResolver<typeof Helpd
 
 ```ts file=src/helpdesk/helpdesk.application.ts
 import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, type BudgetHandler } from "agboss";
+import { A2AExpose } from "agboss/a2a";
 import { usd, type Usd } from "agboss/units";
 import { HelpdeskA2aCallerResolver } from "./a2a/helpdesk.a2a-caller-resolver.js";
-import { HelpdeskWorkflow } from "./helpdesk.workflow.js";
+import { HelpdeskWorkflow, HelpdeskWorkflowStart } from "./helpdesk.workflow.js";
+
+// what other applications may run here (#398 PR 3)
+@A2AExpose({ name: "helpdesk-a2a-expose", version: "1.0.0", exports: [HelpdeskWorkflowStart] })
+export class HelpdeskA2AExpose {}
 
 @Budget({ name: "helpdesk-application-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 export class HelpdeskApplicationBudget implements BudgetHandler {
@@ -935,6 +942,7 @@ export class HelpdeskExecutionBudget implements BudgetHandler {
   workflows: [HelpdeskWorkflow],
   providers: [HelpdeskA2aCallerResolver], // an ordinary service may be listed here too
   budgets: [HelpdeskApplicationBudget, HelpdeskTenantBudget, HelpdeskExecutionBudget],
+  exposes: [HelpdeskA2AExpose],
 })
 export class HelpdeskApplication {}
 ```
@@ -946,7 +954,7 @@ import { createServer } from "node:http";
 import { createApp } from "agboss";
 import { a2aHttpListener } from "agboss/a2a";
 import { HelpdeskA2aCallerResolver } from "./a2a/helpdesk.a2a-caller-resolver.js";
-import { HelpdeskApplication } from "./helpdesk.application.js";
+import { HelpdeskA2AExpose, HelpdeskApplication } from "./helpdesk.application.js";
 import { HelpdeskWorkflowStart } from "./helpdesk.workflow.js";
 
 const app = await createApp(HelpdeskApplication, { env: "prod" });
@@ -964,10 +972,10 @@ const result = await app.execute(
 );
 console.log("\n", result.spend.totalUsd);
 
-// other applications call this workflow: POST /a2a/execute, /a2a/resume — each request's tenant
+// other applications call this workflow: POST /a2a/execute, /a2a/resume, /a2a/cancel — each request's tenant
 // from the resolver the application lists (reference 04; in a route of your own: A2AAdapter)
 const listener = a2aHttpListener(app, {
-  start: HelpdeskWorkflowStart,
+  expose: HelpdeskA2AExpose,
   callerResolver: HelpdeskA2aCallerResolver,
   base: "/a2a",
 });
@@ -977,7 +985,7 @@ createServer(listener).listen(8080);
 ```ts file=tests/helpdesk/helpdesk.test.ts
 import { expect } from "vitest";
 import { callTool, replyWith, testWith } from "agboss/testing";
-import { AskBillingTool, BillingDeskA2aClient } from "../../src/helpdesk/a2a/billing-desk.a2a.js";
+import { AskBillingTool, BillingDeskA2AAgent } from "../../src/helpdesk/a2a/billing-desk.a2a-agent.js";
 import { HelpdeskApplication } from "../../src/helpdesk/helpdesk.application.js";
 import { HelpdeskAgent, HelpdeskWorkflowFinish, HelpdeskWorkflowStart } from "../../src/helpdesk/helpdesk.workflow.js";
 import { KbServer } from "../../src/helpdesk/mcp/kb.server.js";
@@ -987,7 +995,7 @@ const test = testWith(HelpdeskApplication); // the MCP server is never started, 
 
 test("the agent reads an article and asks billing", async ({ app, mcpOf, mockLlm, mockOf }) => {
   mcpOf(KbServer).thenReturn({ search_articles: () => Promise.resolve({ text: "Double charges are refunded in 5 days." }) });
-  mockOf(BillingDeskA2aClient).execute.mockResolvedValue({ text: "One charge is pending; it will drop." });
+  mockOf(BillingDeskA2AAgent).execute.mockResolvedValue({ text: "One charge is pending; it will drop." });
   mockLlm(HelpdeskAgent).thenReturn(
     callTool(SearchKbTool, { query: "charged twice" }),
     callTool(AskBillingTool, { question: "Was customer acme charged twice?" }),
@@ -999,7 +1007,7 @@ test("the agent reads an article and asks billing", async ({ app, mcpOf, mockLlm
   expect(mockLlm(HelpdeskAgent)).toHaveScriptedToolCalls([SearchKbTool, AskBillingTool]); // the script, in order
   expect(result).toHaveCalledTools([AskBillingTool, SearchKbTool]); // the run: each at least once, any order
   expect(result).toFinishWith(HelpdeskWorkflowFinish, { text: "One charge is pending and will drop within 5 days." });
-  expect(result.spend.byCaller["tool:ask-billing-tool"]).toBeCloseTo(0.002);
+  expect(mockOf(BillingDeskA2AAgent).execute.mock.calls[0]?.[0]).toEqual({ question: "Was customer acme charged twice?" });
 });
 ```
 

@@ -4,6 +4,7 @@ import { createApp } from "../../src/application/create-app.js";
 import { callTool, replyWith, failWith, ModelFailure } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { callerOf, DeskReply } from "./fixtures/caller.workflow.js";
+import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import {
   AskStart,
   offline,
@@ -161,7 +162,12 @@ describe("#192 AC2: an A2A client agent calls a remote workflow and gets a valid
     book.scriptOf("agent:desk-agent").thenReturnAlways(failWith(ModelFailure.ServerError));
     const { url } = await remote(book);
 
-    const call = new A2AClient({ url }).execute({ text: "x" }, DeskReply);
+    const contract = {
+      target: { application: "remote-desk-application", start: "ask-workflow-start" },
+      input: WorkflowStartTextDto,
+      output: DeskReply,
+    };
+    const call = new A2AClient({ url, contract }).execute({ text: "x" });
 
     await expect(call).rejects.toMatchObject({
       name: "A2ARemoteError",

@@ -110,10 +110,11 @@ const resultMetaOf = (result: unknown): unknown =>
   typeof result === "object" && result !== null ? Reflect.get(result, "_meta") : undefined;
 
 const callerFor =
-  (client: Client): McpCaller =>
+  (client: Client, audience: string | undefined): McpCaller =>
   async (tool, args, signal) => {
-    // the arguments as sent are what the envelope's bodyHash binds (#398 PR 2)
-    const mesh = outboundMeshOf(JSON.stringify(args));
+    // the arguments as sent are what the envelope's bodyHash binds (#398 PR 2), addressed to the
+    // server's application when it declares one (PR 3)
+    const mesh = outboundMeshOf(JSON.stringify(args), audience);
     const meta = mesh === undefined ? {} : { _meta: callMetaOf(mesh) };
     const result = await client.callTool({ name: tool, arguments: args, ...meta }, undefined, {
       signal,
@@ -160,7 +161,7 @@ export async function connectMcpServers(
       const problems = contractProblems(used, tools);
       if (problems.length > 0)
         throw new McpContractError(`MCP contract drift:\n- ${problems.join("\n- ")}`);
-      handle.bind(callerFor(client));
+      handle.bind(callerFor(client, config.target?.application));
     }
   } catch (error) {
     await closeAll();

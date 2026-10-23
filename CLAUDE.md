@@ -1119,11 +1119,11 @@ export const quorumPaths = [
 
 - **One class per file, folders by kind:** `workflow-starts/`, `routers/`, `agents/`, `actions/`,
   `workflow-finishes/`, `arbiters/`, `guardrails/`, `tool-interceptors/`, `compactions/`, `tools/`,
-  `services/`, `mcp/`, `rag/`, `environments/`, `eval-suites/` (#396); files `*.workflow-start.ts`,
+  `services/`, `mcp/`, `rag/`, `a2a/`, `environments/`, `eval-suites/` (#396); files `*.workflow-start.ts`,
   `*.router.ts`, `*.agent.ts` (+ `*.prompt.md`), `*.action.ts`, `*.workflow-finish.ts`, `*.arbiter.ts`,
   `*.guardrail.ts`, `*.tool-interceptor.ts`, `*.compaction.ts` (+
   `*.prompt.md`), `*.tool.ts`, `*.dto.ts`, `*.service.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`,
-  `*.helper.ts`, `*.eval-suite.ts`.
+  `*.helper.ts`, `*.eval-suite.ts`, `*.a2a-agent.ts`, `*.a2a-expose.ts`.
 - **Decorator = metadata, constructor = dependencies, methods = a contract:** `implements` for your
   own (`ToolHandler<In, Out>`, `ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler<TReply>`,
   `RagConnector`), `extends` +
@@ -1423,6 +1423,16 @@ export class ArchiveAgent {}
 - **Knowledge bases:** a `@Rag` class implementing `RagConnector`, bound per agent with
   `rag: [{ use, mode: RagMode.Tool | RagMode.Context }]`. **MCP:** `@McpServer`
   (`extends McpServerClient`) in `mcp: [...]`, its tools as `@McpTool` classes.
+  **A2A (#387, #398 PR 3) — declared contracts:** a call to another application is an
+  `@A2AAgent({ name: "-a2a-agent", url, target: { application, start }, input, output, price?, deps })`
+  on a `…A2AAgent` class that `extends A2AClient<In, Out>` (`a2a/*.a2a-agent.ts`; `[name.kind-suffix]`,
+  `[a2a.target-required]`), in `providers` — `execute(input)` is typed and validated both ways; what
+  an application serves is an `@A2AExpose({ name: "-a2a-expose", version, exports: [Start] })`
+  (`a2a/*.a2a-expose.ts`) listed in `@Application({ exposes })` with its `@McpExpose`s
+  (`[application.expose-unknown-start]`, `[application.not-an-expose]`) and served by
+  `a2aHttpListener(app, { expose, callerResolver })` (`[application.expose-unlisted]`; a request names
+  its `start`, else `400 a2a.unknown-start` with several); `agboss describe --json` lists both sides
+  under `application.contracts` (`exports`, `imports` with `usedBy`, each DTO's `schemaHash`, `schemas`).
 - **PII policies (#120, S38):** a declarative `@PiiPolicy` — `name` (`-pii-policy`),
   `description`, `rules: [pii(kind or group, action)]`, `detectWithModel?`, `pseudonymKey?` — or a
   project's own detector — `@PiiPolicy({ name, action, deps })` + `implements PiiPolicyHandler`
@@ -1890,7 +1900,8 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   signature verifies is trusted: its budget becomes `caller-budget`, its deadline the execution's
   — `limit.deadline`, `DeadlineExceededError` —, its origin `executionContext.origin`, and its
   answer a signed run report the caller records as `ToolCallRecord.remote` and `a2a:<issuer>`
-  spend), `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
+  spend — the larger of it and the `@A2AAgent`'s `price`; the envelope's `audience` is the client's
+  `target.application`, another receiver refuses it, `401 mesh.audience-mismatch`), `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
   `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`ActionFailedError`, the
   action's error as `cause`) / `step.guard` (`GuardFailedError`: a guardrail's model did not answer —
   fails closed) / `step.router` ⊃ `step.router.invalid-decision` /

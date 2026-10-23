@@ -11,6 +11,7 @@ export { renderTemplate } from "./components/render-template.js";
 export { ProfileError } from "./config/profiles.js";
 export { describeServices, describeServicesWith } from "./describe/describe-workflow.js";
 export { workflowSnapshotOf, type WorkflowSnapshot } from "./describe/snapshot.js";
+export { contractsOf, type ContractsSnapshot } from "./describe/contracts.js";
 export {
   describeApplication,
   type ApplicationDescription,
