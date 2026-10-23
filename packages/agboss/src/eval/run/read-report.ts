@@ -112,6 +112,7 @@ const ReportSchema: z.ZodType<EvalRunReport> = z.looseObject({
   }),
   spend: z.looseObject({ totalUsd: z.number() }),
   chaos: ChaosSchema.optional(),
+  metamorphic: z.boolean().optional(),
   baseline: ComparisonSchema.optional(),
   profile: z.string().optional(),
   agbossVersion: z.string().optional(),

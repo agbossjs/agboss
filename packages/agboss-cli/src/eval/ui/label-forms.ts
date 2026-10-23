@@ -1,5 +1,5 @@
 import { CheckStatus, type EvalCaseReport, type EvalLabel, type EvalRunResult } from "agboss/eval";
-import { TRAJECTORY_CHECK, type EvalFailureTag } from "agboss/internal";
+import { isJudgeCheckName, type EvalFailureTag } from "agboss/internal";
 import { element, type HtmlElement } from "../html/html.js";
 
 /**
@@ -108,7 +108,7 @@ export function labelFormsOf(
   if (executionId === undefined) return undefined;
   const runId = `${found.name}#${String(result.run)}`;
   const judged = result.checks.filter(
-    (check) => check.check !== TRAJECTORY_CHECK && check.status !== CheckStatus.Skipped,
+    (check) => isJudgeCheckName(check.check) && check.status !== CheckStatus.Skipped,
   );
   if (judged.length === 0) return undefined;
   return element(

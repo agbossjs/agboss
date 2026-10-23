@@ -123,7 +123,11 @@ else a tie, a verdict for the same position both times also a `positionFlips`; `
 provider's HTTP client and a transport's `complete()`, under the retry policy, the rate limit and the
 breaker, on the real budgets — seeded, the rate and the seed together; the artifact's `chaos`
 (`EvalRunChaos`) says what was injected — the injection is an option of the internal build path
-`eval run` uses (`builtApplicationOf`), never of `createApp`; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
+`eval run` uses (`builtApplicationOf`), never of `createApp`; `--metamorphic` (#396 PR 7) runs each
+case's `variants` (its last turn reworded, on a thread of its own) and checks, as `metamorphic` after
+the other checks under the cascade, that each calls the same set of tool classes as the case's last
+turn and meets its `tools.required` again (the artifact's `metamorphic: true`; the `caseHash` covers
+the variants only then); `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
 `agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
 (`agboss/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs

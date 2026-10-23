@@ -15,7 +15,7 @@ export const EVAL_COMMAND: CommandSpec = {
       summary:
         "run an eval suite: every case --runs times, its checks under the cascade, pass@k / pass^k",
       usage:
-        "agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--profile <name>] [--env <name>]",
+        "agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--metamorphic] [--profile <name>] [--env <name>]",
       options: [
         text(
           "suite",
@@ -42,6 +42,10 @@ export const EVAL_COMMAND: CommandSpec = {
           "chaos-failures",
           "<list>",
           "what is injected: rate-limited, timeout, truncated-response (default: all)",
+        ),
+        flag(
+          "metamorphic",
+          "run each case's variants too: the same tools, the same required calls (check metamorphic)",
         ),
         flag(
           "fail-on-regression",

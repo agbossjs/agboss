@@ -451,6 +451,7 @@ export interface EvalRunReport {
     readonly environment: string;
     // (undocumented)
     readonly kind: typeof EVAL_RUN_KIND;
+    readonly metamorphic?: boolean;
     readonly models?: readonly EvalModelUse[];
     readonly piiPolicies?: readonly string[];
     readonly profile?: string;

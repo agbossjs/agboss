@@ -105,6 +105,8 @@ npm test                                                           # scripted mo
   labels — `npx agboss eval calibrate --report <run.json>` (Cohen's κ per labeler, the disagreements
   by the judge's metrics); `--chaos <rate> --chaos-seed <n>` injects 429s, timeouts and truncated
   answers into the run's model calls to show its retry policy, `.onError` paths and undos hold;
+  `--metamorphic` runs each case's `variants` (its last turn reworded) and checks they call the same
+  tools with the same required calls (check `metamorphic`);
   `npx agboss eval score`
   scores recorded runs (the bare `npx agboss eval` lists both).
 - A case that passes at least once in k runs but not every time (pass@k high, pass^k low — printed

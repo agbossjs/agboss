@@ -140,6 +140,8 @@ export interface EvalRunReport {
   readonly models?: readonly EvalModelUse[];
   /** The PII policies that masked its records and traces (schemaVersion 3). */
   readonly piiPolicies?: readonly string[];
+  /** `--metamorphic` (#396 PR 7): every case's variants ran too, as the check `metamorphic`. */
+  readonly metamorphic?: boolean;
   /** What `--chaos` injected into the run's model calls (#396 PR 6); absent without it. */
   readonly chaos?: EvalRunChaos;
   /** The run against `--baseline <run.json>` (#396 PR 3); absent without one. */
@@ -171,7 +173,7 @@ export function caseReportOf(
 /** The suite's totals over its cases. */
 export function summaryOf(cases: readonly EvalCaseReport[]): EvalRunSummary {
   const checks = cases.flatMap((found) => found.runResults.flatMap((result) => result.checks));
-  const judges = checks.filter((check) => check.check !== TRAJECTORY_CHECK);
+  const judges = checks.filter((check) => isJudgeCheckName(check.check));
   return {
     cases: cases.length,
     passAtK: cases.filter((found) => found.passAtK).length,
@@ -184,3 +186,10 @@ export function summaryOf(cases: readonly EvalCaseReport[]): EvalRunSummary {
 
 /** The name of the trajectory check in reports. */
 export const TRAJECTORY_CHECK = "trajectory";
+
+/** The name of the `--metamorphic` check in reports (#396 PR 7). */
+export const METAMORPHIC_CHECK = "metamorphic";
+
+/** The checks decided by code, never a judge: neither counted as judge calls nor calibrated. */
+export const isJudgeCheckName = (check: string): boolean =>
+  check !== TRAJECTORY_CHECK && check !== METAMORPHIC_CHECK;
