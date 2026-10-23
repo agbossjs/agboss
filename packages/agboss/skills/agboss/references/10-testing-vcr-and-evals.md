@@ -1132,6 +1132,10 @@ test("a strong candidate is hired", async ({ app }) => {
 replays an existing one; `REPLAY` (the default under `CI`) fails a call the cassette does not hold
 with `CassetteMissingError` (`test.cassette-missing`); `RECORD` always calls the models.
 `AGBOSS_VCR_MODE` (a `VCRMode` member's value) overrides every test's own mode for one run.
+Recording goes through the application's model providers as `createApp` builds them — a transport
+provider (`complete`, #385) too, created by the test app's container with its hooks (#439) — so an
+offline transport records a cassette with no key: `AGBOSS_VCR_MODE=RECORD npx vitest run
+tests/desk-cassette.test.ts` in `examples/flow-patterns`. A replay never creates a provider.
 
 **Stale cassettes.** A cassette (version 2) keeps, with every call, its component and that
 component's `promptHash` / `schemaHash` (the join keys of `npx agboss describe --json`). A replay
@@ -1492,4 +1496,4 @@ tasks })`, on the workflow that `start` opens, assembled as `createApp` assemble
 - Asserting on `Date.now()` or real timers: advance the `clock` fixture.
 - A test environment that reads a secret: leave secrets out of `test.environment.ts`.
 - Testing the graph by inspecting it: run it and assert the path (`toFollowPath`) and the finish.
-- Expecting `testWith` to call a transport provider's `complete()`: `mockLlm` answers above it.
+- Expecting `testWith` to call a transport provider's `complete()`: `mockLlm` answers above it (only a VCR recording calls it, #439).

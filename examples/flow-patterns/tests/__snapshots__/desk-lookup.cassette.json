@@ -1,0 +1,64 @@
+{
+  "interactions": [
+    {
+      "component": "desk-agent",
+      "key": "agent:desk-agent",
+      "kind": "chat",
+      "promptHash": "b01eda4a24fe922c0e545d506e367aa664b2f66ed58aee99701b308969f844e4",
+      "reply": {
+        "content": "",
+        "response_metadata": {
+          "model_name": "harness/desk",
+          "usage": {}
+        },
+        "tool_calls": [
+          {
+            "args": {
+              "orderId": "7"
+            },
+            "id": "call-1",
+            "name": "order-status-tool",
+            "type": "tool_call"
+          }
+        ],
+        "usage_metadata": {
+          "input_token_details": {
+            "cache_creation": 0,
+            "cache_read": 0
+          },
+          "input_tokens": 1000,
+          "output_tokens": 100,
+          "total_tokens": 1100
+        }
+      },
+      "request": "589bc061cf7a17f94cda6eb6802db87ff4bcc895462c3722a31cc4642032acac",
+      "schemaHash": "9cadd6494ed5db07ac2d1f0917afa2318d4f5bec788bb21850f8c930f286a199"
+    },
+    {
+      "component": "desk-agent",
+      "key": "agent:desk-agent",
+      "kind": "chat",
+      "promptHash": "b01eda4a24fe922c0e545d506e367aa664b2f66ed58aee99701b308969f844e4",
+      "reply": {
+        "content": "It says: {\"status\":\"order 7 shipped on Monday\"}",
+        "response_metadata": {
+          "model_name": "harness/desk",
+          "usage": {}
+        },
+        "tool_calls": [],
+        "usage_metadata": {
+          "input_token_details": {
+            "cache_creation": 0,
+            "cache_read": 0
+          },
+          "input_tokens": 1000,
+          "output_tokens": 100,
+          "total_tokens": 1100
+        }
+      },
+      "request": "d34ac6f83bf414402bdd33a9f8a7ec2e4a2785f29de76de9a46515b0f6adf6a8",
+      "schemaHash": "9cadd6494ed5db07ac2d1f0917afa2318d4f5bec788bb21850f8c930f286a199"
+    }
+  ],
+  "version": 2
+}
