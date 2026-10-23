@@ -1,4 +1,5 @@
 import { Workflow, start } from "agboss";
+import { DeskA2aCallerResolver } from "./a2a/desk.a2a-caller-resolver.js";
 import { DeskAgent } from "./agents/desk.agent.js";
 import { CaseNotesCompaction } from "./compactions/case-notes.compaction.js";
 import { DeskQuestionDto } from "./dtos/desk-question.dto.js";
@@ -10,7 +11,8 @@ import { DeskWorkflowStart } from "./workflow-starts/desk.workflow-start.js";
 
 /**
  * The help desk (#382–#385): one agent on a transport model provider, its code guardrails and tool
- * interceptor, a custom compaction once a thread holds more than two turns, and its own PII policy.
+ * interceptor, a custom compaction once a thread holds more than two turns, and its own PII policy;
+ * served over A2A by `desk-application` (its caller resolver is a provider like any service).
  */
 @Workflow({
   name: "desk-workflow",
@@ -24,6 +26,6 @@ import { DeskWorkflowStart } from "./workflow-starts/desk.workflow-start.js";
   uncompactedTurns: 2,
   compaction: CaseNotesCompaction,
   piiPolicies: [CustomerIdPiiPolicy],
-  providers: [OrderDeskService, CaseNotesService],
+  providers: [OrderDeskService, CaseNotesService, DeskA2aCallerResolver], // the last: A2A callers
 })
 export class DeskWorkflow {}
