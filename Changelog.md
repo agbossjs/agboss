@@ -3,6 +3,20 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — agboss create ships a working ESLint config (#388)
+
+- **Added — lint in a new project** ([CLI](CLI#create-and-generate-angular-like)): `agboss create`
+  writes `eslint.config.js` and the `lint` script (`eslint .`, also in `npm run check`) with its dev
+  dependencies — `typescript-eslint` (`strictTypeChecked`), `agboss/no-component-state` and
+  `agboss/no-direct-time` on `src/` outside the tests, `@stylistic/newline-per-chained-call` on
+  every `*.workflow.ts`; the project passes it as written.
+- **Added — the entry `agboss/eslint`** (#388 S2): `agbossPlugin` (`agboss/no-component-state`,
+  `agboss/no-direct-time`) and `FLOW_CHAIN_RULE` for a project's ESLint config; the repository's
+  own config uses it too (lint runs on the build). `@typescript-eslint/utils` is a new optional peer
+  of `agboss`, needed only by this entry.
+- **Changed — `agboss/no-direct-time`'s message** no longer says "framework code":
+  `` `Date.now` reads the time directly: inject the application's Clock … ``.
+
 ## Unreleased — `RuleCode` holds only the codes a rule reports (#386)
 
 - **Breaking — ten `RuleCode` members are removed**: `graph.two-next-steps`,

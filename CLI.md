@@ -45,9 +45,46 @@ with `PlainTextDto`. The workflow is one path ([Workflow](Workflow)):
 a workflow by its start's full name (`"chat": "agboss chat --start support-desk-text-workflow-start"`,
 `run` the same), so they keep working when the application gets more workflows; `npm run types`
 (`agboss check`) writes `.agboss/types.d.ts` — run on install (`postinstall`) and by `npm run check`
-(= types + tsc + `npm test`). `vitest.config.ts` has three projects by file name — `unit`
+(= types + tsc + `npm run lint` + `npm test`). `vitest.config.ts` has three projects by file name — `unit`
 (`*.test.ts`), `integration` (`*.integration.test.ts`), `suites` (`*.suite.test.ts`, real models); empty
 ones pass. `npm test` runs unit + integration, the `test:suites` script the suites.
+
+**Lint (#388).** `eslint.config.js` (flat config) and `npm run lint` (`eslint .`), with the dev
+dependencies `eslint`, `@eslint/js`, `typescript-eslint` and `@stylistic/eslint-plugin`; the new
+project passes it as written. It runs `typescript-eslint`'s `strictTypeChecked` on the project's
+types (`.agboss/types.d.ts` included — `npm run types` first, as `npm install` does) and the rules
+AGBoss code follows, the same ones the framework's own gate runs:
+
+| Rule                                   | Files                              | Fails                                                                                 |
+| -------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------- |
+| `agboss/no-component-state`            | `src/**/*.ts` but `*.test.ts`      | `this.x = …` outside the constructor of a component ([Components](Components))        |
+| `agboss/no-direct-time`                | `src/**/*.ts` but `*.test.ts`      | `Date.now()`, `new Date()`, `setTimeout`, … — inject `Clock` (`clock.now()`)          |
+| `@stylistic/newline-per-chained-call`  | `**/*.workflow.ts`                 | two calls of a chain on one line: `start(A)` / `.returns(B)` / `.toFinish(C)`         |
+
+The `agboss/…` rules come from the public entry `agboss/eslint` of the framework (#388 S2):
+`agbossPlugin` and `FLOW_CHAIN_RULE` — the one-call-per-line rule with the framework's options
+(`ignoreChainWithDepth: 1`); the entry needs `@typescript-eslint/utils` (an optional peer of
+`agboss`, installed with `typescript-eslint`), and the root import never loads it. The generated
+config, in short:
+
+```js
+import { FLOW_CHAIN_RULE, agbossPlugin } from "agboss/eslint";
+// …
+{ files: ["src/**/*.ts"], ignores: ["src/**/*.test.ts"], plugins: { agboss: agbossPlugin },
+  rules: { "agboss/no-component-state": "error", "agboss/no-direct-time": "error" } },
+{ files: ["**/*.workflow.ts"], plugins: { "@stylistic": stylistic }, rules: FLOW_CHAIN_RULE },
+```
+
+A planted violation names its rule:
+
+```text
+$ npm run lint
+src/support-desk/support-desk.workflow.ts
+  19:37  error  Expected line break before `.toFinish`  @stylistic/newline-per-chained-call
+src/services/api.service.ts
+  15:5   error  `this.calls = …` outside the constructor of a @Injectable: a component is one instance … agboss/no-component-state
+  15:18  error  `Date.now` reads the time directly: inject the application's Clock … agboss/no-direct-time
+```
 
 Generated code follows the [conventions](Components#conventions): explicit return types,
 `implements …Handler` (`ToolHandler<In, Out>`, `BudgetHandler`), `@Injectable`s named by their role
