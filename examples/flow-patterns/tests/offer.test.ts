@@ -8,7 +8,6 @@ import { ReviewerAgent } from "../src/offer/agents/reviewer.agent.js";
 import { ChangesRequestedDto } from "../src/offer/dtos/changes-requested.dto.js";
 import { DraftApprovedDto } from "../src/offer/dtos/draft-approved.dto.js";
 import { OfferDraftDto } from "../src/offer/dtos/offer-draft.dto.js";
-import { OfferWorkflow } from "../src/offer/offer.workflow.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
 import { OfferMailer } from "../src/offer/services/offer-mailer.service.js";
 import { RecruiterInbox } from "../src/offer/services/recruiter-inbox.service.js";
