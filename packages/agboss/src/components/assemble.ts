@@ -190,7 +190,7 @@ export async function workflowOf(
   const modules = [...providerModulesOf(bundle), ...application];
   const replyInterpreters = await checkedChannelsOf(workflow, modules, owner === undefined, loader);
   const created = createdClassesOf(graph, policies.classes, replyInterpreters, compactions);
-  const components = componentClassesOf(bundle, agents, tools, rags, created, modules);
+  const components = componentClassesOf(bundle, agents, tools, rags, created, modules, owner);
   checkComponents(bundle, { components, modules, mcp, contexts });
   const names = toolNames(tools, rags, resultSizeViolations(bundle, tools));
   const prompts = await promptsOf(agents, loader);

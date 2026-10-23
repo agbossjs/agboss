@@ -4,7 +4,7 @@ import type { RateLimitRepository } from "../infrastructure/rate-limit.repositor
 import type { Milliseconds } from "../units/index.js";
 
 /** A class decorated with `@ModelProvider` (the fallback of a breaker). */
-export type ModelProviderClass = abstract new () => object;
+export type ModelProviderClass = abstract new (...args: never[]) => object;
 
 /**
  * `circuitBreakerPolicy`: `failureThreshold` failed calls within `window` open the breaker for

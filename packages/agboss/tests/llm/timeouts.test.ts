@@ -19,7 +19,7 @@ describe("model calls: the provider's timeout and retries (#95, now on the provi
     const send = resilientFetch(
       {
         provider: "p",
-        baseUrl: "http://p.test",
+
         timeout: milliseconds(50),
         retryPolicy: RetryPolicy.none(),
       },
@@ -40,7 +40,7 @@ describe("model calls: the provider's timeout and retries (#95, now on the provi
     const send = resilientFetch(
       {
         provider: "p",
-        baseUrl: "http://p.test",
+
         timeout: milliseconds(20),
         retryPolicy: RetryPolicy.fixed({
           maxAttempts: 3,

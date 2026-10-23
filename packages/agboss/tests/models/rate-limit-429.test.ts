@@ -40,7 +40,7 @@ function instance(
   const client = resilientFetch(
     {
       provider: "p-model-provider",
-      baseUrl: "http://p.test",
+
       timeout: seconds(30),
       retryPolicy: RETRIES,
       gate,

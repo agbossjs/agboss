@@ -1,7 +1,8 @@
 /**
  * `agboss/models` — model providers: `@ModelProvider` classes (`OpenAiCompatibleProvider`,
- * `OpenRouterProvider`, `DecisionsModelProvider`), what each model costs, how it reasons and caches,
- * retries, rate limits and circuit breakers, and the fail-fast check of settings against models.
+ * `OpenRouterProvider`, `DecisionsModelProvider`, or a transport's `complete(request)`, #385),
+ * what each model costs, how it reasons and caches, retries, rate limits and circuit breakers, and
+ * the fail-fast check of settings against models.
  * Wiki → Model providers.
  */
 export {
@@ -16,6 +17,20 @@ export type {
   ModelProviderHandler,
   ProviderConnection,
 } from "./handler.js";
+export {
+  ModelProviderMessageRole,
+  type ModelProviderMessage,
+  type ModelProviderRequest,
+  type ModelProviderResponse,
+  type ModelProviderToolCall,
+  type ModelProviderToolDefinition,
+  type ModelProviderUsage,
+} from "./transport/transport.js";
+export {
+  ModelProviderFailureError,
+  type ModelProviderFailureOptions,
+} from "./transport/failure-error.js";
+export { FinishReason } from "./finish-reason.js";
 export type { ModelCapabilities, PromptCachingSupport, ReasoningSupport } from "./capabilities.js";
 export {
   OpenAiCompatibleProvider,

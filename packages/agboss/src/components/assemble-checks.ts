@@ -1,7 +1,8 @@
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { ComponentError, componentOf, requireComponent } from "./metadata.js";
-import { tokenName, type Class } from "./injection.js";
+import { tokenName, type Class, type Provider } from "./injection.js";
 import { isModelProviderClass } from "../models/model-provider.decorator.js";
+import { transportProviderClassesOf } from "../models/resolution.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { ragMeta, searchToolName } from "./rag.js";
 import type { PromptLoader } from "./prompt-render.js";
@@ -122,6 +123,7 @@ export const componentClassesOf = (
   rags: readonly Class[],
   created: readonly Class[],
   modules: readonly ProviderModule[],
+  owner?: { readonly providers?: readonly Provider[] },
 ): Class[] => [
   ...tools.local,
   ...tools.mcp,
@@ -131,6 +133,8 @@ export const componentClassesOf = (
   ...agents.flatMap((a) => a.judges ?? []),
   ...providerClassesOf(bundle),
   ...agents.flatMap((a) => a.memoryStrategy ?? []),
+  // the application's transport providers (#385): its container creates them on their first call
+  ...transportProviderClassesOf(owner?.providers),
 ];
 
 /**

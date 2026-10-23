@@ -72,6 +72,7 @@ describe("AC6: the default gateway resolves each model's provider", () => {
   it("AC6: a provider without chat or decisions for a resolved model is a wiring error", () => {
     const bare: RegisteredModelProvider = {
       options: modelProviderOf(LocalModelProvider),
+      type: LocalModelProvider,
       handler: { capabilities: () => Promise.resolve(undefined) },
     };
     class ResolvesAnything extends ModelProviderDirectory {

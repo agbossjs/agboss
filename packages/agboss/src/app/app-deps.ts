@@ -16,7 +16,7 @@ import { tracingOf } from "../tracing/index.js";
 import type { ModelGateway } from "../llm/gateway.js";
 import { createModelRegistry } from "../llm/registry.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
-import { modelsFor, providerClientsOf } from "./models.js";
+import { appModelsFor } from "./models.js";
 import {
   connectMcpServers,
   type AnyTool,
@@ -193,6 +193,17 @@ function lifecycleOf(container: ContainerOptions | undefined, created: unknown[]
   return { created, options };
 }
 
+/** A workflow on its own starts its components itself: a failing hook releases MCP and tracing. */
+async function startOwnComponents(
+  created: unknown[],
+  ...resources: Parameters<typeof releaseOf>
+): Promise<void> {
+  await startComponents(created).catch(async (error: unknown) => {
+    await releaseOf(...resources)();
+    throw error;
+  });
+}
+
 /**
  * The run dependencies of one workflow of an application: its model providers behind the model
  * gateway (every model setting checked against its model first), MCP servers, and the application's
@@ -208,10 +219,10 @@ export async function createWorkflowDeps(
   const env = options.processEnv ?? process.env;
   const { clock, records: terns, checkpointer } = parts.infrastructure;
   const contexts = parts.contexts ?? standaloneContexts(bundle.config, options.environment, clock);
-  const clients = providerClientsOf(options, contexts.application, parts.infrastructure);
-  const { gateway, ...models } = await modelsFor(bundle, options.gateway, clients);
+  const { gateway, startModels, ...models } = await appModelsFor(bundle, options, parts, contexts);
   const lifecycle = lifecycleOf(options.container, parts.created);
   const services = servicesFor(bundle, gateway, contexts, lifecycle.options);
+  await startModels(bundle.resolve(services)); // transport providers (#385): the app's container
   const tools: readonly AnyTool[] = resolveTools(bundle, services);
   const config = models.priced(validateAgentsConfig(bundle.config, tools.map(nameOfTool)));
   const connect = options.connectMcp ?? connectConfigured(options.transport);
@@ -225,6 +236,7 @@ export async function createWorkflowDeps(
     registry: createModelRegistry(config, gateway),
     ...flowFor(bundle, config, gateway, options.branchScheduler),
     prompts: bundle.prompts,
+    modelProviders: bundle.modelProviders, // configHash: its transport providers (#385)
     ...policiesFor(bundle, services, config, gateway),
     tools: toolLookup(tools),
     pause: pauseFor(checkpointer, parts.infrastructure.pausedExecutions, terns),
@@ -242,12 +254,7 @@ export async function createWorkflowDeps(
     ...treeDepsOf(parts.infrastructure.idGenerator, parts),
     close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),
   };
-  if (parts.created === undefined) {
-    await startComponents(lifecycle.created).catch(async (error: unknown) => {
-      await releaseOf(mcp, tracing)();
-      throw error;
-    });
-  }
+  if (parts.created === undefined) await startOwnComponents(lifecycle.created, mcp, tracing);
   return { ...deps, models: models.summary, warnings: await versionWarnings(deps) };
 }
 

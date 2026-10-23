@@ -3,8 +3,8 @@ import type { Clock } from "../infrastructure/clock.js";
 import type { ProviderCalls } from "./calls/provider-calls.js";
 import { providerBaseUrlOf, providerKeyOf } from "./provider-environment.js";
 import type { ProviderConnection } from "./handler.js";
-import { modelProviderOf, type ModelProviderOptions } from "./model-provider.decorator.js";
-import { resilientFetch, type FallbackTarget, type ProviderFetch } from "./resilient-fetch.js";
+import type { ModelProviderOptions } from "./model-provider.decorator.js";
+import { resilientFetch, type ProviderFetch, type ResilienceOptions } from "./resilient-fetch.js";
 
 /** How connections are made: the environments, whether keys must be set, the shared calls, the raw client. */
 export interface ConnectionOptions {
@@ -25,52 +25,44 @@ export interface ConnectionOptions {
   readonly clock?: Clock;
 }
 
-function connect(
+/**
+ * What every call of a provider runs under — HTTP or a transport (#385): its timeout, retry
+ * policy, rate limit and breaker (the last two only with the instance's shared calls).
+ */
+export function resilienceOf(
   options: ModelProviderOptions,
-  connection: ConnectionOptions,
-  fallback: FallbackTarget | undefined,
-): ProviderConnection {
-  const baseUrl = providerBaseUrlOf(options, connection);
+  connection: Pick<ConnectionOptions, "calls" | "clock">,
+): ResilienceOptions {
   const { calls } = connection;
   const gate = calls?.gateOf(options.name, options.rateLimitPolicy);
   return {
     provider: options.name,
-    baseUrl,
-    apiKey: providerKeyOf(options, connection, connection.requireKeys),
-    fetch: resilientFetch(
-      {
-        provider: options.name,
-        baseUrl,
-        timeout: options.timeout,
-        retryPolicy: options.retryPolicy,
-        ...(calls === undefined
-          ? {}
-          : { breaker: calls.breakerOf(options.name, options.circuitBreakerPolicy) }),
-        ...(gate === undefined ? {} : { gate }),
-        ...(fallback === undefined ? {} : { fallback }),
-        ...(connection.clock === undefined ? {} : { clock: connection.clock }),
-      },
-      connection.send ?? ((input, init) => fetch(input, init)),
-    ),
+    timeout: options.timeout,
+    retryPolicy: options.retryPolicy,
+    ...(calls === undefined
+      ? {}
+      : { breaker: calls.breakerOf(options.name, options.circuitBreakerPolicy) }),
+    ...(gate === undefined ? {} : { gate }),
+    ...(connection.clock === undefined ? {} : { clock: connection.clock }),
   };
 }
 
 /**
- * A provider's connection: its base URL, its key from the application's environment, `fetch`
- * with its timeout, rate limit, retry policy and circuit breaker; while the breaker is open, calls
- * go to its fallback provider.
+ * A provider's connection: its base URL, its key from the application's environment, `fetch` with
+ * its timeout, rate limit, retry policy and circuit breaker. A transport provider's has no base URL
+ * (`""`) and no key. While the breaker is open the chat model calls its fallback (`FallbackChatModel`).
  */
 export function connectionOf(
   options: ModelProviderOptions,
   connection: ConnectionOptions,
 ): ProviderConnection {
-  const { fallback: fallbackClass, fallbackModels = {} } = options.circuitBreakerPolicy;
-  if (fallbackClass === undefined) return connect(options, connection, undefined);
-  const fallbackOptions = modelProviderOf(fallbackClass);
-  const fallback: FallbackTarget = {
-    ...connect(fallbackOptions, connection, undefined),
-    models: fallbackModels,
-    cost: fallbackOptions.cost,
+  return {
+    provider: options.name,
+    baseUrl: providerBaseUrlOf(options, connection),
+    apiKey: providerKeyOf(options, connection, connection.requireKeys),
+    fetch: resilientFetch(
+      resilienceOf(options, connection),
+      connection.send ?? ((input, init) => fetch(input, init)),
+    ),
   };
-  return connect(options, connection, fallback);
 }

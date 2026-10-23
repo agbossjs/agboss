@@ -2,7 +2,7 @@ import { EnvironmentError, EnvironmentErrorCode } from "../environments/errors.j
 import { isResolvedSecret, Secret, variableOfSecret } from "../environments/secret.js";
 import { VariableReference } from "../environments/variables.js";
 import type { Environment } from "../flow/generated-types.js";
-import type { ModelProviderOptions } from "./model-provider.decorator.js";
+import { isHttpProvider, type ModelProviderOptions } from "./model-provider.decorator.js";
 
 /**
  * What a provider reads from the application's typed environment (#266 S73 c): its key — `apiKey`
@@ -48,7 +48,8 @@ export function providerKeyOf(
   source: ProviderSettingSource,
   required: boolean,
 ): string | undefined {
-  const field = options.apiKey;
+  // a transport provider (#385) has no key: its class authorises its own calls
+  const field = isHttpProvider(options) ? options.apiKey : undefined;
   if (field === undefined) return undefined;
   const value: unknown = Reflect.get(source.environment, field);
   const key = value instanceof Secret ? secretValueOf(value, source.env) : undefined;
@@ -72,6 +73,7 @@ export function providerBaseUrlOf(
   options: ModelProviderOptions,
   source: ProviderSettingSource,
 ): string {
+  if (!isHttpProvider(options)) return ""; // a transport provider (#385) has no base URL
   const field = options.baseUrlField;
   if (field === undefined) return options.baseUrl;
   return textValueOf(Reflect.get(source.environment, field), source.env) ?? options.baseUrl;

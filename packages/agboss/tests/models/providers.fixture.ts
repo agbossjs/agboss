@@ -13,6 +13,11 @@ import {
   type OpenRouterFields,
 } from "../../src/models/index.js";
 import { minutes, seconds, usd } from "../../src/units/index.js";
+import {
+  isHttpProvider,
+  modelProviderOf,
+  type HttpModelProviderOptions,
+} from "../../src/models/model-provider.decorator.js";
 
 const breaker = { failureThreshold: 3, window: minutes(1), openFor: seconds(30) };
 
@@ -114,4 +119,11 @@ export class LocalModelProvider extends OpenAiCompatibleProvider {
 })
 export class LocalMirrorModelProvider extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};
+}
+
+/** An HTTP provider's options, to build another HTTP provider from (`{ ...httpOptionsOf(X), … }`). */
+export function httpOptionsOf(cls: object): HttpModelProviderOptions {
+  const options = modelProviderOf(cls);
+  if (!isHttpProvider(options)) throw new Error(`${options.name} is not an HTTP provider`);
+  return options;
 }

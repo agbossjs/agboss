@@ -124,6 +124,8 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["EvalSuite", "evalCase", "turn", "pastTurn", "toolCall", "toolInvariant", "judgedBy"],
     ...["checkTrajectory", "EvalCascade", "CheckStatus", "EvalCaseInvalidError", "Judge"],
     ...["testToolInterceptor", "ToolInterceptorRunner", "ToolCallDecision", "ToolInterceptor"],
+    ...["ModelProviderHandler", "ModelProviderRequest", "ModelProviderResponse"],
+    ...["ModelProviderMessageRole", "ModelProvider"],
     ...[
       "CompensationRecord",
       "CompensationReason",
@@ -164,6 +166,10 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["ModelCost", "RetryPolicy", "RateLimitPolicy", "QueueBalancingStrategy", "ModelFailure"],
     ...["Reasoning", "ReasoningEffort", "PromptCaching", "CacheRetention", "CachedPart"],
     ...["ProviderSort", "ModelCallError", "usd", "testWith", "callTool", "replyWith"],
+    ...["ModelProviderHandler", "ModelProviderRequest", "ModelProviderResponse", "FinishReason"],
+    ...["ModelProviderMessage", "ModelProviderMessageRole", "ModelProviderToolDefinition"],
+    ...["ModelProviderToolCall", "ModelProviderUsage", "ModelProviderFailureError"],
+    ...["TRANSIENT_FAILURES", "Injectable"],
   ],
   "references/08-observability-and-tracing.md": [
     ...["ExecutionOutput", "ExecutionRecord", "ExecutionStatus", "ExecutionEvent", "NodeEvent"],
@@ -233,6 +239,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["PauseAnswererError", "UninterpretableReplyError", "ReplyInterpreterMissingError"],
     ...["IncompatibleResumeError", "DtoValidationError", "ExecutionContextUnavailableError"],
     ...["ToolTimeoutError", "ModelCallError", "ModelKindError", "DecisionError"],
+    ...["ModelProviderFailureError", "ModelProvider"],
     "NotAWorkflowStartError",
     "ToolBlockedError",
   ],

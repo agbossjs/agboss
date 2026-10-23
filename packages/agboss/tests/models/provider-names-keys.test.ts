@@ -28,9 +28,9 @@ import { providerBaseUrlOf, providerKeyOf } from "../../src/models/provider-envi
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { LocalWorkflow } from "./fixtures/resolution.workflow.js";
 import { KEYS } from "./gateway.js";
-import { LocalModelProvider, TestOpenRouterProvider } from "./providers.fixture.js";
+import { httpOptionsOf, LocalModelProvider, TestOpenRouterProvider } from "./providers.fixture.js";
 
-@ModelProvider({ ...modelProviderOf(LocalModelProvider), name: "local" })
+@ModelProvider({ ...httpOptionsOf(LocalModelProvider), name: "local" })
 class LocalServer extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};
 }
