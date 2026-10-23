@@ -102,6 +102,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["MeshOptions", "MeshPeer", "MeshVerifier", "ExecutionOrigin", "MeshRunReport"],
     ...["ToolCallRemote", "MeshRequestRepository", "SqliteMeshRequestRepository"],
     ...["DeadlineExceededError", "BudgetExceededError"],
+    ...["A2AExpose", "A2AContract", "A2ATarget", "A2AAgentConfig"],
     ...["PlainTextDto", "ExecutionContext", "SpendRecorder"],
   ],
   "references/05-channels-and-human-in-the-loop.md": [

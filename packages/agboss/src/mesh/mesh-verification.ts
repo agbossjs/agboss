@@ -21,6 +21,8 @@ export enum MeshRefusalCode {
   BodyMismatch = "mesh.body-mismatch",
   /** A trusted request of the same idempotency key still runs. */
   RequestInProgress = "mesh.request-in-progress",
+  /** Its `audience` is another application (#398 PR 3): it was meant for someone else. */
+  AudienceMismatch = "mesh.audience-mismatch",
 }
 
 /** What the caller reads of each refusal. */
@@ -29,6 +31,21 @@ export const MESH_REFUSAL_TEXT: Readonly<Record<MeshRefusalCode, string>> = {
   [MeshRefusalCode.EnvelopeExpired]: "the mesh envelope has expired or is not yet valid",
   [MeshRefusalCode.BodyMismatch]: "the mesh envelope was signed for another request body",
   [MeshRefusalCode.RequestInProgress]: "a request with this idempotency key is still running",
+  [MeshRefusalCode.AudienceMismatch]: "the mesh envelope is addressed to another application",
+};
+
+/**
+ * Whether an envelope is meant for `application` (#398 PR 3): its `audience`, when it names one,
+ * must be the receiver's name — signed or not (a claim that only restricts).
+ */
+export const audienceRefusalOf = (
+  read: ReadEnvelope | undefined,
+  application: string,
+): MeshRefusalCode | undefined => {
+  const audience = read?.envelope.audience;
+  return audience === undefined || audience === application
+    ? undefined
+    : MeshRefusalCode.AudienceMismatch;
 };
 
 /** Why a signed envelope is refused at `now`; `undefined` when it holds. */

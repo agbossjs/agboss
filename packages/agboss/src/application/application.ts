@@ -81,6 +81,12 @@ export interface ApplicationOptions {
    */
   readonly mesh?: MeshOptions;
   /**
+   * What the application serves to other applications (#398 PR 3): its `@A2AExpose` and
+   * `@McpExpose` classes — `a2aHttpListener` serves only a listed one
+   * (`[application.expose-unlisted]`), and `agboss describe --json` lists them as exported contracts.
+   */
+  readonly exposes?: readonly Class[];
+  /**
    * How long a resolved pause record (`Taken`, `Cancelled`) is kept after it was resolved (#267
    * S107): within it a late answer gets `NotPausedError`, after it `UnknownPauseError`; the
    * recovery sweep removes it on the `Clock`. A pending pause is never removed. Default `hours(24)`.

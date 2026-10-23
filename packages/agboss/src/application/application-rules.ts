@@ -18,6 +18,7 @@ import { sharedInterpreterViolations } from "../channels/channel-rules.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { healthCheckRuleViolations } from "../health/health-check.js";
 import { meshRuleViolations } from "../mesh/mesh-rules.js";
+import { contractRuleViolations } from "../a2a/a2a-rules.js";
 
 /**
  * The rules of an `@Application` itself (#261), read from its declaration: its `name` and class end
@@ -190,6 +191,7 @@ export function applicationRuleViolations(
       options.mesh,
       (options as Partial<ApplicationOptions>).environment,
     ),
+    ...contractRuleViolations(options),
     ...contextRuleViolations(options.name, options),
     ...sharedInterpreterViolations(channelUsesOf(options.workflows)),
   ];

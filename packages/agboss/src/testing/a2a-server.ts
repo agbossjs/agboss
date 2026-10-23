@@ -10,7 +10,7 @@ export interface A2ATestServer {
   readonly url: string;
 }
 
-/** `a2aServer({ start, callerResolver, base? })`: the listener of the test's app, on a free port. */
+/** `a2aServer({ expose, callerResolver, base? })`: the listener of the test's app, on a free port. */
 export type A2AServerFixture = <TStart extends Class>(
   options: A2AHttpListenerOptions<TStart>,
 ) => Promise<A2ATestServer>;

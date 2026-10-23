@@ -151,9 +151,16 @@ export const RouterModelSchema = z.discriminatedUnion("kind", [
 ]);
 
 /** MCP server connection. Secrets are never here: only names of env variables. */
+/**
+ * The AGBoss application behind an MCP server (#398 PR 3): its `@Application({ name })` — the
+ * envelope's `audience` — and its `@McpExpose` name; unset for a third-party server.
+ */
+const McpTargetSchema = z.object({ application: z.string().min(1), expose: z.string().min(1) });
+
 export const McpServerConfigSchema = z.discriminatedUnion("transport", [
   z.object({
     transport: z.literal("stdio"),
+    target: McpTargetSchema.optional(),
     command: z.string().min(1),
     args: z.array(z.string()).optional(),
     /** Names of env variables passed to the server process. */
@@ -161,6 +168,7 @@ export const McpServerConfigSchema = z.discriminatedUnion("transport", [
   }),
   z.object({
     transport: z.literal("http"),
+    target: McpTargetSchema.optional(),
     url: z.url(),
     /** Header name → name of the env variable holding its value. */
     headers: z.record(z.string(), z.string()).optional(),

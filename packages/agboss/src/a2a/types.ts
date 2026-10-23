@@ -18,6 +18,11 @@ export enum A2AStatus {
 /** `POST /execute`: the workflow start's input, and the thread to continue (omit for a new one). */
 export interface A2AExecutionRequest<TInput = unknown> {
   readonly input: TInput;
+  /**
+   * The exported start to run (#398 PR 3: `@A2AAgent({ target: { start } })`); optional when the
+   * listener's `@A2AExpose` exports one start.
+   */
+  readonly start?: string;
   /** The caller's thread (#387: `threadId` on the wire too), in the caller's tenant. */
   readonly threadId?: string;
 }
@@ -99,5 +104,6 @@ export const A2AEventSchema = z.discriminatedUnion("type", [
 /** The wire shape of a request (what the server accepts). */
 export const A2ARequestSchema = z.object({
   input: z.unknown(),
+  start: z.string().optional(),
   threadId: z.string().optional(),
 });

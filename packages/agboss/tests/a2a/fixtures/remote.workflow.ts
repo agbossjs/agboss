@@ -2,6 +2,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import {
   A2AAdapter,
+  A2AExpose,
   A2ACallerResolution,
   a2aHttpListener,
   type A2ACallerResolver,
@@ -135,12 +136,17 @@ export class RemoteDesk implements WorkflowDefinition {
   }
 }
 
+/** What the application serves over A2A (#398 PR 3): its one start. */
+@A2AExpose({ name: "remote-desk-a2a-expose", version: "1.0.0", exports: [AskStart] })
+export class RemoteDeskA2AExpose {}
+
 @Application({
   name: "remote-desk-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RemoteDesk],
   budgets: TEST_BUDGETS,
+  exposes: [RemoteDeskA2AExpose],
 })
 export class RemoteDeskApplication {}
 
@@ -161,7 +167,7 @@ export interface Served {
 export async function serve(app: App, seen: (string | undefined)[] = []): Promise<Served> {
   const adapter = new A2AAdapter(app);
   const listener = a2aHttpListener(app, {
-    start: AskStart,
+    expose: RemoteDeskA2AExpose,
     callerResolver: SingleTenantCallerResolver,
   });
   const server: Server = createServer((req, res) => {

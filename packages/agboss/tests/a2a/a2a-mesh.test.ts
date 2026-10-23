@@ -47,8 +47,16 @@ describe("#398 PR 1: a call made inside an execution carries the mesh envelope",
     const [orders, billing] = [await endpoint(), await endpoint()];
     const ordersBook = new ScriptBook();
     const billingBook = new ScriptBook();
-    const remote = await meshApp(billing, { name: "billing", peerUrl: orders.url }, billingBook);
-    const local = await meshApp(orders, { name: "orders", peerUrl: billing.url }, ordersBook);
+    const remote = await meshApp(
+      billing,
+      { name: "billing", peerUrl: orders.url, peerName: "orders" },
+      billingBook,
+    );
+    const local = await meshApp(
+      orders,
+      { name: "orders", peerUrl: billing.url, peerName: "billing" },
+      ordersBook,
+    );
     ordersBook
       .scriptOf("agent:orders-desk-agent")
       .thenReturn(callTool(local.parts.CallPeer, { question: "invoice 7?" }), replyWith("Paid."));
@@ -82,9 +90,9 @@ describe("#398 PR 1: a call made inside an execution carries the mesh envelope",
   it("the receiver continues the caller's trace and carries its chain on", async () => {
     const [first, second, third] = [await endpoint(), await endpoint(), await endpoint()];
     const [bookA, bookB, bookC] = [new ScriptBook(), new ScriptBook(), new ScriptBook()];
-    const a = await meshApp(first, { name: "a", peerUrl: second.url }, bookA);
-    const b = await meshApp(second, { name: "b", peerUrl: third.url }, bookB);
-    await meshApp(third, { name: "c", peerUrl: first.url }, bookC);
+    const a = await meshApp(first, { name: "a", peerUrl: second.url, peerName: "b" }, bookA);
+    const b = await meshApp(second, { name: "b", peerUrl: third.url, peerName: "c" }, bookB);
+    await meshApp(third, { name: "c", peerUrl: first.url, peerName: "a" }, bookC);
     bookA
       .scriptOf("agent:a-desk-agent")
       .thenReturn(callTool(a.parts.CallPeer, { question: "q" }), replyWith("done"));
@@ -125,8 +133,8 @@ describe("#398 PR 1: a loop through the mesh is refused deterministically", () =
   it("A → B → A: A refuses B's call before it runs, and A's own step fails with the loop", async () => {
     const [first, second] = [await endpoint(), await endpoint()];
     const [bookA, bookB] = [new ScriptBook(), new ScriptBook()];
-    const a = await meshApp(first, { name: "a", peerUrl: second.url }, bookA);
-    const b = await meshApp(second, { name: "b", peerUrl: first.url }, bookB);
+    const a = await meshApp(first, { name: "a", peerUrl: second.url, peerName: "b" }, bookA);
+    const b = await meshApp(second, { name: "b", peerUrl: first.url, peerName: "a" }, bookB);
     bookA.scriptOf("agent:a-desk-agent").thenReturn(callTool(a.parts.CallPeer, { question: "q" }));
     bookB.scriptOf("agent:b-desk-agent").thenReturn(callTool(b.parts.CallPeer, { question: "q" }));
 
@@ -148,9 +156,9 @@ describe("#398 PR 1: a loop through the mesh is refused deterministically", () =
   it(".onError(MeshLoopDetectedError, …) takes the loop on the caller's path", async () => {
     const [first, second] = [await endpoint(), await endpoint()];
     const [bookA, bookB] = [new ScriptBook(), new ScriptBook()];
-    const spec = { name: "a", peerUrl: second.url, handlesLoop: true };
+    const spec = { name: "a", peerUrl: second.url, peerName: "b", handlesLoop: true };
     const a = await meshApp(first, spec, bookA);
-    const b = await meshApp(second, { name: "b", peerUrl: first.url }, bookB);
+    const b = await meshApp(second, { name: "b", peerUrl: first.url, peerName: "a" }, bookB);
     bookA.scriptOf("agent:a-desk-agent").thenReturn(callTool(a.parts.CallPeer, { question: "q" }));
     bookB.scriptOf("agent:b-desk-agent").thenReturn(callTool(b.parts.CallPeer, { question: "q" }));
 
@@ -202,8 +210,8 @@ describe("#398 PR 1: maxMeshHops", () => {
   it("a chain as long as the receiver's maxMeshHops is refused, and the caller's step fails", async () => {
     const [first, second] = [await endpoint(), await endpoint()];
     const [bookA, bookB] = [new ScriptBook(), new ScriptBook()];
-    const a = await meshApp(first, { name: "a", peerUrl: second.url }, bookA);
-    await meshApp(second, { name: "b", peerUrl: first.url, maxMeshHops: 1 }, bookB);
+    const a = await meshApp(first, { name: "a", peerUrl: second.url, peerName: "b" }, bookA);
+    await meshApp(second, { name: "b", peerUrl: first.url, peerName: "a", maxMeshHops: 1 }, bookB);
     bookA.scriptOf("agent:a-desk-agent").thenReturn(callTool(a.parts.CallPeer, { question: "q" }));
 
     const run = execute(a.app, a.parts.MeshStart, { text: "go" });

@@ -42,10 +42,18 @@ class SideEffect {
   }
 }
 
-@Action({ name: "cancel-booking-action", description: "Cancels the booking", input: { booking: BookingDto } })
+@Action({
+  name: "cancel-booking-action",
+  description: "Cancels the booking",
+  input: { booking: BookingDto },
+})
 export class CancelBookingAction extends SideEffect {}
 
-@Action({ name: "refund-action", description: "Refunds the payment", input: { payment: PaymentDto } })
+@Action({
+  name: "refund-action",
+  description: "Refunds the payment",
+  input: { payment: PaymentDto },
+})
 export class RefundAction extends SideEffect {}
 
 @Action({
@@ -75,7 +83,11 @@ export class BookTripAction extends SideEffect {}
 })
 export class ChargeAction extends SideEffect {}
 
-@Action({ name: "notify-agency-action", description: "Tells a person", input: { request: TripRequestDto } })
+@Action({
+  name: "notify-agency-action",
+  description: "Tells a person",
+  input: { request: TripRequestDto },
+})
 export class NotifyAgencyAction extends SideEffect {}
 
 @Agent({
@@ -88,11 +100,23 @@ export class NotifyAgencyAction extends SideEffect {}
 })
 export class TripLetterAgent {}
 
-@WorkflowStart({ name: "trip-workflow-start", description: "A trip to book", input: TripRequestDto })
+@WorkflowStart({
+  name: "trip-workflow-start",
+  description: "A trip to book",
+  input: TripRequestDto,
+})
 export class TripWorkflowStart {}
 
-@WorkflowFinish({ name: "trip-booked-workflow-finish", description: "Booked", output: TripConfirmedDto })
+@WorkflowFinish({
+  name: "trip-booked-workflow-finish",
+  description: "Booked",
+  output: TripConfirmedDto,
+})
 export class TripBookedWorkflowFinish {}
 
-@WorkflowFinish({ name: "trip-not-booked-workflow-finish", description: "Not booked", output: TripRequestDto })
+@WorkflowFinish({
+  name: "trip-not-booked-workflow-finish",
+  description: "Not booked",
+  output: TripRequestDto,
+})
 export class TripNotBookedWorkflowFinish {}

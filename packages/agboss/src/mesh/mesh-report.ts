@@ -2,7 +2,7 @@ import type { KeyObject } from "node:crypto";
 import { z } from "zod";
 import { serviceUsageOf } from "../components/spend-recorder.js";
 import { currentFrame } from "../flow/context/frame.js";
-import { usd } from "../units/index.js";
+import { usd, type Usd } from "../units/index.js";
 import { amountOf, dollarsOf } from "./mesh-durations.js";
 import type { MeshRunReport } from "./mesh-envelope.js";
 import { encodeJws, isSignedBy, readJws } from "./mesh-jws.js";
@@ -63,24 +63,49 @@ export function verifiedRunReportOf(
   return key !== undefined && isSignedBy(jws.signed, key) ? parsed.data : undefined;
 }
 
+/** A contract's price of one call (#398 PR 3, Q6 c), and the application it is paid to. */
+export interface ContractPrice {
+  readonly application: string;
+  readonly price: Usd;
+}
+
 /**
  * Takes a remote call's report in the current frame (#398 PR 2): verified against the calling
  * application's peers, its spend recorded in the step's (`service` = `<transport>:<issuer>`) and
- * its execution kept on the tool call. Outside a frame, nothing.
+ * its execution kept on the tool call. With a contract price (PR 3, Q6 c) the step records the
+ * larger of the price and the verified spend — the price alone without a verified report. Outside
+ * a frame, nothing.
  */
-export function takeRunReport(transport: string, value: unknown, bodyHash: string): void {
+export function takeRunReport(
+  transport: string,
+  value: unknown,
+  bodyHash: string,
+  contract?: ContractPrice,
+): void {
   const frame = currentFrame();
   if (frame === undefined || frame.isClosed()) return;
   const settings = contextMeshSettingsOf(frame.execution.tenant.application);
-  if (settings === undefined) return;
-  const report = verifiedRunReportOf(value, settings.keys.peers, bodyHash);
+  const report =
+    settings === undefined ? undefined : verifiedRunReportOf(value, settings.keys.peers, bodyHash);
+  const charge = chargeOf(report, contract);
+  if (charge !== undefined) {
+    const service = `${transport}:${charge.application}`;
+    frame.services.reportUsage?.(serviceUsageOf({ service, cost: usd(charge.cost) }));
+  }
   if (report === undefined) return;
-  const cost = dollarsOf(report.spend.total);
-  const service = `${transport}:${report.issuer}`;
-  if (cost !== undefined && cost > 0)
-    frame.services.reportUsage?.(serviceUsageOf({ service, cost: usd(cost) }));
   frame.services.meshCall?.recordRemote({
     application: report.issuer,
     executionId: report.executionId,
   });
+}
+
+/** What the calling step is charged (Q6 c): the larger of the verified spend and the price. */
+function chargeOf(
+  report: MeshRunReport | undefined,
+  contract: ContractPrice | undefined,
+): { readonly application: string; readonly cost: number } | undefined {
+  const reported = report === undefined ? 0 : (dollarsOf(report.spend.total) ?? 0);
+  const cost = Math.max(reported, contract?.price ?? 0);
+  const application = report?.issuer ?? contract?.application;
+  return application === undefined || cost <= 0 ? undefined : { application, cost };
 }

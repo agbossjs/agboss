@@ -1250,7 +1250,7 @@ the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.bu
 channel, a guardrail or any component reads them through its injected `ExecutionContext`
 (`this.executionContext.tenant.tenantId`, the project's own fields), and an MCP session
 (`createMcpService(app, Mcp).connect(transport, { tenant, execution, ownerId })`) or an A2A call
-(`a2aHttpListener(app, { start, callerResolver })`, whose resolver returns them per request, #387;
+(`a2aHttpListener(app, { expose, callerResolver })`, whose resolver returns them per request, #387;
 `adapter.execute(Start, request, onEvent, { tenant, execution, ownerId })`) passes them from its
 authenticated caller. `app.cancel(threadId)` aborts a running
 run — it stops before its next model or tool call and `execute` rejects with

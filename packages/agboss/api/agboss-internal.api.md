@@ -73,6 +73,7 @@ export interface AssembledApplication {
     //
     // (undocumented)
     readonly executionContext: ExecutionContextClass;
+    readonly exposes: readonly Class[];
     readonly healthChecks: readonly Class[];
     readonly maxConcurrentSteps?: number;
     readonly maxMeshHops: number;
@@ -242,6 +243,28 @@ export function compareEvalRuns(baseline: EvalRunReport, candidate: EvalRunRepor
 //
 // @public
 export const configSnapshot: <TName extends string>(deps: SnapshotDeps<TName>, children?: ChildSnapshotSources | undefined) => unknown;
+
+// @public
+export function contractsOf(assembled: AssembledApplication): ContractsSnapshot;
+
+// @public
+export interface ContractsSnapshot {
+    // Warning: (ae-forgotten-export) The symbol "A2AExportContract" needs to be exported by the entry point internal.d.ts
+    // Warning: (ae-forgotten-export) The symbol "McpExportContract" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly exports: readonly (A2AExportContract | McpExportContract)[];
+    // Warning: (ae-forgotten-export) The symbol "A2AImportContract" needs to be exported by the entry point internal.d.ts
+    // Warning: (ae-forgotten-export) The symbol "McpImportContract" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly imports: readonly (A2AImportContract | McpImportContract)[];
+    // (undocumented)
+    readonly schemas: Readonly<Record<string, {
+        readonly schemaHash: string;
+        readonly jsonSchema: JsonSchema;
+    }>>;
+}
 
 // @public
 export const COST_CATEGORIES: readonly ["agents", "routing", "guards", "review", "tools", "compaction", "retrieval"];
@@ -1023,12 +1046,12 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/application/application-starts.ts:18:3 - (ae-undocumented) Missing documentation for "name".
 // src/application/application-starts.ts:19:3 - (ae-undocumented) Missing documentation for "description".
 // src/application/application-starts.ts:22:3 - (ae-undocumented) Missing documentation for "component".
-// src/application/assemble.ts:45:3 - (ae-undocumented) Missing documentation for "application".
-// src/application/assemble.ts:46:3 - (ae-undocumented) Missing documentation for "name".
-// src/application/assemble.ts:47:3 - (ae-undocumented) Missing documentation for "version".
-// src/application/assemble.ts:56:3 - (ae-undocumented) Missing documentation for "budgets".
-// src/application/assemble.ts:77:3 - (ae-undocumented) Missing documentation for "executionContext".
-// src/application/assemble.ts:188:1 - (ae-undocumented) Missing documentation for "applicationOf".
+// src/application/assemble.ts:46:3 - (ae-undocumented) Missing documentation for "application".
+// src/application/assemble.ts:47:3 - (ae-undocumented) Missing documentation for "name".
+// src/application/assemble.ts:48:3 - (ae-undocumented) Missing documentation for "version".
+// src/application/assemble.ts:57:3 - (ae-undocumented) Missing documentation for "budgets".
+// src/application/assemble.ts:80:3 - (ae-undocumented) Missing documentation for "executionContext".
+// src/application/assemble.ts:191:1 - (ae-undocumented) Missing documentation for "applicationOf".
 // src/application/create-app.ts:36:3 - (ae-undocumented) Missing documentation for "app".
 // src/application/create-app.ts:37:3 - (ae-undocumented) Missing documentation for "assembled".
 // src/application/create-app.ts:38:3 - (ae-undocumented) Missing documentation for "workflows".
@@ -1058,6 +1081,10 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/channels.ts:39:3 - (ae-undocumented) Missing documentation for "isRole".
 // src/describe/channels.ts:44:3 - (ae-undocumented) Missing documentation for "answeredBy".
 // src/describe/channels.ts:49:3 - (ae-undocumented) Missing documentation for "reason".
+// src/describe/contracts-types.ts:63:3 - (ae-undocumented) Missing documentation for "exports".
+// src/describe/contracts-types.ts:64:3 - (ae-undocumented) Missing documentation for "imports".
+// src/describe/contracts-types.ts:65:3 - (ae-undocumented) Missing documentation for "schemas".
+// src/describe/contracts-types.ts:66:51 - (ae-forgotten-export) The symbol "JsonSchema" needs to be exported by the entry point internal.d.ts
 // src/describe/limits.ts:22:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/describe/limits.ts:25:3 - (ae-undocumented) Missing documentation for "steps".
 // src/describe/limits.ts:28:3 - (ae-undocumented) Missing documentation for "worstCases".

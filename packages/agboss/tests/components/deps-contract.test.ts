@@ -12,7 +12,7 @@ import { toolResultsOf } from "../testing/fixtures/requests.js";
 import {
   AuditGuardrail,
   MaskSecret,
-  RemoteAgent,
+  RemoteA2AAgent,
   RevealTool,
   seen,
   StrictJudge,
@@ -88,7 +88,7 @@ describe("#183 AC1: every decorator kind with deps gets them injected at run tim
         toolCalls: [],
       }),
     ).resolves.toEqual(JudgeVerdict.failed({ reason: "leaks the secret" }));
-    expect(app.resolve(RemoteAgent).vault).toBe(app.resolve(Vault));
+    expect(app.resolve(RemoteA2AAgent).vault).toBe(app.resolve(Vault));
     expect(app.resolve(Vault).secret).toBe("s3cret");
     await app.close();
   });

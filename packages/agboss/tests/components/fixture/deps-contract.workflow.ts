@@ -19,7 +19,7 @@ import {
   AuditGuardrail,
   KeptDto,
   MaskSecret,
-  RemoteAgent,
+  RemoteA2AAgent,
   RevealTool,
   SECRET,
   StampAction,
@@ -138,7 +138,7 @@ export function applicationWith(
   ],
   ...base,
   piiPolicies: [MaskSecret],
-  providers: [Vault, provide(SECRET, "s3cret"), RemoteAgent],
+  providers: [Vault, provide(SECRET, "s3cret"), RemoteA2AAgent],
 })
 export class VaultWorkflow {}
 

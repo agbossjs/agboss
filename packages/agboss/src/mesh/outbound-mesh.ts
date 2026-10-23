@@ -76,15 +76,19 @@ function envelopeOf(frame: Frame, bodyHash: string, now: Date): MeshEnvelope | u
   };
 }
 
-/** What a call made now with `body` carries: from the current execution frame, if one is open. */
-export function outboundMeshOf(body: string): OutboundMesh | undefined {
+/**
+ * What a call made now with `body` carries: from the current execution frame, if one is open —
+ * addressed to `audience` (#398 PR 3: the receiver's application, from the client's `target`).
+ */
+export function outboundMeshOf(body: string, audience?: string): OutboundMesh | undefined {
   const frame = currentFrame();
   if (frame === undefined || frame.isClosed()) return undefined;
   const settings = contextMeshSettingsOf(frame.execution.tenant.application);
   const now = settings?.clock.now() ?? new Date(0);
   const bodyHash = bodyHashOf(body);
-  const envelope = envelopeOf(frame, bodyHash, now);
-  if (envelope === undefined) return undefined;
+  const built = envelopeOf(frame, bodyHash, now);
+  if (built === undefined) return undefined;
+  const envelope = audience === undefined ? built : { ...built, audience };
   const root = rootFactsOf(frame.execution);
   const traceId = root.mesh?.traceId ?? hexOf(root.executionId, TRACE_ID_LENGTH);
   const spanId = hexOf(frame.step.idempotencyKey, SPAN_ID_LENGTH);

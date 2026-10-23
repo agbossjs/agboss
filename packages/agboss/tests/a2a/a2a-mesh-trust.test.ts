@@ -87,7 +87,12 @@ describe("#398 PR 2: a trusted peer's call — signed envelope, origin, report",
     const local = await meshApp(
       open,
       ordersAt,
-      { name: "orders", peerUrl: served.url, mesh: meshOf("billing-application") },
+      {
+        name: "orders",
+        peerUrl: served.url,
+        peerName: "billing",
+        mesh: meshOf("billing-application"),
+      },
       ordersBook,
       { processEnv: meshEnvOf(ordersKeys, billingKeys) },
     );
@@ -136,7 +141,7 @@ describe("#398 PR 2: a trusted peer's call — signed envelope, origin, report",
     const local = await meshApp(
       open,
       ordersAt,
-      { name: "orders", peerUrl: served.url },
+      { name: "orders", peerUrl: served.url, peerName: "billing" },
       ordersBook,
     );
     ordersBook

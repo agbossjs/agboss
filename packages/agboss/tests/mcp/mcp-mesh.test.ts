@@ -193,7 +193,14 @@ describe("#398 PR 1: the AGBoss MCP client sends _meta and reads a mesh limit", 
       output: z.string(),
     });
     const connections = await connectMcpServers(
-      { kb: { transport: "stdio", command: "unused" } },
+      {
+        kb: {
+          transport: "stdio",
+          command: "unused",
+          // #398 PR 3: the AGBoss application behind it — the envelope's audience
+          target: { application: "kb-application", expose: "kb-mcp-expose" },
+        },
+      },
       [kb],
       [search],
       {},
@@ -217,6 +224,11 @@ describe("#398 PR 1: the AGBoss MCP client sends _meta and reads a mesh limit", 
     await search.invoke({ q: "y" }, ctx); // outside any execution
     await connections.close();
 
+    const sent = metas[0] as Record<string, unknown> | undefined;
+    const envelope: unknown = JSON.parse(
+      Buffer.from(String(sent?.["agboss.dev/mesh"]).split(".")[1] ?? "", "base64url").toString(),
+    );
+    expect(envelope).toMatchObject({ audience: "kb-application" });
     expect(metas[0]).toMatchObject({
       callId: frame.step.idempotencyKey,
       "agboss.dev/mesh": expect.stringMatching(/^eyJ[\w-]+\.[\w-]+\.$/),

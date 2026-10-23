@@ -14,6 +14,18 @@ class Answer {
   text!: string;
 }
 
+class Ask {
+  @Text()
+  text!: string;
+}
+
+/** A standalone client's contract (#398 PR 3): the desk's start, its input and output. */
+const contract = {
+  target: { application: "desk-application", start: "ask-workflow-start" },
+  input: Ask,
+  output: Answer,
+};
+
 const jsonFetch = (body: unknown) =>
   vi
     .fn<typeof fetch>()
@@ -22,24 +34,44 @@ const jsonFetch = (body: unknown) =>
     );
 
 describe("A2AClient", () => {
-  it("posts { input } to <url>/execute and returns the output validated by the DTO", async () => {
+  it("posts { input, start } to <url>/execute and returns the output validated by the DTO", async () => {
+    const fetcher = jsonFetch({ status: A2AStatus.Finished, output: { text: "hi" } });
+    const client = new A2AClient<Ask, Answer>({ url: "http://desk", fetcher, contract });
+
+    const result = await client.execute({ text: "q" });
+
+    expect(result).toEqual({ text: "hi" });
+    const body = JSON.stringify({ input: { text: "q" }, start: "ask-workflow-start" });
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://desk/execute",
+      expect.objectContaining({ method: "POST", body }),
+    );
+  });
+
+  it("rejects an input its contract does not accept, before sending (#398 PR 3)", async () => {
+    const fetcher = jsonFetch({ status: A2AStatus.Finished, output: { text: "hi" } });
+    // a client typed loosely (any object): the DTO checks the value at run time
+    const client = new A2AClient({ url: "http://desk", fetcher, contract });
+
+    const sent = client.execute({ text: 42 });
+
+    await expect(sent).rejects.toBeInstanceOf(DtoValidationError);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("execute without a contract fails with [a2a.no-contract]; send needs none", async () => {
     const fetcher = jsonFetch({ status: A2AStatus.Finished, output: { text: "hi" } });
     const client = new A2AClient({ url: "http://desk", fetcher });
 
-    const result = await client.execute({ text: "q" }, Answer);
-
-    expect(result).toEqual({ text: "hi" });
-    expect(fetcher).toHaveBeenCalledWith(
-      "http://desk/execute",
-      expect.objectContaining({ method: "POST", body: JSON.stringify({ input: { text: "q" } }) }),
-    );
+    await expect(client.execute({})).rejects.toThrow(/\[a2a\.no-contract\]/);
+    await expect(client.send({ text: "q" })).resolves.toMatchObject({ output: { text: "hi" } });
   });
 
   it("rejects an output the DTO does not accept", async () => {
     const fetcher = jsonFetch({ status: A2AStatus.Finished, output: { text: 42 } });
 
     await expect(
-      new A2AClient({ url: "http://desk", fetcher }).execute({ text: "q" }, Answer),
+      new A2AClient<Ask, Answer>({ url: "http://desk", fetcher, contract }).execute({ text: "q" }),
     ).rejects.toBeInstanceOf(DtoValidationError);
   });
 
@@ -47,7 +79,7 @@ describe("A2AClient", () => {
     const fetcher = jsonFetch({ status: A2AStatus.Limited, error: "limits.perRun.cost" });
 
     await expect(
-      new A2AClient({ url: "http://desk", fetcher }).execute({ text: "q" }, Answer),
+      new A2AClient<Ask, Answer>({ url: "http://desk", fetcher, contract }).execute({ text: "q" }),
     ).rejects.toBeInstanceOf(A2ARemoteError);
   });
 
@@ -106,11 +138,14 @@ describe("A2AClient", () => {
     await expect(client.send({ text: "q" })).rejects.not.toBeInstanceOf(A2ACallerRejectedError);
   });
 
-  it("takes its url from @A2AAgent at construction", () => {
-    @A2AAgent({ name: "desk", url: "http://desk.internal" })
-    class Desk extends A2AClient {}
+  it("takes its url and contract from @A2AAgent at construction", () => {
+    @A2AAgent({ name: "desk-a2a-agent", url: "http://desk.internal", ...contract })
+    class DeskA2AAgent extends A2AClient<Ask, Answer> {}
 
-    expect(new Desk().url).toBe("http://desk.internal");
+    const client = new DeskA2AAgent();
+
+    expect(client.url).toBe("http://desk.internal");
+    expect(client.contract).toEqual(contract);
   });
 
   it("without @A2AAgent and without a url it fails at construction", () => {

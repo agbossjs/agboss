@@ -22,6 +22,8 @@ export enum NameKind {
   ReplyInterpreter = "reply-interpreter",
   HealthCheck = "health-check",
   EvalSuite = "eval-suite",
+  A2AAgent = "a2a-agent",
+  A2AExpose = "a2a-expose",
 }
 
 /** The decorator each kind is declared with, as a message names it. */
@@ -40,6 +42,8 @@ const DECORATORS: Readonly<Record<NameKind, string>> = {
   [NameKind.ReplyInterpreter]: "@ReplyInterpreter",
   [NameKind.HealthCheck]: "@HealthCheck",
   [NameKind.EvalSuite]: "@EvalSuite",
+  [NameKind.A2AAgent]: "@A2AAgent",
+  [NameKind.A2AExpose]: "@A2AExpose",
 };
 
 /** The stable codes of the name rules. */

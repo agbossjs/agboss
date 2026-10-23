@@ -2,7 +2,11 @@ import { createPublicKey, type KeyObject } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import { MESH_HEADER } from "../mesh/mesh-envelope.js";
 import { readMeshEnvelope, type ReadEnvelope } from "../mesh/mesh-envelope-codec.js";
-import { signatureRefusalOf, type MeshRefusalCode } from "../mesh/mesh-verification.js";
+import {
+  audienceRefusalOf,
+  signatureRefusalOf,
+  type MeshRefusalCode,
+} from "../mesh/mesh-verification.js";
 import { meshSettingsOf } from "../mesh/mesh-settings.js";
 import type { A2AApp, A2ACallerRequest, A2ARoute, MeshVerifier } from "./a2a-caller.js";
 
@@ -11,7 +15,8 @@ import type { A2AApp, A2ACallerRequest, A2ARoute, MeshVerifier } from "./a2a-cal
  * envelope signed by an issuer it has a key for — the listener's `meshVerifier`, else
  * `@Application({ mesh: { peers } })` — is verified (signature, `issuedAt` + `expiresIn` on the
  * `Clock`); a bad one is refused (`401`, nothing runs), a good one names its `signedBy`. An unsigned
- * one, or one of an issuer without a key, stays a claim.
+ * one, or one of an issuer without a key, stays a claim. One addressed to another application
+ * (`audience`, #398 PR 3) is refused first (`401 mesh.audience-mismatch`).
  */
 
 /** What the resolver reads, or why the request is refused before it. */
@@ -46,10 +51,15 @@ export async function readRequestOf(
   const read = readMeshEnvelope(req.headers[MESH_HEADER]);
   if (read === undefined) return { request: { route, http: req } };
   const request = { route, http: req, envelope: read.envelope };
+  // meant for another application (#398 PR 3): refused, signed or not
+  const settings = meshSettingsOf(app);
+  const misaddressed =
+    settings === undefined ? undefined : audienceRefusalOf(read, settings.application);
+  if (misaddressed !== undefined) return { refusal: misaddressed };
   if (read.signed === undefined) return { request, read };
   const key = await keyOf(app, verifier, read.envelope.issuer);
   if (key === undefined) return { request, read };
-  const now = meshSettingsOf(app)?.clock.now() ?? new Date(0);
+  const now = settings?.clock.now() ?? new Date(0);
   const refusal = signatureRefusalOf(read, key, now);
   if (refusal !== undefined) return { refusal };
   return { request: { ...request, signedBy: read.envelope.issuer }, read };
