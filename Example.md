@@ -161,6 +161,11 @@ npm test
   `eval/failure-taxonomy.yaml`): κ, the confusion per labeler and the judge's `length` / `quotesTool`
   metrics over the disagreements. `npm run eval` rewrites the baseline (relabel after). `agboss eval
   score` is not part of it: it scores with Jev, which needs OpenRouter.
+  `tests/desk-cassette.test.ts` replays the desk from a [VCR](Testing#vcr--recorded-runs) cassette,
+  `tests/__snapshots__/desk-lookup.cassette.json`, recorded offline through the same transport
+  (`AGBOSS_VCR_MODE=RECORD npx vitest run tests/desk-cassette.test.ts`, #439); `npm run check` runs
+  `agboss check --cassettes` on the desk, so a changed prompt or schema is `[vcr.stale-cassette]`
+  until `AGBOSS_VCR_MODE=RECORD_STALE` records what changed.
 - **`src/approvals/`** — two approvals at once ([Pauses](Pauses), #267): `offsite-booking-workflow`
   launches venue-buyer-agent and flight-buyer-agent side by side; each calls `place-purchase-tool`,
   whose `@Tool({ channel: PurchaseApprovalChannel })` names a role

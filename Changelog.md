@@ -3,6 +3,12 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — flow-patterns as the zero-cost harness: a VCR cassette recorded offline (#419)
+
+- `examples/flow-patterns` replays the desk from a cassette recorded through its transport model
+  provider with no key (#439), and its `npm run check` adds `agboss check --cassettes`.
+  [Example](Example#flow-patterns-a-review-loop-and-a-code-router).
+
 ## Unreleased — `agboss generate eval-case --from-execution`: a case from a kept execution (#396 PR 8)
 
 - **Added — `agboss generate eval-case <name> --from-execution <executionId> [--suite <name>]
