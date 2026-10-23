@@ -571,6 +571,11 @@ export type EvalRunReportRead = {
     readonly reason: string;
 };
 
+// Warning: (ae-forgotten-export) The symbol "RuleViolation" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function evalSuiteWarningsOf(application: Class, suite: Class): readonly RuleViolation[];
+
 // Warning: (ae-forgotten-export) The symbol "EvalDeps" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ScoringReport" needs to be exported by the entry point internal.d.ts
 //
@@ -603,7 +608,6 @@ export const flowLines: (flow: readonly FlowPath[], label?: ComponentLabel) => r
 
 // @public
 export interface FlowTypesResult {
-    // Warning: (ae-forgotten-export) The symbol "RuleViolation" needs to be exported by the entry point internal.d.ts
     readonly errors: readonly RuleViolation[];
     readonly notes: readonly string[];
     readonly outFile: string;

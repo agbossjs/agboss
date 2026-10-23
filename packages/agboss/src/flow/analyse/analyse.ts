@@ -14,6 +14,7 @@ import { recursionOf, type Recursion } from "./recursion.js";
 import { aboutRules } from "./rules/about.js";
 import { branchOutdatingRules } from "./rules/branch-outdating.js";
 import { childFailureWarnings } from "./rules/child-failure.js";
+import { judgeFamilyWarnings } from "./rules/judge-family.js";
 import { childRules } from "./rules/children.js";
 import { compensationRules, compensationWarnings } from "./rules/compensation.js";
 import type { AnalyseOptions, AnalysisContext, FlowRule } from "./rules/context.js";
@@ -44,7 +45,8 @@ import { worstCasesOf, type WorstCase } from "./worst-case.js";
  * The static analyser of a v2 workflow (#272 PR 2, #270, #271): walks the flow's paths into a graph,
  * runs the data-flow engine (with outdating) to a fixed point, and checks every rule — all violations at once, before any
  * model call, in one `GraphRuleError`. Warnings (`[flow.path-too-deep]`,
- * `[graph.child-without-failure-finish]`, `[flow.committer-unreachable]`) are errors under `strict`.
+ * `[graph.child-without-failure-finish]`, `[flow.committer-unreachable]`, `[judge.same-model-family]`) are errors
+ * under `strict`.
  * Its result is what type generation (PR 3) and the runtime (PR 4) read.
  */
 
@@ -145,6 +147,7 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
     ...childFailureWarnings(context),
     ...concurrencyWarnings(context),
     ...compensationWarnings(context),
+    ...judgeFamilyWarnings(context),
   ].map(named);
   const analysis: FlowAnalysis = {
     workflow: declaration.options.name,

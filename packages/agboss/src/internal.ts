@@ -56,7 +56,7 @@ export {
 export { compareBundleProfiles } from "./eval/compare-profiles.js";
 export { formatComparison } from "./eval/compare-report.js";
 export { evaluate } from "./eval/eval.js";
-export { checkEvalSuite } from "./eval/suite/check-suite.js";
+export { checkEvalSuite, evalSuiteWarningsOf } from "./eval/suite/check-suite.js";
 export { runEvalSuite, type EvalRunOptions } from "./eval/run/run-suite.js";
 export { loadEvalSuites, type FoundEvalSuite } from "./loader/load-eval-suites.js";
 export { builtApplicationOf, type BuiltApplication } from "./application/create-app.js";

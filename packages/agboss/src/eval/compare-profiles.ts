@@ -2,10 +2,11 @@ import { createAppDeps, type AppDeps, type AppDepsOptions } from "../app/app-dep
 import type { Class } from "../components/injection.js";
 import { ProfileError } from "../config/profiles.js";
 import { environmentFor } from "../environments/load.js";
-import {
-  environmentOwnerOfWorkflow,
-  workflowInApplication,
-} from "../application/workflow-application.js";
+import { applicationOf, type AssembledApplication } from "../application/assemble.js";
+import { startsOfApplication } from "../application/application-starts.js";
+import { environmentOwnerOf } from "../application/create-app.js";
+import type { ApplicationClass } from "../application/types.js";
+import { nameOf } from "../components/name-of.js";
 import { withProfile } from "../profile-workflow.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { pairwise, runProfile, type ProfileOutcome } from "./compare.js";
@@ -19,8 +20,13 @@ export interface ProfileComparison {
   readonly warnings: readonly string[];
 }
 
-/** `compareProfiles` options: the profiles, the tasks, and any app part instead of its default. */
+/**
+ * `compareProfiles` options: the start whose workflow is compared, the profiles, the tasks, and any
+ * app part instead of its default.
+ */
 export interface CompareProfilesOptions extends AppDepsOptions {
+  /** A start of the application: its workflow is the one compared (#396 PR 5). */
+  readonly start: Class;
   /** At least two; the first is the baseline; `base` is the workflow without a profile. */
   readonly profiles: readonly string[];
   readonly tasks: readonly string[];
@@ -87,22 +93,45 @@ export async function compareBundleProfiles(
   }
 }
 
+const WHERE = "compareProfiles";
+
+/** The workflow `start` opens in the application, assembled as `createApp` assembles it. */
+function workflowOfStart(
+  application: Class,
+  assembled: AssembledApplication,
+  start: Class,
+): AssembledWorkflow {
+  const found = startsOfApplication(application, WHERE).find(
+    (candidate) => candidate.component === start,
+  );
+  if (found === undefined)
+    throw new ProfileError(`${nameOf(start)} is not a start of ${nameOf(application)}`);
+  const workflow = assembled.workflows.find((each) => each.config.name === found.workflow);
+  if (workflow === undefined)
+    throw new ProfileError(`${found.workflow} is not assembled in ${assembled.name}`);
+  return workflow;
+}
+
 /**
- * A/B of profiles of a workflow on the given tasks — `compareProfiles(JobScout, { profiles:
- * ["base", "scout-low-thinking"], tasks })`: the same app parts as `createApp` (pass `gateway`,
- * `stores`, `processEnv`… to replace them, e.g. scripted models in a test).
+ * A/B of profiles of the workflow a start opens, on the given tasks —
+ * `compareProfiles(JobScoutApplication, { start: ScreeningWorkflowStart, profiles: ["base",
+ * "scout-low-thinking"], tasks })` (#396 PR 5: on the application, as `createApp` builds it — its
+ * providers, defaults and environment): the same app parts as `createApp` (pass `gateway`, `stores`,
+ * `processEnv`… to replace them, e.g. scripted models in a test).
  */
-export async function compareProfiles(
-  workflow: Class,
+export async function compareProfiles<TApplication extends Class>(
+  application: ApplicationClass<TApplication>,
   options: CompareProfilesOptions,
 ): Promise<ProfileComparison> {
+  const assembled = await applicationOf(application, {}, WHERE);
+  const workflow = workflowOfStart(application, assembled, options.start);
   const environment = await environmentFor(
-    environmentOwnerOfWorkflow(workflow),
+    environmentOwnerOf(assembled),
     options,
     options.processEnv ?? process.env,
   );
   return compareBundleProfiles(
-    await workflowInApplication(workflow),
+    workflow,
     options.profiles,
     { ...options, ...(environment === undefined ? {} : { environment }) },
     () => Promise.resolve(options.tasks),

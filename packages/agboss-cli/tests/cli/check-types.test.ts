@@ -147,3 +147,20 @@ describe("#263 AC11: agboss check --strict — the analyser's warnings are error
     expect(strict.stdout).not.toContain("ok: ");
   });
 });
+
+describe("#396 PR 5: [judge.same-model-family] — a warning, an error under --strict", () => {
+  const FAMILY = fixture("cli/judge-family.workflow.ts");
+
+  it("printed and the check passes; with --strict the check fails", async () => {
+    const warned = await agboss(["check", "--application", FAMILY], project());
+    const strict = await agboss(["check", "--strict", "--application", FAMILY], project());
+
+    expect(warned.code).toBe(0);
+    expect(warned.stdout).toContain(
+      `${FAMILY} judge.same-model-family judge-family-workflow: open-ai-judge (openai/gpt-6) judges writer-agent`,
+    );
+    expect(strict.code).toBe(3);
+    expect(strict.stdout).toContain("judge.same-model-family");
+    expect(strict.stdout).not.toContain("ok: ");
+  });
+});

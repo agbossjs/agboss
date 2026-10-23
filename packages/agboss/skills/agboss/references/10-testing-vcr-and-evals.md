@@ -1403,6 +1403,15 @@ npx agboss replay --start screening-workflow-start --version <prompt version>   
 
 - A golden set is `golden/<workflow>/<name>.yaml`; a profile (`profiles/<workflow>/<name>.yaml`)
   overrides models and settings for a comparison; the agent's judges score each answer.
+- `compare` judges each task's pair of answers in both orders — the baseline's first, then the
+  other's: agreeing verdicts are a win or a loss, anything else a tie; a judge that picks the same
+  position both times is following the position, not the answer — counted as a tie and in `flips`
+  (`PairwiseResult.positionFlips`). From code: `compareProfiles(Application, { start, profiles,
+tasks })`, on the workflow that `start` opens, assembled as `createApp` assembles it.
+- A model judge of the judged agent's own vendor grades that family's answers too kindly:
+  `[judge.same-model-family]` (the slug's vendor prefix, `openai` of `openai/gpt-6`), a warning —
+  an error under `npx agboss check --strict`; for a suite's judge, against every agent of the
+  workflow its start opens. Give the judge another vendor's model, or decide it by code (`DecidedBy.Code`).
 - Real-model runs cost money and are never part of `npm test`.
 
 ## Pitfalls

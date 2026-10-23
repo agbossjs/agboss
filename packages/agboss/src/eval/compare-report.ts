@@ -85,13 +85,13 @@ const num = (value: number | null, digits: number): string =>
 export function formatComparison(tasks: number, rows: readonly ProfileReport[]): string[] {
   const lines = [
     `${String(tasks)} tasks`,
-    "profile | version | mean | vs base (w/l/t) | cost | per task | p50 s | p95 s | failed",
+    "profile | version | mean | vs base (w/l/t, flips) | cost | per task | p50 s | p95 s | failed",
   ];
   for (const r of rows) {
     const vs =
       r.pairwise === null
         ? "baseline"
-        : `${String(r.pairwise.wins)}/${String(r.pairwise.losses)}/${String(r.pairwise.ties)}`;
+        : `${String(r.pairwise.wins)}/${String(r.pairwise.losses)}/${String(r.pairwise.ties)}, flips ${String(r.pairwise.positionFlips)}`;
     const p50 = r.latencyP50Ms === null ? null : r.latencyP50Ms / 1000;
     const p95 = r.latencyP95Ms === null ? null : r.latencyP95Ms / 1000;
     lines.push(

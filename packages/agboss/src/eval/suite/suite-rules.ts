@@ -10,6 +10,11 @@ import { declarationOf } from "../../flow/decorators/declaration.js";
 import { reachableFrom } from "../../flow/analyse/flow-graph.js";
 import { dtoLabel, shapeLabel } from "../../flow/analyse/labels.js";
 import { isJudgedBy, judgedShapeOf } from "../../flow/analyse/rules/text-agents.js";
+import {
+  agentsOf,
+  sameFamilyWarnings,
+  type JudgedAgent,
+} from "../../flow/analyse/rules/judge-family.js";
 import { kindSuffixProblem, NameKind } from "../../flow/names.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { isJudgeCheck, type JudgeEvalCheck } from "./checks.js";
@@ -59,24 +64,43 @@ function duplicateCases(meta: EvalSuiteMeta): RuleViolation[] {
   );
 }
 
+/** The workflow the start opens, walked: its graph and the start's node; undefined for none. */
+function openedBy(workflows: readonly Class[], start: Class) {
+  for (const workflow of withChildWorkflows(workflows)) {
+    const child = childWorkflowOf(workflow);
+    const entry = child?.starts.find((found) => found.component === start);
+    if (entry === undefined) continue;
+    return { entry: entry.name, graph: checkWorkflow(workflow).analysis?.graph };
+  }
+  return undefined;
+}
+
 /** The output classes of the finishes the start reaches, in the workflow it opens. */
 function reachedOutputs(
   workflows: readonly Class[],
   start: Class,
 ): readonly DtoClass[] | undefined {
-  for (const workflow of withChildWorkflows(workflows)) {
-    const child = childWorkflowOf(workflow);
-    const entry = child?.starts.find((found) => found.component === start);
-    if (entry === undefined) continue;
-    const { analysis } = checkWorkflow(workflow);
-    if (analysis === undefined) return [];
-    const { graph } = analysis;
-    return [...reachableFrom([entry.name], graph.edges)].flatMap((name) => {
-      const declaration = graph.nodes.get(name)?.declaration;
-      return declaration?.kind === NodeKind.Finish ? [declaration.options.output] : [];
-    });
-  }
-  return undefined;
+  const opened = openedBy(workflows, start);
+  if (opened === undefined) return undefined;
+  const { graph } = opened;
+  if (graph === undefined) return [];
+  return [...reachableFrom([opened.entry], graph.edges)].flatMap((name) => {
+    const declaration = graph.nodes.get(name)?.declaration;
+    return declaration?.kind === NodeKind.Finish ? [declaration.options.output] : [];
+  });
+}
+
+/**
+ * The suite's warnings (#396 PR 5, S2 Q9): each model judge of the suite against every agent of the
+ * workflow its start opens — `[judge.same-model-family]`, an error under `agboss check --strict`.
+ */
+export function evalSuiteWarnings(application: Class, meta: EvalSuiteMeta): RuleViolation[] {
+  const { options } = requireApplication(application, "checkEvalSuite");
+  const graph = openedBy(options.workflows, meta.start)?.graph;
+  const agents: readonly JudgedAgent[] = graph === undefined ? [] : agentsOf(graph);
+  return judgesOf(meta).flatMap((check) =>
+    sameFamilyWarnings(check.judge, agents, `${meta.name}: `),
+  );
 }
 
 function wrongReply(

@@ -1,14 +1,21 @@
 import { relative } from "node:path";
 import { ComponentError, EvalCaseInvalidError, GraphRuleError, type Class } from "agboss";
-import { checkEvalSuite, loadEvalSuites, type FoundEvalSuite } from "agboss/internal";
-import type { CheckProblem } from "./check-problems.js";
-import { loadOptions, type CommandContext } from "./context.js";
+import {
+  checkEvalSuite,
+  evalSuiteWarningsOf,
+  loadEvalSuites,
+  type FoundEvalSuite,
+} from "agboss/internal";
+import { problemText, type CheckProblem } from "./check-problems.js";
+import { flagOption, loadOptions, type CommandContext } from "./context.js";
 
 /**
  * Loop 0 of the eval pipeline (#396 PR 2, S5): `agboss check` finds the application's
  * `eval-suites/*.eval-suite.ts` and assembles each on it, as `agboss eval run` would before running
  * anything — its rules (`[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-reply]`,
  * a judge's own) and its cases' values (`eval.case-invalid`), each a problem of the suite's file.
+ * A suite that assembles may warn (`[judge.same-model-family]`, #396 PR 5): printed, and problems
+ * under `--strict`.
  */
 
 /** What the check found: whether the application has suites, and their problems. */
@@ -41,10 +48,19 @@ function problemsOfSuite(context: CommandContext, application: Class, found: Fou
   const file = shown.startsWith("..") ? found.file : shown;
   try {
     checkEvalSuite(application, found.suite);
-    return [];
   } catch (error) {
     return problemsOf(file, error);
   }
+  const warnings = evalSuiteWarningsOf(application, found.suite).map((warning) => ({
+    file,
+    code: warning.code,
+    message: warning.message,
+  }));
+  if (flagOption(context.values, "strict")) return warnings;
+  warnings.forEach((warning) => {
+    context.say(`warning: ${problemText(warning)}`);
+  });
+  return [];
 }
 
 /** Every suite of the application, checked. */
