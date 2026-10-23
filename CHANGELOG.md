@@ -50,7 +50,9 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
 - **Eval suites** — `@EvalSuite` (`agboss/eval`) with typed cases, trajectory checks and code or
   model judges under a declared cascade; `agboss eval run --suite <name> --runs <k> --report
 <run.json>` runs each case k times on the application and reports pass@k / pass^k per case, the
-  unstable ones flagged, into a run artifact (`agboss.eval-run`); `agboss check` assembles the suites
+  unstable ones flagged, into a run artifact (`agboss.eval-run`); `agboss check` assembles the suites;
+  `--baseline <run.json> --fail-on-regression` compares each case with a run of `main` and exits 5
+  (`quality`, `eval.regressed`) when a stable case regressed — a case flaky there is quarantined
   (#396). `--html <file>` and `agboss eval show <run.json> --html <file>` render a run as one
   self-contained HTML page — summary, unstable cases, attempt dots and every run's checks (#397).
 - **The CLI** (`agboss-cli`) — `agboss create`, `agboss generate`, `agboss check`,

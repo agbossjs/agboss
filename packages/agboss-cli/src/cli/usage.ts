@@ -23,7 +23,8 @@ shows a run it saved, --html as one self-contained page.
 Every command takes --json (one JSON envelope on stdout), --debug (stack traces) and --help.
 agboss help <command> — its options; agboss help <command> --json — the same, for a machine.
 
-Exit codes: 0 ok · 1 internal error · 2 usage · 3 invalid project · 4 conflict (already exists).
+Exit codes: 0 ok · 1 internal error · 2 usage · 3 invalid project · 4 conflict (already exists) ·
+5 quality (eval run --fail-on-regression: a case regressed against its baseline).
 
 Environment:
   AGBOSS_NO_STAR=1   hide the closing "Star us on GitHub" line on stderr; it is also

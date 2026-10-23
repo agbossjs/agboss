@@ -11,14 +11,18 @@ import { ScaffoldConflictError, ScaffoldError, ScaffoldUsageError } from "../sca
 import { NoTextStartError } from "./text-start.js";
 
 /** What went wrong, as an agent tells it apart: by the exit code (#198). */
-export type CliErrorKind = "internal" | "usage" | "project" | "conflict";
+export type CliErrorKind = "internal" | "usage" | "project" | "conflict" | "quality";
 
-/** 0 ok · 1 internal · 2 usage · 3 invalid project · 4 conflict. */
+/**
+ * 0 ok · 1 internal · 2 usage · 3 invalid project · 4 conflict · 5 quality (#396: an eval case
+ * regressed against its baseline — the agent got worse, the project still loads).
+ */
 export const EXIT_CODES: Readonly<Record<CliErrorKind, number>> = {
   internal: 1,
   usage: 2,
   project: 3,
   conflict: 4,
+  quality: 5,
 };
 
 /** A failure the CLI reports in one line (and in the JSON envelope as `error: { code, message }`). */

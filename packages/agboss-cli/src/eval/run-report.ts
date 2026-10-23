@@ -1,5 +1,9 @@
-import { CheckStatus } from "agboss/eval";
-import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "agboss/internal";
+import {
+  CheckStatus,
+  type EvalCaseReport,
+  type EvalRunReport,
+  type EvalRunResult,
+} from "agboss/eval";
 import type { CommandContext } from "../cli/context.js";
 
 /**

@@ -28,6 +28,24 @@ export {
   type TrajectoryEvalCheck,
 } from "./suite/checks.js";
 export {
+  EVAL_RUN_KIND,
+  EVAL_RUN_SCHEMA_VERSION,
+  type EvalCaseReport,
+  type EvalCheckResult,
+  type EvalRunComponent,
+  type EvalRunError,
+  type EvalRunReport,
+  type EvalRunResult,
+  type EvalRunSpend,
+  type EvalRunSummary,
+} from "./run/report.js";
+export {
+  CaseComparison,
+  type EvalCaseComparison,
+  type EvalCasePasses,
+  type EvalRunComparison,
+} from "./run/comparison.js";
+export {
   toolCall,
   toolInvariant,
   type EvalToolExpectations,

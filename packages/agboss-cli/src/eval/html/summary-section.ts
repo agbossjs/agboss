@@ -1,4 +1,4 @@
-import type { EvalRunReport } from "agboss/internal";
+import type { EvalRunReport } from "agboss/eval";
 import { shareText, usdText } from "./format.js";
 import { element } from "./html.js";
 import { sectionOf, type ReportSection } from "./sections.js";

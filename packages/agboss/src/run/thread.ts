@@ -1,6 +1,7 @@
 import { AGBossError } from "../core/errors.js";
 import type { HistoryTurn, ReaderMemory } from "../flow/runtime/history.js";
 import type { Summary, Tern, TernRecords, TernStore } from "../terns/index.js";
+import { isTurn, toTurns } from "./turns.js";
 import { CompactionStrategy, type UncompactedTurns } from "../compaction/compaction.decorator.js";
 import { TurnLimit } from "../config/types.js";
 import {
@@ -118,13 +119,6 @@ export async function checkThreadAccess(
   if (thread === undefined) throw unknownThread(bundle, access.threadId);
   if (thread.owner !== access.ownerId) throw notTheOwner(access.threadId);
 }
-
-/** Whether a record is a turn of its thread (S8): a finished execution, not a failed or paused one. */
-export const isTurn = (tern: Tern): boolean => tern.status === "answered" && tern.replyWith !== "";
-
-/** The thread's turns (S8): only finished executions, each as its start and finish line. */
-export const toTurns = (terns: readonly Tern[]): HistoryTurn[] =>
-  terns.filter(isTurn).map(({ task, replyWith }) => ({ start: task, finish: replyWith }));
 
 /** A window as a count of turns: `TurnLimit.ALL` is every one. */
 const depthOf = (window: UncompactedTurns): number =>

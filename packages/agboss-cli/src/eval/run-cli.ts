@@ -1,5 +1,6 @@
 import {
   builtApplicationOf,
+  compareEvalRuns,
   loadEvalSuites,
   runEvalSuite,
   type FoundEvalSuite,
@@ -15,14 +16,16 @@ import {
 import { envOption } from "../cli/environment.js";
 import { CliError, usageError } from "../cli/errors.js";
 import { writeOutputFile } from "./output-file.js";
+import { baselineOf, comparisonLines, regressionFailure } from "./baseline.js";
 import { printRunTable } from "./run-report.js";
 
 /**
- * `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--env <name>]`
- * (#396 PR 2): the application built as `createApp` builds it, the suite run on it — every case
- * `--runs` times — its table printed, the artifact written with `--report`, then its HTML report with
- * `--html` (#397 PR 1). The exit code says whether it ran, never
- * how well (`--fail-on-regression` comes with `--baseline`).
+ * `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline
+ * <run.json> [--fail-on-regression]] [--profile <name>] [--env <name>]` (#396 PR 2, PR 3): the
+ * application built as `createApp` builds it, the suite run on it — every case `--runs` times — its
+ * table printed, each case against the baseline, the artifact written with `--report`, then its HTML
+ * report with `--html` (#397 PR 1). The exit code says whether it ran — and, with
+ * `--fail-on-regression`, 5 when a case regressed.
  */
 
 const COMMAND = "eval run";
@@ -61,14 +64,20 @@ export async function evalRunCommand(context: CommandContext): Promise<CommandOu
   const runs = runsOf(context);
   const loaded = await loadCliApplication(context);
   const found = suiteOf(context, await loadEvalSuites(loaded.application, loadOptions(context)));
+  const baseline = baselineOf(context, found.name);
   const built = await builtApplicationOf(loaded.application, {
     env: envOption(context),
+    profile: textOption(context.values, "profile"),
     processEnv: context.io.env,
     profileRoot: context.io.cwd,
   });
   try {
-    const report = await runEvalSuite(built, found.suite, { runs });
-    printRunTable(context, report);
+    const ran = await runEvalSuite(built, found.suite, { runs });
+    printRunTable(context, ran);
+    const comparison =
+      baseline === undefined ? undefined : compareEvalRuns(baseline.report, ran, baseline.file);
+    const report = comparison === undefined ? ran : { ...ran, baseline: comparison };
+    if (comparison !== undefined) comparisonLines(comparison).forEach(context.say);
     const path = textOption(context.values, "report");
     if (path !== undefined) {
       writeOutputFile(context, path, `${JSON.stringify(report, null, 2)}\n`);
@@ -79,10 +88,12 @@ export async function evalRunCommand(context: CommandContext): Promise<CommandOu
     if (html !== undefined)
       await (await import("./html-report.js")).writeHtmlReport(context, html, report);
     const created = [path, html].filter((file) => file !== undefined);
+    const failure = comparison === undefined ? undefined : regressionFailure(context, comparison);
     return {
       result: report,
       ...(created.length === 0 ? {} : { created }),
       warnings: built.app.warnings,
+      ...(failure === undefined ? {} : { failure }),
     };
   } finally {
     await built.app.close();

@@ -1192,7 +1192,11 @@ recording is `[vcr.stale-cassette]`.
    with the summary, the unstable cases and an attempt dot per run, each opening that run's checks.
 2. Loop 3: the same run on `main` gives the run artifact (`--report`), kept as the reference the
    next runs are read against. `npx agboss eval show <run.json> --html <report.html>` renders a saved
-   artifact again — in CI, from the artifact a run already made, without a second model bill.
+   artifact again — in CI, from the artifact a run already made, without a second model bill. A
+   branch runs `npx agboss eval run --suite <name> --runs <k> --baseline <run.json>
+--fail-on-regression` — each case against the same case on `main`, exit 5 (`eval.regressed`)
+   only when a case stable there (pass^k) is not now. A case that flapped on `main` too is
+   quarantined (`CaseComparison.FlakyOnBaseline`), never a failure: move it to deterministic code.
 
 ## Eval suites: `@EvalSuite` (`agboss/eval`)
 
@@ -1320,6 +1324,30 @@ cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `
   each opening that run's execution, error and checks. It shows only what the artifact holds.
   `npx agboss eval show <run.json> [--html <report.html>]` reads a saved artifact back: the table,
   and the same page; it runs nothing.
+- `--profile <name>` runs the suite on `profiles/<workflow>/<name>.yaml`; the case's `history` turns
+  are kept `ExecutionRecordStatus.Written` — turns of their thread, never runs `npx agboss eval
+score` scores or `npx agboss golden add` saves.
+
+### Against a baseline: `--baseline <run.json> [--fail-on-regression]`
+
+```
+npx agboss eval run --suite screening-eval-suite --runs 3 --env eval --baseline main.json --fail-on-regression
+```
+
+- The baseline is a run artifact (`--report` of a run of `main`; its type `EvalRunReport`, public in
+  `agboss/eval` with `EVAL_RUN_KIND` and `EVAL_RUN_SCHEMA_VERSION`), read before anything runs: another
+  `kind`, another `schemaVersion`, a missing field (`eval.run-invalid`), no file
+  (`eval.run-not-found`) or a run of another suite (`eval.run-invalid`) — exit 2. `--fail-on-regression` needs `--baseline`.
+- Each case is compared by name — `CaseComparison`: `Regressed` (pass^k on the baseline, not now),
+  `Improved` (no pass@k there, pass@k now), `Unchanged`, `FlakyOnBaseline` (pass@k without pass^k on
+  the baseline: quarantined), `New`, `Removed`, `Changed` (another `caseHash`: the case, its tools'
+  expectations, its judges, the suite's checks or cascade changed — not compared).
+- It prints `case baseline candidate verdict` (`3/3 1/3 regressed`, `flaky-on-baseline
+(quarantined)`, `changed (not compared)`) and the counts (`1 regressed · 1 quarantined · 1
+unchanged`); the artifact and `--json` gain `baseline` (`EvalRunComparison`: the file, its
+  `configHash`, `startedAt`, `runs`, each case's verdict with both sides' passes, `regressed`).
+- With `--fail-on-regression` a regression is exit 5 (`quality`, `eval.regressed`: `1 case regressed
+against main.json: refund-within-policy`); without it the run exits 0 and shows the table.
 
 ## Evals on real traffic
 

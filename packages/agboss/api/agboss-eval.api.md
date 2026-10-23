@@ -5,6 +5,17 @@
 ```ts
 
 // @public
+export enum CaseComparison {
+    Changed = "changed",
+    FlakyOnBaseline = "flaky-on-baseline",
+    Improved = "improved",
+    New = "new",
+    Regressed = "regressed",
+    Removed = "removed",
+    Unchanged = "unchanged"
+}
+
+// @public
 export enum CheckStatus {
     // (undocumented)
     Failed = "failed",
@@ -15,6 +26,12 @@ export enum CheckStatus {
 
 // @public
 export const checkTrajectory: () => TrajectoryEvalCheck;
+
+// @public
+export const EVAL_RUN_KIND = "agboss.eval-run";
+
+// @public
+export const EVAL_RUN_SCHEMA_VERSION = 1;
 
 // @public
 export enum EvalCascade {
@@ -37,6 +54,16 @@ export interface EvalCase {
 // @public
 export const evalCase: <const TCase extends EvalCase>(options: TCase) => TCase;
 
+// @public
+export interface EvalCaseComparison {
+    readonly baseline?: EvalCasePasses;
+    readonly candidate?: EvalCasePasses;
+    // (undocumented)
+    readonly comparison: CaseComparison;
+    // (undocumented)
+    readonly name: string;
+}
+
 // Warning: (ae-forgotten-export) The symbol "EvalContextsOf" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "EvalTurnsOf" needs to be exported by the entry point index.d.ts
 //
@@ -44,7 +71,42 @@ export const evalCase: <const TCase extends EvalCase>(options: TCase) => TCase;
 export type EvalCaseOf<TStart> = Omit<EvalCase, "tenant" | "execution" | "turns" | "variants"> & EvalContextsOf<TStart> & EvalTurnsOf<TStart>;
 
 // @public
+export interface EvalCasePasses {
+    // (undocumented)
+    readonly passed: number;
+    // (undocumented)
+    readonly runs: number;
+}
+
+// @public
+export interface EvalCaseReport {
+    readonly caseHash: string;
+    readonly isUnstable: boolean;
+    // (undocumented)
+    readonly name: string;
+    readonly passAtK: boolean;
+    readonly passed: number;
+    readonly passHatK: boolean;
+    // (undocumented)
+    readonly runResults: readonly EvalRunResult[];
+    // (undocumented)
+    readonly runs: number;
+}
+
+// @public
 export type EvalCheck = TrajectoryEvalCheck | JudgeEvalCheck;
+
+// @public
+export interface EvalCheckResult {
+    readonly check: string;
+    // Warning: (ae-forgotten-export) The symbol "JudgeMetrics" needs to be exported by the entry point index.d.ts
+    readonly metrics?: JudgeMetrics;
+    readonly reason?: string;
+    readonly skippedBy?: string;
+    readonly spentUsd?: number;
+    // (undocumented)
+    readonly status: CheckStatus;
+}
 
 // @public
 export interface EvalPastTurn {
@@ -58,6 +120,100 @@ export interface EvalPastTurn {
     //
     // (undocumented)
     readonly start: Class;
+}
+
+// @public
+export interface EvalRunComparison {
+    // (undocumented)
+    readonly cases: readonly EvalCaseComparison[];
+    readonly configHash: string;
+    readonly file: string;
+    readonly regressed: readonly string[];
+    // (undocumented)
+    readonly runs: number;
+    // (undocumented)
+    readonly startedAt: string;
+}
+
+// @public
+export interface EvalRunComponent {
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly version: string;
+}
+
+// @public
+export interface EvalRunError {
+    // (undocumented)
+    readonly code: string;
+    // (undocumented)
+    readonly message: string;
+}
+
+// @public
+export interface EvalRunReport {
+    // (undocumented)
+    readonly application: EvalRunComponent;
+    readonly baseline?: EvalRunComparison;
+    // (undocumented)
+    readonly cascade: EvalCascade;
+    // (undocumented)
+    readonly cases: readonly EvalCaseReport[];
+    readonly configHash: string;
+    // (undocumented)
+    readonly endedAt: string;
+    // (undocumented)
+    readonly environment: string;
+    // (undocumented)
+    readonly kind: typeof EVAL_RUN_KIND;
+    readonly runs: number;
+    // (undocumented)
+    readonly schemaVersion: typeof EVAL_RUN_SCHEMA_VERSION;
+    // (undocumented)
+    readonly spend: EvalRunSpend;
+    // (undocumented)
+    readonly start: string;
+    readonly startedAt: string;
+    // (undocumented)
+    readonly suite: string;
+    // (undocumented)
+    readonly summary: EvalRunSummary;
+    // (undocumented)
+    readonly workflow: EvalRunComponent;
+}
+
+// @public
+export interface EvalRunResult {
+    // (undocumented)
+    readonly checks: readonly EvalCheckResult[];
+    readonly error?: EvalRunError;
+    readonly executionId?: string;
+    readonly finish?: string;
+    readonly passed: boolean;
+    readonly run: number;
+    readonly spentUsd: number;
+    // (undocumented)
+    readonly threadId: string;
+}
+
+// @public
+export interface EvalRunSpend {
+    // (undocumented)
+    readonly totalUsd: number;
+}
+
+// @public
+export interface EvalRunSummary {
+    // (undocumented)
+    readonly cases: number;
+    readonly judgeCalls: number;
+    readonly passAtK: number;
+    readonly passHatK: number;
+    // (undocumented)
+    readonly skippedByCascade: number;
+    // (undocumented)
+    readonly unstable: number;
 }
 
 // @public
@@ -153,6 +309,39 @@ export const turn: <const TInput>(input: TInput) => EvalTurn<TInput>;
 
 // Warnings were encountered during analysis:
 //
+// src/eval/run/comparison.ts:26:3 - (ae-undocumented) Missing documentation for "passed".
+// src/eval/run/comparison.ts:27:3 - (ae-undocumented) Missing documentation for "runs".
+// src/eval/run/comparison.ts:32:3 - (ae-undocumented) Missing documentation for "name".
+// src/eval/run/comparison.ts:33:3 - (ae-undocumented) Missing documentation for "comparison".
+// src/eval/run/comparison.ts:46:3 - (ae-undocumented) Missing documentation for "startedAt".
+// src/eval/run/comparison.ts:47:3 - (ae-undocumented) Missing documentation for "runs".
+// src/eval/run/comparison.ts:48:3 - (ae-undocumented) Missing documentation for "cases".
+// src/eval/run/report.ts:22:3 - (ae-undocumented) Missing documentation for "status".
+// src/eval/run/report.ts:35:3 - (ae-undocumented) Missing documentation for "code".
+// src/eval/run/report.ts:36:3 - (ae-undocumented) Missing documentation for "message".
+// src/eval/run/report.ts:43:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/eval/run/report.ts:50:3 - (ae-undocumented) Missing documentation for "checks".
+// src/eval/run/report.ts:59:3 - (ae-undocumented) Missing documentation for "name".
+// src/eval/run/report.ts:64:3 - (ae-undocumented) Missing documentation for "runs".
+// src/eval/run/report.ts:71:3 - (ae-undocumented) Missing documentation for "runResults".
+// src/eval/run/report.ts:76:3 - (ae-undocumented) Missing documentation for "cases".
+// src/eval/run/report.ts:81:3 - (ae-undocumented) Missing documentation for "unstable".
+// src/eval/run/report.ts:84:3 - (ae-undocumented) Missing documentation for "skippedByCascade".
+// src/eval/run/report.ts:89:3 - (ae-undocumented) Missing documentation for "name".
+// src/eval/run/report.ts:90:3 - (ae-undocumented) Missing documentation for "version".
+// src/eval/run/report.ts:95:3 - (ae-undocumented) Missing documentation for "totalUsd".
+// src/eval/run/report.ts:100:3 - (ae-undocumented) Missing documentation for "kind".
+// src/eval/run/report.ts:101:3 - (ae-undocumented) Missing documentation for "schemaVersion".
+// src/eval/run/report.ts:102:3 - (ae-undocumented) Missing documentation for "suite".
+// src/eval/run/report.ts:103:3 - (ae-undocumented) Missing documentation for "application".
+// src/eval/run/report.ts:104:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/eval/run/report.ts:107:3 - (ae-undocumented) Missing documentation for "start".
+// src/eval/run/report.ts:108:3 - (ae-undocumented) Missing documentation for "environment".
+// src/eval/run/report.ts:111:3 - (ae-undocumented) Missing documentation for "cascade".
+// src/eval/run/report.ts:114:3 - (ae-undocumented) Missing documentation for "endedAt".
+// src/eval/run/report.ts:115:3 - (ae-undocumented) Missing documentation for "cases".
+// src/eval/run/report.ts:116:3 - (ae-undocumented) Missing documentation for "summary".
+// src/eval/run/report.ts:117:3 - (ae-undocumented) Missing documentation for "spend".
 // src/eval/suite/cases.ts:15:3 - (ae-undocumented) Missing documentation for "input".
 // src/eval/suite/cases.ts:20:3 - (ae-undocumented) Missing documentation for "start".
 // src/eval/suite/cases.ts:21:3 - (ae-undocumented) Missing documentation for "input".

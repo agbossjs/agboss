@@ -1,5 +1,6 @@
 import type { JudgeMetrics } from "../../components/judge-decorators.js";
 import { CheckStatus, type EvalCascade } from "../suite/checks.js";
+import type { EvalRunComparison } from "./comparison.js";
 
 /**
  * The run artifact of `agboss eval run --report <run.json>` (#396 PR 2, S3): every case run `runs`
@@ -114,6 +115,8 @@ export interface EvalRunReport {
   readonly cases: readonly EvalCaseReport[];
   readonly summary: EvalRunSummary;
   readonly spend: EvalRunSpend;
+  /** The run against `--baseline <run.json>` (#396 PR 3); absent without one. */
+  readonly baseline?: EvalRunComparison;
 }
 
 /** A case's report from its runs: pass@k = one run passed, pass^k = every run passed (n = k). */

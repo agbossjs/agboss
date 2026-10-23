@@ -32,6 +32,11 @@ export enum ExecutionRecordStatus {
   Failed = "failed",
   /** It waits for a decision. */
   Paused = "paused",
+  /**
+   * A past turn an eval case wrote into its thread (#396 S6: `evalCase({ history })`), never run: a
+   * turn its thread's memory reads, left out of `agboss eval score` and `agboss golden add`.
+   */
+  Written = "written",
 }
 
 /**

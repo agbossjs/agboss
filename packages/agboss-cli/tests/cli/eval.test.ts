@@ -4,7 +4,7 @@
  * checks the application's eval suites (Loop 0). The fixture's models answer through a transport
  * provider: no key, no network.
  */
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -177,5 +177,173 @@ describe("#396 PR 2: agboss check checks the eval suites (Loop 0)", () => {
         code: "eval.duplicate-case",
       }),
     ]);
+  });
+});
+
+/** A baseline made from a real run: the run's artifact with some cases' outcomes set. */
+interface BaselineCase {
+  name: string;
+  caseHash: string;
+  passed: number;
+  runs: number;
+  passAtK: boolean;
+  passHatK: boolean;
+  isUnstable: boolean;
+}
+
+async function baselineWith(file: string, edit: (cases: BaselineCase[]) => void): Promise<string> {
+  const path = join(CWD, file);
+  await agboss([...RUN, "--suite", "desk-eval-suite", "--runs", "2", "--report", path], CWD);
+  const written = JSON.parse(readFileSync(path, "utf8")) as { cases: BaselineCase[] };
+  edit(written.cases);
+  writeFileSync(path, JSON.stringify(written));
+  return path;
+}
+
+/** The second case (it fails every run) as if it had passed every run on the baseline. */
+const stableOnBaseline = (cases: BaselineCase[]): void => {
+  Object.assign(cases[1] ?? {}, { passed: 2, passAtK: true, passHatK: true, isUnstable: false });
+};
+
+describe("#396 PR 3: agboss eval run --baseline", () => {
+  it("each case against the baseline; without --fail-on-regression a regression exits 0", async () => {
+    const baseline = await baselineWith("stable.json", stableOnBaseline);
+    const call = await agboss(
+      [...RUN, "--suite", "desk-eval-suite", "--runs", "2", "--baseline", baseline],
+      CWD,
+    );
+
+    expect(call.code).toBe(0);
+    expect(call.stdout).toContain(
+      [
+        "case              baseline  candidate  verdict",
+        "looks-order-7-up  2/2       2/2        unchanged",
+        "looks-order-8-up  2/2       0/2        regressed",
+        "1 regressed · 1 unchanged",
+      ].join("\n"),
+    );
+  });
+
+  it("--fail-on-regression: exit 5, eval.regressed naming the cases", async () => {
+    const baseline = await baselineWith("gate.json", stableOnBaseline);
+    const call = await agboss(
+      [
+        ...RUN,
+        "--suite",
+        "desk-eval-suite",
+        "--runs",
+        "2",
+        "--baseline",
+        baseline,
+        "--fail-on-regression",
+        "--json",
+      ],
+      CWD,
+    );
+
+    expect(call.code).toBe(5);
+    const found = envelope(call);
+    expect(found).toMatchObject({
+      ok: false,
+      error: {
+        code: "eval.regressed",
+        message: `1 case regressed against ${baseline}: looks-order-8-up`,
+      },
+    });
+    const result = found.result as { baseline: { regressed: readonly string[] } };
+    expect(result.baseline.regressed).toEqual(["looks-order-8-up"]);
+  });
+
+  it("a case that flapped on the baseline is quarantined: never a failure", async () => {
+    const baseline = await baselineWith("flaky.json", (cases) => {
+      Object.assign(cases[1] ?? {}, {
+        passed: 1,
+        passAtK: true,
+        passHatK: false,
+        isUnstable: true,
+      });
+    });
+    const call = await agboss(
+      [
+        ...RUN,
+        "--suite",
+        "desk-eval-suite",
+        "--runs",
+        "2",
+        "--baseline",
+        baseline,
+        "--fail-on-regression",
+      ],
+      CWD,
+    );
+
+    expect(call.code).toBe(0);
+    expect(call.stdout).toContain(
+      "looks-order-8-up  1/2       0/2        flaky-on-baseline (quarantined)",
+    );
+    expect(call.stdout).toContain("1 unchanged · 1 quarantined");
+  });
+
+  it("a case whose definition changed is not compared", async () => {
+    const baseline = await baselineWith("changed.json", (cases) => {
+      stableOnBaseline(cases);
+      Object.assign(cases[1] ?? {}, { caseHash: "0000000000000000" });
+    });
+    const call = await agboss(
+      [
+        ...RUN,
+        "--suite",
+        "desk-eval-suite",
+        "--runs",
+        "2",
+        "--baseline",
+        baseline,
+        "--fail-on-regression",
+      ],
+      CWD,
+    );
+
+    expect(call.code).toBe(0);
+    expect(call.stdout).toContain("looks-order-8-up  2/2       0/2        changed (not compared)");
+  });
+
+  it("a file that is no run artifact: exit 2, eval.run-invalid, before anything runs", async () => {
+    const path = join(CWD, "not-a-run.json");
+    writeFileSync(path, JSON.stringify({ kind: "agboss.eval-run", schemaVersion: 2 }));
+    const call = await agboss(
+      [...RUN, "--suite", "desk-eval-suite", "--baseline", path, "--json"],
+      CWD,
+    );
+
+    expect(call.code).toBe(2);
+    expect(envelope(call)).toMatchObject({
+      error: {
+        code: "eval.run-invalid",
+        message: `${path} is not a run artifact this agboss reads: schemaVersion 2 — this agboss reads 1`,
+      },
+    });
+  });
+
+  it("--fail-on-regression needs --baseline", async () => {
+    const call = await agboss([...RUN, "--suite", "desk-eval-suite", "--fail-on-regression"], CWD);
+
+    expect(call.code).toBe(2);
+    expect(call.stderr).toContain("--fail-on-regression needs --baseline");
+  });
+
+  it("--profile runs the suite on a profile of the workflow (profiles/<workflow>/<name>.yaml)", async () => {
+    mkdirSync(join(CWD, "profiles", "lookup-workflow"), { recursive: true });
+    writeFileSync(
+      join(CWD, "profiles", "lookup-workflow", "next.yaml"),
+      "profile: next\nversion: 1.0.0-next\n",
+    );
+    const call = await agboss(
+      [...RUN, "--suite", "desk-eval-suite", "--profile", "next", "--json"],
+      CWD,
+    );
+
+    expect(call.code).toBe(0);
+    const result = envelope(call).result as { workflow: { version: string } };
+    expect(result.workflow.version).toBe("1.0.0-next");
   });
 });

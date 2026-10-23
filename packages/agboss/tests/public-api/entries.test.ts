@@ -129,10 +129,13 @@ describe("#272 AC8: the path grammar replaces the old flow DSL in every entry", 
     }
   });
 
-  it("agboss/eval (#396) exports the suite's decorator and builders, nothing that runs", () => {
+  it("agboss/eval (#396) exports the suite's decorator and builders and the artifact's values, nothing that runs", () => {
     expect(Object.keys(evals).sort()).toEqual(
       [
+        "CaseComparison",
         "CheckStatus",
+        "EVAL_RUN_KIND",
+        "EVAL_RUN_SCHEMA_VERSION",
         "EvalCascade",
         "EvalSuite",
         "checkTrajectory",

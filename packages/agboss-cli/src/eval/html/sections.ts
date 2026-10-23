@@ -1,4 +1,4 @@
-import type { EvalRunReport } from "agboss/internal";
+import type { EvalRunReport } from "agboss/eval";
 import { element, type HtmlChild, type HtmlElement } from "./html.js";
 
 /**
