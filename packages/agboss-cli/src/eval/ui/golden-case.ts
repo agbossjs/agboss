@@ -141,12 +141,7 @@ export async function saveGoldenCase(
         409,
         `${before.file.path} changed since this page was made: reload it and save again`,
       );
-    const draft = await goldenDraftOf(
-      { history: source.history, suite: report.suite, file: before.file },
-      run,
-      executionId,
-      name,
-    );
+    const draft = await goldenDraftOf(source.history, run, executionId, name);
     const plan = planEvalCase(source.root, draft, {
       application: source.application,
       suite: report.suite,

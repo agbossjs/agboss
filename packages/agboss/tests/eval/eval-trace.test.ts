@@ -144,7 +144,7 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
 
     const report = await runEvalSuite(built, TracedEvalSuite, { runs: 1 });
 
-    expect(report.schemaVersion).toBe(3);
+    expect(report.schemaVersion).toBe(4);
     expect(report.cases[0]?.expectation).toEqual({
       requiredTools: [{ tool: "get-order-tool", arguments: { orderId: "9" } }],
       forbiddenTools: ["delete-order-tool"],
@@ -184,7 +184,7 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
 
     const report = await runEvalSuite(built, TracedEvalSuite, { runs: 1, profile: "cheaper" });
 
-    expect(report.schemaVersion).toBe(3);
+    expect(report.schemaVersion).toBe(4);
     expect(report.profile).toBe("cheaper");
     expect(report.agbossVersion).toBe(frameworkVersion());
     expect(report.models).toEqual([

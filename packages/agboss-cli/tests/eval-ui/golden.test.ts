@@ -51,9 +51,14 @@ afterAll(async () => {
   rmSync(FOLDER, { recursive: true, force: true });
 });
 
-const ranRun = (run: number, executionId: string | undefined): EvalRunResult => ({
+const ranRun = (
+  run: number,
+  executionId: string | undefined,
+  tenantId: string | null = "acme",
+): EvalRunResult => ({
   run,
   threadId: "thread-1",
+  ...(tenantId === null ? {} : { tenantId }),
   ...(executionId === undefined ? {} : { executionId }),
   finish: "desk-workflow-finish",
   passed: true,
@@ -64,7 +69,7 @@ const ranRun = (run: number, executionId: string | undefined): EvalRunResult => 
 const ARTIFACT = artifactOf(
   [
     caseOf("refund-order-7", [ranRun(1, "e1"), ranRun(2, "nowhere")]),
-    caseOf("refund-not-in-the-suite", [ranRun(1, "e1")]), // no tenant to read: the file lacks it
+    caseOf("refund-before-tenants", [ranRun(1, "e1", null)]), // a schemaVersion 3 run: no tenant
   ],
   2,
 );
@@ -191,7 +196,7 @@ describe("#397 PR 5: a golden case saved", () => {
     expect(suiteOf(root)).toBe(before);
   });
 
-  it("an execution two tenants kept: the case's own tenant's, from the suite's file (#397 PR 5b)", async () => {
+  it("an execution two tenants kept: the run's own tenant's (#397 PR 5b)", async () => {
     const root = projectOf();
 
     expect((await post(settingsOf(root), formOf(root))).status).toBe(303);
@@ -200,15 +205,15 @@ describe("#397 PR 5: a golden case saved", () => {
     );
   });
 
-  it("its case names no tenant: 409 in the page's words, no CLI option, nothing written", async () => {
+  it("a run recorded before runs carried their tenant: 409 in the page's words, no CLI option", async () => {
     const root = projectOf();
     const before = suiteOf(root);
 
-    const answer = await post(settingsOf(root), formOf(root, { run: "refund-not-in-the-suite#1" }));
+    const answer = await post(settingsOf(root), formOf(root, { run: "refund-before-tenants#1" }));
 
     expect(answer.status).toBe(409);
     expect(answer.body.trimEnd()).toBe(
-      `the execution e1 of this run is kept for several tenants (acme, globex) and the case refund-not-in-the-suite does not name its tenant in ${SUITE_FILE}: write its tenant: { tenantId } there, then reload and save again`,
+      "the execution e1 of this run is kept for several tenants (acme, globex), and this run was recorded before runs carried their tenant: run the suite again and save from the new run",
     );
     expect(answer.body).not.toContain("--");
     expect(suiteOf(root)).toBe(before);

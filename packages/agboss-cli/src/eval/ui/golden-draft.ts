@@ -2,13 +2,11 @@ import type { ExecutionHistoryRecord } from "agboss";
 import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "agboss/eval";
 import type { EvalCaseDraft, OpenedExecutionHistory } from "agboss/internal";
 import { recordDraftOf } from "../../cli/generate-eval-case.js";
-import { caseTenantIdOf } from "../../scaffold/eval-case-tenant.js";
-import type { FileToWrite } from "../../scaffold/write.js";
 
 /**
  * The draft of "save as golden case" (#397 PR 5b): the run's own execution — the kept record with
- * the run's execution id, on the run's thread, of the tenant its case is written for (when the
- * suite's file says) — drafted like `agboss generate eval-case` drafts one. Refusals are worded for
+ * the run's execution id, on the run's thread, of the run's tenant (`EvalRunResult.tenantId`,
+ * schemaVersion 4) — drafted like `agboss generate eval-case` drafts one. Refusals are worded for
  * the page that posted the form, never with the CLI's options.
  */
 
@@ -37,21 +35,14 @@ export function formRunOf(report: EvalRunReport, run: string): FormRun | undefin
   return found === undefined || result === undefined ? undefined : { caseIndex, found, result };
 }
 
-/** What the draft is made from. */
-export interface GoldenDraftSource {
-  readonly history: OpenedExecutionHistory["history"];
-  readonly suite: string;
-  readonly file: FileToWrite;
-}
-
 /** The one kept record of the run, or why there is none. */
 async function runRecordOf(
-  source: GoldenDraftSource,
-  { found, result }: FormRun,
+  history: OpenedExecutionHistory["history"],
+  { result }: FormRun,
   executionId: string,
 ): Promise<ExecutionHistoryRecord> {
-  const tenantId = caseTenantIdOf(source.file, source.suite, found.name);
-  const records = (await source.history.findAllByExecutionId(executionId)).filter(
+  const { tenantId } = result;
+  const records = (await history.findAllByExecutionId(executionId)).filter(
     (record) =>
       record.threadId === result.threadId &&
       (tenantId === undefined || record.tenantId === tenantId),
@@ -66,13 +57,13 @@ async function runRecordOf(
     );
   throw new GoldenRefusal(
     409,
-    `the execution ${executionId} of this run is kept for several tenants (${records.map((each) => each.tenantId).join(", ")}) and the case ${found.name} does not name its tenant in ${source.file.path}: write its tenant: { tenantId } there, then reload and save again`,
+    `the execution ${executionId} of this run is kept for several tenants (${records.map((each) => each.tenantId).join(", ")}), and this run was recorded before runs carried their tenant: run the suite again and save from the new run`,
   );
 }
 
 /** The new case `name`, from the run's own execution. */
 export async function goldenDraftOf(
-  source: GoldenDraftSource,
+  history: OpenedExecutionHistory["history"],
   run: FormRun,
   executionId: string,
   name: string,
@@ -82,5 +73,5 @@ export async function goldenDraftOf(
       400,
       `the form names run ${run.found.name}#${String(run.result.run)}, but its execution is ${run.result.executionId ?? "none"}, not ${executionId}`,
     );
-  return recordDraftOf(source.history, name, await runRecordOf(source, run, executionId));
+  return recordDraftOf(history, name, await runRecordOf(history, run, executionId));
 }
