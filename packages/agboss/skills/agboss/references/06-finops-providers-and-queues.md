@@ -399,6 +399,12 @@ cacheWriteTokens? }` — the rate limit's tokens and the price table's), `cost?`
 - **Failures**: throw `ModelProviderFailureError(ModelFailure.…, { retryAfter?, cause? })` — the
   retry policy retries the failures it lists, `RateLimited` pauses the whole queue for
   `retryAfter`, the breaker counts it. Any other error is not retried and counted by the breaker.
+- **Its lifecycle** is a component's (#385 S4): created on its first call, its `onInit` → `onStart`
+  (`implements OnInit, OnStart, …`) run, awaited, before that call's `complete()` — once, however
+  many first calls arrive together. A failing hook fails that call with the start's error
+  (`[di.hook-failed] BedrockModelProvider.onStart failed: …`), and the next call tries again. At
+  `app.close()` a created transport gets `onStop` / `onDestroy` in the usual order; one never
+  called gets no hook.
 - `capabilities(model, connection)` is optional on a transport: given, it is checked at start like
   an HTTP provider's; absent, its models' settings are not checked (`npx agboss check --models`
   never creates a transport). `npx agboss describe` prints `bedrock-model-provider →

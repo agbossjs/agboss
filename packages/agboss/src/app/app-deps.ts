@@ -222,7 +222,7 @@ export async function createWorkflowDeps(
   const { gateway, startModels, ...models } = await appModelsFor(bundle, options, parts, contexts);
   const lifecycle = lifecycleOf(options.container, parts.created);
   const services = servicesFor(bundle, gateway, contexts, lifecycle.options);
-  await startModels(bundle.resolve(services)); // transport providers (#385): the app's container
+  await startModels({ resolve: bundle.resolve(services), created: lifecycle.created }); // #385
   const tools: readonly AnyTool[] = resolveTools(bundle, services);
   const config = models.priced(validateAgentsConfig(bundle.config, tools.map(nameOfTool)));
   const connect = options.connectMcp ?? connectConfigured(options.transport);

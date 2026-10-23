@@ -21,8 +21,8 @@ export interface TransportChatModelParts {
   readonly reasoning: Reasoning;
   readonly promptCaching: PromptCaching;
   readonly resilience: ResilienceOptions;
-  /** The provider's `complete`, its instance created by the application's container on first use. */
-  readonly complete: () => TransportCall;
+  /** The provider's `complete`, its instance created (and started) by the container on first use. */
+  readonly complete: () => Promise<TransportCall>;
 }
 
 /**
@@ -80,7 +80,7 @@ export class TransportChatModel extends BaseChatModel {
   ): Promise<ChatResult> {
     const { resilience, settings, provider } = this.parts;
     const carrier = transportCarrier(
-      this.parts.complete(),
+      await this.parts.complete(),
       this.requestOf(messages),
       options.signal,
     );
