@@ -5,10 +5,13 @@ Breaking changes and notable additions, newest first. The API reports
 
 ## Unreleased — "save as golden case" takes the run's own tenant (#397 PR 5b)
 
-- **Fixed** — *Save as golden case* reads the run's own execution: on the run's thread, of the
-  tenant its case is written for; an execution id kept for several tenants no longer answers with a
-  CLI hint (`--tenant`) — a case without a tenant is `409`, worded for the page
-  ([Eval suites](Eval-Suites#saving-a-run-as-a-golden-case-397-pr-5)).
+- **Changed — the run artifact is `schemaVersion` 4**: each run result keeps its `tenantId` (the
+  tenant its turns ran for); versions 1 to 3 are still read
+  ([Eval suites](Eval-Suites#the-run-artifact)).
+- **Fixed** — *Save as golden case* reads the run's own execution: on the run's thread, of the run's
+  `tenantId`; an execution id kept for several tenants no longer answers with a CLI hint
+  (`--tenant`) — for a run from before version 4 it is `409`, worded for the page: run the suite
+  again ([Eval suites](Eval-Suites#saving-a-run-as-a-golden-case-397-pr-5)).
 
 ## Unreleased — the Mesh Hub: execution trees across applications (#401 PR 4)
 

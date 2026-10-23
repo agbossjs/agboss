@@ -312,14 +312,14 @@ against, so it says what it is and the version of its shape (#396 S3):
 | Field | What it holds |
 | --- | --- |
 | `kind` | always `"agboss.eval-run"` |
-| `schemaVersion` | `3` (#397 PR 3; `1` and `2` before it, still read): a reader refuses a version it does not know |
+| `schemaVersion` | `4` (#397 PR 5b; `1` to `3` before it, still read): a reader refuses a version it does not know |
 | `suite`, `start`, `cascade`, `runs` | the suite's name and start, its cascade, k |
 | `application`, `workflow` | `{ name, version }` of each |
 | `configHash` | the workflow's fingerprint (`agboss describe --json`): what the runs ran on |
 | `environment` | the environment's name |
 | `startedAt`, `endedAt` | ISO 8601, on the application's `Clock` |
 | `cases[]` | `name`, `caseHash` (the case as written, its tools' expectations, judges, the suite's checks and cascade — a changed case is not compared), `passed` (runs that passed), `runs`, `passAtK`, `passHatK`, `isUnstable`, `runResults[]`, `expectation?` (version 2: `EvalCaseExpectation` — `requiredTools` by name with their partial arguments, masked, `forbiddenTools`, `invariantTools`, `checks` in order) |
-| `cases[].runResults[]` | `run` (1…k), `threadId`, `executionId` and `finish` of the last turn, `passed`, `checks[]`, `error?`, `spentUsd`, `trace?` (version 2, [below](#a-runs-trace-schemaversion-2-397)) |
+| `cases[].runResults[]` | `run` (1…k), `threadId`, `tenantId` (version 4: the tenant its turns ran for — the case's, else the default one), `executionId` and `finish` of the last turn, `passed`, `checks[]`, `error?`, `spentUsd`, `trace?` (version 2, [below](#a-runs-trace-schemaversion-2-397)) |
 | `…checks[]` | `check` (`trajectory`, the judge's name or `metamorphic`), `status` (`CheckStatus`: `passed`, `failed`, `skipped`), `reason?`, `skippedBy?` (the failed check that skipped it), `metrics?` (a judge's), `spentUsd?` (a model judge's) |
 | `summary` | `cases`, `passAtK`, `passHatK`, `unstable` (counts of cases), `judgeCalls` (judge checks that ran), `skippedByCascade` |
 | `spend` | `{ totalUsd }`: every turn's execution and every judge's model calls |
@@ -413,10 +413,10 @@ The file is written whole and atomically (a temporary file renamed over it), and
 the one the page was made from: the form carries the file's ETag (a hash of its content), and a
 file changed since — by another save, an editor, a pull — is `409` (reload the page and save again).
 A case of the same name is `409` and the file stays as it was. The execution is the run's own
-(#397 PR 5b): the kept record with the run's execution id on the run's thread, of the tenant its case
-is written for (`tenant: { tenantId: "acme" }` in the suite's file) — so an id another tenant kept
-too is never taken by mistake. One the history does not have is `404`; one kept for several tenants
-of a case that names no tenant is `409`, asking to write its `tenant` into the case; a form whose run
+(#397 PR 5b): the kept record with the run's execution id on the run's thread, of the run's
+`tenantId` (the artifact keeps it from `schemaVersion` 4) — so an id another tenant kept too is never
+taken by mistake. One the history does not have is `404`; one kept for several tenants, of a run
+recorded before runs carried their tenant, is `409`: run the suite again and save from the new run; a form whose run
 and execution do not match the artifact, or without a name, `400`. The form is protected like a label's: the token in its
 body, the page's `Origin`, the `Host` — else `403`. Review the case in your editor and commit it.
 
