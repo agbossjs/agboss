@@ -20,6 +20,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { inLoopFrame } from "../../flow/context/frame.js";
 import type { AsyncNode } from "../types.js";
 import { makeToolNode } from "./tools-node.js";
+import { carryingLoopRecords as carrying } from "./loop-records.js";
 
 /**
  * After a model turn: an answer tool → the answer; other tool calls (read or not) → the boundary;
@@ -54,15 +55,15 @@ const inLoopFrameOf =
 
 function createLoopGraph(deps: AgentLoopDeps, checkpointer: BaseCheckpointSaver | undefined) {
   return new StateGraph(AgentLoopState)
-    .addNode(LOOP_NODE.input, makeInputNode(deps))
-    .addNode(LOOP_NODE.model, inLoopFrameOf(makeModelNode(deps), 1))
-    .addNode(LOOP_NODE.boundary, makeBoundaryNode(deps))
-    .addNode(LOOP_NODE.approval, inLoopFrameOf(makeApprovalNode(deps), 0))
+    .addNode(LOOP_NODE.input, carrying(makeInputNode(deps)))
+    .addNode(LOOP_NODE.model, inLoopFrameOf(carrying(makeModelNode(deps)), 1))
+    .addNode(LOOP_NODE.boundary, carrying(makeBoundaryNode(deps)))
+    .addNode(LOOP_NODE.approval, inLoopFrameOf(carrying(makeApprovalNode(deps)), 0))
     .addNode<typeof LOOP_NODE.tool, ToolTask>(LOOP_NODE.tool, makeToolNode(deps))
-    .addNode(LOOP_NODE.collect, makeCollectNode(deps))
-    .addNode(LOOP_NODE.reply, makeReplyNode(deps))
-    .addNode(LOOP_NODE.answer, makeAnswerNode(deps))
-    .addNode(LOOP_NODE.judge, makeJudgeNode(deps))
+    .addNode(LOOP_NODE.collect, carrying(makeCollectNode(deps)))
+    .addNode(LOOP_NODE.reply, carrying(makeReplyNode(deps)))
+    .addNode(LOOP_NODE.answer, carrying(makeAnswerNode(deps)))
+    .addNode(LOOP_NODE.judge, carrying(makeJudgeNode(deps)))
     .addEdge(START, LOOP_NODE.input)
     .addEdge(LOOP_NODE.input, LOOP_NODE.model)
     .addConditionalEdges(LOOP_NODE.model, afterModel(deps), [
@@ -92,7 +93,8 @@ export type AgentLoopGraph = ReturnType<typeof createLoopGraph>;
  * One agent's own loop as a compiled subgraph: input → model → boundary → (approval ⟲) → tool × N
  * (`Send`) → collect → model … → reply or answer → judge. Added inside one node of the workflow
  * graph, it checkpoints through the run's checkpointer (a checkpointer given here makes it a graph
- * of its own, as in tests).
+ * of its own, as in tests). A node that fails carries the loop's records to where the failure is
+ * recorded (#395 S6).
  */
 export function agentLoopGraph(
   deps: AgentLoopDeps,

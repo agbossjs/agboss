@@ -15,6 +15,7 @@ import {
   type ChildLaunchRecord,
 } from "./child-records.js";
 import type { ExecutionStateType } from "./state.js";
+import { carriedRecordsOf, type CarriedRecords } from "./carried-records.js";
 import { unrecordedSpendOf } from "./node-runner.js";
 
 /**
@@ -45,14 +46,24 @@ export const ownUsageOf = (
   identity: ChildIdentityRecord,
 ): readonly UsageRecord[] => state?.usage.slice(identity.inheritedUsage) ?? [];
 
-/** What a child's state holds of its own: its path, tool calls (#395) and children. */
+/**
+ * What a child's state holds of its own — its path, tool calls and steps (#395) and children — with
+ * what its failure carries of the visit that failed (S6).
+ */
 const ownRecordsOf = (
   state: ExecutionStateType | undefined,
-): Pick<EndedChildRecord, "path" | "toolCalls" | "children"> => ({
-  path: state?.path ?? [],
-  toolCalls: state?.toolCalls ?? [],
-  children: state?.children ?? [],
-});
+  carried: CarriedRecords | undefined,
+): Pick<EndedChildRecord, "path" | "toolCalls" | "steps" | "children"> => {
+  const failed = carried ?? carriedRecordsOf(undefined);
+  if (state === undefined)
+    return { path: [], toolCalls: [...failed.toolCalls], steps: [...failed.steps], children: [] };
+  return {
+    path: state.path,
+    toolCalls: [...state.toolCalls, ...failed.toolCalls],
+    steps: [...state.stepRecords, ...failed.steps],
+    children: state.children,
+  };
+};
 
 /** The nested record of a child that ended. */
 export function childRecordOf(
@@ -62,6 +73,8 @@ export function childRecordOf(
     readonly status: ChildExecutionStatus;
     readonly usage: readonly UsageRecord[];
     readonly error?: unknown;
+    /** What its failure carried of the visit that failed (#395 S6). */
+    readonly carried?: CarriedRecords;
   },
 ): EndedChildRecord {
   const { identity } = child;
@@ -82,7 +95,7 @@ export function childRecordOf(
       : {}),
     ...(end.error === undefined ? {} : { error: errorRecordOf(end.error) }),
     spend: buildCostReport(end.usage),
-    ...ownRecordsOf(state),
+    ...ownRecordsOf(state, end.carried),
   };
 }
 

@@ -3,6 +3,7 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import type { RunContext } from "../../core/run-context.js";
 import type { GraphDeps } from "../../graph/deps.js";
+import { takeCarriedRecords } from "./carried-records.js";
 import {
   CompensationFailedError,
   compensationRecordsOf,
@@ -119,7 +120,9 @@ export async function failedChild(
   const undone = await undoneChild(parent, ended, failure.thrown, { last, config, error });
   const raised = undone.thrown;
   await keptForParent(parent, failure, raised);
-  frame.services.recordChild?.(childRecordOf(ended, last, { ...failure, error: raised }));
+  // the failed visit's calls and step, carried by the child's own error (#395 S6), are the child's
+  const carried = takeCarriedRecords(error);
+  frame.services.recordChild?.(childRecordOf(ended, last, { ...failure, error: raised, carried }));
   // what the child masked stays revealable by the parent's side path (#120)
   if (last !== undefined) frame.services.keepPiiTokens?.(last.piiTokens);
   const asError = raised instanceof Error ? raised : new Error(String(error));

@@ -37,6 +37,11 @@ export enum ToolCallStatus {
    * step fails with `ToolBlockedError` (its record in `error`).
    */
   Blocked = "blocked",
+  /**
+   * The model called a tool its agent does not have (#395 S6): nothing ran, the model read that
+   * there is no such tool; `step.component` names what it called.
+   */
+  UnknownTool = "unknown-tool",
 }
 
 /** One tool call of an agent's visit, as plain data. */
@@ -81,7 +86,8 @@ export interface UncheckedToolCall extends ToolCallRecord {
     | ToolCallStatus.InvalidArguments
     | ToolCallStatus.Declined
     | ToolCallStatus.Replied
-    | ToolCallStatus.Blocked;
+    | ToolCallStatus.Blocked
+    | ToolCallStatus.UnknownTool;
   /** An interceptor's message to the model (`Replied`); `undefined` otherwise. */
   readonly output: string | undefined;
 }

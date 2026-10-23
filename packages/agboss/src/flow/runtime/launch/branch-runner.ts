@@ -3,7 +3,7 @@ import { isGraphInterrupt } from "@langchain/langgraph";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { runInFrame } from "../../context/frame.js";
-import { visitStepsOf, visitTimerOf, type VisitSite } from "../visit-step.js";
+import { failedVisitOf, visitStepsOf, visitTimerOf, type VisitSite } from "../visit-step.js";
 import { compensationsOfBranch } from "../../compensation.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import { checkVisit, isWorkingNode } from "../limits.js";
@@ -79,6 +79,8 @@ interface BranchRun {
   ranAsStep: boolean;
   /** The pass's budgets' `exhausted` signal it watches (#338), once its frame is made. */
   budgetStop?: AbortSignal;
+  /** Where its visit ran, once its frame is made: a failure records its step there (#395 S6). */
+  visited?: () => VisitSite;
 }
 
 /** How a branch ended: its record and the keys it writes. */
@@ -124,8 +126,8 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   const { nodeId } = ticket;
   const view = branchStateOf(run.state, run.owner.launch, ticket, live.spent);
   const { config, frame, signal, budgetStop } = branchFrameOf(run, view);
-  const visitEnded = visitTimerOf(config, run.state.runId);
-  if (budgetStop !== undefined) run.budgetStop = budgetStop;
+  run.visited = visitTimerOf(config, run.state.runId, { frame, node, state: view });
+  run.budgetStop = budgetStop;
   const arbiterDeps = arbiterDepsFor({ ...deps, live, view, services: run.services, nodeId });
   const arbiters = { launch: run.owner.launch, deps: arbiterDeps };
   const gate = { scheduler: deps.scheduler, branch: run.scheduled, signal };
@@ -152,7 +154,7 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   // an undoable action's branch opens its entry as it ends (#340): a failed join undoes it
   const branch = { launchId: run.owner.ticket.launchId, value: outcome.value };
   const opened = await compensationsOfBranch({ node, view, frame, config, branch, deps });
-  return answeredEnd(run, outcome, marked, opened, visitEnded({ frame, node, state: view }));
+  return answeredEnd(run, outcome, marked, opened, run.visited());
 }
 
 /**
@@ -181,15 +183,14 @@ async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
   const usage = [...unrecordedSpendOf(error), ...run.services];
   live.spent.push(...usage);
   const failure = failureOfBranch(run.budgetStop, error);
-  const isQuorum = live.quorum !== undefined;
-  const status = failedStatusOf({ live, ticket, isQuorum }, failure);
+  const status = failedStatusOf({ live, ticket, isQuorum: live.quorum !== undefined }, failure);
   if (status === BranchStatus.Failed) {
     live.errors.set(ticket.index, failure);
     run.deps.branchErrors?.keep(run.owner.ticket.launchId, ticket.index, failure);
     await abortLaunch(run);
   }
   leaveQuorum(live, ticket);
-  const update = { ...branchVisitOf(run), usage };
+  const update = { ...branchVisitOf(run), usage, ...failedVisitOf(run.visited?.(), error, usage) };
   return { status, read: [], error: errorRecordOf(failure), update };
 }
 

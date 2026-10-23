@@ -16,6 +16,7 @@ import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import { meteredModel } from "./judge-model.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import type { JudgeVerdictRecord } from "../../flow/runtime/step-records.js";
+import { carryRecords } from "../../flow/runtime/carried-records.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 
 /**
@@ -160,7 +161,14 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     deps.budgets.tally(usage, state.flowPath); // counted at once (#338)
     if (rejected.length === 0) return { usage, judgeVerdicts: verdicts };
     if (state.retries >= maxRetries) {
-      throw new QualityGateError(agent, [...loopUsage(state), ...usage], rejected, state.retries);
+      const error = new QualityGateError(
+        agent,
+        [...loopUsage(state), ...usage],
+        rejected,
+        state.retries,
+      );
+      carryRecords(error, { judgeVerdicts: verdicts }); // this round's, after the loop's (#395 S6)
+      throw error;
     }
     return {
       reply: null,

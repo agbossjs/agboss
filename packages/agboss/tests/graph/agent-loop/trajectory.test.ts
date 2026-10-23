@@ -133,6 +133,27 @@ describe("the visit's trajectory", () => {
     expect(state.trajectory.map((call) => call.step.validationAttempts)).toEqual([0, 0, 0, 1]);
   });
 
+  it("a call to a tool the agent does not have is UnknownTool (#395 S6)", async () => {
+    const h = harness({
+      moves: [callTools({ id: "x1", name: "nope", args: { a: 1 } }), replyWith("ok")],
+    });
+
+    await runLoop(h.graph, startInput(), "t");
+
+    const { trajectory } = await stateOf(h.graph, "t");
+    expect(trajectory).toEqual([
+      expect.objectContaining({
+        status: ToolCallStatus.UnknownTool,
+        input: { a: 1 },
+        step: expect.objectContaining({
+          callId: "x1",
+          component: expect.objectContaining({ name: "nope" }),
+        }),
+        error: expect.objectContaining({ message: 'Tool error: there is no tool "nope"' }),
+      }),
+    ]);
+  });
+
   it("a call its approval declined is Declined: it never ran", async () => {
     const h = harness({ moves: [callTools(write("w1", "a.ts")), replyWith("ok")] });
 

@@ -1,5 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import type { ErrorRecord } from "../../core/error-record.js";
+import { errorRecordOf, type ErrorRecord } from "../../core/error-record.js";
+import { carriedRecordsOf, carryRecords } from "./carried-records.js";
+import type { ToolCallRecord } from "./tool-calls.js";
 import { extractRunContext } from "../../core/run-context.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { NodeKind } from "../ast.js";
@@ -34,10 +36,11 @@ export type VisitPlace = Omit<VisitSite, "startedAt" | "endedAt">;
 export function visitTimerOf(
   config: RunnableConfig | undefined,
   runId: string,
-): (place: VisitPlace) => VisitSite {
+  place: VisitPlace,
+): () => VisitSite {
   const { clock } = extractRunContext(config, runId);
   const startedAt = clock.now();
-  return (place) => ({ ...place, startedAt, endedAt: clock.now() });
+  return () => ({ ...place, startedAt, endedAt: clock.now() });
 }
 
 /**
@@ -79,3 +82,35 @@ export function visitStepsOf(site: VisitSite, end: VisitEnd): ExecutionStepRecor
 /** The entry of a visit that succeeded: what its node decided and spent. */
 export const succeededStepsOf = (site: VisitSite, outcome: NodeOutcome): ExecutionStepRecord[] =>
   visitStepsOf(site, { outcome, usage: outcome.usage ?? [] });
+
+/** What a failed visit records (#395 S6): the tool calls and the step its failure carries. */
+export interface FailedVisitRecords {
+  readonly toolCalls: ToolCallRecord[];
+  readonly stepRecords: ExecutionStepRecord[];
+}
+
+/** The records of a visit whose failure a side path (or a failed branch) records. */
+export function failedVisitOf(
+  site: VisitSite | undefined,
+  error: unknown,
+  usage: readonly UsageRecord[],
+): FailedVisitRecords {
+  const carried = carriedRecordsOf(error);
+  // a branch that failed before its frame was made: nothing of its visit to record
+  if (site === undefined) return { toolCalls: [...carried.toolCalls], stepRecords: [] };
+  const end = { outcome: carried, usage, error: errorRecordOf(error) };
+  return { toolCalls: [...carried.toolCalls], stepRecords: visitStepsOf(site, end) };
+}
+
+/**
+ * A failure no side path takes, carrying its visit's step (#395 S6): the child execution it ends
+ * records it with the calls the failure carries.
+ */
+export function failureCarryingStep(
+  site: VisitSite,
+  error: unknown,
+  usage: readonly UsageRecord[],
+): unknown {
+  carryRecords(error, { steps: failedVisitOf(site, error, usage).stepRecords });
+  return error;
+}
