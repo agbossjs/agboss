@@ -10,10 +10,9 @@ import { z } from 'zod';
 
 // @public
 export class A2AAdapter implements IA2AAdapter {
-    // Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point index.d.ts
-    constructor(app: App);
+    constructor(app: A2AApp);
     // (undocumented)
-    cancel(thread: string): Promise<void>;
+    cancel(threadId: string, caller: A2ACallOptions): Promise<void>;
     // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -34,6 +33,67 @@ export interface A2AAgentConfig<D extends readonly Token[] = []> {
     // (undocumented)
     readonly name: string;
     readonly url: string;
+}
+
+// Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type A2AApp = Pick<App, "execute" | "resume" | "cancel" | "resolve">;
+
+// Warning: (ae-forgotten-export) The symbol "ExecutionOptionsOf" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type A2ACaller<TStart extends Class> = Pick<ExecutionOptionsOf<InstanceType<TStart>>, "tenant" | "ownerId" | "execution">;
+
+// @public
+export interface A2ACallerForbiddenOptions {
+    readonly reason: string;
+}
+
+// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
+//
+// @public
+export class A2ACallerRejectedError extends AGBossError {
+    constructor(
+    httpStatus: number, code: string, reason: string);
+    static readonly code: string;
+    readonly code: string;
+    readonly httpStatus: number;
+    name: string;
+}
+
+// @public
+export interface A2ACallerRequest {
+    readonly http: IncomingMessage;
+    readonly route: A2ARoute;
+}
+
+// @public
+export type A2ACallerResolution<TStart extends Class> = ResolvedA2ACallerResolution<TStart> | RejectedA2ACallerResolution;
+
+// @public
+export const A2ACallerResolution: {
+    readonly resolved: <TStart extends Class>(caller: A2ACaller<TStart>) => ResolvedA2ACallerResolution<TStart>;
+    readonly unauthenticated: (options: A2ACallerUnauthenticatedOptions) => RejectedA2ACallerResolution;
+    readonly forbidden: (options: A2ACallerForbiddenOptions) => RejectedA2ACallerResolution;
+};
+
+// @public
+export enum A2ACallerResolutionKind {
+    Forbidden = "forbidden",
+    Resolved = "resolved",
+    Unauthenticated = "unauthenticated"
+}
+
+// @public
+export interface A2ACallerResolver<TStart extends Class> {
+    readonly resolveCaller: (request: A2ACallerRequest) => A2ACallerResolution<TStart> | Promise<A2ACallerResolution<TStart>>;
+}
+
+// @public
+export interface A2ACallerUnauthenticatedOptions {
+    readonly challenge?: string;
+    readonly reason: string;
 }
 
 // Warning: (ae-forgotten-export) The symbol "ExecutionOptions" needs to be exported by the entry point index.d.ts
@@ -58,8 +118,7 @@ export interface A2AClientCall {
     readonly onEvent?: (event: A2AEvent) => void;
     // (undocumented)
     readonly signal?: AbortSignal;
-    // (undocumented)
-    readonly thread?: string;
+    readonly threadId?: string;
 }
 
 // @public (undocumented)
@@ -98,7 +157,7 @@ export const A2AEventSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     type: z.ZodLiteral<"finish">;
     payload: z.ZodObject<{
         result: z.ZodObject<{
-            thread: z.ZodOptional<z.ZodString>;
+            threadId: z.ZodOptional<z.ZodString>;
             status: z.ZodEnum<typeof A2AStatus>;
             finish: z.ZodOptional<z.ZodString>;
             output: z.ZodOptional<z.ZodUnknown>;
@@ -112,8 +171,7 @@ export const A2AEventSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
 export interface A2AExecutionRequest<TInput = unknown> {
     // (undocumented)
     readonly input: TInput;
-    // (undocumented)
-    readonly thread?: string;
+    readonly threadId?: string;
 }
 
 // @public
@@ -127,11 +185,18 @@ export interface A2AExecutionResponse {
     // (undocumented)
     readonly status: A2AStatus;
     // (undocumented)
-    readonly thread?: string;
+    readonly threadId?: string;
 }
 
 // @public
-export function a2aHttpListener(adapter: IA2AAdapter, start: Class, base?: string): (req: IncomingMessage, res: ServerResponse) => void;
+export function a2aHttpListener<TStart extends Class>(app: A2AApp, options: A2AHttpListenerOptions<TStart>): (req: IncomingMessage, res: ServerResponse) => void;
+
+// @public
+export interface A2AHttpListenerOptions<TStart extends Class> {
+    readonly base?: string;
+    readonly callerResolver: Class<A2ACallerResolver<TStart>>;
+    readonly start: TStart;
+}
 
 // @public
 export class A2ARemoteError extends Error {
@@ -145,12 +210,12 @@ export class A2ARemoteError extends Error {
 // @public
 export const A2ARequestSchema: z.ZodObject<{
     input: z.ZodUnknown;
-    thread: z.ZodOptional<z.ZodString>;
+    threadId: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 
 // @public
 export const A2AResponseSchema: z.ZodObject<{
-    thread: z.ZodOptional<z.ZodString>;
+    threadId: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<typeof A2AStatus>;
     finish: z.ZodOptional<z.ZodString>;
     output: z.ZodOptional<z.ZodUnknown>;
@@ -164,6 +229,12 @@ export interface A2AResumeRequest<TDecision = unknown> {
     readonly decision: TDecision;
     // (undocumented)
     readonly pauseId: string;
+}
+
+// @public
+export enum A2ARoute {
+    Execute = "execute",
+    Resume = "resume"
 }
 
 // @public
@@ -182,26 +253,44 @@ export enum A2AStatus {
 
 // @public
 export interface IA2AAdapter {
-    cancel(thread: string): Promise<void>;
+    cancel(threadId: string, caller: A2ACallOptions): Promise<void>;
     // (undocumented)
     execute(start: Class, req: A2AExecutionRequest, onEvent?: (event: A2AEvent) => void, options?: A2ACallOptions): Promise<A2AExecutionResponse>;
     resume(req: A2AResumeRequest, onEvent?: (event: A2AEvent) => void, options?: A2ACallOptions): Promise<A2AExecutionResponse>;
 }
 
+// Warning: (ae-forgotten-export) The symbol "BuiltA2ACallerResolution" needs to be exported by the entry point index.d.ts
+//
+// @public
+export interface RejectedA2ACallerResolution extends BuiltA2ACallerResolution {
+    readonly challenge?: string;
+    // (undocumented)
+    readonly kind: A2ACallerResolutionKind.Unauthenticated | A2ACallerResolutionKind.Forbidden;
+    readonly reason: string;
+}
+
+// @public
+export interface ResolvedA2ACallerResolution<TStart extends Class> extends BuiltA2ACallerResolution {
+    readonly caller: A2ACaller<TStart>;
+    // (undocumented)
+    readonly kind: A2ACallerResolutionKind.Resolved;
+}
+
 // Warnings were encountered during analysis:
 //
-// src/a2a/a2a-adapter.ts:36:3 - (ae-undocumented) Missing documentation for "execute".
+// src/a2a/a2a-adapter.ts:32:3 - (ae-undocumented) Missing documentation for "execute".
 // src/a2a/a2a-adapter.ts:61:10 - (ae-undocumented) Missing documentation for "execute".
 // src/a2a/a2a-adapter.ts:77:10 - (ae-undocumented) Missing documentation for "resume".
 // src/a2a/a2a-adapter.ts:88:16 - (ae-undocumented) Missing documentation for "cancel".
-// src/a2a/a2a-client.ts:13:1 - (ae-undocumented) Missing documentation for "A2AClientOptions".
-// src/a2a/a2a-client.ts:16:3 - (ae-undocumented) Missing documentation for "headers".
-// src/a2a/a2a-client.ts:23:3 - (ae-undocumented) Missing documentation for "onEvent".
-// src/a2a/a2a-client.ts:24:3 - (ae-undocumented) Missing documentation for "signal".
-// src/a2a/a2a-client.ts:25:3 - (ae-undocumented) Missing documentation for "thread".
-// src/a2a/a2a-client.ts:30:12 - (ae-undocumented) Missing documentation for "name".
-// src/a2a/a2a-client.ts:31:15 - (ae-undocumented) Missing documentation for "response".
-// src/a2a/a2a-client.ts:55:3 - (ae-undocumented) Missing documentation for "url".
+// src/a2a/a2a-caller.ts:64:3 - (ae-undocumented) Missing documentation for "kind".
+// src/a2a/a2a-caller.ts:71:3 - (ae-undocumented) Missing documentation for "kind".
+// src/a2a/a2a-client.ts:21:1 - (ae-undocumented) Missing documentation for "A2AClientOptions".
+// src/a2a/a2a-client.ts:24:3 - (ae-undocumented) Missing documentation for "headers".
+// src/a2a/a2a-client.ts:31:3 - (ae-undocumented) Missing documentation for "onEvent".
+// src/a2a/a2a-client.ts:32:3 - (ae-undocumented) Missing documentation for "signal".
+// src/a2a/a2a-client.ts:51:12 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/a2a-client.ts:52:15 - (ae-undocumented) Missing documentation for "response".
+// src/a2a/a2a-client.ts:76:3 - (ae-undocumented) Missing documentation for "url".
 // src/a2a/a2a-decorator.ts:5:1 - (ae-undocumented) Missing documentation for "A2AAgentConfig".
 // src/a2a/a2a-decorator.ts:6:3 - (ae-undocumented) Missing documentation for "name".
 // src/a2a/types.ts:9:3 - (ae-undocumented) Missing documentation for "Finished".
@@ -210,13 +299,12 @@ export interface IA2AAdapter {
 // src/a2a/types.ts:12:3 - (ae-undocumented) Missing documentation for "Limited".
 // src/a2a/types.ts:13:3 - (ae-undocumented) Missing documentation for "Cancelled".
 // src/a2a/types.ts:18:3 - (ae-undocumented) Missing documentation for "input".
-// src/a2a/types.ts:19:3 - (ae-undocumented) Missing documentation for "thread".
-// src/a2a/types.ts:27:3 - (ae-undocumented) Missing documentation for "thread".
-// src/a2a/types.ts:28:3 - (ae-undocumented) Missing documentation for "status".
-// src/a2a/types.ts:29:3 - (ae-undocumented) Missing documentation for "finish".
-// src/a2a/types.ts:30:3 - (ae-undocumented) Missing documentation for "output".
-// src/a2a/types.ts:39:3 - (ae-undocumented) Missing documentation for "pauseId".
-// src/a2a/types.ts:40:3 - (ae-undocumented) Missing documentation for "decision".
+// src/a2a/types.ts:28:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/a2a/types.ts:29:3 - (ae-undocumented) Missing documentation for "status".
+// src/a2a/types.ts:30:3 - (ae-undocumented) Missing documentation for "finish".
+// src/a2a/types.ts:31:3 - (ae-undocumented) Missing documentation for "output".
+// src/a2a/types.ts:40:3 - (ae-undocumented) Missing documentation for "pauseId".
+// src/a2a/types.ts:41:3 - (ae-undocumented) Missing documentation for "decision".
 
 // (No @packageDocumentation comment for this package)
 

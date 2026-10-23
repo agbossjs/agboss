@@ -16,6 +16,8 @@ export interface TransportAppParts {
   readonly send?: ProviderFetch;
   /** Every instance the application's container creates, in order. */
   readonly created?: unknown[];
+  /** More instances in place of the application's classes. */
+  readonly overrides?: ReadonlyMap<Token, unknown>;
 }
 
 /**
@@ -24,7 +26,10 @@ export interface TransportAppParts {
  */
 export async function transportApp(application: Class, parts: TransportAppParts): Promise<App> {
   const assembled = await applicationOf(application, {});
-  const overrides = new Map<Token, unknown>([[BedrockSdkClient, parts.client]]);
+  const overrides = new Map<Token, unknown>([
+    [BedrockSdkClient, parts.client],
+    ...(parts.overrides ?? []),
+  ]);
   const built = await buildApplication(
     assembled,
     {

@@ -13,7 +13,7 @@ import {
 } from "../models/resolve.js";
 import type { JevClient } from "./jev-client.js";
 import type * as ProviderChat from "./provider-chat.js";
-import type { TransportResolver } from "./provider-chat.js";
+import type { TransportResolver } from "../models/transport/transport-resolver.js";
 import type { ModelFactory } from "./registry.js";
 import { withFallback } from "./provider-fallback.js";
 import {

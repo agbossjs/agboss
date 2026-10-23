@@ -9,7 +9,7 @@ when one application calls another over A2A (agent-to-agent) or is called that w
 | give an agent tools of an MCP server                  | `@McpServer` (`extends McpServerClient`) in `@Workflow({ mcp })` + `@McpTool` classes in the agent's `tools` |
 | let Claude Desktop / another agent call your workflow | `@McpExpose` + `createMcpService(app, Expose)` (`agboss/mcp`)                                                |
 | call a workflow of another AGBoss application         | `@A2AAgent` (`extends A2AClient`) in `providers`, injected into a `@Tool` or `@Action` (`agboss/a2a`)        |
-| serve your workflow to A2A callers                    | `new A2AAdapter(app)` + `a2aHttpListener(adapter, Start)`, or `adapter.execute(…)` in your own handler       |
+| serve your workflow to A2A callers                    | `a2aHttpListener(app, { start, callerResolver })` (an `@Injectable` resolver in `providers`)                 |
 
 ## Using an MCP server
 
@@ -166,7 +166,7 @@ export class AskOrderDeskTool implements ToolHandler<OrderQuestionDto, OrderDesk
     const reply: OrderDeskReplyDto = await this.orderDeskA2aClient.execute(
       { text: question }, // the remote start's input
       OrderDeskReplyDto, // the remote finish's output, validated
-      { signal: this.executionContext.signal }, // `thread` continues a remote conversation
+      { signal: this.executionContext.signal }, // `threadId` continues a remote conversation
     );
     this.spendRecorder.record({ service: "order-desk-a2a", cost: usd(0.002) }); // its price per call
     return reply;
@@ -190,11 +190,61 @@ import { AskOrderDeskTool } from "../tools/ask-order-desk.tool.js";
 export class SupportAgent {}
 ```
 
+Serving the workflow to A2A callers (below) takes a **caller resolver**: who calls, decided by the
+host for each request — its tenant, the thread's owner, the execution's values. An ordinary
+`@Injectable`, listed in `providers` and created by the container like any service:
+
+```ts file=src/support/a2a/api-key-directory.service.ts
+// a2a/api-key-directory.service.ts — the host's own service (a database, a KMS, …)
+import { Injectable } from "agboss";
+
+export interface ApiKeyGrant {
+  readonly clientId: string;
+  readonly tenantId: string;
+  readonly canAnswerPauses: boolean;
+}
+
+@Injectable()
+export class ApiKeyDirectory {
+  grantOf(apiKey: string): Promise<ApiKeyGrant | undefined> {
+    return Promise.resolve(apiKey === "key-acme" ? { clientId: "client-acme", tenantId: "acme", canAnswerPauses: true } : undefined);
+  }
+}
+```
+
+```ts file=src/support/a2a/support.a2a-caller-resolver.ts
+// a2a/support.a2a-caller-resolver.ts — who calls: decided by the host, the tenant never guessed
+import { Injectable } from "agboss";
+import { A2ACallerResolution, A2ARoute, type A2ACallerRequest, type A2ACallerResolver } from "agboss/a2a";
+import type { SupportWorkflowStart } from "../support.workflow.js";
+import { ApiKeyDirectory, type ApiKeyGrant } from "./api-key-directory.service.js";
+
+@Injectable({ deps: [ApiKeyDirectory] }) // created by the container, never `new`
+export class SupportA2aCallerResolver implements A2ACallerResolver<typeof SupportWorkflowStart> {
+  constructor(private readonly apiKeyDirectory: ApiKeyDirectory) {}
+
+  async resolveCaller(request: A2ACallerRequest): Promise<A2ACallerResolution<typeof SupportWorkflowStart>> {
+    const header: string = request.http.headers.authorization ?? ""; // headers and socket, never the body
+    if (!header.startsWith("Bearer ")) {
+      return A2ACallerResolution.unauthenticated({ reason: "no API key", challenge: 'Bearer realm="a2a"' });
+    }
+    const grant: ApiKeyGrant | undefined = await this.apiKeyDirectory.grantOf(header.slice("Bearer ".length));
+    if (grant === undefined) return A2ACallerResolution.unauthenticated({ reason: "unknown API key" });
+    if (request.route === A2ARoute.Resume && !grant.canAnswerPauses) {
+      return A2ACallerResolution.forbidden({ reason: "this key may not answer pauses" });
+    }
+    return A2ACallerResolution.resolved({ tenant: { tenantId: grant.tenantId }, ownerId: grant.clientId });
+  }
+}
+```
+
 ```ts file=src/support/support.workflow.ts
 import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "agboss";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
 import { usd, type Usd } from "agboss/units";
+import { ApiKeyDirectory } from "./a2a/api-key-directory.service.js";
 import { OrderDeskA2aClient } from "./a2a/order-desk.a2a.js";
+import { SupportA2aCallerResolver } from "./a2a/support.a2a-caller-resolver.js";
 import { SupportAgent } from "./agents/support.agent.js";
 import { IssuesServer } from "./mcp/issues.server.js";
 
@@ -214,7 +264,8 @@ export class SupportWorkflowFinish {}
       .toFinish(SupportWorkflowFinish),
   ],
   mcp: [IssuesServer], // the servers this workflow connects to
-  providers: [OrderDeskA2aClient], // an A2A client is a provider like a service
+  // an A2A client and the caller resolver are providers like any service
+  providers: [OrderDeskA2aClient, ApiKeyDirectory, SupportA2aCallerResolver],
 })
 export class SupportWorkflow {}
 
@@ -297,37 +348,88 @@ const service = createMcpService(app, SupportMcp);
 await service.connectStdio(); // serves until stdin closes
 ```
 
-Over A2A — `POST <base>/execute` `{ input, thread? }` and `POST <base>/resume` `{ pauseId, decision }`,
-JSON or server-sent events (`Accept: text/event-stream`). A run that waits for an approval answers
+Over A2A — `POST <base>/execute` `{ input, threadId? }` and `POST <base>/resume` `{ pauseId, decision }`,
+JSON or server-sent events (`Accept: text/event-stream`). The listener is built from the application:
+its resolver comes from the container (listed in the application's or a workflow's `providers`, else
+`a2aHttpListener` throws `[a2a.caller-resolver-not-listed]`), and every request's caller is resolved
+before its body is read or a header written. A run that waits for an approval answers
 `status: A2AStatus.Paused` (`"paused"` on the wire) with its `pauseIds`; the caller resumes it with a decision:
 
 <!-- snippet-context
 import { createApp } from "agboss";
 import { SupportApplication, SupportWorkflowStart } from "./src/support/support.workflow.js";
+import { SupportA2aCallerResolver } from "./src/support/a2a/support.a2a-caller-resolver.js";
 -->
 
 ```ts
 import { createServer } from "node:http";
-import { A2AAdapter, A2AStatus, a2aHttpListener } from "agboss/a2a";
+import { a2aHttpListener } from "agboss/a2a";
 
-const app = await createApp(SupportApplication);
-const adapter = new A2AAdapter(app); // an edge object, not a component
-createServer(a2aHttpListener(adapter, SupportWorkflowStart, "/a2a")).listen(8080);
-
-// a multi-tenant server authenticates the caller and passes its context itself:
-const response = await adapter.execute(
-  SupportWorkflowStart,
-  { input: { text: "Where is order 7?" }, thread: "ticket-7" },
-  undefined, // onEvent: progress events
-  { tenant: { tenantId: "acme" }, ownerId: "customer-17" }, // never taken from the request body
-);
-if (response.status === A2AStatus.Paused) console.log(response.pauseIds); // → adapter.resume({ pauseId, decision })
+const app = await createApp(SupportApplication, { env: "prod" });
+createServer(
+  a2aHttpListener(app, {
+    start: SupportWorkflowStart,
+    callerResolver: SupportA2aCallerResolver, // the class: its instance is the container's
+    base: "/a2a",
+  }),
+).listen(8080);
 ```
 
-- `a2aHttpListener` runs every request in the default tenant: behind authentication with several
-  tenants, call `adapter.execute` / `adapter.resume` with `A2ACallOptions` (`tenant`, `execution`,
-  `ownerId`, `signal`) yourself. The same holds for MCP sessions (`McpSessionOptions`).
+| The resolver returns                                           | The caller gets                                                                                     |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `A2ACallerResolution.resolved({ tenant, ownerId, execution })` | the run, for that tenant and owner (a thread id is the tenant's own)                                |
+| `.unauthenticated({ reason, challenge? })`                     | `401`, `WWW-Authenticate: <challenge>`, `{ "code": "a2a.caller-unauthenticated", "error": reason }` |
+| `.forbidden({ reason })`                                       | `403`, `{ "code": "a2a.caller-forbidden", "error": reason }`                                        |
+| it throws                                                      | `500`, `{ "code": "a2a.caller-resolution-failed" }` — never the error's text                        |
+
+- A refused request runs nothing: no `onExecutionStart`, no `onExecutionRejected`, no record — and a
+  streaming caller gets the real status, not an event stream. `A2AClient.send` throws
+  `A2ACallerRejectedError` (`httpStatus`, `code`) on a `401` / `403`.
+- `resolved({ … })` is typed by the start's application: with a declared `TenantContext` its values
+  are required. A single-tenant host returns `A2ACallerResolution.resolved({})` — never implied.
+- An answer is built only by `A2ACallerResolution` (branded: a plain object does not compile).
+- Your own handler instead of the listener: `new A2AAdapter(app).execute(Start, { input, threadId },
+onEvent, { tenant, execution, ownerId })` — the same values, from your authenticated caller;
+  `adapter.cancel(threadId, caller)` cancels only that caller's tenant's thread.
 - A caller that disconnects cancels its run (the listener aborts its `signal`).
+- The names: `A2AApp` (what the listener takes of `App`), `A2AHttpListenerOptions`, `A2ACaller`,
+  `A2ACallerRequest`, `A2ARoute`, `A2ACallerResolutionKind`, `ResolvedA2ACallerResolution`,
+  `RejectedA2ACallerResolution`, `A2ACallerUnauthenticatedOptions`, `A2ACallerForbiddenOptions`.
+
+Tests: the `a2aServer({ start, callerResolver })` fixture of `testWith` (an `A2AServerFixture`)
+serves the test's `app` on `127.0.0.1:0` and returns an `A2ATestServer` — `{ url }` for `new
+A2AClient({ url, headers })`; the loopback is open for it (no `allowNetwork`), it closes at the
+test's end, and `override(ApiKeyDirectory, …)` replaces the resolver's services like any other
+(reference 10):
+
+```ts file=tests/support/support-a2a.test.ts
+import { expect } from "vitest";
+import { Injectable } from "agboss";
+import { A2ACallerRejectedError, A2AClient } from "agboss/a2a";
+import { override, testWith } from "agboss/testing";
+import { ApiKeyDirectory, type ApiKeyGrant } from "../../src/support/a2a/api-key-directory.service.js";
+import { SupportA2aCallerResolver } from "../../src/support/a2a/support.a2a-caller-resolver.js";
+import { SupportAgent } from "../../src/support/agents/support.agent.js";
+import { SupportApplication, SupportWorkflowStart } from "../../src/support/support.workflow.js";
+
+@Injectable()
+class NoKeysDirectory extends ApiKeyDirectory {
+  override grantOf(): Promise<ApiKeyGrant | undefined> {
+    return Promise.resolve(undefined); // every key unknown
+  }
+}
+
+const test = testWith(SupportApplication, { overrides: [override(ApiKeyDirectory, NoKeysDirectory)] });
+
+test("an unknown key is 401 and never runs", async ({ a2aServer, mockLlm }) => {
+  const { url } = await a2aServer({ start: SupportWorkflowStart, callerResolver: SupportA2aCallerResolver });
+
+  const sent = new A2AClient({ url, headers: { authorization: "Bearer key-x" } }).send({ text: "hi" });
+
+  await expect(sent).rejects.toFailWith(A2ACallerRejectedError, { httpStatus: 401, code: "a2a.caller-unauthenticated" });
+  expect(mockLlm(SupportAgent)).toHaveBeenCalledTimes(0);
+});
+```
 
 ## Errors and fixes
 
@@ -340,6 +442,8 @@ if (response.status === A2AStatus.Paused) console.log(response.pauseIds); // →
 | `[tool.duplicate-name]`                                        | two tools a model sees share a name (local, MCP, `search-<rag>-tool`, `answer-<dto>`) |
 | `A2ARemoteError: … "paused"`                                   | the remote run waits for an approval: use `send` and resume it, or approve remotely   |
 | `[a2a.no-url]`                                                 | the client class lacks `@A2AAgent({ url })`                                           |
+| `[a2a.caller-resolver-not-listed] … is not listed`             | list the resolver in `@Application({ providers })` or a `@Workflow({ providers })`    |
+| `A2ACallerRejectedError … (401 a2a.caller-unauthenticated)`    | the server's resolver refused the client's credentials: check its `headers`           |
 
 ## Pitfalls
 
@@ -347,4 +451,7 @@ if (response.status === A2AStatus.Paused) console.log(response.pauseIds); // →
   start checks its tools and tests stub it.
 - Secrets in `@McpServer({ headers })` values or `args`: they name variables.
 - A tool that ignores `executionContext.signal` keeps the remote call running after a cancel.
-- Taking the tenant from an MCP or A2A request body: bind it from the authenticated caller.
+- Taking the tenant from an MCP or A2A request body: bind it from the authenticated caller (the
+  resolver reads headers and the socket only).
+- `new SupportA2aCallerResolver(…)` by hand: list it in `providers`; the listener takes the
+  container's instance (its environment, hooks and test overrides).

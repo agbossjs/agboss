@@ -1,6 +1,12 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { A2AAdapter, a2aHttpListener } from "../../../src/a2a/index.js";
+import {
+  A2AAdapter,
+  A2ACallerResolution,
+  a2aHttpListener,
+  type A2ACallerResolver,
+} from "../../../src/a2a/index.js";
+import { Injectable } from "../../../src/components/decorators.js";
 import type { AppOptions } from "../../../src/app/create-app.js";
 import type { App } from "../../../src/app/types.js";
 import {
@@ -94,6 +100,14 @@ export class AskStart {}
 })
 export class DeskAnswer {}
 
+/** One tenant: every caller runs in the default tenant (#387: said by the host, never implied). */
+@Injectable()
+export class SingleTenantCallerResolver implements A2ACallerResolver<typeof AskStart> {
+  resolveCaller(): A2ACallerResolution<typeof AskStart> {
+    return A2ACallerResolution.resolved({});
+  }
+}
+
 const defaults = {
   models: { temperature: 0, cache: true },
   router: { model: "typesafe/jev-1.13" },
@@ -112,6 +126,7 @@ const defaults = {
   ],
   defaults,
   uncompactedTurns: 2,
+  providers: [SingleTenantCallerResolver],
 })
 export class RemoteDesk implements WorkflowDefinition {
   settings(): WorkflowSettings {
@@ -145,7 +160,10 @@ export interface Served {
 /** Serves the app; `seen` gets each request's `authorization` header. */
 export async function serve(app: App, seen: (string | undefined)[] = []): Promise<Served> {
   const adapter = new A2AAdapter(app);
-  const listener = a2aHttpListener(adapter, AskStart);
+  const listener = a2aHttpListener(app, {
+    start: AskStart,
+    callerResolver: SingleTenantCallerResolver,
+  });
   const server: Server = createServer((req, res) => {
     seen.push(req.headers.authorization);
     listener(req, res);

@@ -6,11 +6,23 @@
 
 import type { Assertion } from 'vitest';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import type { IncomingMessage } from 'node:http';
 import type { MessageContent } from '@langchain/core/messages';
 import { Mocked } from 'vitest';
 import { TestAPI } from 'vitest';
 import type { ToolDefinition } from '@langchain/core/language_models/base';
 import { z } from 'zod';
+
+// Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "A2AHttpListenerOptions" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type A2AServerFixture = <TStart extends Class>(options: A2AHttpListenerOptions<TStart>) => Promise<A2ATestServer>;
+
+// @public
+export interface A2ATestServer {
+    readonly url: string;
+}
 
 // @public
 export type ActionInputOf<TAction> = TAction extends {
@@ -72,7 +84,6 @@ export interface AnswerTurn<TValue = unknown, TIsList extends boolean = boolean>
 
 // @public
 export interface ArbiterRunner extends UnitClock {
-    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
     // Warning: (ae-forgotten-export) The symbol "ArbiterAnswerOf" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -483,7 +494,7 @@ export function testAction<TAction extends Class<ExecuteMethod>, TExecution exte
 // Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point index.d.ts
 //
 // @public
-export interface TestApp extends Pick<App, "execute" | "resume" | "close" | "cancel" | "checkLiveness" | "checkReadiness"> {
+export interface TestApp extends Pick<App, "execute" | "resume" | "close" | "cancel" | "checkLiveness" | "checkReadiness" | "resolve"> {
     // (undocumented)
     agent(agent: Class): AgentSlice;
     // (undocumented)
@@ -570,7 +581,7 @@ export class TestFailure extends Error {
 }
 
 // @public
-export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.cassette-missing" | "test.no-matching-script" | "test.unused-script" | "test.unreachable-step";
+export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.app-not-ready" | "test.cassette-missing" | "test.no-matching-script" | "test.unused-script" | "test.unreachable-step";
 
 // @public
 export function testGuardrail<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(guardrail: Class, options?: UnitModelOptions<unknown, TExecution, TTenant>): GuardrailRunner;
@@ -807,6 +818,7 @@ export interface WhenScript<TSelf = unknown> {
 
 // @public
 export interface WorkflowFixtures {
+    readonly a2aServer: A2AServerFixture;
     readonly app: TestApp;
     readonly apps: readonly TestApp[];
     readonly clock: VirtualClock;
@@ -863,11 +875,11 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/concurrency/test-concurrency.ts:27:3 - (ae-undocumented) Missing documentation for "input".
 // src/testing/concurrency/test-concurrency.ts:47:5 - (ae-undocumented) Missing documentation for "mode".
 // src/testing/concurrency/test-concurrency.ts:48:5 - (ae-undocumented) Missing documentation for "steps".
-// src/testing/errors.ts:15:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:16:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/errors.ts:26:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:38:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:47:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:16:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:17:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:27:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:39:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:48:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/execution-context.ts:35:3 - (ae-undocumented) Missing documentation for "visitNumber".
 // src/testing/execution-context.ts:36:3 - (ae-undocumented) Missing documentation for "callId".
 // src/testing/execution-context.ts:37:3 - (ae-undocumented) Missing documentation for "itemIndex".
@@ -907,10 +919,10 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/slices.ts:20:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:25:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:33:3 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/test-app.ts:29:3 - (ae-undocumented) Missing documentation for "clock".
-// src/testing/test-app.ts:35:3 - (ae-undocumented) Missing documentation for "agent".
-// src/testing/test-app.ts:36:3 - (ae-undocumented) Missing documentation for "router".
-// src/testing/test-app.ts:37:3 - (ae-undocumented) Missing documentation for "tool".
+// src/testing/test-app.ts:30:3 - (ae-undocumented) Missing documentation for "clock".
+// src/testing/test-app.ts:36:3 - (ae-undocumented) Missing documentation for "agent".
+// src/testing/test-app.ts:37:3 - (ae-undocumented) Missing documentation for "router".
+// src/testing/test-app.ts:38:3 - (ae-undocumented) Missing documentation for "tool".
 // src/testing/turns.ts:23:3 - (ae-undocumented) Missing documentation for "reason".
 // src/testing/turns.ts:26:3 - (ae-undocumented) Missing documentation for "cost".
 // src/testing/turns.ts:45:3 - (ae-undocumented) Missing documentation for "value".

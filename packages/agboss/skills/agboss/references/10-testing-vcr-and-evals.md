@@ -440,6 +440,9 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   class instead of another — no instances, no `new`.
 - **MCP**: `mcpOf(Server).thenReturn({ server_tool: (args) => result })`, `.calls`; **network** is
   blocked except `allowNetwork: ["localhost"]`.
+- **A2A**: `const { url } = await a2aServer({ start, callerResolver })` serves the test's `app` through
+  `a2aHttpListener` on `127.0.0.1:0` (the resolver from its container, the loopback open, closed at
+  the test's end); call it with `new A2AClient({ url, headers })` (#387, reference 04).
 - **Matchers**: `toFollowPath([Start, …, Finish])`, `toFinishWith(Finish, output?)` (the whole output),
   `rejects.toFailWith(ErrorClass, { …fields, cause })` (through the cause chain),
   `toHaveChildExecutions(W, [{ item, finish | failedWith | cancelled }])`,
@@ -457,6 +460,57 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   `apps` (each its own container, one set of stores) for leases and cross-instance resumes.
 - **Health**: `await app.checkReadiness()` / `app.checkLiveness()` → `HealthReport` (a
   `@HealthCheck`'s service mocked with `mockOf`). `testWith` never traps SIGTERM / SIGINT.
+
+### Serving the application over A2A: `a2aServer`
+
+The `a2aServer` fixture (#387, an `A2AServerFixture`) serves the test's `app` through
+`a2aHttpListener` on `127.0.0.1:0` and returns an `A2ATestServer` — `{ url }` for `new A2AClient({
+url, headers })`. The app is built first and the caller resolver taken from its container (so
+`override(…)` and `mockOf` reach its services); the loopback is open for the test without
+`allowNetwork`, and the server closes when the test ends. A refused caller is
+`A2ACallerRejectedError` on the client (reference 04):
+
+<!-- snippet-context
+import { A2ACallerRejectedError, A2AClient, A2AStatus, type A2ACallerResolver } from "agboss/a2a";
+import { replyWith, testWith } from "agboss/testing";
+import { expect } from "vitest";
+import { SkillsAgent } from "./src/screening/agents.js";
+import { ScreeningWorkflowStart } from "./src/screening/finishes.js";
+import { ScreeningApplication } from "./src/screening/screening.application.js";
+declare const ScreeningA2aCallerResolver: new () => A2ACallerResolver<typeof ScreeningWorkflowStart>;
+const test = testWith(ScreeningApplication);
+const candidate = { name: "Dana", cv: "TypeScript, 6 years" };
+-->
+
+```ts
+const screening = { start: ScreeningWorkflowStart, callerResolver: ScreeningA2aCallerResolver };
+
+test("a caller without a key is refused with 401, and nothing runs", async ({ a2aServer, mockLlm }) => {
+  const { url } = await a2aServer(screening); // listed in the application's providers
+
+  const sent = new A2AClient({ url }).send(candidate);
+
+  await expect(sent).rejects.toFailWith(A2ACallerRejectedError, {
+    httpStatus: 401,
+    code: "a2a.caller-unauthenticated",
+  });
+  expect(mockLlm(SkillsAgent)).toHaveBeenCalledTimes(0);
+});
+
+test("a known key runs for its tenant", async ({ a2aServer, mockLlm }) => {
+  mockLlm(SkillsAgent).thenReturn(replyWith("…")); // and the rest of the path's scripts
+  const { url } = await a2aServer(screening);
+
+  const response = await new A2AClient({ url, headers: { authorization: "Bearer key-acme" } }).send(candidate, {
+    threadId: "dana-1", // the caller's tenant's thread
+  });
+
+  expect(response.status).toBe(A2AStatus.Finished);
+});
+```
+
+`app.resolve(Class)` of the test's `app` works once it is built (`await app.ready()`, or after an
+`execute`); before that it fails with `test.app-not-ready`.
 
 ## The tool-call trajectory: `result.toolCalls`, `record.steps`, `JudgeInput.toolCalls`
 

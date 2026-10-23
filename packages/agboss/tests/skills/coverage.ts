@@ -92,6 +92,11 @@ export const SKILL_COVERAGE: SkillCoverage = {
       "mcpServerStub",
     ],
     ...["A2AAgent", "A2AClient", "A2AAdapter", "a2aHttpListener", "A2AStatus", "A2ARemoteError"],
+    ...["A2ACallerResolver", "A2ACallerResolution", "A2ARoute", "A2ACallerRejectedError"],
+    ...["A2AApp", "A2AHttpListenerOptions", "A2ACaller", "A2ACallerRequest"],
+    ...["A2ACallerResolutionKind", "ResolvedA2ACallerResolution", "RejectedA2ACallerResolution"],
+    ...["A2ACallerUnauthenticatedOptions", "A2ACallerForbiddenOptions"],
+    ...["A2AServerFixture", "A2ATestServer"],
     ...["PlainTextDto", "ExecutionContext", "SpendRecorder"],
   ],
   "references/05-channels-and-human-in-the-loop.md": [
@@ -129,6 +134,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["testToolInterceptor", "ToolInterceptorRunner", "ToolCallDecision", "ToolInterceptor"],
     ...["ModelProviderHandler", "ModelProviderRequest", "ModelProviderResponse"],
     ...["ModelProviderMessageRole", "ModelProvider"],
+    ...["A2AServerFixture", "A2ATestServer", "A2AClient", "A2ACallerRejectedError"],
     ...[
       "CompensationRecord",
       "CompensationReason",
@@ -224,6 +230,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
   "references/11-cli-studio-and-error-catalog.md": [
     ...["GraphRuleError", "RuleCode", "RuleViolation", "FlowSyntaxError", "AGBossError"],
     "EvalCaseInvalidError",
+    "A2ACallerRejectedError",
     ...["PaidStepError", "StepFailedError", "AgentFailedError", "AgentAnswerInvalidError"],
     ...["QualityGateError", "ActionFailedError", "GuardFailedError", "RouterFailedError"],
     ...[
