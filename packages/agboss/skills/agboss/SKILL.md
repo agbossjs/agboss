@@ -97,7 +97,8 @@ npm test                                                           # scripted mo
 - **Loops 2 and 3** (a live model, paid): `npx agboss eval run --suite <name> --runs <k> --report
 <run.json>` — each case k times on the real application (`--env`), the cascade per run, pass@k and
   pass^k per case, the run artifact kept from `main` as the reference (`--html <file>` writes it as
-  one self-contained page; `npx agboss eval show <run.json> --html <file>` renders a saved one,
+  one self-contained page — each run's timeline, the baseline diff, and for an unstable case the
+  node where its attempts part ways; `npx agboss eval show <run.json> --html <file>` renders a saved one,
   running nothing); on a branch `--baseline <run.json> --fail-on-regression` exits 5 when a case
   stable on `main` regressed (one that flapped there is quarantined,
   `CaseComparison.FlakyOnBaseline`); a model judge is trusted only once calibrated against people's

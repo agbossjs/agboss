@@ -9,6 +9,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CheckStatus } from "agboss/eval";
 import { artifactOf, caseOf, REFUNDS_ARTIFACT } from "../eval-html/artifacts.js";
+import { stepOf, traceOf } from "../eval-html/traced-artifacts.js";
+import { ComponentKind, ToolCallStatus } from "agboss";
 import { envelope, agboss } from "./agboss.js";
 
 const APPLICATION = new URL("../../../agboss/tests/flow/fixtures/evals.fixture.ts", import.meta.url)
@@ -56,6 +58,7 @@ describe("#397 PR 1: agboss eval run --html", () => {
     const page = readFileSync(html, "utf8");
     expect(page).toContain("<h1>desk-eval-suite</h1>");
     expect(page).toContain('<a class="dot dot-failed" href="#case-2-run-2"');
+    expect(page).toContain('<div class="timeline"><p class="step-part-title">Timeline · '); // #397 PR 2
   });
 });
 
@@ -114,9 +117,9 @@ describe("#397 PR 1: agboss eval show", () => {
     ],
     [
       "an unknown schema version",
-      fileWith("version.json", JSON.stringify({ ...REFUNDS_ARTIFACT, schemaVersion: 2 })),
+      fileWith("version.json", JSON.stringify({ ...REFUNDS_ARTIFACT, schemaVersion: 3 })),
       "eval.run-invalid",
-      "schemaVersion 2 — this agboss reads 1",
+      "schemaVersion 3 — this agboss reads 1 to 2",
     ],
     [
       "a field missing",
@@ -161,11 +164,58 @@ describe("#397 PR 1: agboss eval show", () => {
       error: {
         code: "eval.report-too-large",
         message: expect.stringMatching(
-          /^the HTML report would be 18\.0 MB, above its 16\.0 MB limit/u,
+          /^the HTML report would be 18\.0 MB without any timeline, above its 16\.0 MB limit/u,
         ) as unknown,
       },
     });
     expect(existsSync(html)).toBe(false);
+  });
+
+  it("a page too large with every timeline keeps those of the cases without pass^k (#397 PR 2)", async () => {
+    const value = { notes: "n".repeat(2000) };
+    const step = stepOf("big-agent", ComponentKind.Agent, {
+      toolCalls: [
+        {
+          tool: "big-tool",
+          status: ToolCallStatus.Succeeded,
+          input: value,
+          output: value,
+          isResultTruncated: false,
+          validationAttempts: 0,
+        },
+      ],
+    });
+    const run = (number: number, passed: boolean) => ({
+      run: number,
+      threadId: `t${String(number)}`,
+      passed,
+      checks: [{ check: "trajectory", status: passed ? CheckStatus.Passed : CheckStatus.Failed }],
+      spentUsd: 0,
+      trace: { ...traceOf(String(number)), steps: Array.from({ length: 200 }, () => step) },
+    });
+    const runs = Array.from({ length: 20 }, (_, index) => index + 1);
+    const big = artifactOf(
+      [
+        caseOf(
+          "stable",
+          runs.map((number) => run(number, true)),
+        ),
+        caseOf("failing", [run(1, false)]),
+      ],
+      20,
+    );
+    const file = fileWith("big.json", JSON.stringify({ ...big, schemaVersion: 2 }));
+    const html = join(CWD, "big.html");
+
+    const call = await agboss(["eval", "show", file, "--html", html], CWD);
+
+    expect(call.code).toBe(0);
+    expect(call.stdout).toMatch(
+      /html → .*big\.html \(\d+\.\d (?:KB|MB), self-contained; timelines of cases without pass\^k only\)/u,
+    );
+    expect(readFileSync(html, "utf8")).toContain(
+      "Timeline left out to keep the page under its size bound",
+    );
   });
 
   it("has its own help", async () => {

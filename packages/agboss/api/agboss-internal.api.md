@@ -100,6 +100,32 @@ export interface AssembledApplication {
 }
 
 // @public
+export interface AttemptDivergence {
+    readonly nodeId: string;
+    // (undocumented)
+    readonly reason: AttemptDivergenceReason;
+    readonly runs: readonly number[];
+    readonly stepIndex: number;
+    // (undocumented)
+    readonly visitNumber: number;
+}
+
+// Warning: (ae-forgotten-export) The symbol "EvalCaseReport" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function attemptDivergenceOf(found: EvalCaseReport): AttemptDivergence | undefined;
+
+// @public
+export enum AttemptDivergenceReason {
+    Input = "input",
+    Length = "length",
+    NextStep = "next-step",
+    Output = "output",
+    ToolCalls = "tool-calls",
+    Verdicts = "verdicts"
+}
+
+// @public
 export interface BuiltApplication {
     // Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point internal.d.ts
     //
@@ -1021,6 +1047,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/eval/golden.ts:22:14 - (ae-undocumented) Missing documentation for "goldenFile".
 // src/eval/golden.ts:25:1 - (ae-undocumented) Missing documentation for "loadGolden".
 // src/eval/golden.ts:36:1 - (ae-undocumented) Missing documentation for "saveGolden".
+// src/eval/run/divergence.ts:31:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/eval/run/divergence.ts:34:3 - (ae-undocumented) Missing documentation for "reason".
 // src/finops/usage.ts:66:3 - (ae-undocumented) Missing documentation for "caller".
 // src/finops/usage.ts:67:3 - (ae-undocumented) Missing documentation for "category".
 // src/finops/usage.ts:68:3 - (ae-undocumented) Missing documentation for "model".

@@ -64,6 +64,11 @@ export { compareEvalRuns } from "./eval/run/compare-runs.js";
 export { evalRunReportOf, type EvalRunReportRead } from "./eval/run/read-report.js";
 export { calibrateJudges, type EvalCalibrationResult } from "./eval/calibrate/calibrate.js";
 export { evalLabelsOf, type EvalLabelsRead } from "./eval/calibrate/labels.js";
+export {
+  attemptDivergenceOf,
+  AttemptDivergenceReason,
+  type AttemptDivergence,
+} from "./eval/run/divergence.js";
 export { goldenFile, goldenFromRecent, loadGolden, saveGolden } from "./eval/golden.js";
 export { replay } from "./eval/replay.js";
 export {
