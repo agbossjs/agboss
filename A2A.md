@@ -328,7 +328,8 @@ deadline, the earlier). `origin.step.tool` names the calling tool.
 2. the caller resolved (above), then the chain (loops, hops);
 3. the body read: a trusted envelope's `bodyHash` must be its hash — else `401 mesh.body-mismatch`;
 4. a trusted `POST /execute` deduplicated by `(tenant, peer, origin.step.idempotencyKey)` in the
-   application's `MeshRequestRepository` ([Several instances](Several-instances)): a repeat gets the
+   application's `MeshRequestRepository` ([Several instances](Several-instances); over MCP by
+   `_meta.callId`, [MCP](Mcp#4-calls-between-agboss-applications--_meta-398)): a repeat gets the
    kept answer without running, one while the first still runs `409 mesh.request-in-progress`; a
    run that did not answer is forgotten;
 5. the run.
@@ -343,7 +344,7 @@ What a trusted request gets — an untrusted one none of it:
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | `budget.remaining`                   | one more execution budget, `caller-budget` — it only lowers its own: `BudgetExceededError` (`"limited"`)      |
 | `deadline.remaining`                 | the execution's deadline, the smaller of it and its own: `DeadlineExceededError` (`limit.deadline`)           |
-| `origin` and the chain's length      | `executionContext.origin`, the execution record's `origin` and every observer event's (`ExecutionOrigin`)     |
+| `origin` and the chain's length      | `executionContext.origin`, the execution record's `origin` and every observer event's — its resumes' and recoveries' too (`ExecutionOrigin`) |
 | its body and idempotency key         | the body checked, the request deduplicated                                                                    |
 
 `ExecutionOrigin` is the caller's `MeshOrigin` plus `application` (the peer) and `hops` (the

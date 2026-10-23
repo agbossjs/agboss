@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — MCP dedupe by `_meta.callId`, origin on resume legs (#398 PR 2b)
+
+- **Added — trusted MCP calls are deduplicated** ([MCP](Mcp#4-calls-between-agboss-applications--_meta-398)):
+  a `tools/call` trusted by the session's `peer` with a `_meta.callId` runs once per
+  `(tenant, peer, callId)` in `MeshRequestRepository` — a repeat gets the kept result, one in flight
+  an error result with `_meta["agboss.dev/error"]` `mesh.request-in-progress`.
+- **Fixed — `origin` on every leg**: a trusted request's execution events carry its `origin` on a
+  resume and a recovery too (read from the checkpointed contexts), not only on its first leg.
+
 ## Unreleased — the run's timeline: traces in the artifact, the baseline diff, where attempts part ways (#397 PR 2)
 
 - **Changed — the run artifact is `schemaVersion` 2** ([Eval suites](Eval-Suites#a-runs-trace-schemaversion-2-397)):
