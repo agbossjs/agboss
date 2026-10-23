@@ -4,6 +4,7 @@ import type { WorkflowRecord } from "../context/execution-context.js";
 import type { PauseAnswerRecord } from "./execution-record.js";
 import type { ComponentRecord } from "./records.js";
 import type { ToolCallRecord } from "./tool-calls.js";
+import type { ExecutionStepRecord } from "./step-records.js";
 
 /**
  * What an execution keeps of its child executions (#263), as plain JSON: a child's own identity in
@@ -79,6 +80,8 @@ export interface EndedChildRecord {
   readonly spend: CostReport;
   /** Its own agents' tool calls (#395), in call order; its children's are in their records. */
   readonly toolCalls: readonly ToolCallRecord[];
+  /** One record per visit of its own nodes (#395 S6), as `ExecutionRecord.steps`. */
+  readonly steps: readonly ExecutionStepRecord[];
   /** Its own child executions, nested the same way. */
   readonly children: readonly EndedChildRecord[];
 }

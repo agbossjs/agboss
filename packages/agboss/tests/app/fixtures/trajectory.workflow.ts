@@ -1,9 +1,11 @@
 import {
   Agent,
+  ChildExecutionFailedError,
   EmptyEnvironment,
   Injectable,
   Judge,
   JudgeVerdict,
+  QualityGateError,
   Tool,
   ToolCallStatus,
   toolCallsOf,
@@ -24,7 +26,7 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { PiiPolicy } from "../../../src/pii/pii-policy.decorator.js";
 import { PiiAction, PiiKind, pii } from "../../../src/pii/index.js";
-import { start } from "../../helpers/flow.js";
+import { start, toFinish } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { PromptInjectionGuardrail } from "../../fixtures/guardrails.js";
@@ -149,7 +151,14 @@ export class FrontDeskStart {}
 })
 export class FrontDeskFinish {}
 
-/** The parent: the clerk's workflow as its one child. */
+@WorkflowFinish({
+  name: "hand-over-workflow-finish",
+  description: "The question, handed over: the clerk failed",
+  output: WorkflowStartTextDto,
+})
+export class HandOverFinish {}
+
+/** The parent: the clerk's workflow as its one child; its failure hands the question over. */
 @Workflow({
   name: "front-desk-workflow",
   version: "1.0.0",
@@ -157,12 +166,47 @@ export class FrontDeskFinish {}
     start(FrontDeskStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(ClerkWorkflow)
+      .onError(ChildExecutionFailedError, toFinish(HandOverFinish))
       .returns(WorkflowFinishTextDto)
       .toFinish(FrontDeskFinish),
   ],
   defaults: DEFAULTS,
 })
 export class FrontDeskWorkflow {}
+
+/** A clerk without retries: an answer its judge fails is a QualityGateError at once. */
+@Agent({
+  name: "strict-clerk-agent",
+  prompt: "Answer questions about orders.",
+  description: "Looks orders up, judged once",
+  model: "local/llama",
+  tools: [LookupOrderTool],
+  judges: [LookedUpJudge],
+})
+export class StrictClerkAgent {}
+
+@WorkflowStart({
+  name: "strict-clerk-workflow-start",
+  description: "A question for the strict clerk",
+  input: WorkflowStartTextDto,
+})
+export class StrictClerkStart {}
+
+/** The strict clerk's failure is taken by a side path: its visit is in the record (#395 S6). */
+@Workflow({
+  name: "strict-clerk-workflow",
+  version: "1.0.0",
+  flow: [
+    start(StrictClerkStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(StrictClerkAgent)
+      .onError(QualityGateError, toFinish(HandOverFinish))
+      .toFinish(ClerkFinish),
+  ],
+  defaults: DEFAULTS,
+  providers: [TrajectoryLog],
+})
+export class StrictClerkWorkflow {}
 
 @PiiPolicy({
   name: "order-pii-policy",
@@ -175,7 +219,7 @@ export class OrderPiiPolicy {}
   name: "trajectory-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [ClerkWorkflow, FrontDeskWorkflow],
+  workflows: [ClerkWorkflow, FrontDeskWorkflow, StrictClerkWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
   piiPolicies: [OrderPiiPolicy],

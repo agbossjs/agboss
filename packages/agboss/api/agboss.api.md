@@ -1365,6 +1365,7 @@ export interface EndedChildRecord {
     readonly spend: CostReport;
     readonly start: ComponentRecord;
     readonly status: ChildExecutionStatus;
+    readonly steps: readonly ExecutionStepRecord[];
     readonly toolCalls: readonly ToolCallRecord[];
     readonly workflow: WorkflowRecord;
 }
@@ -4661,7 +4662,8 @@ export enum ToolCallStatus {
     InvalidArguments = "invalid-arguments",
     Replied = "replied",
     Succeeded = "succeeded",
-    TimedOut = "timed-out"
+    TimedOut = "timed-out",
+    UnknownTool = "unknown-tool"
 }
 
 // @public (undocumented)
@@ -4780,7 +4782,7 @@ export type TypedToolCall<TInput, TOutput> = SucceededToolCall<TInput, TOutput> 
 export interface UncheckedToolCall extends ToolCallRecord {
     readonly output: string | undefined;
     // (undocumented)
-    readonly status: ToolCallStatus.InvalidArguments | ToolCallStatus.Declined | ToolCallStatus.Replied | ToolCallStatus.Blocked;
+    readonly status: ToolCallStatus.InvalidArguments | ToolCallStatus.Declined | ToolCallStatus.Replied | ToolCallStatus.Blocked | ToolCallStatus.UnknownTool;
 }
 
 // @public
@@ -5630,15 +5632,15 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/step-records.ts:29:3 - (ae-undocumented) Missing documentation for "side".
 // src/flow/runtime/step-records.ts:30:3 - (ae-undocumented) Missing documentation for "isBlocked".
 // src/flow/runtime/step-records.ts:64:3 - (ae-undocumented) Missing documentation for "endedAt".
-// src/flow/runtime/tool-calls.ts:54:3 - (ae-undocumented) Missing documentation for "status".
-// src/flow/runtime/tool-calls.ts:61:3 - (ae-undocumented) Missing documentation for "endedAt".
-// src/flow/runtime/tool-calls.ts:66:3 - (ae-undocumented) Missing documentation for "status".
-// src/flow/runtime/tool-calls.ts:67:3 - (ae-undocumented) Missing documentation for "input".
-// src/flow/runtime/tool-calls.ts:68:3 - (ae-undocumented) Missing documentation for "output".
-// src/flow/runtime/tool-calls.ts:73:3 - (ae-undocumented) Missing documentation for "status".
-// src/flow/runtime/tool-calls.ts:74:3 - (ae-undocumented) Missing documentation for "input".
-// src/flow/runtime/tool-calls.ts:75:3 - (ae-undocumented) Missing documentation for "output".
-// src/flow/runtime/tool-calls.ts:80:3 - (ae-undocumented) Missing documentation for "status".
+// src/flow/runtime/tool-calls.ts:59:3 - (ae-undocumented) Missing documentation for "status".
+// src/flow/runtime/tool-calls.ts:66:3 - (ae-undocumented) Missing documentation for "endedAt".
+// src/flow/runtime/tool-calls.ts:71:3 - (ae-undocumented) Missing documentation for "status".
+// src/flow/runtime/tool-calls.ts:72:3 - (ae-undocumented) Missing documentation for "input".
+// src/flow/runtime/tool-calls.ts:73:3 - (ae-undocumented) Missing documentation for "output".
+// src/flow/runtime/tool-calls.ts:78:3 - (ae-undocumented) Missing documentation for "status".
+// src/flow/runtime/tool-calls.ts:79:3 - (ae-undocumented) Missing documentation for "input".
+// src/flow/runtime/tool-calls.ts:80:3 - (ae-undocumented) Missing documentation for "output".
+// src/flow/runtime/tool-calls.ts:85:3 - (ae-undocumented) Missing documentation for "status".
 // src/flow/this-workflow.ts:20:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/graph/deps.ts:31:3 - (ae-undocumented) Missing documentation for "config".
 // src/graph/deps.ts:32:3 - (ae-undocumented) Missing documentation for "registry".

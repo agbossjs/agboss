@@ -10,6 +10,7 @@ import { isLastLevel } from "../soft-stop.js";
 import { GuardrailSide } from "../../../components/policy-decorators.js";
 import { runGuardrails, type GuardrailsPassed } from "../../../guardrails/runtime.js";
 import { maskedModelText } from "../../../pii/model-boundary.js";
+import { CarriedOrder, carryRecords } from "../carried-records.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
 import type { LoopPii, LoopResult } from "../../../graph/agent-loop/runner.js";
 
@@ -68,7 +69,12 @@ export function agentRunner(
       result,
       { loop: pii, tokens: result.piiTokens },
       deps,
-    );
+    ).catch((error: unknown) => {
+      // an output guardrail blocked the answer: the visit's records go with its failure (#395 S6)
+      const { toolCalls, judgeVerdicts, guardrailDecisions } = result;
+      carryRecords(error, { toolCalls, judgeVerdicts, guardrailDecisions }, CarriedOrder.Before);
+      throw error;
+    });
     const value: NodeValue = result.answer ?? { value: { text: result.reply } };
     await reportNodeEvent((base) => deps.observer?.onAgentEnd({ ...base, name, update: value }));
     const read = readInput(deps.graph, node, state).read;

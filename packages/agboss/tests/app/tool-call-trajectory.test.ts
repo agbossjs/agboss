@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  ChildExecutionStatus,
   ComponentKind,
   GuardrailSide,
   JudgeVerdict,
@@ -21,6 +22,8 @@ import {
   FrontDeskStart,
   LookedUpJudge,
   LookupOrderTool,
+  StrictClerkAgent,
+  StrictClerkStart,
   TrajectoryApplication,
   TrajectoryLog,
 } from "./fixtures/trajectory.workflow.js";
@@ -229,5 +232,78 @@ describe("testJudge", () => {
     const { output } = await testJudge(LookedUpJudge)({ ...reply, toolCalls: [LOOKUP] });
 
     expect(output).toEqual(JudgeVerdict.passed({ metrics: { lookups: 1 } }));
+  });
+});
+
+describe("a failed visit keeps its calls and verdicts (#395 S6)", () => {
+  const test = testWith(TrajectoryApplication);
+
+  test("a QualityGateError a side path takes: the agent's calls, verdict and failure in the record", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(StrictClerkAgent).thenReturn(
+      callTool(LookupOrderTool, { orderId: "lost" }),
+      replyWith("It has shipped."),
+    );
+
+    const result = await execute(app, StrictClerkStart, { text: "where is it?" }, { record: true });
+
+    expect(result.finish?.name).toBe("hand-over-workflow-finish");
+    expect(result.toolCalls.map((call) => call.status)).toEqual([ToolCallStatus.Failed]);
+    const agentStep = result.record?.steps.find(
+      (step) => step.step.nodeId === "strict-clerk-agent",
+    );
+    expect(agentStep).toMatchObject({
+      judgeVerdicts: [{ attempt: 0, passed: false, reason: "Look the order up first." }],
+      guardrailDecisions: [],
+      error: { code: "step.agent.quality-gate" },
+    });
+    expect(agentStep?.spend.calls).toBeGreaterThan(0);
+  });
+
+  test("a child that fails: its record keeps the failed visit's calls and steps", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(ClerkAgent).thenReturn(
+      replyWith("It shipped, I guess."),
+      callTool(LookupOrderTool, { orderId: "lost" }),
+      replyWith("Still shipped."),
+    );
+
+    const result = await execute(app, FrontDeskStart, { text: "where is it?" });
+
+    expect(result.finish?.name).toBe("hand-over-workflow-finish");
+    const [child] = result.children;
+    expect(child?.status).toBe(ChildExecutionStatus.Failed);
+    expect(child?.toolCalls.map((call) => call.status)).toEqual([ToolCallStatus.Failed]);
+    expect(child?.steps.map((step) => step.step.nodeId)).toEqual([
+      "clerk-workflow-start",
+      "clerk-agent",
+    ]);
+    expect(child?.steps[1]).toMatchObject({
+      judgeVerdicts: [
+        { attempt: 0, passed: false },
+        { attempt: 1, passed: false },
+      ],
+      error: { code: "step.agent.quality-gate" },
+    });
+    expect(result.toolCalls).toEqual([]);
+  });
+
+  test("a child that finishes: its own steps, in order", async ({ app, mockLlm }) => {
+    mockLlm(ClerkAgent).thenReturn(
+      callTool(LookupOrderTool, { orderId: "7" }),
+      replyWith("Shipped."),
+    );
+
+    const result = await execute(app, FrontDeskStart, { text: "where is 7?" });
+
+    expect(result.children[0]?.steps.map((step) => step.step.nodeId)).toEqual([
+      "clerk-workflow-start",
+      "clerk-agent",
+      "clerk-workflow-finish",
+    ]);
   });
 });

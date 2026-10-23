@@ -1,15 +1,11 @@
-import { isGraphInterrupt } from "@langchain/langgraph";
-import { errorRecordOf } from "../../core/error-record.js";
 import { extractRunContext } from "../../core/run-context.js";
 import type { FlowEdge } from "../analyse/flow-graph.js";
 import { runInFrame } from "../context/frame.js";
-import { errorHandlerOf, type RuntimeGraph, type RuntimeNode } from "./graph-model.js";
+import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 import { checkVisit, isWorkingNode, type ExecutionLimits } from "./limits.js";
 import {
   recordsOf,
   reportingOf,
-  unrecordedSpendOf,
-  type Reported,
   type GraphNode,
   type NodeOutcome,
   type NodeRunner,
@@ -18,7 +14,6 @@ import { compensationsOfVisit } from "../compensation.js";
 import type { CompensationParts } from "./compensation/registry.js";
 import { OutputInvalidError } from "./errors.js";
 import { RouterDecisionError } from "./router-error.js";
-import { handedOverReason } from "../../app/handed-over.js";
 import { reportOutdating } from "./outdating-report.js";
 import type { RuntimeProvenance } from "./provenance.js";
 import {
@@ -30,14 +25,15 @@ import {
 } from "./step-frame.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import { visitWrite, type VisitWrite } from "./visit-write.js";
-import { succeededStepsOf, visitStepsOf, type VisitAt, type VisitSite } from "./visit-step.js";
+import { succeededStepsOf, type VisitAt } from "./visit-step.js";
+import { caught, visited } from "./visit-failure.js";
 import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import { launchEdgeOf, launchFor, launchTicketOf, nextOfLaunch } from "./launch/launch-exit.js";
 import { reportTruncation } from "./launch/launch-report.js";
 import type { LaunchTicket } from "./launch/records.js";
 import type { RuntimeLaunch } from "./launch/runtime-launch.js";
 import { readInput } from "./scope.js";
-import { handledErrorOf, recordOfNode } from "./workflow-keys.js";
+import { recordOfNode } from "./workflow-keys.js";
 import type { TreeSlotRegistry } from "./launch/launch-registry.js";
 
 /**
@@ -87,10 +83,6 @@ function exitOf(
     );
   }
   return exits.next;
-}
-
-function visited(node: RuntimeNode, isStep: boolean): ExecutionStateUpdate {
-  return { path: [node.id], visits: { [node.id]: 1 }, steps: isStep ? 1 : 0 };
 }
 
 /** A launch a visit took: its graph launch and the ticket of its branches (#273). */
@@ -149,35 +141,6 @@ function succeeded(
     stepRecords: succeededStepsOf({ ...at, node, state, endedAt: at.now }, outcome),
   };
   return { update, write, ...(launched === undefined ? {} : { launched }) };
-}
-
-/** A failure the node's `.onError` takes: kept as a record, the side path next; else rethrown. */
-function caught(
-  deps: VisitDeps,
-  visit: VisitSite,
-  error: unknown,
-  { ranAsStep, reported }: { readonly ranAsStep: boolean; readonly reported: Reported },
-  signal: AbortSignal | undefined,
-): ExecutionStateUpdate {
-  const { node } = visit;
-  if (isGraphInterrupt(error)) throw error;
-  // a lost lease or an interruption is no failure of the step: another instance goes on (#265)
-  const handedOver = handedOverReason(signal);
-  if (handedOver !== undefined) throw handedOver;
-  const record = errorRecordOf(error);
-  const handler = errorHandlerOf(node.exits, record);
-  if (handler === undefined) throw error;
-  const usage = [...unrecordedSpendOf(error), ...reported.usage];
-  return {
-    ...visited(node, ranAsStep),
-    lastError: record,
-    next: handler.to,
-    usage,
-    stepRecords: visitStepsOf(visit, { usage, error: record }),
-    children: [...reported.children],
-    piiTokens: reported.piiTokens,
-    handledErrors: [handledErrorOf(deps, record, node.id, handler.to)],
-  };
 }
 
 /**

@@ -522,16 +522,21 @@ its output failed its check, or a PII rule refused it — `error.code` `pii.refu
 `InvalidArguments` (the input check failed, or the arguments were no JSON at all — a truncated
 call; the tool never ran), `Declined` (its approval said no), `TimedOut` (past the tool's
 `timeout`), `Replied` (a tool interceptor's `replyToModel` answered instead — `output` is its
-message) and `Blocked` (a tool interceptor's `block`: the step fails with `ToolBlockedError`).
+message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBlockedError`) and
+`UnknownTool` (the model called a tool its agent does not have).
 
 - `result.toolCalls` — the root execution's own calls, in call order, **real values**;
-  `result.children[i].toolCalls` — each child's own. `result.record.toolCalls` (`{ record: true }`)
+  `result.children[i].toolCalls` and `.steps` — each child's own. `result.record.toolCalls` (`{ record: true }`)
   holds the same **masked** by the application's and the workflow's PII policies.
 - `result.record.steps` — one `ExecutionStepRecord` per visit of a node, in the order the visits
   ended: its `step`, `inputHash` (a stable hash of what it read — the same input, the same hash on
   every machine), `judgeVerdicts` (`JudgeVerdictRecord`: `judge`, `attempt`, `passed`, `reason?`,
   `metrics?`), `guardrailDecisions` (`GuardrailDecisionRecord`: `guardrail`, `side`, `isBlocked`,
   `probability`), `spend`, `startedAt` / `endedAt`, `error?` (a failure a side path took).
+- A failed visit keeps its records: the calls, judge verdicts and guardrail decisions of an agent
+  whose step fails (`QualityGateError`, a blocked call, a guardrail, a limit) are in
+  `result.toolCalls` and its `steps` entry (with `error`) when a side path takes the failure, and in
+  the `ChildExecutionRecord` (`toolCalls`, `steps`) of a child it ends.
 - A judge reads the visit's calls — every attempt's, real values — as `input.toolCalls`;
   `toolCallsOf(Tool, toolCalls)` gives one tool's calls typed by its input and output
   (`TypedToolCall`: narrowed by `status`). `testJudge` takes `toolCalls` optionally — `[]` when not

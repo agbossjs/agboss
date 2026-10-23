@@ -30,6 +30,7 @@ import {
 } from "./assembly.js";
 import { CODE_GUARDRAIL_THRESHOLD, codeGuardrailDecision } from "./code-guardrail.js";
 import { guardrailDecisionOf, type GuardrailDecisionRecord } from "../flow/runtime/step-records.js";
+import { carryRecords } from "../flow/runtime/carried-records.js";
 
 /**
  * Guardrails at run time (#120): each one a yes / no decision on its own model — a decision model
@@ -202,10 +203,10 @@ export async function runGuardrails(
     const { name } = guardrail;
     const threshold = isModelGuardrail(guardrail) ? guardrail.threshold : CODE_GUARDRAIL_THRESHOLD;
     const refusal = await runtime.refusal();
-    throw new GuardrailBlockedError(name, refusal, spent, {
-      probability: outcome.probability,
-      threshold,
-    });
+    const blocked = { probability: outcome.probability, threshold };
+    const error = new GuardrailBlockedError(name, refusal, spent, blocked);
+    carryRecords(error, { guardrailDecisions: decisions }); // the blocking one last (#395 S6)
+    throw error;
   }
   return { usage: spent, decisions };
 }

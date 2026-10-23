@@ -144,3 +144,21 @@ export function unreadCallRecordOf(
     ...timesOf({ startedAt: site.at, endedAt: site.at }),
   };
 }
+
+/** The record of a call to a tool the agent does not have (#395 S6): it never ran. */
+export function unknownToolCallRecordOf(
+  call: { readonly callId: string; readonly tool: string; readonly args: unknown },
+  progress: LoopProgress,
+  site: { readonly agent: string; readonly at: Date; readonly content: string },
+): ToolCallRecord {
+  const component = bareRecordOf(call.tool, ComponentKind.Tool);
+  return {
+    step: callStepOf(component, call.callId, progress, site.agent),
+    input: call.args,
+    output: undefined,
+    status: ToolCallStatus.UnknownTool,
+    error: errorRecordOf(site.content),
+    isResultTruncated: false,
+    ...timesOf({ startedAt: site.at, endedAt: site.at }),
+  };
+}

@@ -8,7 +8,8 @@ import {
   type AgentLoopDeps,
   type ToolCallRequest,
 } from "./deps.js";
-import { unreadCallRecordOf } from "./call-records.js";
+import { unknownToolCallRecordOf, unreadCallRecordOf } from "./call-records.js";
+import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
 import { extractRunContext } from "../../core/run-context.js";
 import {
   LOOP_NODE,
@@ -78,15 +79,22 @@ export function makeBoundaryNode(
   deps: AgentLoopDeps,
 ): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
   return (state, config) => {
+    const at = extractRunContext(config, state.runId).clock.now();
     const results: Record<string, StoredToolCall> = {};
+    const unknown: Record<string, ToolCallRecord> = {};
+    const site = { agent: deps.agent.name, at };
     for (const call of callsOf(state.move)) {
       if (toolNamed(deps.agent, call.tool) !== undefined) continue;
       const content = unknownToolMessage(call.tool);
       results[call.callId] = { callId: call.callId, tool: call.tool, content };
+      // recorded too (#395 S6): the model asked for it
+      const progress = loopProgressOf(state);
+      unknown[call.callId] = unknownToolCallRecordOf(call, progress, { ...site, content });
     }
     const messages = state.move === null ? [] : [state.move];
-    const unread = unreadCallsOf(state, deps, extractRunContext(config, state.runId).clock.now());
-    return Promise.resolve({ messages, results, ...unread });
+    const unread = unreadCallsOf(state, deps, at);
+    const callRecords = { ...unknown, ...unread.callRecords };
+    return Promise.resolve({ messages, results, ...unread, callRecords });
   };
 }
 
