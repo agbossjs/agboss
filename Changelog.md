@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — child workflows as runs of their own (#333 PR 1)
+
+- **Changed (internal)** — [ADR-0022](ADR-0022-Child-workflows-as-runs-of-their-own), reversing #263
+  S24: a child execution runs as a root graph on its own checkpoint thread
+  (`<parentThreadId>/child/<childExecutionId>`), awaited in its parent's step; its launching task
+  keeps a marker of it; a child resting at a pause makes its parent's node wait with a marker the
+  drain follows ([Workflow as a step](Workflow-as-a-step#at-run-time)). No public change: paths,
+  records, events, budgets, pauses and undo behave as before. A child that started before this
+  version is continued the old way (one version).
+
 ## Unreleased — flow-patterns as the zero-cost harness: the desk's history (#419)
 
 - `examples/flow-patterns`' desk keeps its executions (`executionRecordRetention`) and its

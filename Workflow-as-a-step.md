@@ -376,16 +376,23 @@ export const recoveryPaths = [
 
 ## At run time
 
-A child is a **node of its parent whose subgraph is the child's compiled graph** (S24, S37):
-LangGraph Studio draws it inside the parent (`getGraphAsync({ xray: true })`), and it runs on the
-parent's checkpoint thread under the launching task's `checkpoint_ns` — the node and the task's id,
-so a second pass of a loop or a neighbouring item never reads an earlier child's checkpoint. One
-class is one node; only `ThisWorkflow` (#264) is run from the registry — the workflow's own
-compiled graph, never its own subgraph ([Recursion](#recursion-264)).
+A child is a **node of its parent whose subgraph is the child's compiled graph** (S37): LangGraph
+Studio draws it inside the parent (`getGraphAsync({ xray: true })`). It is a **run of its own**
+([ADR-0022](ADR-0022-Child-workflows-as-runs-of-their-own), #333): its graph runs as a root graph on
+its own checkpoint thread, `<parentThreadId>/child/<childExecutionId>` — never a thread of the API,
+not listed, not addressable by `execute` / `cancel` — awaited inside its parent's step. The
+launching task's `checkpoint_ns` on the parent's thread (the node and the task's id, so a second pass
+of a loop or a neighbouring item is another task) holds only a marker: the child's identity and its
+thread. A child that rests at a pause makes its parent's node interrupt with a **waiting marker** (no
+pause: it never reaches a channel or `result.pending`); the tree rests as for any pause, its pending
+pauses are read through the markers, and a resume — one command for the tree — is forwarded by the
+parent's node to the child's thread. A child that started before ADR-0022 (its whole state under its
+task) is continued that way. One class is one node; only `ThisWorkflow` (#264) is run from the
+registry — the workflow's own compiled graph, never its own subgraph ([Recursion](#recursion-264)).
 
 | | |
 | --- | --- |
-| Identity | its own `executionId`, made on its first entry and kept in its own state: a pause, a restart or a crash continues it with the same id — no second `onExecutionStart`, finished siblings not run again |
+| Identity | its own `executionId`, made on its first entry and kept in its launching task's marker: a pause, a restart or a crash continues it with the same id, from its own thread's last checkpoint — no second `onExecutionStart`, finished siblings not run again |
 | What it sees | its start's input only: no thread history, nothing of the parent's scope or its siblings; its own path, steps and `maxSteps` |
 | Inherited | the thread, `ownerId`, the tenant (`executionContext.tenant`, the same `TenantContext` and `ApplicationContext`) and the execution's own fields of the declared `ExecutionContext` — through its state, so a resume keeps them |
 | The tree | `executionContext.parent`, `.root`, `.depth`, `.itemIndex` (a per-item child's index from 0; `undefined` for a single child and a root), `.executionOf(W)` — the nearest execution of `W` from this one up, at any depth; `ExecutionTreeRepository` keys are the root's |
@@ -581,8 +588,8 @@ every level included, and the tenant and application budgets count it too. Only 
 a workflow launching one that launches it again — or naming its own class — is
 `[graph.mutual-recursion]` (as is a class `undefined` while the flow is built, the trace of a
 circular import). At run time `ThisWorkflow` is the workflow's own compiled graph, taken from the
-registry when its step runs (a graph cannot contain itself): one checkpoint thread, its children
-under their tasks' `checkpoint_ns`, pauses inside any level resumed like any child's; Studio draws it
+registry when its step runs (a graph cannot contain itself): each level on its own child thread,
+pauses inside any level resumed like any child's, through every waiting marker above it; Studio draws it
 as the node `this-workflow`, which `getGraphAsync({ xray: true })` marks `recursive: maxDepth 3` in its
 metadata ([CLI → Watch mode and Studio](CLI#watch-mode-and-studio-268)).
 
