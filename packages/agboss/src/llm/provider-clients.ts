@@ -6,6 +6,7 @@ import type { ProviderCalls } from "../models/calls/provider-calls.js";
 import { isModelProviderClass, isTransportClass } from "../models/model-provider.decorator.js";
 import { ConfigurationError } from "../models/problems.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
+import type { ModelChaos } from "../eval/chaos/model-chaos.js";
 import {
   ModelPurpose,
   type ModelProviderDirectory,
@@ -37,6 +38,8 @@ export interface ProviderClientOptions {
   /** Absent: no rate limit and no breaker (a recording). */
   readonly calls?: ProviderCalls;
   readonly send?: ProviderFetch;
+  /** Chaos injected into transport providers' `complete()` too (#396 PR 6). */
+  readonly chaos?: ModelChaos;
   /** The application's clock (timeouts, retry waits). Default: the system's. */
   readonly clock?: Clock;
   /** Creates a transport provider's instance (the application's container), on its first call. */

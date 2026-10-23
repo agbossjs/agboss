@@ -1,4 +1,6 @@
 import type { BuiltApplication } from "../../application/create-app.js";
+import type { ChaosOptions } from "../chaos/chaos-failure.js";
+import { modelChaosOf } from "../chaos/model-chaos.js";
 import { startsOfApplication } from "../../application/application-starts.js";
 import type { Class } from "../../components/injection.js";
 import { workflowIdentityOf } from "../../flow/runtime/workflow-keys.js";
@@ -28,6 +30,11 @@ import {
 export interface EvalRunOptions {
   /** How many times each case runs: the k of pass@k / pass^k (n = k, S2 Q6). */
   readonly runs: number;
+  /**
+   * The chaos the application was built with (`AppOptions.chaos`, the same object, #396 PR 6): what
+   * it injected goes into the artifact's `chaos`.
+   */
+  readonly chaos?: ChaosOptions;
   /** Told after each run, in order (the CLI prints progress). */
   readonly onRun?: (name: string, result: EvalRunResult) => void;
   /** The profile the application was built on (`--profile`), for the artifact's header. */
@@ -104,5 +111,6 @@ export async function runEvalSuite(
     summary: summaryOf(cases),
     spend: { totalUsd: spent },
     ...ranOnOf(parts.bundle, options.profile),
+    ...(options.chaos === undefined ? {} : { chaos: modelChaosOf(options.chaos).summary() }),
   };
 }

@@ -1,4 +1,4 @@
-import type { AppDepsOptions } from "../../src/app/app-deps.js";
+import type { BuildOptions } from "../../src/app/app-deps.js";
 import type { App } from "../../src/app/types.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { buildApplication } from "../../src/application/create-app.js";
@@ -73,7 +73,7 @@ export async function wireBodies(
  * An app of `application` whose environment holds the providers' keys (`KEYS`) — as `createApp`
  * builds it from an environment file that sets them; for tests of the providers' HTTP side.
  */
-export async function appWithKeys(application: Class, options: AppDepsOptions = {}): Promise<App> {
+export async function appWithKeys(application: Class, options: BuildOptions = {}): Promise<App> {
   const built = await buildApplication(await applicationOf(application, {}), {
     environment: KEYS,
     ...options,

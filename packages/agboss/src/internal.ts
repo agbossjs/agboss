@@ -61,6 +61,7 @@ export { runEvalSuite, type EvalRunOptions } from "./eval/run/run-suite.js";
 export { loadEvalSuites, type FoundEvalSuite } from "./loader/load-eval-suites.js";
 export { builtApplicationOf, type BuiltApplication } from "./application/create-app.js";
 export { compareEvalRuns } from "./eval/run/compare-runs.js";
+export type { ChaosOptions } from "./eval/chaos/chaos-failure.js";
 export { evalRunReportOf, type EvalRunReportRead } from "./eval/run/read-report.js";
 export { TRAJECTORY_CHECK } from "./eval/run/report.js";
 export { calibrateJudges, type EvalCalibrationResult } from "./eval/calibrate/calibrate.js";

@@ -56,6 +56,7 @@ export type {
   EvalToolCallTrace,
   EvalTraceError,
 } from "./run/trace.js";
+export { ChaosFailure, type EvalRunChaos } from "./chaos/chaos-failure.js";
 export {
   CaseComparison,
   type EvalCaseComparison,

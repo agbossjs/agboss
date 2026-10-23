@@ -16,6 +16,7 @@ import { tracingOf } from "../tracing/index.js";
 import type { ModelGateway } from "../llm/gateway.js";
 import { createModelRegistry } from "../llm/registry.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
+import type { ChaosOptions } from "../eval/chaos/chaos-failure.js";
 import { appModelsFor } from "./models.js";
 import {
   connectMcpServers,
@@ -91,6 +92,7 @@ export interface AppDepsOptions {
   readonly gateway?: ModelGateway;
   /** The raw HTTP client under every model provider (default: global fetch; tests: a local stub). */
   readonly providerFetch?: ProviderFetch;
+
   /** MCP transports by server (default: stdio / streamable HTTP from the server's config). */
   readonly transport?: TransportFactory;
   /** Replaces how MCP servers are connected (test stubs). */
@@ -98,6 +100,16 @@ export interface AppDepsOptions {
   readonly container?: ContainerOptions;
   /** How launch branches are scheduled: a test's `TestConcurrency` (#262 S33); default the real way. */
   readonly branchScheduler?: BranchScheduler;
+}
+
+/**
+ * What the internal build path takes beyond `AppDepsOptions` (#396 PR 6): failures injected into
+ * every model call — `agboss eval run --chaos` only, through `builtApplicationOf`; never an option of
+ * `createApp` or `createAppDeps`.
+ */
+export interface BuildOptions extends AppDepsOptions {
+  /** 429s, timeouts and truncated answers under the retry policy, the rate limit and the breaker. */
+  readonly chaos?: ChaosOptions;
 }
 
 /** Stores the config snapshot of this version; warns when the version already had other content. */
@@ -213,7 +225,7 @@ async function startOwnComponents(
  */
 export async function createWorkflowDeps(
   bundle: AssembledWorkflow,
-  options: AppDepsOptions,
+  options: BuildOptions,
   parts: WorkflowDepsParts,
 ): Promise<AppDeps> {
   const env = options.processEnv ?? process.env;

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ComponentKind } from "../../flow/runtime/records.js";
 import { CheckStatus, EvalCascade } from "../suite/checks.js";
+import { ChaosFailure } from "../chaos/chaos-failure.js";
 import { CaseComparison } from "./comparison.js";
 import { EVAL_RUN_KIND, EVAL_RUN_SCHEMA_VERSION, type EvalRunReport } from "./report.js";
 import { CaseExpectationSchema, ExecutionTraceSchema } from "./trace-schema.js";
@@ -72,6 +73,19 @@ const ComparisonSchema = z.looseObject({
   regressed: z.array(z.string()),
 });
 
+/** `chaos` (#396 PR 6): what `--chaos` injected into the run's model calls. */
+const ChaosSchema = z.looseObject({
+  rate: z.number(),
+  seed: z.number().int(),
+  failures: z.array(z.enum(ChaosFailure)),
+  calls: count,
+  injected: z.looseObject({
+    [ChaosFailure.RateLimited]: count,
+    [ChaosFailure.Timeout]: count,
+    [ChaosFailure.TruncatedResponse]: count,
+  }),
+});
+
 const ComponentSchema = z.looseObject({ name: z.string(), version: z.string() });
 
 const ReportSchema: z.ZodType<EvalRunReport> = z.looseObject({
@@ -97,6 +111,7 @@ const ReportSchema: z.ZodType<EvalRunReport> = z.looseObject({
     skippedByCascade: count,
   }),
   spend: z.looseObject({ totalUsd: z.number() }),
+  chaos: ChaosSchema.optional(),
   baseline: ComparisonSchema.optional(),
   profile: z.string().optional(),
   agbossVersion: z.string().optional(),

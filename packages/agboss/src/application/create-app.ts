@@ -1,5 +1,5 @@
 import type { ExecutionObserver } from "../core/observer-hooks.js";
-import type { AppDepsOptions, WorkflowDepsParts } from "../app/app-deps.js";
+import type { AppDepsOptions, BuildOptions, WorkflowDepsParts } from "../app/app-deps.js";
 import { buildApp, type AppOptions, type BuiltApp } from "../app/create-app.js";
 import type { App } from "../app/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
@@ -112,7 +112,7 @@ function createListed(assembled: AssembledApplication, workflows: readonly Built
  */
 async function buildWorkflows(
   assembled: AssembledApplication,
-  options: AppDepsOptions,
+  options: BuildOptions,
   parts: Omit<WorkflowDepsParts, "childDepsOf">,
   built: BuiltApp[],
 ): Promise<void> {
@@ -150,7 +150,7 @@ async function releaseAll(built: readonly BuiltApp[]): Promise<void> {
  */
 export async function buildApplication(
   assembled: AssembledApplication,
-  options: AppDepsOptions = {},
+  options: BuildOptions = {},
   seams: InstanceSeams = {},
 ): Promise<BuiltApplication> {
   const created: unknown[] = [];
@@ -237,11 +237,12 @@ export async function createApp<TApplication extends Class>(
 
 /**
  * `createApp` with the parts the instance was built from (internal: `agboss eval run`, #396 PR 2,
- * runs suites on them) — the same assembly, environment, container and stop signals.
+ * runs suites on them) — the same assembly, environment, container and stop signals; `chaos`
+ * (#396 PR 6) injects failures into its model calls, an option of this internal path only.
  */
 export async function builtApplicationOf(
   application: Class,
-  options: AppOptions = {},
+  options: AppOptions & Pick<BuildOptions, "chaos"> = {},
 ): Promise<BuiltApplication> {
   const assembled = await applicationOf(application, options);
   const environment = await namedEnvironmentFor(

@@ -3,8 +3,11 @@ import {
   compareEvalRuns,
   loadEvalSuites,
   runEvalSuite,
+  type ChaosOptions,
   type FoundEvalSuite,
 } from "agboss/internal";
+import type { Class } from "agboss";
+import type { EvalRunReport } from "agboss/eval";
 import { loadCliApplication } from "../cli/cli-application.js";
 import {
   loadOptions,
@@ -17,11 +20,13 @@ import { envOption } from "../cli/environment.js";
 import { CliError, usageError } from "../cli/errors.js";
 import { writeOutputFile } from "./output-file.js";
 import { baselineOf, comparisonLines, regressionFailure } from "./baseline.js";
+import { chaosLine, chaosOf } from "./chaos-options.js";
 import { printRunTable } from "./run-report.js";
 
 /**
  * `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline
- * <run.json> [--fail-on-regression]] [--profile <name>] [--env <name>]` (#396 PR 2, PR 3): the
+ * <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]]
+ * [--profile <name>] [--env <name>]` (#396 PR 2, PR 3, PR 6 — failures injected into its model calls): the
  * application built as `createApp` builds it, the suite run on it — every case `--runs` times — its
  * table printed, each case against the baseline, the artifact written with `--report`, then its HTML
  * report with `--html` (#397 PR 1). The exit code says whether it ran — and, with
@@ -60,38 +65,52 @@ function suiteOf(context: CommandContext, suites: readonly FoundEvalSuite[]): Fo
   );
 }
 
-export async function evalRunCommand(context: CommandContext): Promise<CommandOutcome> {
-  const runs = runsOf(context);
-  const loaded = await loadCliApplication(context);
-  const found = suiteOf(context, await loadEvalSuites(loaded.application, loadOptions(context)));
-  const baseline = baselineOf(context, found.name);
-  const built = await builtApplicationOf(loaded.application, {
+/** The application built as `createApp` builds it — with the run's chaos, when it injects some. */
+function buildOf(context: CommandContext, application: Class, chaos: ChaosOptions | undefined) {
+  return builtApplicationOf(application, {
+    ...(chaos === undefined ? {} : { chaos }),
     env: envOption(context),
     profile: textOption(context.values, "profile"),
     processEnv: context.io.env,
     profileRoot: context.io.cwd,
   });
+}
+
+/** The artifact with `--report`, then its HTML page with `--html`: the files written. */
+async function writtenOf(context: CommandContext, report: EvalRunReport): Promise<string[]> {
+  const path = textOption(context.values, "report");
+  if (path !== undefined) {
+    writeOutputFile(context, path, `${JSON.stringify(report, null, 2)}\n`);
+    context.say(`report → ${path}`);
+  }
+  // the artifact first: a page too large to write leaves the run's artifact written
+  const html = textOption(context.values, "html");
+  if (html !== undefined)
+    await (await import("./html-report.js")).writeHtmlReport(context, html, report);
+  return [path, html].filter((file) => file !== undefined);
+}
+
+export async function evalRunCommand(context: CommandContext): Promise<CommandOutcome> {
+  const runs = runsOf(context);
+  const loaded = await loadCliApplication(context);
+  const found = suiteOf(context, await loadEvalSuites(loaded.application, loadOptions(context)));
+  const baseline = baselineOf(context, found.name);
+  const chaos = chaosOf(context);
+  const built = await buildOf(context, loaded.application, chaos);
   try {
     const profile = textOption(context.values, "profile");
     const ran = await runEvalSuite(built, found.suite, {
       runs,
       ...(profile === undefined ? {} : { profile }),
+      ...(chaos === undefined ? {} : { chaos }),
     });
     printRunTable(context, ran);
+    if (ran.chaos !== undefined) context.say(chaosLine(ran.chaos));
     const comparison =
       baseline === undefined ? undefined : compareEvalRuns(baseline.report, ran, baseline.file);
     const report = comparison === undefined ? ran : { ...ran, baseline: comparison };
     if (comparison !== undefined) comparisonLines(comparison).forEach(context.say);
-    const path = textOption(context.values, "report");
-    if (path !== undefined) {
-      writeOutputFile(context, path, `${JSON.stringify(report, null, 2)}\n`);
-      context.say(`report → ${path}`);
-    }
-    // the artifact first: a page too large to write leaves the run's artifact written
-    const html = textOption(context.values, "html");
-    if (html !== undefined)
-      await (await import("./html-report.js")).writeHtmlReport(context, html, report);
-    const created = [path, html].filter((file) => file !== undefined);
+    const created = await writtenOf(context, report);
     const failure = comparison === undefined ? undefined : regressionFailure(context, comparison);
     return {
       result: report,
