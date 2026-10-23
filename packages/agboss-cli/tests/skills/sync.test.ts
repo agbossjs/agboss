@@ -41,20 +41,20 @@ function downgrade(root: string, to: string): void {
 }
 
 describe("#305 AC4: the skills sync", () => {
-  it("installs the skills of the CLI's own agboss when the folder is missing: 13 files and the manifest", () => {
+  it("installs the skills of the CLI's own agboss when the folder is missing: 14 files and the manifest", () => {
     const root = projectRoot();
 
     const done = sync(root);
 
     expect(done.result).toMatchObject({ status: SkillsSyncStatus.Installed, version });
-    expect(done.result.written).toHaveLength(13);
-    expect(fileCount).toBe(13);
+    expect(done.result.written).toHaveLength(14);
+    expect(fileCount).toBe(14);
     expect(read(root, "SKILL.md")).toMatch(
       new RegExp(`^---\\nname: agboss\\n[^]*?---\\n\\n<!-- agboss-skills-version: ${version} — `),
     );
     expect(readManifest(folderOf(root))?.version).toBe(version);
     expect(skillsLines(done)).toEqual([
-      `skills: .claude/skills/agboss installed for agboss ${version} (13 files)`,
+      `skills: .claude/skills/agboss installed for agboss ${version} (14 files)`,
     ]);
   });
 
@@ -77,7 +77,7 @@ describe("#305 AC4: the skills sync", () => {
 
     expect(done.result).toMatchObject({ status: SkillsSyncStatus.Updated, previous: "0.0.1" });
     expect(skillsLines(done)).toEqual([
-      `skills: .claude/skills/agboss updated 0.0.1 → ${version} (13 files)`,
+      `skills: .claude/skills/agboss updated 0.0.1 → ${version} (14 files)`,
     ]);
     expect(readManifest(folderOf(root))?.version).toBe(version);
   });

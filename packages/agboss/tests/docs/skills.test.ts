@@ -42,7 +42,7 @@ const header = (version: string): string =>
 
 // each test runs tsc over the written snippets: the whole skill takes ~25 s locally
 describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
-  it("AC1: the shipped SKILL.md and its 12 references pass — header, codes, matrix coverage", () => {
+  it("AC1: the shipped SKILL.md and its 13 references pass — header, codes, matrix coverage", () => {
     const references = readdirSync(join(SKILLS, "references")).sort();
     const files = Object.fromEntries([
       ["SKILL.md", readFileSync(join(SKILLS, "SKILL.md"), "utf8")],
@@ -54,13 +54,13 @@ describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
 
     const result = checkSkills(files);
 
-    expect(references).toHaveLength(12);
+    expect(references).toHaveLength(13);
     // stderr may carry Node's warnings (SQLite in a compiled snippet), never a problem
     expect(result.stderr).not.toContain("Docs out of date");
     expect(result.status).toBe(0);
   });
 
-  it("AC1: the matrix coverage names a list for SKILL.md and each of the 12 references", () => {
+  it("AC1: the matrix coverage names a list for SKILL.md and each of the 13 references", () => {
     const shipped = [
       "SKILL.md",
       ...readdirSync(join(SKILLS, "references")).map((name) => `references/${name}`),

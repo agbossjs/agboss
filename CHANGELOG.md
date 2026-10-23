@@ -73,8 +73,9 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   `agboss describe`, `agboss dev`, `agboss studio`, `agboss chat` / `agboss run`, evaluations and
   comparisons (#268). Breaking on the way (#396): the bare `agboss eval` is now `agboss eval score`
   (`agboss eval` lists its subcommands `run` / `score` and exits 2).
-- **Skills for coding agents** — `SKILL.md` and twelve references shipped in the package and synced
-  into a project by `agboss check` (#305).
+- **Skills for coding agents** — `SKILL.md` and thirteen references shipped in the package and synced
+  into a project by `agboss check` (#305), among them a step-by-step guide to migrating LangGraph
+  code — state, edges, `Send`, `interrupt` — to AGBoss (#424).
 
 ## [0.0.1] - 2026-10-10
 

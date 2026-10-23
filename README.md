@@ -453,8 +453,8 @@ Needs `OPENROUTER_API_KEY` in `.env` (dev's `openRouterApiKey: secret("OPENROUTE
 ## AI coding agents
 
 `agboss` ships its own guide for coding agents (#305), written for the installed version:
-`skills/agboss/` in the package — `SKILL.md` and 12 references, from composition and the flow DSL to
-tests and the error catalog, every snippet compiled by the gate. `agboss create` writes three things
+`skills/agboss/` in the package — `SKILL.md` and 13 references, from composition and the flow DSL to
+tests, the error catalog and migrating a LangGraph graph (#424), every snippet compiled by the gate. `agboss create` writes three things
 for agents:
 
 - `AGENTS.md` (Cursor, Codex, …) — the project's instructions and a table routing each task to one
@@ -465,7 +465,7 @@ for agents:
 
 `AGENTS.md` and `CLAUDE.md` are written once and never rewritten. The skills folder is the
 framework's: `npx agboss check` (so the project's `postinstall`, `npx agboss dev` and
-`npx agboss generate …`) makes it match the `agboss` the project resolves — `skills: .claude/skills/agboss updated 0.1.0 → 0.2.0 (13 files)` after an upgrade, `installed` on a fresh clone, `repaired` with
+`npx agboss generate …`) makes it match the `agboss` the project resolves — `skills: .claude/skills/agboss updated 0.1.0 → 0.2.0 (14 files)` after an upgrade, `installed` on a fresh clone, `repaired` with
 `[skills.local-edit]` when a file was edited by hand. A problem is a warning
 (`[skills.sync-failed]`, `[skills.no-framework]`) and never changes the exit code; `--json` carries
 `result.skills`. `"agboss": { "skills": false }` in `package.json` turns the sync off. More:

@@ -197,6 +197,7 @@ export class OrderStatusTool implements ToolHandler<OrderQueryDto, OrderStatusDt
 | Tests: `testWith`, unit runners (`testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction`), races, VCR cassettes, `@EvalSuite`, code judges | `references/10-testing-vcr-and-evals.md`          |
 | A CLI command, LangGraph Studio, a `[rule.code]` error                                                                                                                                                                                | `references/11-cli-studio-and-error-catalog.md`   |
 | A whole feature or application from scratch                                                                                                                                                                                           | `references/12-end-to-end-recipes.md`             |
+| Migrating a LangGraph graph (`StateAnnotation`, `addConditionalEdges`, `Command`, `Send`, `interrupt`) to AGBoss                                                                                                                      | `references/13-migrating-from-langgraph.md`       |
 
 Put this project's own rules in the root `AGENTS.md`, never in this folder: `npx agboss check`
 replaces it on every `agboss` upgrade.
