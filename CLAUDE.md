@@ -165,7 +165,10 @@ In `examples/flow-patterns/` (#295, the zero-cost harness of the public surface,
 no model key): `npm run check` (`agboss check --strict` on its offline `src/desk.application.ts`
 `--federation snapshots/` — its A2A export against its checked-in `describe --json` — and on its
 application's eleven workflows `--federation` against the desk's fresh `describe --json`, then
-`--models` on `test`, then `eslint .` with `agboss/eslint`; `npm run snapshot` rewrites the desk's) ·
+`--models` on `test`, then `eslint .` with `agboss/eslint`, then `npm run eval:check` — the desk's
+eval suite run offline on `--env offline` against its baseline `eval/runs/desk-eval-suite.json`
+with `--fail-on-regression`, `eval show --html` and `eval calibrate` on `eval/labels/`; `npm run
+snapshot` rewrites the desk's describe, `npm run eval` its baseline) ·
 `npm run describe`
 (each of them: `src/offer/` the review loop, `src/credit/` a code router, `src/review/` parallel
 launches in waves, #273, `src/panel/` a quorum with a code and a model arbiter, #279, `src/vendor/` a
@@ -177,7 +180,8 @@ compaction, code guardrails, a tool interceptor — on a transport model provide
 request, and the operational contracts — a code judge on `toolCalls`, a `@Rag`, a `PiiPolicyHandler`,
 an observer, a `@HealthCheck`, `maxConcurrentSteps` —, served over A2A (`@A2AExpose`, a caller
 resolver) to `src/helpline/`, its consumer through an `@A2AAgent` contract (`a2aServer` in
-`tests/helpline.test.ts`, #398); `tests/unit-runners.test.ts` runs every unit
+`tests/helpline.test.ts`, #398), and an `@EvalSuite` with a code eval judge (#396);
+`tests/unit-runners.test.ts` runs every unit
 runner on the patterns' components, `src/model-providers/` beside OpenRouter narrowed to `moonshotai/…`, #382–#385) · `npm test`.
 Real runs (#346, its README: the manual checks #263 M1, #264 M1, #267 M1): `dev` reads
 `OPENROUTER_API_KEY` (`openRouterBaseUrl` optional) and `PII_PSEUDONYM_KEY`, every store is SQLite,
@@ -2206,7 +2210,8 @@ examples/flow-patterns/      the flow's patterns (package flow-patterns-example,
                     #267), src/hiring/ (declared compensation, #339), src/travel/ (a failed join's undo, #340),
                     src/desk/ (the extension points, #382–#385), src/helpline/ (its A2A consumer, #398),
                     one *.workflow.ts each; model-providers/; desk.application.ts (offline, served over
-                    A2A); snapshots/ (its describe --json); scripts/ (npm run answer); README.md (real runs,
+                    A2A); snapshots/ (its describe --json); eval/ (its eval baseline, labels and
+                    failure tags); scripts/ (npm run answer); README.md (real runs,
                     #346); tests/
 scripts/        the gate's checks (check-root, check-suppressions, check-docs + docs/, api-report,
                 public-entries, eslint-agboss-plugin: `agboss/eslint` on the repo's files),

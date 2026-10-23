@@ -28,18 +28,29 @@ npm run check                         # agboss check --strict on both applicatio
                                       # snapshot (snapshots/, a changed export needs a new version), the
                                       # helpline's contract against the desk's describe --json
                                       # (--federation, no network); --models on `test` (no key), then
-                                      # eslint with agboss/eslint (eslint.config.js)
+                                      # eslint with agboss/eslint (eslint.config.js), then eval:check
+npm run eval:check                    # the desk's eval suite offline against its baseline
+                                      # (eval/runs/, --fail-on-regression), eval show --html, and
+                                      # eval calibrate on the checked-in labels (eval/labels/)
+npm run eval                          # rewrites the baseline (then relabel eval/labels/)
 npm run snapshot                      # the desk's describe --json, after raising its expose's version
 npm test                              # scripted models only: no key, no network
 ```
 
 The tests never call a model. The desk runs for real offline — its model provider
-(`src/model-providers/harness.model-provider.ts`) looks the `#<id>` order up, then quotes the tool:
+(`src/model-providers/harness.model-provider.ts`) looks the `#<id>` order up, then quotes the tool.
+The `offline` environment keeps the stores in memory and reads only the PII key, which the desk's PII
+policy needs outside tests (any value: it only makes tokens):
 
 ```bash
-npx agboss run --application src/desk.application.ts --env test --start desk-workflow-start \
-  --input '{"customerId":"c-1","question":"Where is order #7?"}'
+PII_PSEUDONYM_KEY=offline-only npx agboss run --application src/desk.application.ts --env offline \
+  --start desk-workflow-start --input '{"customerId":"c-1","question":"Where is order #7?"}'
 ```
+
+Its eval suite (`src/desk/eval-suites/desk.eval-suite.ts`: `checkTrajectory()`, then the code
+`desk-answer-judge`) runs the same way — `npm run eval:check` — and `npx agboss eval ui --dir
+.agboss/eval` serves its runs for labelling (`eval/failure-taxonomy.yaml` holds the tags). `agboss
+eval score` is not here: it scores with Jev, a decision model, which needs OpenRouter.
 
 A real run uses the `dev` environment (`src/environments/`): models
 through OpenRouter, and every store — budgets, records, pauses, checkpoints, leases — in SQLite at

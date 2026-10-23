@@ -73,13 +73,14 @@
     },
     "examples/flow-patterns": {
       // the applications, loaded by path (package.json → "agboss": { "application" }, #268, and the
-      // offline desk's `--application`, #419), their workflows, the environments of `--env` and
-      // `npm run answer` (#346)
+      // offline desk's `--application`, #419), their workflows, the environments of `--env`, the
+      // eval suites `agboss eval run` finds by folder (#396) and `npm run answer` (#346)
       "entry": [
         "src/flow-patterns.application.ts",
         "src/desk.application.ts",
         "src/**/*.workflow.ts",
         "src/environments/*.environment.ts",
+        "src/**/eval-suites/*.eval-suite.ts",
         "src/scripts/*.ts",
       ],
       "project": ["src/**/*.ts", "tests/**/*.ts"],
