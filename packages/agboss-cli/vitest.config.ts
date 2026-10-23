@@ -38,6 +38,9 @@ export default defineConfig({
         // they wait for a server or a watcher until Ctrl+C: dev's runs by its e2e test's `agboss dev`
         "src/dev.ts",
         "src/studio.ts",
+        "src/cli/stop-signal.ts",
+        // agboss eval ui serves until Ctrl+C: its server and routes are tested on their own
+        "src/eval/ui-cli.ts",
         "src/cli/ask.ts",
         "src/eval/cli.ts",
         "src/eval/cli-deps.ts",

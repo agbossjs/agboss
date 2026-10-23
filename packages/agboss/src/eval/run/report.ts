@@ -2,6 +2,7 @@ import type { JudgeMetrics } from "../../components/judge-decorators.js";
 import { CheckStatus, type EvalCascade } from "../suite/checks.js";
 import type { EvalRunComparison } from "./comparison.js";
 import type { EvalCaseExpectation, EvalExecutionTrace } from "./trace.js";
+import type { EvalModelUse } from "./ran-on.js";
 
 /**
  * The run artifact of `agboss eval run --report <run.json>` (#396 PR 2, S3): every case run `runs`
@@ -15,12 +16,13 @@ export const EVAL_RUN_KIND = "agboss.eval-run";
 
 /**
  * The version of the artifact's shape a run writes: a reader refuses one it does not know. 2 (#397
- * PR 2) adds each run's `trace` and each case's `expectation`; a version 1 artifact is still read.
+ * PR 2) adds each run's `trace` and each case's `expectation`; 3 (#397 PR 3) what the run ran on —
+ * `profile`, `agbossVersion`, `models`, `piiPolicies`. Versions 1 and 2 are still read.
  */
-export const EVAL_RUN_SCHEMA_VERSION = 2;
+export const EVAL_RUN_SCHEMA_VERSION = 3;
 
 /** The versions this agboss reads: every one it ever wrote. */
-export type EvalRunSchemaVersion = 1 | typeof EVAL_RUN_SCHEMA_VERSION;
+export type EvalRunSchemaVersion = 1 | 2 | typeof EVAL_RUN_SCHEMA_VERSION;
 
 /** What one check decided on one run. */
 export interface EvalCheckResult {
@@ -129,6 +131,14 @@ export interface EvalRunReport {
   readonly cases: readonly EvalCaseReport[];
   readonly summary: EvalRunSummary;
   readonly spend: EvalRunSpend;
+  /** The profile it ran on (`--profile`, schemaVersion 3); absent for the workflow as written. */
+  readonly profile?: string;
+  /** The AGBoss version that ran it (schemaVersion 3). */
+  readonly agbossVersion?: string;
+  /** Every agent's and model router's model and provider (schemaVersion 3). */
+  readonly models?: readonly EvalModelUse[];
+  /** The PII policies that masked its records and traces (schemaVersion 3). */
+  readonly piiPolicies?: readonly string[];
   /** The run against `--baseline <run.json>` (#396 PR 3); absent without one. */
   readonly baseline?: EvalRunComparison;
 }

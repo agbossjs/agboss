@@ -6,6 +6,7 @@ import { checkEvalSuite } from "../suite/check-suite.js";
 import type { EvalCase } from "../suite/cases.js";
 import { caseHashOf } from "./case-hash.js";
 import { caseExpectationOf } from "./expectation.js";
+import { ranOnOf } from "./ran-on.js";
 import { runCaseOnce, type SuiteRunParts } from "./case-run.js";
 import {
   caseReportOf,
@@ -29,6 +30,8 @@ export interface EvalRunOptions {
   readonly runs: number;
   /** Told after each run, in order (the CLI prints progress). */
   readonly onRun?: (name: string, result: EvalRunResult) => void;
+  /** The profile the application was built on (`--profile`), for the artifact's header. */
+  readonly profile?: string;
 }
 
 /** The parts every run of the suite shares. */
@@ -42,7 +45,14 @@ function partsOf(built: BuiltApplication, suite: Class): SuiteRunParts {
     throw new Error(`${meta.name}: its start is not built in ${built.assembled.name}`);
   const { idGenerator } = built.infrastructure;
   const newThreadId = (): string => idGenerator.newThreadId();
-  return { app: built.app, deps: workflow.deps, start, suite: meta, newThreadId };
+  return {
+    app: built.app,
+    deps: workflow.deps,
+    bundle: workflow.bundle,
+    start,
+    suite: meta,
+    newThreadId,
+  };
 }
 
 async function caseReport(
@@ -93,5 +103,6 @@ export async function runEvalSuite(
     cases,
     summary: summaryOf(cases),
     spend: { totalUsd: spent },
+    ...ranOnOf(parts.bundle, options.profile),
   };
 }

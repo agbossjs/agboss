@@ -49,6 +49,7 @@ async function evalCommand(context: CommandContext): Promise<CommandOutcome> {
   const [subcommand] = context.positionals;
   if (subcommand === "run") return (await import("./run-cli.js")).evalRunCommand(context);
   if (subcommand === "show") return (await import("./show-cli.js")).evalShowCommand(context);
+  if (subcommand === "ui") return (await import("./ui-cli.js")).evalUiCommand(context);
   if (subcommand === "calibrate")
     return (await import("./calibrate-cli.js")).evalCalibrateCommand(context);
   return scoreCommand(context);

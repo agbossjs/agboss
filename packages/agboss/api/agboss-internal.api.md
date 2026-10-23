@@ -556,6 +556,7 @@ export type EvalLabelsRead = {
 export interface EvalRunOptions {
     // Warning: (ae-forgotten-export) The symbol "EvalRunResult" needs to be exported by the entry point internal.d.ts
     readonly onRun?: (name: string, result: EvalRunResult) => void;
+    readonly profile?: string;
     readonly runs: number;
 }
 

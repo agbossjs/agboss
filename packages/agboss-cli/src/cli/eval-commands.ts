@@ -1,4 +1,4 @@
-/** `agboss eval run | score | show | calibrate` (#396 S4, #397): one command of subcommands, each its own schema. */
+/** `agboss eval run | score | show | calibrate | ui` (#396 S4, #397): one command of subcommands, each its own schema. */
 import { APPLICATION, ENV, flag, PROFILE, START, text, type CommandSpec } from "./options.js";
 
 /** `--html <file>`: the run as one self-contained HTML page (#397). */
@@ -6,9 +6,9 @@ const HTML = text("html", "<file>", "write the run as one self-contained HTML re
 
 export const EVAL_COMMAND: CommandSpec = {
   summary:
-    "eval suites run on the application (run), a saved run shown (show), its judges against people's labels (calibrate), recorded runs scored with Jev (score)",
-  usage: "agboss eval <run|score|show|calibrate> [options]",
-  positionals: "run | score | show | calibrate",
+    "eval suites run on the application (run), a saved run shown (show), its judges against people's labels (calibrate), a folder of runs served locally (ui), recorded runs scored with Jev (score)",
+  usage: "agboss eval <run|score|show|calibrate|ui> [options]",
+  positionals: "run | score | show | calibrate | ui",
   options: [],
   subcommands: {
     run: {
@@ -68,6 +68,17 @@ export const EVAL_COMMAND: CommandSpec = {
           "<labels.jsonl>",
           "the labels, one JSON line each (default eval/labels/<suite>.jsonl)",
         ),
+      ],
+    },
+    ui: {
+      summary:
+        "a folder of run artifacts served on 127.0.0.1 behind a token: the runs and each run's report — nothing runs",
+      usage: "agboss eval ui [--dir <folder>] [--port N]",
+      options: [
+        text("dir", "<folder>", "the folder of run artifacts (*.json)", {
+          default: ".agboss/eval",
+        }),
+        text("port", "N", "the port on 127.0.0.1; 0 for a free one", { default: "4317" }),
       ],
     },
   },

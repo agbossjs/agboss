@@ -31,7 +31,7 @@ export const checkTrajectory: () => TrajectoryEvalCheck;
 export const EVAL_RUN_KIND = "agboss.eval-run";
 
 // @public
-export const EVAL_RUN_SCHEMA_VERSION = 2;
+export const EVAL_RUN_SCHEMA_VERSION = 3;
 
 // @public
 export interface EvalCalibration {
@@ -338,6 +338,20 @@ export interface EvalModelCallTrace {
 }
 
 // @public
+export interface EvalModelUse {
+    // (undocumented)
+    readonly component: string;
+    // Warning: (ae-forgotten-export) The symbol "ComponentKind" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly kind: ComponentKind;
+    // (undocumented)
+    readonly model: string;
+    // (undocumented)
+    readonly provider: string;
+}
+
+// @public
 export interface EvalPastTurn {
     // (undocumented)
     readonly finish: Class;
@@ -405,6 +419,7 @@ export interface EvalRunError {
 
 // @public
 export interface EvalRunReport {
+    readonly agbossVersion?: string;
     // (undocumented)
     readonly application: EvalRunComponent;
     readonly baseline?: EvalRunComparison;
@@ -419,6 +434,9 @@ export interface EvalRunReport {
     readonly environment: string;
     // (undocumented)
     readonly kind: typeof EVAL_RUN_KIND;
+    readonly models?: readonly EvalModelUse[];
+    readonly piiPolicies?: readonly string[];
+    readonly profile?: string;
     readonly runs: number;
     // (undocumented)
     readonly schemaVersion: EvalRunSchemaVersion;
@@ -451,7 +469,7 @@ export interface EvalRunResult {
 }
 
 // @public
-export type EvalRunSchemaVersion = 1 | typeof EVAL_RUN_SCHEMA_VERSION;
+export type EvalRunSchemaVersion = 1 | 2 | typeof EVAL_RUN_SCHEMA_VERSION;
 
 // @public
 export interface EvalRunSpend {
@@ -496,8 +514,6 @@ export interface EvalStepTrace {
     readonly itemIndex?: number;
     // (undocumented)
     readonly judgeVerdicts: readonly EvalJudgeVerdictTrace[];
-    // Warning: (ae-forgotten-export) The symbol "ComponentKind" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly kind: ComponentKind;
     // (undocumented)
@@ -673,32 +689,36 @@ export const turn: <const TInput>(input: TInput) => EvalTurn<TInput>;
 // src/eval/run/comparison.ts:46:3 - (ae-undocumented) Missing documentation for "startedAt".
 // src/eval/run/comparison.ts:47:3 - (ae-undocumented) Missing documentation for "runs".
 // src/eval/run/comparison.ts:48:3 - (ae-undocumented) Missing documentation for "cases".
-// src/eval/run/report.ts:29:3 - (ae-undocumented) Missing documentation for "status".
-// src/eval/run/report.ts:42:3 - (ae-undocumented) Missing documentation for "code".
-// src/eval/run/report.ts:43:3 - (ae-undocumented) Missing documentation for "message".
-// src/eval/run/report.ts:50:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/eval/run/report.ts:57:3 - (ae-undocumented) Missing documentation for "checks".
-// src/eval/run/report.ts:71:3 - (ae-undocumented) Missing documentation for "name".
-// src/eval/run/report.ts:76:3 - (ae-undocumented) Missing documentation for "runs".
-// src/eval/run/report.ts:83:3 - (ae-undocumented) Missing documentation for "runResults".
-// src/eval/run/report.ts:90:3 - (ae-undocumented) Missing documentation for "cases".
-// src/eval/run/report.ts:95:3 - (ae-undocumented) Missing documentation for "unstable".
-// src/eval/run/report.ts:98:3 - (ae-undocumented) Missing documentation for "skippedByCascade".
-// src/eval/run/report.ts:103:3 - (ae-undocumented) Missing documentation for "name".
-// src/eval/run/report.ts:104:3 - (ae-undocumented) Missing documentation for "version".
-// src/eval/run/report.ts:109:3 - (ae-undocumented) Missing documentation for "totalUsd".
-// src/eval/run/report.ts:114:3 - (ae-undocumented) Missing documentation for "kind".
-// src/eval/run/report.ts:115:3 - (ae-undocumented) Missing documentation for "schemaVersion".
-// src/eval/run/report.ts:116:3 - (ae-undocumented) Missing documentation for "suite".
-// src/eval/run/report.ts:117:3 - (ae-undocumented) Missing documentation for "application".
-// src/eval/run/report.ts:118:3 - (ae-undocumented) Missing documentation for "workflow".
-// src/eval/run/report.ts:121:3 - (ae-undocumented) Missing documentation for "start".
-// src/eval/run/report.ts:122:3 - (ae-undocumented) Missing documentation for "environment".
-// src/eval/run/report.ts:125:3 - (ae-undocumented) Missing documentation for "cascade".
-// src/eval/run/report.ts:128:3 - (ae-undocumented) Missing documentation for "endedAt".
-// src/eval/run/report.ts:129:3 - (ae-undocumented) Missing documentation for "cases".
-// src/eval/run/report.ts:130:3 - (ae-undocumented) Missing documentation for "summary".
-// src/eval/run/report.ts:131:3 - (ae-undocumented) Missing documentation for "spend".
+// src/eval/run/ran-on.ts:15:3 - (ae-undocumented) Missing documentation for "component".
+// src/eval/run/ran-on.ts:16:3 - (ae-undocumented) Missing documentation for "kind".
+// src/eval/run/ran-on.ts:17:3 - (ae-undocumented) Missing documentation for "model".
+// src/eval/run/ran-on.ts:18:3 - (ae-undocumented) Missing documentation for "provider".
+// src/eval/run/report.ts:31:3 - (ae-undocumented) Missing documentation for "status".
+// src/eval/run/report.ts:44:3 - (ae-undocumented) Missing documentation for "code".
+// src/eval/run/report.ts:45:3 - (ae-undocumented) Missing documentation for "message".
+// src/eval/run/report.ts:52:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/eval/run/report.ts:59:3 - (ae-undocumented) Missing documentation for "checks".
+// src/eval/run/report.ts:73:3 - (ae-undocumented) Missing documentation for "name".
+// src/eval/run/report.ts:78:3 - (ae-undocumented) Missing documentation for "runs".
+// src/eval/run/report.ts:85:3 - (ae-undocumented) Missing documentation for "runResults".
+// src/eval/run/report.ts:92:3 - (ae-undocumented) Missing documentation for "cases".
+// src/eval/run/report.ts:97:3 - (ae-undocumented) Missing documentation for "unstable".
+// src/eval/run/report.ts:100:3 - (ae-undocumented) Missing documentation for "skippedByCascade".
+// src/eval/run/report.ts:105:3 - (ae-undocumented) Missing documentation for "name".
+// src/eval/run/report.ts:106:3 - (ae-undocumented) Missing documentation for "version".
+// src/eval/run/report.ts:111:3 - (ae-undocumented) Missing documentation for "totalUsd".
+// src/eval/run/report.ts:116:3 - (ae-undocumented) Missing documentation for "kind".
+// src/eval/run/report.ts:117:3 - (ae-undocumented) Missing documentation for "schemaVersion".
+// src/eval/run/report.ts:118:3 - (ae-undocumented) Missing documentation for "suite".
+// src/eval/run/report.ts:119:3 - (ae-undocumented) Missing documentation for "application".
+// src/eval/run/report.ts:120:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/eval/run/report.ts:123:3 - (ae-undocumented) Missing documentation for "start".
+// src/eval/run/report.ts:124:3 - (ae-undocumented) Missing documentation for "environment".
+// src/eval/run/report.ts:127:3 - (ae-undocumented) Missing documentation for "cascade".
+// src/eval/run/report.ts:130:3 - (ae-undocumented) Missing documentation for "endedAt".
+// src/eval/run/report.ts:131:3 - (ae-undocumented) Missing documentation for "cases".
+// src/eval/run/report.ts:132:3 - (ae-undocumented) Missing documentation for "summary".
+// src/eval/run/report.ts:133:3 - (ae-undocumented) Missing documentation for "spend".
 // src/eval/run/trace.ts:18:3 - (ae-undocumented) Missing documentation for "code".
 // src/eval/run/trace.ts:19:3 - (ae-undocumented) Missing documentation for "message".
 // src/eval/run/trace.ts:26:3 - (ae-undocumented) Missing documentation for "model".

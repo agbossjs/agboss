@@ -1,4 +1,5 @@
 import type { AppDeps } from "../../app/app-deps.js";
+import type { AssembledWorkflow } from "../../workflow.js";
 import { executeUnchecked } from "../../app/execute-unchecked.js";
 import { ExecutionStatus, type App, type ExecutionOutput } from "../../app/types.js";
 import { startLine } from "../../flow/runtime/history.js";
@@ -31,6 +32,8 @@ export interface SuiteRunParts {
   readonly app: App;
   /** The run dependencies of the workflow the suite's start opens. */
   readonly deps: AppDeps;
+  /** The workflow as assembled (a profile applied): what the artifact's header reads. */
+  readonly bundle: AssembledWorkflow;
   readonly start: ApplicationStart;
   readonly suite: EvalSuiteMeta;
   readonly newThreadId: () => string;

@@ -117,9 +117,9 @@ describe("#397 PR 1: agboss eval show", () => {
     ],
     [
       "an unknown schema version",
-      fileWith("version.json", JSON.stringify({ ...REFUNDS_ARTIFACT, schemaVersion: 3 })),
+      fileWith("version.json", JSON.stringify({ ...REFUNDS_ARTIFACT, schemaVersion: 4 })),
       "eval.run-invalid",
-      "schemaVersion 3 — this agboss reads 1 to 2",
+      "schemaVersion 4 — this agboss reads 1 to 3",
     ],
     [
       "a field missing",

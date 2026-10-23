@@ -72,7 +72,11 @@ export async function evalRunCommand(context: CommandContext): Promise<CommandOu
     profileRoot: context.io.cwd,
   });
   try {
-    const ran = await runEvalSuite(built, found.suite, { runs });
+    const profile = textOption(context.values, "profile");
+    const ran = await runEvalSuite(built, found.suite, {
+      runs,
+      ...(profile === undefined ? {} : { profile }),
+    });
     printRunTable(context, ran);
     const comparison =
       baseline === undefined ? undefined : compareEvalRuns(baseline.report, ran, baseline.file);

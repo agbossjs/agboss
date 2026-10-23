@@ -4,6 +4,7 @@
  * external request, and every artifact value escaped.
  */
 import { createHash } from "node:crypto";
+import { ComponentKind } from "agboss";
 import { CheckStatus } from "agboss/eval";
 import { describe, expect, it } from "vitest";
 import { renderEvalReportPage } from "../../src/eval/html/report-page.js";
@@ -45,6 +46,38 @@ describe("#397 PR 1: the HTML report of a run artifact", () => {
       "<dt>Took</dt><dd>3 min 5 s</dd>",
     ])
       expect(PAGE).toContain(fact);
+  });
+
+  it("a version 3 artifact's header (#397 PR 3): profile, AGBoss, masking policies, models", () => {
+    const page = renderEvalReportPage({
+      ...REFUNDS_ARTIFACT,
+      schemaVersion: 3,
+      profile: "cheaper",
+      agbossVersion: "0.1.0",
+      piiPolicies: ["contact-pii-policy"],
+      models: [
+        {
+          component: "refund-agent",
+          kind: ComponentKind.Agent,
+          model: "moonshotai/kimi-k2.6",
+          provider: "openrouter-model-provider",
+        },
+        {
+          component: "main-router",
+          kind: ComponentKind.Router,
+          model: "typesafe/jev-1.13",
+          provider: "decisions-model-provider",
+        },
+      ],
+    });
+
+    expect(page).toContain("<dt>Profile</dt><dd>cheaper</dd>");
+    expect(page).toContain("<dt>AGBoss</dt><dd>0.1.0</dd>");
+    expect(page).toContain("<dt>Masked by</dt><dd>contact-pii-policy</dd>");
+    expect(page).toContain(
+      "<dt>Models</dt><dd>refund-agent: moonshotai/kimi-k2.6 (openrouter-model-provider); main-router: typesafe/jev-1.13 (decisions-model-provider)</dd>",
+    );
+    expect(PAGE).not.toContain("<dt>AGBoss</dt>"); // a version 1 artifact has none of them
   });
 
   it("the summary: pass@k and pass^k as shares, cases, attempts, unstable, judge calls, spend", () => {

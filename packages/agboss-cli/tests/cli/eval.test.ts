@@ -66,6 +66,7 @@ describe("#396 PR 2: agboss eval is made of subcommands", () => {
       "eval score",
       "eval show",
       "eval calibrate",
+      "eval ui",
     ]);
   });
 
@@ -310,7 +311,7 @@ describe("#396 PR 3: agboss eval run --baseline", () => {
 
   it("a file that is no run artifact: exit 2, eval.run-invalid, before anything runs", async () => {
     const path = join(CWD, "not-a-run.json");
-    writeFileSync(path, JSON.stringify({ kind: "agboss.eval-run", schemaVersion: 3 }));
+    writeFileSync(path, JSON.stringify({ kind: "agboss.eval-run", schemaVersion: 4 }));
     const call = await agboss(
       [...RUN, "--suite", "desk-eval-suite", "--baseline", path, "--json"],
       CWD,
@@ -320,7 +321,7 @@ describe("#396 PR 3: agboss eval run --baseline", () => {
     expect(envelope(call)).toMatchObject({
       error: {
         code: "eval.run-invalid",
-        message: `${path} is not a run artifact this agboss reads: schemaVersion 3 — this agboss reads 1 to 2`,
+        message: `${path} is not a run artifact this agboss reads: schemaVersion 4 — this agboss reads 1 to 3`,
       },
     });
   });
