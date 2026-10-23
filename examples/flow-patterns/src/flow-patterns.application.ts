@@ -19,6 +19,9 @@ import {
 } from "./config/budget.config.js";
 import { CreditWorkflow } from "./credit/credit.workflow.js";
 import { DeskWorkflow } from "./desk/desk.workflow.js";
+import { OrderDeskHealthCheck } from "./desk/health/order-desk.health-check.js";
+import { DeskMetricsObserver } from "./desk/observers/desk-metrics.observer.js";
+import { DeskMetricsService } from "./desk/services/desk-metrics.service.js";
 import { HarnessModelProvider } from "./model-providers/harness.model-provider.js";
 import { FlowPatternsOpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { OfferWorkflow } from "./offer/offer.workflow.js";
@@ -72,7 +75,11 @@ import { AppEnvironment } from "./environments/app.environment.js";
     TripWorkflow,
     DeskWorkflow,
   ],
+  observers: [DeskMetricsObserver],
+  healthChecks: [OrderDeskHealthCheck],
+  maxConcurrentSteps: 16, // agent, router and action steps of one instance at once (#332)
   providers: [
+    DeskMetricsService, // the observer's
     FlowPatternsOpenRouterModelProvider, // moonshotai/…
     DecisionsModelProvider, // Jev and the other decision models
     HarnessModelProvider, // harness/…, offline

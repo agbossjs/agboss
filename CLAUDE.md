@@ -172,7 +172,9 @@ approvals at once through a `ThreadOwner` channel role answered in the terminal,
 an offer whose steps declare their undo, `compensateWith` / `committedBy`, #339, `src/travel/` two
 bookings a failed join undoes automatically, #340, `src/desk/` the extension points — a custom
 compaction, code guardrails, a tool interceptor — on a transport model provider that answers by the
-request, `src/model-providers/` beside OpenRouter narrowed to `moonshotai/…`, #382–#385) · `npm test`.
+request, and the operational contracts — a code judge on `toolCalls`, a `@Rag`, a `PiiPolicyHandler`,
+an observer, a `@HealthCheck`, `maxConcurrentSteps` —; `tests/unit-runners.test.ts` runs every unit
+runner on the patterns' components, `src/model-providers/` beside OpenRouter narrowed to `moonshotai/…`, #382–#385) · `npm test`.
 Real runs (#346, its README: the manual checks #263 M1, #264 M1, #267 M1): `dev` reads
 `OPENROUTER_API_KEY` (`openRouterBaseUrl` optional) and `PII_PSEUDONYM_KEY`, every store is SQLite,
 Langfuse traces when its keys are set — `npx agboss run --start <name> --input '<json>'`, and

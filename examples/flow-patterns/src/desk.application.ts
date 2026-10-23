@@ -10,6 +10,9 @@ import {
   TenantDailyBudget,
 } from "./config/budget.config.js";
 import { DeskWorkflow } from "./desk/desk.workflow.js";
+import { OrderDeskHealthCheck } from "./desk/health/order-desk.health-check.js";
+import { DeskMetricsObserver } from "./desk/observers/desk-metrics.observer.js";
+import { DeskMetricsService } from "./desk/services/desk-metrics.service.js";
 import { AppEnvironment } from "./environments/app.environment.js";
 import { HarnessModelProvider } from "./model-providers/harness.model-provider.js";
 
@@ -25,7 +28,11 @@ import { HarnessModelProvider } from "./model-providers/harness.model-provider.j
   environment: AppEnvironment,
   pseudonymKey: "piiPseudonymKey",
   workflows: [DeskWorkflow],
+  observers: [DeskMetricsObserver],
+  healthChecks: [OrderDeskHealthCheck],
+  maxConcurrentSteps: 16, // agent, router and action steps of one instance at once (#332)
   providers: [
+    DeskMetricsService, // the observer's
     HarnessModelProvider,
     SqliteCostLedgerRepository,
     SqliteExecutionRecordRepository,

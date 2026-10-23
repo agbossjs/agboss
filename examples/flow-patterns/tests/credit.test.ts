@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { BudgetExceededError } from "agboss";
+import { AgentAnswerInvalidError, BudgetExceededError } from "agboss";
 import { usd } from "agboss/units";
 import { CreditExecutionBudget, TenantDailyBudget } from "../src/config/budget.config.js";
-import { replyWith, routeTo, testWith } from "agboss/testing";
+import { replyWith, replyWithInvalidAnswer, routeTo, testWith } from "agboss/testing";
 import { ChargeCardAction } from "../src/credit/actions/charge-card.action.js";
 import { ApprovalAgent } from "../src/credit/agents/approval.agent.js";
 import { OrderIntakeAgent } from "../src/credit/agents/order-intake.agent.js";
@@ -162,4 +162,20 @@ describe("budgets (#261): the credit desk's own execution budget, the tenant's d
   it("a budget's maxSpend() is a plain method", () => {
     expect(new CreditExecutionBudget().maxSpend()).toBe(usd(0.05));
   });
+});
+
+test("an answer that does not fit the agent's DTO is sent back; the third fails the step", async ({
+  app,
+  mockLlm,
+}) => {
+  mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
+  mockLlm(OrderIntakeAgent).thenReturn(
+    ...[1, 2, 3].map(() =>
+      replyWithInvalidAnswer(CreditOrderDto, { customerId: "c-1", total: "lots" }),
+    ),
+  );
+
+  await expect(app.execute(CreditWorkflowStart, { text: "lots of tea" })).rejects.toFailWith(
+    AgentAnswerInvalidError,
+  );
 });
