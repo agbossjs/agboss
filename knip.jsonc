@@ -84,6 +84,8 @@
         "src/scripts/*.ts",
       ],
       "project": ["src/**/*.ts", "tests/**/*.ts"],
+      // the policy-files MCP server process, started by path (src/helpline/mcp/), never imported
+      "ignoreDependencies": ["@modelcontextprotocol/server-filesystem"],
     },
   },
 }

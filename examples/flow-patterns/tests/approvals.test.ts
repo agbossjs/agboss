@@ -108,3 +108,37 @@ describe("two purchases wait for the thread's owner at once", () => {
     );
   });
 });
+
+/** Two instances on one SQLite file (#265): the pause is found and resumed by the other one. */
+const twoInstances = testWith(FlowPatternsApplication, { instances: 2, env: "instances" });
+
+twoInstances(
+  "paused on one instance, answered on the other: the other finishes it",
+  async ({ apps, mockLlm, mockOf }) => {
+    mockOf(ApprovalTerminal);
+    mockLlm(VenueBuyerAgent).thenReturn(
+      callTool(PlacePurchaseTool, VENUE),
+      replyWith(VenueBookingDto, { venue: "Lakeside Lodge", isBooked: true }),
+    );
+    mockLlm(FlightBuyerAgent).thenReturn(
+      callTool(PlacePurchaseTool, FLIGHTS),
+      replyWith(FlightBookingDto, { route: "TLV → LIS", isBooked: true }),
+    );
+    const [first, second] = apps;
+    if (first === undefined || second === undefined) throw new Error("two instances expected");
+    const paused = await first.execute(OffsiteBookingWorkflowStart, REQUEST, OWNER);
+
+    await second.resume(
+      { pauseId: pauseIdOf(paused, "venue-buyer-agent"), decision: APPROVE },
+      OWNER,
+    );
+    const finished = await second.resume(
+      { pauseId: pauseIdOf(paused, "flight-buyer-agent"), decision: APPROVE },
+      OWNER,
+    );
+
+    expect(finished).toFinishWith(OffsiteBookingWorkflowFinish, {
+      summary: "venue Lakeside Lodge: booked; flights TLV → LIS: booked",
+    });
+  },
+);

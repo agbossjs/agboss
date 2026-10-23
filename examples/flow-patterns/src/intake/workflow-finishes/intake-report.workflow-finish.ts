@@ -1,0 +1,10 @@
+import { WorkflowFinish } from "agboss";
+import { LegalReviewDto } from "../dtos/intake.dto.js";
+
+/** Where the full check's group finishes: its review. */
+@WorkflowFinish({
+  name: "intake-report-workflow-finish",
+  description: "The full legal review",
+  output: LegalReviewDto,
+})
+export class IntakeReportWorkflowFinish {}

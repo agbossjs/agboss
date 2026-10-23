@@ -47,9 +47,15 @@ describe("the review loop", () => {
       OfferSentWorkflowFinish,
     ]);
     expect(result).toFinishWith(OfferSentWorkflowFinish, { delivered: true });
-    // the editor reads the draft and the notes; the reviewer the latest draft
+    // the editor reads the draft and the notes; the reviewer the latest draft and the one before
+    // (historyOf: { current, previous })
     expect(mockLlm(EditorAgent).lastRequest.input).toContain("add the salary");
-    expect(mockLlm(ReviewerAgent).lastRequest.input).toContain("v2: Ada, engineer, $150k");
+    const [first, second] = mockLlm(ReviewerAgent).inputs;
+    expect(first?.draft).toMatchObject({ current: { value: { text: "v1: Ada, engineer" } } });
+    expect(second?.draft).toMatchObject({
+      current: { value: { text: "v2: Ada, engineer, $150k" } },
+      previous: [{ value: { text: "v1: Ada, engineer" } }],
+    });
   });
 
   test("approved at once: the draft is sent as it is", async ({ app, mockLlm, mockOf }) => {
