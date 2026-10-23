@@ -4,16 +4,16 @@ Read this before writing any test. Tests never call a real model or the network:
 application runs under `testWith(App)` with scripted models, and one component runs alone under its
 unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 
-| You test…                                                                       | Use                                                                                                                                               |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| a path through the application                                                  | `testWith(App)` → `app.execute(Start, input)`, `mockLlm(X).thenReturn(…)`, matchers                                                               |
-| a race between parallel branches                                                | `testWith(App, { concurrency: TestConcurrency.inOrder([step(A), step(B)]) })`                                                                     |
-| time: timeouts, retries, retention, leases                                      | the `clock` fixture: `await clock.advance(seconds(31))`                                                                                           |
-| a restart, a second instance                                                    | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                                        |
-| one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy | its unit runner: `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii` |
-| real model answers, replayed in CI                                              | `testWith(App, { vcr: { cassetteName } })`                                                                                                        |
-| what a live-model run must do, case by case                                     | `@EvalSuite` (`agboss/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`                                                        |
-| quality over real traffic                                                       | `npx agboss golden add`, `npx agboss eval`, `npx agboss compare`                                                                                  |
+| You test…                                                                                                     | Use                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a path through the application                                                                                | `testWith(App)` → `app.execute(Start, input)`, `mockLlm(X).thenReturn(…)`, matchers                                                                                 |
+| a race between parallel branches                                                                              | `testWith(App, { concurrency: TestConcurrency.inOrder([step(A), step(B)]) })`                                                                                       |
+| time: timeouts, retries, retention, leases                                                                    | the `clock` fixture: `await clock.advance(seconds(31))`                                                                                                             |
+| a restart, a second instance                                                                                  | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                                                          |
+| one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy, tool interceptor, compaction | its unit runner: `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction` |
+| real model answers, replayed in CI                                                                            | `testWith(App, { vcr: { cassetteName } })`                                                                                                                          |
+| what a live-model run must do, case by case                                                                   | `@EvalSuite` (`agboss/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`                                                                          |
+| quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval`, `npx agboss compare`                                                                                                    |
 
 `vitest.config.ts` registers the matchers: `setupFiles: ["agboss/testing/setup"]`. A project made by
 `npx agboss create` has three Vitest projects by file name, next to the sources: `src/**/*.test.ts`
@@ -1056,6 +1056,47 @@ it("testToolInterceptor: the decision for the tenant given", async () => {
 });
 ```
 
+`testCompaction(Compaction, options)` (#395) — a `CompactionRunner` — runs one `@Compaction` on a
+`CompactionInput` (`previousSummaries`, `turnsToCompact`) and gives a `CompactionResult`:
+`summaries` (what readers see next — a `SummaryQueue` the latest `summaryQueueLength`, a
+`SingleSummary` the new one) and `requests` (each model call's `instructions` and `input`, two when
+a summary cut at `summaryMaxTokens` was asked again; none for `CompactionStrategy.Custom`, whose
+`compact()` runs on the runner's container). It checks the request and the plumbing; whether a fact
+survives compaction is an eval case.
+
+<!-- snippet-context
+import { Compaction, CompactionStrategy } from "agboss";
+import { replyWith, testCompaction } from "agboss/testing";
+import { expect, it } from "vitest";
+@Compaction({
+  name: "conversation-compaction",
+  description: "Summarises old turns",
+  prompt: "Summarise the turns under `Turns to compact`.",
+  model: "moonshotai/kimi-k2.6",
+  strategy: CompactionStrategy.SummaryQueue,
+  turnsBetweenCompactions: 5,
+  summaryQueueLength: 10,
+  summaryMaxTokens: 400,
+})
+export class ConversationCompaction {}
+-->
+
+```ts
+it("testCompaction: the turns reach the model, the summary joins the queue", async () => {
+  const compact = testCompaction(ConversationCompaction, { model: replyWith("Dana: no calls before 9.") });
+
+  const { output } = await compact({
+    previousSummaries: ["Dana asked about order 7."],
+    turnsToCompact: [
+      { startName: "chat-workflow-start", input: { text: "Never call me before 9." }, finishName: "chat-workflow-finish", output: { text: "Noted." } },
+    ],
+  });
+
+  expect(output.requests[0]?.input).toContain("Never call me before 9.");
+  expect(output.summaries).toEqual(["Dana asked about order 7.", "Dana: no calls before 9."]);
+});
+```
+
 - `testRouter` of a model router answers from `model: routeTo(Target)` (or `decideWith(…)` before a
   launch); `testArbiter` of a model arbiter from `model: decideWith({ counts: 0.9 })`.
 - The context levels: `{ tenantContext, tenant, executionContext, execution }` on any runner (checked
@@ -1115,7 +1156,8 @@ or schema changed since a recording is `[vcr.stale-cassette]`.
 **Loop 1 — the harness, $0, every commit (`npm test`).**
 
 1. The unit runners first, one component on its own: `testTool`, `testAction`, `testRouter`,
-   `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testPii`, `testToolInterceptor` (below).
+   `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testPii`, `testToolInterceptor`,
+   `testCompaction` (below).
 2. Then the whole application: `testWith(App)` with `mockLlm(X).thenReturn(…)` scripts, or a
    recorded cassette (VCR) for real answers replayed with no key or network.
 3. Assert the path and the finish (`toFollowPath`, `toFinishWith`) and **trajectory invariants**

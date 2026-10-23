@@ -98,6 +98,12 @@ async function loaded(cls: Class, loader: PromptLoader): Promise<LoadedCompactio
   ];
 }
 
+/** One compaction class loaded as a workflow loads it (its prompt read); none for a non-compaction. */
+export const loadedCompactionOf = async (
+  cls: Class,
+  loader: PromptLoader,
+): Promise<LoadedCompaction | undefined> => (await loaded(cls, loader))[0];
+
 /** A compaction's settings in the config: what a profile may change. */
 function settingsOf(meta: CompactionMeta): CompactionSettings {
   // a custom one (#382): its class compacts, every `turnsBetweenCompactions` turns

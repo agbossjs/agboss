@@ -5,7 +5,7 @@
  * `waitFor`, the invalid turns `callToolWithInvalidArguments`,
  * `callToolWithTruncatedArguments`, `replyWithInvalidAnswer`, bound to inputs with `when(…)`), the schedule of parallel branches
  * (`TestConcurrency`), the unit runners of single components (`testTool`, `testAction`,
- * `testJudge`, `testPii`, `testRouter`, `testArbiter`, `testRag`, `testGuardrail`, `testToolInterceptor`) and the matchers
+ * `testJudge`, `testPii`, `testRouter`, `testArbiter`, `testRag`, `testGuardrail`, `testToolInterceptor`, `testCompaction`) and the matchers
  * (register them with `setupFiles: ["agboss/testing/setup"]`). Vitest is an optional peer
  * dependency.
  * Wiki → Testing.
@@ -104,6 +104,12 @@ export {
   type GuardrailRunner,
 } from "./units/test-guardrail.js";
 export { testToolInterceptor, type ToolInterceptorRunner } from "./units/test-tool-interceptor.js";
+export {
+  testCompaction,
+  type CompactionRequest,
+  type CompactionResult,
+  type CompactionRunner,
+} from "./units/test-compaction.js";
 export {
   CassetteChange,
   CassetteMissingError,
