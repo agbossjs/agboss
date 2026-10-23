@@ -1,95 +1,126 @@
-import type { MessageContent, ToolCall, UsageMetadata } from "@langchain/core/messages";
-import fs from "node:fs";
-import path from "node:path";
-import { z } from "zod";
 import type { DecisionOutcome } from "../llm/decision-response.js";
 import type { RouteOutcome } from "../routers/index.js";
-import { stableJson, versionOf } from "../terns/index.js";
-import { CassetteMissingError } from "./errors.js";
+import { versionOf } from "../terns/index.js";
+import { CassetteMissingError, StaleCassetteError } from "./errors.js";
+import {
+  componentOfKey,
+  staleComponentsOf,
+  type CassetteHashes,
+  type StaleComponent,
+} from "./vcr-hashes.js";
+import {
+  RE_RECORD,
+  readCassette,
+  v1HintOf,
+  writeCassette,
+  type CassetteContent,
+  type Interaction,
+  type StoredReply,
+} from "./vcr-file.js";
 
-/** A model's reply as a cassette keeps it: enough to rebuild the `AIMessage` it returned. */
-export interface StoredReply {
-  readonly content: MessageContent;
-  readonly tool_calls?: ToolCall[];
-  readonly usage_metadata?: UsageMetadata;
-  readonly response_metadata?: Record<string, unknown>;
-}
-
-const isObject = (value: unknown): boolean => typeof value === "object" && value !== null;
-
-const ChatInteraction = z.strictObject({
-  kind: z.literal("chat"),
-  key: z.string(),
-  request: z.string(),
-  reply: z.custom<StoredReply>(isObject),
-});
-
-const DecisionInteraction = z.strictObject({
-  kind: z.literal("decision"),
-  key: z.string(),
-  request: z.string(),
-  outcome: z.custom<RouteOutcome>(isObject),
-});
-
-const DecideInteraction = z.strictObject({
-  kind: z.literal("decide"),
-  key: z.string(),
-  request: z.string(),
-  outcome: z.custom<DecisionOutcome>(isObject),
-});
-
-const Interaction = z.discriminatedUnion("kind", [
-  ChatInteraction,
-  DecisionInteraction,
-  DecideInteraction,
-]);
-type Interaction = z.infer<typeof Interaction>;
-
-const CassetteFile = z.strictObject({ version: z.literal(1), interactions: z.array(Interaction) });
+export type { StoredReply } from "./vcr-file.js";
 
 /** The request hash an interaction is found by: equal requests → equal hashes, on every machine. */
 export const requestHashOf = (request: unknown): string => versionOf(request);
 
-const RE_RECORD = "re-record it: run the test with vcr mode RECORD (and a model key)";
+/** An interaction as the gateway records it: the cassette adds its component and hashes. */
+export type RecordedCall = Interaction extends infer TKind
+  ? TKind extends Interaction
+    ? Omit<TKind, "component" | "promptHash" | "schemaHash">
+    : never
+  : never;
 
-function readCassette(file: string): Interaction[] {
-  if (!fs.existsSync(file)) {
-    throw new CassetteMissingError(`no cassette ${file} — ${RE_RECORD}`);
-  }
-  const parsed = CassetteFile.safeParse(JSON.parse(fs.readFileSync(file, "utf8")));
-  if (!parsed.success) {
-    throw new CassetteMissingError(
-      `${file} is not a cassette (${parsed.error.message}) — ${RE_RECORD}`,
-    );
-  }
-  return parsed.data.interactions;
+/** How a cassette answers: from its recordings, by recording everything, or the stale part only. */
+enum CassetteMode {
+  Replay = "replay",
+  Record = "record",
+  RecordStale = "record-stale",
 }
+
+/** The version 1 cassettes this process was told about: each hint once. */
+const hinted = new Set<string>();
+
+function hintVersion1(file: string, content: CassetteContent): void {
+  if (content.version !== 1 || hinted.has(file)) return;
+  hinted.add(file);
+  process.emitWarning(v1HintOf(file), { code: "vcr.v1-cassette" });
+}
+
+/** The stale components of a cassette by name; a version 1 one has every component stale. */
+function staleOf(content: CassetteContent, hashes: CassetteHashes): Map<string, StaleComponent> {
+  const found =
+    content.version === 1
+      ? [...new Set(content.interactions.map((i) => componentOfKey(i.key)))].map((component) => ({
+          component,
+          changes: [],
+        }))
+      : staleComponentsOf(content.interactions, hashes);
+  return new Map(found.map((stale) => [stale.component, stale]));
+}
+
+/** The component an interaction belongs to. */
+const componentOf = (interaction: Interaction): string =>
+  interaction.component ?? componentOfKey(interaction.key);
 
 /**
  * The recorded model calls of one test: agents, judges, compaction (`chat`) and every router,
  * guard decision, Jev included (`decision`), every judge's `decide` on a decision model (`decide`), each under its script key
- * (`agent:<name>`, `judge:<name>`, `router:<name>`, `compaction`) and request hash. Replay
- * returns the n-th recording of an equal request in order; anything unrecorded is a
- * `CassetteMissingError`, reported through `report` so the test fails even when the run swallows it.
+ * (`agent:<name>`, `judge:<name>`, `router:<name>`, `compaction:<name>`) and request hash. Replay
+ * returns the n-th recording of an equal request in order; a component changed since it was
+ * recorded is a `StaleCassetteError` (#395 PR 4), anything else unrecorded a
+ * `CassetteMissingError` — both reported through `report`, so the test fails even when the run
+ * swallows them. `RECORD_STALE` replays the rest and records the stale components' calls anew.
  */
 export class Cassette {
   readonly #used = new Map<string, number>();
 
   private constructor(
     readonly file: string,
-    readonly recording: boolean,
+    private readonly mode: CassetteMode,
     private readonly interactions: Interaction[],
+    private readonly hashes: CassetteHashes,
+    private readonly stale: ReadonlyMap<string, StaleComponent>,
     private readonly report: (failure: Error) => Error,
   ) {}
 
   /** Replays `file`; a missing or unreadable cassette fails here, before the test runs. */
-  static replaying(file: string, report: (failure: Error) => Error): Cassette {
-    return new Cassette(file, false, readCassette(file), report);
+  static replaying(
+    file: string,
+    hashes: CassetteHashes,
+    report: (failure: Error) => Error,
+  ): Cassette {
+    const content = readCassette(file);
+    hintVersion1(file, content);
+    // a version 1 cassette has no hashes: it replays as it is, nothing is stale
+    const stale = content.version === 1 ? new Map() : staleOf(content, hashes);
+    return new Cassette(file, CassetteMode.Replay, content.interactions, hashes, stale, report);
   }
 
   /** Records into `file` from scratch, writing it after every call. */
-  static recording(file: string): Cassette {
-    return new Cassette(file, true, [], (failure) => failure);
+  static recording(file: string, hashes: CassetteHashes): Cassette {
+    return new Cassette(file, CassetteMode.Record, [], hashes, new Map(), (failure) => failure);
+  }
+
+  /**
+   * Replays `file` but records the calls of its stale components anew (`VCRMode.RECORD_STALE`):
+   * their old recordings are dropped, the others kept as they are. A version 1 cassette has no
+   * hashes, so all of it is recorded again (as version 2).
+   */
+  static recordingStale(
+    file: string,
+    hashes: CassetteHashes,
+    report: (failure: Error) => Error,
+  ): Cassette {
+    const content = readCassette(file);
+    const stale = staleOf(content, hashes);
+    const kept = content.interactions.filter((interaction) => !stale.has(componentOf(interaction)));
+    return new Cassette(file, CassetteMode.RecordStale, kept, hashes, stale, report);
+  }
+
+  /** Whether a call under `key` goes to the real model and is recorded. */
+  records(key: string): boolean {
+    if (this.mode === CassetteMode.Record) return true;
+    return this.mode === CassetteMode.RecordStale && this.stale.has(componentOfKey(key));
   }
 
   chat(key: string, request: string): StoredReply {
@@ -104,21 +135,25 @@ export class Cassette {
     return found.outcome;
   }
 
-  /** A judge's `ctx.model.decide` (a decision model's answers and cost). */
+  /** A judge's `judgeModel.decide` (a decision model's answers and cost). */
   decide(key: string, request: string): DecisionOutcome {
     const found = this.#take("decide", key, request);
     if (found?.kind !== "decide") throw this.#missing(key);
     return found.outcome;
   }
 
-  record(interaction: Interaction): void {
+  /** Keeps a call with its component's current hashes and writes the cassette (version 2). */
+  record(call: RecordedCall): void {
+    const interaction: Interaction = { ...call, ...this.hashes.of(call.key) };
     this.interactions.push(interaction);
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    const content = { version: 1, interactions: this.interactions };
-    fs.writeFileSync(this.file, `${JSON.stringify(JSON.parse(stableJson(content)), null, 2)}\n`);
+    writeCassette(this.file, this.interactions);
   }
 
   #take(kind: Interaction["kind"], key: string, request: string): Interaction | undefined {
+    const stale = this.stale.get(componentOfKey(key));
+    if (stale !== undefined && this.mode === CassetteMode.Replay) {
+      throw this.report(new StaleCassetteError(this.file, stale.component, stale.changes));
+    }
     const id = `${kind} ${key} ${request}`;
     const n = this.#used.get(id) ?? 0;
     this.#used.set(id, n + 1);

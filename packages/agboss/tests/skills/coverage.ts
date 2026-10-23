@@ -145,6 +145,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["ExecutionStepRecord", "JudgeVerdictRecord", "GuardrailDecisionRecord"],
     ...["toolCallMatchers", "ToolCallMatchers", "ToolCallExpectation"],
     ...["callToolWithInvalidArguments", "callToolWithTruncatedArguments", "replyWithInvalidAnswer"],
+    ...["VCRMode", "CassetteMissingError", "StaleCassetteError", "CassetteChange"],
   ],
   "references/02-flow-dsl-all-combinations.md": [
     ...["Workflow", "WorkflowStart", "WorkflowFinish", "FinishHandler", "WorkflowStartTextDto"],
@@ -233,6 +234,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["GraphRuleError", "RuleCode", "RuleViolation", "FlowSyntaxError", "AGBossError"],
     "EvalCaseInvalidError",
     "A2ACallerRejectedError",
+    ...["CassetteMissingError", "StaleCassetteError"],
     ...["PaidStepError", "StepFailedError", "AgentFailedError", "AgentAnswerInvalidError"],
     ...["QualityGateError", "ActionFailedError", "GuardFailedError", "RouterFailedError"],
     ...[

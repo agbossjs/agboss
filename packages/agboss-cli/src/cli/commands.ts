@@ -14,6 +14,8 @@ import {
   type CommandSpec,
 } from "./options.js";
 
+import { CHECK_COMMAND } from "./check-command.js";
+
 export { COMMON_OPTIONS, optionsOf, type CommandSpec, type OptionSpec } from "./options.js";
 
 /** Commands that run one workflow of the application: chosen by its start (#268). */
@@ -99,20 +101,7 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
     usage: "agboss describe [--profile <name>] [--env <name>] [--application <path>] [--json]",
     options: [APPLICATION, PROFILE, ENV],
   },
-  check: {
-    summary:
-      "every validation that needs no API key: assembly, graph rules, environment, prompts (+ models)",
-    usage:
-      "agboss check [--models] [--strict] [--profile <name>] [--env <name>] [--application <path>] [--json]",
-    options: [
-      APPLICATION,
-      flag("models", "also check models against their providers (lists them over the network)"),
-      flag("strict", "the analyser's warnings are errors ([flow.path-too-deep], …)"),
-      flag("prompts", "prompts: files exist, every {{variable}} is known — always checked"),
-      PROFILE,
-      ENV,
-    ],
-  },
+  check: CHECK_COMMAND,
   dev: {
     summary: "watch mode: the types regenerated and the problems printed on every change",
     usage: "agboss dev [--strict] [--env <name>] [--application <path>]",

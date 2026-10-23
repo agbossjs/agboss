@@ -105,10 +105,29 @@ export const byClassName: ComponentLabel;
 export const byComponentName: ComponentLabel;
 
 // @public
+export interface CassetteCheck {
+    readonly hints: readonly string[];
+    // (undocumented)
+    readonly stale: readonly StaleCassette[];
+    readonly unreadable: readonly {
+        readonly file: string;
+        readonly message: string;
+    }[];
+}
+
+// @public
+export function cassetteFilesUnder(root: string): string[];
+
+// @public
 export enum ChannelImplementationReason {
     Listed = "listed",
     NamedByTool = "named-by-tool"
 }
+
+// Warning: (ae-forgotten-export) The symbol "JoinKeySource" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function checkCassettes(files: readonly string[], workflows: readonly JoinKeySource[]): CassetteCheck;
 
 // Warning: (ae-forgotten-export) The symbol "EvalSuiteMeta" needs to be exported by the entry point internal.d.ts
 //
@@ -645,6 +664,19 @@ export function selectedEnvironment(owner: EnvironmentOwner, env: string | undef
 // @public
 export const shortVersion: (version: string) => string;
 
+// @public
+export interface StaleCassette {
+    // Warning: (ae-forgotten-export) The symbol "CassetteChange" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly changes: readonly CassetteChange[];
+    // (undocumented)
+    readonly component: string;
+    // (undocumented)
+    readonly file: string;
+    readonly message: string;
+}
+
 // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point internal.d.ts
 //
 // @public
@@ -908,6 +940,10 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/models/problems.ts:20:14 - (ae-undocumented) Missing documentation for "problemLine".
 // src/models/uses.ts:10:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/uses.ts:11:3 - (ae-undocumented) Missing documentation for "purpose".
+// src/testing/vcr-check.ts:35:3 - (ae-undocumented) Missing documentation for "file".
+// src/testing/vcr-check.ts:36:3 - (ae-undocumented) Missing documentation for "component".
+// src/testing/vcr-check.ts:37:3 - (ae-undocumented) Missing documentation for "changes".
+// src/testing/vcr-check.ts:44:3 - (ae-undocumented) Missing documentation for "stale".
 // src/tools/mcp/facade.ts:107:14 - (ae-undocumented) Missing documentation for "isMcpFacade".
 
 // (No @packageDocumentation comment for this package)

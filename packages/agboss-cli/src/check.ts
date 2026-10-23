@@ -3,6 +3,7 @@ import { assembleApplication, loadCliApplication } from "./cli/cli-application.j
 import { flagOption, textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
 import { environmentProblems } from "./cli/check-environment.js";
 import { modelProblemsOf } from "./cli/check-models.js";
+import { cassetteProblems } from "./cli/check-cassettes.js";
 import { envOption } from "./cli/environment.js";
 import { assemble, modelProblem, problemText, type CheckProblem } from "./cli/check-problems.js";
 import { checkReportOf, type CheckReport } from "./cli/check-report.js";
@@ -64,6 +65,8 @@ export const CHECKS: readonly ApplicationCheck[] = [
     run: async ({ file, assembled, env }) =>
       (await modelProblemsOf(assembled, env)).map((problem) => modelProblem(file, problem)),
   },
+  // the VCR cassettes against the components (#395 PR 4): no test is run, no key needed
+  { name: "cassettes", flag: "cassettes", run: cassetteProblems },
 ];
 
 /** The checks after a successful assembly, in order. */
@@ -111,7 +114,7 @@ async function reportAndCheck(
 }
 
 /**
- * `agboss check [--models] [--strict] [--profile <p>] [--env <name>] [--json]` — every workflow of
+ * `agboss check [--models] [--cassettes] [--strict] [--profile <p>] [--env <name>] [--json]` — every workflow of
  * the application; no API key needed. After the assembly it prints the report (#268 AC5): the
  * worst case of one call of each start and, with `--env`, the process variables it needs.
  */

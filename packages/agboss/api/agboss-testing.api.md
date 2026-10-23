@@ -112,6 +112,13 @@ export function callToolWithInvalidArguments<TInput extends object>(tool: ToolCl
 export function callToolWithTruncatedArguments<TInput extends object>(tool: ToolClass<TInput>, args: NoInfer<DeepPartial<TInput>>): TruncatedToolCallTurn;
 
 // @public
+export enum CassetteChange {
+    Prompt = "prompt",
+    Removed = "removed",
+    Schema = "schema"
+}
+
+// @public
 export class CassetteMissingError extends TestFailure {
     constructor(message: string);
     // (undocumented)
@@ -520,6 +527,17 @@ export class SequentialIdGenerator extends IdGenerator {
 }
 
 // @public
+export class StaleCassetteError extends TestFailure {
+    constructor(file: string, component: string, changes: readonly CassetteChange[]);
+    // (undocumented)
+    readonly changes: readonly CassetteChange[];
+    readonly component: string;
+    readonly file: string;
+    // (undocumented)
+    name: string;
+}
+
+// @public
 export function step<TNode extends Class>(node: TNode, input?: InputMatcherOf<InstanceType<TNode>>): OrderedStep;
 
 // Warning: (ae-forgotten-export) The symbol "ExecuteMethod" needs to be exported by the entry point index.d.ts
@@ -619,7 +637,7 @@ export class TestFailure extends Error {
 }
 
 // @public
-export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.app-not-ready" | "test.cassette-missing" | "test.no-matching-script" | "test.unused-script" | "test.unreachable-step";
+export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.app-not-ready" | "test.cassette-missing" | "vcr.stale-cassette" | "test.no-matching-script" | "test.unused-script" | "test.unreachable-step";
 
 // @public
 export function testGuardrail<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(guardrail: Class, options?: UnitModelOptions<unknown, TExecution, TTenant>): GuardrailRunner;
@@ -847,6 +865,7 @@ export interface VcrConfig {
 export enum VCRMode {
     AUTO = "AUTO",
     RECORD = "RECORD",
+    RECORD_STALE = "RECORD_STALE",
     REPLAY = "REPLAY"
 }
 
@@ -936,11 +955,13 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/concurrency/test-concurrency.ts:27:3 - (ae-undocumented) Missing documentation for "input".
 // src/testing/concurrency/test-concurrency.ts:47:5 - (ae-undocumented) Missing documentation for "mode".
 // src/testing/concurrency/test-concurrency.ts:48:5 - (ae-undocumented) Missing documentation for "steps".
-// src/testing/errors.ts:16:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:17:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/errors.ts:27:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:39:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:48:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:17:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:18:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:28:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:40:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:68:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:73:3 - (ae-undocumented) Missing documentation for "changes".
+// src/testing/errors.ts:88:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/execution-context.ts:35:3 - (ae-undocumented) Missing documentation for "visitNumber".
 // src/testing/execution-context.ts:36:3 - (ae-undocumented) Missing documentation for "callId".
 // src/testing/execution-context.ts:37:3 - (ae-undocumented) Missing documentation for "itemIndex".
@@ -1032,8 +1053,8 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/test-tool.ts:12:3 - (ae-undocumented) Missing documentation for "run".
 // src/testing/units/test-tool.ts:30:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/unit-types.ts:56:3 - (ae-undocumented) Missing documentation for "output".
-// src/testing/vcr.ts:22:1 - (ae-undocumented) Missing documentation for "VCRMode".
-// src/testing/vcr.ts:33:3 - (ae-undocumented) Missing documentation for "cassetteName".
+// src/testing/vcr.ts:23:1 - (ae-undocumented) Missing documentation for "VCRMode".
+// src/testing/vcr.ts:57:3 - (ae-undocumented) Missing documentation for "cassetteName".
 
 // (No @packageDocumentation comment for this package)
 

@@ -135,16 +135,14 @@ export class TestEnvironment {
     this.#piiTestKey = testPiiKeyOf(options);
     const real = realServers(this.#servers, options.real ?? []);
     const labels = new Map([...this.#servers].map(([cls, name]) => [name, cls.name] as const));
-    const [first] = workflows;
     this.#options = {
       processEnv: { ...testEnv(), ...testPseudonymKeys(assembled, testEnv()) },
       ...environment,
-      gateway:
-        options.vcr && first !== undefined
-          ? createVcrGateway(first, options.vcr, { env: testEnv(), ...environment }, (failure) =>
-              this.book.report(failure),
-            )
-          : createScriptedGateway(this.book, this.clock),
+      gateway: options.vcr
+        ? createVcrGateway(workflows, options.vcr, { env: testEnv(), ...environment }, (failure) =>
+            this.book.report(failure),
+          )
+        : createScriptedGateway(this.book, this.clock),
       connectMcp: stubbedMcpConnect(this.mcp, labels, real),
       container: { ...this.mocks.container, replacements: replacementsOf(options.overrides) },
       ...branchSchedulerOf(options.concurrency, this.book),
