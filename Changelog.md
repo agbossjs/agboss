@@ -3,6 +3,36 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — declared contracts: `@A2AExpose`, a typed `@A2AAgent`, the contract price, the envelope's audience, `describe --json` contracts (#398 PR 3)
+
+- **Breaking — `@A2AAgent({ name, url, target, input, output, price?, deps })` and a typed
+  `execute(input)`** ([A2A](A2A#7-declared-contracts-398-pr-3)): `target: { application, start }`,
+  `input` and `output` are required (`[a2a.target-required]`); the class `extends A2AClient<In, Out>`
+  and `execute(input, call?)` replaces `execute(input, OutputDto, call?)` — the input is validated
+  before it is sent, the output when it comes. Names: `-a2a-agent` on a `…A2AAgent` class
+  (`[name.kind-suffix]`). Migration: move the output DTO from each `execute` call into the decorator
+  with `target` and `input`, rename the class `…A2AAgent`; a client built by hand passes `contract:
+  { target, input, output }` (`A2AContract`) — without one `execute` throws `[a2a.no-contract]`.
+- **Breaking — `a2aHttpListener(app, { expose, callerResolver, meshVerifier?, base? })`**: `expose`
+  (an `@A2AExpose` listed in `@Application({ exposes })`, else `[application.expose-unlisted]`)
+  replaces `start`; `POST <base>/execute` takes `start?` (`400 a2a.unknown-start` for a start it does
+  not export, or none with several), and the call chain is checked once the body is read. The same
+  for `testWith`'s `a2aServer({ expose, callerResolver })`. Migration: `@A2AExpose({ name:
+  "<app>-a2a-expose", version, exports: [Start] })`, list it in `exposes`, pass it as `expose`.
+- **Added — `@A2AExpose({ name, version, exports })`** (mirrors `@McpExpose`) and
+  **`@Application({ exposes })`** (`@A2AExpose` / `@McpExpose`): `[application.expose-unknown-start]`,
+  `[application.not-an-expose]`, `[application.duplicate-expose]`, `[name.kind-suffix]`
+  (`-a2a-expose`, `…A2AExpose`).
+- **Added — the contract price**: the calling tool's spend records the larger of `price` and a
+  trusted peer's verified report (the price alone without one), `a2a:<application>`.
+- **Added — the envelope's `audience`**: `target.application` (MCP: the new `@McpServer({ target: {
+  application, expose } })`); a receiver of another name refuses it before its resolver — `401
+  mesh.audience-mismatch` / an MCP error result; the client's error message starts with the code.
+- **Added — `agboss describe --json` `application.contracts`**: `exports` (`@A2AExpose` starts with
+  their input and finishes' outputs, `@McpExpose` tools), `imports` (`@A2AAgent`s with `target`,
+  `usedBy`, `price`; `@McpServer` tools with `target` or `null`), every DTO with its `schemaHash`, and
+  `schemas` with their JSON Schema.
+
 ## Unreleased — `agboss eval run --chaos`: failures injected into model calls (#396 PR 6)
 
 - **Added — `agboss eval run --chaos <rate> --chaos-seed <n> [--chaos-failures <list>]`**

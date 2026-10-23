@@ -2,14 +2,16 @@
 
 `agboss/a2a` works both ways:
 
-- **Calling another application** — a class that `extends A2AClient` with `@A2AAgent({ name, url,
-  deps })`, listed in `providers` and injected into a `@Tool` or an `@Action`
-  ([Components](Components)); `execute(input, OutputDto, call)` returns the remote output validated
-  by the DTO, `send(input, call)` the response whatever its status.
-- **Serving a workflow** — `a2aHttpListener(app, { start, callerResolver, base? })` (#387): `POST
-  <base>/execute` `{ input, threadId? }` and `POST <base>/resume` `{ pauseId, decision }`, answered
-  as JSON or — with `Accept: text/event-stream` — progress events and one `finish` event. This page
-  is mostly about this side.
+- **Calling another application** — a declared contract (#398 PR 3, [§7](#7-declared-contracts-398-pr-3)):
+  a `…A2AAgent` class that `extends A2AClient<In, Out>` with `@A2AAgent({ name, url, target, input,
+  output, price?, deps })`, listed in `providers` and injected into a `@Tool` or an `@Action`
+  ([Components](Components)); `execute(input, call)` sends the input and returns the remote output,
+  both validated by the contract's DTOs, `send(input, call)` the response whatever its status.
+- **Serving a workflow** — an `@A2AExpose` listed in `@Application({ exposes })`, served by
+  `a2aHttpListener(app, { expose, callerResolver, base? })` (#387, #398): `POST <base>/execute`
+  `{ input, start?, threadId? }`, `POST <base>/resume` `{ pauseId, decision }` and `POST
+  <base>/cancel` `{ threadId }`, answered as JSON or — with `Accept: text/event-stream` — progress
+  events and one `finish` event. This page is mostly about this side.
 
 ## 1. Who calls — the caller resolver
 
@@ -94,7 +96,7 @@ const app = await createApp(ShopApplication, { env: "prod" });
 
 createServer(
   a2aHttpListener(app, {
-    start: SupportWorkflowStart,
+    expose: ShopA2AExpose, // listed in @Application({ exposes })
     callerResolver: ShopA2aCallerResolver, // the class: its instance is the container's
     base: "/a2a",
   }),
@@ -103,7 +105,8 @@ createServer(
 
 The listener takes the resolver's instance from the application's container when it is built: a
 class neither the application nor any of its workflows lists stops it there —
-`[a2a.caller-resolver-not-listed] ShopA2aCallerResolver is not listed …`. `app` is an `A2AApp`
+`[a2a.caller-resolver-not-listed] ShopA2aCallerResolver is not listed …` — and an expose the
+application does not list too: `[application.expose-unlisted]`. `app` is an `A2AApp`
 (`execute`, `resume`, `cancel`, `resolve` of `App`): `createApp`'s app and `testWith`'s `app` both
 fit.
 
@@ -111,7 +114,7 @@ Per `POST`: the route is matched first (`404` otherwise, unchanged), then the ca
 
 | The resolver returns                                         | The caller gets                                                                                 |
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| `resolved({ tenant, ownerId, execution })`                   | the body parsed (`400` when invalid), the run for that tenant and owner, its response          |
+| `resolved({ tenant, ownerId, execution })`                   | the body parsed (`400` when invalid; `400 a2a.unknown-start` for a `start` it does not export, or none with several), the run for that tenant and owner, its response |
 | `unauthenticated({ reason, challenge })`                     | `401`, `WWW-Authenticate: <challenge>`, `{ "code": "a2a.caller-unauthenticated", "error": reason }` |
 | `forbidden({ reason })`                                      | `403`, `{ "code": "a2a.caller-forbidden", "error": reason }`                                    |
 | it throws (or answers anything else)                         | `500`, `{ "code": "a2a.caller-resolution-failed", "error": "the caller could not be resolved" }` |
@@ -156,7 +159,9 @@ console.log(response.status, response.threadId);
 
 ## 4. The client side
 
-`A2AClient.send(input, { threadId, signal, onEvent })` posts `{ input, threadId? }`. A server that
+`A2AClient.send(input, { threadId, signal, onEvent })` posts `{ input, start?, threadId? }` (`start`
+is the contract's `target.start`). A refused envelope — a `401` with a `mesh.*` code — is an `Error`
+whose message starts with its code (`[mesh.audience-mismatch] …`). A server that
 refuses the caller — a `401` / `403` carrying an `a2a.caller-*` code — throws
 `A2ACallerRejectedError` (`code` `a2a.caller-rejected` on the class; on the error its `httpStatus`
 and the wire `code`, `a2a.caller-unauthenticated` / `a2a.caller-forbidden`, the server's reason in
@@ -165,7 +170,7 @@ its message); any other failed request is a plain `Error`; a remote run that did
 
 ## 5. Testing — the `a2aServer` fixture
 
-`testWith`'s `a2aServer({ start, callerResolver, base? })` serves the test's `app` through
+`testWith`'s `a2aServer({ expose, callerResolver, base? })` serves the test's `app` through
 `a2aHttpListener` on `127.0.0.1:0` and returns `{ url }` (`A2ATestServer`); the loopback is open
 for it (no `allowNetwork` needed) and the server is closed at the test's end. The resolver comes
 from the test app's container, so `override(ApiKeyDirectory, FixedApiKeyDirectory)` and `mockOf`
@@ -183,7 +188,7 @@ class FixedApiKeyDirectory extends ApiKeyDirectory {
 const test = testWith(ShopApplication, { overrides: [override(ApiKeyDirectory, FixedApiKeyDirectory)] });
 
 test("an unknown key is 401 and never runs", async ({ a2aServer }) => {
-  const { url } = await a2aServer({ start: SupportWorkflowStart, callerResolver: ShopA2aCallerResolver });
+  const { url } = await a2aServer({ expose: ShopA2AExpose, callerResolver: ShopA2aCallerResolver });
 
   const sent = new A2AClient({ url, headers: { authorization: "Bearer key-unknown" } }).send({ text: "hi" });
 
@@ -336,7 +341,7 @@ deadline, the earlier). `origin.step.tool` names the calling tool.
 
 A peer's public key comes from `mesh.peers`, or from the listener's `meshVerifier` — an
 `@Injectable` `MeshVerifier` (`verifyKeyOf(issuer)` → PEM, or `undefined`) listed in `providers`
-and asked first: `a2aHttpListener(app, { start, callerResolver, meshVerifier })`.
+and asked first: `a2aHttpListener(app, { expose, callerResolver, meshVerifier })`.
 
 What a trusted request gets — an untrusted one none of it:
 
@@ -366,5 +371,132 @@ its pause — the caller resolved first, its tenant's thread only (another tenan
 never touched): `{ threadId, status: "cancelled" }`, or `status: "failed"` with the code
 (`run.unknown-thread`, …). `A2AClient.cancel(threadId)` calls it.
 
-Not in this release (#398 PR 3): a peer's contract price (a caller records the reported spend
-only), the `audience` claim.
+The envelope's `audience` and a contract price come with declared contracts ([§7](#7-declared-contracts-398-pr-3)).
+
+## 7. Declared contracts (#398 PR 3)
+
+Both sides of a call are declared, so `agboss describe --json` lists them and a federation check
+can compare applications without running them.
+
+**The caller** — an `@A2AAgent` names what it calls, sends, gets back and costs:
+
+<!-- snippet-context
+import { Tool, type ToolHandler } from "agboss";
+import { Text } from "agboss/dto";
+export class InvoiceQuestionDto {
+  @Text({ prompt: "the question about an invoice" })
+  question!: string;
+}
+export class InvoiceAnswerDto {
+  @Text()
+  answer!: string;
+}
+-->
+
+```ts
+import { A2AAgent, A2AClient } from "agboss/a2a";
+import { usd } from "agboss/units";
+
+// a2a/billing-desk.a2a-agent.ts
+@A2AAgent({
+  name: "billing-desk-a2a-agent",
+  url: "https://billing.example/a2a",
+  target: { application: "billing-application", start: "billing-workflow-start" },
+  input: InvoiceQuestionDto, // the target start's input, validated before it is sent
+  output: InvoiceAnswerDto, // its finish's output, validated when it comes
+  price: usd(0.05), // one call's price by contract
+})
+export class BillingDeskA2AAgent extends A2AClient<InvoiceQuestionDto, InvoiceAnswerDto> {}
+
+@Tool({
+  name: "ask-billing-tool",
+  description: "Asks the billing desk",
+  input: InvoiceQuestionDto,
+  output: InvoiceAnswerDto,
+  deps: [BillingDeskA2AAgent],
+})
+export class AskBillingTool implements ToolHandler<InvoiceQuestionDto, InvoiceAnswerDto> {
+  constructor(private readonly billingDeskA2AAgent: BillingDeskA2AAgent) {}
+
+  run(question: InvoiceQuestionDto): Promise<InvoiceAnswerDto> {
+    return this.billingDeskA2AAgent.execute(question); // typed by the contract
+  }
+}
+```
+
+- `execute(input, call?)` replaces `execute(input, OutputDto, call?)` (breaking, [Changelog](Changelog)).
+  A client built by hand states the contract: `new A2AClient({ url, contract: { target, input,
+  output } })` (`A2AContract`); without one, `execute` throws `[a2a.no-contract]` (`send` needs none).
+- Names: `-a2a-agent` on a `…A2AAgent` class (`[name.kind-suffix]`, both checked, like `@Application`
+  and `@Budget`); `target` is required (`[a2a.target-required]`). Files: `a2a/<name>.a2a-agent.ts`.
+- **The price**: the calling tool's spend records the larger of `price` and the spend a
+  trusted peer's signed run report gives — the price alone without one — as `a2a:<application>`.
+- **The audience**: the envelope's `audience` is `target.application` (over MCP an `@McpServer({
+  target: { application, expose } })`'s). A receiver of another name refuses it, signed or not,
+  before its resolver — `401 { "code": "mesh.audience-mismatch" }` (MCP: an error result with that
+  code): a call meant for one application is never run by another it was forwarded to.
+
+**The receiver** — an `@A2AExpose` (mirrors `@McpExpose`) names what it serves, listed with its
+`@McpExpose`s in `@Application({ exposes })`:
+
+<!-- snippet-context
+import { Application, EmptyEnvironment, WorkflowStart } from "agboss";
+import { WorkflowStartTextDto } from "agboss/dto";
+@WorkflowStart({ name: "billing-workflow-start", description: "A question", input: WorkflowStartTextDto })
+export class BillingWorkflowStart {}
+export class BillingWorkflow {} // a @Workflow of its own
+-->
+
+```ts
+import { A2AExpose } from "agboss/a2a";
+
+// a2a/billing.a2a-expose.ts
+@A2AExpose({ name: "billing-a2a-expose", version: "1.0.0", exports: [BillingWorkflowStart] })
+export class BillingA2AExpose {}
+
+@Application({
+  name: "billing-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [BillingWorkflow],
+  exposes: [BillingA2AExpose],
+})
+export class BillingApplication {}
+```
+
+- `[name.kind-suffix]` (`-a2a-expose`, a `…A2AExpose` class), `[application.expose-unknown-start]`
+  (an export that is no start of the application's workflows), `[application.not-an-expose]`,
+  `[application.duplicate-expose]` at assembly.
+- With one export a request may leave `start` out; with several it names one.
+
+**`describe --json`** — `application.contracts`:
+
+```json
+{
+  "exports": [
+    {
+      "kind": "a2a", "expose": "billing-a2a-expose", "version": "1.0.0",
+      "start": "billing-workflow-start", "workflow": "billing-workflow",
+      "input": { "dto": "InvoiceQuestionDto", "schemaHash": "600a…" },
+      "outputs": [{ "finish": "billing-answer-workflow-finish", "dto": "InvoiceAnswerDto", "schemaHash": "6b22…" }]
+    },
+    { "kind": "mcp", "expose": "billing-mcp-expose", "version": "1.0.0", "tool": "invoice-status-tool", "input": { "dto": "InvoiceQueryDto", "schemaHash": "380d…" } }
+  ],
+  "imports": [
+    {
+      "kind": "a2a", "client": "billing-desk-a2a-agent",
+      "target": { "application": "billing-application", "start": "billing-workflow-start" },
+      "usedBy": [{ "workflow": "orders-workflow", "tool": "ask-billing-tool" }],
+      "input": { "dto": "InvoiceQuestionDto", "schemaHash": "600a…" },
+      "output": { "dto": "InvoiceAnswerDto", "schemaHash": "6b22…" },
+      "price": 0.05
+    },
+    { "kind": "mcp", "server": "kb", "tool": "search", "target": null, "input": { "…": "…" }, "output": { "…": "…" } }
+  ],
+  "schemas": { "InvoiceQuestionDto": { "schemaHash": "600a…", "jsonSchema": {} } }
+}
+```
+
+An `@McpServer` without a `target` (a third-party server) is listed with `target: null`. A start's
+input that is a map of fields, not one DTO, is `null` there (only its hash is in the workflow's
+snapshot).

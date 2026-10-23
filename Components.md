@@ -607,7 +607,7 @@ the constructor of any component the container creates — `@Injectable`, `@Tool
 (`agboss/rag`), `@A2AAgent` (`agboss/a2a`). The list is one module of the framework
 (`src/components/component-decorators.ts`, #402); a test fails when an exported class decorator
 is neither in it nor named as not a component (`@Agent`, `@WorkflowStart`, `@Workflow`,
-`@Application`, `@ChannelRole`, `@McpExpose`: metadata, never instantiated).
+`@Application`, `@ChannelRole`, `@McpExpose`, `@A2AExpose`: metadata, never instantiated).
 - `agboss describe` shows each tool's dependencies.
 
 ## Add…
@@ -618,6 +618,9 @@ is neither in it nor named as not a component (`@Agent`, `@WorkflowStart`, `@Wor
   and its path in the router's choice (`route(NewAgent).toFinish(…)`).
 - **an action** — `actions/<name>.action.ts`, a step of a path (`.toAction(NewAction)`).
 - **an MCP server** — `@McpServer` + `@McpTool` classes in `mcp/`, the server in `@Workflow({ mcp })`.
+- **another application to call** — an `@A2AAgent` in `a2a/<name>.a2a-agent.ts` (its `target`, `input`,
+  `output`), listed in `providers`; what you serve — an `@A2AExpose` in `a2a/<name>.a2a-expose.ts`,
+  listed in `@Application({ exposes })` ([A2A](A2A#7-declared-contracts-398-pr-3)).
 
 `agboss generate <kind> <full name> --workflow <workflow's full name>` (alias `agb g`; `agboss g
 agent billing-agent --workflow desk-workflow`) writes and wires each of them,
