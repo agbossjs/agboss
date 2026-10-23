@@ -794,7 +794,7 @@ it("testPii: what a model reads, and what its answer becomes", async () => {
 });
 ```
 
-`testToolInterceptor(Interceptor, options)` (#384) runs a `@ToolInterceptor` in the frame of a call
+`testToolInterceptor(Interceptor, options)` (#384) — a `ToolInterceptorRunner` — runs a `@ToolInterceptor` in the frame of a call
 to a tool: `beforeToolCall(Tool, input)` gives the decision (compare it with `toEqual`),
 `afterToolCall(Tool, input, output)` the output the model would read, validated against the tool's
 output DTO. A method the class does not have is a `TestSetupError`.

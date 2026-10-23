@@ -92,7 +92,7 @@ export {
   type GuardrailCheck,
   type GuardrailRunner,
 } from "./units/test-guardrail.js";
-export { testToolInterceptor } from "./units/test-tool-interceptor.js";
+export { testToolInterceptor, type ToolInterceptorRunner } from "./units/test-tool-interceptor.js";
 export {
   CassetteMissingError,
   LiveCallBlockedError,

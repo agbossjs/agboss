@@ -48,6 +48,25 @@ function methodOf(
   return (call) => found.call(instance, call);
 }
 
+/**
+ * One tool interceptor, called as an agent's loop calls it (#384): `beforeToolCall(Tool, input)` →
+ * the decision, `afterToolCall(Tool, input, output)` → the output the model would read; the clock
+ * of its timeouts as `runner.clock`.
+ */
+export interface ToolInterceptorRunner extends UnitClock {
+  readonly beforeToolCall: <TTool extends Class<ToolInstance>>(
+    tool: TTool,
+    input: ToolInputOf<InstanceType<TTool>>,
+    options?: UnitCallOptions,
+  ) => Promise<UnitRun<ToolCallDecision>>;
+  readonly afterToolCall: <TTool extends Class<ToolInstance>>(
+    tool: TTool,
+    input: ToolInputOf<InstanceType<TTool>>,
+    output: ToolOutputOf<InstanceType<TTool>>,
+    options?: UnitCallOptions,
+  ) => Promise<UnitRun<ToolOutputOf<InstanceType<TTool>>>>;
+}
+
 /** The frame of a call to `tool`, as an agent's loop gives it. */
 const frameOf = (tool: Class, call: UnitCallOptions): UnitFrame => ({
   component: tool,
@@ -76,19 +95,7 @@ export function testToolInterceptor<
 >(
   interceptor: Class<BeforeToolCall | AfterToolCall>,
   options: UnitOptions<TExecution, TTenant> = {},
-): UnitClock & {
-  readonly beforeToolCall: <TTool extends Class<ToolInstance>>(
-    tool: TTool,
-    input: ToolInputOf<InstanceType<TTool>>,
-    options?: UnitCallOptions,
-  ) => Promise<UnitRun<ToolCallDecision>>;
-  readonly afterToolCall: <TTool extends Class<ToolInstance>>(
-    tool: TTool,
-    input: ToolInputOf<InstanceType<TTool>>,
-    output: ToolOutputOf<InstanceType<TTool>>,
-    options?: UnitCallOptions,
-  ) => Promise<UnitRun<ToolOutputOf<InstanceType<TTool>>>>;
-} {
+): ToolInterceptorRunner {
   checkedNameOf(interceptor);
   const site = new UnitSite(options);
   const instance = (): ToolInterceptorInstance =>
