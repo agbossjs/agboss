@@ -27,6 +27,7 @@ import {
   RefundTool,
 } from "../flow/fixtures/eval-desk.fixture.js";
 import {
+  BrokenHistoryDeskApplication,
   HistoryDeskApplication,
   HistorySensitiveApplication,
   HistoryTreasuryApplication,
@@ -39,10 +40,12 @@ import {
   TreasuryWorkflowStart,
 } from "../flow/fixtures/replies.fixture.js";
 import { execute } from "../helpers/flow.js";
+import { logged, resetLogged } from "../helpers/log.js";
 import { DeskRouter, DeskStart, HandOverFinish } from "../pii/sensitive.fixture.js";
 
 beforeEach(() => {
   resetReplyDesk();
+  resetLogged();
 });
 
 const contexts = {
@@ -142,6 +145,18 @@ describe("#401 PR 1: the history of root executions", () => {
     },
   );
 });
+
+testWith(BrokenHistoryDeskApplication)(
+  "#401 PR 1: a history that cannot be saved is a warning, never the execution's failure",
+  async ({ app, mockLlm }) => {
+    mockLlm(DeskAgent).thenReturn(...refundScript);
+
+    const done = await execute(app, DeskWorkflowStart, { text: REFUND }, contexts);
+
+    expect(done.output).toEqual({ text: "Refunded order 7." });
+    expect(logged.map((entry) => entry.code)).toContain("execution-history.failed");
+  },
+);
 
 testWith(HistorySensitiveApplication)(
   "#401 PR 1: a context field marked sensitive is hidden in the history",

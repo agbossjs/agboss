@@ -8,6 +8,9 @@ import type { McpConnections } from "../tools/index.js";
 import type { ExecutionTracing } from "../tracing/index.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { GraphDeps } from "../graph/deps.js";
+import type { AgentExecutionDeps } from "../run/types.js";
+import { configSnapshot, executionVersions } from "../run/versions.js";
+import { shortVersion, stableJson } from "../terns/index.js";
 import type { StepSlots } from "./step-slots.js";
 import type { StepEntries } from "../flow/runtime/step-entries.js";
 import type { CompensationParts } from "../flow/runtime/compensation/registry.js";
@@ -112,3 +115,19 @@ export const treeDepsOf = (
   ...(stepEntries === undefined ? {} : { stepEntries }),
   ...(compensation === undefined ? {} : { compensation }),
 });
+
+/** Stores the config snapshot of this version; warns when the version already had other content. */
+export async function versionWarnings(deps: AgentExecutionDeps<string>): Promise<string[]> {
+  const { configVersion, configHash } = executionVersions(deps);
+  const { drift } = await deps.terns.rememberConfig(
+    deps.config.name,
+    configVersion,
+    configHash,
+    stableJson(configSnapshot(deps)),
+  );
+  return drift
+    ? [
+        `config "${deps.config.name}" ${configVersion} changed without a version bump (hash ${shortVersion(configHash)})`,
+      ]
+    : [];
+}
