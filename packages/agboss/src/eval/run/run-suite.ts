@@ -31,10 +31,15 @@ export interface EvalRunOptions {
   /** How many times each case runs: the k of pass@k / pass^k (n = k, S2 Q6). */
   readonly runs: number;
   /**
-   * The chaos the application was built with (`AppOptions.chaos`, the same object, #396 PR 6): what
+   * The chaos the application was built with (`builtApplicationOf`'s, the same object, #396 PR 6): what
    * it injected goes into the artifact's `chaos`.
    */
   readonly chaos?: ChaosOptions;
+  /**
+   * `--metamorphic` (#396 PR 7): every case's `variants` run too — the same tools, the same
+   * required calls — as the check `metamorphic`, after the suite's checks.
+   */
+  readonly metamorphic?: boolean;
   /** Told after each run, in order (the CLI prints progress). */
   readonly onRun?: (name: string, result: EvalRunResult) => void;
   /** The profile the application was built on (`--profile`), for the artifact's header. */
@@ -42,7 +47,7 @@ export interface EvalRunOptions {
 }
 
 /** The parts every run of the suite shares. */
-function partsOf(built: BuiltApplication, suite: Class): SuiteRunParts {
+function partsOf(built: BuiltApplication, suite: Class, isMetamorphic: boolean): SuiteRunParts {
   const { application } = built.assembled;
   const meta = checkEvalSuite(application, suite);
   const start = startsOfApplication(application).find((found) => found.component === meta.start);
@@ -59,6 +64,7 @@ function partsOf(built: BuiltApplication, suite: Class): SuiteRunParts {
     start,
     suite: meta,
     newThreadId,
+    isMetamorphic,
   };
 }
 
@@ -73,9 +79,10 @@ async function caseReport(
     options.onRun?.(written.name, result);
     results.push(result);
   }
-  const hash = caseHashOf(written, parts.suite.checks, parts.suite.cascade);
+  const isMetamorphic = parts.isMetamorphic === true;
+  const hash = caseHashOf(written, parts.suite.checks, parts.suite.cascade, isMetamorphic);
   const mask = parts.deps.pii?.observability;
-  const expectation = await caseExpectationOf(written, parts.suite.checks, mask);
+  const expectation = await caseExpectationOf(written, parts.suite.checks, mask, isMetamorphic);
   return { ...caseReportOf(written.name, hash, results), expectation };
 }
 
@@ -87,7 +94,7 @@ export async function runEvalSuite(
 ): Promise<EvalRunReport> {
   if (!Number.isInteger(options.runs) || options.runs < 1)
     throw new RangeError(`runs: a whole number from 1, got ${String(options.runs)}`);
-  const parts = partsOf(built, suite);
+  const parts = partsOf(built, suite, options.metamorphic === true);
   const { clock } = built.infrastructure;
   const startedAt = clock.now().toISOString();
   const cases: EvalCaseReport[] = [];
@@ -112,5 +119,6 @@ export async function runEvalSuite(
     spend: { totalUsd: spent },
     ...ranOnOf(parts.bundle, options.profile),
     ...(options.chaos === undefined ? {} : { chaos: modelChaosOf(options.chaos).summary() }),
+    ...(options.metamorphic === true ? { metamorphic: true } : {}),
   };
 }

@@ -19,6 +19,7 @@ import { AskWorkflowStart, LookupTool, QuotesLookupJudge } from "../evals.fixtur
     evalCase({
       name: "looks-order-7-up",
       turns: [turn({ text: "Where is order 7?" })],
+      variants: [turn({ text: "Has order 7 shipped yet?" })],
       tools: { required: [toolCall(LookupTool, { orderId: "7" })] },
     }),
     evalCase({

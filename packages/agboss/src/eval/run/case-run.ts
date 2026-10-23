@@ -1,23 +1,23 @@
 import type { AppDeps } from "../../app/app-deps.js";
 import type { AssembledWorkflow } from "../../workflow.js";
-import { executeUnchecked } from "../../app/execute-unchecked.js";
-import { ExecutionStatus, type App, type ExecutionOutput } from "../../app/types.js";
+import type { App, ExecutionOutput } from "../../app/types.js";
 import { startLine } from "../../flow/runtime/history.js";
-import { AGBossError } from "../../core/errors.js";
 import type { ApplicationStart } from "../../application/application-starts.js";
 import type { EvalCase, EvalTurn } from "../suite/cases.js";
 import { CheckStatus, EvalCascade, isJudgeCheck, type EvalCheck } from "../suite/checks.js";
 import type { EvalSuiteMeta } from "../suite/eval-suite.decorator.js";
 import { caseContextValuesOf, type CaseContextValues } from "./case-frame.js";
+import { runTurns } from "./case-turns.js";
 import { writeCaseHistory } from "./case-history.js";
 import { runJudgeCheck, type JudgedTurn } from "./judge-check.js";
 import {
+  METAMORPHIC_CHECK,
   TRAJECTORY_CHECK,
   type EvalCheckResult,
-  type EvalRunError,
   type EvalRunResult,
 } from "./report.js";
 import { trajectoryFailures } from "./trajectory.js";
+import { runMetamorphicCheck } from "./metamorphic.js";
 import { runTraceOf } from "./run-trace.js";
 import { nameOf } from "../../components/name-of.js";
 
@@ -37,50 +37,8 @@ export interface SuiteRunParts {
   readonly start: ApplicationStart;
   readonly suite: EvalSuiteMeta;
   readonly newThreadId: () => string;
-}
-
-/** How the turns of a run went: the last turn's output, or why one could not end. */
-type TurnsOutcome =
-  | { readonly kind: "ended"; readonly last: ExecutionOutput; readonly spentUsd: number }
-  | { readonly kind: "failed"; readonly error: EvalRunError; readonly spentUsd: number };
-
-const errorOf = (error: unknown): EvalRunError =>
-  error instanceof AGBossError
-    ? { code: error.code, message: error.message }
-    : { code: "internal", message: error instanceof Error ? error.message : String(error) };
-
-/** The turns in order on one thread; an earlier turn that pauses stops the run. */
-async function runTurns(
-  parts: SuiteRunParts,
-  written: EvalCase,
-  thread: { readonly threadId: string; readonly values: CaseContextValues },
-): Promise<TurnsOutcome> {
-  const { threadId, values } = thread;
-  // the values as validated; `execution` only where the case gives it (the built-in class has none)
-  const contexts = {
-    tenant: values.tenant,
-    ...(written.execution === undefined ? {} : { execution: values.execution }),
-  };
-  let spentUsd = 0;
-  let last: ExecutionOutput | undefined;
-  for (const [index, turn] of written.turns.entries()) {
-    if (last?.status === ExecutionStatus.Paused) {
-      const message = `turn ${String(index)} paused: the turns after it cannot run`;
-      return { kind: "failed", error: { code: "execution.paused", message }, spentUsd };
-    }
-    try {
-      last = await executeUnchecked(parts.app, parts.start.component, turn.input, {
-        threadId,
-        ...contexts,
-        record: index === written.turns.length - 1, // the last turn's trajectory (#397 PR 2)
-      });
-    } catch (error) {
-      return { kind: "failed", error: errorOf(error), spentUsd };
-    }
-    spentUsd += last.spend.totalUsd;
-  }
-  if (last === undefined) throw new Error(`case "${written.name}" has no turns`);
-  return { kind: "ended", last, spentUsd };
+  /** `--metamorphic` (#396 PR 7): each case's variants run too, after its checks. */
+  readonly isMetamorphic?: boolean;
 }
 
 /** The name of a check in reports. */
@@ -107,8 +65,10 @@ async function runChecks(
 ): Promise<readonly EvalCheckResult[]> {
   const results: EvalCheckResult[] = [];
   let failed: string | undefined;
+  const isStopping = (): boolean =>
+    failed !== undefined && parts.suite.cascade === EvalCascade.StopAtFirstFailure;
   for (const check of [...parts.suite.checks, ...(written.judges ?? [])]) {
-    if (failed !== undefined && parts.suite.cascade === EvalCascade.StopAtFirstFailure) {
+    if (isStopping()) {
       results.push({ check: checkNameOf(check), status: CheckStatus.Skipped, skippedBy: failed });
       continue;
     }
@@ -116,7 +76,29 @@ async function runChecks(
     if (result.status === CheckStatus.Failed) failed ??= result.check;
     results.push(result);
   }
-  return results;
+  const metamorphic = await metamorphicResultOf(
+    parts,
+    written,
+    turn,
+    isStopping() ? failed : undefined,
+  );
+  return metamorphic === undefined ? results : [...results, metamorphic];
+}
+
+/**
+ * `--metamorphic` (#396 PR 7), after every other check — the costliest, the variants' runs:
+ * skipped when the cascade stopped at `skippedBy`; none for a case without variants.
+ */
+async function metamorphicResultOf(
+  parts: SuiteRunParts,
+  written: EvalCase,
+  turn: JudgedTurn,
+  skippedBy: string | undefined,
+): Promise<EvalCheckResult | undefined> {
+  if (parts.isMetamorphic !== true || (written.variants?.length ?? 0) === 0) return undefined;
+  if (skippedBy !== undefined)
+    return { check: METAMORPHIC_CHECK, status: CheckStatus.Skipped, skippedBy };
+  return (await runMetamorphicCheck(parts, written, turn.values, turn.toolCalls)).result;
 }
 
 const judgedTurnOf = (

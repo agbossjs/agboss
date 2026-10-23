@@ -10,6 +10,7 @@ import type { Class } from "agboss";
 import type { EvalRunReport } from "agboss/eval";
 import { loadCliApplication } from "../cli/cli-application.js";
 import {
+  flagOption,
   loadOptions,
   requiredText,
   textOption,
@@ -25,7 +26,7 @@ import { printRunTable } from "./run-report.js";
 
 /**
  * `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline
- * <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]]
+ * <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--metamorphic]
  * [--profile <name>] [--env <name>]` (#396 PR 2, PR 3, PR 6 — failures injected into its model calls): the
  * application built as `createApp` builds it, the suite run on it — every case `--runs` times — its
  * table printed, each case against the baseline, the artifact written with `--report`, then its HTML
@@ -90,6 +91,17 @@ async function writtenOf(context: CommandContext, report: EvalRunReport): Promis
   return [path, html].filter((file) => file !== undefined);
 }
 
+/** How the suite runs: k, the profile for the header, the chaos it was built with, `--metamorphic`. */
+function runOptionsOf(context: CommandContext, runs: number, chaos: ChaosOptions | undefined) {
+  const profile = textOption(context.values, "profile");
+  return {
+    runs,
+    ...(profile === undefined ? {} : { profile }),
+    ...(chaos === undefined ? {} : { chaos }),
+    ...(flagOption(context.values, "metamorphic") ? { metamorphic: true } : {}),
+  };
+}
+
 export async function evalRunCommand(context: CommandContext): Promise<CommandOutcome> {
   const runs = runsOf(context);
   const loaded = await loadCliApplication(context);
@@ -98,12 +110,7 @@ export async function evalRunCommand(context: CommandContext): Promise<CommandOu
   const chaos = chaosOf(context);
   const built = await buildOf(context, loaded.application, chaos);
   try {
-    const profile = textOption(context.values, "profile");
-    const ran = await runEvalSuite(built, found.suite, {
-      runs,
-      ...(profile === undefined ? {} : { profile }),
-      ...(chaos === undefined ? {} : { chaos }),
-    });
+    const ran = await runEvalSuite(built, found.suite, runOptionsOf(context, runs, chaos));
     printRunTable(context, ran);
     if (ran.chaos !== undefined) context.say(chaosLine(ran.chaos));
     const comparison =

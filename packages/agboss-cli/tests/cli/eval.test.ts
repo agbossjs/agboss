@@ -430,3 +430,38 @@ describe("#396 PR 6: agboss eval run --chaos", () => {
     });
   });
 });
+
+describe("#396 PR 7: agboss eval run --metamorphic", () => {
+  const SUITE = [...RUN, "--suite", "desk-eval-suite"] as const;
+
+  it("a case's variants run too, as the check metamorphic; a case without variants has none", async () => {
+    const call = await agboss([...SUITE, "--metamorphic", "--json"], CWD);
+
+    expect(call.code).toBe(0);
+    const result = envelope(call).result as {
+      metamorphic: boolean;
+      cases: readonly {
+        name: string;
+        runResults: readonly { checks: readonly { check: string; status: string }[] }[];
+      }[];
+    };
+    expect(result.metamorphic).toBe(true);
+    const checksOf = (name: string) =>
+      result.cases
+        .find((found) => found.name === name)
+        ?.runResults[0]?.checks.map((check) => [check.check, check.status]);
+    expect(checksOf("looks-order-7-up")).toEqual([
+      ["trajectory", "passed"],
+      ["quotes-lookup-judge", "passed"],
+      ["metamorphic", "passed"],
+    ]);
+    expect(checksOf("looks-order-8-up")?.map(([check]) => check)).not.toContain("metamorphic");
+  });
+
+  it("without the flag the artifact says nothing of it", async () => {
+    const call = await agboss([...SUITE, "--json"], CWD);
+
+    expect(call.code).toBe(0);
+    expect(envelope(call).result).not.toHaveProperty("metamorphic");
+  });
+});

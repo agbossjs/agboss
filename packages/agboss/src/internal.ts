@@ -73,7 +73,7 @@ export { builtApplicationOf, type BuiltApplication } from "./application/create-
 export { compareEvalRuns } from "./eval/run/compare-runs.js";
 export type { ChaosOptions } from "./eval/chaos/chaos-failure.js";
 export { evalRunReportOf, type EvalRunReportRead } from "./eval/run/read-report.js";
-export { TRAJECTORY_CHECK } from "./eval/run/report.js";
+export { isJudgeCheckName, TRAJECTORY_CHECK } from "./eval/run/report.js";
 export { calibrateJudges, type EvalCalibrationResult } from "./eval/calibrate/calibrate.js";
 export {
   evalLabelOf,

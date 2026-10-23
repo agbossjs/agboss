@@ -67,6 +67,8 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   way: `compareProfiles(Workflow, …)` is `compareProfiles(Application, { start, … })`.
   `agboss eval run --chaos <rate> --chaos-seed <n>` injects 429s, timeouts and truncated answers
   into the run's model calls (`ChaosFailure`; `eval run` only, never a `createApp` option) (#396).
+  `agboss eval run --metamorphic` runs each case's `variants` (its last turn reworded) and checks
+  they call the same tools with the same required calls — the check `metamorphic` (#396).
 - **The CLI** (`agboss-cli`) — `agboss create`, `agboss generate`, `agboss check`,
   `agboss describe`, `agboss dev`, `agboss studio`, `agboss chat` / `agboss run`, evaluations and
   comparisons (#268). Breaking on the way (#396): the bare `agboss eval` is now `agboss eval score`

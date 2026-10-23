@@ -1,6 +1,6 @@
 import type { JudgeMetrics } from "../../components/judge-decorators.js";
 import { CheckStatus } from "../suite/checks.js";
-import { TRAJECTORY_CHECK, type EvalRunReport } from "../run/report.js";
+import { isJudgeCheckName, type EvalRunReport } from "../run/report.js";
 import type { EvalLabel } from "./calibration.js";
 
 /**
@@ -54,7 +54,7 @@ function indexOf(report: EvalRunReport): VerdictIndex {
       const runId = `${found.name}#${String(result.run)}`;
       runIds.set(executionId, runId);
       for (const check of result.checks) {
-        if (check.check === TRAJECTORY_CHECK || check.status === CheckStatus.Skipped) continue;
+        if (!isJudgeCheckName(check.check) || check.status === CheckStatus.Skipped) continue;
         judges.add(check.check);
         const { metrics } = check;
         const passed = check.status === CheckStatus.Passed;

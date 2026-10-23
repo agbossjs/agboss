@@ -629,6 +629,7 @@ export type EvalLabelsRead = {
 // @public
 export interface EvalRunOptions {
     readonly chaos?: ChaosOptions;
+    readonly metamorphic?: boolean;
     // Warning: (ae-forgotten-export) The symbol "EvalRunResult" needs to be exported by the entry point internal.d.ts
     readonly onRun?: (name: string, result: EvalRunResult) => void;
     readonly profile?: string;
@@ -799,6 +800,9 @@ export function goldenFromRecent(terns: TernRecords, bundle: string, name: strin
 
 // @public
 export function inputLines(analysis: FlowAnalysis): readonly string[];
+
+// @public
+export const isJudgeCheckName: (check: string) => boolean;
 
 // Warning: (ae-forgotten-export) The symbol "Tool" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "McpFacade" needs to be exported by the entry point internal.d.ts

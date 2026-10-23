@@ -70,3 +70,11 @@ export function trajectoryFailures(
     ...(expectations.invariants ?? []).flatMap((invariant) => brokenInvariant(invariant, calls)),
   ];
 }
+
+/** The tools a turn ran, each once, by name, sorted — what `--metamorphic` compares (#396 PR 7). */
+export function ranToolNames(calls: readonly ToolCallRecord[]): readonly string[] {
+  const names = calls
+    .filter((call) => RAN.has(call.status))
+    .map((call) => call.step.component.name);
+  return [...new Set(names)].sort();
+}

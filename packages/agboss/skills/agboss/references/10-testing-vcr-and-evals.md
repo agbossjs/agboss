@@ -1219,6 +1219,9 @@ snapshot among them checks that a changed export got a new version
 --chaos-seed 7` injects 429s, timeouts and truncated answers into a fifth of the model calls — a
    case that passes without chaos and fails with it needs a `retryPolicy` on its provider, an
    `.onError` side path, or an undo (`compensateWith`) — never a longer prompt.
+5. Then the run under rewordings: `npx agboss eval run --suite <name> --metamorphic` runs each
+   case's `variants` too — a case whose rewording calls other tools (or misses a required call)
+   depends on the wording: tighten the tool descriptions or move the choice to a code `@Router`.
 
 ## Eval suites: `@EvalSuite` (`agboss/eval`)
 
@@ -1437,6 +1440,26 @@ npx agboss eval run --suite screening-eval-suite --chaos 0.2 --chaos-seed 7 --ch
 2, truncated-response 1)`; the artifact (and `--json`) gains `chaos` (`EvalRunChaos`: the rate, the
   seed, the failures, `calls` seen, `injected` by kind). Chaos belongs to `eval run` only: there is
   no `createApp` option for it.
+
+### Under rewordings: `--metamorphic`
+
+```
+npx agboss eval run --suite screening-eval-suite --runs 3 --metamorphic
+```
+
+- Each `variants` entry of a case is its last turn reworded (typed by the start's input like a
+  turn). With `--metamorphic` every run of the case runs each variant too, on a thread of its own:
+  the case's `history` written, its earlier turns run, then the variant in place of the last turn.
+- The check `metamorphic` comes after the suite's checks and the case's judges, under the cascade
+  (`StopAtFirstFailure`: skipped once one failed — no variant runs, nothing more is spent). It passes
+  when every variant called the same set of tool classes as the case's own last turn (the calls that
+  ran) and met the case's `tools.required` again (the same partials); else it fails with each reason
+  — `variant 1 calls lookup-tool, not lookup-tool, refund-tool; variant 1: refund-tool not called
+(required)`. `metrics: { variants: n }`; the variants' spend is the run's. A case without
+  `variants` gets no such check.
+- The artifact (and `--json`) says `metamorphic: true`; the case's `caseHash` covers its variants
+  only then, so a run with the flag is `Changed` against a baseline without it — never `Regressed`.
+  The check is no judge: calibration and the judge counts leave it out.
 
 ## Evals on real traffic
 
