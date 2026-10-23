@@ -97,6 +97,32 @@ export interface AssembledApplication {
     readonly workflows: readonly AssembledWorkflow[];
 }
 
+// @public
+export interface BuiltApplication {
+    // Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly app: App;
+    // (undocumented)
+    readonly assembled: AssembledApplication;
+    readonly closed: Promise<void>;
+    // Warning: (ae-forgotten-export) The symbol "Infrastructure" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly infrastructure: Infrastructure;
+    // Warning: (ae-forgotten-export) The symbol "FrameworkLog" needs to be exported by the entry point internal.d.ts
+    readonly log: FrameworkLog;
+    // Warning: (ae-forgotten-export) The symbol "BuiltApp" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly workflows: readonly BuiltApp[];
+}
+
+// Warning: (ae-forgotten-export) The symbol "AppOptions" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function builtApplicationOf(application: Class, options?: AppOptions): Promise<BuiltApplication>;
+
 // Warning: (ae-forgotten-export) The symbol "ComponentLabel" needs to be exported by the entry point internal.d.ts
 //
 // @public
@@ -465,6 +491,129 @@ export const environmentOwnerOf: (assembled: AssembledApplication) => Environmen
 // @public
 export const environmentVariablesOf: (loaded: LoadedEnvironment) => readonly ProcessVariable[];
 
+// @public
+export const EVAL_RUN_KIND = "agboss.eval-run";
+
+// @public
+export const EVAL_RUN_SCHEMA_VERSION = 1;
+
+// @public
+export interface EvalCaseReport {
+    readonly caseHash: string;
+    readonly isUnstable: boolean;
+    // (undocumented)
+    readonly name: string;
+    readonly passAtK: boolean;
+    readonly passed: number;
+    readonly passHatK: boolean;
+    // (undocumented)
+    readonly runResults: readonly EvalRunResult[];
+    // (undocumented)
+    readonly runs: number;
+}
+
+// @public
+export interface EvalCheckResult {
+    readonly check: string;
+    // Warning: (ae-forgotten-export) The symbol "JudgeMetrics" needs to be exported by the entry point internal.d.ts
+    readonly metrics?: JudgeMetrics;
+    readonly reason?: string;
+    readonly skippedBy?: string;
+    readonly spentUsd?: number;
+    // Warning: (ae-forgotten-export) The symbol "CheckStatus" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly status: CheckStatus;
+}
+
+// @public
+export interface EvalRunComponent {
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly version: string;
+}
+
+// @public
+export interface EvalRunError {
+    // (undocumented)
+    readonly code: string;
+    // (undocumented)
+    readonly message: string;
+}
+
+// @public
+export interface EvalRunOptions {
+    readonly onRun?: (name: string, result: EvalRunResult) => void;
+    readonly runs: number;
+}
+
+// @public
+export interface EvalRunReport {
+    // (undocumented)
+    readonly application: EvalRunComponent;
+    // Warning: (ae-forgotten-export) The symbol "EvalCascade" needs to be exported by the entry point internal.d.ts
+    //
+    // (undocumented)
+    readonly cascade: EvalCascade;
+    // (undocumented)
+    readonly cases: readonly EvalCaseReport[];
+    readonly configHash: string;
+    // (undocumented)
+    readonly endedAt: string;
+    // (undocumented)
+    readonly environment: string;
+    // (undocumented)
+    readonly kind: typeof EVAL_RUN_KIND;
+    readonly runs: number;
+    // (undocumented)
+    readonly schemaVersion: typeof EVAL_RUN_SCHEMA_VERSION;
+    // (undocumented)
+    readonly spend: EvalRunSpend;
+    // (undocumented)
+    readonly start: string;
+    readonly startedAt: string;
+    // (undocumented)
+    readonly suite: string;
+    // (undocumented)
+    readonly summary: EvalRunSummary;
+    // (undocumented)
+    readonly workflow: EvalRunComponent;
+}
+
+// @public
+export interface EvalRunResult {
+    // (undocumented)
+    readonly checks: readonly EvalCheckResult[];
+    readonly error?: EvalRunError;
+    readonly executionId?: string;
+    readonly finish?: string;
+    readonly passed: boolean;
+    readonly run: number;
+    readonly spentUsd: number;
+    // (undocumented)
+    readonly threadId: string;
+}
+
+// @public
+export interface EvalRunSpend {
+    // (undocumented)
+    readonly totalUsd: number;
+}
+
+// @public
+export interface EvalRunSummary {
+    // (undocumented)
+    readonly cases: number;
+    readonly judgeCalls: number;
+    readonly passAtK: number;
+    readonly passHatK: number;
+    // (undocumented)
+    readonly skippedByCascade: number;
+    // (undocumented)
+    readonly unstable: number;
+}
+
 // Warning: (ae-forgotten-export) The symbol "EvalDeps" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ScoringReport" needs to be exported by the entry point internal.d.ts
 //
@@ -474,7 +623,6 @@ export function evaluate(deps: EvalDeps, bundle: string, options: {
     readonly limit: number;
 }): Promise<ScoringReport>;
 
-// Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ExecutionOptions" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ExecutionOutput" needs to be exported by the entry point internal.d.ts
 //
@@ -528,6 +676,16 @@ export interface FlowTypesWrite {
 export function formatComparison(tasks: number, rows: readonly ProfileReport[]): string[];
 
 // @public
+export interface FoundEvalSuite {
+    // (undocumented)
+    readonly file: string;
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly suite: Class;
+}
+
+// @public
 export const frameworkPackageJson: () => unknown;
 
 // @public
@@ -555,6 +713,11 @@ export const isMcpFacade: (tool: Tool) => tool is McpFacade;
 export function loadApplicationClass(path: string, options?: {
     readonly typescript?: boolean;
 }): Promise<Class>;
+
+// @public
+export function loadEvalSuites(application: Class, options?: {
+    readonly typescript?: boolean;
+}): Promise<readonly FoundEvalSuite[]>;
 
 // @public (undocumented)
 export function loadGolden(file: string): Promise<GoldenSet>;
@@ -635,6 +798,9 @@ export function resolvedModelUsesOf(workflow: WorkflowModels): readonly Resolved
 
 // @public
 export function resolveEnvironment(loaded: LoadedEnvironment, processEnv: NodeJS.ProcessEnv, secrets?: SecretResolution): Environment;
+
+// @public
+export function runEvalSuite(built: BuiltApplication, suite: Class, options: EvalRunOptions): Promise<EvalRunReport>;
 
 // @public
 export interface RuntimeContexts {
@@ -851,6 +1017,10 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/application/assemble.ts:47:3 - (ae-undocumented) Missing documentation for "budgets".
 // src/application/assemble.ts:66:3 - (ae-undocumented) Missing documentation for "executionContext".
 // src/application/assemble.ts:177:1 - (ae-undocumented) Missing documentation for "applicationOf".
+// src/application/create-app.ts:36:3 - (ae-undocumented) Missing documentation for "app".
+// src/application/create-app.ts:37:3 - (ae-undocumented) Missing documentation for "assembled".
+// src/application/create-app.ts:38:3 - (ae-undocumented) Missing documentation for "workflows".
+// src/application/create-app.ts:39:3 - (ae-undocumented) Missing documentation for "infrastructure".
 // src/config/defaults.ts:13:3 - (ae-undocumented) Missing documentation for "Application".
 // src/config/defaults.ts:14:3 - (ae-undocumented) Missing documentation for "Workflow".
 // src/config/defaults.ts:19:3 - (ae-undocumented) Missing documentation for "application".
@@ -917,6 +1087,32 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/eval/golden.ts:22:14 - (ae-undocumented) Missing documentation for "goldenFile".
 // src/eval/golden.ts:25:1 - (ae-undocumented) Missing documentation for "loadGolden".
 // src/eval/golden.ts:36:1 - (ae-undocumented) Missing documentation for "saveGolden".
+// src/eval/run/report.ts:21:3 - (ae-undocumented) Missing documentation for "status".
+// src/eval/run/report.ts:34:3 - (ae-undocumented) Missing documentation for "code".
+// src/eval/run/report.ts:35:3 - (ae-undocumented) Missing documentation for "message".
+// src/eval/run/report.ts:42:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/eval/run/report.ts:49:3 - (ae-undocumented) Missing documentation for "checks".
+// src/eval/run/report.ts:58:3 - (ae-undocumented) Missing documentation for "name".
+// src/eval/run/report.ts:63:3 - (ae-undocumented) Missing documentation for "runs".
+// src/eval/run/report.ts:70:3 - (ae-undocumented) Missing documentation for "runResults".
+// src/eval/run/report.ts:75:3 - (ae-undocumented) Missing documentation for "cases".
+// src/eval/run/report.ts:80:3 - (ae-undocumented) Missing documentation for "unstable".
+// src/eval/run/report.ts:83:3 - (ae-undocumented) Missing documentation for "skippedByCascade".
+// src/eval/run/report.ts:88:3 - (ae-undocumented) Missing documentation for "name".
+// src/eval/run/report.ts:89:3 - (ae-undocumented) Missing documentation for "version".
+// src/eval/run/report.ts:94:3 - (ae-undocumented) Missing documentation for "totalUsd".
+// src/eval/run/report.ts:99:3 - (ae-undocumented) Missing documentation for "kind".
+// src/eval/run/report.ts:100:3 - (ae-undocumented) Missing documentation for "schemaVersion".
+// src/eval/run/report.ts:101:3 - (ae-undocumented) Missing documentation for "suite".
+// src/eval/run/report.ts:102:3 - (ae-undocumented) Missing documentation for "application".
+// src/eval/run/report.ts:103:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/eval/run/report.ts:106:3 - (ae-undocumented) Missing documentation for "start".
+// src/eval/run/report.ts:107:3 - (ae-undocumented) Missing documentation for "environment".
+// src/eval/run/report.ts:110:3 - (ae-undocumented) Missing documentation for "cascade".
+// src/eval/run/report.ts:113:3 - (ae-undocumented) Missing documentation for "endedAt".
+// src/eval/run/report.ts:114:3 - (ae-undocumented) Missing documentation for "cases".
+// src/eval/run/report.ts:115:3 - (ae-undocumented) Missing documentation for "summary".
+// src/eval/run/report.ts:116:3 - (ae-undocumented) Missing documentation for "spend".
 // src/finops/usage.ts:66:3 - (ae-undocumented) Missing documentation for "caller".
 // src/finops/usage.ts:67:3 - (ae-undocumented) Missing documentation for "category".
 // src/finops/usage.ts:68:3 - (ae-undocumented) Missing documentation for "model".
@@ -938,6 +1134,9 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/flow/runtime/start-input.ts:82:3 - (ae-undocumented) Missing documentation for "start".
 // src/flow/runtime/start-input.ts:83:3 - (ae-undocumented) Missing documentation for "input".
 // src/loader/load-errors.ts:8:12 - (ae-undocumented) Missing documentation for "name".
+// src/loader/load-eval-suites.ts:20:3 - (ae-undocumented) Missing documentation for "file".
+// src/loader/load-eval-suites.ts:21:3 - (ae-undocumented) Missing documentation for "suite".
+// src/loader/load-eval-suites.ts:22:3 - (ae-undocumented) Missing documentation for "name".
 // src/models/problems.ts:20:14 - (ae-undocumented) Missing documentation for "problemLine".
 // src/models/uses.ts:10:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/uses.ts:11:3 - (ae-undocumented) Missing documentation for "purpose".

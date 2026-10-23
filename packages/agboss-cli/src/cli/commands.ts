@@ -17,6 +17,7 @@ import {
 import { CHECK_COMMAND } from "./check-command.js";
 
 export { COMMON_OPTIONS, optionsOf, type CommandSpec, type OptionSpec } from "./options.js";
+import { EVAL_COMMAND } from "./eval-commands.js";
 
 /** Commands that run one workflow of the application: chosen by its start (#268). */
 const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
@@ -41,18 +42,7 @@ const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
       ENV,
     ],
   },
-  eval: {
-    summary: "score recent runs of a start's workflow with Jev",
-    usage: "agboss eval [--start <name>] [--version <v>] [--limit N] [--profile <name>]",
-    options: [
-      START,
-      APPLICATION,
-      text("version", "<v>", "only runs of this prompt version"),
-      text("limit", "N", "how many runs", { default: "100" }),
-      PROFILE,
-      ENV,
-    ],
-  },
+  eval: EVAL_COMMAND,
   replay: {
     summary: "re-run a prompt version on recent tasks of a start's workflow",
     usage: "agboss replay [--start <name>] --version <v> [--limit N] [--profile <name>]",

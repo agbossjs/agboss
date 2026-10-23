@@ -17,6 +17,11 @@ export interface CommandSpec {
   /** What the positional arguments are, for help; none = the command takes none. */
   readonly positionals?: string;
   readonly options: readonly OptionSpec[];
+  /**
+   * A command made of subcommands (#396: `agboss eval run | score`): each its own schema, chosen by
+   * the first argument; the command itself then takes no options of its own.
+   */
+  readonly subcommands?: Readonly<Record<string, CommandSpec>>;
 }
 
 export const APPLICATION: OptionSpec = {

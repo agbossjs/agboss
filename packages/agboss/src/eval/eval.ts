@@ -4,6 +4,7 @@ import {
 } from "../budgets/application-spend.js";
 import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
 import type { RouteOutcome, RouteRequest, RouterEngine } from "../routers/index.js";
+import type { RegistryGateway } from "../llm/registry.js";
 import type { Tern, TernRecords } from "../terns/index.js";
 import { ADEQUATE, INADEQUATE, JUDGE_INSTRUCTIONS } from "./prompts.js";
 
@@ -16,6 +17,11 @@ export interface EvalDeps {
    * scoring stops once one is exhausted by its last known limit; absent = not limited.
    */
   readonly budgets?: ApplicationBudgets | undefined;
+  /**
+   * The application's models (#396 PR 2): an eval suite's model judge that no agent lists is bound
+   * through it when its run needs it; absent outside an application.
+   */
+  readonly gateway?: RegistryGateway;
 }
 
 /** Why an evaluation stopped early: an application budget is exhausted. */

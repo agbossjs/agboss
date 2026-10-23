@@ -12,6 +12,8 @@ export const FIXTURE_WORKFLOWS: readonly string[] = [
   "children.fixture.ts",
   "clinic.fixture.ts",
   "credit.fixture.ts",
+  "eval-desk.fixture.ts",
+  "evals.fixture.ts",
   "history.fixture.ts",
   "launch.fixture.ts",
   "markers.fixture.ts",

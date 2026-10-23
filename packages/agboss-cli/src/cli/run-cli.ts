@@ -1,8 +1,8 @@
 import { inspect } from "node:util";
-import { COMMANDS, commandName } from "./commands.js";
+import { COMMANDS, commandName, type CommandSpec } from "./commands.js";
 import type { CliIo, CommandContext, CommandHandler, CommandOutcome } from "./context.js";
 import { envelopeOf, envelopeText, failedEnvelope, oneLine } from "./envelope.js";
-import { CliError, cliErrorOf, EXIT_CODES } from "./errors.js";
+import { CliError, cliErrorOf, EXIT_CODES, usageError } from "./errors.js";
 import { asksForHelp, parseCommand } from "./parse.js";
 import { describeCommand, describeCommands, helpFor, usage } from "./usage.js";
 
@@ -34,16 +34,79 @@ interface Call {
 const unknownCommand = (given: string): CliError =>
   new CliError("usage", "usage.unknown-command", `unknown command "${given}" — see agboss help`);
 
-/** `agboss help [<command>] [--json]`, `agboss <command> --help [--json]`. */
-function help(call: Call, topic: string | undefined): number {
-  const spec = topic === undefined ? undefined : COMMANDS[topic];
-  if (topic !== undefined && spec === undefined) throw unknownCommand(topic);
-  if (call.json) {
-    const result =
-      topic === undefined || spec === undefined ? describeCommands() : describeCommand(topic, spec);
-    call.io.stdout.write(envelopeText(envelopeOf("help", { result })));
-  } else call.io.stdout.write(topic === undefined ? usage() : (helpFor(topic) ?? usage()));
+/** `agboss help [<command> [<subcommand>]] [--json]`, `agboss <command> [<subcommand>] --help`. */
+function help(call: Call, topic: string | undefined, subtopic?: string): number {
+  if (topic === undefined) {
+    call.io.stdout.write(
+      call.json ? envelopeText(envelopeOf("help", { result: describeCommands() })) : usage(),
+    );
+    return 0;
+  }
+  const spec = COMMANDS[topic];
+  if (spec === undefined) throw unknownCommand(topic);
+  const sub = subtopic === undefined ? undefined : subcommandOf(topic, spec, subtopic);
+  const [name, shown] = sub === undefined ? [topic, spec] : [`${topic} ${subtopic ?? ""}`, sub];
+  const result = describeCommand(name, shown);
+  call.io.stdout.write(
+    call.json ? envelopeText(envelopeOf("help", { result })) : (helpFor(name) ?? usage()),
+  );
   return 0;
+}
+
+/** A subcommand of a command made of them; unknown → a usage error naming the known ones. */
+function subcommandOf(
+  command: string,
+  spec: CommandSpec | undefined,
+  given: string,
+): CommandSpec | undefined {
+  if (spec?.subcommands === undefined) return undefined;
+  const found = spec.subcommands[given];
+  if (found !== undefined) return found;
+  const known = Object.keys(spec.subcommands).join(" | ");
+  throw new CliError(
+    "usage",
+    "usage.unknown-command",
+    `unknown subcommand "${command} ${given}" — expected ${command} ${known}; see agboss help ${command}`,
+  );
+}
+
+/**
+ * A command made of subcommands (#396: `agboss eval run | score`): the first argument chooses one;
+ * none → the command's help (its subcommands listed) and a usage error, exit 2.
+ */
+async function dispatchSubcommand(
+  call: Call,
+  spec: CommandSpec,
+  rest: readonly string[],
+): Promise<number> {
+  const [given, ...after] = rest;
+  if (given === undefined || given.startsWith("-")) {
+    if (asksForHelp(rest)) return help(call, call.command);
+    if (!call.json) call.io.stdout.write(helpFor(call.command) ?? usage());
+    const known = Object.keys(spec.subcommands ?? {}).join(" | ");
+    throw usageError(
+      call.command,
+      "usage.missing-argument",
+      `expected agboss ${call.command} ${known}`,
+    );
+  }
+  const sub = subcommandOf(call.command, spec, given);
+  if (sub === undefined) throw unknownCommand(call.command);
+  if (asksForHelp(after)) return help(call, call.command, given);
+  const { values, positionals } = parseCommand(`${call.command} ${given}`, sub, after);
+  return run(call, values, [given, ...positionals]);
+}
+
+/** Loads the command's handler and runs it. */
+async function run(
+  call: Call,
+  values: CommandContext["values"],
+  positionals: readonly string[],
+): Promise<number> {
+  const load = HANDLERS[call.command];
+  if (load === undefined) throw unknownCommand(call.command);
+  const handler = await load();
+  return finish(call, await handler(contextOf(call, values, positionals)));
 }
 
 function contextOf(
@@ -83,14 +146,13 @@ async function dispatch(call: Call, rest: readonly string[]): Promise<number> {
   if (spec === undefined) throw unknownCommand(call.command);
   if (call.command === "help") {
     const { positionals } = parseCommand("help", spec, rest);
-    return help(call, positionals[0] === undefined ? undefined : commandName(positionals[0]));
+    const [topic, subtopic] = positionals;
+    return help(call, topic === undefined ? undefined : commandName(topic), subtopic);
   }
+  if (spec.subcommands !== undefined) return dispatchSubcommand(call, spec, rest);
   if (asksForHelp(rest)) return help(call, call.command);
   const { values, positionals } = parseCommand(call.command, spec, rest);
-  const load = HANDLERS[call.command];
-  if (load === undefined) throw unknownCommand(call.command);
-  const handler = await load();
-  return finish(call, await handler(contextOf(call, values, positionals)));
+  return run(call, values, positionals);
 }
 
 /**

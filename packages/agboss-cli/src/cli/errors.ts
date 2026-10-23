@@ -1,4 +1,10 @@
-import { ComponentError, EnvironmentError, GraphRuleError, WorkflowLoadError } from "agboss";
+import {
+  ComponentError,
+  EnvironmentError,
+  EvalCaseInvalidError,
+  GraphRuleError,
+  WorkflowLoadError,
+} from "agboss";
 import { ConfigurationError } from "agboss/models";
 import { ApplicationLoadError, ProfileError } from "agboss/internal";
 import { ScaffoldConflictError, ScaffoldError, ScaffoldUsageError } from "../scaffold/errors.js";
@@ -41,6 +47,7 @@ const PROJECT_ERRORS: readonly (readonly [new (...args: never[]) => Error, strin
   [ConfigurationError, "model.configuration"],
   [ProfileError, "profile.invalid"],
   [NoTextStartError, "workflow.no-text-start"],
+  [EvalCaseInvalidError, "eval.case-invalid"],
 ];
 
 function scaffoldError(error: ScaffoldError): CliError {

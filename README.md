@@ -253,7 +253,7 @@ Every storage contract has a ready **SQLite** implementation (#265), enabled onl
 `SqliteRateLimitRepository`. They share one file per application instance — `sqlitePath` of the
 environment contract, required only when one is listed (else `[environment.missing-field]`
 names it); WAL, `busy_timeout`, every atomic operation in `BEGIN IMMEDIATE`, time from the
-framework's clock. With them `--thread`, `agboss eval` / `replay` / `golden` see what earlier
+framework's clock. With them `--thread`, `agboss eval score` / `replay` / `golden` see what earlier
 processes wrote, a pause survives a restart, and another instance on the file recovers a run
 whose process died; tests run on `sqlitePath: ":memory:"`. A project subclasses one through public
 tokens only (`extends` + `override`, `@Injectable({ deps })` as the class's own —

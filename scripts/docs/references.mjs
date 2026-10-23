@@ -56,6 +56,8 @@ function agbossProblem(command, rest, known) {
   const found = known.commands.get(command);
   if (!found) return `unknown command \`agboss ${command}\``;
   const words = rest.trim().split(/\s+/).filter(Boolean);
+  const sub = found.subcommands?.get(words[0] ?? "");
+  if (sub) return flagProblem(`${command} ${words[0]}`, sub, words.slice(1));
   const flag = words.find(
     (word) => word.startsWith("--") && !found.flags.has(word.replace(/=.*/, "")),
   );
@@ -64,6 +66,14 @@ function agbossProblem(command, rest, known) {
   if (found.positionals && first && /^[a-z][\w:-]*$/.test(first) && !found.positionals.has(first))
     return `\`agboss ${command} ${first}\`: expected ${[...found.positionals].join(" | ")}`;
   return undefined;
+}
+
+/** An option the subcommand does not take. */
+function flagProblem(name, found, words) {
+  const flag = words.find(
+    (word) => word.startsWith("--") && !found.flags.has(word.replace(/=.*/, "")),
+  );
+  return flag ? `\`agboss ${name}\` has no option ${flag}` : undefined;
 }
 
 /** Problems with the commands in one piece of code text. */

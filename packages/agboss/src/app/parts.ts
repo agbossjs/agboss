@@ -55,6 +55,7 @@ export const evaluationFor = (
 ): EvalDeps => ({
   ...stores,
   judge: defaultRouterOf("judge", bundle.config, gateway),
+  gateway,
 });
 
 /** Core services for the workflow's components; one object, so tools and knowledge share instances. */
