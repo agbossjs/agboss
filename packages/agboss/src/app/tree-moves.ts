@@ -22,6 +22,7 @@ import type { RecordedAnswer } from "./resume.js";
 import { announceResume, markTaken, treeResumeNow } from "./tree-resume.js";
 import { withPauseAnswers } from "./result.js";
 import { executionEventAt } from "./run-events.js";
+import { withTreeOrigin } from "./tree-origin.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import type * as CancelRequests from "./cancel-requests.js";
 import type * as UnwindingTakeover from "./unwinding-takeover.js";
@@ -66,12 +67,12 @@ class TreeMover implements TreeMoves {
   async resumed(answer: RecordedAnswer, call: TreeCall): Promise<ExecutionOutput> {
     const { deps, paused, leases } = this.parts;
     const { pause, run } = answer;
-    const state = {
+    const state = await withTreeOrigin(deps, {
       runId: pause.rootExecutionId,
       threadId: pause.threadId,
       tenantId: pause.tenantId,
       startedVersion: run?.startedVersion ?? deps.config.version,
-    };
+    });
     const leaving = this.#resuming.enter(state.runId);
     try {
       // answered: the tree has work again — its record is `running` until it rests (#265 S30); only
