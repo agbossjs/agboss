@@ -82,6 +82,28 @@ execution with the execution each ran, and the in-process child executions that 
 - Only trees that cross applications are listed. `--json` gives each one's `rootExecutionId`,
   `application`, `applications`, `executions` and `stubs`.
 
+## Crystallization radar
+
+A model step that spends money to give the same answer to the same question is code waiting to be
+written. The radar finds them across the mesh — deterministically, from the records only:
+
+- **What it ranks**: every model step — an agent or a router with model calls (a code router spends
+  nothing and is not on it) — per application, workflow and step, over all its visits in the
+  exports, a child execution's too.
+- **Stability**: of its visits whose input was seen at least twice (the same `steps[].inputHash`),
+  the share that gave the most frequent decision for their input. A step record's `decision`
+  ([Observability](Observability)) is `route:<node>` for a router, `launch:<node>,…` for the routes
+  it launched, `variant:<class>` for a `oneOf` answer, else `answer:<hash>` of its value. No input
+  seen twice → no stability.
+- **Score** = spend × stability.
+- **A candidate** to turn into code — a `DecidedBy.Code` router, an `@Action` — has at least
+  **50** calls, stability **≥ 0.95**, and, where its workflow has eval runs among the inputs, pass^k on
+  every case of the latest run of each suite (a failing one keeps it off).
+
+The table lists every model step, candidates first, then by score: its calls, spend, stability over
+how many repeated inputs and calls, its workflow's pass^k (or "no eval"), the score, and the first
+executions it ran in. `--json` gives the same as `radar`.
+
 ## Health: what the files say
 
 Health is derived from the application's own files only — a static page cannot poll, and the Hub
@@ -98,5 +120,7 @@ reaches no URL. Live probes stay the orchestrator's job ([App](App), `app.checkR
 Without `--html` the command prints its summary. Under `--json`: `result = { applications: [{ name,
 version, file }], inputs: { describe, evalRuns, records, files: [{ file, kind, count }] }, edges: {
 observed: [{ from, to, calls, workflows, tools }] }, trees: [{ rootExecutionId, application,
-applications, executions, stubs }], report?, bytes? }`, `created: [<html>]`. A page
+applications, executions, stubs }], radar: [{ application, workflow, component, kind, calls, spendUsd,
+stability, repeatedInputs, repeatedCalls, passHatK, score, isCandidate, executions }], report?,
+bytes? }`, `created: [<html>]`. A page
 above 16 MB is refused, `hub.report-too-large` (exit 2): export a shorter period.

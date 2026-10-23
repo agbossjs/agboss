@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the Mesh Hub: the crystallization radar (#401 PR 5)
+
+- **Added — `ExecutionStepRecord.decision`** ([Observability](Observability)): what each visit
+  decided — `route:<node>`, `launch:<node>,…`, `variant:<class>` or `answer:<hash>`; none when it
+  gave nothing. Additive.
+- **Added — the Crystallization Radar** on `agboss hub show` ([Mesh Hub](Mesh-Hub#crystallization-radar)):
+  model steps ranked by spend × stability (the share of one decision for one `inputHash`); a
+  candidate at ≥ 50 calls, stability ≥ 0.95 and no failing eval of its workflow. `--json`: `radar`.
+
 ## Unreleased — child workflows as runs of their own (#333 PR 1)
 
 - **Changed (internal)** — [ADR-0022](ADR-0022-Child-workflows-as-runs-of-their-own), reversing #263

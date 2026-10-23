@@ -309,7 +309,10 @@ What an execution did step by step is in its result and record too (#395), not o
 - `result.record.toolCalls` (`{ record: true }`) — the same, masked like the rest of the record.
 - `result.record.steps` — one `ExecutionStepRecord` per visit of a node, in the order the visits
   ended: `step`, `inputHash` (a stable hash of the values it read — the same input, the same hash on
-  every machine and run; a start's is its input's), `judgeVerdicts` (`JudgeVerdictRecord`: `judge`,
+  every machine and run; a start's is its input's), `decision?` (#401: what it decided — `route:<node>`
+for a router, `launch:<node>,…` for the routes it launched, `variant:<class>` for a `oneOf` answer,
+else `answer:<hash>` of its value — never the value itself, so it holds no PII; none when it gave
+nothing — what the [Mesh Hub](Mesh-Hub)'s radar counts), `judgeVerdicts` (`JudgeVerdictRecord`: `judge`,
   `attempt`, `passed`, `reason?`, `metrics?`), `guardrailDecisions` (`GuardrailDecisionRecord`:
   `guardrail`, `side`, `isBlocked`, `probability`), `spend`, `startedAt`, `endedAt` and `error?` —
   the failure a side path took. Each child's own are in `result.children[i].steps` (#395 S6).
