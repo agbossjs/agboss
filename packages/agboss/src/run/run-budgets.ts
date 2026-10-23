@@ -13,6 +13,8 @@ import {
 } from "../budgets/execution-budgets.js";
 import type { Class } from "../components/injection.js";
 import { usd } from "../units/index.js";
+import { BudgetScope } from "../budgets/budget.js";
+import type { ExecutionDeadline } from "../budgets/execution-deadline.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import { runInFrame, type ExecutionFacts, type FrameSpec } from "../flow/context/frame.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
@@ -114,6 +116,7 @@ async function openBudgets(
   workflow: Class,
   keys: ExecutionKeys,
   inFrame: <T>(work: () => Promise<T>) => Promise<T>,
+  claimed: readonly ExecutionBudgetRecord[],
 ): Promise<readonly ExecutionBudgetRecord[]> {
   const records: ExecutionBudgetRecord[] = [];
   for (const { type, meta } of budgetsOfExecution(application.budgets, workflow)) {
@@ -128,6 +131,7 @@ async function openBudgets(
     };
     records.push(record);
   }
+  records.push(...claimed);
   const now = application.clock.now();
   for (const record of records) {
     const spent = await application.ledger.findSpentByCounter(counterOf(record, now));
@@ -137,6 +141,29 @@ async function openBudgets(
   for (const record of records)
     await application.ledger.saveMaxSpend(accountOf(record), usd(record.maxSpend));
   return records;
+}
+
+/** The built-in execution budget a trusted mesh caller's claim sets (#398 PR 2). */
+export const CALLER_BUDGET = "caller-budget";
+
+/**
+ * The budget a trusted mesh caller's remaining budget sets (#398 PR 2): an execution budget
+ * `caller-budget` of that amount — the receiver only lowers its own limits; exceeding it is
+ * `BudgetExceededError` (`budget: "caller-budget"`).
+ */
+function callerBudgetsOf(
+  contexts: ExecutionContextValues,
+  executionId: string,
+): readonly ExecutionBudgetRecord[] {
+  const claimed = contexts.mesh?.trusted?.budget;
+  if (claimed === undefined) return [];
+  const record = {
+    budget: { name: CALLER_BUDGET },
+    scope: BudgetScope.Execution,
+    key: executionId,
+    maxSpend: claimed,
+  };
+  return [record];
 }
 
 /** The budgets of a pass: what it is checked against, and their records (kept in its state). */
@@ -167,10 +194,15 @@ export async function openExecutionBudgets<TName extends string>(
     tenantId: start.contexts.tenant.tenantId,
     executionId: start.executionId,
   };
-  const records = await openBudgets(application, deps.graph.type, keys, (work) =>
-    runInFrame(frame, work),
+  const claimed = callerBudgetsOf(start.contexts, start.executionId);
+  const records = await openBudgets(
+    application,
+    deps.graph.type,
+    keys,
+    (work) => runInFrame(frame, work),
+    claimed,
   );
-  const meter = meterOf(application, records, 0);
+  const meter = meterOf(application, records, 0, start.contexts.deadline);
   await meter.refresh();
   return { meter, records };
 }
@@ -183,11 +215,12 @@ export async function continuedExecutionBudgets<TName extends string>(
   deps: AgentExecutionDeps<TName>,
   records: readonly ExecutionBudgetRecord[] | undefined,
   spentBefore: number,
+  deadline?: ExecutionDeadline,
 ): Promise<PassBudgets> {
   const application = deps.budgets;
   if (application === undefined) return unbudgeted();
   const kept = records ?? [];
-  const meter = meterOf(application, kept, spentBefore);
+  const meter = meterOf(application, kept, spentBefore, deadline);
   await meter.refresh();
   return { meter, records: kept };
 }

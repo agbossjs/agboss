@@ -7,6 +7,7 @@ import {
   ExecutionRecordStatus,
   type ExecutionRecordRepository,
 } from "./execution-record.repository.js";
+import type { MeshRequestRepository } from "./mesh-request.repository.js";
 import type { Clock } from "./clock.js";
 import type { FrameworkLog } from "./logger.js";
 import type { PausedExecutionRepository } from "./paused-execution.repository.js";
@@ -57,6 +58,10 @@ export interface RecoverySources {
   readonly pauses: PausedExecutionRepository;
   /** `@Application({ pauseRecordRetention })`: how long a resolved pause record is kept. */
   readonly pauseRecordRetention: Milliseconds;
+  /** The trusted mesh requests' answers (#398 PR 2): removed after their retention. */
+  readonly meshRequests?: MeshRequestRepository | undefined;
+  /** `@Application({ mesh: { idempotencyRetention } })`: how long an answer is kept. */
+  readonly idempotencyRetention?: number | undefined;
   /** The instance's step slots (#332); absent = no cap, every recoverable root is taken. */
   readonly capacity?: StepCapacity | undefined;
 }
@@ -130,6 +135,7 @@ class Sweeper implements RecoverySweep {
         });
       }
       await this.#forgetResolvedPauses();
+      await this.#forgetMeshRequests();
       this.#lastSweptAt = this.sources.clock.now();
       await this.sources.clock.sleep(SWEEP_EVERY, this.#stopped.signal);
     }
@@ -147,6 +153,20 @@ class Sweeper implements RecoverySweep {
         text: `the resolved pause records could not be removed: ${String(error)}`,
         isBroken: true,
       });
+    }
+  }
+
+  /** The trusted mesh requests whose retention is over, removed (#398 PR 2). */
+  async #forgetMeshRequests(): Promise<void> {
+    const { clock, meshRequests, idempotencyRetention } = this.sources;
+    if (meshRequests === undefined || idempotencyRetention === undefined) return;
+    try {
+      await meshRequests.deleteCreatedBefore(
+        new Date(clock.now().getTime() - idempotencyRetention),
+      );
+    } catch (error) {
+      const text = `the mesh requests' answers could not be removed: ${String(error)}`;
+      this.#log({ code: "recovery.failed", text, isBroken: true });
     }
   }
 

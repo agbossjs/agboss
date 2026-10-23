@@ -1,6 +1,7 @@
 import { ExecutionStatus, type ExecutionOutput } from "../app/types.js";
 import { AGBossError, ExecutionCancelledError } from "../core/errors.js";
 import { meshLimitBodyOf } from "../mesh/mesh-wire.js";
+import { amountOf } from "../mesh/mesh-durations.js";
 import { LimitExceededError } from "../graph/limits.js";
 import type { ExecutionStreamEvent } from "../run/types.js";
 import { A2AStatus, type A2AEvent, type A2AExecutionResponse } from "./types.js";
@@ -45,6 +46,9 @@ export function responseOf(output: ExecutionOutput): A2AExecutionResponse {
     status: statusOf(output.status),
     ...(output.finish === undefined ? {} : { finish: output.finish.name, output: output.output }),
     ...pauseIdsOf(output),
+    // the run's id and spend (#398 PR 2): a trusted caller verifies them in the signed report
+    executionId: output.executionId,
+    spend: { total: amountOf(output.spend.totalUsd), currency: "USD" },
   };
 }
 

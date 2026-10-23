@@ -169,6 +169,7 @@ function executionDataOf(options: TestExecutionContextOptions): Readonly<Record<
     itemIndex: undefined,
     depth: 1,
     parent: undefined,
+    origin: undefined,
   };
 }
 

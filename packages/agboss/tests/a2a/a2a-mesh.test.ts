@@ -1,77 +1,28 @@
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import { a2aHttpListener, A2AClient, A2AStatus } from "../../src/a2a/index.js";
-import { createApp } from "../../src/application/create-app.js";
-import type { App } from "../../src/app/types.js";
+import { A2AClient, A2AStatus } from "../../src/a2a/index.js";
 import { HopsLimitExceededError, MeshLoopDetectedError } from "../../src/index.js";
 import { encodeMeshEnvelope } from "../../src/mesh/mesh-envelope-codec.js";
 import type { MeshEnvelope } from "../../src/mesh/mesh-envelope.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { execute } from "../helpers/flow.js";
-import { offline } from "./fixtures/remote.workflow.js";
-import { meshAppOf, type MeshAppParts, type MeshAppSpec } from "./fixtures/mesh.workflow.js";
+import {
+  closeAll,
+  endpoint as endpointOf,
+  meshApp as meshAppAt,
+  opened,
+  type Endpoint,
+} from "./fixtures/endpoints.js";
+import type { MeshAppSpec } from "./fixtures/mesh.workflow.js";
 
-type Handler = (req: IncomingMessage, res: ServerResponse) => void;
+const open = opened();
 
-/** A server listening before its application exists, so two applications can name each other. */
-interface Endpoint {
-  readonly url: string;
-  /** Every request's headers, in order. */
-  readonly headers: IncomingMessage["headers"][];
-  serve(handler: Handler): void;
-}
+afterEach(() => closeAll(open));
 
-const servers: Server[] = [];
-const apps: App[] = [];
+const endpoint = (): Promise<Endpoint> => endpointOf(open);
 
-afterEach(async () => {
-  await Promise.all(apps.splice(0).map((app) => app.close()));
-  await Promise.all(
-    servers.splice(0).map(
-      (server) =>
-        new Promise<void>((resolve) => {
-          server.closeAllConnections();
-          server.close(() => {
-            resolve();
-          });
-        }),
-    ),
-  );
-});
-
-async function endpoint(): Promise<Endpoint> {
-  let current: Handler | undefined;
-  const headers: IncomingMessage["headers"][] = [];
-  const server = createServer((req, res) => {
-    headers.push(req.headers);
-    current?.(req, res);
-  });
-  servers.push(server);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const { port } = server.address() as AddressInfo;
-  return {
-    url: `http://127.0.0.1:${String(port)}`,
-    headers,
-    serve: (handler) => {
-      current = handler;
-    },
-  };
-}
-
-/** One mesh application, served at `own`, calling `spec.peerUrl`. */
-async function meshApp(
-  own: Endpoint,
-  spec: MeshAppSpec,
-  book: ScriptBook,
-): Promise<{ readonly app: App; readonly parts: MeshAppParts }> {
-  const parts = meshAppOf(spec);
-  const app = await createApp(parts.MeshApplication, offline(book));
-  apps.push(app);
-  own.serve(a2aHttpListener(app, { start: parts.MeshStart, callerResolver: parts.Resolver }));
-  return { app, parts };
-}
+const meshApp = (own: Endpoint, spec: MeshAppSpec, book: ScriptBook) =>
+  meshAppAt(open, own, spec, book);
 
 /** The envelope of a request header, decoded. */
 const envelopeOf = (header: string | string[] | undefined): unknown =>

@@ -8,6 +8,7 @@ import { inMcpCallFrame } from "./mcp-call-frame.js";
 import { executeUnchecked } from "../app/execute-unchecked.js";
 import { withInboundMesh } from "../mesh/inbound-mesh.js";
 import { isMeshLimitError } from "../mesh/mesh-errors.js";
+import { runReportMetaOf } from "./mcp-run-report.js";
 import { ExecutionStatus } from "../app/types.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf, type WorkflowStartDeclaration } from "../flow/decorators/declaration.js";
@@ -28,7 +29,14 @@ import {
  * context values — `tenant` (a resume uses its `tenantId`) and the declared `execution` fields —
  * taken by the transport from its authenticated caller, never from the call's arguments.
  */
-export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "execution">;
+export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "execution"> & {
+  /**
+   * The mesh peer the transport authenticated (#398 PR 2), by its `@Application({ name })`: when a
+   * call's envelope carries this peer's valid signature, its budget, deadline and origin are
+   * honoured and the run's report is signed back (`_meta["agboss.dev/report"]`).
+   */
+  readonly peer?: string;
+};
 
 /**
  * What an `@McpExpose` exposes: its `@Tool` / `@McpTool` exports (run through the same adapter as
@@ -141,17 +149,23 @@ function addWorkflowStart(
     description: description || `Run workflow starting at ${name}`,
     inputSchema: startInputSchema(declaration),
   });
-  registry.handlers.set(name, (call) =>
-    guarded(async () => {
+  // the session's caller as the execution takes it: its peer is the transport's, not an option
+  const caller = { ownerId: session.ownerId, tenant: session.tenant, execution: session.execution };
+  registry.handlers.set(name, async (call) => {
+    let reported: Record<string, string> | undefined;
+    const answered = await guarded(async () => {
       // the call chain the envelope brought (#398): the execution's own calls carry it on
       const options = withInboundMesh<ExecutionOptions>(
-        { ...session, signal: call.signal },
+        { ...caller, signal: call.signal },
         call.mesh,
       );
       // the app checks the payload against the start's input
-      return formatWorkflowOutput(await executeUnchecked(app, exp, call.args, options));
-    }),
-  );
+      const result = await executeUnchecked(app, exp, call.args, options);
+      reported = runReportMetaOf(app, call, result); // a trusted call's signed report (#398)
+      return formatWorkflowOutput(result);
+    });
+    return reported === undefined ? answered : { ...answered, _meta: reported };
+  });
 }
 
 function addResumeTool(registry: ToolRegistry, app: App, session: McpSessionOptions): void {

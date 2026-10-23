@@ -68,7 +68,9 @@ export interface McpSession {
 // Warning: (ae-forgotten-export) The symbol "ExecutionOptions" needs to be exported by the entry point index.d.ts
 //
 // @public
-export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "execution">;
+export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "execution"> & {
+    readonly peer?: string;
+};
 
 // Warning: (ae-forgotten-export) The symbol "DtoClass" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "Token" needs to be exported by the entry point index.d.ts
@@ -110,7 +112,7 @@ export type ToolsOf<TServer> = TServer extends {
 // src/mcp/mcp-service.ts:18:1 - (ae-undocumented) Missing documentation for "McpSession".
 // src/mcp/mcp-service.ts:19:3 - (ae-undocumented) Missing documentation for "sessionId".
 // src/mcp/mcp-service.ts:20:3 - (ae-undocumented) Missing documentation for "close".
-// src/mcp/mcp-service.ts:137:1 - (ae-undocumented) Missing documentation for "createMcpService".
+// src/mcp/mcp-service.ts:139:1 - (ae-undocumented) Missing documentation for "createMcpService".
 
 // (No @packageDocumentation comment for this package)
 

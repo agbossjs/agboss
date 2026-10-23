@@ -10,6 +10,10 @@ import type {
 } from "../infrastructure/cost-ledger.repository.js";
 import { counterKeyOf } from "../infrastructure/cost-ledger.repository.js";
 import { usd } from "../units/index.js";
+import { checkDeadline, type ExecutionDeadline } from "./execution-deadline.js";
+import type { BudgetCheck } from "./budget-check.js";
+
+export { NO_BUDGET_CHECK, type BudgetCheck } from "./budget-check.js";
 import {
   budgetOf,
   BudgetScope,
@@ -135,31 +139,6 @@ export const budgetExceededErrorOf = (
     usage,
   );
 
-/** What a check of an execution's budgets needs: no I/O, the counters as last read. */
-export interface BudgetCheck {
-  /** Throws the first exhausted budget's `BudgetExceededError`; `executionSpent` is the execution's total. */
-  readonly check: (
-    executionSpent: number,
-    path: readonly string[],
-    usage?: readonly UsageRecord[],
-  ) => void;
-  /**
-   * Counts spend the moment it is made (#338), before it reaches the execution's state: every
-   * branch of the pass sees it at its next check, and a tally that exhausts a budget aborts the
-   * in-flight calls of the pass's launches.
-   */
-  readonly tally: (records: readonly UsageRecord[], path?: readonly string[]) => void;
-  /** Aborted, with its `BudgetExceededError` as the reason, when a tally exhausts a budget. */
-  readonly exhausted: AbortSignal;
-}
-
-/** No budgets (an agent loop run on its own). */
-export const NO_BUDGET_CHECK: BudgetCheck = {
-  check: () => undefined,
-  tally: () => undefined,
-  exhausted: new AbortController().signal,
-};
-
 /** The counters as one read saw them, and what this pass had written to the ledger by then. */
 interface CounterSnapshot {
   readonly values: ReadonlyMap<string, number>;
@@ -201,6 +180,8 @@ export class BudgetMeter implements BudgetCheck {
     private readonly ledger: CostLedgerRepository,
     private readonly clock: Clock,
     private readonly spentBefore: number,
+    /** The execution's deadline (#398 PR 2): checked with the budgets. */
+    readonly deadline?: ExecutionDeadline,
   ) {}
 
   /** Aborted, with its `BudgetExceededError` as the reason, when a tally exhausts a budget. */
@@ -248,6 +229,7 @@ export class BudgetMeter implements BudgetCheck {
 
   check(executionSpent: number, path: readonly string[], usage: readonly UsageRecord[] = []): void {
     const spent = Math.max(executionSpent, this.#executionSpent());
+    checkDeadline(this.deadline, this.clock.now(), { path, spentUsd: spent, usage });
     const breach = this.#breachOf(spent, path, usage);
     if (breach !== undefined) throw breach;
   }
@@ -259,6 +241,16 @@ export class BudgetMeter implements BudgetCheck {
     // the records are in the tally (and soon in the state): the error carries none of them
     const breach = this.#breachOf(this.#executionSpent(), path, []);
     if (breach !== undefined) this.#exhausted.abort(breach);
+  }
+
+  /** What the execution may still spend now: the least any of its budgets has left. */
+  remaining(): number {
+    const now = this.clock.now();
+    const spent = this.#executionSpent();
+    return Math.min(
+      ...this.records.map((record) => record.maxSpend - this.#spentOf(record, spent, now)),
+      Number.POSITIVE_INFINITY,
+    );
   }
 
   /**
@@ -297,4 +289,6 @@ export const meterOf = (
   application: Pick<ApplicationBudgets, "ledger" | "clock">,
   records: readonly ExecutionBudgetRecord[],
   spentBefore: number,
-): BudgetMeter => new BudgetMeter(records, application.ledger, application.clock, spentBefore);
+  deadline?: ExecutionDeadline,
+): BudgetMeter =>
+  new BudgetMeter(records, application.ledger, application.clock, spentBefore, deadline);

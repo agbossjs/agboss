@@ -1,5 +1,6 @@
 import type { StepDescriptor, StepRecord, WorkflowRecord } from "../context/execution-context.js";
 import { plainRecordOf } from "../runtime/records.js";
+import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
 import {
   currentFrame,
   rootFactsOf,
@@ -26,6 +27,11 @@ export interface ExecutionEvent {
   readonly tenantId: string;
   /** Which workflow: filter with `event.workflow.name === nameOf(SupportWorkflow)`. */
   readonly workflow: WorkflowRecord;
+  /**
+   * Where its request came from (#398 PR 2): set only for a trusted mesh peer's request — on the
+   * execution's start, its node events and its first pass's end or error.
+   */
+  readonly origin?: ExecutionOrigin;
 }
 
 /** An event about one step of an execution: an agent, a router, an action, a tool call, a model call. */
@@ -66,6 +72,7 @@ export function executionEventOf(execution: ExecutionFacts): ExecutionEvent {
     threadId,
     tenantId: execution.tenant.tenantId,
     workflow: workflowRecordOf(workflow),
+    ...(execution.origin === undefined ? {} : { origin: execution.origin }),
   };
 }
 

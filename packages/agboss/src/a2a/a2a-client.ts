@@ -4,8 +4,9 @@ import { validate } from "../dto/schema.js";
 import type { DtoClass } from "../dto/types.js";
 import { A2ACallerRejectedError } from "./a2a-caller.js";
 import { readEvents } from "./a2a-sse.js";
-import { MESH_HEADER, TRACEPARENT } from "../mesh/mesh-envelope.js";
-import { outboundMeshOf } from "../mesh/outbound-mesh.js";
+import { outboundMeshOf, type OutboundMesh } from "../mesh/outbound-mesh.js";
+import { takeRunReport } from "../mesh/mesh-report.js";
+import { meshHeadersOf, meshRefusalOfResponse } from "./a2a-client-mesh.js";
 import { meshLimitErrorOf } from "../mesh/mesh-wire.js";
 import {
   A2AResponseSchema,
@@ -39,25 +40,6 @@ export interface A2AClientCall {
 
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_FORBIDDEN = 403;
-const HTTP_CONFLICT = 409;
-
-/** A `409` naming a mesh limit (#398): the server refused the call chain, nothing ran. */
-async function meshRefusalOfResponse(response: Response): Promise<Error | undefined> {
-  if (response.status !== HTTP_CONFLICT) return undefined;
-  return meshLimitErrorOf(await response.json().catch(() => undefined));
-}
-
-/**
- * The headers of a call made inside an execution (#398): the mesh envelope and `traceparent`;
- * none outside one.
- */
-function meshHeadersOf(): Record<string, string> {
-  const mesh = outboundMeshOf();
-  return mesh === undefined
-    ? {}
-    : { [MESH_HEADER]: mesh.envelope, [TRACEPARENT]: mesh.traceparent };
-}
-
 /** A `401` / `403` whose body names an `a2a.caller-*` code: the server refused the caller. */
 async function callerRejectionOf(response: Response): Promise<A2ACallerRejectedError | undefined> {
   if (response.status !== HTTP_UNAUTHORIZED && response.status !== HTTP_FORBIDDEN) return undefined;
@@ -140,24 +122,53 @@ export class A2AClient {
       ...(call.threadId === undefined ? {} : { threadId: call.threadId }),
     };
     const streaming = call.onEvent !== undefined;
-    const response = await this.fetcher(`${this.url}/execute`, {
+    const text = JSON.stringify(body);
+    const mesh = outboundMeshOf(text);
+    const response = await this.post("/execute", text, mesh, streaming, call.signal);
+    if (!response.ok) throw await this.refusalOf(response);
+    const isStream = (response.headers.get("content-type") ?? "").includes("text/event-stream");
+    const result =
+      isStream && response.body !== null
+        ? await readEvents(response.body, call.onEvent)
+        : A2AResponseSchema.parse(await response.json());
+    // a trusted peer's signed report (#398 PR 2): its spend and execution, in the calling step
+    if (mesh !== undefined) takeRunReport("a2a", result.report, mesh.bodyHash);
+    return result;
+  }
+
+  /**
+   * Cancels the remote run in flight of the caller's thread, or drops its pause (#398 PR 2:
+   * `POST <url>/cancel { threadId }`) — the server resolves the caller first; another tenant's
+   * thread of the same id is never touched.
+   */
+  public async cancel(threadId: string, call: Pick<A2AClientCall, "signal"> = {}): Promise<void> {
+    const body = JSON.stringify({ threadId });
+    const response = await this.post("/cancel", body, undefined, false, call.signal);
+    if (!response.ok) throw await this.refusalOf(response);
+    const result = A2AResponseSchema.parse(await response.json());
+    if (result.status !== A2AStatus.Cancelled) throw new A2ARemoteError(result);
+  }
+
+  /** One POST to the server: JSON, its envelope's headers, the caller's own headers last. */
+  private async post(
+    route: string,
+    body: string,
+    mesh: OutboundMesh | undefined,
+    streaming: boolean,
+    signal: AbortSignal | undefined,
+  ): Promise<Response> {
+    return this.fetcher(`${this.url}${route}`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         accept: streaming ? "text/event-stream" : "application/json",
-        ...meshHeadersOf(),
+        ...meshHeadersOf(mesh),
         ...this.headers,
         ...(await this.getHeaders()),
       },
-      body: JSON.stringify(body),
-      ...(call.signal === undefined ? {} : { signal: call.signal }),
+      body,
+      ...(signal === undefined ? {} : { signal }),
     });
-    if (!response.ok) throw await this.refusalOf(response);
-    const isStream = (response.headers.get("content-type") ?? "").includes("text/event-stream");
-    if (isStream && response.body !== null) {
-      return readEvents(response.body, call.onEvent);
-    }
-    return A2AResponseSchema.parse(await response.json());
   }
 
   /** A response that is not OK as its error: a refused caller (#387), a refused chain (#398), … */

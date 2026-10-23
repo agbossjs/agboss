@@ -1,0 +1,131 @@
+import { createHash } from "node:crypto";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { afterEach, describe, expect, it } from "vitest";
+import { createApp } from "../../src/application/create-app.js";
+import type { App } from "../../src/app/types.js";
+import { createMcpService, McpExpose } from "../../src/mcp/index.js";
+import { encodeMeshEnvelope } from "../../src/mesh/mesh-envelope-codec.js";
+import { readJws } from "../../src/mesh/mesh-jws.js";
+import { replyWith } from "../../src/testing/index.js";
+import { ScriptBook } from "../../src/testing/script-book.js";
+import { offline } from "../a2a/fixtures/remote.workflow.js";
+import { meshAppOf } from "../a2a/fixtures/mesh.workflow.js";
+import { meshEnvOf, meshKeyPair, meshOf, type MeshKeyPair } from "../a2a/fixtures/mesh-keys.js";
+
+const apps: App[] = [];
+
+afterEach(async () => {
+  await Promise.all(apps.splice(0).map((app) => app.close()));
+});
+
+const args = { text: "is invoice 7 paid?" };
+
+/** An envelope orders-application signs for `args`, issued now. */
+const signed = (key: MeshKeyPair, body: unknown = args): string =>
+  encodeMeshEnvelope(
+    {
+      schema: 1,
+      issuer: "orders-application",
+      origin: {
+        rootExecutionId: "root-1",
+        executionId: "root-1",
+        workflow: { name: "orders-workflow", version: "1.0.0" },
+        step: { component: "orders-desk-agent", idempotencyKey: "root-1:orders-desk-agent:1:c1" },
+      },
+      callChain: [],
+      issuedAt: new Date().toISOString(),
+      expiresIn: "PT60S",
+      bodyHash: `sha256:${createHash("sha256").update(JSON.stringify(body)).digest("hex")}`,
+      budget: { remaining: "0", currency: "USD" },
+    },
+    key.privateKey,
+  );
+
+/** billing-application over MCP; its session's transport authenticated orders-application. */
+async function billing(book: ScriptBook, orders: MeshKeyPair, own: MeshKeyPair) {
+  const parts = meshAppOf({
+    name: "billing",
+    peerUrl: "http://unused",
+    mesh: meshOf("orders-application"),
+  });
+  @McpExpose({ name: "billing-mcp", version: "1.0.0", exports: [parts.MeshStart] })
+  class BillingMcp {}
+  const app = await createApp(parts.MeshApplication, {
+    ...offline(book),
+    env: "signing",
+    processEnv: meshEnvOf(own, orders),
+  });
+  apps.push(app);
+  const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+  await createMcpService(app, BillingMcp).connect(serverSide, { peer: "orders-application" });
+  const client = new Client({ name: "orders", version: "1.0.0" });
+  await client.connect(clientSide);
+  return { client, parts };
+}
+
+describe("#398 PR 2: a trusted peer's MCP call", () => {
+  it("runs on the caller's budget: nothing left, nothing runs", async () => {
+    const [ordersKeys, billingKeys] = [meshKeyPair(), meshKeyPair()];
+    const book = new ScriptBook();
+    const { client } = await billing(book, ordersKeys, billingKeys);
+
+    const result = await client.callTool({
+      name: "billing-workflow-start",
+      arguments: args,
+      _meta: { "agboss.dev/mesh": signed(ordersKeys) },
+    });
+
+    expect(result.isError).toBe(true); // the caller had nothing left: caller-budget
+    expect(result.content).toEqual([
+      { type: "text", text: expect.stringContaining("caller-budget allows $0") },
+    ]);
+    expect(book.scriptOf("agent:billing-desk-agent").requests).toHaveLength(0);
+  });
+
+  it("a finished call's _meta carries the report, signed by the receiver", async () => {
+    const [ordersKeys, billingKeys] = [meshKeyPair(), meshKeyPair()];
+    const book = new ScriptBook();
+    const { client } = await billing(book, ordersKeys, billingKeys);
+    book.scriptOf("agent:billing-desk-agent").thenReturn(replyWith("paid"));
+    const envelope = encodeMeshEnvelope(
+      {
+        ...(readJws(signed(ordersKeys))?.payload as Parameters<typeof encodeMeshEnvelope>[0]),
+        budget: { remaining: "1", currency: "USD" },
+      },
+      ordersKeys.privateKey,
+    );
+
+    const result = await client.callTool({
+      name: "billing-workflow-start",
+      arguments: args,
+      _meta: { "agboss.dev/mesh": envelope },
+    });
+
+    const report = readJws(result._meta?.["agboss.dev/report"]);
+    expect(result.isError).toBeFalsy();
+    expect(report?.payload).toMatchObject({ issuer: "billing-application" });
+    expect(report?.signed).toBeDefined();
+  });
+
+  it("another key's signature or another body is refused before anything runs", async () => {
+    const [ordersKeys, billingKeys] = [meshKeyPair(), meshKeyPair()];
+    const book = new ScriptBook();
+    const { client } = await billing(book, ordersKeys, billingKeys);
+
+    const forged = await client.callTool({
+      name: "billing-workflow-start",
+      arguments: args,
+      _meta: { "agboss.dev/mesh": signed(meshKeyPair()) },
+    });
+    const swapped = await client.callTool({
+      name: "billing-workflow-start",
+      arguments: { text: "pay everything" },
+      _meta: { "agboss.dev/mesh": signed(ordersKeys) },
+    });
+
+    expect(forged._meta?.["agboss.dev/error"]).toMatchObject({ code: "mesh.signature-invalid" });
+    expect(swapped._meta?.["agboss.dev/error"]).toMatchObject({ code: "mesh.body-mismatch" });
+    expect(book.scriptOf("agent:billing-desk-agent").requests).toHaveLength(0);
+  });
+});

@@ -439,15 +439,15 @@ without any code of yours:
 
 - the **envelope** (`MeshEnvelope`: `schema`, `issuer`, `origin` — `MeshOrigin` with its
   `MeshOriginStep` —, `callChain` of `MeshHop`s, each a `MeshEntry` plus its root `executionId`): the
-  `agboss-mesh` request header over A2A, `_meta["agboss.dev/mesh"]` over MCP (an unsecured JWS, `alg:
-"none"`); ids only — no `ownerId`, no `tenantId`, no input values;
+  `agboss-mesh` request header over A2A, `_meta["agboss.dev/mesh"]` over MCP (a JWS — unsecured,
+  `alg: "none"`, or signed, below); ids only — no `ownerId`, no `tenantId`, no input values;
 - a W3C `traceparent` (header / `_meta.traceparent`): the caller's trace continued;
 - over MCP `_meta.callId` = `executionContext.step.idempotencyKey`, so an AGBoss MCP server answers
   a repeated call as the same one.
 
 Outside an execution (a script's `new A2AClient(…)`) nothing is sent. The receiver reads the
-envelope into `A2ACallerRequest.envelope` for your resolver — a **claim**, not verified: never take
-a tenant, a budget or a deadline from it. A malformed envelope is ignored (the request runs as one
+envelope into `A2ACallerRequest.envelope` for your resolver — a **claim** (unless signed by a
+trusted peer, below): never take a tenant from it. A malformed envelope is ignored (the request runs as one
 without). What it does apply is the chain, before anything runs:
 
 | The chain the request arrives with                            | The receiver answers                                                         |
@@ -497,24 +497,93 @@ export class OrdersWorkflow {}
 - `maxMeshHops` counts applications: a chain that already lists `maxMeshHops` of them is refused
   (`hops` = the chain + the receiver). `[limits.max-mesh-hops-invalid]` for anything but a whole
   number from 1.
-- Not yet (#398 PR 2): signatures and trusted peers, the caller's budget and deadline, the origin on
-  records, dedupe by `idempotencyKey`.
+
+### Trusted peers: signed envelopes (#398 PR 2)
+
+An application that names its keys (`@Application({ mesh })`, `MeshOptions` with its `MeshPeer`s)
+signs every envelope it sends (JWS `EdDSA`, Ed25519) and every
+run report it answers with; its `peers` are the applications whose signatures it checks. Keys are
+PEM in environment fields, named by field like a `@ModelProvider`'s `apiKey`: the private key a
+`Secret` (PKCS #8), a peer's public key a plain text field (SPKI) — it is public.
+
+<!-- snippet-context
+import { Application, type Secret } from "agboss";
+export class BillingWorkflow {} // a @Workflow of its own
+-->
+
+```ts
+// environments/billing.environment.ts — the contract
+export class BillingEnvironment {
+  meshSigningKey!: Secret; // secret("MESH_SIGNING_KEY") in each environment
+  ordersPublicKey!: string; // env("ORDERS_PUBLIC_KEY")
+}
+
+@Application({
+  name: "billing-application",
+  version: "1.0.0",
+  environment: BillingEnvironment,
+  workflows: [BillingWorkflow],
+  mesh: {
+    signingKey: "meshSigningKey",
+    peers: [{ application: "orders-application", verifyKey: "ordersPublicKey" }],
+  },
+})
+export class BillingApplication {}
+```
+
+A request is **trusted** only when both hold: the listener's `callerResolver` names its `peer`
+(`A2ACallerResolution.resolved({ …, peer: "orders-application" })` — what your transport proved,
+mTLS or a token) and the envelope carries that peer's valid signature (`signedBy`). Before the
+resolver the listener checks a signed envelope of a known issuer — its signature and its
+`issuedAt` + `expiresIn` (60 s) on the `Clock` — and refuses a bad one with `401`
+`mesh.signature-invalid` / `mesh.envelope-expired`; a trusted one must carry the body it signed
+(`bodyHash`, else `401 mesh.body-mismatch`). `a2aHttpListener(app, { …, meshVerifier })` takes the
+peers' public keys from an `@Injectable` `MeshVerifier` (`verifyKeyOf(issuer)` → PEM) besides
+`mesh.peers`, asked first. Over MCP, `createMcpService(app, X).connect(transport, { peer })` names
+the session's peer.
+
+What a trusted request gets — never an untrusted one:
+
+| From the caller                   | The receiver                                                                                                    |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `budget.remaining`                | one more execution budget, `caller-budget`: it only lowers its own (`BudgetExceededError`)                      |
+| `deadline.remaining`              | the execution's deadline (`DeadlineExceededError`, `limit.deadline`)                                            |
+| `origin` (and the chain's length) | `executionContext.origin`, the record's `origin` and every observer event's (`ExecutionOrigin`)                 |
+| `origin.step.idempotencyKey`      | dedupe (`MeshRequestRepository`): a repeat gets the kept answer, one in flight a `409 mesh.request-in-progress` |
+
+Its answer carries a run report (`MeshRunReport`: `issuer`, `executionId`, `spend`, `bodyHash`)
+signed by the receiver. A caller that verifies it with its `mesh.peers` key records the reported
+spend as `a2a:<issuer>` / `mcp:<issuer>` in the calling tool's spend and the remote execution in
+`ToolCallRecord.remote` (`ToolCallRemote`: `application`, `executionId`); an unverified report is
+ignored. The deadline is yours too: `app.execute(Start, input, { deadline: seconds(30) })` — the
+smaller of it and a trusted caller's, checked before every step and model call (a call in flight is
+not cut). `A2AClient.cancel(threadId)` → `POST <base>/cancel { threadId }`, for the resolved
+caller's tenant only.
+
+- `MeshRequestRepository` is infrastructure (in memory; `SqliteMeshRequestRepository` shares it
+  between instances), kept `mesh.idempotencyRetention` (default `minutes(30)`), then removed by the
+  recovery sweep. Only trusted `POST /execute` requests are deduplicated.
+- `[mesh.signing-key-missing]`, `[mesh.unknown-peer-key]`, `[mesh.duplicate-peer]` at assembly;
+  `[mesh.invalid-key] <field> holds no …` at start (never the value).
+- Not yet (#398 PR 3): a peer's contract price, `audience`.
 
 ## Errors and fixes
 
-| You see                                                        | Fix                                                                                   |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| the start fails: `search_issues: tool not found on the server` | the `tools` key must be the server's exact tool name                                  |
-| the start fails: `… input: …` schema differences               | make the input DTO match the server tool's input schema                               |
-| `MCP server "issues" needs env variable ISSUES_MCP_TOKEN`      | set the variable; the decorator only names it                                         |
-| `[name.kind-suffix]` on an `@McpTool`                          | name it `<what>-tool`                                                                 |
-| `[tool.duplicate-name]`                                        | two tools a model sees share a name (local, MCP, `search-<rag>-tool`, `answer-<dto>`) |
-| `A2ARemoteError: … "paused"`                                   | the remote run waits for an approval: use `send` and resume it, or approve remotely   |
-| `[a2a.no-url]`                                                 | the client class lacks `@A2AAgent({ url })`                                           |
-| `[a2a.caller-resolver-not-listed] … is not listed`             | list the resolver in `@Application({ providers })` or a `@Workflow({ providers })`    |
-| `A2ACallerRejectedError … (401 a2a.caller-unauthenticated)`    | the server's resolver refused the client's credentials: check its `headers`           |
-| `MeshLoopDetectedError` (`limit.mesh-loop`)                    | two applications call each other back: break the cycle, or `.onError` it to a finish  |
-| `HopsLimitExceededError` (`limit.hops`)                        | the call chain is longer than the receiver's `maxMeshHops`: shorten it or raise it    |
+| You see                                                        | Fix                                                                                    |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| the start fails: `search_issues: tool not found on the server` | the `tools` key must be the server's exact tool name                                   |
+| the start fails: `… input: …` schema differences               | make the input DTO match the server tool's input schema                                |
+| `MCP server "issues" needs env variable ISSUES_MCP_TOKEN`      | set the variable; the decorator only names it                                          |
+| `[name.kind-suffix]` on an `@McpTool`                          | name it `<what>-tool`                                                                  |
+| `[tool.duplicate-name]`                                        | two tools a model sees share a name (local, MCP, `search-<rag>-tool`, `answer-<dto>`)  |
+| `A2ARemoteError: … "paused"`                                   | the remote run waits for an approval: use `send` and resume it, or approve remotely    |
+| `[a2a.no-url]`                                                 | the client class lacks `@A2AAgent({ url })`                                            |
+| `[a2a.caller-resolver-not-listed] … is not listed`             | list the resolver in `@Application({ providers })` or a `@Workflow({ providers })`     |
+| `A2ACallerRejectedError … (401 a2a.caller-unauthenticated)`    | the server's resolver refused the client's credentials: check its `headers`            |
+| `MeshLoopDetectedError` (`limit.mesh-loop`)                    | two applications call each other back: break the cycle, or `.onError` it to a finish   |
+| `HopsLimitExceededError` (`limit.hops`)                        | the call chain is longer than the receiver's `maxMeshHops`: shorten it or raise it     |
+| `401 mesh.signature-invalid` / `mesh.envelope-expired`         | the caller signs with another key than its peer entry, or the clocks differ by > 30 s  |
+| `DeadlineExceededError` (`limit.deadline`)                     | the execution (or its trusted caller) ran out of time: raise `deadline`, or `.onError` |
 
 ## Pitfalls
 

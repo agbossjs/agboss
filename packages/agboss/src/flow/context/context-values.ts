@@ -4,6 +4,7 @@ import { fieldsOf } from "../../dto/metadata.js";
 import { fieldsSchemaOf } from "../../dto/schema.js";
 import type { DtoClass } from "../../dto/types.js";
 import type { InboundMesh } from "../../mesh/inbound-mesh.js";
+import type { ExecutionDeadline } from "../../budgets/execution-deadline.js";
 import type { ApplicationContext } from "./application-context.js";
 import type { ExecutionContext } from "./execution-context.js";
 import { DEFAULT_TENANT_ID, DEFAULT_TENANT_WEIGHT, TenantContext } from "./tenant-context.js";
@@ -61,6 +62,8 @@ export interface ExecutionContextValues {
   readonly execution: ContextFields;
   /** The call chain a mesh request arrived with (#398), when one did: its calls carry it on. */
   readonly mesh?: InboundMesh;
+  /** The execution's deadline (#398 PR 2), fixed at its start; none without one. */
+  readonly deadline?: ExecutionDeadline;
 }
 
 /** The tenant of an execution that passes none. */

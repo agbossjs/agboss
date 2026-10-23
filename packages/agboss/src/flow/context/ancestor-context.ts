@@ -21,6 +21,7 @@ function ownValues(facts: ExecutionFacts, step: StepDescriptor): Readonly<Record
     step,
     itemIndex: facts.itemIndex,
     depth: depthOf(facts),
+    origin: facts.origin,
   };
 }
 

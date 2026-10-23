@@ -22,6 +22,15 @@ import { checkObservers } from "../components/observer-checks.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { decoratedHealthChecksOf } from "../health/health-check.js";
 import { DEFAULT_MAX_MESH_HOPS } from "../mesh/mesh-defaults.js";
+import type { MeshOptions } from "../mesh/mesh-options.js";
+
+/** `@Application({ maxMeshHops, mesh })` (#398), as assembled. */
+const meshOptionsOf = (
+  options: ApplicationOptions,
+): Pick<AssembledApplication, "maxMeshHops" | "mesh"> => ({
+  maxMeshHops: options.maxMeshHops ?? DEFAULT_MAX_MESH_HOPS,
+  ...(options.mesh === undefined ? {} : { mesh: options.mesh }),
+});
 
 /**
  * The assembly of an `@Application` (#261): its own rules (names, its workflows, budgets, where the
@@ -61,6 +70,8 @@ export interface AssembledApplication {
   readonly maxConcurrentSteps?: number;
   /** `@Application({ maxMeshHops })` (#398): the longest call chain it accepts. */
   readonly maxMeshHops: number;
+  /** `@Application({ mesh })` (#398 PR 2): its keys' fields and the answers' retention. */
+  readonly mesh?: MeshOptions;
   /** The context classes it declares (#261), else the built-in ones. */
   readonly tenantContext: TenantContextClass;
   readonly executionContext: ExecutionContextClass;
@@ -205,7 +216,7 @@ export async function applicationOf(
     ...(options.maxConcurrentSteps === undefined
       ? {}
       : { maxConcurrentSteps: options.maxConcurrentSteps }),
-    maxMeshHops: options.maxMeshHops ?? DEFAULT_MAX_MESH_HOPS,
+    ...meshOptionsOf(options),
     ...declaredContextsOf(options),
     ...piiOptionsOf(options),
   };

@@ -7,8 +7,9 @@ import type { McpServerConfig } from "../../config/types.js";
 import { schemaDifferences } from "./compat.js";
 import { McpContractError, McpUnavailableError } from "./errors.js";
 import type { McpCaller, McpFacade, McpServerHandle } from "./facade.js";
-import { MESH_META_KEY, TRACEPARENT } from "../../mesh/mesh-envelope.js";
-import { outboundMeshOf } from "../../mesh/outbound-mesh.js";
+import { MESH_META_KEY, MESH_REPORT_META_KEY, TRACEPARENT } from "../../mesh/mesh-envelope.js";
+import { outboundMeshOf, type OutboundMesh } from "../../mesh/outbound-mesh.js";
+import { takeRunReport } from "../../mesh/mesh-report.js";
 
 export type Env = Readonly<Record<string, string | undefined>>;
 export type TransportFactory = (name: string, server: McpServerConfig, env: Env) => Transport;
@@ -96,9 +97,7 @@ async function openClient(
  * an AGBoss server answers a repeated call as the same one —, the mesh envelope and `traceparent`;
  * none outside one.
  */
-function callMetaOf(): Record<string, string> | undefined {
-  const mesh = outboundMeshOf();
-  if (mesh === undefined) return undefined;
+function callMetaOf(mesh: OutboundMesh): Record<string, string> {
   return {
     callId: mesh.idempotencyKey,
     [MESH_META_KEY]: mesh.envelope,
@@ -106,12 +105,23 @@ function callMetaOf(): Record<string, string> | undefined {
   };
 }
 
+/** A result's `_meta`, when it has one. */
+const resultMetaOf = (result: unknown): unknown =>
+  typeof result === "object" && result !== null ? Reflect.get(result, "_meta") : undefined;
+
 const callerFor =
   (client: Client): McpCaller =>
-  (tool, args, signal) => {
-    const meta = callMetaOf();
-    const params = { name: tool, arguments: args, ...(meta === undefined ? {} : { _meta: meta }) };
-    return client.callTool(params, undefined, { signal });
+  async (tool, args, signal) => {
+    // the arguments as sent are what the envelope's bodyHash binds (#398 PR 2)
+    const mesh = outboundMeshOf(JSON.stringify(args));
+    const meta = mesh === undefined ? {} : { _meta: callMetaOf(mesh) };
+    const result = await client.callTool({ name: tool, arguments: args, ...meta }, undefined, {
+      signal,
+    });
+    const reported = resultMetaOf(result);
+    if (mesh !== undefined && typeof reported === "object" && reported !== null)
+      takeRunReport("mcp", Reflect.get(reported, MESH_REPORT_META_KEY), mesh.bodyHash);
+    return result;
   };
 
 /**

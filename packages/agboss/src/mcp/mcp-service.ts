@@ -58,7 +58,8 @@ export class McpService {
         throw new Error(`Tool not found: ${name}`);
       }
       // the caller's mesh envelope (#398): a loop or a chain too long is refused before it runs
-      const admission = admitMcpCall(this.app, name, _meta);
+      const call = { tool: name, meta: _meta, args, peer: session.peer };
+      const admission = admitMcpCall(this.app, call);
       if (!admission.isAdmitted) return admission.refusal;
       const callId = callIdOf(_meta);
       return handler({
@@ -66,6 +67,7 @@ export class McpService {
         signal: extra.signal,
         ...(callId === undefined ? {} : { callId }),
         ...(admission.inbound === undefined ? {} : { mesh: admission.inbound }),
+        ...(admission.bodyHash === undefined ? {} : { bodyHash: admission.bodyHash }),
       });
     });
 

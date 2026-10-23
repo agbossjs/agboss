@@ -99,6 +99,9 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["A2AServerFixture", "A2ATestServer"],
     ...["MeshEnvelope", "MeshOrigin", "MeshOriginStep", "MeshHop", "MeshEntry"],
     ...["MeshLoopDetectedError", "HopsLimitExceededError", "LimitExceededError"],
+    ...["MeshOptions", "MeshPeer", "MeshVerifier", "ExecutionOrigin", "MeshRunReport"],
+    ...["ToolCallRemote", "MeshRequestRepository", "SqliteMeshRequestRepository"],
+    ...["DeadlineExceededError", "BudgetExceededError"],
     ...["PlainTextDto", "ExecutionContext", "SpendRecorder"],
   ],
   "references/05-channels-and-human-in-the-loop.md": [
@@ -239,7 +242,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     "EvalCaseInvalidError",
     "A2ACallerRejectedError",
     ...["CassetteMissingError", "StaleCassetteError"],
-    ...["MeshLoopDetectedError", "HopsLimitExceededError"],
+    ...["MeshLoopDetectedError", "HopsLimitExceededError", "DeadlineExceededError"],
     ...["PaidStepError", "StepFailedError", "AgentFailedError", "AgentAnswerInvalidError"],
     ...["QualityGateError", "ActionFailedError", "GuardFailedError", "RouterFailedError"],
     ...[

@@ -21,6 +21,7 @@ import {
   PausedExecutionRepository,
 } from "./paused-execution.repository.js";
 import { InMemoryRateLimitRepository, RateLimitRepository } from "./rate-limit.repository.js";
+import { InMemoryMeshRequestRepository, MeshRequestRepository } from "./mesh-request.repository.js";
 import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
 
 /**
@@ -50,6 +51,7 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [ExecutionLeaseRepository, InMemoryExecutionLeaseRepository],
   [ExecutionTreeRepository, InMemoryExecutionTreeRepository],
   [RateLimitRepository, InMemoryRateLimitRepository],
+  [MeshRequestRepository, InMemoryMeshRequestRepository],
 ]);
 
 /**
@@ -84,6 +86,7 @@ export interface Infrastructure {
   readonly executionLeases: ExecutionLeaseRepository;
   readonly executionTrees: ExecutionTreeRepository;
   readonly rateLimits: RateLimitRepository;
+  readonly meshRequests: MeshRequestRepository;
 }
 
 /** The infrastructure from the application's container (a listed class, else the default). */
@@ -99,6 +102,7 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   executionLeases: resolve(ExecutionLeaseRepository) as ExecutionLeaseRepository,
   executionTrees: resolve(ExecutionTreeRepository) as ExecutionTreeRepository,
   rateLimits: resolve(RateLimitRepository) as RateLimitRepository,
+  meshRequests: resolve(MeshRequestRepository) as MeshRequestRepository,
 });
 
 /**

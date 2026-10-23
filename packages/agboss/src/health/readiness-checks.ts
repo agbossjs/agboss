@@ -46,6 +46,7 @@ function storesOf(sources: HealthSources): readonly [object, () => Promise<void>
     [stores.executionLeases, () => stores.executionLeases.ping()],
     [stores.executionTrees, () => stores.executionTrees.ping()],
     [stores.rateLimits, () => stores.rateLimits.ping()],
+    [stores.meshRequests, () => stores.meshRequests.ping()],
     [stores.checkpointer, () => pingCheckpointSaver(stores.checkpointer)],
   ];
 }

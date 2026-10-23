@@ -4,6 +4,7 @@ import type { Class } from "../../components/injection.js";
 import { nameOf } from "../../components/name-of.js";
 import type { StepRecord } from "../context/execution-context.js";
 import { ComponentKind } from "./records.js";
+import type { ToolCallRemote } from "../../mesh/mesh-call.js";
 
 /**
  * The tool-call trajectory of an execution (#395): one record per call an agent's model asked for,
@@ -64,6 +65,11 @@ export interface ToolCallRecord {
   /** When it started and ended (ISO 8601, the application's `Clock`). */
   readonly startedAt: string;
   readonly endedAt: string;
+  /**
+   * The remote execution the call ran (#398 PR 2, C8): an AGBoss peer's application and execution
+   * id, from the run report it signed; `undefined` for any other call.
+   */
+  readonly remote?: ToolCallRemote;
 }
 
 /** A succeeded call of one tool: its input and output typed by the tool. */

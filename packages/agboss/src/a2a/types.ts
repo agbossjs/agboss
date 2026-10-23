@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ErrorDetails } from "../core/errors.js";
+import type { MeshSpendReport } from "../mesh/mesh-envelope.js";
 
 /**
  * How a remote run ended: the app's own outcomes (`Finished`, `Paused`, #269) and the ways a run
@@ -41,6 +42,15 @@ export interface A2AExecutionResponse {
   readonly details?: ErrorDetails;
   /** A paused run: the ids of the pauses its caller may answer (`/resume` with one of them). */
   readonly pauseIds?: readonly string[];
+  /** The server's execution of the request (#398 PR 2). */
+  readonly executionId?: string;
+  /** What that execution spent (#398 PR 2): `{ total: "0.031", currency: "USD" }`. */
+  readonly spend?: MeshSpendReport;
+  /**
+   * The server's signed run report (#398 PR 2), for a trusted peer's request when it signs: the
+   * calling `A2AClient` verifies it and records the spend in its step's budgets.
+   */
+  readonly report?: string;
 }
 
 /** Payload for answering one pause of a paused execution (#267: by its id, never by thread). */
@@ -72,6 +82,9 @@ export const A2AResponseSchema = z.object({
   code: z.string().optional(),
   details: z.record(z.string(), z.unknown()).optional(),
   pauseIds: z.array(z.string()).optional(),
+  executionId: z.string().optional(),
+  spend: z.object({ total: z.string(), currency: z.literal("USD") }).optional(),
+  report: z.string().optional(),
 });
 
 /** The wire shape of an event. */

@@ -1,5 +1,5 @@
 /**
- * #300: every store contract's `ping()` — the in-memory defaults resolve, the SQLite ones run one
+ * #300: every store contract (#398 PR 2: the mesh requests too)'s `ping()` — the in-memory defaults resolve, the SQLite ones run one
  * `SELECT 1` on their connection and reject once it is closed (what `app.checkReadiness()` reports
  * as that store's `Unhealthy`). The checkpoint savers of the framework have one too.
  */
@@ -10,6 +10,7 @@ import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledg
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import { InMemoryExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
+import { InMemoryMeshRequestRepository } from "../../src/infrastructure/mesh-request.repository.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { InMemoryRateLimitRepository } from "../../src/infrastructure/rate-limit.repository.js";
 import { SqliteCheckpointSaver } from "../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
@@ -18,6 +19,7 @@ import { SqliteCostLedgerRepository } from "../../src/infrastructure/sqlite/sqli
 import { SqliteExecutionLeaseRepository } from "../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { SqliteExecutionRecordRepository } from "../../src/infrastructure/sqlite/sqlite-execution-record.repository.js";
 import { SqliteExecutionTreeRepository } from "../../src/infrastructure/sqlite/sqlite-execution-tree.repository.js";
+import { SqliteMeshRequestRepository } from "../../src/infrastructure/sqlite/sqlite-mesh-request.repository.js";
 import { SqlitePausedExecutionRepository } from "../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { SqliteRateLimitRepository } from "../../src/infrastructure/sqlite/sqlite-rate-limit.repository.js";
 import { connectionTo, storeKinds, temporarySqlitePath } from "./contracts/store-kinds.js";
@@ -37,6 +39,7 @@ const kinds = storeKinds<Stores>({
     pausedExecutions: new InMemoryPausedExecutionRepository(),
     executionLeases: new InMemoryExecutionLeaseRepository(clock, application, database),
     executionTrees: new InMemoryExecutionTreeRepository(database),
+    meshRequests: new InMemoryMeshRequestRepository(database),
     rateLimits: new InMemoryRateLimitRepository(clock, application, database),
     checkpointer: new InMemoryCheckpointSaver(),
   }),
@@ -51,6 +54,7 @@ const kinds = storeKinds<Stores>({
     pausedExecutions: new SqlitePausedExecutionRepository(connection(), clock),
     executionLeases: new SqliteExecutionLeaseRepository(connection(), clock, application),
     executionTrees: new SqliteExecutionTreeRepository(connection()),
+    meshRequests: new SqliteMeshRequestRepository(connection()),
     rateLimits: new SqliteRateLimitRepository(connection(), clock, application),
     checkpointer: new SqliteCheckpointSaver(connection()),
   }),
@@ -61,7 +65,7 @@ describe.each(kinds)("#300: every store answers ping() ($name)", ({ twoInstances
     const { first, second } = twoInstances();
     const stores = [...Object.values(first), ...Object.values(second)];
 
-    await expect(Promise.all(stores.map((store) => store.ping()))).resolves.toHaveLength(14);
+    await expect(Promise.all(stores.map((store) => store.ping()))).resolves.toHaveLength(16);
   });
 });
 

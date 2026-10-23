@@ -18,6 +18,8 @@ export enum A2ARoute {
   Execute = "execute",
   /** `POST <base>/resume`: an answer to a pause. */
   Resume = "resume",
+  /** `POST <base>/cancel`: the caller's thread's run cancelled, or its pause dropped (#398 PR 2). */
+  Cancel = "cancel",
 }
 
 /**
@@ -35,6 +37,13 @@ export interface A2ACallerRequest {
    * `undefined` when there is none, or none the listener can read (a malformed header is ignored).
    */
   readonly envelope?: MeshEnvelope;
+  /**
+   * The envelope's `issuer` when its signature verified (#398 PR 2) — with the key of
+   * `@Application({ mesh: { peers } })` or of the listener's `meshVerifier` — and it has not
+   * expired. A resolver that authenticated this peer by its transport names it as `peer`: then the
+   * request is trusted. `undefined` for an unsigned envelope or one whose issuer has no key.
+   */
+  readonly signedBy?: string;
 }
 
 /**
@@ -45,7 +54,29 @@ export interface A2ACallerRequest {
 export type A2ACaller<TStart extends Class> = Pick<
   ExecutionOptionsOf<InstanceType<TStart>>,
   "tenant" | "ownerId" | "execution"
->;
+> &
+  A2APeer;
+
+/**
+ * The mesh peer a resolver authenticated (#398 PR 2): the calling application by its
+ * `@Application({ name })`, as its transport proved it (mTLS, an API key). When it is the
+ * envelope's verified `signedBy`, the envelope's budget, deadline, origin and idempotency key are
+ * honoured; otherwise the envelope stays a claim.
+ */
+export interface A2APeer {
+  readonly peer?: string;
+}
+
+/**
+ * The public keys of mesh peers (#398 PR 2), for a listener whose peers are not all in
+ * `@Application({ mesh: { peers } })` (a key store, a JWKS later): an `@Injectable` listed in
+ * `providers`, `a2aHttpListener(app, { …, meshVerifier: KeyStoreMeshVerifier })`. It runs before
+ * the caller resolver; an issuer it has no key for leaves the envelope unverified.
+ */
+export interface MeshVerifier {
+  /** The issuer's Ed25519 public key (SPKI PEM); `undefined` when it has none. */
+  readonly verifyKeyOf: (issuer: string) => string | undefined | Promise<string | undefined>;
+}
 
 /** How a caller resolver decided on a request. */
 export enum A2ACallerResolutionKind {

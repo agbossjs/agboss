@@ -94,6 +94,7 @@ const executionReads = (type: ExecutionContextClass): ReadonlyMap<string, Read> 
     ["itemIndex", (frame) => frame.execution.itemIndex],
     ["parent", (frame) => parentContextOf(type, frame.execution)],
     ["depth", (frame) => depthOf(frame.execution)],
+    ["origin", (frame) => frame.execution.origin],
     ...ownFields(type, (execution) => execution.values),
   ]);
 

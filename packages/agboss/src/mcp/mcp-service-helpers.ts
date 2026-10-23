@@ -31,6 +31,8 @@ export interface McpCall {
   readonly signal: AbortSignal;
   /** The call chain of an admitted mesh envelope (#398, `_meta["agboss.dev/mesh"]`). */
   readonly mesh?: InboundMesh;
+  /** A trusted envelope's `bodyHash` (#398 PR 2): what the run report the server signs names. */
+  readonly bodyHash?: string;
 }
 
 export type CallHandler = (call: McpCall) => Promise<CallToolResult>;

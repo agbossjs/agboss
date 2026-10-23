@@ -10,7 +10,7 @@ import type { WaitingPause } from "../pause/index.js";
 import { isWaiting, pausedLoopsOf, pausedUsageOf } from "./paused.js";
 import { unrecordedOf } from "../finops/record-stream.js";
 import { openPausesOf, waitingPausesOf } from "./waiting-pauses.js";
-import type { AgentExecutionOutput, AgentExecutionDeps } from "./types.js";
+import type { AgentExecutionOutput, AgentExecutionDeps, ExecutionData } from "./types.js";
 
 /** The Tern of an execution: a finished one's finish line (S8), a paused one waits. */
 function outcomeOf(
@@ -66,6 +66,12 @@ async function stoppedState<TName extends string>(
   return { usage, paused: true, pending };
 }
 
+/** Where its request came from (#398 PR 2): a trusted mesh peer's, kept in its contexts. */
+const originDataOf = (state: ExecutionStateType): Pick<ExecutionData, "origin"> => {
+  const origin = state.contexts.mesh?.trusted?.origin;
+  return origin === undefined ? {} : { origin };
+};
+
 /** Writes (or completes) the Tern and shapes the result: finished or paused. */
 export async function finishRun<TName extends string>(
   ctx: FinishContext<TName>,
@@ -102,6 +108,7 @@ export async function finishRun<TName extends string>(
       compensations: state.compensations,
       toolCalls: state.toolCalls,
       steps: state.stepRecords,
+      ...originDataOf(state),
     },
     ...(paused || state.finish === "" ? {} : { finish: state.finish, output: state.output }),
     pending,

@@ -14,8 +14,12 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  type ExecutionEvent,
+  type MeshOptions,
+  type OnExecutionStart,
   type ToolHandler,
 } from "../../../src/index.js";
+import { MeshEnvironment } from "./environments/mesh.environment.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { Class } from "../../../src/components/injection.js";
 import type { ToolClass } from "../../../src/testing/index.js";
@@ -47,6 +51,12 @@ export interface MeshAppSpec {
   readonly maxMeshHops?: number;
   /** The agent's path takes a `MeshLoopDetectedError` to `<name>-loop-workflow-finish`. */
   readonly handlesLoop?: boolean;
+  /** `@Application({ mesh })` (#398 PR 2): its keys come from `MeshEnvironment`. */
+  readonly mesh?: MeshOptions;
+  /** The peer the listener's resolver names for every request (as if its transport proved it). */
+  readonly peer?: string;
+  /** More providers of its workflow (a listener's `meshVerifier`). */
+  readonly providers?: readonly Class[];
 }
 
 /** The parts a test drives. */
@@ -60,11 +70,14 @@ export interface MeshAppParts {
   readonly Resolver: Class<A2ACallerResolver<Class>>;
   /** Every request the listener's resolver read, in order. */
   readonly seen: A2ACallerRequest[];
+  /** Every execution the application started, as `onExecutionStart` saw it. */
+  readonly started: ExecutionEvent[];
 }
 
 export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   const { name } = spec;
   const seen: A2ACallerRequest[] = [];
+  const started: ExecutionEvent[] = [];
 
   @A2AAgent({ name: `${name}-peer-a2a-agent`, url: spec.peerUrl })
   class PeerAgent extends A2AClient {}
@@ -118,7 +131,7 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   class Resolver implements A2ACallerResolver<typeof MeshStart> {
     resolveCaller(request: A2ACallerRequest): A2ACallerResolution<typeof MeshStart> {
       seen.push(request);
-      return A2ACallerResolution.resolved({});
+      return A2ACallerResolution.resolved(spec.peer === undefined ? {} : { peer: spec.peer });
     }
   }
 
@@ -141,20 +154,29 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     version: "1.0.0",
     flow: [flow],
     defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
-    providers: [PeerAgent, Resolver],
+    providers: [PeerAgent, Resolver, ...(spec.providers ?? [])],
   })
   class MeshWorkflow {}
+
+  @Injectable()
+  class StartObserver implements OnExecutionStart {
+    onExecutionStart(event: ExecutionEvent): void {
+      started.push(event);
+    }
+  }
 
   @Application({
     name: `${name}-application`,
     version: "1.0.0",
-    environment: EmptyEnvironment,
+    environment: spec.mesh === undefined ? EmptyEnvironment : MeshEnvironment,
     workflows: [MeshWorkflow],
     budgets: TEST_BUDGETS,
+    observers: [StartObserver],
     ...(spec.maxMeshHops === undefined ? {} : { maxMeshHops: spec.maxMeshHops }),
+    ...(spec.mesh === undefined ? {} : { mesh: spec.mesh }),
   })
   class MeshApplication {}
 
   const workflow = { MeshApplication, MeshWorkflow, MeshStart, MeshDesk, LoopFinish };
-  return { ...workflow, CallPeer, Resolver, seen };
+  return { ...workflow, CallPeer, Resolver, seen, started };
 }

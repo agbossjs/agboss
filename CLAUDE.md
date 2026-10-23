@@ -1133,7 +1133,9 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `ExecutionLeaseRepository` (one lease per tree, `acquire` / `renew` / `release`),
   `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
   when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
-  rate limit, 429 pause and circuit breaker, #266) — and the
+  rate limit, 429 pause and circuit breaker, #266), `MeshRequestRepository` (the answers of trusted
+  mesh requests by idempotency key, removed after `mesh.idempotencyRetention` by the recovery sweep,
+  #398) — and the
   `@ModelProvider` classes (#266; an HTTP one is not created by the container, a transport one
   is — on its first call, #385; a misplaced one in a workflow's `providers` is
   `[di.infrastructure-in-workflow]` too). Listed **only** in
@@ -1144,7 +1146,8 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   the home folder. Every contract has a
   ready SQLite implementation, enabled only by listing it (#265: `SqliteExecutionRecordRepository`,
   `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`, `SqliteCheckpointSaver`,
-  `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`) —
+  `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`,
+  `SqliteMeshRequestRepository`) —
   one `node:sqlite` connection per instance on the environment's `sqlitePath` (required only then,
   `[environment.missing-field]`; `:memory:` in tests), WAL + `busy_timeout`, atomic operations in
   `BEGIN IMMEDIATE`, time from the framework's clock; job-scout lists them all. A project subclasses
@@ -1652,7 +1655,8 @@ passed (a skipped one fails it, S2 Q6).
 
 - `const app = await createApp(DeskApplication, { env })` (#261: always an `@Application`;
   `createApp(Workflow)` does not compile). `app.execute(Start, input, { threadId, ownerId, signal,
-tenant, execution, onStream })` runs the workflow of that start (any workflow of the
+tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededError`, `limit.deadline`,
+  before the next step or model call) runs the workflow of that start (any workflow of the
   application; one start in two workflows → `[application.ambiguous-start]`) → `ExecutionOutput`
   (`output` is the finish's DTO, `finish`, `path`, `spend`, `threadId`, `tenantId`, `executionId`);
   `app.resume({ pauseId, decision }, { tenantId, ownerId | answeredBy })` answers one pause (#267) —
@@ -1854,7 +1858,12 @@ today; tenant-daily-budget allows $40`).
   `HopsLimitExceededError`, #398: an A2A or MCP call chain — the `agboss-mesh` envelope every call
   made inside an execution carries — that comes back to an application's start or is longer than
   its `@Application({ maxMeshHops })`, default 8: the receiver refuses it before it runs, `409`, and
-  the calling tool's step fails with it, never read by the model), `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
+  the calling tool's step fails with it, never read by the model; with `@Application({ mesh: {
+signingKey, peers } })` the envelope is a signed JWS and a peer the caller resolver names whose
+  signature verifies is trusted: its budget becomes `caller-budget`, its deadline the execution's
+  — `limit.deadline`, `DeadlineExceededError` —, its origin `executionContext.origin`, and its
+  answer a signed run report the caller records as `ToolCallRecord.remote` and `a2a:<issuer>`
+  spend), `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
   `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`ActionFailedError`, the
   action's error as `cause`) / `step.guard` (`GuardFailedError`: a guardrail's model did not answer —
   fails closed) / `step.router` ⊃ `step.router.invalid-decision` /

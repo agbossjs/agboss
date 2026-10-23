@@ -189,5 +189,3 @@ export type {
   GuardrailDecisionRecord,
   JudgeVerdictRecord,
 } from "../flow/runtime/step-records.js";
-export type { MeshEntry, MeshHop } from "../mesh/mesh-hop.js";
-export type { MeshEnvelope, MeshOrigin, MeshOriginStep } from "../mesh/mesh-envelope.js";

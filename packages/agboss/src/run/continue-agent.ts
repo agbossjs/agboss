@@ -53,6 +53,7 @@ export async function continueAgent<TName extends string>(
     startInput: before.startInput,
     budgetUsd: before.budgetUsd ?? 0,
     budgets: before.budgets,
+    deadline: before.contexts?.deadline,
     spent,
   };
   return continueRun(run, deps, options, async (moving, streaming, record) =>
