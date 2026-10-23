@@ -317,14 +317,11 @@ export interface JudgeHandler<TReply> {
     judge: (input: JudgeInput<TReply>) => Promise<JudgeVerdict>;
 }
 
+// Warning: (ae-forgotten-export) The symbol "ModelJudgeMeta" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "CodeJudgeMeta" needs to be exported by the entry point index.d.ts
+//
 // @public
-export interface JudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
-    // (undocumented)
-    readonly description?: string;
-    readonly model: string;
-    readonly name: string;
-    readonly reply: TReply;
-}
+export type JudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> = ModelJudgeMeta<TReply> | CodeJudgeMeta<TReply>;
 
 // @public
 export abstract class JudgeModel {
@@ -728,9 +725,8 @@ export class WorkflowSettings {
 // src/components/injection.ts:31:3 - (ae-undocumented) Missing documentation for "provide".
 // src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "useValue".
 // src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
-// src/components/judge-decorators.ts:28:3 - (ae-undocumented) Missing documentation for "description".
-// src/components/judge-decorators.ts:130:3 - (ae-forgotten-export) The symbol "PassedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
-// src/components/judge-decorators.ts:135:3 - (ae-forgotten-export) The symbol "FailedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
+// src/components/judge-decorators.ts:159:3 - (ae-forgotten-export) The symbol "PassedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
+// src/components/judge-decorators.ts:164:3 - (ae-forgotten-export) The symbol "FailedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
 // src/components/metadata.ts:112:1 - (ae-undocumented) Missing documentation for "ComponentError".
 // src/components/metadata.ts:113:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/prompt-problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".

@@ -17,6 +17,7 @@ export const COMPONENT_DECORATORS = [
   "ReplyInterpreter",
   "InputGuardrail",
   "OutputGuardrail",
+  "ToolInterceptor",
   "PiiPolicy",
   "Judge",
   "Arbiter",
