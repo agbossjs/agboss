@@ -116,11 +116,11 @@ describe("#385: its errors and its wiring", () => {
     const transports = lateTransports();
     const instance = { complete: () => Promise.reject(new Error("unused")) };
 
-    expect(() => transports.resolve(BedrockModelProvider)).toThrow(ModelProviderError);
-    transports.bind(() => instance);
-    expect(transports.resolve(BedrockModelProvider)).toBe(instance);
-    transports.bind(() => undefined);
-    expect(() => transports.resolve(BedrockModelProvider)).toThrow(
+    expect(() => transports.resolver.instanceOf(BedrockModelProvider)).toThrow(ModelProviderError);
+    transports.bind({ resolve: () => instance, created: [] });
+    expect(transports.resolver.instanceOf(BedrockModelProvider)).toBe(instance);
+    transports.bind({ resolve: () => undefined, created: [] });
+    expect(() => transports.resolver.instanceOf(BedrockModelProvider)).toThrow(
       "the container gave no provider instance",
     );
   });

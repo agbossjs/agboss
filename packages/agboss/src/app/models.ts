@@ -3,9 +3,8 @@ import { createProviderGateway, type ModelGateway } from "../llm/gateway.js";
 import type { Environment } from "../flow/generated-types.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import { chatExtensionsFor, type ProviderClientOptions } from "../llm/provider-clients.js";
-import type { TransportResolver } from "../llm/provider-chat.js";
-import type { Class } from "../components/injection.js";
-import { lateTransports } from "./late-transports.js";
+import type { TransportResolver } from "../models/transport/transport-resolver.js";
+import { lateTransports, type TransportContainer } from "./late-transports.js";
 import { providerCallsOf } from "../models/calls/provider-calls.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
 import { checkModelUses, resolutionProblems } from "../models/check.js";
@@ -89,7 +88,7 @@ export async function modelsFor(
 /** A workflow's models with its transport providers (#385) bound to the container once it exists. */
 export interface StartingModels extends Omit<AppModels, "checkModels"> {
   /** Binds the application's container (transport providers) and checks every setting. */
-  readonly startModels: (resolve: (cls: Class) => unknown) => Promise<void>;
+  readonly startModels: (container: TransportContainer) => Promise<void>;
 }
 
 /**
@@ -109,11 +108,11 @@ export async function appModelsFor(
     options,
     contexts.application,
     infrastructure,
-    transports.resolve,
+    transports.resolver,
   );
   const { checkModels, ...models } = await modelsFor(bundle, options.gateway, clients);
-  const startModels = async (resolve: (cls: Class) => unknown): Promise<void> => {
-    transports.bind(resolve);
+  const startModels = async (container: TransportContainer): Promise<void> => {
+    transports.bind(container);
     await checkModels();
   };
   return { ...models, startModels };

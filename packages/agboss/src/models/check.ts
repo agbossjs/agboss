@@ -4,7 +4,8 @@ import { connectionOf } from "./connections.js";
 import { priceOf } from "./cost.js";
 import { fallbackProblems } from "./fallback-check.js";
 import type { ModelProviderHandler, ProviderConnection } from "./handler.js";
-import { hasProviderMethod, type ModelProviderType } from "./model-provider.decorator.js";
+import { hasProviderMethod } from "./model-provider.decorator.js";
+import type { TransportResolver } from "./transport/transport-resolver.js";
 import type { ModelProblem } from "./problems.js";
 import type { ModelProviderDirectory, RegisteredModelProvider } from "./resolve.js";
 import type { ProviderFetch } from "./resilient-fetch.js";
@@ -21,7 +22,7 @@ export interface ModelCheckOptions {
    * A transport provider's instance (#385: the application's container); absent — `agboss check
    * --models` — a transport's capabilities are not checked.
    */
-  readonly transports?: (cls: ModelProviderType) => ModelProviderHandler;
+  readonly transports?: Pick<TransportResolver, "instanceOf">;
 }
 
 /**
@@ -65,7 +66,7 @@ const handlerOf = (
 ): ModelProviderHandler | undefined =>
   provider.handler ??
   (hasProviderMethod(provider.type, "capabilities")
-    ? options.transports?.(provider.type)
+    ? options.transports?.instanceOf(provider.type)
     : undefined);
 
 /** What checks a provider's models: its `capabilities`, when it has them (a transport may not, #385). */

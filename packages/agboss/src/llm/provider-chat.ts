@@ -2,8 +2,8 @@ import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import type { ResolvedModelSettings } from "../config/types.js";
 import type { ProviderCalls } from "../models/calls/provider-calls.js";
 import { resilienceOf } from "../models/connections.js";
-import type { ModelProviderHandler } from "../models/handler.js";
-import { ModelProviderError, type ModelProviderType } from "../models/model-provider.decorator.js";
+import { ModelProviderError } from "../models/model-provider.decorator.js";
+import type { TransportResolver } from "../models/transport/transport-resolver.js";
 import type { RegisteredModelProvider } from "../models/resolve.js";
 import { TransportChatModel } from "../models/transport/transport-chat-model.js";
 import type { TransportCall } from "../models/transport/transport-carrier.js";
@@ -14,9 +14,6 @@ import type { Clock } from "../infrastructure/clock.js";
  * (`chatExtensionsFor`), so the root import stays small.
  */
 
-/** The instance of a transport provider class: the application's container creates it (one per application). */
-export type TransportResolver = (cls: ModelProviderType) => ModelProviderHandler;
-
 /** What the extensions are made with: the instance's shared calls and clock, the container's instances. */
 export interface ChatExtensionOptions {
   readonly calls?: ProviderCalls;
@@ -25,11 +22,11 @@ export interface ChatExtensionOptions {
 }
 
 /** The transport's `complete`, its instance from the container on first use. */
-function completeOf(
+async function completeOf(
   provider: RegisteredModelProvider,
   options: ChatExtensionOptions,
-): TransportCall {
-  const handler = provider.handler ?? options.transports?.(provider.type);
+): Promise<TransportCall> {
+  const handler = provider.handler ?? (await options.transports?.started(provider.type));
   const complete = handler?.complete?.bind(handler);
   if (complete === undefined)
     throw new ModelProviderError(

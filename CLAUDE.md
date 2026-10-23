@@ -27,7 +27,8 @@ ModelProviderMessage[]`, `tools: ModelProviderToolDefinition[]`, `temperature`, 
   `toolCalls?`, `usage`, `cost?`, `finishReason?`), a failure thrown as
   `ModelProviderFailureError(ModelFailure.…, { retryAfter?, cause? })`; its `deps` injected by the
   application's container on its first call (one instance; `TenantContext` reads the calling
-  execution); `description`, `timeout`, `cost` required, `capabilities?` optional (absent → its
+  execution; its `onInit` → `onStart` awaited before that call, once, a failure failing the call
+  and retried by the next, `onStop` / `onDestroy` at `app.close()` only once created, #385 S4); `description`, `timeout`, `cost` required, `capabilities?` optional (absent → its
   settings are not checked). It is a `BaseChatModel` adapter (`TransportChatModel`), and every call
   of every provider goes through one attempt runner (`models/calls/attempt-runner.ts`: retries, the
   rate limit and its 429 pause, the breaker); a breaker's `fallback` is at the chat model
