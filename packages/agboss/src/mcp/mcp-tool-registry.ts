@@ -6,12 +6,15 @@ import { componentOf, type ToolMeta } from "../components/metadata.js";
 import { adapt } from "../components/runtime.js";
 import { inMcpCallFrame } from "./mcp-call-frame.js";
 import { executeUnchecked } from "../app/execute-unchecked.js";
+import { withInboundMesh } from "../mesh/inbound-mesh.js";
+import { isMeshLimitError } from "../mesh/mesh-errors.js";
 import { ExecutionStatus } from "../app/types.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf, type WorkflowStartDeclaration } from "../flow/decorators/declaration.js";
 import { renderToolResult, type ToolInvocationContext, type ToolOutput } from "../tools/index.js";
 import {
   RESUME_TOOL,
+  failureResult,
   guarded,
   isRecord,
   objectSchema,
@@ -97,15 +100,18 @@ const toolCallOf = (call: McpCall): ToolInvocationContext => ({
 });
 
 const toolResult = (output: ToolOutput<unknown>): CallToolResult =>
-  output.kind === "ok" && isRecord(output.value)
-    ? {
-        content: [{ type: "text", text: renderToolResult(output) }],
-        structuredContent: output.value,
-      }
-    : {
-        content: [{ type: "text", text: renderToolResult(output) }],
-        isError: output.kind === "error",
-      };
+  // a mesh limit the tool met (#398) goes back with its facts: the caller's step fails with it
+  output.kind === "error" && isMeshLimitError(output.cause)
+    ? failureResult(output.cause)
+    : output.kind === "ok" && isRecord(output.value)
+      ? {
+          content: [{ type: "text", text: renderToolResult(output) }],
+          structuredContent: output.value,
+        }
+      : {
+          content: [{ type: "text", text: renderToolResult(output) }],
+          isError: output.kind === "error",
+        };
 
 /** An exported `@WorkflowStart` class: its declaration. */
 const startOf = (exp: Class): WorkflowStartDeclaration | undefined => {
@@ -137,7 +143,11 @@ function addWorkflowStart(
   });
   registry.handlers.set(name, (call) =>
     guarded(async () => {
-      const options: ExecutionOptions = { ...session, signal: call.signal };
+      // the call chain the envelope brought (#398): the execution's own calls carry it on
+      const options = withInboundMesh<ExecutionOptions>(
+        { ...session, signal: call.signal },
+        call.mesh,
+      );
       // the app checks the payload against the start's input
       return formatWorkflowOutput(await executeUnchecked(app, exp, call.args, options));
     }),

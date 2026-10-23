@@ -1825,7 +1825,11 @@ const readiness: HealthReport = await app.checkReadiness();
 today; tenant-daily-budget allows $40`).
 - **Errors** (root entry) are `AGBossError`s with stable `code`s (`eval.case-invalid` —
   `EvalCaseInvalidError`, #396; `limit` ⊃ `limit.budget`,
-  `limit.steps`, `limit.visits`, `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
+  `limit.steps`, `limit.visits`, `limit.mesh-loop` / `limit.hops` (`MeshLoopDetectedError` /
+  `HopsLimitExceededError`, #398: an A2A or MCP call chain — the `agboss-mesh` envelope every call
+  made inside an execution carries — that comes back to an application's start or is longer than
+  its `@Application({ maxMeshHops })`, default 8: the receiver refuses it before it runs, `409`, and
+  the calling tool's step fails with it, never read by the model), `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
   `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`ActionFailedError`, the
   action's error as `cause`) / `step.guard` (`GuardFailedError`: a guardrail's model did not answer —
   fails closed) / `step.router` ⊃ `step.router.invalid-decision` /

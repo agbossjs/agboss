@@ -7,6 +7,9 @@ import { componentOf } from "../components/metadata.js";
 import { jsonSchemaOf } from "../dto/schema.js";
 import type { DtoClass } from "../dto/types.js";
 import type { McpExposeOptions } from "./mcp-expose.decorator.js";
+import type { InboundMesh } from "../mesh/inbound-mesh.js";
+import { MESH_ERROR_META_KEY } from "../mesh/mesh-envelope.js";
+import { meshLimitBodyOf } from "../mesh/mesh-wire.js";
 
 /** Helpers for `McpService`: reading `@McpExpose` options, tool schemas, results and the resume tool. */
 
@@ -26,6 +29,8 @@ export interface McpCall {
   /** The client's idempotency key (`_meta.callId`), if it sent one. */
   readonly callId?: string;
   readonly signal: AbortSignal;
+  /** The call chain of an admitted mesh envelope (#398, `_meta["agboss.dev/mesh"]`). */
+  readonly mesh?: InboundMesh;
 }
 
 export type CallHandler = (call: McpCall) => Promise<CallToolResult>;
@@ -89,11 +94,21 @@ export const errorResult = (message: string): CallToolResult => ({
   isError: true,
 });
 
+/**
+ * An error as an MCP error result; a mesh limit (#398) carries its facts in
+ * `_meta["agboss.dev/error"]`, so an AGBoss client fails its step with the same limit.
+ */
+export function failureResult(error: unknown): CallToolResult {
+  const result = errorResult(errorMessage(error));
+  const mesh = meshLimitBodyOf(error);
+  return mesh === undefined ? result : { ...result, _meta: { [MESH_ERROR_META_KEY]: { ...mesh } } };
+}
+
 /** Runs `work`; its value as text content, a throw as an MCP error result. */
 export async function guarded(work: () => Promise<unknown>): Promise<CallToolResult> {
   try {
     return { content: [{ type: "text", text: textOf(await work()) }] };
   } catch (err: unknown) {
-    return errorResult(errorMessage(err));
+    return failureResult(err);
   }
 }

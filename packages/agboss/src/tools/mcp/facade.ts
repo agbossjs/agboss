@@ -3,6 +3,8 @@ import { defineTool } from "../define-tool.js";
 import type { Tool } from "../types.js";
 import type { Milliseconds } from "../../units/index.js";
 import { McpUnavailableError } from "./errors.js";
+import { MESH_ERROR_META_KEY } from "../../mesh/mesh-envelope.js";
+import { meshLimitErrorOf } from "../../mesh/mesh-wire.js";
 
 /** Calls a tool on a connected server and returns the raw MCP result. */
 export type McpCaller = (
@@ -51,6 +53,7 @@ export interface McpServerHandle<TServer extends string> {
 
 const CallResultSchema = z.object({
   isError: z.boolean().optional(),
+  _meta: z.record(z.string(), z.unknown()).optional(),
   structuredContent: z.unknown().optional(),
   content: z.array(z.looseObject({ type: z.string(), text: z.string().optional() })).default([]),
 });
@@ -69,7 +72,13 @@ const isTextOutput = (output: z.ZodType): boolean =>
 export function mcpResultValue(raw: unknown, output: z.ZodType): unknown {
   const result = CallResultSchema.parse(raw);
   const text = textOf(result.content);
-  if (result.isError === true) throw new Error(text || "MCP tool reported an error");
+  if (result.isError === true) {
+    // a mesh limit an AGBoss server met (#398): the calling step fails with the same limit
+    throw (
+      meshLimitErrorOf(result._meta?.[MESH_ERROR_META_KEY]) ??
+      new Error(text || "MCP tool reported an error")
+    );
+  }
   if (result.structuredContent !== undefined) return result.structuredContent;
   if (output instanceof z.ZodString) return text;
   if (isTextOutput(output)) return { text };

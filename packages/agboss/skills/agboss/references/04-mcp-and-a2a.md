@@ -431,6 +431,75 @@ test("an unknown key is 401 and never runs", async ({ a2aServer, mockLlm }) => {
 });
 ```
 
+## The mesh: call chains, hops and loops (#398)
+
+AGBoss applications calling each other — over A2A (`A2AClient` → `a2aHttpListener`) or MCP (an
+`@McpServer` → `createMcpService`) — are a mesh. Every call made **inside an execution** carries,
+without any code of yours:
+
+- the **envelope** (`MeshEnvelope`: `schema`, `issuer`, `origin` — `MeshOrigin` with its
+  `MeshOriginStep` —, `callChain` of `MeshHop`s, each a `MeshEntry` plus its root `executionId`): the
+  `agboss-mesh` request header over A2A, `_meta["agboss.dev/mesh"]` over MCP (an unsecured JWS, `alg:
+"none"`); ids only — no `ownerId`, no `tenantId`, no input values;
+- a W3C `traceparent` (header / `_meta.traceparent`): the caller's trace continued;
+- over MCP `_meta.callId` = `executionContext.step.idempotencyKey`, so an AGBoss MCP server answers
+  a repeated call as the same one.
+
+Outside an execution (a script's `new A2AClient(…)`) nothing is sent. The receiver reads the
+envelope into `A2ACallerRequest.envelope` for your resolver — a **claim**, not verified: never take
+a tenant, a budget or a deadline from it. A malformed envelope is ignored (the request runs as one
+without). What it does apply is the chain, before anything runs:
+
+| The chain the request arrives with                            | The receiver answers                                                         |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| already passed through its own application and start (a loop) | `409 { "code": "limit.mesh-loop", "error", "details": { entry, chain } }`    |
+| as long as its `@Application({ maxMeshHops })` (default 8)    | `409 { "code": "limit.hops", "error", "details": { maxMeshHops, hops, … } }` |
+| anything else                                                 | the run, whose own calls carry the chain on with its hop added               |
+
+On the caller `A2AClient` rethrows them typed — `MeshLoopDetectedError` / `HopsLimitExceededError`,
+both `LimitExceededError`s — and so does a remote run another hop's limit stopped (its response's
+`code` / `details`), and an MCP error result with `_meta["agboss.dev/error"]`. A tool that meets one
+**fails its step** (the model never reads it: retrying a loop loops again); take it on the path:
+
+<!-- snippet-context
+import { Agent, MeshLoopDetectedError, Workflow, WorkflowFinish, WorkflowStart, start, toFinish } from "agboss";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+@Agent({ name: "orders-agent", description: "Orders", prompt: "Answer.", model: "moonshotai/kimi-k2.6" })
+export class OrdersAgent {}
+@WorkflowStart({ name: "orders-workflow-start", description: "A question", input: WorkflowStartTextDto })
+export class OrdersWorkflowStart {}
+@WorkflowFinish({ name: "orders-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
+export class OrdersWorkflowFinish {}
+@WorkflowFinish({ name: "looped-workflow-finish", description: "Handed back", output: WorkflowStartTextDto })
+export class LoopedWorkflowFinish {}
+-->
+
+```ts
+@Workflow({
+  name: "orders-workflow",
+  version: "1.0.0",
+  flow: [
+    start(OrdersWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(OrdersAgent) // its tool calls the billing application over A2A
+      .onError(
+        MeshLoopDetectedError, // billing called back into orders-workflow-start
+        toFinish(LoopedWorkflowFinish),
+      )
+      .toFinish(OrdersWorkflowFinish),
+  ],
+})
+export class OrdersWorkflow {}
+```
+
+- A loop is the same `(application, start)` twice in one chain — always, whatever the depth; another
+  start of the same application is not one. An exported MCP tool is an entry like a start.
+- `maxMeshHops` counts applications: a chain that already lists `maxMeshHops` of them is refused
+  (`hops` = the chain + the receiver). `[limits.max-mesh-hops-invalid]` for anything but a whole
+  number from 1.
+- Not yet (#398 PR 2): signatures and trusted peers, the caller's budget and deadline, the origin on
+  records, dedupe by `idempotencyKey`.
+
 ## Errors and fixes
 
 | You see                                                        | Fix                                                                                   |
@@ -444,6 +513,8 @@ test("an unknown key is 401 and never runs", async ({ a2aServer, mockLlm }) => {
 | `[a2a.no-url]`                                                 | the client class lacks `@A2AAgent({ url })`                                           |
 | `[a2a.caller-resolver-not-listed] … is not listed`             | list the resolver in `@Application({ providers })` or a `@Workflow({ providers })`    |
 | `A2ACallerRejectedError … (401 a2a.caller-unauthenticated)`    | the server's resolver refused the client's credentials: check its `headers`           |
+| `MeshLoopDetectedError` (`limit.mesh-loop`)                    | two applications call each other back: break the cycle, or `.onError` it to a finish  |
+| `HopsLimitExceededError` (`limit.hops`)                        | the call chain is longer than the receiver's `maxMeshHops`: shorten it or raise it    |
 
 ## Pitfalls
 

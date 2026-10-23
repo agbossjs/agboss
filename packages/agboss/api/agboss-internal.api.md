@@ -75,6 +75,7 @@ export interface AssembledApplication {
     readonly executionContext: ExecutionContextClass;
     readonly healthChecks: readonly Class[];
     readonly maxConcurrentSteps?: number;
+    readonly maxMeshHops: number;
     // Warning: (ae-forgotten-export) The symbol "ProviderModule" needs to be exported by the entry point internal.d.ts
     readonly modules: readonly ProviderModule[];
     // (undocumented)
@@ -844,12 +845,12 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/application/application-starts.ts:18:3 - (ae-undocumented) Missing documentation for "name".
 // src/application/application-starts.ts:19:3 - (ae-undocumented) Missing documentation for "description".
 // src/application/application-starts.ts:22:3 - (ae-undocumented) Missing documentation for "component".
-// src/application/assemble.ts:35:3 - (ae-undocumented) Missing documentation for "application".
-// src/application/assemble.ts:36:3 - (ae-undocumented) Missing documentation for "name".
-// src/application/assemble.ts:37:3 - (ae-undocumented) Missing documentation for "version".
-// src/application/assemble.ts:46:3 - (ae-undocumented) Missing documentation for "budgets".
-// src/application/assemble.ts:63:3 - (ae-undocumented) Missing documentation for "executionContext".
-// src/application/assemble.ts:174:1 - (ae-undocumented) Missing documentation for "applicationOf".
+// src/application/assemble.ts:36:3 - (ae-undocumented) Missing documentation for "application".
+// src/application/assemble.ts:37:3 - (ae-undocumented) Missing documentation for "name".
+// src/application/assemble.ts:38:3 - (ae-undocumented) Missing documentation for "version".
+// src/application/assemble.ts:47:3 - (ae-undocumented) Missing documentation for "budgets".
+// src/application/assemble.ts:66:3 - (ae-undocumented) Missing documentation for "executionContext".
+// src/application/assemble.ts:177:1 - (ae-undocumented) Missing documentation for "applicationOf".
 // src/config/defaults.ts:13:3 - (ae-undocumented) Missing documentation for "Application".
 // src/config/defaults.ts:14:3 - (ae-undocumented) Missing documentation for "Workflow".
 // src/config/defaults.ts:19:3 - (ae-undocumented) Missing documentation for "application".
@@ -944,7 +945,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/testing/vcr-check.ts:36:3 - (ae-undocumented) Missing documentation for "component".
 // src/testing/vcr-check.ts:37:3 - (ae-undocumented) Missing documentation for "changes".
 // src/testing/vcr-check.ts:44:3 - (ae-undocumented) Missing documentation for "stale".
-// src/tools/mcp/facade.ts:107:14 - (ae-undocumented) Missing documentation for "isMcpFacade".
+// src/tools/mcp/facade.ts:116:14 - (ae-undocumented) Missing documentation for "isMcpFacade".
 
 // (No @packageDocumentation comment for this package)
 

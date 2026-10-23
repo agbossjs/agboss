@@ -17,6 +17,7 @@ import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { RecoverySweep } from "../infrastructure/recovery.js";
 import { modelProvidersOf } from "../models/resolution.js";
 import type { StepCapacity } from "../app/step-slots.js";
+import { rememberMeshSettings } from "../mesh/mesh-settings.js";
 
 /**
  * The app of an application instance (#261): `execute` runs the workflow its start belongs to (a
@@ -98,6 +99,8 @@ export function composeApp(
   const remembered = appWorkflowOf(first.app);
   if (remembered !== undefined) rememberAppWorkflow(app, remembered);
   rememberListedProviders(app, listedProviderCheckOf(assembled.modules));
+  const mesh = { application: assembled.name, maxMeshHops: assembled.maxMeshHops };
+  rememberMeshSettings(app, () => mesh);
   return app;
 }
 

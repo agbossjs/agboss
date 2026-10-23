@@ -1,5 +1,6 @@
 import { ExecutionStatus, type ExecutionOutput } from "../app/types.js";
-import { ExecutionCancelledError } from "../core/errors.js";
+import { AGBossError, ExecutionCancelledError } from "../core/errors.js";
+import { meshLimitBodyOf } from "../mesh/mesh-wire.js";
 import { LimitExceededError } from "../graph/limits.js";
 import type { ExecutionStreamEvent } from "../run/types.js";
 import { A2AStatus, type A2AEvent, type A2AExecutionResponse } from "./types.js";
@@ -53,10 +54,13 @@ export function failureResponseOf(
   signal: AbortSignal | undefined,
   threadId: string | undefined,
 ): A2AExecutionResponse {
+  const mesh = meshLimitBodyOf(error);
   return {
     ...(threadId === undefined ? {} : { threadId }),
     status: failureStatusOf(error, signal),
     error: error instanceof Error ? error.message : String(error),
+    ...(error instanceof AGBossError ? { code: error.code } : {}),
+    ...(mesh === undefined ? {} : { details: mesh.details }),
   };
 }
 

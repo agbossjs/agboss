@@ -4,6 +4,7 @@ import type { App } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import { standaloneCallFrameOf } from "../flow/context/call-frame.js";
 import { runInFrame } from "../flow/context/frame.js";
+import { outboundChainOf } from "../mesh/inbound-mesh.js";
 import type { McpCall } from "./mcp-service-helpers.js";
 
 /** An exported tool as one call over MCP sees it: its app, its class and its `name`. */
@@ -28,6 +29,8 @@ export function inMcpCallFrame<TResult>(
   const { workflow, tenant } = known;
   const callId = call.callId ?? `mcp_${name}_${randomUUID()}`;
   const executionId = `mcp_${callId}`;
+  // the tool is this application's entry of the call chain (#398): its own calls carry it on
+  const entry = { application: tenant.application.name, start: name };
   const frame = standaloneCallFrameOf({
     workflow,
     type,
@@ -36,6 +39,7 @@ export function inMcpCallFrame<TResult>(
     callId,
     signal: call.signal,
     tenant,
+    mesh: outboundChainOf(entry, executionId, call.mesh),
   });
   return runInFrame(frame, work);
 }

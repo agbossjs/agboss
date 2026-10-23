@@ -36,6 +36,7 @@ import { ApplicationStoppingError } from "./application-stopping.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf } from "./child-deps.js";
 import { lazyReplyAnswering, resumeOf } from "./resume.js";
+import { inboundMeshOf, withInboundChain } from "../mesh/inbound-mesh.js";
 
 export { NotAWorkflowStartError } from "./starts.js";
 
@@ -138,8 +139,9 @@ export async function buildApp(
       const checked = await admit(requested, async () => {
         accepting();
         const valid = checkedStart(start, input, bundle.graph);
-        // the contexts' values, checked before the first step and frozen (#261)
-        const values = contextValuesOf(contexts, call);
+        // the contexts' values, checked before the first step and frozen (#261); the call chain
+        // a mesh transport admitted, kept with them (#398)
+        const values = withInboundChain(contextValuesOf(contexts, call), inboundMeshOf(call));
         const { tenantId } = values.tenant;
         const thread = { tenantId, threadId: call.threadId ?? "", ownerId: call.ownerId };
         // a given id the tenant does not have yet is the caller's own new thread (#262 Q4)

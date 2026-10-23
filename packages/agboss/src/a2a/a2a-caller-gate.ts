@@ -1,5 +1,6 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { ServerResponse } from "node:http";
 import { isListedProvider } from "../application/listed-providers.js";
+import type { ErrorDetails } from "../core/errors.js";
 import type { Class } from "../components/injection.js";
 import { ComponentError } from "../components/metadata.js";
 import {
@@ -8,10 +9,17 @@ import {
   isA2ACallerResolution,
   type A2AApp,
   type A2ACaller,
+  type A2ACallerRequest,
   type A2ACallerResolver,
-  type A2ARoute,
   type RejectedA2ACallerResolution,
 } from "./a2a-caller.js";
+
+/** A refusal on the wire (#387): its code and reason, a mesh limit's facts too (#398). */
+export interface A2ARejectionBody {
+  readonly code: string;
+  readonly error: string;
+  readonly details?: ErrorDetails;
+}
 
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_FORBIDDEN = 403;
@@ -40,10 +48,11 @@ export function callerResolverOf<TStart extends Class>(
   return app.resolve(callerResolver);
 }
 
-const writeRejection = (
+/** Writes a refusal: its status, `{ code, error, … }`, a challenge for a `401`. */
+export const writeRejection = (
   res: ServerResponse,
   status: number,
-  body: { readonly code: string; readonly error: string },
+  body: A2ARejectionBody,
   challenge?: string,
 ): void => {
   const headers = {
@@ -76,11 +85,10 @@ function failResolution(res: ServerResponse): void {
 /** The resolver's answer, or `undefined` when it threw or returned something else. */
 async function resolutionOf<TStart extends Class>(
   resolver: A2ACallerResolver<TStart>,
-  route: A2ARoute,
-  req: IncomingMessage,
+  request: A2ACallerRequest,
 ): Promise<unknown> {
   try {
-    return await resolver.resolveCaller({ route, http: req });
+    return await resolver.resolveCaller(request);
   } catch {
     return undefined;
   }
@@ -92,11 +100,10 @@ async function resolutionOf<TStart extends Class>(
  */
 export async function admitCaller<TStart extends Class>(
   resolver: A2ACallerResolver<TStart>,
-  route: A2ARoute,
-  exchange: { readonly req: IncomingMessage; readonly res: ServerResponse },
+  request: A2ACallerRequest,
+  res: ServerResponse,
 ): Promise<CallerGateOutcome<TStart>> {
-  const { req, res } = exchange;
-  const resolution = await resolutionOf(resolver, route, req);
+  const resolution = await resolutionOf(resolver, request);
   if (isA2ACallerResolution<TStart>(resolution)) {
     if (resolution.kind === A2ACallerResolutionKind.Resolved) {
       return { isAdmitted: true, caller: resolution.caller };
@@ -105,6 +112,6 @@ export async function admitCaller<TStart extends Class>(
   } else {
     failResolution(res);
   }
-  req.resume(); // the body is discarded unread
+  request.http.resume(); // the body is discarded unread
   return { isAdmitted: false };
 }

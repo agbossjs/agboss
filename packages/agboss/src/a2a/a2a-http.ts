@@ -2,8 +2,16 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod";
 import type { Class } from "../components/injection.js";
 import { A2AAdapter, type A2ACallOptions } from "./a2a-adapter.js";
-import { A2ARoute, type A2AApp, type A2ACaller, type A2ACallerResolver } from "./a2a-caller.js";
+import {
+  A2ARoute,
+  type A2AApp,
+  type A2ACaller,
+  type A2ACallerRequest,
+  type A2ACallerResolver,
+} from "./a2a-caller.js";
 import { admitCaller, callerResolverOf } from "./a2a-caller-gate.js";
+import { admitMesh, requestEnvelopeOf } from "./a2a-mesh-gate.js";
+import { withInboundMesh } from "../mesh/inbound-mesh.js";
 import { A2ARequestSchema, type A2AEvent, type A2AExecutionResponse } from "./types.js";
 
 const ResumeSchema = z.object({ pauseId: z.string(), decision: z.unknown() });
@@ -75,6 +83,12 @@ async function answer<TStart extends Class>(
   else sendJson(res, HTTP_OK, result);
 }
 
+/** What the caller resolver reads of a request: its route, the raw request, its envelope (#398). */
+function callerRequestOf(route: A2ARoute, req: IncomingMessage): A2ACallerRequest {
+  const envelope = requestEnvelopeOf(req);
+  return envelope === undefined ? { route, http: req } : { route, http: req, envelope };
+}
+
 /** The listener's two routes, by path. */
 function routesOf(
   adapter: A2AAdapter,
@@ -102,7 +116,8 @@ function routesOf(
  * Every request's caller is resolved first — by the `callerResolver` the application's container
  * created (not listed → this call throws) — before its body is read or a header written: a refused
  * one is a real `401` / `403` (a resolver that throws: `500`), and nothing runs. An admitted one runs
- * for its tenant, owner and execution values. The reply is the `A2AExecutionResponse` as JSON, or —
+ * for its tenant, owner and execution values — unless its mesh envelope's call chain comes back to
+ * this start or is too long (#398): `409`, nothing runs (`a2a-mesh-gate.ts`). The reply is the `A2AExecutionResponse` as JSON, or —
  * with `Accept: text/event-stream` — progress events followed by one `finish` event carrying it. A
  * caller that disconnects cancels its run.
  */
@@ -118,9 +133,14 @@ export function a2aHttpListener<TStart extends Class>(
       sendJson(res, HTTP_NOT_FOUND, { error: `no A2A route ${req.method ?? ""} ${req.url ?? ""}` });
       return;
     }
-    const exchange = { req, res };
-    admitCaller(resolver, found.route, exchange)
-      .then((gate) => (gate.isAdmitted ? answer(req, res, found.exchange, gate.caller) : undefined))
+    const request = callerRequestOf(found.route, req);
+    admitCaller(resolver, request, res)
+      .then((gate) => {
+        if (!gate.isAdmitted) return undefined;
+        const mesh = admitMesh(app, options.start, request, res);
+        if (!mesh.isAdmitted) return undefined;
+        return answer(req, res, found.exchange, withInboundMesh(gate.caller, mesh.inbound));
+      })
       .catch(() => res.destroy());
   };
 }
