@@ -295,4 +295,21 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["testTool", "testPii", "testGuardrail", "override", "callTool", "replyWith", "decideWith"],
     ...["SqliteCheckpointSaver", "SpendRecorder", "ExecutionContext"],
   ],
+  "references/13-migrating-from-langgraph.md": [
+    ...["Application", "Workflow", "WorkflowStart", "WorkflowFinish", "createApp", "testWith"],
+    ...["Agent", "Action", "Router", "DecidedBy", "Tool", "ToolHandler", "Injectable"],
+    ...["ActionHandler", "RouterHandler", "InputOf", "OutputOf", "Route", "ExecutionContext"],
+    ...["oneOf", "caseOf", "listOf", "historyOf", "route", "agent", "start", "toFinish"],
+    ...[
+      "ChannelRole",
+      "Channel",
+      "ChannelOf",
+      "ChannelOutcome",
+      "PauseAnswerer",
+      "ExecutionStatus",
+    ],
+    ...["VisitsLimitExceededError", "Text", "Integer", "Budget", "EmptyEnvironment"],
+    ...["SqliteCheckpointSaver", "SqlitePausedExecutionRepository"],
+    ...["routeTo", "callTool", "replyWith", "testRouter"],
+  ],
 };

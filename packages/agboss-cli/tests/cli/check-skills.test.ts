@@ -26,7 +26,7 @@ describe("#305 AC4: agboss check syncs the project skills", () => {
 
     expect(call.code).toBe(0);
     expect(call.stderr).toMatch(
-      /^skills: \.claude\/skills\/agboss installed for agboss \S+ \(13 files\)\n/,
+      /^skills: \.claude\/skills\/agboss installed for agboss \S+ \(14 files\)\n/,
     );
     expect((envelope(call).result as { skills: unknown }).skills).toMatchObject({
       status: "installed",

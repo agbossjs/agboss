@@ -1,6 +1,6 @@
 /**
  * #305 AC2: the package ships the project skills — `"skills"` in package.json#files, the folder
- * `skills/agboss/` with SKILL.md and its 12 references, the ones `agboss create` and `agboss check`
+ * `skills/agboss/` with SKILL.md and its 13 references, the ones `agboss create` and `agboss check`
  * copy into a project.
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 const PACKAGE = new URL("..", import.meta.url).pathname;
 
 describe("#305 AC2: the package ships the skills", () => {
-  it('"skills" is in package.json#files and holds SKILL.md and 12 references', () => {
+  it('"skills" is in package.json#files and holds SKILL.md and 13 references', () => {
     const manifest = JSON.parse(readFileSync(join(PACKAGE, "package.json"), "utf8")) as {
       files: readonly string[];
     };
@@ -30,6 +30,7 @@ describe("#305 AC2: the package ships the skills", () => {
       "10-testing-vcr-and-evals.md",
       "11-cli-studio-and-error-catalog.md",
       "12-end-to-end-recipes.md",
+      "13-migrating-from-langgraph.md",
     ]);
   });
 });

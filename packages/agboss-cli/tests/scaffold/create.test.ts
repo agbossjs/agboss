@@ -57,7 +57,7 @@ describe("#268 AC8: agboss create", () => {
     );
     expect(
       paths.filter((path) => path.startsWith(".claude/skills/agboss/references/")),
-    ).toHaveLength(12);
+    ).toHaveLength(13);
     expect(content("CLAUDE.md")).toBe("@AGENTS.md\n");
     expect(content("AGENTS.md")).toContain("# Desk — instructions for coding agents");
     expect(content("AGENTS.md")).toContain("application (`src/desk.application.ts`)");
@@ -69,7 +69,7 @@ describe("#268 AC8: agboss create", () => {
       version: string;
       files: Record<string, string>;
     };
-    expect(Object.keys(manifest.files)).toHaveLength(13);
+    expect(Object.keys(manifest.files)).toHaveLength(14);
     expect(content(".claude/skills/agboss/SKILL.md")).toContain(
       `<!-- agboss-skills-version: ${manifest.version} — managed by \`agboss check\``,
     );
