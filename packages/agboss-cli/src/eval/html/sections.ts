@@ -1,4 +1,4 @@
-import type { EvalRunReport } from "agboss/eval";
+import type { EvalCaseReport, EvalRunReport } from "agboss/eval";
 import { element, type HtmlChild, type HtmlElement } from "./html.js";
 
 /**
@@ -9,8 +9,23 @@ import { element, type HtmlChild, type HtmlElement } from "./html.js";
 export interface ReportSection {
   /** Whether the artifact holds what the section shows. */
   readonly isShownFor: (report: EvalRunReport) => boolean;
-  readonly render: (report: EvalRunReport) => HtmlElement;
+  readonly render: (report: EvalRunReport, timelines: TimelineDetail) => HtmlElement;
 }
+
+/**
+ * Which runs' timelines the page shows (#397 PR 2): all of them, or — when that page would be above
+ * its size bound — only the runs of cases without pass^k (what needs reading), or none. The run
+ * artifact keeps every one.
+ */
+export enum TimelineDetail {
+  All = "all",
+  Failing = "failing",
+  None = "none",
+}
+
+/** Whether the page shows the timelines of this case's runs. */
+export const isTimelineShown = (found: EvalCaseReport, timelines: TimelineDetail): boolean =>
+  timelines === TimelineDetail.All || (timelines === TimelineDetail.Failing && !found.passHatK);
 
 /** `<section>` with its heading, labelled by it. */
 export function sectionOf(id: string, title: string, children: readonly HtmlChild[]): HtmlElement {

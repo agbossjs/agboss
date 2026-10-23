@@ -58,8 +58,29 @@ function checksTable(result: EvalRunResult): HtmlElement {
   ]);
 }
 
+/** The run's timeline, or why the page has none. */
+function timelineViewOf(
+  caseIndex: number,
+  result: EvalRunResult,
+  isTimelineShown: boolean,
+): HtmlElement {
+  if (result.trace === undefined)
+    return element("p", { class: "muted" }, [
+      "No timeline: the artifact holds none for this run (a version 1 artifact, or a turn that failed before its record).",
+    ]);
+  if (!isTimelineShown)
+    return element("p", { class: "muted" }, [
+      "Timeline left out to keep the page under its size bound: the run artifact keeps it.",
+    ]);
+  return timelineOf(result.trace, (index) => stepAnchor(caseIndex, result.run, index));
+}
+
 /** The run's `<details>`, opened by its dot. */
-export function runDetails(caseIndex: number, result: EvalRunResult): HtmlElement {
+export function runDetails(
+  caseIndex: number,
+  result: EvalRunResult,
+  isTimelineShown: boolean,
+): HtmlElement {
   const status = attemptStatusOf(result);
   const { error } = result;
   return element("details", { class: "run", id: runAnchor(caseIndex, result.run) }, [
@@ -79,10 +100,6 @@ export function runDetails(caseIndex: number, result: EvalRunResult): HtmlElemen
         ` ${error.message}`,
       ]),
     checksTable(result),
-    result.trace === undefined
-      ? element("p", { class: "muted" }, [
-          "No timeline: the artifact holds none for this run (a version 1 artifact, or a turn that failed before its record).",
-        ])
-      : timelineOf(result.trace, (index) => stepAnchor(caseIndex, result.run, index)),
+    timelineViewOf(caseIndex, result, isTimelineShown),
   ]);
 }

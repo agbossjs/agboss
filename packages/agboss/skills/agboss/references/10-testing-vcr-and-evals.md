@@ -1339,7 +1339,8 @@ cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `
   verdict), unstable cases (each with the node where its attempts part ways — the first step whose
   node, input, decisions or tool calls differ), every case with its expectation and an attempt dot
   per run — passed, failed, error, limit — each opening that run's execution, error, checks and
-  timeline. It shows only what the artifact holds; one value is cut at 2,000 characters on the page.
+  timeline. It shows only what the artifact holds; one value is cut at 2,000 characters on the page,
+  and a page above 16 MB leaves out the timelines of cases with pass^k, then all (the CLI line says so).
   `npx agboss eval show <run.json> [--html <report.html>]` reads a saved artifact back: the table,
   and the same page; it runs nothing.
 - `--profile <name>` runs the suite on `profiles/<workflow>/<name>.yaml`; the case's `history` turns

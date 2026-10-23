@@ -55,7 +55,7 @@ there is no `--workflow <path>`.
   (`graph.rules`) or its cases' values do not fit (`eval.case-invalid`). `eval show <run.json>` exits 2
   for a missing file (`eval.run-not-found`) or one that is not a run artifact this version reads
   (`eval.run-invalid`: another `kind`, an unknown `schemaVersion` — 1 and 2 are read —, a field missing); `--html` on
-  either exits 2 with `eval.report-too-large` for a page above 16 MB (`eval run` writes its artifact
+  either exits 2 with `eval.report-too-large` for a page above 16 MB even without timelines (`eval run` writes its artifact
   first); 2 for a `--baseline`
   that is no run artifact of this suite (`eval.run-invalid` / `eval.run-not-found`, before anything
   runs) or `--fail-on-regression` without one; 5 (`eval.regressed`) with `--fail-on-regression` when

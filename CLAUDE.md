@@ -101,7 +101,7 @@ when the artifact has one, unstable cases with the node where their attempts par
 checks and timeline — #397 PR 2: `schemaVersion` 2 adds each run's `trace` (`EvalExecutionTrace`,
 the last turn's record cut down and masked: steps with `inputHash`, model calls, tool calls,
 guardrail decisions, judge verdicts; handled errors, pauses, undo actions, children, the output) and
-each case's `expectation`; version 1 artifacts are still read by the one reader `evalRunReportOf`; bounded at 16 MB, `eval.report-too-large`; `eval.run-not-found`
+each case's `expectation`; version 1 artifacts are still read by the one reader `evalRunReportOf`; bounded at 16 MB — timelines of cases with pass^k left out first, then all, before `eval.report-too-large`; `eval.run-not-found`
 / `eval.run-invalid` for a file that is not an artifact this version reads), rendered in `agboss-cli`
 (`src/eval/html/`, loaded on demand); `agboss eval calibrate --report <run.json> [--labels
 <labels.jsonl>]` (#396 PR 4) reads a saved run's judges against people's labels (`EvalLabel`, one JSON

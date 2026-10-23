@@ -1,7 +1,15 @@
 import type { EvalCaseReport, EvalRunReport } from "agboss/eval";
 import { attemptDivergenceOf, AttemptDivergenceReason } from "agboss/internal";
 import { element, type HtmlChild } from "./html.js";
-import { caseAnchor, sectionOf, stepAnchor, type ReportSection } from "./sections.js";
+import {
+  caseAnchor,
+  isTimelineShown,
+  runAnchor,
+  sectionOf,
+  stepAnchor,
+  type ReportSection,
+  type TimelineDetail,
+} from "./sections.js";
 
 /** What the runs did differently at the step where they part ways. */
 const REASON_TEXT: Readonly<Record<AttemptDivergenceReason, string>> = {
@@ -14,11 +22,18 @@ const REASON_TEXT: Readonly<Record<AttemptDivergenceReason, string>> = {
 };
 
 /** Where the case's attempts part ways (#397 PR 2), linked to that step of its first run. */
-function divergenceOf(found: EvalCaseReport, index: number): HtmlChild[] {
+function divergenceOf(
+  found: EvalCaseReport,
+  index: number,
+  timelines: TimelineDetail,
+): HtmlChild[] {
   const divergence = attemptDivergenceOf(found);
   if (divergence === undefined) return [" — its runs' timelines are not comparable"];
   const [first] = divergence.runs;
-  const href = `#${stepAnchor(index, first ?? 1, divergence.stepIndex)}`;
+  const run = first ?? 1;
+  const href = isTimelineShown(found, timelines)
+    ? `#${stepAnchor(index, run, divergence.stepIndex)}`
+    : `#${runAnchor(index, run)}`;
   return [
     " — the attempts part ways at ",
     element("a", { href, "data-opens": true }, [divergence.nodeId]),
@@ -32,7 +47,7 @@ function divergenceOf(found: EvalCaseReport, index: number): HtmlChild[] {
  */
 export const UNSTABLE_SECTION: ReportSection = {
   isShownFor: (report) => report.cases.some((found) => found.isUnstable),
-  render: (report: EvalRunReport) =>
+  render: (report: EvalRunReport, timelines: TimelineDetail) =>
     sectionOf("unstable", "Unstable cases", [
       element("p", {}, [
         `Each passed at least once in ${String(report.runs)} runs, but not every time. Do not grow the prompt: move the check into deterministic code — a tool interceptor, a code guardrail, a code router or arbiter, an action.`,
@@ -46,7 +61,7 @@ export const UNSTABLE_SECTION: ReportSection = {
                 element("li", {}, [
                   element("a", { href: `#${caseAnchor(index)}` }, [found.name]),
                   ` — ${String(found.passed)} of ${String(found.runs)} runs passed`,
-                  ...divergenceOf(found, index),
+                  ...divergenceOf(found, index, timelines),
                 ]),
               ]
             : [],
