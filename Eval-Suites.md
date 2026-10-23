@@ -412,8 +412,12 @@ does not have — the run says why in place of the button, and the labels still 
 The file is written whole and atomically (a temporary file renamed over it), and only if it is still
 the one the page was made from: the form carries the file's ETag (a hash of its content), and a
 file changed since — by another save, an editor, a pull — is `409` (reload the page and save again).
-A case of the same name is `409` and the file stays as it was; an execution the history does not
-have is `404`; a form without a name `400`. The form is protected like a label's: the token in its
+A case of the same name is `409` and the file stays as it was. The execution is the run's own
+(#397 PR 5b): the kept record with the run's execution id on the run's thread, of the tenant its case
+is written for (`tenant: { tenantId: "acme" }` in the suite's file) — so an id another tenant kept
+too is never taken by mistake. One the history does not have is `404`; one kept for several tenants
+of a case that names no tenant is `409`, asking to write its `tenant` into the case; a form whose run
+and execution do not match the artifact, or without a name, `400`. The form is protected like a label's: the token in its
 body, the page's `Origin`, the `Host` — else `403`. Review the case in your editor and commit it.
 
 ### A run's trace (`schemaVersion` 2, #397)

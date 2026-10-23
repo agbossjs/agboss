@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — "save as golden case" takes the run's own tenant (#397 PR 5b)
+
+- **Fixed** — *Save as golden case* reads the run's own execution: on the run's thread, of the
+  tenant its case is written for; an execution id kept for several tenants no longer answers with a
+  CLI hint (`--tenant`) — a case without a tenant is `409`, worded for the page
+  ([Eval suites](Eval-Suites#saving-a-run-as-a-golden-case-397-pr-5)).
+
 ## Unreleased — the Mesh Hub: execution trees across applications (#401 PR 4)
 
 - **Added — Cross-Service Execution Trees** on `agboss hub show`'s page ([Mesh Hub](Mesh-Hub#execution-trees-across-applications)):
