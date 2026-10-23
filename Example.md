@@ -83,12 +83,13 @@ npm run compare -- --profiles base,scout-low-thinking --golden core
 
 ## flow-patterns: a review loop and a code router
 
-`examples/flow-patterns/` (package `flow-patterns-example`, #295) — seven workflows, one per
-`*.workflow.ts`, in one application (`src/flow-patterns.application.ts`: `app.execute` runs each by
+`examples/flow-patterns/` (package `flow-patterns-example`, #295) — the zero-cost harness of the
+public surface (#419): ten workflows, one per `*.workflow.ts`, in one application (`src/flow-patterns.application.ts`: `app.execute` runs each by
 its start, #261), on the public entries only, tested by script (no model key, no cassette). They are
 what the manual checks of the flow point the CLI at; `make check` runs `agboss check --strict` on the
-application (then `agboss check --models --env test`, which needs no key), their lint (flow style)
-and their tests with coverage. Besides the two below: `src/review/` (parallel launches in waves,
+application and on the offline `src/desk.application.ts` (then `agboss check --models --env test`,
+which needs no key), the example's own lint (`eslint.config.js` with `agboss/eslint`, as `agboss
+create` writes it) and its tests with coverage. Besides the two below: `src/review/` (parallel launches in waves,
 #273), `src/panel/` (a quorum, [Parallel](Parallel)), `src/vendor/` and `src/topic/` (a child workflow
 per item and recursion, [Workflow as a step](Workflow-as-a-step)), `src/approvals/` (two approvals at
 once, below).
@@ -116,6 +117,18 @@ npm test
   charge-card-action, a $500 one to approval-agent. `CreditServiceUnavailableError` from the
   service (the `RouterFailedError`'s cause) is taken by `.onError(…, toFinish(OrderHeldWorkflowFinish))`;
   any other error fails the run with `RouterFailedError`.
+- **`src/desk/`** — the four extension points around one agent (#382–#385): `desk-agent` runs on
+  `harness/desk`, served by `HarnessModelProvider` (`src/model-providers/`), a transport
+  `@ModelProvider` whose `complete(request)` looks the `#<id>` order up, then quotes the tool — no
+  key, no network. Beside it the application lists its own `OpenRouterProvider` subclass narrowed to
+  `serves: [/^moonshotai\//]` and `DecisionsModelProvider` (a catch-all would serve `harness/…` too:
+  `[model.ambiguous-provider]`). The agent has two code guardrails (`decidedBy: DecidedBy.Code`:
+  credentials in the question, a promised date in the answer), a `@ToolInterceptor` that blocks
+  `close-account-tool`, answers for an archived order (`replyToModel`) and cuts a status's internal
+  note (`afterToolCall`), and the workflow a `CompactionStrategy.Custom` compaction past a two-turn
+  window. `src/desk.application.ts` lists the same workflow with the transport alone, so
+  `npx agboss run --application src/desk.application.ts --env test --start desk-workflow-start
+  --input '{"customerId":"c-1","question":"Where is order #7?"}'` answers offline.
 - **`src/approvals/`** — two approvals at once ([Pauses](Pauses), #267): `offsite-booking-workflow`
   launches venue-buyer-agent and flight-buyer-agent side by side; each calls `place-purchase-tool`,
   whose `@Tool({ channel: PurchaseApprovalChannel })` names a role

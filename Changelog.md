@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — flow-patterns as the zero-cost harness: the extension points (#419 PR 1)
+
+- `examples/flow-patterns` gains `src/desk/` — a custom compaction, input and output code
+  guardrails, a tool interceptor (`allow` / `replyToModel` / `block`, `afterToolCall`) — on a
+  transport `@ModelProvider` that answers by the request, an offline `src/desk.application.ts`, its
+  own `OpenRouterProvider` narrowed to `moonshotai/…`, and its own `eslint.config.js` with
+  `agboss/eslint`; tests for the trajectory matchers, invalid arguments and the unit runners
+  `testToolInterceptor`, `testCompaction`, `testGuardrail` and `testTool`. [Example](Example#flow-patterns-a-review-loop-and-a-code-router).
+
 ## Unreleased — the LangGraph migration guide in the project skills (#424)
 
 - **`references/13-migrating-from-langgraph.md`** — a skill reference for coding agents that move a
