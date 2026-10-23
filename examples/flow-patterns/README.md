@@ -24,9 +24,10 @@ and which serves the desk over A2A to the helpline of the first:
 npm install && npm run build          # repo root
 cd examples/flow-patterns
 npm run describe                      # every workflow: its paths, inputs, models, infrastructure
-npm run check                         # agboss check --strict on both applications: the desk against its
-                                      # snapshot (snapshots/, a changed export needs a new version), the
-                                      # helpline's contract against the desk's describe --json
+npm run check                         # agboss check --strict on both applications: the desk with its VCR
+                                      # cassette (--cassettes: stale after a prompt or schema change) and
+                                      # against its snapshot (snapshots/, a changed export needs a new
+                                      # version), the helpline's contract against the desk's describe --json
                                       # (--federation, no network); --models on `test` (no key), then
                                       # eslint with agboss/eslint (eslint.config.js), then eval:check
 npm run eval:check                    # the desk's eval suite offline against its baseline
@@ -51,6 +52,12 @@ Its eval suite (`src/desk/eval-suites/desk.eval-suite.ts`: `checkTrajectory()`, 
 `desk-answer-judge`) runs the same way — `npm run eval:check` — and `npx agboss eval ui --dir
 .agboss/eval` serves its runs for labelling (`eval/failure-taxonomy.yaml` holds the tags). `agboss
 eval score` is not here: it scores with Jev, a decision model, which needs OpenRouter.
+
+`tests/desk-cassette.test.ts` replays a run of the desk from a VCR cassette
+(`tests/__snapshots__/desk-lookup.cassette.json`) — no script, no key. It was recorded offline, through
+the same transport (`AGBOSS_VCR_MODE=RECORD npx vitest run tests/desk-cassette.test.ts`); after a
+change to the desk's prompt or schemas `npm run check` reports `[vcr.stale-cassette]`, and
+`AGBOSS_VCR_MODE=RECORD_STALE npx vitest run tests/desk-cassette.test.ts` records only what changed.
 
 A real run uses the `dev` environment (`src/environments/`): models
 through OpenRouter, and every store — budgets, records, pauses, checkpoints, leases — in SQLite at

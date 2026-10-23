@@ -166,8 +166,10 @@ In `examples/job-scout/` (`agboss <command>`, its one start): `npm run chat` · 
 `--profile <name>` (`profiles/<workflow>/<name>.yaml`) and `--thread <id>`.
 
 In `examples/flow-patterns/` (#295, the zero-cost harness of the public surface, #419; scripted tests,
-no model key): `npm run check` (`agboss check --strict` on its offline `src/desk.application.ts`
-`--federation snapshots/` — its A2A export against its checked-in `describe --json` — and on its
+no model key): `npm run check` (`agboss check --strict --cassettes` on its offline `src/desk.application.ts`
+`--federation snapshots/` — its A2A export against its checked-in `describe --json`, its VCR
+cassette `tests/__snapshots__/desk-lookup.cassette.json` (recorded offline through the transport,
+#439; replayed by `tests/desk-cassette.test.ts`) against its prompts and schemas — and on its
 application's eleven workflows `--federation` against the desk's fresh `describe --json`, then
 `--models` on `test`, then `eslint .` with `agboss/eslint`, then `npm run eval:check` — the desk's
 eval suite run offline on `--env offline` against its baseline `eval/runs/desk-eval-suite.json`
