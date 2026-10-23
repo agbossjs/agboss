@@ -84,7 +84,7 @@ npm run compare -- --profiles base,scout-low-thinking --golden core
 ## flow-patterns: a review loop and a code router
 
 `examples/flow-patterns/` (package `flow-patterns-example`, #295) — the zero-cost harness of the
-public surface (#419): eleven workflows, one per `*.workflow.ts`, in one application (`src/flow-patterns.application.ts`: `app.execute` runs each by
+public surface (#419): twelve workflows, one per `*.workflow.ts`, in one application (`src/flow-patterns.application.ts`: `app.execute` runs each by
 its start, #261), on the public entries only, tested by script (no model key, no cassette). They are
 what the manual checks of the flow point the CLI at; `make check` runs `agboss check --strict` on the
 application and on the offline `src/desk.application.ts`, each with `--federation` (below; then
@@ -110,7 +110,8 @@ npm test
   of its own, and the change requests are about the draft:
   `caseOf(ChangesRequestedDto, { about: OfferDraftDto })`. The editor has `maxVisits: 2`; the refused third visit is taken by
   `.onError(VisitsLimitExceededError, toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish))`.
-  Moving the `switch(…)` inline after `.toAgent(ReviewerAgent)` makes `agboss check` fail with
+  The reviewer reads `historyOf(OfferDraftDto, { limit: 1 })` — `{ current, previous }`, the draft and
+  the one before it. Moving the `switch(…)` inline after `.toAgent(ReviewerAgent)` makes `agboss check` fail with
   `[flow.shared-node-inline]`.
 - **`src/credit/`** — a code router beside a model router ([Routers](Routers)): desk-router (Jev)
   sends an order to order-intake-agent; credit-limit-router (`DecidedBy.Code`) decides in
@@ -152,6 +153,17 @@ npm test
   the desk with the `a2aServer` fixture and calls it with the helpline's contract
   (`new A2AClient({ url, headers, contract })`); the consumer's own test replaces the remote with
   `mockOf(DeskA2AAgent)`.
+  The helpline also reads the customer policies (`data/policies/`) through the official filesystem
+  [MCP](Mcp) server — `@McpServer` `policy-files` over stdio, its `read-policy-tool` an `@McpTool`;
+  `tests/helpline-tools.test.ts` never starts it, `mcpOf(PolicyFilesServer)` answers `read_text_file`
+  — and its agent remembers the thread by its own `memoryStrategy` (`SameOrderMemoryStrategy`,
+  `extends BaseMemoryStrategy` from `agboss/memory`): only the earlier turns about the order asked.
+- **`src/intake/`** — a quorum by groups ([Parallel](Parallel), #279): a full legal check and a quick
+  screen side by side, `.joinQuorumGroups(group(LegalCheckAgent).priority(1)…, group(FastScreenAgent)
+  .priority(2)…, { deadline: seconds(30) })`. `tests/intake.test.ts` fixes the order the branches
+  finish in with `TestConcurrency.inOrder([step(…), step(…)])`: the full check first wins
+  (`result.launches[0].group`, the screen cancelled); the full check's model failing
+  (`failWith(ModelFailure.RateLimited)`) lets the quick screen's group go on.
   The desk's [eval suite](Eval-Suites) (`src/desk/eval-suites/desk.eval-suite.ts`:
   `checkTrajectory()`, then the code `desk-answer-judge` on the finish's text) runs on the same
   transport: `npm run eval:check` is `agboss eval run --env offline --runs 2 --baseline
@@ -174,7 +186,10 @@ npm test
   (`ChannelOutcome.awaitReply()`). The execution rests with two pauses in `result.pending`; every
   store of the application is SQLite, so they wait across processes. `npm run answer -- <pauseId…>
   [--decline]` answers waiting pauses from another process — two at once, or a second press that
-  gets `NotPausedError`.
+  gets `NotPausedError`. In the tests, `testWith(FlowPatternsApplication, { instances: 2, env:
+  "instances" })` pauses on one instance and resumes both pauses on the other
+  ([Several instances](Several-instances)): the `instances` environment puts the SQLite stores in one
+  fresh file, since `:memory:` is one database per connection.
 
 ### Real runs of flow-patterns (#346)
 

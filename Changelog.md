@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — flow-patterns as the zero-cost harness: the remaining patterns (#419)
+
+- `examples/flow-patterns` adds `src/intake/` (`joinQuorumGroups`, tested with
+  `TestConcurrency.inOrder` and `failWith(ModelFailure.RateLimited)`), `historyOf` in the review
+  loop, a pause resumed on a second instance (`instances: 2`), and in the helpline a stubbed
+  `@McpServer` / `@McpTool` (`mcpOf`) and a custom memory strategy (`agboss/memory`).
+  [Example](Example#flow-patterns-a-review-loop-and-a-code-router).
+
 ## Unreleased — flow-patterns as the zero-cost harness: a VCR cassette recorded offline (#419)
 
 - `examples/flow-patterns` replays the desk from a cassette recorded through its transport model
