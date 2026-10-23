@@ -10,6 +10,8 @@ import { labelFormsOf } from "./label-forms.js";
 import { suiteLabelsOf, type SuiteLabels } from "./labels-file.js";
 import { runFilesOf } from "./run-folder.js";
 import { saveLabel } from "./save-label.js";
+import { goldenFormOf, saveGoldenCase, type GoldenSource } from "./golden-case.js";
+import { element } from "../html/html.js";
 import { htmlResponse, textResponse, type EvalUiResponse } from "./ui-responses.js";
 
 export type { EvalUiResponse } from "./ui-responses.js";
@@ -43,6 +45,8 @@ export interface EvalUiSettings {
   readonly tags: readonly EvalFailureTag[] | undefined;
   /** Who labels, as the forms start. */
   readonly labeler: string;
+  /** Where "save as golden case" reads executions and writes cases (#397 PR 5). */
+  readonly golden: GoldenSource;
 }
 
 const isToken = (given: string | null, token: string): boolean =>
@@ -96,28 +100,39 @@ function calibrationOf(report: EvalRunReport, labels: SuiteLabels): HtmlElement[
 
 const runHrefOf =
   (settings: EvalUiSettings) =>
-  (file: string, fragment?: string): string =>
-    `/runs/${encodeURIComponent(file)}?token=${settings.token}${fragment === undefined ? "" : `#${fragment}`}`;
+  (file: string, fragment?: string, saved?: string): string =>
+    `/runs/${encodeURIComponent(file)}?token=${settings.token}${saved === undefined ? "" : `&saved=${encodeURIComponent(saved)}`}${fragment === undefined ? "" : `#${fragment}`}`;
 
-function runPage(settings: EvalUiSettings, file: string): EvalUiResponse {
+function runPage(settings: EvalUiSettings, file: string, saved: string | null): EvalUiResponse {
   const found = runOf(settings, file);
   if (found.kind === "answer") return found.response;
   const { report } = found;
   const labels = suiteLabelsOf(settings.labelsFolder, report.suite);
   const given = labels.kind === "read" ? labels.labels : [];
-  const sections = calibrationOf(report, labels);
-  const context = {
-    action: `/runs/${encodeURIComponent(file)}/labels`,
+  const action = `/runs/${encodeURIComponent(file)}`;
+  const labelling = {
+    action: `${action}/labels`,
     token: settings.token,
     labeler: settings.labeler,
     tags: settings.tags ?? [],
     labels: given,
   };
+  const golden = {
+    source: settings.golden,
+    action: `${action}/golden`,
+    token: settings.token,
+    report,
+  };
   const bounded = boundedPageOf(report, {
     back: { href: `/?token=${settings.token}`, label: "← All runs" },
-    sections,
+    ...(saved === null ? {} : { notice: `Saved as the case "${saved}" of ${report.suite}.` }),
+    sections: calibrationOf(report, labels),
     isPostingForms: true,
-    runExtrasOf: (caseIndex, each, result) => labelFormsOf(context, caseIndex, each, result),
+    runExtrasOf: (caseIndex, each, result) =>
+      element("div", { class: "run-extras" }, [
+        labelFormsOf(labelling, caseIndex, each, result),
+        goldenFormOf(golden, caseIndex, each, result),
+      ]),
   });
   if (bounded.kind === "too-large")
     return textResponse(
@@ -150,11 +165,16 @@ function routeGet(settings: EvalUiSettings, url: URL): EvalUiResponse {
       indexPageOf(settings.folder, runFilesOf(settings.folder), runHrefOf(settings)),
     );
   const run = /^\/runs\/([^/]+)$/u.exec(url.pathname);
-  if (run?.[1] !== undefined) return runPage(settings, decodeURIComponent(run[1]));
+  if (run?.[1] !== undefined)
+    return runPage(settings, decodeURIComponent(run[1]), url.searchParams.get("saved"));
   return textResponse(404, `nothing at ${url.pathname}`);
 }
 
-function routePost(settings: EvalUiSettings, url: URL, request: EvalUiRequest): EvalUiResponse {
+async function routePost(
+  settings: EvalUiSettings,
+  url: URL,
+  request: EvalUiRequest,
+): Promise<EvalUiResponse> {
   if (!isOwnOrigin(request.origin, settings.port))
     return textResponse(403, "agboss eval ui takes forms from its own pages only");
   const form = new URLSearchParams(request.body ?? "");
@@ -162,11 +182,33 @@ function routePost(settings: EvalUiSettings, url: URL, request: EvalUiRequest): 
     return textResponse(403, "agboss eval ui needs the token it printed in the form");
   const labels = /^\/runs\/([^/]+)\/labels$/u.exec(url.pathname);
   if (labels?.[1] !== undefined) return postLabel(settings, decodeURIComponent(labels[1]), form);
+  const golden = /^\/runs\/([^/]+)\/golden$/u.exec(url.pathname);
+  if (golden?.[1] !== undefined) return postGolden(settings, decodeURIComponent(golden[1]), form);
   return textResponse(404, `nothing to post to at ${url.pathname}`);
 }
 
+function postGolden(
+  settings: EvalUiSettings,
+  file: string,
+  form: URLSearchParams,
+): Promise<EvalUiResponse> | EvalUiResponse {
+  const found = runOf(settings, file);
+  if (found.kind === "answer") return found.response;
+  return saveGoldenCase(
+    {
+      source: settings.golden,
+      report: found.report,
+      runPage: (fragment, saved) => runHrefOf(settings)(file, fragment, saved),
+    },
+    form,
+  );
+}
+
 /** The answer to one request. */
-export function respondTo(request: EvalUiRequest, settings: EvalUiSettings): EvalUiResponse {
+export async function respondTo(
+  request: EvalUiRequest,
+  settings: EvalUiSettings,
+): Promise<EvalUiResponse> {
   if (!isOwnHost(request.host, settings.port))
     return textResponse(
       403,

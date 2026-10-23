@@ -37,6 +37,7 @@ describe("#397 PR 3: the eval ui server", () => {
       labelsFolder: join(FOLDER, "labels"),
       tags: undefined,
       labeler: "anna",
+      golden: { kind: "off", reason: "no application here" },
     });
     try {
       expect(ui.url).toMatch(
@@ -59,6 +60,7 @@ describe("#397 PR 3: the eval ui server", () => {
       labelsFolder: join(FOLDER, "labels"),
       tags: undefined,
       labeler: "anna",
+      golden: { kind: "off", reason: "no application here" },
     });
     const token = new URL(ui.url).searchParams.get("token") ?? "";
     const at = `http://127.0.0.1:${String(ui.port)}/runs/run.json/labels`;
@@ -90,6 +92,7 @@ describe("#397 PR 3: the eval ui server", () => {
       labelsFolder: join(FOLDER, "labels"),
       tags: undefined,
       labeler: "anna",
+      golden: { kind: "off", reason: "no application here" },
     });
     const second = await startEvalUi({
       folder: FOLDER,
@@ -97,6 +100,7 @@ describe("#397 PR 3: the eval ui server", () => {
       labelsFolder: join(FOLDER, "labels"),
       tags: undefined,
       labeler: "anna",
+      golden: { kind: "off", reason: "no application here" },
     });
     await Promise.all([first.close(), second.close()]);
 

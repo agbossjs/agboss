@@ -100,9 +100,9 @@ export const EVAL_COMMAND: CommandSpec = {
     },
     ui: {
       summary:
-        "a folder of run artifacts served on 127.0.0.1 behind a token: the runs, each run's report, labels and κ — nothing runs",
+        "a folder of run artifacts served on 127.0.0.1 behind a token: the runs, each run's report, labels and κ, a run saved as a golden case — nothing runs",
       usage:
-        "agboss eval ui [--dir <folder>] [--port N] [--labels-dir <folder>] [--taxonomy <file>] [--labeler <name>]",
+        "agboss eval ui [--dir <folder>] [--port N] [--labels-dir <folder>] [--taxonomy <file>] [--labeler <name>] [--application <path>] [--env <name>]",
       options: [
         text("dir", "<folder>", "the folder of run artifacts (*.json)", {
           default: ".agboss/eval",
@@ -115,6 +115,8 @@ export const EVAL_COMMAND: CommandSpec = {
           default: "eval/failure-taxonomy.yaml",
         }),
         text("labeler", "<name>", "who labels, as the forms start (default: the system user)"),
+        APPLICATION,
+        ENV,
       ],
     },
   },

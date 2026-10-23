@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { randomBytes } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { EvalLabel } from "agboss/eval";
 import { evalLabelsOf, labelsWith } from "agboss/internal";
+import { writeAtomically } from "./atomic-write.js";
 
 /**
  * The labels file of a suite as `agboss eval ui` reads and writes it (#397 PR 4): the C4 file
@@ -37,9 +37,5 @@ export function suiteLabelsOf(folder: string, suite: string): SuiteLabels {
 /** Writes the suite's labels with `label` in them, atomically. */
 export function saveSuiteLabel(file: string, label: EvalLabel): void {
   const content = existsSync(file) ? readFileSync(file, "utf8") : "";
-  const next = labelsWith(content, label);
-  mkdirSync(dirname(file), { recursive: true });
-  const temporary = `${file}.${randomBytes(6).toString("hex")}.tmp`;
-  writeFileSync(temporary, next);
-  renameSync(temporary, file);
+  writeAtomically(file, labelsWith(content, label));
 }

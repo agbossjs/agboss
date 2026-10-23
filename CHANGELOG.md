@@ -62,7 +62,9 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   the artifact (`schemaVersion` 2) keeps each run's trajectory, masked, and the page shows it as a
   timeline, with the baseline diff and the node where an unstable case's attempts part ways;
   `agboss eval ui` serves a folder of runs on 127.0.0.1 behind a token, where people label a judge's
-  verdicts into `eval/labels/<suite>.jsonl` and see κ recomputed (#397).
+  verdicts into `eval/labels/<suite>.jsonl` and see κ recomputed, and save a run's kept execution
+  as a golden case of its suite — written into the suite's file, refused on a duplicate name or a
+  file changed since the page was made (#397).
   `agboss eval calibrate --report <run.json>` reads a run's judges against people's labels
   (`eval/labels/<suite>.jsonl`) — Cohen's κ per labeler and between labelers, the confusion and the
   disagreements by the judge's metrics (#396).

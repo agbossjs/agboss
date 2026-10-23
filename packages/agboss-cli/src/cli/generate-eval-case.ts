@@ -54,6 +54,22 @@ async function recordsOf(
   return record === undefined ? [] : [record];
 }
 
+/**
+ * The case `name` drafted from a kept execution: its record (of `tenant`, when given) and its
+ * thread's earlier turns — for `agboss generate eval-case` and `agboss eval ui`'s "save as golden
+ * case" (#397 PR 5) alike. `records.not-found` / `records.ambiguous-execution` when it is not one.
+ */
+export async function keptDraftOf(
+  history: OpenedExecutionHistory["history"],
+  name: string,
+  executionId: string,
+  tenant?: string,
+): Promise<EvalCaseDraft> {
+  const record = onlyRecord(await recordsOf(history, executionId, tenant), executionId);
+  const thread = await history.findAllByTenantIdAndThreadId(record.tenantId, record.threadId);
+  return evalCaseDraftOf(name, observedExecutionOf(record, thread));
+}
+
 /** The case `name` drafted from the kept execution the options name. */
 async function draftOf(context: CommandContext, name: string): Promise<EvalCaseDraft> {
   const executionId = textOption(context.values, "from-execution");
@@ -76,13 +92,7 @@ async function draftOf(context: CommandContext, name: string): Promise<EvalCaseD
         "records.not-kept",
         `${opened.application} keeps no execution records: set @Application({ executionRecordRetention }) to keep them`,
       );
-    const found = await recordsOf(opened.history, executionId, tenant);
-    const record = onlyRecord(found, executionId);
-    const thread = await opened.history.findAllByTenantIdAndThreadId(
-      record.tenantId,
-      record.threadId,
-    );
-    return evalCaseDraftOf(name, observedExecutionOf(record, thread));
+    return await keptDraftOf(opened.history, name, executionId, tenant);
   } finally {
     await opened.close();
   }
