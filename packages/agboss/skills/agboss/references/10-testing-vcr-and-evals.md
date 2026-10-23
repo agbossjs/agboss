@@ -1378,7 +1378,10 @@ cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `
   application's history (`@Application({ executionRecordRetention })`, its stores on `--env`; the
   application from `package.json` or `--application`) — without it the page says so instead of a
   button. The file is written whole and atomically, only if it is still the one the page was made from
-  (else 409: reload), never over a case of the same name (409). Review the case, then commit it.
+  (else 409: reload), never over a case of the same name (409). The execution is the run's own: the
+  kept record on the run's thread, of the tenant the case writes (`tenant: { tenantId: "…" }`) — an id
+  kept for several tenants of a case that names none is 409 (write its tenant). Review the case, then
+  commit it.
   `npx agboss eval show <run.json> [--html <report.html>]` reads a saved artifact back: the table,
   and the same page; it runs nothing.
 - `--profile <name>` runs the suite on `profiles/<workflow>/<name>.yaml`; the case's `history` turns
