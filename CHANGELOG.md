@@ -41,8 +41,9 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
 - **Models and FinOps** — model providers as infrastructure (OpenRouter and the Decisions API built
   in) with retry, rate-limit and circuit-breaker policies; `@Budget`s per execution, tenant and
   application; cost accounting of every model call (#266, #261, #338).
-- **Safety and quality** — PII policies masked at the model boundary, input and output guardrails,
-  judges on an agent's answer as its DTO, memory compaction (#120, #262).
+- **Safety and quality** — PII policies masked at the model boundary, input and output guardrails
+  decided by a model or by code, judges on an agent's answer as its DTO, memory compaction with
+  built-in or custom strategies (#120, #262, #382, #383).
 - **Testing** — `testWith(App)` with scripted models, the virtual clock, deterministic ids, class
   matchers, recorded runs and unit runners for every component kind (#262, #313).
 - **The CLI** (`agboss-cli`) — `agboss create`, `agboss generate`, `agboss check`,
