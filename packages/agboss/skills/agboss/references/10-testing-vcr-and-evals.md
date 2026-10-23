@@ -1461,6 +1461,31 @@ npx agboss eval run --suite screening-eval-suite --runs 3 --metamorphic
   only then, so a run with the flag is `Changed` against a baseline without it — never `Regressed`.
   The check is no judge: calibration and the judge counts leave it out.
 
+### A case from a kept execution: `generate eval-case`
+
+```
+npx agboss generate eval-case refund-from-prod --suite refunds-eval-suite --from-execution <executionId> [--tenant <id>] [--dry-run]
+```
+
+- Reads the execution from the application's history (`@Application({ executionRecordRetention })`,
+  reference 09) — runs nothing, calls no model — and adds one `evalCase({ … })` to the suite's
+  `cases`: its start's input as the case's one `turn(…)`, its tenant and execution values (none for
+  the default tenant without fields), the thread's earlier **finished** turns as `history:
+[pastTurn(Start, input, Finish, output)]` (oldest first), and the tool calls it ran (succeeded,
+  failed or timed out — not declined or blocked), each tool with the same arguments once, as
+  `tools: { required: [toolCall(Tool, arguments)] }`. The classes it names are imported into the
+  suite's file (merged into an import of the same module), with `pastTurn` / `toolCall` / `turn`.
+- Values are the history's: **masked** as it keeps them (`<email>`, tokens), so read the case and
+  replace what a turn needs real before you run it; then tighten `required` to the partials that
+  matter and add `forbidden` / `invariants` / judges by hand.
+- `--suite` is optional when the application has one suite; the suite's `start` must be the
+  execution's (`[eval.case-start-mismatch]`). An id two tenants kept needs `--tenant`
+  (`records.ambiguous-execution`, exit 2); an unknown one is `records.not-found` (3); an application
+  that keeps nothing `records.not-kept` (3); a case name the suite already has exit 4. A tool the
+  project has no class for is left out and named in the notes.
+- `npx agboss check` afterwards: the new case is assembled with the suite (`eval.case-invalid` for
+  a value that no longer fits).
+
 ## Evals on real traffic
 
 ```
