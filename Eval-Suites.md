@@ -2,8 +2,8 @@
 
 An eval suite declares what a run on a live model must do, case by case (#396). The entry
 `agboss/eval` holds the decorator and the builders of its cases and checks only — nothing runs at
-import. A suite is assembled on its application before anything runs; the runner is the CLI's and
-comes with #396 PR 2.
+import. A suite is assembled on its application before anything runs — by `agboss check` (Loop 0) and
+by its runner, `agboss eval run` ([below](#running-a-suite-agboss-eval-run), #396 PR 2).
 
 - One class per file: `eval-suites/<name>.eval-suite.ts`, its `name` kebab-case ending with
   `-eval-suite`, its class with `EvalSuite` (`[name.kind-suffix]`).
@@ -240,3 +240,80 @@ too (`[judge.not-a-judge]`, `[judge.no-model]`, `[judge.model-on-code-judge]`).
 Then the cases' values: `EvalCaseInvalidError` (`eval.case-invalid`, from `agboss`) lists every
 issue at once — `case "x": tenant.plan — <reason>`, `turns[0].text`, `history[1].output.status`,
 `variants[0]`, `turns` (no turn) — the field named, never the value.
+
+## Running a suite: `agboss eval run`
+
+```bash
+agboss eval run --suite refunds-eval-suite --runs 3 --env eval --report .artifacts/eval/main.json
+```
+
+- **Where suites are found**: every `eval-suites/*.eval-suite.ts` under the folder of the
+  application file (any depth; `node_modules` and dot folders skipped), each module's exported
+  `@EvalSuite` classes whose `start` is one of the application's starts. `--suite` names one by its
+  full name; with a single suite it may be left out. Several and none named, or a name none has →
+  `eval.unknown-suite`, exit 2, the suites listed.
+- **The application** is built as `createApp` builds it, on the `--env` environment (default `dev`):
+  its services, its model providers, its stores and budgets. The suite is assembled first — its rules
+  (`graph.rules`, exit 3), then its cases' values (`eval.case-invalid`, exit 3) — before any case runs.
+- **Each case runs `--runs` times** (k, default 1), one run after the other, each on a thread of its
+  own: the case's `history` is written into the thread (each past turn a finished turn of the
+  workflow — `start <name>: <input>` / `finish <name>: <output>` — no model call), its `turns` run in
+  order through `app.execute` with the case's `tenant` / `execution` (validated as there), then the
+  checks judge the last turn, in order, under the suite's cascade. A turn that fails, or an earlier
+  one that pauses, ends the run with its `error: { code, message }` and no checks.
+- **`checkTrajectory()`** reads the last turn's `result.toolCalls` ([Testing](Testing)): a `required`
+  tool needs a call the tool ran (`Succeeded`, `Failed` or `TimedOut`) whose input matches the
+  partial; a `forbidden` one fails on any call, even one that never ran; an invariant must hold on
+  every call with checked arguments (not `InvalidArguments`). Every broken expectation is named in
+  the reason: `get-order-tool not called with {"orderId":"7"} (required; 0 call(s)); delete-order-tool
+  called (forbidden)`.
+- **A judge** (`judgedBy(Judge)`, the suite's or the case's) is created by the application's container
+  and runs in the frame of the case's last execution: its services, an injected `ExecutionContext`
+  (that execution's `executionId` and thread), the project's `TenantContext` / execution fields with
+  the case's values. It gets the finish's output as its DTO (`variant` = the finish's output class),
+  `task` (the last turn's start line), `attempt: 0` and the last turn's `toolCalls`. A run that ended
+  at a finish the judge does not judge — or at none (a pause) — fails that check
+  (`the run ended at hand-over-workflow-finish, whose output answer-grounded-judge does not judge`).
+  A model judge an agent also lists uses that binding; one only a suite lists is bound through the
+  application's models; its calls are counted in the application's budgets and in the check's
+  `spentUsd`. A judge that throws fails its check with the error's message.
+- **Pass, pass@k, pass^k** (S2 Q6): a run passes when every check that ran passed — a skipped check
+  fails the run. Per case, over its k runs: **pass@k** = at least one passed, **pass^k** = every one
+  passed (n = k). A case with pass@k and not pass^k is **unstable** — a candidate for deterministic
+  code ([above](#the-cascade-cheapest-check-first)).
+
+What it prints:
+
+```
+refunds-eval-suite · desk-workflow 1.0.0 · config 7c1e09 · 3 cases × 3 runs · env eval
+case                             pass@3  pass^3  runs  first failure
+refund-within-policy             yes     yes     ✓✓✓
+prohibition-survives-compaction  yes     no      ✓✗✓   run 2: trajectory: issue-store-credit-tool called (forbidden)   unstable
+fresh-price-beats-memory         yes     yes     ✓✓✓
+pass@3 3/3 · pass^3 2/3 · unstable 1 · judge calls 8 (1 skipped by the cascade) · spent $0.3120
+report → .artifacts/eval/main.json
+```
+
+The exit code says whether the suite ran (0), never how well — comparing against a baseline comes
+with `--baseline` (#396 PR 3).
+
+### The run artifact
+
+`--report <run.json>` writes it (folders created); `--json` carries the same object as the envelope's
+`result` (`command: "eval"`, the file in `created`). It is also the reference a later run is read
+against, so it says what it is and the version of its shape (#396 S3):
+
+| Field | What it holds |
+| --- | --- |
+| `kind` | always `"agboss.eval-run"` |
+| `schemaVersion` | `1`: a reader refuses a version it does not know |
+| `suite`, `start`, `cascade`, `runs` | the suite's name and start, its cascade, k |
+| `application`, `workflow` | `{ name, version }` of each |
+| `configHash` | the workflow's fingerprint (`agboss describe --json`): what the runs ran on |
+| `environment` | the environment's name |
+| `startedAt`, `endedAt` | ISO 8601, on the application's `Clock` |
+| `cases[]` | `name`, `caseHash` (the case as written, its tools' expectations, judges, the suite's checks and cascade — a changed case is not compared), `passed` (runs that passed), `runs`, `passAtK`, `passHatK`, `isUnstable`, `runResults[]` |
+| `cases[].runResults[]` | `run` (1…k), `threadId`, `executionId` and `finish` of the last turn, `passed`, `checks[]`, `error?`, `spentUsd` |
+| `…checks[]` | `check` (`trajectory` or the judge's name), `status` (`CheckStatus`: `passed`, `failed`, `skipped`), `reason?`, `skippedBy?` (the failed check that skipped it), `metrics?` (a judge's), `spentUsd?` (a model judge's) |
+| `summary` | `cases`, `passAtK`, `passHatK`, `unstable` (counts of cases), `judgeCalls` (judge checks that ran), `skippedByCascade` |
+| `spend` | `{ totalUsd }`: every turn's execution and every judge's model calls |

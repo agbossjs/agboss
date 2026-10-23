@@ -203,7 +203,7 @@ or pass --application <path>`; the module must export exactly one `@Application`
 `--workflow <path>` on any command; `agboss generate` takes `--workflow <full name>`
 ([above](#create-and-generate-angular-like)).
 
-The commands that **run one workflow** — `chat`, `run`, `eval`, `replay`, `golden add`, `compare` —
+The commands that **run one workflow** — `chat`, `run`, `eval score`, `replay`, `golden add`, `compare` —
 choose it by its start, **by the start's full name**, the same string as in `name`, traces, records
 and `agboss describe` (a start belongs to exactly one workflow; a child workflow's starts count too):
 
@@ -212,7 +212,7 @@ agboss chat                                                    # the application
 agboss run --start inbox-workflow-start "Where is order 7?"    # a start taking WorkflowStartTextDto
 agboss run --start screening-workflow-start --input '{"name":"Acme"}'
 agboss run --start batch-screening-workflow-start --input-file companies.json
-agboss eval --start screening-workflow-start
+agboss eval score --start screening-workflow-start
 agboss golden add --start screening-workflow-start --name smoke --from-last 20
 agboss compare --start screening-workflow-start --profiles base,cheap-router --golden smoke
 ```
@@ -249,7 +249,8 @@ and `; `.) `agboss chat` sends what is typed as a text, so its start takes `Work
 | `agboss check --strict` | the same, the analyser's warnings (`[flow.path-too-deep]`, `[graph.child-without-failure-finish]`) and the application's assembly warnings (`[application.in-memory-cost-ledger]`, `[application.in-memory-pauses]`, #261) errors — exit 3; without `--strict` they are printed as `warning: …` lines ([Workflow as a step](Workflow-as-a-step#errors)) |
 | `agboss check --models` | every model setting of every workflow of the application against what its resolved provider says the model supports — all problems at once, exit 1 on any; no model call, but it connects, so the chosen environment's secrets must be set — a missing one names its variable ([Model providers](Model-providers#fail-fast-settings-must-fit-their-models)) |
 | `agboss check --cassettes` | also every VCR cassette under the working directory against the application's components (#395): a component whose prompt or schema hash changed since it was recorded, or one the application no longer has, is `[vcr.stale-cassette]` (exit 3) — fixed by `AGBOSS_VCR_MODE=RECORD_STALE npm test`, never by a hand edit; a version 1 cassette is a `hint:` line; no test runs, no key ([Testing](Testing#stale-cassettes-395)) |
-| `agboss eval` / `agboss replay` `[--start <name>]` | score recent runs of the start's workflow with Jev / re-run a prompt version |
+| `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>]` | run an `@EvalSuite` on the application: each case k times, its checks under the cascade, pass@k / pass^k per case, the run artifact ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run), #396) |
+| `agboss eval score` / `agboss replay` `[--start <name>]` | score recent runs of the start's workflow with Jev / re-run a prompt version |
 | `agboss golden add [--start <name>] --name <n>` | recent real tasks of the start's workflow as a golden set |
 | `agboss compare [--start <name>] --profiles base,<p>` | profiles side by side on the start's workflow ([Profiles and comparisons](Profiles-and-comparisons)) |
 | `agboss dev [--strict]` | watch mode: `agboss check` rerun in a short-lived process on every change of the application's `src/` — the types regenerated, the problems printed ([below](#watch-mode-and-studio-268)) |
@@ -264,9 +265,29 @@ problem) · 4 conflict.
 `agboss chat` and `agboss run` build the application with `createApp` (the profile applied), send the
 input to the chosen start, print the finish's output, ask in the terminal about each pause the
 thread's owner answers and continue it with `app.resume({ pauseId, decision })` ([Pauses](Pauses)),
-and close the app (components' `onStop`, MCP servers) at the end. `eval`, `replay`, `golden` and
-`compare` assemble the application and work on the start's workflow — a `--profile` is that
+and close the app (components' `onStop`, MCP servers) at the end. `eval score`, `replay`, `golden`
+and `compare` assemble the application and work on the start's workflow — a `--profile` is that
 workflow's own (`profiles/<workflow>/<name>.yaml`).
+
+### `agboss eval`: subcommands (#396)
+
+`eval` is one command of two subcommands, each with its own options and help (`agboss help eval run`,
+`agboss eval run --help`; `agboss help eval --json` lists both under `subcommands`):
+
+- `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--env <name>]` — an eval
+  suite on the application ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run)). Exit 0 when
+  the suite ran, whatever its pass rates; 2 for `--runs` below 1 (`usage.option-value`) or
+  `eval.unknown-suite`; 3 when the suite does not assemble (`graph.rules`) or its cases' values do
+  not fit (`eval.case-invalid`).
+- `agboss eval score [--start <name>] [--version <v>] [--limit N] [--profile <name>]` — the Jev
+  scoring of recorded runs, what the bare `agboss eval` did before.
+- The bare `agboss eval` prints its help (the subcommands listed) and exits 2
+  (`usage.missing-argument`; under `--json` only the envelope); an unknown subcommand is
+  `usage.unknown-command`, the known ones named.
+
+`agboss check` assembles the application's eval suites too — Loop 0 of the eval pipeline: their rules
+and their cases' values, each problem on the suite's file (`eval-suites/broken.eval-suite.ts
+eval.duplicate-case …`), `eval-suites` in its list of checks when the application has any.
 
 A project made by `agboss create` gets `"agboss": { "application" }` in its `package.json` and
 scripts without a path — `"chat": "agboss chat --start <project>-text-workflow-start"`,

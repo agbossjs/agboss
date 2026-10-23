@@ -3,6 +3,25 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `agboss eval run`: suites, k runs, pass@k / pass^k, the cascade (#396 PR 2)
+
+- **Breaking — `agboss eval` is made of subcommands** ([CLI](CLI#agboss-eval-subcommands-396)):
+  today's scoring of recorded runs is `agboss eval score` (the same options); the bare `agboss eval`
+  prints its subcommands and exits 2 (`usage.missing-argument`). Migration: add `score` after
+  `eval` — `agboss eval score --start …` (job-scout's `npm run eval` does it).
+- **Added — `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--env <name>]`**
+  ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run)): the application built as
+  `createApp` builds it, an `@EvalSuite` assembled on it, each case run k times — its history
+  written into its thread, its turns run with the case's tenant and execution values, the trajectory
+  check over `result.toolCalls`, judges in the frame of the case's last execution, the cascade —
+  pass@k / pass^k per case, `unstable` for pass@k without pass^k; the run artifact (`kind:
+  "agboss.eval-run"`, `schemaVersion: 1`) with `--report`, the envelope's `result` with `--json`. A
+  run ending at a finish its judge does not judge fails that check. New code `eval.unknown-suite`.
+- **Added — `agboss check` checks eval suites** (Loop 0): every `eval-suites/*.eval-suite.ts` of the
+  application assembled, its problems on its file, `eval-suites` in the checks.
+- **Fixed — the generated types' context blocks are sorted**: two applications that declare their
+  own contexts no longer make `.agboss/types.d.ts` depend on the order of the workflows.
+
 ## Unreleased — `testCompaction` (#395 PR 5)
 
 - **Added — `testCompaction(Compaction, options?)`** ([Testing](Testing#unit-runners--one-component-on-its-own)):
