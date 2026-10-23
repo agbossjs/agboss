@@ -72,7 +72,7 @@ export class ShopA2aCallerResolver implements A2ACallerResolver<typeof SupportWo
 }
 ```
 
-- `resolveCaller({ route, http })` gets the route (`A2ARoute.Execute` / `Resume`) and the raw
+- `resolveCaller({ route, http })` gets the route (`A2ARoute.Execute` / `Resume` / `Cancel`) and the raw
   `IncomingMessage` — its headers and its socket (a client certificate for mTLS) — **never its
   body**: it runs before the body is read and before any header is written.
 - It answers with `A2ACallerResolution` only (`A2ACallerResolutionKind`; branded — a plain object
@@ -205,7 +205,7 @@ with no code of yours:
 
 | Header        | What it is                                                                                                             |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `agboss-mesh` | the `MeshEnvelope`, an unsecured JWS (`alg: "none"`, signed from #398 PR 2): `schema`, `issuer`, `origin`, `callChain` |
+| `agboss-mesh` | the `MeshEnvelope`, a JWS — unsecured (`alg: "none"`) or signed (`EdDSA`, [below](#trusted-peers--signed-envelopes-398-pr-2)): `schema`, `issuer`, `origin`, `callChain` |
 | `traceparent` | W3C trace context: the caller's trace id continued (its own request's `traceparent`), else one of its root execution   |
 
 `origin` (`MeshOrigin`) names the calling `rootExecutionId`, `executionId`, `parentExecutionId?`,
@@ -215,9 +215,9 @@ call's key ends with its call id). `callChain` lists the applications the reques
 caller's own hop last. Ids only: no `ownerId`, no `tenantId`, no input values. Outside an execution
 (a script's `new A2AClient(…)`) nothing is sent.
 
-**On the receiver the envelope is a claim.** The listener reads it into `A2ACallerRequest.envelope`
-for the resolver — never verified in this release, so never the tenant, a budget, a deadline or a
-trusted origin. A header it cannot read (not an unsecured JWS of `schema: 1`, too long, a hop without
+**On the receiver the envelope is a claim** — unless a trusted peer signed it
+([below](#trusted-peers--signed-envelopes-398-pr-2)). The listener reads it into
+`A2ACallerRequest.envelope` for the resolver: never the tenant. A header it cannot read (not an unsecured JWS of `schema: 1`, too long, a hop without
 its id) is ignored: the request runs as one without — stripping the header is no different. What
 the listener applies anyway, after the caller is resolved and before the body is read (a caller can
 only make its own request fail with it):
@@ -272,5 +272,98 @@ export class LoopedWorkflowFinish {}
 export class OrdersWorkflow {}
 ```
 
-Not in this release (#398 PR 2): signatures and trusted peers, the caller's remaining budget and
-deadline, the origin on records and events, deduplication by `idempotencyKey`, `/cancel`.
+### Trusted peers — signed envelopes (#398 PR 2)
+
+An application that names its keys in `@Application({ mesh })` (`MeshOptions`, each peer a
+`MeshPeer`) signs every envelope it sends and
+every run report it answers with (JWS `EdDSA`, Ed25519); its `peers` are the applications whose
+signatures it checks. Keys are PEM in environment fields, named by field as a `@ModelProvider`'s
+`apiKey` is: the private key a `Secret` field (PKCS #8, `-----BEGIN PRIVATE KEY-----`), a peer's
+public key a plain text field (SPKI, `-----BEGIN PUBLIC KEY-----`) — it is public.
+
+<!-- snippet-context
+import { Application, type Secret } from "agboss";
+export class BillingWorkflow {} // a @Workflow of its own
+-->
+
+```ts
+// environments/billing.environment.ts — the contract; each environment sets
+// meshSigningKey: secret("MESH_SIGNING_KEY"), ordersPublicKey: env("ORDERS_PUBLIC_KEY")
+export class BillingEnvironment {
+  meshSigningKey!: Secret;
+  ordersPublicKey!: string;
+}
+
+@Application({
+  name: "billing-application",
+  version: "1.0.0",
+  environment: BillingEnvironment,
+  workflows: [BillingWorkflow],
+  mesh: {
+    signingKey: "meshSigningKey",
+    peers: [{ application: "orders-application", verifyKey: "ordersPublicKey" }],
+    // idempotencyRetention: minutes(30) — how long a trusted request's answer is kept
+  },
+})
+export class BillingApplication {}
+```
+
+At assembly a key field the contract lacks is `[mesh.signing-key-missing]` /
+`[mesh.unknown-peer-key]`, a peer listed twice `[mesh.duplicate-peer]`; at start a field that holds
+no Ed25519 key of its kind fails it — `[mesh.invalid-key] meshSigningKey holds no Ed25519 private
+key (PKCS #8 PEM) (…)`, never the value. `maxMeshHops` stays a setting of its own.
+
+A signed envelope adds `issuedAt`, `expiresIn` (`PT60S`), `bodyHash` (`sha256:<hex>` of the body),
+and the caller's claims `budget { remaining, currency: "USD" }` (what its execution has left) and
+`deadline { remaining }` (ISO 8601 duration: the calling tool's timeout or its execution's
+deadline, the earlier). `origin.step.tool` names the calling tool.
+
+**A request is trusted only when both hold:** the caller resolver names its `peer` —
+`A2ACallerResolution.resolved({ …, peer: "orders-application" })`, what your transport proved
+(mTLS, a token) — and the envelope carries that peer's valid signature. The order of a `POST`:
+
+1. the envelope read; a signed one of a known issuer verified — its signature, then `issuedAt` +
+   `expiresIn` on the application's `Clock` (30 s of tolerance): a bad one is `401`
+   `{ "code": "mesh.signature-invalid" | "mesh.envelope-expired" }`, before the resolver;
+2. the caller resolved (above), then the chain (loops, hops);
+3. the body read: a trusted envelope's `bodyHash` must be its hash — else `401 mesh.body-mismatch`;
+4. a trusted `POST /execute` deduplicated by `(tenant, peer, origin.step.idempotencyKey)` in the
+   application's `MeshRequestRepository` ([Several instances](Several-instances)): a repeat gets the
+   kept answer without running, one while the first still runs `409 mesh.request-in-progress`; a
+   run that did not answer is forgotten;
+5. the run.
+
+A peer's public key comes from `mesh.peers`, or from the listener's `meshVerifier` — an
+`@Injectable` `MeshVerifier` (`verifyKeyOf(issuer)` → PEM, or `undefined`) listed in `providers`
+and asked first: `a2aHttpListener(app, { start, callerResolver, meshVerifier })`.
+
+What a trusted request gets — an untrusted one none of it:
+
+| From the caller                      | The receiver                                                                                                  |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `budget.remaining`                   | one more execution budget, `caller-budget` — it only lowers its own: `BudgetExceededError` (`"limited"`)      |
+| `deadline.remaining`                 | the execution's deadline, the smaller of it and its own: `DeadlineExceededError` (`limit.deadline`)           |
+| `origin` and the chain's length      | `executionContext.origin`, the execution record's `origin` and every observer event's (`ExecutionOrigin`)     |
+| its body and idempotency key         | the body checked, the request deduplicated                                                                    |
+
+`ExecutionOrigin` is the caller's `MeshOrigin` plus `application` (the peer) and `hops` (the
+applications before this one). Its answer — the `A2AExecutionResponse` — carries `executionId`,
+`spend { total, currency }` and `report`: a run report (`MeshRunReport`: `issuer`, `executionId`,
+`spend`, `bodyHash`, `issuedAt`) the receiver signs. The caller verifies it with its own
+`mesh.peers` key of the issuer and its request's `bodyHash`, then records the reported spend in the
+calling tool's spend (`a2a:<issuer>` as its model, `byModel`) and the remote execution in
+`ToolCallRecord.remote` (`ToolCallRemote`: `application`, `executionId`). An unsigned or unverified
+report is ignored: a caller never pays what an untrusted peer says.
+
+**The deadline** is yours too: `app.execute(Start, input, { deadline: seconds(30) })` — fixed on the
+`Clock` when the execution starts, kept in its state (a pause counts), checked where the budgets
+are: before every agent and router step and every model call (a call in flight is not cut short).
+`DeadlineExceededError` (`limit.deadline`: `deadline`, `deadlineAt`) is a `LimitExceededError`.
+
+**`POST <base>/cancel { threadId }`** cancels the running execution of the caller's thread or drops
+its pause — the caller resolved first, its tenant's thread only (another tenant's `ticket-7` is
+never touched): `{ threadId, status: "cancelled" }`, or `status: "failed"` with the code
+(`run.unknown-thread`, …). `A2AClient.cancel(threadId)` calls it.
+
+Not in this release (#398 PR 3): a peer's contract price (a caller records the reported spend
+only), the `audience` claim.

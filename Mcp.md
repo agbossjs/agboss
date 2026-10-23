@@ -112,3 +112,15 @@ admitted start runs with the chain (its own calls carry it on); an execution or 
 with one of these limits answers the same way. The AGBoss client throws such a result as
 `MeshLoopDetectedError` / `HopsLimitExceededError` — the calling step fails with it, and
 `McpServerClient.call` passes it on as it is.
+
+**Trusted peers (#398 PR 2).** With `@Application({ mesh })` the envelope is signed
+([A2A → Trusted peers](A2A#trusted-peers--signed-envelopes-398-pr-2)) and its `bodyHash` is the hash
+of the call's `JSON.stringify(arguments)`. The session names its peer — what the transport
+authenticated: `createMcpService(app, X).connect(transport, { peer: "orders-application" })` (and
+the same option of the HTTP session). A call whose envelope carries that peer's valid signature,
+unexpired, for these arguments is trusted: it runs on the caller's budget (`caller-budget`),
+deadline and origin, and its result's `_meta["agboss.dev/report"]` is the signed run report the
+AGBoss client verifies and records (`mcp:<issuer>` spend, `ToolCallRecord.remote`). A bad signature,
+an expired envelope or other arguments are refused before anything runs — an error result with
+`_meta["agboss.dev/error"]` `{ code: "mesh.signature-invalid" | "mesh.envelope-expired" |
+"mesh.body-mismatch" }`. MCP calls are not deduplicated (`_meta.callId` is the server's to use).

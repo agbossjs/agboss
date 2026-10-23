@@ -21,6 +21,7 @@ shared implementation of each:
 | `ExecutionLeaseRepository`  | one holder per execution tree (below)                                           |
 | `ExecutionTreeRepository`   | the shared state of one request, read by its executions on any instance         |
 | `RateLimitRepository`       | a model provider's limit, its 429 pause and its circuit breaker hold on every instance (#266) |
+| `MeshRequestRepository`     | a trusted mesh request answered once, whichever instance its repeat reaches (#398) |
 
 Each contract has a ready **SQLite** implementation (#265 PR 3), or a project lists its own
 (`extends` the contract, `@Injectable({ deps })`, [below](#your-own-implementation)).
@@ -36,6 +37,7 @@ Each contract has a ready **SQLite** implementation (#265 PR 3), or a project li
 | `ExecutionLeaseRepository`  | `SqliteExecutionLeaseRepository`  | `execution_leases`                |
 | `ExecutionTreeRepository`   | `SqliteExecutionTreeRepository`   | `execution_tree_keys`             |
 | `RateLimitRepository`       | `SqliteRateLimitRepository`       | `rate_limit_slots`, `rate_limit_window_entries`, `rate_limit_pauses` |
+| `MeshRequestRepository`     | `SqliteMeshRequestRepository`     | `mesh_requests`                   |
 
 Every row carries the tenant (#261): the threads and the records `tenant_id`, `paused_executions`
 is keyed by `(tenant_id, thread_id)`, a checkpoint and its writes are tagged with the run's tenant,
@@ -111,7 +113,7 @@ records the application's `IdGenerator` (#313: a new thread's id):
 
 | Implementation | Its `deps` |
 | --- | --- |
-| `SqliteCheckpointSaver`, `SqliteExecutionTreeRepository`, `SqliteCostLedgerRepository` (#261 PR 5: each counter's period is named by the runtime from the `Clock`) | `[SqliteConnection]` |
+| `SqliteCheckpointSaver`, `SqliteExecutionTreeRepository`, `SqliteMeshRequestRepository`, `SqliteCostLedgerRepository` (#261 PR 5: each counter's period is named by the runtime from the `Clock`) | `[SqliteConnection]` |
 | `SqlitePausedExecutionRepository` | `[SqliteConnection, Clock]` |
 | `SqliteExecutionLeaseRepository`, `SqliteRateLimitRepository` | `[SqliteConnection, Clock, ApplicationContext]` |
 | `SqliteExecutionRecordRepository` | `[SqliteConnection, Clock, ApplicationContext, IdGenerator]` |

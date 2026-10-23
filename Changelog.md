@@ -3,6 +3,39 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — mesh trust: signed envelopes, origin, the caller's budget and deadline, run reports, dedupe, `/cancel` (#398 PR 2)
+
+- **Added — `@Application({ mesh: { signingKey?, peers?, idempotencyRetention? } })`**
+  ([A2A](A2A#trusted-peers--signed-envelopes-398-pr-2)): `MeshOptions` / `MeshPeer` — the field of
+  the application's Ed25519 private key (a `Secret`, PKCS #8 PEM) and each peer's public key field
+  (text, SPKI PEM). Envelopes and run reports are signed (JWS `EdDSA`) with `issuedAt`, `expiresIn`,
+  `bodyHash`, and the caller's `budget` / `deadline` claims; `origin.step.tool`. New rules
+  `[mesh.signing-key-missing]`, `[mesh.unknown-peer-key]`, `[mesh.duplicate-peer]`; at start
+  `[mesh.invalid-key]`. `maxMeshHops` is unchanged (flat).
+- **Added — trusted peers**: `A2ACaller.peer?` (`A2APeer`) — the peer a resolver authenticated; a
+  request is trusted when its envelope carries that peer's valid signature. Before the resolver the
+  listener refuses a bad signature or an expired envelope (`401 mesh.signature-invalid` /
+  `mesh.envelope-expired`), after it a body that is not the signed one (`401 mesh.body-mismatch`).
+  `a2aHttpListener(app, { meshVerifier })` — a `MeshVerifier` (`verifyKeyOf(issuer)`) for peers'
+  keys. MCP: `McpSessionOptions.peer`.
+- **Added — what a trusted request gets**: the caller's remaining budget as the execution budget
+  `caller-budget` (the receiver only lowers its own), its deadline, and its origin —
+  `executionContext.origin`, `ExecutionRecord.origin`, `ExecutionEvent.origin` (`ExecutionOrigin`).
+- **Added — `app.execute(…, { deadline })`** and `DeadlineExceededError` (`limit.deadline`:
+  `deadline`, `deadlineAt`; a `LimitExceededError`): checked before every step and model call.
+- **Added — run reports**: a trusted answer's `report` (A2A) / `_meta["agboss.dev/report"]` (MCP),
+  a signed `MeshRunReport` (`MeshSpendReport`); the caller verifies it and records the spend
+  (`a2a:<issuer>` / `mcp:<issuer>`) and `ToolCallRecord.remote` (`ToolCallRemote`). The
+  `A2AExecutionResponse` gains `executionId` and `spend`.
+- **Added — `MeshRequestRepository`** (infrastructure, in memory; `SqliteMeshRequestRepository`,
+  table `mesh_requests`; `MeshRequestKey`, `MeshRequestRecord`): trusted `POST /execute` requests
+  deduplicated by `(tenant, peer, idempotencyKey)` — a repeat gets the kept answer, one in flight
+  `409 mesh.request-in-progress`; removed after `idempotencyRetention` (default 30 min) by the
+  recovery sweep; pinged by readiness.
+- **Added — `POST <base>/cancel { threadId }`** (`A2ARoute.Cancel`) and `A2AClient.cancel(threadId)`.
+- **Changed — an invalid streaming body**: `400` JSON, as for a non-streaming one (it was an SSE
+  failure event).
+
 ## Unreleased — `agboss eval calibrate`: a judge against people's labels (#396 PR 4)
 
 - **Added — `agboss eval calibrate --report <run.json> [--labels <labels.jsonl>]`**
