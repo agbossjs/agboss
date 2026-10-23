@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — OpenRouter host routing: pinned hosts and quantizations, `servedBy` (#395 PR 6)
+
+- **Breaking — `allow_fallbacks` is `allowFallbacks`** ([Model providers](Model-providers#pinning-the-host-and-the-precision-395)):
+  the TypeScript API of OpenRouter's routing is camelCase everywhere; only the request body stays
+  snake_case. Migration: in `requestFields: { provider: { … } }` rename `allow_fallbacks` to
+  `allowFallbacks` (a compile error until you do).
+- **Added — `quantizations: Quantization[]`** (`Quantization.Bf16`, `Fp8`, …) beside `only`,
+  `ignore`, `order`, `sort` and `allowFallbacks` in `OpenRouterRouting`.
+- **Added — `UsageRecord.servedBy`**: the host that served each call, from OpenRouter's answer
+  (plain or streamed).
+- **Added — `agboss check --models` checks the pins** ([CLI](CLI#run-inspect-evaluate)): a pinned
+  host or quantization no endpoint of a served model has is `[model.no-matching-endpoint]`.
+
 ## Unreleased — flow-patterns as the zero-cost harness: the operational contracts and every unit runner (#419 PR 2)
 
 - `examples/flow-patterns/src/desk/` adds a code `@Judge` on `toolCalls`, a `@Rag` knowledge base,

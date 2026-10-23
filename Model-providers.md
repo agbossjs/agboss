@@ -55,6 +55,48 @@ export class OpenRouterModelProvider extends OpenRouterProvider {
 `ProviderSort.Price` / `Throughput` / `Latency` — OpenRouter's `provider.sort`; closed sets are
 enums, so a string (`"price"`) does not compile.
 
+### Pinning the host and the precision (#395)
+
+`OpenRouterRouting` is OpenRouter's `provider` field in camelCase — `order`, `only`, `ignore`
+(hosts by OpenRouter's slug: `fireworks`, `together`), `sort`, `quantizations` (`Quantization.Int4`,
+`Int8`, `Fp4`, `Fp6`, `Fp8`, `Fp16`, `Bf16`, `Fp32`, `Unknown`) and `allowFallbacks`. The TypeScript
+API is camelCase everywhere; only the body sent to OpenRouter is snake_case (`allow_fallbacks`), so
+`allow_fallbacks` in `requestFields` does not compile. Pin a host and a precision when answers must
+not drift between upstreams — an eval, a benchmark, a cassette recorded once:
+
+<!-- snippet-context
+import { ModelCost, ModelProvider, OpenRouterProvider, PromptCaching, Quantization, Reasoning, RetryPolicy, type OpenRouterFields } from "agboss/models";
+import { minutes, seconds } from "agboss/units";
+-->
+
+```ts
+@ModelProvider({
+  name: "pinned-openrouter-model-provider",
+  description: "Kimi on Fireworks at bf16, no fallback",
+  serves: [/^moonshotai\//],
+  baseUrl: "https://openrouter.ai/api/v1",
+  apiKey: "openRouterApiKey",
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+  reasoning: Reasoning.modelDecides(),
+  promptCaching: PromptCaching.off(),
+  retryPolicy: RetryPolicy.none(),
+  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+})
+export class PinnedOpenRouterModelProvider extends OpenRouterProvider {
+  override readonly requestFields: OpenRouterFields = {
+    provider: { only: ["fireworks"], quantizations: [Quantization.Bf16], allowFallbacks: false },
+  };
+}
+```
+
+Every call's `UsageRecord.servedBy` names the host that served it — OpenRouter's `provider` of the
+answer, plain or streamed (absent when a provider does not say). `agboss check --models` asks
+OpenRouter for each served model's endpoints (`GET /models/<model>/endpoints`) and reports
+`[model.no-matching-endpoint]` for a pinned host (`only`) that does not serve the model, and for
+pinned `quantizations` no allowed host (in `only`, not in `ignore`) serves it at; the endpoints are
+never asked at startup.
+
 ## A custom transport: `complete(request)` (#385)
 
 A provider that is not an OpenAI-compatible HTTP server — AWS Bedrock through its SDK, Vertex AI, a
@@ -436,7 +478,8 @@ ConfigurationError: 2 model setting(s) do not fit their models
 ```
 
 Codes: `model.unsupported-setting` (reasoning form, cache retention or parts, `temperature`,
-`max_tokens`), `model.unknown-model`, `model.no-price`, `model.unserved`,
+`max_tokens`), `model.unknown-model`, `model.no-price`, `model.no-matching-endpoint` (`--models`
+only: a pinned host or quantization, above), `model.unserved`,
 `model.ambiguous-provider` (the last two also fail the assembly, above). **Nothing is substituted** — not the nearest effort, not the nearest
 retention, not "budget instead of both". Caching "where supported" on a model without caching is
 simply none.
