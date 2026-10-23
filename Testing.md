@@ -861,7 +861,9 @@ it("looks the order up in the book it is given", async () => {
   does not compile (#262 S115, S125); the injected `JudgeModel` is the judge's own model
   answering from `model` — `decideWith(…)` on a decision model, `replyWith(…)` on a chat model; the
   wrong call for its kind is `ModelKindError`, as at run time. The output is the verdict,
-  `JudgeVerdict.passed(…)` / `JudgeVerdict.failed({ reason })`.
+  `JudgeVerdict.passed(…)` / `JudgeVerdict.failed({ reason })`. A code judge (`decidedBy:
+  DecidedBy.Code`, #396) runs its `judge(input)` alone: no `model` (one is a `TestSetupError`), no
+  spend; the judge's assembly rules apply (`[judge.model-on-code-judge]`).
 - **`testGuardrail`** (#120 PR 2) checks the guardrail's own rules first (`-guardrail`, one refusal, a
   question, a threshold — a `GraphRuleError`), then asks its model on the text under its heading
   (`element` names the agent or router, default `test-agent`): `model: decideWith({ blocks: 0.9 })`

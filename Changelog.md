@@ -3,6 +3,27 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `agboss/eval`: `@EvalSuite` and code judges (#396 PR 1)
+
+- **Added — the entry `agboss/eval`** ([Eval suites](Eval-Suites)): `@EvalSuite({ name, description,
+  start, checks, cascade, cases })` in `eval-suites/<name>.eval-suite.ts` (`-eval-suite`), the case
+  builders `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, the checks
+  `checkTrajectory()` and `judgedBy(Judge)`, the enums `EvalCascade { StopAtFirstFailure, RunAll }`
+  and `CheckStatus { Passed, Failed, Skipped }`; types `EvalSuiteOptions`, `EvalSuiteMeta`,
+  `EvalCase`, `EvalCaseOf`, `EvalTurn`, `EvalPastTurn`, `EvalValueOf`, `EvalCheck`,
+  `TrajectoryEvalCheck`, `JudgeEvalCheck`, `EvalToolExpectations`, `ExpectedToolCall`,
+  `ToolArgumentsOf`, `ToolInvariant`. Declarations only — nothing runs at import; the runner comes
+  with PR 2. Assembly rules `[eval.unknown-start]`, `[eval.duplicate-case]`,
+  `[eval.judge-wrong-reply]`, `[name.kind-suffix]`; case values → `EvalCaseInvalidError`
+  (`eval.case-invalid`, root entry, with `EvalCaseIssue`).
+- **Added — code judges** ([Judges](Judges-And-Quality-Gates#a-code-judge--decidedby-decidedbycode-396)):
+  `@Judge({ decidedBy: DecidedBy.Code })` decides by `judge(input)` alone — no model, no cost — in
+  an agent's quality gate and in an eval suite; `model` does not compile on it,
+  `[judge.model-on-code-judge]` for a `model` or an injected `JudgeModel`; `testJudge` runs it
+  without a `model` script. `decidedBy` is optional (`DecidedBy.Model` by default); new types
+  `ModelJudgeMeta`, `CodeJudgeMeta`.
+- **Changed — `JudgeMeta` and `JudgeOptions`** are unions discriminated by `decidedBy` (`JudgeOptions`
+  is now a type alias, no longer an interface): code that reads `meta.model` narrows first.
 ## Unreleased — agboss/no-component-state knows every component decorator (#402)
 
 - **Fixed — `agboss/no-component-state` missed components** ([Components](Components)): `this.x = …`

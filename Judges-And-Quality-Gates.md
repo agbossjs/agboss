@@ -9,8 +9,9 @@ fill up with failed attempts — and once `maxRetries` retries are spent the run
 
 A `@Judge({ name, model, reply, deps })` class implements `JudgeHandler<TReply>`; the container
 creates it with its `deps`, and its **own** model is called through the model gateway, so its spend
-is in the run's cost report (`judge:<name>`). A judge without a model fails at app start
-(`[judge.no-model]`).
+is in the run's cost report (`judge:<name>`). A model judge without a model fails at app start
+(`[judge.no-model]`); a judge decided by code has none
+([A code judge](#a-code-judge--decidedby-decidedbycode-396)).
 
 A judge sees the agent's answer **as its DTO** (#262 S115). `reply` declares what it judges, in
 every shape an agent's `output` has:
@@ -104,6 +105,48 @@ export class GroundedJudge implements JudgeHandler<PlainTextDto> {
 ```
 
 `decide` on a chat model or `invoke` on a decision model throws `ModelKindError` (`model.wrong-kind`).
+
+## A code judge — `decidedBy: DecidedBy.Code` (#396)
+
+A judge whose rule is code — a length, a format, a side effect a service can look up — needs no
+model: `@Judge({ decidedBy: DecidedBy.Code })` decides by its `judge(input)` alone. No model call,
+cost 0, nothing to script; its services and the execution come through `deps` like any component's.
+`decidedBy` is absent on a model judge (`DecidedBy.Model`, the default) — the options are
+discriminated: a model judge requires `model`, on a code judge `model` does not compile. A code judge
+that names a `model` anyway (plain JS) or injects `JudgeModel` fails assembly with
+`[judge.model-on-code-judge]`; a `JudgeModel` reached through a service throws the same code when
+called. It runs in an agent's quality gate beside model judges — list the free one first, every
+judge runs — and in an eval suite's checks ([Eval suites](Eval-Suites)).
+
+```ts file=judges/one-sentence.judge.ts
+import { DecidedBy, ExecutionContext, Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "agboss";
+import { PlainTextDto } from "agboss/dto";
+
+@Judge({
+  name: "one-sentence-judge",
+  description: "The reply is one sentence",
+  decidedBy: DecidedBy.Code, // no model, no cost
+  reply: PlainTextDto,
+  deps: [ExecutionContext],
+})
+export class OneSentenceJudge implements JudgeHandler<PlainTextDto> {
+  constructor(private readonly executionContext: ExecutionContext) {}
+
+  judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const sentences: number = reply.text.split(/[.!?](\s|$)/u).filter((part) => part.trim() !== "").length;
+    const tenant: string = this.executionContext.tenant.tenantId;
+    return Promise.resolve(
+      sentences <= 1
+        ? JudgeVerdict.passed({ metrics: { sentences, tenant } })
+        : JudgeVerdict.failed({ reason: "answer in one sentence" }),
+    );
+  }
+}
+```
+
+In tests a code judge has no script — `mockLlm(OneSentenceJudge)` fails, naming why ("a code judge
+calls no model — mockOf() the services its judge() uses"); `testJudge(OneSentenceJudge)` runs it with
+no `model` (one is a `TestSetupError`) and no spend.
 
 ## A judge of a DTO answer
 
@@ -293,13 +336,14 @@ assembly with the other rules — before any model call, also by `agboss check`:
 import { Agent } from "agboss";
 import { CorrectnessJudge } from "./judges/correctness.judge.js";
 import { GroundedJudge } from "./judges/grounded.judge.js";
+import { OneSentenceJudge } from "./judges/one-sentence.judge.js";
 
 @Agent({
   name: "writer-agent",
   description: "Writes the answer",
   prompt: "Write the answer to the task.",
   model: "moonshotai/kimi-k2.6",
-  judges: [CorrectnessJudge, GroundedJudge], // a text agent: both judge PlainTextDto
+  judges: [OneSentenceJudge, CorrectnessJudge, GroundedJudge], // a text agent: all judge PlainTextDto
   maxRetries: 2,
 })
 export class WriterAgent {}

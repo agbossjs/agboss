@@ -21,6 +21,7 @@
 - [Testing](Testing)
 - [The test split](Test-split)
 - [Suites and Comparisons](Testing-Suites-And-Comparisons)
+- [Eval suites — @EvalSuite](Eval-Suites)
 - [Components](Components)
 - [Naming](Naming)
 - [Standard DTOs](Standard-DTOs)
