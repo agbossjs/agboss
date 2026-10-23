@@ -298,6 +298,7 @@ export interface CostLine extends TokenUsage {
     readonly costUsd: number;
     // (undocumented)
     readonly model: string;
+    readonly servedBy?: string;
 }
 
 // @public
@@ -1232,16 +1233,16 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/federation/federation-types.ts:38:3 - (ae-undocumented) Missing documentation for "blastRadius".
 // src/federation/federation-types.ts:45:3 - (ae-undocumented) Missing documentation for "applications".
 // src/federation/federation-types.ts:52:3 - (ae-undocumented) Missing documentation for "problems".
-// src/finops/usage.ts:66:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:67:3 - (ae-undocumented) Missing documentation for "category".
-// src/finops/usage.ts:68:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:69:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:70:3 - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts:78:3 - (ae-undocumented) Missing documentation for "totalUsd".
-// src/finops/usage.ts:79:3 - (ae-undocumented) Missing documentation for "calls".
-// src/finops/usage.ts:80:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts:81:3 - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts:84:3 - (ae-undocumented) Missing documentation for "byModel".
+// src/finops/usage.ts:72:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:73:3 - (ae-undocumented) Missing documentation for "category".
+// src/finops/usage.ts:74:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:75:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:76:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "totalUsd".
+// src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "calls".
+// src/finops/usage.ts:88:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts:89:3 - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/usage.ts:92:3 - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/analyse/steps.ts:164:3 - (ae-undocumented) Missing documentation for "least".
 // src/flow/analyse/steps.ts:165:3 - (ae-undocumented) Missing documentation for "most".
 // src/flow/analyse/worst-case.ts:28:3 - (ae-undocumented) Missing documentation for "start".
@@ -1256,7 +1257,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/loader/load-eval-suites.ts:20:3 - (ae-undocumented) Missing documentation for "file".
 // src/loader/load-eval-suites.ts:21:3 - (ae-undocumented) Missing documentation for "suite".
 // src/loader/load-eval-suites.ts:22:3 - (ae-undocumented) Missing documentation for "name".
-// src/models/problems.ts:20:14 - (ae-undocumented) Missing documentation for "problemLine".
+// src/models/problems.ts:21:14 - (ae-undocumented) Missing documentation for "problemLine".
 // src/models/uses.ts:10:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/uses.ts:11:3 - (ae-undocumented) Missing documentation for "purpose".
 // src/testing/vcr-check.ts:34:3 - (ae-undocumented) Missing documentation for "file".

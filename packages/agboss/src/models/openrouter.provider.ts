@@ -8,22 +8,16 @@ import {
 import { CachedPart, CacheRetention } from "./prompt-caching.js";
 import { ReasoningEffort, type Reasoning } from "./reasoning.js";
 import type { WireFields, WirePlan } from "./wire.js";
+import type { ProviderConnection, RoutingProblem } from "./handler.js";
+import {
+  endpointsOf,
+  routingProblemsOf,
+  routingWireFieldsOf,
+  type OpenRouterRouting,
+} from "./openrouter-routing.js";
+import { servedByFetch } from "./served-by.js";
 
-/** How OpenRouter orders the upstream providers of a model (its `provider.sort`, #269). */
-export enum ProviderSort {
-  Price = "price",
-  Throughput = "throughput",
-  Latency = "latency",
-}
-
-/** OpenRouter's provider routing (its `provider` field): prefer, sort or exclude upstream providers. */
-export interface OpenRouterRouting {
-  readonly order?: readonly string[];
-  readonly only?: readonly string[];
-  readonly ignore?: readonly string[];
-  readonly sort?: ProviderSort;
-  readonly allow_fallbacks?: boolean;
-}
+export { ProviderSort, Quantization, type OpenRouterRouting } from "./openrouter-routing.js";
 
 /** Request fields OpenRouter takes besides the OpenAI ones. */
 export interface OpenRouterFields {
@@ -72,6 +66,31 @@ function cachingSupportOf(entry: ModelEntry): PromptCachingSupport | undefined {
 export abstract class OpenRouterProvider<
   TFields extends OpenRouterFields = OpenRouterFields,
 > extends OpenAiCompatibleProvider<TFields> {
+  /** The routing in camelCase becomes OpenRouter's snake_case `provider` field (#395 PR 6). */
+  protected override wireFieldsOf(fields: TFields): WireFields {
+    const { provider, ...rest } = fields;
+    return {
+      ...Object.fromEntries(Object.entries(rest)),
+      ...(provider === undefined ? {} : { provider: routingWireFieldsOf(provider) }),
+    };
+  }
+
+  /** Every answer names the host that served it: copied into its usage (`UsageRecord.servedBy`). */
+  protected override responseFetch(send: typeof fetch): typeof fetch {
+    return servedByFetch(send);
+  }
+
+  /** The pinned hosts and quantizations no endpoint of `model` serves (`agboss check --models`). */
+  async routingProblems(
+    model: string,
+    connection: ProviderConnection,
+  ): Promise<readonly RoutingProblem[]> {
+    const routing: OpenRouterRouting = this.requestFields.provider ?? {};
+    const pins = (routing.only?.length ?? 0) + (routing.quantizations?.length ?? 0);
+    if (pins === 0) return [];
+    return routingProblemsOf(routing, await endpointsOf(model, connection));
+  }
+
   protected override reasoningFields(reasoning: Reasoning): WireFields {
     switch (reasoning.kind) {
       case "model-decides":

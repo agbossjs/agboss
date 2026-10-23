@@ -191,6 +191,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["ModelCost", "RetryPolicy", "RateLimitPolicy", "QueueBalancingStrategy", "ModelFailure"],
     ...["Reasoning", "ReasoningEffort", "PromptCaching", "CacheRetention", "CachedPart"],
     ...["ProviderSort", "ModelCallError", "usd", "testWith", "callTool", "replyWith"],
+    ...["Quantization", "OpenRouterRouting", "UsageRecord"],
     ...["ModelProviderHandler", "ModelProviderRequest", "ModelProviderResponse", "FinishReason"],
     ...["ModelProviderMessage", "ModelProviderMessageRole", "ModelProviderToolDefinition"],
     ...["ModelProviderToolCall", "ModelProviderUsage", "ModelProviderFailureError"],

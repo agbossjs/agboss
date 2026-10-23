@@ -44,7 +44,9 @@ there is no `--workflow <path>`.
   the starts listed. `run` checks `--input` against the start's `InputOf` field by field before
   anything starts.
 - `check --models` connects to the providers (the chosen environment's secrets must be set) and checks
-  every model setting against what its model supports; plain `check` needs no key.
+  every model setting against what its model supports, and OpenRouter's pinned hosts and
+  quantizations against each served model's endpoints (`[model.no-matching-endpoint]`, #395); plain
+  `check` needs no key.
 - `check --strict` makes the analyser's and the application's warnings errors (below).
 - `check` also assembles the application's eval suites (`eval-suites/*.eval-suite.ts` whose start is
   one of its starts): `eval-suites` in `result.checks`, each problem on the suite's file.
@@ -392,6 +394,7 @@ Printed as `warning: …` lines (exit 0); errors under `npx agboss check --stric
 | `[a2a.no-url]`                       | an `A2AClient` subclass without `@A2AAgent({ url })`                                            | add `@A2AAgent({ url })` or pass `url`                                                             |
 | `[a2a.no-contract]`                  | `execute` on an `A2AClient` without `@A2AAgent({ target, input, output })` or `contract`        | declare the contract, or call `send`                                                               |
 | `[application.expose-unlisted]`      | `a2aHttpListener(app, { expose })`: the expose is not in `@Application({ exposes })`            | list it there                                                                                      |
+| `[model.no-matching-endpoint]`       | `check --models`: no endpoint serves a pinned host or quantization                              | pin a host its endpoints list, or another quantization                                             |
 | `[vcr.stale-cassette]`               | `check --cassettes`: a component changed since recorded                                         | `AGBOSS_VCR_MODE=RECORD_STALE npm test`, never a hand edit; then run the evals                     |
 | `[federation.incompatible-schema]`   | `check --federation`: an export no longer accepts what a consumer sends, or gives what it reads | change the export compatibly, or ship a new start and move the consumers named in the blast radius |
 | `[federation.missing-target]`        | `check --federation`: a consumer's `target` is not exported by that snapshot                    | export the start / tool again, or update the consumers in the blast radius                         |
