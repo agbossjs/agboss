@@ -59,7 +59,8 @@ export interface AppDeps extends AgentExecutionDeps<string> {
   readonly models: readonly string[];
   /** The reply interpreters of its tree's channel roles (#267 PR 3): `app.resume({ reply })`. */
   readonly replies: ReplyReaderParts;
-  readonly executionHistory?: ExecutionHistoryKeeper | undefined; // #401, when it is kept
+  /** What keeps each root execution\'s record (#401), when the application keeps them. */
+  readonly executionHistory?: ExecutionHistoryKeeper | undefined;
   /**
    * Runs `onStop` of the components, waits for `executionsDone` (the running executions), runs
    * `onDestroy`, then closes MCP connections, tracing and the stores it opened.

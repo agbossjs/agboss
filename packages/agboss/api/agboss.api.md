@@ -334,8 +334,8 @@ export interface AppDeps extends AgentExecutionDeps<string> {
     //
     // (undocumented)
     readonly evaluation: EvalDeps;
-    // Warning: (ae-forgotten-export) The symbol "Infrastructure" needs to be exported by the entry point index.d.ts
-    readonly executionHistory?: Infrastructure["executionHistory"] | undefined;
+    // Warning: (ae-forgotten-export) The symbol "ExecutionHistoryKeeper" needs to be exported by the entry point index.d.ts
+    readonly executionHistory?: ExecutionHistoryKeeper | undefined;
     // Warning: (ae-forgotten-export) The symbol "FrameworkLog" needs to be exported by the entry point index.d.ts
     readonly log: FrameworkLog;
     readonly models: readonly string[];
@@ -5381,8 +5381,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 
 // Warnings were encountered during analysis:
 //
-// src/app/app-deps.ts:56:3 - (ae-undocumented) Missing documentation for "evaluation".
-// src/app/app-deps.ts:102:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/app-deps.ts:55:3 - (ae-undocumented) Missing documentation for "evaluation".
+// src/app/app-deps.ts:101:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/create-app.ts:57:3 - (ae-undocumented) Missing documentation for "profileRoot".
