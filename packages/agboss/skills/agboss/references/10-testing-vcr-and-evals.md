@@ -446,9 +446,11 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
 - **Matchers**: `toFollowPath([Start, …, Finish])`, `toFinishWith(Finish, output?)` (the whole output),
   `rejects.toFailWith(ErrorClass, { …fields, cause })` (through the cause chain),
   `toHaveChildExecutions(W, [{ item, finish | failedWith | cancelled }])`,
-  `toHaveHandledError(E, { at, by })`, `toHaveCalledTools([Tool])`, `toHavePausedAt(Agent)`; on
+  `toHaveHandledError(E, { at, by })`, `toHaveCalledTools([A, B])` and `toHaveToolCallMatching(Tool,
+partialOrCheck)` (the trajectory, below), `toHavePausedAt(Agent)`; on
   `mockLlm(X)` / `mockAction(A)`: `toHaveBeenCalledWith(partial)`, `toHaveBeenCalledTimes(n)`,
-  `toHaveReturned(Dto, fields?)`, `.inputs`, `.lastRequest`.
+  `toHaveReturned(Dto, fields?)`, `toHaveScriptedToolCalls([Tool])` (its model's calls, exactly, in
+  order), `.inputs`, `.lastRequest`.
 - **Errors only the real way**: `failWith(…)`, a rejecting `mockOf`, `mockTool(Tool).thenFail(ToolFailure.Timeout)`,
   scripts that reach a limit (`mockOf(ExecutionBudget).maxSpend.mockReturnValue(usd(0.001))` + a
   scripted `cost`), `app.cancel` / an aborted `signal`. Never throw a framework error by hand.
@@ -537,6 +539,14 @@ message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBloc
   whose step fails (`QualityGateError`, a blocked call, a guardrail, a limit) are in
   `result.toolCalls` and its `steps` entry (with `error`) when a side path takes the failure, and in
   the `ChildExecutionRecord` (`toolCalls`, `steps`) of a child it ends.
+- The trajectory matchers (`ToolCallMatchers`, registered by `agboss/testing/setup` as
+  `toolCallMatchers`) read the root's `result.toolCalls`: `toHaveCalledTools([A, B])` passes when
+  each was called at least once, in any order and whatever its status (`.not`: none of them was);
+  `toHaveToolCallMatching(Tool, expected)` when some call matches — `expected` a
+  `ToolCallExpectation<TInput>`: a deep partial of the input, or a check `(input) => boolean` run on
+  the calls whose input passed the tool's input check (`.not`: none matches). A child's calls are
+  asserted through `result.children`. The script matcher of `mockLlm(X)` is
+  `toHaveScriptedToolCalls([…])`: the model's calls exactly, in order.
 - A judge reads the visit's calls — every attempt's, real values — as `input.toolCalls`;
   `toolCallsOf(Tool, toolCalls)` gives one tool's calls typed by its input and output
   (`TypedToolCall`: narrowed by `status`). `testJudge` takes `toolCalls` optionally — `[]` when not
@@ -571,11 +581,12 @@ test("the skills agent looks the candidate up, whatever else runs", async ({ app
 
   const result = await app.execute(ScreeningWorkflowStart, { name: "Dana", cv: "TypeScript" }, { record: true });
 
-  // an invariant, not a position: every lookup succeeded, and one asked for Dana
+  // invariants, not positions: the archive was asked, once at least for Dana, and every lookup succeeded
+  expect(result).toHaveCalledTools([CandidateArchiveTool]);
+  expect(result).toHaveToolCallMatching(CandidateArchiveTool, { name: "Dana" });
   const lookups = toolCallsOf(CandidateArchiveTool, result.toolCalls);
   const succeeded = lookups.filter((call) => call.status === ToolCallStatus.Succeeded);
   expect(succeeded).toHaveLength(lookups.length);
-  expect(succeeded.some((call) => call.input.name === "Dana")).toBe(true); // typed by the tool's input
   const verdict = result.record?.steps.find((entry) => entry.step.nodeId === "verdict-agent");
   expect(verdict?.judgeVerdicts.map((judged) => judged.passed)).toEqual([true]);
 });
@@ -1091,8 +1102,12 @@ before `check` prints `ok:`.
    recorded cassette (VCR) for real answers replayed with no key or network.
 3. Assert the path and the finish (`toFollowPath`, `toFinishWith`) and **trajectory invariants**
    through `result.toolCalls` — which tools ran, with what input, how each ended — written so they
-   hold whatever the order of the calls (`toolCallsOf(Tool, result.toolCalls)`, filters on
-   `status`), never on the position of a step.
+   hold whatever the order of the calls, never on the position of a step:
+   `expect(result).toHaveCalledTools([GetOrderTool, CheckPolicyTool])` (each at least once),
+   `expect(result).not.toHaveCalledTools([DeleteOrderTool])` (none of them),
+   `expect(result).toHaveToolCallMatching(RefundTool, (input) => input.amountCents <= 10_000)` (a
+   partial of the input or a check of it), and `toolCallsOf(Tool, result.toolCalls)` with filters on
+   `status` for the rest.
 4. The loops on a live model come next: an eval suite (the section below) runs the same trajectory
    invariants first, then code judges, then model judges — its cascade and the pass@k rule are
    there.

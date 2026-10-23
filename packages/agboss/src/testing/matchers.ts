@@ -116,8 +116,14 @@ export const workflowMatchers = {
     return verdict(this, pass, `a failure ${error.name}${data} (or one it was caused by)`, got);
   },
 
-  toHaveCalledTools(this: MatcherContext, received: unknown, tools: readonly Class[]): Verdict {
-    if (!(received instanceof ComponentScript)) return wrongReceived("toHaveCalledTools", SCRIPT);
+  /** The scripted model called exactly these tools, in order (#395 S4: was `toHaveCalledTools`). */
+  toHaveScriptedToolCalls(
+    this: MatcherContext,
+    received: unknown,
+    tools: readonly Class[],
+  ): Verdict {
+    if (!(received instanceof ComponentScript))
+      return wrongReceived("toHaveScriptedToolCalls", SCRIPT);
     const names = tools.map(toolNameOf);
     const pass = this.equals(received.toolCalls, names);
     const said = `${received.label} to call ${names.join(", ") || "no tools"}`;
@@ -142,6 +148,7 @@ export interface WorkflowMatchers<R = unknown> {
     error: ErrorClass<TError>,
     fields?: ExpectedErrorFields<TError>,
   ): R;
-  toHaveCalledTools(tools: readonly Class[]): R;
+  /** `mockLlm(X)`'s model called exactly these tools, in order. */
+  toHaveScriptedToolCalls(tools: readonly Class[]): R;
   toHaveBeenAskedWith(request: ExpectedRequest): R;
 }

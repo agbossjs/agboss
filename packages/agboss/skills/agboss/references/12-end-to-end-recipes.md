@@ -996,7 +996,8 @@ test("the agent reads an article and asks billing", async ({ app, mcpOf, mockLlm
 
   const result = await app.execute(HelpdeskWorkflowStart, { text: "Why was I charged twice?" });
 
-  expect(mockLlm(HelpdeskAgent)).toHaveCalledTools([SearchKbTool, AskBillingTool]);
+  expect(mockLlm(HelpdeskAgent)).toHaveScriptedToolCalls([SearchKbTool, AskBillingTool]); // the script, in order
+  expect(result).toHaveCalledTools([AskBillingTool, SearchKbTool]); // the run: each at least once, any order
   expect(result).toFinishWith(HelpdeskWorkflowFinish, { text: "One charge is pending and will drop within 5 days." });
   expect(result.spend.byCaller["tool:ask-billing-tool"]).toBeCloseTo(0.002);
 });

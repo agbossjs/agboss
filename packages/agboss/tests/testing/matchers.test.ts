@@ -148,8 +148,8 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
       expect({}).toHavePausedAt(Support);
     }).toThrow("toHavePausedAt: expected a run result");
     expect(() => {
-      expect(run({})).toHaveCalledTools([]);
-    }).toThrow("toHaveCalledTools: expected mockLlm(…) of an agent or a router");
+      expect(run({})).toHaveScriptedToolCalls([]);
+    }).toThrow("toHaveScriptedToolCalls: expected mockLlm(…) of an agent or a router");
     expect(() => {
       expect(run({})).toHaveBeenAskedWith({});
     }).toThrow("toHaveBeenAskedWith: expected mockLlm(…)");
@@ -159,16 +159,19 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
 const test = testWith(DeskApplication);
 
 describe("AC12: matchers on mockLlm(…)", () => {
-  test("toHaveCalledTools and toHaveBeenAskedWith name the class", async ({ app, mockLlm }) => {
+  test("toHaveScriptedToolCalls and toHaveBeenAskedWith name the class", async ({
+    app,
+    mockLlm,
+  }) => {
     mockLlm(MainRouter).thenReturn(routeTo(Support));
     mockLlm(Support).thenReturn(callTool(OrderStatus, { orderId: "5" }), replyWith("Shipped."));
 
     await execute(app, ChatStart, { text: "where is 5?" });
 
-    expect(mockLlm(Support)).toHaveCalledTools([OrderStatus]);
-    expect(mockLlm(Writer)).toHaveCalledTools([]);
+    expect(mockLlm(Support)).toHaveScriptedToolCalls([OrderStatus]);
+    expect(mockLlm(Writer)).toHaveScriptedToolCalls([]);
     expect(() => {
-      expect(mockLlm(Support)).toHaveCalledTools([ReadNote]);
+      expect(mockLlm(Support)).toHaveScriptedToolCalls([ReadNote]);
     }).toThrow("expected Support to call read-note-tool, it called order-status-tool");
     expect(mockLlm(Support)).toHaveBeenAskedWith({ kind: "chat", input: "where is 5?" });
     expect(mockLlm(Support)).not.toHaveBeenAskedWith({ input: "where is 6?" });
