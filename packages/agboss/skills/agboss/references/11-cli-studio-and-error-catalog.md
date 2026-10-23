@@ -119,30 +119,26 @@ any model call. "→" separates the code that fails from the code that passes.
 
 ### Nodes, names and the graph
 
-| Code                                 | Means                                                                    | Before → after                                                                                                                    |
-| ------------------------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `[graph.not-a-node]`                 | a class on a path (or the workflow itself) has no component decorator    | `.toAgent(Helper)` on a plain class → decorate it `@Agent({ … })`                                                                 |
-| `[graph.wrong-kind]`                 | a step names a class of another kind                                     | `.toAgent(SaveAction)` → `.toAction(SaveAction)`                                                                                  |
-| `[graph.duplicate-node-name]`        | two classes share one `name` in the application                          | two `"review-agent"` → `"draft-review-agent"`, `"final-review-agent"`                                                             |
-| `[graph.no-workflow-start]`          | the flow has no `start(…)`                                               | `flow: [agent(X)…]` only → begin a path with `start(MyWorkflowStart)`                                                             |
-| `[graph.unreachable-node]`           | a node no start leads to                                                 | an `action(A)…` path nothing enters → lead a path to `A`, or delete its path                                                      |
-| `[graph.dead-end]`                   | a path, case, group or side path stops before a finish                   | `.toAgent(X)` as the last call → `.toAgent(X)` `.returns(XDto)` `.toFinish(F)`                                                    |
-| `[graph.next-after-workflow-finish]` | something follows a finish                                               | `.toFinish(F)` `.toAction(A)` → end at the finish; move `A` before it                                                             |
-| `[graph.choose-from-non-router]`     | `.chooseOne(…)` after a step that is not a router                        | `.toAgent(X).chooseOne(…)` → `.toRouter(R).chooseOne(…)`, or `oneOf` + `.switch(…)`                                               |
-| `[graph.cycle-without-max-visits]`   | a cycle where no agent or router has `maxVisits`                         | a review loop → `@Agent({ …, maxVisits: 3 })` on one node of the cycle                                                            |
-| `[graph.two-next-steps]`             | reserved (the transition DSL before #272); not reported by the path DSL  | —                                                                                                                                 |
-| `[graph.router-not-last-in-chain]`   | reserved (before #272); not reported                                     | —                                                                                                                                 |
-| `[graph.cycle-without-router]`       | reserved (before #272); not reported                                     | —                                                                                                                                 |
-| `[graph.duplicate-node]`             | reserved (before #272); not reported — see `[graph.duplicate-node-name]` | —                                                                                                                                 |
-| `[name.kind-suffix]`                 | a component's `name` (or its class name) does not end with its kind      | `@Agent({ name: "support" })` → `name: "support-agent"` (`-tool`, `-router`, `-rag`, `-model-provider`, …)                        |
-| `[dto.name]`                         | a DTO class on a path does not end with `Dto`                            | `class Ticket` → `class TicketDto`                                                                                                |
-| `[dto.duplicate-name]`               | two DTO classes share a name across the project's workflows              | two `BookingDto` in two folders → `FlightBookingDto`, `HotelBookingDto`                                                           |
-| `[types.unexported-class]`           | a class the generated types need is not exported                         | `class ReviewAgent {}` → `export class ReviewAgent {}`                                                                            |
-| `[agent.dynamic-options]`            | an agent spreads options built at run time                               | `@Agent({ ...optionsFor(model) })` → a static literal in `*.options.ts` (`satisfies Omit<AgentOptions, "name" \| "description">`) |
-| `[model.no-tool-calling]`            | an agent with `output` uses a model that cannot call tools               | an `output` agent on a text-only model → a model that calls tools                                                                 |
-| `[tool.name-too-long]`               | a tool name a model sees has more than 64 characters                     | a long DTO class name in `answer-<dto>` → a shorter class or tool name                                                            |
-| `[tool.name-invalid]`                | a tool name has characters a model API refuses                           | `name: "order status"` → `name: "order-status-tool"` (`[a-zA-Z0-9_-]`)                                                            |
-| `[tools.max-result-size-invalid]`    | `maxResultSize` is not a whole number of bytes from 1                    | `maxResultSize: kilobytes(0)` → `kilobytes(64)`                                                                                   |
+| Code                                 | Means                                                                 | Before → after                                                                                                                    |
+| ------------------------------------ | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `[graph.not-a-node]`                 | a class on a path (or the workflow itself) has no component decorator | `.toAgent(Helper)` on a plain class → decorate it `@Agent({ … })`                                                                 |
+| `[graph.wrong-kind]`                 | a step names a class of another kind                                  | `.toAgent(SaveAction)` → `.toAction(SaveAction)`                                                                                  |
+| `[graph.duplicate-node-name]`        | two classes share one `name` in the application                       | two `"review-agent"` → `"draft-review-agent"`, `"final-review-agent"`                                                             |
+| `[graph.no-workflow-start]`          | the flow has no `start(…)`                                            | `flow: [agent(X)…]` only → begin a path with `start(MyWorkflowStart)`                                                             |
+| `[graph.unreachable-node]`           | a node no start leads to                                              | an `action(A)…` path nothing enters → lead a path to `A`, or delete its path                                                      |
+| `[graph.dead-end]`                   | a path, case, group or side path stops before a finish                | `.toAgent(X)` as the last call → `.toAgent(X)` `.returns(XDto)` `.toFinish(F)`                                                    |
+| `[graph.next-after-workflow-finish]` | something follows a finish                                            | `.toFinish(F)` `.toAction(A)` → end at the finish; move `A` before it                                                             |
+| `[graph.choose-from-non-router]`     | `.chooseOne(…)` after a step that is not a router                     | `.toAgent(X).chooseOne(…)` → `.toRouter(R).chooseOne(…)`, or `oneOf` + `.switch(…)`                                               |
+| `[graph.cycle-without-max-visits]`   | a cycle where no agent or router has `maxVisits`                      | a review loop → `@Agent({ …, maxVisits: 3 })` on one node of the cycle                                                            |
+| `[name.kind-suffix]`                 | a component's `name` (or its class name) does not end with its kind   | `@Agent({ name: "support" })` → `name: "support-agent"` (`-tool`, `-router`, `-rag`, `-model-provider`, …)                        |
+| `[dto.name]`                         | a DTO class on a path does not end with `Dto`                         | `class Ticket` → `class TicketDto`                                                                                                |
+| `[dto.duplicate-name]`               | two DTO classes share a name across the project's workflows           | two `BookingDto` in two folders → `FlightBookingDto`, `HotelBookingDto`                                                           |
+| `[types.unexported-class]`           | a class the generated types need is not exported                      | `class ReviewAgent {}` → `export class ReviewAgent {}`                                                                            |
+| `[agent.dynamic-options]`            | an agent spreads options built at run time                            | `@Agent({ ...optionsFor(model) })` → a static literal in `*.options.ts` (`satisfies Omit<AgentOptions, "name" \| "description">`) |
+| `[model.no-tool-calling]`            | an agent with `output` uses a model that cannot call tools            | an `output` agent on a text-only model → a model that calls tools                                                                 |
+| `[tool.name-too-long]`               | a tool name a model sees has more than 64 characters                  | a long DTO class name in `answer-<dto>` → a shorter class or tool name                                                            |
+| `[tool.name-invalid]`                | a tool name has characters a model API refuses                        | `name: "order status"` → `name: "order-status-tool"` (`[a-zA-Z0-9_-]`)                                                            |
+| `[tools.max-result-size-invalid]`    | `maxResultSize` is not a whole number of bytes from 1                 | `maxResultSize: kilobytes(0)` → `kilobytes(64)`                                                                                   |
 
 ### Path placement, `.returns`, branches
 
@@ -176,20 +172,17 @@ any model call. "→" separates the code that fails from the code that passes.
 
 ### Routers
 
-| Code                                 | Means                                                                         | Before → after                                                                                       |
-| ------------------------------------ | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `[router.routes-mismatch]`           | the flow's `route(…)` list differs from `@Router({ routes })`                 | a route for `BillingAgent` with no `route(BillingAgent)` → add `route(BillingAgent)…` to `chooseOne` |
-| `[router.duplicate-route]`           | a target listed twice in `routes` or in the flow                              | `route(X)` twice → once                                                                              |
-| `[router.empty-input]`               | a router with `input: {}`                                                     | `input: {}` → `input: { message: WorkflowStartTextDto }`                                             |
-| `[router.no-model]`                  | a `DecidedBy.Model` router with no `model` and no `defaults.router.model`     | add `model: "typesafe/jev-1.13"` or `defaults: { router: { model } }` on the application             |
-| `[router.no-prompt]`                 | an `OnDemand` route before a launch has no prompt                             | `{ target: X, spawn: SpawnPolicy.OnDemand }` → add `prompt: "The message is about …"`                |
-| `[router.prompt-on-always]`          | an `Always` route has a prompt no model reads                                 | `{ spawn: SpawnPolicy.Always, prompt: "…" }` → remove the `prompt`                                   |
-| `[router.spawn-required]`            | a model router's route before a launch does not state `spawn`                 | `{ target: X, prompt: "…" }` → `{ target: X, spawn: SpawnPolicy.OnDemand, prompt: "…" }`             |
-| `[router.all-routes-always]`         | before a launch every route is `Always`: the router decides nothing           | set `SpawnPolicy.OnDemand` on the routes it chooses, or drop the router and launch directly          |
-| `[router.policy-with-choose-one]`    | `spawn` / `failure` on routes of a `.chooseOne(…)` router                     | `{ target: X, failure: FailurePolicy.Skip }` with `chooseOne` → remove the policy                    |
-| `[router.self-without-agent-before]` | reserved (the transition DSL before #272); not reported                       | —                                                                                                    |
-| `[router.empty-route-text]`          | reserved (before #272); not reported — see `[router.no-prompt]`               | —                                                                                                    |
-| `[router.unbounded-cycle]`           | reserved (before #272); not reported — see `[graph.cycle-without-max-visits]` | —                                                                                                    |
+| Code                              | Means                                                                     | Before → after                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `[router.routes-mismatch]`        | the flow's `route(…)` list differs from `@Router({ routes })`             | a route for `BillingAgent` with no `route(BillingAgent)` → add `route(BillingAgent)…` to `chooseOne` |
+| `[router.duplicate-route]`        | a target listed twice in `routes` or in the flow                          | `route(X)` twice → once                                                                              |
+| `[router.empty-input]`            | a router with `input: {}`                                                 | `input: {}` → `input: { message: WorkflowStartTextDto }`                                             |
+| `[router.no-model]`               | a `DecidedBy.Model` router with no `model` and no `defaults.router.model` | add `model: "typesafe/jev-1.13"` or `defaults: { router: { model } }` on the application             |
+| `[router.no-prompt]`              | an `OnDemand` route before a launch has no prompt                         | `{ target: X, spawn: SpawnPolicy.OnDemand }` → add `prompt: "The message is about …"`                |
+| `[router.prompt-on-always]`       | an `Always` route has a prompt no model reads                             | `{ spawn: SpawnPolicy.Always, prompt: "…" }` → remove the `prompt`                                   |
+| `[router.spawn-required]`         | a model router's route before a launch does not state `spawn`             | `{ target: X, prompt: "…" }` → `{ target: X, spawn: SpawnPolicy.OnDemand, prompt: "…" }`             |
+| `[router.all-routes-always]`      | before a launch every route is `Always`: the router decides nothing       | set `SpawnPolicy.OnDemand` on the routes it chooses, or drop the router and launch directly          |
+| `[router.policy-with-choose-one]` | `spawn` / `failure` on routes of a `.chooseOne(…)` router                 | `{ target: X, failure: FailurePolicy.Skip }` with `chooseOne` → remove the policy                    |
 
 ### Parallel launches and quorums
 
@@ -209,9 +202,6 @@ any model call. "→" separates the code that fails from the code that passes.
 | `[arbiter.duplicate-agent]`         | two methods or criteria for one agent class                               | keep one; share a rule through a private method                                                        |
 | `[arbiter.answer-method-on-model]`  | `@OnAnswer` methods on a `DecidedBy.Model` arbiter                        | remove the methods, or make it `DecidedBy.Code`                                                        |
 | `[arbiter.method-name]`             | an `@OnAnswer(XAgent)` method not named `fromX`                           | `@OnAnswer(SkillsAgent) check(…)` → `fromSkills(…)`                                                    |
-| `[batch.invalid-batch-size]`        | reserved (`batchParallel`, removed); not reported                         | — (`maxItems` on a per-item launch)                                                                    |
-| `[batch.invalid-concurrency-limit]` | reserved (`batchParallel`, removed); not reported                         | — (`maxConcurrency` on a launch)                                                                       |
-| `[batch.strategy-not-decorated]`    | reserved (`batchParallel`, removed); not reported                         | —                                                                                                      |
 
 ### Child workflows, recursion, concurrency
 
