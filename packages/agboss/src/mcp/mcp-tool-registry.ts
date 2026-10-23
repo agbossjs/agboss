@@ -9,7 +9,7 @@ import { executeUnchecked } from "../app/execute-unchecked.js";
 import { ExecutionStatus } from "../app/types.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf, type WorkflowStartDeclaration } from "../flow/decorators/declaration.js";
-import { renderToolResult, type ToolCallContext, type ToolOutput } from "../tools/index.js";
+import { renderToolResult, type ToolInvocationContext, type ToolOutput } from "../tools/index.js";
 import {
   RESUME_TOOL,
   guarded,
@@ -91,7 +91,7 @@ function addTool(registry: ToolRegistry, exported: ExportedTool): void {
 }
 
 /** A call over MCP: its signal; nothing records a cost (there is no execution to bill). */
-const toolCallOf = (call: McpCall): ToolCallContext => ({
+const toolCallOf = (call: McpCall): ToolInvocationContext => ({
   signal: call.signal,
   reportCost: () => undefined,
 });

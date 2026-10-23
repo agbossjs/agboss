@@ -24,6 +24,7 @@ import { NO_ENVIRONMENT_VALUES, type DescribedEnvironment } from "../environment
 import { modelProviderLine, resolvedModelUsesOf } from "../models/resolution.js";
 import { applicationContextOf } from "../flow/context/application-context.js";
 import { guardrailLines } from "./guardrails.js";
+import { toolInterceptorLines } from "./tool-interceptors.js";
 import { limitLines } from "./limits.js";
 import { piiPolicyLines } from "./pii-policies.js";
 import { standaloneContexts, type RuntimeContexts } from "../flow/context/runtime-contexts.js";
@@ -67,6 +68,7 @@ function toolLine(tool: AnyTool, bundle: AssembledWorkflow): string {
 function bundleLines(bundle: AssembledWorkflow): string[] {
   return [
     ...guardrailLines(bundle),
+    ...toolInterceptorLines(bundle),
     ...piiPolicyLines(bundle),
     ...memoryLines(bundle),
     `pause     on — tools with channel wait for external signal`,

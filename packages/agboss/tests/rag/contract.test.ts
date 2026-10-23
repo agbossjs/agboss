@@ -4,14 +4,14 @@ import type { WorkflowServices } from "../../src/workflow.js";
 import { resolveTools } from "../../src/workflow.js";
 import { workflowOf } from "../../src/testing/index.js";
 import { describeWorkflow } from "../../src/describe/describe-workflow.js";
-import type { ToolCallContext } from "../../src/tools/index.js";
+import type { ToolInvocationContext } from "../../src/tools/index.js";
 import { bundleWith, Handbook, HandbookFromApi } from "./fixture.js";
 
 const services: WorkflowServices = {
   router: (name) => ({ name, route: () => Promise.reject(new Error("unused")) }),
 };
 const costs: number[] = [];
-const ctx: ToolCallContext = {
+const ctx: ToolInvocationContext = {
   signal: new AbortController().signal,
   reportCost: (usd) => {
     costs.push(usd);

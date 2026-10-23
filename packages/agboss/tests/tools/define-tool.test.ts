@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { defineTool, InvalidToolNameError, type ToolCallContext } from "../../src/tools/index.js";
+import {
+  defineTool,
+  InvalidToolNameError,
+  type ToolInvocationContext,
+} from "../../src/tools/index.js";
 import { seconds } from "../../src/units/index.js";
 
-const ctx = (signal: AbortSignal = new AbortController().signal): ToolCallContext => ({
+const ctx = (signal: AbortSignal = new AbortController().signal): ToolInvocationContext => ({
   signal,
   reportCost: vi.fn(),
 });

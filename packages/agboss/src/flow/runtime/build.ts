@@ -1,4 +1,5 @@
 import { END, Send, START, StateGraph, type BaseCheckpointSaver } from "@langchain/langgraph";
+import { loopPoliciesOf } from "./loop-policies.js";
 import { agentDefinitions } from "../../graph/agent-definitions.js";
 import { workflowIdentityOf } from "./workflow-keys.js";
 import {
@@ -83,8 +84,7 @@ function agentLoops(deps: GraphDeps<string>, run: RunLimits): ReadonlyMap<string
         budgets: run.budgets,
         approval,
         judges: noJudges,
-        ...(deps.pii === undefined ? {} : { pii: deps.pii.policiesOf(name) }),
-        guardrails: deps.guardrails?.inputOf(name) ?? [],
+        ...loopPoliciesOf(deps, name),
         observer: deps.observer,
       },
       deps.pause?.checkpointer,

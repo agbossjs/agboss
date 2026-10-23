@@ -79,6 +79,10 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     '@OutputGuardrail({ name: "answer-guardrail", description: "d", decidedBy: DecidedBy.Code, refusal: "r" })',
     "check(): void",
   ),
+  ToolInterceptor: statefulClass(
+    '@ToolInterceptor({ name: "audit-tool-interceptor", description: "d" })',
+    "beforeToolCall(): void",
+  ),
   PiiPolicy: statefulClass(
     '@PiiPolicy({ name: "order-id-pii-policy", description: "d", action: PiiAction.replaceWithKind() })',
     "findMatches(): void",

@@ -1061,9 +1061,10 @@ export const quorumPaths = [
 ### Components and dependency injection
 
 - **One class per file, folders by kind:** `workflow-starts/`, `routers/`, `agents/`, `actions/`,
-  `workflow-finishes/`, `arbiters/`, `guardrails/`, `compactions/`, `tools/`, `services/`, `mcp/`,
-  `rag/`, `environments/`, `eval-suites/` (#396); files `*.workflow-start.ts`, `*.router.ts`, `*.agent.ts` (+ `*.prompt.md`),
-  `*.action.ts`, `*.workflow-finish.ts`, `*.arbiter.ts`, `*.guardrail.ts`, `*.compaction.ts` (+
+  `workflow-finishes/`, `arbiters/`, `guardrails/`, `tool-interceptors/`, `compactions/`, `tools/`,
+  `services/`, `mcp/`, `rag/`, `environments/`, `eval-suites/` (#396); files `*.workflow-start.ts`,
+  `*.router.ts`, `*.agent.ts` (+ `*.prompt.md`), `*.action.ts`, `*.workflow-finish.ts`, `*.arbiter.ts`,
+  `*.guardrail.ts`, `*.tool-interceptor.ts`, `*.compaction.ts` (+
   `*.prompt.md`), `*.tool.ts`, `*.dto.ts`, `*.service.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`,
   `*.helper.ts`, `*.eval-suite.ts`.
 - **Decorator = metadata, constructor = dependencies, methods = a contract:** `implements` for your
@@ -1194,6 +1195,24 @@ export class SeenJobsRepository {
   a knowledge base's search or context block too) is cut before PII masking with
   `\n[result truncated: N bytes, the first M kept]` (`onToolEnd`'s `isResultTruncated`;
   `[tools.max-result-size-invalid]`).
+- **Tool interceptors (#384):** `@ToolInterceptor({ name, description, deps? })`
+  (`tool-interceptors/*.tool-interceptor.ts`, `-tool-interceptor`) — a class that implements
+  `BeforeToolCall`, `AfterToolCall` or both (neither does not compile,
+  `[tool-interceptor.missing-handler]`), listed in `toolInterceptors` of `@Application` →
+  `@Workflow` → `@Agent` → `@Tool` / `@McpTool` (lists add up, outer first; `excludeToolInterceptors`
+  on an agent or a tool removes an inherited one, `[tool-interceptor.exclude-not-inherited]`,
+  `[tool-interceptor.not-an-interceptor]`). Runs in the tool call's frame (`step.callId`, its key and
+  signal), after the arguments' PII block rules: `beforeToolCall({ tool, input })` — arguments
+  revealed, not validated — outer first, `ToolCallDecision.allow()` / `.replyToModel({ message })`
+  (the tool is not called, the model reads `message` as its result, bounded and masked, the step
+  goes on) / `.block({ reason })` (the step fails with `ToolBlockedError`, `step.tool-blocked`, a
+  `StepFailedError`: `agent`, `tool`, `interceptor`, `reason`); `afterToolCall({ tool, input,
+output })` on a successful result, inner first, each output validated against the tool's output —
+  then `maxResultSize` and PII masking. One that throws, decides nothing or gives a wrong output
+  fails the step (`AgentFailedError`, its error the `cause`). Never on answer tools, knowledge-base
+  search tools or a tool called on its own. `agboss describe` prints `tool interceptors`, `--json`
+  each agent's chains by tool, `configHash` covers them; `testToolInterceptor(I, options)` →
+  `beforeToolCall(Tool, input)` / `afterToolCall(Tool, input, output)` → `{ output, spend }`.
 - **Channels (#267)** are found through the tools that name them (`@Tool({ channel })`), like
   services through `deps` — there is no `channelClasses`. A tool names a concrete `@Channel` (used as
   is: `TerminalUserChannel`, `AutoApproveChannel`, …) or a **role**: a project's abstract class
@@ -1796,7 +1815,8 @@ today; tenant-daily-budget allows $40`).
   action's error as `cause`) / `step.guard` (`GuardFailedError`: a guardrail's model did not answer —
   fails closed) / `step.router` ⊃ `step.router.invalid-decision` /
   `step.arbiter` (`ArbiterError`) / `step.quorum` (`QuorumNotReachedError`, #279) /
-  `step.child` (`ChildExecutionFailedError`, #263), `limit.depth` (`DepthLimitExceededError`, #264),
+  `step.child` (`ChildExecutionFailedError`, #263) / `step.tool-blocked` (`ToolBlockedError`, #384),
+  `limit.depth` (`DepthLimitExceededError`, #264),
   `compaction` (`CompactionError`, #120 PR 3),
   `pause.unknown`, `pause.wrong-answerer`, `pause.uninterpretable-reply`, `pause.no-reply-interpreter`,
   `execution.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
@@ -1862,7 +1882,8 @@ timeout: seconds(1) })` → `{ output, spend }` (a tool call's frame: `execution
   with the timeout, `SpendRecorder` into `spend`; input and output validated); the same shape for
   `testAction`, `testRouter` (a code router's `route()`, or a model router with `model: routeTo(X)`
   / `decideWith(…)`), `testArbiter(A)(Agent, answer)`, `testRag(R)(query, { topK })`,
-  `testJudge(J, { model: decideWith(…) | replyWith(…) })` (`{ variant, reply, task, attempt }`, its `reply` a plain object of the judge's DTO), `testGuardrail(G, { model: decideWith({ blocks: 0.9 }) })(text, { element })` → `{ isBlocked,
+  `testToolInterceptor(I)` (#384: `.beforeToolCall(Tool, input)` → the `ToolCallDecision`,
+  `.afterToolCall(Tool, input, output)`), `testJudge(J, { model: decideWith(…) | replyWith(…) })` (`{ variant, reply, task, attempt }`, its `reply` a plain object of the judge's DTO), `testGuardrail(G, { model: decideWith({ blocks: 0.9 }) })(text, { element })` → `{ isBlocked,
 probability, refusal? }`
   and `testPii([Policies])` → `mask(text)` / `reveal(text)` (rules checked first: `-pii-policy`);
   `run.clock` is the runner's `VirtualClock`; the calls run for `{ tenantContext, tenant,

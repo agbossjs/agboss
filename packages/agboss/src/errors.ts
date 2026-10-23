@@ -2,8 +2,8 @@
  * The errors a run can fail with — every one a `AGBossError` with a stable `code`, so a flow
  * can `.onError(<class>, …)` it (also after a resume from a checkpoint) and a caller can tell them
  * apart. `limit` ⊃ `limit.budget`, `limit.steps`, `limit.visits`, `limit.depth` (#264); `step` ⊃ `step.failed` (`StepFailedError`, #273 S22) ⊃
- * `step.agent`, `step.action`, `step.guard`, `step.router`, `step.arbiter`, `step.quorum` (#279) and
- * `step.child` (`ChildExecutionFailedError`, #263).
+ * `step.agent`, `step.action`, `step.guard`, `step.router`, `step.arbiter`, `step.quorum` (#279),
+ * `step.child` (`ChildExecutionFailedError`, #263) and `step.tool-blocked` (`ToolBlockedError`, #384).
  */
 export {
   AGBossError,
@@ -46,6 +46,7 @@ export {
   QuorumNotReachedError,
   type QuorumShortfall,
 } from "./flow/runtime/launch/quorum-errors.js";
+export { ToolBlockedError } from "./graph/tool-blocked-error.js";
 export { NotAWorkflowStartError } from "./flow/runtime/start-input.js";
 export { PiiRefusedError } from "./pii/errors.js";
 export { CompactionError } from "./compaction/errors.js";

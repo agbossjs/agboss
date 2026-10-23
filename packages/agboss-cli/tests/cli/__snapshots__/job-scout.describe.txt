@@ -36,6 +36,7 @@ job-scout-workflow 3.0.0 · config <hash>
 guardrails
   prompt-injection-guardrail — input ≥0.7 · typesafe/jev-1.13 (defaults.guardrail) · refusal: "I can't help with that request." · on profiler-agent, scout-agent, shortlist-agent, main-router
   personal-data-guardrail — output ≥0.7 · typesafe/jev-1.13 (defaults.guardrail) · refusal: "The answer contained personal data and was withheld." · on profiler-agent, scout-agent, shortlist-agent
+tool interceptors none
 pii policies none
 memory
   conversation-compaction — summary-queue every 5 turns, queue 10 · summaryMaxTokens 400 · moonshotai/kimi-k2.6 · older than 8 turns

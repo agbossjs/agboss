@@ -26,7 +26,7 @@ import {
 import {
   evaluationFor,
   flowFor,
-  guardrailsFor,
+  policiesFor,
   pauseFor,
   repliesFor,
   servicesFor,
@@ -225,7 +225,7 @@ export async function createWorkflowDeps(
     registry: createModelRegistry(config, gateway),
     ...flowFor(bundle, config, gateway, options.branchScheduler),
     prompts: bundle.prompts,
-    guardrails: guardrailsFor(bundle, services, config, gateway),
+    ...policiesFor(bundle, services, config, gateway),
     tools: toolLookup(tools),
     pause: pauseFor(checkpointer, parts.infrastructure.pausedExecutions, terns),
     ...(bundle.compactions === undefined ? {} : { compactions: bundle.compactions }),

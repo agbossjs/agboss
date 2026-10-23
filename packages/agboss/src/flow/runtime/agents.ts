@@ -35,6 +35,8 @@ function agentMetaOf(declaration: AgentDeclaration): AgentMeta {
     excludePiiPolicies: options.excludePiiPolicies,
     guardrails: options.guardrails,
     excludeGuardrails: options.excludeGuardrails,
+    toolInterceptors: options.toolInterceptors,
+    excludeToolInterceptors: options.excludeToolInterceptors,
     compaction: options.compaction,
     uncompactedTurns: options.uncompactedTurns,
   });

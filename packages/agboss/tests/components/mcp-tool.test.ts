@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { mcpServerStub } from "../../src/testing/index.js";
 import { toolOf, workflowOf } from "../../src/testing/index.js";
-import { connectMcpServers, type ToolCallContext } from "../../src/tools/index.js";
+import { connectMcpServers, type ToolInvocationContext } from "../../src/tools/index.js";
 import { resolveTools, type WorkflowServices } from "../../src/workflow.js";
 import { fakeMcpServer, type FakeTool } from "../tools/mcp/fake-server.js";
 import { FilesServer, Greetings, ReadFile } from "./fixture/components.js";
 
-const ctx: ToolCallContext = { signal: new AbortController().signal, reportCost: () => undefined };
+const ctx: ToolInvocationContext = {
+  signal: new AbortController().signal,
+  reportCost: () => undefined,
+};
 const services: WorkflowServices = {
   router: (name) => ({ name, route: () => Promise.reject(new Error("unused")) }),
 };

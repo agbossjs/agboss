@@ -8,7 +8,7 @@ import type { Bytes, Milliseconds } from "../units/index.js";
  * its cost. A project's tool gets nothing besides its input — the execution comes through
  * `deps: [ExecutionContext]`.
  */
-export interface ToolCallContext {
+export interface ToolInvocationContext {
   readonly signal: AbortSignal;
   /** The application's clock: the tool's `timeout` runs on it (default: the system's, #262). */
   readonly clock?: Clock;
@@ -32,7 +32,7 @@ export interface Tool<TName extends string = string, TInput = unknown, TOutput =
   readonly maxResultSize?: Bytes;
   readonly input: z.ZodType<TInput>;
   readonly output: z.ZodType<TOutput>;
-  readonly invoke: (raw: unknown, ctx?: ToolCallContext) => Promise<ToolOutput<TOutput>>;
+  readonly invoke: (raw: unknown, ctx?: ToolInvocationContext) => Promise<ToolOutput<TOutput>>;
   /** Who reported costs are billed to (default `tool:<name>`), e.g. `rag:<name>` → category retrieval. */
   readonly costCaller?: string;
 }

@@ -14,6 +14,10 @@ import {
   flowRouterFactory,
 } from "../graph/router-model.js";
 import type { GuardrailRuntime } from "../guardrails/runtime.js";
+import {
+  toolInterceptorRuntimeOf,
+  type ToolInterceptorRuntime,
+} from "../tool-interceptors/runtime.js";
 import type { EvalDeps } from "../eval/eval.js";
 import type { AgentExecutionDeps } from "../run/types.js";
 import type { ModelGateway } from "../llm/gateway.js";
@@ -143,6 +147,20 @@ export const guardrailsFor = (
     chatDefaults: config.defaults.models,
     chatModelSettings: chatModelSettingsOf(config),
   });
+
+/** The workflow's guardrails (#120) and its tool interceptors (#384), their classes from its container. */
+export const policiesFor = (
+  bundle: AssembledWorkflow,
+  services: WorkflowServices,
+  config: AgentsConfigOf<string>,
+  gateway: ModelGateway,
+): {
+  readonly guardrails: GuardrailRuntime;
+  readonly toolInterceptors: ToolInterceptorRuntime;
+} => ({
+  guardrails: guardrailsFor(bundle, services, config, gateway),
+  toolInterceptors: toolInterceptorRuntimeOf(bundle.toolInterceptors, bundle.resolve(services)),
+});
 
 /** A model is needed for it, and `defaults.router.model` is not set. */
 export class NoDefaultRouterError extends ComponentError {

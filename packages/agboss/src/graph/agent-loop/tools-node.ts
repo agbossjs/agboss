@@ -3,12 +3,14 @@ import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";
 import {
   ToolTimeoutError,
   type AnyTool,
-  type ToolCallContext,
+  type ToolInvocationContext,
   type ToolOutput,
 } from "../../tools/index.js";
 import { argumentsRefusal, closedResult, type ClosedResult } from "./tool-pii.js";
 import { toolNamed, type AgentLoopDeps } from "./deps.js";
-import type { AgentLoopUpdate, ToolTask } from "./state.js";
+import { interceptedCall } from "./tool-interception.js";
+import { keepStopCause, type ToolCallStop } from "./tool-stops.js";
+import type { AgentLoopUpdate, StoredToolCall, ToolTask } from "./state.js";
 import { inLoopFrame, inToolCallFrame } from "../../flow/context/frame.js";
 import {
   extractRunContext,
@@ -46,11 +48,16 @@ function callSignalOf(
   return { signal, release: timeout.release };
 }
 
+/** A closed call, and the stop of an interceptor that stopped it (#384). */
+interface GuardedCall extends ClosedResult {
+  readonly stop?: ToolCallStop;
+}
+
 /** Tool failures are recoverable: whatever went wrong, the model reads it as `Tool error: …`. */
 async function runTool(
   tool: AnyTool,
   args: unknown,
-  context: ToolCallContext,
+  context: ToolInvocationContext,
 ): Promise<ToolOutput<unknown>> {
   try {
     return await tool.invoke(args, context);
@@ -62,13 +69,20 @@ async function runTool(
   }
 }
 
-/** The call in its frame: refused by a block rule in its arguments, or run and its result closed (#120). */
+/** What the model would read of a stopped call: the loop fails the step before it reads it. */
+const stoppedContent = (stop: ToolCallStop): string =>
+  `Tool error: the call was stopped by ${stop.interceptor}: ${stop.reason}`;
+
+/**
+ * The call in its frame: refused by a block rule in its arguments, else through its tool
+ * interceptors (#384) — run, answered by an interceptor or stopped — and its result closed (#120).
+ */
 async function guardedCall(
   deps: AgentLoopDeps,
   tool: AnyTool,
   task: ToolTask,
   run: () => Promise<ToolOutput<unknown>>,
-): Promise<ClosedResult> {
+): Promise<GuardedCall> {
   const set = deps.pii?.withFieldKey(task.piiKey);
   const refusal = await argumentsRefusal(set, task.args);
   if (refusal.content !== undefined)
@@ -81,7 +95,20 @@ async function guardedCall(
     };
   // the tool's own bound, else its workflow's `defaults.tools` (#336)
   const maxResultSize = tool.maxResultSize ?? deps.agent.maxResultSize;
-  const closed = await closedResult(set, tool, await run(), maxResultSize);
+  const chain = deps.interceptors?.(tool.name) ?? [];
+  const keep = (error: unknown): void => {
+    keepStopCause(task.runId, task.callId, error);
+  };
+  const call = await interceptedCall(chain, tool, task.args, run, keep);
+  if (call.kind === "stopped") {
+    const content = stoppedContent(call.stop);
+    const none = { piiTokens: {}, piiMasked: {}, isTruncated: false };
+    return { content, ...none, usage: refusal.usage, stop: call.stop };
+  }
+  const closed =
+    call.kind === "replied"
+      ? await closedResult(set, undefined, { kind: "ok", value: call.message }, maxResultSize)
+      : await closedResult(set, tool, call.output, maxResultSize);
   return { ...closed, usage: [...refusal.usage, ...closed.usage] };
 }
 
@@ -102,6 +129,12 @@ export function makeToolNode(
       : inLoopFrame(task.progress, () => run(task, config));
 }
 
+/** A finished call as the loop stores it, with the stop of an interceptor that stopped it (#384). */
+const storedCallOf = (task: ToolTask, content: string, stop?: ToolCallStop): StoredToolCall => {
+  const stored = { callId: task.callId, tool: task.tool, content };
+  return stop === undefined ? stored : { ...stored, stop };
+};
+
 /** One tool call's task, in the frame it is given. */
 function runTask(
   deps: AgentLoopDeps,
@@ -119,7 +152,7 @@ function runTask(
       usage.push(record);
       deps.budgets.tally([record]);
     };
-    const context: ToolCallContext = {
+    const context: ToolInvocationContext = {
       signal: call.signal,
       clock: runCtx.clock,
       reportCost: (usd) => {
@@ -140,7 +173,7 @@ function runTask(
       call.signal,
     ).finally(call.release);
     deps.budgets.tally(closed.usage);
-    const { content, piiTokens, piiMasked, isTruncated } = closed;
+    const { content, piiTokens, piiMasked, isTruncated, stop } = closed;
     await reportNodeEvent((base) =>
       deps.observer?.onToolEnd({
         ...base,
@@ -149,7 +182,7 @@ function runTask(
         isResultTruncated: isTruncated,
       }),
     );
-    const results = { [task.callId]: { callId: task.callId, tool: task.tool, content } };
+    const results = { [task.callId]: storedCallOf(task, content, stop) };
     // arguments its tool's input check refused: one more validation attempt of the step (#268 S93)
     const invalidArguments = tool.input.safeParse(task.args).success ? 0 : 1;
     return { results, usage: [...usage, ...closed.usage], piiTokens, piiMasked, invalidArguments };

@@ -1,7 +1,7 @@
 import { AGBossError } from "../core/errors.js";
 import type { z } from "zod";
 import { pathOf } from "../dto/errors.js";
-import type { Tool, ToolCallContext, ToolOutput } from "./types.js";
+import type { Tool, ToolInvocationContext, ToolOutput } from "./types.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { systemClock, type Clock } from "../infrastructure/clock.js";
 import { timeoutOn } from "../infrastructure/clock-timeout.js";
@@ -46,7 +46,7 @@ export interface ToolDefinition<TName extends string, TInput, TOutput> {
   readonly channel?: string;
   readonly timeout?: Milliseconds;
   readonly maxResultSize?: Bytes;
-  readonly run: (input: TInput, ctx: ToolCallContext) => Promise<TOutput>;
+  readonly run: (input: TInput, ctx: ToolInvocationContext) => Promise<TOutput>;
 }
 
 const describeIssues = (error: z.ZodError): string =>
@@ -94,7 +94,7 @@ async function runWithTimeout<TValue>(
 }
 
 /** A call outside an agent (a unit test): a signal nobody aborts, a cost nobody records. */
-const standaloneCall = (): ToolCallContext => ({
+const standaloneCall = (): ToolInvocationContext => ({
   signal: new AbortController().signal,
   reportCost: () => undefined,
 });
@@ -111,7 +111,7 @@ export function defineTool<TName extends string, TInput, TOutput>(
   const timeout = definition.timeout ?? DEFAULT_TOOL_TIMEOUT;
   const invoke = async (
     raw: unknown,
-    ctx: ToolCallContext = standaloneCall(),
+    ctx: ToolInvocationContext = standaloneCall(),
   ): Promise<ToolOutput<TOutput>> => {
     const input = definition.input.safeParse(raw);
     if (!input.success) return failure(`invalid input: ${describeIssues(input.error)}`);

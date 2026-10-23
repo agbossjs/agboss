@@ -15,7 +15,7 @@ import { createContainer } from "../../src/components/container/container.js";
 import { checkGraph } from "../../src/components/container/graph-check.js";
 import { recordComponent } from "../../src/components/metadata.js";
 import type { WorkflowServices } from "../../src/workflow.js";
-import type { ToolCallContext } from "../../src/tools/index.js";
+import type { ToolInvocationContext } from "../../src/tools/index.js";
 import type { ToolHandlerClass } from "../../src/components/decorators.js";
 import type { Class } from "../../src/components/injection.js";
 import { testConfig, testDefaults } from "../helpers.js";
@@ -32,7 +32,10 @@ import { starOf } from "../fixtures/test-flow/star.js";
 const services: WorkflowServices = {
   router: (name) => ({ name, route: () => Promise.reject(new Error("unused")) }),
 };
-const ctx: ToolCallContext = { signal: new AbortController().signal, reportCost: () => undefined };
+const ctx: ToolInvocationContext = {
+  signal: new AbortController().signal,
+  reportCost: () => undefined,
+};
 
 const baseBundle = {
   version: "1.0.0",

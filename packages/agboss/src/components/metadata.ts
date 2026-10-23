@@ -17,6 +17,10 @@ export interface ToolMeta {
   readonly timeout?: Milliseconds;
   /** What a model reads of one result at most (`kilobytes(256)`); default `defaults.tools`. */
   readonly maxResultSize?: Bytes;
+  /** `@ToolInterceptor` classes of this tool, over its agent's, workflow's and application's (#384). */
+  readonly toolInterceptors?: readonly Class[];
+  /** Inherited tool interceptors this tool removes (#384). */
+  readonly excludeToolInterceptors?: readonly Class[];
   readonly input: DtoClass;
   readonly output: DtoClass;
   readonly deps: readonly Token[];
@@ -63,6 +67,11 @@ export type ComponentMeta =
   | {
       readonly kind: "guardrail";
       readonly meta: import("./policy-decorators.js").GuardrailMeta;
+    }
+  /** `@ToolInterceptor` (#384): before / after an agent's tool calls. */
+  | {
+      readonly kind: "tool-interceptor";
+      readonly meta: import("../tool-interceptors/decorator.js").ToolInterceptorMeta;
     }
   /** `@Compaction` (#120 PR 3): how turns older than the readers' window are summarised. */
   | {
@@ -122,6 +131,7 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   "pii-policy": "@PiiPolicy",
   guardrail: "@InputGuardrail / @OutputGuardrail",
   compaction: "@Compaction",
+  "tool-interceptor": "@ToolInterceptor",
   tool: "Tool",
   "mcp-server": "McpServer",
   "mcp-tool": "McpTool",

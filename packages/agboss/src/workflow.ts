@@ -5,6 +5,7 @@ import type { KnowledgeSource, RagConnector } from "./rag/types.js";
 import type { PauseChannel } from "./flow/runtime/pause.js";
 import type { AssembledPii } from "./pii/assembly.js";
 import type { AssembledGuardrails } from "./guardrails/assembly.js";
+import type { AssembledToolInterceptors } from "./tool-interceptors/assembly.js";
 import type { AssembledCompactions } from "./compaction/assembly.js";
 import type { Class } from "./components/injection.js";
 import type { AnyTool, McpFacade, McpServerHandle } from "./tools/index.js";
@@ -90,6 +91,8 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly pii?: AssembledPii;
   /** Its guardrails (#120): per agent and model router by side, their texts and models resolved. */
   readonly guardrails?: AssembledGuardrails;
+  /** Its tool interceptors (#384): each agent's chain per tool, outer first. */
+  readonly toolInterceptors?: AssembledToolInterceptors;
 }
 
 export const resolveTools = (

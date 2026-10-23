@@ -1,3 +1,4 @@
+import { toolInterceptorsAt } from "./tool-interceptors.js";
 import { memoryPlanOf, readerOf } from "../compaction/plan.js";
 import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
 import { promptTextOf } from "../components/prompt-render.js";
@@ -71,6 +72,8 @@ export interface AgentSnapshot {
   readonly tools: readonly string[];
   readonly rag: readonly RagSnapshot[];
   readonly guardrails: ElementGuardrailsSnapshot;
+  /** Its tool interceptors per tool, outer first (#384); only an agent that has one. */
+  readonly toolInterceptors?: Readonly<Record<string, readonly string[]>>;
   readonly piiPolicies: readonly string[];
   readonly judges: readonly string[];
   readonly maxRetries: number;
@@ -164,6 +167,7 @@ function agentOf(
     tools: agent.tools ?? [],
     rag: (agent.rag ?? []).map(({ name: rag, mode, topK }) => ({ name: rag, mode, topK })),
     guardrails: guardrailsAt(bundle, name),
+    ...toolInterceptorsAt(bundle, name),
     piiPolicies: piiPoliciesAt(bundle, name),
     judges: agent.judges ?? [],
     maxRetries: agent.maxRetries ?? 0,

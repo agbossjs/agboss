@@ -42,6 +42,13 @@ export interface ToolOptions<
    * (#336) — longer is cut with a marker; default `defaults.tools.maxResultSize`, else 128 KB.
    */
   readonly maxResultSize?: Bytes;
+  /**
+   * `@ToolInterceptor` classes of this tool's calls (#384), after its application's, workflow's and
+   * agent's: lists add up.
+   */
+  readonly toolInterceptors?: readonly Class[];
+  /** Inherited tool interceptors removed for this tool's calls (#384). */
+  readonly excludeToolInterceptors?: readonly Class[];
   readonly input: In;
   readonly output: Out;
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
