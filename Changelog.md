@@ -3,6 +3,23 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the run's timeline: traces in the artifact, the baseline diff, where attempts part ways (#397 PR 2)
+
+- **Changed — the run artifact is `schemaVersion` 2** ([Eval suites](Eval-Suites#a-runs-trace-schemaversion-2-397)):
+  each run keeps its last turn's `trace` (`EvalExecutionTrace` — steps with `inputHash`, model calls,
+  tool calls, guardrail decisions, judge verdicts; handled errors, pauses, undo actions, children,
+  the output — masked like the execution record) and each case its `expectation`
+  (`EvalCaseExpectation`). The one reader (`evalRunReportOf`) reads versions 1 and 2; version 3 or
+  any other is `eval.run-invalid` (`… this agboss reads 1 to 2`). New public types in `agboss/eval`:
+  `EvalExecutionTrace`, `EvalChildTrace`, `EvalStepTrace`, `EvalModelCallTrace`, `EvalToolCallTrace`,
+  `EvalGuardrailDecisionTrace`, `EvalJudgeVerdictTrace`, `EvalHandledErrorTrace`, `EvalPauseTrace`,
+  `EvalCompensationTrace`, `EvalTraceError`, `EvalCaseExpectation`, `EvalExpectedToolCallTrace`,
+  `EvalRunSchemaVersion`.
+- **Added — the HTML report shows each run's timeline**, each case's expectation, the comparison
+  with a baseline (a run made with `--baseline`), and for an unstable case the node where its
+  attempts part ways (`attemptDivergenceOf`, `AttemptDivergenceReason`); one value is cut at 2,000
+  characters on the page.
+
 ## Unreleased — mesh trust: signed envelopes, origin, the caller's budget and deadline, run reports, dedupe, `/cancel` (#398 PR 2)
 
 - **Added — `@Application({ mesh: { signingKey?, peers?, idempotencyRetention? } })`**

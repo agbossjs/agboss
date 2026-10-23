@@ -309,14 +309,14 @@ against, so it says what it is and the version of its shape (#396 S3):
 | Field | What it holds |
 | --- | --- |
 | `kind` | always `"agboss.eval-run"` |
-| `schemaVersion` | `1`: a reader refuses a version it does not know |
+| `schemaVersion` | `2` (#397 PR 2; `1` before it, still read): a reader refuses a version it does not know |
 | `suite`, `start`, `cascade`, `runs` | the suite's name and start, its cascade, k |
 | `application`, `workflow` | `{ name, version }` of each |
 | `configHash` | the workflow's fingerprint (`agboss describe --json`): what the runs ran on |
 | `environment` | the environment's name |
 | `startedAt`, `endedAt` | ISO 8601, on the application's `Clock` |
-| `cases[]` | `name`, `caseHash` (the case as written, its tools' expectations, judges, the suite's checks and cascade — a changed case is not compared), `passed` (runs that passed), `runs`, `passAtK`, `passHatK`, `isUnstable`, `runResults[]` |
-| `cases[].runResults[]` | `run` (1…k), `threadId`, `executionId` and `finish` of the last turn, `passed`, `checks[]`, `error?`, `spentUsd` |
+| `cases[]` | `name`, `caseHash` (the case as written, its tools' expectations, judges, the suite's checks and cascade — a changed case is not compared), `passed` (runs that passed), `runs`, `passAtK`, `passHatK`, `isUnstable`, `runResults[]`, `expectation?` (version 2: `EvalCaseExpectation` — `requiredTools` by name with their partial arguments, masked, `forbiddenTools`, `invariantTools`, `checks` in order) |
+| `cases[].runResults[]` | `run` (1…k), `threadId`, `executionId` and `finish` of the last turn, `passed`, `checks[]`, `error?`, `spentUsd`, `trace?` (version 2, [below](#a-runs-trace-schemaversion-2-397)) |
 | `…checks[]` | `check` (`trajectory` or the judge's name), `status` (`CheckStatus`: `passed`, `failed`, `skipped`), `reason?`, `skippedBy?` (the failed check that skipped it), `metrics?` (a judge's), `spentUsd?` (a model judge's) |
 | `summary` | `cases`, `passAtK`, `passHatK`, `unstable` (counts of cases), `judgeCalls` (judge checks that ran), `skippedByCascade` |
 | `spend` | `{ totalUsd }`: every turn's execution and every judge's model calls |
@@ -324,7 +324,24 @@ against, so it says what it is and the version of its shape (#396 S3):
 
 The artifact's types are public in `agboss/eval` (#396 S6): `EvalRunReport`, `EvalCaseReport`,
 `EvalRunResult`, `EvalCheckResult`, `EvalRunError`, `EvalRunSummary`, `EvalRunComponent`,
-`EvalRunSpend`, with `EVAL_RUN_KIND` and `EVAL_RUN_SCHEMA_VERSION`.
+`EvalRunSpend`, with `EVAL_RUN_KIND` and `EVAL_RUN_SCHEMA_VERSION`; `EvalRunSchemaVersion` is `1 | 2`.
+
+### A run's trace (`schemaVersion` 2, #397)
+
+Each run keeps its last turn's trajectory — taken from that execution's record (`{ record: true }`),
+so it is masked by the application's and the workflow's PII policies like the record (the output
+and the side-path failures, which the result keeps outside the record, are masked the same way). A
+run whose last turn threw before it had a record (a limit, an earlier turn's pause) has none.
+
+| `trace` (`EvalExecutionTrace`) | What it holds |
+| --- | --- |
+| `executionId`, `path` | the execution and the nodes it went through |
+| `steps[]` (`EvalStepTrace`) | one per visit, in the order the visits ended: `component`, `kind` (`ComponentKind`), `nodeId`, `visitNumber`, `copyNumber`, `itemIndex?`, `inputHash` (a stable hash of what it read: two runs that read the same have the same), `validationAttempts`, `modelCalls[]` (`caller`, `model`, `inputTokens`, `outputTokens`, `cacheReadTokens`, `costUsd`), `toolCalls[]` (`tool`, `toolLoopIteration?`, `status` — `ToolCallStatus` —, `input`, `output?`, `error?`, `isResultTruncated`, `validationAttempts`), `guardrailDecisions[]` (`guardrail`, `side`, `isBlocked`, `probability`), `judgeVerdicts[]` (`judge`, `attempt` — 0 is the first reply, so retries show —, `passed`, `reason?`, `metrics?`), `spentUsd`, `startedAt`, `endedAt`, `error?` (a failure a side path took) |
+| `handledErrors[]` | `{ error: { code, message }, at, by }`: where a failure was taken and the side path's first node |
+| `pauses[]` | its own resolved pauses: `nodeId`, `role`, `resolution`, `responder?`, `decision?` |
+| `compensations[]` | undo actions: `compensated` (node), `compensator`, `reason`, `status`, `error?` |
+| `children[]` (`EvalChildTrace`) | each child execution's own trace, nested, with `workflow`, `status`, `launchedBy`, `itemIndex?`, `error?` |
+| `finish?`, `output?` | the finish it ended at and its output |
 
 ### The HTML report: `--html` and `agboss eval show` (#397)
 
@@ -350,8 +367,9 @@ headings, tables, `details`), every control reachable by keyboard. What it shows
 | --- | --- |
 | Header | the suite, the application and workflow with their versions, `configHash`, the start, the environment, k, the cascade, when it started and ended, how long it took |
 | Summary | pass@k and pass^k (cases and share), cases, attempts (cases × k), unstable cases, judge calls and those the cascade skipped, the total spend |
-| Unstable cases | only when there are some: each case with pass@k and not pass^k, its passed / k, linked to its row — candidates for deterministic code, not a longer prompt |
-| Cases | one per case: pass@k / pass^k, an attempt dot per run 1…k — passed, failed (a check failed), error (a turn failed or paused), limit (its error is a `limit.*`) — each a link that opens that run: its `executionId`, thread, finish, spend, error, and every check with its status, reason, the check that skipped it, a judge's metrics and spend. A filter shows all cases, the failed ones (not pass^k) or the unstable ones |
+| Against the baseline | only for a run made with `--baseline` (#397 PR 2): the baseline's file, `configHash`, start and k, the regressed cases, the count of each verdict, and every case of either run — the baseline's passes, this run's, its verdict (`regressed` highlighted, `flaky on the baseline (quarantined)`, `changed (not compared)`), linked to its entry |
+| Unstable cases | only when there are some: each case with pass@k and not pass^k, its passed / k, linked to its row — candidates for deterministic code, not a longer prompt — and (#397 PR 2) **where its attempts part ways**: the runs' steps compared position by position, the first step whose node, input, decisions or tool calls differ (or, with the same steps, the output), linked to that step of the first run — `refund-agent (visit 1): the same input, other tool calls` |
+| Cases | one per case: pass@k / pass^k, its expectation (version 2: required, forbidden and invariant tools, the checks in order), an attempt dot per run 1…k — passed, failed (a check failed), error (a turn failed or paused), limit (its error is a `limit.*`) — each a link that opens that run: its `executionId`, thread, finish, spend, error, every check with its status, reason, the check that skipped it, a judge's metrics and spend, and (version 2) its **timeline** — each step with its kind, node, visit / copy / item, input hash, spend and time, its model calls (tokens, cache, cost), tool calls (status, input, output, a truncated result), validation attempts, guardrail decisions and judge verdicts per reply; then the failures a side path took, pauses, undo actions, child executions nested, and the output. A filter shows all cases, the failed ones (not pass^k) or the unstable ones |
 
 It shows only what the artifact holds — check reasons and errors as the run wrote them, already
 masked by the application's PII policies; the page adds nothing from the project and escapes every
@@ -360,9 +378,11 @@ artifact of `eval run` is written first and kept). `eval show` refuses a file th
 artifact this version reads — `eval.run-not-found` (no such file) or `eval.run-invalid` (not JSON,
 another `kind`, an unknown `schemaVersion`, a field missing), exit 2.
 
-Not yet on the page: the comparison with a baseline (the artifact's `baseline`, #396 PR 3 — its
-section comes later in #397), a run's step-by-step timeline (#397 PR 2), labels and failure tags
-(#397 PR 4).
+One value (a tool's input or output, a decision, an output) shows at most 2,000 characters on the
+page, the rest named (`… [N more characters in the run artifact]`), and one execution at most 200
+steps: so a long run stays readable and under the bound (40 cases × 5 runs × 10 steps with 2 KB tool
+values each is well under 16 MB); the artifact keeps every value whole. A version 1 artifact renders
+as before, each run saying it has no timeline. Not yet on the page: labels and failure tags (#397 PR 4).
 
 ## Against a baseline: `--baseline <run.json>`
 
