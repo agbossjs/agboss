@@ -1,4 +1,5 @@
 import type { EvalRunReport } from "agboss/eval";
+import { BASELINE_SECTION } from "./baseline-section.js";
 import { CASES_SECTION } from "./cases-section.js";
 import { reportHeaderOf } from "./header-section.js";
 import { element, renderHtml } from "./html.js";
@@ -15,7 +16,12 @@ import { UNSTABLE_SECTION } from "./unstable-section.js";
  */
 
 /** The sections under the header, in page order; each one shown only when the artifact holds its data. */
-const SECTIONS: readonly ReportSection[] = [SUMMARY_SECTION, UNSTABLE_SECTION, CASES_SECTION];
+const SECTIONS: readonly ReportSection[] = [
+  SUMMARY_SECTION,
+  BASELINE_SECTION,
+  UNSTABLE_SECTION,
+  CASES_SECTION,
+];
 
 /** Nothing but the page's own style and script; no network, no frames, no forms. */
 const CONTENT_SECURITY_POLICY = [

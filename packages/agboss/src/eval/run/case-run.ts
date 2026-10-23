@@ -17,6 +17,7 @@ import {
   type EvalRunResult,
 } from "./report.js";
 import { trajectoryFailures } from "./trajectory.js";
+import { runTraceOf } from "./run-trace.js";
 import { nameOf } from "../../components/name-of.js";
 
 /**
@@ -68,6 +69,7 @@ async function runTurns(
       last = await executeUnchecked(parts.app, parts.start.component, turn.input, {
         threadId,
         ...contexts,
+        record: index === written.turns.length - 1, // the last turn's trajectory (#397 PR 2)
       });
     } catch (error) {
       return { kind: "failed", error: errorOf(error), spentUsd };
@@ -156,6 +158,7 @@ export async function runCaseOnce(
   const turn = judgedTurnOf(parts, written.turns.at(-1), last, values);
   const checks = await runChecks(parts, written, turn);
   const judged = checks.reduce((sum, check) => sum + (check.spentUsd ?? 0), 0);
+  const trace = await runTraceOf(parts, last);
   return {
     run,
     threadId,
@@ -164,5 +167,6 @@ export async function runCaseOnce(
     passed: checks.every((check) => check.status === CheckStatus.Passed),
     checks,
     spentUsd: turns.spentUsd + judged,
+    ...(trace === undefined ? {} : { trace }),
   };
 }

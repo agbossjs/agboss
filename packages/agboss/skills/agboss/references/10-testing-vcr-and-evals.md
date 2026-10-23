@@ -1191,7 +1191,10 @@ recording is `[vcr.stale-cassette]`.
    per run: free trajectory invariants → code `@Judge` → model `@Judge`. Read pass@k and pass^k
    per case; a case marked `unstable` (pass@k without pass^k) goes to deterministic code, not to a
    longer prompt. Add `--html <report.html>` to read the run in a browser: one self-contained page
-   with the summary, the unstable cases and an attempt dot per run, each opening that run's checks.
+   with the summary, the unstable cases and an attempt dot per run, each opening that run's checks
+   and its timeline (every step's model calls, tool calls, guardrails and judges). An unstable case
+   names the node where its attempts part ways: that node — same input, another choice — is the one
+   to make deterministic.
 2. Loop 3: the same run on `main` gives the run artifact (`--report`), kept as the reference the
    next runs are read against. `npx agboss eval show <run.json> --html <report.html>` renders a saved
    artifact again — in CI, from the artifact a run already made, without a second model bill. A
@@ -1324,11 +1327,19 @@ cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `
   `cascade`, each case's `caseHash`, `passed` / `runs`, `passAtK`, `passHatK`, `isUnstable` and
   `runResults` (each run's `executionId`, `finish`, `checks` with `status`, `reason`, `skippedBy`,
   `metrics`, `spentUsd`), `summary`, `spend`; `--json` carries the same as the envelope's `result`.
+  `schemaVersion` 2 (#397 PR 2) adds each run's `trace` (`EvalExecutionTrace`: the last turn's steps
+  — `EvalStepTrace` with `inputHash`, model calls, tool calls, guardrail decisions, judge verdicts —
+  handled errors, pauses, undo actions, children, the output; masked by the application's PII
+  policies like the record) and each case's `expectation` (`EvalCaseExpectation`); a version 1
+  artifact is still read.
 - The exit code says whether the suite ran (0), not how well it did.
 - `--html <report.html>` writes the run as one self-contained HTML page (no request: inline style
   and script; light and dark; phone width): header, summary (pass@k, pass^k, cases, attempts,
-  spend), unstable cases, every case with an attempt dot per run — passed, failed, error, limit —
-  each opening that run's execution, error and checks. It shows only what the artifact holds.
+  spend), against the baseline (a run made with `--baseline`: regressions first, every case's
+  verdict), unstable cases (each with the node where its attempts part ways — the first step whose
+  node, input, decisions or tool calls differ), every case with its expectation and an attempt dot
+  per run — passed, failed, error, limit — each opening that run's execution, error, checks and
+  timeline. It shows only what the artifact holds; one value is cut at 2,000 characters on the page.
   `npx agboss eval show <run.json> [--html <report.html>]` reads a saved artifact back: the table,
   and the same page; it runs nothing.
 - `--profile <name>` runs the suite on `profiles/<workflow>/<name>.yaml`; the case's `history` turns

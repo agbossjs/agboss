@@ -5,6 +5,7 @@ import { workflowIdentityOf } from "../../flow/runtime/workflow-keys.js";
 import { checkEvalSuite } from "../suite/check-suite.js";
 import type { EvalCase } from "../suite/cases.js";
 import { caseHashOf } from "./case-hash.js";
+import { caseExpectationOf } from "./expectation.js";
 import { runCaseOnce, type SuiteRunParts } from "./case-run.js";
 import {
   caseReportOf,
@@ -56,7 +57,9 @@ async function caseReport(
     results.push(result);
   }
   const hash = caseHashOf(written, parts.suite.checks, parts.suite.cascade);
-  return caseReportOf(written.name, hash, results);
+  const mask = parts.deps.pii?.observability;
+  const expectation = await caseExpectationOf(written, parts.suite.checks, mask);
+  return { ...caseReportOf(written.name, hash, results), expectation };
 }
 
 /** Runs a suite on an application instance: its artifact. */

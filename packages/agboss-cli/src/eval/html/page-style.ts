@@ -80,5 +80,25 @@ table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
 caption { text-align: left; color: var(--muted); padding: 4px 0; }
 th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
 td.number { text-align: right; white-space: nowrap; }
+.badge-neutral { color: var(--muted); background: var(--skipped-bg); }
+tr.verdict-regressed th, tr.verdict-regressed td { background: var(--failed-bg); }
+.expectation, .timeline { margin: 8px 0; }
+.step-part-title { margin: 8px 0 4px; font-weight: 600; font-size: 0.9rem; }
+.steps { list-style: none; padding: 0 0 0 12px; margin: 0; border-left: 2px solid var(--border); }
+.step { padding: 6px 0 6px 10px; position: relative; min-width: 0; }
+.step::before { content: ""; position: absolute; left: -7px; top: 13px; width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); }
+.step-head { margin: 0 0 4px; overflow-wrap: anywhere; }
+.kind { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.step-part ul { margin: 0; padding-left: 18px; }
+.step-part li { overflow-wrap: anywhere; }
+.tool-call, .child { border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; margin: 6px 0; }
+.tool-call summary, .child summary { cursor: pointer; overflow-wrap: anywhere; }
+.child { background: var(--bg); }
+.status-call-succeeded { color: var(--passed); background: var(--passed-bg); }
+.status-call-failed, .status-call-blocked, .status-call-timed-out { color: var(--failed); background: var(--failed-bg); }
+.status-call-invalid-arguments, .status-call-unknown-tool, .status-call-declined, .status-call-replied { color: var(--error); background: var(--error-bg); }
+.value { margin: 6px 0; min-width: 0; }
+.value figcaption { color: var(--muted); font-size: 0.8rem; }
+.value pre { margin: 2px 0 0; padding: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; overflow-x: auto; max-height: 24rem; font-size: 0.85rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 footer { color: var(--muted); font-size: 0.85rem; padding-top: 24px; padding-bottom: 32px; }
 `;

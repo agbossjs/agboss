@@ -1,6 +1,7 @@
 import type { JudgeMetrics } from "../../components/judge-decorators.js";
 import { CheckStatus, type EvalCascade } from "../suite/checks.js";
 import type { EvalRunComparison } from "./comparison.js";
+import type { EvalCaseExpectation, EvalExecutionTrace } from "./trace.js";
 
 /**
  * The run artifact of `agboss eval run --report <run.json>` (#396 PR 2, S3): every case run `runs`
@@ -12,8 +13,14 @@ import type { EvalRunComparison } from "./comparison.js";
 /** What every run artifact says it is. */
 export const EVAL_RUN_KIND = "agboss.eval-run";
 
-/** The version of the artifact's shape: a reader refuses one it does not know. */
-export const EVAL_RUN_SCHEMA_VERSION = 1;
+/**
+ * The version of the artifact's shape a run writes: a reader refuses one it does not know. 2 (#397
+ * PR 2) adds each run's `trace` and each case's `expectation`; a version 1 artifact is still read.
+ */
+export const EVAL_RUN_SCHEMA_VERSION = 2;
+
+/** The versions this agboss reads: every one it ever wrote. */
+export type EvalRunSchemaVersion = 1 | typeof EVAL_RUN_SCHEMA_VERSION;
 
 /** What one check decided on one run. */
 export interface EvalCheckResult {
@@ -52,6 +59,11 @@ export interface EvalRunResult {
   readonly error?: EvalRunError;
   /** The turns' executions and the judges' model calls, in USD. */
   readonly spentUsd: number;
+  /**
+   * The last turn's execution step by step, masked (#397 PR 2, schemaVersion 2); absent when that
+   * turn threw before it had a record, and in a version 1 artifact.
+   */
+  readonly trace?: EvalExecutionTrace;
 }
 
 /** One case over its `runs` runs. */
@@ -69,6 +81,8 @@ export interface EvalCaseReport {
   /** pass@k without pass^k: a candidate for deterministic code, not a longer prompt. */
   readonly isUnstable: boolean;
   readonly runResults: readonly EvalRunResult[];
+  /** What the case expects, as written (#397 PR 2, schemaVersion 2). */
+  readonly expectation?: EvalCaseExpectation;
 }
 
 /** The suite's totals. */
@@ -98,7 +112,7 @@ export interface EvalRunSpend {
 /** The whole run artifact. */
 export interface EvalRunReport {
   readonly kind: typeof EVAL_RUN_KIND;
-  readonly schemaVersion: typeof EVAL_RUN_SCHEMA_VERSION;
+  readonly schemaVersion: EvalRunSchemaVersion;
   readonly suite: string;
   readonly application: EvalRunComponent;
   readonly workflow: EvalRunComponent;

@@ -56,6 +56,7 @@ describe("#397 PR 1: agboss eval run --html", () => {
     const page = readFileSync(html, "utf8");
     expect(page).toContain("<h1>desk-eval-suite</h1>");
     expect(page).toContain('<a class="dot dot-failed" href="#case-2-run-2"');
+    expect(page).toContain('<div class="timeline"><p class="step-part-title">Timeline · '); // #397 PR 2
   });
 });
 
@@ -114,9 +115,9 @@ describe("#397 PR 1: agboss eval show", () => {
     ],
     [
       "an unknown schema version",
-      fileWith("version.json", JSON.stringify({ ...REFUNDS_ARTIFACT, schemaVersion: 2 })),
+      fileWith("version.json", JSON.stringify({ ...REFUNDS_ARTIFACT, schemaVersion: 3 })),
       "eval.run-invalid",
-      "schemaVersion 2 — this agboss reads 1",
+      "schemaVersion 3 — this agboss reads 1 to 2",
     ],
     [
       "a field missing",

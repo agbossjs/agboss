@@ -83,7 +83,7 @@ describe("#397 PR 1: the HTML report of a run artifact", () => {
 
   it("the unstable section and the filter's counts follow the cases", () => {
     expect(PAGE).toContain(
-      '<li><a href="#case-2">prohibition-survives-compaction</a> — 1 of 3 runs passed</li>',
+      '<li><a href="#case-2">prohibition-survives-compaction</a> — 1 of 3 runs passed — its runs&#39; timelines are not comparable</li>',
     );
     expect(PAGE).toContain('data-filter="all" aria-pressed="true">All (3)</button>');
     expect(PAGE).toContain('data-filter="failing" aria-pressed="false">Not pass^3 (2)</button>');

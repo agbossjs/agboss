@@ -54,7 +54,9 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   `--baseline <run.json> --fail-on-regression` compares each case with a run of `main` and exits 5
   (`quality`, `eval.regressed`) when a stable case regressed — a case flaky there is quarantined
   (#396). `--html <file>` and `agboss eval show <run.json> --html <file>` render a run as one
-  self-contained HTML page — summary, unstable cases, attempt dots and every run's checks (#397).
+  self-contained HTML page — summary, unstable cases, attempt dots and every run's checks (#397);
+  the artifact (`schemaVersion` 2) keeps each run's trajectory, masked, and the page shows it as a
+  timeline, with the baseline diff and the node where an unstable case's attempts part ways.
   `agboss eval calibrate --report <run.json>` reads a run's judges against people's labels
   (`eval/labels/<suite>.jsonl`) — Cohen's κ per labeler and between labelers, the confusion and the
   disagreements by the judge's metrics (#396).

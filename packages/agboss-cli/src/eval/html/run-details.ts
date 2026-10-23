@@ -2,12 +2,14 @@ import type { EvalCheckResult, EvalRunResult } from "agboss/eval";
 import { attemptStatusOf } from "./attempts.js";
 import { usdText } from "./format.js";
 import { element, type HtmlElement } from "./html.js";
-import { factsOf, runAnchor } from "./sections.js";
+import { factsOf, runAnchor, stepAnchor } from "./sections.js";
+import { timelineOf } from "./timeline.js";
 
 /**
  * One run of a case, as the report opens it from its dot (#397 PR 1): its execution, the turn's
  * error when one could not end, every check with its status, reason, the check that skipped it, a
- * judge's metrics and spend — what the artifact holds of the run, nothing more.
+ * judge's metrics and spend, then its timeline and output (#397 PR 2, a version 2 artifact) — what
+ * the artifact holds of the run, nothing more.
  */
 
 /** Why a check failed or was skipped. */
@@ -77,5 +79,10 @@ export function runDetails(caseIndex: number, result: EvalRunResult): HtmlElemen
         ` ${error.message}`,
       ]),
     checksTable(result),
+    result.trace === undefined
+      ? element("p", { class: "muted" }, [
+          "No timeline: the artifact holds none for this run (a version 1 artifact, or a turn that failed before its record).",
+        ])
+      : timelineOf(result.trace, (index) => stepAnchor(caseIndex, result.run, index)),
   ]);
 }

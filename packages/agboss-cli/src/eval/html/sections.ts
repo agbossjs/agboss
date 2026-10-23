@@ -40,3 +40,7 @@ export const caseAnchor = (caseIndex: number): string => `case-${String(caseInde
 /** The anchor of one run of a case. */
 export const runAnchor = (caseIndex: number, run: number): string =>
   `${caseAnchor(caseIndex)}-run-${String(run)}`;
+
+/** The anchor of one step of a run's timeline (its root execution's steps, from 0). */
+export const stepAnchor = (caseIndex: number, run: number, stepIndex: number): string =>
+  `${runAnchor(caseIndex, run)}-step-${String(stepIndex + 1)}`;
