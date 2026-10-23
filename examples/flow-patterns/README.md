@@ -1,29 +1,41 @@
 # flow-patterns
 
-The flow's patterns as one application (`src/flow-patterns.application.ts`), one `*.workflow.ts`
-each, on AGBoss's public entries only:
+The zero-cost harness of AGBoss's public surface (#419): the flow's patterns as one application
+(`src/flow-patterns.application.ts`), one `*.workflow.ts` each, on the public entries only — and
+the help desk also as an offline application of its own (`src/desk.application.ts`), whose only
+model provider is a transport that answers by the request, so it runs with no key and no network:
 
-| Folder           | Pattern                                                 | Start                             |
-| ---------------- | ------------------------------------------------------- | --------------------------------- |
-| `src/offer/`     | a review loop                                           | `offer-workflow-start`            |
-| `src/credit/`    | a code router beside a model router                     | `credit-workflow-start`           |
-| `src/review/`    | parallel launches in waves (#273)                       | `review-workflow-start`           |
-| `src/panel/`     | a quorum with a code and a model arbiter (#279)         | `panel-workflow-start`            |
-| `src/vendor/`    | a child workflow per vendor (#263)                      | `vendor-screening-workflow-start` |
-| `src/topic/`     | a workflow launching itself, `maxDepth: 3` (#264)       | `topic-research-workflow-start`   |
-| `src/approvals/` | two approvals at once, in the terminal (#267)           | `offsite-booking-workflow-start`  |
-| `src/hiring/`    | undoable steps: `compensateWith` / `committedBy` (#339) | `send-offer-workflow-start`       |
-| `src/travel/`    | a failed join undoes its finished bookings (#340)       | `trip-workflow-start`             |
+| Folder           | Pattern                                                                                                                | Start                             |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `src/offer/`     | a review loop                                                                                                          | `offer-workflow-start`            |
+| `src/credit/`    | a code router beside a model router                                                                                    | `credit-workflow-start`           |
+| `src/review/`    | parallel launches in waves (#273)                                                                                      | `review-workflow-start`           |
+| `src/panel/`     | a quorum with a code and a model arbiter (#279)                                                                        | `panel-workflow-start`            |
+| `src/vendor/`    | a child workflow per vendor (#263)                                                                                     | `vendor-screening-workflow-start` |
+| `src/topic/`     | a workflow launching itself, `maxDepth: 3` (#264)                                                                      | `topic-research-workflow-start`   |
+| `src/approvals/` | two approvals at once, in the terminal (#267)                                                                          | `offsite-booking-workflow-start`  |
+| `src/hiring/`    | undoable steps: `compensateWith` / `committedBy` (#339)                                                                | `send-offer-workflow-start`       |
+| `src/travel/`    | a failed join undoes its finished bookings (#340)                                                                      | `trip-workflow-start`             |
+| `src/desk/`      | the extension points: a custom compaction, code guardrails, a tool interceptor, a transport model provider (#382–#385) | `desk-workflow-start`             |
 
 ```bash
 npm install && npm run build          # repo root
 cd examples/flow-patterns
 npm run describe                      # every workflow: its paths, inputs, models, infrastructure
-npm run check                         # agboss check --strict, then --models on `test` (no key)
+npm run check                         # agboss check --strict on both applications, --models on `test`
+                                      # (no key), then eslint with agboss/eslint (eslint.config.js)
 npm test                              # scripted models only: no key, no network
 ```
 
-The tests never call a model. A real run uses the `dev` environment (`src/environments/`): models
+The tests never call a model. The desk runs for real offline — its model provider
+(`src/model-providers/harness.model-provider.ts`) looks the `#<id>` order up, then quotes the tool:
+
+```bash
+npx agboss run --application src/desk.application.ts --env test --start desk-workflow-start \
+  --input '{"customerId":"c-1","question":"Where is order #7?"}'
+```
+
+A real run uses the `dev` environment (`src/environments/`): models
 through OpenRouter, and every store — budgets, records, pauses, checkpoints, leases — in SQLite at
 `.agboss/flow-patterns.sqlite` (git-ignored), so a paused run waits across processes.
 

@@ -6,7 +6,6 @@ import { replyWith, routeTo, testWith } from "agboss/testing";
 import { ChargeCardAction } from "../src/credit/actions/charge-card.action.js";
 import { ApprovalAgent } from "../src/credit/agents/approval.agent.js";
 import { OrderIntakeAgent } from "../src/credit/agents/order-intake.agent.js";
-import { CreditWorkflow } from "../src/credit/credit.workflow.js";
 import { FlowPatternsApplication } from "../src/flow-patterns.application.js";
 import { CreditApprovalDto } from "../src/credit/dtos/credit-approval.dto.js";
 import { CreditOrderDto } from "../src/credit/dtos/credit-order.dto.js";
