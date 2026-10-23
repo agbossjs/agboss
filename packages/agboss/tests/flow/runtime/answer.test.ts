@@ -1,6 +1,12 @@
 import { describe, expect } from "vitest";
 import { AgentAnswerInvalidError } from "../../../src/index.js";
-import { callTool, replyWith, routeTo, testWith } from "../../../src/testing/index.js";
+import {
+  callTool,
+  replyWith,
+  replyWithInvalidAnswer,
+  routeTo,
+  testWith,
+} from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
   DoneFinish,
@@ -23,7 +29,7 @@ const edit = testWith(EditApplication);
 const desk = testWith(DeskApplication);
 
 /** An answer-tool call whose arguments do not fit its DTO. */
-const invalid = replyWith(DraftDto, { body: "no text field" } as never);
+const invalid = replyWithInvalidAnswer(DraftDto, { body: "no text field" });
 
 describe("#272 S6 / S9: an agent with output answers through its answer tool", () => {
   edit(

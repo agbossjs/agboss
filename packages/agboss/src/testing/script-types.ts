@@ -15,6 +15,9 @@ import type {
 } from "../flow/generated-types.js";
 import type {
   AnswerTurn,
+  InvalidAnswerTurn,
+  InvalidToolCallTurn,
+  TruncatedToolCallTurn,
   DecideTurn,
   FailureTurn,
   ReplyTurn,
@@ -86,9 +89,28 @@ type AnswerFor<TOutput> = [TOutput] extends [NoOutput]
       ? AnswerTurn<TElement, true>
       : AnswerTurn<TOutput, false>;
 
-/** An agent's turns: text, tool calls, failures, waits — and answers of its output's classes only. */
+/** The invalid answer turns an agent's output allows: of one class of it, or of a list. */
+type InvalidAnswerFor<TOutput> = [TOutput] extends [NoOutput]
+  ? never
+  : [TOutput] extends [GeneratedTypeError]
+    ? InvalidAnswerTurn
+    : TOutput extends readonly (infer TElement)[]
+      ? InvalidAnswerTurn<TElement, true>
+      : InvalidAnswerTurn<TOutput, false>;
+
+/**
+ * An agent's turns: text, tool calls (valid, invalid or truncated), failures, waits — and answers
+ * (valid or invalid) of its output's classes only.
+ */
 type AgentTurnFor<TSelf> =
-  ReplyTurn | ToolCallTurn | FailureTurn | WaitTurn | AnswerFor<ProducerOutputOf<TSelf>>;
+  | ReplyTurn
+  | ToolCallTurn
+  | InvalidToolCallTurn
+  | TruncatedToolCallTurn
+  | FailureTurn
+  | WaitTurn
+  | AnswerFor<ProducerOutputOf<TSelf>>
+  | InvalidAnswerFor<ProducerOutputOf<TSelf>>;
 
 /** A route turn as the router answers: one target, or the list it launches. */
 type RouteFor<TAnswer, TRoute> = [TAnswer] extends [GeneratedTypeError]

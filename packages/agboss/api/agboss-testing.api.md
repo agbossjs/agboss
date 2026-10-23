@@ -106,6 +106,12 @@ export interface CallMatchers<TSelf> {
 export function callTool<TInput extends object>(tool: ToolClass<TInput>, args: NoInfer<TInput>): ToolCallTurn;
 
 // @public
+export function callToolWithInvalidArguments<TInput extends object>(tool: ToolClass<TInput>, args: InvalidFields): InvalidToolCallTurn;
+
+// @public
+export function callToolWithTruncatedArguments<TInput extends object>(tool: ToolClass<TInput>, args: NoInfer<DeepPartial<TInput>>): TruncatedToolCallTurn;
+
+// @public
 export class CassetteMissingError extends TestFailure {
     constructor(message: string);
     // (undocumented)
@@ -259,6 +265,32 @@ export interface GuardrailRunner extends UnitClock {
 //
 // @public
 export type InputMatcherOf<TSelf> = IsKnown<TSelf> extends true ? PartialValues<InputOf<TSelf>> : Readonly<Record<string, unknown>>;
+
+// @public
+export interface InvalidAnswerTurn<TValue = unknown, TIsList extends boolean = boolean> {
+    // (undocumented)
+    readonly [answerGiven]?: AnswerGiven<TValue, TIsList>;
+    // (undocumented)
+    readonly details: AnswerDetails;
+    // (undocumented)
+    readonly dto: DtoClass;
+    // (undocumented)
+    readonly kind: "invalid-answer";
+    readonly value: unknown;
+}
+
+// @public
+export type InvalidFields = Readonly<Record<string, unknown>>;
+
+// @public
+export interface InvalidToolCallTurn {
+    // (undocumented)
+    readonly args: Readonly<Record<string, unknown>>;
+    // (undocumented)
+    readonly kind: "invalid-tool-call";
+    // (undocumented)
+    readonly tool: string;
+}
 
 // @public
 export interface JudgeRunner<TReply> extends UnitClock {
@@ -429,6 +461,12 @@ export function replyWith<TDto extends DtoClass>(dto: TDto, value: NoInfer<Insta
 // @public (undocumented)
 export function replyWith<TDto extends DtoClass>(dto: TDto, values: readonly NoInfer<InstanceType<TDto>>[], details?: AnswerDetails): AnswerTurn<InstanceType<TDto>, true>;
 
+// @public
+export function replyWithInvalidAnswer<TDto extends DtoClass>(dto: TDto, value: InvalidFields, details?: AnswerDetails): InvalidAnswerTurn<InstanceType<TDto>, false>;
+
+// @public (undocumented)
+export function replyWithInvalidAnswer<TDto extends DtoClass>(dto: TDto, values: readonly InvalidFields[], details?: AnswerDetails): InvalidAnswerTurn<InstanceType<TDto>, true>;
+
 // Warning: (ae-forgotten-export) The symbol "ReturnedValueOf" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "ReturnedOf" needs to be exported by the entry point index.d.ts
 //
@@ -471,7 +509,7 @@ export interface RouteTurn<TTargets extends readonly unknown[] = readonly Class[
 export type ScriptedAnswer = number | string;
 
 // @public
-export type ScriptedTurn = ReplyTurn | AnswerTurn | ToolCallTurn | RouteTurn | DecideTurn | FailureTurn | WaitTurn;
+export type ScriptedTurn = ReplyTurn | AnswerTurn | ToolCallTurn | InvalidToolCallTurn | TruncatedToolCallTurn | InvalidAnswerTurn | RouteTurn | DecideTurn | FailureTurn | WaitTurn;
 
 // Warning: (ae-forgotten-export) The symbol "IdGenerator" needs to be exported by the entry point index.d.ts
 //
@@ -742,6 +780,15 @@ export interface ToolSlice<TInput, TOutput> {
     invoke(input: TInput): Promise<ToolOutput<TOutput>>;
 }
 
+// @public
+export interface TruncatedToolCallTurn {
+    // (undocumented)
+    readonly kind: "truncated-tool-call";
+    readonly text: string;
+    // (undocumented)
+    readonly tool: string;
+}
+
 // Warning: (ae-forgotten-export) The symbol "NameOf" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "ReplyInterpreterTurnFor" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "KindOf" needs to be exported by the entry point index.d.ts
@@ -908,6 +955,7 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/execution-context.ts:127:3 - (ae-undocumented) Missing documentation for "instanceId".
 // src/testing/execution-context.ts:128:3 - (ae-undocumented) Missing documentation for "environmentName".
 // src/testing/execution-context.ts:146:3 - (ae-undocumented) Missing documentation for "application".
+// src/testing/invalid-turns.ts:61:1 - (ae-undocumented) Missing documentation for "replyWithInvalidAnswer".
 // src/testing/matchers.ts:11:3 - (ae-undocumented) Missing documentation for "kind".
 // src/testing/matchers.ts:12:3 - (ae-undocumented) Missing documentation for "system".
 // src/testing/matchers.ts:13:3 - (ae-undocumented) Missing documentation for "input".
@@ -950,17 +998,26 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/turns.ts:68:3 - (ae-undocumented) Missing documentation for "kind".
 // src/testing/turns.ts:69:3 - (ae-undocumented) Missing documentation for "tool".
 // src/testing/turns.ts:70:3 - (ae-undocumented) Missing documentation for "args".
-// src/testing/turns.ts:75:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:76:3 - (ae-undocumented) Missing documentation for "targets".
-// src/testing/turns.ts:77:3 - (ae-undocumented) Missing documentation for "details".
-// src/testing/turns.ts:78:3 - (ae-undocumented) Missing documentation for "[routeGiven]".
-// src/testing/turns.ts:83:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:84:3 - (ae-undocumented) Missing documentation for "answers".
-// src/testing/turns.ts:85:3 - (ae-undocumented) Missing documentation for "details".
-// src/testing/turns.ts:90:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:91:3 - (ae-undocumented) Missing documentation for "failure".
-// src/testing/turns.ts:100:3 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/turns.ts:101:3 - (ae-undocumented) Missing documentation for "delay".
+// src/testing/turns.ts:78:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:79:3 - (ae-undocumented) Missing documentation for "tool".
+// src/testing/turns.ts:80:3 - (ae-undocumented) Missing documentation for "args".
+// src/testing/turns.ts:88:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:89:3 - (ae-undocumented) Missing documentation for "tool".
+// src/testing/turns.ts:99:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:100:3 - (ae-undocumented) Missing documentation for "dto".
+// src/testing/turns.ts:103:3 - (ae-undocumented) Missing documentation for "details".
+// src/testing/turns.ts:104:3 - (ae-undocumented) Missing documentation for "[answerGiven]".
+// src/testing/turns.ts:109:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:110:3 - (ae-undocumented) Missing documentation for "targets".
+// src/testing/turns.ts:111:3 - (ae-undocumented) Missing documentation for "details".
+// src/testing/turns.ts:112:3 - (ae-undocumented) Missing documentation for "[routeGiven]".
+// src/testing/turns.ts:117:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:118:3 - (ae-undocumented) Missing documentation for "answers".
+// src/testing/turns.ts:119:3 - (ae-undocumented) Missing documentation for "details".
+// src/testing/turns.ts:124:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:125:3 - (ae-undocumented) Missing documentation for "failure".
+// src/testing/turns.ts:134:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/turns.ts:135:3 - (ae-undocumented) Missing documentation for "delay".
 // src/testing/units/override.ts:10:3 - (ae-undocumented) Missing documentation for "token".
 // src/testing/units/override.ts:11:3 - (ae-undocumented) Missing documentation for "replacement".
 // src/testing/units/test-action.ts:24:3 - (ae-undocumented) Missing documentation for "__call".

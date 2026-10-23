@@ -5,6 +5,7 @@ import {
   failWith,
   ModelFailure,
   replyWith,
+  replyWithInvalidAnswer,
   routeTo,
   waitFor,
   type WorkflowFixtures,
@@ -41,6 +42,18 @@ import { ReviewDraftAction } from "../flow/fixtures/history.fixture.js";
  */
 declare const mockLlm: WorkflowFixtures["mockLlm"];
 declare const mockAction: WorkflowFixtures["mockAction"];
+
+describe("#395 PR 3: replyWithInvalidAnswer is checked against the agent's output classes", () => {
+  it("a class of the agent's output compiles, whatever the fields; one outside it does not", () => {
+    mockLlm(ProfilerAgent).thenReturn(replyWithInvalidAnswer(ProfileDto, { summary: 3 }));
+    mockLlm(ScoutAgent).thenReturn(replyWithInvalidAnswer(OpeningsDto, { openings: 3 }));
+    // @ts-expect-error — OpeningsDto is not one of profiler-agent's outputs
+    mockLlm(ProfilerAgent).thenReturn(replyWithInvalidAnswer(OpeningsDto, {}));
+    // @ts-expect-error — a single output: not a list
+    mockLlm(ScoutAgent).thenReturn(replyWithInvalidAnswer(OpeningsDto, [{ openings: 3 }]));
+    expect(true).toBe(true);
+  });
+});
 
 describe("#262 AC8: replyWith is checked against the agent's output", () => {
   it("a class of the agent's oneOf compiles; one outside it does not", () => {
