@@ -1135,4 +1135,32 @@ test("the scout answers a first message", async ({ app }) => {
 
 Modes: `VCRMode.AUTO` (default outside CI) records a missing cassette and replays an existing one;
 `VCRMode.RECORD` always calls the models and rewrites the file; `VCRMode.REPLAY` (default under `CI`)
-only replays and fails without a cassette.
+only replays and fails without a cassette; `VCRMode.RECORD_STALE` replays and records anew only the
+stale components (below). The process variable `AGBOSS_VCR_MODE` — a member's value — overrides
+every test's own `mode` for one run: `AGBOSS_VCR_MODE=RECORD_STALE npm test`.
+
+### Stale cassettes (#395)
+
+A cassette (version 2) keeps, with every recorded call, the component that made it and that
+component's `promptHash` / `schemaHash` — the join keys of `agboss describe --json` (an agent's
+instructions and its input / output DTOs, a model router's prompt and routes). A replay checks them
+against the application before it answers a component:
+
+- the component's prompt or schema changed since it was recorded, or the application no longer has
+  it → `StaleCassetteError` (`vcr.stale-cassette`; `file`, `component`, `changes` —
+  `CassetteChange.Prompt` / `Schema` / `Removed`), its message naming the fix;
+- the fix is never a hand edit: `AGBOSS_VCR_MODE=RECORD_STALE npm test` re-records the stale
+  components' calls (a model key needed for those only), keeps every other recording as it is, and
+  writes the cassette again — review the new answers in its diff, then run the evals: they are new
+  model behaviour;
+- `agboss check --cassettes` finds the same without running a test — every `*.cassette.json` under
+  the working directory (`node_modules`, `dist`, `.agboss` skipped), `[vcr.stale-cassette]` per
+  stale component, exit 3 ([CLI](CLI#run-inspect-evaluate)).
+
+Judges, guardrails, arbiters, compactions, reply interpreters and PII policies are recorded by name
+only (they have no join keys yet): a change of them is not seen, and a request that no longer
+matches is `CassetteMissingError` as before. A **version 1** cassette (recorded before #395) has no
+hashes: it still replays, without stale detection, and prints a hint once per run (a Node warning,
+`vcr.v1-cassette`) — re-record it once with `AGBOSS_VCR_MODE=RECORD npm test`; `RECORD_STALE`
+re-records a version 1 cassette whole. A recorded reply keeps its unparsable tool calls
+(`invalid_tool_calls`) too.

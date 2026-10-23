@@ -3,6 +3,18 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — stale cassettes: cassette v2, `RECORD_STALE`, `check --cassettes` (#395 PR 4)
+
+- **Added — cassette version 2 and `StaleCassetteError`** ([Testing](Testing#stale-cassettes-395)):
+  every recorded call keeps its component and that component's `promptHash` / `schemaHash`; a replay
+  of an agent or model router that changed since is `StaleCassetteError` (`vcr.stale-cassette`,
+  `component`, `changes: CassetteChange[]`). Version 1 cassettes keep replaying, without stale
+  detection, with a hint.
+- **Added — `VCRMode.RECORD_STALE` and `AGBOSS_VCR_MODE`**: re-records only the stale components'
+  calls; `AGBOSS_VCR_MODE=<member>` overrides every test's own mode (an unknown value fails the test
+  naming the modes).
+- **Added — `agboss check --cassettes`** ([CLI](CLI#run-inspect-evaluate)): the same verdict without a test.
+
 ## Unreleased — the model's invalid turns, scripted (#395 PR 3)
 
 - **Added — `callToolWithInvalidArguments(Tool, args)`, `callToolWithTruncatedArguments(Tool,
