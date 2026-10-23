@@ -1,0 +1,36 @@
+// `npm run lint`: typescript-eslint on the project's types, and the rules AGBoss code follows —
+// the same ones the framework's own gate runs (.claude/skills/agboss/SKILL.md → The gate's rules).
+import js from "@eslint/js";
+import stylistic from "@stylistic/eslint-plugin";
+import { FLOW_CHAIN_RULE, agbossPlugin } from "agboss/eslint";
+import tseslint from "typescript-eslint";
+
+export default tseslint.config(
+  { ignores: ["node_modules", "dist", "coverage", ".agboss"] },
+  js.configs.recommended,
+  ...tseslint.configs.strictTypeChecked,
+  {
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    rules: {
+      // a component is its decorator: @Agent, @WorkflowStart, … classes are empty on purpose
+      "@typescript-eslint/no-extraneous-class": ["error", { allowWithDecorator: true }],
+    },
+  },
+  {
+    // a component keeps no state (one instance serves every execution, on any instance), and reads
+    // the time through the injected Clock, so tests run on a virtual one
+    files: ["src/**/*.ts"],
+    ignores: ["src/**/*.test.ts"],
+    plugins: { agboss: agbossPlugin },
+    rules: { "agboss/no-component-state": "error", "agboss/no-direct-time": "error" },
+  },
+  {
+    // one call per line in every chain of a workflow module: start(A) / .returns(B) / .toFinish(C)
+    files: ["**/*.workflow.ts"],
+    plugins: { "@stylistic": stylistic },
+    rules: FLOW_CHAIN_RULE,
+  },
+  { files: ["**/*.js"], ...tseslint.configs.disableTypeChecked },
+);

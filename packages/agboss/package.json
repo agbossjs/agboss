@@ -82,6 +82,10 @@
       "types": "./dist/memory/index.d.ts",
       "import": "./dist/memory/index.js"
     },
+    "./eslint": {
+      "types": "./dist/eslint/index.d.ts",
+      "import": "./dist/eslint/index.js"
+    },
     "./internal": {
       "types": "./dist/internal.d.ts",
       "import": "./dist/internal.js"
@@ -148,9 +152,13 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
+    "@typescript-eslint/utils": "^8.0.0",
     "vitest": "^3.2.0"
   },
   "peerDependenciesMeta": {
+    "@typescript-eslint/utils": {
+      "optional": true
+    },
     "vitest": {
       "optional": true
     }

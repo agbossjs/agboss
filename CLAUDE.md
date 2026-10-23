@@ -1129,7 +1129,8 @@ deps: [SqliteConnection, Clock, ApplicationContext] })` (#265 S70); `SqliteExecu
   (`deps: [Clock]`). Lint `agboss/no-direct-time` fails `Date.now()`, `new Date()` / `Date()`
   without arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout` and
   `node:timers` in `packages/agboss/src` (the real implementation, `src/infrastructure/clock.ts`,
-  excepted).
+  excepted) and in a project's `src/` outside its tests (the `eslint.config.js` `agboss create`
+  writes, #388).
 - **Ids are the application's `IdGenerator` (#313):** infrastructure like the `Clock` (and in its
   module) — `newThreadId()` and `newExecutionId()`; every thread id the framework mints
   (`app.execute` without a `threadId`) and every execution id (roots, children, recursion levels)
@@ -1856,7 +1857,8 @@ executionContext, execution }` as `testExecutionContext` takes them (checked by 
 An example (and any project) imports only the public entries: the root `agboss` (decorators,
 DI, the path builder, settings, environments, observers, judges and decisions, `createApp`, errors,
 types), `agboss/dto` (+ the DTO wrappers), `/units`, `/models`, `/testing` (+ `/testing/setup`), and
-the integrations `/mcp`, `/rag`, `/a2a`, `/memory`. ESLint enforces it from
+the integrations `/mcp`, `/rag`, `/a2a`, `/memory`, and `/eslint` (#388: the lint rules for a
+project's ESLint config; types from `@typescript-eslint/utils`, an optional peer). ESLint enforces it from
 `packages/agboss/package.json#exports` minus `deprecatedExports` (`scripts/public-entries.mjs`): a
 new entry is allowed by adding it there, never by an `eslint-disable`. `/core`, `/graph`, `/router`,
 `/tool`, `/channels` are deprecated re-exports; `agboss migrate imports` rewrites them. The root
@@ -2007,6 +2009,9 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
     loader/, describe/   loadWorkflow (tsx); describeApplication (`agboss describe`, through agboss/internal)
                     and its parts — the tree, channels, PII policies, the worst-case report;
                     describeWorkflow (internal: one workflow's part); studio.ts (studioOf: the graphs of agboss studio)
+    eslint/         `agboss/eslint` (#388): `agbossPlugin` (`agboss/no-component-state`,
+                    `agboss/no-direct-time`) and `FLOW_CHAIN_RULE` — for the eslint.config.js `agboss
+                    create` writes and for this repo's own config (so lint runs on the build)
     internal.ts     `agboss/internal`: what the CLI is built on — not public, not for projects
   tests/            unit tests (helpers.ts = fakes; fixtures/ = test workflows); routers/ alone; smoke/ = real
   schema/           profile.schema.json (YAML autocomplete)
@@ -2034,7 +2039,7 @@ examples/flow-patterns/      the flow's patterns (package flow-patterns-example,
                     #267), src/hiring/ (declared compensation, #339), src/travel/ (a failed join's undo, #340), one *.workflow.ts each; scripts/ (npm run answer); README.md (real runs,
                     #346); tests/
 scripts/        the gate's checks (check-root, check-suppressions, check-docs + docs/, api-report,
-                public-entries, eslint-agboss-plugin: eslint-component-state + eslint-direct-time),
+                public-entries, eslint-agboss-plugin: `agboss/eslint` on the repo's files),
                 bootstrap-repo, bootstrap-labels, ticket, wiki,
                 langfuse, coverage-badge
 ../<repo>.wiki  GitHub Wiki working copy (separate git repo, never inside this repo)

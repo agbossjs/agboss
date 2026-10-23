@@ -59,6 +59,13 @@ export const eslintOf = (project: string, folders: readonly string[]): Ran =>
   );
 
 /**
+ * The project's own `npm run lint` (#388): `eslint .` in its folder, on the `eslint.config.js`
+ * `agboss create` wrote — typescript-eslint and the AGBoss rules, from `agboss/eslint`.
+ */
+export const lintOf = (project: string): Ran =>
+  run(bin("eslint/bin/eslint.js"), [".", "--max-warnings", "0"], project);
+
+/**
  * `prettier --check` on the project's TypeScript, JSON and Markdown, ignoring no file but the
  * workflow modules: those keep one call per line in their chains, which Prettier would join (#289,
  * checked by `expectOneCallPerLine`).

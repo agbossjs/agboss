@@ -79,8 +79,9 @@ npm test                                                           # scripted mo
 ## The gate's rules
 
 AGBoss code follows these everywhere — the framework's own gate enforces them with lint
-(`agboss/no-component-state`, `@stylistic/newline-per-chained-call`) and a suppression budget, and a
-project's CI may too. Never work around them:
+(`agboss/no-component-state`, `agboss/no-direct-time`, `@stylistic/newline-per-chained-call`) and a
+suppression budget, and a project made by `npx agboss create` lints with the same rules (its
+`eslint.config.js`). Never work around them:
 
 - No `as any`, `as unknown as`, `@ts-ignore`, `@ts-expect-error` outside compile-time tests,
   `eslint-disable` or `prettier-ignore`. A type error is fixed in the code or the decorator, or by
@@ -95,7 +96,8 @@ project's CI may too. Never work around them:
   field's `orderId!: string` is a definite assignment and is required).
 - Imports only from the public entries: `agboss`, `agboss/dto`, `agboss/units`, `agboss/models`,
   `agboss/testing` (+ `agboss/testing/setup`), `agboss/mcp`, `agboss/rag`, `agboss/a2a`,
-  `agboss/memory` — never `agboss/internal`, `agboss/dist/…` or LangGraph directly.
+  `agboss/memory`, and `agboss/eslint` in `eslint.config.js` — never `agboss/internal`,
+  `agboss/dist/…` or LangGraph directly.
 
 <!-- snippet-context
 import { Injectable } from "agboss";

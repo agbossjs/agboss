@@ -12,7 +12,7 @@ import { planGenerate } from "../../src/scaffold/generate.js";
 import type { WorkflowSpec } from "../../src/scaffold/plan.js";
 import { planProject } from "../../src/scaffold/project.js";
 import { applyChanges } from "../../src/scaffold/write.js";
-import { expectStaticChecks, agbossIn, vitestOf } from "./project-checks.js";
+import { expectStaticChecks, agbossIn, lintOf, vitestOf } from "./project-checks.js";
 
 const tmp = new URL("../../.scaffold-tmp", import.meta.url).pathname;
 const project = join(tmp, `desk-${String(process.pid)}`);
@@ -24,6 +24,9 @@ function check(): string {
   const checked = agbossIn(project, ["check"]);
   expect(checked.ok, checked.out).toBe(true);
   expectStaticChecks(project, ["src"]);
+  // #388 AC1: the project's own `npm run lint` passes, on its generated config
+  const lint = lintOf(project);
+  expect(lint.ok, lint.out).toBe(true);
   const tests = vitestOf(project);
   expect(tests.ok, tests.out).toBe(true);
   const describeOut = agbossIn(project, ["describe"]);
@@ -118,6 +121,7 @@ describe("agboss create / agboss generate end to end", () => {
     expect(scripts().chat).toBe("agboss chat --start desk-text-workflow-start");
     expect(scripts().run).toBe("agboss run --start desk-text-workflow-start");
     expect(scripts().types).toBe("agboss check");
+    expect(scripts().lint).toBe("eslint .");
     expect(scripts()["rag:index"]).toBe("agboss rag index");
     // #135 AC12: the workflow test on testWith runs offline in the unit project; empty projects pass
     const unit = vitestOf(project, ["--project", "unit"]);
