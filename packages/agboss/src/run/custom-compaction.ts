@@ -100,24 +100,35 @@ function checkedSummaries(name: string, given: unknown): readonly string[] {
   return texts.map((text) => String(text).trim());
 }
 
-/** `compact()` in the frame of the execution's start; a failure is `CompactionError` with its cause. */
-async function compacted<TName extends string>(
+/**
+ * `compact()` of the class's instance in a frame (the execution's start, a unit runner's step), its
+ * answer checked; a failure is `CompactionError` with its cause — at run time and in `testCompaction`.
+ */
+export async function compactedBy(
+  handler: unknown,
+  name: string,
+  inFrame: <T>(work: () => Promise<T>) => Promise<T>,
+  input: CompactionInput,
+): Promise<readonly string[]> {
+  try {
+    if (!isHandler(handler)) throw new TypeError(`${name} has no compact(input)`);
+    const given: unknown = await inFrame(() => Promise.resolve(handler.compact(input)));
+    return checkedSummaries(name, given);
+  } catch (error) {
+    if (error instanceof CompactionError) throw error;
+    const message = `${name}: compact() failed`;
+    throw new CompactionError(message, name, undefined, error);
+  }
+}
+
+/** `compact()` of the compaction's class, created by the application's container. */
+const compacted = <TName extends string>(
   deps: AgentExecutionDeps<TName>,
   compaction: CustomCompactionInUse,
   run: CompactionRun,
   input: CompactionInput,
-): Promise<readonly string[]> {
-  const handler: unknown = deps.container.get(compaction.type);
-  try {
-    if (!isHandler(handler)) throw new TypeError(`${compaction.type.name} has no compact(input)`);
-    const given: unknown = await run.inFrame(() => Promise.resolve(handler.compact(input)));
-    return checkedSummaries(compaction.name, given);
-  } catch (error) {
-    if (error instanceof CompactionError) throw error;
-    const message = `${compaction.name}: compact() failed`;
-    throw new CompactionError(message, compaction.name, undefined, error);
-  }
-}
+): Promise<readonly string[]> =>
+  compactedBy(deps.container.get(compaction.type), compaction.name, run.inFrame, input);
 
 /** A custom compaction of the records due: its summaries stored as one record, revealed. */
 export async function compactWithHandler<TName extends string>(

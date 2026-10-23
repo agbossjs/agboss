@@ -8,15 +8,12 @@ import { recordUsage, totalCost, type UsageRecord } from "../finops/usage.js";
 import type { ModelBinding } from "../llm/registry.js";
 import { isCutAtLimit } from "../models/finish-reason.js";
 import { revealedText, type PiiTokenMap } from "../pii/tokens.js";
-import {
-  CURRENT_SUMMARY_HEADING,
-  EARLIER_TURNS_HEADING,
-  SHORTER_SUMMARY_REQUEST,
-  TURNS_TO_ADD_HEADING,
-  TURNS_TO_COMPACT_HEADING,
-} from "../prompts/compaction.js";
+import { SHORTER_SUMMARY_REQUEST } from "../prompts/compaction.js";
 import type { Summary, Tern } from "../terns/index.js";
 import { maskedTextOf, storedCompaction } from "./compaction-parts.js";
+import { summaryInputTextOf } from "./compaction-input.js";
+
+export { summaryInputTextOf, type SummaryInputParts } from "./compaction-input.js";
 import { compactWithHandler } from "./custom-compaction.js";
 import { isTurn, toTurns } from "./thread.js";
 import type { AgentExecutionDeps } from "./types.js";
@@ -96,19 +93,22 @@ async function inputOf<TName extends string>(
   const { tenantId, threadId } = run;
   if (compaction.strategy === CompactionStrategy.SingleSummary) {
     const [current] = await deps.terns.latestSummaries(tenantId, threadId, compaction.name, 1);
-    const summary = current === undefined ? "(none yet)" : current.text;
-    const text = `${CURRENT_SUMMARY_HEADING}\n${summary}\n\n${TURNS_TO_ADD_HEADING}\n${asTurns(due)}`;
-    return current === undefined ? { text } : { text, current };
+    const parts = { earlier: "", due: asTurns(due) };
+    if (current === undefined) return { text: summaryInputTextOf(compaction.strategy, parts) };
+    return {
+      text: summaryInputTextOf(compaction.strategy, { ...parts, current: current.text }),
+      current,
+    };
   }
   const previous =
     first === undefined
       ? []
       : await deps.terns.before(tenantId, threadId, first.id, compaction.turnsBetweenCompactions);
-  const context = asTurns(previous);
   return {
-    text:
-      (context === "" ? "" : `${EARLIER_TURNS_HEADING}\n${context}\n\n`) +
-      `${TURNS_TO_COMPACT_HEADING}\n${asTurns(due)}`,
+    text: summaryInputTextOf(compaction.strategy, {
+      earlier: asTurns(previous),
+      due: asTurns(due),
+    }),
   };
 }
 
@@ -135,7 +135,7 @@ async function summaryCall(
 }
 
 /** The summary: the first answer, or — cut at `summaryMaxTokens` — the one asked to be shorter. */
-async function summaryOf(
+export async function summaryOf(
   binding: ModelBinding,
   compaction: ModelCompactionInUse,
   input: string,

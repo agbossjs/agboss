@@ -150,6 +150,28 @@ export const childMatchers: {
 export type ClockDuration = `${number}${"ms" | "s" | "m" | "h" | "d"}`;
 
 // @public
+export interface CompactionRequest {
+    // (undocumented)
+    readonly input: string;
+    // (undocumented)
+    readonly instructions: string;
+}
+
+// @public
+export interface CompactionResult {
+    readonly requests: readonly CompactionRequest[];
+    readonly summaries: readonly string[];
+}
+
+// @public
+export interface CompactionRunner extends UnitClock {
+    // Warning: (ae-forgotten-export) The symbol "CompactionInput" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    (input: CompactionInput, options?: UnitCallOptions): Promise<UnitRun<CompactionResult>>;
+}
+
+// @public
 export interface CompensationMatchers<R = unknown> {
     toHaveCompensated(action: Class, expected: ExpectedCompensation): R;
 }
@@ -578,6 +600,9 @@ export interface TestApplicationOptions {
 
 // @public
 export function testArbiter<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(arbiter: Class, options?: UnitModelOptions<unknown, TExecution, TTenant>): ArbiterRunner;
+
+// @public
+export function testCompaction<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(compaction: Class, options?: UnitModelOptions<unknown, TExecution, TTenant>): CompactionRunner;
 
 // @public
 export class TestConcurrency {
@@ -1043,6 +1068,9 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/override.ts:11:3 - (ae-undocumented) Missing documentation for "replacement".
 // src/testing/units/test-action.ts:24:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-arbiter.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-compaction.ts:33:3 - (ae-undocumented) Missing documentation for "instructions".
+// src/testing/units/test-compaction.ts:34:3 - (ae-undocumented) Missing documentation for "input".
+// src/testing/units/test-compaction.ts:50:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-guardrail.ts:24:3 - (ae-undocumented) Missing documentation for "isBlocked".
 // src/testing/units/test-guardrail.ts:39:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-judge.ts:38:3 - (ae-undocumented) Missing documentation for "__call".

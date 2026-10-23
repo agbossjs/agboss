@@ -148,6 +148,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["toolCallMatchers", "ToolCallMatchers", "ToolCallExpectation"],
     ...["callToolWithInvalidArguments", "callToolWithTruncatedArguments", "replyWithInvalidAnswer"],
     ...["VCRMode", "CassetteMissingError", "StaleCassetteError", "CassetteChange"],
+    ...["testCompaction", "CompactionRunner", "CompactionResult", "CompactionInput"],
   ],
   "references/02-flow-dsl-all-combinations.md": [
     ...["Workflow", "WorkflowStart", "WorkflowFinish", "FinishHandler", "WorkflowStartTextDto"],
