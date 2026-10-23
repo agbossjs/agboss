@@ -22,6 +22,7 @@ import { DeskWorkflow } from "./desk/desk.workflow.js";
 import { OrderDeskHealthCheck } from "./desk/health/order-desk.health-check.js";
 import { DeskMetricsObserver } from "./desk/observers/desk-metrics.observer.js";
 import { DeskMetricsService } from "./desk/services/desk-metrics.service.js";
+import { HelplineWorkflow } from "./helpline/helpline.workflow.js";
 import { HarnessModelProvider } from "./model-providers/harness.model-provider.js";
 import { FlowPatternsOpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { OfferWorkflow } from "./offer/offer.workflow.js";
@@ -43,7 +44,8 @@ import { AppEnvironment } from "./environments/app.environment.js";
  * `app.execute(OffsiteBookingWorkflowStart, …)` two approvals at once (#267),
  * `app.execute(SendOfferWorkflowStart, …)` an offer whose steps declare their undo (#339),
  * `app.execute(TripWorkflowStart, …)` two bookings a failed join undoes automatically (#340),
- * `app.execute(DeskWorkflowStart, …)` the extension points on an offline model (#382–#385) — each
+ * `app.execute(DeskWorkflowStart, …)` the extension points on an offline model (#382–#385),
+ * `app.execute(HelplineWorkflowStart, …)` a call to `desk-application` over A2A (#398) — each
  * workflow by its start. The child `VendorCheckWorkflow` is not listed: a child workflow belongs to the application
  * of its parent, and `app.execute(VendorCheckWorkflowStart, …)` runs it alone.
  *
@@ -74,6 +76,7 @@ import { AppEnvironment } from "./environments/app.environment.js";
     SendOfferWorkflow,
     TripWorkflow,
     DeskWorkflow,
+    HelplineWorkflow,
   ],
   observers: [DeskMetricsObserver],
   healthChecks: [OrderDeskHealthCheck],
