@@ -13,6 +13,7 @@ import {
   type SseTransport,
 } from "./mcp-service-helpers.js";
 import { collectTools, type McpSessionOptions } from "./mcp-tool-registry.js";
+import { admitMcpCall } from "./mcp-mesh-gate.js";
 
 export interface McpSession {
   readonly sessionId: string;
@@ -56,8 +57,16 @@ export class McpService {
       if (!handler) {
         throw new Error(`Tool not found: ${name}`);
       }
+      // the caller's mesh envelope (#398): a loop or a chain too long is refused before it runs
+      const admission = admitMcpCall(this.app, name, _meta);
+      if (!admission.isAdmitted) return admission.refusal;
       const callId = callIdOf(_meta);
-      return handler({ args, signal: extra.signal, ...(callId === undefined ? {} : { callId }) });
+      return handler({
+        args,
+        signal: extra.signal,
+        ...(callId === undefined ? {} : { callId }),
+        ...(admission.inbound === undefined ? {} : { mesh: admission.inbound }),
+      });
     });
 
     return mcp;

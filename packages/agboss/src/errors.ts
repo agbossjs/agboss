@@ -1,7 +1,7 @@
 /**
  * The errors a run can fail with — every one a `AGBossError` with a stable `code`, so a flow
  * can `.onError(<class>, …)` it (also after a resume from a checkpoint) and a caller can tell them
- * apart. `limit` ⊃ `limit.budget`, `limit.steps`, `limit.visits`, `limit.depth` (#264); `step` ⊃ `step.failed` (`StepFailedError`, #273 S22) ⊃
+ * apart. `limit` ⊃ `limit.budget`, `limit.steps`, `limit.visits`, `limit.depth` (#264), `limit.mesh-loop`, `limit.hops` (#398); `step` ⊃ `step.failed` (`StepFailedError`, #273 S22) ⊃
  * `step.agent`, `step.action`, `step.guard`, `step.router`, `step.arbiter`, `step.quorum` (#279),
  * `step.child` (`ChildExecutionFailedError`, #263) and `step.tool-blocked` (`ToolBlockedError`, #384).
  */
@@ -53,6 +53,11 @@ export { CompactionError } from "./compaction/errors.js";
 export { PiiDetectionFailedError } from "./pii/detectors/model.js";
 export { ChildExecutionFailedError } from "./flow/runtime/child-errors.js";
 export { DepthLimitExceededError } from "./flow/runtime/depth-limit.js";
+export {
+  HopsLimitExceededError,
+  MeshLoopDetectedError,
+  type MeshLimitPlace,
+} from "./mesh/mesh-errors.js";
 export { CompensationFailedError } from "./flow/compensation.js";
 export { ExecutionContextUnavailableError } from "./flow/context/errors.js";
 export { SpendOutsideStepError } from "./components/spend-recorder.js";

@@ -65,6 +65,14 @@ export interface ApplicationOptions {
    */
   readonly maxConcurrentSteps?: number;
   /**
+   * How many applications one call chain of the mesh may pass through (#398), this one included: an
+   * A2A or MCP request whose envelope already lists `maxMeshHops` applications is refused before it
+   * runs (`HopsLimitExceededError`, `limit.hops`) — as is one whose chain already passed through
+   * this application's start (`MeshLoopDetectedError`, `limit.mesh-loop`). A whole number from 1
+   * (`[limits.max-mesh-hops-invalid]`); default 8.
+   */
+  readonly maxMeshHops?: number;
+  /**
    * How long a resolved pause record (`Taken`, `Cancelled`) is kept after it was resolved (#267
    * S107): within it a late answer gets `NotPausedError`, after it `UnknownPauseError`; the
    * recovery sweep removes it on the `Clock`. A pending pause is never removed. Default `hours(24)`.

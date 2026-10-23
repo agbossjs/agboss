@@ -1001,10 +1001,10 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/slices.ts:20:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:25:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:33:3 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/test-app.ts:30:3 - (ae-undocumented) Missing documentation for "clock".
-// src/testing/test-app.ts:36:3 - (ae-undocumented) Missing documentation for "agent".
-// src/testing/test-app.ts:37:3 - (ae-undocumented) Missing documentation for "router".
-// src/testing/test-app.ts:38:3 - (ae-undocumented) Missing documentation for "tool".
+// src/testing/test-app.ts:31:3 - (ae-undocumented) Missing documentation for "clock".
+// src/testing/test-app.ts:37:3 - (ae-undocumented) Missing documentation for "agent".
+// src/testing/test-app.ts:38:3 - (ae-undocumented) Missing documentation for "router".
+// src/testing/test-app.ts:39:3 - (ae-undocumented) Missing documentation for "tool".
 // src/testing/turns.ts:23:3 - (ae-undocumented) Missing documentation for "reason".
 // src/testing/turns.ts:26:3 - (ae-undocumented) Missing documentation for "cost".
 // src/testing/turns.ts:45:3 - (ae-undocumented) Missing documentation for "value".

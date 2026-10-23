@@ -81,6 +81,7 @@ export type RuleCode =
   | "flow.committer-unreachable"
   // the instance's cap on steps (#332), reported at the application's assembly
   | "limits.max-concurrent-steps-invalid"
+  | "limits.max-mesh-hops-invalid"
   | "name.kind-suffix"
   | "dto.name"
   | "dto.duplicate-name"

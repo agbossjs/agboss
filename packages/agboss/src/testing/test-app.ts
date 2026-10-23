@@ -16,6 +16,7 @@ import {
 } from "./slices.js";
 import { toolNameOf } from "./script.js";
 import { isListedProvider, rememberListedProviders } from "../application/listed-providers.js";
+import { meshSettingsOf, rememberMeshSettings } from "../mesh/mesh-settings.js";
 
 /**
  * The app of a test: the same `run` / `resume` as in production, built on first use (so `mockOf`
@@ -151,5 +152,6 @@ export function createTestApp(environment: TestEnvironment): TestApp {
   };
   // a listener built from this app checks its providers like the built application's (#387)
   rememberListedProviders(testApp, (cls) => isListedProvider(readyApp(), cls) ?? false);
+  rememberMeshSettings(testApp, () => meshSettingsOf(readyApp()));
   return testApp;
 }

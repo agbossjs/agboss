@@ -7,6 +7,7 @@ import type { TenantContext } from "./tenant-context.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { EndedChildRecord } from "../runtime/child-records.js";
 import type { CompensationEntry } from "../compensation.js";
+import type { InboundMesh } from "../../mesh/inbound-mesh.js";
 
 /**
  * The frame of a step (#280 S18): what the injected `ExecutionContext` reads. The node runner
@@ -30,6 +31,11 @@ export interface ExecutionFacts {
   readonly itemIndex?: number | undefined;
   /** The execution that launched this one and its launching step (#263); `undefined` at the root. */
   readonly parent?: ParentExecution | undefined;
+  /**
+   * The call chain a mesh call of this tree carries (#398): set on a root's frames — the chain its
+   * request arrived with and its own hop; a child's calls carry its root's.
+   */
+  readonly mesh?: InboundMesh | undefined;
 }
 
 /** A child's parent (#263): its execution and the step that launched the child. */
