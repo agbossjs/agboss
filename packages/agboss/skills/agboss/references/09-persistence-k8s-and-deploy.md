@@ -378,6 +378,35 @@ One masked record per line, oldest start first, each `{ "kind": "agboss.executio
 take an ISO 8601 date or time (records started in `[since, until)`); an application without
 `executionRecordRetention` is `records.not-kept` (exit 3).
 
+## The Mesh Hub: `agboss hub show`
+
+Many applications' files form one picture of the mesh — no project, no application assembled, no
+network. Each service's CI saves what it has; a platform repo reads the folder:
+
+```
+npx agboss describe --json > hub/desk-application/describe.json
+npx agboss eval run --suite refunds-eval-suite --runs 5 --env eval --report hub/desk-application/refunds.run.json
+npx agboss records export --env prod --tenant acme --since 2026-10-16 --out hub/desk-application/records/acme.jsonl
+npx agboss hub show hub/ --html .artifacts/mesh.html
+```
+
+- Inputs are files and folders only (a folder's `*.json` / `*.jsonl`, any depth), each known by its
+  own marker: a `describe --json` envelope (`command: "describe"`), a run artifact (`kind:
+"agboss.eval-run"`), an export (`kind: "agboss.execution-record"` per line). Anything else, or a
+  newer schema, is `hub.input-schema` naming the file (and the line); two snapshots of one
+  application version `hub.duplicate-application`; a missing path `hub.input-not-found` (all exit 3).
+- The page (`--html`, one self-contained file in the eval report's shell: inline style and script by
+  hash, no request — share it behind your own SSO) shows the **mesh graph** (each application, solid
+  when a snapshot describes it, dashed when only records or runs name it), the **observed edges** — a
+  caller's `toolCalls[].remote` and a receiver's `origin`, one call counted once by its step's
+  `idempotencyKey` (never by tenant) — and a card per application: its workflows with their agents,
+  routers, actions, child workflows, tools and MCP servers, its channel roles, and its **health from
+  its files only**: executions, failure rate, p95 duration, spend and spend per day from its records,
+  the `limit.*` / `mesh.*` codes they failed with, and the latest run of each eval suite (pass^k,
+  pass@k, unstable). Nothing live: probes stay the orchestrator's (`app.checkReadiness()`).
+- Above 16 MB the page is refused (`hub.report-too-large`): export a shorter period. Without
+  `--html` it prints the summary; `--json` gives the applications, the inputs and the edges.
+
 ## Your own store
 
 A project's implementation `extends` the contract (or a SQLite one, with `override`) and is listed in

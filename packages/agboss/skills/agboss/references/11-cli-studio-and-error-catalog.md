@@ -25,6 +25,7 @@ there is no `--workflow <path>`.
 | `npx agboss run [--start <name>] ("<task>" \| --input <json> \| --input-file <file>) [--thread <id>] [--profile <name>] [--env <name>]`                                                                                                                | one execution of a start, the reply to stdout                                                                                                                                                                                                                                                                                   |
 | `npx agboss chat [--start <name>] [--thread <id>] [--profile <name>] [--env <name>]`                                                                                                                                                                   | an interactive chat with a workflow; asks in the terminal about each pause the thread's owner answers                                                                                                                                                                                                                           |
 | `npx agboss records export (--tenant <id> \| --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>] [--env <name>]`                                                                                                                       | the application's kept execution records (`executionRecordRetention`) as masked JSON Lines, read from its store without running anything (reference 09)                                                                                                                                                                         |
+| `npx agboss hub show <path…> [--html <file>]`                                                                                                                                                                                                          | the agent mesh of many applications from their files — describe snapshots, eval runs, exported executions — with `--html` one self-contained page; no project, nothing runs (reference 09)                                                                                                                                      |
 | `npx agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--metamorphic] [--profile <name>] [--env <name>]` | runs an `@EvalSuite` on the application: every case `--runs` times (default 1), pass@k / pass^k per case, the run artifact; each case against a baseline artifact; failures injected into its model calls; each case's variants checked for the same tools                                                                      |
 | `npx agboss eval show <run.json> [--html <file>]`                                                                                                                                                                                                      | a saved run artifact: its table, and with `--html` its self-contained HTML report; runs nothing                                                                                                                                                                                                                                 |
 | `npx agboss eval ui [--dir <folder>] [--port N] [--labels-dir <folder>] [--taxonomy <file>] [--labeler <name>] [--application <path>] [--env <name>]`                                                                                                  | a folder of run artifacts served on 127.0.0.1 behind a printed token, its runs labelled into `eval/labels/<suite>.jsonl` and saved as golden cases of their suites; Ctrl+C stops it                                                                                                                                             |
@@ -75,6 +76,10 @@ there is no `--workflow <path>`.
   (`records.tenant-required`), for a `--since` / `--until` that is no ISO 8601 date or time
   (`usage.option-value`) or without `--out` (`usage.missing-option`); 3 when the application keeps
   no records (`records.not-kept`: no `@Application({ executionRecordRetention })`).
+- `hub show <path…>` (#401) exits 2 without a path; 3 for a missing path (`hub.input-not-found`), a
+  file that is no describe envelope, run artifact or export, or a newer schema (`hub.input-schema`,
+  the file and the line named), two snapshots of one application version
+  (`hub.duplicate-application`); 2 for a page above 16 MB (`hub.report-too-large`).
 - `generate eval-case <name> --from-execution <executionId>` (#396) exits 2 without
   `--from-execution` (`usage.missing-option`), for an id two tenants kept without `--tenant`
   (`records.ambiguous-execution`, the tenants listed), for an unknown `--suite` (its suites listed,
@@ -108,7 +113,8 @@ detection that call a model, each `{ name, kind, promptHash, schemaHash }`), `sc
 `usage.unknown-option`, `usage.missing-argument`, `start.not-found`, `workflow.not-found`,
 `eval.unknown-suite`, `eval.case-invalid`, `eval.run-not-found`, `eval.run-invalid`,
 `eval.report-too-large`, `eval.regressed`, `eval.labels-not-found`, `eval.labels-invalid`,
-`records.tenant-required`, `records.not-kept`, `records.not-found`, `records.ambiguous-execution`, …
+`records.tenant-required`, `records.not-kept`, `records.not-found`, `records.ambiguous-execution`,
+`hub.input-schema`, `hub.input-not-found`, `hub.duplicate-application`, `hub.report-too-large`, …
 
 ### Reading `check`
 
