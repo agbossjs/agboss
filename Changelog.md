@@ -3,6 +3,18 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — trajectory matchers on a run result (#395 PR 2)
+
+- **Breaking — `mockLlm(X).toHaveCalledTools([…])` is `toHaveScriptedToolCalls([…])`**
+  ([Testing](Testing#matchers)): the script matcher (the model's calls, exactly, in order) is
+  renamed — replace the name in a test; `toHaveCalledTools` now asserts a run result.
+- **Added — `expect(result).toHaveCalledTools([A, B])`** ([Testing](Testing#asserting-the-tool-calls)):
+  each tool called at least once by the root execution's agents, in any order, whatever its
+  status; `.not.toHaveCalledTools([…])` — none of them was.
+- **Added — `expect(result).toHaveToolCallMatching(Tool, partialOrCheck)`**: some call of the tool
+  has an input matching a deep partial or a check (`ToolCallExpectation<TInput>`, typed by the tool's
+  input); `.not` — none does. `ToolCallMatchers` / `toolCallMatchers` in `agboss/testing`.
+
 ## Unreleased — trajectories of failed visits, children's steps, unknown tools (#395 PR 1b)
 
 - **Changed — a failed visit keeps its records** ([Observability](Observability#tool-calls-and-steps)):

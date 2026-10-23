@@ -523,7 +523,9 @@ One component of the real app on its own:
 | `toHaveBeenCalledWith(partial)`                  | `mockLlm(X)`, `mockAction(A)` | a call's input matched — the `when(…)` matcher, typed by `InputOf<X>` |
 | `toHaveBeenCalledTimes(n)`                       | `mockLlm(X)`, `mockAction(A)` | model calls of X (an agent that calls a tool and answers: 2), executions of A |
 | `toHaveReturned(XDto, fields?)`                  | `mockLlm(X)`, `mockAction(A)` | it returned a value of that class (a text agent: `WorkflowFinishTextDto`) with those fields |
-| `toHaveCalledTools([Tool, …])`                   | `mockLlm(Agent)`         | its model called exactly these tools, in order       |
+| `toHaveScriptedToolCalls([Tool, …])`             | `mockLlm(Agent)`         | its model called exactly these tools, in order (was `toHaveCalledTools`, #395) |
+| `toHaveCalledTools([Tool, …])`                   | a run result             | each tool was called at least once by the root's agents, in any order, whatever its status; `.not`: none of them was (#395) |
+| `toHaveToolCallMatching(Tool, partialOrCheck)`   | a run result             | some call of `Tool` has an input matching the deep partial, or the check `(input) => boolean` (run on calls whose input passed the tool's input check); `.not`: none does (#395) |
 | `toHaveBeenAskedWith({ input?, system?, … })`      | `mockLlm(X)`             | some request has these parts (strings as substrings) |
 | `toHaveChildExecutions(W, [{ item, finish \| failedWith \| cancelled }, …])` | a run result | the executions of child workflow `W` in the result's tree, in item order, are exactly these (#263) |
 | `toHaveHandledError(E, { at?, by? })`             | a run result             | an error of `E` (or caused by one) happened at `at` and the side path starting at `by` took it (#263) |
@@ -539,13 +541,16 @@ The call matchers keep Vitest's names; on anything that is not a script — a `v
 `input`, `output`, `status: ToolCallStatus`, `error?`, `isResultTruncated`, times — [Observability →
 tool calls and steps](Observability#tool-calls-and-steps)); `toolCallsOf(Tool, result.toolCalls)`
 gives one tool's, typed by its input and output once narrowed by `status`. Assert invariants that
-hold whatever the order: which tools ran, with what, how each ended.
+hold whatever the order: which tools ran, with what, how each ended — `toHaveCalledTools` and
+`toHaveToolCallMatching` (typed by the tool's input, `ToolCallExpectation<TInput>`) for the usual
+ones, `toolCallsOf` for the rest. A child's calls are asserted through `result.children`.
 
 <!-- snippet-context
 import type { ExecutionOutput } from "agboss";
 import { ToolCallStatus, Tool, toolCallsOf, type ToolHandler } from "agboss";
 import { Text } from "agboss/dto";
 import { expect } from "vitest";
+import "agboss/testing/setup";
 export class OrderQuery {
   @Text() orderId!: string;
 }
@@ -558,10 +563,20 @@ export class GetOrderTool implements ToolHandler<OrderQuery, OrderInfo> {
     return Promise.resolve({ status: `order ${orderId} shipped` });
   }
 }
+@Tool({ name: "delete-order-tool", description: "Deletes", input: OrderQuery, output: OrderInfo })
+export class DeleteOrderTool implements ToolHandler<OrderQuery, OrderInfo> {
+  run(): Promise<OrderInfo> {
+    return Promise.resolve({ status: "deleted" });
+  }
+}
 declare const result: ExecutionOutput;
 -->
 
 ```ts
+expect(result).toHaveCalledTools([GetOrderTool]); // at least once, any order
+expect(result).not.toHaveCalledTools([DeleteOrderTool]); // never
+expect(result).toHaveToolCallMatching(GetOrderTool, { orderId: "7" });
+expect(result).toHaveToolCallMatching(GetOrderTool, (input) => input.orderId.length > 0);
 const lookups = toolCallsOf(GetOrderTool, result.toolCalls);
 const succeeded = lookups.filter((call) => call.status === ToolCallStatus.Succeeded);
 expect(succeeded.map((call) => call.input.orderId)).toContain("7");
