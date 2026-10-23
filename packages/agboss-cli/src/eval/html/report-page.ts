@@ -2,9 +2,8 @@ import type { EvalRunReport } from "agboss/eval";
 import { BASELINE_SECTION } from "./baseline-section.js";
 import { CASES_SECTION } from "./cases-section.js";
 import { reportHeaderOf } from "./header-section.js";
-import { element, renderHtml } from "./html.js";
-import { cspHashOf, REPORT_PAGE_SCRIPT } from "./page-script.js";
-import { REPORT_PAGE_STYLE } from "./page-style.js";
+import { htmlDocumentOf } from "./document.js";
+import { element, renderHtml, type HtmlElement } from "./html.js";
 import { TimelineDetail, type ReportSection } from "./sections.js";
 import { SUMMARY_SECTION } from "./summary-section.js";
 import { UNSTABLE_SECTION } from "./unstable-section.js";
@@ -23,15 +22,6 @@ const SECTIONS: readonly ReportSection[] = [
   CASES_SECTION,
 ];
 
-/** Nothing but the page's own style and script; no network, no frames, no forms. */
-const CONTENT_SECURITY_POLICY = [
-  "default-src 'none'",
-  `style-src ${cspHashOf(REPORT_PAGE_STYLE)}`,
-  `script-src ${cspHashOf(REPORT_PAGE_SCRIPT)}`,
-  "base-uri 'none'",
-  "form-action 'none'",
-].join("; ");
-
 /** What the footer says of left-out timelines. */
 const LEFT_OUT: Readonly<Record<TimelineDetail, string>> = {
   [TimelineDetail.All]: "",
@@ -40,40 +30,41 @@ const LEFT_OUT: Readonly<Record<TimelineDetail, string>> = {
   [TimelineDetail.None]: " Every timeline is left out to keep the page under its size bound.",
 };
 
-function bodyOf(report: EvalRunReport, timelines: TimelineDetail): string {
+function bodyOf(
+  report: EvalRunReport,
+  timelines: TimelineDetail,
+  nav: HtmlElement | undefined,
+): string {
   const sections = SECTIONS.filter((section) => section.isShownFor(report)).map((section) =>
     section.render(report, timelines),
   );
   const footer = element("footer", {}, [
     `${report.kind} · schemaVersion ${String(report.schemaVersion)} · it shows only what the run artifact holds, as the run wrote it (masked by the application's PII policies).${LEFT_OUT[timelines]}`,
   ]);
-  return [reportHeaderOf(report), element("main", {}, sections), footer].map(renderHtml).join("");
+  return [reportHeaderOf(report, nav), element("main", {}, sections), footer]
+    .map(renderHtml)
+    .join("");
 }
 
 export { TimelineDetail } from "./sections.js";
 
-/** The whole page, as one string; `timelines` says whose timelines it shows. */
+/** How the page is rendered: whose timelines it shows, and a link back when a server serves it. */
+export interface ReportPageOptions {
+  readonly timelines?: TimelineDetail;
+  /** `agboss eval ui` (#397 PR 3): the list of runs the page was opened from. */
+  readonly back?: { readonly href: string; readonly label: string };
+}
+
+/** The whole page, as one string. */
 export function renderEvalReportPage(
   report: EvalRunReport,
-  timelines: TimelineDetail = TimelineDetail.All,
+  options: ReportPageOptions = {},
 ): string {
-  const title = element("title", {}, [`${report.suite} — eval run`]);
-  const meta = [
-    element("meta", { charset: "utf-8" }),
-    element("meta", { name: "viewport", content: "width=device-width, initial-scale=1" }),
-    element("meta", { "http-equiv": "Content-Security-Policy", content: CONTENT_SECURITY_POLICY }),
-    element("meta", { name: "color-scheme", content: "light dark" }),
-    element("meta", { name: "generator", content: "agboss eval" }),
-  ];
-  return [
-    "<!doctype html>",
-    '<html lang="en"><head>',
-    ...meta.map(renderHtml),
-    renderHtml(title),
-    `<style>${REPORT_PAGE_STYLE}</style>`,
-    "</head><body>",
-    bodyOf(report, timelines),
-    `<script>${REPORT_PAGE_SCRIPT}</script>`,
-    "</body></html>\n",
-  ].join("");
+  const timelines = options.timelines ?? TimelineDetail.All;
+  const { back } = options;
+  const nav =
+    back === undefined
+      ? undefined
+      : element("nav", { "aria-label": "Runs" }, [element("a", { href: back.href }, [back.label])]);
+  return htmlDocumentOf(`${report.suite} — eval run`, bodyOf(report, timelines, nav));
 }

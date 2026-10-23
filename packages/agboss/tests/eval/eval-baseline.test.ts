@@ -134,9 +134,9 @@ describe("#396 PR 3: the baseline artifact read back", () => {
       kind: "invalid",
       reason: 'kind is "agboss.describe", not "agboss.eval-run"',
     });
-    expect(evalRunReportOf({ ...BASELINE, schemaVersion: 3 })).toEqual({
+    expect(evalRunReportOf({ ...BASELINE, schemaVersion: 4 })).toEqual({
       kind: "invalid",
-      reason: "schemaVersion 3 — this agboss reads 1 to 2",
+      reason: "schemaVersion 4 — this agboss reads 1 to 3",
     });
     expect(evalRunReportOf({ ...BASELINE, cases: [{ name: "x" }] })).toMatchObject({
       kind: "invalid",

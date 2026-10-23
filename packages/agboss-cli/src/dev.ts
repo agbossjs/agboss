@@ -5,6 +5,7 @@ import { flagOption, type CommandContext, type CommandHandler } from "./cli/cont
 import { checkCommandOf, watchedFolderOf, type PassOptions } from "./cli/dev.js";
 import { envOption } from "./cli/environment.js";
 import type { CommandLine } from "./cli/studio.js";
+import { stopSignal } from "./cli/stop-signal.js";
 import { watchSources } from "./cli/watch.js";
 
 /** Quiet time after the last change before a pass (an editor's save writes several files). */
@@ -26,23 +27,6 @@ function runChild(context: CommandContext, line: CommandLine): Promise<void> {
       resolve();
     });
   });
-}
-
-/** Aborts on Ctrl+C or SIGTERM; the listeners leave with the loop. */
-function stopSignal(): { readonly signal: AbortSignal; readonly release: () => void } {
-  const controller = new AbortController();
-  const stop = (): void => {
-    controller.abort();
-  };
-  process.once("SIGINT", stop);
-  process.once("SIGTERM", stop);
-  return {
-    signal: controller.signal,
-    release: () => {
-      process.off("SIGINT", stop);
-      process.off("SIGTERM", stop);
-    },
-  };
 }
 
 /**

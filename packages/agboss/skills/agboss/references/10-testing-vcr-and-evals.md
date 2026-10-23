@@ -1341,6 +1341,11 @@ cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `
   per run — passed, failed, error, limit — each opening that run's execution, error, checks and
   timeline. It shows only what the artifact holds; one value is cut at 2,000 characters on the page,
   and a page above 16 MB leaves out the timelines of cases with pass^k, then all (the CLI line says so).
+- `npx agboss eval ui [--dir .agboss/eval] [--port 4317]` serves a folder of run artifacts on
+  127.0.0.1, read-only, behind the token it prints (open the printed URL): the runs newest first, each
+  case's attempt dots, each run's report page. It runs nothing; Ctrl+C stops it. A `schemaVersion` 3
+  artifact names what it ran on — `profile`, `agbossVersion`, `models` (`EvalModelUse`: each agent's
+  and model router's model and provider), `piiPolicies` — shown in the page's header.
   `npx agboss eval show <run.json> [--html <report.html>]` reads a saved artifact back: the table,
   and the same page; it runs nothing.
 - `--profile <name>` runs the suite on `profiles/<workflow>/<name>.yaml`; the case's `history` turns

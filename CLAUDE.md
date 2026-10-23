@@ -102,7 +102,10 @@ checks and timeline — #397 PR 2: `schemaVersion` 2 adds each run's `trace` (`E
 the last turn's record cut down and masked: steps with `inputHash`, model calls, tool calls,
 guardrail decisions, judge verdicts; handled errors, pauses, undo actions, children, the output) and
 each case's `expectation`; version 1 artifacts are still read by the one reader `evalRunReportOf`; bounded at 16 MB — timelines of cases with pass^k left out first, then all, before `eval.report-too-large`; `eval.run-not-found`
-/ `eval.run-invalid` for a file that is not an artifact this version reads), rendered in `agboss-cli`
+/ `eval.run-invalid` for a file that is not an artifact this version reads), `agboss eval ui [--dir <folder>] [--port N]` (#397 PR 3) serves a folder of run artifacts read-only on
+127.0.0.1 behind a token it prints (the `Host` checked; the runs, their attempts, each run's page;
+`eval.no-runs` for a missing folder) — a `schemaVersion` 3 artifact also names its `profile`,
+`agbossVersion`, `models` and `piiPolicies` for the header; rendered in `agboss-cli`
 (`src/eval/html/`, loaded on demand); `agboss eval calibrate --report <run.json> [--labels
 <labels.jsonl>]` (#396 PR 4) reads a saved run's judges against people's labels (`EvalLabel`, one JSON
 line each, `eval/labels/<suite>.jsonl` by default: `runId` `<case>#<run>`, `executionId`, `judge`,

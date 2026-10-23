@@ -40,6 +40,7 @@ export {
   type EvalRunSpend,
   type EvalRunSummary,
 } from "./run/report.js";
+export type { EvalModelUse } from "./run/ran-on.js";
 export type {
   EvalCaseExpectation,
   EvalChildTrace,

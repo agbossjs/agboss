@@ -22,6 +22,7 @@ import { TestEnvironment } from "../../src/testing/environment.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
 import type { BuiltApplication } from "../../src/application/create-app.js";
+import { frameworkPackageJson } from "../../src/package-json.js";
 import {
   DeleteOrderTool,
   DeskAgent,
@@ -54,6 +55,9 @@ import {
   ],
 })
 class TracedEvalSuite {}
+
+/** The framework's version as its package.json says. */
+const frameworkVersion = (): unknown => (frameworkPackageJson() as { version: unknown }).version;
 
 let environment: TestEnvironment | undefined;
 
@@ -140,7 +144,7 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
 
     const report = await runEvalSuite(built, TracedEvalSuite, { runs: 1 });
 
-    expect(report.schemaVersion).toBe(2);
+    expect(report.schemaVersion).toBe(3);
     expect(report.cases[0]?.expectation).toEqual({
       requiredTools: [{ tool: "get-order-tool", arguments: { orderId: "9" } }],
       forbiddenTools: ["delete-order-tool"],
@@ -172,5 +176,25 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
       reason: AttemptDivergenceReason.ToolCalls,
       runs: [1, 2],
     });
+  });
+
+  it("what the run ran on (#397 PR 3): profile, AGBoss version, models, the masking policies", async () => {
+    const { env, built } = await evalApp();
+    env.mockLlm(DeskAgent).thenReturn(callTool(GetOrderTool, { orderId: "9" }), answer("Shipped."));
+
+    const report = await runEvalSuite(built, TracedEvalSuite, { runs: 1, profile: "cheaper" });
+
+    expect(report.schemaVersion).toBe(3);
+    expect(report.profile).toBe("cheaper");
+    expect(report.agbossVersion).toBe(frameworkVersion());
+    expect(report.models).toEqual([
+      expect.objectContaining({
+        component: "desk-agent",
+        kind: ComponentKind.Agent,
+        model: "test/desk",
+      }),
+    ]);
+    expect(report.models?.[0]?.provider).toMatch(/-model-provider$/u);
+    expect(report.piiPolicies).toEqual(["eval-email-pii-policy"]);
   });
 });

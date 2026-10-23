@@ -10,7 +10,7 @@ import { CheckStatus } from "agboss/eval";
 import type { EvalCaseReport, EvalRunResult } from "agboss/eval";
 import { renderEvalReportPage, TimelineDetail } from "../../src/eval/html/report-page.js";
 import { MAX_VALUE_CHARACTERS } from "../../src/eval/html/value-view.js";
-import { MAX_HTML_REPORT_SIZE } from "../../src/eval/html-report.js";
+import { MAX_HTML_REPORT_SIZE } from "../../src/eval/html/bounded-page.js";
 import { artifactOf, caseOf, REFUNDS_ARTIFACT } from "./artifacts.js";
 import { stepOf, traceOf, TRACED_ARTIFACT } from "./traced-artifacts.js";
 
@@ -185,7 +185,7 @@ describe("#397 PR 2: the page of a large run stays under its bound", () => {
 
 describe("#397 PR 2: a page too large for every timeline leaves some out", () => {
   it("only the timelines of cases without pass^k; the unstable link still reaches its step", () => {
-    const page = renderEvalReportPage(TRACED_ARTIFACT, TimelineDetail.Failing);
+    const page = renderEvalReportPage(TRACED_ARTIFACT, { timelines: TimelineDetail.Failing });
 
     expect(runOf(page, "case-1-run-1")).toContain(
       "Timeline left out to keep the page under its size bound",
@@ -198,7 +198,7 @@ describe("#397 PR 2: a page too large for every timeline leaves some out", () =>
   });
 
   it("no timeline at all: the unstable link opens the run", () => {
-    const page = renderEvalReportPage(TRACED_ARTIFACT, TimelineDetail.None);
+    const page = renderEvalReportPage(TRACED_ARTIFACT, { timelines: TimelineDetail.None });
 
     expect(page).not.toContain('<div class="timeline">');
     expect(page).toContain('href="#case-2-run-1" data-opens>refund-agent</a>');
