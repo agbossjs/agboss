@@ -323,6 +323,7 @@ against, so it says what it is and the version of its shape (#396 S3):
 | `…checks[]` | `check` (`trajectory` or the judge's name), `status` (`CheckStatus`: `passed`, `failed`, `skipped`), `reason?`, `skippedBy?` (the failed check that skipped it), `metrics?` (a judge's), `spentUsd?` (a model judge's) |
 | `summary` | `cases`, `passAtK`, `passHatK`, `unstable` (counts of cases), `judgeCalls` (judge checks that ran), `skippedByCascade` |
 | `spend` | `{ totalUsd }`: every turn's execution and every judge's model calls |
+| `chaos?` | what `--chaos` injected (`EvalRunChaos`, below) |
 | `baseline?` | the run against `--baseline` (`EvalRunComparison`, below) |
 | `profile?`, `agbossVersion?`, `models?`, `piiPolicies?` | version 3 (#397 PR 3): what it ran on — the `--profile`, the AGBoss version, every agent's and model router's model and provider (`EvalModelUse`: `component`, `kind`, `model`, `provider`), and the application's and workflow's PII policies that masked its records and traces |
 
@@ -488,6 +489,50 @@ worse", told apart from 3 "the project does not load"); without it the run exits
 table. The artifact (and `--json`'s `result`) gains `baseline` — `EvalRunComparison`: `file`, the
 baseline's `configHash`, `startedAt` and `runs`, `cases` (each `EvalCaseComparison`: `name`,
 `comparison`, `baseline` / `candidate` passes `{ passed, runs }`) and `regressed` (the names).
+
+## Under failures: `--chaos`
+
+```bash
+agboss eval run --suite refunds-eval-suite --runs 3 --env eval --chaos 0.2 --chaos-seed 7
+agboss eval run --suite refunds-eval-suite --chaos 0.2 --chaos-seed 7 --chaos-failures rate-limited,timeout
+```
+
+A suite that passes on a quiet day says nothing about a day of 429s. `--chaos <rate>` makes that
+share of the run's model calls fail on purpose (#396 PR 6, S2 Q11), each with one of
+`--chaos-failures` (default: all) — `ChaosFailure` in `agboss/eval`, a set of its own, never a
+`ModelFailure`:
+
+| `ChaosFailure` | `--chaos-failures` | What the call gets |
+| --- | --- | --- |
+| `RateLimited` | `rate-limited` | a `429 Too Many Requests` (a transport provider: `ModelFailure.RateLimited`) |
+| `Timeout` | `timeout` | a timeout (a transport provider: `ModelFailure.Timeout`) |
+| `TruncatedResponse` | `truncated-response` | the answer cut at its token limit: `finish_reason: "length"`, its text and its tool calls' arguments cut short — what the agent loop's invalid answers meet |
+
+The failures are injected where a provider's own would come from — its HTTP client (its `POST`s:
+completions and decisions; the model lists read at start are never touched) and a transport
+provider's `complete()` — below the attempt runner, so everything above treats them as real: the
+provider's `retryPolicy` retries what it lists, its rate limit's 429 pause slows the queue, its breaker
+counts failures; a failure nothing absorbs fails the step, and its
+[`.onError` side path](Rollback#how-onerror-behaves) runs — with the undo actions (`compensateWith`, #340) it
+reaches. A streamed answer is not truncated.
+
+The rate (above 0, at most 1) and the seed (a whole number) come together — one seed, one sequence of
+failures over the run's calls, so a chaos run can be repeated; one without the other is
+`usage.missing-option`, a bad value `usage.option-value`. A chaos run spends from the application's
+real budgets: what is retried is paid as usual. It prints what it did:
+
+```
+chaos: rate 0.2, seed 7 — 5 of 31 model calls failed on purpose (rate-limited 2, timeout 2, truncated-response 1)
+```
+
+and the artifact (and `--json`'s `result`) gains `chaos` — `EvalRunChaos`: `rate`, `seed`,
+`failures`, `calls` (every attempt seen, retries too) and `injected` by kind (a truncation counts only
+when an answer could be cut); `agboss eval show` prints the same line. Chaos is `eval run`'s own: it is
+an option of the internal build path the command uses, never of `createApp` — a production entry point
+carries no fault-injection switch.
+
+A case that passes without chaos and fails with it needs resilience, not a longer prompt: a
+`retryPolicy` on its provider, an `.onError` side path, an undo for what it changed.
 
 ## Calibrating a judge: `agboss eval calibrate`
 

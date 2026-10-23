@@ -249,7 +249,7 @@ and `; `.) `agboss chat` sends what is typed as a text, so its start takes `Work
 | `agboss check --strict` | the same, the analyser's warnings (`[flow.path-too-deep]`, `[graph.child-without-failure-finish]`) and the application's assembly warnings (`[application.in-memory-cost-ledger]`, `[application.in-memory-pauses]`, #261) errors — exit 3; without `--strict` they are printed as `warning: …` lines ([Workflow as a step](Workflow-as-a-step#errors)) |
 | `agboss check --models` | every model setting of every workflow of the application against what its resolved provider says the model supports — all problems at once, exit 1 on any; no model call, but it connects, so the chosen environment's secrets must be set — a missing one names its variable ([Model providers](Model-providers#fail-fast-settings-must-fit-their-models)) |
 | `agboss check --cassettes` | also every VCR cassette under the working directory against the application's components (#395): a component whose prompt or schema hash changed since it was recorded, or one the application no longer has, is `[vcr.stale-cassette]` (exit 3) — fixed by `AGBOSS_VCR_MODE=RECORD_STALE npm test`, never by a hand edit; a version 1 cassette is a `hint:` line; no test runs, no key ([Testing](Testing#stale-cassettes-395)) |
-| `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--profile <name>]` | run an `@EvalSuite` on the application: each case k times, its checks under the cascade, pass@k / pass^k per case, the run artifact ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run), #396), its HTML report (#397); each case against a baseline, exit 5 on a regression |
+| `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--profile <name>]` | run an `@EvalSuite` on the application: each case k times, its checks under the cascade, pass@k / pass^k per case, the run artifact ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run), #396), its HTML report (#397); each case against a baseline, exit 5 on a regression; failures injected into its model calls ([Eval suites](Eval-Suites#under-failures---chaos)) |
 | `agboss eval show <run.json> [--html <file>]` | a saved run artifact: its table, and with `--html` its self-contained HTML report — nothing runs, no key ([Eval suites](Eval-Suites#the-html-report---html-and-agboss-eval-show-397), #397) |
 | `agboss eval ui [--dir <folder>] [--port N] [--labels-dir <folder>] [--taxonomy <file>] [--labeler <name>]` | a folder of run artifacts served on 127.0.0.1 behind the token it prints — the runs, their attempts, each run's report, labels of judge verdicts into `eval/labels/<suite>.jsonl` and κ — until Ctrl+C; nothing runs ([Eval suites](Eval-Suites#browsing-runs-agboss-eval-ui-397), #397) |
 | `agboss eval calibrate --report <run.json> [--labels <labels.jsonl>]` | a saved run's judges against people's labels: pairwise Cohen's κ, a confusion matrix per labeler, the disagreements by the judge's metrics — nothing runs, no key ([Eval suites](Eval-Suites#calibrating-a-judge-agboss-eval-calibrate), #396) |
@@ -279,12 +279,15 @@ workflow's own (`profiles/<workflow>/<name>.yaml`).
 `agboss eval run --help`; `agboss help eval --json` lists them under `subcommands`):
 
 - `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline
-  <run.json> [--fail-on-regression]] [--profile <name>] [--env <name>]` — an eval suite on the
+  <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]]
+  [--profile <name>] [--env <name>]` — an eval suite on the
   application ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run)). Exit 0 when the suite
   ran, whatever its pass rates; 2 for `--runs` below 1 (`usage.option-value`), `eval.unknown-suite`,
   `eval.report-too-large` (the HTML page above 16 MB even without timelines; the artifact is written first), a `--baseline`
   that does not exist (`eval.run-not-found`) or is no run artifact of the suite (`eval.run-invalid`)
-  or `--fail-on-regression` without `--baseline`; 3 when the suite does not assemble (`graph.rules`)
+  or `--fail-on-regression` without `--baseline`, `--chaos` without `--chaos-seed` or the other way
+  round (`usage.missing-option`), a chaos rate outside (0, 1], a seed that is not a whole number or
+  an unknown `--chaos-failures` name (`usage.option-value`); 3 when the suite does not assemble (`graph.rules`)
   or its cases' values do not fit (`eval.case-invalid`); 5 with `--fail-on-regression` when a case
   regressed (`eval.regressed`) — a case flaky on the baseline is quarantined
   ([Eval suites](Eval-Suites#against-a-baseline-baseline-runjson)).

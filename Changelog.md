@@ -3,6 +3,17 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `agboss eval run --chaos`: failures injected into model calls (#396 PR 6)
+
+- **Added — `agboss eval run --chaos <rate> --chaos-seed <n> [--chaos-failures <list>]`**
+  ([Eval suites](Eval-Suites#under-failures---chaos)): 429s, timeouts and truncated answers injected
+  into the run's model calls at the provider's HTTP client and a transport's `complete()`, under the
+  retry policy, the rate limit and the breaker, on the real budgets; seeded, the rate and the seed
+  together (`usage.missing-option` / `usage.option-value`).
+- **Added — in `agboss/eval`:** `ChaosFailure { RateLimited, Timeout, TruncatedResponse }` and
+  `EvalRunChaos`; the artifact's optional `chaos` (read by `evalRunReportOf`). The injection is an
+  option of `eval run`'s internal build path only, never of `createApp`.
+
 ## Unreleased — labelling runs in `agboss eval ui`: tags, scores, κ recomputed (#397 PR 4)
 
 - **Added — labels in `agboss eval ui`** ([Eval suites](Eval-Suites#labelling-runs-397-pr-4)): a
