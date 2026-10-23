@@ -1199,6 +1199,11 @@ recording is `[vcr.stale-cassette]`.
 --fail-on-regression` — each case against the same case on `main`, exit 5 (`eval.regressed`)
    only when a case stable there (pass^k) is not now. A case that flapped on `main` too is
    quarantined (`CaseComparison.FlakyOnBaseline`), never a failure: move it to deterministic code.
+3. Before trusting a model `@Judge` in the cascade, calibrate it: people label the runs of an
+   artifact in `eval/labels/<suite>.jsonl`, and `npx agboss eval calibrate --report <run.json>` gives
+   Cohen's κ between the judge and each labeler (and between labelers). A low κ with the judge
+   passing what people fail: fix the judge (its prompt, or a code judge for what can be checked by
+   code) before reading its pass rates.
 
 ## Eval suites: `@EvalSuite` (`agboss/eval`)
 
@@ -1350,6 +1355,30 @@ unchanged`); the artifact and `--json` gain `baseline` (`EvalRunComparison`: the
   `configHash`, `startedAt`, `runs`, each case's verdict with both sides' passes, `regressed`).
 - With `--fail-on-regression` a regression is exit 5 (`quality`, `eval.regressed`: `1 case regressed
 against main.json: refund-within-policy`); without it the run exits 0 and shows the table.
+
+### Calibrating a judge: `npx agboss eval calibrate`
+
+```
+npx agboss eval calibrate --report main.json        # labels from eval/labels/<suite>.jsonl
+npx agboss eval calibrate --report main.json --labels labels/refunds.jsonl
+```
+
+- A label is one JSON line (`EvalLabel`, public in `agboss/eval`): `{ "runId": "refund-within-policy#2",
+"executionId": "…", "judge": "answer-grounded-judge", "labeler": "anna", "passed": false,
+"score": 2, "failureTags": ["invents-fee"], "note": "…" }` — `runId` is the case and its run as the
+  artifact numbers them (`<case>#<run>`), `executionId` the run's last execution (the one its judges
+  judged, `executionId` in the artifact). `passed` is what κ reads; `score` (1–4, optional) only feeds
+  the scores view; `failureTags` is required (`[]` for none).
+- Per judge (`EvalJudgeCalibration`): `n` (labelled runs), pairwise Cohen's κ — the judge with each
+  labeler, then every two labelers on the runs both labelled (`κ=—` when one rater gave one verdict
+  only) —, a confusion matrix per labeler, every disagreement (run, labeler, the judge's metrics,
+  tags, note), and the rubric: each key of the judge's `metrics` over the disagreements and the
+  agreements (a text or flag by value, a number by its mean on each side) — which measure goes with
+  the judge being wrong.
+- Labels of executions the artifact does not have (the file grows over many runs) or of a skipped
+  judge are counted as unmatched, never an error; a malformed line, a second label of one run by one
+  labeler for one judge, or a `runId` that is not its execution's run → `eval.labels-invalid`, exit 2.
+  It reads two files and runs nothing; `--json` carries the calibration (`EvalCalibration`).
 
 ## Evals on real traffic
 

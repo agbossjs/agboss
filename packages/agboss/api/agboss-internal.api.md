@@ -133,6 +133,12 @@ export const byClassName: ComponentLabel;
 // @public
 export const byComponentName: ComponentLabel;
 
+// Warning: (ae-forgotten-export) The symbol "EvalRunReport" needs to be exported by the entry point internal.d.ts
+// Warning: (ae-forgotten-export) The symbol "EvalLabel" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function calibrateJudges(report: EvalRunReport, labels: readonly EvalLabel[]): EvalCalibrationResult;
+
 // @public
 export interface CassetteCheck {
     readonly hints: readonly string[];
@@ -192,7 +198,6 @@ export function compareBundleProfiles(bundle: AssembledWorkflow, names: readonly
     readonly profileRoot?: string;
 }, tasksOf: (base: AppDeps) => Promise<readonly string[]>): Promise<ProfileComparison>;
 
-// Warning: (ae-forgotten-export) The symbol "EvalRunReport" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "EvalRunComparison" needs to be exported by the entry point internal.d.ts
 //
 // @public
@@ -498,6 +503,28 @@ export const environmentOwnerOf: (assembled: AssembledApplication) => Environmen
 //
 // @public
 export const environmentVariablesOf: (loaded: LoadedEnvironment) => readonly ProcessVariable[];
+
+// @public
+export type EvalCalibrationResult = {
+    readonly kind: "calibrated";
+    readonly calibration: EvalCalibration;
+} | {
+    readonly kind: "invalid";
+    readonly reason: string;
+};
+
+// @public
+export function evalLabelsOf(content: string): EvalLabelsRead;
+
+// @public
+export type EvalLabelsRead = {
+    readonly kind: "read";
+    readonly labels: readonly EvalLabel[];
+} | {
+    readonly kind: "invalid";
+    readonly line: number;
+    readonly reason: string;
+};
 
 // @public
 export interface EvalRunOptions {
@@ -990,6 +1017,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/environments/resolve.ts:43:3 - (ae-undocumented) Missing documentation for "use".
 // src/environments/resolve.ts:181:3 - (ae-undocumented) Missing documentation for "name".
 // src/environments/resolve.ts:182:3 - (ae-undocumented) Missing documentation for "values".
+// src/eval/calibrate/calibrate.ts:22:36 - (ae-forgotten-export) The symbol "EvalCalibration" needs to be exported by the entry point internal.d.ts
 // src/eval/golden.ts:22:14 - (ae-undocumented) Missing documentation for "goldenFile".
 // src/eval/golden.ts:25:1 - (ae-undocumented) Missing documentation for "loadGolden".
 // src/eval/golden.ts:36:1 - (ae-undocumented) Missing documentation for "saveGolden".

@@ -98,7 +98,13 @@ render a run artifact — `show` reads a saved one, runs nothing — as its tabl
 HTML page (inline style and script, no request, a CSP by hash; header, summary, unstable cases, cases
 with attempt dots and each run's checks; bounded at 16 MB, `eval.report-too-large`; `eval.run-not-found`
 / `eval.run-invalid` for a file that is not an artifact this version reads), rendered in `agboss-cli`
-(`src/eval/html/`, loaded on demand); `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
+(`src/eval/html/`, loaded on demand); `agboss eval calibrate --report <run.json> [--labels
+<labels.jsonl>]` (#396 PR 4) reads a saved run's judges against people's labels (`EvalLabel`, one JSON
+line each, `eval/labels/<suite>.jsonl` by default: `runId` `<case>#<run>`, `executionId`, `judge`,
+`labeler`, `passed`, `score?` 1–4, `failureTags`, `note?`) — pairwise Cohen's κ (the judge with each
+labeler, the labelers with each other), a confusion matrix per labeler, the disagreements and the
+rubric (the judge's `metrics` keys over disagreements and agreements), `EvalCalibration` under
+`--json`; runs nothing (`eval.labels-not-found` / `eval.labels-invalid`); `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
 `agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
 (`agboss/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs

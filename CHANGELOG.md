@@ -55,6 +55,9 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   (`quality`, `eval.regressed`) when a stable case regressed — a case flaky there is quarantined
   (#396). `--html <file>` and `agboss eval show <run.json> --html <file>` render a run as one
   self-contained HTML page — summary, unstable cases, attempt dots and every run's checks (#397).
+  `agboss eval calibrate --report <run.json>` reads a run's judges against people's labels
+  (`eval/labels/<suite>.jsonl`) — Cohen's κ per labeler and between labelers, the confusion and the
+  disagreements by the judge's metrics (#396).
 - **The CLI** (`agboss-cli`) — `agboss create`, `agboss generate`, `agboss check`,
   `agboss describe`, `agboss dev`, `agboss studio`, `agboss chat` / `agboss run`, evaluations and
   comparisons (#268). Breaking on the way (#396): the bare `agboss eval` is now `agboss eval score`

@@ -26,6 +26,7 @@ there is no `--workflow <path>`.
 | `npx agboss chat [--start <name>] [--thread <id>] [--profile <name>] [--env <name>]`                                                                                       | an interactive chat with a workflow; asks in the terminal about each pause the thread's owner answers                                                                                                                   |
 | `npx agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--profile <name>] [--env <name>]` | runs an `@EvalSuite` on the application: every case `--runs` times (default 1), pass@k / pass^k per case, the run artifact; each case against a baseline artifact                                                       |
 | `npx agboss eval show <run.json> [--html <file>]`                                                                                                                          | a saved run artifact: its table, and with `--html` its self-contained HTML report; runs nothing                                                                                                                         |
+| `npx agboss eval calibrate --report <run.json> [--labels <labels.jsonl>]`                                                                                                  | a saved run's judges against people's labels (`eval/labels/<suite>.jsonl`): Cohen's κ, confusion, disagreements by the judge's metrics; runs nothing                                                                    |
 | `npx agboss eval score [--start <name>] [--version <v>] [--limit N] [--profile <name>]`                                                                                    | scores recent runs of a start's workflow with Jev (`--limit` default 100); the bare `npx agboss eval` lists both                                                                                                        |
 | `npx agboss replay [--start <name>] --version <v> [--limit N] [--profile <name>]`                                                                                          | re-runs a prompt version on recent tasks                                                                                                                                                                                |
 | `npx agboss golden add [--start <name>] --name <name> [--from-last N]`                                                                                                     | saves recent real tasks as a golden set (`golden/<workflow>/<name>.yaml`, default 20)                                                                                                                                   |
@@ -46,7 +47,7 @@ there is no `--workflow <path>`.
 - `check --strict` makes the analyser's and the application's warnings errors (below).
 - `check` also assembles the application's eval suites (`eval-suites/*.eval-suite.ts` whose start is
   one of its starts): `eval-suites` in `result.checks`, each problem on the suite's file.
-- `eval` is made of subcommands (#396): `eval run`, `eval score` and `eval show` (#397), each with its own options
+- `eval` is made of subcommands (#396): `eval run`, `eval score`, `eval show` (#397) and `eval calibrate`, each with its own options
   (`npx agboss help eval run`); the bare `npx agboss eval` prints both and exits 2
   (`usage.missing-argument`), an unknown one is `usage.unknown-command`. `eval run` exits 0 when the
   suite ran — whatever its pass rates; 2 for `--runs` below 1 or `eval.unknown-suite` (several suites
@@ -59,6 +60,10 @@ there is no `--workflow <path>`.
   that is no run artifact of this suite (`eval.run-invalid` / `eval.run-not-found`, before anything
   runs) or `--fail-on-regression` without one; 5 (`eval.regressed`) with `--fail-on-regression` when
   a case regressed — a case that flapped on the baseline is quarantined and never fails.
+  `eval calibrate --report <run.json>` (required) exits 2 for the artifact as `eval show` does, for no
+  labels file (`eval.labels-not-found`) or one that is not one (`eval.labels-invalid`: the first bad
+  line named, a second label of one run by one labeler for one judge, or a `runId` that is not its
+  execution's run in this artifact); labels of other runs are counted, never an error.
 - `--profile <name>` applies `profiles/<workflow>/<name>.yaml`; `--env <name>` picks
   `environments/<name>.environment.ts` (default `dev`).
 
@@ -85,7 +90,7 @@ detection that call a model, each `{ name, kind, promptHash, schemaHash }`), `sc
 `application.load`, `workflow.load`, `workflow.assembly`, `model.configuration`, `profile.invalid`,
 `usage.unknown-option`, `usage.missing-argument`, `start.not-found`, `workflow.not-found`,
 `eval.unknown-suite`, `eval.case-invalid`, `eval.run-not-found`, `eval.run-invalid`,
-`eval.report-too-large`, `eval.regressed`, …
+`eval.report-too-large`, `eval.regressed`, `eval.labels-not-found`, `eval.labels-invalid`, …
 
 ### Reading `check`
 

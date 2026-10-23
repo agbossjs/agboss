@@ -1,4 +1,4 @@
-/** `agboss eval run | score | show` (#396 S4, #397): one command of subcommands, each its own schema. */
+/** `agboss eval run | score | show | calibrate` (#396 S4, #397): one command of subcommands, each its own schema. */
 import { APPLICATION, ENV, flag, PROFILE, START, text, type CommandSpec } from "./options.js";
 
 /** `--html <file>`: the run as one self-contained HTML page (#397). */
@@ -6,9 +6,9 @@ const HTML = text("html", "<file>", "write the run as one self-contained HTML re
 
 export const EVAL_COMMAND: CommandSpec = {
   summary:
-    "eval suites run on the application (run), a saved run shown (show), recorded runs scored with Jev (score)",
-  usage: "agboss eval <run|score|show> [options]",
-  positionals: "run | score | show",
+    "eval suites run on the application (run), a saved run shown (show), its judges against people's labels (calibrate), recorded runs scored with Jev (score)",
+  usage: "agboss eval <run|score|show|calibrate> [options]",
+  positionals: "run | score | show | calibrate",
   options: [],
   subcommands: {
     run: {
@@ -54,6 +54,21 @@ export const EVAL_COMMAND: CommandSpec = {
       usage: "agboss eval show <run.json> [--html <file>]",
       positionals: "<run.json>",
       options: [HTML],
+    },
+    calibrate: {
+      summary:
+        "a saved run's judges against people's labels: Cohen's κ, confusion, disagreements by metric",
+      usage: "agboss eval calibrate --report <run.json> [--labels <labels.jsonl>]",
+      options: [
+        text("report", "<run.json>", "the run artifact whose judges are calibrated", {
+          required: true,
+        }),
+        text(
+          "labels",
+          "<labels.jsonl>",
+          "the labels, one JSON line each (default eval/labels/<suite>.jsonl)",
+        ),
+      ],
     },
   },
 };
