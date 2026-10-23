@@ -4,7 +4,7 @@ import { CASES_SECTION } from "./cases-section.js";
 import { reportHeaderOf } from "./header-section.js";
 import { htmlDocumentOf } from "./document.js";
 import { element, renderHtml, type HtmlElement } from "./html.js";
-import { TimelineDetail, type ReportSection } from "./sections.js";
+import { TimelineDetail, type ReportSection, type ReportView } from "./sections.js";
 import { SUMMARY_SECTION } from "./summary-section.js";
 import { UNSTABLE_SECTION } from "./unstable-section.js";
 
@@ -32,12 +32,19 @@ const LEFT_OUT: Readonly<Record<TimelineDetail, string>> = {
 
 function bodyOf(
   report: EvalRunReport,
-  timelines: TimelineDetail,
+  options: ReportPageOptions,
   nav: HtmlElement | undefined,
 ): string {
-  const sections = SECTIONS.filter((section) => section.isShownFor(report)).map((section) =>
-    section.render(report, timelines),
+  const timelines = options.timelines ?? TimelineDetail.All;
+  const view: ReportView = {
+    timelines,
+    ...(options.runExtrasOf === undefined ? {} : { runExtrasOf: options.runExtrasOf }),
+  };
+  const shown = SECTIONS.filter((section) => section.isShownFor(report)).map((section) =>
+    section.render(report, view),
   );
+  // the server's own sections go right before the cases (the last one)
+  const sections = [...shown.slice(0, -1), ...(options.sections ?? []), ...shown.slice(-1)];
   const footer = element("footer", {}, [
     `${report.kind} · schemaVersion ${String(report.schemaVersion)} · it shows only what the run artifact holds, as the run wrote it (masked by the application's PII policies).${LEFT_OUT[timelines]}`,
   ]);
@@ -49,8 +56,12 @@ function bodyOf(
 export { TimelineDetail } from "./sections.js";
 
 /** How the page is rendered: whose timelines it shows, and a link back when a server serves it. */
-export interface ReportPageOptions {
+export interface ReportPageOptions extends Pick<ReportView, "runExtrasOf"> {
   readonly timelines?: TimelineDetail;
+  /** Sections of the server's own, before the cases (#397 PR 4: the calibration). */
+  readonly sections?: readonly HtmlElement[];
+  /** The page posts forms to its own server (#397 PR 4); a file's page posts nothing. */
+  readonly isPostingForms?: boolean;
   /** `agboss eval ui` (#397 PR 3): the list of runs the page was opened from. */
   readonly back?: { readonly href: string; readonly label: string };
 }
@@ -60,11 +71,12 @@ export function renderEvalReportPage(
   report: EvalRunReport,
   options: ReportPageOptions = {},
 ): string {
-  const timelines = options.timelines ?? TimelineDetail.All;
   const { back } = options;
   const nav =
     back === undefined
       ? undefined
       : element("nav", { "aria-label": "Runs" }, [element("a", { href: back.href }, [back.label])]);
-  return htmlDocumentOf(`${report.suite} — eval run`, bodyOf(report, timelines, nav));
+  return htmlDocumentOf(`${report.suite} — eval run`, bodyOf(report, options, nav), {
+    isPostingForms: options.isPostingForms === true,
+  });
 }

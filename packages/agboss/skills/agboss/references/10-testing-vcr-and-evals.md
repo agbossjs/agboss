@@ -1346,6 +1346,12 @@ cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `
   case's attempt dots, each run's report page. It runs nothing; Ctrl+C stops it. A `schemaVersion` 3
   artifact names what it ran on — `profile`, `agbossVersion`, `models` (`EvalModelUse`: each agent's
   and model router's model and provider), `piiPolicies` — shown in the page's header.
+- Labelling there (#397 PR 4): each run's page has a form per judge verdict — passed / failed, a
+  1–4 score (optional), failure tags from `eval/failure-taxonomy.yaml` (`tags: [{ tag, description
+}]`, kebab-case, the only tags allowed), a note, who labels (`--labeler`) — saved to
+  `eval/labels/<suite>.jsonl` (`--labels-dir`), exactly what `npx agboss eval calibrate` reads; the
+  page's calibration (κ per pair of raters, confusion, disagreements) is recomputed on every load.
+  Label disagreements first: they are where a judge needs a better rubric or deterministic code.
   `npx agboss eval show <run.json> [--html <report.html>]` reads a saved artifact back: the table,
   and the same page; it runs nothing.
 - `--profile <name>` runs the suite on `profiles/<workflow>/<name>.yaml`; the case's `history` turns

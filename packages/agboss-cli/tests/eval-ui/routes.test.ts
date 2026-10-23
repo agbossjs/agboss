@@ -21,7 +21,14 @@ writeFileSync(join(FOLDER, "notes.json"), '{"kind":"something-else"}');
 writeFileSync(join(FOLDER, "readme.txt"), "not json");
 
 const TOKEN = "0123456789abcdef0123456789abcdef";
-const SETTINGS = { folder: FOLDER, token: TOKEN, port: 4317 };
+const SETTINGS = {
+  folder: FOLDER,
+  token: TOKEN,
+  port: 4317,
+  labelsFolder: join(FOLDER, "labels"),
+  tags: undefined,
+  labeler: "anna",
+};
 
 const get = (url: string, request: Partial<EvalUiRequest> = {}) =>
   respondTo({ method: "GET", url, host: "127.0.0.1:4317", ...request }, SETTINGS);
@@ -40,11 +47,11 @@ describe("#397 PR 3: eval ui answers only its own page, with its token", () => {
     expect(get(`/?token=${TOKEN.replace("0", "1")}`).status).toBe(403);
   });
 
-  it("read-only: anything but GET and HEAD is 405", () => {
-    const answer = get(`/?token=${TOKEN}`, { method: "POST" });
+  it("anything but GET, HEAD and a form's POST is 405", () => {
+    const answer = get(`/?token=${TOKEN}`, { method: "PUT" });
 
     expect(answer.status).toBe(405);
-    expect(answer.headers.Allow).toBe("GET, HEAD");
+    expect(answer.headers.Allow).toBe("GET, HEAD, POST");
   });
 });
 

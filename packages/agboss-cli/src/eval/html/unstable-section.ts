@@ -8,6 +8,7 @@ import {
   sectionOf,
   stepAnchor,
   type ReportSection,
+  type ReportView,
   type TimelineDetail,
 } from "./sections.js";
 
@@ -47,7 +48,7 @@ function divergenceOf(
  */
 export const UNSTABLE_SECTION: ReportSection = {
   isShownFor: (report) => report.cases.some((found) => found.isUnstable),
-  render: (report: EvalRunReport, timelines: TimelineDetail) =>
+  render: (report: EvalRunReport, view: ReportView) =>
     sectionOf("unstable", "Unstable cases", [
       element("p", {}, [
         `Each passed at least once in ${String(report.runs)} runs, but not every time. Do not grow the prompt: move the check into deterministic code — a tool interceptor, a code guardrail, a code router or arbiter, an action.`,
@@ -61,7 +62,7 @@ export const UNSTABLE_SECTION: ReportSection = {
                 element("li", {}, [
                   element("a", { href: `#${caseAnchor(index)}` }, [found.name]),
                   ` — ${String(found.passed)} of ${String(found.runs)} runs passed`,
-                  ...divergenceOf(found, index, timelines),
+                  ...divergenceOf(found, index, view.timelines),
                 ]),
               ]
             : [],

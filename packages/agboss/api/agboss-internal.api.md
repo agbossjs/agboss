@@ -540,6 +540,35 @@ export type EvalCalibrationResult = {
 };
 
 // @public
+export interface EvalFailureTag {
+    // (undocumented)
+    readonly description: string;
+    // (undocumented)
+    readonly tag: string;
+}
+
+// @public
+export type EvalFailureTaxonomyRead = {
+    readonly kind: "read";
+    readonly tags: readonly EvalFailureTag[];
+} | {
+    readonly kind: "invalid";
+    readonly reason: string;
+};
+
+// @public
+export function evalLabelOf(value: unknown): EvalLabelRead;
+
+// @public
+export type EvalLabelRead = {
+    readonly kind: "read";
+    readonly label: EvalLabel;
+} | {
+    readonly kind: "invalid";
+    readonly reason: string;
+};
+
+// @public
 export function evalLabelsOf(content: string): EvalLabelsRead;
 
 // @public
@@ -601,6 +630,9 @@ export type ExecutionStreamEvent = {
     readonly tool: string;
     readonly args?: unknown;
 };
+
+// @public
+export function failureTaxonomyOf(content: string): EvalFailureTaxonomyRead;
 
 // Warning: (ae-forgotten-export) The symbol "FlowPath" needs to be exported by the entry point internal.d.ts
 //
@@ -670,6 +702,9 @@ export function inputLines(analysis: FlowAnalysis): readonly string[];
 //
 // @public (undocumented)
 export const isMcpFacade: (tool: Tool) => tool is McpFacade;
+
+// @public
+export function labelsWith(content: string, label: EvalLabel): string;
 
 // @public
 export function loadApplicationClass(path: string, options?: {
@@ -865,6 +900,9 @@ export interface StudioOptions extends Pick<AppDepsOptions, "gateway"> {
 export function textRequestOf(graph: RuntimeGraph, text: string): StartRequest;
 
 // @public
+export const TRAJECTORY_CHECK = "trajectory";
+
+// @public
 export const versionOf: (value: unknown) => string;
 
 // @public
@@ -1049,6 +1087,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/environments/resolve.ts:181:3 - (ae-undocumented) Missing documentation for "name".
 // src/environments/resolve.ts:182:3 - (ae-undocumented) Missing documentation for "values".
 // src/eval/calibrate/calibrate.ts:22:36 - (ae-forgotten-export) The symbol "EvalCalibration" needs to be exported by the entry point internal.d.ts
+// src/eval/calibrate/taxonomy.ts:12:3 - (ae-undocumented) Missing documentation for "tag".
+// src/eval/calibrate/taxonomy.ts:13:3 - (ae-undocumented) Missing documentation for "description".
 // src/eval/golden.ts:22:14 - (ae-undocumented) Missing documentation for "goldenFile".
 // src/eval/golden.ts:25:1 - (ae-undocumented) Missing documentation for "loadGolden".
 // src/eval/golden.ts:36:1 - (ae-undocumented) Missing documentation for "saveGolden".
