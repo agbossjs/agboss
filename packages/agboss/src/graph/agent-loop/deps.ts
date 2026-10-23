@@ -39,13 +39,14 @@ export interface AgentDefinition {
   readonly maxRetries?: number;
 }
 
-/** One `@Judge` of an agent: its name, its instance (from the container) and its model (chat or decisions). */
+/** One `@Judge` of an agent: its name, its instance (from the container) and its model (chat or decisions; none for a code judge). */
 export interface AgentJudge {
   readonly name: string;
   readonly handler: RunnableJudge;
   /** What it judges (`@Judge({ reply })`): the shape of its input. */
   readonly reply: JudgeReplyShape;
-  readonly binding: JudgeBinding;
+  /** Its model; none for a code judge (`DecidedBy.Code`, #396). */
+  readonly binding?: JudgeBinding;
 }
 
 /** What an agent's loop is built from. */

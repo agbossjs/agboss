@@ -8,7 +8,10 @@ import type {
   JudgeReplyOf,
   JudgeVerdict,
 } from "../../components/judge-decorators.js";
+import { isCodeJudge } from "../../components/judge-decorators.js";
+import { checkedJudgeOf } from "../../components/judge-parts.js";
 import { requireComponent } from "../../components/metadata.js";
+import { TestSetupError } from "../errors.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { meteredModel } from "../../graph/agent-loop/judge-model.js";
 import { ModelKind } from "../../llm/decision-errors.js";
@@ -50,7 +53,8 @@ function bindingOf(site: UnitSite, name: string, model: string): JudgeBinding {
  * the `environment`); its injected `JudgeModel` is its own `@Judge({ model })` answering from
  * `model` — `decideWith(…)` on a decision model, `replyWith(…)` on a chat model (`ModelKindError`
  * for the wrong call, as at run time). Each call runs `judge(input)` in a step's frame; the
- * verdict is `output`, the model calls `spend` (`judge:<name>`).
+ * verdict is `output`, the model calls `spend` (`judge:<name>`). A code judge (`DecidedBy.Code`,
+ * #396) runs its `judge(input)` alone — no `model` script (one is a `TestSetupError`), no spend.
  */
 export function testJudge<
   TJudge extends JudgeHandlerClass,
@@ -60,10 +64,15 @@ export function testJudge<
   judge: TJudge,
   options: UnitModelOptions<unknown, TExecution, TTenant> = {},
 ): JudgeRunner<JudgeReplyOf<TJudge>> {
-  const { meta } = requireComponent(judge, "judge", "testJudge");
+  requireComponent(judge, "judge", "testJudge");
+  const { meta } = checkedJudgeOf(`testJudge(${judge.name})`, judge);
+  if (isCodeJudge(meta) && options.model !== undefined)
+    throw new TestSetupError(
+      `testJudge(${judge.name}): ${meta.name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
+    );
   const site = new UnitSite(options);
   site.scriptModel(judgeKeyOf(meta.name), judge.name, options.model);
-  const binding = bindingOf(site, meta.name, meta.model);
+  const binding = isCodeJudge(meta) ? undefined : bindingOf(site, meta.name, meta.model);
   const run = async (input: JudgeInput<JudgeReplyOf<TJudge>>, call: UnitCallOptions = {}) => {
     // the container creates the class itself: an instance of the judge, `judge` included
     const handler = site.instanceOf(judge) as JudgeHandler<JudgeReplyOf<TJudge>>;

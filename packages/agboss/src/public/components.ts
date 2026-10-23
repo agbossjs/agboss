@@ -60,6 +60,7 @@ export {
   type ReplaceWithTokenAction,
 } from "../pii/index.js";
 export {
+  type CodeJudgeMeta,
   type FailedJudgeVerdict,
   type FailedJudgeVerdictOptions,
   Judge,
@@ -75,6 +76,7 @@ export {
   type JudgeReplyShape,
   type JudgedValueOf,
   JudgeVerdict,
+  type ModelJudgeMeta,
   type PassedJudgeVerdict,
   type PassedJudgeVerdictOptions,
 } from "../components/judge-decorators.js";

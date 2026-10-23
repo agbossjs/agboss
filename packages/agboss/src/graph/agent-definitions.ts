@@ -1,5 +1,6 @@
 import type { AgentSettingsOf, AgentsConfigOf } from "../config/types.js";
 import { NodeKind } from "../flow/ast.js";
+import { DecidedBy } from "../flow/decorators/router.js";
 import { answerToolsOf, NO_ANSWER_TOOLS, type AnswerTools } from "../flow/runtime/answer-tools.js";
 import { resolveAgentLimits, type AgentDefinition, type AgentJudge } from "./agent-loop/index.js";
 import type { GraphDeps } from "./deps.js";
@@ -23,18 +24,20 @@ const limitsOf = <TName extends string>(
   maxResultSize: defaultMaxResultSizeOf(config.defaults.tools?.maxResultSize),
 });
 
-/** An agent's judges (`agents.<name>.judges`): each one's instance and its own model. */
+/** An agent's judges (`agents.<name>.judges`): each one's instance and its own model (none for a code judge). */
 function judgesOf<TName extends string>(
   agent: AgentSettingsOf<string> | undefined,
   deps: GraphDeps<TName>,
 ): Pick<AgentDefinition, "judges" | "maxRetries"> {
   const judges = (agent?.judges ?? []).map((name): AgentJudge => {
     const judge = deps.judges?.get(name);
+    if (judge === undefined) throw new MissingJudgeError(`Judge "${name}" has no instance`);
+    const { handler, reply } = judge;
+    // a code judge (#396) has no model; a model judge always has its binding
+    if (judge.decidedBy === DecidedBy.Code) return { name, handler, reply };
     const binding = deps.registry.judges.get(name);
-    if (judge === undefined || binding === undefined) {
-      throw new MissingJudgeError(`Judge "${name}" has no instance or no model`);
-    }
-    return { name, handler: judge.handler, reply: judge.reply, binding };
+    if (binding === undefined) throw new MissingJudgeError(`Judge "${name}" has no model`);
+    return { name, handler, reply, binding };
   });
   return { judges, maxRetries: agent?.maxRetries ?? 0 };
 }

@@ -56,6 +56,7 @@ export {
 export { compareBundleProfiles } from "./eval/compare-profiles.js";
 export { formatComparison } from "./eval/compare-report.js";
 export { evaluate } from "./eval/eval.js";
+export { checkEvalSuite } from "./eval/suite/check-suite.js";
 export { goldenFile, goldenFromRecent, loadGolden, saveGolden } from "./eval/golden.js";
 export { replay } from "./eval/replay.js";
 export {

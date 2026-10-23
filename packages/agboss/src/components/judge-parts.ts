@@ -1,7 +1,14 @@
-import type { ModelSettings } from "../config/types.js";
+import type { AgentsConfigOf } from "../config/types.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
-import type { JudgeInstance, JudgeMeta, RunnableJudge } from "./judge-decorators.js";
-import { tokenName, type Class } from "./injection.js";
+import { DecidedBy } from "../flow/decorators/router.js";
+import {
+  isCodeJudge,
+  JudgeModel,
+  type JudgeInstance,
+  type JudgeMeta,
+  type RunnableJudge,
+} from "./judge-decorators.js";
+import { tokenName, type Class, type Token } from "./injection.js";
 import { ComponentError, componentOf } from "./metadata.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { containerFor } from "./runtime.js";
@@ -12,21 +19,42 @@ export interface JudgeClass {
   readonly meta: JudgeMeta;
 }
 
-function judgeClassOf(agent: string, cls: Class): JudgeClass {
+/** `[judge.no-model]` / `[judge.model-on-code-judge]`: a model judge names one, a code judge none. */
+function modelProblemOf(cls: Class, meta: JudgeMeta, deps: readonly Token[]): string | undefined {
+  const judge = `@Judge ${tokenName(cls)} ("${meta.name}")`;
+  if (isCodeJudge(meta)) {
+    // forbidden by the type; plain JS still reaches here
+    const { model }: { readonly model?: unknown } = meta;
+    if (model !== undefined)
+      return `[judge.model-on-code-judge] ${judge}: decided by code (DecidedBy.Code), but it names model ${JSON.stringify(model)} — remove model, or decide by the model (DecidedBy.Model)`;
+    if (deps.includes(JudgeModel))
+      return `[judge.model-on-code-judge] ${judge}: decided by code (DecidedBy.Code), but it injects JudgeModel — a code judge has no model: remove JudgeModel from deps`;
+    return undefined;
+  }
+  // a model is required by the type; plain JS or an empty string still reaches here
+  if (typeof meta.model !== "string" || meta.model.trim() === "")
+    return `[judge.no-model] ${judge}: no model — set @Judge({ model }), or decide by code (decidedBy: DecidedBy.Code); a judge never borrows its agent's model`;
+  return undefined;
+}
+
+/**
+ * A `@Judge` class with its settings, checked: a model judge names its model, a code judge (#396)
+ * names none and injects no `JudgeModel`. `where` names who lists it (`@Agent "x"`, `testJudge`).
+ */
+export function checkedJudgeOf(where: string, cls: Class): JudgeClass {
   const component = componentOf(cls);
   if (component?.kind !== "judge") {
     throw new ComponentError(
-      `[judge.not-a-judge] @Agent "${agent}": ${tokenName(cls)} in judges is not a @Judge class`,
+      `[judge.not-a-judge] ${where}: ${tokenName(cls)} in judges is not a @Judge class`,
     );
   }
-  // a model is required by the type; plain JS or an empty string still reaches here
-  if (typeof component.meta.model !== "string" || component.meta.model.trim() === "") {
-    throw new ComponentError(
-      `[judge.no-model] @Judge ${tokenName(cls)} ("${component.meta.name}"): no model — set @Judge({ model }); a judge never borrows its agent's model`,
-    );
-  }
+  const problem = modelProblemOf(cls, component.meta, component.meta.deps);
+  if (problem !== undefined) throw new ComponentError(problem);
   return { cls, meta: component.meta };
 }
+
+const judgeClassOf = (agent: string, cls: Class): JudgeClass =>
+  checkedJudgeOf(`@Agent "${agent}"`, cls);
 
 /** An agent's judges by name (`agents.<name>.judges`). */
 export const judgeNamesOf = (agent: AgentMeta): string[] =>
@@ -53,11 +81,15 @@ export function judgeClassesOf(agents: readonly AgentMeta[]): ReadonlyMap<string
   return byName;
 }
 
-/** The judges' models as the config holds them (`judges.<name>`). */
-export const judgeSettingsOf = (
+/** The judges' models as the config holds them (`judges.<name>`): a code judge (#396) has none. */
+export function judgeSettingsOf(
   judges: ReadonlyMap<string, JudgeClass>,
-): Record<string, ModelSettings> =>
-  Object.fromEntries([...judges].map(([name, { meta }]) => [name, { model: meta.model }]));
+): Pick<AgentsConfigOf<string>, "judges"> {
+  const models = [...judges].flatMap(([name, { meta }]) =>
+    isCodeJudge(meta) ? [] : [[name, { model: meta.model }] as const],
+  );
+  return models.length === 0 ? {} : { judges: Object.fromEntries(models) };
+}
 
 /** The judges by name, created by the workflow's container (with their `deps`). */
 export function judgePartsOf(
@@ -71,7 +103,11 @@ export function judgePartsOf(
       return new Map(
         [...judges].map(([name, { cls, meta }]): [string, JudgeInstance] => [
           name,
-          { handler: container.get(cls) as RunnableJudge, reply: meta.reply },
+          {
+            handler: container.get(cls) as RunnableJudge,
+            reply: meta.reply,
+            decidedBy: meta.decidedBy ?? DecidedBy.Model,
+          },
         ]),
       );
     },

@@ -82,6 +82,10 @@
       "types": "./dist/memory/index.d.ts",
       "import": "./dist/memory/index.js"
     },
+    "./eval": {
+      "types": "./dist/eval/index.d.ts",
+      "import": "./dist/eval/index.js"
+    },
     "./eslint": {
       "types": "./dist/eslint/index.d.ts",
       "import": "./dist/eslint/index.js"

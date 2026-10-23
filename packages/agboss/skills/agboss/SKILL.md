@@ -76,6 +76,20 @@ npm test                                                           # scripted mo
 - The CLI finds the application through `"agboss": { "application": "src/<app>.application.ts" }`
   in `package.json`.
 
+## Testing and evals: cheapest check first
+
+- **Loop 0** (static, $0): `npx agboss check` and `npx agboss describe`. **Loop 1** (every commit,
+  $0): the unit runners (`testTool`, `testJudge`, …) first, then `testWith(App)` with scripted models
+  — reference 10.
+- **Evals on a live model** are declared as an `@EvalSuite` (`agboss/eval`,
+  `eval-suites/<name>.eval-suite.ts`): cases built with `evalCase`, `turn`, `pastTurn`, `toolCall`,
+  `toolInvariant`, checks in a declared order with `EvalCascade` — free trajectory invariants
+  (`checkTrajectory()`), then code judges (`@Judge({ decidedBy: DecidedBy.Code })`), then model
+  judges.
+- A case that passes at least once in k runs but not every time (pass@k high, pass^k low): do not
+  grow the prompt — propose deterministic code (a `@ToolInterceptor`, a code guardrail,
+  `DecidedBy.Code` on a `@Router` / `@Arbiter`, an `@Action`).
+
 ## The gate's rules
 
 AGBoss code follows these everywhere — the framework's own gate enforces them with lint
@@ -96,7 +110,7 @@ suppression budget, and a project made by `npx agboss create` lints with the sam
   field's `orderId!: string` is a definite assignment and is required).
 - Imports only from the public entries: `agboss`, `agboss/dto`, `agboss/units`, `agboss/models`,
   `agboss/testing` (+ `agboss/testing/setup`), `agboss/mcp`, `agboss/rag`, `agboss/a2a`,
-  `agboss/memory`, and `agboss/eslint` in `eslint.config.js` — never `agboss/internal`,
+  `agboss/memory`, `agboss/eval`, and `agboss/eslint` in `eslint.config.js` — never `agboss/internal`,
   `agboss/dist/…` or LangGraph directly.
 
 <!-- snippet-context
@@ -157,7 +171,7 @@ export class OrderStatusTool implements ToolHandler<OrderQueryDto, OrderStatusDt
 | Input / output guardrails, PII masking                                                 | `references/07-guardrails-pii-and-security.md`    |
 | Execution records, observers, Langfuse / OpenTelemetry traces                          | `references/08-observability-and-tracing.md`      |
 | SQLite stores, recovery, graceful shutdown, health probes, rolling deploys             | `references/09-persistence-k8s-and-deploy.md`     |
-| Tests: `testWith`, unit runners, races, VCR cassettes, evals                           | `references/10-testing-vcr-and-evals.md`          |
+| Tests: `testWith`, unit runners, races, VCR cassettes, `@EvalSuite`, code judges       | `references/10-testing-vcr-and-evals.md`          |
 | A CLI command, LangGraph Studio, a `[rule.code]` error                                 | `references/11-cli-studio-and-error-catalog.md`   |
 | A whole feature or application from scratch                                            | `references/12-end-to-end-recipes.md`             |
 

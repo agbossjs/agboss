@@ -58,6 +58,7 @@ export { SpendOutsideStepError } from "./components/spend-recorder.js";
 export { ModelCallError, type ModelCallErrorCode } from "./models/circuit-breaker.js";
 export { ToolTimeoutError } from "./tools/index.js";
 export { DtoValidationError } from "./dto/errors.js";
+export { EvalCaseInvalidError, type EvalCaseIssue } from "./eval/suite/errors.js";
 export { NotPausedError } from "./run/resume-agent.js";
 export { PauseAnswererError, UnknownPauseError } from "./app/resume.js";
 export {

@@ -25,6 +25,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     "kilobytes",
     "AGBossError",
     "LimitExceededError",
+    ...["EvalSuite", "EvalCascade", "checkTrajectory", "testJudge", "DecidedBy"],
   ],
   "references/01-composition-and-architecture.md": [
     "Agent",
@@ -116,6 +117,8 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["replyWith", "callTool", "routeTo", "decideWith", "failWith", "waitFor", "ModelFailure"],
     ...["ToolFailure", "VCRMode", "CassetteMissingError", "SequentialIdGenerator", "VirtualClock"],
     ...["QuorumNotReachedError", "ToolTimeoutError", "JudgeVerdict", "HealthReport"],
+    ...["EvalSuite", "evalCase", "turn", "pastTurn", "toolCall", "toolInvariant", "judgedBy"],
+    ...["checkTrajectory", "EvalCascade", "CheckStatus", "EvalCaseInvalidError", "Judge"],
     ...[
       "CompensationRecord",
       "CompensationReason",
@@ -204,6 +207,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
   ],
   "references/11-cli-studio-and-error-catalog.md": [
     ...["GraphRuleError", "RuleCode", "RuleViolation", "FlowSyntaxError", "AGBossError"],
+    "EvalCaseInvalidError",
     ...["PaidStepError", "StepFailedError", "AgentFailedError", "AgentAnswerInvalidError"],
     ...["QualityGateError", "ActionFailedError", "GuardFailedError", "RouterFailedError"],
     ...[

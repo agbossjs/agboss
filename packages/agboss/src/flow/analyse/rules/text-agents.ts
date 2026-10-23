@@ -45,7 +45,7 @@ export function textAgentRules(context: AnalysisContext): readonly RuleViolation
  */
 
 /** A shape as the rule compares it: whether it is a list, and the classes of its values. */
-interface JudgedShape {
+export interface JudgedShape {
   readonly isList: boolean;
   readonly classes: readonly DtoClass[];
 }
@@ -55,7 +55,7 @@ const classesOfValue = (shape: DtoClass | OneOfWrapper): readonly DtoClass[] =>
   typeof shape === "function" ? [shape] : shape.variants;
 
 /** What a `reply` judges, and what an `output` answers (`PlainTextDto` for a text agent). */
-function judgedShapeOf(shape: JudgeReplyShape | OutputShape | undefined): JudgedShape {
+export function judgedShapeOf(shape: JudgeReplyShape | OutputShape | undefined): JudgedShape {
   if (shape === undefined) return { isList: false, classes: [PlainTextDto] };
   if (typeof shape !== "function" && shape.kind === Wrapper.List) {
     return { isList: true, classes: classesOfValue(shape.element) };
@@ -64,7 +64,7 @@ function judgedShapeOf(shape: JudgeReplyShape | OutputShape | undefined): Judged
 }
 
 /** Whether a value of `answer` is a value of `reply`: the class itself or a subclass. */
-const isJudgedBy = (answer: DtoClass, reply: DtoClass): boolean =>
+export const isJudgedBy = (answer: DtoClass, reply: DtoClass): boolean =>
   answer === reply || Object.prototype.isPrototypeOf.call(reply.prototype, answer.prototype);
 
 const outputLabel = (output: OutputShape | undefined): string =>

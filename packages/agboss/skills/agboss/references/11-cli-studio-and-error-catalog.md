@@ -271,7 +271,7 @@ classes follow the same convention (`SupportAgent`) without a check.
 | `[model.unserved]`                            | no listed model provider serves a model                                                          | list a `@ModelProvider` that `serves` it (with one listed, the built-ins are not added)  |
 | `[model.ambiguous-provider]`                  | two listed providers serve one model                                                             | one model string per provider: narrow one `serves`                                       |
 
-### Guardrails, PII, compaction, channels, judges
+### Guardrails, PII, compaction, channels, judges, eval suites
 
 | Code                                      | Means                                                                         | Before → after                                                                                   |
 | ----------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -302,6 +302,11 @@ classes follow the same convention (`SupportAgent`) without a check.
 | `[reply-interpreter.decision-model]`      | a question role's interpreter on a decision model                             | a chat model (a decision model reads approvals only)                                             |
 | `[reply-interpreter.no-interpret-method]` | a `DecidedBy.Code` interpreter without `interpret`                            | add `interpret(input): ReplyInterpretation`                                                      |
 | `[judge.wrong-reply]`                     | the judge's `reply` is not the agent's `output` shape                         | `reply: DraftDto` on a `oneOf(DraftDto, NoteDto)` agent → `reply: oneOf(DraftDto, NoteDto)`      |
+| `[judge.no-model]`                        | a model judge (the default `decidedBy`) without `model`                       | add `model: "typesafe/jev-1.13"`, or `decidedBy: DecidedBy.Code` for a judge decided by code     |
+| `[judge.model-on-code-judge]`             | a `DecidedBy.Code` judge that names a `model` or injects `JudgeModel`         | remove `model` / `JudgeModel` from `deps`, or decide by the model (`DecidedBy.Model`)            |
+| `[eval.unknown-start]`                    | an `@EvalSuite`'s `start` is not a start of the application it runs on        | the start of one of the application's workflows                                                  |
+| `[eval.duplicate-case]`                   | two cases of one suite share a `name`                                         | rename one: a case name keys reports and baselines                                               |
+| `[eval.judge-wrong-reply]`                | a suite's judge judges no finish output its start reaches, or a list          | `reply` = a reached finish's `output` (`oneOf(…)` for several)                                   |
 
 ## Warnings
 
@@ -360,6 +365,7 @@ classes of a step's failures (reference 02, section 9). `expect(run).rejects.toF
 | `pause.unknown`, `pause.wrong-answerer`, `pause.uninterpretable-reply`, `pause.no-reply-interpreter` | `UnknownPauseError`, `PauseAnswererError`, `UninterpretableReplyError`, `ReplyInterpreterMissingError` | a resume refused                                                |
 | `resume.incompatible`                                                                                | `IncompatibleResumeError`                                                                              | paused under another config hash                                |
 | `dto.invalid`                                                                                        | `DtoValidationError`                                                                                   | a value does not fit its DTO (the field named, never the value) |
+| `eval.case-invalid`                                                                                  | `EvalCaseInvalidError`                                                                                 | an eval suite's case values do not fit (`issues`, no values)    |
 | `context.unavailable`                                                                                | `ExecutionContextUnavailableError`                                                                     | a frame token read outside a step                               |
 | `tool.timeout`                                                                                       | `ToolTimeoutError`                                                                                     | a tool call past its `timeout` (the model reads it)             |
 | `model`, `model.wrong-kind`, `model.decision`                                                        | `ModelCallError`, `ModelKindError`, `DecisionError`                                                    | a model call failed; `invoke` / `decide` on the wrong kind      |
