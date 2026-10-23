@@ -893,6 +893,7 @@ failure rejects as the component threw it.
 | `testJudge(Judge, options)`             | `run({ variant, reply, task, attempt, toolCalls? }, { timeout })` — typed by the judge; `toolCalls` `[]` when not given | its `JudgeVerdict`              |
 | `testGuardrail(Guardrail, options)`     | `run(text, { element, timeout })`                          | `{ isBlocked, probability, refusal? }`      |
 | `testPii([Policies], options)`          | `.mask(text)`, `.reveal(text)`                             | the masked text; the revealed one           |
+| `testCompaction(Compaction, options)`   | `run({ previousSummaries, turnsToCompact }, { timeout })` (#395) | `{ summaries, requests }` (`CompactionResult`) |
 
 <!-- snippet-context
 import { OrderBook, OrderStatus } from "./job-scout.js";
@@ -950,6 +951,20 @@ it("looks the order up in the book it is given", async () => {
   `JudgeVerdict.passed(…)` / `JudgeVerdict.failed({ reason })`. A code judge (`decidedBy:
   DecidedBy.Code`, #396) runs its `judge(input)` alone: no `model` (one is a `TestSetupError`), no
   spend; the judge's assembly rules apply (`[judge.model-on-code-judge]`).
+- **`testCompaction`** (#395 PR 5) — a `CompactionRunner` — checks the compaction's rules first, then
+  compacts one `CompactionInput`. A model strategy writes on `model` (`replyWith("…")`, `{ truncated:
+  true }` for a summary cut at `summaryMaxTokens`, `{ cost }` for its spend `compaction:<name>`):
+  `requests` is what its model was sent — its `instructions` (its prompt, or the built-in one) and
+  its `input`, the turns as a reader's memory renders them (`start <name>: <json>` / `finish …`), a
+  `SingleSummary` with its current summary (the last of `previousSummaries`, `(none yet)` without
+  one); the earlier turns a `SummaryQueue` reads as context at run time are not part of the input —
+  and `summaries` what readers see next (a queue the latest `summaryQueueLength`, a single summary
+  the new one). A cut summary is asked once more, shorter (two requests), then `CompactionError`, as
+  an empty one. `CompactionStrategy.Custom` (#382) runs `compact(input)` on the runner's container
+  (`deps`, `overrides`), in a step's frame, its answer checked as at run time; no `model` (one is a
+  `TestSetupError`), no requests. `CompactionStrategy.None` writes nothing: a `TestSetupError`. No
+  PII policies apply. It checks the request and the plumbing — whether a fact survives compaction is
+  an eval case ([Testing suites and comparisons](Testing-Suites-And-Comparisons)).
 - **`testGuardrail`** (#120 PR 2) checks the guardrail's own rules first (`-guardrail`, one refusal, a
   question, a threshold — a `GraphRuleError`), then asks its model on the text under its heading
   (`element` names the agent or router, default `test-agent`): `model: decideWith({ blocks: 0.9 })`

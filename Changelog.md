@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `testCompaction` (#395 PR 5)
+
+- **Added — `testCompaction(Compaction, options?)`** ([Testing](Testing#unit-runners--one-component-on-its-own)):
+  the tenth unit runner — a `CompactionRunner` that compacts one `CompactionInput`
+  (`previousSummaries`, `turnsToCompact`) and gives a `CompactionResult` (`summaries`, `requests`:
+  `CompactionRequest { instructions, input }` per model call) for `SummaryQueue` and `SingleSummary`
+  on a scripted model, and for `CompactionStrategy.Custom` (#382) on its own container. It checks the
+  request and the plumbing; survival of facts is an eval case.
+
 ## Unreleased — the mesh envelope: call chains, hop limits and loop detection (#398 PR 1)
 
 - **Added — the mesh envelope** ([A2A](A2A#6-the-mesh--call-chains-hops-and-loops-398),

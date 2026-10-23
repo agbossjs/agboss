@@ -306,4 +306,4 @@ summary cut at its limit (twice → `CompactionError`), `failWith(ModelFailure.S
 call. Unscripted, a compaction writes a fixed summary at no cost; a `None` compaction calls no model
 and has no script. A custom one calls no model either — `mockLlm(GraphMemoryCompaction)` is a setup
 error; `mockOf(KnowledgeGraphService).saveFactsAndSummarize.mockResolvedValue(["…"])` replaces the
-service its `compact()` uses (its calls are `mockOf(…).saveFactsAndSummarize.mock.calls`). A strategy is a plain class, so its `buildContext` is tested with plain values.
+service its `compact()` uses (its calls are `mockOf(…).saveFactsAndSummarize.mock.calls`). One compaction on its own is `testCompaction(ConversationCompaction, { model: replyWith("…") })` (#395): `await compact({ previousSummaries, turnsToCompact })` gives the `summaries` readers see next and the `requests` its model was sent — a custom one's `compact()` on its own container ([Testing](Testing#unit-runners--one-component-on-its-own)). A strategy is a plain class, so its `buildContext` is tested with plain values.
