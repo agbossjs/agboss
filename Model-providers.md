@@ -55,6 +55,122 @@ export class OpenRouterModelProvider extends OpenRouterProvider {
 `ProviderSort.Price` / `Throughput` / `Latency` — OpenRouter's `provider.sort`; closed sets are
 enums, so a string (`"price"`) does not compile.
 
+## A custom transport: `complete(request)` (#385)
+
+A provider that is not an OpenAI-compatible HTTP server — AWS Bedrock through its SDK, Vertex AI, a
+corporate gateway with its own authorisation — `implements ModelProviderHandler` with
+`complete(request)` instead of `baseUrl` / `baseUrlField` / `apiKey`, and takes its services through
+`deps`:
+
+```ts file=src/model-providers/bedrock.model-provider.ts
+import { Injectable, TenantContext } from "agboss";
+import {
+  ModelCost, ModelFailure, ModelProvider, ModelProviderFailureError, QueueBalancingStrategy,
+  RateLimitPolicy, RetryPolicy, TRANSIENT_FAILURES,
+  type ModelProviderHandler, type ModelProviderMessage, type ModelProviderRequest,
+  type ModelProviderResponse, type ModelProviderToolDefinition,
+} from "agboss/models";
+import { minutes, seconds, usd } from "agboss/units";
+
+/** What the SDK takes: the framework's plain messages and tools, the tenant, the call's signal. */
+export interface BedrockInvocation {
+  readonly model: string;
+  readonly messages: readonly ModelProviderMessage[];
+  readonly tools: readonly ModelProviderToolDefinition[];
+  readonly tenantId: string;
+  readonly signal: AbortSignal;
+}
+
+@Injectable()
+export class BedrockSdkClient {
+  async invoke(invocation: BedrockInvocation): Promise<ModelProviderResponse> {
+    const response = await fetch(`https://bedrock.internal/${invocation.model}`, {
+      method: "POST", body: JSON.stringify(invocation), signal: invocation.signal,
+    });
+    if (response.status === 429) {
+      const retryAfter = seconds(Number(response.headers.get("retry-after") ?? "1"));
+      throw new ModelProviderFailureError(ModelFailure.RateLimited, { retryAfter });
+    }
+    return (await response.json()) as ModelProviderResponse; // { text, toolCalls?, usage, cost? }
+  }
+}
+
+@ModelProvider({
+  name: "bedrock-model-provider",
+  description: "AWS Bedrock through its SDK",
+  serves: [/^bedrock\//],
+  timeout: minutes(2),                                  // per attempt: request.signal aborts at it
+  cost: ModelCost.fromPrices({
+    "bedrock/claude": { inputPerMillion: usd(3), outputPerMillion: usd(15) },
+  }),
+  rateLimitPolicy: RateLimitPolicy.of({
+    maxConcurrentCalls: 8,
+    balancing: QueueBalancingStrategy.TenantRoundRobin,
+  }),
+  retryPolicy: RetryPolicy.exponential({
+    maxAttempts: 3, initialDelay: seconds(1), maxDelay: seconds(20), jitter: true,
+    retryOn: TRANSIENT_FAILURES,
+  }),
+  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  deps: [BedrockSdkClient, TenantContext],              // reasoning / promptCaching unset: off
+})
+export class BedrockModelProvider implements ModelProviderHandler {
+  constructor(
+    private readonly bedrockSdkClient: BedrockSdkClient,
+    private readonly tenantContext: TenantContext,
+  ) {}
+
+  async complete(request: ModelProviderRequest): Promise<ModelProviderResponse> {
+    return this.bedrockSdkClient.invoke({
+      model: request.model,
+      messages: request.messages,
+      tools: request.tools,
+      tenantId: this.tenantContext.tenantId,            // the execution of this call
+      signal: request.signal,
+    });
+  }
+}
+```
+
+- **One mode.** HTTP (`baseUrl`, `apiKey`, `baseUrlField`, a `chat` class) or a transport
+  (`complete`, `deps`) — both at once do not compile (the decorator's overloads) and fail assembly
+  with `[model-provider.both-modes]`; so does neither. `description`, `timeout`, `cost` and
+  `retryPolicy` (`RetryPolicy.exponential(…)` and the others) are required as for HTTP;
+  `reasoning` / `promptCaching` are optional — `Reasoning.off()` / `PromptCaching.off()` when unset.
+- **Created by the application's container**, on its first call: one instance per application, its
+  `deps` injected and checked at assembly with the components' (`Consumer: "TOKEN" is not
+  registered …`). An injected `TenantContext` / `ExecutionContext` reads the execution of the call
+  (`complete()` runs in the step's frame).
+- **The request** — `ModelProviderRequest`: `model` (with a fallback, its `fallbackModels` entry),
+  `messages` (`ModelProviderMessage { role: ModelProviderMessageRole.System | User | Assistant | Tool,
+  text, toolCalls?, toolCallId? }` — text only, masked by the PII policies), `tools`
+  (`ModelProviderToolDefinition { name, description, parameters }` — the agent's own tools and its
+  `answer-<dto>` tools), `temperature`, `maxTokens` (`undefined` = `TokenLimit.MODEL_MAX`),
+  `reasoning`, `promptCaching`, `signal` (the attempt's timeout, a cancel, an exhausted budget — an
+  SDK that ignores it is cut at `timeout` anyway, as a `Timeout`). No LangChain type in the contract.
+- **The answer** — `ModelProviderResponse`: `text`, `toolCalls?` (`ModelProviderToolCall { id, name,
+  arguments }`), `usage` (`ModelProviderUsage { inputTokens, outputTokens, cacheReadTokens?,
+  cacheWriteTokens? }`: the rate limit's tokens, the price table's), `cost?` (exact, `costSource:
+  "api"`; absent → the decorator's price table), `finishReason?` (`FinishReason.Length`). An answer
+  without `text` or `usage` is a `ModelProviderError`.
+- **Failures** — throw `ModelProviderFailureError(ModelFailure.…, { retryAfter?, cause? })`
+  (`model.provider-failure`): the retry policy retries the failures it lists, `RateLimited` pauses
+  the provider's whole queue for `retryAfter` and halves the instance's concurrency, the breaker
+  counts it. Any other error is not retried and is counted by the breaker.
+- **Everything else is the gateway's**, unchanged: `serves`, the budgets before the call and
+  `CostLedgerRepository` after it, the queue and its 429 pause, retries, the breaker (readiness
+  `Degraded`) and its fallback — HTTP and transport either way —, PII masking and revealing, the
+  answer tools of a DTO agent, traces, and `mockLlm` in `testWith`, which answers above the provider
+  (`complete()` is never called by a scripted test). Inside, the transport is a `BaseChatModel`
+  adapter and every provider's calls go through one attempt runner.
+- **`capabilities(model, connection)`** is optional on a transport: given, it is checked at start
+  like an HTTP provider's (the instance created for it); absent, its models' settings are not checked
+  — `agboss check --models` never creates a transport.
+- `agboss describe` prints `bedrock-model-provider → BedrockModelProvider (listed in @Application
+  providers) · serves /^bedrock\// · transport: BedrockModelProvider.complete()` and each
+  `model: bedrock/claude → bedrock-model-provider`; the transport providers (name, class, `serves`)
+  are part of `configHash` — only where there is one.
+
 ## Register them in the application
 
 `@ModelProvider` classes are listed **only** in `@Application({ providers })`, next to the rest of the
@@ -289,8 +405,10 @@ keeping some headroom (about 80 %) for other clients of the same key:
 ### `circuitBreakerPolicy`
 
 - `{ failureThreshold, window, openFor, fallback?, fallbackModels? }`: that many failed calls
-  within the window open the breaker for `openFor`; while open, calls go to the `fallback` provider
-  (its base URL and key) or fail fast with `ModelCallError` `model.circuit-open`.
+  within the window open the breaker for `openFor`; while open, calls go to the `fallback` provider's
+  chat model (its own base URL, key and request fields — or its `complete()`, #385: HTTP and transport
+  fall back to each other either way), each model as its `fallbackModels` entry, or fail fast with
+  `ModelCallError` `model.circuit-open`.
 - Its state — the failures in the window, the open breaker — is in the application's
   `RateLimitRepository` (#265 S52), so a breaker opened on one instance is open on every instance;
   its time is the application's `Clock` (no longer the system's, #262 S75 d).

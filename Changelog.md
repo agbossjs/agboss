@@ -3,6 +3,28 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — a custom transport for `@ModelProvider`: `ModelProviderHandler.complete(request)` (#385)
+
+- **Added — transport providers** ([Model providers](Model-providers#a-custom-transport-completerequest-385)):
+  a `@ModelProvider` class that `implements ModelProviderHandler` with `complete(request)` — no
+  `baseUrl` / `apiKey`, its services through `deps`, created by the application's container on its
+  first call (one instance, `TenantContext` read in the calling execution). New public names in
+  `agboss/models`: `ModelProviderRequest`, `ModelProviderResponse`, `ModelProviderMessage`,
+  `ModelProviderMessageRole`, `ModelProviderToolDefinition`, `ModelProviderToolCall`,
+  `ModelProviderUsage`, `ModelProviderFailureError` (`model.provider-failure`,
+  `ModelProviderFailureOptions`: `retryAfter?`, `cause?`), `FinishReason`; `complete?` on
+  `ModelProviderHandler`; `deps` on `@ModelProvider`; the rule `[model-provider.both-modes]`. Every
+  policy of the gateway runs around it; `agboss describe` prints `transport: X.complete()`; part of
+  `configHash` (only where there is one).
+- **Changed — `ModelProviderHandler.capabilities` is optional** (required of an HTTP provider by the
+  decorator's overload; a transport without it is not checked against its models).
+- **Changed — `ModelProviderOptions`** is the union of the HTTP options and the transport options
+  (`baseUrl` / `baseUrlField` / `apiKey` vs `deps`); `ModelProviderType` takes constructor
+  arguments. Code that spreads one provider's options into another's decorator narrows them first.
+- **Changed — a breaker's fallback is at the chat model**: while the primary's breaker is open the
+  call goes to the fallback provider's own chat model (its own wire form, not the primary's request
+  re-addressed), so HTTP and transport providers fall back to each other. Accounting is unchanged —
+  the fallback's model, its prices.
 ## Unreleased — tool interceptors: `@ToolInterceptor` + `BeforeToolCall` / `AfterToolCall` (#384)
 
 - **Added — `@ToolInterceptor`** ([Tools](Tools#tool-interceptors)): a class that implements
