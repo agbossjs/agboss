@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — flow-patterns as the zero-cost harness: two applications over A2A (#419 PR 3)
+
+- `examples/flow-patterns` serves the desk over A2A from `src/desk.application.ts` (`@A2AExpose`, a
+  caller resolver) to a new `src/helpline/` consumer (`@A2AAgent`); its `npm run check` adds
+  `agboss check --federation` on both applications and `agboss describe --json`, and its tests the
+  `a2aServer` fixture. [Example](Example#flow-patterns-a-review-loop-and-a-code-router).
+
 ## Unreleased — OpenRouter host routing: pinned hosts and quantizations, `servedBy` (#395 PR 6)
 
 - **Breaking — `allow_fallbacks` is `allowFallbacks`** ([Model providers](Model-providers#pinning-the-host-and-the-precision-395)):

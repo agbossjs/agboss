@@ -84,11 +84,11 @@ npm run compare -- --profiles base,scout-low-thinking --golden core
 ## flow-patterns: a review loop and a code router
 
 `examples/flow-patterns/` (package `flow-patterns-example`, #295) — the zero-cost harness of the
-public surface (#419): ten workflows, one per `*.workflow.ts`, in one application (`src/flow-patterns.application.ts`: `app.execute` runs each by
+public surface (#419): eleven workflows, one per `*.workflow.ts`, in one application (`src/flow-patterns.application.ts`: `app.execute` runs each by
 its start, #261), on the public entries only, tested by script (no model key, no cassette). They are
 what the manual checks of the flow point the CLI at; `make check` runs `agboss check --strict` on the
-application and on the offline `src/desk.application.ts` (then `agboss check --models --env test`,
-which needs no key), the example's own lint (`eslint.config.js` with `agboss/eslint`, as `agboss
+application and on the offline `src/desk.application.ts`, each with `--federation` (below; then
+`agboss check --models --env test`, which needs no key), the example's own lint (`eslint.config.js` with `agboss/eslint`, as `agboss
 create` writes it) and its tests with coverage. Besides the two below: `src/review/` (parallel launches in waves,
 #273), `src/panel/` (a quorum, [Parallel](Parallel)), `src/vendor/` and `src/topic/` (a child workflow
 per item and recursion, [Workflow as a step](Workflow-as-a-step)), `src/approvals/` (two approvals at
@@ -136,6 +136,19 @@ npm test
   (`app.checkReadiness()`) and `maxConcurrentSteps: 16`. `tests/unit-runners.test.ts` runs the unit
   runners on the patterns' own components — `testAction` with an `override`, `testRouter`,
   `testArbiter`, `testRag`, `testPii`, and `testJudge` on the tool calls of a scripted visit.
+- **`src/helpline/`** — two applications over [A2A](A2A) (#398): `desk-application` serves
+  `desk-workflow-start` (`@A2AExpose` in `@Application({ exposes })`; its caller resolver takes the
+  tenant from an `x-tenant-id` header, for callers on the same host only), and the helpline's
+  `ask-desk-tool` calls it through `DeskA2AAgent`, an `@A2AAgent` contract with its own
+  `DeskCallDto`. `npm run check` runs `agboss check --federation` twice, no network: the desk
+  against its checked-in `snapshots/desk-application.json` (a changed export without a new
+  `version` is `[federation.version-not-bumped]`), and the application against the desk's fresh
+  `agboss describe --json` — renaming a field of `DeskCallDto` gives
+  `[federation.incompatible-schema] … — affects flow-patterns-application › helpline-workflow
+  (ask-desk-tool)`. `npm run snapshot` rewrites the desk's snapshot. `tests/helpline.test.ts` serves
+  the desk with the `a2aServer` fixture and calls it with the helpline's contract
+  (`new A2AClient({ url, headers, contract })`); the consumer's own test replaces the remote with
+  `mockOf(DeskA2AAgent)`.
 - **`src/approvals/`** — two approvals at once ([Pauses](Pauses), #267): `offsite-booking-workflow`
   launches venue-buyer-agent and flight-buyer-agent side by side; each calls `place-purchase-tool`,
   whose `@Tool({ channel: PurchaseApprovalChannel })` names a role
