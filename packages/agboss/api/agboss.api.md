@@ -5096,7 +5096,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/types.ts:175:3 - (ae-undocumented) Missing documentation for "spend".
 // src/app/types.ts:216:3 - (ae-undocumented) Missing documentation for "name".
 // src/app/types.ts:217:3 - (ae-undocumented) Missing documentation for "version".
-// src/application/application.ts:155:1 - (ae-undocumented) Missing documentation for "Application".
+// src/application/application.ts:157:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
 // src/budgets/budget.ts:25:3 - (ae-undocumented) Missing documentation for "Week".

@@ -16,7 +16,8 @@ export enum A2AStatus {
 /** `POST /execute`: the workflow start's input, and the thread to continue (omit for a new one). */
 export interface A2AExecutionRequest<TInput = unknown> {
   readonly input: TInput;
-  readonly thread?: string;
+  /** The caller's thread (#387: `threadId` on the wire too), in the caller's tenant. */
+  readonly threadId?: string;
 }
 
 /**
@@ -24,7 +25,7 @@ export interface A2AExecutionRequest<TInput = unknown> {
  * status and — when it reached a workflow finish — the finish's name and its output.
  */
 export interface A2AExecutionResponse {
-  readonly thread?: string;
+  readonly threadId?: string;
   readonly status: A2AStatus;
   readonly finish?: string;
   readonly output?: unknown;
@@ -55,7 +56,7 @@ const statusSchema = z.enum(A2AStatus);
 
 /** The wire shape of a response (what a client accepts from a remote agent). */
 export const A2AResponseSchema = z.object({
-  thread: z.string().optional(),
+  threadId: z.string().optional(),
   status: statusSchema,
   finish: z.string().optional(),
   output: z.unknown().optional(),
@@ -75,5 +76,5 @@ export const A2AEventSchema = z.discriminatedUnion("type", [
 /** The wire shape of a request (what the server accepts). */
 export const A2ARequestSchema = z.object({
   input: z.unknown(),
-  thread: z.string().optional(),
+  threadId: z.string().optional(),
 });

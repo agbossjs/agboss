@@ -6,6 +6,7 @@ import { NodeKind } from "../flow/ast.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import type { AssembledApplication } from "./assemble.js";
 import type { GracefulStop } from "./graceful-stop.js";
+import { listedProviderCheckOf, rememberListedProviders } from "./listed-providers.js";
 import type {
   ApplicationHealth,
   HealthSources,
@@ -96,6 +97,7 @@ export function composeApp(
   };
   const remembered = appWorkflowOf(first.app);
   if (remembered !== undefined) rememberAppWorkflow(app, remembered);
+  rememberListedProviders(app, listedProviderCheckOf(assembled.modules));
   return app;
 }
 

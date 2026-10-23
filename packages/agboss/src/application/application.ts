@@ -30,6 +30,8 @@ export interface ApplicationOptions {
    * `BaseCheckpointSaver`), created by the container — never `new`; and the `@ModelProvider`
    * classes (#266) every model of the application resolves to by `serves` — none listed → the
    * built-in `OpenRouterModelProvider` + `DecisionsModelProvider`, one listed → the list is complete.
+   * Ordinary `@Injectable` services may be listed here too (#387: an A2A caller resolver): one
+   * instance for every workflow, like a class a workflow lists.
    */
   readonly providers?: readonly Provider[];
   /** Every `@Budget` of the application (`config/budget.config.ts`). */

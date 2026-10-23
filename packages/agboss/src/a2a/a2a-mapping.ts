@@ -40,7 +40,7 @@ function pauseIdsOf(output: ExecutionOutput): { readonly pauseIds?: readonly str
 
 export function responseOf(output: ExecutionOutput): A2AExecutionResponse {
   return {
-    thread: output.threadId,
+    threadId: output.threadId,
     status: statusOf(output.status),
     ...(output.finish === undefined ? {} : { finish: output.finish.name, output: output.output }),
     ...pauseIdsOf(output),
@@ -51,10 +51,10 @@ export function responseOf(output: ExecutionOutput): A2AExecutionResponse {
 export function failureResponseOf(
   error: unknown,
   signal: AbortSignal | undefined,
-  thread: string | undefined,
+  threadId: string | undefined,
 ): A2AExecutionResponse {
   return {
-    ...(thread === undefined ? {} : { thread }),
+    ...(threadId === undefined ? {} : { threadId }),
     status: failureStatusOf(error, signal),
     error: error instanceof Error ? error.message : String(error),
   };

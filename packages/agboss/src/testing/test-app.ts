@@ -15,6 +15,7 @@ import {
   type ToolSlice,
 } from "./slices.js";
 import { toolNameOf } from "./script.js";
+import { isListedProvider, rememberListedProviders } from "../application/listed-providers.js";
 
 /**
  * The app of a test: the same `run` / `resume` as in production, built on first use (so `mockOf`
@@ -24,7 +25,7 @@ import { toolNameOf } from "./script.js";
  */
 export interface TestApp extends Pick<
   App,
-  "execute" | "resume" | "close" | "cancel" | "checkLiveness" | "checkReadiness"
+  "execute" | "resume" | "close" | "cancel" | "checkLiveness" | "checkReadiness" | "resolve"
 > {
   readonly clock: VirtualClock;
   /**
@@ -79,18 +80,54 @@ async function withProbesLoaded(building: Promise<BuiltApplication>): Promise<Bu
   return built;
 }
 
+/** The slices of single components (`app.agent(X)`, `app.router(R)`, `app.tool(T)`). */
+const slicesOf = (
+  environment: TestEnvironment,
+  built: () => Promise<BuiltApplication>,
+): Pick<TestApp, "agent" | "router" | "tool"> => ({
+  agent: (agent) => ({
+    replyWith: (task) =>
+      checked(environment, async () =>
+        agentSlice(workflowWith(await built(), agent), agent).replyWith(task),
+      ),
+  }),
+  router: (router) => ({
+    routeTo: (input) =>
+      checked(environment, async () =>
+        routerSlice(workflowWith(await built(), router), router).routeTo(input),
+      ),
+  }),
+  tool: (tool) => ({
+    invoke: (input) =>
+      checked(environment, async () =>
+        toolSlice(workflowWithTool(await built(), tool), tool).invoke(input),
+      ),
+  }),
+});
+
 export function createTestApp(environment: TestEnvironment): TestApp {
   let building: Promise<BuiltApplication> | undefined;
+  /** The built application once `building` resolved: `resolve` reads it synchronously. */
+  let ready: BuiltApplication | undefined;
   let closed = false;
   const built = (): Promise<BuiltApplication> => {
     if (closed) {
       const message = "this app is closed — after recoverApp() use the app it returned";
       return Promise.reject(new TestFailure("test.app-closed", message));
     }
-    return (building ??= withProbesLoaded(environment.newApp()));
+    return (building ??= withProbesLoaded(environment.newApp()).then(
+      (application) => (ready = application),
+    ));
   };
   const probed = (): Promise<BuiltApplication> => building ?? built();
-  return {
+  const readyApp = (): App => {
+    if (ready === undefined) {
+      const message = "the app is not built yet — await app.ready() (or an execute) before resolve";
+      throw new TestFailure("test.app-not-ready", message);
+    }
+    return ready.app;
+  };
+  const testApp: TestApp = {
     clock: environment.clock,
     execute: (start, input, ...options) =>
       checked(environment, async () => (await built()).app.execute(start, input, ...options)),
@@ -105,27 +142,14 @@ export function createTestApp(environment: TestEnvironment): TestApp {
       checked(environment, async () => {
         await built();
       }),
+    resolve: (token) => readyApp().resolve(token),
     close: async (options) => {
       closed = true;
       if (building !== undefined) await (await building).app.close(options);
     },
-    agent: (agent) => ({
-      replyWith: (task) =>
-        checked(environment, async () =>
-          agentSlice(workflowWith(await built(), agent), agent).replyWith(task),
-        ),
-    }),
-    router: (router) => ({
-      routeTo: (input) =>
-        checked(environment, async () =>
-          routerSlice(workflowWith(await built(), router), router).routeTo(input),
-        ),
-    }),
-    tool: (tool) => ({
-      invoke: (input) =>
-        checked(environment, async () =>
-          toolSlice(workflowWithTool(await built(), tool), tool).invoke(input),
-        ),
-    }),
+    ...slicesOf(environment, built),
   };
+  // a listener built from this app checks its providers like the built application's (#387)
+  rememberListedProviders(testApp, (cls) => isListedProvider(readyApp(), cls) ?? false);
+  return testApp;
 }

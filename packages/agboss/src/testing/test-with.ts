@@ -11,6 +11,7 @@ import type { ToolScript } from "./tool-script.js";
 import { createTestApp, type TestApp } from "./test-app.js";
 import type { VirtualClock } from "./clock.js";
 import { TestSetupError } from "./errors.js";
+import { withA2ATestServers, type A2AServerFixture } from "./a2a-server.js";
 import type { ModelTarget } from "./scripted-gateway.js";
 import "./vitest-types.js";
 
@@ -59,6 +60,12 @@ export interface WorkflowFixtures {
   readonly mcpOf: <TServer extends McpServerClient<ServerTools>>(
     server: new () => TServer,
   ) => McpStub<TServer>;
+  /**
+   * The application served over A2A (#387): `const { url } = await a2aServer({ start,
+   * callerResolver })` — `a2aHttpListener(app, …)` on `127.0.0.1:0`, the resolver from the app's
+   * container, the loopback open for the test (no `allowNetwork` needed), closed at its end.
+   */
+  readonly a2aServer: A2AServerFixture;
 }
 
 /** How many app instances the test runs: a whole number ≥ 1 (default 1). */
@@ -154,5 +161,6 @@ export function testWith<TApplication extends Class>(
     mcpOf: async ({ environment }, use) => {
       await use((server) => environment.mcpOf(server));
     },
+    a2aServer: ({ app }, use) => withA2ATestServers(app, use),
   });
 }
