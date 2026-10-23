@@ -399,3 +399,67 @@ worse", told apart from 3 "the project does not load"); without it the run exits
 table. The artifact (and `--json`'s `result`) gains `baseline` — `EvalRunComparison`: `file`, the
 baseline's `configHash`, `startedAt` and `runs`, `cases` (each `EvalCaseComparison`: `name`,
 `comparison`, `baseline` / `candidate` passes `{ passed, runs }`) and `regressed` (the names).
+
+## Calibrating a judge: `agboss eval calibrate`
+
+```bash
+agboss eval calibrate --report .artifacts/eval/main.json                    # labels: eval/labels/<suite>.jsonl
+agboss eval calibrate --report .artifacts/eval/main.json --labels labels/refunds.jsonl
+```
+
+A model judge in the cascade is only as good as its agreement with people. People label the judged
+runs of an artifact — one JSON line each (`EvalLabel`, `agboss/eval`), in `eval/labels/<suite>.jsonl`
+by default, a file that grows over many runs:
+
+```json
+{"runId":"refund-within-policy#2","executionId":"0f3c…","judge":"answer-grounded-judge","labeler":"anna","passed":false,"score":2,"failureTags":["invents-fee"],"note":"invents a fee"}
+```
+
+| Field | |
+| --- | --- |
+| `runId` | the case and its run as the artifact numbers them, `<case>#<run>` |
+| `executionId` | the run's last execution — the one its judges judged (`executionId` of the run in the artifact) |
+| `judge` | the judge's `name` |
+| `labeler` | who labelled it |
+| `passed` | the person's verdict — what κ reads |
+| `score?` | 1–4, how good the answer is: only for the scores view |
+| `failureTags` | why it failed, in the labeler's words (`[]` for none) |
+| `note?` | free text |
+
+`agboss eval calibrate` reads the artifact and the labels — it loads no application and calls no
+model — and prints, per judge that has labels:
+
+```
+refunds-eval-suite against eval/labels/refunds-eval-suite.jsonl: 120 labels, 118 matched, 2 of other runs or unjudged
+answer-grounded-judge  n=60  κ(judge, anna)=0.71  κ(judge, ben)=0.64  κ(anna, ben)=0.78
+  anna          anna passed  anna failed
+  judge passed  38           7
+  judge failed  2            13
+  …
+  9 disagreements: judge passed / labeler failed 7, judge failed / labeler passed 2
+    refund-within-policy#2 anna: judge passed, labeler failed [invents-fee] — invents a fee
+  length: 9 disagreements, 51 agreements — mean 940.00 on disagreements, 410.00 on agreements
+  grounded: 9 disagreements, 51 agreements — disagreed/agreed by value: false 6/3, true 3/48
+  scores 1–4: judge passed 6·3·9·27, judge failed 10·4·1·0
+```
+
+- **κ** is Cohen's, pairwise (#396 S2 Q8): the judge with each labeler, then every two labelers on the
+  runs both labelled — how far they agree beyond what their own pass rates give by chance; `κ=—`
+  when a rater gave one verdict only. The labelers' κ is the ceiling: a judge cannot be held to more
+  agreement than people have with each other.
+- **The confusion matrix** per labeler, and every **disagreement** (the run, the labeler, the judge's
+  metrics, the tags and the note).
+- **The rubric:** each key of the judge's `metrics` (`JudgeVerdict.passed({ metrics })`) over the
+  disagreements and the agreements — a text or flag metric by value, a numeric one by its mean on
+  each side — so the measure that goes with the judge being wrong stands out (above: long answers).
+- **Scores:** with a `score` in any label, how the scores spread over the runs the judge passed and
+  failed.
+
+Labels of executions the artifact does not have, or of a judge that gave no verdict there (skipped
+by the cascade), are counted as unmatched — never an error. A line that is not a label, a second
+label of one run by one labeler for one judge, or a `runId` that is not its execution's run in this
+artifact is `eval.labels-invalid` (exit 2, the line named); no file is `eval.labels-not-found`.
+`--json` carries the calibration — `EvalCalibration` (`suite`, `labels`, `matched`, `unmatched`,
+`judges`: each `EvalJudgeCalibration` with `n`, `labelers`, `agreements` (`EvalRaterAgreement`:
+`raters`, `n`, `observed`, `kappa?`), `confusion`, `disagreements`, `metrics`, `scores?`), all public
+types in `agboss/eval`.

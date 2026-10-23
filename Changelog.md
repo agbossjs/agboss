@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `agboss eval calibrate`: a judge against people's labels (#396 PR 4)
+
+- **Added — `agboss eval calibrate --report <run.json> [--labels <labels.jsonl>]`**
+  ([Eval suites](Eval-Suites#calibrating-a-judge-agboss-eval-calibrate)): a saved run's judges against
+  people's labels (`eval/labels/<suite>.jsonl` by default, one `EvalLabel` per line: `runId`,
+  `executionId`, `judge`, `labeler`, `passed`, `score?`, `failureTags`, `note?`) — pairwise Cohen's κ
+  (the judge with each labeler, the labelers with each other), a confusion matrix per labeler, the
+  disagreements, and the rubric by the judge's `metrics` keys; runs nothing.
+- **Added — public types in `agboss/eval`:** `EvalLabel`, `EvalCalibration`, `EvalJudgeCalibration`,
+  `EvalRaterAgreement`, `EvalConfusionMatrix`, `EvalDisagreement`, `EvalMetricGroup`,
+  `EvalMetricValue`, `EvalScoreCounts`.
+- **Added — codes** `eval.labels-not-found`, `eval.labels-invalid` (exit 2).
+
 ## Unreleased — `agboss eval run --baseline`: regressions per case, exit 5 (#396 PR 3)
 
 - **Added — `--baseline <run.json> [--fail-on-regression]`** ([Eval suites](Eval-Suites#against-a-baseline-baseline-runjson)):

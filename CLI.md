@@ -251,6 +251,7 @@ and `; `.) `agboss chat` sends what is typed as a text, so its start takes `Work
 | `agboss check --cassettes` | also every VCR cassette under the working directory against the application's components (#395): a component whose prompt or schema hash changed since it was recorded, or one the application no longer has, is `[vcr.stale-cassette]` (exit 3) — fixed by `AGBOSS_VCR_MODE=RECORD_STALE npm test`, never by a hand edit; a version 1 cassette is a `hint:` line; no test runs, no key ([Testing](Testing#stale-cassettes-395)) |
 | `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--profile <name>]` | run an `@EvalSuite` on the application: each case k times, its checks under the cascade, pass@k / pass^k per case, the run artifact ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run), #396), its HTML report (#397); each case against a baseline, exit 5 on a regression |
 | `agboss eval show <run.json> [--html <file>]` | a saved run artifact: its table, and with `--html` its self-contained HTML report — nothing runs, no key ([Eval suites](Eval-Suites#the-html-report---html-and-agboss-eval-show-397), #397) |
+| `agboss eval calibrate --report <run.json> [--labels <labels.jsonl>]` | a saved run's judges against people's labels: pairwise Cohen's κ, a confusion matrix per labeler, the disagreements by the judge's metrics — nothing runs, no key ([Eval suites](Eval-Suites#calibrating-a-judge-agboss-eval-calibrate), #396) |
 | `agboss eval score` / `agboss replay` `[--start <name>]` | score recent runs of the start's workflow with Jev / re-run a prompt version |
 | `agboss golden add [--start <name>] --name <n>` | recent real tasks of the start's workflow as a golden set |
 | `agboss compare [--start <name>] --profiles base,<p>` | profiles side by side on the start's workflow ([Profiles and comparisons](Profiles-and-comparisons)) |
@@ -273,7 +274,7 @@ workflow's own (`profiles/<workflow>/<name>.yaml`).
 
 ### `agboss eval`: subcommands (#396)
 
-`eval` is one command of three subcommands, each with its own options and help (`agboss help eval run`,
+`eval` is one command of four subcommands, each with its own options and help (`agboss help eval run`,
 `agboss eval run --help`; `agboss help eval --json` lists them under `subcommands`):
 
 - `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline
@@ -293,6 +294,14 @@ workflow's own (`profiles/<workflow>/<name>.yaml`).
   does not exist (`eval.run-not-found`) or is not a run artifact this version reads
   (`eval.run-invalid`: not JSON, another `kind`, an unknown `schemaVersion`, a field missing), and
   for `eval.report-too-large`; `--json`: `result` is the artifact, the HTML file in `created`.
+- `agboss eval calibrate --report <run.json> [--labels <labels.jsonl>]` (#396) — a saved run's
+  judges against people's labels, `eval/labels/<suite>.jsonl` by default
+  ([Eval suites](Eval-Suites#calibrating-a-judge-agboss-eval-calibrate)); it loads no application
+  and runs nothing. Exit 2 without `--report` (`usage.missing-option`), for the artifact as `eval
+  show` reads it, for no labels file (`eval.labels-not-found`) or one that is not one
+  (`eval.labels-invalid`: the first bad line named, a second label of one run by one labeler for one
+  judge, a `runId` that is not its execution's run in this artifact); `--json`: `result` is the
+  calibration (`EvalCalibration`) with `reportFile` and `labelsFile`.
 - `agboss eval score [--start <name>] [--version <v>] [--limit N] [--profile <name>]` — the Jev
   scoring of recorded runs, what the bare `agboss eval` did before.
 - The bare `agboss eval` prints its help (the subcommands listed) and exits 2
