@@ -1,17 +1,9 @@
-import { systemClock } from "../infrastructure/clock.js";
 import fs from "node:fs";
 import path from "node:path";
 import { DecisionError } from "../llm/decision-errors.js";
 import type { DecisionOutcome } from "../llm/decision-response.js";
-import type { Environment } from "../flow/generated-types.js";
-import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
-import {
-  createProviderGateway,
-  type DecideSpec,
-  type DecisionSpec,
-  type ModelGateway,
-} from "../llm/gateway.js";
-import { directoryOf } from "../models/workflow-models.js";
+import type { GatewayOverProviders } from "../app/models.js";
+import { type DecideSpec, type DecisionSpec, type ModelGateway } from "../llm/gateway.js";
 import type { RouteOutcome } from "../routers/index.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { CassetteMissingError, StaleCassetteError, TestSetupError } from "./errors.js";
@@ -19,6 +11,14 @@ import { cassetteHashesOf, type CassetteHashes } from "./vcr-hashes.js";
 import { chatKeyOf, routerKeyOf } from "./scripted-gateway.js";
 import { Cassette, requestHashOf } from "./vcr-cassette.js";
 import { VcrChatModel } from "./vcr-chat-model.js";
+
+// VCR (#204): a test answers from a cassette instead of scripts — every model call recorded once,
+// then replayed with no key and no network. Version 2 cassettes keep each call's component hashes
+// (#395 PR 4: stale cassettes, `RECORD_STALE`). While recording, the real providers' gateway is the
+// one `createApp` builds — its transport providers created by the test app's container (#439) — so
+// an offline project records through its transport; a replay never builds a provider. The mode
+// comes from the test's `vcr.mode`, else `AUTO` (`REPLAY` under `CI`); `AGBOSS_VCR_MODE` overrides
+// every test's own for one run.
 
 export enum VCRMode {
   /** Call the real models and write every call to the cassette (from scratch). */
@@ -141,36 +141,25 @@ export function vcrGateway(cassette: Cassette, real: () => ModelGateway): ModelG
   };
 }
 
-/** Where a recording reads its settings: the process, and the test's environment (its keys). */
-export interface VcrEnvironments {
-  readonly env: NodeJS.ProcessEnv;
-  readonly environment?: Environment | undefined;
-}
-
 /**
- * The VCR gateway of a test: the application's workflows (their components' hashes) and the real
- * providers behind the cassette — keys from the
- * test's environment (`environment`, record with one that holds them), base URLs from `env`.
+ * The VCR gateway of a test over the real providers' (#439): the application's workflows (their
+ * components' hashes), one cassette for every workflow; while recording, the providers' gateway is
+ * built as `createApp` builds its own — keys from the test's environment (record with one that
+ * holds them), base URLs from `env`, transport providers from the test app's container.
  */
-export function createVcrGateway(
+export function vcrGatewayOverProviders(
   workflows: readonly AssembledWorkflow[],
   config: VcrConfig,
-  { env, environment = NO_ENVIRONMENT_VALUES }: VcrEnvironments,
+  env: NodeJS.ProcessEnv,
   report: (failure: Error) => Error,
-): ModelGateway {
-  const [bundle] = workflows;
-  if (bundle === undefined)
+): GatewayOverProviders {
+  if (workflows.length === 0)
     throw new TestSetupError("a VCR test needs an application with a workflow");
-  const hashes = cassetteHashesOf(workflows);
-  const cassette = cassetteOf(cassetteFileOf(config), vcrModeOf(config, env), hashes, report);
-  let real: ModelGateway | undefined;
-  return vcrGateway(
-    cassette,
-    () =>
-      (real ??= createProviderGateway(
-        directoryOf(bundle.modelProviders),
-        // recording talks to the real providers: in real time, no rate limit or breaker of a test
-        { env, environment, clock: systemClock },
-      )),
+  const cassette = cassetteOf(
+    cassetteFileOf(config),
+    vcrModeOf(config, env),
+    cassetteHashesOf(workflows),
+    report,
   );
+  return (real) => vcrGateway(cassette, real);
 }

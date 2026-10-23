@@ -111,6 +111,11 @@ export interface AppDepsOptions {
 export interface BuildOptions extends AppDepsOptions {
   /** 429s, timeouts and truncated answers under the retry policy, the rate limit and the breaker. */
   readonly chaos?: ChaosOptions;
+  /**
+   * Wraps the providers' gateway instead (#439: a VCR recording), built as without `gateway` — an
+   * option of this internal path only (`testWith`), never of `createApp`.
+   */
+  readonly gatewayOverProviders?: (real: () => ModelGateway) => ModelGateway;
 }
 
 const connectConfigured =

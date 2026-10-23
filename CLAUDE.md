@@ -1985,7 +1985,10 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   `failWith`, a rejecting `mockOf`, `mockTool(Tool).thenFail(ToolFailure.Timeout)`, scripts that
   reach a limit (a budget: `mockOf(Budget).maxSpend` + a scripted cost), `app.cancel` / `signal`.
 - A recorded run instead of scripts: `testWith(App, { vcr: { cassetteName, dir, mode: VCRMode.REPLAY } })`
-  — an unrecorded call throws `CassetteMissingError` (REPLAY by default under `CI`).
+  — an unrecorded call throws `CassetteMissingError` (REPLAY by default under `CI`). Recording builds
+  the providers' gateway as `createApp` does (#439: `BuildOptions.gatewayOverProviders`, internal — the
+  chat extensions loaded, a transport `@ModelProvider` created by the test app's container on its
+  first call, its hooks first), so an offline transport records with no key; a replay creates none.
 - Replacing a class in the application (#267 S104): `testWith(App, { overrides:
 [override(RefundApprovalRole, AutoApproveChannel)] })` — the same `override(Class, Replacement)`
   as the unit runners, a class created instead of another over any listed one; a channel role's
