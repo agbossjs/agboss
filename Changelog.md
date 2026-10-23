@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — flow-patterns as the zero-cost harness: an offline eval suite (#419 PR 4)
+
+- `examples/flow-patterns` adds `desk-eval-suite` with a code eval judge, run offline on a new
+  `offline` environment by `npm run eval:check` — `eval run` against a checked-in baseline with
+  `--fail-on-regression`, `eval show --html`, `eval calibrate` on checked-in labels — and runs its
+  tests with `isolate: false` (62 s → 24 s). The desk's offline `agboss run` now takes
+  `--env offline`. [Example](Example#flow-patterns-a-review-loop-and-a-code-router).
+
 ## Unreleased — flow-patterns as the zero-cost harness: two applications over A2A (#419 PR 3)
 
 - `examples/flow-patterns` serves the desk over A2A from `src/desk.application.ts` (`@A2AExpose`, a

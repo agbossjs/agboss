@@ -89,7 +89,8 @@ its start, #261), on the public entries only, tested by script (no model key, no
 what the manual checks of the flow point the CLI at; `make check` runs `agboss check --strict` on the
 application and on the offline `src/desk.application.ts`, each with `--federation` (below; then
 `agboss check --models --env test`, which needs no key), the example's own lint (`eslint.config.js` with `agboss/eslint`, as `agboss
-create` writes it) and its tests with coverage. Besides the two below: `src/review/` (parallel launches in waves,
+create` writes it), the desk's eval suite offline (`npm run eval:check`, below) and its tests with
+coverage (`isolate: false`: one module graph per worker, each test assembling its application anew). Besides the two below: `src/review/` (parallel launches in waves,
 #273), `src/panel/` (a quorum, [Parallel](Parallel)), `src/vendor/` and `src/topic/` (a child workflow
 per item and recursion, [Workflow as a step](Workflow-as-a-step)), `src/approvals/` (two approvals at
 once, below).
@@ -127,8 +128,10 @@ npm test
   `close-account-tool`, answers for an archived order (`replyToModel`) and cuts a status's internal
   note (`afterToolCall`), and the workflow a `CompactionStrategy.Custom` compaction past a two-turn
   window. `src/desk.application.ts` lists the same workflow with the transport alone, so
-  `npx agboss run --application src/desk.application.ts --env test --start desk-workflow-start
-  --input '{"customerId":"c-1","question":"Where is order #7?"}'` answers offline.
+  `PII_PSEUDONYM_KEY=offline-only npx agboss run --application src/desk.application.ts --env offline
+  --start desk-workflow-start --input '{"customerId":"c-1","question":"Where is order #7?"}'`
+  answers offline (`offline`: the stores in memory, only the PII key read — the desk's PII policy
+  makes tokens with it outside tests).
   The same agent carries the operational contracts: a code `@Judge` that reads the visit's
   `toolCalls` (`maxRetries: 1`, then `QualityGateError`), a `@Rag` it searches
   (`search-shipping-policy-rag-tool`), and the workflow a `PiiPolicyHandler` detector
@@ -149,6 +152,15 @@ npm test
   the desk with the `a2aServer` fixture and calls it with the helpline's contract
   (`new A2AClient({ url, headers, contract })`); the consumer's own test replaces the remote with
   `mockOf(DeskA2AAgent)`.
+  The desk's [eval suite](Eval-Suites) (`src/desk/eval-suites/desk.eval-suite.ts`:
+  `checkTrajectory()`, then the code `desk-answer-judge` on the finish's text) runs on the same
+  transport: `npm run eval:check` is `agboss eval run --env offline --runs 2 --baseline
+  eval/runs/desk-eval-suite.json --fail-on-regression` (no key, fake prices only), `agboss eval show
+  --html` of the checked-in baseline and `agboss eval calibrate` on `eval/labels/desk-eval-suite.jsonl`
+  — two labelers, one of whom fails the archived-order answers (`asks-instead-of-answering`, from
+  `eval/failure-taxonomy.yaml`): κ, the confusion per labeler and the judge's `length` / `quotesTool`
+  metrics over the disagreements. `npm run eval` rewrites the baseline (relabel after). `agboss eval
+  score` is not part of it: it scores with Jev, which needs OpenRouter.
 - **`src/approvals/`** — two approvals at once ([Pauses](Pauses), #267): `offsite-booking-workflow`
   launches venue-buyer-agent and flight-buyer-agent side by side; each calls `place-purchase-tool`,
   whose `@Tool({ channel: PurchaseApprovalChannel })` names a role
