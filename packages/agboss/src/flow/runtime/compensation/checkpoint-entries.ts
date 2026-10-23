@@ -5,6 +5,7 @@ import {
   mergeCompensations,
   type CompensationEntry,
 } from "../../compensation.js";
+import { childThreadIn } from "../child-thread.js";
 
 /**
  * The one reader of undoable actions from a checkpoint (#340 S3 Q-C): for every execution of a
@@ -44,7 +45,8 @@ const isEntryList = (value: unknown): value is readonly CompensationEntry[] =>
 
 /** The id of the execution a namespace's checkpoint belongs to, when it is of the tree. */
 function executionOf(namespace: string, values: Readonly<Record<string, unknown>>, root: string) {
-  if (namespace === "") return values.runId === root ? root : undefined;
+  if (namespace === "" && values.runId === root) return root;
+  // a child's own: on its own thread (ADR-0022), or under its task before it
   const { child } = values;
   if (!isRecord(child) || child.rootExecutionId !== root) return undefined;
   return typeof child.executionId === "string" ? child.executionId : undefined;
@@ -63,7 +65,8 @@ function entriesOf(tuple: CheckpointTuple): readonly CompensationEntry[] {
 
 /**
  * Every execution of the tree rooted at `rootExecutionId` on the thread of `config`, with its
- * own entries — the newest checkpoint of each namespace.
+ * own entries — the newest checkpoint of each namespace; a launching task's marker (ADR-0022)
+ * leads to its child's own thread, read the same way.
  */
 export async function entriesInCheckpoint(
   saver: BaseCheckpointSaver,
@@ -78,6 +81,17 @@ export async function entriesInCheckpoint(
     if (seen.has(namespace)) continue;
     seen.add(namespace);
     const values = tuple.checkpoint.channel_values;
+    const childThread = childThreadIn(values);
+    if (childThread !== undefined) {
+      // the child's namespaces read as if it ran under its task: the path of child nodes down
+      const own = { configurable: { thread_id: childThread } };
+      const inChild = await entriesInCheckpoint(saver, own, rootExecutionId);
+      for (const each of inChild) {
+        const below = each.namespace === "" ? namespace : `${namespace}|${each.namespace}`;
+        found.push({ ...each, namespace: below });
+      }
+      continue;
+    }
     const executionId = executionOf(namespace, values, rootExecutionId);
     if (executionId === undefined) continue;
     // an execution's own entries only: a child's state may start from its parent's values

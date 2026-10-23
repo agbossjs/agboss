@@ -121,7 +121,7 @@ export const ExecutionState = Annotation.Root({
    */
   piiKey: Annotation<string | null>({ reducer: replace, default: () => null }),
   /**
-   * A child execution's own identity (#263 S24): made on its first entry, kept in its subgraph's
+   * A child execution's own identity (#263, ADR-0022): made on its first entry, kept in its own
    * state, so a re-entry after a pause or a crash reads the same id; `null` at the root.
    */
   child: Annotation<ChildIdentityRecord | null>({ reducer: replace, default: () => null }),

@@ -3,6 +3,7 @@ import type { ExecutionGraph } from "../flow/runtime/build.js";
 import type { AgentLoopStateType } from "../graph/agent-loop/state.js";
 import type { RunServices } from "../core/run-context.js";
 import type { UsageRecord } from "../finops/usage.js";
+import { childGraphOf, waitingForOf } from "../flow/runtime/child-thread.js";
 
 /** The `configurable` of a run: the caller's own keys, then the checkpoint thread and run services. */
 export type RunConfigurable = Record<string, unknown> & { readonly thread_id: string };
@@ -53,9 +54,29 @@ interface PausedSearch {
 const isChildState = (values: unknown): boolean =>
   typeof values === "object" && values !== null && "child" in values && values.child !== undefined;
 
+/** A child waited for on its own thread (ADR-0022): its graph and its snapshot, read with its parent's. */
+async function waitedChildOf(
+  task: Snapshot["tasks"][number],
+  search: PausedSearch,
+): Promise<{ readonly snapshot: Snapshot; readonly search: PausedSearch } | undefined> {
+  for (const pending of task.interrupts) {
+    const waiting = waitingForOf(pending.value);
+    if (waiting === undefined) continue;
+    const graph = await childGraphOf(search.graph, waiting);
+    if (graph === undefined) return undefined;
+    const snapshot = await graph.getState(runConfig(waiting.thread), { subgraphs: true });
+    return { snapshot, search: { ...search, graph, runId: waiting.thread } };
+  }
+  return undefined;
+}
+
 /** The agent loops the open interrupts of `snapshot` wait in — inside a child, the child's own. */
 async function loopsIn(snapshot: Snapshot, search: PausedSearch): Promise<readonly PausedLoop[]> {
   const { checkpointer, runId, isOpen } = search;
+  const waited = await Promise.all(snapshot.tasks.map((task) => waitedChildOf(task, search)));
+  const inChildren = await Promise.all(
+    waited.flatMap((child) => (child === undefined ? [] : [loopsIn(child.snapshot, child.search)])),
+  );
   const tasks = snapshot.tasks.filter((candidate) =>
     candidate.interrupts.some((pending) => isOpen(pending.value)),
   );
@@ -77,7 +98,7 @@ async function loopsIn(snapshot: Snapshot, search: PausedSearch): Promise<readon
         : [{ state: tuple.checkpoint.channel_values as AgentLoopStateType }];
     }),
   );
-  return loops.flat();
+  return [...loops.flat(), ...inChildren.flat()];
 }
 
 /**
@@ -86,7 +107,8 @@ async function loopsIn(snapshot: Snapshot, search: PausedSearch): Promise<readon
  * checkpoint — LangGraph keeps it under the namespace `<node>:<task id>` of the interrupted task —
  * until the agent node finishes. Only tasks with an open pause (`isOpen`) wait: a task that took
  * its decision and finished still lists its old interrupt until the superstep ends. A pause inside
- * a child workflow (#263) is found the same way below the child's node, at any depth.
+ * a child workflow (#263) is found the same way below the child's node, at any depth — on the
+ * child's own thread, through its parent's waiting marker (ADR-0022).
  */
 export async function pausedLoopsOf(
   graph: ExecutionGraph,

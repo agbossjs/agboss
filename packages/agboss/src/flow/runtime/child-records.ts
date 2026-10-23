@@ -8,7 +8,8 @@ import type { ExecutionStepRecord } from "./step-records.js";
 
 /**
  * What an execution keeps of its child executions (#263), as plain JSON: a child's own identity in
- * its subgraph's state (made on first entry, read back after a pause or a crash, S24), and one
+ * its state and its launching task's marker (made on first entry, read back after a pause or a
+ * crash, ADR-0022), and one
  * nested record per child execution that ended — in the parent's state (`EndedChildRecord`), and in
  * `result.children` and `result.record.children` with the pauses each child asked (#267 S124 c,
  * `ChildExecutionRecord`); never in the conversation history of the parent's thread.
@@ -24,7 +25,7 @@ export enum ChildExecutionStatus {
   Cancelled = "cancelled",
 }
 
-/** A child's identity as its subgraph's state keeps it: the same after a pause or a crash. */
+/** A child's identity as its state and its marker keep it: the same after a pause or a crash. */
 export interface ChildIdentityRecord {
   readonly executionId: string;
   readonly parentExecutionId: string;

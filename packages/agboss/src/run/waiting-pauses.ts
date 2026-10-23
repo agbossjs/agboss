@@ -7,6 +7,7 @@ import {
 } from "../infrastructure/paused-execution.repository.js";
 import type { WaitingPause } from "../pause/index.js";
 import { runConfig } from "./paused.js";
+import { childGraphOf, waitingForOf } from "../flow/runtime/child-thread.js";
 
 /**
  * Where an execution waits (#267 AC1): every `interrupt()` of its pending superstep — a paused
@@ -18,23 +19,49 @@ import { runConfig } from "./paused.js";
 export interface WaitingInterrupt {
   readonly interruptId: string;
   readonly pauseId: string;
+  /**
+   * The waiting markers above it (ADR-0022): the interrupt ids, from the root's down, of the
+   * parents' nodes that wait for the child it is in — empty for a pause of the tree's own thread
+   * (a child of the old layout too: its interrupt is the root's).
+   */
+  readonly via: readonly string[];
 }
 
 /** What the pause step puts in an interrupt (`pause.ts`), read back at the LangGraph boundary. */
 const PauseInterrupt = z.object({ pauseId: z.string() });
 
-/** Every interrupt of the execution's pending superstep that carries a pause, each once. */
+/** Every pause interrupt of one thread's pending superstep, a waiting marker followed to its child. */
+async function interruptsIn(
+  graph: ExecutionGraph,
+  threadId: string,
+  via: readonly string[],
+  found: Map<string, WaitingInterrupt>,
+): Promise<void> {
+  const snapshot = await graph.getState(runConfig(threadId));
+  for (const { id, value } of snapshot.tasks.flatMap((task) => task.interrupts)) {
+    if (id === undefined) continue;
+    const carried = PauseInterrupt.safeParse(value);
+    if (carried.success) {
+      found.set(id, { interruptId: id, pauseId: carried.data.pauseId, via });
+      continue;
+    }
+    const waiting = waitingForOf(value);
+    const child = waiting === undefined ? undefined : await childGraphOf(graph, waiting);
+    if (waiting !== undefined && child !== undefined)
+      await interruptsIn(child, waiting.thread, [...via, id], found);
+  }
+}
+
+/**
+ * Every interrupt of the execution's pending superstep that carries a pause, each once — and, below
+ * a waiting marker, every one of the child's own thread (ADR-0022), at any depth.
+ */
 export async function waitingInterruptsOf(
   graph: ExecutionGraph,
   runId: string,
 ): Promise<readonly WaitingInterrupt[]> {
-  const snapshot = await graph.getState(runConfig(runId));
   const found = new Map<string, WaitingInterrupt>();
-  for (const { id, value } of snapshot.tasks.flatMap((task) => task.interrupts)) {
-    const carried = PauseInterrupt.safeParse(value);
-    if (id !== undefined && carried.success)
-      found.set(id, { interruptId: id, pauseId: carried.data.pauseId });
-  }
+  await interruptsIn(graph, runId, [], found);
   return [...found.values()];
 }
 
