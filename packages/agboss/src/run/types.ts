@@ -15,6 +15,7 @@ import type { TernRecords } from "../terns/index.js";
 import type { ExecutionTracing } from "../tracing/index.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import type { ModelProviderType } from "../models/model-provider.decorator.js";
+import type { ExecutionOrigin } from "../mesh/mesh-envelope.js";
 
 /** Graph dependencies plus the application's budgets and the Tern store. */
 export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TName> {
@@ -73,6 +74,8 @@ export interface ExecutionData {
   readonly toolCalls?: readonly ToolCallRecord[];
   /** One record per visit (#395 C3); absent in a run stored before them. */
   readonly steps?: readonly ExecutionStepRecord[];
+  /** Where its request came from (#398 PR 2): a trusted mesh peer's. */
+  readonly origin?: ExecutionOrigin;
 }
 
 /** How one execution (or its resume) ended for the app. Failures are thrown, not returned. */

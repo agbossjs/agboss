@@ -9,6 +9,7 @@ import { ToolTimeoutError, type AnyTool, type ToolOutput } from "../../tools/ind
 import type { InvalidToolCallRequest } from "./deps.js";
 import { ToolCallStopKind, type ToolCallStop } from "./tool-stops.js";
 import { ToolBlockedError } from "../tool-blocked-error.js";
+import type { ToolCallRemote } from "../../mesh/mesh-call.js";
 
 /**
  * The records of an agent's tool calls (#395): each call's step — the agent's visit with the call's
@@ -67,6 +68,8 @@ export interface EndedCall {
   /** How an interceptor stopped it (#384): the tool never ran. */
   readonly stop?: ToolCallStop;
   readonly isResultTruncated: boolean;
+  /** The remote execution it ran, as a trusted peer reported it (#398 PR 2, C8). */
+  readonly remote?: ToolCallRemote;
 }
 
 /** A call its interceptors ended before the tool ran (#384); `undefined` when they did not. */
@@ -97,7 +100,12 @@ function outcomeOf(call: EndedCall): Pick<ToolCallRecord, "status" | "output" | 
 
 /** The record of a call that reached its task. */
 export function endedCallRecordOf(call: EndedCall, times: CallTimes): ToolCallRecord {
-  const base = { step: call.step, isResultTruncated: call.isResultTruncated, ...timesOf(times) };
+  const base = {
+    step: call.step,
+    isResultTruncated: call.isResultTruncated,
+    ...timesOf(times),
+    ...(call.remote === undefined ? {} : { remote: call.remote }),
+  };
   const intercepted = interceptedOf(call);
   if (intercepted !== undefined) return { ...base, input: call.args, ...intercepted };
   const input = call.tool.input.safeParse(call.args);

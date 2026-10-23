@@ -9,6 +9,7 @@ import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import type { ObserverClass } from "../core/observer-hooks.js";
+import type { MeshOptions } from "../mesh/mesh-options.js";
 
 /**
  * `@Application` (#261) — the one point of the whole app: what `createApp(App, { env })` and
@@ -72,6 +73,13 @@ export interface ApplicationOptions {
    * (`[limits.max-mesh-hops-invalid]`); default 8.
    */
   readonly maxMeshHops?: number;
+  /**
+   * The application's identity in the mesh (#398 PR 2): its `signingKey` field (envelopes and run
+   * reports signed, JWS `EdDSA`), the `peers` whose signatures it verifies (each a `verifyKey` field)
+   * and the `idempotencyRetention` of trusted requests' answers. A request's budget, deadline,
+   * origin and idempotency key are honoured only for an authenticated peer with a valid signature.
+   */
+  readonly mesh?: MeshOptions;
   /**
    * How long a resolved pause record (`Taken`, `Cancelled`) is kept after it was resolved (#267
    * S107): within it a late answer gets `NotPausedError`, after it `UnknownPauseError`; the

@@ -36,7 +36,7 @@ import { ApplicationStoppingError } from "./application-stopping.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf } from "./child-deps.js";
 import { lazyReplyAnswering, resumeOf } from "./resume.js";
-import { inboundMeshOf, withInboundChain } from "../mesh/inbound-mesh.js";
+import { meshContextValuesOf } from "../mesh/mesh-context-values.js";
 
 export { NotAWorkflowStartError } from "./starts.js";
 
@@ -141,7 +141,7 @@ export async function buildApp(
         const valid = checkedStart(start, input, bundle.graph);
         // the contexts' values, checked before the first step and frozen (#261); the call chain
         // a mesh transport admitted, kept with them (#398)
-        const values = withInboundChain(contextValuesOf(contexts, call), inboundMeshOf(call));
+        const values = meshContextValuesOf(contextValuesOf(contexts, call), call, clock.now());
         const { tenantId } = values.tenant;
         const thread = { tenantId, threadId: call.threadId ?? "", ownerId: call.ownerId };
         // a given id the tenant does not have yet is the caller's own new thread (#262 Q4)
@@ -168,7 +168,8 @@ export async function buildApp(
       const threadId = checked.isNew
         ? await newThread({ tenantId, threadId: call.threadId, ownerId: call.ownerId })
         : (call.threadId ?? "");
-      const tree = { runId, threadId, tenantId, startedVersion: deps.config.version };
+      const origin = values.mesh?.trusted?.origin;
+      const tree = { runId, threadId, tenantId, startedVersion: deps.config.version, origin };
       await deps.observer.onExecutionStart(executionEventAt(tree, deps));
       const begun = { start: checked.name, input: checked.input, threadId };
       const result = await moves.first(tree, call, (moving, signal) =>

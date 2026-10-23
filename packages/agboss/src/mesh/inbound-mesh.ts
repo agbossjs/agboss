@@ -1,3 +1,4 @@
+import type { ExecutionOrigin } from "./mesh-envelope.js";
 import type { MeshEntry, MeshHop } from "./mesh-hop.js";
 
 /**
@@ -10,6 +11,21 @@ export interface InboundMesh {
   readonly chain: readonly MeshHop[];
   /** The W3C trace id of the caller's `traceparent`, continued by the calls this execution makes. */
   readonly traceId?: string;
+  /**
+   * What the transport trusted (#398 PR 2): set only for an authenticated `peer` whose signature
+   * the envelope carries — its origin, and the budget and deadline the caller has left.
+   */
+  readonly trusted?: TrustedMesh;
+}
+
+/** A trusted request's claims, as the execution keeps them (plain data, checkpointed). */
+export interface TrustedMesh {
+  /** Where the request came from (`executionContext.origin`). */
+  readonly origin: ExecutionOrigin;
+  /** What the caller may still spend, in USD: the `caller-budget` of the execution. */
+  readonly budget?: number;
+  /** How long the caller still waits, in ms: the execution's deadline (the smaller one). */
+  readonly deadline?: number;
 }
 
 /** The hidden option a transport passes `app.execute` (a symbol: no public option, kept by a spread). */

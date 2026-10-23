@@ -15,6 +15,8 @@ export {
   type A2ACallerRequest,
   type A2ACallerResolver,
   type A2ACallerUnauthenticatedOptions,
+  type A2APeer,
+  type MeshVerifier,
   type RejectedA2ACallerResolution,
   type ResolvedA2ACallerResolution,
 } from "./a2a-caller.js";

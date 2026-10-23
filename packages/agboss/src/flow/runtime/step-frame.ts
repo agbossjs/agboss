@@ -32,6 +32,14 @@ export type WorkflowIdentity = Omit<WorkflowDescriptor, "startedVersion">;
 export const startedVersionOf = (state: ExecutionStateType, workflow: WorkflowIdentity): string =>
   state.startedVersion === "" ? workflow.version : state.startedVersion;
 
+/** The origin and deadline an execution's contexts keep (#398 PR 2), as its frames' facts. */
+const meshFactsOf = (
+  contexts: ExecutionStateType["contexts"],
+): Pick<ExecutionFacts, "origin" | "deadline"> => ({
+  ...(contexts.mesh?.trusted === undefined ? {} : { origin: contexts.mesh.trusted.origin }),
+  ...(contexts.deadline === undefined ? {} : { deadline: contexts.deadline }),
+});
+
 /** A root's call chain for its mesh calls (#398): what reached it, then its own hop. */
 const rootMeshOf = (
   contexts: RuntimeContexts,
@@ -114,6 +122,8 @@ export function stepFrameAt(
       workflow: Object.freeze({ ...workflow, startedVersion: startedVersionOf(state, workflow) }),
       tenant: tenantOfExecution(contexts, state.contexts.tenant),
       values: state.contexts.execution,
+      // where its request came from and its deadline (#398 PR 2): its contexts', a child's its root's
+      ...meshFactsOf(state.contexts),
       // a child execution (#263): its parent's execution and launching step, its item; a root: the
       // call chain its mesh calls carry (#398)
       ...(run.tree === undefined

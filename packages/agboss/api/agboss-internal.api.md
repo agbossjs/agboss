@@ -76,6 +76,8 @@ export interface AssembledApplication {
     readonly healthChecks: readonly Class[];
     readonly maxConcurrentSteps?: number;
     readonly maxMeshHops: number;
+    // Warning: (ae-forgotten-export) The symbol "MeshOptions" needs to be exported by the entry point internal.d.ts
+    readonly mesh?: MeshOptions;
     // Warning: (ae-forgotten-export) The symbol "ProviderModule" needs to be exported by the entry point internal.d.ts
     readonly modules: readonly ProviderModule[];
     // (undocumented)
@@ -942,12 +944,12 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/application/application-starts.ts:18:3 - (ae-undocumented) Missing documentation for "name".
 // src/application/application-starts.ts:19:3 - (ae-undocumented) Missing documentation for "description".
 // src/application/application-starts.ts:22:3 - (ae-undocumented) Missing documentation for "component".
-// src/application/assemble.ts:36:3 - (ae-undocumented) Missing documentation for "application".
-// src/application/assemble.ts:37:3 - (ae-undocumented) Missing documentation for "name".
-// src/application/assemble.ts:38:3 - (ae-undocumented) Missing documentation for "version".
-// src/application/assemble.ts:47:3 - (ae-undocumented) Missing documentation for "budgets".
-// src/application/assemble.ts:66:3 - (ae-undocumented) Missing documentation for "executionContext".
-// src/application/assemble.ts:177:1 - (ae-undocumented) Missing documentation for "applicationOf".
+// src/application/assemble.ts:45:3 - (ae-undocumented) Missing documentation for "application".
+// src/application/assemble.ts:46:3 - (ae-undocumented) Missing documentation for "name".
+// src/application/assemble.ts:47:3 - (ae-undocumented) Missing documentation for "version".
+// src/application/assemble.ts:56:3 - (ae-undocumented) Missing documentation for "budgets".
+// src/application/assemble.ts:77:3 - (ae-undocumented) Missing documentation for "executionContext".
+// src/application/assemble.ts:188:1 - (ae-undocumented) Missing documentation for "applicationOf".
 // src/application/create-app.ts:36:3 - (ae-undocumented) Missing documentation for "app".
 // src/application/create-app.ts:37:3 - (ae-undocumented) Missing documentation for "assembled".
 // src/application/create-app.ts:38:3 - (ae-undocumented) Missing documentation for "workflows".

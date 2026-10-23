@@ -1,5 +1,6 @@
-import type { InboundMesh } from "./inbound-mesh.js";
-import type { MeshEnvelope } from "./mesh-envelope.js";
+import type { InboundMesh, TrustedMesh } from "./inbound-mesh.js";
+import { dollarsOf, millisecondsOf } from "./mesh-durations.js";
+import type { ExecutionOrigin, MeshEnvelope } from "./mesh-envelope.js";
 import {
   HopsLimitExceededError,
   MeshLoopDetectedError,
@@ -37,13 +38,40 @@ export function meshRefusalOf(
   return undefined;
 }
 
-/** What an admitted request hands its execution: the envelope's chain and the caller's trace id. */
+/**
+ * What an admitted request hands its execution: the envelope's chain, the caller's trace id and —
+ * when `peer` is the envelope's verified issuer (#398 PR 2) — what it trusts: the origin, the
+ * caller's budget and time left.
+ */
 export function inboundMeshOfRequest(
   envelope: MeshEnvelope | undefined,
   traceparent: unknown,
+  peer?: string,
 ): InboundMesh | undefined {
   const traceId = traceIdOf(traceparent);
   if (envelope === undefined && traceId === undefined) return undefined;
   const chain = envelope?.callChain ?? [];
-  return traceId === undefined ? { chain } : { chain, traceId };
+  const trusted =
+    envelope === undefined || peer === undefined ? undefined : trustedOf(envelope, peer);
+  return {
+    chain,
+    ...(traceId === undefined ? {} : { traceId }),
+    ...(trusted === undefined ? {} : { trusted }),
+  };
+}
+
+/** A trusted peer's claims, as its execution keeps them. */
+function trustedOf(envelope: MeshEnvelope, peer: string): TrustedMesh {
+  const budget = dollarsOf(envelope.budget?.remaining);
+  const deadline = millisecondsOf(envelope.deadline?.remaining);
+  const origin: ExecutionOrigin = {
+    ...envelope.origin,
+    application: peer,
+    hops: envelope.callChain.length,
+  };
+  return {
+    origin,
+    ...(budget === undefined ? {} : { budget }),
+    ...(deadline === undefined ? {} : { deadline }),
+  };
 }

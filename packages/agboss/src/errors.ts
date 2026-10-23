@@ -53,6 +53,7 @@ export { CompactionError } from "./compaction/errors.js";
 export { PiiDetectionFailedError } from "./pii/detectors/model.js";
 export { ChildExecutionFailedError } from "./flow/runtime/child-errors.js";
 export { DepthLimitExceededError } from "./flow/runtime/depth-limit.js";
+export { DeadlineExceededError, type ExecutionDeadline } from "./budgets/execution-deadline.js";
 export {
   HopsLimitExceededError,
   MeshLoopDetectedError,

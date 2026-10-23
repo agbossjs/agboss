@@ -5,6 +5,7 @@ import {
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
+  SqliteMeshRequestRepository,
   SqlitePausedExecutionRepository,
   SqliteRateLimitRepository,
 } from "agboss";
@@ -47,6 +48,7 @@ import { OpenRouterModelProvider } from "./model-providers/openrouter.model-prov
     SqliteExecutionLeaseRepository,
     SqliteExecutionTreeRepository,
     SqliteRateLimitRepository,
+    SqliteMeshRequestRepository,
   ],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
 })

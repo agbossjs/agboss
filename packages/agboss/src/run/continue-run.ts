@@ -1,4 +1,5 @@
 import type { ExecutionBudgetRecord } from "../budgets/execution-budgets.js";
+import type { ExecutionDeadline } from "../budgets/execution-deadline.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
 import { executionGraphOf, type ExecutionGraph } from "../flow/runtime/build.js";
 import { startLine } from "../flow/runtime/history.js";
@@ -27,6 +28,8 @@ export interface ContinuedRun {
   readonly spent: readonly UsageRecord[];
   /** The resolved pauses this pass answers (a resume's); none for a recovery. */
   readonly takenPauseIds?: ReadonlySet<string>;
+  /** Its deadline (#398 PR 2), as its state keeps it. */
+  readonly deadline?: ExecutionDeadline | undefined;
 }
 
 /** Streams the pass, recording spend as it happens; returns the last state. */
@@ -51,7 +54,8 @@ export async function continueRun<TName extends string>(
   pass: ContinuedPass,
 ): Promise<AgentExecutionOutput> {
   const spent: UsageRecord[] = [];
-  const budgets = await continuedExecutionBudgets(deps, run.budgets, totalCost(run.spent));
+  const spentBefore = totalCost(run.spent);
+  const budgets = await continuedExecutionBudgets(deps, run.budgets, spentBefore, run.deadline);
   const graph = executionGraphOf(deps, { budgets: budgets.meter });
   const record = recorder(budgets.meter, spent);
   const base: TernBase = {

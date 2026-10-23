@@ -2,6 +2,7 @@ import type { Class } from "../../components/injection.js";
 import type { ComponentRecord } from "../runtime/records.js";
 import type { TenantContext } from "./tenant-context.js";
 
+import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
 /**
  * The execution context (#280, #261): the one context of an execution, injected through the
  * constructor (`deps: [ExecutionContext]`, `constructor(private readonly executionContext:
@@ -103,6 +104,12 @@ export abstract class ExecutionContext {
   declare readonly root: this;
   /** The level in the execution tree, from 1 at the root. */
   declare readonly depth: number;
+  /**
+   * Where the request came from (#398 PR 2): the calling application, its execution, workflow and
+   * step and the hops before — set only for a request of an authenticated mesh peer whose envelope's
+   * signature was verified (a child has its root's); `undefined` otherwise.
+   */
+  declare readonly origin: ExecutionOrigin | undefined;
   /** The nearest execution of `workflow` in the chain, this one included; `undefined` when none. */
   declare readonly executionOf: (workflow: WorkflowClass) => this | undefined;
 }

@@ -8,6 +8,7 @@ import type { PauseResolution } from "../../infrastructure/pause-record.js";
 import type { StepRecord } from "../context/execution-context.js";
 import type { ToolCallRecord } from "./tool-calls.js";
 import type { ExecutionStepRecord } from "./step-records.js";
+import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
 
 /**
  * The full record of one execution (#270 AC16), returned only with `app.execute(…, { record: true })`:
@@ -39,6 +40,11 @@ export interface ExecutionRecord {
    * hash of its input, its judges' verdicts and guardrails' decisions, its spend and times.
    */
   readonly steps: readonly ExecutionStepRecord[];
+  /**
+   * Where its request came from (#398 PR 2): the calling application, execution, workflow and step
+   * — set only for a trusted mesh peer's request.
+   */
+  readonly origin?: ExecutionOrigin;
 }
 
 /** One resolved pause as the execution record keeps it (#267 S107), masked like the rest of it. */

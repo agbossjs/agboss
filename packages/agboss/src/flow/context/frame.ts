@@ -8,6 +8,9 @@ import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { EndedChildRecord } from "../runtime/child-records.js";
 import type { CompensationEntry } from "../compensation.js";
 import type { InboundMesh } from "../../mesh/inbound-mesh.js";
+import type { MeshCallServices } from "../../mesh/mesh-call.js";
+import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
+import type { ExecutionDeadline } from "../../budgets/execution-deadline.js";
 
 /**
  * The frame of a step (#280 S18): what the injected `ExecutionContext` reads. The node runner
@@ -36,6 +39,10 @@ export interface ExecutionFacts {
    * request arrived with and its own hop; a child's calls carry its root's.
    */
   readonly mesh?: InboundMesh | undefined;
+  /** Where its request came from (#398 PR 2): a trusted peer's, kept in its contexts. */
+  readonly origin?: ExecutionOrigin | undefined;
+  /** Its deadline (#398 PR 2), kept in its contexts: what its mesh calls claim of it. */
+  readonly deadline?: ExecutionDeadline | undefined;
 }
 
 /** A child's parent (#263): its execution and the step that launched the child. */
@@ -90,6 +97,8 @@ export interface FrameServices {
    * later pass never undoes them again.
    */
   readonly keepCompensations?: (entries: readonly CompensationEntry[]) => void;
+  /** A tool call's mesh services (#398 PR 2): what its remote calls claim and report. */
+  readonly meshCall?: MeshCallServices;
 }
 
 /** What a frame is opened with. */

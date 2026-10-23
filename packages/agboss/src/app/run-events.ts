@@ -9,6 +9,7 @@ import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { isHandedOver } from "./handed-over.js";
 import type { GraphDeps } from "../graph/deps.js";
 import { joinKeysOf } from "../flow/runtime/workflow-keys.js";
+import type { ExecutionOrigin } from "../mesh/mesh-envelope.js";
 
 const asError = (error: unknown): Error =>
   error instanceof Error ? error : new Error(String(error));
@@ -33,6 +34,8 @@ export interface ObservedExecution {
   readonly threadId: string;
   readonly tenantId: string;
   readonly startedVersion: string;
+  /** Where its request came from (#398 PR 2): a trusted mesh peer's. */
+  readonly origin?: ExecutionOrigin | undefined;
 }
 
 /** The common part of a root execution's events: it is its own root (a child's are `child.ts`'s). */
@@ -56,6 +59,7 @@ const eventOfWorkflow = (
     startedVersion: execution.startedVersion,
     configHash: workflow.configHash,
   },
+  ...(execution.origin === undefined ? {} : { origin: execution.origin }),
 });
 
 /**

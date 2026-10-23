@@ -1,11 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";
-import {
-  ToolTimeoutError,
-  type AnyTool,
-  type ToolInvocationContext,
-  type ToolOutput,
-} from "../../tools/index.js";
+import type { AnyTool, ToolInvocationContext, ToolOutput } from "../../tools/index.js";
 import { argumentsRefusal, closedResult, type ClosedResult } from "./tool-pii.js";
 import { toolNamed, type AgentLoopDeps } from "./deps.js";
 import { callStepOf, endedCallRecordOf, type CallTimes } from "./call-records.js";
@@ -15,43 +10,14 @@ import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
 import { interceptedCall } from "./tool-interception.js";
 import { keepStopCause, type ToolCallStop } from "./tool-stops.js";
 import { storedCallOf } from "./stored-call.js";
+import { toolMeshCallOf, type ToolMeshCall } from "./mesh-call.js";
 import type { AgentLoopUpdate, ToolTask } from "./state.js";
 import { inLoopFrame, inToolCallFrame } from "../../flow/context/frame.js";
-import {
-  extractRunContext,
-  throwIfCancelled,
-  type NodeRunContext,
-} from "../../core/run-context.js";
-import { timeoutOn } from "../../infrastructure/clock-timeout.js";
+import { extractRunContext, throwIfCancelled } from "../../core/run-context.js";
+import { callSignalOf } from "./call-signal.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
-
-/** A tool call's signal and the release of its timer once the call has ended. */
-interface CallSignal {
-  readonly signal: AbortSignal;
-  readonly release: () => void;
-}
-
-/**
- * The call's signal (#280 S45): the execution's (cancel included) combined with a timer of the
- * tool's own `timeout` on the application's clock (#262) and the budgets' `exhausted` (#338) —
- * what `executionContext.signal` reads in the call's frame.
- */
-function callSignalOf(
-  tool: AnyTool,
-  config: RunnableConfig | undefined,
-  { run, clock }: NodeRunContext,
-  exhausted: AbortSignal,
-): CallSignal {
-  const timeout = timeoutOn(clock, tool.timeout, () => new ToolTimeoutError(tool.timeout));
-  // an exhausted budget (#338) stops the call too: a sibling branch crossed it
-  const signals = [run.signal, timeout.signal, exhausted];
-  const signal = AbortSignal.any(
-    config?.signal === undefined ? signals : [...signals, config.signal],
-  );
-  return { signal, release: timeout.release };
-}
 
 /**
  * A guarded call: its result for the model, how its interceptors ended it (#384) and what the tool
@@ -134,8 +100,10 @@ function recordOf(
   task: ToolTask,
   guarded: GuardedCall,
   times: CallTimes,
+  mesh: ToolMeshCall,
 ): ToolCallRecord {
   const { closed, output, step, replied, stop } = guarded;
+  const remote = mesh.remote();
   const call = {
     tool,
     step,
@@ -145,6 +113,7 @@ function recordOf(
     ...(output === undefined ? {} : { output }),
     ...(replied === undefined ? {} : { replied }),
     ...(stop === undefined ? {} : { stop }),
+    ...(remote === undefined ? {} : { remote }),
   };
   return endedCallRecordOf(call, times);
 }
@@ -198,26 +167,35 @@ function runTask(
       deps.observer?.onToolStart({ ...base, ...event, arguments: task.args }),
     );
     const startedAt = runCtx.clock.now();
+    const mesh = toolMeshCallOf(tool, deps.budgets, startedAt); // its remote calls' (#398)
     const guarded = await inToolCallFrame(
       task.callId,
-      { reportUsage },
+      { reportUsage, meshCall: mesh.services },
       () => guardedCall(deps, tool, task, () => runTool(tool, task.args, context)),
       call.signal,
     ).finally(call.release);
     const { closed } = guarded;
-    const record = recordOf(tool, task, guarded, { startedAt, endedAt: runCtx.clock.now() });
+    const record = recordOf(tool, task, guarded, { startedAt, endedAt: runCtx.clock.now() }, mesh);
     deps.budgets.tally(closed.usage);
-    await reportNodeEvent((base) =>
-      deps.observer?.onToolEnd({
-        ...base,
-        ...event,
-        update: closed.content,
-        isResultTruncated: closed.isTruncated,
-      }),
-    );
+    await reportToolEnd(deps, event, closed);
     return endedTaskOf(tool, task, guarded, { record, usage });
   };
 }
+
+/** `onToolEnd` of a call that ended: what the model reads of it. */
+const reportToolEnd = (
+  deps: AgentLoopDeps,
+  event: { readonly toolName: string; readonly agentName: string },
+  closed: ClosedResult,
+): Promise<void> =>
+  reportNodeEvent((base) =>
+    deps.observer?.onToolEnd({
+      ...base,
+      ...event,
+      update: closed.content,
+      isResultTruncated: closed.isTruncated,
+    }),
+  );
 
 /** What an ended task stores: its result and record by call id, its spend, PII and validation. */
 function endedTaskOf(

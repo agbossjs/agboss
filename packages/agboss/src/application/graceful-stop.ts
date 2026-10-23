@@ -12,6 +12,7 @@ import { seconds, type Milliseconds } from "../units/index.js";
 import type { StepCapacity } from "../app/step-slots.js";
 import type { StepsAtStop } from "./instance-steps.js";
 
+import { DEFAULT_IDEMPOTENCY_RETENTION } from "../mesh/mesh-defaults.js";
 /**
  * The graceful stop of an application instance (#261, #265 S30 / S51): no new executions anywhere,
  * its own recovery sweep stopped, `onStop` once, the running executions awaited up to the shutdown
@@ -174,6 +175,8 @@ export function stopOf(
     signal: interruption.signal,
     pauses: parts.infrastructure.pausedExecutions,
     pauseRecordRetention: assembled.pauseRecordRetention,
+    meshRequests: parts.infrastructure.meshRequests,
+    idempotencyRetention: assembled.mesh?.idempotencyRetention ?? DEFAULT_IDEMPOTENCY_RETENTION,
     capacity: parts.stepSlots,
   });
   const { shutdownTimeout } = assembled;

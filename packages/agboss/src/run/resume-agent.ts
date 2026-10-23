@@ -1,6 +1,7 @@
 import { AGBossError } from "../core/errors.js";
 import { Command } from "@langchain/langgraph";
 import { ExecutionStatus } from "../app/types.js";
+import type { ExecutionDeadline } from "../budgets/execution-deadline.js";
 import type { ExecutionBudgetRecord } from "../budgets/execution-budgets.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { continueRun, type ContinueOptions } from "./continue-run.js";
@@ -22,6 +23,8 @@ export class NotPausedError extends AGBossError {
 interface PausedRunState {
   readonly spent: readonly UsageRecord[];
   readonly budgets: readonly ExecutionBudgetRecord[] | undefined;
+  /** Its deadline (#398 PR 2): a resume after it fails. */
+  readonly deadline: ExecutionDeadline | undefined;
 }
 
 /** What a run that is really waiting for an approval spent so far, and its budgets. */
@@ -52,10 +55,11 @@ async function pausedRun<TName extends string>(
   }
   const snapshot = await graph.getState(runConfig(paused.runId));
   // LangGraph boundary: a checkpoint's values are the flow's own state
-  const { budgets, usage } = snapshot.values as Partial<ExecutionStateType>;
+  const { budgets, usage, contexts } = snapshot.values as Partial<ExecutionStateType>;
   // reading a free-text reply (#267 PR 3) is in the ledger already: its step adds it to the spend
   const replies = resume.taken.flatMap((pause) => pause.answer?.usage ?? []);
-  return { spent: [...pausedUsageOf(usage ?? [], loops), ...replies], budgets };
+  const spent = [...pausedUsageOf(usage ?? [], loops), ...replies];
+  return { spent, budgets, deadline: contexts?.deadline };
 }
 
 /**
@@ -68,10 +72,10 @@ export async function resumeAgent<TName extends string>(
   deps: AgentExecutionDeps<TName>,
   options: ContinueOptions = {},
 ): Promise<AgentExecutionOutput> {
-  const { spent, budgets } = await pausedRun(paused, resume, deps);
+  const { spent, budgets, deadline } = await pausedRun(paused, resume, deps);
   // the same budgets — the amounts read at its start — their counters read anew
   const takenPauseIds = new Set(resume.taken.map((pause) => pause.pauseId));
-  const run = { ...paused, budgets, spent, takenPauseIds };
+  const run = { ...paused, budgets, spent, takenPauseIds, deadline };
   return continueRun(run, deps, options, async (moving, streaming, record) =>
     drainRun(await moving.stream(new Command({ resume: resume.values }), streaming), record, spent),
   );

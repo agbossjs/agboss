@@ -28,6 +28,7 @@ const recordOf = (run: AgentExecutionOutput): ExecutionRecord => ({
   compensations: compensationRecordsOf(run.data.compensations),
   toolCalls: run.data.toolCalls ?? [],
   steps: run.data.steps ?? [],
+  ...(run.data.origin === undefined ? {} : { origin: run.data.origin }),
 });
 
 /**

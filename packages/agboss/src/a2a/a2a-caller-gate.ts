@@ -11,6 +11,7 @@ import {
   type A2ACaller,
   type A2ACallerRequest,
   type A2ACallerResolver,
+  type MeshVerifier,
   type RejectedA2ACallerResolution,
 } from "./a2a-caller.js";
 
@@ -38,14 +39,24 @@ export function callerResolverOf<TStart extends Class>(
   app: A2AApp,
   callerResolver: Class<A2ACallerResolver<TStart>>,
 ): A2ACallerResolver<TStart> {
-  if (isListedProvider(app, callerResolver) === false) {
-    const name = callerResolver.name;
+  return listedInstanceOf(app, callerResolver, "a2a.caller-resolver-not-listed");
+}
+
+/**
+ * The listener's mesh verifier (#398 PR 2), from the application's container like its resolver:
+ * listed in `providers`, else `[a2a.mesh-verifier-not-listed]`.
+ */
+export const meshVerifierOf = (app: A2AApp, meshVerifier: Class<MeshVerifier>): MeshVerifier =>
+  listedInstanceOf(app, meshVerifier, "a2a.mesh-verifier-not-listed");
+
+function listedInstanceOf<T>(app: A2AApp, cls: Class<T>, code: string): T {
+  if (isListedProvider(app, cls) === false) {
     throw new ComponentError(
-      `[a2a.caller-resolver-not-listed] ${name} is not listed in the application's providers — ` +
+      `[${code}] ${cls.name} is not listed in the application's providers — ` +
         `list it in @Application({ providers }) or a @Workflow({ providers }): the listener takes it from the container`,
     );
   }
-  return app.resolve(callerResolver);
+  return app.resolve(cls);
 }
 
 /** Writes a refusal: its status, `{ code, error, … }`, a challenge for a `401`. */
