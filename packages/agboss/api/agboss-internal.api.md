@@ -557,6 +557,14 @@ export const describeServicesWith: (environment: DescribedEnvironment | undefine
 // @public
 export const directoryOf: (providers: readonly ModelProviderType[]) => ModelProviderDirectory;
 
+// @public
+export interface DraftToolCall {
+    // (undocumented)
+    readonly arguments: unknown;
+    // (undocumented)
+    readonly tool: string;
+}
+
 // Warning: (ae-forgotten-export) The symbol "EnvironmentSelection" needs to be exported by the entry point internal.d.ts
 //
 // @public
@@ -585,6 +593,26 @@ export type EvalCalibrationResult = {
     readonly kind: "invalid";
     readonly reason: string;
 };
+
+// @public
+export interface EvalCaseDraft {
+    readonly execution?: Readonly<Record<string, unknown>>;
+    // (undocumented)
+    readonly history: readonly ObservedTurn[];
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly required: readonly DraftToolCall[];
+    readonly start: string;
+    readonly tenant?: Readonly<Record<string, unknown>>;
+    // (undocumented)
+    readonly turns: readonly {
+        readonly input: unknown;
+    }[];
+}
+
+// @public
+export function evalCaseDraftOf(name: string, observed: ObservedExecution): EvalCaseDraft;
 
 // @public
 export interface EvalFailureTag {
@@ -872,6 +900,34 @@ export interface ModelUse {
 //
 // @public
 export function modelUsesOf(config: AgentsConfigOf<string>, routers: readonly ModelNamingRouter[], components?: ModelNamingComponents): readonly ModelUse[];
+
+// @public
+export interface ObservedExecution {
+    // (undocumented)
+    readonly execution: Readonly<Record<string, unknown>>;
+    readonly history: readonly ObservedTurn[];
+    // (undocumented)
+    readonly input: unknown;
+    readonly start: string;
+    readonly tenant: Readonly<Record<string, unknown>>;
+    // Warning: (ae-forgotten-export) The symbol "ToolCallRecord" needs to be exported by the entry point internal.d.ts
+    readonly toolCalls: readonly ToolCallRecord[];
+}
+
+// @public
+export function observedExecutionOf(record: ExecutionHistoryRecord, thread: readonly ExecutionHistoryRecord[]): ObservedExecution;
+
+// @public
+export interface ObservedTurn {
+    // (undocumented)
+    readonly finish: string;
+    // (undocumented)
+    readonly input: unknown;
+    // (undocumented)
+    readonly output: unknown;
+    // (undocumented)
+    readonly start: string;
+}
 
 // @public
 export interface OpenedExecutionHistory {
@@ -1246,6 +1302,18 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/eval/calibrate/calibrate.ts:22:36 - (ae-forgotten-export) The symbol "EvalCalibration" needs to be exported by the entry point internal.d.ts
 // src/eval/calibrate/taxonomy.ts:12:3 - (ae-undocumented) Missing documentation for "tag".
 // src/eval/calibrate/taxonomy.ts:13:3 - (ae-undocumented) Missing documentation for "description".
+// src/eval/case-from-execution.ts:20:3 - (ae-undocumented) Missing documentation for "start".
+// src/eval/case-from-execution.ts:21:3 - (ae-undocumented) Missing documentation for "input".
+// src/eval/case-from-execution.ts:22:3 - (ae-undocumented) Missing documentation for "finish".
+// src/eval/case-from-execution.ts:23:3 - (ae-undocumented) Missing documentation for "output".
+// src/eval/case-from-execution.ts:30:3 - (ae-undocumented) Missing documentation for "input".
+// src/eval/case-from-execution.ts:33:3 - (ae-undocumented) Missing documentation for "execution".
+// src/eval/case-from-execution.ts:42:3 - (ae-undocumented) Missing documentation for "tool".
+// src/eval/case-from-execution.ts:43:3 - (ae-undocumented) Missing documentation for "arguments".
+// src/eval/case-from-execution.ts:48:3 - (ae-undocumented) Missing documentation for "name".
+// src/eval/case-from-execution.ts:55:3 - (ae-undocumented) Missing documentation for "history".
+// src/eval/case-from-execution.ts:56:3 - (ae-undocumented) Missing documentation for "turns".
+// src/eval/case-from-execution.ts:57:3 - (ae-undocumented) Missing documentation for "required".
 // src/eval/golden.ts:22:14 - (ae-undocumented) Missing documentation for "goldenFile".
 // src/eval/golden.ts:25:1 - (ae-undocumented) Missing documentation for "loadGolden".
 // src/eval/golden.ts:36:1 - (ae-undocumented) Missing documentation for "saveGolden".

@@ -17,7 +17,7 @@ import {
 import { CHECK_COMMAND } from "./check-command.js";
 
 export { COMMON_OPTIONS, optionsOf, type CommandSpec, type OptionSpec } from "./options.js";
-import { EVAL_COMMAND } from "./eval-commands.js";
+import { EVAL_CASE_OPTIONS, EVAL_COMMAND } from "./eval-commands.js";
 
 /** Commands that run one workflow of the application: chosen by its start (#268). */
 const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
@@ -151,9 +151,9 @@ const SCAFFOLD_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   },
   generate: {
     summary:
-      "add a workflow, agent, router, arbiter, tool, MCP server, knowledge base or OpenAPI tools, wired (alias g)",
+      "add a workflow, agent, router, arbiter, tool, MCP server, knowledge base or OpenAPI tools, wired, or an eval case drafted from a kept execution (alias g)",
     usage:
-      "agboss generate <workflow|agent|router|arbiter|tool|mcp|rag|openapi> <name> [--workflow <name>] [options]",
+      "agboss generate <workflow|agent|router|arbiter|tool|mcp|rag|openapi|eval-case> <name> [--workflow <name>] [options]",
     positionals: "<kind> <name> (the full name: billing-agent, refund-tool, policies-rag, …)",
     options: [
       text("workflow", "<name>", "the workflow to add to, by its full name (desk-workflow)"),
@@ -173,6 +173,7 @@ const SCAFFOLD_COMMANDS: Readonly<Record<string, CommandSpec>> = {
         "openapi: the OpenAPI 3 document — one tool per operation (with --agent)",
       ),
       text("operations", "<ids>", "openapi: only these operations (operationIds, comma-separated)"),
+      ...EVAL_CASE_OPTIONS,
       APPLICATION,
       flag(
         "force",
