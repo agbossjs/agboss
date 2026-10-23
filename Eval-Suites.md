@@ -320,10 +320,11 @@ against, so it says what it is and the version of its shape (#396 S3):
 | `startedAt`, `endedAt` | ISO 8601, on the application's `Clock` |
 | `cases[]` | `name`, `caseHash` (the case as written, its tools' expectations, judges, the suite's checks and cascade — a changed case is not compared), `passed` (runs that passed), `runs`, `passAtK`, `passHatK`, `isUnstable`, `runResults[]`, `expectation?` (version 2: `EvalCaseExpectation` — `requiredTools` by name with their partial arguments, masked, `forbiddenTools`, `invariantTools`, `checks` in order) |
 | `cases[].runResults[]` | `run` (1…k), `threadId`, `executionId` and `finish` of the last turn, `passed`, `checks[]`, `error?`, `spentUsd`, `trace?` (version 2, [below](#a-runs-trace-schemaversion-2-397)) |
-| `…checks[]` | `check` (`trajectory` or the judge's name), `status` (`CheckStatus`: `passed`, `failed`, `skipped`), `reason?`, `skippedBy?` (the failed check that skipped it), `metrics?` (a judge's), `spentUsd?` (a model judge's) |
+| `…checks[]` | `check` (`trajectory`, the judge's name or `metamorphic`), `status` (`CheckStatus`: `passed`, `failed`, `skipped`), `reason?`, `skippedBy?` (the failed check that skipped it), `metrics?` (a judge's), `spentUsd?` (a model judge's) |
 | `summary` | `cases`, `passAtK`, `passHatK`, `unstable` (counts of cases), `judgeCalls` (judge checks that ran), `skippedByCascade` |
 | `spend` | `{ totalUsd }`: every turn's execution and every judge's model calls |
 | `chaos?` | what `--chaos` injected (`EvalRunChaos`, below) |
+| `metamorphic?` | `true` when run with `--metamorphic` ([below](#under-rewordings---metamorphic)) |
 | `baseline?` | the run against `--baseline` (`EvalRunComparison`, below) |
 | `profile?`, `agbossVersion?`, `models?`, `piiPolicies?` | version 3 (#397 PR 3): what it ran on — the `--profile`, the AGBoss version, every agent's and model router's model and provider (`EvalModelUse`: `component`, `kind`, `model`, `provider`), and the application's and workflow's PII policies that masked its records and traces |
 
@@ -533,6 +534,34 @@ carries no fault-injection switch.
 
 A case that passes without chaos and fails with it needs resilience, not a longer prompt: a
 `retryPolicy` on its provider, an `.onError` side path, an undo for what it changed.
+
+## Under rewordings: `--metamorphic`
+
+```bash
+agboss eval run --suite refunds-eval-suite --runs 3 --metamorphic
+```
+
+A case that passes for one wording says little about the next customer's. A case's `variants` are
+its last turn reworded (typed by the start's input like a turn); with `--metamorphic` every run of the
+case runs each variant too, on a thread of its own — the case's `history` written, its earlier turns
+run, then the variant in place of the last turn.
+
+The check `metamorphic` comes after the suite's checks and the case's judges, under the cascade: with
+`StopAtFirstFailure` it is `skipped` once one failed, and no variant runs. It passes when every
+variant called the same set of tool classes as the case's own last turn (the calls that ran) and met
+the case's `tools.required` again — the same partials; otherwise it fails with each reason:
+
+```
+variant 1 calls get-order-tool, not get-order-tool, refund-tool; variant 1: refund-tool not called (required)
+```
+
+Its `metrics` are `{ variants: n }`, and the variants' spend is the run's. A case without `variants`
+gets no such check. The artifact says `metamorphic: true`; a case's `caseHash` covers its variants
+only with the flag, so a run with it is `Changed` against a baseline without it — never `Regressed`.
+The check is no judge: calibration and `summary.judgeCalls` leave it out.
+
+A case whose rewording calls other tools depends on its wording: let the tool descriptions say when
+each tool is for, or move the choice into code (a `DecidedBy.Code` `@Router`).
 
 ## Calibrating a judge: `agboss eval calibrate`
 

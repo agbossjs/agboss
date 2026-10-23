@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `agboss eval run --metamorphic`: rewordings call the same tools (#396 PR 7)
+
+- **Added — `agboss eval run --metamorphic`** ([Eval suites](Eval-Suites#under-rewordings---metamorphic)):
+  each case's `variants` (its last turn reworded) run too, each on a thread of its own, and the check
+  `metamorphic` — after the other checks, under the cascade — passes when every variant calls the
+  same set of tool classes as the case's last turn and meets its `tools.required` again. The
+  artifact's optional `metamorphic: true` (read by `evalRunReportOf`); a case's `caseHash` covers its
+  variants only with the flag.
+
 ## Unreleased — `agboss check --federation`: declared contracts compared across applications (#398 PR 4)
 
 - **`agboss check --federation <snapshot…>`** — the application's consumed and exported contracts
@@ -14,6 +23,7 @@ Breaking changes and notable additions, newest first. The API reports
 - `describe --json`: each `application.contracts.imports` MCP entry gets `usedBy` too (the tools of
   the application's agents that reach its server).
 - `check --json`: a problem may carry `blastRadius` (`{ application, workflow, tool }[]`).
+
 
 ## Unreleased — declared contracts: `@A2AExpose`, a typed `@A2AAgent`, the contract price, the envelope's audience, `describe --json` contracts (#398 PR 3)
 
@@ -44,6 +54,7 @@ Breaking changes and notable additions, newest first. The API reports
   their input and finishes' outputs, `@McpExpose` tools), `imports` (`@A2AAgent`s with `target`,
   `usedBy`, `price`; `@McpServer` tools with `target` or `null`), every DTO with its `schemaHash`, and
   `schemas` with their JSON Schema.
+
 
 ## Unreleased — `agboss eval run --chaos`: failures injected into model calls (#396 PR 6)
 
