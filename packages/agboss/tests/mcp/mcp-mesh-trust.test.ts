@@ -64,6 +64,16 @@ async function billing(book: ScriptBook, orders: MeshKeyPair, own: MeshKeyPair) 
   return { client, parts };
 }
 
+/** An envelope orders-application signs for `args`, with budget left to run. */
+const funded = (key: MeshKeyPair): string =>
+  encodeMeshEnvelope(
+    {
+      ...(readJws(signed(key))?.payload as Parameters<typeof encodeMeshEnvelope>[0]),
+      budget: { remaining: "1", currency: "USD" },
+    },
+    key.privateKey,
+  );
+
 describe("#398 PR 2: a trusted peer's MCP call", () => {
   it("runs on the caller's budget: nothing left, nothing runs", async () => {
     const [ordersKeys, billingKeys] = [meshKeyPair(), meshKeyPair()];
@@ -88,13 +98,7 @@ describe("#398 PR 2: a trusted peer's MCP call", () => {
     const book = new ScriptBook();
     const { client } = await billing(book, ordersKeys, billingKeys);
     book.scriptOf("agent:billing-desk-agent").thenReturn(replyWith("paid"));
-    const envelope = encodeMeshEnvelope(
-      {
-        ...(readJws(signed(ordersKeys))?.payload as Parameters<typeof encodeMeshEnvelope>[0]),
-        budget: { remaining: "1", currency: "USD" },
-      },
-      ordersKeys.privateKey,
-    );
+    const envelope = funded(ordersKeys);
 
     const result = await client.callTool({
       name: "billing-workflow-start",
@@ -127,5 +131,66 @@ describe("#398 PR 2: a trusted peer's MCP call", () => {
     expect(forged._meta?.["agboss.dev/error"]).toMatchObject({ code: "mesh.signature-invalid" });
     expect(swapped._meta?.["agboss.dev/error"]).toMatchObject({ code: "mesh.body-mismatch" });
     expect(book.scriptOf("agent:billing-desk-agent").requests).toHaveLength(0);
+  });
+});
+
+describe("#398 PR 2b: a trusted MCP call is deduplicated by _meta.callId", () => {
+  it("the same call twice: one run, the kept result", async () => {
+    const [ordersKeys, billingKeys] = [meshKeyPair(), meshKeyPair()];
+    const book = new ScriptBook();
+    const { client } = await billing(book, ordersKeys, billingKeys);
+    book.scriptOf("agent:billing-desk-agent").thenReturn(replyWith("paid"));
+    const call = {
+      name: "billing-workflow-start",
+      arguments: args,
+      _meta: { "agboss.dev/mesh": funded(ordersKeys), callId: "root-1:orders-desk-agent:1:c1" },
+    };
+
+    const first = await client.callTool(call);
+    const second = await client.callTool(call);
+
+    expect(first.isError).toBeFalsy();
+    expect(second).toEqual(first);
+    expect(book.scriptOf("agent:billing-desk-agent").requests).toHaveLength(1);
+  });
+
+  it("a repeat while the first still runs: mesh.request-in-progress, nothing runs twice", async () => {
+    const [ordersKeys, billingKeys] = [meshKeyPair(), meshKeyPair()];
+    const book = new ScriptBook();
+    const { client } = await billing(book, ordersKeys, billingKeys);
+    book.scriptOf("agent:billing-desk-agent").thenReturn(replyWith("paid"));
+    const call = {
+      name: "billing-workflow-start",
+      arguments: args,
+      _meta: { "agboss.dev/mesh": funded(ordersKeys), callId: "c-2" },
+    };
+
+    const [first, second] = await Promise.all([client.callTool(call), client.callTool(call)]);
+
+    expect(first.isError).toBeFalsy();
+    expect(second.isError).toBe(true);
+    expect(second._meta?.["agboss.dev/error"]).toMatchObject({ code: "mesh.request-in-progress" });
+    expect(book.scriptOf("agent:billing-desk-agent").requests).toHaveLength(1);
+  });
+
+  it("another call id, or an untrusted call, runs again", async () => {
+    const [ordersKeys, billingKeys] = [meshKeyPair(), meshKeyPair()];
+    const book = new ScriptBook();
+    const { client } = await billing(book, ordersKeys, billingKeys);
+    book
+      .scriptOf("agent:billing-desk-agent")
+      .thenReturn(replyWith("one"), replyWith("two"), replyWith("three"), replyWith("four"));
+    const callOf = (callId: string, mesh: string | undefined) => ({
+      name: "billing-workflow-start",
+      arguments: args,
+      _meta: { ...(mesh === undefined ? {} : { "agboss.dev/mesh": mesh }), callId },
+    });
+
+    await client.callTool(callOf("c-3", funded(ordersKeys)));
+    await client.callTool(callOf("c-4", funded(ordersKeys)));
+    await client.callTool(callOf("c-5", undefined));
+    await client.callTool(callOf("c-5", undefined));
+
+    expect(book.scriptOf("agent:billing-desk-agent").requests).toHaveLength(4);
   });
 });
