@@ -304,15 +304,22 @@ What an execution did step by step is in its result and record too (#395), not o
   `status: ToolCallStatus` (`Succeeded`, `Failed`, `InvalidArguments`, `Declined`, `TimedOut`, and
   for a tool interceptor's decision, #384: `Replied` — `output` is its message — and `Blocked`),
   `error?`, `isResultTruncated`, `startedAt`, `endedAt`. A call to a tool the agent does not have is
-  not recorded.
+  `UnknownTool` (#395 S6): nothing ran, `step.component` names what the model called, `error` what
+  it read.
 - `result.record.toolCalls` (`{ record: true }`) — the same, masked like the rest of the record.
 - `result.record.steps` — one `ExecutionStepRecord` per visit of a node, in the order the visits
   ended: `step`, `inputHash` (a stable hash of the values it read — the same input, the same hash on
   every machine and run; a start's is its input's), `judgeVerdicts` (`JudgeVerdictRecord`: `judge`,
   `attempt`, `passed`, `reason?`, `metrics?`), `guardrailDecisions` (`GuardrailDecisionRecord`:
   `guardrail`, `side`, `isBlocked`, `probability`), `spend`, `startedAt`, `endedAt` and `error?` —
-  the failure a side path took. A visit whose failure no side path takes ends the execution and is
-  not in it; a child's visits are in its own execution.
+  the failure a side path took. Each child's own are in `result.children[i].steps` (#395 S6).
+- **A failed visit keeps its records** (#395 S6): an agent whose step fails — a
+  `QualityGateError`, a call a tool interceptor blocked, a guardrail's block, a limit, any error —
+  keeps the tool calls it made, its judges' verdicts and its guardrails' decisions (the blocking one
+  last). A side path that takes the failure records them in `toolCalls` and in the visit's `steps`
+  entry (with its `error`); a failed parallel branch does the same; a failure no side path takes
+  ends a child with them in its `ChildExecutionRecord` (`toolCalls`, `steps`). A root execution that
+  fails returns no result.
 - A model call whose tool-call arguments are no JSON (truncated; the provider's
   `invalid_tool_calls`) is an `InvalidArguments` call, counted in `validationAttempts` — the model
   reads why and tries again; a truncated answer is an invalid answer.

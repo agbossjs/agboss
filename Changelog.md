@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — trajectories of failed visits, children's steps, unknown tools (#395 PR 1b)
+
+- **Changed — a failed visit keeps its records** ([Observability](Observability#tool-calls-and-steps)):
+  the tool calls, judge verdicts and guardrail decisions of an agent whose step fails
+  (`QualityGateError`, `ToolBlockedError`, `GuardrailBlockedError`, a limit, any error) are in
+  `result.toolCalls`, `record.toolCalls` and its `record.steps` entry when a side path takes the
+  failure, in a failed branch's too, and in the `ChildExecutionRecord` of a child the failure ends.
+- **Added — `ChildExecutionRecord.steps`**: each child's own `ExecutionStepRecord`s.
+- **Added — `ToolCallStatus.UnknownTool`**: a call to a tool the agent does not have is recorded.
+
 ## Unreleased — a lazily created transport provider runs its lifecycle hooks (#385 S4)
 
 - **Changed — transport providers' lifecycle** ([Model providers](Model-providers#a-custom-transport-completerequest-385)):
