@@ -129,6 +129,13 @@ npm test
   window. `src/desk.application.ts` lists the same workflow with the transport alone, so
   `npx agboss run --application src/desk.application.ts --env test --start desk-workflow-start
   --input '{"customerId":"c-1","question":"Where is order #7?"}'` answers offline.
+  The same agent carries the operational contracts: a code `@Judge` that reads the visit's
+  `toolCalls` (`maxRetries: 1`, then `QualityGateError`), a `@Rag` it searches
+  (`search-shipping-policy-rag-tool`), and the workflow a `PiiPolicyHandler` detector
+  (`<customer-id:…>` in what the model reads); the application lists an observer, a `@HealthCheck`
+  (`app.checkReadiness()`) and `maxConcurrentSteps: 16`. `tests/unit-runners.test.ts` runs the unit
+  runners on the patterns' own components — `testAction` with an `override`, `testRouter`,
+  `testArbiter`, `testRag`, `testPii`, and `testJudge` on the tool calls of a scripted visit.
 - **`src/approvals/`** — two approvals at once ([Pauses](Pauses), #267): `offsite-booking-workflow`
   launches venue-buyer-agent and flight-buyer-agent side by side; each calls `place-purchase-tool`,
   whose `@Tool({ channel: PurchaseApprovalChannel })` names a role

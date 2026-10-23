@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — flow-patterns as the zero-cost harness: the operational contracts and every unit runner (#419 PR 2)
+
+- `examples/flow-patterns/src/desk/` adds a code `@Judge` on `toolCalls`, a `@Rag` knowledge base,
+  a `PiiPolicyHandler` detector, an observer, a `@HealthCheck` and `maxConcurrentSteps`; the tests
+  now run all ten unit runners and `replyWithInvalidAnswer` → `AgentAnswerInvalidError`.
+  [Example](Example#flow-patterns-a-review-loop-and-a-code-router).
+
 ## Unreleased — flow-patterns as the zero-cost harness: the extension points (#419 PR 1)
 
 - `examples/flow-patterns` gains `src/desk/` — a custom compaction, input and output code
