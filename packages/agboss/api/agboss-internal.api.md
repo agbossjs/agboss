@@ -73,6 +73,7 @@ export interface AssembledApplication {
     //
     // (undocumented)
     readonly executionContext: ExecutionContextClass;
+    readonly executionRecordRetention?: Milliseconds;
     readonly exposes: readonly Class[];
     readonly healthChecks: readonly Class[];
     readonly maxConcurrentSteps?: number;
@@ -670,6 +671,9 @@ export function evaluate(deps: EvalDeps, bundle: string, options: {
 export const executeUnchecked: (app: Pick<App, "execute">, start: Class, input: unknown, options?: ExecutionOptions) => Promise<ExecutionOutput>;
 
 // @public
+export const EXECUTION_RECORD_KIND = "agboss.execution-record";
+
+// @public
 export type ExecutionStreamEvent = {
     readonly kind: "textDelta";
     readonly delta: string;
@@ -678,6 +682,11 @@ export type ExecutionStreamEvent = {
     readonly tool: string;
     readonly args?: unknown;
 };
+
+// Warning: (ae-forgotten-export) The symbol "ExecutionHistoryRecord" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export const exportedRecordLine: (record: ExecutionHistoryRecord) => string;
 
 // @public
 export function failureTaxonomyOf(content: string): EvalFailureTaxonomyRead;
@@ -800,6 +809,20 @@ export const goldenFile: (root: string, bundle: string, name: string) => string;
 export function goldenFromRecent(terns: TernRecords, bundle: string, name: string, limit: number, now?: () => Date): Promise<GoldenSet>;
 
 // @public
+export interface HistoryExportQuery {
+    // (undocumented)
+    readonly from: Date;
+    readonly tenantId: string | undefined;
+    // (undocumented)
+    readonly to: Date;
+}
+
+// Warning: (ae-forgotten-export) The symbol "ExecutionHistoryRepository" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function historyRecordsOf(history: ExecutionHistoryRepository, query: HistoryExportQuery): AsyncGenerator<ExecutionHistoryRecord>;
+
+// @public
 export function inputLines(analysis: FlowAnalysis): readonly string[];
 
 // @public
@@ -849,6 +872,18 @@ export interface ModelUse {
 //
 // @public
 export function modelUsesOf(config: AgentsConfigOf<string>, routers: readonly ModelNamingRouter[], components?: ModelNamingComponents): readonly ModelUse[];
+
+// @public
+export interface OpenedExecutionHistory {
+    readonly application: string;
+    readonly close: () => Promise<void>;
+    // (undocumented)
+    readonly history: ExecutionHistoryRepository;
+    readonly isKept: boolean;
+}
+
+// @public
+export function openExecutionHistory(application: Class, options?: Pick<AppOptions, "env" | "processEnv">): Promise<OpenedExecutionHistory>;
 
 // @public
 export function pathLines(path: FlowPath, label?: ComponentLabel): readonly string[];
@@ -1134,12 +1169,13 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/application/assemble.ts:47:3 - (ae-undocumented) Missing documentation for "name".
 // src/application/assemble.ts:48:3 - (ae-undocumented) Missing documentation for "version".
 // src/application/assemble.ts:57:3 - (ae-undocumented) Missing documentation for "budgets".
-// src/application/assemble.ts:80:3 - (ae-undocumented) Missing documentation for "executionContext".
-// src/application/assemble.ts:191:1 - (ae-undocumented) Missing documentation for "applicationOf".
+// src/application/assemble.ts:82:3 - (ae-undocumented) Missing documentation for "executionContext".
+// src/application/assemble.ts:193:1 - (ae-undocumented) Missing documentation for "applicationOf".
 // src/application/create-app.ts:36:3 - (ae-undocumented) Missing documentation for "app".
 // src/application/create-app.ts:37:3 - (ae-undocumented) Missing documentation for "assembled".
 // src/application/create-app.ts:38:3 - (ae-undocumented) Missing documentation for "workflows".
 // src/application/create-app.ts:39:3 - (ae-undocumented) Missing documentation for "infrastructure".
+// src/application/execution-history-store.ts:20:3 - (ae-undocumented) Missing documentation for "history".
 // src/config/defaults.ts:13:3 - (ae-undocumented) Missing documentation for "Application".
 // src/config/defaults.ts:14:3 - (ae-undocumented) Missing documentation for "Workflow".
 // src/config/defaults.ts:19:3 - (ae-undocumented) Missing documentation for "application".
@@ -1253,6 +1289,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/flow/context/runtime-contexts.ts:27:3 - (ae-undocumented) Missing documentation for "executionContext".
 // src/flow/runtime/start-input.ts:82:3 - (ae-undocumented) Missing documentation for "start".
 // src/flow/runtime/start-input.ts:83:3 - (ae-undocumented) Missing documentation for "input".
+// src/infrastructure/execution-history-export.ts:23:3 - (ae-undocumented) Missing documentation for "from".
+// src/infrastructure/execution-history-export.ts:24:3 - (ae-undocumented) Missing documentation for "to".
 // src/loader/load-errors.ts:8:12 - (ae-undocumented) Missing documentation for "name".
 // src/loader/load-eval-suites.ts:20:3 - (ae-undocumented) Missing documentation for "file".
 // src/loader/load-eval-suites.ts:21:3 - (ae-undocumented) Missing documentation for "suite".

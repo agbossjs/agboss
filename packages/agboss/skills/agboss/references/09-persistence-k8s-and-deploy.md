@@ -11,15 +11,16 @@ Every store is an **infrastructure contract** with a built-in **in-memory** defa
 `[di.ambiguous-implementation]`, in a workflow's `providers` → `[di.infrastructure-in-workflow]`).
 In memory nothing is shared between instances and nothing survives a restart.
 
-| Contract                            | Holds                                                                        | SQLite implementation             |
-| ----------------------------------- | ---------------------------------------------------------------------------- | --------------------------------- |
-| `BaseCheckpointSaver` (LangGraph's) | every step's checkpoint: a pause, a crash and a resume continue from it      | `SqliteCheckpointSaver`           |
-| `ExecutionRecordRepository`         | threads, owners, execution records, who answered each pause, summaries       | `SqliteExecutionRecordRepository` |
-| `PausedExecutionRepository`         | each pause's record (`Pending → Resolved → Taken`, or `Cancelled`)           | `SqlitePausedExecutionRepository` |
-| `CostLedgerRepository`              | the budgets' counters (reference 06)                                         | `SqliteCostLedgerRepository`      |
-| `ExecutionLeaseRepository`          | one lease per execution tree: who moves it                                   | `SqliteExecutionLeaseRepository`  |
-| `ExecutionTreeRepository`           | the shared state of one request (cancel requests, the undo's progress marks) | `SqliteExecutionTreeRepository`   |
-| `RateLimitRepository`               | a provider's slots, per-minute windows, 429 pause and circuit breaker        | `SqliteRateLimitRepository`       |
+| Contract                            | Holds                                                                        | SQLite implementation              |
+| ----------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------- |
+| `BaseCheckpointSaver` (LangGraph's) | every step's checkpoint: a pause, a crash and a resume continue from it      | `SqliteCheckpointSaver`            |
+| `ExecutionRecordRepository`         | threads, owners, execution records, who answered each pause, summaries       | `SqliteExecutionRecordRepository`  |
+| `PausedExecutionRepository`         | each pause's record (`Pending → Resolved → Taken`, or `Cancelled`)           | `SqlitePausedExecutionRepository`  |
+| `CostLedgerRepository`              | the budgets' counters (reference 06)                                         | `SqliteCostLedgerRepository`       |
+| `ExecutionLeaseRepository`          | one lease per execution tree: who moves it                                   | `SqliteExecutionLeaseRepository`   |
+| `ExecutionTreeRepository`           | the shared state of one request (cancel requests, the undo's progress marks) | `SqliteExecutionTreeRepository`    |
+| `RateLimitRepository`               | a provider's slots, per-minute windows, 429 pause and circuit breaker        | `SqliteRateLimitRepository`        |
+| `ExecutionHistoryRepository`        | each root execution's history, only with `executionRecordRetention` (below)  | `SqliteExecutionHistoryRepository` |
 
 The SQLite ones share **one file**, the environment's `sqlitePath` (required only when one is
 listed: `[environment.missing-field]`), over one `node:sqlite` connection per instance (the
@@ -146,6 +147,7 @@ import {
   BudgetScope,
   SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
+  SqliteExecutionHistoryRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
@@ -194,11 +196,13 @@ export class ExecutionBudget implements BudgetHandler {
     SqliteExecutionLeaseRepository,
     SqliteExecutionTreeRepository,
     SqliteRateLimitRepository,
+    SqliteExecutionHistoryRepository,
     ClaimsApiService,
   ],
   healthChecks: [ClaimsApiHealthCheck],
   shutdownTimeout: seconds(25), // under the platform's 30 s grace period and the 30 s lease
   pauseRecordRetention: hours(24), // resolved pause records kept this long, then swept
+  executionRecordRetention: hours(24 * 30), // each root execution's history, 30 days after it ended
   compensationTimeout: seconds(15), // each automatic undo's clean-up signal
   maxConcurrentSteps: 32, // agent, router and action steps of this instance at once
 })
@@ -340,6 +344,39 @@ or `secret`, `optional` / `has a default`) — the list for the manifest.
 - Resolved pause records are kept `pauseRecordRetention` (default `hours(24)`), then removed by the
   sweep: a late answer is `NotPausedError` within it, `UnknownPauseError` after. `Pending` is never
   removed.
+
+## Execution history: `executionRecordRetention` and `agboss records export`
+
+Nothing of an execution is kept beyond its thread's turns unless the application says how long:
+`@Application({ executionRecordRetention: hours(24 * 30) })`. Then every **root** execution's
+`ExecutionHistoryRecord` is saved in the `ExecutionHistoryRepository` — when its tree rests at a
+pause (`ExecutionHistoryStatus.Paused`, no `endedAt`) and when it ends (`Finished`, `Failed` or
+`Cancelled`, with its `error`) — and the recovery sweep removes it once it ended longer ago than the
+retention (a paused one is never removed). A record is the execution's `ExecutionRecord` (path,
+scope, spend, children, pauses and who answered them, undo actions, `toolCalls`, `steps`, `origin`)
+with who and what it was: `executionId`, `rootExecutionId`, `threadId`, `tenantId`, `application`
+(name, version, instance), `workflow` (with its `configHash`), `start` and `input`, `finish` and
+`output`, `startedAt` / `endedAt` on the `Clock`, and the `contexts` values. It is **masked like the
+execution's traces**: the application's and the workflow's PII policies, a context field marked
+`sensitive` hidden — a record never holds what a trace would not show. A save that fails is a
+warning in the log (`execution-history.failed`), never the execution's failure; work handed over
+(a lost lease, the app's stop) saves nothing — the next holder does.
+
+On the built-in in-memory store it warns `[application.in-memory-execution-history]` (another
+instance and the CLI do not see it); list `SqliteExecutionHistoryRepository` (or your own) to keep
+it. Export it without running anything — the application's stores opened, no workflow built, no
+sweep:
+
+```
+npx agboss records export --env prod --tenant acme --since 2026-10-16 --out hub/records/acme.jsonl
+npx agboss records export --env prod --all-tenants --out hub/records/all.jsonl
+```
+
+One masked record per line, oldest start first, each `{ "kind": "agboss.execution-record",
+"schema": 1, …record }`. A tenant is always named (`--tenant <id>`) or every tenant explicitly
+(`--all-tenants`) — neither or both is `records.tenant-required` (exit 2); `--since` / `--until`
+take an ISO 8601 date or time (records started in `[since, until)`); an application without
+`executionRecordRetention` is `records.not-kept` (exit 3).
 
 ## Your own store
 

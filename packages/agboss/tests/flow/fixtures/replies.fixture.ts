@@ -442,7 +442,7 @@ export class TreasuryBatchWorkflow {}
 })
 export class TreasuryPiiPolicy {}
 
-const treasuryChannels = [
+export const treasuryChannels = [
   DeskPayoutApprovalChannel,
   ButtonExpenseApprovalChannel,
   DeskTransferApprovalChannel,

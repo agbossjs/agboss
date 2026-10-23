@@ -2,6 +2,7 @@ import {
   Application,
   SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
+  SqliteExecutionHistoryRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
@@ -10,6 +11,7 @@ import {
   SqliteRateLimitRepository,
 } from "agboss";
 import { DecisionsModelProvider } from "agboss/models";
+import { hours } from "agboss/units";
 import {
   ApplicationDailyBudget,
   ExecutionBudget,
@@ -49,7 +51,9 @@ import { OpenRouterModelProvider } from "./model-providers/openrouter.model-prov
     SqliteExecutionTreeRepository,
     SqliteRateLimitRepository,
     SqliteMeshRequestRepository,
+    SqliteExecutionHistoryRepository,
   ],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
+  executionRecordRetention: hours(24 * 30), // each execution's history, 30 days: agboss records export
 })
 export class JobScoutApplication {}

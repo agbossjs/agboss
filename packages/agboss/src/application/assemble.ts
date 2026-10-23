@@ -65,6 +65,8 @@ export interface AssembledApplication {
   readonly shutdownTimeout: Milliseconds;
   /** How long a resolved pause record is kept (`@Application({ pauseRecordRetention })`, #267 S107). */
   readonly pauseRecordRetention: Milliseconds;
+  /** How long a root execution's history is kept (`@Application({ executionRecordRetention })`, #401); unset = not kept. */
+  readonly executionRecordRetention?: Milliseconds;
   /** Each automatic undo action's bound (`@Application({ compensationTimeout })`, #340). */
   readonly compensationTimeout: Milliseconds;
   /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
@@ -215,6 +217,9 @@ export async function applicationOf(
     workflows: assembled,
     shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
     pauseRecordRetention: options.pauseRecordRetention ?? PAUSE_RECORD_RETENTION,
+    ...(options.executionRecordRetention === undefined
+      ? {}
+      : { executionRecordRetention: options.executionRecordRetention }),
     compensationTimeout: options.compensationTimeout ?? COMPENSATION_TIMEOUT,
     ...(options.maxConcurrentSteps === undefined
       ? {}

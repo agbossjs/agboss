@@ -3,6 +3,8 @@
  * `SELECT 1` on their connection and reject once it is closed (what `app.checkReadiness()` reports
  * as that store's `Unhealthy`). The checkpoint savers of the framework have one too.
  */
+import { InMemoryExecutionHistoryRepository } from "../../src/infrastructure/execution-history.repository.js";
+import { SqliteExecutionHistoryRepository } from "../../src/infrastructure/sqlite/sqlite-execution-history.repository.js";
 import { describe, expect, it } from "vitest";
 import { randomIdGenerator } from "../../src/infrastructure/clock.js";
 import { InMemoryCheckpointSaver } from "../../src/infrastructure/contracts.js";
@@ -40,6 +42,7 @@ const kinds = storeKinds<Stores>({
     executionLeases: new InMemoryExecutionLeaseRepository(clock, application, database),
     executionTrees: new InMemoryExecutionTreeRepository(database),
     meshRequests: new InMemoryMeshRequestRepository(database),
+    executionHistory: new InMemoryExecutionHistoryRepository(database),
     rateLimits: new InMemoryRateLimitRepository(clock, application, database),
     checkpointer: new InMemoryCheckpointSaver(),
   }),
@@ -55,6 +58,7 @@ const kinds = storeKinds<Stores>({
     executionLeases: new SqliteExecutionLeaseRepository(connection(), clock, application),
     executionTrees: new SqliteExecutionTreeRepository(connection()),
     meshRequests: new SqliteMeshRequestRepository(connection()),
+    executionHistory: new SqliteExecutionHistoryRepository(connection()),
     rateLimits: new SqliteRateLimitRepository(connection(), clock, application),
     checkpointer: new SqliteCheckpointSaver(connection()),
   }),
@@ -65,7 +69,7 @@ describe.each(kinds)("#300: every store answers ping() ($name)", ({ twoInstances
     const { first, second } = twoInstances();
     const stores = [...Object.values(first), ...Object.values(second)];
 
-    await expect(Promise.all(stores.map((store) => store.ping()))).resolves.toHaveLength(16);
+    await expect(Promise.all(stores.map((store) => store.ping()))).resolves.toHaveLength(18);
   });
 });
 

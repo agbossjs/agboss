@@ -334,6 +334,8 @@ export interface AppDeps extends AgentExecutionDeps<string> {
     //
     // (undocumented)
     readonly evaluation: EvalDeps;
+    // Warning: (ae-forgotten-export) The symbol "Infrastructure" needs to be exported by the entry point index.d.ts
+    readonly executionHistory?: Infrastructure["executionHistory"] | undefined;
     // Warning: (ae-forgotten-export) The symbol "FrameworkLog" needs to be exported by the entry point index.d.ts
     readonly log: FrameworkLog;
     readonly models: readonly string[];
@@ -391,6 +393,7 @@ export interface ApplicationOptions {
     readonly defaults?: WorkflowDefaults;
     readonly environment: Class;
     readonly executionContext?: ExecutionContextClass;
+    readonly executionRecordRetention?: Milliseconds;
     readonly exposes?: readonly Class[];
     readonly guardrails?: readonly Class[];
     readonly healthChecks?: readonly Class[];
@@ -410,6 +413,16 @@ export interface ApplicationOptions {
     readonly uncompactedTurns?: UncompactedTurns;
     readonly version: string;
     readonly workflows: readonly Class[];
+}
+
+// @public
+export interface ApplicationRecord {
+    // (undocumented)
+    readonly instanceId: string;
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly version: string;
 }
 
 // @public
@@ -1536,6 +1549,14 @@ export abstract class ExecutionContext {
 export type ExecutionContextClass<T extends ExecutionContext = ExecutionContext> = abstract new () => T;
 
 // @public
+export interface ExecutionContextRecord {
+    // (undocumented)
+    readonly execution: Readonly<Record<string, unknown>>;
+    // (undocumented)
+    readonly tenant: Readonly<Record<string, unknown>>;
+}
+
+// @public
 export class ExecutionContextUnavailableError extends AGBossError {
     // (undocumented)
     static readonly code: string;
@@ -1575,6 +1596,67 @@ export interface ExecutionEvent {
     // (undocumented)
     readonly threadId: string;
     readonly workflow: WorkflowRecord;
+}
+
+// @public
+export interface ExecutionHistoryPage {
+    // (undocumented)
+    readonly limit: number;
+    // (undocumented)
+    readonly offset: number;
+}
+
+// @public
+export interface ExecutionHistoryRecord extends ExecutionRecord {
+    // (undocumented)
+    readonly application: ApplicationRecord;
+    readonly contexts: ExecutionContextRecord;
+    // (undocumented)
+    readonly endedAt?: string;
+    readonly error?: ErrorRecord;
+    // (undocumented)
+    readonly executionId: string;
+    readonly finish?: ComponentRecord;
+    // (undocumented)
+    readonly input: unknown;
+    // (undocumented)
+    readonly output?: unknown;
+    readonly parentExecutionId?: string;
+    readonly rootExecutionId: string;
+    readonly start: ComponentRecord;
+    readonly startedAt: string;
+    // (undocumented)
+    readonly status: ExecutionHistoryStatus;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly threadId: string;
+    // (undocumented)
+    readonly workflow: WorkflowRecord;
+}
+
+// @public (undocumented)
+export abstract class ExecutionHistoryRepository {
+    abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    abstract findAllByExecutionId(executionId: string): Promise<ExecutionHistoryRecord[]>;
+    abstract findAllByStartedAtBetween(from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
+    abstract findAllByTenantIdAndStartedAtBetween(tenantId: string, from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
+    abstract findAllByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<ExecutionHistoryRecord[]>;
+    abstract findByTenantIdAndExecutionId(tenantId: string, executionId: string): Promise<ExecutionHistoryRecord | undefined>;
+    abstract ping(): Promise<void>;
+    abstract save(record: ExecutionHistoryRecord): Promise<void>;
+}
+
+// @public
+export enum ExecutionHistoryStatus {
+    // (undocumented)
+    Cancelled = "cancelled",
+    // (undocumented)
+    Failed = "failed",
+    // (undocumented)
+    Finished = "finished",
+    // (undocumented)
+    Paused = "paused"
 }
 
 // @public
@@ -4475,6 +4557,27 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
 }
 
 // @public
+export class SqliteExecutionHistoryRepository extends ExecutionHistoryRepository {
+    constructor(connection: SqliteConnection);
+    // (undocumented)
+    deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    // (undocumented)
+    findAllByExecutionId(executionId: string): Promise<ExecutionHistoryRecord[]>;
+    // (undocumented)
+    findAllByStartedAtBetween(from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
+    // (undocumented)
+    findAllByTenantIdAndStartedAtBetween(tenantId: string, from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
+    // (undocumented)
+    findAllByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<ExecutionHistoryRecord[]>;
+    // (undocumented)
+    findByTenantIdAndExecutionId(tenantId: string, executionId: string): Promise<ExecutionHistoryRecord | undefined>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    save(record: ExecutionHistoryRecord): Promise<void>;
+}
+
+// @public
 export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     constructor(connection: SqliteConnection, clock: Clock, applicationContext: ApplicationContext);
     // (undocumented)
@@ -5279,7 +5382,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // Warnings were encountered during analysis:
 //
 // src/app/app-deps.ts:56:3 - (ae-undocumented) Missing documentation for "evaluation".
-// src/app/app-deps.ts:100:3 - (ae-undocumented) Missing documentation for "container".
+// src/app/app-deps.ts:102:3 - (ae-undocumented) Missing documentation for "container".
 // src/app/application-stopping.ts:9:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/application-stopping.ts:10:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/create-app.ts:57:3 - (ae-undocumented) Missing documentation for "profileRoot".
@@ -5305,7 +5408,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/types.ts:182:3 - (ae-undocumented) Missing documentation for "spend".
 // src/app/types.ts:223:3 - (ae-undocumented) Missing documentation for "name".
 // src/app/types.ts:224:3 - (ae-undocumented) Missing documentation for "version".
-// src/application/application.ts:179:1 - (ae-undocumented) Missing documentation for "Application".
+// src/application/application.ts:188:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
 // src/budgets/budget.ts:25:3 - (ae-undocumented) Missing documentation for "Week".
@@ -5905,6 +6008,27 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/health/health-check.ts:85:3 - (ae-undocumented) Missing documentation for "reason".
 // src/health/health-check.ts:93:3 - (ae-undocumented) Missing documentation for "reason".
 // src/infrastructure/cost-ledger.repository.ts:31:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
+// src/infrastructure/execution-history.repository.ts:21:3 - (ae-undocumented) Missing documentation for "Paused".
+// src/infrastructure/execution-history.repository.ts:22:3 - (ae-undocumented) Missing documentation for "Finished".
+// src/infrastructure/execution-history.repository.ts:23:3 - (ae-undocumented) Missing documentation for "Failed".
+// src/infrastructure/execution-history.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Cancelled".
+// src/infrastructure/execution-history.repository.ts:29:3 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/execution-history.repository.ts:30:3 - (ae-undocumented) Missing documentation for "version".
+// src/infrastructure/execution-history.repository.ts:31:3 - (ae-undocumented) Missing documentation for "instanceId".
+// src/infrastructure/execution-history.repository.ts:36:3 - (ae-undocumented) Missing documentation for "tenant".
+// src/infrastructure/execution-history.repository.ts:37:3 - (ae-undocumented) Missing documentation for "execution".
+// src/infrastructure/execution-history.repository.ts:42:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/infrastructure/execution-history.repository.ts:47:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/infrastructure/execution-history.repository.ts:48:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/execution-history.repository.ts:49:3 - (ae-undocumented) Missing documentation for "application".
+// src/infrastructure/execution-history.repository.ts:50:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/infrastructure/execution-history.repository.ts:51:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/execution-history.repository.ts:54:3 - (ae-undocumented) Missing documentation for "endedAt".
+// src/infrastructure/execution-history.repository.ts:57:3 - (ae-undocumented) Missing documentation for "input".
+// src/infrastructure/execution-history.repository.ts:60:3 - (ae-undocumented) Missing documentation for "output".
+// src/infrastructure/execution-history.repository.ts:69:3 - (ae-undocumented) Missing documentation for "offset".
+// src/infrastructure/execution-history.repository.ts:70:3 - (ae-undocumented) Missing documentation for "limit".
+// src/infrastructure/execution-history.repository.ts:73:1 - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
 // src/infrastructure/execution-record.repository.ts:71:3 - (ae-undocumented) Missing documentation for "append".
 // src/infrastructure/execution-record.repository.ts:86:3 - (ae-undocumented) Missing documentation for "byIds".
 // src/infrastructure/execution-record.repository.ts:104:3 - (ae-undocumented) Missing documentation for "saveScore".
@@ -5933,6 +6057,14 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:66:3 - (ae-undocumented) Missing documentation for "saveAll".
 // src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:81:3 - (ae-undocumented) Missing documentation for "findMaxSpendByAccount".
 // src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:93:3 - (ae-undocumented) Missing documentation for "saveMaxSpend".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:39:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:43:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:57:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:67:3 - (ae-undocumented) Missing documentation for "findAllByExecutionId".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:74:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:86:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStartedAtBetween".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:100:3 - (ae-undocumented) Missing documentation for "findAllByStartedAtBetween".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:113:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:39:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:43:3 - (ae-undocumented) Missing documentation for "acquire".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:77:3 - (ae-undocumented) Missing documentation for "renew".

@@ -8,6 +8,7 @@ import {
   type ExecutionRecordRepository,
 } from "./execution-record.repository.js";
 import type { MeshRequestRepository } from "./mesh-request.repository.js";
+import type { ExecutionHistoryRepository } from "./execution-history.repository.js";
 import type { Clock } from "./clock.js";
 import type { FrameworkLog } from "./logger.js";
 import type { PausedExecutionRepository } from "./paused-execution.repository.js";
@@ -62,6 +63,12 @@ export interface RecoverySources {
   readonly meshRequests?: MeshRequestRepository | undefined;
   /** `@Application({ mesh: { idempotencyRetention } })`: how long an answer is kept. */
   readonly idempotencyRetention?: number | undefined;
+  /**
+   * The kept root executions (#401 PR 1) and `@Application({ executionRecordRetention })`: a record
+   * that ended longer ago than it is removed; none set → nothing is kept, nothing removed.
+   */
+  readonly executionHistory?: ExecutionHistoryRepository | undefined;
+  readonly executionRecordRetention?: Milliseconds | undefined;
   /** The instance's step slots (#332); absent = no cap, every recoverable root is taken. */
   readonly capacity?: StepCapacity | undefined;
 }
@@ -136,6 +143,7 @@ class Sweeper implements RecoverySweep {
       }
       await this.#forgetResolvedPauses();
       await this.#forgetMeshRequests();
+      await this.#forgetExecutionRecords();
       this.#lastSweptAt = this.sources.clock.now();
       await this.sources.clock.sleep(SWEEP_EVERY, this.#stopped.signal);
     }
@@ -166,6 +174,20 @@ class Sweeper implements RecoverySweep {
       );
     } catch (error) {
       const text = `the mesh requests' answers could not be removed: ${String(error)}`;
+      this.#log({ code: "recovery.failed", text, isBroken: true });
+    }
+  }
+
+  /** The kept executions that ended longer ago than their retention, removed (#401 PR 1). */
+  async #forgetExecutionRecords(): Promise<void> {
+    const { clock, executionHistory, executionRecordRetention } = this.sources;
+    if (executionHistory === undefined || executionRecordRetention === undefined) return;
+    try {
+      await executionHistory.deleteByEndedAtBefore(
+        new Date(clock.now().getTime() - executionRecordRetention),
+      );
+    } catch (error) {
+      const text = `the kept execution records could not be removed: ${String(error)}`;
       this.#log({ code: "recovery.failed", text, isBroken: true });
     }
   }

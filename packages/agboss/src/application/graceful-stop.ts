@@ -177,6 +177,8 @@ export function stopOf(
     pauseRecordRetention: assembled.pauseRecordRetention,
     meshRequests: parts.infrastructure.meshRequests,
     idempotencyRetention: assembled.mesh?.idempotencyRetention ?? DEFAULT_IDEMPOTENCY_RETENTION,
+    executionHistory: parts.infrastructure.executionHistory,
+    executionRecordRetention: assembled.executionRecordRetention,
     capacity: parts.stepSlots,
   });
   const { shutdownTimeout } = assembled;

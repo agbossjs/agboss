@@ -97,6 +97,7 @@ const freshState = (runId: string): ExecutionStateType => ({
   runId,
   start: "",
   startInput: {},
+  startedAt: "",
   startedVersion: "",
   contexts: DEFAULT_CONTEXT_VALUES,
   scope: {},

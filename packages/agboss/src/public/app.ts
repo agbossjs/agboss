@@ -83,11 +83,20 @@ export {
   RateLimitRepository,
   type RateLimitLease,
 } from "../infrastructure/rate-limit.repository.js";
+export {
+  ExecutionHistoryRepository,
+  ExecutionHistoryStatus,
+  type ApplicationRecord,
+  type ExecutionContextRecord,
+  type ExecutionHistoryPage,
+  type ExecutionHistoryRecord,
+} from "../infrastructure/execution-history.repository.js";
 export { SqliteConnection } from "../infrastructure/sqlite/sqlite-connection.js";
 export { SqliteCheckpointSaver } from "../infrastructure/sqlite/sqlite-checkpoint-saver.js";
 export { SqliteCostLedgerRepository } from "../infrastructure/sqlite/sqlite-cost-ledger.repository.js";
 export { SqliteExecutionLeaseRepository } from "../infrastructure/sqlite/sqlite-execution-lease.repository.js";
 export { SqliteExecutionRecordRepository } from "../infrastructure/sqlite/sqlite-execution-record.repository.js";
+export { SqliteExecutionHistoryRepository } from "../infrastructure/sqlite/sqlite-execution-history.repository.js";
 export { SqliteExecutionTreeRepository } from "../infrastructure/sqlite/sqlite-execution-tree.repository.js";
 export { SqlitePausedExecutionRepository } from "../infrastructure/sqlite/sqlite-paused-execution.repository.js";
 export { SqliteRateLimitRepository } from "../infrastructure/sqlite/sqlite-rate-limit.repository.js";

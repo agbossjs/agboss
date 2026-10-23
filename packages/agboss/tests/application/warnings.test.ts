@@ -17,6 +17,8 @@ import { testWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { logged, resetLogged } from "../helpers/log.js";
+import { HistoryDeskApplication } from "../flow/fixtures/execution-history.fixture.js";
+import { SqliteExecutionHistoryRepository } from "../../src/infrastructure/sqlite/sqlite-execution-history.repository.js";
 import {
   DurableLoggedApplication,
   LoggedApplication,
@@ -61,6 +63,28 @@ describe("#261 AC14: in-memory ledger and pauses warn", () => {
     expect(
       logged.filter((entry) => entry.level === LogLevel.Warn).map((entry) => entry.message),
     ).toEqual([PII_KEY]);
+  });
+});
+
+describe("#401 PR 1: kept execution history in memory warns", () => {
+  it("executionRecordRetention on the built-in in-memory store: the history's warning", async () => {
+    const assembled = await applicationOf(HistoryDeskApplication);
+
+    expect(assemblyWarningsOf(assembled).map((warning) => warning.code)).toContain(
+      "application.in-memory-execution-history",
+    );
+  });
+
+  it("no executionRecordRetention, or SqliteExecutionHistoryRepository listed: none", async () => {
+    const plain = await applicationOf(NoteLoggedApplication);
+    const listed = await applicationOf(HistoryDeskApplication);
+    const sqlite = assemblyWarningsOf({
+      ...listed,
+      providers: [...listed.providers, SqliteExecutionHistoryRepository],
+    });
+
+    const codes = [...assemblyWarningsOf(plain), ...sqlite].map((warning) => warning.code);
+    expect(codes).not.toContain("application.in-memory-execution-history");
   });
 });
 

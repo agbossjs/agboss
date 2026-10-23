@@ -60,6 +60,8 @@ export interface AppDeps extends AgentExecutionDeps<string> {
   readonly models: readonly string[];
   /** The reply interpreters of its tree's channel roles (#267 PR 3): `app.resume({ reply })`. */
   readonly replies: ReplyReaderParts;
+  /** Where its root executions' history is saved (#401): only when the application keeps it. */
+  readonly executionHistory?: Infrastructure["executionHistory"] | undefined;
   /**
    * Runs `onStop` of the components, waits for `executionsDone` (the running executions), runs
    * `onDestroy`, then closes MCP connections, tracing and the stores it opened.
@@ -167,6 +169,7 @@ export interface WorkflowDepsParts {
   readonly compensation?: CompensationParts;
   /** The run dependencies of the application's other workflows, its children's (#263). */
   readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
+  readonly executionHistory?: Infrastructure["executionHistory"] | undefined;
 }
 
 /** The budgets an application lists, and its name (the key of its application budgets). */
@@ -264,6 +267,7 @@ export async function createWorkflowDeps(
     replies: repliesFor(bundle, config, gateway, components.container),
     ...observedBy(parts.observer, parts.infrastructure.logger, clock, pii.observability),
     ...treeDepsOf(parts.infrastructure.idGenerator, parts),
+    ...(parts.executionHistory === undefined ? {} : { executionHistory: parts.executionHistory }),
     close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),
   };
   if (parts.created === undefined) await startOwnComponents(lifecycle.created, mcp, tracing);

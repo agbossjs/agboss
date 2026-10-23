@@ -27,6 +27,7 @@ import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import type * as CancelRequests from "./cancel-requests.js";
 import type * as UnwindingTakeover from "./unwinding-takeover.js";
 import { isUnwinding } from "../flow/runtime/compensation/unwinding-marks.js";
+import { historyEndOf, historyRestOf, keepExecutionRecord } from "./execution-history.js";
 
 /** Cancel requests (#360), loaded with the first pass. */
 const cancelRequests = (): Promise<typeof CancelRequests> => import("./cancel-requests.js");
@@ -219,10 +220,14 @@ class TreeMover implements TreeMoves {
           await this.announce(ResumeReason.Answered, planned.resume, state);
       } while (planned !== undefined);
       if (result.status === ExecutionStatus.Finished) await this.forget(state);
+      await keepExecutionRecord(deps, state, historyRestOf(result.status));
       // who answered each pause (#267 S107): read once the pauses were taken and withdrawn
       return await withPauseAnswers(result, deps);
     } catch (error) {
-      if (!isHandedOver(error)) await this.forget(state);
+      if (!isHandedOver(error)) {
+        await this.forget(state);
+        await keepExecutionRecord(deps, state, historyEndOf(error));
+      }
       throw error;
     } finally {
       await passEnded(live, deps, state);

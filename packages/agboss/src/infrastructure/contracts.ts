@@ -22,6 +22,10 @@ import {
 } from "./paused-execution.repository.js";
 import { InMemoryRateLimitRepository, RateLimitRepository } from "./rate-limit.repository.js";
 import { InMemoryMeshRequestRepository, MeshRequestRepository } from "./mesh-request.repository.js";
+import {
+  ExecutionHistoryRepository,
+  InMemoryExecutionHistoryRepository,
+} from "./execution-history.repository.js";
 import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
 
 /**
@@ -52,6 +56,7 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [ExecutionTreeRepository, InMemoryExecutionTreeRepository],
   [RateLimitRepository, InMemoryRateLimitRepository],
   [MeshRequestRepository, InMemoryMeshRequestRepository],
+  [ExecutionHistoryRepository, InMemoryExecutionHistoryRepository],
 ]);
 
 /**
@@ -87,6 +92,8 @@ export interface Infrastructure {
   readonly executionTrees: ExecutionTreeRepository;
   readonly rateLimits: RateLimitRepository;
   readonly meshRequests: MeshRequestRepository;
+  /** The kept root executions (#401 PR 1): written only with `executionRecordRetention`. */
+  readonly executionHistory: ExecutionHistoryRepository;
 }
 
 /** The infrastructure from the application's container (a listed class, else the default). */
@@ -103,6 +110,7 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   executionTrees: resolve(ExecutionTreeRepository) as ExecutionTreeRepository,
   rateLimits: resolve(RateLimitRepository) as RateLimitRepository,
   meshRequests: resolve(MeshRequestRepository) as MeshRequestRepository,
+  executionHistory: resolve(ExecutionHistoryRepository) as ExecutionHistoryRepository,
 });
 
 /**

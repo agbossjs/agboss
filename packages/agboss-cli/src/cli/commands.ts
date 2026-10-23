@@ -116,6 +116,21 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
     positionals: "index",
     options: [APPLICATION, text("rag", "<name>", "only this knowledge base (its full name)"), ENV],
   },
+  records: {
+    summary: "export the application's kept execution records as JSON Lines (masked)",
+    usage:
+      "agboss records export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>] [--env <name>] [--application <path>]",
+    positionals: "export",
+    options: [
+      APPLICATION,
+      text("tenant", "<id>", "the tenant whose records to export"),
+      flag("all-tenants", "every tenant's records (instead of --tenant)"),
+      text("out", "<file.jsonl>", "where to write them, one record per line", { required: true }),
+      text("since", "<date>", "records started at or after this ISO 8601 date or time"),
+      text("until", "<date>", "records started before this ISO 8601 date or time"),
+      ENV,
+    ],
+  },
 };
 
 const SCAFFOLD_COMMANDS: Readonly<Record<string, CommandSpec>> = {

@@ -6,6 +6,7 @@ import type { AppDeps } from "./app-deps.js";
 import { cancelledRecordOutcome } from "./live-runs.js";
 import { executionEventAt } from "./run-events.js";
 import { forgetTree } from "./tree-ends.js";
+import { historyEndOf, keepExecutionRecord } from "./execution-history.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 import { undoneTreeEnd, type EndedTreeUndo } from "./tree-unwind.js";
 
@@ -80,6 +81,7 @@ export async function endedWithoutPass(
   const error: Error = ended;
   const isEnded = record !== undefined && (await failedRecord(deps, record, error));
   await forgetTree(parts, state);
+  if (isEnded) await keepExecutionRecord(deps, state, historyEndOf(error));
   if (isEnded) {
     const event = executionEventAt(state, deps);
     await deps.observer.onExecutionError({ ...event, error, compensations: undo.compensations });

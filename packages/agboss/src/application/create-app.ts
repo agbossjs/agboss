@@ -72,7 +72,7 @@ export interface InstanceSeams {
  * when it started (the framework's clock), the chosen environment and the host — and the context
  * classes the application declares.
  */
-function contextsOf(
+export function contextsOf(
   assembled: AssembledApplication,
   options: AppDepsOptions,
   seams: InstanceSeams,
@@ -122,7 +122,8 @@ async function buildWorkflows(
   for (const type of childrenFirst([...bundles.keys()])) {
     const bundle = bundles.get(type);
     if (bundle === undefined) continue;
-    const workflow = await buildApp(bundle, options, { ...parts, childDepsOf });
+    const history = historyOf(assembled, parts.infrastructure);
+    const workflow = await buildApp(bundle, options, { ...parts, ...history, childDepsOf });
     byClass.set(type, workflow.deps);
     built.push(workflow);
   }
@@ -199,6 +200,12 @@ export async function buildApplication(
   const app = composeApp(assembled, workflows, { stop, warnings, health });
   return { app, assembled, workflows, infrastructure, closed: stop.closed, log };
 }
+
+/** The store of the root executions' history, when the application keeps it (#401). */
+const historyOf = (assembled: AssembledApplication, infrastructure: Infrastructure) =>
+  assembled.executionRecordRetention === undefined
+    ? {}
+    : { executionHistory: infrastructure.executionHistory };
 
 /**
  * The assembly warnings (a PII key of the instance only when it made one, S94 — never under

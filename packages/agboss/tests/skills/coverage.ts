@@ -241,6 +241,8 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["WorkflowSettings", "WorkflowDefinition", "IncompatibleResume", "IncompatibleResumeError"],
     ...["ResumeDecision", "NotPausedError", "UnknownPauseError", "createApp", "testWith"],
     ...["Clock", "ApplicationContext", "IdGenerator", "seconds", "hours"],
+    ...["ExecutionHistoryRepository", "SqliteExecutionHistoryRepository", "ExecutionHistoryStatus"],
+    "ExecutionHistoryRecord",
   ],
   "references/11-cli-studio-and-error-catalog.md": [
     ...["GraphRuleError", "RuleCode", "RuleViolation", "FlowSyntaxError", "AGBossError"],
