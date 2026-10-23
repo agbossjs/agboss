@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — join keys for every model component (#395 PR 5b)
+
+- **Added — `modelComponents` in `agboss describe --json`** ([CLI](CLI#describe-268)): model judges
+  (`schemaHash` of their `reply`), guardrails, arbiters, compactions that write summaries, model
+  reply interpreters and model PII detection, each a `ComponentRecord` with its `promptHash` /
+  `schemaHash`; `ComponentKind` gains `Compaction`, `ReplyInterpreter` and `PiiPolicy`.
+- **Changed — stale cassettes cover them** ([Testing](Testing#stale-cassettes-395)): a recording of
+  any of them whose hashes changed is `StaleCassetteError` / `[vcr.stale-cassette]`, re-recorded by
+  `AGBOSS_VCR_MODE=RECORD_STALE npm test`.
+
 ## Unreleased — a self-contained HTML report: `eval run --html` and `eval show` (#397 PR 1)
 
 - **Added — `agboss eval run … --html <file>`** ([Eval suites](Eval-Suites#the-html-report---html-and-agboss-eval-show-397)):

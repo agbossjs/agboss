@@ -394,6 +394,7 @@ each entry of `workflows[]` has:
 | `edges`    | every edge: `from`, `to`, `kind` (`next`, `case`, `route`, `error`, `launch`, `join`, `join-error`), what it `writes` (`value`, `about`, `isCase`), the `error` class of a side path, a quorum group's agents |
 | `onError`  | the `.onError` / `.onJoinError` table: `at`, `error` (the class), `by` (the side path's first node), `kind`                  |
 | `launches` | every launch: `launcher`, `targets`, `isPerItem`, `maxConcurrency`, `maxItems`, its `quorum` (`{ kind, min, max, deadline }` or its `groups`) and its arbiters — each `.acceptedBy(…)` in path order, an `anyOf` as one list — with `decidedBy`, `model` and `promptHash` |
+| `modelComponents` | every component that calls a model but is no node (#395): model judges, guardrails, arbiters, compactions that write summaries, model reply interpreters, PII policies with `detectWithModel` — each `{ name, kind, promptHash, schemaHash }` (`ComponentKind.Judge`, `Guardrail`, `Arbiter`, `Compaction`, `ReplyInterpreter`, `PiiPolicy`); what a VCR cassette compares to find a stale recording ([Testing](Testing#stale-cassettes-395)) |
 | `schemas`  | `dtos` — every DTO on its paths by class name, `{ schemaHash, jsonSchema }`; `tools` — every tool by name, `{ promptHash, schemaHash, input, output }` (JSON Schemas) |
 
 A hash that does not apply is left out (`promptHash` of an action, `schemaHash` of a node that

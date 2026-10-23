@@ -1172,9 +1172,13 @@ against the application before it answers a component:
   the working directory (`node_modules`, `dist`, `.agboss` skipped), `[vcr.stale-cassette]` per
   stale component, exit 3 ([CLI](CLI#run-inspect-evaluate)).
 
-Judges, guardrails, arbiters, compactions, reply interpreters and PII policies are recorded by name
-only (they have no join keys yet): a change of them is not seen, and a request that no longer
-matches is `CassetteMissingError` as before. A **version 1** cassette (recorded before #395) has no
+Every component that calls a model has its join keys (#395 PR 5b; `modelComponents` of `agboss
+describe --json`), so each is checked the same way: a model judge by the `reply` it judges (its
+questions are its code's — a change of them is a request that no longer matches,
+`CassetteMissingError`), a model guardrail by its question, a model arbiter by its prompt and
+criteria, a compaction that writes summaries by its prompt and strategy, a model reply interpreter
+by its instructions and answer, a PII policy that detects with a model by the kinds it asks for. A
+component decided by code calls no model and is never in a cassette. A **version 1** cassette (recorded before #395) has no
 hashes: it still replays, without stale detection, and prints a hint once per run (a Node warning,
 `vcr.v1-cassette`) — re-record it once with `AGBOSS_VCR_MODE=RECORD npm test`; `RECORD_STALE`
 re-records a version 1 cassette whole. A recorded reply keeps its unparsable tool calls
