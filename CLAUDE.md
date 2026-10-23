@@ -140,7 +140,8 @@ ran as `tools.required`, masked as kept, its classes imported; the draft is `eva
 artifacts, `agboss.execution-record` exports, each by its marker (`hub.input-schema`,
 `hub.duplicate-application`) — into the mesh: the applications, the calls between them seen in the
 records (`remote` / `origin`, one per step `idempotencyKey`), each one's health from its records and
-evals, one self-contained page in the eval report's shell; no project, nothing runs; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
+evals, the execution trees across applications stitched by each receiver's `origin` (#401 PR 4; a
+missing receiver a stub), one self-contained page in the eval report's shell; no project, nothing runs; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
 `agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
 (`agboss/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs
