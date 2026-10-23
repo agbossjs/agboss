@@ -54,6 +54,8 @@ export interface McpImportContract {
   readonly tool: string;
   /** The AGBoss application behind the server; `null` for a third-party one (no federation). */
   readonly target: { readonly application: string; readonly expose: string } | null;
+  /** The tools of the application's agents that call it (#398 PR 4). */
+  readonly usedBy: readonly ContractUse[];
   readonly input: ContractDto;
   readonly output: ContractDto;
 }

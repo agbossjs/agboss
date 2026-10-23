@@ -78,6 +78,7 @@ describe("#198 AC3: agboss check runs every key-free validation", () => {
       ["prompts", undefined],
       ["models", "models"],
       ["cassettes", "cassettes"],
+      ["federation", "federation"],
     ]);
   });
 });

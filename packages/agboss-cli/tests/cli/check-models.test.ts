@@ -71,7 +71,7 @@ describe("AC6: agboss check --models", () => {
 
   it("AC6: agboss help lists the check command", () => {
     expect(COMMANDS.check?.usage).toBe(
-      "agboss check [--models] [--cassettes] [--strict] [--profile <name>] [--env <name>] [--application <path>] [--json]",
+      "agboss check [--models] [--cassettes] [--federation <snapshot…>] [--strict] [--profile <name>] [--env <name>] [--application <path>] [--json]",
     );
   });
 });

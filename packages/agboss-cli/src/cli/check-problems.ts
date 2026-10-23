@@ -9,6 +9,12 @@ export interface CheckProblem {
   readonly line?: number;
   readonly code: string;
   readonly message: string;
+  /** `--federation` (#398 PR 4): the consumer's workflows a contract problem touches. */
+  readonly blastRadius?: readonly {
+    readonly application: string;
+    readonly workflow: string;
+    readonly tool: string;
+  }[];
 }
 
 export const problemText = (problem: CheckProblem): string =>

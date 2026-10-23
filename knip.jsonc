@@ -31,6 +31,8 @@
         "tests/flow/fixtures/*.fixture.ts",
         // loaded by path: the eval suites `agboss eval run` and `agboss check` find (#396)
         "tests/**/eval-suites/*.eval-suite.ts",
+        // loaded by path: the applications `agboss check --federation` is tested on (#398 PR 4)
+        "tests/federation/fixtures/*.application.ts",
         // compile-time tests: checked by tsc (the gate's typecheck), not run by Vitest (#272)
         "tests/**/*.test-d.ts",
       ],

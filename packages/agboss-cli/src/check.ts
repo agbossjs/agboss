@@ -5,6 +5,7 @@ import { environmentProblems } from "./cli/check-environment.js";
 import { evalSuiteProblems, type EvalSuitesCheck } from "./cli/check-eval-suites.js";
 import { modelProblemsOf } from "./cli/check-models.js";
 import { cassetteProblems } from "./cli/check-cassettes.js";
+import { federationProblems, requireFederationFlag } from "./cli/check-federation.js";
 import { envOption } from "./cli/environment.js";
 import { assemble, modelProblem, problemText, type CheckProblem } from "./cli/check-problems.js";
 import { checkReportOf, type CheckReport } from "./cli/check-report.js";
@@ -68,6 +69,8 @@ export const CHECKS: readonly ApplicationCheck[] = [
   },
   // the VCR cassettes against the components (#395 PR 4): no test is run, no key needed
   { name: "cassettes", flag: "cassettes", run: cassetteProblems },
+  // the declared contracts against the neighbours' describe --json snapshots (#398 PR 4): no network
+  { name: "federation", flag: "federation", run: federationProblems },
 ];
 
 /** An application whose assembly failed: its suites are not checked. */
@@ -118,13 +121,14 @@ async function reportAndCheck(
 }
 
 /**
- * `agboss check [--models] [--cassettes] [--strict] [--profile <p>] [--env <name>] [--json]` — every workflow of
+ * `agboss check [--models] [--cassettes] [--federation <snapshot…>] [--strict] [--profile <p>] [--env <name>] [--json]` — every workflow of
  * the application; no API key needed. After the assembly it prints the report (#268 AC5): the
  * worst case of one call of each start and, with `--env`, the process variables it needs.
  */
 export const handle: CommandHandler = async (context) => {
   // the project skills (#305) first: an application that does not assemble is when they help most
   const skills = syncCommandSkills(context);
+  requireFederationFlag(context);
   const loaded = await loadCliApplication(context);
   const file = loaded.path.shown;
   // the flow's types (#272): .agboss/types.d.ts written before the checks report; --strict makes

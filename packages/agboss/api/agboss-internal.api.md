@@ -127,6 +127,16 @@ export enum AttemptDivergenceReason {
 }
 
 // @public
+export interface BlastRadiusEntry {
+    // (undocumented)
+    readonly application: string;
+    // (undocumented)
+    readonly tool: string;
+    // (undocumented)
+    readonly workflow: string;
+}
+
+// @public
 export interface BuiltApplication {
     // Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point internal.d.ts
     //
@@ -204,6 +214,9 @@ export function checkCassettes(files: readonly string[], workflows: readonly Cas
 //
 // @public
 export function checkEvalSuite(application: Class, suite: Class): EvalSuiteMeta;
+
+// @public
+export function checkFederation(current: FederationMember, others: readonly FederationMember[]): FederationReport;
 
 // Warning: (ae-forgotten-export) The symbol "ModelProviderDirectory" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ModelCheckOptions" needs to be exported by the entry point internal.d.ts
@@ -667,6 +680,63 @@ export type ExecutionStreamEvent = {
 // @public
 export function failureTaxonomyOf(content: string): EvalFailureTaxonomyRead;
 
+// @public
+export interface FederationMember {
+    // (undocumented)
+    readonly contracts: ContractsSnapshot;
+    // (undocumented)
+    readonly file: string;
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly version: string;
+}
+
+// @public
+export function federationMemberOf(text: string, file: string): SnapshotReading;
+
+// @public
+export interface FederationProblem {
+    // (undocumented)
+    readonly blastRadius: readonly BlastRadiusEntry[];
+    // (undocumented)
+    readonly code: FederationProblemCode;
+    // (undocumented)
+    readonly consumer: string;
+    readonly file: string;
+    readonly isWarning: boolean;
+    // (undocumented)
+    readonly message: string;
+    readonly producer: string;
+}
+
+// @public
+export enum FederationProblemCode {
+    // (undocumented)
+    DuplicateApplication = "federation.duplicate-application",
+    // (undocumented)
+    IncompatibleSchema = "federation.incompatible-schema",
+    // (undocumented)
+    MissingTarget = "federation.missing-target",
+    // (undocumented)
+    SnapshotSchema = "federation.snapshot-schema",
+    // (undocumented)
+    VersionNotBumped = "federation.version-not-bumped"
+}
+
+// @public
+export interface FederationReport {
+    // (undocumented)
+    readonly applications: readonly {
+        readonly name: string;
+        readonly version: string;
+        readonly file: string;
+    }[];
+    readonly contracts: number;
+    // (undocumented)
+    readonly problems: readonly FederationProblem[];
+}
+
 // Warning: (ae-forgotten-export) The symbol "FlowPath" needs to be exported by the entry point internal.d.ts
 //
 // @public
@@ -860,6 +930,15 @@ export function selectedEnvironment(owner: EnvironmentOwner, env: string | undef
 
 // @public
 export const shortVersion: (version: string) => string;
+
+// @public
+export type SnapshotReading = {
+    readonly kind: "member";
+    readonly member: FederationMember;
+} | {
+    readonly kind: "invalid";
+    readonly reason: string;
+};
 
 // @public
 export interface StaleCassette {
@@ -1081,10 +1160,10 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/channels.ts:39:3 - (ae-undocumented) Missing documentation for "isRole".
 // src/describe/channels.ts:44:3 - (ae-undocumented) Missing documentation for "answeredBy".
 // src/describe/channels.ts:49:3 - (ae-undocumented) Missing documentation for "reason".
-// src/describe/contracts-types.ts:63:3 - (ae-undocumented) Missing documentation for "exports".
-// src/describe/contracts-types.ts:64:3 - (ae-undocumented) Missing documentation for "imports".
-// src/describe/contracts-types.ts:65:3 - (ae-undocumented) Missing documentation for "schemas".
-// src/describe/contracts-types.ts:66:51 - (ae-forgotten-export) The symbol "JsonSchema" needs to be exported by the entry point internal.d.ts
+// src/describe/contracts-types.ts:65:3 - (ae-undocumented) Missing documentation for "exports".
+// src/describe/contracts-types.ts:66:3 - (ae-undocumented) Missing documentation for "imports".
+// src/describe/contracts-types.ts:67:3 - (ae-undocumented) Missing documentation for "schemas".
+// src/describe/contracts-types.ts:68:51 - (ae-forgotten-export) The symbol "JsonSchema" needs to be exported by the entry point internal.d.ts
 // src/describe/limits.ts:22:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/describe/limits.ts:25:3 - (ae-undocumented) Missing documentation for "steps".
 // src/describe/limits.ts:28:3 - (ae-undocumented) Missing documentation for "worstCases".
@@ -1131,6 +1210,24 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/eval/golden.ts:36:1 - (ae-undocumented) Missing documentation for "saveGolden".
 // src/eval/run/divergence.ts:31:3 - (ae-undocumented) Missing documentation for "visitNumber".
 // src/eval/run/divergence.ts:34:3 - (ae-undocumented) Missing documentation for "reason".
+// src/federation/federation-types.ts:7:3 - (ae-undocumented) Missing documentation for "name".
+// src/federation/federation-types.ts:8:3 - (ae-undocumented) Missing documentation for "version".
+// src/federation/federation-types.ts:9:3 - (ae-undocumented) Missing documentation for "file".
+// src/federation/federation-types.ts:10:3 - (ae-undocumented) Missing documentation for "contracts".
+// src/federation/federation-types.ts:15:3 - (ae-undocumented) Missing documentation for "IncompatibleSchema".
+// src/federation/federation-types.ts:16:3 - (ae-undocumented) Missing documentation for "MissingTarget".
+// src/federation/federation-types.ts:17:3 - (ae-undocumented) Missing documentation for "DuplicateApplication".
+// src/federation/federation-types.ts:18:3 - (ae-undocumented) Missing documentation for "SnapshotSchema".
+// src/federation/federation-types.ts:19:3 - (ae-undocumented) Missing documentation for "VersionNotBumped".
+// src/federation/federation-types.ts:24:3 - (ae-undocumented) Missing documentation for "application".
+// src/federation/federation-types.ts:25:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/federation/federation-types.ts:26:3 - (ae-undocumented) Missing documentation for "tool".
+// src/federation/federation-types.ts:31:3 - (ae-undocumented) Missing documentation for "code".
+// src/federation/federation-types.ts:34:3 - (ae-undocumented) Missing documentation for "consumer".
+// src/federation/federation-types.ts:35:3 - (ae-undocumented) Missing documentation for "message".
+// src/federation/federation-types.ts:38:3 - (ae-undocumented) Missing documentation for "blastRadius".
+// src/federation/federation-types.ts:45:3 - (ae-undocumented) Missing documentation for "applications".
+// src/federation/federation-types.ts:52:3 - (ae-undocumented) Missing documentation for "problems".
 // src/finops/usage.ts:66:3 - (ae-undocumented) Missing documentation for "caller".
 // src/finops/usage.ts:67:3 - (ae-undocumented) Missing documentation for "category".
 // src/finops/usage.ts:68:3 - (ae-undocumented) Missing documentation for "model".
