@@ -1,7 +1,8 @@
 import { resolveTools, type AssembledWorkflow, type WorkflowServices } from "../workflow.js";
-import { inputJsonSchema, type JsonSchema } from "../dto/schema.js";
+import type { JsonSchema } from "../dto/schema.js";
 import { NodeKind } from "../flow/ast.js";
 import { dtoJsonSchemaOf, dtoSchemaHashOf } from "../flow/runtime/join-keys.js";
+import { toolKeysOf } from "../flow/runtime/tool-keys.js";
 import { configSnapshot, type ChildSnapshotSources } from "../run/versions.js";
 import { versionOf } from "../terns/index.js";
 import { defaultMaxResultSizeOf, type AnyTool } from "../tools/index.js";
@@ -59,11 +60,10 @@ export interface WorkflowSnapshot {
 }
 
 const toolSchemaOf = (tool: AnyTool, maxResultSize: number): ToolSchemaSnapshot => {
-  const input = inputJsonSchema(tool.input);
-  const output = inputJsonSchema(tool.output);
+  const { record, input, output } = toolKeysOf(tool);
   return {
-    promptHash: versionOf(tool.description),
-    schemaHash: versionOf({ input, output }),
+    promptHash: record.promptHash ?? "",
+    schemaHash: record.schemaHash ?? "",
     maxResultSize: tool.maxResultSize ?? maxResultSize,
     input,
     output,

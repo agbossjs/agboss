@@ -19,7 +19,12 @@ export interface ToolInvocationContext {
 /** Tool failures are values, not exceptions: the model sees them and can recover. */
 export type ToolOutput<TOutput> =
   | { readonly kind: "ok"; readonly value: TOutput }
-  | { readonly kind: "error"; readonly message: string };
+  | {
+      readonly kind: "error";
+      readonly message: string;
+      /** What the tool threw (a timeout: `ToolTimeoutError`); absent for a failed input or output check. */
+      readonly cause?: unknown;
+    };
 
 /** One shape for every tool — own functions and MCP facades alike. */
 export interface Tool<TName extends string = string, TInput = unknown, TOutput = unknown> {

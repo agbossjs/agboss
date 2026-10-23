@@ -55,7 +55,8 @@ const describeIssues = (error: z.ZodError): string =>
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-const failure = (message: string): ToolOutput<never> => ({ kind: "error", message });
+const failure = (message: string, cause?: unknown): ToolOutput<never> =>
+  cause === undefined ? { kind: "error", message } : { kind: "error", message, cause };
 
 /** Rejects when the signal aborts, even if the work ignores the signal. */
 function untilAborted<TValue>(work: Promise<TValue>, signal: AbortSignal): Promise<TValue> {
@@ -129,7 +130,7 @@ export function defineTool<TName extends string, TInput, TOutput>(
       ) {
         throw error;
       }
-      return failure(errorMessage(error));
+      return failure(errorMessage(error), error);
     }
     const output = definition.output.safeParse(produced);
     if (!output.success) return failure(`invalid output: ${describeIssues(output.error)}`);

@@ -3,7 +3,7 @@ import { errorRecordOf } from "../../core/error-record.js";
 import { extractRunContext } from "../../core/run-context.js";
 import type { FlowEdge } from "../analyse/flow-graph.js";
 import { runInFrame } from "../context/frame.js";
-import { errorHandlerOf, type RuntimeNode } from "./graph-model.js";
+import { errorHandlerOf, type RuntimeGraph, type RuntimeNode } from "./graph-model.js";
 import { checkVisit, isWorkingNode, type ExecutionLimits } from "./limits.js";
 import {
   recordsOf,
@@ -30,8 +30,8 @@ import {
 } from "./step-frame.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import { visitWrite, type VisitWrite } from "./visit-write.js";
+import { succeededStepsOf, visitStepsOf, type VisitAt, type VisitSite } from "./visit-step.js";
 import type { ExecutionObserverManager } from "../../core/observer-manager.js";
-import type { RuntimeGraph } from "./graph-model.js";
 import { launchEdgeOf, launchFor, launchTicketOf, nextOfLaunch } from "./launch/launch-exit.js";
 import { reportTruncation } from "./launch/launch-report.js";
 import type { LaunchTicket } from "./launch/records.js";
@@ -131,7 +131,7 @@ function succeeded(
   state: ExecutionStateType,
   outcome: NodeOutcome,
   deps: VisitDeps,
-  at: { readonly executionId: string; readonly now: Date },
+  at: VisitAt,
 ): Succeeded {
   const launch = launchFor(node, outcome);
   const exit = launch === undefined ? exitOf(node, state, outcome, deps) : launchEdgeOf(launch);
@@ -146,6 +146,7 @@ function succeeded(
     ...(launched === undefined ? {} : { launch: launched.ticket }),
     ...recordsOf(outcome),
     ...(outcome.finish === undefined ? {} : { finish: node.id, output: outcome.finish.output }),
+    stepRecords: succeededStepsOf({ ...at, node, state, endedAt: at.now }, outcome),
   };
   return { update, write, ...(launched === undefined ? {} : { launched }) };
 }
@@ -153,12 +154,12 @@ function succeeded(
 /** A failure the node's `.onError` takes: kept as a record, the side path next; else rethrown. */
 function caught(
   deps: VisitDeps,
-  node: RuntimeNode,
+  visit: VisitSite,
   error: unknown,
-  ranAsStep: boolean,
-  reported: Reported,
+  { ranAsStep, reported }: { readonly ranAsStep: boolean; readonly reported: Reported },
   signal: AbortSignal | undefined,
 ): ExecutionStateUpdate {
+  const { node } = visit;
   if (isGraphInterrupt(error)) throw error;
   // a lost lease or an interruption is no failure of the step: another instance goes on (#265)
   const handedOver = handedOverReason(signal);
@@ -166,11 +167,13 @@ function caught(
   const record = errorRecordOf(error);
   const handler = errorHandlerOf(node.exits, record);
   if (handler === undefined) throw error;
+  const usage = [...unrecordedSpendOf(error), ...reported.usage];
   return {
     ...visited(node, ranAsStep),
     lastError: record,
     next: handler.to,
-    usage: [...unrecordedSpendOf(error), ...reported.usage],
+    usage,
+    stepRecords: visitStepsOf(visit, { usage, error: record }),
     children: [...reported.children],
     piiTokens: reported.piiTokens,
     handledErrors: [handledErrorOf(deps, record, node.id, handler.to)],
@@ -193,7 +196,8 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
     };
     const { clock } = extractRunContext(config, state.runId);
     // an undoable action, its committer, its undo or a finish (#340): what it writes of them
-    const undoables = { node, entries: state.compensations, frame, startedAt: clock.now() };
+    const startedAt = clock.now();
+    const undoables = { node, entries: state.compensations, frame, startedAt };
     const parts = { parts: deps.compensation };
     try {
       const slot = { slots: deps.slots, graph: deps.graph, node, state, config, ...frame };
@@ -206,7 +210,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
         return runInFrame(frame, () => runner(state, config));
       });
       const spent = { ...outcome, usage: [...(outcome.usage ?? []), ...reported.usage] };
-      const at = { executionId: frame.execution.executionId, now: clock.now() };
+      const at = { executionId: frame.execution.executionId, now: clock.now(), frame, startedAt };
       const { update, write, launched } = succeeded(node, state, spent, deps, at);
       const outdatedSoFar = [...state.outdatedValues, ...write.outdated];
       const site = { observer: deps.observer, config, ...frame, outdatedSoFar };
@@ -219,7 +223,8 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       const compensations = await compensationsOfVisit(after);
       return { ...update, children: [...reported.children], ...compensations, ...kept };
     } catch (error) {
-      const handled = caught(deps, node, error, ranAsStep, reported, config?.signal);
+      const visit = { frame, node, state, startedAt, endedAt: clock.now() };
+      const handled = caught(deps, visit, error, { ranAsStep, reported }, config?.signal);
       const failed = { ...undoables, ...parts, scope: state.scope, endedAt: clock.now() };
       const own = await compensationsOfVisit({ ...failed, failure: error });
       // a failed child's undone entries first (#340): the visit's own close after them

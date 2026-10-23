@@ -13,6 +13,7 @@ import {
   DtoValidationError,
   StepFailedError,
   ToolBlockedError,
+  ToolCallStatus,
 } from "../../src/index.js";
 import { callTool, replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import type { ModelScript } from "../../src/testing/model-script.js";
@@ -96,6 +97,14 @@ describe("#384: beforeToolCall decides", () => {
     expect(toolRuns).toEqual([]);
     expect(toolMessageOf(mockLlm(ScoutAgent))).toBe('City "Eilat" is not allowed for this tenant.');
     expect(byOf()).toEqual(["audit:before job-search-tool", "scope:before job-search-tool"]);
+    // the trajectory keeps it (#395): replied, the message as its output
+    expect(result.toolCalls).toMatchObject([
+      {
+        status: ToolCallStatus.Replied,
+        input: { city: "Eilat" },
+        output: 'City "Eilat" is not allowed for this tenant.',
+      },
+    ]);
   });
 
   test("block(): the tool does not run, the step fails with ToolBlockedError and the loop's spend", async ({

@@ -45,6 +45,15 @@ export const ownUsageOf = (
   identity: ChildIdentityRecord,
 ): readonly UsageRecord[] => state?.usage.slice(identity.inheritedUsage) ?? [];
 
+/** What a child's state holds of its own: its path, tool calls (#395) and children. */
+const ownRecordsOf = (
+  state: ExecutionStateType | undefined,
+): Pick<EndedChildRecord, "path" | "toolCalls" | "children"> => ({
+  path: state?.path ?? [],
+  toolCalls: state?.toolCalls ?? [],
+  children: state?.children ?? [],
+});
+
 /** The nested record of a child that ended. */
 export function childRecordOf(
   child: EndedChild,
@@ -72,9 +81,8 @@ export function childRecordOf(
       ? { finish: recordOfNode(child.records, state.finish), output: state.output }
       : {}),
     ...(end.error === undefined ? {} : { error: errorRecordOf(end.error) }),
-    path: state?.path ?? [],
     spend: buildCostReport(end.usage),
-    children: state?.children ?? [],
+    ...ownRecordsOf(state),
   };
 }
 

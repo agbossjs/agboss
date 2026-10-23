@@ -8,9 +8,8 @@ import { readInput, type NodeValue } from "../scope.js";
 import { boundaryInputOf } from "./boundary-input.js";
 import { isLastLevel } from "../soft-stop.js";
 import { GuardrailSide } from "../../../components/policy-decorators.js";
-import { runGuardrails } from "../../../guardrails/runtime.js";
+import { runGuardrails, type GuardrailsPassed } from "../../../guardrails/runtime.js";
 import { maskedModelText } from "../../../pii/model-boundary.js";
-import type { UsageRecord } from "../../../finops/usage.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
 import type { LoopPii, LoopResult } from "../../../graph/agent-loop/runner.js";
 
@@ -30,16 +29,17 @@ async function guardedAnswer(
   result: LoopResult,
   pii: { readonly loop: LoopPii; readonly tokens: PiiTokenMap },
   deps: GraphDeps<string>,
-): Promise<readonly UsageRecord[]> {
+): Promise<GuardrailsPassed> {
   const guardrails = deps.guardrails?.outputOf(name) ?? [];
-  if (guardrails.length === 0) return [];
+  if (guardrails.length === 0) return { usage: [], decisions: [] };
   const set = deps.pii?.policiesOf(name).withValues(pii.loop.values).withFieldKey(pii.loop.key);
   const masked =
     set === undefined
       ? { text: result.reply, usage: [] }
       : await maskedModelText(set, result.reply, pii.tokens);
   const checked = { text: masked.text, element: name, side: GuardrailSide.Output };
-  return [...masked.usage, ...(await runGuardrails(guardrails, checked, deps.observer))];
+  const passed = await runGuardrails(guardrails, checked, deps.observer);
+  return { usage: [...masked.usage, ...passed.usage], decisions: passed.decisions };
 }
 
 /**
@@ -72,7 +72,10 @@ export function agentRunner(
     const value: NodeValue = result.answer ?? { value: { text: result.reply } };
     await reportNodeEvent((base) => deps.observer?.onAgentEnd({ ...base, name, update: value }));
     const read = readInput(deps.graph, node, state).read;
-    const { approvals, piiTokens } = result;
-    return { value, read, usage: [...result.usage, ...guarded], approvals, piiTokens };
+    const { approvals, piiTokens, toolCalls, judgeVerdicts } = result;
+    const usage = [...result.usage, ...guarded.usage];
+    const guardrailDecisions = [...result.guardrailDecisions, ...guarded.decisions];
+    const records = { toolCalls, judgeVerdicts, guardrailDecisions };
+    return { value, read, usage, approvals, piiTokens, ...records };
   };
 }

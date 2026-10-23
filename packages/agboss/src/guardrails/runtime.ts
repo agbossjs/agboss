@@ -29,6 +29,7 @@ import {
   type LoadedModelGuardrail,
 } from "./assembly.js";
 import { CODE_GUARDRAIL_THRESHOLD, codeGuardrailDecision } from "./code-guardrail.js";
+import { guardrailDecisionOf, type GuardrailDecisionRecord } from "../flow/runtime/step-records.js";
 
 /**
  * Guardrails at run time (#120): each one a yes / no decision on its own model — a decision model
@@ -176,18 +177,26 @@ export async function checkGuardrail(
   return update;
 }
 
+/** Guardrails that all passed: their spend and decisions (#395 C3). */
+export interface GuardrailsPassed {
+  readonly usage: readonly UsageRecord[];
+  readonly decisions: readonly GuardrailDecisionRecord[];
+}
+
 /**
- * The guardrails on one text, in order: their spend when every one passes; the first that blocks
+ * The guardrails on one text, in order: their spend and decisions when every one passes; the first that blocks
  * fails the execution with `GuardrailBlockedError` (its refusal, its spend so far).
  */
 export async function runGuardrails(
   guardrails: readonly RuntimeGuardrail[],
   checked: GuardedText,
   observer?: ExecutionObserverManager,
-): Promise<readonly UsageRecord[]> {
+): Promise<GuardrailsPassed> {
   const spent: UsageRecord[] = [];
+  const decisions: GuardrailDecisionRecord[] = [];
   for (const runtime of guardrails) {
     const outcome = await checkGuardrail(runtime, checked, spent, observer);
+    decisions.push(guardrailDecisionOf(runtime.guardrail.name, checked.side, outcome));
     if (!outcome.isBlocked) continue;
     const { guardrail } = runtime;
     const { name } = guardrail;
@@ -198,5 +207,5 @@ export async function runGuardrails(
       threshold,
     });
   }
-  return spent;
+  return { usage: spent, decisions };
 }

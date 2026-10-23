@@ -1,4 +1,6 @@
 import type { CompensationEntry } from "../flow/compensation.js";
+import type { ToolCallRecord } from "../flow/runtime/tool-calls.js";
+import type { ExecutionStepRecord } from "../flow/runtime/step-records.js";
 import type { LaunchRecord } from "../flow/runtime/launch/records.js";
 import type { EndedChildRecord, HandledErrorRecord } from "../flow/runtime/child-records.js";
 import type { ExecutionStatus } from "../app/types.js";
@@ -67,6 +69,10 @@ export interface ExecutionData {
   readonly handledErrors?: readonly HandledErrorRecord[];
   /** Its undoable actions (#340); absent in a run stored before them. */
   readonly compensations?: readonly CompensationEntry[];
+  /** Its agents' tool calls (#395); absent in a run stored before them. */
+  readonly toolCalls?: readonly ToolCallRecord[];
+  /** One record per visit (#395 C3); absent in a run stored before them. */
+  readonly steps?: readonly ExecutionStepRecord[];
 }
 
 /** How one execution (or its resume) ended for the app. Failures are thrown, not returned. */

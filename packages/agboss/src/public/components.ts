@@ -75,6 +75,7 @@ export {
   type JudgeHandler,
   type JudgeHandlerClass,
   type JudgeInput,
+  type JudgedReply,
   type JudgeInputOf,
   type JudgeMeta,
   type JudgeMetrics,

@@ -16,6 +16,8 @@ import type { OutdatedValueRecord, ScopeRecords } from "./records.js";
 import { mergeTokens, type PiiTokenMap } from "../../pii/tokens.js";
 import type { EndedChildRecord, ChildIdentityRecord, HandledErrorRecord } from "./child-records.js";
 import { mergeCompensations, type CompensationEntry } from "../compensation.js";
+import type { ToolCallRecord } from "./tool-calls.js";
+import type { ExecutionStepRecord } from "./step-records.js";
 
 /**
  * The state of one v2 execution (#272 → Runtime): the path scope (one record per slot; current values
@@ -100,6 +102,10 @@ export const ExecutionState = Annotation.Root({
   launches: Annotation<LaunchRecord[]>({ reducer: append, default: () => [] }),
   /** The approval decisions on tool calls in this execution. */
   approvals: Annotation<ApprovalRecord[]>({ reducer: append, default: () => [] }),
+  /** Its agents' tool calls (#395), in the order their visits ended, each visit's in call order. */
+  toolCalls: Annotation<ToolCallRecord[]>({ reducer: append, default: () => [] }),
+  /** One record per visit of a node (#395 C3), in the order the visits ended (`record.steps`). */
+  stepRecords: Annotation<ExecutionStepRecord[]>({ reducer: append, default: () => [] }),
   /**
    * The PII token map (#120 S38): token → value of every `replaceWithToken()` the model boundary
    * made — tokens are deterministic, so branches merge by key; kept by a pause, a resume and recovery.

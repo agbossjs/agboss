@@ -10,6 +10,8 @@ import type { ApprovalRecord } from "../../pause/index.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { CompensationEntry } from "../compensation.js";
 import type { NodeValue } from "./scope.js";
+import type { ToolCallRecord } from "./tool-calls.js";
+import type { GuardrailDecisionRecord, JudgeVerdictRecord } from "./step-records.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 
 /**
@@ -31,6 +33,11 @@ export interface NodeOutcome {
   readonly approvals?: readonly ApprovalRecord[];
   /** The PII tokens its model boundary made (#120): added to the execution's by key. */
   readonly piiTokens?: PiiTokenMap;
+  /** An agent's tool calls in call order (#395). */
+  readonly toolCalls?: readonly ToolCallRecord[];
+  /** An agent's judges' verdicts; an agent's or a model router's guardrails' decisions (#395 C3). */
+  readonly judgeVerdicts?: readonly JudgeVerdictRecord[];
+  readonly guardrailDecisions?: readonly GuardrailDecisionRecord[];
 }
 
 /** Runs one node: an agent's loop, a router's decision, an action's or a finish's handler, … */
@@ -45,17 +52,19 @@ export type GraphNode = (
   config?: RunnableConfig,
 ) => Promise<ExecutionStateUpdate>;
 
-/** What a visit adds to the execution's appended channels: its spend, decisions and PII tokens. */
+/** What a visit adds to the execution's appended channels: its spend, decisions, PII tokens and tool calls. */
 export interface VisitRecords {
   readonly usage: UsageRecord[];
   readonly approvals: ApprovalRecord[];
   readonly piiTokens: PiiTokenMap;
+  readonly toolCalls: ToolCallRecord[];
 }
 
 export const recordsOf = (outcome: NodeOutcome): VisitRecords => ({
   usage: [...(outcome.usage ?? [])],
   approvals: [...(outcome.approvals ?? [])],
   piiTokens: outcome.piiTokens ?? {},
+  toolCalls: [...(outcome.toolCalls ?? [])],
 });
 
 /** Spend a failure carries that the execution's state does not hold yet. */

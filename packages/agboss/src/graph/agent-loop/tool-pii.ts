@@ -40,15 +40,24 @@ async function blockedIn(
   return { blocked, usage };
 }
 
+/** What refuses a call before it runs: the text the model reads and the error behind it. */
+export interface ArgumentsRefusal {
+  readonly content?: string;
+  readonly refusal?: Error;
+  readonly usage: readonly UsageRecord[];
+}
+
 /** The refusal of a call whose arguments hold a blocked kind; none when it may run. */
 export async function argumentsRefusal(
   set: PiiPolicySet | undefined,
   args: Readonly<Record<string, unknown>>,
-): Promise<{ readonly content?: string; readonly usage: readonly UsageRecord[] }> {
+): Promise<ArgumentsRefusal> {
   if (set === undefined || set.isEmpty) return { usage: [] };
   const { blocked, usage } = await blockedIn(set, args, {});
   const refused = await set.refusalError(blocked, usage);
-  return refused === undefined ? { usage } : { content: refusedCall(refused.refusal), usage };
+  return refused === undefined
+    ? { usage }
+    : { content: refusedCall(refused.refusal), refusal: refused, usage };
 }
 
 /** A tool's result as the loop keeps it, its masked form and the tokens it made. */
@@ -59,6 +68,8 @@ export interface ClosedResult {
   readonly usage: readonly UsageRecord[];
   /** Whether the rendered result was cut at its `maxResultSize` (#336). */
   readonly isTruncated: boolean;
+  /** The PII refusal of the result (#120), when a block rule's kind was in it. */
+  readonly refusal?: Error;
 }
 
 /** The rendered result within its bound (#336), cut before any masking reads it. */
@@ -97,7 +108,13 @@ export async function closedResult(
   const { masked, usage } = await set.mask(kept, fields.tokens, DetectionMode.WithModel);
   const refused = await set.refusalError(masked.blocked, usage);
   if (refused !== undefined)
-    return { ...none, content: refusedCall(refused.refusal), usage, isTruncated };
+    return {
+      ...none,
+      content: refusedCall(refused.refusal),
+      usage,
+      isTruncated,
+      refusal: refused,
+    };
   return {
     content,
     piiTokens: { ...fields.tokens, ...masked.tokens },

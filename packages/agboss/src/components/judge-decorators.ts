@@ -1,6 +1,7 @@
 import type { BaseMessageLike } from "@langchain/core/messages";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../llm/decisions.js";
 import type { DtoClass } from "../dto/types.js";
+import type { ToolCallRecord } from "../flow/runtime/tool-calls.js";
 import type { ListWrapper, OneOfWrapper, ValueOf, VariantOf } from "../flow/dto-wrappers.js";
 import { DecidedBy } from "../flow/decorators/router.js";
 import { recordComponent } from "./metadata.js";
@@ -82,14 +83,20 @@ export abstract class JudgeModel {
  * validated, a value of the judge's `reply` (`{ text }` for a text agent); `variant` — the class it
  * validated as (#262 S125), the class of the answer tool the agent used, never guessed from the
  * answer's shape; `task` — the run's task (the agent's input message); `attempt` — retries so far,
- * 0 for the agent's first reply.
+ * 0 for the agent's first reply; `toolCalls` — the agent's tool calls in this visit, every attempt's,
+ * in call order (#395: `toolCallsOf(Tool, toolCalls)` types one tool's), with real values.
  *
  * For a `oneOf(A, B)` reply a discriminated union on `variant`: `isVariant(input, A)` narrows
  * `reply` to `A`. A single DTO, `listOf(XDto)` or `PlainTextDto` judge has `variant` as that one
  * class; a `listOf(oneOf(A, B))` judge reads `reply: readonly VariantOf<A | B>[]`, each item with its
  * own `variant`, and has no `variant` of its own.
  */
-export type JudgeInput<TReply> = TReply extends readonly VariantOf<unknown>[]
+export type JudgeInput<TReply> = JudgedReply<TReply> & {
+  readonly toolCalls: readonly ToolCallRecord[];
+};
+
+/** What a judge reads of the reply itself, in the shape of its `reply` (`JudgeInput` without the trajectory). */
+export type JudgedReply<TReply> = TReply extends readonly VariantOf<unknown>[]
   ? { readonly reply: TReply; readonly task: string; readonly attempt: number }
   : TReply extends readonly (infer TItem)[]
     ? {

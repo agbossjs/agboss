@@ -3,12 +3,13 @@ import { isGraphInterrupt } from "@langchain/langgraph";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { runInFrame } from "../../context/frame.js";
+import { visitStepsOf, visitTimerOf, type VisitSite } from "../visit-step.js";
 import { compensationsOfBranch } from "../../compensation.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import { checkVisit, isWorkingNode } from "../limits.js";
 import { recordsOf, type GraphNode, type NodeOutcome, type NodeRunner } from "../node-runner.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
-import { startedVersionOf } from "../step-frame.js";
+import { inTreeSlot, startedVersionOf } from "../step-frame.js";
 import type { VisitDeps } from "../visit.js";
 import { unrecordedSpendOf } from "../node-runner.js";
 import {
@@ -33,7 +34,6 @@ import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./q
 import { BranchStatus, type BranchTicket } from "./records.js";
 import { launchPausesOf, withdrawLaunchPauses } from "./withdrawn-pauses.js";
 import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
-import { inTreeSlot } from "../step-frame.js";
 import { branchFrameOf, branchVisitOf } from "./branch-view.js";
 import type { EndedChildRecord } from "../child-records.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
@@ -97,13 +97,16 @@ function answeredEnd(
   outcome: NodeOutcome,
   marked: MarkedAnswer | undefined,
   compensations: ExecutionStateUpdate,
+  site: VisitSite,
 ): BranchEnd {
   const arbiters = marked?.usage ?? [];
   const usage = [...(outcome.usage ?? []), ...arbiters, ...run.services];
   // its arbiters' decisions counted as they end (#338); its node counted its own calls
   run.deps.limits.budgets.tally(arbiters);
   run.live.spent.push(...usage);
-  const update = { ...branchVisitOf(run), ...recordsOf(outcome), usage, ...compensations };
+  const stepRecords = visitStepsOf(site, { outcome, usage }); // #395 C3
+  const visited = { ...branchVisitOf(run), ...recordsOf(outcome) };
+  const update = { ...visited, usage, ...compensations, stepRecords };
   // a quorum decided while its arbiters checked the answer: cancelled, its spend kept (#279 AC12)
   if (marked !== undefined && marked.mark === undefined)
     return { status: BranchStatus.Cancelled, read: outcome.read, update };
@@ -121,6 +124,7 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   const { nodeId } = ticket;
   const view = branchStateOf(run.state, run.owner.launch, ticket, live.spent);
   const { config, frame, signal, budgetStop } = branchFrameOf(run, view);
+  const visitEnded = visitTimerOf(config, run.state.runId);
   if (budgetStop !== undefined) run.budgetStop = budgetStop;
   const arbiterDeps = arbiterDepsFor({ ...deps, live, view, services: run.services, nodeId });
   const arbiters = { launch: run.owner.launch, deps: arbiterDeps };
@@ -148,7 +152,7 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   // an undoable action's branch opens its entry as it ends (#340): a failed join undoes it
   const branch = { launchId: run.owner.ticket.launchId, value: outcome.value };
   const opened = await compensationsOfBranch({ node, view, frame, config, branch, deps });
-  return answeredEnd(run, outcome, marked, opened);
+  return answeredEnd(run, outcome, marked, opened, visitEnded({ frame, node, state: view }));
 }
 
 /**

@@ -6,6 +6,11 @@ import type { ApprovalRecord } from "../../pause/index.js";
 import type { AgentLoopStateType } from "./state.js";
 import type { SensitiveValue } from "../../pii/policy-set.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
+import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
+import type {
+  GuardrailDecisionRecord,
+  JudgeVerdictRecord,
+} from "../../flow/runtime/step-records.js";
 
 /**
  * What of PII an agent's loop is handed: the execution's tokens and its sensitive values (#120),
@@ -47,6 +52,10 @@ export function loopInputOf(
     move: null,
     results: {},
     decisions: {},
+    callRecords: {},
+    trajectory: [],
+    judgeVerdicts: [],
+    guardrailDecisions: [],
     modelCalls: 0,
     toolCalls: 0,
     reply: null,
@@ -70,6 +79,11 @@ export interface LoopResult {
   readonly approvals: readonly ApprovalRecord[];
   /** Every PII token of the loop (merged by key into the execution's). */
   readonly piiTokens: PiiTokenMap;
+  /** Its tool calls in call order (#395). */
+  readonly toolCalls: readonly ToolCallRecord[];
+  /** Its judges' verdicts and its input guardrails' decisions (#395 C3). */
+  readonly judgeVerdicts: readonly JudgeVerdictRecord[];
+  readonly guardrailDecisions: readonly GuardrailDecisionRecord[];
 }
 
 export const loopResultOf = (after: AgentLoopStateType): LoopResult => ({
@@ -78,4 +92,7 @@ export const loopResultOf = (after: AgentLoopStateType): LoopResult => ({
   usage: after.usage.slice(after.from.usage),
   approvals: after.approvals.slice(after.from.approvals),
   piiTokens: after.piiTokens,
+  toolCalls: after.trajectory,
+  judgeVerdicts: after.judgeVerdicts,
+  guardrailDecisions: after.guardrailDecisions,
 });

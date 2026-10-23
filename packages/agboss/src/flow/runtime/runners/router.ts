@@ -13,7 +13,7 @@ import { reportNodeEvent } from "../../observers/execution-event.js";
 import { maskedModelText, type MaskedModelText } from "../../../pii/model-boundary.js";
 import { boundaryInputOf } from "./boundary-input.js";
 import { GuardrailSide } from "../../../components/policy-decorators.js";
-import { runGuardrails } from "../../../guardrails/runtime.js";
+import { type GuardrailsPassed, runGuardrails } from "../../../guardrails/runtime.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import type { PiiPolicySet } from "../../../pii/policy-set.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
@@ -74,14 +74,14 @@ async function maskedInputOf(
   return { ...masked, input, tokens: { ...boundary.pii.tokens, ...masked.tokens } };
 }
 
-/** The router's input guardrails (#120) on its masked input message: their spend. */
+/** The router's input guardrails (#120) on its masked input message: their spend and decisions. */
 function guardedInput(
   node: RuntimeNode,
   masked: MaskedRouterInput,
   deps: GraphDeps<string>,
-): Promise<readonly UsageRecord[]> {
+): Promise<GuardrailsPassed> {
   const guardrails = deps.guardrails?.inputOf(node.id) ?? [];
-  if (guardrails.length === 0) return Promise.resolve([]);
+  if (guardrails.length === 0) return Promise.resolve({ usage: [], decisions: [] });
   const checked = { text: masked.input, element: node.id, side: GuardrailSide.Input };
   return runGuardrails(guardrails, checked, deps.observer);
 }
@@ -121,7 +121,11 @@ export function routerRunner(
     const name = node.id;
     const isGuarded = (deps.guardrails?.inputOf(node.id) ?? []).length > 0;
     const masked = await maskedInputOf(node, state, deps, isGuarded);
-    const guarded = await guardedInput(node, masked, deps);
+    const { usage: guarded, decisions: guardrailDecisions } = await guardedInput(
+      node,
+      masked,
+      deps,
+    );
     const request = requestOf(router, masked.text);
     const input = masked.text;
     const piiTokens = masked.tokens;
@@ -134,7 +138,7 @@ export function routerRunner(
       const update = { route: launch.launch.join(", "), reason: launch.reason };
       await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
       const usage = [...masked.usage, ...guarded, ...launch.usage];
-      return { launch: launch.launch, read, usage, piiTokens };
+      return { launch: launch.launch, read, usage, piiTokens, guardrailDecisions };
     }
     const outcome = await engine.route(shownRequest(node, request, deps));
     if (outcome.kind === "failed")
@@ -147,6 +151,6 @@ export function routerRunner(
       ...guarded,
       ...(outcome.usage === undefined ? [] : [outcome.usage]),
     ];
-    return { route: next, read, usage, piiTokens };
+    return { route: next, read, usage, piiTokens, guardrailDecisions };
   };
 }

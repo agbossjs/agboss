@@ -121,6 +121,8 @@ describe("AC12: the app's parts", () => {
       // read from the tree's pause records once the pass ended (#267 S107)
       pauses: [],
       compensations: [],
+      toolCalls: [],
+      steps: [],
     });
   });
 

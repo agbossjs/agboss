@@ -55,9 +55,11 @@ describe("agent-loop coverage", () => {
   it("tools-node tool throws", async () => {
     const tool = {
       name: "t1",
+      description: "a tool",
       channel: "c1",
       timeout: seconds(1),
       input: z.unknown(),
+      output: z.unknown(),
       invoke: async () => {
         throw new Error("some error");
       },
@@ -76,9 +78,11 @@ describe("agent-loop coverage", () => {
   it("tools-node tool throws non-Error object", async () => {
     const tool = {
       name: "t1",
+      description: "a tool",
       channel: "c1",
       timeout: seconds(1),
       input: z.unknown(),
+      output: z.unknown(),
       invoke: async () => {
         // eslint-disable-next-line @typescript-eslint/only-throw-error
         throw "some string error";

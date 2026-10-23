@@ -18,6 +18,21 @@ export const rejectionMessage = (by: string, reason: string | undefined): string
 export const unknownToolMessage = (tool: string): string =>
   `Tool error: there is no tool "${tool}"`;
 
+/**
+ * What the model reads when the arguments of its calls were no JSON (#395: a truncated call) — one
+ * line per call, none of them ran.
+ */
+export const invalidArgumentsMessage = (
+  calls: readonly { readonly tool: string; readonly problem: string }[],
+): string =>
+  [
+    "Tool error: these calls were not run, their arguments are not valid JSON — call them again with complete JSON arguments:",
+    ...calls.map((call) => `- ${call.tool}: ${call.problem}`),
+  ].join("\n");
+
+/** Why a model's tool call could not be read when its provider says nothing. */
+export const UNREADABLE_ARGUMENTS = "the arguments could not be parsed";
+
 /** How a byte count reads in the truncation marker: `1,048,576`. */
 const byteCount = (bytes: number): string => bytes.toLocaleString("en-US");
 
@@ -35,5 +50,6 @@ export const BUDGET_STOP_MESSAGE = "stopped: run budget exhausted";
 export const agentLoopPromptTexts: readonly string[] = [
   rejectionMessage("", ""),
   unknownToolMessage(""),
+  invalidArgumentsMessage([]),
   truncatedResultMarker(0, 0),
 ];
