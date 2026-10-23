@@ -30,6 +30,7 @@
 - [Model providers](Model-providers)
 - [Tools](Tools)
 - [Knowledge bases (RAG)](Knowledge-bases)
+- [A2A — agent to agent](A2A)
 - [FinOps](FinOps)
 - [Tracing](Tracing)
 - [Observability](Observability)

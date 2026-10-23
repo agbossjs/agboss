@@ -217,7 +217,8 @@ worst case of each start with how each number is made up — the [check report](
   `tenant` / `execution` (the typed values of the context levels), `signal`, `onStream` (token and
   tool-call events), `configurable` (extra LangGraph keys), `record`. There is no untyped
   `metadata` or `executionContext` option (#261 PR 6): channels, guardrails, MCP sessions and A2A
-  calls read the typed contexts. See [Context and Authorization](Context-And-Authorization).
+  calls read the typed contexts (an A2A request's from its caller resolver, [A2A](A2A)). See
+  [Context and Authorization](Context-And-Authorization).
 - Before the first step (#261 PR 5) each budget of the execution is read once (`maxSpend()`, in the
   execution's context) and checked: one exhausted refuses it with `BudgetExceededError`
   (`limit.budget`) and an `onExecutionRejected` — no record, no model call ([FinOps](FinOps#at-run-time)).

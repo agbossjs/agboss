@@ -3,6 +3,40 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — a2aHttpListener resolves each request's caller and tenant (#387)
+
+- **Breaking — `a2aHttpListener(app, { start, callerResolver, base? })`** ([A2A](A2A)): built from
+  the application (`A2AApp`: `createApp`'s or `testWith`'s `app`), not from an adapter; the
+  positional form `a2aHttpListener(adapter, Start, base)` is removed. `callerResolver` is required —
+  there is no default tenant: a single-tenant host returns `A2ACallerResolution.resolved({})`.
+  Migration: `a2aHttpListener(new A2AAdapter(app), Start, "/a2a")` →
+  `a2aHttpListener(app, { start: Start, callerResolver: MyCallerResolver, base: "/a2a" })`, with
+  `MyCallerResolver` an `@Injectable` listed in `providers`.
+- **Breaking — `thread` → `threadId`** on the wire (the request body, the response) and in the
+  client: `A2AExecutionRequest.threadId`, `A2AExecutionResponse.threadId`, `A2AClientCall.threadId`,
+  `A2ARequestSchema` / `A2AResponseSchema` (one field name per meaning: `app.execute`'s `threadId`).
+- **Breaking — `IA2AAdapter.cancel(threadId, caller)`** (`A2ACallOptions`): cancels the caller's
+  tenant's thread only; `cancel(thread)` is removed. `A2AAdapter` takes an `A2AApp`.
+- **Added — the caller resolver**: `A2ACallerResolver<typeof Start>` (`resolveCaller({ route, http
+  })`, `A2ACallerRequest`, `A2ARoute`), answered by `A2ACallerResolution.resolved(caller)` /
+  `.unauthenticated({ reason, challenge? })` / `.forbidden({ reason })` (branded,
+  `A2ACallerResolutionKind`, `ResolvedA2ACallerResolution`, `RejectedA2ACallerResolution`,
+  `A2ACallerUnauthenticatedOptions`, `A2ACallerForbiddenOptions`); `A2ACaller<typeof Start>` is
+  typed by the start's application. The resolver is an `@Injectable` in `@Application({ providers
+  })` or a `@Workflow({ providers })`, taken from the container — not listed →
+  `[a2a.caller-resolver-not-listed]` when the listener is built. Resolved before the body is read
+  or a header written: `401` (+ `WWW-Authenticate`), `403`, `500` (`a2a.caller-unauthenticated`,
+  `a2a.caller-forbidden`, `a2a.caller-resolution-failed`, body `{ code, error }`); a refusal runs
+  nothing — no observer event, no record.
+- **Added — `A2ACallerRejectedError`** (`a2a.caller-rejected`; `httpStatus`, the wire `code`):
+  `A2AClient.send` on a `401` / `403` carrying an `a2a.caller-*` code.
+- **Added — `testWith`'s `a2aServer({ start, callerResolver, base? })`** → `{ url }`
+  (`A2AServerFixture`, `A2ATestServer`): the listener on `127.0.0.1:0`, the loopback open for the
+  test, closed at its end; `TestApp.resolve(Class)` once the app is built (`test.app-not-ready`
+  before).
+- **Changed — `@Application({ providers })`** documents that ordinary `@Injectable` services may be
+  listed there too (they always could be: one instance for every workflow).
+
 ## Unreleased — tool-call trajectories on results, records and `JudgeInput` (#395 PR 1)
 
 - **Added — `result.toolCalls`, `result.record.toolCalls`, `ChildExecutionRecord.toolCalls`**
