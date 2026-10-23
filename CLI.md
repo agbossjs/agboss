@@ -249,7 +249,8 @@ and `; `.) `agboss chat` sends what is typed as a text, so its start takes `Work
 | `agboss check --strict` | the same, the analyser's warnings (`[flow.path-too-deep]`, `[graph.child-without-failure-finish]`) and the application's assembly warnings (`[application.in-memory-cost-ledger]`, `[application.in-memory-pauses]`, #261) errors — exit 3; without `--strict` they are printed as `warning: …` lines ([Workflow as a step](Workflow-as-a-step#errors)) |
 | `agboss check --models` | every model setting of every workflow of the application against what its resolved provider says the model supports — all problems at once, exit 1 on any; no model call, but it connects, so the chosen environment's secrets must be set — a missing one names its variable ([Model providers](Model-providers#fail-fast-settings-must-fit-their-models)) |
 | `agboss check --cassettes` | also every VCR cassette under the working directory against the application's components (#395): a component whose prompt or schema hash changed since it was recorded, or one the application no longer has, is `[vcr.stale-cassette]` (exit 3) — fixed by `AGBOSS_VCR_MODE=RECORD_STALE npm test`, never by a hand edit; a version 1 cassette is a `hint:` line; no test runs, no key ([Testing](Testing#stale-cassettes-395)) |
-| `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>]` | run an `@EvalSuite` on the application: each case k times, its checks under the cascade, pass@k / pass^k per case, the run artifact ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run), #396) |
+| `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>]` | run an `@EvalSuite` on the application: each case k times, its checks under the cascade, pass@k / pass^k per case, the run artifact ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run), #396), its HTML report (#397) |
+| `agboss eval show <run.json> [--html <file>]` | a saved run artifact: its table, and with `--html` its self-contained HTML report — nothing runs, no key ([Eval suites](Eval-Suites#the-html-report---html-and-agboss-eval-show-397), #397) |
 | `agboss eval score` / `agboss replay` `[--start <name>]` | score recent runs of the start's workflow with Jev / re-run a prompt version |
 | `agboss golden add [--start <name>] --name <n>` | recent real tasks of the start's workflow as a golden set |
 | `agboss compare [--start <name>] --profiles base,<p>` | profiles side by side on the start's workflow ([Profiles and comparisons](Profiles-and-comparisons)) |
@@ -271,14 +272,22 @@ workflow's own (`profiles/<workflow>/<name>.yaml`).
 
 ### `agboss eval`: subcommands (#396)
 
-`eval` is one command of two subcommands, each with its own options and help (`agboss help eval run`,
-`agboss eval run --help`; `agboss help eval --json` lists both under `subcommands`):
+`eval` is one command of three subcommands, each with its own options and help (`agboss help eval run`,
+`agboss eval run --help`; `agboss help eval --json` lists them under `subcommands`):
 
-- `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--env <name>]` — an eval
-  suite on the application ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run)). Exit 0 when
-  the suite ran, whatever its pass rates; 2 for `--runs` below 1 (`usage.option-value`) or
-  `eval.unknown-suite`; 3 when the suite does not assemble (`graph.rules`) or its cases' values do
+- `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--env <name>]`
+  — an eval suite on the application ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run)). Exit 0 when
+  the suite ran, whatever its pass rates; 2 for `--runs` below 1 (`usage.option-value`),
+  `eval.unknown-suite` or `eval.report-too-large` (the HTML page above 16 MB; the artifact is written
+  first); 3 when the suite does not assemble (`graph.rules`) or its cases' values do
   not fit (`eval.case-invalid`).
+- `agboss eval show <run.json> [--html <file>]` (#397) — a saved run artifact read back: the table
+  `eval run` prints and, with `--html`, the same self-contained HTML report
+  ([Eval suites](Eval-Suites#the-html-report---html-and-agboss-eval-show-397)); it loads no
+  application and runs nothing. Exit 2 without the file (`usage.missing-argument`), for a file that
+  does not exist (`eval.run-not-found`) or is not a run artifact this version reads
+  (`eval.run-invalid`: not JSON, another `kind`, an unknown `schemaVersion`, a field missing), and
+  for `eval.report-too-large`; `--json`: `result` is the artifact, the HTML file in `created`.
 - `agboss eval score [--start <name>] [--version <v>] [--limit N] [--profile <name>]` — the Jev
   scoring of recorded runs, what the bare `agboss eval` did before.
 - The bare `agboss eval` prints its help (the subcommands listed) and exits 2

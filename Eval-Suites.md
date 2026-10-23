@@ -317,3 +317,41 @@ against, so it says what it is and the version of its shape (#396 S3):
 | `…checks[]` | `check` (`trajectory` or the judge's name), `status` (`CheckStatus`: `passed`, `failed`, `skipped`), `reason?`, `skippedBy?` (the failed check that skipped it), `metrics?` (a judge's), `spentUsd?` (a model judge's) |
 | `summary` | `cases`, `passAtK`, `passHatK`, `unstable` (counts of cases), `judgeCalls` (judge checks that ran), `skippedByCascade` |
 | `spend` | `{ totalUsd }`: every turn's execution and every judge's model calls |
+
+### The HTML report: `--html` and `agboss eval show` (#397)
+
+```bash
+agboss eval run --suite refunds-eval-suite --runs 3 --report .artifacts/eval/main.json --html .artifacts/eval/main.html
+agboss eval show .artifacts/eval/main.json --html .artifacts/eval/main.html
+```
+
+`--html <file>` on `eval run` writes the run as one self-contained HTML page next to (or instead of)
+the artifact; `agboss eval show <run.json>` reads a saved artifact — runs nothing, loads no
+application, needs no key — prints the same table as `eval run` and, with `--html <file>`, writes the
+same page. So CI renders a pull request's report from the artifact it already has, without a second
+model bill. Both print `html → <file> (<size>, self-contained)`; under `--json` the file is in
+`created` (`eval show`'s `result` is the artifact as read).
+
+The page is one file: its CSS and its one script inline, no fonts, images or requests — its
+`Content-Security-Policy` allows nothing but its own style and script (by hash), so it opens the
+same from `file://`, a CI artifact or a PR attachment. It reads in light and dark
+(`prefers-color-scheme`), at phone width, and without its script; it is semantic HTML (landmarks,
+headings, tables, `details`), every control reachable by keyboard. What it shows:
+
+| Section | From the artifact |
+| --- | --- |
+| Header | the suite, the application and workflow with their versions, `configHash`, the start, the environment, k, the cascade, when it started and ended, how long it took |
+| Summary | pass@k and pass^k (cases and share), cases, attempts (cases × k), unstable cases, judge calls and those the cascade skipped, the total spend |
+| Unstable cases | only when there are some: each case with pass@k and not pass^k, its passed / k, linked to its row — candidates for deterministic code, not a longer prompt |
+| Cases | one per case: pass@k / pass^k, an attempt dot per run 1…k — passed, failed (a check failed), error (a turn failed or paused), limit (its error is a `limit.*`) — each a link that opens that run: its `executionId`, thread, finish, spend, error, and every check with its status, reason, the check that skipped it, a judge's metrics and spend. A filter shows all cases, the failed ones (not pass^k) or the unstable ones |
+
+It shows only what the artifact holds — check reasons and errors as the run wrote them, already
+masked by the application's PII policies; the page adds nothing from the project and escapes every
+value. The page is bounded: above 16 MB it is not written — `eval.report-too-large`, exit 2 (the
+artifact of `eval run` is written first and kept). `eval show` refuses a file that is not a run
+artifact this version reads — `eval.run-not-found` (no such file) or `eval.run-invalid` (not JSON,
+another `kind`, an unknown `schemaVersion`, a field missing), exit 2.
+
+Not yet on the page, because the artifact does not carry it yet: the comparison with a baseline
+(#396 PR 3 — its section is shown once the artifact has one), a run's step-by-step timeline (#397
+PR 2), labels and failure tags (#397 PR 4).

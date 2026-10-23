@@ -3,6 +3,17 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — a self-contained HTML report: `eval run --html` and `eval show` (#397 PR 1)
+
+- **Added — `agboss eval run … --html <file>`** ([Eval suites](Eval-Suites#the-html-report---html-and-agboss-eval-show-397)):
+  the run as one self-contained HTML page — header, summary (pass@k, pass^k, cases, attempts,
+  spend), unstable cases, every case with an attempt dot per run (passed, failed, error, limit) and
+  each run's checks — no external request (a `Content-Security-Policy` of its own style and script),
+  light and dark, phone width, keyboard; bounded at 16 MB (`eval.report-too-large`).
+- **Added — `agboss eval show <run.json> [--html <file>]`**: a saved run artifact read back — its
+  table, and the same page — without running anything; `eval.run-not-found`, `eval.run-invalid` for
+  a file that is not an artifact this version reads.
+
 ## Unreleased — `agboss eval run`: suites, k runs, pass@k / pass^k, the cascade (#396 PR 2)
 
 - **Breaking — `agboss eval` is made of subcommands** ([CLI](CLI#agboss-eval-subcommands-396)):
