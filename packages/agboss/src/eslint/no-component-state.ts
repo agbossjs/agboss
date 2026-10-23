@@ -5,24 +5,10 @@
 // A component reads the execution from the live `ExecutionContext`; data that outlive a step live
 // in the graph state; caches and deduplication are the project's own service over external storage.
 import { AST_NODE_TYPES, type TSESLint, type TSESTree } from "@typescript-eslint/utils";
+import { COMPONENT_DECORATORS } from "../components/component-decorators.js";
 
-/** The decorators that make a class a component the container creates once. */
-const COMPONENT_DECORATORS: ReadonlySet<string> = new Set([
-  "Injectable",
-  "Tool",
-  "McpTool",
-  "McpServer",
-  "Rag",
-  "Action",
-  "Router",
-  "WorkflowFinish",
-  "Channel",
-  "Guardrail",
-  "PiiPolicy",
-  "Judge",
-  "A2AAgent",
-  "HealthCheck",
-]);
+/** The decorators that make a class a component the container creates once (#402: one list). */
+const COMPONENT_DECORATOR_NAMES: ReadonlySet<string> = new Set(COMPONENT_DECORATORS);
 
 /** The message of the rule. */
 export type ComponentStateMessageId = "state";
@@ -44,7 +30,7 @@ function componentDecorator(cls: ClassNode): string | undefined {
   for (const decorator of cls.decorators) {
     const call = decorator.expression;
     const name = call.type === AST_NODE_TYPES.CallExpression ? nameOf(call.callee) : undefined;
-    if (name !== undefined && COMPONENT_DECORATORS.has(name)) return name;
+    if (name !== undefined && COMPONENT_DECORATOR_NAMES.has(name)) return name;
   }
   return undefined;
 }
