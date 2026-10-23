@@ -157,7 +157,7 @@ async function dispatch(call: Call, rest: readonly string[]): Promise<number> {
 
 /**
  * The `agboss` command line (#198): `argv` after `agboss` → an exit code. 0 ok · 1 internal · 2 usage ·
- * 3 invalid project · 4 conflict. Errors are one line on stderr (a stack only with `--debug`); with
+ * 3 invalid project · 4 conflict · 5 quality. Errors are one line on stderr (a stack only with `--debug`); with
  * `--json`, stdout carries one envelope and nothing else.
  */
 export async function runCli(argv: readonly string[], io: CliIo): Promise<number> {

@@ -4,7 +4,7 @@
  * turn that paused, a check the cascade skipped).
  */
 import { CheckStatus, EvalCascade } from "agboss/eval";
-import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "agboss/internal";
+import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "agboss/eval";
 
 const passedRun = (run: number): EvalRunResult => ({
   run,

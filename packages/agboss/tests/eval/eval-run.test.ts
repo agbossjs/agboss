@@ -26,6 +26,7 @@ import { ModelFailure } from "../../src/models/index.js";
 import { usd } from "../../src/units/index.js";
 import { judgeKeyOf } from "../../src/testing/scripted-gateway.js";
 import type { BuiltApplication } from "../../src/application/create-app.js";
+import { ExecutionRecordStatus } from "../../src/infrastructure/execution-record.repository.js";
 import {
   AnswerGroundedJudge,
   DeleteOrderTool,
@@ -178,6 +179,37 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
       'start desk-workflow-start: {"text":"Hi"}',
       'start desk-workflow-start: {"text":"Refund order 7, it arrived broken"}',
     ]);
+  });
+
+  it("history turns are written (#396 S6): turns of the thread, not runs to score or save", async () => {
+    const { env, built } = await evalApp();
+    env
+      .mockLlm(DeskAgent)
+      .thenReturn(
+        answer("Hello."),
+        callTool(GetOrderTool, { orderId: "7" }),
+        callTool(RefundTool, { orderId: "7", amountCents: 5000 }),
+        answer("Refunded order 7."),
+      );
+    scriptJudge(env, "yes");
+
+    const report = await runEvalSuite(built, RefundsEvalSuite, { runs: 1 });
+
+    const { records } = built.infrastructure;
+    const threadId = report.cases[0]?.runResults[0]?.threadId ?? "";
+    const terns = await records.lastTerns("eval-acme", threadId, 9);
+    expect(terns.map((tern) => tern.status)).toEqual([
+      ExecutionRecordStatus.Written,
+      ExecutionRecordStatus.Answered,
+      ExecutionRecordStatus.Answered,
+    ]);
+    const tasks = (found: readonly { readonly task: string }[]) => found.map((tern) => tern.task);
+    const written = 'start desk-workflow-start: {"text":"Never delete my orders."}';
+    expect(tasks(await records.unscored("eval-desk-workflow", undefined, 9))).not.toContain(
+      written,
+    );
+    expect(tasks(await records.recentOriginals("eval-desk-workflow", 9))).not.toContain(written);
+    expect(tasks(await records.recentOriginals("eval-desk-workflow", 9))).toHaveLength(2);
   });
 
   it("a turn that fails ends the run with its error, no checks", async () => {

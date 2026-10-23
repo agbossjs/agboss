@@ -15,7 +15,7 @@ import { summaryInputTextOf } from "./compaction-input.js";
 
 export { summaryInputTextOf, type SummaryInputParts } from "./compaction-input.js";
 import { compactWithHandler } from "./custom-compaction.js";
-import { isTurn, toTurns } from "./thread.js";
+import { isTurn, toTurns } from "./turns.js";
 import type { AgentExecutionDeps } from "./types.js";
 
 /**

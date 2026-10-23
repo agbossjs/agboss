@@ -85,7 +85,13 @@ and `rag index [--rag <name>]` cover every workflow of the application. `eval` i
 `@EvalSuite` (found in the application's `eval-suites/*.eval-suite.ts`) on the application built as
 `createApp` builds it — each case `--runs` times, its history written and its turns run on one thread
 with the case's contexts, the checks under the cascade, pass@k / pass^k per case, `unstable` for pass@k
-without pass^k — and writes the run artifact (`kind: "agboss.eval-run"`, `schemaVersion`); `agboss eval
+without pass^k — and writes the run artifact (`kind: "agboss.eval-run"`, `schemaVersion`; its types
+`EvalRunReport` & co. public in `agboss/eval`); `--baseline <run.json>` compares each case with the
+same case of an earlier artifact (`CaseComparison`: `Regressed` = pass^k there and not now,
+`FlakyOnBaseline` quarantined, `Changed` = another `caseHash`, not compared; `New`, `Removed`,
+`Improved`, `Unchanged`), and with `--fail-on-regression` a regression is exit 5 (`quality`,
+`eval.regressed`); `--profile <name>` runs it on a profile; the case's history turns are kept
+`ExecutionRecordStatus.Written`, never scored by `eval score` nor saved by `golden add`; `agboss eval
 score` is the Jev scoring of recorded runs (the bare `agboss eval` before, which now lists both and
 exits 2); `agboss eval run … --html <file>` and `agboss eval show <run.json> [--html <file>]` (#397 PR 1)
 render a run artifact — `show` reads a saved one, runs nothing — as its table and one self-contained
@@ -2100,7 +2106,7 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
   schema/           profile.schema.json (YAML autocomplete)
 packages/agboss-cli/    the `agboss` / `agboss` command (#205; depends on agboss, same version)
   src/
-    cli/            main.ts → run-cli.ts (argv → exit code 0/1/2 usage/3 project/4 conflict, --json
+    cli/            main.ts → run-cli.ts (argv → exit code 0/1/2 usage/3 project/4 conflict/5 quality, --json
                     envelope), commands.ts (one option schema per command: parser + help), terminal helpers
     scaffold/       `agboss create` / `agboss generate` (templates/ next to src/)
     migrate/        `agboss migrate imports` (#195): rewrites the old entries' imports to the new ones

@@ -133,6 +133,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["QuorumNotReachedError", "ToolTimeoutError", "JudgeVerdict", "HealthReport"],
     ...["EvalSuite", "evalCase", "turn", "pastTurn", "toolCall", "toolInvariant", "judgedBy"],
     ...["checkTrajectory", "EvalCascade", "CheckStatus", "EvalCaseInvalidError", "Judge"],
+    ...["CaseComparison", "EvalRunComparison", "EvalRunReport", "ExecutionRecordStatus"],
     ...["testToolInterceptor", "ToolInterceptorRunner", "ToolCallDecision", "ToolInterceptor"],
     ...["ModelProviderHandler", "ModelProviderRequest", "ModelProviderResponse"],
     ...["ModelProviderMessageRole", "ModelProvider"],

@@ -1802,7 +1802,8 @@ export enum ExecutionRecordStatus {
     Failed = "failed",
     Guarded = "guarded",
     Paused = "paused",
-    Running = "running"
+    Running = "running",
+    Written = "written"
 }
 
 // @public
@@ -5765,12 +5766,12 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/health/health-check.ts:85:3 - (ae-undocumented) Missing documentation for "reason".
 // src/health/health-check.ts:93:3 - (ae-undocumented) Missing documentation for "reason".
 // src/infrastructure/cost-ledger.repository.ts:31:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
-// src/infrastructure/execution-record.repository.ts:66:3 - (ae-undocumented) Missing documentation for "append".
-// src/infrastructure/execution-record.repository.ts:81:3 - (ae-undocumented) Missing documentation for "byIds".
-// src/infrastructure/execution-record.repository.ts:99:3 - (ae-undocumented) Missing documentation for "saveScore".
-// src/infrastructure/execution-record.repository.ts:100:3 - (ae-undocumented) Missing documentation for "meanScore".
-// src/infrastructure/execution-record.repository.ts:110:3 - (ae-undocumented) Missing documentation for "configSnapshots".
-// src/infrastructure/execution-record.repository.ts:133:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record.repository.ts:71:3 - (ae-undocumented) Missing documentation for "append".
+// src/infrastructure/execution-record.repository.ts:86:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record.repository.ts:104:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record.repository.ts:105:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record.repository.ts:115:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record.repository.ts:138:3 - (ae-undocumented) Missing documentation for "summaryCount".
 // src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/pause-record.ts:49:3 - (ae-undocumented) Missing documentation for "decision".
@@ -5948,13 +5949,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/resume-guard.ts:45:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/run/resume-guard.ts:46:3 - (ae-undocumented) Missing documentation for "paused".
 // src/run/resume-guard.ts:47:3 - (ae-undocumented) Missing documentation for "current".
-// src/run/thread.ts:32:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
-// src/run/thread.ts:33:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:34:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/thread.ts:39:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:40:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/thread.ts:45:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:46:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:33:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
+// src/run/thread.ts:34:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:35:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:40:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:41:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/thread.ts:46:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/thread.ts:47:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/types.ts:26:3 - (ae-undocumented) Missing documentation for "terns".
 // src/run/types.ts:38:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
 // src/run/types.ts:80:3 - (ae-undocumented) Missing documentation for "status".

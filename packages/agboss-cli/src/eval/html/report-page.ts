@@ -1,4 +1,4 @@
-import type { EvalRunReport } from "agboss/internal";
+import type { EvalRunReport } from "agboss/eval";
 import { CASES_SECTION } from "./cases-section.js";
 import { reportHeaderOf } from "./header-section.js";
 import { element, renderHtml } from "./html.js";

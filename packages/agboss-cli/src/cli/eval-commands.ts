@@ -1,5 +1,5 @@
 /** `agboss eval run | score | show` (#396 S4, #397): one command of subcommands, each its own schema. */
-import { APPLICATION, ENV, PROFILE, START, text, type CommandSpec } from "./options.js";
+import { APPLICATION, ENV, flag, PROFILE, START, text, type CommandSpec } from "./options.js";
 
 /** `--html <file>`: the run as one self-contained HTML page (#397). */
 const HTML = text("html", "<file>", "write the run as one self-contained HTML report to this file");
@@ -15,7 +15,7 @@ export const EVAL_COMMAND: CommandSpec = {
       summary:
         "run an eval suite: every case --runs times, its checks under the cascade, pass@k / pass^k",
       usage:
-        "agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--env <name>] [--application <path>]",
+        "agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--profile <name>] [--env <name>]",
       options: [
         text(
           "suite",
@@ -27,7 +27,13 @@ export const EVAL_COMMAND: CommandSpec = {
         }),
         text("report", "<run.json>", "write the run artifact (agboss.eval-run) to this file"),
         HTML,
+        text("baseline", "<run.json>", "compare each case with this run artifact (a run of main)"),
+        flag(
+          "fail-on-regression",
+          "with --baseline: exit 5 (eval.regressed) when a case stable on the baseline regressed",
+        ),
         APPLICATION,
+        PROFILE,
         ENV,
       ],
     },

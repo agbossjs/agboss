@@ -1,4 +1,4 @@
-import type { EvalRunReport } from "agboss/internal";
+import type { EvalRunReport } from "agboss/eval";
 import { kilobytes, type Bytes } from "agboss/units";
 import type { CommandContext } from "../cli/context.js";
 import { CliError } from "../cli/errors.js";
