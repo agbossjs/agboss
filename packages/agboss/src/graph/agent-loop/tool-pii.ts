@@ -68,13 +68,14 @@ async function bounded(text: string, maxResultSize: Bytes): Promise<BoundedText>
 }
 
 /**
- * The tool's output closed for the model; a failed call is the error text as it is. Over
+ * The tool's output closed for the model (`tool` absent: an interceptor's `replyToModel` text,
+ * #384); a failed call is the error text as it is. Over
  * `maxResultSize` the rendered result is cut first (#336): the policies read only the kept part, the
  * marker follows it in both forms.
  */
 export async function closedResult(
   set: PiiPolicySet | undefined,
-  tool: AnyTool,
+  tool: Pick<AnyTool, "output"> | undefined,
   output: ToolOutput<unknown>,
   maxResultSize: Bytes,
 ): Promise<ClosedResult> {
@@ -84,7 +85,8 @@ export async function closedResult(
     return { content: `${kept}${marker}`, ...none, isTruncated };
   }
   const fields = tokenFieldMask(set.fieldKey, {});
-  const dto = dtoOf(tool.output);
+  // a text an interceptor gave the model (#384) has no output DTO: its text through the policies
+  const dto = tool === undefined ? undefined : dtoOf(tool.output);
   const value = dto === undefined ? output.value : maskedDtoValue(dto, output.value, fields.mask);
   const { kept, marker, isTruncated } = await bounded(
     renderToolResult({ kind: "ok", value }),

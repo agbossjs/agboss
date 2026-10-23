@@ -616,6 +616,15 @@ export interface TestStepOptions {
 // @public
 export function testTool<TTool extends Class<ToolInstance>, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(tool: TTool, options?: UnitOptions<TExecution, TTenant>): ToolRunner<ToolInputOf<InstanceType<TTool>>, ToolOutputOf<InstanceType<TTool>>>;
 
+// Warning: (ae-forgotten-export) The symbol "BeforeToolCall" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "AfterToolCall" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function testToolInterceptor<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(interceptor: Class<BeforeToolCall | AfterToolCall>, options?: UnitOptions<TExecution, TTenant>): UnitClock & {
+    readonly beforeToolCall: <TTool extends Class<ToolInstance>>(tool: TTool, input: ToolInputOf<InstanceType<TTool>>, options?: UnitCallOptions) => Promise<UnitRun<ToolCallDecision>>;
+    readonly afterToolCall: <TTool extends Class<ToolInstance>>(tool: TTool, input: ToolInputOf<InstanceType<TTool>>, output: ToolOutputOf<InstanceType<TTool>>, options?: UnitCallOptions) => Promise<UnitRun<ToolOutputOf<InstanceType<TTool>>>>;
+};
+
 // Warning: (ae-forgotten-export) The symbol "ApplicationClass" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -929,6 +938,7 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/test-judge.ts:30:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-rag.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-router.ts:22:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-tool-interceptor.ts:80:3 - (ae-forgotten-export) The symbol "ToolCallDecision" needs to be exported by the entry point index.d.ts
 // src/testing/units/test-tool.ts:12:3 - (ae-undocumented) Missing documentation for "run".
 // src/testing/units/test-tool.ts:30:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/unit-types.ts:56:3 - (ae-undocumented) Missing documentation for "output".

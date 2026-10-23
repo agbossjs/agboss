@@ -6,21 +6,22 @@ Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flo
 
 ## The decorators
 
-| Decorator (file)                                         | Its contract                                                | Key options                                                                                                                                                                                                                                                                                                                                            |
-| -------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `@Application` (`<app>.application.ts`)                  | —                                                           | `name`, `version`, `environment` (required), `workflows`, `budgets`, `providers` (infrastructure), `observers`, `defaults`, `guardrails`, `piiPolicies`, `healthChecks`, `tenantContext`, `executionContext`, `pseudonymKey`, `shutdownTimeout`, `pauseRecordRetention`, `compensationTimeout`, `maxConcurrentSteps`, `uncompactedTurns`, `compaction` |
-| `@Workflow` (`<name>.workflow.ts`)                       | —                                                           | `name` (`-workflow`), `version`, `flow`, `providers` (services), `defaults`, `maxSteps`, `maxDepth`, `maxConcurrentExecutions`, `mcp`, `guardrails`, `piiPolicies`, `uncompactedTurns`, `compaction`, `promptVariables`                                                                                                                                |
-| `@WorkflowStart` / `@WorkflowFinish`                     | a finish may have `finish(input)` (`FinishHandler<Self>`)   | `name`, `description`, `input` (start) / `output` (finish), `deps`                                                                                                                                                                                                                                                                                     |
-| `@Agent` (`agents/<name>.agent.ts` + `<name>.prompt.md`) | none: the framework runs its loop                           | `model`, `prompt` / `promptUrls` (+ `promptVariables`), `input`, `output`, `tools`, `maxToolCalls`, `maxVisits`, `maxTokens`, `reasoning`, `temperature`, `cache`, `rag`, `judges` + `maxRetries`, `uncompactedTurns`, `compaction`, `memoryStrategy`, `guardrails`, `piiPolicies`                                                                     |
-| `@Tool` (`tools/<name>.tool.ts` + `.dto.ts`)             | `ToolHandler<In, Out>`: `run(input)`                        | `input`, `output`, `timeout: seconds(…)` (default 30 s), `maxResultSize: kilobytes(…)`, `channel`, `deps`                                                                                                                                                                                                                                              |
-| `@Action` (`actions/<name>.action.ts`)                   | `ActionHandler<Self>`: `execute(input)`                     | `input` (fields from the scope), `output`, `compensateWith`, `committedBy`, `deps`                                                                                                                                                                                                                                                                     |
-| `@Router` (`routers/<name>.router.ts`)                   | code: `RouterHandler<Self>`: `route(input)`                 | `decidedBy`, `input`, `routes`, `maxVisits`; model: `model`, `prompt`; code: `deps`                                                                                                                                                                                                                                                                    |
-| `@Arbiter` (`arbiters/<name>.arbiter.ts`)                | code: one `@OnAnswer(Agent)` method per agent of the launch | `decidedBy`; model: `model`, `prompt`, `criteria`; code: `deps`                                                                                                                                                                                                                                                                                        |
-| `@Judge` (`judges/<name>.judge.ts`)                      | `JudgeHandler<TReply>`: `judge(input)`                      | `name`, `model`, `reply` (the answer's shape), `deps`                                                                                                                                                                                                                                                                                                  |
-| `@Rag` (`rag/<name>.rag.ts`, `agboss/rag`)               | `RagConnector`: `retrieve(query, { topK, signal })`         | `name` (`-rag`), `description`, `topK`, `deps`                                                                                                                                                                                                                                                                                                         |
-| `@Compaction` (`compactions/<name>.compaction.ts`)       | none; `Custom`: `CompactionHandler`: `compact(input)`       | `strategy`, `model`, `prompt`, `turnsBetweenCompactions`, `summaryQueueLength`, `summaryMaxTokens`; `Custom`: `turnsBetweenCompactions`, `deps`                                                                                                                                                                                                        |
-| `@HealthCheck` (`health/<name>.health-check.ts`)         | `HealthCheckHandler`: `check()`                             | `name` (`-health-check`), `timeout`, `deps`                                                                                                                                                                                                                                                                                                            |
-| `@Injectable` (`services/<name>.service.ts`)             | your own methods                                            | `deps`                                                                                                                                                                                                                                                                                                                                                 |
+| Decorator (file)                                                    | Its contract                                                | Key options                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@Application` (`<app>.application.ts`)                             | —                                                           | `name`, `version`, `environment` (required), `workflows`, `budgets`, `providers` (infrastructure), `observers`, `defaults`, `guardrails`, `toolInterceptors`, `piiPolicies`, `healthChecks`, `tenantContext`, `executionContext`, `pseudonymKey`, `shutdownTimeout`, `pauseRecordRetention`, `compensationTimeout`, `maxConcurrentSteps`, `uncompactedTurns`, `compaction` |
+| `@Workflow` (`<name>.workflow.ts`)                                  | —                                                           | `name` (`-workflow`), `version`, `flow`, `providers` (services), `defaults`, `maxSteps`, `maxDepth`, `maxConcurrentExecutions`, `mcp`, `guardrails`, `toolInterceptors`, `piiPolicies`, `uncompactedTurns`, `compaction`, `promptVariables`                                                                                                                                |
+| `@WorkflowStart` / `@WorkflowFinish`                                | a finish may have `finish(input)` (`FinishHandler<Self>`)   | `name`, `description`, `input` (start) / `output` (finish), `deps`                                                                                                                                                                                                                                                                                                         |
+| `@Agent` (`agents/<name>.agent.ts` + `<name>.prompt.md`)            | none: the framework runs its loop                           | `model`, `prompt` / `promptUrls` (+ `promptVariables`), `input`, `output`, `tools`, `maxToolCalls`, `maxVisits`, `maxTokens`, `reasoning`, `temperature`, `cache`, `rag`, `judges` + `maxRetries`, `uncompactedTurns`, `compaction`, `memoryStrategy`, `guardrails`, `toolInterceptors`, `piiPolicies`                                                                     |
+| `@Tool` (`tools/<name>.tool.ts` + `.dto.ts`)                        | `ToolHandler<In, Out>`: `run(input)`                        | `input`, `output`, `timeout: seconds(…)` (default 30 s), `maxResultSize: kilobytes(…)`, `channel`, `toolInterceptors`, `deps`                                                                                                                                                                                                                                              |
+| `@Action` (`actions/<name>.action.ts`)                              | `ActionHandler<Self>`: `execute(input)`                     | `input` (fields from the scope), `output`, `compensateWith`, `committedBy`, `deps`                                                                                                                                                                                                                                                                                         |
+| `@Router` (`routers/<name>.router.ts`)                              | code: `RouterHandler<Self>`: `route(input)`                 | `decidedBy`, `input`, `routes`, `maxVisits`; model: `model`, `prompt`; code: `deps`                                                                                                                                                                                                                                                                                        |
+| `@Arbiter` (`arbiters/<name>.arbiter.ts`)                           | code: one `@OnAnswer(Agent)` method per agent of the launch | `decidedBy`; model: `model`, `prompt`, `criteria`; code: `deps`                                                                                                                                                                                                                                                                                                            |
+| `@Judge` (`judges/<name>.judge.ts`)                                 | `JudgeHandler<TReply>`: `judge(input)`                      | `name`, `model`, `reply` (the answer's shape), `deps`                                                                                                                                                                                                                                                                                                                      |
+| `@Rag` (`rag/<name>.rag.ts`, `agboss/rag`)                          | `RagConnector`: `retrieve(query, { topK, signal })`         | `name` (`-rag`), `description`, `topK`, `deps`                                                                                                                                                                                                                                                                                                                             |
+| `@Compaction` (`compactions/<name>.compaction.ts`)                  | none; `Custom`: `CompactionHandler`: `compact(input)`       | `strategy`, `model`, `prompt`, `turnsBetweenCompactions`, `summaryQueueLength`, `summaryMaxTokens`; `Custom`: `turnsBetweenCompactions`, `deps`                                                                                                                                                                                                                            |
+| `@HealthCheck` (`health/<name>.health-check.ts`)                    | `HealthCheckHandler`: `check()`                             | `name` (`-health-check`), `timeout`, `deps`                                                                                                                                                                                                                                                                                                                                |
+| `@ToolInterceptor` (`tool-interceptors/<name>.tool-interceptor.ts`) | `BeforeToolCall` and / or `AfterToolCall`                   | `name` (`-tool-interceptor`), `description`, `deps`                                                                                                                                                                                                                                                                                                                        |
+| `@Injectable` (`services/<name>.service.ts`)                        | your own methods                                            | `deps`                                                                                                                                                                                                                                                                                                                                                                     |
 
 `npx agboss generate` writes workflows, agents, routers, arbiters, tools, MCP servers and knowledge
 bases; write the others by hand in the same grammar (`judges/<name>.judge.ts`,
@@ -518,6 +519,93 @@ export class HasAnswerArbiter {
 }
 ```
 
+## Tool interceptors
+
+A `@ToolInterceptor` (#384) wraps an agent's calls to its `@Tool`s and `@McpTool`s — a tenant's
+scope, an audit, a rewrite of a result. Its class implements `BeforeToolCall`, `AfterToolCall` or
+both (neither does not compile, `[tool-interceptor.missing-handler]`); the name ends with
+`-tool-interceptor`. It is listed in `toolInterceptors: [...]` of `@Application` → `@Workflow` →
+`@Agent` → `@Tool` / `@McpTool` — lists add up, outer first; `excludeToolInterceptors` on an agent
+or a tool removes an inherited one (`[tool-interceptor.exclude-not-inherited]`; a class that is not
+one is `[tool-interceptor.not-an-interceptor]`).
+
+<!-- snippet-context
+import { TenantContext } from "agboss";
+import { ListOf, Text } from "agboss/dto";
+export class JobScoutTenantContext extends TenantContext {
+  @ListOf(Text)
+  allowedCities!: string[];
+}
+-->
+
+```ts
+import {
+  ToolCallDecision,
+  ToolInterceptor,
+  type AfterToolCall,
+  type BeforeToolCall,
+  type ToolCallContext,
+  type ToolCallResultContext,
+} from "agboss";
+
+@ToolInterceptor({
+  name: "tenant-scope-tool-interceptor",
+  description: "Checks that tool arguments respect the tenant's allowed cities",
+  deps: [JobScoutTenantContext],
+})
+export class TenantScopeToolInterceptor implements BeforeToolCall {
+  constructor(private readonly jobScoutTenantContext: JobScoutTenantContext) {}
+
+  beforeToolCall(call: ToolCallContext): ToolCallDecision {
+    if (
+      typeof call.input === "object" &&
+      call.input !== null &&
+      "city" in call.input &&
+      typeof call.input.city === "string" &&
+      !this.jobScoutTenantContext.allowedCities.includes(call.input.city)
+    ) {
+      return ToolCallDecision.replyToModel({
+        message: `City "${call.input.city}" is not allowed for this tenant.`,
+      });
+    }
+    return ToolCallDecision.allow();
+  }
+}
+
+@ToolInterceptor({ name: "audit-tool-interceptor", description: "Logs every tool result" })
+export class AuditToolInterceptor implements AfterToolCall {
+  afterToolCall(call: ToolCallResultContext): unknown {
+    console.info(`${call.tool.name} answered`); // a real one writes to its audit service
+    return call.output; // the result the model reads: the tool's, or a replacement
+  }
+}
+
+// @Application({ …, toolInterceptors: [AuditToolInterceptor] }) — every agent's tool calls;
+// @Workflow({ …, toolInterceptors: [TenantScopeToolInterceptor] }) — its agents' calls
+```
+
+- **`beforeToolCall` decides**, outer first: `ToolCallDecision.allow()` — the next one decides,
+  then the tool runs; `ToolCallDecision.replyToModel({ message })` — the tool is not called, the
+  model reads `message` as the call's result and may try again (the step goes on);
+  `ToolCallDecision.block({ reason })` — the tool is not called and the agent's step fails with
+  `ToolBlockedError` (`step.tool-blocked`, a `StepFailedError`: `agent`, `tool`, `interceptor`,
+  `reason`; `.onError(ToolBlockedError, …)` after the agent takes it).
+- **`afterToolCall` replaces the result**, inner first, on a successful call only (a tool error goes
+  to the model as it is); each output is validated against the tool's output DTO.
+- **The order**: PII block rules on the arguments → `beforeToolCall`s (arguments with PII tokens
+  revealed, not validated yet) → the tool → `afterToolCall`s → `maxResultSize` → PII masking. A
+  `replyToModel` message is bounded and masked the same way.
+- **In the call's frame**: an injected `ExecutionContext` reads the tool call
+  (`step.callId`, `step.idempotencyKey` with the call id, the call's `signal`).
+- An interceptor that throws, returns no `ToolCallDecision` or an output its tool does not give
+  fails the step — `AgentFailedError`, its error as the `cause` (`.onError(DomainError, …)` takes it
+  through the cause).
+- Only the project's own `@Tool` / `@McpTool` calls are intercepted — never an answer tool, a
+  knowledge base's search tool or a tool called on its own (over MCP).
+- `agboss describe` prints `tool interceptors` (each one's methods and the agents' tools it
+  intercepts), `describe --json` each agent's `toolInterceptors` by tool; `configHash` covers them.
+  Tests: `testToolInterceptor` (reference 10).
+
 ## Settings and their units
 
 - **Defaults cascade** `@Application({ defaults })` → `@Workflow({ defaults })` → the component's own
@@ -712,22 +800,24 @@ export class SeatWorkflow {}
 
 ## Rule codes you will meet here
 
-| Code                                     | Cause → fix                                                                                                                         |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `[name.kind-suffix]`                     | `name: "support"` → `name: "support-agent"` (tools end with `-tool`, knowledge bases `-rag`, …)                                     |
-| `[di.instance-provider]`                 | `provide(CrmClientService, new CrmClientService(…))` → list the class; values only for tokens                                       |
-| `[di.infrastructure-in-workflow]`        | a store, `Clock`, `IdGenerator`, channel or model provider in `@Workflow({ providers })` → move it to `@Application({ providers })` |
-| `[di.ambiguous-implementation]`          | two listed classes `extends` one contract → keep one                                                                                |
-| `[environment.contract-value]`           | a default value in the contract class → move it to `<name>.environment.ts`                                                          |
-| `[environment.missing-field]`            | a listed implementation reads a field the contract lacks (`sqlitePath`) → declare it                                                |
-| `[prompt.input-in-instructions]`         | `{{input.message}}` in a prompt → delete it: the input message carries the field                                                    |
-| `[prompt.unknown-variable]`              | `{{tone}}` without `promptVariables: { tone }` → add it                                                                             |
-| `[judge.wrong-reply]`                    | the judge's `reply` is not the agent's `output` shape → make them the same                                                          |
-| `[compaction.uncompacted-turns-invalid]` | `uncompactedTurns: 0` or a fraction → a whole number from 1, or `TurnLimit.ALL`                                                     |
-| `[compaction.missing-handler]`           | a `CompactionStrategy.Custom` class without `compact(input)` → `implements CompactionHandler`                                       |
-| `[health.not-a-health-check]`            | a class in `healthChecks` without `@HealthCheck` → decorate it                                                                      |
-| `[context.not-declared]`                 | a `TenantContext` subclass injected but not declared → `@Application({ tenantContext })`                                            |
-| `[action.invalid-compensator-input]`     | the undo reads a field not on the path right after its action → read what the action returned (`SeatHoldDto`)                       |
+| Code                                       | Cause → fix                                                                                                                         |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `[name.kind-suffix]`                       | `name: "support"` → `name: "support-agent"` (tools end with `-tool`, knowledge bases `-rag`, …)                                     |
+| `[di.instance-provider]`                   | `provide(CrmClientService, new CrmClientService(…))` → list the class; values only for tokens                                       |
+| `[di.infrastructure-in-workflow]`          | a store, `Clock`, `IdGenerator`, channel or model provider in `@Workflow({ providers })` → move it to `@Application({ providers })` |
+| `[di.ambiguous-implementation]`            | two listed classes `extends` one contract → keep one                                                                                |
+| `[environment.contract-value]`             | a default value in the contract class → move it to `<name>.environment.ts`                                                          |
+| `[environment.missing-field]`              | a listed implementation reads a field the contract lacks (`sqlitePath`) → declare it                                                |
+| `[prompt.input-in-instructions]`           | `{{input.message}}` in a prompt → delete it: the input message carries the field                                                    |
+| `[prompt.unknown-variable]`                | `{{tone}}` without `promptVariables: { tone }` → add it                                                                             |
+| `[judge.wrong-reply]`                      | the judge's `reply` is not the agent's `output` shape → make them the same                                                          |
+| `[compaction.uncompacted-turns-invalid]`   | `uncompactedTurns: 0` or a fraction → a whole number from 1, or `TurnLimit.ALL`                                                     |
+| `[compaction.missing-handler]`             | a `CompactionStrategy.Custom` class without `compact(input)` → `implements CompactionHandler`                                       |
+| `[health.not-a-health-check]`              | a class in `healthChecks` without `@HealthCheck` → decorate it                                                                      |
+| `[context.not-declared]`                   | a `TenantContext` subclass injected but not declared → `@Application({ tenantContext })`                                            |
+| `[tool-interceptor.missing-handler]`       | a `@ToolInterceptor` class with neither method → `implements BeforeToolCall` and / or `AfterToolCall`                               |
+| `[tool-interceptor.exclude-not-inherited]` | `excludeToolInterceptors` names one no level above lists → drop it                                                                  |
+| `[action.invalid-compensator-input]`       | the undo reads a field not on the path right after its action → read what the action returned (`SeatHoldDto`)                       |
 
 ## Pitfalls
 

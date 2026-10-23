@@ -92,6 +92,11 @@ export interface WorkflowOptions<
    */
   readonly guardrails?: readonly Class[];
   /**
+   * `@ToolInterceptor` classes of every agent's tool calls, over the application's (#384: lists add
+   * up; `excludeToolInterceptors` on an agent or a tool removes one).
+   */
+  readonly toolInterceptors?: readonly Class[];
+  /**
    * The `@Compaction` of every agent and model router, over the application's (#120: one setting,
    * the lowest level that sets it wins; none anywhere → no summaries, the window only).
    */

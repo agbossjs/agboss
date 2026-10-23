@@ -25,6 +25,15 @@ export interface GuardrailFields {
 }
 
 /**
+ * The tool interceptors an agent adds to what it inherits (`@Application` → `@Workflow`) for every
+ * call it makes to its tools, and the inherited ones it removes (#384): `@ToolInterceptor` classes.
+ */
+export interface ToolInterceptorFields {
+  readonly toolInterceptors?: readonly Class[];
+  readonly excludeToolInterceptors?: readonly Class[];
+}
+
+/**
  * The memory an agent or a router reads (#120 PR 3): its own `@Compaction` and how many recent turns
  * it sees in full — single settings, over the workflow's and the application's.
  */
@@ -46,7 +55,8 @@ export interface PiiPolicyFields {
  * One agent's settings as assembly reads them (from its `@Agent` options, #272): its model, prompt,
  * tools (class references), knowledge bases, judges and memory.
  */
-export interface AgentMeta extends GuardrailFields, PiiPolicyFields, CompactionFields {
+export interface AgentMeta
+  extends GuardrailFields, PiiPolicyFields, CompactionFields, ToolInterceptorFields {
   readonly name: string;
   readonly description: string;
   readonly prompt?: string;
@@ -92,6 +102,8 @@ export interface WorkflowMeta {
   readonly piiPolicies?: readonly Class[];
   /** `@InputGuardrail` / `@OutputGuardrail` classes of every agent and router, over the application's. */
   readonly guardrails?: readonly Class[];
+  /** `@ToolInterceptor` classes of every agent's tool calls, over the application's (#384). */
+  readonly toolInterceptors?: readonly Class[];
   /** `@Compaction` of every agent and model router, over the application's (#120 PR 3). */
   readonly compaction?: Class;
   /** Recent turns seen in full by every agent and model router, over the application's. */

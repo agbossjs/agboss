@@ -15,6 +15,8 @@ import { byComponentName, flowLines } from "../flow/print.js";
 import type { AgentExecutionDeps } from "./types.js";
 
 import { stripFunctions } from "./strip-functions.js";
+import type { AssembledToolInterceptors } from "../tool-interceptors/assembly.js";
+import { guardrailSnapshot, toolInterceptorSnapshot } from "./policy-snapshots.js";
 import type { Class } from "../components/injection.js";
 import { childClassesOf } from "../flow/analyse/child-workflow.js";
 import {
@@ -25,7 +27,6 @@ import {
 import { normalisePromptText, promptTextOf } from "../components/prompt-render.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
 import {
-  isModelGuardrail,
   modelGuardrailsOf,
   type LoadedGuardrail,
   type LoadedModelGuardrail,
@@ -65,6 +66,7 @@ export type SnapshotSource<TName extends string = string> = Pick<
 > & {
   readonly guardrails?: { readonly guardrails: readonly LoadedGuardrail[] } | undefined;
   readonly pii?: FingerprintDeps["pii"];
+  readonly toolInterceptors?: AssembledToolInterceptors | undefined;
 };
 
 /**
@@ -106,6 +108,8 @@ const ownSnapshot = <TName extends string>(
   ...compactionSnapshot(deps.compactions),
   // the guardrails (#120): only a workflow that has one, so the others keep their hash
   ...guardrailSnapshot(deps.guardrails?.guardrails ?? []),
+  // the tool interceptors (#384): only a workflow that has one, so the others keep their hash
+  ...toolInterceptorSnapshot(deps.toolInterceptors),
 });
 
 /**
@@ -171,20 +175,6 @@ const framePrompts = (
   ...(arbiterTexts(graph).length === 0 ? {} : { arbiterFrame: arbiterPromptTexts }),
   ...(guardrails.length === 0 ? {} : { guardrailFrame: guardrailPromptTexts }),
 });
-
-/** One guardrail as hashed: a model one's question, threshold and model; a code one's `decidedBy`. */
-const guardrailEntryOf = (guardrail: LoadedGuardrail): object => {
-  const { name, side, refusal } = guardrail;
-  // a model guardrail keeps its shape before #383, so its workflow keeps its hash
-  if (!isModelGuardrail(guardrail))
-    return { name, side, decidedBy: guardrail.decidedBy, refusal: refusal ?? null };
-  const { prompt, threshold, model } = guardrail;
-  return { name, side, prompt, threshold, model, refusal: refusal ?? null };
-};
-
-/** What a workflow's guardrails decide with: their side, question, threshold, model and refusal. */
-const guardrailSnapshot = (guardrails: readonly LoadedGuardrail[]): object =>
-  guardrails.length === 0 ? {} : { guardrails: guardrails.map(guardrailEntryOf) };
 
 /** The guardrails' questions (#120) in the prompt version; the key `guards` keeps the versions of workflows without them. */
 const guardrailPrompts = (guardrails: readonly LoadedModelGuardrail[]): object => ({

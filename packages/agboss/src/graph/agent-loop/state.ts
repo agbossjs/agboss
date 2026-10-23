@@ -7,6 +7,7 @@ import type { ApprovalRecord } from "../../pause/index.js";
 import type { SensitiveValue } from "../../pii/policy-set.js";
 import { mergeTokens, type PiiTokenMap } from "../../pii/tokens.js";
 import type { LoopProgress } from "../../flow/context/frame.js";
+import type { ToolCallStop } from "./tool-stops.js";
 
 const append = <TItem>(left: readonly TItem[], right: readonly TItem[]): TItem[] => [
   ...left,
@@ -25,6 +26,8 @@ export interface StoredToolCall {
   readonly tool: string;
   /** What the model reads back: the tool's result, or `Tool error: …`. */
   readonly content: string;
+  /** A tool interceptor stopped the call (#384): the collect node fails the step with it. */
+  readonly stop?: ToolCallStop;
 }
 
 /** An approver's decision on one call, before it ran. */

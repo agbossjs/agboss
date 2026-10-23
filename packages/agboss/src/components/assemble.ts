@@ -47,6 +47,8 @@ type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
   readonly piiPolicies?: readonly Class[];
   /** `@Application({ guardrails })`: every agent's and model router's (#120). */
   readonly guardrails?: readonly Class[];
+  /** `@Application({ toolInterceptors })`: every agent's tool calls (#384). */
+  readonly toolInterceptors?: readonly Class[];
   /** `@Application({ compaction, uncompactedTurns })`: every reader's, under its own (#120 PR 3). */
   readonly compaction?: Class;
   readonly uncompactedTurns?: UncompactedTurns;

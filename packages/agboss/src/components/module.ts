@@ -74,6 +74,7 @@ export function moduleOf(workflow: Class): WorkflowMeta {
     defaults: configDefaultsOf(options.defaults, options.uncompactedTurns),
     piiPolicies: options.piiPolicies,
     guardrails: options.guardrails,
+    toolInterceptors: options.toolInterceptors,
     compaction: options.compaction,
     uncompactedTurns: options.uncompactedTurns,
     mcp: options.mcp,

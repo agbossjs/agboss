@@ -1,5 +1,5 @@
 import type { DtoClass } from "../dto/types.js";
-import type { ToolCallContext, ToolOutput } from "../tools/index.js";
+import type { ToolInvocationContext, ToolOutput } from "../tools/index.js";
 
 /** A server tool as a workflow uses it: the DTOs of its arguments and its result. */
 export interface ServerTool {
@@ -14,7 +14,7 @@ export type ServerTools = Readonly<Record<string, ServerTool>>;
 
 /** What `call` goes through: the framework's facade of one server tool (validation, connection). */
 export interface ServerToolCallable {
-  invoke(raw: unknown, ctx: ToolCallContext): Promise<ToolOutput<unknown>>;
+  invoke(raw: unknown, ctx: ToolInvocationContext): Promise<ToolOutput<unknown>>;
 }
 
 const noCost = (): void => undefined;

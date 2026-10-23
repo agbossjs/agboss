@@ -4,16 +4,16 @@ Read this before writing any test. Tests never call a real model or the network:
 application runs under `testWith(App)` with scripted models, and one component runs alone under its
 unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 
-| You test…                                                                       | Use                                                                                                                        |
-| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| a path through the application                                                  | `testWith(App)` → `app.execute(Start, input)`, `mockLlm(X).thenReturn(…)`, matchers                                        |
-| a race between parallel branches                                                | `testWith(App, { concurrency: TestConcurrency.inOrder([step(A), step(B)]) })`                                              |
-| time: timeouts, retries, retention, leases                                      | the `clock` fixture: `await clock.advance(seconds(31))`                                                                    |
-| a restart, a second instance                                                    | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                 |
-| one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy | its unit runner: `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testPii` |
-| real model answers, replayed in CI                                              | `testWith(App, { vcr: { cassetteName } })`                                                                                 |
-| what a live-model run must do, case by case                                     | `@EvalSuite` (`agboss/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`                                 |
-| quality over real traffic                                                       | `npx agboss golden add`, `npx agboss eval`, `npx agboss compare`                                                           |
+| You test…                                                                       | Use                                                                                                                                               |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a path through the application                                                  | `testWith(App)` → `app.execute(Start, input)`, `mockLlm(X).thenReturn(…)`, matchers                                                               |
+| a race between parallel branches                                                | `testWith(App, { concurrency: TestConcurrency.inOrder([step(A), step(B)]) })`                                                                     |
+| time: timeouts, retries, retention, leases                                      | the `clock` fixture: `await clock.advance(seconds(31))`                                                                                           |
+| a restart, a second instance                                                    | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                                        |
+| one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy | its unit runner: `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii` |
+| real model answers, replayed in CI                                              | `testWith(App, { vcr: { cassetteName } })`                                                                                                        |
+| what a live-model run must do, case by case                                     | `@EvalSuite` (`agboss/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`                                                        |
+| quality over real traffic                                                       | `npx agboss golden add`, `npx agboss eval`, `npx agboss compare`                                                                                  |
 
 `vitest.config.ts` registers the matchers: `setupFiles: ["agboss/testing/setup"]`. A project made by
 `npx agboss create` has three Vitest projects by file name, next to the sources: `src/**/*.test.ts`
@@ -791,6 +791,59 @@ it("testPii: what a model reads, and what its answer becomes", async () => {
   const { output: masked } = await contacts.mask("Mail dana@example.com");
 
   expect(contacts.reveal(masked)).toBe("Mail dana@example.com");
+});
+```
+
+`testToolInterceptor(Interceptor, options)` (#384) runs a `@ToolInterceptor` in the frame of a call
+to a tool: `beforeToolCall(Tool, input)` gives the decision (compare it with `toEqual`),
+`afterToolCall(Tool, input, output)` the output the model would read, validated against the tool's
+output DTO. A method the class does not have is a `TestSetupError`.
+
+<!-- snippet-context
+import { TenantContext, Tool, ToolCallDecision, ToolInterceptor, type BeforeToolCall, type ToolCallContext, type ToolHandler } from "agboss";
+import { ListOf, Text } from "agboss/dto";
+import { testToolInterceptor } from "agboss/testing";
+import { expect, it } from "vitest";
+export class CityTenantContext extends TenantContext {
+  @ListOf(Text)
+  allowedCities!: string[];
+}
+export class CityQuery {
+  @Text({ prompt: "the city" })
+  city!: string;
+}
+export class CityJobs {
+  @Text({ prompt: "the jobs" })
+  listing!: string;
+}
+@Tool({ name: "city-jobs-tool", description: "Jobs in a city", input: CityQuery, output: CityJobs })
+export class CityJobsTool implements ToolHandler<CityQuery, CityJobs> {
+  run({ city }: CityQuery): Promise<CityJobs> {
+    return Promise.resolve({ listing: `Engineer in ${city}` });
+  }
+}
+@ToolInterceptor({ name: "city-scope-tool-interceptor", description: "Allowed cities only", deps: [CityTenantContext] })
+export class CityScopeToolInterceptor implements BeforeToolCall {
+  constructor(private readonly cityTenantContext: CityTenantContext) {}
+  beforeToolCall(call: ToolCallContext): ToolCallDecision {
+    const city = typeof call.input === "object" && call.input !== null && "city" in call.input ? call.input.city : undefined;
+    return typeof city === "string" && !this.cityTenantContext.allowedCities.includes(city)
+      ? ToolCallDecision.replyToModel({ message: `City "${city}" is not allowed.` })
+      : ToolCallDecision.allow();
+  }
+}
+-->
+
+```ts
+it("testToolInterceptor: the decision for the tenant given", async () => {
+  const scope = testToolInterceptor(CityScopeToolInterceptor, {
+    tenantContext: CityTenantContext,
+    tenant: { tenantId: "acme", allowedCities: ["Haifa"] },
+  });
+
+  const { output } = await scope.beforeToolCall(CityJobsTool, { city: "Eilat" });
+
+  expect(output).toEqual(ToolCallDecision.replyToModel({ message: 'City "Eilat" is not allowed.' }));
 });
 ```
 

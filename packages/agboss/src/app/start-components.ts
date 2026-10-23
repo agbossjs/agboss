@@ -1,3 +1,4 @@
+import type { Class } from "../components/injection.js";
 import { resolveTools, type AssembledWorkflow, type WorkflowServices } from "../workflow.js";
 import { channelLookup, containerDepsOf, type ContainerDeps } from "./app-deps-parts.js";
 import { codeClassesOf } from "../flow/runtime/graph-model.js";
@@ -14,15 +15,22 @@ type StartComponents = {
 
 /**
  * The graph's code — actions, finishes with a handler, code routers, code arbiters (#279) — its PII
- * policies, its guardrails (#120) and its custom compactions (#382), created now, so a missing dependency fails at start.
+ * policies, its guardrails (#120), its custom compactions (#382) and its tool interceptors (#384),
+ * created now, so a missing dependency fails at start.
  */
 function createCodeNodes(bundle: AssembledWorkflow, services: WorkflowServices): void {
   const resolve = bundle.resolve(services);
   for (const component of codeClassesOf(bundle.graph)) resolve(component);
-  for (const policy of bundle.pii?.classes ?? []) resolve(policy);
-  for (const guardrail of bundle.guardrails?.guardrails ?? []) resolve(guardrail.type);
-  for (const compaction of customCompactionClassesOf(bundle.compactions)) resolve(compaction);
+  for (const policy of policyClassesOf(bundle)) resolve(policy);
 }
+
+/** Its PII policies, guardrails (#120) and tool interceptors (#384). */
+const policyClassesOf = (bundle: AssembledWorkflow): readonly Class[] => [
+  ...(bundle.pii?.classes ?? []),
+  ...(bundle.guardrails?.guardrails ?? []).map((guardrail) => guardrail.type),
+  ...customCompactionClassesOf(bundle.compactions),
+  ...(bundle.toolInterceptors?.interceptors ?? []).map((interceptor) => interceptor.type),
+];
 
 /**
  * The parts of an app its container creates when the app starts (after its tools): code nodes, channels,

@@ -5,6 +5,10 @@ import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { throwIfViolated } from "../graph/rule-error.js";
 import { guardrailPartsOf, type AssembledGuardrails } from "../guardrails/assembly.js";
 import { piiAssemblyOf, type AssembledPii } from "../pii/assembly.js";
+import {
+  toolInterceptorPartsOf,
+  type AssembledToolInterceptors,
+} from "../tool-interceptors/assembly.js";
 import type { Class } from "./injection.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import type { PolicyModels } from "./model-parts.js";
@@ -24,12 +28,17 @@ import type { AgentsConfigOf } from "../config/types.js";
 export interface PolicyOwner {
   readonly piiPolicies?: readonly Class[];
   readonly guardrails?: readonly Class[];
+  readonly toolInterceptors?: readonly Class[];
   readonly defaults?: WorkflowDefaults;
 }
 
 /** A workflow's policies as assembled, the classes the container creates and the models they use. */
 export interface PolicyParts {
-  readonly assembled: { readonly pii: AssembledPii; readonly guardrails: AssembledGuardrails };
+  readonly assembled: {
+    readonly pii: AssembledPii;
+    readonly guardrails: AssembledGuardrails;
+    readonly toolInterceptors: AssembledToolInterceptors;
+  };
   readonly classes: readonly Class[];
   readonly models: PolicyModels;
 }
@@ -75,9 +84,18 @@ export async function policyPartsOf(sources: PolicySources): Promise<PolicyParts
   };
   const guardrails = await guardrailPartsOf(owners, agents, graph, sources.loader);
   const guardrailClasses = guardrails.guardrails.map((guardrail) => guardrail.type);
+  const toolInterceptors = toolInterceptorPartsOf(
+    {
+      application: owner?.toolInterceptors ?? [],
+      workflow: bundle.toolInterceptors ?? [],
+      workflowName: bundle.name,
+    },
+    agents,
+  );
+  const interceptorClasses = toolInterceptors.interceptors.map((interceptor) => interceptor.type);
   return {
-    assembled: { pii, guardrails },
-    classes: [...pii.classes, ...guardrailClasses],
+    assembled: { pii, guardrails, toolInterceptors },
+    classes: [...pii.classes, ...guardrailClasses, ...interceptorClasses],
     models: { pii: pii.detectors, guardrails: guardrails.guardrails },
   };
 }

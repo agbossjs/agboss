@@ -15,7 +15,7 @@ export {
 } from "./define-tool.js";
 
 export { renderToolResult, toolDefinitionOf } from "./langchain.js";
-export type { AnyTool, Tool, ToolCallContext, ToolOutput } from "./types.js";
+export type { AnyTool, Tool, ToolInvocationContext, ToolOutput } from "./types.js";
 export { schemaDifferences } from "./mcp/compat.js";
 export type { Env, McpConnections, TransportFactory } from "./mcp/connect.js";
 export { McpContractError, McpUnavailableError } from "./mcp/errors.js";

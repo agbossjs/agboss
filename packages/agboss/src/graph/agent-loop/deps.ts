@@ -9,6 +9,7 @@ import type { Bytes } from "../../units/index.js";
 import type { AnswerTools } from "../../flow/runtime/answer-tools.js";
 import type { PiiPolicySet } from "../../pii/policy-set.js";
 import type { RuntimeGuardrail } from "../../guardrails/runtime.js";
+import type { ToolInterceptorChains } from "../../tool-interceptors/runtime.js";
 import type { ToolCallApproval } from "./approval.js";
 import type { JudgePoints } from "./judge-points.js";
 import type { AgentLoopLimits } from "./limits.js";
@@ -62,6 +63,8 @@ export interface AgentLoopDeps {
   readonly pii?: PiiPolicySet;
   /** Its input guardrails (#120): on what its model reads of the visit, masked, before the first call. */
   readonly guardrails?: readonly RuntimeGuardrail[];
+  /** Its tool interceptors (#384): the chain of its calls to each tool, outer first. */
+  readonly interceptors?: ToolInterceptorChains;
   readonly observer?: ExecutionObserverManager;
 }
 

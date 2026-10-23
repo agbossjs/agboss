@@ -74,6 +74,8 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["CompensationFailedError", "OnCompensationStart", "OnCompensationEnd"],
     ...["CompensationStartEvent", "CompensationEndEvent"],
     "ExecutionContextUnavailableError",
+    ...["ToolInterceptor", "ToolCallDecision", "BeforeToolCall", "AfterToolCall"],
+    ...["ToolCallContext", "ToolCallResultContext", "ToolBlockedError", "AgentFailedError"],
   ],
   "references/04-mcp-and-a2a.md": [
     ...[
@@ -119,6 +121,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["QuorumNotReachedError", "ToolTimeoutError", "JudgeVerdict", "HealthReport"],
     ...["EvalSuite", "evalCase", "turn", "pastTurn", "toolCall", "toolInvariant", "judgedBy"],
     ...["checkTrajectory", "EvalCascade", "CheckStatus", "EvalCaseInvalidError", "Judge"],
+    ...["testToolInterceptor", "ToolCallDecision", "ToolInterceptor"],
     ...[
       "CompensationRecord",
       "CompensationReason",
@@ -229,6 +232,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["IncompatibleResumeError", "DtoValidationError", "ExecutionContextUnavailableError"],
     ...["ToolTimeoutError", "ModelCallError", "ModelKindError", "DecisionError"],
     "NotAWorkflowStartError",
+    "ToolBlockedError",
   ],
   "references/12-end-to-end-recipes.md": [
     ...["createApp", "testWith", "Application", "Workflow", "historyOf", "anyOf", "listOf"],

@@ -126,6 +126,10 @@ export type RuleCode =
   | "guardrail.no-model-call"
   // code guardrails (#383): a DecidedBy.Code guardrail's class has its check(text)
   | "guardrail.missing-handler"
+  // tool interceptors (#384), reported at each workflow's assembly
+  | "tool-interceptor.not-an-interceptor"
+  | "tool-interceptor.exclude-not-inherited"
+  | "tool-interceptor.missing-handler"
   // compaction (#120 PR 3), reported at each workflow's assembly
   | "compaction.not-a-compaction"
   | "compaction.invalid-setting"
