@@ -2,8 +2,16 @@ import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "agboss/eval";
 import { firstFailureOfCase } from "../run-report.js";
 import { ATTEMPT_SYMBOLS, attemptStatusOf } from "./attempts.js";
 import { element, type HtmlElement } from "./html.js";
+import { expectationView } from "./expectation-view.js";
 import { runDetails } from "./run-details.js";
-import { caseAnchor, runAnchor, sectionOf, type ReportSection } from "./sections.js";
+import {
+  caseAnchor,
+  isTimelineShown,
+  runAnchor,
+  sectionOf,
+  type ReportSection,
+  type TimelineDetail,
+} from "./sections.js";
 
 /**
  * The cases (#397 PR 1): one entry per case — pass@k / pass^k, a dot per attempt 1…k linked to that
@@ -27,6 +35,7 @@ function dotOf(caseIndex: number, result: EvalRunResult): HtmlElement {
       {
         class: `dot dot-${status}`,
         href: `#${runAnchor(caseIndex, result.run)}`,
+        "data-opens": true,
         title: label,
         "aria-label": label,
       },
@@ -56,7 +65,12 @@ function firstFailure(found: EvalCaseReport): HtmlElement | undefined {
     : element("p", { class: "first-failure" }, [`First failure — ${why}`]);
 }
 
-function caseEntry(report: EvalRunReport, found: EvalCaseReport, index: number): HtmlElement {
+function caseEntry(
+  report: EvalRunReport,
+  found: EvalCaseReport,
+  index: number,
+  timelines: TimelineDetail,
+): HtmlElement {
   const anchor = caseAnchor(index);
   const k = String(report.runs);
   return element(
@@ -77,7 +91,10 @@ function caseEntry(report: EvalRunReport, found: EvalCaseReport, index: number):
           found.runResults.map((result) => dotOf(index, result)),
         ),
         firstFailure(found),
-        ...found.runResults.map((result) => runDetails(index, result)),
+        found.expectation !== undefined && expectationView(found.expectation),
+        ...found.runResults.map((result) =>
+          runDetails(index, result, isTimelineShown(found, timelines)),
+        ),
       ]),
     ],
   );
@@ -122,7 +139,7 @@ function filtersOf(report: EvalRunReport): HtmlElement {
 
 export const CASES_SECTION: ReportSection = {
   isShownFor: () => true,
-  render: (report: EvalRunReport) =>
+  render: (report: EvalRunReport, timelines: TimelineDetail) =>
     sectionOf("cases", "Cases", [
       filtersOf(report),
       report.cases.length === 0
@@ -130,7 +147,7 @@ export const CASES_SECTION: ReportSection = {
         : element(
             "ol",
             { class: "cases" },
-            report.cases.map((found, index) => caseEntry(report, found, index)),
+            report.cases.map((found, index) => caseEntry(report, found, index, timelines)),
           ),
     ]),
 };

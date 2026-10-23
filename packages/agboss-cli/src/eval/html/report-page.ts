@@ -1,10 +1,11 @@
 import type { EvalRunReport } from "agboss/eval";
+import { BASELINE_SECTION } from "./baseline-section.js";
 import { CASES_SECTION } from "./cases-section.js";
 import { reportHeaderOf } from "./header-section.js";
 import { element, renderHtml } from "./html.js";
 import { cspHashOf, REPORT_PAGE_SCRIPT } from "./page-script.js";
 import { REPORT_PAGE_STYLE } from "./page-style.js";
-import type { ReportSection } from "./sections.js";
+import { TimelineDetail, type ReportSection } from "./sections.js";
 import { SUMMARY_SECTION } from "./summary-section.js";
 import { UNSTABLE_SECTION } from "./unstable-section.js";
 
@@ -15,7 +16,12 @@ import { UNSTABLE_SECTION } from "./unstable-section.js";
  */
 
 /** The sections under the header, in page order; each one shown only when the artifact holds its data. */
-const SECTIONS: readonly ReportSection[] = [SUMMARY_SECTION, UNSTABLE_SECTION, CASES_SECTION];
+const SECTIONS: readonly ReportSection[] = [
+  SUMMARY_SECTION,
+  BASELINE_SECTION,
+  UNSTABLE_SECTION,
+  CASES_SECTION,
+];
 
 /** Nothing but the page's own style and script; no network, no frames, no forms. */
 const CONTENT_SECURITY_POLICY = [
@@ -26,18 +32,31 @@ const CONTENT_SECURITY_POLICY = [
   "form-action 'none'",
 ].join("; ");
 
-function bodyOf(report: EvalRunReport): string {
+/** What the footer says of left-out timelines. */
+const LEFT_OUT: Readonly<Record<TimelineDetail, string>> = {
+  [TimelineDetail.All]: "",
+  [TimelineDetail.Failing]:
+    " Timelines of cases with pass^k are left out to keep the page under its size bound.",
+  [TimelineDetail.None]: " Every timeline is left out to keep the page under its size bound.",
+};
+
+function bodyOf(report: EvalRunReport, timelines: TimelineDetail): string {
   const sections = SECTIONS.filter((section) => section.isShownFor(report)).map((section) =>
-    section.render(report),
+    section.render(report, timelines),
   );
   const footer = element("footer", {}, [
-    `${report.kind} · schemaVersion ${String(report.schemaVersion)} · it shows only what the run artifact holds, as the run wrote it (masked by the application's PII policies).`,
+    `${report.kind} · schemaVersion ${String(report.schemaVersion)} · it shows only what the run artifact holds, as the run wrote it (masked by the application's PII policies).${LEFT_OUT[timelines]}`,
   ]);
   return [reportHeaderOf(report), element("main", {}, sections), footer].map(renderHtml).join("");
 }
 
-/** The whole page, as one string. */
-export function renderEvalReportPage(report: EvalRunReport): string {
+export { TimelineDetail } from "./sections.js";
+
+/** The whole page, as one string; `timelines` says whose timelines it shows. */
+export function renderEvalReportPage(
+  report: EvalRunReport,
+  timelines: TimelineDetail = TimelineDetail.All,
+): string {
   const title = element("title", {}, [`${report.suite} — eval run`]);
   const meta = [
     element("meta", { charset: "utf-8" }),
@@ -53,7 +72,7 @@ export function renderEvalReportPage(report: EvalRunReport): string {
     renderHtml(title),
     `<style>${REPORT_PAGE_STYLE}</style>`,
     "</head><body>",
-    bodyOf(report),
+    bodyOf(report, timelines),
     `<script>${REPORT_PAGE_SCRIPT}</script>`,
     "</body></html>\n",
   ].join("");

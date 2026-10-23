@@ -2,12 +2,13 @@ import { z } from "zod";
 import { CheckStatus, EvalCascade } from "../suite/checks.js";
 import { CaseComparison } from "./comparison.js";
 import { EVAL_RUN_KIND, EVAL_RUN_SCHEMA_VERSION, type EvalRunReport } from "./report.js";
+import { CaseExpectationSchema, ExecutionTraceSchema } from "./trace-schema.js";
 
 /**
  * The one reader of run artifacts (#396 PR 3, #397 S4): a file `agboss eval run --baseline` compares
- * with and `agboss eval show` renders — its `kind`, its `schemaVersion` (a version this reader does
- * not know is refused) and every field of `EvalRunReport`, the optional `baseline` comparison
- * included, validated with zod inside the framework. Fields it does not know are kept, so a newer
+ * with and `agboss eval show` renders — its `kind`, its `schemaVersion` (1 or 2; a version this
+ * reader does not know is refused) and every field of `EvalRunReport`, the optional `baseline`
+ * comparison and the version 2 `trace` / `expectation` (#397 PR 2) included, validated with zod inside the framework. Fields it does not know are kept, so a newer
  * artifact's additions pass through untouched.
  */
 
@@ -36,6 +37,7 @@ const RunSchema = z.looseObject({
   checks: z.array(CheckSchema),
   error: z.looseObject({ code: z.string(), message: z.string() }).optional(),
   spentUsd: z.number(),
+  trace: ExecutionTraceSchema.optional(),
 });
 
 const CaseSchema = z.looseObject({
@@ -47,6 +49,7 @@ const CaseSchema = z.looseObject({
   passHatK: z.boolean(),
   isUnstable: z.boolean(),
   runResults: z.array(RunSchema),
+  expectation: CaseExpectationSchema.optional(),
 });
 
 const PassesSchema = z.looseObject({ passed: count, runs: count });
@@ -72,7 +75,7 @@ const ComponentSchema = z.looseObject({ name: z.string(), version: z.string() })
 
 const ReportSchema: z.ZodType<EvalRunReport> = z.looseObject({
   kind: z.literal(EVAL_RUN_KIND),
-  schemaVersion: z.literal(EVAL_RUN_SCHEMA_VERSION),
+  schemaVersion: z.union([z.literal(1), z.literal(EVAL_RUN_SCHEMA_VERSION)]),
   suite: z.string(),
   application: ComponentSchema,
   workflow: ComponentSchema,
@@ -109,8 +112,8 @@ function reasonOf(value: unknown, issues: readonly z.core.$ZodIssue[]): string {
   const identity = IdentitySchema.safeParse(value);
   const { kind, schemaVersion: version } = identity.success ? identity.data : {};
   if (kind !== EVAL_RUN_KIND) return `kind is ${shown(kind)}, not "${EVAL_RUN_KIND}"`;
-  if (version !== EVAL_RUN_SCHEMA_VERSION)
-    return `schemaVersion ${shown(version)} — this agboss reads ${String(EVAL_RUN_SCHEMA_VERSION)}`;
+  if (version !== 1 && version !== EVAL_RUN_SCHEMA_VERSION)
+    return `schemaVersion ${shown(version)} — this agboss reads 1 to ${String(EVAL_RUN_SCHEMA_VERSION)}`;
   const [issue] = issues;
   return issue === undefined ? "invalid" : `${issue.path.join(".")}: ${issue.message}`;
 }

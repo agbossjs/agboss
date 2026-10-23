@@ -8,11 +8,15 @@ import {
   Judge,
   JudgeModel,
   JudgeVerdict,
+  PiiAction,
+  PiiKind,
+  PiiPolicy,
   TenantContext,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  pii,
   toolCallsOf,
   type JudgeHandler,
   type JudgeInput,
@@ -249,6 +253,14 @@ export class AnswerGroundedJudge implements JudgeHandler<DeskAnswerDto> {
   }
 }
 
+/** Emails never reach a record or a trace (#397 PR 2: a run's trace is masked like its record). */
+@PiiPolicy({
+  name: "eval-email-pii-policy",
+  description: "Hides email addresses",
+  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+})
+export class EvalEmailPiiPolicy {}
+
 @Application({
   name: "eval-desk-application",
   version: "1.0.0",
@@ -256,6 +268,7 @@ export class AnswerGroundedJudge implements JudgeHandler<DeskAnswerDto> {
   workflows: [EvalDeskWorkflow],
   tenantContext: DeskTenantContext,
   executionContext: DeskExecutionContext,
+  piiPolicies: [EvalEmailPiiPolicy],
   budgets: TEST_BUDGETS,
 })
 export class EvalDeskApplication {}

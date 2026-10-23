@@ -3,7 +3,8 @@ import { createHash } from "node:crypto";
 /**
  * The HTML report's one script (#397 PR 1, S2 Q6: plain TypeScript and the DOM, inline): it shows
  * the case filter (hidden without a script — every case then shows), applies a filter, and opens a
- * run's details from its dot or from the page's `#hash`. The page reads fine without it.
+ * run's details — and every `<details>` around a timeline step — from its dot, an unstable case's
+ * link or the page's `#hash`. The page reads fine without it.
  *
  * It is written here as a function and inlined as its source (`Function#toString`), so it must use
  * nothing outside its body: the filter values are the `data-filter` strings `CaseFilter` renders.
@@ -16,6 +17,9 @@ export interface ReportPageElement {
   hidden: boolean;
   /** A `<details>` element's. */
   open?: boolean;
+  /** `DETAILS` for a `<details>`. */
+  readonly tagName: string;
+  readonly parentElement: ReportPageElement | null;
   readonly dataset: Readonly<Record<string, string | undefined>>;
   getAttribute(name: string): string | null;
   setAttribute(name: string, value: string): void;
@@ -33,8 +37,11 @@ export function reportPageScript(page: ReportPageDocument, hash: string): void {
   const all = (selectors: string): ReportPageElement[] =>
     Array.from(page.querySelectorAll(selectors));
   const openRun = (id: string): void => {
-    const details = id === "" ? null : page.getElementById(id);
-    if (details !== null) details.open = true;
+    // the target and every <details> around it: a step sits inside its run
+    for (let found = id === "" ? null : page.getElementById(id); found !== null;) {
+      if (found.tagName === "DETAILS") found.open = true;
+      found = found.parentElement;
+    }
   };
   const isShown = (filter: string, item: ReportPageElement): boolean => {
     if (filter === "failing") return item.dataset.passesAll !== "true";
@@ -49,9 +56,9 @@ export function reportPageScript(page: ReportPageDocument, hash: string): void {
       for (const item of all("[data-passes-all]")) item.hidden = !isShown(filter, item);
     });
   for (const filters of all("[data-filters]")) filters.hidden = false;
-  for (const dot of all("a.dot"))
-    dot.addEventListener("click", () => {
-      openRun((dot.getAttribute("href") ?? "").slice(1));
+  for (const link of all("a[data-opens]"))
+    link.addEventListener("click", () => {
+      openRun((link.getAttribute("href") ?? "").slice(1));
     });
   openRun(hash.slice(1));
 }

@@ -9,6 +9,7 @@ import type { ReportPageDocument, ReportPageElement } from "../../src/eval/html/
 import { REPORT_PAGE_SCRIPT } from "../../src/eval/html/page-script.js";
 import { renderEvalReportPage } from "../../src/eval/html/report-page.js";
 import { REFUNDS_ARTIFACT } from "./artifacts.js";
+import { TRACED_ARTIFACT } from "./traced-artifacts.js";
 
 /** An element of the stand-in document: its tag, attributes and click listeners. */
 interface StandInElement extends ReportPageElement {
@@ -20,7 +21,11 @@ interface StandInElement extends ReportPageElement {
 const camel = (name: string): string =>
   name.replace(/-(\w)/gu, (_, letter: string) => letter.toUpperCase());
 
-function standInOf(tag: string, attributes: Map<string, string>): StandInElement {
+function standInOf(
+  tag: string,
+  attributes: Map<string, string>,
+  parentElement: StandInElement | null,
+): StandInElement {
   const listeners: (() => void)[] = [];
   const dataset = Object.fromEntries(
     [...attributes]
@@ -29,6 +34,8 @@ function standInOf(tag: string, attributes: Map<string, string>): StandInElement
   );
   return {
     tag,
+    tagName: tag.toUpperCase(),
+    parentElement,
     attributes,
     hidden: attributes.has("hidden"),
     open: false,
@@ -44,25 +51,37 @@ function standInOf(tag: string, attributes: Map<string, string>): StandInElement
   };
 }
 
-/** Every opening tag of the page as a stand-in element, found by the four selectors the script uses. */
+const VOID_TAGS = new Set(["meta", "br", "hr", "link", "img", "input"]);
+
+const attributesOf = (text: string): Map<string, string> =>
+  new Map(
+    [...text.matchAll(/\s([\w-]+)(?:="([^"]*)")?/gu)].map(([, name, value]) => [
+      name ?? "",
+      value ?? "",
+    ]),
+  );
+
+/** The page's elements as a tree (its style and script left out), found by the selectors the script uses. */
 function standInDocument(
   page: string,
 ): ReportPageDocument & { readonly elements: StandInElement[] } {
-  const elements = [...page.matchAll(/<(\w+)((?:\s[\w-]+(?:="[^"]*")?)*)>/gu)].map(
-    ([, tag, attributes]) =>
-      standInOf(
-        tag ?? "",
-        new Map(
-          [...(attributes ?? "").matchAll(/\s([\w-]+)(?:="([^"]*)")?/gu)].map(([, name, value]) => [
-            name ?? "",
-            value ?? "",
-          ]),
-        ),
-      ),
-  );
+  const body = page.replace(/<(style|script)>[\s\S]*?<\/\1>/gu, "");
+  const elements: StandInElement[] = [];
+  const open: StandInElement[] = [];
+  for (const [, closing, tag = "", attributes = ""] of body.matchAll(
+    /<(\/?)(\w+)((?:\s[\w-]+(?:="[^"]*")?)*)>/gu,
+  )) {
+    if (closing === "/") {
+      open.pop();
+      continue;
+    }
+    const found = standInOf(tag, attributesOf(attributes), open.at(-1) ?? null);
+    elements.push(found);
+    if (!VOID_TAGS.has(tag)) open.push(found);
+  }
   const matches = (selectors: string, found: StandInElement): boolean =>
-    selectors === "a.dot"
-      ? found.tag === "a" && (found.attributes.get("class") ?? "").split(" ").includes("dot")
+    selectors === "a[data-opens]"
+      ? found.tag === "a" && found.attributes.has("data-opens")
       : found.attributes.has(selectors.slice(1, -1));
   return {
     elements,
@@ -131,5 +150,15 @@ describe("#397 PR 1: the report's script", () => {
     const document = runScript("#case-3-run-1");
 
     expect(document.getElementById("case-3-run-1")?.open).toBe(true);
+  });
+
+  it("an unstable case's link opens the run around the step it names (#397 PR 2)", () => {
+    const document = standInDocument(renderEvalReportPage(TRACED_ARTIFACT));
+    runInNewContext(REPORT_PAGE_SCRIPT, { document, location: { hash: "" } });
+
+    byAttribute(document, "href", "#case-2-run-1-step-2").click();
+
+    expect(document.getElementById("case-2-run-1")?.open).toBe(true);
+    expect(document.getElementById("case-2-run-2")?.open).toBe(false);
   });
 });

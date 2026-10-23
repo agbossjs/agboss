@@ -36,9 +36,25 @@ export {
   type EvalRunError,
   type EvalRunReport,
   type EvalRunResult,
+  type EvalRunSchemaVersion,
   type EvalRunSpend,
   type EvalRunSummary,
 } from "./run/report.js";
+export type {
+  EvalCaseExpectation,
+  EvalChildTrace,
+  EvalCompensationTrace,
+  EvalExecutionTrace,
+  EvalExpectedToolCallTrace,
+  EvalGuardrailDecisionTrace,
+  EvalHandledErrorTrace,
+  EvalJudgeVerdictTrace,
+  EvalModelCallTrace,
+  EvalPauseTrace,
+  EvalStepTrace,
+  EvalToolCallTrace,
+  EvalTraceError,
+} from "./run/trace.js";
 export {
   CaseComparison,
   type EvalCaseComparison,
