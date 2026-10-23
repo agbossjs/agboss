@@ -9,6 +9,7 @@
 .prettierrc
 .root-allowlist
 .suppressions.json
+CHANGELOG.md
 CLAUDE.md
 CONTRIBUTING.md
 LICENSE
@@ -16,6 +17,7 @@ Makefile
 NOTICE
 QUALITY.md
 README.md
+SECURITY.md
 WORKFLOW.md
 eslint.config.js
 eslint.tests.js

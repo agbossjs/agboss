@@ -33,7 +33,15 @@ import { flowLintProblems } from "./docs/flow-lint.mjs";
 import { skillsProblems } from "./docs/skills.mjs";
 
 const REPO = realpathSync(new URL("..", import.meta.url).pathname);
-const ROOT_DOCS = ["README.md", "CLAUDE.md", "QUALITY.md", "WORKFLOW.md"];
+const ROOT_DOCS = [
+  "README.md",
+  "CLAUDE.md",
+  "QUALITY.md",
+  "WORKFLOW.md",
+  "CONTRIBUTING.md",
+  "CHANGELOG.md",
+  "SECURITY.md",
+];
 // the project skills shipped with agboss (#305): checked like every doc, plus docs/skills.mjs
 const SKILLS_FOLDER = "packages/agboss/skills";
 

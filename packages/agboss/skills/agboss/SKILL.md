@@ -23,8 +23,10 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
 2. **One class per file, named by its kind.** Folders by kind (`agents/`, `tools/`, `routers/`,
    `actions/`, `workflow-starts/`, `workflow-finishes/`, `services/`, `guardrails/`, …), files
    `<name>.<kind>.ts`, a component's `name` in kebab-case ending with its kind (`billing-agent`,
-   `refund-tool`, `desk-router`, `chat-workflow-start`, `desk-workflow`) — `[name.kind-suffix]`. A
-   DTO class on a path ends with `Dto` (`[dto.name]`).
+   `refund-tool`, `desk-router`, `chat-workflow-start`, `desk-workflow`) — `[name.kind-suffix]`; the
+   class is that name in PascalCase (`BillingAgent`, `DeskWorkflow`), and for an `@Application` and
+   a `@Budget` the same rule checks the class name too (a `@Budget` class `DailyLimit` fails:
+   `name it DailyLimitBudget`). A DTO class on a path ends with `Dto` (`[dto.name]`).
 3. **The flow is paths, written one call per line.** `@Workflow({ flow: [start(S) … .toFinish(F)] })`;
    `.returns(XDto)` says what the step before put on the path (its scope), and a later node reads its
    `input` fields from that scope — as `{ producer, value }` records (`input.order.value`), never by

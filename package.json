@@ -1,7 +1,39 @@
 {
   "name": "agboss-monorepo",
-  "license": "Apache-2.0",
   "version": "0.1.0",
+  "description": "The AGBoss monorepo: the agboss framework, the agboss CLI and their examples. Spring-style TypeScript framework for mission-critical LangGraph AI agents — @Application DI, Path Scope Flow DSL, transactional sagas, FinOps budgets, MCP/RAG/A2A, and deterministic unit testing.",
+  "keywords": [
+    "agboss",
+    "langgraph",
+    "langchain",
+    "ai-agents",
+    "agent-framework",
+    "multi-agent",
+    "typescript",
+    "dependency-injection",
+    "workflow",
+    "saga",
+    "mcp",
+    "model-context-protocol",
+    "rag",
+    "a2a",
+    "finops",
+    "llm",
+    "llm-evaluation",
+    "guardrails",
+    "pii",
+    "nodejs"
+  ],
+  "homepage": "https://agboss.dev",
+  "bugs": {
+    "url": "https://github.com/agbossjs/agboss/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agbossjs/agboss.git"
+  },
+  "license": "Apache-2.0",
+  "author": "Pavel Ravvich <hello@agboss.dev> (https://github.com/pavelravvich)",
   "private": true,
   "type": "module",
   "engines": {

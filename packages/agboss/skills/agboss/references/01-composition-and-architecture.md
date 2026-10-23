@@ -296,6 +296,12 @@ What this shows:
   `switch` routes on it. `oneOf` outputs become one answer tool per class for the model.
 - **Pass-through finishes.** A finish without a `finish()` method hands back the value of its
   `output` class from the path (`TooManyJobsWorkflowFinish` returns the `ShortlistDto`).
+- **Names end with their kind — the class too.** Every `name` is kebab-case with its kind last
+  (`shortlist-size-router`, `tenant-daily-budget`), the class the same name in PascalCase
+  (`ShortlistSizeRouter`, `TenantDailyBudget`). `[name.kind-suffix]` checks the `name` of every
+  component and, for the `@Application` and each `@Budget`, the class name as well: an application
+  class `ShortlistApp` or a budget class `DailyLimit` fails assembly
+  (`class DailyLimit — name it DailyLimitBudget`).
 
 ## DTOs: what the model sees and what the code gets
 
