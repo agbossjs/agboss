@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "AGBoss example: the zero-cost harness of the public surface \u2014 flow patterns (a review loop, a code router, parallel launches, a quorum, child workflows, recursion, two approvals at once, undo), the extension points on an offline transport model provider, two applications over A2A checked by check --federation; scripted tests, real runs with OPENROUTER_API_KEY",
+  "description": "AGBoss example: the zero-cost harness of the public surface \u2014 flow patterns (a review loop, a code router, parallel launches, a quorum, child workflows, recursion, two approvals at once, undo), the extension points on an offline transport model provider, two applications over A2A checked by check --federation, an offline eval suite; scripted tests, real runs with OPENROUTER_API_KEY",
   "agboss": {
     "application": "src/flow-patterns.application.ts"
   },
@@ -14,12 +14,14 @@
     "studio": "agboss studio",
     "types": "agboss check",
     "answer": "tsx src/scripts/answer-pauses.ts",
-    "check": "agboss check --strict --application src/desk.application.ts --federation snapshots/ && agboss describe --json --application src/desk.application.ts > .agboss/desk-application.json && agboss check --strict --federation .agboss/desk-application.json && agboss check --models --env test && eslint .",
+    "check": "agboss check --strict --application src/desk.application.ts --federation snapshots/ && agboss describe --json --application src/desk.application.ts > .agboss/desk-application.json && agboss check --strict --federation .agboss/desk-application.json && agboss check --models --env test && eslint . && npm run -s eval:check",
     "typecheck": "npm run types && tsc --noEmit -p .",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
     "lint": "eslint .",
-    "snapshot": "agboss describe --json --application src/desk.application.ts > snapshots/desk-application.json"
+    "snapshot": "agboss describe --json --application src/desk.application.ts > snapshots/desk-application.json",
+    "eval": "PII_PSEUDONYM_KEY=offline-only agboss eval run --application src/desk.application.ts --env offline --suite desk-eval-suite --runs 2 --report eval/runs/desk-eval-suite.json",
+    "eval:check": "PII_PSEUDONYM_KEY=offline-only agboss eval run --application src/desk.application.ts --env offline --suite desk-eval-suite --runs 2 --report .agboss/eval/desk-eval-suite.json --baseline eval/runs/desk-eval-suite.json --fail-on-regression && agboss eval show eval/runs/desk-eval-suite.json --html .agboss/eval/desk-eval-suite.html && agboss eval calibrate --report eval/runs/desk-eval-suite.json"
   },
   "dependencies": {
     "agboss": "0.1.0"

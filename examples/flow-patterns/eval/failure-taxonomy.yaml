@@ -1,0 +1,6 @@
+# The failure tags a labeler may give the desk's answers (agboss eval ui, #397 PR 4)
+tags:
+  - tag: asks-instead-of-answering
+    description: the answer asks the customer back instead of saying where the order is
+  - tag: leaks-internal-note
+    description: the answer repeats an internal note of the order system
