@@ -133,8 +133,8 @@ into `--agent`.
 
 The `agboss` package ships a guide for coding agents written for its own version: `skills/agboss/`
 — `SKILL.md` (YAML frontmatter first, then the version header, an HTML comment
-`agboss-skills-version: <version>` that says `agboss check` manages the file) and `references/01-…` to `references/12-…`, from
-composition and the flow DSL to tests and the error catalog. `agboss create` writes:
+`agboss-skills-version: <version>` that says `agboss check` manages the file) and `references/01-…` to `references/13-…`, from
+composition and the flow DSL to tests, the error catalog and migrating from LangGraph. `agboss create` writes:
 
 ```text
 support-desk/
@@ -146,7 +146,15 @@ support-desk/
     references/01-composition-and-architecture.md
     …
     references/12-end-to-end-recipes.md
+    references/13-migrating-from-langgraph.md
 ```
+
+`references/13-migrating-from-langgraph.md` (#424) is the guide for moving an existing LangGraph
+graph — `Annotation.Root` state, `addConditionalEdges`, `Command({ goto })`, `Send`, `interrupt()` —
+to AGBoss in four steps: a read / write matrix that slices the state into one narrow DTO per
+producer, a one-to-one translation table, a worked "before → after" example (the LangGraph graph and
+its AGBoss application, both compiled by the gate) and the move from live-model tests to
+`testWith` scripts and unit runners.
 
 `AGENTS.md` routes each task to one reference and ends with `## Project rules` — the place for the
 project's own rules. `.claude/skills/agboss/` is in the generated `.gitignore`; it appears on
@@ -160,9 +168,9 @@ CLI's own:
 ```text
 $ npx agboss check                # skills current: nothing extra
 $ npx agboss check                # after an agboss upgrade
-skills: .claude/skills/agboss updated 0.1.0 → 0.2.0 (13 files)
+skills: .claude/skills/agboss updated 0.1.0 → 0.2.0 (14 files)
 $ npx agboss check                # the folder missing (a fresh clone)
-skills: .claude/skills/agboss installed for agboss 0.2.0 (13 files)
+skills: .claude/skills/agboss installed for agboss 0.2.0 (14 files)
 $ npx agboss check                # a managed file edited by hand
 warning: [skills.local-edit] .claude/skills/agboss/references/02-flow-dsl-all-combinations.md was edited — replaced by agboss 0.2.0's; put project rules in AGENTS.md
 skills: .claude/skills/agboss repaired (1 file)

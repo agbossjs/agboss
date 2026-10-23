@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the LangGraph migration guide in the project skills (#424)
+
+- **`references/13-migrating-from-langgraph.md`** — a skill reference for coding agents that move a
+  LangGraph graph to AGBoss: the read / write matrix (one state → narrow DTOs per producer, routing
+  flags → output variants or routes, reducers → joins, counters → `maxVisits`), a one-to-one table
+  from `StateGraph`, `addConditionalEdges`, `Command`, `Send`, `interrupt`, subgraphs and
+  checkpointers to AGBoss primitives, a compiled "before → after" example and the move to `testWith`.
+  Routed from `SKILL.md` and the `AGENTS.md` that `agboss create` writes; the project skills are now
+  `SKILL.md` and 13 references (`skills: … (14 files)`). [CLI](CLI#project-skills-for-coding-agents-305).
+
 ## Unreleased — `agboss eval run --metamorphic`: rewordings call the same tools (#396 PR 7)
 
 - **Added — `agboss eval run --metamorphic`** ([Eval suites](Eval-Suites#under-rewordings---metamorphic)):
