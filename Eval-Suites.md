@@ -391,7 +391,30 @@ the token in its body (a token in the URL is not enough), an `Origin` of the ser
 browser sends one), the same `Host` check — `403`; a label that does not fit (no verdict, a score
 outside 1–4, a tag the taxonomy lacks, a judge or run the artifact has no verdict of) is `400`; a
 labels file that does not read is never rewritten — `409`; a form above 64 KB `413`. Only the labels
-files are written.
+files and the suites' files (below) are written.
+
+#### Saving a run as a golden case (#397 PR 5)
+
+A run with an execution has *Save as golden case*: a name (`<case>-run-<n>` to start with) and a
+button. It reads that execution back from the application's history and drafts it exactly as
+[`agboss generate eval-case --from-execution`](Eval-Suites#a-case-from-a-kept-execution-agboss-generate-eval-case)
+does — one builder (`evalCaseDraftOf`, `withEvalCase`): its input as the turn, its contexts, the
+thread's earlier finished turns as `history`, the calls it ran as `tools.required`, masked as kept,
+its classes imported — and writes the case into the suite's file (the suite of the artifact, among
+the application's `eval-suites/`), then comes back to the run with *Saved as the case "…" of …*.
+
+The application is `package.json`'s (`"agboss": { "application" }`) or `--application <path>`, its
+stores opened on `--env <name>` (default `dev`) — nothing is built or run. The history is there
+only with `@Application({ executionRecordRetention })` ([Execution history](Execution-history)):
+without it — and without an application, or with one that does not load, or for a suite the project
+does not have — the run says why in place of the button, and the labels still work.
+
+The file is written whole and atomically (a temporary file renamed over it), and only if it is still
+the one the page was made from: the form carries the file's ETag (a hash of its content), and a
+file changed since — by another save, an editor, a pull — is `409` (reload the page and save again).
+A case of the same name is `409` and the file stays as it was; an execution the history does not
+have is `404`; a form without a name `400`. The form is protected like a label's: the token in its
+body, the page's `Origin`, the `Host` — else `403`. Review the case in your editor and commit it.
 
 ### A run's trace (`schemaVersion` 2, #397)
 

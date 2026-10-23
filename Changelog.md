@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — "save as golden case" in `agboss eval ui` (#397 PR 5)
+
+- **Added — *Save as golden case*** on a run of `agboss eval ui` with an execution
+  ([Eval suites](Eval-Suites#saving-a-run-as-a-golden-case-397-pr-5)): its kept execution drafted
+  as `agboss generate eval-case --from-execution` drafts it and written into the suite's file —
+  atomically, only while the file's ETag is the page's (else 409), never over a case of the same
+  name (409); without `executionRecordRetention` the page says why. `agboss eval ui` takes
+  `--application` and `--env`.
+
 ## Unreleased — flow-patterns as the zero-cost harness: the remaining patterns (#419)
 
 - `examples/flow-patterns` adds `src/intake/` (`joinQuorumGroups`, tested with

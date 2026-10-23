@@ -262,7 +262,7 @@ and `; `.) `agboss chat` sends what is typed as a text, so its start takes `Work
 | `agboss check --federation <snapshot…>` | also the application's declared contracts against its neighbours' `agboss describe --json` snapshots — files or folders of them, read from disk, no network (#398 PR 4): `[federation.missing-target]`, `[federation.incompatible-schema]` (structural, with the consumer's workflows and tools it affects), `[federation.snapshot-schema]`, `[federation.duplicate-application]`, and with the project's own earlier snapshot `[federation.version-not-bumped]` (a warning, an error under `--strict`); exit 3 on a problem ([A2A](A2A#8-the-federation-check-398-pr-4)) |
 | `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--metamorphic] [--profile <name>]` | run an `@EvalSuite` on the application: each case k times, its checks under the cascade, pass@k / pass^k per case, the run artifact ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run), #396), its HTML report (#397); each case against a baseline, exit 5 on a regression; failures injected into its model calls ([Eval suites](Eval-Suites#under-failures---chaos)) |
 | `agboss eval show <run.json> [--html <file>]` | a saved run artifact: its table, and with `--html` its self-contained HTML report — nothing runs, no key ([Eval suites](Eval-Suites#the-html-report---html-and-agboss-eval-show-397), #397) |
-| `agboss eval ui [--dir <folder>] [--port N] [--labels-dir <folder>] [--taxonomy <file>] [--labeler <name>]` | a folder of run artifacts served on 127.0.0.1 behind the token it prints — the runs, their attempts, each run's report, labels of judge verdicts into `eval/labels/<suite>.jsonl` and κ — until Ctrl+C; nothing runs ([Eval suites](Eval-Suites#browsing-runs-agboss-eval-ui-397), #397) |
+| `agboss eval ui [--dir <folder>] [--port N] [--labels-dir <folder>] [--taxonomy <file>] [--labeler <name>] [--application <path>] [--env <name>]` | a folder of run artifacts served on 127.0.0.1 behind the token it prints — the runs, their attempts, each run's report, labels of judge verdicts into `eval/labels/<suite>.jsonl` and κ, a run's kept execution saved as a golden case of its suite — until Ctrl+C; nothing runs ([Eval suites](Eval-Suites#browsing-runs-agboss-eval-ui-397), #397) |
 | `agboss eval calibrate --report <run.json> [--labels <labels.jsonl>]` | a saved run's judges against people's labels: pairwise Cohen's κ, a confusion matrix per labeler, the disagreements by the judge's metrics — nothing runs, no key ([Eval suites](Eval-Suites#calibrating-a-judge-agboss-eval-calibrate), #396) |
 | `agboss eval score` / `agboss replay` `[--start <name>]` | score recent runs of the start's workflow with Jev / re-run a prompt version |
 | `agboss golden add [--start <name>] --name <n>` | recent real tasks of the start's workflow as a golden set |
@@ -317,7 +317,10 @@ workflow's own (`profiles/<workflow>/<name>.yaml`).
   (`usage.option-value`) or a `--taxonomy` file that is not one (`eval.taxonomy-invalid`), before it
   serves. `--labels-dir` (default `eval/labels`), `--taxonomy` (default `eval/failure-taxonomy.yaml`)
   and `--labeler` (default the system user) are for labelling
-  ([Eval suites](Eval-Suites#labelling-runs-397-pr-4)).
+  ([Eval suites](Eval-Suites#labelling-runs-397-pr-4)); `--application <path>` and `--env <name>`
+  name the application whose execution history *Save as golden case* reads — a run's kept
+  execution written into its suite's file
+  ([Eval suites](Eval-Suites#saving-a-run-as-a-golden-case-397-pr-5)).
 - `agboss eval calibrate --report <run.json> [--labels <labels.jsonl>]` (#396) — a saved run's
   judges against people's labels, `eval/labels/<suite>.jsonl` by default
   ([Eval suites](Eval-Suites#calibrating-a-judge-agboss-eval-calibrate)); it loads no application
