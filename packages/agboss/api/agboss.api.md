@@ -1947,6 +1947,7 @@ export enum ExecutionStatus {
 
 // @public
 export interface ExecutionStepRecord {
+    readonly decision?: string;
     // (undocumented)
     readonly endedAt: string;
     readonly error?: ErrorRecord;
@@ -5918,8 +5919,8 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/execution-record.ts:24:3 - (ae-undocumented) Missing documentation for "outdatedValues".
 // src/flow/runtime/execution-record.ts:25:3 - (ae-undocumented) Missing documentation for "lastError".
 // src/flow/runtime/execution-record.ts:26:3 - (ae-undocumented) Missing documentation for "spend".
-// src/flow/runtime/execution-record.ts:67:3 - (ae-undocumented) Missing documentation for "resolution".
-// src/flow/runtime/execution-record.ts:70:3 - (ae-undocumented) Missing documentation for "resolvedAt".
+// src/flow/runtime/execution-record.ts:68:3 - (ae-undocumented) Missing documentation for "resolution".
+// src/flow/runtime/execution-record.ts:71:3 - (ae-undocumented) Missing documentation for "resolvedAt".
 // src/flow/runtime/launch/quorum-errors.ts:21:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/launch/quorum-errors.ts:22:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/launch/quorum-errors.ts:50:3 - (ae-undocumented) Missing documentation for "code".
@@ -5943,7 +5944,7 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/step-records.ts:28:3 - (ae-undocumented) Missing documentation for "guardrail".
 // src/flow/runtime/step-records.ts:29:3 - (ae-undocumented) Missing documentation for "side".
 // src/flow/runtime/step-records.ts:30:3 - (ae-undocumented) Missing documentation for "isBlocked".
-// src/flow/runtime/step-records.ts:64:3 - (ae-undocumented) Missing documentation for "endedAt".
+// src/flow/runtime/step-records.ts:72:3 - (ae-undocumented) Missing documentation for "endedAt".
 // src/flow/runtime/tool-calls.ts:60:3 - (ae-undocumented) Missing documentation for "status".
 // src/flow/runtime/tool-calls.ts:67:3 - (ae-undocumented) Missing documentation for "endedAt".
 // src/flow/runtime/tool-calls.ts:77:3 - (ae-undocumented) Missing documentation for "status".

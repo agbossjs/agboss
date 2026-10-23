@@ -37,7 +37,8 @@ export interface ExecutionRecord {
   readonly toolCalls: readonly ToolCallRecord[];
   /**
    * One record per visit of its own nodes (#395 C3), in the order the visits ended: the step, a
-   * hash of its input, its judges' verdicts and guardrails' decisions, its spend and times.
+   * hash of its input, what it decided (#401: a route, a variant's class or a hash of its answer —
+   * never the answer itself), its judges' verdicts and guardrails' decisions, its spend and times.
    */
   readonly steps: readonly ExecutionStepRecord[];
   /**

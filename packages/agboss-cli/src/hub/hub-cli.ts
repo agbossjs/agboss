@@ -29,7 +29,7 @@ function summaryLines(mesh: HubMesh): string[] {
   );
   return [
     `hub: ${plural(mesh.applications.length, "application")} · ${plural(workflows, "workflow")} · ${plural(mesh.edges.length, "observed cross-service edge")}`,
-    `${plural(mesh.trees.length, "execution tree")} across applications`,
+    `${plural(mesh.trees.length, "execution tree")} across applications · ${plural(mesh.radar.filter((step) => step.isCandidate).length, "crystallization candidate")}`,
     `snapshots ${String(mesh.inputs.describe)} · eval runs ${String(mesh.inputs.evalRuns)} · kept executions ${String(mesh.inputs.records)}`,
   ];
 }
@@ -61,6 +61,7 @@ const resultOf = (inputs: HubInputs, mesh: HubMesh) => ({
     executions,
     stubs,
   })),
+  radar: mesh.radar,
 });
 
 async function hubShowCommand(context: CommandContext): Promise<CommandOutcome> {

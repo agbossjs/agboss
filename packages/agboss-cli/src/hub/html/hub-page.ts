@@ -5,6 +5,7 @@ import type { HubMesh } from "../mesh.js";
 import { applicationsSectionOf } from "./applications-section.js";
 import { HUB_PAGE_STYLE } from "./hub-style.js";
 import { meshGraphSectionOf } from "./mesh-graph-section.js";
+import { radarSectionOf } from "./radar-section.js";
 import { treesSectionOf } from "./trees-section.js";
 
 /**
@@ -26,6 +27,7 @@ function headerOf(mesh: HubMesh): HtmlElement {
       ["workflows", String(workflows)],
       ["observed edges", String(mesh.edges.length)],
       ["trees across applications", String(mesh.trees.length)],
+      ["crystallization candidates", String(mesh.radar.filter((step) => step.isCandidate).length)],
       ["snapshots", String(mesh.inputs.describe)],
       ["eval runs", String(mesh.inputs.evalRuns)],
       ["kept executions", String(mesh.inputs.records)],
@@ -75,6 +77,7 @@ export function renderHubPage(mesh: HubMesh): string {
         meshGraphSectionOf(mesh),
         edgesSectionOf(mesh),
         treesSectionOf(mesh.trees),
+        radarSectionOf(mesh.radar),
         applicationsSectionOf(mesh.applications),
       ]),
     ),
