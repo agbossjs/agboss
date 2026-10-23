@@ -1,6 +1,7 @@
 import type { JudgeMetrics } from "../../components/judge-decorators.js";
 import { CheckStatus, type EvalCascade } from "../suite/checks.js";
 import type { EvalRunComparison } from "./comparison.js";
+import type { EvalRunChaos } from "../chaos/chaos-failure.js";
 import type { EvalCaseExpectation, EvalExecutionTrace } from "./trace.js";
 import type { EvalModelUse } from "./ran-on.js";
 
@@ -139,6 +140,8 @@ export interface EvalRunReport {
   readonly models?: readonly EvalModelUse[];
   /** The PII policies that masked its records and traces (schemaVersion 3). */
   readonly piiPolicies?: readonly string[];
+  /** What `--chaos` injected into the run's model calls (#396 PR 6); absent without it. */
+  readonly chaos?: EvalRunChaos;
   /** The run against `--baseline <run.json>` (#396 PR 3); absent without one. */
   readonly baseline?: EvalRunComparison;
 }

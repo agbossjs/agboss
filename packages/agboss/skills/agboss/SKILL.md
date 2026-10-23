@@ -103,7 +103,9 @@ npm test                                                           # scripted mo
   stable on `main` regressed (one that flapped there is quarantined,
   `CaseComparison.FlakyOnBaseline`); a model judge is trusted only once calibrated against people's
   labels — `npx agboss eval calibrate --report <run.json>` (Cohen's κ per labeler, the disagreements
-  by the judge's metrics); `npx agboss eval score`
+  by the judge's metrics); `--chaos <rate> --chaos-seed <n>` injects 429s, timeouts and truncated
+  answers into the run's model calls to show its retry policy, `.onError` paths and undos hold;
+  `npx agboss eval score`
   scores recorded runs (the bare `npx agboss eval` lists both).
 - A case that passes at least once in k runs but not every time (pass@k high, pass^k low — printed
   `unstable`): do not grow the prompt — propose deterministic code (a `@ToolInterceptor`, a code guardrail,

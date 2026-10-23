@@ -147,9 +147,10 @@ export interface BuiltApplication {
 }
 
 // Warning: (ae-forgotten-export) The symbol "AppOptions" needs to be exported by the entry point internal.d.ts
+// Warning: (ae-forgotten-export) The symbol "BuildOptions" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export function builtApplicationOf(application: Class, options?: AppOptions): Promise<BuiltApplication>;
+export function builtApplicationOf(application: Class, options?: AppOptions & Pick<BuildOptions, "chaos">): Promise<BuiltApplication>;
 
 // Warning: (ae-forgotten-export) The symbol "ComponentLabel" needs to be exported by the entry point internal.d.ts
 //
@@ -183,6 +184,14 @@ export function cassetteFilesUnder(root: string): string[];
 export enum ChannelImplementationReason {
     Listed = "listed",
     NamedByTool = "named-by-tool"
+}
+
+// @public
+export interface ChaosOptions {
+    // Warning: (ae-forgotten-export) The symbol "ChaosFailure" needs to be exported by the entry point internal.d.ts
+    readonly failures: readonly ChaosFailure[];
+    readonly rate: number;
+    readonly seed: number;
 }
 
 // Warning: (ae-forgotten-export) The symbol "CassetteHashSource" needs to be exported by the entry point internal.d.ts
@@ -583,6 +592,7 @@ export type EvalLabelsRead = {
 
 // @public
 export interface EvalRunOptions {
+    readonly chaos?: ChaosOptions;
     // Warning: (ae-forgotten-export) The symbol "EvalRunResult" needs to be exported by the entry point internal.d.ts
     readonly onRun?: (name: string, result: EvalRunResult) => void;
     readonly profile?: string;

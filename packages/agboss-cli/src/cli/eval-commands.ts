@@ -15,7 +15,7 @@ export const EVAL_COMMAND: CommandSpec = {
       summary:
         "run an eval suite: every case --runs times, its checks under the cascade, pass@k / pass^k",
       usage:
-        "agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--profile <name>] [--env <name>]",
+        "agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--profile <name>] [--env <name>]",
       options: [
         text(
           "suite",
@@ -28,6 +28,21 @@ export const EVAL_COMMAND: CommandSpec = {
         text("report", "<run.json>", "write the run artifact (agboss.eval-run) to this file"),
         HTML,
         text("baseline", "<run.json>", "compare each case with this run artifact (a run of main)"),
+        text(
+          "chaos",
+          "<rate>",
+          "inject failures into this share of the model calls (0.2); needs --chaos-seed",
+        ),
+        text(
+          "chaos-seed",
+          "<n>",
+          "the seed of the injected failures: the same seed, the same failures",
+        ),
+        text(
+          "chaos-failures",
+          "<list>",
+          "what is injected: rate-limited, timeout, truncated-response (default: all)",
+        ),
         flag(
           "fail-on-regression",
           "with --baseline: exit 5 (eval.regressed) when a case stable on the baseline regressed",

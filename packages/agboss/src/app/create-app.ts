@@ -16,6 +16,7 @@ import {
   createWorkflowDeps,
   type AppDeps,
   type AppDepsOptions,
+  type BuildOptions,
   type WorkflowDepsParts,
 } from "./app-deps.js";
 import { pausedRunBook } from "./paused-runs.js";
@@ -80,7 +81,7 @@ export interface BuiltApp {
 // eslint-disable-next-line max-lines-per-function
 export async function buildApp(
   bundle: AssembledWorkflow,
-  options: AppDepsOptions,
+  options: BuildOptions,
   parts: WorkflowDepsParts,
 ): Promise<BuiltApp> {
   const { deps, withdrawn } = withWithdrawals(await createWorkflowDeps(bundle, options, parts));

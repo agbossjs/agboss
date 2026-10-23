@@ -1,6 +1,7 @@
 import { textOption, type CommandContext, type CommandOutcome } from "../cli/context.js";
 import { usageError } from "../cli/errors.js";
 import { readRunArtifact } from "./run-artifact.js";
+import { chaosLine } from "./chaos-options.js";
 import { printRunTable } from "./run-report.js";
 
 /**
@@ -14,6 +15,7 @@ export async function evalShowCommand(context: CommandContext): Promise<CommandO
     throw usageError("eval show", "usage.missing-argument", "expected agboss eval show <run.json>");
   const report = readRunArtifact(context, path);
   printRunTable(context, report);
+  if (report.chaos !== undefined) context.say(chaosLine(report.chaos));
   const html = textOption(context.values, "html");
   if (html === undefined) return { result: report };
   await (await import("./html-report.js")).writeHtmlReport(context, html, report);

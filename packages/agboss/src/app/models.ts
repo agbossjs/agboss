@@ -7,6 +7,8 @@ import type { TransportResolver } from "../models/transport/transport-resolver.j
 import { lateTransports, type TransportContainer } from "./late-transports.js";
 import { providerCallsOf } from "../models/calls/provider-calls.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
+import type { ChaosOptions } from "../eval/chaos/chaos-failure.js";
+import { modelChaosOf } from "../eval/chaos/model-chaos.js";
 import { checkModelUses, resolutionProblems } from "../models/check.js";
 import { ConfigurationError } from "../models/problems.js";
 import { modelGuardrailsOf } from "../guardrails/loaded.js";
@@ -34,6 +36,8 @@ export interface AppModels {
 /** What an app's models are made with: its stub client and process (tests), a given gateway. */
 export interface AppModelsOptions {
   readonly providerFetch?: ProviderFetch;
+  /** Failures injected into every model call (#396 PR 6). */
+  readonly chaos?: ChaosOptions;
   readonly processEnv?: NodeJS.ProcessEnv;
   readonly gateway?: ModelGateway | undefined;
 }
@@ -49,8 +53,16 @@ export const providerClientsOf = (
   environment: application.environment,
   clock: infrastructure.clock,
   calls: providerCallsOf(infrastructure.rateLimits, infrastructure.clock),
-  ...(options.providerFetch === undefined ? {} : { send: options.providerFetch }),
+  ...sendOf(options),
 });
+
+/** The raw client, with chaos in it when the run injects some (#396 PR 6); transports get it too. */
+function sendOf(options: AppModelsOptions): Pick<ProviderClientOptions, "send" | "chaos"> {
+  if (options.chaos === undefined)
+    return options.providerFetch === undefined ? {} : { send: options.providerFetch };
+  const chaos = modelChaosOf(options.chaos);
+  return { send: chaos.fetchOf(options.providerFetch ?? fetch), chaos };
+}
 
 /**
  * Fails fast, before any model call: every model must have exactly one provider; with the

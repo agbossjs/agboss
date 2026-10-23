@@ -118,7 +118,12 @@ rubric (the judge's `metrics` keys over disagreements and agreements), `EvalCali
 `--json`; runs nothing (`eval.labels-not-found` / `eval.labels-invalid`); `agboss compare` (and
 `compareProfiles(Application, { start, profiles, tasks })`, on the workflow `start` opens) judges each
 task's pair of answers in both orders (#396 PR 5) — agreeing verdicts are a win or a loss, anything
-else a tie, a verdict for the same position both times also a `positionFlips`; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
+else a tie, a verdict for the same position both times also a `positionFlips`; `agboss eval run --chaos <rate> --chaos-seed <n> [--chaos-failures <list>]` (#396 PR 6) injects
+`ChaosFailure`s (`rate-limited`, `timeout`, `truncated-response`) into the run's model calls at the
+provider's HTTP client and a transport's `complete()`, under the retry policy, the rate limit and the
+breaker, on the real budgets — seeded, the rate and the seed together; the artifact's `chaos`
+(`EvalRunChaos`) says what was injected — the injection is an option of the internal build path
+`eval run` uses (`builtApplicationOf`), never of `createApp`; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
 `agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
 (`agboss/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs

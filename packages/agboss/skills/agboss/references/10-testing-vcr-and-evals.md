@@ -1207,6 +1207,10 @@ recording is `[vcr.stale-cassette]`.
    Cohen's κ between the judge and each labeler (and between labelers). A low κ with the judge
    passing what people fail: fix the judge (its prompt, or a code judge for what can be checked by
    code) before reading its pass rates.
+4. Then the run under failures: `npx agboss eval run --suite <name> --runs <k> --chaos 0.2
+--chaos-seed 7` injects 429s, timeouts and truncated answers into a fifth of the model calls — a
+   case that passes without chaos and fails with it needs a `retryPolicy` on its provider, an
+   `.onError` side path, or an undo (`compensateWith`) — never a longer prompt.
 
 ## Eval suites: `@EvalSuite` (`agboss/eval`)
 
@@ -1402,6 +1406,29 @@ npx agboss eval calibrate --report main.json --labels labels/refunds.jsonl
   judge are counted as unmatched, never an error; a malformed line, a second label of one run by one
   labeler for one judge, or a `runId` that is not its execution's run → `eval.labels-invalid`, exit 2.
   It reads two files and runs nothing; `--json` carries the calibration (`EvalCalibration`).
+
+### Under failures: `--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]`
+
+```
+npx agboss eval run --suite screening-eval-suite --runs 3 --env eval --chaos 0.2 --chaos-seed 7
+npx agboss eval run --suite screening-eval-suite --chaos 0.2 --chaos-seed 7 --chaos-failures rate-limited,timeout
+```
+
+- `ChaosFailure` (`agboss/eval`, a set of its own — never a `ModelFailure`): `RateLimited`
+  (`rate-limited`: a 429), `Timeout` (`timeout`), `TruncatedResponse` (`truncated-response`: the answer
+  cut at its token limit — `finish_reason: "length"`, its text and its tool calls' arguments cut
+  short). `--chaos-failures` defaults to all three.
+- Injected at the provider's HTTP client (its `POST`s; the model lists read at start are never touched)
+  and at a transport's `complete()`, below the attempt runner: the provider's `retryPolicy`, its rate
+  limit's 429 pause and its breaker see each failure as the provider's own; a failure no retry
+  absorbs fails the step — its `.onError` side path runs, and its undo actions (#340) with it.
+- The rate (above 0, at most 1) and the seed (a whole number) come together (`usage.missing-option`
+  otherwise; a bad value is `usage.option-value`): one seed, one sequence of failures — a chaos run can
+  be repeated. Chaos runs on the real budgets: retried calls are paid as usual.
+- It prints `chaos: rate 0.2, seed 7 — 5 of 31 model calls failed on purpose (rate-limited 2, timeout
+2, truncated-response 1)`; the artifact (and `--json`) gains `chaos` (`EvalRunChaos`: the rate, the
+  seed, the failures, `calls` seen, `injected` by kind). Chaos belongs to `eval run` only: there is
+  no `createApp` option for it.
 
 ## Evals on real traffic
 

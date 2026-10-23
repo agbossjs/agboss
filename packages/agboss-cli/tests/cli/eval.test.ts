@@ -349,3 +349,84 @@ describe("#396 PR 3: agboss eval run --baseline", () => {
     expect(result.workflow.version).toBe("1.0.0-next");
   });
 });
+
+describe("#396 PR 6: agboss eval run --chaos", () => {
+  const SUITE = [...RUN, "--suite", "desk-eval-suite"] as const;
+
+  it("every model call fails as told: the runs fail, the artifact says what was injected", async () => {
+    const call = await agboss(
+      [
+        ...SUITE,
+        "--runs",
+        "2",
+        "--chaos",
+        "1",
+        "--chaos-seed",
+        "7",
+        "--chaos-failures",
+        "rate-limited",
+        "--json",
+      ],
+      CWD,
+    );
+
+    expect(call.code).toBe(0);
+    const result = envelope(call).result as {
+      cases: readonly { passed: number }[];
+      chaos: {
+        rate: number;
+        seed: number;
+        failures: string[];
+        calls: number;
+        injected: Record<string, number>;
+      };
+    };
+    expect(result.cases.map((found) => found.passed)).toEqual([0, 0]);
+    expect(result.chaos).toMatchObject({
+      rate: 1,
+      seed: 7,
+      failures: ["rate-limited"],
+      injected: { "rate-limited": result.chaos.calls, timeout: 0, "truncated-response": 0 },
+    });
+    expect(result.chaos.calls).toBeGreaterThan(0);
+  });
+
+  it("prints what it injected; the same seed injects the same failures", async () => {
+    const args = [...SUITE, "--chaos", "0.5", "--chaos-seed", "11"] as const;
+    const first = await agboss(args, CWD);
+    const second = await agboss(args, CWD);
+    const line = (stdout: string) => stdout.split("\n").find((each) => each.startsWith("chaos: "));
+
+    expect(first.code).toBe(0);
+    expect(line(first.stdout)).toMatch(
+      /^chaos: rate 0\.5, seed 11 — \d+ of \d+ model calls failed on purpose \(rate-limited \d+, timeout \d+, truncated-response \d+\)$/,
+    );
+    expect(line(second.stdout)).toBe(line(first.stdout));
+  });
+
+  it("the rate and the seed come together; the values are checked", async () => {
+    const noSeed = await agboss([...SUITE, "--chaos", "0.2", "--json"], CWD);
+    const noRate = await agboss([...SUITE, "--chaos-seed", "3", "--json"], CWD);
+    const badRate = await agboss([...SUITE, "--chaos", "2", "--chaos-seed", "3", "--json"], CWD);
+    const badFailure = await agboss(
+      [...SUITE, "--chaos", "0.2", "--chaos-seed", "3", "--chaos-failures", "outage", "--json"],
+      CWD,
+    );
+
+    expect([noSeed.code, noRate.code, badRate.code, badFailure.code]).toEqual([2, 2, 2, 2]);
+    expect(envelope(noSeed)).toMatchObject({ error: { code: "usage.missing-option" } });
+    expect(envelope(noRate)).toMatchObject({
+      error: {
+        code: "usage.missing-option",
+        message: expect.stringContaining("--chaos-seed needs --chaos <rate>") as unknown,
+      },
+    });
+    expect(envelope(badRate)).toMatchObject({ error: { code: "usage.option-value" } });
+    expect(envelope(badFailure)).toMatchObject({
+      error: {
+        code: "usage.option-value",
+        message: expect.stringContaining("rate-limited, timeout, truncated-response") as unknown,
+      },
+    });
+  });
+});
