@@ -3,6 +3,7 @@ import type { CostReport } from "../../finops/usage.js";
 import type { WorkflowRecord } from "../context/execution-context.js";
 import type { PauseAnswerRecord } from "./execution-record.js";
 import type { ComponentRecord } from "./records.js";
+import type { ToolCallRecord } from "./tool-calls.js";
 
 /**
  * What an execution keeps of its child executions (#263), as plain JSON: a child's own identity in
@@ -76,6 +77,8 @@ export interface EndedChildRecord {
   readonly path: readonly string[];
   /** Its own spend (the parent's `result.spend` holds it too). */
   readonly spend: CostReport;
+  /** Its own agents' tool calls (#395), in call order; its children's are in their records. */
+  readonly toolCalls: readonly ToolCallRecord[];
   /** Its own child executions, nested the same way. */
   readonly children: readonly EndedChildRecord[];
 }

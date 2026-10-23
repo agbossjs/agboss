@@ -6,7 +6,13 @@ import { withSortedKeys } from "../../flow/runtime/json.js";
 import { toolDefinitionOf } from "../../tools/index.js";
 import { AgentFailedError } from "../errors.js";
 import type { AsyncNode } from "../types.js";
-import { callsOf, isAnswerCall, type AgentDefinition, type AgentLoopDeps } from "./deps.js";
+import {
+  callsOf,
+  invalidCallsOf,
+  isAnswerCall,
+  type AgentDefinition,
+  type AgentLoopDeps,
+} from "./deps.js";
 import { agentLimitError } from "./limits.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 import { extractRunContext, throwIfCancelled } from "../../core/run-context.js";
@@ -75,7 +81,19 @@ export function withCallIds(response: AIMessageChunk, state: CallIdSource): AIMe
     }
     return { ...call, id: isRepeated(id) ? `${id}:${String(index)}` : id };
   });
-  return new AIMessage({ content: response.content, tool_calls: toolCalls });
+  // unparsable calls keep their place (#395): each gets an id, the model reads why it did not run
+  const invalid = (response.invalid_tool_calls ?? []).map((call, index) => {
+    const position = `${String(state.flowPath.length)}:${String(turn)}:invalid:${String(index)}`;
+    return {
+      ...call,
+      id: call.id === undefined || call.id === "" ? `${state.runId}:${position}` : call.id,
+    };
+  });
+  return new AIMessage({
+    content: response.content,
+    tool_calls: toolCalls,
+    ...(invalid.length === 0 ? {} : { invalid_tool_calls: invalid }),
+  });
 }
 
 /**
@@ -162,7 +180,9 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     if (outgoing.kind === "invalid") return { ...outgoing.update, modelCalls: 1, ...pii };
     const move = outgoing.move;
     // answer tools are not tool calls: an invalid answer costs a retry, not `maxToolCalls` (S9)
-    const calls = callsOf(move).filter((call) => !isAnswerCall(deps.agent, call)).length;
+    const calls =
+      callsOf(move).filter((call) => !isAnswerCall(deps.agent, call)).length +
+      invalidCallsOf(move).filter((call) => !isAnswerCall(deps.agent, call)).length;
     const toolCalls = state.toolCalls + calls;
     if (toolCalls > limits.toolCalls) {
       const breach = {

@@ -6,6 +6,8 @@ import type { ChildExecutionRecord } from "./child-records.js";
 import type { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 import type { PauseResolution } from "../../infrastructure/pause-record.js";
 import type { StepRecord } from "../context/execution-context.js";
+import type { ToolCallRecord } from "./tool-calls.js";
+import type { ExecutionStepRecord } from "./step-records.js";
 
 /**
  * The full record of one execution (#270 AC16), returned only with `app.execute(…, { record: true })`:
@@ -30,6 +32,13 @@ export interface ExecutionRecord {
   readonly pauses: readonly PauseAnswerRecord[];
   /** The undo actions that ran (#340), in the order they ended (`result.compensations`). */
   readonly compensations: readonly CompensationRecord[];
+  /** Its own agents' tool calls (#395), in call order; a child's are in its `ChildExecutionRecord`. */
+  readonly toolCalls: readonly ToolCallRecord[];
+  /**
+   * One record per visit of its own nodes (#395 C3), in the order the visits ended: the step, a
+   * hash of its input, its judges' verdicts and guardrails' decisions, its spend and times.
+   */
+  readonly steps: readonly ExecutionStepRecord[];
 }
 
 /** One resolved pause as the execution record keeps it (#267 S107), masked like the rest of it. */

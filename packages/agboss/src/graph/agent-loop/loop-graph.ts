@@ -4,7 +4,7 @@ import { makeJudgeNode } from "./judge-node.js";
 import { makeApprovalNode } from "./approval-node.js";
 import { makeBoundaryNode, routeToActions } from "./boundary.js";
 import { makeCollectNode } from "./collect-node.js";
-import { callsOf, isAnswerCall, type AgentLoopDeps } from "./deps.js";
+import { callsOf, invalidCallsOf, isAnswerCall, type AgentLoopDeps } from "./deps.js";
 import { makeInputNode } from "./input-node.js";
 import { makeModelNode } from "./model-node.js";
 import { makeReplyNode } from "./reply-node.js";
@@ -22,14 +22,15 @@ import type { AsyncNode } from "../types.js";
 import { makeToolNode } from "./tools-node.js";
 
 /**
- * After a model turn: an answer tool → the answer; other tool calls → the boundary; none → the
- * reply; no move (an invalid answer — a token nobody gave it, #120) → the model again.
+ * After a model turn: an answer tool → the answer; other tool calls (read or not) → the boundary;
+ * none → the reply; no move (an invalid answer — a token nobody gave it, #120) → the model again.
  */
 export const afterModel =
   (deps: AgentLoopDeps) =>
   (state: AgentLoopStateType): string => {
     if (state.move === null) return LOOP_NODE.model;
-    const calls = callsOf(state.move);
+    // a call whose arguments are no JSON is a call too (#395): never an empty reply
+    const calls = [...callsOf(state.move), ...invalidCallsOf(state.move)];
     if (calls.length === 0) return LOOP_NODE.reply;
     return calls.some((call) => isAnswerCall(deps.agent, call))
       ? LOOP_NODE.answer

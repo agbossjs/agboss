@@ -251,11 +251,11 @@ export type InputMatcherOf<TSelf> = IsKnown<TSelf> extends true ? PartialValues<
 
 // @public
 export interface JudgeRunner<TReply> extends UnitClock {
-    // Warning: (ae-forgotten-export) The symbol "JudgeInput" needs to be exported by the entry point index.d.ts
+    // Warning: (ae-forgotten-export) The symbol "JudgeRunnerInput" needs to be exported by the entry point index.d.ts
     // Warning: (ae-forgotten-export) The symbol "JudgeVerdict" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
-    (input: JudgeInput<TReply>, options?: UnitCallOptions): Promise<UnitRun<JudgeVerdict>>;
+    (input: JudgeRunnerInput<TReply>, options?: UnitCallOptions): Promise<UnitRun<JudgeVerdict>>;
 }
 
 // @public
@@ -942,7 +942,7 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/test-arbiter.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-guardrail.ts:24:3 - (ae-undocumented) Missing documentation for "isBlocked".
 // src/testing/units/test-guardrail.ts:39:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/test-judge.ts:30:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-judge.ts:38:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-rag.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-router.ts:22:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-tool-interceptor.ts:57:3 - (ae-undocumented) Missing documentation for "beforeToolCall".

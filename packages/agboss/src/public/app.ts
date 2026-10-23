@@ -175,3 +175,17 @@ export {
   CompensationStatus,
   type CompensationRecord,
 } from "../flow/compensation.js";
+export {
+  toolCallsOf,
+  ToolCallStatus,
+  type FailedToolCall,
+  type SucceededToolCall,
+  type ToolCallRecord,
+  type TypedToolCall,
+  type UncheckedToolCall,
+} from "../flow/runtime/tool-calls.js";
+export type {
+  ExecutionStepRecord,
+  GuardrailDecisionRecord,
+  JudgeVerdictRecord,
+} from "../flow/runtime/step-records.js";

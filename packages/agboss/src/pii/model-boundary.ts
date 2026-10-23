@@ -108,8 +108,15 @@ export function revealFromModel(move: AIMessage, tokens: PiiTokenMap): RevealedM
     typeof move.content === "string"
       ? reveal(move.content)
       : (mappedStrings(move.content, reveal) as MessageContent);
+  const invalid = (move.invalid_tool_calls ?? []).map((call) =>
+    call.args === undefined ? call : { ...call, args: reveal(call.args) },
+  );
   return {
-    move: new AIMessage({ content, tool_calls: toolCalls }),
+    move: new AIMessage({
+      content,
+      tool_calls: toolCalls,
+      ...(invalid.length === 0 ? {} : { invalid_tool_calls: invalid }),
+    }),
     unknownTokens: [...new Set(unknownTokens)],
   };
 }

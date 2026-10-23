@@ -458,6 +458,70 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
 - **Health**: `await app.checkReadiness()` / `app.checkLiveness()` → `HealthReport` (a
   `@HealthCheck`'s service mocked with `mockOf`). `testWith` never traps SIGTERM / SIGINT.
 
+## The tool-call trajectory: `result.toolCalls`, `record.steps`, `JudgeInput.toolCalls`
+
+Every tool call an agent's model asks for is a `ToolCallRecord` — `step` (its `component` is the
+tool, with its `promptHash` / `schemaHash`; `nodeId` / `visitNumber` the agent's visit; `callId`,
+`toolLoopIteration`, `validationAttempts`), `input`, `output`, `status: ToolCallStatus`, `error?`,
+`isResultTruncated`, `startedAt` / `endedAt`. `ToolCallStatus`: `Succeeded`, `Failed` (the tool threw,
+its output failed its check, or a PII rule refused it — `error.code` `pii.refused`),
+`InvalidArguments` (the input check failed, or the arguments were no JSON at all — a truncated
+call; the tool never ran), `Declined` (its approval said no), `TimedOut` (past the tool's
+`timeout`), `Replied` (a tool interceptor's `replyToModel` answered instead — `output` is its
+message) and `Blocked` (a tool interceptor's `block`: the step fails with `ToolBlockedError`).
+
+- `result.toolCalls` — the root execution's own calls, in call order, **real values**;
+  `result.children[i].toolCalls` — each child's own. `result.record.toolCalls` (`{ record: true }`)
+  holds the same **masked** by the application's and the workflow's PII policies.
+- `result.record.steps` — one `ExecutionStepRecord` per visit of a node, in the order the visits
+  ended: its `step`, `inputHash` (a stable hash of what it read — the same input, the same hash on
+  every machine), `judgeVerdicts` (`JudgeVerdictRecord`: `judge`, `attempt`, `passed`, `reason?`,
+  `metrics?`), `guardrailDecisions` (`GuardrailDecisionRecord`: `guardrail`, `side`, `isBlocked`,
+  `probability`), `spend`, `startedAt` / `endedAt`, `error?` (a failure a side path took).
+- A judge reads the visit's calls — every attempt's, real values — as `input.toolCalls`;
+  `toolCallsOf(Tool, toolCalls)` gives one tool's calls typed by its input and output
+  (`TypedToolCall`: narrowed by `status`). `testJudge` takes `toolCalls` optionally — `[]` when not
+  given.
+- A model call whose arguments are no JSON (truncated — the provider's `invalid_tool_calls`) is an
+  `InvalidArguments` call: the model reads why and tries again, the step's `validationAttempts`
+  counts it; it is never an empty reply. A truncated **answer** is an invalid answer
+  (`AgentAnswerInvalidError` after the third).
+
+<!-- snippet-context
+import { ToolCallStatus, toolCallsOf } from "agboss";
+import { callTool, decideWith, replyWith, testWith } from "agboss/testing";
+import { expect } from "vitest";
+import { CultureAgent, SkillsAgent, VerdictAgent } from "./src/screening/agents.js";
+import { CandidateArchiveTool, ReasonedVerdictJudge } from "./src/screening/components.js";
+import { SkillsReportDto, CultureReportDto, VerdictDto } from "./src/screening/dtos/screening.dto.js";
+import { ScreeningWorkflowStart } from "./src/screening/finishes.js";
+import { ScreeningApplication } from "./src/screening/screening.application.js";
+-->
+
+```ts
+const test = testWith(ScreeningApplication);
+
+test("the skills agent looks the candidate up, whatever else runs", async ({ app, mockLlm }) => {
+  mockLlm(SkillsAgent).thenReturn(
+    callTool(CandidateArchiveTool, { name: "Dana" }),
+    replyWith(SkillsReportDto, { score: 8, notes: "strong TypeScript" }),
+  );
+  mockLlm(CultureAgent).thenReturn(replyWith(CultureReportDto, { score: 7, notes: "clear writer" }));
+  mockLlm(VerdictAgent).thenReturn(replyWith(VerdictDto, { decision: "hire", reason: "both reports at 7+" }));
+  mockLlm(ReasonedVerdictJudge).thenReturn(decideWith({ reasoned: 0.9 }));
+
+  const result = await app.execute(ScreeningWorkflowStart, { name: "Dana", cv: "TypeScript" }, { record: true });
+
+  // an invariant, not a position: every lookup succeeded, and one asked for Dana
+  const lookups = toolCallsOf(CandidateArchiveTool, result.toolCalls);
+  const succeeded = lookups.filter((call) => call.status === ToolCallStatus.Succeeded);
+  expect(succeeded).toHaveLength(lookups.length);
+  expect(succeeded.some((call) => call.input.name === "Dana")).toBe(true); // typed by the tool's input
+  const verdict = result.record?.steps.find((entry) => entry.step.nodeId === "verdict-agent");
+  expect(verdict?.judgeVerdicts.map((judged) => judged.passed)).toEqual([true]);
+});
+```
+
 ## Undo: `toHaveCompensated` and `result.compensations`
 
 An action that declares `compensateWith` (reference 02, section 8) is tested by what its undo did:
@@ -829,6 +893,7 @@ it("testJudge: the reply as a plain object of its DTO", async () => {
   });
 
   expect(output).toMatchObject({ passed: false, reason: "give a reason that supports the decision" });
+  // `toolCalls` — the visit's tool calls the judge reads — is optional here: `[]` when not given
 });
 
 it("testJudge of a code judge: no model script, no spend", async () => {
@@ -950,7 +1015,33 @@ replays an existing one; `REPLAY` (the default under `CI`) fails a call the cass
 with `CassetteMissingError` (`test.cassette-missing`) — a changed prompt or tool means re-record;
 `RECORD` always calls the models.
 
+## The testing loops: the order to work in
+
+Work from the cheapest loop outwards; a later loop never replaces an earlier one.
+
+**Loop 0 — static, $0, after every change.** `npx agboss check` (assembly rules, generated types,
+prompts, environment — all problems at once as `[rule.code]` lines, fix every one) and `npx agboss
+describe` (the flow as assembled, each node's inputs and producers, models and limits). No test runs
+before `check` prints `ok:`.
+
+**Loop 1 — the harness, $0, every commit (`npm test`).**
+
+1. The unit runners first, one component on its own: `testTool`, `testAction`, `testRouter`,
+   `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testPii`, `testToolInterceptor` (below).
+2. Then the whole application: `testWith(App)` with `mockLlm(X).thenReturn(…)` scripts, or a
+   recorded cassette (VCR) for real answers replayed with no key or network.
+3. Assert the path and the finish (`toFollowPath`, `toFinishWith`) and **trajectory invariants**
+   through `result.toolCalls` — which tools ran, with what input, how each ended — written so they
+   hold whatever the order of the calls (`toolCallsOf(Tool, result.toolCalls)`, filters on
+   `status`), never on the position of a step.
+4. The loops on a live model come next: an eval suite (the section below) runs the same trajectory
+   invariants first, then code judges, then model judges — its cascade and the pass@k rule are
+   there.
+
 ## Eval suites: `@EvalSuite` (`agboss/eval`)
+
+The loops before it (the section above) are free; a suite is the first one that spends money —
+reach it only once Loop 0 and Loop 1 are green.
 
 An eval suite declares what a live-model run must do, case by case: one class per file in
 `eval-suites/<name>.eval-suite.ts`, its `name` ending with `-eval-suite` and its class with

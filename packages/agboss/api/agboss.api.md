@@ -1365,6 +1365,7 @@ export interface EndedChildRecord {
     readonly spend: CostReport;
     readonly start: ComponentRecord;
     readonly status: ChildExecutionStatus;
+    readonly toolCalls: readonly ToolCallRecord[];
     readonly workflow: WorkflowRecord;
 }
 
@@ -1707,6 +1708,7 @@ export interface ExecutionOutput<TOutput = unknown> {
     readonly status: ExecutionStatus;
     readonly tenantId: string;
     readonly threadId: string;
+    readonly toolCalls: readonly ToolCallRecord[];
     readonly traceUrl?: string;
 }
 
@@ -1736,6 +1738,8 @@ export interface ExecutionRecord {
     readonly scope: readonly ScopeValueRecord[];
     // (undocumented)
     readonly spend: CostReport;
+    readonly steps: readonly ExecutionStepRecord[];
+    readonly toolCalls: readonly ToolCallRecord[];
 }
 
 // @public
@@ -1824,6 +1828,19 @@ export enum ExecutionStatus {
 }
 
 // @public
+export interface ExecutionStepRecord {
+    // (undocumented)
+    readonly endedAt: string;
+    readonly error?: ErrorRecord;
+    readonly guardrailDecisions: readonly GuardrailDecisionRecord[];
+    readonly inputHash: string;
+    readonly judgeVerdicts: readonly JudgeVerdictRecord[];
+    readonly spend: CostReport;
+    readonly startedAt: string;
+    readonly step: StepRecord;
+}
+
+// @public
 export interface ExecutionTree {
     readonly rootExecutionId: string;
     readonly tenantId: string;
@@ -1876,6 +1893,16 @@ export interface FailedJudgeVerdict extends BuiltVerdict {
 export interface FailedJudgeVerdictOptions {
     readonly metrics?: JudgeMetrics;
     readonly reason: string;
+}
+
+// @public
+export interface FailedToolCall<TInput> extends ToolCallRecord {
+    // (undocumented)
+    readonly input: TInput;
+    // (undocumented)
+    readonly output: undefined;
+    // (undocumented)
+    readonly status: ToolCallStatus.Failed | ToolCallStatus.TimedOut;
 }
 
 // @public
@@ -2064,6 +2091,17 @@ export class GuardrailBlockedError extends PaidStepError {
 export interface GuardrailComputedOptions<D extends readonly Token[] = readonly Token[]> extends ModelGuardrailFields<D> {
     // (undocumented)
     readonly refusal?: never;
+}
+
+// @public
+export interface GuardrailDecisionRecord {
+    // (undocumented)
+    readonly guardrail: ComponentRecord;
+    // (undocumented)
+    readonly isBlocked: boolean;
+    readonly probability: number;
+    // (undocumented)
+    readonly side: GuardrailSide;
 }
 
 // @public
@@ -2406,6 +2444,23 @@ export interface JoinValues<TKey extends string> extends ValuesSource {
 export function Judge<const TReply extends JudgeReplyShape, const D extends readonly Token[] = []>(options: JudgeOptions<TReply, D>): <C extends new (...args: ResolvedAll<D>) => JudgeHandler<JudgedValueOf<TReply>>>(value: C) => C;
 
 // @public
+export type JudgedReply<TReply> = TReply extends readonly VariantOf<unknown>[] ? {
+    readonly reply: TReply;
+    readonly task: string;
+    readonly attempt: number;
+} : TReply extends readonly (infer TItem)[] ? {
+    readonly variant: DtoClass<TItem>;
+    readonly reply: TReply;
+    readonly task: string;
+    readonly attempt: number;
+} : TReply extends unknown ? {
+    readonly variant: DtoClass<TReply>;
+    readonly reply: TReply;
+    readonly task: string;
+    readonly attempt: number;
+} : never;
+
+// @public
 export type JudgedValueOf<TShape extends JudgeReplyShape> = TShape extends ListWrapper<OneOfWrapper<infer TVariants>> ? readonly VariantOf<InstanceType<TVariants[number]>>[] : ValueOf<TShape>;
 
 // @public
@@ -2427,21 +2482,9 @@ export interface JudgeHandler<TReply> {
 export type JudgeHandlerClass = Class<JudgeHandler<never>>;
 
 // @public
-export type JudgeInput<TReply> = TReply extends readonly VariantOf<unknown>[] ? {
-    readonly reply: TReply;
-    readonly task: string;
-    readonly attempt: number;
-} : TReply extends readonly (infer TItem)[] ? {
-    readonly variant: DtoClass<TItem>;
-    readonly reply: TReply;
-    readonly task: string;
-    readonly attempt: number;
-} : TReply extends unknown ? {
-    readonly variant: DtoClass<TReply>;
-    readonly reply: TReply;
-    readonly task: string;
-    readonly attempt: number;
-} : never;
+export type JudgeInput<TReply> = JudgedReply<TReply> & {
+    readonly toolCalls: readonly ToolCallRecord[];
+};
 
 // @public
 export type JudgeInputOf<TJudge extends JudgeHandlerClass> = Parameters<InstanceType<TJudge>["judge"]>[0];
@@ -2498,6 +2541,18 @@ export const JudgeVerdict: {
     readonly passed: (options?: PassedJudgeVerdictOptions) => PassedJudgeVerdict;
     readonly failed: (options: FailedJudgeVerdictOptions) => FailedJudgeVerdict;
 };
+
+// @public
+export interface JudgeVerdictRecord {
+    readonly attempt: number;
+    // (undocumented)
+    readonly judge: ComponentRecord;
+    // (undocumented)
+    readonly metrics?: JudgeMetrics;
+    // (undocumented)
+    readonly passed: boolean;
+    readonly reason?: string;
+}
 
 // @public
 export interface Launched<TKey extends string, THead extends PathHead> {
@@ -4423,6 +4478,16 @@ export interface SubPath {
 }
 
 // @public
+export interface SucceededToolCall<TInput, TOutput> extends ToolCallRecord {
+    // (undocumented)
+    readonly input: TInput;
+    // (undocumented)
+    readonly output: TOutput;
+    // (undocumented)
+    readonly status: ToolCallStatus.Succeeded;
+}
+
+// @public
 export type SummaryMaxTokens = number | TokenLimit.MODEL_MAX;
 
 // @public
@@ -4567,8 +4632,36 @@ export class ToolCallDecision {
 }
 
 // @public
+export interface ToolCallRecord {
+    // (undocumented)
+    readonly endedAt: string;
+    readonly error?: ErrorRecord;
+    readonly input: unknown;
+    readonly isResultTruncated: boolean;
+    readonly output: unknown;
+    readonly startedAt: string;
+    // (undocumented)
+    readonly status: ToolCallStatus;
+    readonly step: StepRecord;
+}
+
+// @public
 export interface ToolCallResultContext extends ToolCallContext {
     readonly output: unknown;
+}
+
+// @public
+export function toolCallsOf<TInput, TOutput>(tool: Class<ToolHandler<TInput, TOutput>>, toolCalls: readonly ToolCallRecord[]): readonly TypedToolCall<TInput, TOutput>[];
+
+// @public
+export enum ToolCallStatus {
+    Blocked = "blocked",
+    Declined = "declined",
+    Failed = "failed",
+    InvalidArguments = "invalid-arguments",
+    Replied = "replied",
+    Succeeded = "succeeded",
+    TimedOut = "timed-out"
 }
 
 // @public (undocumented)
@@ -4678,6 +4771,16 @@ export interface Transitions<THead extends PathHead> {
 export enum TurnLimit {
     // (undocumented)
     ALL = "all"
+}
+
+// @public
+export type TypedToolCall<TInput, TOutput> = SucceededToolCall<TInput, TOutput> | FailedToolCall<TInput> | UncheckedToolCall;
+
+// @public
+export interface UncheckedToolCall extends ToolCallRecord {
+    readonly output: string | undefined;
+    // (undocumented)
+    readonly status: ToolCallStatus.InvalidArguments | ToolCallStatus.Declined | ToolCallStatus.Replied | ToolCallStatus.Blocked;
 }
 
 // @public
@@ -4978,21 +5081,21 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/app/resume.ts:45:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/resume.ts:53:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/resume.ts:54:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/types.ts:25:3 - (ae-undocumented) Missing documentation for "Finished".
-// src/app/types.ts:26:3 - (ae-undocumented) Missing documentation for "Paused".
-// src/app/types.ts:89:3 - (ae-undocumented) Missing documentation for "reply".
-// src/app/types.ts:98:3 - (ae-undocumented) Missing documentation for "decision".
-// src/app/types.ts:110:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:113:3 - (ae-undocumented) Missing documentation for "answeredBy".
-// src/app/types.ts:121:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:124:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/app/types.ts:129:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts:130:3 - (ae-undocumented) Missing documentation for "ownerId".
-// src/app/types.ts:144:3 - (ae-undocumented) Missing documentation for "cancelled".
-// src/app/types.ts:153:3 - (ae-undocumented) Missing documentation for "status".
-// src/app/types.ts:174:3 - (ae-undocumented) Missing documentation for "spend".
-// src/app/types.ts:209:3 - (ae-undocumented) Missing documentation for "name".
-// src/app/types.ts:210:3 - (ae-undocumented) Missing documentation for "version".
+// src/app/types.ts:26:3 - (ae-undocumented) Missing documentation for "Finished".
+// src/app/types.ts:27:3 - (ae-undocumented) Missing documentation for "Paused".
+// src/app/types.ts:90:3 - (ae-undocumented) Missing documentation for "reply".
+// src/app/types.ts:99:3 - (ae-undocumented) Missing documentation for "decision".
+// src/app/types.ts:111:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:114:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/app/types.ts:122:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:125:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/app/types.ts:130:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts:131:3 - (ae-undocumented) Missing documentation for "ownerId".
+// src/app/types.ts:145:3 - (ae-undocumented) Missing documentation for "cancelled".
+// src/app/types.ts:154:3 - (ae-undocumented) Missing documentation for "status".
+// src/app/types.ts:175:3 - (ae-undocumented) Missing documentation for "spend".
+// src/app/types.ts:216:3 - (ae-undocumented) Missing documentation for "name".
+// src/app/types.ts:217:3 - (ae-undocumented) Missing documentation for "version".
 // src/application/application.ts:155:1 - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts:6:3 - (ae-undocumented) Missing documentation for "__error".
 // src/budgets/budget.ts:24:3 - (ae-undocumented) Missing documentation for "Day".
@@ -5074,10 +5177,10 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/components/injection.ts:31:3 - (ae-undocumented) Missing documentation for "provide".
 // src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "useValue".
 // src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
-// src/components/judge-decorators.ts:48:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/components/judge-decorators.ts:49:3 - (ae-undocumented) Missing documentation for "model".
-// src/components/judge-decorators.ts:122:3 - (ae-undocumented) Missing documentation for "passed".
+// src/components/judge-decorators.ts:49:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/components/judge-decorators.ts:50:3 - (ae-undocumented) Missing documentation for "model".
 // src/components/judge-decorators.ts:129:3 - (ae-undocumented) Missing documentation for "passed".
+// src/components/judge-decorators.ts:136:3 - (ae-undocumented) Missing documentation for "passed".
 // src/components/metadata.ts:112:1 - (ae-undocumented) Missing documentation for "ComponentError".
 // src/components/metadata.ts:113:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/name-of.ts:32:1 - (ae-undocumented) Missing documentation for "nameOf".
@@ -5496,13 +5599,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/errors.ts:110:3 - (ae-undocumented) Missing documentation for "threshold".
 // src/flow/runtime/errors.ts:132:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/errors.ts:133:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/execution-record.ts:19:3 - (ae-undocumented) Missing documentation for "path".
-// src/flow/runtime/execution-record.ts:20:3 - (ae-undocumented) Missing documentation for "scope".
-// src/flow/runtime/execution-record.ts:21:3 - (ae-undocumented) Missing documentation for "outdatedValues".
-// src/flow/runtime/execution-record.ts:22:3 - (ae-undocumented) Missing documentation for "lastError".
-// src/flow/runtime/execution-record.ts:23:3 - (ae-undocumented) Missing documentation for "spend".
-// src/flow/runtime/execution-record.ts:52:3 - (ae-undocumented) Missing documentation for "resolution".
-// src/flow/runtime/execution-record.ts:55:3 - (ae-undocumented) Missing documentation for "resolvedAt".
+// src/flow/runtime/execution-record.ts:21:3 - (ae-undocumented) Missing documentation for "path".
+// src/flow/runtime/execution-record.ts:22:3 - (ae-undocumented) Missing documentation for "scope".
+// src/flow/runtime/execution-record.ts:23:3 - (ae-undocumented) Missing documentation for "outdatedValues".
+// src/flow/runtime/execution-record.ts:24:3 - (ae-undocumented) Missing documentation for "lastError".
+// src/flow/runtime/execution-record.ts:25:3 - (ae-undocumented) Missing documentation for "spend".
+// src/flow/runtime/execution-record.ts:61:3 - (ae-undocumented) Missing documentation for "resolution".
+// src/flow/runtime/execution-record.ts:64:3 - (ae-undocumented) Missing documentation for "resolvedAt".
 // src/flow/runtime/launch/quorum-errors.ts:21:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/launch/quorum-errors.ts:22:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/launch/quorum-errors.ts:50:3 - (ae-undocumented) Missing documentation for "code".
@@ -5520,6 +5623,22 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/router-error.ts:63:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/start-input.ts:67:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/start-input.ts:68:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/step-records.ts:17:3 - (ae-undocumented) Missing documentation for "judge".
+// src/flow/runtime/step-records.ts:20:3 - (ae-undocumented) Missing documentation for "passed".
+// src/flow/runtime/step-records.ts:23:3 - (ae-undocumented) Missing documentation for "metrics".
+// src/flow/runtime/step-records.ts:28:3 - (ae-undocumented) Missing documentation for "guardrail".
+// src/flow/runtime/step-records.ts:29:3 - (ae-undocumented) Missing documentation for "side".
+// src/flow/runtime/step-records.ts:30:3 - (ae-undocumented) Missing documentation for "isBlocked".
+// src/flow/runtime/step-records.ts:64:3 - (ae-undocumented) Missing documentation for "endedAt".
+// src/flow/runtime/tool-calls.ts:54:3 - (ae-undocumented) Missing documentation for "status".
+// src/flow/runtime/tool-calls.ts:61:3 - (ae-undocumented) Missing documentation for "endedAt".
+// src/flow/runtime/tool-calls.ts:66:3 - (ae-undocumented) Missing documentation for "status".
+// src/flow/runtime/tool-calls.ts:67:3 - (ae-undocumented) Missing documentation for "input".
+// src/flow/runtime/tool-calls.ts:68:3 - (ae-undocumented) Missing documentation for "output".
+// src/flow/runtime/tool-calls.ts:73:3 - (ae-undocumented) Missing documentation for "status".
+// src/flow/runtime/tool-calls.ts:74:3 - (ae-undocumented) Missing documentation for "input".
+// src/flow/runtime/tool-calls.ts:75:3 - (ae-undocumented) Missing documentation for "output".
+// src/flow/runtime/tool-calls.ts:80:3 - (ae-undocumented) Missing documentation for "status".
 // src/flow/this-workflow.ts:20:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/graph/deps.ts:31:3 - (ae-undocumented) Missing documentation for "config".
 // src/graph/deps.ts:32:3 - (ae-undocumented) Missing documentation for "registry".
@@ -5761,16 +5880,16 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/thread.ts:40:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/thread.ts:45:3 - (ae-undocumented) Missing documentation for "code".
 // src/run/thread.ts:46:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/types.ts:24:3 - (ae-undocumented) Missing documentation for "terns".
-// src/run/types.ts:36:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
-// src/run/types.ts:74:3 - (ae-undocumented) Missing documentation for "status".
-// src/run/types.ts:77:3 - (ae-undocumented) Missing documentation for "startInput".
-// src/run/types.ts:82:3 - (ae-undocumented) Missing documentation for "output".
-// src/run/types.ts:83:3 - (ae-undocumented) Missing documentation for "budgetUsd".
-// src/run/types.ts:84:3 - (ae-undocumented) Missing documentation for "cost".
-// src/run/types.ts:85:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/run/types.ts:88:3 - (ae-undocumented) Missing documentation for "ternId".
-// src/run/types.ts:89:3 - (ae-undocumented) Missing documentation for "data".
+// src/run/types.ts:26:3 - (ae-undocumented) Missing documentation for "terns".
+// src/run/types.ts:38:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
+// src/run/types.ts:80:3 - (ae-undocumented) Missing documentation for "status".
+// src/run/types.ts:83:3 - (ae-undocumented) Missing documentation for "startInput".
+// src/run/types.ts:88:3 - (ae-undocumented) Missing documentation for "output".
+// src/run/types.ts:89:3 - (ae-undocumented) Missing documentation for "budgetUsd".
+// src/run/types.ts:90:3 - (ae-undocumented) Missing documentation for "cost".
+// src/run/types.ts:91:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/run/types.ts:94:3 - (ae-undocumented) Missing documentation for "ternId".
+// src/run/types.ts:95:3 - (ae-undocumented) Missing documentation for "data".
 // src/tool-interceptors/decision.ts:85:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
 // src/tools/define-tool.ts:33:3 - (ae-undocumented) Missing documentation for "code".
 // src/tools/define-tool.ts:34:12 - (ae-undocumented) Missing documentation for "name".

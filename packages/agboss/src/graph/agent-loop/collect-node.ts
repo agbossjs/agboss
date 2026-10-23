@@ -1,8 +1,8 @@
-import { ToolMessage } from "@langchain/core/messages";
+import { HumanMessage, ToolMessage, type BaseMessage } from "@langchain/core/messages";
 import type { ApprovalRecord } from "../../pause/index.js";
-import { rejectionMessage } from "../../prompts/agents.js";
+import { invalidArgumentsMessage, rejectionMessage } from "../../prompts/agents.js";
 import type { AsyncNode } from "../types.js";
-import { callsOf, type AgentLoopDeps, type ToolCallRequest } from "./deps.js";
+import { callsOf, invalidCallsOf, type AgentLoopDeps, type ToolCallRequest } from "./deps.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 import { stopErrorOf } from "./tool-stops.js";
 import type { StepFailedError } from "../errors.js";
@@ -55,8 +55,9 @@ function stoppedErrorOf(
 
 /**
  * Fan-in after the tool tasks: one tool message per call in the MOVE's order (not completion
- * order), the decisions recorded; then the model takes its next turn. A call a tool interceptor
- * stopped fails the step instead (#384).
+ * order), the decisions recorded, the calls' records appended to the visit's trajectory in that
+ * order (#395); then the model takes its next turn. A call a tool interceptor stopped fails the
+ * step instead (#384).
  */
 export function makeCollectNode(
   deps: AgentLoopDeps,
@@ -65,13 +66,21 @@ export function makeCollectNode(
     const calls = callsOf(state.move);
     const stopped = stoppedErrorOf(state, calls, deps.agent.name);
     if (stopped !== undefined) return Promise.reject(stopped);
-    const messages = calls.map(
+    const unread = invalidCallsOf(state.move);
+    const messages: BaseMessage[] = calls.map(
       (call) => new ToolMessage({ tool_call_id: call.callId, content: contentOf(state, call) }),
     );
+    // calls whose arguments were no JSON have no place in the move the model is sent back (#395)
+    if (unread.length > 0) messages.push(new HumanMessage(invalidArgumentsMessage(unread)));
+    const trajectory = [...calls, ...unread].flatMap((call) => {
+      const record = state.callRecords[call.callId];
+      return record === undefined ? [] : [record];
+    });
     return Promise.resolve({
       messages,
       move: null,
       approvals: decidedCalls(state, calls, deps.agent.name),
+      trajectory,
     });
   };
 }

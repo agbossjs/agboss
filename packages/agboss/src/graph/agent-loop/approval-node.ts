@@ -2,7 +2,11 @@ import type { AsyncNode } from "../types.js";
 import { awaitingApproval } from "./boundary.js";
 import { toolNamed } from "./deps.js";
 import type { AgentLoopDeps } from "./deps.js";
+import { callStepOf, declinedCallRecordOf } from "./call-records.js";
+import { toolRecordOf } from "../../flow/runtime/tool-keys.js";
+import { extractRunContext } from "../../core/run-context.js";
 import {
+  loopProgressOf,
   loopUsage,
   type AgentLoopStateType,
   type AgentLoopUpdate,
@@ -84,6 +88,16 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
         : { overrideArguments: decision.overrideArguments }),
     };
     // a free-text reply's interpreter calls are the loop's spend from now on (#267 PR 3)
-    return { decisions: { [call.callId]: recorded }, usage: [...decision.usage] };
+    const update = { decisions: { [call.callId]: recorded }, usage: [...decision.usage] };
+    if (decision.approved) return update;
+    // a declined call never runs: its record is made here (#395)
+    const step = callStepOf(
+      toolRecordOf(tool),
+      call.callId,
+      loopProgressOf(state),
+      deps.agent.name,
+    );
+    const at = extractRunContext(config, state.runId).clock.now();
+    return { ...update, callRecords: { [call.callId]: declinedCallRecordOf(step, call.args, at) } };
   };
 }

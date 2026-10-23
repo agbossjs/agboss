@@ -37,6 +37,7 @@ const run = (parts: Partial<ExecutionOutput>): ExecutionOutput => ({
   children: [],
   handledErrors: [],
   compensations: [],
+  toolCalls: [],
   finish: bareRecordOf("reply-workflow-finish", ComponentKind.WorkflowFinish),
   output: { text: "Hi." },
   pending: [],

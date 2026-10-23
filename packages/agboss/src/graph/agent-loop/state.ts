@@ -8,6 +8,11 @@ import type { SensitiveValue } from "../../pii/policy-set.js";
 import { mergeTokens, type PiiTokenMap } from "../../pii/tokens.js";
 import type { LoopProgress } from "../../flow/context/frame.js";
 import type { ToolCallStop } from "./tool-stops.js";
+import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
+import type {
+  GuardrailDecisionRecord,
+  JudgeVerdictRecord,
+} from "../../flow/runtime/step-records.js";
 
 const append = <TItem>(left: readonly TItem[], right: readonly TItem[]): TItem[] => [
   ...left,
@@ -70,6 +75,17 @@ export const AgentLoopState = Annotation.Root({
   move: Annotation<AIMessage | null>({ reducer: replace, default: () => null }),
   results: Annotation<Record<string, StoredToolCall>>({ reducer: merge, default: () => ({}) }),
   decisions: Annotation<Record<string, CallDecision>>({ reducer: merge, default: () => ({}) }),
+  /** Each ended call's record by its call id (#395): run, refused, declined or unparsable. */
+  callRecords: Annotation<Record<string, ToolCallRecord>>({ reducer: merge, default: () => ({}) }),
+  /** The visit's tool calls in call order (#395): a move's records, appended when it is collected. */
+  trajectory: Annotation<ToolCallRecord[]>({ reducer: append, default: () => [] }),
+  /** The judges' verdicts on the visit's replies (#395 C3), in the order they judged. */
+  judgeVerdicts: Annotation<JudgeVerdictRecord[]>({ reducer: append, default: () => [] }),
+  /** The input guardrails' decisions on what its model read (#395 C3). */
+  guardrailDecisions: Annotation<GuardrailDecisionRecord[]>({
+    reducer: append,
+    default: () => [],
+  }),
   modelCalls: Annotation<number>({ reducer: add, default: () => 0 }),
   toolCalls: Annotation<number>({ reducer: add, default: () => 0 }),
   /** The agent's reply as text (a text agent's answer; a structured answer's JSON); null while working. */

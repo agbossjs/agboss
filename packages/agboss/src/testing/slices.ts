@@ -114,6 +114,8 @@ const freshState = (runId: string): ExecutionStateType => ({
   history: [],
   memory: {},
   approvals: [],
+  toolCalls: [],
+  stepRecords: [],
   launch: null,
   branchRecords: [],
   launches: [],

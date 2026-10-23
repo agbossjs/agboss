@@ -33,6 +33,7 @@ const recordsOf = (state: Partial<ExecutionStateType>) => ({
   children: withChildPauses(state.children ?? [], []),
   handledErrors: state.handledErrors ?? [],
   compensations: compensationRecordsOf(state.compensations),
+  toolCalls: state.toolCalls ?? [],
 });
 
 /**

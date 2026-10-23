@@ -80,7 +80,11 @@ npm test                                                           # scripted mo
 
 - **Loop 0** (static, $0): `npx agboss check` and `npx agboss describe`. **Loop 1** (every commit,
   $0): the unit runners (`testTool`, `testJudge`, …) first, then `testWith(App)` with scripted models
-  — reference 10.
+  or a recorded cassette — reference 10. Assert the path, the finish and trajectory invariants
+  through `result.toolCalls` (`ToolCallRecord`, `ToolCallStatus`, `toolCallsOf`): which tools ran,
+  with what, how each ended — never the position of a step. `result.record.steps`
+  (`{ record: true }`) has each visit's judge verdicts, guardrail decisions, spend and `inputHash`;
+  a judge reads the visit's calls as `input.toolCalls`.
 - **Evals on a live model** are declared as an `@EvalSuite` (`agboss/eval`,
   `eval-suites/<name>.eval-suite.ts`): cases built with `evalCase`, `turn`, `pastTurn`, `toolCall`,
   `toolInvariant`, checks in a declared order with `EvalCascade` — free trajectory invariants

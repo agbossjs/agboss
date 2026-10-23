@@ -1,9 +1,17 @@
-import { ToolMessage, type BaseMessage } from "@langchain/core/messages";
+import { HumanMessage, ToolMessage, type BaseMessage } from "@langchain/core/messages";
+import { invalidArgumentsMessage } from "../../prompts/agents.js";
 import { readAnswer, type AnswerCall } from "../../flow/runtime/answer-tools.js";
 import { AgentAnswerInvalidError } from "../../flow/runtime/errors.js";
 import { sortedJson } from "../../flow/runtime/json.js";
 import type { AsyncNode } from "../types.js";
-import { callsOf, isAnswerCall, type AgentLoopDeps, type ToolCallRequest } from "./deps.js";
+import {
+  callsOf,
+  invalidCallsOf,
+  isAnswerCall,
+  type AgentLoopDeps,
+  type InvalidToolCallRequest,
+  type ToolCallRequest,
+} from "./deps.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 
 /** Invalid answers an agent may give before its step fails (S9: 2 retries, 3 attempts). */
@@ -46,6 +54,22 @@ function answerCallsOf(
 }
 
 /**
+ * A move with an answer whose arguments are no JSON (#395: truncated): an invalid answer — the
+ * model reads why, none of the move's tools runs.
+ */
+function unreadAnswer(
+  state: AgentLoopStateType,
+  deps: AgentLoopDeps,
+  calls: readonly ToolCallRequest[],
+  unread: readonly InvalidToolCallRequest[],
+): AgentLoopUpdate {
+  const problem = invalidArgumentsMessage(unread);
+  const move = state.move === null ? [] : [state.move];
+  const replies = calls.length === 0 ? [new HumanMessage(problem)] : toolMessages(calls, problem);
+  return invalidAnswer(state, deps, problem, [...move, ...replies]);
+}
+
+/**
  * A move with an answer tool (S6): exactly one answer tool and no regular tool ends the step with
  * the validated value (its class is the tool's); anything else goes back to the model as an invalid
  * answer — none of that message's tools runs.
@@ -60,6 +84,8 @@ export function makeAnswerNode(
 function answered(state: AgentLoopStateType, deps: AgentLoopDeps): AgentLoopUpdate {
   const calls = callsOf(state.move);
   const move = state.move === null ? [] : [state.move];
+  const unread = invalidCallsOf(state.move);
+  if (unread.length > 0) return unreadAnswer(state, deps, calls, unread);
   const answers = answerCallsOf(deps, calls);
   if (answers === undefined) {
     return invalidAnswer(state, deps, ONE_ANSWER_MESSAGE, [

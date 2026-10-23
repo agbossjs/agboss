@@ -82,6 +82,7 @@ describe("MCP facades", () => {
     expect(await facades.prs.invoke({ owner: "o", repo: "r" }, ctx)).toEqual({
       kind: "error",
       message: "rate limited",
+      cause: expect.any(Error) as unknown,
     });
     await connections.close();
   });

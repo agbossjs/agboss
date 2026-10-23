@@ -28,6 +28,9 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["EvalSuite", "EvalCascade", "checkTrajectory", "testJudge", "DecidedBy"],
     "ToolInterceptor",
     "testToolInterceptor",
+    "ToolCallRecord",
+    "ToolCallStatus",
+    "toolCallsOf",
   ],
   "references/01-composition-and-architecture.md": [
     "Agent",
@@ -132,6 +135,8 @@ export const SKILL_COVERAGE: SkillCoverage = {
       "CompensationStatus",
       "CompensationFailedError",
     ],
+    ...["ToolCallRecord", "ToolCallStatus", "TypedToolCall", "toolCallsOf", "JudgeInput"],
+    ...["ExecutionStepRecord", "JudgeVerdictRecord", "GuardrailDecisionRecord"],
   ],
   "references/02-flow-dsl-all-combinations.md": [
     ...["Workflow", "WorkflowStart", "WorkflowFinish", "FinishHandler", "WorkflowStartTextDto"],

@@ -1,7 +1,15 @@
 import { Send } from "@langchain/langgraph";
 import { unknownToolMessage } from "../../prompts/agents.js";
 import type { AsyncNode } from "../types.js";
-import { callsOf, toolNamed, type AgentLoopDeps, type ToolCallRequest } from "./deps.js";
+import {
+  callsOf,
+  invalidCallsOf,
+  toolNamed,
+  type AgentLoopDeps,
+  type ToolCallRequest,
+} from "./deps.js";
+import { unreadCallRecordOf } from "./call-records.js";
+import { extractRunContext } from "../../core/run-context.js";
 import {
   LOOP_NODE,
   loopProgressOf,
@@ -69,13 +77,37 @@ export function routeToActions(
 export function makeBoundaryNode(
   deps: AgentLoopDeps,
 ): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
-  return (state) => {
+  return (state, config) => {
     const results: Record<string, StoredToolCall> = {};
     for (const call of callsOf(state.move)) {
       if (toolNamed(deps.agent, call.tool) !== undefined) continue;
       const content = unknownToolMessage(call.tool);
       results[call.callId] = { callId: call.callId, tool: call.tool, content };
     }
-    return Promise.resolve({ messages: state.move === null ? [] : [state.move], results });
+    const messages = state.move === null ? [] : [state.move];
+    const unread = unreadCallsOf(state, deps, extractRunContext(config, state.runId).clock.now());
+    return Promise.resolve({ messages, results, ...unread });
   };
+}
+
+/**
+ * The move's calls whose arguments were no JSON (#395): each recorded as `InvalidArguments` and
+ * counted as a failed validation of the step; the model reads why after the move's results.
+ */
+function unreadCallsOf(
+  state: AgentLoopStateType,
+  deps: AgentLoopDeps,
+  at: Date,
+): Pick<AgentLoopUpdate, "callRecords" | "invalidArguments"> {
+  const unread = invalidCallsOf(state.move);
+  if (unread.length === 0) return {};
+  const progress = loopProgressOf(state);
+  const site = { agent: deps.agent.name, at };
+  const callRecords = Object.fromEntries(
+    unread.map((call) => [
+      call.callId,
+      unreadCallRecordOf(call, toolNamed(deps.agent, call.tool), progress, site),
+    ]),
+  );
+  return { callRecords, invalidArguments: unread.length };
 }

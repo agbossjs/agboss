@@ -135,6 +135,8 @@ const executionStateOf = (): ExecutionStateType => ({
   history: [],
   memory: {},
   approvals: [],
+  toolCalls: [],
+  stepRecords: [],
   launch: null,
   child: null,
   children: [],

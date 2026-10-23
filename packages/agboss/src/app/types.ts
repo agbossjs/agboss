@@ -10,6 +10,7 @@ import type {
 } from "../flow/generated-types.js";
 import type { ContextFields, TenantValues } from "../flow/context/context-values.js";
 import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
+import type { ToolCallRecord } from "../flow/runtime/tool-calls.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { PendingPause } from "../pause/index.js";
 import type { Compacted } from "../run/compaction.js";
@@ -192,6 +193,12 @@ export interface ExecutionOutput<TOutput = unknown> {
    * (`JoinFailed`) — each with the step it undid, how it ended and when (`toHaveCompensated`).
    */
   readonly compensations: readonly CompensationRecord[];
+  /**
+   * Its own agents' tool calls (#395), in call order — each with its step (the tool and the agent's
+   * visit), input, output, `ToolCallStatus`, error and times; a child's are in `result.children`.
+   * Real values, like `output`; `result.record.toolCalls` holds them masked.
+   */
+  readonly toolCalls: readonly ToolCallRecord[];
   /** What the compactions did before this execution read its thread (#120 S132), when one did. */
   readonly compacted?: readonly Compacted[];
   /** The conversation in the tracing UI (session = thread), when tracing is on. */

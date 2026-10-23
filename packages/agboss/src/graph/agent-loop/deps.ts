@@ -1,3 +1,4 @@
+import { UNREADABLE_ARGUMENTS } from "../../prompts/agents.js";
 import type { BudgetCheck } from "../../budgets/execution-budgets.js";
 import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import type { AIMessage } from "@langchain/core/messages";
@@ -83,9 +84,33 @@ export const callsOf = (move: AIMessage | null): ToolCallRequest[] =>
     args: call.args,
   }));
 
+/**
+ * A tool call of a move whose arguments are no JSON (the model's `invalid_tool_calls`: a truncated
+ * call, #395): it never runs — the model reads why and tries again.
+ */
+export interface InvalidToolCallRequest {
+  readonly callId: string;
+  readonly tool: string;
+  /** The arguments as the model sent them: unparsed text. */
+  readonly args: string;
+  /** Why they could not be read. */
+  readonly problem: string;
+}
+
+/** The calls of a move whose arguments are no JSON, in the model's order. */
+export const invalidCallsOf = (move: AIMessage | null): InvalidToolCallRequest[] =>
+  (move?.invalid_tool_calls ?? []).map((call) => ({
+    callId: call.id ?? "",
+    tool: call.name ?? "",
+    args: call.args ?? "",
+    problem: call.error ?? UNREADABLE_ARGUMENTS,
+  }));
+
 export const toolNamed = (agent: AgentDefinition, name: string): AnyTool | undefined =>
   agent.tools.find((tool) => tool.name === name);
 
-/** Whether a call is one of the agent's answer tools. */
-export const isAnswerCall = (agent: AgentDefinition, call: ToolCallRequest): boolean =>
-  agent.answerTools.tools.some((tool) => tool.name === call.tool);
+/** Whether a call — read or not — is to one of the agent's answer tools. */
+export const isAnswerCall = (
+  agent: AgentDefinition,
+  call: Pick<ToolCallRequest, "tool">,
+): boolean => agent.answerTools.tools.some((tool) => tool.name === call.tool);

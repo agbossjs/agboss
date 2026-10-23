@@ -14,6 +14,8 @@ import type { AsyncNode } from "../types.js";
 import type { AgentJudge, AgentLoopDeps } from "./deps.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import { meteredModel } from "./judge-model.js";
+import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
+import type { JudgeVerdictRecord } from "../../flow/runtime/step-records.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 
 /**
@@ -72,7 +74,8 @@ function judgedInputOf(
   judge: AgentJudge,
   text: string,
 ): AnyJudgeInput {
-  const base = { task: state.inputMessage, attempt: state.retries };
+  // the visit's tool calls so far, every attempt's (#395): real values, as the step's code sees them
+  const base = { task: state.inputMessage, attempt: state.retries, toolCalls: state.trajectory };
   if (state.answer === null) return { ...base, variant: PlainTextDto, reply: { text } };
   const value: unknown = structuredClone(state.answer.value);
   const classes = answeredClassesOf(state, deps);
@@ -93,12 +96,25 @@ function judgedInputOf(
   };
 }
 
-/** The judges that rejected the reply, in the agent's order; every judge runs. */
+/** A verdict as the step's record keeps it (#395 C3). */
+const verdictRecordOf = (
+  judge: string,
+  attempt: number,
+  verdict: JudgeVerdict,
+): JudgeVerdictRecord => ({
+  judge: bareRecordOf(judge, ComponentKind.Judge),
+  attempt,
+  passed: verdict.passed,
+  ...(verdict.passed ? {} : { reason: verdict.reason }),
+  ...(verdict.metrics === undefined ? {} : { metrics: verdict.metrics }),
+});
+
+/** The judges that rejected the reply, in the agent's order; every judge runs, its verdict kept. */
 async function rejectionsOf(
   state: AgentLoopStateType,
   deps: AgentLoopDeps,
   text: string,
-  spent: UsageRecord[],
+  spent: { readonly usage: UsageRecord[]; readonly verdicts: JudgeVerdictRecord[] },
 ): Promise<JudgeRejection[]> {
   const agent = deps.agent.name;
   const rejected: JudgeRejection[] = [];
@@ -108,11 +124,12 @@ async function rejectionsOf(
     await reportNodeEvent((base) =>
       deps.observer?.onJudgeStart({ ...base, ...event, input: text }),
     );
-    const verdict: JudgeVerdict = await runJudgeCall(meteredModel(judge, spent), () =>
+    const verdict: JudgeVerdict = await runJudgeCall(meteredModel(judge, spent.usage), () =>
       judge.handler.judge(input),
     ).catch((error: unknown) => {
-      throw new AgentFailedError(agent, [...loopUsage(state), ...spent], error);
+      throw new AgentFailedError(agent, [...loopUsage(state), ...spent.usage], error);
     });
+    spent.verdicts.push(verdictRecordOf(judge.name, state.retries, verdict));
     await reportNodeEvent((base) =>
       deps.observer?.onJudgeEnd({ ...base, ...event, update: verdict }),
     );
@@ -137,19 +154,21 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
   const { name: agent, judges = [], maxRetries = 0 } = deps.agent;
   return async (state) => {
     if (judges.length === 0 || state.reply === null) return {};
-    const spent: UsageRecord[] = [];
-    const rejected = await rejectionsOf(state, deps, state.reply, spent);
-    deps.budgets.tally(spent, state.flowPath); // counted at once (#338)
-    if (rejected.length === 0) return { usage: spent };
+    const usage: UsageRecord[] = [];
+    const verdicts: JudgeVerdictRecord[] = [];
+    const rejected = await rejectionsOf(state, deps, state.reply, { usage, verdicts });
+    deps.budgets.tally(usage, state.flowPath); // counted at once (#338)
+    if (rejected.length === 0) return { usage, judgeVerdicts: verdicts };
     if (state.retries >= maxRetries) {
-      throw new QualityGateError(agent, [...loopUsage(state), ...spent], rejected, state.retries);
+      throw new QualityGateError(agent, [...loopUsage(state), ...usage], rejected, state.retries);
     }
     return {
       reply: null,
       answer: null,
       answeredWith: [],
       retries: 1,
-      usage: spent,
+      usage,
+      judgeVerdicts: verdicts,
       messages: [new HumanMessage(retryPrompt(rejected))],
     };
   };

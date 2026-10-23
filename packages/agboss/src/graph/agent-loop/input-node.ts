@@ -5,6 +5,7 @@ import type { ApprovalRecord } from "../../pause/index.js";
 import type { AsyncNode } from "../types.js";
 import type { AgentLoopDeps } from "./deps.js";
 import { GuardrailSide } from "../../components/policy-decorators.js";
+import type { GuardrailDecisionRecord } from "../../flow/runtime/step-records.js";
 import { runGuardrails } from "../../guardrails/runtime.js";
 import { maskCacheKey, maskedModelText } from "../../pii/model-boundary.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
@@ -47,9 +48,10 @@ interface GuardedInput {
   readonly usage: readonly UsageRecord[];
   readonly piiTokens: PiiTokenMap;
   readonly piiMasked: Readonly<Record<string, string>>;
+  readonly decisions: readonly GuardrailDecisionRecord[];
 }
 
-const NOTHING_GUARDED: GuardedInput = { usage: [], piiTokens: {}, piiMasked: {} };
+const NOTHING_GUARDED: GuardedInput = { usage: [], piiTokens: {}, piiMasked: {}, decisions: [] };
 
 async function guardedInput(
   deps: AgentLoopDeps,
@@ -64,9 +66,10 @@ async function guardedInput(
       ? { text: input, tokens: {}, usage: [] }
       : await maskedModelText(set, input, state.piiTokens);
   const checked = { text: masked.text, element: deps.agent.name, side: GuardrailSide.Input };
-  const usage = await runGuardrails(guardrails, checked, deps.observer);
+  const passed = await runGuardrails(guardrails, checked, deps.observer);
   return {
-    usage: [...masked.usage, ...usage],
+    usage: [...masked.usage, ...passed.usage],
+    decisions: passed.decisions,
     piiTokens: masked.tokens,
     piiMasked: set === undefined ? {} : { [maskCacheKey(input, true)]: masked.text },
   };
@@ -107,6 +110,6 @@ export function makeInputNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     const { piiTokens, piiMasked } = guarded;
     const usage = [...knowledge.records, ...guarded.usage];
     deps.budgets.tally(usage, state.flowPath); // counted at once (#338)
-    return { messages, usage, piiTokens, piiMasked };
+    return { messages, usage, piiTokens, piiMasked, guardrailDecisions: [...guarded.decisions] };
   };
 }

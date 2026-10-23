@@ -26,6 +26,8 @@ const recordOf = (run: AgentExecutionOutput): ExecutionRecord => ({
   children: withChildPauses(run.data.children ?? [], []),
   pauses: [],
   compensations: compensationRecordsOf(run.data.compensations),
+  toolCalls: run.data.toolCalls ?? [],
+  steps: run.data.steps ?? [],
 });
 
 /**
@@ -48,6 +50,7 @@ export function runResultOf(
     children: withChildPauses(run.data.children ?? [], []),
     handledErrors: run.data.handledErrors ?? [],
     compensations: compensationRecordsOf(run.data.compensations),
+    toolCalls: run.data.toolCalls ?? [],
     ...(run.finish === undefined ? {} : { finish: finishOf(run.finish), output: run.output }),
     pending: run.pending.map(visiblePauseOf),
     ...(run.compacted === undefined ? {} : { compacted: run.compacted }),

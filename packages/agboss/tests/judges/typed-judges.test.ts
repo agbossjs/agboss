@@ -195,7 +195,7 @@ describe("a oneOf judge", () => {
 
     expect(offer.output).toEqual(JudgeVerdict.passed({ metrics: { salary: 10 } }));
     expect(refusal.output).toEqual(JudgeVerdict.failed({ reason: "a refusal says why" }));
-    const task = { task: "t", attempt: 0 } as const;
+    const task = { task: "t", attempt: 0, toolCalls: [] } as const;
     expect(salaryOf({ variant: OfferDto, reply: { salary: 3 }, ...task })).toBe(3);
   });
 

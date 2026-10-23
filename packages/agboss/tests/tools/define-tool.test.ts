@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   defineTool,
   InvalidToolNameError,
+  ToolTimeoutError,
   type ToolInvocationContext,
 } from "../../src/tools/index.js";
 import { seconds } from "../../src/units/index.js";
@@ -54,7 +55,11 @@ describe("defineTool", () => {
   it("turns a thrown error into an error result", async () => {
     const tool = echo(() => Promise.reject(new Error("boom")));
 
-    expect(await tool.invoke({ text: "a" }, ctx())).toEqual({ kind: "error", message: "boom" });
+    expect(await tool.invoke({ text: "a" }, ctx())).toEqual({
+      kind: "error",
+      message: "boom",
+      cause: new Error("boom"), // what it threw: the trajectory's error (#395)
+    });
   });
 
   it("rejects output that breaks the declared schema", async () => {
@@ -72,6 +77,7 @@ describe("defineTool", () => {
     expect(await tool.invoke({ text: "a" }, ctx())).toEqual({
       kind: "error",
       message: "timed out after 0.02 s",
+      cause: expect.any(ToolTimeoutError) as unknown,
     });
   });
 
@@ -83,6 +89,7 @@ describe("defineTool", () => {
     ).toEqual({
       kind: "error",
       message: "run cancelled",
+      cause: new Error("run cancelled"),
     });
     expect(run).not.toHaveBeenCalled();
   });
@@ -91,6 +98,7 @@ describe("defineTool", () => {
     expect(await echo().invoke({ text: "a" }, ctx(abortedWith("user left")))).toEqual({
       kind: "error",
       message: "user left",
+      cause: "user left",
     });
   });
 

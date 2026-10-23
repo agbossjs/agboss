@@ -12,13 +12,31 @@ export interface ScriptedCall {
   readonly args: Record<string, unknown>;
 }
 
-/** One model move: an replyWith, or tool calls. */
+/** One call whose arguments are no JSON (the provider's `invalid_tool_calls`, #395). */
+export interface ScriptedUnreadCall {
+  readonly id: string;
+  readonly name: string;
+  readonly args: string;
+  readonly error: string;
+}
+
+/** One model move: an replyWith, tool calls, or calls with unparsable arguments (beside read ones). */
 export type ScriptedMove =
   | { readonly kind: "replyWith"; readonly text: string }
-  | { readonly kind: "calls"; readonly calls: readonly ScriptedCall[] };
+  | { readonly kind: "calls"; readonly calls: readonly ScriptedCall[] }
+  | {
+      readonly kind: "unread";
+      readonly unread: readonly ScriptedUnreadCall[];
+      readonly calls: readonly ScriptedCall[];
+    };
 
 export const replyWith = (text: string): ScriptedMove => ({ kind: "replyWith", text });
 export const callTools = (...calls: ScriptedCall[]): ScriptedMove => ({ kind: "calls", calls });
+/** A move with one truncated call (and, optionally, read ones beside it). */
+export const callTruncated = (
+  unread: ScriptedUnreadCall,
+  ...calls: ScriptedCall[]
+): ScriptedMove => ({ kind: "unread", unread: [unread], calls });
 export const read = (id: string, path: string): ScriptedCall => ({
   id,
   name: "read-file-tool",
@@ -40,6 +58,14 @@ const messageOf = (move: ScriptedMove): AIMessage =>
         content: "",
         usage_metadata: USAGE,
         tool_calls: move.calls.map((call) => ({ ...call, type: "tool_call" as const })),
+        ...(move.kind === "unread"
+          ? {
+              invalid_tool_calls: move.unread.map((call) => ({
+                ...call,
+                type: "invalid_tool_call" as const,
+              })),
+            }
+          : {}),
       });
 
 /**
