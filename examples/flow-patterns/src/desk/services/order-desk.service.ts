@@ -11,4 +11,9 @@ export class OrderDeskService {
       `order ${orderId} shipped on Monday | internal: carrier delay ticket 88`,
     );
   }
+
+  /** One fast round trip, for the readiness probe. */
+  isReachable(): Promise<boolean> {
+    return Promise.resolve(true);
+  }
 }

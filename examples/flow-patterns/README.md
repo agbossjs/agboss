@@ -5,18 +5,18 @@ The zero-cost harness of AGBoss's public surface (#419): the flow's patterns as 
 the help desk also as an offline application of its own (`src/desk.application.ts`), whose only
 model provider is a transport that answers by the request, so it runs with no key and no network:
 
-| Folder           | Pattern                                                                                                                | Start                             |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `src/offer/`     | a review loop                                                                                                          | `offer-workflow-start`            |
-| `src/credit/`    | a code router beside a model router                                                                                    | `credit-workflow-start`           |
-| `src/review/`    | parallel launches in waves (#273)                                                                                      | `review-workflow-start`           |
-| `src/panel/`     | a quorum with a code and a model arbiter (#279)                                                                        | `panel-workflow-start`            |
-| `src/vendor/`    | a child workflow per vendor (#263)                                                                                     | `vendor-screening-workflow-start` |
-| `src/topic/`     | a workflow launching itself, `maxDepth: 3` (#264)                                                                      | `topic-research-workflow-start`   |
-| `src/approvals/` | two approvals at once, in the terminal (#267)                                                                          | `offsite-booking-workflow-start`  |
-| `src/hiring/`    | undoable steps: `compensateWith` / `committedBy` (#339)                                                                | `send-offer-workflow-start`       |
-| `src/travel/`    | a failed join undoes its finished bookings (#340)                                                                      | `trip-workflow-start`             |
-| `src/desk/`      | the extension points: a custom compaction, code guardrails, a tool interceptor, a transport model provider (#382–#385) | `desk-workflow-start`             |
+| Folder           | Pattern                                                                                                                                                                                                            | Start                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
+| `src/offer/`     | a review loop                                                                                                                                                                                                      | `offer-workflow-start`            |
+| `src/credit/`    | a code router beside a model router                                                                                                                                                                                | `credit-workflow-start`           |
+| `src/review/`    | parallel launches in waves (#273)                                                                                                                                                                                  | `review-workflow-start`           |
+| `src/panel/`     | a quorum with a code and a model arbiter (#279)                                                                                                                                                                    | `panel-workflow-start`            |
+| `src/vendor/`    | a child workflow per vendor (#263)                                                                                                                                                                                 | `vendor-screening-workflow-start` |
+| `src/topic/`     | a workflow launching itself, `maxDepth: 3` (#264)                                                                                                                                                                  | `topic-research-workflow-start`   |
+| `src/approvals/` | two approvals at once, in the terminal (#267)                                                                                                                                                                      | `offsite-booking-workflow-start`  |
+| `src/hiring/`    | undoable steps: `compensateWith` / `committedBy` (#339)                                                                                                                                                            | `send-offer-workflow-start`       |
+| `src/travel/`    | a failed join undoes its finished bookings (#340)                                                                                                                                                                  | `trip-workflow-start`             |
+| `src/desk/`      | the extension points: a custom compaction, code guardrails, a tool interceptor, a transport model provider (#382–#385); a code judge, a knowledge base, a PII detector, an observer, a health check and a step cap | `desk-workflow-start`             |
 
 ```bash
 npm install && npm run build          # repo root
