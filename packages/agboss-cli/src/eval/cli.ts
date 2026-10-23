@@ -44,11 +44,13 @@ async function scoreCommand(context: CommandContext): Promise<CommandOutcome> {
   }
 }
 
-/** `agboss eval run | score | show` (#396 S4, #397): the subcommand the CLI parsed, first of the positionals. */
+/** `agboss eval run | score | show | calibrate` (#396 S4, #397): the subcommand the CLI parsed, first of the positionals. */
 async function evalCommand(context: CommandContext): Promise<CommandOutcome> {
   const [subcommand] = context.positionals;
   if (subcommand === "run") return (await import("./run-cli.js")).evalRunCommand(context);
   if (subcommand === "show") return (await import("./show-cli.js")).evalShowCommand(context);
+  if (subcommand === "calibrate")
+    return (await import("./calibrate-cli.js")).evalCalibrateCommand(context);
   return scoreCommand(context);
 }
 
