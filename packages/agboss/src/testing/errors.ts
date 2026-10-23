@@ -7,6 +7,7 @@ export type TestFailureCode =
   | "test.app-closed"
   | "test.app-not-ready"
   | "test.cassette-missing"
+  | "vcr.stale-cassette"
   | "test.no-matching-script"
   | "test.unused-script"
   | "test.unreachable-step";
@@ -40,6 +41,45 @@ export class CassetteMissingError extends TestFailure {
 
   constructor(message: string) {
     super("test.cassette-missing", message);
+  }
+}
+
+/** What changed in a component since its interactions were recorded. */
+export enum CassetteChange {
+  /** What its model is told: an agent's instructions, a model router's prompt and routes. */
+  Prompt = "prompt",
+  /** What it reads and writes: its input and output DTOs. */
+  Schema = "schema",
+  /** The application no longer has it. */
+  Removed = "removed",
+}
+
+/** How a stale cassette is brought up to date: its stale interactions re-recorded, then the evals. */
+export const RE_RECORD_STALE =
+  "re-record its stale interactions with AGBOSS_VCR_MODE=RECORD_STALE npm test (never edit a cassette by hand), then run the evals";
+
+/**
+ * A VCR replay met a component that changed since its interactions were recorded (#395 PR 4): its
+ * prompt or schema hash is not the one the cassette holds, or the application no longer has it —
+ * the recording answers a request that no longer happens. `agboss check --cassettes` reports the
+ * same without running the tests.
+ */
+export class StaleCassetteError extends TestFailure {
+  override name = "StaleCassetteError";
+  /** The cassette file. */
+  readonly file: string;
+  /** The component whose recordings are stale (its `name`). */
+  readonly component: string;
+  readonly changes: readonly CassetteChange[];
+
+  constructor(file: string, component: string, changes: readonly CassetteChange[]) {
+    super(
+      "vcr.stale-cassette",
+      `${file}: ${component} changed since it was recorded (${changes.join(", ")}) — ${RE_RECORD_STALE}`,
+    );
+    this.file = file;
+    this.component = component;
+    this.changes = changes;
   }
 }
 

@@ -105,7 +105,9 @@ export {
 } from "./units/test-guardrail.js";
 export { testToolInterceptor, type ToolInterceptorRunner } from "./units/test-tool-interceptor.js";
 export {
+  CassetteChange,
   CassetteMissingError,
+  StaleCassetteError,
   LiveCallBlockedError,
   TestFailure,
   TestSetupError,

@@ -26,12 +26,15 @@ export function chatRequestOf(
 
 type ReplyFields = Pick<
   AIMessage,
-  "content" | "tool_calls" | "usage_metadata" | "response_metadata"
+  "content" | "tool_calls" | "invalid_tool_calls" | "usage_metadata" | "response_metadata"
 >;
 
 const storedReplyOf = (reply: ReplyFields): StoredReply => ({
   content: reply.content,
   tool_calls: reply.tool_calls ?? [],
+  ...(reply.invalid_tool_calls === undefined || reply.invalid_tool_calls.length === 0
+    ? {}
+    : { invalid_tool_calls: reply.invalid_tool_calls }),
   ...(reply.usage_metadata === undefined ? {} : { usage_metadata: reply.usage_metadata }),
   response_metadata: reply.response_metadata,
 });
@@ -66,7 +69,7 @@ export class VcrChatModel extends BaseChatModel {
     runManager?: CallbackManagerForLLMRun,
   ): Promise<ChatResult> {
     const request = chatRequestOf(this.model, messages, this.tools);
-    const reply = this.cassette.recording
+    const reply = this.cassette.records(this.key)
       ? await this.#record(messages, request, options.signal)
       : this.cassette.chat(this.key, request);
     const message = new AIMessage({ ...reply }); // a copy: LangChain fills in the fields it is given

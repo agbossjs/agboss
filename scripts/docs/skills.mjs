@@ -7,8 +7,10 @@
 //      member and every application warning code;
 //   3. the matrix coverage (packages/agboss/tests/skills/coverage.ts): each name in its file and
 //      exported by a public entry (packages/agboss/api/*.api.md);
-//   4. a skill file names project commands only — `npx agboss …` and `npm test`, never the repo's
-//      `npm run …` or `make …`.
+//   4. a skill file names project commands only — `npx agboss …` (its options checked like every
+//      doc's) and `npm test`, never the repo's `npm run …` or `make …`; `npm test` may be prefixed
+//      only by `AGBOSS_VCR_MODE=<mode>`, a value of `VCRMode` (#395 S5:
+//      `AGBOSS_VCR_MODE=RECORD_STALE npm test` beside `npx agboss check --cassettes`).
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, sep } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -92,15 +94,48 @@ function headerProblems(doc, markdown, version) {
     : [`${doc}:${String(header + 1)}: skills version ${found}, agboss is ${version}`];
 }
 
-function mentionProblems(doc, markdown, known) {
+/** `VCRMode`'s values, from the source: what `AGBOSS_VCR_MODE` may be set to. */
+function vcrModesOf(repo) {
+  const source = readFileSync(join(repo, "packages/agboss/src/testing/vcr.ts"), "utf8");
+  const body = /export enum VCRMode \{([^}]+)\}/.exec(source)?.[1] ?? "";
+  return new Set([...body.matchAll(/^\s*\w+ = "([^"]+)",/gm)].map((match) => match[1]));
+}
+
+/** The process variables a skill may set before `npm test`, each with the values it takes. */
+const TEST_VARIABLES = (repo) => new Map([["AGBOSS_VCR_MODE", vcrModesOf(repo)]]);
+
+/** `VAR=value … npm test`: each prefix a variable the framework reads, with a value it takes. */
+function npmTestProblems(doc, part, variables) {
+  const problems = [];
+  for (const [, prefix] of part.text.matchAll(/((?:\b[A-Z][A-Z0-9_]*=\S*\s+)+)npm test\b/g))
+    for (const [name, value] of prefix
+      .trim()
+      .split(/\s+/)
+      .map((pair) => pair.split("="))) {
+      const values = variables.get(name);
+      if (values === undefined)
+        problems.push(
+          `${doc}:${String(part.line)}: npm test takes only ${[...variables.keys()].join(", ")} (${name} is not one)`,
+        );
+      else if (!values.has(value))
+        problems.push(
+          `${doc}:${String(part.line)}: ${name}=${value} is not one of ${[...values].join(", ")}`,
+        );
+    }
+  return problems;
+}
+
+function mentionProblems(doc, markdown, known, variables) {
   const problems = [];
   markdown.split("\n").forEach((line, index) => {
     for (const [, code] of line.matchAll(MENTION))
       if (!known.has(code)) problems.push(`${doc}:${String(index + 1)}: unknown code [${code}]`);
   });
-  for (const part of codeOf(markdown))
+  for (const part of codeOf(markdown)) {
     if (/\bnpm run \S|(?<![\w-])make [a-z]/.test(part.text))
       problems.push(`${doc}:${String(part.line)}: a skill names only npx agboss … and npm test`);
+    problems.push(...npmTestProblems(doc, part, variables));
+  }
   return problems;
 }
 
@@ -134,11 +169,12 @@ export async function skillsProblems(repo, docs) {
   // `[rule.code]` is the notation of any code, as the routing tables write it
   const known = new Set([...catalog, ...sourceCodesOf(repo), "rule.code"]);
   const exported = exportedNamesOf(repo);
+  const variables = TEST_VARIABLES(repo);
   return skills.flatMap(({ doc, path, markdown }) => {
     const skill = skillPathOf(path);
     return [
       ...(skill === "SKILL.md" ? headerProblems(doc, markdown, version) : []),
-      ...mentionProblems(doc, markdown, known),
+      ...mentionProblems(doc, markdown, known, variables),
       ...(skill.startsWith("references/11-") ? catalogProblems(doc, markdown, catalog) : []),
       ...coverageProblems(doc, markdown, SKILL_COVERAGE[skill] ?? [], exported),
     ];

@@ -8,6 +8,7 @@ import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
 import { Cassette } from "../../../src/testing/vcr-cassette.js";
 import { vcrGateway } from "../../../src/testing/vcr.js";
+import { cassetteHashesOf, type CassetteHashes } from "../../../src/testing/vcr-hashes.js";
 import { ChatStart, DeskApplication } from "./desk.workflow.js";
 import { execute } from "../../helpers/flow.js";
 
@@ -23,20 +24,26 @@ export function recordDesk(
   return recordRun({ application: DeskApplication, start: ChatStart }, file, text, script);
 }
 
+/** How a recording opens its cassette: from scratch by default, `Cassette.recordingStale` too. */
+export type CassetteOpener = (file: string, hashes: CassetteHashes) => Cassette;
+
 /** Records a run of any workflow from `start` into `file`, the scripted models standing in. */
 export async function recordRun(
   { application, start }: { readonly application: Class; readonly start: Class },
   file: string,
   text: string,
   script: (book: ScriptBook) => void,
+  open: CassetteOpener = (at, hashes) => Cassette.recording(at, hashes),
 ): Promise<ExecutionOutput> {
   const book = new ScriptBook();
   script(book);
+  const assembled = await applicationOf(application);
+  const cassette = open(file, cassetteHashesOf(assembled.workflows));
   const { app } = await buildApplication(
-    await applicationOf(application),
+    assembled,
     {
       processEnv: {},
-      gateway: vcrGateway(Cassette.recording(file), () => createScriptedGateway(book)),
+      gateway: vcrGateway(cassette, () => createScriptedGateway(book)),
       connectMcp: stubbedMcpConnect(new McpStubs(book), new Map(), new Set()),
     },
     { idGenerator: new SequentialIdGenerator() },

@@ -112,3 +112,9 @@ export { startsOfApplication, type ApplicationStart } from "./application/applic
 export { startInputIssuesOf } from "./flow/runtime/start-input-issues.js";
 export { ApplicationLoadError } from "./loader/load-errors.js";
 export { studioOf, type StudioGraphs, type StudioOptions } from "./studio.js";
+export {
+  cassetteFilesUnder,
+  checkCassettes,
+  type CassetteCheck,
+  type StaleCassette,
+} from "./testing/vcr-check.js";

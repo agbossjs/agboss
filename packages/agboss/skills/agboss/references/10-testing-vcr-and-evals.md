@@ -1088,8 +1088,19 @@ test("a strong candidate is hired", async ({ app }) => {
 
 `AUTO` records a missing cassette (`__snapshots__/screening-hire.cassette.json`, committed) and
 replays an existing one; `REPLAY` (the default under `CI`) fails a call the cassette does not hold
-with `CassetteMissingError` (`test.cassette-missing`) — a changed prompt or tool means re-record;
-`RECORD` always calls the models.
+with `CassetteMissingError` (`test.cassette-missing`); `RECORD` always calls the models.
+`AGBOSS_VCR_MODE` (a `VCRMode` member's value) overrides every test's own mode for one run.
+
+**Stale cassettes.** A cassette (version 2) keeps, with every call, its component and that
+component's `promptHash` / `schemaHash` (the join keys of `npx agboss describe --json`). A replay
+of an agent or a model router whose prompt or schema changed since — or that the application no
+longer has — fails with `StaleCassetteError` (`vcr.stale-cassette`: `file`, `component`, `changes`
+— `CassetteChange.Prompt`, `Schema`, `Removed`), naming the command that fixes it.
+`VCRMode.RECORD_STALE` replays the rest and records only the stale components' calls anew (a model
+key needed for those only): `AGBOSS_VCR_MODE=RECORD_STALE npm test`. `npx agboss check --cassettes`
+finds the same without running a test (`[vcr.stale-cassette]`, exit 3). A version 1 cassette (no
+hashes) still replays, without stale detection, and prints a hint to re-record it once with
+`AGBOSS_VCR_MODE=RECORD npm test`.
 
 ## The testing loops: the order to work in
 
@@ -1098,7 +1109,8 @@ Work from the cheapest loop outwards; a later loop never replaces an earlier one
 **Loop 0 — static, $0, after every change.** `npx agboss check` (assembly rules, generated types,
 prompts, environment — all problems at once as `[rule.code]` lines, fix every one) and `npx agboss
 describe` (the flow as assembled, each node's inputs and producers, models and limits). No test runs
-before `check` prints `ok:`.
+before `check` prints `ok:`. With recorded cassettes, `npx agboss check --cassettes` too: a prompt
+or schema changed since a recording is `[vcr.stale-cassette]`.
 
 **Loop 1 — the harness, $0, every commit (`npm test`).**
 
@@ -1118,7 +1130,11 @@ before `check` prints `ok:`.
    `replyWithInvalidAnswer` — and assert the retry: the call recorded `InvalidArguments`, the next
    one's `step.validationAttempts`, or `rejects.toFailWith(AgentAnswerInvalidError, …)` after the
    third invalid answer.
-5. The loops on a live model come next: an eval suite (the section below) runs the same trajectory
+5. **A stale cassette** (`StaleCassetteError`, `[vcr.stale-cassette]`: a component's prompt or
+   schema hash changed since it was recorded): never edit a cassette by hand — re-record its stale
+   interactions with `AGBOSS_VCR_MODE=RECORD_STALE npm test`, review the new answers in the diff,
+   then run the evals (the section below): the re-recorded answers are new model behaviour.
+6. The loops on a live model come next: an eval suite (the section below) runs the same trajectory
    invariants first, then code judges, then model judges — its cascade and the pass@k rule are
    there.
 
