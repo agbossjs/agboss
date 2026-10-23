@@ -381,7 +381,11 @@ another `kind`, an unknown `schemaVersion`, a field missing), exit 2.
 One value (a tool's input or output, a decision, an output) shows at most 2,000 characters on the
 page, the rest named (`… [N more characters in the run artifact]`), and one execution at most 200
 steps: so a long run stays readable and under the bound (40 cases × 5 runs × 10 steps with 2 KB tool
-values each is well under 16 MB); the artifact keeps every value whole. A version 1 artifact renders
+values each is about 9.5 MB); the artifact keeps every value whole. A page that would still be
+above 16 MB with every timeline leaves timelines out — first those of the cases with pass^k, then
+all — and says so in its footer and on the CLI line (`html → … (… MB, self-contained; timelines of
+cases without pass^k only)`); only a page above the bound without any timeline is
+`eval.report-too-large`. A version 1 artifact renders
 as before, each run saying it has no timeline. Not yet on the page: labels and failure tags (#397 PR 4).
 
 ## Against a baseline: `--baseline <run.json>`

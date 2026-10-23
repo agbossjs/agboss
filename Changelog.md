@@ -18,7 +18,8 @@ Breaking changes and notable additions, newest first. The API reports
 - **Added — the HTML report shows each run's timeline**, each case's expectation, the comparison
   with a baseline (a run made with `--baseline`), and for an unstable case the node where its
   attempts part ways (`attemptDivergenceOf`, `AttemptDivergenceReason`); one value is cut at 2,000
-  characters on the page.
+  characters on the page. A page above 16 MB leaves out the timelines of cases with pass^k, then
+  all, before `eval.report-too-large` (now only for a page too large without any timeline).
 
 ## Unreleased — mesh trust: signed envelopes, origin, the caller's budget and deadline, run reports, dedupe, `/cancel` (#398 PR 2)
 

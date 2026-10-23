@@ -281,7 +281,7 @@ workflow's own (`profiles/<workflow>/<name>.yaml`).
   <run.json> [--fail-on-regression]] [--profile <name>] [--env <name>]` — an eval suite on the
   application ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run)). Exit 0 when the suite
   ran, whatever its pass rates; 2 for `--runs` below 1 (`usage.option-value`), `eval.unknown-suite`,
-  `eval.report-too-large` (the HTML page above 16 MB; the artifact is written first), a `--baseline`
+  `eval.report-too-large` (the HTML page above 16 MB even without timelines; the artifact is written first), a `--baseline`
   that does not exist (`eval.run-not-found`) or is no run artifact of the suite (`eval.run-invalid`)
   or `--fail-on-regression` without `--baseline`; 3 when the suite does not assemble (`graph.rules`)
   or its cases' values do not fit (`eval.case-invalid`); 5 with `--fail-on-regression` when a case
