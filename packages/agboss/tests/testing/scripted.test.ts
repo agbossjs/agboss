@@ -52,7 +52,7 @@ describe("AC12: scripted models — answers, tool calls, decisions by script", (
 
     expect(result).toFollowPath([ChatStart, MainRouter, Support, Reply]);
     expect(result).toFinishWith(Reply, { text: "Shipped." });
-    expect(mockLlm(Support)).toHaveCalledTools([OrderStatus]);
+    expect(mockLlm(Support)).toHaveScriptedToolCalls([OrderStatus]);
     expect(toolResultsOf(mockLlm(Support).lastRequest)).toEqual(['{"status":"order 42 shipped"}']);
   });
 

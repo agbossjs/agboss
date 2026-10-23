@@ -100,7 +100,7 @@ describe("job-scout by script (#135): a turn, the approval pause and resume", ()
     expect(paused).toHavePausedAt(ShortlistAgent);
     expect(done).toFinishWith(ChatWorkflowFinish, { text: "Saved 1 job." });
     expect(mockLlm(MainRouter).requests).toHaveLength(1);
-    expect(mockLlm(ShortlistAgent)).toHaveCalledTools([SaveShortlist]);
+    expect(mockLlm(ShortlistAgent)).toHaveScriptedToolCalls([SaveShortlist]);
     expect(written).toEqual([
       "# Shortlist\n- [Backend Engineer — Fireblocks, Tel Aviv](https://example.com/1) · fit 81%\n",
     ]);

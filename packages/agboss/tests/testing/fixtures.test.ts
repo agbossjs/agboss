@@ -122,7 +122,7 @@ describe("AC12: slices — one component of the real app on its own", () => {
     );
 
     expect(await app.agent(Support).replyWith("where is 3?")).toBe("Order 3 shipped.");
-    expect(mockLlm(Support)).toHaveCalledTools([OrderStatus]);
+    expect(mockLlm(Support)).toHaveScriptedToolCalls([OrderStatus]);
   });
 
   test("a slice of something the workflow does not have fails clearly", async ({ app }) => {

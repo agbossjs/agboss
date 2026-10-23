@@ -6,6 +6,7 @@ import type { ModelScript } from "./model-script.js";
 import type { DeepPartial, InputMatcherOf, ReturnedCheckOf } from "./script-types.js";
 import type { ChildMatchers } from "./child-matchers.js";
 import type { CompensationMatchers } from "./compensation-matchers.js";
+import type { ToolCallMatchers } from "./tool-call-matchers.js";
 
 /**
  * The call matchers of `mockLlm(X)` and `mockAction(A)` (#262 AC9), typed by the component's
@@ -39,7 +40,9 @@ declare module "vitest" {
     toFinishWith: WorkflowMatchers<T>["toFinishWith"];
     toHavePausedAt: WorkflowMatchers<T>["toHavePausedAt"];
     toFailWith: WorkflowMatchers<T>["toFailWith"];
-    toHaveCalledTools: WorkflowMatchers<T>["toHaveCalledTools"];
+    toHaveScriptedToolCalls: WorkflowMatchers<T>["toHaveScriptedToolCalls"];
+    toHaveCalledTools: ToolCallMatchers<T>["toHaveCalledTools"];
+    toHaveToolCallMatching: ToolCallMatchers<T>["toHaveToolCallMatching"];
     toHaveBeenAskedWith: WorkflowMatchers<T>["toHaveBeenAskedWith"];
     toHaveChildExecutions: ChildMatchers<T>["toHaveChildExecutions"];
     toHaveHandledError: ChildMatchers<T>["toHaveHandledError"];

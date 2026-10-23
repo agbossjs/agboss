@@ -651,6 +651,21 @@ export interface TestWithOptions extends EnvironmentSelection {
 }
 
 // @public
+export type ToolCallExpectation<TInput> = DeepPartial<TInput> | ((input: TInput) => boolean);
+
+// @public
+export interface ToolCallMatchers<R = unknown> {
+    toHaveCalledTools(tools: readonly ToolClass<object>[]): R;
+    toHaveToolCallMatching<TInput extends object>(tool: ToolClass<TInput>, expected: ToolCallExpectation<TInput>): R;
+}
+
+// @public
+export const toolCallMatchers: {
+    toHaveCalledTools(this: MatcherContext, received: unknown, tools: readonly ToolClass<object>[]): Verdict;
+    toHaveToolCallMatching<TInput extends object>(this: MatcherContext, received: unknown, tool: ToolClass<TInput>, expected: ToolCallExpectation<TInput>): Verdict;
+};
+
+// @public
 export interface ToolCallTurn {
     // (undocumented)
     readonly args: Readonly<Record<string, unknown>>;
@@ -841,9 +856,8 @@ export interface WorkflowMatchers<R = unknown> {
     // (undocumented)
     toHaveBeenAskedWith(request: ExpectedRequest): R;
     // (undocumented)
-    toHaveCalledTools(tools: readonly Class[]): R;
-    // (undocumented)
     toHavePausedAt(agent: Class): R;
+    toHaveScriptedToolCalls(tools: readonly Class[]): R;
 }
 
 // @public
@@ -852,7 +866,7 @@ export const workflowMatchers: {
     toFinishWith(this: MatcherContext, received: unknown, finish: Class, output?: unknown): Verdict;
     toHavePausedAt(this: MatcherContext, received: unknown, agent: Class): Verdict;
     toFailWith(this: MatcherContext, received: unknown, error: ErrorClass, fields?: Readonly<Record<string, unknown>>): Verdict;
-    toHaveCalledTools(this: MatcherContext, received: unknown, tools: readonly Class[]): Verdict;
+    toHaveScriptedToolCalls(this: MatcherContext, received: unknown, tools: readonly Class[]): Verdict;
     toHaveBeenAskedWith(this: MatcherContext, received: unknown, request: ExpectedRequest): Verdict;
 };
 
@@ -899,11 +913,10 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/matchers.ts:13:3 - (ae-undocumented) Missing documentation for "input".
 // src/testing/matchers.ts:14:3 - (ae-undocumented) Missing documentation for "instructions".
 // src/testing/matchers.ts:15:3 - (ae-undocumented) Missing documentation for "options".
-// src/testing/matchers.ts:137:3 - (ae-undocumented) Missing documentation for "toFollowPath".
-// src/testing/matchers.ts:138:3 - (ae-undocumented) Missing documentation for "toFinishWith".
-// src/testing/matchers.ts:139:3 - (ae-undocumented) Missing documentation for "toHavePausedAt".
-// src/testing/matchers.ts:145:3 - (ae-undocumented) Missing documentation for "toHaveCalledTools".
-// src/testing/matchers.ts:146:3 - (ae-undocumented) Missing documentation for "toHaveBeenAskedWith".
+// src/testing/matchers.ts:143:3 - (ae-undocumented) Missing documentation for "toFollowPath".
+// src/testing/matchers.ts:144:3 - (ae-undocumented) Missing documentation for "toFinishWith".
+// src/testing/matchers.ts:145:3 - (ae-undocumented) Missing documentation for "toHavePausedAt".
+// src/testing/matchers.ts:153:3 - (ae-undocumented) Missing documentation for "toHaveBeenAskedWith".
 // src/testing/mcp-stubs.ts:14:3 - (ae-undocumented) Missing documentation for "tool".
 // src/testing/mcp-stubs.ts:15:3 - (ae-undocumented) Missing documentation for "args".
 // src/testing/model-script.ts:9:3 - (ae-undocumented) Missing documentation for "role".

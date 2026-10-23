@@ -143,6 +143,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ],
     ...["ToolCallRecord", "ToolCallStatus", "TypedToolCall", "toolCallsOf", "JudgeInput"],
     ...["ExecutionStepRecord", "JudgeVerdictRecord", "GuardrailDecisionRecord"],
+    ...["toolCallMatchers", "ToolCallMatchers", "ToolCallExpectation"],
   ],
   "references/02-flow-dsl-all-combinations.md": [
     ...["Workflow", "WorkflowStart", "WorkflowFinish", "FinishHandler", "WorkflowStartTextDto"],
