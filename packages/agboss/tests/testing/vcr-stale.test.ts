@@ -97,7 +97,7 @@ afterEach(() => {
 });
 
 describe("a version 2 cassette keeps each call's component and its hashes", () => {
-  it("an agent's and a router's calls carry their join keys; a guardrail's its name only", () => {
+  it("an agent's, a router's and a guardrail's calls carry their join keys (#395 PR 5b)", () => {
     const { version, interactions } = read(file);
 
     expect(version).toBe(2);
@@ -110,8 +110,8 @@ describe("a version 2 cassette keeps each call's component and its hashes", () =
     expect(agent?.schemaHash).toBeUndefined();
     expect(router).toMatchObject({ component: "main-router" });
     expect(router?.promptHash).toMatch(/^[0-9a-f]+$/);
-    expect(guardrail).toEqual(expect.not.objectContaining({ promptHash: expect.anything() }));
     expect(guardrail?.component).toBe("prompt-injection-guardrail");
+    expect(guardrail?.promptHash).toMatch(/^[0-9a-f]+$/);
   });
 });
 

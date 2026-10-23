@@ -4,6 +4,8 @@ import { NodeKind } from "../flow/ast.js";
 import { dtoJsonSchemaOf, dtoSchemaHashOf } from "../flow/runtime/join-keys.js";
 import { toolKeysOf } from "../flow/runtime/tool-keys.js";
 import { configSnapshot, type ChildSnapshotSources } from "../run/versions.js";
+import { modelComponentRecordsOf } from "../flow/runtime/model-component-keys.js";
+import type { ComponentRecord } from "../flow/runtime/records.js";
 import { versionOf } from "../terns/index.js";
 import { defaultMaxResultSizeOf, type AnyTool } from "../tools/index.js";
 import {
@@ -56,6 +58,11 @@ export interface WorkflowSnapshot {
   readonly edges: readonly EdgeSnapshot[];
   readonly onError: readonly ErrorHandlerSnapshot[];
   readonly launches: readonly LaunchSnapshot[];
+  /**
+   * The components that call a model but are no node (#395 PR 5b) — model judges, guardrails,
+   * arbiters, compactions, reply interpreters, model PII detection — each with its join keys.
+   */
+  readonly modelComponents: readonly ComponentRecord[];
   readonly schemas: SchemasSnapshot;
 }
 
@@ -105,6 +112,7 @@ export function workflowSnapshotOf(
     edges: edgesOf(bundle.graph),
     onError: errorHandlersOf(bundle.graph),
     launches: launchesOfGraph(bundle.graph),
+    modelComponents: modelComponentRecordsOf(bundle),
     schemas: schemasOf(bundle, resolveTools(bundle, services)),
   };
 }
