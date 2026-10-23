@@ -287,6 +287,16 @@ export class AppOpenRouterModelProvider extends OpenRouterProvider {
 }
 ```
 
+**Pinning the host (#395):** `OpenRouterRouting` — `order`, `only`, `ignore` (hosts by OpenRouter's
+slug, `fireworks`), `sort` (`ProviderSort`), `quantizations` (`Quantization.Bf16`, `Fp8`, …) and
+`allowFallbacks` — is camelCase in TypeScript; only the request body is OpenRouter's snake_case
+(`allow_fallbacks`). Pin the host and precision when results must not drift between upstreams
+(evals, a benchmark): `provider: { only: ["fireworks"], quantizations: [Quantization.Bf16],
+allowFallbacks: false }`. Every call's `UsageRecord.servedBy` names the host that served it
+(OpenRouter's `provider`, a plain or a streamed answer). `npx agboss check --models` checks each
+served model's endpoints: a pinned host that does not serve it, or no allowed host at a pinned
+quantization, is `[model.no-matching-endpoint]`; the endpoints are never asked at start.
+
 ### A custom transport: `complete(request)`
 
 A provider that is not an OpenAI-compatible HTTP server — AWS Bedrock through its SDK, Vertex AI,
@@ -457,8 +467,9 @@ outputPerMillion: usd(…), cachedInputPerMillion?: usd(…) } })` — tokens ×
   `.off()`) are required on an HTTP provider (a transport's default to off) and overridden by a
   component (`reasoning`, `cache`).
 - At start and with `npx agboss check --models` every model setting is checked against what its
-  model supports — all problems at once (`model.unsupported-setting`, `model.unknown-model`); nothing
-  is substituted.
+  model supports — all problems at once (`model.unsupported-setting`, `model.unknown-model`; with
+  `--models` also `model.no-matching-endpoint` for a pinned host or quantization no endpoint serves);
+  nothing is substituted.
 
 ## The application
 

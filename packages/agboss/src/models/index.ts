@@ -41,6 +41,7 @@ export {
   OpenRouterProvider,
   type OpenRouterFields,
   ProviderSort,
+  Quantization,
   type OpenRouterRouting,
 } from "./openrouter.provider.js";
 export { OpenRouterModelProvider } from "./openrouter-model.provider.js";

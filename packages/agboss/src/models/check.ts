@@ -23,6 +23,11 @@ export interface ModelCheckOptions {
    * --models` — a transport's capabilities are not checked.
    */
   readonly transports?: Pick<TransportResolver, "instanceOf">;
+  /**
+   * Also each provider's host routing against the endpoints of every model it serves (#395 PR 6:
+   * OpenRouter's pinned hosts and quantizations) — `agboss check --models` only, never at startup.
+   */
+  readonly endpoints?: boolean;
 }
 
 /**
@@ -74,6 +79,22 @@ interface ProviderCheck {
   readonly provider: RegisteredModelProvider;
   readonly handler: ModelProviderHandler | undefined;
   readonly connection: ProviderConnection;
+  /** Whether the routing is checked against the model's endpoints (`ModelCheckOptions.endpoints`). */
+  readonly endpoints: boolean;
+}
+
+/** The provider's routing no endpoint of the model serves: `[model.no-matching-endpoint]`. */
+async function endpointProblems(use: ModelUse, check: ProviderCheck): Promise<ModelProblem[]> {
+  const routingProblemsOf = check.handler?.routingProblems?.bind(check.handler);
+  if (!check.endpoints || routingProblemsOf === undefined) return [];
+  const found = await routingProblemsOf(use.model, check.connection);
+  return found.map(({ value, supported }) => ({
+    code: "model.no-matching-endpoint",
+    key: use.key,
+    value,
+    model: use.model,
+    supported: `${check.provider.options.name}: ${supported}`,
+  }));
 }
 
 async function useProblems(use: ModelUse, check: ProviderCheck): Promise<readonly ModelProblem[]> {
@@ -97,7 +118,11 @@ async function useProblems(use: ModelUse, check: ProviderCheck): Promise<readonl
     reasoning: use.settings?.reasoning ?? provider.options.reasoning,
     promptCaching: use.settings?.promptCaching ?? provider.options.promptCaching,
   };
-  return [...settingProblems(use, effective, capabilities), ...priceProblems(use, provider)];
+  return [
+    ...settingProblems(use, effective, capabilities),
+    ...priceProblems(use, provider),
+    ...(await endpointProblems(use, check)),
+  ];
 }
 
 /**
@@ -132,6 +157,7 @@ export async function checkModelUses(
             provider: resolution.provider,
             handler: handlerOf(resolution.provider, options),
             connection: connectionFor(resolution.provider),
+            endpoints: options.endpoints === true,
           });
     }),
   );

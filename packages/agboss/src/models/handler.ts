@@ -39,6 +39,14 @@ export interface DecideRequest {
  * over HTTP; a transport provider (#385) implements `complete` instead of `chat` — every policy of
  * the gateway runs around it.
  */
+/** What of a provider's routing no endpoint of a model can serve (#395 PR 6): the setting, what exists. */
+export interface RoutingProblem {
+  /** The routing setting that cannot be met: `provider.only: fireworks`. */
+  readonly value: string;
+  /** The model's endpoints as the provider lists them. */
+  readonly supported: string;
+}
+
 export interface ModelProviderHandler {
   readonly chat?: (request: ChatRequest) => BaseChatModel;
   readonly routeTo?: (request: DecideRequest) => Promise<unknown>;
@@ -55,4 +63,12 @@ export interface ModelProviderHandler {
     model: string,
     connection: ProviderConnection,
   ) => Promise<ModelCapabilities | undefined>;
+  /**
+   * What of the provider's host routing no endpoint of `model` can serve (#395 PR 6: OpenRouter's
+   * pinned hosts and quantizations) — asked only by `agboss check --models`, over the network.
+   */
+  readonly routingProblems?: (
+    model: string,
+    connection: ProviderConnection,
+  ) => Promise<readonly RoutingProblem[]>;
 }

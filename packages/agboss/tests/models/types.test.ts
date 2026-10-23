@@ -20,7 +20,21 @@ describe("AC6: requestFields are typed per provider (compile time)", () => {
       override readonly requestFields: OpenRouterFields = { provider: { sort: "cheapest" } };
     }
 
-    expect([Typo.name, WrongValue.name]).toEqual(["Typo", "WrongValue"]);
+    abstract class SnakeCase extends OpenRouterProvider {
+      // @ts-expect-error — #395 S8: the TypeScript API is camelCase (`allowFallbacks`)
+      override readonly requestFields: OpenRouterFields = { provider: { allow_fallbacks: false } };
+    }
+    abstract class WrongQuantization extends OpenRouterProvider {
+      // @ts-expect-error — `quantizations` takes Quantization members
+      override readonly requestFields: OpenRouterFields = { provider: { quantizations: ["bf17"] } };
+    }
+
+    expect([Typo.name, WrongValue.name, SnakeCase.name, WrongQuantization.name]).toEqual([
+      "Typo",
+      "WrongValue",
+      "SnakeCase",
+      "WrongQuantization",
+    ]);
   });
 
   it("AC6: retry policies have required fields", () => {

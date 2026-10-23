@@ -79,12 +79,11 @@ const PauseRow = z.object({
 const StoredUsage = z.object({
   caller: z.string(),
   model: z.string(),
-  inputTokens: z.number(),
-  outputTokens: z.number(),
-  cacheReadTokens: z.number(),
-  cacheWriteTokens: z.number(),
+  ...{ inputTokens: z.number(), outputTokens: z.number() },
+  ...{ cacheReadTokens: z.number(), cacheWriteTokens: z.number() },
   costUsd: z.number(),
   costSource: z.enum(["api", "price-table", "tool"]),
+  servedBy: z.string().optional(),
 });
 
 const StoredAnswer = z.object({

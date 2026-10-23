@@ -1,5 +1,6 @@
 import type { Price, ResolvedModelSettings } from "../config/types.js";
 import { fallbackMarkOf } from "./fallback-mark.js";
+import { servedByOf } from "./served-by.js";
 
 /** Anything a chat model returns that may carry token usage (AIMessage, AIMessageChunk). */
 export interface UsageCarrier {
@@ -35,6 +36,11 @@ export interface UsageRecord extends TokenUsage {
   readonly model: string;
   readonly costUsd: number;
   readonly costSource: CostSource;
+  /**
+   * The host that served the call, as its provider names it (#395 PR 6: OpenRouter's upstream —
+   * `Fireworks`, `Together`); absent when the provider does not say.
+   */
+  readonly servedBy?: string;
 }
 
 /** What a call was for — the cost categories of a turn. */
@@ -68,6 +74,8 @@ export interface CostLine extends TokenUsage {
   readonly model: string;
   readonly costUsd: number;
   readonly costSource: CostSource;
+  /** The host that served the call (`UsageRecord.servedBy`, #395 PR 6). */
+  readonly servedBy?: string;
 }
 
 /**
@@ -142,6 +150,8 @@ export function recordUsage(
   message: UsageCarrier,
 ): UsageRecord {
   const usage = extractTokenUsage(message);
+  const servedBy = servedByOf(message.response_metadata);
+  const served = servedBy === undefined ? {} : { servedBy };
   const reported = reportedCostOf(message);
   const fallback = fallbackMarkOf(message.response_metadata);
   if (fallback !== undefined) {
@@ -151,10 +161,17 @@ export function recordUsage(
       );
     }
     const costSource = fallback.priced ? "price-table" : "api";
-    return { caller, model: fallback.model, ...usage, costUsd: reported, costSource };
+    return { caller, model: fallback.model, ...usage, costUsd: reported, costSource, ...served };
   }
   if (reported !== undefined) {
-    return { caller, model: settings.model, ...usage, costUsd: reported, costSource: "api" };
+    return {
+      caller,
+      model: settings.model,
+      ...usage,
+      costUsd: reported,
+      costSource: "api",
+      ...served,
+    };
   }
   if (settings.price === undefined) {
     throw new ModelCostError(
@@ -167,6 +184,7 @@ export function recordUsage(
     ...usage,
     costUsd: costOf(usage, settings.price),
     costSource: "price-table",
+    ...served,
   };
 }
 

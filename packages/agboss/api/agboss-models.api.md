@@ -254,7 +254,7 @@ export interface ModelProblem {
 }
 
 // @public
-export type ModelProblemCode = "model.unserved" | "model.ambiguous-provider" | "model.unknown-model" | "model.unsupported-setting" | "model.no-price" | "model.fallback-unmapped" | "model.fallback-no-price";
+export type ModelProblemCode = "model.unserved" | "model.ambiguous-provider" | "model.unknown-model" | "model.unsupported-setting" | "model.no-price" | "model.fallback-unmapped" | "model.fallback-no-price" | "model.no-matching-endpoint";
 
 // Warning: (ae-forgotten-export) The symbol "HttpModelProviderOptions" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "HttpModelProviderType" needs to be exported by the entry point index.d.ts
@@ -306,7 +306,7 @@ export interface ModelProviderFailureOptions {
     readonly retryAfter?: Milliseconds;
 }
 
-// @public
+// @public (undocumented)
 export interface ModelProviderHandler {
     readonly capabilities?: (model: string, connection: ProviderConnection) => Promise<ModelCapabilities | undefined>;
     // (undocumented)
@@ -314,6 +314,8 @@ export interface ModelProviderHandler {
     readonly complete?: (request: ModelProviderRequest) => Promise<ModelProviderResponse>;
     // (undocumented)
     readonly routeTo?: (request: DecideRequest) => Promise<unknown>;
+    // Warning: (ae-forgotten-export) The symbol "RoutingProblem" needs to be exported by the entry point index.d.ts
+    readonly routingProblems?: (model: string, connection: ProviderConnection) => Promise<readonly RoutingProblem[]>;
 }
 
 // @public
@@ -424,6 +426,7 @@ export abstract class OpenAiCompatibleProvider<TFields extends object = NoReques
     protected reasoningFields(reasoning: Reasoning): WireFields;
     // (undocumented)
     abstract readonly requestFields: TFields;
+    protected responseFetch(send: typeof fetch): typeof fetch;
     // Warning: (ae-forgotten-export) The symbol "WireFields" needs to be exported by the entry point index.d.ts
     protected wireFieldsOf(fields: TFields): WireFields;
     wirePlanOf(request: Pick<ChatRequest, "settings" | "reasoning" | "promptCaching">): WirePlan;
@@ -454,18 +457,18 @@ export abstract class OpenRouterProvider<TFields extends OpenRouterFields = Open
     protected capabilitiesOf(entry: ModelEntry): ModelCapabilities;
     // (undocumented)
     protected reasoningFields(reasoning: Reasoning): WireFields;
+    protected responseFetch(send: typeof fetch): typeof fetch;
+    routingProblems(model: string, connection: ProviderConnection): Promise<readonly RoutingProblem[]>;
+    protected wireFieldsOf(fields: TFields): WireFields;
 }
 
 // @public
 export interface OpenRouterRouting {
-    // (undocumented)
-    readonly allow_fallbacks?: boolean;
-    // (undocumented)
+    readonly allowFallbacks?: boolean;
     readonly ignore?: readonly string[];
-    // (undocumented)
     readonly only?: readonly string[];
-    // (undocumented)
     readonly order?: readonly string[];
+    readonly quantizations?: readonly Quantization[];
     // (undocumented)
     readonly sort?: ProviderSort;
 }
@@ -536,6 +539,27 @@ export enum ProviderSort {
     Price = "price",
     // (undocumented)
     Throughput = "throughput"
+}
+
+// @public
+export enum Quantization {
+    // (undocumented)
+    Bf16 = "bf16",
+    // (undocumented)
+    Fp16 = "fp16",
+    // (undocumented)
+    Fp32 = "fp32",
+    // (undocumented)
+    Fp4 = "fp4",
+    // (undocumented)
+    Fp6 = "fp6",
+    // (undocumented)
+    Fp8 = "fp8",
+    // (undocumented)
+    Int4 = "int4",
+    // (undocumented)
+    Int8 = "int8",
+    Unknown = "unknown"
 }
 
 // @public
@@ -727,8 +751,9 @@ export interface WireRequest {
 // src/models/handler.ts:27:3 - (ae-undocumented) Missing documentation for "connection".
 // src/models/handler.ts:32:3 - (ae-undocumented) Missing documentation for "decision".
 // src/models/handler.ts:33:3 - (ae-undocumented) Missing documentation for "connection".
-// src/models/handler.ts:43:3 - (ae-undocumented) Missing documentation for "chat".
-// src/models/handler.ts:44:3 - (ae-undocumented) Missing documentation for "routeTo".
+// src/models/handler.ts:50:1 - (ae-undocumented) Missing documentation for "ModelProviderHandler".
+// src/models/handler.ts:51:3 - (ae-undocumented) Missing documentation for "chat".
+// src/models/handler.ts:52:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/models/jev-alias.ts:4:14 - (ae-undocumented) Missing documentation for "JevModelProvider".
 // src/models/jev-alias.ts:6:1 - (ae-undocumented) Missing documentation for "JevModelProvider".
 // src/models/jev.provider.ts:14:14 - (ae-undocumented) Missing documentation for "OPENROUTER_BASE_URL".
@@ -745,21 +770,25 @@ export interface WireRequest {
 // src/models/openai-compatible.provider.ts:17:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/openai-compatible.provider.ts:31:3 - (ae-undocumented) Missing documentation for "requestFields".
 // src/models/openai-compatible.provider.ts:34:3 - (ae-undocumented) Missing documentation for "chat".
-// src/models/openai-compatible.provider.ts:94:9 - (ae-undocumented) Missing documentation for "capabilities".
+// src/models/openai-compatible.provider.ts:99:9 - (ae-undocumented) Missing documentation for "capabilities".
 // src/models/openrouter-model.provider.ts:44:3 - (ae-undocumented) Missing documentation for "requestFields".
-// src/models/openrouter.provider.ts:14:3 - (ae-undocumented) Missing documentation for "Price".
-// src/models/openrouter.provider.ts:15:3 - (ae-undocumented) Missing documentation for "Throughput".
-// src/models/openrouter.provider.ts:16:3 - (ae-undocumented) Missing documentation for "Latency".
-// src/models/openrouter.provider.ts:21:3 - (ae-undocumented) Missing documentation for "order".
-// src/models/openrouter.provider.ts:22:3 - (ae-undocumented) Missing documentation for "only".
-// src/models/openrouter.provider.ts:23:3 - (ae-undocumented) Missing documentation for "ignore".
-// src/models/openrouter.provider.ts:24:3 - (ae-undocumented) Missing documentation for "sort".
-// src/models/openrouter.provider.ts:25:3 - (ae-undocumented) Missing documentation for "allow_fallbacks".
-// src/models/openrouter.provider.ts:30:3 - (ae-undocumented) Missing documentation for "provider".
-// src/models/openrouter.provider.ts:31:3 - (ae-undocumented) Missing documentation for "transforms".
-// src/models/openrouter.provider.ts:74:44 - (ae-undocumented) Missing documentation for "reasoningFields".
-// src/models/openrouter.provider.ts:76:12 - (ae-undocumented) Missing documentation for "cachingPlan".
-// src/models/openrouter.provider.ts:94:12 - (ae-undocumented) Missing documentation for "capabilitiesOf".
+// src/models/openrouter-routing.ts:13:3 - (ae-undocumented) Missing documentation for "Price".
+// src/models/openrouter-routing.ts:14:3 - (ae-undocumented) Missing documentation for "Throughput".
+// src/models/openrouter-routing.ts:15:3 - (ae-undocumented) Missing documentation for "Latency".
+// src/models/openrouter-routing.ts:20:3 - (ae-undocumented) Missing documentation for "Int4".
+// src/models/openrouter-routing.ts:21:3 - (ae-undocumented) Missing documentation for "Int8".
+// src/models/openrouter-routing.ts:22:3 - (ae-undocumented) Missing documentation for "Fp4".
+// src/models/openrouter-routing.ts:23:3 - (ae-undocumented) Missing documentation for "Fp6".
+// src/models/openrouter-routing.ts:24:3 - (ae-undocumented) Missing documentation for "Fp8".
+// src/models/openrouter-routing.ts:25:3 - (ae-undocumented) Missing documentation for "Fp16".
+// src/models/openrouter-routing.ts:26:3 - (ae-undocumented) Missing documentation for "Bf16".
+// src/models/openrouter-routing.ts:27:3 - (ae-undocumented) Missing documentation for "Fp32".
+// src/models/openrouter-routing.ts:45:3 - (ae-undocumented) Missing documentation for "sort".
+// src/models/openrouter.provider.ts:24:3 - (ae-undocumented) Missing documentation for "provider".
+// src/models/openrouter.provider.ts:25:3 - (ae-undocumented) Missing documentation for "transforms".
+// src/models/openrouter.provider.ts:87:40 - (ae-undocumented) Missing documentation for "reasoningFields".
+// src/models/openrouter.provider.ts:95:12 - (ae-undocumented) Missing documentation for "cachingPlan".
+// src/models/openrouter.provider.ts:113:12 - (ae-undocumented) Missing documentation for "capabilitiesOf".
 // src/models/policies/rate-limit-policy.ts:21:3 - (ae-undocumented) Missing documentation for "calls".
 // src/models/policies/rate-limit-policy.ts:22:3 - (ae-undocumented) Missing documentation for "tokens".
 // src/models/policies/rate-limit-policy.ts:29:3 - (ae-undocumented) Missing documentation for "perMinute".
@@ -769,13 +798,13 @@ export interface WireRequest {
 // src/models/policies/rate-limit-policy.ts:41:1 - (ae-undocumented) Missing documentation for "RateLimitPolicyError".
 // src/models/policies/rate-limit-policy.ts:42:12 - (ae-undocumented) Missing documentation for "name".
 // src/models/policies/rate-limit-policy.ts:52:14 - (ae-undocumented) Missing documentation for "RateLimitPolicy".
-// src/models/problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".
-// src/models/problems.ts:14:3 - (ae-undocumented) Missing documentation for "key".
-// src/models/problems.ts:15:3 - (ae-undocumented) Missing documentation for "value".
-// src/models/problems.ts:16:3 - (ae-undocumented) Missing documentation for "model".
-// src/models/problems.ts:17:3 - (ae-undocumented) Missing documentation for "supported".
-// src/models/problems.ts:25:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/problems.ts:26:15 - (ae-undocumented) Missing documentation for "problems".
+// src/models/problems.ts:14:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/problems.ts:15:3 - (ae-undocumented) Missing documentation for "key".
+// src/models/problems.ts:16:3 - (ae-undocumented) Missing documentation for "value".
+// src/models/problems.ts:17:3 - (ae-undocumented) Missing documentation for "model".
+// src/models/problems.ts:18:3 - (ae-undocumented) Missing documentation for "supported".
+// src/models/problems.ts:26:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/problems.ts:27:15 - (ae-undocumented) Missing documentation for "problems".
 // src/models/prompt-caching.ts:3:3 - (ae-undocumented) Missing documentation for "FiveMinutes".
 // src/models/prompt-caching.ts:4:3 - (ae-undocumented) Missing documentation for "OneHour".
 // src/models/prompt-caching.ts:5:3 - (ae-undocumented) Missing documentation for "OneDay".

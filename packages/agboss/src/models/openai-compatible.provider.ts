@@ -42,7 +42,7 @@ export abstract class OpenAiCompatibleProvider<
       maxRetries: 0,
       configuration: {
         baseURL: connection.baseUrl,
-        fetch: wireFetch(this.wirePlanOf(request), connection.fetch),
+        fetch: this.responseFetch(wireFetch(this.wirePlanOf(request), connection.fetch)),
         defaultHeaders: { "X-Title": "AGBoss" },
       },
     });
@@ -62,6 +62,11 @@ export abstract class OpenAiCompatibleProvider<
         ...caching.fields,
       },
     };
+  }
+
+  /** The client's fetch as answers come back; a subclass may read more of them (OpenRouter's host). */
+  protected responseFetch(send: typeof fetch): typeof fetch {
+    return send;
   }
 
   /** The provider's request fields as they go on the wire; a subclass may rename or reshape them. */

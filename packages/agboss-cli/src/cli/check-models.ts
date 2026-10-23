@@ -48,7 +48,12 @@ const problemsOf = (
   env: NodeJS.ProcessEnv,
   send: ProviderFetch | undefined,
 ): Promise<readonly ModelProblem[]> =>
-  checkModelUses(uses, directory, { env, ...(send === undefined ? {} : { send }) });
+  // the command asks the providers anyway: their routing against each model's endpoints too (#395)
+  checkModelUses(uses, directory, {
+    env,
+    endpoints: true,
+    ...(send === undefined ? {} : { send }),
+  });
 
 /**
  * `agboss check --models`: every model setting of the application against what its provider says the

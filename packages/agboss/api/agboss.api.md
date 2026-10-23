@@ -5050,6 +5050,7 @@ export interface UsageRecord extends TokenUsage {
     readonly costUsd: number;
     // (undocumented)
     readonly model: string;
+    readonly servedBy?: string;
 }
 
 // @public
@@ -5564,10 +5565,10 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/eval/suite/errors.ts:18:3 - (ae-undocumented) Missing documentation for "code".
 // src/eval/suite/errors.ts:19:12 - (ae-undocumented) Missing documentation for "name".
 // src/eval/suite/errors.ts:24:5 - (ae-undocumented) Missing documentation for "issues".
-// src/finops/usage.ts:34:3 - (ae-undocumented) Missing documentation for "caller".
-// src/finops/usage.ts:35:3 - (ae-undocumented) Missing documentation for "model".
-// src/finops/usage.ts:36:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/finops/usage.ts:37:3 - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts:35:3 - (ae-undocumented) Missing documentation for "caller".
+// src/finops/usage.ts:36:3 - (ae-undocumented) Missing documentation for "model".
+// src/finops/usage.ts:37:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/finops/usage.ts:38:3 - (ae-undocumented) Missing documentation for "costSource".
 // src/flow/ast.ts:17:3 - (ae-undocumented) Missing documentation for "Start".
 // src/flow/ast.ts:18:3 - (ae-undocumented) Missing documentation for "Finish".
 // src/flow/ast.ts:19:3 - (ae-undocumented) Missing documentation for "Agent".
