@@ -2,7 +2,8 @@
  * `agboss/testing` — test a workflow without models and without the network: `testWith`
  * (Vitest fixtures `app`, `mockLlm`, `mockAction`, `mockTool`, `mockOf`, `mcpOf`, `recoverApp`,
  * `clock`), scripted model turns (`replyWith`, `callTool`, `routeTo`, `decideWith`, `failWith`,
- * `waitFor`, bound to inputs with `when(…)`), the schedule of parallel branches
+ * `waitFor`, the invalid turns `callToolWithInvalidArguments`,
+ * `callToolWithTruncatedArguments`, `replyWithInvalidAnswer`, bound to inputs with `when(…)`), the schedule of parallel branches
  * (`TestConcurrency`), the unit runners of single components (`testTool`, `testAction`,
  * `testJudge`, `testPii`, `testRouter`, `testArbiter`, `testRag`, `testGuardrail`, `testToolInterceptor`) and the matchers
  * (register them with `setupFiles: ["agboss/testing/setup"]`). Vitest is an optional peer
@@ -28,6 +29,12 @@ export {
   ModelFailure,
   type ToolClass,
 } from "./script.js";
+export {
+  callToolWithInvalidArguments,
+  callToolWithTruncatedArguments,
+  replyWithInvalidAnswer,
+  type InvalidFields,
+} from "./invalid-turns.js";
 export type {
   AnswerDetails,
   AnswerGiven,
@@ -36,6 +43,9 @@ export type {
   DecideTurn,
   DecisionDetails,
   FailureTurn,
+  InvalidAnswerTurn,
+  InvalidToolCallTurn,
+  TruncatedToolCallTurn,
   ReplyTurn,
   RouteTurn,
   ScriptedAnswer,

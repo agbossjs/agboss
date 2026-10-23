@@ -70,6 +70,40 @@ export interface ToolCallTurn {
   readonly args: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * A call of one of the agent's tools with arguments its input check refuses (#395 PR 3):
+ * `callToolWithInvalidArguments(LookupOrderTool, { orderId: 7 })`.
+ */
+export interface InvalidToolCallTurn {
+  readonly kind: "invalid-tool-call";
+  readonly tool: string;
+  readonly args: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * A call cut at the output limit, its arguments no JSON (#395 PR 3) — the provider's
+ * `invalid_tool_calls`: `callToolWithTruncatedArguments(LookupOrderTool, { orderId: "7" })`.
+ */
+export interface TruncatedToolCallTurn {
+  readonly kind: "truncated-tool-call";
+  readonly tool: string;
+  /** The arguments as sent: cut JSON. */
+  readonly text: string;
+}
+
+/**
+ * An answer through the answer tool of a class with fields that do not fit it (#395 PR 3):
+ * `replyWithInvalidAnswer(DraftDto, { body: "…" })` — checked against the agent's output classes.
+ */
+export interface InvalidAnswerTurn<TValue = unknown, TIsList extends boolean = boolean> {
+  readonly kind: "invalid-answer";
+  readonly dto: DtoClass;
+  /** The fields, or a list of them for a list output. */
+  readonly value: unknown;
+  readonly details: AnswerDetails;
+  readonly [answerGiven]?: AnswerGiven<TValue, TIsList>;
+}
+
 /** What a model router chose: `routeTo(ProfilerAgent)`; before a launch, the targets it launches. */
 export interface RouteTurn<TTargets extends readonly unknown[] = readonly Class[]> {
   readonly kind: "route";
@@ -101,9 +135,21 @@ export interface WaitTurn {
   readonly delay: Milliseconds;
 }
 
-/** One scripted step: a text, an answer, a tool call, a route, a decision, a failure or a wait. */
+/**
+ * One scripted step: a text, an answer, a tool call, a route, a decision, a failure or a wait — or
+ * one of the model's invalid turns (an invalid or truncated tool call, an invalid answer).
+ */
 export type ScriptedTurn =
-  ReplyTurn | AnswerTurn | ToolCallTurn | RouteTurn | DecideTurn | FailureTurn | WaitTurn;
+  | ReplyTurn
+  | AnswerTurn
+  | ToolCallTurn
+  | InvalidToolCallTurn
+  | TruncatedToolCallTurn
+  | InvalidAnswerTurn
+  | RouteTurn
+  | DecideTurn
+  | FailureTurn
+  | WaitTurn;
 
 /** A turn of a kind. */
 export type TurnOf<TKind extends ScriptedTurn["kind"]> = Extract<ScriptedTurn, { kind: TKind }>;

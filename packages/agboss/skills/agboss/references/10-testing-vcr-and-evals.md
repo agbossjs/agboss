@@ -428,7 +428,13 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   (`test.no-matching-script`). Turns: `replyWith(text)`, `replyWith(Dto, value, { cost: usd(…) })`,
   `callTool(Tool, args)`, `routeTo(Target)` (a model router), `decideWith({ question: p })` (decision
   models: judges, guardrails `{ blocks }`, model arbiters `{ counts }`), `failWith(ModelFailure.Timeout)`,
-  `waitFor(seconds(31))` (the next turn after that long on the clock).
+  `waitFor(seconds(31))` (the next turn after that long on the clock), and the model's invalid turns
+  for a validation retry, no cast needed: `callToolWithInvalidArguments(Tool, { orderId: 7 })` (its
+  input check refuses them) and `callToolWithTruncatedArguments(Tool, { orderId: "7" })` (cut JSON,
+  `finish_reason: "length"`) — the tool never runs, the call is `ToolCallStatus.InvalidArguments`,
+  counted in `step.validationAttempts` — and `replyWithInvalidAnswer(Dto, { body: "…" })` (a class
+  of the agent's output, fields that do not fit it: the third fails the step with
+  `AgentAnswerInvalidError`).
 - **`when(partial)`** binds turns to the input: `mockLlm(SkillsAgent).when({ candidate: { name: "Dana" } }).thenReturn(…)`.
 - **Unscripted**: a guardrail passes, a compaction writes a fixed summary; an agent, a router or a
   judge without a script is a blocked live call (`test.live-call-blocked`). A custom compaction
@@ -1108,7 +1114,11 @@ before `check` prints `ok:`.
    `expect(result).toHaveToolCallMatching(RefundTool, (input) => input.amountCents <= 10_000)` (a
    partial of the input or a check of it), and `toolCallsOf(Tool, result.toolCalls)` with filters on
    `status` for the rest.
-4. The loops on a live model come next: an eval suite (the section below) runs the same trajectory
+4. Script the model's mistakes too — `callToolWithInvalidArguments`, `callToolWithTruncatedArguments`,
+   `replyWithInvalidAnswer` — and assert the retry: the call recorded `InvalidArguments`, the next
+   one's `step.validationAttempts`, or `rejects.toFailWith(AgentAnswerInvalidError, …)` after the
+   third invalid answer.
+5. The loops on a live model come next: an eval suite (the section below) runs the same trajectory
    invariants first, then code judges, then model judges — its cascade and the pass@k rule are
    there.
 

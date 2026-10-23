@@ -5,6 +5,7 @@ import { answerToolName } from "../flow/analyse/rules/models.js";
 import { ARBITER_ANSWER_TOOL } from "../prompts/arbiter.js";
 import { GUARDRAIL_ANSWER_TOOL } from "../prompts/guardrail.js";
 import { LAUNCH_ANSWER_TOOL } from "../prompts/router-launch.js";
+import { FinishReason } from "../models/finish-reason.js";
 import { TestFailure } from "./errors.js";
 import { nodeNameOf } from "./failure-facts.js";
 import { ModelCallFailedError } from "./script.js";
@@ -34,6 +35,9 @@ const usageOf = (outputTokens: number) => ({
   output_tokens: outputTokens,
   total_tokens: outputTokens,
 });
+
+/** Why a scripted truncated call's arguments could not be read, as a provider says it. */
+const TRUNCATED_ARGUMENTS = "the arguments are cut: Unexpected end of JSON input";
 
 /** What a reply is built from: the script's book and the model's settings and bound tools. */
 export interface ReplySite {
@@ -72,11 +76,36 @@ function textReply(turn: TurnOf<"reply">, settings: ResolvedModelSettings): AIMe
 }
 
 /** An answer through the answer tool of its class (#272 S6): a list output as `items`. */
-function answerReply(site: ReplySite, turn: TurnOf<"answer">): AIMessage {
+function answerReply(
+  site: ReplySite,
+  turn: TurnOf<"answer"> | TurnOf<"invalid-answer">,
+): AIMessage {
   const args = Array.isArray(turn.value)
     ? { items: turn.value as readonly unknown[] }
     : Object.fromEntries(Object.entries(turn.value ?? {}));
   return toolCallReply(site, answerToolName(turn.dto), args, turn.details.cost);
+}
+
+/**
+ * A call cut at the output limit (#395 PR 3): its arguments no JSON — the provider's
+ * `invalid_tool_calls` — and `finish_reason: "length"`.
+ */
+function truncatedReply(site: ReplySite, turn: TurnOf<"truncated-tool-call">): AIMessage {
+  return new AIMessage({
+    content: "",
+    usage_metadata: usageOf(0),
+    response_metadata: { finish_reason: FinishReason.Length },
+    tool_calls: [],
+    invalid_tool_calls: [
+      {
+        type: "invalid_tool_call",
+        id: site.book.nextToolCallId(),
+        name: turn.tool,
+        args: turn.text,
+        error: TRUNCATED_ARGUMENTS,
+      },
+    ],
+  });
 }
 
 const wrongScript = (script: ComponentScript): never => {
@@ -140,10 +169,15 @@ export function replyOf(site: ReplySite, call: ScriptedCall): AIMessage {
     case "reply":
       return textReply(turn, site.settings);
     case "answer":
+    case "invalid-answer":
       return answerReply(site, turn);
     case "tool-call":
+    case "invalid-tool-call":
       site.script.toolCalls.push(turn.tool);
       return toolCallReply(site, turn.tool, turn.args);
+    case "truncated-tool-call":
+      site.script.toolCalls.push(turn.tool);
+      return truncatedReply(site, turn);
     case "failure":
       throw new ModelCallFailedError(turn.failure, site.script.label);
     case "decide":
