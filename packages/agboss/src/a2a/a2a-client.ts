@@ -1,6 +1,8 @@
 import { ComponentError, componentOf } from "../components/metadata.js";
+import { z } from "zod";
 import { validate } from "../dto/schema.js";
 import type { DtoClass } from "../dto/types.js";
+import { A2ACallerRejectedError } from "./a2a-caller.js";
 import { readEvents } from "./a2a-sse.js";
 import {
   A2AResponseSchema,
@@ -9,6 +11,12 @@ import {
   type A2AExecutionRequest,
   type A2AExecutionResponse,
 } from "./types.js";
+
+/** The wire shape of a refused caller (`{ code, error }`, #387). */
+const CallerRejectionSchema = z.object({
+  code: z.string().startsWith("a2a.caller-"),
+  error: z.string(),
+});
 
 export interface A2AClientOptions {
   /** The remote agent's base URL; default: `@A2AAgent({ url })` of the class. */
@@ -22,7 +30,20 @@ export interface A2AClientOptions {
 export interface A2AClientCall {
   readonly onEvent?: (event: A2AEvent) => void;
   readonly signal?: AbortSignal;
-  readonly thread?: string;
+  /** The thread to continue, in the caller's tenant on the server (#387: `threadId` on the wire). */
+  readonly threadId?: string;
+}
+
+const HTTP_UNAUTHORIZED = 401;
+const HTTP_FORBIDDEN = 403;
+
+/** A `401` / `403` whose body names an `a2a.caller-*` code: the server refused the caller. */
+async function callerRejectionOf(response: Response): Promise<A2ACallerRejectedError | undefined> {
+  if (response.status !== HTTP_UNAUTHORIZED && response.status !== HTTP_FORBIDDEN) return undefined;
+  const body: unknown = await response.json().catch(() => undefined);
+  const parsed = CallerRejectionSchema.safeParse(body);
+  if (!parsed.success) return undefined;
+  return new A2ACallerRejectedError(response.status, parsed.data.code, parsed.data.error);
 }
 
 /** The remote run did not answer: its status, error and the full response. */
@@ -80,11 +101,14 @@ export class A2AClient {
     return validate(output, response.output);
   }
 
-  /** Runs the remote workflow and returns its response whatever the status. */
+  /**
+   * Runs the remote workflow and returns its response whatever the status; a server that refuses
+   * the caller (`401` / `403`) throws `A2ACallerRejectedError` (#387).
+   */
   public async send(input: unknown, call: A2AClientCall = {}): Promise<A2AExecutionResponse> {
     const body: A2AExecutionRequest = {
       input,
-      ...(call.thread === undefined ? {} : { thread: call.thread }),
+      ...(call.threadId === undefined ? {} : { threadId: call.threadId }),
     };
     const streaming = call.onEvent !== undefined;
     const response = await this.fetcher(`${this.url}/execute`, {
@@ -99,7 +123,10 @@ export class A2AClient {
       ...(call.signal === undefined ? {} : { signal: call.signal }),
     });
     if (!response.ok) {
-      throw new Error(`A2A request to ${this.url} failed with status ${String(response.status)}`);
+      throw (
+        (await callerRejectionOf(response)) ??
+        new Error(`A2A request to ${this.url} failed with status ${String(response.status)}`)
+      );
     }
     const isStream = (response.headers.get("content-type") ?? "").includes("text/event-stream");
     if (isStream && response.body !== null) {

@@ -1,11 +1,7 @@
 import { executeUnchecked } from "../app/execute-unchecked.js";
-import type {
-  App,
-  ExecutionOptions,
-  ExecutionOutput,
-  ThreadOwnerResumeOptions,
-} from "../app/types.js";
+import type { ExecutionOptions, ExecutionOutput, ThreadOwnerResumeOptions } from "../app/types.js";
 import type { Class } from "../components/injection.js";
+import type { A2AApp } from "./a2a-caller.js";
 import { eventOf, failureResponseOf, responseOf } from "./a2a-mapping.js";
 import type {
   A2AEvent,
@@ -47,8 +43,12 @@ export interface IA2AAdapter {
     options?: A2ACallOptions,
   ): Promise<A2AExecutionResponse>;
 
-  /** `app.cancel(thread)`: stops the thread's run in flight (→ `cancelled`) or drops its pause. */
-  cancel(thread: string): Promise<void>;
+  /**
+   * `app.cancel(threadId, { tenantId, ownerId })` for the caller (#387): stops the run in flight of
+   * the caller's tenant's thread (→ `cancelled`) or drops its pause; another tenant's thread of the
+   * same id is never touched.
+   */
+  cancel(threadId: string, caller: A2ACallOptions): Promise<void>;
 }
 
 /**
@@ -56,7 +56,7 @@ export interface IA2AAdapter {
  * reply, the finish output and the final status; failures are statuses, not thrown errors.
  */
 export class A2AAdapter implements IA2AAdapter {
-  constructor(private readonly app: App) {}
+  constructor(private readonly app: A2AApp) {}
 
   public execute(
     start: Class,
@@ -64,11 +64,11 @@ export class A2AAdapter implements IA2AAdapter {
     onEvent?: (event: A2AEvent) => void,
     options: A2ACallOptions = {},
   ): Promise<A2AExecutionResponse> {
-    return this.run(req.thread, options, (call) =>
+    return this.run(req.threadId, options, (call) =>
       // the payload comes off the wire: the app checks it against the start's input
       executeUnchecked(this.app, start, req.input, {
         ...call,
-        ...(req.thread === undefined ? {} : { threadId: req.thread }),
+        ...(req.threadId === undefined ? {} : { threadId: req.threadId }),
         ...streamTo(onEvent),
       }),
     );
@@ -85,20 +85,20 @@ export class A2AAdapter implements IA2AAdapter {
     );
   }
 
-  public async cancel(thread: string): Promise<void> {
-    await this.app.cancel(thread);
+  public async cancel(threadId: string, caller: A2ACallOptions): Promise<void> {
+    await this.app.cancel(threadId, { tenantId: caller.tenant?.tenantId, ownerId: caller.ownerId });
   }
 
   /** Runs one call, mapped to a response: a failure is a status (cancelled, limited, failed). */
   private async run(
-    thread: string | undefined,
+    threadId: string | undefined,
     options: A2ACallOptions,
     call: (options: A2ACallOptions) => Promise<ExecutionOutput>,
   ): Promise<A2AExecutionResponse> {
     try {
       return responseOf(await call(options));
     } catch (error) {
-      return failureResponseOf(error, options.signal, thread);
+      return failureResponseOf(error, options.signal, threadId);
     }
   }
 }

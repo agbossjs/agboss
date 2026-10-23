@@ -42,7 +42,7 @@ describe("#192 AC1: a workflow exposed over A2A answers with its reply and a fin
       finish: "answer-workflow-finish",
       output: { text: "Order 7 shipped" },
     });
-    expect(response.thread).toMatch(/^[0-9a-f-]{36}$/);
+    expect(response.threadId).toMatch(/^[0-9a-f-]{36}$/);
     expect(book.scriptOf("agent:desk-agent").requests[0]?.input).toContain("where is order 7?");
   });
 
@@ -89,7 +89,7 @@ describe("#192: failures map to their statuses", () => {
     expect(response.error).toContain("toolCalls");
   });
 
-  it("cancel(thread) stops the thread's run in flight → cancelled", async () => {
+  it("cancel(threadId, caller) stops the caller's thread's run in flight → cancelled", async () => {
     const book = new ScriptBook();
     book
       .scriptOf("agent:desk-agent")
@@ -101,14 +101,14 @@ describe("#192: failures map to their statuses", () => {
       slowLookups.started = resolve;
     });
 
-    const second = client.send({ text: "look up order 7" }, { thread: first.thread ?? "" });
+    const threadId = first.threadId ?? "";
+    const second = client.send({ text: "look up order 7" }, { threadId });
     await started;
-    await adapter.cancel(first.thread ?? "");
+    const elsewhere = adapter.cancel(threadId, { tenant: { tenantId: "globex" } });
+    await expect(elsewhere).rejects.toThrow(/thread/i); // another tenant has no such thread
+    await adapter.cancel(threadId, {}); // the caller's own: the default tenant
 
-    await expect(second).resolves.toMatchObject({
-      status: A2AStatus.Cancelled,
-      thread: first.thread,
-    });
+    await expect(second).resolves.toMatchObject({ status: A2AStatus.Cancelled, threadId });
   });
 });
 
@@ -181,20 +181,16 @@ describe("#261: an A2A call runs on the typed contexts its transport gives", () 
     const first = await adapter.execute(AskStart, { input: { text: "hi" } }, undefined, caller);
     const second = await adapter.execute(
       AskStart,
-      { input: { text: "again" }, thread: first.thread ?? "" },
+      { input: { text: "again" }, threadId: first.threadId ?? "" },
       undefined,
       caller,
     );
-    const elsewhere = app.cancel(first.thread ?? "");
+    const elsewhere = adapter.cancel(first.threadId ?? "", {});
 
     expect([first.status, second.status]).toEqual([A2AStatus.Finished, A2AStatus.Finished]);
-    expect(second.thread).toBe(first.thread);
+    expect(second.threadId).toBe(first.threadId);
     await expect(elsewhere).rejects.toThrow(/thread/i);
-    await expect(
-      app.cancel(first.thread ?? "", { tenantId: "acme", ownerId: "dana" }),
-    ).resolves.toEqual({
-      cancelled: false,
-    });
+    await expect(adapter.cancel(first.threadId ?? "", caller)).resolves.toBeUndefined();
     await app.close();
   });
 });

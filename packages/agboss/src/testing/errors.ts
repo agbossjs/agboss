@@ -5,6 +5,7 @@ export type TestFailureCode =
   | "test.not-a-route"
   | "test.wrong-script"
   | "test.app-closed"
+  | "test.app-not-ready"
   | "test.cassette-missing"
   | "test.no-matching-script"
   | "test.unused-script"

@@ -882,9 +882,29 @@ export class HelpdeskWorkflowFinish {}
 export class HelpdeskWorkflow {}
 ```
 
+```ts file=src/helpdesk/a2a/helpdesk.a2a-caller-resolver.ts
+// who calls over A2A: the API gateway in front authenticated the caller and named its tenant
+import { Injectable } from "agboss";
+import { A2ACallerResolution, type A2ACallerRequest, type A2ACallerResolver } from "agboss/a2a";
+import type { HelpdeskWorkflowStart } from "../helpdesk.workflow.js";
+
+@Injectable()
+export class HelpdeskA2aCallerResolver implements A2ACallerResolver<typeof HelpdeskWorkflowStart> {
+  resolveCaller(request: A2ACallerRequest): A2ACallerResolution<typeof HelpdeskWorkflowStart> {
+    const tenantId = request.http.headers["x-gateway-tenant"];
+    const clientId = request.http.headers["x-gateway-client"];
+    if (typeof tenantId !== "string" || typeof clientId !== "string") {
+      return A2ACallerResolution.unauthenticated({ reason: "not through the gateway" });
+    }
+    return A2ACallerResolution.resolved({ tenant: { tenantId }, ownerId: clientId });
+  }
+}
+```
+
 ```ts file=src/helpdesk/helpdesk.application.ts
 import { Application, Budget, BudgetPeriod, BudgetScope, EmptyEnvironment, type BudgetHandler } from "agboss";
 import { usd, type Usd } from "agboss/units";
+import { HelpdeskA2aCallerResolver } from "./a2a/helpdesk.a2a-caller-resolver.js";
 import { HelpdeskWorkflow } from "./helpdesk.workflow.js";
 
 @Budget({ name: "helpdesk-application-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
@@ -913,6 +933,7 @@ export class HelpdeskExecutionBudget implements BudgetHandler {
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [HelpdeskWorkflow],
+  providers: [HelpdeskA2aCallerResolver], // an ordinary service may be listed here too
   budgets: [HelpdeskApplicationBudget, HelpdeskTenantBudget, HelpdeskExecutionBudget],
 })
 export class HelpdeskApplication {}
@@ -923,7 +944,8 @@ The caller streams the text as it arrives and serves the same workflow to A2A ca
 ```ts file=src/helpdesk/server.ts
 import { createServer } from "node:http";
 import { createApp } from "agboss";
-import { A2AAdapter, a2aHttpListener } from "agboss/a2a";
+import { a2aHttpListener } from "agboss/a2a";
+import { HelpdeskA2aCallerResolver } from "./a2a/helpdesk.a2a-caller-resolver.js";
 import { HelpdeskApplication } from "./helpdesk.application.js";
 import { HelpdeskWorkflowStart } from "./helpdesk.workflow.js";
 
@@ -942,8 +964,14 @@ const result = await app.execute(
 );
 console.log("\n", result.spend.totalUsd);
 
-// other applications call this workflow: POST /a2a/execute, /a2a/resume (default tenant)
-createServer(a2aHttpListener(new A2AAdapter(app), HelpdeskWorkflowStart, "/a2a")).listen(8080);
+// other applications call this workflow: POST /a2a/execute, /a2a/resume — each request's tenant
+// from the resolver the application lists (reference 04; in a route of your own: A2AAdapter)
+const listener = a2aHttpListener(app, {
+  start: HelpdeskWorkflowStart,
+  callerResolver: HelpdeskA2aCallerResolver,
+  base: "/a2a",
+});
+createServer(listener).listen(8080);
 ```
 
 ```ts file=tests/helpdesk/helpdesk.test.ts

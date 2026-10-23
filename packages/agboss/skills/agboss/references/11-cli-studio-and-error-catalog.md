@@ -328,25 +328,27 @@ Printed as `warning: …` lines (exit 0); errors under `npx agboss check --stric
 
 ## Other codes the CLI prints
 
-| Code                             | Where                                                | Fix                                                                                |
-| -------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `[types.not-written]`            | `check`: the types file failed to write              | fix the reason it names; `check` exits 3, never `ok`                               |
-| `[types.no-flow]`                | `check`: no workflow found to type                   | keep the application in `src/` beside its `*.workflow.ts`, or export its workflows |
-| `[di.undecorated-provider]`      | assembly: a class in `providers` without a decorator | add `@Injectable()`                                                                |
-| `[di.instance-provider]`         | assembly: `provide(SomeClass, …)`                    | list the class; `provide` is for `InjectionToken` values                           |
-| `[di.conflicting-values]`        | assembly: one token with two values                  | keep one `provide(TOKEN, value)`                                                   |
-| `[observer.no-hooks]`            | assembly: an observer with no hook                   | implement at least one (`OnExecutionEnd`, …)                                       |
-| `[observer.unknown-hook]`        | assembly: a misspelled hook                          | the name it suggests (`onToolEnd`)                                                 |
-| `[prompt.unknown-variable]`      | assembly: `{{x}}` without `promptVariables.x`        | add the variable                                                                   |
-| `[prompt.input-in-instructions]` | assembly: `{{input.…}}` in a prompt                  | delete it — the input message carries every field                                  |
-| `[context.not-declared]`         | assembly: a context subclass injected, not declared  | `@Application({ tenantContext, executionContext })`                                |
-| `[tool.duplicate-name]`          | assembly: two tools a model sees share a name        | rename one                                                                         |
-| `[skills.local-edit]`            | the skills sync: a managed file edited               | put project rules in `AGENTS.md`; the file is restored                             |
-| `[skills.unmanaged-file]`        | the skills sync: a file no manifest listed           | kept — move it out of `.claude/skills/agboss/`                                     |
-| `[skills.sync-failed]`           | the skills sync: the folder could not be written     | check permissions; the check goes on                                               |
-| `[skills.no-framework]`          | the skills sync: no `agboss` in `node_modules`       | `npm install`                                                                      |
-| `[skills.setting-invalid]`       | `"agboss": { "skills" }` is not a boolean (exit 3)   | `"skills": false` or remove it                                                     |
-| `[spend.outside-step]`           | run time: `spendRecorder.record` outside a step      | record inside `run` / `execute`                                                    |
+| Code                               | Where                                                     | Fix                                                                                |
+| ---------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `[types.not-written]`              | `check`: the types file failed to write                   | fix the reason it names; `check` exits 3, never `ok`                               |
+| `[types.no-flow]`                  | `check`: no workflow found to type                        | keep the application in `src/` beside its `*.workflow.ts`, or export its workflows |
+| `[di.undecorated-provider]`        | assembly: a class in `providers` without a decorator      | add `@Injectable()`                                                                |
+| `[di.instance-provider]`           | assembly: `provide(SomeClass, …)`                         | list the class; `provide` is for `InjectionToken` values                           |
+| `[di.conflicting-values]`          | assembly: one token with two values                       | keep one `provide(TOKEN, value)`                                                   |
+| `[observer.no-hooks]`              | assembly: an observer with no hook                        | implement at least one (`OnExecutionEnd`, …)                                       |
+| `[observer.unknown-hook]`          | assembly: a misspelled hook                               | the name it suggests (`onToolEnd`)                                                 |
+| `[prompt.unknown-variable]`        | assembly: `{{x}}` without `promptVariables.x`             | add the variable                                                                   |
+| `[prompt.input-in-instructions]`   | assembly: `{{input.…}}` in a prompt                       | delete it — the input message carries every field                                  |
+| `[context.not-declared]`           | assembly: a context subclass injected, not declared       | `@Application({ tenantContext, executionContext })`                                |
+| `[tool.duplicate-name]`            | assembly: two tools a model sees share a name             | rename one                                                                         |
+| `[skills.local-edit]`              | the skills sync: a managed file edited                    | put project rules in `AGENTS.md`; the file is restored                             |
+| `[skills.unmanaged-file]`          | the skills sync: a file no manifest listed                | kept — move it out of `.claude/skills/agboss/`                                     |
+| `[skills.sync-failed]`             | the skills sync: the folder could not be written          | check permissions; the check goes on                                               |
+| `[skills.no-framework]`            | the skills sync: no `agboss` in `node_modules`            | `npm install`                                                                      |
+| `[skills.setting-invalid]`         | `"agboss": { "skills" }` is not a boolean (exit 3)        | `"skills": false` or remove it                                                     |
+| `[spend.outside-step]`             | run time: `spendRecorder.record` outside a step           | record inside `run` / `execute`                                                    |
+| `[a2a.caller-resolver-not-listed]` | `a2aHttpListener(app, …)`: its resolver is listed nowhere | list it in `@Application({ providers })` or a `@Workflow({ providers })`           |
+| `[a2a.no-url]`                     | an `A2AClient` subclass without `@A2AAgent({ url })`      | add `@A2AAgent({ url })` or pass `url`                                             |
 
 ## Runtime error codes
 
@@ -376,6 +378,12 @@ classes of a step's failures (reference 02, section 9). `expect(run).rejects.toF
 | `model`, `model.wrong-kind`, `model.decision`                                                        | `ModelCallError`, `ModelKindError`, `DecisionError`                                                    | a model call failed; `invoke` / `decide` on the wrong kind                          |
 | `model.provider-failure`                                                                             | `ModelProviderFailureError`                                                                            | a transport's `complete()` said why it failed (retried, paused)                     |
 | `flow.syntax`, `workflow.not-a-start`                                                                | `FlowSyntaxError`, `NotAWorkflowStartError`                                                            | a path that cannot be built; `app.execute` with a non-start                         |
+| `a2a.caller-rejected` (its `code`: `a2a.caller-unauthenticated`, `a2a.caller-forbidden`)             | `A2ACallerRejectedError`                                                                               | `A2AClient.send`: the server's resolver refused the caller (`httpStatus` 401 / 403) |
+
+On the wire `a2aHttpListener` answers a refused caller with `{ code, error }` and a real status:
+`a2a.caller-unauthenticated` (`401`, with `WWW-Authenticate` when the resolver gives a challenge),
+`a2a.caller-forbidden` (`403`), `a2a.caller-resolution-failed` (`500`: the resolver threw — its text
+never sent). None of them ran anything: no observer event, no record (reference 04).
 
 ## Pitfalls
 
