@@ -135,7 +135,12 @@ the variants only then); `agboss generate eval-case <name> --from-execution <exe
 <name>] [--tenant <id>]` (#396 PR 8) drafts a case from a kept execution (#401) into its suite —
 its input as the turn, its contexts, the thread's earlier finished turns as `history`, the calls it
 ran as `tools.required`, masked as kept, its classes imported; the draft is `evalCaseDraftOf`
-(`agboss/internal`; `agboss eval ui`'s "save as golden case" calls it too, #397 PR 5); `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
+(`agboss/internal`; `agboss eval ui`'s "save as golden case" calls it too, #397 PR 5); `agboss hub show <path…> [--html <file>]` (#401 PR 3,
+`agboss-cli/src/hub/`) reads many applications' files — `describe --json` envelopes, `agboss.eval-run`
+artifacts, `agboss.execution-record` exports, each by its marker (`hub.input-schema`,
+`hub.duplicate-application`) — into the mesh: the applications, the calls between them seen in the
+records (`remote` / `origin`, one per step `idempotencyKey`), each one's health from its records and
+evals, one self-contained page in the eval report's shell; no project, nothing runs; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
 `agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
 (`agboss/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs

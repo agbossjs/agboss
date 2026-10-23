@@ -18,6 +18,7 @@ import { CHECK_COMMAND } from "./check-command.js";
 
 export { COMMON_OPTIONS, optionsOf, type CommandSpec, type OptionSpec } from "./options.js";
 import { EVAL_CASE_OPTIONS, EVAL_COMMAND } from "./eval-commands.js";
+import { HUB_COMMAND } from "./hub-commands.js";
 
 /** Commands that run one workflow of the application: chosen by its start (#268). */
 const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
@@ -131,6 +132,7 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
       ENV,
     ],
   },
+  hub: HUB_COMMAND,
 };
 
 const SCAFFOLD_COMMANDS: Readonly<Record<string, CommandSpec>> = {

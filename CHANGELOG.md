@@ -78,6 +78,9 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   `agboss generate eval-case <name> --from-execution <executionId>` drafts a case from a kept
   execution (#401's history) into its suite — the turn, the contexts, the thread's earlier turns,
   the calls it ran as `tools.required` — masked as kept, nothing run (#396).
+  `agboss hub show <path…> [--html <file>]` reads many applications' describe snapshots, eval runs
+  and exported executions into one mesh — the applications, the calls between them, each one's
+  health from its files — and one self-contained page; no project, nothing runs (#401).
 - **The CLI** (`agboss-cli`) — `agboss create`, `agboss generate`, `agboss check`,
   `agboss describe`, `agboss dev`, `agboss studio`, `agboss chat` / `agboss run`, evaluations and
   comparisons (#268). Breaking on the way (#396): the bare `agboss eval` is now `agboss eval score`

@@ -41,7 +41,7 @@ describe("#198 AC1: every command has --help and a --json description", () => {
     },
   );
 
-  it("#268 AC1, AC2, AC8: every command but create, migrate and help takes --application; the run commands --start", async () => {
+  it("#268 AC1, AC2, AC8: every command but hub, create, migrate and help takes --application; the run commands --start", async () => {
     const all = envelope(await agboss(["help", "--json"])).result as Described[];
     const takes = (c: Described, flag: string): boolean =>
       c.options.some((o) => o.flag === flag) ||
@@ -52,7 +52,7 @@ describe("#198 AC1: every command has --help and a --json description", () => {
     expect(taking("--start")).toEqual(["chat", "run", "eval", "replay", "golden", "compare"]);
     expect(
       all.map((c) => c.name).filter((name) => !taking("--application").includes(name)),
-    ).toEqual(["create", "migrate", "help"]);
+    ).toEqual(["hub", "create", "migrate", "help"]); // the hub reads files, never a project (#401)
     // generate's --workflow is a workflow's full name, found in the application (#268 AC8)
     expect(taking("--workflow")).toEqual(["generate"]);
   });
