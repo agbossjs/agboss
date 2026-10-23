@@ -1,5 +1,4 @@
 import type { Class } from "../components/injection.js";
-import { normalisePromptText } from "../components/prompt-render.js";
 import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { DecidedBy } from "../flow/decorators/router.js";
@@ -13,7 +12,7 @@ import {
 import { shapeLabel } from "../flow/analyse/labels.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { ComponentKind } from "../flow/runtime/records.js";
-import { versionOf } from "../terns/index.js";
+import { arbiterPromptHashOf } from "../flow/runtime/model-component-keys.js";
 
 /**
  * The flow of a workflow as data (#268 S92 / S93, `agboss describe --json`): every edge as the
@@ -120,16 +119,11 @@ function arbiterSnapshotOf(arbiter: ArbiterClass): ArbiterSnapshot {
   const base = { name, kind: ComponentKind.Arbiter, schemaHash: undefined };
   if (options === undefined || isCodeArbiter(options))
     return { ...base, decidedBy: DecidedBy.Code, promptHash: undefined };
-  const criteria = options.criteria.map(({ agent, prompt }) => ({
-    agent: nameOf(agent),
-    prompt: normalisePromptText(prompt),
-  }));
-  const prompt = { prompt: normalisePromptText(options.prompt), criteria };
   return {
     ...base,
     decidedBy: DecidedBy.Model,
     model: options.model,
-    promptHash: versionOf(prompt),
+    promptHash: arbiterPromptHashOf(arbiter),
   };
 }
 

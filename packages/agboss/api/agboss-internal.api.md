@@ -151,10 +151,10 @@ export enum ChannelImplementationReason {
     NamedByTool = "named-by-tool"
 }
 
-// Warning: (ae-forgotten-export) The symbol "JoinKeySource" needs to be exported by the entry point internal.d.ts
+// Warning: (ae-forgotten-export) The symbol "CassetteHashSource" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export function checkCassettes(files: readonly string[], workflows: readonly JoinKeySource[]): CassetteCheck;
+export function checkCassettes(files: readonly string[], workflows: readonly CassetteHashSource[]): CassetteCheck;
 
 // Warning: (ae-forgotten-export) The symbol "EvalSuiteMeta" needs to be exported by the entry point internal.d.ts
 //
@@ -919,6 +919,8 @@ export interface WorkflowSnapshot {
     //
     // (undocumented)
     readonly launches: readonly LaunchSnapshot[];
+    // Warning: (ae-forgotten-export) The symbol "ComponentRecord" needs to be exported by the entry point internal.d.ts
+    readonly modelComponents: readonly ComponentRecord[];
     // Warning: (ae-forgotten-export) The symbol "NodeSnapshot" needs to be exported by the entry point internal.d.ts
     //
     // (undocumented)
@@ -1053,14 +1055,14 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/limits.ts:36:1 - (ae-undocumented) Missing documentation for "describedLimitsOf".
 // src/describe/pii-policies.ts:26:3 - (ae-undocumented) Missing documentation for "name".
 // src/describe/pii-policies.ts:29:3 - (ae-undocumented) Missing documentation for "rules".
-// src/describe/snapshot.ts:52:3 - (ae-undocumented) Missing documentation for "configHash".
-// src/describe/snapshot.ts:53:3 - (ae-undocumented) Missing documentation for "starts".
-// src/describe/snapshot.ts:54:3 - (ae-undocumented) Missing documentation for "finishes".
-// src/describe/snapshot.ts:55:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/describe/snapshot.ts:56:3 - (ae-undocumented) Missing documentation for "edges".
-// src/describe/snapshot.ts:57:3 - (ae-undocumented) Missing documentation for "onError".
-// src/describe/snapshot.ts:58:3 - (ae-undocumented) Missing documentation for "launches".
-// src/describe/snapshot.ts:59:3 - (ae-undocumented) Missing documentation for "schemas".
+// src/describe/snapshot.ts:54:3 - (ae-undocumented) Missing documentation for "configHash".
+// src/describe/snapshot.ts:55:3 - (ae-undocumented) Missing documentation for "starts".
+// src/describe/snapshot.ts:56:3 - (ae-undocumented) Missing documentation for "finishes".
+// src/describe/snapshot.ts:57:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/describe/snapshot.ts:58:3 - (ae-undocumented) Missing documentation for "edges".
+// src/describe/snapshot.ts:59:3 - (ae-undocumented) Missing documentation for "onError".
+// src/describe/snapshot.ts:60:3 - (ae-undocumented) Missing documentation for "launches".
+// src/describe/snapshot.ts:66:3 - (ae-undocumented) Missing documentation for "schemas".
 // src/describe/tree.ts:22:3 - (ae-undocumented) Missing documentation for "isPerItem".
 // src/describe/tree.ts:23:3 - (ae-undocumented) Missing documentation for "maxItems".
 // src/describe/tree.ts:24:3 - (ae-undocumented) Missing documentation for "maxConcurrency".
@@ -1140,10 +1142,10 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/models/problems.ts:20:14 - (ae-undocumented) Missing documentation for "problemLine".
 // src/models/uses.ts:10:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/uses.ts:11:3 - (ae-undocumented) Missing documentation for "purpose".
-// src/testing/vcr-check.ts:35:3 - (ae-undocumented) Missing documentation for "file".
-// src/testing/vcr-check.ts:36:3 - (ae-undocumented) Missing documentation for "component".
-// src/testing/vcr-check.ts:37:3 - (ae-undocumented) Missing documentation for "changes".
-// src/testing/vcr-check.ts:44:3 - (ae-undocumented) Missing documentation for "stale".
+// src/testing/vcr-check.ts:34:3 - (ae-undocumented) Missing documentation for "file".
+// src/testing/vcr-check.ts:35:3 - (ae-undocumented) Missing documentation for "component".
+// src/testing/vcr-check.ts:36:3 - (ae-undocumented) Missing documentation for "changes".
+// src/testing/vcr-check.ts:43:3 - (ae-undocumented) Missing documentation for "stale".
 // src/tools/mcp/facade.ts:116:14 - (ae-undocumented) Missing documentation for "isMcpFacade".
 
 // (No @packageDocumentation comment for this package)

@@ -71,7 +71,8 @@ of one call of each start, the environment's variables) and `result.skills` (`st
 `installed`, `updated`, `repaired`, `off`, `failed`). `describe --json` is each workflow's
 declarative snapshot: `configHash` (the join key of records and traces), `starts`, `finishes`,
 `nodes` (with `promptHash`, `schemaHash`, input and output), `edges`, `onError`, `launches`,
-`schemas`. The envelope's `error.code` names the failure class: `graph.rules` (assembly rules),
+`modelComponents` (the judges, guardrails, arbiters, compactions, reply interpreters and model PII
+detection that call a model, each `{ name, kind, promptHash, schemaHash }`), `schemas`. The envelope's `error.code` names the failure class: `graph.rules` (assembly rules),
 `application.load`, `workflow.load`, `workflow.assembly`, `model.configuration`, `profile.invalid`,
 `usage.unknown-option`, `usage.missing-argument`, `start.not-found`, `workflow.not-found`,
 `eval.unknown-suite`, `eval.case-invalid`, …

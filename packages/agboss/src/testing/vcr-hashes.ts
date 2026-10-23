@@ -1,12 +1,17 @@
 import { componentRecordsOf, type JoinKeySource } from "../flow/runtime/join-keys.js";
+import {
+  modelComponentRecordsOf,
+  type ModelComponentSource,
+} from "../flow/runtime/model-component-keys.js";
+import type { ComponentRecord } from "../flow/runtime/records.js";
 import { CassetteChange } from "./errors.js";
 import type { Interaction } from "./vcr-file.js";
 
 /**
  * What a cassette compares (#395 PR 4): the component behind each script key and its join keys —
- * the `promptHash` / `schemaHash` of `agboss describe --json`. An agent's and a model router's
- * hashes are known; a judge, a guardrail, an arbiter, a compaction, a reply interpreter or a PII
- * policy is recorded by name only, so a change of it is not seen.
+ * the `promptHash` / `schemaHash` of `agboss describe --json`: every agent and model router, and
+ * every other component that calls a model (#395 PR 5b) — model judges (their `reply` only),
+ * guardrails, arbiters, compactions, reply interpreters and PII policies that detect with a model.
  */
 
 /** A component's recorded identity: its `name` and, when the application knows them, its hashes. */
@@ -30,11 +35,23 @@ export const componentOfKey = (key: string): string => {
   return at < 0 ? key : key.slice(at + 1);
 };
 
-/** The hashes of every agent and model router of the workflows, by component name. */
-export function cassetteHashesOf(workflows: readonly JoinKeySource[]): CassetteHashes {
+/** What a cassette's hashes are read from: one workflow's nodes and its other model components. */
+export type CassetteHashSource = JoinKeySource & ModelComponentSource;
+
+/** Every record of a workflow that has a hash: its nodes', then its other model components'. */
+const recordsOf = (workflow: CassetteHashSource): [string, ComponentRecord][] => [
+  ...componentRecordsOf(workflow),
+  ...modelComponentRecordsOf(workflow).map((record): [string, ComponentRecord] => [
+    record.name,
+    record,
+  ]),
+];
+
+/** The hashes of every model component of the workflows, by component name. */
+export function cassetteHashesOf(workflows: readonly CassetteHashSource[]): CassetteHashes {
   const known = new Map<string, ComponentHashes>();
   for (const workflow of workflows) {
-    for (const [name, record] of componentRecordsOf(workflow)) {
+    for (const [name, record] of recordsOf(workflow)) {
       if (record.promptHash === undefined && record.schemaHash === undefined) continue;
       known.set(name, {
         component: name,
