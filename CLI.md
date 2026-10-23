@@ -102,6 +102,7 @@ agboss g mcp tickets --workflow support-desk-workflow --command tickets-mcp --to
 agboss g rag policies-rag --workflow support-desk-workflow --folder policies --agent billing-agent
 agboss g arbiter valid-score-arbiter --workflow support-desk-workflow --agent billing-agent
 agboss g workflow onboarding-workflow      # a second workflow of the application + chat:onboarding, run:onboarding
+agboss g eval-case refund-from-prod --suite refunds-eval-suite --from-execution 0f3c…   # a case from a kept execution
 ```
 
 **Names are full names** (#268 AC8) — the same string as in `name`, traces, records and
@@ -127,7 +128,8 @@ end `agboss generate` regenerates `.agboss/types.d.ts`. Nothing existing is over
 an unexpected file shape is an error, and nothing is written; `--force` regenerates the files and
 keeps the existing wiring. `agboss g openapi <name> --url <spec>` writes one tool per OpenAPI 3
 operation (DTOs, a client `services/<name>-api.service.ts`, tests; each tool `<operation>-tool`), wired
-into `--agent`.
+into `--agent`. `agboss g eval-case <name> --from-execution <executionId>` adds a case drafted from a
+kept execution to an eval suite ([Eval suites](Eval-Suites#a-case-from-a-kept-execution-agboss-generate-eval-case)).
 
 ## Project skills for coding agents (#305)
 

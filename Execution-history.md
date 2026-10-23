@@ -106,3 +106,9 @@ records: 1284 executions (acme) → hub/records/acme.jsonl
   records started in `[since, until)` — another value is `usage.option-value` (exit 2). An application
   without `executionRecordRetention` is `records.not-kept` (exit 3).
 - `--json`: `result = { records, tenantId, file }`, `created: [<file>]`.
+
+## Into an eval case: `agboss generate eval-case`
+
+A kept execution becomes a case of an eval suite with `agboss generate eval-case <name>
+--from-execution <executionId>` — its turn, contexts, earlier turns and the calls it ran, masked as
+kept ([Eval suites](Eval-Suites#a-case-from-a-kept-execution-agboss-generate-eval-case)).

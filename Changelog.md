@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `agboss generate eval-case --from-execution`: a case from a kept execution (#396 PR 8)
+
+- **Added — `agboss generate eval-case <name> --from-execution <executionId> [--suite <name>]
+  [--tenant <id>]`** ([Eval suites](Eval-Suites#a-case-from-a-kept-execution-agboss-generate-eval-case)):
+  reads one execution from the application's history ([Execution history](Execution-history)) and
+  adds a case to its suite — its input as the turn, its contexts, the thread's earlier finished turns
+  as `history`, the calls it ran as `tools.required`, masked as kept, its classes imported; nothing
+  runs. `records.not-found`, `records.ambiguous-execution`, `records.not-kept`,
+  `[eval.case-start-mismatch]`.
+
 ## Unreleased — VCR records through a transport model provider (#439)
 
 - **Fixed — a VCR test records through a transport `@ModelProvider`** ([Testing](Testing#vcr--recorded-runs)):

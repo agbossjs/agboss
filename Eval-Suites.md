@@ -563,6 +563,45 @@ The check is no judge: calibration and `summary.judgeCalls` leave it out.
 A case whose rewording calls other tools depends on its wording: let the tool descriptions say when
 each tool is for, or move the choice into code (a `DecidedBy.Code` `@Router`).
 
+## A case from a kept execution: `agboss generate eval-case`
+
+```bash
+agboss generate eval-case refund-from-prod --suite refunds-eval-suite --from-execution 0f3c… [--tenant acme] [--dry-run]
+```
+
+A failure seen in production is the best next case. With the application keeping its executions
+([Execution history](Execution-history), `@Application({ executionRecordRetention })`), `generate
+eval-case` reads one from the store — it runs nothing and calls no model — and adds one `evalCase({ …
+})` to the suite's `cases`:
+
+```ts no-check: the shape of a generated case, its classes those of the suite's project
+evalCase({
+  name: "refund-from-prod",
+  tenant: { tenantId: "acme", plan: "pro" },
+  execution: { userId: "u-1" },
+  history: [pastTurn(DeskWorkflowStart, { text: "Where is order 7?" }, DeskWorkflowFinish, { text: "Order 7 arrived broken." })],
+  turns: [turn({ text: "Refund order 7 for <email>" })],
+  tools: { required: [toolCall(GetOrderTool, { orderId: "7" }), toolCall(RefundTool, { orderId: "7", amountCents: 5000 })] },
+}),
+```
+
+- **The turn** is the execution's start input; **the contexts** its tenant and execution values (none
+  for the default tenant without fields); **the history** the thread's earlier turns that finished,
+  oldest first; **`tools.required`** the calls it ran — succeeded, failed or timed out, not declined or
+  blocked —, each tool with the same arguments once.
+- The classes it names are found among the project's by their full names and imported into the
+  suite's file, merged into an existing import of the same module, with `pastTurn`, `toolCall` and
+  `turn`. A tool without a class in the project is left out and named in the notes.
+- **Values are masked** as the history keeps them — read the case, replace what a turn needs real,
+  tighten `required` to the partials that matter, add `forbidden`, `invariants` and judges, then
+  `agboss check` (the case is assembled with its suite, `eval.case-invalid`).
+- `--suite` is optional when the application has one; its `start` must be the execution's
+  (`[eval.case-start-mismatch]`). Errors: an id two tenants kept needs `--tenant`
+  (`records.ambiguous-execution`, exit 2), an unknown one is `records.not-found` (exit 3), an
+  application that keeps nothing `records.not-kept` (exit 3), a case name the suite has exit 4.
+- The draft is plain data by component name (`evalCaseDraftOf`, `agboss/internal`), so a page can save
+  a trace as a case the same way.
+
 ## Calibrating a judge: `agboss eval calibrate`
 
 ```bash
