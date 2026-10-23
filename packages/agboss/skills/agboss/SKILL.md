@@ -160,20 +160,20 @@ export class OrderStatusTool implements ToolHandler<OrderQueryDto, OrderStatusDt
 
 ## Where to read next
 
-| Task                                                                                   | Read                                              |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Designing a workflow: which primitive, how to split it, its DTOs, files and images     | `references/01-composition-and-architecture.md`   |
-| Writing `*.workflow.ts` paths: branches, loops, parallel launches, quorums, `.onError` | `references/02-flow-dsl-all-combinations.md`      |
-| A component class: decorators, DI, lifecycle hooks, contexts, environments, `app.*`    | `references/03-components-di-and-lifecycle.md`    |
-| Connecting MCP servers, exposing a workflow over MCP, calling or serving A2A agents    | `references/04-mcp-and-a2a.md`                    |
-| Human approvals, pauses, channels, `app.resume`                                        | `references/05-channels-and-human-in-the-loop.md` |
-| Budgets, model providers, retries, rate limits, circuit breakers                       | `references/06-finops-providers-and-queues.md`    |
-| Input / output guardrails, PII masking                                                 | `references/07-guardrails-pii-and-security.md`    |
-| Execution records, observers, Langfuse / OpenTelemetry traces                          | `references/08-observability-and-tracing.md`      |
-| SQLite stores, recovery, graceful shutdown, health probes, rolling deploys             | `references/09-persistence-k8s-and-deploy.md`     |
-| Tests: `testWith`, unit runners, races, VCR cassettes, `@EvalSuite`, code judges       | `references/10-testing-vcr-and-evals.md`          |
-| A CLI command, LangGraph Studio, a `[rule.code]` error                                 | `references/11-cli-studio-and-error-catalog.md`   |
-| A whole feature or application from scratch                                            | `references/12-end-to-end-recipes.md`             |
+| Task                                                                                                                                                                                                                | Read                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Designing a workflow: which primitive, how to split it, its DTOs, files and images                                                                                                                                  | `references/01-composition-and-architecture.md`   |
+| Writing `*.workflow.ts` paths: branches, loops, parallel launches, quorums, `.onError`                                                                                                                              | `references/02-flow-dsl-all-combinations.md`      |
+| A component class: decorators, DI, lifecycle hooks, contexts, environments, `app.*`, a `@ToolInterceptor` around tool calls                                                                                         | `references/03-components-di-and-lifecycle.md`    |
+| Connecting MCP servers, exposing a workflow over MCP, calling or serving A2A agents                                                                                                                                 | `references/04-mcp-and-a2a.md`                    |
+| Human approvals, pauses, channels, `app.resume`                                                                                                                                                                     | `references/05-channels-and-human-in-the-loop.md` |
+| Budgets, model providers, retries, rate limits, circuit breakers                                                                                                                                                    | `references/06-finops-providers-and-queues.md`    |
+| Input / output guardrails, PII masking                                                                                                                                                                              | `references/07-guardrails-pii-and-security.md`    |
+| Execution records, observers, Langfuse / OpenTelemetry traces                                                                                                                                                       | `references/08-observability-and-tracing.md`      |
+| SQLite stores, recovery, graceful shutdown, health probes, rolling deploys                                                                                                                                          | `references/09-persistence-k8s-and-deploy.md`     |
+| Tests: `testWith`, unit runners (`testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`), races, VCR cassettes, `@EvalSuite`, code judges | `references/10-testing-vcr-and-evals.md`          |
+| A CLI command, LangGraph Studio, a `[rule.code]` error                                                                                                                                                              | `references/11-cli-studio-and-error-catalog.md`   |
+| A whole feature or application from scratch                                                                                                                                                                         | `references/12-end-to-end-recipes.md`             |
 
 Put this project's own rules in the root `AGENTS.md`, never in this folder: `npx agboss check`
 replaces it on every `agboss` upgrade.

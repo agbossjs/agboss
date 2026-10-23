@@ -26,6 +26,8 @@ export const SKILL_COVERAGE: SkillCoverage = {
     "AGBossError",
     "LimitExceededError",
     ...["EvalSuite", "EvalCascade", "checkTrajectory", "testJudge", "DecidedBy"],
+    "ToolInterceptor",
+    "testToolInterceptor",
   ],
   "references/01-composition-and-architecture.md": [
     "Agent",
