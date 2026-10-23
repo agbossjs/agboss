@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the Mesh Hub: execution trees across applications (#401 PR 4)
+
+- **Added — Cross-Service Execution Trees** on `agboss hub show`'s page ([Mesh Hub](Mesh-Hub#execution-trees-across-applications)):
+  each tree that crosses applications, stitched from their exports by each receiver's `origin` (the
+  calling execution and its call's `idempotencyKey`, never the tenant); a receiver that exported
+  nothing is a stub; `--json` lists the trees.
+
 ## Unreleased — the Mesh Hub: `agboss hub show` (#401 PR 3)
 
 - **Added — `agboss hub show <path…> [--html <file>]`** ([Mesh Hub](Mesh-Hub)): many applications'

@@ -60,6 +60,28 @@ site, a bucket behind IAP). The Hub has no login of its own.
   its agents, routers, actions, child workflows, tools and MCP servers; its channel roles; and its
   health.
 
+## Execution trees across applications
+
+One request can run in several applications: the shop's agent asks billing over A2A, billing's
+agent searches a knowledge service over MCP. Each application exports only its own records; the
+page puts the request back together as **one tree**, by the rule the mesh envelope makes possible
+([A2A](A2A), #398):
+
+- a record with an `origin` is a child of the execution whose `executionId` is
+  `origin.executionId` — a root's, or one of its in-process children's —
+- under that execution's tool call whose step `idempotencyKey` is `origin.step.idempotencyKey`.
+
+Never by tenant: a tenant id does not cross organisations. Each tree, from its root, shows every
+execution with its application, workflow, status, duration and spend, the calls that ran a remote
+execution with the execution each ran, and the in-process child executions that called out.
+
+- A call whose receiver **did not export** its record is a stub — `billing-application · b1 (not
+  exported)` — not an error: the tree still reads.
+- A receiver whose caller exported nothing (or whose caller's record holds no such call) is a root of
+  its own, "called by" its caller.
+- Only trees that cross applications are listed. `--json` gives each one's `rootExecutionId`,
+  `application`, `applications`, `executions` and `stubs`.
+
 ## Health: what the files say
 
 Health is derived from the application's own files only — a static page cannot poll, and the Hub
@@ -75,5 +97,6 @@ reaches no URL. Live probes stay the orchestrator's job ([App](App), `app.checkR
 
 Without `--html` the command prints its summary. Under `--json`: `result = { applications: [{ name,
 version, file }], inputs: { describe, evalRuns, records, files: [{ file, kind, count }] }, edges: {
-observed: [{ from, to, calls, workflows, tools }] }, report?, bytes? }`, `created: [<html>]`. A page
+observed: [{ from, to, calls, workflows, tools }] }, trees: [{ rootExecutionId, application,
+applications, executions, stubs }], report?, bytes? }`, `created: [<html>]`. A page
 above 16 MB is refused, `hub.report-too-large` (exit 2): export a shorter period.
