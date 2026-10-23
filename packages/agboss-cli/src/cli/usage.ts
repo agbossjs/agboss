@@ -18,7 +18,8 @@ ${lines.join("\n")}
 The application is set once in package.json — "agboss": { "application": "src/<name>.application.ts" } —
 or given with --application <path>. chat, run, eval score, replay, golden and compare run one
 workflow, chosen by its start: --start <full name> (optional when the application has one start);
-eval run runs an eval suite (--suite <full name>, eval-suites/*.eval-suite.ts).
+eval run runs an eval suite (--suite <full name>, eval-suites/*.eval-suite.ts); eval show <run.json>
+shows a run it saved, --html as one self-contained page.
 Every command takes --json (one JSON envelope on stdout), --debug (stack traces) and --help.
 agboss help <command> — its options; agboss help <command> --json — the same, for a machine.
 

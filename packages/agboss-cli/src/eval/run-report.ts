@@ -1,5 +1,6 @@
 import { CheckStatus } from "agboss/eval";
 import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "agboss/internal";
+import type { CommandContext } from "../cli/context.js";
 
 /**
  * What `agboss eval run` prints (#396 PR 2): a line on the suite and what it ran on, one row per
@@ -16,7 +17,8 @@ function firstFailureOf(result: EvalRunResult): string | undefined {
   return failed === undefined ? undefined : `${failed.check}: ${failed.reason ?? "failed"}`;
 }
 
-function firstFailure(found: EvalCaseReport): string {
+/** The first reason one of a case's runs failed, `run 2: …`; empty when every run passed. */
+export function firstFailureOfCase(found: EvalCaseReport): string {
   for (const result of found.runResults) {
     const why = firstFailureOf(result);
     if (why !== undefined) return `run ${String(result.run)}: ${why}`;
@@ -36,7 +38,7 @@ export function caseLines(report: EvalRunReport): string[] {
     yes(found.passAtK),
     yes(found.passHatK),
     found.runResults.map((result) => (result.passed ? "✓" : "✗")).join(""),
-    [firstFailure(found), found.isUnstable ? "unstable" : ""]
+    [firstFailureOfCase(found), found.isUnstable ? "unstable" : ""]
       .filter((part) => part !== "")
       .join("   "),
   ]);
@@ -64,4 +66,9 @@ export function summaryLine(report: EvalRunReport): string {
     `judge calls ${String(summary.judgeCalls)} (${String(summary.skippedByCascade)} skipped by the cascade)`,
     `spent $${report.spend.totalUsd.toFixed(4)}`,
   ].join(" · ");
+}
+
+/** The whole table — header, one row per case, totals — as `eval run` and `eval show` print it. */
+export function printRunTable(context: CommandContext, report: EvalRunReport): void {
+  [headerOf(report), ...caseLines(report), summaryLine(report)].forEach(context.say);
 }

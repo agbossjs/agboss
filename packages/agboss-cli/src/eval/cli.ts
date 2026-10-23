@@ -44,10 +44,11 @@ async function scoreCommand(context: CommandContext): Promise<CommandOutcome> {
   }
 }
 
-/** `agboss eval run | score` (#396 S4): the subcommand the CLI parsed, first of the positionals. */
+/** `agboss eval run | score | show` (#396 S4, #397): the subcommand the CLI parsed, first of the positionals. */
 async function evalCommand(context: CommandContext): Promise<CommandOutcome> {
   const [subcommand] = context.positionals;
   if (subcommand === "run") return (await import("./run-cli.js")).evalRunCommand(context);
+  if (subcommand === "show") return (await import("./show-cli.js")).evalShowCommand(context);
   return scoreCommand(context);
 }
 
@@ -75,7 +76,7 @@ const COMMANDS: Readonly<Record<string, CommandHandler>> = {
   compare: compareProfiles,
 };
 
-/** `agboss eval run | score`, `replay`, `golden add`, `compare` — see `agboss help <command>`. */
+/** `agboss eval run | score | show`, `replay`, `golden add`, `compare` — see `agboss help <command>`. */
 export const handle: CommandHandler = async (context) => {
   const command = COMMANDS[context.command];
   if (command === undefined) throw new Error(`not an eval command: ${context.command}`);
