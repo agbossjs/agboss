@@ -1143,10 +1143,14 @@ test("the scout answers a first message", async ({ app }) => {
 1. **Recording** (first run, with a model key): every model call — agents, judges, compaction,
    routers, guardrails, decision judges — goes to the real model and is written to
    `<dir>/<cassetteName>.cassette.json` (`dir` defaults to `__snapshots__` under the working
-   directory). Commit the cassette.
+   directory). Commit the cassette. A transport `@ModelProvider` ([Model providers](Model-providers),
+   #385) records like an HTTP one, with no key when it needs none (#439): the recording builds the
+   providers as `createApp` does — the transport created by the test app's container on its first
+   call, its `onInit` → `onStart` first — so an offline project records its cassettes at $0.
 2. **Replay** (CI and later runs): answers come from the cassette. A call is matched by the model,
    the bound tools and every message; a request the cassette does not hold — a changed prompt, a new
-   tool — fails with `CassetteMissingError` (`test.cassette-missing`): re-record it.
+   tool — fails with `CassetteMissingError` (`test.cassette-missing`): re-record it. A replay never
+   creates a provider, a transport one included.
 
 Modes: `VCRMode.AUTO` (default outside CI) records a missing cassette and replays an existing one;
 `VCRMode.RECORD` always calls the models and rewrites the file; `VCRMode.REPLAY` (default under `CI`)

@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — VCR records through a transport model provider (#439)
+
+- **Fixed — a VCR test records through a transport `@ModelProvider`** ([Testing](Testing#vcr--recorded-runs)):
+  `RECORD` and `RECORD_STALE` stopped with `its chat models are not loaded (chatExtensionsFor)`;
+  the recording now builds the providers' gateway as `createApp` does — the chat extensions loaded,
+  the transport created by the test app's container on its first call, with its lifecycle hooks.
+  A replay still creates no provider.
+
 ## Unreleased — execution history: `ExecutionHistoryRepository`, `executionRecordRetention`, `agboss records export` (#401 PR 1)
 
 - **Added — `@Application({ executionRecordRetention })`** ([Execution history](Execution-history)):
