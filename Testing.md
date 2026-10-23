@@ -533,6 +533,44 @@ Failure messages name the classes: `expected the path ChatStart → MainRouter �
 The call matchers keep Vitest's names; on anything that is not a script — a `vi.fn()`, a
 `mockOf(…)` method — they are Vitest's own. `mockLlm(X).inputs` lists X's input of every call.
 
+### Asserting the tool calls
+
+`result.toolCalls` lists the root execution's tool calls in call order (`ToolCallRecord`: `step`,
+`input`, `output`, `status: ToolCallStatus`, `error?`, `isResultTruncated`, times — [Observability →
+tool calls and steps](Observability#tool-calls-and-steps)); `toolCallsOf(Tool, result.toolCalls)`
+gives one tool's, typed by its input and output once narrowed by `status`. Assert invariants that
+hold whatever the order: which tools ran, with what, how each ended.
+
+<!-- snippet-context
+import type { ExecutionOutput } from "agboss";
+import { ToolCallStatus, Tool, toolCallsOf, type ToolHandler } from "agboss";
+import { Text } from "agboss/dto";
+import { expect } from "vitest";
+export class OrderQuery {
+  @Text() orderId!: string;
+}
+export class OrderInfo {
+  @Text() status!: string;
+}
+@Tool({ name: "get-order-tool", description: "An order", input: OrderQuery, output: OrderInfo })
+export class GetOrderTool implements ToolHandler<OrderQuery, OrderInfo> {
+  run({ orderId }: OrderQuery): Promise<OrderInfo> {
+    return Promise.resolve({ status: `order ${orderId} shipped` });
+  }
+}
+declare const result: ExecutionOutput;
+-->
+
+```ts
+const lookups = toolCallsOf(GetOrderTool, result.toolCalls);
+const succeeded = lookups.filter((call) => call.status === ToolCallStatus.Succeeded);
+expect(succeeded.map((call) => call.input.orderId)).toContain("7");
+expect(result.toolCalls.every((call) => call.status !== ToolCallStatus.TimedOut)).toBe(true);
+```
+
+`result.record.steps` (`{ record: true }`) has each visit's judge verdicts, guardrail decisions,
+spend and `inputHash`.
+
 ### Asserting an undo
 
 `result.compensations` lists every undo action that ran, in the order they ended (`[]` when none
@@ -804,7 +842,7 @@ failure rejects as the component threw it.
 | `testRouter(Router, options)`           | `run(input, { timeout })`                                  | the target(s) it chose (`Route<R>`)         |
 | `testArbiter(Arbiter, options)`         | `run(Agent, answer, { timeout })`                          | whether the answer counts                   |
 | `testRag(Rag, options)`                 | `run(query, { topK, timeout })`                            | its search results (`costUsd` → `spend`)    |
-| `testJudge(Judge, options)`             | `run({ variant, reply, task, attempt }, { timeout })` — typed by the judge | its `JudgeVerdict`              |
+| `testJudge(Judge, options)`             | `run({ variant, reply, task, attempt, toolCalls? }, { timeout })` — typed by the judge; `toolCalls` `[]` when not given | its `JudgeVerdict`              |
 | `testGuardrail(Guardrail, options)`     | `run(text, { element, timeout })`                          | `{ isBlocked, probability, refusal? }`      |
 | `testPii([Policies], options)`          | `.mask(text)`, `.reveal(text)`                             | the masked text; the revealed one           |
 

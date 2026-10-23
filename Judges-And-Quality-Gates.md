@@ -318,6 +318,51 @@ export class JobsJudge implements JudgeHandler<readonly JobDto[]> {
 }
 ```
 
+## A judge that reads the tool calls
+
+`input.toolCalls` (#395) holds the agent's tool calls of the visit it judges — every attempt's, in
+call order, with real values (the step's code sees them; the record keeps them masked). A judge can
+fail an answer that no successful lookup backs, without a model call; `toolCallsOf(Tool,
+toolCalls)` types one tool's calls by its input and output once narrowed by `status`.
+
+<!-- snippet-context
+import { Judge, JudgeVerdict, Tool, ToolCallStatus, toolCallsOf, type JudgeHandler, type JudgeInput, type ToolHandler } from "agboss";
+import { PlainTextDto, Text } from "agboss/dto";
+export class OrderQuery {
+  @Text() orderId!: string;
+}
+export class OrderInfo {
+  @Text() status!: string;
+}
+@Tool({ name: "get-order-tool", description: "An order", input: OrderQuery, output: OrderInfo })
+export class GetOrderTool implements ToolHandler<OrderQuery, OrderInfo> {
+  run({ orderId }: OrderQuery): Promise<OrderInfo> {
+    return Promise.resolve({ status: `order ${orderId} shipped` });
+  }
+}
+-->
+
+```ts
+@Judge({ name: "looked-up-judge", model: "typesafe/jev-1.13", reply: PlainTextDto })
+export class LookedUpJudge implements JudgeHandler<PlainTextDto> {
+  judge({ reply, toolCalls }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const lookups = toolCallsOf(GetOrderTool, toolCalls);
+    const found = lookups.filter((call) => call.status === ToolCallStatus.Succeeded);
+    const named = found.some((call) => reply.text.includes(call.output.status));
+    return Promise.resolve(
+      named
+        ? JudgeVerdict.passed({ metrics: { lookups: found.length } })
+        : JudgeVerdict.failed({ reason: "State the status the order lookup returned." }),
+    );
+  }
+}
+```
+
+`testJudge(LookedUpJudge)({ variant: PlainTextDto, reply, task, attempt })` runs it with no calls
+(`toolCalls` defaults to `[]`); pass `toolCalls: [record]` to judge a trajectory. Each verdict is in
+the agent step's `result.record.steps[i].judgeVerdicts` (`judge`, `attempt`, `passed`, `reason?`,
+`metrics?`).
+
 ## `[judge.wrong-reply]`
 
 The agent's answer and its judge's `reply` have one shape — one value or a list — and every class

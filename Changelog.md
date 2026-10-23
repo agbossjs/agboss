@@ -3,6 +3,29 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — tool-call trajectories on results, records and `JudgeInput` (#395 PR 1)
+
+- **Added — `result.toolCalls`, `result.record.toolCalls`, `ChildExecutionRecord.toolCalls`**
+  ([Observability](Observability#tool-calls-and-steps)): one `ToolCallRecord` per tool call, in call
+  order — `step` (the tool as its `component`, with `promptHash` / `schemaHash`; the agent's visit),
+  `input`, `output`, `status: ToolCallStatus` (`Succeeded`, `Failed`, `InvalidArguments`,
+  `Declined`, `TimedOut`; a tool interceptor's `Replied` and `Blocked`, #384), `error?`, `isResultTruncated`, `startedAt`, `endedAt`. The result's are
+  real values, the record's masked. `toolCallsOf(Tool, toolCalls)` → `TypedToolCall` (one tool's
+  calls, typed once narrowed by `status`: `SucceededToolCall`, `FailedToolCall`, `UncheckedToolCall`).
+- **Added — `result.record.steps`**: one `ExecutionStepRecord` per visit — `step`, `inputHash`,
+  `judgeVerdicts` (`JudgeVerdictRecord`), `guardrailDecisions` (`GuardrailDecisionRecord`), `spend`,
+  `startedAt`, `endedAt`, `error?`.
+- **Added — `JudgeInput.toolCalls`** ([Judges](Judges-And-Quality-Gates#a-judge-that-reads-the-tool-calls)):
+  the visit's calls, every attempt's, real values; `JudgeInput<T>` is now `JudgedReply<T> & {
+  toolCalls }`. `testJudge` takes `toolCalls` optionally (`[]`). A hand-made `JudgeInput` (calling
+  `judge()` directly) needs `toolCalls`.
+- **Fixed — a truncated tool call is no silent empty reply**: a call whose arguments are no JSON
+  (the provider's `invalid_tool_calls`) is an `InvalidArguments` call the model reads about, counted
+  in `validationAttempts` and in `maxToolCalls`; a truncated answer is an invalid answer (no more
+  "answer with a tool, not with text").
+- **Changed** — the agent loop's prompt texts gained the invalid-arguments message, so every
+  agent's prompt version changes once.
+
 ## Unreleased — a custom transport for `@ModelProvider`: `ModelProviderHandler.complete(request)` (#385)
 
 - **Added — transport providers** ([Model providers](Model-providers#a-custom-transport-completerequest-385)):
