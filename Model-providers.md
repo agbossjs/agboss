@@ -163,6 +163,13 @@ export class BedrockModelProvider implements ModelProviderHandler {
   answer tools of a DTO agent, traces, and `mockLlm` in `testWith`, which answers above the provider
   (`complete()` is never called by a scripted test). Inside, the transport is a `BaseChatModel`
   adapter and every provider's calls go through one attempt runner.
+- **Its lifecycle** is a component's (#385 S4): created on its first call, its `onInit` →
+  `onStart` (`implements OnInit, OnStart, OnStop, OnDestroy`) — and those of the dependencies
+  created with it — run, awaited, before that call's `complete()`. Concurrent first calls share one
+  creation, so the hooks run once. A failing hook fails that call with the same error a start gives
+  (`[di.hook-failed] BedrockModelProvider.onStart failed: …`, the hook's error as `cause`); the
+  next call tries again. At `app.close()` a created transport gets `onStop` and `onDestroy` in the
+  usual order (dependants first); a transport never called gets no hook.
 - **`capabilities(model, connection)`** is optional on a transport: given, it is checked at start
   like an HTTP provider's (the instance created for it); absent, its models' settings are not checked
   — `agboss check --models` never creates a transport.

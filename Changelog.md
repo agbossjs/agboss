@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — a lazily created transport provider runs its lifecycle hooks (#385 S4)
+
+- **Changed — transport providers' lifecycle** ([Model providers](Model-providers#a-custom-transport-completerequest-385)):
+  created on its first call, a transport's `onInit` → `onStart` run, awaited, before that call's
+  `complete()` — once under concurrent first calls; a failing hook fails that call with the start's
+  error (`[di.hook-failed] X.onStart failed: …`) and the next call tries again; `app.close()` runs
+  `onStop` / `onDestroy` for the transports that were created, none for the others. Before, a
+  transport created on a call got no `onInit` / `onStart`.
+
 ## Unreleased — a2aHttpListener resolves each request's caller and tenant (#387)
 
 - **Breaking — `a2aHttpListener(app, { start, callerResolver, base? })`** ([A2A](A2A)): built from
