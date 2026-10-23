@@ -1,0 +1,37 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`#397 PR 1: the HTML report of a run artifact > is one document: header, summary, unstable cases, cases with a dot and a run per attempt 1`] = `
+[
+  "<header>",
+  "h1 refunds-eval-suite",
+  "<main>",
+  "section #summary",
+  "h2 Summary",
+  "section #unstable",
+  "h2 Unstable cases",
+  "section #cases",
+  "h2 Cases",
+  "h3 refund-within-policy",
+  "dot passed "Run 1: passed"",
+  "dot passed "Run 2: passed"",
+  "dot passed "Run 3: passed"",
+  "run #case-1-run-1",
+  "run #case-1-run-2",
+  "run #case-1-run-3",
+  "h3 prohibition-survives-compaction",
+  "dot passed "Run 1: passed"",
+  "dot failed "Run 2: failed"",
+  "dot limit "Run 3: limit"",
+  "run #case-2-run-1",
+  "run #case-2-run-2",
+  "run #case-2-run-3",
+  "h3 refund-after-a-question",
+  "dot error "Run 1: error"",
+  "dot failed "Run 2: failed"",
+  "dot failed "Run 3: failed"",
+  "run #case-3-run-1",
+  "run #case-3-run-2",
+  "run #case-3-run-3",
+  "<footer>",
+]
+`;

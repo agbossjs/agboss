@@ -1,5 +1,3 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
 import {
   builtApplicationOf,
   loadEvalSuites,
@@ -16,12 +14,14 @@ import {
 } from "../cli/context.js";
 import { envOption } from "../cli/environment.js";
 import { CliError, usageError } from "../cli/errors.js";
-import { caseLines, headerOf, summaryLine } from "./run-report.js";
+import { writeOutputFile } from "./output-file.js";
+import { printRunTable } from "./run-report.js";
 
 /**
- * `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--env <name>]` (#396 PR 2):
- * the application built as `createApp` builds it, the suite run on it — every case `--runs` times —
- * its table printed, the artifact written with `--report`. The exit code says whether it ran, never
+ * `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--env <name>]`
+ * (#396 PR 2): the application built as `createApp` builds it, the suite run on it — every case
+ * `--runs` times — its table printed, the artifact written with `--report`, then its HTML report with
+ * `--html` (#397 PR 1). The exit code says whether it ran, never
  * how well (`--fail-on-regression` comes with `--baseline`).
  */
 
@@ -57,13 +57,6 @@ function suiteOf(context: CommandContext, suites: readonly FoundEvalSuite[]): Fo
   );
 }
 
-/** Writes the artifact; the path as given, relative to the working directory. */
-function writeReport(context: CommandContext, path: string, report: unknown): void {
-  const file = resolve(context.io.cwd, path);
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);
-}
-
 export async function evalRunCommand(context: CommandContext): Promise<CommandOutcome> {
   const runs = runsOf(context);
   const loaded = await loadCliApplication(context);
@@ -75,14 +68,22 @@ export async function evalRunCommand(context: CommandContext): Promise<CommandOu
   });
   try {
     const report = await runEvalSuite(built, found.suite, { runs });
-    [headerOf(report), ...caseLines(report), summaryLine(report)].forEach(context.say);
+    printRunTable(context, report);
     const path = textOption(context.values, "report");
     if (path !== undefined) {
-      writeReport(context, path, report);
+      writeOutputFile(context, path, `${JSON.stringify(report, null, 2)}\n`);
       context.say(`report → ${path}`);
     }
-    const created = path === undefined ? {} : { created: [path] };
-    return { result: report, ...created, warnings: built.app.warnings };
+    // the artifact first: a page too large to write leaves the run's artifact written
+    const html = textOption(context.values, "html");
+    if (html !== undefined)
+      await (await import("./html-report.js")).writeHtmlReport(context, html, report);
+    const created = [path, html].filter((file) => file !== undefined);
+    return {
+      result: report,
+      ...(created.length === 0 ? {} : { created }),
+      warnings: built.app.warnings,
+    };
   } finally {
     await built.app.close();
   }

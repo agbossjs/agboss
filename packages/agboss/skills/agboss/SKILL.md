@@ -96,7 +96,9 @@ npm test                                                           # scripted mo
   judges. `npx agboss check` assembles them too (Loop 0).
 - **Loops 2 and 3** (a live model, paid): `npx agboss eval run --suite <name> --runs <k> --report
 <run.json>` — each case k times on the real application (`--env`), the cascade per run, pass@k and
-  pass^k per case, the run artifact kept from `main` as the reference; `npx agboss eval score`
+  pass^k per case, the run artifact kept from `main` as the reference (`--html <file>` writes it as
+  one self-contained page; `npx agboss eval show <run.json> --html <file>` renders a saved one,
+  running nothing); `npx agboss eval score`
   scores recorded runs (the bare `npx agboss eval` lists both).
 - A case that passes at least once in k runs but not every time (pass@k high, pass^k low — printed
   `unstable`): do not grow the prompt — propose deterministic code (a `@ToolInterceptor`, a code guardrail,

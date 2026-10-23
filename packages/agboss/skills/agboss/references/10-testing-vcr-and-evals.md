@@ -1190,9 +1190,11 @@ recording is `[vcr.stale-cassette]`.
    case k times on the real application (the environment's services and fixtures), the cascade
    per run: free trajectory invariants → code `@Judge` → model `@Judge`. Read pass@k and pass^k
    per case; a case marked `unstable` (pass@k without pass^k) goes to deterministic code, not to a
-   longer prompt.
+   longer prompt. Add `--html <report.html>` to read the run in a browser: one self-contained page
+   with the summary, the unstable cases and an attempt dot per run, each opening that run's checks.
 2. Loop 3: the same run on `main` gives the run artifact (`--report`), kept as the reference the
-   next runs are read against.
+   next runs are read against. `npx agboss eval show <run.json> --html <report.html>` renders a saved
+   artifact again — in CI, from the artifact a run already made, without a second model bill.
 
 ## Eval suites: `@EvalSuite` (`agboss/eval`)
 
@@ -1314,6 +1316,12 @@ cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `
   `runResults` (each run's `executionId`, `finish`, `checks` with `status`, `reason`, `skippedBy`,
   `metrics`, `spentUsd`), `summary`, `spend`; `--json` carries the same as the envelope's `result`.
 - The exit code says whether the suite ran (0), not how well it did.
+- `--html <report.html>` writes the run as one self-contained HTML page (no request: inline style
+  and script; light and dark; phone width): header, summary (pass@k, pass^k, cases, attempts,
+  spend), unstable cases, every case with an attempt dot per run — passed, failed, error, limit —
+  each opening that run's execution, error and checks. It shows only what the artifact holds.
+  `npx agboss eval show <run.json> [--html <report.html>]` reads a saved artifact back: the table,
+  and the same page; it runs nothing.
 
 ## Evals on real traffic
 

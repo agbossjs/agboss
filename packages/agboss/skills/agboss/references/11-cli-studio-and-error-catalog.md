@@ -24,7 +24,8 @@ there is no `--workflow <path>`.
 | `npx agboss studio [--port N] [--env <name>]`                                                                                           | LangGraph Studio on every workflow (port 2024 by default)                                                                                                                                                               |
 | `npx agboss run [--start <name>] ("<task>" \| --input <json> \| --input-file <file>) [--thread <id>] [--profile <name>] [--env <name>]` | one execution of a start, the reply to stdout                                                                                                                                                                           |
 | `npx agboss chat [--start <name>] [--thread <id>] [--profile <name>] [--env <name>]`                                                    | an interactive chat with a workflow; asks in the terminal about each pause the thread's owner answers                                                                                                                   |
-| `npx agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--env <name>]`                                                | runs an `@EvalSuite` on the application: every case `--runs` times (default 1), pass@k / pass^k per case, the run artifact                                                                                              |
+| `npx agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--env <name>]`                                | runs an `@EvalSuite` on the application: every case `--runs` times (default 1), pass@k / pass^k per case, the run artifact, its HTML report                                                                             |
+| `npx agboss eval show <run.json> [--html <file>]`                                                                                       | a saved run artifact: its table, and with `--html` its self-contained HTML report; runs nothing                                                                                                                         |
 | `npx agboss eval score [--start <name>] [--version <v>] [--limit N] [--profile <name>]`                                                 | scores recent runs of a start's workflow with Jev (`--limit` default 100); the bare `npx agboss eval` lists both                                                                                                        |
 | `npx agboss replay [--start <name>] --version <v> [--limit N] [--profile <name>]`                                                       | re-runs a prompt version on recent tasks                                                                                                                                                                                |
 | `npx agboss golden add [--start <name>] --name <name> [--from-last N]`                                                                  | saves recent real tasks as a golden set (`golden/<workflow>/<name>.yaml`, default 20)                                                                                                                                   |
@@ -45,12 +46,16 @@ there is no `--workflow <path>`.
 - `check --strict` makes the analyser's and the application's warnings errors (below).
 - `check` also assembles the application's eval suites (`eval-suites/*.eval-suite.ts` whose start is
   one of its starts): `eval-suites` in `result.checks`, each problem on the suite's file.
-- `eval` is made of subcommands (#396): `eval run` and `eval score`, each with its own options
+- `eval` is made of subcommands (#396): `eval run`, `eval score` and `eval show` (#397), each with its own options
   (`npx agboss help eval run`); the bare `npx agboss eval` prints both and exits 2
   (`usage.missing-argument`), an unknown one is `usage.unknown-command`. `eval run` exits 0 when the
   suite ran — whatever its pass rates; 2 for `--runs` below 1 or `eval.unknown-suite` (several suites
   and no `--suite`, or a name none has — the suites listed); 3 when the suite does not assemble
-  (`graph.rules`) or its cases' values do not fit (`eval.case-invalid`).
+  (`graph.rules`) or its cases' values do not fit (`eval.case-invalid`). `eval show <run.json>` exits 2
+  for a missing file (`eval.run-not-found`) or one that is not a run artifact this version reads
+  (`eval.run-invalid`: another `kind`, an unknown `schemaVersion`, a field missing); `--html` on
+  either exits 2 with `eval.report-too-large` for a page above 16 MB (`eval run` writes its artifact
+  first).
 - `--profile <name>` applies `profiles/<workflow>/<name>.yaml`; `--env <name>` picks
   `environments/<name>.environment.ts` (default `dev`).
 
@@ -75,7 +80,8 @@ declarative snapshot: `configHash` (the join key of records and traces), `starts
 detection that call a model, each `{ name, kind, promptHash, schemaHash }`), `schemas`. The envelope's `error.code` names the failure class: `graph.rules` (assembly rules),
 `application.load`, `workflow.load`, `workflow.assembly`, `model.configuration`, `profile.invalid`,
 `usage.unknown-option`, `usage.missing-argument`, `start.not-found`, `workflow.not-found`,
-`eval.unknown-suite`, `eval.case-invalid`, …
+`eval.unknown-suite`, `eval.case-invalid`, `eval.run-not-found`, `eval.run-invalid`,
+`eval.report-too-large`, …
 
 ### Reading `check`
 

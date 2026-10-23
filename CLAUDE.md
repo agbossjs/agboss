@@ -87,7 +87,12 @@ and `rag index [--rag <name>]` cover every workflow of the application. `eval` i
 with the case's contexts, the checks under the cascade, pass@k / pass^k per case, `unstable` for pass@k
 without pass^k — and writes the run artifact (`kind: "agboss.eval-run"`, `schemaVersion`); `agboss eval
 score` is the Jev scoring of recorded runs (the bare `agboss eval` before, which now lists both and
-exits 2); `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
+exits 2); `agboss eval run … --html <file>` and `agboss eval show <run.json> [--html <file>]` (#397 PR 1)
+render a run artifact — `show` reads a saved one, runs nothing — as its table and one self-contained
+HTML page (inline style and script, no request, a CSP by hash; header, summary, unstable cases, cases
+with attempt dots and each run's checks; bounded at 16 MB, `eval.report-too-large`; `eval.run-not-found`
+/ `eval.run-invalid` for a file that is not an artifact this version reads), rendered in `agboss-cli`
+(`src/eval/html/`, loaded on demand); `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
 `agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
 (`agboss/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs

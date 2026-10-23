@@ -31,7 +31,7 @@ describe("#396 PR 2: agboss eval is made of subcommands", () => {
     expect(call.stdout).toContain("Subcommands:");
     expect(call.stdout).toContain("agboss eval run [--suite <name>]");
     expect(call.stdout).toContain("agboss eval score [--start <name>]");
-    expect(call.stderr).toContain("expected agboss eval run | score");
+    expect(call.stderr).toContain("expected agboss eval run | score | show");
   });
 
   it("with --json: one envelope, usage.missing-argument", async () => {
@@ -49,7 +49,9 @@ describe("#396 PR 2: agboss eval is made of subcommands", () => {
     const call = await agboss(["eval", "rerun"], CWD);
 
     expect(call.code).toBe(2);
-    expect(call.stderr).toContain('unknown subcommand "eval rerun" — expected eval run | score');
+    expect(call.stderr).toContain(
+      'unknown subcommand "eval rerun" — expected eval run | score | show',
+    );
   });
 
   it("each subcommand has its own help and options", async () => {
@@ -59,7 +61,11 @@ describe("#396 PR 2: agboss eval is made of subcommands", () => {
     expect(help.stdout).toContain("--runs <k>");
     expect(help.stdout).not.toContain("--limit");
     const described = envelope(machine).result as { subcommands: { name: string }[] };
-    expect(described.subcommands.map((sub) => sub.name)).toEqual(["eval run", "eval score"]);
+    expect(described.subcommands.map((sub) => sub.name)).toEqual([
+      "eval run",
+      "eval score",
+      "eval show",
+    ]);
   });
 
   it("an option of the other subcommand is unknown", async () => {

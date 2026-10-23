@@ -51,7 +51,8 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   model judges under a declared cascade; `agboss eval run --suite <name> --runs <k> --report
 <run.json>` runs each case k times on the application and reports pass@k / pass^k per case, the
   unstable ones flagged, into a run artifact (`agboss.eval-run`); `agboss check` assembles the suites
-  (#396).
+  (#396). `--html <file>` and `agboss eval show <run.json> --html <file>` render a run as one
+  self-contained HTML page — summary, unstable cases, attempt dots and every run's checks (#397).
 - **The CLI** (`agboss-cli`) — `agboss create`, `agboss generate`, `agboss check`,
   `agboss describe`, `agboss dev`, `agboss studio`, `agboss chat` / `agboss run`, evaluations and
   comparisons (#268). Breaking on the way (#396): the bare `agboss eval` is now `agboss eval score`
