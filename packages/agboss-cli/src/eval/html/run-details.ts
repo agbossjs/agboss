@@ -80,6 +80,7 @@ export function runDetails(
   caseIndex: number,
   result: EvalRunResult,
   isTimelineShown: boolean,
+  extras?: HtmlElement,
 ): HtmlElement {
   const status = attemptStatusOf(result);
   const { error } = result;
@@ -100,6 +101,7 @@ export function runDetails(
         ` ${error.message}`,
       ]),
     checksTable(result),
+    extras,
     timelineViewOf(caseIndex, result, isTimelineShown),
   ]);
 }

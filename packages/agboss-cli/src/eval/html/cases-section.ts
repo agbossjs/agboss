@@ -10,7 +10,7 @@ import {
   runAnchor,
   sectionOf,
   type ReportSection,
-  type TimelineDetail,
+  type ReportView,
 } from "./sections.js";
 
 /**
@@ -69,7 +69,7 @@ function caseEntry(
   report: EvalRunReport,
   found: EvalCaseReport,
   index: number,
-  timelines: TimelineDetail,
+  view: ReportView,
 ): HtmlElement {
   const anchor = caseAnchor(index);
   const k = String(report.runs);
@@ -93,7 +93,12 @@ function caseEntry(
         firstFailure(found),
         found.expectation !== undefined && expectationView(found.expectation),
         ...found.runResults.map((result) =>
-          runDetails(index, result, isTimelineShown(found, timelines)),
+          runDetails(
+            index,
+            result,
+            isTimelineShown(found, view.timelines),
+            view.runExtrasOf?.(index, found, result),
+          ),
         ),
       ]),
     ],
@@ -139,7 +144,7 @@ function filtersOf(report: EvalRunReport): HtmlElement {
 
 export const CASES_SECTION: ReportSection = {
   isShownFor: () => true,
-  render: (report: EvalRunReport, timelines: TimelineDetail) =>
+  render: (report: EvalRunReport, view: ReportView) =>
     sectionOf("cases", "Cases", [
       filtersOf(report),
       report.cases.length === 0
@@ -147,7 +152,7 @@ export const CASES_SECTION: ReportSection = {
         : element(
             "ol",
             { class: "cases" },
-            report.cases.map((found, index) => caseEntry(report, found, index, timelines)),
+            report.cases.map((found, index) => caseEntry(report, found, index, view)),
           ),
     ]),
 };

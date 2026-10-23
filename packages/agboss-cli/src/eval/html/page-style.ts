@@ -100,5 +100,14 @@ tr.verdict-regressed th, tr.verdict-regressed td { background: var(--failed-bg);
 .value { margin: 6px 0; min-width: 0; }
 .value figcaption { color: var(--muted); font-size: 0.8rem; }
 .value pre { margin: 2px 0 0; padding: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; overflow-x: auto; max-height: 24rem; font-size: 0.85rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.labels { margin: 8px 0; }
+.label-details { border: 1px dashed var(--border); border-radius: 8px; padding: 4px 10px; margin: 6px 0; }
+.label-details summary { cursor: pointer; }
+.label-form { display: grid; gap: 8px; margin: 8px 0; max-width: 32rem; }
+.label-form fieldset { border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.label-form input[type="text"], .label-form select { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; min-height: 36px; width: 100%; }
+.label-form button { font: inherit; justify-self: start; color: var(--surface); background: var(--accent); border: 0; border-radius: 999px; padding: 8px 16px; min-height: 40px; cursor: pointer; }
+.choice { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; }
+.calibration { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin: 0 0 12px; }
 footer { color: var(--muted); font-size: 0.85rem; padding-top: 24px; padding-bottom: 32px; }
 `;

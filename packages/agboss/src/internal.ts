@@ -62,8 +62,20 @@ export { loadEvalSuites, type FoundEvalSuite } from "./loader/load-eval-suites.j
 export { builtApplicationOf, type BuiltApplication } from "./application/create-app.js";
 export { compareEvalRuns } from "./eval/run/compare-runs.js";
 export { evalRunReportOf, type EvalRunReportRead } from "./eval/run/read-report.js";
+export { TRAJECTORY_CHECK } from "./eval/run/report.js";
 export { calibrateJudges, type EvalCalibrationResult } from "./eval/calibrate/calibrate.js";
-export { evalLabelsOf, type EvalLabelsRead } from "./eval/calibrate/labels.js";
+export {
+  evalLabelOf,
+  evalLabelsOf,
+  labelsWith,
+  type EvalLabelRead,
+  type EvalLabelsRead,
+} from "./eval/calibrate/labels.js";
+export {
+  failureTaxonomyOf,
+  type EvalFailureTag,
+  type EvalFailureTaxonomyRead,
+} from "./eval/calibrate/taxonomy.js";
 export {
   attemptDivergenceOf,
   AttemptDivergenceReason,

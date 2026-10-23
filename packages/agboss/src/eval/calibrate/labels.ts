@@ -67,3 +67,33 @@ export function evalLabelsOf(content: string): EvalLabelsRead {
   }
   return { kind: "read", labels };
 }
+
+/**
+ * `content` with `label` in it (#397 PR 4: a label saved from `agboss eval ui`): the label of the
+ * same run, judge and labeler replaced in place, else appended — one JSON line each, so the file
+ * stays what `evalLabelsOf` reads. `content` must read (a file that does not is never rewritten).
+ */
+export function labelsWith(content: string, label: EvalLabel): string {
+  const read = evalLabelsOf(content);
+  if (read.kind === "invalid") throw new Error(`line ${String(read.line)}: ${read.reason}`);
+  const key = keyOf(label);
+  const isSame = (each: EvalLabel): boolean => keyOf(each) === key;
+  const labels = read.labels.some(isSame)
+    ? read.labels.map((each) => (isSame(each) ? label : each))
+    : [...read.labels, label];
+  return labels.map((each) => `${JSON.stringify(each)}\n`).join("");
+}
+
+/** One label read from a form or a request: the label, or why it is not one. */
+export type EvalLabelRead =
+  | { readonly kind: "read"; readonly label: EvalLabel }
+  | { readonly kind: "invalid"; readonly reason: string };
+
+/** A label from a form or a request, validated as a line of the file is. */
+export function evalLabelOf(value: unknown): EvalLabelRead {
+  const parsed = LabelSchema.safeParse(value);
+  if (parsed.success) return { kind: "read", label: parsed.data };
+  const [issue] = parsed.error.issues;
+  const reason = issue === undefined ? "not a label" : `${issue.path.join(".")}: ${issue.message}`;
+  return { kind: "invalid", reason };
+}

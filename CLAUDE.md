@@ -104,7 +104,10 @@ guardrail decisions, judge verdicts; handled errors, pauses, undo actions, child
 each case's `expectation`; version 1 artifacts are still read by the one reader `evalRunReportOf`; bounded at 16 MB — timelines of cases with pass^k left out first, then all, before `eval.report-too-large`; `eval.run-not-found`
 / `eval.run-invalid` for a file that is not an artifact this version reads), `agboss eval ui [--dir <folder>] [--port N]` (#397 PR 3) serves a folder of run artifacts read-only on
 127.0.0.1 behind a token it prints (the `Host` checked; the runs, their attempts, each run's page;
-`eval.no-runs` for a missing folder) — a `schemaVersion` 3 artifact also names its `profile`,
+`eval.no-runs` for a missing folder; #397 PR 4: a form per judge verdict writes a label — passed / failed, a
+1–4 score, tags of `eval/failure-taxonomy.yaml`, a note — to `eval/labels/<suite>.jsonl`, the same run, judge and
+labeler replaced, atomically, and the page's calibration is `calibrateJudges` on every load; a POST needs
+the token in its form and the page's own origin; `eval.taxonomy-invalid`) — a `schemaVersion` 3 artifact also names its `profile`,
 `agbossVersion`, `models` and `piiPolicies` for the header; rendered in `agboss-cli`
 (`src/eval/html/`, loaded on demand); `agboss eval calibrate --report <run.json> [--labels
 <labels.jsonl>]` (#396 PR 4) reads a saved run's judges against people's labels (`EvalLabel`, one JSON

@@ -1,4 +1,4 @@
-import type { EvalCaseReport, EvalRunReport } from "agboss/eval";
+import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "agboss/eval";
 import { element, type HtmlChild, type HtmlElement } from "./html.js";
 
 /**
@@ -9,7 +9,20 @@ import { element, type HtmlChild, type HtmlElement } from "./html.js";
 export interface ReportSection {
   /** Whether the artifact holds what the section shows. */
   readonly isShownFor: (report: EvalRunReport) => boolean;
-  readonly render: (report: EvalRunReport, timelines: TimelineDetail) => HtmlElement;
+  readonly render: (report: EvalRunReport, view: ReportView) => HtmlElement;
+}
+
+/** What one rendering of the page shows besides the artifact. */
+export interface ReportView {
+  readonly timelines: TimelineDetail;
+  /**
+   * More of a run, after its checks: `agboss eval ui`'s label forms (#397 PR 4); none in a file.
+   */
+  readonly runExtrasOf?: (
+    caseIndex: number,
+    found: EvalCaseReport,
+    result: EvalRunResult,
+  ) => HtmlElement | undefined;
 }
 
 /**

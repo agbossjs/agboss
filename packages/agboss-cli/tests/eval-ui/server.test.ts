@@ -31,7 +31,13 @@ function getWith(url: string, host: string): Promise<{ status: number; body: str
 
 describe("#397 PR 3: the eval ui server", () => {
   it("serves the runs on 127.0.0.1 with its token, refuses another Host, stops on close", async () => {
-    const ui = await startEvalUi({ folder: FOLDER, port: 0 });
+    const ui = await startEvalUi({
+      folder: FOLDER,
+      port: 0,
+      labelsFolder: join(FOLDER, "labels"),
+      tags: undefined,
+      labeler: "anna",
+    });
     try {
       expect(ui.url).toMatch(
         new RegExp(`^http://127\\.0\\.0\\.1:${String(ui.port)}/\\?token=[0-9a-f]{32}$`, "u"),
@@ -46,9 +52,52 @@ describe("#397 PR 3: the eval ui server", () => {
     await expect(fetch(ui.url)).rejects.toThrow();
   });
 
+  it("reads a form's body; one above 64 KB is refused (#397 PR 4)", async () => {
+    const ui = await startEvalUi({
+      folder: FOLDER,
+      port: 0,
+      labelsFolder: join(FOLDER, "labels"),
+      tags: undefined,
+      labeler: "anna",
+    });
+    const token = new URL(ui.url).searchParams.get("token") ?? "";
+    const at = `http://127.0.0.1:${String(ui.port)}/runs/run.json/labels`;
+    const headers = { "Content-Type": "application/x-www-form-urlencoded" };
+    try {
+      const small = await fetch(at, {
+        method: "POST",
+        headers,
+        body: `token=${token}&runId=x`,
+        redirect: "manual",
+      });
+      const large = await fetch(at, {
+        method: "POST",
+        headers,
+        body: `token=${token}&note=${"n".repeat(70_000)}`,
+      });
+
+      expect(small.status).toBe(400); // read, then refused as no label
+      expect(large.status).toBe(413);
+    } finally {
+      await ui.close();
+    }
+  });
+
   it("each start has its own token", async () => {
-    const first = await startEvalUi({ folder: FOLDER, port: 0 });
-    const second = await startEvalUi({ folder: FOLDER, port: 0 });
+    const first = await startEvalUi({
+      folder: FOLDER,
+      port: 0,
+      labelsFolder: join(FOLDER, "labels"),
+      tags: undefined,
+      labeler: "anna",
+    });
+    const second = await startEvalUi({
+      folder: FOLDER,
+      port: 0,
+      labelsFolder: join(FOLDER, "labels"),
+      tags: undefined,
+      labeler: "anna",
+    });
     await Promise.all([first.close(), second.close()]);
 
     expect(new URL(first.url).searchParams.get("token")).not.toBe(
@@ -72,9 +121,30 @@ describe("#397 PR 3: agboss eval ui refuses before it serves", () => {
     expect(envelope(call)).toMatchObject({ error: { code: "usage.option-value" } });
   });
 
+  it("a taxonomy that is not one: eval.taxonomy-invalid, exit 2 (#397 PR 4)", async () => {
+    writeFileSync(join(FOLDER, "taxonomy.yaml"), "tags:\n  - tag: Not Kebab\n    description: x\n");
+
+    const call = await agboss(
+      ["eval", "ui", "--dir", ".", "--taxonomy", "taxonomy.yaml", "--json"],
+      FOLDER,
+    );
+
+    expect(call.code).toBe(2);
+    expect(envelope(call)).toMatchObject({
+      error: {
+        code: "eval.taxonomy-invalid",
+        message: expect.stringMatching(
+          /^taxonomy\.yaml is not a failure taxonomy: tags\.0\.tag/u,
+        ) as unknown,
+      },
+    });
+  });
+
   it("has its own help", async () => {
     const call = await agboss(["eval", "ui", "--help"], FOLDER);
 
-    expect(call.stdout).toContain("agboss eval ui [--dir <folder>] [--port N]");
+    expect(call.stdout).toContain(
+      "agboss eval ui [--dir <folder>] [--port N] [--labels-dir <folder>]",
+    );
   });
 });
