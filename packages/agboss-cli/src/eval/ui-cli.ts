@@ -9,12 +9,15 @@ import {
 } from "../cli/context.js";
 import { CliError, usageError } from "../cli/errors.js";
 import { stopSignal } from "../cli/stop-signal.js";
+import type { GoldenSource } from "./ui/golden-case.js";
+import type { EvalUiOptions } from "./ui/ui-server.js";
 
 /**
  * `agboss eval ui [--dir <folder>] [--port N] [--labels-dir <folder>] [--taxonomy <file>] [--labeler
  * <name>]` (#397 PR 3–4, S2 Q1): the run artifacts of a folder served on 127.0.0.1 — the list of
  * runs, each run's report page with its label forms and calibration — behind a token it prints,
- * until Ctrl+C. It loads no application and runs nothing; it writes only the labels files.
+ * until Ctrl+C — and "save as golden case" (PR 5): a run's kept execution written into its suite's
+ * file. It builds and runs nothing; it writes only the labels files and the suites' files.
  */
 
 const COMMAND = "eval ui";
@@ -39,21 +42,23 @@ function folderOf(context: CommandContext): string {
   );
 }
 
-export async function evalUiCommand(context: CommandContext): Promise<CommandOutcome> {
-  const folder = folderOf(context);
-  const port = uiPortOf(context);
-  const labelsGiven = requiredText(context.values, "labels-dir");
-  const taxonomyGiven = requiredText(context.values, "taxonomy");
-  const { taxonomyTagsOf } = await import("./ui/taxonomy-file.js");
-  const tags = taxonomyTagsOf(resolve(context.io.cwd, taxonomyGiven), taxonomyGiven);
-  const labeler = textOption(context.values, "labeler") ?? userInfo().username;
+/** What "save as golden case" will do, in one line. */
+const goldenLine = (golden: GoldenSource): string =>
+  golden.kind === "kept"
+    ? "golden cases: saved into the suites' files"
+    : `golden cases: off — ${golden.reason}`;
+
+/** The server, until Ctrl+C. */
+async function served(
+  context: CommandContext,
+  options: EvalUiOptions,
+  files: string,
+): Promise<CommandOutcome> {
   const { startEvalUi } = await import("./ui/ui-server.js");
-  const labelsFolder = resolve(context.io.cwd, labelsGiven);
-  const ui = await startEvalUi({ folder, port, labelsFolder, tags, labeler });
+  const ui = await startEvalUi(options);
   context.say(`eval ui: ${ui.url}   (Ctrl+C to stop)`);
-  context.say(
-    `runs: ${relative(context.io.cwd, folder) || "."} · labels: ${labelsGiven} · taxonomy: ${tags === undefined ? `none (${taxonomyGiven} not found)` : `${taxonomyGiven} (${String(tags.length)} tags)`}`,
-  );
+  context.say(`runs: ${relative(context.io.cwd, options.folder) || "."} · ${files}`);
+  context.say(goldenLine(options.golden));
   const { signal, release } = stopSignal();
   try {
     await new Promise<void>((done) => {
@@ -65,5 +70,33 @@ export async function evalUiCommand(context: CommandContext): Promise<CommandOut
     release();
     await ui.close();
   }
-  return { result: { folder, port: ui.port } };
+  return { result: { folder: options.folder, port: ui.port } };
+}
+
+export async function evalUiCommand(context: CommandContext): Promise<CommandOutcome> {
+  const folder = folderOf(context);
+  const port = uiPortOf(context);
+  const labelsGiven = requiredText(context.values, "labels-dir");
+  const taxonomyGiven = requiredText(context.values, "taxonomy");
+  const { taxonomyTagsOf } = await import("./ui/taxonomy-file.js");
+  const tags = taxonomyTagsOf(resolve(context.io.cwd, taxonomyGiven), taxonomyGiven);
+  const labeler = textOption(context.values, "labeler") ?? userInfo().username;
+  const { goldenSourceOf } = await import("./ui/golden-source.js");
+  const golden = await goldenSourceOf(context);
+  try {
+    return await served(
+      context,
+      {
+        folder,
+        port,
+        labelsFolder: resolve(context.io.cwd, labelsGiven),
+        tags,
+        labeler,
+        golden: golden.source,
+      },
+      `labels: ${labelsGiven} · taxonomy: ${tags === undefined ? `none (${taxonomyGiven} not found)` : `${taxonomyGiven} (${String(tags.length)} tags)`}`,
+    );
+  } finally {
+    await golden.close();
+  }
 }

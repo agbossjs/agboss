@@ -28,37 +28,38 @@ const SETTINGS = {
   labelsFolder: join(FOLDER, "labels"),
   tags: undefined,
   labeler: "anna",
-};
+  golden: { kind: "off", reason: "no application here" },
+} as const;
 
 const get = (url: string, request: Partial<EvalUiRequest> = {}) =>
   respondTo({ method: "GET", url, host: "127.0.0.1:4317", ...request }, SETTINGS);
 
 describe("#397 PR 3: eval ui answers only its own page, with its token", () => {
-  it("a Host other than 127.0.0.1 / localhost on its port: 403", () => {
-    expect(get(`/?token=${TOKEN}`, { host: "evil.example:4317" }).status).toBe(403);
-    expect(get(`/?token=${TOKEN}`, { host: "127.0.0.1:80" }).status).toBe(403);
-    expect(get(`/?token=${TOKEN}`, { host: undefined }).status).toBe(403);
-    expect(get(`/?token=${TOKEN}`, { host: "localhost:4317" }).status).toBe(200);
+  it("a Host other than 127.0.0.1 / localhost on its port: 403", async () => {
+    expect((await get(`/?token=${TOKEN}`, { host: "evil.example:4317" })).status).toBe(403);
+    expect((await get(`/?token=${TOKEN}`, { host: "127.0.0.1:80" })).status).toBe(403);
+    expect((await get(`/?token=${TOKEN}`, { host: undefined })).status).toBe(403);
+    expect((await get(`/?token=${TOKEN}`, { host: "localhost:4317" })).status).toBe(200);
   });
 
-  it("no token or another one: 403", () => {
-    expect(get("/").status).toBe(403);
-    expect(get("/?token=nope").body).toContain("needs the token it printed");
-    expect(get(`/?token=${TOKEN.replace("0", "1")}`).status).toBe(403);
+  it("no token or another one: 403", async () => {
+    expect((await get("/")).status).toBe(403);
+    expect((await get("/?token=nope")).body).toContain("needs the token it printed");
+    expect((await get(`/?token=${TOKEN.replace("0", "1")}`)).status).toBe(403);
   });
 
-  it("anything but GET, HEAD and a form's POST is 405", () => {
-    const answer = get(`/?token=${TOKEN}`, { method: "PUT" });
+  it("anything but GET, HEAD and a form's POST is 405", async () => {
+    const answer = await get(`/?token=${TOKEN}`, { method: "PUT" });
 
     expect(answer.status).toBe(405);
     expect(answer.headers.Allow).toBe("GET, HEAD, POST");
   });
 });
 
-describe("#397 PR 3: the folder's runs", () => {
-  const index = get(`/?token=${TOKEN}`);
+const index = await get(`/?token=${TOKEN}`);
 
-  it("newest first, each with its pass rates and a dot per attempt linked to its page", () => {
+describe("#397 PR 3: the folder's runs", () => {
+  it("newest first, each with its pass rates and a dot per attempt linked to its page", async () => {
     expect(index.status).toBe(200);
     expect(index.headers["Content-Security-Policy"]).toContain("default-src 'none'");
     expect(index.headers["Referrer-Policy"]).toBe("no-referrer");
@@ -71,7 +72,7 @@ describe("#397 PR 3: the folder's runs", () => {
     expect(index.body).toContain("<dt>Regressed</dt><dd>looks-the-order-up</dd>");
   });
 
-  it("a .json that is no run artifact is named with why; other files are not listed", () => {
+  it("a .json that is no run artifact is named with why; other files are not listed", async () => {
     expect(index.body).toContain(
       "<code>notes.json</code> — kind is &quot;something-else&quot;, not &quot;agboss.eval-run&quot;",
     );
@@ -80,18 +81,18 @@ describe("#397 PR 3: the folder's runs", () => {
 });
 
 describe("#397 PR 3: a run's page", () => {
-  it("the same report --html writes, with a link back to the runs", () => {
-    const page = get(`/runs/new.json?token=${TOKEN}`);
+  it("the same report --html writes, with a link back to the runs", async () => {
+    const page = await get(`/runs/new.json?token=${TOKEN}`);
 
     expect(page.status).toBe(200);
     expect(page.body).toContain('<nav aria-label="Runs"><a href="/?token=');
     expect(page.body).toContain('<div class="timeline">');
   });
 
-  it("only the folder's files: an unknown name, a path out of it, an invalid file", () => {
-    expect(get(`/runs/missing.json?token=${TOKEN}`).status).toBe(404);
-    expect(get(`/runs/..%2F..%2Fetc%2Fpasswd?token=${TOKEN}`).status).toBe(404);
-    expect(get(`/runs/notes.json?token=${TOKEN}`).status).toBe(422);
-    expect(get(`/elsewhere?token=${TOKEN}`).status).toBe(404);
+  it("only the folder's files: an unknown name, a path out of it, an invalid file", async () => {
+    expect((await get(`/runs/missing.json?token=${TOKEN}`)).status).toBe(404);
+    expect((await get(`/runs/..%2F..%2Fetc%2Fpasswd?token=${TOKEN}`)).status).toBe(404);
+    expect((await get(`/runs/notes.json?token=${TOKEN}`)).status).toBe(422);
+    expect((await get(`/elsewhere?token=${TOKEN}`)).status).toBe(404);
   });
 });

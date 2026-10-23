@@ -51,6 +51,7 @@ function settingsOf(): EvalUiSettings {
       { tag: "invents-fee", description: "a fee no tool returned" },
     ],
     labeler: "anna",
+    golden: { kind: "off", reason: "no application here" },
   };
 }
 
@@ -93,8 +94,8 @@ const labelsOf = (settings: EvalUiSettings): string =>
   readFileSync(join(settings.labelsFolder, "refunds-eval-suite.jsonl"), "utf8");
 
 describe("#397 PR 4: a run's page has a form per judge verdict", () => {
-  it("each with the token, the run, the judge, the labeler, the taxonomy's tags; forms post to the page's own server", () => {
-    const page = send(settingsOf(), { url: `/runs/run.json?token=${TOKEN}` });
+  it("each with the token, the run, the judge, the labeler, the taxonomy's tags; forms post to the page's own server", async () => {
+    const page = await send(settingsOf(), { url: `/runs/run.json?token=${TOKEN}` });
 
     expect(page.headers["Content-Security-Policy"]).toContain("form-action 'self'");
     expect(page.body).toContain(
@@ -114,10 +115,10 @@ describe("#397 PR 4: a run's page has a form per judge verdict", () => {
 });
 
 describe("#397 PR 4: a label saved", () => {
-  it("goes to the suite's labels file as #396 PR 4 reads it, then back to the run", () => {
+  it("goes to the suite's labels file as #396 PR 4 reads it, then back to the run", async () => {
     const settings = settingsOf();
 
-    const answer = post(settings, LABEL);
+    const answer = await post(settings, LABEL);
 
     expect(answer.status).toBe(303);
     expect(answer.headers.Location).toBe(`/runs/run.json?token=${TOKEN}#case-1-run-2`);
@@ -133,23 +134,23 @@ describe("#397 PR 4: a label saved", () => {
     });
   });
 
-  it("the same labeler's label of the same verdict is replaced; another labeler's is added — κ follows", () => {
+  it("the same labeler's label of the same verdict is replaced; another labeler's is added — κ follows", async () => {
     const settings = settingsOf();
-    post(settings, LABEL);
-    post(settings, {
+    await post(settings, LABEL);
+    await post(settings, {
       ...LABEL,
       passed: "false",
       note: "no, it invents a fee",
       failureTags: ["invents-fee"],
     });
-    post(settings, {
+    await post(settings, {
       ...LABEL,
       runId: "refund-within-policy#1",
       executionId: "e-1",
       passed: "true",
       failureTags: [],
     });
-    post(settings, { ...LABEL, labeler: "boris", passed: "true", failureTags: [] });
+    await post(settings, { ...LABEL, labeler: "boris", passed: "true", failureTags: [] });
 
     const lines = labelsOf(settings).trim().split("\n");
     expect(lines).toHaveLength(3);
@@ -158,7 +159,7 @@ describe("#397 PR 4: a label saved", () => {
       passed: false,
       note: "no, it invents a fee",
     });
-    const page = send(settings, { url: `/runs/run.json?token=${TOKEN}` }).body;
+    const page = (await send(settings, { url: `/runs/run.json?token=${TOKEN}` })).body;
     expect(page).toContain("Calibration against people&#39;s labels");
     expect(page).toContain("3 of 3 label(s)");
     expect(page).toContain(
@@ -170,14 +171,14 @@ describe("#397 PR 4: a label saved", () => {
 });
 
 describe("#397 PR 4: forms that are refused", () => {
-  it("no token in the form, or another origin: 403, nothing written", () => {
+  it("no token in the form, or another origin: 403, nothing written", async () => {
     const settings = settingsOf();
     const { token, ...withoutToken } = LABEL;
 
     expect(
-      post(settings, withoutToken, { url: `/runs/run.json/labels?token=${token}` }).status,
+      (await post(settings, withoutToken, { url: `/runs/run.json/labels?token=${token}` })).status,
     ).toBe(403);
-    expect(post(settings, LABEL, { origin: "https://evil.example" }).status).toBe(403);
+    expect((await post(settings, LABEL, { origin: "https://evil.example" })).status).toBe(403);
     expect(existsSync(settings.labelsFolder)).toBe(false);
   });
 
@@ -195,27 +196,29 @@ describe("#397 PR 4: forms that are refused", () => {
       { runId: "refund-within-policy#1" },
       "names run refund-within-policy#1, but e-2 is refund-within-policy#2",
     ],
-  ])("%s: 400", (_what, change, message) => {
-    const answer = post(settingsOf(), { ...LABEL, ...change });
+  ])("%s: 400", async (_what, change, message) => {
+    const answer = await post(settingsOf(), { ...LABEL, ...change });
 
     expect(answer.status).toBe(400);
     expect(answer.body).toContain(message);
   });
 
-  it("a labels file that does not read is never rewritten: 409", () => {
+  it("a labels file that does not read is never rewritten: 409", async () => {
     const settings = settingsOf();
     mkdirSync(settings.labelsFolder, { recursive: true });
     const file = join(settings.labelsFolder, "refunds-eval-suite.jsonl");
     writeFileSync(file, "{ broken\n");
 
-    const answer = post(settings, LABEL);
+    const answer = await post(settings, LABEL);
 
     expect(answer.status).toBe(409);
     expect(readFileSync(file, "utf8")).toBe("{ broken\n");
   });
 
-  it("posting elsewhere: 404", () => {
-    expect(post(settingsOf(), LABEL, { url: "/runs/run.json/golden" }).status).toBe(404);
-    expect(post(settingsOf(), LABEL, { url: "/runs/missing.json/labels" }).status).toBe(404);
+  it("posting elsewhere: 404", async () => {
+    expect((await post(settingsOf(), LABEL, { url: "/runs/run.json/elsewhere" })).status).toBe(404);
+    expect((await post(settingsOf(), LABEL, { url: "/runs/missing.json/labels" })).status).toBe(
+      404,
+    );
   });
 });

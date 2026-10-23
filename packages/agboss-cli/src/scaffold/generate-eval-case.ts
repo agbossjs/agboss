@@ -8,7 +8,7 @@ import { ScaffoldUsageError } from "./errors.js";
 import { withEvalCase } from "./eval-case-source.js";
 import { read } from "./project-files.js";
 import type { Component } from "./workflow-graph.js";
-import type { Changes } from "./write.js";
+import type { Changes, FileToWrite } from "./write.js";
 
 /**
  * `agboss generate eval-case <name> --suite <name> --from-execution <executionId>` (#396 PR 8): the
@@ -109,13 +109,15 @@ function checkStart(
   );
 }
 
-/** The suite's file with the case added. */
-export function planEvalCase(
-  root: string,
-  draft: EvalCaseDraft,
-  target: EvalCaseTarget,
-): EvalCasePlan {
-  if (draft.name.trim() === "") throw new ScaffoldUsageError("the case needs a name");
+/** A suite's source file, with the project's classes its cases may name. */
+export interface EvalSuiteSource {
+  readonly suite: Component;
+  readonly file: FileToWrite;
+  readonly declarations: readonly Component[];
+}
+
+/** The file of the suite `target` names, as it is now (#397 PR 5 hashes it for its ETag). */
+export function evalSuiteSourceOf(root: string, target: EvalCaseTarget): EvalSuiteSource {
   const application = applicationModuleOf(root, target.application);
   const declarations = projectDeclarations(root, application);
   // the application's suites: under its own folder (its eval-suites/), never an imported folder's
@@ -124,7 +126,17 @@ export function planEvalCase(
     (found) => found.decorator === "EvalSuite" && found.path.startsWith(own),
   );
   const suite = suiteOf(suites, target.suite);
-  const file = read(root, suite.path);
+  return { suite, file: read(root, suite.path), declarations };
+}
+
+/** The suite's file with the case added. */
+export function planEvalCase(
+  root: string,
+  draft: EvalCaseDraft,
+  target: EvalCaseTarget,
+): EvalCasePlan {
+  if (draft.name.trim() === "") throw new ScaffoldUsageError("the case needs a name");
+  const { suite, file, declarations } = evalSuiteSourceOf(root, target);
   checkStart(declarations, suite, file.content, draft);
   const written = withEvalCase(file, suite.id ?? "", draft, { declarations });
   return { changes: { create: [], modify: [written.file] }, skipped: written.skipped };

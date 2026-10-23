@@ -1371,6 +1371,14 @@ cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `
   `eval/labels/<suite>.jsonl` (`--labels-dir`), exactly what `npx agboss eval calibrate` reads; the
   page's calibration (κ per pair of raters, confusion, disagreements) is recomputed on every load.
   Label disagreements first: they are where a judge needs a better rubric or deterministic code.
+- Golden cases there (#397 PR 5): a run with an execution has "Save as golden case" — its kept
+  execution drafted exactly as `npx agboss generate eval-case <name> --from-execution <executionId>`
+  drafts it (the turn, the contexts, the thread's earlier turns as `history`, its calls as
+  `tools.required`) and written into the suite's file under the name you give. It needs the
+  application's history (`@Application({ executionRecordRetention })`, its stores on `--env`; the
+  application from `package.json` or `--application`) — without it the page says so instead of a
+  button. The file is written whole and atomically, only if it is still the one the page was made from
+  (else 409: reload), never over a case of the same name (409). Review the case, then commit it.
   `npx agboss eval show <run.json> [--html <report.html>]` reads a saved artifact back: the table,
   and the same page; it runs nothing.
 - `--profile <name>` runs the suite on `profiles/<workflow>/<name>.yaml`; the case's `history` turns

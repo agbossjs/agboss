@@ -45,7 +45,7 @@ async function answerOf(
 ): Promise<EvalUiResponse> {
   const body = request.method === "POST" ? await bodyOf(request) : "";
   if (body === undefined) return textResponse(413, "a form of agboss eval ui is at most 64 KB");
-  return respondTo(
+  return await respondTo(
     {
       method: request.method ?? "GET",
       url: request.url ?? "/",
