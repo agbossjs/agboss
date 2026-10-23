@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the Mesh Hub: `agboss hub show` (#401 PR 3)
+
+- **Added — `agboss hub show <path…> [--html <file>]`** ([Mesh Hub](Mesh-Hub)): many applications'
+  `describe --json` snapshots, `agboss.eval-run` artifacts and `agboss.execution-record` exports read
+  from files and folders, each by its marker, into one mesh — every application, the calls between
+  them seen in the records (`remote` / `origin`, each counted once by its step's `idempotencyKey`),
+  each one's health from its records and eval runs — and one self-contained page in the eval
+  report's shell. No project, nothing runs, no network. `hub.input-schema`,
+  `hub.duplicate-application`, `hub.input-not-found`, `hub.report-too-large`.
+
 ## Unreleased — "save as golden case" in `agboss eval ui` (#397 PR 5)
 
 - **Added — *Save as golden case*** on a run of `agboss eval ui` with an execution

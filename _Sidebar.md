@@ -17,6 +17,7 @@
 - [App — @Application and createApp](App)
 - [Several instances](Several-instances)
 - [Execution history](Execution-history)
+- [Mesh Hub — agboss hub](Mesh-Hub)
 - [Health checks](Health-checks)
 - [Context and Authorization](Context-And-Authorization)
 - [Testing](Testing)

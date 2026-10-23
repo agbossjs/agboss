@@ -112,3 +112,8 @@ records: 1284 executions (acme) → hub/records/acme.jsonl
 A kept execution becomes a case of an eval suite with `agboss generate eval-case <name>
 --from-execution <executionId>` — its turn, contexts, earlier turns and the calls it ran, masked as
 kept ([Eval suites](Eval-Suites#a-case-from-a-kept-execution-agboss-generate-eval-case)).
+
+## Into the Mesh Hub: `agboss hub show`
+
+Exported records are one of the [Mesh Hub](Mesh-Hub)'s inputs: the calls they saw between
+applications are its observed edges, and their statuses, durations, errors and spend its health.
