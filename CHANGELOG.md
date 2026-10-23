@@ -60,6 +60,9 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   `agboss eval calibrate --report <run.json>` reads a run's judges against people's labels
   (`eval/labels/<suite>.jsonl`) — Cohen's κ per labeler and between labelers, the confusion and the
   disagreements by the judge's metrics (#396).
+  `agboss compare` judges each pair in both orders (a flip is a tie, `positionFlips`), and a
+  judge of its agent's own model family warns `[judge.same-model-family]` (#396). Breaking on the
+  way: `compareProfiles(Workflow, …)` is `compareProfiles(Application, { start, … })`.
 - **The CLI** (`agboss-cli`) — `agboss create`, `agboss generate`, `agboss check`,
   `agboss describe`, `agboss dev`, `agboss studio`, `agboss chat` / `agboss run`, evaluations and
   comparisons (#268). Breaking on the way (#396): the bare `agboss eval` is now `agboss eval score`

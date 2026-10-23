@@ -7,7 +7,8 @@ import { throwIfViolated } from "../../graph/rule-error.js";
 import { caseValueIssues } from "./case-values.js";
 import { evalSuiteOf, type EvalSuiteMeta } from "./eval-suite.decorator.js";
 import { EvalCaseInvalidError } from "./errors.js";
-import { evalSuiteViolations } from "./suite-rules.js";
+import { evalSuiteViolations, evalSuiteWarnings } from "./suite-rules.js";
+import type { RuleViolation } from "../../graph/rule-error.js";
 
 /**
  * Assembles an `@EvalSuite` against the application it runs on (#396), before anything runs: its
@@ -31,4 +32,14 @@ export function checkEvalSuite(application: Class, suite: Class): EvalSuiteMeta 
   const issues = caseValueIssues(meta.start, contexts, meta.cases);
   if (issues.length > 0) throw new EvalCaseInvalidError(meta.name, issues);
   return meta;
+}
+
+/**
+ * The warnings of a suite that assembles (#396 PR 5): its model judges of the same model family as
+ * an agent of the workflow they judge (`[judge.same-model-family]`) — printed by `agboss check`,
+ * errors under `--strict`.
+ */
+export function evalSuiteWarningsOf(application: Class, suite: Class): readonly RuleViolation[] {
+  const meta = evalSuiteOf(suite);
+  return meta === undefined ? [] : evalSuiteWarnings(application, meta);
 }

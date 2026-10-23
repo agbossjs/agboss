@@ -15,7 +15,7 @@ import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 
 /**
  * One workflow in its application (#261), for what works on a single workflow — `loadWorkflow`, the
- * CLI's `describe` / `check` / `eval`, `compareProfiles`: the one loaded `@Application` that lists
+ * CLI's `describe` / `check` / `eval`: the one loaded `@Application` that lists
  * it gives its providers, its `defaults` and its environment. Without one the workflow stands alone.
  */
 

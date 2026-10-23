@@ -70,6 +70,7 @@ async function generate(
 const WARNING_CODES: ReadonlySet<string> = new Set([
   "flow.path-too-deep",
   "graph.child-without-failure-finish",
+  "judge.same-model-family",
 ]);
 
 const problemsOf = (file: string, result: FlowTypesResult): readonly CheckProblem[] =>

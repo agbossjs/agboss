@@ -96,25 +96,41 @@ describe("compare — pairwise", () => {
     decision: { next, reason: "", confidence },
   });
 
-  it("AC4: wins, losses and ties with randomised A/B order; missing answers are skipped", async () => {
+  it("#396 Q10: each task judged in both orders — agreeing verdicts win or lose, a flip is a tie", async () => {
     const evaluation = await evaluationWith(
+      // t1: other better in both orders — a win
+      pick("second", 0.9),
       pick("first", 0.9),
+      // t2: answer 1 in both orders — the position, not the answer: a tie and a flip
+      pick("first", 0.9),
+      pick("first", 0.9),
+      // t3: baseline better first, unsure the other way — a tie, no flip
       pick("first", 0.9),
       pick("second", 0.55),
     );
-    const order = [0.1, 0.9, 0.1];
 
-    const result = await pairwise(
-      evaluation,
-      ["t1", "t2", "t3", "t4"],
-      base,
-      other,
-      () => order.shift() ?? 0,
+    const result = await pairwise(evaluation, ["t1", "t2", "t3", "t4"], base, other);
+
+    expect(result).toEqual({ wins: 1, losses: 0, ties: 2, positionFlips: 1 });
+    const inputs = vi.mocked(evaluation.judge.route).mock.calls.map(([request]) => request.input);
+    expect(inputs).toHaveLength(6);
+    expect(inputs[0]).toContain("Answer 1:\na1\n\nAnswer 2:\nb1");
+    expect(inputs[1]).toContain("Answer 1:\nb1\n\nAnswer 2:\na1");
+  });
+
+  it("#396 Q10: the baseline better in both orders is a loss; a failed judge is a tie", async () => {
+    const evaluation = await evaluationWith(
+      pick("first", 0.9),
+      pick("second", 0.9),
+      { kind: "failed", reason: "no answer" },
+      pick("first", 0.9),
+      pick("second", 0.9),
+      pick("first", 0.9),
     );
 
-    expect(result).toEqual({ wins: 1, losses: 1, ties: 1 });
-    const firstInput = vi.mocked(evaluation.judge.route).mock.calls[0]?.[0].input ?? "";
-    expect(firstInput).toContain("Answer 1:\nb1");
+    const result = await pairwise(evaluation, ["t1", "t2", "t3"], base, other);
+
+    expect(result).toEqual({ wins: 1, losses: 1, ties: 1, positionFlips: 0 });
   });
 });
 
@@ -151,7 +167,7 @@ describe("compare — report", () => {
       failed: 0,
     };
 
-    const row = profileReport(outcome, { wins: 2, losses: 0, ties: 0 }, [
+    const row = profileReport(outcome, { wins: 2, losses: 0, ties: 0, positionFlips: 1 }, [
       'agents.alpha.thinking: — → "low"',
     ]);
     const lines = formatComparison(2, [{ ...row, name: "base", pairwise: null, diff: [] }, row]);
@@ -162,7 +178,9 @@ describe("compare — report", () => {
       latencyP50Ms: 1000,
       latencyP95Ms: 3000,
     });
-    expect(lines).toContain("v2 | 1.0.0-x | 0.70 | 2/0/0 | $0.0200 | $0.0100 | 1.0 | 3.0 | 0");
+    expect(lines).toContain(
+      "v2 | 1.0.0-x | 0.70 | 2/0/0, flips 1 | $0.0200 | $0.0100 | 1.0 | 3.0 | 0",
+    );
     expect(lines).toContain('  agents.alpha.thinking: — → "low"');
     expect(percentile([], 50)).toBeNull();
   });

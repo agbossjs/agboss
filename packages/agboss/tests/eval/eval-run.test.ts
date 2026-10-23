@@ -19,6 +19,7 @@ import {
   turn,
 } from "../../src/eval/index.js";
 import { runEvalSuite } from "../../src/eval/run/run-suite.js";
+import { evalSuiteWarningsOf } from "../../src/eval/suite/check-suite.js";
 import { EVAL_RUN_KIND, EVAL_RUN_SCHEMA_VERSION } from "../../src/eval/run/report.js";
 import { TestEnvironment } from "../../src/testing/environment.js";
 import { callTool, failWith, replyWith } from "../../src/testing/index.js";
@@ -394,5 +395,20 @@ describe("#396 PR 2: pass@k and pass^k over k runs", () => {
     await expect(runEvalSuite(built, FlakyEvalSuite, { runs: 0 })).rejects.toThrow(
       "runs: a whole number from 1, got 0",
     );
+  });
+});
+
+describe("#396 PR 5: [judge.same-model-family] for a suite's judges", () => {
+  it("a model judge of the family of an agent of the start's workflow warns; a code judge does not", () => {
+    expect(evalSuiteWarningsOf(EvalDeskApplication, RefundsEvalSuite)).toEqual([
+      {
+        code: "judge.same-model-family",
+        message:
+          "refunds-eval-suite: answer-grounded-judge (test/judge) judges desk-agent, whose model " +
+          "test/desk is of the same family (test) — a judge grades its own family's answers too " +
+          "kindly: give the judge a model of another vendor",
+        nodes: ["answer-grounded-judge", "desk-agent"],
+      },
+    ]);
   });
 });

@@ -12,8 +12,10 @@ import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import {
   CodeDto,
   CodeReview,
+  CodeReviewApplication,
   PullRequest,
   ReviewDto,
+  TaskStart,
 } from "../testing/fixtures/code-review.workflow.js";
 
 /** `profiles/code-review-workflow/terse.yaml`: the coder's prompt replaced. */
@@ -59,7 +61,8 @@ function scriptedGateway(judging: boolean): ModelGateway {
 }
 
 const compare = (judging: boolean) =>
-  compareProfiles(CodeReview, {
+  compareProfiles(CodeReviewApplication, {
+    start: TaskStart,
     profiles: ["base", "terse"],
     tasks: ["fix the bug", "add a test"],
     profileRoot: root,
@@ -80,7 +83,7 @@ describe("AC2 (#204): one eval system — A/B of two profiles from one API", () 
         meanScore: 0.75,
         scored: 2,
         failed: 0,
-        pairwise: { wins: 2, losses: 0, ties: 0 },
+        pairwise: { wins: 2, losses: 0, ties: 0, positionFlips: 0 },
         diff: ["prompts.coder-agent: changed"],
       },
     ]);
@@ -93,12 +96,33 @@ describe("AC2 (#204): one eval system — A/B of two profiles from one API", () 
       [null, 0],
       [null, 0],
     ]);
-    expect(comparison.profiles[1]?.pairwise).toEqual({ wins: 0, losses: 0, ties: 2 });
+    expect(comparison.profiles[1]?.pairwise).toEqual({
+      wins: 0,
+      losses: 0,
+      ties: 2,
+      positionFlips: 0,
+    });
   });
 
   it("needs at least two profiles", async () => {
     await expect(
-      compareProfiles(CodeReview, { profiles: ["base"], tasks: ["t"], processEnv: {} }),
+      compareProfiles(CodeReviewApplication, {
+        start: TaskStart,
+        profiles: ["base"],
+        tasks: ["t"],
+        processEnv: {},
+      }),
     ).rejects.toThrow("compare needs at least two profiles");
+  });
+
+  it("#396 PR 5: the workflow is the one a start of the application opens", async () => {
+    await expect(
+      compareProfiles(CodeReviewApplication, {
+        start: CodeReview,
+        profiles: ["base", "terse"],
+        tasks: ["t"],
+        processEnv: {},
+      }),
+    ).rejects.toThrow("code-review-workflow is not a start of code-review-application");
   });
 });

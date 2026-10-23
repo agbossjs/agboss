@@ -109,7 +109,10 @@ line each, `eval/labels/<suite>.jsonl` by default: `runId` `<case>#<run>`, `exec
 `labeler`, `passed`, `score?` 1–4, `failureTags`, `note?`) — pairwise Cohen's κ (the judge with each
 labeler, the labelers with each other), a confusion matrix per labeler, the disagreements and the
 rubric (the judge's `metrics` keys over disagreements and agreements), `EvalCalibration` under
-`--json`; runs nothing (`eval.labels-not-found` / `eval.labels-invalid`); `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
+`--json`; runs nothing (`eval.labels-not-found` / `eval.labels-invalid`); `agboss compare` (and
+`compareProfiles(Application, { start, profiles, tasks })`, on the workflow `start` opens) judges each
+task's pair of answers in both orders (#396 PR 5) — agreeing verdicts are a win or a loss, anything
+else a tie, a verdict for the same position both times also a `positionFlips`; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
 `agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
 (`agboss/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs
@@ -1642,7 +1645,9 @@ compile) decides by its `judge(input)` alone — no model call, cost 0, its serv
 execution through `deps`; a `model` or an injected `JudgeModel` is `[judge.model-on-code-judge]` at
 assembly (a `JudgeModel` reached through a service throws it when called); it works in an agent's
 quality gate beside model judges, `mockLlm(CodeJudge)` names why it has no script, `testJudge(J)`
-takes no `model` (one is a `TestSetupError`). **Eval suites (#396 PR 1, `agboss/eval`):**
+takes no `model` (one is a `TestSetupError`). A model judge whose model has its judged agent's vendor prefix (`openai` of
+`openai/gpt-6`; a suite's judge: any agent of its start's workflow) warns `[judge.same-model-family]`
+(an error under `--strict`, #396 PR 5). **Eval suites (#396 PR 1, `agboss/eval`):**
 `@EvalSuite({ name: "-eval-suite", description, start, checks, cascade, cases })` — `checks` in
 order (`checkTrajectory()`, `judgedBy(Judge)`), `cascade: EvalCascade.StopAtFirstFailure | RunAll`
 required (skipped checks are `CheckStatus.Skipped`); `evalCase({ name, tenant?, execution?, history?:

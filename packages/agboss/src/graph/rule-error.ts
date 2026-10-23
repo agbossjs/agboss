@@ -165,6 +165,8 @@ export type RuleCode =
   | "pii.kind-needs-model"
   // typed judges (#262 PR 4, S115): every class an agent answers with is one its judges judge
   | "judge.wrong-reply"
+  // a judge of its own model family (#396 PR 5): a warning, an error under --strict
+  | "judge.same-model-family"
   // eval suites (#396 PR 1), reported when a suite is assembled on its application
   | "eval.unknown-start"
   | "eval.duplicate-case"

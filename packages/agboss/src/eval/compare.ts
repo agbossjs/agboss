@@ -37,7 +37,7 @@ async function judged(evaluation: EvalDeps, request: RouteRequest) {
   return outcome;
 }
 
-/** Runs every task as a first contact; scores each replyWith with the judge — until a tenant's or the application's budget is exhausted. */
+/** Runs every task as a first contact; scores each answer with the judge — until a tenant's or the application's budget is exhausted. */
 export async function runProfile(
   run: ProfileRun,
   tasks: readonly string[],
@@ -93,38 +93,62 @@ export interface PairwiseResult {
   readonly wins: number;
   readonly losses: number;
   readonly ties: number;
+  /**
+   * Tasks on which the judge picked the same position in both orders — answer 1 both times, or
+   * answer 2 both times: its position bias, not a preference. Each is also a tie (#396 S2 Q10).
+   */
+  readonly positionFlips: number;
+}
+
+/** Which side the judge preferred in one order, or that it was not sure (a failure too). */
+type Preference = "baseline" | "other" | "unsure";
+
+async function preferenceOf(
+  evaluation: EvalDeps,
+  task: string,
+  first: string,
+  second: string,
+  isOtherFirst: boolean,
+): Promise<Preference> {
+  const outcome = await judged(evaluation, {
+    instructions: PAIR_INSTRUCTIONS,
+    input: `Task:\n${task}\n\nAnswer 1:\n${first}\n\nAnswer 2:\n${second}`,
+    options: [
+      { name: "first", description: FIRST_BETTER },
+      { name: "second", description: SECOND_BETTER },
+    ],
+  });
+  if (outcome.kind !== "decided" || (outcome.decision.confidence ?? 1) < TIE_BELOW) return "unsure";
+  return (outcome.decision.next === "first") === isOtherFirst ? "other" : "baseline";
 }
 
 /**
- * Per task: which of baseline / other answers better. A/B order is randomised per task (position
- * bias); a judge failure or an unsure verdict is a tie; a missing replyWith is not compared.
+ * Per task: which of baseline / other answers better, judged in both orders — baseline first, then
+ * other first (#396 S2 Q10: always both, so a position bias cannot win). Two sure verdicts that agree
+ * are a win or a loss; anything else is a tie — an unsure verdict or a judge failure in either
+ * order, or two verdicts for opposite sides, which is the judge following the position
+ * (`positionFlips`). A missing answer is not compared.
  */
 export async function pairwise(
   evaluation: EvalDeps,
   tasks: readonly string[],
   baseline: ProfileOutcome,
   other: ProfileOutcome,
-  random: () => number = Math.random,
 ): Promise<PairwiseResult> {
-  const tally = { wins: 0, losses: 0, ties: 0 };
+  const tally = { wins: 0, losses: 0, ties: 0, positionFlips: 0 };
   for (const [i, task] of tasks.entries()) {
     const a = baseline.answers[i];
     const b = other.answers[i];
     if (a === undefined || b === undefined) continue;
-    const otherFirst = random() < 0.5;
-    const [first, second] = otherFirst ? [b, a] : [a, b];
-    const outcome = await judged(evaluation, {
-      instructions: PAIR_INSTRUCTIONS,
-      input: `Task:\n${task}\n\nAnswer 1:\n${first}\n\nAnswer 2:\n${second}`,
-      options: [
-        { name: "first", description: FIRST_BETTER },
-        { name: "second", description: SECOND_BETTER },
-      ],
-    });
-    const sure = outcome.kind === "decided" && (outcome.decision.confidence ?? 1) >= TIE_BELOW;
-    if (!sure) tally.ties += 1;
-    else if ((outcome.decision.next === "first") === otherFirst) tally.wins += 1;
-    else tally.losses += 1;
+    const baselineFirst = await preferenceOf(evaluation, task, a, b, false);
+    const otherFirst = await preferenceOf(evaluation, task, b, a, true);
+    if (baselineFirst === otherFirst && baselineFirst !== "unsure") {
+      if (baselineFirst === "other") tally.wins += 1;
+      else tally.losses += 1;
+    } else {
+      tally.ties += 1;
+      if (baselineFirst !== "unsure" && otherFirst !== "unsure") tally.positionFlips += 1;
+    }
   }
   return tally;
 }
