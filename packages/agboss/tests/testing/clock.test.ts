@@ -204,7 +204,7 @@ function clientOn(clock: VirtualClock, replies: readonly StubReply[]) {
   const send = resilientFetch(
     {
       provider: "p",
-      baseUrl: "http://p.test",
+
       timeout: seconds(5),
       retryPolicy: RetryPolicy.exponential({
         maxAttempts: 2,
@@ -248,7 +248,7 @@ describe("#262 AC12: a model call's waits run on the clock", () => {
     const send = resilientFetch(
       {
         provider: "p",
-        baseUrl: "http://p.test",
+
         timeout: seconds(5),
         retryPolicy: RetryPolicy.none(),
         clock,

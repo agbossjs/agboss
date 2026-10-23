@@ -1,8 +1,10 @@
 import type { ModelProviderHandler } from "./handler.js";
 import {
+  hasProviderMethod,
+  isTransportClass,
   modelProviderOf,
   servesModel,
-  type ModelProviderOptions,
+  type KeptModelProviderOptions,
   type ModelProviderType,
 } from "./model-provider.decorator.js";
 import type { ModelProblem } from "./problems.js";
@@ -13,10 +15,14 @@ export enum ModelPurpose {
   Decision = "decision",
 }
 
-/** A registered provider: its options and its handler instance. */
+/**
+ * A registered provider: its options, its class and, for an HTTP provider, its instance — a
+ * transport provider (#385) has none here: the application's container creates it on first use.
+ */
 export interface RegisteredModelProvider {
-  readonly options: ModelProviderOptions;
-  readonly handler: ModelProviderHandler;
+  readonly options: KeptModelProviderOptions;
+  readonly type: ModelProviderType;
+  readonly handler: ModelProviderHandler | undefined;
 }
 
 /** Which provider serves a model, or why none can. */
@@ -31,13 +37,26 @@ export interface ProviderQuery {
   readonly purpose: ModelPurpose;
 }
 
+/** What the class can serve, read from its methods (a transport's `complete` is a chat model). */
 const canServe = (provider: RegisteredModelProvider, purpose: ModelPurpose): boolean =>
   purpose === ModelPurpose.Chat
-    ? provider.handler.chat !== undefined
-    : provider.handler.routeTo !== undefined;
+    ? hasProviderMethod(provider.type, "chat") || hasProviderMethod(provider.type, "complete")
+    : hasProviderMethod(provider.type, "routeTo");
 
 const names = (providers: readonly RegisteredModelProvider[]): string =>
   providers.map((provider) => provider.options.name).join(", ");
+
+/** A provider class as registered: an HTTP one constructed with no arguments, a transport not yet. */
+export function registeredOf(cls: ModelProviderType): RegisteredModelProvider {
+  return {
+    options: modelProviderOf(cls),
+    type: cls,
+    handler: isTransportClass(cls)
+      ? undefined
+      : // an HTTP @ModelProvider class takes no arguments (the decorator's overload requires it)
+        new (cls as unknown as new () => ModelProviderHandler)(),
+  };
+}
 
 /**
  * The application's model providers (`@Application({ providers })`, #266) and who serves which
@@ -47,15 +66,9 @@ const names = (providers: readonly RegisteredModelProvider[]): string =>
 export class ModelProviderDirectory {
   constructor(readonly providers: readonly RegisteredModelProvider[]) {}
 
-  /** Instantiates `@ModelProvider` classes (each constructed with no arguments). */
+  /** The `@ModelProvider` classes, each registered (an HTTP one constructed with no arguments). */
   static of(classes: readonly ModelProviderType[]): ModelProviderDirectory {
-    return new ModelProviderDirectory(
-      classes.map((cls) => ({
-        options: modelProviderOf(cls),
-        // a @ModelProvider class is constructed with no arguments (the decorator's type requires it)
-        handler: new (cls as unknown as new () => ModelProviderHandler)(),
-      })),
-    );
+    return new ModelProviderDirectory(classes.map(registeredOf));
   }
 
   /** The one provider serving the model for its purpose; none or several is a problem. */

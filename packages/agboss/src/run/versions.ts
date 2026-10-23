@@ -17,6 +17,7 @@ import type { AgentExecutionDeps } from "./types.js";
 import { stripFunctions } from "./strip-functions.js";
 import type { AssembledToolInterceptors } from "../tool-interceptors/assembly.js";
 import { guardrailSnapshot, toolInterceptorSnapshot } from "./policy-snapshots.js";
+import { transportSnapshot } from "./transport-snapshot.js";
 import type { Class } from "../components/injection.js";
 import { childClassesOf } from "../flow/analyse/child-workflow.js";
 import {
@@ -62,7 +63,7 @@ function arbiterTexts(graph: RuntimeGraph) {
 /** What one workflow's snapshot is made of: its assembly (`AssembledWorkflow`) or its run deps. */
 export type SnapshotSource<TName extends string = string> = Pick<
   AgentExecutionDeps<TName>,
-  "config" | "prompts" | "graph" | "maxSteps" | "routers" | "compactions"
+  "config" | "prompts" | "graph" | "maxSteps" | "routers" | "compactions" | "modelProviders"
 > & {
   readonly guardrails?: { readonly guardrails: readonly LoadedGuardrail[] } | undefined;
   readonly pii?: FingerprintDeps["pii"];
@@ -110,6 +111,8 @@ const ownSnapshot = <TName extends string>(
   ...guardrailSnapshot(deps.guardrails?.guardrails ?? []),
   // the tool interceptors (#384): only a workflow that has one, so the others keep their hash
   ...toolInterceptorSnapshot(deps.toolInterceptors),
+  // transport providers (#385): likewise
+  ...transportSnapshot(deps.modelProviders),
 });
 
 /**

@@ -287,6 +287,124 @@ export class AppOpenRouterModelProvider extends OpenRouterProvider {
 }
 ```
 
+### A custom transport: `complete(request)`
+
+A provider that is not an OpenAI-compatible HTTP server — AWS Bedrock through its SDK, Vertex AI,
+a corporate gateway with its own authorisation — `implements ModelProviderHandler` with
+`complete(request)` (#385): no `baseUrl`, `baseUrlField` or `apiKey` (both modes at once do not
+compile and fail assembly with `[model-provider.both-modes]`), its services through `deps`. The
+application's container creates it on its first call — one instance per application — and an
+injected `TenantContext` reads the calling execution. Everything of the gateway runs around
+`complete()` unchanged: `serves`, the budgets before the call and the ledger after it, the
+`rateLimitPolicy` queue and its 429 pause, `retryPolicy`, `circuitBreakerPolicy` (readiness
+`Degraded`, its `fallback` either way between HTTP and transport providers), PII masking, the answer
+tools of a DTO agent, traces, and `mockLlm` in `testWith` (which answers above it: `complete()` is
+never called in a scripted test).
+
+```ts file=src/billing/model-providers/bedrock.model-provider.ts
+// model-providers/bedrock.model-provider.ts — a transport: the class makes the call itself
+import { Injectable, TenantContext } from "agboss";
+import {
+  ModelCost,
+  ModelFailure,
+  ModelProvider,
+  ModelProviderFailureError,
+  QueueBalancingStrategy,
+  RateLimitPolicy,
+  RetryPolicy,
+  TRANSIENT_FAILURES,
+  type ModelProviderHandler,
+  type ModelProviderMessage,
+  type ModelProviderRequest,
+  type ModelProviderResponse,
+  type ModelProviderToolDefinition,
+} from "agboss/models";
+import { minutes, seconds, usd } from "agboss/units";
+
+/** What the SDK takes: the framework's plain messages and tools, the tenant, the call's signal. */
+export interface BedrockInvocation {
+  readonly model: string;
+  readonly messages: readonly ModelProviderMessage[];
+  readonly tools: readonly ModelProviderToolDefinition[];
+  readonly tenantId: string;
+  readonly signal: AbortSignal;
+}
+
+@Injectable()
+export class BedrockSdkClient {
+  async invoke(invocation: BedrockInvocation): Promise<ModelProviderResponse> {
+    const response = await fetch(`https://bedrock.internal/${invocation.model}`, {
+      method: "POST",
+      body: JSON.stringify(invocation),
+      signal: invocation.signal,
+    });
+    if (response.status === 429) {
+      const retryAfter = seconds(Number(response.headers.get("retry-after") ?? "1"));
+      throw new ModelProviderFailureError(ModelFailure.RateLimited, { retryAfter });
+    }
+    return (await response.json()) as ModelProviderResponse; // { text, toolCalls?, usage, cost? }
+  }
+}
+
+@ModelProvider({
+  name: "bedrock-model-provider",
+  description: "AWS Bedrock through its SDK",
+  serves: [/^bedrock\//],
+  timeout: minutes(2), // per attempt: request.signal aborts at it
+  cost: ModelCost.fromPrices({
+    "bedrock/claude": { inputPerMillion: usd(3), outputPerMillion: usd(15) },
+  }),
+  rateLimitPolicy: RateLimitPolicy.of({
+    maxConcurrentCalls: 8,
+    balancing: QueueBalancingStrategy.TenantRoundRobin,
+  }),
+  retryPolicy: RetryPolicy.exponential({
+    maxAttempts: 3,
+    initialDelay: seconds(1),
+    maxDelay: seconds(20),
+    jitter: true,
+    retryOn: TRANSIENT_FAILURES,
+  }),
+  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  deps: [BedrockSdkClient, TenantContext], // reasoning / promptCaching unset: off
+})
+export class BedrockModelProvider implements ModelProviderHandler {
+  constructor(
+    private readonly bedrockSdkClient: BedrockSdkClient,
+    private readonly tenantContext: TenantContext,
+  ) {}
+
+  async complete(request: ModelProviderRequest): Promise<ModelProviderResponse> {
+    return this.bedrockSdkClient.invoke({
+      model: request.model,
+      messages: request.messages,
+      tools: request.tools,
+      tenantId: this.tenantContext.tenantId, // the execution of this call
+      signal: request.signal,
+    });
+  }
+}
+```
+
+- **The request** (`ModelProviderRequest`): `model` (a fallback's mapped one), `messages`
+  (`ModelProviderMessage { role: ModelProviderMessageRole, text, toolCalls?, toolCallId? }`, text
+  only, masked), `tools` (`ModelProviderToolDefinition { name, description, parameters }` — the
+  agent's own and its `answer-<dto>` tools), `temperature`, `maxTokens` (`undefined` =
+  `TokenLimit.MODEL_MAX`), `reasoning`, `promptCaching`, `signal` (pass it to the SDK; an SDK that
+  ignores it is cut at `timeout` anyway, a `Timeout`).
+- **The answer** (`ModelProviderResponse`): `text`, `toolCalls?` (`ModelProviderToolCall { id,
+name, arguments }`), `usage` (`ModelProviderUsage { inputTokens, outputTokens, cacheReadTokens?,
+cacheWriteTokens? }` — the rate limit's tokens and the price table's), `cost?` (exact,
+  `costSource: "api"`; else the table), `finishReason?` (`FinishReason.Length`).
+- **Failures**: throw `ModelProviderFailureError(ModelFailure.…, { retryAfter?, cause? })` — the
+  retry policy retries the failures it lists, `RateLimited` pauses the whole queue for
+  `retryAfter`, the breaker counts it. Any other error is not retried and counted by the breaker.
+- `capabilities(model, connection)` is optional on a transport: given, it is checked at start like
+  an HTTP provider's; absent, its models' settings are not checked (`npx agboss check --models`
+  never creates a transport). `npx agboss describe` prints `bedrock-model-provider →
+BedrockModelProvider (…) · serves /^bedrock\// · transport: BedrockModelProvider.complete()`
+  and each `model: bedrock/claude → bedrock-model-provider`; the class is in `configHash`.
+
 ### The three policies
 
 | Policy                 | Its one duty                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -295,7 +413,7 @@ export class AppOpenRouterModelProvider extends OpenRouterProvider {
 | `rateLimitPolicy`      | how many calls go out — `RateLimitPolicy.of({ maxConcurrentCalls?, perMinute?: { calls?, tokens? }, balancing? })`, at least one limit. Without it there is no limit. A call without room **waits** (never an error, never a cost): the tenant-fair queue → the 429 pause → the per-minute tokens → a slot → the per-minute calls. A 429 pauses the provider's whole queue for `Retry-After` on every instance and halves that instance's concurrency, which grows back by one a minute |
 | `circuitBreakerPolicy` | `{ failureThreshold, window, openFor, fallback?, fallbackModels? }` (required): that many failed calls within the window open it for `openFor`; while open, calls go to the `fallback` provider with each model mapped by `fallbackModels`, or fail fast with `ModelCallError` `model.circuit-open`. An open breaker makes readiness `Degraded`                                                                                                                                         |
 
-The fallback provider is listed in `@Application({ providers })` too, serving its own model strings;
+The fallback — HTTP or a transport, either way round — serves its own model strings;
 every model used on the primary must be mapped to one it serves (`model.fallback-unmapped`), priced
 when it prices from a table (`model.fallback-no-price`) — checked at start and by
 `npx agboss check --models`.
@@ -330,7 +448,8 @@ outputPerMillion: usd(…), cachedInputPerMillion?: usd(…) } })` — tokens ×
   not price is `model.no-price` at start. A call with neither fails: never silently free.
 - `reasoning` (`Reasoning.modelDecides()`, `.on({ effort: ReasoningEffort.High })`,
   `.on({ budget: { tokens } })`, `.off()`) and `promptCaching` (`PromptCaching.whereSupported({ … })`,
-  `.off()`) are required on the provider and overridden by a component (`reasoning`, `cache`).
+  `.off()`) are required on an HTTP provider (a transport's default to off) and overridden by a
+  component (`reasoning`, `cache`).
 - At start and with `npx agboss check --models` every model setting is checked against what its
   model supports — all problems at once (`model.unsupported-setting`, `model.unknown-model`); nothing
   is substituted.

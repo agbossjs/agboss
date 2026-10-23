@@ -38,7 +38,6 @@ function client(
   const clock = new InstantClock();
   const options: ResilienceOptions = {
     provider: "openrouter",
-    baseUrl: "http://openrouter.test/api/v1",
     timeout: seconds(5),
     retryPolicy,
     clock,
@@ -121,7 +120,7 @@ describe("AC6: retry policies — only the listed failures, Retry-After honoured
     const failing = vi.fn<typeof fetch>(() => Promise.reject(new TypeError("fetch failed")));
     const options: ResilienceOptions = {
       provider: "p",
-      baseUrl: "http://p.test",
+
       timeout: seconds(1),
       retryPolicy: RetryPolicy.fixed({
         maxAttempts: 2,
@@ -229,7 +228,7 @@ describe("#266 AC6: backoff is the retry policy's, and a sleeping retry holds no
     const send = resilientFetch(
       {
         provider: "p-model-provider",
-        baseUrl: "http://p.test",
+
         timeout: seconds(30),
         retryPolicy: RetryPolicy.exponential({
           maxAttempts: 3,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
-import { ModelCallError, RetryPolicy } from "../../src/models/index.js";
+import { ModelCallError, ModelProviderDirectory, RetryPolicy } from "../../src/models/index.js";
+import { createProviderGateway } from "../../src/llm/gateway.js";
 import { connectionOf } from "../../src/models/connections.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { resilientFetch } from "../../src/models/resilient-fetch.js";
@@ -11,6 +12,18 @@ import { TestOpenRouterProvider } from "./providers.fixture.js";
 import { completion, providerStub, type StubReply } from "./stub.js";
 
 const policy = { failureThreshold: 3, window: minutes(1), openFor: seconds(30) };
+const AGENT = { kind: "agent", agent: "scout" } as const;
+const KIMI = { model: "moonshotai/kimi-k2.6", temperature: 0, maxTokens: 1 };
+
+/** OpenRouter's gateway (its fallback: the backup) with its breaker already open (#385: the chat model falls back). */
+async function openedGateway(send: typeof fetch) {
+  const calls = instanceCalls();
+  const options = modelProviderOf(TestOpenRouterProvider);
+  const breaker = calls.breakerOf(options.name, options.circuitBreakerPolicy);
+  for (let failure = 0; failure < 3; failure++) await breaker.recordFailure();
+  const directory = ModelProviderDirectory.of([TestOpenRouterProvider]);
+  return createProviderGateway(directory, { env: ENV, environment: KEYS, calls, send });
+}
 
 /** A client of one provider on one instance; two clients over one database are two instances. */
 function breakerClient(
@@ -24,7 +37,6 @@ function breakerClient(
   const send = resilientFetch(
     {
       provider: "openrouter",
-      baseUrl: "http://openrouter.test/api/v1",
       timeout: seconds(5),
       retryPolicy: RetryPolicy.none(),
       breaker,
@@ -103,53 +115,28 @@ describe("AC6: the circuit breaker", () => {
     expect((await second.send()).status).toBe(200);
   });
 
-  it("AC6: while open, calls go to the fallback provider — its base URL and its key", async () => {
-    const primary = providerStub([{ status: 500 }]);
+  it("AC6: while open, calls go to the fallback provider — its base URL, its key and its model", async () => {
     const backup = providerStub([completion("from backup")]);
-    const options = modelProviderOf(TestOpenRouterProvider);
-    const viaBackup: typeof fetch = (input, init) =>
-      String(input instanceof Request ? input.url : input).startsWith("http://backup.test")
-        ? backup.fetch(input, init)
-        : primary.fetch(input, init);
-    const connection = connectionOf(
-      { ...options, retryPolicy: RetryPolicy.none() },
-      { env: ENV, environment: KEYS, requireKeys: true, calls: instanceCalls(), send: viaBackup },
-    );
-    const call = () =>
-      connection.fetch(`${connection.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: { authorization: "Bearer k" },
-        body: "{}",
-      });
+    const gateway = await openedGateway(backup.fetch);
 
-    for (let n = 0; n < 3; n++) await call();
-    const replyWith = await call();
+    const answer = await gateway.chatModel({ user: AGENT, settings: KIMI }).invoke("hi");
 
-    expect(replyWith.status).toBe(200);
+    expect(answer.text).toBe("from backup");
     expect(backup.requests[0]).toMatchObject({
       url: "http://backup.test/v1/chat/completions",
       authorization: "Bearer backup-key",
+      body: expect.objectContaining({ model: "backup/kimi-k2.6" }),
     });
   });
 
-  it("AC6: the breaker open while the fallback also fails: the fallback's failure is the replyWith", async () => {
+  it("AC6: the breaker open while the fallback also fails: the fallback's failure is the call's", async () => {
     const failing = providerStub([{ status: 503 }]);
-    const connection = connectionOf(
-      { ...modelProviderOf(TestOpenRouterProvider), retryPolicy: RetryPolicy.none() },
-      {
-        env: ENV,
-        environment: KEYS,
-        requireKeys: true,
-        calls: instanceCalls(),
-        send: failing.fetch,
-      },
-    );
-    for (let n = 0; n < 3; n++) await connection.fetch(`${connection.baseUrl}/x`);
+    const gateway = await openedGateway(failing.fetch);
 
-    const replyWith = await connection.fetch(`${connection.baseUrl}/x`);
-
-    expect(replyWith.status).toBe(503);
-    expect(failing.requests.at(-1)?.url).toBe("http://backup.test/v1/x");
+    await expect(gateway.chatModel({ user: AGENT, settings: KIMI }).invoke("hi")).rejects.toThrow();
+    expect(failing.requests.map((request) => request.url)).toEqual([
+      "http://backup.test/v1/chat/completions",
+    ]);
   });
 
   it("AC6: without the instance's shared calls (the model check) a connection has no breaker", async () => {

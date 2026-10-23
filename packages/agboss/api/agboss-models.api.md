@@ -143,6 +143,11 @@ export interface ExponentialRetryOptions {
 }
 
 // @public
+export enum FinishReason {
+    Length = "length"
+}
+
+// @public
 export interface FixedRetryOptions {
     // (undocumented)
     readonly delay: Milliseconds;
@@ -251,8 +256,18 @@ export interface ModelProblem {
 // @public
 export type ModelProblemCode = "model.unserved" | "model.ambiguous-provider" | "model.unknown-model" | "model.unsupported-setting" | "model.no-price" | "model.fallback-unmapped" | "model.fallback-no-price";
 
+// Warning: (ae-forgotten-export) The symbol "HttpModelProviderOptions" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "HttpModelProviderType" needs to be exported by the entry point index.d.ts
+//
 // @public
-export function ModelProvider(options: ModelProviderOptions): <C extends ModelProviderType>(value: C) => C;
+export function ModelProvider(options: HttpModelProviderOptions): <C extends HttpModelProviderType>(value: C) => C;
+
+// Warning: (ae-forgotten-export) The symbol "Token" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "TransportModelProviderOptions" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "TransportModelProviderType" needs to be exported by the entry point index.d.ts
+//
+// @public (undocumented)
+export function ModelProvider<const D extends readonly Token[] = []>(options: TransportModelProviderOptions<D>): <C extends TransportModelProviderType<D>>(value: C) => C;
 
 // @public
 export class ModelProviderDirectory {
@@ -274,35 +289,117 @@ export class ModelProviderError extends Error {
 }
 
 // @public
+export class ModelProviderFailureError extends AGBossError {
+    constructor(failure: ModelFailure, options?: ModelProviderFailureOptions);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    readonly failure: ModelFailure;
+    // (undocumented)
+    readonly retryAfter: Milliseconds | undefined;
+}
+
+// @public
+export interface ModelProviderFailureOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly retryAfter?: Milliseconds;
+}
+
+// @public
 export interface ModelProviderHandler {
-    readonly capabilities: (model: string, connection: ProviderConnection) => Promise<ModelCapabilities | undefined>;
+    readonly capabilities?: (model: string, connection: ProviderConnection) => Promise<ModelCapabilities | undefined>;
     // (undocumented)
     readonly chat?: (request: ChatRequest) => BaseChatModel;
+    readonly complete?: (request: ModelProviderRequest) => Promise<ModelProviderResponse>;
     // (undocumented)
     readonly routeTo?: (request: DecideRequest) => Promise<unknown>;
 }
 
 // @public
-export interface ModelProviderOptions {
-    readonly apiKey?: string;
-    readonly baseUrl: string;
-    readonly baseUrlField?: string;
-    readonly circuitBreakerPolicy: CircuitBreakerPolicy;
+export interface ModelProviderMessage {
     // (undocumented)
-    readonly cost: ModelCost;
+    readonly role: ModelProviderMessageRole;
     // (undocumented)
-    readonly description: string;
-    readonly name: string;
-    readonly promptCaching: PromptCaching;
-    readonly rateLimitPolicy?: RateLimitPolicy;
-    readonly reasoning: Reasoning;
-    readonly retryPolicy: RetryPolicy;
-    readonly serves: readonly RegExp[];
-    readonly timeout: Milliseconds;
+    readonly text: string;
+    readonly toolCallId?: string;
+    readonly toolCalls?: readonly ModelProviderToolCall[];
 }
 
 // @public
-export type ModelProviderType = abstract new () => ModelProviderHandler;
+export enum ModelProviderMessageRole {
+    // (undocumented)
+    Assistant = "assistant",
+    // (undocumented)
+    System = "system",
+    Tool = "tool",
+    // (undocumented)
+    User = "user"
+}
+
+// @public
+export type ModelProviderOptions = HttpModelProviderOptions | TransportModelProviderOptions;
+
+// @public
+export interface ModelProviderRequest {
+    readonly maxTokens: number | undefined;
+    // (undocumented)
+    readonly messages: readonly ModelProviderMessage[];
+    readonly model: string;
+    readonly promptCaching: PromptCaching;
+    readonly reasoning: Reasoning;
+    readonly signal: AbortSignal;
+    // (undocumented)
+    readonly temperature: number;
+    readonly tools: readonly ModelProviderToolDefinition[];
+}
+
+// @public
+export interface ModelProviderResponse {
+    readonly cost?: Usd;
+    // (undocumented)
+    readonly finishReason?: FinishReason;
+    // (undocumented)
+    readonly text: string;
+    // (undocumented)
+    readonly toolCalls?: readonly ModelProviderToolCall[];
+    // (undocumented)
+    readonly usage: ModelProviderUsage;
+}
+
+// @public
+export interface ModelProviderToolCall {
+    // (undocumented)
+    readonly arguments: Readonly<Record<string, unknown>>;
+    // (undocumented)
+    readonly id: string;
+    // (undocumented)
+    readonly name: string;
+}
+
+// @public
+export interface ModelProviderToolDefinition {
+    // (undocumented)
+    readonly description: string;
+    // (undocumented)
+    readonly name: string;
+    readonly parameters: Readonly<Record<string, unknown>>;
+}
+
+// @public
+export type ModelProviderType = abstract new (...args: never[]) => ModelProviderHandler;
+
+// @public
+export interface ModelProviderUsage {
+    // (undocumented)
+    readonly cacheReadTokens?: number;
+    // (undocumented)
+    readonly cacheWriteTokens?: number;
+    // (undocumented)
+    readonly inputTokens: number;
+    // (undocumented)
+    readonly outputTokens: number;
+}
 
 // @public
 export enum ModelPurpose {
@@ -621,17 +718,17 @@ export interface WireRequest {
 // src/models/cost.ts:7:3 - (ae-undocumented) Missing documentation for "outputPerMillion".
 // src/models/cost.ts:8:3 - (ae-undocumented) Missing documentation for "cachedInputPerMillion".
 // src/models/cost.ts:19:14 - (ae-undocumented) Missing documentation for "ModelCost".
-// src/models/handler.ts:11:3 - (ae-undocumented) Missing documentation for "provider".
-// src/models/handler.ts:12:3 - (ae-undocumented) Missing documentation for "baseUrl".
-// src/models/handler.ts:13:3 - (ae-undocumented) Missing documentation for "apiKey".
-// src/models/handler.ts:20:3 - (ae-undocumented) Missing documentation for "settings".
-// src/models/handler.ts:21:3 - (ae-undocumented) Missing documentation for "reasoning".
-// src/models/handler.ts:22:3 - (ae-undocumented) Missing documentation for "promptCaching".
-// src/models/handler.ts:23:3 - (ae-undocumented) Missing documentation for "connection".
-// src/models/handler.ts:28:3 - (ae-undocumented) Missing documentation for "decision".
-// src/models/handler.ts:29:3 - (ae-undocumented) Missing documentation for "connection".
-// src/models/handler.ts:37:3 - (ae-undocumented) Missing documentation for "chat".
-// src/models/handler.ts:38:3 - (ae-undocumented) Missing documentation for "routeTo".
+// src/models/handler.ts:15:3 - (ae-undocumented) Missing documentation for "provider".
+// src/models/handler.ts:16:3 - (ae-undocumented) Missing documentation for "baseUrl".
+// src/models/handler.ts:17:3 - (ae-undocumented) Missing documentation for "apiKey".
+// src/models/handler.ts:24:3 - (ae-undocumented) Missing documentation for "settings".
+// src/models/handler.ts:25:3 - (ae-undocumented) Missing documentation for "reasoning".
+// src/models/handler.ts:26:3 - (ae-undocumented) Missing documentation for "promptCaching".
+// src/models/handler.ts:27:3 - (ae-undocumented) Missing documentation for "connection".
+// src/models/handler.ts:32:3 - (ae-undocumented) Missing documentation for "decision".
+// src/models/handler.ts:33:3 - (ae-undocumented) Missing documentation for "connection".
+// src/models/handler.ts:43:3 - (ae-undocumented) Missing documentation for "chat".
+// src/models/handler.ts:44:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/models/jev-alias.ts:4:14 - (ae-undocumented) Missing documentation for "JevModelProvider".
 // src/models/jev-alias.ts:6:1 - (ae-undocumented) Missing documentation for "JevModelProvider".
 // src/models/jev.provider.ts:14:14 - (ae-undocumented) Missing documentation for "OPENROUTER_BASE_URL".
@@ -641,10 +738,9 @@ export interface WireRequest {
 // src/models/model-failure.ts:4:3 - (ae-undocumented) Missing documentation for "RateLimited".
 // src/models/model-failure.ts:5:3 - (ae-undocumented) Missing documentation for "ServerError".
 // src/models/model-failure.ts:6:3 - (ae-undocumented) Missing documentation for "NetworkError".
-// src/models/model-provider.decorator.ts:20:3 - (ae-undocumented) Missing documentation for "description".
-// src/models/model-provider.decorator.ts:39:3 - (ae-undocumented) Missing documentation for "cost".
-// src/models/model-provider.decorator.ts:60:1 - (ae-undocumented) Missing documentation for "ModelProviderError".
-// src/models/model-provider.decorator.ts:61:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/model-provider.decorator.ts:102:1 - (ae-undocumented) Missing documentation for "ModelProviderError".
+// src/models/model-provider.decorator.ts:103:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/model-provider.decorator.ts:123:1 - (ae-undocumented) Missing documentation for "ModelProvider".
 // src/models/openai-compatible.provider.ts:16:3 - (ae-undocumented) Missing documentation for "caching".
 // src/models/openai-compatible.provider.ts:17:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/openai-compatible.provider.ts:31:3 - (ae-undocumented) Missing documentation for "requestFields".
@@ -702,9 +798,9 @@ export interface WireRequest {
 // src/models/reasoning.ts:29:1 - (ae-undocumented) Missing documentation for "ReasoningError".
 // src/models/reasoning.ts:30:12 - (ae-undocumented) Missing documentation for "name".
 // src/models/reasoning.ts:33:14 - (ae-undocumented) Missing documentation for "Reasoning".
-// src/models/resolve.ts:12:3 - (ae-undocumented) Missing documentation for "Chat".
-// src/models/resolve.ts:13:3 - (ae-undocumented) Missing documentation for "Decision".
-// src/models/resolve.ts:48:15 - (ae-undocumented) Missing documentation for "providers".
+// src/models/resolve.ts:14:3 - (ae-undocumented) Missing documentation for "Chat".
+// src/models/resolve.ts:15:3 - (ae-undocumented) Missing documentation for "Decision".
+// src/models/resolve.ts:67:15 - (ae-undocumented) Missing documentation for "providers".
 // src/models/retry-policy.ts:6:3 - (ae-undocumented) Missing documentation for "Exponential".
 // src/models/retry-policy.ts:7:3 - (ae-undocumented) Missing documentation for "Fixed".
 // src/models/retry-policy.ts:8:3 - (ae-undocumented) Missing documentation for "None".
@@ -717,6 +813,30 @@ export interface WireRequest {
 // src/models/retry-policy.ts:35:1 - (ae-undocumented) Missing documentation for "RetryPolicyError".
 // src/models/retry-policy.ts:36:12 - (ae-undocumented) Missing documentation for "name".
 // src/models/retry-policy.ts:45:14 - (ae-undocumented) Missing documentation for "RetryPolicy".
+// src/models/transport/failure-error.ts:9:3 - (ae-undocumented) Missing documentation for "cause".
+// src/models/transport/failure-error.ts:19:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/transport/failure-error.ts:20:3 - (ae-undocumented) Missing documentation for "failure".
+// src/models/transport/failure-error.ts:21:3 - (ae-undocumented) Missing documentation for "retryAfter".
+// src/models/transport/transport.ts:15:3 - (ae-undocumented) Missing documentation for "System".
+// src/models/transport/transport.ts:16:3 - (ae-undocumented) Missing documentation for "User".
+// src/models/transport/transport.ts:17:3 - (ae-undocumented) Missing documentation for "Assistant".
+// src/models/transport/transport.ts:24:3 - (ae-undocumented) Missing documentation for "id".
+// src/models/transport/transport.ts:25:3 - (ae-undocumented) Missing documentation for "name".
+// src/models/transport/transport.ts:26:3 - (ae-undocumented) Missing documentation for "arguments".
+// src/models/transport/transport.ts:31:3 - (ae-undocumented) Missing documentation for "role".
+// src/models/transport/transport.ts:32:3 - (ae-undocumented) Missing documentation for "text".
+// src/models/transport/transport.ts:41:3 - (ae-undocumented) Missing documentation for "name".
+// src/models/transport/transport.ts:42:3 - (ae-undocumented) Missing documentation for "description".
+// src/models/transport/transport.ts:49:3 - (ae-undocumented) Missing documentation for "inputTokens".
+// src/models/transport/transport.ts:50:3 - (ae-undocumented) Missing documentation for "outputTokens".
+// src/models/transport/transport.ts:51:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/models/transport/transport.ts:52:3 - (ae-undocumented) Missing documentation for "cacheWriteTokens".
+// src/models/transport/transport.ts:59:3 - (ae-undocumented) Missing documentation for "messages".
+// src/models/transport/transport.ts:62:3 - (ae-undocumented) Missing documentation for "temperature".
+// src/models/transport/transport.ts:75:3 - (ae-undocumented) Missing documentation for "text".
+// src/models/transport/transport.ts:76:3 - (ae-undocumented) Missing documentation for "toolCalls".
+// src/models/transport/transport.ts:77:3 - (ae-undocumented) Missing documentation for "usage".
+// src/models/transport/transport.ts:83:3 - (ae-undocumented) Missing documentation for "finishReason".
 // src/models/wire.ts:34:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/wire.ts:35:3 - (ae-undocumented) Missing documentation for "messages".
 // src/models/wire.ts:36:3 - (ae-undocumented) Missing documentation for "tools".

@@ -3,8 +3,7 @@ import type { ResolvedModelSettings } from "../config/types.js";
 import type { Environment } from "../flow/generated-types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { ProviderCalls } from "../models/calls/provider-calls.js";
-import { connectionOf } from "../models/connections.js";
-import type { ProviderConnection } from "../models/handler.js";
+import { isModelProviderClass, isTransportClass } from "../models/model-provider.decorator.js";
 import { ConfigurationError } from "../models/problems.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
 import {
@@ -13,12 +12,24 @@ import {
   type RegisteredModelProvider,
 } from "../models/resolve.js";
 import type { JevClient } from "./jev-client.js";
+import type * as ProviderChat from "./provider-chat.js";
+import type { TransportResolver } from "./provider-chat.js";
 import type { ModelFactory } from "./registry.js";
+import { withFallback } from "./provider-fallback.js";
+import {
+  chatOfProviders,
+  connectionsOf,
+  ProviderCapabilityError,
+  registeredIn,
+} from "./provider-chat-of.js";
+import { withFallbacks } from "../models/resolution.js";
+
+export { ProviderCapabilityError } from "./provider-chat-of.js";
 
 /**
  * What the production clients need: the process environment (base URLs), the application's
- * environment (keys), the instance's shared calls (rate limits, 429 pauses, breakers) and, in
- * tests, a raw client.
+ * environment (keys), the instance's shared calls (rate limits, 429 pauses, breakers), the
+ * application's container for transport providers (#385) and, in tests, a raw client.
  */
 export interface ProviderClientOptions {
   readonly env: NodeJS.ProcessEnv;
@@ -28,54 +39,64 @@ export interface ProviderClientOptions {
   readonly send?: ProviderFetch;
   /** The application's clock (timeouts, retry waits). Default: the system's. */
   readonly clock?: Clock;
+  /** Creates a transport provider's instance (the application's container), on its first call. */
+  readonly transports?: TransportResolver;
 }
 
-export class ProviderCapabilityError extends Error {
-  override name = "ProviderCapabilityError";
+/** The chat models of transport providers (#385), loaded only when an application has one. */
+export type ChatExtensions = Pick<typeof ProviderChat, "transportChatOf">;
+
+/** The extensions, loaded when a provider or a breaker's fallback is a transport (#385: lazily). */
+export async function chatExtensionsFor(
+  directory: ModelProviderDirectory,
+): Promise<ChatExtensions | undefined> {
+  const classes = withFallbacks(directory.providers.map((provider) => provider.type));
+  return classes.some(isTransportClass) ? import("./provider-chat.js") : undefined;
 }
 
 /**
  * The raw clients of the default gateway over model providers: the provider serving each model
- * makes its chat model or answers its decision. Every provider's key is read here, at startup,
- * from the application's environment.
+ * makes its chat model (`chat`, or a transport's `complete`, #385) or answers its decision; a
+ * breaker's fallback wraps the chat model. Every HTTP provider's key is read here, at startup, from
+ * the application's environment.
  */
 export function providerClients(
   directory: ModelProviderDirectory,
   options: ProviderClientOptions,
+  extensions?: ChatExtensions,
 ): { readonly chatModel: ModelFactory; readonly jevClient: JevClient } {
-  const connections = new Map<string, ProviderConnection>(
-    directory.providers.map((provider) => [
-      provider.options.name,
-      connectionOf(provider.options, { ...options, requireKeys: true }),
-    ]),
-  );
-  const providerFor = (model: string, purpose: ModelPurpose) => {
+  const connectionFor = connectionsOf(options);
+  directory.providers.forEach(connectionFor);
+  const registeredFor = registeredIn(directory);
+  const chatOf = chatOfProviders({
+    options,
+    connectionFor,
+    ...(extensions === undefined ? {} : { extensions }),
+  });
+  const providerFor = (model: string, purpose: ModelPurpose): RegisteredModelProvider => {
     const resolution = directory.resolve({ key: model, model, purpose });
     if (resolution.kind === "problem") throw new ConfigurationError([resolution.problem]);
-    const provider: RegisteredModelProvider = resolution.provider;
-    const connection =
-      connections.get(provider.options.name) ??
-      connectionOf(provider.options, { ...options, requireKeys: true });
-    return { provider, connection };
+    return resolution.provider;
   };
   const chatModel = (settings: ResolvedModelSettings): BaseChatModel => {
-    const { provider, connection } = providerFor(settings.model, ModelPurpose.Chat);
-    const chat = provider.handler.chat?.bind(provider.handler);
-    if (chat === undefined)
-      throw new ProviderCapabilityError(`${provider.options.name} has no chat models`);
-    return chat({
+    const provider = providerFor(settings.model, ModelPurpose.Chat);
+    const primary = chatOf(provider, settings);
+    const fallback = provider.options.circuitBreakerPolicy.fallback;
+    if (!isModelProviderClass(fallback) || options.calls === undefined) return primary;
+    return withFallback(primary, {
+      provider,
+      fallback: registeredFor(fallback),
       settings,
-      reasoning: settings.reasoning ?? provider.options.reasoning,
-      promptCaching: settings.promptCaching ?? provider.options.promptCaching,
-      connection,
+      calls: options.calls,
+      chatOf,
     });
   };
   const jevClient: JevClient = (decision) => {
-    const { provider, connection } = providerFor(decision.model, ModelPurpose.Decision);
-    const routeTo = provider.handler.routeTo?.bind(provider.handler);
+    const provider = providerFor(decision.model, ModelPurpose.Decision);
+    const routeTo = provider.handler?.routeTo?.bind(provider.handler);
     if (routeTo === undefined)
       throw new ProviderCapabilityError(`${provider.options.name} does not routeTo`);
-    return routeTo({ decision, connection });
+    return routeTo({ decision, connection: connectionFor(provider) });
   };
   return { chatModel, jevClient };
 }

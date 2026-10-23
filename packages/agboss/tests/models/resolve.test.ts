@@ -10,6 +10,7 @@ import {
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "../../src/models/workflow-models.js";
 import {
+  httpOptionsOf,
   LocalMirrorModelProvider,
   LocalModelProvider,
   TestOpenRouterProvider,
@@ -78,7 +79,7 @@ describe("AC6: which provider serves a model (serves patterns)", () => {
   });
 
   it("AC6: a provider needs a serves pattern; a plain class is not a provider", () => {
-    expect(() => ModelProvider({ ...modelProviderOf(LocalModelProvider), serves: [] })).toThrow(
+    expect(() => ModelProvider({ ...httpOptionsOf(LocalModelProvider), serves: [] })).toThrow(
       ModelProviderError,
     );
     expect(() => modelProviderOf(Date)).toThrow(ModelProviderError);

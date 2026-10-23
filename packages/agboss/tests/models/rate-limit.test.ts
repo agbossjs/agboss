@@ -40,7 +40,6 @@ function clientOf(
   const client = resilientFetch(
     {
       provider: "limited-model-provider",
-      baseUrl: "http://limited.test/v1",
       timeout: seconds(30),
       retryPolicy: RetryPolicy.none(),
       ...(gate === undefined ? {} : { gate }),

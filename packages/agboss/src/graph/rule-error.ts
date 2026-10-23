@@ -140,6 +140,7 @@ export type RuleCode =
   // model providers (#266 PR 1): every model of the application resolves to one provider
   | "model.unserved"
   | "model.ambiguous-provider"
+  | "model-provider.both-modes"
   // contexts (#261 PR 3), reported at the application's assembly
   | "context.prompt-unused"
   // channels (#267 PR 1): roles found from the graph, implementations in the application's providers

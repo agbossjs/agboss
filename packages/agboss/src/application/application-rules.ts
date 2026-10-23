@@ -9,6 +9,7 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
 import { declaredFieldsOf, environmentRuleViolations } from "../environments/contract.js";
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
+import { providerModeViolations } from "../models/provider-mode-rules.js";
 import type { ApplicationOptions } from "./application.js";
 import { contextRuleViolations } from "../flow/context/context-rules.js";
 import { componentOf } from "../components/metadata.js";
@@ -162,6 +163,7 @@ export function applicationRuleViolations(
     ...budgetViolations(options),
     ...budgetRuleViolations(options),
     ...modelProviderNameViolations(options),
+    ...providerModeViolations(options.name, options.providers),
     ...infrastructureViolations(options),
     ...environmentRuleViolations(
       options.name,

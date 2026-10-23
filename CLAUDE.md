@@ -19,6 +19,19 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
   application's environment (`secret("OPENROUTER_API_KEY")`; a provider's `apiKey` names its field),
   the base URL optionally its text field `openRouterBaseUrl` (`baseUrlField`;
   `env.optional("OPENROUTER_BASE_URL")` — unset → the decorator's `baseUrl`, no repeated default). Provider names end with `-model-provider` (`[name.kind-suffix]`).
+  A **transport** provider (#385) `implements ModelProviderHandler` with `complete(request)` in
+  place of `baseUrl` / `baseUrlField` / `apiKey` (both modes → a compile error and
+  `[model-provider.both-modes]`): `ModelProviderRequest` (`model`, `messages:
+ModelProviderMessage[]`, `tools: ModelProviderToolDefinition[]`, `temperature`, `maxTokens`,
+  `reasoning`, `promptCaching` — off when unset —, `signal`) → `ModelProviderResponse` (`text`,
+  `toolCalls?`, `usage`, `cost?`, `finishReason?`), a failure thrown as
+  `ModelProviderFailureError(ModelFailure.…, { retryAfter?, cause? })`; its `deps` injected by the
+  application's container on its first call (one instance; `TenantContext` reads the calling
+  execution); `description`, `timeout`, `cost` required, `capabilities?` optional (absent → its
+  settings are not checked). It is a `BaseChatModel` adapter (`TransportChatModel`), and every call
+  of every provider goes through one attempt runner (`models/calls/attempt-runner.ts`: retries, the
+  rate limit and its 429 pause, the breaker); a breaker's `fallback` is at the chat model
+  (`FallbackChatModel`), HTTP ↔ transport either way.
   Policies per provider, app-wide (#266 PR 2): `retryPolicy` retries one call (the only backoff);
   `rateLimitPolicy: RateLimitPolicy.of({ maxConcurrentCalls, perMinute: { calls, tokens },
 balancing })` — one limit for every execution, tenant and instance (`RateLimitRepository`), a
@@ -1102,8 +1115,9 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
   when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
   rate limit, 429 pause and circuit breaker, #266) — and the
-  `@ModelProvider` classes (#266; not created by the container, a misplaced one in a workflow's
-  `providers` is `[di.infrastructure-in-workflow]` too). Listed **only** in
+  `@ModelProvider` classes (#266; an HTTP one is not created by the container, a transport one
+  is — on its first call, #385; a misplaced one in a workflow's `providers` is
+  `[di.infrastructure-in-workflow]` too). Listed **only** in
   `@Application({ providers })` (a class that `extends` the contract, `@Injectable`; in a workflow's
   `providers` → `[di.infrastructure-in-workflow]`), found by inheritance (two →
   `[di.ambiguous-implementation]`); `agboss describe` prints each contract's implementation and why

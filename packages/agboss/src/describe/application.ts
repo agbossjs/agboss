@@ -9,7 +9,11 @@ import { assemblyWarningsOf, warningText, type AssemblyWarning } from "../applic
 import { budgetOf, BudgetScope, type BudgetMeta } from "../budgets/budget.js";
 import type { Class } from "../components/injection.js";
 import { tokenName } from "../components/injection.js";
-import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
+import {
+  isModelProviderClass,
+  isTransportClass,
+  modelProviderOf,
+} from "../models/model-provider.decorator.js";
 import { modelProvidersOf } from "../models/resolution.js";
 
 /**
@@ -45,6 +49,8 @@ export interface DescribedModelProvider {
   readonly reason: ImplementationReason;
   /** `serves`, each pattern as written. */
   readonly serves: readonly string[];
+  /** It makes its own calls through `complete(request)` (#385), not over HTTP. */
+  readonly isTransport: boolean;
 }
 
 /** An application, as `describe` shows it. */
@@ -100,6 +106,7 @@ function modelProvidersOfApplication(
       className: provider.name,
       reason: isListed ? ImplementationReason.Listed : ImplementationReason.Default,
       serves: options.serves.map(String),
+      isTransport: isTransportClass(provider),
     };
   });
 }
@@ -177,7 +184,9 @@ const modelProviderLine = (provider: DescribedModelProvider): string =>
     provider.reason === ImplementationReason.Listed
       ? "listed in @Application providers"
       : "built-in default: none listed"
-  }) · serves ${provider.serves.join(", ")}`;
+  }) · serves ${provider.serves.join(", ")}${
+    provider.isTransport ? ` · transport: ${provider.className}.complete()` : ""
+  }`;
 
 /** The application's implementations, model providers, budgets, observers and warnings. */
 export function applicationLines(described: DescribedApplication): string[] {

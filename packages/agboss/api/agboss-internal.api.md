@@ -362,6 +362,7 @@ export function describedLimitsOf(bundle: AssembledWorkflow): DescribedLimits;
 export interface DescribedModelProvider {
     // (undocumented)
     readonly className: string;
+    readonly isTransport: boolean;
     // (undocumented)
     readonly name: string;
     // Warning: (ae-forgotten-export) The symbol "ImplementationReason" needs to be exported by the entry point internal.d.ts
@@ -824,21 +825,21 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/config/defaults.ts:32:3 - (ae-undocumented) Missing documentation for "level".
 // src/config/defaults.ts:33:3 - (ae-undocumented) Missing documentation for "name".
 // src/config/profiles.ts:10:12 - (ae-undocumented) Missing documentation for "name".
-// src/describe/application.ts:25:3 - (ae-undocumented) Missing documentation for "name".
-// src/describe/application.ts:26:3 - (ae-undocumented) Missing documentation for "scope".
-// src/describe/application.ts:27:3 - (ae-undocumented) Missing documentation for "period".
-// src/describe/application.ts:38:3 - (ae-undocumented) Missing documentation for "isOwn".
-// src/describe/application.ts:43:3 - (ae-undocumented) Missing documentation for "name".
-// src/describe/application.ts:44:3 - (ae-undocumented) Missing documentation for "className".
-// src/describe/application.ts:45:3 - (ae-undocumented) Missing documentation for "reason".
-// src/describe/application.ts:52:3 - (ae-undocumented) Missing documentation for "name".
-// src/describe/application.ts:53:3 - (ae-undocumented) Missing documentation for "version".
-// src/describe/application.ts:56:3 - (ae-undocumented) Missing documentation for "implementations".
-// src/describe/application.ts:57:3 - (ae-undocumented) Missing documentation for "modelProviders".
-// src/describe/application.ts:58:3 - (ae-undocumented) Missing documentation for "budgets".
-// src/describe/application.ts:59:3 - (ae-undocumented) Missing documentation for "executionBudgets".
-// src/describe/application.ts:60:3 - (ae-undocumented) Missing documentation for "observers".
-// src/describe/application.ts:61:3 - (ae-undocumented) Missing documentation for "warnings".
+// src/describe/application.ts:29:3 - (ae-undocumented) Missing documentation for "name".
+// src/describe/application.ts:30:3 - (ae-undocumented) Missing documentation for "scope".
+// src/describe/application.ts:31:3 - (ae-undocumented) Missing documentation for "period".
+// src/describe/application.ts:42:3 - (ae-undocumented) Missing documentation for "isOwn".
+// src/describe/application.ts:47:3 - (ae-undocumented) Missing documentation for "name".
+// src/describe/application.ts:48:3 - (ae-undocumented) Missing documentation for "className".
+// src/describe/application.ts:49:3 - (ae-undocumented) Missing documentation for "reason".
+// src/describe/application.ts:58:3 - (ae-undocumented) Missing documentation for "name".
+// src/describe/application.ts:59:3 - (ae-undocumented) Missing documentation for "version".
+// src/describe/application.ts:62:3 - (ae-undocumented) Missing documentation for "implementations".
+// src/describe/application.ts:63:3 - (ae-undocumented) Missing documentation for "modelProviders".
+// src/describe/application.ts:64:3 - (ae-undocumented) Missing documentation for "budgets".
+// src/describe/application.ts:65:3 - (ae-undocumented) Missing documentation for "executionBudgets".
+// src/describe/application.ts:66:3 - (ae-undocumented) Missing documentation for "observers".
+// src/describe/application.ts:67:3 - (ae-undocumented) Missing documentation for "warnings".
 // src/describe/channels.ts:39:3 - (ae-undocumented) Missing documentation for "isRole".
 // src/describe/channels.ts:44:3 - (ae-undocumented) Missing documentation for "answeredBy".
 // src/describe/channels.ts:49:3 - (ae-undocumented) Missing documentation for "reason".

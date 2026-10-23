@@ -11,7 +11,11 @@ import { readDecision, type DecisionOutcome } from "./decision-response.js";
 import { checkDecisionRequest, type DecisionRequest } from "./decisions.js";
 import type { JevClient } from "./jev-client.js";
 import type { ModelFactory } from "./registry.js";
-import { providerClients, type ProviderClientOptions } from "./provider-clients.js";
+import {
+  providerClients,
+  type ChatExtensions,
+  type ProviderClientOptions,
+} from "./provider-clients.js";
 import type { ModelProviderDirectory } from "../models/resolve.js";
 import type { ReplyInterpreterInput } from "../channels/reply-reader.js";
 
@@ -122,11 +126,13 @@ export function createModelGateway(clients: ModelClients): DecidingGateway {
 
 /**
  * Production: every model from the application's model providers (`@Application({ providers })`) —
- * chat models and Jev decisions, each through its provider's connection; keys from `env`.
+ * chat models and Jev decisions, each through its provider's connection; keys from `env`. A
+ * transport provider (listed, or a breaker's fallback) needs `extensions` (`chatExtensionsFor`, #385).
  */
 export function createProviderGateway(
   directory: ModelProviderDirectory,
   options: ProviderClientOptions,
+  extensions?: ChatExtensions,
 ): DecidingGateway {
-  return createModelGateway(providerClients(directory, options));
+  return createModelGateway(providerClients(directory, options, extensions));
 }

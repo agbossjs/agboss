@@ -3,7 +3,8 @@ import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
 import { connectionOf } from "./connections.js";
 import { priceOf } from "./cost.js";
 import { fallbackProblems } from "./fallback-check.js";
-import type { ProviderConnection } from "./handler.js";
+import type { ModelProviderHandler, ProviderConnection } from "./handler.js";
+import { hasProviderMethod, type ModelProviderType } from "./model-provider.decorator.js";
 import type { ModelProblem } from "./problems.js";
 import type { ModelProviderDirectory, RegisteredModelProvider } from "./resolve.js";
 import type { ProviderFetch } from "./resilient-fetch.js";
@@ -16,6 +17,11 @@ export interface ModelCheckOptions {
   /** The application's environment: a key it holds is sent; a missing one is not a problem. */
   readonly environment?: Environment;
   readonly send?: ProviderFetch;
+  /**
+   * A transport provider's instance (#385: the application's container); absent — `agboss check
+   * --models` — a transport's capabilities are not checked.
+   */
+  readonly transports?: (cls: ModelProviderType) => ModelProviderHandler;
 }
 
 /**
@@ -49,12 +55,32 @@ function priceProblems(use: ModelUse, provider: RegisteredModelProvider): readon
   ];
 }
 
-async function useProblems(
-  use: ModelUse,
+/**
+ * The provider's instance for its capabilities: an HTTP one's own; a transport's from the
+ * container only when its class has `capabilities` (else it stays uncreated until its first call).
+ */
+const handlerOf = (
   provider: RegisteredModelProvider,
-  connection: ProviderConnection,
-): Promise<readonly ModelProblem[]> {
-  const capabilities = await provider.handler.capabilities(use.model, connection);
+  options: ModelCheckOptions,
+): ModelProviderHandler | undefined =>
+  provider.handler ??
+  (hasProviderMethod(provider.type, "capabilities")
+    ? options.transports?.(provider.type)
+    : undefined);
+
+/** What checks a provider's models: its `capabilities`, when it has them (a transport may not, #385). */
+interface ProviderCheck {
+  readonly provider: RegisteredModelProvider;
+  readonly handler: ModelProviderHandler | undefined;
+  readonly connection: ProviderConnection;
+}
+
+async function useProblems(use: ModelUse, check: ProviderCheck): Promise<readonly ModelProblem[]> {
+  const { provider, handler, connection } = check;
+  const capabilitiesOf = handler?.capabilities?.bind(handler);
+  // a transport without capabilities (most SDKs list none): only its prices are checked
+  if (capabilitiesOf === undefined) return priceProblems(use, provider);
+  const capabilities = await capabilitiesOf(use.model, connection);
   if (capabilities === undefined) {
     return [
       {
@@ -101,7 +127,11 @@ export async function checkModelUses(
       const resolution = directory.resolve(use);
       return resolution.kind === "problem"
         ? Promise.resolve([resolution.problem])
-        : useProblems(use, resolution.provider, connectionFor(resolution.provider));
+        : useProblems(use, {
+            provider: resolution.provider,
+            handler: handlerOf(resolution.provider, options),
+            connection: connectionFor(resolution.provider),
+          });
     }),
   );
   return found.flat();

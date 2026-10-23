@@ -2,7 +2,12 @@ import type { AgentsConfigOf } from "../config/types.js";
 import type { Provider } from "../components/injection.js";
 import { modelGuardrailsOf, type LoadedGuardrail } from "../guardrails/loaded.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
-import { isModelProviderClass, type ModelProviderType } from "./model-provider.decorator.js";
+import {
+  isModelProviderClass,
+  isTransportClass,
+  modelProviderOf,
+  type ModelProviderType,
+} from "./model-provider.decorator.js";
 import {
   modelUsesOf,
   type ModelNamingInterpreter,
@@ -23,6 +28,23 @@ export function modelProvidersOf(
 ): readonly ModelProviderType[] {
   const listed = (providers ?? []).filter(isModelProviderClass);
   return listed.length === 0 ? DEFAULT_MODEL_PROVIDERS : listed;
+}
+
+/**
+ * The transport providers (#385) an application may call — listed, or a listed one's breaker
+ * fallback: its container creates them, so their `deps` are checked with the components'.
+ */
+export const transportProviderClassesOf = (
+  providers: readonly Provider[] | undefined,
+): readonly ModelProviderType[] =>
+  withFallbacks(modelProvidersOf(providers)).filter(isTransportClass);
+
+/** Model provider classes and their breakers' fallbacks, each once. */
+export function withFallbacks(classes: readonly ModelProviderType[]): readonly ModelProviderType[] {
+  const fallbacks = classes.flatMap(
+    (cls) => modelProviderOf(cls).circuitBreakerPolicy.fallback ?? [],
+  );
+  return [...new Set([...classes, ...fallbacks.filter(isModelProviderClass)])];
 }
 
 /** An application's providers without its model providers: what its container creates. */

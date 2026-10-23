@@ -3,6 +3,10 @@ import { declarationOf } from "../../flow/decorators/declaration.js";
 import { arbiterOf } from "../../flow/decorators/arbiter.js";
 import { replyInterpreterOf } from "../../channels/channel-role.decorator.js";
 import { ComponentError, componentOf } from "../metadata.js";
+import {
+  isModelProviderClass,
+  modelProviderDepsOf,
+} from "../../models/model-provider.decorator.js";
 import { Registrations, type ProviderModule, type Registration } from "./registrations.js";
 
 /**
@@ -21,7 +25,9 @@ export const depsOf = (cls: Class): readonly Token[] => {
   const meta = componentOf(cls)?.meta;
   if (meta !== undefined && "deps" in meta) return meta.deps;
   const options = declaredOptionsOf(cls);
-  return options !== undefined && "deps" in options ? (options.deps ?? []) : [];
+  if (options !== undefined && "deps" in options) return options.deps ?? [];
+  // a transport @ModelProvider (#385): created by the application's container on its first call
+  return modelProviderDepsOf(cls);
 };
 
 /** Whether a framework decorator (a component's or a flow node's) describes the class. */
@@ -29,7 +35,8 @@ export const isDecorated = (cls: Class): boolean =>
   componentOf(cls) !== undefined ||
   declarationOf(cls) !== undefined ||
   arbiterOf(cls) !== undefined ||
-  replyInterpreterOf(cls) !== undefined;
+  replyInterpreterOf(cls) !== undefined ||
+  isModelProviderClass(cls);
 
 /**
  * A core value the app does not have (e.g. no environment): registered so the graph checks pass,

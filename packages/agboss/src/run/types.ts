@@ -12,6 +12,7 @@ import type { WaitingPause } from "../pause/index.js";
 import type { TernRecords } from "../terns/index.js";
 import type { ExecutionTracing } from "../tracing/index.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
+import type { ModelProviderType } from "../models/model-provider.decorator.js";
 
 /** Graph dependencies plus the application's budgets and the Tern store. */
 export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TName> {
@@ -23,6 +24,8 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
   readonly terns: TernRecords;
   /** Optional tracing (e.g. local Langfuse); runs are identical without it. */
   readonly tracing?: ExecutionTracing | undefined;
+  /** Its application's model providers: a transport one (#385) is part of its `configHash`. */
+  readonly modelProviders?: readonly ModelProviderType[] | undefined;
 }
 
 /** A stream event for real-time UI/CLI updates. */

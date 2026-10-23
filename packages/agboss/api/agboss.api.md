@@ -143,6 +143,8 @@ export type AgentEndEvent = EndEvent<NodeValue>;
 export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TName> {
     // Warning: (ae-forgotten-export) The symbol "ApplicationBudgets" needs to be exported by the entry point index.d.ts
     readonly budgets?: ApplicationBudgets | undefined;
+    // Warning: (ae-forgotten-export) The symbol "ModelProviderType" needs to be exported by the entry point index.d.ts
+    readonly modelProviders?: readonly ModelProviderType[] | undefined;
     // Warning: (ae-forgotten-export) The symbol "TernRecords" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -495,7 +497,6 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly mcpServers: readonly McpServerHandle<string>[];
     // Warning: (ae-forgotten-export) The symbol "BaseMemoryStrategy" needs to be exported by the entry point index.d.ts
     readonly memoryStrategies?: (services: WorkflowServices) => ReadonlyMap<string, BaseMemoryStrategy>;
-    // Warning: (ae-forgotten-export) The symbol "ModelProviderType" needs to be exported by the entry point index.d.ts
     readonly modelProviders: readonly ModelProviderType[];
     readonly onIncompatibleResume?: IncompatibleResumePolicy | undefined;
     // Warning: (ae-forgotten-export) The symbol "AssembledPii" needs to be exported by the entry point index.d.ts
@@ -4060,7 +4061,7 @@ export interface Routes {
 }
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply";
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply";
 
 // @public
 export interface RuleViolation {
@@ -5554,11 +5555,11 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/graph/limits.ts:149:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/graph/limits.ts:150:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/graph/limits.ts:151:3 - (ae-undocumented) Missing documentation for "steps".
-// src/graph/rule-error.ts:170:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:171:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:172:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:183:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/rule-error.ts:184:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:171:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:172:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:173:3 - (ae-undocumented) Missing documentation for "nodes".
+// src/graph/rule-error.ts:184:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:185:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:10:3 - (ae-undocumented) Missing documentation for "build".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
@@ -5760,16 +5761,16 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/run/thread.ts:40:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/thread.ts:45:3 - (ae-undocumented) Missing documentation for "code".
 // src/run/thread.ts:46:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/types.ts:23:3 - (ae-undocumented) Missing documentation for "terns".
-// src/run/types.ts:33:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
-// src/run/types.ts:71:3 - (ae-undocumented) Missing documentation for "status".
-// src/run/types.ts:74:3 - (ae-undocumented) Missing documentation for "startInput".
-// src/run/types.ts:79:3 - (ae-undocumented) Missing documentation for "output".
-// src/run/types.ts:80:3 - (ae-undocumented) Missing documentation for "budgetUsd".
-// src/run/types.ts:81:3 - (ae-undocumented) Missing documentation for "cost".
-// src/run/types.ts:82:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/run/types.ts:85:3 - (ae-undocumented) Missing documentation for "ternId".
-// src/run/types.ts:86:3 - (ae-undocumented) Missing documentation for "data".
+// src/run/types.ts:24:3 - (ae-undocumented) Missing documentation for "terns".
+// src/run/types.ts:36:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
+// src/run/types.ts:74:3 - (ae-undocumented) Missing documentation for "status".
+// src/run/types.ts:77:3 - (ae-undocumented) Missing documentation for "startInput".
+// src/run/types.ts:82:3 - (ae-undocumented) Missing documentation for "output".
+// src/run/types.ts:83:3 - (ae-undocumented) Missing documentation for "budgetUsd".
+// src/run/types.ts:84:3 - (ae-undocumented) Missing documentation for "cost".
+// src/run/types.ts:85:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/run/types.ts:88:3 - (ae-undocumented) Missing documentation for "ternId".
+// src/run/types.ts:89:3 - (ae-undocumented) Missing documentation for "data".
 // src/tool-interceptors/decision.ts:85:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
 // src/tools/define-tool.ts:33:3 - (ae-undocumented) Missing documentation for "code".
 // src/tools/define-tool.ts:34:12 - (ae-undocumented) Missing documentation for "name".

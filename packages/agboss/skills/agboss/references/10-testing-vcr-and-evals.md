@@ -678,6 +678,74 @@ test("an undo that fails: CompensationFailedError, the original error as its cau
 - The automatic undo runs on the test's `clock` like everything else: a slow undo is cut at
   `compensationTimeout` only when the clock is advanced past it.
 
+## A transport provider (`complete`) in tests
+
+`mockLlm` answers **above** every model provider: in `testWith(App)` a transport provider's
+`complete(request)` (#385, reference 06) is never called — script its agents like any other
+(`mockLlm(BillingAgent).thenReturn(replyWith("…"))`), and no SDK, key or network is needed. What
+is left to test is the class's own mapping: call `complete()` on an instance built with a fake SDK
+client and a `testExecutionContext()` for its `TenantContext` (a class created by hand) — the
+retries, the rate limit, the breaker and the accounting around it are the framework's.
+
+```ts file=tests/bedrock.model-provider.test.ts
+import { expect, it } from "vitest";
+import { TenantContext } from "agboss";
+import {
+  ModelCost,
+  ModelProvider,
+  ModelProviderMessageRole,
+  RetryPolicy,
+  type ModelProviderHandler,
+  type ModelProviderRequest,
+  type ModelProviderResponse,
+} from "agboss/models";
+import { testExecutionContext } from "agboss/testing";
+import { minutes, seconds } from "agboss/units";
+
+class FakeSdk {
+  invoke(model: string, tenantId: string): Promise<ModelProviderResponse> {
+    return Promise.resolve({ text: `${model} for ${tenantId}`, usage: { inputTokens: 1, outputTokens: 1 } });
+  }
+}
+
+@ModelProvider({
+  name: "sdk-model-provider",
+  description: "A model behind an SDK",
+  serves: [/^sdk\//],
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+  retryPolicy: RetryPolicy.none(),
+  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  deps: [FakeSdk, TenantContext],
+})
+class SdkModelProvider implements ModelProviderHandler {
+  constructor(
+    private readonly sdk: FakeSdk,
+    private readonly tenantContext: TenantContext,
+  ) {}
+
+  complete(request: ModelProviderRequest): Promise<ModelProviderResponse> {
+    return this.sdk.invoke(request.model, this.tenantContext.tenantId);
+  }
+}
+
+it("complete() maps the request to the SDK, with the execution's tenant", async () => {
+  const provider = new SdkModelProvider(new FakeSdk(), testExecutionContext().tenant);
+  const request: ModelProviderRequest = {
+    model: "sdk/small",
+    messages: [{ role: ModelProviderMessageRole.User, text: "hi" }],
+    tools: [],
+    temperature: 0,
+    maxTokens: undefined,
+    reasoning: { kind: "off" },
+    promptCaching: { kind: "off" },
+    signal: new AbortController().signal,
+  };
+
+  expect((await provider.complete(request)).text).toBe("sdk/small for default");
+});
+```
+
 ## One component: the unit runners
 
 Each runner builds the component's own container (its `deps`, `overrides`, an `environment`) and
@@ -986,3 +1054,4 @@ npx agboss replay --start screening-workflow-start --version <prompt version>   
 - Asserting on `Date.now()` or real timers: advance the `clock` fixture.
 - A test environment that reads a secret: leave secrets out of `test.environment.ts`.
 - Testing the graph by inspecting it: run it and assert the path (`toFollowPath`) and the finish.
+- Expecting `testWith` to call a transport provider's `complete()`: `mockLlm` answers above it.
