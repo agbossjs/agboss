@@ -3,6 +3,26 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `agboss eval run --baseline`: regressions per case, exit 5 (#396 PR 3)
+
+- **Added — `--baseline <run.json> [--fail-on-regression]`** ([Eval suites](Eval-Suites#against-a-baseline-baseline-runjson)):
+  each case against the same case of a run artifact (a run of `main`) — `CaseComparison {
+  Regressed, Improved, Unchanged, FlakyOnBaseline, New, Removed, Changed }`; a changed `caseHash` is
+  not compared, a case that flapped on the baseline is quarantined. The table and the counts, the
+  artifact's `baseline` (`EvalRunComparison`). A baseline that is no run artifact of the suite is
+  `eval.run-invalid` (no file: `eval.run-not-found`), exit 2 — read by the same one reader as
+  `eval show` (#397 S4).
+- **Added — exit 5 (`quality`)**: `--fail-on-regression` fails with `eval.regressed` when a case stable
+  on the baseline regressed ([CLI](CLI#agboss-eval-subcommands-396)).
+- **Added — the artifact's types are public** in `agboss/eval`: `EvalRunReport`, `EvalCaseReport`,
+  `EvalRunResult`, `EvalCheckResult`, `EvalRunError`, `EvalRunSummary`, `EvalRunComponent`,
+  `EvalRunSpend`, `EVAL_RUN_KIND`, `EVAL_RUN_SCHEMA_VERSION`, `CaseComparison`, `EvalRunComparison`,
+  `EvalCaseComparison`, `EvalCasePasses` (no longer in `agboss/internal`).
+- **Added — `agboss eval run --profile <name>`**: the suite on a profile of its workflow.
+- **Changed — a case's history is `ExecutionRecordStatus.Written`** (new member): turns of their
+  thread, read by its memory as before, but never scored by `agboss eval score` nor saved by
+  `agboss golden add` (before, they were recorded as `answered`).
+
 ## Unreleased — join keys for every model component (#395 PR 5b)
 
 - **Added — `modelComponents` in `agboss describe --json`** ([CLI](CLI#describe-268)): model judges

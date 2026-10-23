@@ -294,8 +294,11 @@ pass@3 3/3 · pass^3 2/3 · unstable 1 · judge calls 8 (1 skipped by the cascad
 report → .artifacts/eval/main.json
 ```
 
-The exit code says whether the suite ran (0), never how well — comparing against a baseline comes
-with `--baseline` (#396 PR 3).
+The exit code says whether the suite ran (0), never how well — unless it is compared with a
+baseline and `--fail-on-regression` is given ([below](#against-a-baseline-baseline-runjson)).
+`--profile <name>` runs the suite on `profiles/<workflow>/<name>.yaml`. The history a case writes is
+kept `ExecutionRecordStatus.Written` (#396 S6): turns of their thread, which its memory reads, never
+runs `agboss eval score` scores or `agboss golden add` saves.
 
 ### The run artifact
 
@@ -317,6 +320,11 @@ against, so it says what it is and the version of its shape (#396 S3):
 | `…checks[]` | `check` (`trajectory` or the judge's name), `status` (`CheckStatus`: `passed`, `failed`, `skipped`), `reason?`, `skippedBy?` (the failed check that skipped it), `metrics?` (a judge's), `spentUsd?` (a model judge's) |
 | `summary` | `cases`, `passAtK`, `passHatK`, `unstable` (counts of cases), `judgeCalls` (judge checks that ran), `skippedByCascade` |
 | `spend` | `{ totalUsd }`: every turn's execution and every judge's model calls |
+| `baseline?` | the run against `--baseline` (`EvalRunComparison`, below) |
+
+The artifact's types are public in `agboss/eval` (#396 S6): `EvalRunReport`, `EvalCaseReport`,
+`EvalRunResult`, `EvalCheckResult`, `EvalRunError`, `EvalRunSummary`, `EvalRunComponent`,
+`EvalRunSpend`, with `EVAL_RUN_KIND` and `EVAL_RUN_SCHEMA_VERSION`.
 
 ### The HTML report: `--html` and `agboss eval show` (#397)
 
@@ -352,6 +360,42 @@ artifact of `eval run` is written first and kept). `eval show` refuses a file th
 artifact this version reads — `eval.run-not-found` (no such file) or `eval.run-invalid` (not JSON,
 another `kind`, an unknown `schemaVersion`, a field missing), exit 2.
 
-Not yet on the page, because the artifact does not carry it yet: the comparison with a baseline
-(#396 PR 3 — its section is shown once the artifact has one), a run's step-by-step timeline (#397
-PR 2), labels and failure tags (#397 PR 4).
+Not yet on the page: the comparison with a baseline (the artifact's `baseline`, #396 PR 3 — its
+section comes later in #397), a run's step-by-step timeline (#397 PR 2), labels and failure tags
+(#397 PR 4).
+
+## Against a baseline: `--baseline <run.json>`
+
+```bash
+agboss eval run --suite refunds-eval-suite --runs 3 --env eval --baseline main.json --fail-on-regression
+```
+
+A baseline is a run artifact — the `--report` of a run of `main` (S2 C1: there is no separate
+`--save-baseline`). It is read before anything runs, by the same reader as `eval show` (one reader, #397 S4): no
+such file is `eval.run-not-found`; another `kind`, another `schemaVersion`, a missing field or a run
+of another suite is `eval.run-invalid` (exit 2); `--fail-on-regression` without `--baseline` is a
+usage error. Each case is compared by name (`CaseComparison`, `agboss/eval`):
+
+| Verdict | When |
+| --- | --- |
+| `Regressed` | pass^k on the baseline, not now — the only verdict `--fail-on-regression` fails on |
+| `Improved` | no pass@k on the baseline (every run failed), pass@k now |
+| `Unchanged` | neither |
+| `FlakyOnBaseline` | pass@k without pass^k on the baseline: it flapped there too — quarantined, never a failure |
+| `New` / `Removed` | only in this run / only in the baseline |
+| `Changed` | another `caseHash`: the case, its tools' expectations, its judges, the suite's checks or cascade changed — not compared |
+
+```
+case                             baseline  candidate  verdict
+refund-within-policy             3/3       1/3        regressed
+prohibition-survives-compaction  2/3       1/3        flaky-on-baseline (quarantined)
+fresh-price-beats-memory         3/3       3/3        unchanged
+1 regressed · 1 unchanged · 1 quarantined
+error: 1 case regressed against main.json: refund-within-policy (eval.regressed, exit 5)
+```
+
+With `--fail-on-regression` a regression exits **5** (`quality`, `eval.regressed`: "the agent got
+worse", told apart from 3 "the project does not load"); without it the run exits 0 and shows the
+table. The artifact (and `--json`'s `result`) gains `baseline` — `EvalRunComparison`: `file`, the
+baseline's `configHash`, `startedAt` and `runs`, `cases` (each `EvalCaseComparison`: `name`,
+`comparison`, `baseline` / `candidate` passes `{ passed, runs }`) and `regressed` (the names).
