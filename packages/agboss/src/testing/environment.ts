@@ -1,4 +1,4 @@
-import type { AppDepsOptions } from "../app/app-deps.js";
+import type { AppDepsOptions, BuildOptions } from "../app/app-deps.js";
 import { applicationOf, type AssembledApplication } from "../application/assemble.js";
 import {
   buildApplication,
@@ -25,7 +25,7 @@ import { mcpServersOf, usedComponentsOf } from "./workflow-parts.js";
 import { TestMocks } from "./test-mocks.js";
 import { reusableInfrastructure } from "../infrastructure/contracts.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
-import { createVcrGateway, type VcrConfig } from "./vcr.js";
+import { vcrGatewayOverProviders, type VcrConfig } from "./vcr.js";
 import { testPiiKeyOf, testPseudonymKeys } from "./pii-parts.js";
 import { schedulerOf } from "./concurrency/schedulers.js";
 import { replacementsOf, type Override } from "./units/override.js";
@@ -110,7 +110,7 @@ export class TestEnvironment {
   readonly #used: ReadonlySet<Class>;
   readonly #targets: ModelTargets;
   readonly #servers: ReadonlyMap<Class, string>;
-  readonly #options: AppDepsOptions;
+  readonly #options: BuildOptions;
   /** The PII key of its instances when the application sets none (#334). */
   readonly #piiTestKey: string | undefined;
   #reused: ReadonlyMap<Class, unknown> = new Map();
@@ -138,11 +138,18 @@ export class TestEnvironment {
     this.#options = {
       processEnv: { ...testEnv(), ...testPseudonymKeys(assembled, testEnv()) },
       ...environment,
-      gateway: options.vcr
-        ? createVcrGateway(workflows, options.vcr, { env: testEnv(), ...environment }, (failure) =>
-            this.book.report(failure),
-          )
-        : createScriptedGateway(this.book, this.clock),
+      // a recording builds the providers' gateway as createApp does: its transports from this
+      // app's container (#439)
+      ...(options.vcr
+        ? {
+            gatewayOverProviders: vcrGatewayOverProviders(
+              workflows,
+              options.vcr,
+              testEnv(),
+              (failure) => this.book.report(failure),
+            ),
+          }
+        : { gateway: createScriptedGateway(this.book, this.clock) }),
       connectMcp: stubbedMcpConnect(this.mcp, labels, real),
       container: { ...this.mocks.container, replacements: replacementsOf(options.overrides) },
       ...branchSchedulerOf(options.concurrency, this.book),

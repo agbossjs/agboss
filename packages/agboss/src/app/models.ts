@@ -4,6 +4,7 @@ import type { Environment } from "../flow/generated-types.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import { chatExtensionsFor, type ProviderClientOptions } from "../llm/provider-clients.js";
 import type { TransportResolver } from "../models/transport/transport-resolver.js";
+import { systemClock } from "../infrastructure/clock.js";
 import { lateTransports, type TransportContainer } from "./late-transports.js";
 import { providerCallsOf } from "../models/calls/provider-calls.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
@@ -40,7 +41,16 @@ export interface AppModelsOptions {
   readonly chaos?: ChaosOptions;
   readonly processEnv?: NodeJS.ProcessEnv;
   readonly gateway?: ModelGateway | undefined;
+  /**
+   * A gateway over the real one (#439: VCR) — `real` builds, on its first call, the providers'
+   * gateway as `createApp` builds its own: the chat extensions loaded, transport providers created by
+   * the application's container (#385). Takes the place of `gateway`; no model check runs.
+   */
+  readonly gatewayOverProviders?: GatewayOverProviders | undefined;
 }
+
+/** Wraps the providers' gateway, built only when `real` is first called (#439). */
+export type GatewayOverProviders = (real: () => ModelGateway) => ModelGateway;
 
 export const providerClientsOf = (
   options: AppModelsOptions,
@@ -97,6 +107,24 @@ export async function modelsFor(
   };
 }
 
+/**
+ * The wrapped providers' gateway (#439): what recording talks to — in real time, no rate limit or
+ * breaker of a test — with the transports of the application's container.
+ */
+async function overProviders(
+  bundle: AssembledWorkflow,
+  over: GatewayOverProviders,
+  clients: Pick<ProviderClientOptions, "env" | "environment" | "transports">,
+): Promise<ModelGateway> {
+  const directory = directoryOf(bundle.modelProviders);
+  const extensions = await chatExtensionsFor(directory);
+  let real: ModelGateway | undefined;
+  return over(
+    () =>
+      (real ??= createProviderGateway(directory, { ...clients, clock: systemClock }, extensions)),
+  );
+}
+
 /** A workflow's models with its transport providers (#385) bound to the container once it exists. */
 export interface StartingModels extends Omit<AppModels, "checkModels"> {
   /** Binds the application's container (transport providers) and checks every setting. */
@@ -122,7 +150,14 @@ export async function appModelsFor(
     infrastructure,
     transports.resolver,
   );
-  const { checkModels, ...models } = await modelsFor(bundle, options.gateway, clients);
+  const given = options.gatewayOverProviders
+    ? await overProviders(bundle, options.gatewayOverProviders, {
+        env: clients.env,
+        environment: clients.environment,
+        transports: transports.resolver,
+      })
+    : options.gateway;
+  const { checkModels, ...models } = await modelsFor(bundle, given, clients);
   const startModels = async (container: TransportContainer): Promise<void> => {
     transports.bind(container);
     await checkModels();
