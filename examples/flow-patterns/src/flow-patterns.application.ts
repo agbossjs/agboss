@@ -7,6 +7,7 @@ import {
   SqliteExecutionTreeRepository,
   SqlitePausedExecutionRepository,
 } from "agboss";
+import { DecisionsModelProvider } from "agboss/models";
 import { OffsiteBookingWorkflow } from "./approvals/offsite-booking.workflow.js";
 import { TerminalPurchaseApprovalChannel } from "./approvals/channels/terminal-purchase-approval.channel.js";
 import {
@@ -17,6 +18,9 @@ import {
   TopicResearchExecutionBudget,
 } from "./config/budget.config.js";
 import { CreditWorkflow } from "./credit/credit.workflow.js";
+import { DeskWorkflow } from "./desk/desk.workflow.js";
+import { HarnessModelProvider } from "./model-providers/harness.model-provider.js";
+import { FlowPatternsOpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { OfferWorkflow } from "./offer/offer.workflow.js";
 import { PanelWorkflow } from "./panel/panel.workflow.js";
 import { RecruiterInboxChannel } from "./hiring/channels/recruiter-inbox.channel.js";
@@ -35,7 +39,8 @@ import { AppEnvironment } from "./environments/app.environment.js";
  * `app.execute(TopicResearchWorkflowStart, …)` a workflow researching its subtopics itself (#264),
  * `app.execute(OffsiteBookingWorkflowStart, …)` two approvals at once (#267),
  * `app.execute(SendOfferWorkflowStart, …)` an offer whose steps declare their undo (#339),
- * `app.execute(TripWorkflowStart, …)` two bookings a failed join undoes automatically (#340) — each
+ * `app.execute(TripWorkflowStart, …)` two bookings a failed join undoes automatically (#340),
+ * `app.execute(DeskWorkflowStart, …)` the extension points on an offline model (#382–#385) — each
  * workflow by its start. The child `VendorCheckWorkflow` is not listed: a child workflow belongs to the application
  * of its parent, and `app.execute(VendorCheckWorkflowStart, …)` runs it alone.
  *
@@ -43,8 +48,9 @@ import { AppEnvironment } from "./environments/app.environment.js";
  * and application budgets, the records, the pauses, the checkpoints, the leases and the tree keys —
  * so two pauses wait at once and survive a restart, and another instance on the file continues
  * them (#261: an in-memory ledger or pause store is an assembly warning, an error under
- * `agboss check --strict`). No model provider is listed: the built-in OpenRouter and Decisions
- * providers read `openRouterApiKey` (and `openRouterBaseUrl`) of the environment (#266). The
+ * `agboss check --strict`). Its model providers (#266) are OpenRouter (its own class, serving `moonshotai/…`) and the built-in
+ * Decisions one — they read `openRouterApiKey` (and `openRouterBaseUrl`) of the environment — and the offline
+ * transport `HarnessModelProvider` for the `harness/…` models (#385), which needs no key. The
  * purchase approvals are asked in the terminal (`TerminalPurchaseApprovalChannel`, the one
  * implementation of their role). Its PII key is an environment secret (#120 S94: without one, a
  * key of each execution — a warning).
@@ -64,8 +70,12 @@ import { AppEnvironment } from "./environments/app.environment.js";
     OffsiteBookingWorkflow,
     SendOfferWorkflow,
     TripWorkflow,
+    DeskWorkflow,
   ],
   providers: [
+    FlowPatternsOpenRouterModelProvider, // moonshotai/…
+    DecisionsModelProvider, // Jev and the other decision models
+    HarnessModelProvider, // harness/…, offline
     TerminalPurchaseApprovalChannel,
     RecruiterInboxChannel,
     SqliteCostLedgerRepository,

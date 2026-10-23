@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "AGBoss example: flow patterns — a review loop, a code router, parallel launches, a quorum, child workflows, recursion and two approvals at once; scripted tests, real runs with OPENROUTER_API_KEY",
+  "description": "AGBoss example: the zero-cost harness of the public surface \u2014 flow patterns (a review loop, a code router, parallel launches, a quorum, child workflows, recursion, two approvals at once, undo), the extension points on an offline transport model provider; scripted tests, real runs with OPENROUTER_API_KEY",
   "agboss": {
     "application": "src/flow-patterns.application.ts"
   },
@@ -14,15 +14,20 @@
     "studio": "agboss studio",
     "types": "agboss check",
     "answer": "tsx src/scripts/answer-pauses.ts",
-    "check": "agboss check --strict && agboss check --models --env test",
+    "check": "agboss check --strict --application src/desk.application.ts && agboss check --strict && agboss check --models --env test && eslint .",
     "typecheck": "npm run types && tsc --noEmit -p .",
     "test": "vitest run",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "lint": "eslint ."
   },
   "dependencies": {
     "agboss": "0.1.0"
   },
   "devDependencies": {
-    "agboss-cli": "0.1.0"
+    "@eslint/js": "^9.0.0",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "agboss-cli": "0.1.0",
+    "eslint": "^9.0.0",
+    "typescript-eslint": "^8.0.0"
   }
 }
