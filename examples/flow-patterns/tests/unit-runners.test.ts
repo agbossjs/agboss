@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Injectable } from "agboss";
-import { PlainTextDto } from "agboss/dto";
+import { PlainTextDto, WorkflowFinishTextDto } from "agboss/dto";
 import {
   callTool,
   override,
@@ -18,6 +18,7 @@ import { OrderIntakeAgent } from "../src/credit/agents/order-intake.agent.js";
 import { ChargeCardAction } from "../src/credit/actions/charge-card.action.js";
 import { CreditLimitRouter } from "../src/credit/routers/credit-limit.router.js";
 import { DeskAgent } from "../src/desk/agents/desk.agent.js";
+import { DeskAnswerJudge } from "../src/desk/judges/desk-answer.judge.js";
 import { QuotesLookupJudge } from "../src/desk/judges/quotes-lookup.judge.js";
 import { CustomerIdPiiPolicy } from "../src/desk/pii/customer-id.pii-policy.js";
 import { ShippingPolicyRag } from "../src/desk/rag/shipping-policy.rag.js";
@@ -89,6 +90,27 @@ it("testPii: a project detector masks for the model and reveals back", async () 
 
   expect(masked).not.toContain("CUS-1234");
   expect(pii.reveal(masked)).toBe("CUS-1234 asks about #7");
+});
+
+it("testJudge: the eval suite's judge on a finish's output, with the metrics calibrate reads", async () => {
+  const runJudge = testJudge(DeskAnswerJudge);
+  const answer = (text: string) =>
+    runJudge({
+      variant: WorkflowFinishTextDto,
+      reply: { text },
+      task: "Answer",
+      attempt: 0,
+      toolCalls: [],
+    });
+
+  expect((await answer("It says: order 7 shipped")).output).toMatchObject({
+    passed: true,
+    metrics: { quotesTool: true },
+  });
+  expect((await answer("Do you have a recent order?")).output).toMatchObject({
+    passed: false,
+    reason: "the answer does not say where the order is",
+  });
 });
 
 const test = testWith(FlowPatternsApplication);

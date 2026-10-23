@@ -1,0 +1,658 @@
+{
+  "kind": "agboss.eval-run",
+  "schemaVersion": 3,
+  "suite": "desk-eval-suite",
+  "application": {
+    "name": "desk-application",
+    "version": "1.0.0"
+  },
+  "workflow": {
+    "name": "desk-workflow",
+    "version": "1.0.0"
+  },
+  "configHash": "c58824db4d584ce41c44b1dd381cfb74d9910d4c971a9760f1f6ea6778281057",
+  "start": "desk-workflow-start",
+  "environment": "offline",
+  "runs": 2,
+  "cascade": "stop-at-first-failure",
+  "startedAt": "2026-10-23T19:39:50.314Z",
+  "endedAt": "2026-10-23T19:39:50.816Z",
+  "cases": [
+    {
+      "name": "order-looked-up",
+      "caseHash": "2f4f8fcb3bfe89af",
+      "passed": 2,
+      "runs": 2,
+      "passAtK": true,
+      "passHatK": true,
+      "isUnstable": false,
+      "runResults": [
+        {
+          "run": 1,
+          "threadId": "fea2a0bc-a1fb-4fe8-b75c-739a2132f45f",
+          "executionId": "1c43005d-dfd1-4e9b-affb-d1c22bd46906",
+          "finish": "desk-answer-workflow-finish",
+          "passed": true,
+          "checks": [
+            {
+              "check": "trajectory",
+              "status": "passed"
+            },
+            {
+              "check": "desk-answer-judge",
+              "status": "passed",
+              "metrics": {
+                "length": 47,
+                "quotesTool": true
+              }
+            }
+          ],
+          "spentUsd": 0.0022,
+          "trace": {
+            "executionId": "1c43005d-dfd1-4e9b-affb-d1c22bd46906",
+            "path": [
+              "desk-workflow-start",
+              "desk-agent",
+              "desk-answer-workflow-finish"
+            ],
+            "steps": [
+              {
+                "component": "desk-workflow-start",
+                "kind": "workflow-start",
+                "nodeId": "desk-workflow-start",
+                "visitNumber": 1,
+                "copyNumber": 1,
+                "inputHash": "e04602fb81adcbf6f0f73ef26a6f9e04fa897c2d55fa1bb0e2fbabd67956fd26",
+                "validationAttempts": 0,
+                "modelCalls": [],
+                "toolCalls": [],
+                "guardrailDecisions": [],
+                "judgeVerdicts": [],
+                "spentUsd": 0,
+                "startedAt": "2026-10-23T19:39:50.447Z",
+                "endedAt": "2026-10-23T19:39:50.447Z"
+              },
+              {
+                "component": "desk-agent",
+                "kind": "agent",
+                "nodeId": "desk-agent",
+                "visitNumber": 1,
+                "copyNumber": 1,
+                "inputHash": "9f09f18149cb85fd713f8a76f367d32940c6f6da5e0f233c584154cd00ebad4d",
+                "validationAttempts": 0,
+                "modelCalls": [
+                  {
+                    "caller": "desk-agent",
+                    "model": "harness/desk",
+                    "inputTokens": 1000,
+                    "outputTokens": 100,
+                    "cacheReadTokens": 0,
+                    "costUsd": 0.0011
+                  },
+                  {
+                    "caller": "desk-agent",
+                    "model": "harness/desk",
+                    "inputTokens": 1000,
+                    "outputTokens": 100,
+                    "cacheReadTokens": 0,
+                    "costUsd": 0.0011
+                  }
+                ],
+                "toolCalls": [
+                  {
+                    "tool": "order-status-tool",
+                    "toolLoopIteration": 1,
+                    "status": "succeeded",
+                    "input": {
+                      "orderId": "7"
+                    },
+                    "output": {
+                      "status": "order 7 shipped on Monday"
+                    },
+                    "isResultTruncated": false,
+                    "validationAttempts": 0
+                  }
+                ],
+                "guardrailDecisions": [
+                  {
+                    "guardrail": "no-credentials-guardrail",
+                    "side": "input",
+                    "isBlocked": false,
+                    "probability": 0
+                  },
+                  {
+                    "guardrail": "no-promises-guardrail",
+                    "side": "output",
+                    "isBlocked": false,
+                    "probability": 0
+                  }
+                ],
+                "judgeVerdicts": [
+                  {
+                    "judge": "quotes-lookup-judge",
+                    "attempt": 0,
+                    "passed": true,
+                    "metrics": {
+                      "lookups": 1
+                    }
+                  }
+                ],
+                "spentUsd": 0.0022,
+                "startedAt": "2026-10-23T19:39:50.455Z",
+                "endedAt": "2026-10-23T19:39:50.569Z"
+              },
+              {
+                "component": "desk-answer-workflow-finish",
+                "kind": "workflow-finish",
+                "nodeId": "desk-answer-workflow-finish",
+                "visitNumber": 1,
+                "copyNumber": 1,
+                "inputHash": "b590a694f81d77a426d5b45a1a08b20c6bf0f2f56bc85db5f5c7e56d36dafb59",
+                "validationAttempts": 0,
+                "modelCalls": [],
+                "toolCalls": [],
+                "guardrailDecisions": [],
+                "judgeVerdicts": [],
+                "spentUsd": 0,
+                "startedAt": "2026-10-23T19:39:50.573Z",
+                "endedAt": "2026-10-23T19:39:50.573Z"
+              }
+            ],
+            "pauses": [],
+            "children": [],
+            "handledErrors": [],
+            "compensations": [],
+            "finish": "desk-answer-workflow-finish",
+            "output": {
+              "text": "It says: {\"status\":\"order 7 shipped on Monday\"}"
+            }
+          }
+        },
+        {
+          "run": 2,
+          "threadId": "04beb50e-5322-47de-a864-eb5f7cb1ebab",
+          "executionId": "b7375676-cdad-4961-866b-68b47a7a3cf2",
+          "finish": "desk-answer-workflow-finish",
+          "passed": true,
+          "checks": [
+            {
+              "check": "trajectory",
+              "status": "passed"
+            },
+            {
+              "check": "desk-answer-judge",
+              "status": "passed",
+              "metrics": {
+                "length": 47,
+                "quotesTool": true
+              }
+            }
+          ],
+          "spentUsd": 0.0022,
+          "trace": {
+            "executionId": "b7375676-cdad-4961-866b-68b47a7a3cf2",
+            "path": [
+              "desk-workflow-start",
+              "desk-agent",
+              "desk-answer-workflow-finish"
+            ],
+            "steps": [
+              {
+                "component": "desk-workflow-start",
+                "kind": "workflow-start",
+                "nodeId": "desk-workflow-start",
+                "visitNumber": 1,
+                "copyNumber": 1,
+                "inputHash": "e04602fb81adcbf6f0f73ef26a6f9e04fa897c2d55fa1bb0e2fbabd67956fd26",
+                "validationAttempts": 0,
+                "modelCalls": [],
+                "toolCalls": [],
+                "guardrailDecisions": [],
+                "judgeVerdicts": [],
+                "spentUsd": 0,
+                "startedAt": "2026-10-23T19:39:50.614Z",
+                "endedAt": "2026-10-23T19:39:50.614Z"
+              },
+              {
+                "component": "desk-agent",
+                "kind": "agent",
+                "nodeId": "desk-agent",
+                "visitNumber": 1,
+                "copyNumber": 1,
+                "inputHash": "9f09f18149cb85fd713f8a76f367d32940c6f6da5e0f233c584154cd00ebad4d",
+                "validationAttempts": 0,
+                "modelCalls": [
+                  {
+                    "caller": "desk-agent",
+                    "model": "harness/desk",
+                    "inputTokens": 1000,
+                    "outputTokens": 100,
+                    "cacheReadTokens": 0,
+                    "costUsd": 0.0011
+                  },
+                  {
+                    "caller": "desk-agent",
+                    "model": "harness/desk",
+                    "inputTokens": 1000,
+                    "outputTokens": 100,
+                    "cacheReadTokens": 0,
+                    "costUsd": 0.0011
+                  }
+                ],
+                "toolCalls": [
+                  {
+                    "tool": "order-status-tool",
+                    "toolLoopIteration": 1,
+                    "status": "succeeded",
+                    "input": {
+                      "orderId": "7"
+                    },
+                    "output": {
+                      "status": "order 7 shipped on Monday"
+                    },
+                    "isResultTruncated": false,
+                    "validationAttempts": 0
+                  }
+                ],
+                "guardrailDecisions": [
+                  {
+                    "guardrail": "no-credentials-guardrail",
+                    "side": "input",
+                    "isBlocked": false,
+                    "probability": 0
+                  },
+                  {
+                    "guardrail": "no-promises-guardrail",
+                    "side": "output",
+                    "isBlocked": false,
+                    "probability": 0
+                  }
+                ],
+                "judgeVerdicts": [
+                  {
+                    "judge": "quotes-lookup-judge",
+                    "attempt": 0,
+                    "passed": true,
+                    "metrics": {
+                      "lookups": 1
+                    }
+                  }
+                ],
+                "spentUsd": 0.0022,
+                "startedAt": "2026-10-23T19:39:50.617Z",
+                "endedAt": "2026-10-23T19:39:50.655Z"
+              },
+              {
+                "component": "desk-answer-workflow-finish",
+                "kind": "workflow-finish",
+                "nodeId": "desk-answer-workflow-finish",
+                "visitNumber": 1,
+                "copyNumber": 1,
+                "inputHash": "b590a694f81d77a426d5b45a1a08b20c6bf0f2f56bc85db5f5c7e56d36dafb59",
+                "validationAttempts": 0,
+                "modelCalls": [],
+                "toolCalls": [],
+                "guardrailDecisions": [],
+                "judgeVerdicts": [],
+                "spentUsd": 0,
+                "startedAt": "2026-10-23T19:39:50.661Z",
+                "endedAt": "2026-10-23T19:39:50.661Z"
+              }
+            ],
+            "pauses": [],
+            "children": [],
+            "handledErrors": [],
+            "compensations": [],
+            "finish": "desk-answer-workflow-finish",
+            "output": {
+              "text": "It says: {\"status\":\"order 7 shipped on Monday\"}"
+            }
+          }
+        }
+      ],
+      "expectation": {
+        "requiredTools": [
+          {
+            "tool": "order-status-tool",
+            "arguments": {
+              "orderId": "7"
+            }
+          }
+        ],
+        "forbiddenTools": [
+          "close-account-tool"
+        ],
+        "invariantTools": [],
+        "checks": [
+          "trajectory",
+          "desk-answer-judge"
+        ]
+      }
+    },
+    {
+      "name": "archived-order",
+      "caseHash": "1f3e71ff763968ab",
+      "passed": 2,
+      "runs": 2,
+      "passAtK": true,
+      "passHatK": true,
+      "isUnstable": false,
+      "runResults": [
+        {
+          "run": 1,
+          "threadId": "df59a681-a11d-4905-9ad0-3aefadaba395",
+          "executionId": "b9270d1d-3582-4b61-be14-0a91437e303f",
+          "finish": "desk-answer-workflow-finish",
+          "passed": true,
+          "checks": [
+            {
+              "check": "trajectory",
+              "status": "passed"
+            },
+            {
+              "check": "desk-answer-judge",
+              "status": "passed",
+              "metrics": {
+                "length": 67,
+                "quotesTool": true
+              }
+            }
+          ],
+          "spentUsd": 0.0022,
+          "trace": {
+            "executionId": "b9270d1d-3582-4b61-be14-0a91437e303f",
+            "path": [
+              "desk-workflow-start",
+              "desk-agent",
+              "desk-answer-workflow-finish"
+            ],
+            "steps": [
+              {
+                "component": "desk-workflow-start",
+                "kind": "workflow-start",
+                "nodeId": "desk-workflow-start",
+                "visitNumber": 1,
+                "copyNumber": 1,
+                "inputHash": "51f41c3cdcb0d1880914662beb33080b1dc129ee8fd7829666e5cacab2c408a2",
+                "validationAttempts": 0,
+                "modelCalls": [],
+                "toolCalls": [],
+                "guardrailDecisions": [],
+                "judgeVerdicts": [],
+                "spentUsd": 0,
+                "startedAt": "2026-10-23T19:39:50.677Z",
+                "endedAt": "2026-10-23T19:39:50.678Z"
+              },
+              {
+                "component": "desk-agent",
+                "kind": "agent",
+                "nodeId": "desk-agent",
+                "visitNumber": 1,
+                "copyNumber": 1,
+                "inputHash": "be9197bb3c85dff2350189b4f9838d0d32a9829a316bc1a536d38252a9e1ab6c",
+                "validationAttempts": 0,
+                "modelCalls": [
+                  {
+                    "caller": "desk-agent",
+                    "model": "harness/desk",
+                    "inputTokens": 1000,
+                    "outputTokens": 100,
+                    "cacheReadTokens": 0,
+                    "costUsd": 0.0011
+                  },
+                  {
+                    "caller": "desk-agent",
+                    "model": "harness/desk",
+                    "inputTokens": 1000,
+                    "outputTokens": 100,
+                    "cacheReadTokens": 0,
+                    "costUsd": 0.0011
+                  }
+                ],
+                "toolCalls": [
+                  {
+                    "tool": "order-status-tool",
+                    "toolLoopIteration": 1,
+                    "status": "replied",
+                    "input": {
+                      "orderId": "A-12"
+                    },
+                    "output": "Order A-12 is archived: ask the customer for a recent one.",
+                    "isResultTruncated": false,
+                    "validationAttempts": 0
+                  }
+                ],
+                "guardrailDecisions": [
+                  {
+                    "guardrail": "no-credentials-guardrail",
+                    "side": "input",
+                    "isBlocked": false,
+                    "probability": 0
+                  },
+                  {
+                    "guardrail": "no-promises-guardrail",
+                    "side": "output",
+                    "isBlocked": false,
+                    "probability": 0
+                  }
+                ],
+                "judgeVerdicts": [
+                  {
+                    "judge": "quotes-lookup-judge",
+                    "attempt": 0,
+                    "passed": true,
+                    "metrics": {
+                      "lookups": 0
+                    }
+                  }
+                ],
+                "spentUsd": 0.0022,
+                "startedAt": "2026-10-23T19:39:50.681Z",
+                "endedAt": "2026-10-23T19:39:50.734Z"
+              },
+              {
+                "component": "desk-answer-workflow-finish",
+                "kind": "workflow-finish",
+                "nodeId": "desk-answer-workflow-finish",
+                "visitNumber": 1,
+                "copyNumber": 1,
+                "inputHash": "9118aaed507784f6217b96454a89bb7e0ea36ef9bdd8bcacb9dc96f47e115254",
+                "validationAttempts": 0,
+                "modelCalls": [],
+                "toolCalls": [],
+                "guardrailDecisions": [],
+                "judgeVerdicts": [],
+                "spentUsd": 0,
+                "startedAt": "2026-10-23T19:39:50.737Z",
+                "endedAt": "2026-10-23T19:39:50.737Z"
+              }
+            ],
+            "pauses": [],
+            "children": [],
+            "handledErrors": [],
+            "compensations": [],
+            "finish": "desk-answer-workflow-finish",
+            "output": {
+              "text": "It says: Order A-12 is archived: ask the customer for a recent one."
+            }
+          }
+        },
+        {
+          "run": 2,
+          "threadId": "80aa35f5-30c9-4cb9-b073-f8afe91c8c78",
+          "executionId": "4612dd3e-341d-44a6-8ca5-db0302cac425",
+          "finish": "desk-answer-workflow-finish",
+          "passed": true,
+          "checks": [
+            {
+              "check": "trajectory",
+              "status": "passed"
+            },
+            {
+              "check": "desk-answer-judge",
+              "status": "passed",
+              "metrics": {
+                "length": 67,
+                "quotesTool": true
+              }
+            }
+          ],
+          "spentUsd": 0.0022,
+          "trace": {
+            "executionId": "4612dd3e-341d-44a6-8ca5-db0302cac425",
+            "path": [
+              "desk-workflow-start",
+              "desk-agent",
+              "desk-answer-workflow-finish"
+            ],
+            "steps": [
+              {
+                "component": "desk-workflow-start",
+                "kind": "workflow-start",
+                "nodeId": "desk-workflow-start",
+                "visitNumber": 1,
+                "copyNumber": 1,
+                "inputHash": "51f41c3cdcb0d1880914662beb33080b1dc129ee8fd7829666e5cacab2c408a2",
+                "validationAttempts": 0,
+                "modelCalls": [],
+                "toolCalls": [],
+                "guardrailDecisions": [],
+                "judgeVerdicts": [],
+                "spentUsd": 0,
+                "startedAt": "2026-10-23T19:39:50.753Z",
+                "endedAt": "2026-10-23T19:39:50.753Z"
+              },
+              {
+                "component": "desk-agent",
+                "kind": "agent",
+                "nodeId": "desk-agent",
+                "visitNumber": 1,
+                "copyNumber": 1,
+                "inputHash": "be9197bb3c85dff2350189b4f9838d0d32a9829a316bc1a536d38252a9e1ab6c",
+                "validationAttempts": 0,
+                "modelCalls": [
+                  {
+                    "caller": "desk-agent",
+                    "model": "harness/desk",
+                    "inputTokens": 1000,
+                    "outputTokens": 100,
+                    "cacheReadTokens": 0,
+                    "costUsd": 0.0011
+                  },
+                  {
+                    "caller": "desk-agent",
+                    "model": "harness/desk",
+                    "inputTokens": 1000,
+                    "outputTokens": 100,
+                    "cacheReadTokens": 0,
+                    "costUsd": 0.0011
+                  }
+                ],
+                "toolCalls": [
+                  {
+                    "tool": "order-status-tool",
+                    "toolLoopIteration": 1,
+                    "status": "replied",
+                    "input": {
+                      "orderId": "A-12"
+                    },
+                    "output": "Order A-12 is archived: ask the customer for a recent one.",
+                    "isResultTruncated": false,
+                    "validationAttempts": 0
+                  }
+                ],
+                "guardrailDecisions": [
+                  {
+                    "guardrail": "no-credentials-guardrail",
+                    "side": "input",
+                    "isBlocked": false,
+                    "probability": 0
+                  },
+                  {
+                    "guardrail": "no-promises-guardrail",
+                    "side": "output",
+                    "isBlocked": false,
+                    "probability": 0
+                  }
+                ],
+                "judgeVerdicts": [
+                  {
+                    "judge": "quotes-lookup-judge",
+                    "attempt": 0,
+                    "passed": true,
+                    "metrics": {
+                      "lookups": 0
+                    }
+                  }
+                ],
+                "spentUsd": 0.0022,
+                "startedAt": "2026-10-23T19:39:50.755Z",
+                "endedAt": "2026-10-23T19:39:50.796Z"
+              },
+              {
+                "component": "desk-answer-workflow-finish",
+                "kind": "workflow-finish",
+                "nodeId": "desk-answer-workflow-finish",
+                "visitNumber": 1,
+                "copyNumber": 1,
+                "inputHash": "9118aaed507784f6217b96454a89bb7e0ea36ef9bdd8bcacb9dc96f47e115254",
+                "validationAttempts": 0,
+                "modelCalls": [],
+                "toolCalls": [],
+                "guardrailDecisions": [],
+                "judgeVerdicts": [],
+                "spentUsd": 0,
+                "startedAt": "2026-10-23T19:39:50.801Z",
+                "endedAt": "2026-10-23T19:39:50.802Z"
+              }
+            ],
+            "pauses": [],
+            "children": [],
+            "handledErrors": [],
+            "compensations": [],
+            "finish": "desk-answer-workflow-finish",
+            "output": {
+              "text": "It says: Order A-12 is archived: ask the customer for a recent one."
+            }
+          }
+        }
+      ],
+      "expectation": {
+        "requiredTools": [],
+        "forbiddenTools": [
+          "close-account-tool"
+        ],
+        "invariantTools": [
+          "order-status-tool"
+        ],
+        "checks": [
+          "trajectory",
+          "desk-answer-judge"
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "cases": 2,
+    "passAtK": 2,
+    "passHatK": 2,
+    "unstable": 0,
+    "judgeCalls": 4,
+    "skippedByCascade": 0
+  },
+  "spend": {
+    "totalUsd": 0.0088
+  },
+  "agbossVersion": "0.1.0",
+  "models": [
+    {
+      "component": "desk-agent",
+      "kind": "agent",
+      "model": "harness/desk",
+      "provider": "harness-model-provider"
+    }
+  ],
+  "piiPolicies": [
+    "customer-id-pii-policy"
+  ]
+}

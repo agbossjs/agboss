@@ -7,6 +7,9 @@ export default defineConfig({
     expect: { requireAssertions: true },
     // the workflow matchers (toFollowPath, toFinishWith, …)
     setupFiles: ["agboss/testing/setup"],
+    // one module graph per worker: the framework and the components load once, not per file —
+    // every test assembles its application anew anyway (testWith), so nothing leaks between files
+    isolate: false,
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
