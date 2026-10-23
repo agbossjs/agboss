@@ -201,6 +201,9 @@ mockLlm(Reviewer).thenReturn(failWith(ModelFailure.Timeout));
 | `decideWith(answers, { cost? })`                  | a decision model answers by question id (a judge, a model arbiter, a router before a launch) |
 | `waitFor(seconds(31))`                            | not a call of its own: the next turn answers only after that long on the test's clock (`clock.advance`) |
 | `failWith(ModelFailure.Timeout \| RateLimited \| ServerError \| NetworkError)` (the same enum as `agboss/models`) | the call fails: an agent fails the run at the agent, a router with `RouterFailedError` (`step.router`, the failure as its cause) |
+| `callToolWithInvalidArguments(Tool, args)`        | the model calls a tool with arguments its input check refuses — `args` of any shape, no cast (#395): the tool never runs, the call is `ToolCallStatus.InvalidArguments`, counted in `step.validationAttempts`, and the model reads why |
+| `callToolWithTruncatedArguments(Tool, partialArgs)` | the call is cut at the output limit: `{"orderId":"7` as the provider's `invalid_tool_calls`, `finish_reason: "length"` — recorded `InvalidArguments`, the tool never runs |
+| `replyWithInvalidAnswer(Dto, fields, { cost? })`  | an agent with `output` answers through the answer tool of a class of its output (checked like `replyWith`) with fields that do not fit it: an invalid answer, sent back; the third fails the step with `AgentAnswerInvalidError` (`step.agent.invalid-answer`) |
 
 - **By position, never by call order across components:** a component's n-th model call gets its
   n-th turn, counted over the whole test (every run and every app of it). LangGraph never repeats a
@@ -211,6 +214,36 @@ mockLlm(Reviewer).thenReturn(failWith(ModelFailure.Timeout));
   agent scripted with `routeTo` or a router with `replyWith` fails with `test.wrong-script` — for a
   component the generated types know (`agboss check`), both do not compile. A judge or an arbiter
   (no generated entry) is scripted unchecked.
+
+### The model's mistakes — a validation retry
+
+A tool call or an answer that does not validate is scripted as is, no cast (#395):
+
+<!-- snippet-context
+import { callTool, callToolWithInvalidArguments, callToolWithTruncatedArguments, replyWith, routeTo, testWith } from "agboss/testing";
+import { expect } from "vitest";
+import { ChatWorkflowStart, JobScoutApplication, MainRouter, OrderStatus, Scout } from "./job-scout.js";
+testWith(JobScoutApplication)("invalid turns", async ({ app, mockLlm }) => {
+// @snippet
+});
+-->
+
+```ts
+mockLlm(MainRouter).thenReturn(routeTo(Scout));
+mockLlm(Scout).thenReturn(
+  callToolWithInvalidArguments(OrderStatus, { orderId: 7 }), // refused by its input check
+  callToolWithTruncatedArguments(OrderStatus, { orderId: "7" }), // cut JSON: {"orderId":"7
+  callTool(OrderStatus, { orderId: "7" }),
+  replyWith("Order 7 has shipped."),
+);
+const result = await app.execute(ChatWorkflowStart, { text: "where is order 7?" });
+expect(result.toolCalls.at(-1)?.step.validationAttempts).toBe(2); // the two before it
+```
+
+An agent with `output` gives an answer that does not fit its class with
+`replyWithInvalidAnswer(OfferDraftDto, { body: "no text field" })`: the third in a row fails the step
+with `AgentAnswerInvalidError` — `rejects.toFailWith(AgentAnswerInvalidError, { code:
+"step.agent.invalid-answer" })`.
 
 ### Binding turns to the input — `when(…)`
 

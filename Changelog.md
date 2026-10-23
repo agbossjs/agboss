@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the model's invalid turns, scripted (#395 PR 3)
+
+- **Added — `callToolWithInvalidArguments(Tool, args)`, `callToolWithTruncatedArguments(Tool,
+  partialArgs)`, `replyWithInvalidAnswer(Dto, fields)`** ([Testing](Testing#scripted-models)): a
+  validation retry is tested without a cast — an invalid or a cut tool call (recorded
+  `ToolCallStatus.InvalidArguments`, counted in `step.validationAttempts`, the tool never runs) and
+  an answer that does not fit its class (the third fails the step with `AgentAnswerInvalidError`).
+  Replace `replyWith(Dto, { … } as never)` with `replyWithInvalidAnswer(Dto, { … })`.
+
 ## Unreleased — trajectory matchers on a run result (#395 PR 2)
 
 - **Breaking — `mockLlm(X).toHaveCalledTools([…])` is `toHaveScriptedToolCalls([…])`**
