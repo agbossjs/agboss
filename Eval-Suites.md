@@ -312,7 +312,7 @@ against, so it says what it is and the version of its shape (#396 S3):
 | Field | What it holds |
 | --- | --- |
 | `kind` | always `"agboss.eval-run"` |
-| `schemaVersion` | `2` (#397 PR 2; `1` before it, still read): a reader refuses a version it does not know |
+| `schemaVersion` | `3` (#397 PR 3; `1` and `2` before it, still read): a reader refuses a version it does not know |
 | `suite`, `start`, `cascade`, `runs` | the suite's name and start, its cascade, k |
 | `application`, `workflow` | `{ name, version }` of each |
 | `configHash` | the workflow's fingerprint (`agboss describe --json`): what the runs ran on |
@@ -324,10 +324,38 @@ against, so it says what it is and the version of its shape (#396 S3):
 | `summary` | `cases`, `passAtK`, `passHatK`, `unstable` (counts of cases), `judgeCalls` (judge checks that ran), `skippedByCascade` |
 | `spend` | `{ totalUsd }`: every turn's execution and every judge's model calls |
 | `baseline?` | the run against `--baseline` (`EvalRunComparison`, below) |
+| `profile?`, `agbossVersion?`, `models?`, `piiPolicies?` | version 3 (#397 PR 3): what it ran on — the `--profile`, the AGBoss version, every agent's and model router's model and provider (`EvalModelUse`: `component`, `kind`, `model`, `provider`), and the application's and workflow's PII policies that masked its records and traces |
 
 The artifact's types are public in `agboss/eval` (#396 S6): `EvalRunReport`, `EvalCaseReport`,
 `EvalRunResult`, `EvalCheckResult`, `EvalRunError`, `EvalRunSummary`, `EvalRunComponent`,
 `EvalRunSpend`, with `EVAL_RUN_KIND` and `EVAL_RUN_SCHEMA_VERSION`; `EvalRunSchemaVersion` is `1 | 2`.
+
+### Browsing runs: `agboss eval ui` (#397)
+
+```bash
+agboss eval ui --dir .agboss/eval --port 4317
+```
+
+```
+eval ui: http://127.0.0.1:4317/?token=9f2c…e1   (Ctrl+C to stop)
+runs: .agboss/eval
+```
+
+A folder of run artifacts served read-only, until Ctrl+C: the first page lists every `*.json`
+directly in the folder that is a run artifact, newest first — its suite, file, workflow, config,
+environment, start, pass@k, pass^k, unstable cases, regressions against its baseline, and per case a
+dot per attempt linked to that run's page at that attempt — then the `.json` files that are not, with
+why. A run's page is the same report `--html` writes (within the same size bound), with a link back.
+It runs nothing, loads no application, needs no key; the folder is read again on every request.
+
+- **Only this machine, only with the token.** It listens on `127.0.0.1` alone; every request needs the
+  token it printed (a fresh 128-bit one per start, `?token=`) and a `Host` of `127.0.0.1:<port>` or
+  `localhost:<port>` — a page of another site cannot reach it by DNS rebinding — else `403`. Only
+  `GET` and `HEAD` (`405` otherwise); a file it did not list is `404`, one that is no artifact `422`.
+  Pages carry the same Content-Security-Policy, `Referrer-Policy: no-referrer`, `Cache-Control:
+  no-store`.
+- `--dir` defaults to `.agboss/eval`, `--port` to `4317` (`0`: a free one). A folder that does not
+  exist is `eval.no-runs`, a port outside 0–65535 `usage.option-value` — exit 2, before it serves.
 
 ### A run's trace (`schemaVersion` 2, #397)
 

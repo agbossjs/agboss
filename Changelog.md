@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `agboss eval ui`: a folder of runs, read-only, on 127.0.0.1 (#397 PR 3)
+
+- **Added — `agboss eval ui [--dir <folder>] [--port N]`** ([Eval suites](Eval-Suites#browsing-runs-agboss-eval-ui-397)):
+  the run artifacts of a folder (default `.agboss/eval`) served read-only — the runs newest first with
+  each case's attempt dots, each run's report page — on 127.0.0.1 only, behind a token it prints,
+  the `Host` checked; `eval.no-runs` for a missing folder.
+- **Changed — the run artifact is `schemaVersion` 3**: `profile`, `agbossVersion`, `models`
+  (`EvalModelUse`) and `piiPolicies`, shown in the report's header; versions 1 and 2 are still read
+  (`… this agboss reads 1 to 3`). `EvalRunOptions.profile` names the profile for the artifact.
+
 ## Unreleased — `compare` in both orders, `[judge.same-model-family]` (#396 PR 5)
 
 - **Changed — `agboss compare` / `compareProfiles` judge each pair in both orders**
