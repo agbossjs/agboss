@@ -75,7 +75,7 @@ describe("#268 AC4: agboss describe on flow-patterns — what the public surface
       expect.arrayContaining([
         "  start(OfferWorkflowStart)",
         "  agent(ReviewerAgent)",
-        "  reviewer-agent ← draft: draft-agent | editor-agent (latest)",
+        "  reviewer-agent ← draft: draft-agent | editor-agent (latest, historyOf, limit 1)",
         "    .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))",
         "      caseOf(ChangesRequestedDto, { about: OfferDraftDto })",
         "  reviewer-agent → ChangesRequestedDto { about: OfferDraftDto }",

@@ -24,6 +24,7 @@
     "eval:check": "PII_PSEUDONYM_KEY=offline-only agboss eval run --application src/desk.application.ts --env offline --suite desk-eval-suite --runs 2 --report .agboss/eval/desk-eval-suite.json --baseline eval/runs/desk-eval-suite.json --fail-on-regression && agboss eval show eval/runs/desk-eval-suite.json --html .agboss/eval/desk-eval-suite.html && agboss eval calibrate --report eval/runs/desk-eval-suite.json"
   },
   "dependencies": {
+    "@modelcontextprotocol/server-filesystem": "^2026.8.31",
     "agboss": "0.1.0"
   },
   "devDependencies": {

@@ -170,7 +170,7 @@ no model key): `npm run check` (`agboss check --strict --cassettes` on its offli
 `--federation snapshots/` — its A2A export against its checked-in `describe --json`, its VCR
 cassette `tests/__snapshots__/desk-lookup.cassette.json` (recorded offline through the transport,
 #439; replayed by `tests/desk-cassette.test.ts`) against its prompts and schemas — and on its
-application's eleven workflows `--federation` against the desk's fresh `describe --json`, then
+application's twelve workflows `--federation` against the desk's fresh `describe --json`, then
 `--models` on `test`, then `eslint .` with `agboss/eslint`, then `npm run eval:check` — the desk's
 eval suite run offline on `--env offline` against its baseline `eval/runs/desk-eval-suite.json`
 with `--fail-on-regression`, `eval show --html` and `eval calibrate` on `eval/labels/`; `npm run
@@ -186,7 +186,12 @@ compaction, code guardrails, a tool interceptor — on a transport model provide
 request, and the operational contracts — a code judge on `toolCalls`, a `@Rag`, a `PiiPolicyHandler`,
 an observer, a `@HealthCheck`, `maxConcurrentSteps` —, served over A2A (`@A2AExpose`, a caller
 resolver) to `src/helpline/`, its consumer through an `@A2AAgent` contract (`a2aServer` in
-`tests/helpline.test.ts`, #398), and an `@EvalSuite` with a code eval judge (#396);
+`tests/helpline.test.ts`, #398) that also reads policies through a stubbed `@McpServer` /
+`@McpTool` (`mcpOf`) and remembers the thread by its own memory strategy (`agboss/memory`), and an
+`@EvalSuite` with a code eval judge (#396); `src/intake/` a quorum by groups (`joinQuorumGroups`,
+tested under `TestConcurrency.inOrder` and `failWith(ModelFailure.RateLimited)`); the review loop's
+reviewer reads `historyOf(OfferDraftDto)`; `tests/approvals.test.ts` resumes a pause on a second
+instance (`testWith(App, { instances: 2, env: "instances" })`, one SQLite file);
 `tests/unit-runners.test.ts` runs every unit
 runner on the patterns' components, `src/model-providers/` beside OpenRouter narrowed to `moonshotai/…`, #382–#385) · `npm test`.
 Real runs (#346, its README: the manual checks #263 M1, #264 M1, #267 M1): `dev` reads
@@ -2217,10 +2222,12 @@ examples/flow-patterns/      the flow's patterns (package flow-patterns-example,
                     in waves, #273), src/panel/ (a quorum, #279), src/vendor/ (a child workflow per
                     item, #263), src/topic/ (recursion, #264), src/approvals/ (two approvals at once,
                     #267), src/hiring/ (declared compensation, #339), src/travel/ (a failed join's undo, #340),
-                    src/desk/ (the extension points, #382–#385), src/helpline/ (its A2A consumer, #398),
+                    src/desk/ (the extension points, #382–#385), src/helpline/ (its A2A consumer, #398,
+                    with an MCP server and a memory strategy), src/intake/ (quorum groups, #279),
                     one *.workflow.ts each; model-providers/; desk.application.ts (offline, served over
                     A2A); snapshots/ (its describe --json); eval/ (its eval baseline, labels and
-                    failure tags); scripts/ (npm run answer); README.md (real runs,
+                    failure tags); data/policies/ (what the MCP server reads); scripts/ (npm run
+                    answer); README.md (real runs,
                     #346); tests/
 scripts/        the gate's checks (check-root, check-suppressions, check-docs + docs/, api-report,
                 public-entries, eslint-agboss-plugin: `agboss/eslint` on the repo's files),
