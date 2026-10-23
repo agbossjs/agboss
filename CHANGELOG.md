@@ -73,6 +73,9 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   into the run's model calls (`ChaosFailure`; `eval run` only, never a `createApp` option) (#396).
   `agboss eval run --metamorphic` runs each case's `variants` (its last turn reworded) and checks
   they call the same tools with the same required calls — the check `metamorphic` (#396).
+  `agboss generate eval-case <name> --from-execution <executionId>` drafts a case from a kept
+  execution (#401's history) into its suite — the turn, the contexts, the thread's earlier turns,
+  the calls it ran as `tools.required` — masked as kept, nothing run (#396).
 - **The CLI** (`agboss-cli`) — `agboss create`, `agboss generate`, `agboss check`,
   `agboss describe`, `agboss dev`, `agboss studio`, `agboss chat` / `agboss run`, evaluations and
   comparisons (#268). Breaking on the way (#396): the bare `agboss eval` is now `agboss eval score`

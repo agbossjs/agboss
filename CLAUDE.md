@@ -127,7 +127,11 @@ breaker, on the real budgets — seeded, the rate and the seed together; the art
 case's `variants` (its last turn reworded, on a thread of its own) and checks, as `metamorphic` after
 the other checks under the cascade, that each calls the same set of tool classes as the case's last
 turn and meets its `tools.required` again (the artifact's `metamorphic: true`; the `caseHash` covers
-the variants only then); `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
+the variants only then); `agboss generate eval-case <name> --from-execution <executionId> [--suite
+<name>] [--tenant <id>]` (#396 PR 8) drafts a case from a kept execution (#401) into its suite —
+its input as the turn, its contexts, the thread's earlier finished turns as `history`, the calls it
+ran as `tools.required`, masked as kept, its classes imported; the draft is `evalCaseDraftOf`
+(`agboss/internal`, #397 PR 5 calls it too); `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
 `agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
 (`agboss/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs

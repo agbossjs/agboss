@@ -1,5 +1,14 @@
 /** `agboss eval run | score | show | calibrate | ui` (#396 S4, #397): one command of subcommands, each its own schema. */
-import { APPLICATION, ENV, flag, PROFILE, START, text, type CommandSpec } from "./options.js";
+import {
+  APPLICATION,
+  ENV,
+  flag,
+  PROFILE,
+  START,
+  text,
+  type CommandSpec,
+  type OptionSpec,
+} from "./options.js";
 
 /** `--html <file>`: the run as one self-contained HTML page (#397). */
 const HTML = text("html", "<file>", "write the run as one self-contained HTML report to this file");
@@ -110,3 +119,11 @@ export const EVAL_COMMAND: CommandSpec = {
     },
   },
 };
+
+/** `agboss generate eval-case`'s own options (#396 PR 8): the suite and the kept execution. */
+export const EVAL_CASE_OPTIONS: readonly OptionSpec[] = [
+  text("suite", "<name>", "eval-case: the eval suite to add the case to (optional with one)"),
+  text("from-execution", "<executionId>", "eval-case: the kept execution the case is drafted from"),
+  text("tenant", "<id>", "eval-case: the execution's tenant, when two tenants have the id"),
+  ENV,
+];

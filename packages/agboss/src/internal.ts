@@ -75,6 +75,14 @@ export {
   type OpenedExecutionHistory,
 } from "./application/execution-history-store.js";
 export {
+  evalCaseDraftOf,
+  observedExecutionOf,
+  type DraftToolCall,
+  type EvalCaseDraft,
+  type ObservedExecution,
+  type ObservedTurn,
+} from "./eval/case-from-execution.js";
+export {
   EXECUTION_RECORD_KIND,
   exportedRecordLine,
   historyRecordsOf,
