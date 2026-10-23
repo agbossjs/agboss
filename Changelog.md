@@ -3,6 +3,18 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `agboss check --federation`: declared contracts compared across applications (#398 PR 4)
+
+- **`agboss check --federation <snapshot…>`** — the application's consumed and exported contracts
+  against its neighbours' `agboss describe --json` files (or folders of them), no network:
+  `[federation.missing-target]`, `[federation.incompatible-schema]` (a structural comparison of the
+  JSON Schemas, field by field) with each problem's blast radius, `[federation.snapshot-schema]`,
+  `[federation.duplicate-application]`, `[federation.version-not-bumped]` (a warning; `--strict`
+  makes it an error). [A2A § 8](A2A#8-the-federation-check-398-pr-4).
+- `describe --json`: each `application.contracts.imports` MCP entry gets `usedBy` too (the tools of
+  the application's agents that reach its server).
+- `check --json`: a problem may carry `blastRadius` (`{ application, workflow, tool }[]`).
+
 ## Unreleased — declared contracts: `@A2AExpose`, a typed `@A2AAgent`, the contract price, the envelope's audience, `describe --json` contracts (#398 PR 3)
 
 - **Breaking — `@A2AAgent({ name, url, target, input, output, price?, deps })` and a typed

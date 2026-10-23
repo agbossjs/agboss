@@ -491,7 +491,7 @@ export class BillingApplication {}
       "output": { "dto": "InvoiceAnswerDto", "schemaHash": "6b22…" },
       "price": 0.05
     },
-    { "kind": "mcp", "server": "kb", "tool": "search", "target": null, "input": { "…": "…" }, "output": { "…": "…" } }
+    { "kind": "mcp", "server": "kb", "tool": "search", "target": null, "usedBy": [{ "workflow": "orders-workflow", "tool": "search-kb-tool" }], "input": { "…": "…" }, "output": { "…": "…" } }
   ],
   "schemas": { "InvoiceQuestionDto": { "schemaHash": "600a…", "jsonSchema": {} } }
 }
@@ -500,3 +500,42 @@ export class BillingApplication {}
 An `@McpServer` without a `target` (a third-party server) is listed with `target: null`. A start's
 input that is a map of fields, not one DTO, is `null` there (only its hash is in the workflow's
 snapshot).
+
+## 8. The federation check (#398 PR 4)
+
+`agboss check --federation <snapshot…>` compares the application's declared contracts with its
+neighbours' — each one's `agboss describe --json` output, saved as a file. It takes files and
+folders of them (every `*.json` under a folder), reads only the disk (no network, no neighbour
+running), and runs after the assembly like `--cassettes`:
+
+```sh
+npx agboss describe --json > ../snapshots/shop.json   # in each neighbour, on its release
+npx agboss check --federation ../snapshots            # in this application, before shipping
+```
+
+Every consumed contract whose target application is among the snapshots (or is this application)
+is checked against that application's exports — an `@A2AAgent`'s `target.application` and
+`target.start`, an `@McpServer`'s `target: { application, expose }` and its tools:
+
+| Code | When |
+| --- | --- |
+| `[federation.missing-target]` | the target application exports no such start (or no such tool under that expose) |
+| `[federation.incompatible-schema]` | the export's input does not accept every value the consumer may send, or the consumer's output does not accept every value one of the export's finishes may give |
+| `[federation.snapshot-schema]` | a file that is not an `agboss describe --json` output with `application.contracts` (or a path that does not exist) |
+| `[federation.duplicate-application]` | two snapshots of one application |
+| `[federation.version-not-bumped]` | the project's own earlier snapshot is among them, an `@A2AExpose` start's schema changed and its `version` did not — a warning, an error under `--strict` |
+
+The comparison is **structural**, never by hash: an equal `schemaHash` is only the fast path. Each
+difference is one reason, named by its field path — a field now required that the sender may leave
+out or does not send, a type it may send that is not accepted (an `integer` is a `number`), an enum
+value, a tighter bound or a pattern, a field no longer accepted (`additionalProperties: false`),
+list items and unions, `$ref`s into `$defs`. Each problem names its **blast radius** — the
+consumer's workflows and tools that use the contract (`usedBy`):
+
+```text
+snapshots/shop.json federation.incompatible-schema shop-application › billing-desk-a2a-agent → billing-application › billing-workflow-start: input StrictBillingQuestionDto: field "invoiceNumber" is now required; the sender does not send it — affects shop-application › quote-workflow (ask-billing-tool)
+```
+
+A problem is exit 3, like every `check` problem; `--json` carries each one with its `blastRadius`
+(`{ application, workflow, tool }[]`). Snapshot paths without `--federation`, or the flag without
+any, are a usage error (exit 2). The comparison is `checkFederation` in `agboss/internal`.
