@@ -64,7 +64,9 @@ export function contextTypesOf(
 ): ContextTypes {
   const starts = new Map(workflowStarts);
   const augmented = new Set<ApplicationOptions>();
-  const augmentations: string[] = [];
+  // one block per declared execution class, sorted: the file is the same whatever the order of the
+  // workflows and modules it is generated from (two applications with their own contexts, #396)
+  const blocks = new Set<string>();
   for (const { starts: startNames, application } of workflows) {
     if (application === undefined) continue;
     const members = contextMembers(application, names);
@@ -74,7 +76,9 @@ export function contextTypesOf(
     }
     if (augmented.has(application)) continue;
     augmented.add(application);
-    augmentations.push(...tenantAugmentation(application, names));
+    const block = tenantAugmentation(application, names);
+    if (block.length > 0) blocks.add(block.join("\n"));
   }
+  const augmentations = [...blocks].sort().flatMap((block) => block.split("\n"));
   return { workflowStarts: starts, augmentations };
 }

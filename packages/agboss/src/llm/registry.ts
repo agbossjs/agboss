@@ -105,14 +105,28 @@ export function createModelRegistry(
   const judges = new Map(
     Object.entries(config.judges ?? {}).map(([judge, settings]): [string, JudgeBinding] => [
       judge,
-      isDecisionModel(settings.model)
-        ? decisionJudge(judge, settings.model, gateway)
-        : {
-            kind: ModelKind.Chat,
-            model: settings.model,
-            chat: bindFor({ kind: "judge", judge })(settings),
-          },
+      judgeBindingOf(judge, settings, config, gateway),
     ]),
   );
   return { agents, compactions, judges };
+}
+
+/**
+ * One judge's model through the gateway (an agent's judge at start; an eval suite's judge when its
+ * run needs it, #396): a decision model decides, a chat model is bound with the chat defaults.
+ */
+export function judgeBindingOf(
+  judge: string,
+  settings: ModelSettings,
+  config: Pick<AgentsConfigOf<string>, "defaults">,
+  gateway: RegistryGateway,
+): JudgeBinding {
+  if (isDecisionModel(settings.model)) return decisionJudge(judge, settings.model, gateway);
+  const resolved = resolveSettings(settings, config.defaults.models);
+  const user: ChatModelUser = { kind: "judge", judge };
+  return {
+    kind: ModelKind.Chat,
+    model: settings.model,
+    chat: { model: gateway.chatModel({ user, settings: resolved }), settings: resolved },
+  };
 }

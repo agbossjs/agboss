@@ -15,6 +15,8 @@ import type { ChargeResultDto, CreditApprovalDto, CreditOrderDto, SupportIntentD
 import type { ApprovalAgent, ChargeCardAction, CreditByModelWorkflow, CreditLimitByModelRouter, CreditLimitRouter, CreditWorkflow, CreditWorkflowFinish, CreditWorkflowStart, DeskRouter, NoOrderWorkflowFinish, OrderHeldWorkflowFinish, OrderIntakeAgent } from "../tests/flow/fixtures/credit.fixture.js";
 import type { CompanyDto, CompanyScoreDto, CustomerReplyDto, DraftChangesDto, ExpertDraftDto, FastDraftDto, LoyaltyOfferDto, OrderStatusDto, SearchRequestDto } from "../tests/flow/fixtures/data-dtos.js";
 import type { ArticleDto, ArticleRequestDto, ChangesRequestedDto, DraftApprovedDto, OfferDraftDto, OfferSentDto, OpeningsDto, OrderRequestDto, OrderShippedDto, ProfileDto, ResumeMissingDto, ReviewDto, ShortlistDto, StockReservationDto, WorkflowStartTextDto } from "../tests/flow/fixtures/dtos.js";
+import type { DeskAgent, DeskAnswerDto, DeskExecutionContext, DeskTenantContext, DeskWorkflowFinish, DeskWorkflowStart, EvalDeskWorkflow, HandOverDto, HandOverWorkflowFinish } from "../tests/flow/fixtures/eval-desk.fixture.js";
+import type { AnswerWorkflowFinish, AskDto, AskWorkflowStart, LookupAgent, LookupWorkflow } from "../tests/flow/fixtures/evals.fixture.js";
 import type { DraftEditorAgent, DraftHistoryWorkflowFinish, FirstDraftAgent, HistoryOfferWorkflow, HistoryOfferWorkflowStart, ReviewDraftAction } from "../tests/flow/fixtures/history.fixture.js";
 import type { ArticleDraftDto, CompanyCheckDto, PaymentDto, RankingDto, RefundPolicyDto, ScreeningFailedDto } from "../tests/flow/fixtures/launch-dtos.js";
 import type { AnswerAgent, ArticleDraftWorkflowFinish, ArticleWriterAgent, ChargePaymentAction, CheckoutWorkflow, CheckoutWorkflowStart, CompanyAuditAgent, CriticAgent, HelpDeskRouter, HelpDeskWorkflow, HelpDeskWorkflowFinish, HelpDeskWorkflowStart, LoyaltyOfferAgent, NotifyOperatorAction, OffersAnswerAgent, OffersRouter, OffersWorkflow, OffersWorkflowFinish, OffersWorkflowStart, OrderLookupAgent, PaymentWorkflowFinish, PlanResearcherAgent, PlannerAgent, RankerAgent, RankingWorkflowFinish, RefundPolicyAgent, ResearchWorkflow, ResearchWorkflowStart, ReserveGoodsAction, ScreeningAgent, ScreeningFailedWorkflowFinish, ScreeningWorkflow, ScreeningWorkflowStart, SendReceiptAction, UpdateCrmAction } from "../tests/flow/fixtures/launch.fixture.js";
@@ -44,6 +46,7 @@ declare module "../src/flow/generated-types.js" {
     "article-draft-agent": ArticleDto;
     "article-workflow-start": ArticleRequestDto;
     "article-writer-agent": ArticleDraftDto;
+    "ask-workflow-start": AskDto;
     "audit-bed-action": NoOutput;
     "auditor-agent": AuditDto;
     "batch-rank-agent": CompanyScoreDto;
@@ -85,6 +88,8 @@ declare module "../src/flow/generated-types.js" {
     "deep-dive-agent": DeepDiveDto;
     "deep-research-workflow-start": ResearchTopicDto;
     "delivery-topic-agent": TopicAnswerDto;
+    "desk-agent": DeskAnswerDto | HandOverDto;
+    "desk-workflow-start": WorkflowStartTextDto;
     "draft-agent": OfferDraftDto;
     "draft-editor-agent": OfferDraftDto;
     "draft-reviewer-agent": ReviewDto;
@@ -111,6 +116,7 @@ declare module "../src/flow/generated-types.js" {
     "legal-agent": LegalReviewDto;
     "legal-panel-agent": LegalReviewDto;
     "link-offer-workflow-start": readonly [WorkflowStartTextDto, CompanyLinkDto];
+    "lookup-agent": NoOutput;
     "loyalty-agent": LoyaltyOfferDto;
     "loyalty-offer-agent": LoyaltyOfferDto;
     "mark-review-failed-action": CompanyReviewFailedDto;
@@ -205,6 +211,7 @@ declare module "../src/flow/generated-types.js" {
       | { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderLookupAgent>; refund?: undefined; loyalty: Produced<LoyaltyOfferDto, typeof LoyaltyOfferAgent> }
       | { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderLookupAgent>; refund?: undefined; loyalty?: undefined };
     "answer-router": { order: Produced<OrderStatusDto, typeof OrderAgent> };
+    "answer-workflow-finish": NoInput;
     "approval-agent": { order: Produced<CreditOrderDto, typeof OrderIntakeAgent> };
     "approved-workflow-finish": NoInput;
     "article-draft-agent": { request: Produced<ArticleRequestDto, typeof ArticleWorkflowStart> };
@@ -213,6 +220,7 @@ declare module "../src/flow/generated-types.js" {
     "article-workflow-start": ArticleRequestDto;
     "article-writer-agent": { plan: Produced<PlanDto, typeof PlannerAgent>; research: Produced<ResearchDto, typeof PlanResearcherAgent>; critiques: readonly Produced<CritiqueDto, typeof CriticAgent>[] };
     "ask-resume-workflow-finish": NoInput;
+    "ask-workflow-start": AskDto;
     "audit-bed-action": NoInput;
     "auditor-agent": { deal: Produced<DealDto, typeof DealWorkflowStart> };
     "batch-rank-agent": { companies: readonly Produced<CompanyDto, typeof CompanyBatchWorkflowStart>[] };
@@ -274,7 +282,10 @@ declare module "../src/flow/generated-types.js" {
     "deep-research-workflow-start": ResearchTopicDto;
     "delivery-topic-agent": { intent: Produced<SupportIntentDto, typeof TopicsWorkflowStart> };
     "deposit-reply-interpreter": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: DepositReturnDto }; readonly reply: string };
+    "desk-agent": { message: Produced<WorkflowStartTextDto, typeof DeskWorkflowStart> };
     "desk-router": { message: Produced<WorkflowStartTextDto, typeof CreditWorkflowStart> };
+    "desk-workflow-finish": NoInput;
+    "desk-workflow-start": WorkflowStartTextDto;
     "draft-agent": { shortlist: Produced<ShortlistDto, typeof OfferWorkflowStart> };
     "draft-editor-agent": { draft: Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>; changes: Produced<ChangesRequestedDto, typeof ReviewDraftAction> };
     "draft-history-workflow-finish": { drafts: HistoryOf<Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>> };
@@ -308,6 +319,7 @@ declare module "../src/flow/generated-types.js" {
       | { deal: Produced<DealDto, typeof DealWorkflowStart>; legal?: undefined; critiques: readonly Produced<DealCritiqueDto, typeof DealCriticAgent>[] };
     "graded-shortlist-workflow-finish": NoInput;
     "grader-agent": { deepDive: Produced<DeepDiveDto, typeof DeepDiveAgent> };
+    "hand-over-workflow-finish": NoInput;
     "help-desk-router": { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart> };
     "help-desk-workflow-finish": NoInput;
     "help-desk-workflow-start": WorkflowStartTextDto;
@@ -321,6 +333,7 @@ declare module "../src/flow/generated-types.js" {
     "legal-agent": { deal: Produced<DealDto, typeof DealWorkflowStart> };
     "legal-panel-agent": { deal: Produced<DealDto, typeof DealPanelWorkflowStart> };
     "link-offer-workflow-start": { message: WorkflowStartTextDto; link: CompanyLinkDto };
+    "lookup-agent": { message: Produced<AskDto, typeof AskWorkflowStart> };
     "loyalty-agent": { order: Produced<OrderStatusDto, typeof OrderAgent> };
     "loyalty-offer-agent": { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart | typeof OffersWorkflowStart> };
     "main-router": { message: Produced<WorkflowStartTextDto, typeof IntakeWorkflowStart> };
@@ -468,6 +481,7 @@ declare module "../src/flow/generated-types.js" {
     "writer-agent": { article: Produced<ArticleDto, typeof ArticleDraftAgent>; review: Produced<ReviewDto, typeof DraftReviewerAgent> };
   }
   interface Outputs {
+    "answer-workflow-finish": WorkflowFinishTextDto;
     "approved-workflow-finish": ApprovedVerdictDto;
     "article-draft-workflow-finish": ArticleDraftDto;
     "article-workflow-finish": ReviewDto;
@@ -487,12 +501,14 @@ declare module "../src/flow/generated-types.js" {
     "deal-report-panel-workflow-finish": DueDiligenceReportDto;
     "deal-room-opened-workflow-finish": AuditDto;
     "deposit-reply-interpreter": Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: DepositReturnDto };
+    "desk-workflow-finish": DeskAnswerDto;
     "draft-history-workflow-finish": DraftChangesDto;
     "due-diligence-report-workflow-finish": DueDiligenceReportDto;
     "expense-reply-interpreter": Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: ExpenseRequestDto };
     "fail-topic-action": ResearchFailedDto;
     "fit-summary-workflow-finish": FitSummaryDto;
     "graded-shortlist-workflow-finish": GradedShortlistDto;
+    "hand-over-workflow-finish": HandOverDto;
     "help-desk-workflow-finish": CustomerReplyDto;
     "job-offer-workflow-finish": JobOfferDto;
     "manual-quote-workflow-finish": QuoteRequestDto;
@@ -561,6 +577,7 @@ declare module "../src/flow/generated-types.js" {
   }
   interface WorkflowStarts {
     "article-workflow-start": { input: ArticleRequestDto; output: ReviewDto };
+    "ask-workflow-start": { input: AskDto; output: WorkflowFinishTextDto };
     "bed-request-workflow-start": { input: WorkflowStartTextDto; output: BedsDto; tenant: ClinicTenantContext; execution: ClinicExecutionContext };
     "broken-review-workflow-start": { input: WorkflowStartTextDto; output: JobOfferDto };
     "candidate-review-workflow-start": { input: CandidateDto; output: CandidateDto | ScoreReviewDto };
@@ -575,6 +592,7 @@ declare module "../src/flow/generated-types.js" {
     "deal-panel-workflow-start": { input: DealDto; output: DealCritiqueDto | DealDto | DueDiligenceReportDto | FastScreenDto };
     "deal-workflow-start": { input: DealDto; output: AuditDto | DealDto | DueDiligenceReportDto | FastScreenDto };
     "deep-research-workflow-start": { input: ResearchTopicDto; output: ResearchFailedDto | ResearchReportDto };
+    "desk-workflow-start": { input: WorkflowStartTextDto; output: DeskAnswerDto | HandOverDto; tenant: DeskTenantContext; execution: DeskExecutionContext };
     "fit-review-workflow-start": { input: CandidateDto; output: FitSummaryDto };
     "full-grade-workflow-start": { input: CompanyDto; output: CompanyGradeDto };
     "help-desk-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
@@ -680,6 +698,7 @@ declare module "../src/flow/generated-types.js" {
     "ArticleDraftDto": ArticleDraftDto;
     "ArticleDto": ArticleDto;
     "ArticleRequestDto": ArticleRequestDto;
+    "AskDto": AskDto;
     "AuditDto": AuditDto;
     "BedsDto": BedsDto;
     "CandidateDto": CandidateDto;
@@ -702,6 +721,7 @@ declare module "../src/flow/generated-types.js" {
     "DealDto": DealDto;
     "DeepDiveDto": DeepDiveDto;
     "DepositReturnDto": DepositReturnDto;
+    "DeskAnswerDto": DeskAnswerDto;
     "DraftApprovedDto": DraftApprovedDto;
     "DraftChangesDto": DraftChangesDto;
     "DraftDto": DraftDto;
@@ -712,6 +732,7 @@ declare module "../src/flow/generated-types.js" {
     "FastScreenDto": FastScreenDto;
     "FitSummaryDto": FitSummaryDto;
     "GradedShortlistDto": GradedShortlistDto;
+    "HandOverDto": HandOverDto;
     "JobOfferDto": JobOfferDto;
     "LegalReviewDto": LegalReviewDto;
     "LoyaltyOfferDto": LoyaltyOfferDto;
@@ -1135,6 +1156,48 @@ declare module "../tests/flow/fixtures/dtos.js" {
   }
   interface WorkflowStartTextDto {
     readonly [agbossDto]?: "WorkflowStartTextDto";
+  }
+}
+
+declare module "../tests/flow/fixtures/eval-desk.fixture.js" {
+  interface DeskAgent {
+    readonly [agbossComponent]?: "desk-agent";
+  }
+  interface DeskAnswerDto {
+    readonly [agbossDto]?: "DeskAnswerDto";
+  }
+  interface DeskWorkflowFinish {
+    readonly [agbossComponent]?: "desk-workflow-finish";
+  }
+  interface DeskWorkflowStart {
+    readonly [agbossComponent]?: "desk-workflow-start";
+  }
+  interface EvalDeskWorkflow {
+    readonly [agbossComponent]?: "eval-desk-workflow";
+  }
+  interface HandOverDto {
+    readonly [agbossDto]?: "HandOverDto";
+  }
+  interface HandOverWorkflowFinish {
+    readonly [agbossComponent]?: "hand-over-workflow-finish";
+  }
+}
+
+declare module "../tests/flow/fixtures/evals.fixture.js" {
+  interface AnswerWorkflowFinish {
+    readonly [agbossComponent]?: "answer-workflow-finish";
+  }
+  interface AskDto {
+    readonly [agbossDto]?: "AskDto";
+  }
+  interface AskWorkflowStart {
+    readonly [agbossComponent]?: "ask-workflow-start";
+  }
+  interface LookupAgent {
+    readonly [agbossComponent]?: "lookup-agent";
+  }
+  interface LookupWorkflow {
+    readonly [agbossComponent]?: "lookup-workflow";
   }
 }
 
@@ -1996,5 +2059,11 @@ declare module "../tests/flow/fixtures/units.fixture.js" {
 declare module "../tests/flow/fixtures/clinic.fixture.js" {
   interface ClinicExecutionContext {
     readonly tenant: ClinicTenantContext;
+  }
+}
+
+declare module "../tests/flow/fixtures/eval-desk.fixture.js" {
+  interface DeskExecutionContext {
+    readonly tenant: DeskTenantContext;
   }
 }

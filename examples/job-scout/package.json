@@ -15,7 +15,7 @@
     "dev": "agboss dev",
     "studio": "agboss studio",
     "check:models": "agboss check --models --env test",
-    "eval": "agboss eval",
+    "eval": "agboss eval score",
     "replay": "agboss replay",
     "golden": "agboss golden",
     "compare": "agboss compare",

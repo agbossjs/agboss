@@ -24,7 +24,7 @@ const LIST = [
 const BY_START: readonly (readonly string[])[] = [
   ["chat"],
   ["run", "find jobs"],
-  ["eval"],
+  ["eval", "score"],
   ["replay", "--version", "v1"],
   ["golden", "add", "--name", "smoke"],
   ["compare", "--profiles", "base,fast"],

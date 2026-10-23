@@ -12,8 +12,8 @@ unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 | a restart, a second instance                                                                                  | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                                                          |
 | one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy, tool interceptor, compaction | its unit runner: `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction` |
 | real model answers, replayed in CI                                                                            | `testWith(App, { vcr: { cassetteName } })`                                                                                                                          |
-| what a live-model run must do, case by case                                                                   | `@EvalSuite` (`agboss/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`                                                                          |
-| quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval`, `npx agboss compare`                                                                                                    |
+| what a live-model run must do, case by case                                                                   | `@EvalSuite` (`agboss/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`; `npx agboss eval run --suite <name> --runs <k>`                         |
+| quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval score`, `npx agboss compare`                                                                                              |
 
 `vitest.config.ts` registers the matchers: `setupFiles: ["agboss/testing/setup"]`. A project made by
 `npx agboss create` has three Vitest projects by file name, next to the sources: `src/**/*.test.ts`
@@ -1149,9 +1149,11 @@ Work from the cheapest loop outwards; a later loop never replaces an earlier one
 
 **Loop 0 — static, $0, after every change.** `npx agboss check` (assembly rules, generated types,
 prompts, environment — all problems at once as `[rule.code]` lines, fix every one) and `npx agboss
-describe` (the flow as assembled, each node's inputs and producers, models and limits). No test runs
-before `check` prints `ok:`. With recorded cassettes, `npx agboss check --cassettes` too: a prompt
-or schema changed since a recording is `[vcr.stale-cassette]`.
+describe` (the flow as assembled, each node's inputs and producers, models and limits). `check` also
+assembles every `eval-suites/*.eval-suite.ts` of the application (its rules and its cases' values,
+`eval-suites` in its list of checks) — no model is called. No test runs before `check` prints `ok:`.
+With recorded cassettes, `npx agboss check --cassettes` too: a prompt or schema changed since a
+recording is `[vcr.stale-cassette]`.
 
 **Loop 1 — the harness, $0, every commit (`npm test`).**
 
@@ -1179,6 +1181,16 @@ or schema changed since a recording is `[vcr.stale-cassette]`.
 6. The loops on a live model come next: an eval suite (the section below) runs the same trajectory
    invariants first, then code judges, then model judges — its cascade and the pass@k rule are
    there.
+
+**Loops 2 and 3 — evals on a live model, paid, before a merge and on a schedule.**
+
+1. Loop 2: `npx agboss eval run --suite <name> --runs <k> --env <name> --report <run.json>` — every
+   case k times on the real application (the environment's services and fixtures), the cascade
+   per run: free trajectory invariants → code `@Judge` → model `@Judge`. Read pass@k and pass^k
+   per case; a case marked `unstable` (pass@k without pass^k) goes to deterministic code, not to a
+   longer prompt.
+2. Loop 3: the same run on `main` gives the run artifact (`--report`), kept as the reference the
+   next runs are read against.
 
 ## Eval suites: `@EvalSuite` (`agboss/eval`)
 
@@ -1265,12 +1277,48 @@ export class ScreeningEvalSuite {}
   judges' own `[judge.*]` rules; then the cases' values — `EvalCaseInvalidError`
   (`eval.case-invalid`, each issue as `case "x": tenant.plan — reason`, never a value).
 
+## Running a suite: `agboss eval run`
+
+```
+npx agboss eval run --suite screening-eval-suite --runs 3 --env eval --report .artifacts/eval/main.json
+```
+
+- The application is built as `createApp` builds it, on the `--env` environment (default `dev`): the
+  suite is assembled first (its rules, then its cases' values — `eval.case-invalid`, exit 3), then
+  every case runs `--runs` times (default 1), one run after the other, each on a thread of its own.
+  `--suite` names the suite by its full name; with one suite in the application it may be left out
+  (several and none named, or an unknown name → `eval.unknown-suite`, exit 2, the suites listed).
+- A run: the case's `history` written into its thread (no model call), its `turns` through
+  `app.execute` with the case's `tenant` / `execution` (validated as there), then the checks on the
+  last turn, in order. `checkTrajectory()` reads `result.toolCalls`: a `required` tool needs a call
+  the tool ran (succeeded, failed or timed out) with the partial's arguments; a `forbidden` one any
+  call at all; an invariant holds on every call with checked arguments.
+- A judge runs in the frame of the case's last execution, created by the application's container:
+  its services, `ExecutionContext` (that execution's id and thread) and the project's
+  `TenantContext` / execution fields with the case's values. It gets the finish's output as its
+  DTO and the last turn's `toolCalls`. A run that ended at a finish the judge does not judge (or at
+  none: a pause) fails that check. A model judge's calls go through the application's models,
+  counted in its application budgets.
+- A turn that fails (or an earlier one that pauses) ends the run: `error: { code, message }`, no
+  checks, the run failed.
+- A run passes when every check that ran passed; a skipped check fails the run. Per case **pass@k**
+  = at least one of the k runs passed, **pass^k** = every run passed; a case with pass@k and not
+  pass^k is printed `unstable` (`isUnstable` in the artifact).
+- It prints one row per case — `pass@3 pass^3 runs first failure` (`✓✗✓`, `run 2: trajectory: …`)
+  — and the totals (`pass@3 3/3 · pass^3 2/3 · unstable 1 · judge calls 8 (1 skipped by the
+cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `kind:
+"agboss.eval-run"`, `schemaVersion`, the suite, the workflow and its `configHash`, `runs`,
+  `cascade`, each case's `caseHash`, `passed` / `runs`, `passAtK`, `passHatK`, `isUnstable` and
+  `runResults` (each run's `executionId`, `finish`, `checks` with `status`, `reason`, `skippedBy`,
+  `metrics`, `spentUsd`), `summary`, `spend`; `--json` carries the same as the envelope's `result`.
+- The exit code says whether the suite ran (0), not how well it did.
+
 ## Evals on real traffic
 
 ```
 npx agboss golden add --start screening-workflow-start --name hires --from-last 20   # save recent tasks
 npx agboss compare --start screening-workflow-start --profiles base,cheaper --golden hires
-npx agboss eval --start screening-workflow-start --limit 50                         # score recent runs
+npx agboss eval score --start screening-workflow-start --limit 50                   # score recent runs
 npx agboss replay --start screening-workflow-start --version <prompt version>        # re-run a version
 ```
 

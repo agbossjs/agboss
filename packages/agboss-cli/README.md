@@ -28,7 +28,8 @@ npm i -D agboss-cli
 | `agboss describe`                         | Print workflow paths, node inputs by producer, `about` / `historyOf` links, model resolution, budgets, and limits                                                                |
 | `agboss describe --json`                  | Export the machine-readable declarative revision snapshot (`configHash`, `promptHash`, `schemaHash`)                                                                             |
 | `agboss chat` / `agboss run`              | Run interactive multi-turn terminal chat or a single workflow execution                                                                                                          |
-| `agboss eval` / `agboss compare`          | Evaluate runs against golden sets and compare YAML configuration profiles side by side                                                                                           |
+| `agboss eval run`                         | Run an `@EvalSuite` on the application: each case `--runs` times, pass@k / pass^k, the run artifact (`--report`)                                                                 |
+| `agboss eval score` / `agboss compare`    | Score recorded runs with Jev and compare YAML configuration profiles side by side                                                                                                |
 | `agboss rag index`                        | Build or update `@Rag` knowledge-base indexes                                                                                                                                    |
 | `agboss migrate imports`                  | Rewrite deprecated sub-entry imports to current `agboss` entries                                                                                                                 |
 

@@ -24,7 +24,8 @@ async function replayCommand(context: CommandContext): Promise<CommandOutcome> {
   }
 }
 
-async function evalCommand(context: CommandContext): Promise<CommandOutcome> {
+/** `agboss eval score` (#396: the bare `agboss eval` before): scores recent runs with Jev. */
+async function scoreCommand(context: CommandContext): Promise<CommandOutcome> {
   const deps = await depsFor(context, textOption(context.values, "profile"));
   try {
     const version = textOption(context.values, "version");
@@ -41,6 +42,13 @@ async function evalCommand(context: CommandContext): Promise<CommandOutcome> {
   } finally {
     await deps.close();
   }
+}
+
+/** `agboss eval run | score` (#396 S4): the subcommand the CLI parsed, first of the positionals. */
+async function evalCommand(context: CommandContext): Promise<CommandOutcome> {
+  const [subcommand] = context.positionals;
+  if (subcommand === "run") return (await import("./run-cli.js")).evalRunCommand(context);
+  return scoreCommand(context);
 }
 
 async function goldenCommand(context: CommandContext): Promise<CommandOutcome> {
@@ -67,7 +75,7 @@ const COMMANDS: Readonly<Record<string, CommandHandler>> = {
   compare: compareProfiles,
 };
 
-/** `agboss eval | replay | golden add | compare` — see `agboss help <command>`. */
+/** `agboss eval run | score`, `replay`, `golden add`, `compare` — see `agboss help <command>`. */
 export const handle: CommandHandler = async (context) => {
   const command = COMMANDS[context.command];
   if (command === undefined) throw new Error(`not an eval command: ${context.command}`);

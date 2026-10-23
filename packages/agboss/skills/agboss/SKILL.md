@@ -93,9 +93,13 @@ npm test                                                           # scripted mo
   `eval-suites/<name>.eval-suite.ts`): cases built with `evalCase`, `turn`, `pastTurn`, `toolCall`,
   `toolInvariant`, checks in a declared order with `EvalCascade` — free trajectory invariants
   (`checkTrajectory()`), then code judges (`@Judge({ decidedBy: DecidedBy.Code })`), then model
-  judges.
-- A case that passes at least once in k runs but not every time (pass@k high, pass^k low): do not
-  grow the prompt — propose deterministic code (a `@ToolInterceptor`, a code guardrail,
+  judges. `npx agboss check` assembles them too (Loop 0).
+- **Loops 2 and 3** (a live model, paid): `npx agboss eval run --suite <name> --runs <k> --report
+<run.json>` — each case k times on the real application (`--env`), the cascade per run, pass@k and
+  pass^k per case, the run artifact kept from `main` as the reference; `npx agboss eval score`
+  scores recorded runs (the bare `npx agboss eval` lists both).
+- A case that passes at least once in k runs but not every time (pass@k high, pass^k low — printed
+  `unstable`): do not grow the prompt — propose deterministic code (a `@ToolInterceptor`, a code guardrail,
   `DecidedBy.Code` on a `@Router` / `@Arbiter`, an `@Action`).
 
 ## The gate's rules

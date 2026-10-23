@@ -29,6 +29,8 @@
         "tests/**/fixtures/**/*.environment.ts",
         // loaded by path: the workflows `check:types` generates types for (#272)
         "tests/flow/fixtures/*.fixture.ts",
+        // loaded by path: the eval suites `agboss eval run` and `agboss check` find (#396)
+        "tests/**/eval-suites/*.eval-suite.ts",
         // compile-time tests: checked by tsc (the gate's typecheck), not run by Vitest (#272)
         "tests/**/*.test-d.ts",
       ],

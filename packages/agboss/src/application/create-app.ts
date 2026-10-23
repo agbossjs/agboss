@@ -232,6 +232,17 @@ export async function createApp<TApplication extends Class>(
   application: ApplicationClass<TApplication>,
   options: AppOptions = {},
 ): Promise<App> {
+  return (await builtApplicationOf(application, options)).app;
+}
+
+/**
+ * `createApp` with the parts the instance was built from (internal: `agboss eval run`, #396 PR 2,
+ * runs suites on them) — the same assembly, environment, container and stop signals.
+ */
+export async function builtApplicationOf(
+  application: Class,
+  options: AppOptions = {},
+): Promise<BuiltApplication> {
   const assembled = await applicationOf(application, options);
   const environment = await namedEnvironmentFor(
     environmentOwnerOf(assembled),
@@ -240,5 +251,5 @@ export async function createApp<TApplication extends Class>(
   );
   const built = await buildApplication(assembled, { ...options, ...environment });
   closeOnStopSignals(built);
-  return built.app;
+  return built;
 }

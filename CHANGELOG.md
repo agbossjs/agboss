@@ -47,9 +47,15 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
 - **Testing** — `testWith(App)` with scripted models, the virtual clock, deterministic ids, class
   matchers, recorded runs and unit runners for every component kind (#262, #313); tool-call
   trajectories on results, records and `JudgeInput`, and one record per step (#395).
+- **Eval suites** — `@EvalSuite` (`agboss/eval`) with typed cases, trajectory checks and code or
+  model judges under a declared cascade; `agboss eval run --suite <name> --runs <k> --report
+<run.json>` runs each case k times on the application and reports pass@k / pass^k per case, the
+  unstable ones flagged, into a run artifact (`agboss.eval-run`); `agboss check` assembles the suites
+  (#396).
 - **The CLI** (`agboss-cli`) — `agboss create`, `agboss generate`, `agboss check`,
   `agboss describe`, `agboss dev`, `agboss studio`, `agboss chat` / `agboss run`, evaluations and
-  comparisons (#268).
+  comparisons (#268). Breaking on the way (#396): the bare `agboss eval` is now `agboss eval score`
+  (`agboss eval` lists its subcommands `run` / `score` and exits 2).
 - **Skills for coding agents** — `SKILL.md` and twelve references shipped in the package and synced
   into a project by `agboss check` (#305).
 

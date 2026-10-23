@@ -2,6 +2,7 @@ import { applicationWarningsOf, type AssembledApplication } from "agboss/interna
 import { assembleApplication, loadCliApplication } from "./cli/cli-application.js";
 import { flagOption, textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
 import { environmentProblems } from "./cli/check-environment.js";
+import { evalSuiteProblems, type EvalSuitesCheck } from "./cli/check-eval-suites.js";
 import { modelProblemsOf } from "./cli/check-models.js";
 import { cassetteProblems } from "./cli/check-cassettes.js";
 import { envOption } from "./cli/environment.js";
@@ -69,6 +70,9 @@ export const CHECKS: readonly ApplicationCheck[] = [
   { name: "cassettes", flag: "cassettes", run: cassetteProblems },
 ];
 
+/** An application whose assembly failed: its suites are not checked. */
+const NO_SUITES: EvalSuitesCheck = { suites: 0, problems: [] };
+
 /** The checks after a successful assembly, in order. */
 async function problemsAfterAssembly(
   target: CheckTarget,
@@ -135,13 +139,20 @@ export const handle: CommandHandler = async (context) => {
     assembly.kind === "failed"
       ? { problems: assembly.problems, report: undefined }
       : await reportAndCheck({ context, file, assembled: assembly.assembled }, selected);
+  // Loop 0 of the eval pipeline (#396 S5): the suites assembled on the application that assembled
+  const suites =
+    assembly.kind === "failed" ? NO_SUITES : await evalSuiteProblems(context, loaded.application);
   // a types file not written is never `ok` (#371, #376): generation's errors the assembly did not
   // report, and the assembly's own named by generation's files where it knew none
-  const problems: readonly CheckProblem[] = checkProblemsOf(typed, checked.problems);
+  const problems: readonly CheckProblem[] = checkProblemsOf(typed, [
+    ...checked.problems,
+    ...suites.problems,
+  ]);
   const { report } = checked;
   const checks = [
     "assembly",
     ...selected.map((check) => check.name),
+    ...(suites.suites === 0 ? [] : ["eval-suites"]),
     ...(typed.types === undefined ? [] : ["types"]),
   ];
   problems.forEach((problem) => {

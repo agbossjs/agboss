@@ -16,8 +16,9 @@ Usage: agboss <command> [options]      (short: agb)
 ${lines.join("\n")}
 
 The application is set once in package.json — "agboss": { "application": "src/<name>.application.ts" } —
-or given with --application <path>. chat, run, eval, replay, golden and compare run one workflow,
-chosen by its start: --start <full name> (optional when the application has one start).
+or given with --application <path>. chat, run, eval score, replay, golden and compare run one
+workflow, chosen by its start: --start <full name> (optional when the application has one start);
+eval run runs an eval suite (--suite <full name>, eval-suites/*.eval-suite.ts).
 Every command takes --json (one JSON envelope on stdout), --debug (stack traces) and --help.
 agboss help <command> — its options; agboss help <command> --json — the same, for a machine.
 
@@ -42,9 +43,27 @@ function optionLines(options: readonly OptionSpec[], width: number): string {
     .join("\n");
 }
 
-/** `agboss help <command>`; undefined for an unknown command. */
+/** A command by its name, `eval run` for a subcommand; undefined when there is none. */
+function commandSpecOf(name: string): CommandSpec | undefined {
+  const [command = "", sub] = name.split(" ");
+  const spec = COMMANDS[command];
+  return sub === undefined ? spec : spec?.subcommands?.[sub];
+}
+
+/** `Subcommands:` of a command made of them: each one's summary and usage. */
+function subcommandLines(name: string, command: CommandSpec): string {
+  const subs = Object.entries(command.subcommands ?? {});
+  if (subs.length === 0) return "";
+  const width = Math.max(...subs.map(([sub]) => sub.length));
+  const lines = subs.map(
+    ([sub, spec]) => `  ${pad(sub, width)}  ${spec.summary}\n  ${pad("", width)}  ${spec.usage}`,
+  );
+  return `\nSubcommands:\n${lines.join("\n")}\n\nagboss help ${name} <subcommand> — its options.\n`;
+}
+
+/** `agboss help <command>` (or `<command> <subcommand>`); undefined for an unknown command. */
 export function helpFor(name: string): string | undefined {
-  const command = COMMANDS[name];
+  const command = commandSpecOf(name);
   if (command === undefined) return undefined;
   const width = Math.max(
     0,
@@ -54,7 +73,7 @@ export function helpFor(name: string): string | undefined {
   return `agboss ${name} — ${command.summary}
 
 Usage: ${command.usage}
-${own === "" ? "" : `\nOptions:\n${own}\n`}
+${subcommandLines(name, command)}${own === "" ? "" : `\nOptions:\n${own}\n`}
 Common options:
 ${optionLines(COMMON_OPTIONS, width)}
 `;
@@ -80,6 +99,13 @@ export function describeCommand(name: string, command: CommandSpec): Record<stri
     positionals: command.positionals ?? null,
     options: command.options.map(optionDescription),
     commonOptions: COMMON_OPTIONS.map(optionDescription),
+    ...(command.subcommands === undefined
+      ? {}
+      : {
+          subcommands: Object.entries(command.subcommands).map(([sub, spec]) =>
+            describeCommand(`${name} ${sub}`, spec),
+          ),
+        }),
   };
 }
 

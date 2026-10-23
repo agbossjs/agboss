@@ -9,6 +9,8 @@ interface Described {
   readonly name: string;
   readonly options: readonly { readonly flag: string; readonly required: boolean }[];
   readonly commonOptions: readonly { readonly flag: string }[];
+  /** A command made of subcommands (#396: `eval run | score`): each one described the same way. */
+  readonly subcommands?: readonly Described[];
 }
 
 describe("#198 AC1: every command has --help and a --json description", () => {
@@ -41,8 +43,10 @@ describe("#198 AC1: every command has --help and a --json description", () => {
 
   it("#268 AC1, AC2, AC8: every command but create, migrate and help takes --application; the run commands --start", async () => {
     const all = envelope(await agboss(["help", "--json"])).result as Described[];
-    const taking = (flag: string): string[] =>
-      all.filter((c) => c.options.some((o) => o.flag === flag)).map((c) => c.name);
+    const takes = (c: Described, flag: string): boolean =>
+      c.options.some((o) => o.flag === flag) ||
+      (c.subcommands ?? []).some((sub) => takes(sub, flag));
+    const taking = (flag: string): string[] => all.filter((c) => takes(c, flag)).map((c) => c.name);
 
     expect(all.map((c) => c.name)).toEqual(Object.keys(COMMANDS));
     expect(taking("--start")).toEqual(["chat", "run", "eval", "replay", "golden", "compare"]);

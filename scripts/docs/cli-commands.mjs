@@ -25,10 +25,15 @@ function positionalsOf(usage) {
 
 function commandOf(entry) {
   const flags = [...entry.options, ...entry.commonOptions].map((option) => option.flag);
+  // a command made of subcommands (#396: `agboss eval run | score`): each one's own flags
+  const subcommands = new Map(
+    (entry.subcommands ?? []).map((sub) => [sub.name.split(" ")[1], commandOf(sub)]),
+  );
   return {
     name: entry.name,
     flags: new Set([...flags, "--help"]),
     positionals: positionalsOf(entry.usage),
+    subcommands,
   };
 }
 

@@ -74,13 +74,20 @@ balancing })` — one limit for every execution, tenant and instance (`RateLimit
 
 The CLI works on one application (#268): its path is set once in the project's `package.json` —
 `"agboss": { "application": "src/job-scout.application.ts" }` — or given with `--application <path>`
-(neither → exit 3 saying where to set it; there is no `--workflow <path>`). `chat`, `run`, `eval`,
+(neither → exit 3 saying where to set it; there is no `--workflow <path>`). `chat`, `run`, `eval score`,
 `replay`, `golden add` and `compare` run one workflow, chosen by its start's full name —
 `--start chat-workflow-start` (optional with one start; with several and none given, or an unknown
 name, exit 2 with the starts listed and a `Did you mean "…"?`, nothing runs); `run` takes a text
 (`"<task>"`, a start taking `WorkflowStartTextDto`), `--input '<json>'` or `--input-file <file>`,
 checked against the start's `InputOf` field by field before anything starts; `describe`, `check`
-and `rag index [--rag <name>]` cover every workflow of the application. `agboss dev` reruns `agboss
+and `rag index [--rag <name>]` cover every workflow of the application. `eval` is made of subcommands
+(#396 S4): `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--env <name>]` runs an
+`@EvalSuite` (found in the application's `eval-suites/*.eval-suite.ts`) on the application built as
+`createApp` builds it — each case `--runs` times, its history written and its turns run on one thread
+with the case's contexts, the checks under the cascade, pass@k / pass^k per case, `unstable` for pass@k
+without pass^k — and writes the run artifact (`kind: "agboss.eval-run"`, `schemaVersion`); `agboss eval
+score` is the Jev scoring of recorded runs (the bare `agboss eval` before, which now lists both and
+exits 2); `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
 `agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
 (`agboss/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs
@@ -109,7 +116,7 @@ the `onError` table, `launches` (quorum, arbiters with their hashes) and `schema
 class and every tool by name, each with its `schemaHash` and JSON Schema.
 
 In `examples/job-scout/` (`agboss <command>`, its one start): `npm run chat` · `npm run run -- "task"` ·
-`npm run describe` · `npm run dev` · `npm run studio` · `npm run eval` / `replay` · `npm run golden -- add --name <n>` ·
+`npm run describe` · `npm run dev` · `npm run studio` · `npm run eval` (`agboss eval score`) / `replay` · `npm run golden -- add --name <n>` ·
 `npm run compare -- --profiles base,<p> --golden <n>` · `npm run rag:index` (`agboss rag index`) ·
 `npm run probe -- --place <p> <token…>` (Greenhouse boards). Any run command takes
 `--profile <name>` (`profiles/<workflow>/<name>.yaml`) and `--thread <id>`.
@@ -1617,11 +1624,18 @@ required (skipped checks are `CheckStatus.Skipped`); `evalCase({ name, tenant?, 
 [pastTurn(Start, input, Finish, output)], turns: [turn(input)], tools?: { required: [toolCall(Tool,
 partial)], forbidden: [Tool], invariants: [toolInvariant(Tool, (input) => …)] }, judges?, variants? })`,
 typed by the start's input, the application's contexts and each tool's input. Assembled on its
-application by `checkEvalSuite` (`agboss/internal`; the runner comes with PR 2): `[name.kind-suffix]`
+application by `checkEvalSuite` (`agboss/internal`; run by `runEvalSuite`, PR 2 — `agboss eval run`):
+`[name.kind-suffix]`
 (name and class), `[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-reply]` (an
 eval judge judges a finish output its start reaches, one value), then `EvalCaseInvalidError`
 (`eval.case-invalid`: tenant / execution, turns, variants and history validated, every issue, no
-value).
+value). At run time (#396 PR 2, `src/eval/run/`) `checkTrajectory()` reads the last turn's
+`result.toolCalls` (a required tool: a call it ran with the partial's arguments; a forbidden one: any
+call; an invariant: every call with checked arguments), and a judge runs in the frame of the case's last
+execution, created by the application's container, on the finish's output as its DTO — a run ending at
+a finish it does not judge fails that check; a model judge no agent lists is bound through the
+application's models, counted in its application budgets. A run passes when every check that ran
+passed (a skipped one fails it, S2 Q6).
 
 ### Runs: context, limits, errors
 
@@ -2070,7 +2084,8 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
                     and its parts — the tree, channels, PII policies, the worst-case report;
                     describeWorkflow (internal: one workflow's part); studio.ts (studioOf: the graphs of agboss studio)
     eval/           `agboss/eval` (index.ts, #396): suite/ — @EvalSuite, the case and check builders, their
-                    assembly (check-suite.ts, through agboss/internal); eval.ts, golden, replay, compare —
+                    assembly (check-suite.ts, through agboss/internal); run/ — `agboss eval run`'s
+                    runner (run-suite.ts) and its artifact (report.ts); eval.ts, golden, replay, compare —
                     the CLI's eval, golden, replay and compare (through agboss/internal)
     eslint/         `agboss/eslint` (#388): `agbossPlugin` (`agboss/no-component-state`,
                     `agboss/no-direct-time`) and `FLOW_CHAIN_RULE` — for the eslint.config.js `agboss
