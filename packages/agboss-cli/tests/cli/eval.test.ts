@@ -65,6 +65,7 @@ describe("#396 PR 2: agboss eval is made of subcommands", () => {
       "eval run",
       "eval score",
       "eval show",
+      "eval calibrate",
     ]);
   });
 

@@ -134,6 +134,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["EvalSuite", "evalCase", "turn", "pastTurn", "toolCall", "toolInvariant", "judgedBy"],
     ...["checkTrajectory", "EvalCascade", "CheckStatus", "EvalCaseInvalidError", "Judge"],
     ...["CaseComparison", "EvalRunComparison", "EvalRunReport", "ExecutionRecordStatus"],
+    ...["EvalLabel", "EvalCalibration", "EvalJudgeCalibration"],
     ...["testToolInterceptor", "ToolInterceptorRunner", "ToolCallDecision", "ToolInterceptor"],
     ...["ModelProviderHandler", "ModelProviderRequest", "ModelProviderResponse"],
     ...["ModelProviderMessageRole", "ModelProvider"],

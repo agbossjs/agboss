@@ -34,6 +34,18 @@ export const EVAL_RUN_KIND = "agboss.eval-run";
 export const EVAL_RUN_SCHEMA_VERSION = 1;
 
 // @public
+export interface EvalCalibration {
+    // (undocumented)
+    readonly judges: readonly EvalJudgeCalibration[];
+    readonly labels: number;
+    // (undocumented)
+    readonly matched: number;
+    // (undocumented)
+    readonly suite: string;
+    readonly unmatched: number;
+}
+
+// @public
 export enum EvalCascade {
     RunAll = "run-all",
     StopAtFirstFailure = "stop-at-first-failure"
@@ -109,6 +121,98 @@ export interface EvalCheckResult {
 }
 
 // @public
+export interface EvalConfusionMatrix {
+    // (undocumented)
+    readonly judgeFailedLabelerFailed: number;
+    // (undocumented)
+    readonly judgeFailedLabelerPassed: number;
+    // (undocumented)
+    readonly judgePassedLabelerFailed: number;
+    // (undocumented)
+    readonly judgePassedLabelerPassed: number;
+    // (undocumented)
+    readonly labeler: string;
+}
+
+// @public
+export interface EvalDisagreement {
+    // (undocumented)
+    readonly executionId: string;
+    // (undocumented)
+    readonly failureTags: readonly string[];
+    // (undocumented)
+    readonly judgePassed: boolean;
+    // (undocumented)
+    readonly labeler: string;
+    // (undocumented)
+    readonly metrics?: JudgeMetrics;
+    // (undocumented)
+    readonly note?: string;
+    // (undocumented)
+    readonly runId: string;
+    // (undocumented)
+    readonly score?: number;
+}
+
+// @public
+export interface EvalJudgeCalibration {
+    readonly agreements: readonly EvalRaterAgreement[];
+    // (undocumented)
+    readonly confusion: readonly EvalConfusionMatrix[];
+    // (undocumented)
+    readonly disagreements: readonly EvalDisagreement[];
+    // (undocumented)
+    readonly judge: string;
+    // (undocumented)
+    readonly labelers: readonly string[];
+    // (undocumented)
+    readonly metrics: readonly EvalMetricGroup[];
+    readonly n: number;
+    readonly scores?: EvalScoreCounts;
+}
+
+// @public
+export interface EvalLabel {
+    // (undocumented)
+    readonly executionId: string;
+    readonly failureTags: readonly string[];
+    readonly judge: string;
+    readonly labeler: string;
+    // (undocumented)
+    readonly note?: string;
+    // (undocumented)
+    readonly passed: boolean;
+    // (undocumented)
+    readonly runId: string;
+    readonly score?: number;
+}
+
+// @public
+export interface EvalMetricGroup {
+    // (undocumented)
+    readonly agreements: number;
+    // (undocumented)
+    readonly disagreements: number;
+    // (undocumented)
+    readonly key: string;
+    readonly mean?: {
+        readonly disagreements?: number;
+        readonly agreements?: number;
+    };
+    readonly values?: readonly EvalMetricValue[];
+}
+
+// @public
+export interface EvalMetricValue {
+    // (undocumented)
+    readonly agreements: number;
+    // (undocumented)
+    readonly disagreements: number;
+    // (undocumented)
+    readonly value: string;
+}
+
+// @public
 export interface EvalPastTurn {
     // (undocumented)
     readonly finish: Class;
@@ -120,6 +224,15 @@ export interface EvalPastTurn {
     //
     // (undocumented)
     readonly start: Class;
+}
+
+// @public
+export interface EvalRaterAgreement {
+    readonly kappa?: number;
+    readonly n: number;
+    readonly observed: number;
+    // (undocumented)
+    readonly raters: readonly [string, string];
 }
 
 // @public
@@ -217,6 +330,14 @@ export interface EvalRunSummary {
 }
 
 // @public
+export interface EvalScoreCounts {
+    // (undocumented)
+    readonly judgeFailed: readonly number[];
+    // (undocumented)
+    readonly judgePassed: readonly number[];
+}
+
+// @public
 export function EvalSuite<const TStart extends Class>(options: EvalSuiteOptions<TStart>): <C extends Class>(value: C) => C;
 
 // @public
@@ -309,6 +430,40 @@ export const turn: <const TInput>(input: TInput) => EvalTurn<TInput>;
 
 // Warnings were encountered during analysis:
 //
+// src/eval/calibrate/calibration.ts:17:3 - (ae-undocumented) Missing documentation for "runId".
+// src/eval/calibrate/calibration.ts:18:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/eval/calibrate/calibration.ts:23:3 - (ae-undocumented) Missing documentation for "passed".
+// src/eval/calibrate/calibration.ts:28:3 - (ae-undocumented) Missing documentation for "note".
+// src/eval/calibrate/calibration.ts:33:3 - (ae-undocumented) Missing documentation for "raters".
+// src/eval/calibrate/calibration.ts:44:3 - (ae-undocumented) Missing documentation for "labeler".
+// src/eval/calibrate/calibration.ts:45:3 - (ae-undocumented) Missing documentation for "judgePassedLabelerPassed".
+// src/eval/calibrate/calibration.ts:46:3 - (ae-undocumented) Missing documentation for "judgePassedLabelerFailed".
+// src/eval/calibrate/calibration.ts:47:3 - (ae-undocumented) Missing documentation for "judgeFailedLabelerPassed".
+// src/eval/calibrate/calibration.ts:48:3 - (ae-undocumented) Missing documentation for "judgeFailedLabelerFailed".
+// src/eval/calibrate/calibration.ts:53:3 - (ae-undocumented) Missing documentation for "runId".
+// src/eval/calibrate/calibration.ts:54:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/eval/calibrate/calibration.ts:55:3 - (ae-undocumented) Missing documentation for "labeler".
+// src/eval/calibrate/calibration.ts:56:3 - (ae-undocumented) Missing documentation for "judgePassed".
+// src/eval/calibrate/calibration.ts:57:3 - (ae-undocumented) Missing documentation for "metrics".
+// src/eval/calibrate/calibration.ts:58:3 - (ae-undocumented) Missing documentation for "score".
+// src/eval/calibrate/calibration.ts:59:3 - (ae-undocumented) Missing documentation for "failureTags".
+// src/eval/calibrate/calibration.ts:60:3 - (ae-undocumented) Missing documentation for "note".
+// src/eval/calibrate/calibration.ts:65:3 - (ae-undocumented) Missing documentation for "value".
+// src/eval/calibrate/calibration.ts:66:3 - (ae-undocumented) Missing documentation for "disagreements".
+// src/eval/calibrate/calibration.ts:67:3 - (ae-undocumented) Missing documentation for "agreements".
+// src/eval/calibrate/calibration.ts:72:3 - (ae-undocumented) Missing documentation for "key".
+// src/eval/calibrate/calibration.ts:73:3 - (ae-undocumented) Missing documentation for "disagreements".
+// src/eval/calibrate/calibration.ts:74:3 - (ae-undocumented) Missing documentation for "agreements".
+// src/eval/calibrate/calibration.ts:83:3 - (ae-undocumented) Missing documentation for "judgePassed".
+// src/eval/calibrate/calibration.ts:84:3 - (ae-undocumented) Missing documentation for "judgeFailed".
+// src/eval/calibrate/calibration.ts:89:3 - (ae-undocumented) Missing documentation for "judge".
+// src/eval/calibrate/calibration.ts:92:3 - (ae-undocumented) Missing documentation for "labelers".
+// src/eval/calibrate/calibration.ts:95:3 - (ae-undocumented) Missing documentation for "confusion".
+// src/eval/calibrate/calibration.ts:96:3 - (ae-undocumented) Missing documentation for "disagreements".
+// src/eval/calibrate/calibration.ts:97:3 - (ae-undocumented) Missing documentation for "metrics".
+// src/eval/calibrate/calibration.ts:104:3 - (ae-undocumented) Missing documentation for "suite".
+// src/eval/calibrate/calibration.ts:107:3 - (ae-undocumented) Missing documentation for "matched".
+// src/eval/calibrate/calibration.ts:110:3 - (ae-undocumented) Missing documentation for "judges".
 // src/eval/run/comparison.ts:26:3 - (ae-undocumented) Missing documentation for "passed".
 // src/eval/run/comparison.ts:27:3 - (ae-undocumented) Missing documentation for "runs".
 // src/eval/run/comparison.ts:32:3 - (ae-undocumented) Missing documentation for "name".

@@ -100,7 +100,9 @@ npm test                                                           # scripted mo
   one self-contained page; `npx agboss eval show <run.json> --html <file>` renders a saved one,
   running nothing); on a branch `--baseline <run.json> --fail-on-regression` exits 5 when a case
   stable on `main` regressed (one that flapped there is quarantined,
-  `CaseComparison.FlakyOnBaseline`); `npx agboss eval score`
+  `CaseComparison.FlakyOnBaseline`); a model judge is trusted only once calibrated against people's
+  labels — `npx agboss eval calibrate --report <run.json>` (Cohen's κ per labeler, the disagreements
+  by the judge's metrics); `npx agboss eval score`
   scores recorded runs (the bare `npx agboss eval` lists both).
 - A case that passes at least once in k runs but not every time (pass@k high, pass^k low — printed
   `unstable`): do not grow the prompt — propose deterministic code (a `@ToolInterceptor`, a code guardrail,

@@ -45,6 +45,17 @@ export {
   type EvalCasePasses,
   type EvalRunComparison,
 } from "./run/comparison.js";
+export type {
+  EvalCalibration,
+  EvalConfusionMatrix,
+  EvalDisagreement,
+  EvalJudgeCalibration,
+  EvalLabel,
+  EvalMetricGroup,
+  EvalMetricValue,
+  EvalRaterAgreement,
+  EvalScoreCounts,
+} from "./calibrate/calibration.js";
 export {
   toolCall,
   toolInvariant,
