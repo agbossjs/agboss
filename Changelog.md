@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — agboss/no-component-state knows every component decorator (#402)
+
+- **Fixed — `agboss/no-component-state` missed components** ([Components](Components)): `this.x = …`
+  outside the constructor is now reported for `@InputGuardrail` / `@OutputGuardrail`, `@Budget`,
+  `@Arbiter`, `@ReplyInterpreter`, `@Compaction` and `@ModelProvider` too; the stale `Guardrail`
+  name is gone. The decorators come from one list of the framework
+  (`src/components/component-decorators.ts`), and a test fails when a class decorator a public
+  entry exports is neither listed nor named as not a component — a new decorator cannot be
+  forgotten. A project whose components kept state there now gets lint errors for it.
+
 ## Unreleased — agboss create ships a working ESLint config (#388)
 
 - **Added — lint in a new project** ([CLI](CLI#create-and-generate-angular-like)): `agboss create`

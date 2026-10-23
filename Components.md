@@ -598,8 +598,14 @@ export class SeenJobsRepository {
 ```
 
 The lint rule `agboss/no-component-state` flags an assignment to `this.x` (`=`, `+=`, `++`) outside
-the constructor of any component (`@Injectable`, `@Tool`, `@McpTool`, `@Rag`, `@Action`, a code
-`@Router`, `@Judge`, `@InputGuardrail` / `@OutputGuardrail`, `@PiiPolicy`, `@Channel`, `@A2AAgent`).
+the constructor of any component the container creates — `@Injectable`, `@Tool`, `@Action`,
+`@Router`, `@WorkflowFinish`, `@Channel`, `@ReplyInterpreter`, `@InputGuardrail` /
+`@OutputGuardrail`, `@PiiPolicy`, `@Judge`, `@Arbiter`, `@Compaction`, `@Budget`, `@HealthCheck`,
+`@ModelProvider` (`agboss/models`), `@McpServer` / `@McpTool` (`agboss/mcp`), `@Rag`
+(`agboss/rag`), `@A2AAgent` (`agboss/a2a`). The list is one module of the framework
+(`src/components/component-decorators.ts`, #402); a test fails when an exported class decorator
+is neither in it nor named as not a component (`@Agent`, `@WorkflowStart`, `@Workflow`,
+`@Application`, `@ChannelRole`, `@McpExpose`: metadata, never instantiated).
 - `agboss describe` shows each tool's dependencies.
 
 ## Add…
