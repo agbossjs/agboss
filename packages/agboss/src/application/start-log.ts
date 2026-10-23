@@ -7,6 +7,7 @@ import type { ApplicationContext } from "../flow/context/application-context.js"
 import { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
+import { ExecutionHistoryRepository } from "../infrastructure/execution-history.repository.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { implementationsOf, isInMemory } from "./implementations.js";
 
@@ -33,6 +34,8 @@ export interface WarningSources {
    * start; `agboss check` from `@Application({ pseudonymKey })` not being set.
    */
   readonly isPiiKeyOfInstance?: boolean;
+  /** `@Application({ executionRecordRetention })` (#401): root executions are kept when it is set. */
+  readonly executionRecordRetention?: number | undefined;
 }
 
 const IN_MEMORY_LEDGER: AssemblyWarning = {
@@ -45,6 +48,12 @@ const IN_MEMORY_PAUSES: AssemblyWarning = {
   code: "application.in-memory-pauses",
   message:
     "in-memory pauses: another application instance cannot resume them and they are lost on restart",
+};
+
+const IN_MEMORY_EXECUTION_HISTORY: AssemblyWarning = {
+  code: "application.in-memory-execution-history",
+  message:
+    "in-memory execution history: executionRecordRetention keeps each instance's executions in its own memory — another instance and agboss records export do not see them, and they are lost on restart",
 };
 
 const PII_INSTANCE_KEY: AssemblyWarning = {
@@ -78,6 +87,9 @@ export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWa
     ...(canPause(sources.workflows) &&
     (inMemory(PausedExecutionRepository) || inMemory(BaseCheckpointSaver))
       ? [IN_MEMORY_PAUSES]
+      : []),
+    ...(sources.executionRecordRetention !== undefined && inMemory(ExecutionHistoryRepository)
+      ? [IN_MEMORY_EXECUTION_HISTORY]
       : []),
     ...(sources.isPiiKeyOfInstance === true ? [PII_INSTANCE_KEY] : []),
   ];

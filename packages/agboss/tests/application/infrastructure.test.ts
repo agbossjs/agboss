@@ -3,6 +3,7 @@
  * `ExecutionRecordRepository`, `PausedExecutionRepository`, `BaseCheckpointSaver` — each with an
  * in-memory default: nothing is written to the home folder, nothing outlives the instance.
  */
+import { InMemoryExecutionHistoryRepository } from "../../src/infrastructure/execution-history.repository.js";
 import { mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -57,6 +58,7 @@ describe("#261 S28: the built-in infrastructure is in memory", () => {
     expect(infrastructure.executionTrees).toBeInstanceOf(InMemoryExecutionTreeRepository);
     expect(infrastructure.rateLimits).toBeInstanceOf(InMemoryRateLimitRepository);
     expect(infrastructure.meshRequests).toBeInstanceOf(InMemoryMeshRequestRepository); // #398
+    expect(infrastructure.executionHistory).toBeInstanceOf(InMemoryExecutionHistoryRepository); // #401
     await app.close();
   });
 

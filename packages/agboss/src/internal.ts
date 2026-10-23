@@ -70,6 +70,16 @@ export { checkEvalSuite, evalSuiteWarningsOf } from "./eval/suite/check-suite.js
 export { runEvalSuite, type EvalRunOptions } from "./eval/run/run-suite.js";
 export { loadEvalSuites, type FoundEvalSuite } from "./loader/load-eval-suites.js";
 export { builtApplicationOf, type BuiltApplication } from "./application/create-app.js";
+export {
+  openExecutionHistory,
+  type OpenedExecutionHistory,
+} from "./application/execution-history-store.js";
+export {
+  EXECUTION_RECORD_KIND,
+  exportedRecordLine,
+  historyRecordsOf,
+  type HistoryExportQuery,
+} from "./infrastructure/execution-history-export.js";
 export { compareEvalRuns } from "./eval/run/compare-runs.js";
 export type { ChaosOptions } from "./eval/chaos/chaos-failure.js";
 export { evalRunReportOf, type EvalRunReportRead } from "./eval/run/read-report.js";

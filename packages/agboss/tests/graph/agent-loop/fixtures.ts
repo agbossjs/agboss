@@ -118,6 +118,7 @@ const executionStateOf = (): ExecutionStateType => ({
   runId: "run-1",
   start: "chat-workflow-start",
   startInput: { text: "" },
+  startedAt: "",
   startedVersion: "",
   contexts: DEFAULT_CONTEXT_VALUES,
   scope: {},

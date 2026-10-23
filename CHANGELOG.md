@@ -37,7 +37,11 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   automatic undo of a failed join or a failed execution, finished by recovery (#339, #340).
 - **Several instances** — the execution lease with fencing, recovery of interrupted executions, the
   graceful stop, SQLite implementations of every store, health checks (`app.checkLiveness()` /
-  `app.checkReadiness()`) (#265, #335, #360, #367, #300).
+  `app.checkReadiness()`) (#265, #335, #360, #367, #300). Execution history (#401): with
+  `@Application({ executionRecordRetention })` every root execution's record — with its identity,
+  masked like its traces — is kept in the new `ExecutionHistoryRepository` (in memory or
+  `SqliteExecutionHistoryRepository`) and swept after it; `agboss records export` writes it as JSON
+  Lines.
 - **Models and FinOps** — model providers as infrastructure (OpenRouter and the Decisions API built
   in) with retry, rate-limit and circuit-breaker policies; `@Budget`s per execution, tenant and
   application; cost accounting of every model call (#266, #261, #338).

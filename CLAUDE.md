@@ -1178,7 +1178,15 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
   rate limit, 429 pause and circuit breaker, #266), `MeshRequestRepository` (the answers of trusted
   mesh requests by idempotency key, removed after `mesh.idempotencyRetention` by the recovery sweep,
-  #398) — and the
+  #398), `ExecutionHistoryRepository` (#401: each root execution's `ExecutionHistoryRecord` — its
+  `ExecutionRecord` with `executionId`, `rootExecutionId`, `threadId`, `tenantId`, `application`,
+  `workflow`, `status` (`ExecutionHistoryStatus`), `startedAt` / `endedAt`, `start` + `input`,
+  `finish` + `output`, `contexts`, `error` — masked like its traces, saved when its tree rests or
+  ends, only with `@Application({ executionRecordRetention })` (unset → nothing kept; on the
+  in-memory store `[application.in-memory-execution-history]`), removed by the recovery sweep once it
+  ended longer ago; `agboss records export (--tenant <id> | --all-tenants) --out <file.jsonl>
+[--since] [--until]` writes it as JSON Lines, `kind: "agboss.execution-record"`, opening the stores
+  only — `records.tenant-required`, `records.not-kept`) — and the
   `@ModelProvider` classes (#266; an HTTP one is not created by the container, a transport one
   is — on its first call, #385; a misplaced one in a workflow's `providers` is
   `[di.infrastructure-in-workflow]` too). Listed **only** in
@@ -1190,7 +1198,7 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   ready SQLite implementation, enabled only by listing it (#265: `SqliteExecutionRecordRepository`,
   `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`, `SqliteCheckpointSaver`,
   `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`,
-  `SqliteMeshRequestRepository`) —
+  `SqliteMeshRequestRepository`, `SqliteExecutionHistoryRepository`) —
   one `node:sqlite` connection per instance on the environment's `sqlitePath` (required only then,
   `[environment.missing-field]`; `:memory:` in tests), WAL + `busy_timeout`, atomic operations in
   `BEGIN IMMEDIATE`, time from the framework's clock; job-scout lists them all. A project subclasses

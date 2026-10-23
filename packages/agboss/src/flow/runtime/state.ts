@@ -59,6 +59,8 @@ export const ExecutionState = Annotation.Root({
   }),
   /** The workflow version the execution started on (`workflow.startedVersion`, #280); kept on resume. */
   startedVersion: Annotation<string>({ reducer: replace, default: () => "" }),
+  /** When the root execution started (ISO 8601, the application's `Clock`, #401): its history's. */
+  startedAt: Annotation<string>({ reducer: replace, default: () => "" }),
   /**
    * The path scope: the current value of each slot. A visit writes it whole — its new values in, what
    * they outdated out (#271) — so a slot can leave it.

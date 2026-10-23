@@ -93,6 +93,15 @@ export interface ApplicationOptions {
    */
   readonly pauseRecordRetention?: Milliseconds;
   /**
+   * How long the history of each root execution is kept after it ended (#401 PR 1): unset →
+   * nothing is kept. Set, every root execution's `ExecutionHistoryRecord` — its record with who and
+   * what it was, masked like its traces — is saved in the `ExecutionHistoryRepository` when its
+   * tree rests or ends, and removed by the recovery sweep on the `Clock` once it ended longer ago
+   * than this; `agboss records export` reads it. On the built-in in-memory store it warns
+   * `[application.in-memory-execution-history]`.
+   */
+  readonly executionRecordRetention?: Milliseconds;
+  /**
    * How long each automatic undo action may run (#340): an `@Action({ compensateWith })` undone
    * because no path could — its finished branches when a join fails — runs with a clean-up
    * `executionContext.signal` that aborts after this (and on a lost lease or the app's stop), not

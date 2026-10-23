@@ -1,4 +1,4 @@
-import { randomIdGenerator } from "../infrastructure/clock.js";
+import { randomIdGenerator, systemClock } from "../infrastructure/clock.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { executionGraphOf } from "../flow/runtime/build.js";
 import { startLine } from "../flow/runtime/history.js";
@@ -58,6 +58,10 @@ const ternBaseOf = <TName extends string>(
   ...executionVersions(deps),
 });
 
+/** When a root execution starts (#401: its history's start), on the application's clock. */
+const startedAtOf = <TName extends string>(deps: AgentExecutionDeps<TName>): string =>
+  (deps.clock ?? systemClock).now().toISOString();
+
 async function runOnce<TName extends string>(
   given: unknown,
   deps: AgentExecutionDeps<TName>,
@@ -98,7 +102,8 @@ async function runOnce<TName extends string>(
     const kept = { budgetUsd, budgets: budgets.records, ...memory, runId };
     // no application key: the execution's own, kept in its checkpoint for every instance (#334)
     const piiKey = deps.pii?.isInstanceKey === true ? newPiiKey() : null;
-    const initial = { start, startInput: input, contexts, piiKey, ...kept };
+    const startedAt = startedAtOf(deps);
+    const initial = { start, startInput: input, contexts, piiKey, startedAt, ...kept };
     const state = await drainRun(await graph.stream(initial, config), record, read.usage);
     const context = { deps, graph, base, runId, budgetUsd, record, recorded: spent };
     const finish = { ...context, callbacks: config.callbacks, compacted: read.compacted };

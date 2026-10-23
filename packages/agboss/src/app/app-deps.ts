@@ -10,8 +10,6 @@ import type { FrameworkLog } from "../infrastructure/logger.js";
 import { startComponents } from "../components/container/lifecycle.js";
 import type { EvalDeps } from "../eval/eval.js";
 import type { AgentExecutionDeps } from "../run/types.js";
-import { configSnapshot, executionVersions } from "../run/versions.js";
-import { shortVersion, stableJson } from "../terns/index.js";
 import { tracingOf } from "../tracing/index.js";
 import type { ModelGateway } from "../llm/gateway.js";
 import { createModelRegistry } from "../llm/registry.js";
@@ -33,9 +31,10 @@ import {
   servicesFor,
   toolLookup,
 } from "./parts.js";
-import { closeOf, observedBy, treeDepsOf, releaseOf } from "./app-deps-parts.js";
+import { closeOf, observedBy, treeDepsOf, releaseOf, versionWarnings } from "./app-deps-parts.js";
 import { componentsAtStart } from "./start-components.js";
 import { piiFor } from "./pii-parts.js";
+import { historyKeeperOf, type ExecutionHistoryKeeper } from "./execution-history.js";
 import type { ApplicationPiiKey } from "../application/application-pii.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { Clock } from "../infrastructure/clock.js";
@@ -60,6 +59,8 @@ export interface AppDeps extends AgentExecutionDeps<string> {
   readonly models: readonly string[];
   /** The reply interpreters of its tree's channel roles (#267 PR 3): `app.resume({ reply })`. */
   readonly replies: ReplyReaderParts;
+  /** What keeps each root execution\'s record (#401), when the application keeps them. */
+  readonly executionHistory?: ExecutionHistoryKeeper | undefined;
   /**
    * Runs `onStop` of the components, waits for `executionsDone` (the running executions), runs
    * `onDestroy`, then closes MCP connections, tracing and the stores it opened.
@@ -112,22 +113,6 @@ export interface BuildOptions extends AppDepsOptions {
   readonly chaos?: ChaosOptions;
 }
 
-/** Stores the config snapshot of this version; warns when the version already had other content. */
-async function versionWarnings(deps: AgentExecutionDeps<string>): Promise<string[]> {
-  const { configVersion, configHash } = executionVersions(deps);
-  const { drift } = await deps.terns.rememberConfig(
-    deps.config.name,
-    configVersion,
-    configHash,
-    stableJson(configSnapshot(deps)),
-  );
-  return drift
-    ? [
-        `config "${deps.config.name}" ${configVersion} changed without a version bump (hash ${shortVersion(configHash)})`,
-      ]
-    : [];
-}
-
 const connectConfigured =
   (transport: TransportFactory | undefined): McpConnect =>
   (bundle, config, env) =>
@@ -167,6 +152,7 @@ export interface WorkflowDepsParts {
   readonly compensation?: CompensationParts;
   /** The run dependencies of the application's other workflows, its children's (#263). */
   readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
+  readonly executionHistory?: Infrastructure["executionHistory"] | undefined;
 }
 
 /** The budgets an application lists, and its name (the key of its application budgets). */
@@ -264,6 +250,7 @@ export async function createWorkflowDeps(
     replies: repliesFor(bundle, config, gateway, components.container),
     ...observedBy(parts.observer, parts.infrastructure.logger, clock, pii.observability),
     ...treeDepsOf(parts.infrastructure.idGenerator, parts),
+    ...historyKeeperOf(parts.executionHistory, { clock, contexts, pii, answers: terns }),
     close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),
   };
   if (parts.created === undefined) await startOwnComponents(lifecycle.created, mcp, tracing);
