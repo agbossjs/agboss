@@ -38,6 +38,7 @@ Each contract has a ready **SQLite** implementation (#265 PR 3), or a project li
 | `ExecutionTreeRepository`   | `SqliteExecutionTreeRepository`   | `execution_tree_keys`             |
 | `RateLimitRepository`       | `SqliteRateLimitRepository`       | `rate_limit_slots`, `rate_limit_window_entries`, `rate_limit_pauses` |
 | `MeshRequestRepository`     | `SqliteMeshRequestRepository`     | `mesh_requests`                   |
+| `ExecutionHistoryRepository` | `SqliteExecutionHistoryRepository` | `execution_history` ([Execution history](Execution-history)) |
 
 Every row carries the tenant (#261): the threads and the records `tenant_id`, `paused_executions`
 is keyed by `(tenant_id, thread_id)`, a checkpoint and its writes are tagged with the run's tenant,

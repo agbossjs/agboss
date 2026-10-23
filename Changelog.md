@@ -3,6 +3,21 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — execution history: `ExecutionHistoryRepository`, `executionRecordRetention`, `agboss records export` (#401 PR 1)
+
+- **Added — `@Application({ executionRecordRetention })`** ([Execution history](Execution-history)):
+  unset → nothing is kept (as before); set, every root execution's `ExecutionHistoryRecord` — its
+  `ExecutionRecord` with `executionId`, `rootExecutionId`, `threadId`, `tenantId`, `application`,
+  `workflow`, `status` (`ExecutionHistoryStatus`), `startedAt` / `endedAt`, `start` + `input`,
+  `finish` + `output`, `contexts`, `error` — masked like its traces, saved when its tree rests or
+  ends and removed by the recovery sweep once it ended longer ago. On the built-in in-memory store
+  it warns `[application.in-memory-execution-history]`.
+- **Added — infrastructure `ExecutionHistoryRepository`** (in memory, `SqliteExecutionHistoryRepository`),
+  additive: `ExecutionRecordRepository` is unchanged; readiness pings it.
+- **Added — `agboss records export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since]
+  [--until]`**: JSON Lines, one `{ "kind": "agboss.execution-record", "schema": 1, … }` per line,
+  read from the stores without running anything; `records.tenant-required`, `records.not-kept`.
+
 ## Unreleased — flow-patterns as the zero-cost harness: an offline eval suite (#419 PR 4)
 
 - `examples/flow-patterns` adds `desk-eval-suite` with a code eval judge, run offline on a new
@@ -56,6 +71,7 @@ Breaking changes and notable additions, newest first. The API reports
   checkpointers to AGBoss primitives, a compiled "before → after" example and the move to `testWith`.
   Routed from `SKILL.md` and the `AGENTS.md` that `agboss create` writes; the project skills are now
   `SKILL.md` and 13 references (`skills: … (14 files)`). [CLI](CLI#project-skills-for-coding-agents-305).
+
 
 ## Unreleased — `agboss eval run --metamorphic`: rewordings call the same tools (#396 PR 7)
 

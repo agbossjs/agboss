@@ -131,6 +131,7 @@ two → `[di.ambiguous-implementation]`. A service that needs one injects the co
 | `ExecutionLeaseRepository`  | one lease per execution tree: who moves it (`acquire`, `renew`, `release`, #265) | in memory |
 | `ExecutionTreeRepository`   | the shared state of one request (`saveIfAbsent`, `findById` inside an execution; removed when the tree ends) | in memory |
 | `RateLimitRepository`       | concurrency slots as leases (`acquire(key, maxSlots, lease)`, `renew`, `release`) — the model providers' limits (#266) | in memory |
+| `ExecutionHistoryRepository` | each root execution's history, masked, only with `@Application({ executionRecordRetention })` (#401, [Execution history](Execution-history)) | in memory |
 
 **Ids** (#313) are infrastructure too, like the `Clock`: the `IdGenerator` contract —
 `newThreadId()` and `newExecutionId()` — gives every thread id the framework mints (`app.execute`
@@ -169,7 +170,7 @@ Nothing is written to the home folder: with the defaults, records, spend, pauses
 the instance and are gone after a restart. Each contract has a ready SQLite implementation, enabled
 only by listing it (`SqliteExecutionRecordRepository`, `SqliteCostLedgerRepository`,
 `SqlitePausedExecutionRepository`, `SqliteCheckpointSaver`, `SqliteExecutionLeaseRepository`,
-`SqliteExecutionTreeRepository`, `SqliteRateLimitRepository` — one file, the environment's
+`SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`, `SqliteExecutionHistoryRepository` — one file, the environment's
 `sqlitePath`, required only then: [Several instances → SQLite](Several-instances#sqlite--several-instances-on-one-machine));
 your own `extends` the contract and goes in `@Application({ providers })`. A workflow run on its
 own (`agboss eval` / `replay` / `golden`, `createAppDeps`) uses the infrastructure of the one

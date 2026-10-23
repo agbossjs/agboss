@@ -267,6 +267,7 @@ and `; `.) `agboss chat` sends what is typed as a text, so its start takes `Work
 | `agboss compare [--start <name>] --profiles base,<p>` | profiles side by side on the start's workflow ([Profiles and comparisons](Profiles-and-comparisons)) |
 | `agboss dev [--strict]` | watch mode: `agboss check` rerun in a short-lived process on every change of the application's `src/` — the types regenerated, the problems printed ([below](#watch-mode-and-studio-268)) |
 | `agboss studio [--port N]` | LangGraph Studio on every workflow of the application, a child drawn inside its parent — no `studio.ts` / `langgraph.json` in the project ([below](#watch-mode-and-studio-268)) |
+| `agboss records export (--tenant <id> \| --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>] [--env <name>]` | the application's kept execution records (`@Application({ executionRecordRetention })`) as masked JSON Lines, `kind: "agboss.execution-record"` — its stores opened, nothing run; `records.tenant-required` (exit 2), `records.not-kept` (exit 3) ([Execution history](Execution-history#exporting-it-agboss-records-export)) |
 | `agboss rag index [--rag <name>]` | build / update every knowledge base of the application, each once (one bound by two agents too); `--rag` one by its full name — an unknown one is exit 2 with a `Did you mean "…"?` and the list ([Knowledge bases](Knowledge-bases)) |
 
 Every command that loads the application takes `--env <name>` and `--application <path>`; exit codes
