@@ -7,6 +7,8 @@ package-lock.json
 examples/.scaffold-tmp-*
 # api-extractor writes the API reports (#195): `npm run api:update`
 packages/agboss/api
+# `agboss describe --json` snapshots (#398 PR 4): written by the example's `npm run snapshot`, as is
+examples/flow-patterns/snapshots
 # one call per line in flow chains (#289): formatted by `node scripts/format-flows.mjs` and checked
 # by ESLint (`@stylistic`), never joined by Prettier — the same globs as FLOW_FILES in
 # scripts/flow-style.mjs (tests/docs/flow-style.test.ts keeps the two lists equal)

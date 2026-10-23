@@ -9,6 +9,7 @@ import {
   ExecutionBudget,
   TenantDailyBudget,
 } from "./config/budget.config.js";
+import { DeskA2AExpose } from "./desk/a2a/desk.a2a-expose.js";
 import { DeskWorkflow } from "./desk/desk.workflow.js";
 import { OrderDeskHealthCheck } from "./desk/health/order-desk.health-check.js";
 import { DeskMetricsObserver } from "./desk/observers/desk-metrics.observer.js";
@@ -20,7 +21,8 @@ import { HarnessModelProvider } from "./model-providers/harness.model-provider.j
  * The help desk as an application of its own — offline: its only model provider is the transport
  * `HarnessModelProvider` (#385), so `npx agboss run --application src/desk.application.ts --env test`
  * and its eval suites run with no key and no network. `FlowPatternsApplication` lists the same
- * workflow beside OpenRouter.
+ * workflow beside OpenRouter. It serves the desk over A2A (`DeskA2AExpose`): the helpline of
+ * `FlowPatternsApplication` is its consumer, checked by `agboss check --federation`.
  */
 @Application({
   name: "desk-application",
@@ -28,6 +30,7 @@ import { HarnessModelProvider } from "./model-providers/harness.model-provider.j
   environment: AppEnvironment,
   pseudonymKey: "piiPseudonymKey",
   workflows: [DeskWorkflow],
+  exposes: [DeskA2AExpose], // served over A2A: `helpline-workflow` calls it
   observers: [DeskMetricsObserver],
   healthChecks: [OrderDeskHealthCheck],
   maxConcurrentSteps: 16, // agent, router and action steps of one instance at once (#332)

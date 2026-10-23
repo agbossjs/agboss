@@ -1,0 +1,556 @@
+{
+  "schema": 1,
+  "ok": true,
+  "command": "describe",
+  "result": {
+    "application": {
+      "name": "desk-application",
+      "version": "1.0.0",
+      "workflows": [
+        "desk-workflow"
+      ],
+      "implementations": [
+        {
+          "contract": "Clock",
+          "implementation": "SystemClock",
+          "reason": "default"
+        },
+        {
+          "contract": "IdGenerator",
+          "implementation": "RandomIdGenerator",
+          "reason": "default"
+        },
+        {
+          "contract": "Logger",
+          "implementation": "ConsoleLogger",
+          "reason": "default"
+        },
+        {
+          "contract": "BaseCheckpointSaver",
+          "implementation": "SqliteCheckpointSaver",
+          "reason": "listed"
+        },
+        {
+          "contract": "ExecutionRecordRepository",
+          "implementation": "SqliteExecutionRecordRepository",
+          "reason": "listed"
+        },
+        {
+          "contract": "CostLedgerRepository",
+          "implementation": "SqliteCostLedgerRepository",
+          "reason": "listed"
+        },
+        {
+          "contract": "PausedExecutionRepository",
+          "implementation": "InMemoryPausedExecutionRepository",
+          "reason": "default"
+        },
+        {
+          "contract": "ExecutionLeaseRepository",
+          "implementation": "InMemoryExecutionLeaseRepository",
+          "reason": "default"
+        },
+        {
+          "contract": "ExecutionTreeRepository",
+          "implementation": "InMemoryExecutionTreeRepository",
+          "reason": "default"
+        },
+        {
+          "contract": "RateLimitRepository",
+          "implementation": "InMemoryRateLimitRepository",
+          "reason": "default"
+        },
+        {
+          "contract": "MeshRequestRepository",
+          "implementation": "InMemoryMeshRequestRepository",
+          "reason": "default"
+        }
+      ],
+      "modelProviders": [
+        {
+          "name": "harness-model-provider",
+          "className": "HarnessModelProvider",
+          "reason": "listed",
+          "serves": [
+            "/^harness\\//"
+          ],
+          "isTransport": true
+        }
+      ],
+      "budgets": [
+        {
+          "name": "application-daily-budget",
+          "scope": "application",
+          "period": "day"
+        },
+        {
+          "name": "tenant-daily-budget",
+          "scope": "tenant",
+          "period": "day"
+        },
+        {
+          "name": "execution-budget",
+          "scope": "execution"
+        }
+      ],
+      "executionBudgets": [
+        {
+          "workflow": "desk-workflow",
+          "name": "execution-budget",
+          "isOwn": false
+        }
+      ],
+      "observers": [
+        "DeskMetricsObserver"
+      ],
+      "warnings": [],
+      "maxConcurrentSteps": 16,
+      "tree": [
+        {
+          "name": "desk-workflow",
+          "version": "1.0.0",
+          "starts": [
+            "desk-workflow-start (DeskQuestionDto)"
+          ],
+          "children": []
+        }
+      ],
+      "channels": [],
+      "contracts": {
+        "exports": [
+          {
+            "kind": "a2a",
+            "expose": "desk-a2a-expose",
+            "version": "1.0.0",
+            "start": "desk-workflow-start",
+            "workflow": "desk-workflow",
+            "input": {
+              "dto": "DeskQuestionDto",
+              "schemaHash": "36d742337b41f8b15d9b71fca979bc2875e5aa163bf438655c01c7a3a2562f82"
+            },
+            "outputs": [
+              {
+                "finish": "desk-answer-workflow-finish",
+                "dto": "WorkflowFinishTextDto",
+                "schemaHash": "e12b4532bfe77e787b44f743446d7f2a97e53fb3aac1dc06ce19147c9644bb16"
+              }
+            ]
+          }
+        ],
+        "imports": [],
+        "schemas": {
+          "DeskQuestionDto": {
+            "schemaHash": "36d742337b41f8b15d9b71fca979bc2875e5aa163bf438655c01c7a3a2562f82",
+            "jsonSchema": {
+              "type": "object",
+              "properties": {
+                "customerId": {
+                  "type": "string",
+                  "description": "who asks"
+                },
+                "question": {
+                  "type": "string",
+                  "description": "the question, naming the order as #<id>"
+                }
+              },
+              "required": [
+                "customerId",
+                "question"
+              ]
+            }
+          },
+          "WorkflowFinishTextDto": {
+            "schemaHash": "e12b4532bfe77e787b44f743446d7f2a97e53fb3aac1dc06ce19147c9644bb16",
+            "jsonSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "description": "the text the run finishes with, in plain words"
+                }
+              },
+              "required": [
+                "text"
+              ]
+            }
+          }
+        }
+      },
+      "environment": {
+        "name": "dev",
+        "fields": {
+          "openRouterApiKey": "<missing OPENROUTER_API_KEY>",
+          "openRouterBaseUrl": "<unset OPENROUTER_BASE_URL, optional>",
+          "sqlitePath": "\".agboss/flow-patterns.sqlite\"",
+          "piiPseudonymKey": "<missing PII_PSEUDONYM_KEY>"
+        }
+      }
+    },
+    "workflows": [
+      {
+        "name": "desk-workflow",
+        "version": "1.0.0",
+        "profile": "base",
+        "config": "3cabfc93",
+        "piiPolicies": [
+          {
+            "name": "customer-id-pii-policy",
+            "className": "CustomerIdPiiPolicy",
+            "rules": [
+              {
+                "target": "findMatches()",
+                "action": "replaceWithToken()"
+              }
+            ],
+            "elements": [
+              "desk-agent"
+            ],
+            "masksObservability": true
+          }
+        ],
+        "flow": [
+          "start(DeskWorkflowStart)",
+          "  .returns(DeskQuestionDto)",
+          "  .toAgent(DeskAgent)",
+          "  .toFinish(DeskAnswerWorkflowFinish)"
+        ],
+        "inputs": [
+          "desk-agent ← question: desk-workflow-start"
+        ],
+        "children": [],
+        "routers": [],
+        "agents": [
+          {
+            "name": "desk-agent",
+            "model": "harness/desk",
+            "description": "Answers questions about orders",
+            "tools": [
+              "order-status-tool",
+              "close-account-tool",
+              "search-shipping-policy-rag-tool"
+            ],
+            "rag": [
+              "shipping-policy-rag"
+            ]
+          }
+        ],
+        "models": [
+          {
+            "key": "agents.desk-agent",
+            "model": "harness/desk",
+            "provider": "harness-model-provider"
+          }
+        ],
+        "tools": [
+          {
+            "name": "order-status-tool",
+            "description": "Where an order is",
+            "kind": "local"
+          },
+          {
+            "name": "close-account-tool",
+            "description": "Closes a customer's account",
+            "kind": "local"
+          },
+          {
+            "name": "search-shipping-policy-rag-tool",
+            "description": "Shipping and refund articles. Returns the most relevant search results with their source; cite them as [source].",
+            "kind": "local"
+          }
+        ],
+        "unassignedTools": [],
+        "limits": {
+          "maxSteps": 3,
+          "isMaxStepsSet": false,
+          "steps": {
+            "least": 1,
+            "most": 1
+          },
+          "maxVisits": {},
+          "worstCases": [
+            {
+              "start": "desk-workflow-start",
+              "workflow": "desk-workflow",
+              "executions": 1,
+              "concurrentExecutions": 1,
+              "steps": 1,
+              "isStepsCapped": false,
+              "treeSteps": 1,
+              "depth": 0,
+              "parts": [],
+              "children": []
+            }
+          ],
+          "maxConcurrentExecutions": 10,
+          "isMaxConcurrentExecutionsSet": false
+        },
+        "steps": {
+          "least": 1,
+          "most": 1
+        },
+        "configHash": "3cabfc9327581f5ab807e2eb12b7e7783ffae0a4ebfa4219a1f2de720185520f",
+        "starts": [
+          "desk-workflow-start"
+        ],
+        "finishes": [
+          "desk-answer-workflow-finish"
+        ],
+        "nodes": [
+          {
+            "name": "desk-agent",
+            "kind": "agent",
+            "description": "Answers questions about orders",
+            "promptHash": "b01eda4a24fe922c0e545d506e367aa664b2f66ed58aee99701b308969f844e4",
+            "schemaHash": "9cadd6494ed5db07ac2d1f0917afa2318d4f5bec788bb21850f8c930f286a199",
+            "input": {
+              "fields": {
+                "question": {
+                  "dto": "DeskQuestionDto",
+                  "schemaHash": "36d742337b41f8b15d9b71fca979bc2875e5aa163bf438655c01c7a3a2562f82"
+                }
+              }
+            },
+            "agent": {
+              "model": "harness/desk",
+              "provider": "harness-model-provider",
+              "reasoning": "provider",
+              "maxTokens": 8192,
+              "maxModelCalls": 12,
+              "maxToolCalls": 3,
+              "maxResultSize": 131072,
+              "uncompactedTurns": 2,
+              "compaction": "case-notes-compaction",
+              "tools": [
+                "order-status-tool",
+                "close-account-tool",
+                "search-shipping-policy-rag-tool"
+              ],
+              "rag": [
+                {
+                  "name": "shipping-policy-rag",
+                  "mode": "tool",
+                  "topK": 2
+                }
+              ],
+              "guardrails": {
+                "input": [
+                  "no-credentials-guardrail"
+                ],
+                "output": [
+                  "no-promises-guardrail"
+                ]
+              },
+              "toolInterceptors": {
+                "order-status-tool": [
+                  "desk-audit-tool-interceptor"
+                ],
+                "close-account-tool": [
+                  "desk-audit-tool-interceptor"
+                ]
+              },
+              "piiPolicies": [
+                "customer-id-pii-policy"
+              ],
+              "judges": [
+                "quotes-lookup-judge"
+              ],
+              "maxRetries": 1,
+              "instructions": "You answer customers about their orders. Look every order up with order-status-tool before you\nanswer, and never promise a delivery date. You cannot close accounts."
+            }
+          },
+          {
+            "name": "desk-answer-workflow-finish",
+            "kind": "workflow-finish",
+            "description": "The answer",
+            "schemaHash": "1e970f28c91e614ce73440da085cd88984ea2a616ec6466748a14884a7de2c36",
+            "output": {
+              "dto": "WorkflowFinishTextDto",
+              "schemaHash": "e12b4532bfe77e787b44f743446d7f2a97e53fb3aac1dc06ce19147c9644bb16"
+            }
+          },
+          {
+            "name": "desk-workflow-start",
+            "kind": "workflow-start",
+            "description": "A customer's question about an order",
+            "schemaHash": "67e6b69e4e758dd6e580b8253e7350101a3a6fb1ca01d5d64fa2f91a9662ea20",
+            "input": {
+              "dto": "DeskQuestionDto",
+              "schemaHash": "36d742337b41f8b15d9b71fca979bc2875e5aa163bf438655c01c7a3a2562f82"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "from": "desk-agent",
+            "to": "desk-answer-workflow-finish",
+            "kind": "next",
+            "writes": [
+              {
+                "value": "WorkflowFinishTextDto"
+              }
+            ]
+          },
+          {
+            "from": "desk-workflow-start",
+            "to": "desk-agent",
+            "kind": "next",
+            "writes": [
+              {
+                "value": "DeskQuestionDto"
+              }
+            ]
+          }
+        ],
+        "onError": [],
+        "launches": [],
+        "modelComponents": [],
+        "schemas": {
+          "dtos": {
+            "DeskQuestionDto": {
+              "schemaHash": "36d742337b41f8b15d9b71fca979bc2875e5aa163bf438655c01c7a3a2562f82",
+              "jsonSchema": {
+                "type": "object",
+                "properties": {
+                  "customerId": {
+                    "type": "string",
+                    "description": "who asks"
+                  },
+                  "question": {
+                    "type": "string",
+                    "description": "the question, naming the order as #<id>"
+                  }
+                },
+                "required": [
+                  "customerId",
+                  "question"
+                ]
+              }
+            },
+            "WorkflowFinishTextDto": {
+              "schemaHash": "e12b4532bfe77e787b44f743446d7f2a97e53fb3aac1dc06ce19147c9644bb16",
+              "jsonSchema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "description": "the text the run finishes with, in plain words"
+                  }
+                },
+                "required": [
+                  "text"
+                ]
+              }
+            }
+          },
+          "tools": {
+            "order-status-tool": {
+              "promptHash": "56d23259b541e45d1eff2c0a4aca98b4f72f53cd8f8334bcc9f1b6a233787fcb",
+              "schemaHash": "770ade217154c07d2ce1153ccf007525d56d8b34b72e5b6d576f6ce3821dccf0",
+              "maxResultSize": 131072,
+              "input": {
+                "type": "object",
+                "properties": {
+                  "orderId": {
+                    "type": "string",
+                    "description": "the order's id, without #"
+                  }
+                },
+                "required": [
+                  "orderId"
+                ]
+              },
+              "output": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "description": "where the order is"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            },
+            "close-account-tool": {
+              "promptHash": "ae0e861486dfc153d2b40455a6431325cc15b6d8508e6c34a92464764a5821ef",
+              "schemaHash": "d2b2cc6f4288052b690663d2775d498a17b5609f004399fb48adabd2143c9564",
+              "maxResultSize": 131072,
+              "input": {
+                "type": "object",
+                "properties": {
+                  "customerId": {
+                    "type": "string",
+                    "description": "the customer whose account to close"
+                  }
+                },
+                "required": [
+                  "customerId"
+                ]
+              },
+              "output": {
+                "type": "object",
+                "properties": {
+                  "closed": {
+                    "type": "boolean",
+                    "description": "whether the account was closed"
+                  }
+                },
+                "required": [
+                  "closed"
+                ]
+              }
+            },
+            "search-shipping-policy-rag-tool": {
+              "promptHash": "8315656b158d466b55385064db7aa9f46da92381537d3a66a93abe6db4ec3027",
+              "schemaHash": "6a7e59a784b42d2f036b7814e422ec9bd00ea5569ff0f819d3e32ee6a3870774",
+              "maxResultSize": 131072,
+              "input": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              },
+              "output": {
+                "type": "object",
+                "properties": {
+                  "results": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "source": {
+                          "type": "string"
+                        },
+                        "text": {
+                          "type": "string"
+                        },
+                        "score": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "text"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "results"
+                ]
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "warnings": []
+}

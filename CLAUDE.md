@@ -162,8 +162,10 @@ In `examples/job-scout/` (`agboss <command>`, its one start): `npm run chat` · 
 `--profile <name>` (`profiles/<workflow>/<name>.yaml`) and `--thread <id>`.
 
 In `examples/flow-patterns/` (#295, the zero-cost harness of the public surface, #419; scripted tests,
-no model key): `npm run check` (`agboss check --strict` on its offline `src/desk.application.ts` and
-on its application's ten workflows, then `--models` on `test`, then `eslint .` with `agboss/eslint`) ·
+no model key): `npm run check` (`agboss check --strict` on its offline `src/desk.application.ts`
+`--federation snapshots/` — its A2A export against its checked-in `describe --json` — and on its
+application's eleven workflows `--federation` against the desk's fresh `describe --json`, then
+`--models` on `test`, then `eslint .` with `agboss/eslint`; `npm run snapshot` rewrites the desk's) ·
 `npm run describe`
 (each of them: `src/offer/` the review loop, `src/credit/` a code router, `src/review/` parallel
 launches in waves, #273, `src/panel/` a quorum with a code and a model arbiter, #279, `src/vendor/` a
@@ -173,7 +175,9 @@ an offer whose steps declare their undo, `compensateWith` / `committedBy`, #339,
 bookings a failed join undoes automatically, #340, `src/desk/` the extension points — a custom
 compaction, code guardrails, a tool interceptor — on a transport model provider that answers by the
 request, and the operational contracts — a code judge on `toolCalls`, a `@Rag`, a `PiiPolicyHandler`,
-an observer, a `@HealthCheck`, `maxConcurrentSteps` —; `tests/unit-runners.test.ts` runs every unit
+an observer, a `@HealthCheck`, `maxConcurrentSteps` —, served over A2A (`@A2AExpose`, a caller
+resolver) to `src/helpline/`, its consumer through an `@A2AAgent` contract (`a2aServer` in
+`tests/helpline.test.ts`, #398); `tests/unit-runners.test.ts` runs every unit
 runner on the patterns' components, `src/model-providers/` beside OpenRouter narrowed to `moonshotai/…`, #382–#385) · `npm test`.
 Real runs (#346, its README: the manual checks #263 M1, #264 M1, #267 M1): `dev` reads
 `OPENROUTER_API_KEY` (`openRouterBaseUrl` optional) and `PII_PSEUDONYM_KEY`, every store is SQLite,
@@ -2020,7 +2024,8 @@ entries. A public surface change updates the api-extractor reports (`npm run api
 (`.suppressions.json`), the generated `.agboss/types.d.ts` of the framework's test fixtures
 (`npm run check:types`, #272 — before lint and `tsc`), build, the API reports, **compiled docs**,
 prettier, ESLint, `tsc` (tests included; the examples' types written first), tests with coverage,
-`agboss check --strict` on flow-patterns' two applications (warnings are errors) and its own lint and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
+`agboss check --strict` on flow-patterns' two applications (warnings are errors, `--federation`
+between them) and its own lint and `agboss check --models` on job-scout. Compiled docs (`scripts/check-docs.mjs`) typecheck
 every ` ```ts ` block of README, CLAUDE, QUALITY and WORKFLOW (and `docs/`) against the built
 package — a doc whose snippets declare a `@Workflow` gets its `.agboss/types.d.ts` written first —
 and check that every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention — and every
@@ -2191,8 +2196,9 @@ examples/flow-patterns/      the flow's patterns (package flow-patterns-example,
                     in waves, #273), src/panel/ (a quorum, #279), src/vendor/ (a child workflow per
                     item, #263), src/topic/ (recursion, #264), src/approvals/ (two approvals at once,
                     #267), src/hiring/ (declared compensation, #339), src/travel/ (a failed join's undo, #340),
-                    src/desk/ (the extension points, #382–#385), one *.workflow.ts each; model-providers/;
-                    desk.application.ts (offline); scripts/ (npm run answer); README.md (real runs,
+                    src/desk/ (the extension points, #382–#385), src/helpline/ (its A2A consumer, #398),
+                    one *.workflow.ts each; model-providers/; desk.application.ts (offline, served over
+                    A2A); snapshots/ (its describe --json); scripts/ (npm run answer); README.md (real runs,
                     #346); tests/
 scripts/        the gate's checks (check-root, check-suppressions, check-docs + docs/, api-report,
                 public-entries, eslint-agboss-plugin: `agboss/eslint` on the repo's files),
