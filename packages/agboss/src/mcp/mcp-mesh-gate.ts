@@ -23,7 +23,13 @@ import { errorResult, failureResult, isRecord } from "./mcp-service-helpers.js";
 
 /** What the check decided: the chain to run with (trusted or not), or the refusal to answer. */
 export type McpMeshAdmission =
-  | { readonly isAdmitted: true; readonly inbound?: InboundMesh; readonly bodyHash?: string }
+  | {
+      readonly isAdmitted: true;
+      readonly inbound?: InboundMesh;
+      readonly bodyHash?: string;
+      /** The trusted peer (#398 PR 2b: its calls are deduplicated); `undefined` when untrusted. */
+      readonly peer?: string;
+    }
   | { readonly isAdmitted: false; readonly refusal: CallToolResult };
 
 /** One `tools/call` as the check reads it: its tool, `_meta`, arguments and the session's peer. */
@@ -93,7 +99,7 @@ export function admitMcpCall(app: object, call: McpMeshCall): McpMeshAdmission {
   const inbound = inboundMeshOfRequest(read?.envelope, fields[TRACEPARENT], peer);
   if (inbound === undefined) return { isAdmitted: true };
   const bodyHash = peer === undefined ? undefined : read?.envelope.bodyHash;
-  return bodyHash === undefined
+  return bodyHash === undefined || peer === undefined
     ? { isAdmitted: true, inbound }
-    : { isAdmitted: true, inbound, bodyHash };
+    : { isAdmitted: true, inbound, bodyHash, peer };
 }

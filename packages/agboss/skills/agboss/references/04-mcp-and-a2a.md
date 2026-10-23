@@ -544,12 +544,12 @@ the session's peer.
 
 What a trusted request gets — never an untrusted one:
 
-| From the caller                   | The receiver                                                                                                    |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `budget.remaining`                | one more execution budget, `caller-budget`: it only lowers its own (`BudgetExceededError`)                      |
-| `deadline.remaining`              | the execution's deadline (`DeadlineExceededError`, `limit.deadline`)                                            |
-| `origin` (and the chain's length) | `executionContext.origin`, the record's `origin` and every observer event's (`ExecutionOrigin`)                 |
-| `origin.step.idempotencyKey`      | dedupe (`MeshRequestRepository`): a repeat gets the kept answer, one in flight a `409 mesh.request-in-progress` |
+| From the caller                   | The receiver                                                                                                                                              |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `budget.remaining`                | one more execution budget, `caller-budget`: it only lowers its own (`BudgetExceededError`)                                                                |
+| `deadline.remaining`              | the execution's deadline (`DeadlineExceededError`, `limit.deadline`)                                                                                      |
+| `origin` (and the chain's length) | `executionContext.origin`, the record's `origin` and every observer event's, its resumes' too (`ExecutionOrigin`)                                         |
+| `origin.step.idempotencyKey`      | dedupe (`MeshRequestRepository`): a repeat gets the kept answer, one in flight a `409 mesh.request-in-progress` (MCP: by `_meta.callId`, an error result) |
 
 Its answer carries a run report (`MeshRunReport`: `issuer`, `executionId`, `spend`, `bodyHash`)
 signed by the receiver. A caller that verifies it with its `mesh.peers` key records the reported
@@ -562,7 +562,10 @@ caller's tenant only.
 
 - `MeshRequestRepository` is infrastructure (in memory; `SqliteMeshRequestRepository` shares it
   between instances), kept `mesh.idempotencyRetention` (default `minutes(30)`), then removed by the
-  recovery sweep. Only trusted `POST /execute` requests are deduplicated.
+  recovery sweep. Only trusted requests are deduplicated: `POST /execute` by the envelope's
+  `origin.step.idempotencyKey`, an MCP `tools/call` by its `_meta.callId` (the AGBoss client sends
+  the step's key) — a repeat gets the kept result, one in flight an error result with
+  `_meta["agboss.dev/error"]` `mesh.request-in-progress`.
 - `[mesh.signing-key-missing]`, `[mesh.unknown-peer-key]`, `[mesh.duplicate-peer]` at assembly;
   `[mesh.invalid-key] <field> holds no …` at start (never the value).
 - Not yet (#398 PR 3): a peer's contract price, `audience`.

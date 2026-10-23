@@ -5,6 +5,7 @@ import {
 } from "../run/resume-guard.js";
 import type { Tern } from "../terns/index.js";
 import type { AppDeps } from "./app-deps.js";
+import { withTreeOrigin } from "./tree-origin.js";
 import type { TreeMoves } from "./tree-moves.js";
 
 /**
@@ -35,7 +36,8 @@ export const recoverRootOf =
     const { runId, threadId, tenantId } = record;
     if (runId === null) return;
     const startedVersion = record.configVersion ?? deps.config.version;
-    const interrupted = { runId, threadId, tenantId, ternId: record.id, startedVersion };
+    const facts = { runId, threadId, tenantId, ternId: record.id, startedVersion };
+    const interrupted = await withTreeOrigin(deps, facts);
     // a cancel requested, or an undo begun, while its holder was down: ended at once, whatever
     // config it started on (#360, #340 PR 4)
     if (await moves.endIfEnding(interrupted)) return;

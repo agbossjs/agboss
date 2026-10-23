@@ -109,10 +109,10 @@ export type ToolsOf<TServer> = TServer extends {
 // src/mcp/mcp-expose.decorator.ts:5:3 - (ae-undocumented) Missing documentation for "name".
 // src/mcp/mcp-expose.decorator.ts:6:3 - (ae-undocumented) Missing documentation for "version".
 // src/mcp/mcp-expose.decorator.ts:7:3 - (ae-undocumented) Missing documentation for "exports".
-// src/mcp/mcp-service.ts:18:1 - (ae-undocumented) Missing documentation for "McpSession".
-// src/mcp/mcp-service.ts:19:3 - (ae-undocumented) Missing documentation for "sessionId".
-// src/mcp/mcp-service.ts:20:3 - (ae-undocumented) Missing documentation for "close".
-// src/mcp/mcp-service.ts:139:1 - (ae-undocumented) Missing documentation for "createMcpService".
+// src/mcp/mcp-service.ts:19:1 - (ae-undocumented) Missing documentation for "McpSession".
+// src/mcp/mcp-service.ts:20:3 - (ae-undocumented) Missing documentation for "sessionId".
+// src/mcp/mcp-service.ts:21:3 - (ae-undocumented) Missing documentation for "close".
+// src/mcp/mcp-service.ts:144:1 - (ae-undocumented) Missing documentation for "createMcpService".
 
 // (No @packageDocumentation comment for this package)
 

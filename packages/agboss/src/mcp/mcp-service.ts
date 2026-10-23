@@ -13,6 +13,7 @@ import {
   type SseTransport,
 } from "./mcp-service-helpers.js";
 import { collectTools, type McpSessionOptions } from "./mcp-tool-registry.js";
+import { dedupedMcpCall } from "./mcp-dedupe.js";
 import { admitMcpCall } from "./mcp-mesh-gate.js";
 
 export interface McpSession {
@@ -62,13 +63,17 @@ export class McpService {
       const admission = admitMcpCall(this.app, call);
       if (!admission.isAdmitted) return admission.refusal;
       const callId = callIdOf(_meta);
-      return handler({
-        args,
-        signal: extra.signal,
-        ...(callId === undefined ? {} : { callId }),
-        ...(admission.inbound === undefined ? {} : { mesh: admission.inbound }),
-        ...(admission.bodyHash === undefined ? {} : { bodyHash: admission.bodyHash }),
-      });
+      const run = () =>
+        handler({
+          args,
+          signal: extra.signal,
+          ...(callId === undefined ? {} : { callId }),
+          ...(admission.inbound === undefined ? {} : { mesh: admission.inbound }),
+          ...(admission.bodyHash === undefined ? {} : { bodyHash: admission.bodyHash }),
+        });
+      // a trusted call with a callId runs once (#398 PR 2b): a repeat gets the kept result
+      const tenantId = session.tenant?.tenantId;
+      return dedupedMcpCall(this.app, { peer: admission.peer, callId, tenantId }, run);
     });
 
     return mcp;
