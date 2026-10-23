@@ -341,7 +341,7 @@ eval ui: http://127.0.0.1:4317/?token=9f2c…e1   (Ctrl+C to stop)
 runs: .agboss/eval
 ```
 
-A folder of run artifacts served read-only, until Ctrl+C: the first page lists every `*.json`
+A folder of run artifacts served until Ctrl+C — read-only but for the labels people give (below): the first page lists every `*.json`
 directly in the folder that is a run artifact, newest first — its suite, file, workflow, config,
 environment, start, pass@k, pass^k, unstable cases, regressions against its baseline, and per case a
 dot per attempt linked to that run's page at that attempt — then the `.json` files that are not, with
@@ -351,11 +351,45 @@ It runs nothing, loads no application, needs no key; the folder is read again on
 - **Only this machine, only with the token.** It listens on `127.0.0.1` alone; every request needs the
   token it printed (a fresh 128-bit one per start, `?token=`) and a `Host` of `127.0.0.1:<port>` or
   `localhost:<port>` — a page of another site cannot reach it by DNS rebinding — else `403`. Only
-  `GET` and `HEAD` (`405` otherwise); a file it did not list is `404`, one that is no artifact `422`.
+  `GET`, `HEAD` and its own forms' `POST` (`405` otherwise); a file it did not list is `404`, one that is no artifact `422`.
   Pages carry the same Content-Security-Policy, `Referrer-Policy: no-referrer`, `Cache-Control:
   no-store`.
 - `--dir` defaults to `.agboss/eval`, `--port` to `4317` (`0`: a free one). A folder that does not
   exist is `eval.no-runs`, a port outside 0–65535 `usage.option-value` — exit 2, before it serves.
+
+#### Labelling runs (#397 PR 4)
+
+Each run's page has, under its checks, a form per judge verdict it has (not the trajectory check, not
+a skipped one): the labels given so far, and *your verdict* — passed or failed (what κ reads), a
+score from 1 to 4 (optional, the rubric view's), failure tags, a note, the labeler (`--labeler`,
+default the system user). *Save label* writes it to the suite's labels file — the C4 file
+`eval/labels/<suite>.jsonl` (`--labels-dir`), one `EvalLabel` JSON line each, exactly what
+[`agboss eval calibrate`](#calibrating-a-judge-agboss-eval-calibrate) reads — then goes back to the
+run. A label of the same run, judge and labeler replaces the old one in place; the file is written
+whole to a temporary file and renamed over the old, so a reader never sees half of it.
+
+The run page then shows *Calibration against people's labels*: `calibrateJudges` on the run and the
+file, on every load — for each judge with labels, κ and the agreement of each pair of raters, the
+confusion per labeler and the disagreements (with their tags and notes).
+
+The **failure taxonomy** is the project's closed list of tags, `eval/failure-taxonomy.yaml`
+(`--taxonomy`):
+
+```yaml
+tags:
+  - tag: wrong-tool
+    description: called a tool the task did not need
+  - tag: missed-policy
+    description: answered without check_policy
+```
+
+Each tag kebab-case and unique; without the file no tags are offered; a file that is not a taxonomy is
+`eval.taxonomy-invalid` (exit 2) before it serves. A form is refused unless it comes from the page:
+the token in its body (a token in the URL is not enough), an `Origin` of the server's own (when the
+browser sends one), the same `Host` check — `403`; a label that does not fit (no verdict, a score
+outside 1–4, a tag the taxonomy lacks, a judge or run the artifact has no verdict of) is `400`; a
+labels file that does not read is never rewritten — `409`; a form above 64 KB `413`. Only the labels
+files are written.
 
 ### A run's trace (`schemaVersion` 2, #397)
 

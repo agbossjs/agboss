@@ -251,7 +251,7 @@ and `; `.) `agboss chat` sends what is typed as a text, so its start takes `Work
 | `agboss check --cassettes` | also every VCR cassette under the working directory against the application's components (#395): a component whose prompt or schema hash changed since it was recorded, or one the application no longer has, is `[vcr.stale-cassette]` (exit 3) — fixed by `AGBOSS_VCR_MODE=RECORD_STALE npm test`, never by a hand edit; a version 1 cassette is a `hint:` line; no test runs, no key ([Testing](Testing#stale-cassettes-395)) |
 | `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--profile <name>]` | run an `@EvalSuite` on the application: each case k times, its checks under the cascade, pass@k / pass^k per case, the run artifact ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run), #396), its HTML report (#397); each case against a baseline, exit 5 on a regression |
 | `agboss eval show <run.json> [--html <file>]` | a saved run artifact: its table, and with `--html` its self-contained HTML report — nothing runs, no key ([Eval suites](Eval-Suites#the-html-report---html-and-agboss-eval-show-397), #397) |
-| `agboss eval ui [--dir <folder>] [--port N]` | a folder of run artifacts served read-only on 127.0.0.1 behind the token it prints — the runs, their attempts, each run's report — until Ctrl+C; nothing runs ([Eval suites](Eval-Suites#browsing-runs-agboss-eval-ui-397), #397) |
+| `agboss eval ui [--dir <folder>] [--port N] [--labels-dir <folder>] [--taxonomy <file>] [--labeler <name>]` | a folder of run artifacts served on 127.0.0.1 behind the token it prints — the runs, their attempts, each run's report, labels of judge verdicts into `eval/labels/<suite>.jsonl` and κ — until Ctrl+C; nothing runs ([Eval suites](Eval-Suites#browsing-runs-agboss-eval-ui-397), #397) |
 | `agboss eval calibrate --report <run.json> [--labels <labels.jsonl>]` | a saved run's judges against people's labels: pairwise Cohen's κ, a confusion matrix per labeler, the disagreements by the judge's metrics — nothing runs, no key ([Eval suites](Eval-Suites#calibrating-a-judge-agboss-eval-calibrate), #396) |
 | `agboss eval score` / `agboss replay` `[--start <name>]` | score recent runs of the start's workflow with Jev / re-run a prompt version |
 | `agboss golden add [--start <name>] --name <n>` | recent real tasks of the start's workflow as a golden set |
@@ -298,8 +298,11 @@ workflow's own (`profiles/<workflow>/<name>.yaml`).
 - `agboss eval ui [--dir <folder>] [--port N]` (#397) — a folder of run artifacts (default
   `.agboss/eval`) served read-only on 127.0.0.1 behind the token it prints, the `Host` checked
   ([Eval suites](Eval-Suites#browsing-runs-agboss-eval-ui-397)); runs nothing, Ctrl+C stops it. Exit
-  2 for a folder that does not exist (`eval.no-runs`) or a `--port` outside 0–65535
-  (`usage.option-value`), before it serves.
+  2 for a folder that does not exist (`eval.no-runs`), a `--port` outside 0–65535
+  (`usage.option-value`) or a `--taxonomy` file that is not one (`eval.taxonomy-invalid`), before it
+  serves. `--labels-dir` (default `eval/labels`), `--taxonomy` (default `eval/failure-taxonomy.yaml`)
+  and `--labeler` (default the system user) are for labelling
+  ([Eval suites](Eval-Suites#labelling-runs-397-pr-4)).
 - `agboss eval calibrate --report <run.json> [--labels <labels.jsonl>]` (#396) — a saved run's
   judges against people's labels, `eval/labels/<suite>.jsonl` by default
   ([Eval suites](Eval-Suites#calibrating-a-judge-agboss-eval-calibrate)); it loads no application

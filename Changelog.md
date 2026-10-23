@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — labelling runs in `agboss eval ui`: tags, scores, κ recomputed (#397 PR 4)
+
+- **Added — labels in `agboss eval ui`** ([Eval suites](Eval-Suites#labelling-runs-397-pr-4)): a
+  form per judge verdict on each run's page — passed / failed, a 1–4 score, failure tags, a note —
+  saved to `eval/labels/<suite>.jsonl` in #396 PR 4's format (the same run, judge and labeler
+  replaced, the file written atomically), and the run's calibration (`calibrateJudges`) on every
+  load. New options `--labels-dir`, `--taxonomy`, `--labeler`; the failure taxonomy
+  `eval/failure-taxonomy.yaml`; new code `eval.taxonomy-invalid`.
+
 ## Unreleased — `agboss eval ui`: a folder of runs, read-only, on 127.0.0.1 (#397 PR 3)
 
 - **Added — `agboss eval ui [--dir <folder>] [--port N]`** ([Eval suites](Eval-Suites#browsing-runs-agboss-eval-ui-397)):
