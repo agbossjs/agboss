@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ErrorDetails } from "../core/errors.js";
 
 /**
  * How a remote run ended: the app's own outcomes (`Finished`, `Paused`, #269) and the ways a run
@@ -31,6 +32,13 @@ export interface A2AExecutionResponse {
   readonly output?: unknown;
   /** Why the run failed, was limited or cancelled. */
   readonly error?: string;
+  /** The failure's stable code (an `AGBossError`'s `code`: `limit.toolCalls`… `limit.mesh-loop`). */
+  readonly code?: string;
+  /**
+   * The facts of a mesh limit (#398: `limit.mesh-loop`, `limit.hops` — `entry`, `chain`, …), so the
+   * calling `A2AClient` fails its step with the same error; no other failure's facts are sent.
+   */
+  readonly details?: ErrorDetails;
   /** A paused run: the ids of the pauses its caller may answer (`/resume` with one of them). */
   readonly pauseIds?: readonly string[];
 }
@@ -61,6 +69,8 @@ export const A2AResponseSchema = z.object({
   finish: z.string().optional(),
   output: z.unknown().optional(),
   error: z.string().optional(),
+  code: z.string().optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
   pauseIds: z.array(z.string()).optional(),
 });
 

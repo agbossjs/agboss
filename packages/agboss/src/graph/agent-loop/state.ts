@@ -8,6 +8,7 @@ import type { SensitiveValue } from "../../pii/policy-set.js";
 import { mergeTokens, type PiiTokenMap } from "../../pii/tokens.js";
 import type { LoopProgress } from "../../flow/context/frame.js";
 import type { ToolCallStop } from "./tool-stops.js";
+import type { MeshLimitBody } from "../../mesh/mesh-wire.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
 import type {
   GuardrailDecisionRecord,
@@ -33,6 +34,11 @@ export interface StoredToolCall {
   readonly content: string;
   /** A tool interceptor stopped the call (#384): the collect node fails the step with it. */
   readonly stop?: ToolCallStop;
+  /**
+   * The tool met a mesh limit (#398: a loop or the hops limit of a remote call), as plain data: the
+   * collect node fails the step with that limit — the model never reads it.
+   */
+  readonly meshLimit?: MeshLimitBody;
 }
 
 /** An approver's decision on one call, before it ran. */

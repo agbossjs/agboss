@@ -1,5 +1,6 @@
 import type { DtoClass } from "../dto/types.js";
 import type { ToolInvocationContext, ToolOutput } from "../tools/index.js";
+import { isMeshLimitError } from "../mesh/mesh-errors.js";
 
 /** A server tool as a workflow uses it: the DTOs of its arguments and its result. */
 export interface ServerTool {
@@ -43,7 +44,9 @@ export abstract class McpServerClient<TTools extends ServerTools> {
     const tool = this.#tools.get(name);
     if (tool === undefined) throw new Error(`MCP tool "${name}" is not declared on this server`);
     const result = await tool.invoke(args, { signal, reportCost: noCost });
-    if (result.kind === "error") throw new Error(result.message);
+    // a mesh limit (#398) passes as it is: the step that called fails with it
+    if (result.kind === "error")
+      throw isMeshLimitError(result.cause) ? result.cause : new Error(result.message);
     // the facade validated the value against the declared output DTO
     return result.value as ResultOf<TTools[K]>;
   }

@@ -3,6 +3,7 @@ import type { App } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import { AGBossError } from "../core/errors.js";
 import type { ExecutionOptionsOf } from "../flow/generated-types.js";
+import type { MeshEnvelope } from "../mesh/mesh-envelope.js";
 
 /**
  * What `a2aHttpListener` needs of an application (#387): its `execute` / `resume` / `cancel`, and
@@ -28,6 +29,12 @@ export interface A2ACallerRequest {
   readonly route: A2ARoute;
   /** The raw request: headers, socket — its body is not read yet and is not the resolver's. */
   readonly http: IncomingMessage;
+  /**
+   * The mesh envelope the request carries (#398, the `agboss-mesh` header), read but **not
+   * verified**: a claim of where the call comes from — never the tenant, a budget or a deadline.
+   * `undefined` when there is none, or none the listener can read (a malformed header is ignored).
+   */
+  readonly envelope?: MeshEnvelope;
 }
 
 /**

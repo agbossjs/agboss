@@ -23,6 +23,7 @@ import type { ComponentRecord } from "./records.js";
 import { componentKindOf } from "./join-keys.js";
 import { recordOfComponent } from "./workflow-keys.js";
 import { inStepEntry } from "./step-entries.js";
+import { outboundChainOf, type InboundMesh } from "../../mesh/inbound-mesh.js";
 
 /** The workflow an execution runs, as the runtime knows it before the execution starts. */
 export type WorkflowIdentity = Omit<WorkflowDescriptor, "startedVersion">;
@@ -30,6 +31,16 @@ export type WorkflowIdentity = Omit<WorkflowDescriptor, "startedVersion">;
 /** The version the execution started on: kept in state from its first node, so a resume keeps it. */
 export const startedVersionOf = (state: ExecutionStateType, workflow: WorkflowIdentity): string =>
   state.startedVersion === "" ? workflow.version : state.startedVersion;
+
+/** A root's call chain for its mesh calls (#398): what reached it, then its own hop. */
+const rootMeshOf = (
+  contexts: RuntimeContexts,
+  state: ExecutionStateType,
+  executionId: string,
+): InboundMesh => {
+  const entry = { application: contexts.application.name, start: state.start };
+  return outboundChainOf(entry, executionId, state.contexts.mesh);
+};
 
 /** The pass through `node` this visit is, from 1 — the counter `maxVisits` checks (#280 Q43). */
 export const visitNumberOf = (node: RuntimeNode, state: ExecutionStateType): number =>
@@ -103,8 +114,11 @@ export function stepFrameAt(
       workflow: Object.freeze({ ...workflow, startedVersion: startedVersionOf(state, workflow) }),
       tenant: tenantOfExecution(contexts, state.contexts.tenant),
       values: state.contexts.execution,
-      // a child execution (#263): its parent's execution and launching step, its item
-      ...(run.tree === undefined ? {} : { parent: run.tree.parent, itemIndex: run.tree.itemIndex }),
+      // a child execution (#263): its parent's execution and launching step, its item; a root: the
+      // call chain its mesh calls carry (#398)
+      ...(run.tree === undefined
+        ? { mesh: rootMeshOf(contexts, state, executionId) }
+        : { parent: run.tree.parent, itemIndex: run.tree.itemIndex }),
     }),
     step: Object.freeze(step),
   };

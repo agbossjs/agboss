@@ -7,6 +7,8 @@ import type { McpServerConfig } from "../../config/types.js";
 import { schemaDifferences } from "./compat.js";
 import { McpContractError, McpUnavailableError } from "./errors.js";
 import type { McpCaller, McpFacade, McpServerHandle } from "./facade.js";
+import { MESH_META_KEY, TRACEPARENT } from "../../mesh/mesh-envelope.js";
+import { outboundMeshOf } from "../../mesh/outbound-mesh.js";
 
 export type Env = Readonly<Record<string, string | undefined>>;
 export type TransportFactory = (name: string, server: McpServerConfig, env: Env) => Transport;
@@ -89,10 +91,28 @@ async function openClient(
   }
 }
 
+/**
+ * The `_meta` of a call made inside an execution (#398): `callId` — the step's idempotency key, so
+ * an AGBoss server answers a repeated call as the same one —, the mesh envelope and `traceparent`;
+ * none outside one.
+ */
+function callMetaOf(): Record<string, string> | undefined {
+  const mesh = outboundMeshOf();
+  if (mesh === undefined) return undefined;
+  return {
+    callId: mesh.idempotencyKey,
+    [MESH_META_KEY]: mesh.envelope,
+    [TRACEPARENT]: mesh.traceparent,
+  };
+}
+
 const callerFor =
   (client: Client): McpCaller =>
-  (tool, args, signal) =>
-    client.callTool({ name: tool, arguments: args }, undefined, { signal });
+  (tool, args, signal) => {
+    const meta = callMetaOf();
+    const params = { name: tool, arguments: args, ...(meta === undefined ? {} : { _meta: meta }) };
+    return client.callTool(params, undefined, { signal });
+  };
 
 /**
  * Connects every server used by a facade, checks contracts and binds the facades.

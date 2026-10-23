@@ -5,7 +5,9 @@ import type { AsyncNode } from "../types.js";
 import { callsOf, invalidCallsOf, type AgentLoopDeps, type ToolCallRequest } from "./deps.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 import { stopErrorOf } from "./tool-stops.js";
-import type { StepFailedError } from "../errors.js";
+import { totalCost } from "../../finops/usage.js";
+import { meshLimitAt, type MeshLimitPlace } from "../../mesh/mesh-errors.js";
+import { meshLimitErrorOf } from "../../mesh/mesh-wire.js";
 
 /** What the model reads for a call: its stored result, or who rejected it and why. */
 function contentOf(state: AgentLoopStateType, call: ToolCallRequest): string {
@@ -38,20 +40,34 @@ function decidedCalls(
   });
 }
 
-/** The first call of the move a tool interceptor stopped (#384) fails the step, with the loop's spend. */
+/**
+ * The first call of the move a tool interceptor stopped (#384), or whose tool met a mesh limit
+ * (#398), fails the step, with the loop's spend: a stop as a `StepFailedError`, a mesh limit as
+ * itself — at the loop's path, the model never reads it.
+ */
 function stoppedErrorOf(
   state: AgentLoopStateType,
   calls: readonly ToolCallRequest[],
   agent: string,
-): StepFailedError | undefined {
+): Error | undefined {
   for (const call of calls) {
-    const stop = state.results[call.callId]?.stop;
+    const stored = state.results[call.callId];
+    const limit = meshLimitErrorOf(stored?.meshLimit);
+    if (limit !== undefined) return meshLimitAt(limit, placeOf(state));
+    const stop = stored?.stop;
     if (stop === undefined) continue;
     const stopped = { agent, tool: call.tool, callId: call.callId, runId: state.runId };
     return stopErrorOf(stopped, stop, loopUsage(state));
   }
   return undefined;
 }
+
+/** Where the loop met a mesh limit: its path, its spend so far and the spend not in state yet. */
+const placeOf = (state: AgentLoopStateType): MeshLimitPlace => ({
+  path: state.flowPath,
+  spentUsd: totalCost(state.usage),
+  usage: loopUsage(state),
+});
 
 /**
  * Fan-in after the tool tasks: one tool message per call in the MOVE's order (not completion

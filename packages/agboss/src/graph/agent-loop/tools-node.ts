@@ -14,7 +14,8 @@ import type { StepRecord } from "../../flow/context/execution-context.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
 import { interceptedCall } from "./tool-interception.js";
 import { keepStopCause, type ToolCallStop } from "./tool-stops.js";
-import type { AgentLoopUpdate, StoredToolCall, ToolTask } from "./state.js";
+import { storedCallOf } from "./stored-call.js";
+import type { AgentLoopUpdate, ToolTask } from "./state.js";
 import { inLoopFrame, inToolCallFrame } from "../../flow/context/frame.js";
 import {
   extractRunContext,
@@ -165,12 +166,6 @@ export function makeToolNode(
       : inLoopFrame(task.progress, () => run(task, config));
 }
 
-/** A finished call as the loop stores it, with the stop of an interceptor that stopped it (#384). */
-const storedCallOf = (task: ToolTask, content: string, stop?: ToolCallStop): StoredToolCall => {
-  const stored = { callId: task.callId, tool: task.tool, content };
-  return stop === undefined ? stored : { ...stored, stop };
-};
-
 /** One tool call's task, in the frame it is given. */
 function runTask(
   deps: AgentLoopDeps,
@@ -228,11 +223,12 @@ function runTask(
 function endedTaskOf(
   tool: AnyTool,
   task: ToolTask,
-  { closed, stop }: GuardedCall,
+  guarded: GuardedCall,
   ended: { readonly record: ToolCallRecord; readonly usage: readonly UsageRecord[] },
 ): AgentLoopUpdate {
+  const { closed } = guarded;
   const { content, piiTokens, piiMasked } = closed;
-  const results = { [task.callId]: storedCallOf(task, content, stop) };
+  const results = { [task.callId]: storedCallOf(task, content, guarded) };
   // arguments its tool's input check refused: one more validation attempt of the step (#268 S93)
   const invalidArguments = tool.input.safeParse(task.args).success ? 0 : 1;
   const callRecords = { [task.callId]: ended.record };

@@ -3,6 +3,7 @@ import type { WorkflowDescriptor } from "./execution-context.js";
 import type { FrameSpec } from "./frame.js";
 import type { TenantContext } from "./tenant-context.js";
 import { idempotencyKeyOf } from "./idempotency.js";
+import type { InboundMesh } from "../../mesh/inbound-mesh.js";
 import { bareRecordOf, ComponentKind } from "../runtime/records.js";
 
 /** A tool called on its own, not by an agent: over MCP, or `app.tool(T).invoke(…)` in a test. */
@@ -16,6 +17,8 @@ export interface StandaloneCall {
   readonly signal: AbortSignal;
   /** The tenant the call runs for: the application's default one (#261). */
   readonly tenant: TenantContext;
+  /** The call chain the call's mesh calls carry (#398): what reached it, then its own hop. */
+  readonly mesh?: InboundMesh;
 }
 
 /**
@@ -34,6 +37,7 @@ export function standaloneCallFrameOf(call: StandaloneCall): FrameSpec {
       workflow: Object.freeze({ ...workflow, startedVersion: workflow.version }),
       tenant: call.tenant,
       values: Object.freeze({}),
+      ...(call.mesh === undefined ? {} : { mesh: call.mesh }),
     }),
     step: Object.freeze({
       component: Object.freeze({ type, ...bareRecordOf(name, ComponentKind.Tool) }),
