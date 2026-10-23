@@ -1,8 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { JoinKeySource } from "../flow/runtime/join-keys.js";
 import { RE_RECORD_STALE, type CassetteChange } from "./errors.js";
-import { cassetteHashesOf, staleComponentsOf } from "./vcr-hashes.js";
+import { cassetteHashesOf, staleComponentsOf, type CassetteHashSource } from "./vcr-hashes.js";
 import { readCassette, v1HintOf } from "./vcr-file.js";
 
 /**
@@ -51,7 +50,7 @@ export interface CassetteCheck {
 /** Every cassette among `files` compared with the components of the workflows. */
 export function checkCassettes(
   files: readonly string[],
-  workflows: readonly JoinKeySource[],
+  workflows: readonly CassetteHashSource[],
 ): CassetteCheck {
   const hashes = cassetteHashesOf(workflows);
   const stale: StaleCassette[] = [];

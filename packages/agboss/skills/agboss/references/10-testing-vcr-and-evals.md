@@ -1134,8 +1134,10 @@ with `CassetteMissingError` (`test.cassette-missing`); `RECORD` always calls the
 
 **Stale cassettes.** A cassette (version 2) keeps, with every call, its component and that
 component's `promptHash` / `schemaHash` (the join keys of `npx agboss describe --json`). A replay
-of an agent or a model router whose prompt or schema changed since — or that the application no
-longer has — fails with `StaleCassetteError` (`vcr.stale-cassette`: `file`, `component`, `changes`
+of a component whose prompt or schema changed since — an agent, a model router, and every other
+component that calls a model (a model judge by the `reply` it judges, a guardrail, an arbiter, a
+compaction, a reply interpreter, a PII policy that detects with a model) — or that the application
+no longer has, fails with `StaleCassetteError` (`vcr.stale-cassette`: `file`, `component`, `changes`
 — `CassetteChange.Prompt`, `Schema`, `Removed`), naming the command that fixes it.
 `VCRMode.RECORD_STALE` replays the rest and records only the stale components' calls anew (a model
 key needed for those only): `AGBOSS_VCR_MODE=RECORD_STALE npm test`. `npx agboss check --cassettes`

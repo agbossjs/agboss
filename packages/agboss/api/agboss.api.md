@@ -1140,9 +1140,12 @@ export enum ComponentKind {
     Agent = "agent",
     Arbiter = "arbiter",
     Budget = "budget",
+    Compaction = "compaction",
     Guardrail = "guardrail",
     Judge = "judge",
+    PiiPolicy = "pii-policy",
     Rag = "rag",
+    ReplyInterpreter = "reply-interpreter",
     Router = "router",
     Tool = "tool",
     Workflow = "workflow",
@@ -5679,13 +5682,13 @@ export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) =
 // src/flow/runtime/launch/quorum-errors.ts:22:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/launch/quorum-errors.ts:50:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/launch/quorum-errors.ts:51:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/records.ts:80:3 - (ae-undocumented) Missing documentation for "slot".
-// src/flow/runtime/records.ts:120:3 - (ae-undocumented) Missing documentation for "reason".
-// src/flow/runtime/records.ts:125:3 - (ae-undocumented) Missing documentation for "outdated".
-// src/flow/runtime/records.ts:130:3 - (ae-undocumented) Missing documentation for "valueId".
-// src/flow/runtime/records.ts:131:3 - (ae-undocumented) Missing documentation for "slot".
-// src/flow/runtime/records.ts:132:3 - (ae-undocumented) Missing documentation for "producer".
-// src/flow/runtime/records.ts:137:3 - (ae-undocumented) Missing documentation for "reason".
+// src/flow/runtime/records.ts:86:3 - (ae-undocumented) Missing documentation for "slot".
+// src/flow/runtime/records.ts:126:3 - (ae-undocumented) Missing documentation for "reason".
+// src/flow/runtime/records.ts:131:3 - (ae-undocumented) Missing documentation for "outdated".
+// src/flow/runtime/records.ts:136:3 - (ae-undocumented) Missing documentation for "valueId".
+// src/flow/runtime/records.ts:137:3 - (ae-undocumented) Missing documentation for "slot".
+// src/flow/runtime/records.ts:138:3 - (ae-undocumented) Missing documentation for "producer".
+// src/flow/runtime/records.ts:143:3 - (ae-undocumented) Missing documentation for "reason".
 // src/flow/runtime/router-error.ts:39:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/router-error.ts:40:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/router-error.ts:62:3 - (ae-undocumented) Missing documentation for "code".
