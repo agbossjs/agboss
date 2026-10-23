@@ -56,16 +56,20 @@ npm run compare --profiles base,scout-low-thinking --last 20
 ```
 
 ```
-profile            | version            | mean | vs base (w/l/t) | cost    | per task | p50 s | p95 s | failed
-base               | 1.0.0              | 0.50 | baseline        | $0.0141 | $0.0071  | 30.6  | 35.8  | 0
-scout-low-thinking | 1.0.0-low-thinking | 0.62 | 1/0/1           | $0.0115 | $0.0058  | 21.7  | 33.5  | 0
+profile            | version            | mean | vs base (w/l/t, flips) | cost    | per task | p50 s | p95 s | failed
+base               | 1.0.0              | 0.50 | baseline               | $0.0141 | $0.0071  | 30.6  | 35.8  | 0
+scout-low-thinking | 1.0.0-low-thinking | 0.62 | 1/0/1, flips 1         | $0.0115 | $0.0058  | 21.7  | 33.5  | 0
 
 scout-low-thinking vs baseline:
   agents.scout-agent.thinking: "none" → "low"
 ```
 
 - Each task runs as a first contact on every profile.
-- **mean** — Jev's P(adequate); **vs base** — per task Jev picks the better of the two answers
-  (A/B order randomised; an unsure verdict is a tie).
+- **mean** — Jev's P(adequate); **vs base** — per task Jev picks the better of the two answers, in
+  **both orders** (#396 PR 5, S2 Q10): the baseline's answer first, then the other's. Two sure verdicts
+  for the same side are a win or a loss; anything else is a tie — an unsure verdict or a judge failure
+  in either order, or a verdict for the same *position* both times (answer 1 twice, or answer 2
+  twice), which is the judge following the position, not the answer: counted in **flips**
+  (`PairwiseResult.positionFlips`). Each task costs two pairwise calls.
 - Everything runs within the application's budgets (#261): the comparison stops cleanly once a
   tenant or application budget is exhausted ([FinOps](FinOps#eval-spend)).

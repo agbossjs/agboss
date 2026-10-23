@@ -3,6 +3,25 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `compare` in both orders, `[judge.same-model-family]` (#396 PR 5)
+
+- **Changed — `agboss compare` / `compareProfiles` judge each pair in both orders**
+  ([Profiles and comparisons](Profiles-and-comparisons#compare)): two sure verdicts for one side are
+  a win or a loss, anything else a tie; a verdict for the same position both times is counted in
+  `PairwiseResult.positionFlips` (new, required) and the table's `flips`. The A/B order is no
+  longer randomised (the `random` argument of the internal `pairwise` is gone); each task costs two
+  pairwise calls.
+- **Breaking — `compareProfiles(Workflow, options)` → `compareProfiles(Application, { start, … })`**
+  ([Testing suites and comparisons](Testing-Suites-And-Comparisons#from-code--compareprofiles)): the
+  workflow a start of the application opens, assembled as `createApp` assembles it. Migration: pass
+  the application and `start: <its start>`.
+- **Added — the warning `[judge.same-model-family]`**
+  ([Judges](Judges-And-Quality-Gates#judgesame-model-family)): a model judge of the judged agent's
+  vendor (the slug's prefix), or a suite's judge of the vendor of an agent of its start's workflow;
+  an error under `agboss check --strict`.
+- **Fixed — the eval judge's prompts say "answer"** (`agboss eval score`, `compare`), not
+  "replyWith".
+
 ## Unreleased — MCP dedupe by `_meta.callId`, origin on resume legs (#398 PR 2b)
 
 - **Added — trusted MCP calls are deduplicated** ([MCP](Mcp#4-calls-between-agboss-applications--_meta-398)):

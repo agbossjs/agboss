@@ -30,20 +30,22 @@ account, never from the production day ([FinOps](FinOps#eval-spend)).
 ## From code — `compareProfiles`
 
 <!-- snippet-context
-declare class JobScout { settings(): import("agboss").WorkflowSettings }
+declare class JobScoutApplication {}
+declare class ScreeningWorkflowStart {}
 -->
 
 ```ts
 import { compareProfiles } from "agboss";
 
-const comparison = await compareProfiles(JobScout, {
+const comparison = await compareProfiles(JobScoutApplication, {
+  start: ScreeningWorkflowStart, // the workflow this start opens is compared
   profiles: ["base", "scout-low-thinking"],
   tasks: ["Find senior backend jobs in Haifa", "Save the first two jobs"],
 });
 
 for (const profile of comparison.profiles) {
   const pairwise = profile.pairwise
-    ? `${String(profile.pairwise.wins)}/${String(profile.pairwise.losses)}/${String(profile.pairwise.ties)}`
+    ? `${String(profile.pairwise.wins)}/${String(profile.pairwise.losses)}/${String(profile.pairwise.ties)}, flips ${String(profile.pairwise.positionFlips)}`
     : "—";
   console.log(
     `${profile.name}: score ${String(profile.meanScore ?? "—")}, wins/losses/ties ${pairwise},`,
@@ -53,8 +55,11 @@ for (const profile of comparison.profiles) {
 console.log(comparison.warnings);
 ```
 
-`compareProfiles` takes the same options as `createApp` (a scripted `gateway`, `processEnv`, …), so a
-comparison runs in a test without a model or network.
+`compareProfiles` takes an `@Application` and one of its starts (#396 PR 5: the workflow is assembled
+as `createApp` assembles it — the application's providers, defaults and environment; a class that is
+not one of its starts is refused) and the same options as `createApp` (a scripted `gateway`,
+`processEnv`, `env`, …), so a comparison runs in a test without a model or network. Each pair is
+judged in both orders ([Profiles and comparisons](Profiles-and-comparisons#compare)).
 
 ## With recorded runs
 

@@ -375,6 +375,22 @@ assembly with the other rules — before any model call, also by `agboss check`:
 - a list agent with a judge of one value (`the agent answers a list: set @Judge({ reply: listOf(…) })`);
 - one value with a list judge (`the judge judges a list, but the agent answers one value`).
 
+## `[judge.same-model-family]`
+
+A model judges answers of its own family too kindly (self-preference), so a model judge whose model
+has the judged agent's vendor prefix — the slug's first part, `openai` of `openai/gpt-6` — is the
+warning `[judge.same-model-family]` (#396 PR 5, S2 Q9), printed by `agboss check` and an error under
+`agboss check --strict`:
+
+```
+judge-family-workflow: open-ai-judge (openai/gpt-6) judges writer-agent, whose model openai/gpt-6-mini is of the same family (openai) — a judge grades its own family's answers too kindly: give the judge a model of another vendor
+```
+
+An agent's judges are read against that agent's model; an [eval suite](Eval-Suites)'s judges against
+every agent of the workflow its start opens. A code judge has no model, and a model id without a
+vendor prefix (`gpt-6`) has no family — neither is compared. The fix: a judge model of another vendor
+(a decision model such as `typesafe/jev-1.13`), or a code judge for what code can check.
+
 ## Adding judges to an agent
 
 ```ts

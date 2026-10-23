@@ -235,7 +235,10 @@ A suite is assembled on its application before anything runs — every rule viol
 
 An eval judge judges the output of the finish the run ended at, so its `reply` is a finish's
 `output` the start reaches — one value; `oneOf(…)` for several finishes. A judge's own rules apply
-too (`[judge.not-a-judge]`, `[judge.no-model]`, `[judge.model-on-code-judge]`).
+too (`[judge.not-a-judge]`, `[judge.no-model]`, `[judge.model-on-code-judge]`). A suite that assembles may
+warn: a model judge of the model family of an agent of the start's workflow is
+[`[judge.same-model-family]`](Judges-And-Quality-Gates#judgesame-model-family), printed by `agboss check`
+and an error under `--strict`.
 
 Then the cases' values: `EvalCaseInvalidError` (`eval.case-invalid`, from `agboss`) lists every
 issue at once — `case "x": tenant.plan — <reason>`, `turns[0].text`, `history[1].output.status`,
