@@ -1,6 +1,8 @@
 import type { AssembledApplication } from "../application/assemble.js";
 import type { AssembledReplyInterpreter } from "../channels/discovery.js";
 import type { Class } from "../components/injection.js";
+import { isCodeJudge } from "../components/judge-decorators.js";
+import { componentOf } from "../components/metadata.js";
 import { NodeKind } from "../flow/ast.js";
 import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
 import { isCodeRouterNode, type RuntimeNode } from "../flow/runtime/graph-model.js";
@@ -19,6 +21,12 @@ import {
   routerKeyOf,
   type ModelTarget,
 } from "./scripted-gateway.js";
+
+/** Whether a class is a `@Judge` decided by code (#396): it calls no model. */
+const isCodeJudgeClass = (target: ModelTarget): boolean => {
+  const component = componentOf(target);
+  return component?.kind === "judge" && isCodeJudge(component.meta);
+};
 
 /**
  * What `mockLlm(X)` scripts in one application (#262): an agent or a model router (a node), a
@@ -84,6 +92,8 @@ export class ModelTargets {
       return "a code arbiter calls no model — mockOf() it, or the services its methods use";
     if (this.#interpreters.has(target))
       return "a code reply interpreter calls no model — mockOf() it, or the services its interpret() uses";
+    if (isCodeJudgeClass(target))
+      return "a code judge calls no model — mockOf() the services its judge() uses";
     if (isCodeGuardrailOf(target, this.assembled))
       return "a code guardrail calls no model — mockOf() the services its check() uses";
     if (isCustomCompactionIn(target, this.assembled))

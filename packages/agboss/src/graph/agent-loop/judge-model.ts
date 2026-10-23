@@ -1,5 +1,6 @@
 import type { BaseMessageLike } from "@langchain/core/messages";
 import type { JudgeModel } from "../../components/judge-decorators.js";
+import { ComponentError } from "../../components/metadata.js";
 import { recordUsage, type UsageRecord } from "../../finops/usage.js";
 import { ModelKind, ModelKindError } from "../../llm/decision-errors.js";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../../llm/decisions.js";
@@ -41,14 +42,32 @@ function decideOf(binding: JudgeBinding, spent: UsageRecord[]): JudgeModel["deci
   };
 }
 
-/** A judge's model: each call through the gateway, its spend added to `spent`. */
+/** The model of a code judge (#396): it has none, so every call is a mistake, named. */
+function noModelOf(judge: string): JudgeModel {
+  const refuse = (member: string): never => {
+    throw new ComponentError(
+      `[judge.model-on-code-judge] judge "${judge}" is decided by code (DecidedBy.Code) and has no model — judgeModel.${member} is not available`,
+    );
+  };
+  return {
+    get model(): string {
+      return refuse("model");
+    },
+    invoke: () => Promise.resolve().then(() => refuse("invoke")),
+    decide: () => Promise.resolve().then(() => refuse("decide")),
+  };
+}
+
+/** A judge's model: each call through the gateway, its spend added to `spent`; none for a code judge. */
 export function meteredModel(
   judge: Pick<AgentJudge, "name" | "binding">,
   spent: UsageRecord[],
 ): JudgeModel {
+  const { binding } = judge;
+  if (binding === undefined) return noModelOf(judge.name);
   return {
-    model: judge.binding.model,
-    invoke: invokeOf(judge.name, judge.binding, spent),
-    decide: decideOf(judge.binding, spent),
+    model: binding.model,
+    invoke: invokeOf(judge.name, binding, spent),
+    decide: decideOf(binding, spent),
   };
 }

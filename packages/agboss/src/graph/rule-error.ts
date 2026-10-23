@@ -155,7 +155,11 @@ export type RuleCode =
   | "pii.unused-refusal"
   | "pii.kind-needs-model"
   // typed judges (#262 PR 4, S115): every class an agent answers with is one its judges judge
-  | "judge.wrong-reply";
+  | "judge.wrong-reply"
+  // eval suites (#396 PR 1), reported when a suite is assembled on its application
+  | "eval.unknown-start"
+  | "eval.duplicate-case"
+  | "eval.judge-wrong-reply";
 
 /** One broken rule: its code, what is wrong, and the nodes (classes) involved. */
 export interface RuleViolation {

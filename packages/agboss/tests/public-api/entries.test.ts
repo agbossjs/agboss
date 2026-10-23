@@ -3,6 +3,7 @@ import * as a2a from "../../src/a2a/index.js";
 import * as channels from "../../src/channels/index.js";
 import * as core from "../../src/core/index.js";
 import * as dto from "../../src/dto/index.js";
+import * as evals from "../../src/eval/index.js";
 import * as graph from "../../src/graph/index.js";
 import * as root from "../../src/index.js";
 import * as internal from "../../src/internal.js";
@@ -26,6 +27,7 @@ const ENTRIES: Readonly<Record<string, object>> = {
   "./rag": rag,
   "./a2a": a2a,
   "./memory": memory,
+  "./eval": evals,
   "./internal": internal,
   "./core": core,
   "./graph": graph,
@@ -125,6 +127,23 @@ describe("#272 AC8: the path grammar replaces the old flow DSL in every entry", 
     for (const [name, value] of Object.entries(graph)) {
       expect(root[name as keyof typeof root]).toBe(value);
     }
+  });
+
+  it("agboss/eval (#396) exports the suite's decorator and builders, nothing that runs", () => {
+    expect(Object.keys(evals).sort()).toEqual(
+      [
+        "CheckStatus",
+        "EvalCascade",
+        "EvalSuite",
+        "checkTrajectory",
+        "evalCase",
+        "judgedBy",
+        "pastTurn",
+        "toolCall",
+        "toolInvariant",
+        "turn",
+      ].sort(),
+    );
   });
 
   it("export the unit helpers", () => {

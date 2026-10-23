@@ -22,7 +22,7 @@
       "entry": [
         "src/index.ts",
         "src/internal.ts",
-        "src/{dto,units,models,testing,mcp,rag,a2a,memory,eslint}/index.ts",
+        "src/{dto,units,models,testing,mcp,rag,a2a,memory,eval,eslint}/index.ts",
         "src/{core,graph,router,tool,channels}/index.ts",
         // loaded by path: `--application <file>` (#268) and the environment of `--env <name>`
         "tests/fixtures/loader/**/*.{workflow,application}.ts",

@@ -2,6 +2,7 @@ import type { BaseMessageLike } from "@langchain/core/messages";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../llm/decisions.js";
 import type { DtoClass } from "../dto/types.js";
 import type { ListWrapper, OneOfWrapper, ValueOf, VariantOf } from "../flow/dto-wrappers.js";
+import { DecidedBy } from "../flow/decorators/router.js";
 import { recordComponent } from "./metadata.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 
@@ -14,19 +15,47 @@ import type { Class, ResolvedAll, Token } from "./injection.js";
  */
 export type JudgeReplyShape = DtoClass | OneOfWrapper | ListWrapper;
 
-/** `@Judge` — a quality gate of an agent's reply, with the model it judges with. */
-export interface JudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
+/** What every `@Judge` declares, whoever decides. */
+interface JudgeBaseMeta<TReply extends JudgeReplyShape> {
   /** Unique in the workflow: the judge's settings key (`judges.<name>`) and its cost caller (`judge:<name>`). */
   readonly name: string;
+  /** What it judges: the agent's answer as this DTO (`judge(input)`'s `reply`). */
+  readonly reply: TReply;
+  readonly description?: string;
+}
+
+/** A judge that judges with its own model (`DecidedBy.Model`, the default). */
+export interface ModelJudgeMeta<
+  TReply extends JudgeReplyShape = JudgeReplyShape,
+> extends JudgeBaseMeta<TReply> {
+  /** Who decides (#396): the judge's model — the default when absent. */
+  readonly decidedBy?: DecidedBy.Model;
   /**
    * The judge's own model, required (`judge.no-model`): a chat model (`judgeModel.invoke`) or a
    * decision model such as `openai/gpt-6-luna-decisions` or `typesafe/jev-1.13` (`judgeModel.decide`).
    */
   readonly model: string;
-  /** What it judges: the agent's answer as this DTO (`judge(input)`'s `reply`). */
-  readonly reply: TReply;
-  readonly description?: string;
 }
+
+/**
+ * A judge decided by its class's code alone (`DecidedBy.Code`, #396): no model, no model call, cost
+ * 0 — a `model` does not compile (`[judge.model-on-code-judge]` at assembly), nor does injecting
+ * `JudgeModel`. Its services and the execution come through `deps`.
+ */
+export interface CodeJudgeMeta<
+  TReply extends JudgeReplyShape = JudgeReplyShape,
+> extends JudgeBaseMeta<TReply> {
+  readonly decidedBy: DecidedBy.Code;
+  readonly model?: never;
+}
+
+/** `@Judge` — a quality gate of an agent's reply: decided by its model, or by code (#396). */
+export type JudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> =
+  ModelJudgeMeta<TReply> | CodeJudgeMeta<TReply>;
+
+/** Whether a judge is decided by its class's code (`DecidedBy.Code`): it has no model. */
+export const isCodeJudge = (meta: JudgeMeta): meta is CodeJudgeMeta =>
+  meta.decidedBy === DecidedBy.Code;
 
 /**
  * The judge's own model (`@Judge({ model })`), through the model gateway: every call is in the
@@ -163,6 +192,8 @@ export interface RunnableJudge {
 export interface JudgeInstance {
   readonly handler: RunnableJudge;
   readonly reply: JudgeReplyShape;
+  /** Who decides (#396): a code judge has no model binding. */
+  readonly decidedBy: DecidedBy;
 }
 
 /** What `judges: [...]` takes: `@Judge` classes, whatever reply they judge. */
@@ -187,17 +218,18 @@ export type JudgedValueOf<TShape extends JudgeReplyShape> =
     : ValueOf<TShape>;
 
 /** `@Judge({ … })`'s options: its settings, what it judges and its constructor's dependencies. */
-export interface JudgeOptions<
+export type JudgeOptions<
   TReply extends JudgeReplyShape,
   D extends readonly Token[],
-> extends JudgeMeta<TReply> {
+> = JudgeMeta<TReply> & {
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
   readonly deps?: D;
-}
+};
 
 /**
  * A quality gate of an agent's reply (`@Agent({ judges: [...], maxRetries })`), created by the
- * workflow's container with its `deps`; its model calls go through the model gateway.
+ * workflow's container with its `deps`; its model calls go through the model gateway. With
+ * `decidedBy: DecidedBy.Code` (#396) it has no model: `judge(input)` decides by code alone.
  */
 export function Judge<const TReply extends JudgeReplyShape, const D extends readonly Token[] = []>(
   options: JudgeOptions<TReply, D>,

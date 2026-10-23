@@ -110,6 +110,11 @@ export enum ChannelImplementationReason {
     NamedByTool = "named-by-tool"
 }
 
+// Warning: (ae-forgotten-export) The symbol "EvalSuiteMeta" needs to be exported by the entry point internal.d.ts
+//
+// @public
+export function checkEvalSuite(application: Class, suite: Class): EvalSuiteMeta;
+
 // Warning: (ae-forgotten-export) The symbol "ModelProviderDirectory" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ModelCheckOptions" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "ModelProblem" needs to be exported by the entry point internal.d.ts

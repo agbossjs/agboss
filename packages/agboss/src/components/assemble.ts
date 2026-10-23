@@ -68,7 +68,7 @@ function configOf(
     ...(mcp.servers.length === 0
       ? {}
       : { mcpServers: Object.fromEntries(mcp.servers.map((s) => [s.name, s.config])) }),
-    ...(judges.size === 0 ? {} : { judges: judgeSettingsOf(judges) }),
+    ...judgeSettingsOf(judges),
     agents: Object.fromEntries(agents.map((agent) => [agent.name, agentSettings(agent, names)])),
   };
 }

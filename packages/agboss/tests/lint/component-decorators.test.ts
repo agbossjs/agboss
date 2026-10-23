@@ -162,6 +162,7 @@ const NOT_COMPONENTS: Readonly<Record<string, string>> = {
   McpExpose: "what createMcpService exposes: an empty configuration class",
   BindTool: "a method decorator",
   OnAnswer: "a method decorator (of a code @Arbiter)",
+  EvalSuite: "an eval suite (#396): its cases and checks as metadata, never instantiated",
 };
 
 /**
@@ -176,6 +177,7 @@ async function exportedDecorators(): Promise<ReadonlyMap<string, string>> {
     rag: await import("../../src/rag/index.js"),
     a2a: await import("../../src/a2a/index.js"),
     memory: await import("../../src/memory/index.js"),
+    eval: await import("../../src/eval/index.js"),
     testing: await import("../../src/testing/index.js"),
   };
   const found = new Map<string, string>();

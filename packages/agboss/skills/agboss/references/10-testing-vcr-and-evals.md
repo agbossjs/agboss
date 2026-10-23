@@ -12,6 +12,7 @@ unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 | a restart, a second instance                                                    | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                 |
 | one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy | its unit runner: `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testPii` |
 | real model answers, replayed in CI                                              | `testWith(App, { vcr: { cassetteName } })`                                                                                 |
+| what a live-model run must do, case by case                                     | `@EvalSuite` (`agboss/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`                                 |
 | quality over real traffic                                                       | `npx agboss golden add`, `npx agboss eval`, `npx agboss compare`                                                           |
 
 `vitest.config.ts` registers the matchers: `setupFiles: ["agboss/testing/setup"]`. A project made by
@@ -135,6 +136,31 @@ export class ReasonedVerdictJudge implements JudgeHandler<VerdictDto> {
   }
 }
 
+// a code judge (#396): no model, no cost — its judge(input) decides; runs before the model judge
+@Judge({ name: "short-reason-judge", decidedBy: DecidedBy.Code, reply: VerdictDto })
+export class ShortReasonJudge implements JudgeHandler<VerdictDto> {
+  judge({ reply }: JudgeInput<VerdictDto>): Promise<JudgeVerdict> {
+    const words: number = reply.reason.split(" ").length;
+    return Promise.resolve(
+      reply.reason.trim() !== "" && words <= 30
+        ? JudgeVerdict.passed({ metrics: { words } })
+        : JudgeVerdict.failed({ reason: "give the reason in one sentence, at most 30 words" }),
+    );
+  }
+}
+
+// an eval judge judges a finish's output: the saved hire
+@Judge({ name: "hire-saved-judge", decidedBy: DecidedBy.Code, reply: HireSavedDto })
+export class HireSavedJudge implements JudgeHandler<HireSavedDto> {
+  judge({ reply }: JudgeInput<HireSavedDto>): Promise<JudgeVerdict> {
+    return Promise.resolve(
+      reply.hireId.startsWith("hire-")
+        ? JudgeVerdict.passed()
+        : JudgeVerdict.failed({ reason: `not a hire id: ${reply.hireId}` }),
+    );
+  }
+}
+
 @OutputGuardrail({
   name: "bias-guardrail",
   description: "Blocks verdicts that rest on protected traits",
@@ -188,7 +214,7 @@ export class HireRouter implements RouterHandler<HireRouter> {
 ```ts file=src/screening/agents.ts
 import { Agent, RagMode } from "agboss";
 import { CandidateDto, CultureReportDto, SkillsReportDto, VerdictDto } from "./dtos/screening.dto.js";
-import { BiasGuardrail, CandidateArchiveTool, HiringPolicyRag, ReasonedVerdictJudge } from "./components.js";
+import { BiasGuardrail, CandidateArchiveTool, HiringPolicyRag, ReasonedVerdictJudge, ShortReasonJudge } from "./components.js";
 
 @Agent({
   name: "skills-agent",
@@ -219,7 +245,7 @@ export class CultureAgent {}
   input: { skills: SkillsReportDto, culture: CultureReportDto },
   output: VerdictDto,
   rag: [{ use: HiringPolicyRag, mode: RagMode.Context }],
-  judges: [ReasonedVerdictJudge],
+  judges: [ShortReasonJudge, ReasonedVerdictJudge], // every judge runs; the code one costs nothing
   maxRetries: 1,
   guardrails: [BiasGuardrail],
 })
@@ -665,7 +691,7 @@ import { seconds } from "agboss/units";
 import { expect, it } from "vitest";
 import { CultureAgent, SkillsAgent, VerdictAgent } from "./src/screening/agents.js";
 import { HasNotesArbiter } from "./src/screening/arbiters.js";
-import { BiasGuardrail, CandidateArchiveService, CandidateArchiveTool, ContactPiiPolicy, HireRouter, HiringPolicyRag, ReasonedVerdictJudge, SaveHireAction } from "./src/screening/components.js";
+import { BiasGuardrail, CandidateArchiveService, CandidateArchiveTool, ContactPiiPolicy, HireRouter, HiringPolicyRag, ReasonedVerdictJudge, SaveHireAction, ShortReasonJudge } from "./src/screening/components.js";
 import { VerdictDto } from "./src/screening/dtos/screening.dto.js";
 import { RejectedWorkflowFinish } from "./src/screening/finishes.js";
 -->
@@ -737,6 +763,20 @@ it("testJudge: the reply as a plain object of its DTO", async () => {
   expect(output).toMatchObject({ passed: false, reason: "give a reason that supports the decision" });
 });
 
+it("testJudge of a code judge: no model script, no spend", async () => {
+  const runJudge = testJudge(ShortReasonJudge); // a `model` here is a TestSetupError
+
+  const { output, spend } = await runJudge({
+    variant: VerdictDto,
+    reply: { decision: "reject", reason: "" },
+    task: "Decide",
+    attempt: 0,
+  });
+
+  expect(output).toMatchObject({ passed: false });
+  expect(spend.totalUsd).toBe(0);
+});
+
 it("testGuardrail: a block is an output, not a throw", async () => {
   const check = testGuardrail(BiasGuardrail, { model: decideWith({ blocks: 0.9 }) });
 
@@ -788,6 +828,88 @@ test("a strong candidate is hired", async ({ app }) => {
 replays an existing one; `REPLAY` (the default under `CI`) fails a call the cassette does not hold
 with `CassetteMissingError` (`test.cassette-missing`) — a changed prompt or tool means re-record;
 `RECORD` always calls the models.
+
+## Eval suites: `@EvalSuite` (`agboss/eval`)
+
+An eval suite declares what a live-model run must do, case by case: one class per file in
+`eval-suites/<name>.eval-suite.ts`, its `name` ending with `-eval-suite` and its class with
+`EvalSuite`. The entry `agboss/eval` holds the decorator and the builders only — nothing runs at
+import. A case is one thread: `history` (past turns written into it, not run — what memory and its
+compaction read), then `turns` run in order through the suite's `start`; the checks judge the last
+turn. Every value is typed: a turn by the start's input, `tenant` / `execution` by the application's
+context classes (required where it declares its own, as at `app.execute`), `toolCall` / `toolInvariant`
+by the tool's input DTO, a past turn by its start's input and its finish's output.
+
+<!-- snippet-context
+import { CandidateArchiveTool, HireSavedJudge, ReasonedVerdictJudge } from "../components.js";
+import { HiredWorkflowFinish, ScreeningWorkflowStart } from "../finishes.js";
+-->
+
+```ts file=src/screening/eval-suites/screening.eval-suite.ts
+import {
+  EvalCascade,
+  EvalSuite,
+  checkTrajectory,
+  evalCase,
+  judgedBy,
+  pastTurn,
+  toolCall,
+  toolInvariant,
+  turn,
+} from "agboss/eval";
+
+@EvalSuite({
+  name: "screening-eval-suite",
+  description: "Strong candidates are hired, the archive is looked up once",
+  start: ScreeningWorkflowStart,
+  checks: [
+    checkTrajectory(), // 1. each case's `tools`: deterministic, $0
+    judgedBy(HireSavedJudge), // 2. a code judge: deterministic, $0
+    judgedBy(ReasonedVerdictJudge), // 3. a model judge: paid, runs only if the two above passed
+  ],
+  cascade: EvalCascade.StopAtFirstFailure, // required: no implicit order
+  cases: [
+    evalCase({
+      name: "strong-candidate-hired",
+      tenant: { tenantId: "eval-acme" },
+      turns: [turn({ name: "Dana", cv: "TypeScript, 6 years" })],
+      tools: {
+        required: [toolCall(CandidateArchiveTool, { name: "Dana" })],
+        invariants: [toolInvariant(CandidateArchiveTool, (input) => input.name !== "")],
+      },
+    }),
+    evalCase({
+      name: "second-application",
+      history: [
+        pastTurn(ScreeningWorkflowStart, { name: "Ben", cv: "Go, 2 years" }, HiredWorkflowFinish, {
+          hireId: "hire-ben-1",
+        }),
+      ],
+      turns: [turn({ name: "Ben", cv: "Go, 4 years" })],
+      variants: [turn({ name: "Ben", cv: "Four years of Go" })], // rewordings: the same tools
+    }),
+  ],
+})
+export class ScreeningEvalSuite {}
+```
+
+- **The cascade order is a declaration, not a convention:** free trajectory invariants first
+  (`checkTrajectory()`), then code judges (`@Judge({ decidedBy: DecidedBy.Code })`), then model
+  judges (`@Judge({ model })`) — with `EvalCascade.StopAtFirstFailure` a paid judge runs only on a
+  run the free checks passed; the rest are `CheckStatus.Skipped`, and a skipped check fails the run.
+  `EvalCascade.RunAll` runs every check whatever came before.
+- **pass@k high, pass^k low** (a case solved at least once in k runs, but not every time): do not
+  grow the prompt. Propose moving the check into deterministic code — a `@ToolInterceptor`, a code
+  `@InputGuardrail` / `@OutputGuardrail` (`decidedBy: DecidedBy.Code`), `DecidedBy.Code` on a
+  `@Router` or an `@Arbiter`, or an `@Action`.
+- An eval judge judges the output of the finish the run ended at: its `reply` is a finish's
+  `output` the start reaches (one value, never a list) — else `[eval.judge-wrong-reply]`. A case's
+  own `judges: [judgedBy(X)]` run after the suite's checks.
+- Assembled on its application before anything runs, every violation at once:
+  `[name.kind-suffix]`, `[eval.unknown-start]` (the start is not one of the application's),
+  `[eval.duplicate-case]` (case names key reports and baselines), `[eval.judge-wrong-reply]`, the
+  judges' own `[judge.*]` rules; then the cases' values — `EvalCaseInvalidError`
+  (`eval.case-invalid`, each issue as `case "x": tenant.plan — reason`, never a value).
 
 ## Evals on real traffic
 

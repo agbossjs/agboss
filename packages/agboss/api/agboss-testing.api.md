@@ -926,7 +926,7 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/test-arbiter.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-guardrail.ts:24:3 - (ae-undocumented) Missing documentation for "isBlocked".
 // src/testing/units/test-guardrail.ts:39:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/test-judge.ts:27:3 - (ae-undocumented) Missing documentation for "__call".
+// src/testing/units/test-judge.ts:30:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-rag.ts:19:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-router.ts:22:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-tool.ts:12:3 - (ae-undocumented) Missing documentation for "run".

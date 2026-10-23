@@ -615,7 +615,7 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   (output DTO). `app.execute(Start, input)` is typed by the generated tables:
   `input` is the start's input, `result.output` the finishes' outputs.
 - **Assembly rules** fail before any model call with **all** violations at once (`GraphRuleError`,
-  stable codes `flow.*` / `graph.*` / `input.*` / `io.*` / `launch.*` / `router.*` / `arbiter.*` / `judge.*`): names end with their kind
+  stable codes `flow.*` / `graph.*` / `input.*` / `io.*` / `launch.*` / `router.*` / `arbiter.*` / `judge.*` / `eval.*`): names end with their kind
   (`-agent`, `-router`, `-action`, `-workflow-start`, `-workflow-finish`, `-workflow`) and are unique
   in the application (`[name.kind-suffix]`, `[graph.duplicate-node-name]`); DTO classes on paths
   end with `Dto` (`[dto.name]`); a path ends in a finish; a router's `chooseOne` lists exactly its
@@ -1062,10 +1062,10 @@ export const quorumPaths = [
 
 - **One class per file, folders by kind:** `workflow-starts/`, `routers/`, `agents/`, `actions/`,
   `workflow-finishes/`, `arbiters/`, `guardrails/`, `compactions/`, `tools/`, `services/`, `mcp/`,
-  `rag/`, `environments/`; files `*.workflow-start.ts`, `*.router.ts`, `*.agent.ts` (+ `*.prompt.md`),
+  `rag/`, `environments/`, `eval-suites/` (#396); files `*.workflow-start.ts`, `*.router.ts`, `*.agent.ts` (+ `*.prompt.md`),
   `*.action.ts`, `*.workflow-finish.ts`, `*.arbiter.ts`, `*.guardrail.ts`, `*.compaction.ts` (+
   `*.prompt.md`), `*.tool.ts`, `*.dto.ts`, `*.service.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`,
-  `*.helper.ts`.
+  `*.helper.ts`, `*.eval-suite.ts`.
 - **Decorator = metadata, constructor = dependencies, methods = a contract:** `implements` for your
   own (`ToolHandler<In, Out>`, `ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler<TReply>`,
   `RagConnector`), `extends` +
@@ -1569,7 +1569,25 @@ model (`judgeModel.invoke`, `deps: [JudgeModel]`) or a **decision model**
 (`judgeModel.decide({ state, questions })` with
 `Decision.noul` / `Decision.choice` / `Decision.score`, answers typed by the questions; `DECISION_MODELS`
 served by `DecisionsModelProvider`). The wrong call for the model's kind throws `ModelKindError`.
-Routers and guardrails use decision models too. README → Quality gates has a full judge.
+Routers and guardrails use decision models too. README → Quality gates has a full judge. **Code
+judges (#396):** `@Judge({ decidedBy: DecidedBy.Code })` (absent = `DecidedBy.Model`; options
+discriminated — a model judge requires `model` (`[judge.no-model]`), on a code judge it does not
+compile) decides by its `judge(input)` alone — no model call, cost 0, its services and the
+execution through `deps`; a `model` or an injected `JudgeModel` is `[judge.model-on-code-judge]` at
+assembly (a `JudgeModel` reached through a service throws it when called); it works in an agent's
+quality gate beside model judges, `mockLlm(CodeJudge)` names why it has no script, `testJudge(J)`
+takes no `model` (one is a `TestSetupError`). **Eval suites (#396 PR 1, `agboss/eval`):**
+`@EvalSuite({ name: "-eval-suite", description, start, checks, cascade, cases })` — `checks` in
+order (`checkTrajectory()`, `judgedBy(Judge)`), `cascade: EvalCascade.StopAtFirstFailure | RunAll`
+required (skipped checks are `CheckStatus.Skipped`); `evalCase({ name, tenant?, execution?, history?:
+[pastTurn(Start, input, Finish, output)], turns: [turn(input)], tools?: { required: [toolCall(Tool,
+partial)], forbidden: [Tool], invariants: [toolInvariant(Tool, (input) => …)] }, judges?, variants? })`,
+typed by the start's input, the application's contexts and each tool's input. Assembled on its
+application by `checkEvalSuite` (`agboss/internal`; the runner comes with PR 2): `[name.kind-suffix]`
+(name and class), `[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-reply]` (an
+eval judge judges a finish output its start reaches, one value), then `EvalCaseInvalidError`
+(`eval.case-invalid`: tenant / execution, turns, variants and history validated, every issue, no
+value).
 
 ### Runs: context, limits, errors
 
@@ -1771,7 +1789,8 @@ const readiness: HealthReport = await app.checkReadiness();
   `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`,
   `BudgetExceededError` (`budget`, `scope`, `key`, `maxSpend`, `spent`: `tenant acme spent $40.05
 today; tenant-daily-budget allows $40`).
-- **Errors** (root entry) are `AGBossError`s with stable `code`s (`limit` ⊃ `limit.budget`,
+- **Errors** (root entry) are `AGBossError`s with stable `code`s (`eval.case-invalid` —
+  `EvalCaseInvalidError`, #396; `limit` ⊃ `limit.budget`,
   `limit.steps`, `limit.visits`, `step` ⊃ `step.failed` — `StepFailedError`, a step's own failure naming it (`component`, `nodeId`,
   `visitNumber`, `itemIndex`, #273 S22) — ⊃ `step.agent` / `step.action` (`ActionFailedError`, the
   action's error as `cause`) / `step.guard` (`GuardFailedError`: a guardrail's model did not answer —
@@ -1857,7 +1876,8 @@ executionContext, execution }` as `testExecutionContext` takes them (checked by 
 An example (and any project) imports only the public entries: the root `agboss` (decorators,
 DI, the path builder, settings, environments, observers, judges and decisions, `createApp`, errors,
 types), `agboss/dto` (+ the DTO wrappers), `/units`, `/models`, `/testing` (+ `/testing/setup`), and
-the integrations `/mcp`, `/rag`, `/a2a`, `/memory`, and `/eslint` (#388: the lint rules for a
+the integrations `/mcp`, `/rag`, `/a2a`, `/memory`, `/eval` (#396: `@EvalSuite` and the builders of
+its cases and checks — no runner at import), and `/eslint` (#388: the lint rules for a
 project's ESLint config; types from `@typescript-eslint/utils`, an optional peer). ESLint enforces it from
 `packages/agboss/package.json#exports` minus `deprecatedExports` (`scripts/public-entries.mjs`): a
 new entry is allowed by adding it there, never by an `eslint-disable`. `/core`, `/graph`, `/router`,
@@ -2004,11 +2024,14 @@ packages/agboss/        the framework (npm package `agboss`; builds to dist/; no
                     limits, onError, input messages, records)
     graph/          the agent loop (agent-loop/: its subgraph, tools, approval, judges), knowledge,
                     rule-error.ts, limits.ts, settings.ts, studio-graph.ts
-    llm/  routers/  tools/  guardrails/  compaction/  terns/  run/  pause/  finops/  eval/  tracing/
+    llm/  routers/  tools/  guardrails/  compaction/  terns/  run/  pause/  finops/  tracing/
     prompts/  types/
     loader/, describe/   loadWorkflow (tsx); describeApplication (`agboss describe`, through agboss/internal)
                     and its parts — the tree, channels, PII policies, the worst-case report;
                     describeWorkflow (internal: one workflow's part); studio.ts (studioOf: the graphs of agboss studio)
+    eval/           `agboss/eval` (index.ts, #396): suite/ — @EvalSuite, the case and check builders, their
+                    assembly (check-suite.ts, through agboss/internal); eval.ts, golden, replay, compare —
+                    the CLI's eval, golden, replay and compare (through agboss/internal)
     eslint/         `agboss/eslint` (#388): `agbossPlugin` (`agboss/no-component-state`,
                     `agboss/no-direct-time`) and `FLOW_CHAIN_RULE` — for the eslint.config.js `agboss
                     create` writes and for this repo's own config (so lint runs on the build)
