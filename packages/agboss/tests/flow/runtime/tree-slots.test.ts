@@ -192,11 +192,17 @@ describe("the trees of a pass by rootExecutionId", () => {
     const registry = new TreeSlotRegistry();
     const clock = new VirtualClock();
 
-    const first = registry.slotsOf("root-1", 3, clock);
+    const rootOf = (executionId: string) => ({
+      executionId,
+      workflow: { type: Object },
+      tenant: { tenantId: "default" },
+    });
 
-    expect(registry.slotsOf("root-1", 7, clock)).toBe(first);
+    const first = registry.slotsOf(rootOf("root-1"), 3, clock);
+
+    expect(registry.slotsOf(rootOf("root-1"), 7, clock)).toBe(first);
     expect(first.maxConcurrentExecutions).toBe(3);
-    expect(registry.slotsOf("root-2", 7, clock)).not.toBe(first);
+    expect(registry.slotsOf(rootOf("root-2"), 7, clock)).not.toBe(first);
   });
 });
 

@@ -41,6 +41,12 @@ export interface UsageRecord extends TokenUsage {
    * `Fireworks`, `Together`); absent when the provider does not say.
    */
   readonly servedBy?: string;
+  /**
+   * Its cost is in the ledger already (#333 PR 3): a call of a child that ran on another instance
+   * (`ChildPlacement.AnyInstance`), recorded there as it was made — its parent's pass counts it,
+   * never writes it again. Absent for every other call.
+   */
+  readonly isRecordedElsewhere?: boolean;
 }
 
 /** What a call was for — the cost categories of a turn. */

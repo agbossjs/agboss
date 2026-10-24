@@ -95,6 +95,14 @@ export class SlotQueue<TClaim extends QueueClaim> {
     }
   }
 
+  /** The waiting claims, best first (a cap that takes its room asynchronously walks them). */
+  waitingClaims(): readonly TClaim[] {
+    const now = this.clock.now().getTime();
+    return [...this.#waiting]
+      .sort((first, second) => compareWaiters(first, second, now))
+      .map((waiter) => waiter.claim);
+  }
+
   #next(canWork: (claim: TClaim) => boolean): Waiter<TClaim> | undefined {
     const now = this.clock.now().getTime();
     const ready = this.#waiting.filter((waiter) => canWork(waiter.claim));

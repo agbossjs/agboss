@@ -216,7 +216,7 @@ async function takeSlots(site: TreeSlotSite, slots: TreeSlotRegistry): Promise<S
   const { root, cap, claim } = claimAt(site);
   const { clock } = extractRunContext(site.config, site.state.runId);
   const { signal } = site.execution;
-  const tree = await slots.slotsOf(root.executionId, cap, clock).take(claim, signal, site.watch);
+  const tree = await slots.slotsOf(root, cap, clock).take(claim, signal, site.watch);
   if (tree === undefined) throw cancelledWaiting("a tree slot");
   if (slots.instance === undefined) return tree;
   const step = await slots.instance.take(claim, signal, site.watch);

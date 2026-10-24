@@ -39,8 +39,8 @@ export interface PassParts {
 }
 
 /** Renews the slot on the clock until `stopped` aborts or the lease could not be renewed. */
-async function keepRenewing(
-  parts: PassParts,
+export async function keepRenewing(
+  parts: Pick<PassParts, "rateLimits" | "clock">,
   lease: RateLimitLease,
   stopped: AbortSignal,
 ): Promise<void> {

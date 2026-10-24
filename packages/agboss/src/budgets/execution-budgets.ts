@@ -94,16 +94,12 @@ export interface ExecutionKeys {
 }
 
 /** The key of a budget of `scope`: the application's name, the `tenantId` or the execution's id. */
-export const budgetKeyOf = (scope: BudgetScope, keys: ExecutionKeys): string => {
-  switch (scope) {
-    case BudgetScope.Application:
-      return keys.applicationName;
-    case BudgetScope.Tenant:
-      return keys.tenantId;
-    case BudgetScope.Execution:
-      return keys.executionId;
-  }
-};
+export const budgetKeyOf = (scope: BudgetScope, keys: ExecutionKeys): string =>
+  scope === BudgetScope.Application
+    ? keys.applicationName
+    : scope === BudgetScope.Tenant
+      ? keys.tenantId
+      : keys.executionId;
 
 export const accountOf = (record: ExecutionBudgetRecord): BudgetAccount => ({
   budget: record.budget.name,
@@ -269,7 +265,7 @@ export class BudgetMeter implements BudgetCheck {
     );
   }
 
-  /** Adds the calls' cost to every counter of the execution's budgets (their current period). */
+  /** Adds the calls' cost to every counter (their period); one recorded elsewhere only counts (#333). */
   async record(records: readonly UsageRecord[]): Promise<void> {
     if (records.length === 0 || this.records.length === 0) return;
     const now = this.clock.now();
@@ -277,9 +273,11 @@ export class BudgetMeter implements BudgetCheck {
     this.#recorded += totalCost(records);
     // what was tallied as it was made is in the ledger now: out of the tally (as multisets)
     this.#tallied = [...unrecordedOf(this.#tallied, records)];
+    const own = records.filter((record) => record.isRecordedElsewhere !== true);
+    if (own.length === 0) return;
     await this.ledger.saveAll(
       this.records.map((record) => counterOf(record, now)),
-      records,
+      own,
     );
   }
 }

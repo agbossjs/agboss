@@ -178,8 +178,7 @@ export async function buildApplication(
   const piiParts = { processEnv, fieldKey: piiKey.key, contexts };
   const mask = applicationPiiMaskOf(assembled, shared, { ...container, onCreate }, piiParts);
   const log = frameworkLogOf(infrastructure.logger, clock, (message) => mask.text(message));
-  const { executionTrees, childQueue } = infrastructure;
-  const instance = await instancePartsOf(assembled, clock, log, executionTrees, childQueue);
+  const instance = await instancePartsOf(assembled, clock, log, infrastructure);
   const workflows: BuiltApp[] = [];
   try {
     const observer = observerManagerOf(assembled, shared, { ...container, onCreate }, log, seams);

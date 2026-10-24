@@ -6,6 +6,7 @@ import type {
   QueuedChildExecution,
 } from "../../../infrastructure/child-execution-queue.repository.js";
 import type { Clock } from "../../../infrastructure/clock.js";
+import type { RateLimitRepository } from "../../../infrastructure/rate-limit.repository.js";
 import { treeKeyOf } from "../../../infrastructure/in-memory-database.js";
 import { seconds, type Milliseconds } from "../../../units/index.js";
 import type { ExecutionGraph } from "../build.js";
@@ -25,9 +26,13 @@ import { remoteFailureOf } from "./remote-failure.js";
  * its error's name, code and message.
  */
 
-/** What a parent's node queues and waits with: the instance's queue and clock. */
+/**
+ * What a parent's node queues and waits with: the instance's queue and clock — and where the slots
+ * of a tree that can launch on any instance are kept (#333 PR 3).
+ */
 export interface RemoteChildren {
   readonly queue: ChildExecutionQueueRepository;
+  readonly rateLimits: RateLimitRepository;
   readonly clock: Clock;
 }
 
@@ -119,6 +124,20 @@ async function lastStateOf(
   return isExecutionState(snapshot.values) ? snapshot.values : undefined;
 }
 
+/**
+ * The child's state with its own calls marked as in the ledger (#333 PR 3): the worker recorded
+ * them as they were made, so its parent's pass counts them and never writes them again.
+ */
+const recordedElsewhere = (
+  state: ExecutionStateType,
+  inheritedUsage: number,
+): ExecutionStateType => ({
+  ...state,
+  usage: state.usage.map((record, index) =>
+    index < inheritedUsage ? record : { ...record, isRecordedElsewhere: true },
+  ),
+});
+
 /** The child queued for any instance and awaited: its end as its parent continues it. */
 export async function remoteChildEndOf(
   graph: ExecutionGraph,
@@ -126,7 +145,9 @@ export async function remoteChildEndOf(
   site: RemoteChildSite,
 ): Promise<RemoteChildEnd> {
   const row = await endedRow(site);
-  const state = await lastStateOf(graph, config, site.run.thread);
+  const last = await lastStateOf(graph, config, site.run.thread);
+  const inherited = site.run.initial.child.inheritedUsage;
+  const state = last === undefined ? undefined : recordedElsewhere(last, inherited);
   if (row.status === ExecutionRecordStatus.Answered)
     return state === undefined ? { failed: false } : { state, failed: false };
   const error = remoteFailureOf(row.failure);

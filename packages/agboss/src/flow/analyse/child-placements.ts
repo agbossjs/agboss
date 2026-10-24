@@ -106,3 +106,34 @@ interface PlacedNode {
 /** Whether one of a graph's nodes launches its children on any instance. */
 export const launchesOnAnyInstance = (nodes: Iterable<PlacedNode>): boolean =>
   [...nodes].some((node) => node.placement === ChildPlacement.AnyInstance);
+
+/** The flow a `@Workflow` class declares; none for anything else. */
+const flowOf = (workflow: Class): readonly FlowPath[] => {
+  const declaration = declarationOf(workflow);
+  return declaration?.kind === NodeKind.Workflow ? declaration.options.flow : [];
+};
+
+const treesOnAnyInstance = new WeakMap<Class, boolean>();
+
+/**
+ * Whether a tree rooted at `workflow` can launch a child on any instance (#333 PR 3): a launch with
+ * `ChildPlacement.AnyInstance` in its flow or in the flow of any child workflow below it — such a
+ * tree keeps its slots where every instance counts them. Known from the declarations alone.
+ */
+export function treeLaunchesOnAnyInstance(workflow: Class): boolean {
+  const known = treesOnAnyInstance.get(workflow);
+  if (known !== undefined) return known;
+  const seen = new Set<Class>([workflow]);
+  const pending: Class[] = [workflow];
+  let launches = false;
+  for (let next = pending.pop(); next !== undefined && !launches; next = pending.pop()) {
+    for (const [child, placements] of childPlacementsOf(flowOf(next))) {
+      if (placements.includes(ChildPlacement.AnyInstance)) launches = true;
+      if (isThisWorkflow(child) || seen.has(child)) continue;
+      seen.add(child);
+      pending.push(child);
+    }
+  }
+  treesOnAnyInstance.set(workflow, launches);
+  return launches;
+}
