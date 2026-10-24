@@ -5,23 +5,15 @@ import { ExecutionRecordStatus } from "./execution-record.repository.js";
 import { IN_MEMORY_DATABASE } from "./instance-tokens.js";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
 
-/**
- * Infrastructure (#333 PR 2, ADR-0022): the queue of child executions launched with
- * `placement: ChildPlacement.AnyInstance`. The parent's node saves its child here and waits; any
- * instance of the application with a free step slot (#332) claims the first queued child —
- * atomically, so of two instances exactly one gets it — runs it on its own checkpoint thread and
- * completes the row; the parent's tree then goes on. Keyed by `(tenantId, executionId)`; a tree's
- * rows are removed when its root ends. Listed only in `@Application({ providers })`; the built-in
- * default is in memory (one instance claims its own children — `[application.in-memory-child-queue]`).
- * Your own `extends ChildExecutionQueueRepository`; time comes from the framework's clock.
- */
-
-/** One queued child execution, as the queue keeps it. */
+/** One queued child execution, as the queue keeps it (#333 PR 2). */
 export interface QueuedChildExecution {
+  /** The tenant of its tree. */
   readonly tenantId: string;
   /** The child's own execution id. */
   readonly executionId: string;
+  /** The root of its tree. */
   readonly rootExecutionId: string;
+  /** The execution that launched it. */
   readonly parentExecutionId: string;
   /** The application's workflow whose tree it is (its root's): how a worker finds the child's graph. */
   readonly rootWorkflow: string;
@@ -33,21 +25,36 @@ export interface QueuedChildExecution {
   readonly status: ExecutionRecordStatus;
   /** What the worker runs it with (framework data, JSON): its first state, thread and parents. */
   readonly run: string;
+  /** When its parent queued it (the framework's clock). */
   readonly queuedAt: Date;
   /** The instance that claimed it (`applicationContext.instanceId`). */
   readonly instanceId?: string | undefined;
+  /** When it was claimed. */
   readonly claimedAt?: Date | undefined;
+  /** When it ended. */
   readonly endedAt?: Date | undefined;
-  /** A failed child's error (framework data, JSON: its name, code and message). */
+  /** A failed child's error (framework data, JSON: the names, codes and messages of its chain). */
   readonly failure?: string | undefined;
 }
 
-/** How a claimed child ended: its status (`Answered` / `Failed`) and a failure's error. */
+/** How a claimed child ended: its status and a failure's error. */
 export interface ChildExecutionEnd {
+  /** `Answered` — it reached a finish; `Failed`. */
   readonly status: ExecutionRecordStatus.Answered | ExecutionRecordStatus.Failed;
+  /** A failed child's error (as `QueuedChildExecution.failure`). */
   readonly failure?: string | undefined;
 }
 
+/**
+ * Infrastructure (#333 PR 2, ADR-0022): the queue of child executions launched with
+ * `placement: ChildPlacement.AnyInstance`. The parent's node saves its child here and waits; any
+ * instance of the application with a free step slot (#332) claims the first queued child —
+ * atomically, so of two instances exactly one gets it — runs it on its own checkpoint thread and
+ * completes the row; the parent's tree then goes on. Keyed by `(tenantId, executionId)`; a tree's
+ * rows are removed when its root ends. Listed only in `@Application({ providers })`; the built-in
+ * default is in memory (one instance claims its own children — `[application.in-memory-child-queue]`).
+ * Your own `extends ChildExecutionQueueRepository`; time comes from the framework's clock.
+ */
 export abstract class ChildExecutionQueueRepository {
   /**
    * Whether the store answers (#300): resolves when it is reachable, rejects with why not. One fast

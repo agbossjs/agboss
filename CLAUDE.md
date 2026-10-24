@@ -597,7 +597,7 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   through it and its answers forwarded by the node (`run/waiting-pauses.ts`, `run/resume-map.ts`);
   a child started before ADR-0022 (its whole state under its task) is continued that way, for one
   version (S4 D6). **On any instance (#333 PR 2, S6):** `.toWorkflow(W, { placement:
-  ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, placement })` and
+ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, placement })` and
   `route(W, { placement })` (default `ParentInstance`; one class one placement,
   `[flow.conflicting-placement]`) — the parent's node queues the child in the application's
   `ChildExecutionQueueRepository` (`flow/runtime/remote/`) and waits inside its step on its row
