@@ -1,8 +1,9 @@
+import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { BaseCheckpointSaver, MemorySaver, emptyCheckpoint } from "@langchain/langgraph";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ExecutionStatus } from "../../../src/app/types.js";
 import { storedChildOf } from "../../../src/flow/runtime/child-identity.js";
-import { childThreadOf } from "../../../src/flow/runtime/child-thread.js";
+import { childThreadOf, rootConfigOf } from "../../../src/flow/runtime/child-thread.js";
 import { callTool, replyWith, testWith, type ModelRequest } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import { ItemResultDto } from "./fixtures/fan-out.workflow.js";
@@ -73,6 +74,43 @@ describe("ADR-0022: a child's state is on its own thread", () => {
     ]);
     const own = await tuplesOf(saver, thread);
     expect(own.some((tuple) => tuple.checkpoint.channel_values.runId === childId)).toBe(true);
+  });
+});
+
+describe("ADR-0022: a child's run config", () => {
+  it("its root config keeps the callbacks, tags, signal and run metadata; LangGraph's keys go", () => {
+    const signal = new AbortController().signal;
+    const callbacks = [BaseCallbackHandler.fromMethods({})];
+    const config = {
+      callbacks,
+      tags: ["tenant:acme", "review-items-workflow"],
+      signal,
+      runName: "item-review-workflow",
+      metadata: {
+        executionId: "child-1",
+        parentExecutionId: "root-1",
+        rootExecutionId: "root-1",
+        langgraph_node: "item-review-workflow",
+        checkpoint_ns: "item-review-workflow:task-1",
+      },
+      configurable: {
+        run: { runId: "child-1" },
+        thread_id: "root-1",
+        checkpoint_ns: "item-review-workflow:task-1",
+        __pregel_scratchpad: {},
+      },
+    };
+
+    const own = rootConfigOf(config, childThreadOf("root-1", "child-1"));
+
+    expect(own).toEqual({
+      callbacks,
+      tags: ["tenant:acme", "review-items-workflow"],
+      signal,
+      runName: "item-review-workflow",
+      metadata: { executionId: "child-1", parentExecutionId: "root-1", rootExecutionId: "root-1" },
+      configurable: { run: { runId: "child-1" }, thread_id: "root-1/child/child-1" },
+    });
   });
 });
 
