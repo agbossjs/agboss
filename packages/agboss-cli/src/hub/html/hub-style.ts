@@ -22,4 +22,10 @@ export const HUB_PAGE_STYLE = `${REPORT_PAGE_STYLE}
 .workflow summary { cursor: pointer; overflow-wrap: anywhere; }
 .parts { margin: 4px 0 0; padding-left: 18px; }
 .parts li { overflow-wrap: anywhere; }
+.trees { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.tree-root { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+.tree-root summary { cursor: pointer; overflow-wrap: anywhere; }
+.tree { list-style: none; margin: 4px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--border); }
+.tree p { margin: 4px 0; overflow-wrap: anywhere; }
+.tree-stub { color: var(--muted); font-style: italic; }
 `;

@@ -5,6 +5,7 @@ import type { HubMesh } from "../mesh.js";
 import { applicationsSectionOf } from "./applications-section.js";
 import { HUB_PAGE_STYLE } from "./hub-style.js";
 import { meshGraphSectionOf } from "./mesh-graph-section.js";
+import { treesSectionOf } from "./trees-section.js";
 
 /**
  * The Hub's page (#401 PR 3): one self-contained document in #397's shell — inline style and
@@ -24,6 +25,7 @@ function headerOf(mesh: HubMesh): HtmlElement {
       ["applications", String(mesh.applications.length)],
       ["workflows", String(workflows)],
       ["observed edges", String(mesh.edges.length)],
+      ["trees across applications", String(mesh.trees.length)],
       ["snapshots", String(mesh.inputs.describe)],
       ["eval runs", String(mesh.inputs.evalRuns)],
       ["kept executions", String(mesh.inputs.records)],
@@ -72,6 +74,7 @@ export function renderHubPage(mesh: HubMesh): string {
       element("main", {}, [
         meshGraphSectionOf(mesh),
         edgesSectionOf(mesh),
+        treesSectionOf(mesh.trees),
         applicationsSectionOf(mesh.applications),
       ]),
     ),
