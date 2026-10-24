@@ -597,19 +597,24 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   parent's node interrupt with a waiting marker (`child-own-thread.ts`, no pause), its pauses read
   through it and its answers forwarded by the node (`run/waiting-pauses.ts`, `run/resume-map.ts`);
   a child started before ADR-0022 (its whole state under its task) is continued that way, for one
-  version (S4 D6). **On any instance (#333 PR 2, S6):** `.toWorkflow(W, { placement:
+  version (S4 D6). **On any instance (#333 PR 2–4, S6–S9):** `.toWorkflow(W, { placement:
 ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, placement })` and
   `route(W, { placement })` (default `ParentInstance`; one class one placement,
   `[flow.conflicting-placement]`) — the parent's node queues the child in the application's
   `ChildExecutionQueueRepository` (`flow/runtime/remote/`) and waits inside its step on its row
-  (woken in-process, else every second on the `Clock`; the tree keeps its lease — yielding it is PR 4);
+  (woken in-process, else every second on the `Clock`; the parent yields its lease in
+  `ExecutionLeaseRepository` while waiting and re-acquires it before continuing, #333 PR 4);
   an instance with a free step slot (#332) claims it at once in-process, else at its sweep
-  (`app/remote/child-workers.ts`), runs it as a root graph on its own thread and completes the row;
+  (`app/remote/child-workers.ts`), holds a 30 s lease under `(tenantId, childExecutionId)` in
+  `ExecutionLeaseRepository`, runs it as a root graph on its own thread and completes the row;
+  a crash or a graceful stop past `shutdownTimeout` (S7) leaves the row `Running` so a live worker
+  reclaims only that child once its lease is free and continues it from its last checkpoint;
   a cancel or the tree's end stops it at its next look (10 s). Its depth and the root's budgets are
   checked where it runs, and each superstep's spend is written to the root's counters at once
-  (`isRecordedElsewhere`, #333 PR 3). Until PR 4: no pause in such a child
-  (`[graph.remote-child-can-pause]`, naming the tool and the fix), its failure's cause chain kept as
-  names, codes and messages (`RemoteChildFailure`), no per-child recovery. Its own `executionId`
+  (`isRecordedElsewhere`, #333 PR 3). A remote child that pauses completes its pass at `Paused` and
+  interrupts the parent's node with `{ waitingForChild: { …, remote: true } }`, forwarding the
+  child's resume map through the queue on `app.resume` (#333 PR 4); its failure's cause chain is
+  kept as names, codes and messages (`RemoteChildFailure`). Its own `executionId`
   (kept in its marker — a pause, a restart or a crash continues it with the same id, no second
   `onExecutionStart`), its own path, steps and `maxSteps`, no thread history; it inherits the
   thread, `ownerId`, tenant and the execution's own fields, and spends from the root's budgets (a

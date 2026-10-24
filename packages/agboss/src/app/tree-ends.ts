@@ -1,3 +1,4 @@
+import type { GraphDeps } from "../graph/deps.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { AppDeps } from "./app-deps.js";
 import type { LiveRuns } from "./live-runs.js";
@@ -12,17 +13,41 @@ export const treeOf = (state: TreeState): ExecutionTree => ({
   rootExecutionId: state.runId,
 });
 
+/** The graph deps of one pass: checkpoint writes renew `lease`, remote child waits yield it (#333 PR 4). */
+export function leasedGraphDeps<TName extends string>(
+  deps: GraphDeps<TName>,
+  lease: HeldExecutionLease,
+): GraphDeps<TName> {
+  if (deps.pause === undefined) return deps;
+  const { pause, remoteChildren, childDepsOf } = deps;
+  return {
+    ...deps,
+    pause: {
+      ...pause,
+      checkpointer: new LeasedCheckpointSaver(pause.checkpointer, lease),
+    },
+    ...(remoteChildren === undefined
+      ? {}
+      : {
+          remoteChildren: {
+            ...remoteChildren,
+            yieldWhile: (wait) => lease.yieldWhile(wait),
+          },
+        }),
+    ...(childDepsOf === undefined
+      ? {}
+      : {
+          childDepsOf: (workflow) => {
+            const child = childDepsOf(workflow);
+            return child === undefined ? undefined : leasedGraphDeps(child, lease);
+          },
+        }),
+  };
+}
+
 /** The run deps of one pass: its checkpoint writes renew the tree's lease first. */
 export const leasedDeps = (deps: AppDeps, lease: HeldExecutionLease): AppDeps =>
-  deps.pause === undefined
-    ? deps
-    : {
-        ...deps,
-        pause: {
-          ...deps.pause,
-          checkpointer: new LeasedCheckpointSaver(deps.pause.checkpointer, lease),
-        },
-      };
+  leasedGraphDeps(deps, lease) as AppDeps;
 
 /** What forgetting an ended tree needs from its workflow's app. */
 export type TreeEndParts = Pick<TreeMoveParts, "deps" | "trees" | "clock">;

@@ -24,9 +24,9 @@ import {
 import { RemoteSqliteApplication } from "../../infrastructure/sqlite/fixtures/remote-children.application.js";
 
 /**
- * #333 PR 2 — the placement of a child at assembly: printed as written, one per child
- * (`[flow.conflicting-placement]`), never one that can pause (`[graph.remote-child-can-pause]`,
- * until PR 4), and `[application.in-memory-child-queue]` on the built-in queue.
+ * #333 PR 2, PR 4 — the placement of a child at assembly: printed as written, one per child
+ * (`[flow.conflicting-placement]`), a child that can pause allowed on any instance (PR 4), and
+ * `[application.in-memory-child-queue]` on the built-in queue.
  */
 
 type Flow = WorkflowOptions["flow"];
@@ -38,11 +38,6 @@ function workflowWith(flow: Flow): abstract new () => unknown {
   class PlacementCaseWorkflow {}
   return PlacementCaseWorkflow;
 }
-
-const unnamed = (found: { readonly code: string; readonly message: string }) => ({
-  code: found.code,
-  message: found.message.replace(/^placement-case-\d+-workflow: /, ""),
-});
 
 describe("#333 PR 2: placement at assembly", () => {
   it("is printed as written (describe, the config fingerprint)", () => {
@@ -96,7 +91,7 @@ describe("#333 PR 2: placement at assembly", () => {
     ).toThrow("only a child workflow has a placement");
   });
 
-  it("a child that can pause, on any instance: named with its pause and the fix", () => {
+  it("a child that can pause may run on any instance (#333 PR 4)", () => {
     const parent = workflowWith([
       start(ReviewOneWorkflowStart)
         .returns(ItemDto)
@@ -105,11 +100,7 @@ describe("#333 PR 2: placement at assembly", () => {
         .toFinish(ItemReviewedWorkflowFinish),
     ]);
 
-    expect(checkWorkflow(parent).errors.map(unnamed)).toContainEqual({
-      code: "graph.remote-child-can-pause",
-      message:
-        "item-review-workflow runs on any instance (placement: ChildPlacement.AnyInstance), but its tool confirm-review-tool pauses for terminal-user-channel — a child on another instance cannot pause until #333 PR 4: launch it with placement: ChildPlacement.ParentInstance",
-    });
+    expect(checkWorkflow(parent).errors).toEqual([]);
   });
 
   it("the same child on its parent's instance may pause", () => {

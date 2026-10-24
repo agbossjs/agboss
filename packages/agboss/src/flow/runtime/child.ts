@@ -138,6 +138,22 @@ const entrySiteOf = (node: RuntimeNode, deps: GraphDeps<string>, state: Executio
     ? { graph: deps.graph, node, scope: state.scope, launcher: state.launch?.launcher ?? "" }
     : { graph: deps.graph, node, scope: state.scope, previous: state.path.at(-1) ?? "" };
 
+const endedChildOf = (
+  child: ChildGraph,
+  frame: ReturnType<typeof parentFrame>,
+  entered: Awaited<ReturnType<typeof childEnteredAt>>,
+  startName: string,
+  input: unknown,
+): EndedChild => ({
+  identity: entered.identity,
+  depth: depthOf(frame.execution) + 1,
+  workflow: { ...child.workflow, startedVersion: child.workflow.version },
+  launchedBy: { nodeId: frame.step.nodeId, visitNumber: frame.step.visitNumber },
+  start: startName,
+  input,
+  records: { components: joinKeysOf(child.deps).components, graph: child.deps.graph },
+});
+
 /** The runner of a parent's node of a child workflow. */
 export function childRunner(
   node: RuntimeNode,
@@ -152,42 +168,39 @@ export function childRunner(
     const start = child.deps.graph.nodes.get(entry.start.name);
     if (start === undefined) throw new TypeError(`${node.id}: no start ${entry.start.name}`);
     const input = validStartInput(start, entry.input);
-    const spot = {
+    const idGenerator = deps.idGenerator ?? randomIdGenerator;
+    const itemIndex = frame.step.itemIndex;
+    const inheritedUsage = state.usage.length;
+    const entered = await childEnteredAt({
       checkpointer,
       config,
       parent: frame,
-      itemIndex: frame.step.itemIndex,
-      inheritedUsage: state.usage.length,
-      idGenerator: deps.idGenerator ?? randomIdGenerator,
-    };
-    const entered = await childEnteredAt(spot);
+      itemIndex,
+      inheritedUsage,
+      idGenerator,
+    });
     const run = childRunOf(config, frame, entered.identity, input);
-    const { name, version, configHash } = child.workflow;
-    const ended: EndedChild = {
-      identity: entered.identity,
-      depth: depthOf(frame.execution) + 1,
-      workflow: { name, version, startedVersion: version, configHash },
-      launchedBy: { nodeId: frame.step.nodeId, visitNumber: frame.step.visitNumber },
-      start: entry.start.name,
-      input,
-      records: { components: joinKeysOf(child.deps).components, graph: child.deps.graph },
-    };
-    // a recursion launched by code past maxDepth does not start (#264): the hard stop
+    const ended = endedChildOf(child, frame, entered, entry.start.name, input);
     if (child.isRecursive) refuseBeyondMaxDepth(deps.graph, frame, ended, state.path);
     if (entered.isNew) await deps.observer?.onExecutionStart(eventOf(frame, ended));
     const childConfig = childConfigOf(config, run, ended);
     const initial = initialOf(state, entry, input, entered);
     const undo = { child, run, checkpointer, budgets: pass.budgets };
     const interrupted = await interruptedUndoOf(deps, entered, frame.execution.tenant.tenantId);
-    // the child's body runs as a step body of its parent (#340): an unwind above awaits its undo
+    const isRecursive = child.isRecursive;
+    const remote = remoteSiteOf(node, deps, {
+      frame,
+      entered,
+      run,
+      initial,
+      ended,
+      isRecursive,
+      checkpointer,
+    });
+    const call = { initial, config: childConfig, interrupted, entered, node: node.id, remote };
     const done = await inStepEntry(deps.stepEntries, frame, () =>
-      runChild(child, { deps, frame, undo }, ended, {
-        ...{ initial, config: childConfig, interrupted, entered },
-        node: node.id,
-        remote: remoteSiteOf(node, deps, { frame, entered, run, initial, ended, checkpointer }),
-      }),
+      runChild(child, { deps, frame, undo }, ended, call),
     );
-    // the child's PII tokens go back to the parent with its value (#120 S84 i)
     const { piiTokens } = done.state;
     return { value: valueOf(child, done.state), read: entry.read, usage: done.usage, piiTokens };
   };

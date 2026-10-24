@@ -1,8 +1,11 @@
+import { Command } from "@langchain/langgraph";
+import { isHandedOver } from "../handed-over.js";
+import type { HeldExecutionLease } from "../execution-leases.js";
+import { leasedDeps, leasedGraphDeps } from "../tree-ends.js";
 import { runIdOf, type RunContext } from "../../core/run-context.js";
-import { totalCost } from "../../finops/usage.js";
-import { executionGraphOf } from "../../flow/runtime/build.js";
-import { asRootRun } from "../../flow/runtime/child-thread.js";
-import type { ExecutionStateType } from "../../flow/runtime/state.js";
+import { totalCost, type UsageRecord } from "../../finops/usage.js";
+import { executionGraphOf, type ExecutionGraph } from "../../flow/runtime/build.js";
+import { asRootRun, isExecutionState } from "../../flow/runtime/child-thread.js";
 import {
   decodedRun,
   parentOfRecord,
@@ -16,21 +19,22 @@ import type {
   ChildExecutionEnd,
   QueuedChildExecution,
 } from "../../infrastructure/child-execution-queue.repository.js";
-import { drainRun } from "../../run/execute.js";
+import { drainRun, outcomeError } from "../../run/execute.js";
+import { pausedLoopsOf, pausedUsageOf } from "../../run/paused.js";
 import { continuedExecutionBudgets, recorder } from "../../run/run-budgets.js";
 import { streamConfig } from "../../run/stream-config.js";
+import { openPausesOf } from "../../run/waiting-pauses.js";
 import type { AppDeps } from "../app-deps.js";
 import type { ChildRegistry } from "./child-registry.js";
 
 /**
- * One queued child run on the instance that claimed it (#333 PR 2): its workflow's graph compiled
- * as a root graph on its own thread — the same graph an in-process child runs — with the run
- * context its parent's node would give it (its id, the conversation thread, its parents rebuilt from
- * the row), the tree's budgets read again from the ledger — its spend written to the root's
- * counters as it is made (#333 PR 3), so every instance's checks see it at once — and the worker's
- * signal. It ends at a finish (`Answered`)
- * or fails (`Failed`, its error's name, code and message); a child that rests at a pause fails —
- * the assembly refuses one that can pause (`[graph.remote-child-can-pause]`, until #333 PR 4).
+ * One queued child run on the instance that claimed it (#333 PR 2, PR 4): its workflow's graph
+ * compiled as a root graph on its own thread — the same graph an in-process child runs — under the
+ * worker's lease in `ExecutionLeaseRepository` (`(tenantId, childExecutionId)`). A fresh child
+ * streams from `initial`; a paused child re-queued by `app.resume` continues with `Command({ resume })`;
+ * a child whose previous worker crashed or stopped past `shutdownTimeout` (S7) continues from its
+ * last checkpoint on `<parentThreadId>/child/<id>` with `stream(null)`. A hand-over (`isHandedOver`)
+ * returns `undefined` so the queue row stays `Running` for per-child recovery.
  */
 
 class QueuedChildError extends Error {
@@ -65,20 +69,39 @@ function runContextOf(
   };
 }
 
-/** Streams the child's graph to its end on its own thread; its last state. */
-async function streamed(
+/** Spend already in the ledger when a paused child is continued (`pausedLoopsOf` + reply calls). */
+async function resumedSpendOf(
+  graph: ExecutionGraph,
+  rootDeps: AppDeps,
+  row: QueuedChildExecution,
+  thread: string,
+  flowUsage: readonly UsageRecord[],
+  resume: Readonly<Record<string, string>>,
+): Promise<readonly UsageRecord[]> {
+  const pause = rootDeps.pause;
+  if (pause === undefined) return flowUsage;
+  const answering = new Set(Object.values(resume));
+  const tree = { tenantId: row.tenantId, runId: row.rootExecutionId };
+  const isOpen = await openPausesOf(pause.pauses, tree, { answering });
+  const loops = await asRootRun(() => pausedLoopsOf(graph, pause.checkpointer, thread, isOpen));
+  const records = await pause.pauses.findAllByTenantIdAndRootExecutionId(
+    row.tenantId,
+    row.rootExecutionId,
+  );
+  const replies = records
+    .filter((item) => answering.has(item.pauseId))
+    .flatMap((item) => item.answer?.usage ?? []);
+  return [...pausedUsageOf(flowUsage, loops), ...replies];
+}
+
+/** Builds the LangGraph config for the child's own thread. */
+function childStreamConfig(
   childDeps: GraphDeps<string>,
   rootDeps: AppDeps,
   run: RemoteChildRun,
   context: RunContext,
-): Promise<{ readonly last: ExecutionStateType; readonly rests: boolean }> {
+) {
   const { initial } = run;
-  const budgets = await continuedExecutionBudgets(
-    rootDeps,
-    initial.budgets,
-    totalCost(initial.usage),
-  );
-  const graph = executionGraphOf(childDeps, { budgets: budgets.meter });
   const identity = {
     threadId: context.threadId,
     tenantId: context.tenantId,
@@ -86,7 +109,7 @@ async function streamed(
     input: context.input,
   };
   const base = streamConfig(rootDeps, identity, { signal: context.signal });
-  const config = {
+  return {
     ...base,
     runName: childDeps.config.name,
     configurable: { ...base.configurable, run: context, thread_id: run.thread },
@@ -97,13 +120,66 @@ async function streamed(
       rootExecutionId: initial.child.rootExecutionId,
     },
   };
-  // its spend goes to the root's counters as it is made (#333 PR 3); what it inherited is there
-  const record = recorder(budgets.meter, []);
-  const last = await asRootRun(async () =>
-    drainRun(await graph.stream(initial, config), record, initial.usage),
+}
+
+/** Interrupt ids waiting on `before`. */
+const interruptIdsOf = (
+  before: Awaited<ReturnType<ExecutionGraph["getState"]>>,
+): readonly string[] =>
+  before.tasks.flatMap((task) =>
+    task.interrupts.flatMap((each) => (each.id === undefined ? [] : [each.id])),
   );
-  const snapshot = await asRootRun(() => graph.getState(config));
-  return { last, rests: snapshot.next.length > 0 };
+
+/** Streams the child's graph on its own thread; whether it rests at a pause. */
+async function streamed(
+  childDeps: GraphDeps<string>,
+  rootDeps: AppDeps,
+  row: QueuedChildExecution,
+  run: RemoteChildRun,
+  context: RunContext,
+): Promise<{ readonly rests: boolean }> {
+  const { initial, resume } = run;
+  const config = childStreamConfig(childDeps, rootDeps, run, context);
+  const reading = executionGraphOf(childDeps, {
+    budgets: (await continuedExecutionBudgets(rootDeps, initial.budgets, totalCost(initial.usage)))
+      .meter,
+  });
+  const before = await asRootRun(() => reading.getState(config));
+  if (!isExecutionState(before.values)) {
+    const budgets = await continuedExecutionBudgets(
+      rootDeps,
+      initial.budgets,
+      totalCost(initial.usage),
+    );
+    const graph = executionGraphOf(childDeps, { budgets: budgets.meter });
+    const record = recorder(budgets.meter, []);
+    await asRootRun(async () =>
+      drainRun(await graph.stream(initial, config), record, initial.usage),
+    );
+    const after = await asRootRun(() => graph.getState(config));
+    return { rests: after.next.length > 0 };
+  }
+  if (before.next.length === 0) return { rests: false };
+  const interrupts = interruptIdsOf(before);
+  const isResuming = resume !== undefined && interrupts.some((id) => id in resume);
+  if (interrupts.length > 0 && !isResuming) return { rests: true };
+  if (resume === undefined) {
+    const text = `execution ${row.executionId} is recovered: it continues from its last checkpoint`;
+    rootDeps.log.warn("execution.recovered", text, {
+      executionId: row.executionId,
+      tenantId: row.tenantId,
+    });
+  }
+  const spent = isResuming
+    ? await resumedSpendOf(reading, rootDeps, row, run.thread, before.values.usage, resume)
+    : before.values.usage;
+  const budgets = await continuedExecutionBudgets(rootDeps, initial.budgets, totalCost(spent));
+  const graph = executionGraphOf(childDeps, { budgets: budgets.meter });
+  const record = recorder(budgets.meter, []);
+  const input = isResuming ? new Command({ resume }) : null;
+  await asRootRun(async () => drainRun(await graph.stream(input, config), record, spent));
+  const after = await asRootRun(() => graph.getState(config));
+  return { rests: after.next.length > 0 };
 }
 
 /** What a claimed child's run needs from its instance. */
@@ -112,28 +188,29 @@ export interface QueuedChildParts {
   readonly serde: Parameters<typeof decodedRun>[0];
 }
 
-/** Runs one claimed child to its end; how its row ends. */
+/** Runs one claimed child pass under `lease`; `undefined` when handed over (row stays `Running`). */
 export async function runQueuedChild(
   parts: QueuedChildParts,
   row: QueuedChildExecution,
+  lease: HeldExecutionLease,
   signal: AbortSignal,
-): Promise<ChildExecutionEnd> {
+): Promise<ChildExecutionEnd | undefined> {
   try {
     const root = parts.registry.rootOf(row.rootWorkflow);
-    const childDeps = parts.registry.depsOf(row.workflow);
-    if (root === undefined || childDeps === undefined)
+    const rawChildDeps = parts.registry.depsOf(row.workflow);
+    if (root === undefined || rawChildDeps === undefined)
       throw new QueuedChildError(
         `${row.workflow} (of ${row.rootWorkflow}) is not a workflow of this application`,
       );
+    const rootDeps = leasedDeps(root.deps, lease);
+    const childDeps = leasedGraphDeps(rawChildDeps, lease);
     const run = await decodedRun(parts.serde, row.run);
-    const context = runContextOf(run, row, parts.registry, root.deps, signal);
-    const { rests } = await streamed(childDeps, root.deps, run, context);
-    if (rests)
-      throw new QueuedChildError(
-        `${row.workflow} paused on another instance — a remote child cannot pause until #333 PR 4`,
-      );
-    return { status: ExecutionRecordStatus.Answered };
+    const context = runContextOf(run, row, parts.registry, rootDeps, signal);
+    const { rests } = await streamed(childDeps, rootDeps, row, run, context);
+    return { status: rests ? ExecutionRecordStatus.Paused : ExecutionRecordStatus.Answered };
   } catch (error) {
-    return { status: ExecutionRecordStatus.Failed, failure: failureTextOf(error) };
+    const cause = outcomeError(error, signal);
+    if (isHandedOver(cause)) return undefined;
+    return { status: ExecutionRecordStatus.Failed, failure: failureTextOf(cause) };
   }
 }

@@ -1,8 +1,54 @@
+import { isCancelRequested } from "../cancel-requests.js";
 import type { Class } from "../../components/injection.js";
+import { ExecutionCancelledError } from "../../core/errors.js";
 import { NodeKind } from "../../flow/ast.js";
 import { isThisWorkflow } from "../../flow/this-workflow.js";
 import type { GraphDeps } from "../../graph/deps.js";
+import type {
+  ChildExecutionQueueRepository,
+  QueuedChildExecution,
+} from "../../infrastructure/child-execution-queue.repository.js";
+import type { Clock } from "../../infrastructure/clock.js";
+import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
+import type { ExecutionTreeRepository } from "../../infrastructure/execution-tree.repository.js";
+import { seconds, type Milliseconds } from "../../units/index.js";
 import type { BuiltApp } from "../create-app.js";
+
+const WATCH_EVERY: Milliseconds = seconds(10);
+
+/** Whether `current` is still the same `Running` claim as `row`. */
+export const isSameRunningClaim = (
+  current: QueuedChildExecution | undefined,
+  row: QueuedChildExecution,
+): current is QueuedChildExecution =>
+  current?.status === ExecutionRecordStatus.Running &&
+  current.claimedAt !== undefined &&
+  current.claimedAt.getTime() === row.claimedAt?.getTime();
+
+/** Every 10 s while the child runs: its tree cancelled or ended stops it. */
+export async function watchRunningChild(
+  parts: {
+    readonly clock: Clock;
+    readonly queue: ChildExecutionQueueRepository;
+    readonly trees: ExecutionTreeRepository;
+  },
+  row: QueuedChildExecution,
+  stop: AbortController,
+): Promise<void> {
+  const { tenantId, executionId, rootExecutionId } = row;
+  const tree = { tenantId, rootExecutionId };
+  for (;;) {
+    await parts.clock.sleep(WATCH_EVERY, stop.signal);
+    if (stop.signal.aborted) return;
+    const still = await parts.queue
+      .findByTenantIdAndExecutionId(tenantId, executionId)
+      .catch(() => row);
+    if (still === undefined || (await isCancelRequested(parts.trees, tree))) {
+      stop.abort(new ExecutionCancelledError("the child's tree was cancelled or ended"));
+      return;
+    }
+  }
+}
 
 /**
  * Every workflow an instance can run a queued child of (#333 PR 2): the application's workflows

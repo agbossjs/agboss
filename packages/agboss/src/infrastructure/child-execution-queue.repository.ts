@@ -21,7 +21,7 @@ export interface QueuedChildExecution {
   readonly workflow: string;
   /** Its level in the tree, from 2: the deepest are claimed first. */
   readonly depth: number;
-  /** `Queued` → `Running` (claimed) → `Answered` (it reached a finish) or `Failed`. */
+  /** `Queued` → `Running` (claimed) → `Paused` (waiting for an answer) or `Answered` / `Failed`. */
   readonly status: ExecutionRecordStatus;
   /** What the worker runs it with (framework data, JSON): its first state, thread and parents. */
   readonly run: string;
@@ -37,10 +37,11 @@ export interface QueuedChildExecution {
   readonly failure?: string | undefined;
 }
 
-/** How a claimed child ended: its status and a failure's error. */
+/** How a claimed child ended its pass: finished, paused, or failed with its error. */
 export interface ChildExecutionEnd {
-  /** `Answered` — it reached a finish; `Failed`. */
-  readonly status: ExecutionRecordStatus.Answered | ExecutionRecordStatus.Failed;
+  /** `Answered` — it reached a finish; `Paused` — it rests at a pause (#333 PR 4); `Failed`. */
+  readonly status:
+    ExecutionRecordStatus.Answered | ExecutionRecordStatus.Paused | ExecutionRecordStatus.Failed;
   /** A failed child's error (as `QueuedChildExecution.failure`). */
   readonly failure?: string | undefined;
 }
@@ -93,6 +94,13 @@ export abstract class ChildExecutionQueueRepository {
 export const claimOrder = (left: QueuedChildExecution, right: QueuedChildExecution): number =>
   right.depth - left.depth || left.queuedAt.getTime() - right.queuedAt.getTime();
 
+/** A `Paused` child (resumed) or a `Running` claim whose worker lost its lease may be queued again. */
+const canRequeue = (stored: QueuedChildExecution, next: QueuedChildExecution): boolean =>
+  stored.status === ExecutionRecordStatus.Paused ||
+  (stored.status === ExecutionRecordStatus.Running &&
+    next.claimedAt !== undefined &&
+    stored.claimedAt?.getTime() === next.claimedAt.getTime());
+
 /**
  * The built-in default: the queue in this instance's memory — every operation is one synchronous
  * step, so it is atomic. The instances of one test share it (`testWith(App, { instances: 2 })`).
@@ -113,8 +121,16 @@ export class InMemoryChildExecutionQueueRepository extends ChildExecutionQueueRe
 
   saveIfAbsent(child: QueuedChildExecution): Promise<boolean> {
     const key = treeKeyOf(child.tenantId, child.executionId);
-    if (this.database.childQueue.has(key)) return Promise.resolve(false);
-    this.database.childQueue.set(key, { ...child, status: ExecutionRecordStatus.Queued });
+    const stored = this.database.childQueue.get(key);
+    if (stored !== undefined && !canRequeue(stored, child)) return Promise.resolve(false);
+    this.database.childQueue.set(key, {
+      ...child,
+      status: ExecutionRecordStatus.Queued,
+      instanceId: undefined,
+      claimedAt: undefined,
+      endedAt: undefined,
+      failure: undefined,
+    });
     return Promise.resolve(true);
   }
 

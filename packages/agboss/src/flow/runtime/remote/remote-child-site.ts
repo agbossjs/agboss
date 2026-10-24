@@ -16,6 +16,7 @@ export interface RemoteEntry {
   readonly run: RunContext;
   readonly initial: ChildInitialState;
   readonly ended: EndedChild;
+  readonly isRecursive: boolean;
   readonly checkpointer: BaseCheckpointSaver | undefined;
 }
 
@@ -28,7 +29,7 @@ export function remoteSiteOf(
   deps: GraphDeps<string>,
   entry: RemoteEntry,
 ): RemoteChildSite | undefined {
-  const { frame, entered, run, initial, ended, checkpointer } = entry;
+  const { frame, entered, run, initial, ended, isRecursive, checkpointer } = entry;
   const { thread } = entered;
   const children = deps.remoteChildren;
   if (node.placement !== ChildPlacement.AnyInstance) return undefined;
@@ -45,6 +46,8 @@ export function remoteSiteOf(
     rootWorkflow: rootFactsOf(frame.execution).workflow.name,
     workflow: ended.workflow.name,
     depth: ended.depth,
+    node: node.id,
+    isRecursive,
     run: {
       thread,
       threadId: run.threadId,
