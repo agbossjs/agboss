@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — documented: `instances: 2` on SQLite `:memory:` (#458)
+
+- **Docs — several instances on SQLite** ([Several instances](Several-instances#testing-several-instances)):
+  `testWith(App, { instances: 2 })` shares the in-memory defaults, but listed SQLite stores on
+  `sqlitePath: ":memory:"` are one database per instance. A multi-instance test names a file. No
+  code change.
+
 ## Unreleased — `A2ACallerRejectedError.wireCode` (#457)
 
 - **Breaking — `A2ACallerRejectedError.code` is the class's code** ([A2A](A2A)): an instance's

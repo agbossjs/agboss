@@ -146,7 +146,7 @@ A Vitest `test` whose fixtures are:
 | `mockLlm` | the script of an agent or a router: `mockLlm(Scout).thenReturn(…)`                            |
 | `mockOf`  | a typed mock injected instead of a component (a budget too: `mockOf(TenantDailyBudget).maxSpend`) |
 | `mcpOf`   | the stub of an MCP server                                                                  |
-| `apps`    | with `testWith(App, { instances: 2 })`: every instance of the application (`apps[0]` is `app`), each its own container and instance id, over one set of stores and one clock ([Several instances](Several-instances#testing-several-instances)) |
+| `apps`    | with `testWith(App, { instances: 2 })`: every instance of the application (`apps[0]` is `app`), each its own container and instance id, over one set of stores and one clock — listed SQLite stores only through a file, not `:memory:` ([Several instances](Several-instances#testing-several-instances)) |
 | `clock`   | the test's [`VirtualClock`](#the-clock) — the application's `Clock`, shared by its instances: `await clock.advance(seconds(31))` |
 | `recoverApp` | `await recoverApp()` closes the current app (its `onStop` hooks run, as on a real stop) and returns a new one over the same test state (the infrastructure the first app created — checkpoints, records, ledger, paused executions — the clock, the ids); the closed app fails every call with `test.app-closed` |
 

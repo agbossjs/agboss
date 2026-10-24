@@ -527,6 +527,22 @@ own implementations are tested across instances; nothing is substituted, so an a
 lists its own implementations is tested on those (against Testcontainers, or with its injected
 client replaced by `mockOf(…)`).
 
+**SQLite stores are shared only through a file** (#458). Each instance opens its own connection
+([above](#sqlite--several-instances-on-one-machine)), and SQLite's `:memory:` is one database per connection: with
+`sqlitePath: ":memory:"` — the usual `test` environment — the two instances of
+`testWith(App, { instances: 2 })` each get an empty database of their own, and a pause made on
+`app` is not found on `apps[1]`. A multi-instance test runs on an environment whose `sqlitePath` is
+a file, a fresh one per test process, as flow-patterns' `instances` environment does:
+
+```ts no-check: AppEnvironment is the project's environment contract (see Environments)
+// src/environments/instances.environment.ts
+export const environment: AppEnvironment = {
+  sqlitePath: join(mkdtempSync(join(tmpdir(), "app-instances-")), "stores.sqlite"),
+};
+
+const test = testWith(App, { instances: 2, env: "instances" });
+```
+
 ```ts no-check: the application and its workflow are a project's own (see Testing)
 const test = testWith(LeaseApplication, { instances: 2 });
 
