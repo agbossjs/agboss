@@ -20,6 +20,7 @@ interface ShowResult {
   readonly applications: readonly { name: string; version: string; file: string }[];
   readonly inputs: { describe: number; evalRuns: number; records: number };
   readonly edges: { observed: readonly Record<string, unknown>[] };
+  readonly trees: readonly Record<string, unknown>[];
   readonly report: string;
 }
 
@@ -40,6 +41,15 @@ describe("#401 PR 3: agboss hub show", () => {
         tools: ["ask-billing-tool"],
       },
     ]);
+    expect(result.trees).toEqual([
+      {
+        rootExecutionId: "s1",
+        application: SHOP,
+        applications: [SHOP, BILLING],
+        executions: 2,
+        stubs: 0,
+      },
+    ]);
     expect(call.stderr).toContain("hub: 2 applications");
     expect(call.stderr).toContain("1 observed cross-service edge");
     const page = readFileSync(join(cwd, "mesh.html"), "utf8");
@@ -52,6 +62,7 @@ describe("#401 PR 3: agboss hub show", () => {
     expect(page).toContain("limit.budget");
     expect(page).toContain("refunds-eval-suite");
     expect(page).toContain("1/3 (33%)");
+    expect(page).toContain('id="tree-s1"');
   });
 
   it("without --html: the summary only; a file given directly is read whatever its folder", async () => {

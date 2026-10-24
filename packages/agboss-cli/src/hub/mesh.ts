@@ -10,6 +10,7 @@ import type {
   DescribedWorkflow,
   HubInputs,
 } from "./hub-inputs.js";
+import { executionTreesOf, type ExecutionTree } from "./execution-trees.js";
 import { observedCallsOf, observedEdgesOf, type ObservedEdge } from "./observed-calls.js";
 
 /**
@@ -38,6 +39,8 @@ export interface MeshApplication {
 export interface HubMesh {
   readonly applications: readonly MeshApplication[];
   readonly edges: readonly ObservedEdge[];
+  /** The execution trees that cross applications (#401 PR 4). */
+  readonly trees: readonly ExecutionTree[];
   readonly inputs: {
     readonly describe: number;
     readonly evalRuns: number;
@@ -92,6 +95,7 @@ export function meshOf(inputs: HubInputs): HubMesh {
   return {
     applications: namesOf(inputs, edges).map((name) => applicationOf(name, inputs)),
     edges,
+    trees: executionTreesOf(inputs.records),
     inputs: {
       describe: inputs.applications.length,
       evalRuns: inputs.evalRuns.length,

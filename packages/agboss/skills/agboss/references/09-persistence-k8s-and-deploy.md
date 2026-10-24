@@ -404,6 +404,13 @@ npx agboss hub show hub/ --html .artifacts/mesh.html
   its files only**: executions, failure rate, p95 duration, spend and spend per day from its records,
   the `limit.*` / `mesh.*` codes they failed with, and the latest run of each eval suite (pass^k,
   pass@k, unstable). Nothing live: probes stay the orchestrator's (`app.checkReadiness()`).
+- **Execution trees across applications**: each tree that crosses applications, stitched from the
+  exports by each receiver's `origin` — a record is a child of the execution whose `executionId` is
+  `origin.executionId` (a root's or one of its children's), under the call whose step
+  `idempotencyKey` is `origin.step.idempotencyKey`; never by tenant. A call whose receiver exported
+  nothing is a stub (`billing-application · b1 (not exported)`), not an error; a receiver whose
+  caller's record holds no such call is a root of its own, "called by" its caller. `--json` lists
+  each tree's root, applications, executions and stubs.
 - Above 16 MB the page is refused (`hub.report-too-large`): export a shorter period. Without
   `--html` it prints the summary; `--json` gives the applications, the inputs and the edges.
 
