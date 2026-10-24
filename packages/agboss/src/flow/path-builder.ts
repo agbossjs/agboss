@@ -14,6 +14,7 @@ import {
   type Step,
   type SubPath,
   type SwitchCase,
+  type ToStep,
 } from "./ast.js";
 import { FlowSyntaxError, launchOrderProblem, launchStepOf } from "./launch-step.js";
 import {
@@ -26,6 +27,7 @@ import {
   type GroupStart,
 } from "./quorum-step.js";
 import { returnedValue } from "./returns-step.js";
+import { placementOptionOf, type ChildPlacement } from "./child-placement.js";
 
 /**
  * The runtime of the path builder (#272): one immutable class behind every typed builder state;
@@ -38,7 +40,7 @@ export { aboutTargets } from "./returns-step.js";
 /** How a builder's path begins: a source, a route, a case, or the side path of `.onError`. */
 export type PathStart =
   | { readonly kind: "source" }
-  | { readonly kind: "route"; readonly target: Class }
+  | { readonly kind: "route"; readonly target: Class; readonly placement?: ChildPlacement }
   | { readonly kind: "case"; readonly dto: DtoClass; readonly about?: readonly DtoClass[] }
   | { readonly kind: "side" }
   | GroupStart;
@@ -75,8 +77,9 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return new PathBuilder(this.start, this.source, [...this.steps.slice(0, -1), step]);
   }
 
-  private to(target: Class, targetKind: NodeKind): PathBuilder<TSource> {
-    return this.then({ kind: StepKind.To, target, targetKind });
+  private to(target: Class, kind: NodeKind, placement?: ChildPlacement): PathBuilder<TSource> {
+    const step: ToStep = { kind: StepKind.To, target, targetKind: kind };
+    return this.then(placement === undefined ? step : { ...step, placement });
   }
 
   returns(shape: unknown, options?: unknown, ...rest: readonly unknown[]): PathBuilder<TSource> {
@@ -107,9 +110,9 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.to(target, NodeKind.Finish);
   }
 
-  /** `.toWorkflow(W)` (#263): one child execution of `W`, entered through the start its value fits. */
-  toWorkflow(target: Class): PathBuilder<TSource> {
-    return this.to(target, NodeKind.Workflow);
+  /** `.toWorkflow(W)` (#263): one child of `W`; `.toWorkflow(W, { placement })` (#333 PR 2). */
+  toWorkflow(target: Class, options?: unknown): PathBuilder<TSource> {
+    return this.to(target, NodeKind.Workflow, placementOptionOf(options, "toWorkflow(W, {…})"));
   }
 
   switch(...cases: readonly PathBuilder[]): PathBuilder<TSource> {
@@ -215,7 +218,8 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   private asRoute(): ChooseOneRoute {
     if (this.start.kind !== "route")
       throw new FlowSyntaxError(".chooseOne(…) takes route(…) paths");
-    return Object.freeze({ target: this.start.target, path: this.subPath() });
+    const { target, placement } = this.start;
+    return Object.freeze({ target, path: this.subPath(), ...(placement && { placement }) });
   }
 
   /** A group: its leading `.returns(…)` chain are its values, the rest its own path. */

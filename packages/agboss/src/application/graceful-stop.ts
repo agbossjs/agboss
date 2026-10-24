@@ -13,6 +13,7 @@ import type { StepCapacity } from "../app/step-slots.js";
 import type { StepsAtStop } from "./instance-steps.js";
 
 import { DEFAULT_IDEMPOTENCY_RETENTION } from "../mesh/mesh-defaults.js";
+import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
 /**
  * The graceful stop of an application instance (#261, #265 S30 / S51): no new executions anywhere,
  * its own recovery sweep stopped, `onStop` once, the running executions awaited up to the shutdown
@@ -153,6 +154,39 @@ export interface InstanceParts {
   readonly stepsAtStop: StepsAtStop;
 }
 
+/** Whether a workflow of the instance launches a child on any instance (#333 PR 2). */
+const launchesAnywhere = (workflows: readonly BuiltApp[]): boolean =>
+  workflows.some((workflow) => launchesOnAnyInstance(workflow.deps.graph.nodes.values()));
+
+/**
+ * The instance's claims of queued children (#333 PR 2), loaded and started only when one of its
+ * workflows launches a child on any instance; `stop()` resolves once they ended.
+ */
+function childWorkersOf(
+  workflows: readonly BuiltApp[],
+  parts: InstanceParts,
+  interruption: AbortSignal,
+): { readonly stop: () => Promise<void> } {
+  if (!launchesAnywhere(workflows)) return { stop: () => Promise.resolve() };
+  const { infrastructure, log } = parts;
+  const started = Promise.all([
+    import("../app/remote/child-workers.js"),
+    import("../app/remote/child-registry.js"),
+  ]).then(([workers, registry]) =>
+    workers.startChildWorkers({
+      queue: infrastructure.childQueue,
+      trees: infrastructure.executionTrees,
+      clock: infrastructure.clock,
+      log,
+      capacity: parts.stepSlots,
+      interruption,
+      registry: registry.childRegistryOf(workflows),
+      serde: infrastructure.checkpointer.serde,
+    }),
+  );
+  return { stop: async () => (await started).stop() };
+}
+
 /** The instance's recovery sweep and graceful stop. */
 export interface InstanceStop {
   readonly stop: GracefulStop;
@@ -182,10 +216,18 @@ export function stopOf(
     capacity: parts.stepSlots,
   });
   const { shutdownTimeout } = assembled;
+  const workers = childWorkersOf(workflows, parts, interruption.signal);
+  const stopping: RecoverySweep = {
+    stop: async () => {
+      await Promise.all([sweep.stop(), workers.stop()]);
+    },
+    lastSweptAt: () => sweep.lastSweptAt(),
+    isStopped: () => sweep.isStopped(),
+  };
   const stop = gracefulStopOf({
     workflows,
     created: parts.created,
-    sweep,
+    sweep: stopping,
     clock,
     interruption,
     shutdownTimeout,

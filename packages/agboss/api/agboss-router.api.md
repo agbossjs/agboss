@@ -28,6 +28,8 @@ export interface ToStep {
     //
     // (undocumented)
     readonly kind: StepKind.To;
+    // Warning: (ae-forgotten-export) The symbol "ChildPlacement" needs to be exported by the entry point index.d.ts
+    readonly placement?: ChildPlacement;
     // Warning: (ae-forgotten-export) The symbol "ComponentClass" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -85,9 +87,9 @@ export interface WorkflowStartOptions {
 
 // Warnings were encountered during analysis:
 //
-// src/flow/ast.ts:86:3 - (ae-undocumented) Missing documentation for "kind".
-// src/flow/ast.ts:87:3 - (ae-undocumented) Missing documentation for "target".
-// src/flow/ast.ts:88:3 - (ae-undocumented) Missing documentation for "targetKind".
+// src/flow/ast.ts:87:3 - (ae-undocumented) Missing documentation for "kind".
+// src/flow/ast.ts:88:3 - (ae-undocumented) Missing documentation for "target".
+// src/flow/ast.ts:89:3 - (ae-undocumented) Missing documentation for "targetKind".
 // src/flow/decorators/workflow-finish.ts:15:3 - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/workflow-finish.ts:16:3 - (ae-undocumented) Missing documentation for "input".
 // src/flow/decorators/workflow-finish.ts:17:3 - (ae-undocumented) Missing documentation for "output".

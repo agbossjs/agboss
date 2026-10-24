@@ -26,6 +26,10 @@ import {
   ExecutionHistoryRepository,
   InMemoryExecutionHistoryRepository,
 } from "./execution-history.repository.js";
+import {
+  ChildExecutionQueueRepository,
+  InMemoryChildExecutionQueueRepository,
+} from "./child-execution-queue.repository.js";
 import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
 
 /**
@@ -57,6 +61,7 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [RateLimitRepository, InMemoryRateLimitRepository],
   [MeshRequestRepository, InMemoryMeshRequestRepository],
   [ExecutionHistoryRepository, InMemoryExecutionHistoryRepository],
+  [ChildExecutionQueueRepository, InMemoryChildExecutionQueueRepository],
 ]);
 
 /**
@@ -94,6 +99,8 @@ export interface Infrastructure {
   readonly meshRequests: MeshRequestRepository;
   /** The kept root executions (#401 PR 1): written only with `executionRecordRetention`. */
   readonly executionHistory: ExecutionHistoryRepository;
+  /** The children queued for any instance (#333 PR 2, `ChildPlacement.AnyInstance`). */
+  readonly childQueue: ChildExecutionQueueRepository;
 }
 
 /** The infrastructure from the application's container (a listed class, else the default). */
@@ -111,6 +118,7 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   rateLimits: resolve(RateLimitRepository) as RateLimitRepository,
   meshRequests: resolve(MeshRequestRepository) as MeshRequestRepository,
   executionHistory: resolve(ExecutionHistoryRepository) as ExecutionHistoryRepository,
+  childQueue: resolve(ChildExecutionQueueRepository) as ChildExecutionQueueRepository,
 });
 
 /**

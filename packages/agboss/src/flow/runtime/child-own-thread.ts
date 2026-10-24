@@ -3,7 +3,7 @@ import { Command, interrupt, isGraphInterrupt } from "@langchain/langgraph";
 import type { ExecutionGraph } from "./build.js";
 import type { ChildGraph } from "./child.js";
 import type { ChildEntered } from "./child-identity.js";
-import { asRootRun, rootConfigOf } from "./child-thread.js";
+import { asRootRun, isExecutionState, rootConfigOf } from "./child-thread.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 
 /**
@@ -42,11 +42,6 @@ export type OwnThreadEnd =
   | { readonly kind: "ended"; readonly state: ExecutionStateType }
   | { readonly kind: "failed"; readonly error: unknown; readonly last?: ExecutionStateType };
 
-const isState = (value: unknown): value is ExecutionStateType =>
-  typeof value === "object" &&
-  value !== null &&
-  Array.isArray((value as { usage?: unknown }).usage);
-
 /** A forwarded resume map, read from the marker's answer (the drain wrote it as JSON). */
 function resumeMapOf(answer: unknown): Readonly<Record<string, string>> {
   if (typeof answer !== "string") return {};
@@ -73,7 +68,7 @@ async function stream(
 ): Promise<void> {
   await asRootRun(async () => {
     const states = await run.graph.stream(input, { ...config, streamMode: "values" });
-    for await (const state of states) if (isState(state)) seen.last = state;
+    for await (const state of states) if (isExecutionState(state)) seen.last = state;
   });
 }
 
@@ -98,7 +93,7 @@ async function movedOn(
 ): Promise<ExecutionStateType | undefined> {
   const { snapshot, rests, interrupts } = await snapshotOf(run, config);
   if (!rests) {
-    const state = isState(snapshot.values) ? snapshot.values : seen.last;
+    const state = isExecutionState(snapshot.values) ? snapshot.values : seen.last;
     if (state === undefined) throw new TypeError(`${run.thread} ended without a state`);
     return state;
   }

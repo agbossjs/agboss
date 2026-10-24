@@ -1,4 +1,3 @@
-import { AGBossError } from "../core/errors.js";
 import {
   NodeKind,
   QuorumKind,
@@ -10,6 +9,8 @@ import {
   type Step,
 } from "./ast.js";
 import { isWrapper, Wrapper } from "./dto-wrappers.js";
+import { placementOptionOf, type ChildPlacement } from "./child-placement.js";
+import { FlowSyntaxError } from "./flow-syntax-error.js";
 
 /**
  * The launch step of the path builder (#273): `.toParallelAgents(A, B, …, { maxConcurrency,
@@ -18,10 +19,7 @@ import { isWrapper, Wrapper } from "./dto-wrappers.js";
  * The typed builder makes the wrong forms compile errors; these checks hold for untyped code.
  */
 
-/** A builder used where the grammar does not allow it (only reachable from untyped code). */
-export class FlowSyntaxError extends AGBossError {
-  static override readonly code: string = "flow.syntax";
-}
+export { FlowSyntaxError } from "./flow-syntax-error.js";
 
 /** The call that launches each kind. */
 export const LAUNCH_CALLS: Readonly<Record<LaunchTargetKind, string>> = {
@@ -30,10 +28,11 @@ export const LAUNCH_CALLS: Readonly<Record<LaunchTargetKind, string>> = {
   [NodeKind.Workflow]: "toParallelWorkflows",
 };
 
-/** `{ maxConcurrency, maxItems }`, read from the last argument. */
+/** `{ maxConcurrency, maxItems, placement }`, read from the last argument. */
 interface ReadOptions {
   readonly maxConcurrency?: number;
   readonly maxItems?: number;
+  readonly placement?: ChildPlacement;
 }
 
 const isPositiveInteger = (value: unknown): value is number =>
@@ -54,9 +53,11 @@ function optionsOf(last: unknown, call: string): ReadOptions {
     );
   const maxConcurrency = limitOf(last, "maxConcurrency", call);
   const maxItems = limitOf(last, "maxItems", call);
+  const placement = placementOptionOf(last, `${call}(…, { placement })`);
   return {
     ...(maxConcurrency === undefined ? {} : { maxConcurrency }),
     ...(maxItems === undefined ? {} : { maxItems }),
+    ...(placement === undefined ? {} : { placement }),
   };
 }
 
@@ -107,6 +108,8 @@ export function launchStepOf(
   const problem = siteProblem(targetKind, targets, site);
   if (problem !== undefined) throw new FlowSyntaxError(problem);
   const options = hasOptions ? optionsOf(last, call) : {};
+  if (options.placement !== undefined && targetKind !== NodeKind.Workflow)
+    throw new FlowSyntaxError(`${call}(…, { placement }): only a child workflow has a placement`);
   return Object.freeze({
     kind: StepKind.Launch,
     targetKind,

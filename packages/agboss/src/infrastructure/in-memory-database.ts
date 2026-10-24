@@ -3,6 +3,7 @@ import type { ExecutionTreeValue } from "./execution-tree.repository.js";
 import type { RateLimitLease } from "./rate-limit.repository.js";
 import type { MeshRequestRecord } from "./mesh-request.repository.js";
 import type { ExecutionHistoryRecord } from "./execution-history.repository.js";
+import type { QueuedChildExecution } from "./child-execution-queue.repository.js";
 
 /**
  * The rows of the in-memory defaults of the shared contracts (#265): leases, tree keys and
@@ -25,6 +26,8 @@ export class InMemoryDatabase {
   readonly meshRequests = new Map<string, MeshRequestRecord>();
   /** The kept root executions by `tenantId` + `executionId` (#401 PR 1). */
   readonly executionHistory = new Map<string, ExecutionHistoryRecord>();
+  /** The queued children by `tenantId` + `executionId` (#333 PR 2), in the order queued. */
+  readonly childQueue = new Map<string, QueuedChildExecution>();
 }
 
 /** An amount counted under a window's key, at a moment (the framework clock's milliseconds). */

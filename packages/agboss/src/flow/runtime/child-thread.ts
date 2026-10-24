@@ -2,6 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { AsyncLocalStorageProviderSingleton } from "@langchain/core/singletons";
 import { emptyCheckpoint, type BaseCheckpointSaver } from "@langchain/langgraph";
 import type { ChildIdentityRecord } from "./child-records.js";
+import type { ExecutionStateType } from "./state.js";
 
 /**
  * A child execution's own checkpoint thread (ADR-0022, #333 PR 1): `<parentThreadId>/child/<id>` on
@@ -52,6 +53,12 @@ export function rootConfigOf(config: RunnableConfig, childThread: string): Runna
 /** Runs `body` outside the parent's LangGraph run: the child's graph is a root of its own. */
 export const asRootRun = <T>(body: () => Promise<T>): Promise<T> =>
   AsyncLocalStorageProviderSingleton.getInstance().run(undefined, body);
+
+/** Whether a streamed value or a snapshot's values are a child's execution state. */
+export const isExecutionState = (value: unknown): value is ExecutionStateType =>
+  typeof value === "object" &&
+  value !== null &&
+  Array.isArray((value as { usage?: unknown }).usage);
 
 /** Where the launching task's marker is kept: the parent's thread, the task's namespace. */
 export function markerConfigOf(config: RunnableConfig | undefined): RunnableConfig | undefined {

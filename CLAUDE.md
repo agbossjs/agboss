@@ -597,7 +597,18 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   parent's node interrupt with a waiting marker (`child-own-thread.ts`, no pause), its pauses read
   through it and its answers forwarded by the node (`run/waiting-pauses.ts`, `run/resume-map.ts`);
   a child started before ADR-0022 (its whole state under its task) is continued that way, for one
-  version (S4 D6). Its own `executionId`
+  version (S4 D6). **On any instance (#333 PR 2, S6):** `.toWorkflow(W, { placement:
+ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, placement })` and
+  `route(W, { placement })` (default `ParentInstance`; one class one placement,
+  `[flow.conflicting-placement]`) — the parent's node queues the child in the application's
+  `ChildExecutionQueueRepository` (`flow/runtime/remote/`) and waits inside its step on its row
+  (woken in-process, else every second on the `Clock`; the tree keeps its lease — yielding it is PR 4);
+  an instance with a free step slot (#332) claims it at once in-process, else at its sweep
+  (`app/remote/child-workers.ts`), runs it as a root graph on its own thread and completes the row;
+  a cancel or the tree's end stops it at its next look (10 s). Until PR 3/4: no pause in such a child
+  (`[graph.remote-child-can-pause]`, naming the tool and the fix), depth and tree slots checked only
+  where it runs, its failure's cause chain kept as names, codes and messages (`RemoteChildFailure`),
+  no per-child recovery. Its own `executionId`
   (kept in its marker — a pause, a restart or a crash continues it with the same id, no second
   `onExecutionStart`), its own path, steps and `maxSteps`, no thread history; it inherits the
   thread, `ownerId`, tenant and the execution's own fields, and spends from the root's budgets (a
@@ -1219,7 +1230,10 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
   rate limit, 429 pause and circuit breaker, #266), `MeshRequestRepository` (the answers of trusted
   mesh requests by idempotency key, removed after `mesh.idempotencyRetention` by the recovery sweep,
-  #398), `ExecutionHistoryRepository` (#401: each root execution's `ExecutionHistoryRecord` — its
+  #398), `ChildExecutionQueueRepository` (#333 PR 2: children launched with
+  `ChildPlacement.AnyInstance`, `saveIfAbsent` / `claimFirstByStatusQueuedOrderByDepthDesc` /
+  `completeByTenantIdAndExecutionId`, rows removed with their tree; on the in-memory one
+  `[application.in-memory-child-queue]`), `ExecutionHistoryRepository` (#401: each root execution's `ExecutionHistoryRecord` — its
   `ExecutionRecord` with `executionId`, `rootExecutionId`, `threadId`, `tenantId`, `application`,
   `workflow`, `status` (`ExecutionHistoryStatus`), `startedAt` / `endedAt`, `start` + `input`,
   `finish` + `output`, `contexts`, `error` — masked like its traces, saved when its tree rests or
@@ -1239,7 +1253,8 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   ready SQLite implementation, enabled only by listing it (#265: `SqliteExecutionRecordRepository`,
   `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`, `SqliteCheckpointSaver`,
   `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`,
-  `SqliteMeshRequestRepository`, `SqliteExecutionHistoryRepository`) —
+  `SqliteMeshRequestRepository`, `SqliteExecutionHistoryRepository`,
+  `SqliteChildExecutionQueueRepository`) —
   one `node:sqlite` connection per instance on the environment's `sqlitePath` (required only then,
   `[environment.missing-field]`; `:memory:` in tests), WAL + `busy_timeout`, atomic operations in
   `BEGIN IMMEDIATE`, time from the framework's clock; job-scout lists them all. A project subclasses
@@ -1411,7 +1426,8 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
   while running only problems (`LogLevel.Warn` / `Error`, a stable `code`, `executionId` /
   `tenantId`). Assembly warnings — tenant or application budgets on the built-in in-memory ledger
   (`[application.in-memory-cost-ledger]`), possible pauses on in-memory paused executions or
-  checkpoints (`[application.in-memory-pauses]`), PII tokens on a key of the instance — no
+  checkpoints (`[application.in-memory-pauses]`), children on any instance on the in-memory child
+  queue (`[application.in-memory-child-queue]`), PII tokens on a key of the instance — no
   `@Application({ pseudonymKey })` (`[application.pii-instance-key]`, #120 S94) — are in
   `app.warnings` and the start log, errors under `agboss check --strict`, silent in tests.
 - **Memory and compaction (#120 PR 3):** a turn of a thread is a finished root execution

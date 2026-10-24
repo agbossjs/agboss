@@ -14,6 +14,7 @@ import { recursionOf, type Recursion } from "./recursion.js";
 import { aboutRules } from "./rules/about.js";
 import { branchOutdatingRules } from "./rules/branch-outdating.js";
 import { childFailureWarnings } from "./rules/child-failure.js";
+import { childPlacementRules } from "./rules/child-placement.js";
 import { judgeFamilyWarnings } from "./rules/judge-family.js";
 import { childRules } from "./rules/children.js";
 import { compensationRules, compensationWarnings } from "./rules/compensation.js";
@@ -93,6 +94,7 @@ const RULES: readonly FlowRule[] = [
   quorumRules,
   branchOutdatingRules,
   childRules,
+  childPlacementRules,
   limitHandlerRules,
   compensationRules,
 ];

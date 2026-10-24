@@ -2,6 +2,7 @@ import type { Class } from "../components/injection.js";
 import type { DtoClass } from "../dto/types.js";
 import type { Milliseconds } from "../units/index.js";
 import type { ReturnedShape } from "./dto-wrappers.js";
+import type { ChildPlacement } from "./child-placement.js";
 
 /**
  * The graph of a v2 workflow as data (#272 → The AST): `@Workflow({ flow })` holds one `FlowPath`
@@ -86,6 +87,8 @@ export interface ToStep {
   readonly kind: StepKind.To;
   readonly target: ComponentClass;
   readonly targetKind: NodeKind;
+  /** `.toWorkflow(W, { placement })` (#333 PR 2): where the child runs; absent = its parent's instance. */
+  readonly placement?: ChildPlacement;
 }
 
 /** One `caseOf(XDto, { about })…` of a `.switch(…)`. */
@@ -105,6 +108,8 @@ export interface SwitchStep {
 export interface ChooseOneRoute {
   readonly target: ComponentClass;
   readonly path: SubPath;
+  /** `route(W, { placement })` (#333 PR 2): where a child workflow target runs. */
+  readonly placement?: ChildPlacement;
 }
 
 export interface ChooseOneStep {
@@ -156,6 +161,8 @@ export interface LaunchStep {
    * counts it — they run inside the branch, in path order. Agents only, before a quorum join.
    */
   readonly acceptedBy?: readonly AcceptedBy[];
+  /** `.toParallelWorkflows(W, { placement })` (#333 PR 2): where each child runs. */
+  readonly placement?: ChildPlacement;
 }
 
 /** `.onJoinError(ErrorClass, toAction(X)…)`: the side path a failed launch takes. */
