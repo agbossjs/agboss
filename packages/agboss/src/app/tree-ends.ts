@@ -33,6 +33,11 @@ export type TreeEndParts = Pick<TreeMoveParts, "deps" | "trees" | "clock">;
  */
 export async function forgetTree(parts: TreeEndParts, state: TreeState): Promise<void> {
   await parts.trees.deleteAllInTree(treeOf(state));
+  // its queued children (#333 PR 2): a worker still running one stops at its next look
+  await parts.deps.remoteChildren?.queue.deleteAllByTenantIdAndRootExecutionId(
+    state.tenantId,
+    state.runId,
+  );
   parts.deps.branchErrors?.forgetExecution(state.runId);
   const { pause } = parts.deps;
   if (pause !== undefined) await withdrawPauses(pause, treeOf(state), parts.clock.now());

@@ -23,6 +23,9 @@ import type { ExecutionGraph } from "./build.js";
 import { refuseBeyondMaxDepth } from "./recursion-launch.js";
 import { interruptedUndoOf } from "./child-reentry.js";
 import { childEndOf } from "./child-own-thread.js";
+import { remoteChildEndOf, type RemoteChildSite } from "./remote/remote-child.js";
+import { remoteSiteOf } from "./remote/remote-child-site.js";
+import type { ChildInitialState } from "./remote/remote-child-run.js";
 
 /**
  * A child workflow as a step of its parent (#263, S37; ADR-0022): the parent's node of `W` runs the
@@ -73,7 +76,7 @@ const initialOf = (
   entry: ChildEntry,
   input: unknown,
   entered: ChildEntered,
-): ExecutionStateUpdate => ({
+): ChildInitialState => ({
   runId: entered.identity.executionId,
   start: entry.start.name,
   startInput: input,
@@ -97,6 +100,8 @@ interface ChildRun {
   readonly entered: ChildEntered;
   /** The parent's node of the child: the child's graph is registered on it (Studio). */
   readonly node: string;
+  /** A child on any instance (#333 PR 2): queued, and awaited in this step. */
+  readonly remote?: RemoteChildSite | undefined;
 }
 
 /** One child execution, to its end: its value, or its failure thrown as the parent sees it. */
@@ -108,7 +113,10 @@ async function runChild(
 ): Promise<{ readonly state: ExecutionStateType; readonly usage: readonly UsageRecord[] }> {
   if (run.interrupted !== undefined)
     return failedChild(parent, ended, { error: run.interrupted, last: undefined }, run.config);
-  const end = await childEndOf(child, run);
+  const end =
+    run.remote === undefined
+      ? await childEndOf(child, run)
+      : await remoteChildEndOf(child.graph, run.config, run.remote);
   if (end.failed)
     return failedChild(parent, ended, { error: end.error, last: end.state }, run.config);
   const last = end.state;
@@ -144,12 +152,11 @@ export function childRunner(
     const start = child.deps.graph.nodes.get(entry.start.name);
     if (start === undefined) throw new TypeError(`${node.id}: no start ${entry.start.name}`);
     const input = validStartInput(start, entry.input);
-    const { itemIndex } = frame.step;
     const spot = {
       checkpointer,
       config,
       parent: frame,
-      itemIndex,
+      itemIndex: frame.step.itemIndex,
       inheritedUsage: state.usage.length,
       idGenerator: deps.idGenerator ?? randomIdGenerator,
     };
@@ -177,6 +184,7 @@ export function childRunner(
       runChild(child, { deps, frame, undo }, ended, {
         ...{ initial, config: childConfig, interrupted, entered },
         node: node.id,
+        remote: remoteSiteOf(node, deps, { frame, entered, run, initial, ended, checkpointer }),
       }),
     );
     // the child's PII tokens go back to the parent with its value (#120 S84 i)

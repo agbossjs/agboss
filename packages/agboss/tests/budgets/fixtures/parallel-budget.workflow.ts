@@ -169,8 +169,11 @@ export class ParallelBudgetWorkflowStart {}
 })
 export class NotesWorkflowFinish {
   finish(input: { readonly notes: readonly Produced<NoteDto, unknown>[] }): NoteDto {
-    return { text: input.notes.map((note) => note.value.text)
-      .join("; ") };
+    return {
+      text: input.notes
+        .map((note) => note.value.text)
+        .join("; "),
+    };
   }
 }
 

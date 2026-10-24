@@ -9,6 +9,7 @@ import {
 import { InMemoryCostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
 import { InMemoryPausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import { InMemoryExecutionHistoryRepository } from "../infrastructure/execution-history.repository.js";
+import { InMemoryChildExecutionQueueRepository } from "../infrastructure/child-execution-queue.repository.js";
 
 /**
  * Which implementation of each infrastructure contract an application runs on, and why (#261):
@@ -65,6 +66,7 @@ const IN_MEMORY: readonly Class[] = [
   InMemoryCheckpointSaver,
   MemorySaver,
   InMemoryExecutionHistoryRepository,
+  InMemoryChildExecutionQueueRepository,
 ];
 
 /** Whether the contract's implementation is a built-in one that keeps its data in memory. */

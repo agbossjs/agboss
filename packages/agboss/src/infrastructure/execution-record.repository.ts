@@ -33,6 +33,11 @@ export enum ExecutionRecordStatus {
   /** It waits for a decision. */
   Paused = "paused",
   /**
+   * A child execution waiting in the application's queue for an instance to claim it (#333 PR 2,
+   * `ChildPlacement.AnyInstance`): a `ChildExecutionQueueRepository` row only.
+   */
+  Queued = "queued",
+  /**
    * A past turn an eval case wrote into its thread (#396 S6: `evalCase({ history })`), never run: a
    * turn its thread's memory reads, left out of `agboss eval score` and `agboss golden add`.
    */

@@ -22,6 +22,8 @@ export {
   workflow,
 } from "../flow/builder.js";
 export { ThisWorkflow, type ThisWorkflowOutputs } from "../flow/this-workflow.js";
+export { ChildPlacement, type ChildStepOptions } from "../flow/child-placement.js";
+
 export type {
   AfterStep,
   AfterValue,

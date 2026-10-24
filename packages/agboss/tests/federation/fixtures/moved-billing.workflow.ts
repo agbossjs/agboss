@@ -15,7 +15,11 @@ export { BillingAnswerDto, BillingQuestionDto } from "./billing.dto.js";
 
 /** A billing desk that no longer exports the start the shop names (#398 PR 4). */
 
-@WorkflowStart({ name: "invoice-workflow-start", description: "A billing question", input: BillingQuestionDto })
+@WorkflowStart({
+  name: "invoice-workflow-start",
+  description: "A billing question",
+  input: BillingQuestionDto,
+})
 export class MovedBillingWorkflowStart {}
 
 @Agent({
@@ -27,7 +31,11 @@ export class MovedBillingWorkflowStart {}
 })
 export class MovedBillingDeskAgent {}
 
-@WorkflowFinish({ name: "billing-workflow-finish", description: "The answer", output: BillingAnswerDto })
+@WorkflowFinish({
+  name: "billing-workflow-finish",
+  description: "The answer",
+  output: BillingAnswerDto,
+})
 export class MovedBillingWorkflowFinish {}
 
 @Workflow({

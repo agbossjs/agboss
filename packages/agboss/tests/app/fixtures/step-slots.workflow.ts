@@ -1,9 +1,4 @@
-import {
-  EmptyEnvironment,
-  listOf,
-  Workflow,
-  WorkflowStart,
-} from "../../../src/index.js";
+import { EmptyEnvironment, listOf, Workflow, WorkflowStart } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { start } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";

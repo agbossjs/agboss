@@ -1,5 +1,6 @@
 import type { Class } from "../components/injection.js";
 import type { DtoClass } from "../dto/types.js";
+import { placementOptionOf, type ChildStepOptions } from "./child-placement.js";
 import { NodeKind, type PathSource } from "./ast.js";
 import type {
   AfterStep,
@@ -12,6 +13,7 @@ import type {
   ReturnsOptions,
   RouteContinuation,
   RouteTargetKind,
+  RouteOptions,
   RouteTargetLabel,
   SideHead,
   SourceHead,
@@ -84,9 +86,11 @@ export function workflow(source: Class): PathBuilder<PathSource> {
 /** One target of `.chooseOne(…)` and what follows it. */
 export function route<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, RouteTargetKind, RouteTargetLabel>,
+  ...options: RouteOptions<TClass>
 ): RouteContinuation<InstanceType<TClass>>;
-export function route(target: Class): PathBuilder<undefined> {
-  return subPathFrom({ kind: "route", target });
+export function route(target: Class, options?: unknown): PathBuilder<undefined> {
+  const placement = placementOptionOf(options, "route(W, { placement })");
+  return subPathFrom({ kind: "route", target, ...(placement && { placement }) });
 }
 
 /**
@@ -137,9 +141,10 @@ export function toRouter(target: Class): PathBuilder<undefined> {
  */
 export function toWorkflow<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
+  options?: ChildStepOptions,
 ): AfterStep<InstanceType<TClass>, SideHead>;
-export function toWorkflow(target: Class): PathBuilder<undefined> {
-  return sidePath().toWorkflow(target);
+export function toWorkflow(target: Class, options?: unknown): PathBuilder<undefined> {
+  return sidePath().toWorkflow(target, options);
 }
 
 /** The side path `.onError(E, toFinish(F))`: the failure ends the execution at a finish. */

@@ -15,7 +15,11 @@ export { BillingAnswerDto, BillingQuestionDto } from "./billing.dto.js";
 
 /** A billing desk that accepts what the shop sends and gives what it reads (#398 PR 4). */
 
-@WorkflowStart({ name: "billing-workflow-start", description: "A billing question", input: BillingQuestionDto })
+@WorkflowStart({
+  name: "billing-workflow-start",
+  description: "A billing question",
+  input: BillingQuestionDto,
+})
 export class CompatibleBillingWorkflowStart {}
 
 @Agent({
@@ -27,7 +31,11 @@ export class CompatibleBillingWorkflowStart {}
 })
 export class CompatibleBillingDeskAgent {}
 
-@WorkflowFinish({ name: "billing-workflow-finish", description: "The answer", output: BillingAnswerDto })
+@WorkflowFinish({
+  name: "billing-workflow-finish",
+  description: "The answer",
+  output: BillingAnswerDto,
+})
 export class CompatibleBillingWorkflowFinish {}
 
 @Workflow({
@@ -43,7 +51,11 @@ export class CompatibleBillingWorkflowFinish {}
 })
 export class CompatibleBillingWorkflow {}
 
-@A2AExpose({ name: "billing-a2a-expose", version: "1.0.0", exports: [CompatibleBillingWorkflowStart] })
+@A2AExpose({
+  name: "billing-a2a-expose",
+  version: "1.0.0",
+  exports: [CompatibleBillingWorkflowStart],
+})
 export class CompatibleBillingA2AExpose {}
 
 @Application({

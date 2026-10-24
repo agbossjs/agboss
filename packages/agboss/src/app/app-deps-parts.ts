@@ -14,6 +14,7 @@ import { shortVersion, stableJson } from "../terns/index.js";
 import type { StepSlots } from "./step-slots.js";
 import type { StepEntries } from "../flow/runtime/step-entries.js";
 import type { CompensationParts } from "../flow/runtime/compensation/registry.js";
+import type { RemoteChildren } from "../flow/runtime/remote/remote-child.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 
 /**
@@ -96,6 +97,8 @@ export interface TreeParts {
   readonly stepSlots?: StepSlots | undefined;
   readonly stepEntries?: StepEntries | undefined;
   readonly compensation?: CompensationParts | undefined;
+  /** The instance's queue of children on any instance (#333 PR 2). */
+  readonly remoteChildren?: RemoteChildren | undefined;
 }
 
 /**
@@ -104,16 +107,17 @@ export interface TreeParts {
  */
 export const treeDepsOf = (
   idGenerator: IdGenerator,
-  { childDepsOf, stepSlots, stepEntries, compensation }: TreeParts,
+  { childDepsOf, stepSlots, stepEntries, compensation, remoteChildren }: TreeParts,
 ): Pick<
   GraphDeps<string>,
-  "childDepsOf" | "idGenerator" | "stepSlots" | "stepEntries" | "compensation"
+  "childDepsOf" | "idGenerator" | "stepSlots" | "stepEntries" | "compensation" | "remoteChildren"
 > => ({
   idGenerator,
   ...(childDepsOf === undefined ? {} : { childDepsOf }),
   ...(stepSlots === undefined ? {} : { stepSlots }),
   ...(stepEntries === undefined ? {} : { stepEntries }),
   ...(compensation === undefined ? {} : { compensation }),
+  ...(remoteChildren === undefined ? {} : { remoteChildren }),
 });
 
 /** Stores the config snapshot of this version; warns when the version already had other content. */

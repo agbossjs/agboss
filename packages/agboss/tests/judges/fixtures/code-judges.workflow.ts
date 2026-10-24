@@ -14,7 +14,11 @@ import {
   type JudgeHandler,
   type JudgeInput,
 } from "../../../src/index.js";
-import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import {
+  PlainTextDto,
+  WorkflowFinishTextDto,
+  WorkflowStartTextDto,
+} from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
 import { start } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -67,7 +71,11 @@ export class NoBannedWordsJudge implements JudgeHandler<PlainTextDto> {
 })
 export class PromiseAgent {}
 
-@WorkflowStart({ name: "promise-workflow-start", description: "A task", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "promise-workflow-start",
+  description: "A task",
+  input: WorkflowStartTextDto,
+})
 export class PromiseStart {}
 
 @WorkflowFinish({
@@ -138,7 +146,9 @@ export class SecondOpinionJudge implements JudgeHandler<PlainTextDto> {
         .then(() => this.secondOpinion.model()),
     ]);
     const outcomes = tries.map((tried) =>
-      tried.status === "rejected" && tried.reason instanceof Error ? tried.reason.message : "answered",
+      tried.status === "rejected" && tried.reason instanceof Error
+        ? tried.reason.message
+        : "answered",
     );
     return JudgeVerdict.failed({ reason: outcomes.join(" | ") });
   }

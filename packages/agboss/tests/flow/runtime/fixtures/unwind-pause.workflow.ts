@@ -73,10 +73,18 @@ export class AskGuestTool implements ToolHandler<UndoRequestDto, UndoRequestDto>
 })
 export class GuestAgent {}
 
-@WorkflowFinish({ name: "guest-reserved-workflow-finish", description: "Reserved", output: ReservedDto })
+@WorkflowFinish({
+  name: "guest-reserved-workflow-finish",
+  description: "Reserved",
+  output: ReservedDto,
+})
 export class GuestReservedWorkflowFinish {}
 
-@WorkflowStart({ name: "unwind-guest-workflow-start", description: "A guest", input: UndoRequestDto })
+@WorkflowStart({
+  name: "unwind-guest-workflow-start",
+  description: "A guest",
+  input: UndoRequestDto,
+})
 export class UnwindGuestWorkflowStart {}
 
 /** A room, then the guest's approval. */

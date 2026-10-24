@@ -13,6 +13,7 @@ import {
 } from "./ast.js";
 import { declarationOf } from "./decorators/declaration.js";
 import { LAUNCH_CALLS } from "./launch-step.js";
+import { ChildPlacement } from "./child-placement.js";
 import {
   acceptedByLine,
   countQuorumOptions,
@@ -55,6 +56,20 @@ const valueText = (value: Pick<ReturnedValue, "about"> & { readonly label: strin
 const returnsLine = (value: ReturnedValue): string =>
   `.returns(${valueText({ ...value, label: shapeLabel(value.shape) })})`;
 
+/** The enum member's name of a placement: `AnyInstance`. */
+const placementName = (placement: ChildPlacement): string =>
+  placement === ChildPlacement.AnyInstance ? "AnyInstance" : "ParentInstance";
+
+/** `placement: ChildPlacement.AnyInstance` (#333 PR 2), as written; none without one. */
+const placementOption = (placement: ChildPlacement | undefined): readonly string[] =>
+  placement === undefined ? [] : [`placement: ChildPlacement.${placementName(placement)}`];
+
+/** `, { placement: ChildPlacement.AnyInstance }` of a child step; empty without one. */
+const childOptions = (placement: ChildPlacement | undefined): string => {
+  const options = placementOption(placement);
+  return options.length === 0 ? "" : `, { ${options.join(", ")} }`;
+};
+
 /** `{ maxConcurrency: 3, maxItems: 50 }`, as written; empty without options. */
 function launchOptions(step: LaunchStep): string {
   const options = [
@@ -62,6 +77,7 @@ function launchOptions(step: LaunchStep): string {
       ? []
       : [`maxConcurrency: ${String(step.maxConcurrency)}`]),
     ...(step.maxItems === undefined ? [] : [`maxItems: ${String(step.maxItems)}`]),
+    ...placementOption(step.placement),
   ];
   return options.length === 0 ? "" : `, { ${options.join(", ")} }`;
 }
@@ -98,7 +114,7 @@ class Printer {
     const [first, ...rest] = steps;
     const head =
       first?.kind === StepKind.To
-        ? `${TO_CALL[first.targetKind]}(${this.label(first.target)})`
+        ? `${TO_CALL[first.targetKind]}(${this.label(first.target)}${childOptions(first.placement)})`
         : "";
     this.line(depth, `.${call}(${error}, ${head}`);
     this.steps(first?.kind === StepKind.To ? rest : steps, depth + 1);
@@ -149,7 +165,10 @@ class Printer {
         this.line(depth, returnsLine(step.value));
         return;
       case StepKind.To:
-        this.line(depth, `.${TO_CALL[step.targetKind]}(${this.label(step.target)})`);
+        this.line(
+          depth,
+          `.${TO_CALL[step.targetKind]}(${this.label(step.target)}${childOptions(step.placement)})`,
+        );
         return;
       case StepKind.Switch:
         this.line(depth, ".switch(");
@@ -162,7 +181,7 @@ class Printer {
       case StepKind.ChooseOne:
         this.line(depth, ".chooseOne(");
         step.routes.forEach((route, index) => {
-          const head = `route(${this.label(route.target)})`;
+          const head = `route(${this.label(route.target)}${childOptions(route.placement)})`;
           this.branch(head, route.path.steps, depth + 1, index === step.routes.length - 1);
         });
         this.line(depth, ")");

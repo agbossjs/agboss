@@ -25,6 +25,7 @@ import type { Clock, IdGenerator } from "../infrastructure/clock.js";
 import type { StepSlots } from "../app/step-slots.js";
 import type { StepEntries } from "../flow/runtime/step-entries.js";
 import type { CompensationParts } from "../flow/runtime/compensation/registry.js";
+import type { RemoteChildren } from "../flow/runtime/remote/remote-child.js";
 
 /** What the workflow's graph is built from: its analysed paths, its agents and their parts. */
 export interface GraphDeps<TName extends string> {
@@ -96,6 +97,11 @@ export interface GraphDeps<TName extends string> {
   readonly stepSlots?: StepSlots | undefined;
   /** The instance's running step bodies (#367): what its graceful stop awaits. */
   readonly stepEntries?: StepEntries | undefined;
+  /**
+   * The instance's queue of children on any instance (#333 PR 2): a node launched with
+   * `placement: ChildPlacement.AnyInstance` queues its child there and waits; absent — it runs here.
+   */
+  readonly remoteChildren?: RemoteChildren | undefined;
   /**
    * The instance's undo of undoable actions (#340): `@Application({ compensationTimeout })` and the
    * registry of its trees' entries; absent = `seconds(15)`, no registry (a workflow run on its own).
