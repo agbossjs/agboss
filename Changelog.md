@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — flow-patterns as the zero-cost harness: the desk's history (#419)
+
+- `examples/flow-patterns`' desk keeps its executions (`executionRecordRetention`) and its
+  `npm run check` runs `npm run records:check`: one offline run, `agboss records export`, and
+  `agboss generate eval-case --from-execution --dry-run`.
+  [Example](Example#flow-patterns-a-review-loop-and-a-code-router).
+
 ## Unreleased — "save as golden case" takes the run's own tenant (#397 PR 5b)
 
 - **Changed — the run artifact is `schemaVersion` 4**: each run result keeps its `tenantId` (the
