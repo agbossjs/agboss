@@ -18,7 +18,7 @@ and which serves the desk over A2A to the helpline of the first:
 | `src/hiring/`    | undoable steps: `compensateWith` / `committedBy` (#339)                                                                                                                                                            | `send-offer-workflow-start`       |
 | `src/travel/`    | a failed join undoes its finished bookings (#340)                                                                                                                                                                  | `trip-workflow-start`             |
 | `src/desk/`      | the extension points: a custom compaction, code guardrails, a tool interceptor, a transport model provider (#382–#385); a code judge, a knowledge base, a PII detector, an observer, a health check and a step cap | `desk-workflow-start`             |
-| `src/helpline/`  | a consumer of the desk over A2A (`@A2AAgent`, `check --federation`, #398); policies through an MCP server; its own memory strategy                                                                                 | `helpline-workflow-start`         |
+| `src/helpline/`  | a consumer of the desk over A2A (`@A2AAgent`, `check --federation`, #398); policies through an MCP server                                                                                                          | `helpline-workflow-start`         |
 | `src/intake/`    | a quorum by groups: the first complete group by priority goes on (#279)                                                                                                                                            | `intake-workflow-start`           |
 
 ```bash
