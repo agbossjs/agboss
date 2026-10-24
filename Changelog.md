@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — `A2ACallerRejectedError.wireCode` (#457)
+
+- **Breaking — `A2ACallerRejectedError.code` is the class's code** ([A2A](A2A)): an instance's
+  `code` is `a2a.caller-rejected`, like every `AGBossError`. The code the server sent
+  (`a2a.caller-unauthenticated`, `a2a.caller-forbidden`) moves to the new field `wireCode`.
+  Migration: read `error.wireCode` where you read `error.code` for the server's code, and in tests
+  write `toFailWith(A2ACallerRejectedError, { httpStatus: 401, wireCode: "a2a.caller-unauthenticated" })`.
+
 ## Unreleased — child workflows on any instance (#333 PR 2)
 
 - **Added — `ChildPlacement`** ([Workflow as a step](Workflow-as-a-step#on-any-instance-333-pr-2)):

@@ -163,9 +163,9 @@ console.log(response.status, response.threadId);
 is the contract's `target.start`). A refused envelope — a `401` with a `mesh.*` code — is an `Error`
 whose message starts with its code (`[mesh.audience-mismatch] …`). A server that
 refuses the caller — a `401` / `403` carrying an `a2a.caller-*` code — throws
-`A2ACallerRejectedError` (`code` `a2a.caller-rejected` on the class; on the error its `httpStatus`
-and the wire `code`, `a2a.caller-unauthenticated` / `a2a.caller-forbidden`, the server's reason in
-its message); any other failed request is a plain `Error`; a remote run that did not finish is
+`A2ACallerRejectedError` (`code` `a2a.caller-rejected`, like every `AGBossError`; `httpStatus`; the
+server's code in `wireCode`, `a2a.caller-unauthenticated` / `a2a.caller-forbidden`, #457; the
+server's reason in its message); any other failed request is a plain `Error`; a remote run that did not finish is
 `A2ARemoteError` from `execute`.
 
 ## 5. Testing — the `a2aServer` fixture
@@ -194,7 +194,7 @@ test("an unknown key is 401 and never runs", async ({ a2aServer }) => {
 
   await expect(sent).rejects.toFailWith(A2ACallerRejectedError, {
     httpStatus: 401,
-    code: "a2a.caller-unauthenticated",
+    wireCode: "a2a.caller-unauthenticated",
   });
 });
 ```
