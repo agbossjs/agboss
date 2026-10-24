@@ -132,7 +132,7 @@ the built-ins are not added next to it. A workflow and its components only name 
 of the application (agents, model routers, the default router, guardrails, compactions, judges) resolves
 to exactly one listed provider by `serves` at assembly — none → `[model.unserved]`, two →
 `[model.ambiguous-provider]` (one model through two providers = two model strings, each in one
-`serves`). `agboss describe` prints `model: … → <provider>` for each, `agboss check --models` checks
+`serves`; the built-ins yield a model another listed provider claims, #454). `agboss describe` prints `model: … → <provider>` for each, `agboss check --models` checks
 every model of every workflow of the application against its provider:
 
 A provider's **policies** are app-wide too: `retryPolicy` retries one call (attempts, exponential

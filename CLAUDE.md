@@ -14,7 +14,8 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
   `DecisionsModelProvider` (decision models), one listed → the list is complete. A workflow and its
   components name models only: every model of the application resolves to exactly one listed
   provider by `serves` at assembly (`[model.unserved]`, `[model.ambiguous-provider]`; one model
-  through two providers = two model strings); `agboss describe` prints `model: … → <provider>`.
+  through two providers = two model strings; the built-ins are catch-alls that yield a model another
+  listed provider claims, #454); `agboss describe` prints `model: … → <provider>`.
   The built-ins are OpenRouter: their key is the `Secret` field `openRouterApiKey` of the
   application's environment (`secret("OPENROUTER_API_KEY")`; a provider's `apiKey` names its field),
   the base URL optionally its text field `openRouterBaseUrl` (`baseUrlField`;
@@ -215,7 +216,7 @@ tested under `TestConcurrency.inOrder` and `failWith(ModelFailure.RateLimited)`)
 reviewer reads `historyOf(OfferDraftDto)`; `tests/approvals.test.ts` resumes a pause on a second
 instance (`testWith(App, { instances: 2, env: "instances" })`, one SQLite file);
 `tests/unit-runners.test.ts` runs every unit
-runner on the patterns' components, `src/model-providers/` beside OpenRouter narrowed to `moonshotai/…`, #382–#385) · `npm test`.
+runner on the patterns' components, `src/model-providers/` beside the built-in OpenRouter, which yields `harness/…` to it, #382–#385, #454) · `npm test`.
 Real runs (#346, its README: the manual checks #263 M1, #264 M1, #267 M1): `dev` reads
 `OPENROUTER_API_KEY` (`openRouterBaseUrl` optional) and `PII_PSEUDONYM_KEY`, every store is SQLite,
 Langfuse traces when its keys are set — `npx agboss run --start <name> --input '<json>'`, and
