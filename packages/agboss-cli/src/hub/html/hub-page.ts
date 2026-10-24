@@ -14,7 +14,7 @@ import { treesSectionOf } from "./trees-section.js";
  * company's own SSO — with the mesh graph, the observed edges and every application's card.
  */
 
-function headerOf(mesh: HubMesh): HtmlElement {
+function headerOf(mesh: HubMesh, options: HubPageOptions): HtmlElement {
   const workflows = mesh.applications.reduce(
     (total, application) => total + application.workflows.length,
     0,
@@ -22,6 +22,11 @@ function headerOf(mesh: HubMesh): HtmlElement {
   return element("header", { class: "report-header" }, [
     element("p", { class: "eyebrow" }, ["agboss hub"]),
     element("h1", {}, ["Agent mesh"]),
+    options.recordsHref === undefined
+      ? undefined
+      : element("p", {}, [
+          element("a", { href: options.recordsHref }, ["Search the kept executions →"]),
+        ]),
     factsOf([
       ["applications", String(mesh.applications.length)],
       ["workflows", String(workflows)],
@@ -68,10 +73,16 @@ function edgesSectionOf(mesh: HubMesh): HtmlElement {
   ]);
 }
 
+/** What the page shows besides the mesh. */
+export interface HubPageOptions {
+  /** `agboss hub ui`'s records search (#401 PR 6); none in a file. */
+  readonly recordsHref?: string;
+}
+
 /** The whole page. */
-export function renderHubPage(mesh: HubMesh): string {
+export function renderHubPage(mesh: HubMesh, options: HubPageOptions = {}): string {
   const body = [
-    renderHtml(headerOf(mesh)),
+    renderHtml(headerOf(mesh, options)),
     renderHtml(
       element("main", {}, [
         meshGraphSectionOf(mesh),

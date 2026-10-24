@@ -26,15 +26,22 @@ export const textResponse = (
   body: `${body}\n`,
 });
 
-/** A page; its forms post only to this server. */
-export const htmlResponse = (body: string): EvalUiResponse => ({
+/** A page; its forms post only to this server. `style` is the page's stylesheet (the report's). */
+export const htmlResponse = (body: string, style?: string): EvalUiResponse => ({
   status: 200,
   headers: {
     ...BASE_HEADERS,
     "Content-Type": "text/html; charset=utf-8",
-    "Content-Security-Policy": contentSecurityPolicyOf(true),
+    "Content-Security-Policy": contentSecurityPolicyOf(true, style),
   },
   body,
+});
+
+/** A JSON answer (#401 PR 6: `agboss hub ui`'s API). */
+export const jsonResponse = (status: number, value: unknown): EvalUiResponse => ({
+  status,
+  headers: { ...BASE_HEADERS, "Content-Type": "application/json; charset=utf-8" },
+  body: `${JSON.stringify(value)}\n`,
 });
 
 /** After a form: back to a page (POST, then GET). */

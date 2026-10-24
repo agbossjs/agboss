@@ -41,6 +41,8 @@ export default defineConfig({
         "src/cli/stop-signal.ts",
         // agboss eval ui serves until Ctrl+C: its server and routes are tested on their own
         "src/eval/ui-cli.ts",
+        // agboss hub ui serves until Ctrl+C too: its routes and the shared server are tested on their own
+        "src/hub/ui/hub-ui-cli.ts",
         "src/cli/ask.ts",
         "src/eval/cli.ts",
         "src/eval/cli-deps.ts",
