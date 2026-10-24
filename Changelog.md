@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the Mesh Hub: blast radius & federation (#401 PR 7)
+
+- **Added — declared edges and the blast radius** ([Mesh Hub](Mesh-Hub#blast-radius--federation)):
+  `agboss hub show` / `hub ui` draw every contract a snapshot declares as an edge consumer → producer
+  (dashed when no record shows a call, red when broken), list the problems `agboss check
+  --federation` finds between the newest snapshots — the same `checkFederation` — with their blast
+  radius, and who calls an application whose latest eval run lost pass^k. `--json` adds
+  `edges.declared` and `federation`; `hub ui` adds `/api/blast-radius`.
+
 ## Unreleased — the Mesh Hub served: `agboss hub ui` (#401 PR 6)
 
 - **Added — `agboss hub ui <path…> [--port N]`** ([Mesh Hub](Mesh-Hub#served-agboss-hub-ui)): the Hub

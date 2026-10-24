@@ -48,8 +48,9 @@ site, a bucket behind IAP). The Hub has no login of its own.
 
 - **The agent mesh** — every application as a box, in name order on an ellipse (the same files
   draw the same picture), each a link to its card. A solid box is an application a snapshot
-  describes; a dashed one is only named by records, eval runs or a call. An arrow is an observed
-  edge, labelled with its calls.
+  describes; a dashed one is only named by records, eval runs, a call or a contract it produces. An
+  arrow is an observed edge, labelled with its calls; a dashed arrow a declared contract no record
+  shows (`declared`); a red one a contract `check --federation` finds broken (`incompatible`).
 - **Observed edges** — the calls between applications the records saw: a caller's tool call that ran
   a remote AGBoss execution (`toolCalls[].remote`) and a receiver's own record of who called it
   (`origin`). When both applications exported their records one call is seen twice — the calling
@@ -59,6 +60,27 @@ site, a bucket behind IAP). The Hub has no login of its own.
 - **A card per application** — its versions and snapshot; each workflow of its newest snapshot with
   its agents, routers, actions, child workflows, tools and MCP servers; its channel roles; and its
   health.
+
+## Blast radius & federation
+
+Every contract a snapshot declares — `application.contracts.imports` of `describe --json`: an
+`@A2AAgent`'s target start, an `@McpServer` tool's target expose ([A2A](A2A)) — is a **declared
+edge**, consumer → producer, with the consumer's workflows and tools that use it. A producer no
+snapshot describes is drawn as a dashed box and its contract marked "producer not among the
+inputs"; a third-party MCP server (no target application) is no edge at all.
+
+The problems are **`agboss check --federation`'s own**: the Hub calls the same function,
+`checkFederation`, over the newest snapshot of every application — so it reports what the check
+reports, `[federation.incompatible-schema]` and `[federation.missing-target]` with the same
+messages and the same **blast radius** (the consumer's application, workflows and tools the
+contract feeds) — and marks each broken contract on its edge and its row. The Hub only reads; the
+gate stays the check in CI ([A2A → The federation check](A2A#8-the-federation-check-398-pr-4)). A
+snapshot from an agboss that wrote no `contracts` is named ("no declared contracts read from"),
+never guessed.
+
+Beside them: each application whose **latest eval run lost pass^k** on a case, and who calls it —
+by a declared contract and by the calls the records saw (`via: declared | observed`) — the callers
+a regression in it reaches.
 
 ## Execution trees across applications
 
@@ -138,11 +160,12 @@ that stops reading is a 422 naming its code.
 | --- | --- |
 | `GET /` | the page `hub show --html` writes, with a link to the search |
 | `GET /records?q=&application=&workflow=&status=&from=&to=&offset=&limit=` | the kept executions of every export that match, oldest start first, a page at a time (50 by default, at most 500) — a GET form to itself |
-| `GET /api/mesh` | `{ applications, edges }` |
+| `GET /api/mesh` | `{ applications, edges, declaredEdges }` |
 | `GET /api/applications/<name>` | one application of the mesh, or 404 |
 | `GET /api/trees/<rootExecutionId>` | one tree across applications, or 404 |
 | `GET /api/records?…` | the search as JSON: `{ total, offset, limit, records }` |
 | `GET /api/radar` | the radar |
+| `GET /api/blast-radius` | `{ declaredEdges, problems, undeclared, unstableReach }` |
 
 `q` finds a text in an execution's, its root's or its thread's id, its workflow or its application;
 `from` / `to` compare start times as ISO 8601 text. `--port 0` takes a free port; a port outside
@@ -153,8 +176,12 @@ company's SSO.
 
 Without `--html` the command prints its summary. Under `--json`: `result = { applications: [{ name,
 version, file }], inputs: { describe, evalRuns, records, files: [{ file, kind, count }] }, edges: {
-observed: [{ from, to, calls, workflows, tools }] }, trees: [{ rootExecutionId, application,
+observed: [{ from, to, calls, workflows, tools }], declared: [{ from, to, kind, contract, target,
+usedBy, isDangling, problems }] }, trees: [{ rootExecutionId, application,
 applications, executions, stubs }], radar: [{ application, workflow, component, kind, calls, spendUsd,
-stability, repeatedInputs, repeatedCalls, passHatK, score, isCandidate, executions }], report?,
+stability, repeatedInputs, repeatedCalls, passHatK, score, isCandidate, executions }], federation: {
+problems: [{ code, producer, consumer, message, file, blastRadius, isWarning }], undeclared,
+unstableReach: [{ application, suites, consumers: [{ application, workflows, tools, via }] }] },
+report?,
 bytes? }`, `created: [<html>]`. A page
 above 16 MB is refused, `hub.report-too-large` (exit 2): export a shorter period.
