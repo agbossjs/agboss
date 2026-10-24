@@ -117,7 +117,8 @@ describe("A2AClient", () => {
     await expect(sent).rejects.toBeInstanceOf(A2ACallerRejectedError);
     await expect(sent).rejects.toMatchObject({
       httpStatus: 403,
-      code: "a2a.caller-forbidden",
+      code: "a2a.caller-rejected",
+      wireCode: "a2a.caller-forbidden",
       message: expect.stringContaining("this key may not answer pauses") as unknown,
     });
   });

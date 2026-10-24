@@ -501,7 +501,7 @@ test("a caller without a key is refused with 401, and nothing runs", async ({ a2
 
   await expect(sent).rejects.toFailWith(A2ACallerRejectedError, {
     httpStatus: 401,
-    code: "a2a.caller-unauthenticated",
+    wireCode: "a2a.caller-unauthenticated",
   });
   expect(mockLlm(SkillsAgent)).toHaveBeenCalledTimes(0);
 });

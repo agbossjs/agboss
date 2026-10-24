@@ -189,24 +189,23 @@ export const A2A_CALLER_CODES = {
 
 /**
  * The A2A server refused the caller (#387): `A2AClient.send` on a `401` / `403` carrying an
- * `a2a.caller-*` code — `httpStatus`, `code` (`a2a.caller-unauthenticated`, `a2a.caller-forbidden`)
- * and the server's reason in the message. Nothing ran on the server.
+ * `a2a.caller-*` code — `httpStatus`, `wireCode` (`a2a.caller-unauthenticated`,
+ * `a2a.caller-forbidden`) and the server's reason in the message. Its `code` is the class's,
+ * `a2a.caller-rejected`, like every `AGBossError` (#457). Nothing ran on the server.
  */
 export class A2ACallerRejectedError extends AGBossError {
-  /** The class's code; an instance's `code` is the wire code of its rejection. */
+  /** `a2a.caller-rejected`. */
   static override readonly code: string = "a2a.caller-rejected";
   /** `A2ACallerRejectedError`. */
   override name = "A2ACallerRejectedError";
-  /** The wire code of the rejection. */
-  override readonly code: string;
 
   constructor(
     /** `401` or `403`. */
     readonly httpStatus: number,
-    code: string,
+    /** The code the server sent (`{ code, error }`): `a2a.caller-unauthenticated`, `a2a.caller-forbidden`, … */
+    readonly wireCode: string,
     reason: string,
   ) {
-    super(`the A2A server rejected the caller (${String(httpStatus)} ${code}): ${reason}`);
-    this.code = code;
+    super(`the A2A server rejected the caller (${String(httpStatus)} ${wireCode}): ${reason}`);
   }
 }

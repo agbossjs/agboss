@@ -408,7 +408,8 @@ createServer(
 
 - A refused request runs nothing: no `onExecutionStart`, no `onExecutionRejected`, no record — and a
   streaming caller gets the real status, not an event stream. `A2AClient.send` throws
-  `A2ACallerRejectedError` (`httpStatus`, `code`) on a `401` / `403`.
+  `A2ACallerRejectedError` (`code` `a2a.caller-rejected`, `httpStatus`, the server's `wireCode`) on a
+  `401` / `403`.
 - `resolved({ … })` is typed by the start's application: with a declared `TenantContext` its values
   are required. A single-tenant host returns `A2ACallerResolution.resolved({})` — never implied.
 - An answer is built only by `A2ACallerResolution` (branded: a plain object does not compile).
@@ -450,7 +451,7 @@ test("an unknown key is 401 and never runs", async ({ a2aServer, mockLlm }) => {
 
   const sent = new A2AClient({ url, headers: { authorization: "Bearer key-x" } }).send({ text: "hi" });
 
-  await expect(sent).rejects.toFailWith(A2ACallerRejectedError, { httpStatus: 401, code: "a2a.caller-unauthenticated" });
+  await expect(sent).rejects.toFailWith(A2ACallerRejectedError, { httpStatus: 401, wireCode: "a2a.caller-unauthenticated" });
   expect(mockLlm(SupportAgent)).toHaveBeenCalledTimes(0);
 });
 ```

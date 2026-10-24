@@ -143,7 +143,8 @@ describe("#387 AC2: a caller the host cannot resolve is refused, nothing runs", 
 
     await expect(sent).rejects.toFailWith(A2ACallerRejectedError, {
       httpStatus: 401,
-      code: "a2a.caller-unauthenticated",
+      code: "a2a.caller-rejected",
+      wireCode: "a2a.caller-unauthenticated",
     });
     expect(mockLlm(Desk)).toHaveBeenCalledTimes(0);
   });
