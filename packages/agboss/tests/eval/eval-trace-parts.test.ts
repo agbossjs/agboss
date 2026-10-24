@@ -383,6 +383,22 @@ describe("#397 PR 2: the one reader on both versions", () => {
     expect(evalRunReportOf(v1)).toEqual({ kind: "read", report: v1 });
   });
 
+  it("#397 PR 5b: a version 3 run without its tenant still reads; 4 keeps it; 5 is refused", () => {
+    const [found] = v1.cases;
+    const v4 = {
+      ...v1,
+      schemaVersion: 4,
+      cases: [{ ...found, runResults: [{ ...found?.runResults[0], tenantId: "acme" }] }],
+    };
+
+    expect(evalRunReportOf({ ...v1, schemaVersion: 3 })).toMatchObject({ kind: "read" });
+    expect(evalRunReportOf(v4)).toEqual({ kind: "read", report: v4 });
+    expect(evalRunReportOf({ ...v1, schemaVersion: 5 })).toEqual({
+      kind: "invalid",
+      reason: "schemaVersion 5 — this agboss reads 1 to 4",
+    });
+  });
+
   it("a version 2 trace that does not fit is refused, naming the field", () => {
     const [found] = v1.cases;
     const broken = {

@@ -174,6 +174,7 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
     expect(judgeReadings).toEqual([
       { tenantId: "eval-acme", plan: "pro", executionId: run?.executionId, userId: "eval-user-1" },
     ]);
+    expect(run?.tenantId).toBe("eval-acme"); // the case's tenant, kept on the run (#397 PR 5b)
     const terns = await built.infrastructure.records.lastTerns("eval-acme", run?.threadId ?? "", 9);
     expect(terns.map((tern) => tern.task)).toEqual([
       'start desk-workflow-start: {"text":"Never delete my orders."}',

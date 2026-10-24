@@ -1366,7 +1366,8 @@ cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `
   127.0.0.1, read-only, behind the token it prints (open the printed URL): the runs newest first, each
   case's attempt dots, each run's report page. It runs nothing; Ctrl+C stops it. A `schemaVersion` 3
   artifact names what it ran on — `profile`, `agbossVersion`, `models` (`EvalModelUse`: each agent's
-  and model router's model and provider), `piiPolicies` — shown in the page's header.
+  and model router's model and provider), `piiPolicies` — shown in the page's header; a version 4
+  one each run's `tenantId` (#397 PR 5b).
 - Labelling there (#397 PR 4): each run's page has a form per judge verdict — passed / failed, a
   1–4 score (optional), failure tags from `eval/failure-taxonomy.yaml` (`tags: [{ tag, description
 }]`, kebab-case, the only tags allowed), a note, who labels (`--labeler`) — saved to
@@ -1380,7 +1381,10 @@ cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `
   application's history (`@Application({ executionRecordRetention })`, its stores on `--env`; the
   application from `package.json` or `--application`) — without it the page says so instead of a
   button. The file is written whole and atomically, only if it is still the one the page was made from
-  (else 409: reload), never over a case of the same name (409). Review the case, then commit it.
+  (else 409: reload), never over a case of the same name (409). The execution is the run's own: the
+  kept record on the run's thread, of the run's `tenantId` — an id kept for several tenants of a run
+  from before artifacts carried the tenant (version 3 or older) is 409: run the suite again. Review the case, then
+  commit it.
   `npx agboss eval show <run.json> [--html <report.html>]` reads a saved artifact back: the table,
   and the same page; it runs nothing.
 - `--profile <name>` runs the suite on `profiles/<workflow>/<name>.yaml`; the case's `history` turns

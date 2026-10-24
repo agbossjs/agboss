@@ -20,7 +20,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CheckStatus, type EvalRunResult } from "agboss/eval";
 import { openExecutionHistory, type OpenedExecutionHistory } from "agboss/internal";
 import { SqliteHistoryApplication } from "../../../agboss/tests/infrastructure/sqlite/fixtures/history.application.js";
-import { REFUND_THREAD } from "../../../agboss/tests/eval/fixtures/history-records.js";
+import {
+  historyRecordOf,
+  REFUND_THREAD,
+} from "../../../agboss/tests/eval/fixtures/history-records.js";
 import type { CommandContext } from "../../src/cli/context.js";
 import { etagOf, type GoldenSource } from "../../src/eval/ui/golden-case.js";
 import { goldenSourceOf } from "../../src/eval/ui/golden-source.js";
@@ -40,6 +43,7 @@ let opened: OpenedExecutionHistory;
 beforeAll(async () => {
   opened = await openExecutionHistory(SqliteHistoryApplication, { processEnv: ENV });
   for (const record of REFUND_THREAD) await opened.history.save(record);
+  await opened.history.save(historyRecordOf("e1", { tenantId: "globex" })); // e1 of another tenant too
 });
 
 afterAll(async () => {
@@ -47,9 +51,14 @@ afterAll(async () => {
   rmSync(FOLDER, { recursive: true, force: true });
 });
 
-const ranRun = (run: number, executionId: string | undefined): EvalRunResult => ({
+const ranRun = (
+  run: number,
+  executionId: string | undefined,
+  tenantId: string | null = "acme",
+): EvalRunResult => ({
   run,
   threadId: "thread-1",
+  ...(tenantId === null ? {} : { tenantId }),
   ...(executionId === undefined ? {} : { executionId }),
   finish: "desk-workflow-finish",
   passed: true,
@@ -57,7 +66,13 @@ const ranRun = (run: number, executionId: string | undefined): EvalRunResult => 
   spentUsd: 0.01,
 });
 
-const ARTIFACT = artifactOf([caseOf("refund-order-7", [ranRun(1, "e1"), ranRun(2, "nowhere")])], 2);
+const ARTIFACT = artifactOf(
+  [
+    caseOf("refund-order-7", [ranRun(1, "e1"), ranRun(2, "nowhere")]),
+    caseOf("refund-before-tenants", [ranRun(1, "e1", null)]), // a schemaVersion 3 run: no tenant
+  ],
+  2,
+);
 
 /** A copy of the fixtures' project — the suite's file is written — and a run of its suite. */
 function projectOf(): string {
@@ -118,7 +133,7 @@ describe("#397 PR 5: a run's page offers to save its execution as a golden case"
     expect(page).toContain(`<input type="hidden" name="etag" value="${etagOf(suiteOf(root))}">`);
     expect(page).toContain(`as a case of refunds-eval-suite (${SUITE_FILE}), named`);
     expect(page).toContain('value="refund-order-7-run-1" required maxlength="120"');
-    expect(page.match(/class="label-form golden"/gu)).toHaveLength(2);
+    expect(page.match(/class="label-form golden"/gu)).toHaveLength(3);
   });
 
   it("no execution records kept: the page says why instead of a button; a POST is refused", async () => {
@@ -181,6 +196,29 @@ describe("#397 PR 5: a golden case saved", () => {
     expect(suiteOf(root)).toBe(before);
   });
 
+  it("an execution two tenants kept: the run's own tenant's (#397 PR 5b)", async () => {
+    const root = projectOf();
+
+    expect((await post(settingsOf(root), formOf(root))).status).toBe(303);
+    expect(suiteOf(root)).toContain(
+      'evalCase({ name: "refund-from-run-1", tenant: {"tenantId":"acme"',
+    );
+  });
+
+  it("a run recorded before runs carried their tenant: 409 in the page's words, no CLI option", async () => {
+    const root = projectOf();
+    const before = suiteOf(root);
+
+    const answer = await post(settingsOf(root), formOf(root, { run: "refund-before-tenants#1" }));
+
+    expect(answer.status).toBe(409);
+    expect(answer.body.trimEnd()).toBe(
+      "the execution e1 of this run is kept for several tenants (acme, globex), and this run was recorded before runs carried their tenant: run the suite again and save from the new run",
+    );
+    expect(answer.body).not.toContain("--");
+    expect(suiteOf(root)).toBe(before);
+  });
+
   it("the file changed since the page was made: 409 — reload; saving twice from one page is too", async () => {
     const root = projectOf();
     const settings = settingsOf(root);
@@ -196,8 +234,25 @@ describe("#397 PR 5: a golden case saved", () => {
   });
 
   it.each([
-    ["an execution the history does not have: 404", { executionId: "nowhere" }, 404, "nowhere"],
-    ["no name: 400", { name: " " }, 400, "needs a name and an execution"],
+    [
+      "an execution the history does not have: 404",
+      { run: "refund-order-7#2", executionId: "nowhere" },
+      404,
+      "the execution nowhere of tenant acme on this run's thread is not in the application's history",
+    ],
+    [
+      "a run named for another execution: 400",
+      { run: "refund-order-7#2" },
+      400,
+      "names run refund-order-7#2, but its execution is nowhere, not e1",
+    ],
+    [
+      "a run the report does not have: 400",
+      { run: "refund-order-7#9" },
+      400,
+      "a run of this report",
+    ],
+    ["no name: 400", { name: " " }, 400, "the form needs a name"],
   ])("%s, nothing written", async (_what, change, status, message) => {
     const root = projectOf();
     const before = suiteOf(root);

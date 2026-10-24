@@ -105,7 +105,10 @@ const parse = (file: FileToWrite): ts.SourceFile =>
   ts.createSourceFile(file.path, file.content, ts.ScriptTarget.Latest, true);
 
 /** A property of an object literal, by its key. */
-const propertyOf = (options: ts.ObjectLiteralExpression, key: string): ts.Expression | undefined =>
+export const propertyOf = (
+  options: ts.ObjectLiteralExpression,
+  key: string,
+): ts.Expression | undefined =>
   options.properties
     .filter(ts.isPropertyAssignment)
     .find((p) => ts.isIdentifier(p.name) && p.name.text === key)?.initializer;
@@ -123,7 +126,10 @@ function suiteOptionsOf(decorator: ts.Decorator): ts.ObjectLiteralExpression | u
 }
 
 /** The `cases: [ … ]` of the `@EvalSuite` named `suite` in the file. */
-function casesOf(source: ts.SourceFile, suite: string): ts.ArrayLiteralExpression | undefined {
+export function casesOf(
+  source: ts.SourceFile,
+  suite: string,
+): ts.ArrayLiteralExpression | undefined {
   const decorators = source.statements
     .filter(ts.isClassDeclaration)
     .flatMap((declaration) => ts.getDecorators(declaration) ?? []);
