@@ -3,6 +3,14 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the Mesh Hub served: `agboss hub ui` (#401 PR 6)
+
+- **Added — `agboss hub ui <path…> [--port N]`** ([Mesh Hub](Mesh-Hub#served-agboss-hub-ui)): the Hub
+  on 127.0.0.1 behind a printed token, on `agboss eval ui`'s own server (one local server, its token,
+  `Host` and CSP rules), read-only: the page, `/records` — every export's executions searched, a page
+  at a time — and `/api/mesh`, `/api/applications/<name>`, `/api/trees/<rootExecutionId>`,
+  `/api/records`, `/api/radar`.
+
 ## Unreleased — the Mesh Hub: the crystallization radar (#401 PR 5)
 
 - **Added — `ExecutionStepRecord.decision`** ([Observability](Observability)): what each visit

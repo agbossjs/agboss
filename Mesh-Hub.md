@@ -115,6 +115,40 @@ reaches no URL. Live probes stay the orchestrator's job ([App](App), `app.checkR
 - From its eval runs: the latest run of each suite — pass^k and pass@k over its cases, the unstable
   cases, how many runs each case had.
 
+## Served: `agboss hub ui`
+
+```bash
+agboss hub ui hub/ --port 4318
+```
+
+```text
+hub ui: http://127.0.0.1:4318/?token=4be1…9a   (Ctrl+C to stop)
+inputs: hub · 6 applications
+```
+
+The same files, served on your own machine — what a static file cannot do: read large record sets
+a page at a time and search across every export. It runs on **`agboss eval ui`'s own server and
+rules** ([Eval suites](Eval-Suites)): 127.0.0.1 only, a fresh token per start (every request names
+it), the `Host` header checked against its own port (DNS rebinding), no CORS header ever, and
+read-only — it answers GET and HEAD, nothing else (405). The paths are read before it listens (a bad
+file is exit 3 at once) and again on every request, so a new export shows at the next reload; a file
+that stops reading is a 422 naming its code.
+
+| Route | What it answers |
+| --- | --- |
+| `GET /` | the page `hub show --html` writes, with a link to the search |
+| `GET /records?q=&application=&workflow=&status=&from=&to=&offset=&limit=` | the kept executions of every export that match, oldest start first, a page at a time (50 by default, at most 500) — a GET form to itself |
+| `GET /api/mesh` | `{ applications, edges }` |
+| `GET /api/applications/<name>` | one application of the mesh, or 404 |
+| `GET /api/trees/<rootExecutionId>` | one tree across applications, or 404 |
+| `GET /api/records?…` | the search as JSON: `{ total, offset, limit, records }` |
+| `GET /api/radar` | the radar |
+
+`q` finds a text in an execution's, its root's or its thread's id, its workflow or its application;
+`from` / `to` compare start times as ISO 8601 text. `--port 0` takes a free port; a port outside
+0–65535 is exit 2. It is for one person; to share the Hub, publish the static page behind your
+company's SSO.
+
 ## `--json` and the size bound
 
 Without `--html` the command prints its summary. Under `--json`: `result = { applications: [{ name,
