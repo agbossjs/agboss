@@ -522,7 +522,12 @@ twoInstances("two instances share one set of stores", async ({ app, apps, mockLl
 
 `testWith(App, { instances: 2 })` gives `apps` — two instances, each its own container, over one set
 of stores and one `clock`: a pause resumed on the other instance, a lease taken over after
-`await clock.advance(seconds(31))`, a recovery at the next sweep.
+`await clock.advance(seconds(31))`, a recovery at the next sweep. The in-memory defaults are shared
+between the instances; listed SQLite stores are shared only through a file. Each instance opens its
+own connection, and `sqlitePath: ":memory:"` is one database per connection, so on `:memory:` the
+two instances see nothing of each other. A multi-instance test runs on an environment with a temp
+file (`sqlitePath: join(mkdtempSync(join(tmpdir(), "app-")), "stores.sqlite")`) —
+`testWith(App, { instances: 2, env: "instances" })` (#458).
 
 ## Pitfalls
 

@@ -2019,7 +2019,10 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   `execution-1`, … in the order made, per test and shared by its instances (`SequentialIdGenerator`,
   `agboss/testing`, #313), unless the application lists its own `IdGenerator` — and, with
   `testWith(App, { instances: 2 })`, `apps` (each instance its own container, one set of stores and
-  one clock: a lease, a pause resumed on the other instance, a rate-limit slot); models answer by script — `replyWith(text)` or
+  one clock: a lease, a pause resumed on the other instance, a rate-limit slot — the in-memory
+  defaults are shared; listed SQLite stores on `sqlitePath: ":memory:"` are **not**, each instance
+  opens its own database, so a multi-instance test names one file, e.g. flow-patterns'
+  `instances` environment on a temp path, #458); models answer by script — `replyWith(text)` or
   `replyWith(Dto, value, { cost })` (a structured answer, a class of the agent's output: checked by
   the generated types, #262), `callTool(Tool, args)` (args typed by the tool's input DTO),
   `routeTo(...targets)` (`Route<R>`: one target after `.chooseOne(…)`, the `OnDemand` ones before a
