@@ -78,11 +78,12 @@ export interface A2ACallerForbiddenOptions {
 // @public
 export class A2ACallerRejectedError extends AGBossError {
     constructor(
-    httpStatus: number, code: string, reason: string);
+    httpStatus: number,
+    wireCode: string, reason: string);
     static readonly code: string;
-    readonly code: string;
     readonly httpStatus: number;
     name: string;
+    readonly wireCode: string;
 }
 
 // @public

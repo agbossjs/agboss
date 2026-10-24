@@ -60,7 +60,7 @@ deskTest(
 
     await expect(sent).rejects.toFailWith(A2ACallerRejectedError, {
       httpStatus: 401,
-      code: "a2a.caller-unauthenticated",
+      wireCode: "a2a.caller-unauthenticated",
     });
     expect(mockLlm(DeskAgent)).toHaveBeenCalledTimes(0);
   },
