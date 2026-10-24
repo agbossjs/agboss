@@ -21,7 +21,7 @@ import { recordsPageOf } from "./records-page.js";
  * loopback `Host` of its own port, no CORS — no `Access-Control-*` header is ever sent): `GET /` —
  * the page `hub show` writes; `GET /records` — the kept executions of every input, searched and a
  * page at a time; the API, JSON: `/api/mesh`, `/api/applications/<name>`,
- * `/api/trees/<rootExecutionId>`, `/api/records?…`, `/api/radar`. The paths are read again on every
+ * `/api/trees/<rootExecutionId>`, `/api/records?…`, `/api/radar`, `/api/blast-radius` (#401 PR 7). The paths are read again on every
  * request, so a new export shows at the next reload.
  */
 
@@ -58,7 +58,12 @@ function segmentAfter(path: string, prefix: string): string | undefined {
 function apiOf(read: { inputs: HubInputs; mesh: HubMesh }, url: URL): EvalUiResponse {
   const { mesh } = read;
   if (url.pathname === "/api/mesh")
-    return jsonResponse(200, { applications: mesh.applications, edges: mesh.edges });
+    return jsonResponse(200, {
+      applications: mesh.applications,
+      edges: mesh.edges,
+      declaredEdges: mesh.federation.declaredEdges,
+    });
+  if (url.pathname === "/api/blast-radius") return jsonResponse(200, mesh.federation);
   if (url.pathname === "/api/radar") return jsonResponse(200, mesh.radar);
   if (url.pathname === "/api/records")
     return jsonResponse(200, searchRecords(read.inputs.records, recordQueryOf(url.searchParams)));

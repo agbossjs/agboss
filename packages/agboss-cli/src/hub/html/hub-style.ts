@@ -11,6 +11,12 @@ export const HUB_PAGE_STYLE = `${REPORT_PAGE_STYLE}
 .mesh-edge { stroke: var(--muted); stroke-width: 1.5; fill: none; }
 .mesh-arrow { fill: var(--muted); }
 .mesh-edge-label { fill: var(--muted); font-size: 12px; }
+.mesh-edge-declared { stroke-dasharray: 6 4; }
+line.mesh-edge-broken { stroke: var(--failed); }
+text.mesh-edge-broken { fill: var(--failed); }
+tr.federation-broken td { background: var(--failed-bg); }
+.federation-problems { padding-left: 18px; }
+.federation-problems p { margin: 2px 0; overflow-wrap: anywhere; }
 .mesh-node rect { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
 .mesh-node.mesh-undescribed rect { stroke: var(--muted); stroke-dasharray: 4 3; }
 .mesh-node text { fill: var(--text); font-size: 13px; font-weight: 600; }

@@ -1,6 +1,7 @@
 import { element, type HtmlElement } from "../../eval/html/html.js";
 import { sectionOf } from "../../eval/html/sections.js";
 import type { HubMesh, MeshApplication } from "../mesh.js";
+import type { DeclaredEdge } from "../federation-view.js";
 import type { ObservedEdge } from "../observed-calls.js";
 import { applicationAnchor } from "./anchors.js";
 
@@ -8,7 +9,9 @@ import { applicationAnchor } from "./anchors.js";
  * The Global Agent Mesh Graph (#401 PR 3): every application as a box on an ellipse, in name order —
  * the same input gives the same drawing —, each a link to its card; an arrow per observed edge,
  * labelled with its calls. A described application has a solid border, one only seen in records or
- * runs a dashed one. The edges table below says the same in text.
+ * runs a dashed one. A contract a snapshot declares and no record shows is a dashed arrow (#401 PR
+ * 7), one `check --federation` finds broken is drawn in the failure colour. The edges table below
+ * and the federation section say the same in text.
  */
 
 const WIDTH = 760;
@@ -76,20 +79,70 @@ function nodeOf(application: MeshApplication, index: number, centre: Point): Htm
   );
 }
 
-function edgeOf(edge: ObservedEdge, centres: ReadonlyMap<string, Point>): HtmlElement[] {
+/** One arrow between two applications: what was observed and what is declared. */
+interface DrawnEdge {
+  readonly from: string;
+  readonly to: string;
+  readonly calls: number;
+  readonly isDeclared: boolean;
+  readonly isBroken: boolean;
+}
+
+function drawnEdgesOf(
+  observed: readonly ObservedEdge[],
+  declared: readonly DeclaredEdge[],
+): DrawnEdge[] {
+  const drawn = new Map<string, DrawnEdge>();
+  const keyOf = (from: string, to: string): string => JSON.stringify([from, to]);
+  for (const edge of observed)
+    drawn.set(keyOf(edge.from, edge.to), {
+      from: edge.from,
+      to: edge.to,
+      calls: edge.calls,
+      isDeclared: false,
+      isBroken: false,
+    });
+  for (const edge of declared) {
+    const key = keyOf(edge.from, edge.to);
+    const known = drawn.get(key);
+    drawn.set(key, {
+      from: edge.from,
+      to: edge.to,
+      calls: known?.calls ?? 0,
+      isDeclared: true,
+      isBroken: (known?.isBroken ?? false) || edge.problems.length > 0,
+    });
+  }
+  return [...drawn.values()];
+}
+
+function labelOf(edge: DrawnEdge): string {
+  const calls =
+    edge.calls === 0 ? "declared" : `${String(edge.calls)} call${edge.calls === 1 ? "" : "s"}`;
+  if (edge.isBroken) return `${calls} · incompatible`;
+  return edge.calls > 0 && edge.isDeclared ? `${calls} · declared` : calls;
+}
+
+function classOf(edge: DrawnEdge): string {
+  const classes = ["mesh-edge"];
+  if (edge.calls === 0) classes.push("mesh-edge-declared");
+  if (edge.isBroken) classes.push("mesh-edge-broken");
+  return classes.join(" ");
+}
+
+function edgeOf(edge: DrawnEdge, centres: ReadonlyMap<string, Point>): HtmlElement[] {
   const from = centres.get(edge.from);
   const to = centres.get(edge.to);
   if (from === undefined || to === undefined || edge.from === edge.to) return [];
   const start = boxEdge(from, to);
   const end = boxEdge(to, from);
-  const label = `${String(edge.calls)} call${edge.calls === 1 ? "" : "s"}`;
   return [
     element("line", {
       x1: start.x,
       y1: start.y,
       x2: end.x,
       y2: end.y,
-      class: "mesh-edge",
+      class: classOf(edge),
       "marker-end": "url(#mesh-arrow)",
     }),
     element(
@@ -98,9 +151,9 @@ function edgeOf(edge: ObservedEdge, centres: ReadonlyMap<string, Point>): HtmlEl
         x: Math.round((start.x + end.x) / 2),
         y: Math.round((start.y + end.y) / 2) - 6,
         "text-anchor": "middle",
-        class: "mesh-edge-label",
+        class: edge.isBroken ? "mesh-edge-label mesh-edge-broken" : "mesh-edge-label",
       },
-      [label],
+      [labelOf(edge)],
     ),
   ];
 }
@@ -124,6 +177,7 @@ const ARROW = element("defs", {}, [
 /** The graph's section. */
 export function meshGraphSectionOf(mesh: HubMesh): HtmlElement {
   const count = mesh.applications.length;
+  const edges = drawnEdgesOf(mesh.edges, mesh.federation.declaredEdges);
   const centres = new Map(
     mesh.applications.map((application, index) => [application.name, nodeCentre(index, count)]),
   );
@@ -137,10 +191,10 @@ export function meshGraphSectionOf(mesh: HubMesh): HtmlElement {
     },
     [
       element("title", { id: "mesh-graph-caption" }, [
-        `${String(count)} applications, ${String(mesh.edges.length)} observed edges`,
+        `${String(count)} applications, ${String(mesh.edges.length)} observed edges, ${String(mesh.federation.declaredEdges.length)} declared contracts`,
       ]),
       ARROW,
-      ...mesh.edges.flatMap((edge) => edgeOf(edge, centres)),
+      ...edges.flatMap((edge) => edgeOf(edge, centres)),
       ...mesh.applications.map((application, index) =>
         nodeOf(application, index, centres.get(application.name) ?? nodeCentre(index, count)),
       ),
@@ -148,7 +202,7 @@ export function meshGraphSectionOf(mesh: HubMesh): HtmlElement {
   );
   return sectionOf("mesh-graph", "Agent mesh", [
     element("p", { class: "muted" }, [
-      "Applications and the calls between them the records saw. A dashed box is an application no snapshot describes.",
+      "Applications and the calls between them the records saw. A dashed box is an application no snapshot describes; a dashed arrow a contract a snapshot declares that no record shows; a red one a contract check --federation finds incompatible.",
     ]),
     element("div", { class: "mesh-graph" }, [svg]),
   ]);

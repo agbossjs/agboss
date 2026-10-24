@@ -50,7 +50,7 @@ describe("#401 PR 3: agboss hub show", () => {
         stubs: 0,
       },
     ]);
-    expect(call.stderr).toContain("hub: 2 applications");
+    expect(call.stderr).toContain("hub: 3 applications"); // kb-application: a declared producer, undescribed
     expect(call.stderr).toContain("1 observed cross-service edge");
     const page = readFileSync(join(cwd, "mesh.html"), "utf8");
     expect(page).toContain('content="agboss hub"');

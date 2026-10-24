@@ -417,14 +417,24 @@ npx agboss hub show hub/ --html .artifacts/mesh.html
   inputs seen at least twice. A **candidate** to turn into code (`DecidedBy.Code`, an `@Action`) has
   at least 50 calls, stability ≥ 0.95 and, where its workflow has eval runs, pass^k on every case of
   their latest; each row names its calls, spend, stability, pass^k and the executions behind it.
+- **Blast radius & federation**: every contract a snapshot declares (`application.contracts`, an
+  `@A2AAgent` or an `@McpServer` tool with a target) is a **declared edge**, consumer → producer —
+  dashed in the graph when no record shows a call, a producer no snapshot describes a dashed box
+  ("producer not among the inputs"). The problems are `agboss check --federation`'s own: the hub
+  calls the same `checkFederation` over the newest snapshot of every application, so it lists the
+  same `[federation.incompatible-schema]` / `[federation.missing-target]` with the same blast radius
+  (the consumer's workflows and tools), and draws a broken contract red. Beside them, each
+  application whose latest eval run lost pass^k with its callers — by a declared contract and by
+  calls the records saw. A snapshot from an agboss without `contracts` is named, never guessed.
 - **Served**: `npx agboss hub ui hub/ [--port 4318]` — the same files on 127.0.0.1 behind the token it
   prints, on `eval ui`'s server and rules (its own `Host` only, no CORS, read-only — GET and HEAD),
   read again on every request: the page, `/records` (every export's executions searched by
   application, workflow, status, a start window and a text in an id, a page at a time) and the JSON
   API `/api/mesh`, `/api/applications/<name>`, `/api/trees/<rootExecutionId>`, `/api/records?…`,
-  `/api/radar`. It is for one person on their own machine; share the static page instead.
+  `/api/radar`, `/api/blast-radius`. It is for one person on their own machine; share the static page instead.
 - Above 16 MB the page is refused (`hub.report-too-large`): export a shorter period. Without
-  `--html` it prints the summary; `--json` gives the applications, the inputs and the edges.
+  `--html` it prints the summary; `--json` gives the applications, the inputs, the observed and declared edges, the trees, the
+  radar and the federation's problems.
 
 ## Your own store
 

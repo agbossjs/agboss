@@ -16,7 +16,8 @@ import { readHubInputs } from "./read-inputs.js";
  * `agboss hub show <path…> [--html <file>]` (#401 PR 3, S2 Q1 / Q6): the mesh of many applications
  * read from their files — no project, no application assembled, no network — printed as a summary,
  * and with `--html` written as one self-contained page within #397's size bound
- * (`hub.report-too-large` above it). `--json`: the applications, the inputs, the edges, the page.
+ * (`hub.report-too-large` above it). `--json`: the applications, the inputs, the observed and
+ * declared edges, the trees, the radar, the federation's problems with their blast radius, the page.
  */
 
 const plural = (count: number, one: string, many = `${one}s`): string =>
@@ -30,6 +31,7 @@ function summaryLines(mesh: HubMesh): string[] {
   return [
     `hub: ${plural(mesh.applications.length, "application")} · ${plural(workflows, "workflow")} · ${plural(mesh.edges.length, "observed cross-service edge")}`,
     `${plural(mesh.trees.length, "execution tree")} across applications · ${plural(mesh.radar.filter((step) => step.isCandidate).length, "crystallization candidate")}`,
+    `${plural(mesh.federation.declaredEdges.length, "declared edge")} · ${plural(mesh.federation.problems.length, "federation problem")} · ${plural(mesh.federation.unstableReach.length, "application")} failing pass^k`,
     `snapshots ${String(mesh.inputs.describe)} · eval runs ${String(mesh.inputs.evalRuns)} · kept executions ${String(mesh.inputs.records)}`,
   ];
 }
@@ -53,7 +55,7 @@ async function writePage(context: CommandContext, path: string, mesh: HubMesh): 
 const resultOf = (inputs: HubInputs, mesh: HubMesh) => ({
   applications: inputs.applications.map(({ name, version, file }) => ({ name, version, file })),
   inputs: { ...mesh.inputs, files: inputs.files },
-  edges: { observed: mesh.edges },
+  edges: { observed: mesh.edges, declared: mesh.federation.declaredEdges },
   trees: mesh.trees.map(({ root, applications, executions, stubs }) => ({
     rootExecutionId: root.executionId,
     application: root.application,
@@ -62,6 +64,11 @@ const resultOf = (inputs: HubInputs, mesh: HubMesh) => ({
     stubs,
   })),
   radar: mesh.radar,
+  federation: {
+    problems: mesh.federation.problems,
+    undeclared: mesh.federation.undeclared,
+    unstableReach: mesh.federation.unstableReach,
+  },
 });
 
 async function hubShowCommand(context: CommandContext): Promise<CommandOutcome> {

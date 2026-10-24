@@ -89,6 +89,9 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   `decision` (`route:` / `launch:` / `variant:` / `answer:<hash>`) for it (#401).
   `agboss hub ui <path…>` serves the Hub on 127.0.0.1 behind a token — `eval ui`'s own server and
   rules, read-only — with a search of the kept executions and a JSON API (#401).
+  Both draw each contract the snapshots declare as an edge consumer → producer, and list the
+  problems `agboss check --federation` finds between them — the same check — with their blast
+  radius, and who calls an application whose latest eval run lost pass^k (#401).
 - **The CLI** (`agboss-cli`) — `agboss create`, `agboss generate`, `agboss check`,
   `agboss describe`, `agboss dev`, `agboss studio`, `agboss chat` / `agboss run`, evaluations and
   comparisons (#268). Breaking on the way (#396): the bare `agboss eval` is now `agboss eval score`

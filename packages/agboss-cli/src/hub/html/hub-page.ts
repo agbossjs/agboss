@@ -3,6 +3,7 @@ import { element, renderHtml, type HtmlElement } from "../../eval/html/html.js";
 import { factsOf, sectionOf } from "../../eval/html/sections.js";
 import type { HubMesh } from "../mesh.js";
 import { applicationsSectionOf } from "./applications-section.js";
+import { federationSectionOf } from "./federation-section.js";
 import { HUB_PAGE_STYLE } from "./hub-style.js";
 import { meshGraphSectionOf } from "./mesh-graph-section.js";
 import { radarSectionOf } from "./radar-section.js";
@@ -11,7 +12,8 @@ import { treesSectionOf } from "./trees-section.js";
 /**
  * The Hub's page (#401 PR 3): one self-contained document in #397's shell — inline style and
  * script allowed by their hashes, no request of any kind, so it reads from `file://` or behind a
- * company's own SSO — with the mesh graph, the observed edges and every application's card.
+ * company's own SSO — with the mesh graph, the observed edges, blast radius & federation (#401 PR 7), the trees, the
+ * radar and every application's card.
  */
 
 function headerOf(mesh: HubMesh, options: HubPageOptions): HtmlElement {
@@ -31,6 +33,8 @@ function headerOf(mesh: HubMesh, options: HubPageOptions): HtmlElement {
       ["applications", String(mesh.applications.length)],
       ["workflows", String(workflows)],
       ["observed edges", String(mesh.edges.length)],
+      ["declared contracts", String(mesh.federation.declaredEdges.length)],
+      ["federation problems", String(mesh.federation.problems.length)],
       ["trees across applications", String(mesh.trees.length)],
       ["crystallization candidates", String(mesh.radar.filter((step) => step.isCandidate).length)],
       ["snapshots", String(mesh.inputs.describe)],
@@ -87,6 +91,7 @@ export function renderHubPage(mesh: HubMesh, options: HubPageOptions = {}): stri
       element("main", {}, [
         meshGraphSectionOf(mesh),
         edgesSectionOf(mesh),
+        federationSectionOf(mesh.federation),
         treesSectionOf(mesh.trees),
         radarSectionOf(mesh.radar),
         applicationsSectionOf(mesh.applications),

@@ -61,6 +61,10 @@ describe("#401 PR 6: agboss hub ui's routes", () => {
     });
     expect(get(`/api/trees/nope?token=${TOKEN}`).status).toBe(404);
     expect(json(`/api/radar?token=${TOKEN}`)).toEqual([]);
+    expect(json(`/api/blast-radius?token=${TOKEN}`)).toMatchObject({
+      declaredEdges: [{ from: SHOP, to: BILLING, problems: [] }, { isDangling: true }],
+      problems: [],
+    });
     expect(json(`/api/records?token=${TOKEN}&application=${SHOP}&limit=1`)).toMatchObject({
       total: 2,
       offset: 0,
