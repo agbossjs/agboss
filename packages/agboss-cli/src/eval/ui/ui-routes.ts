@@ -1,4 +1,3 @@
-import { timingSafeEqual } from "node:crypto";
 import type { EvalRunReport } from "agboss/eval";
 import { calibrateJudges, type EvalFailureTag } from "agboss/internal";
 import type { HtmlElement } from "../html/html.js";
@@ -10,6 +9,7 @@ import { labelFormsOf } from "./label-forms.js";
 import { suiteLabelsOf, type SuiteLabels } from "./labels-file.js";
 import { runFilesOf } from "./run-folder.js";
 import { saveLabel } from "./save-label.js";
+import { isOwnHost, isOwnOrigin, isToken } from "./ui-guard.js";
 import { goldenFormOf, saveGoldenCase, type GoldenSource } from "./golden-case.js";
 import { element } from "../html/html.js";
 import { htmlResponse, textResponse, type EvalUiResponse } from "./ui-responses.js";
@@ -48,23 +48,6 @@ export interface EvalUiSettings {
   /** Where "save as golden case" reads executions and writes cases (#397 PR 5). */
   readonly golden: GoldenSource;
 }
-
-const isToken = (given: string | null, token: string): boolean =>
-  given !== null &&
-  given.length === token.length &&
-  timingSafeEqual(Buffer.from(given), Buffer.from(token));
-
-/** The origins a browser on this machine has for the server's port. */
-const originsOf = (port: number): readonly string[] => [
-  `127.0.0.1:${String(port)}`,
-  `localhost:${String(port)}`,
-];
-
-const isOwnHost = (host: string | undefined, port: number): boolean =>
-  host !== undefined && originsOf(port).includes(host.toLowerCase());
-
-const isOwnOrigin = (origin: string | undefined, port: number): boolean =>
-  origin === undefined || originsOf(port).some((own) => origin.toLowerCase() === `http://${own}`);
 
 /** A run of the folder by its file name, or the answer when there is none. */
 type FoundRun =

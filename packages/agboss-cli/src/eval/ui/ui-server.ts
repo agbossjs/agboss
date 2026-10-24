@@ -2,22 +2,46 @@ import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { textResponse, type EvalUiResponse } from "./ui-responses.js";
-import { respondTo, type EvalUiSettings } from "./ui-routes.js";
+import { respondTo, type EvalUiRequest, type EvalUiSettings } from "./ui-routes.js";
 
 /**
- * The server of `agboss eval ui` (#397 PR 3): `node:http` on the loopback address only, a fresh
- * 128-bit token per start, every answer from `respondTo`. Port 0 takes a free port.
+ * The local server of `agboss eval ui` and `agboss hub ui` (#397 PR 3, #401 PR 6) — one server for
+ * both, secured once: `node:http` on the loopback address only, a fresh 128-bit token per start,
+ * a form's body bounded, every answer from the command's own routes. Port 0 takes a free port.
  */
 
-/** A running eval UI: where to open it, and how to stop it. */
-export interface EvalUi {
+/** A running local UI: where to open it, and how to stop it. */
+export interface LocalUi {
   /** The URL to open, its token included. */
   readonly url: string;
   readonly port: number;
   readonly close: () => Promise<void>;
 }
 
-/** Where the server reads runs and labels, and listens. */
+/** The eval UI is one. */
+export type EvalUi = LocalUi;
+
+/** What a request says, as the routes read it. */
+export type LocalUiRequest = EvalUiRequest;
+
+/** Who the server is for its routes: its token and the port it listens on. */
+export interface LocalUiServed {
+  readonly token: string;
+  readonly port: number;
+}
+
+/** How a local UI answers. */
+export interface LocalUiOptions {
+  /** The command, for its error answers (`agboss hub ui`). */
+  readonly name: string;
+  readonly port: number;
+  readonly respond: (
+    request: LocalUiRequest,
+    served: LocalUiServed,
+  ) => EvalUiResponse | Promise<EvalUiResponse>;
+}
+
+/** Where the eval UI reads runs and labels, and listens. */
 export type EvalUiOptions = Omit<EvalUiSettings, "token">;
 
 /** The largest form a POST may send. */
@@ -41,20 +65,19 @@ function bodyOf(request: IncomingMessage): Promise<string | undefined> {
 
 async function answerOf(
   request: IncomingMessage,
-  settings: EvalUiSettings,
+  options: LocalUiOptions,
+  served: LocalUiServed,
 ): Promise<EvalUiResponse> {
   const body = request.method === "POST" ? await bodyOf(request) : "";
-  if (body === undefined) return textResponse(413, "a form of agboss eval ui is at most 64 KB");
-  return await respondTo(
-    {
-      method: request.method ?? "GET",
-      url: request.url ?? "/",
-      host: request.headers.host,
-      origin: request.headers.origin,
-      body,
-    },
-    settings,
-  );
+  if (body === undefined) return textResponse(413, `a form of ${options.name} is at most 64 KB`);
+  const asked = {
+    method: request.method ?? "GET",
+    url: request.url ?? "/",
+    host: request.headers.host,
+    origin: request.headers.origin,
+    body,
+  };
+  return await options.respond(asked, served);
 }
 
 const listen = (server: Server, port: number): Promise<number> =>
@@ -65,12 +88,12 @@ const listen = (server: Server, port: number): Promise<number> =>
     });
   });
 
-/** Starts the server; resolves once it listens. */
-export async function startEvalUi(options: EvalUiOptions): Promise<EvalUi> {
+/** Starts a local UI; resolves once it listens. */
+export async function startLocalUi(options: LocalUiOptions): Promise<LocalUi> {
   const token = randomBytes(16).toString("hex");
-  let settings: EvalUiSettings = { ...options, token };
+  let served: LocalUiServed = { token, port: options.port };
   const server = createServer((request, response) => {
-    void answerOf(request, settings).then(
+    void answerOf(request, options, served).then(
       (answer) => {
         response.writeHead(answer.status, answer.headers);
         response.end(request.method === "HEAD" ? undefined : answer.body);
@@ -78,13 +101,13 @@ export async function startEvalUi(options: EvalUiOptions): Promise<EvalUi> {
       (error: unknown) => {
         response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
         response.end(
-          `agboss eval ui failed: ${error instanceof Error ? error.message : String(error)}\n`,
+          `${options.name} failed: ${error instanceof Error ? error.message : String(error)}\n`,
         );
       },
     );
   });
   const port = await listen(server, options.port);
-  settings = { ...settings, port };
+  served = { token, port };
   return {
     url: `http://127.0.0.1:${String(port)}/?token=${token}`,
     port,
@@ -97,3 +120,11 @@ export async function startEvalUi(options: EvalUiOptions): Promise<EvalUi> {
       }),
   };
 }
+
+/** Starts `agboss eval ui`'s server. */
+export const startEvalUi = (options: EvalUiOptions): Promise<EvalUi> =>
+  startLocalUi({
+    name: "agboss eval ui",
+    port: options.port,
+    respond: (request, served) => respondTo(request, { ...options, ...served }),
+  });

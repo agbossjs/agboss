@@ -81,5 +81,7 @@ async function hubShowCommand(context: CommandContext): Promise<CommandOutcome> 
 export const handle: CommandHandler = (context) => {
   const [subcommand] = context.positionals;
   if (subcommand === "show") return hubShowCommand(context);
+  if (subcommand === "ui")
+    return import("./ui/hub-ui-cli.js").then((loaded) => loaded.hubUiCommand(context));
   throw usageError("hub", "usage.unknown-command", `unknown subcommand "hub ${subcommand ?? ""}"`);
 };

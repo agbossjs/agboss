@@ -417,6 +417,12 @@ npx agboss hub show hub/ --html .artifacts/mesh.html
   inputs seen at least twice. A **candidate** to turn into code (`DecidedBy.Code`, an `@Action`) has
   at least 50 calls, stability ≥ 0.95 and, where its workflow has eval runs, pass^k on every case of
   their latest; each row names its calls, spend, stability, pass^k and the executions behind it.
+- **Served**: `npx agboss hub ui hub/ [--port 4318]` — the same files on 127.0.0.1 behind the token it
+  prints, on `eval ui`'s server and rules (its own `Host` only, no CORS, read-only — GET and HEAD),
+  read again on every request: the page, `/records` (every export's executions searched by
+  application, workflow, status, a start window and a text in an id, a page at a time) and the JSON
+  API `/api/mesh`, `/api/applications/<name>`, `/api/trees/<rootExecutionId>`, `/api/records?…`,
+  `/api/radar`. It is for one person on their own machine; share the static page instead.
 - Above 16 MB the page is refused (`hub.report-too-large`): export a shorter period. Without
   `--html` it prints the summary; `--json` gives the applications, the inputs and the edges.
 
