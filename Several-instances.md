@@ -672,13 +672,16 @@ may run on **any** instance instead, through the application's `ChildExecutionQu
 
 List `SqliteChildExecutionQueueRepository` (table `child_execution_queue`) or your own `extends
 ChildExecutionQueueRepository`; on the built-in in-memory queue only the instances of one process
-(a test's) share it — `[application.in-memory-child-queue]`. The queue, the checkpointer and the
-ledger must be shared for a child to run elsewhere.
+(a test's) share it — `[application.in-memory-child-queue]`. The queue, the checkpointer, the
+ledger and `RateLimitRepository` must be shared for a child to run elsewhere. For a tree that can
+launch on any instance (#333 PR 3, S8), `maxConcurrentExecutions` is held as leases in
+`RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>` and `:subtree:<executionId>`, renewed
+while held, polled on the `Clock`), depth and the root's budgets are checked where the child runs,
+and each superstep's spend reaches the root's counters at once.
 
-Not yet (#333 PR 3–4): such a child cannot pause (`[graph.remote-child-can-pause]`); the parent keeps
-its lease while it waits; a child whose instance crashed is not recovered on its own — its row stays
-`Running` and its parent keeps waiting — and depth and the tree's `maxConcurrentExecutions` are
-checked only where it is launched.
+Not yet (#333 PR 4): such a child cannot pause (`[graph.remote-child-can-pause]`); the parent keeps
+its lease while it waits; and a child whose instance crashed is not recovered on its own — its row
+stays `Running` and its parent keeps waiting.
 
 ## Limits
 

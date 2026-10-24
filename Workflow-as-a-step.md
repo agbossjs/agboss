@@ -537,11 +537,14 @@ export const anyInstancePaths = [
   class through the cause is not possible yet.
 - **A cancel or the tree's end** stops a child running on another instance at its next look (every
   10 s); the tree's queue rows are removed when its root ends.
-- **Not yet**: such a child cannot pause — `[graph.remote-child-can-pause]` names the child, the tool
-  and its channel, and the fix (`ChildPlacement.ParentInstance`) — until #333 PR 4, which also
-  yields the parent's lease while it waits and recovers a crashed child on its own. Until #333 PR 3
-  its depth and the tree's `maxConcurrentExecutions` are checked where it is launched only, and its
-  spend reaches the ledger when its parent's step goes on (as for a local child).
+- **Tree-wide limits hold where it runs (#333 PR 3)**: its depth (`maxDepth`), the root's budgets
+  and the tree's `maxConcurrentExecutions` ([FinOps](FinOps#concurrency-of-a-tree-264)) are checked
+  on the worker — the tree's slots are held as leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>`
+  and `:subtree:<executionId>`), and each superstep's spend is written to the root's counters in
+  `CostLedgerRepository` at once (never counted twice when the parent folds the child's state in).
+- **Not yet (#333 PR 4)**: such a child cannot pause — `[graph.remote-child-can-pause]` names the child,
+  the tool and its channel, and the fix (`ChildPlacement.ParentInstance`) — and the parent keeps its
+  lease while it waits and does not recover a crashed child on its own.
 
 ## Recursion (#264)
 

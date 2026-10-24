@@ -3,6 +3,20 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — tree-wide slots, depth and budgets across instances (#333 PR 3)
+
+- **Added — shared tree slots in `RateLimitRepository`** ([FinOps](FinOps#concurrency-of-a-tree-264),
+  [Several instances](Several-instances#children-on-any-instance-333)): when a tree can launch a child
+  with `ChildPlacement.AnyInstance`, its `maxConcurrentExecutions` cap (and any smaller subtree cap)
+  is held as leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>` and
+  `:subtree:<executionId>`, renewed while held, polled on the `Clock`), so the cap holds across
+  instances and a crashed instance's slot expires by itself. Local-only trees stay in-process.
+- **Changed — immediate ledger recording for remote children** ([Workflow as a step](Workflow-as-a-step#on-any-instance-333-pr-2)):
+  a worker running an `AnyInstance` child writes each superstep's usage to the root's budget counters
+  in `CostLedgerRepository` as it streams, and the parent marks those records `isRecordedElsewhere`
+  when folding in the child's state so nothing is counted twice. Depth (`maxDepth`) and the root's
+  budgets are checked on the worker.
+
 ## Unreleased — flow-patterns drops its memory strategy (#459)
 
 - **Example — `SameOrderMemoryStrategy` removed** ([Example](Example)): the helpline's agent no longer

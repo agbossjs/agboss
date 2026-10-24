@@ -363,11 +363,12 @@ how many executions of the tree work on a step at once — a throttle, never an 
 | a child's own `maxConcurrentExecutions` | a smaller one limits its subtree inside the tree's; a larger one is never reached — `[limits.child-concurrency-above-parent]`, a warning (an error under `--strict`) |
 | a quorum's `deadline` | the time its branches wait for a slot does not count ([Parallel → The deadline](Parallel#the-deadline)) |
 | a `FailFast` failure, a cancel | the waiting steps of the aborted launch leave the queue unstarted |
-| a pause, a crash | the slots live in the process that holds the tree's lease ([Several instances](Several-instances)), never in a store: the next pass — a resume, or a recovery on another instance — rebuilds the queue from the unfinished tasks |
+| a pause, a crash | for a local tree, the slots live in the process that holds the tree's lease ([Several instances](Several-instances)), never in a store; when the tree can launch a child on any instance (`ChildPlacement.AnyInstance`, #333 PR 3), its slots are leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>` and `:subtree:<executionId>`, renewed while held, so a crashed instance's slot expires by itself); the next pass rebuilds the queue from the unfinished tasks |
 
 What it is not: a slot is an execution, not model load — one execution may fan out into several
 model calls (provider throughput is `rateLimitPolicy`, below); the cap is per tree, not per
-application; the queue lives in one process. `agboss describe` prints it for a workflow that
+application; the queue order is per instance (across instances, whoever acquires the lease first
+gets the slot). `agboss describe` prints it for a workflow that
 launches children: `maxConcurrentExecutions 6 (set) · executions of the tree at work at once`
 (`10 (default)` when unset).
 
