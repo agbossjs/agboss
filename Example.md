@@ -155,9 +155,7 @@ npm test
   `mockOf(DeskA2AAgent)`.
   The helpline also reads the customer policies (`data/policies/`) through the official filesystem
   [MCP](Mcp) server — `@McpServer` `policy-files` over stdio, its `read-policy-tool` an `@McpTool`;
-  `tests/helpline-tools.test.ts` never starts it, `mcpOf(PolicyFilesServer)` answers `read_text_file`
-  — and its agent remembers the thread by its own `memoryStrategy` (`SameOrderMemoryStrategy`,
-  `extends BaseMemoryStrategy` from `agboss/memory`): only the earlier turns about the order asked.
+  `tests/helpline-tools.test.ts` never starts it, `mcpOf(PolicyFilesServer)` answers `read_text_file`.
 - **`src/intake/`** — a quorum by groups ([Parallel](Parallel), #279): a full legal check and a quick
   screen side by side, `.joinQuorumGroups(group(LegalCheckAgent).priority(1)…, group(FastScreenAgent)
   .priority(2)…, { deadline: seconds(30) })`. `tests/intake.test.ts` fixes the order the branches

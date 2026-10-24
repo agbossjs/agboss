@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — flow-patterns drops its memory strategy (#459)
+
+- **Example — `SameOrderMemoryStrategy` removed** ([Example](Example)): the helpline's agent no longer
+  sets `memoryStrategy`, which is v1 memory. The example shows memory the v2 way: the desk's
+  `CompactionStrategy.Custom` compaction and `historyOf` in the review loop. `@Agent({ memoryStrategy })`
+  stays in the framework ([Memory management](Memory-Management)).
+
 ## Unreleased — documented: `instances: 2` on SQLite `:memory:` (#458)
 
 - **Docs — several instances on SQLite** ([Several instances](Several-instances#testing-several-instances)):
