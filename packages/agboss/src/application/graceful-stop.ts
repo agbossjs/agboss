@@ -1,5 +1,6 @@
 import { ApplicationStoppingError } from "../app/application-stopping.js";
 import type { BuiltApp } from "../app/create-app.js";
+import { executionLeasesOf } from "../app/execution-leases.js";
 import type { CloseOptions } from "../app/types.js";
 import { stopComponents } from "../components/container/lifecycle.js";
 import { startRecoverySweep, type RecoverySweep } from "../infrastructure/recovery.js";
@@ -175,6 +176,7 @@ function childWorkersOf(
   ]).then(([workers, registry]) =>
     workers.startChildWorkers({
       queue: infrastructure.childQueue,
+      leases: executionLeasesOf(infrastructure.executionLeases, infrastructure.clock),
       trees: infrastructure.executionTrees,
       clock: infrastructure.clock,
       log,

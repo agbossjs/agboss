@@ -24,6 +24,8 @@ export interface ChildWaiting {
     /** The parent's node: the child's graph is its registered subgraph (or `ThisWorkflow`'s own). */
     readonly node: string;
     readonly isRecursive: boolean;
+    /** Whether the child runs on any instance through `ChildExecutionQueueRepository` (#333 PR 4). */
+    readonly remote?: boolean | undefined;
   };
 }
 
@@ -43,7 +45,7 @@ export type OwnThreadEnd =
   | { readonly kind: "failed"; readonly error: unknown; readonly last?: ExecutionStateType };
 
 /** A forwarded resume map, read from the marker's answer (the drain wrote it as JSON). */
-function resumeMapOf(answer: unknown): Readonly<Record<string, string>> {
+export function resumeMapOf(answer: unknown): Readonly<Record<string, string>> {
   if (typeof answer !== "string") return {};
   const parsed: unknown = JSON.parse(answer);
   if (typeof parsed !== "object" || parsed === null) return {};

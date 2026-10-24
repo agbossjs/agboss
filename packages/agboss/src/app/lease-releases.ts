@@ -16,6 +16,7 @@ export interface ReleaseWatch {
 }
 
 const watchers = new Map<string, Set<AbortController>>();
+const yielded = new Map<string, number>();
 
 export const leaseReleases = {
   /** Wakes every call watching the tree `key`. */
@@ -23,6 +24,21 @@ export const leaseReleases = {
     watchers.get(key)?.forEach((watcher) => {
       watcher.abort();
     });
+  },
+
+  /** Marks `key` as yielded while its holder awaits remote children (#333 PR 4); returns how to unmark. */
+  enterYielded(key: string): () => void {
+    yielded.set(key, (yielded.get(key) ?? 0) + 1);
+    return () => {
+      const left = (yielded.get(key) ?? 1) - 1;
+      if (left <= 0) yielded.delete(key);
+      else yielded.set(key, left);
+    };
+  },
+
+  /** Whether a live holder in this process has yielded `key` while awaiting remote children. */
+  isYielded(key: string): boolean {
+    return yielded.has(key);
   },
 
   watch(key: string): ReleaseWatch {

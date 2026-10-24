@@ -1,61 +1,66 @@
-import { isCancelRequested } from "../cancel-requests.js";
-import type { ChildExecutionQueueRepository } from "../../infrastructure/child-execution-queue.repository.js";
-import type { QueuedChildExecution } from "../../infrastructure/child-execution-queue.repository.js";
+import type { ExecutionLeases, HeldExecutionLease } from "../execution-leases.js";
+import { leaseReleases } from "../lease-releases.js";
+import type {
+  ChildExecutionQueueRepository,
+  QueuedChildExecution,
+} from "../../infrastructure/child-execution-queue.repository.js";
 import type { Clock } from "../../infrastructure/clock.js";
+import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
 import type { ExecutionTreeRepository } from "../../infrastructure/execution-tree.repository.js";
 import { treeKeyOf } from "../../infrastructure/in-memory-database.js";
 import type { FrameworkLog } from "../../infrastructure/logger.js";
 import { SWEEP_EVERY } from "../../infrastructure/recovery.js";
 import { remoteChildSignals } from "../../flow/runtime/remote/remote-child-signals.js";
-import { ExecutionCancelledError } from "../../core/errors.js";
-import { seconds, type Milliseconds } from "../../units/index.js";
 import type { StepCapacity } from "../step-slots.js";
+import { isSameRunningClaim, watchRunningChild } from "./child-registry.js";
 import { runQueuedChild, type QueuedChildParts } from "./queued-child-run.js";
 
 /**
- * The claims of one application instance (#333 PR 2, S5): it claims queued children while it has a
- * free step slot (#332 — each child it runs holds one of them in this count; no cap → every queued
- * child) — at once when a child is queued in this process, and at every sweep (`SWEEP_EVERY`) for
- * the ones queued elsewhere. Each claimed child runs on its own thread to its end, its row
- * completed, its parent woken. While it runs, the worker looks every 10 s whether its tree still
- * waits for it: a cancel request (#360) or the tree's end (its rows removed) stops it. Stopped
- * with the instance (`app.close()`); the children it still runs are interrupted with the rest.
+ * The claims of one application instance (#333 PR 2, PR 4, S5, S7, S9): it claims queued children
+ * while it has a free step slot (#332) — at once when a child is queued in this process, and at
+ * every sweep (`SWEEP_EVERY`) for the ones queued elsewhere. Each claimed child runs under a 30 s
+ * lease in `ExecutionLeaseRepository` (`(tenantId, childExecutionId)`) on its own thread; a crash
+ * or a graceful stop past `shutdownTimeout` (S7) leaves the queue row `Running` so a live worker
+ * reclaims it once its lease is free and continues it from its last checkpoint.
  */
 
-/** How often a running child's tree is looked at: a cancel or the tree's end stops it. */
-const WATCH_EVERY: Milliseconds = seconds(10);
-
-/** What an instance's claims work with. */
 export interface ChildWorkerParts extends QueuedChildParts {
   readonly queue: ChildExecutionQueueRepository;
+  readonly leases: ExecutionLeases;
   readonly trees: ExecutionTreeRepository;
   readonly clock: Clock;
   readonly log: FrameworkLog;
-  /** The instance's step slots (#332); absent = no cap. */
   readonly capacity?: StepCapacity | undefined;
-  /** Aborted at the end of the instance's shutdown timeout: the running children stop. */
   readonly interruption: AbortSignal;
 }
 
-/** The claims of one instance. */
 export interface ChildWorkers {
-  /** Stops claiming; resolves when the children it runs ended. */
   stop(): Promise<void>;
 }
 
 class Workers implements ChildWorkers {
   readonly #stopped = new AbortController();
   readonly #running = new Map<string, Promise<void>>();
+  readonly #preHeld = new Map<string, HeldExecutionLease>();
+  readonly #reclaiming = new Set<string>();
+  readonly #onQueued: () => void;
   readonly #unsubscribe: () => void;
   readonly #loop: Promise<void>;
-  #looking = false;
-  /** Looks asked while one ran: it goes round once more. */
+  #looking: Promise<void> | undefined;
   #asked = 0;
 
   constructor(private readonly parts: ChildWorkerParts) {
-    this.#unsubscribe = remoteChildSignals.onQueued(() => {
+    this.#onQueued = () => {
       void this.#look();
+    };
+    const unq = remoteChildSignals.onQueued(this.#onQueued);
+    const unr = remoteChildSignals.onRunning((row) => {
+      void this.#reclaim(row);
     });
+    this.#unsubscribe = () => {
+      unq();
+      unr();
+    };
     this.#loop = this.#sweep();
   }
 
@@ -73,29 +78,26 @@ class Workers implements ChildWorkers {
     }
   }
 
-  /** How many more children this instance takes now. */
   #room(): number {
-    const { capacity } = this.parts;
-    if (capacity === undefined) return Number.POSITIVE_INFINITY;
-    return capacity.freeSlots() - this.#running.size;
+    const cap = this.parts.capacity;
+    return cap === undefined ? Number.POSITIVE_INFINITY : cap.freeSlots() - this.#running.size;
   }
 
-  /** Claims while there is room and a queued child; a look asked meanwhile runs once more. */
-  async #look(): Promise<void> {
+  #look(): Promise<void> {
     this.#asked += 1;
-    if (this.#looking) return;
-    this.#looking = true;
-    try {
-      while (this.#asked > 0 && !this.#stopped.signal.aborted) {
-        this.#asked = 0;
-        await this.#claimAll();
-      }
-    } finally {
-      this.#looking = false;
+    this.#looking ??= this.#drainLooks().finally(() => {
+      this.#looking = undefined;
+    });
+    return this.#looking;
+  }
+
+  async #drainLooks(): Promise<void> {
+    while (this.#asked > 0 && !this.#stopped.signal.aborted) {
+      this.#asked = 0;
+      await this.#claimAll();
     }
   }
 
-  /** Claims and starts children while there is room and one is queued. */
   async #claimAll(): Promise<void> {
     while (!this.#stopped.signal.aborted && this.#room() > 0) {
       const claimed = await this.#claim();
@@ -119,53 +121,88 @@ class Workers implements ChildWorkers {
 
   #start(row: QueuedChildExecution): void {
     const key = treeKeyOf(row.tenantId, row.executionId);
-    const done = this.#run(row).finally(() => {
+    const stopClaiming = remoteChildSignals.enterClaim(key);
+    const finish = (ran: boolean): void => {
       this.#running.delete(key);
       remoteChildSignals.ended(key);
-      void this.#look();
+      if (ran) void this.#look();
+    };
+    const done = this.#run(row, stopClaiming).then(finish, () => {
+      finish(false);
     });
     this.#running.set(key, done);
   }
 
-  async #run(row: QueuedChildExecution): Promise<void> {
-    const stop = new AbortController();
-    const signal = AbortSignal.any([stop.signal, this.parts.interruption]);
-    const watching = this.#watch(row, stop);
+  async #run(row: QueuedChildExecution, stopClaiming: () => void): Promise<boolean> {
+    const { tenantId, executionId } = row;
+    const key = treeKeyOf(tenantId, executionId);
+    let lease = this.#preHeld.get(key);
+    this.#preHeld.delete(key);
     try {
-      const end = await runQueuedChild(this.parts, row, signal);
-      const isCompleted = await this.parts.queue.completeByTenantIdAndExecutionId(
-        row.tenantId,
-        row.executionId,
-        end,
-      );
-      if (!isCompleted && !stop.signal.aborted)
-        this.parts.log.warn(
-          "child-queue.not-completed",
-          `child execution ${row.executionId} ended, but its tree no longer waits for it`,
-          { executionId: row.executionId, tenantId: row.tenantId },
-        );
+      lease ??= await this.parts.leases.tryHold({ tenantId, rootExecutionId: executionId });
+    } finally {
+      stopClaiming();
+    }
+    if (lease === undefined) {
+      await this.parts.queue.saveIfAbsent({ ...row, status: ExecutionRecordStatus.Queued });
+      remoteChildSignals.queued(this.#onQueued);
+      return false;
+    }
+    await this.#executeClaimed(row, lease);
+    return true;
+  }
+
+  async #executeClaimed(row: QueuedChildExecution, lease: HeldExecutionLease): Promise<void> {
+    const { tenantId, executionId } = row;
+    const { queue, interruption, log } = this.parts;
+    const stop = new AbortController();
+    const signal = AbortSignal.any([stop.signal, interruption, lease.signal]);
+    const watching = watchRunningChild(this.parts, row, stop);
+    try {
+      const end = await runQueuedChild(this.parts, row, lease, signal);
+      if (end === undefined) return;
+      const done = await queue.completeByTenantIdAndExecutionId(tenantId, executionId, end);
+      if (!done && !stop.signal.aborted) {
+        const text = `child execution ${executionId} ended, but its tree no longer waits for it`;
+        log.warn("child-queue.not-completed", text, { executionId, tenantId });
+      }
     } finally {
       stop.abort();
       await watching;
+      await lease.release();
     }
   }
 
-  /** Every 10 s while the child runs: its tree cancelled or ended stops it. */
-  async #watch(row: QueuedChildExecution, stop: AbortController): Promise<void> {
-    const tree = { tenantId: row.tenantId, rootExecutionId: row.rootExecutionId };
-    for (;;) {
-      await this.parts.clock.sleep(WATCH_EVERY, stop.signal);
-      if (stop.signal.aborted) return;
-      const stillQueued = await this.parts.queue
-        .findByTenantIdAndExecutionId(row.tenantId, row.executionId)
-        .catch(() => row);
-      if (stillQueued === undefined || (await isCancelRequested(this.parts.trees, tree))) {
-        stop.abort(new ExecutionCancelledError("the child's tree was cancelled or ended"));
-        return;
-      }
+  #canReclaim(key: string): boolean {
+    if (this.#stopped.signal.aborted || this.#room() <= 0) return false;
+    if (this.#running.has(key) || this.#reclaiming.has(key)) return false;
+    return !remoteChildSignals.isClaiming(key) && !leaseReleases.isYielded(key);
+  }
+
+  async #reclaim(row: QueuedChildExecution): Promise<void> {
+    const { tenantId, executionId } = row;
+    const key = treeKeyOf(tenantId, executionId);
+    if (!this.#canReclaim(key)) return;
+    this.#reclaiming.add(key);
+    try {
+      const current = await this.parts.queue
+        .findByTenantIdAndExecutionId(tenantId, executionId)
+        .catch(() => undefined);
+      if (!isSameRunningClaim(current, row)) return;
+      const lease = await this.parts.leases.tryHold({ tenantId, rootExecutionId: executionId });
+      if (lease === undefined) return;
+      const queuedAt = this.parts.clock.now();
+      await this.parts.queue.saveIfAbsent({
+        ...current,
+        status: ExecutionRecordStatus.Queued,
+        queuedAt,
+      });
+      this.#preHeld.set(key, lease);
+      await this.#look();
+    } finally {
+      this.#reclaiming.delete(key);
     }
   }
 }
 
-/** The claims of an instance, started now (its components have started). */
 export const startChildWorkers = (parts: ChildWorkerParts): ChildWorkers => new Workers(parts);

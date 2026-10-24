@@ -89,24 +89,47 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
   }
 
   saveIfAbsent(child: QueuedChildExecution): Promise<boolean> {
-    const { changes } = this.connection.database
-      .prepare(
-        `INSERT OR IGNORE INTO child_execution_queue VALUES
-         (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)`,
-      )
-      .run(
-        child.tenantId,
-        child.executionId,
-        child.rootExecutionId,
-        child.parentExecutionId,
-        child.rootWorkflow,
-        child.workflow,
-        child.depth,
-        ExecutionRecordStatus.Queued,
-        child.run,
-        child.queuedAt.getTime(),
-      );
-    return Promise.resolve(Number(changes) === 1);
+    const { database } = this.connection;
+    const saved = this.connection.transaction((): boolean => {
+      const inserted = database
+        .prepare(
+          `INSERT OR IGNORE INTO child_execution_queue VALUES
+           (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)`,
+        )
+        .run(
+          child.tenantId,
+          child.executionId,
+          child.rootExecutionId,
+          child.parentExecutionId,
+          child.rootWorkflow,
+          child.workflow,
+          child.depth,
+          ExecutionRecordStatus.Queued,
+          child.run,
+          child.queuedAt.getTime(),
+        );
+      if (Number(inserted.changes) === 1) return true;
+      const updated = database
+        .prepare(
+          `UPDATE child_execution_queue
+           SET status = ?, run = ?, queued_at = ?, instance_id = NULL, claimed_at = NULL,
+               ended_at = NULL, failure = NULL
+           WHERE tenant_id = ? AND execution_id = ?
+             AND (status = ? OR (status = ? AND claimed_at = ?))`,
+        )
+        .run(
+          ExecutionRecordStatus.Queued,
+          child.run,
+          child.queuedAt.getTime(),
+          child.tenantId,
+          child.executionId,
+          ExecutionRecordStatus.Paused,
+          ExecutionRecordStatus.Running,
+          child.claimedAt === undefined ? -1 : child.claimedAt.getTime(),
+        );
+      return Number(updated.changes) === 1;
+    });
+    return Promise.resolve(saved);
   }
 
   findByTenantIdAndExecutionId(

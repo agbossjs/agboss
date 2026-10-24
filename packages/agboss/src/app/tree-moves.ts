@@ -16,7 +16,9 @@ import type { TreeResume } from "../run/resume-map.js";
 import { currentOutputOf } from "./current-output.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import { isHandedOver } from "./handed-over.js";
+import { leaseReleases } from "./lease-releases.js";
 import { forgetTree, passEnded, treeOf } from "./tree-ends.js";
+import { treeKeyOf } from "../infrastructure/in-memory-database.js";
 import { observedPass } from "./observed-pass.js";
 import type { RecordedAnswer } from "./resume.js";
 import { announceResume, markTaken, treeResumeNow } from "./tree-resume.js";
@@ -44,16 +46,7 @@ const takeover = (): Promise<typeof UnwindingTakeover> => import("./unwinding-ta
  * holder — recovery (#265 S30), which continues a `running` tree from its last checkpoint.
  */
 
-export type {
-  AnsweredPass,
-  HeldPass,
-  PlannedPass,
-  TreeCall,
-  TreeMoveParts,
-  TreeMoves,
-  TreePass,
-  TreeState,
-} from "./tree-move-types.js";
+export type * from "./tree-move-types.js";
 
 class TreeMover implements TreeMoves {
   /** The roots a resume of this instance is moving or about to move: its own sweep leaves them. */
@@ -108,7 +101,7 @@ class TreeMover implements TreeMoves {
     interrupted: InterruptedRun,
     call: TreeCall,
   ): Promise<ExecutionOutput | undefined> {
-    if (this.#resuming.has(interrupted.runId)) return undefined;
+    if (this.#isBusy(interrupted)) return undefined;
     const { runId, threadId, tenantId, startedVersion } = interrupted;
     const state = { runId, threadId, tenantId, startedVersion };
     const lease = await this.parts.leases.tryHold(treeOf(state));
@@ -132,10 +125,15 @@ class TreeMover implements TreeMoves {
   }
 
   async endIfEnding(interrupted: InterruptedRun): Promise<boolean> {
-    if (this.#resuming.has(interrupted.runId)) return false;
+    if (this.#isBusy(interrupted)) return false;
     if (await (await cancelRequests()).endIfCancelled(this.parts, interrupted)) return true;
     if (!(await isUnwinding(this.parts.trees, treeOf(interrupted)))) return false;
     return (await takeover()).endUnwindingIfFree(this.parts, interrupted);
+  }
+
+  #isBusy(interrupted: InterruptedRun): boolean {
+    const key = treeKeyOf(interrupted.tenantId, interrupted.runId);
+    return this.#resuming.has(interrupted.runId) || leaseReleases.isYielded(key);
   }
 
   /**
@@ -182,7 +180,8 @@ class TreeMover implements TreeMoves {
     lease: HeldExecutionLease,
     first: PlannedPass,
   ): Promise<ExecutionOutput> {
-    return this.parts.live.moving(this.drain(state, call, lease, first));
+    const leaving = this.#resuming.enter(state.runId);
+    return this.parts.live.moving(this.drain(state, call, lease, first).finally(leaving));
   }
 
   /**
@@ -219,13 +218,13 @@ class TreeMover implements TreeMoves {
         if (planned !== undefined)
           await this.announce(ResumeReason.Answered, planned.resume, state);
       } while (planned !== undefined);
-      if (result.status === ExecutionStatus.Finished) await this.forget(state);
+      if (result.status === ExecutionStatus.Finished) await forgetTree(this.parts, state);
       await keepExecutionRecord(deps, state, historyRestOf(result.status));
       // who answered each pause (#267 S107): read once the pauses were taken and withdrawn
       return await withPauseAnswers(result, deps);
     } catch (error) {
       if (!isHandedOver(error)) {
-        await this.forget(state);
+        await forgetTree(this.parts, state);
         await keepExecutionRecord(deps, state, historyEndOf(error));
       }
       throw error;
@@ -233,11 +232,6 @@ class TreeMover implements TreeMoves {
       await passEnded(live, deps, state);
       await lease.release();
     }
-  }
-
-  /** The tree ended: its keys removed, its waiting pauses withdrawn (#267 AC10). */
-  private forget(state: TreeState): Promise<void> {
-    return forgetTree(this.parts, state);
   }
 }
 

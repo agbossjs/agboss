@@ -98,15 +98,22 @@ export interface WaitingFor {
   /** The parent's node: the child's graph is its registered subgraph (or `ThisWorkflow`'s own). */
   readonly node: string;
   readonly isRecursive: boolean;
+  /** Whether the child runs on any instance through `ChildExecutionQueueRepository` (#333 PR 4). */
+  readonly remote?: boolean | undefined;
 }
 
 /** A waiting marker read back from an interrupt's value; `undefined` for anything else (a pause). */
 export function waitingForOf(value: unknown): WaitingFor | undefined {
   if (!isRecord(value) || !isRecord(value.waitingForChild)) return undefined;
-  const { thread, node, isRecursive } = value.waitingForChild;
-  return typeof thread === "string" && typeof node === "string" && typeof isRecursive === "boolean"
-    ? { thread, node, isRecursive }
-    : undefined;
+  const { thread, node, isRecursive, remote } = value.waitingForChild;
+  if (typeof thread !== "string" || typeof node !== "string" || typeof isRecursive !== "boolean")
+    return undefined;
+  return {
+    thread,
+    node,
+    isRecursive,
+    ...(typeof remote === "boolean" ? { remote } : {}),
+  };
 }
 
 /** A graph that registers its children's graphs on their nodes (Studio's drawing, ADR-0022). */

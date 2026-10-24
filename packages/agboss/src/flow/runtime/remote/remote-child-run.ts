@@ -54,6 +54,8 @@ export interface RemoteChildRun {
   readonly initial: ChildInitialState;
   /** Its parent and the step that launched it. */
   readonly parent: ParentRecord;
+  /** The child's own resume map when a paused child is continued (`app.resume`, #333 PR 4). */
+  readonly resume?: Readonly<Record<string, string>> | undefined;
 }
 
 /** The checkpointer's serializer: what the child's checkpoints are written with. */

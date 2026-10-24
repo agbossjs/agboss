@@ -1,32 +1,27 @@
-import type { ExecutionLeaseRepository } from "../infrastructure/execution-lease.repository.js";
+import type {
+  ExecutionLease,
+  ExecutionLeaseRepository,
+} from "../infrastructure/execution-lease.repository.js";
 import { treeKeyOf } from "../infrastructure/in-memory-database.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { Clock } from "../infrastructure/clock.js";
-import { waitOf } from "../infrastructure/clock-timeout.js";
 import { seconds, type Milliseconds } from "../units/index.js";
-import { ExecutionLeaseLostError, leaseExpiredError } from "./lease-lost.js";
+import { isHandedOver } from "./handed-over.js";
+import {
+  EXECUTION_LEASE,
+  expireInBackground,
+  LeaseFence,
+  renewInBackground,
+} from "./lease-fence.js";
 import { leaseReleases } from "./lease-releases.js";
 
 /**
  * Who moves an execution tree (#265, Q58): `app.execute` / `app.resume` hold the tree's lease
  * while they move it, renew it in the background every third of its length and right before
- * every checkpoint write, and release it when the pass ends (paused, finished or failed). A
- * paused or finished tree holds none. A renewal answered `false` (the lease expired and another
- * instance took it) aborts the holder's work with `ExecutionLeaseLostError`.
- *
- * Local fencing (#335 S1): the holder knows its lease is valid until `confirmedUntil` — the `Clock`
- * read before the last acquire or renewal the store confirmed, plus the lease's length (the store
- * counts from a later moment, so its lease never ends earlier). A store error before then is
- * retried and lets a checkpoint write go on; at `confirmedUntil` with no confirmed renewal the
- * holder stops at once — its signal aborts with `ExecutionLeaseLostError` (the tool loop starts no
- * further call) and a write at or past it throws it.
+ * every checkpoint write, and release it when the pass ends (paused, finished or failed). While a
+ * parent node awaits remote children in-step (#333 PR 4, S9 Q1), it yields the lease in
+ * `ExecutionLeaseRepository` and re-acquires it before continuing.
  */
-
-/** The length of a tree's lease — fixed, not a setting (Q58). */
-const EXECUTION_LEASE: Milliseconds = seconds(30);
-
-/** A third of the lease: two renewals may fail before it expires. */
-const RENEW_EVERY: Milliseconds = seconds(10);
 
 /** How often a call waiting for a tree held elsewhere tries again (a release here wakes it at once). */
 const RETRY_EVERY: Milliseconds = seconds(1);
@@ -49,6 +44,11 @@ export interface HeldExecutionLease {
    * checkpoint write (#360: the holder looks for a cancel request); `check` never throws.
    */
   afterEachRenewal(check: RenewalCheck): void;
+  /**
+   * Yields the lease in `ExecutionLeaseRepository` while `wait` awaits remote children (#333 PR 4,
+   * S9 Q1), and re-acquires it before returning so `.join()` and checkpoint writes run under it.
+   */
+  yieldWhile<T>(wait: () => Promise<T>): Promise<T>;
   /** Stops renewing and gives the lease up (nothing to give when it was lost). */
   release(): Promise<void>;
 }
@@ -92,127 +92,119 @@ export function executionLeasesOf(
   };
 }
 
+class HeldLease implements HeldExecutionLease {
+  readonly rootExecutionId: string;
+  readonly signal: AbortSignal;
+  readonly #key: string;
+  readonly #checks: RenewalCheck[] = [];
+  readonly #lost = new AbortController();
+  readonly #stopped = new AbortController();
+  readonly #fence: LeaseFence;
+  #current: ExecutionLease | undefined;
+  #waiting = 0;
+  #reacquiring: Promise<void> | undefined;
+
+  constructor(
+    private readonly repository: ExecutionLeaseRepository,
+    private readonly clock: Clock,
+    private readonly tree: ExecutionTree,
+    initial: ExecutionLease,
+    askedAt: number,
+  ) {
+    this.rootExecutionId = tree.rootExecutionId;
+    this.signal = this.#lost.signal;
+    this.#key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
+    this.#current = initial;
+    this.#fence = new LeaseFence(clock, askedAt, this.#lost, tree.rootExecutionId);
+    const working = AbortSignal.any([this.#stopped.signal, this.#lost.signal]);
+    void renewInBackground(clock, working, () => this.renewNow());
+    void expireInBackground(clock, working, this.#fence);
+  }
+
+  afterEachRenewal(check: RenewalCheck): void {
+    this.#checks.push(check);
+  }
+
+  async renewNow(): Promise<void> {
+    this.#lost.signal.throwIfAborted();
+    if (this.#current === undefined) {
+      for (const check of this.#checks) await check();
+      return;
+    }
+    const renewedAt = this.clock.now().getTime();
+    const isRenewed = await this.repository
+      .renew(this.#current, EXECUTION_LEASE)
+      .catch((): undefined => undefined);
+    this.#fence.settle(renewedAt, isRenewed);
+    if (isRenewed === true) for (const check of this.#checks) await check();
+  }
+
+  async yieldWhile<T>(wait: () => Promise<T>): Promise<T> {
+    this.#waiting += 1;
+    const unyield = leaseReleases.enterYielded(this.#key);
+    let handedOver = false;
+    try {
+      await this.#yieldLease();
+      return await wait();
+    } catch (error) {
+      handedOver = isHandedOver(error);
+      throw error;
+    } finally {
+      unyield();
+      this.#waiting -= 1;
+      if (this.#waiting === 0 && !handedOver) {
+        this.#reacquiring ??= this.#reacquireLease().finally(() => {
+          this.#reacquiring = undefined;
+        });
+        await this.#reacquiring;
+      }
+    }
+  }
+
+  async release(): Promise<void> {
+    if (this.#stopped.signal.aborted) return;
+    this.#stopped.abort();
+    if (!this.#lost.signal.aborted && this.#current !== undefined) {
+      const held = this.#current;
+      this.#current = undefined;
+      await this.repository.release(held);
+    }
+    leaseReleases.notify(this.#key);
+  }
+
+  async #yieldLease(): Promise<void> {
+    await Promise.resolve();
+    if (this.#waiting === 0 || this.#current === undefined) return;
+    const held = this.#current;
+    this.#current = undefined;
+    this.#fence.yield();
+    await this.repository.release(held);
+    leaseReleases.notify(this.#key);
+  }
+
+  async #reacquireLease(): Promise<void> {
+    if (this.#current !== undefined) return;
+    const at = this.clock.now().getTime();
+    const next = await this.repository.acquire(
+      this.tree.tenantId,
+      this.tree.rootExecutionId,
+      EXECUTION_LEASE,
+    );
+    if (next === undefined) this.#fence.lose();
+    this.#current = next;
+    this.#fence.reacquired(at);
+  }
+}
+
 /** The tree's lease when the store gives it, renewed and watched in the background until released. */
 async function takeLease(
   repository: ExecutionLeaseRepository,
   clock: Clock,
   tree: ExecutionTree,
 ): Promise<HeldExecutionLease | undefined> {
-  const { tenantId, rootExecutionId } = tree;
   const askedAt = clock.now().getTime();
-  const lease = await repository.acquire(tenantId, rootExecutionId, EXECUTION_LEASE);
-  if (lease === undefined) return undefined;
-  const lost = new AbortController();
-  const stopped = new AbortController();
-  const fence = new LeaseFence(clock, askedAt, lost, rootExecutionId);
-  const checks: RenewalCheck[] = [];
-  const renewNow = async (): Promise<void> => {
-    lost.signal.throwIfAborted();
-    const renewedAt = clock.now().getTime();
-    const isRenewed = await repository
-      .renew(lease, EXECUTION_LEASE)
-      .catch((): undefined => undefined);
-    fence.settle(renewedAt, isRenewed);
-    if (isRenewed === true) for (const check of checks) await check();
-  };
-  const working = AbortSignal.any([stopped.signal, lost.signal]);
-  void renewInBackground(clock, working, renewNow);
-  void expireInBackground(clock, working, fence);
-  return {
-    rootExecutionId,
-    signal: lost.signal,
-    renewNow,
-    afterEachRenewal: (check) => {
-      checks.push(check);
-    },
-    release: async () => {
-      if (stopped.signal.aborted) return;
-      stopped.abort();
-      if (!lost.signal.aborted) await repository.release(lease);
-      leaseReleases.notify(treeKeyOf(tenantId, rootExecutionId));
-    },
-  };
-}
-
-/**
- * How long the holder may trust its lease (#335 S1): until `confirmedUntil`, the `Clock` read
- * before the last acquire or renewal its store confirmed plus the lease's length.
- */
-class LeaseFence {
-  #confirmedUntil: number;
-
-  constructor(
-    private readonly clock: Clock,
-    askedAt: number,
-    private readonly lost: AbortController,
-    private readonly rootExecutionId: string,
-  ) {
-    this.#confirmedUntil = askedAt + EXECUTION_LEASE;
-  }
-
-  /** The time (ms) up to which the lease is valid here. */
-  get confirmedUntil(): number {
-    return this.#confirmedUntil;
-  }
-
-  /** Aborts the holder: the lease ran out with no renewal the store confirmed. */
-  expire(): void {
-    if (!this.lost.signal.aborted) this.lost.abort(leaseExpiredError(this.rootExecutionId));
-  }
-
-  /**
-   * A renewal asked at `renewedAt` answered: `true` moves the fence on, `false` (taken) aborts,
-   * `undefined` (the store did not answer) aborts only once the lease ran out here — before that
-   * the caller's write goes on. Throws the holder's `ExecutionLeaseLostError` once aborted.
-   */
-  settle(renewedAt: number, isRenewed: boolean | undefined): void {
-    this.lost.signal.throwIfAborted();
-    if (isRenewed === true) {
-      this.#confirmedUntil = Math.max(this.#confirmedUntil, renewedAt + EXECUTION_LEASE);
-      return;
-    }
-    if (isRenewed === false) this.lost.abort(new ExecutionLeaseLostError(this.rootExecutionId));
-    else if (this.clock.now().getTime() >= this.#confirmedUntil) this.expire();
-    this.lost.signal.throwIfAborted();
-  }
-}
-
-/**
- * Renews every third of the lease until stopped or lost; a store error is retried next time (the
- * expiry below stops the holder when none succeeds in time).
- */
-async function renewInBackground(
-  clock: Clock,
-  working: AbortSignal,
-  renewNow: () => Promise<void>,
-): Promise<void> {
-  for (;;) {
-    await clock.sleep(RENEW_EVERY, working);
-    if (working.aborted) return;
-    try {
-      await renewNow();
-    } catch (error) {
-      if (error instanceof ExecutionLeaseLostError) return;
-    }
-  }
-}
-
-/**
- * Sleeps until the lease runs out here (`confirmedUntil`, moved on by every confirmed renewal) and
- * then expires it (#335): the holder stops at the lease's end even while its store does not answer.
- */
-async function expireInBackground(
-  clock: Clock,
-  working: AbortSignal,
-  fence: LeaseFence,
-): Promise<void> {
-  for (;;) {
-    const left = fence.confirmedUntil - clock.now().getTime();
-    if (left <= 0) {
-      fence.expire();
-      return;
-    }
-    await clock.sleep(waitOf(left), working);
-    if (working.aborted) return;
-  }
+  const initial = await repository.acquire(tree.tenantId, tree.rootExecutionId, EXECUTION_LEASE);
+  return initial === undefined
+    ? undefined
+    : new HeldLease(repository, clock, tree, initial, askedAt);
 }

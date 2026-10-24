@@ -175,9 +175,8 @@ export type RuleCode =
   | "eval.unknown-start"
   | "eval.duplicate-case"
   | "eval.judge-wrong-reply"
-  // child placement (#333 PR 2): one placement per child, and no pause in a child on any instance
-  | "flow.conflicting-placement"
-  | "graph.remote-child-can-pause";
+  // child placement (#333 PR 2): one placement per child in a flow
+  | "flow.conflicting-placement";
 
 /** One broken rule: its code, what is wrong, and the nodes (classes) involved. */
 export interface RuleViolation {
