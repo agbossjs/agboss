@@ -35,6 +35,7 @@ npm run eval:check                    # the desk's eval suite offline against it
                                       # (eval/runs/, --fail-on-regression), eval show --html, and
                                       # eval calibrate on the checked-in labels (eval/labels/)
 npm run eval                          # rewrites the baseline (then relabel eval/labels/)
+npm run records:check                 # one kept run, records export, an eval case drafted from it
 npm run snapshot                      # the desk's describe --json, after raising its expose's version
 npm test                              # scripted models only: no key, no network
 ```
@@ -53,6 +54,13 @@ Its eval suite (`src/desk/eval-suites/desk.eval-suite.ts`: `checkTrajectory()`, 
 `desk-answer-judge`) runs the same way — `npm run eval:check` — and `npx agboss eval ui --dir
 .agboss/eval` serves its runs for labelling (`eval/failure-taxonomy.yaml` holds the tags). `agboss
 eval score` is not here: it scores with Jev, a decision model, which needs OpenRouter.
+
+The desk keeps each execution for 30 days (`@Application({ executionRecordRetention })`, #401) in
+`.agboss/desk-offline.sqlite` on `--env offline`. `npm run records:check` (the last step of `npm run
+check`) runs the desk once, exports the kept records (`agboss records export --tenant default --out
+.agboss/records/desk.jsonl`) and drafts an eval case from the newest (`agboss generate eval-case
+lookup-from-history --suite desk-eval-suite --from-execution <id> --dry-run`, #396) — the draft
+`agboss eval ui`'s "Save as golden case" (#397) writes into the suite.
 
 `tests/desk-cassette.test.ts` replays a run of the desk from a VCR cassette
 (`tests/__snapshots__/desk-lookup.cassette.json`) — no script, no key. It was recorded offline, through
