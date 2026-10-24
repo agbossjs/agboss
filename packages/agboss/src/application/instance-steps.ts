@@ -7,6 +7,8 @@ import {
 import type { Clock } from "../infrastructure/clock.js";
 import type { ExecutionTreeRepository } from "../infrastructure/execution-tree.repository.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
+import type { ChildExecutionQueueRepository } from "../infrastructure/child-execution-queue.repository.js";
+import type { RemoteChildren } from "../flow/runtime/remote/remote-child.js";
 import type { Milliseconds } from "../units/index.js";
 import type { AssembledApplication } from "./assemble.js";
 
@@ -37,6 +39,8 @@ export interface SharedInstanceParts {
   readonly compensation: CompensationParts;
   /** What its graceful stop does with them. */
   readonly stepsAtStop: StepsAtStop;
+  /** Its queue of children on any instance and its clock (#333 PR 2). */
+  readonly remoteChildren: RemoteChildren;
 }
 
 /**
@@ -48,6 +52,7 @@ export async function instancePartsOf(
   clock: Clock,
   log: FrameworkLog,
   trees: ExecutionTreeRepository,
+  queue: ChildExecutionQueueRepository,
 ): Promise<SharedInstanceParts> {
   const stepEntries = new StepEntries();
   const stepsAtStop = stepsAtStopOf(stepEntries, stopDeadlineOf(clock), log);
@@ -58,7 +63,8 @@ export async function instancePartsOf(
     trees,
   };
   const stepSlots = await stepSlotsOf(assembled, clock);
-  return { stepSlots, stepEntries, compensation, stepsAtStop };
+  const remoteChildren = { queue, clock };
+  return { stepSlots, stepEntries, compensation, stepsAtStop, remoteChildren };
 }
 
 /** The running step bodies at the instance's graceful stop: its end, and the wait for them. */

@@ -1,3 +1,4 @@
+import type { ChildStepOptions } from "./child-placement.js";
 import type { Class } from "../components/injection.js";
 import type { ErrorClass, NodeKind } from "./ast.js";
 import type { KindLabel, PathHead, SidePath, TargetCheck, Transitions } from "./builder-types.js";
@@ -30,7 +31,7 @@ export interface LaunchOptions {
  * `{ maxConcurrency, maxItems }` of `.toParallelWorkflows(W, …)` (#263): a child per item, so
  * `maxItems` is always set.
  */
-export interface WorkflowLaunchOptions extends LaunchOptions {
+export interface WorkflowLaunchOptions extends LaunchOptions, ChildStepOptions {
   readonly maxItems: number;
 }
 

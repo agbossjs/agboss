@@ -1496,6 +1496,12 @@ Child rules:
   `[graph.child-without-failure-finish]` (one failed item would cancel all the others).
 - A child need not be listed in `@Application({ workflows })`; it runs alone through its own starts too.
   It spends from the root's budgets; its own execution budget applies only when it runs as the root.
+- **Where it runs (#333 PR 2)**: on its parent's instance by default; `{ placement:
+ChildPlacement.AnyInstance }` on `.toWorkflow(W, …)`, `.toParallelWorkflows(W, { …, placement })`
+  or `route(W, …)` queues it for any instance with a free step slot (list
+  `SqliteChildExecutionQueueRepository`, else `[application.in-memory-child-queue]`). One class has
+  one placement (`[flow.conflicting-placement]`); until #333 PR 4 such a child cannot pause
+  (`[graph.remote-child-can-pause]`).
 
 ## 7. Recursion: `ThisWorkflow`
 

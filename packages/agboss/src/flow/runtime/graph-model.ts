@@ -19,6 +19,8 @@ import { arbiterClassesOf, launchesOf, type RuntimeLaunch } from "./launch/runti
 import { arbiterOf, isCodeArbiter } from "../decorators/arbiter.js";
 import { runtimeProvenanceOf, type RuntimeProvenance } from "./provenance.js";
 
+import type { ChildPlacement } from "../child-placement.js";
+import { childPlacementsOf, placementOfChild } from "../analyse/child-placements.js";
 /**
  * A v2 workflow as its runtime reads it (#272 → Runtime): every node with its fields and its
  * outgoing edges grouped by how they are taken — the one next step, the `switch` cases by the
@@ -48,6 +50,11 @@ export interface RuntimeNode {
   readonly fields: readonly ResolvedField[];
   readonly exits: NodeExits;
   readonly maxVisits?: number;
+  /**
+   * A child workflow's node launched with `placement: ChildPlacement.AnyInstance` (#333 PR 2): its
+   * children are queued for any instance; absent — they run inside the parent's step.
+   */
+  readonly placement?: ChildPlacement;
 }
 
 export interface RuntimeGraph {
@@ -140,8 +147,10 @@ export function runtimeGraphOf(
   type: Class,
 ): RuntimeGraph {
   const nodes = new Map<string, RuntimeNode>();
+  const placements = childPlacementsOf(flow);
   for (const node of analysis.graph.nodes.values()) {
     const maxVisits = maxVisitsOf(node.declaration);
+    const placement = placementOfChild(placements, node.component);
     const edges = analysis.graph.edges.filter((edge) => edge.from === node.name);
     nodes.set(node.name, {
       id: node.name,
@@ -151,6 +160,7 @@ export function runtimeGraphOf(
       fields: analysis.fields.get(node.name) ?? [],
       exits: exitsOf(edges),
       ...(maxVisits === undefined ? {} : { maxVisits }),
+      ...(placement === undefined ? {} : { placement }),
     });
   }
   return {

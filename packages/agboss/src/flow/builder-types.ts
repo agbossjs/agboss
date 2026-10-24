@@ -10,6 +10,7 @@ import type {
   ProducerOutputOf,
 } from "./generated-types.js";
 import type { DtoClass } from "../dto/types.js";
+import type { ChildStepOptions } from "./child-placement.js";
 import type { Launches, RouterLaunches } from "./launch-types.js";
 import type { Returning, StepValues, ValuesLeft } from "./returns-types.js";
 import type { ThisWorkflowName, ThisWorkflowReturning, WithClaims } from "./this-workflow-types.js";
@@ -115,6 +116,16 @@ export type RouteTargetLabel =
 
 export type RouteTargetKind =
   NodeKind.Agent | NodeKind.Action | NodeKind.Router | NodeKind.Finish | NodeKind.Workflow;
+
+/**
+ * The options a route's target takes (#333 PR 2): a child workflow its `{ placement }`, any other
+ * target none.
+ */
+export type RouteOptions<TClass extends Class> = [KindOf<InstanceType<TClass>>] extends [
+  NodeKind.Workflow,
+]
+  ? readonly [options?: ChildStepOptions]
+  : readonly [];
 
 export interface WrongKind<TName extends string, TLabel extends string> {
   readonly __error: `${TName} is not ${TLabel}`;
@@ -229,6 +240,7 @@ export interface Transitions<THead extends PathHead> {
    */
   toWorkflow<const TClass extends Class>(
     target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
+    options?: ChildStepOptions,
   ): AfterStep<InstanceType<TClass>, THead>;
 }
 

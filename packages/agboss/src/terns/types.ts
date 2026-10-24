@@ -4,7 +4,8 @@ import type { MessageContent } from "@langchain/core/messages";
 /**
  * Where a Tern is: `running` while its execution moves (#265 S30: what recovery looks for), then
  * how it ended — `answered`, `guarded`, `failed` — or `paused`; `written` — a past turn an eval case
- * wrote into its thread, never run (#396 S6): a turn of the thread, never a run to score or replay.
+ * wrote into its thread, never run (#396 S6): a turn of the thread, never a run to score or replay;
+ * `queued` — a child waiting for an instance to claim it (#333 PR 2: its queue row; no Tern is).
  */
 export const TERN_STATUSES = [
   "running",
@@ -12,6 +13,7 @@ export const TERN_STATUSES = [
   "guarded",
   "failed",
   "paused",
+  "queued",
   "written",
 ] as const;
 export type TernStatus = (typeof TERN_STATUSES)[number];

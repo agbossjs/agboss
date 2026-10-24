@@ -8,6 +8,8 @@ import { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.j
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import { ExecutionHistoryRepository } from "../infrastructure/execution-history.repository.js";
+import { ChildExecutionQueueRepository } from "../infrastructure/child-execution-queue.repository.js";
+import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { implementationsOf, isInMemory } from "./implementations.js";
 
@@ -56,6 +58,12 @@ const IN_MEMORY_EXECUTION_HISTORY: AssemblyWarning = {
     "in-memory execution history: executionRecordRetention keeps each instance's executions in its own memory — another instance and agboss records export do not see them, and they are lost on restart",
 };
 
+const IN_MEMORY_CHILD_QUEUE: AssemblyWarning = {
+  code: "application.in-memory-child-queue",
+  message:
+    "in-memory child queue: children launched with placement: ChildPlacement.AnyInstance run only on the instance that launched them — list SqliteChildExecutionQueueRepository (or your own ChildExecutionQueueRepository) so any instance claims them",
+};
+
 const PII_INSTANCE_KEY: AssemblyWarning = {
   code: "application.pii-instance-key",
   message:
@@ -73,26 +81,36 @@ const hasPeriodBudget = (budgets: readonly Provider[]): boolean =>
 const canPause = (workflows: readonly AssembledWorkflow[]): boolean =>
   workflows.some((workflow) => channelUsesOf([workflow.graph.type]).length > 0);
 
+/** Whether a workflow launches a child on any instance (#333 PR 2). */
+const launchesAnywhere = (workflows: readonly AssembledWorkflow[]): boolean =>
+  workflows.some((workflow) => launchesOnAnyInstance(workflow.graph.nodes.values()));
+
 /**
  * The assembly warnings (#261): tenant or application budgets on an in-memory ledger; possible
- * pauses with in-memory paused executions or checkpoints; PII tokens on a key of the instance (#120).
+ * pauses with in-memory paused executions or checkpoints; children on any instance on an in-memory
+ * queue (#333 PR 2); PII tokens on a key of the instance (#120).
  */
 export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWarning[] {
   const choices = implementationsOf(sources.providers);
   const inMemory = (contract: Class): boolean => isInMemory(choices, contract);
-  return [
-    ...(hasPeriodBudget(sources.budgets) && inMemory(CostLedgerRepository)
-      ? [IN_MEMORY_LEDGER]
-      : []),
-    ...(canPause(sources.workflows) &&
-    (inMemory(PausedExecutionRepository) || inMemory(BaseCheckpointSaver))
-      ? [IN_MEMORY_PAUSES]
-      : []),
-    ...(sources.executionRecordRetention !== undefined && inMemory(ExecutionHistoryRepository)
-      ? [IN_MEMORY_EXECUTION_HISTORY]
-      : []),
-    ...(sources.isPiiKeyOfInstance === true ? [PII_INSTANCE_KEY] : []),
+  const found: readonly (readonly [boolean, AssemblyWarning])[] = [
+    [hasPeriodBudget(sources.budgets) && inMemory(CostLedgerRepository), IN_MEMORY_LEDGER],
+    [
+      canPause(sources.workflows) &&
+        (inMemory(PausedExecutionRepository) || inMemory(BaseCheckpointSaver)),
+      IN_MEMORY_PAUSES,
+    ],
+    [
+      sources.executionRecordRetention !== undefined && inMemory(ExecutionHistoryRepository),
+      IN_MEMORY_EXECUTION_HISTORY,
+    ],
+    [
+      launchesAnywhere(sources.workflows) && inMemory(ChildExecutionQueueRepository),
+      IN_MEMORY_CHILD_QUEUE,
+    ],
+    [sources.isPiiKeyOfInstance === true, PII_INSTANCE_KEY],
   ];
+  return found.flatMap(([applies, warning]) => (applies ? [warning] : []));
 }
 
 /** `[application.in-memory-pauses] in-memory pauses: …` — a warning as `app.warnings` lists it. */

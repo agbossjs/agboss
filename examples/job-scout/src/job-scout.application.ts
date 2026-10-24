@@ -1,6 +1,7 @@
 import {
   Application,
   SqliteCheckpointSaver,
+  SqliteChildExecutionQueueRepository,
   SqliteCostLedgerRepository,
   SqliteExecutionHistoryRepository,
   SqliteExecutionLeaseRepository,
@@ -52,6 +53,7 @@ import { OpenRouterModelProvider } from "./model-providers/openrouter.model-prov
     SqliteRateLimitRepository,
     SqliteMeshRequestRepository,
     SqliteExecutionHistoryRepository,
+    SqliteChildExecutionQueueRepository,
   ],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   executionRecordRetention: hours(24 * 30), // each execution's history, 30 days: agboss records export

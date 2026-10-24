@@ -15,6 +15,7 @@ implementations
   RateLimitRepository → SqliteRateLimitRepository (listed in @Application providers)
   MeshRequestRepository → SqliteMeshRequestRepository (listed in @Application providers)
   ExecutionHistoryRepository → SqliteExecutionHistoryRepository (listed in @Application providers)
+  ChildExecutionQueueRepository → SqliteChildExecutionQueueRepository (listed in @Application providers)
 model providers
   openrouter-model-provider → OpenRouterModelProvider (listed in @Application providers) · serves /.*/
   decisions-model-provider → DecisionsModelProvider (listed in @Application providers) · serves /^(?:(?:[^/]+\/)?jev-|openai\/[^/]+-decisions$|perplexity\/pplx-decider|cloudflare\/clef|upstage\/solar-decide|inception\/mercury-decide)/
