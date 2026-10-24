@@ -122,9 +122,9 @@ npm test
 - **`src/desk/`** — the four extension points around one agent (#382–#385): `desk-agent` runs on
   `harness/desk`, served by `HarnessModelProvider` (`src/model-providers/`), a transport
   `@ModelProvider` whose `complete(request)` looks the `#<id>` order up, then quotes the tool — no
-  key, no network. Beside it the application lists its own `OpenRouterProvider` subclass narrowed to
-  `serves: [/^moonshotai\//]` and `DecisionsModelProvider` (a catch-all would serve `harness/…` too:
-  `[model.ambiguous-provider]`). The agent has two code guardrails (`decidedBy: DecidedBy.Code`:
+  key, no network. Beside it the application lists the built-in `OpenRouterModelProvider` and
+  `DecisionsModelProvider` — catch-alls that yield `harness/…` to the transport that claims it
+  (#454, [Model providers](Model-providers#which-provider-serves-a-model)). The agent has two code guardrails (`decidedBy: DecidedBy.Code`:
   credentials in the question, a promised date in the answer), a `@ToolInterceptor` that blocks
   `close-account-tool`, answers for an archived order (`replyToModel`) and cuts a status's internal
   note (`afterToolCall`), and the workflow a `CompactionStrategy.Custom` compaction past a two-turn

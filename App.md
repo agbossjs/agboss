@@ -111,8 +111,9 @@ there is a tenant and an application budget (`[budget.execution-budget-required]
 `[budget.tenant-budget-required]`, `[budget.application-budget-required]`,
 [FinOps](FinOps#assembly)); infrastructure — model providers too — is listed only in
 `@Application({ providers })` (`[di.infrastructure-in-workflow]`); every model of every workflow
-resolves to exactly one listed model provider by `serves` (`[model.unserved]`,
-`[model.ambiguous-provider]`, #266, [Model providers](Model-providers#which-provider-serves-a-model)).
+resolves to exactly one listed model provider by `serves` — the built-in catch-alls yield to a
+provider that claims the model (`[model.unserved]`, `[model.ambiguous-provider]`, #266, #454,
+[Model providers](Model-providers#which-provider-serves-a-model)).
 
 ## Infrastructure
 

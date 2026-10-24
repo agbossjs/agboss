@@ -3,6 +3,16 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — the built-in model providers yield to an explicit claim (#454)
+
+- **Changed — `OpenRouterModelProvider` and `DecisionsModelProvider` are catch-alls**
+  ([Model providers](Model-providers#which-provider-serves-a-model)): each serves its models except
+  those another listed provider claims by `serves`, so a project's provider for its own prefix (a
+  transport on `harness/…`) is listed next to the built-ins with no narrowed `OpenRouterProvider`
+  subclass. Before, that combination failed with `[model.ambiguous-provider]`; two of the project's
+  own providers claiming one model still do. A subclass with its own `@ModelProvider` does not yield.
+  The key check at start is unchanged. flow-patterns drops `FlowPatternsOpenRouterModelProvider`.
+
 ## Unreleased — the Mesh Hub: blast radius & federation (#401 PR 7)
 
 - **Added — declared edges and the blast radius** ([Mesh Hub](Mesh-Hub#blast-radius--federation)):

@@ -336,6 +336,14 @@ job-scout: `src/model-providers/openrouter.model-provider.ts`, listed in `job-sc
   - several → `[model.ambiguous-provider] … served by several providers: local-model-provider, local-mirror-model-provider — one
     model string per provider, each in one serves`. No default breaks the tie: one model through
     two providers is two model strings, each in one provider's `serves`.
+- **The built-ins yield** (#454): `OpenRouterModelProvider` and `DecisionsModelProvider` are
+  catch-alls — listed (by default or by name), each serves its models **except** those another
+  listed provider claims by `serves`. A project's provider for its own prefix (a transport serving
+  `/^harness\//`, a local server on `/^local\//`) works next to them with no narrowed copy of the
+  built-in: `harness/x` resolves to it, `moonshotai/kimi-k2.6` to OpenRouter. Only these two classes
+  yield — a subclass with its own `@ModelProvider` claims what its `serves` says, like any other
+  provider, and two such claims on one model stay `[model.ambiguous-provider]`. The key check at
+  start does not change: a listed HTTP provider still needs its key.
 - `agboss describe` prints the provider each model resolves to, though no component names it
   (`--json`: `models: [{ key, model, provider }]`):
 
