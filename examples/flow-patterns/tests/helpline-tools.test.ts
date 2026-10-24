@@ -8,8 +8,8 @@ import { HelplineAnswerWorkflowFinish } from "../src/helpline/workflow-finishes/
 import { HelplineWorkflowStart } from "../src/helpline/workflow-starts/helpline.workflow-start.js";
 
 /**
- * The helpline's MCP tool and its memory: the filesystem server is never started in a test —
- * `mcpOf` answers its tools — and the agent's own memory strategy chooses the turns it sees.
+ * The helpline's MCP tool: the filesystem server is never started in a test — `mcpOf` answers its
+ * tools.
  */
 
 const test = testWith(FlowPatternsApplication);
@@ -39,25 +39,4 @@ test("the policy is read through the MCP server's read_text_file", async ({
   expect(result).toFinishWith(HelplineAnswerWorkflowFinish, {
     text: "You can return it within 30 days.",
   });
-});
-
-test("the agent remembers only the thread's turns about the order it is asked about", async ({
-  app,
-  mockLlm,
-}) => {
-  mockLlm(HelplineAgent).thenReturn(
-    replyWith("Order 7 shipped."),
-    replyWith("Order 9 is late."),
-    replyWith("Still on its way."),
-  );
-  const thread = { threadId: "caller-1" };
-
-  await app.execute(HelplineWorkflowStart, { text: "c-1: where is #7?" }, thread);
-  await app.execute(HelplineWorkflowStart, { text: "c-1: and #9?" }, thread);
-  await app.execute(HelplineWorkflowStart, { text: "c-1: back to #7, any news?" }, thread);
-
-  const request = mockLlm(HelplineAgent).lastRequest;
-  const seen = JSON.stringify(request.kind === "chat" ? request.messages : request.input);
-  expect(seen).toContain("Order 7 shipped.");
-  expect(seen).not.toContain("Order 9 is late.");
 });

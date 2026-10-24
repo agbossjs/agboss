@@ -210,7 +210,7 @@ request, and the operational contracts — a code judge on `toolCalls`, a `@Rag`
 an observer, a `@HealthCheck`, `maxConcurrentSteps` —, served over A2A (`@A2AExpose`, a caller
 resolver) to `src/helpline/`, its consumer through an `@A2AAgent` contract (`a2aServer` in
 `tests/helpline.test.ts`, #398) that also reads policies through a stubbed `@McpServer` /
-`@McpTool` (`mcpOf`) and remembers the thread by its own memory strategy (`agboss/memory`), and an
+`@McpTool` (`mcpOf`), and an
 `@EvalSuite` with a code eval judge (#396); `src/intake/` a quorum by groups (`joinQuorumGroups`,
 tested under `TestConcurrency.inOrder` and `failWith(ModelFailure.RateLimited)`); the review loop's
 reviewer reads `historyOf(OfferDraftDto)`; `tests/approvals.test.ts` resumes a pause on a second
@@ -2269,7 +2269,7 @@ examples/flow-patterns/      the flow's patterns (package flow-patterns-example,
                     item, #263), src/topic/ (recursion, #264), src/approvals/ (two approvals at once,
                     #267), src/hiring/ (declared compensation, #339), src/travel/ (a failed join's undo, #340),
                     src/desk/ (the extension points, #382–#385), src/helpline/ (its A2A consumer, #398,
-                    with an MCP server and a memory strategy), src/intake/ (quorum groups, #279),
+                    with an MCP server), src/intake/ (quorum groups, #279),
                     one *.workflow.ts each; model-providers/; desk.application.ts (offline, served over
                     A2A); snapshots/ (its describe --json); eval/ (its eval baseline, labels and
                     failure tags); data/policies/ (what the MCP server reads); scripts/ (npm run
