@@ -28,4 +28,5 @@ export const HUB_PAGE_STYLE = `${REPORT_PAGE_STYLE}
 .tree { list-style: none; margin: 4px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--border); }
 .tree p { margin: 4px 0; overflow-wrap: anywhere; }
 .tree-stub { color: var(--muted); font-style: italic; }
+tr.radar-candidate td { background: var(--passed-bg); }
 `;

@@ -84,6 +84,9 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   Its page shows each execution tree that crosses applications, stitched from their exports by each
   receiver's `origin` (the calling execution and its call's idempotency key) — a receiver that
   exported nothing is a stub (#401).
+  Its crystallization radar ranks the mesh's model steps by spend × stability — how often one
+  input gets one decision — and names the candidates to turn into code; each step record gains its
+  `decision` (`route:` / `launch:` / `variant:` / `answer:<hash>`) for it (#401).
 - **The CLI** (`agboss-cli`) — `agboss create`, `agboss generate`, `agboss check`,
   `agboss describe`, `agboss dev`, `agboss studio`, `agboss chat` / `agboss run`, evaluations and
   comparisons (#268). Breaking on the way (#396): the bare `agboss eval` is now `agboss eval score`

@@ -53,6 +53,14 @@ export interface ExecutionStepRecord {
    * is matched (`versionOf` of their stable JSON): one input, one hash, on every machine.
    */
   readonly inputHash: string;
+  /**
+   * What the visit decided, the same for the same decision on every machine (#401 PR 5, S2 Q4):
+   * `route:<node>` for a router's choice, `launch:<node>,…` for the routes it launched,
+   * `variant:<class>` for an answer of a `oneOf` output, else `answer:<hash>` of its value; none for
+   * a visit that gave nothing (a failure, a finish). Never a value itself: an answer is only its
+   * hash, a route and a variant are component and class names. What the Mesh Hub's radar counts.
+   */
+  readonly decision?: string;
   /** Its agent's judges' verdicts, in the order they judged; empty for any other step. */
   readonly judgeVerdicts: readonly JudgeVerdictRecord[];
   /** Its guardrails' decisions, in the order they decided. */
@@ -70,6 +78,7 @@ export interface ExecutionStepRecord {
 export interface VisitedStep {
   readonly step: StepRecord;
   readonly input: unknown;
+  readonly decision?: string;
   readonly usage: readonly UsageRecord[];
   readonly judgeVerdicts?: readonly JudgeVerdictRecord[] | undefined;
   readonly guardrailDecisions?: readonly GuardrailDecisionRecord[] | undefined;
@@ -82,6 +91,7 @@ export interface VisitedStep {
 export const executionStepRecordOf = (visited: VisitedStep): ExecutionStepRecord => ({
   step: visited.step,
   inputHash: versionOf(visited.input ?? null),
+  ...(visited.decision === undefined ? {} : { decision: visited.decision }),
   judgeVerdicts: [...(visited.judgeVerdicts ?? [])],
   guardrailDecisions: [...(visited.guardrailDecisions ?? [])],
   spend: buildCostReport(visited.usage),

@@ -10,6 +10,7 @@ import type {
   DescribedWorkflow,
   HubInputs,
 } from "./hub-inputs.js";
+import { crystallizationRadarOf, type RadarStep } from "./crystallization-radar.js";
 import { executionTreesOf, type ExecutionTree } from "./execution-trees.js";
 import { observedCallsOf, observedEdgesOf, type ObservedEdge } from "./observed-calls.js";
 
@@ -41,6 +42,8 @@ export interface HubMesh {
   readonly edges: readonly ObservedEdge[];
   /** The execution trees that cross applications (#401 PR 4). */
   readonly trees: readonly ExecutionTree[];
+  /** The model steps ranked for turning into code (#401 PR 5). */
+  readonly radar: readonly RadarStep[];
   readonly inputs: {
     readonly describe: number;
     readonly evalRuns: number;
@@ -92,10 +95,14 @@ function applicationOf(name: string, inputs: HubInputs): MeshApplication {
 /** The mesh the inputs make. */
 export function meshOf(inputs: HubInputs): HubMesh {
   const edges = observedEdgesOf(observedCallsOf(inputs.records));
+  const applications = namesOf(inputs, edges).map((name) => applicationOf(name, inputs));
+  const suitesOf = (name: string) =>
+    applications.find((application) => application.name === name)?.suites ?? [];
   return {
-    applications: namesOf(inputs, edges).map((name) => applicationOf(name, inputs)),
+    applications,
     edges,
     trees: executionTreesOf(inputs.records),
+    radar: crystallizationRadarOf(inputs.records, suitesOf),
     inputs: {
       describe: inputs.applications.length,
       evalRuns: inputs.evalRuns.length,

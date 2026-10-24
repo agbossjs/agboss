@@ -411,6 +411,12 @@ npx agboss hub show hub/ --html .artifacts/mesh.html
   nothing is a stub (`billing-application · b1 (not exported)`), not an error; a receiver whose
   caller's record holds no such call is a root of its own, "called by" its caller. `--json` lists
   each tree's root, applications, executions and stubs.
+- **The crystallization radar**: every model step (an agent or router with model calls) of the
+  records, per application, workflow and step, ranked by **spend × stability** — stability is the
+  share of the most frequent `steps[].decision` among the calls with the same `inputHash`, over the
+  inputs seen at least twice. A **candidate** to turn into code (`DecidedBy.Code`, an `@Action`) has
+  at least 50 calls, stability ≥ 0.95 and, where its workflow has eval runs, pass^k on every case of
+  their latest; each row names its calls, spend, stability, pass^k and the executions behind it.
 - Above 16 MB the page is refused (`hub.report-too-large`): export a shorter period. Without
   `--html` it prints the summary; `--json` gives the applications, the inputs and the edges.
 

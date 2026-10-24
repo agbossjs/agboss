@@ -4,6 +4,7 @@ import { carriedRecordsOf, carryRecords } from "./carried-records.js";
 import type { ToolCallRecord } from "./tool-calls.js";
 import { extractRunContext } from "../../core/run-context.js";
 import type { UsageRecord } from "../../finops/usage.js";
+import { versionOf } from "../../terns/index.js";
 import { NodeKind } from "../ast.js";
 import type { FrameSpec } from "../context/frame.js";
 import { stepRecordOf } from "../observers/execution-event.js";
@@ -58,9 +59,24 @@ function inputOf(site: VisitSite): unknown {
 
 /** How a visit ended for its record: what it decided and spent, or the failure a side path took. */
 export interface VisitEnd {
-  readonly outcome?: Pick<NodeOutcome, "judgeVerdicts" | "guardrailDecisions">;
+  readonly outcome?: Pick<
+    NodeOutcome,
+    "judgeVerdicts" | "guardrailDecisions" | "route" | "launch" | "value"
+  >;
   readonly usage: readonly UsageRecord[];
   readonly error?: ErrorRecord;
+}
+
+/**
+ * What a visit decided (#401 PR 5): a router's route or launched routes, a `oneOf` answer's class,
+ * else a hash of the value it gave; none when it gave nothing.
+ */
+export function decisionOf(outcome: VisitEnd["outcome"]): string | undefined {
+  if (outcome?.route !== undefined) return `route:${outcome.route}`;
+  if (outcome?.launch !== undefined) return `launch:${[...outcome.launch].sort().join(",")}`;
+  if (outcome?.value === undefined) return undefined;
+  if (outcome.value.variant !== undefined) return `variant:${outcome.value.variant}`;
+  return `answer:${versionOf(outcome.value.value ?? null)}`;
 }
 
 /** The visit's one entry of `record.steps` (#395 C3), as the state's appended channel takes it. */
@@ -69,6 +85,7 @@ export function visitStepsOf(site: VisitSite, end: VisitEnd): ExecutionStepRecor
     executionStepRecordOf({
       step: stepRecordOf(site.frame.step),
       input: inputOf(site),
+      decision: end.error === undefined ? decisionOf(end.outcome) : undefined,
       usage: end.usage,
       judgeVerdicts: end.outcome?.judgeVerdicts,
       guardrailDecisions: end.outcome?.guardrailDecisions,

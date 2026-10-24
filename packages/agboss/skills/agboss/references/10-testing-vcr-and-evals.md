@@ -539,7 +539,9 @@ message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBloc
   holds the same **masked** by the application's and the workflow's PII policies.
 - `result.record.steps` — one `ExecutionStepRecord` per visit of a node, in the order the visits
   ended: its `step`, `inputHash` (a stable hash of what it read — the same input, the same hash on
-  every machine), `judgeVerdicts` (`JudgeVerdictRecord`: `judge`, `attempt`, `passed`, `reason?`,
+  every machine), `decision?` (#401: what it decided — `route:<node>` for a router, `launch:<node>,…`
+  for the routes it launched, `variant:<class>` for a `oneOf` answer, else `answer:<hash>` of its
+  value; none when it gave nothing), `judgeVerdicts` (`JudgeVerdictRecord`: `judge`, `attempt`, `passed`, `reason?`,
   `metrics?`), `guardrailDecisions` (`GuardrailDecisionRecord`: `guardrail`, `side`, `isBlocked`,
   `probability`), `spend`, `startedAt` / `endedAt`, `error?` (a failure a side path took).
 - A failed visit keeps its records: the calls, judge verdicts and guardrail decisions of an agent

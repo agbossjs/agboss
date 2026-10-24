@@ -142,7 +142,10 @@ artifacts, `agboss.execution-record` exports, each by its marker (`hub.input-sch
 `hub.duplicate-application`) — into the mesh: the applications, the calls between them seen in the
 records (`remote` / `origin`, one per step `idempotencyKey`), each one's health from its records and
 evals, the execution trees across applications stitched by each receiver's `origin` (#401 PR 4; a
-missing receiver a stub), one self-contained page in the eval report's shell; no project, nothing runs; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
+missing receiver a stub), the crystallization radar — model steps ranked by spend × stability, the
+share of the most frequent `steps[].decision` among calls with one `inputHash` (#401 PR 5: the step
+record's `decision`, `route:` / `launch:` / `variant:` / `answer:<hash>`), a candidate at ≥ 50 calls,
+≥ 0.95 and no failing eval —, one self-contained page in the eval report's shell; no project, nothing runs; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
 `agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
 (`agboss/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs
