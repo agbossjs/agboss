@@ -518,19 +518,30 @@ export const anyInstancePaths = [
   `.toParallelWorkflows(W, { …, placement })` and `route(W, { placement })`; absent is
   `ChildPlacement.ParentInstance`. One class is one node, so all its mentions name one placement
   (`[flow.conflicting-placement]`). `describe` and the config fingerprint print it as written.
-- **How the parent waits — inside its step (#333 S6)**: the parent's node saves the child to the
+- **How the parent waits — inside its step (#333 S6, S9)**: the parent's node saves the child to the
   application's `ChildExecutionQueueRepository` (once: a re-entry after a crash finds its row and
   waits again, no second row) and waits on that row — woken at once when the child ends in the same
-  process, else reading it every second on the framework's `Clock`. The wait is under the step's own
-  signal, so a `FailFast` sibling, `app.cancel`, a lost lease, an exhausted budget and the failure
-  records take the same paths as for a child on the parent's instance. The tree keeps its lease
-  meanwhile.
+  process, else reading it every second on the framework's `Clock`. While waiting, the parent yields
+  its lease in `ExecutionLeaseRepository` and re-acquires it before continuing. The wait is under
+  the step's own signal, so a `FailFast` sibling, `app.cancel`, a lost lease, an exhausted budget
+  and the failure records take the same paths as for a child on the parent's instance.
 - **Who runs it**: an instance with a free step slot ([#332](Several-instances#an-instances-cap-on-steps-332);
   no cap → always) claims it — at once when it was queued in the same process, else at its next sweep
-  (30 s) — the deepest first, then the longest waiting. It runs as a root graph on the child's own
-  thread (the same graph and `ExecutionContext` — parent, root, depth, `itemIndex`, tenant, thread —
-  as on the parent's instance) and completes the row; the parent reads the child's last state from
-  that thread, so its value, PII tokens, spend and record come back as for a local child.
+  (30 s) — the deepest first, then the longest waiting. It holds a 30 s lease in
+  `ExecutionLeaseRepository` under `(tenantId, childExecutionId)`, runs as a root graph on the
+  child's own thread (the same graph and `ExecutionContext` — parent, root, depth, `itemIndex`,
+  tenant, thread — as on the parent's instance) and completes the row; the parent reads the child's
+  last state from that thread, so its value, PII tokens, spend and record come back as for a local
+  child.
+- **Pauses and per-child recovery (#333 PR 4, S7, S9)**: when a remote child rests at a pause, its
+  worker completes the pass at `Paused` and the parent's node interrupts with a `remote: true`
+  waiting marker so the pause appears in `result.pending` with its `childExecutionId` and `itemIndex`
+  and records `PauseAnswerRecord` in `result.children[i].pauses` and `result.record.pauses`; on
+  `app.resume` from any instance, the parent's node forwards the child's resume map through the
+  queue so any instance continues only that child on `<parentThreadId>/child/<id>`. On a worker
+  crash or a graceful stop past `shutdownTimeout` (S7), the queue row stays `Running`; once the
+  child's lease in `ExecutionLeaseRepository` is free, another instance reclaims only that child and
+  continues it from its last checkpoint without re-running finished siblings.
 - **Its failure** reaches the parent as `ChildExecutionFailedError`, its cause chain kept as the
   names, codes and messages of the child's errors (`RemoteChildFailure`): a side path on
   `ChildExecutionFailedError` (or `StepFailedError`, …) takes it; matching the child's own error
@@ -542,9 +553,6 @@ export const anyInstancePaths = [
   on the worker — the tree's slots are held as leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>`
   and `:subtree:<executionId>`), and each superstep's spend is written to the root's counters in
   `CostLedgerRepository` at once (never counted twice when the parent folds the child's state in).
-- **Not yet (#333 PR 4)**: such a child cannot pause — `[graph.remote-child-can-pause]` names the child,
-  the tool and its channel, and the fix (`ChildPlacement.ParentInstance`) — and the parent keeps its
-  lease while it waits and does not recover a crashed child on its own.
 
 ## Recursion (#264)
 

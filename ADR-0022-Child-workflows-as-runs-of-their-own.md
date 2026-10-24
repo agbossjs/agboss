@@ -42,21 +42,26 @@ outside its parent's checkpoint, nothing another instance can continue.
   subgraph, for drawing only; no execution runs under it.
 - **Placement is per launch (Q2):** `placement: ChildPlacement.AnyInstance` on `.toWorkflow(W)` /
   `.toParallelWorkflows(W, …)` / `route(W)` (PR 2); never automatic, never application-wide.
-- **A remote child is awaited inside its parent's step until PR 4 (S6, revising S5):** the parent's
-  node saves the child to the queue (once — a re-entry finds its row) and waits on its row — woken
-  in-process at once, else read every second on the `Clock` — under the step's own signal, so
-  `FailFast`, `app.cancel`, a lost lease, budgets and failure records take today's paths. The cost,
-  accepted: the tree keeps its lease while remote children run, and a sibling's pause surfaces when
-  they end. The interrupt with a `remote: true` marker and yielding the lease come with PR 4, where
-  a remote child's pause must reach `result.pending`; until then a remote child that can pause is an
-  assembly error (`[graph.remote-child-can-pause]`).
+- **A remote child is awaited inside its parent's step, yielding the lease while it runs (S6, S9):**
+  the parent's node saves the child to the queue (once — a re-entry finds its row) and waits on its
+  row — woken in-process at once, else read every second on the `Clock` — under the step's own
+  signal, temporarily yielding its lease in `ExecutionLeaseRepository` while waiting and
+  re-acquiring it before continuing, so `FailFast`, `app.cancel`, a lost lease, budgets and failure
+  records take today's paths without holding the root's lease idle. When a remote child rests at a
+  pause, the worker completes its pass at `Paused` and the parent's node interrupts with a
+  `{ waitingForChild: { …, remote: true } }` marker so the pause reaches `result.pending`; on
+  `app.resume`, the parent's node forwards the child's resume map through the queue so any instance
+  continues the child on `<parentThreadId>/child/<id>`.
 - **Tree-wide guarantees hold across instances** (PR 2–4): queued children are claimed atomically
   (`ChildExecutionQueueRepository`, in-memory + SQLite) by instances with free step slots (#332);
   the tree's `maxConcurrentExecutions` lives in `RateLimitRepository` (slots as leases); depth and
   the root's budgets are checked where the child runs; spend reaches the ledger at once; PII tokens
   go back to the parent with the child's end.
-- **Recovery:** until PR 4 the recovery sweep continues roots only (S4 D4) — a child is continued
-  by its root's re-run, from its own thread's last checkpoint; PR 4 recovers a child on its own.
+- **Recovery (PR 4, S7, S9):** a worker holds a 30 s lease in `ExecutionLeaseRepository` under
+  `(tenantId, childExecutionId)`. On a crash or a graceful stop past `shutdownTimeout` (S7), the
+  queue row stays `Running`, and once the child's lease is free a live worker reclaims only that
+  child and continues it from its last checkpoint on `<parentThreadId>/child/<id>` without
+  re-running finished siblings.
 - **Upgrade (S4 D6):** for one version, a child found at its old place — a subgraph checkpoint under
   the launching task's `checkpoint_ns` on its parent's thread — is continued the old way to its end.
 

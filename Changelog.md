@@ -3,6 +3,27 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — pauses, lease yielding and per-child recovery across instances (#333 PR 4)
+
+- **Added — pauses and `app.resume` in `ChildPlacement.AnyInstance` children**
+  ([Workflow as a step](Workflow-as-a-step#on-any-instance-333-pr-2),
+  [Several instances](Several-instances#children-on-any-instance-333)): when a remote child rests at a
+  pause, its worker completes the queue row with `ExecutionRecordStatus.Paused` (`ChildExecutionEnd.status`
+  now includes `ExecutionRecordStatus.Paused`) and the parent's node interrupts with a `remote: true`
+  waiting marker so the pause appears in `result.pending` with its `childExecutionId` and `itemIndex`
+  and records `PauseAnswerRecord` in `result.children[i].pauses` and `result.record.pauses`. On
+  `app.resume` from any instance, the parent's node forwards the child's resume map through the queue
+  so any instance continues only that child on `<parentThreadId>/child/<id>`.
+- **Removed — `GraphRuleErrorCode` value `graph.remote-child-can-pause`**: remote children may now
+  use tools that pause.
+- **Changed — yielding the root lease and per-child crash recovery (#333 S7, S9)**: while a parent
+  waits on remote children inside its step, it yields its root lease in `ExecutionLeaseRepository`
+  and re-acquires it before continuing. Each worker holds a 30 s lease in `ExecutionLeaseRepository`
+  under `(tenantId, childExecutionId)`; on a worker crash or a graceful stop past `shutdownTimeout`
+  (S7), the queue row stays `Running`, and once the child's lease is free a live worker reclaims
+  only that child and continues it from its last checkpoint on `<parentThreadId>/child/<id>` without
+  re-running finished siblings.
+
 ## Unreleased — tree-wide slots, depth and budgets across instances (#333 PR 3)
 
 - **Added — shared tree slots in `RateLimitRepository`** ([FinOps](FinOps#concurrency-of-a-tree-264),

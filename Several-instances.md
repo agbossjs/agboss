@@ -655,17 +655,23 @@ may run on **any** instance instead, through the application's `ChildExecutionQu
    executionId)`, its row `Queued` with what a worker needs to run it (its first state, its own
    thread, its parents as plain data, serialized with the checkpointer's `serde`) — and waits inside
    its step on that row: woken at once when the child ends in the same process, else reading the row
-   every second on the `Clock`. The tree keeps its lease while it waits.
+   every second on the `Clock`. While waiting, the parent yields its lease in
+   `ExecutionLeaseRepository` and re-acquires it before continuing (#333 PR 4, S9).
 2. Every instance whose workflows launch such a child claims queued rows while it has a free step
    slot ([#332](#an-instances-cap-on-steps-332); no cap → always): at once when a child is queued in
    its own process, and at every sweep (30 s) for the ones queued elsewhere.
    `claimFirstByStatusQueuedOrderByDepthDesc` takes the deepest child first, then the longest
    waiting, and marks it `Running` with its `instanceId` — atomically (`BEGIN IMMEDIATE` on SQLite),
    so of two instances exactly one gets it.
-3. The claiming instance runs the child as a root graph on its own thread (ADR-0022), on the same
-   checkpointer, then `completeByTenantIdAndExecutionId` marks the row `Answered` or `Failed` (the
-   names, codes and messages of its error chain). The parent reads the child's last state from its
-   thread and goes on as for a child on its own instance.
+3. The claiming instance holds a 30 s lease in `ExecutionLeaseRepository` under
+   `(tenantId, childExecutionId)`, runs the child as a root graph on its own thread (ADR-0022) on
+   the same checkpointer, then `completeByTenantIdAndExecutionId` marks the row `Answered`,
+   `Paused` (when the child rests at a pause) or `Failed` (the names, codes and messages of its
+   error chain). When the row is `Paused`, the parent's node interrupts with a `remote: true`
+   waiting marker so the pause appears in `result.pending`, and on `app.resume` forwards the child's
+   resume map through the queue so any instance continues it (#333 PR 4). On a worker crash or a
+   graceful stop past `shutdownTimeout` (S7), the row stays `Running`, and once the child's lease is
+   free a live worker reclaims only that child and continues it from its last checkpoint.
 4. While it runs, the worker looks every 10 s whether the tree still waits for it: a cancel request
    ([Cancelling from any instance](#cancelling-from-any-instance)) or the tree's end — its root's end
    removes its rows (`deleteAllByTenantIdAndRootExecutionId`) — aborts it.
@@ -673,15 +679,11 @@ may run on **any** instance instead, through the application's `ChildExecutionQu
 List `SqliteChildExecutionQueueRepository` (table `child_execution_queue`) or your own `extends
 ChildExecutionQueueRepository`; on the built-in in-memory queue only the instances of one process
 (a test's) share it — `[application.in-memory-child-queue]`. The queue, the checkpointer, the
-ledger and `RateLimitRepository` must be shared for a child to run elsewhere. For a tree that can
-launch on any instance (#333 PR 3, S8), `maxConcurrentExecutions` is held as leases in
-`RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>` and `:subtree:<executionId>`, renewed
-while held, polled on the `Clock`), depth and the root's budgets are checked where the child runs,
-and each superstep's spend reaches the root's counters at once.
-
-Not yet (#333 PR 4): such a child cannot pause (`[graph.remote-child-can-pause]`); the parent keeps
-its lease while it waits; and a child whose instance crashed is not recovered on its own — its row
-stays `Running` and its parent keeps waiting.
+ledger, the leases, the paused executions and `RateLimitRepository` must be shared for a child to
+run elsewhere. For a tree that can launch on any instance (#333 PR 3, S8), `maxConcurrentExecutions`
+is held as leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>` and
+`:subtree:<executionId>`, renewed while held, polled on the `Clock`), depth and the root's budgets
+are checked where the child runs, and each superstep's spend reaches the root's counters at once.
 
 ## Limits
 
