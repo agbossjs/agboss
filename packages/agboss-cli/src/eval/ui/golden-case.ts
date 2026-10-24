@@ -3,18 +3,18 @@ import { join } from "node:path";
 import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "agboss/eval";
 import type { OpenedExecutionHistory } from "agboss/internal";
 import { CliError } from "../../cli/errors.js";
-import { keptDraftOf } from "../../cli/generate-eval-case.js";
 import { ScaffoldConflictError, ScaffoldError } from "../../scaffold/errors.js";
 import { evalSuiteSourceOf, planEvalCase } from "../../scaffold/generate-eval-case.js";
 import { element, type HtmlElement } from "../html/html.js";
 import { runAnchor } from "../html/sections.js";
 import { writeAtomically } from "./atomic-write.js";
+import { formRunOf, goldenDraftOf, GoldenRefusal } from "./golden-draft.js";
 import { seeOther, textResponse, type EvalUiResponse } from "./ui-responses.js";
 
 /**
  * "Save as golden case" in `agboss eval ui` (#397 PR 5, S2 Q5): a run's execution, read from the
  * application's execution history, drafted into a case the way `agboss generate eval-case
- * --from-execution` drafts it (`keptDraftOf`, `planEvalCase` — one builder, #396 PR 8) and written
+ * --from-execution` drafts it (`recordDraftOf`, `planEvalCase` — one builder, #396 PR 8) and written
  * into the suite's file directly: whole and atomically, only if the file is still the one the page
  * was made from (its ETag; else 409), never over a case of the same name (409).
  */
@@ -101,20 +101,22 @@ export interface SaveGoldenContext {
   readonly runPage: (fragment: string, saved?: string) => string;
 }
 
-/** Where the run of the form is on its page. */
-function fragmentOf(report: EvalRunReport, run: string): string {
-  const at = run.lastIndexOf("#");
-  const index = report.cases.findIndex((found) => found.name === run.slice(0, at));
-  return index < 0 ? "cases" : runAnchor(index, Number(run.slice(at + 1)));
-}
-
 /** A thrown error of the builders as the answer it means. */
 function answerOfError(error: unknown): EvalUiResponse {
+  if (error instanceof GoldenRefusal) return textResponse(error.status, error.message);
   if (error instanceof ScaffoldConflictError) return textResponse(409, error.message);
   if (error instanceof ScaffoldError) return textResponse(400, error.message);
-  if (error instanceof CliError)
-    return textResponse(error.code === "records.not-found" ? 404 : 409, error.message);
   throw error;
+}
+
+/** The form's name, execution and run of the report; undefined when one is missing. */
+function goldenFormFieldsOf(report: EvalRunReport, form: URLSearchParams) {
+  const name = (form.get("name") ?? "").trim();
+  const executionId = form.get("executionId") ?? "";
+  const run = formRunOf(report, form.get("run") ?? "");
+  return name === "" || executionId === "" || run === undefined
+    ? undefined
+    : { name, executionId, run };
 }
 
 /** `POST /runs/<file>/golden`: the run's execution as a new case of the suite, or why not. */
@@ -125,10 +127,10 @@ export async function saveGoldenCase(
   const { source, report } = context;
   if (source.kind === "off")
     return textResponse(409, `cannot save a golden case: ${source.reason}`);
-  const name = (form.get("name") ?? "").trim();
-  const executionId = form.get("executionId") ?? "";
-  if (name === "" || executionId === "")
-    return textResponse(400, "the form needs a name and an execution");
+  const fields = goldenFormFieldsOf(report, form);
+  if (fields === undefined)
+    return textResponse(400, "the form needs a name, a run of this report and its execution");
+  const { name, executionId, run } = fields;
   try {
     const before = evalSuiteSourceOf(source.root, {
       application: source.application,
@@ -139,14 +141,14 @@ export async function saveGoldenCase(
         409,
         `${before.file.path} changed since this page was made: reload it and save again`,
       );
-    const draft = await keptDraftOf(source.history, name, executionId);
+    const draft = await goldenDraftOf(source.history, run, executionId, name);
     const plan = planEvalCase(source.root, draft, {
       application: source.application,
       suite: report.suite,
     });
     for (const file of plan.changes.modify)
       writeAtomically(join(source.root, file.path), file.content);
-    return seeOther(context.runPage(fragmentOf(report, form.get("run") ?? ""), name));
+    return seeOther(context.runPage(runAnchor(run.caseIndex, run.result.run), name));
   } catch (error) {
     return answerOfError(error);
   }

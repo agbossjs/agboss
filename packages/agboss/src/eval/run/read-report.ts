@@ -8,7 +8,7 @@ import { CaseExpectationSchema, ExecutionTraceSchema } from "./trace-schema.js";
 
 /**
  * The one reader of run artifacts (#396 PR 3, #397 S4): a file `agboss eval run --baseline` compares
- * with and `agboss eval show` renders — its `kind`, its `schemaVersion` (1 to 3; a version this
+ * with and `agboss eval show` renders — its `kind`, its `schemaVersion` (1 to 4; a version this
  * reader does not know is refused) and every field of `EvalRunReport`, the optional `baseline`
  * comparison and the version 2 `trace` / `expectation` (#397 PR 2) included, validated with zod inside the framework. Fields it does not know are kept, so a newer
  * artifact's additions pass through untouched.
@@ -33,6 +33,7 @@ const CheckSchema = z.looseObject({
 const RunSchema = z.looseObject({
   run: z.number().int().positive(),
   threadId: z.string(),
+  tenantId: z.string().optional(),
   executionId: z.string().optional(),
   finish: z.string().optional(),
   passed: z.boolean(),
@@ -90,7 +91,12 @@ const ComponentSchema = z.looseObject({ name: z.string(), version: z.string() })
 
 const ReportSchema: z.ZodType<EvalRunReport> = z.looseObject({
   kind: z.literal(EVAL_RUN_KIND),
-  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(EVAL_RUN_SCHEMA_VERSION)]),
+  schemaVersion: z.union([
+    z.literal(1),
+    z.literal(2),
+    z.literal(3),
+    z.literal(EVAL_RUN_SCHEMA_VERSION),
+  ]),
   suite: z.string(),
   application: ComponentSchema,
   workflow: ComponentSchema,
@@ -130,7 +136,7 @@ const ReportSchema: z.ZodType<EvalRunReport> = z.looseObject({
 });
 
 /** Every version this reader reads. */
-const READ_VERSIONS: readonly unknown[] = [1, 2, EVAL_RUN_SCHEMA_VERSION];
+const READ_VERSIONS: readonly unknown[] = [1, 2, 3, EVAL_RUN_SCHEMA_VERSION];
 
 /** What the value says it is, whatever else it holds. */
 const IdentitySchema = z.looseObject({

@@ -134,6 +134,7 @@ export async function runCaseOnce(
     return {
       run,
       threadId,
+      tenantId: values.tenant.tenantId,
       passed: false,
       checks: [],
       error: turns.error,
@@ -147,6 +148,7 @@ export async function runCaseOnce(
   return {
     run,
     threadId,
+    tenantId: values.tenant.tenantId,
     executionId: last.executionId,
     ...(last.finish === undefined ? {} : { finish: last.finish.name }),
     passed: checks.every((check) => check.status === CheckStatus.Passed),

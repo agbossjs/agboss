@@ -108,11 +108,12 @@ each case's `expectation`; version 1 artifacts are still read by the one reader 
 1–4 score, tags of `eval/failure-taxonomy.yaml`, a note — to `eval/labels/<suite>.jsonl`, the same run, judge and
 labeler replaced, atomically, and the page's calibration is `calibrateJudges` on every load; a POST needs
 the token in its form and the page's own origin; `eval.taxonomy-invalid`; #397 PR 5: "save as golden case" on a run
-with an `executionId` drafts its kept execution (`--application`, `--env`: the history only, nothing runs) with
+with an `executionId` drafts its kept execution — the record on the run's thread, of the run's `tenantId`
+(#397 PR 5b) — (`--application`, `--env`: the history only, nothing runs) with
 `evalCaseDraftOf` and `withEvalCase` — one builder with `generate eval-case` — and writes it into the suite's file
 atomically, only while the file's ETag is the page's (else 409), never over a case of that name (409); an
 application without `executionRecordRetention`, none at all or one that does not load turns the button into why) — a `schemaVersion` 3 artifact also names its `profile`,
-`agbossVersion`, `models` and `piiPolicies` for the header; rendered in `agboss-cli`
+`agbossVersion`, `models` and `piiPolicies` for the header, a version 4 each run's `tenantId` (#397 PR 5b); rendered in `agboss-cli`
 (`src/eval/html/`, loaded on demand); `agboss eval calibrate --report <run.json> [--labels
 <labels.jsonl>]` (#396 PR 4) reads a saved run's judges against people's labels (`EvalLabel`, one JSON
 line each, `eval/labels/<suite>.jsonl` by default: `runId` `<case>#<run>`, `executionId`, `judge`,

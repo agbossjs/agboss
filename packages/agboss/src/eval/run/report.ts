@@ -18,12 +18,13 @@ export const EVAL_RUN_KIND = "agboss.eval-run";
 /**
  * The version of the artifact's shape a run writes: a reader refuses one it does not know. 2 (#397
  * PR 2) adds each run's `trace` and each case's `expectation`; 3 (#397 PR 3) what the run ran on —
- * `profile`, `agbossVersion`, `models`, `piiPolicies`. Versions 1 and 2 are still read.
+ * `profile`, `agbossVersion`, `models`, `piiPolicies`; 4 (#397 PR 5b) each run's `tenantId`.
+ * Versions 1 to 3 are still read.
  */
-export const EVAL_RUN_SCHEMA_VERSION = 3;
+export const EVAL_RUN_SCHEMA_VERSION = 4;
 
 /** The versions this agboss reads: every one it ever wrote. */
-export type EvalRunSchemaVersion = 1 | 2 | typeof EVAL_RUN_SCHEMA_VERSION;
+export type EvalRunSchemaVersion = 1 | 2 | 3 | typeof EVAL_RUN_SCHEMA_VERSION;
 
 /** What one check decided on one run. */
 export interface EvalCheckResult {
@@ -51,6 +52,11 @@ export interface EvalRunResult {
   /** 1 to `runs`. */
   readonly run: number;
   readonly threadId: string;
+  /**
+   * The tenant its turns ran for — the case's `tenant`, else the default one (#397 PR 5b,
+   * schemaVersion 4): with `threadId` and `executionId`, the run's own records. Absent before 4.
+   */
+  readonly tenantId?: string;
   /** The last turn's execution: the one the checks judged. */
   readonly executionId?: string;
   /** The finish the last turn ended at; none when it paused or failed. */

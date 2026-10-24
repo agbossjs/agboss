@@ -55,9 +55,10 @@ async function recordsOf(
 }
 
 /**
- * The case `name` drafted from a kept execution: its record (of `tenant`, when given) and its
- * thread's earlier turns — for `agboss generate eval-case` and `agboss eval ui`'s "save as golden
- * case" (#397 PR 5) alike. `records.not-found` / `records.ambiguous-execution` when it is not one.
+ * The case `name` drafted from a kept execution of `agboss generate eval-case`: its record (of
+ * `tenant`, when given) and its thread's earlier turns. `records.not-found` /
+ * `records.ambiguous-execution` when it is not one; `agboss eval ui` picks its record itself, by the
+ * run's tenant and thread (#397 PR 5b), and drafts it with `recordDraftOf`.
  */
 export async function keptDraftOf(
   history: OpenedExecutionHistory["history"],
@@ -65,7 +66,19 @@ export async function keptDraftOf(
   executionId: string,
   tenant?: string,
 ): Promise<EvalCaseDraft> {
-  const record = onlyRecord(await recordsOf(history, executionId, tenant), executionId);
+  return recordDraftOf(
+    history,
+    name,
+    onlyRecord(await recordsOf(history, executionId, tenant), executionId),
+  );
+}
+
+/** The case `name` drafted from one kept record and its thread's earlier turns. */
+export async function recordDraftOf(
+  history: OpenedExecutionHistory["history"],
+  name: string,
+  record: ExecutionHistoryRecord,
+): Promise<EvalCaseDraft> {
   const thread = await history.findAllByTenantIdAndThreadId(record.tenantId, record.threadId);
   return evalCaseDraftOf(name, observedExecutionOf(record, thread));
 }
