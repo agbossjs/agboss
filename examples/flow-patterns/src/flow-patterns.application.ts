@@ -7,7 +7,7 @@ import {
   SqliteExecutionTreeRepository,
   SqlitePausedExecutionRepository,
 } from "agboss";
-import { DecisionsModelProvider } from "agboss/models";
+import { DecisionsModelProvider, OpenRouterModelProvider } from "agboss/models";
 import { OffsiteBookingWorkflow } from "./approvals/offsite-booking.workflow.js";
 import { TerminalPurchaseApprovalChannel } from "./approvals/channels/terminal-purchase-approval.channel.js";
 import {
@@ -25,7 +25,6 @@ import { DeskMetricsService } from "./desk/services/desk-metrics.service.js";
 import { IntakeWorkflow } from "./intake/intake.workflow.js";
 import { HelplineWorkflow } from "./helpline/helpline.workflow.js";
 import { HarnessModelProvider } from "./model-providers/harness.model-provider.js";
-import { FlowPatternsOpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { OfferWorkflow } from "./offer/offer.workflow.js";
 import { PanelWorkflow } from "./panel/panel.workflow.js";
 import { RecruiterInboxChannel } from "./hiring/channels/recruiter-inbox.channel.js";
@@ -55,8 +54,8 @@ import { AppEnvironment } from "./environments/app.environment.js";
  * and application budgets, the records, the pauses, the checkpoints, the leases and the tree keys —
  * so two pauses wait at once and survive a restart, and another instance on the file continues
  * them (#261: an in-memory ledger or pause store is an assembly warning, an error under
- * `agboss check --strict`). Its model providers (#266) are OpenRouter (its own class, serving `moonshotai/…`) and the built-in
- * Decisions one — they read `openRouterApiKey` (and `openRouterBaseUrl`) of the environment — and the offline
+ * `agboss check --strict`). Its model providers (#266) are the built-in OpenRouter and Decisions ones — catch-alls that
+ * yield `harness/…` to the transport that claims it (#454) — they read `openRouterApiKey` (and `openRouterBaseUrl`) of the environment — and the offline
  * transport `HarnessModelProvider` for the `harness/…` models (#385), which needs no key. The
  * purchase approvals are asked in the terminal (`TerminalPurchaseApprovalChannel`, the one
  * implementation of their role). Its PII key is an environment secret (#120 S94: without one, a
@@ -86,7 +85,7 @@ import { AppEnvironment } from "./environments/app.environment.js";
   maxConcurrentSteps: 16, // agent, router and action steps of one instance at once (#332)
   providers: [
     DeskMetricsService, // the observer's
-    FlowPatternsOpenRouterModelProvider, // moonshotai/…
+    OpenRouterModelProvider, // every chat model but harness/… (#454: a built-in yields)
     DecisionsModelProvider, // Jev and the other decision models
     HarnessModelProvider, // harness/…, offline
     TerminalPurchaseApprovalChannel,

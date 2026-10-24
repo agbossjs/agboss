@@ -1,3 +1,4 @@
+import { isCatchAllProvider } from "./catch-all.js";
 import type { ModelProviderHandler } from "./handler.js";
 import {
   hasProviderMethod,
@@ -59,9 +60,18 @@ export function registeredOf(cls: ModelProviderType): RegisteredModelProvider {
 }
 
 /**
+ * The providers that serve a model: a built-in catch-all (#454) only when no other of them claims
+ * it — an explicit `serves` wins over the catch-all, two explicit claims stay ambiguous.
+ */
+function claimantsOf(serving: readonly RegisteredModelProvider[]): RegisteredModelProvider[] {
+  const explicit = serving.filter((provider) => !isCatchAllProvider(provider.type));
+  return explicit.length === 0 ? [...serving] : explicit;
+}
+
+/**
  * The application's model providers (`@Application({ providers })`, #266) and who serves which
- * model: exactly one provider by `serves` (and the purpose it can serve) — a workflow or a
- * component never picks one.
+ * model: exactly one provider by `serves` (and the purpose it can serve) — a built-in catch-all
+ * yields to a provider that claims the model (#454); a workflow or a component never picks one.
  */
 export class ModelProviderDirectory {
   constructor(readonly providers: readonly RegisteredModelProvider[]) {}
@@ -73,8 +83,11 @@ export class ModelProviderDirectory {
 
   /** The one provider serving the model for its purpose; none or several is a problem. */
   resolve(query: ProviderQuery): ProviderResolution {
-    const serving = this.providers.filter(
-      (provider) => servesModel(provider.options, query.model) && canServe(provider, query.purpose),
+    const serving = claimantsOf(
+      this.providers.filter(
+        (provider) =>
+          servesModel(provider.options, query.model) && canServe(provider, query.purpose),
+      ),
     );
     const problem = (code: ModelProblem["code"], supported: string): ProviderResolution => ({
       kind: "problem",
