@@ -12,7 +12,8 @@ where a per-item launch of one agent (`.toParallelAgents(A)`) runs exactly one s
 > records (`result.children`), `toHaveChildExecutions` / `toHaveHandledError`, and a child as an
 > error handler (`toWorkflow(W)` side paths). Recursion — `ThisWorkflow`, `maxDepth`, the soft stop
 > — is #264 PR 1 ([below](#recursion-264)); the tree's `maxConcurrentExecutions` is #264 PR 2
-> ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)).
+> ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)). A child on any instance —
+> `placement: ChildPlacement.AnyInstance` — is #333 PR 2 ([below](#on-any-instance-333-pr-2)).
 > Runnable examples: `examples/flow-patterns/src/vendor/`, `examples/flow-patterns/src/topic/`.
 
 ## Writing it
@@ -436,6 +437,111 @@ execution budget of its own.
 execution itself plus each child edge's worst case, `maxItems` times per item (at most
 `maxConcurrency` at once) — `Worst case of one vendor-screening-workflow-start call: 51 workflow
 executions, 4 at the same time, …`.
+
+## On any instance (#333 PR 2)
+
+By default a child runs on its parent's instance, inside its parent's step. A launch may let **any
+instance** of the application run it instead — a fan-out of heavy children then spreads over the
+instances that share the stores ([Several instances](Several-instances#children-on-any-instance-333)):
+
+<!-- snippet-context
+import { Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, start, toFinish } from "agboss";
+import { Text, WorkflowStartTextDto, listOf } from "agboss/dto";
+export class SupplierDto {
+  @Text({ prompt: "the supplier's name" })
+  name!: string;
+}
+export class SupplierScoreDto {
+  @Text({ prompt: "how well the supplier fits" })
+  score!: string;
+}
+export class SupplierRankingDto {
+  @Text({ prompt: "the suppliers, best first" })
+  order!: string;
+}
+@WorkflowStart({ name: "supplier-check-workflow-start", description: "One supplier", input: SupplierDto })
+export class SupplierCheckWorkflowStart {}
+@Agent({ name: "supplier-checker-agent", description: "Checks a supplier", prompt: "Check it.", model: "moonshotai/kimi-k2.6", input: { supplier: SupplierDto }, output: SupplierScoreDto })
+export class SupplierCheckerAgent {}
+@WorkflowFinish({ name: "supplier-scored-workflow-finish", description: "Scored", output: SupplierScoreDto })
+export class SupplierScoredWorkflowFinish {}
+@Workflow({
+  name: "supplier-check-workflow",
+  version: "1.0.0",
+  flow: [
+    start(SupplierCheckWorkflowStart)
+      .returns(SupplierDto)
+      .toAgent(SupplierCheckerAgent)
+      .returns(SupplierScoreDto)
+      .toFinish(SupplierScoredWorkflowFinish),
+  ],
+})
+export class SupplierCheckWorkflow {}
+@WorkflowStart({ name: "supplier-screening-workflow-start", description: "What to look for", input: WorkflowStartTextDto })
+export class SupplierScreeningWorkflowStart {}
+@Agent({ name: "supplier-finder-agent", description: "Finds suppliers", prompt: "Find them.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(SupplierDto) })
+export class SupplierFinderAgent {}
+@Agent({ name: "supplier-ranker-agent", description: "Ranks", prompt: "Rank.", model: "moonshotai/kimi-k2.6", input: { scores: listOf(SupplierScoreDto) }, output: SupplierRankingDto })
+export class SupplierRankerAgent {}
+@WorkflowFinish({ name: "supplier-ranking-workflow-finish", description: "The ranking", output: SupplierRankingDto })
+export class SupplierRankingWorkflowFinish {}
+@WorkflowFinish({ name: "screening-failed-workflow-finish", description: "A check failed", output: WorkflowStartTextDto })
+export class ScreeningFailedWorkflowFinish {}
+// @snippet
+@Workflow({ name: "supplier-screening-workflow", version: "1.0.0", flow: anyInstancePaths })
+export class SupplierScreeningWorkflow {}
+-->
+
+```ts
+import { ChildPlacement } from "agboss";
+
+export const anyInstancePaths = [
+  start(SupplierScreeningWorkflowStart)
+    .returns(WorkflowStartTextDto)
+    .toAgent(SupplierFinderAgent)
+    .returns(listOf(SupplierDto))
+    .toParallelWorkflows(SupplierCheckWorkflow, {
+      maxConcurrency: 6,
+      maxItems: 50,
+      placement: ChildPlacement.AnyInstance, // default ChildPlacement.ParentInstance
+    })
+    .join()
+    .onJoinError(ChildExecutionFailedError, toFinish(ScreeningFailedWorkflowFinish))
+    .returns(listOf(SupplierScoreDto))
+    .toAgent(SupplierRankerAgent)
+    .returns(SupplierRankingDto)
+    .toFinish(SupplierRankingWorkflowFinish),
+] as const;
+```
+
+- **Where it is written**: `{ placement }` on `.toWorkflow(W, { placement })`,
+  `.toParallelWorkflows(W, { …, placement })` and `route(W, { placement })`; absent is
+  `ChildPlacement.ParentInstance`. One class is one node, so all its mentions name one placement
+  (`[flow.conflicting-placement]`). `describe` and the config fingerprint print it as written.
+- **How the parent waits — inside its step (#333 S6)**: the parent's node saves the child to the
+  application's `ChildExecutionQueueRepository` (once: a re-entry after a crash finds its row and
+  waits again, no second row) and waits on that row — woken at once when the child ends in the same
+  process, else reading it every second on the framework's `Clock`. The wait is under the step's own
+  signal, so a `FailFast` sibling, `app.cancel`, a lost lease, an exhausted budget and the failure
+  records take the same paths as for a child on the parent's instance. The tree keeps its lease
+  meanwhile.
+- **Who runs it**: an instance with a free step slot ([#332](Several-instances#an-instances-cap-on-steps-332);
+  no cap → always) claims it — at once when it was queued in the same process, else at its next sweep
+  (30 s) — the deepest first, then the longest waiting. It runs as a root graph on the child's own
+  thread (the same graph and `ExecutionContext` — parent, root, depth, `itemIndex`, tenant, thread —
+  as on the parent's instance) and completes the row; the parent reads the child's last state from
+  that thread, so its value, PII tokens, spend and record come back as for a local child.
+- **Its failure** reaches the parent as `ChildExecutionFailedError`, its cause chain kept as the
+  names, codes and messages of the child's errors (`RemoteChildFailure`): a side path on
+  `ChildExecutionFailedError` (or `StepFailedError`, …) takes it; matching the child's own error
+  class through the cause is not possible yet.
+- **A cancel or the tree's end** stops a child running on another instance at its next look (every
+  10 s); the tree's queue rows are removed when its root ends.
+- **Not yet**: such a child cannot pause — `[graph.remote-child-can-pause]` names the child, the tool
+  and its channel, and the fix (`ChildPlacement.ParentInstance`) — until #333 PR 4, which also
+  yields the parent's lease while it waits and recovers a crashed child on its own. Until #333 PR 3
+  its depth and the tree's `maxConcurrentExecutions` are checked where it is launched only, and its
+  spend reaches the ledger when its parent's step goes on (as for a local child).
 
 ## Recursion (#264)
 

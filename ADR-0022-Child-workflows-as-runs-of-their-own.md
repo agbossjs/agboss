@@ -33,15 +33,23 @@ outside its parent's checkpoint, nothing another instance can continue.
   its parent's step, as today: it ends there — its value, or its failure — and the parent goes on in
   the same pass, with the same budget tally, tree slots, `FailFast` aborts, undo boundary (#340) and
   events. Only a child that cannot end within the step makes the parent's node interrupt with a
-  **waiting marker** naming the child: a child that rests paused (PR 1), or one placed on another
-  instance (`ChildPlacement.AnyInstance`, PR 2). The tree rests as it does for any pause; its
+  **waiting marker** naming the child: a child that rests paused (PR 1), or — from PR 4 — one
+  placed on another instance (`ChildPlacement.AnyInstance`). The tree rests as it does for any pause; its
   pending pauses are read through the markers (`result.pending` unchanged); a resume is still one
   command for the tree, which the parent's node forwards to the child's thread; the child's end
   lets the parent go on.
 - **Studio is unchanged (S4 D5):** the child's compiled graph stays registered as its node's
   subgraph, for drawing only; no execution runs under it.
 - **Placement is per launch (Q2):** `placement: ChildPlacement.AnyInstance` on `.toWorkflow(W)` /
-  `.toParallelWorkflows(W, …)` (PR 2); never automatic, never application-wide.
+  `.toParallelWorkflows(W, …)` / `route(W)` (PR 2); never automatic, never application-wide.
+- **A remote child is awaited inside its parent's step until PR 4 (S6, revising S5):** the parent's
+  node saves the child to the queue (once — a re-entry finds its row) and waits on its row — woken
+  in-process at once, else read every second on the `Clock` — under the step's own signal, so
+  `FailFast`, `app.cancel`, a lost lease, budgets and failure records take today's paths. The cost,
+  accepted: the tree keeps its lease while remote children run, and a sibling's pause surfaces when
+  they end. The interrupt with a `remote: true` marker and yielding the lease come with PR 4, where
+  a remote child's pause must reach `result.pending`; until then a remote child that can pause is an
+  assembly error (`[graph.remote-child-can-pause]`).
 - **Tree-wide guarantees hold across instances** (PR 2–4): queued children are claimed atomically
   (`ChildExecutionQueueRepository`, in-memory + SQLite) by instances with free step slots (#332);
   the tree's `maxConcurrentExecutions` lives in `RateLimitRepository` (slots as leases); depth and

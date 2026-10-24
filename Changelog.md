@@ -3,6 +3,21 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — child workflows on any instance (#333 PR 2)
+
+- **Added — `ChildPlacement`** ([Workflow as a step](Workflow-as-a-step#on-any-instance-333-pr-2)):
+  `{ placement: ChildPlacement.AnyInstance }` on `.toWorkflow(W, …)`, `.toParallelWorkflows(W, { …,
+  placement })` and `route(W, …)` lets any instance of the application run the child; default
+  `ChildPlacement.ParentInstance` (as before). The parent's node waits for it inside its step (#333
+  S6) — `FailFast`, `app.cancel`, a lost lease and budgets as for a local child; its failure is
+  `ChildExecutionFailedError` with the child's error chain as `RemoteChildFailure`s. New rule codes
+  `[flow.conflicting-placement]` and, until #333 PR 4, `[graph.remote-child-can-pause]`.
+- **Added — infrastructure `ChildExecutionQueueRepository`** (in memory;
+  `SqliteChildExecutionQueueRepository`, table `child_execution_queue`) and
+  `ExecutionRecordStatus.Queued` ([Several instances](Several-instances#children-on-any-instance-333)):
+  queued children claimed atomically by instances with a free step slot (#332); the assembly warning
+  `[application.in-memory-child-queue]`.
+
 ## Unreleased — the built-in model providers yield to an explicit claim (#454)
 
 - **Changed — `OpenRouterModelProvider` and `DecisionsModelProvider` are catch-alls**

@@ -22,6 +22,7 @@ shared implementation of each:
 | `ExecutionTreeRepository`   | the shared state of one request, read by its executions on any instance         |
 | `RateLimitRepository`       | a model provider's limit, its 429 pause and its circuit breaker hold on every instance (#266) |
 | `MeshRequestRepository`     | a trusted mesh request answered once, whichever instance its repeat reaches (#398) |
+| `ChildExecutionQueueRepository` | a child launched with `ChildPlacement.AnyInstance` is claimed by one instance, whichever (#333) |
 
 Each contract has a ready **SQLite** implementation (#265 PR 3), or a project lists its own
 (`extends` the contract, `@Injectable({ deps })`, [below](#your-own-implementation)).
@@ -39,6 +40,7 @@ Each contract has a ready **SQLite** implementation (#265 PR 3), or a project li
 | `RateLimitRepository`       | `SqliteRateLimitRepository`       | `rate_limit_slots`, `rate_limit_window_entries`, `rate_limit_pauses` |
 | `MeshRequestRepository`     | `SqliteMeshRequestRepository`     | `mesh_requests`                   |
 | `ExecutionHistoryRepository` | `SqliteExecutionHistoryRepository` | `execution_history` ([Execution history](Execution-history)) |
+| `ChildExecutionQueueRepository` | `SqliteChildExecutionQueueRepository` | `child_execution_queue` ([below](#children-on-any-instance-333)) |
 
 Every row carries the tenant (#261): the threads and the records `tenant_id`, `paused_executions`
 is keyed by `(tenant_id, thread_id)`, a checkpoint and its writes are tagged with the run's tenant,
@@ -116,7 +118,7 @@ records the application's `IdGenerator` (#313: a new thread's id):
 | --- | --- |
 | `SqliteCheckpointSaver`, `SqliteExecutionTreeRepository`, `SqliteMeshRequestRepository`, `SqliteCostLedgerRepository` (#261 PR 5: each counter's period is named by the runtime from the `Clock`) | `[SqliteConnection]` |
 | `SqlitePausedExecutionRepository` | `[SqliteConnection, Clock]` |
-| `SqliteExecutionLeaseRepository`, `SqliteRateLimitRepository` | `[SqliteConnection, Clock, ApplicationContext]` |
+| `SqliteExecutionLeaseRepository`, `SqliteRateLimitRepository`, `SqliteChildExecutionQueueRepository` | `[SqliteConnection, Clock, ApplicationContext]` |
 | `SqliteExecutionRecordRepository` | `[SqliteConnection, Clock, ApplicationContext, IdGenerator]` |
 
 <!-- snippet-context
@@ -625,6 +627,42 @@ export class DeskApplication {}
   `application.maxConcurrentSteps` (`null` when unset).
 - The slots are in-process (one `StepSlots` per `createApp`); they are not shared through a store —
   each instance caps itself.
+
+## Children on any instance (#333)
+
+A whole execution tree normally runs on the instance that holds its lease. A child launched with
+`placement: ChildPlacement.AnyInstance` ([Workflow as a step](Workflow-as-a-step#on-any-instance-333-pr-2))
+may run on **any** instance instead, through the application's `ChildExecutionQueueRepository`
+(#333 PR 2):
+
+1. The parent's node saves the child to the queue — `saveIfAbsent`, keyed by `(tenantId,
+   executionId)`, its row `Queued` with what a worker needs to run it (its first state, its own
+   thread, its parents as plain data, serialized with the checkpointer's `serde`) — and waits inside
+   its step on that row: woken at once when the child ends in the same process, else reading the row
+   every second on the `Clock`. The tree keeps its lease while it waits.
+2. Every instance whose workflows launch such a child claims queued rows while it has a free step
+   slot ([#332](#an-instances-cap-on-steps-332); no cap → always): at once when a child is queued in
+   its own process, and at every sweep (30 s) for the ones queued elsewhere.
+   `claimFirstByStatusQueuedOrderByDepthDesc` takes the deepest child first, then the longest
+   waiting, and marks it `Running` with its `instanceId` — atomically (`BEGIN IMMEDIATE` on SQLite),
+   so of two instances exactly one gets it.
+3. The claiming instance runs the child as a root graph on its own thread (ADR-0022), on the same
+   checkpointer, then `completeByTenantIdAndExecutionId` marks the row `Answered` or `Failed` (the
+   names, codes and messages of its error chain). The parent reads the child's last state from its
+   thread and goes on as for a child on its own instance.
+4. While it runs, the worker looks every 10 s whether the tree still waits for it: a cancel request
+   ([Cancelling from any instance](#cancelling-from-any-instance)) or the tree's end — its root's end
+   removes its rows (`deleteAllByTenantIdAndRootExecutionId`) — aborts it.
+
+List `SqliteChildExecutionQueueRepository` (table `child_execution_queue`) or your own `extends
+ChildExecutionQueueRepository`; on the built-in in-memory queue only the instances of one process
+(a test's) share it — `[application.in-memory-child-queue]`. The queue, the checkpointer and the
+ledger must be shared for a child to run elsewhere.
+
+Not yet (#333 PR 3–4): such a child cannot pause (`[graph.remote-child-can-pause]`); the parent keeps
+its lease while it waits; a child whose instance crashed is not recovered on its own — its row stays
+`Running` and its parent keeps waiting — and depth and the tree's `maxConcurrentExecutions` are
+checked only where it is launched.
 
 ## Limits
 

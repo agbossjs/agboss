@@ -471,3 +471,4 @@ there):
 | ------------------------------------ | -------------------------------------------------------------------------------------------- |
 | `application.in-memory-cost-ledger`  | tenant or application budgets on the built-in in-memory ledger: each instance counts on its own, the counters reset on restart |
 | `application.in-memory-pauses`       | a workflow can pause (a tool with a channel) on the built-in in-memory paused executions or checkpoints |
+| `application.in-memory-child-queue`  | a child is launched with `placement: ChildPlacement.AnyInstance` on the built-in in-memory child queue: it runs only on the instances of the process that launched it (#333 PR 2) |
