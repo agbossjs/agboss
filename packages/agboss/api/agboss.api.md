@@ -5221,6 +5221,7 @@ export interface UsageRecord extends TokenUsage {
     readonly costSource: CostSource;
     // (undocumented)
     readonly costUsd: number;
+    readonly isRecordedElsewhere?: boolean;
     // (undocumented)
     readonly model: string;
     readonly servedBy?: string;

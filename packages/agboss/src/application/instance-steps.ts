@@ -7,6 +7,7 @@ import {
 import type { Clock } from "../infrastructure/clock.js";
 import type { ExecutionTreeRepository } from "../infrastructure/execution-tree.repository.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
+import type { RateLimitRepository } from "../infrastructure/rate-limit.repository.js";
 import type { ChildExecutionQueueRepository } from "../infrastructure/child-execution-queue.repository.js";
 import type { RemoteChildren } from "../flow/runtime/remote/remote-child.js";
 import type { Milliseconds } from "../units/index.js";
@@ -43,6 +44,14 @@ export interface SharedInstanceParts {
   readonly remoteChildren: RemoteChildren;
 }
 
+/** The application's stores an instance's parts use (#340, #333). */
+export interface InstanceStores {
+  readonly executionTrees: ExecutionTreeRepository;
+  readonly childQueue: ChildExecutionQueueRepository;
+  /** Where the slots of a tree that can launch on any instance are kept (#333 PR 3). */
+  readonly rateLimits: RateLimitRepository;
+}
+
 /**
  * The instance's step slots and its running step bodies (its stop awaits them before onDestroy) —
  * loaded with the instance (`await import`), not with the root import.
@@ -51,9 +60,9 @@ export async function instancePartsOf(
   assembled: AssembledApplication,
   clock: Clock,
   log: FrameworkLog,
-  trees: ExecutionTreeRepository,
-  queue: ChildExecutionQueueRepository,
+  stores: InstanceStores,
 ): Promise<SharedInstanceParts> {
+  const { executionTrees: trees, childQueue: queue, rateLimits } = stores;
   const stepEntries = new StepEntries();
   const stepsAtStop = stepsAtStopOf(stepEntries, stopDeadlineOf(clock), log);
   const compensation = {
@@ -63,7 +72,7 @@ export async function instancePartsOf(
     trees,
   };
   const stepSlots = await stepSlotsOf(assembled, clock);
-  const remoteChildren = { queue, clock };
+  const remoteChildren = { queue, rateLimits, clock };
   return { stepSlots, stepEntries, compensation, stepsAtStop, remoteChildren };
 }
 

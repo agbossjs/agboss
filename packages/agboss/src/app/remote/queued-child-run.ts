@@ -1,7 +1,7 @@
 import { runIdOf, type RunContext } from "../../core/run-context.js";
 import { totalCost } from "../../finops/usage.js";
 import { executionGraphOf } from "../../flow/runtime/build.js";
-import { asRootRun, isExecutionState } from "../../flow/runtime/child-thread.js";
+import { asRootRun } from "../../flow/runtime/child-thread.js";
 import type { ExecutionStateType } from "../../flow/runtime/state.js";
 import {
   decodedRun,
@@ -16,7 +16,8 @@ import type {
   ChildExecutionEnd,
   QueuedChildExecution,
 } from "../../infrastructure/child-execution-queue.repository.js";
-import { continuedExecutionBudgets } from "../../run/run-budgets.js";
+import { drainRun } from "../../run/execute.js";
+import { continuedExecutionBudgets, recorder } from "../../run/run-budgets.js";
 import { streamConfig } from "../../run/stream-config.js";
 import type { AppDeps } from "../app-deps.js";
 import type { ChildRegistry } from "./child-registry.js";
@@ -25,8 +26,9 @@ import type { ChildRegistry } from "./child-registry.js";
  * One queued child run on the instance that claimed it (#333 PR 2): its workflow's graph compiled
  * as a root graph on its own thread — the same graph an in-process child runs — with the run
  * context its parent's node would give it (its id, the conversation thread, its parents rebuilt from
- * the row), the tree's budgets read again from the ledger (its spend is recorded by its parent when
- * its step goes on, as for a local child), and the worker's signal. It ends at a finish (`Answered`)
+ * the row), the tree's budgets read again from the ledger — its spend written to the root's
+ * counters as it is made (#333 PR 3), so every instance's checks see it at once — and the worker's
+ * signal. It ends at a finish (`Answered`)
  * or fails (`Failed`, its error's name, code and message); a child that rests at a pause fails —
  * the assembly refuses one that can pause (`[graph.remote-child-can-pause]`, until #333 PR 4).
  */
@@ -69,7 +71,7 @@ async function streamed(
   rootDeps: AppDeps,
   run: RemoteChildRun,
   context: RunContext,
-): Promise<{ readonly last?: ExecutionStateType; readonly rests: boolean }> {
+): Promise<{ readonly last: ExecutionStateType; readonly rests: boolean }> {
   const { initial } = run;
   const budgets = await continuedExecutionBudgets(
     rootDeps,
@@ -95,13 +97,13 @@ async function streamed(
       rootExecutionId: initial.child.rootExecutionId,
     },
   };
-  let last: ExecutionStateType | undefined;
-  await asRootRun(async () => {
-    for await (const state of await graph.stream(initial, config))
-      if (isExecutionState(state)) last = state;
-  });
+  // its spend goes to the root's counters as it is made (#333 PR 3); what it inherited is there
+  const record = recorder(budgets.meter, []);
+  const last = await asRootRun(async () =>
+    drainRun(await graph.stream(initial, config), record, initial.usage),
+  );
   const snapshot = await asRootRun(() => graph.getState(config));
-  return { ...(last === undefined ? {} : { last }), rests: snapshot.next.length > 0 };
+  return { last, rests: snapshot.next.length > 0 };
 }
 
 /** What a claimed child's run needs from its instance. */

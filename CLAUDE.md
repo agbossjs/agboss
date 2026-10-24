@@ -605,10 +605,11 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   (woken in-process, else every second on the `Clock`; the tree keeps its lease — yielding it is PR 4);
   an instance with a free step slot (#332) claims it at once in-process, else at its sweep
   (`app/remote/child-workers.ts`), runs it as a root graph on its own thread and completes the row;
-  a cancel or the tree's end stops it at its next look (10 s). Until PR 3/4: no pause in such a child
-  (`[graph.remote-child-can-pause]`, naming the tool and the fix), depth and tree slots checked only
-  where it runs, its failure's cause chain kept as names, codes and messages (`RemoteChildFailure`),
-  no per-child recovery. Its own `executionId`
+  a cancel or the tree's end stops it at its next look (10 s). Its depth and the root's budgets are
+  checked where it runs, and each superstep's spend is written to the root's counters at once
+  (`isRecordedElsewhere`, #333 PR 3). Until PR 4: no pause in such a child
+  (`[graph.remote-child-can-pause]`, naming the tool and the fix), its failure's cause chain kept as
+  names, codes and messages (`RemoteChildFailure`), no per-child recovery. Its own `executionId`
   (kept in its marker — a pause, a restart or a crash continues it with the same id, no second
   `onExecutionStart`), its own path, steps and `maxSteps`, no thread history; it inherits the
   thread, `ownerId`, tenant and the execution's own fields, and spends from the root's budgets (a
@@ -656,7 +657,10 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   `Clock`). Both a launch's `maxConcurrency` and the cap hold; a child's own smaller cap limits its
   subtree (a larger one → `[limits.child-concurrency-above-parent]`, a warning). A quorum's deadline
   excludes the time its branches wait for a slot (`QueueTime`). In-process (`TreeSlots` per `rootExecutionId`
-  in `runtime/launch/launch-registry.ts`, made per pass; the claim `inTreeSlot` in `runtime/step-frame.ts`): a resume or a recovery rebuilds the queue from the
+  in `runtime/launch/launch-registry.ts`, made per pass; the claim `inTreeSlot` in `runtime/step-frame.ts`),
+  or in `RateLimitRepository` (`SharedTreeSlots`, `tree:<tenantId>:<rootExecutionId>` and
+  `:subtree:<executionId>`, renewed while held, polled on the `Clock`) when the tree can launch on
+  any instance (#333 PR 3, S8): a resume or a recovery rebuilds the queue from the
   unfinished tasks; a waiter whose signal aborts (`FailFast`, a cancel) leaves it. `agboss describe`
   prints `maxConcurrentExecutions 6 (set)` for a workflow that launches children.
 - **The instance's cap on steps (#332):** `@Application({ maxConcurrentSteps })` (a whole number from

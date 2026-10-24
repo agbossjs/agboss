@@ -3,6 +3,9 @@ import type { Clock } from "../../../infrastructure/clock.js";
 import type { LiveQuorum } from "./quorum-branch.js";
 import type { StepSlots } from "../../../app/step-slots.js";
 import type { StepEntries } from "../step-entries.js";
+import type { Class } from "../../../components/injection.js";
+import { treeLaunchesOnAnyInstance } from "../../analyse/child-placements.js";
+import { SharedTreeSlots, type SharedSlotParts } from "./shared-tree-slots.js";
 import {
   holdOnce,
   SlotQueue,
@@ -147,7 +150,7 @@ interface Working {
 }
 
 /** The tree's slots: a priority semaphore of `maxConcurrentExecutions` executions. */
-export class TreeSlots {
+export class TreeSlots implements TreeSlotCap {
   readonly #working = new Map<string, Working>();
   readonly #subtreeWork = new Map<string, number>();
   readonly #queue: SlotQueue<SlotClaim>;
@@ -202,27 +205,54 @@ export class TreeSlots {
   }
 }
 
+/** A tree's cap as a step takes it: in-process, or shared by the instances (#333 PR 3). */
+export interface TreeSlotCap {
+  readonly maxConcurrentExecutions: number;
+  take(claim: SlotClaim, signal: AbortSignal, watch?: QueueWatch): Promise<SlotHold | undefined>;
+}
+
+/** The root of a tree as its slots need it: its id, its workflow's class and its tenant. */
+export interface TreeRoot {
+  readonly executionId: string;
+  readonly workflow: { readonly type: Class };
+  readonly tenant: { readonly tenantId: string };
+}
+
 /**
  * The trees of one pass by `rootExecutionId` (#264 S27, next to the launch registry of #273 S20):
  * made on a tree's first step, gone with the pass — the next pass rebuilds them from the tasks
  * that are still unfinished. It carries the instance's step slots (#332), which outlive every pass.
+ * A tree that can launch a child on any instance (#333 PR 3) keeps its slots in the application's
+ * `RateLimitRepository` instead (`SharedTreeSlots`): its executions may run on several instances.
  */
 export class TreeSlotRegistry {
-  readonly #trees = new Map<string, TreeSlots>();
+  readonly #trees = new Map<string, TreeSlotCap>();
 
   /**
    * `instance`: the application instance's step slots (#332), when it caps them; `steps`: its
-   * running step bodies (#367), when it runs in an application.
+   * running step bodies (#367), when it runs in an application; `shared`: where the slots of a
+   * tree that can launch on any instance are kept (#333 PR 3), when it runs in an application.
    */
   constructor(
     readonly instance?: StepSlots,
     readonly steps?: StepEntries,
+    readonly shared?: Pick<SharedSlotParts, "rateLimits" | "clock">,
   ) {}
 
   /** The tree's slots, made on its first claim with the root's cap. */
-  slotsOf(rootExecutionId: string, maxConcurrentExecutions: number, clock: Clock): TreeSlots {
-    const tree = this.#trees.get(rootExecutionId) ?? new TreeSlots(maxConcurrentExecutions, clock);
-    this.#trees.set(rootExecutionId, tree);
-    return tree;
+  slotsOf(root: TreeRoot, maxConcurrentExecutions: number, clock: Clock): TreeSlotCap {
+    const found = this.#trees.get(root.executionId);
+    if (found !== undefined) return found;
+    const made = this.#madeFor(root, maxConcurrentExecutions, clock);
+    this.#trees.set(root.executionId, made);
+    return made;
+  }
+
+  #madeFor(root: TreeRoot, maxConcurrentExecutions: number, clock: Clock): TreeSlotCap {
+    const { shared } = this;
+    if (shared === undefined || !treeLaunchesOnAnyInstance(root.workflow.type))
+      return new TreeSlots(maxConcurrentExecutions, clock);
+    const parts = { ...shared, tenantId: root.tenant.tenantId };
+    return new SharedTreeSlots(parts, root.executionId, maxConcurrentExecutions);
   }
 }
