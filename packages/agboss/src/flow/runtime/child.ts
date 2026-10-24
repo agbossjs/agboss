@@ -22,18 +22,19 @@ import type { WorkflowIdentity } from "./step-frame.js";
 import type { ExecutionGraph } from "./build.js";
 import { refuseBeyondMaxDepth } from "./recursion-launch.js";
 import { interruptedUndoOf } from "./child-reentry.js";
+import { childEndOf } from "./child-own-thread.js";
 
 /**
- * A child workflow as a step of its parent (#263, S24, S37): the parent's node of `W` runs the
+ * A child workflow as a step of its parent (#263, S37; ADR-0022): the parent's node of `W` runs the
  * child's compiled graph — registered on the node as its subgraph, so Studio shows it inside the
- * parent — on the parent's checkpoint thread, under the launching task's `checkpoint_ns` (a second
- * pass of a loop or a neighbouring item is another task, so never an earlier child's checkpoint).
- * The child starts fresh: its start's input only, no history, its own steps and `maxSteps`; it
- * inherits the parent's contexts and spends from the root's budgets (its state starts with the
- * spend so far, so every check counts the whole tree) and starts with its parent's PII tokens,
- * giving its own back on exit — with its value, or with its error to the side path that takes it
- * (#120; the tokens of its finished steps: never on the error itself). It ends at a finish — its output, of the
- * finish's class, is the parent's value — or fails (`child-exit.ts`).
+ * parent — as a run of its own: a root graph on its own checkpoint thread, awaited in the parent's
+ * step (`child-own-thread.ts`; a child started before ADR-0022 under the launching task's
+ * `checkpoint_ns`, the old way). The child starts fresh: its start's input only, no history, its own
+ * steps and `maxSteps`; it inherits the parent's contexts and spends from the root's budgets (its
+ * state starts with the spend so far, so every check counts the whole tree) and starts with its
+ * parent's PII tokens, giving its own back on exit — with its value, or with its error to the side
+ * path that takes it (#120; the tokens of its finished steps: never on the error itself). It ends at
+ * a finish — its output, of the finish's class, is the parent's value — or fails (`child-exit.ts`).
  */
 
 /** The child's graph for one pass of its parent: what a parent's node of the child runs. */
@@ -87,27 +88,30 @@ const initialOf = (
   child: entered.identity,
 });
 
+/** How a child run is entered: its first state, its config, and where its state lives. */
+interface ChildRun {
+  readonly initial: ExecutionStateUpdate;
+  readonly config: RunnableConfig;
+  /** Its interrupted undo's error (#340 PR 4): it takes no step, its undo is finished. */
+  readonly interrupted: unknown;
+  readonly entered: ChildEntered;
+  /** The parent's node of the child: the child's graph is registered on it (Studio). */
+  readonly node: string;
+}
+
 /** One child execution, to its end: its value, or its failure thrown as the parent sees it. */
 async function runChild(
   child: ChildGraph,
   parent: ChildParent,
   ended: EndedChild,
-  run: {
-    readonly initial: ExecutionStateUpdate;
-    readonly config: RunnableConfig;
-    /** Its interrupted undo's error (#340 PR 4): it takes no step, its undo is finished. */
-    readonly interrupted: unknown;
-  },
+  run: ChildRun,
 ): Promise<{ readonly state: ExecutionStateType; readonly usage: readonly UsageRecord[] }> {
   if (run.interrupted !== undefined)
     return failedChild(parent, ended, { error: run.interrupted, last: undefined }, run.config);
-  let last: ExecutionStateType | undefined;
-  try {
-    const states = await child.graph.stream(run.initial, { ...run.config, streamMode: "values" });
-    for await (const state of states) if (Array.isArray(state.usage)) last = state;
-  } catch (error) {
-    return failedChild(parent, ended, { error, last }, run.config);
-  }
+  const end = await childEndOf(child, run);
+  if (end.failed)
+    return failedChild(parent, ended, { error: end.error, last: end.state }, run.config);
+  const last = end.state;
   if (last === undefined) throw new TypeError(`${ended.workflow.name} ended without a state`);
   const usage = ownUsageOf(last, ended.identity);
   const record = childRecordOf(ended, last, { status: ChildExecutionStatus.Finished, usage });
@@ -170,7 +174,10 @@ export function childRunner(
     const interrupted = await interruptedUndoOf(deps, entered, frame.execution.tenant.tenantId);
     // the child's body runs as a step body of its parent (#340): an unwind above awaits its undo
     const done = await inStepEntry(deps.stepEntries, frame, () =>
-      runChild(child, { deps, frame, undo }, ended, { initial, config: childConfig, interrupted }),
+      runChild(child, { deps, frame, undo }, ended, {
+        ...{ initial, config: childConfig, interrupted, entered },
+        node: node.id,
+      }),
     );
     // the child's PII tokens go back to the parent with its value (#120 S84 i)
     const { piiTokens } = done.state;

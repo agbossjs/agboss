@@ -4,19 +4,26 @@ import { extractRunContext, runIdOf, type RunContext } from "../../core/run-cont
 import type { IdGenerator } from "../../infrastructure/clock.js";
 import { rootFactsOf, type Frame } from "../context/frame.js";
 import type { ChildIdentityRecord } from "./child-records.js";
+import { childThreadIn, childThreadOf, markerConfigOf, saveChildMarker } from "./child-thread.js";
 
 /**
- * A child execution's identity (#263 S24): on its first entry the runner makes its id and keeps it,
- * with how much spend it inherited, in the child's own state (the subgraph's checkpoint under the
- * launching task's `checkpoint_ns`); a re-entry after a pause or a crash finds that checkpoint and
- * reads the same id back — no new id, no second `onExecutionStart`. Its run context is its parent's
+ * A child execution's identity (#263, ADR-0022): on its first entry the runner makes its id and keeps
+ * it, with how much spend it inherited and its own thread, in a marker under the launching task's
+ * `checkpoint_ns`; a re-entry after a pause or a crash finds that marker and reads the same id back
+ * — no new id, no second `onExecutionStart`. A child that started before ADR-0022 is found the same
+ * way, in its own subgraph state there (no thread: S4 D6). Its run context is its parent's
  * (thread, owner, tenant, the launch's signal) with its own id, input and place in the tree.
  */
 
-/** A child's identity, and whether this entry is its first. */
+/** A child's identity, whether this entry is its first, and its own thread (ADR-0022). */
 export interface ChildEntered {
   readonly identity: ChildIdentityRecord;
   readonly isNew: boolean;
+  /**
+   * Its own checkpoint thread; `undefined` for a child that started before ADR-0022 — its state is
+   * the subgraph checkpoint under its launching task, and it is continued that way (S4 D6).
+   */
+  readonly thread?: string;
 }
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -42,20 +49,25 @@ function identityOf(value: unknown): ChildIdentityRecord | undefined {
   };
 }
 
-/** The identity the child's checkpoint holds: the launching task's own namespace. */
-async function storedIdentity(
+/** What the launching task's namespace holds: a marker (its thread), or an old subgraph state. */
+export interface StoredChild {
+  readonly identity: ChildIdentityRecord;
+  readonly thread?: string;
+}
+
+/** The identity the launching task's namespace holds: a marker's, or an old child's own state. */
+export async function storedChildOf(
   checkpointer: BaseCheckpointSaver | undefined,
   config: RunnableConfig | undefined,
-): Promise<ChildIdentityRecord | undefined> {
-  const threadId: unknown = config?.configurable?.thread_id;
-  const namespace: unknown = config?.configurable?.checkpoint_ns;
-  if (checkpointer === undefined || typeof threadId !== "string" || typeof namespace !== "string")
-    return undefined;
-  const tuple = await checkpointer.getTuple({
-    configurable: { thread_id: threadId, checkpoint_ns: namespace },
-  });
+): Promise<StoredChild | undefined> {
+  const at = markerConfigOf(config);
+  if (checkpointer === undefined || at === undefined) return undefined;
+  const tuple = await checkpointer.getTuple(at);
   const values: unknown = tuple?.checkpoint.channel_values;
-  return isRecord(values) ? identityOf(values.child) : undefined;
+  const identity = isRecord(values) ? identityOf(values.child) : undefined;
+  if (identity === undefined) return undefined;
+  const thread = childThreadIn(values);
+  return thread === undefined ? { identity } : { identity, thread };
 }
 
 /** Where a child is entered: its parent's frame, its item, and the spend it inherits. */
@@ -69,10 +81,13 @@ export interface ChildEntrySpot {
   readonly idGenerator: IdGenerator;
 }
 
-/** The child's identity: read back from its checkpoint, or made now on its first entry. */
+/**
+ * The child's identity: read back from its launching task's marker (or an old child's own state),
+ * or made now on its first entry — its own thread with it, its marker kept before it runs.
+ */
 export async function childEnteredAt(spot: ChildEntrySpot): Promise<ChildEntered> {
-  const stored = await storedIdentity(spot.checkpointer, spot.config);
-  if (stored !== undefined) return { identity: stored, isNew: false };
+  const stored = await storedChildOf(spot.checkpointer, spot.config);
+  if (stored !== undefined) return { ...stored, isNew: false };
   const { execution } = spot.parent;
   const identity: ChildIdentityRecord = {
     executionId: spot.idGenerator.newExecutionId(),
@@ -81,7 +96,13 @@ export async function childEnteredAt(spot: ChildEntrySpot): Promise<ChildEntered
     ...(spot.itemIndex === undefined ? {} : { itemIndex: spot.itemIndex }),
     inheritedUsage: spot.inheritedUsage,
   };
-  return { identity, isNew: true };
+  const at = markerConfigOf(spot.config);
+  const parentThread: unknown = spot.config?.configurable?.thread_id;
+  if (spot.checkpointer === undefined || at === undefined || typeof parentThread !== "string")
+    return { identity, isNew: true, thread: childThreadOf("", identity.executionId) };
+  const thread = childThreadOf(parentThread, identity.executionId);
+  await saveChildMarker(spot.checkpointer, at, { child: identity, childThread: thread });
+  return { identity, isNew: true, thread };
 }
 
 const objectInput = (input: unknown): Readonly<Record<string, unknown>> =>

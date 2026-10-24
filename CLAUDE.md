@@ -579,10 +579,17 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   `AGBossError`) leads only to actions and finishes — `[graph.limit-handler-uses-model]`. A child
   may handle a failure too: `.onError(E, toWorkflow(W)…)` (S85), one more side-path starter. A
   child need not be listed in `@Application({ workflows })` — it belongs to its parent's
-  application and runs alone through its own starts. At run time (#263 PR 2, S24 / S37) the child
-  is a node of its parent whose subgraph is the child's compiled graph (Studio draws it inside),
-  run on the parent's checkpoint thread under its task's `checkpoint_ns`: its own `executionId`
-  (kept in its state — a pause, a restart or a crash continues it with the same id, no second
+  application and runs alone through its own starts. At run time (#263 PR 2, S37; ADR-0022, #333
+  PR 1) the child is a node of its parent whose subgraph is the child's compiled graph (Studio
+  draws it inside) — a run of its own: its graph runs as a root graph on its own checkpoint thread
+  `<parentThreadId>/child/<childExecutionId>` (never a thread of the API), awaited in its parent's
+  step; the launching task's `checkpoint_ns` on the parent's thread holds only a marker (its
+  identity and thread, `flow/runtime/child-thread.ts`); a child that rests at a pause makes its
+  parent's node interrupt with a waiting marker (`child-own-thread.ts`, no pause), its pauses read
+  through it and its answers forwarded by the node (`run/waiting-pauses.ts`, `run/resume-map.ts`);
+  a child started before ADR-0022 (its whole state under its task) is continued that way, for one
+  version (S4 D6). Its own `executionId`
+  (kept in its marker — a pause, a restart or a crash continues it with the same id, no second
   `onExecutionStart`), its own path, steps and `maxSteps`, no thread history; it inherits the
   thread, `ownerId`, tenant and the execution's own fields, and spends from the root's budgets (a
   child's own execution budget applies only when it runs as the root). An uncaught error of its

@@ -43,12 +43,30 @@ export function treeResumeOf(
     pause.status === PauseStatus.Resolved ? [pause] : [],
   );
   return {
-    values: Object.fromEntries(
-      answered.map(({ waiting }) => [waiting.interruptId, waiting.pauseId]),
-    ),
+    values: valuesOf(answered.map(({ waiting }) => waiting)),
     pauseIds: answered.map(({ pause }) => pause.pauseId),
     taken,
     decisions: taken.map((pause) => pause.answer?.decision),
     answerers: taken.map((pause) => pause.answer?.answerer),
   };
+}
+
+/**
+ * The resume map of the answered interrupts: a pause's own at its thread's level; below a waiting
+ * marker (ADR-0022) the child's own map, as JSON, under the marker's id — the parent's node forwards
+ * it to the child's thread.
+ */
+function valuesOf(answered: readonly WaitingInterrupt[]): Readonly<Record<string, string>> {
+  const own: Record<string, string> = {};
+  const below = new Map<string, WaitingInterrupt[]>();
+  for (const waiting of answered) {
+    const [marker, ...rest] = waiting.via;
+    if (marker === undefined) {
+      own[waiting.interruptId] = waiting.pauseId;
+      continue;
+    }
+    below.set(marker, [...(below.get(marker) ?? []), { ...waiting, via: rest }]);
+  }
+  for (const [marker, inside] of below) own[marker] = JSON.stringify(valuesOf(inside));
+  return own;
 }
