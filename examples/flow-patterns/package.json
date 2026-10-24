@@ -14,14 +14,15 @@
     "studio": "agboss studio",
     "types": "agboss check",
     "answer": "tsx src/scripts/answer-pauses.ts",
-    "check": "agboss check --strict --cassettes --application src/desk.application.ts --federation snapshots/ && agboss describe --json --application src/desk.application.ts > .agboss/desk-application.json && agboss check --strict --federation .agboss/desk-application.json && agboss check --models --env test && eslint . && npm run -s eval:check",
+    "check": "agboss check --strict --cassettes --application src/desk.application.ts --federation snapshots/ && agboss describe --json --application src/desk.application.ts > .agboss/desk-application.json && agboss check --strict --federation .agboss/desk-application.json && agboss check --models --env test && eslint . && npm run -s eval:check && npm run -s records:check",
     "typecheck": "npm run types && tsc --noEmit -p .",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
     "lint": "eslint .",
     "snapshot": "agboss describe --json --application src/desk.application.ts > snapshots/desk-application.json",
     "eval": "PII_PSEUDONYM_KEY=offline-only agboss eval run --application src/desk.application.ts --env offline --suite desk-eval-suite --runs 2 --report eval/runs/desk-eval-suite.json",
-    "eval:check": "PII_PSEUDONYM_KEY=offline-only agboss eval run --application src/desk.application.ts --env offline --suite desk-eval-suite --runs 2 --report .agboss/eval/desk-eval-suite.json --baseline eval/runs/desk-eval-suite.json --fail-on-regression && agboss eval show eval/runs/desk-eval-suite.json --html .agboss/eval/desk-eval-suite.html && agboss eval calibrate --report eval/runs/desk-eval-suite.json"
+    "eval:check": "PII_PSEUDONYM_KEY=offline-only agboss eval run --application src/desk.application.ts --env offline --suite desk-eval-suite --runs 2 --report .agboss/eval/desk-eval-suite.json --baseline eval/runs/desk-eval-suite.json --fail-on-regression && agboss eval show eval/runs/desk-eval-suite.json --html .agboss/eval/desk-eval-suite.html && agboss eval calibrate --report eval/runs/desk-eval-suite.json",
+    "records:check": "tsx src/scripts/records-check.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server-filesystem": "^2026.8.31",

@@ -64,6 +64,11 @@
           "contract": "MeshRequestRepository",
           "implementation": "InMemoryMeshRequestRepository",
           "reason": "default"
+        },
+        {
+          "contract": "ExecutionHistoryRepository",
+          "implementation": "SqliteExecutionHistoryRepository",
+          "reason": "listed"
         }
       ],
       "modelProviders": [

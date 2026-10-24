@@ -184,8 +184,11 @@ cassette `tests/__snapshots__/desk-lookup.cassette.json` (recorded offline throu
 application's twelve workflows `--federation` against the desk's fresh `describe --json`, then
 `--models` on `test`, then `eslint .` with `agboss/eslint`, then `npm run eval:check` — the desk's
 eval suite run offline on `--env offline` against its baseline `eval/runs/desk-eval-suite.json`
-with `--fail-on-regression`, `eval show --html` and `eval calibrate` on `eval/labels/`; `npm run
-snapshot` rewrites the desk's describe, `npm run eval` its baseline) ·
+with `--fail-on-regression`, `eval show --html` and `eval calibrate` on `eval/labels/`, then `npm
+run records:check` — the desk keeps its executions (`executionRecordRetention`, #401, in
+`.agboss/desk-offline.sqlite` on `offline`): one run, `agboss records export`, `agboss generate
+eval-case --from-execution --dry-run` (#396 PR 8, what `eval ui`'s "Save as golden case" writes,
+#397 PR 5); `npm run snapshot` rewrites the desk's describe, `npm run eval` its baseline) ·
 `npm run describe`
 (each of them: `src/offer/` the review loop, `src/credit/` a code router, `src/review/` parallel
 launches in waves, #273, `src/panel/` a quorum with a code and a model arbiter, #279, `src/vendor/` a

@@ -2,8 +2,10 @@ import {
   Application,
   SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
+  SqliteExecutionHistoryRepository,
   SqliteExecutionRecordRepository,
 } from "agboss";
+import { hours } from "agboss/units";
 import {
   ApplicationDailyBudget,
   ExecutionBudget,
@@ -22,7 +24,9 @@ import { HarnessModelProvider } from "./model-providers/harness.model-provider.j
  * `HarnessModelProvider` (#385), so `npx agboss run --application src/desk.application.ts --env test`
  * and its eval suites run with no key and no network. `FlowPatternsApplication` lists the same
  * workflow beside OpenRouter. It serves the desk over A2A (`DeskA2AExpose`): the helpline of
- * `FlowPatternsApplication` is its consumer, checked by `agboss check --federation`.
+ * `FlowPatternsApplication` is its consumer, checked by `agboss check --federation`. It keeps each
+ * execution for 30 days (#401): `agboss records export` writes them, `agboss generate eval-case
+ * --from-execution` and `agboss eval ui`'s "Save as golden case" (#397 PR 5) draft a case from one.
  */
 @Application({
   name: "desk-application",
@@ -34,12 +38,14 @@ import { HarnessModelProvider } from "./model-providers/harness.model-provider.j
   observers: [DeskMetricsObserver],
   healthChecks: [OrderDeskHealthCheck],
   maxConcurrentSteps: 16, // agent, router and action steps of one instance at once (#332)
+  executionRecordRetention: hours(24 * 30), // each execution kept 30 days (#401): records export, eval cases
   providers: [
     DeskMetricsService, // the observer's
     HarnessModelProvider,
     SqliteCostLedgerRepository,
     SqliteExecutionRecordRepository,
     SqliteCheckpointSaver,
+    SqliteExecutionHistoryRepository, // the kept executions (#401)
   ],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
 })
