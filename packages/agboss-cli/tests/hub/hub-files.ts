@@ -22,7 +22,11 @@ export const SHOP = "shop-kb-application";
 export const BILLING = "billing-application";
 
 const SHOP_APPLICATION = fixture("../federation/fixtures/shop.application.ts");
-const BILLING_APPLICATION = fixture("../federation/fixtures/compatible-billing.workflow.ts");
+const BILLING_APPLICATIONS = {
+  compatible: fixture("../federation/fixtures/compatible-billing.workflow.ts"),
+  /** Its contract changed under the shop (#398 PR 4): `check --federation` finds it broken. */
+  changed: fixture("../federation/fixtures/changed-billing.workflow.ts"),
+} as const;
 
 /** The key of the shop's call to the billing desk: the same on both sides. */
 const CALL_KEY = "s1:quote-agent:1:call-ask-billing-tool";
@@ -87,22 +91,26 @@ const billingReceived = (): ExecutionHistoryRecord =>
     },
   });
 
-/** The shop's eval run: its suite's latest. */
-const shopRun = (): EvalRunReport => ({
+/** An application's eval run: its suite's latest (one case lost pass^k). */
+export const evalRunOf = (application: string, workflow: string): EvalRunReport => ({
   ...REFUNDS_ARTIFACT,
-  application: { name: SHOP, version: "1.0.0" },
-  workflow: { name: "quote-workflow", version: "1.0.0" },
+  application: { name: application, version: "1.0.0" },
+  workflow: { name: workflow, version: "1.0.0" },
 });
+
+const shopRun = (): EvalRunReport => evalRunOf(SHOP, "quote-workflow");
 
 const lines = (records: readonly ExecutionHistoryRecord[]): string =>
   `${records.map(exportedRecordLine).join("\n")}\n`;
 
 /** A folder `hub/` with every kind of input, in the layout the issue's example uses. */
-export async function hubFolder(): Promise<string> {
+export async function hubFolder(
+  billing: keyof typeof BILLING_APPLICATIONS = "compatible",
+): Promise<string> {
   const cwd = mkdtempSync(join(tmpdir(), "agboss-hub-"));
   for (const [name, application] of [
     ["shop", SHOP_APPLICATION],
-    ["billing", BILLING_APPLICATION],
+    ["billing", BILLING_APPLICATIONS[billing]],
   ] as const) {
     const described = await agboss(["describe", "--application", application, "--json"], cwd);
     expect(described.code).toBe(0);

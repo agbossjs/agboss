@@ -147,7 +147,10 @@ share of the most frequent `steps[].decision` among calls with one `inputHash` (
 record's `decision`, `route:` / `launch:` / `variant:` / `answer:<hash>`), a candidate at ≥ 50 calls,
 ≥ 0.95 and no failing eval —, one self-contained page in the eval report's shell; `agboss hub ui
 <path…> [--port N]` (#401 PR 6) serves the same files read-only on `eval ui`'s server (`startLocalUi`,
-its token, `Host` and CSP rules; `/records` search, `/api/mesh|applications|trees|records|radar`); no project, nothing runs; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
+its token, `Host` and CSP rules; `/records` search, `/api/mesh|applications|trees|records|radar|blast-radius`);
+both draw each contract a snapshot declares as an edge consumer → producer and list `check --federation`'s
+problems with their blast radius — the same `checkFederation` over each application's newest snapshot —
+and who calls an application whose latest eval run lost pass^k (#401 PR 7); no project, nothing runs; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
 `agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
 (`agboss/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts `langgraphjs
