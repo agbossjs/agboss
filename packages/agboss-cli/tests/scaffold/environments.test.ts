@@ -48,9 +48,7 @@ describe("#239: environments next to the workflow file, read through Application
       "@Injectable({ deps: [ApplicationContext] })",
     );
     expect(read("src/shop.application.ts")).toContain("  environment: AppEnvironment,\n");
-    expect(read("src/shop/tools/find-order.tool.ts")).toContain(
-      "deps: [ExecutionContext, ApiService]",
-    );
+    expect(read("src/tools/find-order.tool.ts")).toContain("deps: [ExecutionContext, ApiService]");
     expectStaticChecks(project, ["src"]);
     const tests = vitestOf(project);
     expect(tests.ok, tests.out).toBe(true);

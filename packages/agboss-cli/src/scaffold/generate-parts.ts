@@ -6,7 +6,13 @@ import { toolFiles } from "./plan.js";
 import { need, read } from "./project-files.js";
 import { FILESYSTEM_SERVER_PACKAGE, filesystemServerVersion } from "./project.js";
 import { wire } from "./wire.js";
-import { agentOf, importPath, workflowGraph, type WorkflowGraph } from "./workflow-graph.js";
+import {
+  agentOf,
+  importPath,
+  srcDirOf,
+  workflowGraph,
+  type WorkflowGraph,
+} from "./workflow-graph.js";
 import type { Changes, FileToWrite } from "./write.js";
 
 /**
@@ -48,10 +54,11 @@ const agentFileOf = (root: string, graph: WorkflowGraph, name: string): FileToWr
 export function planTool(root: string, name: string, o: GenerateOptions): Changes {
   const n = fullNameOf(name, "tool");
   const graph = workflowGraph(root, o);
+  const srcDir = srcDirOf(graph);
   const agent = agentFileOf(root, graph, need(o.agent, "--agent <full name>", "tool"));
-  const files = toolFiles(`${graph.dir}/tools`, n);
+  const files = toolFiles(`${srcDir}/tools`, n);
   const tool = `${n.pascal}Tool`;
-  const from = importPath(agent.path, `${graph.dir}/tools/${n.kebab}.tool.ts`);
+  const from = importPath(agent.path, `${srcDir}/tools/${n.kebab}.tool.ts`);
   return { create: files, modify: [wire(agent, "Agent", "tools", tool, tool, from)] };
 }
 
@@ -68,9 +75,10 @@ const mcpSpecOf = (name: string, o: GenerateOptions) =>
 /** `agboss g mcp <name> --workflow … [--agent …]`: the server in the workflow's `mcp`, its tool in the agent. */
 export function planMcp(root: string, name: string, o: GenerateOptions): Changes {
   const graph = workflowGraph(root, o);
+  const srcDir = srcDirOf(graph);
   const spec = mcpSpecOf(name, o);
-  const mcp = mcpFiles(graph.dir, spec);
-  const serverPath = `${graph.dir}/${mcp.serverModule}.ts`;
+  const mcp = mcpFiles(srcDir, spec);
+  const serverPath = `${srcDir}/${mcp.serverModule}.ts`;
   const modify = [
     wire(
       graph.module,
@@ -83,7 +91,7 @@ export function planMcp(root: string, name: string, o: GenerateOptions): Changes
   ];
   if (o.agent !== undefined) {
     const agent = agentFileOf(root, graph, o.agent);
-    const from = importPath(agent.path, `${graph.dir}/${mcp.toolModule}.ts`);
+    const from = importPath(agent.path, `${srcDir}/${mcp.toolModule}.ts`);
     modify.push(wire(agent, "Agent", "tools", mcp.tool, mcp.tool, from));
   }
   if (spec.kind === "filesystem")
@@ -95,10 +103,11 @@ export function planMcp(root: string, name: string, o: GenerateOptions): Changes
 export function planRag(root: string, name: string, o: GenerateOptions): Changes {
   const n = fullNameOf(name, "rag");
   const graph = workflowGraph(root, o);
-  const rag = ragFiles(graph.dir, { name: n, folder: need(o.folder, "--folder <dir>", "rag") });
+  const srcDir = srcDirOf(graph);
+  const rag = ragFiles(srcDir, { name: n, folder: need(o.folder, "--folder <dir>", "rag") });
   if (o.agent === undefined) return { create: rag.files, modify: [] };
   const agent = agentFileOf(root, graph, o.agent);
-  const from = importPath(agent.path, `${graph.dir}/rag/${n.kebab}.rag.ts`);
+  const from = importPath(agent.path, `${srcDir}/rag/${n.kebab}.rag.ts`);
   const element = `{ use: ${rag.knowledge}, mode: RagMode.Tool }`;
   const wired = wire(agent, "Agent", "rag", element, rag.knowledge, from);
   // the mode is an enum (#269): its import goes with the knowledge base's

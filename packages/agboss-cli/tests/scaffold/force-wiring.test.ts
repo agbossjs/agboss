@@ -15,7 +15,7 @@ import { expectStaticChecks, agbossIn, tscOf, vitestOf, type Ran } from "./proje
 const tmp = new URL("../../.scaffold-tmp", import.meta.url).pathname;
 const project = join(tmp, `forced-${String(process.pid)}`);
 const workflow = "desk-workflow";
-const agent = "src/desk/agents/billing/billing.agent.ts";
+const agent = "src/agents/billing/billing.agent.ts";
 const read = (path: string): string => readFileSync(join(project, path), "utf8");
 const agboss = (...args: string[]): Ran => agbossIn(project, args);
 const generate = (...args: string[]): Ran => agboss("generate", ...args, "--workflow", workflow);
@@ -92,7 +92,7 @@ describe("#237: --force keeps the wiring", () => {
     expect(again.out).not.toContain("--reset");
 
     // `agboss create`'s tool injects ApiService through its constructor, which the template rewrites
-    const tool = "src/desk/tools/search-orders.tool.ts";
+    const tool = "src/tools/search-orders.tool.ts";
     const before = read(tool);
     const refused = generate("tool", "search-orders-tool", "--agent", "answerer-agent", "--force");
     expect(refused.status, refused.out).toBe(4);
@@ -111,9 +111,7 @@ describe("#237: --force keeps the wiring", () => {
     );
     expect(reset.ok, reset.out).toBe(true);
     expect(read(tool)).not.toContain("ApiService");
-    expect(read("src/desk/agents/answerer/answerer.agent.ts")).toContain(
-      "tools: [SearchOrdersTool]",
-    );
+    expect(read("src/agents/answerer/answerer.agent.ts")).toContain("tools: [SearchOrdersTool]");
     expect(tscOf(project).out).toBe("");
     expect(agboss("help", "generate").out).toContain("--reset");
   }, 120_000);

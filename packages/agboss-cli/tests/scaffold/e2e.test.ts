@@ -88,34 +88,34 @@ describe("agboss create / agboss generate end to end", () => {
     expect(out).toContain("· read-desk-files-tool (MCP desk-files)");
     // #107 AC2: files named by kind, the prompt next to its agent (no prompt parameter)
     for (const file of [
-      "agents/answerer/answerer.agent.ts",
-      "agents/answerer/answerer.prompt.md",
-      "tools/search-orders.tool.ts",
-      "tools/search-orders.tool.test.ts",
-      "dto/search-orders-query.dto.ts",
-      "dto/search-orders-result.dto.ts",
-      "dto/file-read.dto.ts",
-      "dto/file-content.dto.ts",
-      "mcp/desk-files.mcp-server.ts",
-      "mcp/read-desk-files.mcp-tool.ts",
-      "rag/desk-notes.rag.ts",
-      "workflow-starts/text.workflow-start.ts",
-      "workflow-finishes/text.workflow-finish.ts",
+      "src/agents/answerer/answerer.agent.ts",
+      "src/agents/answerer/answerer.prompt.md",
+      "src/tools/search-orders.tool.ts",
+      "tests/tools/search-orders.tool.test.ts",
+      "src/dto/search-orders-query.dto.ts",
+      "src/dto/search-orders-result.dto.ts",
+      "src/dto/file-read.dto.ts",
+      "src/dto/file-content.dto.ts",
+      "src/mcp/desk-files.mcp-server.ts",
+      "src/mcp/read-desk-files.mcp-tool.ts",
+      "src/rag/desk-notes.rag.ts",
+      "src/workflows/desk/text.workflow-start.ts",
+      "src/workflows/desk/text.workflow-finish.ts",
     ]) {
-      expect(existsSync(join(project, "src/desk", file)), file).toBe(true);
+      expect(existsSync(join(project, file)), file).toBe(true);
     }
     // #141 AC6: the start and the finish of a new workflow are TextWorkflowStart / TextWorkflowFinish
-    const desk = (file: string): string => readFileSync(join(project, "src/desk", file), "utf8");
-    expect(desk("workflow-starts/text.workflow-start.ts")).toContain(
+    const desk = (file: string): string => readFileSync(join(project, "src", file), "utf8");
+    expect(desk("workflows/desk/text.workflow-start.ts")).toContain(
       "export class TextWorkflowStart {}",
     );
-    expect(desk("workflow-finishes/text.workflow-finish.ts")).toContain(
+    expect(desk("workflows/desk/text.workflow-finish.ts")).toContain(
       "export class TextWorkflowFinish {}",
     );
     // #142: the main router of a new workflow is on the star's cycle, so it declares maxVisits
     expect(desk("routers/main/main.router.ts")).toContain("maxVisits: 3,");
     expect(
-      readFileSync(join(project, "src/desk/agents/answerer/answerer.agent.ts"), "utf8"),
+      readFileSync(join(project, "src/agents/answerer/answerer.agent.ts"), "utf8"),
     ).not.toContain("prompt:");
     // #268 AC1: the application's path is set once in package.json; the scripts name no path
     expect(JSON.parse(readFileSync(join(project, "package.json"), "utf8"))).toMatchObject({
@@ -172,18 +172,18 @@ describe("agboss create / agboss generate end to end", () => {
     expect(out).toMatch(/billing-agent .*\n\s+Handles invoices/);
     // a new agent joins the router's choice — a route in the main router and in its chooseOne
     expect(out).toContain(FLOW_OF(["TriageAgent", "AnswererAgent", "BillingAgent"]));
-    expect(readFileSync(join(project, "src/desk/routers/main/main.router.ts"), "utf8")).toContain(
+    expect(readFileSync(join(project, "src/routers/main/main.router.ts"), "utf8")).toContain(
       '{ prompt: "Handles invoices", target: BillingAgent }',
     );
     // #142 AC3: `agboss g router` writes maxVisits: 1, and the workflow still assembles (check above)
     expect(
-      readFileSync(join(project, "src/desk/routers/escalation/escalation.router.ts"), "utf8"),
+      readFileSync(join(project, "src/routers/escalation/escalation.router.ts"), "utf8"),
     ).toContain("maxVisits: 1,");
     expect(out).toContain("rag: policies-rag (tool, k 3)");
     expect(out).toContain("· refund-tool (local)");
     expect(out).toContain("· tickets-search-tool (MCP tickets)");
     // #141 AC3: a text-only MCP server tool replies with PlainTextDto
-    expect(readFileSync(join(project, "src/desk/mcp/tickets.mcp-server.ts"), "utf8")).toContain(
+    expect(readFileSync(join(project, "src/mcp/tickets.mcp-server.ts"), "utf8")).toContain(
       "output: PlainTextDto",
     );
     // #268 AC8: the new workflow is one more of the application, its files next to the first's
@@ -191,15 +191,17 @@ describe("agboss create / agboss generate end to end", () => {
     expect(readFileSync(join(project, "src/desk.application.ts"), "utf8")).toContain(
       "workflows: [DeskWorkflow, OnboardingWorkflow]",
     );
-    expect(existsSync(join(project, "src/onboarding/onboarding.workflow.test.ts"))).toBe(true);
+    expect(
+      existsSync(join(project, "tests/workflows/onboarding/onboarding.workflow.test.ts")),
+    ).toBe(true);
     expect(scripts()["chat:onboarding"]).toBe("agboss chat --start onboarding-text-workflow-start");
   }, 240_000);
 
   it("AC2: rerunning generators with --force regenerates files and doubles no wiring", async () => {
     const workflow = "desk-workflow";
-    const module = "src/desk/desk.workflow.ts";
+    const module = "src/workflows/desk/desk.workflow.ts";
     const read = (path: string): string => readFileSync(join(project, path), "utf8");
-    const before = [module, "src/desk/routers/main/main.router.ts"].map(read);
+    const before = [module, "src/routers/main/main.router.ts"].map(read);
 
     for (const [kind, name, options] of [
       ["agent", "billing-agent", { workflow, description: "Handles invoices, again" }],
@@ -211,8 +213,8 @@ describe("agboss create / agboss generate end to end", () => {
       await applyChanges(project, plan, { force: true });
     }
 
-    expect([module, "src/desk/routers/main/main.router.ts"].map(read)).toEqual(before);
-    expect(read("src/desk/routers/escalation/escalation.router.ts")).toContain(FINISH_ROUTE_TEXT);
+    expect([module, "src/routers/main/main.router.ts"].map(read)).toEqual(before);
+    expect(read("src/routers/escalation/escalation.router.ts")).toContain(FINISH_ROUTE_TEXT);
     check();
   }, 240_000);
 });

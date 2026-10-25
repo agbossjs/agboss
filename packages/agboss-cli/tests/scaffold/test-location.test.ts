@@ -37,9 +37,9 @@ describe("#197: generated tests go where the project's vitest config looks", () 
 
     const [moved] = placeTests(root, [toolTest]);
 
-    expect(moved?.path).toBe("tests/refund.tool.test.ts");
+    expect(moved?.path).toBe("tests/tools/refund.tool.test.ts");
     expect(moved?.content).toBe(
-      'import { x } from "agboss/testing";\nimport { RefundTool } from "../src/tools/refund.tool.js";\nimport { Api } from "../src/services/api.service.js";\n',
+      'import { x } from "agboss/testing";\nimport { RefundTool } from "../../src/tools/refund.tool.js";\nimport { Api } from "../../src/services/api.service.js";\n',
     );
   });
 

@@ -17,7 +17,7 @@ import { agbossIn, lintOf } from "./project-checks.js";
 const tmp = new URL("../../.scaffold-tmp", import.meta.url).pathname;
 const project = join(tmp, `lint-app-${String(process.pid)}`);
 const SERVICE = "src/services/api.service.ts";
-const WORKFLOW = "src/lint-app/lint-app.workflow.ts";
+const WORKFLOW = "src/workflows/lint-app/lint-app.workflow.ts";
 
 const read = (path: string): string => readFileSync(join(project, path), "utf8");
 const write = (path: string, content: string): void => {
@@ -99,7 +99,7 @@ describe("#388: agboss create ships a working ESLint config", () => {
   }, 60_000);
 
   it("direct time is allowed in the project's tests, which move the test clock instead", () => {
-    const path = "src/lint-app/time.test.ts";
+    const path = "tests/workflows/lint-app/time.test.ts";
     write(
       path,
       'import { expect, it } from "vitest";\n\nit("reads the time", () => {\n  expect(Date.now()).toBeGreaterThan(0);\n});\n',

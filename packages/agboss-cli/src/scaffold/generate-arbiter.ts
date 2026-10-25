@@ -7,6 +7,7 @@ import { render, vars } from "./plan.js";
 import {
   agentOf,
   importPath,
+  srcDirOf,
   workflowGraph,
   type Component,
   type WorkflowGraph,
@@ -74,10 +75,10 @@ const componentOf = (graph: WorkflowGraph, agent: string): Component => {
   return found;
 };
 
-/** The arbiters' folder: `arbiters/` beside the workflow's agents, else beside the workflow. */
+/** The arbiters' folder: `arbiters/` beside the workflow's agents, else `<srcDir>/arbiters`. */
 function folderOf(graph: WorkflowGraph, agents: readonly Component[]): string {
   const [first] = agents;
-  if (first === undefined) return `${graph.dir}/arbiters`;
+  if (first === undefined) return `${srcDirOf(graph)}/arbiters`;
   const dir = dirname(first.path);
   const agentsFolder = basename(dir) === "agents" ? dir : dirname(dir);
   return `${dirname(agentsFolder)}/arbiters`;

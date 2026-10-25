@@ -30,12 +30,15 @@ describe("#268 AC8: agboss create", () => {
         "src/guardrails/prompt-injection/prompt-injection.guardrail.ts",
         "src/model-providers/openrouter.model-provider.ts",
         "src/services/api.service.ts",
-        "src/desk/desk.workflow.ts",
-        "src/desk/desk.workflow.test.ts",
-        "src/desk/agents/answerer/answerer.agent.ts",
-        "src/desk/tools/search-orders.tool.ts",
-        "src/desk/dto/search-orders-query.dto.ts",
-        "src/desk/dto/search-orders-result.dto.ts",
+        "src/workflows/desk/desk.workflow.ts",
+        "src/workflows/desk/text.workflow-start.ts",
+        "src/workflows/desk/text.workflow-finish.ts",
+        "tests/workflows/desk/desk.workflow.test.ts",
+        "src/agents/answerer/answerer.agent.ts",
+        "src/tools/search-orders.tool.ts",
+        "tests/tools/search-orders.tool.test.ts",
+        "src/dto/search-orders-query.dto.ts",
+        "src/dto/search-orders-result.dto.ts",
       ]),
     );
     expect(JSON.parse(content("package.json"))).toMatchObject({
@@ -43,10 +46,8 @@ describe("#268 AC8: agboss create", () => {
     });
     expect(content("src/desk.application.ts")).toContain('name: "desk-application",');
     expect(content("src/desk.application.ts")).toContain("workflows: [DeskWorkflow],");
-    expect(content("src/desk/desk.workflow.ts")).toContain('name: "desk-workflow",');
-    expect(content("src/desk/agents/answerer/answerer.agent.ts")).toContain(
-      'name: "answerer-agent",',
-    );
+    expect(content("src/workflows/desk/desk.workflow.ts")).toContain('name: "desk-workflow",');
+    expect(content("src/agents/answerer/answerer.agent.ts")).toContain('name: "answerer-agent",');
   });
 
   it("#305 AC3: AGENTS.md with the routing table, a one-line CLAUDE.md, the skills with their manifest and header", () => {
@@ -86,13 +87,13 @@ describe("#268 AC8: agboss create", () => {
   });
 
   it("the code conventions (#280): explicit return types, implements …Handler, fields named after their type, the contexts through deps", () => {
-    const tool = content("src/desk/tools/search-orders.tool.ts");
+    const tool = content("src/tools/search-orders.tool.ts");
     expect(tool).toContain('name: "search-orders-tool",');
     expect(tool).toContain("implements ToolHandler<SearchOrdersQueryDto, SearchOrdersResultDto>");
     expect(tool).toContain("deps: [ExecutionContext, ApiService],");
     expect(tool).toContain("private readonly executionContext: ExecutionContext,");
     expect(tool).toContain("private readonly apiService: ApiService,");
-    expect(tool).toContain('import { ApiService } from "../../services/api.service.js";');
+    expect(tool).toContain('import { ApiService } from "../services/api.service.js";');
     expect(tool).toContain(
       "run({ query }: SearchOrdersQueryDto): Promise<SearchOrdersResultDto> {",
     );

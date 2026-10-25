@@ -1,6 +1,12 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   CaseComparison,
+  CheckStatus,
+  EVAL_RUN_KIND,
+  EVAL_RUN_SCHEMA_VERSION,
   type EvalCasePasses,
+  type EvalCaseReport,
   type EvalRunComparison,
   type EvalRunReport,
 } from "agboss/eval";
@@ -8,13 +14,139 @@ import { flagOption, textOption, type CommandContext } from "../cli/context.js";
 import { CliError, usageError } from "../cli/errors.js";
 import { readRunArtifact, runArtifactInvalid } from "./run-artifact.js";
 
-/**
- * `agboss eval run --baseline <run.json> [--fail-on-regression]` (#396 PR 3): the baseline artifact
- * read before anything runs by the one artifact reader (`eval.run-not-found` / `eval.run-invalid`,
- * exit 2), each case's verdict printed after the
- * run, and with `--fail-on-regression` a regression is exit 5 (`eval.regressed`) — a case that only
- * flapped on the baseline never fails.
- */
+/** Compact baseline snapshot kind (`--save-baseline <file.json>`). */
+export const EVAL_BASELINE_KIND = "agboss.eval-baseline";
+export const EVAL_BASELINE_SCHEMA_VERSION = 1;
+
+/** Per-case metrics in a compact git-diff-friendly baseline file. */
+export interface CompactBaselineCase {
+  readonly caseId: string;
+  readonly caseHash: string;
+  readonly runs: number;
+  readonly passed: number;
+  readonly passAtK: boolean;
+  readonly passHatK: boolean;
+  readonly flaky: boolean;
+  readonly avgSpendUsd: number;
+  readonly verdictSummary: string;
+}
+
+/** Compact baseline file written by `agboss eval run --save-baseline <file.json>`. */
+export interface CompactEvalBaseline {
+  readonly kind: typeof EVAL_BASELINE_KIND;
+  readonly schemaVersion: typeof EVAL_BASELINE_SCHEMA_VERSION;
+  readonly suite: EvalRunReport["suite"];
+  readonly application: EvalRunReport["application"];
+  readonly workflow: EvalRunReport["workflow"];
+  readonly configHash: EvalRunReport["configHash"];
+  readonly start: EvalRunReport["start"];
+  readonly environment: EvalRunReport["environment"];
+  readonly runs: EvalRunReport["runs"];
+  readonly cascade: EvalRunReport["cascade"];
+  readonly startedAt: EvalRunReport["startedAt"];
+  readonly endedAt: EvalRunReport["endedAt"];
+  readonly summary: EvalRunReport["summary"];
+  readonly spend: EvalRunReport["spend"];
+  readonly cases: readonly CompactBaselineCase[];
+}
+
+function verdictSummaryOf(found: EvalCaseReport): string {
+  const names = [...new Set(found.runResults.flatMap((r) => r.checks.map((c) => c.check)))];
+  if (names.length === 0) return `${String(found.passed)}/${String(found.runs)} passed`;
+  const parts = names.map((check) => {
+    const ok = found.runResults.filter((r) =>
+      r.checks.some((c) => c.check === check && c.status === CheckStatus.Passed),
+    ).length;
+    return `${check}: ${String(ok)}/${String(found.runs)} passed`;
+  });
+  return `${String(found.passed)}/${String(found.runs)} passed (${parts.join(", ")})`;
+}
+
+function compactCaseOf(found: EvalCaseReport): CompactBaselineCase {
+  const totalSpend = found.runResults.reduce((sum, r) => sum + r.spentUsd, 0);
+  const avgSpendUsd =
+    found.runResults.length === 0 ? 0 : Number((totalSpend / found.runResults.length).toFixed(6));
+  return {
+    caseId: found.name,
+    caseHash: found.caseHash,
+    runs: found.runs,
+    passed: found.passed,
+    passAtK: found.passAtK,
+    passHatK: found.passHatK,
+    flaky: found.isUnstable,
+    avgSpendUsd,
+    verdictSummary: verdictSummaryOf(found),
+  };
+}
+
+/** Converts a full `EvalRunReport` into a compact, git-diff-friendly `CompactEvalBaseline`. */
+export function compactBaselineOf(report: EvalRunReport): CompactEvalBaseline {
+  return {
+    kind: EVAL_BASELINE_KIND,
+    schemaVersion: EVAL_BASELINE_SCHEMA_VERSION,
+    suite: report.suite,
+    application: report.application,
+    workflow: report.workflow,
+    configHash: report.configHash,
+    start: report.start,
+    environment: report.environment,
+    runs: report.runs,
+    cascade: report.cascade,
+    startedAt: report.startedAt,
+    endedAt: report.endedAt,
+    summary: report.summary,
+    spend: report.spend,
+    cases: report.cases.map(compactCaseOf),
+  };
+}
+
+function readCompactBaseline(
+  file: string,
+  raw: Omit<CompactEvalBaseline, "schemaVersion"> & { readonly schemaVersion?: number },
+): EvalRunReport {
+  if (raw.schemaVersion !== EVAL_BASELINE_SCHEMA_VERSION)
+    throw runArtifactInvalid(file, `invalid ${EVAL_BASELINE_KIND}`);
+  const cases: EvalCaseReport[] = raw.cases.map((c: CompactBaselineCase) => ({
+    name: c.caseId,
+    caseHash: c.caseHash,
+    passed: c.passed,
+    runs: c.runs,
+    passAtK: c.passAtK,
+    passHatK: c.passHatK,
+    isUnstable: c.flaky,
+    runResults: [],
+  }));
+  return {
+    ...raw,
+    kind: EVAL_RUN_KIND,
+    schemaVersion: EVAL_RUN_SCHEMA_VERSION,
+    cases,
+  };
+}
+
+function readBaselineOrRun(context: CommandContext, path: string): EvalRunReport {
+  const full = resolve(context.io.cwd, path);
+  let text: string;
+  try {
+    text = readFileSync(full, "utf8");
+  } catch {
+    throw new CliError("usage", "eval.run-not-found", `no run artifact at ${path}`);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw runArtifactInvalid(path, "not JSON");
+  }
+  if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    (parsed as { kind?: unknown }).kind === EVAL_BASELINE_KIND
+  ) {
+    return readCompactBaseline(path, parsed as CompactEvalBaseline);
+  }
+  return readRunArtifact(context, path);
+}
 
 /** The baseline `--baseline` names, read and checked; undefined without the option. */
 export interface Baseline {
@@ -30,7 +162,7 @@ export function baselineOf(context: CommandContext, suite: string): Baseline | u
       throw usageError("eval run", "usage.missing-option", "--fail-on-regression needs --baseline");
     return undefined;
   }
-  const report = readRunArtifact(context, file);
+  const report = readBaselineOrRun(context, file);
   if (report.suite !== suite)
     throw runArtifactInvalid(file, `a run of ${report.suite}, not of ${suite}`);
   return { file, report };

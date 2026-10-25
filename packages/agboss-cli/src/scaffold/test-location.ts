@@ -88,18 +88,37 @@ function moveImports(file: FileToWrite, to: string): string {
     }, file.content);
 }
 
+/** The default test patterns `agboss create` writes to `vitest.config.ts` (symmetric `tests/` folder). */
+export const DEFAULT_TEST_PATTERNS: TestPatterns = {
+  include: ["tests/**/*.test.ts"],
+  exclude: ["tests/**/*.integration.test.ts", "tests/**/*.suite.test.ts"],
+};
+
+/**
+ * Places `files` according to `patterns`: a `src/<subpath>.test.ts` file moves to `tests/<subpath>.test.ts`
+ * (mirroring `src/`, Spring-style), with its relative imports rewritten.
+ */
+export function placeTestsWithPatterns(
+  patterns: TestPatterns,
+  files: readonly FileToWrite[],
+): FileToWrite[] {
+  return files.map((file) => {
+    if (!file.path.endsWith(".test.ts") || isFound(file.path, patterns)) return file;
+    const rel = file.path.replace(/^src\//, "");
+    const candidates = patterns.include.flatMap((glob) => [
+      join(baseOf(glob), rel),
+      join(baseOf(glob), basename(file.path)),
+    ]);
+    const to = candidates.find((path) => isFound(path, patterns));
+    return to === undefined ? file : { ...file, path: to, content: moveImports(file, to) };
+  });
+}
+
 /**
  * Tests go where the project's test config looks (#197): a generated `*.test.ts` its vitest config
  * would not run moves under the folder of the first pattern that finds it (`tests/`), imports rewritten.
  */
 export function placeTests(root: string, files: readonly FileToWrite[]): FileToWrite[] {
   const patterns = testPatterns(root);
-  if (patterns === undefined) return [...files];
-  return files.map((file) => {
-    if (!file.path.endsWith(".test.ts") || isFound(file.path, patterns)) return file;
-    const to = patterns.include
-      .map((glob) => join(baseOf(glob), basename(file.path)))
-      .find((path) => isFound(path, patterns));
-    return to === undefined ? file : { ...file, path: to, content: moveImports(file, to) };
-  });
+  return patterns === undefined ? [...files] : placeTestsWithPatterns(patterns, files);
 }

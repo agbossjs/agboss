@@ -1,9 +1,9 @@
 import { replyWith, routeTo, testWith } from "agboss/testing";
 import { expect } from "vitest";
-import { {{agent}}Agent } from "./agents/{{agentKebab}}/{{agentKebab}}.agent.js";
-import { MainRouter } from "./routers/main/main.router.js";
-import { TextWorkflowFinish } from "./workflow-finishes/text.workflow-finish.js";
-import { TextWorkflowStart } from "./workflow-starts/text.workflow-start.js";
+import { {{agent}}Agent } from "{{agentFrom}}";
+import { {{routerClass}} } from "{{routerFrom}}";
+import { TextWorkflowFinish } from "{{finishFrom}}";
+import { TextWorkflowStart } from "{{startFrom}}";
 import { {{application}} } from "{{applicationFrom}}";
 
 // models answer by script, MCP servers are stubs, the network is blocked: this test runs offline
@@ -14,11 +14,11 @@ test("the main router sends the text to {{agentName}}, whose answer finishes the
   mockLlm,
 }) => {
   // a router with one route decides without its model; once it has more, every call routes here
-  mockLlm(MainRouter).thenReturnAlways(routeTo({{agent}}Agent));
+  mockLlm({{routerClass}}).thenReturnAlways(routeTo({{agent}}Agent));
   mockLlm({{agent}}Agent).thenReturn(replyWith("Done."));
 
   const result = await app.execute(TextWorkflowStart, { text: "Hello" });
 
-  expect(result).toFollowPath([TextWorkflowStart, MainRouter, {{agent}}Agent, TextWorkflowFinish]);
+  expect(result).toFollowPath([TextWorkflowStart, {{routerClass}}, {{agent}}Agent, TextWorkflowFinish]);
   expect(result).toFinishWith(TextWorkflowFinish, { text: "Done." });
 });

@@ -127,16 +127,19 @@ export function applicationGraph(root: string, given: string | undefined): Appli
   return { module, className, workflows };
 }
 
-/** The workflow `--workflow <full name>` names; unknown → a hint and the list, nothing written. */
+/** The workflow `--workflow <full name>` names (or the only one); unknown → a hint and the list, nothing written. */
 export function workflowNamed(
   application: ApplicationGraph,
   name: string | undefined,
 ): WorkflowEntry {
   const known = application.workflows.map((workflow) => workflow.name);
-  if (name === undefined || name === "")
+  if (name === undefined || name === "") {
+    if (application.workflows.length === 1 && application.workflows[0] !== undefined)
+      return application.workflows[0];
     throw new ScaffoldUsageError(
       `--workflow <full name> is required — one of: ${known.join(", ") || "(none)"}`,
     );
+  }
   const found = application.workflows.find((workflow) => workflow.name === name);
   if (found !== undefined) return found;
   const closest = closestName(name, known);

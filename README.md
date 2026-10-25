@@ -498,7 +498,7 @@ framework's: `npx agboss check` (so the project's `postinstall`, `npx agboss dev
 4. **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** — Transactional multi-step saga (`compensateWith` / `committedBy`) with parallel quorum fan-out (`.toParallelAgents().acceptedBy().joinQuorum()`) and automatic LIFO compensation on downstream failure.
 5. **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** — Multi-instance horizontal scaling with `ChildPlacement.AnyInstance`, `SqliteChildExecutionQueueRepository`, parent lease yielding, shared tree concurrency slots, and per-child crash recovery across workers.
 6. **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** — Federated multi-service Agent Mesh over A2A (`@A2AExpose`, `@A2AAgent`, `a2aHttpListener`, `A2ACallerResolver`, Ed25519 JWS `MeshEnvelope`, `agboss check --federation`, and `agboss hub show --html`).
-7. **[`07-langgraph-migration-smoke`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration-smoke)** — Step-by-step migration from raw LangGraph (`StateAnnotation`, `addConditionalEdges`, `Send`, `interrupt`) to typed AGBoss components following skill reference `13-migrating-from-langgraph.md`.
+7. **[`07-langgraph-migration`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration)** — Side-by-side "before & after" migration from raw LangGraph (`Annotation.Root` God State, `addConditionalEdges`, side effects in tools, dynamic system prompt interpolation) to typed AGBoss components following skill reference `13-migrating-from-langgraph.md`.
 
 ### In-Repository Examples
 

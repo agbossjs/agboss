@@ -1391,13 +1391,14 @@ cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `
   are kept `ExecutionRecordStatus.Written` — turns of their thread, never runs `npx agboss eval
 score` scores or `npx agboss golden add` saves.
 
-### Against a baseline: `--baseline <run.json> [--fail-on-regression]`
+### Against a baseline: `--baseline <run.json> [--fail-on-regression]` and `--save-baseline <baseline.json>`
 
 ```
 npx agboss eval run --suite screening-eval-suite --runs 3 --env eval --baseline main.json --fail-on-regression
 ```
 
-- The baseline is a run artifact (`--report` of a run of `main`; its type `EvalRunReport`, public in
+- `--save-baseline <baseline.json>` writes a compact, git-diff-friendly baseline snapshot (`kind: "agboss.eval-baseline"`, `schemaVersion: 1`, per-case `caseId`, `caseHash`, `runs`, `passed`, `passAtK`, `passHatK`, `flaky`, `avgSpendUsd`, `verdictSummary`) meant for `eval/baseline/main-baseline.json`, while full run artifacts (`--report`) stay in gitignored `.agboss/eval/`.
+- The baseline passed to `--baseline` is either a compact baseline snapshot (`--save-baseline`) or a full run artifact (`--report` of a run of `main`; its type `EvalRunReport`, public in
   `agboss/eval` with `EVAL_RUN_KIND` and `EVAL_RUN_SCHEMA_VERSION`), read before anything runs: another
   `kind`, another `schemaVersion`, a missing field (`eval.run-invalid`), no file
   (`eval.run-not-found`) or a run of another suite (`eval.run-invalid`) — exit 2. `--fail-on-regression` needs `--baseline`.

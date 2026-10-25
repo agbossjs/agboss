@@ -34,7 +34,9 @@ describe("#305 AC4: agboss generate syncs the project skills", () => {
     const skills = lines.findIndex((line) =>
       line.startsWith("skills: .claude/skills/agboss installed"),
     );
-    const written = lines.findIndex((line) => line.includes("src/checkout/checkout.workflow.ts"));
+    const written = lines.findIndex((line) =>
+      line.includes("src/workflows/checkout/checkout.workflow.ts"),
+    );
     expect(skills).toBeGreaterThanOrEqual(0);
     expect(written).toBeGreaterThan(skills);
     expect(existsSync(join(root, ".claude/skills/agboss/SKILL.md"))).toBe(true);

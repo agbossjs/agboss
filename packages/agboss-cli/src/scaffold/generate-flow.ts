@@ -90,3 +90,57 @@ export function planRouter(root: string, name: string, o: GenerateOptions): Chan
   );
   return { create: [routerFile(folder, n, text, [route])], modify: [] };
 }
+
+/**
+ * `agboss g workflow-start <name>-workflow-start [--workflow <name>-workflow]`: a `@WorkflowStart`
+ * in the target workflow's folder (`src/workflows/<workflow>/<name>.workflow-start.ts`).
+ */
+export function planWorkflowStart(root: string, name: string, o: GenerateOptions): Changes {
+  const n = fullNameOf(name, "workflow-start");
+  const graph = workflowGraph(root, o);
+  const description = o.description ?? `${n.title} (TODO: describe what starts the run)`;
+  const content = [
+    'import { WorkflowStartTextDto } from "agboss/dto";',
+    'import { WorkflowStart } from "agboss";',
+    "",
+    `/** ${description} */`,
+    "@WorkflowStart({",
+    `  name: "${n.full}",`,
+    `  description: ${JSON.stringify(description)},`,
+    "  input: WorkflowStartTextDto,",
+    "})",
+    `export class ${n.pascal}WorkflowStart {}`,
+    "",
+  ].join("\n");
+  return {
+    create: [{ path: `${graph.dir}/${n.kebab}.workflow-start.ts`, content }],
+    modify: [],
+  };
+}
+
+/**
+ * `agboss g workflow-finish <name>-workflow-finish [--workflow <name>-workflow]`: a `@WorkflowFinish`
+ * in the target workflow's folder (`src/workflows/<workflow>/<name>.workflow-finish.ts`).
+ */
+export function planWorkflowFinish(root: string, name: string, o: GenerateOptions): Changes {
+  const n = fullNameOf(name, "workflow-finish");
+  const graph = workflowGraph(root, o);
+  const description = o.description ?? `${n.title} (TODO: describe what finishes the run)`;
+  const content = [
+    'import { WorkflowFinishTextDto } from "agboss/dto";',
+    'import { WorkflowFinish } from "agboss";',
+    "",
+    `/** ${description} */`,
+    "@WorkflowFinish({",
+    `  name: "${n.full}",`,
+    `  description: ${JSON.stringify(description)},`,
+    "  output: WorkflowFinishTextDto,",
+    "})",
+    `export class ${n.pascal}WorkflowFinish {}`,
+    "",
+  ].join("\n");
+  return {
+    create: [{ path: `${graph.dir}/${n.kebab}.workflow-finish.ts`, content }],
+    modify: [],
+  };
+}

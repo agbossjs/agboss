@@ -52,20 +52,19 @@ export function codeOf(markdown) {
   return parts;
 }
 
+function positionalProblem(command, found, first) {
+  if (!found.positionals || !first || !/^[a-z][\w:-]*$/.test(first)) return undefined;
+  if (found.positionals.has(first) || found.extraPositionals?.has(first)) return undefined;
+  return `\`agboss ${command} ${first}\`: expected ${[...found.positionals].join(" | ")}`;
+}
+
 function agbossProblem(command, rest, known) {
   const found = known.commands.get(command);
   if (!found) return `unknown command \`agboss ${command}\``;
   const words = rest.trim().split(/\s+/).filter(Boolean);
   const sub = found.subcommands?.get(words[0] ?? "");
   if (sub) return flagProblem(`${command} ${words[0]}`, sub, words.slice(1));
-  const flag = words.find(
-    (word) => word.startsWith("--") && !found.flags.has(word.replace(/=.*/, "")),
-  );
-  if (flag) return `\`agboss ${command}\` has no option ${flag}`;
-  const first = words[0];
-  if (found.positionals && first && /^[a-z][\w:-]*$/.test(first) && !found.positionals.has(first))
-    return `\`agboss ${command} ${first}\`: expected ${[...found.positionals].join(" | ")}`;
-  return undefined;
+  return flagProblem(command, found, words) ?? positionalProblem(command, found, words[0]);
 }
 
 /** An option the subcommand does not take. */

@@ -226,6 +226,67 @@ describe("#396 PR 3: agboss eval run --baseline", () => {
     );
   });
 
+  it("--save-baseline writes a compact git-friendly baseline snapshot that --baseline compares against", async () => {
+    const baselinePath = join(CWD, "compact-baseline.json");
+    const saveCall = await agboss(
+      [...RUN, "--suite", "desk-eval-suite", "--runs", "2", "--save-baseline", baselinePath],
+      CWD,
+    );
+    expect(saveCall.code).toBe(0);
+    const snapshot = JSON.parse(readFileSync(baselinePath, "utf8")) as {
+      kind: string;
+      schemaVersion: number;
+      cases: {
+        caseId: string;
+        caseHash: string;
+        runs: number;
+        passed: number;
+        passAtK: boolean;
+        passHatK: boolean;
+        flaky: boolean;
+        avgSpendUsd: number;
+        verdictSummary: string;
+      }[];
+    };
+    expect(snapshot.kind).toBe("agboss.eval-baseline");
+    expect(snapshot.schemaVersion).toBe(1);
+    expect(snapshot.cases).toHaveLength(2);
+    expect(snapshot.cases[0]).toMatchObject({
+      caseId: "looks-order-7-up",
+      runs: 2,
+      passed: 2,
+      passAtK: true,
+      passHatK: true,
+      flaky: false,
+    });
+    expect(snapshot.cases[0]?.verdictSummary).toContain("2/2 passed");
+
+    // Edit case 2 in the compact baseline to simulate a previously passing case and verify regression gate
+    Object.assign(snapshot.cases[1] ?? {}, {
+      passed: 2,
+      passAtK: true,
+      passHatK: true,
+      flaky: false,
+    });
+    writeFileSync(baselinePath, JSON.stringify(snapshot, null, 2));
+
+    const compareCall = await agboss(
+      [
+        ...RUN,
+        "--suite",
+        "desk-eval-suite",
+        "--runs",
+        "2",
+        "--baseline",
+        baselinePath,
+        "--fail-on-regression",
+      ],
+      CWD,
+    );
+    expect(compareCall.code).toBe(5);
+    expect(compareCall.stdout).toContain("looks-order-8-up  2/2       0/2        regressed");
+  });
+
   it("--fail-on-regression: exit 5, eval.regressed naming the cases", async () => {
     const baseline = await baselineWith("gate.json", stableOnBaseline);
     const call = await agboss(

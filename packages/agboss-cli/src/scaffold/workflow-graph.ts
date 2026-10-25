@@ -132,10 +132,17 @@ export function workflowGraph(root: string, target: WorkflowTarget): WorkflowGra
 export const ofKind = (graph: WorkflowGraph, decorator: string): readonly Component[] =>
   graph.components.filter((c) => c.decorator === decorator);
 
-/** The folder the workflow keeps a kind in (where its first one lives), else `<workflow dir>/<sub>`. */
+/**
+ * The shared `src/` root of the workflow: when the workflow is in `src/workflows/<name>/`,
+ * components live in `src/<kind>/`; otherwise they live in `<workflow dir>/<kind>/`.
+ */
+export const srcDirOf = (graph: WorkflowGraph): string =>
+  basename(dirname(graph.dir)) === "workflows" ? dirname(dirname(graph.dir)) : graph.dir;
+
+/** The folder the workflow keeps a kind in (where its first one lives), else `<srcDir>/<sub>`. */
 export const folderOf = (graph: WorkflowGraph, decorator: string, sub: string): string => {
   const [first] = ofKind(graph, decorator);
-  if (first === undefined) return `${graph.dir}/${sub}`;
+  if (first === undefined) return `${srcDirOf(graph)}/${sub}`;
   const dir = dirname(first.path);
   return basename(dir) === sub ? dir : dirname(dir);
 };

@@ -128,7 +128,7 @@ describe("writing", () => {
       root,
     );
     await expect(applyChanges(root, again)).rejects.toThrow(
-      "Already exists: src/desk/tools/search-orders.tool.ts, src/desk/tools/search-orders.tool.test.ts, src/desk/dto/search-orders-query.dto.ts, src/desk/dto/search-orders-result.dto.ts. Already wired: src/desk/agents/answerer/answerer.agent.ts: SearchOrdersTool already in tools. Nothing was written — rerun with --force",
+      "Already exists: src/tools/search-orders.tool.ts, tests/tools/search-orders.tool.test.ts, src/dto/search-orders-query.dto.ts, src/dto/search-orders-result.dto.ts. Already wired: src/agents/answerer/answerer.agent.ts: SearchOrdersTool already in tools. Nothing was written — rerun with --force",
     );
     await expect(
       planGenerate("tool", "x-tool", { workflow: "desk-workflow" }, root),

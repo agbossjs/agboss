@@ -34,18 +34,19 @@ export const agentRoute = (agent: Names, description: string): RouteSpec => ({
 });
 
 /**
- * The text workflow start and the text workflow finish of a new workflow, their `name`s prefixed
- * with the workflow's (`desk-text-workflow-start`): a name is unique in the application (#272).
+ * The text workflow start and the text workflow finish of a new workflow, inside the workflow's own
+ * folder (`src/workflows/<workflow>/`), their `name`s prefixed with the workflow's
+ * (`desk-text-workflow-start`): a name is unique in the application (#272).
  */
 export function endpointFiles(dir: string, workflow: Names): FileToWrite[] {
   const prefix = { workflowKebab: workflow.kebab };
   return [
     {
-      path: `${dir}/workflow-starts/text.workflow-start.ts`,
+      path: `${dir}/text.workflow-start.ts`,
       content: render("workflow-start/text.workflow-start.ts.tmpl", prefix),
     },
     {
-      path: `${dir}/workflow-finishes/text.workflow-finish.ts`,
+      path: `${dir}/text.workflow-finish.ts`,
       content: render("workflow-finish/text.workflow-finish.ts.tmpl", prefix),
     },
   ];

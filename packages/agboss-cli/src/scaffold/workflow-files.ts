@@ -1,3 +1,4 @@
+import { basename, dirname } from "node:path/posix";
 import { ScaffoldUsageError } from "./errors.js";
 import { agentRoute, endpointFiles, MAIN_ROUTER, routerFile } from "./flow-files.js";
 import { fullNameOf, namesOf, type FullName, type Names } from "./names.js";
@@ -9,8 +10,12 @@ import type { FileToWrite } from "./write.js";
 
 /** Where a new workflow goes and what it belongs to. */
 export interface WorkflowPlacement {
-  /** Its folder: `src/desk`. */
+  /** Its folder: `src/workflows/desk`. */
   readonly dir: string;
+  /** The shared `src/` root where agents, routers, tools, dto, mcp, rag live. */
+  readonly srcDir?: string;
+  /** The router's short name: `"main"` for the first workflow, `"<workflow> main"` for subsequent ones. */
+  readonly routerName?: string;
   /** The application it is listed in: its class and its module. */
   readonly application: { readonly className: string; readonly path: string };
   /** `agboss create` (#239): the project's `ApiService` module, which its tools inject. */
@@ -26,21 +31,21 @@ interface PlannedAgent {
 /** MCP server and knowledge base of a new workflow — both wired into its first agent. */
 function extras(
   spec: WorkflowSpec,
-  dir: string,
+  srcDir: string,
   firstAgent: FileToWrite,
 ): { files: FileToWrite[]; agent: FileToWrite; server: string } {
   const files: FileToWrite[] = [];
   let agent = firstAgent;
   let server = "";
   if (spec.mcp.kind !== "none") {
-    const mcp = mcpFiles(dir, spec.mcp);
+    const mcp = mcpFiles(srcDir, spec.mcp);
     files.push(...mcp.files);
     server = mcp.server;
     agent = wire(agent, "Agent", "tools", mcp.tool, mcp.tool, `../../${mcp.toolModule}.js`);
   }
   if (spec.rag !== undefined) {
     const name = fullNameOf(spec.rag.name, "rag");
-    const rag = ragFiles(dir, { name, folder: spec.rag.folder });
+    const rag = ragFiles(srcDir, { name, folder: spec.rag.folder });
     files.push(...rag.files);
     const element = `{ use: ${rag.knowledge}, mode: RagMode.Tool }`;
     const from = `../../rag/${name.kebab}.rag.js`;
@@ -53,19 +58,23 @@ function extras(
 
 /** The workflow module's imports: its agents, its MCP server, the project's `ApiService`. */
 function moduleImports(
+  modulePath: string,
+  srcDir: string,
   spec: WorkflowSpec,
   agents: readonly PlannedAgent[],
   server: string,
   service: string | undefined,
 ): string {
   return [
-    ...agents.map(
-      (a) =>
-        `import { ${a.names.pascal}Agent } from "./agents/${a.names.kebab}/${a.names.kebab}.agent.js";`,
-    ),
+    ...agents.map((a) => {
+      const target = `${srcDir}/agents/${a.names.kebab}/${a.names.kebab}.agent.ts`;
+      return `import { ${a.names.pascal}Agent } from "${importPath(modulePath, target)}";`;
+    }),
     ...(spec.mcp.kind === "none"
       ? []
-      : [`import { ${server} } from "./mcp/${namesOf(spec.mcp.name).kebab}.mcp-server.js";`]),
+      : [
+          `import { ${server} } from "${importPath(modulePath, `${srcDir}/mcp/${namesOf(spec.mcp.name).kebab}.mcp-server.ts`)}";`,
+        ]),
     ...(service === undefined ? [] : [`import { ApiService } from "${service}";`]),
   ].join("\n");
 }
@@ -73,17 +82,29 @@ function moduleImports(
 /** The workflow's test on `agboss/testing`: its first agent, by script, in its application. */
 function workflowTest(
   dir: string,
+  srcDir: string,
   workflow: Names,
   first: PlannedAgent,
+  routerNames: Names,
   at: WorkflowPlacement,
 ): FileToWrite {
-  const path = `${dir}/${workflow.kebab}.workflow.test.ts`;
+  const path = `tests/workflows/${workflow.kebab}/${workflow.kebab}.workflow.test.ts`;
   return {
     path,
     content: render("workflow/workflow.test.ts.tmpl", {
       agent: first.names.pascal,
-      agentKebab: first.names.kebab,
       agentName: first.names.full,
+      agentFrom: importPath(
+        path,
+        `${srcDir}/agents/${first.names.kebab}/${first.names.kebab}.agent.ts`,
+      ),
+      routerClass: `${routerNames.pascal}Router`,
+      routerFrom: importPath(
+        path,
+        `${srcDir}/routers/${routerNames.kebab}/${routerNames.kebab}.router.ts`,
+      ),
+      finishFrom: importPath(path, `${dir}/text.workflow-finish.ts`),
+      startFrom: importPath(path, `${dir}/text.workflow-start.ts`),
       application: at.application.className,
       applicationFrom: importPath(path, at.application.path),
     }),
@@ -91,15 +112,18 @@ function workflowTest(
 }
 
 /** What the tools of the workflow reach: the project's `ApiService` (`agboss create`), else nothing. */
-const toolApiOf = (dir: string, tool: Names, at: WorkflowPlacement): ToolApi | undefined => {
+const toolApiOf = (srcDir: string, tool: Names, at: WorkflowPlacement): ToolApi | undefined => {
   if (at.service === undefined) return undefined;
-  const test = `${dir}/tools/${tool.kebab}.tool.test.ts`;
+  const test = `${srcDir}/tools/${tool.kebab}.tool.test.ts`;
   return {
-    service: importPath(`${dir}/tools/${tool.kebab}.tool.ts`, at.service),
+    service: importPath(`${srcDir}/tools/${tool.kebab}.tool.ts`, at.service),
     application: at.application.className,
     applicationFrom: importPath(test, at.application.path),
   };
 };
+
+const srcDirFrom = (at: WorkflowPlacement): string =>
+  at.srcDir ?? (basename(dirname(at.dir)) === "workflows" ? dirname(dirname(at.dir)) : at.dir);
 
 /**
  * Every file of one new workflow (#268 AC8): its start and finish, its main router, its agents with
@@ -109,6 +133,8 @@ const toolApiOf = (dir: string, tool: Names, at: WorkflowPlacement): ToolApi | u
 export function planWorkflow(spec: WorkflowSpec, at: WorkflowPlacement): FileToWrite[] {
   const workflow = fullNameOf(spec.name, "workflow");
   const { dir } = at;
+  const srcDir = srcDirFrom(at);
+  const routerNames = namesOf(at.routerName ?? "main");
   const agents: PlannedAgent[] = spec.agents.map((a) => ({
     spec: a,
     names: fullNameOf(a.name, "agent"),
@@ -117,40 +143,40 @@ export function planWorkflow(spec: WorkflowSpec, at: WorkflowPlacement): FileToW
   const [first] = agents;
   if (first === undefined) throw new ScaffoldUsageError("A workflow needs at least one agent");
   const [firstAgent, ...otherAgentFiles] = agents.flatMap((a) =>
-    agentFiles(`${dir}/agents`, a.names, a.spec.description, a.tools),
+    agentFiles(`${srcDir}/agents`, a.names, a.spec.description, a.tools),
   );
   if (firstAgent === undefined) throw new ScaffoldUsageError("A workflow needs at least one agent");
-  const more = extras(spec, dir, firstAgent);
-  const service = at.service === undefined ? undefined : importPath(`${dir}/x.ts`, at.service);
-  const module = render("workflow/workflow.ts.tmpl", {
-    ...vars(workflow),
-    imports: moduleImports(spec, agents, more.server, service),
-    // one call per line (#289): `route(X)` / `.toFinish(…)`
-    routes: agents
-      .map((a) => `        route(${a.names.pascal}Agent)\n          .toFinish(TextWorkflowFinish),`)
-      .join("\n"),
-    servers: more.server,
-    // the service the tools inject (`deps: [ExecutionContext, ApiService]`) — the container creates registered ones
-    providers: service === undefined ? "" : "  providers: [ApiService],\n",
-  });
-  // a text agent answers straight to the finish: the router chooses among the agents (#272)
+  const more = extras(spec, srcDir, firstAgent);
+  const modulePath = `${dir}/${workflow.kebab}.workflow.ts`;
+  const service = at.service === undefined ? undefined : importPath(modulePath, at.service);
   const router = routerFile(
-    `${dir}/routers`,
-    namesOf("main"),
+    `${srcDir}/routers`,
+    routerNames,
     MAIN_ROUTER,
     agents.map((a) => agentRoute(a.names, a.spec.description)),
     `${workflow.kebab}-main`,
   );
+  const module = render("workflow/workflow.ts.tmpl", {
+    ...vars(workflow),
+    routerClass: `${routerNames.pascal}Router`,
+    routerFrom: importPath(modulePath, router.path),
+    imports: moduleImports(modulePath, srcDir, spec, agents, more.server, service),
+    routes: agents
+      .map((a) => `        route(${a.names.pascal}Agent)\n          .toFinish(TextWorkflowFinish),`)
+      .join("\n"),
+    servers: more.server,
+    providers: service === undefined ? "" : "  providers: [ApiService],\n",
+  });
   return [
     ...endpointFiles(dir, workflow),
     router,
     ...agents.flatMap((a) =>
-      a.tools.flatMap((t) => toolFiles(`${dir}/tools`, t, toolApiOf(dir, t, at))),
+      a.tools.flatMap((t) => toolFiles(`${srcDir}/tools`, t, toolApiOf(srcDir, t, at))),
     ),
     ...more.files,
     more.agent,
     ...otherAgentFiles,
-    { path: `${dir}/${workflow.kebab}.workflow.ts`, content: module },
-    workflowTest(dir, workflow, first, at),
+    { path: modulePath, content: module },
+    workflowTest(dir, srcDir, workflow, first, routerNames, at),
   ];
 }

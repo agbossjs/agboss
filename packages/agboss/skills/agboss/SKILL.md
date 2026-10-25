@@ -20,26 +20,31 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
 1. **The application is the unit.** `createApp(App)`, `testWith(App)` and every `npx agboss …`
    command take an `@Application`; a `@Workflow` runs only as one of its `workflows` (or as a child
    of one). `createApp(Workflow)` and `testWith(Workflow)` do not compile.
-2. **One class per file, named by its kind.** Prompt-bearing components always live in their own
-   subfolder `<name>/` inside their kind folder — even when `DecidedBy.Code` — (`agents/<name>/<name>.agent.ts`
-   - `<name>.prompt.md`, `routers/<name>/<name>.router.ts`, `judges/<name>/<name>.judge.ts`,
-     `arbiters/<name>/<name>.arbiter.ts`, `compactions/<name>/<name>.compaction.ts`,
-     `guardrails/<name>/<name>.guardrail.ts`, `reply-interpreters/<name>/<name>.reply-interpreter.ts`);
-     every other entity is a single file in its kind folder (`dto/<name>.dto.ts`, `tools/<name>.tool.ts`,
-     `actions/<name>.action.ts`, `workflow-starts/<name>.workflow-start.ts`,
-     `workflow-finishes/<name>.workflow-finish.ts`, `workflows/<name>.workflow.ts`,
-     `services/<name>.service.ts`, `observers/<name>.observer.ts`, `budgets/<name>.budget.ts`,
-     `interceptors/<name>.interceptor.ts`, `channels/<name>.channel-role.ts`, `channels/<name>.channel.ts`,
-     `pii-policies/<name>.pii-policy.ts`, `rag/<name>.rag.ts`, `retrievers/<name>.retriever.ts`,
-     `mcp/<name>.mcp-server.ts`, `mcp/<name>.mcp-tool.ts`, `mcp/<name>.mcp-expose.ts`,
-     `a2a/<name>.a2a-agent.ts`, `a2a/<name>.a2a-expose.ts`, `model-providers/<name>.model-provider.ts`,
-     `health-checks/<name>.health-check.ts`, `eval-suites/<name>.eval-suite.ts`,
-     `environments/*.environment.ts`, `<app>.application.ts`). A component's `name` is in kebab-case
-     ending with its kind (`billing-agent`, `refund-tool`, `desk-router`, `chat-workflow-start`,
-     `desk-workflow`) — `[name.kind-suffix]`; the class is that name in PascalCase (`BillingAgent`,
-     `DeskWorkflow`), and for an `@Application` and a `@Budget` the same rule checks the class name too
-     (a `@Budget` class `DailyLimit` fails: `name it DailyLimitBudget`). Every `*Dto` class is its own
-     file in `dto/<name>.dto.ts` and ends with `Dto` (`[dto.name]`).
+2. **One class per file, named by its kind.** Every `@Workflow` lives in its own subfolder
+   `workflows/<workflow-name>/` alongside its `@WorkflowStart` and `@WorkflowFinish` files
+   (`workflows/<workflow-name>/<workflow-name>.workflow.ts`,
+   `workflows/<workflow-name>/<start-name>.workflow-start.ts`,
+   `workflows/<workflow-name>/<finish-name>.workflow-finish.ts`). Prompt-bearing components always
+   live in their own subfolder `<name>/` inside their kind folder — even when `DecidedBy.Code` —
+   (`agents/<name>/<name>.agent.ts` + `<name>.prompt.md`, `routers/<name>/<name>.router.ts`,
+   `judges/<name>/<name>.judge.ts`, `arbiters/<name>/<name>.arbiter.ts`,
+   `compactions/<name>/<name>.compaction.ts`, `guardrails/<name>/<name>.guardrail.ts`,
+   `reply-interpreters/<name>/<name>.reply-interpreter.ts`); every other entity is a single file in
+   its kind folder (`dto/<name>.dto.ts`, `tools/<name>.tool.ts`, `actions/<name>.action.ts`,
+   `services/<name>.service.ts`, `observers/<name>.observer.ts`, `budgets/<name>.budget.ts`,
+   `interceptors/<name>.interceptor.ts`, `channels/<name>.channel-role.ts`, `channels/<name>.channel.ts`,
+   `pii-policies/<name>.pii-policy.ts`, `rag/<name>.rag.ts`, `retrievers/<name>.retriever.ts`,
+   `mcp/<name>.mcp-server.ts`, `mcp/<name>.mcp-tool.ts`, `mcp/<name>.mcp-expose.ts`,
+   `a2a/<name>.a2a-agent.ts`, `a2a/<name>.a2a-expose.ts`, `model-providers/<name>.model-provider.ts`,
+   `health-checks/<name>.health-check.ts`, `eval-suites/<name>.eval-suite.ts`,
+   `contexts/<name>.context.ts`, `http/server.ts`, `environments/*.environment.ts`,
+   `<app>.application.ts`), and `tests/` mirrors `src/` symmetrically (`tests/tools/<name>.tool.test.ts`,
+   `tests/workflows/<workflow-name>/<workflow-name>.workflow.test.ts`, …). A component's `name` is in
+   kebab-case ending with its kind (`billing-agent`, `refund-tool`, `desk-router`, `chat-workflow-start`,
+   `desk-workflow`) — `[name.kind-suffix]`; the class is that name in PascalCase (`BillingAgent`,
+   `DeskWorkflow`), and for an `@Application` and a `@Budget` the same rule checks the class name too
+   (a `@Budget` class `DailyLimit` fails: `name it DailyLimitBudget`). Every `*Dto` class is its own
+   file in `dto/<name>.dto.ts` and ends with `Dto` (`[dto.name]`).
 3. **The flow is paths, written one call per line.** `@Workflow({ flow: [start(S) … .toFinish(F)] })`;
    `.returns(XDto)` says what the step before put on the path (its scope), and a later node reads its
    `input` fields from that scope — as `{ producer, value }` records (`input.order.value`), never by
@@ -79,9 +84,10 @@ npm test                                                           # scripted mo
 
 - `npx agboss generate <kind> <full name> --workflow <workflow's full name>` (alias `npx agboss g …`)
   writes the files and the wiring (an agent's route, a tool in an agent's `tools`) and regenerates the
-  types. Kinds (and short aliases): `workflow` (`w`), `agent` (`a`), `router` (`r`), `arbiter` (`ar`),
-  `tool` (`t`), `mcp` (`m`), `rag`, `openapi` (`oa`), `eval-case` (`ec`). A name without its kind
-  suffix is rejected, never completed.
+  types (`--workflow` is optional when the application has one workflow). Kinds (and short aliases):
+  `workflow` (`w`), `workflow-start` (`ws`), `workflow-finish` (`wf`), `agent` (`a`), `router` (`r`),
+  `arbiter` (`ar`), `tool` (`t`), `mcp` (`m`), `rag`, `openapi` (`oa`), `eval-case` (`ec`). A name
+  without its kind suffix is rejected, never completed.
 - `npx agboss check` must print `ok:`; it reports **all** problems at once as `[rule.code]` lines —
   fix every one, then run it again. `npx agboss check --strict` makes the analyser's warnings
   errors; `npx agboss check --models` also checks the models against their providers.
@@ -109,11 +115,11 @@ npm test                                                           # scripted mo
   (`checkTrajectory()`), then code judges (`@Judge({ decidedBy: DecidedBy.Code })`), then model
   judges. `npx agboss check` assembles them too (Loop 0).
 - **Loops 2 and 3** (a live model, paid): `npx agboss eval run --suite <name> --runs <k> --report
-<run.json>` — each case k times on the real application (`--env`), the cascade per run, pass@k and
-  pass^k per case, the run artifact kept from `main` as the reference (`--html <file>` writes it as
+<run.json> [--save-baseline <baseline.json>]` — each case k times on the real application (`--env`), the cascade per run, pass@k and
+  pass^k per case, the compact baseline snapshot (`--save-baseline eval/baseline/main-baseline.json`) kept in git from `main` as the reference while full run artifacts go into gitignored `.agboss/eval/` (`--html <file>` writes it as
   one self-contained page — each run's timeline, the baseline diff, and for an unstable case the
   node where its attempts part ways; `npx agboss eval show <run.json> --html <file>` renders a saved one,
-  running nothing); on a branch `--baseline <run.json> --fail-on-regression` exits 5 when a case
+  running nothing); on a branch `--baseline <baseline.json> --fail-on-regression` exits 5 when a case
   stable on `main` regressed (one that flapped there is quarantined,
   `CaseComparison.FlakyOnBaseline`); a model judge is trusted only once calibrated against people's
   labels — `npx agboss eval calibrate --report <run.json>` (Cohen's κ per labeler, the disagreements

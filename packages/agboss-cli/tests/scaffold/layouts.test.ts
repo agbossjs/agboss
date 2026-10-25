@@ -73,11 +73,11 @@ describe("agboss generate on job-scout's layout", () => {
     );
     // tests where vitest looks (tests/**), importing the tool where it is
     expect(existsSync(join(project, "src/tools/refund.tool.test.ts"))).toBe(false);
-    expect(text("tests/refund.tool.test.ts")).toContain(
-      'import { RefundTool } from "../src/tools/refund.tool.js";',
+    expect(text("tests/tools/refund.tool.test.ts")).toContain(
+      'import { RefundTool } from "../../src/tools/refund.tool.js";',
     );
-    expect(text("tests/get-pet.tool.test.ts")).toContain(
-      'import { GetPetTool } from "../src/tools/get-pet.tool.js";',
+    expect(text("tests/tools/get-pet.tool.test.ts")).toContain(
+      'import { GetPetTool } from "../../src/tools/get-pet.tool.js";',
     );
 
     expectStaticChecks(project, ["src", "tests"]);

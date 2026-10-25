@@ -1,4 +1,4 @@
-import { planAgent, planRouter } from "./generate-flow.js";
+import { planAgent, planRouter, planWorkflowFinish, planWorkflowStart } from "./generate-flow.js";
 import { planArbiter } from "./generate-arbiter.js";
 import { ScaffoldUsageError } from "./errors.js";
 import { planMcp, planRag, planTool } from "./generate-parts.js";
@@ -9,6 +9,8 @@ import type { Changes } from "./write.js";
 
 export const KINDS = [
   "workflow",
+  "workflow-start",
+  "workflow-finish",
   "agent",
   "router",
   "arbiter",
@@ -22,6 +24,8 @@ export type Kind = (typeof KINDS)[number];
 /** Single-letter / short aliases for `agboss generate <kind>` (`agboss g a`, `agboss g t`, …). */
 export const KIND_ALIASES: Readonly<Record<string, Kind>> = {
   w: "workflow",
+  ws: "workflow-start",
+  wf: "workflow-finish",
   a: "agent",
   r: "router",
   ar: "arbiter",
@@ -49,6 +53,8 @@ const PLANS: Readonly<
   Record<Kind, (root: string, name: string, o: GenerateOptions) => Changes | Promise<Changes>>
 > = {
   workflow: planNewWorkflow,
+  "workflow-start": planWorkflowStart,
+  "workflow-finish": planWorkflowFinish,
   agent: planAgent,
   router: planRouter,
   arbiter: planArbiter,

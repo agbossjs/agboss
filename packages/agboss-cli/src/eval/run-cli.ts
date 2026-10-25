@@ -20,7 +20,7 @@ import {
 import { envOption } from "../cli/environment.js";
 import { CliError, usageError } from "../cli/errors.js";
 import { writeOutputFile } from "./output-file.js";
-import { baselineOf, comparisonLines, regressionFailure } from "./baseline.js";
+import { baselineOf, compactBaselineOf, comparisonLines, regressionFailure } from "./baseline.js";
 import { chaosLine, chaosOf } from "./chaos-options.js";
 import { printRunTable } from "./run-report.js";
 
@@ -77,18 +77,27 @@ function buildOf(context: CommandContext, application: Class, chaos: ChaosOption
   });
 }
 
-/** The artifact with `--report`, then its HTML page with `--html`: the files written. */
+/** The artifact with `--report`, compact baseline with `--save-baseline`, HTML page with `--html`. */
 async function writtenOf(context: CommandContext, report: EvalRunReport): Promise<string[]> {
   const path = textOption(context.values, "report");
   if (path !== undefined) {
     writeOutputFile(context, path, `${JSON.stringify(report, null, 2)}\n`);
     context.say(`report → ${path}`);
   }
+  const saveBaseline = textOption(context.values, "save-baseline");
+  if (saveBaseline !== undefined) {
+    writeOutputFile(
+      context,
+      saveBaseline,
+      `${JSON.stringify(compactBaselineOf(report), null, 2)}\n`,
+    );
+    context.say(`baseline → ${saveBaseline}`);
+  }
   // the artifact first: a page too large to write leaves the run's artifact written
   const html = textOption(context.values, "html");
   if (html !== undefined)
     await (await import("./html-report.js")).writeHtmlReport(context, html, report);
-  return [path, html].filter((file) => file !== undefined);
+  return [path, saveBaseline, html].filter((file) => file !== undefined);
 }
 
 /** How the suite runs: k, the profile for the header, the chaos it was built with, `--metamorphic`. */

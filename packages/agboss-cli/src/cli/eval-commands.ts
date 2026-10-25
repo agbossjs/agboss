@@ -24,7 +24,7 @@ export const EVAL_COMMAND: CommandSpec = {
       summary:
         "run an eval suite: every case --runs times, its checks under the cascade, pass@k / pass^k",
       usage:
-        "agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--metamorphic] [--profile <name>] [--env <name>]",
+        "agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--save-baseline <file.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--metamorphic] [--profile <name>] [--env <name>]",
       options: [
         text(
           "suite",
@@ -35,8 +35,17 @@ export const EVAL_COMMAND: CommandSpec = {
           default: "1",
         }),
         text("report", "<run.json>", "write the run artifact (agboss.eval-run) to this file"),
+        text(
+          "save-baseline",
+          "<file.json>",
+          "write a compact, git-diff-friendly per-case baseline snapshot to this file",
+        ),
         HTML,
-        text("baseline", "<run.json>", "compare each case with this run artifact (a run of main)"),
+        text(
+          "baseline",
+          "<run.json>",
+          "compare each case with this baseline snapshot or run artifact",
+        ),
         text(
           "chaos",
           "<rate>",

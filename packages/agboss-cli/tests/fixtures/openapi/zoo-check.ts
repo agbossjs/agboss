@@ -4,13 +4,13 @@
  */
 export const ZOO_CHECK = `import { callTool, replyWith, routeTo, testWith } from "agboss/testing";
 import { afterEach, expect, vi } from "vitest";
-import { KeeperAgent } from "./agents/keeper/keeper.agent.js";
-import { MainRouter } from "./routers/main/main.router.js";
-import { CreatePetTool } from "./tools/create-pet.tool.js";
-import { GetPetTool } from "./tools/get-pet.tool.js";
-import { TextWorkflowFinish } from "./workflow-finishes/text.workflow-finish.js";
-import { TextWorkflowStart } from "./workflow-starts/text.workflow-start.js";
-import { ZooApplication } from "../zoo.application.js";
+import { KeeperAgent } from "../../../src/agents/keeper/keeper.agent.js";
+import { MainRouter } from "../../../src/routers/main/main.router.js";
+import { CreatePetTool } from "../../../src/tools/create-pet.tool.js";
+import { GetPetTool } from "../../../src/tools/get-pet.tool.js";
+import { TextWorkflowFinish } from "../../../src/workflows/zoo/text.workflow-finish.js";
+import { TextWorkflowStart } from "../../../src/workflows/zoo/text.workflow-start.js";
+import { ZooApplication } from "../../../src/zoo.application.js";
 
 const test = testWith(ZooApplication);
 

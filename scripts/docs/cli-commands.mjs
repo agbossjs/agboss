@@ -30,15 +30,28 @@ function commandOf(entry) {
     (entry.subcommands ?? []).map((sub) => [sub.name.split(" ")[1], commandOf(sub)]),
   );
   const positionals = positionalsOf(entry.usage);
-  if (entry.name === "generate" && positionals) {
-    for (const shortKind of ["w", "a", "r", "ar", "t", "m", "oa", "ec"]) {
-      positionals.add(shortKind);
-    }
-  }
+  const extraPositionals =
+    entry.name === "generate"
+      ? new Set([
+          "w",
+          "ws",
+          "wf",
+          "workflow-start",
+          "workflow-finish",
+          "a",
+          "r",
+          "ar",
+          "t",
+          "m",
+          "oa",
+          "ec",
+        ])
+      : undefined;
   return {
     name: entry.name,
     flags: new Set([...flags, "--help"]),
     positionals,
+    extraPositionals,
     subcommands,
   };
 }

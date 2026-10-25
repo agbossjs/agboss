@@ -91,19 +91,27 @@ describe("#268 AC8: generators take full names", () => {
     const { create, modify } = await planGenerate("workflow", "checkout-workflow", {}, root);
 
     const paths = create.map((file) => file.path);
-    expect(paths).toContain("src/checkout/checkout.workflow.ts");
-    expect(paths).toContain("src/checkout/checkout.workflow.test.ts");
-    expect(paths).toContain("src/checkout/agents/checkout-assistant/checkout-assistant.agent.ts");
+    expect(paths).toContain("src/workflows/checkout/checkout.workflow.ts");
+    expect(paths).toContain("src/workflows/checkout/text.workflow-start.ts");
+    expect(paths).toContain("src/workflows/checkout/text.workflow-finish.ts");
+    expect(paths).toContain("tests/workflows/checkout/checkout.workflow.test.ts");
+    expect(paths).toContain("src/agents/checkout-assistant/checkout-assistant.agent.ts");
     expect(paths.some((path) => path.endsWith(".application.ts"))).toBe(false);
-    const module = create.find((file) => file.path === "src/checkout/checkout.workflow.ts");
+    const module = create.find(
+      (file) => file.path === "src/workflows/checkout/checkout.workflow.ts",
+    );
     expect(module?.content).toContain('name: "checkout-workflow",');
-    const test = create.find((file) => file.path === "src/checkout/checkout.workflow.test.ts");
-    expect(test?.content).toContain('import { DeskApplication } from "../desk.application.js";');
+    const test = create.find(
+      (file) => file.path === "tests/workflows/checkout/checkout.workflow.test.ts",
+    );
+    expect(test?.content).toContain(
+      'import { DeskApplication } from "../../../src/desk.application.js";',
+    );
     const [application, packageJson] = modify;
     expect(application?.path).toBe("src/desk.application.ts");
     expect(application?.content).toContain("workflows: [Desk, CheckoutWorkflow],");
     expect(application?.content).toContain(
-      'import { CheckoutWorkflow } from "./checkout/checkout.workflow.js";',
+      'import { CheckoutWorkflow } from "./workflows/checkout/checkout.workflow.js";',
     );
     expect(JSON.parse(packageJson?.content ?? "{}")).toMatchObject({
       scripts: {
@@ -111,6 +119,33 @@ describe("#268 AC8: generators take full names", () => {
         "run:checkout": "agboss run --start checkout-text-workflow-start",
       },
     });
+  });
+
+  it("generate workflow-start and workflow-finish place files inside the target workflow folder (and infer the single workflow when omitted)", async () => {
+    const singleRoot = mkdtempSync(join(tmpdir(), "agboss-generate-single-"));
+    const singleWorkflow = {
+      module: "src/workflows/desk/desk.workflow.ts",
+      className: "DeskWorkflow",
+      name: "desk-workflow",
+    };
+    writeApplication(singleRoot, singleWorkflow);
+    mkdirSync(join(singleRoot, "src/workflows/desk"), { recursive: true });
+    writeFileSync(join(singleRoot, singleWorkflow.module), workflowDeclaration(singleWorkflow));
+
+    const startPlan = await planGenerate(
+      "workflow-start",
+      "webhook-workflow-start",
+      {},
+      singleRoot,
+    );
+    expect(startPlan.create).toHaveLength(1);
+    expect(startPlan.create[0]?.path).toBe("src/workflows/desk/webhook.workflow-start.ts");
+    expect(startPlan.create[0]?.content).toContain('name: "webhook-workflow-start"');
+
+    const finishPlan = await planGenerate("wf", "escalated-workflow-finish", {}, singleRoot);
+    expect(finishPlan.create).toHaveLength(1);
+    expect(finishPlan.create[0]?.path).toBe("src/workflows/desk/escalated.workflow-finish.ts");
+    expect(finishPlan.create[0]?.content).toContain('name: "escalated-workflow-finish"');
   });
 
   it("generate workflow of a name the application has → a conflict, nothing written", async () => {

@@ -3,6 +3,7 @@ import { applicationFiles, applicationPathOf } from "./application-files.js";
 import { fullNameOf, namesOf, type Names } from "./names.js";
 import { render, type WorkflowSpec } from "./plan.js";
 import { codingAgentFiles } from "./skills-files.js";
+import { DEFAULT_TEST_PATTERNS, placeTestsWithPatterns } from "./test-location.js";
 import { planWorkflow } from "./workflow-files.js";
 import type { FileToWrite } from "./write.js";
 
@@ -53,16 +54,16 @@ const APPLICATION_SCRIPTS: Readonly<Record<string, string>> = {
  */
 function environmentFiles(): FileToWrite[] {
   const file = (path: string, template: string): FileToWrite => ({
-    path: `src/${path}`,
+    path,
     content: render(`project/${template}.tmpl`, {}),
   });
   return [
-    file("environments/app.environment.ts", "app.environment.ts"),
-    file("environments/dev.environment.ts", "dev.environment.ts"),
-    file("environments/staging.environment.ts", "staging.environment.ts"),
-    file("environments/test.environment.ts", "test.environment.ts"),
-    file("services/api.service.ts", "api.service.ts"),
-    file("services/api.service.test.ts", "api.service.test.ts"),
+    file("src/environments/app.environment.ts", "app.environment.ts"),
+    file("src/environments/dev.environment.ts", "dev.environment.ts"),
+    file("src/environments/staging.environment.ts", "staging.environment.ts"),
+    file("src/environments/test.environment.ts", "test.environment.ts"),
+    file("src/services/api.service.ts", "api.service.ts"),
+    file("tests/services/api.service.test.ts", "api.service.test.ts"),
   ];
 }
 
@@ -100,7 +101,7 @@ export function planProject(spec: WorkflowSpec): FileToWrite[] {
   const workflow = fullNameOf(spec.name, "workflow");
   const project = namesOf(workflow.kebab);
   const variables = { kebab: project.kebab, title: project.title };
-  return [
+  const files: FileToWrite[] = [
     packageJsonOf(spec, project, workflow),
     { path: "tsconfig.json", content: render("project/tsconfig.json.tmpl", {}) },
     { path: "vitest.config.ts", content: render("project/vitest.config.ts.tmpl", {}) },
@@ -113,9 +114,12 @@ export function planProject(spec: WorkflowSpec): FileToWrite[] {
     ...environmentFiles(),
     ...applicationFiles(project),
     ...planWorkflow(spec, {
-      dir: `src/${project.kebab}`,
+      dir: `src/workflows/${project.kebab}`,
+      srcDir: "src",
+      routerName: "main",
       application: { className: `${project.pascal}Application`, path: applicationPathOf(project) },
       service: "src/services/api.service.ts",
     }),
   ];
+  return placeTestsWithPatterns(DEFAULT_TEST_PATTERNS, files);
 }

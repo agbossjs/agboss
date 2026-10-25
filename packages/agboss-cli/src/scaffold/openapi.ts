@@ -5,7 +5,7 @@ import { baseUrlOf, loadDocument, operationsOf, type OperationModel } from "./op
 import { testSource } from "./openapi-test.js";
 import { serviceSource, toolSource, type ApiNames } from "./openapi-tool.js";
 import { need, read } from "./project-files.js";
-import { agentOf, importPath, workflowGraph } from "./workflow-graph.js";
+import { agentOf, importPath, srcDirOf, workflowGraph } from "./workflow-graph.js";
 import { wire } from "./wire.js";
 import type { Changes, FileToWrite } from "./write.js";
 
@@ -84,11 +84,10 @@ export async function planOpenApi(
 ): Promise<Changes> {
   const url = need(options.url, "--url <OpenAPI document: a file or a URL>", "openapi");
   const graph = workflowGraph(root, options);
-  const { dir, module } = graph;
-  const agent = read(
-    root,
-    agentOf(graph, need(options.agent, "--agent <full name>", "openapi")).path,
-  );
+  const { module } = graph;
+  const dir = srcDirOf(graph);
+  const agentPath = agentOf(graph, need(options.agent, "--agent <full name>", "openapi")).path;
+  const agent = read(root, agentPath);
   const api = apiNamesOf(name);
   const document = await loadDocument(root, url);
   const operations = selected(operationsOf(document), options.operations);
@@ -106,12 +105,10 @@ export async function planOpenApi(
       ),
     agent,
   );
+  const servicePath = `${dir}/services/${api.module}.service.ts`;
   return {
     create: [
-      {
-        path: `${dir}/services/${api.module}.service.ts`,
-        content: serviceSource(api, baseUrl, url),
-      },
+      { path: servicePath, content: serviceSource(api, baseUrl, url) },
       ...operations.flatMap((op) => operationFiles(dir, op, api, baseUrl)),
     ],
     modify: [
@@ -122,7 +119,7 @@ export async function planOpenApi(
         "providers",
         api.className,
         api.className,
-        importPath(module.path, `${dir}/services/${api.module}.service.ts`),
+        importPath(module.path, servicePath),
       ),
     ],
   };

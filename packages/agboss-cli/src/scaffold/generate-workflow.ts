@@ -24,7 +24,9 @@ export function planNewWorkflow(root: string, name: string, o: GenerateOptions):
     throw new ScaffoldConflictError(
       `${application.module.path}: the application already has ${workflow.full}`,
     );
-  const dir = `${dirname(application.module.path)}/${workflow.kebab}`;
+  const srcDir = dirname(application.module.path);
+  const dir = `${srcDir}/workflows/${workflow.kebab}`;
+  const routerName = application.workflows.length === 0 ? "main" : `${workflow.kebab} main`;
   const spec = {
     name: workflow.full,
     agents: [defaultAgentOf(workflow)],
@@ -35,6 +37,8 @@ export function planNewWorkflow(root: string, name: string, o: GenerateOptions):
   return {
     create: planWorkflow(spec, {
       dir,
+      srcDir,
+      routerName,
       application: { className: application.className, path: application.module.path },
     }),
     modify: [

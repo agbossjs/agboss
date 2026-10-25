@@ -38,7 +38,7 @@ const run = (command: string, args: readonly string[], cwd = project) => {
     out: `${result.stdout}${result.stderr}`,
   };
 };
-const file = (path: string): string => readFileSync(join(project, "src/zoo", path), "utf8");
+const file = (path: string): string => readFileSync(join(project, "src", path), "utf8");
 
 beforeAll(async () => {
   mkdirSync(tmp, { recursive: true });
@@ -64,7 +64,7 @@ describe("agboss generate openapi", () => {
       project,
     );
     const written = await applyChanges(project, plan);
-    writeFileSync(join(project, "src/zoo/pets-openapi.test.ts"), ZOO_CHECK);
+    writeFileSync(join(project, "tests/workflows/zoo/pets-openapi.test.ts"), ZOO_CHECK);
 
     writeTypes(project);
     const tsc = run(bin("typescript/bin/tsc"), ["-p", join(project, "tsconfig.json")]);
@@ -77,7 +77,7 @@ describe("agboss generate openapi", () => {
     const lint = run(bin("eslint/bin/eslint.js"), ["--no-ignore", join(project, "src")], repo);
     expect(lint.ok, lint.out).toBe(true);
     // the files it writes and the rewired agent (the workflow module is not prettier-clean from `agboss create`)
-    const files = [...plan.create.map((f) => f.path), "src/zoo/agents/keeper/keeper.agent.ts"].map(
+    const files = [...plan.create.map((f) => f.path), "src/agents/keeper/keeper.agent.ts"].map(
       (path) => join(project, path),
     );
     const prettier = run(
@@ -91,40 +91,40 @@ describe("agboss generate openapi", () => {
     for (const tool of ["get-pet-tool", "delete-pet-tool", "list-pets-tool", "create-pet-tool"])
       expect(described.out).toContain(`· ${tool} (local)`);
 
-    // layout: tools/<operation>.{tool,tool.test}.ts, dto/<class>.dto.ts and services/<name>-api.service.ts
+    // layout: src/tools/<operation>.tool.ts, tests/tools/<operation>.tool.test.ts, src/dto/<class>.dto.ts and src/services/<name>-api.service.ts
     expect(written.sort()).toEqual(
       [
-        "services/pets-api.service.ts",
-        "dto/create-pet-body-owner.dto.ts",
-        "dto/create-pet-body.dto.ts",
-        "dto/create-pet-input.dto.ts",
-        "dto/create-pet-output-owner.dto.ts",
-        "dto/create-pet-output.dto.ts",
-        "dto/delete-pet-input.dto.ts",
-        "dto/get-pet-input.dto.ts",
-        "dto/get-pet-output-owner.dto.ts",
-        "dto/get-pet-output.dto.ts",
-        "dto/list-pets-output-items-item-owner.dto.ts",
-        "dto/list-pets-output-items-item.dto.ts",
-        "dto/list-pets-output.dto.ts",
-        "tools/create-pet.tool.test.ts",
-        "tools/create-pet.tool.ts",
-        "tools/delete-pet.tool.test.ts",
-        "tools/delete-pet.tool.ts",
-        "tools/get-pet.tool.test.ts",
-        "tools/get-pet.tool.ts",
-        "tools/list-pets.tool.test.ts",
-        "tools/list-pets.tool.ts",
-        "agents/keeper/keeper.agent.ts",
-        "zoo.workflow.ts",
-      ]
-        .map((path) => `src/zoo/${path}`)
-        .sort(),
+        "src/services/pets-api.service.ts",
+        "src/dto/create-pet-body-owner.dto.ts",
+        "src/dto/create-pet-body.dto.ts",
+        "src/dto/create-pet-input.dto.ts",
+        "src/dto/create-pet-output-owner.dto.ts",
+        "src/dto/create-pet-output.dto.ts",
+        "src/dto/delete-pet-input.dto.ts",
+        "src/dto/get-pet-input.dto.ts",
+        "src/dto/get-pet-output-owner.dto.ts",
+        "src/dto/get-pet-output.dto.ts",
+        "src/dto/list-pets-output-items-item-owner.dto.ts",
+        "src/dto/list-pets-output-items-item.dto.ts",
+        "src/dto/list-pets-output.dto.ts",
+        "tests/tools/create-pet.tool.test.ts",
+        "src/tools/create-pet.tool.ts",
+        "tests/tools/delete-pet.tool.test.ts",
+        "src/tools/delete-pet.tool.ts",
+        "tests/tools/get-pet.tool.test.ts",
+        "src/tools/get-pet.tool.ts",
+        "tests/tools/list-pets.tool.test.ts",
+        "src/tools/list-pets.tool.ts",
+        "src/agents/keeper/keeper.agent.ts",
+        "src/workflows/zoo/zoo.workflow.ts",
+      ].sort(),
     );
     expect(file("agents/keeper/keeper.agent.ts")).toContain(
       "tools: [GetPetTool, DeletePetTool, ListPetsTool, CreatePetTool]",
     );
-    expect(file("zoo.workflow.ts")).toContain("providers: [ApiService, PetsApiService]");
+    expect(file("workflows/zoo/zoo.workflow.ts")).toContain(
+      "providers: [ApiService, PetsApiService]",
+    );
     // #280: an @Injectable named by its role, injected as the field named after it
     expect(file("tools/get-pet.tool.ts")).toContain(
       "constructor(private readonly petsApiService: PetsApiService) {}",
@@ -154,12 +154,12 @@ describe("agboss generate openapi", () => {
       project,
     );
     expect(plan.create.map((f) => f.path)).toEqual([
-      "src/zoo/services/more-pets-api.service.ts",
-      "src/zoo/dto/list-pets-output-items-item-owner.dto.ts",
-      "src/zoo/dto/list-pets-output-items-item.dto.ts",
-      "src/zoo/dto/list-pets-output.dto.ts",
-      "src/zoo/tools/list-pets.tool.ts",
-      "src/zoo/tools/list-pets.tool.test.ts",
+      "src/services/more-pets-api.service.ts",
+      "src/dto/list-pets-output-items-item-owner.dto.ts",
+      "src/dto/list-pets-output-items-item.dto.ts",
+      "src/dto/list-pets-output.dto.ts",
+      "src/tools/list-pets.tool.ts",
+      "tests/tools/list-pets.tool.test.ts",
     ]);
     await expect(
       planGenerate("openapi", "pets", { workflow, agent: "vet-agent" }, project),
@@ -198,8 +198,8 @@ describe("agboss generate openapi", () => {
     };
     expect(envelope).toMatchObject({ ok: true, result: { dryRun: true } });
     const created = envelope.result.plan.create.map((f) => f.path);
-    expect(created).toContain("src/zoo/services/shop-api.service.ts");
-    expect(existsSync(join(project, "src/zoo/services/shop-api.service.ts"))).toBe(false);
+    expect(created).toContain("src/services/shop-api.service.ts");
+    expect(existsSync(join(project, "src/services/shop-api.service.ts"))).toBe(false);
 
     const missing = run(agboss, args);
     expect(missing.status).toBe(2);
