@@ -93,9 +93,9 @@ npm run verify:package
 `scripts/verify-package.mjs` validates:
 
 1. **Tarball inventory:**
-   - `agboss-<version>.tgz`: `bin/agboss.js`, `dist/index.js`, `dist/index.d.ts`, `schema/profile.schema.json`, `skills/agboss/SKILL.md`, and all 13 reference guides (`skills/agboss/references/01-overview-and-mental-model.md` .. `13-migrating-from-langgraph.md`).
+   - `agboss-<version>.tgz`: `bin/agboss.js`, `dist/index.js`, `dist/index.d.ts`, `schema/profile.schema.json`, `skills/agboss/SKILL.md`, and all 13 reference guides (`skills/agboss/references/01-composition-and-architecture.md` .. `13-migrating-from-langgraph.md`).
    - `agboss-cli-<version>.tgz`: `bin/agboss.js`, `dist/cli.js`, and `templates/`.
-2. **Isolated consumer project (outside both repositories in OS temp dir):** installs only the packed `.tgz` tarballs, resolves `agboss`, `agboss/dto`, `agboss/models`, `agboss/units`, `agboss/testing`, `agboss/testing/setup`, `agboss/eval`, `agboss/mcp`, `agboss/rag`, `agboss/a2a`, `agboss/memory`, `agboss/eslint`, and executes `npx agboss --version` and `npx agboss --help`.
+2. **Isolated consumer project (outside both repositories in OS temp dir):** installs only the packed `.tgz` tarballs, resolves `agboss`, `agboss/dto`, `agboss/models`, `agboss/units`, `agboss/testing`, `agboss/testing/setup`, `agboss/eval`, `agboss/mcp`, `agboss/rag`, `agboss/a2a`, `agboss/memory`, `agboss/eslint`, and executes `npx agboss --help`, `npx agboss help --json`, and `npx agboss-cli --help`.
 3. **Clean `agboss create` scaffold (outside both repositories in OS temp dir):** runs `agboss create verify-app --skip-install`, verifies generated `package.json` (`agboss` in `dependencies`, `agboss-cli` in `devDependencies`), `AGENTS.md`, `CLAUDE.md`, installs the packed tarballs, runs `npx agboss check` (verifying `.agboss/types.d.ts` and `.claude/skills/agboss/.agboss-skills.json` with 13 reference files), runs `npx tsc --noEmit`, runs `npm test` (Vitest deterministic suite), and runs `npx agboss describe --json`.
 4. Writes `.packed/package-verification.json` with machine-readable verification evidence tied to `sourceCommit` and tarball integrity hashes.
 
@@ -108,7 +108,7 @@ cd ../agboss-examples
 npm run verify:published -- --from-packed --version 0.1.0
 ```
 
-This prints `SOURCE: LOCAL_PACKED_RELEASE_CANDIDATE`, verifies all 11 public subpath exports (`agboss`, `agboss/dto`, `agboss/units`, `agboss/models`, `agboss/testing`, `agboss/testing/setup`, `agboss/eval`, `agboss/mcp`, `agboss/rag`, `agboss/a2a`, `agboss/eslint`), CLI binary resolution (`agboss --version`, `agboss --help`, `agboss-cli --help`), `agboss create published-smoke-app --yes --skip-install`, `npx agboss check`, `npx tsc --noEmit`, `npm test`, and `npx agboss describe --json`, and writes `.packed/published-verification.json` with `source: "LOCAL_PACKED_RELEASE_CANDIDATE"` (never claiming that live npm registry verification passed).
+This prints `SOURCE: LOCAL_PACKED_RELEASE_CANDIDATE`, verifies all 11 public subpath exports (`agboss`, `agboss/dto`, `agboss/units`, `agboss/models`, `agboss/testing`, `agboss/testing/setup`, `agboss/eval`, `agboss/mcp`, `agboss/rag`, `agboss/a2a`, `agboss/eslint`), CLI binary resolution (`agboss --help`, `agboss help --json`, `agboss-cli --help`), `agboss create published-smoke-app --yes --skip-install`, `npx agboss check`, `npx tsc --noEmit`, `npm test`, and `npx agboss describe --json`, and writes `.packed/published-verification.json` with `source: "LOCAL_PACKED_RELEASE_CANDIDATE"` (never claiming that live npm registry verification passed).
 
 ### Step A.6 — Standalone Examples Verification (P0 + P1 Check, Test, and Offline Demo)
 
@@ -282,7 +282,7 @@ npm run verify:published -- --live-registry --version 0.1.0
 
 1. Prints `SOURCE: PUBLIC_NPM_REGISTRY` (never falls back to `.packed/*.tgz`).
 2. Queries `npm view agboss@0.1.0 --json`, `npm view agboss-cli@0.1.0 --json`, `npm view agboss dist-tags --json`, and `npm view agboss-cli dist-tags --json`, verifying exact version `0.1.0`, `latest` dist-tag alignment, and that `deprecated` is unset.
-3. Creates a fresh temporary consumer directory outside all repositories, installs `agboss@0.1.0` and `agboss-cli@0.1.0` directly from the public npm registry, confirms `node_modules` resolution with zero `file:`, tarball, symlink, or workspace links, and verifies all 11 public subpath exports (`agboss`, `agboss/dto`, `agboss/units`, `agboss/models`, `agboss/testing`, `agboss/testing/setup`, `agboss/eval`, `agboss/mcp`, `agboss/rag`, `agboss/a2a`, `agboss/eslint`) plus CLI binary resolution (`agboss --version`, `agboss --help`, `agboss-cli --help`).
+3. Creates a fresh temporary consumer directory outside all repositories, installs `agboss@0.1.0` and `agboss-cli@0.1.0` directly from the public npm registry, confirms `node_modules` resolution with zero `file:`, tarball, symlink, or workspace links, and verifies all 11 public subpath exports (`agboss`, `agboss/dto`, `agboss/units`, `agboss/models`, `agboss/testing`, `agboss/testing/setup`, `agboss/eval`, `agboss/mcp`, `agboss/rag`, `agboss/a2a`, `agboss/eslint`) plus CLI binary resolution (`agboss --help`, `agboss help --json`, `agboss-cli --help`).
 4. Runs `agboss create published-smoke-app --yes --skip-install` in a clean temp directory, verifies `package.json`, `AGENTS.md`, `CLAUDE.md`, installs `agboss@0.1.0` and `agboss-cli@0.1.0` from the public npm registry, and runs and validates:
    - `npx agboss check` (verifies `.agboss/types.d.ts` and `.claude/skills/agboss/SKILL.md` + 13 reference files)
    - `npx tsc --noEmit`
