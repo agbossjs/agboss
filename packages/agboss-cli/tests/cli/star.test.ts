@@ -70,7 +70,7 @@ describe("the star line (#129)", () => {
     expect(end).toBe("completed");
     expect(stderr.lines).toEqual(["command output\n", `${STAR_LINE}\n`]);
     expect(STAR_LINE).toBe(
-      "⭐ Like AGBoss? Star us on GitHub: https://github.com/PavelRavvich/agboss",
+      "⭐ Like AGBoss? Star us on GitHub: https://github.com/agbossjs/agboss",
     );
   });
 

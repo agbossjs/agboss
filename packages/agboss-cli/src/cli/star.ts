@@ -2,7 +2,7 @@ import { inspect } from "node:util";
 
 /** The one line an interactive `agboss` call ends with, on stderr. */
 export const STAR_LINE =
-  "⭐ Like AGBoss? Star us on GitHub: https://github.com/PavelRavvich/agboss";
+  "⭐ Like AGBoss? Star us on GitHub: https://github.com/agbossjs/agboss";
 
 /** `AGBOSS_NO_STAR=1` turns the line off. */
 export const NO_STAR_ENV = "AGBOSS_NO_STAR";
