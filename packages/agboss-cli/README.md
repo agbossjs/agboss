@@ -4,9 +4,9 @@
 [![npm](https://img.shields.io/npm/v/agboss-cli?color=258ceb)](https://www.npmjs.com/package/agboss-cli)
 [![License](https://img.shields.io/badge/License-Apache_2.0-258ceb.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
-`agboss-cli` provides the `agboss` (short alias `agb`) command-line interface for the [**AGBoss**](https://agboss.dev) TypeScript AI agent framework on [LangGraph](https://www.langchain.com/langgraph).
+`agboss-cli` provides the `agboss` (short alias `agb`) command-line interface, static graph compiler (`agboss check`), code generator (`agboss generate`), evaluation runner (`agboss eval`), and local Mesh Hub UI (`agboss hub`) for the [**AGBoss**](https://agboss.dev) TypeScript AI agent framework on [LangGraph](https://www.langchain.com/langgraph).
 
-## Quick Start
+## How to install and start (Quick Start)
 
 ### Option 1 — Create a new project
 
