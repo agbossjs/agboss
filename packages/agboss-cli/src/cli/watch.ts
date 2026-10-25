@@ -80,10 +80,10 @@ export async function watchSources(options: WatchOptions): Promise<void> {
     timer = setTimeout(flush, options.debounce);
   };
 
-  runPass([]);
   const watcher = watch(options.folder, { recursive: true }, (_event, file) => {
     if (file !== null) onChange(file);
   });
+  runPass([]);
   await abortOf(signal);
   watcher.close();
   if (timer !== undefined) clearTimeout(timer);

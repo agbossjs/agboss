@@ -65,6 +65,7 @@ describe("#268 AC6: the watch loop", () => {
   it("one pass at start, then one per burst of changes (debounced)", async () => {
     const watch = watching();
     await until(() => watch.passes.length === 1);
+    await pause(150);
 
     writeFileSync(join(watch.folder, "a.agent.ts"), "export {};\n");
     writeFileSync(join(watch.folder, "a.prompt.md"), "one\n");
@@ -79,10 +80,11 @@ describe("#268 AC6: the watch loop", () => {
   });
 
   it("a change during a pass makes one more pass after it; passes never overlap", async () => {
-    const watch = watching(400);
+    const watch = watching(600);
     await until(() => watch.passes.length === 1);
+    await pause(150);
 
-    // the start's pass runs for 400 ms: both changes land while it runs
+    // the start's pass runs for 600 ms: both changes land while it runs
     writeFileSync(join(watch.folder, "c.workflow.ts"), "export {};\n");
     await pause(150);
     writeFileSync(join(watch.folder, "d.workflow.ts"), "export {};\n");
@@ -98,6 +100,7 @@ describe("#268 AC6: the watch loop", () => {
   it("dependencies, builds and the generated files never start a pass", async () => {
     const watch = watching();
     await until(() => watch.passes.length === 1);
+    await pause(150);
 
     for (const folder of ["node_modules", "dist", ".agboss"]) {
       mkdirSync(join(watch.folder, folder));

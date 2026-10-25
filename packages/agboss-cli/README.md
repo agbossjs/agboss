@@ -6,6 +6,8 @@
 
 `agboss-cli` provides the `agboss` (short alias `agb`) command-line interface, static graph compiler (`agboss check`), code generator (`agboss generate`), evaluation runner (`agboss eval`), and local Mesh Hub UI (`agboss hub`) for the [**AGBoss**](https://agboss.dev) TypeScript AI agent framework on [LangGraph](https://www.langchain.com/langgraph).
 
+> **Pre-release status (`v0.1.0-rc`):** `agboss` and `agboss-cli` `0.1.0` are currently in release-candidate preparation on `main` (the `0.0.1` entries on npm are initial registry placeholders). Until `0.1.0` is published to npm, build and pack local release-candidate tarballs from the [`agbossjs/agboss`](https://github.com/agbossjs/agboss) repository (`npm ci && npm run build && npm pack --workspaces`).
+
 ## How to install and start (Quick Start)
 
 ### Option 1 — Create a new project
