@@ -10,9 +10,9 @@ with every breaking change, its reason and the migration — is the Wiki's
 entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced here too
 ([`SECURITY.md`](SECURITY.md)).
 
-## [Unreleased]
+## [Unreleased] — 0.1.0 (`v0.1.0-rc` Pre-Release Candidate)
 
-The first release of the framework. Everything below is new compared with the `0.0.1` placeholder;
+The first substantive release of the framework (`0.1.0`, prepared for manual owner publication; not yet published to `registry.npmjs.org`). Everything below is new compared with the `0.0.1` placeholder;
 the Wiki's Changelog lists the breaking changes made between pull requests on the way.
 
 ### Added

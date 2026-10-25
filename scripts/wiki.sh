@@ -43,7 +43,7 @@ case "${1:-}" in
     echo "Wiki published: https://github.com/${REPO}/wiki"
     ;;
   seed)
-    SOURCE="${2:?source repo required, e.g. PavelRavvich/agboss}"
+    SOURCE="${2:?source repo required, e.g. agbossjs/agboss}"
     TMP="$(mktemp -d)"
     git clone -q "https://github.com/${SOURCE}.wiki.git" "${TMP}"
     rm -rf "${DIR}" && mkdir -p "${DIR}"
