@@ -216,6 +216,7 @@ Execute the eight phases below **in strict chronological order**. Stop immediate
 
 > **Optional Legacy Placeholder Note (`0.0.1` / `@agboss/core` / `@agboss/cli`):**
 > In npm, deprecation metadata is **per-version**. Publishing `agboss@0.1.0` and `agboss-cli@0.1.0` automatically makes `latest` (`0.1.0`) undeprecated, while `agboss@0.0.1` retains its historical per-version deprecation notice. No `npm deprecate` command is required for `agboss@0.1.0` or `agboss-cli@0.1.0`. If the owner optionally wishes to update the deprecation message on the legacy scoped placeholders `@agboss/core@0.0.1` and `@agboss/cli@0.0.1` so they point to unscoped `agboss` and `agboss-cli`, the owner may manually run:
+>
 > ```bash
 > npm deprecate "@agboss/core@*" "Deprecated placeholder: install unscoped 'agboss' instead (npm install agboss)."
 > npm deprecate "@agboss/cli@*" "Deprecated placeholder: install unscoped 'agboss-cli' instead (npm install -D agboss-cli)."
@@ -320,7 +321,7 @@ Execute the eight phases below **in strict chronological order**. Stop immediate
     "$WORKSPACE_ROOT/agboss-examples/published-proof-report.md" \
     "$WORKSPACE_ROOT/agboss-examples/published-proof-results.json"
   ```
-  *(Alternatively, create the release manually at `https://github.com/agbossjs/agboss/releases/new?tag=v0.1.0`, paste the contents of `.github/RELEASE_NOTES_v0.1.0.md` reproduced in the appendix below, and attach `published-proof-report.md` and `published-proof-results.json`.)*
+  _(Alternatively, create the release manually at `https://github.com/agbossjs/agboss/releases/new?tag=v0.1.0`, paste the contents of `.github/RELEASE_NOTES_v0.1.0.md` reproduced in the appendix below, and attach `published-proof-report.md` and `published-proof-results.json`.)_
 - **Expected outcome:** `https://github.com/agbossjs/agboss/releases/tag/v0.1.0` is published with release notes and the attached `published-proof-report.md` and `published-proof-results.json` evidence files.
 - **Failure / stop condition:** Stop if tag `v0.1.0` does not exist on `origin` or if `published-proof-report.md` was not generated from `--provenance published`.
 
