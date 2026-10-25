@@ -44,6 +44,9 @@
         "@typescript-eslint/utils",
         // the tests start it as an MCP server process (resolved by path, never imported)
         "@modelcontextprotocol/server-filesystem",
+        // @langfuse/otel peerDependency: pinned to OpenTelemetry SDK 2.x (<0.300.0) so fresh
+        // npm installs do not pull OTel 3.0.0 (0.300.0) against @opentelemetry/api 1.9.x
+        "@opentelemetry/otlp-exporter-base",
       ],
     },
     "packages/agboss-cli": {
