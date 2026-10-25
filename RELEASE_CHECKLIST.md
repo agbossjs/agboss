@@ -6,74 +6,88 @@
 
 ---
 
-## Local Directory Layout Convention
+## Local Directory Layout & CI Artifact Provenance Convention
 
-All commands in this runbook use `$WORKSPACE_ROOT` to avoid hardcoded path assumptions. Before starting, set `$WORKSPACE_ROOT` to the parent directory containing all four repositories (`agboss`, `agboss-examples`, `agboss.dev`, `.github`):
+All commands in this runbook use `$WORKSPACE_ROOT` to avoid hardcoded path assumptions and start with `set -euo pipefail` so any failed command immediately aborts execution. Before starting, set `$WORKSPACE_ROOT` to the parent directory containing all four repositories (`agboss`, `agboss-examples`, `agboss.dev`, `.github`):
 
 ```bash
+set -euo pipefail
 export WORKSPACE_ROOT="/Users/pavelravvich/projects/agboss"
 ls -d "$WORKSPACE_ROOT/agboss" "$WORKSPACE_ROOT/agboss-examples" "$WORKSPACE_ROOT/agboss.dev" "$WORKSPACE_ROOT/.github"
 ```
+
+### CI Artifact vs. Local Tarball Provenance (`agbossjs/agboss-examples`)
+
+- **Candidate validation workflow (`Smoke CI` — `.github/workflows/smoke.yml`):** Validates all 7 example projects (`01`..`07`), `verify:package`, and `verify:published -- --from-packed` on every PR/push and uploads the lightweight JSON/Markdown proof artifact `agboss-release-proof-<framework_sha>` (`.packed/manifest.json`, `.packed/package-verification.json`, `.packed/published-verification.json`, `.packed/last-run.json`, `proof-results.json`, `proof-report.md`; does not include `.packed/*.tgz`).
+- **Downloadable tarball archive workflow (`Packed Release Candidate Verification` — `.github/workflows/packed-release.yml`):** Uploads `packed-release-proof-<framework_sha>`, which includes all JSON/Markdown proof files **plus** the downloadable `.packed/agboss-0.1.0.tgz` and `.packed/agboss-cli-0.1.0.tgz` archives.
+- **Exact tarballs published by the owner in Phase 4:** In Phase 2 Step 2.2, the owner packs and verifies `$WORKSPACE_ROOT/agboss-examples/.packed/agboss-0.1.0.tgz` and `$WORKSPACE_ROOT/agboss-examples/.packed/agboss-cli-0.1.0.tgz` directly from `FINAL_MAIN_FRAMEWORK_SHA` (`sourceCommit` in `.packed/manifest.json`), and in Phase 4 publishes those exact verified `.tgz` files (rather than re-packing via `npm publish --workspace=...`).
 
 ---
 
 # OWNER MANUAL RELEASE — START HERE
 
-Execute the eight phases below **in strict chronological order**. Stop immediately if any phase hits its **Failure / Stop Condition**.
+Execute the eight phases below **in strict chronological order**. Every command block uses `set -euo pipefail` so execution stops immediately on any non-zero exit code.
 
 ---
 
 ## Phase 1 — Merge (`agboss#465` First, Pin `FINAL_MAIN_FRAMEWORK_SHA`, Then Downstream PRs)
 
-> **Why order matters:** `agboss-examples` and `agboss.dev` pin the framework commit in `.agboss-version.json` and validate it in CI with `VERIFY_PINNED_FRAMEWORK_SHA=1`. If `agboss#465` is squash-merged or rebase-merged into `main`, GitHub creates a new commit SHA on `main`. Therefore, merge `agboss#465` first, read the resulting `main` SHA (`FINAL_MAIN_FRAMEWORK_SHA`), pin it in `agboss-examples` and `agboss.dev`, let their PR CI pass against `FINAL_MAIN_FRAMEWORK_SHA`, and then merge the remaining PRs.
+> **Why order matters:** `agboss-examples` and `agboss.dev` pin the framework commit in `.agboss-version.json` under the field `"frameworkSha"` and validate it in CI with `VERIFY_PINNED_FRAMEWORK_SHA=1`. If `agboss#465` is squash-merged or rebase-merged into `main`, GitHub creates a new commit SHA on `main`. Therefore, merge `agboss#465` first, read the resulting `main` SHA (`FINAL_MAIN_FRAMEWORK_SHA`), pin it in `agboss-examples` and `agboss.dev`, let their PR CI pass against `FINAL_MAIN_FRAMEWORK_SHA`, and then merge the remaining PRs.
 
 ### Step 1.1 — ⚠️ [PUBLIC / IRREVERSIBLE] Merge `agbossjs/agboss` PR #465 into `main` & Record `FINAL_MAIN_FRAMEWORK_SHA`
 
 - **Working directory:** `$WORKSPACE_ROOT/agboss`
 - **Exact command:**
   ```bash
-  cd "$WORKSPACE_ROOT/agboss"
-  # After merging https://github.com/agbossjs/agboss/pull/465 in the GitHub UI (or via gh pr merge 465):
-  git checkout main
-  git pull --ff-only origin main
-  export FINAL_MAIN_FRAMEWORK_SHA="$(git rev-parse HEAD)"
-  echo "FINAL_MAIN_FRAMEWORK_SHA=$FINAL_MAIN_FRAMEWORK_SHA"
-  git log -1 --oneline
+  set -euo pipefail
+  cd "$WORKSPACE_ROOT/agboss" && \
+    git checkout main && \
+    git pull --ff-only origin main && \
+    export FINAL_MAIN_FRAMEWORK_SHA="$(git rev-parse HEAD)" && \
+    test -n "$FINAL_MAIN_FRAMEWORK_SHA" && \
+    echo "FINAL_MAIN_FRAMEWORK_SHA=$FINAL_MAIN_FRAMEWORK_SHA" && \
+    git log -1 --oneline
   ```
 - **Expected outcome:** `FINAL_MAIN_FRAMEWORK_SHA` prints a 40-character hexadecimal SHA representing the merged `HEAD` of `agbossjs/agboss` `main` (whether created via merge commit, squash merge, or rebase merge).
 - **Failure / stop condition:** Stop if `git pull --ff-only origin main` fails, if `FINAL_MAIN_FRAMEWORK_SHA` is empty, or if `agbossjs/agboss` `main` CI fails.
 
-### Step 1.2 — Update `.agboss-version.json` in `agboss-examples` (PR #21) and `agboss.dev` (PR #2)
+### Step 1.2 — Update `.agboss-version.json` (`frameworkSha`) in `agboss-examples` (PR #21) and `agboss.dev` (PR #2)
 
 - **Working directory:** `$WORKSPACE_ROOT/agboss-examples` and `$WORKSPACE_ROOT/agboss.dev`
 - **Exact command:**
   ```bash
-  # 1. Pin FINAL_MAIN_FRAMEWORK_SHA in agboss-examples PR #21
-  cd "$WORKSPACE_ROOT/agboss-examples"
-  git checkout chore/pre-release-remediation
-  git pull --ff-only origin chore/pre-release-remediation
-  node scripts/pin-framework-sha.mjs --sha "$FINAL_MAIN_FRAMEWORK_SHA" --branch main
-  git add .agboss-version.json
-  git diff --cached --quiet || (git commit -m "chore(release): pin .agboss-version.json to agboss main SHA $FINAL_MAIN_FRAMEWORK_SHA" && git push origin chore/pre-release-remediation)
+  set -euo pipefail
+  test -n "${FINAL_MAIN_FRAMEWORK_SHA:-}"
 
-  # 2. Pin FINAL_MAIN_FRAMEWORK_SHA in agboss.dev PR #2
-  cd "$WORKSPACE_ROOT/agboss.dev"
-  git checkout chore/pre-release-remediation
-  git pull --ff-only origin chore/pre-release-remediation
-  node scripts/pin-framework-sha.mjs --sha "$FINAL_MAIN_FRAMEWORK_SHA" --branch main
-  git add .agboss-version.json
-  git diff --cached --quiet || (git commit -m "chore(release): pin .agboss-version.json to agboss main SHA $FINAL_MAIN_FRAMEWORK_SHA" && git push origin chore/pre-release-remediation)
+  # 1. Pin FINAL_MAIN_FRAMEWORK_SHA in agboss-examples PR #21 and assert .agboss-version.json.frameworkSha
+  cd "$WORKSPACE_ROOT/agboss-examples" && \
+    git checkout chore/pre-release-remediation && \
+    git pull --ff-only origin chore/pre-release-remediation && \
+    node scripts/pin-framework-sha.mjs --sha "$FINAL_MAIN_FRAMEWORK_SHA" --branch main && \
+    test "$(node -p "require('./.agboss-version.json').frameworkSha")" = "$FINAL_MAIN_FRAMEWORK_SHA" && \
+    git add .agboss-version.json && \
+    (git diff --cached --quiet || (git commit -m "chore(release): pin .agboss-version.json to agboss main SHA $FINAL_MAIN_FRAMEWORK_SHA" && git push origin chore/pre-release-remediation))
+
+  # 2. Pin FINAL_MAIN_FRAMEWORK_SHA in agboss.dev PR #2 and assert .agboss-version.json.frameworkSha
+  cd "$WORKSPACE_ROOT/agboss.dev" && \
+    git checkout chore/pre-release-remediation && \
+    git pull --ff-only origin chore/pre-release-remediation && \
+    node scripts/pin-framework-sha.mjs --sha "$FINAL_MAIN_FRAMEWORK_SHA" --branch main && \
+    test "$(node -p "require('./.agboss-version.json').frameworkSha")" = "$FINAL_MAIN_FRAMEWORK_SHA" && \
+    git add .agboss-version.json && \
+    (git diff --cached --quiet || (git commit -m "chore(release): pin .agboss-version.json to agboss main SHA $FINAL_MAIN_FRAMEWORK_SHA" && git push origin chore/pre-release-remediation))
   ```
-- **Expected outcome:** Both `.agboss-version.json` files contain `"frameworkCommit": "<FINAL_MAIN_FRAMEWORK_SHA>"` and `"branch": "main"`, and both PR branches are pushed.
-- **Failure / stop condition:** Stop if `pin-framework-sha.mjs` exits non-zero or if pushing to either PR branch fails.
+- **Expected outcome:** Both `.agboss-version.json` files contain `"frameworkSha": "<FINAL_MAIN_FRAMEWORK_SHA>"` and `"branch": "main"`, both `node -p "require('./.agboss-version.json').frameworkSha"` assertions pass, and both PR branches are pushed.
+- **Failure / stop condition:** Stop if `pin-framework-sha.mjs` exits non-zero, if `.agboss-version.json.frameworkSha` does not equal `$FINAL_MAIN_FRAMEWORK_SHA`, or if pushing to either PR branch fails.
 
 ### Step 1.3 — Verify Downstream CI on `FINAL_MAIN_FRAMEWORK_SHA` & ⚠️ [PUBLIC / IRREVERSIBLE] Merge Remaining PRs
 
 - **Working directory:** `$WORKSPACE_ROOT`
 - **Exact command:**
   ```bash
-  gh pr checks 21 -R agbossjs/agboss-examples --watch
-  gh pr checks 2 -R agbossjs/agboss.dev --watch
+  set -euo pipefail
+  gh pr checks 21 -R agbossjs/agboss-examples --watch && \
+    gh pr checks 2 -R agbossjs/agboss.dev --watch
   # Once both PR checks pass, merge PR #21 (agboss-examples), PR #2 (agboss.dev), and PR #2 (.github) in the GitHub UI.
   # Note: Merging agboss.dev PR #2 deploys the site in PRE-RELEASE mode (isPublishedToRegistry: false),
   # which remains accurate until npm publication completes in Phase 4–5.
@@ -90,43 +104,50 @@ Execute the eight phases below **in strict chronological order**. Stop immediate
 - **Working directory:** `$WORKSPACE_ROOT/agboss`
 - **Exact command:**
   ```bash
+  set -euo pipefail
   for repo in agboss agboss-examples agboss.dev .github; do
-    git -C "$WORKSPACE_ROOT/$repo" checkout main
-    git -C "$WORKSPACE_ROOT/$repo" pull --ff-only origin main
+    git -C "$WORKSPACE_ROOT/$repo" checkout main && \
+      git -C "$WORKSPACE_ROOT/$repo" pull --ff-only origin main
   done
 
-  cd "$WORKSPACE_ROOT/agboss"
-  npm ci
-  make check
-  npm audit --omit=dev -w agboss
+  cd "$WORKSPACE_ROOT/agboss" && \
+    test "$(git rev-parse HEAD)" = "$FINAL_MAIN_FRAMEWORK_SHA" && \
+    npm ci && \
+    make check && \
+    npm audit --omit=dev -w agboss
   ```
 - **Expected outcome:** `make check` passes (`0` lint/type/test/doc/root-allowlist errors) and `npm audit --omit=dev -w agboss` reports `found 0 vulnerabilities`.
 - **Failure / stop condition:** Stop if `make check` or `npm audit --omit=dev -w agboss` fails.
 
-### Step 2.2 — Pack Final Release Tarballs & Run Full RC Verification Suite (`01`..`07`)
+### Step 2.2 — Pack Final Release Tarballs, Assert `sourceCommit`, & Run Full RC Verification Suite (`01`..`07`)
 
 - **Working directory:** `$WORKSPACE_ROOT/agboss-examples`
 - **Exact command:**
   ```bash
-  cd "$WORKSPACE_ROOT/agboss-examples"
-  npm ci
-  VERIFY_PINNED_FRAMEWORK_SHA=1 AGBOSS_REPO_DIR="$WORKSPACE_ROOT/agboss" npm run pack:framework
-  npm run verify:package
-  npm run verify:published -- --from-packed --version 0.1.0
-  npm run install:packed
-  node scripts/run-all.mjs --provenance rc --include-p1 --reset --mode check
-  node scripts/run-all.mjs --provenance rc --include-p1 --mode test
-  AGBOSS_OFFLINE_VERIFY=1 node scripts/run-all.mjs --provenance rc --include-p1 --mode demo
-  node scripts/collect-results.mjs --provenance rc --require-p1
-  npm run install:packed:restore
-  cat .packed/manifest.json
+  set -euo pipefail
+  cd "$WORKSPACE_ROOT/agboss-examples" && \
+    npm ci && \
+    VERIFY_PINNED_FRAMEWORK_SHA=1 AGBOSS_REPO_DIR="$WORKSPACE_ROOT/agboss" npm run pack:framework && \
+    test "$(node -p "require('./.agboss-version.json').frameworkSha")" = "$FINAL_MAIN_FRAMEWORK_SHA" && \
+    test "$(node -p "require('./.packed/manifest.json').sourceCommit")" = "$FINAL_MAIN_FRAMEWORK_SHA" && \
+    npm run verify:package && \
+    npm run verify:published -- --from-packed --version 0.1.0 && \
+    npm run install:packed && \
+    node scripts/run-all.mjs --provenance rc --include-p1 --reset --mode check && \
+    node scripts/run-all.mjs --provenance rc --include-p1 --mode test && \
+    AGBOSS_OFFLINE_VERIFY=1 node scripts/run-all.mjs --provenance rc --include-p1 --mode demo && \
+    node scripts/collect-results.mjs --provenance rc --require-p1 && \
+    npm run install:packed:restore && \
+    test -z "$(git status --short)" && \
+    cat .packed/manifest.json
   ```
 - **Expected outcome:**
+  - Both `node -p "require('./.agboss-version.json').frameworkSha"` and `node -p "require('./.packed/manifest.json').sourceCommit"` equal `$FINAL_MAIN_FRAMEWORK_SHA`.
   - `verify:package` prints `All package verification checks PASSED`.
   - `verify:published -- --from-packed --version 0.1.0` prints `SOURCE: LOCAL_PACKED_RELEASE_CANDIDATE` and `Clean environment verification PASSED`.
   - `collect-results.mjs --provenance rc --require-p1` prints `Overall Gate: PASSED, P0: PASSED, P1: PASSED, Package: PASSED`.
-  - `.packed/manifest.json` displays the final `frameworkCommit` (`FINAL_MAIN_FRAMEWORK_SHA`) and the final `sha256` and `sha512` (`integrity`) hashes for `agboss-0.1.0.tgz` and `agboss-cli-0.1.0.tgz`.
-- **Failure / stop condition:** Stop immediately if any gate in `proof-results.json` is not `PASSED` or if `git status --short` in `agboss-examples` is dirty after `install:packed:restore`.
+  - `.packed/manifest.json` records `sourceCommit` (`$FINAL_MAIN_FRAMEWORK_SHA`), `examplesSourceCommit`, and the exact `sha256` and `sha512` (`integrity`) hashes for `.packed/agboss-0.1.0.tgz` (`packages.agboss`) and `.packed/agboss-cli-0.1.0.tgz` (`packages.agbossCli`).
+- **Failure / stop condition:** Stop immediately if `sourceCommit` does not match `$FINAL_MAIN_FRAMEWORK_SHA`, if any gate in `proof-results.json` is not `PASSED`, or if `git status --short` in `agboss-examples` is non-empty after `install:packed:restore`.
 
 ---
 
@@ -137,82 +158,121 @@ Execute the eight phases below **in strict chronological order**. Stop immediate
 - **Working directory:** `$WORKSPACE_ROOT/agboss`
 - **Exact command:**
   ```bash
-  cd "$WORKSPACE_ROOT/agboss"
-  test "$(git rev-parse HEAD)" = "$FINAL_MAIN_FRAMEWORK_SHA"
-  git status --short # Must be empty
-  git tag -a v0.1.0 -m "Release v0.1.0"
-  git push origin v0.1.0
+  set -euo pipefail
+  cd "$WORKSPACE_ROOT/agboss" && \
+    test "$(git rev-parse HEAD)" = "$FINAL_MAIN_FRAMEWORK_SHA" && \
+    test -z "$(git status --short)" && \
+    git tag -a v0.1.0 -m "Release v0.1.0" && \
+    git push origin v0.1.0
   ```
 - **Expected outcome:** Annotated tag `v0.1.0` pointing to `$FINAL_MAIN_FRAMEWORK_SHA` is pushed to `origin` (`agbossjs/agboss`).
 - **Failure / stop condition:** Stop if `HEAD` does not match `$FINAL_MAIN_FRAMEWORK_SHA`, if the working tree is dirty, or if tag `v0.1.0` already exists on `origin`.
 
 ---
 
-## Phase 4 — Publish (`agboss@0.1.0` First, Then `agboss-cli@0.1.0`)
+## Phase 4 — Publish Exact Verified Tarballs (`agboss-0.1.0.tgz` First, Then `agboss-cli-0.1.0.tgz`)
 
-> **Why `agboss` must be published before `agboss-cli`:** `packages/agboss-cli/package.json` declares `"agboss": "0.1.0"` in `dependencies`. Publishing `agboss` first ensures `agboss@0.1.0` is resolvable on `registry.npmjs.org` as soon as `agboss-cli@0.1.0` is installed by consumers.
+> **Why publish the exact `.packed/*.tgz` files:** Publishing `$WORKSPACE_ROOT/agboss-examples/.packed/agboss-0.1.0.tgz` and `$WORKSPACE_ROOT/agboss-examples/.packed/agboss-cli-0.1.0.tgz` guarantees byte-for-byte identity (`sha256` and `sha512` `integrity`) between the tarballs validated across all 7 examples in Phase 2 and the artifacts uploaded to `registry.npmjs.org`.
+>
+> **Why `agboss` must be published before `agboss-cli`:** `packages/agboss-cli/package.json` declares `"agboss": "0.1.0"` in `dependencies`. Publishing `agboss-0.1.0.tgz` first ensures `agboss@0.1.0` is resolvable on `registry.npmjs.org` as soon as `agboss-cli@0.1.0` is installed by consumers.
 
-### Step 4.1 — Verify npm Account Identity, Permissions, Registry State & Dry-Run
+### Step 4.1 — Verify npm Account Identity, Tarball Provenance/Checksums & Dry-Run
 
-- **Working directory:** `$WORKSPACE_ROOT/agboss`
+- **Working directory:** `$WORKSPACE_ROOT/agboss-examples`
 - **Exact command:**
   ```bash
-  cd "$WORKSPACE_ROOT/agboss"
+  set -euo pipefail
+  cd "$WORKSPACE_ROOT/agboss-examples"
+
   # 1. Confirm npm account identity & collaborator write permissions on both unscoped packages
-  npm whoami
-  npm access list collaborators agboss
-  npm access list collaborators agboss-cli
+  npm whoami && \
+    npm access list collaborators agboss && \
+    npm access list collaborators agboss-cli
 
-  # 2. Inspect existing registry versions & dist-tags (confirm 0.1.0 is NOT yet published)
-  npm view agboss versions dist-tags deprecated --json
-  npm view agboss-cli versions dist-tags deprecated --json
+  # 2. Confirm 0.1.0 is NOT yet published on registry.npmjs.org
+  npm view agboss versions dist-tags deprecated --json && \
+    npm view agboss-cli versions dist-tags deprecated --json
 
-  # 3. Run dry-run publish for both workspaces to verify tarball contents & flags without mutating npm
-  npm publish --workspace=agboss --access public --tag latest --dry-run
-  npm publish --workspace=agboss-cli --access public --tag latest --dry-run
+  # 3. Verify .packed/manifest.json provenance (sourceCommit, examplesSourceCommit, name, version) and recompute sha256 + sha512 integrity of both .tgz files
+  node -e '
+    const assert = require("node:assert/strict");
+    const crypto = require("node:crypto");
+    const fs = require("node:fs");
+    const manifest = JSON.parse(fs.readFileSync(".packed/manifest.json", "utf8"));
+    const expectedSha = process.env.FINAL_MAIN_FRAMEWORK_SHA;
+    assert.equal(manifest.sourceCommit, expectedSha, "manifest.sourceCommit mismatch");
+    assert.ok(manifest.examplesSourceCommit && manifest.examplesSourceCommit.length === 40, "manifest.examplesSourceCommit missing");
+    for (const [key, expectedName, tgzPath] of [
+      ["agboss", "agboss", ".packed/agboss-0.1.0.tgz"],
+      ["agbossCli", "agboss-cli", ".packed/agboss-cli-0.1.0.tgz"],
+    ]) {
+      const pkg = manifest.packages[key];
+      assert.equal(pkg.name, expectedName);
+      assert.equal(pkg.version, "0.1.0");
+      const buf = fs.readFileSync(tgzPath);
+      const sha256 = crypto.createHash("sha256").update(buf).digest("hex");
+      const integrity = "sha512-" + crypto.createHash("sha512").update(buf).digest("base64");
+      assert.equal(sha256, pkg.sha256, `${tgzPath} sha256 mismatch`);
+      assert.equal(integrity, pkg.integrity, `${tgzPath} sha512 integrity mismatch`);
+      console.log(`VERIFIED ${tgzPath}: name=${pkg.name}@${pkg.version} sha256=${sha256} integrity=${integrity}`);
+    }
+  '
+
+  # 4. Run dry-run publish against the exact verified .tgz files
+  npm publish "$WORKSPACE_ROOT/agboss-examples/.packed/agboss-0.1.0.tgz" --access public --tag latest --dry-run && \
+    npm publish "$WORKSPACE_ROOT/agboss-examples/.packed/agboss-cli-0.1.0.tgz" --access public --tag latest --dry-run
   ```
 - **Expected outcome:**
   - `npm whoami` prints the authorized maintainer username with read-write access to both `agboss` and `agboss-cli`.
   - `versions` lists `["0.0.0-stage", "0.0.1"]` and does **not** contain `"0.1.0"`.
-  - Both `--dry-run` commands exit `0` and list `agboss@0.1.0` (`668` files) and `agboss-cli@0.1.0` (`228` files).
-- **Failure / stop condition:** Stop if `npm whoami` fails (run `npm login`), if collaborator permissions are missing, if `0.1.0` already exists on npm, or if `--dry-run` reports unexpected files or errors.
+  - The provenance/checksum script prints `VERIFIED .packed/agboss-0.1.0.tgz` and `VERIFIED .packed/agboss-cli-0.1.0.tgz` with matching `sourceCommit`, `sha256`, and `sha512` `integrity`.
+  - Both `npm publish ... --dry-run` commands exit `0` against the `.packed/*.tgz` archives.
+- **Failure / stop condition:** Stop if `npm whoami` fails (run `npm login`), if collaborator permissions are missing, if `0.1.0` already exists on npm, if any checksum/provenance assertion fails, or if `--dry-run` reports errors.
 
-### Step 4.2 — ⚠️ [PUBLIC / IRREVERSIBLE] Publish `agboss@0.1.0` First & Confirm Registry Availability
+### Step 4.2 — ⚠️ [PUBLIC / IRREVERSIBLE] Publish `agboss-0.1.0.tgz` First & Verify Registry `dist.integrity`
 
-- **Working directory:** `$WORKSPACE_ROOT/agboss`
+- **Working directory:** `$WORKSPACE_ROOT/agboss-examples`
 - **Exact command:**
   ```bash
-  cd "$WORKSPACE_ROOT/agboss"
+  set -euo pipefail
+  cd "$WORKSPACE_ROOT/agboss-examples"
+
   # If your npm account requires a 2FA OTP code, append --otp=<code> or authenticate via web prompt:
-  npm publish --workspace=agboss --access public --tag latest
-
-  # Confirm agboss@0.1.0 is live and undeprecated on registry.npmjs.org before publishing agboss-cli:
-  npm view agboss@0.1.0 version dist-tags deprecated --json
+  npm publish "$WORKSPACE_ROOT/agboss-examples/.packed/agboss-0.1.0.tgz" --access public --tag latest && \
+    test "$(npm view agboss@0.1.0 version)" = "0.1.0" && \
+    test "$(npm view agboss@0.1.0 dist.integrity)" = "$(node -p "require('./.packed/manifest.json').packages.agboss.integrity")" && \
+    npm view agboss@0.1.0 version dist-tags dist.integrity deprecated --json
   ```
-- **Expected outcome:** `npm view agboss@0.1.0 version` returns `"0.1.0"`, `dist-tags.latest` is `"0.1.0"`, and `deprecated` is undefined/empty on `0.1.0`.
-- **Failure / stop condition:** **STOP IMMEDIATELY** if `npm publish --workspace=agboss` fails, if `npm view agboss@0.1.0 version` does not resolve to `"0.1.0"`, or if `deprecated` is non-empty on `agboss@0.1.0`. Do **not** publish `agboss-cli` until `agboss@0.1.0` is live.
+- **Expected outcome:**
+  - `npm view agboss@0.1.0 version` returns `"0.1.0"` and `dist-tags.latest` is `"0.1.0"`.
+  - `npm view agboss@0.1.0 dist.integrity` exactly matches `packages.agboss.integrity` in `.packed/manifest.json`.
+  - `deprecated` is undefined/empty on `agboss@0.1.0`.
+- **Failure / stop condition:** **STOP IMMEDIATELY** if `npm publish "$WORKSPACE_ROOT/agboss-examples/.packed/agboss-0.1.0.tgz"` fails, if `npm view agboss@0.1.0 version` does not resolve to `"0.1.0"`, if `dist.integrity` does not match `.packed/manifest.json`, or if `deprecated` is non-empty on `agboss@0.1.0`. Do **not** publish `agboss-cli-0.1.0.tgz` until `agboss@0.1.0` is confirmed live with matching integrity.
 
-### Step 4.3 — ⚠️ [PUBLIC / IRREVERSIBLE] Publish `agboss-cli@0.1.0` Second & Verify Both Packages
+### Step 4.3 — ⚠️ [PUBLIC / IRREVERSIBLE] Publish `agboss-cli-0.1.0.tgz` Second & Verify Registry `dist.integrity`
 
-- **Working directory:** `$WORKSPACE_ROOT/agboss`
+- **Working directory:** `$WORKSPACE_ROOT/agboss-examples`
 - **Exact command:**
   ```bash
-  cd "$WORKSPACE_ROOT/agboss"
-  npm publish --workspace=agboss-cli --access public --tag latest
+  set -euo pipefail
+  cd "$WORKSPACE_ROOT/agboss-examples"
 
-  # Verify exact versions, dist-tags, and non-deprecated status for both packages:
-  npm view agboss@0.1.0 version
-  npm view agboss-cli@0.1.0 version
-  npm view agboss dist-tags --json
-  npm view agboss-cli dist-tags --json
-  npm view agboss@0.1.0 deprecated
-  npm view agboss-cli@0.1.0 deprecated
+  npm publish "$WORKSPACE_ROOT/agboss-examples/.packed/agboss-cli-0.1.0.tgz" --access public --tag latest && \
+    test "$(npm view agboss@0.1.0 version)" = "0.1.0" && \
+    test "$(npm view agboss-cli@0.1.0 version)" = "0.1.0" && \
+    test "$(npm view agboss@0.1.0 dist.integrity)" = "$(node -p "require('./.packed/manifest.json').packages.agboss.integrity")" && \
+    test "$(npm view agboss-cli@0.1.0 dist.integrity)" = "$(node -p "require('./.packed/manifest.json').packages.agbossCli.integrity")" && \
+    test -z "$(npm view agboss@0.1.0 deprecated)" && \
+    test -z "$(npm view agboss-cli@0.1.0 deprecated)" && \
+    npm view agboss dist-tags --json && \
+    npm view agboss-cli dist-tags --json
   ```
 - **Expected outcome:**
   - Both `npm view agboss@0.1.0 version` and `npm view agboss-cli@0.1.0 version` output `0.1.0`.
+  - Both `dist.integrity` values on `registry.npmjs.org` exactly match `.packed/manifest.json` (`packages.agboss.integrity` and `packages.agbossCli.integrity`).
   - Both `dist-tags` objects show `"latest": "0.1.0"`.
   - Both `deprecated` checks on `@0.1.0` return empty output.
-- **Failure / stop condition:** **STOP IMMEDIATELY** if `agboss-cli@0.1.0` fails to publish, if `dist-tags.latest` is not `0.1.0` on both packages, or if either `0.1.0` version is marked deprecated.
+- **Failure / stop condition:** **STOP IMMEDIATELY** if `agboss-cli-0.1.0.tgz` fails to publish, if `dist.integrity` does not match `.packed/manifest.json`, if `dist-tags.latest` is not `0.1.0` on both packages, or if either `0.1.0` version is marked deprecated.
 
 > **Optional Legacy Placeholder Note (`0.0.1` / `@agboss/core` / `@agboss/cli`):**
 > In npm, deprecation metadata is **per-version**. Publishing `agboss@0.1.0` and `agboss-cli@0.1.0` automatically makes `latest` (`0.1.0`) undeprecated, while `agboss@0.0.1` retains its historical per-version deprecation notice. No `npm deprecate` command is required for `agboss@0.1.0` or `agboss-cli@0.1.0`. If the owner optionally wishes to update the deprecation message on the legacy scoped placeholders `@agboss/core@0.0.1` and `@agboss/cli@0.0.1` so they point to unscoped `agboss` and `agboss-cli`, the owner may manually run:
@@ -231,9 +291,10 @@ Execute the eight phases below **in strict chronological order**. Stop immediate
 - **Working directory:** `$WORKSPACE_ROOT/agboss-examples`
 - **Exact command:**
   ```bash
-  cd "$WORKSPACE_ROOT/agboss-examples"
-  npm run verify:published -- --live-registry --version 0.1.0
-  cat .packed/published-verification.json
+  set -euo pipefail
+  cd "$WORKSPACE_ROOT/agboss-examples" && \
+    npm run verify:published -- --live-registry --version 0.1.0 && \
+    cat .packed/published-verification.json
   ```
 - **Expected outcome:**
   - Prints `SOURCE: PUBLIC_NPM_REGISTRY` first.
@@ -246,13 +307,14 @@ Execute the eight phases below **in strict chronological order**. Stop immediate
 - **Working directory:** `$WORKSPACE_ROOT/agboss-examples`
 - **Exact command:**
   ```bash
-  cd "$WORKSPACE_ROOT/agboss-examples"
-  npm run install:published -- --live-registry --version 0.1.0
-  node scripts/run-all.mjs --provenance published --include-p1 --reset --mode check
-  node scripts/run-all.mjs --provenance published --include-p1 --mode test
-  AGBOSS_OFFLINE_VERIFY=1 node scripts/run-all.mjs --provenance published --include-p1 --mode demo
-  npm run collect:published
-  cat published-proof-report.md
+  set -euo pipefail
+  cd "$WORKSPACE_ROOT/agboss-examples" && \
+    npm run install:published -- --live-registry --version 0.1.0 && \
+    node scripts/run-all.mjs --provenance published --include-p1 --reset --mode check && \
+    node scripts/run-all.mjs --provenance published --include-p1 --mode test && \
+    AGBOSS_OFFLINE_VERIFY=1 node scripts/run-all.mjs --provenance published --include-p1 --mode demo && \
+    npm run collect:published && \
+    cat published-proof-report.md
   ```
 - **Expected outcome:**
   - `install:published` installs `agboss@0.1.0` and `agboss-cli@0.1.0` from `https://registry.npmjs.org/` across all 7 examples (`01`..`07`), confirms zero `file:`/tarball/symlink/workspace links, and writes `.packed/published-manifest.json`.
@@ -263,41 +325,38 @@ Execute the eight phases below **in strict chronological order**. Stop immediate
 
 ## Phase 6 — Website Activation (Switch `agboss.dev` to Published Mode & Deploy)
 
-### Step 6.1 — ⚠️ [PUBLIC / IRREVERSIBLE] Switch `agboss.dev` to Published Mode (`v0.1.0` / `latest`), Verify & Push to `main`
+### Step 6.1 — ⚠️ [PUBLIC / IRREVERSIBLE] Switch `agboss.dev` to Published Mode (`v0.1.0` / `latest`), Verify (`--source` & `--dist`) & Push to `main`
 
 - **Working directory:** `$WORKSPACE_ROOT/agboss.dev`
 - **Exact command:**
   ```bash
-  cd "$WORKSPACE_ROOT/agboss.dev"
-  git checkout main
-  git pull --ff-only origin main
-
-  # 1. Switch RELEASE_META and documentation callouts from pre-release (v0.1.0-rc) to published (v0.1.0 / latest):
-  npm run release:mode -- --published
-
-  # 2. Validate release metadata, compile all 413 documentation snippets, build static HTML, and re-verify dist/:
-  npm run verify:release-meta
-  VERIFY_PINNED_FRAMEWORK_SHA=1 AGBOSS_REPO_DIR="$WORKSPACE_ROOT/agboss" npm run check:docs
-  npm run build
-  npm run verify:release-meta
-
-  # 3. Commit and push to main (triggers .github/workflows/deploy.yml to deploy https://agboss.dev):
-  git add src/config/release.ts src/content/docs/index.mdx src/content/docs/getting-started/installation.md src/content/docs/getting-started/quick-start.md src/content/docs/changelog.md src/content/docs/community.mdx src/content/docs/examples/job-scout.md SECURITY.md
-  git commit -m "chore(release): activate v0.1.0 published mode on agboss.dev"
-  git push origin main
+  set -euo pipefail
+  cd "$WORKSPACE_ROOT/agboss.dev" && \
+    git checkout main && \
+    git pull --ff-only origin main && \
+    npm run release:mode -- --published && \
+    npm run test:release-meta && \
+    npm run verify:release-meta -- --source && \
+    VERIFY_PINNED_FRAMEWORK_SHA=1 AGBOSS_REPO_DIR="$WORKSPACE_ROOT/agboss" npm run check:docs && \
+    npm run build && \
+    npm run verify:release-meta -- --dist && \
+    git add src/config/release.ts src/content/docs/index.mdx src/content/docs/getting-started/installation.md src/content/docs/getting-started/quick-start.md src/content/docs/changelog.md src/content/docs/community.mdx src/content/docs/examples/job-scout.md SECURITY.md && \
+    git commit -m "chore(release): activate v0.1.0 published mode on agboss.dev" && \
+    git push origin main
   ```
 - **Expected outcome:**
   - `npm run release:mode -- --published` updates `RELEASE_META` (`isPublishedToRegistry: true`, `displayVersion: 'v0.1.0'`, `releaseChannelLabel: 'latest'`, `softwareVersion: '0.1.0'`), header badges, homepage install cards, quickstart/installation callouts, changelog, and security policy.
-  - `verify:release-meta`, `check:docs`, and `build` all pass with zero `v0.1.0-rc` strings in `dist/`.
+  - `npm run verify:release-meta -- --source` validates the switched source files **before** `npm run build` (without failing on any pre-existing `dist/` directory).
+  - `npm run build` generates fresh production HTML in `dist/`, and `npm run verify:release-meta -- --dist` confirms that all rendered HTML pages in `dist/` carry `data-release-mode="published"` with zero `0.1.0-rc` strings.
   - Pushing to `main` triggers the `Deploy` workflow on `agbossjs/agboss.dev`.
-- **Failure / stop condition:** Stop and do not push if `verify:release-meta`, `check:docs`, or `build` fails.
+- **Failure / stop condition:** Stop and do not push if `verify:release-meta -- --source`, `check:docs`, `build`, or `verify:release-meta -- --dist` fails.
 
 ### Step 6.2 — Watch Production Website Deployment Workflow
 
 - **Working directory:** `$WORKSPACE_ROOT/agboss.dev`
 - **Exact command:**
   ```bash
-  # Watch the website deployment workflow on main to completion:
+  set -euo pipefail
   gh run list -R agbossjs/agboss.dev -b main -L 1
   ```
 - **Expected outcome:** The `Deploy` workflow run on `agbossjs/agboss.dev` `main` finishes with `conclusion: success`.
@@ -312,14 +371,15 @@ Execute the eight phases below **in strict chronological order**. Stop immediate
 - **Working directory:** `$WORKSPACE_ROOT/agboss`
 - **Exact command:**
   ```bash
-  cd "$WORKSPACE_ROOT/agboss"
-  gh release create v0.1.0 \
-    --repo agbossjs/agboss \
-    --verify-tag \
-    --title "AGBoss v0.1.0" \
-    --notes-file .github/RELEASE_NOTES_v0.1.0.md \
-    "$WORKSPACE_ROOT/agboss-examples/published-proof-report.md" \
-    "$WORKSPACE_ROOT/agboss-examples/published-proof-results.json"
+  set -euo pipefail
+  cd "$WORKSPACE_ROOT/agboss" && \
+    gh release create v0.1.0 \
+      --repo agbossjs/agboss \
+      --verify-tag \
+      --title "AGBoss v0.1.0" \
+      --notes-file .github/RELEASE_NOTES_v0.1.0.md \
+      "$WORKSPACE_ROOT/agboss-examples/published-proof-report.md" \
+      "$WORKSPACE_ROOT/agboss-examples/published-proof-results.json"
   ```
   _(Alternatively, create the release manually at `https://github.com/agbossjs/agboss/releases/new?tag=v0.1.0`, paste the contents of `.github/RELEASE_NOTES_v0.1.0.md` reproduced in the appendix below, and attach `published-proof-report.md` and `published-proof-results.json`.)_
 - **Expected outcome:** `https://github.com/agbossjs/agboss/releases/tag/v0.1.0` is published with release notes and the attached `published-proof-report.md` and `published-proof-results.json` evidence files.
@@ -334,9 +394,15 @@ Execute the eight phases below **in strict chronological order**. Stop immediate
 - **Working directory:** Temporary directory outside `$WORKSPACE_ROOT`
 - **Exact command:**
   ```bash
-  # 1. Verify live npm registry metadata
-  npm view agboss@0.1.0 version dist-tags.latest deprecated
-  npm view agboss-cli@0.1.0 version dist-tags.latest deprecated
+  set -euo pipefail
+
+  # 1. Verify live npm registry metadata and integrity
+  test "$(npm view agboss@0.1.0 version)" = "0.1.0" && \
+    test "$(npm view agboss-cli@0.1.0 version)" = "0.1.0" && \
+    test "$(npm view agboss dist-tags.latest)" = "0.1.0" && \
+    test "$(npm view agboss-cli dist-tags.latest)" = "0.1.0" && \
+    test -z "$(npm view agboss@0.1.0 deprecated)" && \
+    test -z "$(npm view agboss-cli@0.1.0 deprecated)"
 
   # 2. Verify live GitHub Release
   gh release view v0.1.0 -R agbossjs/agboss
@@ -344,20 +410,24 @@ Execute the eight phases below **in strict chronological order**. Stop immediate
   # 3. Verify live website headers and version badge
   curl -fsSL https://agboss.dev | grep -E 'data-release-mode="published"|v0\.1\.0'
 
-  # 4. Run a clean end-user scaffold test from the public npm registry
-  TMP_PUBLIC_TEST="$(mktemp -d)"
-  cd "$TMP_PUBLIC_TEST"
-  npx --yes agboss@0.1.0 create public-verify-app --yes
-  cd public-verify-app
-  npm run check
-  rm -rf "$TMP_PUBLIC_TEST"
+  # 4. Run a clean end-user scaffold test from the public npm registry with guarded temp directory cleanup
+  TMP_PUBLIC_TEST="$(mktemp -d "${TMPDIR:-/tmp}/agboss-public-verify.XXXXXX")" && \
+    test -n "$TMP_PUBLIC_TEST" && \
+    test -d "$TMP_PUBLIC_TEST" && \
+    case "$TMP_PUBLIC_TEST" in *agboss-public-verify.*) ;; *) echo "Unsafe temp path: $TMP_PUBLIC_TEST" >&2; exit 1 ;; esac && \
+    cd "$TMP_PUBLIC_TEST" && \
+    npx --yes agboss@0.1.0 create public-verify-app --yes && \
+    cd "$TMP_PUBLIC_TEST/public-verify-app" && \
+    npm run check && \
+    cd /tmp && \
+    rm -rf "$TMP_PUBLIC_TEST"
   ```
 - **Expected outcome:**
-  - `npm view` shows `0.1.0` (`latest`) with empty `deprecated` for both packages.
+  - `npm view` confirms `0.1.0` (`latest`) with empty `deprecated` for both packages.
   - `gh release view v0.1.0` displays the published GitHub Release.
   - `https://agboss.dev` serves `data-release-mode="published"` and `v0.1.0`.
-  - `npx --yes agboss@0.1.0 create public-verify-app --yes && cd public-verify-app && npm run check` succeeds end to end from the public npm registry.
-- **Failure / stop condition:** If any check fails, investigate immediately before announcing the release externally.
+  - `npx --yes agboss@0.1.0 create public-verify-app --yes && cd public-verify-app && npm run check` succeeds end to end from the public npm registry, and the guarded temporary directory is cleanly removed.
+- **Failure / stop condition:** If any check fails, execution halts immediately (`set -euo pipefail`); investigate before announcing the release externally.
 
 ---
 
