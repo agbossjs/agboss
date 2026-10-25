@@ -38,14 +38,18 @@ describe("framework and examples apart (#91)", () => {
       expect.arrayContaining(["createAppDeps", "loadWorkflow"]),
     );
   });
-  it("AC1 (#101, #205): the package is agboss, a library without a command", () => {
+  it("AC1 (#101, #205): the package is agboss, with a proxy bin and no runtime dependency on agboss-cli", () => {
     const pkg = JSON.parse(readFileSync(join(root, "packages/agboss/package.json"), "utf8")) as {
       name: string;
       bin?: unknown;
+      files?: readonly string[];
+      dependencies?: Readonly<Record<string, string>>;
     };
 
     expect(pkg.name).toBe("agboss");
-    expect(pkg.bin).toBeUndefined();
+    expect(pkg.bin).toEqual({ agboss: "./bin/agboss.js" });
+    expect(pkg.files).toEqual(expect.arrayContaining(["bin", "NOTICE"]));
+    expect(pkg.dependencies?.["agboss-cli"]).toBeUndefined();
   });
 
   it("AC4 (#101): no graphInject / graphinject left in the repository's code, commands or docs", () => {

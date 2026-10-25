@@ -1,21 +1,25 @@
 /**
  * #305 AC2: the package ships the project skills — `"skills"` in package.json#files, the folder
  * `skills/agboss/` with SKILL.md and its 13 references, the ones `agboss create` and `agboss check`
- * copy into a project.
+ * copy into a project. Also checks `"bin"` and `"NOTICE"` in package.json#files.
  */
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const PACKAGE = new URL("..", import.meta.url).pathname;
 
-describe("#305 AC2: the package ships the skills", () => {
-  it('"skills" is in package.json#files and holds SKILL.md and 13 references', () => {
+describe("#305 AC2: the package ships the skills and proxy bin", () => {
+  it('"skills", "bin", and "NOTICE" are in package.json#files and hold SKILL.md and 13 references', () => {
     const manifest = JSON.parse(readFileSync(join(PACKAGE, "package.json"), "utf8")) as {
+      bin: Readonly<Record<string, string>>;
       files: readonly string[];
     };
 
-    expect(manifest.files).toContain("skills");
+    expect(manifest.bin).toEqual({ agboss: "./bin/agboss.js" });
+    expect(manifest.files).toEqual(expect.arrayContaining(["bin", "skills", "NOTICE"]));
+    expect(existsSync(join(PACKAGE, "bin/agboss.js"))).toBe(true);
     expect(existsSync(join(PACKAGE, "skills/agboss/SKILL.md"))).toBe(true);
     expect(readdirSync(join(PACKAGE, "skills/agboss/references")).sort()).toEqual([
       "01-composition-and-architecture.md",
@@ -32,5 +36,15 @@ describe("#305 AC2: the package ships the skills", () => {
       "12-end-to-end-recipes.md",
       "13-migrating-from-langgraph.md",
     ]);
+  });
+
+  it("packages/agboss/bin/agboss.js resolves the installed agboss-cli locally", () => {
+    const out = execFileSync(process.execPath, [join(PACKAGE, "bin/agboss.js"), "--help"], {
+      cwd: PACKAGE,
+      encoding: "utf8",
+      env: { ...process.env, AGBOSS_NO_STAR: "1" },
+    });
+
+    expect(out).toContain("Usage: agboss <command>");
   });
 });

@@ -39,6 +39,9 @@
   "engines": {
     "node": ">=22.13"
   },
+  "bin": {
+    "agboss": "./bin/agboss.js"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -126,6 +129,7 @@
     "./internal"
   ],
   "files": [
+    "bin",
     "dist",
     "schema",
     "skills",

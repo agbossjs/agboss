@@ -8,38 +8,56 @@
 
 ## Quick Start
 
-```bash
-# Scaffold a new AGBoss project interactively:
-npx -p agboss-cli agboss create my-agents
+### Option 1 — Create a new project
 
-# Or add the CLI to an existing AGBoss project:
-npm i -D agboss-cli
+```bash
+npx agboss create my-app
+cd my-app
+npm install
 ```
+
+`npx agboss create my-app` (also available via `npx agboss-cli create my-app`, short alias `agb c`) creates a project with `agboss` in `dependencies`, `agboss-cli` in `devDependencies`, `AGENTS.md`, and `CLAUDE.md` (`@AGENTS.md`). Running `npm install` triggers `"postinstall": "npm run types"`, which runs `agboss check`, generates `.agboss/types.d.ts`, and unpacks 13 version-matched reference guides into `.claude/skills/agboss/` (`SKILL.md` + `references/01..13`) for your AI coding agent.
+
+### Option 2 — Add to an existing project
+
+```bash
+npm install agboss
+npm install -D agboss-cli
+npx agboss check
+```
+
+Why two packages?
+
+- **`agboss` (`dependencies`)** — lightweight production runtime (decorators, execution graph, DI container, repository contracts, subpaths `agboss/dto`, `agboss/testing`, `agboss/eval`, `agboss/eslint`, schemas, and bundled AI skills) shipped into Docker / Kubernetes.
+- **`agboss-cli` (`devDependencies`)** — static graph compiler (`agboss check`), code generator (`agboss generate`), dev watcher (`agboss dev`), Studio bridge (`agboss studio`), and local UI servers (`agboss eval ui`, `agboss hub ui`) that do not bloat production container images.
 
 ## Core Commands
 
-| Command                                     | Description                                                                                                                                                                      |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `agboss create <name>` (`agb c`)            | Scaffold a new AGBoss project with `@Application`, workflow, environments, `.agboss/types.d.ts`, and Vitest tests                                                                |
-| `agboss generate <kind> <name>` (`agb g`)   | Generate and wire an `agent`, `router`, `arbiter`, `tool`, `mcp`, `rag`, `workflow`, or `openapi` client, by full names: `agboss g agent billing-agent --workflow desk-workflow` |
-| `agboss check`                              | Generate `.agboss/types.d.ts` and statically verify all Flow DSL paths, DTO slots, and assembly rules without calling models                                                     |
-| `agboss check --strict`                     | Treat analyser and assembly warnings as errors in CI                                                                                                                             |
-| `agboss check --models`                     | Verify all configured model settings against their resolved `@ModelProvider`                                                                                                     |
-| `agboss describe`                           | Print workflow paths, node inputs by producer, `about` / `historyOf` links, model resolution, budgets, and limits                                                                |
-| `agboss describe --json`                    | Export the machine-readable declarative revision snapshot (`configHash`, `promptHash`, `schemaHash`)                                                                             |
-| `agboss chat` / `agboss run`                | Run interactive multi-turn terminal chat or a single workflow execution                                                                                                          |
-| `agboss eval run`                           | Run an `@EvalSuite`: each case `--runs` times, pass@k / pass^k, the artifact (`--report`); `--baseline` + `--fail-on-regression` exit 5                                          |
-| `agboss eval show <run.json>`               | Show a saved run artifact — its table, and with `--html` its self-contained HTML report (timelines, the baseline diff, where unstable attempts part ways), running nothing       |
-| `agboss eval ui`                            | Serve a folder of run artifacts on 127.0.0.1 behind a printed token: the runs, each run's report, labels, κ and golden cases                                                     |
-| `agboss eval calibrate --report <run.json>` | Calibrate a saved run's judges against people's labels (`eval/labels/<suite>.jsonl`): Cohen's κ, confusion, disagreements                                                        |
-| `agboss eval score` / `agboss compare`      | Score recorded runs with Jev and compare YAML configuration profiles side by side                                                                                                |
-| `agboss rag index`                          | Build or update `@Rag` knowledge-base indexes                                                                                                                                    |
-| `agboss migrate imports`                    | Rewrite deprecated sub-entry imports to current `agboss` entries                                                                                                                 |
+| Command                                                       | Description                                                                                                                                                                                 |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agboss create <name>` (`agb c`)                              | Scaffold a new AGBoss project with `@Application`, workflow, environments, `.agboss/types.d.ts`, 13 AI skill modules, and Vitest tests                                                      |
+| `agboss generate <kind> <name>` (`agb g`)                     | Generate and wire an `agent`, `router`, `arbiter`, `tool`, `mcp`, `rag`, `workflow`, `openapi` client, or `eval-case` (`--from-execution <id>`) by full name                                |
+| `agboss check`                                                | Generate `.agboss/types.d.ts`, sync `.claude/skills/agboss/`, and statically verify all Flow DSL paths, DTO slots, and assembly rules without calling models                                |
+| `agboss check --strict` / `--models` / `--cassettes`          | Treat warnings as errors in CI (`--strict`), verify models against `@ModelProvider` (`--models`), or detect stale VCR cassettes (`--cassettes`)                                             |
+| `agboss check --federation <path...>`                         | Verify cross-service `@A2AAgent` / `@McpServer` contracts against `agboss describe --json` snapshots before deployment                                                                      |
+| `agboss dev` / `agboss studio`                                | Watch `src/` to regenerate `.agboss/types.d.ts` on save (`dev`), or launch LangGraph Studio for all workflows and child subgraphs (`studio`)                                                |
+| `agboss describe [--json]`                                    | Print workflow paths, node inputs by producer, `about` / `historyOf` links, model resolution, budgets, and limits (or export the JSON snapshot with `configHash`/`promptHash`/`schemaHash`) |
+| `agboss chat` / `agboss run`                                  | Run interactive multi-turn terminal chat or a single workflow execution                                                                                                                     |
+| `agboss eval run`                                             | Run an `@EvalSuite`: each case `--runs` times, pass@k / pass^k, `--chaos <rate>`, `--metamorphic`, `--report <run.json>`, `--html <file>`, and `--baseline` + `--fail-on-regression`        |
+| `agboss eval show <run.json> [--html <file>]`                 | Render a saved run artifact table or self-contained HTML report (timelines, baseline diff, divergence node for unstable cases) without calling models                                       |
+| `agboss eval ui`                                              | Serve a folder of run artifacts on `127.0.0.1` behind a printed token: runs, reports, human labels, Cohen's κ, and golden cases                                                             |
+| `agboss eval calibrate --report <run.json>`                   | Calibrate a saved run's judges against human labels (`eval/labels/<suite>.jsonl`): Cohen's κ, confusion matrix, and disagreements                                                           |
+| `agboss eval score` / `agboss compare`                        | Score recorded runs with Jev and compare YAML configuration profiles side by side                                                                                                           |
+| `agboss records export`                                       | Export stored `ExecutionRecord`s (`ExecutionHistoryRepository`) for `--tenant <id>` or `--all-tenants` to `--out <file.jsonl>` (`--since`, `--until`)                                       |
+| `agboss hub show <path...> [--html <file>]` / `agboss hub ui` | Stitch `describe --json` snapshots and `.jsonl` execution records into a global Agent Mesh graph, cross-service execution trees, Progressive Crystallization Radar, and Blast Radius        |
+| `agboss rag index`                                            | Build or update `@Rag` knowledge-base indexes                                                                                                                                               |
+| `agboss migrate imports`                                      | Rewrite deprecated sub-entry imports to current `agboss` entries                                                                                                                            |
 
 ## Documentation & Links
 
 - **CLI Reference:** [https://agboss.dev/cli/](https://agboss.dev/cli/)
 - **Full Documentation:** [https://agboss.dev](https://agboss.dev)
+- **Verified Examples Repository:** [https://github.com/agbossjs/agboss-examples](https://github.com/agbossjs/agboss-examples)
 - **GitHub Repository:** [https://github.com/agbossjs/agboss](https://github.com/agbossjs/agboss)
 
 ## License

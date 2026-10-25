@@ -6,31 +6,46 @@
 [![CI](https://github.com/agbossjs/agboss/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/agbossjs/agboss/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/agbossjs/agboss/badges/coverage.json)](https://github.com/agbossjs/agboss/actions/workflows/ci.yml)
 
-**AGBoss** ([agboss.dev](https://agboss.dev)) is an open-source, Spring-style TypeScript framework for **mission-critical multi-agent workflows** on top of [LangGraph](https://www.langchain.com/langgraph). Agents, actions, routers, arbiters, tools, MCP servers, and knowledge bases are strictly typed decorator components — assembled in an `@Application` container with constructor dependency injection, compile-time Path Scope verification (`agboss check`), declared action compensation (`compensateWith` / `committedBy`) with explicit rollback side paths (`.onError` / `.onJoinError` to an undo `@Action`) and an automatic undo where no path can say it, two-phase human-in-the-loop pauses (`@ChannelRole`), pre-call FinOps budgets (`@Budget`), boundary PII token masking (`@PiiPolicy`), multi-instance SQLite WAL leases, and deterministic offline testing (`testWith` + 8 unit runners).
+**AGBoss** ([agboss.dev](https://agboss.dev)) is an open-source, Spring-style TypeScript framework for **mission-critical multi-agent workflows** on top of [LangGraph](https://www.langchain.com/langgraph). Agents, actions, routers, arbiters, tools, MCP servers, A2A services, and knowledge bases are strictly typed decorator components — assembled in an `@Application` container with constructor dependency injection, compile-time Path Scope verification (`agboss check`), declared action compensation (`compensateWith` / `committedBy`) with explicit rollback side paths (`.onError` / `.onJoinError` to an undo `@Action`) and automatic LIFO compensation, two-phase human-in-the-loop pauses (`@ChannelRole`), pre-call FinOps budgets (`@Budget`), boundary PII token masking (`@PiiPolicy`), multi-instance SQLite WAL leases and distributed child work-stealing (`ChildPlacement.AnyInstance`), signed Agent Mesh envelopes (`@A2AExpose`, `@A2AAgent`, `agboss hub`), and a 5-loop evaluation & testing pipeline (`@EvalSuite`, `testWith` + 10 unit runners).
 
-**Documentation:** [https://agboss.dev](https://agboss.dev) · **Quick Start:** [https://agboss.dev/getting-started/quick-start/](https://agboss.dev/getting-started/quick-start/) · **CLI Reference:** [https://agboss.dev/cli/](https://agboss.dev/cli/)
+**Documentation:** [https://agboss.dev](https://agboss.dev) · **Quick Start:** [https://agboss.dev/getting-started/quick-start/](https://agboss.dev/getting-started/quick-start/) · **CLI Reference:** [https://agboss.dev/cli/](https://agboss.dev/cli/) · **Examples:** [https://github.com/agbossjs/agboss-examples](https://github.com/agbossjs/agboss-examples)
 
 ## Use it
 
+### Option 1 — Create a new project
+
 ```bash
-npx -p agboss-cli agboss create my-agents   # alias agboss c — a project from a short questionnaire
-cd my-agents && cp .env.example .env && npm run chat
+npx agboss create my-app
+cd my-app
+npm install
+```
+
+`npx agboss create my-app` (also available via `npx agboss-cli create my-app`, short alias `agb c`) scaffolds a complete project where `package.json` already lists `agboss` in `dependencies` and `agboss-cli` in `devDependencies`, alongside `AGENTS.md` and `CLAUDE.md` (`@AGENTS.md`). Running `npm install` triggers `"postinstall": "npm run types"`, which runs `agboss check`, generates `.agboss/types.d.ts` for TypeScript, and unpacks 13 version-matched reference guides into `.claude/skills/agboss/` (`SKILL.md` + `references/01..13`) for your AI coding agent.
+
+```bash
+cp .env.example .env && npm run chat
 # every name is the full one, as in `name` (#268): the CLI never adds a suffix for you
-npx agboss g tool refund-tool --workflow my-agents-workflow --agent my-agents-assistant-agent
+npx agboss g tool refund-tool --workflow my-app-workflow --agent my-app-assistant-agent
 # one tool per OpenAPI 3 operation (DTOs, a client in services/, tests), wired into the agent
-npx agboss g openapi pets --url ./pets.yaml --workflow my-agents-workflow --agent my-agents-assistant-agent
+npx agboss g openapi pets --url ./pets.yaml --workflow my-app-workflow --agent my-app-assistant-agent
 npx agboss g workflow onboarding-workflow   # a second workflow, listed in the @Application
 # any layout: targets come from the workflow module, tests go where vitest looks, files are
 # prettier-formatted; a rerun refuses — --force regenerates the files and keeps the wiring in them
 # (tools, rag, MCP, judges, routes, …); --force --reset starts them over without it
 ```
 
-Or add it to a project and write the components yourself:
+### Option 2 — Add to an existing project
 
 ```bash
-npm i agboss
-npm i -D agboss-cli   # the CLI (`agboss`)
+npm install agboss
+npm install -D agboss-cli
+npx agboss check
 ```
+
+Why two packages?
+
+- **`agboss` (`dependencies`)** — the lightweight production runtime (decorators, execution graph, DI container, storage repository contracts, subpath entries `agboss/dto`, `agboss/testing`, `agboss/eval`, `agboss/eslint`, schemas, and bundled AI coding skills) that ships into your Docker / Kubernetes image.
+- **`agboss-cli` (`devDependencies`)** — the static graph compiler (`agboss check`), code generator (`agboss generate`), dev watcher (`agboss dev`), LangGraph Studio bridge (`agboss studio`), and local visual UI servers (`agboss eval ui`, `agboss hub ui`) that stay out of production container images.
 
 <!-- snippet-context
 import { Tool, type ToolHandler } from "agboss";
@@ -390,14 +405,17 @@ generated project runs it on install (`npm run types`).
 
 The whole shape — DTOs, a service, a tool, an agent, a router, the workflow, its application and
 its test — is the
-worked example in [`CLAUDE.md`](CLAUDE.md) → Architecture (compiled and run by `make check`).
+worked example in [`CLAUDE.md`](https://github.com/agbossjs/agboss/blob/main/CLAUDE.md) → Architecture (compiled and run by `make check`).
 
 ```bash
 npx agboss chat                                 # the application's one start; with several: --start <name>
 npx agboss run --start chat-workflow-start "my resume src/data/sample-resume.md"
 npx agboss run --start <name> --input '<json>'  # a start taking a DTO: checked field by field first
-npx agboss describe                             # every workflow: agents, tools, dependencies — no API key
-npx agboss --help                               # run, eval, replay, golden, compare, rag index
+npx agboss describe [--json]                    # the application: workflows, starts, children, implementations — no API key
+npx agboss check --env prod                     # types, assembly, the worst case per start, prod's process variables
+npx agboss dev                                  # watch mode: types regenerated, problems printed on change
+npx agboss studio                               # LangGraph Studio on every workflow — no studio.ts, no langgraph.json
+npx agboss --help                               # run, eval, replay, golden, compare, records, hub, rag index
 ```
 
 A command that runs one workflow (`chat`, `run`, `eval`, `replay`, `golden add`, `compare`) takes
@@ -409,9 +427,44 @@ Needs `OPENROUTER_API_KEY` in `.env` (dev's `openRouterApiKey: secret("OPENROUTE
 [Configuration](https://github.com/agbossjs/agboss/wiki/Configuration) · [Knowledge bases](https://github.com/agbossjs/agboss/wiki/Knowledge-bases) ·
 [Profiles and comparisons](https://github.com/agbossjs/agboss/wiki/Profiles-and-comparisons).
 
+## AI coding agents
+
+`agboss` ships its own guide for coding agents (#305), written for the installed version:
+`skills/agboss/` in the package — `SKILL.md` and 13 references, from composition and the flow DSL to
+tests, the error catalog and migrating a LangGraph graph (#424), every snippet compiled by the gate. `agboss create` writes three things
+for agents:
+
+- `AGENTS.md` (Cursor, Codex, …) — the project's instructions and a table routing each task to one
+  reference; put the project's own rules under its `## Project rules`;
+- `CLAUDE.md` — one line, `@AGENTS.md` (Claude Code reads `CLAUDE.md`);
+- `.claude/skills/agboss/` — the skills and their manifest (`.agboss-skills.json`: the version and a
+  sha256 per file), git-ignored.
+
+`AGENTS.md` and `CLAUDE.md` are written once and never rewritten. The skills folder is the
+framework's: `npx agboss check` (so the project's `postinstall`, `npx agboss dev` and
+`npx agboss generate …`) makes it match the `agboss` the project resolves — `skills: .claude/skills/agboss updated 0.1.0 → 0.2.0 (14 files)` after an upgrade, `installed` on a fresh clone, `repaired` with
+`[skills.local-edit]` when a file was edited by hand. A problem is a warning
+(`[skills.sync-failed]`, `[skills.no-framework]`) and never changes the exit code; `--json` carries
+`result.skills`. `"agboss": { "skills": false }` in `package.json` turns the sync off. More:
+[AI Coding Skills](https://agboss.dev/concepts/ai-coding-skills/) · [Wiki → CLI](https://github.com/agbossjs/agboss/wiki/CLI).
+
 ## The examples
 
-[`examples/job-scout`](examples/job-scout) — resume → proposed search brief → Greenhouse jobs ranked
+### Standalone Verified Showcase ([`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples))
+
+7 self-contained, CI-verified applications proving AGBoss's compile-time and runtime guarantees (`npx agboss check` + `npm test` on every project):
+
+1. **[`path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/path-scope-proof)** — Side-by-side proof of 4 production graph bugs (`[input.missing-on-path]`, `[input.outdated-on-path]`, `[launch.branch-outdates-sibling]`, `[flow.uncompensated-action]`) that pass `tsc --noEmit` in raw LangGraph `Annotation.Root` (`prove:langgraph-compiles`) and are caught before runtime by `agboss check` (`prove:agboss-catches`).
+2. **[`hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/hello-agboss)** — Minimal starter with `@Application`, `@Workflow`, `@Agent`, `@Tool`, `@Router`, and `testWith`.
+3. **[`support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/support-refund-desk)** — Multi-step support & billing desk with `@PiiPolicy` HMAC token masking, `@InputGuardrail` / `@OutputGuardrail`, two-phase human approval (`@ChannelRole` + `app.resume`), `@Budget`, and a 5-loop `@EvalSuite`.
+4. **[`travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/travel-booking-saga)** — Transactional multi-step saga (`compensateWith` / `committedBy`) with parallel quorum fan-out (`.toParallelAgents().acceptedBy().joinQuorum()`) and automatic LIFO compensation on downstream failure.
+5. **[`enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/enterprise-agent-mesh)** — Federated multi-service Agent Mesh over A2A (`@A2AExpose`, `@A2AAgent`, `a2aHttpListener`, `A2ACallerResolver`, Ed25519 JWS `MeshEnvelope`, `agboss check --federation`, and `agboss hub show --html`).
+6. **[`cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/cluster-work-stealing)** — Multi-instance horizontal scaling with `ChildPlacement.AnyInstance`, `SqliteChildExecutionQueueRepository`, parent lease yielding, shared tree concurrency slots, and per-child crash recovery across workers.
+7. **[`langgraph-migration-smoke`](https://github.com/agbossjs/agboss-examples/tree/main/langgraph-migration-smoke)** — Step-by-step migration from raw LangGraph (`StateAnnotation`, `addConditionalEdges`, `Send`, `interrupt`) to typed AGBoss components following skill reference `13-migrating-from-langgraph.md`.
+
+### In-Repository Examples
+
+[`examples/job-scout`](https://github.com/agbossjs/agboss/tree/main/examples/job-scout) — resume → proposed search brief → Greenhouse jobs ranked
 by Jev. It depends on `agboss` exactly like your project would:
 
 ```bash
@@ -419,7 +472,7 @@ npm install && npm run build          # at the repo root
 cd examples/job-scout && npm run chat # "my resume src/data/sample-resume.md"
 ```
 
-[`examples/flow-patterns`](examples/flow-patterns) — the flow's patterns with scripted tests only
+[`examples/flow-patterns`](https://github.com/agbossjs/agboss/tree/main/examples/flow-patterns) — the flow's patterns with scripted tests only
 (no model key): `src/offer/` a review loop (`agent(ReviewerAgent).returns(oneOf(…)).switch(…)`,
 `caseOf(ChangesRequestedDto, { about: OfferDraftDto })`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
 router (`DecidedBy.Code`, `route(input)` through `deps`) beside a model router, `src/review/`
@@ -431,29 +484,31 @@ Point the CLI at it:
 cd examples/flow-patterns && npx agboss describe   # every workflow of its application
 ```
 
-More: [Wiki → Example](https://github.com/agbossjs/agboss/wiki/Example).
+More: [Examples Showcase](https://agboss.dev/examples/job-scout/) · [Wiki → Example](https://github.com/agbossjs/agboss/wiki/Example).
 
 ## Public entries
 
-One package; the root `agboss` is the authoring API, the rest are focused entries:
+Runtime package `agboss` + dev/CI companion `agboss-cli`; the root `agboss` is the authoring API, and subpath entries keep integrations focused:
 
-- `agboss` — `@Workflow`, `@Agent`, `@Router`, `@Tool`, `@Injectable`, `@Action`,
+- `agboss` — `@Workflow`, `@Agent`, `@Router`, `@Arbiter`, `@Tool`, `@ToolInterceptor`, `@Injectable`, `@Action`,
   `@WorkflowStart` / `@WorkflowFinish`, `@Judge`, `@InputGuardrail` / `@OutputGuardrail`,
-  `@PiiPolicy`, `@Channel`,
+  `@PiiPolicy`, `@ChannelRole`, `@Compaction`,
   `InjectionToken`, `provide`, `env`, `secret`, `Secret`, the context levels (`ApplicationContext`,
   `TenantContext`, `ExecutionContext`, `ContextValues`), the path builder (`start`,
-  `agent`, `router`, `action`, `route`, `caseOf`, `toAgent`, `toAction`, `toFinish`, …),
-  `WorkflowSettings`, `@Application`, `createApp`, `@Budget`, the infrastructure contracts (`Clock`
-  among them),
+  `agent`, `router`, `action`, `route`, `caseOf`, `toAgent`, `toAction`, `toWorkflow`, `toParallelWorkflows`, `toFinish`, `ChildPlacement`, …),
+  `WorkflowSettings`, `@Application`, `createApp`, `@Budget`, the infrastructure contracts and SQLite / in-memory repositories (`Clock`,
+  `IdGenerator`, `ChildExecutionQueueRepository`, `ExecutionHistoryRepository`, `MeshRequestRepository`, …),
   `Decision`, observers, errors and types
 - `agboss/dto` — field decorators (`@Text`, `@ListOf`, …), the DTO wrappers (`listOf`, `oneOf`,
   `optional`, `variant`) and the standard DTOs
-- `agboss/units` — `usd()`, `seconds()`, `minutes()`
-- `agboss/models` — model providers (`@ModelProvider`, listed in `@Application({ providers })`)
-- `agboss/testing` — `testWith`, the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
-  `mcpOf`, `VirtualClock`, VCR (+ `agboss/testing/setup`: the matchers)
+- `agboss/units` — `usd()`, `seconds()`, `minutes()`, `hours()`, `kilobytes()`
+- `agboss/models` — model providers (`@ModelProvider`, `OpenRouterModelProvider`, `DecisionsModelProvider`, listed in `@Application({ providers })`)
+- `agboss/testing` — `testWith`, the 10 unit runners (`testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction`), the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
+  `mcpOf`, `VirtualClock`, `SequentialIdGenerator`, VCR (`+ agboss/testing/setup`: the matchers)
+- `agboss/eval` — `@EvalSuite`, `EvalCascade`, `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, `checkTrajectory`, `judgedBy`
 - `agboss/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`, `@McpTool`,
-  `@McpExpose`, `@Rag`, A2A, memory)
+  `@McpExpose`, `@Rag`, `@A2AAgent`, `@A2AExpose`, `a2aHttpListener`, `A2ACallerResolver`, memory)
+- `agboss/eslint` — ESLint plugin (`agboss/no-component-state`, `agboss/no-direct-time`)
 
 Importing `agboss` has no side effects: tracing, the MCP SDK and SQLite load only when an app
 uses them. The old entries `agboss/core`, `/graph`, `/router`, `/tool` and `/channels` are
@@ -465,8 +520,9 @@ deprecated re-exports for one minor release (`/concurrency` went with the old fl
 ## Repository
 
 ```
-packages/agboss/   the framework (published as `agboss`)
-examples/job-scout/     the example (uses only the public API)
+packages/agboss/      the framework runtime (published as `agboss`)
+packages/agboss-cli/  the CLI, static compiler & UI tools (published as `agboss-cli`)
+examples/job-scout/   the example (uses only the public API)
 examples/flow-patterns/ the flow's patterns: a review loop, a code router, parallel launches (scripted tests only)
 ```
 
