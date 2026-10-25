@@ -128,7 +128,7 @@ describe("writing", () => {
       root,
     );
     await expect(applyChanges(root, again)).rejects.toThrow(
-      "Already exists: src/desk/tools/search-orders.tool.ts, src/desk/tools/search-orders.tool.test.ts. Already wired: src/desk/agents/answerer.agent.ts: SearchOrdersTool already in tools. Nothing was written — rerun with --force",
+      "Already exists: src/desk/tools/search-orders.tool.ts, src/desk/tools/search-orders.tool.test.ts, src/desk/dto/search-orders-query.dto.ts, src/desk/dto/search-orders-result.dto.ts. Already wired: src/desk/agents/answerer/answerer.agent.ts: SearchOrdersTool already in tools. Nothing was written — rerun with --force",
     );
     await expect(
       planGenerate("tool", "x-tool", { workflow: "desk-workflow" }, root),
@@ -191,14 +191,14 @@ describe("#280 AC11: generated code follows the conventions", () => {
     const [tool] = toolFiles("src/desk/tools", namesOf("search orders"));
 
     expect(tool?.content).toContain(
-      "implements ToolHandler<SearchOrdersQuery, SearchOrdersResult>",
+      "implements ToolHandler<SearchOrdersQueryDto, SearchOrdersResultDto>",
     );
     expect(tool?.content).toContain("deps: [ExecutionContext],");
     expect(tool?.content).toContain(
       "constructor(private readonly executionContext: ExecutionContext) {}",
     );
     expect(tool?.content).toContain(
-      "run({ query }: SearchOrdersQuery): Promise<SearchOrdersResult> {",
+      "run({ query }: SearchOrdersQueryDto): Promise<SearchOrdersResultDto> {",
     );
     expect(tool?.content).not.toMatch(/\bctx\b/u);
     // #268 AC9: its name is kebab-case and ends with -tool

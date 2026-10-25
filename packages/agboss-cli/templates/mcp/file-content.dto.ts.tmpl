@@ -1,0 +1,7 @@
+import { Text } from "agboss/dto";
+
+/** `read_text_file`: the file's text. */
+export class FileContentDto {
+  @Text({ prompt: "the file's text" })
+  content!: string;
+}

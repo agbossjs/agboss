@@ -1,23 +1,31 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const src = new URL("../src", import.meta.url).pathname;
-const files = (folder: string): string[] => readdirSync(join(src, folder));
+const files = (folder: string): string[] => {
+  const dir = join(src, folder);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).flatMap((entry) => {
+    const full = join(dir, entry);
+    return statSync(full).isDirectory() ? readdirSync(full) : [entry];
+  });
+};
 
-/** Each folder holds one kind of file, named by its suffix (Angular style); DTOs sit next to their users (#118). */
+/** Each folder holds one kind of file, named by its suffix (Angular style); Group A kinds live in `<name>/` subfolders. */
 const SUFFIXES: Readonly<Record<string, RegExp>> = {
   agents: /\.(agent\.ts|prompt\.md)$/,
   "workflow-starts": /\.workflow-start\.ts$/,
-  routers: /\.router\.ts$/,
+  routers: /\.(router\.ts|prompt\.md)$/,
   "workflow-finishes": /\.workflow-finish\.ts$/,
+  dto: /\.dto\.ts$/,
   tools: /\.(tool(\.test)?|dto)\.ts$/,
   services: /\.service\.ts$/,
-  mcp: /\.(server|mcp|dto)\.ts$/,
+  mcp: /\.(mcp-server|mcp-tool|mcp-expose|server|mcp|dto)\.ts$/,
   rag: /\.rag\.ts$/,
   helpers: /\.helper\.ts$/,
   "model-providers": /\.model-provider\.ts$/,
-  guardrails: /\.guardrail\.ts$/,
+  guardrails: /\.(guardrail\.ts|prompt\.md)$/,
   compactions: /\.(compaction\.ts|prompt\.md)$/,
 };
 
@@ -29,7 +37,7 @@ describe("job-scout follows the file conventions (#107)", () => {
 
     expect(
       readdirSync(src)
-        .filter((entry) => !ownWorkflow(entry))
+        .filter((entry) => !ownWorkflow(entry) && entry !== "dto")
         .sort(),
     ).toEqual(
       [

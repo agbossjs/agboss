@@ -14,9 +14,20 @@ export const applicationFiles = (project: Names): FileToWrite[] => [
     path: applicationPathOf(project),
     content: render("workflow/application.ts.tmpl", vars(project)),
   },
-  { path: "src/config/budget.config.ts", content: render("workflow/budget.config.ts.tmpl", {}) },
   {
-    path: "src/guardrails/prompt-injection.guardrail.ts",
+    path: "src/budgets/application-daily.budget.ts",
+    content: render("workflow/application-daily.budget.ts.tmpl", {}),
+  },
+  {
+    path: "src/budgets/tenant-daily.budget.ts",
+    content: render("workflow/tenant-daily.budget.ts.tmpl", {}),
+  },
+  {
+    path: "src/budgets/execution.budget.ts",
+    content: render("workflow/execution.budget.ts.tmpl", {}),
+  },
+  {
+    path: "src/guardrails/prompt-injection/prompt-injection.guardrail.ts",
     content: render("workflow/prompt-injection.guardrail.ts.tmpl", {}),
   },
   {

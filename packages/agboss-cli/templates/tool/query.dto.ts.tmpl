@@ -1,0 +1,7 @@
+import { Text } from "agboss/dto";
+
+/** What the model asks {{kebab}}-tool for. */
+export class {{pascal}}QueryDto {
+  @Text({ prompt: "what to look up" })
+  query!: string;
+}

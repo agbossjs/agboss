@@ -93,7 +93,7 @@ describe("#268 AC8: generators take full names", () => {
     const paths = create.map((file) => file.path);
     expect(paths).toContain("src/checkout/checkout.workflow.ts");
     expect(paths).toContain("src/checkout/checkout.workflow.test.ts");
-    expect(paths).toContain("src/checkout/agents/checkout-assistant.agent.ts");
+    expect(paths).toContain("src/checkout/agents/checkout-assistant/checkout-assistant.agent.ts");
     expect(paths.some((path) => path.endsWith(".application.ts"))).toBe(false);
     const module = create.find((file) => file.path === "src/checkout/checkout.workflow.ts");
     expect(module?.content).toContain('name: "checkout-workflow",');
@@ -120,6 +120,28 @@ describe("#268 AC8: generators take full names", () => {
       new ScaffoldConflictError(
         "src/desk.application.ts: the application already has onboarding-workflow",
       ),
+    );
+  });
+
+  it("single-letter and short kind aliases resolve to their canonical kind", async () => {
+    const root = project();
+
+    await expect(planGenerate("w", "onboarding-workflow", {}, root)).rejects.toThrow(
+      new ScaffoldConflictError(
+        "src/desk.application.ts: the application already has onboarding-workflow",
+      ),
+    );
+    await expect(planGenerate("a", "ranker", { workflow: "desk-workflow" }, root)).rejects.toThrow(
+      'Did you mean "ranker-agent"?',
+    );
+    await expect(
+      planGenerate("t", "refund_card", { workflow: "desk-workflow" }, root),
+    ).rejects.toThrow('Did you mean "refund-card-tool"?');
+    await expect(
+      planGenerate("r", "escalation", { workflow: "desk-workflow" }, root),
+    ).rejects.toThrow('Did you mean "escalation-router"?');
+    await expect(planGenerate("ar", "pick", { workflow: "desk-workflow" }, root)).rejects.toThrow(
+      'Did you mean "pick-arbiter"?',
     );
   });
 });

@@ -4,8 +4,8 @@
  */
 export const ZOO_CHECK = `import { callTool, replyWith, routeTo, testWith } from "agboss/testing";
 import { afterEach, expect, vi } from "vitest";
-import { KeeperAgent } from "./agents/keeper.agent.js";
-import { MainRouter } from "./routers/main.router.js";
+import { KeeperAgent } from "./agents/keeper/keeper.agent.js";
+import { MainRouter } from "./routers/main/main.router.js";
 import { CreatePetTool } from "./tools/create-pet.tool.js";
 import { GetPetTool } from "./tools/get-pet.tool.js";
 import { TextWorkflowFinish } from "./workflow-finishes/text.workflow-finish.js";

@@ -12,10 +12,18 @@ export class FlightBookingDto {
   flight!: string;
 }
 
-@WorkflowStart({ name: "approvals-workflow-start", description: "An approval", input: FlightBookingDto })
+@WorkflowStart({
+  name: "approvals-workflow-start",
+  description: "An approval",
+  input: FlightBookingDto,
+})
 export class ApprovalsWorkflowStart {}
 
-@WorkflowFinish({ name: "approvals-workflow-finish", description: "Booked", output: FlightBookingDto })
+@WorkflowFinish({
+  name: "approvals-workflow-finish",
+  description: "Booked",
+  output: FlightBookingDto,
+})
 export class ApprovalsWorkflowFinish {}
 
 @Workflow({

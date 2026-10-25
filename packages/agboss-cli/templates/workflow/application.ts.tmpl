@@ -1,8 +1,10 @@
 import { Application } from "agboss";
 import { DecisionsModelProvider } from "agboss/models";
-import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./config/budget.config.js";
+import { ApplicationDailyBudget } from "./budgets/application-daily.budget.js";
+import { ExecutionBudget } from "./budgets/execution.budget.js";
+import { TenantDailyBudget } from "./budgets/tenant-daily.budget.js";
 import { AppEnvironment } from "./environments/app.environment.js";
-import { PromptInjectionGuardrail } from "./guardrails/prompt-injection.guardrail.js";
+import { PromptInjectionGuardrail } from "./guardrails/prompt-injection/prompt-injection.guardrail.js";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { {{pascal}}Workflow } from "./{{kebab}}/{{kebab}}.workflow.js";
 

@@ -1,6 +1,7 @@
-import { McpTool } from "agboss/mcp";
 import type { ToolHandler } from "agboss";
-import { {{input}}, {{output}}, {{serverPascal}}Server } from "./{{serverKebab}}.server.js";
+import { McpTool } from "agboss/mcp";
+{{dtoImports}}
+import { {{serverPascal}}Server } from "./{{serverKebab}}.mcp-server.js";
 
 /** {{title}} — calls the server's "{{serverTool}}"; shape the input and the result here. */
 @McpTool({

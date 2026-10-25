@@ -149,10 +149,18 @@ export class SlowTool implements ToolHandler<Query, Query> {
 })
 export class WorkerAgent {}
 
-@WorkflowStart({ name: "slow-workflow-start", description: "A request", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "slow-workflow-start",
+  description: "A request",
+  input: WorkflowStartTextDto,
+})
 export class SlowWorkflowStart {}
 
-@WorkflowStart({ name: "tool-workflow-start", description: "A request", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "tool-workflow-start",
+  description: "A request",
+  input: WorkflowStartTextDto,
+})
 export class ToolWorkflowStart {}
 
 @WorkflowFinish({ name: "slow-workflow-finish", description: "The receipt", output: ReceiptDto })

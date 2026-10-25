@@ -29,10 +29,16 @@ function commandOf(entry) {
   const subcommands = new Map(
     (entry.subcommands ?? []).map((sub) => [sub.name.split(" ")[1], commandOf(sub)]),
   );
+  const positionals = positionalsOf(entry.usage);
+  if (entry.name === "generate" && positionals) {
+    for (const shortKind of ["w", "a", "r", "ar", "t", "m", "oa", "ec"]) {
+      positionals.add(shortKind);
+    }
+  }
   return {
     name: entry.name,
     flags: new Set([...flags, "--help"]),
-    positionals: positionalsOf(entry.usage),
+    positionals,
     subcommands,
   };
 }

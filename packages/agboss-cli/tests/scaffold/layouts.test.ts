@@ -59,7 +59,7 @@ describe("agboss generate on job-scout's layout", () => {
     writeFileSync(join(project, "tests/billing-check.test.ts"), JOB_SCOUT_CHECK);
 
     // targets resolved from the workflow module: its agents folder, its router, its finish
-    expect(existsSync(join(project, "src/agents/billing.agent.ts"))).toBe(true);
+    expect(existsSync(join(project, "src/agents/billing/billing.agent.ts"))).toBe(true);
     // #272: the router's choice in the flow gets the agent's path, its routes the agent
     expect(text(module)).toMatch(
       /route\(ShortlistAgent\)\n {10}\.toFinish\(ChatWorkflowFinish\),\n {8}route\(BillingAgent\)\n {10}\.toFinish\(ChatWorkflowFinish\),\n/,
@@ -68,8 +68,8 @@ describe("agboss generate on job-scout's layout", () => {
     expect(text("src/routers/main.router.ts")).toMatch(
       /target: ShortlistAgent },\n {4}\{ prompt: "Handles invoices and refunds", target: BillingAgent \},\n {2}\],/,
     );
-    expect(text("src/routers/escalation.router.ts")).toContain(
-      'import { ChatWorkflowFinish } from "../workflow-finishes/chat.workflow-finish.js";',
+    expect(text("src/routers/escalation/escalation.router.ts")).toContain(
+      'import { ChatWorkflowFinish } from "../../workflow-finishes/chat.workflow-finish.js";',
     );
     // tests where vitest looks (tests/**), importing the tool where it is
     expect(existsSync(join(project, "src/tools/refund.tool.test.ts"))).toBe(false);
@@ -112,7 +112,7 @@ describe("agboss generate on job-scout's layout", () => {
     );
 
     await expect(applyChanges(project, again)).rejects.toThrow(
-      "Already exists: src/agents/billing.agent.ts, src/agents/billing.prompt.md. Already wired: src/job-scout.workflow.ts: BillingAgent already in MainRouter's chooseOne(…); src/routers/main.router.ts: BillingAgent already in routes. Nothing was written — rerun with --force to regenerate the files and keep the existing wiring",
+      "Already exists: src/agents/billing/billing.agent.ts, src/agents/billing/billing.prompt.md. Already wired: src/job-scout.workflow.ts: BillingAgent already in MainRouter's chooseOne(…); src/routers/main.router.ts: BillingAgent already in routes. Nothing was written — rerun with --force to regenerate the files and keep the existing wiring",
     );
 
     const forced = agbossIn(project, [
@@ -135,18 +135,20 @@ describe("agboss generate on job-scout's layout", () => {
     // #237: the agent's own wiring (tools, MCP tool, knowledge base) is kept, not wiped
     expect(envelope.warnings.length).toBeGreaterThan(2);
     expect(
-      envelope.warnings.slice(2).every((w) => w.startsWith("kept: src/agents/billing.agent.ts: ")),
+      envelope.warnings
+        .slice(2)
+        .every((w) => w.startsWith("kept: src/agents/billing/billing.agent.ts: ")),
     ).toBe(true);
-    expect(text("src/agents/billing.agent.ts")).toContain("RefundTool");
+    expect(text("src/agents/billing/billing.agent.ts")).toContain("RefundTool");
     expect(envelope.modified).toEqual([]);
     expect(text(module)).toBe(before.workflow);
     expect(text("src/routers/main.router.ts")).toBe(before.router);
-    expect(text("src/agents/billing.agent.ts")).toContain('description: "Bills"');
+    expect(text("src/agents/billing/billing.agent.ts")).toContain('description: "Bills"');
     for (const [kind, name, options] of KINDS.slice(1, 4)) {
       const plan = await planGenerate(kind, name, options, project);
       await applyChanges(project, plan, { force: true });
     }
-    expect(text("src/agents/billing.agent.ts").match(/RefundTool/g)).toHaveLength(2);
+    expect(text("src/agents/billing/billing.agent.ts").match(/RefundTool/g)).toHaveLength(2);
     expect(text(module).match(/TicketsServer/g)).toHaveLength(2);
     const tsc = agbossIn(project, ["describe"]);
     expect(tsc.ok, tsc.out).toBe(true);

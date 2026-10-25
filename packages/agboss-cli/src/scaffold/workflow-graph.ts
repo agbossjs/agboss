@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path/posix";
+import { basename, dirname, join, relative } from "node:path/posix";
 import ts from "typescript";
 import { closestName } from "../cli/did-you-mean.js";
 import { ScaffoldError, ScaffoldUsageError } from "./errors.js";
@@ -135,7 +135,9 @@ export const ofKind = (graph: WorkflowGraph, decorator: string): readonly Compon
 /** The folder the workflow keeps a kind in (where its first one lives), else `<workflow dir>/<sub>`. */
 export const folderOf = (graph: WorkflowGraph, decorator: string, sub: string): string => {
   const [first] = ofKind(graph, decorator);
-  return first === undefined ? `${graph.dir}/${sub}` : dirname(first.path);
+  if (first === undefined) return `${graph.dir}/${sub}`;
+  const dir = dirname(first.path);
+  return basename(dir) === sub ? dir : dirname(dir);
 };
 
 /** The workflow finish new routers send the answer to. */

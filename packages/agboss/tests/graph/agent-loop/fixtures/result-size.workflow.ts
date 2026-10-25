@@ -140,7 +140,11 @@ export class ResearchAgent {}
 })
 export class ContextAgent {}
 
-@WorkflowStart({ name: "page-workflow-start", description: "A request", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "page-workflow-start",
+  description: "A request",
+  input: WorkflowStartTextDto,
+})
 export class PageStart {}
 
 @WorkflowStart({

@@ -181,18 +181,27 @@ function fieldSource(field: FieldModel): string {
   return `${decorator}\n  ${propertyKey(field.name)}${field.optional ? "?" : "!"}: ${field.type};`;
 }
 
-/** The `<operation>.dto.ts` file: the decorators it uses, then its classes in order. */
-export function dtoSource(classes: readonly ClassModel[]): string {
-  const fields = classes.flatMap((c) => c.fields);
-  // a list's lead is a plain-value decorator (`Text`) or one of this file's classes
-  const names = new Set(classes.map((c) => c.name));
-  const scalars = fields.flatMap((f) =>
+/** The kebab file stem of a DTO class (`GetPetInput` → `get-pet-input`). */
+export const dtoFileStem = (className: string): string =>
+  namesOf(className.replace(/Dto$/, "")).kebab;
+
+/** One `<class>.dto.ts` file: the decorators and sibling DTOs it uses, then the class. */
+export function dtoClassSource(model: ClassModel, allClasses: readonly ClassModel[]): string {
+  const names = new Set(allClasses.map((c) => c.name));
+  const scalars = model.fields.flatMap((f) =>
     f.decorator === "ListOf" && f.lead !== undefined && !names.has(f.lead) ? [f.lead] : [],
   );
-  const decorators = [...new Set([...fields.map((f) => f.decorator), ...scalars])].sort();
-  const bodies = classes.map(
-    (c) =>
-      `/** ${c.doc} */\nexport class ${c.name} {\n${c.fields.map(fieldSource).join("\n\n")}\n}\n`,
-  );
-  return `${importLine(decorators, "agboss/dto")}\n\n${bodies.join("\n")}`;
+  const decorators = [...new Set([...model.fields.map((f) => f.decorator), ...scalars])].sort();
+  const siblingImports = [
+    ...new Set(
+      model.fields.flatMap((f) =>
+        f.lead !== undefined && names.has(f.lead) && f.lead !== model.name ? [f.lead] : [],
+      ),
+    ),
+  ]
+    .sort()
+    .map((ref) => importLine([ref], `./${dtoFileStem(ref)}.dto.js`));
+  const imports = [importLine(decorators, "agboss/dto"), ...siblingImports].join("\n");
+  const body = `/** ${model.doc} */\nexport class ${model.name} {\n${model.fields.map(fieldSource).join("\n\n")}\n}\n`;
+  return `${imports}\n\n${body}`;
 }

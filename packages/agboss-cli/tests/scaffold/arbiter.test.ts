@@ -51,11 +51,11 @@ describe("#279: agboss generate arbiter", () => {
 
     expect(modify).toEqual([]);
     const [file] = create;
-    expect(file?.path).toBe("src/review/arbiters/valid-score.arbiter.ts");
+    expect(file?.path).toBe("src/review/arbiters/valid-score/valid-score.arbiter.ts");
     expect(file?.content).toContain('name: "valid-score-arbiter"');
     expect(file?.content).toContain("decidedBy: DecidedBy.Code");
     expect(file?.content).toContain("export class ValidScoreArbiter {");
-    expect(file?.content).toContain('import { ScoreAAgent } from "../agents/scorea.agent.js";');
+    expect(file?.content).toContain('import { ScoreAAgent } from "../../agents/scorea.agent.js";');
     expect(file?.content).toContain(
       "  @OnAnswer(ScoreAAgent)\n  fromScoreA(answer: ArbiterAnswerOf<typeof ScoreAAgent>): boolean {",
     );

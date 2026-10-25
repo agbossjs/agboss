@@ -26,7 +26,7 @@ async function planOf(
   name: string,
   options: Record<string, string | undefined>,
 ): Promise<{ readonly plan: Changes; readonly notes: readonly string[] }> {
-  if (kind !== "eval-case")
+  if (kind !== "eval-case" && kind !== "ec")
     return { plan: await planGenerate(kind, name, options, context.io.cwd), notes: [] };
   const { evalCasePlanOf } = await import("./generate-eval-case.js");
   const { changes, skipped } = await evalCasePlanOf(context, name);

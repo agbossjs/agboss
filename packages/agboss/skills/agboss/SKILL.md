@@ -20,13 +20,26 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
 1. **The application is the unit.** `createApp(App)`, `testWith(App)` and every `npx agboss …`
    command take an `@Application`; a `@Workflow` runs only as one of its `workflows` (or as a child
    of one). `createApp(Workflow)` and `testWith(Workflow)` do not compile.
-2. **One class per file, named by its kind.** Folders by kind (`agents/`, `tools/`, `routers/`,
-   `actions/`, `workflow-starts/`, `workflow-finishes/`, `services/`, `guardrails/`, …), files
-   `<name>.<kind>.ts`, a component's `name` in kebab-case ending with its kind (`billing-agent`,
-   `refund-tool`, `desk-router`, `chat-workflow-start`, `desk-workflow`) — `[name.kind-suffix]`; the
-   class is that name in PascalCase (`BillingAgent`, `DeskWorkflow`), and for an `@Application` and
-   a `@Budget` the same rule checks the class name too (a `@Budget` class `DailyLimit` fails:
-   `name it DailyLimitBudget`). A DTO class on a path ends with `Dto` (`[dto.name]`).
+2. **One class per file, named by its kind.** Prompt-bearing components always live in their own
+   subfolder `<name>/` inside their kind folder — even when `DecidedBy.Code` — (`agents/<name>/<name>.agent.ts`
+   - `<name>.prompt.md`, `routers/<name>/<name>.router.ts`, `judges/<name>/<name>.judge.ts`,
+     `arbiters/<name>/<name>.arbiter.ts`, `compactions/<name>/<name>.compaction.ts`,
+     `guardrails/<name>/<name>.guardrail.ts`, `reply-interpreters/<name>/<name>.reply-interpreter.ts`);
+     every other entity is a single file in its kind folder (`dto/<name>.dto.ts`, `tools/<name>.tool.ts`,
+     `actions/<name>.action.ts`, `workflow-starts/<name>.workflow-start.ts`,
+     `workflow-finishes/<name>.workflow-finish.ts`, `workflows/<name>.workflow.ts`,
+     `services/<name>.service.ts`, `observers/<name>.observer.ts`, `budgets/<name>.budget.ts`,
+     `interceptors/<name>.interceptor.ts`, `channels/<name>.channel-role.ts`, `channels/<name>.channel.ts`,
+     `pii-policies/<name>.pii-policy.ts`, `rag/<name>.rag.ts`, `retrievers/<name>.retriever.ts`,
+     `mcp/<name>.mcp-server.ts`, `mcp/<name>.mcp-tool.ts`, `mcp/<name>.mcp-expose.ts`,
+     `a2a/<name>.a2a-agent.ts`, `a2a/<name>.a2a-expose.ts`, `model-providers/<name>.model-provider.ts`,
+     `health-checks/<name>.health-check.ts`, `eval-suites/<name>.eval-suite.ts`,
+     `environments/*.environment.ts`, `<app>.application.ts`). A component's `name` is in kebab-case
+     ending with its kind (`billing-agent`, `refund-tool`, `desk-router`, `chat-workflow-start`,
+     `desk-workflow`) — `[name.kind-suffix]`; the class is that name in PascalCase (`BillingAgent`,
+     `DeskWorkflow`), and for an `@Application` and a `@Budget` the same rule checks the class name too
+     (a `@Budget` class `DailyLimit` fails: `name it DailyLimitBudget`). Every `*Dto` class is its own
+     file in `dto/<name>.dto.ts` and ends with `Dto` (`[dto.name]`).
 3. **The flow is paths, written one call per line.** `@Workflow({ flow: [start(S) … .toFinish(F)] })`;
    `.returns(XDto)` says what the step before put on the path (its scope), and a later node reads its
    `input` fields from that scope — as `{ producer, value }` records (`input.order.value`), never by
@@ -64,10 +77,11 @@ npx agboss describe                                                # the flow, m
 npm test                                                           # scripted models, no network
 ```
 
-- `npx agboss generate <kind> <full name> --workflow <workflow's full name>` writes the files and
-  the wiring (an agent's route, a tool in an agent's `tools`) and regenerates the types. Kinds:
-  `workflow`, `agent`, `router`, `arbiter`, `tool`, `mcp`, `rag`, `openapi`. A name without its
-  kind suffix is rejected, never completed.
+- `npx agboss generate <kind> <full name> --workflow <workflow's full name>` (alias `npx agboss g …`)
+  writes the files and the wiring (an agent's route, a tool in an agent's `tools`) and regenerates the
+  types. Kinds (and short aliases): `workflow` (`w`), `agent` (`a`), `router` (`r`), `arbiter` (`ar`),
+  `tool` (`t`), `mcp` (`m`), `rag`, `openapi` (`oa`), `eval-case` (`ec`). A name without its kind
+  suffix is rejected, never completed.
 - `npx agboss check` must print `ok:`; it reports **all** problems at once as `[rule.code]` lines —
   fix every one, then run it again. `npx agboss check --strict` makes the analyser's warnings
   errors; `npx agboss check --models` also checks the models against their providers.

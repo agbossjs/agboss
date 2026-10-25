@@ -230,7 +230,11 @@ export class UndoWorkflowStart {}
 })
 export class UndoUnhandledWorkflowStart {}
 
-@WorkflowStart({ name: "undo-path-workflow-start", description: "One by one", input: UndoRequestDto })
+@WorkflowStart({
+  name: "undo-path-workflow-start",
+  description: "One by one",
+  input: UndoRequestDto,
+})
 export class UndoPathWorkflowStart {}
 
 @WorkflowFinish({

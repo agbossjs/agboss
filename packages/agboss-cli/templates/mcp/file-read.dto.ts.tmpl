@@ -1,0 +1,7 @@
+import { Text } from "agboss/dto";
+
+/** `read_text_file`: which file. */
+export class FileReadDto {
+  @Text({ prompt: "absolute path of a file in {{dir}}" })
+  path!: string;
+}

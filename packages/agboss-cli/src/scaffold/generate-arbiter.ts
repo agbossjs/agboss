@@ -1,4 +1,4 @@
-import { dirname } from "node:path/posix";
+import { basename, dirname } from "node:path/posix";
 import ts from "typescript";
 import { ScaffoldError } from "./errors.js";
 import type { GenerateOptions } from "./generate.js";
@@ -77,7 +77,10 @@ const componentOf = (graph: WorkflowGraph, agent: string): Component => {
 /** The arbiters' folder: `arbiters/` beside the workflow's agents, else beside the workflow. */
 function folderOf(graph: WorkflowGraph, agents: readonly Component[]): string {
   const [first] = agents;
-  return first === undefined ? `${graph.dir}/arbiters` : `${dirname(dirname(first.path))}/arbiters`;
+  if (first === undefined) return `${graph.dir}/arbiters`;
+  const dir = dirname(first.path);
+  const agentsFolder = basename(dir) === "agents" ? dir : dirname(dir);
+  return `${dirname(agentsFolder)}/arbiters`;
 }
 
 /** `agboss g arbiter <name>`: the arbiter's file; nothing is rewired. */
@@ -85,7 +88,7 @@ export function planArbiter(root: string, name: string, o: GenerateOptions): Cha
   const n = fullNameOf(name, "arbiter");
   const graph = workflowGraph(root, o);
   const agents = launchFor(graph, o.agent).map((agent) => componentOf(graph, agent));
-  const path = `${folderOf(graph, agents)}/${n.kebab}.arbiter.ts`;
+  const path = `${folderOf(graph, agents)}/${n.kebab}/${n.kebab}.arbiter.ts`;
   const imports = agents
     .map((agent) => `import { ${agent.className} } from "${importPath(path, agent.path)}";`)
     .join("\n");

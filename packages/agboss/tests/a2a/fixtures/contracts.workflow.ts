@@ -117,7 +117,11 @@ export class QuoteDeskAgent {}
 })
 export class KbDeskAgent {}
 
-@WorkflowStart({ name: "quote-workflow-start", description: "A quote", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "quote-workflow-start",
+  description: "A quote",
+  input: WorkflowStartTextDto,
+})
 export class QuoteWorkflowStart {}
 
 @WorkflowStart({
@@ -144,7 +148,11 @@ export class QuoteWorkflowFinish {}
 })
 export class RefundWorkflowFinish {}
 
-@WorkflowFinish({ name: "kb-workflow-finish", description: "The hit", output: WorkflowFinishTextDto })
+@WorkflowFinish({
+  name: "kb-workflow-finish",
+  description: "The hit",
+  output: WorkflowFinishTextDto,
+})
 export class KbWorkflowFinish {}
 
 @Injectable()

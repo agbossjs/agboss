@@ -36,14 +36,14 @@ function extras(
     const mcp = mcpFiles(dir, spec.mcp);
     files.push(...mcp.files);
     server = mcp.server;
-    agent = wire(agent, "Agent", "tools", mcp.tool, mcp.tool, `../${mcp.toolModule}.js`);
+    agent = wire(agent, "Agent", "tools", mcp.tool, mcp.tool, `../../${mcp.toolModule}.js`);
   }
   if (spec.rag !== undefined) {
     const name = fullNameOf(spec.rag.name, "rag");
     const rag = ragFiles(dir, { name, folder: spec.rag.folder });
     files.push(...rag.files);
     const element = `{ use: ${rag.knowledge}, mode: RagMode.Tool }`;
-    const from = `../rag/${name.kebab}.rag.js`;
+    const from = `../../rag/${name.kebab}.rag.js`;
     agent = wire(agent, "Agent", "rag", element, rag.knowledge, from);
     // the mode is an enum (#269): its import goes with the knowledge base's
     agent = { ...agent, content: addImport(agent.content, agent.path, "RagMode", "agboss") };
@@ -60,11 +60,12 @@ function moduleImports(
 ): string {
   return [
     ...agents.map(
-      (a) => `import { ${a.names.pascal}Agent } from "./agents/${a.names.kebab}.agent.js";`,
+      (a) =>
+        `import { ${a.names.pascal}Agent } from "./agents/${a.names.kebab}/${a.names.kebab}.agent.js";`,
     ),
     ...(spec.mcp.kind === "none"
       ? []
-      : [`import { ${server} } from "./mcp/${namesOf(spec.mcp.name).kebab}.server.js";`]),
+      : [`import { ${server} } from "./mcp/${namesOf(spec.mcp.name).kebab}.mcp-server.js";`]),
     ...(service === undefined ? [] : [`import { ApiService } from "${service}";`]),
   ].join("\n");
 }

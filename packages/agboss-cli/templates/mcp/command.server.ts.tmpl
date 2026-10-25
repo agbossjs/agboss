@@ -1,9 +1,5 @@
-import { McpServer, McpServerClient } from "agboss/mcp";
 import { NoInputDto, PlainTextDto } from "agboss/dto";
-
-// TODO: the arguments and the result of the server's "{{serverTool}}" tool (checked at startup) —
-// replace them with your DTO classes; PlainTextDto ({ text }) takes the server's text as is.
-export { NoInputDto as {{toolPascal}}Args, PlainTextDto as {{toolPascal}}Reply };
+import { McpServer, McpServerClient } from "agboss/mcp";
 
 /** The server tools this workflow uses — checked against the server at startup. */
 const tools = {

@@ -18,11 +18,7 @@ import {
 } from "../../../infrastructure/fixtures/recovery.workflow.js";
 import { RecordingLogger } from "../../../helpers/log.js";
 import { start, toFinish } from "../../../helpers/flow.js";
-import {
-  ItemDto,
-  ItemResultDto,
-  SummaryWorkflowFinish,
-} from "./fan-out.workflow.js";
+import { ItemDto, ItemResultDto, SummaryWorkflowFinish } from "./fan-out.workflow.js";
 import {
   ChecksFailedWorkflowFinish,
   ChildEventLog,
@@ -171,11 +167,7 @@ export class RemoteReviewItemsWorkflow {}
     ItemReviewWorkflow,
   ],
   observers: [RecoveryLog, ChildEventLog],
-  providers: [
-    MortalExecutionLeaseRepository,
-    StampedExecutionRecordRepository,
-    RecordingLogger,
-  ],
+  providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository, RecordingLogger],
   budgets: TEST_BUDGETS,
 })
 export class RemoteRecoveryApplication {}

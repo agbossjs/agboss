@@ -15,7 +15,11 @@ export { RenamedBillingAnswerDto, StrictBillingQuestionDto } from "./billing.dto
 
 /** A billing desk whose contract changed under the shop (#398 PR 4). */
 
-@WorkflowStart({ name: "billing-workflow-start", description: "A billing question", input: StrictBillingQuestionDto })
+@WorkflowStart({
+  name: "billing-workflow-start",
+  description: "A billing question",
+  input: StrictBillingQuestionDto,
+})
 export class ChangedBillingWorkflowStart {}
 
 @Agent({
@@ -27,7 +31,11 @@ export class ChangedBillingWorkflowStart {}
 })
 export class ChangedBillingDeskAgent {}
 
-@WorkflowFinish({ name: "billing-workflow-finish", description: "The answer", output: RenamedBillingAnswerDto })
+@WorkflowFinish({
+  name: "billing-workflow-finish",
+  description: "The answer",
+  output: RenamedBillingAnswerDto,
+})
 export class ChangedBillingWorkflowFinish {}
 
 @Workflow({

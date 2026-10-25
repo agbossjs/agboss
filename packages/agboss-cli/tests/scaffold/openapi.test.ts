@@ -77,7 +77,7 @@ describe("agboss generate openapi", () => {
     const lint = run(bin("eslint/bin/eslint.js"), ["--no-ignore", join(project, "src")], repo);
     expect(lint.ok, lint.out).toBe(true);
     // the files it writes and the rewired agent (the workflow module is not prettier-clean from `agboss create`)
-    const files = [...plan.create.map((f) => f.path), "src/zoo/agents/keeper.agent.ts"].map(
+    const files = [...plan.create.map((f) => f.path), "src/zoo/agents/keeper/keeper.agent.ts"].map(
       (path) => join(project, path),
     );
     const prettier = run(
@@ -91,29 +91,37 @@ describe("agboss generate openapi", () => {
     for (const tool of ["get-pet-tool", "delete-pet-tool", "list-pets-tool", "create-pet-tool"])
       expect(described.out).toContain(`· ${tool} (local)`);
 
-    // layout: tools/<operation>.{tool,tool.test,dto}.ts and services/<name>-api.service.ts, nothing at the root
+    // layout: tools/<operation>.{tool,tool.test}.ts, dto/<class>.dto.ts and services/<name>-api.service.ts
     expect(written.sort()).toEqual(
       [
         "services/pets-api.service.ts",
-        "tools/create-pet.dto.ts",
+        "dto/create-pet-body-owner.dto.ts",
+        "dto/create-pet-body.dto.ts",
+        "dto/create-pet-input.dto.ts",
+        "dto/create-pet-output-owner.dto.ts",
+        "dto/create-pet-output.dto.ts",
+        "dto/delete-pet-input.dto.ts",
+        "dto/get-pet-input.dto.ts",
+        "dto/get-pet-output-owner.dto.ts",
+        "dto/get-pet-output.dto.ts",
+        "dto/list-pets-output-items-item-owner.dto.ts",
+        "dto/list-pets-output-items-item.dto.ts",
+        "dto/list-pets-output.dto.ts",
         "tools/create-pet.tool.test.ts",
         "tools/create-pet.tool.ts",
-        "tools/delete-pet.dto.ts",
         "tools/delete-pet.tool.test.ts",
         "tools/delete-pet.tool.ts",
-        "tools/get-pet.dto.ts",
         "tools/get-pet.tool.test.ts",
         "tools/get-pet.tool.ts",
-        "tools/list-pets.dto.ts",
         "tools/list-pets.tool.test.ts",
         "tools/list-pets.tool.ts",
-        "agents/keeper.agent.ts",
+        "agents/keeper/keeper.agent.ts",
         "zoo.workflow.ts",
       ]
         .map((path) => `src/zoo/${path}`)
         .sort(),
     );
-    expect(file("agents/keeper.agent.ts")).toContain(
+    expect(file("agents/keeper/keeper.agent.ts")).toContain(
       "tools: [GetPetTool, DeletePetTool, ListPetsTool, CreatePetTool]",
     );
     expect(file("zoo.workflow.ts")).toContain("providers: [ApiService, PetsApiService]");
@@ -147,7 +155,9 @@ describe("agboss generate openapi", () => {
     );
     expect(plan.create.map((f) => f.path)).toEqual([
       "src/zoo/services/more-pets-api.service.ts",
-      "src/zoo/tools/list-pets.dto.ts",
+      "src/zoo/dto/list-pets-output-items-item-owner.dto.ts",
+      "src/zoo/dto/list-pets-output-items-item.dto.ts",
+      "src/zoo/dto/list-pets-output.dto.ts",
       "src/zoo/tools/list-pets.tool.ts",
       "src/zoo/tools/list-pets.tool.test.ts",
     ]);

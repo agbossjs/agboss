@@ -1,5 +1,6 @@
 import { renderTemplate } from "agboss/internal";
 import { readFileSync } from "node:fs";
+import { dirname } from "node:path/posix";
 import { ScaffoldError } from "./errors.js";
 import type { Names } from "./names.js";
 import type { FileToWrite } from "./write.js";
@@ -75,12 +76,13 @@ const NO_API = {
 };
 
 /**
- * A tool (`<name>-tool`, class `<Name>Tool`) and its test in `folder`. With `api` (`agboss create`,
- * #239) the tool injects the project's `ApiService` and its test runs it in the application, on its
- * environment.
+ * A tool (`<name>-tool`, class `<Name>Tool`), its test in `folder`, and its input/output DTOs in
+ * `../dto/`. With `api` (`agboss create`, #239) the tool injects the project's `ApiService` and its
+ * test runs it in the application, on its environment.
  */
 export function toolFiles(folder: string, tool: Names, api?: ToolApi): FileToWrite[] {
   const variables = { ...vars(tool), ...(api === undefined ? NO_API : apiVariables(tool, api)) };
+  const dtoFolder = `${dirname(folder)}/dto`;
   const test =
     api === undefined
       ? render("tool/tool.test.ts.tmpl", variables)
@@ -90,12 +92,23 @@ export function toolFiles(folder: string, tool: Names, api?: ToolApi): FileToWri
           applicationFrom: api.applicationFrom,
         });
   return [
-    { path: `${folder}/${tool.kebab}.tool.ts`, content: render("tool/tool.ts.tmpl", variables) },
+    {
+      path: `${folder}/${tool.kebab}.tool.ts`,
+      content: render("tool/tool.ts.tmpl", variables).replace(/\n\n\n/g, "\n\n"),
+    },
     { path: `${folder}/${tool.kebab}.tool.test.ts`, content: test },
+    {
+      path: `${dtoFolder}/${tool.kebab}-query.dto.ts`,
+      content: render("tool/query.dto.ts.tmpl", variables),
+    },
+    {
+      path: `${dtoFolder}/${tool.kebab}-result.dto.ts`,
+      content: render("tool/result.dto.ts.tmpl", variables),
+    },
   ];
 }
 
-/** An agent (`<name>-agent`) and its prompt in `folder` (`<workflow>/agents`), its tools in `../tools`. */
+/** An agent (`<name>-agent`) and its prompt in `folder/<name>/`, its tools in `../../tools`. */
 export function agentFiles(
   folder: string,
   agent: Names,
@@ -103,7 +116,7 @@ export function agentFiles(
   tools: readonly Names[],
 ): FileToWrite[] {
   const imports = tools
-    .map((t) => `import { ${t.pascal}Tool } from "../tools/${t.kebab}.tool.js";`)
+    .map((t) => `import { ${t.pascal}Tool } from "../../tools/${t.kebab}.tool.js";`)
     .join("\n");
   const variables = {
     ...vars(agent),
@@ -113,11 +126,11 @@ export function agentFiles(
   };
   return [
     {
-      path: `${folder}/${agent.kebab}.agent.ts`,
+      path: `${folder}/${agent.kebab}/${agent.kebab}.agent.ts`,
       content: render("agent/agent.ts.tmpl", variables).replace(/\n\n\n/g, "\n\n"),
     },
     {
-      path: `${folder}/${agent.kebab}.prompt.md`,
+      path: `${folder}/${agent.kebab}/${agent.kebab}.prompt.md`,
       content: render("agent/agent.prompt.md.tmpl", variables),
     },
   ];

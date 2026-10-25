@@ -1,7 +1,8 @@
-import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { McpServer, McpServerClient } from "agboss/mcp";
-import { Text } from "agboss/dto";
+import { FileContentDto } from "../dto/file-content.dto.js";
+import { FileReadDto } from "../dto/file-read.dto.js";
 
 /** The official filesystem MCP server (a dependency of this project). */
 const FILESYSTEM_SERVER = join(
@@ -10,21 +11,9 @@ const FILESYSTEM_SERVER = join(
   "index.js",
 );
 
-/** `read_text_file`: which file. */
-export class FileRead {
-  @Text({ prompt: "absolute path of a file in {{dir}}" })
-  path!: string;
-}
-
-/** `read_text_file`: the file's text. */
-export class FileContent {
-  @Text({ prompt: "the file's text" })
-  content!: string;
-}
-
 /** The server tools this workflow uses — checked against the server at startup. */
 const tools = {
-  read_text_file: { input: FileRead, output: FileContent },
+  read_text_file: { input: FileReadDto, output: FileContentDto },
 };
 
 /** Files in {{dir}}, through the filesystem MCP server. */

@@ -84,7 +84,11 @@ export class SeatAndRoomWorkflowFinish {
   }
 }
 
-@WorkflowStart({ name: "unwind-workflow-start", description: "Seat, room, wait", input: UndoRequestDto })
+@WorkflowStart({
+  name: "unwind-workflow-start",
+  description: "Seat, room, wait",
+  input: UndoRequestDto,
+})
 export class UnwindWorkflowStart {}
 
 /** A seat held until confirmed, a room a finish commits, a wait between them and the commit. */
@@ -168,7 +172,11 @@ export class UnwindSidePathWorkflowStart {}
 })
 export class UnwindSidePathWorkflow {}
 
-@WorkflowStart({ name: "unwind-room-workflow-start", description: "One guest", input: UndoRequestDto })
+@WorkflowStart({
+  name: "unwind-room-workflow-start",
+  description: "One guest",
+  input: UndoRequestDto,
+})
 export class UnwindRoomWorkflowStart {}
 
 @WorkflowFinish({ name: "room-reserved-workflow-finish", description: "The room", output: RoomDto })

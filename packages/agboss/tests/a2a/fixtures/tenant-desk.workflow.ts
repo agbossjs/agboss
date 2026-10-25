@@ -66,7 +66,8 @@ export class KeyCallerResolver implements A2ACallerResolver<typeof TenantAskStar
       });
     }
     const grant = await this.apiKeyDirectory.grantOf(header.slice("Bearer ".length));
-    if (grant === undefined) return A2ACallerResolution.unauthenticated({ reason: "unknown API key" });
+    if (grant === undefined)
+      return A2ACallerResolution.unauthenticated({ reason: "unknown API key" });
     if (request.route === A2ARoute.Resume && !grant.canAnswerPauses) {
       return A2ACallerResolution.forbidden({ reason: "this key may not answer pauses" });
     }

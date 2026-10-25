@@ -12,30 +12,33 @@ export interface McpParts {
   readonly toolModule: string;
 }
 
-/** An MCP server (`<name>.server.ts`) and one MCP tool calling it (`<tool>.mcp.ts`). */
+const FILESYSTEM_TYPES = {
+  input: "FileReadDto",
+  output: "FileContentDto",
+  dtoImports:
+    'import { FileContentDto } from "../dto/file-content.dto.js";\nimport { FileReadDto } from "../dto/file-read.dto.js";',
+};
+const COMMAND_TYPES = {
+  input: "NoInputDto",
+  output: "PlainTextDto",
+  dtoImports: 'import { NoInputDto, PlainTextDto } from "agboss/dto";',
+};
+
+/** An MCP server (`<name>.mcp-server.ts`) and one MCP tool calling it (`<tool>.mcp-tool.ts`). */
 export function mcpFiles(dir: string, mcp: Exclude<McpSpec, { kind: "none" }>): McpParts {
   const n = namesOf(mcp.name);
   const filesystem = mcp.kind === "filesystem";
   const tool = namesOf(filesystem ? `read ${mcp.name}` : `${mcp.name} ${mcp.tool}`);
   const serverTool = filesystem ? "read_text_file" : mcp.tool;
-  const typeName = filesystem ? "" : namesOf(mcp.tool).pascal;
-  const types = filesystem
-    ? { input: "FileRead", output: "FileContent" }
-    : { input: `${typeName}Args`, output: `${typeName}Reply` };
   const serverFile = filesystem
     ? render("mcp/filesystem.server.ts.tmpl", { ...vars(n), dir: mcp.dir })
-    : render("mcp/command.server.ts.tmpl", {
-        ...vars(n),
-        command: mcp.command,
-        serverTool,
-        toolPascal: typeName,
-      });
+    : render("mcp/command.server.ts.tmpl", { ...vars(n), command: mcp.command, serverTool });
   const description = filesystem
     ? `Read a text file in ${mcp.dir} (absolute path).`
     : `${tool.title} (TODO: say what it does)`;
   const toolFile = render("mcp/tool.mcp.ts.tmpl", {
     ...vars(tool),
-    ...types,
+    ...(filesystem ? FILESYSTEM_TYPES : COMMAND_TYPES),
     serverPascal: n.pascal,
     serverCamel: camelOf(n),
     serverKebab: n.kebab,
@@ -44,13 +47,25 @@ export function mcpFiles(dir: string, mcp: Exclude<McpSpec, { kind: "none" }>): 
   });
   return {
     files: [
-      { path: `${dir}/mcp/${n.kebab}.server.ts`, content: serverFile },
-      { path: `${dir}/mcp/${tool.kebab}.mcp.ts`, content: toolFile },
+      { path: `${dir}/mcp/${n.kebab}.mcp-server.ts`, content: serverFile },
+      { path: `${dir}/mcp/${tool.kebab}.mcp-tool.ts`, content: toolFile },
+      ...(filesystem
+        ? [
+            {
+              path: `${dir}/dto/file-read.dto.ts`,
+              content: render("mcp/file-read.dto.ts.tmpl", { dir: mcp.dir }),
+            },
+            {
+              path: `${dir}/dto/file-content.dto.ts`,
+              content: render("mcp/file-content.dto.ts.tmpl", {}),
+            },
+          ]
+        : []),
     ],
     server: `${n.pascal}Server`,
-    serverModule: `mcp/${n.kebab}.server`,
+    serverModule: `mcp/${n.kebab}.mcp-server`,
     tool: `${tool.pascal}Tool`,
-    toolModule: `mcp/${tool.kebab}.mcp`,
+    toolModule: `mcp/${tool.kebab}.mcp-tool`,
   };
 }
 

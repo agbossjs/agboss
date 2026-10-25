@@ -1,28 +1,17 @@
 import { ExecutionContext, Tool, type ToolHandler } from "agboss";
-import { Text } from "agboss/dto";
+import { {{pascal}}QueryDto } from "../dto/{{kebab}}-query.dto.js";
+import { {{pascal}}ResultDto } from "../dto/{{kebab}}-result.dto.js";
 {{serviceImport}}
-
-/** What the model asks {{kebab}}-tool for. */
-export class {{pascal}}Query {
-  @Text({ prompt: "what to look up" })
-  query!: string;
-}
-
-/** What {{kebab}}-tool answers. */
-export class {{pascal}}Result {
-  @Text({ prompt: "the answer" })
-  result!: string;
-}
 
 /** {{title}}. TODO: implement — it returns a placeholder so the workflow runs end to end. */
 @Tool({
   name: "{{kebab}}-tool",
   description: "{{title}} (TODO: say what it does)",
-  input: {{pascal}}Query,
-  output: {{pascal}}Result,
+  input: {{pascal}}QueryDto,
+  output: {{pascal}}ResultDto,
 {{deps}}})
-export class {{pascal}}Tool implements ToolHandler<{{pascal}}Query, {{pascal}}Result> {
-{{constructor}}  run({ query }: {{pascal}}Query): Promise<{{pascal}}Result> {
+export class {{pascal}}Tool implements ToolHandler<{{pascal}}QueryDto, {{pascal}}ResultDto> {
+{{constructor}}  run({ query }: {{pascal}}QueryDto): Promise<{{pascal}}ResultDto> {
     // TODO: the real work — dependencies come through the constructor (and `deps`)
     this.executionContext.signal.throwIfAborted(); // the execution: its signal, step.idempotencyKey, …
     return Promise.resolve({ result: `TODO: {{kebab}}-tool is not implemented yet (query: ${query}{{serviceUse}})` });

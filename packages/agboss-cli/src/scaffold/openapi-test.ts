@@ -1,4 +1,4 @@
-import { sampleOf } from "./openapi-dto.js";
+import { dtoFileStem, sampleOf } from "./openapi-dto.js";
 import { access, importLine, literal, type Sample } from "./openapi-format.js";
 import type { OperationModel } from "./openapi-spec.js";
 import { inputTypeOf } from "./openapi-tool.js";
@@ -38,7 +38,7 @@ const answerOf = (op: OperationModel): string => {
 const typeImportOf = (op: OperationModel): string =>
   op.input === undefined
     ? importLine(["NoInputDto"], "agboss/dto", true)
-    : importLine([op.input.name], `./${op.names.kebab}.dto.js`, true);
+    : importLine([op.input.name], `../dto/${dtoFileStem(op.input.name)}.dto.js`, true);
 
 /** The tool's test: the API stubbed, the sample input sent, the request checked. */
 export function testSource(op: OperationModel, baseUrl: string): string {

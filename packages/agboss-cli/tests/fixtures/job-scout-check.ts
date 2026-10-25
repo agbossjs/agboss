@@ -4,7 +4,7 @@
  */
 export const JOB_SCOUT_CHECK = `import { callTool, replyWith, routeTo, testWith } from "agboss/testing";
 import { expect } from "vitest";
-import { BillingAgent } from "../src/agents/billing.agent.js";
+import { BillingAgent } from "../src/agents/billing/billing.agent.js";
 import { JobScoutApplication } from "../src/job-scout.application.js";
 import { MainRouter } from "../src/routers/main.router.js";
 import { RefundTool } from "../src/tools/refund.tool.js";

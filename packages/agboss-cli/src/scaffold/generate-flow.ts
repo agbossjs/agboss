@@ -47,7 +47,7 @@ export function planAgent(root: string, name: string, o: GenerateOptions): Chang
   const router = starRouterOf(graph);
   const description = o.description ?? `${n.title} (TODO: describe the role)`;
   const folder = folderOf(graph, "Agent", "agents");
-  const path = `${folder}/${n.kebab}.agent.ts`;
+  const path = `${folder}/${n.kebab}/${n.kebab}.agent.ts`;
   const className = `${n.pascal}Agent`;
   return {
     create: agentFiles(folder, n, description, []),
@@ -86,7 +86,7 @@ export function planRouter(root: string, name: string, o: GenerateOptions): Chan
   };
   const route = finishRoute(
     finish.className,
-    importPath(`${folder}/${n.kebab}.router.ts`, finish.path),
+    importPath(`${folder}/${n.kebab}/${n.kebab}.router.ts`, finish.path),
   );
   return { create: [routerFile(folder, n, text, [route])], modify: [] };
 }

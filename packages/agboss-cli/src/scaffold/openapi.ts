@@ -1,6 +1,6 @@
 import { ScaffoldError, ScaffoldUsageError } from "./errors.js";
 import { camelOf, namesOf } from "./names.js";
-import { dtoSource } from "./openapi-dto.js";
+import { dtoClassSource, dtoFileStem } from "./openapi-dto.js";
 import { baseUrlOf, loadDocument, operationsOf, type OperationModel } from "./openapi-spec.js";
 import { testSource } from "./openapi-test.js";
 import { serviceSource, toolSource, type ApiNames } from "./openapi-tool.js";
@@ -53,7 +53,7 @@ function selected(
     });
 }
 
-/** One operation's files: its DTOs (when it has any), the tool and the tool's test. */
+/** One operation's files: its DTOs in `dto/` (1 class per file), the tool and the tool's test. */
 function operationFiles(
   dir: string,
   op: OperationModel,
@@ -62,9 +62,10 @@ function operationFiles(
 ): FileToWrite[] {
   const base = `${dir}/tools/${op.names.kebab}`;
   return [
-    ...(op.classes.length === 0
-      ? []
-      : [{ path: `${base}.dto.ts`, content: dtoSource(op.classes) }]),
+    ...op.classes.map((model) => ({
+      path: `${dir}/dto/${dtoFileStem(model.name)}.dto.ts`,
+      content: dtoClassSource(model, op.classes),
+    })),
     { path: `${base}.tool.ts`, content: toolSource(op, api) },
     { path: `${base}.tool.test.ts`, content: testSource(op, baseUrl) },
   ];

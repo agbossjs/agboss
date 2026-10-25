@@ -1,3 +1,4 @@
+import { dtoFileStem } from "./openapi-dto.js";
 import {
   access,
   classHeader,
@@ -82,8 +83,13 @@ const ANSWERS = {
 const standardDtos = (types: readonly string[]): string[] =>
   types.filter((t) => t === "NoInputDto" || t === "PlainTextDto");
 
-const dtoImport = (op: OperationModel, names: readonly string[]): string =>
-  names.length === 0 ? "" : `\n${importLine(names, `./${op.names.kebab}.dto.js`)}`;
+const dtoImports = (names: readonly string[]): string =>
+  names.length === 0
+    ? ""
+    : `\n${[...new Set(names)]
+        .sort()
+        .map((name) => importLine([name], `../dto/${dtoFileStem(name)}.dto.js`))
+        .join("\n")}`;
 
 export function toolSource(op: OperationModel, api: ApiNames): string {
   const input = inputTypeOf(op);
@@ -95,7 +101,7 @@ export function toolSource(op: OperationModel, api: ApiNames): string {
     importLine([api.className], `../services/${api.module}.service.js`),
   ].join("\n");
   return render("openapi/tool.ts.tmpl", {
-    imports: imports + dtoImport(op, own),
+    imports: imports + dtoImports(own),
     summary: op.summary,
     method: op.method,
     path: comment(op.path),

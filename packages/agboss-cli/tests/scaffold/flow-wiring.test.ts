@@ -80,9 +80,9 @@ describe("#116: agboss g agent joins the router's choice; agboss g router", () =
       '@WorkflowFinish({ name: "done", output: X })\nexport class DoneFinish {}\n',
     );
     const [router] = (await planGenerate("router", "escalation-router", options, root)).create;
-    expect(router?.path).toBe("src/desk/routers/escalation.router.ts");
+    expect(router?.path).toBe("src/desk/routers/escalation/escalation.router.ts");
     expect(router?.content).toContain("export class EscalationRouter {}");
-    expect(router?.content).toContain('import { DoneFinish } from "../ends/done.js";');
+    expect(router?.content).toContain('import { DoneFinish } from "../../ends/done.js";');
     expect(router?.content).toContain(
       '{ prompt: "Stop and send the answer: the contributions so far answer the message',
     );

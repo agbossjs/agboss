@@ -19,6 +19,17 @@ export const KINDS = [
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
+/** Single-letter / short aliases for `agboss generate <kind>` (`agboss g a`, `agboss g t`, …). */
+export const KIND_ALIASES: Readonly<Record<string, Kind>> = {
+  w: "workflow",
+  a: "agent",
+  r: "router",
+  ar: "arbiter",
+  t: "tool",
+  m: "mcp",
+  oa: "openapi",
+};
+
 export interface GenerateOptions {
   /** The workflow a part goes into, by its full name (`desk-workflow`). */
   readonly workflow?: string | undefined;
@@ -58,8 +69,9 @@ export async function planGenerate(
   options: GenerateOptions,
   root: string,
 ): Promise<Changes> {
-  if (!(KINDS as readonly string[]).includes(kind))
+  const resolved = KIND_ALIASES[kind] ?? kind;
+  if (!(KINDS as readonly string[]).includes(resolved))
     throw new ScaffoldUsageError(`Unknown kind "${kind}" — one of: ${KINDS.join(", ")}`);
-  const plan = await PLANS[kind as Kind](root, name, options);
+  const plan = await PLANS[resolved as Kind](root, name, options);
   return { create: placeTests(root, plan.create), modify: plan.modify };
 }

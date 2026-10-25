@@ -29,7 +29,7 @@ export const routeLine = (target: string, text: string): string =>
 /** An agent's route in the main router: the agent class and its description. */
 export const agentRoute = (agent: Names, description: string): RouteSpec => ({
   target: `${agent.pascal}Agent`,
-  from: `../agents/${agent.kebab}.agent.js`,
+  from: `../../agents/${agent.kebab}/${agent.kebab}.agent.js`,
   text: description,
 });
 
@@ -60,7 +60,7 @@ export interface RouterFileSpec {
 }
 
 /**
- * A router file (`<folder>/<name>.router.ts`) with its routes and their imports; its `name` is
+ * A router file (`<folder>/<name>/<name>.router.ts`) with its routes and their imports; its `name` is
  * `<id>-router` (`id` defaults to the router's own kebab name).
  */
 export function routerFile(
@@ -72,7 +72,7 @@ export function routerFile(
 ): FileToWrite {
   const imports = routes.map((r) => `import { ${r.target} } from "${r.from}";`).join("\n");
   return {
-    path: `${folder}/${router.kebab}.router.ts`,
+    path: `${folder}/${router.kebab}/${router.kebab}.router.ts`,
     content: render("router/router.ts.tmpl", {
       ...vars(router),
       id,
