@@ -1,7 +1,7 @@
 {
   "name": "agboss-monorepo",
   "version": "0.1.0",
-  "description": "The AGBoss monorepo: the agboss framework, the agboss CLI and their examples. Spring-style TypeScript framework for mission-critical LangGraph AI agents — @Application DI, Path Scope Flow DSL, transactional sagas, FinOps budgets, MCP/RAG/A2A, and deterministic unit testing.",
+  "description": "The AGBoss monorepo: the agboss framework, the agboss CLI and their examples. Spring-style TypeScript framework for complex LangGraph AI agents — @Application DI, Path Scope Flow DSL, transactional sagas, FinOps budgets, MCP/RAG/A2A, and deterministic unit testing.",
   "keywords": [
     "agboss",
     "langgraph",
