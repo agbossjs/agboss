@@ -725,3 +725,5 @@ are checked where the child runs, and each superstep's spend reaches the root's 
 own implementation (Redis, …) `extends RateLimitRepository` and implements all eight methods (`ping()` included, #300); the
 shared contract suite of the framework (`tests/infrastructure/rate-limit.contract.test.ts`) is the
 behaviour to match.
+
+**Standalone executable proof:** [`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

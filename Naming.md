@@ -98,3 +98,5 @@ screening-workflow-start`, `--workflow job-scout-workflow`, `agboss generate age
 `--rag jobs-rag` — so `grep "screening-workflow-start"` finds every use, CI scripts included. Nothing
 is completed or guessed: a name not found is exit 2 with `Did you mean "…"?` and the list, and
 nothing runs or is written. [CLI](CLI).
+
+**Standalone examples of canonical `1 class = 1 file` component subfolder layout and symmetric `tests/`:** [`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss) through [`07-langgraph-migration`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

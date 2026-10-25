@@ -539,3 +539,5 @@ snapshots/shop.json federation.incompatible-schema shop-application › billing-
 A problem is exit 3, like every `check` problem; `--json` carries each one with its `blastRadius`
 (`{ application, workflow, tool }[]`). Snapshot paths without `--federation`, or the flag without
 any, are a usage error (exit 2). The comparison is `checkFederation` in `agboss/internal`.
+
+**Standalone executable proof:** [`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh) (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`, and `federation/`) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

@@ -11,7 +11,10 @@ FinOps on every call, Terns and evaluation, profiles and comparisons, tracing.
 The repository holds two things:
 
 1. **The framework** — the npm package `agboss` (`packages/agboss`), its CLI `agboss`
-   (`packages/agboss-cli`) and the example `examples/job-scout`.
+   (`packages/agboss-cli`), the in-repo examples `examples/job-scout` and `examples/flow-patterns`,
+   and the seven standalone reference applications in
+   [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) (`01-hello-agboss`
+   through `07-langgraph-migration`).
 2. **The delivery conveyor** — how the code is built with Claude Code: tickets move
    **Triage → Backlog → In progress → Test → Done** on the repo's board. See
    [Delivery Pipeline](Delivery-Pipeline).
@@ -83,7 +86,7 @@ cd examples/job-scout && npm run chat # "my resume src/data/sample-resume.md"
 npm run describe                      # agents, tools, dependencies — no API key
 ```
 
-More: [Example](Example). `npm run studio` (repo root) opens job-scout in LangGraph Studio —
+More: [Example](Example) (covering [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) `01-hello-agboss` .. `07-langgraph-migration`, `examples/job-scout`, and `examples/flow-patterns`). `npm run studio` (repo root) opens job-scout in LangGraph Studio —
 `agboss studio` in any project, no `studio.ts` or `langgraph.json` of its own ([CLI](CLI#watch-mode-and-studio-268)).
 
 ### Public entries

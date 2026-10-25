@@ -185,3 +185,5 @@ unstableReach: [{ application, suites, consumers: [{ application, workflows, too
 report?,
 bytes? }`, `created: [<html>]`. A page
 above 16 MB is refused, `hub.report-too-large` (exit 2): export a shorter period.
+
+**Standalone executable proof:** [`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

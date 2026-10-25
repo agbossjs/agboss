@@ -692,3 +692,5 @@ artifact is `eval.labels-invalid` (exit 2, the line named); no file is `eval.lab
 `judges`: each `EvalJudgeCalibration` with `n`, `labelers`, `agreements` (`EvalRaterAgreement`:
 `raters`, `n`, `observed`, `kappa?`), `confusion`, `disagreements`, `metrics`, `scores?`), all public
 types in `agboss/eval`.
+
+**Standalone executable proof:** [`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) (`src/eval-suites/refund-desk.eval-suite.ts`, compact `eval/baseline/main-baseline.json`, and `eval/human-labels/refund-desk-eval-suite.jsonl`) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

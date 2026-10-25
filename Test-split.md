@@ -17,3 +17,5 @@ model**: real models answer only in evaluation and in the smoke tests, never in 
   application); the Langfuse UI is not tested.
 - Recorded runs ([VCR](Testing#vcr--recorded-runs)) sit between the first two layers: answers
   recorded once from real models, replayed offline — an integration test, not an evaluation.
+
+**Standalone examples with symmetric Spring-style `tests/` mirroring `src/`:** [`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss), [`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk), and all 7 projects in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

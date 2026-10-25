@@ -415,3 +415,5 @@ built from — so the correlation between fields survives a merge; `maxVisits` t
 proof (a graph wrong on any iteration is wrong). The generated
 `InputOf<X>` is the exact union of those states projected onto the node's `input` (up to 32 shapes;
 above it one flat object, and `agboss check` says so).
+
+**Standalone executable proof:** [`02-path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/02-path-scope-proof) (and [`07-langgraph-migration`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration)) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

@@ -402,3 +402,5 @@ clean-up signal; a failing undo does not stop the others, and the execution fail
 ends without a finish — a cancel, an uncaught failure or limit, an aborted child — with #340 PR 3
 ([above](#an-execution-that-ends-without-a-finish)), and finishing an undo a stop, a crash or a
 lost lease interrupted with #340 PR 4.
+
+**Standalone executable proofs:** [`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga) and [`02-path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/02-path-scope-proof) (`04-uncompensated-action`) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

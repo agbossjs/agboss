@@ -402,3 +402,5 @@ kind field as `<field-name>`.
 Under `testWith` a `pseudonymKey` (a policy's or the application's) whose variable is unset gets a
 fixed test key, and
 `mockLlm(ContactPiiPolicy)` scripts a policy's model detection like any model.
+
+**Standalone executable proof:** [`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

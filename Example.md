@@ -1,6 +1,29 @@
-# Example: job-scout
+# Examples: `agboss-examples` (01–07), `job-scout` & `flow-patterns`
 
-`examples/job-scout/` — the full example, a separate package that depends on `agboss` exactly
+AGBoss examples live in two places:
+
+1. **[`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) (`01-hello-agboss` through `07-langgraph-migration`)** — seven standalone, runnable applications that depend on the distributed `agboss` and `agboss-cli` packages, enforce the canonical `1 class = 1 file` component subfolder layout and symmetric Spring-style `tests/` mirroring `src/`, and verify every framework guarantee offline (`$0`).
+2. **In-repository packages (`examples/job-scout/` and `examples/flow-patterns/`)** — `examples/job-scout/` (resume → search brief → Greenhouse jobs ranked by Jev → company notes RAG → MCP shortlist) and [flow-patterns](#flow-patterns-a-review-loop-and-a-code-router) (the zero-cost harness of the public surface).
+
+## Standalone verified applications (`agbossjs/agboss-examples`)
+
+Every project in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) follows **`Promise → Failure Injection → Reproducible Proof`**:
+
+| Project | Primary Engineering Proof |
+| :--- | :--- |
+| **[`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss)** | Clean `agboss create` project layout (`1 class = 1 file`, `src/workflows/hello-agboss/`, `src/agents/<name>/` with `.prompt.md`), real async HTTP service DI (`PricingCatalogService` passing `ExecutionContext.signal` + `step.idempotencyKey`), production HTTP server (`src/http/server.ts` with `202 Accepted` on pauses and `/health/live` + `/health/ready` probes), and symmetric `tests/` (`mockOf`, `testWith`). |
+| **[`02-path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/02-path-scope-proof)** | Static dataflow proof across 4 cases (`01-missing-input`, `02-outdated-data`, `03-parallel-invalidation`, `04-uncompensated-action`) showing `[input.missing-on-path]`, `[input.outdated-on-path]`, `[launch.branch-outdates-sibling]`, and `[flow.uncompensated-action]` passing `tsc --noEmit` in raw LangGraph (`langgraph-broken/`) while caught before runtime by `agboss check` (`agboss-broken/` vs `agboss-fixed/`). |
+| **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** | Reversible `@PiiPolicy` (`replaceWithToken`, `revealPii: true`, `PiiRefusedError`), `@ToolInterceptor` (`replyToModel`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction` vs policy drift, and 5-layer `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$). |
+| **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** | Reverse-order LIFO saga compensation (`@Action({ compensateWith, committedBy })`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (`Channel.withdraw()`, `NotPausedError`), idempotent external ledgers (`step.idempotencyKey`), SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter. |
+| **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** | Distributed child work-stealing (`.toParallelWorkflows(ChunkWorkerWorkflow, { placement: ChildPlacement.AnyInstance })`, `SqliteChildExecutionQueueRepository`), recursive `ThisWorkflow` (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `IncompatibleResumeError`. |
+| **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** | 3-service mesh (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`) over `@A2AAgent` / `@A2AExpose` and `@McpTool` / `@McpExpose`, Ed25519 `agboss-mesh` JWS envelope, `MeshLoopDetectedError` & `HopsLimitExceededError`, MCP `_meta.callId` deduplication (`SqliteMeshRequestRepository`), and `agboss check --federation` Blast Radius. |
+| **[`07-langgraph-migration`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration)** | Side-by-side comparison of raw `@langchain/langgraph` (`before-langgraph/support.graph.ts` with 15-field `Annotation.Root` God State, string-keyed `addConditionalEdges`, unbounded `Send()`, dynamic prompt interpolation) vs AGBoss (`after-agboss/src/` + `after-agboss/tests/` with 10 narrow `@Dto`s, `@Router`, bounded `.toParallelAgents()`, `@Action`, `@Channel`, and `agboss check --strict`). |
+
+---
+
+## job-scout
+
+`examples/job-scout/` — the full in-repo example, a separate package that depends on `agboss` exactly
 like an outside project (only its public API; ESLint-enforced). Resume from disk → a proposed search
 brief → Greenhouse jobs ranked by Jev → explained with the user's company notes → the chosen ones saved to a
 shortlist, after the user approves the write. Its second, smaller neighbour,
