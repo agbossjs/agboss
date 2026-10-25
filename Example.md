@@ -1,11 +1,11 @@
 # Examples: `agboss-examples` (01–07), `job-scout` & `flow-patterns`
 
-AGBoss examples live in two places:
+AGBoss provides two complementary repositories of runnable, CI-verified examples so you can prove compile-time and runtime guarantees locally for `$0` and inspect production-grade reference architectures.
 
 1. **[`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) (`01-hello-agboss` through `07-langgraph-migration`)** — seven standalone, runnable applications that depend on the distributed `agboss` and `agboss-cli` packages, enforce the canonical `1 class = 1 file` component subfolder layout and symmetric Spring-style `tests/` mirroring `src/`, and verify every framework guarantee offline (`$0`).
 2. **In-repository packages (`examples/job-scout/` and `examples/flow-patterns/`)** — `examples/job-scout/` (resume → search brief → Greenhouse jobs ranked by Jev → company notes RAG → MCP shortlist) and [flow-patterns](#flow-patterns-a-review-loop-and-a-code-router) (the zero-cost harness of the public surface).
 
-## Standalone verified applications (`agbossjs/agboss-examples`)
+## How the 7 standalone verified applications work (`agbossjs/agboss-examples`)
 
 Every project in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) follows **`Promise → Failure Injection → Reproducible Proof`**:
 
