@@ -169,7 +169,7 @@ Breaking changes and notable additions, newest first. The API reports
 - `examples/flow-patterns` adds `src/intake/` (`joinQuorumGroups`, tested with
   `TestConcurrency.inOrder` and `failWith(ModelFailure.RateLimited)`), `historyOf` in the review
   loop, a pause resumed on a second instance (`instances: 2`), and in the helpline a stubbed
-  `@McpServer` / `@McpTool` (`mcpOf`) and a custom memory strategy (`agboss/memory`).
+  `@McpServer` / `@McpTool` (`mcpOf`) and a custom memory strategy (`@agboss/core/memory`).
   [Example](Example#flow-patterns-a-review-loop-and-a-code-router).
 
 ## Unreleased — flow-patterns as the zero-cost harness: a VCR cassette recorded offline (#419)
@@ -252,7 +252,7 @@ Breaking changes and notable additions, newest first. The API reports
   guardrails, a tool interceptor (`allow` / `replyToModel` / `block`, `afterToolCall`) — on a
   transport `@ModelProvider` that answers by the request, an offline `src/desk.application.ts`, its
   own `OpenRouterProvider` narrowed to `moonshotai/…`, and its own `eslint.config.js` with
-  `agboss/eslint`; tests for the trajectory matchers, invalid arguments and the unit runners
+  `@agboss/core/eslint`; tests for the trajectory matchers, invalid arguments and the unit runners
   `testToolInterceptor`, `testCompaction`, `testGuardrail` and `testTool`. [Example](Example#flow-patterns-a-review-loop-and-a-code-router).
 
 ## Unreleased — the LangGraph migration guide in the project skills (#424)
@@ -326,7 +326,7 @@ Breaking changes and notable additions, newest first. The API reports
   into the run's model calls at the provider's HTTP client and a transport's `complete()`, under the
   retry policy, the rate limit and the breaker, on the real budgets; seeded, the rate and the seed
   together (`usage.missing-option` / `usage.option-value`).
-- **Added — in `agboss/eval`:** `ChaosFailure { RateLimited, Timeout, TruncatedResponse }` and
+- **Added — in `@agboss/core/eval`:** `ChaosFailure { RateLimited, Timeout, TruncatedResponse }` and
   `EvalRunChaos`; the artifact's optional `chaos` (read by `evalRunReportOf`). The injection is an
   option of `eval run`'s internal build path only, never of `createApp`.
 
@@ -384,7 +384,7 @@ Breaking changes and notable additions, newest first. The API reports
   tool calls, guardrail decisions, judge verdicts; handled errors, pauses, undo actions, children,
   the output — masked like the execution record) and each case its `expectation`
   (`EvalCaseExpectation`). The one reader (`evalRunReportOf`) reads versions 1 and 2; version 3 or
-  any other is `eval.run-invalid` (`… this agboss reads 1 to 2`). New public types in `agboss/eval`:
+  any other is `eval.run-invalid` (`… this agboss reads 1 to 2`). New public types in `@agboss/core/eval`:
   `EvalExecutionTrace`, `EvalChildTrace`, `EvalStepTrace`, `EvalModelCallTrace`, `EvalToolCallTrace`,
   `EvalGuardrailDecisionTrace`, `EvalJudgeVerdictTrace`, `EvalHandledErrorTrace`, `EvalPauseTrace`,
   `EvalCompensationTrace`, `EvalTraceError`, `EvalCaseExpectation`, `EvalExpectedToolCallTrace`,
@@ -436,7 +436,7 @@ Breaking changes and notable additions, newest first. The API reports
   `executionId`, `judge`, `labeler`, `passed`, `score?`, `failureTags`, `note?`) — pairwise Cohen's κ
   (the judge with each labeler, the labelers with each other), a confusion matrix per labeler, the
   disagreements, and the rubric by the judge's `metrics` keys; runs nothing.
-- **Added — public types in `agboss/eval`:** `EvalLabel`, `EvalCalibration`, `EvalJudgeCalibration`,
+- **Added — public types in `@agboss/core/eval`:** `EvalLabel`, `EvalCalibration`, `EvalJudgeCalibration`,
   `EvalRaterAgreement`, `EvalConfusionMatrix`, `EvalDisagreement`, `EvalMetricGroup`,
   `EvalMetricValue`, `EvalScoreCounts`.
 - **Added — codes** `eval.labels-not-found`, `eval.labels-invalid` (exit 2).
@@ -452,10 +452,10 @@ Breaking changes and notable additions, newest first. The API reports
   `eval show` (#397 S4).
 - **Added — exit 5 (`quality`)**: `--fail-on-regression` fails with `eval.regressed` when a case stable
   on the baseline regressed ([CLI](CLI#agboss-eval-subcommands-396)).
-- **Added — the artifact's types are public** in `agboss/eval`: `EvalRunReport`, `EvalCaseReport`,
+- **Added — the artifact's types are public** in `@agboss/core/eval`: `EvalRunReport`, `EvalCaseReport`,
   `EvalRunResult`, `EvalCheckResult`, `EvalRunError`, `EvalRunSummary`, `EvalRunComponent`,
   `EvalRunSpend`, `EVAL_RUN_KIND`, `EVAL_RUN_SCHEMA_VERSION`, `CaseComparison`, `EvalRunComparison`,
-  `EvalCaseComparison`, `EvalCasePasses` (no longer in `agboss/internal`).
+  `EvalCaseComparison`, `EvalCasePasses` (no longer in `@agboss/core/internal`).
 - **Added — `agboss eval run --profile <name>`**: the suite on a profile of its workflow.
 - **Changed — a case's history is `ExecutionRecordStatus.Written`** (new member): turns of their
   thread, read by its memory as before, but never scored by `agboss eval score` nor saved by
@@ -562,7 +562,7 @@ Breaking changes and notable additions, newest first. The API reports
   status; `.not.toHaveCalledTools([…])` — none of them was.
 - **Added — `expect(result).toHaveToolCallMatching(Tool, partialOrCheck)`**: some call of the tool
   has an input matching a deep partial or a check (`ToolCallExpectation<TInput>`, typed by the tool's
-  input); `.not` — none does. `ToolCallMatchers` / `toolCallMatchers` in `agboss/testing`.
+  input); `.not` — none does. `ToolCallMatchers` / `toolCallMatchers` in `@agboss/core/testing`.
 
 ## Unreleased — trajectories of failed visits, children's steps, unknown tools (#395 PR 1b)
 
@@ -646,7 +646,7 @@ Breaking changes and notable additions, newest first. The API reports
   a `@ModelProvider` class that `implements ModelProviderHandler` with `complete(request)` — no
   `baseUrl` / `apiKey`, its services through `deps`, created by the application's container on its
   first call (one instance, `TenantContext` read in the calling execution). New public names in
-  `agboss/models`: `ModelProviderRequest`, `ModelProviderResponse`, `ModelProviderMessage`,
+  `@agboss/core/models`: `ModelProviderRequest`, `ModelProviderResponse`, `ModelProviderMessage`,
   `ModelProviderMessageRole`, `ModelProviderToolDefinition`, `ModelProviderToolCall`,
   `ModelProviderUsage`, `ModelProviderFailureError` (`model.provider-failure`,
   `ModelProviderFailureOptions`: `retryAfter?`, `cause?`), `FinishReason`; `complete?` on
@@ -677,14 +677,14 @@ Breaking changes and notable additions, newest first. The API reports
   `[tool-interceptor.not-an-interceptor]`, `[tool-interceptor.exclude-not-inherited]`,
   `[tool-interceptor.missing-handler]`; `agboss describe` prints `tool interceptors`, `describe
   --json` each agent's chains, `configHash` covers them (a workflow without one keeps its hash);
-  `testToolInterceptor` in `agboss/testing`. Replaces the tool hooks removed in #120 S123.
+  `testToolInterceptor` in `@agboss/core/testing`. Replaces the tool hooks removed in #120 S123.
 - **Changed (internal)** — the framework's own per-call tool context is `ToolInvocationContext` now;
   `ToolCallContext` is the interceptor's (root entry).
 
 
-## Unreleased — `agboss/eval`: `@EvalSuite` and code judges (#396 PR 1)
+## Unreleased — `@agboss/core/eval`: `@EvalSuite` and code judges (#396 PR 1)
 
-- **Added — the entry `agboss/eval`** ([Eval suites](Eval-Suites)): `@EvalSuite({ name, description,
+- **Added — the entry `@agboss/core/eval`** ([Eval suites](Eval-Suites)): `@EvalSuite({ name, description,
   start, checks, cascade, cases })` in `eval-suites/<name>.eval-suite.ts` (`-eval-suite`), the case
   builders `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, the checks
   `checkTrajectory()` and `judgedBy(Judge)`, the enums `EvalCascade { StopAtFirstFailure, RunAll }`
@@ -720,7 +720,7 @@ Breaking changes and notable additions, newest first. The API reports
   dependencies — `typescript-eslint` (`strictTypeChecked`), `agboss/no-component-state` and
   `agboss/no-direct-time` on `src/` outside the tests, `@stylistic/newline-per-chained-call` on
   every `*.workflow.ts`; the project passes it as written.
-- **Added — the entry `agboss/eslint`** (#388 S2): `agbossPlugin` (`agboss/no-component-state`,
+- **Added — the entry `@agboss/core/eslint`** (#388 S2): `agbossPlugin` (`agboss/no-component-state`,
   `agboss/no-direct-time`) and `FLOW_CHAIN_RULE` for a project's ESLint config; the repository's
   own config uses it too (lint runs on the build). `@typescript-eslint/utils` is a new optional peer
   of `agboss`, needed only by this entry.
@@ -972,7 +972,7 @@ Breaking changes and notable additions, newest first. The API reports
   whitespace within the final 256 bytes, and ends with `\n[result truncated: N bytes, the first M
   kept]`; a context-mode knowledge block is bounded by the agent's value. `[tools.max-result-size-invalid]`
   at assembly.
-- **Added — `kilobytes()` and `Bytes` in `agboss/units`** (1 KB = 1,024 bytes).
+- **Added — `kilobytes()` and `Bytes` in `@agboss/core/units`** (1 KB = 1,024 bytes).
 - **Breaking — `ToolEndEvent.isResultTruncated: boolean`** is required: an object built as a
   `ToolEndEvent` (an observer test) sets it.
 - **Changed — every workflow's `configHash`** once: the truncation marker is a framework text of
@@ -1194,7 +1194,7 @@ Breaking changes and notable additions, newest first. The API reports
   is the CLI's — use `agboss describe [--json]`. It stays internal (the CLI and the framework's
   tests); the examples' tests that printed it now rely on the CLI's job-scout and flow-patterns
   describe tests. The root import loads no `describe/` module any more.
-- **Internal (`agboss/internal`)**: `describeApplication(assembled, { source, profile, environment })`,
+- **Internal (`@agboss/core/internal`)**: `describeApplication(assembled, { source, profile, environment })`,
   `describedApplicationOf(assembled)` (takes the assembled application; `executionBudgets` per
   workflow, `modelProviders`), `describedTreeOf`, `describedChannelsOf`, `describedPiiPoliciesOf`,
   `worstCaseReportLines` / `worstCaseRowsOf` (`WorstCaseMeasure`), `worstCaseLimitsOf`; a
@@ -1233,7 +1233,7 @@ Breaking changes and notable additions, newest first. The API reports
   built-in `RandomIdGenerator` (root export) keeps the formats (random UUIDs); a class in
   `@Application({ providers })` that `extends IdGenerator` replaces it. A `pauseId` stays a random
   128-bit token outside it.
-- **New — `SequentialIdGenerator`** (`agboss/testing`): `testWith` runs on it unless the
+- **New — `SequentialIdGenerator`** (`@agboss/core/testing`): `testWith` runs on it unless the
   application lists its own generator — `thread-1`, … and `execution-1`, … per test
   ([Testing → Ids](Testing#ids)).
 - **Breaking — the records repositories' `deps`:** `SqliteExecutionRecordRepository` takes
@@ -1257,10 +1257,10 @@ Breaking changes and notable additions, newest first. The API reports
   (git-ignored, rewritten on every run) and starts `langgraphjs dev` on them. A child is a subgraph
   inside its parent, `.toParallelWorkflows(…)` included; an assembly problem or a missing variable
   stops it before the server starts (exit 3).
-- **Breaking — `studioGraphOf` is removed from `agboss` (and from the deprecated `agboss/core`)**, and
+- **Breaking — `studioGraphOf` is removed from `agboss` (and from the deprecated `@agboss/core/core`)**, and
   the examples' `src/studio.ts` and the root `langgraph.json` are gone. Migrating: delete the
   project's `studio.ts` and `langgraph.json`, run `agboss studio` (job-scout: `npm run studio`).
-  The graphs come from `studioOf(Application, { env })` in `agboss/internal`, the CLI's.
+  The graphs come from `studioOf(Application, { env })` in `@agboss/core/internal`, the CLI's.
 - **Changed — `@langchain/langgraph-cli` is a dependency of `agboss-cli`** (it was the monorepo
   root's dev dependency), so `agboss studio` works in any project.
 
@@ -1357,7 +1357,7 @@ Breaking changes and notable additions, newest first. The API reports
   `{ application: { name, version }, workflows: [ … ] }`; `check` assembles the application as
   `createApp` does (its rules across workflows too) and its problems name the application's path
   (`ok: src/job-scout.application.ts — …`); `result.application` replaces `result.workflow`.
-- **Internal (`agboss/internal`)**: `loadApplicationClass(path)` loads the one exported
+- **Internal (`@agboss/core/internal`)**: `loadApplicationClass(path)` loads the one exported
   `@Application` of a module (`ApplicationLoadError`, CLI code `application.load`) — the `--workflow`
   bridges `environmentOwnerOfFile`, `textStartOfWorkflow` and `workflowsOfApplication` are gone;
   new `startsOfApplication(App)` (`ApplicationStart`: name, description, workflow, class, input — from
@@ -1379,7 +1379,7 @@ Breaking changes and notable additions, newest first. The API reports
   `variant` of its own. Migrating: `implements JudgeHandler<readonly (A | B)[]>` becomes
   `JudgeHandler<readonly VariantOf<A | B>[]>` (the old form does not compile), each item read as
   `item.value`.
-- **New — `VariantOf<T>`** (`agboss/dto`, the root), **`JudgedValueOf<TShape>`** (what a judge of a
+- **New — `VariantOf<T>`** (`@agboss/core/dto`, the root), **`JudgedValueOf<TShape>`** (what a judge of a
   `reply` shape reads) and **`JudgeInputOf<TJudge>`**; `isVariant(x, XDto)` also narrows anything
   that carries `variant` (a judge's input, a `VariantOf` item).
 - **Breaking — `testJudge(J, …)({ variant, reply, task, attempt })`** takes `variant` too, typed the
@@ -1901,7 +1901,7 @@ Breaking changes and notable additions, newest first. The API reports
   `QuorumGroup`, `AcceptedBy`, `ArbiterClass` (`LaunchStep.acceptedBy`, `JoinStep.quorum`).
 - **New: `@Arbiter` and `@OnAnswer(Agent)`**, attached with `.acceptedBy(X)` (a chain is an AND,
   `anyOf(X, Y)` the first that accepts, S57): by model (`criteria` per agent) or by code (one
-  method per agent class, typed by the decorator). New `agboss/units`: `hours()`.
+  method per agent class, typed by the decorator). New `@agboss/core/units`: `hours()`.
 - **What `.returns(…)` may promise**: after `.joinQuorum({ min })` with `min` below the agents
   launched a single answer is `optional(XDto)` (compile error and `[flow.quorum-return-not-optional]`
   otherwise); a repeated class or a shared `output` is `listOf(XDto)` in every form; a group's
@@ -1964,7 +1964,7 @@ Breaking changes and notable additions, newest first. The API reports
   `extends Clock` (created first; it may not depend on the contexts); in a workflow's `providers`
   it is `[di.infrastructure-in-workflow]`. A component that needs the time injects it
   (`deps: [Clock]`). [Testing → The clock](Testing#the-clock).
-- **`VirtualClock` is public** (`agboss/testing`): the `clock` fixture and `app.clock` are one
+- **`VirtualClock` is public** (`@agboss/core/testing`): the `clock` fixture and `app.clock` are one
   per test, the application's clock in every test (also when it lists its own); `new
 VirtualClock(start?)` in unit tests. **Breaking:** the `TestClock` type is gone — `VirtualClock`
   in its place (`agboss migrate imports` rewrites the import); its `now` is a method, so
@@ -2012,7 +2012,7 @@ VirtualClock(start?)` in unit tests. **Breaking:** the `TestClock` type is gone 
   `ExecutionContext` (new: `tenant`), each its type and its DI token. New public names:
   `ApplicationContext`, `HostContext`, `TenantContext`, `ContextValues<T>`, `TenantValues`,
   `TenantContextClass`, `ExecutionContextClass`, `CallOptions`,
-  `ResumeOptions`, `ExecutionOptionsOf`, `ExecutionOptionsArgs`; `agboss/testing`:
+  `ResumeOptions`, `ExecutionOptionsOf`, `ExecutionOptionsArgs`; `@agboss/core/testing`:
   `TestContextOptions`, `TestApplicationOptions`.
 - **The project's subclasses**: `@Application({ tenantContext, executionContext })`; values per
   execution, `app.execute(Start, input, { tenant, execution })`, typed per start by the generated
@@ -2154,7 +2154,7 @@ tenantId, threadId)`, `threadOwner(workflow, tenantId, threadId)`; every record 
   `@Application({ environment: AppEnvironment })`; each environment is
   `export const environment: AppEnvironment = { … }` in `environments/<name>.environment.ts`.
   `defineEnvironment`, `fromEnv`, `FromEnv`, `FromEnvOptions`, `EnvironmentValues`,
-  `EnvironmentDefinition` and the `declare module "agboss" { interface Environment … }` contract are
+  `EnvironmentDefinition` and the `declare module "@agboss/core" { interface Environment … }` contract are
   removed; `agboss check` writes `interface Environment extends AppEnvironment {}` into
   `.agboss/types.d.ts`, so `ENV` is typed by the contract ([Environments](Environments)).
 - **New**: `env("X")`, `env.integer("X")`, `env.flag("X")` (each with `{ default }`), `secret("X")`
@@ -2179,7 +2179,7 @@ tenantId, threadId)`, `threadOwner(workflow, tenantId, threadId)`; every record 
   `… uses DecidedBy.Model but has no model — set model or defaults.router.model`. `agboss describe`
   shows each router's model and each agent's temperature / maxTokens / history with where it came
   from (`(own)`, `(<application or workflow>)`, `(built-in)`).
-- `loadWorkflow`, `studioGraphOf`, `compareProfiles` and `workflowOf` from `agboss/testing` assemble a
+- `loadWorkflow`, `studioGraphOf`, `compareProfiles` and `workflowOf` from `@agboss/core/testing` assemble a
   workflow in the application that lists it (its `*.application.ts` next to it or above): its
   providers and `defaults`.
 
@@ -2222,7 +2222,7 @@ tenantId, threadId)`, `threadOwner(workflow, tenantId, threadId)`; every record 
   `[io.ambiguous-cycle]` hints name the `.returns` / `caseOf` to write it on.
 - **Breaking — no string tags** (#272 S56): `{ as: "before" }`, the tag slots, their labels
   (`DraftDto[before]#1`) and `[flow.unused-tag]` are removed. **New `historyOf(Dto, { limit })`** in
-  `input` (root entry and `agboss/dto`; `HistoryOf<T>`, `HistoryWrapper`, `HistoryOptions`): the field
+  `input` (root entry and `@agboss/core/dto`; `HistoryOf<T>`, `HistoryWrapper`, `HistoryOptions`): the field
   is `{ current, previous }` — the current value and the earlier versions oldest first, at most
   `limit` — typed `HistoryOf<Produced<Dto, P>>` in `InputOf`, shown in the input message
   (`### draft, earlier versions (oldest first)`) and by `describe`. It needs a current `Dto` on every
@@ -2423,7 +2423,7 @@ tenantId, threadId)`, `threadOwner(workflow, tenantId, threadId)`; every record 
   install (`npm run types`); `declare readonly input` on a start is no longer needed.
 - **Typed data on paths** ([Path scope](Path-scope)): `@Agent` / `@Action` / `@Router` /
   `@WorkflowFinish` take `input` fields and `output` shapes; wrappers `listOf`, `oneOf`, `optional`,
-  `variant`, `isVariant` (`agboss/dto`). Agents read an input message after static instructions and
+  `variant`, `isVariant` (`@agboss/core/dto`). Agents read an input message after static instructions and
   answer a structured `output` through answer tools; `{{item}}` and `{{input.…}}` in instructions are
   gone (`[prompt.input-in-instructions]`).
 - **Names**: every component `name` ends with its kind (`main-router`, `scout-agent`,

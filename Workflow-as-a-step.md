@@ -19,8 +19,8 @@ where a per-item launch of one agent (`.toParallelAgents(A)`) runs exactly one s
 ## Writing it
 
 <!-- snippet-context
-import { Action, Agent, LimitExceededError, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, agent, caseOf, start, toAction, toFinish, workflow } from "agboss";
-import { Flag, Text, WorkflowStartTextDto, listOf, oneOf, optional } from "agboss/dto";
+import { Action, Agent, LimitExceededError, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, agent, caseOf, start, toAction, toFinish, workflow } from "@agboss/core";
+import { Flag, Text, WorkflowStartTextDto, listOf, oneOf, optional } from "@agboss/core/dto";
 
 export class VendorDto {
   @Text({ prompt: "the vendor's name" })
@@ -310,8 +310,8 @@ side path that can catch a limit stays actions and finishes only
 (`[graph.limit-handler-uses-model]`).
 
 <!-- snippet-context
-import { Action, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, start, toWorkflow } from "agboss";
-import { Text } from "agboss/dto";
+import { Action, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, start, toWorkflow } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 export class PaymentDto {
   @Text({ prompt: "the payment" })
   id!: string;
@@ -445,8 +445,8 @@ instance** of the application run it instead — a fan-out of heavy children the
 instances that share the stores ([Several instances](Several-instances#children-on-any-instance-333)):
 
 <!-- snippet-context
-import { Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, start, toFinish } from "agboss";
-import { Text, WorkflowStartTextDto, listOf } from "agboss/dto";
+import { Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, start, toFinish } from "@agboss/core";
+import { Text, WorkflowStartTextDto, listOf } from "@agboss/core/dto";
 export class SupplierDto {
   @Text({ prompt: "the supplier's name" })
   name!: string;
@@ -493,7 +493,7 @@ export class SupplierScreeningWorkflow {}
 -->
 
 ```ts
-import { ChildPlacement } from "agboss";
+import { ChildPlacement } from "@agboss/core";
 
 export const anyInstancePaths = [
   start(SupplierScreeningWorkflowStart)
@@ -565,8 +565,8 @@ one of its finishes' outputs, its errors and limits. `ThisWorkflow` is one node,
 and each subtopic researched the same way:
 
 <!-- snippet-context
-import { Action, Agent, StepFailedError, ThisWorkflow, Workflow, WorkflowFinish, WorkflowStart, action, caseOf, start, toAction, type ActionHandler, type InputOf, type OutputOf } from "agboss";
-import { Integer, ListOf, Text, listOf, oneOf } from "agboss/dto";
+import { Action, Agent, StepFailedError, ThisWorkflow, Workflow, WorkflowFinish, WorkflowStart, action, caseOf, start, toAction, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { Integer, ListOf, Text, listOf, oneOf } from "@agboss/core/dto";
 
 export class TopicDto {
   @Text({ prompt: "the topic" })

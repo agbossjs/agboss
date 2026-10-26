@@ -4,15 +4,15 @@ A tool is a `@Tool` class in its workflow's `tools/` folder — see [Components]
 pattern (constructor dependencies, `ToolHandler`, tests with `new`).
 
 <!-- snippet-context
-import { InjectionToken } from "agboss";
+import { InjectionToken } from "@agboss/core";
 interface IssuesApi { search(query: string, signal: AbortSignal): Promise<IssueList> }
 const ISSUES_API = new InjectionToken<IssuesApi>("ISSUES_API");
 -->
 
 ```ts
-import { ExecutionContext, Tool, type ToolHandler } from "agboss";
-import { ListOf, Text } from "agboss/dto";
-import { seconds } from "agboss/units";
+import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ListOf, Text } from "@agboss/core/dto";
+import { seconds } from "@agboss/core/units";
 
 export class Issue {
   @Text() title!: string;
@@ -87,7 +87,7 @@ assembly, at once, before any model call.
 
 ## Timeouts
 
-A call runs under its tool's `timeout` — a value with units, `timeout: seconds(10)` (`agboss/units`;
+A call runs under its tool's `timeout` — a value with units, `timeout: seconds(10)` (`@agboss/core/units`;
 default 30 s); a bare number does not compile and there is no `timeoutMs` (#268 AC11). The timer runs
 on the application's `Clock`, so a test's `clock.advance(…)` moves it.
 
@@ -95,13 +95,13 @@ on the application's `Clock`, so a test's `clock.advance(…)` moves it.
 
 What a model reads of one tool result is bounded (#336), so one huge page or JSON cannot overflow the
 model's context on the next turn of the loop: `maxResultSize`, in bytes of the UTF-8 text the model
-reads, given with `kilobytes()` (`agboss/units`, 1 KB = 1,024 bytes). The tool's own wins; else
+reads, given with `kilobytes()` (`@agboss/core/units`, 1 KB = 1,024 bytes). The tool's own wins; else
 `defaults.tools.maxResultSize` of its workflow, else of its application
 ([Configuration → `defaults.tools`](Configuration#defaultstools)); nothing set → 128 KB.
 
 <!-- snippet-context
-import { Injectable } from "agboss";
-import { Text } from "agboss/dto";
+import { Injectable } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 @Injectable()
 export class PageReader {
   textOf(url: string): Promise<string> {
@@ -118,8 +118,8 @@ export class PageContent {
 
 ```ts
 // tools/fetch-page.tool.ts — a tool whose pages may be long sets its own
-import { Tool, type ToolHandler } from "agboss";
-import { kilobytes, seconds } from "agboss/units";
+import { Tool, type ToolHandler } from "@agboss/core";
+import { kilobytes, seconds } from "@agboss/core/units";
 
 @Tool({
   name: "fetch-page-tool",
@@ -169,13 +169,13 @@ registry: an agent's `tools: [SearchIssues]` **is** the registration.
 A server declares the tools it offers that the workflow uses (`@McpServer({ tools })`, `extends McpServerClient`);
 an `@McpTool` is a tool with that server injected, calling it in `run` — see
 [Components → MCP](Components#mcp). Env variable NAMES only in the config, never secrets.
-A server tool that answers with plain text declares `output: PlainTextDto` (`agboss/dto`, the one
+A server tool that answers with plain text declares `output: PlainTextDto` (`@agboss/core/dto`, the one
 field `text`) — the server's text arrives as `{ text }`; `agboss g mcp` writes that by default.
 
 ## Agents with tools
 
 <!-- snippet-context
-import { Agent } from "agboss";
+import { Agent } from "@agboss/core";
 declare class GreenhouseJobs { run(input: object): Promise<object> }
 -->
 
@@ -225,8 +225,8 @@ class never writes an empty second method. A class with neither does not compile
 (`[name.kind-suffix]`); its `deps` are injected by the container like any component's.
 
 <!-- snippet-context
-import { TenantContext } from "agboss";
-import { ListOf, Text } from "agboss/dto";
+import { TenantContext } from "@agboss/core";
+import { ListOf, Text } from "@agboss/core/dto";
 export class JobScoutTenantContext extends TenantContext {
   @ListOf(Text)
   allowedCities!: string[];
@@ -241,7 +241,7 @@ import {
   type BeforeToolCall,
   type ToolCallContext,
   type ToolCallResultContext,
-} from "agboss";
+} from "@agboss/core";
 
 @ToolInterceptor({
   name: "tenant-scope-tool-interceptor",
@@ -337,9 +337,9 @@ a workflow without one keeps its hash.
 `testToolInterceptor` ([Testing](Testing)):
 
 <!-- snippet-context
-import { Tool, ToolCallDecision, type ToolHandler } from "agboss";
-import { Text } from "agboss/dto";
-import { testToolInterceptor } from "agboss/testing";
+import { Tool, ToolCallDecision, type ToolHandler } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
+import { testToolInterceptor } from "@agboss/core/testing";
 import { JobScoutTenantContext, TenantScopeToolInterceptor } from "./src/scout/tenant-scope.tool-interceptor.js";
 import { expect, it } from "vitest";
 export class CityQuery {
@@ -417,8 +417,8 @@ either a concrete `@Channel` as is (`TerminalUserChannel`, `AutoApproveChannel`,
 and who may answer:
 
 <!-- snippet-context
-import { Agent, Application, EmptyEnvironment, Injectable, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
-import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, Application, EmptyEnvironment, Injectable, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 export class RefundCardInputDto {
   @Text() orderId!: string;
   @Integer({ min: 1 }) amountCents!: number;
@@ -467,7 +467,7 @@ import {
   Tool,
   type ChannelAsk,
   type ToolHandler,
-} from "agboss";
+} from "@agboss/core";
 
 // channels/refund-approval.channel.ts — the role: what it approves, who answers
 @ChannelRole({
@@ -554,7 +554,7 @@ export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCar
 
 ## Testing
 
-A tool is tested on its own with `testTool` (`agboss/testing`, #262): its own container — its
+A tool is tested on its own with `testTool` (`@agboss/core/testing`, #262): its own container — its
 `deps` resolved, `overrides` replacing classes by classes — and every call in the frame of a tool
 call, as the agent loop runs it: the input and output validated against the DTOs, the call's
 `executionContext.signal` aborting after `timeout` (default the tool's own `timeout`) on the runner's clock,
@@ -562,8 +562,8 @@ call, as the agent loop runs it: the input and output validated against the DTOs
 ([Testing → Unit runners](Testing#unit-runners--one-component-on-its-own)):
 
 <!-- snippet-context
-import { ExecutionContext, Injectable, Tool, type ToolHandler } from "agboss";
-import { Text } from "agboss/dto";
+import { ExecutionContext, Injectable, Tool, type ToolHandler } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 @Injectable()
 export class IssuesApi {
   search(_query: string): Promise<{ title: string }[]> {
@@ -583,7 +583,7 @@ class CountIssues implements ToolHandler<IssueQuery, IssueCount> {
 -->
 
 ```ts
-import { override, testTool } from "agboss/testing";
+import { override, testTool } from "@agboss/core/testing";
 import { expect, test } from "vitest";
 
 @Injectable()

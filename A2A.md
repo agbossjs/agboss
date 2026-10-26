@@ -1,6 +1,6 @@
 # A2A (agent-to-agent)
 
-`agboss/a2a` works both ways:
+`@agboss/core/a2a` works both ways:
 
 - **Calling another application** — a declared contract (#398 PR 3, [§7](#7-declared-contracts-398-pr-3)):
   a `…A2AAgent` class that `extends A2AClient<In, Out>` with `@A2AAgent({ name, url, target, input,
@@ -22,8 +22,8 @@ application's container like any service — its own services through `deps`, it
 hooks and a test's `override(…)` apply; never `new`.
 
 <!-- snippet-context
-import { Injectable, WorkflowStart } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Injectable, WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 export interface ApiKeyGrant {
   readonly clientId: string;
   readonly tenantId: string;
@@ -45,7 +45,7 @@ import {
   A2ARoute,
   type A2ACallerRequest,
   type A2ACallerResolver,
-} from "agboss/a2a";
+} from "@agboss/core/a2a";
 
 @Injectable({ deps: [ApiKeyDirectory] }) // created by the container, like any service
 export class ShopA2aCallerResolver implements A2ACallerResolver<typeof SupportWorkflowStart> {
@@ -89,8 +89,8 @@ export class ShopA2aCallerResolver implements A2ACallerResolver<typeof SupportWo
 
 ```ts no-check: ShopApplication and its workflow are not written out on this page
 import { createServer } from "node:http";
-import { createApp } from "agboss";
-import { a2aHttpListener } from "agboss/a2a";
+import { createApp } from "@agboss/core";
+import { a2aHttpListener } from "@agboss/core/a2a";
 
 const app = await createApp(ShopApplication, { env: "prod" });
 
@@ -137,8 +137,8 @@ In your own HTTP framework, `new A2AAdapter(app)` maps calls to responses (a fai
 `failed`, `limited`, `cancelled`), with the caller's values from your own authentication:
 
 <!-- snippet-context
-import type { App } from "agboss";
-import { A2AAdapter } from "agboss/a2a";
+import type { App } from "@agboss/core";
+import { A2AAdapter } from "@agboss/core/a2a";
 declare const app: App;
 declare const SupportWorkflowStart: new () => object;
 -->
@@ -247,8 +247,8 @@ would loop again) — so a whole chain `A → B → A` fails at every hop, deter
 the path (its side path leads to actions and finishes only, as for every limit):
 
 <!-- snippet-context
-import { Agent, MeshLoopDetectedError, Workflow, WorkflowFinish, WorkflowStart, start, toFinish } from "agboss";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, MeshLoopDetectedError, Workflow, WorkflowFinish, WorkflowStart, start, toFinish } from "@agboss/core";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @Agent({ name: "orders-agent", description: "Orders", prompt: "Answer.", model: "moonshotai/kimi-k2.6" })
 export class OrdersAgent {}
 @WorkflowStart({ name: "orders-workflow-start", description: "A question", input: WorkflowStartTextDto })
@@ -287,7 +287,7 @@ signatures it checks. Keys are PEM in environment fields, named by field as a `@
 public key a plain text field (SPKI, `-----BEGIN PUBLIC KEY-----`) — it is public.
 
 <!-- snippet-context
-import { Application, type Secret } from "agboss";
+import { Application, type Secret } from "@agboss/core";
 export class BillingWorkflow {} // a @Workflow of its own
 -->
 
@@ -381,8 +381,8 @@ can compare applications without running them.
 **The caller** — an `@A2AAgent` names what it calls, sends, gets back and costs:
 
 <!-- snippet-context
-import { Tool, type ToolHandler } from "agboss";
-import { Text } from "agboss/dto";
+import { Tool, type ToolHandler } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 export class InvoiceQuestionDto {
   @Text({ prompt: "the question about an invoice" })
   question!: string;
@@ -394,8 +394,8 @@ export class InvoiceAnswerDto {
 -->
 
 ```ts
-import { A2AAgent, A2AClient } from "agboss/a2a";
-import { usd } from "agboss/units";
+import { A2AAgent, A2AClient } from "@agboss/core/a2a";
+import { usd } from "@agboss/core/units";
 
 // a2a/billing-desk.a2a-agent.ts
 @A2AAgent({
@@ -440,15 +440,15 @@ export class AskBillingTool implements ToolHandler<InvoiceQuestionDto, InvoiceAn
 `@McpExpose`s in `@Application({ exposes })`:
 
 <!-- snippet-context
-import { Application, EmptyEnvironment, WorkflowStart } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Application, EmptyEnvironment, WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 @WorkflowStart({ name: "billing-workflow-start", description: "A question", input: WorkflowStartTextDto })
 export class BillingWorkflowStart {}
 export class BillingWorkflow {} // a @Workflow of its own
 -->
 
 ```ts
-import { A2AExpose } from "agboss/a2a";
+import { A2AExpose } from "@agboss/core/a2a";
 
 // a2a/billing.a2a-expose.ts
 @A2AExpose({ name: "billing-a2a-expose", version: "1.0.0", exports: [BillingWorkflowStart] })
@@ -538,6 +538,6 @@ snapshots/shop.json federation.incompatible-schema shop-application › billing-
 
 A problem is exit 3, like every `check` problem; `--json` carries each one with its `blastRadius`
 (`{ application, workflow, tool }[]`). Snapshot paths without `--federation`, or the flag without
-any, are a usage error (exit 2). The comparison is `checkFederation` in `agboss/internal`.
+any, are a usage error (exit 2). The comparison is `checkFederation` in `@agboss/core/internal`.
 
 **Standalone executable proof:** [`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh) (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`, and `federation/`) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

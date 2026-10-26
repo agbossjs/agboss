@@ -2,7 +2,7 @@
 
 A thread is a sequence of Terns (one execution each). What a router or an agent sees of
 the thread's past is its **memory**: its window of the last turns and, when it uses a compaction
-that writes summaries, the latest summaries of older ones. `agboss/memory` holds the contract of an
+that writes summaries, the latest summaries of older ones. `@agboss/core/memory` holds the contract of an
 agent's own strategy.
 
 ## The window: `uncompactedTurns`
@@ -37,8 +37,8 @@ the model's server (`TokenLimit.MODEL_MAX` = what the model allows; thinking is 
 not spend the same limit).
 
 <!-- snippet-context
-import { Agent, Compaction, CompactionStrategy, TurnLimit, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, Compaction, CompactionStrategy, TurnLimit, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @WorkflowStart({ name: "recall-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class TaskStart {}
 @Agent({ name: "recall-agent", description: "Answers", prompt: "Answer the message.", model: "moonshotai/kimi-k2.6" })
@@ -108,7 +108,7 @@ for a class the compiler did not check (`[compaction.invalid-setting]`); a class
 method does not compile either and is `[compaction.missing-handler]` at assembly.
 
 <!-- snippet-context
-import { Compaction, CompactionStrategy, ExecutionContext, Injectable, type CompactionHandler, type CompactionInput, type CompactionTurn } from "agboss";
+import { Compaction, CompactionStrategy, ExecutionContext, Injectable, type CompactionHandler, type CompactionInput, type CompactionTurn } from "@agboss/core";
 @Injectable()
 export class KnowledgeGraphService {
   saveFactsAndSummarize(
@@ -235,8 +235,8 @@ the agent reads, called before the agent's loop; the optional `updateMemory(turn
 model calls it makes). The built-in `SlidingWindowStrategy` keeps a fixed window:
 
 ```ts
-import { Agent } from "agboss";
-import { SlidingWindowStrategy } from "agboss/memory";
+import { Agent } from "@agboss/core";
+import { SlidingWindowStrategy } from "@agboss/core/memory";
 
 /** A fixed window of the last two turns, no summaries. */
 export class LastTwoTurns extends SlidingWindowStrategy {
@@ -261,14 +261,14 @@ A strategy is a component: dependencies through the constructor (`@Injectable({ 
 by the workflow's container when an agent names it.
 
 ```ts
-import { Injectable, InjectionToken } from "agboss";
+import { Injectable, InjectionToken } from "@agboss/core";
 import {
   BaseMemoryStrategy,
   type MemoryContext,
   type MemoryTurn,
   type MemoryUpdate,
   type MemoryView,
-} from "agboss/memory";
+} from "@agboss/core/memory";
 
 /** Where the facts live — any store; a value provider here. */
 export interface FactStore {

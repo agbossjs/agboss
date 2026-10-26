@@ -144,8 +144,8 @@ DTO), or a function of the request with `.thenAnswer(...)` ([Testing](Testing)):
 
 <!--
 ```ts file=support.workflow.ts
-import { Agent, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "agboss";
-import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "@agboss/core";
+import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 class RefundRequest { @Integer({ prompt: "the amount, USD" }) amount!: number; }
 class RefundDone { @Text() status!: string; }
 @Tool({ name: "refund-tool", description: "Refunds an amount", input: RefundRequest, output: RefundDone })
@@ -176,8 +176,8 @@ import { ChatFinish, ChatStart, RefundTool, SupportAgent, SupportWorkflow } from
 
 ```ts
 import { expect } from "vitest";
-import { callTool, replyWith, testWith } from "agboss/testing";
-import { Application, EmptyEnvironment } from "agboss";
+import { callTool, replyWith, testWith } from "@agboss/core/testing";
+import { Application, EmptyEnvironment } from "@agboss/core";
 
 @Application({ name: "support-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [SupportWorkflow] })
 class SupportApplication {}

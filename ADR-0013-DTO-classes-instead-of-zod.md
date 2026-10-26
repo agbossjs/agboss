@@ -6,7 +6,7 @@
 ## Decision
 
 - Data shapes — tool inputs and outputs, server tools — are **classes with one field decorator per
-  field** from `agboss/dto` (`@Text`, `@Integer`, `@DateTime`, `@ListOf(Job)`, …). The decorator
+  field** from `@agboss/core/dto` (`@Text`, `@Integer`, `@DateTime`, `@ListOf(Job)`, …). The decorator
   says what the model reads (`prompt`) and what is checked; the class is the type. zod is used **only
   inside** the framework (`schemaOf`), and the model sees `jsonSchemaOf` (`io: "input"`, no `$schema`,
   fields in declaration order).

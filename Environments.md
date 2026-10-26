@@ -20,7 +20,7 @@ A plain class with declared fields only, declared once in the application — li
 
 ```ts file=src/environments/app.environment.ts
 // environments/app.environment.ts — the contract: fields only, no values
-import type { Secret } from "agboss";
+import type { Secret } from "@agboss/core";
 
 export class AppEnvironment {
   auditUrl!: string;
@@ -31,9 +31,9 @@ export class AppEnvironment {
 ```
 
 <!-- snippet-context
-import { Application, Budget, BudgetScope, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
-import { usd, type Usd } from "agboss/units";
+import { Application, Budget, BudgetScope, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { usd, type Usd } from "@agboss/core/units";
 @WorkflowStart({ name: "audit-workflow-start", description: "A request", input: WorkflowStartTextDto })
 export class AuditWorkflowStart {}
 @WorkflowFinish({ name: "audit-workflow-finish", description: "The request, as is", output: WorkflowStartTextDto })
@@ -90,7 +90,7 @@ One plain object per environment, typed by the contract, in `environments/<name>
 the file name is the environment's name (`--env prod` → `prod.environment.ts`):
 
 ```ts file=src/environments/prod.environment.ts
-import { env, secret } from "agboss";
+import { env, secret } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
 
 export const environment: AppEnvironment = {
@@ -102,7 +102,7 @@ export const environment: AppEnvironment = {
 ```
 
 ```ts file=src/environments/dev.environment.ts
-import { secret } from "agboss";
+import { secret } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
 
 export const environment: AppEnvironment = {
@@ -114,7 +114,7 @@ export const environment: AppEnvironment = {
 ```
 
 ```ts file=src/environments/test.environment.ts
-import { secret } from "agboss";
+import { secret } from "@agboss/core";
 import type { AppEnvironment } from "./app.environment.js";
 
 export const environment: AppEnvironment = {
@@ -161,7 +161,7 @@ separate environment token; the chosen environment's name is `applicationContext
 Components read it through the constructor (`deps: [ApplicationContext]`), never `process.env`:
 
 ```ts file=src/services/audit-store.service.ts
-import { ApplicationContext, Injectable } from "agboss";
+import { ApplicationContext, Injectable } from "@agboss/core";
 
 @Injectable({ deps: [ApplicationContext] })
 export class AuditStoreService {

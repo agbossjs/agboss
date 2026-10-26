@@ -36,8 +36,8 @@ The same definition is used by the analyser at assembly, by the generated types 
 
 <!--
 ```ts file=history.components.ts
-import { Agent, WorkflowFinish, WorkflowStart } from "agboss";
-import { Text, historyOf, oneOf } from "agboss/dto";
+import { Agent, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { Text, historyOf, oneOf } from "@agboss/core/dto";
 
 export class ShortlistDto {
   @Text({ prompt: "the shortlisted candidates" })
@@ -78,8 +78,8 @@ A node that needs the versions a value went through declares `historyOf(XDto)` i
 oldest first — every one, or at most `limit` (the latest ones).
 
 <!-- snippet-context
-import { Agent, Workflow, agent, caseOf, start } from "agboss";
-import { historyOf, oneOf } from "agboss/dto";
+import { Agent, Workflow, agent, caseOf, start } from "@agboss/core";
+import { historyOf, oneOf } from "@agboss/core/dto";
 import { ChangesRequestedDto, DraftApprovedDto, DraftEditorAgent, FirstDraftAgent, HistoryOfferWorkflowStart, OfferDraftDto, OfferWorkflowFinish, ShortlistDto } from "./history.components.js";
 -->
 
@@ -168,8 +168,8 @@ about the older one; a new value about it never outdates the draft. Components d
 
 <!--
 ```ts file=review.components.ts
-import { Agent, WorkflowFinish, WorkflowStart } from "agboss";
-import { Text, optional } from "agboss/dto";
+import { Agent, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { Text, optional } from "@agboss/core/dto";
 
 export class ArticleRequestDto {
   @Text({ prompt: "what to write about" })
@@ -209,8 +209,8 @@ export class ArticleWorkflowFinish {}
 -->
 
 <!-- snippet-context
-import { Agent, Workflow, agent, caseOf, start } from "agboss";
-import { oneOf } from "agboss/dto";
+import { Agent, Workflow, agent, caseOf, start } from "@agboss/core";
+import { oneOf } from "@agboss/core/dto";
 import { ApprovalDto, ArticleChangesDto, ArticleDto, ArticleRequestDto, ArticleWorkflowFinish, ArticleWorkflowStart, DraftDto, PublisherAgent, ResearchDto, ResearcherAgent, WriterAgent } from "./review.components.js";
 -->
 

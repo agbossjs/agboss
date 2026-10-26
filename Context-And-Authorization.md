@@ -97,7 +97,7 @@ ended (payment-agent:1 tool call call_7f3a in execution 4f1c…)`. A tool call's
 ## The project's levels: subclasses
 
 The levels are fixed (application → tenant → execution → step); the project extends the tenant and
-the execution level by **subclassing** them, with DTO field decorators (`agboss/dto`), and declares
+the execution level by **subclassing** them, with DTO field decorators (`@agboss/core/dto`), and declares
 the subclasses once, `@Application({ tenantContext, executionContext })` — workflows declare none.
 How an organization is structured inside (clinics → units → wards) is data in the tenant
 subclass, nested with `@ListOf` / `@Nested`, not new framework levels.
@@ -122,8 +122,8 @@ executionContext: ClinicExecutionContext })`.
   never stale after a pause.
 
 ```ts file=clinic.context.ts
-import { ExecutionContext, Injectable, PiiAction, TenantContext } from "agboss";
-import { ListOf, Nested, Text } from "agboss/dto";
+import { ExecutionContext, Injectable, PiiAction, TenantContext } from "@agboss/core";
+import { ListOf, Nested, Text } from "@agboss/core/dto";
 
 export class UnitDto {
   @Text()
@@ -205,7 +205,7 @@ read. Inside the execution a tool reads the owner as `executionContext.ownerId` 
 what that owner may do — the context holds identity, never permissions or secrets.
 
 ```ts file=roles.service.ts
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 
 /** Who may read what: the project's own store of roles. */
 @Injectable()
@@ -217,8 +217,8 @@ export class RoleService {
 ```
 
 ```ts file=secure-data.tool.ts
-import { ExecutionContext, Tool, type ToolHandler } from "agboss";
-import { Text } from "agboss/dto";
+import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 import { RoleService } from "./roles.service.js";
 
 export class SecureQuery {
@@ -255,8 +255,8 @@ A tool error or a denied call reaches the model as the call's result; the loop c
 
 <!--
 ```ts file=data.workflow.ts
-import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { RoleService } from "./roles.service.js";
 import { SecureDataTool } from "./secure-data.tool.js";
 @WorkflowStart({ name: "data-workflow-start", description: "A request", input: WorkflowStartTextDto })
@@ -283,7 +283,7 @@ export class DataWorkflow {}
 ### Passing it in
 
 <!-- snippet-context
-import type { App } from "agboss";
+import type { App } from "@agboss/core";
 import { DataWorkflowStart } from "./data.workflow.js";
 declare const app: App;
 declare const userId: string;
@@ -305,7 +305,7 @@ or any other component needs of the execution it reads through its injected `Exe
 (the tenant, the owner, the project's own fields — `deps: [ExecutionContext]`; a channel's request
 is made inside the paused step). An MCP session takes the values from its authenticated caller —
 `createMcpService(app, Mcp).connect(transport, { tenant, execution, ownerId })` (`McpSessionOptions`,
-`agboss/mcp`) — and so does an A2A call: `a2aHttpListener(app, { start, callerResolver })` asks
+`@agboss/core/mcp`) — and so does an A2A call: `a2aHttpListener(app, { start, callerResolver })` asks
 the host's **caller resolver** (an `@Injectable` in `providers`) for every request, before its body
 is read — `A2ACallerResolution.resolved({ tenant, ownerId, execution })`, typed by the start's
 application (a declared `TenantContext`'s values are required), or `.unauthenticated(…)` /
@@ -322,12 +322,12 @@ fields through their action — `replacePart(…)` as written, a token or a kind
 ## In unit tests
 
 A component created without the container takes `testExecutionContext({ … })` from
-`agboss/testing` — a frozen `ExecutionContext` readable at any time, with defaults for what is not
+`@agboss/core/testing` — a frozen `ExecutionContext` readable at any time, with defaults for what is not
 given ([Testing](Testing)); `{ tenantContext, tenant, executionContext, execution, application: {
 environment } }` set the levels, checked like at `execute`:
 
 <!-- snippet-context
-import { testExecutionContext, toolOf } from "agboss/testing";
+import { testExecutionContext, toolOf } from "@agboss/core/testing";
 import { RoleService } from "./roles.service.js";
 import { SecureDataTool } from "./secure-data.tool.js";
 -->
@@ -340,7 +340,7 @@ const answer = await tool.invoke({ query: "salaries" });
 ```
 
 <!-- snippet-context
-import { testExecutionContext } from "agboss/testing";
+import { testExecutionContext } from "@agboss/core/testing";
 import { ClinicTenantContext, UnitDirectoryService } from "./clinic.context.js";
 -->
 

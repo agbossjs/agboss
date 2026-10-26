@@ -76,7 +76,7 @@ instead of letting it loop, unless the path's `.onError(…)` takes the failure.
 | **Model providers**             | Every model comes from a `@ModelProvider` (OpenRouter and the Decisions API built in): timeouts, retries, circuit breakers, costs, reasoning and caching per provider → [Model providers](Model-providers)                              |
 | **FinOps built in**             | Every call is recorded (tokens, cache hits, USD, source of the price). Money is capped by `@Budget` components — per execution, per tenant and for the whole application per day / week / month (UTC), counted call by call in the application's ledger → [FinOps](FinOps)       |
 | **Typed end to end**            | Strict TypeScript, DTO classes at every boundary, deps checked against constructors, scripted test turns typed by the tool's input                                                                                                    |
-| **Tested without spending**     | `agboss/testing` runs a whole workflow with scripted models and the network blocked ([Testing](Testing)); real calls only in `make smoke`                                                                                         |
+| **Tested without spending**     | `@agboss/core/testing` runs a whole workflow with scripted models and the network blocked ([Testing](Testing)); real calls only in `make smoke`                                                                                         |
 
 ### Run the example
 
@@ -92,7 +92,7 @@ More: [Example](Example) (covering [`agbossjs/agboss-examples`](https://github.c
 ### Public entries
 
 `agboss` (decorators, DI, flow DSL, settings, environments, observers, judges and decisions,
-`createApp`, errors, types), `agboss/dto`, `/units`, `/models`, `/testing` (+
+`createApp`, errors, types), `@agboss/core/dto`, `/units`, `/models`, `/testing` (+
 `/testing/setup`), and the integrations `/mcp`, `/rag`, `/a2a`, `/memory`. The older entries are
 deprecated re-exports; `agboss migrate imports` rewrites them.
 

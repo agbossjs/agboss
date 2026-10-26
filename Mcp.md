@@ -1,6 +1,6 @@
 # MCP (Model Context Protocol)
 
-`agboss/mcp` works both ways:
+`@agboss/core/mcp` works both ways:
 
 - **Using MCP servers** — `@McpServer` declares a server and the server tools the workflow uses,
   `@McpTool` is a tool with that server injected. See [Components → MCP](Components#mcp) and
@@ -12,8 +12,8 @@
 ## 1. What to expose — `@McpExpose`
 
 <!-- snippet-context
-import { Tool, WorkflowStart, type ToolHandler } from "agboss";
-import { Text, WorkflowStartTextDto } from "agboss/dto";
+import { Tool, WorkflowStart, type ToolHandler } from "@agboss/core";
+import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
 class IssueQuery { @Text() query!: string; }
 class Issues { @Text() text!: string; }
 @Tool({ name: "search-issues-tool", description: "Searches the tracker", input: IssueQuery, output: Issues })
@@ -24,7 +24,7 @@ class ChatWorkflowStart {}
 
 ```ts
 // src/mcp/job-scout.expose.ts
-import { McpExpose } from "agboss/mcp";
+import { McpExpose } from "@agboss/core/mcp";
 
 @McpExpose({
   name: "job-scout-mcp",
@@ -45,13 +45,13 @@ export class JobScoutMcp {}
 For Claude Desktop and other local clients, the service talks over stdin/stdout:
 
 <!-- snippet-context
-import { createApp } from "agboss";
+import { createApp } from "@agboss/core";
 declare class JobScoutApplication {}
 declare class JobScoutMcp {}
 -->
 
 ```ts
-import { createMcpService } from "agboss/mcp";
+import { createMcpService } from "@agboss/core/mcp";
 
 const app = await createApp(JobScoutApplication);
 const service = createMcpService(app, JobScoutMcp);
@@ -68,7 +68,7 @@ from a call's arguments; components read it through their `ExecutionContext` —
 out of the tools' code ([Context and Authorization](Context-And-Authorization)).
 
 <!-- snippet-context
-import type { McpService } from "agboss/mcp";
+import type { McpService } from "@agboss/core/mcp";
 declare const service: McpService;
 -->
 

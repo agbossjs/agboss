@@ -10,8 +10,8 @@ The nodes used below (ordinary components):
 
 <!--
 ```ts file=nodes.ts
-import { Action, Agent, DecidedBy, Router, WorkflowFinish, WorkflowStart, type ActionHandler, type InputOf } from "agboss";
-import { Text, WorkflowFinishTextDto, WorkflowStartTextDto, oneOf } from "agboss/dto";
+import { Action, Agent, DecidedBy, Router, WorkflowFinish, WorkflowStart, type ActionHandler, type InputOf } from "@agboss/core";
+import { Text, WorkflowFinishTextDto, WorkflowStartTextDto, oneOf } from "@agboss/core/dto";
 const model = "moonshotai/kimi-k2.6";
 export class TicketDto {
   @Text({ prompt: "the ticket" })
@@ -97,8 +97,8 @@ A router's choice lists its routes, each continued to its end. A route may lead 
 here the front router hands money matters to a second one:
 
 <!-- snippet-context
-import { Workflow, RouterFailedError, agent, caseOf, route, start, toFinish } from "agboss";
-import { WorkflowStartTextDto, oneOf } from "agboss/dto";
+import { Workflow, RouterFailedError, agent, caseOf, route, start, toFinish } from "@agboss/core";
+import { WorkflowStartTextDto, oneOf } from "@agboss/core/dto";
 import { AnswerDto, AnswerWorkflowFinish, BillingAgent, ChatAgent, EscalatedWorkflowFinish, FrontRouter, MoneyRouter, NeedsHumanDto, OpenTicketAction, RefundAgent, ReplyWorkflowFinish, TicketDto, TicketRouter, TicketWorkflowStart, TriageAgent, UnroutedWorkflowFinish } from "./nodes.js";
 -->
 
@@ -183,8 +183,8 @@ no matching text ([Routers → Routers decided by code](Routers#routers-decided-
 
 <!--
 ```ts file=rule.parts.ts
-import { Action, Agent, type ActionHandler, type InputOf, type OutputOf } from "agboss";
-import { Flag, WorkflowStartTextDto } from "agboss/dto";
+import { Action, Agent, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { Flag, WorkflowStartTextDto } from "@agboss/core/dto";
 import { AnswerDto } from "./nodes.js";
 export class PriorityDto {
   @Flag({ prompt: "whether the customer cannot work until it is fixed" })
@@ -208,8 +208,8 @@ export class QueueTicketAction implements ActionHandler<QueueTicketAction> {
 -->
 
 <!-- snippet-context
-import { DecidedBy, Router, Workflow, route, start, type InputOf, type Route, type RouterHandler } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { DecidedBy, Router, Workflow, route, start, type InputOf, type Route, type RouterHandler } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { AnswerDto, AnswerWorkflowFinish, TicketWorkflowStart } from "./nodes.js";
 import { PageOnCallAction, PriorityAgent, PriorityDto, QueueTicketAction } from "./rule.parts.js";
 -->
@@ -263,8 +263,8 @@ router reads its route `prompt`) — and `failure` — `FailurePolicy.FailFast` 
 branch is `optional(XDto)` in `.join().returns(…)` and in every consumer's `input`.
 
 <!-- snippet-context
-import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
-import { Text, WorkflowStartTextDto, optional } from "agboss/dto";
+import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { Text, WorkflowStartTextDto, optional } from "@agboss/core/dto";
 
 export class OrderStatusDto {
   @Text({ prompt: "where the order is" })

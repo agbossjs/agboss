@@ -1,4 +1,4 @@
-# Testing — `agboss/testing`
+# Testing — `@agboss/core/testing`
 
 Test an application without models and without the network, from its first day: the real
 container, components and graph rules of every workflow, with **everything external replaced
@@ -11,14 +11,14 @@ optional peer dependency.
 // vitest.config.ts — one line registers the matchers
 import { defineConfig } from "vitest/config";
 
-export default defineConfig({ test: { setupFiles: ["agboss/testing/setup"] } });
+export default defineConfig({ test: { setupFiles: ["@agboss/core/testing/setup"] } });
 ```
 
 <!--
 ```ts file=job-scout.ts
-import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, type ToolHandler, TerminalUserChannel, route, Router, start, Workflow, WorkflowFinish, WorkflowStart } from "agboss";
-import { ListOf, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
-import { McpServer, McpServerClient, McpTool } from "agboss/mcp";
+import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, type ToolHandler, TerminalUserChannel, route, Router, start, Workflow, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { ListOf, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
+import { McpServer, McpServerClient, McpTool } from "@agboss/core/mcp";
 const model = "moonshotai/kimi-k2.6";
 export class FileRead { @Text() path!: string; }
 export class FileContent { @Text() content!: string; }
@@ -111,7 +111,7 @@ const job = { title: "Senior Engineer", link: "https://boards.greenhouse.io/acme
 -->
 
 ```ts
-import { replyWith, callTool, routeTo, testWith } from "agboss/testing";
+import { replyWith, callTool, routeTo, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
 
 const test = testWith(JobScoutApplication);
@@ -178,7 +178,7 @@ it (`app.execute`, `app.resume`, a slice) throws it.
 ## Scripted models
 
 <!-- snippet-context
-import { ModelFailure, callTool, failWith, replyWith, routeTo, testWith } from "agboss/testing";
+import { ModelFailure, callTool, failWith, replyWith, routeTo, testWith } from "@agboss/core/testing";
 import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
 testWith(JobScoutApplication)("scripts", ({ mockLlm }) => {
 // @snippet
@@ -200,7 +200,7 @@ mockLlm(Reviewer).thenReturn(failWith(ModelFailure.Timeout));
 | `routeTo(...targets)`, `routeTo(Target, { reason?, confidence?, cost? })` | what the router's model chose, checked against `Route<R>` (#262, Q55): exactly one target after `.chooseOne(…)`; before `.toParallelAgents(…)` the `OnDemand` targets it launches — `routeTo()` only with an `Always` route, an `Always` target does not compile |
 | `decideWith(answers, { cost? })`                  | a decision model answers by question id (a judge, a model arbiter, a router before a launch) |
 | `waitFor(seconds(31))`                            | not a call of its own: the next turn answers only after that long on the test's clock (`clock.advance`) |
-| `failWith(ModelFailure.Timeout \| RateLimited \| ServerError \| NetworkError)` (the same enum as `agboss/models`) | the call fails: an agent fails the run at the agent, a router with `RouterFailedError` (`step.router`, the failure as its cause) |
+| `failWith(ModelFailure.Timeout \| RateLimited \| ServerError \| NetworkError)` (the same enum as `@agboss/core/models`) | the call fails: an agent fails the run at the agent, a router with `RouterFailedError` (`step.router`, the failure as its cause) |
 | `callToolWithInvalidArguments(Tool, args)`        | the model calls a tool with arguments its input check refuses — `args` of any shape, no cast (#395): the tool never runs, the call is `ToolCallStatus.InvalidArguments`, counted in `step.validationAttempts`, and the model reads why |
 | `callToolWithTruncatedArguments(Tool, partialArgs)` | the call is cut at the output limit: `{"orderId":"7` as the provider's `invalid_tool_calls`, `finish_reason: "length"` — recorded `InvalidArguments`, the tool never runs |
 | `replyWithInvalidAnswer(Dto, fields, { cost? })`  | an agent with `output` answers through the answer tool of a class of its output (checked like `replyWith`) with fields that do not fit it: an invalid answer, sent back; the third fails the step with `AgentAnswerInvalidError` (`step.agent.invalid-answer`) |
@@ -220,7 +220,7 @@ mockLlm(Reviewer).thenReturn(failWith(ModelFailure.Timeout));
 A tool call or an answer that does not validate is scripted as is, no cast (#395):
 
 <!-- snippet-context
-import { callTool, callToolWithInvalidArguments, callToolWithTruncatedArguments, replyWith, routeTo, testWith } from "agboss/testing";
+import { callTool, callToolWithInvalidArguments, callToolWithTruncatedArguments, replyWith, routeTo, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
 import { ChatWorkflowStart, JobScoutApplication, MainRouter, OrderStatus, Scout } from "./job-scout.js";
 testWith(JobScoutApplication)("invalid turns", async ({ app, mockLlm }) => {
@@ -255,7 +255,7 @@ step does not break a data script; a misspelled field does not compile. Agents a
 only.
 
 <!-- snippet-context
-import { replyWith, routeTo, testWith } from "agboss/testing";
+import { replyWith, routeTo, testWith } from "@agboss/core/testing";
 import { JobScoutApplication, MainRouter, Scout, Writer } from "./job-scout.js";
 testWith(JobScoutApplication)("when", ({ mockLlm }) => {
 // @snippet
@@ -297,7 +297,7 @@ route: script it with `routeTo(...)` — the `OnDemand` targets it launches, `ro
 model and on a chat model alike (for a chat model, above 0.5 is `true` in its answer tool):
 
 <!-- snippet-context
-import { decideWith, testWith } from "agboss/testing";
+import { decideWith, testWith } from "@agboss/core/testing";
 import { JobScoutApplication, MainRouter } from "./job-scout.js";
 testWith(JobScoutApplication)("launch decisions", ({ mockLlm }) => {
 // @snippet
@@ -338,8 +338,8 @@ A model reply interpreter (#267 PR 3) is scripted by its class, its input the pa
 — so `when(…)` binds a turn to the reply it reads, and its answer is the role's answer DTO:
 
 <!-- snippet-context
-import { ToolCallApprovalDecisionDto } from "agboss/dto";
-import { replyWith, type ModelScript } from "agboss/testing";
+import { ToolCallApprovalDecisionDto } from "@agboss/core/dto";
+import { replyWith, type ModelScript } from "@agboss/core/testing";
 declare function mockLlm(target: unknown): ModelScript;
 declare class RefundReplyInterpreter {}
 -->
@@ -423,8 +423,8 @@ declare const candidate: never;
 
 ```ts
 import { expect } from "vitest";
-import { BranchStatus, BranchVerdict } from "agboss";
-import { replyWith, step, TestConcurrency, testWith } from "agboss/testing";
+import { BranchStatus, BranchVerdict } from "@agboss/core";
+import { replyWith, step, TestConcurrency, testWith } from "@agboss/core/testing";
 
 // two of three count: the hire agent answers first, then the risks agent
 const test = testWith(PanelApplication, {
@@ -458,7 +458,7 @@ returns the same instance the app uses:
 
 <!-- snippet-context
 import { expect } from "vitest";
-import { testWith } from "agboss/testing";
+import { testWith } from "@agboss/core/testing";
 import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
 testWith(JobScoutApplication)("a mock", ({ mockOf }) => {
 // @snippet
@@ -495,8 +495,8 @@ scripts the role's own implementation instead.
 
 
 ```ts no-check: the role's ChannelAsk / ChannelOutcome come from the generated types of a project
-import { AutoApproveChannel } from "agboss";
-import { override, testWith } from "agboss/testing";
+import { AutoApproveChannel } from "@agboss/core";
+import { override, testWith } from "@agboss/core/testing";
 
 // every refund the agent asks for is approved at once: no pause, no Slack
 const test = testWith(RefundApplication, {
@@ -514,7 +514,7 @@ ms`); the calls after the scripted failures run the tool. Both before the first 
 
 <!-- snippet-context
 import { expect } from "vitest";
-import { callTool, replyWith, routeTo, testWith, ToolFailure } from "agboss/testing";
+import { callTool, replyWith, routeTo, testWith, ToolFailure } from "@agboss/core/testing";
 import { ChatWorkflowStart, JobScoutApplication, MainRouter, OrderStatus, Scout } from "./job-scout.js";
 testWith(JobScoutApplication)("a tool timeout", async ({ app, mockLlm, mockTool }) => {
 // @snippet
@@ -579,11 +579,11 @@ hold whatever the order: which tools ran, with what, how each ended — `toHaveC
 ones, `toolCallsOf` for the rest. A child's calls are asserted through `result.children`.
 
 <!-- snippet-context
-import type { ExecutionOutput } from "agboss";
-import { ToolCallStatus, Tool, toolCallsOf, type ToolHandler } from "agboss";
-import { Text } from "agboss/dto";
+import type { ExecutionOutput } from "@agboss/core";
+import { ToolCallStatus, Tool, toolCallsOf, type ToolHandler } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 import { expect } from "vitest";
-import "agboss/testing/setup";
+import "@agboss/core/testing/setup";
 export class OrderQuery {
   @Text() orderId!: string;
 }
@@ -629,7 +629,7 @@ its clean-up signal is bounded by `compensationTimeout` on the test's clock —
 
 <!-- snippet-context
 import { expect } from "vitest";
-import { CompensationReason, CompensationStatus, type ExecutionOutput } from "agboss";
+import { CompensationReason, CompensationStatus, type ExecutionOutput } from "@agboss/core";
 declare class BookFlightAction {}
 declare class CancelFlightAction {}
 declare const result: ExecutionOutput;
@@ -655,8 +655,8 @@ framework's counting; there is no `limits` option on `testWith`.
 
 <!-- snippet-context
 import { expect } from "vitest";
-import { RouterFailedError } from "agboss";
-import { failWith, ModelCallFailedError, ModelFailure, testWith } from "agboss/testing";
+import { RouterFailedError } from "@agboss/core";
+import { failWith, ModelCallFailedError, ModelFailure, testWith } from "@agboss/core/testing";
 import { ChatWorkflowStart, JobScoutApplication, MainRouter } from "./job-scout.js";
 testWith(JobScoutApplication)("a failed router", async ({ app, mockLlm }) => {
 // @snippet
@@ -682,7 +682,7 @@ await expect(app.execute(ChatWorkflowStart, { text: "hi" })).rejects.toFailWith(
 
 <!-- snippet-context
 import { expect } from "vitest";
-import { OutdatedReason, type ExecutionOutput } from "agboss";
+import { OutdatedReason, type ExecutionOutput } from "@agboss/core";
 declare const result: ExecutionOutput;
 -->
 
@@ -710,7 +710,7 @@ the two matchers read them:
 
 <!-- snippet-context
 import { expect } from "vitest";
-import { ChildExecutionFailedError, StepsLimitExceededError, type ExecutionOutput } from "agboss";
+import { ChildExecutionFailedError, StepsLimitExceededError, type ExecutionOutput } from "@agboss/core";
 declare class VendorCheckWorkflow {}
 declare class VendorScoredWorkflowFinish {}
 declare class ScreeningStoppedWorkflowFinish {}
@@ -751,7 +751,7 @@ that never started (the launch was aborted first) has no execution: it is a `Can
 All time in the framework is the application's `Clock` (#262) — `now()` and
 `sleep(delay, signal?)`, infrastructure like the stores: the system's clock, unless
 `@Application({ providers })` lists a class that `extends Clock`. In every test it is the test's
-**`VirtualClock`** (`agboss/testing`) — whatever the application lists, since the test controls the
+**`VirtualClock`** (`@agboss/core/testing`) — whatever the application lists, since the test controls the
 time — the `clock` fixture, `app.clock`, and what a component that injects `Clock` gets. `testWith` always runs on the `VirtualClock`, even when the application lists its own `Clock`: tests never run on real time.
 
 - It starts at `2026-01-05T09:00:00.000Z` (so days and ids are reproducible) and moves only by
@@ -768,9 +768,9 @@ time — the `clock` fixture, `app.clock`, and what a component that injects `Cl
   `new VirtualClock(new Date("2026-03-01T00:00:00Z"))`).
 
 ```ts
-import { Clock, Injectable } from "agboss";
-import { VirtualClock } from "agboss/testing";
-import { seconds } from "agboss/units";
+import { Clock, Injectable } from "@agboss/core";
+import { VirtualClock } from "@agboss/core/testing";
+import { seconds } from "@agboss/core/units";
 import { expect, it } from "vitest";
 
 @Injectable({ deps: [Clock] })
@@ -802,7 +802,7 @@ real implementation, `SystemClock`, excepted.
 
 Every thread id and execution id the framework mints comes from the application's `IdGenerator`
 (#313, [App → Infrastructure](App#infrastructure)). Under `testWith` it is a
-**`SequentialIdGenerator`** (`agboss/testing`) unless the application lists its own: `thread-1`,
+**`SequentialIdGenerator`** (`@agboss/core/testing`) unless the application lists its own: `thread-1`,
 `thread-2`, … for new threads and `execution-1`, `execution-2`, … for executions — a root before its
 children, in the order they are made — counted from 1 in every test and shared by its instances
 (`instances: 2`, `recoverApp()`), so a test names them. A caller's own `threadId` is used as given.
@@ -811,7 +811,7 @@ it: it stays a random 128-bit token (32 hex characters) — read it from `result
 
 <!-- snippet-context
 import { expect } from "vitest";
-import type { ExecutionOutput } from "agboss";
+import type { ExecutionOutput } from "@agboss/core";
 declare const paused: ExecutionOutput;
 // @snippet
 -->
@@ -845,7 +845,7 @@ Type mistakes are tested too: a `*.test.ts` line marked `// @ts-expect-error —
 compile error — `tsc` (in `make check`) fails when such a line compiles. One file per decorator family:
 
 <!-- snippet-context
-import { callTool } from "agboss/testing";
+import { callTool } from "@agboss/core/testing";
 import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
 -->
 
@@ -900,9 +900,9 @@ import { OrderBook, OrderStatus } from "./job-scout.js";
 -->
 
 ```ts
-import { Injectable } from "agboss";
-import { override, testTool } from "agboss/testing";
-import { seconds } from "agboss/units";
+import { Injectable } from "@agboss/core";
+import { override, testTool } from "@agboss/core/testing";
+import { seconds } from "@agboss/core/units";
 import { expect, it } from "vitest";
 
 @Injectable()
@@ -981,8 +981,8 @@ it("looks the order up in the book it is given", async () => {
   (`replyWith('{"found":[{"kind":"person-name","text":"Anna Smith"}]}')`).
 
 <!-- snippet-context
-import { Decision, Injectable, Judge, JudgeModel, JudgeVerdict, PiiAction, PiiKind, PiiPolicy, pii, type JudgeHandler, type JudgeInput } from "agboss";
-import { PlainTextDto } from "agboss/dto";
+import { Decision, Injectable, Judge, JudgeModel, JudgeVerdict, PiiAction, PiiKind, PiiPolicy, pii, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { PlainTextDto } from "@agboss/core/dto";
 @Judge({ name: "grounded-judge", model: "typesafe/jev-1.13", reply: PlainTextDto, deps: [JudgeModel] })
 export class GroundedJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
@@ -1005,8 +1005,8 @@ export class ContactPiiPolicy {}
 -->
 
 ```ts
-import { decideWith, testJudge, testPii } from "agboss/testing";
-import { usd } from "agboss/units";
+import { decideWith, testJudge, testPii } from "@agboss/core/testing";
+import { usd } from "@agboss/core/units";
 import { expect, it } from "vitest";
 
 it("a grounded reply passes, at the decision's cost", async () => {
@@ -1057,7 +1057,7 @@ built as at run time. The levels above (#261): the tenant `"default"` of an appl
 tenant or application level takes `testExecutionContext({ … }).tenant` or `.tenant.application`.
 
 <!-- snippet-context
-import { ExecutionContext, Injectable } from "agboss";
+import { ExecutionContext, Injectable } from "@agboss/core";
 @Injectable({ deps: [ExecutionContext] })
 export class ReceiptService {
   constructor(private readonly executionContext: ExecutionContext) {}
@@ -1069,7 +1069,7 @@ export class ReceiptService {
 
 ```ts
 import { expect, test } from "vitest";
-import { testExecutionContext } from "agboss/testing";
+import { testExecutionContext } from "@agboss/core/testing";
 
 test("the receipt is keyed by the step", () => {
   const receipts = new ReceiptService(
@@ -1086,7 +1086,7 @@ test("the receipt is keyed by the step", () => {
 When the answer depends on the request, script a function instead of a list of turns:
 
 <!-- snippet-context
-import { callTool, replyWith, routeTo, testWith } from "agboss/testing";
+import { callTool, replyWith, routeTo, testWith } from "@agboss/core/testing";
 import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
 testWith(JobScoutApplication)("answers", ({ mockLlm }) => {
 // @snippet
@@ -1125,7 +1125,7 @@ import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobSco
 
 ```ts
 import { expect } from "vitest";
-import { VCRMode, testWith } from "agboss/testing";
+import { VCRMode, testWith } from "@agboss/core/testing";
 
 const test = testWith(JobScoutApplication, {
   vcr: {

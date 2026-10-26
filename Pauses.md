@@ -38,7 +38,7 @@ own waiting pause fires nothing.
 ## Answering a pause: `app.resume({ pauseId, decision }, options)`
 
 <!-- snippet-context
-import type { App } from "agboss";
+import type { App } from "@agboss/core";
 declare const app: App;
 declare const replyKey: string;
 -->
@@ -74,8 +74,8 @@ A webhook that only has the person's words — a Slack thread reply, a mail — 
 are; the pause's role reads them with its **reply interpreter** (#267 PR 3), named on the role:
 
 <!-- snippet-context
-import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpreter, type App } from "agboss";
-import { Integer, Text } from "agboss/dto";
+import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpreter, type App } from "@agboss/core";
+import { Integer, Text } from "@agboss/core/dto";
 declare const app: App;
 declare const replyKey: string;
 export class RefundCardInputDto {
@@ -157,8 +157,8 @@ Both new forms side by side — a decision model for a deposit return, and an ow
 code:
 
 <!-- snippet-context
-import { Agent, Channel, ChannelOf, ChannelOutcome, ChannelRole, DecidedBy, Injectable, PauseAnswerer, ReplyInterpretation, ReplyInterpreter, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ChannelAsk, type InputOf, type OutputOf, type ReplyInterpreterHandler, type ToolHandler } from "agboss";
-import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, Channel, ChannelOf, ChannelOutcome, ChannelRole, DecidedBy, Injectable, PauseAnswerer, ReplyInterpretation, ReplyInterpreter, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ChannelAsk, type InputOf, type OutputOf, type ReplyInterpreterHandler, type ToolHandler } from "@agboss/core";
+import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 
 export class DepositReturnDto {
   @Text({ prompt: "the lease whose deposit is returned" })
@@ -407,8 +407,8 @@ lead to `NotPausedError`. `withdraw(withdrawal)` is the pair of `send`: a no-op 
 role's implementation writes `override`), optional on a concrete `@Channel` (`ChannelHandler`).
 
 <!-- snippet-context
-import { Injectable } from "agboss";
-import { Text } from "agboss/dto";
+import { Injectable } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 @Injectable()
 export class SlackClient {
   postApproval(_replyKey: string, _text: string): Promise<void> {
@@ -422,8 +422,8 @@ export class RefundRequest {
   @Text() orderId!: string;
 }
 // @snippet
-import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "agboss";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "@agboss/core";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @Tool({ name: "refund-tool", description: "Refunds an order", input: RefundRequest, output: RefundRequest, channel: RefundApprovalChannel })
 export class RefundTool implements ToolHandler<RefundRequest, RefundRequest> {
   run(input: RefundRequest): Promise<RefundRequest> {
@@ -464,7 +464,7 @@ import {
   PauseResolution,
   type ChannelAsk,
   type ChannelWithdrawal,
-} from "agboss";
+} from "@agboss/core";
 
 @ChannelRole({
   name: "refund-approval-channel",

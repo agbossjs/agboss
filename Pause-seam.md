@@ -16,8 +16,8 @@ terminal; `AutoApproveChannel` / `AutoRejectChannel` decide at once, for tests a
 ([Tools → Approval channels](Tools#approval-channels)):
 
 <!-- snippet-context
-import { Agent, ExecutionStatus, TerminalUserChannel, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "agboss";
-import { Email, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, ExecutionStatus, TerminalUserChannel, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "@agboss/core";
+import { Email, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 class EmailDraft { @Email() to!: string; @Text() body!: string; }
 class EmailSent { @Text() id!: string; }
 @WorkflowStart({ name: "task-workflow-start", description: "A task", input: WorkflowStartTextDto })
@@ -57,12 +57,12 @@ export class Errands {}
 ```
 
 <!-- snippet-context
-import { Application, ExecutionStatus, createApp } from "agboss";
+import { Application, ExecutionStatus, createApp } from "@agboss/core";
 import { Errands, TaskStart } from "./errands.workflow.js";
 -->
 
 ```ts
-import { EmptyEnvironment } from "agboss";
+import { EmptyEnvironment } from "@agboss/core";
 @Application({ name: "errands-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [Errands] })
 class ErrandsApplication {}
 
@@ -76,7 +76,7 @@ if (first.status === ExecutionStatus.Paused && waiting?.pauseId !== undefined) {
 }
 ```
 
-The decision is a `ToolCallApprovalDecisionDto` (`agboss/dto`): `approved`, `reason?` — why,
+The decision is a `ToolCallApprovalDecisionDto` (`@agboss/core/dto`): `approved`, `reason?` — why,
 `overrideArguments?` — only with `approved: true`, checked by the tool's input. Who answered is not
 part of it: the framework knows it from the resume (`answeredBy`, or the thread's owner). It is
 validated before it is recorded (`DtoValidationError` otherwise; the pause keeps waiting). `agboss

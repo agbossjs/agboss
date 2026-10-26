@@ -11,8 +11,8 @@ against the current package, with the `.agboss/types.d.ts` its workflows generat
 
 <!--
 ```ts file=chat.components.ts
-import { Agent, DecidedBy, Router, WorkflowFinish, WorkflowStart } from "agboss";
-import { Text, WorkflowStartTextDto, oneOf, optional } from "agboss/dto";
+import { Agent, DecidedBy, Router, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { Text, WorkflowStartTextDto, oneOf, optional } from "@agboss/core/dto";
 
 export class ProfileDto {
   @Text({ prompt: "the candidate's profile" })
@@ -59,13 +59,13 @@ export class MainRouter {}
 ## Writing a workflow
 
 <!-- snippet-context
-import { oneOf } from "agboss/dto";
+import { oneOf } from "@agboss/core/dto";
 import { AskResumeWorkflowFinish, ChatWorkflowFinish, IntakeWorkflowStart, MainRouter, NoReplyWorkflowFinish, OpeningsDto, ProfileDto, ProfilerAgent, ResumeMissingDto, ScoutAgent } from "./chat.components.js";
 -->
 
 ```ts file=chat.workflow.ts
-import { Workflow, caseOf, route, router, start } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Workflow, caseOf, route, router, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @Workflow({
   name: "chat-workflow",
@@ -157,8 +157,8 @@ export class MainRouter {}
 
 <!--
 ```ts file=offer.components.ts
-import { Action, Agent, WorkflowFinish, WorkflowStart, type ActionHandler, type InputOf, type OutputOf } from "agboss";
-import { Flag, Text, oneOf } from "agboss/dto";
+import { Action, Agent, WorkflowFinish, WorkflowStart, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { Flag, Text, oneOf } from "@agboss/core/dto";
 
 export class ShortlistDto {
   @Text({ prompt: "the shortlisted candidates" })
@@ -208,7 +208,7 @@ export class OfferSentWorkflowFinish {}
 -->
 
 <!-- snippet-context
-import { Workflow, VisitsLimitExceededError, agent, caseOf, oneOf, start, toAction } from "agboss";
+import { Workflow, VisitsLimitExceededError, agent, caseOf, oneOf, start, toAction } from "@agboss/core";
 import { ChangesRequestedDto, DraftAgent, DraftApprovedDto, EditorAgent, NotifyRecruiterAction, OfferDraftDto, OfferFailedWorkflowFinish, OfferSentDto, OfferSentWorkflowFinish, OfferWorkflowStart, ReviewerAgent, SendOfferAction, ShortlistDto } from "./offer.components.js";
 -->
 
@@ -272,7 +272,7 @@ path after it then reaches a finish only through the undo, newest first; `agboss
 ([Rollback](Rollback)).
 
 <!-- snippet-context
-import { Action, Workflow, WorkflowFinish, WorkflowStart, start, type ActionHandler, type InputOf } from "agboss";
+import { Action, Workflow, WorkflowFinish, WorkflowStart, start, type ActionHandler, type InputOf } from "@agboss/core";
 import { OfferDraftDto } from "./offer.components.js";
 // @snippet
 @WorkflowStart({ name: "audit-workflow-start", description: "A draft", input: OfferDraftDto })
@@ -299,8 +299,8 @@ actions — and the join names what they give; the next step reads those values 
 type, like any other.
 
 <!-- snippet-context
-import { Action, Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
-import { Flag, Integer, Text, WorkflowStartTextDto, listOf } from "agboss/dto";
+import { Action, Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { Flag, Integer, Text, WorkflowStartTextDto, listOf } from "@agboss/core/dto";
 
 export class CompanyDto {
   @Text({ prompt: "the company's name" })
@@ -462,8 +462,8 @@ import { ChatWorkflowFinish, IntakeWorkflowStart, MainRouter, OpeningsDto, Scout
 
 ```ts
 import { expect } from "vitest";
-import { replyWith, routeTo, testWith } from "agboss/testing";
-import { Application, EmptyEnvironment } from "agboss";
+import { replyWith, routeTo, testWith } from "@agboss/core/testing";
+import { Application, EmptyEnvironment } from "@agboss/core";
 
 @Application({ name: "chat-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [ChatWorkflow] })
 class ChatApplication {}

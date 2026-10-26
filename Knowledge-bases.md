@@ -5,8 +5,8 @@ The core fixes a **contract**, not a technology: a knowledge base is any class i
 to agents, reports its cost and traces it. Decision: [ADR-0010](ADR-0010-RAG-as-a-contract).
 
 <!-- snippet-context
-import type { IndexReport } from "agboss/rag";
-import type { RagSearchResultDto } from "agboss/dto";
+import type { IndexReport } from "@agboss/core/rag";
+import type { RagSearchResultDto } from "@agboss/core/dto";
 -->
 
 ```ts
@@ -26,8 +26,8 @@ interface RagRetrieval {
 The reference connector, extended — its options come through the constructor as a token:
 
 ```ts file=rag/company-docs.rag.ts
-import { InjectionToken } from "agboss";
-import { Rag, SqliteFtsConnector, type FtsOptions } from "agboss/rag";
+import { InjectionToken } from "@agboss/core";
+import { Rag, SqliteFtsConnector, type FtsOptions } from "@agboss/core/rag";
 
 export const DOCS_INDEX = new InjectionToken<FtsOptions>("DOCS_INDEX");
 
@@ -44,7 +44,7 @@ export class CompanyDocs extends SqliteFtsConnector {}
 Or your own implementation of the contract:
 
 ```ts
-import { Rag, type RagConnector, type RagRetrieval } from "agboss/rag";
+import { Rag, type RagConnector, type RagRetrieval } from "@agboss/core/rag";
 
 @Rag({ name: "faq", description: "Answers to frequent questions", topK: 3 })
 export class Faq implements RagConnector {
@@ -65,7 +65,7 @@ Swap the implementation in this one file — nothing else changes.
 ## Binding — `mode` is required
 
 <!-- snippet-context
-import { Agent, RagMode } from "agboss";
+import { Agent, RagMode } from "@agboss/core";
 import { CompanyDocs } from "./rag/company-docs.rag.js";
 -->
 

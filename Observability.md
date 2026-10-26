@@ -53,7 +53,7 @@ and `onQuorumDecided`, joined by `nodeId`, `copyNumber` and `itemIndex`. `toolLo
 part of `idempotencyKey` (#335): the key's format is unchanged.
 
 ```ts
-import { Injectable, type ModelEndEvent, type OnModelEnd } from "agboss";
+import { Injectable, type ModelEndEvent, type OnModelEnd } from "@agboss/core";
 
 @Injectable()
 export class JoinKeyLog implements OnModelEnd {
@@ -134,7 +134,7 @@ import {
   Injectable,
   type ExecutionRejectedEvent,
   type OnExecutionRejected,
-} from "agboss";
+} from "@agboss/core";
 
 @Injectable()
 export class Audit implements OnExecutionRejected {
@@ -164,7 +164,7 @@ are in `result.record.outdatedValues`):
   adds to `outdatedValues`, each with `byValueId` = the trigger's `valueId`.
 
 ```ts
-import { Injectable, OutdatedReason, type OnValuesOutdated, type ValuesOutdatedEvent } from "agboss";
+import { Injectable, OutdatedReason, type OnValuesOutdated, type ValuesOutdatedEvent } from "@agboss/core";
 
 @Injectable()
 export class OutdatingAudit implements OnValuesOutdated {
@@ -199,7 +199,7 @@ items truncated"; `LaunchItemsTruncatedEvent` carries the execution's fields (`e
 list had and the `maxItems` that were taken. No item values.
 
 ```ts
-import { Injectable, type LaunchItemsTruncatedEvent, type OnLaunchItemsTruncated } from "agboss";
+import { Injectable, type LaunchItemsTruncatedEvent, type OnLaunchItemsTruncated } from "@agboss/core";
 
 @Injectable()
 export class LaunchAudit implements OnLaunchItemsTruncated {
@@ -234,7 +234,7 @@ arbiters that rejected it — or `Surplus`; a cancelled branch has none). The jo
 `onModelStart` / `onModelEnd`); their cost is in `spend` under `arbiter:<name>`.
 
 ```ts
-import { BranchVerdict, Injectable, type OnQuorumDecided, type QuorumDecidedEvent } from "agboss";
+import { BranchVerdict, Injectable, type OnQuorumDecided, type QuorumDecidedEvent } from "@agboss/core";
 
 @Injectable()
 export class QuorumAudit implements OnQuorumDecided {
@@ -264,7 +264,7 @@ automatic undo of its end in the order they ran (`[]` when none ran); a failed u
 child's event lists its own; a root's its own and those its end undid for a paused child.
 
 ```ts
-import { CompensationStatus, Injectable, type CompensationEndEvent, type OnCompensationEnd } from "agboss";
+import { CompensationStatus, Injectable, type CompensationEndEvent, type OnCompensationEnd } from "@agboss/core";
 
 @Injectable()
 export class CompensationAudit implements OnCompensationEnd {
@@ -358,9 +358,9 @@ the execution.
 ## Example: a tracer
 
 <!-- snippet-context
-import { Agent, Budget, BudgetPeriod, BudgetScope, WorkflowFinish, WorkflowStart, Workflow, start, type BudgetHandler } from "agboss";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
-import { usd, type Usd } from "agboss/units";
+import { Agent, Budget, BudgetPeriod, BudgetScope, WorkflowFinish, WorkflowStart, Workflow, start, type BudgetHandler } from "@agboss/core";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
+import { usd, type Usd } from "@agboss/core/units";
 @WorkflowStart({ name: "support-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
 @Agent({ name: "support-agent", description: "Answers", prompt: "Answer the message.", model: "moonshotai/kimi-k2.6" })
@@ -406,7 +406,7 @@ import {
   type OnAgentStart,
   type OnExecutionError,
   type OnModelEnd,
-} from "agboss";
+} from "@agboss/core";
 
 @Injectable()
 export class ConsoleTracer implements OnAgentStart, OnAgentEnd, OnModelEnd, OnExecutionError {

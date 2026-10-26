@@ -35,7 +35,7 @@ declare class ScreeningWorkflowStart {}
 -->
 
 ```ts
-import { compareProfiles } from "agboss";
+import { compareProfiles } from "@agboss/core";
 
 const comparison = await compareProfiles(JobScoutApplication, {
   start: ScreeningWorkflowStart, // the workflow this start opens is compared

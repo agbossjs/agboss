@@ -56,7 +56,7 @@ when a SQLite implementation is listed — a contract without it fails assembly 
 AppEnvironment` ([Environments](Environments)), an empty value fails the start naming it.
 
 <!-- snippet-context
-import { Application, EmptyEnvironment, SqliteCheckpointSaver, SqliteCostLedgerRepository, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqliteExecutionTreeRepository, SqlitePausedExecutionRepository, SqliteRateLimitRepository, env } from "agboss";
+import { Application, EmptyEnvironment, SqliteCheckpointSaver, SqliteCostLedgerRepository, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqliteExecutionTreeRepository, SqlitePausedExecutionRepository, SqliteRateLimitRepository, env } from "@agboss/core";
 -->
 
 ```ts
@@ -122,7 +122,7 @@ records the application's `IdGenerator` (#313: a new thread's id):
 | `SqliteExecutionRecordRepository` | `[SqliteConnection, Clock, ApplicationContext, IdGenerator]` |
 
 <!-- snippet-context
-import type { ExecutionLease } from "agboss";
+import type { ExecutionLease } from "@agboss/core";
 @Injectable()
 export class LeaseAuditService {
   taken(_lease: ExecutionLease): void {}
@@ -136,8 +136,8 @@ import {
   Injectable,
   SqliteConnection,
   SqliteExecutionLeaseRepository,
-} from "agboss";
-import type { Milliseconds } from "agboss/units";
+} from "@agboss/core";
+import type { Milliseconds } from "@agboss/core/units";
 
 /** The SQLite leases, each one taken written to the audit log as well. */
 @Injectable({ deps: [SqliteConnection, Clock, ApplicationContext, LeaseAuditService] })
@@ -183,7 +183,7 @@ import {
   SqliteConnection,
   SqliteExecutionRecordRepository,
   type NewThread,
-} from "agboss";
+} from "@agboss/core";
 
 /** The SQLite records, each new thread written to the audit log as well. */
 @Injectable({
@@ -283,7 +283,7 @@ observers get `onExecutionResume` with `reason: ResumeReason.Recovered` (`decisi
 recorded one), then `onExecutionEnd` / `onExecutionPause` / `onExecutionError` as for any pass.
 
 <!-- snippet-context
-import { Injectable, ResumeReason, type OnExecutionResume, type ExecutionResumeEvent } from "agboss";
+import { Injectable, ResumeReason, type OnExecutionResume, type ExecutionResumeEvent } from "@agboss/core";
 -->
 
 ```ts
@@ -409,7 +409,7 @@ framework (`@agboss/cancel-request`, [above](#cancelling-from-any-instance); `@a
 identifiers in DTOs, never from text:
 
 <!-- snippet-context
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 export class SubtopicDto {
   @Text({ prompt: "the subtopic's id" })
   subtopicId!: string;
@@ -421,7 +421,7 @@ export class SubtopicClaimDto {
 -->
 
 ```ts
-import { ExecutionTreeRepository, Tool, type ToolHandler } from "agboss";
+import { ExecutionTreeRepository, Tool, type ToolHandler } from "@agboss/core";
 
 @Tool({
   name: "claim-subtopic-tool",
@@ -483,8 +483,8 @@ export class LeaseTableService {
 -->
 
 ```ts
-import { ExecutionLeaseRepository, Injectable, type ExecutionLease } from "agboss";
-import type { Milliseconds } from "agboss/units";
+import { ExecutionLeaseRepository, Injectable, type ExecutionLease } from "@agboss/core";
+import type { Milliseconds } from "@agboss/core/units";
 
 @Injectable({ deps: [LeaseTableService] })
 export class TableExecutionLeaseRepository extends ExecutionLeaseRepository {
@@ -595,7 +595,7 @@ fan out into many parallel agents on the same pod, would otherwise all run in it
 branch of a parallel launch is one — this instance runs at once, over every tree and every tenant:
 
 <!-- snippet-context
-import { Application, EmptyEnvironment } from "agboss";
+import { Application, EmptyEnvironment } from "@agboss/core";
 export class DeskWorkflow {}
 export class ApplicationDailyBudget {}
 export class TenantDailyBudget {}

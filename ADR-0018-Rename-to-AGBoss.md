@@ -6,8 +6,8 @@
 ## Decision
 
 - The framework is **AGBoss** — Agent Graph Builder Open Source Software: npm package `agboss`
-  (subpaths unchanged in shape: `agboss/dto`, `agboss/testing`, `agboss/units`, `agboss/models`,
-  `agboss/mcp`, `agboss/rag`, `agboss/a2a`, `agboss/memory`, plus the deprecated re-exports `/core`,
+  (subpaths unchanged in shape: `@agboss/core/dto`, `@agboss/core/testing`, `@agboss/core/units`, `@agboss/core/models`,
+  `@agboss/core/mcp`, `@agboss/core/rag`, `@agboss/core/a2a`, `@agboss/core/memory`, plus the deprecated re-exports `/core`,
   `/graph`, `/router`, `/tool`, `/channels`, `/concurrency`), CLI command `agboss`, short alias `agb`
   (replacing `gc`); the repository `agbossjs/agboss` (GitHub redirects the old
   `PavelRavvich/graphcompose` links; that repo was itself transferred and renamed, not re-created, so

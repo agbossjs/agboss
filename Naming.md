@@ -33,8 +33,8 @@ without a check. A budget class named by what it limits but not by its kind fail
 name to use:
 
 ```ts
-import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 // [name.kind-suffix] class DailyLimit — name it DailyLimitBudget
 @Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
@@ -48,8 +48,8 @@ export class DailyLimit implements BudgetHandler {
 The fix is the class name alone — the `name` was already right:
 
 ```ts
-import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({ name: "tenant-daily-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
 export class TenantDailyBudget implements BudgetHandler {
@@ -86,7 +86,7 @@ Nothing execution-time is named `run…`: `result.executionId` (not `runId`), `I
 
 ## Values with units
 
-A limit reads as what it is — `usd(0.5)`, `seconds(30)`, `minutes(2)` (`agboss/units`), never a bare
+A limit reads as what it is — `usd(0.5)`, `seconds(30)`, `minutes(2)` (`@agboss/core/units`), never a bare
 number, no `Ms` / `Usd` in names. Every timeout is one: `@Tool({ timeout: seconds(5) })`,
 `@ModelProvider({ timeout: minutes(2) })`, `@HealthCheck({ timeout: seconds(2) })`; a join's waiting
 limit is a different thing, its `deadline` (`.joinQuorum({ min, deadline: seconds(30) })`).

@@ -51,7 +51,7 @@ instance is down ends the execution at recovery instead of continuing it
 ([Several instances → Cancelling from any instance](Several-instances#cancelling-from-any-instance)).
 
 <!-- snippet-context
-import type { App } from "agboss";
+import type { App } from "@agboss/core";
 declare const app: App;
 declare const threadId: string;
 declare const userId: string;
@@ -77,8 +77,8 @@ the external API (most payment APIs accept an idempotency key) and duplicates ar
 
 <!--
 ```ts file=refund.workflow.ts
-import { Action, Workflow, WorkflowFinish, WorkflowStart, start, type ActionHandler, type InputOf } from "agboss";
-import { Text } from "agboss/dto";
+import { Action, Workflow, WorkflowFinish, WorkflowStart, start, type ActionHandler, type InputOf } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 export class PaymentDto {
   @Text({ prompt: "the payment id" })
   paymentId!: string;
@@ -91,7 +91,7 @@ export class RefundedWorkflowFinish {}
 -->
 
 <!-- snippet-context
-import { Action, ExecutionContext, Workflow, start, type ActionHandler, type InputOf } from "agboss";
+import { Action, ExecutionContext, Workflow, start, type ActionHandler, type InputOf } from "@agboss/core";
 import { PaymentDto, RefundWorkflowStart, RefundedWorkflowFinish } from "./refund.workflow.js";
 // @snippet
 @Workflow({ name: "refund-workflow", version: "1.0.0", flow: [start(RefundWorkflowStart).returns(PaymentDto).toAction(RefundPaymentAction).toFinish(RefundedWorkflowFinish)] })

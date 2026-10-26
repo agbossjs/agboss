@@ -51,7 +51,7 @@ Every component reads the same way, top to bottom:
    `guardrails` / `piiPolicies` / `exclude…`, a router's `routes` against the flow, `@Tool({ channel })`,
    `routeTo(X)` and `toFollowPath([…])` in tests — is checked at assembly or in the test, never by the
    compiler (empty component classes are alike to it).
-4. **Data is a DTO**: a class with one field decorator per field (`agboss/dto`), so the class is
+4. **Data is a DTO**: a class with one field decorator per field (`@agboss/core/dto`), so the class is
    both the type and the runtime check. See [DTOs](#dtos).
 5. **Input/output lives in services** (`@Injectable`, `*.service.ts`: HTTP, files, model calls);
    **helpers are pure** (`*.helper.ts`: parsing, filters, scores).
@@ -95,7 +95,7 @@ as `{{input.…}}` (`[prompt.input-in-instructions]`).
 ## A tool
 
 ```ts file=tools/search-orders.dto.ts
-import { OneOf, Text } from "agboss/dto";
+import { OneOf, Text } from "@agboss/core/dto";
 
 export class OrderQuery {
   @Text({ prompt: "the order id, e.g. A-1042" })
@@ -112,7 +112,7 @@ export class OrderStatus {
 ```
 
 ```ts file=services/orders.service.ts
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 import type { OrderStatus } from "../tools/search-orders.dto.js";
 
 @Injectable()
@@ -124,7 +124,7 @@ export class OrdersService {
 ```
 
 ```ts file=tools/search-orders.tool.ts
-import { ExecutionContext, Tool, type ToolHandler } from "agboss";
+import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
 import { OrdersService } from "../services/orders.service.js";
 import { OrderQuery, OrderStatus } from "./search-orders.dto.js";
 
@@ -161,7 +161,7 @@ export class SearchOrders implements ToolHandler<OrderQuery, OrderStatus> {
 ## DTOs
 
 Data shapes — tool inputs and outputs, server tools, the inputs and outputs of flow nodes — are
-**classes with one field decorator per field**, imported from `agboss/dto`. A DTO on a path (a
+**classes with one field decorator per field**, imported from `@agboss/core/dto`. A DTO on a path (a
 node's `input` / `output`, `.returns(…)`, `caseOf(…)`) ends with `Dto` (`[dto.name]`) and its class
 name is unique (`[dto.duplicate-name]`: in its workflow at assembly, across the project's workflows
 for the generated types of `agboss check`, #371); on paths they are wrapped as
@@ -171,7 +171,7 @@ only: the current value and its earlier versions, [Path scope](Path-scope)) and
 Decision: [ADR-0013](ADR-0013-DTO-classes-instead-of-zod); ready-made ones: [Standard DTOs](Standard-DTOs).
 
 ```ts
-import { Integer, ListOf, OneOf, Text } from "agboss/dto";
+import { Integer, ListOf, OneOf, Text } from "@agboss/core/dto";
 
 export class JobQuery {
   @Text({ prompt: "what the user wants", minLength: 20 })
@@ -224,8 +224,8 @@ import { SearchOrders } from "./tools/search-orders.tool.js";
 -->
 
 ```ts
-import { Agent } from "agboss";
-import { Reasoning } from "agboss/models";
+import { Agent } from "@agboss/core";
+import { Reasoning } from "@agboss/core/models";
 
 @Agent({
   name: "support-agent",
@@ -328,7 +328,7 @@ component takes it through its constructor, like every other dependency, and nam
 `executionContext`:
 
 <!-- snippet-context
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 export class AuditRecordDto {
   @Text() executionId!: string;
   @Text() key!: string;
@@ -336,7 +336,7 @@ export class AuditRecordDto {
 -->
 
 ```ts
-import { ExecutionContext, Injectable } from "agboss";
+import { ExecutionContext, Injectable } from "@agboss/core";
 
 /** A shared service: called from an action or a tool, it reads the step that called it. */
 @Injectable({ deps: [ExecutionContext] })
@@ -393,7 +393,7 @@ A server declares the server tools the workflow uses; an MCP tool is a tool with
 (more: [Mcp](Mcp)):
 
 ```ts file=mcp/shortlist.dto.ts
-import { ListOf, Text } from "agboss/dto";
+import { ListOf, Text } from "@agboss/core/dto";
 
 export class FileRead {
   @Text({ prompt: "path inside the shortlist folder" }) path!: string;
@@ -417,7 +417,7 @@ export class SavedJobs {
 ```
 
 ```ts file=mcp/shortlist.server.ts
-import { McpServer, McpServerClient } from "agboss/mcp";
+import { McpServer, McpServerClient } from "@agboss/core/mcp";
 import { FileContent, FileRead, FileWrite, FileWritten } from "./shortlist.dto.js";
 
 const tools = {
@@ -436,8 +436,8 @@ export class ShortlistServer extends McpServerClient<typeof tools> {}
 ```
 
 ```ts file=mcp/save-shortlist.mcp.ts
-import { InjectionToken, TerminalUserChannel, type ToolHandler } from "agboss";
-import { McpTool } from "agboss/mcp";
+import { InjectionToken, TerminalUserChannel, type ToolHandler } from "@agboss/core";
+import { McpTool } from "@agboss/core/mcp";
 import { ChosenJobs, SavedJobs } from "./shortlist.dto.js";
 import { ShortlistServer } from "./shortlist.server.js";
 
@@ -481,8 +481,8 @@ export class SaveShortlist implements ToolHandler<ChosenJobs, SavedJobs> {
 ## The module
 
 <!-- snippet-context
-import { Agent, DecidedBy, Router, WorkflowFinish, WorkflowStart } from "agboss";
-import { WorkflowFinishTextDto } from "agboss/dto";
+import { Agent, DecidedBy, Router, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { WorkflowFinishTextDto } from "@agboss/core/dto";
 import { SearchOrders } from "./tools/search-orders.tool.js";
 import { SaveShortlist, SHORTLIST } from "./mcp/save-shortlist.mcp.js";
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
@@ -498,8 +498,8 @@ export class MainRouter {}
 -->
 
 ```ts
-import { TerminalUserChannel, Workflow, provide, route, start } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { TerminalUserChannel, Workflow, provide, route, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ShortlistServer } from "./mcp/shortlist.server.js";
 import { OrdersService } from "./services/orders.service.js";
 
@@ -576,7 +576,7 @@ a step live in the graph state (a node's `output` on the path); caches and dedup
 service over external storage:
 
 <!-- snippet-context
-import { Injectable } from "agboss";
+import { Injectable } from "@agboss/core";
 interface RedisClient {
   sAdd(key: string, member: string): Promise<number>;
 }
@@ -603,8 +603,8 @@ The lint rule `agboss/no-component-state` flags an assignment to `this.x` (`=`, 
 the constructor of any component the container creates — `@Injectable`, `@Tool`, `@Action`,
 `@Router`, `@WorkflowFinish`, `@Channel`, `@ReplyInterpreter`, `@InputGuardrail` /
 `@OutputGuardrail`, `@ToolInterceptor` (#384), `@PiiPolicy`, `@Judge`, `@Arbiter`, `@Compaction`, `@Budget`, `@HealthCheck`,
-`@ModelProvider` (`agboss/models`), `@McpServer` / `@McpTool` (`agboss/mcp`), `@Rag`
-(`agboss/rag`), `@A2AAgent` (`agboss/a2a`). The list is one module of the framework
+`@ModelProvider` (`@agboss/core/models`), `@McpServer` / `@McpTool` (`@agboss/core/mcp`), `@Rag`
+(`@agboss/core/rag`), `@A2AAgent` (`@agboss/core/a2a`). The list is one module of the framework
 (`src/components/component-decorators.ts`, #402); a test fails when an exported class decorator
 is neither in it nor named as not a component (`@Agent`, `@WorkflowStart`, `@Workflow`,
 `@Application`, `@ChannelRole`, `@McpExpose`, `@A2AExpose`: metadata, never instantiated).

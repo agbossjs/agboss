@@ -1,7 +1,7 @@
 # Model providers
 
 Every model a workflow uses — an agent's, compaction's, a router's, a guardrail's, a judge's — comes
-from a **model provider**: an `@ModelProvider` class from `agboss/models`. The provider says which
+from a **model provider**: an `@ModelProvider` class from `@agboss/core/models`. The provider says which
 models it serves, how it is reached (base URL, key, timeout), what a call costs, how its models
 reason and cache by default, how many calls it takes (rate limit) and what happens when a call
 fails (retry policy, circuit breaker).
@@ -16,8 +16,8 @@ import {
   CachedPart, CacheRetention, ModelCost, ModelFailure, ModelProvider, OpenRouterProvider,
   PromptCaching, ProviderSort, QueueBalancingStrategy, RateLimitPolicy, Reasoning, RetryPolicy,
   type OpenRouterFields,
-} from "agboss/models";
-import { minutes, seconds } from "agboss/units";
+} from "@agboss/core/models";
+import { minutes, seconds } from "@agboss/core/units";
 
 @ModelProvider({
   name: "openrouter-model-provider",                    // kebab-case, ends with -model-provider
@@ -65,8 +65,8 @@ API is camelCase everywhere; only the body sent to OpenRouter is snake_case (`al
 not drift between upstreams — an eval, a benchmark, a cassette recorded once:
 
 <!-- snippet-context
-import { ModelCost, ModelProvider, OpenRouterProvider, PromptCaching, Quantization, Reasoning, RetryPolicy, type OpenRouterFields } from "agboss/models";
-import { minutes, seconds } from "agboss/units";
+import { ModelCost, ModelProvider, OpenRouterProvider, PromptCaching, Quantization, Reasoning, RetryPolicy, type OpenRouterFields } from "@agboss/core/models";
+import { minutes, seconds } from "@agboss/core/units";
 -->
 
 ```ts
@@ -105,14 +105,14 @@ corporate gateway with its own authorisation — `implements ModelProviderHandle
 `deps`:
 
 ```ts file=src/model-providers/bedrock.model-provider.ts
-import { Injectable, TenantContext } from "agboss";
+import { Injectable, TenantContext } from "@agboss/core";
 import {
   ModelCost, ModelFailure, ModelProvider, ModelProviderFailureError, QueueBalancingStrategy,
   RateLimitPolicy, RetryPolicy, TRANSIENT_FAILURES,
   type ModelProviderHandler, type ModelProviderMessage, type ModelProviderRequest,
   type ModelProviderResponse, type ModelProviderToolDefinition,
-} from "agboss/models";
-import { minutes, seconds, usd } from "agboss/units";
+} from "@agboss/core/models";
+import { minutes, seconds, usd } from "@agboss/core/units";
 
 /** What the SDK takes: the framework's plain messages and tools, the tenant, the call's signal. */
 export interface BedrockInvocation {
@@ -229,7 +229,7 @@ one in a workflow's `providers` fails the application's assembly with
 @Application({ providers })`.
 
 ```ts file=src/environments/app.environment.ts
-import type { Secret } from "agboss";
+import type { Secret } from "@agboss/core";
 
 /** The key both providers read (`apiKey: "openRouterApiKey"`); `test` leaves it out. */
 export class AppEnvironment {
@@ -238,8 +238,8 @@ export class AppEnvironment {
 ```
 
 <!-- snippet-context
-import { Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
 @WorkflowFinish({ name: "chat-workflow-finish", description: "The message", output: WorkflowStartTextDto })
@@ -258,8 +258,8 @@ export class JobScout {}
 -->
 
 ```ts file=src/job-scout.application.ts
-import { Application } from "agboss";
-import { DecisionsModelProvider } from "agboss/models";
+import { Application } from "@agboss/core";
+import { DecisionsModelProvider } from "@agboss/core/models";
 import { AppEnvironment } from "./environments/app.environment.js";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 

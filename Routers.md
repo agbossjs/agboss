@@ -8,8 +8,8 @@ nothing about graphs or agents.
 
 <!--
 ```ts file=agents.ts
-import { Agent, WorkflowFinish, WorkflowStart } from "agboss";
-import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 const model = "moonshotai/kimi-k2.6";
 export class CodeDto {
   @Text({ prompt: "the code" })
@@ -36,7 +36,7 @@ import { CoderAgent, PullRequestWorkflowFinish, ReviewDto } from "./agents.js";
 -->
 
 ```ts file=review-gate.router.ts
-import { DecidedBy, Router } from "agboss";
+import { DecidedBy, Router } from "@agboss/core";
 
 @Router({
   name: "review-gate-router",
@@ -58,8 +58,8 @@ In the flow the router's choice lists the same targets, each continued to its en
 ([Workflow](Workflow)):
 
 <!-- snippet-context
-import { Workflow, agent, route, start } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { Workflow, agent, route, start } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { CodeDto, CoderAgent, PullRequestWorkflowFinish, ReviewDto, ReviewerAgent, TaskWorkflowStart } from "./agents.js";
 import { ReviewGateRouter } from "./review-gate.router.js";
 -->
@@ -116,8 +116,8 @@ that had just answered until `maxVisits` failed the run.
 ### job-scout's main router
 
 <!-- snippet-context
-import { DecidedBy, Router } from "agboss";
-import { WorkflowStartTextDto } from "agboss/dto";
+import { DecidedBy, Router } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ProfilerAgent, ScoutAgent, ShortlistAgent } from "./agents.js";
 -->
 
@@ -152,8 +152,8 @@ model router (#280).
 
 <!--
 ```ts file=credit.parts.ts
-import { Action, Agent, Injectable, WorkflowFinish, WorkflowStart, type ActionHandler, type InputOf, type OutputOf } from "agboss";
-import { Flag, Integer, Text, optional } from "agboss/dto";
+import { Action, Agent, Injectable, WorkflowFinish, WorkflowStart, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { Flag, Integer, Text, optional } from "@agboss/core/dto";
 const model = "moonshotai/kimi-k2.6";
 export class OrderDto {
   @Text({ prompt: "the customer who orders" })
@@ -198,7 +198,7 @@ import { ApprovalAgent, ChargeCardAction, CreditService, OrderDto } from "./cred
 -->
 
 ```ts file=credit-limit.router.ts
-import { DecidedBy, ExecutionContext, Router, type InputOf, type Route, type RouterHandler } from "agboss";
+import { DecidedBy, ExecutionContext, Router, type InputOf, type Route, type RouterHandler } from "@agboss/core";
 
 @Router({
   name: "credit-limit-router",
@@ -223,7 +223,7 @@ export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
 ```
 
 <!-- snippet-context
-import { Workflow, action, route, start, toFinish } from "agboss";
+import { Workflow, action, route, start, toFinish } from "@agboss/core";
 import { ApprovalAgent, ApprovalDto, ChargeCardAction, ChargeResultDto, ChargedWorkflowFinish, CreditService, CreditServiceUnavailableError, OrderDto, OrderHeldWorkflowFinish, OrderWorkflowStart } from "./credit.parts.js";
 import { CreditLimitRouter } from "./credit-limit.router.js";
 -->
@@ -327,7 +327,7 @@ A `RouterEngine` (root entry) picks one option for a text:
 
 <!-- snippet-context
 import type { MessageContent } from "@langchain/core/messages";
-import type { UsageRecord } from "agboss";
+import type { UsageRecord } from "@agboss/core";
 -->
 
 ```ts
@@ -364,7 +364,7 @@ const FIT_QUESTION = "Does the job fit what the candidate wants?";
 -->
 
 ```ts
-import { Injectable, ROUTER_FACTORY, type RouterEngine } from "agboss";
+import { Injectable, ROUTER_FACTORY, type RouterEngine } from "@agboss/core";
 
 @Injectable({ deps: [ROUTER_FACTORY] })
 export class JobFitJudge {
@@ -403,8 +403,8 @@ In a workflow test a router answers by script — `routeTo(Target)` — or by a 
 
 <!--
 ```ts file=desk.workflow.ts
-import { Agent, DecidedBy, Router, Workflow, WorkflowFinish, WorkflowStart, route, start } from "agboss";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, DecidedBy, Router, Workflow, WorkflowFinish, WorkflowStart, route, start } from "@agboss/core";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @WorkflowStart({ name: "desk-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class DeskStart {}
 @WorkflowFinish({ name: "desk-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
@@ -440,8 +440,8 @@ import { Desk, DeskFinish, DeskRouter, DeskStart, FallbackAgent, SupportAgent } 
 
 ```ts
 import { expect } from "vitest";
-import { replyWith, routeTo, testWith } from "agboss/testing";
-import { Application, EmptyEnvironment } from "agboss";
+import { replyWith, routeTo, testWith } from "@agboss/core/testing";
+import { Application, EmptyEnvironment } from "@agboss/core";
 
 @Application({ name: "desk-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [Desk] })
 class DeskApplication {}
@@ -476,8 +476,8 @@ import { CreditWorkflow } from "./credit.workflow.js";
 
 ```ts
 import { expect } from "vitest";
-import { testWith } from "agboss/testing";
-import { Application, EmptyEnvironment } from "agboss";
+import { testWith } from "@agboss/core/testing";
+import { Application, EmptyEnvironment } from "@agboss/core";
 
 @Application({ name: "credit-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [CreditWorkflow] })
 class CreditApplication {}

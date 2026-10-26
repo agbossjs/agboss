@@ -10,8 +10,8 @@ same `app`.
 
 <!--
 ```ts file=job-scout.workflow.ts
-import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "agboss";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "agboss/dto";
+import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
 @WorkflowFinish({ name: "chat-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
@@ -34,8 +34,8 @@ export class JobScout {}
 
 ```ts file=job-scout.application.ts
 // job-scout.application.ts — its environments/ folder is next to this file
-import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope, EmptyEnvironment } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope, EmptyEnvironment } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 import { JobScout } from "./job-scout.workflow.js";
 
 // config/budget.config.ts in a project: the whole application, a tenant per day, every execution
@@ -77,7 +77,7 @@ import { JobScoutApplication } from "./job-scout.application.js";
 -->
 
 ```ts
-import { ExecutionStatus, createApp } from "agboss";
+import { ExecutionStatus, createApp } from "@agboss/core";
 
 // optional: { env: "staging", profile: "scout-low-thinking" }
 const app = await createApp(JobScoutApplication);
@@ -148,7 +148,7 @@ random 128-bit token — nor a model call's id. Under `testWith` the ids are `th
 
 ```ts
 import { randomUUID } from "node:crypto";
-import { IdGenerator, Injectable } from "agboss";
+import { IdGenerator, Injectable } from "@agboss/core";
 
 // @Application({ …, providers: [PrefixedIdGenerator] })
 @Injectable()
@@ -321,12 +321,12 @@ set, so it never outlives the timeout it was given. `seconds(0)` interrupts at o
 waiting for the step bodies at once (a second Ctrl+C during the grace: `onDestroy` at once).
 
 <!-- snippet-context
-import type { App } from "agboss";
+import type { App } from "@agboss/core";
 declare const app: App;
 -->
 
 ```ts
-import { seconds } from "agboss/units";
+import { seconds } from "@agboss/core/units";
 
 await app.close({ timeout: seconds(10) }); // interrupted at 8 s, its bodies awaited until 10 s
 ```
@@ -358,7 +358,7 @@ OnStop, OnDestroy`, each optional (#261):
 | `onDestroy` | the running executions on this instance have finished, paused or been interrupted       | closing connections, releasing resources          |
 
 <!-- snippet-context
-import { Injectable, type OnDestroy, type OnInit, type OnStart, type OnStop } from "agboss";
+import { Injectable, type OnDestroy, type OnInit, type OnStart, type OnStop } from "@agboss/core";
 interface Pool {
   ping(): Promise<void>;
   drain(): Promise<void>;
@@ -423,5 +423,5 @@ default. Infrastructure is not an option: it is listed in `@Application({ provid
 | `container`               | `overrides` (values instead of classes — test mocks), `onCreate`                                         |
 | `profile`, `profileRoot`  | none ([Profiles and comparisons](Profiles-and-comparisons))                                              |
 
-`agboss/testing` builds its apps with these: a scripted gateway, stubbed MCP servers, a test clock,
+`@agboss/core/testing` builds its apps with these: a scripted gateway, stubbed MCP servers, a test clock,
 deterministic ids — on the infrastructure the application lists.

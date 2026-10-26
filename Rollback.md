@@ -12,8 +12,8 @@ branches (#340 PR 2, below); a cancel, an uncaught failure or limit, an aborted 
 
 <!--
 ```ts file=order.components.ts
-import { Action, WorkflowFinish, WorkflowStart, type ActionHandler, type FinishHandler, type InputOf, type OutputOf } from "agboss";
-import { Text } from "agboss/dto";
+import { Action, WorkflowFinish, WorkflowStart, type ActionHandler, type FinishHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 
 export class OrderRequestDto {
   @Text({ prompt: "the order id" })
@@ -85,7 +85,7 @@ export class OrderWorkflowFinish implements FinishHandler<OrderWorkflowFinish> {
 ## The pattern
 
 <!-- snippet-context
-import { Workflow, action, start, toAction } from "agboss";
+import { Workflow, action, start, toAction } from "@agboss/core";
 import { CarrierError, ChargeCardAction, NotifyFinanceTeamAction, OrderFailedWorkflowFinish, OrderRequestDto, OrderShippedDto, OrderWorkflowFinish, OrderWorkflowStart, PaymentDto, PaymentProviderError, RefundCardAction, ReleaseStockAction, ReserveStockAction, ShipOrderAction, StockReservationDto } from "./order.components.js";
 -->
 
@@ -213,8 +213,8 @@ one that returns meanwhile is undone too.
 
 <!--
 ```ts file=trip.components.ts
-import { Action, WorkflowFinish, WorkflowStart, type ActionHandler, type FinishHandler, type InputOf, type OutputOf } from "agboss";
-import { Text } from "agboss/dto";
+import { Action, WorkflowFinish, WorkflowStart, type ActionHandler, type FinishHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
 
 export class TripRequestDto {
   @Text({ prompt: "where the trip goes" })
@@ -271,7 +271,7 @@ export class TripBookedWorkflowFinish implements FinishHandler<TripBookedWorkflo
 -->
 
 <!-- snippet-context
-import { Workflow, start, toFinish } from "agboss";
+import { Workflow, start, toFinish } from "@agboss/core";
 import { BookFlightAction, BookHotelAction, BookingFailedError, FlightBookingDto, HotelBookingDto, TripBookedWorkflowFinish, TripNotBookedWorkflowFinish, TripRequestDto, TripWorkflowStart } from "./trip.components.js";
 -->
 

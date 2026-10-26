@@ -8,8 +8,8 @@ once it ended longer ago than that. `agboss records export` writes it as JSON Li
 ## Keeping it: `executionRecordRetention`
 
 <!-- snippet-context
-import { Application, Injectable, SqliteExecutionHistoryRepository, SqliteExecutionRecordRepository } from "agboss";
-import { hours } from "agboss/units";
+import { Application, Injectable, SqliteExecutionHistoryRepository, SqliteExecutionRecordRepository } from "@agboss/core";
+import { hours } from "@agboss/core/units";
 @Injectable()
 export class DeskWorkflow {}
 export class AppEnvironment {

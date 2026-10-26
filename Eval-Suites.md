@@ -1,7 +1,7 @@
-# Eval suites — `@EvalSuite` (`agboss/eval`)
+# Eval suites — `@EvalSuite` (`@agboss/core/eval`)
 
 An eval suite declares what a run on a live model must do, case by case (#396). The entry
-`agboss/eval` holds the decorator and the builders of its cases and checks only — nothing runs at
+`@agboss/core/eval` holds the decorator and the builders of its cases and checks only — nothing runs at
 import. A suite is assembled on its application before anything runs — by `agboss check` (Loop 0) and
 by its runner, `agboss eval run` ([below](#running-a-suite-agboss-eval-run), #396 PR 2).
 
@@ -19,8 +19,8 @@ by its runner, `agboss eval run` ([below](#running-a-suite-agboss-eval-run), #39
 ## The application under eval
 
 <!-- snippet-context
-import { Application, DecidedBy, EmptyEnvironment, Injectable, Judge, JudgeModel, JudgeVerdict, Tool, Workflow, WorkflowFinish, WorkflowStart, Agent, start, type JudgeHandler, type JudgeInput, type ToolHandler } from "agboss";
-import { Integer, Text, WorkflowStartTextDto } from "agboss/dto";
+import { Application, DecidedBy, EmptyEnvironment, Injectable, Judge, JudgeModel, JudgeVerdict, Tool, Workflow, WorkflowFinish, WorkflowStart, Agent, start, type JudgeHandler, type JudgeInput, type ToolHandler } from "@agboss/core";
+import { Integer, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 -->
 
 ```ts file=src/refunds/refunds.ts
@@ -153,7 +153,7 @@ import {
   toolCall,
   toolInvariant,
   turn,
-} from "agboss/eval";
+} from "@agboss/core/eval";
 
 @EvalSuite({
   name: "refunds-eval-suite",
@@ -328,7 +328,7 @@ against, so it says what it is and the version of its shape (#396 S3):
 | `baseline?` | the run against `--baseline` (`EvalRunComparison`, below) |
 | `profile?`, `agbossVersion?`, `models?`, `piiPolicies?` | version 3 (#397 PR 3): what it ran on — the `--profile`, the AGBoss version, every agent's and model router's model and provider (`EvalModelUse`: `component`, `kind`, `model`, `provider`), and the application's and workflow's PII policies that masked its records and traces |
 
-The artifact's types are public in `agboss/eval` (#396 S6): `EvalRunReport`, `EvalCaseReport`,
+The artifact's types are public in `@agboss/core/eval` (#396 S6): `EvalRunReport`, `EvalCaseReport`,
 `EvalRunResult`, `EvalCheckResult`, `EvalRunError`, `EvalRunSummary`, `EvalRunComponent`,
 `EvalRunSpend`, with `EVAL_RUN_KIND` and `EVAL_RUN_SCHEMA_VERSION`; `EvalRunSchemaVersion` is `1 | 2`.
 
@@ -492,7 +492,7 @@ A baseline is a run artifact — the `--report` of a run of `main` (S2 C1: there
 `--save-baseline`). It is read before anything runs, by the same reader as `eval show` (one reader, #397 S4): no
 such file is `eval.run-not-found`; another `kind`, another `schemaVersion`, a missing field or a run
 of another suite is `eval.run-invalid` (exit 2); `--fail-on-regression` without `--baseline` is a
-usage error. Each case is compared by name (`CaseComparison`, `agboss/eval`):
+usage error. Each case is compared by name (`CaseComparison`, `@agboss/core/eval`):
 
 | Verdict | When |
 | --- | --- |
@@ -527,7 +527,7 @@ agboss eval run --suite refunds-eval-suite --chaos 0.2 --chaos-seed 7 --chaos-fa
 
 A suite that passes on a quiet day says nothing about a day of 429s. `--chaos <rate>` makes that
 share of the run's model calls fail on purpose (#396 PR 6, S2 Q11), each with one of
-`--chaos-failures` (default: all) — `ChaosFailure` in `agboss/eval`, a set of its own, never a
+`--chaos-failures` (default: all) — `ChaosFailure` in `@agboss/core/eval`, a set of its own, never a
 `ModelFailure`:
 
 | `ChaosFailure` | `--chaos-failures` | What the call gets |
@@ -626,7 +626,7 @@ evalCase({
   (`[eval.case-start-mismatch]`). Errors: an id two tenants kept needs `--tenant`
   (`records.ambiguous-execution`, exit 2), an unknown one is `records.not-found` (exit 3), an
   application that keeps nothing `records.not-kept` (exit 3), a case name the suite has exit 4.
-- The draft is plain data by component name (`evalCaseDraftOf`, `agboss/internal`), so a page can save
+- The draft is plain data by component name (`evalCaseDraftOf`, `@agboss/core/internal`), so a page can save
   a trace as a case the same way.
 
 ## Calibrating a judge: `agboss eval calibrate`
@@ -637,7 +637,7 @@ agboss eval calibrate --report .artifacts/eval/main.json --labels labels/refunds
 ```
 
 A model judge in the cascade is only as good as its agreement with people. People label the judged
-runs of an artifact — one JSON line each (`EvalLabel`, `agboss/eval`), in `eval/labels/<suite>.jsonl`
+runs of an artifact — one JSON line each (`EvalLabel`, `@agboss/core/eval`), in `eval/labels/<suite>.jsonl`
 by default, a file that grows over many runs:
 
 ```json
@@ -691,6 +691,6 @@ artifact is `eval.labels-invalid` (exit 2, the line named); no file is `eval.lab
 `--json` carries the calibration — `EvalCalibration` (`suite`, `labels`, `matched`, `unmatched`,
 `judges`: each `EvalJudgeCalibration` with `n`, `labelers`, `agreements` (`EvalRaterAgreement`:
 `raters`, `n`, `observed`, `kappa?`), `confusion`, `disagreements`, `metrics`, `scores?`), all public
-types in `agboss/eval`.
+types in `@agboss/core/eval`.
 
 **Standalone executable proof:** [`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) (`src/eval-suites/refund-desk.eval-suite.ts`, compact `eval/baseline/main-baseline.json`, and `eval/human-labels/refund-desk-eval-suite.jsonl`) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

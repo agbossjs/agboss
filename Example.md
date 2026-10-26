@@ -111,7 +111,7 @@ public surface (#419): twelve workflows, one per `*.workflow.ts`, in one applica
 its start, #261), on the public entries only, tested by script (no model key, no cassette). They are
 what the manual checks of the flow point the CLI at; `make check` runs `agboss check --strict` on the
 application and on the offline `src/desk.application.ts`, each with `--federation` (below; then
-`agboss check --models --env test`, which needs no key), the example's own lint (`eslint.config.js` with `agboss/eslint`, as `agboss
+`agboss check --models --env test`, which needs no key), the example's own lint (`eslint.config.js` with `@agboss/core/eslint`, as `agboss
 create` writes it), the desk's eval suite offline (`npm run eval:check`, below) and its tests with
 coverage (`isolate: false`: one module graph per worker, each test assembling its application anew). Besides the two below: `src/review/` (parallel launches in waves,
 #273), `src/panel/` (a quorum, [Parallel](Parallel)), `src/vendor/` and `src/topic/` (a child workflow

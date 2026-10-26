@@ -20,9 +20,9 @@ count and — with groups — which combination wins and where the execution goe
 ## Writing it
 
 <!-- snippet-context
-import { Agent, Arbiter, DecidedBy, OnAnswer, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, start } from "agboss";
-import { Integer, Text, listOf, optional } from "agboss/dto";
-import { minutes, seconds } from "agboss/units";
+import { Agent, Arbiter, DecidedBy, OnAnswer, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, start } from "@agboss/core";
+import { Integer, Text, listOf, optional } from "@agboss/core/dto";
+import { minutes, seconds } from "@agboss/core/units";
 
 export class CandidateDto {
   @Text({ prompt: "the candidate" })
@@ -161,7 +161,7 @@ export const quorumPaths = [
 | `.joinQuorum({ min })` | `max` defaults to `min`: after `min` counted answers go on, cancel the rest |
 | `min` | how many **counted** answers are enough to go on |
 | `max` | after how many counted answers to stop waiting and cancel the rest |
-| `deadline` | how long the join waits — `seconds()`, `minutes()`, `hours()` (`agboss/units`), never a bare number |
+| `deadline` | how long the join waits — `seconds()`, `minutes()`, `hours()` (`@agboss/core/units`), never a bare number |
 | `.joinQuorumGroups(group(…).priority(n)<path>, …, { deadline })` | go on when a group is complete, along **that group's own path**; `min` / `max` do not apply |
 | `.acceptedBy(X)` | an arbiter every answer passes before it counts — between the launch and the quorum |
 | `.acceptedBy(X).acceptedBy(Y)` | the only AND: in path order, the first rejection stops the chain |

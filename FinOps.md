@@ -26,7 +26,7 @@
   (`[spend.outside-step]`). `ExecutionContext` stays read-only: spend never goes through it.
 
 <!-- snippet-context
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 export class WebQueryDto {
   @Text({ prompt: "what to search the web for" }) query!: string;
 }
@@ -36,8 +36,8 @@ export class WebResultsDto {
 -->
 
 ```ts
-import { SpendRecorder, Tool, type ToolHandler } from "agboss";
-import { usd } from "agboss/units";
+import { SpendRecorder, Tool, type ToolHandler } from "@agboss/core";
+import { usd } from "@agboss/core/units";
 
 @Tool({
   name: "web-search-tool",
@@ -59,7 +59,7 @@ export class WebSearchTool implements ToolHandler<WebQueryDto, WebResultsDto> {
 A decision made through `ROUTER_FACTORY` needs no recording — the framework accounts it:
 
 <!-- snippet-context
-import { Text } from "agboss/dto";
+import { Text } from "@agboss/core/dto";
 export class RateQuery {
   @Text({ prompt: "currency pair, e.g. USD/ILS" }) pair!: string;
 }
@@ -69,7 +69,7 @@ export class Rate {
 -->
 
 ```ts
-import { ROUTER_FACTORY, Tool, type RouterEngine, type ToolHandler } from "agboss";
+import { ROUTER_FACTORY, Tool, type RouterEngine, type ToolHandler } from "@agboss/core";
 
 @Tool({
   name: "exchange-rate-tool",
@@ -111,8 +111,8 @@ budget of the application is listed in `@Application({ budgets })`, written in
 
 ```ts
 // config/budget.config.ts
-import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "agboss";
-import { usd, type Usd } from "agboss/units";
+import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
+import { usd, type Usd } from "@agboss/core/units";
 
 @Budget({
   name: "application-daily-budget",
@@ -152,9 +152,9 @@ export class ExecutionBudget implements BudgetHandler {
   such as `BillingService` — a trusted source, never the request body.
 
 <!-- snippet-context
-import { Budget, BudgetPeriod, BudgetScope, TenantContext, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "agboss";
-import { Decimal, WorkflowStartTextDto } from "agboss/dto";
-import { usd, type Usd } from "agboss/units";
+import { Budget, BudgetPeriod, BudgetScope, TenantContext, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "@agboss/core";
+import { Decimal, WorkflowStartTextDto } from "@agboss/core/dto";
+import { usd, type Usd } from "@agboss/core/units";
 export class ShopTenantContext extends TenantContext {
   @Decimal()
   dailyBudgetUsd!: number;

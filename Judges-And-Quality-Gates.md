@@ -42,8 +42,8 @@ import {
   JudgeVerdict,
   type JudgeHandler,
   type JudgeInput,
-} from "agboss";
-import { PlainTextDto } from "agboss/dto";
+} from "@agboss/core";
+import { PlainTextDto } from "@agboss/core/dto";
 
 @Judge({
   name: "correctness-judge",
@@ -77,8 +77,8 @@ import {
   JudgeVerdict,
   type JudgeHandler,
   type JudgeInput,
-} from "agboss";
-import { PlainTextDto } from "agboss/dto";
+} from "@agboss/core";
+import { PlainTextDto } from "@agboss/core/dto";
 
 @Judge({
   name: "grounded-judge",
@@ -119,8 +119,8 @@ called. It runs in an agent's quality gate beside model judges — list the free
 judge runs — and in an eval suite's checks ([Eval suites](Eval-Suites)).
 
 ```ts file=judges/one-sentence.judge.ts
-import { DecidedBy, ExecutionContext, Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "agboss";
-import { PlainTextDto } from "agboss/dto";
+import { DecidedBy, ExecutionContext, Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { PlainTextDto } from "@agboss/core/dto";
 
 @Judge({
   name: "one-sentence-judge",
@@ -161,8 +161,8 @@ import {
   JudgeVerdict,
   type JudgeHandler,
   type JudgeInput,
-} from "agboss";
-import { ListOf, Text } from "agboss/dto";
+} from "@agboss/core";
+import { ListOf, Text } from "@agboss/core/dto";
 
 export class JobDto {
   @Text({ prompt: "the job's title" })
@@ -217,7 +217,7 @@ and `isVariant(input, OfferDto)` narrows `reply` to `OfferDto` (the other branch
 literal discriminant, never on a class, so `isVariant` is the way to narrow:
 
 <!-- snippet-context
-import { Integer, Text } from "agboss/dto";
+import { Integer, Text } from "@agboss/core/dto";
 export class OfferDto {
   @Integer({ prompt: "the salary offered" })
   salary!: number;
@@ -229,8 +229,8 @@ export class RefusalDto {
 -->
 
 ```ts
-import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "agboss";
-import { isVariant, oneOf } from "agboss/dto";
+import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { isVariant, oneOf } from "@agboss/core/dto";
 
 @Judge({ name: "fair-decision-judge", model: "typesafe/jev-1.13", reply: oneOf(OfferDto, RefusalDto) })
 export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
@@ -256,11 +256,11 @@ export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
 A judge of one class has `variant` as that class (a subclass the agent answered with, when its
 `output` extends the judge's `reply`), a text judge `PlainTextDto`, a `listOf(XDto)` judge the
 list's one class. A `listOf(oneOf(A, B))` judge has no `variant` of its own: its `reply` is
-`readonly VariantOf<A | B>[]` — each item `{ variant, value }` (`VariantOf` from `agboss/dto`), as
+`readonly VariantOf<A | B>[]` — each item `{ variant, value }` (`VariantOf` from `@agboss/core/dto`), as
 the answer's items are kept — narrowed by `isVariant(item, A)`:
 
 <!-- snippet-context
-import { Integer, Text } from "agboss/dto";
+import { Integer, Text } from "@agboss/core/dto";
 export class OfferDto {
   @Integer({ prompt: "the salary offered" })
   salary!: number;
@@ -272,8 +272,8 @@ export class RefusalDto {
 -->
 
 ```ts
-import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "agboss";
-import { isVariant, listOf, oneOf, type VariantOf } from "agboss/dto";
+import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { isVariant, listOf, oneOf, type VariantOf } from "@agboss/core/dto";
 
 type Decisions = readonly VariantOf<OfferDto | RefusalDto>[];
 
@@ -299,8 +299,8 @@ export class DecisionsJudge implements JudgeHandler<Decisions> {
 A list agent's judge declares the list and gets its items (`variant` is `JobDto`):
 
 ```ts
-import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "agboss";
-import { listOf } from "agboss/dto";
+import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { listOf } from "@agboss/core/dto";
 import { JobDto, JobSearch } from "./judges/answer-grounded.judge.js";
 
 @Judge({ name: "jobs-judge", model: "typesafe/jev-1.13", reply: listOf(JobDto), deps: [JobSearch] })
@@ -326,8 +326,8 @@ fail an answer that no successful lookup backs, without a model call; `toolCalls
 toolCalls)` types one tool's calls by its input and output once narrowed by `status`.
 
 <!-- snippet-context
-import { Judge, JudgeVerdict, Tool, ToolCallStatus, toolCallsOf, type JudgeHandler, type JudgeInput, type ToolHandler } from "agboss";
-import { PlainTextDto, Text } from "agboss/dto";
+import { Judge, JudgeVerdict, Tool, ToolCallStatus, toolCallsOf, type JudgeHandler, type JudgeInput, type ToolHandler } from "@agboss/core";
+import { PlainTextDto, Text } from "@agboss/core/dto";
 export class OrderQuery {
   @Text() orderId!: string;
 }
@@ -394,7 +394,7 @@ vendor prefix (`gpt-6`) has no family — neither is compared. The fix: a judge 
 ## Adding judges to an agent
 
 ```ts
-import { Agent } from "agboss";
+import { Agent } from "@agboss/core";
 import { CorrectnessJudge } from "./judges/correctness.judge.js";
 import { GroundedJudge } from "./judges/grounded.judge.js";
 import { OneSentenceJudge } from "./judges/one-sentence.judge.js";

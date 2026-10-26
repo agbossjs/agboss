@@ -1,16 +1,16 @@
 # Standard DTOs
 
-Ready-made DTOs in `agboss/dto` — use them instead of writing the same shape again. They are
+Ready-made DTOs in `@agboss/core/dto` — use them instead of writing the same shape again. They are
 plain classes like your own ([Components → DTOs](Components#dtos)); every field has a `prompt`.
 Like every DTO that may stand on a path, their names end with `Dto` (#270, `[dto.name]`).
 
 ```ts
-import { MoneyDto, NoInputDto, PlainTextDto } from "agboss/dto";
+import { MoneyDto, NoInputDto, PlainTextDto } from "@agboss/core/dto";
 ```
 
 ## Wrappers
 
-On paths and in `input` / `output` a DTO is wrapped by what it means (`agboss/dto`,
+On paths and in `input` / `output` a DTO is wrapped by what it means (`@agboss/core/dto`,
 [Path scope](Path-scope)):
 
 | Wrapper | Where | |

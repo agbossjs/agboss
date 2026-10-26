@@ -66,8 +66,8 @@ component's (checked against the constructor by the compiler). `check()` returns
 object does not compile.
 
 ```ts file=crm.ts
-import { HealthCheck, HealthCheckResult, Injectable, type HealthCheckHandler } from "agboss";
-import { seconds } from "agboss/units";
+import { HealthCheck, HealthCheckResult, Injectable, type HealthCheckHandler } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
 
 @Injectable()
 export class CrmClient {
@@ -102,13 +102,13 @@ is `503`, anything else `200` (a `Degraded` instance still serves: its fallback 
 or its calls fail fast while the breaker is open).
 
 <!-- snippet-context
-import type { App } from "agboss";
+import type { App } from "@agboss/core";
 declare const app: App;
 -->
 
 ```ts
 import { createServer } from "node:http";
-import { HealthStatus, type HealthReport } from "agboss";
+import { HealthStatus, type HealthReport } from "@agboss/core";
 
 /** The probe a path asks for; `undefined` for any other path. */
 const probeOf = (path: string | undefined): Promise<HealthReport> | undefined =>
@@ -152,14 +152,14 @@ test's clock:
 
 <!-- snippet-context
 import { expect } from "vitest";
-import { HealthStatus } from "agboss";
-import { testWith } from "agboss/testing";
+import { HealthStatus } from "@agboss/core";
+import { testWith } from "@agboss/core/testing";
 import { CrmClient } from "./crm.js";
 declare class ShopApplication {}
 -->
 
 ```ts
-import { seconds } from "agboss/units";
+import { seconds } from "@agboss/core/units";
 
 const test = testWith(ShopApplication);
 

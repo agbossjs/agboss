@@ -57,8 +57,8 @@ flowchart LR
 | `src/eval`           | Jev judge, eval, replay                                    | run, routers, terns, finops                      |
 | `src/workflow.ts`    | workflow (flow + limits + config + prompts + tools + MCP)  | config, graph, prompts, tools, routers (types)   |
 | `src/application`, `src/app` | `@Application`, `createApp`, one workflow's wiring (`createAppDeps`) | all of the above              |
-| `src/testing`        | `agboss/testing`: testWith, scripted models, matchers | app, graph, llm (gateway), tools — tests only   |
-| `src/internal.ts`    | `agboss/internal`: what the CLI is built on (not public) | app, loader, describe, eval                  |
+| `src/testing`        | `@agboss/core/testing`: testWith, scripted models, matchers | app, graph, llm (gateway), tools — tests only   |
+| `src/internal.ts`    | `@agboss/core/internal`: what the CLI is built on (not public) | app, loader, describe, eval                  |
 | `packages/agboss-cli` | the `agboss` command — a separate package            | `agboss` (+ `/internal`)                   |
 | `examples/job-scout` | the example — a separate package using only `agboss` | `agboss` (+ `/dto`, `/units`, `/models`, `/mcp`, `/rag`) |
 
